@@ -2,12 +2,17 @@
 set -eu
 base=/mnt/docker-data/rustsimhub/p0
 test -f "$base/source.tar.gz"
+if docker container inspect rustsimhub-build-p0 >/dev/null 2>&1; then
+    echo 'Named build container already exists. Inspect/save its logs and remove only this stopped build container before restarting.' >&2
+    exit 1
+fi
 install -d -o 1000 -g 1000 -m 0750 "$base/src" "$base/src/.cargo"
 tar --no-same-owner -xzf "$base/source.tar.gz" -C "$base/src"
 chown -R 1000:1000 "$base/src"
-image=$(docker image inspect rust:1-slim-bookworm --format '{{index .RepoDigests 0}}')
+image=rust@sha256:2c3a22f0a5533ea2dd5a16627bc841228151faa2d4de2644ac9987e4a2f1f2fa
+test "$(docker image inspect "$image" --format '{{.Architecture}}')" = arm64
 printf '%s\n' "$image" > "$base/builder-image.txt"
-docker run -d --name rustsimhub-build-p0 --user 1000:1000 --cpus 2 --memory 2g --pids-limit 256 \
+docker run -d --name rustsimhub-build-p0 --label org.rustsimhub.purpose=development-build --user 1000:1000 --cpus 2 --memory 2g --pids-limit 256 \
     --mount "type=bind,src=$base/src,dst=/work" -w /work -e CARGO_HOME=/work/.cargo "$image" \
     sh -c 'set -e; rustc --version; cargo --version; cargo test --workspace --locked -j 2; cargo build --release --workspace --locked -j 2; ./target/release/rustsimhub-core --self-check' \
     > "$base/container-id.txt"

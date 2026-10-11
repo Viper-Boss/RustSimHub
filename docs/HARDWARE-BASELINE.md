@@ -23,5 +23,11 @@
 当前不能声明支持整机 A/B OTA。NAS 编译缓存和备份应放数据盘，避免耗尽系统盘。
 
 本次不更改蜂窝数据、GNSS、蓝牙、通话和旧业务服务。
-仍需完成 boot/kernel/modules 内容哈希、不可变引导材料归档、可恢复备份及恢复入口验收。
+boot SHA-256：`d5790e07a8ee67c6d80ec24ea9b0cd4b5a78ab4440a3de2b8767fea58a03eaee`。
+模块文件清单 SHA-256：`1552358f4e2f63ae0aefc364ade342200269fb673c11c3ad4a4bc3e39f169779`。
+清单算法见 tools/device-immutable-hashes.sh：从当前 /lib/modules/<release> 目录开始，
+按相对文件名排序逐文件 sha256，再对整份清单 sha256。
+boot 64 MiB 已在本机和 NAS 私有保存，均校验通过。
+这仅覆盖 boot；完整 eMMC、rootfs/数据一致性备份和恢复入口尚未验收。
+内核精确源码提交与补丁集合仍需固定，不能用模块清单哈希替代源码可复现性。
 板号 UFI003_MB_V02 来自旧项目照片记录；本次设备树确认的是 UFI003/MSM8916。

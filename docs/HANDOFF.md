@@ -1,6 +1,6 @@
 # RustSimHub 接手入口
 
-先读 PROGRESS.md、HARDWARE-BASELINE.md、architecture-foundation.md，
+先读 PROGRESS.md、VALIDATION-P0-P1.md、HARDWARE-BASELINE.md、architecture-foundation.md，
 再按 development-plan.md 的阶段顺序继续。GitHub：
 https://github.com/Viper-Boss/RustSimHub（私有）。
 
@@ -29,13 +29,30 @@ NAS 构建目录 `/mnt/docker-data/rustsimhub/p0`；容器 `rustsimhub-build-p0`
 源包只有 Cargo 清单、锁文件、许可证和 crates 源文件。容器以 UID/GID 1000 运行，
 限制 2 CPU、2 GiB 内存；不提供设备、host network 或主机控制 socket。
 旧 NAS 容器和旧棒子服务不属于此新仓库的可删除资源。
+重新构建前先确认该构建容器已停止、保留 build.log 及产物，再仅移除
+`rustsimhub-build-p0` 容器（不加 -v，不删除源目录和缓存）。
+随后上传新的允许列表源包并执行 tools/nas-start-build.sh；脚本会拒绝复用既有容器名。
+构建镜像已固定 digest，避免未来同名标签变化导致不可追踪的构建环境。
+
+boot 备份位置：本机 `.private/backups/boot.img`，NAS
+`/mnt/docker-data/rustsimhub/private-backups/p0/boot.img`，棒子临时副本
+`/var/tmp/rustsimhub-p0-private/boot.img`。三份均为 64 MiB，
+预期哈希在 firmware/board.toml；本机与 NAS 已复核。
+不要重复执行 tools/device-backup-boot.sh：它会拒绝覆盖既有备份。
+完整恢复备份仍未完成，boot 单独备份不能恢复用户数据或整个系统。
 
 ## 实机烟测边界
 
-tools/device-smoke.sh 使用 `/var/tmp/rustsimhub-core-p0`，
+tools/device-smoke.sh 将 `/var/tmp/rustsimhub-core-p0` 安装到
+`/opt/rustsimhub/dev-p0/rustsimhub-core`（避免被 PrivateTmp 隐藏），
 启动 `rustsimhub-probe-p0` 临时 systemd 单元，最长 300 秒。
 仅允许旧系统 nassimhub 用户读取 health/capabilities，完毕停止单元。
 没有安装开机服务。异常退出后可执行 `systemctl stop rustsimhub-probe-p0`。
+ARM64 release 产物留在本机 `.local/artifacts/rustsimhub-core`、NAS 构建目录的
+`src/target/release/rustsimhub-core`、棒子 `/opt/rustsimhub/dev-p0/rustsimhub-core`。
+哈希和实测资源值见 VALIDATION-P0-P1.md。
+
+下一包先做 SQLite 持久化/故障恢复，随后身份与 core 鉴权。不要跳到无鉴权写接口。
 
 ## 重要未完成项
 

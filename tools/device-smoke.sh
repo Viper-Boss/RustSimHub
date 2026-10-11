@@ -1,13 +1,21 @@
 #!/bin/sh
 # Deploy a bounded transient read-only service. Existing services stay running.
 set -eu
-binary=/var/tmp/rustsimhub-core-p0
-test -f "$binary"
-chmod 0755 "$binary"
+upload=/var/tmp/rustsimhub-core-p0
+binary=/opt/rustsimhub/dev-p0/rustsimhub-core
+test -f "$upload"
+install -d -m 0755 /opt/rustsimhub/dev-p0
+install -m 0755 "$upload" "$binary"
 "$binary" --self-check
 printf '\nROOT PROBE\n'; "$binary" --probe
 printf '\nUNPRIVILEGED PROBE\n'; runuser -u nassimhub -- "$binary" --probe
 uid=$(id -u nassimhub)
+if systemctl is-active --quiet rustsimhub-probe-p0; then
+    echo 'Smoke service already running; inspect before retrying' >&2
+    exit 1
+fi
+systemctl reset-failed rustsimhub-probe-p0 2>/dev/null || true
+trap 'systemctl stop rustsimhub-probe-p0 2>/dev/null || true' EXIT
 systemd-run --unit=rustsimhub-probe-p0 --property=User=nassimhub \
     --property=RuntimeDirectory=rustsimhub-p0 --property=RuntimeDirectoryMode=0700 \
     --property=RuntimeMaxSec=300 --property=NoNewPrivileges=yes --property=ProtectSystem=strict \
@@ -33,6 +41,8 @@ else
 fi
 printf '\nRESOURCE SAMPLE\n'
 systemctl show rustsimhub-probe-p0 -p MemoryCurrent -p TasksCurrent -p ActiveState
+pid=$(systemctl show rustsimhub-probe-p0 -p MainPID --value)
+awk '/VmRSS|VmHWM/ {print}' "/proc/$pid/status"
 printf '\nOLD SERVICE STATUS\n'
 systemctl is-active nassimhub-agent ModemManager NetworkManager rmtfs
 systemctl stop rustsimhub-probe-p0
