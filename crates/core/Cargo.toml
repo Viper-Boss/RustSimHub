@@ -1,0 +1,16 @@
+[package]
+name = "rustsimhub-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+rustsimhub-domain = { path = "../domain" }
+rustsimhub-wire = { path = "../wire" }
+serde.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { version = "5.19", default-features = false, features = ["tokio"] }
+tokio = { version = "1", features = ["rt", "net", "time", "io-util", "macros", "sync"] }

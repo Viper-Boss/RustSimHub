@@ -1,0 +1,13 @@
+/target/
+/.local/
+/.private/
+*.pem
+*.key
+*.db
+*.db-*
+*.sqlite*
+*.img
+*.bin
+*.qcow2
+__pycache__/
+*.pyc

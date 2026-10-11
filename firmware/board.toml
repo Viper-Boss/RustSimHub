@@ -1,0 +1,18 @@
+# Observed board facts; NOT a flash manifest.
+schema = 1
+board = "ufi003"
+compatible = ["thwc,ufi003", "qcom,msm8916"]
+architecture = "aarch64"
+kernel_release = "6.12.49-msm8916-g93a71ee9468d"
+modem_manager_version = "1.24.0"
+rootfs_partition_label = "rootfs"
+state_partition_label = "NSHSTATE"
+boot_partition_label = "boot"
+system_ab_verified = false
+recovery_verified = false
+release_ready = false
+
+[immutable_content]
+boot_sha256 = "d5790e07a8ee67c6d80ec24ea9b0cd4b5a78ab4440a3de2b8767fea58a03eaee"
+kernel_modules_manifest_sha256 = "1552358f4e2f63ae0aefc364ade342200269fb673c11c3ad4a4bc3e39f169779"
+kernel_source_commit = "UNRESOLVED"
