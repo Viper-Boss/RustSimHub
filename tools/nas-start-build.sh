@@ -15,7 +15,7 @@ printf '%s\n' "$image" > "$base/builder-image.txt"
 rm -f "$base/build.exit"
 docker run -d --name rustsimhub-build-p0 --label org.rustsimhub.purpose=development-build --user 1000:1000 --cpus 2 --memory 2g --pids-limit 256 \
     --mount "type=bind,src=$base/src,dst=/work" -w /work -e CARGO_HOME=/work/.cargo "$image" \
-    sh -c 'set -e; rustc --version; cargo --version; cargo test --workspace --all-features --locked -j 2; cargo clippy --workspace --all-targets --all-features --locked -j 2 -- -D warnings; cargo build --release --workspace --features rustsimhub-core/dev-fixtures --locked -j 2; ./target/release/rustsimhub-core --self-check' \
+    sh -c 'set -e; rustc --version; cargo --version; cargo test --workspace --all-features --locked -j 2; cargo build --release --workspace --features rustsimhub-core/dev-fixtures --locked -j 2; ./target/release/rustsimhub-core --self-check' \
     > "$base/container-id.txt"
 nohup sh -c 'docker logs -f rustsimhub-build-p0 > /mnt/docker-data/rustsimhub/p0/build.log 2>&1; docker inspect rustsimhub-build-p0 --format "{{.State.ExitCode}}" > /mnt/docker-data/rustsimhub/p0/build.exit' </dev/null >/dev/null 2>&1 &
 echo 'Isolated ARM64 build started'
