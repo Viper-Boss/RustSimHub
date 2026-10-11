@@ -10,6 +10,6 @@ with tarfile.open(output,'w:gz') as archive:
         if not path.exists(): raise SystemExit(f'Missing required file: {name}')
         archive.add(path,arcname=name)
     for path in sorted((ROOT / 'crates').rglob('*')):
-        if path.is_file() and path.suffix in {'.rs','.toml'}:
+        if path.is_file() and path.suffix in {'.rs','.toml','.sql'}:
             archive.add(path,arcname=path.relative_to(ROOT).as_posix())
 print('Build source archive created (explicit source allowlist)')

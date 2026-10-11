@@ -5,9 +5,14 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+default = []
+dev-fixtures = []
+
 [dependencies]
 rustsimhub-domain = { path = "../domain" }
 rustsimhub-wire = { path = "../wire" }
+rustsimhub-storage = { path = "../storage" }
 serde.workspace = true
 serde_json.workspace = true
 

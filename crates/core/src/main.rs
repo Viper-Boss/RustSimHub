@@ -5,6 +5,8 @@ use serde_json::json;
 
 #[cfg(target_os = "linux")]
 mod linux;
+#[cfg(feature = "dev-fixtures")]
+mod storage_check;
 
 fn self_check() -> Result<(), Box<dyn std::error::Error>> {
     let mut calls = CallLeases::new("self-check".into(), LineEpoch(1));
@@ -41,6 +43,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if args == ["--self-check"] {
         return self_check();
     }
+    #[cfg(feature = "dev-fixtures")]
+    if let [command, directory] = args.as_slice() {
+        match command.as_str() {
+            "--storage-check" => return storage_check::check(directory),
+            "--storage-crash-fixture" => return storage_check::crash(directory),
+            "--storage-recover-fixture" => return storage_check::recover(directory),
+            _ => {}
+        }
+    }
     #[cfg(target_os = "linux")]
     {
         let runtime = tokio::runtime::Builder::new_current_thread()
@@ -57,5 +68,5 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             _ => {}
         }
     }
-    Err("usage: --self-check | --probe (Linux) | --serve-readonly SOCKET ALLOWED_UID | --request SOCKET health|capabilities".into())
+    Err("usage: --self-check | --storage-check PRIVATE_FRESH_DIR | --storage-crash-fixture PRIVATE_FRESH_DIR | --storage-recover-fixture PRIVATE_DIR | --probe (Linux) | --serve-readonly SOCKET ALLOWED_UID | --request SOCKET health|capabilities".into())
 }

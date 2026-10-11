@@ -2,6 +2,9 @@
 
 更新时间：2026-10-12 / 首轮开发与实机验证完成，完整固件开发继续。
 
+本轮继续：已编写 SQLite 单写者、持久短信操作与事务事件、备份恢复及失败路径测试，正在 ARM64 验证。
+恢复备份会隔离 Prepared/Submitting，并以持久恢复标记防止中途退出后误发送。详见 [storage.md](storage.md)。
+
 ## 已完成
 
 - 新建本地 RustSimHub 目录、独立 Git 仓库及 Viper-Boss/RustSimHub 私有 GitHub 仓库。
