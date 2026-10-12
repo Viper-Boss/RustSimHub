@@ -7,8 +7,12 @@ use serde_json::json;
 mod auth_check;
 #[cfg(target_os = "linux")]
 mod authenticated;
+#[cfg(feature = "dev-fixtures")]
+mod inbox_check;
 #[cfg(target_os = "linux")]
 mod linux;
+#[cfg(target_os = "linux")]
+mod observer;
 #[cfg(feature = "dev-fixtures")]
 mod recovery_check;
 #[cfg(target_os = "linux")]
@@ -61,6 +65,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             "--auth-reopen-fixture" => return auth_check::reopen(directory),
             "--recovery-prepare-fixture" => return recovery_check::prepare(directory),
             "--recovery-verify-fixture" => return recovery_check::verify(directory),
+            "--inbox-prepare-fixture" => return inbox_check::prepare(directory),
+            "--inbox-verify-fixture" => return inbox_check::verify(directory),
             _ => {}
         }
     }
@@ -96,6 +102,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
             [command, path, uid, state, identity] if command == "--serve-authenticated" => {
                 return runtime.block_on(authenticated::serve(path, uid.parse()?, state, identity));
+            }
+            [command, path, uid, state, identity] if command == "--serve-observing" => {
+                return runtime.block_on(authenticated::serve_observing(
+                    path,
+                    uid.parse()?,
+                    state,
+                    identity,
+                ));
             }
             [command, path] if command == "--request-auth" => {
                 return runtime.block_on(authenticated::request(path));

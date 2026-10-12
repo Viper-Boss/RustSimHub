@@ -28,6 +28,23 @@ pub enum AuthCommand {
     Capabilities {
         token: String,
     },
+    LineStatus {
+        token: String,
+    },
+    Inbox {
+        token: String,
+        after: Option<rustsimhub_domain::InboxCursor>,
+        limit: usize,
+    },
+    SmsDetail {
+        token: String,
+        sms_id: String,
+    },
+    InboxEvents {
+        token: String,
+        after: Option<rustsimhub_domain::InboxCursor>,
+        limit: usize,
+    },
     OpenPairing {
         token: String,
     },
@@ -87,6 +104,7 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         }
         AuthCommand::Health { token }
         | AuthCommand::Capabilities { token }
+        | AuthCommand::LineStatus { token }
         | AuthCommand::OpenPairing { token }
         | AuthCommand::PendingPairings { token }
         | AuthCommand::Clients { token }
@@ -106,6 +124,16 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
             }
         }
         AuthCommand::PairChallenge { scopes, .. } if scopes.len() > 10 => return Err(invalid()),
+        AuthCommand::Inbox { token, limit, .. } | AuthCommand::InboxEvents { token, limit, .. } => {
+            if token.len() != 64 || !(1..=32).contains(limit) {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::SmsDetail { token, sms_id } => {
+            if token.len() != 64 || sms_id.len() != 36 {
+                return Err(invalid());
+            }
+        }
         _ => {}
     }
     Ok(req)

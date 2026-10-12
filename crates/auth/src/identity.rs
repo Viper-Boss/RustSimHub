@@ -35,6 +35,19 @@ impl Identity {
     pub fn public_key(&self) -> [u8; 32] {
         self.signing.verifying_key().to_bytes()
     }
+    /// Local SIM pseudonym, never a public identifier. Domain separated HMAC with device seed.
+    pub fn sim_fingerprint(&self, iccid: &str) -> Result<[u8; 32]> {
+        use hmac::{Hmac, Mac};
+        if !(8..=32).contains(&iccid.len()) || !iccid.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(Error::InvalidInput);
+        }
+        let seed = Zeroizing::new(self.signing.to_bytes());
+        let mut mac =
+            Hmac::<Sha256>::new_from_slice(seed.as_ref()).map_err(|_| Error::InvalidInput)?;
+        mac.update(b"RustSimHub.SimFingerprint.v1\0");
+        mac.update(iccid.as_bytes());
+        Ok(mac.finalize().into_bytes().into())
+    }
     pub(crate) fn sign(&self, message: &[u8]) -> Vec<u8> {
         self.signing.sign(message).to_bytes().to_vec()
     }

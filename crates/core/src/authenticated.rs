@@ -36,6 +36,22 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
             auth.authorize(&token, Scope::StatusRead)?;
             json!({"probe":true})
         }
+        LineStatus { token } => serde_json::to_value(auth.line_status(&token)?)
+            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        Inbox {
+            token,
+            after,
+            limit,
+        } => serde_json::to_value(auth.inbox(&token, after, limit)?)
+            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        SmsDetail { token, sms_id } => serde_json::to_value(auth.sms_detail(&token, sms_id)?)
+            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        InboxEvents {
+            token,
+            after,
+            limit,
+        } => serde_json::to_value(auth.inbox_events(&token, after, limit)?)
+            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
         OpenPairing { token } => {
             auth.open_pairing(&token)?;
             json!({"ok":true,"expires_in_seconds":300})
@@ -94,19 +110,42 @@ pub(crate) async fn handle(stream: &mut UnixStream, auth: Arc<Mutex<Auth>>) -> R
     Ok(())
 }
 pub async fn serve(socket: &str, uid: u32, state: &str, identity: &str) -> Result<()> {
+    serve_mode(socket, uid, state, identity, false).await
+}
+pub async fn serve_observing(socket: &str, uid: u32, state: &str, identity: &str) -> Result<()> {
+    serve_mode(socket, uid, state, identity, true).await
+}
+async fn serve_mode(
+    socket: &str,
+    uid: u32,
+    state: &str,
+    identity: &str,
+    observing: bool,
+) -> Result<()> {
     use tokio::signal::unix::{signal, SignalKind};
     let mut term = signal(SignalKind::terminate())?;
     let mut interrupt = signal(SignalKind::interrupt())?;
-    serve_until(socket, uid, state, identity, async move {
+    serve_inner(socket, uid, state, identity, observing, async move {
         tokio::select! { _=term.recv()=>{},_=interrupt.recv()=>{} }
     })
     .await
 }
+#[cfg(test)]
 pub(crate) async fn serve_until(
     socket: &str,
     uid: u32,
     state: &str,
     identity: &str,
+    stop: impl std::future::Future<Output = ()>,
+) -> Result<()> {
+    serve_inner(socket, uid, state, identity, false, stop).await
+}
+async fn serve_inner(
+    socket: &str,
+    uid: u32,
+    state: &str,
+    identity: &str,
+    observing: bool,
     stop: impl std::future::Future<Output = ()>,
 ) -> Result<()> {
     let (state, identity) = (state.to_owned(), identity.to_owned());
@@ -119,12 +158,22 @@ pub(crate) async fn serve_until(
     let (listener, runtime) =
         crate::socket_runtime::SocketRuntime::bind(std::path::Path::new(socket))?;
     let limit = Arc::new(Semaphore::new(8));
+    let observer_store = store.handle();
+    let observer_auth = auth.clone();
+    let mut observer = Box::pin(async move {
+        if observing {
+            crate::observer::run(observer_store, observer_auth).await;
+        } else {
+            std::future::pending::<()>().await;
+        }
+    });
     let mut tasks = tokio::task::JoinSet::new();
     tokio::pin!(stop);
     let result: Result<()> = loop {
         let accepted = tokio::select! {
             biased;
             _=&mut stop=>break Ok(()),
+            _=&mut observer=>break Err("observer stopped".into()),
             _=tasks.join_next(),if !tasks.is_empty()=>continue,
             accepted=listener.accept()=>accepted,
         };
@@ -149,6 +198,7 @@ pub(crate) async fn serve_until(
         });
     };
     drop(listener); // Stop admission before draining outstanding work.
+    drop(observer);
     if timeout(Duration::from_secs(16), async {
         while tasks.join_next().await.is_some() {}
     })

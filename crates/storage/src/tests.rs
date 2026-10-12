@@ -3,6 +3,147 @@ use super::*;
 use std::process::Command;
 use tempfile::TempDir;
 
+fn observed(h: &Handle, backend: &str, key: u8, status: LineStatus) -> LineEpoch {
+    h.observe_line(LineObservation {
+        backend: backend.into(),
+        fingerprint: Some([key; 32]),
+        status,
+    })
+    .unwrap()
+    .line
+}
+fn inbound(line: LineEpoch, source: &str) -> IncomingSms {
+    IncomingSms {
+        line,
+        source: source.into(),
+        sender: "synthetic sender".into(),
+        timestamp: "synthetic time".into(),
+        text: "测试\\n🙂".into(),
+        data: vec![],
+    }
+}
+#[test]
+fn inbox_preserves_equal_messages_fences_swaps_and_restarts() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let h = s.handle();
+    let line = observed(&h, "backend-a", 1, LineStatus::Observing);
+    assert!(matches!(
+        h.receive_sms(inbound(line, "sms/1")),
+        Err(Error::StaleLine)
+    ));
+    assert_eq!(observed(&h, "backend-a", 1, LineStatus::Ready), line);
+    let a = h.receive_sms(inbound(line, "sms/1")).unwrap();
+    assert_eq!(a.id, h.receive_sms(inbound(line, "sms/1")).unwrap().id);
+    let b = h.receive_sms(inbound(line, "sms/2")).unwrap();
+    assert_ne!(a.id, b.id);
+    assert_eq!(b.duplicate_candidate, Some(a.id.clone()));
+    let detail = h.sms_detail(a.id.clone()).unwrap();
+    assert_eq!(detail.text, "测试\\n🙂");
+    let old = h.inbox(None, 1).unwrap();
+    assert_eq!(old.messages.len(), 1);
+    assert_eq!(
+        h.inbox(Some(old.cursor.clone()), 32)
+            .unwrap()
+            .messages
+            .len(),
+        1
+    );
+    let new = observed(&h, "backend-a", 2, LineStatus::Ready);
+    assert!(new.0 > line.0);
+    assert!(matches!(
+        h.receive_sms(inbound(line, "sms/3")),
+        Err(Error::StaleLine)
+    ));
+    let c = h.receive_sms(inbound(new, "sms/1")).unwrap();
+    assert!(c.duplicate_candidate.is_none());
+    assert!(h.sms_detail(a.id).is_ok());
+    drop(s);
+    let s = Store::open(d.path()).unwrap();
+    let h = s.handle();
+    assert_eq!(h.line_status().unwrap().status, LineStatus::Unavailable);
+    assert!(h.receive_sms(inbound(new, "sms/4")).is_err());
+    let restarted = observed(&h, "backend-b", 2, LineStatus::Ready);
+    assert!(restarted.0 > new.0);
+    let r = h.receive_sms(inbound(restarted, "sms/1")).unwrap();
+    assert_eq!(r.duplicate_candidate, Some(c.id));
+    let backup = directory();
+    h.backup(backup.path()).unwrap();
+    let restored = directory();
+    let s = Store::restore(backup.path(), restored.path()).unwrap();
+    assert!(matches!(
+        s.handle().inbox(Some(old.cursor), 32),
+        Err(Error::ResyncRequired)
+    ));
+}
+#[test]
+fn inbound_and_line_fence_transactions_roll_back_on_event_failure() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let h = s.handle();
+    let line = observed(&h, "a", 1, LineStatus::Ready);
+    let request = SmsRequest {
+        client_id: "test".into(),
+        idempotency_key: "one".into(),
+        line,
+        recipient: "+12025550123".into(),
+        text: "synthetic".into(),
+    };
+    let op = h.prepare_sms(request).unwrap();
+    h.call(|db|{db.connection.execute_batch("CREATE TEMP TRIGGER fail_inbox BEFORE INSERT ON main.inbox_events BEGIN SELECT RAISE(ABORT,'synthetic'); END;")?;Ok(())}).unwrap();
+    assert!(h.receive_sms(inbound(line, "sms/1")).is_err());
+    assert!(h.inbox(None, 32).unwrap().messages.is_empty());
+    assert!(h
+        .observe_line(LineObservation {
+            backend: "b".into(),
+            fingerprint: Some([2; 32]),
+            status: LineStatus::Ready
+        })
+        .is_err());
+    assert_eq!(h.line_epoch().unwrap(), line);
+    assert_eq!(
+        h.operation(&op.id, "test").unwrap().state,
+        SmsState::Prepared
+    );
+    h.call(|db| {
+        db.connection.execute_batch("DROP TRIGGER fail_inbox;")?;
+        Ok(())
+    })
+    .unwrap();
+    observed(&h, "b", 2, LineStatus::Ready);
+    assert_eq!(
+        h.operation(&op.id, "test").unwrap().state,
+        SmsState::Cancelled
+    );
+}
+#[test]
+fn inbox_bounds_conflicts_and_future_cursors_fail_closed() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let h = s.handle();
+    let line = observed(&h, "a", 1, LineStatus::Ready);
+    h.receive_sms(inbound(line, "sms/1")).unwrap();
+    let mut changed = inbound(line, "sms/1");
+    changed.text = "different".into();
+    assert!(matches!(h.receive_sms(changed), Err(Error::Conflict)));
+    let mut oversize = inbound(line, "sms/2");
+    oversize.text = "x".repeat(4097);
+    assert!(matches!(h.receive_sms(oversize), Err(Error::InvalidInput)));
+    assert!(h.inbox(None, 33).is_err());
+    let mut cursor = h.inbox(None, 32).unwrap().cursor;
+    cursor.seq = "999".into();
+    assert!(h.inbox(Some(cursor), 32).is_err());
+    assert_eq!(
+        h.inbox_events(None, 32)
+            .unwrap()
+            .events
+            .iter()
+            .filter(|e| e.kind == "sms_received")
+            .count(),
+        1
+    );
+}
+
 #[test]
 fn recovery_commit_failure_cannot_activate_owner_or_clients() {
     let d = directory();

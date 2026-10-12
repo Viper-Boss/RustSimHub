@@ -83,6 +83,26 @@ async fn call(socket: &str, command: AuthCommand) -> Result<Value> {
     Ok(reply.result)
 }
 pub async fn run(args: &[String]) -> Result<()> {
+    if let [command, socket, path, id] = args {
+        if command == "sms" {
+            let s = Session::load(Path::new(path))?;
+            check_session(socket, &s)?;
+            println!(
+                "{}",
+                serde_json::to_string(
+                    &call(
+                        socket,
+                        AuthCommand::SmsDetail {
+                            token: s.token.clone(),
+                            sms_id: id.clone()
+                        }
+                    )
+                    .await?
+                )?
+            );
+            return Ok(());
+        }
+    }
     if let [command, socket, directory, pin, path] = args {
         if command == "login" {
             let key = ClientKey::load(directory)?;
@@ -139,6 +159,19 @@ pub async fn run(args: &[String]) -> Result<()> {
             },
             "capabilities" => AuthCommand::Capabilities {
                 token: s.token.clone(),
+            },
+            "line" => AuthCommand::LineStatus {
+                token: s.token.clone(),
+            },
+            "inbox" => AuthCommand::Inbox {
+                token: s.token.clone(),
+                after: None,
+                limit: 32,
+            },
+            "inbox-events" => AuthCommand::InboxEvents {
+                token: s.token.clone(),
+                after: None,
+                limit: 32,
             },
             "open-pairing" => AuthCommand::OpenPairing {
                 token: s.token.clone(),

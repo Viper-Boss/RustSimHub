@@ -45,7 +45,7 @@ fn main() {
 fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args == ["--help"] {
-        println!("keygen PRIVATE_KEY_DIR | sign PRIVATE_KEY_DIR DEVICE_PUBLIC_KEY_HEX bootstrap|recover_owner|login (challenge JSON stdin)\nlogin SOCKET PRIVATE_KEY_DIR DEVICE_PUBLIC_KEY_HEX NEW_SESSION_FILE\nstatus|capabilities|open-pairing|pending|clients SOCKET SESSION_FILE\npair SOCKET PRIVATE_KEY_DIR DEVICE_PUBLIC_KEY_HEX client|nas COMMA_SCOPES\napprove SOCKET OWNER_SESSION PAIRING_ID CLIENT_PUBLIC_KEY_HEX client|nas COMMA_SCOPES\nrevoke SOCKET OWNER_SESSION CLIENT_PUBLIC_KEY_HEX\nLocal Unix sockets only. No phone/SMS command is available.");
+        println!("keygen PRIVATE_KEY_DIR | sign PRIVATE_KEY_DIR DEVICE_PUBLIC_KEY_HEX bootstrap|recover_owner|login (challenge JSON stdin)\nlogin SOCKET PRIVATE_KEY_DIR DEVICE_PUBLIC_KEY_HEX NEW_SESSION_FILE\nstatus|capabilities|line|inbox|inbox-events|open-pairing|pending|clients SOCKET SESSION_FILE\nsms SOCKET SESSION_FILE SMS_ID\npair SOCKET PRIVATE_KEY_DIR DEVICE_PUBLIC_KEY_HEX client|nas COMMA_SCOPES\napprove SOCKET OWNER_SESSION PAIRING_ID CLIENT_PUBLIC_KEY_HEX client|nas COMMA_SCOPES\nrevoke SOCKET OWNER_SESSION CLIENT_PUBLIC_KEY_HEX\nLocal Unix sockets only. SMS reads require sms_read; no sending or calling commands.");
         return Ok(());
     }
     if let [command, directory] = args.as_slice() {

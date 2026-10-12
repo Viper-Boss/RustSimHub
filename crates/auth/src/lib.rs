@@ -140,6 +140,38 @@ fn token_digest(token: &str) -> Result<[u8; 32]> {
     Ok(Sha256::digest(token.as_bytes()).into())
 }
 impl Auth {
+    pub fn observer_instance(&self) -> String {
+        self.instance.clone()
+    }
+    pub fn sim_fingerprint(&self, iccid: &str) -> Result<[u8; 32]> {
+        self.identity.sim_fingerprint(iccid)
+    }
+    pub fn line_status(&mut self, token: &str) -> Result<rustsimhub_storage::LineView> {
+        self.authorize(token, Scope::StatusRead)?;
+        Ok(self.store.line_status()?)
+    }
+    pub fn inbox(
+        &mut self,
+        token: &str,
+        after: Option<rustsimhub_storage::InboxCursor>,
+        limit: usize,
+    ) -> Result<rustsimhub_storage::InboxPage> {
+        self.authorize(token, Scope::SmsRead)?;
+        Ok(self.store.inbox(after, limit)?)
+    }
+    pub fn sms_detail(&mut self, token: &str, id: String) -> Result<rustsimhub_storage::SmsDetail> {
+        self.authorize(token, Scope::SmsRead)?;
+        Ok(self.store.sms_detail(id)?)
+    }
+    pub fn inbox_events(
+        &mut self,
+        token: &str,
+        after: Option<rustsimhub_storage::InboxCursor>,
+        limit: usize,
+    ) -> Result<rustsimhub_storage::InboxEvents> {
+        self.authorize(token, Scope::SmsRead)?;
+        Ok(self.store.inbox_events(after, limit)?)
+    }
     /// Never generate a replacement seed for a DB that already has a bound identity.
     pub fn open(directory: impl AsRef<std::path::Path>, store: Handle) -> Result<Self> {
         let identity = if store.identity_public_key()?.is_some() {

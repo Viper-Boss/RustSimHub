@@ -16,8 +16,13 @@ use std::{
 use uuid::Uuid;
 
 const APP_ID: i64 = 1381189698;
-const SCHEMA: i64 = 2;
+const SCHEMA: i64 = 3;
 mod auth;
+mod inbox;
+pub use inbox::{
+    InboxCursor, InboxEvent, InboxEvents, InboxPage, IncomingSms, LineObservation, LineStatus,
+    LineView, SmsDetail, SmsSummary,
+};
 type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -455,8 +460,17 @@ impl Database {
             tx.execute_batch(include_str!("auth.sql"))?;
             tx.commit()?;
         }
+        if version < 3 {
+            let tx = db.connection.transaction()?;
+            tx.execute_batch(include_str!("inbox.sql"))?;
+            tx.commit()?;
+        }
         let restoring = restore_marker.exists();
         db.recover(restoring)?;
+        db.connection.execute(
+            "UPDATE line_observation SET status='unavailable' WHERE singleton=1",
+            [],
+        )?;
         if restoring {
             fs::remove_file(&restore_marker)?;
             #[cfg(unix)]
@@ -609,6 +623,11 @@ impl Database {
     fn change_line(&mut self, line: LineEpoch) -> Result<()> {
         let line = checked_line(line)?;
         let tx = self.connection.transaction()?;
+        Self::change_line_in(&tx, line)?;
+        tx.commit()?;
+        Ok(())
+    }
+    fn change_line_in(tx: &Transaction<'_>, line: i64) -> Result<()> {
         let current: i64 =
             tx.query_row("SELECT line_epoch FROM meta WHERE singleton=1", [], |row| {
                 row.get(0)
@@ -631,11 +650,10 @@ impl Database {
                 "UPDATE sms_operations SET state=? WHERE id=?",
                 params![next, id],
             )?;
-            event(&tx, Some(&id), old, next)?;
+            event(tx, Some(&id), old, next)?;
         }
         tx.execute("UPDATE meta SET line_epoch=? WHERE singleton=1", [line])?;
-        event(&tx, None, line, "line_changed")?;
-        tx.commit()?;
+        event(tx, None, line, "line_changed")?;
         Ok(())
     }
     fn events(&self, after: Cursor, limit: usize) -> Result<EventPage> {

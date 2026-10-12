@@ -6,6 +6,79 @@ use std::{fs, path::Path};
 use tempfile::TempDir;
 
 #[test]
+fn inbox_scope_and_live_revocation_protect_metadata_events_and_body() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let i = directory();
+    let mut a = start(i.path(), &s);
+    let o = SigningKey::from_bytes(&[61; 32]);
+    let reader = SigningKey::from_bytes(&[62; 32]);
+    let status = SigningKey::from_bytes(&[63; 32]);
+    let owner = owner(&mut a, &o);
+    pair(&mut a, &owner, &reader, Kind::Client, &[Scope::SmsRead]);
+    pair(&mut a, &owner, &status, Kind::Nas, &[Scope::StatusRead]);
+    let read = login(&mut a, &reader);
+    let status = login(&mut a, &status);
+    assert!(a.inbox(status.expose(), None, 32).is_err());
+    assert!(a.inbox_events(status.expose(), None, 32).is_err());
+    assert!(a.line_status(status.expose()).is_ok());
+    assert!(a.line_status(read.expose()).is_err());
+    let h = s.handle();
+    let line = h
+        .observe_line(rustsimhub_storage::LineObservation {
+            backend: "fixture".into(),
+            fingerprint: Some([1; 32]),
+            status: rustsimhub_storage::LineStatus::Ready,
+        })
+        .unwrap()
+        .line;
+    let sms = h
+        .receive_sms(rustsimhub_storage::IncomingSms {
+            line,
+            source: "synthetic/1".into(),
+            sender: "synthetic".into(),
+            timestamp: "synthetic".into(),
+            text: "secret synthetic body".into(),
+            data: vec![],
+        })
+        .unwrap();
+    assert!(a.sms_detail(status.expose(), sms.id.clone()).is_err());
+    assert_eq!(
+        a.sms_detail(read.expose(), sms.id.clone()).unwrap().text,
+        "secret synthetic body"
+    );
+    a.revoke(owner.expose(), reader.verifying_key().to_bytes())
+        .unwrap();
+    assert!(a.inbox(read.expose(), None, 32).is_err());
+    assert!(a.sms_detail(read.expose(), sms.id).is_err());
+    assert!(a.inbox_events(read.expose(), None, 32).is_err());
+}
+#[test]
+fn sim_pseudonym_is_device_specific_stable_and_rejects_unknown_identity() {
+    let d = directory();
+    let i = Identity::open(d.path()).unwrap();
+    let key = i.sim_fingerprint("8901234567890123456").unwrap();
+    assert_eq!(
+        key,
+        Identity::load(d.path())
+            .unwrap()
+            .sim_fingerprint("8901234567890123456")
+            .unwrap()
+    );
+    let other = directory();
+    assert_ne!(
+        key,
+        Identity::open(other.path())
+            .unwrap()
+            .sim_fingerprint("8901234567890123456")
+            .unwrap()
+    );
+    assert_ne!(key, i.sim_fingerprint("8901234567890123457").unwrap());
+    assert!(i.sim_fingerprint("").is_err());
+    assert!(i.sim_fingerprint("/sim/0").is_err());
+}
+
+#[test]
 fn recovery_reenables_only_original_owner_after_fresh_possession_proof() {
     let d = directory();
     let s = Store::open(d.path()).unwrap();
