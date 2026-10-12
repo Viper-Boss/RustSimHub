@@ -159,12 +159,16 @@ async fn serve_inner(
         crate::socket_runtime::SocketRuntime::bind(std::path::Path::new(socket))?;
     let limit = Arc::new(Semaphore::new(8));
     let observer_store = store.handle();
-    let observer_auth = auth.clone();
+    let observer_context = if observing {
+        let a = auth.try_lock().map_err(|_| "auth busy during startup")?;
+        Some((a.observer_instance(), a.sim_fingerprinter()?))
+    } else {
+        None
+    };
     let mut observer = Box::pin(async move {
-        if observing {
-            crate::observer::run(observer_store, observer_auth).await;
-        } else {
-            std::future::pending::<()>().await;
+        match observer_context {
+            Some((instance, key)) => crate::observer::run(observer_store, instance, key).await,
+            None => std::future::pending::<()>().await,
         }
     });
     let mut tasks = tokio::task::JoinSet::new();

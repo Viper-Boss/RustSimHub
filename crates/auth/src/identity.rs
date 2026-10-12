@@ -14,6 +14,23 @@ use zeroize::Zeroizing;
 pub struct Identity {
     signing: SigningKey,
 }
+/// Purpose-limited observer key, without access to device signing or authentication state.
+pub struct SimFingerprinter {
+    key: Zeroizing<[u8; 32]>,
+}
+impl SimFingerprinter {
+    pub fn fingerprint(&self, iccid: &str) -> Result<[u8; 32]> {
+        use hmac::{Hmac, Mac};
+        if !(8..=32).contains(&iccid.len()) || !iccid.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(Error::InvalidInput);
+        }
+        let mut mac =
+            Hmac::<Sha256>::new_from_slice(self.key.as_ref()).map_err(|_| Error::InvalidInput)?;
+        mac.update(b"RustSimHub.SimFingerprint.v1\0");
+        mac.update(iccid.as_bytes());
+        Ok(mac.finalize().into_bytes().into())
+    }
+}
 impl Identity {
     pub fn open(directory: impl AsRef<Path>) -> Result<Self> {
         Ok(Self {
@@ -37,16 +54,17 @@ impl Identity {
     }
     /// Local SIM pseudonym, never a public identifier. Domain separated HMAC with device seed.
     pub fn sim_fingerprint(&self, iccid: &str) -> Result<[u8; 32]> {
+        self.sim_fingerprinter()?.fingerprint(iccid)
+    }
+    pub fn sim_fingerprinter(&self) -> Result<SimFingerprinter> {
         use hmac::{Hmac, Mac};
-        if !(8..=32).contains(&iccid.len()) || !iccid.bytes().all(|b| b.is_ascii_digit()) {
-            return Err(Error::InvalidInput);
-        }
         let seed = Zeroizing::new(self.signing.to_bytes());
         let mut mac =
             Hmac::<Sha256>::new_from_slice(seed.as_ref()).map_err(|_| Error::InvalidInput)?;
-        mac.update(b"RustSimHub.SimFingerprint.v1\0");
-        mac.update(iccid.as_bytes());
-        Ok(mac.finalize().into_bytes().into())
+        mac.update(b"RustSimHub.SimObserverKey.v1\0");
+        Ok(SimFingerprinter {
+            key: Zeroizing::new(mac.finalize().into_bytes().into()),
+        })
     }
     pub(crate) fn sign(&self, message: &[u8]) -> Vec<u8> {
         self.signing.sign(message).to_bytes().to_vec()

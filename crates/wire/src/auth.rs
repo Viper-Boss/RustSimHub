@@ -129,10 +129,8 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 return Err(invalid());
             }
         }
-        AuthCommand::SmsDetail { token, sms_id } => {
-            if token.len() != 64 || sms_id.len() != 36 {
-                return Err(invalid());
-            }
+        AuthCommand::SmsDetail { token, sms_id } if token.len() != 64 || sms_id.len() != 36 => {
+            return Err(invalid())
         }
         _ => {}
     }

@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Read-only reconciliation. No Send/Create/Delete/Enable/PIN methods exist here.
-use rustsimhub_auth::Auth;
+use rustsimhub_auth::SimFingerprinter;
 use rustsimhub_storage::{Handle, IncomingSms, LineObservation, LineStatus};
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 use zbus::zvariant::{OwnedObjectPath, OwnedValue};
@@ -128,20 +127,17 @@ impl Stable {
             self.candidate = None;
             return false;
         };
-        if let Some((b, k, since)) = &self.candidate {
-            if b == backend && k == &key {
-                return now.duration_since(*since) >= Duration::from_secs(2);
+        match &self.candidate {
+            Some((b, k, since)) if b == backend && k == &key => {
+                return now.duration_since(*since) >= Duration::from_secs(2)
             }
+            _ => {}
         }
         self.candidate = Some((backend.to_owned(), key, now));
         false
     }
 }
-pub async fn run(store: Handle, auth: Arc<Mutex<Auth>>) {
-    let instance = match auth.lock() {
-        Ok(a) => a.observer_instance(),
-        Err(_) => return,
-    };
+pub async fn run(store: Handle, instance: String, fingerprinter: SimFingerprinter) {
     let mut stable = Stable::default();
     loop {
         // A fresh connection and unique bus owner fence every cycle; no cached modem path survives restart.
@@ -153,7 +149,7 @@ pub async fn run(store: Handle, auth: Arc<Mutex<Auth>>) {
                 before.owner, before.modem, before.sim
             );
             let key = match before.iccid.as_deref() {
-                Some(id) => Some(auth.lock().map_err(|_| "auth busy")?.sim_fingerprint(id)?),
+                Some(id) => Some(fingerprinter.fingerprint(id)?),
                 None => None,
             };
             let ready = stable.observe(&backend, key, Instant::now());

@@ -5,8 +5,8 @@ mod client;
 mod identity;
 pub use client::{ClientKey, ProofExpectation};
 use ed25519_dalek::{Signature, VerifyingKey};
-pub use identity::Identity;
 pub use identity::{read_private, write_private_new};
+pub use identity::{Identity, SimFingerprinter};
 use rustsimhub_policy::{allows, mask, Kind, Principal, Scope, ALL_SCOPES};
 use rustsimhub_storage::Handle;
 use serde::{Deserialize, Serialize};
@@ -142,6 +142,9 @@ fn token_digest(token: &str) -> Result<[u8; 32]> {
 impl Auth {
     pub fn observer_instance(&self) -> String {
         self.instance.clone()
+    }
+    pub fn sim_fingerprinter(&self) -> Result<SimFingerprinter> {
+        self.identity.sim_fingerprinter()
     }
     pub fn sim_fingerprint(&self, iccid: &str) -> Result<[u8; 32]> {
         self.identity.sim_fingerprint(iccid)
