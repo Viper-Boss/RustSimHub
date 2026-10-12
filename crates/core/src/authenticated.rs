@@ -104,11 +104,9 @@ pub(crate) async fn handle(
             Err(_) => json!({"ok":false,"error":"modem_unavailable"}),
         },
         Ok(mut value) => {
-            if line_status {
-                if let Some(m) = metrics {
-                    if let Ok(s) = m.lock() {
-                        value["observer"] = serde_json::to_value(s.clone())?;
-                    }
+            if let (true, Some(m)) = (line_status, metrics) {
+                if let Ok(s) = m.lock() {
+                    value["observer"] = serde_json::to_value(s.clone())?;
                 }
             }
             value

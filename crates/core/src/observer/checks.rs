@@ -159,6 +159,12 @@ async fn critical_signal_cancels_an_inflight_read_and_disconnection_cannot_publi
     assert!(result.is_err());
     tx.send_modify(|n| n.apply(watch::Change::Disconnected));
     assert!(watch::checked(async { Ok(()) }, &mut rx, 1).await.is_err());
+    let (sender, mut closed) = tokio::sync::watch::channel(watch::Notice::default());
+    drop(sender);
+    assert!(!watch::valid(&closed, 0));
+    assert!(watch::checked(async { Ok(()) }, &mut closed, 0)
+        .await
+        .is_err());
 }
 fn directory() -> tempfile::TempDir {
     use std::os::unix::fs::PermissionsExt;

@@ -200,16 +200,22 @@ pub(super) async fn checked<T>(
 ) -> Result<T> {
     tokio::pin!(future);
     loop {
-        if rx.borrow().ended || rx.borrow().fence != fence {
+        if !valid(rx, fence) {
             return Err("observation invalidated".into());
         }
         tokio::select! {
             biased;
             changed=rx.changed()=>{changed.map_err(|_|"watcher closed")?;},
             result=&mut future=>{
-                if rx.borrow().ended||rx.borrow().fence!=fence {return Err("observation invalidated".into());}
+                if !valid(rx,fence) {return Err("observation invalidated".into());}
                 return result;
             }
         }
+    }
+}
+pub(super) fn valid(rx: &watch::Receiver<Notice>, fence: u64) -> bool {
+    rx.has_changed().is_ok() && {
+        let n = rx.borrow();
+        !n.ended && n.fence == fence
     }
 }

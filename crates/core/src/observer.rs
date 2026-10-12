@@ -261,7 +261,7 @@ async fn reconcile(
                 fingerprint: key,
                 status,
             },
-            move || !observe_guard.borrow().ended && observe_guard.borrow().fence == fence,
+            move || watch::valid(&observe_guard, fence),
         )
     })
     .await??;
@@ -309,14 +309,12 @@ async fn reconcile(
     let failures = tokio::task::spawn_blocking(move || {
         let mut failures = 0u64;
         for sms in batch {
-            if guard.borrow().ended || guard.borrow().fence != fence {
+            if !watch::valid(&guard, fence) {
                 break;
             }
             let receive_guard = guard.clone();
-            if h.receive_sms_if(sms, move || {
-                !receive_guard.borrow().ended && receive_guard.borrow().fence == fence
-            })
-            .is_err()
+            if h.receive_sms_if(sms, move || watch::valid(&receive_guard, fence))
+                .is_err()
             {
                 failures += 1;
             }
@@ -482,6 +480,7 @@ mod tests {
             assert!(identity_readable(lock, 3));
             assert!(!identity_readable(lock, 2));
             assert!(!identity_readable(lock, -1));
+            assert!(!identity_readable(lock, 99));
         }
         for lock in [0, 2, 4, 6, 16, 99] {
             assert!(!identity_readable(lock, 8));
