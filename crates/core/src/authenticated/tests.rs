@@ -58,7 +58,7 @@ fn directory() -> tempfile::TempDir {
 async fn round_trip(command: AuthCommand, auth: Arc<Mutex<Auth>>) -> Value {
     let (mut sender, mut receiver) = UnixStream::pair().unwrap();
     let task = tokio::spawn(async move {
-        handle(&mut receiver, auth).await.unwrap();
+        handle(&mut receiver, auth, None).await.unwrap();
     });
     let req = rustsimhub_wire::AuthRequest {
         protocol: 2,
@@ -251,5 +251,5 @@ async fn authenticated_endpoint_rejects_legacy_protocol_without_upgrade() {
     write_frame(&mut tx, br#"{"protocol":1,"id":"a","command":"health"}"#)
         .await
         .unwrap();
-    assert!(handle(&mut rx, a).await.is_err());
+    assert!(handle(&mut rx, a, None).await.is_err());
 }

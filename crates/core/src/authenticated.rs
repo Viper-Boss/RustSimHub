@@ -84,10 +84,15 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         }
     })
 }
-pub(crate) async fn handle(stream: &mut UnixStream, auth: Arc<Mutex<Auth>>) -> Result<()> {
+pub(crate) async fn handle(
+    stream: &mut UnixStream,
+    auth: Arc<Mutex<Auth>>,
+    metrics: Option<crate::observer::Metrics>,
+) -> Result<()> {
     let body = timeout(Duration::from_secs(5), read_frame(stream)).await??;
     let request = parse_auth_request(&body)?;
     let capabilities = matches!(request.command, AuthCommand::Capabilities { .. });
+    let line_status = matches!(request.command, AuthCommand::LineStatus { .. });
     let result = tokio::task::spawn_blocking(move || match auth.try_lock() {
         Ok(mut a) => dispatch(&mut a, request.command),
         Err(_) => Err(rustsimhub_auth::Error::Busy),
@@ -98,7 +103,16 @@ pub(crate) async fn handle(stream: &mut UnixStream, auth: Arc<Mutex<Auth>>) -> R
             Ok(p) => serde_json::to_value(p)?,
             Err(_) => json!({"ok":false,"error":"modem_unavailable"}),
         },
-        Ok(value) => value,
+        Ok(mut value) => {
+            if line_status {
+                if let Some(m) = metrics {
+                    if let Ok(s) = m.lock() {
+                        value["observer"] = serde_json::to_value(s.clone())?;
+                    }
+                }
+            }
+            value
+        }
         Err(_) => json!({"ok":false,"error":"denied"}),
     };
     let response = serde_json::to_vec(&Response {
@@ -159,6 +173,8 @@ async fn serve_inner(
         crate::socket_runtime::SocketRuntime::bind(std::path::Path::new(socket))?;
     let limit = Arc::new(Semaphore::new(8));
     let observer_store = store.handle();
+    let metrics = Arc::new(Mutex::new(crate::observer::Stats::default()));
+    let observer_metrics = metrics.clone();
     let observer_context = if observing {
         let a = auth.try_lock().map_err(|_| "auth busy during startup")?;
         Some((a.observer_instance(), a.sim_fingerprinter()?))
@@ -167,7 +183,9 @@ async fn serve_inner(
     };
     let mut observer = Box::pin(async move {
         match observer_context {
-            Some((instance, key)) => crate::observer::run(observer_store, instance, key).await,
+            Some((instance, key)) => {
+                crate::observer::run(observer_store, instance, key, observer_metrics).await
+            }
             None => std::future::pending::<()>().await,
         }
     });
@@ -196,8 +214,13 @@ async fn serve_inner(
             Err(_) => continue,
         };
         let auth = auth.clone();
+        let metrics = metrics.clone();
         tasks.spawn(async move {
-            let _ = timeout(Duration::from_secs(15), handle(&mut stream, auth)).await;
+            let _ = timeout(
+                Duration::from_secs(15),
+                handle(&mut stream, auth, Some(metrics)),
+            )
+            .await;
             drop(permit);
         });
     };

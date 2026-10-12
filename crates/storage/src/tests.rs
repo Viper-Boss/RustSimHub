@@ -3,6 +3,54 @@ use super::*;
 use std::process::Command;
 use tempfile::TempDir;
 
+#[test]
+fn queued_observation_and_inbox_jobs_recheck_fence_on_the_single_writer() {
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Barrier,
+    };
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let h = s.handle();
+    let line = observed(&h, "old", 1, LineStatus::Ready);
+    let gate = Arc::new(AtomicBool::new(true));
+    let entered = Arc::new(Barrier::new(2));
+    let release = Arc::new(Barrier::new(2));
+    let (e, r) = (entered.clone(), release.clone());
+    let blocker = h.clone();
+    let worker = thread::spawn(move || {
+        blocker.call(move |_db| {
+            e.wait();
+            r.wait();
+            Ok(())
+        })
+    });
+    entered.wait();
+    let receive = h.clone();
+    let g = gate.clone();
+    let pending = thread::spawn(move || {
+        receive.receive_sms_if(inbound(line, "queued"), move || g.load(Ordering::SeqCst))
+    });
+    gate.store(false, Ordering::SeqCst);
+    release.wait();
+    worker.join().unwrap().unwrap();
+    assert!(matches!(pending.join().unwrap(), Err(Error::StaleLine)));
+    assert!(h.inbox(None, 32).unwrap().messages.is_empty());
+    let g = gate.clone();
+    assert!(matches!(
+        h.observe_line_if(
+            LineObservation {
+                backend: "stale".into(),
+                fingerprint: Some([2; 32]),
+                status: LineStatus::Ready
+            },
+            move || g.load(Ordering::SeqCst)
+        ),
+        Err(Error::StaleLine)
+    ));
+    assert_eq!(h.line_epoch().unwrap(), line);
+}
+
 fn observed(h: &Handle, backend: &str, key: u8, status: LineStatus) -> LineEpoch {
     h.observe_line(LineObservation {
         backend: backend.into(),

@@ -120,6 +120,33 @@ fn summary(r: &rusqlite::Row<'_>) -> rusqlite::Result<SmsSummary> {
     })
 }
 impl Handle {
+    /// Trusted nonblocking local fence, checked on the single writer immediately before mutation.
+    pub fn observe_line_if(
+        &self,
+        input: LineObservation,
+        guard: impl FnOnce() -> bool + Send + 'static,
+    ) -> Result<LineView> {
+        self.call(move |db| {
+            if guard() {
+                db.observe(input)
+            } else {
+                Err(Error::StaleLine)
+            }
+        })
+    }
+    pub fn receive_sms_if(
+        &self,
+        input: IncomingSms,
+        guard: impl FnOnce() -> bool + Send + 'static,
+    ) -> Result<SmsSummary> {
+        self.call(move |db| {
+            if guard() {
+                db.receive(input)
+            } else {
+                Err(Error::StaleLine)
+            }
+        })
+    }
     pub fn observe_line(&self, input: LineObservation) -> Result<LineView> {
         self.call(move |db| db.observe(input))
     }

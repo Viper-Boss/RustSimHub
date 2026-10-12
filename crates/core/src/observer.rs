@@ -4,15 +4,37 @@ use rustsimhub_auth::SimFingerprinter;
 use rustsimhub_storage::{Handle, IncomingSms, LineObservation, LineStatus};
 use std::{
     collections::HashMap,
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 use zbus::zvariant::{OwnedObjectPath, OwnedValue};
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+#[cfg(test)]
+mod checks;
+mod sources;
+mod watch;
+use sources::Sources;
+#[derive(Default, Clone, serde::Serialize)]
+pub(crate) struct Stats {
+    pub subscriptions: bool,
+    pub reconciliations: u64,
+    pub signals: u64,
+    pub reconnects: u64,
+    pub identity_invalidations: u64,
+    pub object_read_errors: u64,
+    pub storage_errors: u64,
+}
+pub(crate) type Metrics = Arc<Mutex<Stats>>;
+fn metric(m: &Metrics, f: impl FnOnce(&mut Stats)) {
+    if let Ok(mut s) = m.lock() {
+        f(&mut s);
+    }
+}
 const SERVICE: &str = "org.freedesktop.ModemManager1";
 const MODEM: &str = "org.freedesktop.ModemManager1.Modem";
 fn identity_readable(lock: u32, state: i32) -> bool {
     // MM treats PIN2/PUK2 as operational; never submit an unlock code for ordinary reads.
-    matches!(lock, 1 | 3 | 5) && state >= 3
+    matches!(lock, 1 | 3 | 5) && (3..=11).contains(&state)
 }
 #[zbus::proxy(interface = "org.freedesktop.ModemManager1.Sim")]
 trait Sim {
@@ -30,23 +52,40 @@ struct Snapshot {
     iccid: Option<String>,
     status: LineStatus,
 }
-async fn snapshot(c: &zbus::Connection) -> Result<Snapshot> {
+async fn snapshot(
+    c: &zbus::Connection,
+    cached_modem: Option<&OwnedObjectPath>,
+) -> Result<Snapshot> {
     let bus = zbus::fdo::DBusProxy::new(c).await?;
     let owner = bus.get_name_owner(SERVICE.try_into()?).await?.to_string();
-    let objects =
-        zbus::fdo::ObjectManagerProxy::new(c, owner.as_str(), "/org/freedesktop/ModemManager1")
-            .await?
-            .get_managed_objects()
+    let (path, p) = if let Some(path) = cached_modem {
+        let proxy = zbus::fdo::PropertiesProxy::builder(c)
+            .destination(owner.clone())?
+            .path(path.clone())?
+            .build()
             .await?;
-    if objects.len() > 1024 {
-        return Err("object limit".into());
-    }
-    let mut modems = objects.iter().filter(|(_, v)| v.contains_key(MODEM));
-    let (path, interfaces) = modems.next().ok_or("no modem")?;
-    if modems.next().is_some() {
-        return Err("ambiguous modem".into());
-    }
-    let p = &interfaces[MODEM];
+        (path.clone(), proxy.get_all(MODEM.try_into()?).await?)
+    } else {
+        let objects =
+            zbus::fdo::ObjectManagerProxy::new(c, owner.as_str(), "/org/freedesktop/ModemManager1")
+                .await?
+                .get_managed_objects()
+                .await?;
+        if objects.len() > sources::MAX_OBJECTS + 128 {
+            return Err("object limit".into());
+        }
+        let mut modems = objects.into_iter().filter(|(_, v)| v.contains_key(MODEM));
+        let (path, mut interfaces) = modems.next().ok_or("no modem")?;
+        if modems.next().is_some() {
+            return Err("ambiguous modem".into());
+        }
+        (
+            path,
+            interfaces
+                .remove(MODEM)
+                .ok_or("modem interface unavailable")?,
+        )
+    };
     let sim = OwnedObjectPath::try_from(
         p.get("Sim")
             .ok_or("SIM property unavailable")?
@@ -88,46 +127,52 @@ async fn snapshot(c: &zbus::Connection) -> Result<Snapshot> {
         status,
     })
 }
-async fn messages(c: &zbus::Connection, s: &Snapshot) -> Result<Vec<IncomingSms>> {
-    let proxy = MessagingProxy::builder(c)
+async fn read_message(
+    c: &zbus::Connection,
+    s: &Snapshot,
+    path: &OwnedObjectPath,
+    line: rustsimhub_domain::LineEpoch,
+) -> Result<Option<IncomingSms>> {
+    let props = zbus::fdo::PropertiesProxy::builder(c)
         .destination(s.owner.clone())?
-        .path(s.modem.clone())?
+        .path(path.clone())?
         .build()
         .await?;
-    let paths = proxy.list().await?;
-    // Explicit limit: refuse oversized enumeration, preserve hardware messages for later recovery.
-    if paths.len() > 256 {
-        return Err("SMS enumeration limit".into());
+    let p: HashMap<String, OwnedValue> = props
+        .get_all("org.freedesktop.ModemManager1.Sms".try_into()?)
+        .await?;
+    decode_message(&p, path.to_string(), line)
+}
+fn decode_message(
+    p: &HashMap<String, OwnedValue>,
+    source: String,
+    line: rustsimhub_domain::LineEpoch,
+) -> Result<Option<IncomingSms>> {
+    let state = u32::try_from(p.get("State").ok_or("missing SMS state")?)?;
+    let kind = u32::try_from(p.get("PduType").ok_or("missing SMS kind")?)?;
+    if state != 3 || !matches!(kind, 1 | 32) {
+        return Ok(None);
     }
-    let mut messages = Vec::new();
-    for path in paths {
-        let props = zbus::fdo::PropertiesProxy::builder(c)
-            .destination(s.owner.clone())?
-            .path(path.clone())?
-            .build()
-            .await?;
-        let p: HashMap<String, OwnedValue> = props
-            .get_all("org.freedesktop.ModemManager1.Sms".try_into()?)
-            .await?;
-        let state = p.get("State").and_then(|v| u32::try_from(v).ok());
-        let kind = p.get("PduType").and_then(|v| u32::try_from(v).ok());
-        if state != Some(3) || !matches!(kind, Some(1 | 32)) {
-            continue;
-        } // Complete MT deliver only.
-        let string = |name: &str| -> Result<String> {
-            Ok(<&str>::try_from(p.get(name).ok_or("missing SMS property")?)?.to_owned())
-        };
-        let data = Vec::<u8>::try_from(p.get("Data").ok_or("missing SMS data")?.try_clone()?)?;
-        messages.push(IncomingSms {
-            line: rustsimhub_domain::LineEpoch(0),
-            source: path.to_string(),
-            sender: string("Number")?,
-            timestamp: string("Timestamp")?,
-            text: string("Text")?,
-            data,
-        });
+    let string = |name: &str, max: usize| -> Result<String> {
+        let value = <&str>::try_from(p.get(name).ok_or("missing SMS property")?)?;
+        if value.len() > max {
+            return Err("SMS property limit".into());
+        }
+        Ok(value.to_owned())
+    };
+    let data = Vec::<u8>::try_from(p.get("Data").ok_or("missing SMS data")?.try_clone()?)?;
+    let text = string("Text", 4096)?;
+    if data.len() > 4096 || (!data.is_empty() && !text.is_empty()) {
+        return Err("SMS payload limit".into());
     }
-    Ok(messages)
+    Ok(Some(IncomingSms {
+        line,
+        source,
+        sender: string("Number", 256)?,
+        timestamp: string("Timestamp", 128)?,
+        text,
+        data,
+    }))
 }
 #[derive(Default)]
 struct Stable {
@@ -149,81 +194,282 @@ impl Stable {
         false
     }
 }
-pub async fn run(store: Handle, instance: String, fingerprinter: SimFingerprinter) {
-    let mut stable = Stable::default();
-    loop {
-        // A fresh connection and unique bus owner fence every cycle; no cached modem path survives restart.
-        let cycle = async {
-            let c = zbus::Connection::system().await?;
-            let before = snapshot(&c).await?;
-            let backend = format!(
-                "{instance}:{}:{}:{}",
-                before.owner, before.modem, before.sim
-            );
-            let key = match before.iccid.as_deref() {
-                Some(id) => Some(fingerprinter.fingerprint(id)?),
-                None => None,
-            };
-            let ready = stable.observe(&backend, key, Instant::now());
-            let status = if ready {
-                LineStatus::Ready
-            } else {
-                before.status
-            };
-            let h = store.clone();
-            let b = backend.clone();
-            let view = tokio::task::spawn_blocking(move || {
-                h.observe_line(LineObservation {
-                    backend: b,
-                    fingerprint: key,
-                    status,
-                })
-            })
-            .await??;
-            if ready {
-                let mut sms = messages(&c, &before).await?;
-                let after = snapshot(&c).await?;
-                if before.owner != after.owner
-                    || before.modem != after.modem
-                    || before.sim != after.sim
-                    || before.iccid != after.iccid
-                    || after.status != LineStatus::Observing
-                {
-                    return Err("SIM changed during read".into());
-                }
-                for message in &mut sms {
-                    message.line = view.line;
-                }
-                let h = store.clone();
-                tokio::task::spawn_blocking(
-                    move || -> std::result::Result<(), rustsimhub_storage::Error> {
-                        for message in sms {
-                            h.receive_sms(message)?;
-                        }
-                        Ok(())
-                    },
-                )
-                .await??;
+async fn invalidate(store: &Handle, backend: String, metrics: &Metrics) {
+    let h = store.clone();
+    if !matches!(
+        tokio::task::spawn_blocking(move || h.observe_line(LineObservation {
+            backend,
+            fingerprint: None,
+            status: LineStatus::Unavailable
+        }))
+        .await,
+        Ok(Ok(_))
+    ) {
+        metric(metrics, |s| {
+            s.storage_errors = s.storage_errors.saturating_add(1)
+        });
+    }
+}
+struct Context<'a> {
+    owner: String,
+    prefix: String,
+    fingerprinter: &'a SimFingerprinter,
+    store: &'a Handle,
+    metrics: &'a Metrics,
+}
+async fn reconcile(
+    c: &zbus::Connection,
+    context: &Context<'_>,
+    stable: &mut Stable,
+    sources: &mut Sources,
+    cached_modem: &mut Option<OwnedObjectPath>,
+    guard: tokio::sync::watch::Receiver<watch::Notice>,
+    fence: u64,
+) -> Result<bool> {
+    let owner = context.owner.as_str();
+    let backend_prefix = context.prefix.as_str();
+    let fingerprinter = context.fingerprinter;
+    let store = context.store;
+    let metrics = context.metrics;
+    let before = snapshot(c, cached_modem.as_ref()).await?;
+    if before.owner != owner {
+        return Err("backend changed".into());
+    }
+    *cached_modem = Some(before.modem.clone());
+    let backend = format!("{backend_prefix}:{fence}:{}:{}", before.modem, before.sim);
+    let key = before
+        .iccid
+        .as_deref()
+        .map(|id| fingerprinter.fingerprint(id))
+        .transpose()?;
+    let previous = stable.candidate.as_ref().map(|(b, k, _)| (b.clone(), *k));
+    let ready = stable.observe(&backend, key, Instant::now());
+    if previous != stable.candidate.as_ref().map(|(b, k, _)| (b.clone(), *k)) {
+        sources.reset();
+    }
+    let status = if ready {
+        LineStatus::Ready
+    } else {
+        before.status
+    };
+    let h = store.clone();
+    let observe_guard = guard.clone();
+    let view = tokio::task::spawn_blocking(move || {
+        h.observe_line_if(
+            LineObservation {
+                backend,
+                fingerprint: key,
+                status,
+            },
+            move || !observe_guard.borrow().ended && observe_guard.borrow().fence == fence,
+        )
+    })
+    .await??;
+    if !ready {
+        return Ok(false);
+    }
+    let proxy = MessagingProxy::builder(c)
+        .destination(owner.to_owned())?
+        .path(before.modem.clone())?
+        .build()
+        .await?;
+    // Initial and periodic full enumeration repair missed events. Content is read in fair bounded batches.
+    if sources.list_due() {
+        sources.refresh(proxy.list().await?)?;
+    }
+    let (paths, more) = sources.next_batch();
+    let mut batch = Vec::new();
+    for path in paths {
+        match tokio::time::timeout(
+            Duration::from_secs(1),
+            read_message(c, &before, &path, view.line),
+        )
+        .await
+        {
+            Ok(Ok(Some(mut sms))) => {
+                sources.bind(&mut sms)?;
+                batch.push(sms);
             }
-            Ok::<(), Box<dyn std::error::Error>>(())
-        };
-        if !matches!(
-            tokio::time::timeout(Duration::from_secs(12), cycle).await,
-            Ok(Ok(()))
-        ) {
-            stable.candidate = None;
-            let h = store.clone();
-            let b = instance.clone();
-            let _ = tokio::task::spawn_blocking(move || {
-                h.observe_line(LineObservation {
-                    backend: b,
-                    fingerprint: None,
-                    status: LineStatus::Unavailable,
-                })
-            })
-            .await;
+            Ok(Ok(None)) => sources.incomplete(path.as_str()),
+            _ => metric(metrics, |s| {
+                s.object_read_errors = s.object_read_errors.saturating_add(1)
+            }),
         }
-        tokio::time::sleep(Duration::from_secs(3)).await;
+    }
+    let after = snapshot(c, Some(&before.modem)).await?;
+    if before.owner != after.owner
+        || before.modem != after.modem
+        || before.sim != after.sim
+        || before.iccid != after.iccid
+        || after.status != LineStatus::Observing
+    {
+        return Err("SIM changed during read".into());
+    }
+    let h = store.clone();
+    let failures = tokio::task::spawn_blocking(move || {
+        let mut failures = 0u64;
+        for sms in batch {
+            if guard.borrow().ended || guard.borrow().fence != fence {
+                break;
+            }
+            let receive_guard = guard.clone();
+            if h.receive_sms_if(sms, move || {
+                !receive_guard.borrow().ended && receive_guard.borrow().fence == fence
+            })
+            .is_err()
+            {
+                failures += 1;
+            }
+        }
+        failures
+    })
+    .await?;
+    metric(metrics, |s| {
+        s.storage_errors = s.storage_errors.saturating_add(failures);
+        s.reconciliations = s.reconciliations.saturating_add(1);
+    });
+    Ok(more)
+}
+async fn session(
+    c: zbus::Connection,
+    store: &Handle,
+    instance: &str,
+    connection_generation: u64,
+    fingerprinter: &SimFingerprinter,
+    metrics: &Metrics,
+) -> Result<()> {
+    let mut watcher = watch::Watcher::connect(&c).await?;
+    metric(metrics, |s| s.subscriptions = true);
+    let prefix = format!("{instance}:{connection_generation}:{}", watcher.owner);
+    let context = Context {
+        owner: watcher.owner.clone(),
+        prefix: prefix.clone(),
+        fingerprinter,
+        store,
+        metrics,
+    };
+    let mut stable = Stable::default();
+    let mut sources = Sources::default();
+    let mut cached_modem = None;
+    let mut consumed = 0;
+    let mut source_reset = 0;
+    let mut fence = 0;
+    loop {
+        let notice = watcher.receiver.borrow_and_update().clone();
+        if notice.ended {
+            return Err("watcher ended".into());
+        }
+        metric(metrics, |s| {
+            s.signals = s
+                .signals
+                .saturating_add(notice.revision.saturating_sub(consumed))
+        });
+        if notice.reset_sources != source_reset {
+            sources.reset();
+            source_reset = notice.reset_sources;
+        }
+        for (revision, path) in &notice.retired {
+            if *revision > consumed {
+                sources.retire(path);
+            }
+        }
+        consumed = notice.revision;
+        if notice.fence != fence {
+            invalidate(store, format!("{prefix}:invalid:{}", notice.fence), metrics).await;
+            stable.candidate = None;
+            sources.reset();
+            fence = notice.fence;
+            cached_modem = None;
+            metric(metrics, |s| {
+                s.identity_invalidations = s.identity_invalidations.saturating_add(1)
+            });
+        }
+        let guard = watcher.receiver.clone();
+        let cycle = reconcile(
+            &c,
+            &context,
+            &mut stable,
+            &mut sources,
+            &mut cached_modem,
+            guard,
+            fence,
+        );
+        let result = tokio::time::timeout(
+            Duration::from_secs(30),
+            watch::checked(cycle, &mut watcher.receiver, fence),
+        )
+        .await;
+        let more = match result {
+            Ok(Ok(more)) => more,
+            _ => {
+                if watcher.receiver.borrow().fence != fence && !watcher.receiver.borrow().ended {
+                    continue;
+                }
+                return Err("reconciliation unavailable".into());
+            }
+        };
+        // Burst coalescing limits CPU; the signal task remains continuously polled during every wait/read.
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        if watcher.receiver.borrow().revision != consumed {
+            continue;
+        }
+        let observing = stable
+            .candidate
+            .as_ref()
+            .is_some_and(|(_, _, since)| since.elapsed() < Duration::from_secs(2));
+        let wait = if more {
+            Duration::from_millis(1)
+        } else if observing {
+            Duration::from_secs(2)
+        } else {
+            Duration::from_secs(10)
+        };
+        tokio::select! {_=tokio::time::sleep(wait)=>{},changed=watcher.receiver.changed()=>{changed.map_err(|_|"watcher ended")?;}}
+    }
+}
+pub async fn run(
+    store: Handle,
+    instance: String,
+    fingerprinter: SimFingerprinter,
+    metrics: Metrics,
+) {
+    let mut generation = 0u64;
+    let mut backoff = 1u64;
+    loop {
+        let Some(next) = generation.checked_add(1) else {
+            return;
+        };
+        generation = next;
+        // Builder setup is synchronous; only the actual connection future is timed.
+        let conn = match zbus::connection::Builder::system() {
+            Ok(b) => {
+                tokio::time::timeout(
+                    Duration::from_secs(5),
+                    b.method_timeout(Duration::from_secs(5)).build(),
+                )
+                .await
+            }
+            Err(_) => {
+                invalidate(&store, instance.clone(), &metrics).await;
+                tokio::time::sleep(Duration::from_secs(backoff)).await;
+                backoff = (backoff * 2).min(30);
+                continue;
+            }
+        };
+        if let Ok(Ok(c)) = conn {
+            let start = Instant::now();
+            let _ = session(c, &store, &instance, generation, &fingerprinter, &metrics).await;
+            if start.elapsed() > Duration::from_secs(30) {
+                backoff = 1;
+            }
+        }
+        metric(&metrics, |s| {
+            s.subscriptions = false;
+            s.reconnects = s.reconnects.saturating_add(1);
+        });
+        invalidate(&store, instance.clone(), &metrics).await;
+        tokio::time::sleep(Duration::from_secs(backoff)).await;
+        backoff = (backoff * 2).min(30);
     }
 }
 #[cfg(test)]
