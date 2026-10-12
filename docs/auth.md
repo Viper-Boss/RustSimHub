@@ -16,6 +16,7 @@ SigningKey 与 seed 缓冲使用 zeroize；Identity/Token/私有请求不实现 
 SQLite schema v2 增加 device_identity 与 principals。从 v1 原子迁移，保留原操作、事件及 cursor。
 公钥必须与独立 seed 文件一致；不匹配拒绝启动，不能自动重绑。
 设备公钥与 SIM、MAC、IP 无关。SQLite 备份不含私钥，身份需要独立私有备份流程。
+Auth::open 对已绑定 DB 只读取既有 seed，丢失时不生成替代；离线身份备份与 CLI 见 recovery-clients.md。
 principals 保存随机 ID、唯一公钥、kind、scope 位图、递增 generation、active。
 最多 64 条含已撤销记录；owner 唯一，不允许网络替换或撤销。
 owner 建立、批准、撤销经过 SQLite 单写者；提交失败不返回成功。
@@ -45,6 +46,7 @@ client/nas 申请公钥、kind、精确 scopes，签名后进入待批准状态�
 owner approve 明确同一公钥、kind、scopes，任意改动拒绝；最多 16 个待批准请求。
 重新开窗清除旧挑战/请求；到期、重启后旧请求失效。
 当前无待批准列表 UI；工具需可靠展示 ID、公钥和权限，不能只展示可伪造名称。
+Linux simhubctl 及受限 pending/clients 命令已提供；手机客户端和网页设置 UI 仍未实现。
 
 ## 会话与权限
 
@@ -78,7 +80,8 @@ NAS 即使获 clients.manage 也不是 owner，不能开窗、批准或撤销其
 4 字节大端长度 + JSON，1–65536 字节，单连接单请求，最多 8 连接，5 秒 I/O、15 秒总限时。
 SO_PEERCRED 限定一个本机 UID，业务仍需 token。鉴权/DB 在 blocking worker 执行；
 Auth 使用 try_lock，竞争即拒绝。Store 与正常 daemon 生命周期绑定，文件锁阻止第二个 writer。
-graceful shutdown / stale socket 安全清理尚未完成，重启需确认旧进程结束并使用新运行目录。
+鉴权 daemon 已支持 SIGTERM/SIGINT、请求排空、单写者关闭和自身 socket 清理；
+取得运行锁且确认 ConnectionRefused 后可接管自身 stale socket，细节及限制见 recovery-clients.md。
 错误不含 token、原始请求或私有数据库内容。
 
 ```sh
@@ -95,6 +98,7 @@ rustsimhub-core --provision-owner STATE_DIR IDENTITY_DIR CLIENT_PUBLIC_KEY_HEX
 
 命令为 identity、challenge、authenticate、health、capabilities、open_pairing、
 pair_challenge、pair_proof、approve、revoke，字段见 crates/wire/src/auth.rs。
+另有 owner 专用 pending_pairings / clients 查询，不能供 NAS 冒充 owner。
 public_key 是 32 字节数组，signature 是 64 字节数组；challenge_id/pairing_id 是 64 位十六进制字符串。
 不能注入 role、shell 或未知命令；v1 请求在此 endpoint 不会降级接受。
 旧 --serve-readonly 单独保留为 health/capabilities 诊断，不能作为业务入口部署。
@@ -104,12 +108,13 @@ public_key 是 32 字节数组，signature 是 64 字节数组；challenge_id/pa
 旧备份可能早于撤销。恢复事务把全部 principals 设 inactive 并 generation++，
 保留唯一 owner 与独立设备身份，隔离提交后才移除恢复标记。
 旧备份不能重新获得有效授权，也不能重新打开 bootstrap。
-当前缺少恢复 owner 的可信离线重新证明/确认工具；须完成这一工具后再批准需要的客户端。
+可信离线 --recover-owner 与 simhubctl sign 已提供，原 owner 证明后只恢复自身。
+客户端只有重新证明并被 owner 精确批准后才可登录，旧会话不会复活。
 不能手工删 owner 表来“恢复登录”。owner 变更、恢复出厂及身份备份加密仍需单独规格。
 
 仍需：网页 Argon2id 参数实测、独立 TLS 密钥与 HTTPS/WSS/CSRF；
-客户端密钥保管/带外核实/配对列表；SIM 观察期、媒体票据和事件订阅权限；
-开机部署、受限硬件权限、关闭重启、完整恢复和断电验证；依赖公告扫描及协议/外部安全审查。
+客户端最终密钥保管/带外核实/设置 UI；SIM 观察期、媒体票据和事件订阅权限；
+开机部署、受限硬件权限、完整硬件恢复和断电验证；依赖公告扫描及协议/外部安全审查。
 测试通过不能宣称消除漏洞。
 
 合成密钥 fixture 只在 dev-fixtures 构建出现，默认正式构建关闭。不要对生产目录运行 fixture。

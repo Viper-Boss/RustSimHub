@@ -53,7 +53,13 @@ start_unit() {
       --property=RuntimeMaxSec=180 --property=TimeoutStopSec=30 \
       "$core" --serve-authenticated "$socket" "$uid" "$base/restored" "$base/identity"
     count=0
-    while test ! -S "$socket"; do count=$((count+1)); test "$count" -lt 15; sleep 1; done
+    while :; do
+        if printf '%s' '{"protocol":2,"id":"ready","command":{"op":"identity"}}' | \
+          runuser -u nassimhub -- "$core" --request-auth "$socket" > "$base/readiness.json" 2>/dev/null; then
+            break
+        fi
+        count=$((count+1)); test "$count" -lt 15; sleep 1
+    done
 }
 start_unit
 pin=$(cat "$base/device.pubhex")
@@ -92,6 +98,16 @@ start_unit
 if runuser -u nassimhub -- "$ctl" status "$socket" "$session" >/dev/null 2>&1; then exit 1; fi
 runuser -u nassimhub -- "$ctl" login "$socket" "$base/owner-key" "$pin" "$base/sessions/restarted.session.json"
 runuser -u nassimhub -- "$ctl" status "$socket" "$base/sessions/restarted.session.json"
+systemctl kill --kill-whom=main --signal=SIGKILL "$unit"
+count=0
+while systemctl is-active --quiet "$unit"; do count=$((count+1)); test "$count" -lt 10; sleep 1; done
+test -S "$socket"
+systemctl reset-failed "$unit"
+start_unit
+if runuser -u nassimhub -- "$ctl" status "$socket" "$base/sessions/restarted.session.json" >/dev/null 2>&1; then exit 1; fi
+runuser -u nassimhub -- "$ctl" login "$socket" "$base/owner-key" "$pin" "$base/sessions/crash-restarted.session.json"
+runuser -u nassimhub -- "$ctl" status "$socket" "$base/sessions/crash-restarted.session.json"
+echo 'SIGKILL left stale socket; new daemon safely reclaimed it and rejected old session'
 systemctl stop "$unit"
 test ! -S "$socket"
 runuser -u nassimhub -- "$core" --recovery-verify-fixture "$base"

@@ -12,6 +12,7 @@
 - [首阶段接口边界](docs/architecture-foundation.md)
 - [SQLite 持久化与恢复](docs/storage.md)
 - [设备身份、配对和鉴权](docs/auth.md)
+- [所有者恢复、客户端 CLI 与 core 生命周期](docs/recovery-clients.md)
 
 ```sh
 cargo test --workspace --locked
