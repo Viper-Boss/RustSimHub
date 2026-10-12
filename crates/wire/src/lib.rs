@@ -2,6 +2,8 @@
 #![forbid(unsafe_code)]
 use serde::{Deserialize, Serialize};
 use std::io::{self, Read, Write};
+mod auth;
+pub use auth::{parse_auth_request, AuthCommand, AuthRequest, AUTH_PROTOCOL};
 
 pub const MAX_FRAME: usize = 65_536;
 pub const PROTOCOL: u16 = 1;

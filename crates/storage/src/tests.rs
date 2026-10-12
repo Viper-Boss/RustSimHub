@@ -3,6 +3,67 @@ use super::*;
 use std::process::Command;
 use tempfile::TempDir;
 
+#[test]
+fn schema_one_migration_preserves_operations_and_cursors() {
+    let d = directory();
+    let path = d.path().join("store.sqlite3");
+    private_file(&path, true).unwrap();
+    let c = Connection::open(&path).unwrap();
+    c.execute_batch(include_str!("schema.sql")).unwrap();
+    c.execute("INSERT INTO meta VALUES(1,'old-epoch',1)", [])
+        .unwrap();
+    c.execute("INSERT INTO sms_operations VALUES('old','client','key',1,zeroblob(32),'+12025550123','synthetic','prepared')",[]).unwrap();
+    c.execute(
+        "INSERT INTO events(operation_id,line_epoch,kind) VALUES('old',1,'prepared')",
+        [],
+    )
+    .unwrap();
+    drop(c);
+    let s = Store::open(d.path()).unwrap();
+    assert_eq!(
+        s.handle().operation("old", "client").unwrap().state,
+        SmsState::Prepared
+    );
+    assert_eq!(
+        s.handle().cursor().unwrap(),
+        Cursor {
+            db_epoch: "old-epoch".into(),
+            seq: "1".into()
+        }
+    );
+    assert!(s.handle().principal([1; 32]).unwrap().is_none());
+}
+
+#[test]
+fn failed_owner_commit_never_acknowledges_or_leaves_authority() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let h = s.handle();
+    h.call(|db| {db.connection.execute_batch("CREATE TEMP TRIGGER fail_authority AFTER INSERT ON main.principals BEGIN SELECT RAISE(ABORT,'synthetic'); END;")?;Ok(())}).unwrap();
+    assert!(h.bootstrap_owner([1; 32]).is_err());
+    assert!(h.principal([1; 32]).unwrap().is_none());
+    h.call(|db| {
+        db.connection
+            .execute_batch("DROP TRIGGER fail_authority;")?;
+        Ok(())
+    })
+    .unwrap();
+    let owner = h.bootstrap_owner([1; 32]).unwrap();
+    assert!(h.bootstrap_owner([2; 32]).is_err());
+    assert!(h
+        .approve_client(owner.clone(), [2; 32], rustsimhub_policy::Kind::Owner, 1)
+        .is_err());
+    h.approve_client(owner.clone(), [2; 32], rustsimhub_policy::Kind::Nas, 1)
+        .unwrap();
+    let invalid = rustsimhub_policy::Principal {
+        generation: owner.generation + 1,
+        ..owner.clone()
+    };
+    assert!(h.revoke_client(invalid, [2; 32]).is_err());
+    assert!(h.principal([2; 32]).unwrap().unwrap().active);
+    assert!(h.revoke_client(owner, [1; 32]).is_err());
+}
+
 fn directory() -> TempDir {
     let dir = tempfile::tempdir().unwrap();
     #[cfg(unix)]

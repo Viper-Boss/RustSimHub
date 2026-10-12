@@ -1,0 +1,392 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+#![forbid(unsafe_code)]
+//! Serialized by core on a blocking worker. No remote-supplied clock or role.
+mod identity;
+use ed25519_dalek::{Signature, VerifyingKey};
+pub use identity::Identity;
+use rustsimhub_policy::{allows, mask, Kind, Principal, Scope, ALL_SCOPES};
+use rustsimhub_storage::Handle;
+use serde::Serialize;
+use sha2::{Digest, Sha256};
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
+use zeroize::Zeroizing;
+
+pub type Result<T> = std::result::Result<T, Error>;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Error {
+    Io,
+    Entropy,
+    CorruptIdentity,
+    Storage,
+    Busy,
+    InvalidInput,
+    Forbidden,
+    Expired,
+    Replay,
+}
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "auth: {self:?}")
+    }
+}
+impl std::error::Error for Error {}
+impl From<rustsimhub_storage::Error> for Error {
+    fn from(_: rustsimhub_storage::Error) -> Self {
+        Self::Storage
+    }
+}
+
+const CHALLENGE_TTL: Duration = Duration::from_secs(60);
+const PAIR_TTL: Duration = Duration::from_secs(300);
+const SESSION_TTL: Duration = Duration::from_secs(900);
+const REAUTH_TTL: Duration = Duration::from_secs(300);
+
+#[derive(Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum Purpose {
+    Bootstrap,
+    Pair,
+    Login,
+}
+
+/// Sign the EXACT transcript bytes, never reconstructed JSON. It binds both keys and purpose.
+#[derive(Serialize)]
+pub struct Challenge {
+    pub id: String,
+    pub transcript: Vec<u8>,
+    pub device_signature: Vec<u8>,
+    pub expires_in_seconds: u32,
+}
+#[derive(Serialize)]
+struct Transcript<'a> {
+    domain: &'static str,
+    purpose: Purpose,
+    instance: &'a str,
+    challenge_id: &'a str,
+    device_public_key: [u8; 32],
+    client_public_key: [u8; 32],
+    kind: Kind,
+    scopes: u16,
+    generation: u64,
+}
+struct PendingChallenge {
+    challenge: Challenge,
+    key: [u8; 32],
+    kind: Kind,
+    scopes: u16,
+    generation: u64,
+    purpose: Purpose,
+    deadline: Instant,
+}
+struct Pairing {
+    key: [u8; 32],
+    kind: Kind,
+    scopes: u16,
+    deadline: Instant,
+}
+struct Session {
+    principal: Principal,
+    deadline: Instant,
+    authenticated: Instant,
+}
+/// Raw opaque token is returned once, and never Debug. Engine stores SHA-256 only.
+pub struct Token(Zeroizing<String>);
+impl Token {
+    pub fn expose(&self) -> &str {
+        &self.0
+    }
+}
+
+pub struct Auth {
+    identity: Identity,
+    store: Handle,
+    instance: String,
+    challenges: HashMap<String, PendingChallenge>,
+    pairings: HashMap<String, Pairing>,
+    sessions: HashMap<[u8; 32], Session>,
+    window: Option<Instant>,
+    budget: u32,
+    refill: Instant,
+}
+fn random_hex() -> Result<String> {
+    let mut bytes = Zeroizing::new([0u8; 32]);
+    getrandom::fill(bytes.as_mut()).map_err(|_| Error::Entropy)?;
+    Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
+}
+fn key_valid(key: &[u8; 32]) -> Result<VerifyingKey> {
+    let key = VerifyingKey::from_bytes(key).map_err(|_| Error::InvalidInput)?;
+    if key.is_weak() {
+        return Err(Error::InvalidInput);
+    }
+    Ok(key)
+}
+fn token_digest(token: &str) -> Result<[u8; 32]> {
+    if token.len() != 64
+        || !token
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(Error::Forbidden);
+    }
+    Ok(Sha256::digest(token.as_bytes()).into())
+}
+impl Auth {
+    pub fn new(identity: Identity, store: Handle) -> Result<Self> {
+        store.bind_identity(identity.public_key())?;
+        Ok(Self {
+            identity,
+            store,
+            instance: random_hex()?,
+            challenges: HashMap::new(),
+            pairings: HashMap::new(),
+            sessions: HashMap::new(),
+            window: None,
+            budget: 32,
+            refill: Instant::now(),
+        })
+    }
+    pub fn public_key(&self) -> [u8; 32] {
+        self.identity.public_key()
+    }
+    fn prune(&mut self, now: Instant) {
+        self.challenges.retain(|_, p| now < p.deadline);
+        self.pairings.retain(|_, p| now < p.deadline);
+        self.sessions.retain(|_, s| now < s.deadline);
+        if self.window.is_some_and(|d| now >= d) {
+            self.window = None;
+        }
+    }
+    fn rate_limit(&mut self, now: Instant) -> Result<()> {
+        let seconds = now.duration_since(self.refill).as_secs();
+        if seconds > 0 {
+            self.budget = (self.budget as u64 + seconds.min(32) * 8).min(32) as u32;
+            self.refill = now;
+        }
+        if self.budget == 0 {
+            return Err(Error::Busy);
+        }
+        self.budget -= 1;
+        self.prune(now);
+        Ok(())
+    }
+    fn challenge(
+        &mut self,
+        key: [u8; 32],
+        kind: Kind,
+        scopes: u16,
+        generation: u64,
+        purpose: Purpose,
+    ) -> Result<Challenge> {
+        self.rate_limit(Instant::now())?;
+        key_valid(&key)?;
+        if key == self.public_key() || self.challenges.len() >= 32 {
+            return Err(Error::Forbidden);
+        }
+        let id = random_hex()?;
+        let transcript = serde_json::to_vec(&Transcript {
+            domain: "RustSimHub.Auth.v1",
+            purpose,
+            instance: &self.instance,
+            challenge_id: &id,
+            device_public_key: self.public_key(),
+            client_public_key: key,
+            kind,
+            scopes,
+            generation,
+        })
+        .map_err(|_| Error::InvalidInput)?;
+        let reply = Challenge {
+            id: id.clone(),
+            device_signature: self.identity.sign(&transcript),
+            transcript: transcript.clone(),
+            expires_in_seconds: 60,
+        };
+        let saved = Challenge {
+            id: id.clone(),
+            transcript,
+            device_signature: vec![],
+            expires_in_seconds: 60,
+        };
+        self.challenges.insert(
+            id,
+            PendingChallenge {
+                challenge: saved,
+                key,
+                kind,
+                scopes,
+                generation,
+                purpose,
+                deadline: Instant::now() + CHALLENGE_TTL,
+            },
+        );
+        Ok(reply)
+    }
+    /// Offline provisioning API. It is deliberately absent from the IPC command enum.
+    pub fn bootstrap_challenge(&mut self, key: [u8; 32]) -> Result<Challenge> {
+        self.challenge(key, Kind::Owner, ALL_SCOPES, 0, Purpose::Bootstrap)
+    }
+    fn consume(
+        &mut self,
+        id: &str,
+        signature: &[u8],
+        purpose: Purpose,
+    ) -> Result<PendingChallenge> {
+        self.rate_limit(Instant::now())?;
+        if id.len() != 64 || signature.len() != 64 {
+            return Err(Error::InvalidInput);
+        }
+        // Take before verification: a bad proof consumes this nonce too.
+        let p = self.challenges.remove(id).ok_or(Error::Replay)?;
+        if p.purpose != purpose {
+            return Err(Error::Forbidden);
+        }
+        if Instant::now() >= p.deadline {
+            return Err(Error::Expired);
+        }
+        key_valid(&p.key)?
+            .verify_strict(
+                &p.challenge.transcript,
+                &Signature::from_slice(signature).map_err(|_| Error::InvalidInput)?,
+            )
+            .map_err(|_| Error::Forbidden)?;
+        Ok(p)
+    }
+    pub fn bootstrap_finish(&mut self, id: &str, signature: &[u8]) -> Result<Principal> {
+        let p = self.consume(id, signature, Purpose::Bootstrap)?;
+        Ok(self.store.bootstrap_owner(p.key)?)
+    }
+    pub fn login_challenge(&mut self, key: [u8; 32]) -> Result<Challenge> {
+        let p = self
+            .store
+            .principal(key)?
+            .filter(|p| p.active)
+            .ok_or(Error::Forbidden)?;
+        self.challenge(key, p.kind, p.scopes, p.generation, Purpose::Login)
+    }
+    pub fn login_finish(&mut self, id: &str, signature: &[u8]) -> Result<Token> {
+        let p = self.consume(id, signature, Purpose::Login)?;
+        let current = self
+            .store
+            .principal(p.key)?
+            .filter(|c| {
+                c.active && c.generation == p.generation && c.kind == p.kind && c.scopes == p.scopes
+            })
+            .ok_or(Error::Forbidden)?;
+        if self.sessions.len() >= 64 {
+            return Err(Error::Busy);
+        }
+        let token = Token(Zeroizing::new(random_hex()?));
+        let now = Instant::now();
+        self.sessions.insert(
+            token_digest(token.expose())?,
+            Session {
+                principal: current,
+                deadline: now + SESSION_TTL,
+                authenticated: now,
+            },
+        );
+        Ok(token)
+    }
+    pub fn authorize(&mut self, token: &str, scope: Scope) -> Result<Principal> {
+        self.prune(Instant::now());
+        let digest = token_digest(token)?;
+        let session = self.sessions.get(&digest).ok_or(Error::Forbidden)?;
+        let current = self
+            .store
+            .principal(session.principal.public_key)?
+            .filter(|p| p.active && *p == session.principal)
+            .ok_or(Error::Forbidden)?;
+        if !allows(current.scopes, scope) {
+            return Err(Error::Forbidden);
+        }
+        Ok(current)
+    }
+    fn owner(&mut self, token: &str) -> Result<Principal> {
+        let p = self.authorize(token, Scope::ClientsManage)?;
+        if p.kind != Kind::Owner {
+            return Err(Error::Forbidden);
+        }
+        let s = self
+            .sessions
+            .get(&token_digest(token)?)
+            .ok_or(Error::Forbidden)?;
+        if Instant::now().duration_since(s.authenticated) >= REAUTH_TTL {
+            return Err(Error::Expired);
+        }
+        Ok(p)
+    }
+    pub fn open_pairing(&mut self, owner_token: &str) -> Result<()> {
+        self.owner(owner_token)?;
+        // Reopening a window cancels old requests, even if their proofs were already supplied.
+        self.challenges.retain(|_, p| p.purpose != Purpose::Pair);
+        self.pairings.clear();
+        self.window = Some(Instant::now() + PAIR_TTL);
+        Ok(())
+    }
+    pub fn pairing_challenge(
+        &mut self,
+        key: [u8; 32],
+        kind: Kind,
+        scopes: &[Scope],
+    ) -> Result<Challenge> {
+        self.prune(Instant::now());
+        if self.window.is_none() || kind == Kind::Owner || self.store.principal(key)?.is_some() {
+            return Err(Error::Forbidden);
+        }
+        let scopes = mask(scopes).ok_or(Error::InvalidInput)?;
+        self.challenge(key, kind, scopes, 0, Purpose::Pair)
+    }
+    pub fn pairing_finish(&mut self, id: &str, signature: &[u8]) -> Result<String> {
+        let p = self.consume(id, signature, Purpose::Pair)?;
+        let deadline = self
+            .window
+            .filter(|d| Instant::now() < *d)
+            .ok_or(Error::Expired)?;
+        if self.pairings.len() >= 16 {
+            return Err(Error::Busy);
+        }
+        let id = random_hex()?;
+        self.pairings.insert(
+            id.clone(),
+            Pairing {
+                key: p.key,
+                kind: p.kind,
+                scopes: p.scopes,
+                deadline,
+            },
+        );
+        Ok(id)
+    }
+    /// Approval explicitly names the public key and exact permissions shown to the owner.
+    pub fn approve(
+        &mut self,
+        token: &str,
+        id: &str,
+        key: [u8; 32],
+        kind: Kind,
+        scopes: &[Scope],
+    ) -> Result<Principal> {
+        let owner = self.owner(token)?;
+        let p = self.pairings.remove(id).ok_or(Error::Replay)?;
+        if Instant::now() >= p.deadline || self.window.is_none() {
+            return Err(Error::Expired);
+        }
+        if p.key != key || p.kind != kind || Some(p.scopes) != mask(scopes) {
+            return Err(Error::Forbidden);
+        }
+        Ok(self.store.approve_client(owner, key, kind, p.scopes)?)
+    }
+    pub fn revoke(&mut self, token: &str, key: [u8; 32]) -> Result<()> {
+        let owner = self.owner(token)?;
+        self.store.revoke_client(owner, key)?;
+        self.sessions.retain(|_, s| s.principal.public_key != key);
+        self.challenges.retain(|_, p| p.key != key);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests;

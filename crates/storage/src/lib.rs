@@ -16,7 +16,8 @@ use std::{
 use uuid::Uuid;
 
 const APP_ID: i64 = 1381189698;
-const SCHEMA: i64 = 1;
+const SCHEMA: i64 = 2;
+mod auth;
 type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -449,6 +450,11 @@ impl Database {
             )?;
             tx.commit()?;
         }
+        if version < 2 {
+            let tx = db.connection.transaction()?;
+            tx.execute_batch(include_str!("auth.sql"))?;
+            tx.commit()?;
+        }
         let restoring = restore_marker.exists();
         db.recover(restoring)?;
         if restoring {
@@ -580,6 +586,8 @@ impl Database {
                 "UPDATE meta SET db_epoch=? WHERE singleton=1",
                 [Uuid::new_v4().to_string()],
             )?;
+            // Old backups may precede a revocation. Preserve ownership, quarantine ALL grants.
+            tx.execute("UPDATE principals SET active=0,generation=generation+1", [])?;
         }
         let pending: Vec<(String, i64)> = {
             let mut query = tx.prepare(

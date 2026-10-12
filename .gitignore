@@ -3,6 +3,9 @@
 /.private/
 *.pem
 *.key
+identity.seed
+identity.pending
+.identity.lock
 *.db
 *.db-*
 *.sqlite*

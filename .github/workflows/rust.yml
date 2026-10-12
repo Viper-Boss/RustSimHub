@@ -15,5 +15,7 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Test
         run: cargo test --workspace --all-features --locked
+      - name: Check production feature set
+        run: cargo check -p rustsimhub-core --no-default-features --locked
       - name: Lint
         run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings

@@ -11,6 +11,7 @@
 - [接手说明](docs/HANDOFF.md)
 - [首阶段接口边界](docs/architecture-foundation.md)
 - [SQLite 持久化与恢复](docs/storage.md)
+- [设备身份、配对和鉴权](docs/auth.md)
 
 ```sh
 cargo test --workspace --locked

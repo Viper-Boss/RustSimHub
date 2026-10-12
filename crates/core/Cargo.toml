@@ -7,15 +7,23 @@ license.workspace = true
 
 [features]
 default = []
-dev-fixtures = []
+dev-fixtures = ["dep:ed25519-dalek"]
 
 [dependencies]
 rustsimhub-domain = { path = "../domain" }
 rustsimhub-wire = { path = "../wire" }
 rustsimhub-storage = { path = "../storage" }
+rustsimhub-auth = { path = "../auth" }
+rustsimhub-policy = { path = "../policy" }
+ed25519-dalek = { version = "2.2", optional = true }
+
 serde.workspace = true
 serde_json.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus = { version = "5.19", default-features = false, features = ["tokio"] }
 tokio = { version = "1", features = ["rt", "net", "time", "io-util", "macros", "sync"] }
+
+[dev-dependencies]
+tempfile = "3"
+ed25519-dalek = "2.2"

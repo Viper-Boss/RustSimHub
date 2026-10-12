@@ -93,14 +93,14 @@ pub async fn probe_and_print() -> Result<()> {
     Ok(())
 }
 
-async fn read_frame(stream: &mut UnixStream) -> io::Result<Vec<u8>> {
+pub(crate) async fn read_frame(stream: &mut UnixStream) -> io::Result<Vec<u8>> {
     let len = check_len(stream.read_u32().await?)?;
     let mut body = vec![0; len];
     stream.read_exact(&mut body).await?;
     Ok(body)
 }
 
-async fn write_frame(stream: &mut UnixStream, body: &[u8]) -> io::Result<()> {
+pub(crate) async fn write_frame(stream: &mut UnixStream, body: &[u8]) -> io::Result<()> {
     if body.is_empty() || body.len() > MAX_FRAME {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
@@ -133,7 +133,7 @@ async fn handle(stream: &mut UnixStream) -> Result<()> {
 
 /// One request per connection. Restrictive private directory + SO_PEERCRED.
 /// No stale socket removal: a second daemon must not unlink a live socket.
-pub async fn serve(socket: &str, allowed_uid: u32) -> Result<()> {
+pub(crate) fn bind_listener(socket: &str) -> Result<UnixListener> {
     let parent = Path::new(socket).parent().ok_or("socket has no parent")?;
     let meta = std::fs::symlink_metadata(parent)?;
     if !meta.is_dir() || meta.permissions().mode() & 0o022 != 0 {
@@ -150,6 +150,10 @@ pub async fn serve(socket: &str, allowed_uid: u32) -> Result<()> {
         return Err("socket directory owner differs from daemon".into());
     }
     std::fs::set_permissions(socket, std::fs::Permissions::from_mode(0o660))?;
+    Ok(listener)
+}
+pub async fn serve(socket: &str, allowed_uid: u32) -> Result<()> {
+    let listener = bind_listener(socket)?;
     let limit = std::sync::Arc::new(Semaphore::new(8));
     loop {
         let (mut stream, _) = listener.accept().await?;
