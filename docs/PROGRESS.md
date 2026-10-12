@@ -1,11 +1,11 @@
 # 开发进度
 
-更新时间：2026-10-12 / P1 所有者恢复、客户端 CLI 和关闭重启完成实机验证，完整固件开发继续。
+更新时间：2026-10-13 / P2 SIM 观察与短信收件箱开始，完整固件开发继续。
 
-本轮继续：原 owner 的离线签名恢复、独立身份备份、Linux simhubctl、明确重新批准和鉴权 daemon 关闭/重启已实现。
-恢复不启用客户端；客户端必须重新证明并经 owner 精确批准。旧会话不能随重批复活。
-59 项测试、CI Clippy、ARM64 workspace 默认检查/构建及棒子完整 CLI/SIGTERM/SIGKILL 流程通过。
-实现见 [recovery-clients.md](recovery-clients.md)，证据见 [VALIDATION-RECOVERY-CLI-P1.md](VALIDATION-RECOVERY-CLI-P1.md)。
+本轮实现 SIM 单调观察期、设备用途隔离 HMAC 指纹、schema v3 收件箱与事务事件，以及受 scope/generation 保护的状态/短信读取 API 和 CLI。
+66 项测试与 CI Clippy 通过。实机发现 PIN2 与 SIM PIN 锁不同，已按 MM operational 语义修正并补测试。
+实机非 root 观察、已有 1 条完整入站短信持久化/读取、scope 拒绝和撤销后拒绝均通过。测试单元已停止，旧服务继续运行。
+实现与限制见 [sim-inbox.md](sim-inbox.md)，证据见 [VALIDATION-INBOX-P2.md](VALIDATION-INBOX-P2.md)。上一轮恢复/CLI 验证见 [VALIDATION-RECOVERY-CLI-P1.md](VALIDATION-RECOVERY-CLI-P1.md)。
 
 ## 已完成
 
@@ -22,6 +22,8 @@
 - 新增离线 owner CLI 和 v2 鉴权 UDS；token 只保存摘要，重启失效，撤销持久生效；真实业务写操作仍未开放。
 - 新增可信离线恢复、身份明文私有备份、独立客户端密钥/固定设备 pin/私有会话文件与 owner 管理 CLI。
 - 鉴权 daemon 支持 SIGTERM/SIGINT 排空、唯一 writer 关闭、运行锁、同路径重启和受限 stale socket 接管。
+- 增加显式只读观察 daemon、SIM 身份稳定门禁、原子换卡/outbox 隔离、完整入站短信和持久收件事件、32 条摘要分页及正文单独读取。
+- 不同对象的同内容短信保留并标注疑似重复；同对象同内容重复读取返回原记录，换卡保留旧历史。
 
 ## 验证状态
 
@@ -33,16 +35,18 @@
 - 上轮 47 项身份/权限测试及实机记录见 VALIDATION-AUTH-P1.md；本轮 59 项通过（auth 19、core 8、ctl 1、domain 7、policy 1、storage 19、wire 4）。CI：[38265061208](https://github.com/Viper-Boss/RustSimHub/actions/runs/38265061208)。
 - 最新开发 core 约 4.15 MiB、simhubctl 约 0.75 MiB，完成真实离线 CLI 恢复、重新批准/撤销、SIGTERM/SIGKILL 重启；仍不等同于完整性能或固件验收。
 - 板上旧服务仍承担业务，新代码没有拨号、发送短信、启用蜂窝数据或改写分区。
+- 最新源码 fdaf4c2：66 项通过（auth 21、core 10、ctl 1、domain 7、policy 1、storage 22、wire 4），CI：[38298747817](https://github.com/Viper-Boss/RustSimHub/actions/runs/38298747817)。NAS 默认 workspace 检查/release、自检及实机已有短信读取通过；最新开发 core 约 4.40 MiB，CLI 约 0.75 MiB。
 
 ## 阶段状态
 
 P0 硬件/恢复基线进行中：系统和权限已检查，备份及恢复入口未闭环。
 P1 基础工程进行中：纯规则、协议、持久化、公钥鉴权、恢复/客户端 CLI 与关闭重启已实现并验证；仍缺网页密码/TLS、最终用户设置 UI、完整开机部署和系统恢复。
-P2–P7 未开始。当前不是可刷写完整固件。
+P2 已开始：SIM 观察和短信接收/读取基础已实现；信号订阅、对象对账、实际 Send 尚未完成。
+P3–P7 未开始。当前不是可刷写完整固件。
 
 ## 下一步
 
-1. 在鉴权 core 接入受限业务 IPC 与 MM SIM/短信事件、观察期及真实对象对账；实际发送在最终执行点校验权限和持久提交。
+1. 接入 MM 信号订阅、断线重连、分批和逐对象错误隔离；完成换卡/历史短信/对象复用对账。Send 必须在最终执行点再次校验权限、ready/epoch 和持久 Submitting。
 2. 继续网页密码/TLS 与生产 systemd 集成，再推进通话；所有者遗失/变更及加密备份另行设计。
 3. 并行推进 P0 剩余证据：内核精确源码/补丁、完整私有恢复备份和恢复入口验证。完成前不刷 rootfs/boot。
 4. 按计划继续 MM 事件/短信、通话控制、音频 PoC、网络切换及系统镜像集成。

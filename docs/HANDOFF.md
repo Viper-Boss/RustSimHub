@@ -1,6 +1,6 @@
 # RustSimHub 接手入口
 
-先读 PROGRESS.md、VALIDATION-RECOVERY-CLI-P1.md、recovery-clients.md、VALIDATION-AUTH-P1.md、auth.md、VALIDATION-STORAGE-P1.md、storage.md、VALIDATION-P0-P1.md、HARDWARE-BASELINE.md、architecture-foundation.md，
+先读 PROGRESS.md、sim-inbox.md、VALIDATION-INBOX-P2.md、VALIDATION-RECOVERY-CLI-P1.md、recovery-clients.md、VALIDATION-AUTH-P1.md、auth.md、VALIDATION-STORAGE-P1.md、storage.md、VALIDATION-P0-P1.md、HARDWARE-BASELINE.md、architecture-foundation.md，
 再按 development-plan.md 的阶段顺序继续。GitHub：
 https://github.com/Viper-Boss/RustSimHub（私有）。
 
@@ -71,8 +71,8 @@ NAS 官方精简构建镜像没有 Clippy；Clippy -D warnings 在 GitHub CI（R
 真实 owner 尚未初始化。simhubctl 及可信离线恢复已完成，最终用户安全设置 UI 还待开发。
 恢复 DB 会隔离 owner；用原 owner 私钥及 --recover-owner 重新证明，不能删表重新 bootstrap。
 
-本轮源码检查点 7f69dd8；先读 recovery-clients.md 的命令、pin 与权限边界。
-最新 core/CLI 在本机 `.local/artifacts/{rustsimhub-core-recovery-p1,simhubctl-recovery-p1}`，
+上一轮源码检查点 7f69dd8；先读 recovery-clients.md 的命令、pin 与权限边界。
+上一轮 core/CLI 在本机 `.local/artifacts/{rustsimhub-core-recovery-p1,simhubctl-recovery-p1}`，
 NAS 当前 `src/target/release/{rustsimhub-core,simhubctl}`，棒子
 `/opt/rustsimhub/dev-recovery-p1/{rustsimhub-core,simhubctl}`，哈希见验证文档。
 tools/device-recovery-cli-smoke.sh 只生成新的私有合成目录，使用 FIFO 协调离线证明，不需要 Python/jq。
@@ -89,6 +89,22 @@ tools/verify-build-source.py 检查当前源包与 HEAD 字节，tools/audit-sou
 可检查已提交树的指定隐私模式；这不替代完整依赖/漏洞审查。
 
 ## 重要未完成项
+
+最新 Rust 源码检查点 `fdaf4c2efbdb7c3b194fda88fc60e131dc217c61`，66 项与 CI Clippy 通过。
+先读 sim-inbox.md 和 VALIDATION-INBOX-P2.md。`--serve-observing` 显式接入只读 modem，
+`--serve-authenticated` 仍适用于纯鉴权/合成验证。schema v3 与旧 v1/v2 自动迁移；启动重置 SIM ready，
+新进程/MM owner/SIM 变化重新隔离 epoch。PIN2/PUK2 在 operational 状态允许普通读取，不能自动解锁。
+SIM 指纹使用派生用途 key；观察器不持有 signing seed，也不争用鉴权锁。
+
+最新产物在本机 `.local/artifacts/{rustsimhub-core-inbox-p2,simhubctl-inbox-p2}`，
+NAS 当前 src/target/release 与棒子 `/opt/rustsimhub/dev-inbox-p2/`。哈希见验证文档；core 是 dev-fixtures 开发包。
+tools/device-inbox-smoke.sh 已通过非 root 实机读取已有 1 条完整入站短信、权限区分及撤销后正文/摘要拒绝。
+`rustsimhub-inbox-p2` 临时单元最终已停止，最长 90 秒；私有随机目录保留。
+detail.json/会话/原始诊断内容不能复制进 GitHub。测试不发送新短信，需要预先已有完整 modem 消息。
+
+下一步先接信号订阅、重连/分批和逐对象错误隔离，再完成历史短信和对象复用对账；
+真实发送的最终 ready/epoch、授权撤销与持久提交门禁尚未实现。轮询 ready 仅代表 SIM 身份观察稳定，
+不代表网络注册或电话/发送已验收。不要把内部 prepare/begin_submit 直接接到网络接口。
 
 - 系统恢复入口、完整备份和升级断电验证尚未完成；禁止直接替换现有 rootfs/boot。
 - domain 中短信对象仍是纯规则；真实 Send 必须通过已提交的 storage.begin_submit，且先完成身份/权限校验。
