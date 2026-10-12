@@ -123,6 +123,7 @@ pub(crate) async fn serve_until(
     tokio::pin!(stop);
     let result: Result<()> = loop {
         let accepted = tokio::select! {
+            biased;
             _=&mut stop=>break Ok(()),
             _=tasks.join_next(),if !tasks.is_empty()=>continue,
             accepted=listener.accept()=>accepted,
@@ -132,6 +133,9 @@ pub(crate) async fn serve_until(
             Err(e) => break Err(e.into()),
         };
         if stream.peer_cred().map(|c| c.uid()).ok() != Some(uid) {
+            continue;
+        }
+        if tasks.len() >= 8 {
             continue;
         }
         let permit = match limit.clone().try_acquire_owned() {
