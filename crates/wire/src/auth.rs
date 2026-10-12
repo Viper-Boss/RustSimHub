@@ -97,11 +97,7 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 return Err(invalid());
             }
         }
-        AuthCommand::PairChallenge { scopes, .. } => {
-            if scopes.len() > 10 {
-                return Err(invalid());
-            }
-        }
+        AuthCommand::PairChallenge { scopes, .. } if scopes.len() > 10 => return Err(invalid()),
         _ => {}
     }
     Ok(req)
