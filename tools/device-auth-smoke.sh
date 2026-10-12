@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+umask 077
 upload=/var/tmp/rustsimhub-core-auth-p1
 binary=/opt/rustsimhub/dev-auth-p1/rustsimhub-core
 test -f "$upload"

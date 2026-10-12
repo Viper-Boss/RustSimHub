@@ -55,6 +55,8 @@ restore 只支持离线恢复到新目录，恢复时在同一事务中生成新
 复制前先同步 .restore-pending 标记，只有完成隔离事务后才移除并同步目录。
 若进程在中途退出，下次 open 会依据标记继续执行隔离；空或损坏的部分副本会被保留并拒绝。
 旧 cursor 随 epoch 失效。真实基带对象关联与人工对账流程仍待实现。
+P1 身份模块新增 schema v2，从 v1 事务迁移且保留业务 cursor。
+恢复时隔离全部持久授权，防止旧备份复活已撤销的权限，详情和离线恢复限制见 auth.md。
 参考：[rusqlite Backup API](https://docs.rs/rusqlite/latest/rusqlite/backup/index.html)。
 
 ## 开发实机检查

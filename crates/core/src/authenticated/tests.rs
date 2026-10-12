@@ -92,11 +92,11 @@ async fn ipc_requires_proof_and_checks_revocation_even_from_same_uid() {
     )
     .await;
     let transcript: Vec<u8> = serde_json::from_value(c["transcript"].clone()).unwrap();
-    let proof = client.sign(&transcript).to_bytes().to_vec();
+    let client_proof = client.sign(&transcript).to_bytes().to_vec();
     let pending = round_trip(
         AuthCommand::PairProof {
             challenge_id: c["id"].as_str().unwrap().into(),
-            signature: proof,
+            signature: client_proof,
         },
         auth.clone(),
     )
