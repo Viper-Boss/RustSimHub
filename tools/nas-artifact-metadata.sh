@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 base=/mnt/docker-data/rustsimhub/p0
+test "$(docker inspect rustsimhub-build-p0 --format '{{.State.Status}}')" = exited
+test "$(docker inspect rustsimhub-build-p0 --format '{{.State.ExitCode}}')" = 0
 printf '\nBUILDER DIGEST\n'; cat "$base/builder-image.txt"
 printf '\nBUILD TOOLCHAIN\n'; head -n 2 "$base/build.log"
 printf '\nSOURCE ARCHIVE HASH\n'; sha256sum "$base/source.tar.gz"
