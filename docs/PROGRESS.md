@@ -1,11 +1,11 @@
 # 开发进度
 
-更新时间：2026-10-13 / P2 SIM 观察与短信收件箱开始，完整固件开发继续。
+更新时间：2026-10-13 / P2 事件订阅、重连与有界对象核对完成本轮验证，完整固件开发继续。
 
-本轮实现 SIM 单调观察期、设备用途隔离 HMAC 指纹、schema v3 收件箱与事务事件，以及受 scope/generation 保护的状态/短信读取 API 和 CLI。
-66 项测试与 CI Clippy 通过。实机发现 PIN2 与 SIM PIN 锁不同，已按 MM operational 语义修正并补测试。
-实机非 root 观察、已有 1 条完整入站短信持久化/读取、scope 拒绝和撤销后拒绝均通过。测试单元已停止，旧服务继续运行。
-实现与限制见 [sim-inbox.md](sim-inbox.md)，证据见 [VALIDATION-INBOX-P2.md](VALIDATION-INBOX-P2.md)。上一轮恢复/CLI 验证见 [VALIDATION-RECOVERY-CLI-P1.md](VALIDATION-RECOVERY-CLI-P1.md)。
+本轮完成唯一 MM owner 信号订阅、连接重试、有界批次/逐对象隔离、路径 incarnation、执行前 SQLite 门禁和受鉴权保护的观察计数。
+73 项测试及 CI Clippy 全部通过，私有 D-Bus 模拟覆盖坏对象、路径复用、SIM 信号和连接关闭。
+实机订阅、已有 1 条短信读取、周期修复和撤销拒绝通过；测试单元已停止，旧服务/网络正常。空闲 RSS 样本约 6.27 MiB。
+实现见 [observer-events.md](observer-events.md)，证据见 [VALIDATION-OBSERVER-P2.md](VALIDATION-OBSERVER-P2.md)。旧阶段记录保留。
 
 ## 已完成
 
@@ -25,6 +25,9 @@
 - 增加显式只读观察 daemon、SIM 身份稳定门禁、原子换卡/outbox 隔离、完整入站短信和持久收件事件、32 条摘要分页及正文单独读取。
 - 不同对象的同内容短信保留并标注疑似重复；同对象同内容重复读取返回原记录，换卡保留旧历史。
 
+- 本轮增加独立持续监听任务、owner/连接失效代次、有界目录/路径提示与公平批次；同路径删除/复用或完整内容变化保留新记录。
+- 单写者在状态/正文写入执行前检查观察 gate，监听器关闭或代次失效的排队任务拒绝。
+
 ## 验证状态
 
 - Windows 格式化执行成功。Windows 原生编译未通过：MSVC link.exe 未安装。
@@ -37,16 +40,18 @@
 - 板上旧服务仍承担业务，新代码没有拨号、发送短信、启用蜂窝数据或改写分区。
 - 最新源码 fdaf4c2：66 项通过（auth 21、core 10、ctl 1、domain 7、policy 1、storage 22、wire 4），CI：[38298747817](https://github.com/Viper-Boss/RustSimHub/actions/runs/38298747817)。NAS 默认 workspace 检查/release、自检及实机已有短信读取通过；最新开发 core 约 4.40 MiB，CLI 约 0.75 MiB。
 
+- 最新源码 31be30a：73 项（auth 21、core 16、ctl 1、domain 7、policy 1、storage 23、wire 4），CI [38316851912](https://github.com/Viper-Boss/RustSimHub/actions/runs/38316851912) 成功；NAS 默认检查/release、实机订阅与周期修复通过。最新 core 约 4.52 MiB，CLI 约 0.75 MiB。
+
 ## 阶段状态
 
 P0 硬件/恢复基线进行中：系统和权限已检查，备份及恢复入口未闭环。
 P1 基础工程进行中：纯规则、协议、持久化、公钥鉴权、恢复/客户端 CLI 与关闭重启已实现并验证；仍缺网页密码/TLS、最终用户设置 UI、完整开机部署和系统恢复。
-P2 已开始：SIM 观察和短信接收/读取基础已实现；信号订阅、对象对账、实际 Send 尚未完成。
+P2 进行中：SIM 观察、接收/读取、信号订阅、重连、分批和可观察对象复用已实现；历史归属/歧义、真实 Send 和更多硬件验收未完成。
 P3–P7 未开始。当前不是可刷写完整固件。
 
 ## 下一步
 
-1. 接入 MM 信号订阅、断线重连、分批和逐对象错误隔离；完成换卡/历史短信/对象复用对账。Send 必须在最终执行点再次校验权限、ready/epoch 和持久 Submitting。
+1. 推进 SmsSend 最终门禁、持久 Submitting、Create/Send 对象关联与 Unknown 查询恢复；补充历史归属/歧义和硬件验收，不能自动重发。
 2. 继续网页密码/TLS 与生产 systemd 集成，再推进通话；所有者遗失/变更及加密备份另行设计。
 3. 并行推进 P0 剩余证据：内核精确源码/补丁、完整私有恢复备份和恢复入口验证。完成前不刷 rootfs/boot。
 4. 按计划继续 MM 事件/短信、通话控制、音频 PoC、网络切换及系统镜像集成。

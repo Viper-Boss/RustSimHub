@@ -1,6 +1,6 @@
 # RustSimHub 接手入口
 
-先读 PROGRESS.md、sim-inbox.md、VALIDATION-INBOX-P2.md、VALIDATION-RECOVERY-CLI-P1.md、recovery-clients.md、VALIDATION-AUTH-P1.md、auth.md、VALIDATION-STORAGE-P1.md、storage.md、VALIDATION-P0-P1.md、HARDWARE-BASELINE.md、architecture-foundation.md，
+先读 PROGRESS.md、observer-events.md、VALIDATION-OBSERVER-P2.md、sim-inbox.md、VALIDATION-INBOX-P2.md、VALIDATION-RECOVERY-CLI-P1.md、recovery-clients.md、VALIDATION-AUTH-P1.md、auth.md、VALIDATION-STORAGE-P1.md、storage.md、VALIDATION-P0-P1.md、HARDWARE-BASELINE.md、architecture-foundation.md，
 再按 development-plan.md 的阶段顺序继续。GitHub：
 https://github.com/Viper-Boss/RustSimHub（私有）。
 
@@ -90,19 +90,19 @@ tools/verify-build-source.py 检查当前源包与 HEAD 字节，tools/audit-sou
 
 ## 重要未完成项
 
-最新 Rust 源码检查点 `fdaf4c2efbdb7c3b194fda88fc60e131dc217c61`，66 项与 CI Clippy 通过。
+上一收件箱 Rust 源码检查点 `fdaf4c2efbdb7c3b194fda88fc60e131dc217c61`，66 项与 CI Clippy 通过。
 先读 sim-inbox.md 和 VALIDATION-INBOX-P2.md。`--serve-observing` 显式接入只读 modem，
 `--serve-authenticated` 仍适用于纯鉴权/合成验证。schema v3 与旧 v1/v2 自动迁移；启动重置 SIM ready，
 新进程/MM owner/SIM 变化重新隔离 epoch。PIN2/PUK2 在 operational 状态允许普通读取，不能自动解锁。
 SIM 指纹使用派生用途 key；观察器不持有 signing seed，也不争用鉴权锁。
 
-最新产物在本机 `.local/artifacts/{rustsimhub-core-inbox-p2,simhubctl-inbox-p2}`，
+上一收件箱产物在本机 `.local/artifacts/{rustsimhub-core-inbox-p2,simhubctl-inbox-p2}`，
 NAS 当前 src/target/release 与棒子 `/opt/rustsimhub/dev-inbox-p2/`。哈希见验证文档；core 是 dev-fixtures 开发包。
 tools/device-inbox-smoke.sh 已通过非 root 实机读取已有 1 条完整入站短信、权限区分及撤销后正文/摘要拒绝。
 `rustsimhub-inbox-p2` 临时单元最终已停止，最长 90 秒；私有随机目录保留。
 detail.json/会话/原始诊断内容不能复制进 GitHub。测试不发送新短信，需要预先已有完整 modem 消息。
 
-下一步先接信号订阅、重连/分批和逐对象错误隔离，再完成历史短信和对象复用对账；
+本轮已接信号订阅、重连/分批和逐对象错误隔离，以及可观察的对象 incarnation；继续处理历史归属和歧义复用；
 真实发送的最终 ready/epoch、授权撤销与持久提交门禁尚未实现。轮询 ready 仅代表 SIM 身份观察稳定，
 不代表网络注册或电话/发送已验收。不要把内部 prepare/begin_submit 直接接到网络接口。
 
@@ -111,3 +111,16 @@ detail.json/会话/原始诊断内容不能复制进 GitHub。测试不发送新
 - call grant 不是认证 token；禁止直接暴露给未认证远端使用。
 - P0 的 MM 能力探测不代表来电/发短信/双向声音已验收。
 - TLS/密码、最终用户设置 UI、生产系统单元、加密/异机身份备份与完整硬件恢复还未完成。
+
+最新 Rust 源码检查点 `31be30a805be626b913b099b3f76823378d518bf`，73 项与 CI Clippy 通过。
+先读 observer-events.md / VALIDATION-OBSERVER-P2.md。基于唯一 owner 的监听任务持续消费，
+关键通知取消读取；SQLite 单写者通过本地回调再次检查 fence 和监听器存活，不能对网络暴露回调或绕过身份授权。
+目录最多 4096、每批 16、对象读取 1 秒/整轮 30 秒；正常路径每 10 秒修复，重连退避最多 30 秒。
+SIM 身份变动或 owner/连接丢失清空绑定路径；Added/Deleted/目录消失或正文变化保留新的 source incarnation。
+line_status 新增受 status_read 保护的 observer 计数，不包含路径和短信内容。
+
+最新产物本机 `.local/artifacts/{rustsimhub-core-observer-p2,simhubctl-observer-p2}`、NAS 当前 target/release，
+棒子 `/opt/rustsimhub/dev-observer-p2/`；core 含 dev-fixtures，私有模拟服务仅 cfg(test) 存在。
+tools/device-observer-smoke.sh 通过实际订阅、已有 1 条短信读取、周期修复无错误、权限撤销与 SIGTERM 后 DB 重开。
+临时 rustsimhub-observer-p2 最长 150 秒，最终已停止；空闲 RSS 6420 kB 样本不替代性能验收。
+下一步做 SmsSend 的最终权限/线路门禁、持久 Submitting、Create/Send 对账和 Unknown 恢复；不能直接使用内部 legacy begin_submit。

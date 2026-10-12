@@ -14,6 +14,7 @@
 - [设备身份、配对和鉴权](docs/auth.md)
 - [所有者恢复、客户端 CLI 与 core 生命周期](docs/recovery-clients.md)
 - [SIM 观察与短信收件箱](docs/sim-inbox.md)
+- [事件订阅、重连与短信对象核对](docs/observer-events.md)
 
 ```sh
 cargo test --workspace --locked
