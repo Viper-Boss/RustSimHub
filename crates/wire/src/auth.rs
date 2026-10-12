@@ -31,6 +31,12 @@ pub enum AuthCommand {
     OpenPairing {
         token: String,
     },
+    PendingPairings {
+        token: String,
+    },
+    Clients {
+        token: String,
+    },
     PairChallenge {
         public_key: [u8; 32],
         kind: Kind,
@@ -82,6 +88,8 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         AuthCommand::Health { token }
         | AuthCommand::Capabilities { token }
         | AuthCommand::OpenPairing { token }
+        | AuthCommand::PendingPairings { token }
+        | AuthCommand::Clients { token }
         | AuthCommand::Revoke { token, .. } => {
             if token.len() != 64 {
                 return Err(invalid());

@@ -9,3 +9,9 @@ printf '\nSOURCE ARCHIVE HASH\n'; sha256sum "$base/source.tar.gz"
 printf '\nARTIFACT\n'; sha256sum "$base/src/target/release/rustsimhub-core"
 stat -c 'size_bytes=%s' "$base/src/target/release/rustsimhub-core"
 file "$base/src/target/release/rustsimhub-core" 2>/dev/null || true
+if test -f "$base/src/target/release/simhubctl"; then
+    printf '\nCLIENT CLI ARTIFACT\n'
+    sha256sum "$base/src/target/release/simhubctl"
+    stat -c 'size_bytes=%s' "$base/src/target/release/simhubctl"
+    file "$base/src/target/release/simhubctl" 2>/dev/null || true
+fi

@@ -66,6 +66,59 @@ fn insert(conn: &Connection, key: [u8; 32], kind: Kind, scopes: u16) -> Result<P
     principal(conn, &key)?.ok_or(Error::Database)
 }
 impl Handle {
+    pub fn identity_public_key(&self) -> Result<Option<[u8; 32]>> {
+        self.call(|db| {
+            let key: Option<Vec<u8>> = db
+                .connection
+                .query_row(
+                    "SELECT public_key FROM device_identity WHERE singleton=1",
+                    [],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            key.map(|key| key.try_into().map_err(|_| Error::Corrupt))
+                .transpose()
+        })
+    }
+    pub fn principals(&self) -> Result<Vec<Principal>> {
+        self.call(|db| {
+            let keys: Vec<Vec<u8>> = db
+                .connection
+                .prepare("SELECT public_key FROM principals ORDER BY id LIMIT 65")?
+                .query_map([], |r| r.get(0))?
+                .collect::<std::result::Result<_, _>>()?;
+            if keys.len() > 64 {
+                return Err(Error::Corrupt);
+            }
+            keys.into_iter()
+                .map(|k| {
+                    let key: [u8; 32] = k.try_into().map_err(|_| Error::Corrupt)?;
+                    principal(&db.connection, &key)?.ok_or(Error::Corrupt)
+                })
+                .collect()
+        })
+    }
+    /// Trusted offline recovery ONLY; possession proof must bind this exact generation.
+    pub fn recover_owner(&self, expected: Principal) -> Result<Principal> {
+        self.call(move |db| {
+            let tx = db.connection.transaction()?;
+            let prior = principal(&tx, &expected.public_key)?.ok_or(Error::Forbidden)?;
+            if prior != expected
+                || prior.kind != Kind::Owner
+                || prior.active
+                || prior.scopes != ALL_SCOPES
+            {
+                return Err(Error::Forbidden);
+            }
+            tx.execute(
+                "UPDATE principals SET active=1,generation=generation+1 WHERE public_key=?",
+                [prior.public_key.as_slice()],
+            )?;
+            let updated = principal(&tx, &prior.public_key)?.ok_or(Error::Database)?;
+            tx.commit()?;
+            Ok(updated)
+        })
+    }
     /// Identity file is independent of DB backup. Mismatches never silently rotate identity.
     pub fn bind_identity(&self, key: [u8; 32]) -> Result<()> {
         self.call(move |db| {
@@ -112,13 +165,31 @@ impl Handle {
         kind: Kind,
         scopes: u16,
     ) -> Result<Principal> {
+        self.approve_client_if(owner, key, kind, scopes, 0)
+    }
+    /// Fresh proof and owner approval required even when reauthorizing a known inactive key.
+    pub fn approve_client_if(
+        &self,
+        owner: Principal,
+        key: [u8; 32],
+        kind: Kind,
+        scopes: u16,
+        expected_generation: u64,
+    ) -> Result<Principal> {
         if kind == Kind::Owner || scopes == 0 || scopes & !ALL_SCOPES != 0 {
             return Err(Error::InvalidInput);
         }
         self.call(move |db| {
             let tx = db.connection.transaction()?;
             checked_owner(&tx, &owner)?;
-            let p = insert(&tx, key, kind, scopes)?;
+            let p = if expected_generation==0 {
+                insert(&tx,key,kind,scopes)?
+            } else {
+                let prior=principal(&tx,&key)?.ok_or(Error::Forbidden)?;
+                if prior.active || prior.kind==Kind::Owner || prior.generation!=expected_generation { return Err(Error::Forbidden); }
+                tx.execute("UPDATE principals SET active=1,generation=generation+1,kind=?,scopes=? WHERE public_key=?",params![kind_text(kind),scopes,key.as_slice()])?;
+                principal(&tx,&key)?.ok_or(Error::Database)?
+            };
             tx.commit()?;
             Ok(p)
         })

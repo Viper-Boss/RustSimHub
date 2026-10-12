@@ -6,6 +6,10 @@
 identity.seed
 identity.pending
 .identity.lock
+client.seed
+client.pending
+.client.lock
+*.session.json
 *.db
 *.db-*
 *.sqlite*

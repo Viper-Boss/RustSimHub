@@ -4,6 +4,209 @@ use ed25519_dalek::{Signer, SigningKey};
 use rustsimhub_storage::Store;
 use std::{fs, path::Path};
 use tempfile::TempDir;
+
+#[test]
+fn recovery_reenables_only_original_owner_after_fresh_possession_proof() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let i = directory();
+    let mut a = start(i.path(), &s);
+    let o = SigningKey::from_bytes(&[51; 32]);
+    let ckey = SigningKey::from_bytes(&[52; 32]);
+    let t = owner(&mut a, &o);
+    pair(&mut a, &t, &ckey, Kind::Nas, &[Scope::StatusRead]);
+    let backup = directory();
+    let target = directory();
+    s.handle().backup(backup.path()).unwrap();
+    a.revoke(t.expose(), ckey.verifying_key().to_bytes())
+        .unwrap();
+    let restored = Store::restore(backup.path(), target.path()).unwrap();
+    let mut b = Auth::open(i.path(), restored.handle()).unwrap();
+    assert!(b
+        .recovery_challenge(ckey.verifying_key().to_bytes())
+        .is_err());
+    assert!(b
+        .recovery_challenge(SigningKey::from_bytes(&[53; 32]).verifying_key().to_bytes())
+        .is_err());
+    let c = b.recovery_challenge(o.verifying_key().to_bytes()).unwrap();
+    assert!(b.recovery_finish(&c.id, &sign(&c, &ckey)).is_err());
+    assert!(b.recovery_finish(&c.id, &sign(&c, &o)).is_err());
+    let c = b.recovery_challenge(o.verifying_key().to_bytes()).unwrap();
+    let recovered = b.recovery_finish(&c.id, &sign(&c, &o)).unwrap();
+    assert_eq!(recovered.kind, Kind::Owner);
+    assert!(recovered.active);
+    assert_eq!(recovered.generation, 3);
+    assert!(b.recovery_finish(&c.id, &sign(&c, &o)).is_err());
+    assert!(b.recovery_challenge(o.verifying_key().to_bytes()).is_err());
+    assert!(b.login_challenge(ckey.verifying_key().to_bytes()).is_err());
+    let renewed = login(&mut b, &o);
+    assert_eq!(
+        b.clients(renewed.expose())
+            .unwrap()
+            .iter()
+            .filter(|p| p.active)
+            .count(),
+        1
+    );
+    assert!(b.authorize(t.expose(), Scope::StatusRead).is_err());
+    pair(&mut b, &renewed, &ckey, Kind::Nas, &[Scope::StatusRead]);
+    let reauthorized = login(&mut b, &ckey);
+    assert!(b
+        .authorize(reauthorized.expose(), Scope::StatusRead)
+        .is_ok());
+}
+#[test]
+fn explicit_reapproval_invalidates_old_sessions_and_rejects_stale_proofs() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let i = directory();
+    let mut a = start(i.path(), &s);
+    let o = SigningKey::from_bytes(&[54; 32]);
+    let k = SigningKey::from_bytes(&[55; 32]);
+    let key = k.verifying_key().to_bytes();
+    let t = owner(&mut a, &o);
+    pair(&mut a, &t, &k, Kind::Nas, &[Scope::StatusRead]);
+    let old = login(&mut a, &k);
+    a.revoke(t.expose(), key).unwrap();
+    a.open_pairing(t.expose()).unwrap();
+    let c = a
+        .pairing_challenge(key, Kind::Nas, &[Scope::StatusRead])
+        .unwrap();
+    let id = a.pairing_finish(&c.id, &sign(&c, &k)).unwrap();
+    let p = a.authorize(t.expose(), Scope::ClientsManage).unwrap();
+    s.handle().revoke_client(p, key).unwrap();
+    assert!(a
+        .approve(t.expose(), &id, key, Kind::Nas, &[Scope::StatusRead])
+        .is_err());
+    assert!(a.pending_pairings(t.expose()).unwrap().is_empty());
+    pair(&mut a, &t, &k, Kind::Nas, &[Scope::StatusRead]);
+    assert!(a.authorize(old.expose(), Scope::StatusRead).is_err());
+    let new = login(&mut a, &k);
+    assert!(a.authorize(new.expose(), Scope::StatusRead).is_ok());
+    assert!(a.clients(new.expose()).is_err());
+}
+#[test]
+fn client_checks_pin_purpose_key_and_scope_before_signing() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let i = directory();
+    let mut a = start(i.path(), &s);
+    let kdir = directory();
+    let k = ClientKey::create(kdir.path()).unwrap();
+    let c = a.bootstrap_challenge(k.public_key()).unwrap();
+    let pin = a.public_key();
+    assert!(k
+        .prove(
+            &c,
+            SigningKey::from_bytes(&[56; 32]).verifying_key().to_bytes(),
+            ProofExpectation::Bootstrap
+        )
+        .is_err());
+    assert!(k.prove(&c, pin, ProofExpectation::Login).is_err());
+    assert!(ClientKey::create(directory().path())
+        .unwrap()
+        .prove(&c, pin, ProofExpectation::Bootstrap)
+        .is_err());
+    let proof = k.prove(&c, pin, ProofExpectation::Bootstrap).unwrap();
+    a.bootstrap_finish(&c.id, &proof).unwrap();
+    let c = a.login_challenge(k.public_key()).unwrap();
+    let proof = k.prove(&c, pin, ProofExpectation::Login).unwrap();
+    let t = a.login_finish(&c.id, &proof).unwrap();
+    a.open_pairing(t.expose()).unwrap();
+    let other = ClientKey::create(directory().path()).unwrap();
+    let c = a
+        .pairing_challenge(other.public_key(), Kind::Nas, &[Scope::StatusRead])
+        .unwrap();
+    assert!(other
+        .prove(
+            &c,
+            pin,
+            ProofExpectation::Pair {
+                kind: Kind::Client,
+                scopes: 1
+            }
+        )
+        .is_err());
+    assert!(other
+        .prove(
+            &c,
+            pin,
+            ProofExpectation::Pair {
+                kind: Kind::Nas,
+                scopes: 4
+            }
+        )
+        .is_err());
+    assert!(other
+        .prove(
+            &c,
+            pin,
+            ProofExpectation::Pair {
+                kind: Kind::Nas,
+                scopes: 1
+            }
+        )
+        .is_ok());
+    let mut c = c;
+    c.id = "a".repeat(64);
+    assert!(other
+        .prove(
+            &c,
+            pin,
+            ProofExpectation::Pair {
+                kind: Kind::Nas,
+                scopes: 1
+            }
+        )
+        .is_err());
+}
+#[test]
+fn client_key_missing_load_and_cross_role_seed_are_rejected() {
+    let d = directory();
+    assert!(ClientKey::load(d.path()).is_err());
+    assert!(!d.path().join("client.seed").exists());
+    let k = ClientKey::create(d.path()).unwrap();
+    assert_eq!(
+        ClientKey::load(d.path()).unwrap().public_key(),
+        k.public_key()
+    );
+    let other = directory();
+    Identity::open(other.path()).unwrap();
+    fs::copy(
+        other.path().join("identity.seed"),
+        d.path().join("client.seed"),
+    )
+    .unwrap();
+    assert!(matches!(
+        ClientKey::load(d.path()),
+        Err(Error::CorruptIdentity)
+    ));
+}
+#[test]
+fn bound_database_never_generates_a_replacement_missing_identity() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let i = directory();
+    let a = Auth::open(i.path(), s.handle()).unwrap();
+    let key = a.public_key();
+    drop(a);
+    fs::remove_file(i.path().join("identity.seed")).unwrap();
+    assert!(Auth::open(i.path(), s.handle()).is_err());
+    assert!(!i.path().join("identity.seed").exists());
+    assert_eq!(s.handle().identity_public_key().unwrap(), Some(key));
+}
+#[test]
+fn private_identity_backup_reloads_without_overwrite() {
+    let i = directory();
+    let identity = Identity::open(i.path()).unwrap();
+    let backup = directory();
+    identity.backup(backup.path()).unwrap();
+    assert_eq!(
+        Identity::load(backup.path()).unwrap().public_key(),
+        identity.public_key()
+    );
+    assert!(identity.backup(backup.path()).is_err());
+}
 fn directory() -> TempDir {
     let d = tempfile::tempdir().unwrap();
     #[cfg(unix)]

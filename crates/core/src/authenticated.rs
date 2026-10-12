@@ -10,11 +10,7 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use tokio::{
-    net::{UnixListener, UnixStream},
-    sync::Semaphore,
-    time::timeout,
-};
+use tokio::{net::UnixStream, sync::Semaphore, time::timeout};
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth::Result<Value> {
@@ -44,6 +40,10 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
             auth.open_pairing(&token)?;
             json!({"ok":true,"expires_in_seconds":300})
         }
+        PendingPairings { token } => serde_json::to_value(auth.pending_pairings(&token)?)
+            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        Clients { token } => serde_json::to_value(auth.clients(&token)?)
+            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
         PairChallenge {
             public_key,
             kind,
@@ -94,19 +94,44 @@ pub(crate) async fn handle(stream: &mut UnixStream, auth: Arc<Mutex<Auth>>) -> R
     Ok(())
 }
 pub async fn serve(socket: &str, uid: u32, state: &str, identity: &str) -> Result<()> {
+    use tokio::signal::unix::{signal, SignalKind};
+    let mut term = signal(SignalKind::terminate())?;
+    let mut interrupt = signal(SignalKind::interrupt())?;
+    serve_until(socket, uid, state, identity, async move {
+        tokio::select! { _=term.recv()=>{},_=interrupt.recv()=>{} }
+    })
+    .await
+}
+pub(crate) async fn serve_until(
+    socket: &str,
+    uid: u32,
+    state: &str,
+    identity: &str,
+    stop: impl std::future::Future<Output = ()>,
+) -> Result<()> {
     let (state, identity) = (state.to_owned(), identity.to_owned());
     let (store, auth) = tokio::task::spawn_blocking(move || -> rustsimhub_auth::Result<_> {
         let store = Store::open(state)?;
-        let auth = Auth::new(Identity::open(identity)?, store.handle())?;
+        let auth = Auth::open(identity, store.handle())?;
         Ok((store, Arc::new(Mutex::new(auth))))
     })
     .await??;
-    let listener: UnixListener = crate::linux::bind_listener(socket)?;
+    let (listener, runtime) =
+        crate::socket_runtime::SocketRuntime::bind(std::path::Path::new(socket))?;
     let limit = Arc::new(Semaphore::new(8));
-    let _store = store; // Sole DB writer stays alive for the entire daemon lifetime.
-    loop {
-        let (mut stream, _) = listener.accept().await?;
-        if stream.peer_cred()?.uid() != uid {
+    let mut tasks = tokio::task::JoinSet::new();
+    tokio::pin!(stop);
+    let result: Result<()> = loop {
+        let accepted = tokio::select! {
+            _=&mut stop=>break Ok(()),
+            _=tasks.join_next(),if !tasks.is_empty()=>continue,
+            accepted=listener.accept()=>accepted,
+        };
+        let (mut stream, _) = match accepted {
+            Ok(s) => s,
+            Err(e) => break Err(e.into()),
+        };
+        if stream.peer_cred().map(|c| c.uid()).ok() != Some(uid) {
             continue;
         }
         let permit = match limit.clone().try_acquire_owned() {
@@ -114,14 +139,35 @@ pub async fn serve(socket: &str, uid: u32, state: &str, identity: &str) -> Resul
             Err(_) => continue,
         };
         let auth = auth.clone();
-        tokio::spawn(async move {
+        tasks.spawn(async move {
             let _ = timeout(Duration::from_secs(15), handle(&mut stream, auth)).await;
             drop(permit);
         });
+    };
+    drop(listener); // Stop admission before draining outstanding work.
+    if timeout(Duration::from_secs(16), async {
+        while tasks.join_next().await.is_some() {}
+    })
+    .await
+    .is_err()
+    {
+        tasks.abort_all();
+        while tasks.join_next().await.is_some() {}
     }
+    // Outstanding blocking handlers may finish; Store processes queued jobs before closing.
+    drop(auth);
+    tokio::task::spawn_blocking(move || drop(store)).await?;
+    drop(runtime); // Unlink only our inode, after the single writer has closed.
+    result
 }
 /// Explicit offline terminal provisioning. No bootstrap operation is accepted over IPC.
 pub fn provision(state: &str, identity: &str, key: &str) -> Result<()> {
+    offline_owner(state, identity, key, false)
+}
+pub fn recover_owner(state: &str, identity: &str, key: &str) -> Result<()> {
+    offline_owner(state, identity, key, true)
+}
+fn offline_owner(state: &str, identity: &str, key: &str, recover: bool) -> Result<()> {
     if key.len() != 64 || !key.bytes().all(|b| b.is_ascii_hexdigit()) {
         return Err("invalid public key".into());
     }
@@ -131,8 +177,12 @@ pub fn provision(state: &str, identity: &str, key: &str) -> Result<()> {
             .map_err(|_| "invalid public key")?;
     }
     let store = Store::open(state)?;
-    let mut auth = Auth::new(Identity::open(identity)?, store.handle())?;
-    let challenge = auth.bootstrap_challenge(public)?;
+    let mut auth = Auth::open(identity, store.handle())?;
+    let challenge = if recover {
+        auth.recovery_challenge(public)?
+    } else {
+        auth.bootstrap_challenge(public)?
+    };
     println!("{}", serde_json::to_string(&challenge)?);
     std::io::stdout().flush()?;
     let mut input = String::new();
@@ -141,8 +191,20 @@ pub fn provision(state: &str, identity: &str, key: &str) -> Result<()> {
         return Err("proof too large".into());
     }
     let signature: Vec<u8> = serde_json::from_str(&input).map_err(|_| "invalid proof")?;
-    auth.bootstrap_finish(&challenge.id, &signature)?;
-    println!("{}", json!({"ok":true,"owner_initialized":true}));
+    if recover {
+        auth.recovery_finish(&challenge.id, &signature)?;
+    } else {
+        auth.bootstrap_finish(&challenge.id, &signature)?;
+    }
+    println!(
+        "{}",
+        json!({"ok":true,"owner_initialized":!recover,"owner_recovered":recover})
+    );
+    Ok(())
+}
+pub fn backup_identity(identity: &str, backup: &str) -> Result<()> {
+    Identity::load(identity)?.backup(backup)?;
+    println!("{}", json!({"ok":true,"private_identity_backup":true}));
     Ok(())
 }
 /// Request JSON comes from bounded stdin; tokens are never command-line arguments.

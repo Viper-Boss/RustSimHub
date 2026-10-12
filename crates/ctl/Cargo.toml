@@ -1,0 +1,24 @@
+[package]
+name = "rustsimhub-ctl"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "simhubctl"
+path = "src/main.rs"
+
+[dependencies]
+rustsimhub-auth = { path = "../auth" }
+rustsimhub-policy = { path = "../policy" }
+rustsimhub-wire = { path = "../wire" }
+serde.workspace = true
+serde_json.workspace = true
+zeroize = "1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+tokio = { version = "1", features = ["rt","time","net","io-util"] }
+
+[dev-dependencies]
+tempfile = "3"

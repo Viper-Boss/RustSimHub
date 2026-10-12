@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 #![forbid(unsafe_code)]
 //! Serialized by core on a blocking worker. No remote-supplied clock or role.
+mod client;
 mod identity;
+pub use client::{ClientKey, ProofExpectation};
 use ed25519_dalek::{Signature, VerifyingKey};
 pub use identity::Identity;
+pub use identity::{read_private, write_private_new};
 use rustsimhub_policy::{allows, mask, Kind, Principal, Scope, ALL_SCOPES};
 use rustsimhub_storage::Handle;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
@@ -44,16 +47,18 @@ const PAIR_TTL: Duration = Duration::from_secs(300);
 const SESSION_TTL: Duration = Duration::from_secs(900);
 const REAUTH_TTL: Duration = Duration::from_secs(300);
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum Purpose {
     Bootstrap,
     Pair,
     Login,
+    RecoverOwner,
 }
 
 /// Sign the EXACT transcript bytes, never reconstructed JSON. It binds both keys and purpose.
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Challenge {
     pub id: String,
     pub transcript: Vec<u8>,
@@ -85,6 +90,7 @@ struct Pairing {
     key: [u8; 32],
     kind: Kind,
     scopes: u16,
+    generation: u64,
     deadline: Instant,
 }
 struct Session {
@@ -134,6 +140,15 @@ fn token_digest(token: &str) -> Result<[u8; 32]> {
     Ok(Sha256::digest(token.as_bytes()).into())
 }
 impl Auth {
+    /// Never generate a replacement seed for a DB that already has a bound identity.
+    pub fn open(directory: impl AsRef<std::path::Path>, store: Handle) -> Result<Self> {
+        let identity = if store.identity_public_key()?.is_some() {
+            Identity::load(directory)?
+        } else {
+            Identity::open(directory)?
+        };
+        Self::new(identity, store)
+    }
     pub fn new(identity: Identity, store: Handle) -> Result<Self> {
         store.bind_identity(identity.public_key())?;
         Ok(Self {
@@ -258,6 +273,40 @@ impl Auth {
         let p = self.consume(id, signature, Purpose::Bootstrap)?;
         Ok(self.store.bootstrap_owner(p.key)?)
     }
+    /// Trusted offline tool only. There is no corresponding IPC command.
+    pub fn recovery_challenge(&mut self, key: [u8; 32]) -> Result<Challenge> {
+        let p = self
+            .store
+            .principal(key)?
+            .filter(|p| p.kind == Kind::Owner && !p.active && p.scopes == ALL_SCOPES)
+            .ok_or(Error::Forbidden)?;
+        self.challenge(
+            key,
+            Kind::Owner,
+            p.scopes,
+            p.generation,
+            Purpose::RecoverOwner,
+        )
+    }
+    pub fn recovery_finish(&mut self, id: &str, signature: &[u8]) -> Result<Principal> {
+        let proof = self.consume(id, signature, Purpose::RecoverOwner)?;
+        let owner = self
+            .store
+            .principal(proof.key)?
+            .filter(|p| {
+                p.kind == Kind::Owner
+                    && !p.active
+                    && p.generation == proof.generation
+                    && p.scopes == proof.scopes
+            })
+            .ok_or(Error::Forbidden)?;
+        let recovered = self.store.recover_owner(owner)?;
+        self.challenges.clear();
+        self.pairings.clear();
+        self.sessions.clear();
+        self.window = None;
+        Ok(recovered)
+    }
     pub fn login_challenge(&mut self, key: [u8; 32]) -> Result<Challenge> {
         let p = self
             .store
@@ -333,11 +382,23 @@ impl Auth {
         scopes: &[Scope],
     ) -> Result<Challenge> {
         self.prune(Instant::now());
-        if self.window.is_none() || kind == Kind::Owner || self.store.principal(key)?.is_some() {
+        let prior = self.store.principal(key)?;
+        if self.window.is_none()
+            || kind == Kind::Owner
+            || prior
+                .as_ref()
+                .is_some_and(|p| p.active || p.kind == Kind::Owner)
+        {
             return Err(Error::Forbidden);
         }
         let scopes = mask(scopes).ok_or(Error::InvalidInput)?;
-        self.challenge(key, kind, scopes, 0, Purpose::Pair)
+        self.challenge(
+            key,
+            kind,
+            scopes,
+            prior.map(|p| p.generation).unwrap_or(0),
+            Purpose::Pair,
+        )
     }
     pub fn pairing_finish(&mut self, id: &str, signature: &[u8]) -> Result<String> {
         let p = self.consume(id, signature, Purpose::Pair)?;
@@ -355,6 +416,7 @@ impl Auth {
                 key: p.key,
                 kind: p.kind,
                 scopes: p.scopes,
+                generation: p.generation,
                 deadline,
             },
         );
@@ -377,7 +439,9 @@ impl Auth {
         if p.key != key || p.kind != kind || Some(p.scopes) != mask(scopes) {
             return Err(Error::Forbidden);
         }
-        Ok(self.store.approve_client(owner, key, kind, p.scopes)?)
+        Ok(self
+            .store
+            .approve_client_if(owner, key, kind, p.scopes, p.generation)?)
     }
     pub fn revoke(&mut self, token: &str, key: [u8; 32]) -> Result<()> {
         let owner = self.owner(token)?;
@@ -386,6 +450,37 @@ impl Auth {
         self.challenges.retain(|_, p| p.key != key);
         Ok(())
     }
+    pub fn clients(&mut self, token: &str) -> Result<Vec<Principal>> {
+        self.owner(token)?;
+        Ok(self.store.principals()?)
+    }
+    pub fn pending_pairings(&mut self, token: &str) -> Result<Vec<PendingPairing>> {
+        self.owner(token)?;
+        let now = Instant::now();
+        self.prune(now);
+        let mut pending: Vec<_> = self
+            .pairings
+            .iter()
+            .map(|(id, p)| PendingPairing {
+                id: id.clone(),
+                public_key: p.key,
+                kind: p.kind,
+                scopes: p.scopes,
+                expires_in_seconds: p.deadline.saturating_duration_since(now).as_secs(),
+            })
+            .collect();
+        pending.sort_by(|a, b| a.id.cmp(&b.id));
+        Ok(pending)
+    }
+}
+
+#[derive(Serialize)]
+pub struct PendingPairing {
+    pub id: String,
+    pub public_key: [u8; 32],
+    pub kind: Kind,
+    pub scopes: u16,
+    pub expires_in_seconds: u64,
 }
 
 #[cfg(test)]

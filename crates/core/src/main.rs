@@ -10,6 +10,10 @@ mod authenticated;
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(feature = "dev-fixtures")]
+mod recovery_check;
+#[cfg(target_os = "linux")]
+mod socket_runtime;
+#[cfg(feature = "dev-fixtures")]
 mod storage_check;
 
 fn self_check() -> Result<(), Box<dyn std::error::Error>> {
@@ -55,6 +59,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             "--storage-recover-fixture" => return storage_check::recover(directory),
             "--auth-check" => return auth_check::check(directory),
             "--auth-reopen-fixture" => return auth_check::reopen(directory),
+            "--recovery-prepare-fixture" => return recovery_check::prepare(directory),
+            "--recovery-verify-fixture" => return recovery_check::verify(directory),
             _ => {}
         }
     }
@@ -63,6 +69,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         if let [command, state, identity, key] = args.as_slice() {
             if command == "--provision-owner" {
                 return authenticated::provision(state, identity, key);
+            }
+            if command == "--recover-owner" {
+                return authenticated::recover_owner(state, identity, key);
+            }
+        }
+        if let [command, identity, backup] = args.as_slice() {
+            if command == "--backup-identity" {
+                return authenticated::backup_identity(identity, backup);
             }
         }
         let runtime = tokio::runtime::Builder::new_current_thread()
@@ -89,5 +103,5 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             _ => {}
         }
     }
-    Err("usage: --self-check | --probe (Linux) | --serve-readonly SOCKET ALLOWED_UID | --request SOCKET health|capabilities | --serve-authenticated SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR | --request-auth SOCKET (JSON stdin) | --provision-owner STATE_DIR IDENTITY_DIR CLIENT_PUBLIC_KEY_HEX; development fixture commands require dev-fixtures".into())
+    Err("usage: --self-check | --probe (Linux) | --serve-readonly SOCKET ALLOWED_UID | --request SOCKET health|capabilities | --serve-authenticated SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR | --request-auth SOCKET (JSON stdin) | --provision-owner STATE_DIR IDENTITY_DIR CLIENT_PUBLIC_KEY_HEX | --recover-owner STATE_DIR IDENTITY_DIR CLIENT_PUBLIC_KEY_HEX | --backup-identity IDENTITY_DIR PRIVATE_BACKUP_DIR; development fixture commands require dev-fixtures".into())
 }

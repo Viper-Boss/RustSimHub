@@ -4,6 +4,36 @@ use std::process::Command;
 use tempfile::TempDir;
 
 #[test]
+fn recovery_commit_failure_cannot_activate_owner_or_clients() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let h = s.handle();
+    let o = h.bootstrap_owner([21; 32]).unwrap();
+    h.approve_client(o, [22; 32], rustsimhub_policy::Kind::Nas, 1)
+        .unwrap();
+    let backup = directory();
+    h.backup(backup.path()).unwrap();
+    let target = directory();
+    let r = Store::restore(backup.path(), target.path()).unwrap();
+    let h = r.handle();
+    let owner = h.principal([21; 32]).unwrap().unwrap();
+    h.call(|db| {db.connection.execute_batch("CREATE TEMP TRIGGER fail_recovery AFTER UPDATE ON main.principals BEGIN SELECT RAISE(ABORT,'synthetic'); END;")?;Ok(())}).unwrap();
+    assert!(h.recover_owner(owner.clone()).is_err());
+    assert!(!h.principal([21; 32]).unwrap().unwrap().active);
+    assert_eq!(h.principal([21; 32]).unwrap().unwrap(), owner);
+    h.call(|db| {
+        db.connection.execute_batch("DROP TRIGGER fail_recovery;")?;
+        Ok(())
+    })
+    .unwrap();
+    let mut stale = owner.clone();
+    stale.generation += 1;
+    assert!(h.recover_owner(stale).is_err());
+    assert!(h.recover_owner(owner).unwrap().active);
+    assert!(!h.principal([22; 32]).unwrap().unwrap().active);
+}
+
+#[test]
 fn schema_one_migration_preserves_operations_and_cursors() {
     let d = directory();
     let path = d.path().join("store.sqlite3");

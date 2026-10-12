@@ -1,6 +1,54 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
 use ed25519_dalek::{Signer, SigningKey};
+
+#[tokio::test]
+async fn graceful_shutdown_closes_store_and_restarts_on_same_socket() {
+    let d = directory();
+    let i = directory();
+    let r = directory();
+    let socket = r.path().join("core.sock");
+    for _ in 0..2 {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let server = serve_until(
+            socket.to_str().unwrap(),
+            rustix::process::geteuid().as_raw(),
+            d.path().to_str().unwrap(),
+            i.path().to_str().unwrap(),
+            async {
+                let _ = rx.await;
+            },
+        );
+        let client = async {
+            timeout(Duration::from_secs(5), async {
+                while !socket.exists() {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            })
+            .await
+            .unwrap();
+            let mut s = UnixStream::connect(&socket).await.unwrap();
+            let req = rustsimhub_wire::AuthRequest {
+                protocol: 2,
+                id: "shutdown".into(),
+                command: AuthCommand::Identity {},
+            };
+            write_frame(&mut s, &serde_json::to_vec(&req).unwrap())
+                .await
+                .unwrap();
+            let response: Response =
+                serde_json::from_slice(&read_frame(&mut s).await.unwrap()).unwrap();
+            assert!(response.result["public_key"].is_array());
+            tx.send(()).unwrap();
+        };
+        let (result, _) = tokio::join!(server, client);
+        result.unwrap();
+        assert!(!socket.exists());
+        let store = Store::open(d.path()).unwrap();
+        assert!(store.handle().identity_public_key().unwrap().is_some());
+        drop(store);
+    }
+}
 fn directory() -> tempfile::TempDir {
     use std::os::unix::fs::PermissionsExt;
     let d = tempfile::tempdir().unwrap();
