@@ -10,6 +10,10 @@ use zbus::zvariant::{OwnedObjectPath, OwnedValue};
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 const SERVICE: &str = "org.freedesktop.ModemManager1";
 const MODEM: &str = "org.freedesktop.ModemManager1.Modem";
+fn identity_readable(lock: u32, state: i32) -> bool {
+    // MM treats PIN2/PUK2 as operational; never submit an unlock code for ordinary reads.
+    matches!(lock, 1 | 3 | 5) && state >= 3
+}
 #[zbus::proxy(interface = "org.freedesktop.ModemManager1.Sim")]
 trait Sim {
     #[zbus(property)]
@@ -49,10 +53,18 @@ async fn snapshot(c: &zbus::Connection) -> Result<Snapshot> {
             .try_clone()?,
     )?;
     let lock = u32::try_from(p.get("UnlockRequired").ok_or("lock unavailable")?)?;
+    let state = i32::try_from(p.get("State").ok_or("state unavailable")?)?;
     let (iccid, status) = if sim.as_str() == "/" {
         (None, LineStatus::Absent)
-    } else if lock != 1 {
-        (None, LineStatus::Locked)
+    } else if !identity_readable(lock, state) {
+        (
+            None,
+            if matches!(lock, 2 | 4 | 6..=16) {
+                LineStatus::Locked
+            } else {
+                LineStatus::Unavailable
+            },
+        )
     } else {
         let simproxy = SimProxy::builder(c)
             .destination(owner.clone())?
@@ -217,6 +229,18 @@ pub async fn run(store: Handle, instance: String, fingerprinter: SimFingerprinte
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn pin2_and_puk2_allow_reads_only_in_operational_modem_state() {
+        for lock in [1, 3, 5] {
+            assert!(identity_readable(lock, 8));
+            assert!(identity_readable(lock, 3));
+            assert!(!identity_readable(lock, 2));
+            assert!(!identity_readable(lock, -1));
+        }
+        for lock in [0, 2, 4, 6, 16, 99] {
+            assert!(!identity_readable(lock, 8));
+        }
+    }
     #[test]
     fn readiness_needs_monotonic_stability_and_resets_on_identity_or_backend_loss() {
         let mut s = Stable::default();

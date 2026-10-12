@@ -8,7 +8,9 @@
 
 每轮建立连接并重新枚举，仅接受一个 modem；MM 重启、路径变化、ICCID 变化或失去可信身份都重新隔离 line epoch。ICCID 必须是 8–32 个 ASCII 数字，否则状态保持 unavailable。无 SIM 为 absent，需要解锁为 locked。同一 backend 和 SIM 指纹经过至少 2 秒的单调时钟观察后进入 ready；当前轮询间隔 3 秒，每轮限时 12 秒。这表示 SIM 身份稳定，**不表示已注册网络或可拨号/发送**。
 
-指纹在 auth.Identity 中用 HMAC-SHA256 计算，使用设备 seed 和独立用途域；原始 ICCID 不入库、不出现在状态接口或日志中。backend 包含进程随机 instance、MM 唯一 owner 及对象路径，仅保存到私有数据库。
+指纹在 auth.Identity 中用 HMAC-SHA256 计算：先从设备 seed 和独立用途域派生专用观察 key，再计算 ICCID 指纹。观察器不持有签名 seed，不争用鉴权锁；原始 ICCID 不入库、不出现在状态接口或日志中。backend 包含进程随机 instance、MM 唯一 owner 及对象路径，仅保存到私有数据库。
+
+PIN/PUK 等阻断锁保持 locked；PIN2/PUK2 按 MM 语义允许普通读取，但仍要求 modem State 至少 DISABLED，并成功读到稳定 ICCID。UNKNOWN 锁、失败/初始化状态保持 unavailable，绝不自动提交解锁码。实机曾报告 UnlockRequired=3 (PIN2)、State=8 (REGISTERED)，不能误当成 SIM PIN 锁。[MM 锁状态实现](https://github.com/linux-mobile-broadband/ModemManager/blob/main/src/mm-iface-modem.c)明确区分这两类限制。
 
 读取完整短信后再次核对唯一 owner、modem/SIM 路径及 ICCID；变化则丢弃本轮候选，进入 unavailable，下一轮重新观察。短于观察周期的拔插，以及最后核对之后的硬件变化，不能由轮询证明已捕获；未来发送路径必须另加信号失效通知和最终执行门禁。
 
