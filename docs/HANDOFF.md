@@ -1,6 +1,6 @@
 # RustSimHub 接手入口
 
-先读 PROGRESS.md、sms-send.md、VALIDATION-SMS-SEND-P2.md、observer-events.md、VALIDATION-OBSERVER-P2.md、sim-inbox.md、VALIDATION-INBOX-P2.md、VALIDATION-RECOVERY-CLI-P1.md、recovery-clients.md、VALIDATION-AUTH-P1.md、auth.md、VALIDATION-STORAGE-P1.md、storage.md、VALIDATION-P0-P1.md、HARDWARE-BASELINE.md、architecture-foundation.md，
+先读 PROGRESS.md、call-control.md、VALIDATION-CALLS-P3.md、sms-send.md、VALIDATION-SMS-SEND-P2.md、observer-events.md、VALIDATION-OBSERVER-P2.md、sim-inbox.md、VALIDATION-INBOX-P2.md、VALIDATION-RECOVERY-CLI-P1.md、recovery-clients.md、VALIDATION-AUTH-P1.md、auth.md、VALIDATION-STORAGE-P1.md、storage.md、VALIDATION-P0-P1.md、HARDWARE-BASELINE.md、architecture-foundation.md，
 再按 development-plan.md 的阶段顺序继续。GitHub：
 https://github.com/Viper-Boss/RustSimHub（私有）。
 

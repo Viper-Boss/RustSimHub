@@ -76,7 +76,7 @@ pub struct InboxEvents {
     pub cursor: InboxCursor,
 }
 
-fn position(
+pub(super) fn position(
     c: &Connection,
     after: Option<&InboxCursor>,
     table: &str,

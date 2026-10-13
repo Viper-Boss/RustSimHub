@@ -16,9 +16,28 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth::Result<Value> {
     use AuthCommand::*;
     Ok(match command {
-        PrepareSms { .. } | SubmitSms { .. } | SmsOperation { .. } => {
-            return Err(rustsimhub_auth::Error::Forbidden)
-        }
+        PrepareSms { .. }
+        | SubmitSms { .. }
+        | SmsOperation { .. }
+        | CallStatus { .. }
+        | PrepareCall { .. }
+        | SubmitCall { .. }
+        | CallOperation { .. }
+        | RenewCall { .. } => return Err(rustsimhub_auth::Error::Forbidden),
+        Calls {
+            token,
+            after,
+            limit,
+        } => serde_json::to_value(auth.calls(&token, after, limit)?)
+            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        CallDetail { token, call_id } => serde_json::to_value(auth.call_detail(&token, call_id)?)
+            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        CallEvents {
+            token,
+            after,
+            limit,
+        } => serde_json::to_value(auth.call_events(&token, after, limit)?)
+            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
         Identity {} => {
             json!({"public_key":auth.public_key(),"signature_algorithm":"ed25519","protocol":AUTH_PROTOCOL})
         }
@@ -92,9 +111,12 @@ pub(crate) async fn handle(
     auth: Arc<Mutex<Auth>>,
     metrics: Option<crate::observer::Metrics>,
     sender: Option<crate::sender::Controller>,
+    calls: Option<crate::calls::Controller>,
 ) -> Result<()> {
     let body = timeout(Duration::from_secs(5), read_frame(stream)).await??;
     let request = parse_auth_request(&body)?;
+    let calling_enabled = calls.as_ref().is_some_and(|c| c.controls());
+    let calls_observed = calls.is_some();
     let messaging_enabled = sender.is_some();
     let health = matches!(request.command, AuthCommand::Health { .. });
     let capabilities = matches!(request.command, AuthCommand::Capabilities { .. });
@@ -105,7 +127,23 @@ pub(crate) async fn handle(
             | AuthCommand::SubmitSms { .. }
             | AuthCommand::SmsOperation { .. }
     );
-    let result = if sending {
+    let calling = matches!(
+        request.command,
+        AuthCommand::CallStatus { .. }
+            | AuthCommand::PrepareCall { .. }
+            | AuthCommand::SubmitCall { .. }
+            | AuthCommand::CallOperation { .. }
+            | AuthCommand::RenewCall { .. }
+    );
+    let result = if calling {
+        match calls {
+            Some(c) => c
+                .request(request.command)
+                .await
+                .map_err(|_| rustsimhub_auth::Error::Forbidden),
+            None => Err(rustsimhub_auth::Error::Forbidden),
+        }
+    } else if sending {
         match sender {
             Some(s) => s
                 .request(request.command)
@@ -125,12 +163,16 @@ pub(crate) async fn handle(
             Ok(p) => {
                 let mut value = serde_json::to_value(p)?;
                 value["messaging_api"] = messaging_enabled.into();
+                value["call_control_api"] = calling_enabled.into();
+                value["call_observer"] = calls_observed.into();
                 value
             }
             Err(_) => json!({"ok":false,"error":"modem_unavailable"}),
         },
         Ok(mut value) => {
-            if health && messaging_enabled {
+            if health && calling_enabled {
+                value = json!({"ok":true,"mode":"authenticated_telephony","write_api":true,"media_available":false});
+            } else if health && messaging_enabled {
                 value = json!({"ok":true,"mode":"authenticated_messaging","write_api":true});
             }
             if let (true, Some(m)) = (line_status, metrics) {
@@ -151,20 +193,36 @@ pub(crate) async fn handle(
     Ok(())
 }
 pub async fn serve(socket: &str, uid: u32, state: &str, identity: &str) -> Result<()> {
-    serve_mode(socket, uid, state, identity, (false, false)).await
+    serve_mode(socket, uid, state, identity, (false, false, 0)).await
 }
 pub async fn serve_observing(socket: &str, uid: u32, state: &str, identity: &str) -> Result<()> {
-    serve_mode(socket, uid, state, identity, (true, false)).await
+    serve_mode(socket, uid, state, identity, (true, false, 0)).await
 }
 pub async fn serve_messaging(socket: &str, uid: u32, state: &str, identity: &str) -> Result<()> {
-    serve_mode(socket, uid, state, identity, (true, true)).await
+    serve_mode(socket, uid, state, identity, (true, true, 0)).await
+}
+pub async fn serve_calls(
+    socket: &str,
+    uid: u32,
+    state: &str,
+    identity: &str,
+    writes: bool,
+) -> Result<()> {
+    serve_mode(
+        socket,
+        uid,
+        state,
+        identity,
+        (true, writes, if writes { 2 } else { 1 }),
+    )
+    .await
 }
 async fn serve_mode(
     socket: &str,
     uid: u32,
     state: &str,
     identity: &str,
-    (observing, messaging): (bool, bool),
+    (observing, messaging, call_mode): (bool, bool, u8),
 ) -> Result<()> {
     use tokio::signal::unix::{signal, SignalKind};
     let mut term = signal(SignalKind::terminate())?;
@@ -174,7 +232,7 @@ async fn serve_mode(
         uid,
         state,
         identity,
-        (observing, messaging),
+        (observing, messaging, call_mode),
         async move {
             tokio::select! { _=term.recv()=>{},_=interrupt.recv()=>{} }
         },
@@ -189,14 +247,14 @@ pub(crate) async fn serve_until(
     identity: &str,
     stop: impl std::future::Future<Output = ()>,
 ) -> Result<()> {
-    serve_inner(socket, uid, state, identity, (false, false), stop).await
+    serve_inner(socket, uid, state, identity, (false, false, 0), stop).await
 }
 async fn serve_inner(
     socket: &str,
     uid: u32,
     state: &str,
     identity: &str,
-    (observing, messaging): (bool, bool),
+    (observing, messaging, call_mode): (bool, bool, u8),
     stop: impl std::future::Future<Output = ()>,
 ) -> Result<()> {
     let (state, identity) = (state.to_owned(), identity.to_owned());
@@ -213,6 +271,25 @@ async fn serve_inner(
     let metrics = Arc::new(Mutex::new(crate::observer::Stats::default()));
     let observer_metrics = metrics.clone();
     let (publisher, bindings) = tokio::sync::watch::channel(None);
+    let boot = auth
+        .try_lock()
+        .map_err(|_| "startup auth busy")?
+        .observer_instance();
+    let (call_controller, call_worker) = crate::calls::channel(
+        auth.clone(),
+        store.handle(),
+        bindings.clone(),
+        boot,
+        call_mode == 2,
+    );
+    let calls = (call_mode > 0).then_some(call_controller);
+    let mut controlling = Box::pin(async move {
+        if call_mode > 0 {
+            call_worker.run().await
+        } else {
+            std::future::pending::<()>().await
+        }
+    });
     let (controller, worker) = crate::sender::channel(auth.clone(), store.handle(), bindings);
     let sender = messaging.then_some(controller);
     let mut sending = Box::pin(async move {
@@ -222,7 +299,7 @@ async fn serve_inner(
             std::future::pending::<()>().await
         }
     });
-    let observer_publisher = messaging.then_some(publisher);
+    let observer_publisher = (messaging || call_mode > 0).then_some(publisher);
     let observer_context = if observing {
         let a = auth.try_lock().map_err(|_| "auth busy during startup")?;
         Some((a.observer_instance(), a.sim_fingerprinter()?))
@@ -252,6 +329,7 @@ async fn serve_inner(
             _=&mut stop=>break Ok(()),
             _=&mut observer=>break Err("observer stopped".into()),
             _=&mut sending=>break Err("sender stopped".into()),
+            _=&mut controlling=>break Err("call controller stopped".into()),
             _=tasks.join_next(),if !tasks.is_empty()=>continue,
             accepted=listener.accept()=>accepted,
         };
@@ -272,18 +350,25 @@ async fn serve_inner(
         let auth = auth.clone();
         let metrics = metrics.clone();
         let sender = sender.clone();
+        let calls = calls.clone();
         tasks.spawn(async move {
             let _ = timeout(
                 Duration::from_secs(15),
-                handle(&mut stream, auth, Some(metrics), sender),
+                handle(&mut stream, auth, Some(metrics), sender, calls),
             )
             .await;
             drop(permit);
         });
     };
     drop(listener); // Stop admission before draining outstanding work.
+    if let Some(c) = &calls {
+        c.shutdown();
+        let _ = timeout(Duration::from_secs(15), &mut controlling).await;
+    }
     drop(observer);
     drop(sending);
+    drop(controlling);
+    drop(calls);
     drop(sender);
     if timeout(Duration::from_secs(16), async {
         while tasks.join_next().await.is_some() {}

@@ -10,7 +10,7 @@ use std::{
 use zbus::zvariant::{OwnedObjectPath, OwnedValue};
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 #[cfg(test)]
-mod checks;
+pub(crate) mod checks;
 mod sources;
 mod watch;
 use sources::Sources;
@@ -76,6 +76,15 @@ impl Binding {
         self.valid()
             && n.reset_sources <= revision
             && !n.retired.iter().any(|(r, p)| *r > revision && p == path)
+    }
+    pub fn call_valid(&self, path: &str, revision: u64) -> bool {
+        let n = self.guard.borrow();
+        self.valid()
+            && n.reset_calls <= revision
+            && !n
+                .retired_calls
+                .iter()
+                .any(|(r, p)| *r > revision && p == path)
     }
     pub async fn fresh(&self) -> bool {
         if !self.valid() {
@@ -577,4 +586,25 @@ mod tests {
         assert!(!s.observe("b", None, t + Duration::from_secs(8)));
         assert!(!s.observe("b", Some([2; 32]), t + Duration::from_secs(9)));
     }
+}
+
+#[cfg(test)]
+pub(crate) async fn test_binding(
+    connection: zbus::Connection,
+    context: rustsimhub_storage::SendContext,
+) -> (Binding, impl Drop) {
+    let watcher = watch::Watcher::connect(&connection).await.unwrap();
+    let s = snapshot(&connection, None).await.unwrap();
+    (
+        Binding {
+            connection,
+            context,
+            iccid: s.iccid.unwrap(),
+            sim: s.sim,
+            guard: watcher.receiver.clone(),
+            fence: 0,
+            seen: Instant::now(),
+        },
+        watcher,
+    )
 }

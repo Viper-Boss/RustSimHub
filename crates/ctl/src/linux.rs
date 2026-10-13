@@ -83,6 +83,133 @@ async fn call(socket: &str, command: AuthCommand) -> Result<Value> {
     Ok(reply.result)
 }
 pub async fn run(args: &[String]) -> Result<()> {
+    if let [command, input, output] = args {
+        if command == "save-call-lease" {
+            let bytes = rustsimhub_auth::read_private(Path::new(input), MAX_FRAME)?;
+            let value: Value = serde_json::from_slice(&bytes).map_err(|_| "invalid operation")?;
+            let lease: rustsimhub_domain::CallLease =
+                serde_json::from_value(value.get("lease").cloned().ok_or("no lease")?)
+                    .map_err(|_| "invalid lease")?;
+            rustsimhub_auth::write_private_new(Path::new(output), &serde_json::to_vec(&lease)?)?;
+            println!("{}", json!({"ok":true,"lease_saved":true}));
+            return Ok(());
+        }
+    }
+    if let [command, socket, session] = args {
+        if matches!(command.as_str(), "calls" | "call-events" | "call-status") {
+            let s = Session::load(Path::new(session))?;
+            check_session(socket, &s)?;
+            let cmd = match command.as_str() {
+                "calls" => AuthCommand::Calls {
+                    token: s.token.clone(),
+                    after: None,
+                    limit: 32,
+                },
+                "call-events" => AuthCommand::CallEvents {
+                    token: s.token.clone(),
+                    after: None,
+                    limit: 32,
+                },
+                _ => AuthCommand::CallStatus {
+                    token: s.token.clone(),
+                },
+            };
+            println!("{}", serde_json::to_string(&call(socket, cmd).await?)?);
+            return Ok(());
+        }
+    }
+    if let [command, socket, session, input] = args {
+        if matches!(
+            command.as_str(),
+            "call" | "prepare-call" | "call-operation" | "renew-call"
+        ) {
+            let s = Session::load(Path::new(session))?;
+            check_session(socket, &s)?;
+            let cmd = match command.as_str() {
+                "call" => AuthCommand::CallDetail {
+                    token: s.token.clone(),
+                    call_id: input.clone(),
+                },
+                "call-operation" => AuthCommand::CallOperation {
+                    token: s.token.clone(),
+                    operation_id: input.clone(),
+                },
+                "renew-call" => AuthCommand::RenewCall {
+                    token: s.token.clone(),
+                    lease: serde_json::from_slice(&rustsimhub_auth::read_private(
+                        Path::new(input),
+                        MAX_FRAME,
+                    )?)
+                    .map_err(|_| "invalid lease")?,
+                },
+                _ => {
+                    #[derive(serde::Deserialize)]
+                    #[serde(deny_unknown_fields)]
+                    struct Draft {
+                        line_epoch: u64,
+                        idempotency_key: String,
+                        action: rustsimhub_domain::CallAction,
+                        call_id: Option<String>,
+                        payload: String,
+                    }
+                    let d: Draft = serde_json::from_slice(&rustsimhub_auth::read_private(
+                        Path::new(input),
+                        MAX_FRAME,
+                    )?)
+                    .map_err(|_| "invalid private call draft")?;
+                    AuthCommand::PrepareCall {
+                        token: s.token.clone(),
+                        line_epoch: d.line_epoch,
+                        idempotency_key: d.idempotency_key,
+                        action: d.action,
+                        call_id: d.call_id,
+                        payload: d.payload,
+                    }
+                }
+            };
+            println!("{}", serde_json::to_string(&call(socket, cmd).await?)?);
+            return Ok(());
+        }
+    }
+    if let [command, socket, session, id, lease_path, priority] = args {
+        if command == "submit-call" {
+            let s = Session::load(Path::new(session))?;
+            check_session(socket, &s)?;
+            let lease = if lease_path == "none" {
+                None
+            } else {
+                Some(
+                    serde_json::from_slice(&rustsimhub_auth::read_private(
+                        Path::new(lease_path),
+                        MAX_FRAME,
+                    )?)
+                    .map_err(|_| "invalid lease")?,
+                )
+            };
+            let urgent = match priority.as_str() {
+                "normal" => false,
+                "hangup" => true,
+                _ => return Err("invalid priority".into()),
+            };
+            println!(
+                "{}",
+                serde_json::to_string(
+                    &call(
+                        socket,
+                        AuthCommand::SubmitCall {
+                            token: s.token.clone(),
+                            operation_id: id.clone(),
+                            lease,
+                            urgent
+                        }
+                    )
+                    .await?
+                )?
+            );
+            return Ok(());
+        }
+    }
+
     if let [command, socket, session, input] = args {
         if matches!(
             command.as_str(),

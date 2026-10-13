@@ -5,6 +5,8 @@ use std::collections::VecDeque;
 use tokio::sync::watch;
 const SIM: &str = "org.freedesktop.ModemManager1.Sim";
 const SMS: &str = "org.freedesktop.ModemManager1.Sms";
+const CALL: &str = "org.freedesktop.ModemManager1.Call";
+const VOICE: &str = "org.freedesktop.ModemManager1.Modem.Voice";
 const MESSAGING: &str = "org.freedesktop.ModemManager1.Modem.Messaging";
 #[derive(Default, Clone)]
 pub(super) struct Notice {
@@ -13,11 +15,14 @@ pub(super) struct Notice {
     pub reset_sources: u64,
     pub ended: bool,
     pub retired: VecDeque<(u64, String)>,
+    pub retired_calls: VecDeque<(u64, String)>,
+    pub reset_calls: u64,
 }
 pub(super) enum Change {
     Ignore,
     Wake,
     Retire(String),
+    RetireCall(String),
     Fence,
     Disconnected,
 }
@@ -56,7 +61,7 @@ pub(super) fn classify(message: &zbus::Message) -> Result<Change> {
                 } else {
                     Change::Ignore
                 }
-            } else if iface == SMS || iface == MESSAGING {
+            } else if iface == SMS || iface == MESSAGING || iface == CALL || iface == VOICE {
                 Change::Wake
             } else {
                 Change::Ignore
@@ -70,6 +75,11 @@ pub(super) fn classify(message: &zbus::Message) -> Result<Change> {
                 Change::Fence
             }
         }
+        (Some(CALL), Some("StateChanged")) => Change::Wake,
+        (Some(VOICE), Some("CallAdded" | "CallDeleted")) => {
+            let (p,): (OwnedObjectPath,) = message.body().deserialize()?;
+            Change::RetireCall(p.to_string())
+        }
         (Some(MESSAGING), Some("Added")) => {
             let (p, _): (OwnedObjectPath, bool) = message.body().deserialize()?;
             Change::Retire(p.to_string())
@@ -82,6 +92,8 @@ pub(super) fn classify(message: &zbus::Message) -> Result<Change> {
             let (p, interfaces): (OwnedObjectPath, Vec<String>) = message.body().deserialize()?;
             if interfaces.iter().any(|i| i == MODEM || i == SIM) {
                 Change::Fence
+            } else if interfaces.iter().any(|i| i == CALL) {
+                Change::RetireCall(p.to_string())
             } else if interfaces.iter().any(|i| i == SMS) {
                 Change::Retire(p.to_string())
             } else {
@@ -95,6 +107,8 @@ pub(super) fn classify(message: &zbus::Message) -> Result<Change> {
             ) = message.body().deserialize()?;
             if interfaces.contains_key(MODEM) || interfaces.contains_key(SIM) {
                 Change::Fence
+            } else if interfaces.contains_key(CALL) {
+                Change::RetireCall(p.to_string())
             } else if interfaces.contains_key(SMS) {
                 Change::Retire(p.to_string())
             } else {
@@ -123,6 +137,17 @@ impl Notice {
                 }
             }
             Change::Disconnected => self.ended = true,
+            Change::RetireCall(path) => {
+                if path.len() > 224 || !path.starts_with("/org/freedesktop/ModemManager1/Call/") {
+                    self.ended = true;
+                    return;
+                }
+                if self.retired_calls.len() >= 64 {
+                    self.retired_calls.clear();
+                    self.reset_calls = self.revision;
+                }
+                self.retired_calls.push_back((self.revision, path));
+            }
             Change::Retire(path) => {
                 if path.len() > 224 || !path.starts_with("/org/freedesktop/ModemManager1/SMS/") {
                     self.ended = true;

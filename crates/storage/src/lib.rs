@@ -16,8 +16,13 @@ use std::{
 use uuid::Uuid;
 
 const APP_ID: i64 = 1381189698;
-const SCHEMA: i64 = 4;
+const SCHEMA: i64 = 5;
 mod auth;
+mod calls;
+pub use calls::{
+    CallEvent, CallEvents, CallIntent, CallObservation, CallOperation, CallPage, CallRequest,
+    CallSummary,
+};
 mod inbox;
 mod outgoing;
 pub use inbox::{
@@ -472,6 +477,12 @@ impl Database {
             tx.execute_batch(include_str!("outgoing.sql"))?;
             tx.commit()?;
         }
+        if version < 5 {
+            let tx = db.connection.transaction()?;
+            tx.execute_batch(include_str!("calls.sql"))?;
+            tx.commit()?;
+        }
+
         let restoring = restore_marker.exists();
         db.recover(restoring)?;
         db.connection.execute(
@@ -625,6 +636,12 @@ impl Database {
             )?;
             event(&tx, Some(&id), line, "unknown")?;
         }
+        tx.execute("UPDATE call_operations SET state='unknown' WHERE state='submitting' OR (? AND state='prepared')",[restoring])?;
+        tx.execute("INSERT INTO call_events(call_id,line_epoch,kind) SELECT id,line_epoch,'unavailable' FROM calls WHERE availability='observed'",[])?;
+        tx.execute(
+            "UPDATE calls SET availability='reconciling' WHERE availability='observed'",
+            [],
+        )?;
         tx.commit()?;
         Ok(())
     }
@@ -660,6 +677,12 @@ impl Database {
             )?;
             event(tx, Some(&id), old, next)?;
         }
+        tx.execute("UPDATE call_operations SET state=CASE WHEN state='prepared' THEN 'cancelled' ELSE 'unknown' END WHERE state IN ('prepared','submitting')",[])?;
+        tx.execute("INSERT INTO call_events(call_id,line_epoch,kind) SELECT id,line_epoch,'unavailable' FROM calls WHERE availability='observed'",[])?;
+        tx.execute(
+            "UPDATE calls SET availability='reconciling' WHERE availability='observed'",
+            [],
+        )?;
         tx.execute("UPDATE meta SET line_epoch=? WHERE singleton=1", [line])?;
         event(tx, None, line, "line_changed")?;
         Ok(())
@@ -726,3 +749,6 @@ mod tests;
 
 #[cfg(test)]
 mod outgoing_tests;
+
+#[cfg(test)]
+mod calls_tests;

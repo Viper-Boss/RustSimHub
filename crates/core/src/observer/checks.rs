@@ -242,7 +242,7 @@ impl FakeSms {
         vec![]
     }
 }
-async fn peers() -> (zbus::Connection, zbus::Connection, Arc<Mutex<String>>) {
+pub(crate) async fn peers() -> (zbus::Connection, zbus::Connection, Arc<Mutex<String>>) {
     let (a, b) = tokio::net::UnixStream::pair().unwrap();
     let guid = zbus::Guid::generate();
     let identity = Arc::new(Mutex::new("8901234567890123456".to_owned()));

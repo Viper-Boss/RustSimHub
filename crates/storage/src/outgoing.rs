@@ -27,7 +27,7 @@ fn sender(c: &Connection, p: &Principal) -> Result<()> {
     }
     Ok(())
 }
-fn ready(c: &Connection, b: &SendContext) -> Result<()> {
+pub(super) fn ready(c: &Connection, b: &SendContext) -> Result<()> {
     if b.backend.is_empty()
         || b.backend.len() > 256
         || !b.owner.starts_with(':')

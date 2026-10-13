@@ -60,6 +60,45 @@ pub enum AuthCommand {
         after: Option<rustsimhub_domain::InboxCursor>,
         limit: usize,
     },
+    Calls {
+        token: String,
+        after: Option<rustsimhub_domain::InboxCursor>,
+        limit: usize,
+    },
+    CallDetail {
+        token: String,
+        call_id: String,
+    },
+    CallEvents {
+        token: String,
+        after: Option<rustsimhub_domain::InboxCursor>,
+        limit: usize,
+    },
+    CallStatus {
+        token: String,
+    },
+    PrepareCall {
+        token: String,
+        line_epoch: u64,
+        idempotency_key: String,
+        action: rustsimhub_domain::CallAction,
+        call_id: Option<String>,
+        payload: String,
+    },
+    SubmitCall {
+        token: String,
+        operation_id: String,
+        lease: Option<rustsimhub_domain::CallLease>,
+        urgent: bool,
+    },
+    CallOperation {
+        token: String,
+        operation_id: String,
+    },
+    RenewCall {
+        token: String,
+        lease: rustsimhub_domain::CallLease,
+    },
     OpenPairing {
         token: String,
     },
@@ -105,6 +144,65 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         return Err(invalid());
     }
     match &req.command {
+        AuthCommand::Calls { token, limit, .. } | AuthCommand::CallEvents { token, limit, .. } => {
+            if token.len() != 64 || !(1..=32).contains(limit) {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::CallDetail { token, call_id } => {
+            if token.len() != 64 || call_id.len() != 36 {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::CallStatus { token } => {
+            if token.len() != 64 {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::CallOperation {
+            token,
+            operation_id,
+        }
+        | AuthCommand::SubmitCall {
+            token,
+            operation_id,
+            ..
+        } => {
+            if token.len() != 64 || operation_id.len() != 36 {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::RenewCall { token, lease } => {
+            if token.len() != 64
+                || lease.call_id.len() != 36
+                || lease.boot.len() != 64
+                || lease.line.0 == 0
+                || lease.generation == 0
+                || lease.expires_in_seconds > 30
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::PrepareCall {
+            token,
+            line_epoch,
+            idempotency_key,
+            call_id,
+            payload,
+            ..
+        } => {
+            if token.len() != 64
+                || *line_epoch == 0
+                || *line_epoch > i64::MAX as u64
+                || idempotency_key.is_empty()
+                || idempotency_key.len() > 128
+                || call_id.as_ref().is_some_and(|c| c.len() != 36)
+                || payload.len() > 32
+            {
+                return Err(invalid());
+            }
+        }
+
         AuthCommand::PrepareSms {
             token,
             line_epoch,

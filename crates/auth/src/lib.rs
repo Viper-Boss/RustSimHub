@@ -149,6 +149,32 @@ impl Auth {
     pub fn sim_fingerprint(&self, iccid: &str) -> Result<[u8; 32]> {
         self.identity.sim_fingerprint(iccid)
     }
+    pub fn calls(
+        &mut self,
+        token: &str,
+        after: Option<rustsimhub_storage::InboxCursor>,
+        limit: usize,
+    ) -> Result<rustsimhub_storage::CallPage> {
+        self.authorize(token, Scope::CallsRead)?;
+        Ok(self.store.calls(after, limit)?)
+    }
+    pub fn call_detail(
+        &mut self,
+        token: &str,
+        id: String,
+    ) -> Result<rustsimhub_storage::CallSummary> {
+        self.authorize(token, Scope::CallsRead)?;
+        Ok(self.store.call_detail(id)?)
+    }
+    pub fn call_events(
+        &mut self,
+        token: &str,
+        after: Option<rustsimhub_storage::InboxCursor>,
+        limit: usize,
+    ) -> Result<rustsimhub_storage::CallEvents> {
+        self.authorize(token, Scope::CallsRead)?;
+        Ok(self.store.call_events(after, limit)?)
+    }
     pub fn line_status(&mut self, token: &str) -> Result<rustsimhub_storage::LineView> {
         self.authorize(token, Scope::StatusRead)?;
         Ok(self.store.line_status()?)

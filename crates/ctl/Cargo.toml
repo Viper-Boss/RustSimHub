@@ -10,6 +10,7 @@ name = "simhubctl"
 path = "src/main.rs"
 
 [dependencies]
+rustsimhub-domain = { path = "../domain" }
 rustsimhub-auth = { path = "../auth" }
 rustsimhub-policy = { path = "../policy" }
 rustsimhub-wire = { path = "../wire" }

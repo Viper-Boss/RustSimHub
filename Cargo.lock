@@ -667,6 +667,7 @@ name = "rustsimhub-ctl"
 version = "0.1.0"
 dependencies = [
  "rustsimhub-auth",
+ "rustsimhub-domain",
  "rustsimhub-policy",
  "rustsimhub-wire",
  "serde",
