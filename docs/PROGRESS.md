@@ -1,10 +1,13 @@
 # 开发进度
 
-更新时间：2026-10-13 / P3 基础通话控制与租约验证进行中，完整固件开发继续。
+更新时间：2026-10-13 / P3 基础通话控制、租约与一次实机拨号/挂断通过，完整固件开发继续。
 
-新增通话观察/显式控制模式、v5 呼叫记录与单次许可、30 秒独占租约和私有 CLI。
-模拟故障路径与状态/权限测试已加入；最终 CI、ARM64、实机只读和授权一次拨号结果待完成后记录。
-详见 call-control.md、VALIDATION-CALLS-P3.md。下面为此前短信阶段已完成记录。
+新增呼叫观察/显式控制模式、v5 持久记录与单次许可、独占租约、过期/撤销/退出清理及私有 CLI。
+90 项测试、CI Clippy、NAS ARM64 默认检查/release 通过。
+非 root 实机只读检查通过；独立 root 写模式仅拨打 10010 一次，观察 ACTIVE 后自动挂断，最终 state=7、active_calls=0。
+私有 DB 核验只有一个 dial 和一个 hangup，均 Submitted/resolved，没有新 SMS 操作。临时服务已停止，旧四个服务及网络正常。
+双向声音、真实来电/DTMF、生产非 root 写权限及完整固件尚未验收。
+详见 call-control.md / VALIDATION-CALLS-P3.md；下面为此前短信阶段记录。
 
 本轮新增显式 --serve-messaging、sms_send 操作权限、v4 持久单次许可和 CLI 私有草稿。
 79 项测试、CI（含 Clippy）、NAS ARM64 默认检查/release 通过。
@@ -47,7 +50,7 @@
 - 完整证据与哈希：[VALIDATION-P0-P1.md](VALIDATION-P0-P1.md)。这些结果不能替代完整业务/性能验收。
 - 身份阶段 47 项测试及实机记录见 VALIDATION-AUTH-P1.md；恢复/CLI 阶段 59 项通过（auth 19、core 8、ctl 1、domain 7、policy 1、storage 19、wire 4）。CI：[38265061208](https://github.com/Viper-Boss/RustSimHub/actions/runs/38265061208)。
 - 恢复/CLI 阶段开发 core 约 4.15 MiB、simhubctl 约 0.75 MiB，完成真实离线 CLI 恢复、重新批准/撤销、SIGTERM/SIGKILL 重启；仍不等同于完整性能或固件验收。
-- 板上旧服务仍承担日常业务；本轮新代码完成一次授权测试短信，没有拨号、启用蜂窝数据或改写分区。
+- 板上旧服务仍承担日常业务；本轮新代码完成一次授权测试短信，本轮另完成一次授权拨号/挂断，未启用蜂窝数据或改写分区。
 - 收件箱阶段源码 fdaf4c2：66 项通过（auth 21、core 10、ctl 1、domain 7、policy 1、storage 22、wire 4），CI：[38298747817](https://github.com/Viper-Boss/RustSimHub/actions/runs/38298747817)。NAS 默认 workspace 检查/release、自检及实机已有短信读取通过；该阶段 core 约 4.40 MiB，CLI 约 0.75 MiB。
 - 事件观察阶段源码 31be30a：73 项（auth 21、core 16、ctl 1、domain 7、policy 1、storage 23、wire 4），CI [38316851912](https://github.com/Viper-Boss/RustSimHub/actions/runs/38316851912) 成功；NAS 默认检查/release、实机订阅与周期修复通过。该阶段 core 约 4.52 MiB，CLI 约 0.75 MiB。
 
@@ -56,11 +59,13 @@
 P0 硬件/恢复基线进行中：系统和权限已检查，备份及恢复入口未闭环。
 P1 基础工程进行中：纯规则、协议、持久化、公钥鉴权、恢复/客户端 CLI 与关闭重启已实现并验证；仍缺网页密码/TLS、最终用户设置 UI、完整开机部署和系统恢复。
 P2 进行中：SIM 观察、短信接收/读取、订阅/重连、基础 Create/Send 与 Unknown 对账已实现并验证；历史归属/歧义、保留策略、长短信/投递报告、生产权限与更多硬件验收未完成。
-P3–P7 未开始。当前不是可刷写完整固件。
+P3 进行中：基本通话控制、独占租约和一次拨号/挂断实机通过；ALSA/WebRTC 双向媒体、真实来电/DTMF与跨重启通话管理待验收。
+P4–P7 未开始。当前不是可刷写完整固件。
 
 ## 下一步
 
-1. 补充短信发送历史/外部事件、草稿清理/归档边界、长短信/投递报告与实机编码/存储满验收；Unknown 不能自动重发。本轮发送授权已经使用，不能重复查询。
-2. 推进通话控制/租约与音频 PoC，继续网页密码/TLS、生产非 root 写权限和 systemd 集成；所有者遗失/变更及加密备份另行设计。
-3. 推进 P0 剩余证据：内核精确源码/补丁、完整私有恢复备份和恢复入口验证。完成前不刷 rootfs/boot。
-4. 按计划继续网络切换、加密远端接入、看门狗与系统镜像集成。
+1. 推进 ALSA 双向 PCM 与媒体授权 PoC，随后连接 WebRTC；目前没有双向声音证据。
+2. 补齐真实来电/拒接/DTMF、跨重启孤儿管理、历史状态/路径歧义、生产非 root 写权限及 systemd/TLS。
+3. 短信历史/外部事件、保留策略、长短信/投递报告与编码/存储满硬件验收继续；Unknown 禁止自动重发。
+4. 本轮一次电话及此前一次短信授权都已使用；不能删除 marker 或重放实机测试脚本。
+5. 继续 P0 精确内核来源、完整私有备份/恢复入口，随后网络切换、加密远端接入、OTA 和系统镜像；完成恢复闭环前不刷 rootfs/boot。

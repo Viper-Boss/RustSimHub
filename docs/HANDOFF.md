@@ -144,3 +144,25 @@ Unknown 永不自动重发，新进程/连接不按相同路径/正文推断旧�
 后续可只读核验，不能把一次测试成功当作真实断电/换卡/投递报告等完整验收。
 
 下一步推进通话控制/租约、音频 PoC；同步补齐短信历史/事件、保留策略、生产权限/TLS/systemd 及完整恢复与系统镜像。
+
+
+## 当前通话检查点
+
+最终 Rust 源码 73db36a42c1b88a0b789a0dcd21343b94d087b16，90 项 / CI Clippy / NAS release 通过。
+先读 call-control.md / VALIDATION-CALLS-P3.md。--serve-call-observing 仅观察；--serve-telephony 显式开启通话及短信控制。
+会话 scope + 完整 principal generation + 当前 SIM/owner/连接 + 服务端 30 秒租约共同保护操作。
+控制动作在硬件调用前先提交单次许可，Unknown 不自动重试，优先挂断只操作自己持有的通话。
+跨重启租约清空、观测隔离、未完成动作 Unknown；重启后外部/孤儿通话不安全自动接管或挂断。
+
+用户授权的单次 10010 电话已完成：ACTIVE 后自动挂断，raw state=7、active_calls=0。
+私有备份只有一条 dial、一条 hangup，两者 submitted/resolved，SMS 操作数 0。
+/var/tmp/rustsimhub-carrier-call-20261013.once 已存在；这次电话及此前短信授权均已使用，不要删标记/重跑。
+定位文件 /var/tmp/rustsimhub-carrier-call-p3-evidence；本机 .private/carrier-call-evidence.tar.gz 包含 DB/会话/随机测试密钥，禁止公开。
+停止后 fixture 重开将观测置 Reconciling，同时保留最后原始 Terminated；不要因此推断还有活动通话。
+
+当前产物 .local/artifacts/{rustsimhub-core-calls-p3,simhubctl-calls-p3}，NAS target/release，棒子 /opt/rustsimhub/dev-calls-p3/。
+产物均为 dev-fixtures 开发包。rustsimhub-calls-read-p3、rustsimhub-carrier-call-p3 已停止；旧四个服务 active、网络正常。
+非 root 只读和独立 root 写模式分别验证；真实来电/DTMF/音频、生产非 root 写权限及完整系统恢复未完成。
+
+下一步 ALSA 双向 PCM 与媒体授权 PoC；再做 WebRTC、来电/DTMF和恢复管理，继续生产权限/TLS、网络与系统镜像。
+涉及新的实机电话/短信测试需要新的明确目标与授权，不能沿用已经消耗的一次标记。
