@@ -31,6 +31,9 @@ pub enum AuthCommand {
     LineStatus {
         token: String,
     },
+    NetworkStatus {
+        token: String,
+    },
     PrepareSms {
         token: String,
         line_epoch: u64,
@@ -255,6 +258,7 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         AuthCommand::Health { token }
         | AuthCommand::Capabilities { token }
         | AuthCommand::LineStatus { token }
+        | AuthCommand::NetworkStatus { token }
         | AuthCommand::OpenPairing { token }
         | AuthCommand::PendingPairings { token }
         | AuthCommand::Clients { token }

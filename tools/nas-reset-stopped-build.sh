@@ -12,6 +12,7 @@ cp "$base/source.tar.gz" "$base/build.log" "$base/builder-image.txt" "$history/"
 docker inspect "$container" --format '{{.State.ExitCode}}' > "$history/build.exit"
 if test "$(cat "$history/build.exit")" = 0; then cp "$base/src/target/release/rustsimhub-core" "$history/"; fi
 if test "$(cat "$history/build.exit")" = 0 && test -f "$base/src/target/release/simhubctl"; then cp "$base/src/target/release/simhubctl" "$history/"; fi
+if test "$(cat "$history/build.exit")" = 0 && test -f "$base/src/target/release/rustsimhub-edge"; then cp "$base/src/target/release/rustsimhub-edge" "$history/"; fi
 chown -R 1000:1000 "$history"
 docker rm "$container"
 echo 'Stopped project build evidence preserved; container removed'

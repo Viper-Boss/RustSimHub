@@ -16,6 +16,8 @@ mod linux;
 #[cfg(target_os = "linux")]
 mod media_ipc;
 #[cfg(target_os = "linux")]
+mod network;
+#[cfg(target_os = "linux")]
 mod observer;
 #[cfg(feature = "dev-fixtures")]
 mod recovery_check;

@@ -106,7 +106,9 @@ impl UfiDuplex {
         };
         for direction in [Direction::Playback, Direction::Capture] {
             permit.check(now())?;
-            let pcm = configured(HOLDER, direction, 8_000, 40, 160)?;
+            // CS-Voice advertises 1024..2048 frame periods at 8kHz on this board.
+            // These are prepared control handles, never the 20ms media transport.
+            let pcm = configured(HOLDER, direction, 8_000, 1024, 2048)?;
             // Prepared control streams carry no user audio, and are never started.
             pcm.prepare().map_err(|_| Error::Device)?;
             result.holders.push(pcm);
@@ -114,7 +116,13 @@ impl UfiDuplex {
         permit.check(now())?;
         result.capture = Some(configured(CAPTURE, Direction::Capture, 16_000, 320, 960)?);
         permit.check(now())?;
-        result.playback = Some(configured(PLAYBACK, Direction::Playback, 16_000, 320, 960)?);
+        result.playback = Some(configured(
+            PLAYBACK,
+            Direction::Playback,
+            16_000,
+            320,
+            2560,
+        )?);
         permit.check(now())?;
         Ok(result)
     }
@@ -126,20 +134,34 @@ fn configured(
     period: i64,
     buffer: i64,
 ) -> Result<PCM, Error> {
-    let pcm = PCM::new(name, direction, true).map_err(|_| Error::Device)?;
+    // Only fixed profile labels and errno are logged, never arbitrary paths or audio.
+    let diagnostic = |step: &'static str, error: alsa::Error| {
+        eprintln!(
+            "pcm_config stream={name} direction={direction:?} step={step} errno={}",
+            error.errno()
+        );
+        Error::Device
+    };
+    let pcm = PCM::new(name, direction, true).map_err(|e| diagnostic("open", e))?;
     {
-        let hw = HwParams::any(&pcm).map_err(|_| Error::Device)?;
+        let hw = HwParams::any(&pcm).map_err(|e| diagnostic("hw_any", e))?;
         hw.set_access(Access::RWInterleaved)
-            .map_err(|_| Error::Device)?;
-        hw.set_format(Format::S16LE).map_err(|_| Error::Device)?;
-        hw.set_channels(1).map_err(|_| Error::Device)?;
+            .map_err(|e| diagnostic("access", e))?;
+        hw.set_format(Format::S16LE)
+            .map_err(|e| diagnostic("format", e))?;
+        hw.set_channels(1).map_err(|e| diagnostic("channels", e))?;
         hw.set_rate(rate, ValueOr::Nearest)
-            .map_err(|_| Error::Device)?;
+            .map_err(|e| diagnostic("rate", e))?;
+        eprintln!("pcm_constraints direction={direction:?} rate={rate} period_min={:?} period_max={:?} buffer_min={:?} buffer_max={:?}",
+            hw.get_period_size_min().ok(), hw.get_period_size_max().ok(), hw.get_buffer_size_min().ok(), hw.get_buffer_size_max().ok());
         hw.set_period_size(period, ValueOr::Nearest)
-            .map_err(|_| Error::Device)?;
-        hw.set_buffer_size(buffer).map_err(|_| Error::Device)?;
-        pcm.hw_params(&hw).map_err(|_| Error::Device)?;
-        let actual = pcm.hw_params_current().map_err(|_| Error::Device)?;
+            .map_err(|e| diagnostic("period", e))?;
+        hw.set_buffer_size(buffer)
+            .map_err(|e| diagnostic("buffer", e))?;
+        pcm.hw_params(&hw).map_err(|e| diagnostic("commit", e))?;
+        let actual = pcm
+            .hw_params_current()
+            .map_err(|e| diagnostic("readback", e))?;
         if actual.get_rate().map_err(|_| Error::Device)? != rate
             || actual.get_channels().map_err(|_| Error::Device)? != 1
             || actual.get_format().map_err(|_| Error::Device)? != Format::S16LE
@@ -151,9 +173,17 @@ fn configured(
     }
     {
         let sw = pcm.sw_params_current().map_err(|_| Error::Device)?;
+        eprintln!(
+            "pcm_sw direction={direction:?} initial_stop={:?} boundary={:?}",
+            sw.get_stop_threshold().ok(),
+            sw.get_boundary().ok()
+        );
         sw.set_avail_min(period).map_err(|_| Error::Device)?;
+        // ALSA's defaults are inherited from the device. Never use an old/default
+        // stop threshold after selecting our own bounded hardware ring.
+        sw.set_stop_threshold(buffer).map_err(|_| Error::Device)?;
         sw.set_start_threshold(if direction == Direction::Playback {
-            period
+            buffer - period
         } else {
             1
         })
@@ -175,12 +205,15 @@ impl Pcm for UfiDuplex {
         let pcm = self.capture.as_ref().ok_or(IoError::Device)?;
         // Purge hardware backlog rather than transmitting old conversation after a stall.
         if pcm.avail_update().map_err(io_error)? > 640 {
+            eprintln!("pcm_io direction=capture reason=backlog");
             return Err(IoError::Xrun);
         }
-        pcm.io_i16()
-            .map_err(io_error)?
-            .readi(samples)
-            .map_err(io_error)
+        pcm.io_i16().map_err(io_error)?.readi(samples).map_err(|e| {
+            if e.errno() != libc::EAGAIN {
+                eprintln!("pcm_io direction=capture errno={}", e.errno());
+            }
+            io_error(e)
+        })
     }
     fn write(&mut self, samples: &[i16]) -> Result<usize, IoError> {
         self.playback
@@ -189,7 +222,12 @@ impl Pcm for UfiDuplex {
             .io_i16()
             .map_err(io_error)?
             .writei(samples)
-            .map_err(io_error)
+            .map_err(|e| {
+                if e.errno() != libc::EAGAIN {
+                    eprintln!("pcm_io direction=playback errno={}", e.errno());
+                }
+                io_error(e)
+            })
     }
     fn recover(&mut self, direction: rustsimhub_media::Direction) -> Result<(), IoError> {
         let pcm = match direction {

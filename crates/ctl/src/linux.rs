@@ -119,7 +119,10 @@ pub async fn run(args: &[String]) -> Result<()> {
         }
     }
     if let [command, socket, session] = args {
-        if matches!(command.as_str(), "calls" | "call-events" | "call-status") {
+        if matches!(
+            command.as_str(),
+            "calls" | "call-events" | "call-status" | "network"
+        ) {
             let s = Session::load(Path::new(session))?;
             check_session(socket, &s)?;
             let cmd = match command.as_str() {
@@ -132,6 +135,9 @@ pub async fn run(args: &[String]) -> Result<()> {
                     token: s.token.clone(),
                     after: None,
                     limit: 32,
+                },
+                "network" => AuthCommand::NetworkStatus {
+                    token: s.token.clone(),
                 },
                 _ => AuthCommand::CallStatus {
                     token: s.token.clone(),

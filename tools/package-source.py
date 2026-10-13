@@ -11,7 +11,7 @@ with tarfile.open(output,'w:gz') as archive:
         archive.add(path,arcname=name)
     for source in [ROOT / 'crates', ROOT / 'native' / 'audio-alsa']:
         for path in sorted(source.rglob('*')):
-            if path.is_file() and (path.suffix in {'.rs','.toml','.sql'} or path.name == 'Cargo.lock'):
+            if path.is_file() and (path.suffix in {'.rs','.toml','.sql'} or path.name == 'Cargo.lock' or (source.name == 'crates' and path.relative_to(source).as_posix().startswith('edge/src/web/') and path.suffix in {'.html','.js','.css'})):
                 if 'target' in path.relative_to(source).parts:
                     continue
                 archive.add(path,arcname=path.relative_to(ROOT).as_posix())

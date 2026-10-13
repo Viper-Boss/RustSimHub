@@ -167,7 +167,11 @@ impl<D: Pcm> Pump<D> {
             });
             self.playing = Some((frame, 0, silence));
             // Do not burst queued silence after scheduler delays.
-            self.next_play = now.saturating_add(FRAME_MS);
+            self.next_play = if now.saturating_sub(self.next_play) < FRAME_MS {
+                self.next_play.saturating_add(FRAME_MS)
+            } else {
+                now.saturating_add(FRAME_MS)
+            };
         }
         if let Some((frame, offset, silence)) = &mut self.playing {
             match self.device.write(&frame.samples[*offset..]) {
@@ -253,6 +257,18 @@ mod tests {
     use super::*;
     use crate::authorization::tests::permit;
     use std::sync::{Arc, Mutex};
+    #[test]
+    fn small_scheduler_jitter_does_not_accumulate_silence_underruns() {
+        let (_authority, mut p, record) = pump(SAMPLES, false, false, false);
+        for at in [0, 21, 40, 61, 80] {
+            p.step(at).unwrap();
+        }
+        assert_eq!(p.stats().played_frames, 5);
+        assert_eq!(record.lock().unwrap().written.len(), 5 * SAMPLES);
+        assert!(record.lock().unwrap().written.iter().all(|s| *s == 0));
+        p.step(90).unwrap();
+        assert_eq!(p.stats().played_frames, 5);
+    }
     #[derive(Default)]
     struct Record {
         written: Vec<i16>,

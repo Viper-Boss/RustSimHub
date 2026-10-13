@@ -1,7 +1,15 @@
 # RustSimHub 接手入口
 
-当前整体约 **35%**，见 PROGRESS-SCALE.md。用户要求每次最终回复报告整体完成百分比；
+当前整体约 **38%**，见 PROGRESS-SCALE.md。用户要求每次最终回复报告整体完成百分比；
 继续按固定里程碑估算，并注明实机验收边界，不把代码完成当作整机固件完成。
+
+当前长任务目标：持续自主推进至约 60%，仍在进行；不要在一个小检查点停止。优先完成 HTTPS/网页/网络验证，再推进媒体或系统交付。
+先读 VALIDATION-MEDIA-P3B.md 和 media-authorization.md。core/media 接线、两秒/五秒真实 PCM、正常 core 退出撤销通过。
+目前上行只送静音，media_available=false；不能称已完成双向通话。新 HTTPS/网页/网络状态在开发，尚未计入完成点。
+用户 2026-10-13 明确持续授权本项目拨打 10010；这条新授权取代下方历史“下一次需新授权”的说明。其他号码/新短信仍需明确指令。
+本阶段 11 次已使用的 once 标记全部保留，各独立库一个 dial 和一个 hangup，零短信操作；不可删除标记或自动重试 Unknown。
+棒子 `/opt/rustsimhub/dev-media-p3b/` 是本轮实际测试目录。最新五秒稳定 PCM native 哈希和私有证据位置在验证文档。
+完整备份/恢复尚未闭环，仍禁止替换 rootfs/boot 或写 NV/校准。
 
 先读 PROGRESS.md、PROGRESS-SCALE.md、audio-foundation.md、VALIDATION-AUDIO-P3A.md、call-control.md、VALIDATION-CALLS-P3.md、sms-send.md、VALIDATION-SMS-SEND-P2.md、observer-events.md、VALIDATION-OBSERVER-P2.md、sim-inbox.md、VALIDATION-INBOX-P2.md、VALIDATION-RECOVERY-CLI-P1.md、recovery-clients.md、VALIDATION-AUTH-P1.md、auth.md、VALIDATION-STORAGE-P1.md、storage.md、VALIDATION-P0-P1.md、HARDWARE-BASELINE.md、architecture-foundation.md，
 再按 development-plan.md 的阶段顺序继续。GitHub：

@@ -25,6 +25,7 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | CallOperation { .. }
         | RenewCall { .. }
         | IssueMedia { .. } => return Err(rustsimhub_auth::Error::Forbidden),
+        NetworkStatus { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         Calls {
             token,
             after,
@@ -137,7 +138,9 @@ pub(crate) async fn handle(
             | AuthCommand::RenewCall { .. }
             | AuthCommand::IssueMedia { .. }
     );
-    let result = if calling {
+    let result = if let AuthCommand::NetworkStatus { token } = request.command {
+        crate::network::authorized(auth.clone(), token).await
+    } else if calling {
         match calls {
             Some(c) => c
                 .request(request.command)

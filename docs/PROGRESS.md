@@ -1,6 +1,14 @@
 # 开发进度
 
-更新时间：2026-10-13 / P3A 音频基础；整体约 **35%**（按 PROGRESS-SCALE.md 固定里程碑估算）。
+更新时间：2026-10-13 / P3B 核心媒体授权与真实 PCM；整体约 **38%**（按 PROGRESS-SCALE.md 固定里程碑估算）。
+
+core/media 授权 IPC 已接通；真实 Principal、scope、独占租约、ACTIVE、SIM/backend/path fence 在每次续验重新验证。
+实机两秒和五秒 PCM 运行成功，五秒采集/播放各 246 帧，上行仅静音；启动一次 EPIPE 可恢复，未放宽欠载上限。
+核心正常退出时实际授权丢失、PCM 关闭、自动挂断通过。11 次独立 10010 测试私有库均一个 dial / 一个 hangup，无新短信操作。
+用户已持续授权本项目拨打 10010，无需再次逐次确认；其他号码或新短信不推定授权。
+验证和产物见 VALIDATION-MEDIA-P3B.md / media-authorization.md。media_available 仍 false，WebRTC / 真实双向听音未完成。
+HTTPS 调试入口、WebCrypto 客户端、网页和网络只读状态正在开发验证，未作为已完成硬件验收计分。
+用户要求持续长任务推进至约 60%；该目标仍在进行，不能因本检查点保存而停止。下面为此前阶段记录。
 
 新增 crates/media：固定 16kHz/20ms PCM、有界帧队列、分段 I/O、静音/断流/xrun 处理和媒体票据/撤销原语。
 新增独立 native/audio-alsa：有限 UFI003 profile、两个 CS-Voice holder 及采集/播放句柄，safe Rust 调用 libasound。
