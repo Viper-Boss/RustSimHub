@@ -103,24 +103,44 @@ tools/device-inbox-smoke.sh 已通过非 root 实机读取已有 1 条完整入�
 detail.json/会话/原始诊断内容不能复制进 GitHub。测试不发送新短信，需要预先已有完整 modem 消息。
 
 本轮已接信号订阅、重连/分批和逐对象错误隔离，以及可观察的对象 incarnation；继续处理历史归属和歧义复用；
-真实发送的最终 ready/epoch、授权撤销与持久提交门禁尚未实现。轮询 ready 仅代表 SIM 身份观察稳定，
+本段为此前收件箱阶段记录；当时真实发送门禁尚未实现。当前实现见 sms-send.md。轮询 ready 仅代表 SIM 身份观察稳定，
 不代表网络注册或电话/发送已验收。不要把内部 prepare/begin_submit 直接接到网络接口。
 
 - 系统恢复入口、完整备份和升级断电验证尚未完成；禁止直接替换现有 rootfs/boot。
-- domain 中短信对象仍是纯规则；真实 Send 必须通过已提交的 storage.begin_submit，且先完成身份/权限校验。
+- domain 中短信对象仍是纯规则；当前真实 Send 使用 begin_authorized / bind_created / permit_send；禁止把 legacy begin_submit 暴露为接口。
 - call grant 不是认证 token；禁止直接暴露给未认证远端使用。
 - P0 的 MM 能力探测不代表来电/发短信/双向声音已验收。
 - TLS/密码、最终用户设置 UI、生产系统单元、加密/异机身份备份与完整硬件恢复还未完成。
 
-最新 Rust 源码检查点 `31be30a805be626b913b099b3f76823378d518bf`，73 项与 CI Clippy 通过。
+事件观察阶段 Rust 源码检查点 `31be30a805be626b913b099b3f76823378d518bf`，73 项与 CI Clippy 通过。
 先读 observer-events.md / VALIDATION-OBSERVER-P2.md。基于唯一 owner 的监听任务持续消费，
 关键通知取消读取；SQLite 单写者通过本地回调再次检查 fence 和监听器存活，不能对网络暴露回调或绕过身份授权。
 目录最多 4096、每批 16、对象读取 1 秒/整轮 30 秒；正常路径每 10 秒修复，重连退避最多 30 秒。
 SIM 身份变动或 owner/连接丢失清空绑定路径；Added/Deleted/目录消失或正文变化保留新的 source incarnation。
 line_status 新增受 status_read 保护的 observer 计数，不包含路径和短信内容。
 
-最新产物本机 `.local/artifacts/{rustsimhub-core-observer-p2,simhubctl-observer-p2}`、NAS 当前 target/release，
+事件观察阶段产物本机 `.local/artifacts/{rustsimhub-core-observer-p2,simhubctl-observer-p2}`，
 棒子 `/opt/rustsimhub/dev-observer-p2/`；core 含 dev-fixtures，私有模拟服务仅 cfg(test) 存在。
 tools/device-observer-smoke.sh 通过实际订阅、已有 1 条短信读取、周期修复无错误、权限撤销与 SIGTERM 后 DB 重开。
 临时 rustsimhub-observer-p2 最长 150 秒，最终已停止；空闲 RSS 6420 kB 样本不替代性能验收。
-下一步做 SmsSend 的最终权限/线路门禁、持久 Submitting、Create/Send 对账和 Unknown 恢复；不能直接使用内部 legacy begin_submit。
+该阶段原下一步为 SmsSend。当前实现及验证见 sms-send.md / VALIDATION-SMS-SEND-P2.md；不能直接使用内部 legacy begin_submit。
+
+
+## 当前短信发送检查点
+
+Rust 源码 bb910b5280d8a442e4f37924c99484069a2e6614，79 项 / CI Clippy / NAS release 通过。
+先读 sms-send.md 和 VALIDATION-SMS-SEND-P2.md。现有只读模式继续拒绝发送，只有 --serve-messaging 开放受 sms_send 保护的三条命令。
+发送使用持久 begin_authorized / bind_created / permit_send 和唯一 owner/连接/SIM 门禁，不能调用 legacy begin_submit 绕过授权。
+Unknown 永不自动重发，新进程/连接不按相同路径/正文推断旧发送成功。
+
+当前产物 `.local/artifacts/{rustsimhub-core-send-p2,simhubctl-send-p2}`，NAS 当前 target/release，
+棒子 `/opt/rustsimhub/dev-send-p2/`。均为开发产物，不是可刷写系统。
+临时 rustsimhub-send-p2 与 rustsimhub-observer-send-p2 已停止；旧四个服务 active，网络正常。
+非 root 收件回归通过；真实写模式为独立 root 临时单元，生产非 root 写权限仍需验证。
+
+本轮用户授权的一次 10010 CXYE 查询已经完成，SENT 并收到私有回复。
+棒子 `/var/tmp/rustsimhub-balance-query-20261013.once` 已存在，不能删标记或再次运行查询脚本。
+私有目录定位在 `/var/tmp/rustsimhub-send-p2-evidence`；本机 `.private/carrier-send-evidence.tar.gz` 有 DB、测试身份、会话和回复，禁止公开。
+后续可只读核验，不能把一次测试成功当作真实断电/换卡/投递报告等完整验收。
+
+下一步推进通话控制/租约、音频 PoC；同步补齐短信历史/事件、保留策略、生产权限/TLS/systemd 及完整恢复与系统镜像。
