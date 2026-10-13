@@ -1,6 +1,14 @@
 # 开发进度
 
-更新时间：2026-10-13 / P3 基础通话控制、租约与一次实机拨号/挂断通过，完整固件开发继续。
+更新时间：2026-10-13 / P3A 音频基础；整体约 **35%**（按 PROGRESS-SCALE.md 固定里程碑估算）。
+
+新增 crates/media：固定 16kHz/20ms PCM、有界帧队列、分段 I/O、静音/断流/xrun 处理和媒体票据/撤销原语。
+新增独立 native/audio-alsa：有限 UFI003 profile、两个 CS-Voice holder 及采集/播放句柄，safe Rust 调用 libasound。
+102 项 workspace + 4 项原生 ALSA 测试通过，源码 CI Clippy 成功，NAS 两个 ARM64 release 构建成功。
+非 root 棒子只读探测通过：profile 匹配、7/7 路由开启，PCM 未打开、mixer 未写入；旧服务正常。
+core/media IPC 与真实授权还没接通，media_available 仍为 false；真实双向声音未验收。
+已将用户要求的“每次结束报告整体百分比”写入 AGENTS.md，估算口径见 PROGRESS-SCALE.md。
+实现与证据见 audio-foundation.md / VALIDATION-AUDIO-P3A.md。下面为此前通话阶段记录。
 
 新增呼叫观察/显式控制模式、v5 持久记录与单次许可、独占租约、过期/撤销/退出清理及私有 CLI。
 90 项测试、CI Clippy、NAS ARM64 默认检查/release 通过。
@@ -59,12 +67,12 @@
 P0 硬件/恢复基线进行中：系统和权限已检查，备份及恢复入口未闭环。
 P1 基础工程进行中：纯规则、协议、持久化、公钥鉴权、恢复/客户端 CLI 与关闭重启已实现并验证；仍缺网页密码/TLS、最终用户设置 UI、完整开机部署和系统恢复。
 P2 进行中：SIM 观察、短信接收/读取、订阅/重连、基础 Create/Send 与 Unknown 对账已实现并验证；历史归属/歧义、保留策略、长短信/投递报告、生产权限与更多硬件验收未完成。
-P3 进行中：基本通话控制、独占租约和一次拨号/挂断实机通过；ALSA/WebRTC 双向媒体、真实来电/DTMF与跨重启通话管理待验收。
+P3 进行中：基本通话控制、独占租约和一次拨号/挂断实机通过；PCM/媒体授权原语与原生 ALSA 基础已验证，核心授权 IPC、真实声音、WebRTC、真实来电/DTMF与跨重启通话管理待验收。
 P4–P7 未开始。当前不是可刷写完整固件。
 
 ## 下一步
 
-1. 推进 ALSA 双向 PCM 与媒体授权 PoC，随后连接 WebRTC；目前没有双向声音证据。
+1. 从实际呼叫控制器生成可信媒体授权快照，接通受限 core/media UDS、单次票据与持续失效通知；再做 CS-Voice/PCM 实机打开和双向声音验收，随后连接 WebRTC。
 2. 补齐真实来电/拒接/DTMF、跨重启孤儿管理、历史状态/路径歧义、生产非 root 写权限及 systemd/TLS。
 3. 短信历史/外部事件、保留策略、长短信/投递报告与编码/存储满硬件验收继续；Unknown 禁止自动重发。
 4. 本轮一次电话及此前一次短信授权都已使用；不能删除 marker 或重放实机测试脚本。

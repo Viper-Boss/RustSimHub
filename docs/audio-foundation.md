@@ -70,10 +70,12 @@ python tools/download-audio-builder-deps.py
 python tools/package-source.py
 ```
 
-上传 source.tar.gz、AudioBuilder.Dockerfile 与 `.local/audio-image-context` 中七个 deb 和 SHA256SUMS，
+将源包单独上传为 `audio-upload.tar.gz`（不覆盖 core 的 source.tar.gz），上传 AudioBuilder.Dockerfile 与 `.local/audio-image-context` 中七个 deb 和 SHA256SUMS，
 在 NAS 执行 tools/nas-start-audio-build.sh。只安装在派生镜像内，不修改 NAS/棒子系统包。
 Debian bookworm arm64 包版本、HTTPS 来源、SHA-256 固定在 tools/audio-builder-deps.json；下载时与镜像构建时各校验一次。
 镜像 build network=none，基底固定 digest，实际镜像 ID 单独保存；包来源以 Debian HTTPS 元数据为依据，未额外验证 InRelease 签名。
 容器 UID/GID 1000、2 CPU、1 GiB、pids=256；源码只读，独立 target/Cargo 缓存，没有设备、host network 或 Docker socket。
 成功/失败都先保存日志；tools/nas-reset-stopped-audio-build.sh 只移除核对标签、挂载、镜像的已退出专用容器。
 源包纳入 native/audio-alsa 的清单、锁文件和 Rust 源，排除任何 target；详情看本轮验证记录。
+板级 PCM 匹配使用 snd_ctl_pcm_info 的 ID，不能用此驱动的空显示名称；只接受约定标识或其 ` (*)` 后缀。
+只读失败只返回固定阶段/errno，不输出原始硬件信息或语音。

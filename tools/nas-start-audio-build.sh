@@ -4,8 +4,8 @@ base=/mnt/docker-data/rustsimhub/p0
 container=rustsimhub-audio-build-p3
 if docker inspect "$container" >/dev/null 2>&1; then echo 'Audio builder already exists; preserve and inspect it first' >&2; exit 1; fi
 install -d -o 1000 -g 1000 -m 0750 "$base/audio-src" "$base/audio-image-context" "$base/audio-target" "$base/audio-cargo"
-test -f "$base/source.tar.gz"
-cp "$base/source.tar.gz" "$base/audio-source.tar.gz"
+test -f "$base/audio-upload.tar.gz"
+cp "$base/audio-upload.tar.gz" "$base/audio-source.tar.gz"
 tar --no-same-owner -xzf "$base/audio-source.tar.gz" -C "$base/audio-src"
 chown -R 1000:1000 "$base/audio-src"
 # Native dependency installation occurs in this derived image, never on NAS or stick.

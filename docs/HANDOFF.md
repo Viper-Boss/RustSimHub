@@ -1,6 +1,9 @@
 # RustSimHub 接手入口
 
-先读 PROGRESS.md、call-control.md、VALIDATION-CALLS-P3.md、sms-send.md、VALIDATION-SMS-SEND-P2.md、observer-events.md、VALIDATION-OBSERVER-P2.md、sim-inbox.md、VALIDATION-INBOX-P2.md、VALIDATION-RECOVERY-CLI-P1.md、recovery-clients.md、VALIDATION-AUTH-P1.md、auth.md、VALIDATION-STORAGE-P1.md、storage.md、VALIDATION-P0-P1.md、HARDWARE-BASELINE.md、architecture-foundation.md，
+当前整体约 **35%**，见 PROGRESS-SCALE.md。用户要求每次最终回复报告整体完成百分比；
+继续按固定里程碑估算，并注明实机验收边界，不把代码完成当作整机固件完成。
+
+先读 PROGRESS.md、PROGRESS-SCALE.md、audio-foundation.md、VALIDATION-AUDIO-P3A.md、call-control.md、VALIDATION-CALLS-P3.md、sms-send.md、VALIDATION-SMS-SEND-P2.md、observer-events.md、VALIDATION-OBSERVER-P2.md、sim-inbox.md、VALIDATION-INBOX-P2.md、VALIDATION-RECOVERY-CLI-P1.md、recovery-clients.md、VALIDATION-AUTH-P1.md、auth.md、VALIDATION-STORAGE-P1.md、storage.md、VALIDATION-P0-P1.md、HARDWARE-BASELINE.md、architecture-foundation.md，
 再按 development-plan.md 的阶段顺序继续。GitHub：
 https://github.com/Viper-Boss/RustSimHub（私有）。
 
@@ -26,7 +29,7 @@ python tools/package-source.py
 ```
 
 NAS 构建目录 `/mnt/docker-data/rustsimhub/p0`；容器 `rustsimhub-build-p0`。
-源包只有 Cargo 清单、锁文件、许可证和 crates 源文件。容器以 UID/GID 1000 运行，
+源包只有 Cargo 清单、锁文件、许可证、crates 与 native/audio-alsa 源文件。容器以 UID/GID 1000 运行，
 限制 2 CPU、2 GiB 内存；不提供设备、host network 或主机控制 socket。
 旧 NAS 容器和旧棒子服务不属于此新仓库的可删除资源。
 重新构建前先确认该构建容器已停止、保留 build.log 及产物，再仅移除
@@ -166,3 +169,31 @@ Unknown 永不自动重发，新进程/连接不按相同路径/正文推断旧�
 
 下一步 ALSA 双向 PCM 与媒体授权 PoC；再做 WebRTC、来电/DTMF和恢复管理，继续生产权限/TLS、网络与系统镜像。
 涉及新的实机电话/短信测试需要新的明确目标与授权，不能沿用已经消耗的一次标记。
+
+## 当前音频基础检查点
+
+Rust 源码 `458a272372b9b1910af8e0ecbce7831a14700db7`，102 项 workspace + 4 项原生 ALSA 测试通过。
+源码 CI `38348798372` 成功；workspace Clippy -D warnings 通过，exclude 的原生 crate 尚未跑 Clippy。
+core/CLI 未变化；media_available 仍为 false，没有可刷写完整镜像。
+先读 audio-foundation.md / VALIDATION-AUDIO-P3A.md；crates/media 的 Context 是可信组件快照，绝不能直接接客户端 JSON。
+Authority/Ticket/Permit 未接 core 或 IPC，二进制只提供 --probe-readonly，不能打开真实 PCM。
+
+原生 ALSA 库已实现固定 UFI003 的两路 CS-Voice holder + 16kHz 双向 PCM、nonblocking I/O、有限恢复和关闭；
+精确 period/buffer 与同时打开时序仍需实际通话。路由初始化和 core/media 授权 UDS 是下一步依赖。
+媒体跨进程时统一单调时基；绑定当前 Principal、真实 lease、ACTIVE 与 Binding fence，持续失效后必须关闭。
+原生后端源码/锁文件独立于 workspace，禁止因此遗漏 native 构建测试。
+
+专用 NAS 容器 `rustsimhub-audio-build-p3` 已退出 0；构建器/产物哈希见验证记录。
+源码只读 `audio-src`，缓存 `audio-cargo`，产物 `audio-target`；只给构建容器装开发包，没有修改 NAS/棒子系统。
+后续上传源包为 `/mnt/docker-data/rustsimhub/p0/audio-upload.tar.gz`；不要覆盖 core 的 source.tar.gz。
+上传 AudioBuilder.Dockerfile 与经工具校验的七个 deb/SHA256SUMS 后，运行 tools/nas-start-audio-build.sh。
+重建前 tools/nas-reset-stopped-audio-build.sh 核对镜像/标签/挂载，归档后只移除已退出的专用容器；保留缓存。
+目前 core build 容器也退出 0，源包 60 文件与 Git 检查点逐字节相符。
+
+音频只读探测产物本机 `.local/artifacts/rustsimhub-audio-alsa-p3`、棒子 `/opt/rustsimhub/dev-audio-p3/rustsimhub-audio-alsa`。
+tools/device-audio-probe.sh 以非 root、只放行 controlC0 的临时单元通过 profile/7 项路由读取；探测前后 PCM closed，旧四个服务 active。
+一次性单元执行结束并 collect。本轮没拨电话或发短信；前一轮 10010 通话授权已使用，不能重放旧 once 脚本。
+完整日志在 `.private/audio-*`；新机器接手时保护这些材料，不能提交或关闭 SSH 主机密钥校验。
+
+下一步：先接受限 core/media 授权 UDS 和持续撤销，再取得新的明确测试目标授权，验证 CS-Voice + 双向 PCM、释放和真实声音。
+通过后接 Opus/WebRTC/ICE/TURN；继续 P0 完整恢复、三种网络接入、生产权限、系统镜像及长期验收。
