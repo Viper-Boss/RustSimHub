@@ -183,14 +183,20 @@ fn synthetic(
     let mut next = Instant::now();
     let mut sequence = 0;
     let mut peak = 0;
+    let mut peer_closed = false;
     while Instant::now() < end {
         let now = local::now_ms();
         authority
             .update(&boot, now + 1000, now)
             .map_err(|_| "synthetic expired")?;
-        session
-            .service(&socket, now)
-            .map_err(|_| "synthetic transport failed")?;
+        match session.service(&socket, now) {
+            Ok(()) => {}
+            Err(rustsimhub_audio_alsa::rtc::Error::Closed) => {
+                peer_closed = true;
+                break;
+            }
+            Err(_) => return Err("synthetic transport failed"),
+        }
         if Instant::now() >= next {
             session
                 .send(
@@ -224,8 +230,10 @@ fn synthetic(
         std::thread::sleep(Duration::from_millis(2));
     }
     authority.revoke();
-    let closed = session.service(&socket, local::now_ms()).is_err();
-    let value = serde_json::json!({"synthetic_endpoint":true,"pcm_opened":false,"uplink":"encoded_silence","dtls_verified":true,"sent_frames":session.sent_frames,"received_frames":session.received_frames,"dropped_frames":session.dropped_frames,"decoded_peak":peak,"revocation_closed":closed});
+    let stopped = session.service(&socket, local::now_ms());
+    let revoked = stopped == Err(rustsimhub_audio_alsa::rtc::Error::Authorization);
+    let closed = stopped.is_err();
+    let value = serde_json::json!({"synthetic_endpoint":true,"pcm_opened":false,"uplink":"encoded_silence","dtls_verified":true,"sent_frames":session.sent_frames,"received_frames":session.received_frames,"dropped_frames":session.dropped_frames,"decoded_peak":peak,"revocation_closed":revoked,"closed":closed,"peer_closed":peer_closed});
     let bytes = serde_json::to_vec(&value).map_err(|_| "summary failed")?;
     write(&base.join("result.json"), &bytes)?;
     println!("{value}");
@@ -258,6 +266,9 @@ fn authorized(
     }
     let core_socket = config.core_socket.as_ref().ok_or("core socket missing")?;
     let core_uid = config.core_uid.ok_or("core uid missing")?;
+    if !crate::trusted::core_uid(core_uid) {
+        return Err("untrusted core identity");
+    }
     let seconds = config.seconds;
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()

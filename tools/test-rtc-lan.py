@@ -4,7 +4,7 @@ import argparse,ipaddress,json,pathlib,re,shlex,sys,time
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'.local/python-deps'))
 import paramiko
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('--nas',type=pathlib.Path,required=True);p.add_argument('--device',type=pathlib.Path,required=True);p.add_argument('--output',type=pathlib.Path,required=True);p.add_argument('--expected-source-sha256',required=True);args=p.parse_args()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--nas',type=pathlib.Path,required=True);p.add_argument('--device',type=pathlib.Path,required=True);p.add_argument('--output',type=pathlib.Path,required=True);p.add_argument('--expected-source-sha256',required=True);p.add_argument('--peer-end-early',action='store_true');args=p.parse_args()
 if not re.fullmatch(r'[a-f0-9]{64}',args.expected_source_sha256):raise SystemExit('Invalid expected source digest')
 nas_config=json.loads(args.nas.read_text(encoding='utf-8-sig'));dev_config=json.loads(args.device.read_text(encoding='utf-8-sig'))
 def connect(config,sock=None):
@@ -51,7 +51,7 @@ try:
  if not match:raise RuntimeError('Unexpected device RTC namespace')
  dev_dir,uid,gid=match.groups();note(json.dumps({'nas_fixture':test_dir,'device_fixture':dev_dir,'source_archive_sha256':args.expected_source_sha256}));uid=int(uid);gid=int(gid);nsftp=nas.open_sftp();dsftp=dev.open_sftp()
  put(nsftp,test_dir+'/config.json',json.dumps({'mode':'offer_synthetic','bind':nas_ip+':0','peer_ip':dev_ip,'seconds':5,'core_socket':None,'core_uid':None}).encode(),1000,1000)
- put(dsftp,dev_dir+'/config.json',json.dumps({'mode':'answer_synthetic','bind':dev_ip+':0','peer_ip':nas_ip,'seconds':5,'core_socket':None,'core_uid':None}).encode(),uid,gid)
+ put(dsftp,dev_dir+'/config.json',json.dumps({'mode':'answer_synthetic','bind':dev_ip+':0','peer_ip':nas_ip,'seconds':2 if args.peer_end_early else 5,'core_socket':None,'core_uid':None}).encode(),uid,gid)
  _,b=command(nas,'docker run -d --name '+container+' --label org.rustsimhub.purpose=rtc-synthetic-acceptance --network host --read-only --cap-drop ALL --security-opt no-new-privileges --user 1000:1000 --cpus 1 --memory 128m --pids-limit 16 --mount '+q('type=bind,src='+test_dir+',dst=/test')+' '+q(image)+' /test/rustsimhub-audio-alsa --rtc-lan-peer /test/config.json',sudo=True);nas_started=True;note(b)
  end=time.monotonic()+35;offer=wait_file(nsftp,test_dir+'/offer.sdp',end);put(dsftp,dev_dir+'/offer.sdp',offer,uid,gid)
  binary='/opt/rustsimhub/dev-rtc-p3/rustsimhub-audio-alsa'
@@ -60,7 +60,10 @@ try:
  a=json.loads(wait_file(nsftp,test_dir+'/result.json',end));b=json.loads(wait_file(dsftp,dev_dir+'/result.json',end))
  note(json.dumps({'nas':a,'device':b,'synthetic_only':True,'hardware_mutations':False},sort_keys=True))
  for result in [a,b]:
-  if not result.get('dtls_verified') or result.get('pcm_opened') or not result.get('revocation_closed') or result.get('received_frames',0)<200 or not (0<=result.get('decoded_peak',65536)<=4):raise RuntimeError('Encrypted LAN acceptance failed')
+  if not result.get('dtls_verified') or result.get('pcm_opened') or not result.get('closed') or result.get('received_frames',0)<(75 if args.peer_end_early else 200) or not (0<=result.get('decoded_peak',65536)<=4):raise RuntimeError('Encrypted LAN acceptance failed')
+ if args.peer_end_early:
+  if not a.get('peer_closed') or not b.get('revocation_closed'):raise RuntimeError('Remote idle or local revocation did not close')
+ elif not a.get('revocation_closed') or not b.get('revocation_closed'):raise RuntimeError('Authorization revocation did not close')
  note(json.dumps({'synthetic_only':True,'nas':a,'device':b,'hardware_mutations':False,'new_calls':0,'new_sms':0},sort_keys=True))
 finally:
  if dev:

@@ -14,6 +14,9 @@ pub fn run(
     seconds: u64,
     pcm: bool,
 ) -> Result<(), &'static str> {
+    if !crate::trusted::core_uid(uid) {
+        return Err("untrusted core identity");
+    }
     if !(1..=60).contains(&seconds) {
         return Err("invalid duration");
     }

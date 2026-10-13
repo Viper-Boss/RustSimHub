@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 mod authorized;
 mod rtc_lan;
+mod trusted;
 fn main() {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     if let [command, config] = args.as_slice() {
