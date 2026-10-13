@@ -260,7 +260,10 @@ fn authorized(
    pump.close();session.close();let s=pump.stats();Ok::<_,&'static str>(serde_json::json!({"pcm_opened":true,"dtls_verified":true,"core_authorized":true,"sent_frames":session.sent_frames,"received_frames":session.received_frames,"captured_frames":s.captured_frames,"played_frames":s.played_frames,"capture_peak":s.capture_peak,"playback_peak":s.playback_peak,"xruns":s.xruns,"dropped_frames":s.dropped_frames+session.dropped_frames,"transport_failed":transport_failed,"closed":true,"recording":false}))
   });
   let mut ticks=tokio::time::interval(Duration::from_millis(250));ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-  while !worker.is_finished(){ticks.tick().await;if client.pulse().await.is_err(){break;}}
+  let mut term=tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).map_err(|_|"signal unavailable")?;
+  let mut interrupt=tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()).map_err(|_|"signal unavailable")?;
+  let limit=tokio::time::Instant::now()+Duration::from_secs(seconds+3);
+  while !worker.is_finished(){tokio::select!{_=term.recv()=>break,_=interrupt.recv()=>break,_=tokio::time::sleep_until(limit)=>break,_=ticks.tick()=>{if client.pulse().await.is_err(){break;}}}}
   drop(client);worker.join().map_err(|_|"media worker failed")?
  })?;
     write(
