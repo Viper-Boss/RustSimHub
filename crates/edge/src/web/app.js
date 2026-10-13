@@ -5,23 +5,26 @@ const scopes=['status.read','sms.read','calls.read'];
 let key, publicKey, token=null, busy=false, pending=null, lease=null;
 let inboxCursor=null, callsCursor=null, inboxEvents=null, callEvents=null;
 let db;
+let viewEpoch=0, actionGeneration=0;const requests=new Set();
+function current(epoch){if(epoch!==viewEpoch)throw Error('会话已结束');}
 const request=idb=>new Promise((resolve,reject)=>{idb.onsuccess=()=>resolve(idb.result);idb.onerror=()=>reject(Error('浏览器存储不可用'));});
 async function stored(name){return request(db.transaction('state','readonly').objectStore('state').get(name));}
 async function save(name,value){const tx=db.transaction('state','readwrite');tx.objectStore('state').put(value,name);await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=tx.onabort=()=>reject(Error('浏览器存储不可用'));});}
-async function api(command){
- const id=crypto.randomUUID();const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),18000);
+async function api(command,epoch=viewEpoch){
+ current(epoch);
+ const id=crypto.randomUUID();const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),18000);requests.add(controller);
  try{const r=await fetch('/api/v2',{method:'POST',headers:{'Content-Type':'application/json','X-RustSimHub-Request':'2'},body:JSON.stringify({protocol:2,id,command}),signal:controller.signal,credentials:'omit',cache:'no-store',redirect:'error'});
   if(!r.ok)throw Error('请求被拒绝或服务暂不可用');
-  const value=await r.json();if(value.protocol!==2||value.id!==id)throw Error('响应不匹配');
+  const value=await r.json();current(epoch);if(value.protocol!==2||value.id!==id)throw Error('响应不匹配');
   if(value.result?.error)throw Error('核心拒绝操作；请检查登录、权限和设备状态');
   return value.result;
- }finally{clearTimeout(timer);}
+ }finally{clearTimeout(timer);requests.delete(controller);}
 }
 function auth(command){if(!token)throw Error('请先登录');return api({...command,token});}
 const notice=text=>{$('notice').textContent=text;};
 function showPending(){
  $('pending').textContent=pending?JSON.stringify({type:pending.type,action:pending.action,operation_id:pending.id,state:pending.state,submit_started:pending.submit_started},null,2):'没有待处理操作';
- $('submit').disabled=!pending||pending.submit_started||pending.state!=='prepared';$('query').disabled=!pending;$('clear').disabled=!pending||!['submitted','cancelled'].includes(pending.state);
+ $('submit').disabled=!token||!pending||pending.submit_started||pending.state!=='prepared';$('query').disabled=!token||!pending;$('clear').disabled=!pending||!['submitted','cancelled'].includes(pending.state);
 }
 async function initialize(){
  db=await new Promise((resolve,reject)=>{const opening=indexedDB.open('rustsimhub-client-v1',1);opening.onupgradeneeded=()=>opening.result.createObjectStore('state');opening.onsuccess=()=>resolve(opening.result);opening.onerror=()=>reject(Error('浏览器存储不可用'));});
@@ -29,20 +32,20 @@ async function initialize(){
  publicKey=new Uint8Array(await crypto.subtle.exportKey('raw',key.publicKey));
  $('client-key').textContent='浏览器公钥：'+hex(publicKey);$('pin').value=await stored('pin')||'';pending=await stored('pending')||null;showPending();
 }
-async function proof(challenge,purpose,pairScopes){
- const pin=unhex($('pin').value.trim());const signature=await prove(challenge,pin,publicKey,key.privateKey,purpose,pairScopes);
- await save('pin',hex(pin));return signature;
+async function proof(challenge,purpose,pairScopes,epoch=viewEpoch){
+ const pin=unhex($('pin').value.trim());const signature=await prove(challenge,pin,publicKey,key.privateKey,purpose,pairScopes);current(epoch);
+ await save('pin',hex(pin));current(epoch);return signature;
 }
 async function pair(){
- const desired=$('write-scope').checked?[...scopes,'sms.send','calls.control']:scopes;
- const c=await api({op:'pair_challenge',public_key:Array.from(publicKey),kind:'client',scopes:desired});
- const signature=await proof(c,'pair',desired);
- const result=await api({op:'pair_proof',challenge_id:c.id,signature});
+ const epoch=viewEpoch;const desired=$('write-scope').checked?[...scopes,'sms.send','calls.control']:scopes;
+ const c=await api({op:'pair_challenge',public_key:Array.from(publicKey),kind:'client',scopes:desired},epoch);
+ const signature=await proof(c,'pair',desired,epoch);current(epoch);
+ const result=await api({op:'pair_proof',challenge_id:c.id,signature},epoch);
  notice('配对申请已提交。请由设备所有者核对浏览器公钥、权限和申请 ID 后批准：'+result.pairing_id);
 }
 async function login(){
- token=null;lease=null;const c=await api({op:'challenge',public_key:Array.from(publicKey)});const signature=await proof(c,'login');
- const r=await api({op:'authenticate',challenge_id:c.id,signature});if(!/^[a-f0-9]{64}$/.test(r.token))throw Error('登录响应无效');
+ const epoch=viewEpoch;token=null;lease=null;const c=await api({op:'challenge',public_key:Array.from(publicKey)},epoch);const signature=await proof(c,'login',undefined,epoch);current(epoch);
+ const r=await api({op:'authenticate',challenge_id:c.id,signature},epoch);current(epoch);if(!/^[a-f0-9]{64}$/.test(r.token))throw Error('登录响应无效');
  token=r.token;notice('已登录；会话最长 15 分钟');await refresh();
 }
 function row(text,parent,onClick){const item=document.createElement('div');item.className='row';const label=document.createElement('span');label.textContent=text;item.append(label);if(onClick){const button=document.createElement('button');button.textContent='查看';button.onclick=()=>act(onClick);item.append(button);}parent.append(item);}
@@ -55,7 +58,7 @@ async function sync(){
  if(messages.events.length)await inboxPage(true);if(calls.events.length)await callsPage(true);
 }
 async function prepare(type,action){
- if(pending)throw Error('请先查询并关闭当前操作；不自动覆盖结果不明的提交');
+ const epoch=viewEpoch;if(pending)throw Error('请先查询并关闭当前操作；不自动覆盖结果不明的提交');
  const line=await auth({op:'line_status'});if(line.status!=='ready')throw Error('SIM 尚未就绪');
  const idempotency_key=crypto.randomUUID();let operation;
  if(type==='sms'){
@@ -66,7 +69,7 @@ async function prepare(type,action){
   if(action!=='dial'&&!call_id)throw Error('请选择呼叫');
   const result=await auth({op:'prepare_call',line_epoch:line.line,idempotency_key,action,call_id,payload});operation=result.operation;
  }
- pending={type,action,id:operation.id,state:operation.state,submit_started:false};await save('pending',pending);showPending();notice('操作已准备；核对后确认提交一次');
+ pending={type,action,id:operation.id,state:operation.state,submit_started:false};await save('pending',pending);current(epoch);showPending();notice('操作已准备；核对后确认提交一次');
 }
 async function submit(){
  if(!pending||pending.state!=='prepared'||pending.submit_started)throw Error('当前操作只能查询');
@@ -76,10 +79,10 @@ async function submit(){
  else r=await auth({op:'submit_call',operation_id:pending.id,lease,urgent:pending.action==='hangup'});
  if(r.lease)lease=r.lease;await query();
 }
-async function query(){if(!pending)return;const r=await auth({op:pending.type==='sms'?'sms_operation':'call_operation',operation_id:pending.id});if(r.lease)lease=r.lease;const operation=pending.type==='call'?r.operation:r;pending.state=operation.state;await save('pending',pending);showPending();notice('操作状态：'+operation.state+'；没有重复提交');}
-async function act(fn){if(busy)return;busy=true;try{await fn();}catch(error){notice(error.message||'操作失败');}finally{busy=false;showPending();}}
+async function query(){const epoch=viewEpoch;if(!pending)return;const r=await auth({op:pending.type==='sms'?'sms_operation':'call_operation',operation_id:pending.id});if(r.lease)lease=r.lease;const operation=pending.type==='call'?r.operation:r;pending.state=operation.state;await save('pending',pending);current(epoch);showPending();notice('操作状态：'+operation.state+'；没有重复提交');}
+async function act(fn){if(busy)return;const generation=++actionGeneration,epoch=viewEpoch;busy=true;try{await fn();}catch(error){if(epoch===viewEpoch&&generation===actionGeneration)notice(error.message||'操作失败');}finally{if(generation===actionGeneration){busy=false;showPending();}}}
 function bind(id,fn){$(id).onclick=()=>act(fn);}
-bind('pair',pair);bind('login',login);bind('logout',async()=>{token=null;lease=null;$('sms-detail').textContent='';$('inbox').replaceChildren();$('calls').replaceChildren();$('status').textContent='未登录';notice('已退出；设备租约到期后清理呼叫');});bind('refresh',refresh);bind('sync',sync);
+bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;for(const id of ['sms-detail','recipient','text','number','dtmf','events']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
 bind('more-inbox',()=>inboxPage());bind('more-calls',()=>callsPage());bind('prepare-sms',()=>prepare('sms','send'));for(const action of ['dial','accept','hangup','dtmf'])bind('prepare-'+action,()=>prepare('call',action));bind('submit',submit);bind('query',query);bind('clear',async()=>{if(!pending||!['submitted','cancelled'].includes(pending.state))throw Error('当前结果必须保留查询');pending=null;await save('pending',null);showPending();});
 setInterval(()=>{if(token&&lease&&!busy)act(async()=>{try{const r=await auth({op:'renew_call',lease});lease=r.lease;$('lease').textContent='控制租约已续期';}catch(e){lease=null;$('lease').textContent='控制租约已失效；核心清理正在处理';throw e;}});},10000);
 initialize().catch(error=>notice('初始化失败：'+error.message));

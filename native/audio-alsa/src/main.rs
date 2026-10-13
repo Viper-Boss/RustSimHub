@@ -3,6 +3,16 @@
 mod authorized;
 fn main() {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    if args == ["--codec-self-check"] {
+        match rustsimhub_audio_alsa::codec::self_check() {
+            Ok(value) => println!("{value}"),
+            Err(_) => {
+                eprintln!("synthetic codec check failed");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
     if args == ["--build-info"] {
         println!(
             "{}",
