@@ -27,38 +27,58 @@ pub struct Probe {
     pub profile_matches: bool,
     pub routes_on: [bool; 7],
 }
+#[derive(Debug)]
+pub enum ProbeError {
+    Control(i32),
+    CardInfo(i32),
+    CardId,
+    PcmInfo(u32, bool, i32),
+    PcmId,
+    Profile,
+    Route(u8, i32),
+    RouteType(u8),
+}
 /// Opens control only. Never opens PCM, writes mixers or modifies a call.
-pub fn probe() -> Result<Probe, Error> {
-    let ctl = Ctl::new(CTL, true).map_err(|_| Error::Device)?;
-    let info = ctl.card_info().map_err(|_| Error::Device)?;
-    let matches = info.get_id().map_err(|_| Error::Device)? == CARD
-        && pcm_name(&ctl, 0, Direction::Playback)?.starts_with("MultiMedia1")
-        && pcm_name(&ctl, 1, Direction::Capture)?.starts_with("MultiMedia2")
-        && pcm_name(&ctl, 4, Direction::Capture)?.starts_with("CS-Voice")
-        && pcm_name(&ctl, 4, Direction::Playback)?.starts_with("CS-Voice");
+pub fn probe() -> Result<Probe, ProbeError> {
+    let ctl = Ctl::new(CTL, true).map_err(|e| ProbeError::Control(e.errno()))?;
+    let info = ctl
+        .card_info()
+        .map_err(|e| ProbeError::CardInfo(e.errno()))?;
+    let matches = info.get_id().map_err(|_| ProbeError::CardId)? == CARD
+        && matches_id(&pcm_id(&ctl, 0, Direction::Playback)?, "MultiMedia1")
+        && matches_id(&pcm_id(&ctl, 1, Direction::Capture)?, "MultiMedia2")
+        && matches_id(&pcm_id(&ctl, 4, Direction::Capture)?, "CS-Voice")
+        && matches_id(&pcm_id(&ctl, 4, Direction::Playback)?, "CS-Voice");
     if !matches {
-        return Err(Error::Device);
+        return Err(ProbeError::Profile);
     }
     let mut routes = [false; 7];
     for (index, name) in ROUTES.iter().enumerate() {
         let mut id = ElemId::new(ElemIface::Mixer);
-        id.set_name(&CString::new(*name).map_err(|_| Error::Device)?);
-        let mut value = ElemValue::new(ElemType::Boolean).map_err(|_| Error::Device)?;
+        id.set_name(&CString::new(*name).map_err(|_| ProbeError::RouteType(index as u8))?);
+        let mut value = ElemValue::new(ElemType::Boolean)
+            .map_err(|e| ProbeError::Route(index as u8, e.errno()))?;
         value.set_id(&id);
-        ctl.elem_read(&mut value).map_err(|_| Error::Device)?;
-        routes[index] = value.get_boolean(0).ok_or(Error::Device)?;
+        ctl.elem_read(&mut value)
+            .map_err(|e| ProbeError::Route(index as u8, e.errno()))?;
+        routes[index] = value
+            .get_boolean(0)
+            .ok_or(ProbeError::RouteType(index as u8))?;
     }
     Ok(Probe {
         profile_matches: matches,
         routes_on: routes,
     })
 }
-fn pcm_name(ctl: &Ctl, number: u32, direction: Direction) -> Result<String, Error> {
+fn matches_id(id: &str, expected: &str) -> bool {
+    id.strip_suffix(" (*)").unwrap_or(id) == expected
+}
+fn pcm_id(ctl: &Ctl, number: u32, direction: Direction) -> Result<String, ProbeError> {
     Ok(ctl
         .pcm_info(number, 0, direction)
-        .map_err(|_| Error::Device)?
-        .get_name()
-        .map_err(|_| Error::Device)?
+        .map_err(|e| ProbeError::PcmInfo(number, direction == Direction::Capture, e.errno()))?
+        .get_id()
+        .map_err(|_| ProbeError::PcmId)?
         .to_owned())
 }
 pub struct UfiDuplex {
@@ -71,7 +91,12 @@ impl UfiDuplex {
     /// The integration must supply boot-monotonic time from the same core authority.
     pub fn open(permit: &Permit, now: impl Fn() -> u64) -> Result<Self, Error> {
         permit.check(now())?;
-        if !probe()?.routes_on.iter().all(|v| *v) {
+        if !probe()
+            .map_err(|_| Error::Device)?
+            .routes_on
+            .iter()
+            .all(|v| *v)
+        {
             return Err(Error::Device);
         }
         let mut result = Self {
@@ -232,5 +257,41 @@ mod tests {
             io_error(alsa::Error::new("test", libc::EPIPE)),
             IoError::Xrun
         ));
+    }
+    #[test]
+    fn profile_uses_pcm_id_and_requires_exact_known_identifier() {
+        assert!(matches_id("CS-Voice (*)", "CS-Voice"));
+        assert!(matches_id("CS-Voice", "CS-Voice"));
+        for wrong in ["", "CS-Voice2", "other CS-Voice", "CS-Voice (*) extra"] {
+            assert!(!matches_id(wrong, "CS-Voice"));
+        }
+    }
+    #[test]
+    fn expired_authorization_is_denied_before_any_hardware_probe() {
+        let mut authority = rustsimhub_media::Authority::new();
+        let context = rustsimhub_media::Context {
+            boot: "a".repeat(64),
+            line: 1,
+            call: "c".repeat(36),
+            call_revision: 1,
+            lease_generation: 1,
+            principal: "p".repeat(36),
+            principal_generation: 1,
+            peer_key: [7; 32],
+            lease_until_ms: 30_000,
+            active: true,
+            media_scope: true,
+            control_scope: true,
+        };
+        let ticket = authority.issue(context.clone(), 0).unwrap();
+        let permit = authority
+            .consume(ticket, &context, &context.peer_key, 0)
+            .unwrap();
+        assert!(matches!(
+            UfiDuplex::open(&permit, || 1_000),
+            Err(Error::Expired)
+        ));
+        authority.revoke();
+        assert!(matches!(UfiDuplex::open(&permit, || 0), Err(Error::Denied)));
     }
 }

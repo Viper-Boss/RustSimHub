@@ -34,7 +34,7 @@ impl Frame {
             return Err(Error::InvalidFrame);
         }
         let mut samples = [0; SAMPLES];
-        for (s, b) in samples.iter_mut().zip(bytes.chunks_exact(2)) {
+        for (s, b) in samples.iter_mut().zip(bytes.as_chunks::<2>().0) {
             *s = i16::from_le_bytes([b[0], b[1]]);
         }
         Ok(Self {

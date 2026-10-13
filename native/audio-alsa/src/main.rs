@@ -11,8 +11,8 @@ fn main() {
             p.profile_matches,
             p.routes_on.iter().filter(|v| **v).count()
         ),
-        Err(_) => {
-            eprintln!("audio profile unavailable");
+        Err(stage) => {
+            eprintln!("audio profile unavailable: {stage:?}");
             std::process::exit(1);
         }
     }
