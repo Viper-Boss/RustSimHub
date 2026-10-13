@@ -14,6 +14,13 @@ pub const FRAME_BYTES: usize = SAMPLES * 2;
 pub const FRAME_MS: u64 = 20;
 pub const MAX_AGE_MS: u64 = 60;
 pub const QUEUE_FRAMES: usize = 4;
+pub fn build_source_sha256() -> Option<&'static str> {
+    option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256").filter(|s| {
+        s.len() == 64
+            && s.bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    })
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Error {

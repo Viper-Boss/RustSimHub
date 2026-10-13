@@ -3,6 +3,13 @@
 mod authorized;
 fn main() {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    if args == ["--build-info"] {
+        println!(
+            "{}",
+            serde_json::json!({"source_archive_sha256":rustsimhub_media::build_source_sha256()})
+        );
+        return;
+    }
     if let [command, socket, uid, credentials, seconds] = args.as_slice() {
         if command == "--watch-authorized" || command == "--duplex-authorized" {
             let result = uid

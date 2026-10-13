@@ -303,6 +303,13 @@ fn tls(dir: &Path) -> Result<TlsAcceptor> {
     Ok(TlsAcceptor::from(Arc::new(config)))
 }
 pub fn run(args: Vec<String>) -> Result<()> {
+    if args == ["--build-info"] {
+        println!(
+            "{}",
+            serde_json::json!({"source_archive_sha256":rustsimhub_wire::build_source_sha256()})
+        );
+        return Ok(());
+    }
     if let [command, dir, name] = args.as_slice() {
         if command == "--init-tls" {
             return init_tls(Path::new(dir), name);

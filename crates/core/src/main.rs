@@ -60,6 +60,13 @@ fn main() {
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args == ["--build-info"] {
+        println!(
+            "{}",
+            json!({"source_archive_sha256":rustsimhub_wire::build_source_sha256(),"development_fixtures":cfg!(feature="dev-fixtures")})
+        );
+        return Ok(());
+    }
     if args == ["--self-check"] {
         return self_check();
     }

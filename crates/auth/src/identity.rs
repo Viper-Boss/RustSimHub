@@ -175,7 +175,7 @@ fn open_private(path: &Path, new: bool) -> Result<File> {
 fn read_seed(path: &Path, magic: &[u8; 8]) -> Result<Zeroizing<[u8; 32]>> {
     check(path, false)?;
     let mut bytes = Zeroizing::new(Vec::new());
-    open_private(path, false)?
+    open_private_read(path)?
         .take(73)
         .read_to_end(&mut bytes)
         .map_err(|_| Error::Io)?;
@@ -200,7 +200,7 @@ pub fn read_private(path: &Path, limit: usize) -> Result<Zeroizing<Vec<u8>>> {
     check(path.parent().ok_or(Error::InvalidInput)?, true)?;
     check(path, false)?;
     let mut bytes = Zeroizing::new(Vec::new());
-    open_private(path, false)?
+    open_private_read(path)?
         .take(limit as u64 + 1)
         .read_to_end(&mut bytes)
         .map_err(|_| Error::Io)?;
@@ -208,4 +208,57 @@ pub fn read_private(path: &Path, limit: usize) -> Result<Zeroizing<Vec<u8>>> {
         return Err(Error::InvalidInput);
     }
     Ok(bytes)
+}
+
+fn open_private_read(path: &Path) -> Result<File> {
+    check(path, false)?;
+    let mut options = OpenOptions::new();
+    options.read(true);
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(
+            (rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32,
+        );
+    }
+    let file = options.open(path).map_err(|_| Error::Io)?;
+    // Validate the actual opened inode too, rather than trusting a second path lookup.
+    let meta = file.metadata().map_err(|_| Error::Io)?;
+    if !meta.is_file() {
+        return Err(Error::Forbidden);
+    }
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::fs::MetadataExt;
+        if meta.uid() != rustix::process::geteuid().as_raw()
+            || meta.mode() & 0o077 != 0
+            || meta.nlink() != 1
+        {
+            return Err(Error::Forbidden);
+        }
+    }
+    Ok(file)
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod readonly_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+    #[test]
+    fn private_read_needs_no_write_permission_and_never_creates_missing_files() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::set_permissions(dir.path(), fs::Permissions::from_mode(0o700)).unwrap();
+        let path = dir.path().join("certificate.der");
+        write_private_new(&path, b"synthetic certificate").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        assert_eq!(
+            read_private(&path, 64).unwrap().as_slice(),
+            b"synthetic certificate"
+        );
+        assert!(read_private(&dir.path().join("absent"), 64).is_err());
+        assert!(!dir.path().join("absent").exists());
+        let linked = dir.path().join("hardlink");
+        fs::hard_link(&path, &linked).unwrap();
+        assert!(read_private(&path, 64).is_err());
+    }
 }

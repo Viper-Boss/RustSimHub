@@ -8,6 +8,15 @@ pub use auth::{parse_auth_request, AuthCommand, AuthRequest, AUTH_PROTOCOL};
 pub const MAX_FRAME: usize = 65_536;
 pub const PROTOCOL: u16 = 1;
 
+/// Compile-time provenance; Cargo tracks this environment input in its fingerprint.
+pub fn build_source_sha256() -> Option<&'static str> {
+    option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256").filter(|s| {
+        s.len() == 64
+            && s.bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    })
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Request {
