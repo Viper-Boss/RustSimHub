@@ -23,7 +23,8 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | PrepareCall { .. }
         | SubmitCall { .. }
         | CallOperation { .. }
-        | RenewCall { .. } => return Err(rustsimhub_auth::Error::Forbidden),
+        | RenewCall { .. }
+        | IssueMedia { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         Calls {
             token,
             after,
@@ -134,6 +135,7 @@ pub(crate) async fn handle(
             | AuthCommand::SubmitCall { .. }
             | AuthCommand::CallOperation { .. }
             | AuthCommand::RenewCall { .. }
+            | AuthCommand::IssueMedia { .. }
     );
     let result = if calling {
         match calls {
@@ -194,6 +196,30 @@ pub(crate) async fn handle(
 }
 pub async fn serve(socket: &str, uid: u32, state: &str, identity: &str) -> Result<()> {
     serve_mode(socket, uid, state, identity, (false, false, 0)).await
+}
+pub async fn serve_media(
+    socket: &str,
+    uid: u32,
+    state: &str,
+    identity: &str,
+    media_socket: &str,
+    media_uid: u32,
+) -> Result<()> {
+    use tokio::signal::unix::{signal, SignalKind};
+    let mut term = signal(SignalKind::terminate())?;
+    let mut interrupt = signal(SignalKind::interrupt())?;
+    serve_inner_media(
+        socket,
+        uid,
+        state,
+        identity,
+        (true, true, 2),
+        Some((media_socket, media_uid)),
+        async move {
+            tokio::select! {_=term.recv()=>{},_=interrupt.recv()=>{}}
+        },
+    )
+    .await
 }
 pub async fn serve_observing(socket: &str, uid: u32, state: &str, identity: &str) -> Result<()> {
     serve_mode(socket, uid, state, identity, (true, false, 0)).await
@@ -257,6 +283,26 @@ async fn serve_inner(
     (observing, messaging, call_mode): (bool, bool, u8),
     stop: impl std::future::Future<Output = ()>,
 ) -> Result<()> {
+    serve_inner_media(
+        socket,
+        uid,
+        state,
+        identity,
+        (observing, messaging, call_mode),
+        None,
+        stop,
+    )
+    .await
+}
+async fn serve_inner_media(
+    socket: &str,
+    uid: u32,
+    state: &str,
+    identity: &str,
+    (observing, messaging, call_mode): (bool, bool, u8),
+    media_config: Option<(&str, u32)>,
+    stop: impl std::future::Future<Output = ()>,
+) -> Result<()> {
     let (state, identity) = (state.to_owned(), identity.to_owned());
     let (store, auth) = tokio::task::spawn_blocking(move || -> rustsimhub_auth::Result<_> {
         let store = Store::open(state)?;
@@ -275,13 +321,28 @@ async fn serve_inner(
         .try_lock()
         .map_err(|_| "startup auth busy")?
         .observer_instance();
-    let (call_controller, call_worker) = crate::calls::channel(
+    let (call_controller, mut call_worker) = crate::calls::channel(
         auth.clone(),
         store.handle(),
         bindings.clone(),
         boot,
         call_mode == 2,
     );
+    call_worker.media_enabled = media_config.is_some();
+    let (media_listener, media_runtime, media_uid) = match media_config {
+        Some((path, uid)) => {
+            let (listener, runtime) = crate::media_ipc::bind(path)?;
+            (Some(listener), Some(runtime), uid)
+        }
+        None => (None, None, 0),
+    };
+    let media_controller = call_controller.clone();
+    let mut media_serving = Box::pin(async move {
+        match media_listener {
+            Some(l) => crate::media_ipc::serve(l, media_uid, media_controller).await,
+            None => std::future::pending().await,
+        }
+    });
     let calls = (call_mode > 0).then_some(call_controller);
     let mut controlling = Box::pin(async move {
         if call_mode > 0 {
@@ -330,6 +391,7 @@ async fn serve_inner(
             _=&mut observer=>break Err("observer stopped".into()),
             _=&mut sending=>break Err("sender stopped".into()),
             _=&mut controlling=>break Err("call controller stopped".into()),
+            _=&mut media_serving=>break Err("media authorizer stopped".into()),
             _=tasks.join_next(),if !tasks.is_empty()=>continue,
             accepted=listener.accept()=>accepted,
         };
@@ -361,6 +423,7 @@ async fn serve_inner(
         });
     };
     drop(listener); // Stop admission before draining outstanding work.
+    drop(media_serving);
     if let Some(c) = &calls {
         c.shutdown();
         let _ = timeout(Duration::from_secs(15), &mut controlling).await;
@@ -383,6 +446,7 @@ async fn serve_inner(
     drop(auth);
     tokio::task::spawn_blocking(move || drop(store)).await?;
     drop(runtime); // Unlink only our inode, after the single writer has closed.
+    drop(media_runtime);
     result
 }
 /// Explicit offline terminal provisioning. No bootstrap operation is accepted over IPC.

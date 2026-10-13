@@ -103,6 +103,149 @@ fn directory() -> tempfile::TempDir {
     std::fs::set_permissions(d.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     d
 }
+#[tokio::test]
+async fn media_issue_checks_real_owner_scopes_lease_active_and_explicit_mode() {
+    let mut f = fixture(false).await;
+    let id = prepare(
+        &mut f.worker,
+        &f.first,
+        "media-dial",
+        CallAction::Dial,
+        None,
+        "+12025550123",
+    )
+    .await;
+    let value = submit(&mut f.worker, &f.first, &id, None).await.unwrap();
+    let lease: CallLease = serde_json::from_value(value["lease"].clone()).unwrap();
+    let request = |token: &str, lease: &CallLease| AuthCommand::IssueMedia {
+        token: token.into(),
+        lease: lease.clone(),
+        peer_key: [7; 32],
+    };
+    assert!(f.worker.process(request(&f.first, &lease)).await.is_err());
+    f.worker.media_enabled = true;
+    assert!(f.worker.process(request(&f.second, &lease)).await.is_err());
+    let mut bad = lease.clone();
+    bad.generation += 1;
+    assert!(f.worker.process(request(&f.first, &bad)).await.is_err());
+    f.data.state.store(5, Ordering::SeqCst);
+    assert!(f.worker.process(request(&f.first, &lease)).await.is_err());
+    f.data.state.store(4, Ordering::SeqCst);
+    let credential = f.worker.process(request(&f.first, &lease)).await.unwrap();
+    assert!(credential["ticket"].is_array());
+    assert!(f.worker.process(request(&f.first, &lease)).await.is_err());
+    assert_eq!(f.data.creates.load(Ordering::SeqCst), 1);
+    assert_eq!(f.data.starts.load(Ordering::SeqCst), 1);
+}
+#[tokio::test]
+async fn media_local_socket_redeems_once_and_revoke_or_disconnect_closes_permit() {
+    let mut f = fixture(false).await;
+    f.worker.media_enabled = true;
+    let id = prepare(
+        &mut f.worker,
+        &f.first,
+        "media-dial",
+        CallAction::Dial,
+        None,
+        "+12025550123",
+    )
+    .await;
+    let value = submit(&mut f.worker, &f.first, &id, None).await.unwrap();
+    let lease: CallLease = serde_json::from_value(value["lease"].clone()).unwrap();
+    let value = f
+        .worker
+        .process(AuthCommand::IssueMedia {
+            token: f.first.clone(),
+            lease,
+            peer_key: [7; 32],
+        })
+        .await
+        .unwrap();
+    let credentials: rustsimhub_media::protocol::Credentials =
+        serde_json::from_value(value.clone()).unwrap();
+    let socket = f.d.path().join("media.sock");
+    let (listener, runtime) = crate::media_ipc::bind(socket.to_str().unwrap()).unwrap();
+    let uid = rustix::process::geteuid().as_raw();
+    let server = tokio::spawn(crate::media_ipc::serve(listener, uid, f.controller.clone()));
+    let worker = tokio::spawn(f.worker.run());
+    let mut client = rustsimhub_media::local::Client::redeem(&socket, uid, credentials)
+        .await
+        .unwrap();
+    let permit = client.permit();
+    client.pulse().await.unwrap();
+    assert!(permit.check(rustsimhub_media::local::now_ms()).is_ok());
+    let replay = serde_json::from_value(value).unwrap();
+    assert!(
+        rustsimhub_media::local::Client::redeem(&socket, uid, replay)
+            .await
+            .is_err()
+    );
+    // A rejected second connection cannot close the first connection's lease.
+    client.pulse().await.unwrap();
+    let p = f
+        .store
+        .handle()
+        .principal(SigningKey::from_bytes(&[72; 32]).verifying_key().to_bytes())
+        .unwrap();
+    // Revoke the actual media owner, independent of session token expiry.
+    let first = match p {
+        Some(p) => p,
+        None => panic!("fixture key changed"),
+    };
+    f.store
+        .handle()
+        .revoke_client(f.owner.clone(), first.public_key)
+        .unwrap();
+    assert!(client.pulse().await.is_err());
+    assert!(permit.check(rustsimhub_media::local::now_ms()).is_err());
+    drop(client);
+    f.controller.shutdown();
+    worker.await.unwrap();
+    server.abort();
+    let _ = server.await;
+    drop(runtime);
+    assert!(!socket.exists());
+}
+#[tokio::test]
+async fn media_local_socket_rejects_wrong_uid_and_missing_redeem() {
+    let mut f = fixture(false).await;
+    f.worker.media_enabled = true;
+    let socket = f.d.path().join("media.sock");
+    let uid = rustix::process::geteuid().as_raw();
+    let (listener, runtime) = crate::media_ipc::bind(socket.to_str().unwrap()).unwrap();
+    let server = tokio::spawn(crate::media_ipc::serve(
+        listener,
+        uid + 1,
+        f.controller.clone(),
+    ));
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let mut stream = tokio::net::UnixStream::connect(&socket).await.unwrap();
+    let _ = stream.write_all(&[0, 0, 0, 1, b'!']).await;
+    let mut byte = [0];
+    assert!(matches!(stream.read(&mut byte).await, Ok(0) | Err(_)));
+    server.abort();
+    let _ = server.await;
+    drop(runtime);
+    let (listener, runtime) = crate::media_ipc::bind(socket.to_str().unwrap()).unwrap();
+    let server = tokio::spawn(crate::media_ipc::serve(listener, uid, f.controller.clone()));
+    for payload in [
+        None,
+        Some(br#"{"protocol":1,"id":1,"command":{"op":"pulse"}}"#.as_slice()),
+    ] {
+        let mut s = tokio::net::UnixStream::connect(&socket).await.unwrap();
+        match payload {
+            None => s.write_u32(u32::MAX).await.unwrap(),
+            Some(p) => {
+                s.write_u32(p.len() as u32).await.unwrap();
+                s.write_all(p).await.unwrap();
+            }
+        }
+        assert!(matches!(s.read(&mut byte).await, Ok(0) | Err(_)));
+    }
+    server.abort();
+    let _ = server.await;
+    drop(runtime);
+}
 struct Fixture {
     worker: Worker,
     controller: Controller,
@@ -115,6 +258,62 @@ struct Fixture {
     first: String,
     second: String,
     owner: Principal,
+}
+#[tokio::test]
+async fn media_session_cannot_continue_after_hold_reuse_binding_loss_or_disconnect() {
+    for cause in 0..4 {
+        let mut f = fixture(false).await;
+        f.worker.media_enabled = true;
+        let id = prepare(
+            &mut f.worker,
+            &f.first,
+            "media-dial",
+            CallAction::Dial,
+            None,
+            "+12025550123",
+        )
+        .await;
+        let value = submit(&mut f.worker, &f.first, &id, None).await.unwrap();
+        let lease = serde_json::from_value(value["lease"].clone()).unwrap();
+        let credentials = serde_json::from_value(
+            f.worker
+                .process(AuthCommand::IssueMedia {
+                    token: f.first.clone(),
+                    lease,
+                    peer_key: [7; 32],
+                })
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        let socket = f.d.path().join("media.sock");
+        let uid = rustix::process::geteuid().as_raw();
+        let (listener, runtime) = crate::media_ipc::bind(socket.to_str().unwrap()).unwrap();
+        let server = tokio::spawn(crate::media_ipc::serve(listener, uid, f.controller.clone()));
+        let worker = tokio::spawn(f.worker.run());
+        let mut client = rustsimhub_media::local::Client::redeem(&socket, uid, credentials)
+            .await
+            .unwrap();
+        let permit = client.permit();
+        match cause {
+            0 => f.data.state.store(5, Ordering::SeqCst),
+            1 => *f.data.number.lock().unwrap() = "+12025550199".into(),
+            2 => f.guard = Box::new(()),
+            _ => server.abort(),
+        }
+        assert!(client.pulse().await.is_err());
+        assert!(permit.check(rustsimhub_media::local::now_ms()).is_err());
+        drop(client);
+        f.controller.shutdown();
+        worker.await.unwrap();
+        // Dropping the final listener future aborts its bounded connection tasks.
+        server.abort();
+        let _ = server.await;
+        if cause == 1 {
+            assert_eq!(f.data.hangups.load(Ordering::SeqCst), 0);
+        }
+        drop(runtime);
+    }
 }
 async fn fixture(incoming: bool) -> Fixture {
     let (server, client, _) = crate::observer::checks::peers().await;
@@ -170,7 +369,12 @@ async fn fixture(incoming: bool) -> Fixture {
             owner.clone(),
             key.verifying_key().to_bytes(),
             rustsimhub_policy::Kind::Client,
-            rustsimhub_policy::mask(&[Scope::CallsRead, Scope::CallsControl]).unwrap(),
+            rustsimhub_policy::mask(if key == &first {
+                &[Scope::CallsRead, Scope::CallsControl, Scope::MediaUse]
+            } else {
+                &[Scope::CallsRead, Scope::CallsControl]
+            })
+            .unwrap(),
         )
         .unwrap();
         let c = a.login_challenge(key.verifying_key().to_bytes()).unwrap();
@@ -394,7 +598,7 @@ async fn private_voice_expiry_does_not_let_failed_hangup_become_idle_or_new_dial
     .await;
     let value = submit(&mut w, &token, &id, None).await.unwrap();
     let lease: CallLease = serde_json::from_value(value["lease"].clone()).unwrap();
-    w.start -= Duration::from_secs(31);
+    w.advance_ms += 31_000;
     f.mode.store(4, Ordering::SeqCst);
     assert!(w
         .process(AuthCommand::RenewCall {

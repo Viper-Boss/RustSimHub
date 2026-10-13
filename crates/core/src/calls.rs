@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
-    time::{Duration, Instant},
+    time::Duration,
 };
 use tokio::sync::{mpsc, oneshot, watch};
 use zbus::zvariant::{OwnedObjectPath, OwnedValue};
@@ -40,6 +40,7 @@ pub(crate) struct Controller {
     urgent: mpsc::Sender<Job>,
     stop: watch::Sender<bool>,
     controls: bool,
+    media_jobs: mpsc::Sender<crate::media_ipc::Job>,
 }
 struct Live {
     summary: CallSummary,
@@ -69,7 +70,11 @@ pub(crate) struct Worker {
     live: HashMap<String, Live>,
     backend: Option<String>,
     catalogue: bool,
-    start: Instant,
+    media_jobs: mpsc::Receiver<crate::media_ipc::Job>,
+    media: crate::media_ipc::State,
+    pub(crate) media_enabled: bool,
+    #[cfg(test)]
+    advance_ms: u64,
 }
 pub(crate) fn channel(
     auth: Arc<Mutex<Auth>>,
@@ -81,6 +86,7 @@ pub(crate) fn channel(
     let (n, nr) = mpsc::channel(8);
     let (u, ur) = mpsc::channel(2);
     let (stop_tx, stop_rx) = watch::channel(false);
+    let (media_tx, media_rx) = mpsc::channel(4);
     let book = CallLeases::new(boot.clone(), LineEpoch(1));
     (
         Controller {
@@ -88,6 +94,7 @@ pub(crate) fn channel(
             urgent: u,
             stop: stop_tx,
             controls: writes,
+            media_jobs: media_tx,
         },
         Worker {
             normal: nr,
@@ -104,11 +111,33 @@ pub(crate) fn channel(
             live: HashMap::new(),
             backend: None,
             catalogue: false,
-            start: Instant::now(),
+            media_jobs: media_rx,
+            media: crate::media_ipc::State::default(),
+            media_enabled: false,
+            #[cfg(test)]
+            advance_ms: 0,
         },
     )
 }
 impl Controller {
+    pub(crate) async fn media(
+        &self,
+        connection: u64,
+        action: crate::media_ipc::Action,
+    ) -> Result<Value> {
+        let (reply, rx) = oneshot::channel();
+        self.media_jobs
+            .try_send(crate::media_ipc::Job {
+                connection,
+                action,
+                reply,
+            })
+            .map_err(|_| "media_busy")?;
+        tokio::time::timeout(Duration::from_millis(450), rx)
+            .await
+            .map_err(|_| "media_timeout")?
+            .map_err(|_| "media_closed")?
+    }
     pub fn controls(&self) -> bool {
         self.controls
     }
@@ -145,14 +174,115 @@ async fn bounded<T, E>(
         .map_err(|_| "modem_unavailable")
 }
 impl Worker {
+    async fn media_context(
+        &self,
+        p: &Principal,
+        peer_key: [u8; 32],
+    ) -> Result<rustsimhub_media::Context> {
+        if !self.writes || !self.media_enabled {
+            return Err("media_disabled");
+        }
+        let o = self.owned.as_ref().ok_or("call_unowned")?;
+        if &o.principal != p
+            || o.cleanup_attempted
+            || !rustsimhub_policy::allows(p.scopes, Scope::MediaUse)
+            || !rustsimhub_policy::allows(p.scopes, Scope::CallsControl)
+        {
+            return Err("media_denied");
+        }
+        self.book
+            .validate(&o.grant, &p.id, self.now())
+            .map_err(|_| "lease_expired")?;
+        let b = self.binding()?;
+        let l = self
+            .live
+            .values()
+            .find(|l| l.summary.id == o.call_id)
+            .ok_or("call_unavailable")?;
+        if b.context.line != o.grant.line
+            || self.backend.as_deref() != Some(&b.context.backend)
+            || !b.call_valid(l.path.as_str(), l.revision)
+            || !b.fresh().await
+        {
+            return Err("line_unavailable");
+        }
+        let data = read_call(&b, &l.path).await?;
+        if data.state != 4
+            || data.number != l.number
+            || data.direction != l.summary.direction
+            || !b.call_valid(l.path.as_str(), l.revision)
+        {
+            return Err("call_inactive");
+        }
+        let (h, key, expected) = (self.store.clone(), p.public_key, p.clone());
+        if !db(move || h.principal(key))
+            .await?
+            .is_some_and(|v| v == expected)
+        {
+            return Err("media_denied");
+        }
+        if !b.call_valid(l.path.as_str(), l.revision) {
+            return Err("line_unavailable");
+        }
+        Ok(rustsimhub_media::Context {
+            boot: self.boot.clone(),
+            backend: b.context.backend.clone(),
+            line: o.grant.line.0,
+            call: o.call_id.clone(),
+            call_revision: l.revision.max(1),
+            lease_generation: o.grant.generation,
+            principal: p.id.clone(),
+            principal_generation: p.generation,
+            peer_key,
+            lease_until_ms: o.grant.expires_ms,
+            active: true,
+            media_scope: true,
+            control_scope: true,
+        })
+    }
+    async fn handle_media(&mut self, j: crate::media_ipc::Job) {
+        use crate::media_ipc::Action;
+        self.media.expire(self.now());
+        let result = match j.action {
+            Action::Disconnect => {
+                self.media.disconnected(j.connection);
+                Ok(json!({"ok":true}))
+            }
+            action => {
+                let context = match self.media.owner.clone() {
+                    Some(p) => self.media_context(&p, self.media.peer_key).await,
+                    None => Err("media_denied"),
+                };
+                match context {
+                    Ok(context) => {
+                        let now = self.now();
+                        match action {
+                            Action::Redeem { ticket, peer_key } => {
+                                self.media
+                                    .redeem(j.connection, ticket, peer_key, &context, now)
+                            }
+                            Action::Pulse => self.media.pulse(j.connection, &context, now),
+                            Action::Disconnect => unreachable!(),
+                        }
+                    }
+                    Err(e) => {
+                        self.media.revoke();
+                        Err(e)
+                    }
+                }
+            }
+        };
+        let _ = j.reply.send(result);
+    }
     pub async fn run(mut self) {
         let mut tick = tokio::time::interval(Duration::from_secs(5));
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
             let job = tokio::select! {biased;
-                _=self.stop.changed()=>{self.cleanup(true).await;return;},
+                _=self.stop.changed()=>{self.media.revoke();self.cleanup(true).await;return;},
              j=self.urgent.recv()=>match j{Some(j)=>Some(j),None=>{self.cleanup(true).await;return;}},
              j=self.normal.recv()=>match j{Some(j)=>Some(j),None=>{self.cleanup(true).await;return;}},
+             j=self.media_jobs.recv()=>{if let Some(j)=j {self.handle_media(j).await;}continue;},
              _=tick.tick()=>None,
              changed=self.bindings.changed()=>{if changed.is_err(){return;}None},
             };
@@ -167,7 +297,10 @@ impl Worker {
         }
     }
     fn now(&self) -> u64 {
-        self.start.elapsed().as_millis().min(u64::MAX as u128) as u64
+        let now = rustsimhub_media::local::now_ms();
+        #[cfg(test)]
+        let now = now.saturating_add(self.advance_ms);
+        now
     }
     fn binding(&self) -> Result<Binding> {
         self.bindings
@@ -188,6 +321,7 @@ impl Worker {
         .map_err(|_| "auth_unavailable")?
     }
     async fn unavailable(&mut self) {
+        self.media.revoke();
         self.catalogue = false;
         let ids = self.live.values().map(|l| l.summary.id.clone()).collect();
         let h = self.store.clone();
@@ -394,11 +528,30 @@ impl Worker {
     }
     async fn process(&mut self, command: AuthCommand) -> Result<Value> {
         match command {
+            AuthCommand::IssueMedia {
+                token,
+                lease,
+                peer_key,
+            } => {
+                if !self.writes || !self.media_enabled {
+                    return Err("media_disabled");
+                }
+                let p = self.principal(&token, Scope::MediaUse).await?;
+                let c = self.principal(&token, Scope::CallsControl).await?;
+                if p != c {
+                    return Err("media_denied");
+                }
+                self.validate_lease(&p, &lease, &lease.call_id)?;
+                let context = self.media_context(&p, peer_key).await?;
+                let now = self.now();
+                self.media.expire(now);
+                serde_json::to_value(self.media.issue(p, context, now)?).map_err(|_| "media_denied")
+            }
             AuthCommand::CallStatus { token } => {
                 self.principal(&token, Scope::CallsRead).await?;
                 let _ = self.refresh().await;
                 Ok(
-                    json!({"available":self.catalogue,"observed_calls":self.live.len(),"active_calls":self.live.values().filter(|l|l.summary.modem_state!=7).count(),"control_api":self.writes,"media_available":false}),
+                    json!({"available":self.catalogue,"observed_calls":self.live.len(),"active_calls":self.live.values().filter(|l|l.summary.modem_state!=7).count(),"control_api":self.writes,"media_authorization_api":self.media_enabled,"media_available":false}),
                 )
             }
             AuthCommand::PrepareCall {
@@ -476,6 +629,9 @@ impl Worker {
                 let p = self.principal(&token, Scope::CallsControl).await?;
                 let (h, id, principal) = (self.store.clone(), operation_id.clone(), p.clone());
                 let intent = db(move || h.call_intent(id, principal)).await?;
+                if intent.action == CallAction::Hangup {
+                    self.media.revoke();
+                }
                 if urgent && intent.action != CallAction::Hangup {
                     return Err("invalid_priority");
                 }
@@ -625,7 +781,7 @@ impl Worker {
             self.book
                 .validate(&owned.grant, &p.id, self.now())
                 .map_err(|_| "lease_expired")?;
-            let deadline = self.start + Duration::from_millis(owned.grant.expires_ms);
+            let deadline = owned.grant.expires_ms;
             let (h, key, context, guard, path, revision, target) = (
                 self.store.clone(),
                 id.to_owned(),
@@ -642,7 +798,10 @@ impl Worker {
                     context,
                     target,
                     (path.clone(), revision),
-                    move || Instant::now() < deadline && guard.call_valid(&path, revision),
+                    move || {
+                        rustsimhub_media::local::now_ms() < deadline
+                            && guard.call_valid(&path, revision)
+                    },
                 )
             })
             .await
@@ -784,6 +943,7 @@ impl Worker {
         {
             return;
         }
+        self.media.revoke();
         if !self.writes {
             return;
         }
@@ -796,6 +956,17 @@ impl Worker {
         if l.summary.modem_state == 7
             || !b.call_valid(l.path.as_str(), l.revision)
             || !b.fresh().await
+        {
+            return;
+        }
+        // A reused path must not turn expiry cleanup into a hangup of someone else's call.
+        let Ok(data) = read_call(&b, &l.path).await else {
+            return;
+        };
+        if data.number != l.number
+            || data.direction != l.summary.direction
+            || data.state == 7
+            || !b.call_valid(l.path.as_str(), l.revision)
         {
             return;
         }

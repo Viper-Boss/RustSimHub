@@ -99,6 +99,11 @@ pub enum AuthCommand {
         token: String,
         lease: rustsimhub_domain::CallLease,
     },
+    IssueMedia {
+        token: String,
+        lease: rustsimhub_domain::CallLease,
+        peer_key: [u8; 32],
+    },
     OpenPairing {
         token: String,
     },
@@ -172,7 +177,7 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 return Err(invalid());
             }
         }
-        AuthCommand::RenewCall { token, lease } => {
+        AuthCommand::RenewCall { token, lease } | AuthCommand::IssueMedia { token, lease, .. } => {
             if token.len() != 64
                 || lease.call_id.len() != 36
                 || lease.boot.len() != 64

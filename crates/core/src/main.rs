@@ -14,6 +14,8 @@ mod inbox_check;
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
+mod media_ipc;
+#[cfg(target_os = "linux")]
 mod observer;
 #[cfg(feature = "dev-fixtures")]
 mod recovery_check;
@@ -93,6 +95,18 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .enable_all()
             .build()?;
         match args.as_slice() {
+            [command, path, uid, state, identity, media_path, media_uid]
+                if command == "--serve-media-authorizing" =>
+            {
+                return runtime.block_on(authenticated::serve_media(
+                    path,
+                    uid.parse()?,
+                    state,
+                    identity,
+                    media_path,
+                    media_uid.parse()?,
+                ));
+            }
             #[cfg(feature = "dev-fixtures")]
             [command, directory, socket] if command == "--auth-ipc-fixture" => {
                 return runtime.block_on(auth_check::ipc(directory, socket));

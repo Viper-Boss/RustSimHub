@@ -2,7 +2,10 @@
 #![forbid(unsafe_code)]
 //! Audio primitives, with no network listener, filesystem recording or hardware discovery.
 mod authorization;
-pub use authorization::{Authority, Context, Permit, Ticket};
+pub use authorization::{Authority, Context, Permit, RemoteAuthority, Ticket};
+#[cfg(target_os = "linux")]
+pub mod local;
+pub mod protocol;
 mod pump;
 pub use pump::{Direction, IoError, Pcm, Pump, Stats};
 pub const RATE: u32 = 16_000;

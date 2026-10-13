@@ -15,6 +15,7 @@ rustsimhub-wire = { path = "../wire" }
 rustsimhub-storage = { path = "../storage" }
 rustsimhub-auth = { path = "../auth" }
 rustsimhub-policy = { path = "../policy" }
+rustsimhub-media = { path = "../media" }
 ed25519-dalek = { version = "2.2", optional = true }
 
 serde.workspace = true

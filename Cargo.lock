@@ -651,6 +651,7 @@ dependencies = [
  "rustix",
  "rustsimhub-auth",
  "rustsimhub-domain",
+ "rustsimhub-media",
  "rustsimhub-policy",
  "rustsimhub-storage",
  "rustsimhub-wire",
@@ -689,7 +690,12 @@ name = "rustsimhub-media"
 version = "0.1.0"
 dependencies = [
  "getrandom 0.4.3",
+ "rustix",
+ "serde",
+ "serde_json",
  "sha2",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]

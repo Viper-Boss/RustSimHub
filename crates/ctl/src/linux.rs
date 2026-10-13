@@ -83,6 +83,29 @@ async fn call(socket: &str, command: AuthCommand) -> Result<Value> {
     Ok(reply.result)
 }
 pub async fn run(args: &[String]) -> Result<()> {
+    if let [command, socket, session, lease_path, peer, output] = args {
+        if command == "issue-media" {
+            let s = Session::load(Path::new(session))?;
+            check_session(socket, &s)?;
+            let lease = serde_json::from_slice(&rustsimhub_auth::read_private(
+                Path::new(lease_path),
+                MAX_FRAME,
+            )?)
+            .map_err(|_| "invalid lease")?;
+            let value = call(
+                socket,
+                AuthCommand::IssueMedia {
+                    token: s.token.clone(),
+                    lease,
+                    peer_key: parse_key(peer)?,
+                },
+            )
+            .await?;
+            rustsimhub_auth::write_private_new(Path::new(output), &serde_json::to_vec(&value)?)?;
+            println!("{}", json!({"ok":true,"media_ticket_saved":true}));
+            return Ok(());
+        }
+    }
     if let [command, input, output] = args {
         if command == "save-call-lease" {
             let bytes = rustsimhub_auth::read_private(Path::new(input), MAX_FRAME)?;

@@ -12,6 +12,7 @@ const HEARTBEAT_MS: u64 = 1_000;
 #[derive(Clone, PartialEq, Eq)]
 pub struct Context {
     pub boot: String,
+    pub backend: String,
     pub line: u64,
     pub call: String,
     pub call_revision: u64,
@@ -27,6 +28,8 @@ pub struct Context {
 impl Context {
     fn valid(&self, now: u64) -> bool {
         self.boot.len() == 64
+            && !self.backend.is_empty()
+            && self.backend.len() <= 1024
             && self.call.len() == 36
             && self.principal.len() == 36
             && self.line > 0
@@ -45,7 +48,14 @@ impl Context {
     }
 }
 pub struct Ticket([u8; 32]);
-// No serialization until the authenticated core/media transport exists.
+impl Ticket {
+    pub fn into_bytes(self) -> [u8; 32] {
+        self.0
+    }
+    pub fn from_bytes(value: [u8; 32]) -> Self {
+        Self(value)
+    }
+}
 struct Pending {
     digest: [u8; 32],
     context: Context,
@@ -55,6 +65,7 @@ struct State {
     live: AtomicBool,
     until: AtomicU64,
 }
+#[derive(Clone)]
 pub struct Permit(Arc<State>);
 impl Permit {
     pub fn check(&self, now: u64) -> Result<(), Error> {
@@ -65,6 +76,59 @@ impl Permit {
             return Err(Error::Expired);
         }
         Ok(())
+    }
+    pub fn deadline_ms(&self, now: u64) -> Result<u64, Error> {
+        self.check(now)?;
+        Ok(self.0.until.load(Ordering::Acquire))
+    }
+}
+/// Only a verified local core connection may feed this mirror. It never extends a lease itself.
+pub struct RemoteAuthority {
+    boot: String,
+    state: Arc<State>,
+    initialized: bool,
+}
+impl RemoteAuthority {
+    pub fn new(boot: String) -> Result<Self, Error> {
+        if boot.len() != 64 {
+            return Err(Error::Denied);
+        }
+        Ok(Self {
+            boot,
+            state: Arc::new(State {
+                live: AtomicBool::new(false),
+                until: AtomicU64::new(0),
+            }),
+            initialized: false,
+        })
+    }
+    pub fn update(&mut self, boot: &str, until: u64, now: u64) -> Result<(), Error> {
+        if self.boot != boot
+            || until <= now
+            || until - now > HEARTBEAT_MS
+            || (self.initialized
+                && (!self.state.live.load(Ordering::Acquire)
+                    || self.state.until.load(Ordering::Acquire) <= now))
+        {
+            self.revoke();
+            return Err(Error::Denied);
+        }
+        self.state.until.store(until, Ordering::Release);
+        self.state.live.store(true, Ordering::Release);
+        self.initialized = true;
+        Ok(())
+    }
+    pub fn permit(&self) -> Permit {
+        Permit(self.state.clone())
+    }
+    pub fn revoke(&mut self) {
+        self.initialized = true;
+        self.state.live.store(false, Ordering::Release);
+    }
+}
+impl Drop for RemoteAuthority {
+    fn drop(&mut self) {
+        self.revoke();
     }
 }
 pub struct Authority {
@@ -188,6 +252,7 @@ pub(crate) mod tests {
     pub fn context() -> Context {
         Context {
             boot: "a".repeat(64),
+            backend: "synthetic-backend".into(),
             line: 1,
             call: "c".repeat(36),
             call_revision: 1,
@@ -235,7 +300,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn every_binding_change_revokes_running_audio() {
-        for mutate in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] {
+        for mutate in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] {
             let (mut a, p) = permit();
             let mut c = context();
             match mutate {
@@ -249,7 +314,8 @@ pub(crate) mod tests {
                 7 => c.peer_key = [8; 32],
                 8 => c.active = false,
                 9 => c.media_scope = false,
-                _ => c.control_scope = false,
+                10 => c.control_scope = false,
+                _ => c.backend = "different-backend".into(),
             }
             assert!(a.refresh(Some(&c), 20).is_err());
             assert!(p.check(20).is_err());
@@ -273,5 +339,21 @@ pub(crate) mod tests {
         let (mut a, p) = permit();
         a.refresh(None, 20).unwrap_err();
         assert!(p.check(20).is_err());
+    }
+    #[test]
+    fn remote_receipts_cannot_extend_window_or_resurrect_expired_audio() {
+        let mut r = RemoteAuthority::new("a".repeat(64)).unwrap();
+        let p = r.permit();
+        assert!(p.check(0).is_err());
+        r.update(&"a".repeat(64), 900, 0).unwrap();
+        assert!(r.update(&"a".repeat(64), 2_000, 100).is_err());
+        assert!(p.check(100).is_err());
+        assert!(r.update(&"a".repeat(64), 900, 100).is_err());
+        let mut r = RemoteAuthority::new("a".repeat(64)).unwrap();
+        r.update(&"a".repeat(64), 900, 0).unwrap();
+        assert!(r.update(&"a".repeat(64), 1_900, 900).is_err());
+        let mut r = RemoteAuthority::new("a".repeat(64)).unwrap();
+        r.update(&"a".repeat(64), 900, 0).unwrap();
+        assert!(r.update(&"b".repeat(64), 950, 50).is_err());
     }
 }

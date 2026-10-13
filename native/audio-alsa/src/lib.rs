@@ -270,6 +270,7 @@ mod tests {
     fn expired_authorization_is_denied_before_any_hardware_probe() {
         let mut authority = rustsimhub_media::Authority::new();
         let context = rustsimhub_media::Context {
+            backend: "synthetic-backend".into(),
             boot: "a".repeat(64),
             line: 1,
             call: "c".repeat(36),
