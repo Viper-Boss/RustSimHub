@@ -15,7 +15,7 @@ test "${#expected}" -eq 64
 "$fixture_core" --build-info | grep -q '"development_fixtures":true'
 "$fixture_core" --build-info | grep -Fq "\"source_archive_sha256\":\"$expected\""
 "$ctl" --build-info | grep -Fq "\"source_archive_sha256\":\"$expected\""
-units='rustsimhub-wifi-trial-p4 rustsimhub-wifi-fault-p4 rustsimhub-wifi-reopen-p4'
+units='rustsimhub-wifi-trial-p4 rustsimhub-wifi-fault-p4 rustsimhub-wifi-reopen-p4 rustsimhub-wifi-recovered-p4'
 for unit in $units;do if systemctl is-active --quiet "$unit";then exit 10;fi;done
 base=$(mktemp -d /var/tmp/rustsimhub-wifi-trial-XXXXXXXX)
 "$fixture_core" --inbox-prepare-fixture "$base"
@@ -102,7 +102,7 @@ test "$(get "$usb" org.freedesktop.NetworkManager.Device State)" = 'u 100'
 test "$(get /org/freedesktop/NetworkManager org.freedesktop.NetworkManager WwanEnabled)" = "$wwan_before"
 # Reuse normal key should remain cached; uncertain fault key must stay denied after restart.
 if test -S "$socket";then test ! -L "$socket";test "$(stat -c %u "$socket")" = "$(id -u rustsimhub-core)";rm -- "$socket";fi
-core_start "$core" --serve-network-trials rustsimhub-wifi-reopen-p4
+core_start "$core" --serve-network-trials rustsimhub-wifi-recovered-p4
 login recovered owner-key
 if "$ctl" wifi-trial "$socket" "$base/sessions/recovered.json" fault-once > "$base/uncertain-replay.log" 2>&1;then exit 10;fi
 "$ctl" wifi-trial "$socket" "$base/sessions/recovered.json" normal-once > "$base/recovered-cached.json"

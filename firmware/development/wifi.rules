@@ -1,0 +1,15 @@
+// Temporary Wi-Fi diagnostic authority for the locked Core only.
+polkit.addRule(function(action, subject) {
+    var project = ["rustsimhub-core", "rustsimhub-edge", "rustsimhub-media"];
+    if (project.indexOf(subject.user) < 0) { return; }
+    var allowed = ["org.freedesktop.NetworkManager.network-control",
+                   "org.freedesktop.NetworkManager.checkpoint-rollback",
+                   "org.freedesktop.NetworkManager.settings.modify.system"];
+    if (subject.user === "rustsimhub-core" && allowed.indexOf(action.id) >= 0) {
+        return polkit.Result.YES;
+    }
+    if (action.id.indexOf("org.freedesktop.ModemManager1.") === 0 ||
+        action.id.indexOf("org.freedesktop.NetworkManager.") === 0) {
+        return polkit.Result.NO;
+    }
+});
