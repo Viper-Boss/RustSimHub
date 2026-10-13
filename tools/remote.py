@@ -56,12 +56,12 @@ def main():
             return
         command = "sudo -S -p '' sh -s" if args.sudo else 'sh -s'
         stdin, stdout, stderr = client.exec_command(command, timeout=args.timeout)
+        stdout.channel.set_combine_stderr(True)
         if args.sudo:
             password = config.get('password') or getpass.getpass('sudo password: ')
             stdin.write(password + '\n')
         stdin.write(args.script.read_text(encoding='utf-8')); stdin.channel.shutdown_write()
-        # stderr is combined to avoid blocking when a program emits a large error.
-        stdout.channel.set_combine_stderr(True)
+        # Combine before writing input: short commands may otherwise lose early diagnostics.
         result = stdout.read()
         code = stdout.channel.recv_exit_status()
         if args.output:
