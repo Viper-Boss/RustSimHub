@@ -148,6 +148,24 @@ pub async fn run(args: &[String]) -> Result<()> {
         }
     }
     if let [command, socket, session, input] = args {
+        if command == "wifi-trial" {
+            let s = Session::load(Path::new(session))?;
+            check_session(socket, &s)?;
+            println!(
+                "{}",
+                serde_json::to_string(
+                    &call(
+                        socket,
+                        AuthCommand::WifiTrial {
+                            token: s.token.clone(),
+                            idempotency_key: input.clone()
+                        }
+                    )
+                    .await?
+                )?
+            );
+            return Ok(());
+        }
         if matches!(
             command.as_str(),
             "call" | "prepare-call" | "call-operation" | "renew-call"

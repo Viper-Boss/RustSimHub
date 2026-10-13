@@ -34,6 +34,10 @@ pub enum AuthCommand {
     NetworkStatus {
         token: String,
     },
+    WifiTrial {
+        token: String,
+        idempotency_key: String,
+    },
     PrepareSms {
         token: String,
         line_epoch: u64,
@@ -152,6 +156,18 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         return Err(invalid());
     }
     match &req.command {
+        AuthCommand::WifiTrial {
+            token,
+            idempotency_key,
+        } => {
+            if token.len() != 64
+                || idempotency_key.is_empty()
+                || idempotency_key.len() > 128
+                || idempotency_key.chars().any(char::is_control)
+            {
+                return Err(invalid());
+            }
+        }
         AuthCommand::Calls { token, limit, .. } | AuthCommand::CallEvents { token, limit, .. } => {
             if token.len() != 64 || !(1..=32).contains(limit) {
                 return Err(invalid());

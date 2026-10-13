@@ -18,6 +18,8 @@ mod media_ipc;
 #[cfg(target_os = "linux")]
 mod network;
 #[cfg(target_os = "linux")]
+mod network_trial;
+#[cfg(target_os = "linux")]
 mod observer;
 #[cfg(feature = "dev-fixtures")]
 mod recovery_check;
@@ -104,6 +106,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .enable_all()
             .build()?;
         match args.as_slice() {
+            [command, path, uid, state, identity, journal]
+                if command == "--serve-network-trials" =>
+            {
+                network_trial::enable(std::path::Path::new(journal))?;
+                return runtime.block_on(authenticated::serve(path, uid.parse()?, state, identity));
+            }
             [command, path, uid, state, identity, media_path, media_uid]
                 if command == "--serve-media-authorizing" =>
             {
