@@ -307,15 +307,15 @@ async fn private_voice_only_one_client_answers_and_revocation_cleans_up_only_own
     let Fixture {
         worker: mut w,
         controller: _c,
-        store: store,
+        store,
         d: _d,
         i: _i,
         server,
         guard: _guard,
         data: f,
-        first: first,
-        second: second,
-        owner: owner,
+        first,
+        second,
+        owner,
     } = fixture(true).await;
     w.refresh().await.unwrap();
     let target = w.live.values().next().unwrap().summary.id.clone();

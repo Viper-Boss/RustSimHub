@@ -559,6 +559,27 @@ pub async fn run(
     }
 }
 #[cfg(test)]
+pub(crate) async fn test_binding(
+    connection: zbus::Connection,
+    context: rustsimhub_storage::SendContext,
+) -> (Binding, impl Drop) {
+    let watcher = watch::Watcher::connect(&connection).await.unwrap();
+    let s = snapshot(&connection, None).await.unwrap();
+    (
+        Binding {
+            connection,
+            context,
+            iccid: s.iccid.unwrap(),
+            sim: s.sim,
+            guard: watcher.receiver.clone(),
+            fence: 0,
+            seen: Instant::now(),
+        },
+        watcher,
+    )
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
@@ -586,25 +607,4 @@ mod tests {
         assert!(!s.observe("b", None, t + Duration::from_secs(8)));
         assert!(!s.observe("b", Some([2; 32]), t + Duration::from_secs(9)));
     }
-}
-
-#[cfg(test)]
-pub(crate) async fn test_binding(
-    connection: zbus::Connection,
-    context: rustsimhub_storage::SendContext,
-) -> (Binding, impl Drop) {
-    let watcher = watch::Watcher::connect(&connection).await.unwrap();
-    let s = snapshot(&connection, None).await.unwrap();
-    (
-        Binding {
-            connection,
-            context,
-            iccid: s.iccid.unwrap(),
-            sim: s.sim,
-            guard: watcher.receiver.clone(),
-            fence: 0,
-            seen: Instant::now(),
-        },
-        watcher,
-    )
 }
