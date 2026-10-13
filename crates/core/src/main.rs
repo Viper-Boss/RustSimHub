@@ -106,6 +106,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .enable_all()
             .build()?;
         match args.as_slice() {
+            #[cfg(feature = "dev-fixtures")]
+            [command, path, uid, state, identity, journal]
+                if command == "--serve-network-fault-trials" =>
+            {
+                network_trial::enable_fault(std::path::Path::new(journal))?;
+                return runtime.block_on(authenticated::serve(path, uid.parse()?, state, identity));
+            }
             [command, path, uid, state, identity, journal]
                 if command == "--serve-network-trials" =>
             {

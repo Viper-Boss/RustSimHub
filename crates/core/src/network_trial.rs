@@ -17,6 +17,17 @@ const NM: &str = "org.freedesktop.NetworkManager";
 const ROOT: &str = "/org/freedesktop/NetworkManager";
 const MM: &str = "org.freedesktop.ModemManager1";
 static DIRECTORY: OnceLock<PathBuf> = OnceLock::new();
+#[cfg(feature = "dev-fixtures")]
+static DEVELOPMENT_FAULT: OnceLock<bool> = OnceLock::new();
+#[cfg(feature = "dev-fixtures")]
+pub(crate) fn enable_fault(path: &Path) -> Result<()> {
+    DEVELOPMENT_FAULT.set(true).map_err(|_| Error::Forbidden)?;
+    enable(path)
+}
+#[cfg(feature = "dev-fixtures")]
+fn fault_mode() -> bool {
+    DEVELOPMENT_FAULT.get() == Some(&true)
+}
 static TRIALS: Semaphore = Semaphore::const_new(1);
 type Result<T> = rustsimhub_auth::Result<T>;
 #[derive(Clone, Serialize, Deserialize)]
@@ -197,6 +208,14 @@ async fn execute(b: &impl Backend, g: &impl Gate, j: &mut Journal) -> Result<Sum
     .await;
     // Compensation for this exact checkpoint is allowed even after client revocation.
     // A changed NM owner is rejected by restore; its own finite timer remains responsible.
+    #[cfg(feature = "dev-fixtures")]
+    if result.is_ok() && fault_mode() {
+        rustsimhub_auth::write_private_new(
+            &j.marker.with_extension("activated"),
+            b"wifi-only fault test; uncertain; never reapply",
+        )?;
+        std::future::pending::<()>().await; // Diagnostic process-kill point; NM still rolls back at 8s.
+    }
     let restore = b.restore(&initial, &checkpoint).await;
     result?;
     restore?;
@@ -376,6 +395,173 @@ impl NetworkManager {
                 .into(),
         )
     }
+    #[cfg(feature = "dev-fixtures")]
+    async fn cellular_autoconnect_absent(&self, owner: &str) -> Result<()> {
+        let p = self
+            .proxy(
+                owner,
+                "/org/freedesktop/NetworkManager/Settings",
+                "org.freedesktop.NetworkManager.Settings",
+            )
+            .await?;
+        let paths: Vec<OwnedObjectPath> = p
+            .call("ListConnections", &())
+            .await
+            .map_err(|_| Error::Io)?;
+        if paths.len() > 64 {
+            return Err(Error::Forbidden);
+        }
+        for path in paths {
+            if !path
+                .as_str()
+                .starts_with("/org/freedesktop/NetworkManager/Settings/")
+            {
+                return Err(Error::Forbidden);
+            }
+            let p = self
+                .proxy(
+                    owner,
+                    path.as_str(),
+                    "org.freedesktop.NetworkManager.Settings.Connection",
+                )
+                .await?;
+            let settings: HashMap<String, HashMap<String, OwnedValue>> =
+                p.call("GetSettings", &()).await.map_err(|_| Error::Io)?;
+            let c = settings.get("connection").ok_or(Error::Forbidden)?;
+            let kind = c
+                .get("type")
+                .and_then(|v| <&str>::try_from(v).ok())
+                .ok_or(Error::Forbidden)?;
+            if matches!(kind, "gsm" | "cdma")
+                && c.get("autoconnect")
+                    .and_then(|v| bool::try_from(v).ok())
+                    .unwrap_or(true)
+            {
+                return Err(Error::Forbidden);
+            }
+        }
+        Ok(())
+    }
+    #[cfg(feature = "dev-fixtures")]
+    async fn fault_activate(&self, b: &Snapshot) -> Result<()> {
+        self.cellular_autoconnect_absent(&b.owner).await?;
+        let saved = self
+            .proxy(
+                &b.owner,
+                b.profile.as_str(),
+                "org.freedesktop.NetworkManager.Settings.Connection",
+            )
+            .await?;
+        let settings: HashMap<String, HashMap<String, OwnedValue>> = saved
+            .call("GetSettings", &())
+            .await
+            .map_err(|_| Error::Io)?;
+        let security = settings
+            .get("802-11-wireless-security")
+            .and_then(|v| v.get("key-mgmt"))
+            .and_then(|v| <&str>::try_from(v).ok());
+        if security != Some("wpa-psk") {
+            return Err(Error::Forbidden);
+        }
+        let ssid: Vec<u8> = settings
+            .get("802-11-wireless")
+            .and_then(|v| v.get("ssid"))
+            .ok_or(Error::Forbidden)?
+            .try_clone()
+            .map_err(|_| Error::Io)?
+            .try_into()
+            .map_err(|_| Error::Forbidden)?;
+        let text = b
+            .profile_identity
+            .iter()
+            .map(|x| format!("{x:02x}"))
+            .collect::<String>();
+        let uuid = format!(
+            "{}-{}-4{}-8{}-{}",
+            &text[..8],
+            &text[8..12],
+            &text[12..15],
+            &text[15..18],
+            &text[18..30]
+        );
+        // The development-only fault uses the saved SSID, deliberately wrong PSK and no IP.
+        // It cannot join an unrelated open AP or create a data/default route.
+        let v = |s: &str| OwnedValue::from(zbus::zvariant::Str::from(s));
+        let config = HashMap::from([
+            (
+                "connection",
+                HashMap::from([
+                    ("id", v("rustsimhub-wifi-fault")),
+                    ("uuid", v(&uuid)),
+                    ("type", v("802-11-wireless")),
+                    ("interface-name", v("wlan0")),
+                    ("autoconnect", OwnedValue::from(false)),
+                ]),
+            ),
+            (
+                "802-11-wireless",
+                HashMap::from([
+                    (
+                        "ssid",
+                        OwnedValue::try_from(zbus::zvariant::Value::from(ssid))
+                            .map_err(|_| Error::InvalidInput)?,
+                    ),
+                    ("mode", v("infrastructure")),
+                ]),
+            ),
+            (
+                "802-11-wireless-security",
+                HashMap::from([("key-mgmt", v("wpa-psk")), ("psk", v(&"0".repeat(64)))]),
+            ),
+            (
+                "ipv4",
+                HashMap::from([
+                    ("method", v("disabled")),
+                    ("never-default", OwnedValue::from(true)),
+                ]),
+            ),
+            (
+                "ipv6",
+                HashMap::from([
+                    ("method", v("disabled")),
+                    ("never-default", OwnedValue::from(true)),
+                ]),
+            ),
+        ]);
+        let options = HashMap::from([
+            ("persist", v("volatile")),
+            ("bind-activation", v("dbus-client")),
+        ]);
+        let nm = self.proxy(&b.owner, ROOT, NM).await?;
+        let reply: (
+            OwnedObjectPath,
+            OwnedObjectPath,
+            HashMap<String, OwnedValue>,
+        ) = nm
+            .call(
+                "AddAndActivateConnection2",
+                &(
+                    config,
+                    &b.wifi,
+                    OwnedObjectPath::try_from("/").map_err(|_| Error::InvalidInput)?,
+                    options,
+                ),
+            )
+            .await
+            .map_err(|_| Error::Io)?;
+        if !reply
+            .0
+            .as_str()
+            .starts_with("/org/freedesktop/NetworkManager/Settings/")
+            || !reply
+                .1
+                .as_str()
+                .starts_with("/org/freedesktop/NetworkManager/ActiveConnection/")
+        {
+            return Err(Error::Forbidden);
+        }
+        self.owner_fence(b).await
+    }
     async fn owner_fence(&self, b: &Snapshot) -> Result<()> {
         if self.owner(NM).await? != b.owner {
             return Err(Error::Forbidden);
@@ -443,6 +629,10 @@ impl Backend for NetworkManager {
         let profile = self.active_profile(&owner, &wifi).await?;
         let profile_identity = self.profile_identity(&owner, &profile).await?;
         drop(nm);
+        #[cfg(feature = "dev-fixtures")]
+        if fault_mode() {
+            self.cellular_autoconnect_absent(&owner).await?;
+        }
         let b = Snapshot {
             owner,
             mm_owner,
@@ -513,6 +703,10 @@ impl Backend for NetworkManager {
     async fn activate(&self, b: &Snapshot) -> Result<()> {
         if self.active_profile(&b.owner, &b.wifi).await? != b.profile {
             return Err(Error::Forbidden);
+        }
+        #[cfg(feature = "dev-fixtures")]
+        if fault_mode() {
+            return self.fault_activate(b).await;
         }
         let nm = self.proxy(&b.owner, ROOT, NM).await?;
         let root = OwnedObjectPath::try_from("/").map_err(|_| Error::InvalidInput)?;
