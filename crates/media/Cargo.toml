@@ -1,0 +1,11 @@
+[package]
+name = "rustsimhub-media"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+getrandom = "0.4"
+sha2 = "0.10"
+

@@ -1,5 +1,6 @@
 [workspace]
-members = ["crates/domain", "crates/policy", "crates/auth", "crates/wire", "crates/storage", "crates/core", "crates/ctl"]
+members = ["crates/domain", "crates/policy", "crates/auth", "crates/wire", "crates/storage", "crates/core", "crates/ctl", "crates/media"]
+exclude = ["native/audio-alsa"]
 resolver = "2"
 
 [workspace.package]
