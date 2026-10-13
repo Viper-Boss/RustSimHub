@@ -17,7 +17,7 @@ if test "$(cat "$history/build.exit")" = 0;then
     for group in development production;do
         if test -d "$base/src/target/$group";then
             install -d "$history/$group"
-            for name in rustsimhub-core simhubctl rustsimhub-edge rustsimhub-update;do
+            for name in rustsimhub-core simhubctl rustsimhub-edge rustsimhub-update rustsimhub-recovery;do
                 if test -f "$base/src/target/$group/$name";then cp "$base/src/target/$group/$name" "$history/$group/";fi
             done
         fi

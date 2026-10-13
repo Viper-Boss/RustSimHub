@@ -1,0 +1,20 @@
+[package]
+name = "rustsimhub-recovery"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+rustsimhub-auth = { path = "../auth" }
+age = { version = "=0.11.5", default-features = false }
+ed25519-dalek = "2.2"
+sha2 = "0.10"
+zeroize = "1"
+serde_json.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+rustix = { version = "1", features = ["process"] }
+
+[dev-dependencies]
+tempfile = "3"
