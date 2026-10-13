@@ -48,38 +48,6 @@ pub struct Client {
     authority: RemoteAuthority,
     id: u64,
 }
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::os::unix::fs::{symlink, PermissionsExt};
-    #[test]
-    fn private_ticket_refuses_symlink_hardlink_and_broad_permissions() {
-        let d = tempfile::tempdir().unwrap();
-        std::fs::set_permissions(d.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
-        let p = d.path().join("ticket.json");
-        let bytes = serde_json::to_vec(&Credentials {
-            ticket: [8; 32],
-            peer_key: [7; 32],
-            boot: "a".repeat(64),
-        })
-        .unwrap();
-        std::fs::write(&p, bytes).unwrap();
-        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600)).unwrap();
-        assert!(read_credentials(&p).is_ok());
-        let alias = d.path().join("alias");
-        symlink(&p, &alias).unwrap();
-        assert!(read_credentials(&alias).is_err());
-        let hard = d.path().join("hard");
-        std::fs::hard_link(&p, &hard).unwrap();
-        assert!(read_credentials(&p).is_err());
-        std::fs::remove_file(hard).unwrap();
-        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o644)).unwrap();
-        assert!(read_credentials(&p).is_err());
-        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600)).unwrap();
-        std::fs::set_permissions(d.path(), std::fs::Permissions::from_mode(0o750)).unwrap();
-        assert!(read_credentials(&p).is_err());
-    }
-}
 impl Client {
     pub async fn redeem(
         socket: &Path,
@@ -157,5 +125,38 @@ impl Client {
             self.authority.revoke();
         }
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::{symlink, PermissionsExt};
+    #[test]
+    fn private_ticket_refuses_symlink_hardlink_and_broad_permissions() {
+        let d = tempfile::tempdir().unwrap();
+        std::fs::set_permissions(d.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        let p = d.path().join("ticket.json");
+        let bytes = serde_json::to_vec(&Credentials {
+            ticket: [8; 32],
+            peer_key: [7; 32],
+            boot: "a".repeat(64),
+        })
+        .unwrap();
+        std::fs::write(&p, bytes).unwrap();
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(read_credentials(&p).is_ok());
+        let alias = d.path().join("alias");
+        symlink(&p, &alias).unwrap();
+        assert!(read_credentials(&alias).is_err());
+        let hard = d.path().join("hard");
+        std::fs::hard_link(&p, &hard).unwrap();
+        assert!(read_credentials(&p).is_err());
+        std::fs::remove_file(hard).unwrap();
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(read_credentials(&p).is_err());
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600)).unwrap();
+        std::fs::set_permissions(d.path(), std::fs::Permissions::from_mode(0o750)).unwrap();
+        assert!(read_credentials(&p).is_err());
     }
 }

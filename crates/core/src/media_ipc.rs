@@ -25,23 +25,13 @@ pub(crate) struct Job {
     pub action: Action,
     pub reply: oneshot::Sender<Result<Value, &'static str>>,
 }
+#[derive(Default)]
 pub(crate) struct State {
     authority: Authority,
     pub owner: Option<Principal>,
     pub peer_key: [u8; 32],
     permit: Option<Permit>,
     connection: Option<u64>,
-}
-impl Default for State {
-    fn default() -> Self {
-        Self {
-            authority: Authority::new(),
-            owner: None,
-            peer_key: [0; 32],
-            permit: None,
-            connection: None,
-        }
-    }
 }
 impl State {
     pub fn expire(&mut self, now: u64) {
