@@ -1,6 +1,14 @@
 # 开发进度
 
-更新时间：2026-10-13 / P3B 核心媒体授权与真实 PCM；整体约 **38%**（按 PROGRESS-SCALE.md 固定里程碑估算）。
+更新时间：2026-10-13 / HTTPS 与网络只读入口；整体约 **44%**（按 PROGRESS-SCALE.md 固定里程碑估算）。
+
+新增 Rust HTTPS 入口与静态网页，NetworkStatus 前后重新鉴权并核验唯一 NM owner；120 项 workspace、CI Clippy、ARM64 release 通过。
+不同 core/edge UID 实机验证：严格 TLS、离线 owner 签名、只读 SIM/短信摘要/网络、scope 与撤销、错误 UID 和 Origin/role 注入拒绝。
+外部 NAS 经 USB HTTPS、公钥/证书核对通过；自有临时单元已停止，旧四服务 active，PCM closed，无新短信/拨号/网络写入。
+修正 Cargo 源包 mtime 造成旧 release 复用的问题；每个二进制自报被编译器跟踪的源包 SHA，部署再核对传输 hash。
+只读配置使用 O_RDONLY 与实际 fd 的 UID/mode/nlink 检查；不通过可写挂载绕过安全边界。
+网页浏览器交互、网页写业务、实际 Wi-Fi 入口/配网、蜂窝预算、WebRTC 与完整系统仍在后续工作中。
+见 edge-and-network.md / VALIDATION-EDGE-P1.md。约 60% 的长任务仍活跃，不在本小检查点停止。以下为历史阶段。
 
 core/media 授权 IPC 已接通；真实 Principal、scope、独占租约、ACTIVE、SIM/backend/path fence 在每次续验重新验证。
 实机两秒和五秒 PCM 运行成功，五秒采集/播放各 246 帧，上行仅静音；启动一次 EPIPE 可恢复，未放宽欠载上限。

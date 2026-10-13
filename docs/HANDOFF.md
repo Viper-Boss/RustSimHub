@@ -1,11 +1,16 @@
 # RustSimHub 接手入口
 
-当前整体约 **38%**，见 PROGRESS-SCALE.md。用户要求每次最终回复报告整体完成百分比；
+当前整体约 **44%**，见 PROGRESS-SCALE.md。用户要求每次最终回复报告整体完成百分比；
 继续按固定里程碑估算，并注明实机验收边界，不把代码完成当作整机固件完成。
 
-当前长任务目标：持续自主推进至约 60%，仍在进行；不要在一个小检查点停止。优先完成 HTTPS/网页/网络验证，再推进媒体或系统交付。
+当前长任务目标：持续自主推进至约 60%，仍在进行；不要在一个小检查点停止。HTTPS/网络只读与外部 USB 通过，继续实际浏览器/Wi-Fi/媒体/系统交付。
+先读 edge-and-network.md、VALIDATION-EDGE-P1.md。检查点 a00bd9b，120 workspace + CI Clippy + ARM64 release 通过。
+棒子 `/opt/rustsimhub/dev-edge-p1/` 的三程序均自报源包 SHA 78bfc723...42c8a6，完整 hash 在验证文档。
+新增锁定 UID rustsimhub-core / rustsimhub-edge 与 IPC group；不修改旧服务账户。HTTP 实测不同 UID，owner key 只留可信 Root 操作端。
+所有本轮临时服务已停止，没有新增开机服务或网络写入。下一阶段不要把静态页面及 Node WebCrypto 测试当作实际浏览器交互已完成。
+NAS 构建曾受旧解压 mtime 影响复用旧 release，现 `tar --touch` + compile-time source hash；部署前必须自报匹配，不只核对源包文件。
 先读 VALIDATION-MEDIA-P3B.md 和 media-authorization.md。core/media 接线、两秒/五秒真实 PCM、正常 core 退出撤销通过。
-目前上行只送静音，media_available=false；不能称已完成双向通话。新 HTTPS/网页/网络状态在开发，尚未计入完成点。
+目前上行只送静音，media_available=false；不能称已完成双向通话。HTTPS/网络只读已验收，浏览器与网络写流程还未验收。
 用户 2026-10-13 明确持续授权本项目拨打 10010；这条新授权取代下方历史“下一次需新授权”的说明。其他号码/新短信仍需明确指令。
 本阶段 11 次已使用的 once 标记全部保留，各独立库一个 dial 和一个 hangup，零短信操作；不可删除标记或自动重试 Unknown。
 棒子 `/opt/rustsimhub/dev-media-p3b/` 是本轮实际测试目录。最新五秒稳定 PCM native 哈希和私有证据位置在验证文档。
