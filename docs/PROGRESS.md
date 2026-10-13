@@ -3,7 +3,7 @@
 新增 VALIDATION-RTC-P3D.md：棒子真实 UDP/ICE/DTLS/SRTP 合成回环、NAS 与棒子五秒双向编码静音通过。没有打开 PCM、拨号或新增短信。
 native aff5dcd 已部署 /opt/rustsimhub/dev-rtc-p3/，self-check 双向 50 帧；LAN 各发 250、收 250/249，解码静音只有 1 LSB 量化残差。
 最新源码补充证书替换失败、信令输出原子发布和一秒媒体断流关闭，尚须下一次原生构建验证。root 2c69ff9 的 125 项、默认 production core 构建通过，prod/development 分开；P6 实机签名应用验收仍未加点。
-不要重跑旧电话 once；用户持续允许 10010，但新的电话测试要用独立标记且确保挂断。约 60% 长任务继续。
+不要重跑旧电话 once；用户持续允许 10010，但新的电话测试要用独立标记且确保挂断。约 75% 长任务继续。
 
 
 更新时间：2026-10-14 / 实际浏览器与 Wi-Fi 只读业务；整体约 **50%**（按 PROGRESS-SCALE.md 固定里程碑估算）。
@@ -12,7 +12,7 @@ native aff5dcd 已部署 /opt/rustsimhub/dev-rtc-p3/，self-check 双向 50 帧�
 复用隔离身份/授权重启后旧 token 拒绝，新登录通过；退出清空显示。
 修正并实际验证在途只读响应延迟时能立即退出，旧响应不恢复界面；最新静态 release 已通过不同 UID 实机烟测。
 Opus 固定 16k/20ms 适配器独立原生构建通过；棒子 500 帧合成往返成功，未打开 PCM，见 VALIDATION-CODEC-P3C.md。
-见 VALIDATION-BROWSER-P2.md。约 60% 长任务仍活跃。以下为历史记录。
+见 VALIDATION-BROWSER-P2.md。约 75% 长任务仍活跃。以下为历史记录。
 
 新增 Rust HTTPS 入口与静态网页，NetworkStatus 前后重新鉴权并核验唯一 NM owner；120 项 workspace、CI Clippy、ARM64 release 通过。
 不同 core/edge UID 实机验证：严格 TLS、离线 owner 签名、只读 SIM/短信摘要/网络、scope 与撤销、错误 UID 和 Origin/role 注入拒绝。
@@ -20,7 +20,7 @@ Opus 固定 16k/20ms 适配器独立原生构建通过；棒子 500 帧合成往
 修正 Cargo 源包 mtime 造成旧 release 复用的问题；每个二进制自报被编译器跟踪的源包 SHA，部署再核对传输 hash。
 只读配置使用 O_RDONLY 与实际 fd 的 UID/mode/nlink 检查；不通过可写挂载绕过安全边界。
 网页浏览器交互、网页写业务、实际 Wi-Fi 入口/配网、蜂窝预算、WebRTC 与完整系统仍在后续工作中。
-见 edge-and-network.md / VALIDATION-EDGE-P1.md。约 60% 的长任务仍活跃，不在本小检查点停止。以下为历史阶段。
+见 edge-and-network.md / VALIDATION-EDGE-P1.md。约 75% 的长任务仍活跃，不在本小检查点停止。以下为历史阶段。
 
 core/media 授权 IPC 已接通；真实 Principal、scope、独占租约、ACTIVE、SIM/backend/path fence 在每次续验重新验证。
 实机两秒和五秒 PCM 运行成功，五秒采集/播放各 246 帧，上行仅静音；启动一次 EPIPE 可恢复，未放宽欠载上限。
@@ -28,7 +28,7 @@ core/media 授权 IPC 已接通；真实 Principal、scope、独占租约、ACTI
 用户已持续授权本项目拨打 10010，无需再次逐次确认；其他号码或新短信不推定授权。
 验证和产物见 VALIDATION-MEDIA-P3B.md / media-authorization.md。media_available 仍 false，WebRTC / 真实双向听音未完成。
 HTTPS 调试入口、WebCrypto 客户端、网页和网络只读状态正在开发验证，未作为已完成硬件验收计分。
-用户要求持续长任务推进至约 60%；该目标仍在进行，不能因本检查点保存而停止。下面为此前阶段记录。
+用户要求持续长任务推进至约 75%；该目标仍在进行，不能因本检查点保存而停止。下面为此前阶段记录。
 
 新增 crates/media：固定 16kHz/20ms PCM、有界帧队列、分段 I/O、静音/断流/xrun 处理和媒体票据/撤销原语。
 新增独立 native/audio-alsa：有限 UFI003 profile、两个 CS-Voice holder 及采集/播放句柄，safe Rust 调用 libasound。

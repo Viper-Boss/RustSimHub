@@ -1,6 +1,6 @@
 # 实时音频与应用更新开发边界
 
-2026-10-14。源码已保存；这一页描述待验收实现，不增加进展点。整体保持约 48%，持续长任务目标约 60%。
+2026-10-14。源码已保存；这一页描述待验收实现，不增加进展点。整体保持约 48%，持续长任务目标约 75%。
 
 `native/audio-alsa` 增加 str0m 0.24.1 音频会话：仅单路 Opus/sendrecv、UDP 私有 IPv4 host candidates，限制 SDP/行数/候选数、数据包和媒体队列。默认不记录音频。会话必须完成实际 DTLS 证书 fingerprint 校验，再将核验到的 peer_key 与核心票据匹配，才可 redeem、打开 PCM。先握手后签发短票据，不延长五秒票据。库使用 rust-crypto provider；dimpl 的证书生成仍静态引入 AWS-LC，不能称为全 Rust 依赖。所有 Rtc 变更后 drain 至 Timeout；授权/帧龄使用实际本机时钟，撤销后关闭。
 

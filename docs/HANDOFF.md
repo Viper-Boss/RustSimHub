@@ -1,9 +1,12 @@
 # RustSimHub 接手入口
 
+最新用户指令（2026-10-14）：把持续自主推进目标提高到整体约 75%，取代此前约 60%。当前实证约 50%；百分比分母和 P0—P7 固定权重不变，不以扩大文档或跳过验收提高百分比。继续工作，不因保存检查点停止。
+
+
 新增 VALIDATION-RTC-P3D.md：棒子真实 UDP/ICE/DTLS/SRTP 合成回环、NAS 与棒子五秒双向编码静音通过。没有打开 PCM、拨号或新增短信。
 native aff5dcd 已部署 /opt/rustsimhub/dev-rtc-p3/，self-check 双向 50 帧；LAN 各发 250、收 250/249，解码静音只有 1 LSB 量化残差。
 最新源码补充证书替换失败、信令输出原子发布和一秒媒体断流关闭，尚须下一次原生构建验证。root 2c69ff9 的 125 项、默认 production core 构建通过，prod/development 分开；P6 实机签名应用验收仍未加点。
-不要重跑旧电话 once；用户持续允许 10010，但新的电话测试要用独立标记且确保挂断。约 60% 长任务继续。
+不要重跑旧电话 once；用户持续允许 10010，但新的电话测试要用独立标记且确保挂断。约 75% 长任务继续。
 
 
 当前整体约 **50%**，见 PROGRESS-SCALE.md。用户要求每次最终回复报告整体完成百分比；
@@ -14,7 +17,7 @@ native aff5dcd 已部署 /opt/rustsimhub/dev-rtc-p3/，self-check 双向 50 帧�
 两个自有 NAS 构建器当前运行；先查 liveness。首个新 root 构建因 Windows CRLF 源包与 Git blob 不一致，只保留测试，不可部署归属到 HEAD。现 tools/package-source.py 精确打包 Git blob；最新修改提交后，重建两个产物并验证 hash。
 下一步：完成原生加密回环、NAS/棒子真实 LAN、获准 10010 的静音上行/远端解码统计；随后签名应用 stage/confirm/失败回退实机、Wi-Fi 事务和兼容迁移。不要在保存本检查点后停止长期目标。
 
-当前长任务目标：持续自主推进至约 60%，仍在进行；不要在一个小检查点停止。浏览器/Wi-Fi 只读通过，继续 Opus/WebRTC/网络管理/兼容或系统交付。
+当前长任务目标：持续自主推进至约 75%，仍在进行；不要在一个小检查点停止。浏览器/Wi-Fi 只读通过，继续 Opus/WebRTC/网络管理/兼容或系统交付。
 新增 VALIDATION-BROWSER-P2.md：真实浏览器配对、签名登录、短信正文与分页、重启会话拒绝/新登录、只读准备拒绝通过。
 Wi-Fi 浏览器通过仅回环 QA 代理严格校验上游 TLS，未绕过浏览器 TLS 警告或安装 Windows CA；正式直接浏览器信任仍待完成。
 当前 app.js 的退出/在途请求代次修复在 QA 实测通过；最终静态 binary 构建和不同 UID 实机烟测通过。Opus 静态原生编译及棒子合成验收通过，见 VALIDATION-CODEC-P3C.md。
