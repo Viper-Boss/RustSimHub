@@ -176,12 +176,15 @@ pub(crate) async fn handle(
                 value["messaging_api"] = messaging_enabled.into();
                 value["call_control_api"] = calling_enabled.into();
                 value["call_observer"] = calls_observed.into();
+                value["saved_wifi_trial_api"] = crate::network_trial::enabled().into();
                 value
             }
             Err(_) => json!({"ok":false,"error":"modem_unavailable"}),
         },
         Ok(mut value) => {
-            if health && calling_enabled {
+            if health && crate::network_trial::enabled() {
+                value = json!({"ok":true,"mode":"authenticated_saved_wifi_trial","write_api":true,"saved_wifi_trial_api":true});
+            } else if health && calling_enabled {
                 value = json!({"ok":true,"mode":"authenticated_telephony","write_api":true,"media_available":false});
             } else if health && messaging_enabled {
                 value = json!({"ok":true,"mode":"authenticated_messaging","write_api":true});

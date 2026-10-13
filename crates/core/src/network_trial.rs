@@ -53,6 +53,9 @@ fn directory(path: &Path) -> Result<()> {
     }
     Ok(())
 }
+pub(crate) fn enabled() -> bool {
+    DIRECTORY.get().is_some()
+}
 pub fn enable(path: &Path) -> Result<()> {
     directory(path)?;
     DIRECTORY.set(path.to_owned()).map_err(|_| Error::Forbidden)
@@ -419,15 +422,21 @@ impl Backend for NetworkManager {
             let interface: String = d.get_property("Interface").await.map_err(|_| Error::Io)?;
             let state: u32 = d.get_property("State").await.map_err(|_| Error::Io)?;
             let managed: bool = d.get_property("Managed").await.map_err(|_| Error::Io)?;
-            if kind == 2 && interface == "wlan0" && managed && state == 100 {
-                if wifi.replace(p.clone()).is_some() {
-                    return Err(Error::Forbidden);
-                }
+            if kind == 2
+                && interface == "wlan0"
+                && managed
+                && state == 100
+                && wifi.replace(p.clone()).is_some()
+            {
+                return Err(Error::Forbidden);
             }
-            if kind == 1 && interface == "usb0" && managed && state == 100 {
-                if usb.replace(p.clone()).is_some() {
-                    return Err(Error::Forbidden);
-                }
+            if kind == 1
+                && interface == "usb0"
+                && managed
+                && state == 100
+                && usb.replace(p.clone()).is_some()
+            {
+                return Err(Error::Forbidden);
             }
         }
         let (wifi, usb) = (wifi.ok_or(Error::Forbidden)?, usb.ok_or(Error::Forbidden)?);

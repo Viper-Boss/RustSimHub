@@ -159,3 +159,48 @@ fn private_journal_rejects_symlink_and_broad_directory() {
     std::fs::set_permissions(d.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
     assert!(Journal::new(d.path(), "other", &p()).is_err());
 }
+
+#[tokio::test]
+async fn revocation_at_every_mutation_boundary_preserves_at_most_once_intent() {
+    for revoke_at in 0..6 {
+        let d = directory();
+        let b = mock();
+        let g = Allow {
+            checks: AtomicUsize::new(0),
+            revoke_at,
+        };
+        let mut j = Journal::new(d.path(), "key", &p()).unwrap();
+        assert!(execute(&b, &g, &mut j).await.is_err());
+        let expected = if revoke_at <= 2 {
+            vec![]
+        } else if revoke_at == 3 {
+            vec!["checkpoint", "restore"]
+        } else {
+            vec!["checkpoint", "wifi", "restore"]
+        };
+        assert_eq!(*b.effects.lock().unwrap(), expected);
+        if revoke_at >= 2 {
+            assert!(j.previous().is_err());
+        }
+    }
+}
+#[test]
+fn bounded_journal_and_changed_principal_are_denied() {
+    let d = directory();
+    for n in 0..256 {
+        std::fs::write(d.path().join(format!("{n}")), b"occupied").unwrap();
+    }
+    assert!(Journal::new(d.path(), "new", &p())
+        .unwrap()
+        .begin()
+        .is_err());
+    let d = directory();
+    let j = Journal::new(d.path(), "key", &p()).unwrap();
+    j.begin().unwrap();
+    let mut other = p();
+    other.id = "other".into();
+    assert!(Journal::new(d.path(), "key", &other)
+        .unwrap()
+        .previous()
+        .is_err());
+}

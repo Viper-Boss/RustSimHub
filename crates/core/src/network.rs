@@ -32,6 +32,7 @@ struct Snapshot {
     metered: u32,
     devices: Vec<Device>,
     control_api: bool,
+    saved_wifi_trial_api: bool,
     hardware_mutations: bool,
 }
 async fn principal(auth: Arc<Mutex<Auth>>, token: String) -> rustsimhub_auth::Result<Principal> {
@@ -205,6 +206,7 @@ async fn probe(c: &zbus::Connection) -> rustsimhub_auth::Result<Snapshot> {
         metered: u32prop(&root, "Metered")?,
         devices,
         control_api: false,
+        saved_wifi_trial_api: crate::network_trial::enabled(),
         hardware_mutations: false,
     })
 }
