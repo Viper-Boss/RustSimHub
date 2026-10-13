@@ -3,6 +3,11 @@
 当前整体约 **48%**，见 PROGRESS-SCALE.md。用户要求每次最终回复报告整体完成百分比；
 继续按固定里程碑估算，并注明实机验收边界，不把代码完成当作整机固件完成。
 
+最新开发：见 rtc-and-application-update.md。新增 LAN DTLS/SRTP/Opus 与签名应用选择器，尚未全部实机验收，整体仍约 48%。
+主线最新 Git 9b34276；当前还有媒体私有文件非阻塞、ELF/pin 和证书失败测试修改待提交。125 workspace / CI 8f087a2 通过；native aff5dcd 的 9 项测试通过，release 仍在构建。
+两个自有 NAS 构建器当前运行；先查 liveness。首个新 root 构建因 Windows CRLF 源包与 Git blob 不一致，只保留测试，不可部署归属到 HEAD。现 tools/package-source.py 精确打包 Git blob；最新修改提交后，重建两个产物并验证 hash。
+下一步：完成原生加密回环、NAS/棒子真实 LAN、获准 10010 的静音上行/远端解码统计；随后签名应用 stage/confirm/失败回退实机、Wi-Fi 事务和兼容迁移。不要在保存本检查点后停止长期目标。
+
 当前长任务目标：持续自主推进至约 60%，仍在进行；不要在一个小检查点停止。浏览器/Wi-Fi 只读通过，继续 Opus/WebRTC/网络管理/兼容或系统交付。
 新增 VALIDATION-BROWSER-P2.md：真实浏览器配对、签名登录、短信正文与分页、重启会话拒绝/新登录、只读准备拒绝通过。
 Wi-Fi 浏览器通过仅回环 QA 代理严格校验上游 TLS，未绕过浏览器 TLS 警告或安装 Windows CA；正式直接浏览器信任仍待完成。

@@ -328,12 +328,16 @@ impl Session {
                             continue;
                         }
                         let seq = **m.seq_range.end();
-                        let frame = self
+                        let mut frame = self
                             .codec
                             .as_mut()
                             .ok_or(Error::Authorization)?
                             .decode(&m.data, seq, now.saturating_sub(age as u64), now)
                             .map_err(|_| Error::Codec)?;
+                        if self.gate(rustsimhub_media::local::now_ms()).is_err() {
+                            frame.samples.fill(0);
+                            return Err(Error::Authorization);
+                        }
                         if self.incoming.len() == QUEUE_FRAMES {
                             self.incoming.pop_front();
                             self.dropped_frames += 1;
@@ -586,6 +590,49 @@ mod tests {
     #[test]
     fn encrypted_loopback_roundtrip_and_ticket_identity_revocation() {
         self_check().unwrap();
+    }
+    #[test]
+    fn substituted_sdp_certificate_cannot_complete_dtls_or_unlock_media() {
+        let a = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let b = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let ip = "127.0.0.1".parse().unwrap();
+        let (mut sender, offer, pending) = Session::offer(&a, ip).unwrap();
+        let changed = offer
+            .lines()
+            .map(|line| {
+                if line.starts_with("a=fingerprint:") {
+                    format!("a=fingerprint:sha-256 {}", ["00"; 32].join(":"))
+                } else {
+                    line.to_owned()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\r\n")
+            + "\r\n";
+        let (mut receiver, answer) = Session::answer(&b, ip, &changed).unwrap();
+        sender.accept_answer(&a, pending, &answer).unwrap();
+        let end = Instant::now() + Duration::from_secs(3);
+        let mut denied = false;
+        while Instant::now() < end {
+            if receiver
+                .service(&b, rustsimhub_media::local::now_ms())
+                .is_err()
+            {
+                denied = true;
+                break;
+            }
+            if sender
+                .service(&a, rustsimhub_media::local::now_ms())
+                .is_err()
+            {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(denied);
+        assert!(receiver.verified_peer().is_none());
+        assert!(receiver.codec.is_none());
+        assert_eq!(receiver.received_frames, 0);
     }
     #[test]
     fn bounded_audio_only_sdp_rejects_unsafe_candidates_and_extra_media() {

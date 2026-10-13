@@ -30,7 +30,7 @@ pub fn read_credentials(path: &Path) -> Result<Credentials, Error> {
     }
     let f = std::fs::OpenOptions::new()
         .read(true)
-        .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+        .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
         .open(path)
         .map_err(|_| Error::Denied)?;
     let m = f.metadata().map_err(|_| Error::Denied)?;

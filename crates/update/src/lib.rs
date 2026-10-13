@@ -127,6 +127,9 @@ pub fn verify_payload(m: &Manifest, payloads: &[Vec<u8>]) -> Result<(), Error> {
                 || &bytes[..4] != b"\x7fELF"
                 || bytes[4] != 2
                 || bytes[5] != 1
+                || bytes[6] != 1
+                || !matches!(u16::from_le_bytes([bytes[16], bytes[17]]), 2 | 3)
+                || u16::from_le_bytes([bytes[52], bytes[53]]) != 64
                 || u16::from_le_bytes([bytes[18], bytes[19]]) != 183)
         {
             return Err(Error::Board);
@@ -155,7 +158,10 @@ mod tests {
                 b[..4].copy_from_slice(b"\x7fELF");
                 b[4] = 2;
                 b[5] = 1;
+                b[6] = 1;
+                b[16] = 2;
                 b[18] = 183;
+                b[52] = 64;
                 b
             })
             .collect::<Vec<_>>();

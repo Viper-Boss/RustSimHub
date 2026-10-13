@@ -25,3 +25,8 @@ Rust 重新实现句柄生命周期及有限格式检查，没有复制 Go/C 实
 后者在已锁定 Cargo crate 内携带 Opus 1.6.1 源码，默认静态构建，保持 hardening、stack protector 与 fortify，关闭 DRED/OSCE。
 Opus 原始版权、BSD 条件/免责声明和专利许可链接保留在 `licenses/Opus-COPYING.txt`；发布静态媒体二进制时须同时交付。
 构建工具 CMake/Ninja 及其 Debian 依赖仅进入隔离镜像，不随此声明重新许可；运行时不要求给棒子安装 libopus。
+
+2026-10-14 WebRTC 使用 str0m 0.24.1、dimpl 0.7.5 与 rust-crypto provider（上游 MIT/Apache-2.0）；
+证书生成的 transitive rcgen/AWS-LC 仍包含 C 依赖和上游 Apache/ISC/OpenSSL 等许可证。
+不能将调用侧 forbid(unsafe_code) 或 rust-crypto feature 宣称为所有传递依赖均为 Rust。
+完整应用发布仍须携带 RustSimHub LICENSE、Opus COPYING 和实际静态依赖的第三方 notices；开发诊断包尚不作为完整发布。

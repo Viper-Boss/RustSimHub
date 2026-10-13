@@ -338,6 +338,12 @@ mod tests {
         assert!(s.choose().unwrap().ends_with(&first));
         assert_eq!(s.floor(), 2);
         assert_eq!(s.stage(&b, &g, &p), Err(Error::Rollback));
+        drop(s);
+        let other = SigningKey::from_bytes(&[78; 32]).verifying_key().to_bytes();
+        assert!(matches!(
+            Store::open(d.path(), other, 5),
+            Err(Error::Denied)
+        ));
     }
     #[test]
     fn atomic_state_interruption_and_slot_corruption_never_select_bad_payload() {
