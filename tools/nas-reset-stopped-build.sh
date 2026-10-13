@@ -13,6 +13,16 @@ docker inspect "$container" --format '{{.State.ExitCode}}' > "$history/build.exi
 if test "$(cat "$history/build.exit")" = 0; then cp "$base/src/target/release/rustsimhub-core" "$history/"; fi
 if test "$(cat "$history/build.exit")" = 0 && test -f "$base/src/target/release/simhubctl"; then cp "$base/src/target/release/simhubctl" "$history/"; fi
 if test "$(cat "$history/build.exit")" = 0 && test -f "$base/src/target/release/rustsimhub-edge"; then cp "$base/src/target/release/rustsimhub-edge" "$history/"; fi
+if test "$(cat "$history/build.exit")" = 0;then
+    for group in development production;do
+        if test -d "$base/src/target/$group";then
+            install -d "$history/$group"
+            for name in rustsimhub-core simhubctl rustsimhub-edge rustsimhub-update;do
+                if test -f "$base/src/target/$group/$name";then cp "$base/src/target/$group/$name" "$history/$group/";fi
+            done
+        fi
+    done
+fi
 chown -R 1000:1000 "$history"
 docker rm "$container"
 echo 'Stopped project build evidence preserved; container removed'
