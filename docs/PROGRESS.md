@@ -1,5 +1,8 @@
 # 开发进度
 
+最新约束（2026-10-14）：当前卡没有流量，普通蜂窝数据实测最后进行。只使用 USB/Wi-Fi 做网络/媒体验收；禁止普通 APN 激活、互联网蜂窝探测或隐式流量回退。只读状态与预算模拟可继续；不关闭语音使用的 WWAN/IMS。10010 持续授权仍有效。
+
+
 新增 VALIDATION-RTC-P3D.md：棒子真实 UDP/ICE/DTLS/SRTP 合成回环、NAS 与棒子五秒双向编码静音通过。没有打开 PCM、拨号或新增短信。
 native aff5dcd 已部署 /opt/rustsimhub/dev-rtc-p3/，self-check 双向 50 帧；LAN 各发 250、收 250/249，解码静音只有 1 LSB 量化残差。
 最新源码补充证书替换失败、信令输出原子发布和一秒媒体断流关闭，尚须下一次原生构建验证。root 2c69ff9 的 125 项、默认 production core 构建通过，prod/development 分开；P6 实机签名应用验收仍未加点。
