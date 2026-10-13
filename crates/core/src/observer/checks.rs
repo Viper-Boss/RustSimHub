@@ -315,7 +315,7 @@ async fn private_peer_reconciles_batches_bad_objects_path_reuse_and_sim_signal()
         .sim_fingerprinter()
         .unwrap();
     let metrics = Arc::new(Mutex::new(Stats::default()));
-    let observe = session(client, &h, "synthetic-instance", 1, &key, &metrics);
+    let observe = session(client, &h, "synthetic-instance", 1, &key, &metrics, None);
     let exercise = async {
         tokio::time::timeout(Duration::from_secs(15), async {
             while message_count(&h) < 39 {
@@ -392,4 +392,270 @@ async fn private_peer_reconciles_batches_bad_objects_path_reuse_and_sim_signal()
     .await
     .unwrap();
     assert!(result.is_err());
+}
+
+struct FakeOutgoingMessaging {
+    creates: Arc<std::sync::atomic::AtomicUsize>,
+    mode: u8,
+    sim: Arc<Mutex<String>>,
+    revoke: Option<(Handle, rustsimhub_policy::Principal, [u8; 32])>,
+}
+#[zbus::interface(name = "org.freedesktop.ModemManager1.Modem.Messaging")]
+impl FakeOutgoingMessaging {
+    fn create(
+        &self,
+        properties: HashMap<String, OwnedValue>,
+    ) -> zbus::fdo::Result<OwnedObjectPath> {
+        use std::sync::atomic::Ordering;
+        self.creates.fetch_add(1, Ordering::SeqCst);
+        assert_eq!(properties.len(), 2);
+        assert_eq!(
+            <&str>::try_from(&properties["number"]).unwrap(),
+            "+12025550123"
+        );
+        assert_eq!(
+            <&str>::try_from(&properties["text"]).unwrap(),
+            "synthetic outgoing"
+        );
+        if self.mode == 1 {
+            return Err(zbus::fdo::Error::Failed("synthetic".into()));
+        }
+        if self.mode == 4 {
+            *self.sim.lock().unwrap() = "8901234567890123457".into();
+        }
+        if let Some((h, owner, key)) = &self.revoke {
+            h.revoke_client(owner.clone(), *key).unwrap();
+        }
+        Ok(path(9000))
+    }
+}
+struct FakeOutgoingSms {
+    sends: Arc<std::sync::atomic::AtomicUsize>,
+    state: Arc<std::sync::atomic::AtomicU32>,
+    mode: u8,
+}
+#[zbus::interface(name = "org.freedesktop.ModemManager1.Sms")]
+impl FakeOutgoingSms {
+    async fn send(&self) -> zbus::fdo::Result<()> {
+        use std::sync::atomic::Ordering;
+        self.sends.fetch_add(1, Ordering::SeqCst);
+        if self.mode == 2 {
+            return Err(zbus::fdo::Error::Failed("synthetic".into()));
+        }
+        if self.mode == 3 {
+            tokio::time::sleep(Duration::from_secs(3)).await;
+            return Err(zbus::fdo::Error::Failed("synthetic".into()));
+        }
+        self.state.store(
+            if matches!(self.mode, 6 | 7) { 4 } else { 5 },
+            Ordering::SeqCst,
+        );
+        Ok(())
+    }
+    #[zbus(property)]
+    fn state(&self) -> u32 {
+        self.state.load(std::sync::atomic::Ordering::SeqCst)
+    }
+    #[zbus(property)]
+    fn pdu_type(&self) -> u32 {
+        2
+    }
+    #[zbus(property)]
+    fn number(&self) -> &str {
+        "+12025550123"
+    }
+    #[zbus(property)]
+    fn text(&self) -> &str {
+        "synthetic outgoing"
+    }
+    #[zbus(property)]
+    fn data(&self) -> Vec<u8> {
+        vec![]
+    }
+}
+#[tokio::test]
+async fn sender_peer_proves_one_send_and_no_retries_after_errors_swaps_revocation_or_timeout() {
+    use ed25519_dalek::{Signer, SigningKey};
+    use rustsimhub_wire::AuthCommand;
+    use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+    for mode in 0..=7 {
+        let (server, client, sim) = peers().await;
+        server
+            .object_server()
+            .remove::<FakeMessaging, _>("/org/freedesktop/ModemManager1/Modem/0")
+            .await
+            .unwrap();
+        let d = directory();
+        let i = directory();
+        let store = rustsimhub_storage::Store::open(d.path()).unwrap();
+        let h = store.handle();
+        let mut auth = rustsimhub_auth::Auth::new(
+            rustsimhub_auth::Identity::open(i.path()).unwrap(),
+            h.clone(),
+        )
+        .unwrap();
+        let owner = SigningKey::from_bytes(&[51; 32]);
+        let sender = SigningKey::from_bytes(&[52; 32]);
+        let c = auth
+            .bootstrap_challenge(owner.verifying_key().to_bytes())
+            .unwrap();
+        auth.bootstrap_finish(&c.id, &owner.sign(&c.transcript).to_bytes())
+            .unwrap();
+        let owner = h
+            .principal(owner.verifying_key().to_bytes())
+            .unwrap()
+            .unwrap();
+        let principal = h
+            .approve_client(
+                owner.clone(),
+                sender.verifying_key().to_bytes(),
+                rustsimhub_policy::Kind::Client,
+                rustsimhub_policy::mask(&[rustsimhub_policy::Scope::SmsSend]).unwrap(),
+            )
+            .unwrap();
+        let c = auth
+            .login_challenge(sender.verifying_key().to_bytes())
+            .unwrap();
+        let token = auth
+            .login_finish(&c.id, &sender.sign(&c.transcript).to_bytes())
+            .unwrap()
+            .expose()
+            .to_owned();
+        let line = h
+            .observe_line(LineObservation {
+                backend: "synthetic-sender".into(),
+                fingerprint: Some([7; 32]),
+                status: LineStatus::Ready,
+            })
+            .unwrap()
+            .line;
+        let creates = Arc::new(AtomicUsize::new(0));
+        let sends = Arc::new(AtomicUsize::new(0));
+        let state = Arc::new(AtomicU32::new(1));
+        server
+            .object_server()
+            .at(
+                "/org/freedesktop/ModemManager1/Modem/0",
+                FakeOutgoingMessaging {
+                    creates: creates.clone(),
+                    mode,
+                    sim: sim.clone(),
+                    revoke: if mode == 5 {
+                        Some((h.clone(), owner, principal.public_key))
+                    } else {
+                        None
+                    },
+                },
+            )
+            .await
+            .unwrap();
+        server
+            .object_server()
+            .at(
+                path(9000),
+                FakeOutgoingSms {
+                    sends: sends.clone(),
+                    state: state.clone(),
+                    mode,
+                },
+            )
+            .await
+            .unwrap();
+        let (_fence, guard) = tokio::sync::watch::channel(watch::Notice::default());
+        let binding = Binding {
+            connection: client,
+            context: rustsimhub_storage::SendContext {
+                line,
+                backend: "synthetic-sender".into(),
+                owner: ":1.20".into(),
+                modem: "/org/freedesktop/ModemManager1/Modem/0".into(),
+                fingerprint: [7; 32],
+            },
+            iccid: "8901234567890123456".into(),
+            sim: "/org/freedesktop/ModemManager1/SIM/0".try_into().unwrap(),
+            guard,
+            fence: 0,
+            seen: Instant::now(),
+        };
+        let (_publisher, bindings) = tokio::sync::watch::channel(Some(binding));
+        let (controller, worker) =
+            crate::sender::channel(Arc::new(Mutex::new(auth)), h.clone(), bindings);
+        let exercise = async move {
+            let op = controller
+                .request(AuthCommand::PrepareSms {
+                    token: token.clone(),
+                    line_epoch: line.0,
+                    idempotency_key: "a".into(),
+                    recipient: "+12025550123".into(),
+                    text: "synthetic outgoing".into(),
+                })
+                .await
+                .unwrap();
+            let id = op["id"].as_str().unwrap().to_owned();
+            let result = controller
+                .request(AuthCommand::SubmitSms {
+                    token: token.clone(),
+                    operation_id: id.clone(),
+                })
+                .await;
+            if mode == 5 {
+                assert!(result.is_err());
+            } else {
+                result.unwrap();
+            }
+            assert_eq!(creates.load(Ordering::SeqCst), 1);
+            assert_eq!(
+                sends.load(Ordering::SeqCst),
+                usize::from(matches!(mode, 0 | 2 | 3 | 6 | 7))
+            );
+            let expected = match mode {
+                0 => rustsimhub_domain::SmsState::Submitted,
+                4 | 5 => rustsimhub_domain::SmsState::Cancelled,
+                _ => rustsimhub_domain::SmsState::Unknown,
+            };
+            assert_eq!(h.operation(&id, &principal.id).unwrap().state, expected);
+            let _ = controller
+                .request(AuthCommand::SubmitSms {
+                    token: token.clone(),
+                    operation_id: id.clone(),
+                })
+                .await;
+            assert_eq!(creates.load(Ordering::SeqCst), 1);
+            assert_eq!(
+                sends.load(Ordering::SeqCst),
+                usize::from(matches!(mode, 0 | 2 | 3 | 6 | 7))
+            );
+            if mode == 7 {
+                state.store(5, Ordering::SeqCst);
+                _fence.send_modify(|n| n.apply(watch::Change::Retire(path(9000).to_string())));
+                let result = controller
+                    .request(AuthCommand::SmsOperation {
+                        token: token.clone(),
+                        operation_id: id.clone(),
+                    })
+                    .await
+                    .unwrap();
+                assert_eq!(result["state"], "unknown");
+            }
+            if mode == 6 {
+                state.store(5, Ordering::SeqCst);
+                let result = controller
+                    .request(AuthCommand::SmsOperation {
+                        token,
+                        operation_id: id,
+                    })
+                    .await
+                    .unwrap();
+                assert_eq!(result["state"], "submitted");
+                assert_eq!(sends.load(Ordering::SeqCst), 1);
+            }
+            drop(controller);
+        };
+        tokio::time::timeout(Duration::from_secs(20), async {
+            tokio::join!(worker.run(), exercise);
+        })
+        .await
+        .unwrap();
+        server.close().await.unwrap();
+    }
 }

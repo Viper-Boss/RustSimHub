@@ -83,6 +83,47 @@ async fn call(socket: &str, command: AuthCommand) -> Result<Value> {
     Ok(reply.result)
 }
 pub async fn run(args: &[String]) -> Result<()> {
+    if let [command, socket, session, input] = args {
+        if matches!(
+            command.as_str(),
+            "prepare-sms" | "submit-sms" | "sms-operation"
+        ) {
+            let s = Session::load(Path::new(session))?;
+            check_session(socket, &s)?;
+            let request = if command == "prepare-sms" {
+                #[derive(serde::Deserialize)]
+                #[serde(deny_unknown_fields)]
+                struct Draft {
+                    line_epoch: u64,
+                    idempotency_key: String,
+                    recipient: String,
+                    text: String,
+                }
+                let bytes = rustsimhub_auth::read_private(Path::new(input), MAX_FRAME)?;
+                let d: Draft =
+                    serde_json::from_slice(&bytes).map_err(|_| "invalid private draft")?;
+                AuthCommand::PrepareSms {
+                    token: s.token.clone(),
+                    line_epoch: d.line_epoch,
+                    idempotency_key: d.idempotency_key,
+                    recipient: d.recipient,
+                    text: d.text,
+                }
+            } else if command == "submit-sms" {
+                AuthCommand::SubmitSms {
+                    token: s.token.clone(),
+                    operation_id: input.clone(),
+                }
+            } else {
+                AuthCommand::SmsOperation {
+                    token: s.token.clone(),
+                    operation_id: input.clone(),
+                }
+            };
+            println!("{}", serde_json::to_string(&call(socket, request).await?)?);
+            return Ok(());
+        }
+    }
     if let [command, socket, path, id] = args {
         if command == "sms" {
             let s = Session::load(Path::new(path))?;

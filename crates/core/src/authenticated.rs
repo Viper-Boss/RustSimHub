@@ -16,6 +16,9 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth::Result<Value> {
     use AuthCommand::*;
     Ok(match command {
+        PrepareSms { .. } | SubmitSms { .. } | SmsOperation { .. } => {
+            return Err(rustsimhub_auth::Error::Forbidden)
+        }
         Identity {} => {
             json!({"public_key":auth.public_key(),"signature_algorithm":"ed25519","protocol":AUTH_PROTOCOL})
         }
@@ -88,22 +91,48 @@ pub(crate) async fn handle(
     stream: &mut UnixStream,
     auth: Arc<Mutex<Auth>>,
     metrics: Option<crate::observer::Metrics>,
+    sender: Option<crate::sender::Controller>,
 ) -> Result<()> {
     let body = timeout(Duration::from_secs(5), read_frame(stream)).await??;
     let request = parse_auth_request(&body)?;
+    let messaging_enabled = sender.is_some();
+    let health = matches!(request.command, AuthCommand::Health { .. });
     let capabilities = matches!(request.command, AuthCommand::Capabilities { .. });
     let line_status = matches!(request.command, AuthCommand::LineStatus { .. });
-    let result = tokio::task::spawn_blocking(move || match auth.try_lock() {
-        Ok(mut a) => dispatch(&mut a, request.command),
-        Err(_) => Err(rustsimhub_auth::Error::Busy),
-    })
-    .await?;
+    let sending = matches!(
+        request.command,
+        AuthCommand::PrepareSms { .. }
+            | AuthCommand::SubmitSms { .. }
+            | AuthCommand::SmsOperation { .. }
+    );
+    let result = if sending {
+        match sender {
+            Some(s) => s
+                .request(request.command)
+                .await
+                .map_err(|_| rustsimhub_auth::Error::Forbidden),
+            None => Err(rustsimhub_auth::Error::Forbidden),
+        }
+    } else {
+        tokio::task::spawn_blocking(move || match auth.try_lock() {
+            Ok(mut a) => dispatch(&mut a, request.command),
+            Err(_) => Err(rustsimhub_auth::Error::Busy),
+        })
+        .await?
+    };
     let result = match result {
         Ok(_) if capabilities => match probe().await {
-            Ok(p) => serde_json::to_value(p)?,
+            Ok(p) => {
+                let mut value = serde_json::to_value(p)?;
+                value["messaging_api"] = messaging_enabled.into();
+                value
+            }
             Err(_) => json!({"ok":false,"error":"modem_unavailable"}),
         },
         Ok(mut value) => {
+            if health && messaging_enabled {
+                value = json!({"ok":true,"mode":"authenticated_messaging","write_api":true});
+            }
             if let (true, Some(m)) = (line_status, metrics) {
                 if let Ok(s) = m.lock() {
                     value["observer"] = serde_json::to_value(s.clone())?;
@@ -122,24 +151,34 @@ pub(crate) async fn handle(
     Ok(())
 }
 pub async fn serve(socket: &str, uid: u32, state: &str, identity: &str) -> Result<()> {
-    serve_mode(socket, uid, state, identity, false).await
+    serve_mode(socket, uid, state, identity, (false, false)).await
 }
 pub async fn serve_observing(socket: &str, uid: u32, state: &str, identity: &str) -> Result<()> {
-    serve_mode(socket, uid, state, identity, true).await
+    serve_mode(socket, uid, state, identity, (true, false)).await
+}
+pub async fn serve_messaging(socket: &str, uid: u32, state: &str, identity: &str) -> Result<()> {
+    serve_mode(socket, uid, state, identity, (true, true)).await
 }
 async fn serve_mode(
     socket: &str,
     uid: u32,
     state: &str,
     identity: &str,
-    observing: bool,
+    (observing, messaging): (bool, bool),
 ) -> Result<()> {
     use tokio::signal::unix::{signal, SignalKind};
     let mut term = signal(SignalKind::terminate())?;
     let mut interrupt = signal(SignalKind::interrupt())?;
-    serve_inner(socket, uid, state, identity, observing, async move {
-        tokio::select! { _=term.recv()=>{},_=interrupt.recv()=>{} }
-    })
+    serve_inner(
+        socket,
+        uid,
+        state,
+        identity,
+        (observing, messaging),
+        async move {
+            tokio::select! { _=term.recv()=>{},_=interrupt.recv()=>{} }
+        },
+    )
     .await
 }
 #[cfg(test)]
@@ -150,14 +189,14 @@ pub(crate) async fn serve_until(
     identity: &str,
     stop: impl std::future::Future<Output = ()>,
 ) -> Result<()> {
-    serve_inner(socket, uid, state, identity, false, stop).await
+    serve_inner(socket, uid, state, identity, (false, false), stop).await
 }
 async fn serve_inner(
     socket: &str,
     uid: u32,
     state: &str,
     identity: &str,
-    observing: bool,
+    (observing, messaging): (bool, bool),
     stop: impl std::future::Future<Output = ()>,
 ) -> Result<()> {
     let (state, identity) = (state.to_owned(), identity.to_owned());
@@ -173,6 +212,17 @@ async fn serve_inner(
     let observer_store = store.handle();
     let metrics = Arc::new(Mutex::new(crate::observer::Stats::default()));
     let observer_metrics = metrics.clone();
+    let (publisher, bindings) = tokio::sync::watch::channel(None);
+    let (controller, worker) = crate::sender::channel(auth.clone(), store.handle(), bindings);
+    let sender = messaging.then_some(controller);
+    let mut sending = Box::pin(async move {
+        if messaging {
+            worker.run().await
+        } else {
+            std::future::pending::<()>().await
+        }
+    });
+    let observer_publisher = messaging.then_some(publisher);
     let observer_context = if observing {
         let a = auth.try_lock().map_err(|_| "auth busy during startup")?;
         Some((a.observer_instance(), a.sim_fingerprinter()?))
@@ -182,7 +232,14 @@ async fn serve_inner(
     let mut observer = Box::pin(async move {
         match observer_context {
             Some((instance, key)) => {
-                crate::observer::run(observer_store, instance, key, observer_metrics).await
+                crate::observer::run(
+                    observer_store,
+                    instance,
+                    key,
+                    observer_metrics,
+                    observer_publisher,
+                )
+                .await
             }
             None => std::future::pending::<()>().await,
         }
@@ -194,6 +251,7 @@ async fn serve_inner(
             biased;
             _=&mut stop=>break Ok(()),
             _=&mut observer=>break Err("observer stopped".into()),
+            _=&mut sending=>break Err("sender stopped".into()),
             _=tasks.join_next(),if !tasks.is_empty()=>continue,
             accepted=listener.accept()=>accepted,
         };
@@ -213,10 +271,11 @@ async fn serve_inner(
         };
         let auth = auth.clone();
         let metrics = metrics.clone();
+        let sender = sender.clone();
         tasks.spawn(async move {
             let _ = timeout(
                 Duration::from_secs(15),
-                handle(&mut stream, auth, Some(metrics)),
+                handle(&mut stream, auth, Some(metrics), sender),
             )
             .await;
             drop(permit);
@@ -224,6 +283,8 @@ async fn serve_inner(
     };
     drop(listener); // Stop admission before draining outstanding work.
     drop(observer);
+    drop(sending);
+    drop(sender);
     if timeout(Duration::from_secs(16), async {
         while tasks.join_next().await.is_some() {}
     })

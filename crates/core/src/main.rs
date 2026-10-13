@@ -16,6 +16,8 @@ mod observer;
 #[cfg(feature = "dev-fixtures")]
 mod recovery_check;
 #[cfg(target_os = "linux")]
+mod sender;
+#[cfg(target_os = "linux")]
 mod socket_runtime;
 #[cfg(feature = "dev-fixtures")]
 mod storage_check;
@@ -111,11 +113,19 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     identity,
                 ));
             }
+            [command, path, uid, state, identity] if command == "--serve-messaging" => {
+                return runtime.block_on(authenticated::serve_messaging(
+                    path,
+                    uid.parse()?,
+                    state,
+                    identity,
+                ));
+            }
             [command, path] if command == "--request-auth" => {
                 return runtime.block_on(authenticated::request(path));
             }
             _ => {}
         }
     }
-    Err("usage: --self-check | --probe (Linux) | --serve-readonly SOCKET ALLOWED_UID | --request SOCKET health|capabilities | --serve-authenticated SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR | --request-auth SOCKET (JSON stdin) | --provision-owner STATE_DIR IDENTITY_DIR CLIENT_PUBLIC_KEY_HEX | --recover-owner STATE_DIR IDENTITY_DIR CLIENT_PUBLIC_KEY_HEX | --backup-identity IDENTITY_DIR PRIVATE_BACKUP_DIR; development fixture commands require dev-fixtures".into())
+    Err("usage: --self-check | --probe (Linux) | --serve-readonly SOCKET ALLOWED_UID | --request SOCKET health|capabilities | --serve-authenticated SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR | --serve-observing SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR | --serve-messaging SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR | --request-auth SOCKET (JSON stdin) | --provision-owner STATE_DIR IDENTITY_DIR CLIENT_PUBLIC_KEY_HEX | --recover-owner STATE_DIR IDENTITY_DIR CLIENT_PUBLIC_KEY_HEX | --backup-identity IDENTITY_DIR PRIVATE_BACKUP_DIR; development fixture commands require dev-fixtures".into())
 }

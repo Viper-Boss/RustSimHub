@@ -51,7 +51,44 @@ struct Snapshot {
     sim: OwnedObjectPath,
     iccid: Option<String>,
     status: LineStatus,
+    state: i32,
 }
+/// A volatile binding tied to this connection and continuously polled identity fence.
+#[derive(Clone)]
+pub(crate) struct Binding {
+    pub connection: zbus::Connection,
+    pub context: rustsimhub_storage::SendContext,
+    iccid: String,
+    sim: OwnedObjectPath,
+    guard: tokio::sync::watch::Receiver<watch::Notice>,
+    fence: u64,
+    seen: Instant,
+}
+impl Binding {
+    pub fn valid(&self) -> bool {
+        self.seen.elapsed() < Duration::from_secs(15) && watch::valid(&self.guard, self.fence)
+    }
+    pub fn revision(&self) -> u64 {
+        self.guard.borrow().revision
+    }
+    pub fn object_valid(&self, path: &str, revision: u64) -> bool {
+        let n = self.guard.borrow();
+        self.valid()
+            && n.reset_sources <= revision
+            && !n.retired.iter().any(|(r, p)| *r > revision && p == path)
+    }
+    pub async fn fresh(&self) -> bool {
+        if !self.valid() {
+            return false;
+        }
+        let Ok(path) = OwnedObjectPath::try_from(self.context.modem.as_str()) else {
+            return false;
+        };
+        matches!(tokio::time::timeout(Duration::from_secs(5), snapshot(&self.connection, Some(&path))).await,
+            Ok(Ok(s)) if self.valid() && s.owner == self.context.owner && s.modem == path && s.sim == self.sim && s.iccid.as_deref() == Some(&self.iccid) && s.status == LineStatus::Observing && (8..=11).contains(&s.state))
+    }
+}
+pub(crate) type Bindings = tokio::sync::watch::Sender<Option<Binding>>;
 async fn snapshot(
     c: &zbus::Connection,
     cached_modem: Option<&OwnedObjectPath>,
@@ -125,6 +162,7 @@ async fn snapshot(
         sim,
         iccid,
         status,
+        state,
     })
 }
 async fn read_message(
@@ -216,6 +254,7 @@ struct Context<'a> {
     fingerprinter: &'a SimFingerprinter,
     store: &'a Handle,
     metrics: &'a Metrics,
+    bindings: Option<&'a Bindings>,
 }
 async fn reconcile(
     c: &zbus::Connection,
@@ -254,6 +293,7 @@ async fn reconcile(
     };
     let h = store.clone();
     let observe_guard = guard.clone();
+    let send_backend = backend.clone();
     let view = tokio::task::spawn_blocking(move || {
         h.observe_line_if(
             LineObservation {
@@ -266,6 +306,9 @@ async fn reconcile(
     })
     .await??;
     if !ready {
+        if let Some(b) = context.bindings {
+            b.send_replace(None);
+        }
         return Ok(false);
     }
     let proxy = MessagingProxy::builder(c)
@@ -306,6 +349,24 @@ async fn reconcile(
         return Err("SIM changed during read".into());
     }
     let h = store.clone();
+    if let (Some(publisher), Some(fingerprint), Some(iccid)) = (context.bindings, key, after.iccid)
+    {
+        publisher.send_replace(Some(Binding {
+            connection: c.clone(),
+            context: rustsimhub_storage::SendContext {
+                line: view.line,
+                backend: send_backend,
+                owner: after.owner,
+                modem: after.modem.to_string(),
+                fingerprint,
+            },
+            iccid,
+            sim: after.sim,
+            guard: guard.clone(),
+            fence,
+            seen: Instant::now(),
+        }));
+    }
     let failures = tokio::task::spawn_blocking(move || {
         let mut failures = 0u64;
         for sms in batch {
@@ -335,6 +396,7 @@ async fn session(
     connection_generation: u64,
     fingerprinter: &SimFingerprinter,
     metrics: &Metrics,
+    bindings: Option<&Bindings>,
 ) -> Result<()> {
     let mut watcher = watch::Watcher::connect(&c).await?;
     metric(metrics, |s| s.subscriptions = true);
@@ -345,6 +407,7 @@ async fn session(
         fingerprinter,
         store,
         metrics,
+        bindings,
     };
     let mut stable = Stable::default();
     let mut sources = Sources::default();
@@ -373,6 +436,9 @@ async fn session(
         }
         consumed = notice.revision;
         if notice.fence != fence {
+            if let Some(b) = bindings {
+                b.send_replace(None);
+            }
             invalidate(store, format!("{prefix}:invalid:{}", notice.fence), metrics).await;
             stable.candidate = None;
             sources.reset();
@@ -430,6 +496,7 @@ pub async fn run(
     instance: String,
     fingerprinter: SimFingerprinter,
     metrics: Metrics,
+    bindings: Option<Bindings>,
 ) {
     let mut generation = 0u64;
     let mut backoff = 1u64;
@@ -456,10 +523,22 @@ pub async fn run(
         };
         if let Ok(Ok(c)) = conn {
             let start = Instant::now();
-            let _ = session(c, &store, &instance, generation, &fingerprinter, &metrics).await;
+            let _ = session(
+                c,
+                &store,
+                &instance,
+                generation,
+                &fingerprinter,
+                &metrics,
+                bindings.as_ref(),
+            )
+            .await;
             if start.elapsed() > Duration::from_secs(30) {
                 backoff = 1;
             }
+        }
+        if let Some(b) = &bindings {
+            b.send_replace(None);
         }
         metric(&metrics, |s| {
             s.subscriptions = false;

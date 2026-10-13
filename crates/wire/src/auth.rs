@@ -31,6 +31,21 @@ pub enum AuthCommand {
     LineStatus {
         token: String,
     },
+    PrepareSms {
+        token: String,
+        line_epoch: u64,
+        idempotency_key: String,
+        recipient: String,
+        text: String,
+    },
+    SubmitSms {
+        token: String,
+        operation_id: String,
+    },
+    SmsOperation {
+        token: String,
+        operation_id: String,
+    },
     Inbox {
         token: String,
         after: Option<rustsimhub_domain::InboxCursor>,
@@ -90,6 +105,38 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         return Err(invalid());
     }
     match &req.command {
+        AuthCommand::PrepareSms {
+            token,
+            line_epoch,
+            idempotency_key,
+            recipient,
+            text,
+        } => {
+            if token.len() != 64
+                || *line_epoch == 0
+                || *line_epoch > i64::MAX as u64
+                || idempotency_key.is_empty()
+                || idempotency_key.len() > 128
+                || !(3..=32).contains(&recipient.len())
+                || text.is_empty()
+                || text.len() > 4096
+                || text.contains('\0')
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::SubmitSms {
+            token,
+            operation_id,
+        }
+        | AuthCommand::SmsOperation {
+            token,
+            operation_id,
+        } => {
+            if token.len() != 64 || operation_id.len() != 36 {
+                return Err(invalid());
+            }
+        }
         AuthCommand::Authenticate {
             challenge_id,
             signature,
@@ -139,6 +186,22 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn outgoing_requests_reject_identity_injection_and_invalid_private_payloads() {
+        let command = serde_json::json!({"op":"prepare_sms","token":"a".repeat(64),"line_epoch":2,"idempotency_key":"a","recipient":"+12025550123","text":"synthetic"});
+        let mut request = serde_json::json!({"protocol":2,"id":"a","command":command});
+        assert!(parse_auth_request(&serde_json::to_vec(&request).unwrap()).is_ok());
+        request["command"]["client_id"] = "injected".into();
+        assert!(parse_auth_request(&serde_json::to_vec(&request).unwrap()).is_err());
+        request["command"]
+            .as_object_mut()
+            .unwrap()
+            .remove("client_id");
+        for text in [String::new(), "x".repeat(4097), "nul\0text".to_owned()] {
+            request["command"]["text"] = text.into();
+            assert!(parse_auth_request(&serde_json::to_vec(&request).unwrap()).is_err());
+        }
+    }
     #[test]
     fn roles_unknown_scopes_bootstrap_and_missing_tokens_fail_closed() {
         for value in [

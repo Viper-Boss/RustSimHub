@@ -16,13 +16,15 @@ use std::{
 use uuid::Uuid;
 
 const APP_ID: i64 = 1381189698;
-const SCHEMA: i64 = 3;
+const SCHEMA: i64 = 4;
 mod auth;
 mod inbox;
+mod outgoing;
 pub use inbox::{
     InboxCursor, InboxEvent, InboxEvents, InboxPage, IncomingSms, LineObservation, LineStatus,
     LineView, SmsDetail, SmsSummary,
 };
+pub use outgoing::{SendAttempt, SendContext};
 type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -465,6 +467,11 @@ impl Database {
             tx.execute_batch(include_str!("inbox.sql"))?;
             tx.commit()?;
         }
+        if version < 4 {
+            let tx = db.connection.transaction()?;
+            tx.execute_batch(include_str!("outgoing.sql"))?;
+            tx.commit()?;
+        }
         let restoring = restore_marker.exists();
         db.recover(restoring)?;
         db.connection.execute(
@@ -486,6 +493,7 @@ impl Database {
             || request.idempotency_key.len() > 128
             || request.text.is_empty()
             || request.text.len() > 4096
+            || request.text.contains('\0')
             || !(3..=32).contains(&request.recipient.len())
             || !request
                 .recipient
@@ -715,3 +723,6 @@ impl Database {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod outgoing_tests;

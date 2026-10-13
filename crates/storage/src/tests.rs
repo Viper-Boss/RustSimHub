@@ -283,7 +283,7 @@ fn failed_owner_commit_never_acknowledges_or_leaves_authority() {
     assert!(h.revoke_client(owner, [1; 32]).is_err());
 }
 
-fn directory() -> TempDir {
+pub(super) fn directory() -> TempDir {
     let dir = tempfile::tempdir().unwrap();
     #[cfg(unix)]
     {
