@@ -1,12 +1,12 @@
 # RustSimHub 接手入口
 
-当前整体约 **47%**，见 PROGRESS-SCALE.md。用户要求每次最终回复报告整体完成百分比；
+当前整体约 **48%**，见 PROGRESS-SCALE.md。用户要求每次最终回复报告整体完成百分比；
 继续按固定里程碑估算，并注明实机验收边界，不把代码完成当作整机固件完成。
 
 当前长任务目标：持续自主推进至约 60%，仍在进行；不要在一个小检查点停止。浏览器/Wi-Fi 只读通过，继续 Opus/WebRTC/网络管理/兼容或系统交付。
 新增 VALIDATION-BROWSER-P2.md：真实浏览器配对、签名登录、短信正文与分页、重启会话拒绝/新登录、只读准备拒绝通过。
 Wi-Fi 浏览器通过仅回环 QA 代理严格校验上游 TLS，未绕过浏览器 TLS 警告或安装 Windows CA；正式直接浏览器信任仍待完成。
-当前 app.js 的退出/在途请求代次修复在 QA 实测通过；最终静态 binary 构建进行中。Opus 写入 native/audio-alsa，原生编译进行中，尚未加完成点。
+当前 app.js 的退出/在途请求代次修复在 QA 实测通过；最终静态 binary 构建和不同 UID 实机烟测通过。Opus 静态原生编译及棒子合成验收通过，见 VALIDATION-CODEC-P3C.md。
 本轮新增离线 CMake/Ninja 编译依赖只进入自有镜像，opusic-sys 锁定的 Opus 1.6.1 将静态交付；不要给宿主 NAS/棒子安装编译包。
 继续前检查 own systemd 单元/QA 代理与构建器的实际 liveness；文件指针或旧日志不能当作仍运行证据。结束时停自己的开发窗口和回环代理。
 先读 edge-and-network.md、VALIDATION-EDGE-P1.md。检查点 a00bd9b，120 workspace + CI Clippy + ARM64 release 通过。

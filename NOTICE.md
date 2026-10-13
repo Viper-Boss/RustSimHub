@@ -20,3 +20,8 @@ Rust 重新实现句柄生命周期及有限格式检查，没有复制 Go/C 实
 `alsa` 0.12.1 是 MIT/Apache-2.0 上游封装；内部 FFI 不属于本仓库的 safe Rust 代码。
 构建用 libasound 及 Debian 包的原许可证继续有效；包版本与校验值见
 `tools/audio-builder-deps.json`，不能将它们重新许可为 AGPL。
+
+2026-10-14 编解码使用 `opus` 0.4.0（MIT/Apache-2.0）和 `opusic-sys` 0.7.5（BSD-3-Clause）。
+后者在已锁定 Cargo crate 内携带 Opus 1.6.1 源码，默认静态构建，保持 hardening、stack protector 与 fortify，关闭 DRED/OSCE。
+Opus 原始版权、BSD 条件/免责声明和专利许可链接保留在 `licenses/Opus-COPYING.txt`；发布静态媒体二进制时须同时交付。
+构建工具 CMake/Ninja 及其 Debian 依赖仅进入隔离镜像，不随此声明重新许可；运行时不要求给棒子安装 libopus。

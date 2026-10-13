@@ -1,11 +1,11 @@
 # 开发进度
 
-更新时间：2026-10-14 / 实际浏览器与 Wi-Fi 只读业务；整体约 **47%**（按 PROGRESS-SCALE.md 固定里程碑估算）。
+更新时间：2026-10-14 / 实际浏览器与 Wi-Fi 只读业务；整体约 **48%**（按 PROGRESS-SCALE.md 固定里程碑估算）。
 
 实际浏览器经回环 QA 代理严格验证设备 Wi-Fi HTTPS，配对/批准/签名登录、短信正文与摘要、事件分页、只读发送准备拒绝通过。
 复用隔离身份/授权重启后旧 token 拒绝，新登录通过；退出清空显示。
-修正并实际验证在途只读响应延迟时能立即退出，旧响应不恢复界面；最新静态 release 仍在构建。
-Opus 固定 16k/20ms 适配器已经写入，独立原生构建正在继续；不将未编译/未验证 codec 计为完成。
+修正并实际验证在途只读响应延迟时能立即退出，旧响应不恢复界面；最新静态 release 已通过不同 UID 实机烟测。
+Opus 固定 16k/20ms 适配器独立原生构建通过；棒子 500 帧合成往返成功，未打开 PCM，见 VALIDATION-CODEC-P3C.md。
 见 VALIDATION-BROWSER-P2.md。约 60% 长任务仍活跃。以下为历史记录。
 
 新增 Rust HTTPS 入口与静态网页，NetworkStatus 前后重新鉴权并核验唯一 NM owner；120 项 workspace、CI Clippy、ARM64 release 通过。
