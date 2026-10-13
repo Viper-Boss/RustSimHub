@@ -1,0 +1,12 @@
+// RustSimHub temporary development voice authority. Other project control actions denied.
+polkit.addRule(function(action, subject) {
+    var project = ["rustsimhub-core", "rustsimhub-edge", "rustsimhub-media"];
+    if (project.indexOf(subject.user) < 0) { return; }
+    if (subject.user === "rustsimhub-core" && action.id === "org.freedesktop.ModemManager1.Voice") {
+        return polkit.Result.YES;
+    }
+    if (action.id.indexOf("org.freedesktop.ModemManager1.") === 0 ||
+        action.id.indexOf("org.freedesktop.NetworkManager.") === 0) {
+        return polkit.Result.NO;
+    }
+});

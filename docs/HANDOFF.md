@@ -1,13 +1,15 @@
-最新实证：签名应用槽位在棒子验证通过，生产 core 的实际候选进程 SIGKILL 后选择器回到 factory，身份和短信内容一致，低版本/换钥/签名及 payload 篡改拒绝。见 VALIDATION-APP-UPDATE-P6A.md。整体约 53%，继续推进 75%；普通蜂窝流量最后验收。
+最新实证：Core 986 和 Media 984 的独立非 Root 电话加密音频通过，空能力集合；实际最小 Voice 权限与其他控制拒绝、规则移除后恢复拒绝通过。累计 15 次 10010 拨号。见 VALIDATION-ISOLATED-MEDIA-P7A.md。整体约 54%，75% 长任务继续。
 
-最新实证：10010 真实电话下行经 Opus + DTLS/SRTP 到 NAS 解码成功，150 帧；静音上行、自动挂断、PCM 全关闭、旧四服务 active。见 VALIDATION-RTC-CARRIER-P3E.md。整体约 53%，75% 长任务继续，流量最后测。
+最新实证：签名应用槽位在棒子验证通过，生产 core 的实际候选进程 SIGKILL 后选择器回到 factory，身份和短信内容一致，低版本/换钥/签名及 payload 篡改拒绝。见 VALIDATION-APP-UPDATE-P6A.md。整体约 54%，继续推进 75%；普通蜂窝流量最后验收。
+
+最新实证：10010 真实电话下行经 Opus + DTLS/SRTP 到 NAS 解码成功，150 帧；静音上行、自动挂断、PCM 全关闭、旧四服务 active。见 VALIDATION-RTC-CARRIER-P3E.md。整体约 54%，75% 长任务继续，流量最后测。
 
 # RustSimHub 接手入口
 
 最新约束（2026-10-14）：当前卡没有流量，普通蜂窝数据实测最后进行。只使用 USB/Wi-Fi 做网络/媒体验收；禁止普通 APN 激活、互联网蜂窝探测或隐式流量回退。只读状态与预算模拟可继续；不关闭语音使用的 WWAN/IMS。10010 持续授权仍有效。
 
 
-最新用户指令（2026-10-14）：把持续自主推进目标提高到整体约 75%，取代此前约 60%。当前实证约 53%；百分比分母和 P0—P7 固定权重不变，不以扩大文档或跳过验收提高百分比。继续工作，不因保存检查点停止。
+最新用户指令（2026-10-14）：把持续自主推进目标提高到整体约 75%，取代此前约 60%。当前实证约 54%；百分比分母和 P0—P7 固定权重不变，不以扩大文档或跳过验收提高百分比。继续工作，不因保存检查点停止。
 
 
 新增 VALIDATION-RTC-P3D.md：棒子真实 UDP/ICE/DTLS/SRTP 合成回环、NAS 与棒子五秒双向编码静音通过。没有打开 PCM、拨号或新增短信。
@@ -16,10 +18,10 @@ native aff5dcd 已部署 /opt/rustsimhub/dev-rtc-p3/，self-check 双向 50 帧�
 不要重跑旧电话 once；用户持续允许 10010，但新的电话测试要用独立标记且确保挂断。约 75% 长任务继续。
 
 
-当前整体约 **53%**，见 PROGRESS-SCALE.md。用户要求每次最终回复报告整体完成百分比；
+当前整体约 **54%**，见 PROGRESS-SCALE.md。用户要求每次最终回复报告整体完成百分比；
 继续按固定里程碑估算，并注明实机验收边界，不把代码完成当作整机固件完成。
 
-最新开发：见 rtc-and-application-update.md。新增 LAN DTLS/SRTP/Opus 与签名应用选择器，尚未全部实机验收，整体约 53%。
+最新开发：见 rtc-and-application-update.md。新增 LAN DTLS/SRTP/Opus 与签名应用选择器，尚未全部实机验收，整体约 54%。
 主线最新 Git 9b34276；当前还有媒体私有文件非阻塞、ELF/pin 和证书失败测试修改待提交。125 workspace / CI 8f087a2 通过；native aff5dcd 的 9 项测试通过，release 仍在构建。
 两个自有 NAS 构建器当前运行；先查 liveness。首个新 root 构建因 Windows CRLF 源包与 Git blob 不一致，只保留测试，不可部署归属到 HEAD。现 tools/package-source.py 精确打包 Git blob；最新修改提交后，重建两个产物并验证 hash。
 下一步：完成原生加密回环、NAS/棒子真实 LAN、获准 10010 的静音上行/远端解码统计；随后签名应用 stage/confirm/失败回退实机、Wi-Fi 事务和兼容迁移。不要在保存本检查点后停止长期目标。
