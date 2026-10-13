@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 //! Fixed UFI003 profile. Only the media worker may own these handles.
 pub mod codec;
+pub mod rtc;
 use alsa::{
     ctl::{ElemId, ElemIface, ElemType, ElemValue},
     pcm::{Access, Format, HwParams, PCM},

@@ -142,7 +142,9 @@ impl Drop for Codec {
     }
 }
 
-fn fixture() -> Result<(rustsimhub_media::Authority, Permit), CodecError> {
+pub(crate) fn fixture_for_peer(
+    peer_key: [u8; 32],
+) -> Result<(rustsimhub_media::Authority, Permit), CodecError> {
     let mut authority = rustsimhub_media::Authority::new();
     let context = rustsimhub_media::Context {
         backend: "synthetic-codec-only".into(),
@@ -153,7 +155,7 @@ fn fixture() -> Result<(rustsimhub_media::Authority, Permit), CodecError> {
         lease_generation: 1,
         principal: "p".repeat(36),
         principal_generation: 1,
-        peer_key: [7; 32],
+        peer_key,
         lease_until_ms: 30_000,
         active: true,
         media_scope: true,
@@ -166,6 +168,9 @@ fn fixture() -> Result<(rustsimhub_media::Authority, Permit), CodecError> {
         .consume(ticket, &context, &context.peer_key, 0)
         .map_err(CodecError::Authorization)?;
     Ok((authority, permit))
+}
+fn fixture() -> Result<(rustsimhub_media::Authority, Permit), CodecError> {
+    fixture_for_peer([7; 32])
 }
 /// Bounded synthetic diagnostic: never opens ALSA, never encodes a real conversation.
 pub fn self_check() -> Result<serde_json::Value, CodecError> {
