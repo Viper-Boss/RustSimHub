@@ -229,29 +229,35 @@ impl Session {
         &mut self,
         permit: Permit,
         grant_peer: [u8; 32],
-        now: u64,
+        _now: u64,
     ) -> Result<(), Error> {
         if self.verified_peer() != Some(grant_peer) || self.codec.is_some() {
             return Err(Error::Identity);
         }
-        let codec = Codec::new(permit.clone(), now).map_err(|_| Error::Authorization)?;
+        let codec = Codec::new(permit.clone(), rustsimhub_media::local::now_ms())
+            .map_err(|_| Error::Authorization)?;
         self.permit = Some(permit);
         self.codec = Some(codec);
         Ok(())
     }
-    fn gate(&mut self, now: u64) -> Result<(), Error> {
+    fn gate(&mut self, _now: u64) -> Result<(), Error> {
         if self.closed {
             return Err(Error::Closed);
         }
-        if self.permit.as_ref().is_some_and(|p| p.check(now).is_err()) {
+        if self
+            .permit
+            .as_ref()
+            .is_some_and(|p| p.check(rustsimhub_media::local::now_ms()).is_err())
+        {
             self.close();
             return Err(Error::Authorization);
         }
         Ok(())
     }
-    fn drain(&mut self, socket: &UdpSocket, instant: Instant, now: u64) -> Result<(), Error> {
+    fn drain(&mut self, socket: &UdpSocket, _instant: Instant, _now: u64) -> Result<(), Error> {
         // Every mutation is followed by a full drain to Timeout. Hard cap prevents hostile spin.
         for _ in 0..128 {
+            let now = rustsimhub_media::local::now_ms();
             match self.rtc.poll_output().map_err(|_| Error::Transport)? {
                 Output::Timeout(t) => {
                     self.timeout = t;
@@ -313,7 +319,7 @@ impl Session {
                         {
                             return Err(Error::Codec);
                         }
-                        let age = instant
+                        let age = Instant::now()
                             .checked_duration_since(m.network_time)
                             .ok_or(Error::Bounds)?
                             .as_millis();
@@ -321,7 +327,7 @@ impl Session {
                             self.dropped_frames += 1;
                             continue;
                         }
-                        let seq = u64::from(*m.seq_range.end());
+                        let seq = **m.seq_range.end();
                         let frame = self
                             .codec
                             .as_mut()
@@ -404,6 +410,11 @@ impl Session {
             .ok_or(Error::Authorization)?
             .encode(frame, now)
             .map_err(|_| Error::Codec)?;
+        let actual_now = rustsimhub_media::local::now_ms();
+        self.gate(actual_now)?;
+        if frame.at_ms > actual_now || actual_now - frame.at_ms >= MAX_AGE_MS {
+            return Err(Error::Bounds);
+        }
         let mid = self.mid.ok_or(Error::Sdp)?;
         let writer = self.rtc.writer(mid).ok_or(Error::Sdp)?;
         let pt = writer
@@ -427,7 +438,8 @@ impl Session {
         self.sent_frames += 1;
         self.drain(socket, instant, now)
     }
-    pub fn receive(&mut self, now: u64) -> Result<Option<Frame>, Error> {
+    pub fn receive(&mut self, _now: u64) -> Result<Option<Frame>, Error> {
+        let now = rustsimhub_media::local::now_ms();
         self.gate(now)?;
         while let Some(frame) = self.incoming.pop_front() {
             if frame.at_ms <= now && now - frame.at_ms < MAX_AGE_MS {
@@ -489,10 +501,20 @@ pub fn self_check() -> Result<serde_json::Value, Error> {
         receiver.service(&b, 0)?;
         std::thread::sleep(Duration::from_millis(1));
     }
-    let (mut authority_a, permit_a) =
-        crate::codec::fixture_for_peer(sender.expected_peer).map_err(|_| Error::Authorization)?;
-    let (mut authority_b, permit_b) =
-        crate::codec::fixture_for_peer(receiver.expected_peer).map_err(|_| Error::Authorization)?;
+    let boot = "s".repeat(64);
+    let mut authority_a =
+        rustsimhub_media::RemoteAuthority::new(boot.clone()).map_err(|_| Error::Authorization)?;
+    let mut authority_b =
+        rustsimhub_media::RemoteAuthority::new(boot.clone()).map_err(|_| Error::Authorization)?;
+    let now = rustsimhub_media::local::now_ms();
+    authority_a
+        .update(&boot, now + 1000, now)
+        .map_err(|_| Error::Authorization)?;
+    authority_b
+        .update(&boot, now + 1000, now)
+        .map_err(|_| Error::Authorization)?;
+    let permit_a = authority_a.permit();
+    let permit_b = authority_b.permit();
     // A substituted ticket identity cannot unlock codec/PCM.
     if sender.authorize(permit_a.clone(), [0; 32], 0) != Err(Error::Identity) {
         return Err(Error::Identity);
@@ -502,13 +524,20 @@ pub fn self_check() -> Result<serde_json::Value, Error> {
     let mut peak_a = 0u32;
     let mut peak_b = 0u32;
     for sequence in 0..50 {
+        let now = rustsimhub_media::local::now_ms();
+        authority_a
+            .update(&boot, now + 1000, now)
+            .map_err(|_| Error::Authorization)?;
+        authority_b
+            .update(&boot, now + 1000, now)
+            .map_err(|_| Error::Authorization)?;
         let frame = Frame {
             samples: std::array::from_fn(|i| if i % 16 < 8 { 1024 } else { -1024 }),
             sequence,
-            at_ms: 0,
+            at_ms: now,
         };
-        sender.send(&a, &frame, 0)?;
-        receiver.send(&b, &frame, 0)?;
+        sender.send(&a, &frame, now)?;
+        receiver.send(&b, &frame, now)?;
         for _ in 0..10 {
             sender.service(&a, 0)?;
             receiver.service(&b, 0)?;
