@@ -283,9 +283,9 @@ dependencies = [
 
 [[package]]
 name = "deranged"
-version = "0.5.8"
+version = "0.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cd812cc2bc1d69d4764bd80df88b4317eaef9e773c75226407d9bc0876b211c"
+checksum = "9e9de72ce2ad1f90dc62fa25f0f430ef85eb4b0d8fa0be4f30373bc40a21d28e"
 
 [[package]]
 name = "digest"
@@ -1132,6 +1132,21 @@ dependencies = [
  "sha2",
  "tempfile",
  "uuid",
+]
+
+[[package]]
+name = "rustsimhub-update"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "fs2",
+ "getrandom 0.4.3",
+ "rustix",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "zeroize",
 ]
 
 [[package]]

@@ -148,6 +148,41 @@ pub struct Session {
     pub dropped_frames: u64,
 }
 impl Session {
+    pub fn offer(
+        socket: &UdpSocket,
+        peer_ip: IpAddr,
+    ) -> Result<(Self, String, str0m::change::SdpPendingOffer), Error> {
+        if !local_ip(peer_ip) {
+            return Err(Error::Transport);
+        }
+        let mut rtc = rtc(socket)?;
+        let mut changes = rtc.sdp_api();
+        let mid = changes.add_media(MediaKind::Audio, Direction::SendRecv, None, None, None);
+        let (offer, pending) = changes.apply().ok_or(Error::Sdp)?;
+        let mut session = Self::from_rtc(rtc, socket, peer_ip, [0; 32])?;
+        session.mid = Some(mid);
+        session.drain(socket, Instant::now(), rustsimhub_media::local::now_ms())?;
+        Ok((session, offer.to_sdp_string(), pending))
+    }
+    pub fn accept_answer(
+        &mut self,
+        socket: &UdpSocket,
+        pending: str0m::change::SdpPendingOffer,
+        sdp: &str,
+    ) -> Result<(), Error> {
+        if self.connected || self.closed {
+            return Err(Error::Closed);
+        }
+        self.expected_peer = validate_sdp(sdp, self.peer_ip)?;
+        self.rtc
+            .sdp_api()
+            .accept_answer(
+                pending,
+                str0m::change::SdpAnswer::from_sdp_string(sdp).map_err(|_| Error::Sdp)?,
+            )
+            .map_err(|_| Error::Sdp)?;
+        self.drain(socket, Instant::now(), rustsimhub_media::local::now_ms())
+    }
     pub fn answer(socket: &UdpSocket, peer_ip: IpAddr, sdp: &str) -> Result<(Self, String), Error> {
         let expected_peer = validate_sdp(sdp, peer_ip)?;
         let offer = SdpOffer::from_sdp_string(sdp).map_err(|_| Error::Sdp)?;
