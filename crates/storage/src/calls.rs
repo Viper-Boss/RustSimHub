@@ -205,7 +205,8 @@ impl Handle {
         guard: impl FnOnce() -> bool + Send + 'static,
     ) -> Result<()> {
         self.call(move|db|{
-  let tx=db.connection.transaction()?;controller(&tx,&p)?;let op=operation(&tx,&id,&p)?;if op.state!=SmsState::Prepared||op.line!=b.line{return Err(Error::InvalidTransition);}if !guard(){return Err(Error::StaleLine);}super::outgoing::ready(&tx,&b)?;
+  let tx=db.connection.transaction()?;controller(&tx,&p)?;let op=operation(&tx,&id,&p)?;if op.state!=SmsState::Prepared||op.line!=b.line{return Err(Error::InvalidTransition);}
+if !guard(){return Err(Error::StaleLine);}super::outgoing::ready(&tx,&b)?;
   let changed=tx.execute("UPDATE call_operations SET state='submitting',phase='creating' WHERE id=? AND backend=? AND principal_generation=?",params![id,b.backend,i64::try_from(p.generation).map_err(|_|Error::InvalidInput)?])?;if changed!=1{return Err(Error::Forbidden);}tx.commit()?;Ok(())
  })
     }
@@ -219,7 +220,8 @@ impl Handle {
         guard: impl FnOnce() -> bool + Send + 'static,
     ) -> Result<()> {
         self.call(move|db|{
-  let tx=db.connection.transaction()?;controller(&tx,&p)?;let op=operation(&tx,&id,&p)?;if op.state!=SmsState::Submitting||op.line!=b.line{return Err(Error::InvalidTransition);}if !guard(){return Err(Error::StaleLine);}super::outgoing::ready(&tx,&b)?;
+  let tx=db.connection.transaction()?;controller(&tx,&p)?;let op=operation(&tx,&id,&p)?;if op.state!=SmsState::Submitting||op.line!=b.line{return Err(Error::InvalidTransition);}
+if !guard(){return Err(Error::StaleLine);}super::outgoing::ready(&tx,&b)?;
   let (path,revision)=path_revision;if !path.starts_with("/org/freedesktop/ModemManager1/Call/")||path.len()>224 {return Err(Error::InvalidInput);}
   let target=call_summary(&tx,&call_id)?;if target.line!=b.line||target.availability!="observed"{return Err(Error::StaleLine);}
   let call_backend:String=tx.query_row("SELECT backend FROM calls WHERE id=?",[&call_id],|r|r.get(0))?;if call_backend!=b.backend{return Err(Error::StaleLine);}
