@@ -1,4 +1,6 @@
-最新实证：10010 真实电话下行经 Opus + DTLS/SRTP 到 NAS 解码成功，150 帧；静音上行、自动挂断、PCM 全关闭、旧四服务 active。见 VALIDATION-RTC-CARRIER-P3E.md。整体约 51%，75% 长任务继续，流量最后测。
+最新实证：签名应用槽位在棒子验证通过，生产 core 的实际候选进程 SIGKILL 后选择器回到 factory，身份和短信内容一致，低版本/换钥/签名及 payload 篡改拒绝。见 VALIDATION-APP-UPDATE-P6A.md。整体约 53%，继续推进 75%；普通蜂窝流量最后验收。
+
+最新实证：10010 真实电话下行经 Opus + DTLS/SRTP 到 NAS 解码成功，150 帧；静音上行、自动挂断、PCM 全关闭、旧四服务 active。见 VALIDATION-RTC-CARRIER-P3E.md。整体约 53%，75% 长任务继续，流量最后测。
 
 # 开发进度
 
@@ -11,7 +13,7 @@ native aff5dcd 已部署 /opt/rustsimhub/dev-rtc-p3/，self-check 双向 50 帧�
 不要重跑旧电话 once；用户持续允许 10010，但新的电话测试要用独立标记且确保挂断。约 75% 长任务继续。
 
 
-更新时间：2026-10-14 / 实际浏览器与 Wi-Fi 只读业务；整体约 **51%**（按 PROGRESS-SCALE.md 固定里程碑估算）。
+更新时间：2026-10-14 / 实际浏览器与 Wi-Fi 只读业务；整体约 **53%**（按 PROGRESS-SCALE.md 固定里程碑估算）。
 
 实际浏览器经回环 QA 代理严格验证设备 Wi-Fi HTTPS，配对/批准/签名登录、短信正文与摘要、事件分页、只读发送准备拒绝通过。
 复用隔离身份/授权重启后旧 token 拒绝，新登录通过；退出清空显示。
