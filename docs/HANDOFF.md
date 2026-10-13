@@ -1,9 +1,15 @@
 # RustSimHub 接手入口
 
-当前整体约 **48%**，见 PROGRESS-SCALE.md。用户要求每次最终回复报告整体完成百分比；
+新增 VALIDATION-RTC-P3D.md：棒子真实 UDP/ICE/DTLS/SRTP 合成回环、NAS 与棒子五秒双向编码静音通过。没有打开 PCM、拨号或新增短信。
+native aff5dcd 已部署 /opt/rustsimhub/dev-rtc-p3/，self-check 双向 50 帧；LAN 各发 250、收 250/249，解码静音只有 1 LSB 量化残差。
+最新源码补充证书替换失败、信令输出原子发布和一秒媒体断流关闭，尚须下一次原生构建验证。root 2c69ff9 的 125 项、默认 production core 构建通过，prod/development 分开；P6 实机签名应用验收仍未加点。
+不要重跑旧电话 once；用户持续允许 10010，但新的电话测试要用独立标记且确保挂断。约 60% 长任务继续。
+
+
+当前整体约 **50%**，见 PROGRESS-SCALE.md。用户要求每次最终回复报告整体完成百分比；
 继续按固定里程碑估算，并注明实机验收边界，不把代码完成当作整机固件完成。
 
-最新开发：见 rtc-and-application-update.md。新增 LAN DTLS/SRTP/Opus 与签名应用选择器，尚未全部实机验收，整体仍约 48%。
+最新开发：见 rtc-and-application-update.md。新增 LAN DTLS/SRTP/Opus 与签名应用选择器，尚未全部实机验收，整体约 50%。
 主线最新 Git 9b34276；当前还有媒体私有文件非阻塞、ELF/pin 和证书失败测试修改待提交。125 workspace / CI 8f087a2 通过；native aff5dcd 的 9 项测试通过，release 仍在构建。
 两个自有 NAS 构建器当前运行；先查 liveness。首个新 root 构建因 Windows CRLF 源包与 Git blob 不一致，只保留测试，不可部署归属到 HEAD。现 tools/package-source.py 精确打包 Git blob；最新修改提交后，重建两个产物并验证 hash。
 下一步：完成原生加密回环、NAS/棒子真实 LAN、获准 10010 的静音上行/远端解码统计；随后签名应用 stage/confirm/失败回退实机、Wi-Fi 事务和兼容迁移。不要在保存本检查点后停止长期目标。

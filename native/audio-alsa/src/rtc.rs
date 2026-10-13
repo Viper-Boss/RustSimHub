@@ -140,6 +140,8 @@ pub struct Session {
     mid: Option<Mid>,
     codec: Option<Codec>,
     permit: Option<Permit>,
+    authorized_at: Option<Instant>,
+    last_media_receive: Option<Instant>,
     incoming: VecDeque<Frame>,
     timeout: Instant,
     created: Instant,
@@ -212,6 +214,8 @@ impl Session {
             mid: None,
             codec: None,
             permit: None,
+            authorized_at: None,
+            last_media_receive: None,
             incoming: VecDeque::with_capacity(QUEUE_FRAMES),
             timeout: Instant::now(),
             created: Instant::now(),
@@ -238,6 +242,7 @@ impl Session {
             .map_err(|_| Error::Authorization)?;
         self.permit = Some(permit);
         self.codec = Some(codec);
+        self.authorized_at = Some(Instant::now());
         Ok(())
     }
     fn gate(&mut self, _now: u64) -> Result<(), Error> {
@@ -343,6 +348,7 @@ impl Session {
                             self.dropped_frames += 1;
                         }
                         self.incoming.push_back(frame);
+                        self.last_media_receive = Some(Instant::now());
                         self.received_frames += 1;
                     }
                     Event::IceConnectionStateChange(IceConnectionState::Disconnected)
@@ -362,6 +368,15 @@ impl Session {
     }
     pub fn service(&mut self, socket: &UdpSocket, now: u64) -> Result<(), Error> {
         self.gate(now)?;
+        if self.codec.is_some()
+            && self
+                .last_media_receive
+                .or(self.authorized_at)
+                .is_some_and(|at| at.elapsed() >= Duration::from_secs(1))
+        {
+            self.close();
+            return Err(Error::Closed);
+        }
         if !self.connected && self.created.elapsed() > Duration::from_secs(15) {
             self.close();
             return Err(Error::Closed);
@@ -461,6 +476,8 @@ impl Session {
             codec.close();
         }
         self.permit = None;
+        self.authorized_at = None;
+        self.last_media_receive = None;
         self.rtc.disconnect();
     }
 }
@@ -568,9 +585,29 @@ pub fn self_check() -> Result<serde_json::Value, Error> {
     }
     let received_a = sender.received_frames;
     let received_b = receiver.received_frames;
+    // Keep the authorization mirrors live while the authenticated peer stops speech packets.
+    let timeout_end = Instant::now() + Duration::from_secs(2);
+    let media_timeout_closed = loop {
+        let now = rustsimhub_media::local::now_ms();
+        authority_a
+            .update(&boot, now + 1000, now)
+            .map_err(|_| Error::Authorization)?;
+        authority_b
+            .update(&boot, now + 1000, now)
+            .map_err(|_| Error::Authorization)?;
+        match sender.service(&a, now) {
+            Err(Error::Closed) => break true,
+            Err(error) => return Err(error),
+            Ok(()) => {}
+        }
+        if Instant::now() >= timeout_end {
+            break false;
+        }
+        std::thread::sleep(Duration::from_millis(2));
+    };
     authority_a.revoke();
     authority_b.revoke();
-    if sender.service(&a, 0) != Err(Error::Authorization)
+    if !media_timeout_closed
         || receiver.service(&b, 0) != Err(Error::Authorization)
         || sender.verified_peer().is_some()
         || receiver.verified_peer().is_some()
@@ -581,7 +618,7 @@ pub fn self_check() -> Result<serde_json::Value, Error> {
         return Err(Error::Codec);
     }
     Ok(
-        serde_json::json!({"synthetic_only":true,"pcm_opened":false,"udp_loopback":true,"dtls_fingerprint_verified":true,"srtp":true,"sent_each":50,"received_a":received_a,"received_b":received_b,"decoded_peak_a":peak_a,"decoded_peak_b":peak_b,"wrong_grant_denied":true,"revocation_closed":true,"elapsed_ms":started.elapsed().as_millis()}),
+        serde_json::json!({"synthetic_only":true,"pcm_opened":false,"udp_loopback":true,"dtls_fingerprint_verified":true,"srtp":true,"sent_each":50,"received_a":received_a,"received_b":received_b,"decoded_peak_a":peak_a,"decoded_peak_b":peak_b,"wrong_grant_denied":true,"revocation_closed":true,"media_timeout_closed":media_timeout_closed,"elapsed_ms":started.elapsed().as_millis()}),
     )
 }
 #[cfg(test)]

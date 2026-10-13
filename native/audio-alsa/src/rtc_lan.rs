@@ -64,16 +64,32 @@ fn read(path: &Path, limit: usize) -> Result<Vec<u8>, &'static str> {
 }
 fn write(path: &Path, bytes: &[u8]) -> Result<(), &'static str> {
     directory(path.parent().ok_or("private path denied")?)?;
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or("private output name")?;
+    let temporary = path.with_file_name(format!("{name}.next"));
     let mut f = std::fs::OpenOptions::new()
         .create_new(true)
         .write(true)
         .mode(0o600)
         .custom_flags(libc::O_NOFOLLOW)
-        .open(path)
+        .open(&temporary)
         .map_err(|_| "private output already exists or unavailable")?;
     f.write_all(bytes)
         .and_then(|_| f.sync_all())
-        .map_err(|_| "private write failed")
+        .map_err(|_| "private write failed")?;
+    rustix::fs::renameat_with(
+        rustix::fs::CWD,
+        &temporary,
+        rustix::fs::CWD,
+        path,
+        rustix::fs::RenameFlags::NOREPLACE,
+    )
+    .map_err(|_| "private output already exists or unavailable")?;
+    std::fs::File::open(path.parent().ok_or("private output parent")?)
+        .and_then(|d| d.sync_all())
+        .map_err(|_| "private output sync failed")
 }
 fn wait(path: &Path, limit: usize, end: Instant) -> Result<Vec<u8>, &'static str> {
     loop {
