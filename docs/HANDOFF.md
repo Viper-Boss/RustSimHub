@@ -30,7 +30,7 @@
    LocalSetup 门禁（local-first-owner.md）：仅 --serve-local-setup、空 principals、Core 私有随机码、5 分钟/16 次、签名条件启用。8711fba 生产 HTTPS API 已通过，.private/local-owner-api-8711fba-second.json passed=true；错误码/角色/签名/重放/替换 owner 拒绝，正确初始化后签名登录通过，无原始数据/硬件访问。实际浏览器仍未通过，不加点。ee94e85 的 await CI 失败已由 8711fba runtime.block_on 修复。
    prepare-browser-owner.py 使用新空库、PrivateDevices 和 /run/dbus 禁止访问，不读取原始短信/电话或其他业务数据。浏览器 UI 验收先限定这个无敏感数据、无硬件权限的测试域。app.js 新增单项状态不可用时仍显示其他状态的修复，尚未进入 8711fba 产物；不能混淆本地 source UI 与已安装 release。
    浏览器本地 QA 页在载入前 net::ERR_BLOCKED_BY_CLIENT，未绕过或更换入口；GUI、IndexedDB/reload 仍未验证。自有代理和离线测试单元已停止，旧四服务 active、PCM closed，.private/local-owner-api-cleanup.log 保留。不要重试旧的过期 setup realm。
-   crates/compat 新增协议原语和当前 NAS principal 的只读 scope 映射；不是已启用网关。5 组签名/标识与 12 组版本向量由精确旧提交的 Go 模块在 NAS network=none 容器生成。需确认新源码 CI/ARM64，后续做独立只读适配器/时间重放/撤销与迁移；P5 暂仍 0。见 nas-compat-contract.md。
+   crates/compat 新增协议原语和当前 NAS principal 的只读 scope 映射；不是已启用网关。5 组签名/标识与 12 组版本向量由精确旧提交的 Go 模块在 NAS network=none 容器生成。f536c63 NAS ARM64 五项测试全通过，CI 全工作区测试/生产 feature 通过，首次 Clippy 两处建议已修复，需核对修复提交 CI。NAS 无 Clippy，测试报告 .private/compat-rust-run-1.log；.local/source-f536c63.tar.gz 仅该 lib 测试来源，现有 .local/source.tar.gz 已还原为 8711fba。后续做独立只读适配器/时间重放/撤销与迁移；P5 暂仍 0。见 nas-compat-contract.md。
 2. 继续正式首启网页/TLS 交付、开机启动、NAS 兼容、网页写/媒体、新配网和长期验收。手机原生 app 延后。
 3. 目标约 80%，不要在 60/75 的小检查点停止；流量实测跳过到换卡后专门安排，完整镜像与恢复入口门禁保持。
 

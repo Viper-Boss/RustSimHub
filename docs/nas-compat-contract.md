@@ -18,7 +18,10 @@ active=true、所需 scope 已由 owner 批准；调用者仍须经 Core 检查�
 `tools/compat-golden/main.go` 使用纯合成种子和内容；NAS 上现有 Go 1.26.5 镜像在
 network=none、只读 rootfs、UID 1000、限定 CPU/内存的容器内执行，无外部依赖下载。
 包含 5 组正文（空、JSON、中文、二进制）签名/标识向量与 12 组版本判断。
-Rust 的反向检查放在 legacy_golden.rs；CI/ARM64 通过后记录结果，当前不计 P5 实机兼容点数。
+Rust 的反向检查放在 legacy_golden.rs。f536c63 精确源码在 NAS ARM64 无网络容器的
+5 项测试全部通过，CI 全工作区测试及生产 feature 检查通过。首次 CI 的两项格式化
+Clippy 建议（match guard 与 as_chunks）已修复，待新提交 CI 复核；NAS Rust 镜像没有
+Clippy，不为此安装工具，静态检查由固定工具链 CI 完成。当前不计 P5 实机兼容点数。
 
 接下来是独立只读适配器、时间/重放账本、owner 批准与撤销贯穿验证，随后才是旧 NAS
 实际连接与去重导入。版本不兼容必须返回具体原因，不能伪装成设备离线。

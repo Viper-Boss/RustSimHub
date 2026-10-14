@@ -143,10 +143,11 @@ pub fn negotiate(node: &Compatibility, core: &Requirements<'_>) -> Result<()> {
         return Err(Error::NodeProtocolTooOld);
     }
     match parse_version(&node.agent_version) {
-        Ok(version) if !development(&node.agent_version) => {
-            if version < parse_version(core.minimum_agent)? {
-                return Err(Error::AgentTooOld);
-            }
+        Ok(version)
+            if !development(&node.agent_version)
+                && version < parse_version(core.minimum_agent)? =>
+        {
+            return Err(Error::AgentTooOld);
         }
         _ => {}
     }
