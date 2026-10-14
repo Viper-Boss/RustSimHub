@@ -2,7 +2,7 @@
 
 开发修复待实机验收，不增加进度。生产首启测试发现正常核心重启后，9 条原有短信再次作为 9 条候选副本写入。
 
-原观察 backend 含核心鉴权 instance 和本次连接 generation，因此正常重启会改变持久 line_epoch；来源 incarnation 又在新进程重新分配。现在持久线路身份使用系统 D-Bus broker UUID、MM unique owner、SIM/Modem 路径及现有 fence；SIM 私有指纹继续由设备密钥派生。核心鉴权 instance、lease boot、live watcher guard/fence 不变，不能使用持久身份替代它们。
+原观察 backend 含核心鉴权 instance 和本次连接 generation，因此正常重启会改变持久 line_epoch；来源 incarnation 又在新进程重新分配。现在持久线路身份使用系统 D-Bus broker UUID、MM unique owner、SIM/Modem 路径；SIM 私有指纹继续由设备密钥派生。持久 backend 不包含本次进程/连接/信号计数；实际 fence 事件仍先使线路失效。核心鉴权 instance、lease boot、live watcher guard/fence 不变，不能使用持久身份替代它们。
 
 同一已验证线路 ready 后，从自己的 SQLite 恢复当前实际对象列表中已保存的 source/content_hash 和编号上界，再读短信。复用来源保持原消息 ID，不写重复事件；已看到 Added/Deleted/InterfacesRemoved 或来源重置则不恢复旧对象身份，编号仍从既有上界继续。真实新来源即使内容相同也保留，不自动按文本去重。
 

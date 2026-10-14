@@ -284,7 +284,7 @@ async fn reconcile(
         return Err("backend changed".into());
     }
     *cached_modem = Some(before.modem.clone());
-    let backend = format!("{backend_prefix}:{fence}:{}:{}", before.modem, before.sim);
+    let backend = format!("{backend_prefix}:{}:{}", before.modem, before.sim);
     let key = before
         .iccid
         .as_deref()
