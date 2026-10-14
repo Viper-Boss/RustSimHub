@@ -1,8 +1,10 @@
 # RustSimHub 当前接手入口
 
-2026-10-14。用户最新要求“帮我把进度推到80%”，取代此前75%/60%目标；当前实证约64%（64点），按PROGRESS-SCALE.md固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。
+2026-10-14。用户最新要求“帮我把进度推到80%”，取代此前75%/60%目标；当前实证约66%（65.5点），按PROGRESS-SCALE.md固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。
 
-最新：真实旧NAS通信库的只读一致快照、重复归档和独立逐字段比较通过，仅历史归档复制到棒子并以隔离非Root程序检查通过。见VALIDATION-HISTORY-P5C.md；原认证库仅在NAS私有快照，禁止导入新principals/业务操作或接入原始认证库。详细路径/hash/数量与复现脚本在.private/nas-real-history-*.log、.private/real-history-a5e4eb7/device-inspect.json及.local/，不提交真实数据。真实在线查询、NAS协议/PCM兼容尚未通过。
+最新：NAS Go只读桥经实际Rust Core/Edge通过，持久重放、映射/主principal撤销、generation/重启，以及真实收件箱列表/逐条详情与v2一致通过；only observing模式拒绝owner写请求，撤销NAS不影响本地owner。见VALIDATION-NAS-BRIDGE-P5D.md。原NAS页面/PCM与完整兼容尚未通过。旧库离线迁移见VALIDATION-HISTORY-P5C.md；原认证库仅NAS私有快照，禁止导入新principals/业务操作或接入原始认证库；不提交真实数据。
+
+当前生产源码530e6f5dcd3f1510fc4057c4b7dce141669240e8，精确源包SHA256 0c14aad8c5ff9fc9790982c09baba38b761c6f2d72715903b6d231214e2c6ccc，产物.local/wsl-artifacts-530e6f5dcd3f1510fc4057c4b7dce141669240e8。本机WSL163项测试、六程序ARM64生产release、CI38565794201成功；增量release34.24秒。前版d20b9af联合报告.private/nas-compat-d20b9af-first.json，最新.private/nas-compat-530e6f5-live-first.json均passed/cleanup_verified=true。没有新增拨号/短信或蜂窝数据；旧四服务active、PCMclosed，自有测试单元停止。源码.main.go和main_test.go由NAS Go1.26.5离线容器测试/构建，适配器位置/mode/hash见私有报告及tools/nas-adapter/README.md。
 
 ## 持续约束
 
@@ -28,7 +30,7 @@
 
 ## 下一步顺序
 
-1. 当前共 62.5 点，约 63%；P5 黄金向量与合成离线历史归档计 2 点，P7 有限状态性能基线加半点。80% 目标保持，不在检查点停止。
+1. 当前共65.5点，约66%；P5累计5点。以下8f4d15b和bc33a17为早期检查点，不能替代最新530e6f5产物；80%目标保持，不在检查点停止。
    8f4d15b CI 38519741620 success；bc33a17 CI 38522521958 success。源头与产物分别核验，不能把文档提交当作新编译结果。
 2. 持久 rustsimhub-history-build-p5 已 exited 0，label revision=8f4d15b70ee7ac380d0404cdc770e05a3e298fd8。NAS /mnt/docker-data/rustsimhub/p0/history-build-Cqi2Xu3q，完整日志 build.log/.private/history-async-complete-8f4d15b.log；十项测试及 release 完成。
    source SHA 0df653f7810727d1d56ab6da3257bc2a0a09ddcf41a6999a058393750cf6eaff，.local/source-history-p5-private.tar.gz 匹配 8f4d15b；.local/source.tar.gz 仍 8711fba。migrate SHA 9c88aea0f46b0f24a780edd239a4089504458d1957fbe81b36d8fb804513e14d，.local/artifacts/8f4d15b/rustsimhub-migrate，棒子 /opt/rustsimhub/dev-history-p5-8f4d15b/rustsimhub-migrate。
