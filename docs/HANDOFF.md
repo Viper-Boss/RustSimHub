@@ -1,6 +1,6 @@
 # RustSimHub 当前接手入口
 
-2026-10-14。用户最新目标约 75%，取代旧目标约 60%；当前实证约 57%，按 PROGRESS-SCALE.md 固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。
+2026-10-14。用户最新目标约 75%，取代旧目标约 60%；当前实证约 60%，按 PROGRESS-SCALE.md 固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。
 
 ## 持续约束
 
@@ -18,17 +18,17 @@
 
 ## 当前代码与未完工作
 
-- GitHub 私有 https://github.com/Viper-Boss/RustSimHub，main。最新离线 recovery 实现 de4ef7d 的 CI 通过；ARM64 构建正在用精确该提交源包，不得拿正在写入的 target/release 部分产物部署。先查自有构建容器实际状态。
-- crates/recovery 独立 age 0.11.5 离线 X25519 身份加密/空目录恢复；没有把加密恢复依赖引入常驻 core。篡改/错钥匙/错 pin/覆盖/链接测试 CI 通过，目标板未验收。见 encrypted-identity-recovery.md。
-- 生产 core 首次签名初始化、SIM ready/9 条短信、重新签名登录/旧 token 拒绝通过；发现重启后 9→18 候选消息，不能称重复已修复。证据 .private/firstboot-owner-production.json。
-- 重启观察修复 8cd88ee/75d0c79/9f8f406：持久 backend 使用真实 broker UUID+MM owner+SIM/Modem 路径，runtime instance/连接计数/fence 保持独立；从同一 ready line SQLite 恢复实际 source/content_hash/编号。退休/未知重置不恢复旧 source，跨 backend/SIM 仍失效。无 schema 升级。第一次 CI 因 FakeBus 未实现 GetId 超时，9f8f406 已补真实模拟 broker UUID，最新 CI 待查。见 observer-resume.md。
-- 新工具 tools/test-firstboot-owner.py / capture-full-device.py 已保存本地，检查 git status 后提交。不要修改旧工程或伪造测试通过。
+- GitHub 私有 https://github.com/Viper-Boss/RustSimHub，main。e927381 的 CI、ARM64 138 项测试和两组 release 通过；精确 source SHA 为 1db98d42495e57d74c97af9753d201f6f2b38ce3a31378276fe65ab7d33293e6。生产五程序已核验并部署到 /opt/rustsimhub/dev-state-p1-e927381，自有构建容器 exited 0。
+- crates/recovery 独立 age 0.11.5 离线 X25519 身份加密/空目录恢复已实机通过。NAS 持有接收者私钥；设备只拿 recipient。错 key/pin/篡改/覆盖拒绝、空目录无写入、身份 pin/原 owner 签名登录/完整收件箱响应一致通过。原目录保持；未验证整机恢复。见 VALIDATION-STATE-RECOVERY-P1C.md。
+- e927381 生产首次签名初始化及实际 9→9 重启去重通过，消息 ID 顺序一致，旧 token 拒绝，重新签名登录成功。.private/firstboot-owner-e927381.json 与 sealed-identity-e927381.json 均 cleanup_verified=true。旧 9→18 是已保留历史失败证据。
+- 重启观察修复和只读 key/lock 加载均在 e927381 实机通过。持久 backend 与实时 fence 分开；退休/未知重置/跨 backend/SIM 仍隔离。仅显式 create/open 允许发布 pending seed；load 不创建、以只读 fd 锁既有文件。没有 schema 升级。
+- tools/test-service-group.py / device-service-group.sh / device-group-health.sh 第三轮验收通过：非 Root Core/HTTPS、仅 status.read 本地签名健康客户、实际 UID/空能力集合/挂载隔离、候选 SIGKILL 回退与已确认重启。前两次失败和修正保留；所有自有单元清理，旧四服务 active、PCM closed。见 VALIDATION-SERVICE-GROUP-P6B.md。尚无开机安装或完整媒体组。
 
 ## 下一步顺序
 
-1. 核实 de4ef7d 自有 ARM64 构建完成并保存 source/binary hash；实际加密备份恢复及错误 pin/错 key/覆盖拒绝，并保留匹配身份授权的登录证明。
-2. 等最新 source-resume CI，通过后打包精确 Git blob、构建/部署新 production core；新独立库重新初始化，实际 9 条短信重启前后应保持 9 条且 ID 不变，验证真实退休/失联/SIM/撤销边界。
-3. 生产服务组/首次初始化、统一签名选择与健康确认、自启/重启持久化；备份/恢复门禁保持。继续 NAS 兼容、网页写/媒体、新配网与长期验收。蜂窝数据最后。
+1. 保存新的验收工具/文档及 GitHub 进度，核实源码 CI。已完成的 firstboot/recovery/group 私有报告不能当新的未知硬件操作重试。
+2. 继续正式首启网页/TLS 交付、开机启动、NAS 兼容、网页写/媒体、新配网和长期验收。手机原生 app 延后。
+3. 目标仍约 75%，不要在 60 的小检查点停止；普通蜂窝流量最后，完整镜像与恢复入口门禁保持。
 
 ## 工具与资料位置
 

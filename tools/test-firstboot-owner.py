@@ -3,10 +3,11 @@
 import argparse,hashlib,json,pathlib,re,shlex,sys,time,uuid
 ROOT=pathlib.Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'.local/python-deps'))
 import paramiko
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('--nas',type=pathlib.Path,required=True);p.add_argument('--device',type=pathlib.Path,required=True);p.add_argument('--ctl',type=pathlib.Path,required=True);p.add_argument('--report',type=pathlib.Path,required=True);args=p.parse_args()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--nas',type=pathlib.Path,required=True);p.add_argument('--device',type=pathlib.Path,required=True);p.add_argument('--ctl',type=pathlib.Path,required=True);p.add_argument('--report',type=pathlib.Path,required=True);p.add_argument('--artifacts',type=pathlib.Path,required=True);args=p.parse_args()
 ncfg=json.loads(args.nas.read_text(encoding='utf-8-sig'));dcfg=json.loads(args.device.read_text(encoding='utf-8-sig'))
-SOURCE='35ecbce247dd971c3e768e731cdbd3ec0b8cf1af8041c34583caa2fabb9307ee';CTL_SHA='3670332c431f257d5890cce03ecb1388ec407151aee7ab0501520cee53807529';core='/opt/rustsimhub/dev-wifi-p4/rustsimhub-core';unit='rustsimhub-firstboot-owner-p1';q=shlex.quote
-report={'production_core':True,'hardware_mutations':False,'new_calls':0,'new_sms':0,'source_archive_sha256':SOURCE};nas=dev=ns=ds=None;started=False
+artifacts=json.loads(args.artifacts.read_text(encoding='utf-8'));SOURCE=artifacts['source_archive_sha256'];CTL_SHA=artifacts['simhubctl_sha256'];CORE_SHA=artifacts['rustsimhub-core_sha256'];core=artifacts['device_directory']+'/rustsimhub-core';unit='rustsimhub-firstboot-owner-p1';q=shlex.quote
+assert re.fullmatch(r'/opt/rustsimhub/dev-state-p1-[a-f0-9]{7,12}',artifacts['device_directory']);assert all(re.fullmatch('[a-f0-9]{64}',x) for x in [SOURCE,CTL_SHA,CORE_SHA])
+report={'production_core':True,'hardware_mutations':False,'new_calls':0,'new_sms':0,'source_archive_sha256':SOURCE,'artifact_metadata':artifacts};nas=dev=ns=ds=None;started=False
 
 def save():args.report.parent.mkdir(parents=True,exist_ok=True);args.report.write_text(json.dumps(report,indent=2),encoding='utf-8')
 def connect(cfg,sock=None):
@@ -20,12 +21,12 @@ def command(c,text,sudo=False,input_bytes=b'',check=True):
 try:
  assert hashlib.sha256(args.ctl.read_bytes()).hexdigest()==CTL_SHA
  nas=connect(ncfg);ch=nas.get_transport().open_channel('direct-tcpip',(dcfg['host'],dcfg.get('port',22)),('127.0.0.1',0),timeout=12);dev=connect(dcfg,ch)
- command(dev,'if systemctl is-active --quiet '+unit+';then exit 10;fi;'+core+' --build-info | grep -q \'"development_fixtures":false\';'+core+' --build-info | grep -q '+q('"source_archive_sha256":"'+SOURCE+'"'))
+ command(dev,'if systemctl is-active --quiet '+unit+';then exit 10;fi;echo '+q(CORE_SHA+'  '+core)+' | sha256sum -c -;'+core+' --build-info | grep -q \'"development_fixtures":false\';'+core+' --build-info | grep -q '+q('"source_archive_sha256":"'+SOURCE+'"'))
  _,b=command(nas,'d=$(mktemp -d /mnt/docker-data/rustsimhub/p0/firstboot-client-private-XXXXXXXX);mkdir -m 0700 "$d/key";printf "KEY_DIR=%s\\n" "$d";cat /mnt/docker-data/rustsimhub/p0/audio-builder-image.txt')
  m=re.search(r'KEY_DIR=(/mnt/docker-data/rustsimhub/p0/firstboot-client-private-[A-Za-z0-9]{8})\n(sha256:[a-f0-9]{64})',b);assert m;client,image=m.groups();report['nas_owner_directory']=client;ns=nas.open_sftp();ds=dev.open_sftp()
  ns.put(str(args.ctl),client+'/simhubctl');ns.chmod(client+'/simhubctl',0o755)
  docker='docker run --rm -i --network none --read-only --cap-drop ALL --security-opt no-new-privileges --user 1000:1000 --memory 96m --pids-limit 16 --mount '+q('type=bind,src='+client+',dst=/client')+' '+q(image)+' /client/simhubctl '
- _,b=command(nas,docker+'keygen /client/key',sudo=True);owner=json.loads(b.splitlines()[-1]);public=owner['public_key'];public_hex=owner['public_key_hex']
+ _,b=command(nas,docker+'keygen /client/key',sudo=True);owner=json.loads(b.splitlines()[-1]);public=owner['public_key'];public_hex=owner['public_key_hex'];report['owner_public_key']=public
  _,b=command(dev,'d=$(mktemp -d /var/tmp/rustsimhub-firstboot-private-XXXXXXXX);chmod 0711 "$d";install -d -o rustsimhub-core -g rustsimhub-core -m 0700 "$d/state" "$d/identity";install -d -o rustsimhub-core -g rustsimhub-ipc -m 2750 "$d/runtime";printf "BASE=%s\\n" "$d"')
  m=re.search(r'BASE=(/var/tmp/rustsimhub-firstboot-private-[A-Za-z0-9]{8})',b);assert m;base=m.group(1);report['device_directory']=base;socket=base+'/runtime/core.sock';save()
  inp,out,err=dev.exec_command('runuser -u rustsimhub-core -- '+core+' --provision-owner '+q(base+'/state')+' '+q(base+'/identity')+' '+q(public_hex),timeout=20)
@@ -48,12 +49,19 @@ try:
   line=rpc({'op':'line_status','token':token})
   if line['status']=='ready':break
   time.sleep(1)
- assert line['status']=='ready';inbox=rpc({'op':'inbox','token':token,'after':None,'limit':32});report['live_inbox_messages']=len(inbox['messages']);before_ids=[x['id'] for x in inbox['messages']]
+ assert line['status']=='ready';time.sleep(3);inbox=rpc({'op':'inbox','token':token,'after':None,'limit':32});report['live_inbox_messages']=len(inbox['messages']);before_ids=[x['id'] for x in inbox['messages']]
+ assert 0<len(before_ids)<32
  command(dev,'systemctl stop '+unit);started=False;start();assert bytes(rpc({'op':'identity'})['public_key']).hex()==pin
  assert rpc({'op':'health','token':token}).get('ok') is False;report['old_token_denied_after_restart']=True
- token2=login();inbox2=rpc({'op':'inbox','token':token2,'after':None,'limit':32});after_ids=[x['id'] for x in inbox2['messages']];assert all(i in after_ids for i in before_ids);report['identity_owner_and_messages_preserved']=True
+ token2=login()
+ for _ in range(15):
+  line2=rpc({'op':'line_status','token':token2})
+  if line2['status']=='ready':break
+  time.sleep(1)
+ assert line2['status']=='ready';time.sleep(3)
+ inbox2=rpc({'op':'inbox','token':token2,'after':None,'limit':32});after_ids=[x['id'] for x in inbox2['messages']];assert after_ids==before_ids;report['identity_owner_and_messages_preserved']=True
  report['restart_duplicate_candidates_detected']=len(after_ids)>len(before_ids)
- report['inbox_count_immediately_after_restart']=len(after_ids);report['ready']=True;save();print('Private production first owner, signed login, SIM read and restart persistence passed; no hardware actions')
+ report['inbox_count_immediately_after_restart']=len(after_ids);report['inbox_sha256']=hashlib.sha256(json.dumps(inbox2,sort_keys=True,separators=(',',':')).encode()).hexdigest();report['ready']=True;save();print('Private production first owner, signed login, SIM read and restart persistence passed; no hardware actions')
 finally:
  if dev and started:
   command(dev,'systemctl stop '+unit,check=False)
