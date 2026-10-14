@@ -26,7 +26,12 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | SubmitCall { .. }
         | CallOperation { .. }
         | RenewCall { .. }
-        | IssueMedia { .. } => return Err(rustsimhub_auth::Error::Forbidden),
+        | IssueMedia { .. }
+        | HistorySources { .. }
+        | HistoryPage { .. }
+        | HistoryDetail { .. }
+        | GrantHistory { .. }
+        | RevokeHistory { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         WifiTrial { .. } | NetworkStatus { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         Calls {
             token,
@@ -117,6 +122,7 @@ pub(crate) async fn handle(
     sender: Option<crate::sender::Controller>,
     calls: Option<crate::calls::Controller>,
     setup: Option<Arc<Mutex<rustsimhub_auth::LocalSetup>>>,
+    history: Option<Arc<Mutex<rustsimhub_compat::history::HistoryService>>>,
 ) -> Result<()> {
     let body = timeout(Duration::from_secs(5), read_frame(stream)).await??;
     let request = parse_auth_request(&body)?;
@@ -125,6 +131,7 @@ pub(crate) async fn handle(
     let calling_enabled = calls.as_ref().is_some_and(|c| c.controls());
     let calls_observed = calls.is_some();
     let messaging_enabled = sender.is_some();
+    let history_enabled = history.is_some();
     let health = matches!(request.command, AuthCommand::Health { .. });
     let capabilities = matches!(request.command, AuthCommand::Capabilities { .. });
     let line_status = matches!(request.command, AuthCommand::LineStatus { .. });
@@ -144,6 +151,23 @@ pub(crate) async fn handle(
             | AuthCommand::IssueMedia { .. }
     );
     let result = if matches!(
+        request.command,
+        AuthCommand::HistorySources { .. }
+            | AuthCommand::HistoryPage { .. }
+            | AuthCommand::HistoryDetail { .. }
+            | AuthCommand::GrantHistory { .. }
+            | AuthCommand::RevokeHistory { .. }
+    ) {
+        tokio::task::spawn_blocking(move || {
+            let history = history.ok_or(rustsimhub_auth::Error::Forbidden)?;
+            let mut auth = auth.try_lock().map_err(|_| rustsimhub_auth::Error::Busy)?;
+            let mut history = history
+                .try_lock()
+                .map_err(|_| rustsimhub_auth::Error::Busy)?;
+            crate::history_api::dispatch(&mut auth, &mut history, request.command)
+        })
+        .await?
+    } else if matches!(
         request.command,
         AuthCommand::SetupChallenge { .. } | AuthCommand::SetupFinish { .. }
     ) {
@@ -226,6 +250,9 @@ pub(crate) async fn handle(
             } else if health && messaging_enabled {
                 value = json!({"ok":true,"mode":"authenticated_messaging","write_api":true});
             }
+            if health {
+                value["history_read_api"] = history_enabled.into();
+            }
             if let (true, Some(m)) = (line_status, metrics) {
                 if let Ok(s) = m.lock() {
                     value["observer"] = serde_json::to_value(s.clone())?;
@@ -254,6 +281,37 @@ pub async fn serve_media(
     media_socket: &str,
     media_uid: u32,
 ) -> Result<()> {
+    serve_media_archive(socket, uid, state, identity, media_socket, media_uid, None).await
+}
+pub async fn serve_media_history(
+    socket: &str,
+    uid: u32,
+    state: &str,
+    identity: &str,
+    media_socket: &str,
+    media_uid: u32,
+    history: (&str, &str),
+) -> Result<()> {
+    serve_media_archive(
+        socket,
+        uid,
+        state,
+        identity,
+        media_socket,
+        media_uid,
+        Some(history),
+    )
+    .await
+}
+async fn serve_media_archive(
+    socket: &str,
+    uid: u32,
+    state: &str,
+    identity: &str,
+    media_socket: &str,
+    media_uid: u32,
+    history: Option<(&str, &str)>,
+) -> Result<()> {
     use tokio::signal::unix::{signal, SignalKind};
     let mut term = signal(SignalKind::terminate())?;
     let mut interrupt = signal(SignalKind::interrupt())?;
@@ -266,6 +324,7 @@ pub async fn serve_media(
         RuntimeExtras {
             media: Some((media_socket, media_uid)),
             setup: None,
+            history,
         },
         async move {
             tokio::select! {_=term.recv()=>{},_=interrupt.recv()=>{}}
@@ -295,6 +354,7 @@ pub async fn serve_setup(
         RuntimeExtras {
             media: None,
             setup: Some(secret_file),
+            history: None,
         },
         async move {
             tokio::select! {_=term.recv()=>{},_=interrupt.recv()=>{}}
@@ -304,6 +364,33 @@ pub async fn serve_setup(
 }
 pub async fn serve_messaging(socket: &str, uid: u32, state: &str, identity: &str) -> Result<()> {
     serve_mode(socket, uid, state, identity, (true, true, 0)).await
+}
+pub async fn serve_history(
+    socket: &str,
+    uid: u32,
+    state: &str,
+    identity: &str,
+    archive: &str,
+    access: &str,
+) -> Result<()> {
+    use tokio::signal::unix::{signal, SignalKind};
+    let mut term = signal(SignalKind::terminate())?;
+    let mut interrupt = signal(SignalKind::interrupt())?;
+    serve_inner_media(
+        socket,
+        uid,
+        state,
+        identity,
+        (true, false, 1),
+        RuntimeExtras {
+            history: Some((archive, access)),
+            ..RuntimeExtras::default()
+        },
+        async move {
+            tokio::select! { _=term.recv()=>{}, _=interrupt.recv()=>{} }
+        },
+    )
+    .await
 }
 pub async fn serve_calls(
     socket: &str,
@@ -376,6 +463,7 @@ async fn serve_inner(
 struct RuntimeExtras<'a> {
     media: Option<(&'a str, u32)>,
     setup: Option<&'a str>,
+    history: Option<(&'a str, &'a str)>,
 }
 async fn serve_inner_media(
     socket: &str,
@@ -388,7 +476,8 @@ async fn serve_inner_media(
 ) -> Result<()> {
     let (state, identity) = (state.to_owned(), identity.to_owned());
     let setup_file = extras.setup.map(str::to_owned);
-    let (store, auth, setup) =
+    let history_paths = extras.history.map(|(a, b)| (a.to_owned(), b.to_owned()));
+    let (store, auth, setup, history) =
         tokio::task::spawn_blocking(move || -> rustsimhub_auth::Result<_> {
             let store = Store::open(state)?;
             let auth = Auth::open(identity, store.handle())?;
@@ -399,7 +488,19 @@ async fn serve_inner_media(
                     Ok::<_, rustsimhub_auth::Error>(Arc::new(Mutex::new(gate)))
                 })
                 .transpose()?;
-            Ok((store, Arc::new(Mutex::new(auth)), setup))
+            let history = history_paths
+                .map(|(archive, access)| {
+                    rustsimhub_compat::history::HistoryService::open(
+                        std::path::Path::new(&archive),
+                        std::path::Path::new(&access),
+                        auth.public_key(),
+                        &auth.durable_realm()?,
+                    )
+                    .map(|h| Arc::new(Mutex::new(h)))
+                    .map_err(|_| rustsimhub_auth::Error::Forbidden)
+                })
+                .transpose()?;
+            Ok((store, Arc::new(Mutex::new(auth)), setup, history))
         })
         .await??;
     let (listener, runtime) =
@@ -506,10 +607,19 @@ async fn serve_inner_media(
         let sender = sender.clone();
         let calls = calls.clone();
         let setup = setup.clone();
+        let history = history.clone();
         tasks.spawn(async move {
             let _ = timeout(
                 Duration::from_secs(15),
-                handle(&mut stream, auth, Some(metrics), sender, calls, setup),
+                handle(
+                    &mut stream,
+                    auth,
+                    Some(metrics),
+                    sender,
+                    calls,
+                    setup,
+                    history,
+                ),
             )
             .await;
             drop(permit);

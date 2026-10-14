@@ -76,6 +76,35 @@ pub enum AuthCommand {
         after: Option<rustsimhub_domain::InboxCursor>,
         limit: usize,
     },
+    HistorySources {
+        token: String,
+    },
+    HistoryPage {
+        token: String,
+        source: String,
+        entity: rustsimhub_domain::HistoryEntity,
+        after: Option<rustsimhub_domain::HistoryCursor>,
+        limit: usize,
+    },
+    HistoryDetail {
+        token: String,
+        source: String,
+        entity: rustsimhub_domain::HistoryEntity,
+        record_id: String,
+    },
+    GrantHistory {
+        token: String,
+        public_key: [u8; 32],
+        expected_generation: u64,
+        source: String,
+        legacy_user: Option<String>,
+        entities: Vec<rustsimhub_domain::HistoryEntity>,
+    },
+    RevokeHistory {
+        token: String,
+        public_key: [u8; 32],
+        source: String,
+    },
     Calls {
         token: String,
         after: Option<rustsimhub_domain::InboxCursor>,
@@ -165,6 +194,74 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         return Err(invalid());
     }
     match &req.command {
+        AuthCommand::HistorySources { token } => {
+            if token.len() != 64 {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::HistoryPage {
+            token,
+            source,
+            limit,
+            after,
+            ..
+        } => {
+            if token.len() != 64
+                || !source_valid(source)
+                || !(1..=16).contains(limit)
+                || after.as_ref().is_some_and(|c| {
+                    c.archive_epoch.len() != 64
+                        || c.audience.len() != 64
+                        || !source_valid(&c.source)
+                        || c.after.is_empty()
+                        || c.after.len() > 19
+                        || !c.after.bytes().all(|b| b.is_ascii_digit())
+                })
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::HistoryDetail {
+            token,
+            source,
+            record_id,
+            ..
+        } => {
+            if token.len() != 64
+                || !source_valid(source)
+                || record_id.is_empty()
+                || record_id.len() > 19
+                || !record_id.bytes().all(|b| b.is_ascii_digit())
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::GrantHistory {
+            token,
+            source,
+            expected_generation,
+            legacy_user,
+            entities,
+            ..
+        } => {
+            if token.len() != 64
+                || !source_valid(source)
+                || *expected_generation == 0
+                || *expected_generation > i64::MAX as u64
+                || entities.is_empty()
+                || entities.len() > 3
+                || legacy_user.as_ref().is_some_and(|u| {
+                    u.is_empty() || u.len() > 128 || u.chars().any(char::is_control)
+                })
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::RevokeHistory { token, source, .. } => {
+            if token.len() != 64 || !source_valid(source) {
+                return Err(invalid());
+            }
+        }
         AuthCommand::SetupChallenge { setup_code, .. }
         | AuthCommand::SetupFinish { setup_code, .. } => {
             if setup_code.len() != 64
@@ -329,9 +426,43 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
     }
     Ok(req)
 }
+fn source_valid(source: &str) -> bool {
+    source.len() == 64
+        && source
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn history_commands_reject_remote_identity_overrides_and_unbounded_queries() {
+        let valid = serde_json::json!({"protocol":2,"id":"history","command":{"op":"history_page","token":"a".repeat(64),"source":"b".repeat(64),"entity":"sms","after":null,"limit":16}});
+        assert!(parse_auth_request(&serde_json::to_vec(&valid).unwrap()).is_ok());
+        for (field, value) in [
+            ("limit", serde_json::json!(17)),
+            ("source", serde_json::json!("../private")),
+            ("entity", serde_json::json!("principals")),
+            ("legacy_user", serde_json::json!("injected")),
+            ("public_key", serde_json::json!(vec![0; 32])),
+        ] {
+            let mut v = valid.clone();
+            v["command"][field] = value;
+            assert!(parse_auth_request(&serde_json::to_vec(&v).unwrap()).is_err());
+        }
+        let grant = serde_json::json!({"protocol":2,"id":"grant","command":{"op":"grant_history","token":"a".repeat(64),"public_key":vec![7;32],"expected_generation":1,"source":"b".repeat(64),"legacy_user":"legacy_user_a","entities":["sms"]}});
+        assert!(parse_auth_request(&serde_json::to_vec(&grant).unwrap()).is_ok());
+        for (field, value) in [
+            ("expected_generation", serde_json::json!(0)),
+            ("legacy_user", serde_json::json!("nul\u{0}user")),
+            ("kind", serde_json::json!("owner")),
+            ("entities", serde_json::json!([])),
+        ] {
+            let mut v = grant.clone();
+            v["command"][field] = value;
+            assert!(parse_auth_request(&serde_json::to_vec(&v).unwrap()).is_err());
+        }
+    }
     #[test]
     fn outgoing_requests_reject_identity_injection_and_invalid_private_payloads() {
         let command = serde_json::json!({"op":"prepare_sms","token":"a".repeat(64),"line_epoch":2,"idempotency_key":"a","recipient":"+12025550123","text":"synthetic"});

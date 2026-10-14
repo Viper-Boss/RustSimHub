@@ -9,6 +9,8 @@ mod auth_check;
 mod authenticated;
 #[cfg(target_os = "linux")]
 mod calls;
+#[cfg(target_os = "linux")]
+mod history_api;
 #[cfg(feature = "dev-fixtures")]
 mod inbox_check;
 #[cfg(target_os = "linux")]
@@ -106,6 +108,19 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .enable_all()
             .build()?;
         match args.as_slice() {
+            [command, path, uid, state, identity, media_path, media_uid, archive, access]
+                if command == "--serve-media-history" =>
+            {
+                return runtime.block_on(authenticated::serve_media_history(
+                    path,
+                    uid.parse()?,
+                    state,
+                    identity,
+                    media_path,
+                    media_uid.parse()?,
+                    (archive, access),
+                ));
+            }
             #[cfg(feature = "dev-fixtures")]
             [command, path, uid, state, identity, journal]
                 if command == "--serve-network-fault-trials" =>
@@ -172,6 +187,18 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     identity,
                 ));
             }
+            [command, path, uid, state, identity, archive, access]
+                if command == "--serve-history" =>
+            {
+                return runtime.block_on(authenticated::serve_history(
+                    path,
+                    uid.parse()?,
+                    state,
+                    identity,
+                    archive,
+                    access,
+                ));
+            }
             [command, path, uid, state, identity]
                 if command == "--serve-call-observing" || command == "--serve-telephony" =>
             {
@@ -189,5 +216,5 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             _ => {}
         }
     }
-    Err("usage: --self-check | --probe (Linux) | --serve-readonly SOCKET ALLOWED_UID | --request SOCKET health|capabilities | --serve-authenticated SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR | --serve-observing SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR | --serve-messaging SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR | --serve-call-observing SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR | --serve-telephony SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR | --serve-media-authorizing SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR MEDIA_SOCKET MEDIA_UID | --request-auth SOCKET (JSON stdin) | --provision-owner STATE_DIR IDENTITY_DIR CLIENT_PUBLIC_KEY_HEX | --recover-owner STATE_DIR IDENTITY_DIR CLIENT_PUBLIC_KEY_HEX | --backup-identity IDENTITY_DIR PRIVATE_BACKUP_DIR; development fixture commands require dev-fixtures".into())
+    Err("usage: --self-check | --probe (Linux) | --serve-readonly SOCKET ALLOWED_UID | --request SOCKET health|capabilities | --serve-authenticated SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR | --serve-observing SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR | --serve-messaging SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR | --serve-call-observing SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR | --serve-telephony SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR | --serve-media-authorizing SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR MEDIA_SOCKET MEDIA_UID | --serve-history SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR ARCHIVE_DIR ACCESS_DIR | --serve-media-history SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR MEDIA_SOCKET MEDIA_UID ARCHIVE_DIR ACCESS_DIR | --request-auth SOCKET (JSON stdin) | --provision-owner STATE_DIR IDENTITY_DIR CLIENT_PUBLIC_KEY_HEX | --recover-owner STATE_DIR IDENTITY_DIR CLIENT_PUBLIC_KEY_HEX | --backup-identity IDENTITY_DIR PRIVATE_BACKUP_DIR; development fixture commands require dev-fixtures".into())
 }

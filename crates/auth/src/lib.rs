@@ -229,6 +229,20 @@ impl Auth {
     pub fn public_key(&self) -> [u8; 32] {
         self.identity.public_key()
     }
+    /// Separate optional policy files must be bound to this durable business realm.
+    pub fn durable_realm(&self) -> Result<String> {
+        Ok(self.store.cursor()?.db_epoch)
+    }
+    /// For explicit delegation only; the caller first authenticates a recent owner.
+    pub fn current_principal(&self, key: [u8; 32]) -> Result<Principal> {
+        self.store
+            .principal(key)?
+            .filter(|p| p.active)
+            .ok_or(Error::Forbidden)
+    }
+    pub fn recent_owner(&mut self, token: &str) -> Result<Principal> {
+        self.owner(token)
+    }
     fn prune(&mut self, now: Instant) {
         self.challenges.retain(|_, p| now < p.deadline);
         self.pairings.retain(|_, p| now < p.deadline);

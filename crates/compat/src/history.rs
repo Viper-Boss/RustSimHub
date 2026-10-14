@@ -15,6 +15,8 @@ use std::{
     },
     path::Path,
 };
+mod reader;
+pub use reader::{HistoryService, HistorySource};
 
 const APP_ID: i64 = 0x5253484d;
 const MAX_SNAPSHOT: u64 = 256 * 1024 * 1024;

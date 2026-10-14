@@ -16,6 +16,7 @@ rustsimhub-storage = { path = "../storage" }
 rustsimhub-auth = { path = "../auth" }
 rustsimhub-policy = { path = "../policy" }
 rustsimhub-media = { path = "../media" }
+rustsimhub-compat = { path = "../compat" }
 ed25519-dalek = { version = "2.2", optional = true }
 
 serde.workspace = true
@@ -34,4 +35,5 @@ tempfile = "3"
 ed25519-dalek = "2.2"
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
+rusqlite = { version = "0.40.2", features = ["bundled"] }
 zbus = { version = "5.19", default-features = false, features = ["tokio","p2p","bus-impl"] }

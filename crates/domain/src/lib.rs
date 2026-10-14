@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 #![forbid(unsafe_code)]
 //! Pure policy types. No hardware, network, clock, or persistence access.
+mod history;
+pub use history::{HistoryCursor, HistoryEntity};
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InboxCursor {
