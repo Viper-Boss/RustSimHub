@@ -58,6 +58,15 @@ pub struct SmsDetail {
     pub data: Vec<u8>,
 }
 pub use rustsimhub_domain::InboxCursor;
+/// Trusted observer metadata only, never serialized in public message responses.
+pub struct SavedSource {
+    pub source: String,
+    pub content_hash: [u8; 32],
+}
+pub struct SourceSnapshot {
+    pub maximum_incarnation: u64,
+    pub sources: Vec<SavedSource>,
+}
 #[derive(Debug, Serialize)]
 pub struct InboxPage {
     pub messages: Vec<SmsSummary>,
@@ -120,6 +129,24 @@ fn summary(r: &rusqlite::Row<'_>) -> rusqlite::Result<SmsSummary> {
     })
 }
 impl Handle {
+    /// Restore source identities only within the same verified bus/MM/SIM line epoch.
+    pub fn saved_sources(&self, line: LineEpoch, paths: Vec<String>) -> Result<SourceSnapshot> {
+        self.call(move |db| {
+            if paths.len()>4096 || paths.iter().any(|p|p.len()>224 || !p.starts_with("/org/freedesktop/ModemManager1/SMS/") || p.bytes().any(|b|!(b.is_ascii_alphanumeric()||b==b'/'||b==b'_'))){return Err(Error::InvalidInput);}
+            if db.line_view()?.line!=line || db.line_view()?.status!=LineStatus::Ready{return Err(Error::StaleLine);}
+            let maximum:i64=db.connection.query_row("SELECT COALESCE(MAX(CAST(substr(source,instr(source,'#')+1) AS INTEGER)),0) FROM inbox WHERE line_epoch=? AND instr(source,'#')>0",[checked_line(line)?],|r|r.get(0))?;
+            if maximum<0 || maximum==i64::MAX{return Err(Error::Full);}
+            let mut sources=Vec::new();
+            for path in paths {
+                let value:Option<(String,Vec<u8>)>=db.connection.query_row("SELECT source,content_hash FROM inbox WHERE line_epoch=? AND source>=? AND source<? ORDER BY seq DESC LIMIT 1",params![checked_line(line)?,format!("{path}#"),format!("{path}$")],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
+                if let Some((source,hash))=value {
+                    let content_hash:[u8;32]=hash.try_into().map_err(|_|Error::Corrupt)?;
+                    sources.push(SavedSource{source,content_hash});
+                }
+            }
+            Ok(SourceSnapshot{maximum_incarnation:maximum as u64,sources})
+        })
+    }
     /// Trusted nonblocking local fence, checked on the single writer immediately before mutation.
     pub fn observe_line_if(
         &self,

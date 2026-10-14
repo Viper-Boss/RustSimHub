@@ -659,3 +659,50 @@ async fn sender_peer_proves_one_send_and_no_retries_after_errors_swaps_revocatio
         server.close().await.unwrap();
     }
 }
+
+#[test]
+fn source_resume_preserves_identity_but_seen_retirement_still_creates_new_message() {
+    use rustsimhub_storage::{SavedSource, SourceSnapshot};
+    use sha2::Digest;
+    let path = "/org/freedesktop/ModemManager1/SMS/1";
+    let input = || IncomingSms {
+        line: rustsimhub_domain::LineEpoch(3),
+        source: path.into(),
+        sender: "synthetic".into(),
+        timestamp: "time".into(),
+        text: "equal message".into(),
+        data: vec![],
+    };
+    let hash: [u8; 32] = sha2::Sha256::digest(
+        serde_json::to_vec(&("synthetic", "time", "equal message", Vec::<u8>::new())).unwrap(),
+    )
+    .into();
+    let snapshot = || SourceSnapshot {
+        maximum_incarnation: 41,
+        sources: vec![SavedSource {
+            source: format!("{path}#41"),
+            content_hash: hash,
+        }],
+    };
+    let mut resumed = Sources::default();
+    resumed.restore(snapshot()).unwrap();
+    let mut sms = input();
+    resumed.bind(&mut sms).unwrap();
+    assert_eq!(sms.source, format!("{path}#41"));
+    resumed.retire(path);
+    let mut reused = input();
+    resumed.bind(&mut reused).unwrap();
+    assert_eq!(reused.source, format!("{path}#42"));
+    let mut retired_during_start = Sources::default();
+    retired_during_start.retire(path);
+    retired_during_start.restore(snapshot()).unwrap();
+    let mut fresh = input();
+    retired_during_start.bind(&mut fresh).unwrap();
+    assert_eq!(fresh.source, format!("{path}#42"));
+    let mut uncertain = Sources::default();
+    uncertain.reset_uncertain();
+    uncertain.restore(snapshot()).unwrap();
+    let mut fresh = input();
+    uncertain.bind(&mut fresh).unwrap();
+    assert_eq!(fresh.source, format!("{path}#42"));
+}

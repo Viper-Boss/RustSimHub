@@ -27,7 +27,7 @@ mod inbox;
 mod outgoing;
 pub use inbox::{
     InboxCursor, InboxEvent, InboxEvents, InboxPage, IncomingSms, LineObservation, LineStatus,
-    LineView, SmsDetail, SmsSummary,
+    LineView, SavedSource, SmsDetail, SmsSummary, SourceSnapshot,
 };
 pub use outgoing::{SendAttempt, SendContext};
 type Result<T> = std::result::Result<T, Error>;

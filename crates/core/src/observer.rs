@@ -327,7 +327,16 @@ async fn reconcile(
         .await?;
     // Initial and periodic full enumeration repair missed events. Content is read in fair bounded batches.
     if sources.list_due() {
-        sources.refresh(proxy.list().await?)?;
+        let paths = proxy.list().await?;
+        if sources.needs_restore() {
+            let h = store.clone();
+            let line = view.line;
+            let known = paths.iter().map(|p| p.to_string()).collect();
+            let snapshot =
+                tokio::task::spawn_blocking(move || h.saved_sources(line, known)).await??;
+            sources.restore(snapshot)?;
+        }
+        sources.refresh(paths)?;
     }
     let (paths, more) = sources.next_batch();
     let mut batch = Vec::new();
@@ -401,15 +410,22 @@ async fn reconcile(
 async fn session(
     c: zbus::Connection,
     store: &Handle,
-    instance: &str,
-    connection_generation: u64,
+    _instance: &str,
+    _connection_generation: u64,
     fingerprinter: &SimFingerprinter,
     metrics: &Metrics,
     bindings: Option<&Bindings>,
 ) -> Result<()> {
     let mut watcher = watch::Watcher::connect(&c).await?;
     metric(metrics, |s| s.subscriptions = true);
-    let prefix = format!("{instance}:{connection_generation}:{}", watcher.owner);
+    // Persistent line identity is the broker UUID and MM owner, not the Core login instance.
+    // Live guard/fence, authenticated instance and lease boot remain separate runtime barriers.
+    let bus = zbus::fdo::DBusProxy::new(&c).await?;
+    let bus_id = bus.get_id().await?;
+    if bus_id.len() != 32 || !bus_id.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err("invalid broker identity".into());
+    }
+    let prefix = format!("mm:{bus_id}:{}", watcher.owner);
     let context = Context {
         owner: watcher.owner.clone(),
         prefix: prefix.clone(),
@@ -435,7 +451,7 @@ async fn session(
                 .saturating_add(notice.revision.saturating_sub(consumed))
         });
         if notice.reset_sources != source_reset {
-            sources.reset();
+            sources.reset_uncertain();
             source_reset = notice.reset_sources;
         }
         for (revision, path) in &notice.retired {

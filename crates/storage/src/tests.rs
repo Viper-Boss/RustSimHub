@@ -691,3 +691,43 @@ fn empty_partial_restore_is_rejected_without_overwriting_evidence() {
         0
     );
 }
+
+#[test]
+fn same_verified_line_restores_source_numbers_without_reinserting_messages() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let h = s.handle();
+    let line = observed(&h, "same-broker-and-mm", 7, LineStatus::Ready);
+    let path = "/org/freedesktop/ModemManager1/SMS/1";
+    let first = h.receive_sms(inbound(line, &format!("{path}#41"))).unwrap();
+    let snapshot = h.saved_sources(line, vec![path.into()]).unwrap();
+    assert_eq!(snapshot.maximum_incarnation, 41);
+    assert_eq!(snapshot.sources.len(), 1);
+    drop(h);
+    drop(s);
+    let s = Store::open(d.path()).unwrap();
+    let h = s.handle();
+    assert!(h.saved_sources(line, vec![path.into()]).is_err());
+    assert_eq!(
+        observed(&h, "same-broker-and-mm", 7, LineStatus::Ready),
+        line
+    );
+    let snapshot = h.saved_sources(line, vec![path.into()]).unwrap();
+    assert_eq!(snapshot.sources[0].source, format!("{path}#41"));
+    assert_eq!(
+        h.receive_sms(inbound(line, &snapshot.sources[0].source))
+            .unwrap()
+            .id,
+        first.id
+    );
+    assert_eq!(h.inbox(None, 32).unwrap().messages.len(), 1);
+    let changed = observed(&h, "other-broker-or-mm", 7, LineStatus::Ready);
+    assert!(changed.0 > line.0);
+    assert!(h.saved_sources(line, vec![path.into()]).is_err());
+    assert!(h
+        .saved_sources(changed, vec![path.into()])
+        .unwrap()
+        .sources
+        .is_empty());
+    assert!(h.saved_sources(changed, vec!["/untrusted".into()]).is_err());
+}

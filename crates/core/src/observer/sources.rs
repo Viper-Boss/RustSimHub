@@ -4,15 +4,65 @@ use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 pub(super) const MAX_OBJECTS: usize = 4096;
 pub(super) const BATCH: usize = 16;
-#[derive(Default)]
 pub(super) struct Sources {
     nodes: HashMap<String, (u64, Option<[u8; 32]>)>,
     next: u64,
     cursor: Option<String>,
     paths: Vec<OwnedObjectPath>,
     refreshed: Option<Instant>,
+    restore_pending: bool,
+    restore_nodes: bool,
+    retired_before_restore: HashSet<String>,
+}
+impl Default for Sources {
+    fn default() -> Self {
+        Self {
+            nodes: HashMap::new(),
+            next: 0,
+            cursor: None,
+            paths: Vec::new(),
+            refreshed: None,
+            restore_pending: true,
+            restore_nodes: true,
+            retired_before_restore: HashSet::new(),
+        }
+    }
 }
 impl Sources {
+    pub fn needs_restore(&self) -> bool {
+        self.restore_pending
+    }
+    pub fn restore(&mut self, snapshot: rustsimhub_storage::SourceSnapshot) -> Result<()> {
+        if !self.restore_pending || snapshot.sources.len() > MAX_OBJECTS {
+            return Err("source restore denied".into());
+        }
+        self.next = self.next.max(snapshot.maximum_incarnation);
+        for row in snapshot.sources {
+            let (path, number) = row
+                .source
+                .rsplit_once('#')
+                .ok_or("invalid persisted source")?;
+            let number = number.parse::<u64>()?;
+            if number == 0
+                || number > self.next
+                || path.len() > 224
+                || !path.starts_with("/org/freedesktop/ModemManager1/SMS/")
+            {
+                return Err("invalid persisted source".into());
+            }
+            if self.restore_nodes && !self.retired_before_restore.contains(path) {
+                self.nodes
+                    .insert(path.to_owned(), (number, Some(row.content_hash)));
+            }
+        }
+        self.restore_pending = false;
+        self.retired_before_restore.clear();
+        Ok(())
+    }
+    pub fn reset_uncertain(&mut self) {
+        self.reset();
+        self.restore_nodes = false;
+    }
     pub fn reset(&mut self) {
         self.nodes.clear();
         self.cursor = None;
@@ -20,6 +70,13 @@ impl Sources {
         self.refreshed = None;
     }
     pub fn retire(&mut self, path: &str) {
+        if self.restore_pending {
+            if self.retired_before_restore.len() < MAX_OBJECTS {
+                self.retired_before_restore.insert(path.to_owned());
+            } else {
+                self.restore_nodes = false;
+            }
+        }
         self.nodes.remove(path);
         self.refreshed = None;
     }
