@@ -119,6 +119,7 @@ pub fn restore(key: &Path, backup: &Path, expected: [u8; 32], destination: &Path
     }
     // No decrypted bytes reach disk until the authenticated stream and expected pin passed.
     write_private_new(&destination.join("identity.seed"), &plain[40..])?;
+    write_private_new(&destination.join(".identity.lock"), b"")?;
     if Identity::load(destination)?.public_key() != expected {
         return Err(Error::CorruptIdentity);
     }

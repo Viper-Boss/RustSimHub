@@ -91,7 +91,11 @@ pub(crate) fn open_key(dir: &Path, client: bool, create: bool) -> Result<Signing
             b"RSHKEY01",
         )
     };
-    let lock = open_private(&dir.join(lock_name), false)?;
+    let lock = if create {
+        open_private(&dir.join(lock_name), false)?
+    } else {
+        open_private_read(&dir.join(lock_name))?
+    };
     lock.try_lock_exclusive().map_err(|_| Error::Busy)?;
     let path = dir.join(seed_name);
     let pending = dir.join(pending_name);
@@ -260,5 +264,45 @@ mod readonly_tests {
         let linked = dir.path().join("hardlink");
         fs::hard_link(&path, &linked).unwrap();
         assert!(read_private(&path, 64).is_err());
+    }
+}
+
+#[cfg(unix)]
+#[cfg(test)]
+mod read_only_key_tests {
+    use super::*;
+    use crate::ClientKey;
+    use std::os::unix::fs::PermissionsExt;
+    #[test]
+    fn identity_and_client_load_only_read_existing_files_and_lock() {
+        for client in [false, true] {
+            let d = tempfile::tempdir().unwrap();
+            fs::set_permissions(d.path(), fs::Permissions::from_mode(0o700)).unwrap();
+            let public = if client {
+                ClientKey::create(d.path()).unwrap().public_key()
+            } else {
+                Identity::open(d.path()).unwrap().public_key()
+            };
+            let (key, lock) = if client {
+                ("client.seed", ".client.lock")
+            } else {
+                ("identity.seed", ".identity.lock")
+            };
+            fs::set_permissions(d.path().join(key), fs::Permissions::from_mode(0o400)).unwrap();
+            fs::set_permissions(d.path().join(lock), fs::Permissions::from_mode(0o400)).unwrap();
+            fs::set_permissions(d.path(), fs::Permissions::from_mode(0o500)).unwrap();
+            let loaded = if client {
+                ClientKey::load(d.path()).unwrap().public_key()
+            } else {
+                Identity::load(d.path()).unwrap().public_key()
+            };
+            assert_eq!(public, loaded);
+            assert_eq!(fs::read_dir(d.path()).unwrap().count(), 2);
+            fs::set_permissions(d.path(), fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        let d = tempfile::tempdir().unwrap();
+        fs::set_permissions(d.path(), fs::Permissions::from_mode(0o700)).unwrap();
+        assert!(Identity::load(d.path()).is_err());
+        assert_eq!(fs::read_dir(d.path()).unwrap().count(), 0);
     }
 }
