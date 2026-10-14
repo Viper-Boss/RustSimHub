@@ -75,6 +75,24 @@ pub enum AuthCommand {
         token: String,
         idempotency_key: String,
     },
+    WifiBegin {
+        token: String,
+        idempotency_key: String,
+        ssid: String,
+        passphrase: String,
+    },
+    WifiStatus {
+        token: String,
+        trial_id: String,
+    },
+    WifiConfirm {
+        token: String,
+        trial_id: String,
+    },
+    WifiCancel {
+        token: String,
+        trial_id: String,
+    },
     PrepareSms {
         token: String,
         line_epoch: u64,
@@ -374,6 +392,28 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 return Err(invalid());
             }
         }
+        AuthCommand::WifiBegin {
+            token,
+            idempotency_key,
+            ssid,
+            passphrase,
+        } => {
+            if token.len() != 64
+                || !wifi_credentials_valid(ssid, passphrase)
+                || idempotency_key.is_empty()
+                || idempotency_key.len() > 128
+                || idempotency_key.chars().any(char::is_control)
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::WifiStatus { token, trial_id }
+        | AuthCommand::WifiConfirm { token, trial_id }
+        | AuthCommand::WifiCancel { token, trial_id } => {
+            if token.len() != 64 || !source_valid(trial_id) {
+                return Err(invalid());
+            }
+        }
         AuthCommand::WifiTrial {
             token,
             idempotency_key,
@@ -537,9 +577,40 @@ fn source_valid(source: &str) -> bool {
             .bytes()
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
+pub fn wifi_credentials_valid(ssid: &str, passphrase: &str) -> bool {
+    !ssid.is_empty()
+        && ssid.len() <= 32
+        && !ssid.chars().any(char::is_control)
+        && ((8..=63).contains(&passphrase.len())
+            && passphrase.bytes().all(|b| (0x20..=0x7e).contains(&b))
+            || passphrase.len() == 64 && passphrase.bytes().all(|b| b.is_ascii_hexdigit()))
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn wifi_provisioning_bounds_credentials_and_rejects_network_overrides() {
+        let valid = serde_json::json!({"protocol":2,"id":"wifi","command":{"op":"wifi_begin","token":"a".repeat(64),"idempotency_key":"once","ssid":"synthetic","passphrase":"synthetic-pass"}});
+        assert!(parse_auth_request(&serde_json::to_vec(&valid).unwrap()).is_ok());
+        for (field, value) in [
+            ("ssid", serde_json::json!("中".repeat(11))),
+            ("ssid", serde_json::json!("nul\u{0}ssid")),
+            ("passphrase", serde_json::json!("short")),
+            ("passphrase", serde_json::json!("x".repeat(64))),
+            ("type", serde_json::json!("gsm")),
+            ("mode", serde_json::json!("ap")),
+            ("interface", serde_json::json!("wwan0")),
+            ("timeout", serde_json::json!(0)),
+        ] {
+            let mut request = valid.clone();
+            request["command"][field] = value;
+            assert!(parse_auth_request(&serde_json::to_vec(&request).unwrap()).is_err());
+        }
+        assert!(wifi_credentials_valid(
+            "中".repeat(10).as_str(),
+            &"A".repeat(64)
+        ));
+    }
     #[test]
     fn history_commands_reject_remote_identity_overrides_and_unbounded_queries() {
         let valid = serde_json::json!({"protocol":2,"id":"history","command":{"op":"history_page","token":"a".repeat(64),"source":"b".repeat(64),"entity":"sms","after":null,"limit":16}});

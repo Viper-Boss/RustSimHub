@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Explicit saved-Wi-Fi trial. Finite NM checkpoint, no APN/WWAN/radio or settings writes.
+pub(crate) mod provision;
 use rustsimhub_auth::{Auth, Error};
 use rustsimhub_policy::{Principal, Scope};
 use serde::{Deserialize, Serialize};
@@ -395,7 +396,6 @@ impl NetworkManager {
                 .into(),
         )
     }
-    #[cfg(feature = "dev-fixtures")]
     async fn cellular_autoconnect_absent(&self, owner: &str) -> Result<()> {
         let p = self
             .proxy(
@@ -569,8 +569,8 @@ impl NetworkManager {
         Ok(())
     }
 }
-impl Backend for NetworkManager {
-    async fn snapshot(&self) -> Result<Snapshot> {
+impl NetworkManager {
+    async fn snapshot_inner(&self, first_setup: bool) -> Result<Snapshot> {
         let owner = self.owner(NM).await?;
         let mm_owner = self.owner(MM).await?;
         let nm = self.proxy(&owner, ROOT, NM).await?;
@@ -611,7 +611,7 @@ impl Backend for NetworkManager {
             if kind == 2
                 && interface == "wlan0"
                 && managed
-                && state == 100
+                && (state == 100 || (first_setup && state == 30))
                 && wifi.replace(p.clone()).is_some()
             {
                 return Err(Error::Forbidden);
@@ -626,8 +626,24 @@ impl Backend for NetworkManager {
             }
         }
         let (wifi, usb) = (wifi.ok_or(Error::Forbidden)?, usb.ok_or(Error::Forbidden)?);
-        let profile = self.active_profile(&owner, &wifi).await?;
-        let profile_identity = self.profile_identity(&owner, &profile).await?;
+        let device = self
+            .proxy(
+                &owner,
+                wifi.as_str(),
+                "org.freedesktop.NetworkManager.Device",
+            )
+            .await?;
+        let state: u32 = device.get_property("State").await.map_err(|_| Error::Io)?;
+        let profile = if first_setup && state == 30 {
+            "/".try_into().map_err(|_| Error::Io)?
+        } else {
+            self.active_profile(&owner, &wifi).await?
+        };
+        let profile_identity = if profile.as_str() == "/" {
+            [0; 32]
+        } else {
+            self.profile_identity(&owner, &profile).await?
+        };
         drop(nm);
         #[cfg(feature = "dev-fixtures")]
         if fault_mode() {
@@ -644,6 +660,11 @@ impl Backend for NetworkManager {
         };
         self.fence(&b).await?;
         Ok(b)
+    }
+}
+impl Backend for NetworkManager {
+    async fn snapshot(&self) -> Result<Snapshot> {
+        self.snapshot_inner(false).await
     }
     async fn fence(&self, b: &Snapshot) -> Result<()> {
         self.owner_fence(b).await?;
@@ -670,7 +691,8 @@ impl Backend for NetworkManager {
         if kind != 2
             || interface != "wlan0"
             || !managed
-            || self.profile_identity(&b.owner, &b.profile).await? != b.profile_identity
+            || (b.profile.as_str() != "/"
+                && self.profile_identity(&b.owner, &b.profile).await? != b.profile_identity)
         {
             return Err(Error::Forbidden);
         }

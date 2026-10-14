@@ -33,6 +33,7 @@ struct Snapshot {
     devices: Vec<Device>,
     control_api: bool,
     saved_wifi_trial_api: bool,
+    wifi_provisioning_api: bool,
     hardware_mutations: bool,
 }
 async fn principal(auth: Arc<Mutex<Auth>>, token: String) -> rustsimhub_auth::Result<Principal> {
@@ -207,6 +208,7 @@ async fn probe(c: &zbus::Connection) -> rustsimhub_auth::Result<Snapshot> {
         devices,
         control_api: false,
         saved_wifi_trial_api: crate::network_trial::enabled(),
+        wifi_provisioning_api: crate::network_trial::provision::enabled(),
         hardware_mutations: false,
     })
 }

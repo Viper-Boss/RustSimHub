@@ -3,7 +3,9 @@
 use serde::{Deserialize, Serialize};
 use std::io::{self, Read, Write};
 mod auth;
-pub use auth::{parse_auth_request, AuthCommand, AuthRequest, AUTH_PROTOCOL};
+pub use auth::{
+    parse_auth_request, wifi_credentials_valid, AuthCommand, AuthRequest, AUTH_PROTOCOL,
+};
 pub use rustsimhub_domain::{InboxCursor, NasEntity};
 
 pub const MAX_FRAME: usize = 65_536;

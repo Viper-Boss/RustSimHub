@@ -168,6 +168,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 return runtime.block_on(authenticated::serve(path, uid.parse()?, state, identity));
             }
             [command, path, uid, state, identity, journal]
+                if command == "--serve-network-provisioning" =>
+            {
+                network_trial::provision::enable(std::path::Path::new(journal))?;
+                return runtime.block_on(authenticated::serve(path, uid.parse()?, state, identity));
+            }
+            [command, path, uid, state, identity, journal]
                 if command == "--serve-network-trials" =>
             {
                 network_trial::enable(std::path::Path::new(journal))?;

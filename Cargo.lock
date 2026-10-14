@@ -1667,6 +1667,7 @@ dependencies = [
  "ed25519-dalek",
  "fs2",
  "futures-lite",
+ "getrandom 0.4.3",
  "rusqlite",
  "rustix",
  "rustsimhub-auth",
@@ -1683,6 +1684,7 @@ dependencies = [
  "time",
  "tokio",
  "zbus",
+ "zeroize",
 ]
 
 [[package]]

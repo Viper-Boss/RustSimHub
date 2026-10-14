@@ -35,7 +35,12 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         BindLegacy { .. } | RevokeLegacy { .. } | LegacySession { .. } | LegacyRead { .. } => {
             return Err(rustsimhub_auth::Error::Forbidden)
         }
-        WifiTrial { .. } | NetworkStatus { .. } => return Err(rustsimhub_auth::Error::Forbidden),
+        WifiTrial { .. }
+        | WifiBegin { .. }
+        | WifiStatus { .. }
+        | WifiConfirm { .. }
+        | WifiCancel { .. }
+        | NetworkStatus { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         Calls {
             token,
             after,
@@ -231,6 +236,14 @@ pub(crate) async fn handle(
     } = request.command
     {
         crate::network_trial::authorized(auth.clone(), token, idempotency_key).await
+    } else if matches!(
+        request.command,
+        AuthCommand::WifiBegin { .. }
+            | AuthCommand::WifiStatus { .. }
+            | AuthCommand::WifiConfirm { .. }
+            | AuthCommand::WifiCancel { .. }
+    ) {
+        crate::network_trial::provision::authorized(auth.clone(), request.command).await
     } else if calling {
         match calls {
             Some(c) => c
@@ -262,6 +275,7 @@ pub(crate) async fn handle(
                 value["call_control_api"] = calling_enabled.into();
                 value["call_observer"] = calls_observed.into();
                 value["saved_wifi_trial_api"] = crate::network_trial::enabled().into();
+                value["wifi_provisioning_api"] = crate::network_trial::provision::enabled().into();
                 value
             }
             Err(_) => json!({"ok":false,"error":"modem_unavailable"}),
@@ -281,6 +295,7 @@ pub(crate) async fn handle(
                 value = json!({"ok":true,"mode":"authenticated_messaging","write_api":true});
             }
             if health {
+                value["wifi_provisioning_api"] = crate::network_trial::provision::enabled().into();
                 value["history_read_api"] = history_enabled.into();
                 value["legacy_read_api"] = compat_enabled.into();
             }
@@ -715,6 +730,7 @@ async fn serve_inner_media(
         });
     };
     drop(listener); // Stop admission before draining outstanding work.
+    crate::network_trial::provision::shutdown().await;
     drop(media_serving);
     if let Some(c) = &calls {
         c.shutdown();
