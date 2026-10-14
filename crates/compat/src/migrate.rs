@@ -20,7 +20,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             _ => return Err("usage: validate PRIVATE_OFFLINE_SNAPSHOT SOURCE_ID | import PRIVATE_OFFLINE_SNAPSHOT SOURCE_ID PRIVATE_ARCHIVE_DIR | inspect PRIVATE_ARCHIVE_DIR; history only, no credentials or hardware replay".into()),
         };
         println!("{}", serde_json::to_string(&report)?);
-        return Ok(());
+        Ok(())
     }
     #[cfg(not(target_os = "linux"))]
     Err("offline history tool requires Linux private filesystem checks".into())

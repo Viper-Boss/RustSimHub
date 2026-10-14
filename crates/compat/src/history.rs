@@ -470,13 +470,13 @@ pub fn import(input: &Path, source: &str, destination: &Path) -> Result<Report> 
         archive_check(&db)?;
     }
     db.execute_batch("PRAGMA trusted_schema=OFF; PRAGMA foreign_keys=ON; PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;")?;
-    let page_size = db.query_row("PRAGMA page_size", [], |r| r.get::<_, u64>(0))?;
+    let page_size = db.query_row("PRAGMA page_size", [], |r| r.get::<_, i64>(0))?;
     if !(512..=65536).contains(&page_size) {
         return Err(Error::Corrupt);
     }
     db.execute_batch(&format!(
         "PRAGMA max_page_count={};",
-        MAX_ARCHIVE_BYTES / page_size
+        MAX_ARCHIVE_BYTES / page_size as u64
     ))?;
     if new {
         db.execute_batch("BEGIN IMMEDIATE; CREATE TABLE history_records(seq INTEGER PRIMARY KEY,source TEXT NOT NULL,entity TEXT NOT NULL,legacy_key TEXT NOT NULL,payload TEXT NOT NULL,digest BLOB NOT NULL CHECK(length(digest)=32),UNIQUE(source,entity,legacy_key)); CREATE TABLE history_batches(source TEXT NOT NULL,snapshot_digest BLOB NOT NULL CHECK(length(snapshot_digest)=32),PRIMARY KEY(source,snapshot_digest)); PRAGMA application_id=1381189709; PRAGMA user_version=1; COMMIT;")?;
@@ -519,10 +519,12 @@ pub fn inspect(directory_path: &Path) -> Result<Report> {
     let mut report = report();
     let mut statement =
         db.prepare("SELECT entity,COUNT(*) FROM history_records GROUP BY entity ORDER BY entity")?;
-    let rows = statement.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, usize>(1)?)))?;
+    let rows = statement.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
     for row in rows {
         let (entity, count) = row?;
-        report.rows_by_entity.insert(entity, count);
+        report
+            .rows_by_entity
+            .insert(entity, usize::try_from(count).map_err(|_| Error::Corrupt)?);
     }
     Ok(report)
 }
