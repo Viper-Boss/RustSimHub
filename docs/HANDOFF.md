@@ -1,6 +1,8 @@
 # RustSimHub 当前接手入口
 
-2026-10-14。用户最新要求“帮我把进度推到80%”，取代此前75%/60%目标；当前实证约66%（65.5点），按PROGRESS-SCALE.md固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。
+2026-10-14。用户最新要求“帮我把进度推到80%”，取代此前75%/60%目标；当前实证约67%（66.5点），按PROGRESS-SCALE.md固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。
+
+最新Wi-Fi：9b5f6b07762f7d9dc727f81f92ed21ea19f73467新增owner确认的新配置。源归档72215080d62106507534294a5f6cf58cfeed45ba754a9c7ae77efc22de5ae975，产物.local/wsl-artifacts-9b5f6b07762f7d9dc727f81f92ed21ea19f73467；170项本机测试/lint、六程序ARM64生产构建与CI38570475237成功。真实新profile连接/取消、确认持久保存、Core退出后NM自行重连、错误PSK真实SIGKILL恢复及重启防重通过，.private/wifi-provision-9b5f6b0-second.json passed/cleanup_verified=true；第一轮NAS shell路径解析失败未启动测试服务，保留。见VALIDATION-WIFI-PROVISION-P4B.md。本轮现有SSID，同完整媒体/历史/NAS Core组合、无旧Wi-Fi首启、其他SSID和热点仍待验收。自己的profile/规则/服务已清理，原profile/WWAN保持，旧四服务active、PCMclosed，通话次数仍15。下一步组合Core网络接线与并发控制，再推进完整系统和媒体剩余项。
 
 最新：NAS Go只读桥经实际Rust Core/Edge通过，持久重放、映射/主principal撤销、generation/重启，以及真实收件箱列表/逐条详情与v2一致通过；only observing模式拒绝owner写请求，撤销NAS不影响本地owner。见VALIDATION-NAS-BRIDGE-P5D.md。原NAS页面/PCM与完整兼容尚未通过。旧库离线迁移见VALIDATION-HISTORY-P5C.md；原认证库仅NAS私有快照，禁止导入新principals/业务操作或接入原始认证库；不提交真实数据。
 
@@ -30,7 +32,7 @@
 
 ## 下一步顺序
 
-1. 当前共65.5点，约66%；P5累计5点。以下8f4d15b和bc33a17为早期检查点，不能替代最新530e6f5产物；80%目标保持，不在检查点停止。
+1. 当前共66.5点，约67%；P4 7点/P5 5点。以下8f4d15b和bc33a17为早期检查点，不能替代最新9b5f6b0产物；80%目标保持，不在检查点停止。
    8f4d15b CI 38519741620 success；bc33a17 CI 38522521958 success。源头与产物分别核验，不能把文档提交当作新编译结果。
 2. 持久 rustsimhub-history-build-p5 已 exited 0，label revision=8f4d15b70ee7ac380d0404cdc770e05a3e298fd8。NAS /mnt/docker-data/rustsimhub/p0/history-build-Cqi2Xu3q，完整日志 build.log/.private/history-async-complete-8f4d15b.log；十项测试及 release 完成。
    source SHA 0df653f7810727d1d56ab6da3257bc2a0a09ddcf41a6999a058393750cf6eaff，.local/source-history-p5-private.tar.gz 匹配 8f4d15b；.local/source.tar.gz 仍 8711fba。migrate SHA 9c88aea0f46b0f24a780edd239a4089504458d1957fbe81b36d8fb804513e14d，.local/artifacts/8f4d15b/rustsimhub-migrate，棒子 /opt/rustsimhub/dev-history-p5-8f4d15b/rustsimhub-migrate。

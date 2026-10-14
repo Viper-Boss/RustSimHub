@@ -59,7 +59,10 @@ def original_ready():
  _,raw=run('nmcli -g GENERAL.CON-UUID,GENERAL.STATE device show wlan0');lines=raw.splitlines();return len(lines)==2 and lines[0]==original and lines[1].startswith('100')
 def restore_wait(seconds=55):
  deadline=time.monotonic()+seconds
- while not original_ready():assert time.monotonic()<deadline;time.sleep(1)
+ while True:
+  _,raw=run('busctl get-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.NetworkManager Checkpoints')
+  if original_ready() and raw.strip()=='ao 0':return
+  assert time.monotonic()<deadline;time.sleep(1)
 try:
  nas=connect(nc);channel=nas.get_transport().open_channel('direct-tcpip',(dc['host'],dc.get('port',22)),('127.0.0.1',0),timeout=12);dev=connect(dc,channel);sf=dev.open_sftp()
  _,raw=run('nmcli -g GENERAL.CON-UUID device show wlan0');original=raw.strip();assert re.fullmatch('[0-9a-f-]{36}',original)
@@ -78,7 +81,7 @@ try:
  run('runuser -u rustsimhub-edge -- '+q(edge)+' --init-tls '+q(base+'/edge/tls')+' '+q(dc['host']))
  write(base+'/edge/config.json',json.dumps({'listen':dc['host']+':8448','origin':'https://'+dc['host']+':8448','core_socket':socket,'core_uid':coreuid,'tls_directory':base+'/edge/tls'}).encode(),edgeuid,edgegid)
  local=ROOT/'.private'/('wifi-config-'+tag);local.mkdir(mode=0o700);sf.get(base+'/edge/tls/cert.pem',str(local/'cert.pem'))
- _,raw=run('mktemp -d /mnt/docker-data/rustsimhub/p0/wifi-config-client-XXXXXXXX',remote=nas);client=raw.strip();assert re.fullmatch('/mnt/docker-data/rustsimhub/p0/wifi-config-client-[A-Za-z0-9]{8}',client)
+ _,raw=run('mktemp -d /mnt/docker-data/rustsimhub/p0/wifi-config-client-XXXXXXXX',remote=nas);client=raw.splitlines()[-1];assert re.fullmatch('/mnt/docker-data/rustsimhub/p0/wifi-config-client-[A-Za-z0-9]{8}',client)
  helper='''import http.client,json,pathlib,ssl,sys
 address=sys.argv[1];context=ssl.create_default_context(cafile=str(pathlib.Path(__file__).parent/'cert.pem'));c=http.client.HTTPSConnection(address,8448,context=context,timeout=15)
 try:

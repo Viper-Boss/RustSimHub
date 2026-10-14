@@ -1,4 +1,4 @@
-最新（2026-10-14）：目标80%，实际65.5点、约66%。NAS Go客户端经严格HTTPS到棒子Rust Core/Edge的只读会话桥、设备/epoch绑定、持久重放、撤销/generation/重启及真实收件箱列表/逐条详情与v2一致通过；只读模式拒绝写操作，撤销NAS不影响本地owner。见VALIDATION-NAS-BRIDGE-P5D.md。六程序在本机WSL交叉编译，163项测试与CI通过；棒子只运行和验收。原NAS页面/PCM、完整双向媒体、正式配网/证书、开机安装/整机恢复、长期验收仍未完成，流量等待换卡。下面为历史记录。
+最新（2026-10-14）：目标80%，实际66.5点、约67%。新独立Wi-Fi配置的owner确认保存、Core退出后NM自动重连、真实SIGKILL恢复及跨重启防重通过，见VALIDATION-WIFI-PROVISION-P4B.md；本轮连接既有SSID，其他SSID/首启无Wi-Fi/热点和完整Core组合仍待验收。NAS只读桥与真实收件箱已通过，见VALIDATION-NAS-BRIDGE-P5D.md。170项本机测试/lint、六个ARM64生产构建与CI通过。原NAS页面/PCM、完整双向媒体、正式证书、开机安装/整机恢复、长期验收仍缺，流量等待换卡。下面为历史记录。
 
 最新实证：非 Root Wi-Fi 试连接、真实错误口令/无 IP 临时 profile 和核心 SIGKILL 后 NM 自动恢复通过；USB/WWAN 无线保留，临时 profile/权限规则已清理，不明操作不重试。见 VALIDATION-WIFI-TRIAL-P4A.md。整体约 56%，继续至 75%，蜂窝流量最后测。
 
@@ -9,6 +9,8 @@
 最新实证：10010 真实电话下行经 Opus + DTLS/SRTP 到 NAS 解码成功，150 帧；静音上行、自动挂断、PCM 全关闭、旧四服务 active。见 VALIDATION-RTC-CARRIER-P3E.md。整体约 56%，75% 长任务继续，流量最后测。
 
 # 开发进度
+
+2026-10-14：新有限Wi-Fi配置的实际独立profile连接、owner确认持久保存、Core退出后NM自动重连、错误PSK候选存在时真实SIGKILL恢复及跨重启防重通过；本轮连接既有SSID，不声明不同SSID/热点/未配置首启或完整Core组合已验收。见VALIDATION-WIFI-PROVISION-P4B.md；P4加1至7/12，总体66.5点、约67%。170项本机测试/lint、六个ARM64生产构建及CI38570475237通过。第二轮私有报告passed/cleanup_verified=true，旧profile/WWAN保留、自有配置/规则/服务已清理，旧四服务active、PCMclosed，无新通话/短信/蜂窝测试。继续目标80%。
 
 2026-10-14：d20b9af实现有限NAS桥，530e6f5增加实际观察只读模式与联合Go验收；两轮私有报告passed/cleanup_verified=true。P5加1.5点至5/8，总体65.5点、约66%。源码/源归档/产物核验、本机163项测试、六个ARM64生产release及CI38565794201通过。530e6f5本次增量release34.24秒，不作为全量构建/等功能性能对照。自有单元停止，旧四服务active、PCMclosed，无新拨号/短信/蜂窝测试。下一步NAS页面/媒体整合、网络与完整系统剩余工作；目标80%继续。
 
