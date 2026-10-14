@@ -4,6 +4,7 @@ use std::os::unix::fs::{symlink, PermissionsExt};
 const SOURCE: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 fn fixture() -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
     let root = tempfile::tempdir().unwrap();
+    fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700)).unwrap();
     let input = root.path().join("snapshot.sqlite");
     let db = Connection::open(&input).unwrap();
     db.execute_batch(include_str!("test-schema.sql")).unwrap();

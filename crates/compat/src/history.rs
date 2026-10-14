@@ -244,7 +244,7 @@ fn private_file(path: &Path, write: bool, create: bool) -> Result<File> {
     options
         .read(true)
         .write(write)
-        .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+        .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
         .mode(0o600);
     if create {
         options.create_new(true);
