@@ -71,7 +71,13 @@ async function login(){
 function row(text,parent,onClick){const item=document.createElement('div');item.className='row';const label=document.createElement('span');label.textContent=text;item.append(label);if(onClick){const button=document.createElement('button');button.textContent='查看';button.onclick=()=>act(onClick);item.append(button);}parent.append(item);}
 async function inboxPage(reset=false){if(reset){inboxCursor=null;$('inbox').replaceChildren();}const page=await auth({op:'inbox',after:inboxCursor,limit:16});for(const s of page.messages)row(`${s.id} · SIM 代次 ${s.line}${s.binary?' · 二进制短信':''}`,$('inbox'),async()=>{$('sms-detail').textContent=JSON.stringify(await auth({op:'sms_detail',sms_id:s.id}),null,2);});inboxCursor=page.cursor;$('more-inbox').disabled=page.messages.length<16;}
 async function callsPage(reset=false){if(reset){callsCursor=null;$('calls').replaceChildren();$('call-id').replaceChildren();}const page=await auth({op:'calls',after:callsCursor,limit:16});for(const s of page.calls){row(`${s.id} · ${s.state} · ${s.availability}`,$('calls'));if(s.state!=='ended'){const option=document.createElement('option');option.value=s.id;option.textContent=`${s.state} · ${s.id}`;$('call-id').append(option);}}callsCursor=page.cursor;$('more-calls').disabled=page.calls.length<16;}
-async function refresh(){const line=await auth({op:'line_status'});const call=await auth({op:'call_status'});const network=await auth({op:'network_status'});$('status').textContent=JSON.stringify({line,call,network},null,2);await inboxPage(true);await callsPage(true);}
+async function refresh(){
+ const epoch=viewEpoch;await auth({op:'health'});current(epoch);
+ const line=await auth({op:'line_status'});current(epoch);
+ async function optional(op){try{return await auth({op});}catch(error){current(epoch);return {available:false,reason:'暂不可用或未授予此项权限'};}}
+ const call=await optional('call_status');const network=await optional('network_status');current(epoch);
+ $('status').textContent=JSON.stringify({line,call,network},null,2);await inboxPage(true);await callsPage(true);
+}
 async function sync(){
  let messages=await auth({op:'inbox_events',after:inboxEvents,limit:32});let calls=await auth({op:'call_events',after:callEvents,limit:32});
  inboxEvents=messages.cursor;callEvents=calls.cursor;$('events').textContent=`本次补同步 ${messages.events.length} 条短信事件、${calls.events.length} 条通话事件。`;

@@ -1,6 +1,6 @@
 # RustSimHub 当前接手入口
 
-2026-10-14。用户最新目标约 75%，取代旧目标约 60%；当前实证约 60%，按 PROGRESS-SCALE.md 固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。
+2026-10-14。用户最新要求“帮我把进度推到80%”，取代此前 75%/60% 目标；当前实证约 60%，按 PROGRESS-SCALE.md 固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。
 
 ## 持续约束
 
@@ -18,7 +18,7 @@
 
 ## 当前代码与未完工作
 
-- GitHub 私有 https://github.com/Viper-Boss/RustSimHub，main。e927381 的 CI、ARM64 138 项测试和两组 release 通过；精确 source SHA 为 1db98d42495e57d74c97af9753d201f6f2b38ce3a31378276fe65ab7d33293e6。生产五程序已核验并部署到 /opt/rustsimhub/dev-state-p1-e927381，自有构建容器 exited 0。
+- GitHub 私有 https://github.com/Viper-Boss/RustSimHub，main。e927381 已验收生产五程序在 /opt/rustsimhub/dev-state-p1-e927381，source SHA 为 1db98d42495e57d74c97af9753d201f6f2b38ce3a31378276fe65ab7d33293e6。更新的 8711fba 首启门禁 CI 通过，ARM64 测试/development release 已通过，production Core 仍在构建。不要拿未完成 target/release 部分产物部署。
 - crates/recovery 独立 age 0.11.5 离线 X25519 身份加密/空目录恢复已实机通过。NAS 持有接收者私钥；设备只拿 recipient。错 key/pin/篡改/覆盖拒绝、空目录无写入、身份 pin/原 owner 签名登录/完整收件箱响应一致通过。原目录保持；未验证整机恢复。见 VALIDATION-STATE-RECOVERY-P1C.md。
 - e927381 生产首次签名初始化及实际 9→9 重启去重通过，消息 ID 顺序一致，旧 token 拒绝，重新签名登录成功。.private/firstboot-owner-e927381.json 与 sealed-identity-e927381.json 均 cleanup_verified=true。旧 9→18 是已保留历史失败证据。
 - 重启观察修复和只读 key/lock 加载均在 e927381 实机通过。持久 backend 与实时 fence 分开；退休/未知重置/跨 backend/SIM 仍隔离。仅显式 create/open 允许发布 pending seed；load 不创建、以只读 fd 锁既有文件。没有 schema 升级。
@@ -27,9 +27,10 @@
 ## 下一步顺序
 
 1. 保存新的验收工具/文档及 GitHub 进度，核实源码 CI。已完成的 firstboot/recovery/group 私有报告不能当新的未知硬件操作重试。
-   新增 LocalSetup 门禁与网页首个 owner 正在实现（local-first-owner.md）：只在 --serve-local-setup、空 principals、Core 私有随机码、5 分钟/16 次、设备/浏览器签名条件下启用；普通 IPC 默认拒绝。WebCrypto 新 owner proof 已通过，Linux CI/ARM64/实际浏览器待验证，不加点。
+   新增 LocalSetup 门禁与网页首个 owner 正在验收（local-first-owner.md）：只在 --serve-local-setup、空 principals、Core 私有随机码、5 分钟/16 次、设备/浏览器签名条件下启用；普通 IPC 默认拒绝。8711fba CI 与 ARM64 测试已通过，production 构建/实际浏览器待完成，不加点。ee94e85 首次 CI 失败是同步 main 分支误用 await，已由 runtime.block_on 修复。
+   prepare-browser-owner.py 使用新空库、PrivateDevices 和 /run/dbus 禁止访问，不读取原始短信/电话或其他业务数据。浏览器 UI 验收先限定这个无敏感数据、无硬件权限的测试域。app.js 新增单项状态不可用时仍显示其他状态的修复，尚未进入 8711fba 产物；不能混淆本地 source UI 与已安装 release。
 2. 继续正式首启网页/TLS 交付、开机启动、NAS 兼容、网页写/媒体、新配网和长期验收。手机原生 app 延后。
-3. 目标仍约 75%，不要在 60 的小检查点停止；普通蜂窝流量最后，完整镜像与恢复入口门禁保持。
+3. 目标现为约 80%，不要在 60/75 的小检查点停止；普通蜂窝流量最后，完整镜像与恢复入口门禁保持。
 
 ## 工具与资料位置
 

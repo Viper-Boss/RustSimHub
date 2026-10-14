@@ -1,4 +1,4 @@
-最新（2026-10-14）：整体约 60%。e927381 CI/ARM64、生产首次 owner、短信实际 9→9 重启、加密身份恢复后原 owner 登录/完整 inbox 一致通过。签名应用的非 Root Core/HTTPS、本地仅状态健康客户、实际 UID/空能力集合/挂载隔离、候选 SIGKILL 回退及已确认重启通过。见 VALIDATION-STATE-RECOVERY-P1C.md / VALIDATION-SERVICE-GROUP-P6B.md。正式首启网页、开机安装、完整媒体组与整机恢复仍未完成；75% 长任务继续，蜂窝流量最后。下面为历史记录。
+最新（2026-10-14）：用户目标提高至约 80%，当前整体约 60%。e927381 CI/ARM64、生产首次 owner、短信实际 9→9 重启、加密身份恢复后原 owner 登录/完整 inbox 一致通过。签名应用的非 Root Core/HTTPS、本地仅状态健康客户、实际 UID/空能力集合/挂载隔离、候选 SIGKILL 回退及已确认重启通过。见 VALIDATION-STATE-RECOVERY-P1C.md / VALIDATION-SERVICE-GROUP-P6B.md。8711fba 首启门禁 CI/ARM64 测试已通过，生产构建与无硬件访问的实际浏览器验收继续。正式首启交付、开机安装、完整媒体组与整机恢复仍未完成；蜂窝流量最后。下面为历史记录。
 
 最新实证：非 Root Wi-Fi 试连接、真实错误口令/无 IP 临时 profile 和核心 SIGKILL 后 NM 自动恢复通过；USB/WWAN 无线保留，临时 profile/权限规则已清理，不明操作不重试。见 VALIDATION-WIFI-TRIAL-P4A.md。整体约 56%，继续至 75%，蜂窝流量最后测。
 
