@@ -1,6 +1,6 @@
 # RustSimHub 当前接手入口
 
-2026-10-14。用户最新要求“帮我把进度推到80%”，取代此前 75%/60% 目标；当前实证约 62%（61.5 点），按 PROGRESS-SCALE.md 固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。
+2026-10-14。用户最新要求“帮我把进度推到80%”，取代此前 75%/60% 目标；当前实证约 63%（62.5 点），按 PROGRESS-SCALE.md 固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。
 
 ## 持续约束
 
@@ -25,6 +25,9 @@
 - tools/test-service-group.py / device-service-group.sh / device-group-health.sh 第三轮验收通过：非 Root Core/HTTPS、仅 status.read 本地签名健康客户、实际 UID/空能力集合/挂载隔离、候选 SIGKILL 回退与已确认重启。前两次失败和修正保留；所有自有单元清理，旧四服务 active、PCM closed。见 VALIDATION-SERVICE-GROUP-P6B.md。尚无开机安装或完整媒体组。
 
 ## 下一步顺序
+
+最新：持久 `rustsimhub-history-build-p5` exited 0，完整日志保留 `.private/history-async-complete-8f4d15b.log` 与 NAS build-Cqi2Xu3q/build.log，ARM64 十项测试/release 全通过。产物 SHA 9c88aea0f46b0f24a780edd239a4089504458d1957fbe81b36d8fb804513e14d，.local/artifacts/8f4d15b/rustsimhub-migrate；棒子 /opt/rustsimhub/dev-history-p5-8f4d15b/rustsimhub-migrate。tools/test-history-migration.py 完整旧 schema 合成导入实际通过，.private/history-full-schema-8f4d15b-first.json passed=true/pcm_closed_and_test_units_stopped=true。NAS 与棒子各首次 15、再次 0/unchanged15、源快照不变，独立查询标记/归属及无执行队列通过。P5 当前 2 点，合计 62.5，约 63%。先前下面“构建进行中/待验收/P5 1 点”均为已保留过程；不要重复旧尝试。
+优先继续：授权历史读取/分页和真实旧库副本评估、NAS 在线兼容与限权会话、开机安装/完整服务组、Wi-Fi 新配置/热点及媒体交付。当前仍不是完整系统或 NAS 在线交付，80% 目标保持。
 
 0. 8f4d15b 完整 CI success（38519741620），包括离线历史归档五项关键失败路径。P5 当前计 1 点为原 Go 黄金向量；P7 状态基线加半点，合计 61.5。`.private/status-performance-e927381-first.json` passed/cleanup_verified=true；200 次本地 CLI+IPC 全通过、P95 15.949 ms，Core+Edge RSS 约 10.43 MiB；不是等功能速度对照或长期稳定。见 VALIDATION-STATUS-BASELINE-P7B.md。
    正在运行 `rustsimhub-history-build-p5`，label revision=8f4d15b70ee7ac380d0404cdc770e05a3e298fd8，NAS /mnt/docker-data/rustsimhub/p0/history-build-Cqi2Xu3q。持久离线容器保留终态，不因观察超时重启。工具 nas-start-history-build.sh；之前临时 foreground run-4 的 SSH 超时后旧容器已 collected，未当作成功 release；run-3 因 mtime=0 缓存旧测试拒绝计证。新构建 tar --touch，输入 source SHA 0df653f7810727d1d56ab6da3257bc2a0a09ddcf41a6999a058393750cf6eaff，.local/source-history-p5-private.tar.gz 匹配 8f4d15b。.local/source.tar.gz 仍 8711fba。
