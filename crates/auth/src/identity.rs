@@ -47,7 +47,8 @@ impl Identity {
         let dir = directory.as_ref();
         check(dir, true)?;
         let bytes = encode_seed(&self.signing, b"RSHKEY01");
-        write_private_new(&dir.join("identity.seed"), &bytes)
+        write_private_new(&dir.join("identity.seed"), &bytes)?;
+        write_private_new(&dir.join(".identity.lock"), b"")
     }
     pub fn public_key(&self) -> [u8; 32] {
         self.signing.verifying_key().to_bytes()
@@ -100,10 +101,12 @@ pub(crate) fn open_key(dir: &Path, client: bool, create: bool) -> Result<Signing
     let path = dir.join(seed_name);
     let pending = dir.join(pending_name);
     if !path.try_exists().map_err(|_| Error::Io)? {
+        // Loading is strictly read-only, including an interrupted creation.
+        // Only the explicit create/open path may publish a pending seed.
+        if !create {
+            return Err(Error::Io);
+        }
         if !pending.try_exists().map_err(|_| Error::Io)? {
-            if !create {
-                return Err(Error::Io);
-            }
             let mut seed = Zeroizing::new([0u8; 32]);
             getrandom::fill(seed.as_mut()).map_err(|_| Error::Entropy)?;
             let mut bytes = Zeroizing::new(Vec::with_capacity(72));

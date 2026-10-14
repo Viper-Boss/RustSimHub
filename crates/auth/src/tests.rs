@@ -340,6 +340,9 @@ fn identity_survives_restart_and_complete_pending_creation() {
         dir.path().join("identity.pending"),
     )
     .unwrap();
+    assert!(Identity::load(dir.path()).is_err());
+    assert!(!dir.path().join("identity.seed").exists());
+    assert!(dir.path().join("identity.pending").exists());
     assert_eq!(Identity::open(dir.path()).unwrap().public_key(), first);
     assert!(!dir.path().join("identity.pending").exists());
     assert_ne!(
