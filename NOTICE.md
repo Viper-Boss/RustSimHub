@@ -9,6 +9,12 @@ Rust 实现规范字节、公钥标识、版本方向与有限只读权限映射
 `tools/compat-golden/main.go` 通过未修改的旧 proto 模块生成纯合成向量，
 不复制真实设备身份、NAS 私钥、SIM 或消息数据。Go 模块仅用于对照验收。
 
+离线历史迁移的表/列契约参考本工作区 NasSimHub / ModemDeck 的
+`internal/platform/database/schema.sql`。仅使用数据格式与字段事实；Rust 导入器和合成
+测试 schema 为新增实现，不复制该项目 Go 业务代码、认证实现或密码/会话资料。
+原项目 PolyForm Noncommercial/AGPL 许可证继续有效；不能将完整旧源码、数据库或
+应用直接重新许可为本项目许可证。完整旧 schema 仅在私有验收目录生成合成快照。
+
 设计和硬件接入行为参考了本地 AirSimHub 项目
 `nassimhub-ufi003-firmware-public`：AGPL-3.0-only。保留其来源：
 https://github.com/Viper-Boss/AirSimHub

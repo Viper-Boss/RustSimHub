@@ -2,6 +2,8 @@
 #![forbid(unsafe_code)]
 //! AirSimHub protocol 1.5 contract primitives, not an enabled legacy gateway.
 //! An adapter must use a separately approved NAS principal and enforce live v2 scopes.
+#[cfg(target_os = "linux")]
+pub mod history;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use ed25519_dalek::{Signature, VerifyingKey};
 use rustsimhub_policy::{Kind, Principal, Scope};
