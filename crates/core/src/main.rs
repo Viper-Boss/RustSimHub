@@ -153,6 +153,18 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     identity,
                 ));
             }
+            [command, path, uid, state, identity, secret_file]
+                if command == "--serve-local-setup" =>
+            {
+                return authenticated::serve_setup(
+                    path,
+                    uid.parse()?,
+                    state,
+                    identity,
+                    secret_file,
+                )
+                .await;
+            }
             [command, path, uid, state, identity] if command == "--serve-messaging" => {
                 return runtime.block_on(authenticated::serve_messaging(
                     path,

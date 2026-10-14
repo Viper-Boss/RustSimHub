@@ -24,3 +24,12 @@ const pairing=await challenge({purpose:'pair',generation:0,scopes:11});
 await prove(pairing,pin,pub,client.privateKey,'pair',['status.read','sms.read','calls.read']);
 await assert.rejects(prove(pairing,pin,pub,client.privateKey,'pair',['status.read','sms.send']));
 console.log('Browser proof tests passed: transcript bytes, pin, purpose, principal, scope and generation');
+const bootstrap=await challenge({purpose:'bootstrap',kind:'owner',scopes:1023,generation:0});
+const ownerProof=await prove(bootstrap,pin,pub,client.privateKey,'bootstrap',undefined,'owner');
+assert(await crypto.subtle.verify('Ed25519',client.publicKey,new Uint8Array(ownerProof),new Uint8Array(bootstrap.transcript)));
+await assert.rejects(prove(bootstrap,pin,pub,client.privateKey,'bootstrap'));
+for(const overrides of [{generation:1},{scopes:11},{kind:'client'},{purpose:'recover_owner'}]) {
+ await assert.rejects(prove(await challenge({purpose:'bootstrap',kind:'owner',scopes:1023,generation:0,...overrides}),pin,pub,client.privateKey,'bootstrap',undefined,'owner'));
+}
+await prove(await challenge({kind:'owner',scopes:1023}),pin,pub,client.privateKey,'login',undefined,'owner');
+console.log('Browser first-owner proof tests passed: signed owner role, full scope, bootstrap generation and purpose');

@@ -3,6 +3,7 @@
 //! Serialized by core on a blocking worker. No remote-supplied clock or role.
 mod client;
 mod identity;
+mod setup;
 pub use client::{ClientKey, ProofExpectation};
 use ed25519_dalek::{Signature, VerifyingKey};
 pub use identity::{read_private, write_private_new};
@@ -10,6 +11,7 @@ pub use identity::{Identity, SimFingerprinter};
 use rustsimhub_policy::{allows, mask, Kind, Principal, Scope, ALL_SCOPES};
 use rustsimhub_storage::Handle;
 use serde::{Deserialize, Serialize};
+pub use setup::LocalSetup;
 use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
@@ -300,7 +302,8 @@ impl Auth {
         );
         Ok(reply)
     }
-    /// Offline provisioning API. It is deliberately absent from the IPC command enum.
+    /// Offline provisioning primitive. Ordinary IPC denies it; an explicit
+    /// LocalSetup window additionally requires the private out-of-band code.
     pub fn bootstrap_challenge(&mut self, key: [u8; 32]) -> Result<Challenge> {
         self.challenge(key, Kind::Owner, ALL_SCOPES, 0, Purpose::Bootstrap)
     }

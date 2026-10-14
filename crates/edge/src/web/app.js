@@ -31,10 +31,30 @@ async function initialize(){
  key=await stored('key');if(!key){key=await crypto.subtle.generateKey({name:'Ed25519'},false,['sign','verify']);await save('key',key);}
  publicKey=new Uint8Array(await crypto.subtle.exportKey('raw',key.publicKey));
  $('client-key').textContent='浏览器公钥：'+hex(publicKey);$('pin').value=await stored('pin')||'';pending=await stored('pending')||null;showPending();
+ const identity=await api({op:'identity'});$('first-setup').hidden=identity.owner_setup_available!==true;
 }
 async function proof(challenge,purpose,pairScopes,epoch=viewEpoch){
- const pin=unhex($('pin').value.trim());const signature=await prove(challenge,pin,publicKey,key.privateKey,purpose,pairScopes);current(epoch);
+ let expectedKind=purpose==='bootstrap'?'owner':'client';
+ if(purpose==='login'){
+  if(!Array.isArray(challenge.transcript)||challenge.transcript.length>4096)throw Error('挑战格式无效');
+  // This selects the expected signed shape; prove still verifies device pin,
+  // exact transcript, client key and role before producing any signature.
+  const claimed=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(new Uint8Array(challenge.transcript))).kind;
+  if(!['client','owner'].includes(claimed))throw Error('浏览器登录身份不支持');expectedKind=claimed;
+ }
+ const pin=unhex($('pin').value.trim());const signature=await prove(challenge,pin,publicKey,key.privateKey,purpose,pairScopes,expectedKind);current(epoch);
  await save('pin',hex(pin));current(epoch);return signature;
+}
+async function initializeOwner(){
+ const epoch=viewEpoch;const setup_code=$('setup-code').value.trim().toLowerCase();
+ if(!/^[a-f0-9]{64}$/.test(setup_code))throw Error('请填写可信维护入口提供的临时设置码');
+ const c=await api({op:'setup_challenge',setup_code,public_key:Array.from(publicKey)},epoch);
+ const signature=await proof(c,'bootstrap',undefined,epoch);current(epoch);
+ $('setup-code').value='';
+ const result=await api({op:'setup_finish',setup_code,challenge_id:c.id,signature},epoch);
+ if(result.owner_initialized!==true)throw Error('首次设置结果尚未确认，请尝试正常登录；不要重复初始化');
+ $('first-setup').hidden=true;
+ notice('第一个所有者已初始化；此浏览器钥匙请妥善保留');await login();
 }
 async function pair(){
  const epoch=viewEpoch;const desired=$('write-scope').checked?[...scopes,'sms.send','calls.control']:scopes;
@@ -82,7 +102,7 @@ async function submit(){
 async function query(){const epoch=viewEpoch;if(!pending)return;const r=await auth({op:pending.type==='sms'?'sms_operation':'call_operation',operation_id:pending.id});if(r.lease)lease=r.lease;const operation=pending.type==='call'?r.operation:r;pending.state=operation.state;await save('pending',pending);current(epoch);showPending();notice('操作状态：'+operation.state+'；没有重复提交');}
 async function act(fn){if(busy)return;const generation=++actionGeneration,epoch=viewEpoch;busy=true;try{await fn();}catch(error){if(epoch===viewEpoch&&generation===actionGeneration)notice(error.message||'操作失败');}finally{if(generation===actionGeneration){busy=false;showPending();}}}
 function bind(id,fn){$(id).onclick=()=>act(fn);}
-bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;for(const id of ['sms-detail','recipient','text','number','dtmf','events']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
+bind('initialize-owner',initializeOwner);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
 bind('more-inbox',()=>inboxPage());bind('more-calls',()=>callsPage());bind('prepare-sms',()=>prepare('sms','send'));for(const action of ['dial','accept','hangup','dtmf'])bind('prepare-'+action,()=>prepare('call',action));bind('submit',submit);bind('query',query);bind('clear',async()=>{if(!pending||!['submitted','cancelled'].includes(pending.state))throw Error('当前结果必须保留查询');pending=null;await save('pending',null);showPending();});
 setInterval(()=>{if(token&&lease&&!busy)act(async()=>{try{const r=await auth({op:'renew_call',lease});lease=r.lease;$('lease').textContent='控制租约已续期';}catch(e){lease=null;$('lease').textContent='控制租约已失效；核心清理正在处理';throw e;}});},10000);
 initialize().catch(error=>notice('初始化失败：'+error.message));

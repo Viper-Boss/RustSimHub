@@ -56,9 +56,18 @@ fn directory() -> tempfile::TempDir {
     d
 }
 async fn round_trip(command: AuthCommand, auth: Arc<Mutex<Auth>>) -> Value {
+    round_trip_setup(command, auth, None).await
+}
+async fn round_trip_setup(
+    command: AuthCommand,
+    auth: Arc<Mutex<Auth>>,
+    setup: Option<Arc<Mutex<rustsimhub_auth::LocalSetup>>>,
+) -> Value {
     let (mut sender, mut receiver) = UnixStream::pair().unwrap();
     let task = tokio::spawn(async move {
-        handle(&mut receiver, auth, None, None, None).await.unwrap();
+        handle(&mut receiver, auth, None, None, None, setup)
+            .await
+            .unwrap();
     });
     let req = rustsimhub_wire::AuthRequest {
         protocol: 2,
@@ -72,6 +81,83 @@ async fn round_trip(command: AuthCommand, auth: Arc<Mutex<Auth>>) -> Value {
         serde_json::from_slice(&read_frame(&mut sender).await.unwrap()).unwrap();
     task.await.unwrap();
     response.result
+}
+#[tokio::test]
+async fn setup_ipc_is_opt_in_private_code_bound_signed_and_cannot_replace_owner() {
+    let d = directory();
+    let i = directory();
+    let config = directory();
+    let store = Store::open(d.path()).unwrap();
+    let auth = Arc::new(Mutex::new(Auth::open(i.path(), store.handle()).unwrap()));
+    let key = SigningKey::from_bytes(&[72; 32]);
+    let public = key.verifying_key().to_bytes();
+    let code = "0b".repeat(32);
+    let request = || AuthCommand::SetupChallenge {
+        setup_code: code.clone(),
+        public_key: public,
+    };
+    assert!(round_trip(request(), auth.clone())
+        .await
+        .get("error")
+        .is_some());
+    assert_eq!(
+        round_trip(AuthCommand::Identity {}, auth.clone()).await["owner_setup_available"],
+        false
+    );
+    let path = config.path().join("setup.code");
+    rustsimhub_auth::write_private_new(&path, &[11; 32]).unwrap();
+    let setup = Some(Arc::new(Mutex::new(
+        rustsimhub_auth::LocalSetup::load(&path).unwrap(),
+    )));
+    let bad = round_trip_setup(
+        AuthCommand::SetupChallenge {
+            setup_code: "00".repeat(32),
+            public_key: public,
+        },
+        auth.clone(),
+        setup.clone(),
+    )
+    .await;
+    assert!(bad.get("error").is_some());
+    let c: rustsimhub_auth::Challenge =
+        serde_json::from_value(round_trip_setup(request(), auth.clone(), setup.clone()).await)
+            .unwrap();
+    let signature = key.sign(&c.transcript).to_bytes().to_vec();
+    let finish = || AuthCommand::SetupFinish {
+        setup_code: code.clone(),
+        challenge_id: c.id.clone(),
+        signature: signature.clone(),
+    };
+    assert_eq!(
+        round_trip_setup(finish(), auth.clone(), setup.clone()).await["owner_initialized"],
+        true
+    );
+    assert!(round_trip_setup(finish(), auth.clone(), setup.clone())
+        .await
+        .get("error")
+        .is_some());
+    assert!(round_trip_setup(request(), auth.clone(), setup.clone())
+        .await
+        .get("error")
+        .is_some());
+    assert_eq!(
+        round_trip_setup(AuthCommand::Identity {}, auth.clone(), setup).await
+            ["owner_setup_available"],
+        false
+    );
+    let c: rustsimhub_auth::Challenge = serde_json::from_value(
+        round_trip(AuthCommand::Challenge { public_key: public }, auth.clone()).await,
+    )
+    .unwrap();
+    let result = round_trip(
+        AuthCommand::Authenticate {
+            challenge_id: c.id,
+            signature: key.sign(&c.transcript).to_bytes().to_vec(),
+        },
+        auth,
+    )
+    .await;
+    assert!(result["token"].as_str().is_some_and(|v| v.len() == 64));
 }
 #[tokio::test]
 async fn ipc_requires_proof_and_checks_revocation_even_from_same_uid() {
@@ -251,5 +337,5 @@ async fn authenticated_endpoint_rejects_legacy_protocol_without_upgrade() {
     write_frame(&mut tx, br#"{"protocol":1,"id":"a","command":"health"}"#)
         .await
         .unwrap();
-    assert!(handle(&mut rx, a, None, None, None).await.is_err());
+    assert!(handle(&mut rx, a, None, None, None, None).await.is_err());
 }

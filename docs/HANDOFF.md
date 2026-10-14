@@ -27,6 +27,7 @@
 ## 下一步顺序
 
 1. 保存新的验收工具/文档及 GitHub 进度，核实源码 CI。已完成的 firstboot/recovery/group 私有报告不能当新的未知硬件操作重试。
+   新增 LocalSetup 门禁与网页首个 owner 正在实现（local-first-owner.md）：只在 --serve-local-setup、空 principals、Core 私有随机码、5 分钟/16 次、设备/浏览器签名条件下启用；普通 IPC 默认拒绝。WebCrypto 新 owner proof 已通过，Linux CI/ARM64/实际浏览器待验证，不加点。
 2. 继续正式首启网页/TLS 交付、开机启动、NAS 兼容、网页写/媒体、新配网和长期验收。手机原生 app 延后。
 3. 目标仍约 75%，不要在 60 的小检查点停止；普通蜂窝流量最后，完整镜像与恢复入口门禁保持。
 

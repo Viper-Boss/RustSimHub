@@ -16,7 +16,9 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth::Result<Value> {
     use AuthCommand::*;
     Ok(match command {
-        PrepareSms { .. }
+        SetupChallenge { .. }
+        | SetupFinish { .. }
+        | PrepareSms { .. }
         | SubmitSms { .. }
         | SmsOperation { .. }
         | CallStatus { .. }
@@ -114,9 +116,12 @@ pub(crate) async fn handle(
     metrics: Option<crate::observer::Metrics>,
     sender: Option<crate::sender::Controller>,
     calls: Option<crate::calls::Controller>,
+    setup: Option<Arc<Mutex<rustsimhub_auth::LocalSetup>>>,
 ) -> Result<()> {
     let body = timeout(Duration::from_secs(5), read_frame(stream)).await??;
     let request = parse_auth_request(&body)?;
+    let identity_request = matches!(request.command, AuthCommand::Identity {});
+    let setup_metadata = setup.clone();
     let calling_enabled = calls.as_ref().is_some_and(|c| c.controls());
     let calls_observed = calls.is_some();
     let messaging_enabled = sender.is_some();
@@ -138,7 +143,33 @@ pub(crate) async fn handle(
             | AuthCommand::RenewCall { .. }
             | AuthCommand::IssueMedia { .. }
     );
-    let result = if let AuthCommand::NetworkStatus { token } = request.command {
+    let result = if matches!(
+        request.command,
+        AuthCommand::SetupChallenge { .. } | AuthCommand::SetupFinish { .. }
+    ) {
+        tokio::task::spawn_blocking(move || {
+            let setup = setup.ok_or(rustsimhub_auth::Error::Forbidden)?;
+            let mut auth = auth.try_lock().map_err(|_| rustsimhub_auth::Error::Busy)?;
+            let mut gate = setup.try_lock().map_err(|_| rustsimhub_auth::Error::Busy)?;
+            match request.command {
+                AuthCommand::SetupChallenge {
+                    setup_code,
+                    public_key,
+                } => serde_json::to_value(gate.begin(&mut auth, &setup_code, public_key)?)
+                    .map_err(|_| rustsimhub_auth::Error::InvalidInput),
+                AuthCommand::SetupFinish {
+                    setup_code,
+                    challenge_id,
+                    signature,
+                } => {
+                    gate.finish(&mut auth, &setup_code, &challenge_id, &signature)?;
+                    Ok(json!({"ok":true,"owner_initialized":true}))
+                }
+                _ => Err(rustsimhub_auth::Error::Forbidden),
+            }
+        })
+        .await?
+    } else if let AuthCommand::NetworkStatus { token } = request.command {
         crate::network::authorized(auth.clone(), token).await
     } else if let AuthCommand::WifiTrial {
         token,
@@ -182,6 +213,12 @@ pub(crate) async fn handle(
             Err(_) => json!({"ok":false,"error":"modem_unavailable"}),
         },
         Ok(mut value) => {
+            if identity_request {
+                value["owner_setup_available"] = setup_metadata
+                    .as_ref()
+                    .is_some_and(|s| s.try_lock().is_ok_and(|g| g.available()))
+                    .into();
+            }
             if health && crate::network_trial::enabled() {
                 value = json!({"ok":true,"mode":"authenticated_saved_wifi_trial","write_api":true,"saved_wifi_trial_api":true});
             } else if health && calling_enabled {
@@ -226,7 +263,10 @@ pub async fn serve_media(
         state,
         identity,
         (true, true, 2),
-        Some((media_socket, media_uid)),
+        RuntimeExtras {
+            media: Some((media_socket, media_uid)),
+            setup: None,
+        },
         async move {
             tokio::select! {_=term.recv()=>{},_=interrupt.recv()=>{}}
         },
@@ -235,6 +275,32 @@ pub async fn serve_media(
 }
 pub async fn serve_observing(socket: &str, uid: u32, state: &str, identity: &str) -> Result<()> {
     serve_mode(socket, uid, state, identity, (true, false, 0)).await
+}
+pub async fn serve_setup(
+    socket: &str,
+    uid: u32,
+    state: &str,
+    identity: &str,
+    secret_file: &str,
+) -> Result<()> {
+    use tokio::signal::unix::{signal, SignalKind};
+    let mut term = signal(SignalKind::terminate())?;
+    let mut interrupt = signal(SignalKind::interrupt())?;
+    serve_inner_media(
+        socket,
+        uid,
+        state,
+        identity,
+        (true, false, 1),
+        RuntimeExtras {
+            media: None,
+            setup: Some(secret_file),
+        },
+        async move {
+            tokio::select! {_=term.recv()=>{},_=interrupt.recv()=>{}}
+        },
+    )
+    .await
 }
 pub async fn serve_messaging(socket: &str, uid: u32, state: &str, identity: &str) -> Result<()> {
     serve_mode(socket, uid, state, identity, (true, true, 0)).await
@@ -301,10 +367,15 @@ async fn serve_inner(
         state,
         identity,
         (observing, messaging, call_mode),
-        None,
+        RuntimeExtras::default(),
         stop,
     )
     .await
+}
+#[derive(Default)]
+struct RuntimeExtras<'a> {
+    media: Option<(&'a str, u32)>,
+    setup: Option<&'a str>,
 }
 async fn serve_inner_media(
     socket: &str,
@@ -312,16 +383,25 @@ async fn serve_inner_media(
     state: &str,
     identity: &str,
     (observing, messaging, call_mode): (bool, bool, u8),
-    media_config: Option<(&str, u32)>,
+    extras: RuntimeExtras<'_>,
     stop: impl std::future::Future<Output = ()>,
 ) -> Result<()> {
     let (state, identity) = (state.to_owned(), identity.to_owned());
-    let (store, auth) = tokio::task::spawn_blocking(move || -> rustsimhub_auth::Result<_> {
-        let store = Store::open(state)?;
-        let auth = Auth::open(identity, store.handle())?;
-        Ok((store, Arc::new(Mutex::new(auth))))
-    })
-    .await??;
+    let setup_file = extras.setup.map(str::to_owned);
+    let (store, auth, setup) =
+        tokio::task::spawn_blocking(move || -> rustsimhub_auth::Result<_> {
+            let store = Store::open(state)?;
+            let auth = Auth::open(identity, store.handle())?;
+            let setup = setup_file
+                .map(|path| {
+                    let gate = rustsimhub_auth::LocalSetup::load(std::path::Path::new(&path))?;
+                    gate.require_empty(&auth)?;
+                    Ok::<_, rustsimhub_auth::Error>(Arc::new(Mutex::new(gate)))
+                })
+                .transpose()?;
+            Ok((store, Arc::new(Mutex::new(auth)), setup))
+        })
+        .await??;
     let (listener, runtime) =
         crate::socket_runtime::SocketRuntime::bind(std::path::Path::new(socket))?;
     let limit = Arc::new(Semaphore::new(8));
@@ -340,8 +420,8 @@ async fn serve_inner_media(
         boot,
         call_mode == 2,
     );
-    call_worker.media_enabled = media_config.is_some();
-    let (media_listener, media_runtime, media_uid) = match media_config {
+    call_worker.media_enabled = extras.media.is_some();
+    let (media_listener, media_runtime, media_uid) = match extras.media {
         Some((path, uid)) => {
             let (listener, runtime) = crate::media_ipc::bind(path)?;
             (Some(listener), Some(runtime), uid)
@@ -425,10 +505,11 @@ async fn serve_inner_media(
         let metrics = metrics.clone();
         let sender = sender.clone();
         let calls = calls.clone();
+        let setup = setup.clone();
         tasks.spawn(async move {
             let _ = timeout(
                 Duration::from_secs(15),
-                handle(&mut stream, auth, Some(metrics), sender, calls),
+                handle(&mut stream, auth, Some(metrics), sender, calls, setup),
             )
             .await;
             drop(permit);
@@ -461,7 +542,7 @@ async fn serve_inner_media(
     drop(media_runtime);
     result
 }
-/// Explicit offline terminal provisioning. No bootstrap operation is accepted over IPC.
+/// Explicit offline terminal provisioning; ordinary IPC still denies bootstrap.
 pub fn provision(state: &str, identity: &str, key: &str) -> Result<()> {
     offline_owner(state, identity, key, false)
 }

@@ -15,6 +15,15 @@ pub struct AuthRequest {
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AuthCommand {
     Identity {},
+    SetupChallenge {
+        setup_code: String,
+        public_key: [u8; 32],
+    },
+    SetupFinish {
+        setup_code: String,
+        challenge_id: String,
+        signature: Vec<u8>,
+    },
     Challenge {
         public_key: [u8; 32],
     },
@@ -156,6 +165,20 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         return Err(invalid());
     }
     match &req.command {
+        AuthCommand::SetupChallenge { setup_code, .. }
+        | AuthCommand::SetupFinish { setup_code, .. } => {
+            if setup_code.len() != 64
+                || !setup_code
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            {
+                return Err(invalid());
+            }
+            let invalid_finish = matches!(&req.command,AuthCommand::SetupFinish {challenge_id,signature,..} if challenge_id.len()!=64 || !challenge_id.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) || signature.len()!=64);
+            if invalid_finish {
+                return Err(invalid());
+            }
+        }
         AuthCommand::WifiTrial {
             token,
             idempotency_key,
