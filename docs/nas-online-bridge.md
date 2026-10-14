@@ -8,10 +8,13 @@
 
 ```text
 --serve-media-compat SOCKET UID STATE IDENTITY MEDIA_SOCKET MEDIA_UID COMPAT_DIR
+--serve-observing-compat SOCKET UID STATE IDENTITY COMPAT_DIR
 --serve-media-all SOCKET UID STATE IDENTITY MEDIA_SOCKET MEDIA_UID ARCHIVE_DIR ACCESS_DIR COMPAT_DIR
 ```
 
 Edge 私有配置加 `"legacy_compat":true`。继续使用严格HTTPS，不添加明文监听，不绑定蜂窝公网，不激活普通APN。
+
+observing模式读取实际SIM/收件箱/通话观察状态，同时在Core层关闭短信发送和呼叫控制；不能把owner权限用来绕过这个运行模式。
 
 先通过现有v2配对将独立NAS公钥批准为kind=nas；设备身份钥匙不复制到NAS。5分钟内重新登录的owner调用 `bind_legacy`，明确 core_id、NAS public_key、expected_generation、scopes（status.read/sms.read/calls.read的非空子集）。返回 binding_epoch；每次绑定更新epoch并清理旧NAS会话。普通客户端与owner本人不能被当作NAS。`revoke_legacy` 撤销指定映射。
 

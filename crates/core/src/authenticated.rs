@@ -387,6 +387,32 @@ pub async fn serve_media_bundle(
 pub async fn serve_observing(socket: &str, uid: u32, state: &str, identity: &str) -> Result<()> {
     serve_mode(socket, uid, state, identity, (true, false, 0)).await
 }
+pub async fn serve_observing_compat(
+    socket: &str,
+    uid: u32,
+    state: &str,
+    identity: &str,
+    compat: &str,
+) -> Result<()> {
+    use tokio::signal::unix::{signal, SignalKind};
+    let mut term = signal(SignalKind::terminate())?;
+    let mut interrupt = signal(SignalKind::interrupt())?;
+    serve_inner_media(
+        socket,
+        uid,
+        state,
+        identity,
+        (true, false, 1),
+        RuntimeExtras {
+            compat: Some(compat),
+            ..RuntimeExtras::default()
+        },
+        async move {
+            tokio::select! {_=term.recv()=>{},_=interrupt.recv()=>{}}
+        },
+    )
+    .await
+}
 pub async fn serve_setup(
     socket: &str,
     uid: u32,
