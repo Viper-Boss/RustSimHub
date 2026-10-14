@@ -1,6 +1,6 @@
 # RustSimHub 当前接手入口
 
-2026-10-14。用户最新要求“帮我把进度推到80%”，取代此前 75%/60% 目标；当前实证约 63%（62.5 点），按 PROGRESS-SCALE.md 固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。
+2026-10-14。用户最新要求“帮我把进度推到80%”，取代此前75%/60%目标；当前实证约64%（63.5点），按PROGRESS-SCALE.md固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。
 
 ## 持续约束
 
@@ -51,6 +51,6 @@
 
 ## 中断后工作区检查（2026-10-14）
 
-当前已验收仍 62.5 点、约63%，main 最后稳定提交66cefa8。未提交改动为历史读取/授权实现：domain/history.rs、compat/history/reader.rs、core/history_api.rs、Auth公开的近期owner/当前principal/realm读取、wire新增历史命令及依赖声明。尚未接入Core runtime/main，也未补齐Cargo.lock、分页/授权测试与实机验收；不计进度。恢复时先完成运行时接线、默认模式拒绝分支、绑定/撤销/跨用户隔离和分页测试，再进行CI/ARM64/设备验收。不要把这些工作区改动当成已能运行的新版本，不要丢弃或重做已经通过的合成迁移和状态性能基线。
+历史读取/授权已在a5e4eb7实现、接线并通过157项本机测试/lint、ARM生产构建、CI38547240598与组合Core/HTTPS实测。工作区旧WIP已提交，不再需要重做接线。见history-query.md与VALIDATION-HISTORY-P5B.md。新产物.local/wsl-artifacts-a5e4eb7f0f38581915fb9124160fed1b06f4f584，源hash7f7de34cb6278521e80644ae9d8f606bacc613811a8c5fd5f4a194a6e7859d17；.private/history-api-a5e4eb7-fifth.json passed/cleanup_verified=true，原始数据/硬件访问均关闭。当前约64%；下一步真实旧NAS库边界与NAS在线兼容、音频/网络/系统安装剩余工作。
 
-2026-10-14 本机构建更新：稳定源码8f4d15b 的151项Linux测试、六程序ARM64生产release及NAS Debian13容器/棒子非Root运行自检通过。产物在.local/wsl-artifacts-8f4d15b70ee7ac380d0404cdc770e05a3e298fd8，完整报告.private/local-arm-runtime-8f4d15b-second.json passed/cleanup_verified=true。本机Rust/下载包在.local/wsl-cross，GNU工具链及target在WSL用户~/.cache/rustsimhub；/tmp是易失tmpfs，不能跨会话保存工具链。前述WIP Rust仍未提交且未包含在本次构建内。构建优化不增加进度点数，仍约63%。后续先接线历史查询，再利用新的本机构建流程；保留.source归档及旧已验收部署。
+2026-10-14 本机构建更新：稳定8f4d15b的151项测试/六程序ARM自检先通过，历史查询a5e4eb7现在也用同一流程通过。Rust/下载包在.local/wsl-cross，GNU工具链及target在WSL用户~/.cache/rustsimhub；/tmp是易失tmpfs。原先WIP现在已包含在a5e4eb7归档与产物。构建优化不增加进度点数。保留.source.tar.gz原有8711fba归属、独立命名的新源归档、旧已验收部署和失败证据。
