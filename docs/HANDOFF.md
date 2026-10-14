@@ -1,6 +1,6 @@
 # RustSimHub 当前接手入口
 
-2026-10-14。用户最新要求“帮我把进度推到80%”，取代此前 75%/60% 目标；当前实证约 60%，按 PROGRESS-SCALE.md 固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。
+2026-10-14。用户最新要求“帮我把进度推到80%”，取代此前 75%/60% 目标；当前实证约 62%（61.5 点），按 PROGRESS-SCALE.md 固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。
 
 ## 持续约束
 
@@ -25,6 +25,10 @@
 - tools/test-service-group.py / device-service-group.sh / device-group-health.sh 第三轮验收通过：非 Root Core/HTTPS、仅 status.read 本地签名健康客户、实际 UID/空能力集合/挂载隔离、候选 SIGKILL 回退与已确认重启。前两次失败和修正保留；所有自有单元清理，旧四服务 active、PCM closed。见 VALIDATION-SERVICE-GROUP-P6B.md。尚无开机安装或完整媒体组。
 
 ## 下一步顺序
+
+0. 8f4d15b 完整 CI success（38519741620），包括离线历史归档五项关键失败路径。P5 当前计 1 点为原 Go 黄金向量；P7 状态基线加半点，合计 61.5。`.private/status-performance-e927381-first.json` passed/cleanup_verified=true；200 次本地 CLI+IPC 全通过、P95 15.949 ms，Core+Edge RSS 约 10.43 MiB；不是等功能速度对照或长期稳定。见 VALIDATION-STATUS-BASELINE-P7B.md。
+   正在运行 `rustsimhub-history-build-p5`，label revision=8f4d15b70ee7ac380d0404cdc770e05a3e298fd8，NAS /mnt/docker-data/rustsimhub/p0/history-build-Cqi2Xu3q。持久离线容器保留终态，不因观察超时重启。工具 nas-start-history-build.sh；之前临时 foreground run-4 的 SSH 超时后旧容器已 collected，未当作成功 release；run-3 因 mtime=0 缓存旧测试拒绝计证。新构建 tar --touch，输入 source SHA 0df653f7810727d1d56ab6da3257bc2a0a09ddcf41a6999a058393750cf6eaff，.local/source-history-p5-private.tar.gz 匹配 8f4d15b。.local/source.tar.gz 仍 8711fba。
+   等上述容器 exited 0，保存 docker logs 与 build-info/文件 hash，取回 rustsimhub-migrate；然后 tools/test-history-migration.py --nas --device --binary --archive --revision 8f4d15b --legacy-schema ../nassimhub/internal/platform/database/schema.sql --report 新私有 JSON。完整旧 schema 合成构造/外键检查已本地通过；工具最新修正尚需提交。第一次实现 SQLite u64/usize FromSql 编译失败由 i64 检查转换修正，首次测试私有目录权限由显式 0700 修正，失败证据保留。不能将此归档宣称为真实旧库迁移或已运行 NAS 网关；后续接入授权查询与在线兼容。
 
 1. 保存新的验收工具/文档及 GitHub 进度，核实源码 CI。已完成的 firstboot/recovery/group 私有报告不能当新的未知硬件操作重试。
    LocalSetup 门禁（local-first-owner.md）：仅 --serve-local-setup、空 principals、Core 私有随机码、5 分钟/16 次、签名条件启用。8711fba 生产 HTTPS API 已通过，.private/local-owner-api-8711fba-second.json passed=true；错误码/角色/签名/重放/替换 owner 拒绝，正确初始化后签名登录通过，无原始数据/硬件访问。实际浏览器仍未通过，不加点。ee94e85 的 await CI 失败已由 8711fba runtime.block_on 修复。

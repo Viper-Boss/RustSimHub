@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Actual NAS/stick acceptance using the legacy full schema and synthetic history only."""
-import argparse,hashlib,json,pathlib,re,shlex,sqlite3,subprocess,sys,tempfile
+import argparse,contextlib,hashlib,json,pathlib,re,shlex,sqlite3,sys,tempfile
 ROOT=pathlib.Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'.local/python-deps'))
 import paramiko
 p=argparse.ArgumentParser(description=__doc__)
@@ -22,16 +22,20 @@ def run(client,script,sudo=False,expected=0):
 def value(raw):return json.loads(next(line for line in reversed(raw.splitlines()) if line.startswith('{')))
 try:
  with tempfile.TemporaryDirectory(prefix='history-fixture-',dir=ROOT/'.private') as local:
-  local=pathlib.Path(local);snapshot=local/'snapshot.sqlite';db=sqlite3.connect(snapshot);db.execute('PRAGMA foreign_keys=ON');db.executescript(schema)
-  db.executemany("INSERT INTO modemdeck_users(id,username,password_hash,role) VALUES(?,?,?,'member')",[(u,u,'SYNTHETIC_SECRET_NOT_IMPORTED') for u in ['legacy_user_a','legacy_user_b']])
-  # Independent original schema, not the Rust importer's projection-based unit fixture.
-  db.execute("INSERT INTO modemdeck_lines(line_id,line_label) VALUES('line_synthetic','合成线路')")
-  inserts=(ROOT/'crates/compat/src/history/test-schema.sql').read_text(encoding='utf-8').split('INSERT INTO modemdeck_admin_credentials',1)[1]
-  inserts='INSERT INTO modemdeck_admin_credentials'+inserts
-  inserts=inserts.replace("INSERT INTO modemdeck_lines(line_id,line_label) VALUES('line_synthetic','合成线路');",'')
-  # The original schema requires updated_at/assigned_at, unlike the nullable unit fixture.
-  inserts='\n'.join(line.replace(',NULL)',",'2026-10-14T00:00:00Z')") if line.startswith('INSERT INTO modemdeck_user_') else line for line in inserts.splitlines())
-  db.executescript(inserts);assert db.execute('PRAGMA foreign_key_check').fetchall()==[];db.commit();db.close()
+  local=pathlib.Path(local);snapshot=local/'snapshot.sqlite'
+  with contextlib.closing(sqlite3.connect(snapshot)) as db:
+   db.execute('PRAGMA foreign_keys=ON');db.executescript(schema)
+   db.executemany("INSERT INTO modemdeck_users(id,username,password_hash,role) VALUES(?,?,?,'member')",[(u,u,'SYNTHETIC_SECRET_NOT_IMPORTED') for u in ['legacy_user_a','legacy_user_b']])
+   # Independent original schema, not the Rust importer's projection-based unit fixture.
+   db.execute("INSERT INTO modemdeck_lines(line_id,line_label) VALUES('line_synthetic','合成线路')")
+   inserts=(ROOT/'crates/compat/src/history/test-schema.sql').read_text(encoding='utf-8').split('INSERT INTO modemdeck_admin_credentials',1)[1]
+   inserts='INSERT INTO modemdeck_admin_credentials'+inserts
+   inserts=inserts.replace('INSERT INTO modemdeck_admin_credentials VALUES','INSERT INTO modemdeck_admin_credentials(singleton,username,password_hash) VALUES')
+   inserts=inserts.replace('INSERT INTO sms_contacts(line_id,peer,','INSERT INTO sms_contacts(line_id,imsi,peer,').replace("VALUES('line_synthetic','+12025550123',44", "VALUES('line_synthetic','001010123456789','+12025550123',44")
+   inserts=inserts.replace("INSERT INTO modemdeck_lines(line_id,line_label) VALUES('line_synthetic','合成线路');",'')
+   # The original schema requires updated_at/assigned_at, unlike the nullable unit fixture.
+   inserts='\n'.join(line.replace(',NULL)',",'2026-10-14T00:00:00Z')") if line.startswith('INSERT INTO modemdeck_user_') else line for line in inserts.splitlines())
+   db.executescript(inserts);assert db.execute('PRAGMA foreign_key_check').fetchall()==[];db.commit()
   initial=hashlib.sha256(snapshot.read_bytes()).hexdigest();report['snapshot_sha256']=initial
   nas=connect(nc);raw=run(nas,'d=$(mktemp -d /mnt/docker-data/rustsimhub/p0/history-accept-XXXXXXXX);printf "BASE=%s\\n" "$d"');match=re.search(r'BASE=(/mnt/docker-data/rustsimhub/p0/history-accept-[A-Za-z0-9]{8})',raw);assert match;base=match[1];report['nas_directory']=base
   with nas.open_sftp() as sf:
