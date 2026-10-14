@@ -1629,6 +1629,7 @@ dependencies = [
  "getrandom 0.4.3",
  "hmac",
  "rustix",
+ "rustsimhub-domain",
  "rustsimhub-policy",
  "rustsimhub-storage",
  "serde",
@@ -1645,6 +1646,7 @@ dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
  "fs2",
+ "getrandom 0.4.3",
  "rusqlite",
  "rustix",
  "rustsimhub-domain",
@@ -1653,12 +1655,15 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "tempfile",
+ "time",
+ "zeroize",
 ]
 
 [[package]]
 name = "rustsimhub-core"
 version = "0.1.0"
 dependencies = [
+ "base64 0.23.1",
  "ed25519-dalek",
  "fs2",
  "futures-lite",
@@ -1675,6 +1680,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "tempfile",
+ "time",
  "tokio",
  "zbus",
 ]

@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+rustsimhub-domain = { path = "../domain" }
 rustsimhub-policy = { path = "../policy" }
 rustsimhub-storage = { path = "../storage" }
 ed25519-dalek = { version = "2.2", features = ["zeroize"] }

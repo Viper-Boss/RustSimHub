@@ -240,6 +240,43 @@ impl Auth {
             .filter(|p| p.active)
             .ok_or(Error::Forbidden)
     }
+    /// A separate legacy session authority checks its bearer before using these
+    /// views. Still recheck the exact live NAS principal; no identity inferred from IPC UID.
+    pub fn nas_read(
+        &self,
+        p: &Principal,
+        entity: rustsimhub_domain::NasEntity,
+        after: Option<rustsimhub_storage::InboxCursor>,
+        limit: usize,
+        id: Option<String>,
+    ) -> Result<serde_json::Value> {
+        use rustsimhub_domain::NasEntity;
+        let scope = match entity {
+            NasEntity::Status => Scope::StatusRead,
+            NasEntity::Calls => Scope::CallsRead,
+            _ => Scope::SmsRead,
+        };
+        if p.kind != Kind::Nas
+            || !p.active
+            || !allows(p.scopes, scope)
+            || self.current_principal(p.public_key)? != *p
+        {
+            return Err(Error::Forbidden);
+        }
+        let value = match entity {
+            NasEntity::Status => serde_json::to_value(self.store.line_status()?),
+            NasEntity::Sms => serde_json::to_value(self.store.inbox(after, limit)?),
+            NasEntity::Calls => serde_json::to_value(self.store.calls(after, limit)?),
+            NasEntity::SmsDetail => {
+                serde_json::to_value(self.store.sms_detail(id.ok_or(Error::InvalidInput)?)?)
+            }
+        }
+        .map_err(|_| Error::InvalidInput)?;
+        if self.current_principal(p.public_key)? != *p {
+            return Err(Error::Forbidden);
+        }
+        Ok(value)
+    }
     pub fn recent_owner(&mut self, token: &str) -> Result<Principal> {
         self.owner(token)
     }

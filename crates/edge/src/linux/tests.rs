@@ -10,6 +10,12 @@ fn app(path: PathBuf) -> App {
         authority: "localhost:8443".into(),
         socket: Arc::new(path),
         uid,
+        legacy_compat: false,
+        legacy_limit: Arc::new(Semaphore::new(2)),
+        legacy_rate: Arc::new(Mutex::new(Rate {
+            since: Instant::now(),
+            remaining: 120,
+        })),
         limit: Arc::new(Semaphore::new(8)),
         rate: Arc::new(Mutex::new(Rate {
             since: Instant::now(),
@@ -154,6 +160,7 @@ fn config_rejects_unrestricted_binds_credentials_and_noncanonical_origins() {
         core_socket: "/tmp/synthetic.sock".into(),
         core_uid: 0,
         tls_directory: "/tmp/synthetic".into(),
+        legacy_compat: false,
     };
     assert_eq!(c.authority().unwrap(), "localhost:8443");
     for origin in [
@@ -198,4 +205,58 @@ fn admission_rate_is_bounded_and_recovers_at_next_window() {
     rate.since = Instant::now() - Duration::from_secs(61);
     assert!(rate.take());
     assert_eq!(rate.remaining, 119);
+}
+#[tokio::test]
+async fn legacy_is_explicit_origin_checked_and_missing_device_proof_never_reaches_core() {
+    let d = tempfile::tempdir().unwrap();
+    let path = d.path().join("not-listening.sock");
+    fn legacy_request() -> Request {
+        Request::builder()
+            .method("POST")
+            .uri("/v1/session")
+            .header(header::HOST, "localhost:8443")
+            .header(header::CONTENT_TYPE, "application/json")
+            .header("x-rsh-legacy-compat", "1")
+            .body(Body::from("{}".to_owned()))
+            .unwrap()
+    }
+    let response = router(app(path.clone()))
+        .oneshot(legacy_request())
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let mut a = app(path);
+    a.legacy_compat = true;
+    let response = router(a.clone()).oneshot(legacy_request()).await.unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_IMPLEMENTED);
+    let mut r = legacy_request();
+    r.headers_mut().insert(
+        header::ORIGIN,
+        HeaderValue::from_static("https://evil.example"),
+    );
+    assert_eq!(
+        router(a.clone()).oneshot(r).await.unwrap().status(),
+        StatusCode::FORBIDDEN
+    );
+    let mut r = legacy_request();
+    r.headers_mut()
+        .insert("x-nsh-pq-signature", HeaderValue::from_static("synthetic"));
+    assert_eq!(
+        router(a).oneshot(r).await.unwrap().status(),
+        StatusCode::NOT_IMPLEMENTED
+    );
+}
+#[tokio::test]
+async fn legacy_capacity_does_not_consume_the_normal_api_budget() {
+    let d = tempfile::tempdir().unwrap();
+    let mut a = app(d.path().join("absent.sock"));
+    a.legacy_compat = true;
+    let _p1 = a.legacy_limit.acquire().await.unwrap();
+    let _p2 = a.legacy_limit.acquire().await.unwrap();
+    assert_eq!(a.limit.available_permits(), 8);
+    a.legacy_rate.lock().unwrap().remaining = 0;
+    let headers = axum::http::HeaderMap::new();
+    let response = legacy_forward(&a, &headers, AuthCommand::Identity {}).await;
+    assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(a.rate.lock().unwrap().remaining, 120);
 }

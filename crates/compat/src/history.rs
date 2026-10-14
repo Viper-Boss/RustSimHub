@@ -228,7 +228,7 @@ fn namespace(source: &str) -> Result<()> {
     }
     Ok(())
 }
-fn directory(path: &Path) -> Result<()> {
+pub(crate) fn directory(path: &Path) -> Result<()> {
     let m = fs::symlink_metadata(path)?;
     if !path.is_absolute()
         || !m.is_dir()
@@ -240,7 +240,7 @@ fn directory(path: &Path) -> Result<()> {
     }
     Ok(())
 }
-fn private_file(path: &Path, write: bool, create: bool) -> Result<File> {
+pub(crate) fn private_file(path: &Path, write: bool, create: bool) -> Result<File> {
     directory(path.parent().ok_or(Error::Forbidden)?)?;
     let mut options = OpenOptions::new();
     options

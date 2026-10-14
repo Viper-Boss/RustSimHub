@@ -35,5 +35,7 @@ tempfile = "3"
 ed25519-dalek = "2.2"
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
+base64 = "=0.23.1"
+time = { version = "0.3.55", features = ["formatting"] }
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 zbus = { version = "5.19", default-features = false, features = ["tokio","p2p","bus-impl"] }

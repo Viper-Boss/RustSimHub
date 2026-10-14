@@ -65,9 +65,19 @@ async fn round_trip_setup(
 ) -> Value {
     let (mut sender, mut receiver) = UnixStream::pair().unwrap();
     let task = tokio::spawn(async move {
-        handle(&mut receiver, auth, None, None, None, setup, None)
-            .await
-            .unwrap();
+        handle(
+            &mut receiver,
+            auth,
+            None,
+            None,
+            None,
+            Providers {
+                setup,
+                ..Providers::default()
+            },
+        )
+        .await
+        .unwrap();
     });
     let req = rustsimhub_wire::AuthRequest {
         protocol: 2,
@@ -337,7 +347,7 @@ async fn authenticated_endpoint_rejects_legacy_protocol_without_upgrade() {
     write_frame(&mut tx, br#"{"protocol":1,"id":"a","command":"health"}"#)
         .await
         .unwrap();
-    assert!(handle(&mut rx, a, None, None, None, None, None)
+    assert!(handle(&mut rx, a, None, None, None, Providers::default())
         .await
         .is_err());
 }

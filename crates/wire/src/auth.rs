@@ -15,6 +15,34 @@ pub struct AuthRequest {
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AuthCommand {
     Identity {},
+    BindLegacy {
+        token: String,
+        core_id: String,
+        public_key: [u8; 32],
+        expected_generation: u64,
+        scopes: Vec<Scope>,
+    },
+    RevokeLegacy {
+        token: String,
+        core_id: String,
+    },
+    LegacySession {
+        core_id: String,
+        device_id: String,
+        binding_epoch: String,
+        timestamp: String,
+        nonce: String,
+        signature: String,
+        device_proof: String,
+        body: Vec<u8>,
+    },
+    LegacyRead {
+        token: String,
+        entity: rustsimhub_domain::NasEntity,
+        after: Option<rustsimhub_domain::InboxCursor>,
+        limit: usize,
+        record_id: Option<String>,
+    },
     SetupChallenge {
         setup_code: String,
         public_key: [u8; 32],
@@ -194,6 +222,76 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         return Err(invalid());
     }
     match &req.command {
+        AuthCommand::BindLegacy {
+            token,
+            core_id,
+            expected_generation,
+            scopes,
+            ..
+        } => {
+            if token.len() != 64
+                || !legacy_id(core_id)
+                || *expected_generation == 0
+                || *expected_generation > i64::MAX as u64
+                || scopes.is_empty()
+                || scopes.len() > 3
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::RevokeLegacy { token, core_id } => {
+            if token.len() != 64 || !legacy_id(core_id) {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::LegacySession {
+            core_id,
+            device_id,
+            binding_epoch,
+            timestamp,
+            nonce,
+            signature,
+            device_proof,
+            body,
+        } => {
+            if !legacy_id(core_id)
+                || device_id.len() > 64
+                || device_id.is_empty()
+                || !source_valid(binding_epoch)
+                || timestamp.is_empty()
+                || timestamp.len() > 64
+                || nonce.is_empty()
+                || nonce.len() > 128
+                || signature.len() != 88
+                || device_proof.len() != 88
+                || body.len() > 8192
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::LegacyRead {
+            token,
+            entity,
+            after,
+            limit,
+            record_id,
+        } => {
+            if token.len() != 64
+                || !(1..=16).contains(limit)
+                || after.as_ref().is_some_and(|c| {
+                    c.db_epoch.len() != 36
+                        || c.seq.is_empty()
+                        || c.seq.len() > 20
+                        || !c.seq.bytes().all(|b| b.is_ascii_digit())
+                })
+                || record_id
+                    .as_ref()
+                    .is_some_and(|v| v.is_empty() || v.len() > 128)
+                || (*entity == rustsimhub_domain::NasEntity::SmsDetail) != record_id.is_some()
+            {
+                return Err(invalid());
+            }
+        }
         AuthCommand::HistorySources { token } => {
             if token.len() != 64 {
                 return Err(invalid());
@@ -425,6 +523,13 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         _ => {}
     }
     Ok(req)
+}
+fn legacy_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 128
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"-_.".contains(&b))
 }
 fn source_valid(source: &str) -> bool {
     source.len() == 64

@@ -3,6 +3,8 @@
 //! Pure policy types. No hardware, network, clock, or persistence access.
 mod history;
 pub use history::{HistoryCursor, HistoryEntity};
+mod nas;
+pub use nas::NasEntity;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InboxCursor {

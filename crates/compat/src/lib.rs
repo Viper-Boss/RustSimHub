@@ -4,6 +4,8 @@
 //! An adapter must use a separately approved NAS principal and enforce live v2 scopes.
 #[cfg(target_os = "linux")]
 pub mod history;
+#[cfg(target_os = "linux")]
+pub mod session;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use ed25519_dalek::{Signature, VerifyingKey};
 use rustsimhub_policy::{Kind, Principal, Scope};

@@ -18,6 +18,9 @@ rustsimhub-domain = { path = "../domain" }
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 fs2 = "0.4"
 rustix = { version = "1", features = ["fs", "process"] }
+getrandom = "0.4"
+time = { version = "0.3.55", features = ["parsing", "formatting"] }
+zeroize = "1"
 
 [[bin]]
 name = "rustsimhub-migrate"

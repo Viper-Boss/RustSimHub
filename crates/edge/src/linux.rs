@@ -48,6 +48,8 @@ struct Config {
     core_socket: PathBuf,
     core_uid: u32,
     tls_directory: PathBuf,
+    #[serde(default)]
+    legacy_compat: bool,
 }
 impl Config {
     fn authority(&self) -> Result<String> {
@@ -98,6 +100,9 @@ struct App {
     uid: u32,
     limit: Arc<Semaphore>,
     rate: Arc<Mutex<Rate>>,
+    legacy_compat: bool,
+    legacy_rate: Arc<Mutex<Rate>>,
+    legacy_limit: Arc<Semaphore>,
 }
 fn socket_safe(path: &Path, uid: u32) -> Result<()> {
     let m = std::fs::symlink_metadata(path).map_err(|_| "core unavailable")?;
@@ -184,6 +189,7 @@ async fn boundary(State(app): State<App>, req: Request, next: Next) -> Response 
             .get(header::HOST)
             .is_some_and(|v| v.as_bytes() == app.authority.as_bytes());
     let api_path = req.uri().path() == "/api/v2";
+    let legacy_path = req.uri().path() == "/v1/session" || req.uri().path() == "/compat/v1/read";
     let origin_ok = headers.get_all(header::ORIGIN).iter().count() == 1
         && headers
             .get(header::ORIGIN)
@@ -195,8 +201,17 @@ async fn boundary(State(app): State<App>, req: Request, next: Next) -> Response 
     let marker_ok = headers
         .get("x-rustsimhub-request")
         .is_some_and(|v| v.as_bytes() == b"2");
+    let legacy_ok = app.legacy_compat
+        && headers.get_all("x-rsh-legacy-compat").iter().count() == 1
+        && headers
+            .get("x-rsh-legacy-compat")
+            .is_some_and(|v| v.as_bytes() == b"1")
+        && (headers.get_all(header::ORIGIN).iter().count() == 0 || origin_ok)
+        && content_ok
+        && req.uri().query().is_none();
     let mut response = if !host_ok
         || (api_path && (!origin_ok || !content_ok || !marker_ok || req.uri().query().is_some()))
+        || (legacy_path && !legacy_ok)
     {
         denied(StatusCode::FORBIDDEN)
     } else {
@@ -209,6 +224,165 @@ async fn boundary(State(app): State<App>, req: Request, next: Next) -> Response 
         ("permissions-policy","camera=(), microphone=(), geolocation=()"),
     ] { response.headers_mut().insert(name,HeaderValue::from_static(value)); }
     response
+}
+fn legacy_error(status: StatusCode, code: &str) -> Response {
+    (
+        status,
+        axum::Json(serde_json::json!({"code":code,"retryable":false,"adapter_required":true})),
+    )
+        .into_response()
+}
+fn one_header<'a>(headers: &'a axum::http::HeaderMap, name: &str, max: usize) -> Result<&'a str> {
+    if headers.get_all(name).iter().count() != 1 {
+        return Err("invalid legacy headers");
+    }
+    headers
+        .get(name)
+        .and_then(|v| v.to_str().ok())
+        .filter(|v| !v.is_empty() && v.len() <= max)
+        .ok_or("invalid legacy headers")
+}
+async fn legacy_forward(
+    app: &App,
+    headers: &axum::http::HeaderMap,
+    command: AuthCommand,
+) -> Response {
+    if !app.legacy_rate.lock().is_ok_and(|mut r| r.take()) {
+        return legacy_error(StatusCode::TOO_MANY_REQUESTS, "legacy_busy");
+    }
+    let Ok(_permit) = app.legacy_limit.try_acquire() else {
+        return legacy_error(StatusCode::SERVICE_UNAVAILABLE, "legacy_busy");
+    };
+    let id = match one_header(headers, "x-rsh-request-id", 128) {
+        Ok(s) => s.to_owned(),
+        Err(_) => return legacy_error(StatusCode::BAD_REQUEST, "invalid_request"),
+    };
+    let request = rustsimhub_wire::AuthRequest {
+        protocol: AUTH_PROTOCOL,
+        id: id.clone(),
+        command,
+    };
+    let Ok(body) = serde_json::to_vec(&request) else {
+        return legacy_error(StatusCode::BAD_REQUEST, "invalid_request");
+    };
+    if parse_auth_request(&body).is_err() {
+        return legacy_error(StatusCode::BAD_REQUEST, "invalid_request");
+    }
+    let reply = match forward(app, &body, &id).await {
+        Ok(v) => v,
+        Err(_) => return legacy_error(StatusCode::SERVICE_UNAVAILABLE, "core_unavailable"),
+    };
+    let parsed: CoreResponse = match serde_json::from_slice(&reply) {
+        Ok(v) => v,
+        Err(_) => return legacy_error(StatusCode::SERVICE_UNAVAILABLE, "core_unavailable"),
+    };
+    if let Some(error) = parsed
+        .result
+        .get("error")
+        .and_then(serde_json::Value::as_str)
+    {
+        return legacy_error(
+            match error {
+                "legacy_replay" => StatusCode::CONFLICT,
+                "legacy_busy" => StatusCode::TOO_MANY_REQUESTS,
+                "legacy_clock_not_ready" => StatusCode::SERVICE_UNAVAILABLE,
+                _ => StatusCode::UNAUTHORIZED,
+            },
+            match error {
+                "legacy_replay" => "legacy_replay",
+                "legacy_busy" => "legacy_busy",
+                "legacy_clock_not_ready" => "legacy_clock_not_ready",
+                _ => "permission_denied",
+            },
+        );
+    }
+    (StatusCode::OK, axum::Json(parsed.result)).into_response()
+}
+async fn legacy_session(
+    State(app): State<App>,
+    headers: axum::http::HeaderMap,
+    body: Bytes,
+) -> Response {
+    if !app.legacy_compat {
+        return legacy_error(StatusCode::NOT_IMPLEMENTED, "legacy_disabled");
+    }
+    if headers.contains_key("x-nsh-pq-signature") || headers.contains_key("x-nsh-pq-algorithm") {
+        return legacy_error(StatusCode::NOT_IMPLEMENTED, "pq_not_supported");
+    }
+    let fields = (|| -> Result<_> {
+        Ok((
+            one_header(&headers, "x-nsh-core-id", 128)?.to_owned(),
+            one_header(&headers, "x-nsh-device-id", 64)?.to_owned(),
+            one_header(&headers, "x-rsh-binding-epoch", 64)?.to_owned(),
+            one_header(&headers, "x-nsh-timestamp", 64)?.to_owned(),
+            one_header(&headers, "x-nsh-nonce", 128)?.to_owned(),
+            one_header(&headers, "x-nsh-signature", 88)?.to_owned(),
+            one_header(&headers, "x-rsh-device-proof", 88)?.to_owned(),
+        ))
+    })();
+    let (core_id, device_id, binding_epoch, timestamp, nonce, signature, device_proof) =
+        match fields {
+            Ok(v) => v,
+            Err(_) => return legacy_error(StatusCode::NOT_IMPLEMENTED, "device_binding_required"),
+        };
+    if body.len() > 8192 {
+        return legacy_error(StatusCode::PAYLOAD_TOO_LARGE, "invalid_request");
+    }
+    legacy_forward(
+        &app,
+        &headers,
+        AuthCommand::LegacySession {
+            core_id,
+            device_id,
+            binding_epoch,
+            timestamp,
+            nonce,
+            signature,
+            device_proof,
+            body: body.to_vec(),
+        },
+    )
+    .await
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LegacyQuery {
+    entity: rustsimhub_wire::NasEntity,
+    after: Option<rustsimhub_wire::InboxCursor>,
+    limit: usize,
+    record_id: Option<String>,
+}
+async fn legacy_read(
+    State(app): State<App>,
+    headers: axum::http::HeaderMap,
+    body: Bytes,
+) -> Response {
+    if !app.legacy_compat {
+        return legacy_error(StatusCode::NOT_IMPLEMENTED, "legacy_disabled");
+    }
+    let token = match one_header(&headers, "authorization", 72)
+        .ok()
+        .and_then(|s| s.strip_prefix("Bearer "))
+    {
+        Some(s) if s.len() == 64 => s.to_owned(),
+        _ => return legacy_error(StatusCode::UNAUTHORIZED, "permission_denied"),
+    };
+    let query: LegacyQuery = match serde_json::from_slice(&body) {
+        Ok(v) => v,
+        Err(_) => return legacy_error(StatusCode::BAD_REQUEST, "invalid_request"),
+    };
+    legacy_forward(
+        &app,
+        &headers,
+        AuthCommand::LegacyRead {
+            token,
+            entity: query.entity,
+            after: query.after,
+            limit: query.limit,
+            record_id: query.record_id,
+        },
+    )
+    .await
 }
 fn router(app: App) -> Router {
     Router::new()
@@ -249,7 +423,18 @@ fn router(app: App) -> Router {
             }),
         )
         .route("/api/v2", post(api))
-        .fallback(|| async { StatusCode::NOT_FOUND })
+        .route("/v1/session", post(legacy_session))
+        .route("/compat/v1/read", post(legacy_read))
+        .fallback(|State(app): State<App>, req: Request| async move {
+            if app.legacy_compat && req.uri().path().starts_with("/v1/") {
+                legacy_error(
+                    StatusCode::NOT_IMPLEMENTED,
+                    "legacy_operation_not_supported",
+                )
+            } else {
+                StatusCode::NOT_FOUND.into_response()
+            }
+        })
         .layer(DefaultBodyLimit::max(MAX_FRAME))
         .layer(middleware::from_fn_with_state(app.clone(), boundary))
         .with_state(app)
@@ -339,6 +524,12 @@ pub fn run(args: Vec<String>) -> Result<()> {
             since: Instant::now(),
             remaining: 120,
         })),
+        legacy_compat: config.legacy_compat,
+        legacy_rate: Arc::new(Mutex::new(Rate {
+            since: Instant::now(),
+            remaining: 120,
+        })),
+        legacy_limit: Arc::new(Semaphore::new(2)),
     };
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
