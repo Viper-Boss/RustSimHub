@@ -172,9 +172,12 @@ fn directory() -> tempfile::TempDir {
     std::fs::set_permissions(d.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     d
 }
-struct FakeBus;
+struct FakeBus(String);
 #[zbus::interface(name = "org.freedesktop.DBus")]
 impl FakeBus {
+    fn get_id(&self) -> String {
+        self.0.clone()
+    }
     fn get_name_owner(&self, _name: &str) -> String {
         ":1.20".into()
     }
@@ -247,10 +250,10 @@ pub(crate) async fn peers() -> (zbus::Connection, zbus::Connection, Arc<Mutex<St
     let guid = zbus::Guid::generate();
     let identity = Arc::new(Mutex::new("8901234567890123456".to_owned()));
     let mut server = zbus::connection::Builder::unix_stream(a)
-        .server(guid)
+        .server(guid.clone())
         .unwrap()
         .p2p()
-        .serve_at("/org/freedesktop/DBus", FakeBus)
+        .serve_at("/org/freedesktop/DBus", FakeBus(guid.to_string()))
         .unwrap()
         .serve_at("/org/freedesktop/ModemManager1", zbus::fdo::ObjectManager)
         .unwrap()
