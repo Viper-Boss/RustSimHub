@@ -26,20 +26,17 @@
 
 ## 下一步顺序
 
-最新：持久 `rustsimhub-history-build-p5` exited 0，完整日志保留 `.private/history-async-complete-8f4d15b.log` 与 NAS build-Cqi2Xu3q/build.log，ARM64 十项测试/release 全通过。产物 SHA 9c88aea0f46b0f24a780edd239a4089504458d1957fbe81b36d8fb804513e14d，.local/artifacts/8f4d15b/rustsimhub-migrate；棒子 /opt/rustsimhub/dev-history-p5-8f4d15b/rustsimhub-migrate。tools/test-history-migration.py 完整旧 schema 合成导入实际通过，.private/history-full-schema-8f4d15b-first.json passed=true/pcm_closed_and_test_units_stopped=true。NAS 与棒子各首次 15、再次 0/unchanged15、源快照不变，独立查询标记/归属及无执行队列通过。P5 当前 2 点，合计 62.5，约 63%。先前下面“构建进行中/待验收/P5 1 点”均为已保留过程；不要重复旧尝试。
-优先继续：授权历史读取/分页和真实旧库副本评估、NAS 在线兼容与限权会话、开机安装/完整服务组、Wi-Fi 新配置/热点及媒体交付。当前仍不是完整系统或 NAS 在线交付，80% 目标保持。
-
-0. 8f4d15b 完整 CI success（38519741620），包括离线历史归档五项关键失败路径。P5 当前计 1 点为原 Go 黄金向量；P7 状态基线加半点，合计 61.5。`.private/status-performance-e927381-first.json` passed/cleanup_verified=true；200 次本地 CLI+IPC 全通过、P95 15.949 ms，Core+Edge RSS 约 10.43 MiB；不是等功能速度对照或长期稳定。见 VALIDATION-STATUS-BASELINE-P7B.md。
-   正在运行 `rustsimhub-history-build-p5`，label revision=8f4d15b70ee7ac380d0404cdc770e05a3e298fd8，NAS /mnt/docker-data/rustsimhub/p0/history-build-Cqi2Xu3q。持久离线容器保留终态，不因观察超时重启。工具 nas-start-history-build.sh；之前临时 foreground run-4 的 SSH 超时后旧容器已 collected，未当作成功 release；run-3 因 mtime=0 缓存旧测试拒绝计证。新构建 tar --touch，输入 source SHA 0df653f7810727d1d56ab6da3257bc2a0a09ddcf41a6999a058393750cf6eaff，.local/source-history-p5-private.tar.gz 匹配 8f4d15b。.local/source.tar.gz 仍 8711fba。
-   等上述容器 exited 0，保存 docker logs 与 build-info/文件 hash，取回 rustsimhub-migrate；然后 tools/test-history-migration.py --nas --device --binary --archive --revision 8f4d15b --legacy-schema ../nassimhub/internal/platform/database/schema.sql --report 新私有 JSON。完整旧 schema 合成构造/外键检查已本地通过；工具最新修正尚需提交。第一次实现 SQLite u64/usize FromSql 编译失败由 i64 检查转换修正，首次测试私有目录权限由显式 0700 修正，失败证据保留。不能将此归档宣称为真实旧库迁移或已运行 NAS 网关；后续接入授权查询与在线兼容。
-
-1. 保存新的验收工具/文档及 GitHub 进度，核实源码 CI。已完成的 firstboot/recovery/group 私有报告不能当新的未知硬件操作重试。
-   LocalSetup 门禁（local-first-owner.md）：仅 --serve-local-setup、空 principals、Core 私有随机码、5 分钟/16 次、签名条件启用。8711fba 生产 HTTPS API 已通过，.private/local-owner-api-8711fba-second.json passed=true；错误码/角色/签名/重放/替换 owner 拒绝，正确初始化后签名登录通过，无原始数据/硬件访问。实际浏览器仍未通过，不加点。ee94e85 的 await CI 失败已由 8711fba runtime.block_on 修复。
-   prepare-browser-owner.py 使用新空库、PrivateDevices 和 /run/dbus 禁止访问，不读取原始短信/电话或其他业务数据。浏览器 UI 验收先限定这个无敏感数据、无硬件权限的测试域。app.js 新增单项状态不可用时仍显示其他状态的修复，尚未进入 8711fba 产物；不能混淆本地 source UI 与已安装 release。
-   浏览器本地 QA 页在载入前 net::ERR_BLOCKED_BY_CLIENT，未绕过或更换入口；GUI、IndexedDB/reload 仍未验证。自有代理和离线测试单元已停止，旧四服务 active、PCM closed，.private/local-owner-api-cleanup.log 保留。不要重试旧的过期 setup realm。
-   crates/compat 新增协议原语和当前 NAS principal 的只读 scope 映射；不是已启用网关。5 组签名/标识与 12 组版本向量由精确旧提交的 Go 模块在 NAS network=none 容器生成。f536c63 NAS ARM64 五项测试全通过，CI 全工作区测试/生产 feature 通过，首次 Clippy 两处建议已修复，需核对修复提交 CI。NAS 无 Clippy，测试报告 .private/compat-rust-run-1.log；.local/source-f536c63.tar.gz 仅该 lib 测试来源，现有 .local/source.tar.gz 已还原为 8711fba。后续做独立只读适配器/时间重放/撤销与迁移；P5 暂仍 0。见 nas-compat-contract.md。
-2. 继续正式首启网页/TLS 交付、开机启动、NAS 兼容、网页写/媒体、新配网和长期验收。手机原生 app 延后。
-3. 目标约 80%，不要在 60/75 的小检查点停止；流量实测跳过到换卡后专门安排，完整镜像与恢复入口门禁保持。
+1. 当前共 62.5 点，约 63%；P5 黄金向量与合成离线历史归档计 2 点，P7 有限状态性能基线加半点。80% 目标保持，不在检查点停止。
+   8f4d15b CI 38519741620 success；bc33a17 CI 38522521958 success。源头与产物分别核验，不能把文档提交当作新编译结果。
+2. 持久 rustsimhub-history-build-p5 已 exited 0，label revision=8f4d15b70ee7ac380d0404cdc770e05a3e298fd8。NAS /mnt/docker-data/rustsimhub/p0/history-build-Cqi2Xu3q，完整日志 build.log/.private/history-async-complete-8f4d15b.log；十项测试及 release 完成。
+   source SHA 0df653f7810727d1d56ab6da3257bc2a0a09ddcf41a6999a058393750cf6eaff，.local/source-history-p5-private.tar.gz 匹配 8f4d15b；.local/source.tar.gz 仍 8711fba。migrate SHA 9c88aea0f46b0f24a780edd239a4089504458d1957fbe81b36d8fb804513e14d，.local/artifacts/8f4d15b/rustsimhub-migrate，棒子 /opt/rustsimhub/dev-history-p5-8f4d15b/rustsimhub-migrate。
+   完整旧 schema 合成快照在 NAS/非 Root 隔离棒子各首次插入15、再次0/unchanged15、源文件不变。独立 Python 确认原 ID/删除时间/外发历史状态/每用户标记/联系人归属保留，无 principal 或执行队列表。.private/history-full-schema-8f4d15b-first.json passed=true、pcm_closed_and_test_units_stopped=true。见 VALIDATION-HISTORY-P5A.md。真实旧库/不同版本和授权网页历史查询仍未证明。
+   前两次编译/私有测试目录失败已修正并保留；临时 run-3 的 mtime=0 缓存旧测试排除，foreground run-4 的 SSH 超时后确认容器 collected，未冒称成功，随后改用持久构建。每个复用工作区的源码归档必须 tar --touch；不因观察超时重启同一活跃构建。
+3. .private/status-performance-e927381-first.json passed/cleanup_verified=true。200 次本地 CLI+IPC 状态请求成功，P95 15.949 ms，Core+Edge 测后 RSS 约10.43 MiB，实际 UID/空能力集合/越权拒绝通过；不是网络延迟、等功能速度对照或长期稳定。见 VALIDATION-STATUS-BASELINE-P7B.md。
+4. 继续授权历史读取/分页与真实旧库副本评估、NAS 在线兼容及限权会话/重放账本/PCM 桥、开机安装/完整服务组、Wi-Fi 新配置/热点、媒体交付和长期验收。不要把纯签名契约库或离线归档称为正在运行的 NAS 网关。
+5. LocalSetup（local-first-owner.md）仅 --serve-local-setup、空 principals、Core 私有随机码、5分钟/16次及签名条件启用。8711fba 生产 HTTPS API 已通过，.private/local-owner-api-8711fba-second.json passed=true；错误码/角色/签名/重放/替换 owner 拒绝，正确初始化后登录通过，无原始数据或硬件访问。
+   prepare-browser-owner.py 使用新空库、PrivateDevices 和禁止 /run/dbus。实际浏览器页在载入前 net::ERR_BLOCKED_BY_CLIENT，未绕过或更换入口；GUI、IndexedDB/reload 与证书交付仍未验收。所有自有代理/测试单元已停止，旧四服务 active、PCM closed。不要重试旧过期 setup realm。
+   0a8c107 app.js 状态部分失败时仍显示其他状态的修复未进入8711fba产物，不能混淆本地 source UI 和已安装 release。手机原生 app 延后；所有流量实测等待用户换卡后专门测试。完整镜像/恢复入口门禁保持。
 
 ## 工具与资料位置
 
