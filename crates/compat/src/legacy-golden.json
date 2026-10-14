@@ -1,0 +1,247 @@
+{
+  "signing": [
+    {
+      "method": "post",
+      "path": "/v1/session",
+      "timestamp": "2026-10-14T02:00:00Z",
+      "nonce": "synthetic-nonce-0123456789",
+      "body_hex": "",
+      "canonical_hex": "504f53540a2f76312f73657373696f6e0a323032362d31302d31345430323a30303a30305a0a73796e7468657469632d6e6f6e63652d303132333435363738390a3437444551706a38484253612b2f54496d572b354a4365755165526b6d354e4d704a575a473368537546553d",
+      "public_hex": "62a611b472d89b0e5fc93c069b9f700b4c552d55bc0e87b56008ef17b6b2bebe",
+      "signature": "YRQfh5vu0AtNvbnej4H6slp9xliXjl6Q47v+Yrtek6Kilp0OsI5inJe3i82gpfI2sHUbtMg2sFmW0N6J2e29Dg==",
+      "device_id": "NSH-410-7CB8C4",
+      "fingerprint": "7CB8C4EE"
+    },
+    {
+      "method": "post",
+      "path": "/v1/session",
+      "timestamp": "2026-10-14T02:00:00Z",
+      "nonce": "synthetic-nonce-0123456789",
+      "body_hex": "7b7d",
+      "canonical_hex": "504f53540a2f76312f73657373696f6e0a323032362d31302d31345430323a30303a30305a0a73796e7468657469632d6e6f6e63652d303132333435363738390a52424e766f31577a5a346f5252713057392b686b6e7054375438496635333644454d4267396879712f346f3d",
+      "public_hex": "62a611b472d89b0e5fc93c069b9f700b4c552d55bc0e87b56008ef17b6b2bebe",
+      "signature": "CmO2sOpVML3Juu65U+vmqhvpwd/7SgBIyw9Viae8JW6L2vRRO4HAj6/NEGUlaihgNghqBcsvU25mFqEEULAFAA==",
+      "device_id": "NSH-410-7CB8C4",
+      "fingerprint": "7CB8C4EE"
+    },
+    {
+      "method": "post",
+      "path": "/v1/session",
+      "timestamp": "2026-10-14T02:00:00Z",
+      "nonce": "synthetic-nonce-0123456789",
+      "body_hex": "7b22636f72655f6964223a2273796e746865746963227d",
+      "canonical_hex": "504f53540a2f76312f73657373696f6e0a323032362d31302d31345430323a30303a30305a0a73796e7468657469632d6e6f6e63652d303132333435363738390a30775230394c564138547348567145305942583243576e47566562795a457764502b334a473662416c7a453d",
+      "public_hex": "62a611b472d89b0e5fc93c069b9f700b4c552d55bc0e87b56008ef17b6b2bebe",
+      "signature": "7/LBV0D0fZfyeZMeMCcVhC5ZzYryeGEznJDCHG9bzexcud5I8VnIiYkbGMvFZfjFR0cZsXKf3Pc9DV/2M6xpBA==",
+      "device_id": "NSH-410-7CB8C4",
+      "fingerprint": "7CB8C4EE"
+    },
+    {
+      "method": "post",
+      "path": "/v1/session",
+      "timestamp": "2026-10-14T02:00:00Z",
+      "nonce": "synthetic-nonce-0123456789",
+      "body_hex": "7b2274657874223a22e59088e68890e79fade4bfa1efbc8ce4bb85e6b58be8af95227d",
+      "canonical_hex": "504f53540a2f76312f73657373696f6e0a323032362d31302d31345430323a30303a30305a0a73796e7468657469632d6e6f6e63652d303132333435363738390a746c3552454d393258716f7637435542633478716833753547684c4367375a6473526e4e6949664a5757553d",
+      "public_hex": "62a611b472d89b0e5fc93c069b9f700b4c552d55bc0e87b56008ef17b6b2bebe",
+      "signature": "efWKSqUtn0hSpwJqQVV7ckQMSMfjA6xN1tINchTKjwXwv5veSgSXe7ymQg0u9s8/Yqt5P1Y7QACkJbALkogZAA==",
+      "device_id": "NSH-410-7CB8C4",
+      "fingerprint": "7CB8C4EE"
+    },
+    {
+      "method": "post",
+      "path": "/v1/session",
+      "timestamp": "2026-10-14T02:00:00Z",
+      "nonce": "synthetic-nonce-0123456789",
+      "body_hex": "00ff0a",
+      "canonical_hex": "504f53540a2f76312f73657373696f6e0a323032362d31302d31345430323a30303a30305a0a73796e7468657469632d6e6f6e63652d303132333435363738390a635352513038536e6e757156436564647764724e372f57414e4e3954685462507269326f6772324b4446413d",
+      "public_hex": "62a611b472d89b0e5fc93c069b9f700b4c552d55bc0e87b56008ef17b6b2bebe",
+      "signature": "03cyHnFprjaSDxy7rzuJMfYpXeko/PImkfHpr+ozVVm+NcYABCs94x8FFSNs+QBhZZrC4MtqaGWZEUoZZIIQAA==",
+      "device_id": "NSH-410-7CB8C4",
+      "fingerprint": "7CB8C4EE"
+    }
+  ],
+  "source_revision": "ea019485e5d890a96acae357c52b94c746de837f",
+  "versions": [
+    {
+      "node": {
+        "protocol_major": 1,
+        "protocol_minor": 5,
+        "agent_version": "0.1.0",
+        "min_core_version": "0.1.0"
+      },
+      "core": {
+        "CoreVersion": "0.1.0",
+        "ProtocolMajor": 1,
+        "MinProtocolMinor": 5,
+        "MinAgentVersion": "0.1.0"
+      },
+      "result": "ok"
+    },
+    {
+      "node": {
+        "protocol_major": 2,
+        "protocol_minor": 5,
+        "agent_version": "0.1.0",
+        "min_core_version": "0.1.0"
+      },
+      "core": {
+        "CoreVersion": "0.1.0",
+        "ProtocolMajor": 1,
+        "MinProtocolMinor": 5,
+        "MinAgentVersion": "0.1.0"
+      },
+      "result": "protocol_major_mismatch"
+    },
+    {
+      "node": {
+        "protocol_major": 1,
+        "protocol_minor": 4,
+        "agent_version": "0.1.0",
+        "min_core_version": "0.1.0"
+      },
+      "core": {
+        "CoreVersion": "0.1.0",
+        "ProtocolMajor": 1,
+        "MinProtocolMinor": 5,
+        "MinAgentVersion": "0.1.0"
+      },
+      "result": "node_protocol_too_old"
+    },
+    {
+      "node": {
+        "protocol_major": 1,
+        "protocol_minor": 5,
+        "agent_version": "0.0.9",
+        "min_core_version": "0.1.0"
+      },
+      "core": {
+        "CoreVersion": "0.1.0",
+        "ProtocolMajor": 1,
+        "MinProtocolMinor": 5,
+        "MinAgentVersion": "0.1.0"
+      },
+      "result": "agent_too_old"
+    },
+    {
+      "node": {
+        "protocol_major": 1,
+        "protocol_minor": 5,
+        "agent_version": "0.1.0",
+        "min_core_version": "0.2.0"
+      },
+      "core": {
+        "CoreVersion": "0.1.0",
+        "ProtocolMajor": 1,
+        "MinProtocolMinor": 5,
+        "MinAgentVersion": "0.1.0"
+      },
+      "result": "core_too_old"
+    },
+    {
+      "node": {
+        "protocol_major": 1,
+        "protocol_minor": 5,
+        "agent_version": "0.1.0",
+        "min_core_version": "nonsense"
+      },
+      "core": {
+        "CoreVersion": "0.1.0",
+        "ProtocolMajor": 1,
+        "MinProtocolMinor": 5,
+        "MinAgentVersion": "0.1.0"
+      },
+      "result": "version_unreadable"
+    },
+    {
+      "node": {
+        "protocol_major": 1,
+        "protocol_minor": 5,
+        "agent_version": "unversioned-local-label",
+        "min_core_version": "0.1.0"
+      },
+      "core": {
+        "CoreVersion": "0.1.0",
+        "ProtocolMajor": 1,
+        "MinProtocolMinor": 5,
+        "MinAgentVersion": "0.1.0"
+      },
+      "result": "ok"
+    },
+    {
+      "node": {
+        "protocol_major": 1,
+        "protocol_minor": 5,
+        "agent_version": "dev",
+        "min_core_version": "0.1.0"
+      },
+      "core": {
+        "CoreVersion": "dev",
+        "ProtocolMajor": 1,
+        "MinProtocolMinor": 5,
+        "MinAgentVersion": "0.1.0"
+      },
+      "result": "ok"
+    },
+    {
+      "node": {
+        "protocol_major": 1,
+        "protocol_minor": 5,
+        "agent_version": "v1.2.3-rc1+build7",
+        "min_core_version": "1.2"
+      },
+      "core": {
+        "CoreVersion": "1.2.0",
+        "ProtocolMajor": 1,
+        "MinProtocolMinor": 5,
+        "MinAgentVersion": "0.1.0"
+      },
+      "result": "ok"
+    },
+    {
+      "node": {
+        "protocol_major": 1,
+        "protocol_minor": 5,
+        "agent_version": "0.1.0",
+        "min_core_version": "0.1.0"
+      },
+      "core": {
+        "CoreVersion": "0.1.0",
+        "ProtocolMajor": 1,
+        "MinProtocolMinor": 5,
+        "MinAgentVersion": "nonsense"
+      },
+      "result": "version_unreadable"
+    },
+    {
+      "node": {
+        "protocol_major": 1,
+        "protocol_minor": 5,
+        "agent_version": "nonsense",
+        "min_core_version": ""
+      },
+      "core": {
+        "CoreVersion": "nonsense",
+        "ProtocolMajor": 1,
+        "MinProtocolMinor": 5,
+        "MinAgentVersion": "nonsense"
+      },
+      "result": "ok"
+    },
+    {
+      "node": {
+        "protocol_major": 1,
+        "protocol_minor": 5,
+        "agent_version": "0.1.0",
+        "min_core_version": "0.1.0"
+      },
+      "core": {
+        "CoreVersion": "nonsense",
+        "ProtocolMajor": 1,
+        "MinProtocolMinor": 5,
+        "MinAgentVersion": "0.1.0"
+      },
+      "result": "version_unreadable"
+    }
+  ]
+}

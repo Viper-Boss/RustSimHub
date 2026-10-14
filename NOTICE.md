@@ -2,6 +2,13 @@
 
 RustSimHub 的新增源码使用 AGPL-3.0-only；详见 LICENSE。
 
+2026-10-14 NAS 兼容契约参考 AirSimHub 提交
+`ea019485e5d890a96acae357c52b94c746de837f` 的
+`node/proto/auth.go`、`identity.go`、`compat.go`、`node.go`（AGPL-3.0-only）。
+Rust 实现规范字节、公钥标识、版本方向与有限只读权限映射；没有启用旧协议网关。
+`tools/compat-golden/main.go` 通过未修改的旧 proto 模块生成纯合成向量，
+不复制真实设备身份、NAS 私钥、SIM 或消息数据。Go 模块仅用于对照验收。
+
 设计和硬件接入行为参考了本地 AirSimHub 项目
 `nassimhub-ufi003-firmware-public`：AGPL-3.0-only。保留其来源：
 https://github.com/Viper-Boss/AirSimHub

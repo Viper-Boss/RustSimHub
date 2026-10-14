@@ -14,6 +14,7 @@ def allowed(name):
     path=pathlib.PurePosixPath(name)
     if name in {'Cargo.toml','Cargo.lock','LICENSE','NOTICE.md'}: return True
     if name.startswith('licenses/') and path.suffix=='.txt': return True
+    if name == 'crates/compat/src/legacy-golden.json': return True
     if not (name.startswith('crates/') or name.startswith('native/audio-alsa/')) or 'target' in path.parts: return False
     return path.suffix in {'.rs','.toml','.sql'} or path.name=='Cargo.lock' or (name.startswith('crates/edge/src/web/') and path.suffix in {'.html','.js','.css'})
 paths=sorted(filter(allowed,paths))
