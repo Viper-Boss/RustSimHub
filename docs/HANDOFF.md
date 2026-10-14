@@ -40,7 +40,7 @@
 
 ## 工具与资料位置
 
-- 本地 C:/Users/wzs11/Documents/ChatGPT/大疆4G模块/RustSimHub，PowerShell；Python 中文文件操作用 -X utf8 或显式 encoding='utf-8'。Windows 缺 MSVC linker，Linux 检查在 NAS/CI。
+- 本地 C:/Users/wzs11/Documents/ChatGPT/大疆4G模块/RustSimHub，PowerShell；Python 中文文件操作用 -X utf8 或显式 encoding='utf-8'。Windows 缺 MSVC linker；已打通本机 Ubuntu WSL 的 Linux 测试/ARM64 交叉编译，见 local-cross-build.md 与 VALIDATION-LOCAL-CROSS-P7C.md。NAS 保留 ARM 验证与原生音频构建。
 - .private/nas.json 与 device.json；后者通过 NAS jump，固定 maintenance key 与 known_hosts，RejectPolicy，不关闭主机校验。.local/python-deps 是 Paramiko。
 - tools/remote.py --config ... --script ... --output .private/... [NAS --sudo]；SFTP upload/download。密码只经 stdin。
 - NAS /mnt/docker-data/rustsimhub/p0，自有 rustsimhub-build-p0 / rustsimhub-audio-build-p3。重建只在 exited 后保存证据，核对 label/image/mount，仅 rm 自有 container、不加 -v。source archive 打包允许列表精确 Git blob，build-input dirty 即拒绝。
@@ -48,3 +48,9 @@
 - Git HTTP 有间歇断线。tools/publish-exact-git-objects.py 经官方 API 发布同一 Git blob/tree/commit，逐个 SHA 必须匹配，远端未并发变化且 force=false；不改历史，不上传 private。
 - 当前棒子已验证程序在 /opt/rustsimhub/dev-wifi-p4、dev-rtc-p3、dev-rtc-core-p3、dev-app-update-p6；独立锁定 Core/Edge/Media 账户。无新生产自启服务，已完的临时服务/权限均清理。旧四服务最后检查 active、PCM closed；新的会话先核实实际状态。
 - 历史所有阶段的完整边界、hash 与测试见各 VALIDATION 文档；源头许可见 NOTICE.md。完整第三方发布 notices、完整镜像、恢复入口仍未完成。
+
+## 中断后工作区检查（2026-10-14）
+
+当前已验收仍 62.5 点、约63%，main 最后稳定提交66cefa8。未提交改动为历史读取/授权实现：domain/history.rs、compat/history/reader.rs、core/history_api.rs、Auth公开的近期owner/当前principal/realm读取、wire新增历史命令及依赖声明。尚未接入Core runtime/main，也未补齐Cargo.lock、分页/授权测试与实机验收；不计进度。恢复时先完成运行时接线、默认模式拒绝分支、绑定/撤销/跨用户隔离和分页测试，再进行CI/ARM64/设备验收。不要把这些工作区改动当成已能运行的新版本，不要丢弃或重做已经通过的合成迁移和状态性能基线。
+
+2026-10-14 本机构建更新：稳定源码8f4d15b 的151项Linux测试、六程序ARM64生产release及NAS Debian13容器/棒子非Root运行自检通过。产物在.local/wsl-artifacts-8f4d15b70ee7ac380d0404cdc770e05a3e298fd8，完整报告.private/local-arm-runtime-8f4d15b-second.json passed/cleanup_verified=true。本机Rust/下载包在.local/wsl-cross，GNU工具链及target在WSL用户~/.cache/rustsimhub；/tmp是易失tmpfs，不能跨会话保存工具链。前述WIP Rust仍未提交且未包含在本次构建内。构建优化不增加进度点数，仍约63%。后续先接线历史查询，再利用新的本机构建流程；保留.source归档及旧已验收部署。
