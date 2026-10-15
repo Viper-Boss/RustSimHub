@@ -135,7 +135,7 @@ fn sync_directory(dir: &Path) -> Result<()> {
     let _ = dir;
     Ok(())
 }
-fn check(path: &Path, directory: bool) -> Result<()> {
+pub(super) fn check(path: &Path, directory: bool) -> Result<()> {
     let meta = fs::symlink_metadata(path).map_err(|_| Error::Io)?;
     if (directory && !meta.is_dir()) || (!directory && !meta.is_file()) {
         return Err(Error::Forbidden);

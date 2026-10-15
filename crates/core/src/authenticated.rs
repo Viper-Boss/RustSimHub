@@ -386,6 +386,50 @@ pub async fn serve_media_bundle(
     history: Option<(&str, &str)>,
     compat: Option<&str>,
 ) -> Result<()> {
+    serve_bundle_options(
+        socket,
+        uid,
+        state,
+        identity,
+        RuntimeExtras {
+            media: Some(media),
+            setup: None,
+            history,
+            compat,
+        },
+    )
+    .await
+}
+pub async fn serve_device(
+    socket: &str,
+    uid: u32,
+    state: &str,
+    identity: &str,
+    media: (&str, u32),
+    history: (&str, &str),
+    local: (&str, &str),
+) -> Result<()> {
+    serve_bundle_options(
+        socket,
+        uid,
+        state,
+        identity,
+        RuntimeExtras {
+            media: Some(media),
+            setup: Some(SetupMode::Device(local.1)),
+            history: Some(history),
+            compat: Some(local.0),
+        },
+    )
+    .await
+}
+async fn serve_bundle_options(
+    socket: &str,
+    uid: u32,
+    state: &str,
+    identity: &str,
+    extras: RuntimeExtras<'_>,
+) -> Result<()> {
     use tokio::signal::unix::{signal, SignalKind};
     let mut term = signal(SignalKind::terminate())?;
     let mut interrupt = signal(SignalKind::interrupt())?;
@@ -395,12 +439,7 @@ pub async fn serve_media_bundle(
         state,
         identity,
         (true, true, 2),
-        RuntimeExtras {
-            media: Some(media),
-            setup: None,
-            history,
-            compat,
-        },
+        extras,
         async move {
             tokio::select! {_=term.recv()=>{},_=interrupt.recv()=>{}}
         },
@@ -454,7 +493,7 @@ pub async fn serve_setup(
         (true, false, 1),
         RuntimeExtras {
             media: None,
-            setup: Some(secret_file),
+            setup: Some(SetupMode::Explicit(secret_file)),
             history: None,
             compat: None,
         },
@@ -564,9 +603,13 @@ async fn serve_inner(
 #[derive(Default)]
 struct RuntimeExtras<'a> {
     media: Option<(&'a str, u32)>,
-    setup: Option<&'a str>,
+    setup: Option<SetupMode<'a>>,
     history: Option<(&'a str, &'a str)>,
     compat: Option<&'a str>,
+}
+enum SetupMode<'a> {
+    Explicit(&'a str),
+    Device(&'a str),
 }
 async fn serve_inner_media(
     socket: &str,
@@ -578,7 +621,10 @@ async fn serve_inner_media(
     stop: impl std::future::Future<Output = ()>,
 ) -> Result<()> {
     let (state, identity) = (state.to_owned(), identity.to_owned());
-    let setup_file = extras.setup.map(str::to_owned);
+    let setup_file = extras.setup.map(|mode| match mode {
+        SetupMode::Explicit(path) => (false, path.to_owned()),
+        SetupMode::Device(path) => (true, path.to_owned()),
+    });
     let history_paths = extras.history.map(|(a, b)| (a.to_owned(), b.to_owned()));
     let compat_path = extras.compat.map(str::to_owned);
     let (store, auth, setup, history, compat) =
@@ -586,12 +632,18 @@ async fn serve_inner_media(
             let store = Store::open(state)?;
             let auth = Auth::open(identity, store.handle())?;
             let setup = setup_file
-                .map(|path| {
-                    let gate = rustsimhub_auth::LocalSetup::load(std::path::Path::new(&path))?;
-                    gate.require_empty(&auth)?;
-                    Ok::<_, rustsimhub_auth::Error>(Arc::new(Mutex::new(gate)))
+                .map(|(device, path)| {
+                    let gate = if device {
+                        rustsimhub_auth::LocalSetup::for_device(std::path::Path::new(&path), &auth)?
+                    } else {
+                        let gate = rustsimhub_auth::LocalSetup::load(std::path::Path::new(&path))?;
+                        gate.require_empty(&auth)?;
+                        Some(gate)
+                    };
+                    Ok::<_, rustsimhub_auth::Error>(gate.map(|gate| Arc::new(Mutex::new(gate))))
                 })
-                .transpose()?;
+                .transpose()?
+                .flatten();
             let history = history_paths
                 .map(|(archive, access)| {
                     rustsimhub_compat::history::HistoryService::open(

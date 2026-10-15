@@ -10,16 +10,19 @@ from cryptography.hazmat.primitives.serialization import Encoding,PublicFormat,P
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--platform',action='store_true',help='Use one Core for telephony/media authorization/history/NAS/network')
 p.add_argument('--empty-history',action='store_true',help='Initialize a new empty archive without any old NAS or synthetic snapshot')
+p.add_argument('--device-first-owner',action='store_true',help='One-use local owner window and platform operation in the same Core process')
 p.add_argument('--nas-adapter',help='Optional verified NAS Go adapter for platform acceptance')
 for name in ['nas','device','artifacts','report']:p.add_argument('--'+name,type=pathlib.Path,required=True)
 a=p.parse_args();assert not a.report.exists()
 assert not a.nas_adapter or a.platform
 assert not a.empty_history or a.platform
+assert not a.device_first_owner or (a.platform and a.empty_history)
 meta=json.loads((a.artifacts/'build.json').read_text());nc=json.loads(a.nas.read_text(encoding='utf-8-sig'));dc=json.loads(a.device.read_text(encoding='utf-8-sig'))
 names=['rustsimhub-core','rustsimhub-edge']+(['rustsimhub-migrate'] if a.platform else [])
 for name in names:assert hashlib.sha256((a.artifacts/name).read_bytes()).hexdigest()==meta['artifact_sha256'][name]
 tag=uuid.uuid4().hex[:12];units=['rustsimhub-wifi-config-core-'+tag,'rustsimhub-wifi-config-edge-'+tag]
 report={'passed':False,'source_archive_sha256':meta['source_archive_sha256'],'units':units,'new_calls':0,'new_sms':0,'cellular_tests':False,'browser_verified':False,'different_ssid_success_verified':False,'combined_platform':a.platform,'original_data_read':a.platform,'no_legacy_snapshot_required':a.empty_history}
+report['one_process_device_first_owner']=a.device_first_owner
 nas=dev=sf=None;started=False;policy=None;policy_hash=None;base=None;trials=[];original=None;pin=None;client=None
 q=shlex.quote
 def save():a.report.parent.mkdir(parents=True,exist_ok=True);a.report.write_text(json.dumps(report,indent=2),encoding='utf-8')
@@ -44,12 +47,14 @@ def sign(c,k,purpose,kind,scopes):
 def login(k,kind='owner',scopes=1023):
  c=call({'op':'challenge','public_key':pub(k)});return call({'op':'authenticate','challenge_id':c['id'],'signature':sign(c,k,'login',kind,scopes)})['token']
 def core_start(mode):
- if mode=='--serve-local-setup':extra=[base+'/setup/code']
+ if a.device_first_owner:mode='--serve-device';extra=[base+'/runtime/media.sock',str(mediauid),base+'/archive',base+'/access',base+'/compat',base+'/journal',base+'/setup']
+ elif mode=='--serve-local-setup':extra=[base+'/setup/code']
  elif a.platform:
   mode='--serve-platform';extra=[base+'/runtime/media.sock',str(mediauid),base+'/archive',base+'/access',base+'/compat',base+'/journal']
  else:extra=[base+'/journal']
  rw=['state','identity','runtime','journal']+(['access','compat'] if a.platform else [])
  ro=['bin','setup']+(['archive'] if a.platform else [])
+ if a.device_first_owner:rw+=['setup'];ro.remove('setup')
  args=['systemd-run','--unit='+units[0],'--collect','-p','User=rustsimhub-core','-p','Group=rustsimhub-core','-p','SupplementaryGroups=rustsimhub-ipc','-p','CapabilityBoundingSet=','-p','AmbientCapabilities=','-p','NoNewPrivileges=yes','-p','PrivateDevices=yes','-p','PrivateTmp=yes','-p','ProtectSystem=strict','-p','ProtectHome=yes','-p','BindPaths='+' '.join(base+'/'+n for n in rw),'-p','BindReadOnlyPaths='+' '.join(base+'/'+n for n in ro),'-p','RuntimeMaxSec=900','-p','TimeoutStopSec=8','-p','MemoryMax=96M','-p','TasksMax=16','-p','LimitCORE=0']
  if mode=='--serve-local-setup':args+=['-p','InaccessiblePaths=/run/dbus']
  run(shlex.join(args+[core,mode,socket,str(edgeuid),base+'/state',base+'/identity']+extra));run('n=0;while ! test -S '+q(socket)+';do n=$((n+1));test "$n" -lt 20;sleep 1;done');time.sleep(.3)
@@ -99,7 +104,7 @@ try:
  for name in names:
   sf.put(str(a.artifacts/name),base+'/bin/'+name);sf.chmod(base+'/bin/'+name,0o555);_,raw=run('echo '+q(meta['artifact_sha256'][name]+'  '+base+'/bin/'+name)+' | sha256sum -c -\n'+q(base+'/bin/'+name)+' --build-info');info=json.loads(raw.splitlines()[-1]);assert info['source_archive_sha256']==meta['source_archive_sha256']
   if name=='rustsimhub-core':assert not info['development_fixtures']
- core=base+'/bin/rustsimhub-core';edge=base+'/bin/rustsimhub-edge';socket=base+'/runtime/core.sock';setup=secrets.token_bytes(32);write(base+'/setup/code',setup,coreuid,coregid)
+ core=base+'/bin/rustsimhub-core';edge=base+'/bin/rustsimhub-edge';socket=base+'/runtime/core.sock';setup=secrets.token_bytes(32);write(base+'/setup/'+('setup.code' if a.device_first_owner else 'code'),setup,coreuid,coregid)
  run('runuser -u rustsimhub-edge -- '+q(edge)+' --init-tls '+q(base+'/edge/tls')+' '+q(dc['host']))
  write(base+'/edge/config.json',json.dumps({'listen':dc['host']+':8448','origin':'https://'+dc['host']+':8448','core_socket':socket,'core_uid':coreuid,'tls_directory':base+'/edge/tls','legacy_compat':a.platform}).encode(),edgeuid,edgegid)
  local=ROOT/'.private'/('wifi-config-'+tag);local.mkdir(mode=0o700);sf.get(base+'/edge/tls/cert.pem',str(local/'cert.pem'))
@@ -124,9 +129,38 @@ finally:c.close()
   for name in ['cert.pem','request.py']:ns.put(str(local/name),client+'/'+name);ns.chmod(client+'/'+name,0o600)
  started=True;core_start('--serve-local-setup')
  args=['systemd-run','--unit='+units[1],'--collect','-p','User=rustsimhub-edge','-p','Group=rustsimhub-edge','-p','SupplementaryGroups=rustsimhub-ipc','-p','CapabilityBoundingSet=','-p','AmbientCapabilities=','-p','NoNewPrivileges=yes','-p','ProtectSystem=strict','-p','ProtectHome=yes','-p','PrivateDevices=yes','-p','PrivateTmp=yes','-p','InaccessiblePaths=/run/dbus','-p','BindReadOnlyPaths='+base+'/edge '+base+'/runtime '+base+'/bin','-p','RuntimeMaxSec=890','-p','TimeoutStopSec=6','-p','MemoryMax=64M','-p','TasksMax=8',edge,'--serve',base+'/edge/config.json'];run(shlex.join(args));time.sleep(.4)
- pin=call({'op':'identity'})['public_key'];owner=Ed25519PrivateKey.generate();c=call({'op':'setup_challenge','setup_code':setup.hex(),'public_key':pub(owner)});assert call({'op':'setup_finish','setup_code':setup.hex(),'challenge_id':c['id'],'signature':sign(c,owner,'bootstrap','owner',1023)})['owner_initialized'];del setup
- token=login(owner);assert begin(token,'disabled-mode',ssid,secret).get('error')
- run('systemctl stop '+q(units[0]));core_start('--serve-network-provisioning');token=login(owner);assert call({'op':'health','token':token})['wifi_provisioning_api']
+ if a.device_first_owner:
+  spent_pin=call({'op':'identity'})['public_key'];assert call({'op':'identity'})['owner_setup_available'] is True
+  run('systemctl kill --kill-whom=all --signal=KILL '+q(units[0]))
+  core_start('--serve-network-provisioning')
+  identity=call({'op':'identity'});assert identity['public_key']==spent_pin and identity['owner_setup_available'] is False
+  assert call({'op':'setup_challenge','setup_code':setup.hex(),'public_key':pub(Ed25519PrivateKey.generate())}).get('error')
+  report['unowned_window_closed_after_real_sigkill_with_correct_code_denied']=True;save()
+  # Preserve this failed-start fixture in full. The success case uses a fresh,
+  # deliberately different test identity; no product reset API is invoked.
+  run('systemctl stop '+q(units[0])+';mkdir -m 0700 '+q(base+'/unowned-crash-proof')+';for n in state identity setup access compat journal;do test ! -L '+q(base)+'/$n;mv -- '+q(base)+'/$n '+q(base+'/unowned-crash-proof')+'/$n;install -d -o rustsimhub-core -g rustsimhub-core -m 0700 '+q(base)+'/$n;done')
+  setup=secrets.token_bytes(32);write(base+'/setup/setup.code',setup,coreuid,coregid);core_start('--serve-network-provisioning')
+  assert call({'op':'identity'})['public_key']!=spent_pin
+  report['success_fixture_is_separate_from_preserved_unowned_crash_fixture']=True
+ identity=call({'op':'identity'});pin=identity['public_key'];owner=Ed25519PrivateKey.generate()
+ if a.device_first_owner:
+  assert identity['owner_setup_available'] is True
+  assert call({'op':'health','token':'0'*64}).get('error')
+  assert call({'op':'setup_challenge','setup_code':'0'*64,'public_key':pub(owner)}).get('error')
+  initial_pid=run('systemctl show -p MainPID --value '+q(units[0]))[1].strip();assert initial_pid.isdecimal() and int(initial_pid)>0
+ c=call({'op':'setup_challenge','setup_code':setup.hex(),'public_key':pub(owner)});finish={'op':'setup_finish','setup_code':setup.hex(),'challenge_id':c['id'],'signature':sign(c,owner,'bootstrap','owner',1023)};assert call(finish)['owner_initialized']
+ token=login(owner)
+ if a.device_first_owner:
+  assert call({'op':'identity'})['owner_setup_available'] is False
+  assert call(finish).get('error')
+  assert run('systemctl show -p MainPID --value '+q(units[0]))[1].strip()==initial_pid
+  run('test "$(stat -c \'%u:%a:%h\' '+q(base+'/setup/setup.used')+')" = '+q(str(coreuid)+':600:1')+';rm -- '+q(base+'/setup/setup.code'))
+  report['owner_initialization_and_full_platform_share_same_process']=True
+ else:
+  assert begin(token,'disabled-mode',ssid,secret).get('error')
+  run('systemctl stop '+q(units[0]));core_start('--serve-network-provisioning');token=login(owner)
+ del setup,finish
+ assert call({'op':'health','token':token})['wifi_provisioning_api']
  if a.platform:
   health=call({'op':'health','token':token});assert health['mode']=='authenticated_platform' and all(health[x] for x in ['messaging_api','call_control_api','history_read_api','legacy_read_api','wifi_provisioning_api'])
   sources=call({'op':'history_sources','token':token});assert len(sources['sources'])==(0 if a.empty_history else 1)
@@ -179,6 +213,10 @@ finally:c.close()
   assert time.monotonic()<deadline;time.sleep(.1)
  report['fault_kill_armed']=True;save();run('systemctl kill --kill-whom=all --signal=KILL '+q(units[0]));restore_wait();assert set(profiles())==set(before)
  core_start('--serve-network-provisioning');token=login(owner);assert begin(token,'wrong-psk-kill-once',ssid,'0'*64).get('error')
+ if a.device_first_owner:
+  identity=call({'op':'identity'});assert identity['public_key']==pin and identity['owner_setup_available'] is False
+  assert call({'op':'setup_challenge','setup_code':'0'*64,'public_key':pub(Ed25519PrivateKey.generate())}).get('error')
+  report['device_window_stays_closed_after_real_kill_without_setup_code']=True
  if a.platform:
   assert wait_inbox(token)==original_inbox
   if a.nas_adapter:
