@@ -2,6 +2,15 @@
 
 RustSimHub 的新增源码使用 AGPL-3.0-only；详见 LICENSE。
 
+2026-10-15 `tools/rootfs/` 复用 AirSimHub 提交
+`ea019485e5d890a96acae357c52b94c746de837f` 的基础镜像构建、验签/审计工具及核心测试，
+逐文件原始 SHA256 见该目录 `reuse-provenance.json`，修改范围见 README。
+`scripts/`、`firmware/` 保留 AGPL-3.0-only；Android boot 解析辅助工具
+`kernel/audio/replace-appended-dtb.py` 按原项目许可证映射保留 GPL-2.0-only，
+全文为 `licenses/GPL-2.0-only.txt`，不由项目 AGPL 覆盖。
+顶层 `firmware/base-system.lock.json` 是实际签名 Debian 快照的包元数据，不包含包制品；
+Debian 包及内核/模块仍保留各自许可证，完整制品发布须交付相应来源与版权材料。
+
 2026-10-14 NAS 兼容契约参考 AirSimHub 提交
 `ea019485e5d890a96acae357c52b94c746de837f` 的
 `node/proto/auth.go`、`identity.go`、`compat.go`、`node.go`（AGPL-3.0-only）。

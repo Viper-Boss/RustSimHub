@@ -1,0 +1,23 @@
+{
+  "note": "RustSimHub candidate package request; includes maintenance SSH/time sync, omits out-of-scope Bluetooth. Not hardware acceptance. AP helper is optional and unverified.",
+  "base": [
+    "alsa-utils",
+    "ca-certificates",
+    "libqmi-utils",
+    "modemmanager",
+    "network-manager",
+    "openssh-server",
+    "polkitd",
+    "qrtr-tools",
+    "rmtfs",
+    "systemd",
+    "systemd-timesyncd",
+    "wpasupplicant"
+  ],
+  "setup_access_point": {
+    "packages": [
+      "dnsmasq-base"
+    ],
+    "why": "The setup access point is a NetworkManager profile with ipv4.method shared. In that mode NetworkManager starts the dnsmasq binary itself to give the joining phone an address; without it the profile cannot be activated. dnsmasq-base ships only the binary. The full dnsmasq package must NOT be installed in its place: it adds a system-wide DNS/DHCP service. Required only for a package built with NSH_SETUP_AP=on; package-factory.sh refuses that switch when /usr/sbin/dnsmasq is missing from the input rootfs. Not yet verified on hardware."
+  }
+}

@@ -13,6 +13,10 @@ jobs:
         run: rustc --version && cargo --version
       - name: Format
         run: cargo fmt --all -- --check
+      - name: Rootfs tooling fixtures
+        run: |
+          sh -n tools/rootfs/scripts/build-rootfs.sh tools/recovery-fastboot-probe.sh
+          python3 -m unittest discover -s tools/rootfs/scripts -p test_rootfs.py
       - name: Test
         run: cargo test --workspace --all-features --locked
       - name: Check production feature set

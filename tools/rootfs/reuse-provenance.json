@@ -1,0 +1,19 @@
+{
+  "revision": "ea019485e5d890a96acae357c52b94c746de837f",
+  "files": {
+    "scripts/build-rootfs.sh": "a95ab781e9eb3a497b8b2502163c8a38d48ee4bcd0f24faeac8ed48625fed0df",
+    "scripts/rootfs_tools.py": "aab5a291e3ca73a343b317ccb4e3572e0633eacce91bc8bf6c712d6d7142dc60",
+    "scripts/rootfs_fetch_index.py": "126bb11db1adcbf05a5c4260f2f6026f5bc3aa6a4496c9b2a3156bbfccdd23c7",
+    "scripts/genericrules.py": "3282e3d1d5176c2598460fc4bebb27f7ec79a46f558e76917461189d06e4d698",
+    "scripts/audit-rootfs.py": "fd5f69ee89334a48e1b82c6b328f7ecd7e621ecd7b294d08a1776bd2d950ba44",
+    "scripts/test_rootfs.py": "2ef356ed3a83936f972c87e307d210be852baf3b0c91b9a8fb9251d83057991e",
+    "kernel/audio/replace-appended-dtb.py": "2619e7665db2e88c4a4608be0a66f04b6fca48bd1e800458164da9a3ae2d4b44",
+    "firmware/rootfs.lock.json": "74c06221c2637140154d36730129f9381e35f6ae0f214c84ba62a2923666a35d",
+    "firmware/upstream.lock.json": "1ff9131296314c940bfdfe6274b67eea263edb9c975ae347f992bbae27386ce8",
+    "firmware/debian-packages.json": "71d9eabbbe0fd47169ce971fcc529d72a46851d13954f7582f78179f7face838",
+    "LICENSE": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+    "NOTICE.md": "7fbafb277e8606d4cb640d29b15f6cea7f96de46dfb30ea2b4017a34ea0192e9",
+    "scripts/public-selftest-keys.json": "9e2669193e5351cfb9df542789e45d0230e5b8efbe8f57ce64b0b252278d95b8",
+    "scripts/imagepolicy.py": "96a5d4299f2e1f2c4255b415408e0a004ff01b47105261f89a95600626463458"
+  }
+}
