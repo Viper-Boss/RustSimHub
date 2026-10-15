@@ -6,6 +6,8 @@ rustsimhub-core --serve-platform SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR MEDIA
 
 一个Core持有身份、业务库、短信观察/发送、电话控制与媒体授权、历史授权、NAS只读会话和有限Wi-Fi配置。Edge只连接这个Core；不能同时运行第二个Core共享业务库。目录与UID隔离要求沿用各模块规则，网络日志目录由Core拥有且0700。首次owner初始化仍走已有受限setup流程，不能从旧NAS认证库导入owner。
 
+全新设备没有旧NAS或历史快照时，先以Core账户对空的私有ARCHIVE_DIR执行`rustsimhub-migrate init ARCHIVE_DIR`，再启动Core。初始化只创建空历史结构，不需要任何旧用户、线路、命名空间、示例数据或认证材料；owner看到的历史来源为空。完整数据库提交和同步后使用不覆盖重命名发布。已有目标或遗留history.sqlite.initializing都拒绝，不能自动删除；中断文件须在停止相关服务后单独审核。以后导入旧历史仍需离线操作，并按新归档epoch重新审核授权，不能静默继承旧授权库。
+
 health显式报告messaging_api、call_control_api、history_read_api、legacy_read_api、wifi_provisioning_api。组合模式为authenticated_platform；媒体尚未完整交付时media_available仍为false。启用媒体授权不等于已验证网页声音或真实双向音频。
 
 ## 网络与电话边界
@@ -23,3 +25,5 @@ Core重启后的内存锁不能证明旧NM恢复点已结束。因此启用网�
 独立模拟D-Bus电话测试证明网络持锁期间不创建新意图/不消费原prepared意图/不调用CreateCall；释放后该意图可显式提交，网络持锁期间挂断仍完成。锁单元测试也覆盖反方向：在途语音请求阻止网络开始。
 
 `tools/test-wifi-provisioning.py --platform --nas-adapter VERIFIED_ADAPTER_PATH` 使用一个真实生产Core，联合新配置保存/恢复、实际收件箱、合成历史、当前NAS授权与Go桥，禁止测试拨号/短信发送/蜂窝流量。实际结果应以独立VALIDATION记录和私有报告为准，不能由本文件的接口说明推定已验收。
+
+加`--empty-history`改为全新空归档，不再生成或读取任何旧NAS/合成快照。NAS在这里是可选的验收客户端，不是设备运行时的数据或鉴权依赖；该测试本身不等于已经关闭NAS、断开USB、物理断电上电验收。

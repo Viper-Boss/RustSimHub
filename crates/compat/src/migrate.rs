@@ -14,10 +14,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         use rustsimhub_compat::history;
         use std::path::Path;
         let report = match args.as_slice() {
+            [op, directory] if op=="init" => history::initialize(Path::new(directory))?,
             [op, snapshot, source] if op == "validate" => history::validate(Path::new(snapshot),source)?,
             [op, snapshot, source, destination] if op == "import" => history::import(Path::new(snapshot),source,Path::new(destination))?,
             [op, directory] if op == "inspect" => history::inspect(Path::new(directory))?,
-            _ => return Err("usage: validate PRIVATE_OFFLINE_SNAPSHOT SOURCE_ID | import PRIVATE_OFFLINE_SNAPSHOT SOURCE_ID PRIVATE_ARCHIVE_DIR | inspect PRIVATE_ARCHIVE_DIR; history only, no credentials or hardware replay".into()),
+            _ => return Err("usage: init PRIVATE_EMPTY_ARCHIVE_DIR | validate PRIVATE_OFFLINE_SNAPSHOT SOURCE_ID | import PRIVATE_OFFLINE_SNAPSHOT SOURCE_ID PRIVATE_ARCHIVE_DIR | inspect PRIVATE_ARCHIVE_DIR; history only, no credentials or hardware replay".into()),
         };
         println!("{}", serde_json::to_string(&report)?);
         Ok(())

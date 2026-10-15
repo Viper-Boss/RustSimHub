@@ -3,6 +3,44 @@ use super::*;
 use std::os::unix::fs::{symlink, PermissionsExt};
 const SOURCE: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const REALM: &str = "ce24de2e-57ee-456e-999a-a62899f96a23";
+#[test]
+fn standalone_empty_archive_has_no_nas_dependency_and_does_not_overwrite() {
+    let (root, input, archive) = fixture();
+    let report = initialize(&archive).unwrap();
+    assert!(
+        report.history_only && !report.credentials_imported && report.rows_by_entity.is_empty()
+    );
+    assert!(inspect(&archive).unwrap().rows_by_entity.is_empty());
+    let before = fs::read(archive.join("history.sqlite")).unwrap();
+    assert!(initialize(&archive).is_err());
+    assert_eq!(fs::read(archive.join("history.sqlite")).unwrap(), before);
+    let access = root.path().join("empty-access");
+    fs::create_dir(&access).unwrap();
+    fs::set_permissions(&access, fs::Permissions::from_mode(0o700)).unwrap();
+    let service = HistoryService::open(&archive, &access, [77; 32], REALM).unwrap();
+    assert!(service
+        .sources(&principal(1, rustsimhub_policy::Kind::Owner))
+        .unwrap()
+        .is_empty());
+    drop(service);
+    assert_eq!(import(&input, SOURCE, &archive).unwrap().inserted, 15);
+}
+#[test]
+fn standalone_init_does_not_replace_staging_or_link_targets() {
+    let (root, _, archive) = fixture();
+    let staging = archive.join("history.sqlite.initializing");
+    fs::write(&staging, b"interrupted private stage").unwrap();
+    fs::set_permissions(&staging, fs::Permissions::from_mode(0o600)).unwrap();
+    assert!(initialize(&archive).is_err());
+    assert_eq!(fs::read(&staging).unwrap(), b"interrupted private stage");
+    assert!(!archive.join("history.sqlite").exists());
+    let second = root.path().join("linked-archive");
+    fs::create_dir(&second).unwrap();
+    fs::set_permissions(&second, fs::Permissions::from_mode(0o700)).unwrap();
+    symlink(&staging, second.join("history.sqlite")).unwrap();
+    assert!(initialize(&second).is_err());
+    assert_eq!(fs::read(&staging).unwrap(), b"interrupted private stage");
+}
 fn fixture() -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
     let root = tempfile::tempdir().unwrap();
     fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700)).unwrap();

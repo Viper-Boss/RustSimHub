@@ -23,6 +23,7 @@ const MAX_SNAPSHOT: u64 = 256 * 1024 * 1024;
 const MAX_ROWS: usize = 100_000;
 const MAX_ROW: usize = 128 * 1024;
 const MAX_ARCHIVE_BYTES: u64 = 512 * 1024 * 1024;
+const ARCHIVE_SCHEMA: &str = "BEGIN IMMEDIATE; CREATE TABLE history_records(seq INTEGER PRIMARY KEY,source TEXT NOT NULL,entity TEXT NOT NULL,legacy_key TEXT NOT NULL,payload TEXT NOT NULL,digest BLOB NOT NULL CHECK(length(digest)=32),UNIQUE(source,entity,legacy_key)); CREATE TABLE history_batches(source TEXT NOT NULL,snapshot_digest BLOB NOT NULL CHECK(length(snapshot_digest)=32),PRIMARY KEY(source,snapshot_digest)); PRAGMA application_id=1381189709; PRAGMA user_version=1; COMMIT;";
 type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
@@ -449,6 +450,41 @@ fn archive_check(db: &Connection) -> Result<()> {
     }
     Ok(())
 }
+/// Fresh standalone installations need no old NAS snapshot, namespace or synthetic rows.
+/// Publish only a fully synced database; an existing target or interrupted staging file
+/// is never overwritten or silently removed.
+pub fn initialize(destination: &Path) -> Result<Report> {
+    let _lock = archive_lock(destination, true)?;
+    let target = destination.join("history.sqlite");
+    match fs::symlink_metadata(&target) {
+        Ok(_) => return Err(Error::Conflict),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => return Err(Error::Io),
+    }
+    let staging = destination.join("history.sqlite.initializing");
+    let file = private_file(&staging, true, true)?;
+    {
+        let db = Connection::open_with_flags(
+            &staging,
+            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )?;
+        db.execute_batch("PRAGMA trusted_schema=OFF;PRAGMA journal_mode=DELETE;PRAGMA synchronous=FULL;PRAGMA max_page_count=131072;")?;
+        db.execute_batch(ARCHIVE_SCHEMA)?;
+        archive_check(&db)?;
+        db.close().map_err(|_| Error::Database)?;
+    }
+    file.sync_all()?;
+    rustix::fs::renameat_with(
+        rustix::fs::CWD,
+        &staging,
+        rustix::fs::CWD,
+        &target,
+        rustix::fs::RenameFlags::NOREPLACE,
+    )
+    .map_err(|_| Error::Conflict)?;
+    File::open(destination)?.sync_all()?;
+    Ok(report())
+}
 pub fn import(input: &Path, source: &str, destination: &Path) -> Result<Report> {
     namespace(source)?;
     let mut snapshot = Snapshot::open(input)?;
@@ -481,7 +517,7 @@ pub fn import(input: &Path, source: &str, destination: &Path) -> Result<Report> 
         MAX_ARCHIVE_BYTES / page_size as u64
     ))?;
     if new {
-        db.execute_batch("BEGIN IMMEDIATE; CREATE TABLE history_records(seq INTEGER PRIMARY KEY,source TEXT NOT NULL,entity TEXT NOT NULL,legacy_key TEXT NOT NULL,payload TEXT NOT NULL,digest BLOB NOT NULL CHECK(length(digest)=32),UNIQUE(source,entity,legacy_key)); CREATE TABLE history_batches(source TEXT NOT NULL,snapshot_digest BLOB NOT NULL CHECK(length(snapshot_digest)=32),PRIMARY KEY(source,snapshot_digest)); PRAGMA application_id=1381189709; PRAGMA user_version=1; COMMIT;")?;
+        db.execute_batch(ARCHIVE_SCHEMA)?;
     }
     archive_check(&db)?;
     let tx = db.transaction()?;

@@ -9,15 +9,17 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 from cryptography.hazmat.primitives.serialization import Encoding,PublicFormat,PrivateFormat,NoEncryption
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--platform',action='store_true',help='Use one Core for telephony/media authorization/history/NAS/network')
+p.add_argument('--empty-history',action='store_true',help='Initialize a new empty archive without any old NAS or synthetic snapshot')
 p.add_argument('--nas-adapter',help='Optional verified NAS Go adapter for platform acceptance')
 for name in ['nas','device','artifacts','report']:p.add_argument('--'+name,type=pathlib.Path,required=True)
 a=p.parse_args();assert not a.report.exists()
 assert not a.nas_adapter or a.platform
+assert not a.empty_history or a.platform
 meta=json.loads((a.artifacts/'build.json').read_text());nc=json.loads(a.nas.read_text(encoding='utf-8-sig'));dc=json.loads(a.device.read_text(encoding='utf-8-sig'))
 names=['rustsimhub-core','rustsimhub-edge']+(['rustsimhub-migrate'] if a.platform else [])
 for name in names:assert hashlib.sha256((a.artifacts/name).read_bytes()).hexdigest()==meta['artifact_sha256'][name]
 tag=uuid.uuid4().hex[:12];units=['rustsimhub-wifi-config-core-'+tag,'rustsimhub-wifi-config-edge-'+tag]
-report={'passed':False,'source_archive_sha256':meta['source_archive_sha256'],'units':units,'new_calls':0,'new_sms':0,'cellular_tests':False,'browser_verified':False,'different_ssid_success_verified':False,'combined_platform':a.platform,'original_data_read':a.platform}
+report={'passed':False,'source_archive_sha256':meta['source_archive_sha256'],'units':units,'new_calls':0,'new_sms':0,'cellular_tests':False,'browser_verified':False,'different_ssid_success_verified':False,'combined_platform':a.platform,'original_data_read':a.platform,'no_legacy_snapshot_required':a.empty_history}
 nas=dev=sf=None;started=False;policy=None;policy_hash=None;base=None;trials=[];original=None;pin=None;client=None
 q=shlex.quote
 def save():a.report.parent.mkdir(parents=True,exist_ok=True);a.report.write_text(json.dumps(report,indent=2),encoding='utf-8')
@@ -101,7 +103,9 @@ try:
  run('runuser -u rustsimhub-edge -- '+q(edge)+' --init-tls '+q(base+'/edge/tls')+' '+q(dc['host']))
  write(base+'/edge/config.json',json.dumps({'listen':dc['host']+':8448','origin':'https://'+dc['host']+':8448','core_socket':socket,'core_uid':coreuid,'tls_directory':base+'/edge/tls','legacy_compat':a.platform}).encode(),edgeuid,edgegid)
  local=ROOT/'.private'/('wifi-config-'+tag);local.mkdir(mode=0o700);sf.get(base+'/edge/tls/cert.pem',str(local/'cert.pem'))
- if a.platform:
+ if a.platform and a.empty_history:
+  _,raw=run('runuser -u rustsimhub-core -- '+q(base+'/bin/rustsimhub-migrate')+' init '+q(base+'/archive'));assert json.loads(raw.splitlines()[-1])['rows_by_entity']=={}
+ elif a.platform:
   source=local/'synthetic.sqlite'
   with sqlite3.connect(source) as db:db.executescript((ROOT/'crates/compat/src/history/test-schema.sql').read_text(encoding='utf-8'))
   sf.put(str(source),base+'/setup/synthetic.sqlite');sf.chown(base+'/setup/synthetic.sqlite',coreuid,coregid);sf.chmod(base+'/setup/synthetic.sqlite',0o400)
@@ -125,7 +129,7 @@ finally:c.close()
  run('systemctl stop '+q(units[0]));core_start('--serve-network-provisioning');token=login(owner);assert call({'op':'health','token':token})['wifi_provisioning_api']
  if a.platform:
   health=call({'op':'health','token':token});assert health['mode']=='authenticated_platform' and all(health[x] for x in ['messaging_api','call_control_api','history_read_api','legacy_read_api','wifi_provisioning_api'])
-  sources=call({'op':'history_sources','token':token});assert len(sources['sources'])==1
+  sources=call({'op':'history_sources','token':token});assert len(sources['sources'])==(0 if a.empty_history else 1)
   original_inbox=wait_inbox(token)
  reader=Ed25519PrivateKey.generate();call({'op':'open_pairing','token':token});c=call({'op':'pair_challenge','public_key':pub(reader),'kind':'client','scopes':['status.read']});pending=call({'op':'pair_proof','challenge_id':c['id'],'signature':sign(c,reader,'pair','client',1)});call({'op':'approve','token':token,'pairing_id':pending['pairing_id'],'public_key':pub(reader),'kind':'client','scopes':['status.read']});readonly=login(reader,'client',1)
  assert begin(readonly,'readonly-denied',ssid,secret).get('error');assert not run('find '+q(base+'/journal')+' -maxdepth 1 -name "*.started"')[1].strip()
@@ -148,7 +152,8 @@ finally:c.close()
  first=begin(token,'correct-cancel-once',ssid,secret);trial=first['trial_id'];ready=wait_state(token,trial,{'ready'})
  if a.platform:
   assert call({'op':'inbox','token':token,'after':None,'limit':16})==original_inbox
-  assert call({'op':'history_page','token':token,'source':'a'*64,'entity':'sms','after':None,'limit':16})['records']
+  if a.empty_history:assert call({'op':'history_sources','token':token})['sources']==[]
+  else:assert call({'op':'history_page','token':token,'source':'a'*64,'entity':'sms','after':None,'limit':16})['records']
   assert call({'op':'call_status','token':token})['control_api'] is True
   assert call({'op':'prepare_call','token':token,'line_epoch':1,'idempotency_key':'network-denied-dial','action':'dial','call_id':None,'payload':'10010'}).get('error')
   report['network_excludes_new_call_intent_but_inbox_history_and_status_remain_available']=True
