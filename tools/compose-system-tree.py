@@ -66,7 +66,8 @@ def main():
     base = args.base.resolve(strict=True)
     manifest = json.loads((base / 'ROOTFS-MANIFEST.json').read_text())
     assert manifest['kind'] == 'rustsimhub-ufi003-rootfs-base' and manifest['release_input'] is True
-    lock_sha = base_tools.sha256_file(ROOT / 'firmware/base-system.lock.json')
+    # Git's committed bytes are authoritative, including its LF normalization.
+    lock_sha = hashlib.sha256(git('show', revision+':firmware/base-system.lock.json')).hexdigest()
     assert manifest['lock']['sha256'] == lock_sha
     assert manifest['tree_sha256'] == base_tools.tree_hash(base / 'rootfs')[0]
     artifacts = args.artifacts.resolve(strict=True)
