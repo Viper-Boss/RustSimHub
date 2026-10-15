@@ -29,4 +29,4 @@ NetworkManager的system-connections目录单独绑定到持久分区中root:root
 
 本机隔离测试：`sudo python3 -m unittest discover -s tools/system -p 'test_*.py'`。固件/radio测试复用真实脚本并仅替换固定设备路径；目录准备测试只用一次性目录/合成旧数据，测试挂载守卫失败不写、旧文件内容/owner保持、稳定serial及pending续用、链接/错误owner拒绝。不能代替真实启动、USB链路或恢复验收。
 
-当前共23项隔离测试。已组合树的程序运行可用`tools/test-base-runtime.py --system-tree --base .../rootfs --artifacts ... --report /private/new-result.json`验证：执行factory的实际安装路径，核对Root0555/摘要/来源，并确认树前后未变。该检查不启动服务组。
+当前共26项隔离测试，含归档路径/链接/类型守卫。已组合树的程序运行可用`tools/test-base-runtime.py --system-tree --base .../rootfs --artifacts ... --report /private/new-result.json`验证：执行factory的实际安装路径，核对Root0555/摘要/来源，并确认树前后未变。该检查不启动服务组。真实候选RootDirectory的业务/故障和同源音频合成验收见docs/VALIDATION-CANDIDATE-RUNTIME-P6G.md；签名首次安装基线见docs/factory-application-baseline.md，仍未完成板级独立开机。
