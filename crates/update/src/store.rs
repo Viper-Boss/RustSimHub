@@ -205,6 +205,80 @@ impl Store {
     pub fn floor(&self) -> u64 {
         self.state.floor
     }
+    /// Select once for the whole boot group. The versions bind must name the
+    /// same directory on the root filesystem; the ledger stays on persistent state.
+    pub fn check_runtime_paths(&self, runtime: &Path, payload_root: &Path) -> Result<(), Error> {
+        if !runtime.is_absolute() || !payload_root.is_absolute() {
+            return Err(Error::Denied);
+        }
+        dir(runtime)?;
+        dir(payload_root)?;
+        let alias = fs::symlink_metadata(self.root.join("versions")).map_err(|_| Error::Io)?;
+        let physical = fs::symlink_metadata(payload_root).map_err(|_| Error::Io)?;
+        if alias.dev() != physical.dev() || alias.ino() != physical.ino() {
+            return Err(Error::Denied);
+        }
+        for name in ["selected", "selected.next"] {
+            let path = runtime.join(name);
+            match fs::symlink_metadata(&path) {
+                Ok(m) => {
+                    if !m.file_type().is_symlink() || m.uid() != rustix::process::geteuid().as_raw()
+                    {
+                        return Err(Error::Denied);
+                    }
+                    let target = fs::read_link(&path).map_err(|_| Error::Io)?;
+                    if target.parent() != Some(payload_root)
+                        || !target
+                            .file_name()
+                            .and_then(|s| s.to_str())
+                            .is_some_and(hex_digest)
+                    {
+                        return Err(Error::Denied);
+                    }
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(_) => return Err(Error::Io),
+            }
+        }
+        Ok(())
+    }
+    pub fn select_runtime(
+        &mut self,
+        runtime: &Path,
+        payload_root: &Path,
+    ) -> Result<PathBuf, Error> {
+        use std::os::unix::fs::symlink;
+        self.check_runtime_paths(runtime, payload_root)?;
+        let selected = self.choose()?;
+        let hash = selected.file_name().ok_or(Error::Invalid)?;
+        for name in FILES {
+            let path = selected.join(name);
+            fs::set_permissions(
+                &path,
+                fs::Permissions::from_mode(if name == "Opus-COPYING.txt" {
+                    0o444
+                } else {
+                    0o555
+                }),
+            )
+            .map_err(|_| Error::Io)?;
+            File::open(path)
+                .and_then(|f| f.sync_all())
+                .map_err(|_| Error::Io)?;
+        }
+        fs::set_permissions(&selected, fs::Permissions::from_mode(0o755)).map_err(|_| Error::Io)?;
+        sync_dir(&selected)?;
+        let destination = payload_root.join(hash);
+        let next = runtime.join("selected.next");
+        if fs::symlink_metadata(&next).is_ok() {
+            fs::remove_file(&next).map_err(|_| Error::Io)?;
+        }
+        symlink(&destination, &next).map_err(|_| Error::Io)?;
+        sync_dir(runtime)?;
+        fs::rename(&next, runtime.join("selected")).map_err(|_| Error::Io)?;
+        sync_dir(runtime)?;
+        Ok(destination)
+    }
     /// Explicit installer operation for a signed factory baseline, before business startup.
     /// It is not a health confirmation for an update. Never replaces an existing baseline,
     /// resets its epoch floor, or consumes a pending update's boot attempt.
@@ -514,5 +588,70 @@ mod tests {
         let (_, _, p) = package(1);
         assert_eq!(s.install_factory(&b, &g, &p), Err(Error::Io));
         assert!(!d.path().join("state.json").exists());
+    }
+    #[test]
+    fn one_boot_selection_publishes_the_group_then_falls_back_without_confirming() {
+        let d = directory();
+        let runtime = directory();
+        let mut s = Store::open(d.path(), key(), 5).unwrap();
+        let (b, g, p) = package(1);
+        let factory = s.install_factory(&b, &g, &p).unwrap();
+        let physical = d.path().join("versions");
+        assert_eq!(
+            s.select_runtime(runtime.path(), &physical).unwrap(),
+            factory
+        );
+        let (b, g, p) = package(2);
+        let second = s.stage(&b, &g, &p).unwrap();
+        let selected = s.select_runtime(runtime.path(), &physical).unwrap();
+        assert!(selected.ends_with(&second));
+        assert_eq!(
+            fs::read_link(runtime.path().join("selected")).unwrap(),
+            selected
+        );
+        assert_eq!(
+            fs::metadata(selected.join(FILES[0])).unwrap().mode() & 0o777,
+            0o555
+        );
+        assert_eq!(s.status()["candidate_attempted"], true);
+        // A crash after creating a pending runtime link cannot replay the candidate.
+        std::os::unix::fs::symlink(&selected, runtime.path().join("selected.next")).unwrap();
+        assert_eq!(
+            s.select_runtime(runtime.path(), &physical).unwrap(),
+            factory
+        );
+        assert_eq!(s.floor(), 2);
+        assert!(!runtime.path().join("selected.next").exists());
+    }
+    #[test]
+    fn wrong_versions_bind_or_unsafe_runtime_path_does_not_consume_candidate() {
+        let d = directory();
+        let runtime = directory();
+        let wrong = directory();
+        let mut s = Store::open(d.path(), key(), 5).unwrap();
+        let (b, g, p) = package(1);
+        s.install_factory(&b, &g, &p).unwrap();
+        let (b, g, p) = package(2);
+        s.stage(&b, &g, &p).unwrap();
+        let before = fs::read(d.path().join("state.json")).unwrap();
+        assert_eq!(
+            s.select_runtime(runtime.path(), wrong.path()),
+            Err(Error::Denied)
+        );
+        let physical = d.path().join("versions");
+        let target = runtime.path().join("selected");
+        std::os::unix::fs::symlink("/unexpected/escape", &target).unwrap();
+        assert_eq!(
+            s.select_runtime(runtime.path(), &physical),
+            Err(Error::Denied)
+        );
+        fs::remove_file(&target).unwrap();
+        fs::write(&target, b"do not overwrite").unwrap();
+        assert_eq!(
+            s.select_runtime(runtime.path(), &physical),
+            Err(Error::Denied)
+        );
+        assert_eq!(fs::read(&target).unwrap(), b"do not overwrite");
+        assert_eq!(fs::read(d.path().join("state.json")).unwrap(), before);
     }
 }

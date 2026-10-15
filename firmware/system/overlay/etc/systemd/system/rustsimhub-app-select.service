@@ -1,0 +1,30 @@
+[Unit]
+Description=Choose one verified application version for the complete group
+Requires=rustsimhub-firstboot.service
+After=rustsimhub-firstboot.service systemd-tmpfiles-setup.service
+Before=rustsimhub-core.service rustsimhub-edge.service
+PartOf=rustsimhub-app.target
+OnFailure=rustsimhub-app-recover.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+RuntimeDirectory=rustsimhub-app
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/libexec/rustsimhub/rustsimhub-update boot-select /var/lib/rustsimhub/rustsimhub-v1/system/app /usr/share/rustsimhub/release.public /usr/share/rustsimhub/factory-app /run/rustsimhub-app /opt/rustsimhub/versions
+BindPaths=/opt/rustsimhub/versions:/var/lib/rustsimhub/rustsimhub-v1/system/app/versions
+ReadWritePaths=/var/lib/rustsimhub/rustsimhub-v1/system/app /opt/rustsimhub/versions /run/rustsimhub-app
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+TimeoutStartSec=60
+MemoryMax=96M
+TasksMax=8
+LimitCORE=0

@@ -1,0 +1,17 @@
+[Unit]
+Description=One automatic application group recovery per boot
+After=rustsimhub-core.service rustsimhub-edge.service rustsimhub-app-select.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/rustsimhub-app-recover
+ReadWritePaths=/run/rustsimhub-app
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+TimeoutStartSec=10

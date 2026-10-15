@@ -15,6 +15,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/rootfs/scripts'))
 import rootfs_tools as base_tools
+from application_package import verify_package, FILES as APP_FILES
 
 NAMES = ('rustsimhub-core', 'simhubctl', 'rustsimhub-edge', 'rustsimhub-update',
          'rustsimhub-recovery', 'rustsimhub-migrate')
@@ -55,13 +56,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('base', 'artifacts', 'out'):
         parser.add_argument('--'+name, type=pathlib.Path, required=True)
+    for name in ('signed-application','release-public','updater-artifacts'):
+        parser.add_argument('--'+name,type=pathlib.Path)
     args = parser.parse_args()
+    startup = bool(args.signed_application)
+    assert all((args.signed_application,args.release_public,args.updater_artifacts)) or not any((args.signed_application,args.release_public,args.updater_artifacts))
     if sys.platform != 'linux' or os.geteuid() != 0:
         parser.error('Linux root is required to preserve numeric owners')
     if args.out.exists() or args.out.is_symlink():
         parser.error('Output must be a new directory; failed output is retained')
     assert not git('status', '--porcelain', '--', 'firmware/system', 'firmware/base-system.lock.json',
-                   'tools/compose-system-tree.py', 'tools/rootfs').strip(), 'Commit composition inputs first'
+                   'tools/compose-system-tree.py', 'tools/application_package.py', 'tools/rootfs').strip(), 'Commit composition inputs first'
     revision = git('rev-parse', 'HEAD').decode().strip()
     base = args.base.resolve(strict=True)
     manifest = json.loads((base / 'ROOTFS-MANIFEST.json').read_text())
@@ -81,6 +86,18 @@ def main():
         assert base_tools.sha256_file(path) == build['artifact_sha256'][name]
         header = subprocess.check_output(['readelf', '-h', str(path)], text=True)
         assert 'AArch64' in header
+    if startup:
+        signed = args.signed_application.resolve(strict=True)
+        release = args.release_public.resolve(strict=True)
+        app = verify_package(signed,release,build['source_archive_sha256'])
+        for name in ('rustsimhub-core','simhubctl','rustsimhub-edge'):
+            assert base_tools.sha256_file(signed/name)==build['artifact_sha256'][name]
+        updater = args.updater_artifacts.resolve(strict=True)
+        verifier = json.loads((updater/'build.json').read_text())
+        assert verifier['target']=='aarch64-unknown-linux-gnu' and verifier['development_fixtures'] is False
+        assert verifier.get('boot_runtime_selection_supported') is True,'Updater lacks the boot group selection contract'
+        assert base_tools.sha256_file(updater/'rustsimhub-update')==verifier['artifact_sha256']['rustsimhub-update']
+        assert 'AArch64' in subprocess.check_output(['readelf','-h',str(updater/'rustsimhub-update')],text=True)
     args.out.mkdir(mode=0o700)
     output = args.out.resolve(strict=True)
     try:
@@ -120,12 +137,28 @@ def main():
             os.chown(target, 0, 0)
             target.chmod(0o555)
         destination(tree, slot+'/build.json').write_text(json.dumps(build, indent=2)+'\n')
+        if startup:
+            for name in (*APP_FILES,'manifest.json','manifest.sig'):
+                target=destination(tree,'usr/share/rustsimhub/factory-app/'+name)
+                shutil.copyfile(signed/name,target);os.chown(target,0,0);target.chmod(0o555 if name in APP_FILES[:-1] else 0o444)
+            target=destination(tree,'usr/share/rustsimhub/release.public')
+            shutil.copyfile(release,target);os.chown(target,0,0);target.chmod(0o444)
+            for name,origin in [('rustsimhub-update',updater),('rustsimhub-migrate',artifacts)]:
+                target=destination(tree,'usr/libexec/rustsimhub/'+name)
+                shutil.copyfile(origin/name,target);os.chown(target,0,0);target.chmod(0o555)
+                assert base_tools.sha256_file(target)==(verifier if name=='rustsimhub-update' else build)['artifact_sha256'][name]
+            verify_package(tree/'usr/share/rustsimhub/factory-app',tree/'usr/share/rustsimhub/release.public',build['source_archive_sha256'])
+            destination(tree,'opt/rustsimhub/versions').mkdir(mode=0o700)
+            destination(tree,'opt/rustsimhub/selected').mkdir(mode=0o755)
+            destination(tree,'var/lib/rustsimhub-core').mkdir(mode=0o755)
+            destination(tree,'var/lib/rustsimhub-edge').mkdir(mode=0o755)
         state_mount = destination(tree, 'var/lib/rustsimhub')
         state_mount.mkdir(mode=0o700, exist_ok=True)
         assert not any(state_mount.iterdir())
         state_mount.chmod(0o700)
         units = ['rustsimhub-firstboot.service', 'rustsimhub-usb.service',
                  'rustsimhub-device-firmware.service', 'rustsimhub-radio-resume.service']
+        if startup:units+=['rustsimhub-app.target']
         for unit in units:
             link = destination(tree, 'etc/systemd/system/multi-user.target.wants/'+unit)
             assert not link.exists()
@@ -138,8 +171,13 @@ def main():
                      'application_revision': build['revision'], 'application_source_sha256': build['source_archive_sha256'],
                      'application_sha256': build['artifact_sha256'], 'overlay_sha256': overlay_hashes,
                      'flash_allowed': False, 'release_ready': False, 'recovery_verified': False,
-                     'app_service_group_installed': False, 'native_media_installed': False,
+                     'app_service_group_installed': startup, 'native_media_installed': False,
                      'board_boot_verified': False, 'private_data_included': False}
+        if startup:
+            candidate['factory_manifest_sha256']=base_tools.sha256_file(signed/'manifest.json')
+            candidate['release_public_sha256']=base_tools.sha256_file(release)
+            candidate['immutable_updater_build']=verifier
+            candidate['automatic_update_health_confirmation']=False
         destination(tree, 'usr/share/rustsimhub/system-candidate.json').write_text(json.dumps(candidate, indent=2)+'\n')
         spec = importlib.util.spec_from_file_location('base_audit', ROOT / 'tools/rootfs/scripts/audit-rootfs.py')
         audit = importlib.util.module_from_spec(spec)

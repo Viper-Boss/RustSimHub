@@ -1,0 +1,13 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-only
+# Runs as Core. Initialize only an empty archive; never reset identity or pairing.
+set -eu
+test "$#" = 0
+test "$(id -u)" = 986
+archive=/var/lib/rustsimhub-core/archive
+test ! -L "$archive"
+test "$(stat -c '%u:%a' "$archive")" = 986:700
+if test -e "$archive/history.sqlite" || test -L "$archive/history.sqlite";then
+ exec /usr/libexec/rustsimhub/rustsimhub-migrate inspect "$archive"
+fi
+exec /usr/libexec/rustsimhub/rustsimhub-migrate init "$archive"

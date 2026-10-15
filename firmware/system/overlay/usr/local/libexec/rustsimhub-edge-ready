@@ -1,0 +1,11 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-only
+set -eu
+test "$#" = 0
+test "$(id -u)" = 985
+n=0
+while ! test -S /run/rustsimhub/core/core.sock;do
+ n=$((n+1));test "$n" -lt 40;sleep .25
+done
+test ! -L /run/rustsimhub/core/core.sock
+test "$(stat -c %u /run/rustsimhub/core/core.sock)" = 986

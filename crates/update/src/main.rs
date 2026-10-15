@@ -14,7 +14,7 @@ fn run() -> Result<(), rustsimhub_update::Error> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            serde_json::json!({"source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"system_ota_supported":false})
+            serde_json::json!({"source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"system_ota_supported":false,"boot_runtime_selection_supported":true})
         );
         return Ok(());
     }
@@ -102,6 +102,18 @@ fn run() -> Result<(), rustsimhub_update::Error> {
             .map_err(|_| Error::Invalid)?;
         let mut store = Store::open(root, key, 5)?;
         match (command.as_str(), args.len()) {
+            ("boot-select", 6) => {
+                store.check_runtime_paths(Path::new(&args[4]), Path::new(&args[5]))?;
+                let directory = Path::new(&args[3]);
+                let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;
+                let signature = read_checked(&directory.join("manifest.sig"), 64)?;
+                let m = verify(&manifest, &signature, &key, 5, 0)?;
+                let payloads = load_payloads(directory, &m)?;
+                store.install_factory(&manifest, &signature, &payloads)?;
+                let selected = store.select_runtime(Path::new(&args[4]), Path::new(&args[5]))?;
+                println!("{}", selected.display());
+                return Ok(());
+            }
             ("install-factory", 4) => {
                 let directory = Path::new(&args[3]);
                 let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;

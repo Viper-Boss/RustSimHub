@@ -1,0 +1,31 @@
+[Unit]
+Description=RustSimHub device business core
+Requires=rustsimhub-app-select.service ModemManager.service NetworkManager.service
+After=rustsimhub-app-select.service ModemManager.service NetworkManager.service
+PartOf=rustsimhub-app.target
+OnFailure=rustsimhub-app-recover.service
+
+[Service]
+Type=exec
+User=rustsimhub-core
+Group=rustsimhub-core
+SupplementaryGroups=rustsimhub-ipc
+ExecStartPre=/usr/local/libexec/rustsimhub-core-prepare
+ExecStart=/opt/rustsimhub/selected/rustsimhub-core --serve-device /run/rustsimhub/core/core.sock 985 /var/lib/rustsimhub-core/state /var/lib/rustsimhub-core/identity /run/rustsimhub/core/media.sock 984 /var/lib/rustsimhub-core/archive /var/lib/rustsimhub-core/access /var/lib/rustsimhub-core/compat /var/lib/rustsimhub-core/journal /var/lib/rustsimhub-core/setup
+BindReadOnlyPaths=/run/rustsimhub-app/selected:/opt/rustsimhub/selected
+BindPaths=/var/lib/rustsimhub/rustsimhub-v1/core:/var/lib/rustsimhub-core /run/rustsimhub/core
+ReadWritePaths=/var/lib/rustsimhub-core /run/rustsimhub/core
+InaccessiblePaths=/var/lib/rustsimhub
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX
+UMask=0077
+MemoryMax=96M
+TasksMax=16
+TimeoutStopSec=8
+LimitCORE=0

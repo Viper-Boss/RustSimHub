@@ -1,5 +1,11 @@
 # RustSimHub 当前接手入口
 
+本轮正在完成统一开机组：docs/application-startup-group.md描述已实现但未实机验收的select/Core/Edge/target/一次恢复服务、Root私有台账与rootfs versions跨目录绑定、有限MM/NM权限，以及组合器可选完整签名输入。Rust新boot-select/运行链接发布+2失败测试，组件11项通过；板级35项通过；尚需冻结构建新更新器、组合启动候选并真实加载改名测试单元。不要把单元源码/安装标记写成已经新系统开机，仍69%。Core/Edge服务不自动配对，不自动健康confirm；安装器TLS/config仍待补。
+
+App9b5f1d9的同源Native现已NAS离线构建完成（容器rustsimhub-audio-9b5f1d9 exited0）：源19fba055e597a8d4e3b3ae504d84d5f8631d191ab843b02a5b922427ad194504，ELF5320088字节、SHA890568f3f4664b2af6cc7db3a8d6888374534e29f0bbd09984d5f2a75895c52c，11测试/release2m53s，Rust1.99.0/ALSA1.2.8。本地.local/native-9b5f1d9/rustsimhub-audio-alsa和.private/native-9b5f1d9-build.log。已由新工具准备.private/boot-application-9b5f1d9/package1..3和release.public，开发seed仅本机private，不上传seed。后续统一组可复用这些9b应用包、新更新器单独冻结构建，不必再次重编Native。
+
+测试缓存修复：之前Root运行update测试留下root-owned fingerprint，本轮wzs11测试先因权限拒绝未编译；核对/home/wzs11/.cache/rustsimhub/target实际路径后仅chown该项目缓存给wzs11，重跑11项/clippy成功。所有后续Cargo用WSL wzs11，Root仅跑需要数字UID/挂载的板级Python测试，勿再用Root污染Cargo缓存。实际pkaction证实MM.Messaging与MM.Voice，旧四服务/PCM保持，未新拨号/SMS/蜂窝。
+
 候选SSH合成登录补充：tools/test-candidate-ssh.py在PrivateNetwork/RootDirectory运行候选sshd与ssh，合成Root Ed25519登录/严格known_hosts成功，错host pin/错key/替换后的旧key拒绝，新key成功且host key保持；.private/candidate-ssh-login-denials-first.json passed/cleanup_verified=true。第一次正向.private/candidate-ssh-login-first.json也通过；所有临时服务器已停止，主机SSH/真实维护钥匙未改。只是私有回环+路径/guard替换的合成夹具，真实NSHSTATE安装/对外SSH登录仍需完成，不增加进度点。参见persistent-ssh-maintenance.md。
 
 f08dd9af18baf81f261a8a4fb7e7e79f6afc97ed已通过tools/publish-exact-git-objects.py精确SHA发布到GitHub（两次标准HTTPS push连接超时，API正常），无强推。后续网络超时可用同工具发布已审计普通文件提交，需核对相同SHA及远端，避免重新创建不同提交。另一次将私有脚本转参数工具的PowerShell嵌套引号预检失败，未运行设备命令；改Copy-Item+apply_patch后工具正常。

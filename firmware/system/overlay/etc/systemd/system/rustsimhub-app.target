@@ -1,0 +1,8 @@
+[Unit]
+Description=RustSimHub verified application group
+Requires=rustsimhub-app-select.service rustsimhub-core.service rustsimhub-edge.service
+BindsTo=rustsimhub-app-select.service rustsimhub-core.service rustsimhub-edge.service
+After=rustsimhub-app-select.service rustsimhub-core.service rustsimhub-edge.service
+
+[Install]
+WantedBy=multi-user.target
