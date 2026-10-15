@@ -1,4 +1,4 @@
-最新（2026-10-15）：用户目标100%，实际68点、约68%。fastboot入口/分区查询/自动返回P0加1；带SSH/校时的锁定220包Debian基础树构建、独立bootstrap树一致及六个生产ARM程序在新基础树只读隔离运行通过，P6加0.5，见VALIDATION-RECOVERY-ENTRY-P0C.md及VALIDATION-BASE-SYSTEM-P6D.md。33项rootfs核心测试通过，基础树/源锁/制品归属与失败证据已保存。未刷机/新拨号/新短信/蜂窝测试，未需拔插；完整板级/首启/服务组和镜像恢复仍未完成，门禁保持，流量等待换卡。下面为历史记录。
+最新（2026-10-15）：用户目标100%，实际68.5点、约69%。ca596a7组合设备模式同Core PID完成首个owner后直接提供完整业务，未认领/已认领真实SIGKILL后一次性窗口不重开、删code后owner/身份/收件箱保持及Wi-Fi恢复通过，P6再加0.5至4，见VALIDATION-DEVICE-FIRST-OWNER-P6E.md。177项本机测试/lint、六程序ARM生产及CI成功，私有实机报告passed/cleanup_verified=true。旧四服务active、PCMclosed，自有单元/配置/规则清理，没有新拨号/短信/蜂窝。完整板级/正式首启/服务组/刷机恢复仍待完成，流量等待换卡。下面为历史记录。
 
 最新实证：非 Root Wi-Fi 试连接、真实错误口令/无 IP 临时 profile 和核心 SIGKILL 后 NM 自动恢复通过；USB/WWAN 无线保留，临时 profile/权限规则已清理，不明操作不重试。见 VALIDATION-WIFI-TRIAL-P4A.md。整体约 56%，继续至 75%，蜂窝流量最后测。
 

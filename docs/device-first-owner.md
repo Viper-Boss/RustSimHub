@@ -20,6 +20,6 @@ rustsimhub-core --serve-device SOCKET EDGE_UID STATE IDENTITY MEDIA_SOCKET MEDIA
 
 标记由Core私有目录保护，防止网络请求或业务库丢失导致隐式重开；不是抵抗root/Core任意文件修改的外部防篡改硬件。身份/目录丢失或人工维护必须使用原有受控恢复路径，不能引入远程所有权重置。旧`--serve-local-setup`保留为显式维护模式，不能作为自动恢复/启动fallback。
 
-本机workspace新增3项相关测试，当前177项及Clippy通过：缺码无隐式窗口、一次开窗后不重开、签名初始化、旧身份+新业务库仍关闭、既有所有权无code封闭、损坏/外设备/链接标记拒绝。ARM生产构建和实机结果另记；尚未因此声称正式首启网页、证书交付、开机服务或完整镜像完成。
+本机workspace新增3项相关测试，当前177项及Clippy通过：缺码无隐式窗口、一次开窗后不重开、签名初始化、旧身份+新业务库仍关闭、既有所有权无code封闭、损坏/外设备/链接标记拒绝。六程序ARM生产构建与实机验收见VALIDATION-DEVICE-FIRST-OWNER-P6E.md；尚未因此声称正式首启网页、证书交付、开机服务或完整镜像完成。
 
 实机验收入口：`tools/test-wifi-provisioning.py --platform --empty-history --device-first-owner ...`。先在未初始化域真实SIGKILL并验证原正确码也拒绝重开，完整保留该域；成功路径使用明确分开的新测试身份。随后验证同一Core PID初始化/登录/业务可用、删码后的真实SIGKILL重启、原owner与数据保持，继续有限Wi-Fi试连接/恢复。测试域替换是SSH操作的夹具管理，不是产品所有权重置API，不修改旧生产身份。

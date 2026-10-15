@@ -1,6 +1,12 @@
 # RustSimHub 当前接手入口
 
-2026-10-15。用户最新要求推进到100%，取代此前80%/75%/60%目标；换卡流量测试及确需人工参与的地方询问，其他授权工作持续推进。当前实证约68%（68点），按PROGRESS-SCALE.md固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。用户已确认需要时可协助拔插NAS上的USB，操作前明确通知。
+2026-10-15。用户最新要求推进到100%，取代此前80%/75%/60%目标；换卡流量测试及确需人工参与的地方询问，其他授权工作持续推进。当前实证约69%（68.5点），按PROGRESS-SCALE.md固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。用户已确认需要时可协助拔插NAS上的USB，操作前明确通知。
+
+最新组合首启运行模式：ca596a79acd43f968caa749172bd1e6f72fdac07增加--serve-device及LocalSetup::for_device：私有setup.code显式供给才开窗，身份绑定setup.used在入网前CREATE_NEW+fsync，真实进程退出/崩溃不能刷新窗口，已有principals无code也封闭，旧身份+新DB不能重开；损坏/外设备/链接标记拒绝。见device-first-owner.md和VALIDATION-DEVICE-FIRST-OWNER-P6E.md。177项本机测试/lint、六程序ARM64生产构建和CI38734877173 success。源归档8bdf8fcb6b9ebce139a8c0c4fd8de742fd3a17b8690d729f3506c0bbdd999f52，.local/source-device-first-owner-ca596a79acd43f968caa749172bd1e6f72fdac07.tar.gz，产物.local/wsl-artifacts-ca596a79acd43f968caa749172bd1e6f72fdac07。默认source.tar.gz已恢复8711fba归属。
+
+实机.private/device-first-owner-ca596a7-first.json passed/cleanup_verified=true：未认领域真实SIGKILL后同pin、窗口关闭/正确码拒绝，域完整保留；另建明确独立测试身份，同一Core PID签名初始化owner后直接使用完整业务。删除code后再次真实SIGKILL，owner/pin/收件箱保持、窗口不重开，有限Wi-Fi回退/保存/重连和空历史保持通过；真实UID986/985与所有Cap集合零。自有单元/profile/规则已清理、旧四服务active/PCMclosed、checkpoint0/WWAN保持。没有新电话/SMS/蜂窝，累计10010仍15。P6加0.5至4，总体68.5≈69%。不能据此称首启GUI/证书、生产开机安装、板级overlay或完整刷机已完成。
+
+当前没有活跃构建/实机测试。初次本机构建入口私有shell CRLF在构建前退出，规范LF后同一源包构建成功，.private/wsl-build-ca596a79acd43f968caa749172bd1e6f72fdac07.exit=0；增量release37.34秒，不是全量对照。验收脚本新增实际Edge UID Identity IPC就绪判断及新SIGKILL步骤有限停机等待。下一步仍是板级启动/持久分区/正式首启与生产服务组、媒体及完整恢复；不要把--serve-local-setup用作自动fallback来重开已封闭窗口。
 
 最新基础系统：见VALIDATION-BASE-SYSTEM-P6D.md，P6加0.5至3.5/12。已提交tools/rootfs/、来源/许可和firmware/base-system.lock.json，220包经实际bootstrap及签名索引验证；锁sha bb040be5491f6098b73c098110671c7bf2f89be46f9942bc342b5070b67e8190，包集合sha cdd70c5a3c412e9ff6d5a7b9bda8ffc03e68c1620f57bb17a084f74d93a00ada。工具源码452d75e9f647b01ca2badb80b8e980ee99cec96b冻结构建成功（.private/base-system-p6d-build-second.exit=0），实际220包完全匹配，账户/残留审计PASS。WSL /home/wzs11/.cache/rustsimhub/base-system-p6d-build-second/output，树c6992751d2d246fd423c3b0680fa47d622c711ec2cab494b5ded7c8da279b7c6，归档349624320字节/sha f1334e41580cd4a27404aabb896b3f4805ea3ffaffafd5b75958e93b95a07216。不得修改基础输入树；下一层复制/派生再集成。
 
@@ -48,7 +54,7 @@
 
 ## 下一步顺序
 
-1. 当前共68点，约68%；P0 6点/P4 7点/P5 5点/P6 3.5点。以下8f4d15b和bc33a17为早期检查点，不能替代最新cd4c96e应用或452d75e基础输入；100%目标保持，不在检查点停止。
+1. 当前共68.5点，约69%；P0 6点/P4 7点/P5 5点/P6 4点。以下8f4d15b和bc33a17为早期检查点，不能替代最新ca596a7应用或452d75e基础输入；100%目标保持，不在检查点停止。
    8f4d15b CI 38519741620 success；bc33a17 CI 38522521958 success。源头与产物分别核验，不能把文档提交当作新编译结果。
 2. 持久 rustsimhub-history-build-p5 已 exited 0，label revision=8f4d15b70ee7ac380d0404cdc770e05a3e298fd8。NAS /mnt/docker-data/rustsimhub/p0/history-build-Cqi2Xu3q，完整日志 build.log/.private/history-async-complete-8f4d15b.log；十项测试及 release 完成。
    source SHA 0df653f7810727d1d56ab6da3257bc2a0a09ddcf41a6999a058393750cf6eaff，.local/source-history-p5-private.tar.gz 匹配 8f4d15b；.local/source.tar.gz 仍 8711fba。migrate SHA 9c88aea0f46b0f24a780edd239a4089504458d1957fbe81b36d8fb804513e14d，.local/artifacts/8f4d15b/rustsimhub-migrate，棒子 /opt/rustsimhub/dev-history-p5-8f4d15b/rustsimhub-migrate。

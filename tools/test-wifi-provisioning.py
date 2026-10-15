@@ -57,7 +57,9 @@ def core_start(mode):
  if a.device_first_owner:rw+=['setup'];ro.remove('setup')
  args=['systemd-run','--unit='+units[0],'--collect','-p','User=rustsimhub-core','-p','Group=rustsimhub-core','-p','SupplementaryGroups=rustsimhub-ipc','-p','CapabilityBoundingSet=','-p','AmbientCapabilities=','-p','NoNewPrivileges=yes','-p','PrivateDevices=yes','-p','PrivateTmp=yes','-p','ProtectSystem=strict','-p','ProtectHome=yes','-p','BindPaths='+' '.join(base+'/'+n for n in rw),'-p','BindReadOnlyPaths='+' '.join(base+'/'+n for n in ro),'-p','RuntimeMaxSec=900','-p','TimeoutStopSec=8','-p','MemoryMax=96M','-p','TasksMax=16','-p','LimitCORE=0']
  if mode=='--serve-local-setup':args+=['-p','InaccessiblePaths=/run/dbus']
- run(shlex.join(args+[core,mode,socket,str(edgeuid),base+'/state',base+'/identity']+extra));run('n=0;while ! test -S '+q(socket)+';do n=$((n+1));test "$n" -lt 20;sleep 1;done');time.sleep(.3)
+ run(shlex.join(args+[core,mode,socket,str(edgeuid),base+'/state',base+'/identity']+extra))
+ request=json.dumps({'protocol':2,'id':'local-readiness','command':{'op':'identity'}},separators=(',',':'))
+ run('n=0;while ! printf %s '+q(request)+' | runuser -u rustsimhub-edge -- '+q(core)+' --request-auth '+q(socket)+' > '+q(base+'/readiness.json')+' 2>/dev/null;do n=$((n+1));test "$n" -lt 25;sleep .2;done')
 def begin(token,key,ssid,secret):
  r=call({'op':'wifi_begin','token':token,'idempotency_key':key,'ssid':ssid,'passphrase':secret})
  if 'trial_id' in r:trials.append(r['trial_id']);report['trial_ids']=trials;save()
@@ -132,6 +134,7 @@ finally:c.close()
  if a.device_first_owner:
   spent_pin=call({'op':'identity'})['public_key'];assert call({'op':'identity'})['owner_setup_available'] is True
   run('systemctl kill --kill-whom=all --signal=KILL '+q(units[0]))
+  run('n=0;while systemctl is-active --quiet '+q(units[0])+';do n=$((n+1));test "$n" -lt 25;sleep .2;done;systemctl reset-failed '+q(units[0])+' 2>/dev/null || true')
   core_start('--serve-network-provisioning')
   identity=call({'op':'identity'});assert identity['public_key']==spent_pin and identity['owner_setup_available'] is False
   assert call({'op':'setup_challenge','setup_code':setup.hex(),'public_key':pub(Ed25519PrivateKey.generate())}).get('error')
