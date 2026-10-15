@@ -1,6 +1,12 @@
 # RustSimHub 当前接手入口
 
-2026-10-15。用户最新要求推进到100%，取代此前80%/75%/60%目标；换卡流量测试及确需人工参与的地方询问，其他授权工作持续推进。当前实证约68%（67.5点），按PROGRESS-SCALE.md固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。用户已确认需要时可协助拔插NAS上的USB，操作前明确通知。
+2026-10-15。用户最新要求推进到100%，取代此前80%/75%/60%目标；换卡流量测试及确需人工参与的地方询问，其他授权工作持续推进。当前实证约68%（68点），按PROGRESS-SCALE.md固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。用户已确认需要时可协助拔插NAS上的USB，操作前明确通知。
+
+最新基础系统：见VALIDATION-BASE-SYSTEM-P6D.md，P6加0.5至3.5/12。已提交tools/rootfs/、来源/许可和firmware/base-system.lock.json，220包经实际bootstrap及签名索引验证；锁sha bb040be5491f6098b73c098110671c7bf2f89be46f9942bc342b5070b67e8190，包集合sha cdd70c5a3c412e9ff6d5a7b9bda8ffc03e68c1620f57bb17a084f74d93a00ada。工具源码452d75e9f647b01ca2badb80b8e980ee99cec96b冻结构建成功（.private/base-system-p6d-build-second.exit=0），实际220包完全匹配，账户/残留审计PASS。WSL /home/wzs11/.cache/rustsimhub/base-system-p6d-build-second/output，树c6992751d2d246fd423c3b0680fa47d622c711ec2cab494b5ded7c8da279b7c6，归档349624320字节/sha f1334e41580cd4a27404aabb896b3f4805ea3ffaffafd5b75958e93b95a07216。不得修改基础输入树；下一层复制/派生再集成。
+
+33项rootfs核心工具测试通过；首轮6291d9a因审计仍查旧账户名拒绝，output.FAILED保留。修复后第二轮完整成功，两次独立bootstrap清理后的树实际相同、差异0，不声称两份最终归档比较或跨日期复现。新tools/test-base-runtime.py在独立mount/network namespace、只读树/制品、986:986运行六个cd4c96e生产程序build-info/Core self-check/CLI help通过，.private/base-system-p6d-runtime-first.json passed=true/base_tree_unchanged=true；source归属仍69a2450c...。没有实际硬件/D-Bus/网络访问，没有新编译Rust二进制或把新文档提交当成应用源码版本。
+
+所有本机rootfs构建/运行进程已结束，没有待轮询构建。452d75e CI38732828672 success（rootfs33项及现有Rust workspace/production/lint）。两次Git对象API在tree步骤404，父树读取正常；标准git push已把6291d9a/452d75e成功同步，遇同问题优先标准push，不强推。下面私有kit准备条目为过程记录，当前正式工具以tools/rootfs和实际452d75e制品为准。继续板级overlay、持久分区/首启/服务组和媒体，不因基础输入已构建就生成可刷包；full recovery仍未证明。
 
 最新恢复入口：一次reboot bootloader，NAS对同物理USB端口的唯一fastboot设备读product/大小，自动reboot返回；三分区大小匹配正常系统，boot ID改变，boot哈希/旧身份保持，USB/Wi-Fi、旧四服务与PCMclosed恢复，未新拨号/短信/蜂窝测试。见VALIDATION-RECOVERY-ENTRY-P0C.md，P0加1至6/8，共67.5点。私有recovery-entry-20261015-second.json passed=true；first只读预检无Python失败，未重启。fastboot_entry_verified=true单独记录，recovery_verified/release_ready仍false；EDL、离线一致捕获/完整回刷仍未证明。无需人工拔插。
 
@@ -30,7 +36,7 @@
 - 电话 PCM 经 Opus + ICE/DTLS/SRTP 发送 NAS 实际解码；Root 与独立非 Root Core 986/Media 984 两轮通过，静音上行、自动挂断、关闭与权限拒绝通过。见 VALIDATION-RTC-CARRIER-P3E.md / VALIDATION-ISOLATED-MEDIA-P7A.md。media_available 仍 false，网页声音/真实双向听音/来电/远程 TURN 未完成。
 - 签名应用 factory/candidate/confirm，真实候选进程 SIGKILL 后回退；签名/payload/降级/换钥拒绝、身份/短信保留通过。只用私有开发签名钥匙，非生产自动启动或完整系统。见 VALIDATION-APP-UPDATE-P6A.md。
 - Wi-Fi 有限试连接、8 秒 NM checkpoint，真实错误口令/无 IP 临时 profile 后 Core SIGKILL 自动恢复；USB/WWAN 无线保留、profile 删除、只读拒绝、持久防重通过。自己的临时 polkit 规则已移除。见 VALIDATION-WIFI-TRIAL-P4A.md。
-- 完整 eMMC/启动区只读捕获、NAS 回读、GPT/boot 与派生副本/程序哈希核验完成。原始文件系统需处理 journal/metadata；仅派生副本修复。恢复入口未验证。见 VALIDATION-FULL-CAPTURE-P0B.md。
+- 完整 eMMC/启动区只读捕获、NAS 回读、GPT/boot 与派生副本/程序哈希核验完成。原始文件系统需处理 journal/metadata；仅派生副本修复。见 VALIDATION-FULL-CAPTURE-P0B.md；最新P0C已验证fastboot入口，完整离线恢复仍未验证。
 
 ## 当前代码与未完工作
 
@@ -42,7 +48,7 @@
 
 ## 下一步顺序
 
-1. 当前共67.5点，约68%；P0 6点/P4 7点/P5 5点。以下8f4d15b和bc33a17为早期检查点，不能替代最新9b5f6b0产物；100%目标保持，不在检查点停止。
+1. 当前共68点，约68%；P0 6点/P4 7点/P5 5点/P6 3.5点。以下8f4d15b和bc33a17为早期检查点，不能替代最新cd4c96e应用或452d75e基础输入；100%目标保持，不在检查点停止。
    8f4d15b CI 38519741620 success；bc33a17 CI 38522521958 success。源头与产物分别核验，不能把文档提交当作新编译结果。
 2. 持久 rustsimhub-history-build-p5 已 exited 0，label revision=8f4d15b70ee7ac380d0404cdc770e05a3e298fd8。NAS /mnt/docker-data/rustsimhub/p0/history-build-Cqi2Xu3q，完整日志 build.log/.private/history-async-complete-8f4d15b.log；十项测试及 release 完成。
    source SHA 0df653f7810727d1d56ab6da3257bc2a0a09ddcf41a6999a058393750cf6eaff，.local/source-history-p5-private.tar.gz 匹配 8f4d15b；.local/source.tar.gz 仍 8711fba。migrate SHA 9c88aea0f46b0f24a780edd239a4089504458d1957fbe81b36d8fb804513e14d，.local/artifacts/8f4d15b/rustsimhub-migrate，棒子 /opt/rustsimhub/dev-history-p5-8f4d15b/rustsimhub-migrate。

@@ -26,13 +26,9 @@
 #                         kernel artefact hashes, tree hash, and whether this is
 #                         a release input or not (with the reasons)
 #
-# What this script does NOT do: it does not add the agent, the overlay or the
-# units and does not make the ext4 image. scripts/package-factory.sh does that,
-# with the permission normalisation and unit links it already has, from the
-# directory written here:
-#     sudo ROOT_SPEC=LABEL=rootfs NSH_ROOTFS_MANIFEST=DIR/ROOTFS-MANIFEST.json \
-#          sh scripts/package-factory.sh DIR/rootfs BOOT.IMG Lite
-# One implementation of "what the project layers on top" instead of two.
+# This produces a base tree, not an installable image. Rust application services,
+# the board overlay, first boot and the isolated service group still need to be
+# integrated on top. Full device recovery gates apply before making an image.
 #
 # The kernel is consumed, not built: --boot-img is the verified Android v0 boot
 # image, --modules the matching lib/modules/<release> (directory or tar). The
@@ -313,7 +309,7 @@ manifest = {
     'tree_sha256': tree_sha, 'tree_entries': int(tree_count),
     'archive': {'path': 'rootfs.tar', 'sha256': tar_sha, 'size': os.path.getsize(os.path.join(out, 'rootfs.tar'))},
     'contains': 'Debian packages, the service account, kernel modules' + (', operator-supplied firmware' if files else '')
-                + '. NOT yet in this tree: the agent, the overlay and the units (scripts/package-factory.sh adds them).',
+                + '. NOT yet in this tree: Rust application services, board overlay and first-boot integration.',
     'not_verified_on_hardware': True,
 }
 pathlib.Path(out, 'ROOTFS-MANIFEST.json').write_text(json.dumps(manifest, indent=2) + '\n')
@@ -328,5 +324,5 @@ else
 	echo 'provenance:     NOT A RELEASE INPUT, NOT REPRODUCIBLE:'
 	printf '%s' "$reasons" | sed 's/^/                  - /'
 fi
-echo 'Not booted, not flashed, not verified on hardware. Next:'
-echo "  sudo ROOT_SPEC=LABEL=rootfs NSH_ROOTFS_MANIFEST=$out/ROOTFS-MANIFEST.json sh scripts/package-factory.sh $out/rootfs $boot Lite"
+echo 'Not booted, not flashed, not verified on hardware.'
+echo 'Next: integrate board/first-boot/Rust services, then pass the full recovery gates before making an installable image.'
