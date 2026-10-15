@@ -203,6 +203,50 @@ pub fn write_private_new(path: &Path, bytes: &[u8]) -> Result<()> {
     file.sync_all().map_err(|_| Error::Io)?;
     sync_directory(parent)
 }
+
+#[cfg(target_os = "linux")]
+pub fn lock_private_directory(path: &Path) -> Result<File> {
+    use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+    check(path, true)?;
+    let file = OpenOptions::new()
+        .read(true)
+        .custom_flags((rustix::fs::OFlags::DIRECTORY | rustix::fs::OFlags::NOFOLLOW).bits() as i32)
+        .open(path)
+        .map_err(|_| Error::Io)?;
+    let meta = file.metadata().map_err(|_| Error::Io)?;
+    if !meta.is_dir()
+        || meta.uid() != rustix::process::geteuid().as_raw()
+        || meta.mode() & 0o077 != 0
+    {
+        return Err(Error::Forbidden);
+    }
+    file.try_lock_exclusive().map_err(|_| Error::Busy)?;
+    Ok(file)
+}
+
+/// Publish a complete private directory without replacing an existing target.
+#[cfg(target_os = "linux")]
+pub fn publish_private_directory(pending: &Path, destination: &Path) -> Result<()> {
+    let parent = pending.parent().ok_or(Error::InvalidInput)?;
+    if destination.parent() != Some(parent) {
+        return Err(Error::InvalidInput);
+    }
+    check(parent, true)?;
+    check(pending, true)?;
+    File::open(pending)
+        .and_then(|f| f.sync_all())
+        .map_err(|_| Error::Io)?;
+    sync_directory(parent)?;
+    rustix::fs::renameat_with(
+        rustix::fs::CWD,
+        pending,
+        rustix::fs::CWD,
+        destination,
+        rustix::fs::RenameFlags::NOREPLACE,
+    )
+    .map_err(|_| Error::Io)?;
+    sync_directory(parent)
+}
 pub fn read_private(path: &Path, limit: usize) -> Result<Zeroizing<Vec<u8>>> {
     check(path.parent().ok_or(Error::InvalidInput)?, true)?;
     check(path, false)?;
@@ -215,6 +259,34 @@ pub fn read_private(path: &Path, limit: usize) -> Result<Zeroizing<Vec<u8>>> {
         return Err(Error::InvalidInput);
     }
     Ok(bytes)
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod directory_publication_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+    #[test]
+    fn directory_lock_and_publication_never_replace_existing_contents() {
+        let d = tempfile::tempdir().unwrap();
+        fs::set_permissions(d.path(), fs::Permissions::from_mode(0o700)).unwrap();
+        let lock = lock_private_directory(d.path()).unwrap();
+        assert!(matches!(lock_private_directory(d.path()), Err(Error::Busy)));
+        let pending = d.path().join("pending");
+        let target = d.path().join("complete");
+        for path in [&pending, &target] {
+            fs::create_dir(path).unwrap();
+            fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        write_private_new(&pending.join("new"), b"new").unwrap();
+        write_private_new(&target.join("old"), b"preserve").unwrap();
+        assert!(publish_private_directory(&pending, &target).is_err());
+        assert_eq!(fs::read(target.join("old")).unwrap(), b"preserve");
+        assert!(pending.exists());
+        let final_path = d.path().join("final");
+        publish_private_directory(&pending, &final_path).unwrap();
+        assert_eq!(fs::read(final_path.join("new")).unwrap(), b"new");
+        drop(lock);
+    }
 }
 
 fn open_private_read(path: &Path) -> Result<File> {

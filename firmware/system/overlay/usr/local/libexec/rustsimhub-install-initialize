@@ -1,0 +1,152 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-only
+# Explicit local initial installation. No listener start, partition write or ownership reset.
+set -eu
+umask 077
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+test "$#" = 4
+test "$(id -u)" = 0
+maintenance=$1
+listen=$2
+name=$3
+output=$4
+root=/var/lib/rustsimhub/rustsimhub-v1
+system=$root/system
+factory=/usr/share/rustsimhub/factory-app
+updater=/usr/libexec/rustsimhub/rustsimhub-update
+edge_setup=/usr/libexec/rustsimhub/rustsimhub-edge-setup
+public=/usr/share/rustsimhub/release.public
+/usr/local/libexec/rustsimhub-state-check
+private_dir() {
+ test ! -L "$1";test -d "$1"
+ test "$(stat -c '%u:%g:%a' "$1")" = "$2:$2:700"
+}
+private_file() {
+ test ! -L "$1";test -f "$1"
+ test "$(stat -c '%u:%a:%h' "$1")" = "$2:600:1"
+}
+absent() { test ! -e "$1" && test ! -L "$1"; }
+private_dir "$root" 0
+exec 9<"$root"
+flock -x 9
+private_dir "$system" 0
+private_dir "$system/ssh-access" 0
+private_dir "$root/core" 986
+private_dir "$root/edge" 985
+absent "$system/installation.complete"
+if test -e "$system/installation.complete.pending" || test -L "$system/installation.complete.pending";then
+ private_file "$system/installation.complete.pending" 0
+ test "$(cat "$system/installation.complete.pending")" = RustSimHub.InitialInstallation.v1
+fi
+for unit in rustsimhub-app.target rustsimhub-core.service rustsimhub-edge.service;do
+ test "$(systemctl show --value -p LoadState "$unit")" = loaded
+ if systemctl is-active --quiet "$unit";then exit 1;fi
+done
+case "$output" in /*) ;; *) exit 1;; esac
+parent=$(dirname -- "$output")
+test "$parent" = "$(realpath -e -- "$parent")"
+private_dir "$parent" 0
+for path in "$output" "$output.pending";do
+ if test -e "$path" || test -L "$path";then private_dir "$path" 0;fi
+done
+test ! -L "$maintenance";test -f "$maintenance"
+case "$(stat -c '%u:%a:%h' "$maintenance")" in 0:600:1|0:644:1) ;; *) exit 1;; esac
+test "$(stat -c %s "$maintenance")" -le 1024
+test "$(wc -l < "$maintenance")" -eq 1
+LC_ALL=C grep -aqxE 'ssh-ed25519 [A-Za-z0-9+/=]+( .*)?' "$maintenance"
+ssh-keygen -l -f "$maintenance" >/dev/null
+access=$system/ssh-access/authorized_keys
+if test -e "$access" || test -L "$access";then private_file "$access" 0;cmp -s "$maintenance" "$access";fi
+anchor=$system/device.identity.anchor
+if test -e "$anchor" || test -L "$anchor" || test -e "$anchor.pending" || test -L "$anchor.pending";then
+ if test -e "$anchor" || test -L "$anchor";then private_file "$anchor" 0;else private_file "$anchor.pending" 0;fi
+ private_file "$root/core/identity/identity.seed" 986
+ test "$(stat -c %s "$root/core/identity/identity.seed")" = 72
+ private_file "$root/core/state/store.sqlite3" 986
+ private_file "$root/core/setup/setup.code" 986
+ test "$(stat -c %s "$root/core/setup/setup.code")" = 32
+fi
+absent "$root/core/setup/setup.used"
+"$updater" verify-package "$public" "$factory" >/dev/null
+"$edge_setup" --check-local "$listen" "$name" >/dev/null
+work=$(mktemp -d /run/rustsimhub-install-XXXXXXXX)
+cleanup(){ rm -f -- "$work/core.json" "$work/edge.json";rmdir -- "$work"; }
+trap cleanup EXIT HUP INT TERM
+run_role() {
+ role=$1;shift
+ systemd-run --quiet --wait --pipe --collect --expand-environment=no \
+  -p "User=rustsimhub-$role" -p "Group=rustsimhub-$role" \
+  -p CapabilityBoundingSet= -p AmbientCapabilities= -p NoNewPrivileges=yes \
+  -p PrivateDevices=yes -p PrivateNetwork=yes -p PrivateTmp=yes \
+  -p ProtectSystem=strict -p ProtectHome=yes \
+  -p UMask=0077 \
+  -p TemporaryFileSystem=/var/lib:mode=0755 \
+  -p "BindPaths=$root/$role:/var/lib/rustsimhub-$role" \
+  -p "ReadWritePaths=/var/lib/rustsimhub-$role" \
+  -p RuntimeMaxSec=30 -p MemoryMax=96M -p TasksMax=8 \
+  -- "$@"
+}
+run_role core "$factory/rustsimhub-core" --prepare-device-setup /var/lib/rustsimhub-core/state /var/lib/rustsimhub-core/identity /var/lib/rustsimhub-core/setup > "$work/core.json"
+if test -e "$anchor" || test -L "$anchor";then
+ cmp -s "$anchor" "$work/core.json"
+else
+ pending=$anchor.pending
+ if absent "$pending";then (set -C;cat "$work/core.json" > "$pending");fi
+ private_file "$pending" 0
+ cmp -s "$pending" "$work/core.json"
+ sync -f "$pending";sync -f "$system"
+ mv -nT -- "$pending" "$anchor";absent "$pending"
+fi
+run_role edge "$edge_setup" --prepare-local /var/lib/rustsimhub-edge "$listen" "$name" > "$work/edge.json"
+if absent "$access";then
+ pending=$access.pending
+ if absent "$pending";then (set -C;cat "$maintenance" > "$pending");fi
+ private_file "$pending" 0;cmp -s "$maintenance" "$pending"
+ sync -f "$pending";sync -f "$system/ssh-access"
+ mv -nT -- "$pending" "$access";absent "$pending"
+fi
+/usr/local/libexec/rustsimhub-ssh-prepare
+verify_bundle() {
+ private_dir "$1" 0
+ test "$(find "$1" -mindepth 1 -maxdepth 1 -printf '.\n' | wc -l)" = 6
+ for file in device.json edge.json cert.pem setup-code.txt maintenance.pub complete.marker;do private_file "$1/$file" 0;done
+ cmp -s "$work/core.json" "$1/device.json"
+ cmp -s "$work/edge.json" "$1/edge.json"
+ cmp -s "$maintenance" "$1/maintenance.pub"
+ cmp -s "$root/edge/installation/tls/cert.pem" "$1/cert.pem"
+ test "$(cat "$1/complete.marker")" = RustSimHub.TrustedHandoff.v1
+ printf '%s\n' "$code" | cmp -s - "$1/setup-code.txt"
+}
+private_file "$root/core/setup/setup.code" 986
+test "$(stat -c %s "$root/core/setup/setup.code")" = 32
+code=$(od -An -v -tx1 "$root/core/setup/setup.code" | tr -d ' \n')
+test "${#code}" = 64
+if test -e "$output" || test -L "$output";then
+ absent "$output.pending"
+ verify_bundle "$output"
+else
+ pending=$output.pending
+ if absent "$pending";then
+  mkdir -m 0700 -- "$pending"
+  install -m 0600 -- "$work/core.json" "$pending/device.json"
+  install -m 0600 -- "$work/edge.json" "$pending/edge.json"
+  install -m 0600 -- "$maintenance" "$pending/maintenance.pub"
+  install -m 0600 -- "$root/edge/installation/tls/cert.pem" "$pending/cert.pem"
+  (set -C;printf '%s\n' "$code" > "$pending/setup-code.txt")
+  (set -C;printf 'RustSimHub.TrustedHandoff.v1\n' > "$pending/complete.marker")
+ fi
+ verify_bundle "$pending"
+ for file in "$pending"/*;do sync -f "$file";done
+ sync -f "$pending";sync -f "$parent"
+ mv -nT -- "$pending" "$output";absent "$pending"
+fi
+unset code
+pending=$system/installation.complete.pending
+if absent "$pending";then (set -C;printf 'RustSimHub.InitialInstallation.v1\n' > "$pending");fi
+private_file "$pending" 0
+test "$(cat "$pending")" = RustSimHub.InitialInstallation.v1
+sync -f "$pending";sync -f "$system"
+mv -nT -- "$pending" "$system/installation.complete";absent "$pending"
+sync -f "$system";sync -f "$parent"
+echo 'RustSimHub initial installation prepared; private handoff saved; no services started'

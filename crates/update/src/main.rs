@@ -21,6 +21,24 @@ fn run() -> Result<(), rustsimhub_update::Error> {
     if rustix::process::geteuid().as_raw() != 0 {
         return Err(Error::Denied);
     }
+    if let [command, public, directory] = args.as_slice() {
+        if command == "verify-package" {
+            let key: [u8; 32] = read_checked(Path::new(public), 32)?
+                .as_slice()
+                .try_into()
+                .map_err(|_| Error::Invalid)?;
+            let directory = Path::new(directory);
+            let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;
+            let signature = read_checked(&directory.join("manifest.sig"), 64)?;
+            let verified = verify(&manifest, &signature, &key, 5, 0)?;
+            verify_payload(&verified, &load_payloads(directory, &verified)?)?;
+            println!(
+                "{}",
+                serde_json::json!({"verified":true,"manifest_sha256":manifest_hash(&manifest),"source_sha256":verified.source_sha256,"epoch":verified.epoch})
+            );
+            return Ok(());
+        }
+    }
     if let [command, directory] = args.as_slice() {
         if command == "keygen" {
             let directory = Path::new(directory);

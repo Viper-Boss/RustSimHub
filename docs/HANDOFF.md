@@ -1,5 +1,9 @@
 # RustSimHub 当前接手入口
 
+2026-10-16源码检查点：原子Edge --check-local/--prepare-local、可信Root安装与私有handoff、完成门禁和身份丢失拒绝已实现；Auth31/Edge11+Clippy、板级38通过，见initial-installation.md。尚需冻结本机ARM构建并跑修改后test-boot-service-group.py（要求新不可变Edge辅助能力，App/Native继续9b/19f）。无实机程序运行，不宣称安装已通过，仍70%。
+
+空间维护：本机和NAS核对通用归档a73e.../132531369字节后，仅移除棒子多余tree.tar.gz传输副本；候选rootfs及全部实验/失败证据保留，根分区空闲350916608字节。NAS位置读.private/generic-transport-archive-location.json，Win/WSL原归档仍在。旧check-staged-tree-after-runtime.sh不能再直接读设备端归档，后续从已核验副本流式比较。新boot验收可加--reuse-inputs，取.private/boot-service-group-second.json中的directory，只读绑定相同签名package1..3，不删除旧数据。
+
 2026-10-15。持续目标100%，换卡流量测试及确需用户参与时才询问。当前按PROGRESS-SCALE.md固定分母为70/100（P6=5.5/12），不是完成后停工。每次最终回复必须报告百分比。上一轮有实际源码、构建及实机进展；没有当前阻塞，不应标记goal complete/blocked。
 
 ## 本轮最新结果

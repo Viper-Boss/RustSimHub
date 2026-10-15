@@ -1,4 +1,5 @@
 [Unit]
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/installation.complete
 Description=RustSimHub local HTTPS edge
 Requires=rustsimhub-app-select.service rustsimhub-core.service
 After=rustsimhub-app-select.service rustsimhub-core.service
@@ -11,7 +12,7 @@ User=rustsimhub-edge
 Group=rustsimhub-edge
 SupplementaryGroups=rustsimhub-ipc
 ExecStartPre=/usr/local/libexec/rustsimhub-edge-ready
-ExecStart=/opt/rustsimhub/selected/rustsimhub-edge --serve /var/lib/rustsimhub-edge/config.json
+ExecStart=/opt/rustsimhub/selected/rustsimhub-edge --serve /var/lib/rustsimhub-edge/installation/config.json
 BindReadOnlyPaths=/run/rustsimhub-app/selected:/opt/rustsimhub/selected /var/lib/rustsimhub/rustsimhub-v1/edge:/var/lib/rustsimhub-edge /run/rustsimhub/core
 InaccessiblePaths=/run/dbus /var/lib/rustsimhub /var/lib/rustsimhub-core
 ProtectSystem=strict

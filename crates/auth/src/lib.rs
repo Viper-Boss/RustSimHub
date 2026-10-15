@@ -6,6 +6,8 @@ mod identity;
 mod setup;
 pub use client::{ClientKey, ProofExpectation};
 use ed25519_dalek::{Signature, VerifyingKey};
+#[cfg(target_os = "linux")]
+pub use identity::{lock_private_directory, publish_private_directory};
 pub use identity::{read_private, write_private_new};
 pub use identity::{Identity, SimFingerprinter};
 use rustsimhub_policy::{allows, mask, Kind, Principal, Scope, ALL_SCOPES};

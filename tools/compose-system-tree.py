@@ -96,6 +96,8 @@ def main():
         verifier = json.loads((updater/'build.json').read_text())
         assert verifier['target']=='aarch64-unknown-linux-gnu' and verifier['development_fixtures'] is False
         assert verifier.get('boot_runtime_selection_supported') is True,'Updater lacks the boot group selection contract'
+        assert verifier.get('local_installation_preparation_supported') is True,'Immutable Edge lacks atomic initialization'
+        assert base_tools.sha256_file(updater/'rustsimhub-edge')==verifier['artifact_sha256']['rustsimhub-edge']
         assert base_tools.sha256_file(updater/'rustsimhub-update')==verifier['artifact_sha256']['rustsimhub-update']
         assert 'AArch64' in subprocess.check_output(['readelf','-h',str(updater/'rustsimhub-update')],text=True)
     args.out.mkdir(mode=0o700)
@@ -147,6 +149,9 @@ def main():
                 target=destination(tree,'usr/libexec/rustsimhub/'+name)
                 shutil.copyfile(origin/name,target);os.chown(target,0,0);target.chmod(0o555)
                 assert base_tools.sha256_file(target)==(verifier if name=='rustsimhub-update' else build)['artifact_sha256'][name]
+            target=destination(tree,'usr/libexec/rustsimhub/rustsimhub-edge-setup')
+            shutil.copyfile(updater/'rustsimhub-edge',target);os.chown(target,0,0);target.chmod(0o555)
+            assert base_tools.sha256_file(target)==verifier['artifact_sha256']['rustsimhub-edge']
             verify_package(tree/'usr/share/rustsimhub/factory-app',tree/'usr/share/rustsimhub/release.public',build['source_archive_sha256'])
             destination(tree,'opt/rustsimhub/versions').mkdir(mode=0o700)
             destination(tree,'opt/rustsimhub/selected').mkdir(mode=0o755)

@@ -11,16 +11,18 @@ from cryptography.hazmat.primitives.serialization import Encoding,PublicFormat,P
 p=argparse.ArgumentParser(description=__doc__)
 for name in ('nas','device','application','artifacts','updater-artifacts','report'):p.add_argument('--'+name,type=pathlib.Path,required=True)
 p.add_argument('--root-directory',required=True)
+p.add_argument('--reuse-inputs',help='Existing private fixture containing the identical generic signed packages; bind read-only')
 a=p.parse_args();assert not a.report.exists()
 assert re.fullmatch('/var/tmp/rustsimhub-system-tree-[A-Za-z0-9]{8}/rootfs',a.root_directory)
+assert not a.reuse_inputs or re.fullmatch('/var/tmp/rustsimhub-boot-group-[A-Za-z0-9]{8}',a.reuse_inputs)
 nc=json.loads(a.nas.read_text(encoding='utf-8-sig'));dc=json.loads(a.device.read_text(encoding='utf-8-sig'))
 app=json.loads((a.artifacts/'build.json').read_text());tool=json.loads((a.updater_artifacts/'build.json').read_text())
-assert app['development_fixtures'] is False and tool.get('boot_runtime_selection_supported') is True
+assert app['development_fixtures'] is False and tool.get('boot_runtime_selection_supported') is True and tool.get('local_installation_preparation_supported') is True
 tag=uuid.uuid4().hex[:10];prefix='rustsimhub-boot-'+tag
 original=['rustsimhub-app.target','rustsimhub-app-select.service','rustsimhub-core.service','rustsimhub-edge.service','rustsimhub-app-recover.service']
 units={name:prefix+'-'+name.removeprefix('rustsimhub-') for name in original}
-report={'passed':False,'new_calls':0,'new_sms':0,'cellular_tests':False,'boot_units_installed':False,'new_os_boot_verified':False,'development_signer':True,'units':units,'application_source':app['source_archive_sha256'],'immutable_updater_source':tool['source_archive_sha256']}
-nas=dev=sf=None;base=None;mounted=False;policy=None;unit_files={};runtime='/run/'+prefix
+report={'passed':False,'new_calls':0,'new_sms':0,'cellular_tests':False,'boot_units_installed':False,'new_os_boot_verified':False,'actual_nshstate_guard_run':False,'development_signer':True,'units':units,'application_source':app['source_archive_sha256'],'immutable_updater_source':tool['source_archive_sha256']}
+nas=dev=sf=None;base=None;mounted=False;policy=None;unit_files={};input_mounts=[];runtime='/run/'+prefix
 q=shlex.quote
 def save():a.report.write_text(json.dumps(report,indent=2),encoding='utf-8')
 def connect(c,sock=None):
@@ -80,7 +82,7 @@ def verify_processes(hash_value):
  report['candidate_root_signed_slot_inodes_and_nonroot_empty_caps_verified']=True
 try:
  nas=connect(nc);dev=connect(dc,nas.get_transport().open_channel('direct-tcpip',(dc['host'],dc.get('port',22)),('127.0.0.1',0),timeout=12));sf=dev.open_sftp()
- base=run('test "$(df -B1 --output=avail /var/tmp | tail -1)" -gt 180000000\nd=$(mktemp -d /var/tmp/rustsimhub-boot-group-XXXXXXXX);chmod 0711 "$d";mkdir -m 0755 "$d/bin" "$d/helpers";mkdir -m 0700 "$d/ledger" "$d/versions";echo "$d"')[1].strip()
+ base=run('test "$(df -B1 --output=avail /var/tmp | tail -1)" -gt 170000000\nd=$(mktemp -d /var/tmp/rustsimhub-boot-group-XXXXXXXX);chmod 0700 "$d";mkdir -m 0755 "$d/bin" "$d/helpers";mkdir -m 0700 "$d/ledger" "$d/versions" "$d/system" "$d/system/ssh-access" "$d/operator";echo "$d"')[1].strip()
  assert re.fullmatch('/var/tmp/rustsimhub-boot-group-[A-Za-z0-9]{8}',base);report['directory']=base;save()
  run('mount -t tmpfs -o size=1m,mode=0700,nosuid,nodev,noexec tmpfs '+q(base+'/ledger'));mounted=True
  run('test "$(stat -c %d '+q(base+'/ledger')+')" != "$(stat -c %d '+q(base+'/versions')+')"\nmkdir -m 0700 '+q(base+'/ledger/versions')+'\ninstall -d -o 986 -g 986 -m 0700 '+q(base+'/core')+'\nfor n in state identity setup journal archive access compat;do install -d -o 986 -g 986 -m 0700 '+q(base+'/core')+'/$n;done\ninstall -d -o 985 -g 985 -m 0700 '+q(base+'/edge')+'\ninstall -d -o 986 -g 987 -m 2750 '+q(base+'/runtime'))
@@ -89,40 +91,75 @@ try:
   directory=a.application/f'package{epoch}';remote=base+'/package'+str(epoch);run('mkdir -m 0755 '+q(remote))
   for path in directory.iterdir():
    assert path.is_file() and path.name in ['rustsimhub-core','simhubctl','rustsimhub-edge','rustsimhub-audio-alsa','Opus-COPYING.txt','manifest.json','manifest.sig']
-   data=path.read_bytes();put(remote+'/'+path.name,data,0o555 if path.name.startswith('rustsimhub-') or path.name=='simhubctl' else 0o444)
-   run('echo '+q(hashlib.sha256(data).hexdigest()+'  '+remote+'/'+path.name)+' | sha256sum -c -')
+   data=path.read_bytes()
+   if a.reuse_inputs:
+    source=a.reuse_inputs+'/package'+str(epoch)+'/'+path.name
+    run('test ! -L '+q(source)+'\necho '+q(hashlib.sha256(data).hexdigest()+'  '+source)+' | sha256sum -c -')
+   else:
+    put(remote+'/'+path.name,data,0o555 if path.name.startswith('rustsimhub-') or path.name=='simhubctl' else 0o444)
+    run('echo '+q(hashlib.sha256(data).hexdigest()+'  '+remote+'/'+path.name)+' | sha256sum -c -')
+  if a.reuse_inputs:
+   source=a.reuse_inputs+'/package'+str(epoch)
+   run('test ! -L '+q(a.reuse_inputs)+'\ntest "$(stat -c %u '+q(a.reuse_inputs)+')" = 0\ntest ! -L '+q(source)+'\ntest "$(stat -c %u:%a '+q(source)+')" = 0:755\nmount --bind '+q(source)+' '+q(remote));input_mounts.append(remote)
+   run('mount -o remount,bind,ro '+q(remote))
  put(base+'/release.public',(a.application/'release.public').read_bytes(),0o444)
  hashes={e:hashlib.sha256((a.application/f'package{e}'/'manifest.json').read_bytes()).hexdigest() for e in (1,2,3)}
  for name,origin in [('rustsimhub-update',a.updater_artifacts),('rustsimhub-migrate',a.artifacts)]:
   data=(origin/name).read_bytes();expected=(tool if name=='rustsimhub-update' else app)['artifact_sha256'][name];assert hashlib.sha256(data).hexdigest()==expected
   put(base+'/bin/'+name,data,0o555);info=json.loads(run(q(base+'/bin/'+name)+' --build-info')[1].splitlines()[-1]);assert info['source_archive_sha256']==(tool if name=='rustsimhub-update' else app)['source_archive_sha256']
+ data=(a.updater_artifacts/'rustsimhub-edge').read_bytes();assert hashlib.sha256(data).hexdigest()==tool['artifact_sha256']['rustsimhub-edge']
+ put(base+'/bin/rustsimhub-edge-setup',data,0o555)
  overlay=ROOT/'firmware/system/overlay'
- replacements={'/var/lib/rustsimhub/rustsimhub-v1/system/app':base+'/ledger','/var/lib/rustsimhub/rustsimhub-v1/core':base+'/core','/var/lib/rustsimhub/rustsimhub-v1/edge':base+'/edge','/var/lib/rustsimhub-core':'/mnt/rustsimhub-core','/var/lib/rustsimhub-edge':'/mnt/rustsimhub-edge','/usr/libexec/rustsimhub/':base+'/bin/','/usr/local/libexec/':base+'/helpers/','/usr/share/rustsimhub/release.public':base+'/release.public','/usr/share/rustsimhub/factory-app':base+'/package1','/opt/rustsimhub/versions':base+'/versions','/opt/rustsimhub/selected':'/mnt/selected','/run/rustsimhub/core':base+'/runtime','/run/rustsimhub-app':runtime}
+ replacements={'/var/lib/rustsimhub/rustsimhub-v1/system/app':base+'/ledger','/var/lib/rustsimhub/rustsimhub-v1/core':base+'/core','/var/lib/rustsimhub/rustsimhub-v1/edge':base+'/edge','/var/lib/rustsimhub/rustsimhub-v1':base,'/usr/libexec/rustsimhub/':base+'/bin/','/usr/local/libexec/':base+'/helpers/','/usr/share/rustsimhub/release.public':base+'/release.public','/usr/share/rustsimhub/factory-app':base+'/package1','/opt/rustsimhub/versions':base+'/versions','/opt/rustsimhub/selected':'/mnt/selected','/run/rustsimhub-app':runtime}
  def rewrite(text):
   for old,new in replacements.items():text=text.replace(old,new)
   for old,new in units.items():text=text.replace(old,new)
   return text
- for name in ['rustsimhub-core-prepare','rustsimhub-edge-ready','rustsimhub-app-recover']:
-  put(base+'/helpers/'+name,rewrite((overlay/'usr/local/libexec'/name).read_text()).encode(),0o555)
+ for name in ['rustsimhub-core-prepare','rustsimhub-edge-ready','rustsimhub-app-recover','rustsimhub-install-initialize','rustsimhub-installation-check','rustsimhub-ssh-prepare']:
+  text=(overlay/'usr/local/libexec'/name).read_text().replace('/usr/local/libexec/rustsimhub-state-check','/bin/true')
+  text=text.replace('mountpoint -q /var/lib/rustsimhub','true').replace('test "$(findmnt -rn -M /var/lib/rustsimhub -o FSTYPE)" = ext4','true')
+  text=rewrite(text)
+  if name=='rustsimhub-install-initialize':
+   text=text.replace('-p TemporaryFileSystem=/var/lib:mode=0755','-p "TemporaryFileSystem=/var/lib:mode=0755 /var/tmp:mode=1777 /run:mode=0755" -p RootDirectory='+a.root_directory+' -p MountAPIVFS=yes -p "BindReadOnlyPaths='+base+'/bin '+base+'/package1"')
+  put(base+'/helpers/'+name,text.encode(),0o555)
  for name in original:
   text=rewrite((overlay/'etc/systemd/system'/name).read_text())
   text=text.replace('Requires=rustsimhub-firstboot.service\n','').replace('After=rustsimhub-firstboot.service systemd-tmpfiles-setup.service\n','')
   text=text.replace('RuntimeDirectory=rustsimhub-app','RuntimeDirectory='+prefix)
+  lines=text.splitlines()
+  text='\n'.join(line.replace(' /run/rustsimhub/core',' '+base+'/runtime:/run/rustsimhub/core') if line.startswith(('BindPaths=','BindReadOnlyPaths=')) else line for line in lines)+'\n'
   if name.endswith('.service'):
    text+='\nBindReadOnlyPaths='+base+'/helpers\n'
    if name!='rustsimhub-app-recover.service':
-    text+='RootDirectory='+a.root_directory+'\nMountAPIVFS=yes\nTemporaryFileSystem=/var/tmp:mode=1777 /run:mode=0755 /mnt:mode=0755\nBindReadOnlyPaths='+base+'/bin '+base+'/package1 '+base+'/release.public\n'
-    if name=='rustsimhub-app-select.service':text+='BindPaths='+base+'/ledger '+base+'/versions\n'
+    text+='RootDirectory='+a.root_directory+'\nMountAPIVFS=yes\nTemporaryFileSystem=/var/tmp:mode=1777 /run:mode=0755 /mnt:mode=0755 /var/lib:mode=0755\nBindReadOnlyPaths='+base+'/bin '+base+'/package1 '+base+'/release.public\n'
+    if name=='rustsimhub-app-select.service':text+='BindPaths='+base+'/ledger '+base+'/versions\nBindReadOnlyPaths='+base+'/core '+base+'/edge '+base+'/system\n'
     if name=='rustsimhub-core.service':text+='BindReadOnlyPaths=/run/dbus\n'
   path='/run/systemd/system/'+units[name];assert run('test ! -e '+q(path),check=False)[0]==0
   put(path,text.encode(),0o644);unit_files[path]=hashlib.sha256(text.encode()).hexdigest()
  policy='/etc/polkit-1/rules.d/45-'+prefix+'.rules';policy_bytes=(overlay/'etc/polkit-1/rules.d/45-rustsimhub.rules').read_bytes();put(policy,policy_bytes,0o644)
  run('systemctl daemon-reload')
- prepared=json.loads(run('runuser -u rustsimhub-core -- '+shlex.join([base+'/package1/rustsimhub-core','--prepare-device-setup',base+'/core/state',base+'/core/identity',base+'/core/setup']))[1].splitlines()[-1]);pin=list(bytes.fromhex(prepared['device_public_key_hex']))
- with sf.open(base+'/core/setup/setup.code','rb') as file:code=file.read();assert len(code)==32
- run('runuser -u rustsimhub-edge -- '+shlex.join([base+'/package1/rustsimhub-edge','--init-tls',base+'/edge/tls',dc['host']]))
- put(base+'/edge/config.json',json.dumps({'listen':dc['host']+':8448','origin':'https://'+dc['host']+':8448','core_socket':base+'/runtime/core.sock','core_uid':986,'tls_directory':'/mnt/rustsimhub-edge/tls','legacy_compat':True}).encode(),uid=985,gid=985)
- local=ROOT/'.private'/('boot-group-'+tag);local.mkdir(mode=0o700);sf.get(base+'/edge/tls/cert.pem',str(local/'cert.pem'))
+ maintenance=Ed25519PrivateKey.generate();maintenance_pub=maintenance.public_key().public_bytes(Encoding.OpenSSH,PublicFormat.OpenSSH)+b' synthetic-maintenance\n'
+ put(base+'/operator/maintenance.pub',maintenance_pub)
+ initialize=shlex.join([base+'/helpers/rustsimhub-install-initialize',base+'/operator/maintenance.pub',dc['host']+':8448',dc['host'],base+'/operator/handoff'])
+ run('systemctl start '+q(units['rustsimhub-app.target']),check=False)
+ assert all(stateunit(n)!='active' for n in ['rustsimhub-core.service','rustsimhub-edge.service'])
+ run('test ! -e '+q(runtime+'/recovery.used'))
+ run('systemctl stop '+q(units['rustsimhub-app.target']))
+ report['uninitialized_target_does_not_start_roles_or_spend_recovery_budget']=True
+ release_public=(a.application/'release.public').read_bytes()
+ with sf.open(base+'/release.public','wb') as file:file.write(b'\0'*32)
+ assert run(initialize,check=False)[0]!=0
+ run('test -z "$(find '+q(base+'/core/identity')+' -mindepth 1 -print -quit)"\ntest ! -e '+q(base+'/system/device.identity.anchor'))
+ with sf.open(base+'/release.public','wb') as file:file.write(release_public)
+ report['foreign_release_key_rejected_before_any_identity_creation']=True
+ run(initialize)
+ with sf.open(base+'/operator/handoff/device.json','r') as file:prepared=json.loads(file.read())
+ pin=list(bytes.fromhex(prepared['device_public_key_hex']))
+ with sf.open(base+'/operator/handoff/setup-code.txt','r') as file:
+  raw=file.read();code=bytes.fromhex((raw.decode() if isinstance(raw,bytes) else raw).strip());assert len(code)==32
+ assert run(initialize,check=False)[0]!=0
+ report['trusted_initializer_private_handoff_and_no_repeat_reset']=True;save()
+ local=ROOT/'.private'/('boot-group-'+tag);local.mkdir(mode=0o700);sf.get(base+'/operator/handoff/cert.pem',str(local/'cert.pem'))
  owner=Ed25519PrivateKey.generate();(local/'owner.seed').write_bytes(owner.private_bytes(Encoding.Raw,PrivateFormat.Raw,NoEncryption()))
  client=run('mktemp -d /mnt/docker-data/rustsimhub/p0/boot-group-client-XXXXXXXX',remote=nas)[1].splitlines()[-1]
  assert re.fullmatch('/mnt/docker-data/rustsimhub/p0/boot-group-client-[A-Za-z0-9]{8}',client)
@@ -171,6 +208,7 @@ finally:
    if mounted:
     run('test -z "$(find '+q(base+'/ledger/versions')+' -mindepth 1 -print -quit)"\ncp -a '+q(base+'/ledger')+' '+q(base+'/ledger-evidence')+'\numount '+q(base+'/ledger')+'\n! mountpoint -q '+q(base+'/ledger'));mounted=False
     report['no_payload_was_written_into_ledger_filesystem']=True
+   for path in reversed(input_mounts):run('umount '+q(path)+'\n! mountpoint -q '+q(path))
    for path,digest in unit_files.items():
     run('echo '+q(digest+'  '+path)+' | sha256sum -c -');sf.remove(path)
    if policy:

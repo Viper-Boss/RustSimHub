@@ -1,0 +1,29 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-only
+# Startup is never permission to replace a lost provisioned identity.
+set -eu
+test "$#" = 0
+test "$(id -u)" = 0
+# firstboot already verified the block device. PrivateDevices hides it here.
+mountpoint -q /var/lib/rustsimhub
+test "$(findmnt -rn -M /var/lib/rustsimhub -o FSTYPE)" = ext4
+root=/var/lib/rustsimhub/rustsimhub-v1
+file() {
+ test ! -L "$1";test -f "$1"
+ test "$(stat -c '%u:%a:%h' "$1")" = "$2:600:1"
+}
+file "$root/system/installation.complete" 0
+test "$(cat "$root/system/installation.complete")" = RustSimHub.InitialInstallation.v1
+file "$root/system/device.identity.anchor" 0
+file "$root/core/identity/identity.seed" 986
+test "$(stat -c %s "$root/core/identity/identity.seed")" = 72
+file "$root/core/state/store.sqlite3" 986
+if test -e "$root/core/setup/setup.used" || test -L "$root/core/setup/setup.used";then
+ file "$root/core/setup/setup.used" 986
+else
+ file "$root/core/setup/setup.code" 986
+ test "$(stat -c %s "$root/core/setup/setup.code")" = 32
+fi
+for name in config.json record.json tls/cert.der tls/cert.pem tls/key.der;do
+ file "$root/edge/installation/$name" 985
+done

@@ -39,8 +39,9 @@ use tokio_rustls::{
     TlsAcceptor,
 };
 type Result<T> = std::result::Result<T, &'static str>;
+mod installation;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, serde::Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 struct Config {
     listen: SocketAddr,
@@ -439,7 +440,7 @@ fn router(app: App) -> Router {
         .layer(middleware::from_fn_with_state(app.clone(), boundary))
         .with_state(app)
 }
-fn init_tls(dir: &Path, hostname: &str) -> Result<()> {
+fn create_tls(dir: &Path, hostname: &str) -> Result<String> {
     if hostname.is_empty()
         || hostname.len() > 253
         || hostname
@@ -467,6 +468,10 @@ fn init_tls(dir: &Path, hostname: &str) -> Result<()> {
         .iter()
         .map(|b| format!("{b:02x}"))
         .collect::<String>();
+    Ok(pin)
+}
+fn init_tls(dir: &Path, hostname: &str) -> Result<()> {
+    let pin = create_tls(dir, hostname)?;
     println!(
         "{}",
         serde_json::json!({"tls_created":true,"certificate_sha256":pin,"self_signed":true})
@@ -491,11 +496,31 @@ pub fn run(args: Vec<String>) -> Result<()> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            serde_json::json!({"source_archive_sha256":rustsimhub_wire::build_source_sha256()})
+            serde_json::json!({"source_archive_sha256":rustsimhub_wire::build_source_sha256(),"local_installation_preparation_supported":true})
         );
         return Ok(());
     }
+    if let [command, directory, listen, name] = args.as_slice() {
+        if command == "--prepare-local" {
+            let listen = listen.parse().map_err(|_| "invalid local listen address")?;
+            println!(
+                "{}",
+                installation::prepare(Path::new(directory), listen, name)?
+            );
+            return Ok(());
+        }
+    }
     if let [command, dir, name] = args.as_slice() {
+        if command == "--check-local" {
+            println!(
+                "{}",
+                installation::check(
+                    dir.parse().map_err(|_| "invalid local listen address")?,
+                    name
+                )?
+            );
+            return Ok(());
+        }
         if command == "--init-tls" {
             return init_tls(Path::new(dir), name);
         }

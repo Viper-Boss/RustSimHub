@@ -1,4 +1,5 @@
 [Unit]
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/installation.complete
 Description=Choose one verified application version for the complete group
 Requires=rustsimhub-firstboot.service
 After=rustsimhub-firstboot.service systemd-tmpfiles-setup.service
@@ -8,6 +9,7 @@ OnFailure=rustsimhub-app-recover.service
 
 [Service]
 Type=oneshot
+ExecStartPre=/usr/local/libexec/rustsimhub-installation-check
 RemainAfterExit=yes
 RuntimeDirectory=rustsimhub-app
 RuntimeDirectoryMode=0755
@@ -21,7 +23,7 @@ PrivateTmp=yes
 PrivateDevices=yes
 PrivateNetwork=yes
 NoNewPrivileges=yes
-CapabilityBoundingSet=
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
 AmbientCapabilities=
 UMask=0077
 TimeoutStartSec=60
