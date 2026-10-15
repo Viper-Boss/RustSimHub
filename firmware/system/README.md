@@ -1,0 +1,28 @@
+# 内部系统树的板级集成
+
+此层把已锁定Debian基础树、六个Rust生产程序、固定服务账户和UFI003板级文件组合到新的Linux目录，不能直接刷机。`tools/compose-system-tree.py`读取已提交overlay、核对基础锁/完整树及程序摘要，不运行传入程序，不修改基础输入、不访问设备、不生成boot/分区镜像。
+
+```sh
+sudo python3 tools/compose-system-tree.py \
+  --base /private/verified-base-output \
+  --artifacts /private/verified-arm64-programs \
+  --out /private/new-system-tree
+```
+
+实际可用状态以外部`SYSTEM-CANDIDATE.json`为准。失败保留`COMPOSITION.FAILED`；不复用、修补或自动删除失败目录。输出明确`flash_allowed=false`、`release_ready=false`、`recovery_verified=false`。当前还没有应用开机服务组或native媒体，字段分别为false；此树不是完整产品验收结果。
+
+## 板级启动顺序
+
+`var-lib-rustsimhub.mount`按GPT标签NSHSTATE挂到`/var/lib/rustsimhub`，不格式化。只支持当前实测UFI003布局：mmcblk0p15、264159个512字节扇区、ext4/NSHSTATE、rw且不是根文件系统。检查失败时拒绝进入目录/固件准备，禁止向根文件系统临时目录悄悄降级。
+
+`rustsimhub-firstboot`检查板型/挂载和固定Core986、Edge985、Media984、IPC987。挂载根目录收紧为root:root/0700，避免旧NAS服务UID在新发行版中被其他守护程序复用后访问旧文件；不更改旧文件内容及各自owner。只在`rustsimhub-v1`新命名空间创建私有Core/Edge/Media子目录。已有目录的链接、owner或mode不符直接拒绝，不递归chown/repair，不创建业务身份、设置code或认领窗口。
+
+USB serial在独立root私有目录中生成并同步保存。重启或重建根系统继续使用原值；合法pending续用，损坏/链接/冲突拒绝，不自动重新生成。USB NCM从该serial派生稳定MAC，不再依赖会随rootfs重建变化的machine-id。USB输入先验证，有任何已有gadget都拒绝重配。开发VID/PID沿用原项目开发值，未解决正式产品分配。
+
+固件加载从同一NSHSTATE内原`.private-firmware`验证自有bundle白名单/摘要，禁止任意路径、配置注入、不同既有固件覆盖和NV/校准分区写入；没有bundle时不假造硬件就绪。随后rmtfs/qrtr启动，仅允许两个已知offline remoteproc启动，running不重启、crashed拒绝强制处理。NetworkManager/ModemManager的drop-in按此顺序等待。
+
+新树保留空持久挂载点，不打入任何身份、业务库、网络密码、维护公钥、SSH host keys、设置码或厂商固件。原NSHSTATE的数据不由组合器复制到镜像。现有板在换系统前仍必须完成当前恢复门禁；旧系统回退时还要核对挂载根目录owner（原旧系统firstboot会重新设置旧服务owner），不能把rootfs回刷等同于持久数据状态已回退。
+
+来源与原始SHA见`reuse-provenance.json`及顶层NOTICE，复用部分为AGPL-3.0-only。新增目录/标识准备和树组合工具同为AGPL-3.0-only。内核、Debian包和厂商固件不因此重新许可。
+
+本机隔离测试：`sudo python3 -m unittest discover -s tools/system -p 'test_*.py'`。固件/radio测试复用真实脚本并仅替换固定设备路径；目录准备测试只用一次性目录/合成旧数据，测试挂载守卫失败不写、旧文件内容/owner保持、稳定serial及pending续用、链接/错误owner拒绝。不能代替真实启动、USB链路或恢复验收。

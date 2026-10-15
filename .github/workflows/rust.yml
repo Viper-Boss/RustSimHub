@@ -17,6 +17,8 @@ jobs:
         run: |
           sh -n tools/rootfs/scripts/build-rootfs.sh tools/recovery-fastboot-probe.sh
           python3 -m unittest discover -s tools/rootfs/scripts -p test_rootfs.py
+      - name: Board helper isolated fixtures
+        run: sudo -n python3 -m unittest discover -s tools/system -p 'test_*.py'
       - name: Test
         run: cargo test --workspace --all-features --locked
       - name: Check production feature set

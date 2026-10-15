@@ -1,0 +1,68 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-only
+# Board preparation only. No identity generation, enrolment window or reset.
+set -eu
+umask 077
+test "$#" = 0
+test "$(id -u)" = 0
+test -f /usr/share/rustsimhub/system-candidate.json
+/usr/local/libexec/rustsimhub-state-check
+state=/var/lib/rustsimhub
+root=$state/rustsimhub-v1
+private_dir() {
+ if test -e "$1" || test -L "$1"; then
+  test ! -L "$1"
+  test -d "$1"
+  test "$(stat -c '%u:%g:%a' "$1")" = "$2:$3:700"
+ else
+  mkdir -m 0700 -- "$1"
+  chown "$2:$3" -- "$1"
+ fi
+}
+private_file() {
+ test ! -L "$1"
+ test -f "$1"
+ test "$(stat -c '%u:%g:%a:%h:%s' "$1")" = 0:0:600:1:33
+ LC_ALL=C grep -aqxE '[0-9a-f]{32}' "$1"
+}
+for role in core edge media; do
+ case "$role" in core) expected=986;; edge) expected=985;; media) expected=984;; esac
+ test "$(id -u rustsimhub-$role)" = "$expected"
+ test "$(id -g rustsimhub-$role)" = "$expected"
+done
+test "$(getent group rustsimhub-ipc | cut -d: -f3)" = 987
+# Protect legacy files against accidental numeric-UID reuse in the new distro.
+# Only the mount root's metadata changes; all legacy file bytes stay untouched.
+chown 0:0 "$state"
+chmod 0700 "$state"
+private_dir "$root" 0 0
+exec 9<"$root"
+flock -x 9
+private_dir "$root/system" 0 0
+private_dir "$root/core" 986 986
+for name in state identity setup journal archive access compat; do
+ private_dir "$root/core/$name" 986 986
+done
+private_dir "$root/edge" 985 985
+private_dir "$root/media" 984 984
+serial=$root/system/usb.serial
+pending=$root/system/usb.serial.pending
+if test -e "$serial" || test -L "$serial"; then
+ private_file "$serial"
+ test ! -e "$pending"
+ test ! -L "$pending"
+else
+ if test ! -e "$pending" && test ! -L "$pending"; then
+  value=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
+  test "${#value}" = 32
+  (set -C; printf '%s\n' "$value" > "$pending")
+ fi
+ private_file "$pending"
+ sync -f "$pending"
+ mv -nT -- "$pending" "$serial"
+ test ! -e "$pending"
+ test ! -L "$pending"
+ private_file "$serial"
+fi
+sync -f "$root/system"
+echo 'RustSimHub private runtime directories and stable USB identity prepared'

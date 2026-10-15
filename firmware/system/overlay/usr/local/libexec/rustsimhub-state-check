@@ -1,0 +1,18 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-only
+# Fixed first-board guard; reads metadata only, never formats or repairs storage.
+set -eu
+test "$#" = 0
+state=/var/lib/rustsimhub
+tr '\000' '\n' < /proc/device-tree/compatible | grep -qx 'thwc,ufi003'
+test ! -L "$state"
+mountpoint -q "$state"
+source=$(findmnt -rn -M "$state" -o SOURCE)
+test "$(readlink -f "$source")" = /dev/mmcblk0p15
+test -b /dev/mmcblk0p15
+test "$(readlink -f /dev/disk/by-partlabel/NSHSTATE)" = /dev/mmcblk0p15
+test "$(cat /sys/class/block/mmcblk0p15/size)" = 264159
+test "$(findmnt -rn -M "$state" -o FSTYPE)" = ext4
+test "$(findmnt -rn -M "$state" -o LABEL)" = NSHSTATE
+case ",$(findmnt -rn -M "$state" -o OPTIONS)," in *,rw,*) ;; *) exit 1;; esac
+test "$(stat -c %d "$state")" != "$(stat -c %d /)"

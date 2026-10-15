@@ -1,0 +1,11 @@
+[Unit]
+Description=RustSimHub developer USB NCM gadget
+Requires=rustsimhub-firstboot.service
+After=rustsimhub-firstboot.service systemd-modules-load.service
+Before=NetworkManager.service
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/rustsimhub-usb
+RemainAfterExit=yes
+[Install]
+WantedBy=multi-user.target

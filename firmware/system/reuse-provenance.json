@@ -1,0 +1,66 @@
+{
+  "repository": "https://github.com/Viper-Boss/AirSimHub",
+  "revision": "ea019485e5d890a96acae357c52b94c746de837f",
+  "files": {
+    "firmware/system/overlay/usr/local/libexec/rustsimhub-device-firmware": {
+      "original_path": "firmware/overlay/usr/local/libexec/nassimhub-device-firmware",
+      "resolved_path": "firmware/overlay/usr/local/libexec/nassimhub-device-firmware",
+      "sha256": "cc0b81806b28ff05349e8d3308cd17be2ca2fdf3d6da3a6edee1c13ac3ce5dca"
+    },
+    "firmware/system/overlay/usr/local/libexec/rustsimhub-radio-resume": {
+      "original_path": "firmware/overlay/usr/local/libexec/nassimhub-radio-resume",
+      "resolved_path": "firmware/overlay/usr/local/libexec/nassimhub-radio-resume",
+      "sha256": "558a63500055690581fda871157c551133f006beb281f45f961e6265dea37dfe"
+    },
+    "firmware/system/overlay/usr/local/libexec/rustsimhub-usb": {
+      "original_path": "firmware/overlay/usr/local/libexec/nassimhub-usb",
+      "resolved_path": "firmware/overlay/usr/local/libexec/nassimhub-usb",
+      "sha256": "8eb91d8007cd8450005aaf3d6cc64e1ee33837ba09a34d0f5c2fa2945133edfa"
+    },
+    "firmware/system/overlay/etc/systemd/system/rustsimhub-device-firmware.service": {
+      "original_path": "firmware/overlay/etc/systemd/system/nassimhub-device-firmware.service",
+      "resolved_path": "firmware/overlay/etc/systemd/system/nassimhub-device-firmware.service",
+      "sha256": "f5df1a42abcb9bc74fc7069805a666aed5764e7192bec3f85880e3b7c5f06bb9"
+    },
+    "firmware/system/overlay/etc/systemd/system/rustsimhub-radio-resume.service": {
+      "original_path": "firmware/overlay/etc/systemd/system/nassimhub-radio-resume.service",
+      "resolved_path": "firmware/overlay/etc/systemd/system/nassimhub-radio-resume.service",
+      "sha256": "9363971d85556655429af121f720d97cbce50b6977859d294dd1ee4f21646888"
+    },
+    "firmware/system/overlay/etc/systemd/system/rustsimhub-usb.service": {
+      "original_path": "firmware/overlay/etc/systemd/system/nassimhub-usb.service",
+      "resolved_path": "firmware/overlay/etc/systemd/system/nassimhub-usb.service",
+      "sha256": "864b57c517667c024b1fb4e5db3b3dddd2766b8a44fef77dcab6de208cb89a89"
+    },
+    "firmware/system/overlay/etc/systemd/system/var-lib-rustsimhub.mount": {
+      "original_path": "firmware/overlay/etc/systemd/system/var-lib-nassimhub.mount",
+      "resolved_path": "firmware/overlay/etc/systemd/system/var-lib-nassimhub.mount",
+      "sha256": "aff4678a742cc5c4edfb71e2fc2add9c96e506b4c6dd8c98543c59be9ce7f85d"
+    },
+    "firmware/system/overlay/etc/udev/rules.d/99-rustsimhub-usb-managed.rules": {
+      "original_path": "firmware/overlay/etc/udev/rules.d/99-nassimhub-usb-managed.rules",
+      "resolved_path": "firmware/overlay/etc/udev/rules.d/99-nassimhub-usb-managed.rules",
+      "sha256": "37fb0b78daaba04904b63b84fbfe8e29392838065cdfc0dc77417748d0ea4fe3"
+    },
+    "firmware/system/overlay/etc/NetworkManager/system-connections/rustsimhub-usb.nmconnection": {
+      "original_path": "firmware/overlay/etc/NetworkManager/system-connections/nassimhub-usb.nmconnection",
+      "resolved_path": "firmware/overlay/etc/NetworkManager/system-connections/nassimhub-usb.nmconnection",
+      "sha256": "6ccca2a8c8da08c8d945980ea22e8246fc1ac225bd730a143fa116e2cc21c13a"
+    },
+    "firmware/system/overlay/etc/NetworkManager/NetworkManager.conf": {
+      "original_path": "firmware/overlay/etc/NetworkManager/NetworkManager.conf",
+      "resolved_path": "firmware/overlay/etc/NetworkManager/NetworkManager.conf",
+      "sha256": "c306f862f84dc7aca5860a5713916046793b4c71aad337a8a21e4d7340911a1c"
+    },
+    "tools/system/test_device_firmware.py": {
+      "original_path": "scripts/test_device_firmware.py",
+      "resolved_path": "scripts/test_device_firmware.py",
+      "sha256": "c475ec9bc7e1febc9f7e384ab3ebd96b8688a8ca2e0788fb6383b49a0141f9de"
+    },
+    "tools/system/test_radio_resume.py": {
+      "original_path": "scripts/test_radio_resume.py",
+      "resolved_path": "scripts/test_radio_resume.py",
+      "sha256": "825fa7c79346bb992026114b617d473e927e5b909aa651d0f4060fb29bf232f1"
+    }
+  }
+}

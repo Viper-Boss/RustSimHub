@@ -1,0 +1,14 @@
+[Unit]
+Description=Prepare RustSimHub private persistent namespaces
+Requires=var-lib-rustsimhub.mount
+After=var-lib-rustsimhub.mount
+Before=rustsimhub-usb.service rustsimhub-device-firmware.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/rustsimhub-firstboot
+RemainAfterExit=yes
+TimeoutStartSec=30
+
+[Install]
+WantedBy=multi-user.target

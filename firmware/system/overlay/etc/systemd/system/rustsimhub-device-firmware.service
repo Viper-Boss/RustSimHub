@@ -1,0 +1,14 @@
+[Unit]
+Description=Load this device owner's preserved modem and Wi-Fi firmware
+Requires=rustsimhub-firstboot.service
+After=rustsimhub-firstboot.service
+Before=rmtfs.service ModemManager.service NetworkManager.service rustsimhub-core.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/rustsimhub-device-firmware
+RemainAfterExit=yes
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

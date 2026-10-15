@@ -2,6 +2,13 @@
 
 RustSimHub 的新增源码使用 AGPL-3.0-only；详见 LICENSE。
 
+2026-10-15 `firmware/system/` 的固件加载/radio/USB及相关单元和
+`tools/system/` 对应隔离测试复用 AirSimHub 同一提交
+`ea019485e5d890a96acae357c52b94c746de837f` 的 AGPL-3.0-only 板级集成代码。
+原始路径、Git链接解析后的来源及摘要见 `firmware/system/reuse-provenance.json`。
+调整挂载路径与依赖、使用持久USB标识；新增私有目录准备与内部树组合工具。
+没有复制旧Go Agent或分发厂商固件、NV、校准、身份、设置码和维护密钥。
+
 2026-10-15 `tools/rootfs/` 复用 AirSimHub 提交
 `ea019485e5d890a96acae357c52b94c746de837f` 的基础镜像构建、验签/审计工具及核心测试，
 逐文件原始 SHA256 见该目录 `reuse-provenance.json`，修改范围见 README。

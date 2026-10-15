@@ -1,0 +1,44 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-only
+set -eu
+test "$#" = 0
+/usr/local/libexec/rustsimhub-state-check
+serial_file=/var/lib/rustsimhub/rustsimhub-v1/system/usb.serial
+test ! -L "$serial_file"
+test -f "$serial_file"
+test "$(stat -c '%u:%g:%a:%h:%s' "$serial_file")" = 0:0:600:1:33
+LC_ALL=C grep -aqxE '[0-9a-f]{32}' "$serial_file"
+serial=$(cat "$serial_file")
+modprobe libcomposite
+mountpoint -q /sys/kernel/config || mount -t configfs configfs /sys/kernel/config
+for existing in /sys/kernel/config/usb_gadget/*; do
+ if test -e "$existing" || test -L "$existing"; then
+  echo 'Existing USB gadget: refusing to reconfigure' >&2
+  exit 1
+ fi
+done
+set -- /sys/class/udc/*
+[ -e "$1" ] && [ "$#" -eq 1 ] || { echo 'Exactly one UDC required' >&2; exit 1; }
+udc=${1##*/}
+g=/sys/kernel/config/usb_gadget/rustsimhub
+[ ! -e "$g" ] || { echo 'Existing gadget: refusing to reconfigure' >&2; exit 1; }
+# Linux Foundation development-only IDs. Product VID/PID assignment is unresolved.
+mkdir "$g"
+printf '0x1d6b' > "$g/idVendor"
+printf '0x0104' > "$g/idProduct"
+printf '0x0200' > "$g/bcdUSB"
+mkdir "$g/strings/0x409"
+printf '%s' "$serial" > "$g/strings/0x409/serialnumber"
+printf RustSimHub > "$g/strings/0x409/manufacturer"
+printf 'UFI003 Developer NCM' > "$g/strings/0x409/product"
+mkdir "$g/configs/c.1" "$g/configs/c.1/strings/0x409"
+printf 'NCM' > "$g/configs/c.1/strings/0x409/configuration"
+printf 250 > "$g/configs/c.1/MaxPower"
+mkdir "$g/functions/ncm.usb0"
+# Stable locally administered per-install MAC addresses, distinct on each end.
+h=$(printf '%s' "$serial" | sha256sum | cut -c1-10)
+suffix=$(printf '%s' "$h" | sed 's/../:&/g')
+printf '02%s' "$suffix" > "$g/functions/ncm.usb0/dev_addr"
+printf '06%s' "$suffix" > "$g/functions/ncm.usb0/host_addr"
+ln -s "$g/functions/ncm.usb0" "$g/configs/c.1/ncm.usb0"
+printf '%s' "$udc" > "$g/UDC"
