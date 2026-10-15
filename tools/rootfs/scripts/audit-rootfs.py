@@ -63,7 +63,11 @@ def audit(root, setup_ap=False):
         if p.is_file() and not p.is_symlink() and p.read_bytes().strip(): bad.append(name)
     if not (root/'etc/os-release').is_file() or 'VERSION_ID="13"' not in (root/'etc/os-release').read_text(): bad.append('expected Debian 13 os-release')
     passwd=(root/'etc/passwd').read_text() if (root/'etc/passwd').exists() else ''
-    if not any(line.startswith('rustsimhub:') and line.split(':')[2]!='0' for line in passwd.splitlines()): bad.append('missing non-root rustsimhub account')
+    core = [line.split(':') for line in passwd.splitlines() if line.startswith('rustsimhub-core:')]
+    if (len(core) != 1 or len(core[0]) != 7 or
+            not all(value.isdecimal() and 100 <= int(value) <= 999 for value in core[0][2:4]) or
+            core[0][5:] != ['/var/lib/rustsimhub', '/usr/sbin/nologin']):
+        bad.append('missing or unsafe rustsimhub-core account')
     for name in ('etc/shadow', 'etc/shadow-'):
         shadow=(root/name).read_text() if (root/name).is_file() else ''
         for line in shadow.splitlines():

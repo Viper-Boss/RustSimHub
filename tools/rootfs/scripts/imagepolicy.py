@@ -35,7 +35,7 @@ import sys
 
 sys.dont_write_bytecode = True
 
-AGENT_USER = 'rustsimhub'
+AGENT_USER = 'rustsimhub-core'
 NM = 'org.freedesktop.NetworkManager.'
 
 # --- polkit -----------------------------------------------------------------

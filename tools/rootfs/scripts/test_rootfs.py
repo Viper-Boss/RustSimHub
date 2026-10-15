@@ -385,10 +385,28 @@ class LockTests(unittest.TestCase):
 
 
 class FinalizeTests(unittest.TestCase):
+    def test_audit_refuses_legacy_root_group_and_login_core_accounts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = base_tree(directory)
+            tools.finalize(root, EPOCH, {'name': 'rustsimhub-core', 'uid': 990, 'gid': 990})
+            audit = load('audit_rootfs_core', 'scripts/audit-rootfs.py')
+            path = root / 'etc/passwd'
+            original = path.read_text()
+            self.assertEqual(audit.audit(root), [])
+            for changed in ('rustsimhub:x:990:990::/var/lib/rustsimhub:/usr/sbin/nologin',
+                            'rustsimhub-core:x:0:990::/var/lib/rustsimhub:/usr/sbin/nologin',
+                            'rustsimhub-core:x:990:0::/var/lib/rustsimhub:/usr/sbin/nologin',
+                            'rustsimhub-core:x:990:990::/var/lib/rustsimhub:/bin/sh'):
+                with self.subTest(account=changed):
+                    path.write_text('\n'.join(line for line in original.splitlines()
+                                              if not line.startswith('rustsimhub-core:')) + '\n' + changed + '\n')
+                    self.assertIn('missing or unsafe rustsimhub-core account', audit.audit(root))
+            path.write_text(original)
+
     def test_finalize_removes_everything_per_build_and_per_device(self):
         with tempfile.TemporaryDirectory() as directory:
             root = base_tree(directory)
-            tools.finalize(root, EPOCH, {'name': 'rustsimhub', 'uid': 990, 'gid': 990})
+            tools.finalize(root, EPOCH, {'name': 'rustsimhub-core', 'uid': 990, 'gid': 990})
             for gone in ('var/lib/dbus/machine-id', 'var/lib/systemd/random-seed', 'etc/ssh/ssh_host_ed25519_key',
                          'etc/ssh/ssh_host_ed25519_key.pub', 'etc/resolv.conf', 'etc/apt/apt.conf.d/99mmdebstrap',
                          'var/lib/apt/lists/synthetic_Packages', 'var/lib/apt/lists/partial', 'var/cache/apt/archives',
@@ -402,10 +420,10 @@ class FinalizeTests(unittest.TestCase):
             self.assertEqual((root / 'etc/timezone').read_text(), 'Etc/UTC\n')
             self.assertEqual((root / 'etc/default/locale').read_text(), 'LANG=C.UTF-8\n')
             self.assertEqual(os.readlink(root / 'etc/localtime'), '/usr/share/zoneinfo/Etc/UTC')
-            self.assertIn('rustsimhub:x:990:990::/var/lib/rustsimhub:/usr/sbin/nologin', (root / 'etc/passwd').read_text().splitlines())
-            self.assertIn('rustsimhub:x:990:', (root / 'etc/group').read_text().splitlines())
-            self.assertIn('rustsimhub:!::0:99999:7:::', (root / 'etc/shadow').read_text().splitlines())
-            self.assertIn('rustsimhub:!::', (root / 'etc/gshadow').read_text().splitlines())
+            self.assertIn('rustsimhub-core:x:990:990::/var/lib/rustsimhub:/usr/sbin/nologin', (root / 'etc/passwd').read_text().splitlines())
+            self.assertIn('rustsimhub-core:x:990:', (root / 'etc/group').read_text().splitlines())
+            self.assertIn('rustsimhub-core:!::0:99999:7:::', (root / 'etc/shadow').read_text().splitlines())
+            self.assertIn('rustsimhub-core:!::', (root / 'etc/gshadow').read_text().splitlines())
             self.assertEqual(os.stat(root / 'etc/shadow').st_mode & 0o777, 0o640)
             for directory_name, names, files in os.walk(root):
                 for name in names + files:
@@ -415,7 +433,7 @@ class FinalizeTests(unittest.TestCase):
             self.assertEqual(audit.audit(root), [])
             # Idempotent: a second pass changes nothing.
             before = tools.tree_hash(root)
-            tools.finalize(root, EPOCH, {'name': 'rustsimhub', 'uid': 990, 'gid': 990})
+            tools.finalize(root, EPOCH, {'name': 'rustsimhub-core', 'uid': 990, 'gid': 990})
             self.assertEqual(tools.tree_hash(root), before)
 
     def test_service_user_ids_are_fixed_and_checked(self):
