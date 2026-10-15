@@ -28,6 +28,7 @@ else is reported as unrecognised instead of being guessed at. Rules that do
 not mention the agent user (Debian's own) are not examined.
 """
 import json
+import hashlib
 import os
 import re
 import stat
@@ -37,6 +38,12 @@ sys.dont_write_bytecode = True
 
 AGENT_USER = 'rustsimhub-core'
 NM = 'org.freedesktop.NetworkManager.'
+
+# The Rust Core has a separate reviewed rule: finite Voice/Messaging and NM
+# checkpoint rollback, plus explicit denials for Edge/Media. Do not interpret
+# arbitrary JavaScript or loosen the legacy per-action parser for this rule.
+RUST_CORE_RULE = 'etc/polkit-1/rules.d/45-rustsimhub.rules'
+RUST_CORE_RULE_SHA256 = '94a7c6b199117ba94d70aa2bb43b37a9ac77fdc89017eec4f18020e265768bbf'
 
 # --- polkit -----------------------------------------------------------------
 
@@ -59,7 +66,7 @@ SETUP_AP_POLKIT = {
         NM + 'wifi.share.protected': 'activate a Wi-Fi profile with ipv4.method shared and wireless security (the setup access point)',
     },
 }
-# Never granted to the agent, switch or no switch, so the table above cannot be
+# Never granted by the legacy single-user rule parser, switch or no switch, so the table above cannot be
 # widened to them by a careless edit without a test failing: an open access
 # point, and the actions that turn all networking or cellular off for the whole
 # device.
@@ -131,6 +138,18 @@ def polkit_findings(files, setup_ap):
         if not relative.startswith(POLKIT_DIRS):
             continue
         regular = stat.S_ISREG(info.st_mode)
+        if relative == RUST_CORE_RULE:
+            data = b''
+            if regular and info.st_size <= 4096:
+                try:
+                    with open(absolute, 'rb') as handle:
+                        data = handle.read(4097)
+                except OSError:
+                    pass
+            if (not regular or info.st_mode & 0o022 or info.st_nlink != 1
+                    or hashlib.sha256(data).hexdigest() != RUST_CORE_RULE_SHA256):
+                findings.append('rust-core-policy-not-exact: ' + relative)
+            continue
         text = _read(absolute) if regular else ''
         if AGENT_USER not in relative.rsplit('/', 1)[-1] and AGENT_USER not in text:
             continue

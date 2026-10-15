@@ -385,6 +385,18 @@ class LockTests(unittest.TestCase):
 
 
 class FinalizeTests(unittest.TestCase):
+    def test_rust_core_rule_requires_exact_reviewed_bytes_and_safe_file(self):
+        policy=load('rust_imagepolicy','scripts/imagepolicy.py')
+        source=ROOT.parents[1]/'firmware/system/overlay/etc/polkit-1/rules.d/45-rustsimhub.rules'
+        with tempfile.TemporaryDirectory() as directory:
+            path=pathlib.Path(directory)/'rule';data=source.read_bytes();path.write_bytes(data);path.chmod(0o644)
+            def findings():return policy.polkit_findings([(str(path),policy.RUST_CORE_RULE,path.lstat())],False)
+            self.assertEqual(findings(),[])
+            for changed in (data.replace(b'checkpoint-rollback',b'enable-disable-wwan'),data.replace(b'rustsimhub-core',b'any-user'),data+b'\n'):
+                path.write_bytes(changed)
+                self.assertEqual(findings(),['rust-core-policy-not-exact: '+policy.RUST_CORE_RULE])
+            path.write_bytes(data);path.chmod(0o666)
+            self.assertTrue(findings())
     def test_audit_refuses_legacy_root_group_and_login_core_accounts(self):
         with tempfile.TemporaryDirectory() as directory:
             root = base_tree(directory)

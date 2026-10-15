@@ -1,5 +1,7 @@
 # 统一开机应用组
 
+组合审计补充：首轮ed78621更新器实际187项及六程序ARM生产构建完成，但候选树被旧polkit单规则审计拒绝；失败目录保留。审计现以固定路径/精确SHA256识别新Rust规则，权限可写、链接、增加动作或改变subject均拒绝，不放宽旧单规则解析器。新增一项审计测试，rootfs测试34项；仍需重新组合及实机验收。
+
 2026-10-15源码检查点：下列启动路径已经实现，尚待冻结构建、系统组合和实机单元验收。当前不能据此称完整系统已启动，整体仍69/100。
 
 `rustsimhub-app.target`统一要求select/Core/Edge。只有select执行一次`rustsimhub-update boot-select STORE PUBLIC FACTORY RUNTIME PHYSICAL_VERSIONS`；它先检查versions绑定的device/inode相同，再验证签名factory并初始化缺失基线、choose一次、发布Root控制的selected链接。Core/Edge各自只读绑定同一个已选择目录，不分别choose。已有异常链接/普通文件和错误versions绑定拒绝，未消费候选；合法遗留pending可在下一次选择回退时清理链接，不删应用文件。
