@@ -2,6 +2,14 @@
 
 2026-10-15。用户最新要求推进到100%，取代此前80%/75%/60%目标；换卡流量测试及确需人工参与的地方询问，其他授权工作持续推进。当前实证约69%（68.5点），按PROGRESS-SCALE.md固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。用户已确认需要时可协助拔插NAS上的USB，操作前明确通知。
 
+最新板级候选层：源码724fc0922794ad08214b574b9c63bb438d808f1f组合P6D基础树和ca596a7六程序；WSL /home/wzs11/.cache/rustsimhub/system-tree-p6f-network，12303条目，树fbcbade0f7137cec59c0eeead9ec092e2e526e70e62550e0b569c5cdc228dd9b。23项隔离板级测试、systemd离线依赖检查exit0、factory实际安装路径六程序只读非Root运行通过；源基础树未变。新NM profile目录在NSHSTATE Root私有命名空间，USB profile仅种入一次、现有内容保留。见firmware/system/README.md和VALIDATION-SYSTEM-TREE-P6F.md。本轮不重复增加已计基础树/程序点数，仍68.5≈69%。
+
+真实棒子只读state-check验收：.private/state-guard-p6f-first.json passed/cleanup_verified=true。私有mount/network namespace临时shadow路径，缺挂载拒绝、实际NSHSTATE在新目标接受、只读别名拒绝；主机挂载/旧身份摘要/目录owner未变，旧四服务active/PCMclosed，没有运行firstboot/USB/radio或新电话/SMS/蜂窝。不能把该守卫验证当新系统开机。firstboot未来会将NSHSTATE挂载根收紧Root:Root700以防旧UID复用，只创建rustsimhub-v1内目录、保留旧文件bytes/owner；回旧系统须核对其firstboot恢复旧目录owner。
+
+当前没有活跃构建/实机进程。最终候选manifest明确flash_allowed=false、app_service_group_installed=false、native_media_installed=false、board_boot_verified=false；未出镜像/未刷机。第一份system-tree-p6f-first为6899b6a旧候选，不含NM持久化，不要混用。首次组合在写输出前因Windows CRLF对Git LF摘要不一致拒绝，修正为精确Git lock blob后成功。私有最终manifest/runtime/unit报告前缀system-tree-p6f-network；较新WSL systemd对Debian原装networkd/timesyncd两条`!!`兼容提示，不改上游包。
+
+下一步优先：补上完整Core/Edge生产启动和可信本地enrolment/TLS/维护准备，再媒体与签名组/完整恢复。可先用新用户态RootDirectory在棒子隔离运行，不刷机；当前只读空间检查rootfs available=1134952448字节，tar/gzip存在。新树/程序可压缩复制到独立/var/tmp/rustsimhub-system-tree-XXXXXXXX，核验归档/解包后才做RootDirectory；不要删除旧测试目录腾空间或降低恢复门禁。RootDirectory必须ProtectSystem/PrivateDevices/no-new-privileges/空cap，数据用独立private bind，实际factory程序路径与应用ca596a7源hash核验，不能把主机旧libs运行称新RootFS。正式rootfs完整启动尚未通过。浏览器既有ERR_BLOCKED_BY_CLIENT边界保持，不绕过。
+
 最新组合首启运行模式：ca596a79acd43f968caa749172bd1e6f72fdac07增加--serve-device及LocalSetup::for_device：私有setup.code显式供给才开窗，身份绑定setup.used在入网前CREATE_NEW+fsync，真实进程退出/崩溃不能刷新窗口，已有principals无code也封闭，旧身份+新DB不能重开；损坏/外设备/链接标记拒绝。见device-first-owner.md和VALIDATION-DEVICE-FIRST-OWNER-P6E.md。177项本机测试/lint、六程序ARM64生产构建和CI38734877173 success。源归档8bdf8fcb6b9ebce139a8c0c4fd8de742fd3a17b8690d729f3506c0bbdd999f52，.local/source-device-first-owner-ca596a79acd43f968caa749172bd1e6f72fdac07.tar.gz，产物.local/wsl-artifacts-ca596a79acd43f968caa749172bd1e6f72fdac07。默认source.tar.gz已恢复8711fba归属。
 
 实机.private/device-first-owner-ca596a7-first.json passed/cleanup_verified=true：未认领域真实SIGKILL后同pin、窗口关闭/正确码拒绝，域完整保留；另建明确独立测试身份，同一Core PID签名初始化owner后直接使用完整业务。删除code后再次真实SIGKILL，owner/pin/收件箱保持、窗口不重开，有限Wi-Fi回退/保存/重连和空历史保持通过；真实UID986/985与所有Cap集合零。自有单元/profile/规则已清理、旧四服务active/PCMclosed、checkpoint0/WWAN保持。没有新电话/SMS/蜂窝，累计10010仍15。P6加0.5至4，总体68.5≈69%。不能据此称首启GUI/证书、生产开机安装、板级overlay或完整刷机已完成。
