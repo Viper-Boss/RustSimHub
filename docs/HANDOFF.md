@@ -1,5 +1,9 @@
 # RustSimHub 当前接手入口
 
+候选SSH合成登录补充：tools/test-candidate-ssh.py在PrivateNetwork/RootDirectory运行候选sshd与ssh，合成Root Ed25519登录/严格known_hosts成功，错host pin/错key/替换后的旧key拒绝，新key成功且host key保持；.private/candidate-ssh-login-denials-first.json passed/cleanup_verified=true。第一次正向.private/candidate-ssh-login-first.json也通过；所有临时服务器已停止，主机SSH/真实维护钥匙未改。只是私有回环+路径/guard替换的合成夹具，真实NSHSTATE安装/对外SSH登录仍需完成，不增加进度点。参见persistent-ssh-maintenance.md。
+
+f08dd9af18baf81f261a8a4fb7e7e79f6afc97ed已通过tools/publish-exact-git-objects.py精确SHA发布到GitHub（两次标准HTTPS push连接超时，API正常），无强推。后续网络超时可用同工具发布已审计普通文件提交，需核对相同SHA及远端，避免重新创建不同提交。另一次将私有脚本转参数工具的PowerShell嵌套引号预检失败，未运行设备命令；改Copy-Item+apply_patch后工具正常。
+
 最新已验收：9b5f1d9c0689ab278e5301e54a207b6ef0831c93/源19fba055e597a8d4e3b3ae504d84d5f8631d191ab843b02a5b922427ad194504，本机WSL185项/六程序ARM生产、Clippy、CI38752335688成功。.local/wsl-artifacts-9b5f1d9c0689ab278e5301e54a207b6ef0831c93、独立source-local-setup-9b5f1d9...tar.gz和默认source.tar.gz均此归属，Native仍ca596a7，不混称新源完整应用包。--local-device-preparation实机.private/local-device-preparation-9b5f1d9-first.json passed/cleanup_verified=true；本地准备幂等无秘密输出、本地pin/窗口及错误UID拒绝、真实未认领SIGKILL后准备拒绝、同进程owner/业务和Wi-Fi故障回归通过，见VALIDATION-LOCAL-SETUP-P6H.md。无新通话/SMS/蜂窝，仍69/100，不新增点数。
 
 SSH持久维护源码：firstboot仅建Root700 ssh-access空目录；ssh-prepare必须显式有效单行Ed25519维护公钥才生成并原子发布设备host key，完整pending续用，不完整/冲突/链接拒绝。SSH drop-in只公钥Root认证、无密码/转发；30项板级测试通过。候选ARM用户态中helper路径/挂载守卫显式替换的合成测试通过，实际sshd -t/-T配置通过，不启动SSH、不装真实维护公钥，.private/candidate-ssh-config-first.json通过，见persistent-ssh-maintenance.md。这些新overlay尚未重组合进724fc09旧树，不能改旧manifest或称SSH真实登录通过。

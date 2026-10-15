@@ -9,3 +9,7 @@ SSH启动要求prepare成功；缺维护公钥会使SSH保持未启动。配置�
 新增4项隔离测试，使用真实生成的合成Ed25519密钥但不启动SSH；板级测试共30项。覆盖身份保持与完整pending续作、缺失/多行/选项/坏公钥拒绝、损坏及冲突主机材料保留、挂载守卫失败/错误owner/链接拒绝。
 
 真实棒子的候选ARM用户态另做合成验证：相同helper只将持久路径改为一次性私有目录、挂载守卫显式替换为true（因此不是NSHSTATE或完整firstboot验收），重复运行host key摘要一致；实际候选ssh-keygen、sshd -t与-T通过，公钥认证及禁止转发等生效配置匹配。`.private/candidate-ssh-config-first.json`passed/cleanup_verified=true。没有启动SSH服务器、安装真实维护公钥或更改主机SSH；旧四服务active/PCMclosed，通话/短信/蜂窝零。
+
+随后`tools/test-candidate-ssh.py --device PRIVATE_CONFIG --root-directory VERIFIED_CANDIDATE_ROOT --report NEW_PRIVATE_REPORT`完成真实候选sshd/ssh合成登录：仅私有网络命名空间的127.0.0.1，无外部监听；客户端严格使用从已生成host key导出的known_hosts，不使用TOFU或跳过主机校验。预先授权的合成Ed25519钥匙执行id -u得到0，错误host pin、错误客户端key拒绝；原子替换测试authorized_keys后旧key拒绝、新key成功，host key摘要保持。Root sshd使用明确列出的必要capabilities；这不是Core/Edge空cap测试，也不改变它们的权限。
+
+`.private/candidate-ssh-login-denials-first.json`passed/cleanup_verified=true，临时服务器已停止，旧服务/PCM保持。首次正向报告`.private/candidate-ssh-login-first.json`同样通过。所有钥匙仅用于合成夹具，未安装实际维护公钥；挂载守卫仍显式替换，PAM配置在夹具中明确开启。本轮证明新用户态的登录和密钥撤销原语，不代表真实NSHSTATE、新系统对外SSH或维护公钥安装/轮换产品入口已交付。
