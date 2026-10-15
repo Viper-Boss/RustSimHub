@@ -1,3 +1,5 @@
+2026-10-15：统一签名开机组在棒子候选用户态通过实际生产单元验收：完整Core/Edge、首次owner/TLS、跨FS台账、真正Core SIGKILL自动整组回退、第三版显式健康确认/重启及第二次故障停止；清理及归档内容/12303项路径清单通过，旧四服务active/PCMclosed。新签名系统树12335项已审计，187项Rust/35板级/34rootfs通过。见VALIDATION-BOOT-GROUP-P6I.md。P6加1至5.5，整体70/100；未完整上电/刷机，配置/维护交付、恢复及媒体等仍待完成，拨号/SMS/蜂窝新增0。
+
 2026-10-15最新：9b5f1d9本地准备设置码/UID核验公钥与窗口实机通过，185项/六程序ARM生产/Clippy/CI38752335688通过，见VALIDATION-LOCAL-SETUP-P6H.md。SSH持久host key与公钥策略源码、30项板级测试、候选ARM ssh-keygen/sshd -t/-T合成检查通过；未装真实维护公钥或启动新SSH，见persistent-ssh-maintenance.md。完整开机组/可信配对交付/媒体/恢复仍需推进，69/100不额外加点，无新通话/SMS/蜂窝。
 
 2026-10-15补充：a10a492冻结源1dbc6775...本机WSL181项、六程序ARM生产构建、CI38749275454成功；新签名factory首装/候选回退/floor保持及丢失台账拒绝和next恢复在候选RootDirectory通过，见factory-application-baseline.md。不额外计点，仍69/100，正式启动/首次配对和完整恢复待做。

@@ -1,0 +1,26 @@
+# 签名开机应用组实机验收
+
+2026-10-15。本轮完成真实生产单元的候选用户态验收，不是新操作系统完整开机。
+
+主应用源码9b5f1d9c0689ab278e5301e54a207b6ef0831c93，源归档19fba055e597a8d4e3b3ae504d84d5f8631d191ab843b02a5b922427ad194504。同源Native由NAS离线非Root容器构建，11项测试通过、release2分53秒，ELF5320088字节/SHA256 890568f3f4664b2af6cc7db3a8d6888374534e29f0bbd09984d5f2a75895c52c，编译器Rust1.99.0/ALSA1.2.8。主程序本机交叉编译Rust1.98.0；两者分别记录，不将构建耗时当性能比较。
+
+不可变选择器源码ed78621da68573a82d19b6b6cb130f3dad4d3208，归档44efe51748ad35fea09f28787ace9df2c1660c9766420fdae028ea710611cb29。本机187项测试/六程序ARM64生产构建、组件11项及Clippy、CI38757958385通过。板级35项、审计修复后的rootfs34项通过。
+
+系统组合源f83f71901ded7c96c61cd8799b0bc3c4b1a3fe61，WSL的system-tree-p6i-startup-second：12335条目、树48012d10bea64d8102b3a360e409d2b5f26abcabbb9d5033086902a764607443。独立应用包含四个生产程序与Opus许可，开发签名，seed只在本机private。新不可变选择器单独安装。OpenSSL核验精确签名域、复制后复验及通用审计通过；app_service_group_installed=true仅表示单元安装，automatic_update_health_confirmation=false，完整开机/刷写/release标记仍false。
+
+首轮组合被旧策略审计拒绝，失败树保留；修复审计为精确规则摘要，不放宽旧解析器。离线systemd依赖检查在私有只读mount namespace将已验证factory映射到动态selected路径，并关闭手册查询后通过，树摘要前后相同。Debian原装networkd/timesyncd的两条旧`!!`兼容提示保留，不修改上游包。原始空selected离线检查不能当作生产执行故障。
+
+`tools/test-boot-service-group.py`复制实际select/Core/Edge/target/recover单元，仅替换为唯一测试名称和私有路径；不运行板级firstboot，IPC目录由夹具准备。Core/Edge/选择器使用已核验候选RootDirectory，硬件服务及systemd仍来自旧主机。台账在独立1MiB tmpfs，应用位于根分区；选择器实际核对绑定inode。不是实际NSHSTATE掉电测试。
+
+实机结果：
+
+- 一次统一签名选择，Core986/Edge985空cap，实际进程root及exe inode匹配候选用户态和已选slot。
+- 本地准备→同Core首次owner认领、严格TLS与固定设备pin、完整业务health及实际收件箱读取通过。
+- 第二版Core真正SIGKILL，OnFailure让整组自动回退factory；owner/pin/收件箱一致，版本floor仍2。
+- 第三版经已认领owner重新签名登录、业务检查后显式confirm；整组停止再启动保持第三版与数据。
+- 第二次故障真正SIGKILL Edge，恢复标记不重置，整组停止，恢复服务拒绝再次重启；没有循环。
+- 台账文件系统没有payload；完成后复制台账证据、卸载tmpfs，自己的单元/规则移除并reload；旧四服务active、PCMclosed。
+
+`.private/boot-service-group-second.json`passed/cleanup_verified=true。首轮在应用启动前因NAS命令返回路径解析失败，已清理且保留报告；改用最后一行并校验路径后新域验收通过。归档全内容/权限/capability比较通过，另以完整NUL分隔路径清单匹配原归档12303项、SHA256 2ea3f2bd5ab306ccfd43d8c048eb2d34288bbf87ca0b3ab3c3e03f60c875ceba，无新增路径。主机及基础候选没有Python，先前两次Python清单尝试未执行；最终使用已有find/sort，未安装额外软件。
+
+新增通话/SMS/蜂窝测试均零，10010累计仍15。正式TLS/设置码/维护公钥交付、完整系统上电/物理断电/镜像及EDL恢复、自动健康确认、常驻媒体/网页声音仍需完成。P6增加1至5.5/12，整体70/100，不对同源重建或重复测试另加点。
