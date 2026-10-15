@@ -1,6 +1,10 @@
 # RustSimHub 当前接手入口
 
-2026-10-15。用户最新要求“帮我把进度推到80%”，取代此前75%/60%目标；当前实证约67%（66.5点），按PROGRESS-SCALE.md固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。
+2026-10-15。用户最新要求推进到100%，取代此前80%/75%/60%目标；换卡流量测试及确需人工参与的地方询问，其他授权工作持续推进。当前实证约68%（67.5点），按PROGRESS-SCALE.md固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。用户已确认需要时可协助拔插NAS上的USB，操作前明确通知。
+
+最新恢复入口：一次reboot bootloader，NAS对同物理USB端口的唯一fastboot设备读product/大小，自动reboot返回；三分区大小匹配正常系统，boot ID改变，boot哈希/旧身份保持，USB/Wi-Fi、旧四服务与PCMclosed恢复，未新拨号/短信/蜂窝测试。见VALIDATION-RECOVERY-ENTRY-P0C.md，P0加1至6/8，共67.5点。私有recovery-entry-20261015-second.json passed=true；first只读预检无Python失败，未重启。fastboot_entry_verified=true单独记录，recovery_verified/release_ready仍false；EDL、离线一致捕获/完整回刷仍未证明。无需人工拔插。
+
+系统基础候选准备：复用AirSimHub ea019485e5d890a96acae357c52b94c746de837f的私有构建工具fork，.local/rootfs-kit-p6d/reuse-provenance.json记录每文件原始SHA；品牌改RustSimHub，包集增加维护openssh-server与校时，省略Bluetooth，可选dnsmasq-base仅准备依赖，不称热点已通过。32项离线核心测试通过，旧modules归档703模块vermagic全匹配，归档展开的全部文件摘要与当前棒子1552358...清单一致；boot使用.private/backups/boot.img的d5790e...完整64MiB。实际解析在本机WSL root运行，目标/home/wzs11/.cache/rustsimhub/base-system-p6d-20261015-c，.private/base-system-p6d-resolve-c.log/.exit，依赖锁.private/base-system-p6d.lock.json。先前两轮缺少公开自测指纹/imagepolicy依赖，在bootstrap前失败，日志保留。不要把旧r134基础缓存或构建中的新锁称完整Rust镜像。新完整系统仍需服务组/首启、硬件overlay、实际介质和恢复验收。
 
 最新集成：182a6ec共用--serve-platform完成真实Wi-Fi/SMS/历史/NAS并行及拨号互斥/进程终止恢复；cd4c96e1df09c598438e088e0e1b5add20bb99e8增加空历史init，无旧NAS/合成数据、无NAS principal的组合Core实机通过。源hash69a2450c5419844975ed1960efd2c27900c444e870a393b93672e4c7aeaa2fa7，产物.local/wsl-artifacts-cd4c96e1df09c598438e088e0e1b5add20bb99e8；174项本机测试/lint与六程序ARM64生产构建通过。两轮报告.private/platform-182a6ec-first.json、platform-cd4c96e-empty-first.json均passed/cleanup_verified=true，见VALIDATION-PLATFORM-P6C.md。原Wi-Fi/WWAN保留，自己的配置/规则/服务均清理，旧四服务active、PCMclosed，新增拨号/短信/蜂窝测试0。通话累计仍15。集成完善不重复加点。
 
@@ -18,7 +22,7 @@
 
 - 所有需要流量的实测跳过，等用户换卡后专门测试。只使用 USB/Wi-Fi；不启用普通 APN、不做互联网蜂窝探测、不隐式回退流量，不关闭语音需要的 WWAN/IMS。预算/授权模拟与只读无线状态允许。
 - 用户持续允许测试拨打 10010：短时自动挂断、仅统计、独立 once/幂等键；Unknown 先核验，禁止自动重拨。累计实际 15 次。其他号码/新的短信发送不推定授权。
-- 完整系统恢复仍未证明，不能写 boot/rootfs 或 NV/校准。全盘 live capture 不等于离线可恢复镜像。
+- fastboot入口/查询/自动返回已证明；完整系统恢复仍未证明，不能写 boot/rootfs 或 NV/校准。全盘 live capture 不等于离线可恢复镜像。
 - 凭据、SIM/短信/联系人、原始日志、私钥、所有备份仅 .private/ 或 .local/，不提交。读 AGENTS.md、PROGRESS.md、PROGRESS-SCALE.md、development-plan.md。
 
 ## 已实机验收
@@ -38,7 +42,7 @@
 
 ## 下一步顺序
 
-1. 当前共66.5点，约67%；P4 7点/P5 5点。以下8f4d15b和bc33a17为早期检查点，不能替代最新9b5f6b0产物；80%目标保持，不在检查点停止。
+1. 当前共67.5点，约68%；P0 6点/P4 7点/P5 5点。以下8f4d15b和bc33a17为早期检查点，不能替代最新9b5f6b0产物；100%目标保持，不在检查点停止。
    8f4d15b CI 38519741620 success；bc33a17 CI 38522521958 success。源头与产物分别核验，不能把文档提交当作新编译结果。
 2. 持久 rustsimhub-history-build-p5 已 exited 0，label revision=8f4d15b70ee7ac380d0404cdc770e05a3e298fd8。NAS /mnt/docker-data/rustsimhub/p0/history-build-Cqi2Xu3q，完整日志 build.log/.private/history-async-complete-8f4d15b.log；十项测试及 release 完成。
    source SHA 0df653f7810727d1d56ab6da3257bc2a0a09ddcf41a6999a058393750cf6eaff，.local/source-history-p5-private.tar.gz 匹配 8f4d15b；.local/source.tar.gz 仍 8711fba。migrate SHA 9c88aea0f46b0f24a780edd239a4089504458d1957fbe81b36d8fb804513e14d，.local/artifacts/8f4d15b/rustsimhub-migrate，棒子 /opt/rustsimhub/dev-history-p5-8f4d15b/rustsimhub-migrate。

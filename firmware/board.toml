@@ -9,6 +9,8 @@ rootfs_partition_label = "rootfs"
 state_partition_label = "NSHSTATE"
 boot_partition_label = "boot"
 system_ab_verified = false
+fastboot_entry_verified = true
+# Entry/query/reboot is verified; full offline restore is still unproved.
 recovery_verified = false
 release_ready = false
 
