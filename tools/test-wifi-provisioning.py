@@ -155,7 +155,8 @@ finally:c.close()
   if a.empty_history:assert call({'op':'history_sources','token':token})['sources']==[]
   else:assert call({'op':'history_page','token':token,'source':'a'*64,'entity':'sms','after':None,'limit':16})['records']
   assert call({'op':'call_status','token':token})['control_api'] is True
-  assert call({'op':'prepare_call','token':token,'line_epoch':1,'idempotency_key':'network-denied-dial','action':'dial','call_id':None,'payload':'10010'}).get('error')
+  actual_line=call({'op':'line_status','token':token})['line']
+  assert call({'op':'prepare_call','token':token,'line_epoch':actual_line,'idempotency_key':'network-denied-dial','action':'dial','call_id':None,'payload':'10010'}).get('error')
   report['network_excludes_new_call_intent_but_inbox_history_and_status_remain_available']=True
   if a.nas_adapter:
    bridged=go('read',{'token':go_token,'query':{'entity':'sms','after':None,'limit':16,'record_id':None}})
@@ -163,6 +164,12 @@ finally:c.close()
  assert state(readonly,trial).get('error');assert begin(token,'correct-cancel-once',ssid,secret)['trial_id']==trial
  assert begin(token,'correct-cancel-once',ssid,'0'*64).get('error');assert begin(token,'parallel-denied',ssid,secret).get('error')
  candidate=trial_uuid(trial);assert candidate in profiles();assert call({'op':'wifi_cancel','token':token,'trial_id':trial})['state']=='rolled_back';restore_wait();assert set(profiles())==set(before)
+ if a.platform:
+  # Positive control: same valid line, after the network guard/checkpoint has gone.
+  # Prepare creates only an intent. Never send a submit_call in this acceptance.
+  draft=call({'op':'prepare_call','token':token,'line_epoch':actual_line,'idempotency_key':'after-network-prepare-only','action':'dial','call_id':None,'payload':'10010'})
+  assert draft['operation']['state']=='prepared' and call({'op':'call_status','token':token})['active_calls']==0
+  report['valid_call_prepare_allowed_only_after_network_restored_no_submit']=True
  report['fresh_profile_ready_cancel_and_input_idempotency']=True;save()
  # Independent once key, explicit SIGKILL while its finite NM checkpoint exists.
  wrong=begin(token,'wrong-psk-kill-once',ssid,'0'*64);trial=wrong['trial_id'];deadline=time.monotonic()+8

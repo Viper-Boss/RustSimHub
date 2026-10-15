@@ -1,4 +1,4 @@
-最新（2026-10-14）：目标80%，实际66.5点、约67%。新独立Wi-Fi配置的owner确认保存、Core退出后NM自动重连、真实SIGKILL恢复及跨重启防重通过，见VALIDATION-WIFI-PROVISION-P4B.md；本轮连接既有SSID，其他SSID/首启无Wi-Fi/热点和完整Core组合仍待验收。NAS只读桥与真实收件箱已通过，见VALIDATION-NAS-BRIDGE-P5D.md。170项本机测试/lint、六个ARM64生产构建与CI通过。原NAS页面/PCM、完整双向媒体、正式证书、开机安装/整机恢复、长期验收仍缺，流量等待换卡。下面为历史记录。
+最新（2026-10-15）：目标80%，实际66.5点、约67%。共用Core已实机完成配网/短信/历史/NAS并行读取、语音互斥和进程终止恢复；新空历史库无需旧NAS/合成数据或NAS授权也能启动组合Core。174项本机测试/lint与六个ARM64生产构建通过，详见VALIDATION-PLATFORM-P6C.md。本轮完善已有功能集成不重复加点。完整系统候选/开机安装/恢复、媒体交付、其他SSID/热点/正式证书和长期稳定仍缺，流量等待换卡。下面为历史记录。
 
 最新实证：非 Root Wi-Fi 试连接、真实错误口令/无 IP 临时 profile 和核心 SIGKILL 后 NM 自动恢复通过；USB/WWAN 无线保留，临时 profile/权限规则已清理，不明操作不重试。见 VALIDATION-WIFI-TRIAL-P4A.md。整体约 56%，继续至 75%，蜂窝流量最后测。
 
@@ -9,6 +9,8 @@
 最新实证：10010 真实电话下行经 Opus + DTLS/SRTP 到 NAS 解码成功，150 帧；静音上行、自动挂断、PCM 全关闭、旧四服务 active。见 VALIDATION-RTC-CARRIER-P3E.md。整体约 56%，75% 长任务继续，流量最后测。
 
 # 开发进度
+
+2026-10-15：182a6ec完整Core组合与cd4c96e无旧NAS数据初始化两轮实机passed/cleanup_verified=true；短信/历史/NAS在配网期间可读，拨号准备拒绝，模拟真实电话端证明旧prepared意图未消费且挂断可执行；真实SIGKILL后原Wi-Fi恢复、业务去重/NAS映射保留，明确保存后自动重连通过。空历史首次安装不需要NAS原库/示例快照或NAS principal。见VALIDATION-PLATFORM-P6C.md，集成不重复计点，仍66.5点约67%。未刷机/开机安装/物理断电，未新拨号/短信或蜂窝测试；目标80%继续。
 
 2026-10-14：新有限Wi-Fi配置的实际独立profile连接、owner确认持久保存、Core退出后NM自动重连、错误PSK候选存在时真实SIGKILL恢复及跨重启防重通过；本轮连接既有SSID，不声明不同SSID/热点/未配置首启或完整Core组合已验收。见VALIDATION-WIFI-PROVISION-P4B.md；P4加1至7/12，总体66.5点、约67%。170项本机测试/lint、六个ARM64生产构建及CI38570475237通过。第二轮私有报告passed/cleanup_verified=true，旧profile/WWAN保留、自有配置/规则/服务已清理，旧四服务active、PCMclosed，无新通话/短信/蜂窝测试。继续目标80%。
 

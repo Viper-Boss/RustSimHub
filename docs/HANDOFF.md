@@ -1,12 +1,18 @@
 # RustSimHub 当前接手入口
 
-2026-10-14。用户最新要求“帮我把进度推到80%”，取代此前75%/60%目标；当前实证约67%（66.5点），按PROGRESS-SCALE.md固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。
+2026-10-15。用户最新要求“帮我把进度推到80%”，取代此前75%/60%目标；当前实证约67%（66.5点），按PROGRESS-SCALE.md固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。
+
+最新集成：182a6ec共用--serve-platform完成真实Wi-Fi/SMS/历史/NAS并行及拨号互斥/进程终止恢复；cd4c96e1df09c598438e088e0e1b5add20bb99e8增加空历史init，无旧NAS/合成数据、无NAS principal的组合Core实机通过。源hash69a2450c5419844975ed1960efd2c27900c444e870a393b93672e4c7aeaa2fa7，产物.local/wsl-artifacts-cd4c96e1df09c598438e088e0e1b5add20bb99e8；174项本机测试/lint与六程序ARM64生产构建通过。两轮报告.private/platform-182a6ec-first.json、platform-cd4c96e-empty-first.json均passed/cleanup_verified=true，见VALIDATION-PLATFORM-P6C.md。原Wi-Fi/WWAN保留，自己的配置/规则/服务均清理，旧四服务active、PCMclosed，新增拨号/短信/蜂窝测试0。通话累计仍15。集成完善不重复加点。
+
+下一步重点转向完整系统候选与生产启动/更新组、媒体交付，保留recovery_verified=false/UNRESOLVED刷写门禁。新init是空归档原子发布，不是整机/开机安装；NAS只是验收客户端，不声称NAS关闭/拔USB/物理上电已经通过。旧Wi-Fi检查点以下为历史记录。上轮自动审批额度失败未执行WSL命令，2026-10-15查询ordinaryUsageAllowed=true后按同一审批流程构建完成，无当前该阻塞。
 
 最新Wi-Fi：9b5f6b07762f7d9dc727f81f92ed21ea19f73467新增owner确认的新配置。源归档72215080d62106507534294a5f6cf58cfeed45ba754a9c7ae77efc22de5ae975，产物.local/wsl-artifacts-9b5f6b07762f7d9dc727f81f92ed21ea19f73467；170项本机测试/lint、六程序ARM64生产构建与CI38570475237成功。真实新profile连接/取消、确认持久保存、Core退出后NM自行重连、错误PSK真实SIGKILL恢复及重启防重通过，.private/wifi-provision-9b5f6b0-second.json passed/cleanup_verified=true；第一轮NAS shell路径解析失败未启动测试服务，保留。见VALIDATION-WIFI-PROVISION-P4B.md。本轮现有SSID，同完整媒体/历史/NAS Core组合、无旧Wi-Fi首启、其他SSID和热点仍待验收。自己的profile/规则/服务已清理，原profile/WWAN保持，旧四服务active、PCMclosed，通话次数仍15。下一步组合Core网络接线与并发控制，再推进完整系统和媒体剩余项。
 
 最新：NAS Go只读桥经实际Rust Core/Edge通过，持久重放、映射/主principal撤销、generation/重启，以及真实收件箱列表/逐条详情与v2一致通过；only observing模式拒绝owner写请求，撤销NAS不影响本地owner。见VALIDATION-NAS-BRIDGE-P5D.md。原NAS页面/PCM与完整兼容尚未通过。旧库离线迁移见VALIDATION-HISTORY-P5C.md；原认证库仅NAS私有快照，禁止导入新principals/业务操作或接入原始认证库；不提交真实数据。
 
-当前生产源码530e6f5dcd3f1510fc4057c4b7dce141669240e8，精确源包SHA256 0c14aad8c5ff9fc9790982c09baba38b761c6f2d72715903b6d231214e2c6ccc，产物.local/wsl-artifacts-530e6f5dcd3f1510fc4057c4b7dce141669240e8。本机WSL163项测试、六程序ARM64生产release、CI38565794201成功；增量release34.24秒。前版d20b9af联合报告.private/nas-compat-d20b9af-first.json，最新.private/nas-compat-530e6f5-live-first.json均passed/cleanup_verified=true。没有新增拨号/短信或蜂窝数据；旧四服务active、PCMclosed，自有测试单元停止。源码.main.go和main_test.go由NAS Go1.26.5离线容器测试/构建，适配器位置/mode/hash见私有报告及tools/nas-adapter/README.md。
+此前NAS桥检查点530e6f5dcd3f1510fc4057c4b7dce141669240e8，精确源包SHA256 0c14aad8c5ff9fc9790982c09baba38b761c6f2d72715903b6d231214e2c6ccc，产物.local/wsl-artifacts-530e6f5dcd3f1510fc4057c4b7dce141669240e8。本机WSL163项测试、六程序ARM64生产release、CI38565794201成功；增量release34.24秒。前版d20b9af联合报告.private/nas-compat-d20b9af-first.json，随后.private/nas-compat-530e6f5-live-first.json均passed/cleanup_verified=true。没有新增拨号/短信或蜂窝数据；旧四服务active、PCMclosed，自有测试单元停止。源码.main.go和main_test.go由NAS Go1.26.5离线容器测试/构建，适配器位置/mode/hash见私有报告及tools/nas-adapter/README.md。
+
+正反对照.private/platform-cd4c96e-empty-positive.json passed/cleanup_verified=true、valid_call_prepare_allowed_only_after_network_restored_no_submit=true：实际有效line在配网期间拒绝准备，恢复后只准备成功、不提交，active_calls=0。三份本轮报告都保持无实际新拨号/短信/蜂窝流量。cd4c96e CI38726463632 success；所有临时服务均停止，无待轮询构建/实机进程。
 
 ## 持续约束
 
