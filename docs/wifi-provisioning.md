@@ -2,6 +2,8 @@
 
 Core显式启用 `--serve-network-provisioning SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR JOURNAL_DIR`；其他模式拒绝新配置命令。JOURNAL_DIR须是Core拥有的私有目录。现有严格HTTPS/v2授权入口承载请求，不增加任意shell、NM设置字典或AT接口。
 
+需要短信/电话/历史/NAS与配网同时提供时，使用[platform-runtime.md](platform-runtime.md)的`--serve-platform`，同一Core持有业务库和网络协调锁。独立配网模式仍保留用于隔离验收。
+
 所有操作要求5分钟内重新登录的owner和network.manage，且当前公钥/generation/scope仍匹配。只配置wlan0的WPA2基础设施模式；SSID为1至32字节UTF-8，不含控制字符，密码为8至63字节可打印ASCII或64位十六进制PSK。不提供开放热点、普通APN、全局网络/无线开关或自由接口选择。现阶段须保持usb0已连接，支持原Wi-Fi已连接或设备已管理但未连接的首次设置。
 
 | op | 字段 | 行为 |

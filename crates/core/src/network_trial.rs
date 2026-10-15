@@ -253,6 +253,9 @@ pub(crate) async fn authorized(
         token,
         expected: p,
     };
+    let _network = crate::coordination::global()
+        .network()
+        .map_err(|_| Error::Busy)?;
     let result = timeout(Duration::from_secs(13), async {
         let c = zbus::Connection::system().await.map_err(|_| Error::Io)?;
         execute(&NetworkManager { c }, &gate, &mut journal).await
@@ -263,6 +266,20 @@ pub(crate) async fn authorized(
 }
 struct NetworkManager {
     c: zbus::Connection,
+}
+pub(crate) async fn no_pending_checkpoint() -> Result<()> {
+    let c = zbus::Connection::system().await.map_err(|_| Error::Io)?;
+    let nm = NetworkManager { c };
+    let owner = nm.owner(NM).await?;
+    let proxy = nm.proxy(&owner, ROOT, NM).await?;
+    let points: Vec<OwnedObjectPath> = proxy
+        .get_property("Checkpoints")
+        .await
+        .map_err(|_| Error::Io)?;
+    if !points.is_empty() || nm.owner(NM).await? != owner {
+        return Err(Error::Busy);
+    }
+    Ok(())
 }
 impl NetworkManager {
     async fn owner(&self, name: &str) -> Result<String> {

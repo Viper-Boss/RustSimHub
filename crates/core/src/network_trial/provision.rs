@@ -251,6 +251,9 @@ pub(crate) async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> 
                 }
             }
             let permit = TRIALS.try_acquire().map_err(|_| Error::Busy)?;
+            let network = crate::coordination::global()
+                .network()
+                .map_err(|_| Error::Busy)?;
             let audit = Audit::new(
                 DIRECTORY.get().ok_or(Error::Forbidden)?,
                 &idempotency_key,
@@ -291,6 +294,7 @@ pub(crate) async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> 
                 )
                 .await;
                 drop(permit);
+                drop(network);
             });
             Ok(view(
                 &active.as_ref().ok_or(Error::Io)?.id,

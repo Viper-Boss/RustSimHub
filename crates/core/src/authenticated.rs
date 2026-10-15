@@ -287,14 +287,22 @@ pub(crate) async fn handle(
                     .is_some_and(|s| s.try_lock().is_ok_and(|g| g.available()))
                     .into();
             }
-            if health && crate::network_trial::enabled() {
+            if health && calling_enabled {
+                let mode = if crate::network_trial::provision::enabled() {
+                    "authenticated_platform"
+                } else {
+                    "authenticated_telephony"
+                };
+                value = json!({"ok":true,"mode":mode,"write_api":true,"media_available":false});
+            } else if health && crate::network_trial::enabled() {
                 value = json!({"ok":true,"mode":"authenticated_saved_wifi_trial","write_api":true,"saved_wifi_trial_api":true});
-            } else if health && calling_enabled {
-                value = json!({"ok":true,"mode":"authenticated_telephony","write_api":true,"media_available":false});
             } else if health && messaging_enabled {
                 value = json!({"ok":true,"mode":"authenticated_messaging","write_api":true});
             }
             if health {
+                value["messaging_api"] = messaging_enabled.into();
+                value["call_control_api"] = calling_enabled.into();
+                value["saved_wifi_trial_api"] = crate::network_trial::enabled().into();
                 value["wifi_provisioning_api"] = crate::network_trial::provision::enabled().into();
                 value["history_read_api"] = history_enabled.into();
                 value["legacy_read_api"] = compat_enabled.into();

@@ -73,6 +73,7 @@ pub(crate) struct Worker {
     media_jobs: mpsc::Receiver<crate::media_ipc::Job>,
     media: crate::media_ipc::State,
     pub(crate) media_enabled: bool,
+    coordination: Arc<crate::coordination::Coordination>,
     #[cfg(test)]
     advance_ms: u64,
 }
@@ -114,6 +115,7 @@ pub(crate) fn channel(
             media_jobs: media_rx,
             media: crate::media_ipc::State::default(),
             media_enabled: false,
+            coordination: crate::coordination::global(),
             #[cfg(test)]
             advance_ms: 0,
         },
@@ -174,6 +176,23 @@ async fn bounded<T, E>(
         .map_err(|_| "modem_unavailable")
 }
 impl Worker {
+    async fn mutation_guard(
+        &self,
+        action: CallAction,
+    ) -> Result<Option<tokio::sync::OwnedRwLockReadGuard<()>>> {
+        let permit = self.coordination.telephony(action)?;
+        if permit.is_some() && crate::network_trial::enabled() {
+            // A previous Core may have disappeared while NM still owns a finite rollback.
+            tokio::time::timeout(
+                Duration::from_secs(3),
+                crate::network_trial::no_pending_checkpoint(),
+            )
+            .await
+            .map_err(|_| "network_state_unknown")?
+            .map_err(|_| "network_checkpoint_pending")?;
+        }
+        Ok(permit)
+    }
     async fn media_context(
         &self,
         p: &Principal,
@@ -566,6 +585,7 @@ impl Worker {
                     return Err("calls_read_only");
                 }
                 let p = self.principal(&token, Scope::CallsControl).await?;
+                let _network = self.mutation_guard(action).await?;
                 let b = self.binding()?;
                 let (h, context, guard) = (self.store.clone(), b.context.clone(), b.clone());
                 let op = db(move || {
@@ -659,6 +679,7 @@ impl Worker {
         let b = self.binding()?;
         let (h, key, principal) = (self.store.clone(), id.to_owned(), p.clone());
         let intent = db(move || h.call_intent(key, principal)).await?;
+        let _network = self.mutation_guard(intent.action).await?;
         if intent.backend != b.context.backend
             || intent.operation.line != b.context.line
             || intent.principal_generation != p.generation

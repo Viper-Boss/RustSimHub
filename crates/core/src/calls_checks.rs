@@ -449,6 +449,66 @@ async fn submit(w: &mut Worker, token: &str, id: &str, lease: Option<CallLease>)
     .await
 }
 #[tokio::test]
+async fn network_exclusion_denies_new_intents_and_submits_but_allows_cleanup() {
+    let mut f = fixture(false).await;
+    f.worker.coordination = Arc::new(crate::coordination::Coordination::default());
+    let id = prepare(
+        &mut f.worker,
+        &f.first,
+        "prepared-before-network",
+        CallAction::Dial,
+        None,
+        "+12025550123",
+    )
+    .await;
+    let guard = f.worker.coordination.network().unwrap();
+    let line = f.worker.binding().unwrap().context.line.0;
+    assert!(f
+        .worker
+        .process(AuthCommand::PrepareCall {
+            token: f.first.clone(),
+            line_epoch: line,
+            idempotency_key: "denied-network".into(),
+            action: CallAction::Dial,
+            call_id: None,
+            payload: "+12025550123".into()
+        })
+        .await
+        .is_err());
+    assert!(submit(&mut f.worker, &f.first, &id, None).await.is_err());
+    assert_eq!(f.data.creates.load(Ordering::SeqCst), 0);
+    let p = f
+        .worker
+        .principal(&f.first, Scope::CallsControl)
+        .await
+        .unwrap();
+    assert_eq!(
+        f.worker.result(id.clone(), p).await.unwrap()["operation"]["state"],
+        "prepared"
+    );
+    drop(guard);
+    let value = submit(&mut f.worker, &f.first, &id, None).await.unwrap();
+    let lease: CallLease = serde_json::from_value(value["lease"].clone()).unwrap();
+    let guard = f.worker.coordination.network().unwrap();
+    let hangup = prepare(
+        &mut f.worker,
+        &f.first,
+        "cleanup-during-network",
+        CallAction::Hangup,
+        Some(lease.call_id.clone()),
+        "",
+    )
+    .await;
+    assert_eq!(
+        submit(&mut f.worker, &f.first, &hangup, Some(lease))
+            .await
+            .unwrap()["operation"]["state"],
+        "submitted"
+    );
+    assert_eq!(f.data.hangups.load(Ordering::SeqCst), 1);
+    drop(guard);
+}
+#[tokio::test]
 async fn private_voice_dial_timeout_never_restarts_and_tone_timeout_never_repeats() {
     let Fixture {
         worker: mut w,

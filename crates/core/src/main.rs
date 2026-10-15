@@ -12,6 +12,8 @@ mod calls;
 #[cfg(target_os = "linux")]
 mod compat_api;
 #[cfg(target_os = "linux")]
+mod coordination;
+#[cfg(target_os = "linux")]
 mod history_api;
 #[cfg(feature = "dev-fixtures")]
 mod inbox_check;
@@ -110,6 +112,20 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .enable_all()
             .build()?;
         match args.as_slice() {
+            [command, path, uid, state, identity, media_path, media_uid, archive, access, compat, journal]
+                if command == "--serve-platform" =>
+            {
+                network_trial::provision::enable(std::path::Path::new(journal))?;
+                return runtime.block_on(authenticated::serve_media_bundle(
+                    path,
+                    uid.parse()?,
+                    state,
+                    identity,
+                    (media_path, media_uid.parse()?),
+                    Some((archive, access)),
+                    Some(compat),
+                ));
+            }
             [command, path, uid, state, identity, compat]
                 if command == "--serve-observing-compat" =>
             {
