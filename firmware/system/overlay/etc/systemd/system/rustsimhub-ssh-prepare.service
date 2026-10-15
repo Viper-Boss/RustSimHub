@@ -1,0 +1,20 @@
+[Unit]
+Description=Verify maintenance access and persistent RustSimHub SSH host identity
+Requires=rustsimhub-firstboot.service
+After=rustsimhub-firstboot.service
+Before=ssh.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/rustsimhub-ssh-prepare
+RemainAfterExit=yes
+TimeoutStartSec=20
+UMask=0077
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/rustsimhub/rustsimhub-v1/system

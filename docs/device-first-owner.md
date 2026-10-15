@@ -13,6 +13,8 @@ simhubctl identity SOCKET EXPECTED_CORE_UID
 
 新增显式Linux运行模式：
 
+新增本地准备命令的冻结构建、185项测试、CI及实机验收已完成，见VALIDATION-LOCAL-SETUP-P6H.md；上段“尚待冻结构建”为源码检查点历史状态。
+
 ```
 rustsimhub-core --serve-device SOCKET EDGE_UID STATE IDENTITY MEDIA_SOCKET MEDIA_UID ARCHIVE ACCESS COMPAT NETWORK_JOURNAL PRIVATE_SETUP_DIRECTORY
 ```

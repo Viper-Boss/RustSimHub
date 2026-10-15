@@ -1,3 +1,5 @@
+2026-10-15最新：9b5f1d9本地准备设置码/UID核验公钥与窗口实机通过，185项/六程序ARM生产/Clippy/CI38752335688通过，见VALIDATION-LOCAL-SETUP-P6H.md。SSH持久host key与公钥策略源码、30项板级测试、候选ARM ssh-keygen/sshd -t/-T合成检查通过；未装真实维护公钥或启动新SSH，见persistent-ssh-maintenance.md。完整开机组/可信配对交付/媒体/恢复仍需推进，69/100不额外加点，无新通话/SMS/蜂窝。
+
 2026-10-15补充：a10a492冻结源1dbc6775...本机WSL181项、六程序ARM生产构建、CI38749275454成功；新签名factory首装/候选回退/floor保持及丢失台账拒绝和next恢复在候选RootDirectory通过，见factory-application-baseline.md。不额外计点，仍69/100，正式启动/首次配对和完整恢复待做。
 
 最新（2026-10-15）：候选用户态实机Core/Edge归属、首次设置/真实SIGKILL、短信/Wi-Fi及运行后全树比较通过；同源Native构建和Media984合成Opus/DTLS/SRTP通过，见VALIDATION-CANDIDATE-RUNTIME-P6G.md。P6加0.5至4.5，总体69/100。无新电话/SMS/蜂窝，流量等待换卡。签名factory首装和丢失台账拒绝组件9项测试及clippy通过，尚待冻结构建/实机验证。正式首启/完整启动组/媒体/恢复仍待完成。用户可协助拔插，目前无需操作。下面为历史记录。

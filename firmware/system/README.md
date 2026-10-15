@@ -27,6 +27,8 @@ NetworkManager的system-connections目录单独绑定到持久分区中root:root
 
 来源与原始SHA见`reuse-provenance.json`及顶层NOTICE，复用部分为AGPL-3.0-only。新增目录/标识准备和树组合工具同为AGPL-3.0-only。内核、Debian包和厂商固件不因此重新许可。
 
+SSH维护层新增独立持久主机密钥准备和公钥认证配置；首启只创建空ssh-access，必须由安装器显式提供维护公钥，缺失时SSH拒绝启动。完整pending目录可续用，损坏或冲突拒绝，保留主机身份。实际安装器/真实维护登录尚未完成，见docs/persistent-ssh-maintenance.md。这些源码尚未组合进原724fc09候选树，原manifest不变。
+
 本机隔离测试：`sudo python3 -m unittest discover -s tools/system -p 'test_*.py'`。固件/radio测试复用真实脚本并仅替换固定设备路径；目录准备测试只用一次性目录/合成旧数据，测试挂载守卫失败不写、旧文件内容/owner保持、稳定serial及pending续用、链接/错误owner拒绝。不能代替真实启动、USB链路或恢复验收。
 
-当前共26项隔离测试，含归档路径/链接/类型守卫。已组合树的程序运行可用`tools/test-base-runtime.py --system-tree --base .../rootfs --artifacts ... --report /private/new-result.json`验证：执行factory的实际安装路径，核对Root0555/摘要/来源，并确认树前后未变。该检查不启动服务组。真实候选RootDirectory的业务/故障和同源音频合成验收见docs/VALIDATION-CANDIDATE-RUNTIME-P6G.md；签名首次安装基线见docs/factory-application-baseline.md，仍未完成板级独立开机。
+当前共30项隔离测试，含归档路径/链接/类型守卫和SSH材料失败路径。已组合树的程序运行可用`tools/test-base-runtime.py --system-tree --base .../rootfs --artifacts ... --report /private/new-result.json`验证：执行factory的实际安装路径，核对Root0555/摘要/来源，并确认树前后未变。该检查不启动服务组。真实候选RootDirectory的业务/故障和同源音频合成验收见docs/VALIDATION-CANDIDATE-RUNTIME-P6G.md；签名首次安装基线见docs/factory-application-baseline.md，仍未完成板级独立开机。

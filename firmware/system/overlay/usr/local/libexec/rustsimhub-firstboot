@@ -43,6 +43,7 @@ private_dir "$root" 0 0
 exec 9<"$root"
 flock -x 9
 private_dir "$root/system" 0 0
+private_dir "$root/system/ssh-access" 0 0
 private_dir "$root/core" 986 986
 for name in state identity setup journal archive access compat; do
  private_dir "$root/core/$name" 986 986

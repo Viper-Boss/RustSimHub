@@ -1,0 +1,65 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-only
+# Persistent host identity; only an explicitly installed maintenance key enables SSH.
+set -eu
+umask 077
+test "$#" = 0
+test "$(id -u)" = 0
+/usr/local/libexec/rustsimhub-state-check
+system=/var/lib/rustsimhub/rustsimhub-v1/system
+private_dir() {
+ test ! -L "$1"
+ test -d "$1"
+ test "$(stat -c '%u:%g:%a' "$1")" = 0:0:700
+}
+private_file() {
+ test ! -L "$1"
+ test -f "$1"
+ test "$(stat -c '%u:%g:%a:%h' "$1")" = 0:0:600:1
+}
+private_dir "$system"
+exec 9<"$system"
+flock -x 9
+private_dir "$system/ssh-access"
+access=$system/ssh-access/authorized_keys
+private_file "$access"
+test "$(stat -c %s "$access")" -le 1024
+test "$(wc -l < "$access")" -eq 1
+LC_ALL=C grep -aqxE 'ssh-ed25519 [A-Za-z0-9+/=]+( .*)?' "$access"
+ssh-keygen -l -f "$access" >/dev/null
+host=$system/ssh-host
+pending=$system/ssh-host.pending
+validate_host() {
+ private_dir "$1"
+ private_file "$1/key"
+ test "$(stat -c %s "$1/key")" -le 2048
+ test ! -L "$1/key.pub"
+ test -f "$1/key.pub"
+ case "$(stat -c '%u:%g:%a:%h' "$1/key.pub")" in 0:0:600:1|0:0:644:1) ;; *) return 1;; esac
+ test "$(stat -c %s "$1/key.pub")" -le 1024
+ test "$(find "$1" -mindepth 1 -maxdepth 1 -printf '.\n' | wc -l)" -eq 2
+ derived=$(ssh-keygen -y -P '' -f "$1/key")
+ derived=$(printf '%s\n' "$derived" | awk '{print $1 " " $2}')
+ case "$derived" in 'ssh-ed25519 '*) ;; *) return 1;; esac
+ test "$derived" = "$(awk '{print $1 " " $2}' "$1/key.pub")"
+}
+if test -e "$host" || test -L "$host";then
+ validate_host "$host"
+ test ! -e "$pending"
+ test ! -L "$pending"
+else
+ if test ! -e "$pending" && test ! -L "$pending";then
+  mkdir -m 0700 "$pending"
+  ssh-keygen -q -t ed25519 -N '' -C RustSimHub -f "$pending/key"
+ fi
+ validate_host "$pending"
+ sync -f "$pending/key"
+ sync -f "$pending/key.pub"
+ sync -f "$pending"
+ mv -nT -- "$pending" "$host"
+ test ! -e "$pending"
+ test ! -L "$pending"
+ validate_host "$host"
+ sync -f "$system"
+fi
+echo 'RustSimHub persistent SSH host identity and explicit maintenance key verified'

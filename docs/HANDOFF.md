@@ -1,5 +1,11 @@
 # RustSimHub 当前接手入口
 
+最新已验收：9b5f1d9c0689ab278e5301e54a207b6ef0831c93/源19fba055e597a8d4e3b3ae504d84d5f8631d191ab843b02a5b922427ad194504，本机WSL185项/六程序ARM生产、Clippy、CI38752335688成功。.local/wsl-artifacts-9b5f1d9c0689ab278e5301e54a207b6ef0831c93、独立source-local-setup-9b5f1d9...tar.gz和默认source.tar.gz均此归属，Native仍ca596a7，不混称新源完整应用包。--local-device-preparation实机.private/local-device-preparation-9b5f1d9-first.json passed/cleanup_verified=true；本地准备幂等无秘密输出、本地pin/窗口及错误UID拒绝、真实未认领SIGKILL后准备拒绝、同进程owner/业务和Wi-Fi故障回归通过，见VALIDATION-LOCAL-SETUP-P6H.md。无新通话/SMS/蜂窝，仍69/100，不新增点数。
+
+SSH持久维护源码：firstboot仅建Root700 ssh-access空目录；ssh-prepare必须显式有效单行Ed25519维护公钥才生成并原子发布设备host key，完整pending续用，不完整/冲突/链接拒绝。SSH drop-in只公钥Root认证、无密码/转发；30项板级测试通过。候选ARM用户态中helper路径/挂载守卫显式替换的合成测试通过，实际sshd -t/-T配置通过，不启动SSH、不装真实维护公钥，.private/candidate-ssh-config-first.json通过，见persistent-ssh-maintenance.md。这些新overlay尚未重组合进724fc09旧树，不能改旧manifest或称SSH真实登录通过。
+
+下一步直接完成正式Core/Edge开机服务组、可信设置码/证书交付和维护公钥安装/登录，然后媒体产品接线/完整恢复。已具备签名install-factory、一次统一choose与健康confirm基础、稳定私有目录、可本地准备并读取pin、SSH host持久方案；不要继续重复打包/换库自检。NSHSTATE较小，应用versions应考虑rootfs持久目录、台账独立NSHSTATE，准确验证跨目录绑定；不能把每组件各自choose或自动重新配对当fallback。新完整组尚未实现，所有刷写/board_boot标记false。实机多份失败/成功私有目录全部保留，后续上传前核对空间，勿复制第二份400MB树。无活跃构建/实机测试或待用户操作。长期目标仍active的100%，不是完成69%后停工。
+
 本地首启准备源码检查点：Auth LocalSetup::prepare_device_code与Core --prepare-device-setup STATE IDENTITY SETUP只准备私有码，已有码保持、任何setup.used/已有principal/损坏码/链接拒绝，不开窗不输出码；simhubctl identity SOCKET EXPECTED_CORE_UID核对socket owner与peerUID，严格读pin和窗口状态。Auth30/CLI3及workspace clippy通过；新增4项，预计workspace185，尚未冻结构建/实机验收。tools/test-wifi-provisioning.py --platform --empty-history --device-first-owner --local-device-preparation已接新命令和本地pin核验，保留首次SIGKILL失败域，新的成功域仍明确独立。下一步冻结该源码、本机交叉构建后运行这轮实机，不带旧RootDirectory（其factory app仍ca源），不需再打包树。百分比仍69，不因维护入口源码加点。
 
 最新构建/实机首装补充：a10a492da8c1ce95a0785f3cb1d84905344e9dc3的源1dbc6775921542498df8fc4058e6f0259b04c7b93378ad3395e978074fbebfb3已本机WSL181项、六程序ARM生产及CI38749275454成功。新产物.local/wsl-artifacts-a10a492da8c1ce95a0785f3cb1d84905344e9dc3；冻结包.local/source-factory-a10a492da8c1ce95a0785f3cb1d84905344e9dc3.tar.gz；默认.local/source.tar.gz现在同属a10a492，下面8711fba默认描述已过时（原包仍.local/source-8711fba.tar.gz）。

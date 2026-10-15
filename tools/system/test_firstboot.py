@@ -62,6 +62,9 @@ class FirstbootTests(unittest.TestCase):
         self.assertEqual(self.legacy.read_bytes(), before)
         self.assertEqual((self.legacy.stat().st_uid, self.legacy.stat().st_gid), (101, 103))
         self.assertEqual(self.state.stat().st_uid, 0)
+        maintenance = self.root / 'system/ssh-access'
+        self.assertEqual((maintenance.stat().st_uid, maintenance.stat().st_mode & 0o777), (0, 0o700))
+        self.assertEqual(list(maintenance.iterdir()), [])
         for name in ('state', 'identity', 'setup', 'journal', 'archive', 'access', 'compat'):
             directory = self.root / 'core' / name
             self.assertEqual((directory.stat().st_uid, directory.stat().st_gid, directory.stat().st_mode & 0o777), (986, 986, 0o700))
