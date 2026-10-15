@@ -21,8 +21,12 @@ USB serial在独立root私有目录中生成并同步保存。重启或重建根
 
 固件加载从同一NSHSTATE内原`.private-firmware`验证自有bundle白名单/摘要，禁止任意路径、配置注入、不同既有固件覆盖和NV/校准分区写入；没有bundle时不假造硬件就绪。随后rmtfs/qrtr启动，仅允许两个已知offline remoteproc启动，running不重启、crashed拒绝强制处理。NetworkManager/ModemManager的drop-in按此顺序等待。
 
+NetworkManager的system-connections目录单独绑定到持久分区中root:root/0700的networkmanager目录。首启只从不可变公开模板种入USB profile，原子pending发布并同步；已有合法私有文件保留原内容，包含NM正常补充的UUID/时间戳，不重新覆盖。Wi-Fi口令由NM写入其root私有目录，不进入通用镜像或Core文件。损坏pending和链接拒绝；现有普通蜂窝APN不自动导入。此持久化尚未通过新的完整系统实机启动，不能据此声称掉电或rootfs升级的配网保持已验收。
+
 新树保留空持久挂载点，不打入任何身份、业务库、网络密码、维护公钥、SSH host keys、设置码或厂商固件。原NSHSTATE的数据不由组合器复制到镜像。现有板在换系统前仍必须完成当前恢复门禁；旧系统回退时还要核对挂载根目录owner（原旧系统firstboot会重新设置旧服务owner），不能把rootfs回刷等同于持久数据状态已回退。
 
 来源与原始SHA见`reuse-provenance.json`及顶层NOTICE，复用部分为AGPL-3.0-only。新增目录/标识准备和树组合工具同为AGPL-3.0-only。内核、Debian包和厂商固件不因此重新许可。
 
 本机隔离测试：`sudo python3 -m unittest discover -s tools/system -p 'test_*.py'`。固件/radio测试复用真实脚本并仅替换固定设备路径；目录准备测试只用一次性目录/合成旧数据，测试挂载守卫失败不写、旧文件内容/owner保持、稳定serial及pending续用、链接/错误owner拒绝。不能代替真实启动、USB链路或恢复验收。
+
+当前共23项隔离测试。已组合树的程序运行可用`tools/test-base-runtime.py --system-tree --base .../rootfs --artifacts ... --report /private/new-result.json`验证：执行factory的实际安装路径，核对Root0555/摘要/来源，并确认树前后未变。该检查不启动服务组。

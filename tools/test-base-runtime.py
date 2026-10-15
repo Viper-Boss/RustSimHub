@@ -21,6 +21,7 @@ NAMES = ('rustsimhub-core', 'simhubctl', 'rustsimhub-edge', 'rustsimhub-update',
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--system-tree', action='store_true', help='Verify installed programs in a composed internal tree')
     for name in ('base', 'artifacts', 'report'):
         parser.add_argument('--' + name, type=pathlib.Path, required=True)
     args = parser.parse_args()
@@ -30,10 +31,16 @@ def main():
         parser.error('Report exists; inspect the previous attempt')
     base = args.base.resolve(strict=True)
     artifacts = args.artifacts.resolve(strict=True)
-    manifest = json.loads((base.parent / 'ROOTFS-MANIFEST.json').read_text())
+    manifest = json.loads((base.parent / ('SYSTEM-CANDIDATE.json' if args.system_tree else 'ROOTFS-MANIFEST.json')).read_text())
     build = json.loads((artifacts / 'build.json').read_text())
-    assert manifest['kind'] == 'rustsimhub-ufi003-rootfs-base'
-    assert manifest['release_input'] is True
+    if args.system_tree:
+        assert manifest['kind'] == 'internal-system-candidate' and manifest['flash_allowed'] is False
+        assert manifest['application_revision'] == build['revision']
+        assert manifest['application_source_sha256'] == build['source_archive_sha256']
+        program_directory = '/opt/rustsimhub/factory/'+build['source_archive_sha256']
+    else:
+        assert manifest['kind'] == 'rustsimhub-ufi003-rootfs-base' and manifest['release_input'] is True
+        program_directory = '/mnt'
     assert build['target'] == 'aarch64-unknown-linux-gnu'
     assert build['development_fixtures'] is False
     assert re.fullmatch('[a-f0-9]{64}', build['source_archive_sha256'])
@@ -43,10 +50,16 @@ def main():
     for name in NAMES:
         assert not (artifacts / name).is_symlink()
         assert rootfs_tools.sha256_file(artifacts / name) == build['artifact_sha256'][name]
+        if args.system_tree:
+            installed = base / program_directory.lstrip('/') / name
+            assert installed.is_file() and not installed.is_symlink()
+            assert installed.stat().st_uid == 0 and installed.stat().st_mode & 0o777 == 0o555
+            assert rootfs_tools.sha256_file(installed) == build['artifact_sha256'][name]
     report = {'passed': False, 'hardware_access': False, 'network_access': False,
               'application_revision': build['revision'],
               'source_archive_sha256': build['source_archive_sha256'],
-              'base_tree_sha256': before}
+              'base_tree_sha256': before, 'composed_system': args.system_tree,
+              'program_directory': program_directory}
     try:
         with tempfile.TemporaryDirectory(prefix='rustsimhub-base-runtime-') as temporary:
             work = pathlib.Path(temporary)
@@ -66,14 +79,14 @@ mount -o remount,bind,ro "$2"
 mount --bind "$3" "$2/mnt"
 mount -o remount,bind,ro "$2/mnt"
 for name in rustsimhub-core simhubctl rustsimhub-edge rustsimhub-update rustsimhub-recovery rustsimhub-migrate;do
- setpriv --no-new-privs chroot --userspec=986:986 "$2" "/mnt/$name" --build-info
+ setpriv --no-new-privs chroot --userspec=986:986 "$2" "$4/$name" --build-info
 done
-setpriv --no-new-privs chroot --userspec=986:986 "$2" /mnt/rustsimhub-core --self-check
-setpriv --no-new-privs chroot --userspec=986:986 "$2" /mnt/simhubctl --help >/dev/null
+setpriv --no-new-privs chroot --userspec=986:986 "$2" "$4/rustsimhub-core" --self-check
+setpriv --no-new-privs chroot --userspec=986:986 "$2" "$4/simhubctl" --help >/dev/null
 '''
             result = subprocess.run(
                 ['timeout', '--kill-after=2', '35', 'unshare', '--mount', '--net', '--fork', '--propagation', 'private',
-                 'sh', '-ec', script, 'runtime-probe', str(base), str(mounted), str(payload)],
+                 'sh', '-ec', script, 'runtime-probe', str(base), str(mounted), str(payload), program_directory],
                 env={'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LC_ALL': 'C'},
                 capture_output=True, text=True, timeout=45)
             report['exit_code'] = result.returncode

@@ -23,6 +23,8 @@ class FirstbootTests(unittest.TestCase):
         os.chown(self.legacy, 101, 103)
         self.marker = self.base / 'candidate.json'
         self.marker.write_text('{"kind":"internal-system-candidate"}')
+        self.template = self.base / 'usb.nmconnection'
+        self.template.write_text('[connection]\ninterface-name=usb0\n[ipv4]\nnever-default=true\n')
         self.bin = self.base / 'bin'
         self.bin.mkdir()
         fake_id = self.bin / 'id'
@@ -44,6 +46,7 @@ class FirstbootTests(unittest.TestCase):
         text = SCRIPT.read_text().replace('/var/lib/rustsimhub', str(self.state))
         text = text.replace('/usr/share/rustsimhub/system-candidate.json', str(self.marker))
         text = text.replace('/usr/local/libexec/rustsimhub-state-check', state_check)
+        text = text.replace('/usr/share/rustsimhub/network/usb.nmconnection', str(self.template))
         script = self.base / 'prepare'
         script.write_text(text)
         return subprocess.run(['sh', str(script)], env=self.env, capture_output=True, text=True, timeout=10)
@@ -68,6 +71,32 @@ class FirstbootTests(unittest.TestCase):
         self.assertNotEqual(self.run_prepare('false').returncode, 0)
         self.assertEqual(self.state.stat().st_uid, 101)
         self.assertFalse(self.root.exists())
+
+    def test_nm_profile_is_seeded_once_and_existing_content_is_preserved(self):
+        self.assertEqual(self.run_prepare().returncode, 0)
+        profile = self.root / 'networkmanager/rustsimhub-usb.nmconnection'
+        self.assertEqual(profile.read_bytes(), self.template.read_bytes())
+        expected = profile.read_bytes()+b'# synthetic NM normalization\n'
+        profile.write_bytes(expected)
+        self.assertEqual(self.run_prepare().returncode, 0)
+        self.assertEqual(profile.read_bytes(), expected)
+        self.assertEqual((profile.stat().st_uid, profile.stat().st_gid, profile.stat().st_mode & 0o777), (0, 0, 0o600))
+
+    def test_nm_pending_or_profile_link_is_refused_without_following(self):
+        self.assertEqual(self.run_prepare().returncode, 0)
+        profile = self.root / 'networkmanager/rustsimhub-usb.nmconnection'
+        original = profile.read_bytes()
+        profile.rename(profile.with_suffix('.saved'))
+        pending = profile.with_name(profile.name+'.pending')
+        pending.write_bytes(b'incomplete')
+        pending.chmod(0o600)
+        self.assertNotEqual(self.run_prepare().returncode, 0)
+        self.assertFalse(profile.exists())
+        self.assertEqual(pending.read_bytes(), b'incomplete')
+        pending.unlink()
+        profile.symlink_to(profile.with_suffix('.saved'))
+        self.assertNotEqual(self.run_prepare().returncode, 0)
+        self.assertEqual(profile.with_suffix('.saved').read_bytes(), original)
 
     def test_existing_namespace_link_or_wrong_owner_is_not_repaired(self):
         outside = self.base / 'outside'

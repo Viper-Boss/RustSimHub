@@ -19,9 +19,13 @@ private_dir() {
   chown "$2:$3" -- "$1"
  fi
 }
-private_file() {
+root_file() {
  test ! -L "$1"
  test -f "$1"
+ test "$(stat -c '%u:%g:%a:%h' "$1")" = 0:0:600:1
+}
+private_file() {
+ root_file "$1"
  test "$(stat -c '%u:%g:%a:%h:%s' "$1")" = 0:0:600:1:33
  LC_ALL=C grep -aqxE '[0-9a-f]{32}' "$1"
 }
@@ -45,6 +49,29 @@ for name in state identity setup journal archive access compat; do
 done
 private_dir "$root/edge" 985 985
 private_dir "$root/media" 984 984
+private_dir "$root/networkmanager" 0 0
+profile=$root/networkmanager/rustsimhub-usb.nmconnection
+profile_pending=$profile.pending
+if test -e "$profile" || test -L "$profile"; then
+ root_file "$profile"
+ test ! -e "$profile_pending"
+ test ! -L "$profile_pending"
+else
+ template=/usr/share/rustsimhub/network/usb.nmconnection
+ test ! -L "$template"
+ test -f "$template"
+ if test ! -e "$profile_pending" && test ! -L "$profile_pending"; then
+  (set -C; cat "$template" > "$profile_pending")
+ fi
+ root_file "$profile_pending"
+ cmp -s "$template" "$profile_pending"
+ sync -f "$profile_pending"
+ mv -nT -- "$profile_pending" "$profile"
+ test ! -e "$profile_pending"
+ test ! -L "$profile_pending"
+ root_file "$profile"
+fi
+sync -f "$root/networkmanager"
 serial=$root/system/usb.serial
 pending=$root/system/usb.serial.pending
 if test -e "$serial" || test -L "$serial"; then
