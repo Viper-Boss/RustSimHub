@@ -1,5 +1,16 @@
 # 设备运行与一次性首次设置窗口
 
+可信本地准备入口（2026-10-15新增）：
+
+```
+rustsimhub-core --prepare-device-setup STATE IDENTITY PRIVATE_SETUP_DIRECTORY
+simhubctl identity SOCKET EXPECTED_CORE_UID
+```
+
+第一个命令由本地安装/维护层以Core账户执行，使用真实业务库与稳定身份，只在principals为空且setup.used完全不存在时准备32字节随机setup.code。现有合法码保持不变；短文件、链接、损坏状态或已使用窗口拒绝，不自动修复。输出仅准备结果、公钥与window_opened=false，不输出设置码，也不启动Core或网络窗口。后续--serve-device仍是唯一正常开窗路径。设置码的可信本地交付、证书与SSH维护接线仍需继续实现。
+
+第二个命令只读本地Unix套接字，要求文件owner及连接peer UID都符合显式指定的Core UID，严格解析32字节公钥/协议2/ed25519/布尔窗口状态，输出公钥hex与当前窗口状态。用于可信USB/SSH维护会话交付pin；它不能把远程网络返回的公钥变成可信身份，不创建会话、授权或所有者。新增Auth两项与CLI两项失败路径测试通过，Auth共30项、CLI共3项及工作区clippy通过；实机验收使用test-wifi-provisioning.py新增--local-device-preparation，当前检查点尚待冻结构建。
+
 新增显式Linux运行模式：
 
 ```

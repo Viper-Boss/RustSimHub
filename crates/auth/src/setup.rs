@@ -17,6 +17,35 @@ pub struct LocalSetup {
     consumed: bool,
 }
 impl LocalSetup {
+    /// Explicit local installer preparation; never opens or renews a window.
+    /// The code stays in its private file and is not returned or logged.
+    pub fn prepare_device_code(directory: &Path, auth: &Auth) -> Result<()> {
+        crate::identity::check(directory, true)?;
+        match std::fs::symlink_metadata(directory.join("setup.used")) {
+            Ok(_) => return Err(Error::Forbidden),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Err(Error::Io),
+        }
+        if !auth.store.principals()?.is_empty() {
+            return Err(Error::Forbidden);
+        }
+        let code = directory.join("setup.code");
+        match std::fs::symlink_metadata(&code) {
+            Ok(_) => {
+                // Resume an interrupted local installation without changing the secret.
+                if read_private(&code, 32)?.len() != 32 {
+                    return Err(Error::InvalidInput);
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                let mut secret = Zeroizing::new([0u8; 32]);
+                getrandom::fill(secret.as_mut()).map_err(|_| Error::Entropy)?;
+                crate::write_private_new(&code, secret.as_ref())?;
+            }
+            Err(_) => return Err(Error::Io),
+        }
+        Ok(())
+    }
     /// Explicit device startup: one process may open a locally requested window.
     /// A synced, identity-bound marker survives both process and business DB loss.
     /// This never renews a window or removes a marker; only trusted maintenance
@@ -146,6 +175,58 @@ mod tests {
             fs::set_permissions(dir.path(), fs::Permissions::from_mode(0o700)).unwrap();
         }
         dir
+    }
+    #[test]
+    fn local_code_preparation_is_private_idempotent_and_never_reopens_a_used_window() {
+        let state = private_directory();
+        let identity = private_directory();
+        let setup = private_directory();
+        let store = Store::open(state.path()).unwrap();
+        let auth = Auth::open(identity.path(), store.handle()).unwrap();
+        LocalSetup::prepare_device_code(setup.path(), &auth).unwrap();
+        let code = setup.path().join("setup.code");
+        let before = read_private(&code, 32).unwrap();
+        assert_eq!(before.len(), 32);
+        LocalSetup::prepare_device_code(setup.path(), &auth).unwrap();
+        assert_eq!(read_private(&code, 32).unwrap(), before);
+        assert!(!setup.path().join("setup.used").exists());
+        assert!(LocalSetup::for_device(setup.path(), &auth)
+            .unwrap()
+            .is_some());
+        assert!(LocalSetup::prepare_device_code(setup.path(), &auth).is_err());
+        fs::remove_file(&code).unwrap();
+        assert!(LocalSetup::prepare_device_code(setup.path(), &auth).is_err());
+        assert!(!code.exists());
+    }
+    #[test]
+    fn owned_or_malformed_local_setup_is_not_repaired_or_overwritten() {
+        let state = private_directory();
+        let identity = private_directory();
+        let setup = private_directory();
+        let store = Store::open(state.path()).unwrap();
+        let mut auth = Auth::open(identity.path(), store.handle()).unwrap();
+        let code = setup.path().join("setup.code");
+        crate::write_private_new(&code, b"torn").unwrap();
+        assert!(LocalSetup::prepare_device_code(setup.path(), &auth).is_err());
+        assert_eq!(fs::read(&code).unwrap(), b"torn");
+        fs::remove_file(&code).unwrap();
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink("missing", setup.path().join("setup.used")).unwrap();
+            assert!(LocalSetup::prepare_device_code(setup.path(), &auth).is_err());
+            fs::remove_file(setup.path().join("setup.used")).unwrap();
+            std::os::unix::fs::symlink("missing", &code).unwrap();
+            assert!(LocalSetup::prepare_device_code(setup.path(), &auth).is_err());
+            fs::remove_file(&code).unwrap();
+        }
+        let key = SigningKey::from_bytes(&[12; 32]);
+        let challenge = auth
+            .bootstrap_challenge(key.verifying_key().to_bytes())
+            .unwrap();
+        auth.bootstrap_finish(&challenge.id, &key.sign(&challenge.transcript).to_bytes())
+            .unwrap();
+        assert!(LocalSetup::prepare_device_code(setup.path(), &auth).is_err());
+        assert!(!code.exists());
     }
     #[test]
     fn device_window_is_opt_in_and_cannot_restart_after_crash_or_db_loss() {

@@ -50,7 +50,13 @@ fn scopes(value: &str) -> Result<Vec<Scope>> {
     Ok(scopes)
 }
 async fn call(socket: &str, command: AuthCommand) -> Result<Value> {
+    call_with_uid(socket, command, socket_owner(socket)?).await
+}
+async fn call_with_uid(socket: &str, command: AuthCommand, expected_uid: u32) -> Result<Value> {
     let uid = socket_owner(socket)?;
+    if uid != expected_uid {
+        return Err("unexpected core UID".into());
+    }
     let request = AuthRequest {
         protocol: 2,
         id: "ctl".into(),
@@ -83,6 +89,14 @@ async fn call(socket: &str, command: AuthCommand) -> Result<Value> {
     Ok(reply.result)
 }
 pub async fn run(args: &[String]) -> Result<()> {
+    if let [command, socket, expected_uid] = args {
+        if command == "identity" {
+            let expected_uid: u32 = expected_uid.parse().map_err(|_| "invalid core UID")?;
+            let value = call_with_uid(socket, AuthCommand::Identity {}, expected_uid).await?;
+            println!("{}", local_identity(value, expected_uid)?);
+            return Ok(());
+        }
+    }
     if let [command, socket, session, lease_path, peer, output] = args {
         if command == "issue-media" {
             let s = Session::load(Path::new(session))?;
@@ -491,4 +505,72 @@ pub async fn run(args: &[String]) -> Result<()> {
         }
     }
     Err("use --help".into())
+}
+
+/// Local maintenance metadata only; never uses a network identity as a trusted pin.
+fn local_identity(value: Value, uid: u32) -> Result<Value> {
+    let public: [u8; 32] = serde_json::from_value(
+        value
+            .get("public_key")
+            .cloned()
+            .ok_or("missing device key")?,
+    )
+    .map_err(|_| "invalid device key")?;
+    let available = value
+        .get("owner_setup_available")
+        .and_then(Value::as_bool)
+        .ok_or("missing setup state")?;
+    if value.get("protocol").and_then(Value::as_u64) != Some(2)
+        || value.get("signature_algorithm").and_then(Value::as_str) != Some("ed25519")
+    {
+        return Err("unsupported device identity".into());
+    }
+    Ok(
+        json!({"device_public_key_hex":public_hex(public),"server_uid":uid,
+        "owner_setup_available":available,"local_unix_socket":true}),
+    )
+}
+
+#[cfg(test)]
+mod identity_tests {
+    use super::*;
+    #[test]
+    fn maintenance_identity_requires_typed_key_protocol_algorithm_and_setup_state() {
+        let public = vec![23u8; 32];
+        let good = json!({"public_key":public,"protocol":2,"signature_algorithm":"ed25519","owner_setup_available":false});
+        let result = local_identity(good.clone(), 986).unwrap();
+        assert_eq!(result["device_public_key_hex"], "17".repeat(32));
+        assert_eq!(result["owner_setup_available"], false);
+        for (field, bad) in [
+            ("public_key", json!(vec![256; 32])),
+            ("public_key", json!(vec![23; 31])),
+            ("protocol", json!(1)),
+            ("signature_algorithm", json!("unknown")),
+            ("owner_setup_available", json!("true")),
+            ("owner_setup_available", Value::Null),
+        ] {
+            let mut value = good.clone();
+            value[field] = bad;
+            assert!(local_identity(value, 986).is_err());
+        }
+    }
+    #[test]
+    fn local_identity_rejects_a_socket_owned_by_a_different_uid() {
+        use std::os::unix::{fs::PermissionsExt, net::UnixListener};
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        let path = directory.path().join("core.sock");
+        let _listener = UnixListener::bind(&path).unwrap();
+        let socket = path.to_str().unwrap();
+        let result = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(call_with_uid(
+                socket,
+                AuthCommand::Identity {},
+                socket_owner(socket).unwrap() ^ 1,
+            ));
+        assert!(result.is_err());
+    }
 }

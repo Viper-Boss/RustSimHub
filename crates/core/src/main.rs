@@ -95,6 +95,26 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     #[cfg(target_os = "linux")]
     {
+        if let [command, state, identity, setup] = args.as_slice() {
+            if command == "--prepare-device-setup" {
+                let store = rustsimhub_storage::Store::open(state)?;
+                let auth = rustsimhub_auth::Auth::open(identity, store.handle())?;
+                rustsimhub_auth::LocalSetup::prepare_device_code(
+                    std::path::Path::new(setup),
+                    &auth,
+                )?;
+                let public = auth
+                    .public_key()
+                    .iter()
+                    .map(|b| format!("{b:02x}"))
+                    .collect::<String>();
+                println!(
+                    "{}",
+                    json!({"setup_code_prepared":true,"device_public_key_hex":public,"setup_code_disclosed":false,"window_opened":false})
+                );
+                return Ok(());
+            }
+        }
         if let [command, state, identity, key] = args.as_slice() {
             if command == "--provision-owner" {
                 return authenticated::provision(state, identity, key);

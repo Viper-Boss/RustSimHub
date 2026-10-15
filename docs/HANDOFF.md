@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+本地首启准备源码检查点：Auth LocalSetup::prepare_device_code与Core --prepare-device-setup STATE IDENTITY SETUP只准备私有码，已有码保持、任何setup.used/已有principal/损坏码/链接拒绝，不开窗不输出码；simhubctl identity SOCKET EXPECTED_CORE_UID核对socket owner与peerUID，严格读pin和窗口状态。Auth30/CLI3及workspace clippy通过；新增4项，预计workspace185，尚未冻结构建/实机验收。tools/test-wifi-provisioning.py --platform --empty-history --device-first-owner --local-device-preparation已接新命令和本地pin核验，保留首次SIGKILL失败域，新的成功域仍明确独立。下一步冻结该源码、本机交叉构建后运行这轮实机，不带旧RootDirectory（其factory app仍ca源），不需再打包树。百分比仍69，不因维护入口源码加点。
+
 最新构建/实机首装补充：a10a492da8c1ce95a0785f3cb1d84905344e9dc3的源1dbc6775921542498df8fc4058e6f0259b04c7b93378ad3395e978074fbebfb3已本机WSL181项、六程序ARM生产及CI38749275454成功。新产物.local/wsl-artifacts-a10a492da8c1ce95a0785f3cb1d84905344e9dc3；冻结包.local/source-factory-a10a492da8c1ce95a0785f3cb1d84905344e9dc3.tar.gz；默认.local/source.tar.gz现在同属a10a492，下面8711fba默认描述已过时（原包仍.local/source-8711fba.tar.gz）。
 
 新install-factory在真实候选RootDirectory通过，.private/factory-install-a10a492-second.json passed/cleanup_verified=true；首装、pending尝试状态保持、候选回退/floor保持、低版本拒绝、旧factory不覆盖第三版、台账缺失拒绝和完整next恢复通过。应用包保持ca596a7/8bdf源，验证器独立a10/1dbc源。首轮失败为systemd-run额外展开`${third##*/}`，纯合成对照定位，工具已加--expand-environment=no；保留first和expansion私有日志。未新增业务健康/生产自启能力，不加分，仍69%。两个隔离测试目录均保留，勿重复上传包填盘，实机后续先查空间。没有待轮询构建/实机测试。下一步直接推进正式服务组和可信本地setup/TLS/SSH准备，勿继续重复打包/换库验证。

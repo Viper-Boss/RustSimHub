@@ -13,15 +13,18 @@ p.add_argument('--empty-history',action='store_true',help='Initialize a new empt
 p.add_argument('--device-first-owner',action='store_true',help='One-use local owner window and platform operation in the same Core process')
 p.add_argument('--nas-adapter',help='Optional verified NAS Go adapter for platform acceptance')
 p.add_argument('--root-directory',help='Verified staged generic rootfs for isolated candidate-userland execution')
+p.add_argument('--local-device-preparation',action='store_true',help='Use trusted local code preparation and UID-checked identity CLI')
 for name in ['nas','device','artifacts','report']:p.add_argument('--'+name,type=pathlib.Path,required=True)
 a=p.parse_args();assert not a.report.exists()
 assert not a.nas_adapter or a.platform
 assert not a.empty_history or a.platform
 assert not a.device_first_owner or (a.platform and a.empty_history)
 assert not a.root_directory or (a.platform and a.empty_history and a.device_first_owner)
+assert not a.local_device_preparation or a.device_first_owner
 if a.root_directory:assert re.fullmatch('/var/tmp/rustsimhub-system-tree-[A-Za-z0-9]{8}/rootfs',a.root_directory)
 meta=json.loads((a.artifacts/'build.json').read_text());nc=json.loads(a.nas.read_text(encoding='utf-8-sig'));dc=json.loads(a.device.read_text(encoding='utf-8-sig'))
 names=['rustsimhub-core','rustsimhub-edge']+(['rustsimhub-migrate'] if a.platform else [])
+if a.local_device_preparation:names+=['simhubctl']
 for name in names:assert hashlib.sha256((a.artifacts/name).read_bytes()).hexdigest()==meta['artifact_sha256'][name]
 tag=uuid.uuid4().hex[:12];units=['rustsimhub-wifi-config-core-'+tag,'rustsimhub-wifi-config-edge-'+tag]
 report={'passed':False,'source_archive_sha256':meta['source_archive_sha256'],'units':units,'new_calls':0,'new_sms':0,'cellular_tests':False,'browser_verified':False,'different_ssid_success_verified':False,'combined_platform':a.platform,'original_data_read':a.platform,'no_legacy_snapshot_required':a.empty_history}
@@ -45,6 +48,24 @@ def call(command):
  _,raw=run('python3 '+q(client+'/request.py')+' '+q(dc['host'])+" <<'RSH_WIFI_REQUEST_END'\n"+body+'\nRSH_WIFI_REQUEST_END',remote=nas)
  value=json.loads(raw.splitlines()[-1]);assert value['protocol']==2 and value['id']==identifier;return value['result']
 def pub(k):return list(k.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw))
+
+def prepare_local_code():
+ command='runuser -u rustsimhub-core -- '+shlex.join([core,'--prepare-device-setup',base+'/state',base+'/identity',base+'/setup'])
+ first=json.loads(run(command)[1].splitlines()[-1])
+ assert first['setup_code_prepared'] and first['setup_code_disclosed'] is False and first['window_opened'] is False
+ with sf.open(base+'/setup/setup.code','rb') as f:secret=f.read()
+ assert len(secret)==32 and json.loads(run(command)[1].splitlines()[-1])==first
+ with sf.open(base+'/setup/setup.code','rb') as f:assert f.read()==secret
+ report['trusted_local_preparation_is_idempotent_without_secret_output']=True
+ return secret
+
+def check_local_identity(expected):
+ command='runuser -u rustsimhub-edge -- '+shlex.join([base+'/bin/simhubctl','identity',socket,str(coreuid)])
+ value=json.loads(run(command)[1].splitlines()[-1])
+ assert value['server_uid']==coreuid and value['device_public_key_hex']==bytes(expected['public_key']).hex()
+ assert value['owner_setup_available']==expected['owner_setup_available']
+ assert run('runuser -u rustsimhub-edge -- '+shlex.join([base+'/bin/simhubctl','identity',socket,str(coreuid^1)]),check=False)[0]!=0
+ report['local_identity_pin_and_window_verified_with_wrong_uid_denied']=True
 def sign(c,k,purpose,kind,scopes):
  raw=bytes(c['transcript']);Ed25519PublicKey.from_public_bytes(bytes(pin)).verify(bytes(c['device_signature']),raw);t=json.loads(raw)
  assert t['domain']=='RustSimHub.Auth.v1' and t['purpose']==purpose and t['kind']==kind and t['scopes']==scopes and t['client_public_key']==pub(k) and t['device_public_key']==pin and t['challenge_id']==c['id']
@@ -123,7 +144,9 @@ try:
  for name in names:
   sf.put(str(a.artifacts/name),base+'/bin/'+name);sf.chmod(base+'/bin/'+name,0o555);_,raw=run('echo '+q(meta['artifact_sha256'][name]+'  '+base+'/bin/'+name)+' | sha256sum -c -\n'+q(base+'/bin/'+name)+' --build-info');info=json.loads(raw.splitlines()[-1]);assert info['source_archive_sha256']==meta['source_archive_sha256']
   if name=='rustsimhub-core':assert not info['development_fixtures']
- core=base+'/bin/rustsimhub-core';edge=base+'/bin/rustsimhub-edge';socket=base+'/runtime/core.sock';setup=secrets.token_bytes(32);write(base+'/setup/'+('setup.code' if a.device_first_owner else 'code'),setup,coreuid,coregid)
+ core=base+'/bin/rustsimhub-core';edge=base+'/bin/rustsimhub-edge';socket=base+'/runtime/core.sock'
+ if a.local_device_preparation:setup=prepare_local_code()
+ else:setup=secrets.token_bytes(32);write(base+'/setup/'+('setup.code' if a.device_first_owner else 'code'),setup,coreuid,coregid)
  run('runuser -u rustsimhub-edge -- '+q(edge)+' --init-tls '+q(base+'/edge/tls')+' '+q(dc['host']))
  write(base+'/edge/config.json',json.dumps({'listen':dc['host']+':8448','origin':'https://'+dc['host']+':8448','core_socket':socket,'core_uid':coreuid,'tls_directory':base+'/edge/tls','legacy_compat':a.platform}).encode(),edgeuid,edgegid)
  local=ROOT/'.private'/('wifi-config-'+tag);local.mkdir(mode=0o700);sf.get(base+'/edge/tls/cert.pem',str(local/'cert.pem'))
@@ -152,8 +175,12 @@ finally:c.close()
  run(shlex.join(args+root_options()+[service_edge,'--serve',base+'/edge/config.json']));time.sleep(.4)
  if a.device_first_owner:
   spent_pin=call({'op':'identity'})['public_key'];assert call({'op':'identity'})['owner_setup_available'] is True
+  if a.local_device_preparation:check_local_identity(call({'op':'identity'}))
   run('systemctl kill --kill-whom=all --signal=KILL '+q(units[0]))
   run('n=0;while systemctl is-active --quiet '+q(units[0])+';do n=$((n+1));test "$n" -lt 25;sleep .2;done;systemctl reset-failed '+q(units[0])+' 2>/dev/null || true')
+  if a.local_device_preparation:
+   rc,_=run('runuser -u rustsimhub-core -- '+shlex.join([core,'--prepare-device-setup',base+'/state',base+'/identity',base+'/setup']),check=False);assert rc!=0
+   report['local_preparer_refuses_spent_window_after_actual_kill']=True
   core_start('--serve-network-provisioning')
   identity=call({'op':'identity'});assert identity['public_key']==spent_pin and identity['owner_setup_available'] is False
   assert call({'op':'setup_challenge','setup_code':setup.hex(),'public_key':pub(Ed25519PrivateKey.generate())}).get('error')
@@ -161,7 +188,9 @@ finally:c.close()
   # Preserve this failed-start fixture in full. The success case uses a fresh,
   # deliberately different test identity; no product reset API is invoked.
   run('systemctl stop '+q(units[0])+';mkdir -m 0700 '+q(base+'/unowned-crash-proof')+';for n in state identity setup access compat journal;do test ! -L '+q(base)+'/$n;mv -- '+q(base)+'/$n '+q(base+'/unowned-crash-proof')+'/$n;install -d -o rustsimhub-core -g rustsimhub-core -m 0700 '+q(base)+'/$n;done')
-  setup=secrets.token_bytes(32);write(base+'/setup/setup.code',setup,coreuid,coregid);core_start('--serve-network-provisioning')
+  if a.local_device_preparation:setup=prepare_local_code()
+  else:setup=secrets.token_bytes(32);write(base+'/setup/setup.code',setup,coreuid,coregid)
+  core_start('--serve-network-provisioning')
   assert call({'op':'identity'})['public_key']!=spent_pin
   report['success_fixture_is_separate_from_preserved_unowned_crash_fixture']=True
  identity=call({'op':'identity'});pin=identity['public_key'];owner=Ed25519PrivateKey.generate()
@@ -174,6 +203,7 @@ finally:c.close()
  token=login(owner)
  if a.device_first_owner:
   assert call({'op':'identity'})['owner_setup_available'] is False
+  if a.local_device_preparation:check_local_identity(call({'op':'identity'}))
   assert call(finish).get('error')
   assert run('systemctl show -p MainPID --value '+q(units[0]))[1].strip()==initial_pid
   run('test "$(stat -c \'%u:%a:%h\' '+q(base+'/setup/setup.used')+')" = '+q(str(coreuid)+':600:1')+';rm -- '+q(base+'/setup/setup.code'))
