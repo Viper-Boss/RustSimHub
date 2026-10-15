@@ -12,17 +12,22 @@ p.add_argument('--platform',action='store_true',help='Use one Core for telephony
 p.add_argument('--empty-history',action='store_true',help='Initialize a new empty archive without any old NAS or synthetic snapshot')
 p.add_argument('--device-first-owner',action='store_true',help='One-use local owner window and platform operation in the same Core process')
 p.add_argument('--nas-adapter',help='Optional verified NAS Go adapter for platform acceptance')
+p.add_argument('--root-directory',help='Verified staged generic rootfs for isolated candidate-userland execution')
 for name in ['nas','device','artifacts','report']:p.add_argument('--'+name,type=pathlib.Path,required=True)
 a=p.parse_args();assert not a.report.exists()
 assert not a.nas_adapter or a.platform
 assert not a.empty_history or a.platform
 assert not a.device_first_owner or (a.platform and a.empty_history)
+assert not a.root_directory or (a.platform and a.empty_history and a.device_first_owner)
+if a.root_directory:assert re.fullmatch('/var/tmp/rustsimhub-system-tree-[A-Za-z0-9]{8}/rootfs',a.root_directory)
 meta=json.loads((a.artifacts/'build.json').read_text());nc=json.loads(a.nas.read_text(encoding='utf-8-sig'));dc=json.loads(a.device.read_text(encoding='utf-8-sig'))
 names=['rustsimhub-core','rustsimhub-edge']+(['rustsimhub-migrate'] if a.platform else [])
 for name in names:assert hashlib.sha256((a.artifacts/name).read_bytes()).hexdigest()==meta['artifact_sha256'][name]
 tag=uuid.uuid4().hex[:12];units=['rustsimhub-wifi-config-core-'+tag,'rustsimhub-wifi-config-edge-'+tag]
 report={'passed':False,'source_archive_sha256':meta['source_archive_sha256'],'units':units,'new_calls':0,'new_sms':0,'cellular_tests':False,'browser_verified':False,'different_ssid_success_verified':False,'combined_platform':a.platform,'original_data_read':a.platform,'no_legacy_snapshot_required':a.empty_history}
 report['one_process_device_first_owner']=a.device_first_owner
+report['candidate_userland_root_directory']=a.root_directory
+report['new_os_boot_verified']=False
 nas=dev=sf=None;started=False;policy=None;policy_hash=None;base=None;trials=[];original=None;pin=None;client=None
 q=shlex.quote
 def save():a.report.parent.mkdir(parents=True,exist_ok=True);a.report.write_text(json.dumps(report,indent=2),encoding='utf-8')
@@ -46,6 +51,10 @@ def sign(c,k,purpose,kind,scopes):
  assert c['expires_in_seconds']==60;return list(k.sign(raw))
 def login(k,kind='owner',scopes=1023):
  c=call({'op':'challenge','public_key':pub(k)});return call({'op':'authenticate','challenge_id':c['id'],'signature':sign(c,k,'login',kind,scopes)})['token']
+
+def root_options():
+ if not a.root_directory:return []
+ return ['-p','RootDirectory='+a.root_directory,'-p','MountAPIVFS=yes','-p','TemporaryFileSystem=/var/tmp:mode=1777 /run:mode=0755','-p','ProtectKernelTunables=yes','-p','ProtectControlGroups=yes']
 def core_start(mode):
  if a.device_first_owner:mode='--serve-device';extra=[base+'/runtime/media.sock',str(mediauid),base+'/archive',base+'/access',base+'/compat',base+'/journal',base+'/setup']
  elif mode=='--serve-local-setup':extra=[base+'/setup/code']
@@ -55,9 +64,11 @@ def core_start(mode):
  rw=['state','identity','runtime','journal']+(['access','compat'] if a.platform else [])
  ro=['bin','setup']+(['archive'] if a.platform else [])
  if a.device_first_owner:rw+=['setup'];ro.remove('setup')
- args=['systemd-run','--unit='+units[0],'--collect','-p','User=rustsimhub-core','-p','Group=rustsimhub-core','-p','SupplementaryGroups=rustsimhub-ipc','-p','CapabilityBoundingSet=','-p','AmbientCapabilities=','-p','NoNewPrivileges=yes','-p','PrivateDevices=yes','-p','PrivateTmp=yes','-p','ProtectSystem=strict','-p','ProtectHome=yes','-p','BindPaths='+' '.join(base+'/'+n for n in rw),'-p','BindReadOnlyPaths='+' '.join(base+'/'+n for n in ro),'-p','RuntimeMaxSec=900','-p','TimeoutStopSec=8','-p','MemoryMax=96M','-p','TasksMax=16','-p','LimitCORE=0']
+ ro_paths=[base+'/'+n for n in ro]+(['/run/dbus'] if a.root_directory else [])
+ args=['systemd-run','--unit='+units[0],'--collect','-p','User=rustsimhub-core','-p','Group=rustsimhub-core','-p','SupplementaryGroups=rustsimhub-ipc','-p','CapabilityBoundingSet=','-p','AmbientCapabilities=','-p','NoNewPrivileges=yes','-p','PrivateDevices=yes','-p','PrivateTmp=yes','-p','ProtectSystem=strict','-p','ProtectHome=yes','-p','BindPaths='+' '.join(base+'/'+n for n in rw),'-p','BindReadOnlyPaths='+' '.join(ro_paths),'-p','RuntimeMaxSec=900','-p','TimeoutStopSec=8','-p','MemoryMax=96M','-p','TasksMax=16','-p','LimitCORE=0']
  if mode=='--serve-local-setup':args+=['-p','InaccessiblePaths=/run/dbus']
- run(shlex.join(args+[core,mode,socket,str(edgeuid),base+'/state',base+'/identity']+extra))
+ service_core=('/opt/rustsimhub/factory/'+meta['source_archive_sha256']+'/rustsimhub-core') if a.root_directory else core
+ run(shlex.join(args+root_options()+[service_core,mode,socket,str(edgeuid),base+'/state',base+'/identity']+extra))
  request=json.dumps({'protocol':2,'id':'local-readiness','command':{'op':'identity'}},separators=(',',':'))
  run('n=0;while ! printf %s '+q(request)+' | runuser -u rustsimhub-edge -- '+q(core)+' --request-auth '+q(socket)+' > '+q(base+'/readiness.json')+' 2>/dev/null;do n=$((n+1));test "$n" -lt 25;sleep .2;done')
 def begin(token,key,ssid,secret):
@@ -93,6 +104,12 @@ def wait_inbox(token):
   assert time.monotonic()<deadline;time.sleep(.5)
 try:
  nas=connect(nc);channel=nas.get_transport().open_channel('direct-tcpip',(dc['host'],dc.get('port',22)),('127.0.0.1',0),timeout=12);dev=connect(dc,channel);sf=dev.open_sftp()
+ if a.root_directory:
+  _,raw=run('cat '+q(a.root_directory+'/usr/share/rustsimhub/system-candidate.json'));candidate_meta=json.loads(raw)
+  assert candidate_meta['application_revision']==meta['revision'] and candidate_meta['application_source_sha256']==meta['source_archive_sha256'] and candidate_meta['flash_allowed'] is False
+  for name in ['rustsimhub-core','rustsimhub-edge']:
+   installed=a.root_directory+'/opt/rustsimhub/factory/'+meta['source_archive_sha256']+'/'+name
+   run('test ! -L '+q(installed)+';test "$(stat -c \'%u:%a\' '+q(installed)+')" = 0:555;echo '+q(meta['artifact_sha256'][name]+'  '+installed)+' | sha256sum -c -')
  _,raw=run('nmcli -g GENERAL.CON-UUID device show wlan0');original=raw.strip();assert re.fullmatch('[0-9a-f-]{36}',original)
  before=profiles();assert original in before
  # Values stay in private Python memory. Do not log the SSID or PSK or include either in reports.
@@ -130,7 +147,9 @@ finally:c.close()
  with nas.open_sftp() as ns:
   for name in ['cert.pem','request.py']:ns.put(str(local/name),client+'/'+name);ns.chmod(client+'/'+name,0o600)
  started=True;core_start('--serve-local-setup')
- args=['systemd-run','--unit='+units[1],'--collect','-p','User=rustsimhub-edge','-p','Group=rustsimhub-edge','-p','SupplementaryGroups=rustsimhub-ipc','-p','CapabilityBoundingSet=','-p','AmbientCapabilities=','-p','NoNewPrivileges=yes','-p','ProtectSystem=strict','-p','ProtectHome=yes','-p','PrivateDevices=yes','-p','PrivateTmp=yes','-p','InaccessiblePaths=/run/dbus','-p','BindReadOnlyPaths='+base+'/edge '+base+'/runtime '+base+'/bin','-p','RuntimeMaxSec=890','-p','TimeoutStopSec=6','-p','MemoryMax=64M','-p','TasksMax=8',edge,'--serve',base+'/edge/config.json'];run(shlex.join(args));time.sleep(.4)
+ args=['systemd-run','--unit='+units[1],'--collect','-p','User=rustsimhub-edge','-p','Group=rustsimhub-edge','-p','SupplementaryGroups=rustsimhub-ipc','-p','CapabilityBoundingSet=','-p','AmbientCapabilities=','-p','NoNewPrivileges=yes','-p','ProtectSystem=strict','-p','ProtectHome=yes','-p','PrivateDevices=yes','-p','PrivateTmp=yes','-p','InaccessiblePaths=/run/dbus','-p','BindReadOnlyPaths='+base+'/edge '+base+'/runtime '+base+'/bin','-p','RuntimeMaxSec=890','-p','TimeoutStopSec=6','-p','MemoryMax=64M','-p','TasksMax=8']
+ service_edge=('/opt/rustsimhub/factory/'+meta['source_archive_sha256']+'/rustsimhub-edge') if a.root_directory else edge
+ run(shlex.join(args+root_options()+[service_edge,'--serve',base+'/edge/config.json']));time.sleep(.4)
  if a.device_first_owner:
   spent_pin=call({'op':'identity'})['public_key'];assert call({'op':'identity'})['owner_setup_available'] is True
   run('systemctl kill --kill-whom=all --signal=KILL '+q(units[0]))
@@ -241,6 +260,17 @@ finally:c.close()
  for unit,uid in zip(units,[coreuid,edgeuid]):
   _,raw=run('pid=$(systemctl show -p MainPID --value '+q(unit)+');test "$pid" -gt 0;awk \'/^(Uid|CapEff|CapPrm|CapAmb|CapBnd):/{print}\' /proc/"$pid"/status');assert re.search(r'Uid:\s+'+str(uid)+r'\s+'+str(uid),raw)
   for field in ['CapEff','CapPrm','CapAmb','CapBnd']:assert re.search(field+r':\s+0+\b',raw)
+  if a.root_directory:
+   name='rustsimhub-core' if uid==coreuid else 'rustsimhub-edge'
+   body='\n'.join([
+    'pid=$(systemctl show -p MainPID --value '+q(unit)+');test "$pid" -gt 0',
+    'test "$(stat -Lc %d:%i /proc/"$pid"/root)" = "$(stat -Lc %d:%i '+q(a.root_directory)+')"',
+    'echo '+q(meta['artifact_sha256'][name]+'  ')+'"/proc/$pid/exe" | sha256sum -c -',
+    'expected=$(stat -Lc %i '+q(a.root_directory+'/usr/lib/aarch64-linux-gnu/libc.so.6')+')',
+    'actual=$(awk \'$NF ~ "libc[.]so[.]6$" {print $5}\' /proc/"$pid"/maps | sort -u)',
+    'test "$actual" = "$expected"'])
+   run(body)
+   report['actual_candidate_root_and_installed_exe_and_libc_verified']=True
  report['actual_nonroot_caps_verified']=True;report['passed']=True
 finally:
  if dev and started:

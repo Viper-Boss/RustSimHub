@@ -1,5 +1,11 @@
 # RustSimHub 当前接手入口
 
+2026-10-15最新：候选用户态实机验收通过，P6加0.5至4.5/12，总体69/100。见VALIDATION-CANDIDATE-RUNTIME-P6G.md。棒子树/var/tmp/rustsimhub-system-tree-ofY1ttXm/rootfs保留；.private/system-tree-rootdirectory-first.json passed/cleanup_verified=true，实际进程root/exe/libc归属、首次owner/真实SIGKILL、短信与Wi-Fi通过，运行后tar全树比较无变化。旧四服务active/PCMclosed，无新电话/SMS/蜂窝。此前“尚未上传”为历史状态；不要重复上传，当前可用约606MB。
+
+同一ca596a7/源8bdf8f...的Native已NAS离线构建并在候选用户态Media984空cap通过Opus500帧、DTLS/SRTP双向各50帧合成测试，PCM不开，.private/native-candidate-first.json通过。ELF.local/native-ca596a7/rustsimhub-audio-alsa，SHA57947d95d26cc075ceb23f65994a4e53ff99eaac497af32a9d792077797d69cc，5320088字节、GLIBC2.34；Native Rust1.99.0/ALSA1.2.8，主程序Rust1.98.0分别记录。NAS容器已exited0，没有活跃构建。
+
+更新器新增显式install-factory及丢失台账已有slot时拒绝重置，组件9项测试/clippy通过，见factory-application-baseline.md；尚需冻结构建和真实命令验收。下一步构建已提交更新器并做隔离签名首装/回退，再接正式Core/Edge启动、可信setup/TLS/维护。五文件应用可继续用ca596a7同源四程序+Opus许可，新不可变更新器单独记录source；不必因工具改动重编Native。所有刷写/生产开机完成标记仍false。
+
 2026-10-15。用户最新要求推进到100%，取代此前80%/75%/60%目标；换卡流量测试及确需人工参与的地方询问，其他授权工作持续推进。当前实证约69%（68.5点），按PROGRESS-SCALE.md固定分母估算。不要因保存小检查点停止。每次最终回复必须报告百分比。用户已确认需要时可协助拔插NAS上的USB，操作前明确通知。
 
 最新板级候选层：源码724fc0922794ad08214b574b9c63bb438d808f1f组合P6D基础树和ca596a7六程序；WSL /home/wzs11/.cache/rustsimhub/system-tree-p6f-network，12303条目，树fbcbade0f7137cec59c0eeead9ec092e2e526e70e62550e0b569c5cdc228dd9b。23项隔离板级测试、systemd离线依赖检查exit0、factory实际安装路径六程序只读非Root运行通过；源基础树未变。新NM profile目录在NSHSTATE Root私有命名空间，USB profile仅种入一次、现有内容保留。见firmware/system/README.md和VALIDATION-SYSTEM-TREE-P6F.md。本轮不重复增加已计基础树/程序点数，仍68.5≈69%。

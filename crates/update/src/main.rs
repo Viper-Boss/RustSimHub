@@ -102,6 +102,16 @@ fn run() -> Result<(), rustsimhub_update::Error> {
             .map_err(|_| Error::Invalid)?;
         let mut store = Store::open(root, key, 5)?;
         match (command.as_str(), args.len()) {
+            ("install-factory", 4) => {
+                let directory = Path::new(&args[3]);
+                let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;
+                let signature = read_checked(&directory.join("manifest.sig"), 64)?;
+                let m = verify(&manifest, &signature, &key, 5, 0)?;
+                let payloads = load_payloads(directory, &m)?;
+                let path = store.install_factory(&manifest, &signature, &payloads)?;
+                println!("{}", path.display());
+                return Ok(());
+            }
             ("stage", 4) => {
                 let directory = Path::new(&args[3]);
                 let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;

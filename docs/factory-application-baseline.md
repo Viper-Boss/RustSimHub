@@ -1,0 +1,11 @@
+# 签名应用首次安装基线
+
+`rustsimhub-update install-factory STORE RELEASE_PUBLIC SIGNED_DIRECTORY`是Root安装器显式执行的本地命令。它验证现有五文件格式的签名、板型、schema、ELF架构及payload摘要，再建立factory基线。release私钥留在构建机；不生成密钥、不写分区、不处理身份或短信。
+
+空Store先完整stage并同步，再发布confirmed；中断后只允许相同的完整候选续作。不同候选、签名错误、payload损坏、不完整slot拒绝。留下不完整slot需维护检查，不能自动删除或重置台账。
+
+存在confirmed后仍验证输入factory包，但保持confirmed、floor、candidate、attempted，核验当前confirmed并返回其路径。较旧的不可变factory不能覆盖已更新版本或消耗pending update的一次启动机会。更新仍用stage→choose→业务健康检查→confirm；install-factory不能代替更新健康确认。
+
+缺失state.json时只允许空versions，或从完整有效且匹配签名公钥摘要的state.next恢复。已有slot却丢失/撕裂台账时拒绝，不能静默回到floor零。Root删除全部安装状态的攻击不在该文件完整性措施覆盖范围内。
+
+新增四项测试覆盖幂等安装、旧factory保持新版本及pending状态、两个续作阶段、不同包拒绝、丢失台账/完整next恢复、签名/payload及不完整slot拒绝。组件共9项及clippy通过；当前源码检查点尚待冻结构建和实机验收，未完成生产首启。

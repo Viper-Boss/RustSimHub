@@ -135,13 +135,17 @@ impl Store {
             }
             _ => return Err(Error::Io),
         }
+        let mut state_present = true;
         let mut state = match fs::symlink_metadata(root.join("state.json")) {
             Ok(_) => parse_state(&read_checked(&root.join("state.json"), 8192)?)?,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => State {
-                format: 1,
-                key_sha256: manifest_hash(&key),
-                ..State::default()
-            },
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                state_present = false;
+                State {
+                    format: 1,
+                    key_sha256: manifest_hash(&key),
+                    ..State::default()
+                }
+            }
             _ => return Err(Error::Io),
         };
         let next = root.join("state.next");
@@ -155,6 +159,7 @@ impl Store {
                     fs::rename(&next, root.join("state.json")).map_err(|_| Error::Io)?;
                     sync_dir(root)?;
                     state = candidate;
+                    state_present = true;
                 }
                 _ => {
                     fs::remove_file(&next).map_err(|_| Error::Io)?;
@@ -163,6 +168,16 @@ impl Store {
             }
         }
         if state.key_sha256 != manifest_hash(&key) {
+            return Err(Error::Denied);
+        }
+        // Lost state must not silently reset an existing installation's epoch floor.
+        // A complete state.next above may recover an interrupted first publication.
+        if !state_present
+            && fs::read_dir(&versions)
+                .map_err(|_| Error::Io)?
+                .next()
+                .is_some()
+        {
             return Err(Error::Denied);
         }
         Ok(Self {
@@ -189,6 +204,42 @@ impl Store {
     }
     pub fn floor(&self) -> u64 {
         self.state.floor
+    }
+    /// Explicit installer operation for a signed factory baseline, before business startup.
+    /// It is not a health confirmation for an update. Never replaces an existing baseline,
+    /// resets its epoch floor, or consumes a pending update's boot attempt.
+    pub fn install_factory(
+        &mut self,
+        manifest: &[u8],
+        signature: &[u8],
+        payloads: &[Vec<u8>],
+    ) -> Result<PathBuf, Error> {
+        let m = verify(manifest, signature, &self.key, self.schema, 0)?;
+        verify_payload(&m, payloads)?;
+        if let Some(confirmed) = &self.state.confirmed {
+            return self.verify_version(confirmed);
+        }
+        let hash = manifest_hash(manifest);
+        if let Some(candidate) = &self.state.candidate {
+            // Resume only the exact, fully published factory. A different package
+            // cannot turn an unconfirmed first update into the factory baseline.
+            if candidate.hash != hash || candidate.epoch != m.epoch || self.state.floor != m.epoch {
+                return Err(Error::Denied);
+            }
+            self.verify_version(candidate)?;
+        } else {
+            if self.state.floor != 0 || self.state.attempted {
+                return Err(Error::Denied);
+            }
+            self.stage(manifest, signature, payloads)?;
+        }
+        let factory = self.state.candidate.clone().ok_or(Error::Denied)?;
+        let path = self.verify_version(&factory)?;
+        self.state.confirmed = Some(factory);
+        self.state.candidate = None;
+        self.state.attempted = false;
+        self.persist()?;
+        Ok(path)
     }
     pub fn stage(
         &mut self,
@@ -377,5 +428,91 @@ mod tests {
         let p = d.path().join("bad");
         std::os::unix::fs::symlink(d.path().join("state.json"), &p).unwrap();
         assert!(read_checked(&p, 8192).is_err());
+    }
+    #[test]
+    fn factory_install_is_idempotent_and_preserves_pending_update_and_floor() {
+        let d = directory();
+        let (b, g, p) = package(1);
+        let mut s = Store::open(d.path(), key(), 5).unwrap();
+        let factory = s.install_factory(&b, &g, &p).unwrap();
+        assert_eq!(s.choose().unwrap(), factory);
+        let (update, sig, payload) = package(2);
+        let candidate = s.stage(&update, &sig, &payload).unwrap();
+        let before = fs::read(d.path().join("state.json")).unwrap();
+        assert_eq!(s.install_factory(&b, &g, &p).unwrap(), factory);
+        assert_eq!(fs::read(d.path().join("state.json")).unwrap(), before);
+        assert!(s.choose().unwrap().ends_with(&candidate));
+        s.confirm(&candidate).unwrap();
+        drop(s);
+        let mut s = Store::open(d.path(), key(), 5).unwrap();
+        // A later boot with the old immutable factory does not downgrade the app.
+        assert!(s.install_factory(&b, &g, &p).unwrap().ends_with(&candidate));
+        assert_eq!(s.floor(), 2);
+        assert_eq!(s.stage(&b, &g, &p), Err(Error::Rollback));
+    }
+    #[test]
+    fn factory_resume_requires_exact_verified_package_and_accepts_attempted_state() {
+        for attempted in [false, true] {
+            let d = directory();
+            let (b, g, p) = package(1);
+            let mut s = Store::open(d.path(), key(), 5).unwrap();
+            let hash = s.stage(&b, &g, &p).unwrap();
+            if attempted {
+                s.choose().unwrap();
+            }
+            drop(s);
+            let mut s = Store::open(d.path(), key(), 5).unwrap();
+            let (other, sig, payload) = package(2);
+            let before = fs::read(d.path().join("state.json")).unwrap();
+            assert_eq!(
+                s.install_factory(&other, &sig, &payload),
+                Err(Error::Denied)
+            );
+            assert_eq!(fs::read(d.path().join("state.json")).unwrap(), before);
+            assert!(s.install_factory(&b, &g, &p).unwrap().ends_with(&hash));
+            assert_eq!(s.status()["candidate"], serde_json::Value::Null);
+            assert_eq!(s.status()["confirmed"], hash);
+        }
+    }
+    #[test]
+    fn missing_ledger_with_existing_slots_is_denied_but_complete_next_recovers() {
+        let d = directory();
+        let (b, g, p) = package(1);
+        let mut s = Store::open(d.path(), key(), 5).unwrap();
+        s.install_factory(&b, &g, &p).unwrap();
+        drop(s);
+        let state = fs::read(d.path().join("state.json")).unwrap();
+        fs::remove_file(d.path().join("state.json")).unwrap();
+        assert!(matches!(
+            Store::open(d.path(), key(), 5),
+            Err(Error::Denied)
+        ));
+        write_new(&d.path().join("state.next"), b"{torn", false).unwrap();
+        assert!(matches!(
+            Store::open(d.path(), key(), 5),
+            Err(Error::Denied)
+        ));
+        write_new(&d.path().join("state.next"), &state, false).unwrap();
+        let mut s = Store::open(d.path(), key(), 5).unwrap();
+        assert_eq!(s.floor(), 1);
+        assert!(s.choose().is_ok());
+    }
+    #[test]
+    fn factory_signature_payload_and_orphan_slot_fail_closed() {
+        let d = directory();
+        let (b, g, mut p) = package(1);
+        let mut s = Store::open(d.path(), key(), 5).unwrap();
+        assert_eq!(s.install_factory(&b, &[0; 64], &p), Err(Error::Signature));
+        p[0][20] ^= 1;
+        assert_eq!(s.install_factory(&b, &g, &p), Err(Error::Integrity));
+        assert!(fs::read_dir(d.path().join("versions"))
+            .unwrap()
+            .next()
+            .is_none());
+        let hash = manifest_hash(&b);
+        fs::create_dir(d.path().join("versions").join(hash)).unwrap();
+        let (_, _, p) = package(1);
+        assert_eq!(s.install_factory(&b, &g, &p), Err(Error::Io));
+        assert!(!d.path().join("state.json").exists());
     }
 }
