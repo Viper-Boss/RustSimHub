@@ -1,4 +1,6 @@
-2026-10-16最新交互：实际Chrome配对/登录/防重和真实下行一句已发生，但媒体打开约3秒后提前退出，30秒后保护才挂断，持续声音未通过。新增实际10010两次，累计24，中间一轮只等待未拨号。预览/Voice权限/PCM及临时Windows证书已清理；见VALIDATION-BROWSER-MEDIA-P3H.md。新增Media正式启动/可信初装源码和有限退出分类诊断，本机202 workspace/20 Native与Clippy、39板级/Node通过；新ARM与服务组实机待验收。仍72.5/100约73%，不将部分听音或源码当成故障已解决。
+2026-10-16最新：71506f0冻结ARM/Native通过，正式Media可信安装和签名Core/Media/Edge组、实际Media SIGKILL自动整组回退和第二次Edge故障预算耗尽全停在候选根实机通过；P6+0.5，总体73/100。新增一次浏览器10010，累计25，4—5秒后明确Codec错误退出，P3不加分；细分拒绝与乱序/重复包处理正在验证。见VALIDATION-MEDIA-STARTUP-P6K.md。电话/PCM/权限/预览服务已清理；连续诊断的同一临时证书仍需结束后实际移除，当前状态以HANDOFF及私有trust记录为准。流量等换卡，完整系统上电/恢复门禁保持。
+
+2026-10-16交互历史：实际Chrome配对/登录/防重和真实下行一句已发生，但媒体打开约3秒后提前退出，30秒后保护才挂断，持续声音未通过。新增实际10010两次，累计24，中间一轮只等待未拨号。预览/Voice权限/PCM及临时Windows证书已清理；见VALIDATION-BROWSER-MEDIA-P3H.md。新增Media正式启动/可信初装源码和有限退出分类诊断，本机202 workspace/20 Native与Clippy、39板级/Node通过；新ARM与服务组实机待验收。仍72.5/100约73%，不将部分听音或源码当成故障已解决。
 
 2026-10-16：严格HTTPS两阶段媒体在USB/Wi-Fi各一次10010通过，真实DTLS/Opus/PCM到NAS解码159/147帧；重复激活防重、Edge正常退出后Core仍活而PCM关闭、相同身份/证书名/Origin/owner token跨两个真实监听地址通过。四份私有报告passed/cleanup_verified，旧四服务active、电话空闲、PCM关闭、权限撤回。累计10010=22，新SMS/蜂窝/分区写入0；保留可恢复欠载/少量丢帧。874f01c六程序ARM/Native ARM、本机201/20与Clippy/Node通过。见VALIDATION-WEB-MEDIA-P3G.md；P3+0.5、P4+0.5，总体72.5/100约73%。浏览器权限/麦克风/听音、产品服务组硬退出联动及完整系统/恢复仍缺；换卡流量延后。
 

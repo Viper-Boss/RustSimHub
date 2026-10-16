@@ -322,6 +322,7 @@ impl Session {
                             || m.time.denom() != 48_000
                             || m.data.len() > MAX_PACKET
                         {
+                            eprintln!("rtc_codec_rejected reason=media_shape same_mid={} has_rid={} opus={} clock={} bytes={}",Some(m.mid)==self.mid,m.rid.is_some(),m.params.spec().codec==str0m::format::Codec::Opus,m.time.denom(),m.data.len());
                             return Err(Error::Codec);
                         }
                         let age = Instant::now()
@@ -333,12 +334,23 @@ impl Session {
                             continue;
                         }
                         let seq = **m.seq_range.end();
-                        let mut frame = self
-                            .codec
-                            .as_mut()
-                            .ok_or(Error::Authorization)?
-                            .decode(&m.data, seq, now.saturating_sub(age as u64), now)
-                            .map_err(|_| Error::Codec)?;
+                        let decoded = self.codec.as_mut().ok_or(Error::Authorization)?.decode(
+                            &m.data,
+                            seq,
+                            now.saturating_sub(age as u64),
+                            now,
+                        );
+                        let mut frame = match decoded {
+                            Ok(frame) => frame,
+                            Err(crate::codec::CodecError::SequenceDiscarded) => {
+                                self.dropped_frames += 1;
+                                continue;
+                            }
+                            Err(error) => {
+                                eprintln!("rtc_codec_rejected reason=decode kind={error:?}");
+                                return Err(Error::Codec);
+                            }
+                        };
                         if self.gate(rustsimhub_media::local::now_ms()).is_err() {
                             frame.samples.fill(0);
                             return Err(Error::Authorization);

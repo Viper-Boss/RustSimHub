@@ -8,6 +8,7 @@ pub const RTP_STEP: u32 = 960;
 pub enum CodecError {
     Authorization(Error),
     Packet,
+    SequenceDiscarded,
     Codec,
 }
 // Never Debug or Serialize: encoded speech is also private conversation data.
@@ -101,11 +102,20 @@ impl Codec {
             || packet.len() > MAX_PACKET
             || at_ms > now
             || now - at_ms >= MAX_AGE_MS
-            || self.last_receive.is_some_and(|s| sequence <= s)
         {
+            eprintln!("codec_rejected reason=packet_guard bytes={} future={} stale={} nonincreasing_sequence={}",packet.len(),at_ms>now,now.saturating_sub(at_ms)>=MAX_AGE_MS,self.last_receive.is_some_and(|s|sequence<=s));
             return Err(CodecError::Packet);
         }
-        if opus::packet::get_nb_samples(packet, RATE).map_err(|_| CodecError::Packet)? != SAMPLES {
+        // Drop late/duplicate audio before Opus; it must not keep a peer alive.
+        if self.last_receive.is_some_and(|s| sequence <= s) {
+            return Err(CodecError::SequenceDiscarded);
+        }
+        let samples = opus::packet::get_nb_samples(packet, RATE).map_err(|_| {
+            eprintln!("codec_rejected reason=packet_parse");
+            CodecError::Packet
+        })?;
+        if samples != SAMPLES {
+            eprintln!("codec_rejected reason=duration samples={samples} expected={SAMPLES}");
             return Err(CodecError::Packet);
         }
         let mut frame = Frame {
@@ -116,9 +126,13 @@ impl Codec {
         if self
             .decoder
             .decode(packet, &mut frame.samples, false)
-            .map_err(|_| CodecError::Codec)?
+            .map_err(|_| {
+                eprintln!("codec_rejected reason=opus_decode");
+                CodecError::Codec
+            })?
             != SAMPLES
         {
+            eprintln!("codec_rejected reason=decoded_length");
             frame.samples.fill(0);
             return Err(CodecError::Packet);
         }
@@ -241,13 +255,24 @@ mod tests {
         frame.at_ms = 0;
         let packet = c.encode(&frame, 0).unwrap();
         c.decode(packet.bytes(), 1, 0, 0).unwrap();
-        assert!(c.decode(packet.bytes(), 1, 0, 0).is_err());
+        assert!(matches!(
+            c.decode(packet.bytes(), 1, 0, 0),
+            Err(CodecError::SequenceDiscarded)
+        ));
+        assert!(matches!(
+            c.decode(packet.bytes(), 0, 0, 0),
+            Err(CodecError::SequenceDiscarded)
+        ));
         assert!(c.decode(packet.bytes(), 2, 0, 60).is_err());
+        c.decode(packet.bytes(), 2, 0, 0).unwrap();
         a.revoke();
         assert!(matches!(
             c.encode(&frame, 0),
             Err(CodecError::Authorization(_))
         ));
-        assert!(c.decode(packet.bytes(), 2, 0, 0).is_err());
+        assert!(matches!(
+            c.decode(packet.bytes(), 3, 0, 0),
+            Err(CodecError::Authorization(_))
+        ));
     }
 }

@@ -1,5 +1,11 @@
 # RustSimHub 当前接手入口
 
+**最新权威：73/100，P6=6.5，10010累计25。** 71506f0/bacd57c2…六程序ARM与同源Native均构建退出0，Native5516704字节/SHA b5bebefd…/20项/release3m11s；202 workspace/20 Native/Clippy、39板级和Node通过。开发签名.private/boot-application-71506f0保留，只有开发公钥和签名包上传，seed未离开本机。media-boot-group-first.json passed/cleanup_verified，真实Media SIGKILL完整组回退、首次媒体配置、同签名Root/inode/UID/cap、第二次Edge SIGKILL预算耗尽整组停止通过；见VALIDATION-MEDIA-STARTUP-P6K.md。不是完整新OS启动/NSHSTATE初始化/刷机。
+
+用户本次又方便参加715诊断，第四标记a4实际拨出一次，累计25；仍只听4—5秒。日志明确worker_rtc_failure stage=service kind=Codec，251 captured/sent、259received、252played、5dropped、1xrun。30秒保护已挂断，预览服务已停止/旧四服务active/PCMclosed/Voice撤回；证据browser-preview-71506f0-diagnostic-first.json和browser-preview-71506f0-current-native.log。当前正在增加包守卫/时长/格式拒绝分类及晚到重复包只丢弃的修正，尚未认定其为现场原因，需新ARM与一次浏览器诊断。**此次连续调试的同一临时Windows证书仍在，browser-preview-trust.json installed=true/remove_after_test=true，结束或暂停听音后必须运行.local/cleanup-preview-trust.ps1并核验移除。** 下文已移除描述属于前一轮，不能当当前状态。
+
+四个P3G旧web-media fixture已仅回收bin内三程序，Root无活跃引用/owner/mode/nlink/SHA及Win保留制品均已核验，记录.private/web-generic-reclamation.json；状态、日志、备份、候选根保留。不要再直接运行那些bin。诊断预览复用新boot fixture的package1只读绑定，实际程序路径读report.diagnostic_binary_directory；原浏览器身份/配对/证书不变，没有额外复制程序。
+
 2026-10-16交互测试最新覆盖：真实Chrome用户配对/登录/跨Core重启再次登录和防重提交已发生；两次实际10010，累计24，第二个等待窗口未拨号。用户第三标记听到一句真实语音后无声，日志PCM07:40:39.7打开、worker07:40:43.13结束、独立Core保护07:41:08.21挂断，**约3秒媒体提前退出未解决**。见VALIDATION-BROWSER-MEDIA-P3H.md；不加进度，仍72.5/100。私有browser-preview-20261016-first.json cleanup_verified=true，预览已停、旧四服务active/PCMclosed/呼叫全terminated，Voice规则撤回；临时Windows证书已实际移除，browser-preview-trust.json removed=true。Chrome插件能列出页面但接管超时/Debugger unattached，未实际控制，不换机制绕过。用户曾要求快点手测，当前不再要求用户继续点击。
 
 工作区正在完成媒体安装/服务组源码：Edge显式--prepare-local-media/--check-local-media、Root initializer可选--media-lan、双份私有配置一致性、Media984仅指定ALSA设备/无D-Bus、BindsTo Core/Edge、一次恢复耗尽后停止整组、源码构建能力标记及测试工具。Native增加不含媒体内容/地址/标识的退出分类和终止帧计数。当前201+1=202 workspace/20 Native与Clippy、39板级/Node验证日志在.private/media-installation-final-source-second.log、media-installation-system-final.log；需检查终态再冻结构建。尚未对新源码ARM/产品单元实测，不把source/诊断当故障已修复。

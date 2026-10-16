@@ -9,6 +9,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 p=argparse.ArgumentParser(description=__doc__)
 for name in ('artifacts','native','native-log','output'):p.add_argument('--'+name,type=pathlib.Path,required=True)
+p.add_argument('--require-media-worker',action='store_true')
 a=p.parse_args();assert not a.output.exists()
 assert a.output.resolve().is_relative_to((ROOT/'.private').resolve()),'Development signing material stays private'
 build=json.loads((a.artifacts/'build.json').read_text())
@@ -16,7 +17,9 @@ assert build['development_fixtures'] is False and build['target']=='aarch64-unkn
 source=build['source_archive_sha256'];assert re.fullmatch('[0-9a-f]{64}',source)
 log=a.native_log.read_text(encoding='utf-8')
 infos=[json.loads(line) for line in log.splitlines() if line.startswith('{')]
-assert infos==[{'source_archive_sha256':source}]
+assert len(infos)==1 and infos[0]['source_archive_sha256']==source
+assert set(infos[0]) <= {'source_archive_sha256','local_media_worker_supported'}
+assert not a.require_media_worker or infos[0].get('local_media_worker_supported') is True
 names=['rustsimhub-core','simhubctl','rustsimhub-edge','rustsimhub-audio-alsa','Opus-COPYING.txt']
 blobs={name:(a.native if name==names[3] else ROOT/'licenses'/name if name==names[4] else a.artifacts/name).read_bytes() for name in names}
 for name in names[:3]:assert hashlib.sha256(blobs[name]).hexdigest()==build['artifact_sha256'][name]
