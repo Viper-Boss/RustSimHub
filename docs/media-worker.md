@@ -1,10 +1,10 @@
 # 常驻媒体工作进程
 
-2026-10-16源码阶段：常驻worker、受限IPC/客户端、Core租约预检已实现。本机WSL Rust1.98.0的193项workspace、17项Native测试和两者Clippy通过；ARM冻结构建与实机验收尚待完成。当前整体70.5/100，不据此宣称网页媒体或完整系统可用。
+2026-10-16：233110a的193项workspace、17项Native/Clippy及同源ARM构建通过；真实候选用户态的第二轮无拨号预检通过，两次DTLS、固定Media984/Edge985和Root控制拒绝、换peer/无Core票据不打开PCM、进程复用及退出清理已验证，见私有media-worker-preflight-second.json。首轮因prepare请求失败保留，实机CPU耗时显示一秒预算过紧；SDK将prepare预算调整为五秒，其他控制仍一秒，服务端读帧/回复分别一秒，不把证书创建算作输入超时。慢证书回复和不完整帧回归后，本机194项workspace、18项Native及两者Clippy通过；修订后的ARM构建和实机复测待完成。当前不据此宣称网页媒体、授权PCM或完整系统可用。
 
 `rustsimhub-audio-alsa --serve-worker PRIVATE_CONFIG`要求固定Media984/Core986/Edge985及Root管理的锁定服务账户。配置仅有control_socket、core_socket、bind_ip：私有文件、显式本地IPv4、绝对有界Unix路径。不接受网络提供的UID、ALSA路径、shell、录音路径、呼叫控制或硬件profile。只监听本地控制socket；音频UDP仅为实际协商的一条会话。
 
-控制socket父目录必须由Media拥有、不可被组或其他用户写入，采用2750和IPC组继承。私有flock防双实例；只在确切owned旧socket连接被拒绝时回收。退出仅删除原socket inode，其他替换文件保留。只接受SO_PEERCRED为Edge985的连接；最多4个控制任务，每次24KiB/1秒，一次一请求。SDP上限16KiB、ASCII音频/Opus/RTCP mux、固定私有IPv4主机候选与真实DTLS指纹规则沿用已验收Session。
+控制socket父目录必须由Media拥有、不可被组或其他用户写入，采用2750和IPC组继承。私有flock防双实例；只在确切owned旧socket连接被拒绝时回收。退出仅删除原socket inode，其他替换文件保留。只接受SO_PEERCRED为Edge985的连接；最多4个控制任务，每帧24KiB，读帧和写回复分别一秒，一次一请求；SDK为证书创建保留五秒prepare期限，其他命令一秒。SDP上限16KiB、ASCII音频/Opus/RTCP mux、固定私有IPv4主机候选与真实DTLS指纹规则沿用已验收Session。
 
 `crates/media/src/worker.rs`定义独立版本协议：prepare(session,peer_ip,offer)、inspect(session)、authorize(session,Core credentials)、stop(session)。session为随机32位小写十六进制标识。先prepare得到answer，完成实际DTLS后inspect才返回verified及真实peer_key；此时还没有PCM、编解码授权或Core票据。随后受信任适配层请求Core的IssueMedia，把短期凭据送入authorize。worker核对真实peer、实际Core socket owner和SO_PEERCRED，再由Core消费单次票据，取得持续许可后打开固定PCM。授权不能由HTTP客户端自行断言。
 

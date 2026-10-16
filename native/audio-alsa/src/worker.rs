@@ -346,16 +346,20 @@ fn update_stats(shared: &Arc<Mutex<Shared>>, session: &Session, stats: rustsimhu
 }
 
 async fn handle(mut stream: UnixStream, manager: Arc<Mutex<Manager>>) -> Result<()> {
-    let length = stream.read_u32().await.map_err(|_| Failure::Closed)? as usize;
-    if length == 0 || length > wire::MAX_FRAME {
-        return Err(Failure::BadRequest);
-    }
-    let mut body = vec![0; length];
-    stream
-        .read_exact(&mut body)
-        .await
-        .map_err(|_| Failure::Closed)?;
-    let request = wire::parse(&body).map_err(|_| Failure::BadRequest)?;
+    let request = timeout(Duration::from_secs(1), async {
+        let length = stream.read_u32().await.map_err(|_| Failure::Closed)? as usize;
+        if length == 0 || length > wire::MAX_FRAME {
+            return Err(Failure::BadRequest);
+        }
+        let mut body = vec![0; length];
+        stream
+            .read_exact(&mut body)
+            .await
+            .map_err(|_| Failure::Closed)?;
+        wire::parse(&body).map_err(|_| Failure::BadRequest)
+    })
+    .await
+    .map_err(|_| Failure::Timeout)??;
     let result = manager
         .lock()
         .map_err(|_| Failure::Unavailable)?
@@ -369,11 +373,15 @@ async fn handle(mut stream: UnixStream, manager: Arc<Mutex<Manager>>) -> Result<
     if bytes.len() > wire::MAX_FRAME {
         return Err(Failure::Unavailable);
     }
-    stream
-        .write_u32(bytes.len() as u32)
-        .await
-        .map_err(|_| Failure::Closed)?;
-    stream.write_all(&bytes).await.map_err(|_| Failure::Closed)
+    timeout(Duration::from_secs(1), async {
+        stream
+            .write_u32(bytes.len() as u32)
+            .await
+            .map_err(|_| Failure::Closed)?;
+        stream.write_all(&bytes).await.map_err(|_| Failure::Closed)
+    })
+    .await
+    .map_err(|_| Failure::Timeout)?
 }
 async fn serve(
     listener: UnixListener,
@@ -397,7 +405,7 @@ async fn serve(
         }
         let manager = manager.clone();
         tasks.spawn(async move {
-            let _ = timeout(Duration::from_secs(1), handle(stream, manager)).await;
+            let _ = handle(stream, manager).await;
         });
     }
     tasks.abort_all();
@@ -452,6 +460,19 @@ pub fn run(path: &str) -> std::result::Result<(), &'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn incomplete_control_frame_expires_without_creating_a_session() {
+        let (_client, server) = UnixStream::pair().unwrap();
+        let manager = Arc::new(Mutex::new(Manager::new(
+            PathBuf::from("/absent/core.sock"),
+            "127.0.0.1".parse().unwrap(),
+        )));
+        assert!(matches!(
+            handle(server, manager.clone()).await,
+            Err(Failure::Timeout)
+        ));
+        assert!(manager.lock().unwrap().active.is_none());
+    }
     fn id(n: char) -> String {
         n.to_string().repeat(32)
     }

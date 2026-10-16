@@ -158,9 +158,16 @@ pub async fn exchange(
     }
     let id = request.id;
     let session = request.command.session().to_owned();
+    // First-time DTLS certificate creation on the 410 can exceed one second.
+    // Control of an existing session retains the short deadline.
+    let budget = if matches!(&request.command, Command::Prepare { .. }) {
+        Duration::from_secs(5)
+    } else {
+        Duration::from_secs(1)
+    };
     let bytes = serde_json::to_vec(&request).map_err(|_| Error::Denied)?;
     parse(&bytes)?;
-    timeout(Duration::from_secs(1), async {
+    timeout(budget, async {
         let mut stream = UnixStream::connect(path).await.map_err(|_| Error::Denied)?;
         if stream.peer_cred().map(|c| c.uid()).ok() != Some(server_uid) {
             return Err(Error::Denied);
@@ -276,6 +283,58 @@ mod tests {
                 .await
                 .is_err()
         );
+        server.await.unwrap();
+    }
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn worker_prepare_allows_slow_certificate_but_control_keeps_one_second_deadline() {
+        use std::os::unix::fs::PermissionsExt;
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let d = tempfile::tempdir().unwrap();
+        std::fs::set_permissions(d.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        let path = d.path().join("worker.sock");
+        let listener = tokio::net::UnixListener::bind(&path).unwrap();
+        let server = tokio::spawn(async move {
+            for _ in 0..2 {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let length = stream.read_u32().await.unwrap();
+                let mut bytes = vec![0; length as usize];
+                stream.read_exact(&mut bytes).await.unwrap();
+                let request = parse(&bytes).unwrap();
+                tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+                let reply = Reply {
+                    protocol: PROTOCOL,
+                    id: request.id,
+                    result: Err(Failure::Closed),
+                };
+                let bytes = serde_json::to_vec(&reply).unwrap();
+                if stream.write_u32(bytes.len() as u32).await.is_ok() {
+                    let _ = stream.write_all(&bytes).await;
+                }
+            }
+        });
+        let uid = rustix::process::geteuid().as_raw();
+        let request = Request {
+            protocol: PROTOCOL,
+            id: 1,
+            command: Command::Prepare {
+                session: "a".repeat(32),
+                peer_ip: "127.0.0.1".parse().unwrap(),
+                offer: "bounded".into(),
+            },
+        };
+        assert!(matches!(
+            exchange(&path, uid, request).await.unwrap().result,
+            Err(Failure::Closed)
+        ));
+        let request = Request {
+            protocol: PROTOCOL,
+            id: 2,
+            command: Command::Inspect {
+                session: "a".repeat(32),
+            },
+        };
+        assert!(exchange(&path, uid, request).await.is_err());
         server.await.unwrap();
     }
 }
