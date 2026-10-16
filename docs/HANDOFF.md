@@ -6,7 +6,9 @@
 
 新完整组合WSL /home/wzs11/.cache/rustsimhub/system-tree-p6j-installation-first，组合源码fbc，12338条目、树3e3f51ced9e4b377576ccfb7bfb697e1bd6cabad542f7961cff78048a553bf4c；systemd依赖只读验证退出0、树保持。所有刷写/发布/恢复/新OS启动门禁仍false。下面P6I的ed786/f83组合是上一轮已验证历史，不是当前工具或组合输入。
 
-恢复准备进行中：已读旧r138资料，实际设备树只有mode-bootloader/recovery，无mode-edl，未猜测reboot edl。NAS隔离工具目录由.private/recovery-tools-location.log定位；此前固定bkerler-edl源码1cda1a616748d608667b2d13b73a28d3197ceb45/归档2907e7f6…及本人旧8916加载器959439aa…已上传，私有venv安装依赖和无USB --help检查通过。尚未打开EDL USB、进入EDL或离线捕获。已异步问用户实体按键/复位孔及是否在NAS旁，明确先不要操作；等待答复期间继续工具门禁。先准备只读封装及核对固定物理USB端口，再给准确物理操作。不能把旧Windows EDL日志当当前NAS恢复已通过。
+恢复准备进行中：已读旧r138资料，实际设备树只有mode-bootloader/recovery，无mode-edl，未猜测reboot edl。NAS隔离工具目录由.private/recovery-tools-location.log定位，已Root拥有/0700；此前固定bkerler-edl源码1cda1a616748d608667b2d13b73a28d3197ceb45/归档2907e7f6…及本人旧8916加载器959439aa…已上传，私有venv依赖/--help及新只读封装runtime-check通过。tools/recovery/提供固定只读gpt/read-emmc/reset及7项拒绝路径测试；源码/加载器哈希、实际USB端口+bus/address、SkipWrite、XML操作/读取边界、GPT两份CRC与精确分区门禁。不提供刷写或任意命令。首次封装拒绝上游三个内部链接、第二轮基线拒绝128条目假设；按固定源码链接和实际GPT16条目修正，原失败日志/两版封装保留。第三轮.private/recovery-readonly-runtime-third.log成功；NAS expected-device.json已记录先前独立核验全盘镜像的主备GPT摘要及当前物理端口2-1。封装SHA4a83be46…，只读主区捕获不包括boot0/1。尚未打开EDL USB、进入EDL或离线捕获，不加进度。
+
+已异步问用户实体按键/复位孔及是否在NAS旁，明确先不要操作；等待答复期间继续独立工作。实际进入前干净关机并给明确步骤，不能猜硬件按键或把旧Windows EDL日志当当前NAS恢复已通过。没有活跃EDL等待器。内核声明源提交93a71ee9468dd8d47a9e082e5d818608f08712e3在GitHub已查到verified提交，但具体boot构建/本地音频DTB补丁的闭环还缺，board.toml的UNRESOLVED不因上游存在而静默解除。
 
 空间维护：本机和NAS核对通用归档a73e.../132531369字节后，仅移除棒子多余tree.tar.gz传输副本；候选rootfs及全部实验/失败证据保留，根分区空闲350916608字节。NAS位置读.private/generic-transport-archive-location.json，Win/WSL原归档仍在。旧check-staged-tree-after-runtime.sh不能再直接读设备端归档，后续从已核验副本流式比较。新boot验收可加--reuse-inputs，取.private/boot-service-group-second.json中的directory，只读绑定相同签名package1..3，不删除旧数据。
 
