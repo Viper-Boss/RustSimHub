@@ -212,7 +212,9 @@ async fn api(State(app): State<App>, body: Bytes) -> Response {
     // A remote media adapter must prove the actual DTLS peer before issuing a bearer.
     if matches!(
         request.command,
-        AuthCommand::IssueMedia { .. } | AuthCommand::CheckMediaLease { .. }
+        AuthCommand::IssueMedia { .. }
+            | AuthCommand::CheckMediaLease { .. }
+            | AuthCommand::CheckMediaPreflight { .. }
     ) {
         return denied(StatusCode::FORBIDDEN);
     }

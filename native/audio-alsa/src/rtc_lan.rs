@@ -170,7 +170,7 @@ pub fn run(path: &str) -> Result<(), &'static str> {
         // Diagnostic peer only: finish DTLS before dialing, then await an explicit
         // private start marker. No PCM and no media packets while waiting.
         let start = base.join("synthetic-start");
-        let deadline = Instant::now() + Duration::from_secs(10);
+        let deadline = Instant::now() + Duration::from_secs(30);
         loop {
             match std::fs::symlink_metadata(&start) {
                 Ok(_) => {

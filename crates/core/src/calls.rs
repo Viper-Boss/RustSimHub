@@ -570,6 +570,45 @@ impl Worker {
     }
     async fn process(&mut self, command: AuthCommand) -> Result<Value> {
         match command {
+            AuthCommand::CheckMediaPreflight { token } => {
+                if !self.writes || !self.media_enabled {
+                    return Err("media_disabled");
+                }
+                let p = self.principal(&token, Scope::MediaUse).await?;
+                if p != self.principal(&token, Scope::CallsControl).await? {
+                    return Err("media_denied");
+                }
+                self.refresh().await?;
+                let b = self.binding()?;
+                if !self.catalogue || !b.fresh().await {
+                    return Err("line_unavailable");
+                }
+                if let Some(owned) = self.owned.as_ref() {
+                    if owned.principal != p
+                        || owned.cleanup_attempted
+                        || self.book.validate(&owned.grant, &p.id, self.now()).is_err()
+                    {
+                        return Err("call_owned");
+                    }
+                } else if self.live.values().any(|call| call.summary.modem_state != 7) {
+                    return Err("modem_busy");
+                }
+                // An identity/line fence, never a call lease, ticket or PCM permit.
+                let bytes = serde_json::to_vec(&(
+                    "rustsimhub-media-preflight-v1",
+                    &self.boot,
+                    &b.context.backend,
+                    b.context.line,
+                    &p.id,
+                    p.generation,
+                ))
+                .map_err(|_| "media_denied")?;
+                let binding = Sha256::digest(bytes)
+                    .iter()
+                    .map(|b| format!("{b:02x}"))
+                    .collect::<String>();
+                Ok(json!({"media_preflight_valid":true,"binding":binding}))
+            }
             AuthCommand::IssueMedia {
                 token,
                 lease,

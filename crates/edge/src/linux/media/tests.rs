@@ -22,7 +22,10 @@ fn offer() -> String {
     "v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\na=sendrecv\r\na=rtcp-mux\r\na=rtpmap:111 opus/48000/2\r\na=candidate:1 1 udp 100 127.0.0.1 12001 typ host\r\na=candidate:2 1 udp 100 10.20.30.40 12002 typ host\r\n".into()
 }
 fn request(action: serde_json::Value, token: char) -> Request {
-    let body=serde_json::to_vec(&serde_json::json!({"protocol":1,"id":"request","token":token.to_string().repeat(64),"lease":lease(),"command":action})).unwrap();
+    request_lease(action, token, Some(lease()))
+}
+fn request_lease(action: serde_json::Value, token: char, lease: Option<CallLease>) -> Request {
+    let body=serde_json::to_vec(&serde_json::json!({"protocol":1,"id":"request","token":token.to_string().repeat(64),"lease":lease,"command":action})).unwrap();
     let mut r = super::super::tests::request("https://localhost:8443", "localhost:8443", body);
     *r.uri_mut() = "/api/media/v1".parse().unwrap();
     r.extensions_mut().insert(Connection {
@@ -38,6 +41,9 @@ fn command(op: &str) -> serde_json::Value {
 }
 fn prepare() -> serde_json::Value {
     serde_json::json!({"op":"prepare","session":SESSION,"offer":offer()})
+}
+fn connect() -> serde_json::Value {
+    serde_json::json!({"op":"connect","session":SESSION,"offer":offer()})
 }
 struct Fixture {
     _directory: tempfile::TempDir,
@@ -77,6 +83,12 @@ impl Fixture {
                 stream.read_exact(&mut bytes).await.unwrap();
                 let request = parse_auth_request(&bytes).unwrap();
                 let result = match request.command {
+                    AuthCommand::CheckMediaPreflight { token } if token.starts_with('d') => {
+                        serde_json::json!({"error":"permission_denied"})
+                    }
+                    AuthCommand::CheckMediaPreflight { token } => {
+                        serde_json::json!({"media_preflight_valid":true,"binding":if token.starts_with('b') {"f".repeat(64)}else{"e".repeat(64)}})
+                    }
                     AuthCommand::CheckMediaLease { token, .. } if token.starts_with('d') => {
                         serde_json::json!({"error":"permission_denied"})
                     }
@@ -389,6 +401,17 @@ async fn generic_http_cannot_issue_media_and_disabled_mode_keeps_microphone_off(
     let r = super::super::tests::request("https://localhost:8443", "localhost:8443", body);
     assert_eq!(f.send(r).await.status(), StatusCode::FORBIDDEN);
     assert_eq!(f.issues.load(Ordering::Relaxed), 0);
+    let body=serde_json::to_vec(&serde_json::json!({"protocol":2,"id":"request","command":{"op":"check_media_preflight","token":"a".repeat(64)}})).unwrap();
+    assert_eq!(
+        f.send(super::super::tests::request(
+            "https://localhost:8443",
+            "localhost:8443",
+            body
+        ))
+        .await
+        .status(),
+        StatusCode::FORBIDDEN
+    );
     let mut app = f.app.clone();
     app.media = None;
     let response = router(app).oneshot(request(prepare(), 'a')).await.unwrap();
@@ -411,6 +434,97 @@ async fn generic_http_cannot_issue_media_and_disabled_mode_keeps_microphone_off(
         response.headers()["permissions-policy"],
         "camera=(), microphone=(self), geolocation=()"
     );
+}
+#[tokio::test]
+async fn preconnection_has_no_ticket_and_promotes_once_to_exact_call_authority() {
+    let f = Fixture::new().await;
+    assert_eq!(
+        f.send(request_lease(connect(), 'd', None)).await.status(),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(f.worker_requests.load(Ordering::Relaxed), 0);
+    assert_eq!(
+        f.send(request_lease(connect(), 'a', None)).await.status(),
+        StatusCode::OK
+    );
+    assert_eq!(f.issues.load(Ordering::Relaxed), 0);
+    assert_eq!(
+        f.send(request_lease(command("poll"), 'b', None))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        f.send(request_lease(command("activate"), 'a', None))
+            .await
+            .status(),
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        f.send(request(command("activate"), 'a')).await.status(),
+        StatusCode::CONFLICT
+    );
+    assert_eq!(f.issues.load(Ordering::Relaxed), 0);
+    f.phase.store(1, Ordering::Relaxed);
+    assert_eq!(
+        f.send(request_lease(command("poll"), 'a', None))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        f.send(request(command("activate"), 'b')).await.status(),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        f.send(request(command("activate"), 'a')).await.status(),
+        StatusCode::OK
+    );
+    assert_eq!(f.issues.load(Ordering::Relaxed), 1);
+    assert_eq!(
+        f.send(request(command("activate"), 'a')).await.status(),
+        StatusCode::OK
+    );
+    assert_eq!(f.issues.load(Ordering::Relaxed), 1);
+    assert_eq!(
+        f.send(request_lease(command("poll"), 'a', None))
+            .await
+            .status(),
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        f.send(request(command("poll"), 'b')).await.status(),
+        StatusCode::FORBIDDEN
+    );
+    let slot = f.app.media.as_ref().unwrap().slot.lock().await;
+    assert!(slot.as_ref().unwrap().preflight_until.is_none());
+    assert_eq!(slot.as_ref().unwrap().binding, "a".repeat(64));
+}
+#[tokio::test]
+async fn pending_timeout_is_absolute_and_closes_transport_without_a_ticket() {
+    let f = Fixture::new().await;
+    assert_eq!(
+        f.send(request_lease(connect(), 'a', None)).await.status(),
+        StatusCode::OK
+    );
+    let bridge = f.app.media.as_ref().unwrap();
+    let original = bridge.slot.lock().await.as_ref().unwrap().preflight_until;
+    assert_eq!(
+        f.send(request_lease(command("poll"), 'a', None))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        bridge.slot.lock().await.as_ref().unwrap().preflight_until,
+        original
+    );
+    bridge.slot.lock().await.as_mut().unwrap().preflight_until =
+        Some(Instant::now() - Duration::from_secs(1));
+    bridge.reap().await;
+    assert!(bridge.slot.lock().await.is_none());
+    assert_eq!(f.phase.load(Ordering::Relaxed), 3);
+    assert_eq!(f.issues.load(Ordering::Relaxed), 0);
 }
 #[test]
 fn candidate_filter_never_resolves_dns_or_accepts_other_destinations() {

@@ -11,7 +11,7 @@ function fixture(options={}){
  let pending=options.pending||null,loginCount=0;const calls=[],states=[],timers=new Set(),archived=[];
  const track={stopped:false,stop(){this.stopped=true;}};const stream={getTracks:()=>[track]};
  let primed=false;
- const audio={state:'closed',async input(){if(options.denied)throw Error('permission denied');return options.permission?options.permission.promise:stream;},async prime(value){assert.equal(value,stream);assert(!calls.some(c=>c.op==='prepare_call'));if(options.primeFailure)throw Error('local ICE failed');primed=true;},async start(context,provided){assert.equal(provided.stream,stream);assert.equal(context.lease.call_id,'synthetic-call');assert(primed);this.state=options.mediaClosed?'closed':'active';if(options.peerEnded)ended=true;},async stop(){this.state='closed';}};
+ const audio={state:'closed',async input(){if(options.denied)throw Error('permission denied');return options.permission?options.permission.promise:stream;},async connect(context,provided){assert.equal(context.lease,null);assert.equal(provided.stream,stream);assert(!calls.some(c=>c.op==='prepare_call'));if(options.primeFailure)throw Error('remote DTLS failed');if(options.connect)await options.connect.promise;primed=true;this.state='ready';},async hold(){assert(primed);},async start(context,provided){assert.equal(provided.stream,stream);assert.equal(context.lease.call_id,'synthetic-call');assert(primed);this.state=options.mediaClosed?'closed':'active';if(options.peerEnded)ended=true;},async stop(){this.state='closed';}};
  const env={crypto:webcrypto,performance,clearTimeout(id){clearTimeout(id);timers.delete(id);},setTimeout(fn,ms){const id=setTimeout(()=>{timers.delete(id);fn();},ms===30000?40:1);timers.add(id);return id;}};
  const lease={call_id:'synthetic-call',line:2,boot:'a'.repeat(64),generation:1,expires_in_seconds:30};
  let ended=false;
@@ -36,6 +36,9 @@ function fixture(options={}){
 for(const state of ['unknown','submitting']){
  const f=fixture({pending:{type:'call',action:'hangup',id:'old-op',state:'prepared',submit_started:true},oldState:state,oldCallId:'ended-old-call',oldEnded:true});
  await f.test.start();assert.equal(f.archived.length,1);assert.equal(f.archived[0].state,state);assert.equal(f.archived[0].submit_started,true);assert.equal(f.archived[0].ended_call_id,'ended-old-call');assert(!f.calls.some(c=>c.op==='submit_call'&&c.operation_id==='old-op'));assert.equal(f.calls.filter(c=>c.op==='submit_call'&&c.operation_id==='dial-op').length,1);f.close();
+}
+{
+ const connect=deferred(),f=fixture({connect});const running=f.test.start();await turn();assert(!f.calls.some(c=>c.op==='prepare_call'));await f.test.stop();await running;connect.resolve();await turn();assert(f.track.stopped);assert(!f.calls.some(c=>c.op==='prepare_call'||c.op==='submit_call'));f.close();
 }
 {
  const f=fixture({pending:{type:'call',action:'hangup',id:'old-op',state:'prepared',submit_started:true},oldState:'prepared'});await f.test.start();assert.equal(f.archived.length,0);assert.equal(f.calls.filter(c=>c.op==='cancel_prepared_call').length,1);assert.equal(f.calls.filter(c=>c.op==='submit_call'&&c.operation_id==='dial-op').length,1);assert(!f.calls.some(c=>c.op==='submit_call'&&c.operation_id==='old-op'));f.close();

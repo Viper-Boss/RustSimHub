@@ -35,7 +35,7 @@ export class AudioLink {
  }
  async peer(stream,g){
    this.current(g);this.stream=stream;const tracks=stream.getAudioTracks();if(tracks.length!==1||tracks[0].readyState==='ended')throw Error('未取得单个麦克风输入');
-   tracks[0].enabled=!this.muted;
+   tracks[0].enabled=false;
    const pc=new this.env.RTCPeerConnection({iceServers:[],bundlePolicy:'max-bundle',rtcpMuxPolicy:'require'});this.pc=pc;
    const transceiver=pc.addTransceiver(tracks[0],{direction:'sendrecv'});
    const codecs=this.env.RTCRtpSender.getCapabilities('audio')?.codecs?.filter(c=>c.mimeType.toLowerCase()==='audio/opus')||[];
@@ -57,28 +57,50 @@ export class AudioLink {
    const prepared=await this.peer(stream,g);this.current(g);this.prepared=prepared;this.say('primed','本地声音连接已准备好');
   }catch(error){for(const track of stream.getTracks())track.stop();if(g===this.generation){void this.stop();this.say('closed',error.message||'声音准备失败');}throw error;}
  }
+ async negotiate(prepared,g,op){
+   const {pc,sdp}=prepared;
+   const answer=await this.send(this.context,this.session,{op,offer:sdp},g);if(typeof answer.answer!=='string'||!answer.answer.length)throw Error('声音协商未获得有效应答');
+   await pc.setRemoteDescription({type:'answer',sdp:answer.answer});this.current(g);
+   const now=()=>this.env.performance?.now()??Date.now();const end=now()+8000;
+   while(true){const snapshot=await this.poll(g);if(snapshot.phase==='verified'&&!snapshot.pcm_opened)return;if(snapshot.phase!=='handshaking'||now()>=end)throw Error('声音握手未完成；没有自动重试');await this.wait(200,g);}
+ }
+ async connect(context,{stream}){
+  const priming=this.prime(stream),g=this.generation;
+  try{
+   await priming;this.current(g);
+   if(!context?.token||context.lease)throw Error('请先登录并准备空闲线路');
+   this.context={token:context.token,lease:null};this.session=this.env.crypto.randomUUID().replaceAll('-','');
+   const prepared=this.prepared;this.say('connecting','正在提前连接加密声音，完成后才拨号…');
+   await this.negotiate(prepared,g,'connect');this.current(g);
+   this.prepared={...prepared,remote:true,token:context.token};this.say('ready','加密声音已就绪，等待电话接通');
+  }catch(error){if(g===this.generation){void this.stop();this.say('closed',error.message||'声音预连接失败');}throw error;}
+ }
+ async hold(){
+  const g=this.generation;
+  try{if(!this.prepared?.remote||this.state!=='ready')throw Error('声音预连接已结束');const snapshot=await this.poll(g);if(snapshot.phase!=='verified'||snapshot.pcm_opened)throw Error('声音预连接已过期；没有自动重连');}
+  catch(error){if(g===this.generation){void this.stop();this.say('closed',error.message||'声音预连接失去确认');}throw error;}
+ }
  async start(context,{stream:provided=null}={}){
-  const prepared=provided&&this.prepared?.stream===provided&&this.prepared.generation===this.generation&&this.prepared.pc===this.pc?this.prepared:null;
+  const prepared=provided&&this.prepared?.stream===provided&&this.prepared.generation===this.generation&&this.prepared.pc===this.pc&&(!this.prepared.remote||this.prepared.token===context?.token)?this.prepared:null;
   const closing=prepared?Promise.resolve():this.stop(),g=this.generation;this.prepared=null;
   try{
   await closing;this.current(g);
   if(this.env.isSecureContext!==true)throw Error('请使用受信任的 HTTPS 和支持语音的浏览器');
   if(!context?.token||!context.lease)throw Error('请先登录并取得当前通话的控制租约');
-  this.context={token:context.token,lease:{...context.lease}};this.session=this.env.crypto.randomUUID().replaceAll('-','');
+  this.context={token:context.token,lease:{...context.lease}};if(!prepared?.remote)this.session=this.env.crypto.randomUUID().replaceAll('-','');
   this.say('opening','正在等待麦克风权限…');
    const stream=provided||await this.input();
    if(g!==this.generation){for(const track of stream.getTracks())track.stop();throw Error('声音连接已取消');}
-   const {pc,sdp}=prepared||await this.peer(stream,g);this.current(g);
+   const local=prepared||await this.peer(stream,g);this.current(g);
    if(stream.getAudioTracks().some(track=>track.readyState==='ended'))throw Error('麦克风已关闭');
    this.say('handshaking','正在建立加密声音连接…');
-   const answer=await this.send(this.context,this.session,{op:'prepare',offer:sdp},g);if(typeof answer.answer!=='string'||!answer.answer.length)throw Error('声音协商未获得有效应答');
-   await pc.setRemoteDescription({type:'answer',sdp:answer.answer});this.current(g);
+   if(!prepared?.remote)await this.negotiate(local,g,'prepare');
    const now=()=>this.env.performance?.now()??Date.now();const end=now()+8000;let snapshot;
-   do{snapshot=await this.poll(g);if(snapshot.phase==='verified')break;if(snapshot.phase!=='handshaking'||now()>=end)throw Error('声音握手未完成；没有自动重试');await this.wait(200,g);}while(true);
    // Exactly one activation. A lost reply is closed, never resubmitted.
    snapshot=await this.send(this.context,this.session,{op:'activate'},g);
    while(snapshot.phase==='authorizing'){await this.wait(200,g);snapshot=await this.poll(g);if(now()>=end)throw Error('声音授权未完成；没有自动重试');}
    if(snapshot.phase!=='active'||snapshot.pcm_opened!==true)throw Error('当前通话的声音未就绪');
+   for(const track of stream.getAudioTracks())track.enabled=!this.muted;
    this.say('active','声音已连接');void this.monitor(g);return snapshot;
   }catch(error){if(provided)for(const track of provided.getTracks())track.stop();if(g===this.generation){void this.stop();this.say('closed',error.message||'声音连接失败');}throw error;}
  }
@@ -94,6 +116,6 @@ export class AudioLink {
   if(this.audio.srcObject)for(const track of this.audio.srcObject.getTracks())track.stop();this.audio.pause();this.audio.srcObject=null;this.state='closed';
   if(context&&session)return this.send(context,session,{op:'stop'},this.generation,true).catch(()=>{});return Promise.resolve();
  }
- mute(muted){this.muted=!!muted;if(this.stream)for(const track of this.stream.getAudioTracks())track.enabled=!this.muted;}
+ mute(muted){this.muted=!!muted;if(this.stream)for(const track of this.stream.getAudioTracks())track.enabled=this.state==='active'&&!this.muted;}
  async play(){if(this.audio.srcObject)await this.audio.play();}
 }

@@ -64,3 +64,11 @@ a13实际拨出一次，累计33。新独占工具先登记75秒设备独立恢�
 用户随后确认方便听音，开启a14十分钟/30秒观察窗口并临时信任同一证书；用户点一键测试时被旧挂断的submit_started防重标记挡住，没有新增拨号。窗口已主动停止并恢复旧agent/撤回Voice。停止Core后检查WAL为空，仅在私有区域只读一致快照查询，旧浏览器匹配公钥的挂断在设备中确为prepared/phase prepared，目标电话state7；历史availability为reconciling，不能冒充当前observed已结束去抹掉Unknown。
 
 新源码增加 `cancel_prepared_call`：当前calls.control及同principal/generation的数据库事务，仅prepared/phase prepared可原子转cancelled；已取消查询幂等，submitting/unknown拒绝，迟到submit无法取得permit，无modem写入。挂断撤回媒体移到成功begin_call且已核对当前lease之后，已取消旧挂断的迟到重放也不能撤回当前媒体。网页只在用户新点测试且旧记录为prepared挂断时使用，丢失撤销回复不拨新电话。对unknown挂断只允许精确目标当前observed ended后保留原回执再开始新测试；unknown拨号/短信、无法观察、保存失败均继续阻断。Node三组、206 workspace及全量Clippy通过；新ARM与实机验收待完成。
+
+## 首次持续Chrome下行通过（0587cf7 / a15）
+
+0587cf74546b08d5df0f8f1e22907da160059e85，源56bee45f764bfa7c9c24a3277e886b349ab5e1ed4b825a575a21ae900ed3963a，206 workspace/全量Clippy与六生产ARM通过；同源Native21项/release3m41s、5516704字节、SHA6694aadc80ffb1d0618899af7f65d24bfc9a2f4479e5b6b6b566ffdb842af68c。三epoch开发签名包仅私有保存，不是刷机发布。原子替换后五资产严格TLS/SHA/no-store核验；实机外国principal不能取消旧浏览器操作，owner自有prepared的取消/重复取消/迟到submit仍cancelled和call_id null，前后observed_calls19/active_calls0，没有拨号。
+
+a15独占窗口中用户刷新并只点一次测试，旧挂断在只读一致快照中最终cancelled/resolved；新实际10010一通，累计34。PCM17:46:16.54—17:46:42.08 UTC，约25.5秒，captured/sent/played1275、received1282、dropped32、1次可恢复xrun，结束为transport Closed。用户确认“语音正常”，但指出首次连接约7秒、接通初始几句听不到。只确认持续Chrome下行，不假称双向听音或接音延迟已解决。
+
+私有browser-a15-acceptance.json、browser-preview-0587cf7-a15-native.log及独立观察文件保存。旧四服务active、全部电话terminated、PCMclosed、Voice规则已撤回/拒绝，预览停止；同一Windows临时证书已直接移除并核验installed=false/removed=true。新短信/普通蜂窝/分区写入0。P3加0.5至14.5，总体73.5/100约74%。用户要求优化为先连接声音再拨号，按media-preconnect.md继续；不以新设计加分。

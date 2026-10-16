@@ -1,4 +1,4 @@
-2026-10-17 权威更新：整体仍73/100，10010累计33。旧Go agent的orphan-call挂断冲突已用DBus sender/PID/exe及20.640秒对照定位。c1099a2同源203 workspace/六生产ARM与Native21项构建通过，五网页严格TLS核验；设备独占/独立恢复实机通过。a13连续22.953秒/1137采集帧后明确30秒租约到期，原24秒媒体目标未通过，保留原passed=false，不伪称成功。用户当前卡在旧prepared挂断与客户端submit_started冲突，正在增加仅prepared事务撤销/迟到提交拒绝及旧挂断只读核验恢复；a14窗口已停止，无新增拨号。证书按用户当前听音授权又临时信任，最终需直接移除。详见VALIDATION-BROWSER-MEDIA-P3I.md，不加分。
+2026-10-17 权威更新：整体73.5/100约74%，10010累计34。0587cf7同源206 workspace/Clippy/六ARM与Native21项构建、五网页严格TLS、prepared撤销/跨principal拒绝/迟到提交不拨号实机通过。a15浏览器一键自动撤销旧prepared挂断，再单次10010，连续约25.5秒/1275采集帧；用户确认语音正常，但首次连接约7秒、初始几句漏听。旧四服务/电话/PCM/Voice恢复与Windows临时证书直接移除均已核验。P3+0.5，仅计持续Chrome下行；正在实现拨号前真实WebRTC握手，接通后仍须ACTIVE/租约/票据才能打开PCM，未验证优化不额外加分。见VALIDATION-BROWSER-MEDIA-P3I.md与media-preconnect.md。
 
 2026-10-16 当前：整体仍 73/100，10010 累计 26；实机捕获空音频负载触发 Codec 致命退出。新增空负载安全丢弃与一键 10010/自动连接声音/约30秒结束页面源码，202 workspace、21 Native、Clippy 和 Node 三组通过；新 ARM 与真实听音待验收，不加分。见 VALIDATION-BROWSER-MEDIA-P3I.md。
 

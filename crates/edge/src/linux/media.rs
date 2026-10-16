@@ -21,12 +21,13 @@ struct RequestBody {
     protocol: u16,
     id: String,
     token: String,
-    lease: CallLease,
+    lease: Option<CallLease>,
     command: Action,
 }
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Action {
+    Connect { session: String, offer: String },
     Prepare { session: String, offer: String },
     Poll { session: String },
     Activate { session: String },
@@ -35,7 +36,8 @@ enum Action {
 impl Action {
     fn session(&self) -> &str {
         match self {
-            Self::Prepare { session, .. }
+            Self::Connect { session, .. }
+            | Self::Prepare { session, .. }
             | Self::Poll { session }
             | Self::Activate { session }
             | Self::Stop { session } => session,
@@ -49,6 +51,7 @@ struct Slot {
     local: IpAddr,
     offer_hash: [u8; 32],
     activation_started: bool,
+    preflight_until: Option<Instant>,
 }
 pub(super) struct Bridge {
     path: PathBuf,
@@ -117,6 +120,14 @@ impl Bridge {
             return;
         };
         if let Some(active) = slot.as_ref() {
+            if active
+                .preflight_until
+                .is_some_and(|end| Instant::now() >= end)
+            {
+                self.stop(&active.session).await;
+                *slot = None;
+                return;
+            }
             if self
                 .raw(Command::Inspect {
                     session: active.session.clone(),
@@ -281,17 +292,33 @@ pub(super) async fn api(
         eprintln!("web_media_rejected reason=slot_busy");
         return denied(StatusCode::TOO_MANY_REQUESTS);
     };
-    let binding = match core(
-        &app,
-        &request.id,
+    let connecting = matches!(&request.command, Action::Connect { .. });
+    let preflight = connecting || state.as_ref().is_some_and(|s| s.preflight_until.is_some());
+    if preflight && request.lease.is_some() && !matches!(&request.command, Action::Activate { .. })
+    {
+        return denied(StatusCode::BAD_REQUEST);
+    }
+    let authorization = if preflight {
+        AuthCommand::CheckMediaPreflight {
+            token: request.token.clone(),
+        }
+    } else {
+        let Some(lease) = request.lease.clone() else {
+            return denied(StatusCode::BAD_REQUEST);
+        };
         AuthCommand::CheckMediaLease {
             token: request.token.clone(),
-            lease: request.lease.clone(),
-        },
-    )
-    .await
-    {
-        Ok(value) if value["media_lease_valid"] == true => {
+            lease,
+        }
+    };
+    let binding = match core(&app, &request.id, authorization).await {
+        Ok(value)
+            if value[if preflight {
+                "media_preflight_valid"
+            } else {
+                "media_lease_valid"
+            }] == true =>
+        {
             match value["binding"].as_str().filter(|s| hex64(s)) {
                 Some(s) => s.to_owned(),
                 None => return denied(StatusCode::SERVICE_UNAVAILABLE),
@@ -303,8 +330,21 @@ pub(super) async fn api(
         }
     };
     let session = request.command.session().to_owned();
+    if let Some(active) = state.as_ref() {
+        if active
+            .preflight_until
+            .is_some_and(|end| Instant::now() >= end)
+            && active.binding == binding
+            && active.peer == connection.peer
+            && active.local == connection.local
+        {
+            bridge.stop(&active.session).await;
+            *state = None;
+            return denied(StatusCode::GONE);
+        }
+    }
     let result = match request.command {
-        Action::Prepare { offer, .. } => {
+        Action::Connect { offer, .. } | Action::Prepare { offer, .. } => {
             let hash: [u8; 32] = Sha256::digest(offer.as_bytes()).into();
             if let Some(active) = state.as_ref() {
                 if active.session != session
@@ -328,6 +368,7 @@ pub(super) async fn api(
                     local: connection.local,
                     offer_hash: hash,
                     activation_started: false,
+                    preflight_until: connecting.then(|| Instant::now() + Duration::from_secs(30)),
                 });
             }
             // Store ownership before sending: a lost reply must not orphan a session.
@@ -368,6 +409,9 @@ pub(super) async fn api(
                         .await
                 }
                 Action::Activate { .. } => {
+                    let Some(lease) = request.lease else {
+                        return denied(StatusCode::BAD_REQUEST);
+                    };
                     let snapshot = match bridge
                         .exchange(Command::Inspect {
                             session: session.clone(),
@@ -377,6 +421,9 @@ pub(super) async fn api(
                         Ok(v) => v,
                         Err(_) => return denied(StatusCode::SERVICE_UNAVAILABLE),
                     };
+                    if active.preflight_until.is_some() && snapshot.phase != Phase::Verified {
+                        return denied(StatusCode::CONFLICT);
+                    }
                     if matches!(
                         snapshot.phase,
                         Phase::Authorizing | Phase::Active | Phase::Closing | Phase::Closed
@@ -389,6 +436,32 @@ pub(super) async fn api(
                         return denied(StatusCode::CONFLICT);
                     } else {
                         active.activation_started = true;
+                        if active.preflight_until.is_some() {
+                            // Only this exact verified transport may move from an
+                            // identity/line reservation to an actual ACTIVE call.
+                            let bound = core(
+                                &app,
+                                &request.id,
+                                AuthCommand::CheckMediaLease {
+                                    token: request.token.clone(),
+                                    lease: lease.clone(),
+                                },
+                            )
+                            .await;
+                            match bound {
+                                Ok(value)
+                                    if value["media_lease_valid"] == true
+                                        && value["binding"].as_str().is_some_and(hex64) =>
+                                {
+                                    active.binding = value["binding"].as_str().unwrap().to_owned();
+                                    active.preflight_until = None;
+                                }
+                                _ => {
+                                    bridge.stop(&session).await;
+                                    return denied(StatusCode::FORBIDDEN);
+                                }
+                            }
+                        }
                         let Some(peer_key) = snapshot.peer_key else {
                             bridge.stop(&session).await;
                             return denied(StatusCode::SERVICE_UNAVAILABLE);
@@ -398,7 +471,7 @@ pub(super) async fn api(
                             &request.id,
                             AuthCommand::IssueMedia {
                                 token: request.token,
-                                lease: request.lease,
+                                lease,
                                 peer_key,
                             },
                         )
@@ -421,7 +494,7 @@ pub(super) async fn api(
                             .await
                     }
                 }
-                Action::Prepare { .. } => unreachable!(),
+                Action::Connect { .. } | Action::Prepare { .. } => unreachable!(),
             }
         }
     };

@@ -104,6 +104,36 @@ fn directory() -> tempfile::TempDir {
     d
 }
 #[tokio::test]
+async fn preflight_never_issues_a_ticket_and_is_fenced_to_current_owner_and_line() {
+    let mut f = fixture(false).await;
+    let check = |token: &str| AuthCommand::CheckMediaPreflight {
+        token: token.into(),
+    };
+    assert!(f.worker.process(check(&f.first)).await.is_err());
+    f.worker.media_enabled = true;
+    let before = f.worker.process(check(&f.first)).await.unwrap();
+    assert_eq!(before["media_preflight_valid"], true);
+    assert_eq!(before["binding"].as_str().unwrap().len(), 64);
+    assert!(before.get("ticket").is_none() && f.worker.media.owner.is_none());
+    assert_eq!(f.data.creates.load(Ordering::SeqCst), 0);
+    assert_eq!(f.data.starts.load(Ordering::SeqCst), 0);
+    assert!(f.worker.process(check(&f.second)).await.is_err()); // no media.use
+    let id = prepare(
+        &mut f.worker,
+        &f.first,
+        "preflight-dial",
+        CallAction::Dial,
+        None,
+        "10010",
+    )
+    .await;
+    submit(&mut f.worker, &f.first, &id, None).await.unwrap();
+    assert_eq!(f.worker.process(check(&f.first)).await.unwrap(), before);
+    assert!(f.worker.process(check(&f.second)).await.is_err());
+    f.worker.bindings = watch::channel(None).1;
+    assert!(f.worker.process(check(&f.first)).await.is_err());
+}
+#[tokio::test]
 async fn media_issue_checks_real_owner_scopes_lease_active_and_explicit_mode() {
     let mut f = fixture(false).await;
     let id = prepare(

@@ -144,9 +144,14 @@ impl Manager {
             return Err(Failure::Denied);
         }
         self.active = None; // joins a terminal thread before another can own the PCM.
+        let preparing = Instant::now();
         let socket = UdpSocket::bind((bind_ip, 0)).map_err(|_| Failure::Unavailable)?;
         let (session, answer) =
             Session::answer(&socket, peer_ip, &offer).map_err(|_| Failure::BadRequest)?;
+        eprintln!(
+            "worker_preflight stage=answer elapsed_ms={}",
+            preparing.elapsed().as_millis()
+        );
         let shared = Arc::new(Mutex::new(Shared {
             phase: Phase::Handshaking,
             peer: None,
@@ -297,6 +302,7 @@ fn session_loop(
     stop: &Arc<AtomicBool>,
     shared: &Arc<Mutex<Shared>>,
 ) -> Result<()> {
+    let handshaking = Instant::now();
     let handshake_end = Instant::now() + Duration::from_secs(15);
     while session.verified_peer().is_none() {
         stopped(stop)?;
@@ -309,6 +315,10 @@ fn session_loop(
         thread::sleep(Duration::from_millis(2));
     }
     let peer = session.verified_peer().ok_or(Failure::Denied)?;
+    eprintln!(
+        "worker_preflight stage=verified elapsed_ms={}",
+        handshaking.elapsed().as_millis()
+    );
     {
         let mut s = shared.lock().map_err(|_| Failure::Unavailable)?;
         s.peer = Some(peer);
@@ -316,7 +326,9 @@ fn session_loop(
             s.phase = Phase::Verified;
         }
     }
-    let end = Instant::now() + Duration::from_secs(10);
+    // A verified transport may wait for ringing after preconnection. This only
+    // reserves one non-PCM session; Core ACTIVE/lease/ticket checks stay intact.
+    let end = Instant::now() + Duration::from_secs(30);
     let credentials = loop {
         stopped(stop)?;
         if Instant::now() >= end {
@@ -335,6 +347,7 @@ fn session_loop(
         return Err(Failure::Denied);
     }
     stopped(stop)?;
+    let activating = Instant::now();
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -349,6 +362,7 @@ fn session_loop(
             stopped(&audio_stop)?;
             let device=rustsimhub_audio_alsa::UfiDuplex::open(&permit,local::now_ms).map_err(|_|Failure::Unavailable)?;
             let mut pump=Pump::new(device,permit,local::now_ms()).map_err(|_|Failure::Denied)?;
+            eprintln!("worker_activation elapsed_ms={}", activating.elapsed().as_millis());
             {let mut s=audio_shared.lock().map_err(|_|Failure::Unavailable)?;s.pcm_opened=true;if !audio_stop.load(Ordering::Acquire){s.phase=Phase::Active;}}
             let mut next_stats=Instant::now();
             let mut previous=Instant::now();let mut max_loop=0u128;let mut max_service=0u128;let mut max_step=0u128;let mut max_codec=0u128;

@@ -13,7 +13,7 @@ export class CallTest {
  async start(){
   if(this.running)return;
   const generation=(this.generation||0)+1;this.generation=generation;
-  this.running=true;this.cancelled=false;this.finishing=null;this.lease=null;this.stream=null;this.dialStarted=false;this.error=null;this.endedObserved=false;
+  this.running=true;this.cancelled=false;this.finishing=null;this.lease=null;this.stream=null;this.dialStarted=false;this.error=null;this.endedObserved=false;this.callActiveAt=null;this.audioDelayMs=null;
   this.aborted=new Promise((_,reject)=>{this.abort=()=>reject(Error('测试已停止'));});this.aborted.catch(()=>{});
   this.say('正在准备测试，请允许麦克风…');
   try{
@@ -43,7 +43,8 @@ export class CallTest {
    if(status.available!==true||status.active_calls!==0)throw Error('设备有未结束或未确认的呼叫，请先结束它');
    const line=await this.step(this.request({op:'line_status'}));
    if(line.status!=='ready')throw Error('SIM 尚未就绪');
-   await this.step(this.audio.prime(this.stream));
+   this.say('正在提前连接加密声音，完成后自动拨打 10010…');
+   await this.step(this.audio.connect(this.context(null),{stream:this.stream}));
    const prepared=await this.step(this.request({op:'prepare_call',line_epoch:line.line,idempotency_key:this.env.crypto.randomUUID(),action:'dial',call_id:null,payload:'10010'}));
    if(prepared.operation?.state!=='prepared')throw Error('测试拨号未准备成功');
    const pending={type:'call',action:'dial',id:prepared.operation.id,state:'prepared',submit_started:false,test10010:true};
@@ -61,12 +62,13 @@ export class CallTest {
     // Refresh the trusted observer, then inspect this exact call, not a history page.
     await this.step(this.request({op:'call_status'}));
     const call=await this.step(this.request({op:'call_detail',call_id:this.lease.call_id}));
-    if(call.state==='active'&&call.availability==='observed')break;
+    if(call.state==='active'&&call.availability==='observed'){this.callActiveAt=this.env.performance?.now()??Date.now();break;}
     if(call.state==='ended')throw Error('10010 已结束，未连接声音');
-    this.say('等待 10010 接通…');await this.pause(500);
+    await this.step(this.audio.hold());this.say('声音已准备好，等待 10010 接通…');await this.pause(500);
    }
    this.say('已接通，正在自动连接声音…');
    await this.step(this.audio.start(this.context(this.lease),{stream:this.stream}));
+   this.audioDelayMs=(this.env.performance?.now()??Date.now())-this.callActiveAt;
    while(true){
     const left=Math.max(0,Math.ceil((this.deadline-(this.env.performance?.now()??Date.now()))/1000));
     this.say(this.audio.state==='active'?`声音已连接 · ${left} 秒后自动结束`:'声音已中断；正在结束本次测试');
@@ -107,7 +109,7 @@ export class CallTest {
    await closing;this.running=false;
    const cleanup=this.dialStarted&&!confirmed?'；挂断尚未确认，设备租约到期后清理，请勿立即重拨':'';
    const ended=alreadyEnded?'电话已结束':'电话已挂断';
-   this.say((this.error?'测试停止：'+this.error+(confirmed?'；'+ended:''):confirmed?'测试已结束，'+ended:'测试已停止')+cleanup);
+   this.say((this.error?'测试停止：'+this.error+(confirmed?'；'+ended:''):confirmed?'测试已结束，'+ended:'测试已停止')+cleanup+(Number.isFinite(this.audioDelayMs)?`；观察接通后接音 ${(this.audioDelayMs/1000).toFixed(1)} 秒`:''));
    this.error=null;
   })();return this.finishing;
  }

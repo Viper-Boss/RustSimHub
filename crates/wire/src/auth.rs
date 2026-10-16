@@ -190,6 +190,9 @@ pub enum AuthCommand {
         token: String,
         operation_id: String,
     },
+    CheckMediaPreflight {
+        token: String,
+    },
     RenewCall {
         token: String,
         lease: rustsimhub_domain::CallLease,
@@ -444,7 +447,7 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 return Err(invalid());
             }
         }
-        AuthCommand::CallStatus { token } => {
+        AuthCommand::CallStatus { token } | AuthCommand::CheckMediaPreflight { token } => {
             if token.len() != 64 {
                 return Err(invalid());
             }
