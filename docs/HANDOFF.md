@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-10-16网页媒体源码阶段：见web-media.md。新Edge /api/media/v1的prepare/poll/activate/stop和capabilities已实现，Core precheck/binding归属与实际TCP peer/local地址绑定；内部IssueMedia/实际peer_key/票据不返回浏览器，通用/v2也拒绝CheckMediaLease。Native新增Edge-only stop_all、受本地配置限制的多bind IP；Edge启动/退出接管清理、TLS目录实例锁、单一Origin多私有监听地址和缺地址等待实现。media.js及页面按钮已实现，迟到权限/取消/丢失授权回复/停止/mute由Node实际源码测试覆盖，未真实浏览器验证。WSL201 workspace/20 Native、两者Clippy通过，日志.private/media-edge-final-source-second.log；Node media/proof均通过。新的ARM冻结构建/HTTP实机和产品单元仍待完成，不能混称e271已验收，也不加分；整体71.5/100、10010仍20，本轮未新增硬件测试。旧四服务/PCM当前实时状态在下一次硬件前重查。
+
 权威最新检查点：整体71.5/100约72%，P0=6.5、P3=13.5，其余权重不变；见VALIDATION-EDL-READ-P0B.md和VALIDATION-MEDIA-WORKER-P3F.md。持续目标100%，换卡流量测试延后。没有活跃设备测试、EDL等待器或编译任务；旧四服务active、电话空闲、PCM关闭、临时规则撤回且Voice拒绝。10010累计20。本段覆盖下方历史构建中/16次等状态。
 
 实际媒体源e271ca15bd8c42d670cd54a7c4e253c97283a053/归档621994eb8f429519dda1957f96b0a96ec3a8cd8c78c6cdc65b113123bc27354f。本机194 workspace/19 Native及Clippy、六程序ARM生产、NAS同源Native19项/release退出0。Native .local/native-e271ca1/rustsimhub-audio-alsa，5451168字节、SHA43b46708f8f076b7e73d3448fadff1fc72f5985f5670cb5ccedc7e1827a66d84，完整日志.private/native-e271ca1-build.log。默认source.tar.gz及media-current-build.json属于e271；此前233/173/707/f36归档/制品分别保留，不混标旧签名9b应用或fbc系统组合。

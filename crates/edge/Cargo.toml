@@ -8,6 +8,8 @@ license.workspace = true
 [target.'cfg(target_os = "linux")'.dependencies]
 rustsimhub-wire = { path = "../wire" }
 rustsimhub-auth = { path = "../auth" }
+rustsimhub-media = { path = "../media" }
+rustsimhub-domain = { path = "../domain" }
 serde.workspace = true
 serde_json.workspace = true
 axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }

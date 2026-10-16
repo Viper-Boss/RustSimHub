@@ -23,6 +23,8 @@ pub enum Command {
         session: String,
         peer_ip: IpAddr,
         offer: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        bind_ip: Option<IpAddr>,
     },
     Inspect {
         session: String,
@@ -34,6 +36,10 @@ pub enum Command {
     Stop {
         session: String,
     },
+    // Local Edge lifecycle only; never forwarded from the HTTP media API.
+    StopAll {
+        session: String,
+    },
 }
 impl Command {
     pub fn session(&self) -> &str {
@@ -41,7 +47,8 @@ impl Command {
             Self::Prepare { session, .. }
             | Self::Inspect { session }
             | Self::Authorize { session, .. }
-            | Self::Stop { session } => session,
+            | Self::Stop { session }
+            | Self::StopAll { session } => session,
         }
     }
 }
@@ -111,6 +118,9 @@ pub fn parse(bytes: &[u8]) -> Result<Request, Error> {
         return Err(Error::Denied);
     }
     match &request.command {
+        Command::Prepare {
+            bind_ip: Some(ip), ..
+        } if !local_ip(*ip) => return Err(Error::Denied),
         Command::Prepare { peer_ip, offer, .. }
             if !local_ip(*peer_ip) || offer.is_empty() || offer.len() > MAX_SDP =>
         {
@@ -318,6 +328,7 @@ mod tests {
             protocol: PROTOCOL,
             id: 1,
             command: Command::Prepare {
+                bind_ip: None,
                 session: "a".repeat(32),
                 peer_ip: "127.0.0.1".parse().unwrap(),
                 offer: "bounded".into(),

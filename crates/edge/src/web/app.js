@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { prove, unhex, hex } from './proof.js';
+import { AudioLink } from './media.js';
 const $=id=>document.getElementById(id);
 const scopes=['status.read','sms.read','calls.read'];
 let key, publicKey, token=null, busy=false, pending=null, lease=null;
 let inboxCursor=null, callsCursor=null, inboxEvents=null, callEvents=null;
 let historyCursor=null, historySources=[];
 let wifiTrial=null;
+let audioReady=false;
+const audioLink=new AudioLink($('call-audio'),(text,state)=>{$('audio-state').textContent=text;$('audio-stop').disabled=state==='closed';showAudio();});
+function showAudio(){$('audio-start').disabled=!token||!lease||!audioReady||audioLink.state!=='closed';$('audio-stop').disabled=audioLink.state==='closed';}
 let db;
 let viewEpoch=0, actionGeneration=0;const requests=new Set();
 function current(epoch){if(epoch!==viewEpoch)throw Error('会话已结束');}
@@ -34,6 +38,8 @@ async function initialize(){
  publicKey=new Uint8Array(await crypto.subtle.exportKey('raw',key.publicKey));
  $('client-key').textContent='浏览器公钥：'+hex(publicKey);$('pin').value=await stored('pin')||'';pending=await stored('pending')||null;showPending();
  const identity=await api({op:'identity'});$('first-setup').hidden=identity.owner_setup_available!==true;
+ try{const response=await fetch('/api/media/capabilities',{credentials:'omit',cache:'no-store',redirect:'error'});const capability=await response.json();audioReady=response.ok&&capability.protocol===1&&capability.enabled===true;}catch{audioReady=false;}
+ $('audio-section').hidden=!audioReady;showAudio();
 }
 async function proof(challenge,purpose,pairScopes,epoch=viewEpoch){
  let expectedKind=purpose==='bootstrap'?'owner':'client';
@@ -59,14 +65,14 @@ async function initializeOwner(){
  notice('第一个所有者已初始化；此浏览器钥匙请妥善保留');await login();
 }
 async function pair(){
- const epoch=viewEpoch;const desired=$('write-scope').checked?[...scopes,'sms.send','calls.control']:scopes;
+ const epoch=viewEpoch;const desired=$('write-scope').checked?[...scopes,'sms.send','calls.control','media.use']:scopes;
  const c=await api({op:'pair_challenge',public_key:Array.from(publicKey),kind:'client',scopes:desired},epoch);
  const signature=await proof(c,'pair',desired,epoch);current(epoch);
  const result=await api({op:'pair_proof',challenge_id:c.id,signature},epoch);
  notice('配对申请已提交。请由设备所有者核对浏览器公钥、权限和申请 ID 后批准：'+result.pairing_id);
 }
 async function login(){
- const epoch=viewEpoch;token=null;lease=null;const c=await api({op:'challenge',public_key:Array.from(publicKey)},epoch);const signature=await proof(c,'login',undefined,epoch);current(epoch);
+ void audioLink.stop();const epoch=viewEpoch;token=null;lease=null;showAudio();const c=await api({op:'challenge',public_key:Array.from(publicKey)},epoch);const signature=await proof(c,'login',undefined,epoch);current(epoch);
  const r=await api({op:'authenticate',challenge_id:c.id,signature},epoch);current(epoch);if(!/^[a-f0-9]{64}$/.test(r.token))throw Error('登录响应无效');
  token=r.token;notice('已登录；会话最长 15 分钟');await refresh();
 }
@@ -89,6 +95,7 @@ async function refresh(){
  $('status').textContent=JSON.stringify({line,call,network},null,2);await inboxPage(true);await callsPage(true);
  $('history-section').hidden=health.history_read_api!==true;if(health.history_read_api===true)await loadHistory();else clearHistory();
  $('wifi-section').hidden=health.wifi_provisioning_api!==true;if(health.wifi_provisioning_api!==true)clearWifi();
+ showAudio();
 }
 async function sync(){
  let messages=await auth({op:'inbox_events',after:inboxEvents,limit:32});let calls=await auth({op:'call_events',after:callEvents,limit:32});
@@ -113,16 +120,25 @@ async function submit(){
  if(!pending||pending.state!=='prepared'||pending.submit_started)throw Error('当前操作只能查询');
  // Commit the client marker BEFORE the request. EOF, reload or timeout never auto-resubmits.
  pending.submit_started=true;await save('pending',pending);showPending();
+ if(pending.type==='call'&&pending.action==='hangup')void audioLink.stop();
  let r;if(pending.type==='sms')r=await auth({op:'submit_sms',operation_id:pending.id});
  else r=await auth({op:'submit_call',operation_id:pending.id,lease,urgent:pending.action==='hangup'});
- if(r.lease)lease=r.lease;await query();
+ if(r.lease)lease=r.lease;showAudio();await query();
 }
-async function query(){const epoch=viewEpoch;if(!pending)return;const r=await auth({op:pending.type==='sms'?'sms_operation':'call_operation',operation_id:pending.id});if(r.lease)lease=r.lease;const operation=pending.type==='call'?r.operation:r;pending.state=operation.state;await save('pending',pending);current(epoch);showPending();notice('操作状态：'+operation.state+'；没有重复提交');}
+async function query(){const epoch=viewEpoch;if(!pending)return;const r=await auth({op:pending.type==='sms'?'sms_operation':'call_operation',operation_id:pending.id});if(r.lease)lease=r.lease;const operation=pending.type==='call'?r.operation:r;pending.state=operation.state;await save('pending',pending);current(epoch);showPending();showAudio();notice('操作状态：'+operation.state+'；没有重复提交');}
 async function act(fn){if(busy)return;const generation=++actionGeneration,epoch=viewEpoch;busy=true;try{await fn();}catch(error){if(epoch===viewEpoch&&generation===actionGeneration)notice(error.message||'操作失败');}finally{if(generation===actionGeneration){busy=false;showPending();}}}
 function bind(id,fn){$(id).onclick=()=>act(fn);}
 bind('initialize-owner',initializeOwner);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
 bind('refresh-history',loadHistory);bind('more-history',()=>historyPage());$('history-source').onchange=()=>act(async()=>{historyTypes();await historyPage(true);});$('history-entity').onchange=()=>act(()=>historyPage(true));
 bind('wifi-begin',beginWifi);bind('wifi-status',()=>wifiAction('wifi_status'));bind('wifi-confirm',()=>wifiAction('wifi_confirm'));bind('wifi-cancel',()=>wifiAction('wifi_cancel'));const previousLogout=$('logout').onclick;$('logout').onclick=()=>{clearWifi();$('wifi-section').hidden=true;previousLogout();};
 bind('more-inbox',()=>inboxPage());bind('more-calls',()=>callsPage());bind('prepare-sms',()=>prepare('sms','send'));for(const action of ['dial','accept','hangup','dtmf'])bind('prepare-'+action,()=>prepare('call',action));bind('submit',submit);bind('query',query);bind('clear',async()=>{if(!pending||!['submitted','cancelled'].includes(pending.state))throw Error('当前结果必须保留查询');pending=null;await save('pending',null);showPending();});
-setInterval(()=>{if(token&&lease&&!busy)act(async()=>{try{const r=await auth({op:'renew_call',lease});lease=r.lease;$('lease').textContent='控制租约已续期';}catch(e){lease=null;$('lease').textContent='控制租约已失效；核心清理正在处理';throw e;}});},10000);
+setInterval(()=>{if(token&&lease&&!busy)act(async()=>{try{const r=await auth({op:'renew_call',lease});lease=r.lease;$('lease').textContent='控制租约已续期';showAudio();}catch(e){lease=null;void audioLink.stop();showAudio();$('lease').textContent='控制租约已失效；核心清理正在处理';throw e;}});},10000);
 initialize().catch(error=>notice('初始化失败：'+error.message));
+
+// Microphone permission may stay pending. It must not block hangup/logout.
+$('audio-start').onclick=()=>{if(!token||!lease){notice('请先取得当前通话的控制租约');return;}const epoch=viewEpoch,authToken=token;void audioLink.start({token,lease}).catch(error=>{if(epoch===viewEpoch&&token===authToken)notice(error.message||'声音连接失败');}).finally(showAudio);};
+$('audio-stop').onclick=()=>{void audioLink.stop();$('audio-state').textContent='声音已关闭；电话可在上方挂断';showAudio();};
+$('audio-muted').onchange=()=>audioLink.mute($('audio-muted').checked);
+bind('audio-play',()=>audioLink.play());
+const audioPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{void audioLink.stop();$('audio-state').textContent='未连接声音';audioPreviousLogout();showAudio();};
+addEventListener('pagehide',()=>{void audioLink.stop();});

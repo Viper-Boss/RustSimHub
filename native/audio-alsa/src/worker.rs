@@ -36,6 +36,8 @@ struct Config {
     control_socket: PathBuf,
     core_socket: PathBuf,
     bind_ip: IpAddr,
+    #[serde(default)]
+    additional_bind_ips: Vec<IpAddr>,
 }
 struct Shared {
     phase: Phase,
@@ -60,6 +62,7 @@ impl Shared {
 struct Active {
     id: String,
     peer_ip: IpAddr,
+    bind_ip: IpAddr,
     offer: String,
     answer: String,
     shared: Arc<Mutex<Shared>>,
@@ -99,6 +102,7 @@ struct Manager {
     used: VecDeque<String>,
     core_socket: PathBuf,
     bind_ip: IpAddr,
+    allowed_bind_ips: Vec<IpAddr>,
 }
 impl Manager {
     fn new(core_socket: PathBuf, bind_ip: IpAddr) -> Self {
@@ -107,12 +111,27 @@ impl Manager {
             used: VecDeque::new(),
             core_socket,
             bind_ip,
+            allowed_bind_ips: vec![bind_ip],
         }
     }
+    #[cfg(test)]
     fn prepare(&mut self, id: String, peer_ip: IpAddr, offer: String) -> Result<Snapshot> {
+        self.prepare_on(id, peer_ip, offer, None)
+    }
+    fn prepare_on(
+        &mut self,
+        id: String,
+        peer_ip: IpAddr,
+        offer: String,
+        bind_ip: Option<IpAddr>,
+    ) -> Result<Snapshot> {
+        let bind_ip = bind_ip.unwrap_or(self.bind_ip);
+        if !self.allowed_bind_ips.contains(&bind_ip) {
+            return Err(Failure::Denied);
+        }
         if let Some(active) = &self.active {
             if active.id == id {
-                if active.peer_ip != peer_ip || active.offer != offer {
+                if active.peer_ip != peer_ip || active.offer != offer || active.bind_ip != bind_ip {
                     return Err(Failure::Denied);
                 }
                 return active.snapshot(true);
@@ -125,7 +144,7 @@ impl Manager {
             return Err(Failure::Denied);
         }
         self.active = None; // joins a terminal thread before another can own the PCM.
-        let socket = UdpSocket::bind((self.bind_ip, 0)).map_err(|_| Failure::Unavailable)?;
+        let socket = UdpSocket::bind((bind_ip, 0)).map_err(|_| Failure::Unavailable)?;
         let (session, answer) =
             Session::answer(&socket, peer_ip, &offer).map_err(|_| Failure::BadRequest)?;
         let shared = Arc::new(Mutex::new(Shared {
@@ -166,6 +185,7 @@ impl Manager {
         let active = Active {
             id: id.clone(),
             peer_ip,
+            bind_ip,
             offer,
             answer,
             shared,
@@ -193,7 +213,20 @@ impl Manager {
                 session,
                 peer_ip,
                 offer,
-            } => self.prepare(session, peer_ip, offer),
+                bind_ip,
+            } => self.prepare_on(session, peer_ip, offer, bind_ip),
+            Command::StopAll { session } => {
+                self.active = None; // stops and joins the old owner before acknowledging takeover.
+                Ok(Snapshot {
+                    session,
+                    phase: Phase::Closed,
+                    peer_key: None,
+                    answer: None,
+                    pcm_opened: false,
+                    failure: None,
+                    counters: Counters::default(),
+                })
+            }
             Command::Inspect { session } => self.active(&session)?.snapshot(false),
             Command::Stop { session } => {
                 let active = self.active(&session)?;
@@ -444,6 +477,11 @@ pub fn run(path: &str) -> std::result::Result<(), &'static str> {
     let config: Config = serde_json::from_slice(&crate::rtc_lan::read(Path::new(path), 4096)?)
         .map_err(|_| "invalid private worker configuration")?;
     if !wire::local_ip(config.bind_ip)
+        || config.additional_bind_ips.len() > 3
+        || config
+            .additional_bind_ips
+            .iter()
+            .any(|ip| !wire::local_ip(*ip))
         || [&config.control_socket, &config.core_socket]
             .iter()
             .any(|p| {
@@ -465,7 +503,14 @@ pub fn run(path: &str) -> std::result::Result<(), &'static str> {
         .map_err(|_| "worker runtime unavailable")?;
     runtime.block_on(async {
         let (listener, _guard) = crate::control_socket::bind(&config.control_socket)?;
-        let manager = Arc::new(Mutex::new(Manager::new(config.core_socket, config.bind_ip)));
+        let mut manager = Manager::new(config.core_socket, config.bind_ip);
+        for ip in config.additional_bind_ips {
+            if manager.allowed_bind_ips.contains(&ip) {
+                return Err("duplicate worker bind address");
+            }
+            manager.allowed_bind_ips.push(ip);
+        }
+        let manager = Arc::new(Mutex::new(manager));
         let result = serve(listener, manager.clone(), EDGE_UID).await;
         // Even an accept/runtime failure waits for all PCM/UDP owners to finish.
         if let Ok(mut m) = manager.lock() {
@@ -478,6 +523,44 @@ pub fn run(path: &str) -> std::result::Result<(), &'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn trusted_bind_allowlist_and_edge_takeover_do_not_reuse_an_old_session() {
+        let ip = "127.0.0.1".parse().unwrap();
+        let other = "127.0.0.2".parse().unwrap();
+        let socket = UdpSocket::bind((ip, 0)).unwrap();
+        let (_, offer, _) = Session::offer(&socket, ip).unwrap();
+        let mut manager = Manager::new(PathBuf::from("/absent/core.sock"), ip);
+        assert!(matches!(
+            manager.prepare_on(id('a'), ip, offer.clone(), Some(other)),
+            Err(Failure::Denied)
+        ));
+        manager.allowed_bind_ips.push(other);
+        assert!(manager
+            .prepare_on(id('a'), ip, offer.clone(), Some(other))
+            .unwrap()
+            .answer
+            .unwrap()
+            .contains("127.0.0.2"));
+        assert!(matches!(
+            manager.prepare_on(id('a'), ip, offer.clone(), Some(ip)),
+            Err(Failure::Denied)
+        ));
+        let snapshot = manager
+            .process(Command::StopAll { session: id('f') })
+            .unwrap();
+        assert_eq!(snapshot.phase, Phase::Closed);
+        assert!(!snapshot.pcm_opened);
+        assert!(manager.active.is_none());
+        assert!(matches!(
+            manager.prepare_on(id('a'), ip, offer.clone(), Some(other)),
+            Err(Failure::Denied)
+        ));
+        manager.prepare_on(id('b'), ip, offer, Some(ip)).unwrap();
+        manager
+            .process(Command::StopAll { session: id('f') })
+            .unwrap();
+        assert!(manager.active.is_none());
+    }
     #[test]
     fn pcm_faults_and_unexpected_transport_close_are_not_successful_stop() {
         assert_eq!(

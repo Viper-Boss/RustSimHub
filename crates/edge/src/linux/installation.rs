@@ -45,6 +45,8 @@ fn expected(listen: SocketAddr, name: &str) -> Result<Config> {
         format!("{name}:{}", listen.port())
     };
     let config = Config {
+        additional_listen_ips: Vec::new(),
+        media_worker_socket: None,
         listen,
         origin: format!("https://{authority}"),
         core_socket: "/run/rustsimhub/core/core.sock".into(),

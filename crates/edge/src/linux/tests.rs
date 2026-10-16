@@ -3,9 +3,10 @@ use super::*;
 use axum::body::Body;
 use tokio::net::UnixListener;
 use tower::ServiceExt;
-fn app(path: PathBuf) -> App {
+pub(super) fn app(path: PathBuf) -> App {
     let uid = std::fs::metadata(path.parent().unwrap()).unwrap().uid();
     App {
+        media: None,
         origin: "https://localhost:8443".into(),
         authority: "localhost:8443".into(),
         socket: Arc::new(path),
@@ -23,7 +24,7 @@ fn app(path: PathBuf) -> App {
         })),
     }
 }
-fn request(origin: &str, host: &str, body: Vec<u8>) -> Request {
+pub(super) fn request(origin: &str, host: &str, body: Vec<u8>) -> Request {
     Request::builder()
         .method("POST")
         .uri("/api/v2")
@@ -155,6 +156,8 @@ async fn changed_core_uid_or_writable_parent_is_rejected_without_connecting() {
 #[test]
 fn config_rejects_unrestricted_binds_credentials_and_noncanonical_origins() {
     let mut c = Config {
+        additional_listen_ips: Vec::new(),
+        media_worker_socket: None,
         listen: "127.0.0.1:8443".parse().unwrap(),
         origin: "https://localhost:8443".into(),
         core_socket: "/tmp/synthetic.sock".into(),
@@ -180,6 +183,42 @@ fn config_rejects_unrestricted_binds_credentials_and_noncanonical_origins() {
     c.listen = "[fd00::1]:8443".parse().unwrap();
     c.origin = "https://[fd00::1]:8443".into();
     assert!(c.authority().is_ok());
+}
+
+#[test]
+fn configured_media_and_extra_listeners_stay_private_explicit_and_unique() {
+    let mut c = Config {
+        listen: "127.0.0.1:8443".parse().unwrap(),
+        origin: "https://localhost:8443".into(),
+        core_socket: "/run/core/core.sock".into(),
+        core_uid: 986,
+        tls_directory: "/private/tls".into(),
+        legacy_compat: false,
+        media_worker_socket: Some("/run/media/worker.sock".into()),
+        additional_listen_ips: vec!["127.0.0.2".parse().unwrap()],
+    };
+    assert!(c.authority().is_ok());
+    for path in ["relative.sock", "/run/../worker.sock", "/run/./worker.sock"] {
+        c.media_worker_socket = Some(path.into());
+        assert!(c.authority().is_err());
+    }
+    c.media_worker_socket = Some("/run/media/worker.sock".into());
+    for addresses in [
+        vec!["0.0.0.0"],
+        vec!["8.8.8.8"],
+        vec!["127.0.0.1"],
+        vec!["127.0.0.2", "127.0.0.2"],
+        vec!["::1"],
+    ] {
+        c.additional_listen_ips = addresses.into_iter().map(|v| v.parse().unwrap()).collect();
+        assert!(c.authority().is_err());
+    }
+    c.additional_listen_ips = Vec::new();
+    c.media_worker_socket = None;
+    let bytes = serde_json::to_vec(&c).unwrap();
+    let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(value.get("additional_listen_ips").is_none());
+    assert!(value.get("media_worker_socket").is_none());
 }
 #[test]
 fn tls_material_is_private_and_never_overwritten() {

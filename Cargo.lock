@@ -1719,6 +1719,8 @@ dependencies = [
  "hyper-util",
  "rcgen",
  "rustsimhub-auth",
+ "rustsimhub-domain",
+ "rustsimhub-media",
  "rustsimhub-wire",
  "serde",
  "serde_json",

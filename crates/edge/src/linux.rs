@@ -40,6 +40,7 @@ use tokio_rustls::{
 };
 type Result<T> = std::result::Result<T, &'static str>;
 mod installation;
+mod media;
 
 #[derive(Deserialize, serde::Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -51,6 +52,10 @@ struct Config {
     tls_directory: PathBuf,
     #[serde(default)]
     legacy_compat: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    media_worker_socket: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    additional_listen_ips: Vec<std::net::IpAddr>,
 }
 impl Config {
     fn authority(&self) -> Result<String> {
@@ -72,6 +77,37 @@ impl Config {
         };
         if !local || self.listen.port() == 0 || self.origin.len() > 255 {
             return Err("explicit local bind required");
+        }
+        if self.additional_listen_ips.len() > 3
+            || self
+                .additional_listen_ips
+                .iter()
+                .enumerate()
+                .any(|(i, ip)| {
+                    *ip == self.listen.ip()
+                        || self.additional_listen_ips[..i].contains(ip)
+                        || !match ip {
+                            std::net::IpAddr::V4(v) => {
+                                v.is_private() || v.is_loopback() || v.is_link_local()
+                            }
+                            std::net::IpAddr::V6(v) => {
+                                v.is_loopback() || v.is_unique_local() || v.is_unicast_link_local()
+                            }
+                        }
+                })
+        {
+            return Err("invalid additional listen address");
+        }
+        if let Some(path) = &self.media_worker_socket {
+            if !self.listen.is_ipv4()
+                || self.additional_listen_ips.iter().any(|ip| !ip.is_ipv4())
+                || !path.is_absolute()
+                || path
+                    .to_str()
+                    .is_none_or(|v| v.len() > 100 || v.split('/').any(|c| matches!(c, "." | "..")))
+            {
+                return Err("explicit IPv4 media socket required");
+            }
         }
         Ok(authority.as_str().to_owned())
     }
@@ -104,6 +140,7 @@ struct App {
     legacy_compat: bool,
     legacy_rate: Arc<Mutex<Rate>>,
     legacy_limit: Arc<Semaphore>,
+    media: Option<Arc<media::Bridge>>,
 }
 fn socket_safe(path: &Path, uid: u32) -> Result<()> {
     let m = std::fs::symlink_metadata(path).map_err(|_| "core unavailable")?;
@@ -173,7 +210,10 @@ async fn api(State(app): State<App>, body: Bytes) -> Response {
         Err(_) => return denied(StatusCode::BAD_REQUEST),
     };
     // A remote media adapter must prove the actual DTLS peer before issuing a bearer.
-    if matches!(request.command, AuthCommand::IssueMedia { .. }) {
+    if matches!(
+        request.command,
+        AuthCommand::IssueMedia { .. } | AuthCommand::CheckMediaLease { .. }
+    ) {
         return denied(StatusCode::FORBIDDEN);
     }
     let result = forward(&app, &body, &request.id).await;
@@ -189,7 +229,8 @@ async fn boundary(State(app): State<App>, req: Request, next: Next) -> Response 
         && headers
             .get(header::HOST)
             .is_some_and(|v| v.as_bytes() == app.authority.as_bytes());
-    let api_path = req.uri().path() == "/api/v2";
+    let api_path = matches!(req.uri().path(), "/api/v2" | "/api/media/v1");
+    let media_capabilities = req.uri().path() == "/api/media/capabilities";
     let legacy_path = req.uri().path() == "/v1/session" || req.uri().path() == "/compat/v1/read";
     let origin_ok = headers.get_all(header::ORIGIN).iter().count() == 1
         && headers
@@ -213,6 +254,7 @@ async fn boundary(State(app): State<App>, req: Request, next: Next) -> Response 
     let mut response = if !host_ok
         || (api_path && (!origin_ok || !content_ok || !marker_ok || req.uri().query().is_some()))
         || (legacy_path && !legacy_ok)
+        || (media_capabilities && req.uri().query().is_some())
     {
         denied(StatusCode::FORBIDDEN)
     } else {
@@ -224,6 +266,13 @@ async fn boundary(State(app): State<App>, req: Request, next: Next) -> Response 
         ("content-security-policy","default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"),
         ("permissions-policy","camera=(), microphone=(), geolocation=()"),
     ] { response.headers_mut().insert(name,HeaderValue::from_static(value)); }
+    if app.media.is_some() {
+        response.headers_mut().insert(
+            "permissions-policy",
+            HeaderValue::from_static("camera=(), microphone=(self), geolocation=()"),
+        );
+        response.headers_mut().insert("content-security-policy",HeaderValue::from_static("default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; media-src 'self' blob:; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"));
+    }
     response
 }
 fn legacy_error(status: StatusCode, code: &str) -> Response {
@@ -415,6 +464,15 @@ fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/media.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/media.js"),
+                )
+            }),
+        )
+        .route(
             "/style.css",
             get(|| async {
                 (
@@ -424,6 +482,8 @@ fn router(app: App) -> Router {
             }),
         )
         .route("/api/v2", post(api))
+        .route("/api/media/v1", post(media::api))
+        .route("/api/media/capabilities", get(media::capabilities))
         .route("/v1/session", post(legacy_session))
         .route("/compat/v1/read", post(legacy_read))
         .fallback(|State(app): State<App>, req: Request| async move {
@@ -537,8 +597,26 @@ pub fn run(args: Vec<String>) -> Result<()> {
     )
     .map_err(|_| "invalid config")?;
     let authority = config.authority()?;
+    let _media_owner = if config.media_worker_socket.is_some() {
+        Some(
+            rustsimhub_auth::lock_private_directory(&config.tls_directory)
+                .map_err(|_| "media Edge instance already owns TLS directory")?,
+        )
+    } else {
+        None
+    };
     let acceptor = tls(&config.tls_directory)?;
     socket_safe(&config.core_socket, config.core_uid)?;
+    let mut configured_addresses = vec![config.listen];
+    configured_addresses.extend(
+        config
+            .additional_listen_ips
+            .iter()
+            .map(|ip| SocketAddr::new(*ip, config.listen.port())),
+    );
+    let media = config
+        .media_worker_socket
+        .map(|p| Arc::new(media::Bridge::new(p)));
     let app = App {
         origin: config.origin.into(),
         authority: authority.into(),
@@ -555,28 +633,40 @@ pub fn run(args: Vec<String>) -> Result<()> {
             remaining: 120,
         })),
         legacy_limit: Arc::new(Semaphore::new(2)),
+        media,
     };
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .map_err(|_| "runtime unavailable")?;
     runtime.block_on(async {
-        let listener=TcpListener::bind(config.listen).await.map_err(|_|"listen unavailable")?;
+        let accept_one=|listener:TcpListener|async move{let accepted=listener.accept().await;(listener,accepted)};
+        let mut acceptors=JoinSet::new();let mut listening=Vec::new();
+        for address in &configured_addresses {match TcpListener::bind(address).await {Ok(listener)=>{acceptors.spawn(accept_one(listener));listening.push(*address);},Err(e) if e.kind()==std::io::ErrorKind::AddrNotAvailable=>{},Err(_)=>return Err("listener unavailable"),}}
+        if let Some(bridge)=&app.media {bridge.takeover().await?;}
+        let mut retry_bind=tokio::time::interval(Duration::from_secs(5));retry_bind.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         let slots=Arc::new(Semaphore::new(24)); let mut tasks=JoinSet::new();
         let mut term=tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).map_err(|_|"signal unavailable")?;
         let mut interrupt=tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()).map_err(|_|"signal unavailable")?;
-        let routes=router(app);
+        let routes=router(app.clone());
+        let mut reaper=tokio::time::interval(Duration::from_millis(500));reaper.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         println!("edge ready: https only; bounded connections; core authority required");
+        let served=async {
         loop {
             tokio::select! {
                 biased;
                 _=term.recv()=>break,
                 _=interrupt.recv()=>break,
                 _=tasks.join_next(),if !tasks.is_empty()=>{},
-                incoming=listener.accept()=>{
-                    let (stream,_)=incoming.map_err(|_|"listener failed")?;
+                _=reaper.tick(),if app.media.is_some()=>{if let Some(bridge)=&app.media {bridge.reap().await;}},
+                _=retry_bind.tick()=>{for address in &configured_addresses {if !listening.contains(address) {match TcpListener::bind(address).await {Ok(listener)=>{acceptors.spawn(accept_one(listener));listening.push(*address);},Err(e) if e.kind()==std::io::ErrorKind::AddrNotAvailable=>{},Err(_)=>return Err("additional listener unavailable"),}}}},
+                incoming=acceptors.join_next(),if !acceptors.is_empty()=>{
+                    let (listener,incoming)=incoming.ok_or("listeners stopped")?.map_err(|_|"listener failed")?;
+                    acceptors.spawn(accept_one(listener));
+                    let (stream,peer)=incoming.map_err(|_|"listener failed")?;
+                    let local=stream.local_addr().map_err(|_|"listener address unavailable")?;
                     let Ok(slot)=slots.clone().try_acquire_owned() else {continue;};
-                    let acceptor=acceptor.clone();let service=TowerToHyperService::new(routes.clone());
+                    let acceptor=acceptor.clone();let service=TowerToHyperService::new(routes.clone().layer(axum::Extension(media::Connection{peer:peer.ip(),local:local.ip()})));
                     tasks.spawn(async move {
                         let _slot=slot;
                         let Ok(Ok(stream))=timeout(Duration::from_secs(3),acceptor.accept(stream)).await else {return;};
@@ -587,9 +677,13 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 }
             }
         }
+        Ok::<(),&'static str>(())
+        }.await;
         // No submitted core mutation is retried. Core durable operations resolve uncertainty.
+        acceptors.abort_all();while acceptors.join_next().await.is_some() {}
         tasks.abort_all();while tasks.join_next().await.is_some() {}
-        Ok(())
+        if let Some(bridge)=&app.media {bridge.takeover().await?;}
+        served
     })
 }
 
