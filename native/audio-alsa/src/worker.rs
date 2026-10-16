@@ -238,6 +238,18 @@ fn stopped(stop: &AtomicBool) -> Result<()> {
         Ok(())
     }
 }
+fn pcm_failure(error: rustsimhub_media::Error) -> Failure {
+    match error {
+        rustsimhub_media::Error::Denied | rustsimhub_media::Error::Expired => Failure::Denied,
+        _ => Failure::Unavailable,
+    }
+}
+fn finish_audio(result: Result<()>, requested_stop: bool) -> Result<()> {
+    match result {
+        Err(Failure::Closed | Failure::Denied) if requested_stop => Ok(()),
+        other => other,
+    }
+}
 fn session_loop(
     mut session: Session,
     socket: UdpSocket,
@@ -304,12 +316,12 @@ fn session_loop(
                 loop {
                     stopped(&audio_stop)?;
                     session.service(&socket,local::now_ms()).map_err(|_|Failure::Closed)?;
-                    pump.step(local::now_ms()).map_err(|_|Failure::Closed)?;
-                    while let Some(frame)=pump.capture(local::now_ms()).map_err(|_|Failure::Closed)? {
+                    pump.step(local::now_ms()).map_err(pcm_failure)?;
+                    while let Some(frame)=pump.capture(local::now_ms()).map_err(pcm_failure)? {
                         session.send(&socket,&frame,local::now_ms()).map_err(|_|Failure::Closed)?;
                     }
                     while let Some(frame)=session.receive(local::now_ms()).map_err(|_|Failure::Closed)? {
-                        pump.enqueue(frame,local::now_ms()).map_err(|_|Failure::Closed)?;
+                        pump.enqueue(frame,local::now_ms()).map_err(pcm_failure)?;
                     }
                     if Instant::now()>=next_stats {update_stats(&audio_shared,&session,pump.stats());next_stats=Instant::now()+Duration::from_millis(100);}
                     thread::sleep(Duration::from_millis(2));
@@ -325,11 +337,12 @@ fn session_loop(
                 _=pulse.tick()=>{if client.pulse().await.is_err(){failure=Some(Failure::Denied);break;}}
             }
         }
+        let requested_stop=stop.load(Ordering::Acquire);
         drop(client); // invalidates the PCM and codec permits before the join.
         stop.store(true,Ordering::Release);
         let result=audio.join().map_err(|_|Failure::Unavailable)?;
         if let Some(f)=failure {return Err(f);}
-        match result{Err(Failure::Closed)=>Ok(()),other=>other}
+        finish_audio(result,requested_stop)
     })
 }
 fn update_stats(shared: &Arc<Mutex<Shared>>, session: &Session, stats: rustsimhub_media::Stats) {
@@ -460,6 +473,35 @@ pub fn run(path: &str) -> std::result::Result<(), &'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn pcm_faults_and_unexpected_transport_close_are_not_successful_stop() {
+        assert_eq!(
+            finish_audio(Err(Failure::Closed), false),
+            Err(Failure::Closed)
+        );
+        assert_eq!(
+            finish_audio(Err(Failure::Denied), false),
+            Err(Failure::Denied)
+        );
+        assert!(finish_audio(Err(Failure::Closed), true).is_ok());
+        assert!(finish_audio(Err(Failure::Denied), true).is_ok());
+        assert_eq!(
+            finish_audio(Err(Failure::Unavailable), true),
+            Err(Failure::Unavailable)
+        );
+        assert_eq!(
+            pcm_failure(rustsimhub_media::Error::XrunLimit),
+            Failure::Unavailable
+        );
+        assert_eq!(
+            pcm_failure(rustsimhub_media::Error::Device),
+            Failure::Unavailable
+        );
+        assert_eq!(
+            pcm_failure(rustsimhub_media::Error::Expired),
+            Failure::Denied
+        );
+    }
     #[tokio::test]
     async fn incomplete_control_frame_expires_without_creating_a_session() {
         let (_client, server) = UnixStream::pair().unwrap();

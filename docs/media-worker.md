@@ -1,5 +1,7 @@
 # 常驻媒体工作进程
 
+后续实机记录：173b21f的ARM构建及负向预检通过。一次10010真实Core预检/单次票据、PCM打开与NAS解码已到达，但36帧后出现4次播放欠载而保护退出，不能称稳定媒体通过；报告media-worker-carrier-second.json清理/电话空闲/权限撤回均通过，10010累计16。程序原把PCM错误和异常断流都折为正常closed，现将PCM权限/设备错误分类保留，仅显式停止能消化关闭/撤销结果。回归后194 workspace、19 Native及Clippy通过。实机测试的状态轮询改为以Edge985执行同源诊断CLI，避免每次新建systemd命名空间；Core/Media的候选根目录、固定UID、空能力集合保持验证。正式Edge产品适配仍未实现，不把诊断CLI当网页服务。新修订ARM与实际复测待完成。
+
 2026-10-16：233110a的193项workspace、17项Native/Clippy及同源ARM构建通过；真实候选用户态的第二轮无拨号预检通过，两次DTLS、固定Media984/Edge985和Root控制拒绝、换peer/无Core票据不打开PCM、进程复用及退出清理已验证，见私有media-worker-preflight-second.json。首轮因prepare请求失败保留，实机CPU耗时显示一秒预算过紧；SDK将prepare预算调整为五秒，其他控制仍一秒，服务端读帧/回复分别一秒，不把证书创建算作输入超时。慢证书回复和不完整帧回归后，本机194项workspace、18项Native及两者Clippy通过；修订后的ARM构建和实机复测待完成。当前不据此宣称网页媒体、授权PCM或完整系统可用。
 
 `rustsimhub-audio-alsa --serve-worker PRIVATE_CONFIG`要求固定Media984/Core986/Edge985及Root管理的锁定服务账户。配置仅有control_socket、core_socket、bind_ip：私有文件、显式本地IPv4、绝对有界Unix路径。不接受网络提供的UID、ALSA路径、shell、录音路径、呼叫控制或硬件profile。只监听本地控制socket；音频UDP仅为实际协商的一条会话。
@@ -15,6 +17,8 @@ worker只允许一条会话。相同session且相同offer/peer重试返回原ans
 Core心跳独立于PCM线程，每250ms刷新，断开、许可/租约失效或stop会先撤销许可再join。PCM/Opus每帧继续检查许可，网络断流保留原一秒媒体超时。SIGTERM/INT或控制服务失败会停止并等待会话线程，之后移除控制socket；没有自动拨号、重拨或短信。统计只含帧计数、丢帧及xrun，不含声音、SDP或凭据日志。
 
 `simhubctl worker-request SOCKET PRIVATE_REQUEST NEW_PRIVATE_REPLY`使用固定984对端校验，校验协议/id/session后将回复写入新私有文件，仅打印保存确认；用于调试及后续适配复用，owner私钥无需交给Media。native诊断新增offer_synthetic_gated：完成DTLS后等私有synthetic-start文件的精确start换行标记，再开始静音媒体，等待期间不开PCM、不发送媒体包。该模式用于先做握手再执行一次受控10010验收，不能替代设备Core许可。
+
+`tools/test-media-worker-preflight.py`默认仅做无拨号检查；显式`--call-10010 --once-tag UNIQUE`还要求已有人工拨号授权，先完成负向预检再新建生产Core/签名owner，以临时最小Voice规则验证一次真实呼叫。Root拥有owner私钥，Edge只取得短期票据。拨号标记在提交前独占创建，18秒独立停止计时器先启用；Unknown只查询，绝不自动再拨。临时规则、Core/Media和计时器在退出时清理，再核验原四服务/PCM/电话空闲及Voice重新拒绝。私有信令先写临时文件、设定权限和owner，再原子发布，避免消费者读到中间权限。
 
 本机测试覆盖真实DTLS握手前后无PCM、换票据peer拒绝、伪Core身份拒绝、重复prepare/busy/终止后不复活、socket双实例/活跃旧端点/链接与替换证据保护、IPC错误UID及回复session拒绝，以及Core预检不消费票据并拒绝错误owner/租约/非ACTIVE。旧音频/Opus/DTLS/SRTP/撤销测试保持通过。
 
