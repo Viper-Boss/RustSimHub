@@ -556,9 +556,34 @@ pub fn run(args: Vec<String>) -> Result<()> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            serde_json::json!({"source_archive_sha256":rustsimhub_wire::build_source_sha256(),"local_installation_preparation_supported":true})
+            serde_json::json!({"source_archive_sha256":rustsimhub_wire::build_source_sha256(),"local_installation_preparation_supported":true,"media_installation_preparation_supported":true})
         );
         return Ok(());
+    }
+    if let [command, rest @ ..] = args.as_slice() {
+        if command == "--prepare-local-media" || command == "--check-local-media" {
+            let preparing = command == "--prepare-local-media";
+            let required = if preparing { 3 } else { 2 };
+            if rest.len() < required || rest.len() > required + 3 {
+                return Err("invalid media installation arguments");
+            }
+            let offset = usize::from(preparing);
+            let listen = rest[offset]
+                .parse()
+                .map_err(|_| "invalid local listen address")?;
+            let name = &rest[offset + 1];
+            let additional = rest[required..]
+                .iter()
+                .map(|s| s.parse().map_err(|_| "invalid additional address"))
+                .collect::<Result<Vec<std::net::IpAddr>>>()?;
+            let result = if preparing {
+                installation::prepare_profile(Path::new(&rest[0]), listen, name, Some(&additional))?
+            } else {
+                installation::check_media(listen, name, &additional)?
+            };
+            println!("{result}");
+            return Ok(());
+        }
     }
     if let [command, directory, listen, name] = args.as_slice() {
         if command == "--prepare-local" {

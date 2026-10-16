@@ -1,6 +1,6 @@
 [Unit]
 Description=One automatic application group recovery per boot
-After=rustsimhub-core.service rustsimhub-edge.service rustsimhub-app-select.service
+After=rustsimhub-core.service rustsimhub-media.service rustsimhub-edge.service rustsimhub-app-select.service
 
 [Service]
 Type=oneshot

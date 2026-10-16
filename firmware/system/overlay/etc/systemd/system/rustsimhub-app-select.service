@@ -3,7 +3,7 @@ ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/installation.comple
 Description=Choose one verified application version for the complete group
 Requires=rustsimhub-firstboot.service
 After=rustsimhub-firstboot.service systemd-tmpfiles-setup.service
-Before=rustsimhub-core.service rustsimhub-edge.service
+Before=rustsimhub-core.service rustsimhub-media.service rustsimhub-edge.service
 PartOf=rustsimhub-app.target
 OnFailure=rustsimhub-app-recover.service
 

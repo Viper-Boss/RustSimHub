@@ -58,8 +58,10 @@ def main():
         parser.add_argument('--'+name, type=pathlib.Path, required=True)
     for name in ('signed-application','release-public','updater-artifacts'):
         parser.add_argument('--'+name,type=pathlib.Path)
+    parser.add_argument('--native-artifacts', type=pathlib.Path, help='Explicit same-source worker provenance; never inferred from an older signed payload')
     args = parser.parse_args()
     startup = bool(args.signed_application)
+    assert not args.native_artifacts or startup
     assert all((args.signed_application,args.release_public,args.updater_artifacts)) or not any((args.signed_application,args.release_public,args.updater_artifacts))
     if sys.platform != 'linux' or os.geteuid() != 0:
         parser.error('Linux root is required to preserve numeric owners')
@@ -100,6 +102,13 @@ def main():
         assert base_tools.sha256_file(updater/'rustsimhub-edge')==verifier['artifact_sha256']['rustsimhub-edge']
         assert base_tools.sha256_file(updater/'rustsimhub-update')==verifier['artifact_sha256']['rustsimhub-update']
         assert 'AArch64' in subprocess.check_output(['readelf','-h',str(updater/'rustsimhub-update')],text=True)
+        if args.native_artifacts:
+            native = args.native_artifacts.resolve(strict=True)
+            media_build = json.loads((native/'build.json').read_text())
+            assert media_build['revision'] == build['revision'] and media_build['source_archive_sha256'] == build['source_archive_sha256']
+            assert media_build['target'] == 'aarch64-unknown-linux-gnu' and media_build.get('worker_control_supported') is True and media_build['exit_code'] == 0
+            assert verifier.get('media_installation_preparation_supported') is True, 'Immutable setup lacks the media installation profile'
+            assert base_tools.sha256_file(native/'rustsimhub-audio-alsa') == media_build['binary_sha256'] == base_tools.sha256_file(signed/'rustsimhub-audio-alsa')
     args.out.mkdir(mode=0o700)
     output = args.out.resolve(strict=True)
     try:
@@ -113,7 +122,7 @@ def main():
         assert not any(line.split(':')[0] == 'rustsimhub-ipc' or line.split(':')[2] == '987' for line in groups)
         base_tools._edit_lines(tree / 'etc/group', 'rustsimhub-ipc', 'rustsimhub-ipc:x:987:', 0o644)
         base_tools._edit_lines(tree / 'etc/gshadow', 'rustsimhub-ipc', 'rustsimhub-ipc:!::', 0o640)
-        for member in ('rustsimhub-core', 'rustsimhub-edge'):
+        for member in ('rustsimhub-core', 'rustsimhub-edge', 'rustsimhub-media'):
             group_member(tree, 'rustsimhub-ipc', member)
         group_member(tree, 'audio', 'rustsimhub-media')
         prefix = 'firmware/system/overlay/'
@@ -157,6 +166,7 @@ def main():
             destination(tree,'opt/rustsimhub/selected').mkdir(mode=0o755)
             destination(tree,'var/lib/rustsimhub-core').mkdir(mode=0o755)
             destination(tree,'var/lib/rustsimhub-edge').mkdir(mode=0o755)
+            destination(tree,'var/lib/rustsimhub-media').mkdir(mode=0o755)
         state_mount = destination(tree, 'var/lib/rustsimhub')
         state_mount.mkdir(mode=0o700, exist_ok=True)
         assert not any(state_mount.iterdir())
@@ -176,13 +186,15 @@ def main():
                      'application_revision': build['revision'], 'application_source_sha256': build['source_archive_sha256'],
                      'application_sha256': build['artifact_sha256'], 'overlay_sha256': overlay_hashes,
                      'flash_allowed': False, 'release_ready': False, 'recovery_verified': False,
-                     'app_service_group_installed': startup, 'native_media_installed': False,
+                     'app_service_group_installed': startup, 'native_media_installed': bool(args.native_artifacts),
+                     'media_configuration_required': bool(args.native_artifacts),
                      'board_boot_verified': False, 'private_data_included': False}
         if startup:
             candidate['factory_manifest_sha256']=base_tools.sha256_file(signed/'manifest.json')
             candidate['release_public_sha256']=base_tools.sha256_file(release)
             candidate['immutable_updater_build']=verifier
             candidate['automatic_update_health_confirmation']=False
+            if args.native_artifacts: candidate['native_media_build'] = media_build
         destination(tree, 'usr/share/rustsimhub/system-candidate.json').write_text(json.dumps(candidate, indent=2)+'\n')
         spec = importlib.util.spec_from_file_location('base_audit', ROOT / 'tools/rootfs/scripts/audit-rootfs.py')
         audit = importlib.util.module_from_spec(spec)

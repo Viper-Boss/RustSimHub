@@ -1,4 +1,6 @@
-2026-10-16最新：严格HTTPS两阶段媒体在USB/Wi-Fi各一次10010通过，真实DTLS/Opus/PCM到NAS解码159/147帧；重复激活防重、Edge正常退出后Core仍活而PCM关闭、相同身份/证书名/Origin/owner token跨两个真实监听地址通过。四份私有报告passed/cleanup_verified，旧四服务active、电话空闲、PCM关闭、权限撤回。累计10010=22，新SMS/蜂窝/分区写入0；保留可恢复欠载/少量丢帧。874f01c六程序ARM/Native ARM、本机201/20与Clippy/Node通过。见VALIDATION-WEB-MEDIA-P3G.md；P3+0.5、P4+0.5，总体72.5/100约73%。浏览器权限/麦克风/听音、产品服务组硬退出联动及完整系统/恢复仍缺；换卡流量延后。
+2026-10-16最新交互：实际Chrome配对/登录/防重和真实下行一句已发生，但媒体打开约3秒后提前退出，30秒后保护才挂断，持续声音未通过。新增实际10010两次，累计24，中间一轮只等待未拨号。预览/Voice权限/PCM及临时Windows证书已清理；见VALIDATION-BROWSER-MEDIA-P3H.md。新增Media正式启动/可信初装源码和有限退出分类诊断，本机202 workspace/20 Native与Clippy、39板级/Node通过；新ARM与服务组实机待验收。仍72.5/100约73%，不将部分听音或源码当成故障已解决。
+
+2026-10-16：严格HTTPS两阶段媒体在USB/Wi-Fi各一次10010通过，真实DTLS/Opus/PCM到NAS解码159/147帧；重复激活防重、Edge正常退出后Core仍活而PCM关闭、相同身份/证书名/Origin/owner token跨两个真实监听地址通过。四份私有报告passed/cleanup_verified，旧四服务active、电话空闲、PCM关闭、权限撤回。累计10010=22，新SMS/蜂窝/分区写入0；保留可恢复欠载/少量丢帧。874f01c六程序ARM/Native ARM、本机201/20与Clippy/Node通过。见VALIDATION-WEB-MEDIA-P3G.md；P3+0.5、P4+0.5，总体72.5/100约73%。浏览器权限/麦克风/听音、产品服务组硬退出联动及完整系统/恢复仍缺；换卡流量延后。
 
 2026-10-16历史：可信首次安装、持久TLS及设置码/身份的Root私有交付、未初始化不启动和重复安装拒绝在棒子候选用户态实机通过；真实崩溃整组回退回归及清理通过。新组合12338项/树3e3f51ce…、离线启动依赖与树保持核验通过，191项Rust/38板级/六程序ARM/CI通过。见VALIDATION-INSTALLATION-P6J.md。P6加0.5至6，总体70.5/100约71%。尚未实际NSHSTATE初始化、新系统上电或刷写，恢复/维护/媒体仍缺；拨号/SMS/蜂窝新增0。
 

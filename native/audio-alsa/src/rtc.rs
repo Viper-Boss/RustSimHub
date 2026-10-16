@@ -374,6 +374,10 @@ impl Session {
                 .or(self.authorized_at)
                 .is_some_and(|at| at.elapsed() >= Duration::from_secs(1))
         {
+            eprintln!(
+                "rtc_closed reason=media_idle sent={} received={}",
+                self.sent_frames, self.received_frames
+            );
             self.close();
             return Err(Error::Closed);
         }

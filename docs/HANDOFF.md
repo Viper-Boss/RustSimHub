@@ -1,5 +1,9 @@
 # RustSimHub 当前接手入口
 
+2026-10-16交互测试最新覆盖：真实Chrome用户配对/登录/跨Core重启再次登录和防重提交已发生；两次实际10010，累计24，第二个等待窗口未拨号。用户第三标记听到一句真实语音后无声，日志PCM07:40:39.7打开、worker07:40:43.13结束、独立Core保护07:41:08.21挂断，**约3秒媒体提前退出未解决**。见VALIDATION-BROWSER-MEDIA-P3H.md；不加进度，仍72.5/100。私有browser-preview-20261016-first.json cleanup_verified=true，预览已停、旧四服务active/PCMclosed/呼叫全terminated，Voice规则撤回；临时Windows证书已实际移除，browser-preview-trust.json removed=true。Chrome插件能列出页面但接管超时/Debugger unattached，未实际控制，不换机制绕过。用户曾要求快点手测，当前不再要求用户继续点击。
+
+工作区正在完成媒体安装/服务组源码：Edge显式--prepare-local-media/--check-local-media、Root initializer可选--media-lan、双份私有配置一致性、Media984仅指定ALSA设备/无D-Bus、BindsTo Core/Edge、一次恢复耗尽后停止整组、源码构建能力标记及测试工具。Native增加不含媒体内容/地址/标识的退出分类和终止帧计数。当前201+1=202 workspace/20 Native与Clippy、39板级/Node验证日志在.private/media-installation-final-source-second.log、media-installation-system-final.log；需检查终态再冻结构建。尚未对新源码ARM/产品单元实测，不把source/诊断当故障已修复。
+
 **最新权威检查点：2026-10-16，72.5/100约73%，10010累计22。** 覆盖下面源码阶段/20次/待编译等历史状态。见VALIDATION-WEB-MEDIA-P3G.md：874f01c/归档ff1d445b…本机六程序ARM和NAS Native ARM退出0；Native5516704字节、SHAe6bf7769…，本机201 workspace/20 Native及两者Clippy、Node媒体/proof通过。private/media-current-build.json和默认source.tar.gz均属于874，旧签名9b应用/fbc整系统组合不变。
 
 严格HTTPS的USB/Wi-Fi各一次10010通过，标记web-media-20261016-a1/a2均已消费；真实DTLS/Opus/PCM、NAS分别159/147帧、重复activate防重、Edge正常退出Core存活而PCM关闭通过，均有1次可恢复xrun；Wi-Fi NAS端2帧丢失保留。另无拨号双接口检查验证相同设备身份/证书名/Origin/同owner token。四份web-media-*-first.json均passed/cleanup_verified；旧四服务active、电话空闲、PCM全关闭、Voice规则已撤回且拒绝，未新增SMS/蜂窝/分区写入；无活跃测试或编译任务。测试工具tools/test-web-media-device.py默认不拨号，可选明确once标记单次10010。

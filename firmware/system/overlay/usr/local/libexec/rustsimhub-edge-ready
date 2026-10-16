@@ -9,3 +9,11 @@ while ! test -S /run/rustsimhub/core/core.sock;do
 done
 test ! -L /run/rustsimhub/core/core.sock
 test "$(stat -c %u /run/rustsimhub/core/core.sock)" = 986
+if test -e /var/lib/rustsimhub-edge/installation/media.json;then
+ n=0
+ while ! test -S /run/rustsimhub/media/worker.sock;do
+  n=$((n+1));test "$n" -lt 40;sleep .25
+ done
+ test ! -L /run/rustsimhub/media/worker.sock
+ test "$(stat -c %u /run/rustsimhub/media/worker.sock)" = 984
+fi

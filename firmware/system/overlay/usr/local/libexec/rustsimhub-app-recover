@@ -9,6 +9,14 @@ runtime=/run/rustsimhub-app
 test ! -L "$runtime"
 test "$(stat -c '%u:%g:%a' "$runtime")" = 0:0:755
 marker=$runtime/recovery.used
+if test -e "$marker" && test ! -L "$marker";then
+ test "$(stat -c '%u:%g:%a:%h' "$marker")" = 0:0:600:1
+ test "$(cat "$marker")" = RustSimHub.AppRecovery.v1
+ # A failed optional Media must also leave the whole group stopped when the
+ # single retry was already consumed. Never keep a partially live group.
+ systemctl --no-block stop rustsimhub-app.target
+ exit 1
+fi
 test ! -e "$marker"
 test ! -L "$marker"
 (set -C; printf 'RustSimHub.AppRecovery.v1\n' > "$marker")

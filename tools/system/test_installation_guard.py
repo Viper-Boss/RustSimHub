@@ -30,6 +30,19 @@ class InstallationGuardTests(unittest.TestCase):
         code=self.root/'core/setup/setup.code';code.unlink();code.symlink_to(self.root/'core/identity/identity.seed')
         self.assertNotEqual(self.run_check().returncode,0)
 
+    def test_media_copies_must_match_be_private_and_not_silently_downgrade(self):
+        edge=self.root/'edge/installation/media.json';media=self.root/'media/config.json'
+        media.parent.mkdir(mode=0o700)
+        for path,uid in [(edge,985),(media,984)]:
+            path.write_bytes(b'synthetic fixed media configuration');path.chmod(0o600);os.chown(path,uid,uid)
+        self.assertEqual(self.run_check().returncode,0)
+        media.write_bytes(b'different binding');self.assertNotEqual(self.run_check().returncode,0)
+        media.write_bytes(edge.read_bytes());media.chmod(0o644);self.assertNotEqual(self.run_check().returncode,0)
+        media.chmod(0o600)
+        pending=media.with_suffix('.json.pending');pending.write_bytes(b'partial');self.assertNotEqual(self.run_check().returncode,0);pending.unlink()
+        edge.unlink();self.assertNotEqual(self.run_check().returncode,0)
+        media.unlink();self.assertEqual(self.run_check().returncode,0)
+
 @unittest.skipUnless(os.geteuid()==0,'isolated numeric owner tests require root')
 class InitializationAdmissionTests(unittest.TestCase):
     def setUp(self):

@@ -1,0 +1,40 @@
+[Unit]
+Description=RustSimHub isolated LAN media worker
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/installation.complete
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/media/config.json
+Requires=rustsimhub-app-select.service rustsimhub-core.service
+After=rustsimhub-app-select.service rustsimhub-core.service
+BindsTo=rustsimhub-core.service rustsimhub-edge.service
+Before=rustsimhub-edge.service
+PartOf=rustsimhub-app.target
+OnFailure=rustsimhub-app-recover.service
+
+[Service]
+Type=exec
+User=rustsimhub-media
+Group=rustsimhub-media
+SupplementaryGroups=audio rustsimhub-ipc
+ExecStart=/opt/rustsimhub/selected/rustsimhub-audio-alsa --serve-worker /var/lib/rustsimhub-media/config.json
+BindReadOnlyPaths=/run/rustsimhub-app/selected:/opt/rustsimhub/selected /var/lib/rustsimhub/rustsimhub-v1/media:/var/lib/rustsimhub-media /run/rustsimhub/core
+BindPaths=/run/rustsimhub/media
+InaccessiblePaths=/run/dbus /var/lib/rustsimhub /var/lib/rustsimhub-core /var/lib/rustsimhub-edge
+ReadWritePaths=/run/rustsimhub/media
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=no
+DevicePolicy=closed
+DeviceAllow=/dev/snd/controlC0 rw
+DeviceAllow=/dev/snd/pcmC0D0p rw
+DeviceAllow=/dev/snd/pcmC0D1c rw
+DeviceAllow=/dev/snd/pcmC0D4p rw
+DeviceAllow=/dev/snd/pcmC0D4c rw
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET
+UMask=0077
+MemoryMax=128M
+TasksMax=12
+TimeoutStopSec=5
+LimitCORE=0

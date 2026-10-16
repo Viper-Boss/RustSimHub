@@ -5,12 +5,20 @@ set -eu
 umask 077
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
-test "$#" = 4
+test "$#" -ge 4
+test "$#" -le 8
 test "$(id -u)" = 0
 maintenance=$1
 listen=$2
 name=$3
 output=$4
+shift 4
+media=0
+if test "$#" -gt 0;then
+ test "$1" = --media-lan
+ shift
+ media=1
+fi
 root=/var/lib/rustsimhub/rustsimhub-v1
 system=$root/system
 factory=/usr/share/rustsimhub/factory-app
@@ -34,12 +42,13 @@ private_dir "$system" 0
 private_dir "$system/ssh-access" 0
 private_dir "$root/core" 986
 private_dir "$root/edge" 985
+if test "$media" = 1;then private_dir "$root/media" 984;fi
 absent "$system/installation.complete"
 if test -e "$system/installation.complete.pending" || test -L "$system/installation.complete.pending";then
  private_file "$system/installation.complete.pending" 0
  test "$(cat "$system/installation.complete.pending")" = RustSimHub.InitialInstallation.v1
 fi
-for unit in rustsimhub-app.target rustsimhub-core.service rustsimhub-edge.service;do
+for unit in rustsimhub-app.target rustsimhub-core.service rustsimhub-edge.service rustsimhub-media.service;do
  test "$(systemctl show --value -p LoadState "$unit")" = loaded
  if systemctl is-active --quiet "$unit";then exit 1;fi
 done
@@ -69,7 +78,11 @@ if test -e "$anchor" || test -L "$anchor" || test -e "$anchor.pending" || test -
 fi
 absent "$root/core/setup/setup.used"
 "$updater" verify-package "$public" "$factory" >/dev/null
-"$edge_setup" --check-local "$listen" "$name" >/dev/null
+if test "$media" = 1;then
+ "$edge_setup" --check-local-media "$listen" "$name" "$@" >/dev/null
+else
+ "$edge_setup" --check-local "$listen" "$name" >/dev/null
+fi
 work=$(mktemp -d /run/rustsimhub-install-XXXXXXXX)
 cleanup(){ rm -f -- "$work/core.json" "$work/edge.json";rmdir -- "$work"; }
 trap cleanup EXIT HUP INT TERM
@@ -98,7 +111,25 @@ else
  sync -f "$pending";sync -f "$system"
  mv -nT -- "$pending" "$anchor";absent "$pending"
 fi
-run_role edge "$edge_setup" --prepare-local /var/lib/rustsimhub-edge "$listen" "$name" > "$work/edge.json"
+if test "$media" = 1;then
+ run_role edge "$edge_setup" --prepare-local-media /var/lib/rustsimhub-edge "$listen" "$name" "$@" > "$work/edge.json"
+ source=$root/edge/installation/media.json
+ private_file "$source" 985
+ destination=$root/media/config.json
+ pending=$destination.pending
+ if test -e "$destination" || test -L "$destination";then
+  private_file "$destination" 984;cmp -s "$source" "$destination";absent "$pending"
+ else
+  if absent "$pending";then install -o 984 -g 984 -m 0600 -- "$source" "$pending";fi
+  private_file "$pending" 984;cmp -s "$source" "$pending";sync -f "$pending";sync -f "$root/media"
+  mv -nT -- "$pending" "$destination";absent "$pending"
+ fi
+ sync -f "$root/media"
+else
+ absent "$root/media/config.json"
+ absent "$root/media/config.json.pending"
+ run_role edge "$edge_setup" --prepare-local /var/lib/rustsimhub-edge "$listen" "$name" > "$work/edge.json"
+fi
 if absent "$access";then
  pending=$access.pending
  if absent "$pending";then (set -C;cat "$maintenance" > "$pending");fi

@@ -179,6 +179,7 @@ impl Manager {
                         Ok(Err(e)) => Some(e),
                         Err(_) => Some(Failure::Unavailable),
                     };
+                    eprintln!("worker_closed failure={:?} pcm_opened={} captured={} sent={} received={} played={} dropped={} xruns={}", s.failure, s.pcm_opened, s.counters.captured, s.counters.sent, s.counters.received, s.counters.played, s.counters.dropped, s.counters.xruns);
                 }
             })
             .map_err(|_| Failure::Unavailable)?;
@@ -283,6 +284,11 @@ fn finish_audio(result: Result<()>, requested_stop: bool) -> Result<()> {
         other => other,
     }
 }
+fn rtc_failure(stage: &'static str, error: rustsimhub_audio_alsa::rtc::Error) -> Failure {
+    // Fixed enum and stage only. Never print SDP, addresses, keys or audio.
+    eprintln!("worker_rtc_failure stage={stage} kind={error:?}");
+    Failure::Closed
+}
 fn session_loop(
     mut session: Session,
     socket: UdpSocket,
@@ -350,13 +356,13 @@ fn session_loop(
                 loop {
                     stopped(&audio_stop)?;
                     let tick=Instant::now();max_loop=max_loop.max(tick.duration_since(previous).as_micros());previous=tick;
-                    let serviced=session.service(&socket,local::now_ms());max_service=max_service.max(tick.elapsed().as_micros());serviced.map_err(|_|Failure::Closed)?;
+                    let serviced=session.service(&socket,local::now_ms());max_service=max_service.max(tick.elapsed().as_micros());serviced.map_err(|e|rtc_failure("service",e))?;
                     let tick=Instant::now();let stepped=pump.step(local::now_ms());max_step=max_step.max(tick.elapsed().as_micros());stepped.map_err(pcm_failure)?;
                     let tick=Instant::now();
                     while let Some(frame)=pump.capture(local::now_ms()).map_err(pcm_failure)? {
-                        session.send(&socket,&frame,local::now_ms()).map_err(|_|Failure::Closed)?;
+                        session.send(&socket,&frame,local::now_ms()).map_err(|e|rtc_failure("send",e))?;
                     }
-                    while let Some(frame)=session.receive(local::now_ms()).map_err(|_|Failure::Closed)? {
+                    while let Some(frame)=session.receive(local::now_ms()).map_err(|e|rtc_failure("receive",e))? {
                         pump.enqueue(frame,local::now_ms()).map_err(pcm_failure)?;
                     }
                     max_codec=max_codec.max(tick.elapsed().as_micros());

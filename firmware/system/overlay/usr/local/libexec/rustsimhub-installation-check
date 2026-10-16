@@ -27,3 +27,15 @@ fi
 for name in config.json record.json tls/cert.der tls/cert.pem tls/key.der;do
  file "$root/edge/installation/$name" 985
 done
+if test -e "$root/edge/installation/media.json" || test -L "$root/edge/installation/media.json";then
+ file "$root/edge/installation/media.json" 985
+ file "$root/media/config.json" 984
+ test ! -e "$root/media/config.json.pending"
+ test ! -L "$root/media/config.json.pending"
+ cmp -s "$root/edge/installation/media.json" "$root/media/config.json"
+else
+ test ! -e "$root/media/config.json"
+ test ! -L "$root/media/config.json"
+ test ! -e "$root/media/config.json.pending"
+ test ! -L "$root/media/config.json.pending"
+fi

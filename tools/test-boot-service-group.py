@@ -12,14 +12,17 @@ p=argparse.ArgumentParser(description=__doc__)
 for name in ('nas','device','application','artifacts','updater-artifacts','report'):p.add_argument('--'+name,type=pathlib.Path,required=True)
 p.add_argument('--root-directory',required=True)
 p.add_argument('--reuse-inputs',help='Existing private fixture containing the identical generic signed packages; bind read-only')
+p.add_argument('--media-lan',action='store_true',help='Provision same-address worker and include it in signed group lifecycle checks; no calls')
+p.add_argument('--failure-role',choices=['core','media'],default='core')
 a=p.parse_args();assert not a.report.exists()
+assert a.failure_role != 'media' or a.media_lan
 assert re.fullmatch('/var/tmp/rustsimhub-system-tree-[A-Za-z0-9]{8}/rootfs',a.root_directory)
 assert not a.reuse_inputs or re.fullmatch('/var/tmp/rustsimhub-boot-group-[A-Za-z0-9]{8}',a.reuse_inputs)
 nc=json.loads(a.nas.read_text(encoding='utf-8-sig'));dc=json.loads(a.device.read_text(encoding='utf-8-sig'))
 app=json.loads((a.artifacts/'build.json').read_text());tool=json.loads((a.updater_artifacts/'build.json').read_text())
 assert app['development_fixtures'] is False and tool.get('boot_runtime_selection_supported') is True and tool.get('local_installation_preparation_supported') is True
 tag=uuid.uuid4().hex[:10];prefix='rustsimhub-boot-'+tag
-original=['rustsimhub-app.target','rustsimhub-app-select.service','rustsimhub-core.service','rustsimhub-edge.service','rustsimhub-app-recover.service']
+original=['rustsimhub-app.target','rustsimhub-app-select.service','rustsimhub-core.service','rustsimhub-edge.service','rustsimhub-app-recover.service','rustsimhub-media.service']
 units={name:prefix+'-'+name.removeprefix('rustsimhub-') for name in original}
 report={'passed':False,'new_calls':0,'new_sms':0,'cellular_tests':False,'boot_units_installed':False,'new_os_boot_verified':False,'actual_nshstate_guard_run':False,'development_signer':True,'units':units,'application_source':app['source_archive_sha256'],'immutable_updater_source':tool['source_archive_sha256']}
 nas=dev=sf=None;base=None;mounted=False;policy=None;unit_files={};input_mounts=[];runtime='/run/'+prefix
@@ -71,9 +74,9 @@ def updater(command,*extra):
  for prop in ['RootDirectory='+a.root_directory,'MountAPIVFS=yes','TemporaryFileSystem=/var/tmp:mode=1777 /run:mode=0755','PrivateDevices=yes','PrivateNetwork=yes','ProtectSystem=strict','NoNewPrivileges=yes','CapabilityBoundingSet=','AmbientCapabilities=','BindPaths='+base+'/ledger '+base+'/versions '+base+'/versions:'+base+'/ledger/versions','BindReadOnlyPaths='+base+'/bin '+base+'/package1 '+base+'/package2 '+base+'/package3 '+base+'/release.public','RuntimeMaxSec=45']:args+=['-p',prop]
  return run(shlex.join(args+[base+'/bin/rustsimhub-update',command,base+'/ledger',base+'/release.public',*extra]))[1]
 def verify_processes(hash_value):
- for role,uid in [('core',986),('edge',985)]:
+ for role,uid in [('core',986),('edge',985)]+([('media',984)] if a.media_lan else []):
   pid=run('systemctl show --value -p MainPID '+q(units['rustsimhub-'+role+'.service']))[1].strip();assert pid.isdecimal() and int(pid)>0
-  source=base+'/versions/'+hash_value+'/rustsimhub-'+role
+  source=base+'/versions/'+hash_value+'/rustsimhub-'+('audio-alsa' if role=='media' else role)
   script='\n'.join(['test "$(stat -Lc %d:%i /proc/'+pid+'/root)" = "$(stat -Lc %d:%i '+q(a.root_directory)+')"',
    'test "$(stat -Lc %d:%i /proc/'+pid+'/exe)" = "$(stat -Lc %d:%i '+q(source)+')"',
    'test "$(awk \'/^Uid:/{print $2}\' /proc/'+pid+'/status)" = '+str(uid),
@@ -87,6 +90,7 @@ try:
  run('mount -t tmpfs -o size=1m,mode=0700,nosuid,nodev,noexec tmpfs '+q(base+'/ledger'));mounted=True
  run('test "$(stat -c %d '+q(base+'/ledger')+')" != "$(stat -c %d '+q(base+'/versions')+')"\nmkdir -m 0700 '+q(base+'/ledger/versions')+'\ninstall -d -o 986 -g 986 -m 0700 '+q(base+'/core')+'\nfor n in state identity setup journal archive access compat;do install -d -o 986 -g 986 -m 0700 '+q(base+'/core')+'/$n;done\ninstall -d -o 985 -g 985 -m 0700 '+q(base+'/edge')+'\ninstall -d -o 986 -g 987 -m 2750 '+q(base+'/runtime'))
  report['ledger_and_payloads_are_distinct_actual_filesystems']=True
+ run('install -d -o 984 -g 984 -m 0700 '+q(base+'/media')+'\ninstall -d -o 984 -g 987 -m 2750 '+q(base+'/runtime-media'))
  for epoch in (1,2,3):
   directory=a.application/f'package{epoch}';remote=base+'/package'+str(epoch);run('mkdir -m 0755 '+q(remote))
   for path in directory.iterdir():
@@ -110,7 +114,7 @@ try:
  data=(a.updater_artifacts/'rustsimhub-edge').read_bytes();assert hashlib.sha256(data).hexdigest()==tool['artifact_sha256']['rustsimhub-edge']
  put(base+'/bin/rustsimhub-edge-setup',data,0o555)
  overlay=ROOT/'firmware/system/overlay'
- replacements={'/var/lib/rustsimhub/rustsimhub-v1/system/app':base+'/ledger','/var/lib/rustsimhub/rustsimhub-v1/core':base+'/core','/var/lib/rustsimhub/rustsimhub-v1/edge':base+'/edge','/var/lib/rustsimhub/rustsimhub-v1':base,'/usr/libexec/rustsimhub/':base+'/bin/','/usr/local/libexec/':base+'/helpers/','/usr/share/rustsimhub/release.public':base+'/release.public','/usr/share/rustsimhub/factory-app':base+'/package1','/opt/rustsimhub/versions':base+'/versions','/opt/rustsimhub/selected':'/mnt/selected','/run/rustsimhub-app':runtime}
+ replacements={'/var/lib/rustsimhub/rustsimhub-v1/system/app':base+'/ledger','/var/lib/rustsimhub/rustsimhub-v1/core':base+'/core','/var/lib/rustsimhub/rustsimhub-v1/edge':base+'/edge','/var/lib/rustsimhub/rustsimhub-v1/media':base+'/media','/var/lib/rustsimhub/rustsimhub-v1':base,'/usr/libexec/rustsimhub/':base+'/bin/','/usr/local/libexec/':base+'/helpers/','/usr/share/rustsimhub/release.public':base+'/release.public','/usr/share/rustsimhub/factory-app':base+'/package1','/opt/rustsimhub/versions':base+'/versions','/opt/rustsimhub/selected':'/mnt/selected','/run/rustsimhub-app':runtime}
  def rewrite(text):
   for old,new in replacements.items():text=text.replace(old,new)
   for old,new in units.items():text=text.replace(old,new)
@@ -127,12 +131,16 @@ try:
   text=text.replace('Requires=rustsimhub-firstboot.service\n','').replace('After=rustsimhub-firstboot.service systemd-tmpfiles-setup.service\n','')
   text=text.replace('RuntimeDirectory=rustsimhub-app','RuntimeDirectory='+prefix)
   lines=text.splitlines()
-  text='\n'.join(line.replace(' /run/rustsimhub/core',' '+base+'/runtime:/run/rustsimhub/core') if line.startswith(('BindPaths=','BindReadOnlyPaths=')) else line for line in lines)+'\n'
+  def bind_line(line):
+   if not line.startswith(('BindPaths=','BindReadOnlyPaths=')):return line
+   key,value=line.split('=',1);mapping={'/run/rustsimhub/core':base+'/runtime:/run/rustsimhub/core','/run/rustsimhub/media':base+'/runtime-media:/run/rustsimhub/media'}
+   return key+'='+' '.join(mapping.get(part,part) for part in value.split())
+  text='\n'.join(bind_line(line) for line in lines)+'\n'
   if name.endswith('.service'):
    text+='\nBindReadOnlyPaths='+base+'/helpers\n'
    if name!='rustsimhub-app-recover.service':
     text+='RootDirectory='+a.root_directory+'\nMountAPIVFS=yes\nTemporaryFileSystem=/var/tmp:mode=1777 /run:mode=0755 /mnt:mode=0755 /var/lib:mode=0755\nBindReadOnlyPaths='+base+'/bin '+base+'/package1 '+base+'/release.public\n'
-    if name=='rustsimhub-app-select.service':text+='BindPaths='+base+'/ledger '+base+'/versions\nBindReadOnlyPaths='+base+'/core '+base+'/edge '+base+'/system\n'
+    if name=='rustsimhub-app-select.service':text+='BindPaths='+base+'/ledger '+base+'/versions\nBindReadOnlyPaths='+base+'/core '+base+'/edge '+base+'/media '+base+'/system\n'
     if name=='rustsimhub-core.service':text+='BindReadOnlyPaths=/run/dbus\n'
   path='/run/systemd/system/'+units[name];assert run('test ! -e '+q(path),check=False)[0]==0
   put(path,text.encode(),0o644);unit_files[path]=hashlib.sha256(text.encode()).hexdigest()
@@ -141,6 +149,7 @@ try:
  maintenance=Ed25519PrivateKey.generate();maintenance_pub=maintenance.public_key().public_bytes(Encoding.OpenSSH,PublicFormat.OpenSSH)+b' synthetic-maintenance\n'
  put(base+'/operator/maintenance.pub',maintenance_pub)
  initialize=shlex.join([base+'/helpers/rustsimhub-install-initialize',base+'/operator/maintenance.pub',dc['host']+':8448',dc['host'],base+'/operator/handoff'])
+ if a.media_lan:initialize+=' --media-lan'
  run('systemctl start '+q(units['rustsimhub-app.target']),check=False)
  assert all(stateunit(n)!='active' for n in ['rustsimhub-core.service','rustsimhub-edge.service'])
  run('test ! -e '+q(runtime+'/recovery.used'))
@@ -184,10 +193,10 @@ finally:c.close()
  run('systemctl stop '+q(units['rustsimhub-app.target']));updater('stage',base+'/package2')
  run('systemctl start '+q(units['rustsimhub-app.target']));wait_group(hashes[2]);verify_processes(hashes[2]);assert health()==baseline
  # One actual SIGKILL, recorded before dispatch. No business operation is submitted.
- report['candidate_kill_armed']=True;save();run('systemctl kill --kill-whom=main --signal=KILL '+q(units['rustsimhub-core.service']))
+ report['candidate_kill_armed']=True;report['failure_role']=a.failure_role;save();run('systemctl kill --kill-whom=main --signal=KILL '+q(units['rustsimhub-'+a.failure_role+'.service']))
  wait_group(hashes[1]);verify_processes(hashes[1]);assert health()==baseline
  assert json.loads(updater('status').splitlines()[-1])['floor_epoch']==2
- report['actual_core_kill_triggered_whole_group_automatic_fallback']=True;save()
+ report['actual_'+a.failure_role+'_kill_triggered_whole_group_automatic_fallback']=True;save()
  run('systemctl stop '+q(units['rustsimhub-app.target']));updater('stage',base+'/package3')
  run('systemctl start '+q(units['rustsimhub-app.target']));wait_group(hashes[3]);assert health()==baseline
  updater('confirm',hashes[3]);run('systemctl stop '+q(units['rustsimhub-app.target'])+'\nsystemctl start '+q(units['rustsimhub-app.target']));wait_group(hashes[3]);assert health()==baseline
@@ -197,6 +206,7 @@ finally:c.close()
  while time.monotonic()<deadline and any(stateunit(n)=='active' for n in original[:4]):time.sleep(.3)
  assert not any(stateunit(n)=='active' for n in original[:4]);time.sleep(.6)
  assert not any(stateunit(n)=='active' for n in original[:4])
+ assert stateunit('rustsimhub-media.service')!='active'
  assert run('systemctl show --value -p ExecMainStatus '+q(units['rustsimhub-app-recover.service']))[1].strip()!='0'
  report['second_failure_does_not_loop_or_reuse_boot_recovery_budget']=True;report['passed']=True
  print('Real candidate boot units: signed non-root full Core/Edge, actual crash automatic group fallback, health confirmation and bounded recovery passed')
