@@ -342,7 +342,10 @@ impl Session {
                         );
                         let mut frame = match decoded {
                             Ok(frame) => frame,
-                            Err(crate::codec::CodecError::SequenceDiscarded) => {
+                            Err(
+                                crate::codec::CodecError::SequenceDiscarded
+                                | crate::codec::CodecError::EmptyDiscarded,
+                            ) => {
                                 self.dropped_frames += 1;
                                 continue;
                             }

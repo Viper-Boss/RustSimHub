@@ -1,5 +1,8 @@
 # RustSimHub 当前接手入口
 
+**当前检查点：73/100，10010 累计 26。** d2b1c13 实机定位到零长度音频负载导致 Codec 退出，用户仍约五秒无声；详见 VALIDATION-BROWSER-MEDIA-P3I.md。第五标记未拨，第六标记一通、同通话两次声音连接，30 秒保护后所有呼叫 terminated。当前预览已停止/旧四服务 active/PCM closed。新空负载跳过修正和顶部一键 10010 测试源码已通过 202 workspace/21 Native/Clippy、Node 三组及语法检查，尚待新 ARM 构建部署。d2b1 六 ARM/Native 制品及开发签名包已核对，不能把它们当本次新源码。连续调试的同一临时证书仍 installed=true，结束或暂停听音必须运行 .local/cleanup-preview-trust.ps1 并核验移除。
+
+
 **最新权威：73/100，P6=6.5，10010累计25。** 71506f0/bacd57c2…六程序ARM与同源Native均构建退出0，Native5516704字节/SHA b5bebefd…/20项/release3m11s；202 workspace/20 Native/Clippy、39板级和Node通过。开发签名.private/boot-application-71506f0保留，只有开发公钥和签名包上传，seed未离开本机。media-boot-group-first.json passed/cleanup_verified，真实Media SIGKILL完整组回退、首次媒体配置、同签名Root/inode/UID/cap、第二次Edge SIGKILL预算耗尽整组停止通过；见VALIDATION-MEDIA-STARTUP-P6K.md。不是完整新OS启动/NSHSTATE初始化/刷机。
 
 用户本次又方便参加715诊断，第四标记a4实际拨出一次，累计25；仍只听4—5秒。日志明确worker_rtc_failure stage=service kind=Codec，251 captured/sent、259received、252played、5dropped、1xrun。30秒保护已挂断，预览服务已停止/旧四服务active/PCMclosed/Voice撤回；证据browser-preview-71506f0-diagnostic-first.json和browser-preview-71506f0-current-native.log。当前正在增加包守卫/时长/格式拒绝分类及晚到重复包只丢弃的修正，尚未认定其为现场原因，需新ARM与一次浏览器诊断。**此次连续调试的同一临时Windows证书仍在，browser-preview-trust.json installed=true/remove_after_test=true，结束或暂停听音后必须运行.local/cleanup-preview-trust.ps1并核验移除。** 下文已移除描述属于前一轮，不能当当前状态。

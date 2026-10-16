@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { prove, unhex, hex } from './proof.js';
 import { AudioLink } from './media.js';
+import { CallTest } from './call-test.js';
 const $=id=>document.getElementById(id);
 const scopes=['status.read','sms.read','calls.read'];
 let key, publicKey, token=null, busy=false, pending=null, lease=null;
@@ -9,6 +10,7 @@ let historyCursor=null, historySources=[];
 let wifiTrial=null;
 let audioReady=false;
 const audioLink=new AudioLink($('call-audio'),(text,state)=>{$('audio-state').textContent=text;$('audio-stop').disabled=state==='closed';showAudio();});
+const callTest=new CallTest({audio:audioLink,login:()=>token?Promise.resolve():login(),request:command=>auth(command),context:lease=>({token,lease}),getPending:()=>pending,setPending:async value=>{pending=value;await save('pending',value);showPending();},onLease:value=>{lease=value;showAudio();},notify:(text,running)=>{$('test-state').textContent=text;$('test-start').disabled=running||!audioReady;$('test-stop').disabled=!running;}});
 function showAudio(){$('audio-start').disabled=!token||!lease||!audioReady||audioLink.state!=='closed';$('audio-stop').disabled=audioLink.state==='closed';}
 let db;
 let viewEpoch=0, actionGeneration=0;const requests=new Set();
@@ -41,6 +43,7 @@ async function initialize(){
  const identity=await api({op:'identity'});$('first-setup').hidden=identity.owner_setup_available!==true;
  try{const response=await fetch('/api/media/capabilities',{credentials:'omit',cache:'no-store',redirect:'error'});const capability=await response.json();audioReady=response.ok&&capability.protocol===1&&capability.enabled===true;}catch{audioReady=false;}
  $('audio-section').hidden=!audioReady;showAudio();
+ $('test-start').disabled=!audioReady;$('test-state').textContent=audioReady?'点击一次即可；首次使用请允许麦克风。':'此设备暂未开启浏览器音频。';
 }
 async function proof(challenge,purpose,pairScopes,epoch=viewEpoch){
  let expectedKind=purpose==='bootstrap'?'owner':'client';
@@ -133,7 +136,7 @@ bind('initialize-owner',initializeOwner);bind('pair',pair);bind('login',login);$
 bind('refresh-history',loadHistory);bind('more-history',()=>historyPage());$('history-source').onchange=()=>act(async()=>{historyTypes();await historyPage(true);});$('history-entity').onchange=()=>act(()=>historyPage(true));
 bind('wifi-begin',beginWifi);bind('wifi-status',()=>wifiAction('wifi_status'));bind('wifi-confirm',()=>wifiAction('wifi_confirm'));bind('wifi-cancel',()=>wifiAction('wifi_cancel'));const previousLogout=$('logout').onclick;$('logout').onclick=()=>{clearWifi();$('wifi-section').hidden=true;previousLogout();};
 bind('more-inbox',()=>inboxPage());bind('more-calls',()=>callsPage());bind('prepare-sms',()=>prepare('sms','send'));for(const action of ['dial','accept','hangup','dtmf'])bind('prepare-'+action,()=>prepare('call',action));bind('submit',submit);bind('query',query);bind('clear',async()=>{if(!pending||!['submitted','cancelled'].includes(pending.state))throw Error('当前结果必须保留查询');pending=null;await save('pending',null);showPending();});
-setInterval(()=>{if(token&&lease&&!busy)act(async()=>{try{const r=await auth({op:'renew_call',lease});lease=r.lease;$('lease').textContent='控制租约已续期';showAudio();}catch(e){lease=null;void audioLink.stop();showAudio();$('lease').textContent='控制租约已失效；核心清理正在处理';throw e;}});},10000);
+setInterval(()=>{if(token&&lease&&!busy&&!callTest.running)act(async()=>{try{const r=await auth({op:'renew_call',lease});lease=r.lease;$('lease').textContent='控制租约已续期';showAudio();}catch(e){lease=null;void audioLink.stop();showAudio();$('lease').textContent='控制租约已失效；核心清理正在处理';throw e;}});},10000);
 initialize().catch(error=>notice('初始化失败：'+error.message));
 
 // Microphone permission may stay pending. It must not block hangup/logout.
@@ -141,5 +144,6 @@ $('audio-start').onclick=()=>{if(!token||!lease){notice('请先取得当前通�
 $('audio-stop').onclick=()=>{void audioLink.stop();$('audio-state').textContent='声音已关闭；电话可在上方挂断';showAudio();};
 $('audio-muted').onchange=()=>audioLink.mute($('audio-muted').checked);
 bind('audio-play',()=>audioLink.play());
-const audioPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{void audioLink.stop();$('audio-state').textContent='未连接声音';audioPreviousLogout();showAudio();};
-addEventListener('pagehide',()=>{void audioLink.stop();});
+bind('test-start',()=>callTest.start());$('test-stop').onclick=()=>{void callTest.stop();};
+const audioPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{void callTest.stop(false);void audioLink.stop();$('audio-state').textContent='未连接声音';audioPreviousLogout();showAudio();};
+addEventListener('pagehide',()=>{void callTest.stop(false);void audioLink.stop();});

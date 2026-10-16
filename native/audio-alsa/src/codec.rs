@@ -9,6 +9,7 @@ pub enum CodecError {
     Authorization(Error),
     Packet,
     SequenceDiscarded,
+    EmptyDiscarded,
     Codec,
 }
 // Never Debug or Serialize: encoded speech is also private conversation data.
@@ -98,17 +99,18 @@ impl Codec {
         now: u64,
     ) -> Result<Frame, CodecError> {
         self.gate(now)?;
-        if packet.is_empty()
-            || packet.len() > MAX_PACKET
-            || at_ms > now
-            || now - at_ms >= MAX_AGE_MS
-        {
+        if packet.len() > MAX_PACKET || at_ms > now || now - at_ms >= MAX_AGE_MS {
             eprintln!("codec_rejected reason=packet_guard bytes={} future={} stale={} nonincreasing_sequence={}",packet.len(),at_ms>now,now.saturating_sub(at_ms)>=MAX_AGE_MS,self.last_receive.is_some_and(|s|sequence<=s));
             return Err(CodecError::Packet);
         }
         // Drop late/duplicate audio before Opus; it must not keep a peer alive.
         if self.last_receive.is_some_and(|s| sequence <= s) {
             return Err(CodecError::SequenceDiscarded);
+        }
+        // SRTP may deliver padding/probe packets with no Opus payload. They
+        // consume no decoder state and cannot extend the media idle deadline.
+        if packet.is_empty() {
+            return Err(CodecError::EmptyDiscarded);
         }
         let samples = opus::packet::get_nb_samples(packet, RATE).map_err(|_| {
             eprintln!("codec_rejected reason=packet_parse");
@@ -272,6 +274,32 @@ mod tests {
         ));
         assert!(matches!(
             c.decode(packet.bytes(), 3, 0, 0),
+            Err(CodecError::Authorization(_))
+        ));
+    }
+    #[test]
+    fn empty_authenticated_payload_does_not_consume_sequence_or_bypass_authorization() {
+        let (mut authority, permit) = fixture().unwrap();
+        let mut codec = Codec::new(permit, 0).unwrap();
+        let frame = Frame {
+            samples: [512; SAMPLES],
+            sequence: 1,
+            at_ms: 0,
+        };
+        let packet = codec.encode(&frame, 0).unwrap();
+        codec.decode(packet.bytes(), 1, 0, 0).unwrap();
+        assert_eq!(
+            codec.decode(&[], u64::MAX, 0, 0).err(),
+            Some(CodecError::EmptyDiscarded)
+        );
+        codec.decode(packet.bytes(), 2, 0, 0).unwrap();
+        assert_eq!(
+            codec.decode(&[], 3, 0, MAX_AGE_MS).err(),
+            Some(CodecError::Packet)
+        );
+        authority.revoke();
+        assert!(matches!(
+            codec.decode(&[], 3, 0, 0),
             Err(CodecError::Authorization(_))
         ));
     }

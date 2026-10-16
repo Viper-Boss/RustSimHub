@@ -26,14 +26,19 @@ export class AudioLink {
    try{this.current(g);changed();}catch(error){finish(error);}
   });
  }
- async start(context){
-  const closing=this.stop(),g=this.generation;await closing;this.current(g);
+ async input(){
   if(this.env.isSecureContext!==true||!this.env.navigator?.mediaDevices?.getUserMedia||!this.env.RTCPeerConnection||!this.env.RTCRtpSender?.getCapabilities)throw Error('请使用受信任的 HTTPS 和支持语音的浏览器');
+  return this.env.navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+ }
+ async start(context,{stream:provided=null}={}){
+  const closing=this.stop(),g=this.generation;
+  try{
+  await closing;this.current(g);
+  if(this.env.isSecureContext!==true)throw Error('请使用受信任的 HTTPS 和支持语音的浏览器');
   if(!context?.token||!context.lease)throw Error('请先登录并取得当前通话的控制租约');
   this.context={token:context.token,lease:{...context.lease}};this.session=this.env.crypto.randomUUID().replaceAll('-','');
   this.say('opening','正在等待麦克风权限…');
-  try{
-   const stream=await this.env.navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+   const stream=provided||await this.input();
    if(g!==this.generation){for(const track of stream.getTracks())track.stop();throw Error('声音连接已取消');}
    this.stream=stream;const tracks=stream.getAudioTracks();if(tracks.length!==1)throw Error('未取得单个麦克风输入');
    tracks[0].enabled=!this.muted;
@@ -56,7 +61,7 @@ export class AudioLink {
    while(snapshot.phase==='authorizing'){await this.wait(200,g);snapshot=await this.send(this.context,this.session,{op:'poll'},g);if(now()>=end)throw Error('声音授权未完成；没有自动重试');}
    if(snapshot.phase!=='active'||snapshot.pcm_opened!==true)throw Error('当前通话的声音未就绪');
    this.say('active','声音已连接');void this.monitor(g);return snapshot;
-  }catch(error){if(g===this.generation){void this.stop();this.say('closed',error.message||'声音连接失败');}throw error;}
+  }catch(error){if(provided)for(const track of provided.getTracks())track.stop();if(g===this.generation){void this.stop();this.say('closed',error.message||'声音连接失败');}throw error;}
  }
  async monitor(g){
   try{while(g===this.generation){await this.wait(1000,g);const snapshot=await this.send(this.context,this.session,{op:'poll'},g);if(snapshot.phase!=='active'||snapshot.failure){void this.stop();this.say('closed','声音连接已结束；请检查当前通话后手动重连');return;}}}
