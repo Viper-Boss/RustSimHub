@@ -89,6 +89,22 @@ async fn call_with_uid(socket: &str, command: AuthCommand, expected_uid: u32) ->
     Ok(reply.result)
 }
 pub async fn run(args: &[String]) -> Result<()> {
+    if let [command, socket, input, output] = args {
+        if command == "worker-request" {
+            let bytes = rustsimhub_auth::read_private(
+                Path::new(input),
+                rustsimhub_media::worker::MAX_FRAME,
+            )?;
+            let request =
+                rustsimhub_media::worker::parse(&bytes).map_err(|_| "invalid worker request")?;
+            let reply = rustsimhub_media::worker::exchange(Path::new(socket), 984, request)
+                .await
+                .map_err(|_| "worker request failed")?;
+            rustsimhub_auth::write_private_new(Path::new(output), &serde_json::to_vec(&reply)?)?;
+            println!("{}", json!({"private_worker_reply_saved":true}));
+            return Ok(());
+        }
+    }
     if let [command, socket, expected_uid] = args {
         if command == "identity" {
             let expected_uid: u32 = expected_uid.parse().map_err(|_| "invalid core UID")?;

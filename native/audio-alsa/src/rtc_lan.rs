@@ -17,6 +17,7 @@ use std::{
 #[serde(rename_all = "snake_case")]
 enum Mode {
     OfferSynthetic,
+    OfferSyntheticGated,
     AnswerSynthetic,
     AnswerAuthorized,
 }
@@ -37,7 +38,7 @@ fn directory(path: &Path) -> Result<(), &'static str> {
     }
     Ok(())
 }
-fn read(path: &Path, limit: usize) -> Result<Vec<u8>, &'static str> {
+pub(crate) fn read(path: &Path, limit: usize) -> Result<Vec<u8>, &'static str> {
     directory(path.parent().ok_or("private path denied")?)?;
     let f = std::fs::OpenOptions::new()
         .read(true)
@@ -116,7 +117,7 @@ pub fn run(path: &str) -> Result<(), &'static str> {
     let socket = UdpSocket::bind(config.bind).map_err(|_| "UDP bind failed")?;
     let end = Instant::now() + Duration::from_secs(30);
     let mut session = match config.mode {
-        Mode::OfferSynthetic => {
+        Mode::OfferSynthetic | Mode::OfferSyntheticGated => {
             let (mut session, offer, pending) =
                 Session::offer(&socket, config.peer_ip).map_err(|_| "offer failed")?;
             write(&base.join("offer.sdp"), offer.as_bytes())?;
@@ -158,6 +159,31 @@ pub fn run(path: &str) -> Result<(), &'static str> {
             .map_err(|_| "verified metadata")?
             .as_slice(),
     )?;
+    if matches!(config.mode, Mode::OfferSyntheticGated) {
+        // Diagnostic peer only: finish DTLS before dialing, then await an explicit
+        // private start marker. No PCM and no media packets while waiting.
+        let start = base.join("synthetic-start");
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            match std::fs::symlink_metadata(&start) {
+                Ok(_) => {
+                    if read(&start, 16)? != b"start\n" {
+                        return Err("invalid synthetic start marker");
+                    }
+                    break;
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                _ => return Err("private synthetic start denied"),
+            }
+            if Instant::now() >= deadline {
+                return Err("synthetic start deadline");
+            }
+            session
+                .service(&socket, local::now_ms())
+                .map_err(|_| "gated transport stopped")?;
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
     match config.mode {
         Mode::AnswerAuthorized => authorized(base, &config, session, socket, peer),
         _ => synthetic(base, config.seconds, session, socket, peer),

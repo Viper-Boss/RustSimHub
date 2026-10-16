@@ -1,11 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 #![forbid(unsafe_code)]
 mod authorized;
+mod control_socket;
 mod rtc_lan;
 mod trusted;
+mod worker;
 fn main() {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     if let [command, config] = args.as_slice() {
+        if command == "--serve-worker" {
+            if let Err(reason) = worker::run(config) {
+                eprintln!("media worker stopped: {reason}");
+                std::process::exit(1);
+            }
+            return;
+        }
         if command == "--rtc-lan-peer" {
             if let Err(reason) = rtc_lan::run(config) {
                 eprintln!("LAN media stopped: {reason}");
@@ -37,7 +46,7 @@ fn main() {
     if args == ["--build-info"] {
         println!(
             "{}",
-            serde_json::json!({"source_archive_sha256":rustsimhub_media::build_source_sha256()})
+            serde_json::json!({"source_archive_sha256":rustsimhub_media::build_source_sha256(),"local_media_worker_supported":true})
         );
         return;
     }

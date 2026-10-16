@@ -8,6 +8,15 @@ pub fn core_uid(uid: u32) -> bool {
     if uid == 0 {
         return true;
     }
+    service_uid("rustsimhub-core", uid)
+}
+pub fn service_uid(name: &str, uid: u32) -> bool {
+    if !matches!(
+        name,
+        "rustsimhub-core" | "rustsimhub-edge" | "rustsimhub-media"
+    ) {
+        return false;
+    }
     let Ok(f) = std::fs::OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
@@ -30,7 +39,7 @@ pub fn core_uid(uid: u32) -> bool {
     };
     let rows = text
         .lines()
-        .filter(|row| row.starts_with("rustsimhub-core:"))
+        .filter(|row| row.starts_with(&format!("{name}:")))
         .collect::<Vec<_>>();
     if rows.len() != 1 {
         return false;

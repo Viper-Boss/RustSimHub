@@ -17,3 +17,4 @@ tokio = { version = "1", features = ["net","time","io-util"] }
 
 [dev-dependencies]
 tempfile = "3"
+tokio = { version = "1", features = ["rt","macros"] }

@@ -122,16 +122,35 @@ async fn media_issue_checks_real_owner_scopes_lease_active_and_explicit_mode() {
         lease: lease.clone(),
         peer_key: [7; 32],
     };
+    let check = |token: &str, lease: &CallLease| AuthCommand::CheckMediaLease {
+        token: token.into(),
+        lease: lease.clone(),
+    };
+    assert!(f.worker.process(check(&f.first, &lease)).await.is_err());
     assert!(f.worker.process(request(&f.first, &lease)).await.is_err());
     f.worker.media_enabled = true;
+    assert!(f.worker.process(check(&f.second, &lease)).await.is_err());
     assert!(f.worker.process(request(&f.second, &lease)).await.is_err());
     let mut bad = lease.clone();
     bad.generation += 1;
+    assert!(f.worker.process(check(&f.first, &bad)).await.is_err());
     assert!(f.worker.process(request(&f.first, &bad)).await.is_err());
     f.data.state.store(5, Ordering::SeqCst);
+    assert!(f.worker.process(check(&f.first, &lease)).await.is_err());
     assert!(f.worker.process(request(&f.first, &lease)).await.is_err());
     f.data.state.store(4, Ordering::SeqCst);
+    let before = f.worker.process(check(&f.first, &lease)).await.unwrap();
+    assert_eq!(before["media_lease_valid"], true);
+    assert_eq!(before["binding"].as_str().unwrap().len(), 64);
+    assert_eq!(
+        before,
+        f.worker.process(check(&f.first, &lease)).await.unwrap()
+    );
     let credential = f.worker.process(request(&f.first, &lease)).await.unwrap();
+    assert_eq!(
+        before,
+        f.worker.process(check(&f.first, &lease)).await.unwrap()
+    );
     assert!(credential["ticket"].is_array());
     assert!(f.worker.process(request(&f.first, &lease)).await.is_err());
     assert_eq!(f.data.creates.load(Ordering::SeqCst), 1);

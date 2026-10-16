@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-10-16媒体源码检查点：见media-worker.md，常驻Native --serve-worker/有限IPC与SDK、simhubctl私有worker-request、Core无副作用check_media_lease和NAS诊断offer_synthetic_gated已实现。WSL本机Rust1.98.0通过193项workspace/17项Native及两者Clippy（.private/media-worker-source-gated.log），此前host初次缺alsa/C++/cmake，已仅本机补齐并成功；无棒子编译。尚需冻结源、六程序ARM和NativeARM，以及实际worker隔离验收。未新增电话/SMS/蜂窝、整体仍70.5点。HTTP仍拒绝IssueMedia，尚未接两阶段网页信令，media_available=false。恢复按键提问仍待答复；没有EDL操作。
+
 2026-10-16当前：可信首次安装与持久TLS私有交付实机通过，见VALIDATION-INSTALLATION-P6J.md；固定70.5/100约71%，P6=6/12。不可变工具源码fbc2cdba4f8453dfe8484caf35e13a077e41da89，源9f331a82de78d90008b6c7c81858f48995bf23151986633fe10e40246fd22266，191项/六程序ARM/相关Clippy/CI38770338860成功，板级38。主应用/Native仍9b/19f。默认.local/source.tar.gz现属于fbc，独立source-install-fbc2cdba…tar.gz保留；新工具.local/wsl-artifacts-fbc2cdba4f8453dfe8484caf35e13a077e41da89。
 
 实机.private/installation-boot-first.json passed/cleanup_verified=true：未初始化不启动且不耗恢复预算、错误签名无新身份、Root私有handoff、重复初始化拒绝、首次owner/严格TLS/完整Core及原SIGKILL整组回退回归通过。新fixture /var/tmp/rustsimhub-boot-group-gp3sz82L；无安装生产服务、无新OS启动、actual_nshstate_guard_run=false，实际NSHSTATE初始化尚未做。无活跃实机程序；旧四服务active/PCMclosed，新增电话/SMS/蜂窝0，10010累计15。

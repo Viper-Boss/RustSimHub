@@ -27,6 +27,7 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | CallOperation { .. }
         | RenewCall { .. }
         | IssueMedia { .. }
+        | CheckMediaLease { .. }
         | HistorySources { .. }
         | HistoryPage { .. }
         | HistoryDetail { .. }
@@ -168,6 +169,7 @@ pub(crate) async fn handle(
             | AuthCommand::CallOperation { .. }
             | AuthCommand::RenewCall { .. }
             | AuthCommand::IssueMedia { .. }
+            | AuthCommand::CheckMediaLease { .. }
     );
     let result = if matches!(
         request.command,

@@ -7,6 +7,7 @@ use rustsimhub_policy::{Principal, Scope};
 use rustsimhub_storage::{CallObservation, CallRequest, CallSummary, Handle};
 use rustsimhub_wire::AuthCommand;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
@@ -258,6 +259,23 @@ impl Worker {
             media_scope: true,
             control_scope: true,
         })
+    }
+    async fn media_request(
+        &self,
+        token: &str,
+        lease: &CallLease,
+        peer_key: [u8; 32],
+    ) -> Result<(Principal, rustsimhub_media::Context)> {
+        if !self.writes || !self.media_enabled {
+            return Err("media_disabled");
+        }
+        let principal = self.principal(token, Scope::MediaUse).await?;
+        if principal != self.principal(token, Scope::CallsControl).await? {
+            return Err("media_denied");
+        }
+        self.validate_lease(&principal, lease, &lease.call_id)?;
+        let context = self.media_context(&principal, peer_key).await?;
+        Ok((principal, context))
     }
     async fn handle_media(&mut self, j: crate::media_ipc::Job) {
         use crate::media_ipc::Action;
@@ -552,19 +570,31 @@ impl Worker {
                 lease,
                 peer_key,
             } => {
-                if !self.writes || !self.media_enabled {
-                    return Err("media_disabled");
-                }
-                let p = self.principal(&token, Scope::MediaUse).await?;
-                let c = self.principal(&token, Scope::CallsControl).await?;
-                if p != c {
-                    return Err("media_denied");
-                }
-                self.validate_lease(&p, &lease, &lease.call_id)?;
-                let context = self.media_context(&p, peer_key).await?;
+                let (p, context) = self.media_request(&token, &lease, peer_key).await?;
                 let now = self.now();
                 self.media.expire(now);
                 serde_json::to_value(self.media.issue(p, context, now)?).map_err(|_| "media_denied")
+            }
+            AuthCommand::CheckMediaLease { token, lease } => {
+                let (_, c) = self.media_request(&token, &lease, [0; 32]).await?;
+                // Stable over renewal, but changes with every owner/line/call/lease incarnation.
+                let binding = serde_json::to_vec(&(
+                    "rustsimhub-media-owner-binding-v1",
+                    c.boot,
+                    c.backend,
+                    c.line,
+                    c.call,
+                    c.call_revision,
+                    c.lease_generation,
+                    c.principal,
+                    c.principal_generation,
+                ))
+                .map_err(|_| "media_denied")?;
+                let binding = Sha256::digest(binding)
+                    .iter()
+                    .map(|b| format!("{b:02x}"))
+                    .collect::<String>();
+                Ok(json!({"media_lease_valid":true,"binding":binding}))
             }
             AuthCommand::CallStatus { token } => {
                 self.principal(&token, Scope::CallsRead).await?;
