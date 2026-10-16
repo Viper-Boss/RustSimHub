@@ -28,6 +28,8 @@
 
 所有候选的flash_allowed/release_ready/recovery_verified/board_boot_verified仍为false，automatic_update_health_confirmation=false，媒体未开放。
 
+后续离线制成3,436,183,552字节ext4镜像，SHA256 `26cca986649b9b0aa8cea386f55b2d5620bc11831c12807316815aa835dd41e7`。e2fsck -f -n退出0；在私有挂载namespace中loop/ro/noload挂载逐条核对内容、mode、numeric owner与capabilities，12338个候选条目一致，另有mkfs生成的空Root0700 lost+found。检查后源树保持。系统镜像标为internal-unflashable-system-image，未包含私人固件、设备状态未初始化、内核精确构建来源仍未闭环；不能安装或发布，不额外计进度。本机位置、构建脚本及清单见HANDOFF.md。
+
 ## 进度与下一步
 
 P6增加0.5点至6/12，总体70.5/100，约71%。增加来自可信初始化、持久TLS私有交付和启动门禁的实际接线，不按测试数、重复回退验收或组合次数计分。

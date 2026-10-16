@@ -6,6 +6,10 @@
 
 新完整组合WSL /home/wzs11/.cache/rustsimhub/system-tree-p6j-installation-first，组合源码fbc，12338条目、树3e3f51ced9e4b377576ccfb7bfb697e1bd6cabad542f7961cff78048a553bf4c；systemd依赖只读验证退出0、树保持。所有刷写/发布/恢复/新OS启动门禁仍false。下面P6I的ed786/f83组合是上一轮已验证历史，不是当前工具或组合输入。
 
+离线镜像WSL /home/wzs11/.cache/rustsimhub/system-image-p6j-first/rootfs.img，3436183552字节、SHA26cca986649b9b0aa8cea386f55b2d5620bc11831c12807316815aa835dd41e7；同目录SYSTEM-IMAGE.json passed/source_tree_unchanged=true。Root .local/build-installation-image.py（SHA933dd5c9…）以固定UUID/hash_seed/epoch生成，再e2fsck -fn、私有loop/ro/noload挂载和全部条目/owner/mode/cap核验通过，额外仅空Root0700 lost+found。日志.private/system-image-p6j-build.log及WSL输出目录。类型internal-unflashable-system-image、所有刷写/恢复/发布门禁false，private_firmware_included/device_state_initialized=false。没有上传或写入棒子，不加分；不能拿此镜像跳过恢复与状态准备。
+
+GitHub已发布2927569b94fc的只读恢复工具，前一d15cdc9保存安装实证。原未发布fd76ea1含新增CI步骤，GitHub tree接口404；读取token scopes证实无workflow。该草稿仅保存在本地codex/recovery-ci-pending分支；从未发布，不要直接推送它。main已恢复CI文件到既有版本后重制当前提交，恢复7项测试仅本机通过，不宣称CI包含新测试。无需为无关代码索取新授权，也不要换认证绕过工作流权限。
+
 恢复准备进行中：已读旧r138资料，实际设备树只有mode-bootloader/recovery，无mode-edl，未猜测reboot edl。NAS隔离工具目录由.private/recovery-tools-location.log定位，已Root拥有/0700；此前固定bkerler-edl源码1cda1a616748d608667b2d13b73a28d3197ceb45/归档2907e7f6…及本人旧8916加载器959439aa…已上传，私有venv依赖/--help及新只读封装runtime-check通过。tools/recovery/提供固定只读gpt/read-emmc/reset及7项拒绝路径测试；源码/加载器哈希、实际USB端口+bus/address、SkipWrite、XML操作/读取边界、GPT两份CRC与精确分区门禁。不提供刷写或任意命令。首次封装拒绝上游三个内部链接、第二轮基线拒绝128条目假设；按固定源码链接和实际GPT16条目修正，原失败日志/两版封装保留。第三轮.private/recovery-readonly-runtime-third.log成功；NAS expected-device.json已记录先前独立核验全盘镜像的主备GPT摘要及当前物理端口2-1。封装SHA4a83be46…，只读主区捕获不包括boot0/1。尚未打开EDL USB、进入EDL或离线捕获，不加进度。
 
 已异步问用户实体按键/复位孔及是否在NAS旁，明确先不要操作；等待答复期间继续独立工作。实际进入前干净关机并给明确步骤，不能猜硬件按键或把旧Windows EDL日志当当前NAS恢复已通过。没有活跃EDL等待器。内核声明源提交93a71ee9468dd8d47a9e082e5d818608f08712e3在GitHub已查到verified提交，但具体boot构建/本地音频DTB补丁的闭环还缺，board.toml的UNRESOLVED不因上游存在而静默解除。
