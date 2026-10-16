@@ -12,13 +12,13 @@
 
 ## 当前真实浏览器验收
 
-累计实际 10010 **32 次**，当前冻结构建a5a4bec。a10精确诊断证明403发生时call_inactive，但仍owned、租约剩13736ms、binding有效；a11仅暂停旧Go agent后持续20.640秒通过；a12恢复旧agent再次约11.7秒失败，DBus Hangup请求sender经PID/exe核对确认为 `/usr/bin/nassimhub-agent`。根因为旧NAS orphan-call策略挂断Rust电话，不得延长租约或放宽授权掩盖。见P3I末节和私有a9—12报告。预览已停止，旧四服务active、PCMclosed、通话terminated。
+累计实际 10010 **33 次**，最近部署c1099a2。a10明确call_inactive且租约剩13736ms；a11暂停旧Go agent持续20.640秒通过；a12由DBus sender/PID/exe确认旧agent主动Hangup。c1099a2新独占工具的a13连续22.953秒后明确30秒lease_expired，原24秒媒体目标未通过，保留passed=false及adjudication。不得放松鉴权。用户当前方便听音，但a14被旧prepared挂断的submit_started标记挡住，没有新拨号；窗口已停止，旧agent/Voice/PCM恢复，正在构建原子prepared撤销及自动恢复页面。见P3I末节。
 
 1. 715 版本在约 4—5 秒因 Codec 退出。d2b1c13 加诊断并修正晚到/重复包，实机准确抓到 `packet_guard bytes=0` 触发 Codec 退出。
 2. 13f9063 修正已认证空负载安全丢弃，不入 Opus、不消费序列、不刷新有效媒体存活时间。新增顶部一键 10010、自动登录/拨号/接音、约 30 秒结束、立即结束、旧操作防重和麦克风取消；手动步骤收进折叠区。
 3. 用户已实际通过一键操作完成通话全流程，但声音约 13 秒就停止，提示“测试停止：声音提前中断；电话已挂断”。Native 639 captured/sent/played、646 received、13 dropped、1 xrun，无 Codec 拒绝；不是 30 秒保护正常结束。已保存 `.private/browser-preview-13f9063-current-native.log`。
 4. 当前 9812aa5 修正可复现的 reaper/HTTP slot 锁竞争：有界等待 1500ms；授权/归属仍逐次检查；只读 poll 的 429 最多三次查询，prepare/activate/拨号/挂断均不重试，403立即停音。增加固定 stop/拒绝原因及页面 HTTP 状态。旧现场没有 HTTP 状态，不能认定竞争就是该次现场原因。
-5. 当前修改新增host-only独占控制/独立恢复工具、拨号前本地SDP/ICE准备、电话结束与挂断只读核验；Node三组、六项Linux保护脚本及Edge20项/Clippy通过。独占工具真实无拨号30秒设备独立恢复/四服务/PCM通过；旧agent退出清理无电话返回失败时必须核MainPID=0，不能单看failed。ARM和新页面实机验收待做。用户无需反复试听，先自动验证稳定；持续浏览器声音尚未验收，不加P3分。
+5. c1099a2新增独占控制/独立恢复及拨号前本地SDP/ICE；203 workspace/六ARM、Native21、五资产严格TLS均通过。当前新增cancel_prepared_call事务仅prepared可取消，其他状态/外国principal/generation拒绝；取消挂断的重放也不能撤回当前媒体。Node恢复/撤销失败路径通过，Rust全量和新构建进行中。持续真实浏览器声音尚未验收，不加P3分。
 
 详细证据见 [浏览器验收](VALIDATION-BROWSER-MEDIA-P3I.md)。此前 Chrome 插件能列标签页但接管为 Debugger unattached，没有实际控制浏览器，也不绕过其他页面的访问阻止。
 
@@ -29,17 +29,17 @@
 - 当前 helper：`.local/start-codec-browser-preview.py`、`.local/collect-latest-media-closure.py`、`.local/collect-core-media-diagnostics.py`；a12已消费，禁止复用其once/watch脚本拨号。`tools/legacy_controller.py`管理旧Go控制器的有界暂停/先停Core后恢复，单一systemd unit防重入，保留原先inactive状态；仅供旧系统过渡测试，新OS不包含旧agent。
 - 独立 root 观察器最多等十分钟，发现一次 outgoing 后 30 秒停止 Core，撤回精确哈希的临时 Voice 规则。它不主动拨号或重拨。浏览器自己的测试亦不续租 Core 30 秒控制租约。
 - Native collector 的输出文件名仍是历史 `.private/browser-preview-71506f0-current-native.log`，内容是当前实际 PID；采集后复制为当前源版本文件，别误认为程序是 715。
-- **临时 Windows 证书已直接移除并核验：installed=false、removed=true，当前用户Root不存在。** 同一证书的临时测试授权仍在，但只有后续人机浏览器验收时才恢复临时信任，结束直接运行`.local/cleanup-preview-trust.ps1`并核验；不要依赖旧后台清理进程。证书 SHA-256 为 e4726db3ab982ee19661c9af85bf6ab08fd59b224d045e5de49913ed07404809；拇指纹61EB6A4F98B49290C939A2187B331098B38003A4。只能处理本次明确授权证书，不关闭证书检查。
+- **用户当前确认方便听音，同一证书又已临时信任，installed=true/previously_trusted=false/remove_after_test=true。** 测试结束或暂停必须直接运行`.local/cleanup-preview-trust.ps1`并核验removed=true/installed=false；不要依赖旧后台清理进程。证书 SHA-256 为 e4726db3ab982ee19661c9af85bf6ab08fd59b224d045e5de49913ed07404809；拇指纹61EB6A4F98B49290C939A2187B331098B38003A4。只能处理本次明确授权证书，不关闭证书检查。
 - 结束执行 `.local/browser-preview-control.py cleanup`，再核验呼叫全 terminated、PCM全closed、旧 nassimhub-agent/ModemManager/NetworkManager/rmtfs active、临时 Voice 规则撤回且恢复拒绝。cleanup helper 本身不替代呼叫/规则核验，也不移除 Windows 证书。
 
 ## 当前源码与制品
 
-当前部署构建源 `a5a4becbc393480198a765f7361dea26604ed6a6`，115 输入，归档 SHA `0e3602abfb5a04352c5ef8078dd10d98ac45ba297fb30f3d42b3ee50418b21c7`。GitHub main 已精确保存该源码；当前后续页面/工具工作树修改尚待提交冻结，不能把既有制品重标为新源码。
+当前部署构建源 `c1099a2ef9c1565cbcca3361f70917ebc9c78a45`，115输入，归档SHA `b8dfe8e3c001e59cc094664876215dab42c47169f70c661a5f99e237bd15dde6`。GitHub main已精确保存；后续prepared撤销/网页恢复工作树待提交，不把既有制品重标新源码。
 
-- 本机 WSL Rust1.98.0 六个生产 ARM64 程序 `.local/wsl-artifacts-a5a4becbc393480198a765f7361dea26604ed6a6`，退出0。
-- NAS 固定无网络 ARM 容器的 Native Rust1.99.0/ALSA1.2.8：`.local/native-a5a4bec/rustsimhub-audio-alsa`，5516704字节，SHA `1e1f59785f3f3aea6727d029a785538a572470306e0db4e78ea3118b7d1a2fe4`，21项、release3m43s、退出0。完整日志 `.private/native-a5a4bec-build.log`。
+- 本机WSL Rust1.98.0六生产ARM：`.local/wsl-artifacts-c1099a2ef9c1565cbcca3361f70917ebc9c78a45`，203 workspace/退出0。
+- NAS固定无网络ARM容器Native：`.local/native-c1099a2/rustsimhub-audio-alsa`，5516704字节、SHA `5ea306f7150ec650051f08ab3431a489e6c7480be2aa8cb2060bf374e8007e8c`，21项/release3m13s/退出0；完整日志`.private/native-c1099a2-build.log`。
 - Edge 20 项定向回归及 Clippy 通过，日志 `.private/media-poll-contention-source.log`；Node proof/media/call-test 通过，额外验证 active 状态的短暂429不关麦、403立即关闭和激活不重试。此前全 workspace202、Native21及Clippy通过；不把定向20项冒充新跑全workspace。
-- Core47项及Clippy通过。`.private/media-current-build.json`、默认`.local/source.tar.gz`和独立frozen a5归档均指当前构建。没有活跃构建；预览已停止，后续页面修改正准备冻结构建。
+- `.private/media-current-build.json`、默认`.local/source.tar.gz`和独立frozen c1099归档指当前构建；Core已停止，Edge/Media后续安装前显式清理。新撤销源码正在本机全量测试，勿使用旧once或重标构建。
 - `.private/boot-application-13f9063`、d2b1c13、71506f0 开发签名包分别保留，seed只在本机；当前981开发签名包已保存在.private/boot-application-9812aa5。正式Media开机组实证属于715，不能重标当前981。
 
 ## 已完成但不可扩大的系统实证
@@ -51,6 +51,6 @@
 
 ## 接手顺序与工具
 
-先完成新的独占控制工具真实超时/清理验证，再提交冻结本地声音准备与结束核验页面、ARM构建及严格TLS资源核对，独占旧agent做自动持续媒体。自动通过后才询问用户是否方便一键听音。不要复用a12一次性标记、不在Unknown时重复拨号、不把NAS合成端20秒当作真实浏览器听音验收；结束恢复旧agent/电话/PCM/Voice及临时证书并保存准确次数。
+先完成prepared事务撤销及迟到挂断不撤回媒体的测试，冻结/ARM/部署后核旧client记录仍prepared、外国principal撤销拒绝。用户已方便听音，开新的a15独占窗口，让用户刷新后仅点一键；新页面应自动取消旧prepared挂断后再做新测试。a14已消费且无拨号，不能复用；不直接改SQLite或删除客户端防重标记，不把reconciling历史当成observed ended。最后核准确次数/四服务/PCM/Voice和证书移除并保存进度。
 
 Python 使用 `C:/Users/wzs11/AppData/Local/Programs/Python/Python312/python.exe -X utf8`；私有依赖 `.local/python-deps`。SSH用 `tools/remote.py` 读取 `.private/nas.json`/device.json，严格主机钥匙固定，设备经NAS。主六程序强本机WSL user wzs11、持久cache/8路交叉编译；Native仍NAS，未完成本机Native SDK迁移。源先提交、package-source.py冻结；构建索引改变前确认无编译任务。GitHub使用精确非强制对象发布脚本，勿推缺workflow授权的 codex/recovery-ci-pending 历史分支。

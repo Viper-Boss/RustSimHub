@@ -10,7 +10,7 @@ let historyCursor=null, historySources=[];
 let wifiTrial=null;
 let audioReady=false;
 const audioLink=new AudioLink($('call-audio'),(text,state)=>{$('audio-state').textContent=text;$('audio-stop').disabled=state==='closed';showAudio();});
-const callTest=new CallTest({audio:audioLink,login:()=>token?Promise.resolve():login(),request:command=>auth(command),context:lease=>({token,lease}),getPending:()=>pending,setPending:async value=>{pending=value;await save('pending',value);showPending();},onLease:value=>{lease=value;showAudio();},notify:(text,running)=>{$('test-state').textContent=text;$('test-start').disabled=running||!audioReady;$('test-stop').disabled=!running;}});
+const callTest=new CallTest({audio:audioLink,login:()=>token?Promise.resolve():login(),request:command=>auth(command),context:lease=>({token,lease}),getPending:()=>pending,setPending:async value=>{pending=value;await save('pending',value);showPending();},archivePending:archivePending,onLease:value=>{lease=value;showAudio();},notify:(text,running)=>{$('test-state').textContent=text;$('test-start').disabled=running||!audioReady;$('test-stop').disabled=!running;}});
 function showAudio(){$('audio-start').disabled=!token||!lease||!audioReady||audioLink.state!=='closed';$('audio-stop').disabled=audioLink.state==='closed';}
 let db;
 let viewEpoch=0, actionGeneration=0;const requests=new Set();
@@ -18,6 +18,13 @@ function current(epoch){if(epoch!==viewEpoch)throw Error('会话已结束');}
 const request=idb=>new Promise((resolve,reject)=>{idb.onsuccess=()=>resolve(idb.result);idb.onerror=()=>reject(Error('浏览器存储不可用'));});
 async function stored(name){return request(db.transaction('state','readonly').objectStore('state').get(name));}
 async function save(name,value){const tx=db.transaction('state','readwrite');tx.objectStore('state').put(value,name);await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=tx.onabort=()=>reject(Error('浏览器存储不可用'));});}
+async function archivePending(value){
+ const receipts=await stored('ended-hangup-receipts')||[];
+ if(!Array.isArray(receipts))throw Error('旧操作记录不可用，已停止测试');
+ if(receipts.some(receipt=>receipt.id===value.id))return;
+ if(receipts.length>=64)throw Error('旧操作记录已满，已停止测试');
+ await save('ended-hangup-receipts',[...receipts,value]);
+}
 async function api(command,epoch=viewEpoch){
  current(epoch);
  const id=crypto.randomUUID();const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),18000);requests.add(controller);

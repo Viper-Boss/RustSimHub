@@ -468,6 +468,107 @@ async fn submit(w: &mut Worker, token: &str, id: &str, lease: Option<CallLease>)
     .await
 }
 #[tokio::test]
+async fn prepared_cancellation_checks_owner_mode_and_never_calls_modem() {
+    let mut f = fixture(false).await;
+    let token = f.first.clone();
+    let id = prepare(
+        &mut f.worker,
+        &token,
+        "cancel",
+        CallAction::Dial,
+        None,
+        "10010",
+    )
+    .await;
+    assert!(f
+        .worker
+        .process(AuthCommand::CancelPreparedCall {
+            token: f.second.clone(),
+            operation_id: id.clone()
+        })
+        .await
+        .is_err());
+    let value = f
+        .worker
+        .process(AuthCommand::CancelPreparedCall {
+            token: token.clone(),
+            operation_id: id.clone(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(value["operation"]["state"], "cancelled");
+    assert_eq!(
+        submit(&mut f.worker, &token, &id, None).await.unwrap()["operation"]["state"],
+        "cancelled"
+    );
+    let next = prepare(
+        &mut f.worker,
+        &token,
+        "readonly-cancel",
+        CallAction::Dial,
+        None,
+        "10010",
+    )
+    .await;
+    f.worker.writes = false;
+    assert!(f
+        .worker
+        .process(AuthCommand::CancelPreparedCall {
+            token,
+            operation_id: next
+        })
+        .await
+        .is_err());
+    assert_eq!(f.data.creates.load(Ordering::SeqCst), 0);
+    assert_eq!(f.data.starts.load(Ordering::SeqCst), 0);
+    assert_eq!(f.data.hangups.load(Ordering::SeqCst), 0);
+}
+#[tokio::test]
+async fn replay_of_cancelled_hangup_cannot_revoke_current_media() {
+    let mut f = fixture(false).await;
+    let token = f.first.clone();
+    let id = prepare(
+        &mut f.worker,
+        &token,
+        "dial-for-cancelled-hangup",
+        CallAction::Dial,
+        None,
+        "10010",
+    )
+    .await;
+    let result = submit(&mut f.worker, &token, &id, None).await.unwrap();
+    let lease: CallLease = serde_json::from_value(result["lease"].clone()).unwrap();
+    let hangup = prepare(
+        &mut f.worker,
+        &token,
+        "hangup-for-cancel",
+        CallAction::Hangup,
+        Some(lease.call_id.clone()),
+        "",
+    )
+    .await;
+    f.worker
+        .process(AuthCommand::CancelPreparedCall {
+            token: token.clone(),
+            operation_id: hangup.clone(),
+        })
+        .await
+        .unwrap();
+    f.worker.media.owner = Some(
+        f.worker
+            .principal(&token, Scope::CallsControl)
+            .await
+            .unwrap(),
+    );
+    let result = submit(&mut f.worker, &token, &hangup, Some(lease))
+        .await
+        .unwrap();
+    assert_eq!(result["operation"]["state"], "cancelled");
+    assert!(f.worker.media.owner.is_some());
+    assert_eq!(f.data.hangups.load(Ordering::SeqCst), 0);
+    assert_eq!(f.data.state.load(Ordering::SeqCst), 4);
+}
+#[tokio::test]
 async fn network_exclusion_denies_new_intents_and_submits_but_allows_cleanup() {
     let mut f = fixture(false).await;
     f.worker.coordination = Arc::new(crate::coordination::Coordination::default());

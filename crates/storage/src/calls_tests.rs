@@ -48,6 +48,62 @@ fn request(b: &SendContext) -> CallRequest {
     }
 }
 #[test]
+fn cancellation_is_atomic_before_permit_owned_and_persistent() {
+    let (d, s, p, b) = fixture();
+    let h = s.handle();
+    let op = h
+        .prepare_call(request(&b), p.clone(), b.clone(), || true)
+        .unwrap();
+    let foreign = h
+        .approve_client(
+            p.clone(),
+            [71; 32],
+            Kind::Client,
+            mask(&[Scope::CallsControl]).unwrap(),
+        )
+        .unwrap();
+    assert!(h.cancel_prepared_call(op.id.clone(), foreign).is_err());
+    let mut stale = p.clone();
+    stale.generation += 1;
+    assert!(h.cancel_prepared_call(op.id.clone(), stale).is_err());
+    assert_eq!(
+        h.cancel_prepared_call(op.id.clone(), p.clone())
+            .unwrap()
+            .state,
+        SmsState::Cancelled
+    );
+    assert_eq!(
+        h.cancel_prepared_call(op.id.clone(), p.clone())
+            .unwrap()
+            .state,
+        SmsState::Cancelled
+    );
+    assert!(h
+        .begin_call(op.id.clone(), p.clone(), b.clone(), || true)
+        .is_err());
+    assert_eq!(
+        h.prepare_call(request(&b), p.clone(), b.clone(), || true)
+            .unwrap()
+            .state,
+        SmsState::Cancelled
+    );
+    let mut next = request(&b);
+    next.idempotency_key = "next".into();
+    let busy = h.prepare_call(next, p.clone(), b.clone(), || true).unwrap();
+    h.begin_call(busy.id.clone(), p.clone(), b, || true)
+        .unwrap();
+    assert!(h.cancel_prepared_call(busy.id.clone(), p.clone()).is_err());
+    h.finish_call(busy.id.clone(), p.id.clone(), SmsState::Unknown)
+        .unwrap();
+    assert!(h.cancel_prepared_call(busy.id, p.clone()).is_err());
+    drop(s);
+    let s = Store::open(d.path()).unwrap();
+    assert_eq!(
+        s.handle().call_operation(op.id, p).unwrap().state,
+        SmsState::Cancelled
+    );
+}
+#[test]
 fn calls_preserve_history_without_inventing_ended_after_disconnect_or_restart() {
     let (d, s, _p, b) = fixture();
     let h = s.handle();

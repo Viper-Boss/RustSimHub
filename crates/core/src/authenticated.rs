@@ -25,6 +25,7 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | PrepareCall { .. }
         | SubmitCall { .. }
         | CallOperation { .. }
+        | CancelPreparedCall { .. }
         | RenewCall { .. }
         | IssueMedia { .. }
         | CheckMediaLease { .. }
@@ -167,6 +168,7 @@ pub(crate) async fn handle(
             | AuthCommand::PrepareCall { .. }
             | AuthCommand::SubmitCall { .. }
             | AuthCommand::CallOperation { .. }
+            | AuthCommand::CancelPreparedCall { .. }
             | AuthCommand::RenewCall { .. }
             | AuthCommand::IssueMedia { .. }
             | AuthCommand::CheckMediaLease { .. }

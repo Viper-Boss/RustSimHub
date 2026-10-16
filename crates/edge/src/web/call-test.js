@@ -7,7 +7,7 @@ export class CallTest {
  async step(promise){const value=await Promise.race([promise,this.aborted]);this.check();return value;}
  async pause(ms){await this.step(new Promise(resolve=>{this.waitTimer=this.env.setTimeout(resolve,ms);}));}
  async observedEnded(lease){
-  try{await this.request({op:'call_status'});const call=await this.request({op:'call_detail',call_id:lease.call_id});return call.state==='ended'&&call.availability==='observed';}
+  try{const status=await this.request({op:'call_status'});if(status.available!==true)return false;const call=await this.request({op:'call_detail',call_id:lease.call_id});return call.state==='ended'&&call.availability==='observed';}
   catch{return false;}
  }
  async start(){
@@ -24,7 +24,19 @@ export class CallTest {
    if(old){
     const result=await this.step(this.request({op:old.type==='call'?'call_operation':'sms_operation',operation_id:old.id}));
     const state=old.type==='call'?result.operation?.state:result.state;
-    if(!['submitted','cancelled'].includes(state)&&!(state==='prepared'&&!old.submit_started))throw Error('上一笔操作结果未确认；请在手动调试中查询，不会再次拨号');
+    if(!['submitted','cancelled'].includes(state)&&!(state==='prepared'&&!old.submit_started)){
+     if(old.type==='call'&&old.action==='hangup'&&state==='prepared'){
+      const cancelled=await this.step(this.request({op:'cancel_prepared_call',operation_id:old.id}));
+      if(cancelled.operation?.state!=='cancelled')throw Error('旧挂断的撤销结果未确认；不会再次拨号');
+     }else{
+     // An old hangup may stay uncertain across a Core restart. Keep its receipt
+     // instead of resubmitting it; only an exact, currently observed ended call
+     // permits a NEW user-requested test. Unknown dial/SMS still block.
+     const callId=result.operation?.call_id;
+     if(old.type!=='call'||old.action!=='hangup'||!callId||!['prepared','submitting','unknown'].includes(state)||typeof this.archivePending!=='function'||!await this.step(this.observedEnded({call_id:callId})))throw Error('上一笔操作结果未确认；请在手动调试中查询，不会再次拨号');
+     await this.step(this.archivePending({...old,state,ended_call_id:callId}));
+     }
+    }
     await this.step(this.setPending(null));
    }
    const status=await this.step(this.request({op:'call_status'}));

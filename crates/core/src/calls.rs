@@ -654,6 +654,18 @@ impl Worker {
                 let _ = self.reconcile(&operation_id, &token, &p).await;
                 self.result(operation_id, p).await
             }
+            AuthCommand::CancelPreparedCall {
+                token,
+                operation_id,
+            } => {
+                if !self.writes {
+                    return Err("calls_read_only");
+                }
+                let p = self.principal(&token, Scope::CallsControl).await?;
+                let h = self.store.clone();
+                let op = db(move || h.cancel_prepared_call(operation_id, p)).await?;
+                Ok(json!({"operation":op,"lease":null}))
+            }
             AuthCommand::RenewCall { token, lease } => {
                 if !self.writes {
                     return Err("calls_read_only");
@@ -690,9 +702,6 @@ impl Worker {
                 let p = self.principal(&token, Scope::CallsControl).await?;
                 let (h, id, principal) = (self.store.clone(), operation_id.clone(), p.clone());
                 let intent = db(move || h.call_intent(id, principal)).await?;
-                if intent.action == CallAction::Hangup {
-                    self.media.revoke();
-                }
                 if urgent && intent.action != CallAction::Hangup {
                     return Err("invalid_priority");
                 }
@@ -768,6 +777,9 @@ impl Worker {
                 let _ = self.book.release(&g, &p.id, self.now());
             }
             return Err(e);
+        }
+        if intent.action == CallAction::Hangup {
+            self.media.revoke();
         }
         let target = if intent.action == CallAction::Dial {
             let created = async {

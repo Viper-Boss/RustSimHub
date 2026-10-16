@@ -54,3 +54,13 @@ Node 三组验证（proof、media 生命周期、一键通话编排）与 JS 语
 新增host-only `tools/legacy_controller.py` 通过单个有界systemd服务独占旧系统试验控制，先确认所有呼叫空闲，设备端先登记ExecStopPost和硬时限，再暂停旧Go agent；退出先停试验Core，再按原状态恢复。实机无拨号试验发现旧agent的ExecStopPost hangup-all在无电话时会返回失败，已用MainPID=0与inactive/failed联合确认进程确实退出；首轮保护仍恢复成功，不能算该轮独占就绪通过。第二轮不由电脑主动释放，设备30秒独立超时自动恢复旧agent，四服务/PCM检查通过，报告exclusive-controller-idle-v2.json passed=true。
 
 网页在拨号前只做本地SDP/ICE准备，仍在精确呼叫ACTIVE及授权后才prepare/activate服务器媒体；通话真实结束时明确显示设备观察结果，挂断RPC拒绝也继续只读确认。Node三组、六项Linux保护脚本失败路径、Edge20项和Clippy通过；实际新版本部署/持续浏览器听音仍待验收。总体73/100，不以根因诊断和自动20秒对照增加P3分。
+
+## c1099a2独占自动测试与旧操作恢复
+
+c1099a2ef9c1565cbcca3361f70917ebc9c78a45，源b8dfe8e3c001e59cc094664876215dab42c47169f70c661a5f99e237bd15dde6，本机203 workspace及六生产ARM通过；Native21项/release3m13s，5516704字节、SHA5ea306f7150ec650051f08ab3431a489e6c7480be2aa8cb2060bf374e8007e8c。三epoch开发签名包保留，未刷写或替换正式715开机组证据。三程序逐个校验后原子替换，五个网页资源经NAS严格TLS与冻结源码SHA/no-store核验通过。
+
+a13实际拨出一次，累计33。新独占工具先登记75秒设备独立恢复，旧agent退出、其他三服务保持；22.953秒快照1137captured/sent/played、1139received、3dropped、1可恢复xrun，NAS共解码1160帧。24.140秒poll返回403；同一Core PID日志明确 `reason=lease_expired owned=true lease_remaining_ms=0 binding_valid=true`，通话提交到音频准备的时间也计入原30秒租约。因此本轮原24秒媒体目标没有通过，原报告passed=false保留；另存adjudication说明已连续约23秒和正常租约边界，不误写持续24秒成功。无续租或授权放宽；独立恢复、旧四服务、PCM、Voice撤回/拒绝、通话空闲均通过。
+
+用户随后确认方便听音，开启a14十分钟/30秒观察窗口并临时信任同一证书；用户点一键测试时被旧挂断的submit_started防重标记挡住，没有新增拨号。窗口已主动停止并恢复旧agent/撤回Voice。停止Core后检查WAL为空，仅在私有区域只读一致快照查询，旧浏览器匹配公钥的挂断在设备中确为prepared/phase prepared，目标电话state7；历史availability为reconciling，不能冒充当前observed已结束去抹掉Unknown。
+
+新源码增加 `cancel_prepared_call`：当前calls.control及同principal/generation的数据库事务，仅prepared/phase prepared可原子转cancelled；已取消查询幂等，submitting/unknown拒绝，迟到submit无法取得permit，无modem写入。挂断撤回媒体移到成功begin_call且已核对当前lease之后，已取消旧挂断的迟到重放也不能撤回当前媒体。网页只在用户新点测试且旧记录为prepared挂断时使用，丢失撤销回复不拨新电话。对unknown挂断只允许精确目标当前observed ended后保留原回执再开始新测试；unknown拨号/短信、无法观察、保存失败均继续阻断。Node三组、206 workspace及全量Clippy通过；新ARM与实机验收待完成。

@@ -1,4 +1,4 @@
-2026-10-17 权威更新：整体仍73/100，10010累计32。a5a4bec 的自动诊断确认 HTTP403 前电话已经结束，授权与租约未过期；仅暂停旧 Go agent 的对照持续20.640秒/991采集帧通过，恢复旧 agent 后再次约11.7秒失败，DBus Hangup 发送方精确映射到 /usr/bin/nassimhub-agent，根因为旧系统 orphan-call 控制冲突。旧四服务/PCM/通话已恢复空闲，临时 Windows 证书已实际移除。正在将独占测试/设备独立恢复及拨号前本地声音准备纳入工具和页面；未验收新的浏览器持续听音，不加分。详见 VALIDATION-BROWSER-MEDIA-P3I.md。
+2026-10-17 权威更新：整体仍73/100，10010累计33。旧Go agent的orphan-call挂断冲突已用DBus sender/PID/exe及20.640秒对照定位。c1099a2同源203 workspace/六生产ARM与Native21项构建通过，五网页严格TLS核验；设备独占/独立恢复实机通过。a13连续22.953秒/1137采集帧后明确30秒租约到期，原24秒媒体目标未通过，保留原passed=false，不伪称成功。用户当前卡在旧prepared挂断与客户端submit_started冲突，正在增加仅prepared事务撤销/迟到提交拒绝及旧挂断只读核验恢复；a14窗口已停止，无新增拨号。证书按用户当前听音授权又临时信任，最终需直接移除。详见VALIDATION-BROWSER-MEDIA-P3I.md，不加分。
 
 2026-10-16 当前：整体仍 73/100，10010 累计 26；实机捕获空音频负载触发 Codec 致命退出。新增空负载安全丢弃与一键 10010/自动连接声音/约30秒结束页面源码，202 workspace、21 Native、Clippy 和 Node 三组通过；新 ARM 与真实听音待验收，不加分。见 VALIDATION-BROWSER-MEDIA-P3I.md。
 

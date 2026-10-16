@@ -189,6 +189,24 @@ impl Handle {
     pub fn call_operation(&self, id: String, p: Principal) -> Result<CallOperation> {
         self.call(move |db| operation(&db.connection, &id, &p))
     }
+    pub fn cancel_prepared_call(&self, id: String, p: Principal) -> Result<CallOperation> {
+        self.call(move |db| {
+            let tx = db.connection.transaction()?;
+            controller(&tx, &p)?;
+            let old = operation(&tx, &id, &p)?;
+            if old.state == SmsState::Cancelled { return Ok(old); }
+            // A late submit either wins first, or sees Cancelled and cannot
+            // obtain a permit. Never relabel Submitting/Unknown as cancelled.
+            let changed = tx.execute(
+                "UPDATE call_operations SET state='cancelled',phase='resolved' WHERE id=? AND client_id=? AND principal_generation=? AND state='prepared' AND phase='prepared'",
+                params![id,p.id,i64::try_from(p.generation).map_err(|_| Error::InvalidInput)?],
+            )?;
+            if changed != 1 { return Err(Error::InvalidTransition); }
+            let op = operation(&tx, &id, &p)?;
+            tx.commit()?;
+            Ok(op)
+        })
+    }
     pub fn call_intent(&self, id: String, p: Principal) -> Result<CallIntent> {
         self.call(move|db|{
   let op=operation(&db.connection,&id,&p)?;

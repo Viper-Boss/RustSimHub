@@ -8,29 +8,43 @@ const {CallTest}=await import('data:text/javascript;base64,'+bytes.toString('bas
 const turn=()=>new Promise(resolve=>setImmediate(resolve));
 const deferred=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return {promise,resolve};};
 function fixture(options={}){
- let pending=options.pending||null,loginCount=0;const calls=[],states=[],timers=new Set();
+ let pending=options.pending||null,loginCount=0;const calls=[],states=[],timers=new Set(),archived=[];
  const track={stopped:false,stop(){this.stopped=true;}};const stream={getTracks:()=>[track]};
  let primed=false;
  const audio={state:'closed',async input(){if(options.denied)throw Error('permission denied');return options.permission?options.permission.promise:stream;},async prime(value){assert.equal(value,stream);assert(!calls.some(c=>c.op==='prepare_call'));if(options.primeFailure)throw Error('local ICE failed');primed=true;},async start(context,provided){assert.equal(provided.stream,stream);assert.equal(context.lease.call_id,'synthetic-call');assert(primed);this.state=options.mediaClosed?'closed':'active';if(options.peerEnded)ended=true;},async stop(){this.state='closed';}};
  const env={crypto:webcrypto,performance,clearTimeout(id){clearTimeout(id);timers.delete(id);},setTimeout(fn,ms){const id=setTimeout(()=>{timers.delete(id);fn();},ms===30000?40:1);timers.add(id);return id;}};
  const lease={call_id:'synthetic-call',line:2,boot:'a'.repeat(64),generation:1,expires_in_seconds:30};
  let ended=false;
- const test=new CallTest({audio,env,login:async()=>{loginCount++;},getPending:()=>pending,setPending:async value=>{pending=value;},context:value=>({token:'b'.repeat(64),lease:value}),onLease:()=>{},notify:(text,running)=>states.push({text,running}),request:async command=>{
+ const test=new CallTest({audio,env,login:async()=>{loginCount++;},getPending:()=>pending,setPending:async value=>{pending=value;},archivePending:async value=>{if(options.archiveFailure)throw Error('receipt storage failed');archived.push(value);},context:value=>({token:'b'.repeat(64),lease:value}),onLease:()=>{},notify:(text,running)=>states.push({text,running}),request:async command=>{
   calls.push(command);
   switch(command.op){
    case 'call_status':return {available:true,active_calls:ended?0:options.busy?1:0};
    case 'line_status':return {line:2,status:'ready'};
-   case 'call_operation':return {operation:{state:options.oldState||'prepared'}};
+   case 'call_operation':return {operation:{state:options.oldState||'prepared',call_id:options.oldCallId||null}};
+   case 'cancel_prepared_call':assert.equal(command.operation_id,'old-op');if(options.cancelLost)throw Error('lost cancellation reply');return {operation:{state:options.cancelBusy?'submitting':'cancelled'}};
    case 'prepare_call':assert.equal(command.line_epoch,2);if(command.action==='dial'){assert(primed);assert.equal(command.payload,'10010');assert.equal(command.call_id,null);}else{assert.equal(command.call_id,lease.call_id);if(options.endOnHangupPrepare){ended=true;throw Error('call already ended');}}return {operation:{id:command.action+'-op',state:'prepared'}};
    case 'submit_call':
     assert.equal(pending.id,command.operation_id);assert.equal(pending.submit_started,true);
     if(command.operation_id==='dial-op'){assert.equal(command.lease,null);if(options.lost)throw Error('lost reply');if(options.submit)return options.submit.promise;return {operation:{state:'submitted'},lease};}
     assert.equal(command.urgent,true);ended=true;if(options.lostHangup)throw Error('lost hangup reply');return {operation:{state:'submitted'}};
-   case 'call_detail':assert.equal(command.call_id,lease.call_id);return {state:ended?'ended':'active',availability:'observed'};
+   case 'call_detail':if(command.call_id===options.oldCallId)return{state:options.oldEnded?'ended':'active',availability:options.oldUnavailable?'reconciling':'observed'};assert.equal(command.call_id,lease.call_id);return {state:ended?'ended':'active',availability:'observed'};
    default:throw Error('Unexpected API: '+command.op);
   }
  }});
- return {test,track,stream,audio,calls,states,timers,pending:()=>pending,loginCount:()=>loginCount,close:()=>{for(const timer of timers)clearTimeout(timer);}};
+ return {test,track,stream,audio,calls,states,timers,archived,pending:()=>pending,loginCount:()=>loginCount,close:()=>{for(const timer of timers)clearTimeout(timer);}};
+}
+for(const state of ['unknown','submitting']){
+ const f=fixture({pending:{type:'call',action:'hangup',id:'old-op',state:'prepared',submit_started:true},oldState:state,oldCallId:'ended-old-call',oldEnded:true});
+ await f.test.start();assert.equal(f.archived.length,1);assert.equal(f.archived[0].state,state);assert.equal(f.archived[0].submit_started,true);assert.equal(f.archived[0].ended_call_id,'ended-old-call');assert(!f.calls.some(c=>c.op==='submit_call'&&c.operation_id==='old-op'));assert.equal(f.calls.filter(c=>c.op==='submit_call'&&c.operation_id==='dial-op').length,1);f.close();
+}
+{
+ const f=fixture({pending:{type:'call',action:'hangup',id:'old-op',state:'prepared',submit_started:true},oldState:'prepared'});await f.test.start();assert.equal(f.archived.length,0);assert.equal(f.calls.filter(c=>c.op==='cancel_prepared_call').length,1);assert.equal(f.calls.filter(c=>c.op==='submit_call'&&c.operation_id==='dial-op').length,1);assert(!f.calls.some(c=>c.op==='submit_call'&&c.operation_id==='old-op'));f.close();
+}
+for(const options of [{cancelLost:true},{cancelBusy:true}]){
+ const f=fixture({pending:{type:'call',action:'hangup',id:'old-op',submit_started:true},oldState:'prepared',...options});await f.test.start();assert.equal(f.calls.filter(c=>c.op==='submit_call').length,0);assert.equal(f.pending().id,'old-op');f.close();
+}
+for(const overrides of [{oldEnded:false},{oldUnavailable:true},{oldCallId:null},{archiveFailure:true},{pending:{type:'call',action:'dial',id:'old-op',submit_started:true}},{pending:{type:'sms',action:'send',id:'old-op',submit_started:true}}]){
+ const f=fixture({pending:{type:'call',action:'hangup',id:'old-op',submit_started:true},oldState:'unknown',oldCallId:'ended-old-call',oldEnded:true,...overrides});await f.test.start();assert.equal(f.calls.filter(c=>c.op==='submit_call').length,0);assert.equal(f.pending().id,'old-op');assert(f.track.stopped);f.close();
 }
 {
  const f=fixture({primeFailure:true});await f.test.start();assert.equal(f.calls.filter(c=>c.op==='prepare_call'||c.op==='submit_call').length,0);assert(f.track.stopped);f.close();

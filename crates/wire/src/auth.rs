@@ -186,6 +186,10 @@ pub enum AuthCommand {
         token: String,
         operation_id: String,
     },
+    CancelPreparedCall {
+        token: String,
+        operation_id: String,
+    },
     RenewCall {
         token: String,
         lease: rustsimhub_domain::CallLease,
@@ -446,6 +450,10 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
             }
         }
         AuthCommand::CallOperation {
+            token,
+            operation_id,
+        }
+        | AuthCommand::CancelPreparedCall {
             token,
             operation_id,
         }
