@@ -15,6 +15,9 @@ const CTL: &str = "hw:nassimhubufi003";
 const CAPTURE: &str = "hw:nassimhubufi003,1";
 const PLAYBACK: &str = "hw:nassimhubufi003,0";
 const HOLDER: &str = "hw:nassimhubufi003,4";
+const PLAYBACK_PERIOD: i64 = 320;
+const PLAYBACK_BUFFER: i64 = 2560;
+const PLAYBACK_PRIME: usize = (PLAYBACK_BUFFER - PLAYBACK_PERIOD) as usize;
 pub const ROUTES: [&str; 7] = [
     "Voice Session VoLTE",
     "PRI_MI2S_RX Voice Mixer CS-Voice",
@@ -126,12 +129,35 @@ impl UfiDuplex {
             PLAYBACK,
             Direction::Playback,
             16_000,
-            320,
-            2560,
+            PLAYBACK_PERIOD,
+            PLAYBACK_BUFFER,
         )?);
+        permit.check(now())?;
+        prime_playback(result.playback.as_ref().ok_or(Error::Device)?)?;
         permit.check(now())?;
         Ok(result)
     }
+}
+fn prime_playback(pcm: &PCM) -> Result<(), Error> {
+    // Fill the existing start threshold before capture starts the shared voice
+    // clock. Recovery also primes silence, never previously queued speech.
+    let silence = [0i16; PLAYBACK_PRIME];
+    let mut offset = 0;
+    for _ in 0..8 {
+        let written = pcm
+            .io_i16()
+            .map_err(|_| Error::Device)?
+            .writei(&silence[offset..])
+            .map_err(|_| Error::Device)?;
+        if written == 0 || written > silence.len() - offset {
+            return Err(Error::Device);
+        }
+        offset += written;
+        if offset == silence.len() {
+            return Ok(());
+        }
+    }
+    Err(Error::Device)
 }
 fn configured(
     name: &str,
@@ -195,6 +221,17 @@ fn configured(
         })
         .map_err(|_| Error::Device)?;
         pcm.sw_params(&sw).map_err(|_| Error::Device)?;
+        let observed = pcm.sw_params_current().map_err(|_| Error::Device)?;
+        let start = if direction == Direction::Playback {
+            buffer - period
+        } else {
+            1
+        };
+        if observed.get_start_threshold().map_err(|_| Error::Device)? != start
+            || observed.get_stop_threshold().map_err(|_| Error::Device)? != buffer
+        {
+            return Err(Error::Device);
+        }
     }
     pcm.prepare().map_err(|_| Error::Device)?;
     Ok(pcm)
@@ -259,7 +296,11 @@ impl Pcm for UfiDuplex {
         .as_ref()
         .ok_or(IoError::Device)?;
         pcm.drop().map_err(io_error)?;
-        pcm.prepare().map_err(io_error)
+        pcm.prepare().map_err(io_error)?;
+        if matches!(direction, rustsimhub_media::Direction::Playback) {
+            prime_playback(pcm).map_err(|_| IoError::Device)?;
+        }
+        Ok(())
     }
     fn close(&mut self) {
         // Drop, never drain: queued speech must not survive revocation.
@@ -286,11 +327,25 @@ mod tests {
     fn libasound_null_pcm_configures_both_directions_and_cancels() {
         let mut device = UfiDuplex {
             capture: Some(configured("null", Direction::Capture, 16_000, 320, 960).unwrap()),
-            playback: Some(configured("null", Direction::Playback, 16_000, 320, 960).unwrap()),
+            playback: Some(
+                configured(
+                    "null",
+                    Direction::Playback,
+                    16_000,
+                    PLAYBACK_PERIOD,
+                    PLAYBACK_BUFFER,
+                )
+                .unwrap(),
+            ),
             holders: Vec::new(),
             playback_last_success: None,
             playback_max_gap_ms: 0,
         };
+        prime_playback(device.playback.as_ref().unwrap()).unwrap();
+        assert_eq!(
+            device.playback.as_ref().unwrap().state(),
+            alsa::pcm::State::Running
+        );
         let mut input = [0i16; 320];
         assert!(device
             .capture
@@ -304,6 +359,10 @@ mod tests {
         device
             .recover(rustsimhub_media::Direction::Playback)
             .unwrap();
+        assert_eq!(
+            device.playback.as_ref().unwrap().state(),
+            alsa::pcm::State::Running
+        );
         device.close();
         assert!(device.write(&input).is_err());
         assert!(device.read(&mut input).is_err());

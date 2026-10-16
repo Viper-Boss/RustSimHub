@@ -1,5 +1,7 @@
 # 常驻媒体工作进程
 
+诊断补充：f36e9d6同源ARM通过，carrier-fourth完整生产授权/PCM/NAS解码和主动停止通过，122帧捕获、121帧NAS解码、峰值16473；但仍有5次欠载，不称稳定完成，累计10010=18。耗时仅记录整数：max_loop约21ms、max_service约2.5ms、max_pcm_step约14.9ms、max_codec约14.7ms；播放欠载时距上次成功写入18—27ms，累计最大间隔43ms。不能据此断言调度是唯一原因。正在验证固定播放环在启动和恢复时先预填既有2240帧静音阈值，2560帧硬件环及320帧周期、欠载限制不变；只在授权后打开，撤销后丢弃。ALSA软件起停阈值增加实际回读，null PCM启动/恢复均进入Running，本机194/19及Clippy通过，实机结果待验证。
+
 后续实机记录：173b21f的ARM构建及负向预检通过。一次10010真实Core预检/单次票据、PCM打开与NAS解码已到达，但36帧后出现4次播放欠载而保护退出，不能称稳定媒体通过；报告media-worker-carrier-second.json清理/电话空闲/权限撤回均通过，10010累计16。程序原把PCM错误和异常断流都折为正常closed，现将PCM权限/设备错误分类保留，仅显式停止能消化关闭/撤销结果。回归后194 workspace、19 Native及Clippy通过。实机测试的状态轮询改为以Edge985执行同源诊断CLI，避免每次新建systemd命名空间；Core/Media的候选根目录、固定UID、空能力集合保持验证。正式Edge产品适配仍未实现，不把诊断CLI当网页服务。新修订ARM与实际复测待完成。
 
 2026-10-16：233110a的193项workspace、17项Native/Clippy及同源ARM构建通过；真实候选用户态的第二轮无拨号预检通过，两次DTLS、固定Media984/Edge985和Root控制拒绝、换peer/无Core票据不打开PCM、进程复用及退出清理已验证，见私有media-worker-preflight-second.json。首轮因prepare请求失败保留，实机CPU耗时显示一秒预算过紧；SDK将prepare预算调整为五秒，其他控制仍一秒，服务端读帧/回复分别一秒，不把证书创建算作输入超时。慢证书回复和不完整帧回归后，本机194项workspace、18项Native及两者Clippy通过；修订后的ARM构建和实机复测待完成。当前不据此宣称网页媒体、授权PCM或完整系统可用。
