@@ -33,3 +33,9 @@ Node 三组验证（proof、media 生命周期、一键通话编排）与 JS 语
 第七标记实际拨出一次，累计 27。用户只需点顶部按钮，已完成自动登录、准备/提交拨号、自动连接声音、提前关闭后自动挂断；最终提示“测试停止：声音提前中断；电话已挂断”。实际拨出 12:47:44 UTC，PCM 12:47:47.18 开始，12:47:59.98 关闭，约 13 秒媒体；独立保护在观察后 30 秒才停止 Core。Native captured/sent/played639、received646、dropped13、xrun1，未重现 Codec 拒绝，`worker_closed failure=None`，此前先见 transport Closed。用户估计约15秒。不是30秒倒计时正常结束；持续声音仍未验收，不加分。原始日志 .private/browser-preview-13f9063-current-native.log 保存；服务已停止、旧四服务 active、PCM closed、呼叫全 terminated。
 
 源码另发现可复现的轮询竞争：后台 reaper 持 slot 锁检查 worker 时，HTTP 的 try_lock 会直接429；原浏览器监视对所有非200立即停音。新 Edge 在原有有界 HTTP admission 内最多等锁1500ms，再执行完整 Core 授权/归属检查，超时仍429。新增回归验证短暂检查不拒绝本 owner poll、外来 binding 等待后仍403、持续占用有界返回429且不触发 worker 或新票据。浏览器仅对只读 poll 的429最多三次（100/200ms间隔）查询；prepare/activate/拨号/挂断不重试，403立即关闭。增加不含凭据的固定拒绝/stop原因，绿色提示保留HTTP状态。由于旧现场没有HTTP状态日志，此竞争尚不能被认定为这一次现场退出的确定原因。
+
+## 第八标记：HTTP403 与 Core 许可失效
+
+9812aa5 / 源6fa7a8a5…本机六 ARM 与同源Native21项/5516704字节、SHA612bd662…/release3m11s均退出0，已严格TLS五资产核对并实测。第八标记实际拨出一通，累计28；观察13:06:31 UTC，PCM13:06:34.73打开、13:06:47.26退出（约12.5秒媒体），623captured/sent、631received、625played、14dropped、1xrun。Native failure=Denied；Edge13:06:47.30明确core_lease拒绝。用户绿色提示包含HTTP403，挂断回复未确认；独立保护13:07:02停止Core后基带所有呼叫terminated，旧四服务/PCM恢复检查通过，原日志分别保存981私有Native/Edge文件。没有再现Codec；不能把锁竞争修正称为403修复。
+
+当前补 Core 的固定拒绝原因、是否仍持有呼叫、剩余租约毫秒和binding_valid，仅写私有日志、不含号码/钥匙/媒体内容；没有放宽授权。合成无PCM端允许最长30秒，以自动做20秒长通话重现；AnswerAuthorized硬件诊断仍最多10秒。接下来先自动测试，不再要求用户反复听音；来源原因尚未确定，整体仍73/100。

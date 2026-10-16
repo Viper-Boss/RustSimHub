@@ -1,0 +1,113 @@
+# RustSimHub 当前接手入口
+
+**一键已实测但声音仍未稳定：73/100、10010累计27。** 13f9063第七标记一通，自动登录/提交/接音/提前关闭后自动挂断均实际发生；用户约15秒，Native约13秒、639captured/sent/played、646received、13dropped、1xrun、无Codec拒绝，失败None/transportClosed；不是30秒保护。日志已保存13f私有文件，当前预览停止/旧四服务active/PCMclosed/全call terminated。已新增可复现reaper锁竞争修正、仅只读poll429有限查询及HTTP短提示，等待Edge20回归/Clippy、新冻结构建和复测。旧现场无HTTP状态，不能认定它是确定现场原因。证书连续调试仍installed=true，结束必须直接清理核验。
+
+
+**一键测试已部署，待当前人耳结果：整体 73/100，10010 累计暂仍 26。** 源 13f906377ab4f63e0ab165a976ab257167cf877c / d4644bb1…115 输入，本机六 ARM 和 NAS 同源 Native 均退出0；Native21项、5516704字节、SHA8dbc2e48…、release3m16s。GitHub已精确保存。原子替换同一预览三个程序、同配对同证书重启，严格TLS五个静态文件 SHA/no-store通过，见VALIDATION-BROWSER-MEDIA-P3I.md。第七观察标记 a7 等待用户一键拨号，最多等待十分钟；若 browser-call7-started.utc 存在才累计27。当前临时Windows证书仍 installed=true，结束听音必须直接执行清理并验证。
+
+
+**当前检查点：73/100，10010 累计 26。** d2b1c13 实机定位到零长度音频负载导致 Codec 退出，用户仍约五秒无声；详见 VALIDATION-BROWSER-MEDIA-P3I.md。第五标记未拨，第六标记一通、同通话两次声音连接，30 秒保护后所有呼叫 terminated。当前预览已停止/旧四服务 active/PCM closed。新空负载跳过修正和顶部一键 10010 测试源码已通过 202 workspace/21 Native/Clippy、Node 三组及语法检查，尚待新 ARM 构建部署。d2b1 六 ARM/Native 制品及开发签名包已核对，不能把它们当本次新源码。连续调试的同一临时证书仍 installed=true，结束或暂停听音必须运行 .local/cleanup-preview-trust.ps1 并核验移除。
+
+
+**最新权威：73/100，P6=6.5，10010累计25。** 71506f0/bacd57c2…六程序ARM与同源Native均构建退出0，Native5516704字节/SHA b5bebefd…/20项/release3m11s；202 workspace/20 Native/Clippy、39板级和Node通过。开发签名.private/boot-application-71506f0保留，只有开发公钥和签名包上传，seed未离开本机。media-boot-group-first.json passed/cleanup_verified，真实Media SIGKILL完整组回退、首次媒体配置、同签名Root/inode/UID/cap、第二次Edge SIGKILL预算耗尽整组停止通过；见VALIDATION-MEDIA-STARTUP-P6K.md。不是完整新OS启动/NSHSTATE初始化/刷机。
+
+用户本次又方便参加715诊断，第四标记a4实际拨出一次，累计25；仍只听4—5秒。日志明确worker_rtc_failure stage=service kind=Codec，251 captured/sent、259received、252played、5dropped、1xrun。30秒保护已挂断，预览服务已停止/旧四服务active/PCMclosed/Voice撤回；证据browser-preview-71506f0-diagnostic-first.json和browser-preview-71506f0-current-native.log。当前正在增加包守卫/时长/格式拒绝分类及晚到重复包只丢弃的修正，尚未认定其为现场原因，需新ARM与一次浏览器诊断。**此次连续调试的同一临时Windows证书仍在，browser-preview-trust.json installed=true/remove_after_test=true，结束或暂停听音后必须运行.local/cleanup-preview-trust.ps1并核验移除。** 下文已移除描述属于前一轮，不能当当前状态。
+
+四个P3G旧web-media fixture已仅回收bin内三程序，Root无活跃引用/owner/mode/nlink/SHA及Win保留制品均已核验，记录.private/web-generic-reclamation.json；状态、日志、备份、候选根保留。不要再直接运行那些bin。诊断预览复用新boot fixture的package1只读绑定，实际程序路径读report.diagnostic_binary_directory；原浏览器身份/配对/证书不变，没有额外复制程序。
+
+2026-10-16交互测试最新覆盖：真实Chrome用户配对/登录/跨Core重启再次登录和防重提交已发生；两次实际10010，累计24，第二个等待窗口未拨号。用户第三标记听到一句真实语音后无声，日志PCM07:40:39.7打开、worker07:40:43.13结束、独立Core保护07:41:08.21挂断，**约3秒媒体提前退出未解决**。见VALIDATION-BROWSER-MEDIA-P3H.md；不加进度，仍72.5/100。私有browser-preview-20261016-first.json cleanup_verified=true，预览已停、旧四服务active/PCMclosed/呼叫全terminated，Voice规则撤回；临时Windows证书已实际移除，browser-preview-trust.json removed=true。Chrome插件能列出页面但接管超时/Debugger unattached，未实际控制，不换机制绕过。用户曾要求快点手测，当前不再要求用户继续点击。
+
+工作区正在完成媒体安装/服务组源码：Edge显式--prepare-local-media/--check-local-media、Root initializer可选--media-lan、双份私有配置一致性、Media984仅指定ALSA设备/无D-Bus、BindsTo Core/Edge、一次恢复耗尽后停止整组、源码构建能力标记及测试工具。Native增加不含媒体内容/地址/标识的退出分类和终止帧计数。当前201+1=202 workspace/20 Native与Clippy、39板级/Node验证日志在.private/media-installation-final-source-second.log、media-installation-system-final.log；需检查终态再冻结构建。尚未对新源码ARM/产品单元实测，不把source/诊断当故障已修复。
+
+**最新权威检查点：2026-10-16，72.5/100约73%，10010累计22。** 覆盖下面源码阶段/20次/待编译等历史状态。见VALIDATION-WEB-MEDIA-P3G.md：874f01c/归档ff1d445b…本机六程序ARM和NAS Native ARM退出0；Native5516704字节、SHAe6bf7769…，本机201 workspace/20 Native及两者Clippy、Node媒体/proof通过。private/media-current-build.json和默认source.tar.gz均属于874，旧签名9b应用/fbc整系统组合不变。
+
+严格HTTPS的USB/Wi-Fi各一次10010通过，标记web-media-20261016-a1/a2均已消费；真实DTLS/Opus/PCM、NAS分别159/147帧、重复activate防重、Edge正常退出Core存活而PCM关闭通过，均有1次可恢复xrun；Wi-Fi NAS端2帧丢失保留。另无拨号双接口检查验证相同设备身份/证书名/Origin/同owner token。四份web-media-*-first.json均passed/cleanup_verified；旧四服务active、电话空闲、PCM全关闭、Voice规则已撤回且拒绝，未新增SMS/蜂窝/分区写入；无活跃测试或编译任务。测试工具tools/test-web-media-device.py默认不拨号，可选明确once标记单次10010。
+
+真实浏览器权限/麦克风/人耳听音仍未验收，已异步询问用户是否方便参与，尚未获得答复；还没有给用户操作步骤或启动持久预览。先前同源8448 ERR_BLOCKED_BY_CLIENT不能用其他端口/接口/浏览器绕过。程序化TLS采用显式地址+严格证书名，并不等于DNS/mDNS发现。下一步正式开机组整合Media及Edge硬退出联动、具体可信预览/首次交付，再推进完整系统/恢复；蜂窝仍等换卡，精确kernel/DTB及全部刷写门禁保持。
+
+2026-10-16网页媒体源码阶段：见web-media.md。新Edge /api/media/v1的prepare/poll/activate/stop和capabilities已实现，Core precheck/binding归属与实际TCP peer/local地址绑定；内部IssueMedia/实际peer_key/票据不返回浏览器，通用/v2也拒绝CheckMediaLease。Native新增Edge-only stop_all、受本地配置限制的多bind IP；Edge启动/退出接管清理、TLS目录实例锁、单一Origin多私有监听地址和缺地址等待实现。media.js及页面按钮已实现，迟到权限/取消/丢失授权回复/停止/mute由Node实际源码测试覆盖，未真实浏览器验证。WSL201 workspace/20 Native、两者Clippy通过，日志.private/media-edge-final-source-second.log；Node media/proof均通过。新的ARM冻结构建/HTTP实机和产品单元仍待完成，不能混称e271已验收，也不加分；整体71.5/100、10010仍20，本轮未新增硬件测试。旧四服务/PCM当前实时状态在下一次硬件前重查。
+
+权威最新检查点：整体71.5/100约72%，P0=6.5、P3=13.5，其余权重不变；见VALIDATION-EDL-READ-P0B.md和VALIDATION-MEDIA-WORKER-P3F.md。持续目标100%，换卡流量测试延后。没有活跃设备测试、EDL等待器或编译任务；旧四服务active、电话空闲、PCM关闭、临时规则撤回且Voice拒绝。10010累计20。本段覆盖下方历史构建中/16次等状态。
+
+实际媒体源e271ca15bd8c42d670cd54a7c4e253c97283a053/归档621994eb8f429519dda1957f96b0a96ec3a8cd8c78c6cdc65b113123bc27354f。本机194 workspace/19 Native及Clippy、六程序ARM生产、NAS同源Native19项/release退出0。Native .local/native-e271ca1/rustsimhub-audio-alsa，5451168字节、SHA43b46708f8f076b7e73d3448fadff1fc72f5985f5670cb5ccedc7e1827a66d84，完整日志.private/native-e271ca1-build.log。默认source.tar.gz及media-current-build.json属于e271；此前233/173/707/f36归档/制品分别保留，不混标旧签名9b应用或fbc系统组合。
+
+e271 carrier-fifth/sixth均passed/cleanup_verified=true：生产签名owner/Core986、真实peer与单次票据、同PID Media984、NAS静音上行与真实下行解码、主动关闭/挂断通过。第五123帧捕获/123NAS帧、1xrun；第六214捕获/212NAS帧、2xrun，均恢复。固定播放环2560/周期320不变，许可后和恢复时预填2240帧静音，阈值回读、null Running回归通过。欠载未根除，短测不代表长期稳定。第五/第六once a4/a5已消费；不要重用或自动重拨。此前carrier-second/third失败各1电话、fourth虽121NAS帧但5xrun，完整证据保留。受限SDK诊断控制端在宿主以Edge985执行；Core/Media根与inode/UID/空cap已核验。HTTP仍拒绝IssueMedia，media_available=false，正式Edge两阶段接口/网页声音与产品开机单元尚未接入，是下一步重点。
+
+EDL最终派生副本的NSHSTATE旧身份/device.json经只读debugfs导出到NAS Root私有目录，摘要与入场前一致；派生整图未变，日志.private/recovery-derived-identity.log。原图文件系统检查仍失败，不能改成原图一致。实际完整回刷/新OS启动、精确内核/DTB源码及发行门禁未解除。
+
+强本机Native ARM交叉编译尚未配置，主六程序已在本机编译，Native目前仍NAS固定ARM镜像。已查本机官方apt元数据，匹配现有私有GCC15.2.0-16ubuntu1cross1的g++交叉包SHA988221ff…、libstdc++-15-dev-arm64-cross SHAa88bc813…可用；没有安装/修改原GNU工具链。Native需ALSA ARM SDK和AWS-LC的C++交叉支持，若继续迁移请新建独立SDK并记录出处，别改主工具链清单。检查中的工具链路径由.local/wsl-cross/bin/arm64-cc指向私有WSL GNU缓存。
+
+最新检查点：707756562b2e331dcb205ba211fd187d0503e6ad已精确发布GitHub；源码81cd93ad…，本机194 workspace/19 Native和Clippy通过，本机六程序ARM退出0，NAS rustsimhub-audio-7077565仍构建中（只检查同一容器，不重启）。私有构建索引media-current-build.json，状态脚本.local/nas-native-current-status.sh。173b21f先前Native退出0，SHAa4baba2a…/5451168字节；233旧制品已保留。
+
+实际媒体验收：.private/media-worker-preflight-second.json passed/cleanup_verified=true，两次真实DTLS、固定UID/Root拒绝/无Core不打开PCM/同PID复用通过。carrier-first在拨号前遇私有信令文件权限发布竞争，0拨号；已改为临时文件设权限后原子发布。carrier-second消费唯一worker-20261016-a1标记，一次10010提交成功、生产Core预检/票据、PCM及NAS真实解码36帧到达；4次playback EPIPE后媒体关闭，验收失败。电话已清空、PCM全关闭、旧四服务active、临时Voice规则移除且恢复拒绝，累计10010=16。不要重用a1或自动重拨；新707构建修正真实PCM错误不得吞为正常关闭，保留欠载阈值，并用同源Edge985诊断CLI减少每次状态轮询新建systemd命名空间的干扰。该诊断CLI在宿主用户态，Core/Media仍在候选RootDirectory、固定UID和空cap；不是产品Edge。
+
+EDL私有索引recovery-edl-20261016-first.json现passed=true，scope仅physical-edl-entry-read-and-normal-return，phase=completed。最终full-check-preen-derived副本e2fsck -f -p后两分区只读-fn均0，原图不变、GPT/boot不变；完整日志recovery-edl-fullcheck.log及recovery-edl-nas-evidence.json。raw_capture_filesystem_consistent=false，derived_filesystems_consistent=true，全部刷写/恢复发布门禁false。P0加0.5，总体71/100；本段覆盖下文等待/准备状态。没有EDL等待器或设备实机测试活跃，只有NAS新Native构建。
+
+2026-10-16恢复现场新实证：用户已完成同口按键插入，NAS实际识别05c6:9008；只读GPT与完整3909091328字节主区读取通过，一次reset获确认、watcher退出0。报告.private/recovery-edl-20261016-first.json已核验自动返回后boot/身份保持、旧四服务active/PCMclosed/通话空闲/普通蜂窝断开。NAS位置与PID读私有报告；进程已结束，不要重复关机/捕获/重启。原图独立回读SHA264c5c5c…匹配，但rootfs只读e2fsck退出4、提示未回放journal，不能称原图一致或完整恢复验证通过；失败日志及原图保留。准备仅在NAS独立副本验证journal-only回放，绝不对棒子或原图修复。下面“未进入/等待提问”均为历史。没有分区写入；数据测试仍跳过。
+
+媒体构建已完成，见VALIDATION-MEDIA-WORKER-BUILD.md：冻结233110ad5af01973bce0950f1bb94377df8520a3/归档5c33e424…，193 workspace/17 Native及Clippy通过；本机六程序ARM生产与NAS同源Native ARM均退出0。Native .local/native-233110a/rustsimhub-audio-alsa，5451168字节，SHA0c21880e…，完整NAS日志已下载。尚未跑常驻worker实机或接网页，不能宣称media_available。整体仍70.5/100约71%，本轮新增拨号/SMS/蜂窝0，累计10010仍15。默认.local/source.tar.gz现属于233，原签名包/组合镜像不变。
+
+2026-10-16媒体源码检查点：见media-worker.md，常驻Native --serve-worker/有限IPC与SDK、simhubctl私有worker-request、Core无副作用check_media_lease和NAS诊断offer_synthetic_gated已实现。WSL本机Rust1.98.0通过193项workspace/17项Native及两者Clippy（.private/media-worker-source-gated.log），此前host初次缺alsa/C++/cmake，已仅本机补齐并成功；无棒子编译。尚需冻结源、六程序ARM和NativeARM，以及实际worker隔离验收。未新增电话/SMS/蜂窝、整体仍70.5点。HTTP仍拒绝IssueMedia，尚未接两阶段网页信令，media_available=false。恢复按键提问仍待答复；没有EDL操作。
+
+2026-10-16当前：可信首次安装与持久TLS私有交付实机通过，见VALIDATION-INSTALLATION-P6J.md；固定70.5/100约71%，P6=6/12。不可变工具源码fbc2cdba4f8453dfe8484caf35e13a077e41da89，源9f331a82de78d90008b6c7c81858f48995bf23151986633fe10e40246fd22266，191项/六程序ARM/相关Clippy/CI38770338860成功，板级38。主应用/Native仍9b/19f。默认.local/source.tar.gz现属于fbc，独立source-install-fbc2cdba…tar.gz保留；新工具.local/wsl-artifacts-fbc2cdba4f8453dfe8484caf35e13a077e41da89。
+
+实机.private/installation-boot-first.json passed/cleanup_verified=true：未初始化不启动且不耗恢复预算、错误签名无新身份、Root私有handoff、重复初始化拒绝、首次owner/严格TLS/完整Core及原SIGKILL整组回退回归通过。新fixture /var/tmp/rustsimhub-boot-group-gp3sz82L；无安装生产服务、无新OS启动、actual_nshstate_guard_run=false，实际NSHSTATE初始化尚未做。无活跃实机程序；旧四服务active/PCMclosed，新增电话/SMS/蜂窝0，10010累计15。
+
+新完整组合WSL /home/wzs11/.cache/rustsimhub/system-tree-p6j-installation-first，组合源码fbc，12338条目、树3e3f51ced9e4b377576ccfb7bfb697e1bd6cabad542f7961cff78048a553bf4c；systemd依赖只读验证退出0、树保持。所有刷写/发布/恢复/新OS启动门禁仍false。下面P6I的ed786/f83组合是上一轮已验证历史，不是当前工具或组合输入。
+
+离线镜像WSL /home/wzs11/.cache/rustsimhub/system-image-p6j-first/rootfs.img，3436183552字节、SHA26cca986649b9b0aa8cea386f55b2d5620bc11831c12807316815aa835dd41e7；同目录SYSTEM-IMAGE.json passed/source_tree_unchanged=true。Root .local/build-installation-image.py（SHA933dd5c9…）以固定UUID/hash_seed/epoch生成，再e2fsck -fn、私有loop/ro/noload挂载和全部条目/owner/mode/cap核验通过，额外仅空Root0700 lost+found。日志.private/system-image-p6j-build.log及WSL输出目录。类型internal-unflashable-system-image、所有刷写/恢复/发布门禁false，private_firmware_included/device_state_initialized=false。没有上传或写入棒子，不加分；不能拿此镜像跳过恢复与状态准备。
+
+GitHub已发布2927569b94fc的只读恢复工具，前一d15cdc9保存安装实证。原未发布fd76ea1含新增CI步骤，GitHub tree接口404；读取token scopes证实无workflow。该草稿仅保存在本地codex/recovery-ci-pending分支；从未发布，不要直接推送它。main已恢复CI文件到既有版本后重制当前提交，恢复7项测试仅本机通过，不宣称CI包含新测试。无需为无关代码索取新授权，也不要换认证绕过工作流权限。
+
+恢复准备进行中：已读旧r138资料，实际设备树只有mode-bootloader/recovery，无mode-edl，未猜测reboot edl。NAS隔离工具目录由.private/recovery-tools-location.log定位，已Root拥有/0700；此前固定bkerler-edl源码1cda1a616748d608667b2d13b73a28d3197ceb45/归档2907e7f6…及本人旧8916加载器959439aa…已上传，私有venv依赖/--help及新只读封装runtime-check通过。tools/recovery/提供固定只读gpt/read-emmc/reset及7项拒绝路径测试；源码/加载器哈希、实际USB端口+bus/address、SkipWrite、XML操作/读取边界、GPT两份CRC与精确分区门禁。不提供刷写或任意命令。首次封装拒绝上游三个内部链接、第二轮基线拒绝128条目假设；按固定源码链接和实际GPT16条目修正，原失败日志/两版封装保留。第三轮.private/recovery-readonly-runtime-third.log成功；NAS expected-device.json已记录先前独立核验全盘镜像的主备GPT摘要及当前物理端口2-1。封装SHA4a83be46…，只读主区捕获不包括boot0/1。尚未打开EDL USB、进入EDL或离线捕获，不加进度。
+
+已异步问用户实体按键/复位孔及是否在NAS旁，明确先不要操作；等待答复期间继续独立工作。实际进入前干净关机并给明确步骤，不能猜硬件按键或把旧Windows EDL日志当当前NAS恢复已通过。没有活跃EDL等待器。内核声明源提交93a71ee9468dd8d47a9e082e5d818608f08712e3在GitHub已查到verified提交，但具体boot构建/本地音频DTB补丁的闭环还缺，board.toml的UNRESOLVED不因上游存在而静默解除。
+
+空间维护：本机和NAS核对通用归档a73e.../132531369字节后，仅移除棒子多余tree.tar.gz传输副本；候选rootfs及全部实验/失败证据保留，根分区空闲350916608字节。NAS位置读.private/generic-transport-archive-location.json，Win/WSL原归档仍在。旧check-staged-tree-after-runtime.sh不能再直接读设备端归档，后续从已核验副本流式比较。新boot验收可加--reuse-inputs，取.private/boot-service-group-second.json中的directory，只读绑定相同签名package1..3，不删除旧数据。
+
+2026-10-15历史检查点：70/100（P6=5.5/12）。持续目标100%，换卡流量测试及确需用户参与时才询问。每次最终回复必须报告百分比；没有当前阻塞，不应标记goal complete/blocked。
+
+## 本轮最新结果
+
+见VALIDATION-BOOT-GROUP-P6I.md。统一select/Core/Edge/target/一次恢复单元已经组合，并在真实棒子候选RootDirectory中以改名测试单元通过：一次选择同组签名版本、完整Core业务和首次owner、严格TLS、Root/exe inode及986/985空cap、真正Core SIGKILL后自动整组回退、owner/pin/收件箱保持、第三版显式健康确认并重启保持、第二次故障耗尽恢复预算后停止。台账tmpfs与根分区payload实际不同FS，台账没有payload；不是NSHSTATE掉电验收。
+
+实机报告.private/boot-service-group-second.json passed/cleanup_verified=true。第一轮在启动前NAS路径解析失败，已清理并保留。自己的临时单元/规则/tmpfs已清理，旧nassimhub-agent/ModemManager/NetworkManager/rmtfs active，PCMclosed。没有活跃构建/实机测试。新增拨号/SMS/蜂窝0，累计10010仍15。
+
+## 当前源与制品
+
+- 主应用：9b5f1d9c0689ab278e5301e54a207b6ef0831c93，源归档19fba055e597a8d4e3b3ae504d84d5f8631d191ab843b02a5b922427ad194504；.local/wsl-artifacts-9b5f1d9c0689ab278e5301e54a207b6ef0831c93。185项及CI38752335688通过。
+- 同源Native：.local/native-9b5f1d9/rustsimhub-audio-alsa，5320088字节，SHA890568f3f4664b2af6cc7db3a8d6888374534e29f0bbd09984d5f2a75895c52c；.private/native-9b5f1d9-build.log。NAS容器rustsimhub-audio-9b5f1d9 exited0，11项测试/release2m53s。Native Rust1.99.0/ALSA1.2.8与主程序本机交叉Rust1.98.0分别记录，不当性能对照。
+- 不可变更新器：ed78621da68573a82d19b6b6cb130f3dad4d3208，源44efe51748ad35fea09f28787ace9df2c1660c9766420fdae028ea710611cb29；.local/wsl-artifacts-ed78621da68573a82d19b6b6cb130f3dad4d3208。187项/六程序ARM生产/组件Clippy/CI38757958385通过。主应用仍9b，同源Native不需因更新器工具变化重编。
+- 默认.local/source.tar.gz现在属于ed78621/44efe5；独立source-boot-select-ed78621...tar.gz保留。不要当成当前Git HEAD。新构建必须用tools/package-source.py冻结已提交源码。
+- 开发签名应用.private/boot-application-9b5f1d9/package1..3、release.public和provenance.json；release.seed只在本机private，绝不上传设备或Git。使用实际五文件应用格式。production_release=false。
+- 基础系统源452d75e9f647b01ca2badb80b8e980ee99cec96b：WSL /home/wzs11/.cache/rustsimhub/base-system-p6d-build-second/output，锁定220包，树c6992751d2d246fd423c3b0680fa47d622c711ec2cab494b5ded7c8da279b7c6，不修改该输入。
+- 新签名组合源f83f71901ded7c96c61cd8799b0bc3c4b1a3fe61：WSL /home/wzs11/.cache/rustsimhub/system-tree-p6i-startup-second，12335条目，树48012d10bea64d8102b3a360e409d2b5f26abcabbb9d5033086902a764607443。本轮35项板级/34项rootfs通过。初次组合因旧polkit审计拒绝，失败树system-tree-p6i-startup保留。
+
+新组合的app_service_group_installed=true只表示单元/签名包安装。automatic_update_health_confirmation=false；flash_allowed/release_ready/recovery_verified/board_boot_verified仍false。Native ELF包含在应用payload中，但没有产品常驻媒体worker，不宣称媒体可用。
+
+## 实机与空间
+
+棒子上仍是旧完整系统。既有通用用户态/var/tmp/rustsimhub-system-tree-ofY1ttXm/rootfs来自724fc09，树fbcbade0f7137cec59c0eeead9ec092e2e526e70e62550e0b569c5cdc228dd9b，12303条目，不含新的启动组；实机测试把新签名应用/单元通过私有绑定接入。不要把它混称新f83整树。
+
+原归档.private/system-tree-p6f-network.tree.tar.gz：132531369字节，SHA a73e1c0f1bb2ebb9aed764b25fe39313a42b60d36a64d732f53d13e827860cf1。运行后tar全部内容/权限/capability比较通过，.private/system-tree-post-boot-group-compare.log；完整路径清单也匹配12303项，.private/system-tree-post-boot-group-names.log，无额外文件。主机及候选都没有Python；两次尝试未执行，最终用find/sort，没有安装软件。
+
+通用归档冗余设备副本已按首部说明移除，最后验收前空闲350916608字节，下一次必须重查。不要再上传/展开另一份400MB树或删除旧失败证据腾空间。NAS空间可存后续镜像；原始日志、SIM/短信/联系人、身份、密钥和备份仅.private/.local。测试fixture目录均保留，详细路径读各私有报告。
+
+设备UFI003/SD410，Debian13.7 ARM64，kernel6.12.49-msm8916-g93a71ee9468d/glibc2.41。Root源码kernel_source_commit仍UNRESOLVED。boot p12 64MiB，rootfs p14 3436183552字节，NSHSTATE p15 135249408字节；准确值以实际只读预检为准，不写NV/校准/GPT。
+
+## 下一步优先
+
+1. 可信安装/设置交付的隔离实机层已完成，继续真实NSHSTATE每设备准备与维护入口、恢复和完整镜像；不要重复初始化测试来代替完整上电。--prepare-device-setup只准备私有码，不开窗不输出码；simhubctl identity核对socket/peer UID。不要自动删除setup.used或fallback到--serve-local-setup来重开窗口。
+2. 完整系统恢复与安装：fastboot进入/只读查询/自动返回已实测，完整EDL/离线一致备份/新系统回刷尚未完成。读VALIDATION-RECOVERY-ENTRY-P0C.md和.private/full-device-live-capture.json。用户已确认需要时能到NAS旁拔插，操作前给明确步骤。
+3. 旧资料../r138-flash-validation/README-r138.md确认同系列板曾在2026-10-07通过EDL写boot/rootfs、维护登录/重启；旧镜像带私人配置且版本过时，不能直接当RustSimHub已验收系统。INSTALL.md记载开机长按约5秒进入9008，必须先核对本机准确方法/programmer/备份，不能猜测或因历史成功跳过当前门禁。
+4. 媒体常驻/浏览器双向声音、来电、TURN/远程；正式网页发送/删除/故障矩阵、NAS原页面/PCM；Wi-Fi其他SSID/无Wi-Fi首启/热点；稳定性、第二台、性能对照、安全和发布验收。手机原生app不做，最小网页仍在范围内。不要继续对已通过的签名组/RootDirectory重复打包自检来代替这些剩余工作。
+
+## 持续约束与工具
+
+- 流量测试全部等换卡并明确安排：不启用普通APN，不做蜂窝互联网探测、不隐式fallback，不关闭语音需要的WWAN/IMS。
+- 持续允许10010短时自动挂断，独立once标记；Unknown先核验不自动重拨。其他号码、新短信发送不由此推定授权。
+- 浏览器之前同源8448报ERR_BLOCKED_BY_CLIENT，不能换端口/接口/浏览器绕过。SSH/严格TLS程序化检查可用，GUI仍未验收。
+- Python312绝对路径见环境，依赖.local/python-deps；tools/remote.py使用.private/nas.json/device.json及固定known_hosts，RejectPolicy。不要导入会在顶层执行的验收脚本来复用函数。
+- Cargo都用WSL wzs11。此前Root测试污染项目target缓存，核对绝对路径后已只修复该缓存owner；Root只跑数字UID/挂载Python夹具，不再Root Cargo。通用ARM在本机交叉编译，Native目前用NAS离线缓存，绝不棒子编译。
+- GitHub私有Viper-Boss/RustSimHub/main。先audit-source.py和cached diff check再提交；标准HTTPS偶有连接超时，可用tools/publish-exact-git-objects.py精确同SHA非强制发布，查远端与CI，不重写历史。
+- docs/PROGRESS.md与验证文档保存历史；当前事实以本入口、固定进度表、git status及实际报告为准，不把文档提交当已重编二进制。

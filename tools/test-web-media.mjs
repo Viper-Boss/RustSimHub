@@ -12,7 +12,7 @@ function setup(options={}){
  const input={enabled:true,stopped:false,stop(){this.stopped=true;}};
  const output={stopped:false,stop(){this.stopped=true;}};
  const stream={getTracks:()=>[input],getAudioTracks:()=>[input]};const audio={srcObject:null,paused:false,play:async()=>{},pause(){this.paused=true;}};
- const calls=[],peers=[];let getMedia=0,pollBusy=options.pollBusy||0;
+ const calls=[],peers=[];let getMedia=0,pollBusy=options.pollBusy||0,monitorBusy=options.monitorBusy||0,activated=false;
  class Peer {
   constructor(config){assert.deepEqual(config.iceServers,[]);this.iceGatheringState='complete';this.connectionState='new';this.localDescription=null;this.closed=false;this.stopped=false;peers.push(this);}
   addTransceiver(track,init){assert.equal(track,input);assert.equal(init.direction,'sendrecv');const transceiver={setCodecPreferences(codecs){assert.equal(codecs.length,1);assert.equal(codecs[0].mimeType,'audio/opus');},stop:()=>{this.stopped=true;}};this.transceiver=transceiver;return transceiver;}
@@ -22,13 +22,15 @@ function setup(options={}){
   async setRemoteDescription(value){assert.equal(value.type,'answer');this.connectionState='connected';this.ontrack?.({streams:[{getTracks:()=>[output]}],track:output});}
   close(){this.closed=true;this.connectionState='closed';this.onconnectionstatechange?.();}
  }
- const env={isSecureContext:true,crypto:webcrypto,AbortController,RTCPeerConnection:Peer,RTCRtpSender:{getCapabilities:()=>({codecs:[{mimeType:'audio/opus'},{mimeType:'audio/PCMU'}]})},navigator:{mediaDevices:{getUserMedia:async constraints=>{getMedia++;assert.equal(constraints.video,false);return options.permission?options.permission.promise:stream;}}},MediaStream:class{},setTimeout:(fn,ms)=>setTimeout(fn,ms===200?1:ms),clearTimeout};
+ const env={isSecureContext:true,crypto:webcrypto,AbortController,RTCPeerConnection:Peer,RTCRtpSender:{getCapabilities:()=>({codecs:[{mimeType:'audio/opus'},{mimeType:'audio/PCMU'}]})},navigator:{mediaDevices:{getUserMedia:async constraints=>{getMedia++;assert.equal(constraints.video,false);return options.permission?options.permission.promise:stream;}}},MediaStream:class{},setTimeout:(fn,ms)=>setTimeout(fn,ms===200||ms===1000&&options.fastMonitor?1:ms),clearTimeout};
  env.fetch=async(path,request)=>{
   assert.equal(path,'/api/media/v1');assert.equal(request.credentials,'omit');assert.equal(request.cache,'no-store');const body=JSON.parse(request.body);calls.push(body.command.op);assert(!('peer_key' in body.command)&&!('ticket' in body.command));
   if(options.activateError&&body.command.op==='activate')throw Error('synthetic lost reply');
   if(body.command.op==='poll'&&pollBusy-->0)return{ok:false,status:options.pollStatus||429};
   if(body.command.op==='activate'&&options.activateStatus)return{ok:false,status:options.activateStatus};
-  const phase={prepare:'handshaking',poll:'verified',activate:'active',stop:'closed'}[body.command.op];
+  if(body.command.op==='poll'&&activated&&monitorBusy-->0)return{ok:false,status:options.monitorStatus||429};
+  const phase=body.command.op==='poll'&&activated?'active':{prepare:'handshaking',poll:'verified',activate:'active',stop:'closed'}[body.command.op];
+  if(body.command.op==='activate')activated=true;
   return{ok:true,json:async()=>({protocol:1,id:options.wrongId?'wrong':body.id,result:{session:body.command.session,phase,answer:body.command.op==='prepare'?'synthetic_answer':null,pcm_opened:phase==='active',failure:null}})};
  };
  const states=[];const link=new AudioLink(audio,(text,state)=>states.push(state),env);
@@ -61,6 +63,12 @@ function setup(options={}){
 }
 {
  const f=setup({activateStatus:429});await assert.rejects(f.link.start(context),/HTTP 429/);assert.equal(f.calls.filter(c=>c==='activate').length,1);assert(f.input.stopped);
+}
+{
+ const f=setup({monitorBusy:2,fastMonitor:true});await f.link.start(context);await new Promise(resolve=>setTimeout(resolve,180));assert.equal(f.link.state,'active');assert.equal(f.calls.filter(c=>c==='activate').length,1);assert.equal(f.calls.filter(c=>c==='stop').length,0);await f.link.stop();
+}
+{
+ const f=setup({monitorBusy:2,monitorStatus:403,fastMonitor:true});await f.link.start(context);await new Promise(resolve=>setTimeout(resolve,20));assert.equal(f.link.state,'closed');assert(f.input.stopped);assert.match(f.link.lastMessage,/HTTP 403/);assert.equal(f.calls.filter(c=>c==='activate').length,1);
 }
 {
  const f=setup();f.env.isSecureContext=false;await assert.rejects(f.link.start(context),/HTTPS/);assert.equal(f.getMedia(),0);assert.equal(f.calls.length,0);

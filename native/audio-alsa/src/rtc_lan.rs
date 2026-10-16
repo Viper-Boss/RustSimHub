@@ -111,7 +111,14 @@ pub fn run(path: &str) -> Result<(), &'static str> {
     let base = path.parent().ok_or("private config path")?;
     let config: Config =
         serde_json::from_slice(&read(path, 4096)?).map_err(|_| "invalid private config")?;
-    if !(1..=10).contains(&config.seconds) {
+    // Longer synthetic peers help diagnose delayed lease failures without
+    // asking a person to listen repeatedly. Hardware diagnostics stay at 10s.
+    let maximum = if matches!(config.mode, Mode::AnswerAuthorized) {
+        10
+    } else {
+        30
+    };
+    if !(1..=maximum).contains(&config.seconds) {
         return Err("invalid diagnostic duration");
     }
     let socket = UdpSocket::bind(config.bind).map_err(|_| "UDP bind failed")?;

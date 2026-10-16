@@ -277,6 +277,10 @@ impl Worker {
         let context = self.media_context(&principal, peer_key).await?;
         Ok((principal, context))
     }
+    fn media_rejection(&self, stage: &'static str, reason: &'static str) {
+        let now = self.now();
+        eprintln!("core_media_rejected stage={stage} reason={reason} owned={} lease_remaining_ms={} binding_valid={}",self.owned.is_some(),self.owned.as_ref().map_or(0,|o|o.grant.expires_ms.saturating_sub(now)),self.bindings.borrow().as_ref().is_some_and(Binding::valid));
+    }
     async fn handle_media(&mut self, j: crate::media_ipc::Job) {
         use crate::media_ipc::Action;
         self.media.expire(self.now());
@@ -303,6 +307,7 @@ impl Worker {
                         }
                     }
                     Err(e) => {
+                        self.media_rejection("heartbeat", e);
                         self.media.revoke();
                         Err(e)
                     }
@@ -576,7 +581,13 @@ impl Worker {
                 serde_json::to_value(self.media.issue(p, context, now)?).map_err(|_| "media_denied")
             }
             AuthCommand::CheckMediaLease { token, lease } => {
-                let (_, c) = self.media_request(&token, &lease, [0; 32]).await?;
+                let (_, c) = match self.media_request(&token, &lease, [0; 32]).await {
+                    Ok(context) => context,
+                    Err(error) => {
+                        self.media_rejection("http_precheck", error);
+                        return Err(error);
+                    }
+                };
                 // Stable over renewal, but changes with every owner/line/call/lease incarnation.
                 let binding = serde_json::to_vec(&(
                     "rustsimhub-media-owner-binding-v1",
