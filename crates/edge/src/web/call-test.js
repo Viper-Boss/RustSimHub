@@ -53,7 +53,7 @@ export class CallTest {
    while(true){
     const left=Math.max(0,Math.ceil((this.deadline-(this.env.performance?.now()??Date.now()))/1000));
     this.say(this.audio.state==='active'?`声音已连接 · ${left} 秒后自动结束`:'声音已中断；正在结束本次测试');
-    if(this.audio.state!=='active')throw Error('声音提前中断');
+    if(this.audio.state!=='active')throw Error('声音提前中断'+(this.audio.lastMessage?'：'+this.audio.lastMessage:''));
     await this.pause(500);
    }
   }catch(error){if(!this.cancelled)this.error=error.message||'测试失败';}

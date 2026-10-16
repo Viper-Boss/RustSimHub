@@ -12,7 +12,7 @@ function setup(options={}){
  const input={enabled:true,stopped:false,stop(){this.stopped=true;}};
  const output={stopped:false,stop(){this.stopped=true;}};
  const stream={getTracks:()=>[input],getAudioTracks:()=>[input]};const audio={srcObject:null,paused:false,play:async()=>{},pause(){this.paused=true;}};
- const calls=[],peers=[];let getMedia=0;
+ const calls=[],peers=[];let getMedia=0,pollBusy=options.pollBusy||0;
  class Peer {
   constructor(config){assert.deepEqual(config.iceServers,[]);this.iceGatheringState='complete';this.connectionState='new';this.localDescription=null;this.closed=false;this.stopped=false;peers.push(this);}
   addTransceiver(track,init){assert.equal(track,input);assert.equal(init.direction,'sendrecv');const transceiver={setCodecPreferences(codecs){assert.equal(codecs.length,1);assert.equal(codecs[0].mimeType,'audio/opus');},stop:()=>{this.stopped=true;}};this.transceiver=transceiver;return transceiver;}
@@ -26,6 +26,8 @@ function setup(options={}){
  env.fetch=async(path,request)=>{
   assert.equal(path,'/api/media/v1');assert.equal(request.credentials,'omit');assert.equal(request.cache,'no-store');const body=JSON.parse(request.body);calls.push(body.command.op);assert(!('peer_key' in body.command)&&!('ticket' in body.command));
   if(options.activateError&&body.command.op==='activate')throw Error('synthetic lost reply');
+  if(body.command.op==='poll'&&pollBusy-->0)return{ok:false,status:options.pollStatus||429};
+  if(body.command.op==='activate'&&options.activateStatus)return{ok:false,status:options.activateStatus};
   const phase={prepare:'handshaking',poll:'verified',activate:'active',stop:'closed'}[body.command.op];
   return{ok:true,json:async()=>({protocol:1,id:options.wrongId?'wrong':body.id,result:{session:body.command.session,phase,answer:body.command.op==='prepare'?'synthetic_answer':null,pcm_opened:phase==='active',failure:null}})};
  };
@@ -47,6 +49,18 @@ function setup(options={}){
 }
 {
  const f=setup({wrongId:true});await assert.rejects(f.link.start(context),/不匹配/);await turn();assert(f.input.stopped&&f.peers[0].closed);assert.equal(f.calls.filter(c=>c==='activate').length,0);
+}
+{
+ const f=setup({pollBusy:2});await f.link.start(context);assert.equal(f.link.state,'active');assert.equal(f.calls.filter(c=>c==='poll').length,3);assert.equal(f.calls.filter(c=>c==='activate').length,1);await f.link.stop();
+}
+{
+ const f=setup({pollBusy:10});await assert.rejects(f.link.start(context),/HTTP 429/);assert.equal(f.calls.filter(c=>c==='poll').length,3);assert.equal(f.calls.filter(c=>c==='activate').length,0);assert(f.input.stopped);
+}
+{
+ const f=setup({pollBusy:10,pollStatus:403});await assert.rejects(f.link.start(context),/HTTP 403/);assert.equal(f.calls.filter(c=>c==='poll').length,1);assert(f.input.stopped);
+}
+{
+ const f=setup({activateStatus:429});await assert.rejects(f.link.start(context),/HTTP 429/);assert.equal(f.calls.filter(c=>c==='activate').length,1);assert(f.input.stopped);
 }
 {
  const f=setup();f.env.isSecureContext=false;await assert.rejects(f.link.start(context),/HTTPS/);assert.equal(f.getMedia(),0);assert.equal(f.calls.length,0);

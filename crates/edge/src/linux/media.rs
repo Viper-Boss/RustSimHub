@@ -274,7 +274,11 @@ pub(super) async fn api(
         return denied(StatusCode::FORBIDDEN);
     }
     // Serialize signaling, including ambiguous cancelled authorization attempts.
-    let Ok(mut state) = bridge.slot.try_lock() else {
+    // The background reaper briefly holds this same lock while inspecting the
+    // worker. Wait within the existing bounded HTTP admission instead of
+    // turning an ordinary inspection into a spurious busy response.
+    let Ok(mut state) = timeout(Duration::from_millis(1500), bridge.slot.lock()).await else {
+        eprintln!("web_media_rejected reason=slot_busy");
         return denied(StatusCode::TOO_MANY_REQUESTS);
     };
     let binding = match core(
@@ -293,7 +297,10 @@ pub(super) async fn api(
                 None => return denied(StatusCode::SERVICE_UNAVAILABLE),
             }
         }
-        _ => return denied(StatusCode::FORBIDDEN),
+        _ => {
+            eprintln!("web_media_rejected reason=core_lease");
+            return denied(StatusCode::FORBIDDEN);
+        }
     };
     let session = request.command.session().to_owned();
     let result = match request.command {
@@ -346,6 +353,7 @@ pub(super) async fn api(
             }
             match action {
                 Action::Stop { .. } => {
+                    eprintln!("web_media_stop reason=client_request");
                     bridge
                         .exchange(Command::Stop {
                             session: session.clone(),
@@ -423,6 +431,7 @@ pub(super) async fn api(
         )
         .into_response(),
         Err(_) => {
+            eprintln!("web_media_stop reason=worker_exchange");
             bridge.stop(&session).await;
             denied(StatusCode::SERVICE_UNAVAILABLE)
         }

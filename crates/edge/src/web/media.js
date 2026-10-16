@@ -3,19 +3,22 @@
 export class AudioLink {
  constructor(audio,notify=()=>{},env=globalThis){this.audio=audio;this.notify=notify;this.env=env;this.generation=0;this.controllers=new Set();this.waiters=new Set();this.context=null;this.session=null;this.pc=null;this.stream=null;this.state='closed';this.muted=false;}
  current(g){if(g!==this.generation)throw Error('声音连接已取消');}
- say(state,text){this.state=state;this.notify(text,state);}
+ say(state,text){this.state=state;this.lastMessage=text;this.notify(text,state);}
  async send(context,session,command,g,cleanup=false){
   const controller=new this.env.AbortController();if(!cleanup)this.controllers.add(controller);
   const timer=this.env.setTimeout(()=>controller.abort(),cleanup?1500:7000);const id=this.env.crypto.randomUUID();
   try{
    const response=await this.env.fetch('/api/media/v1',{method:'POST',headers:{'Content-Type':'application/json','X-RustSimHub-Request':'2'},body:JSON.stringify({protocol:1,id,token:context.token,lease:context.lease,command:{...command,session}}),signal:controller.signal,credentials:'omit',cache:'no-store',redirect:'error',keepalive:cleanup});
-   if(!cleanup)this.current(g);if(!response.ok)throw Error('声音请求未获确认；请检查通话、音频权限与局域网连接');
+   if(!cleanup)this.current(g);if(!response.ok){const error=Error(`声音请求未获确认（HTTP ${response.status}）；请检查通话、音频权限与局域网连接`);error.status=response.status;throw error;}
    const value=await response.json();if(!cleanup)this.current(g);
    if(value.protocol!==1||value.id!==id||value.result?.session!==session)throw Error('声音响应不匹配');
    return value.result;
   }finally{this.env.clearTimeout(timer);this.controllers.delete(controller);}
  }
  wait(ms,g){return new Promise((resolve,reject)=>{const cancel=()=>{this.env.clearTimeout(timer);this.waiters.delete(cancel);reject(Error('声音连接已取消'));};const timer=this.env.setTimeout(()=>{this.waiters.delete(cancel);try{this.current(g);resolve();}catch(error){reject(error);}},ms);this.waiters.add(cancel);});}
+ async poll(g){
+  for(let attempt=0;;attempt++){try{return await this.send(this.context,this.session,{op:'poll'},g);}catch(error){if(error.status!==429||attempt>=2)throw error;await this.wait(100*(attempt+1),g);}}
+ }
  ice(pc,g){
   if(pc.iceGatheringState==='complete')return Promise.resolve();
   return new Promise((resolve,reject)=>{
@@ -55,17 +58,17 @@ export class AudioLink {
    const answer=await this.send(this.context,this.session,{op:'prepare',offer:sdp},g);if(typeof answer.answer!=='string'||!answer.answer.length)throw Error('声音协商未获得有效应答');
    await pc.setRemoteDescription({type:'answer',sdp:answer.answer});this.current(g);
    const now=()=>this.env.performance?.now()??Date.now();const end=now()+8000;let snapshot;
-   do{snapshot=await this.send(this.context,this.session,{op:'poll'},g);if(snapshot.phase==='verified')break;if(snapshot.phase!=='handshaking'||now()>=end)throw Error('声音握手未完成；没有自动重试');await this.wait(200,g);}while(true);
+   do{snapshot=await this.poll(g);if(snapshot.phase==='verified')break;if(snapshot.phase!=='handshaking'||now()>=end)throw Error('声音握手未完成；没有自动重试');await this.wait(200,g);}while(true);
    // Exactly one activation. A lost reply is closed, never resubmitted.
    snapshot=await this.send(this.context,this.session,{op:'activate'},g);
-   while(snapshot.phase==='authorizing'){await this.wait(200,g);snapshot=await this.send(this.context,this.session,{op:'poll'},g);if(now()>=end)throw Error('声音授权未完成；没有自动重试');}
+   while(snapshot.phase==='authorizing'){await this.wait(200,g);snapshot=await this.poll(g);if(now()>=end)throw Error('声音授权未完成；没有自动重试');}
    if(snapshot.phase!=='active'||snapshot.pcm_opened!==true)throw Error('当前通话的声音未就绪');
    this.say('active','声音已连接');void this.monitor(g);return snapshot;
   }catch(error){if(provided)for(const track of provided.getTracks())track.stop();if(g===this.generation){void this.stop();this.say('closed',error.message||'声音连接失败');}throw error;}
  }
  async monitor(g){
-  try{while(g===this.generation){await this.wait(1000,g);const snapshot=await this.send(this.context,this.session,{op:'poll'},g);if(snapshot.phase!=='active'||snapshot.failure){void this.stop();this.say('closed','声音连接已结束；请检查当前通话后手动重连');return;}}}
-  catch{if(g===this.generation){void this.stop();this.say('closed','声音连接失去确认，麦克风已关闭');}}
+  try{while(g===this.generation){await this.wait(1000,g);const snapshot=await this.poll(g);if(snapshot.phase!=='active'||snapshot.failure){void this.stop();this.say('closed','声音连接已结束；请检查当前通话后手动重连');return;}}}
+  catch(error){if(g===this.generation){void this.stop();this.say('closed',`声音连接失去确认${Number.isInteger(error.status)?`（HTTP ${error.status}）`:''}，麦克风已关闭`);}}
  }
  stop(){
   const context=this.context,session=this.session;++this.generation;this.context=null;this.session=null;

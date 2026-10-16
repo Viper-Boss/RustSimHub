@@ -1,5 +1,11 @@
 # RustSimHub 当前接手入口
 
+**一键已实测但声音仍未稳定：73/100、10010累计27。** 13f9063第七标记一通，自动登录/提交/接音/提前关闭后自动挂断均实际发生；用户约15秒，Native约13秒、639captured/sent/played、646received、13dropped、1xrun、无Codec拒绝，失败None/transportClosed；不是30秒保护。日志已保存13f私有文件，当前预览停止/旧四服务active/PCMclosed/全call terminated。已新增可复现reaper锁竞争修正、仅只读poll429有限查询及HTTP短提示，等待Edge20回归/Clippy、新冻结构建和复测。旧现场无HTTP状态，不能认定它是确定现场原因。证书连续调试仍installed=true，结束必须直接清理核验。
+
+
+**一键测试已部署，待当前人耳结果：整体 73/100，10010 累计暂仍 26。** 源 13f906377ab4f63e0ab165a976ab257167cf877c / d4644bb1…115 输入，本机六 ARM 和 NAS 同源 Native 均退出0；Native21项、5516704字节、SHA8dbc2e48…、release3m16s。GitHub已精确保存。原子替换同一预览三个程序、同配对同证书重启，严格TLS五个静态文件 SHA/no-store通过，见VALIDATION-BROWSER-MEDIA-P3I.md。第七观察标记 a7 等待用户一键拨号，最多等待十分钟；若 browser-call7-started.utc 存在才累计27。当前临时Windows证书仍 installed=true，结束听音必须直接执行清理并验证。
+
+
 **当前检查点：73/100，10010 累计 26。** d2b1c13 实机定位到零长度音频负载导致 Codec 退出，用户仍约五秒无声；详见 VALIDATION-BROWSER-MEDIA-P3I.md。第五标记未拨，第六标记一通、同通话两次声音连接，30 秒保护后所有呼叫 terminated。当前预览已停止/旧四服务 active/PCM closed。新空负载跳过修正和顶部一键 10010 测试源码已通过 202 workspace/21 Native/Clippy、Node 三组及语法检查，尚待新 ARM 构建部署。d2b1 六 ARM/Native 制品及开发签名包已核对，不能把它们当本次新源码。连续调试的同一临时证书仍 installed=true，结束或暂停听音必须运行 .local/cleanup-preview-trust.ps1 并核验移除。
 
 

@@ -19,3 +19,17 @@
 用户要求简化页面：新增顶部“一键测试 10010 · 30 秒”和“立即结束”，连接/配对及手动操作收进折叠区。一次点击先获取麦克风权限，再使用原批准身份签名登录，查询旧操作与通话空闲，固定号码准备/持久化提交标记/仅一次拨号，按当前精确 call_id 等待 active 后自动接入声音。倒计时结束或声音中断时立即关闭麦克风并只提交一次挂断；页面不续租测试通话，Core 原 30 秒租约为浏览器退出/卡顿后的独立清理约束。Unknown/提交回复丢失只查询且阻止再拨；新点击不会覆盖结果不明的旧操作。
 
 Node 三组验证（proof、media 生命周期、一键通话编排）与 JS 语法检查通过。编排模拟验证重复点击只拨一次、固定 10010、拨号前拒绝权限/忙线、提交前持久化标记、丢失回复后不再拨、迟到权限与提交回复不恢复声音、倒计时挂断且没有 renew_call。WSL 202 项 workspace、21 项 Native 与两者 Clippy 均通过。新源码须冻结、ARM 构建、部署与真实一键听音验收；不提前认定五秒问题已解决，不增加进度。
+
+## 一键页面部署检查点
+
+冻结源码 13f906377ab4f63e0ab165a976ab257167cf877c，115 个输入，归档 d4644bb15b64319b9824e89872c3bd4a175e016ca44d5b9540d42468f174b492。强本机六 ARM 程序与 NAS 同源 Native ARM 构建均退出 0；Native 21 项、release 3m16s，5516704 字节、SHA 8dbc2e48601fb08ee9c44232e52a658429a5658e764928b3d04528e7dbfa852e。Native build.json 和完整日志留在私有区域；GitHub main 已精确发布本提交。
+
+停止三个预览服务后，核对实际旧 d2b1c13 摘要及本机保留制品，原子替换 Core/Edge/Native，逐个 build-info 归档一致。复用同一身份、配对和 TLS 证书重启后，通过 NAS 严格 TLS 验证 /、/app.js、/media.js、/call-test.js、/style.css 五个实际响应均与冻结 Git 内容 SHA 一致且 no-store，报告 .private/browser-oneclick-assets.json passed=true；这证明页面已部署，不等于浏览器点按或持续声音通过。
+
+第七个独立标记已准备一个十分钟等待窗口，用户只需刷新并点顶部按钮；观察到实际拨号前累计仍 26。约 30 秒独立 Core 停止保护仍保留，不会主动拨号或自动重拨；最终结果与清理记录须在后续交接更新。
+
+## 首次真实一键结果：仍提前结束
+
+第七标记实际拨出一次，累计 27。用户只需点顶部按钮，已完成自动登录、准备/提交拨号、自动连接声音、提前关闭后自动挂断；最终提示“测试停止：声音提前中断；电话已挂断”。实际拨出 12:47:44 UTC，PCM 12:47:47.18 开始，12:47:59.98 关闭，约 13 秒媒体；独立保护在观察后 30 秒才停止 Core。Native captured/sent/played639、received646、dropped13、xrun1，未重现 Codec 拒绝，`worker_closed failure=None`，此前先见 transport Closed。用户估计约15秒。不是30秒倒计时正常结束；持续声音仍未验收，不加分。原始日志 .private/browser-preview-13f9063-current-native.log 保存；服务已停止、旧四服务 active、PCM closed、呼叫全 terminated。
+
+源码另发现可复现的轮询竞争：后台 reaper 持 slot 锁检查 worker 时，HTTP 的 try_lock 会直接429；原浏览器监视对所有非200立即停音。新 Edge 在原有有界 HTTP admission 内最多等锁1500ms，再执行完整 Core 授权/归属检查，超时仍429。新增回归验证短暂检查不拒绝本 owner poll、外来 binding 等待后仍403、持续占用有界返回429且不触发 worker 或新票据。浏览器仅对只读 poll 的429最多三次（100/200ms间隔）查询；prepare/activate/拨号/挂断不重试，403立即关闭。增加不含凭据的固定拒绝/stop原因，绿色提示保留HTTP状态。由于旧现场没有HTTP状态日志，此竞争尚不能被认定为这一次现场退出的确定原因。

@@ -186,6 +186,40 @@ impl Fixture {
     }
 }
 #[tokio::test]
+async fn brief_background_inspection_does_not_reject_poll_or_skip_authority() {
+    let f = Fixture::new().await;
+    assert_eq!(
+        f.send(request(prepare(), 'a')).await.status(),
+        StatusCode::OK
+    );
+    f.phase.store(2, Ordering::Relaxed);
+    let bridge = f.app.media.as_ref().unwrap().clone();
+    for token in ['a', 'b'] {
+        let guard = bridge.slot.lock().await;
+        let release = async {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            drop(guard);
+        };
+        let (response, ()) = tokio::join!(f.send(request(command("poll"), token)), release);
+        assert_eq!(
+            response.status(),
+            if token == 'a' {
+                StatusCode::OK
+            } else {
+                StatusCode::FORBIDDEN
+            }
+        );
+    }
+    let before = f.worker_requests.load(Ordering::Relaxed);
+    let _guard = bridge.slot.lock().await;
+    assert_eq!(
+        f.send(request(command("poll"), 'a')).await.status(),
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    assert_eq!(f.worker_requests.load(Ordering::Relaxed), before);
+    assert_eq!(f.issues.load(Ordering::Relaxed), 0);
+}
+#[tokio::test]
 async fn observed_peer_owner_and_real_verified_phase_precede_single_ticket() {
     let f = Fixture::new().await;
     assert_eq!(
