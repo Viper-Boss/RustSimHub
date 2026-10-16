@@ -4,15 +4,18 @@
 import argparse,hashlib,ipaddress,json,pathlib,re,shlex,sys,time,uuid
 ROOT=pathlib.Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'.local/python-deps'))
 import paramiko
+from legacy_controller import LegacyControllerWindow
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,Ed25519PublicKey
 from cryptography.hazmat.primitives.serialization import Encoding,PublicFormat,PrivateFormat,NoEncryption
 p=argparse.ArgumentParser(description=__doc__)
 for name in ('nas','device','artifacts','native','report'):p.add_argument('--'+name,type=pathlib.Path,required=True)
 p.add_argument('--root-directory',required=True)
 p.add_argument('--call-10010',action='store_true',help='Requires standing human authorization; one marked call, 18s stop protection')
+p.add_argument('--exclusive-controller',action='store_true',help='Temporarily stop legacy Go call control, independently restore it within 75s; requires --call-10010')
 p.add_argument('--wifi-transport',action='store_true',help='Use existing wlan0 address and the same trusted TLS name; never changes Wi-Fi or cellular')
 p.add_argument('--once-tag');a=p.parse_args();assert not a.report.exists()
 assert not a.call_10010 or (a.once_tag and re.fullmatch('[a-z0-9-]{8,40}',a.once_tag))
+assert not a.exclusive_controller or a.call_10010
 assert any(a.report.resolve().is_relative_to((ROOT/name).resolve()) for name in ('.private','.local'))
 assert re.fullmatch('/var/tmp/rustsimhub-system-tree-[A-Za-z0-9]{8}/rootfs',a.root_directory)
 nc=json.loads(a.nas.read_text(encoding='utf-8-sig'));dc=json.loads(a.device.read_text(encoding='utf-8-sig'))
@@ -21,7 +24,7 @@ q=shlex.quote;tag=uuid.uuid4().hex[:10];prefix='rustsimhub-web-media-'+tag
 units={role:prefix+'-'+role for role in ('core','media','edge','duplicate')}
 report={'passed':False,'browser_verified':False,'new_calls':0,'new_sms':0,'cellular_tests':False,'partition_writes':False,'units':units,'source_archive_sha256':build['source_archive_sha256'],'harness_sha256':hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest()}
 nas=dev=ns=ds=None;base=client=None;started=[];owner=Ed25519PrivateKey.generate();pub=list(owner.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw));token=None
-policy=None;timer=None;container=None
+policy=None;timer=None;container=None;controller=None
 def save():a.report.write_text(json.dumps(report,indent=2),encoding='utf-8')
 def connect(c,sock=None):
     s=paramiko.SSHClient();s.load_host_keys(c['known_hosts']);s.set_missing_host_key_policy(paramiko.RejectPolicy());s.connect(c['host'],port=c.get('port',22),username=c['username'],password=c.get('password'),key_filename=c.get('key_filename'),sock=sock,timeout=10,auth_timeout=10,banner_timeout=10,look_for_keys=False,allow_agent=False);return s
@@ -56,8 +59,11 @@ def request(command=None,path='/api/v2',origin=None,connect_ip=None):
 def rpc(command):
     response=request({'command':command});assert response['status']==200 and not response['body']['result'].get('error');return response['body']['result']
 def call_check():
-    global policy,timer,container
+    global policy,timer,container,controller
     once='/var/tmp/rustsimhub-web-10010-'+a.once_tag+'.once';report['once_marker']=once;save();run(dev,'test ! -e '+q(once))
+    if a.exclusive_controller:
+        controller=LegacyControllerWindow(lambda body:run(dev,body)[1],ds,base,units['core'])
+        report['exclusive_controller']=controller.arm();save()
     rule=(ROOT/'firmware/development/voice.rules').read_bytes();policy='/etc/polkit-1/rules.d/49-rustsimhub-web-media-'+tag+'.rules';report['voice_rule_sha256']=hashlib.sha256(rule).hexdigest()
     rc,_=run(dev,"runuser -u rustsimhub-core -- sh -c 'pkcheck --action-id org.freedesktop.ModemManager1.Voice --process \"$$\"'",check=False);assert rc in (1,2,3)
     put(ds,policy,rule,0,0,0o644)
@@ -211,6 +217,9 @@ finally:
     if dev:
         for role in reversed(started):run(dev,'systemctl stop '+q(units[role]),check=False)
         if timer:run(dev,'systemctl stop '+q(timer+'.timer')+' '+q(timer+'.service'),check=False)
+        if controller:
+            try:report['legacy_controller_restored']=controller.release()
+            except Exception as exc:report['legacy_controller_restore_error']=str(exc)
         if policy:
             rc,_=run(dev,'printf "%s  %s\\n" '+q(report['voice_rule_sha256'])+' '+q(policy)+' | sha256sum -c -\nrm -- '+q(policy),check=False);report['voice_rule_removed']=rc==0
             for _ in range(10):
@@ -218,7 +227,7 @@ finally:
                 if denied in (1,2,3):break
                 time.sleep(.25)
             report['voice_denied_after_cleanup']=denied in (1,2,3)
-        rc,_=run(dev,'test "$(systemctl is-active nassimhub-agent ModemManager NetworkManager rmtfs | grep -c ^active$)" = 4\nfor f in /proc/asound/card*/pcm*/sub*/status;do test "$(cat "$f")" = closed;done',check=False);report['cleanup_verified']=rc==0 and (not policy or (report.get('voice_rule_removed') and report.get('voice_denied_after_cleanup')))
+        rc,_=run(dev,'test "$(systemctl is-active nassimhub-agent ModemManager NetworkManager rmtfs | grep -c ^active$)" = 4\nfor f in /proc/asound/card*/pcm*/sub*/status;do test "$(cat "$f")" = closed;done',check=False);report['cleanup_verified']=rc==0 and (not controller or report.get('legacy_controller_restored') is True) and (not policy or (report.get('voice_rule_removed') and report.get('voice_denied_after_cleanup')))
         if a.call_10010:
             rc,_=run(dev,"calls=$(mmcli -m 0 --voice-list-calls)\nif printf '%s\\n' \"$calls\" | grep -Ev '^\\s*/org/freedesktop/ModemManager1/Call/[0-9]+ (incoming|outgoing) \\(terminated\\)$|^No calls were found\\.?$';then exit 4;fi",check=False);report['calls_idle_after_cleanup']=rc==0;report['cleanup_verified']=report['cleanup_verified'] and rc==0
     if nas and container:run(nas,'docker stop --time 2 '+q(container),sudo=True,check=False)

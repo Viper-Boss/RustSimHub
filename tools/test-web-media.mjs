@@ -14,10 +14,12 @@ function setup(options={}){
  const stream={getTracks:()=>[input],getAudioTracks:()=>[input]};const audio={srcObject:null,paused:false,play:async()=>{},pause(){this.paused=true;}};
  const calls=[],peers=[];let getMedia=0,pollBusy=options.pollBusy||0,monitorBusy=options.monitorBusy||0,activated=false;
  class Peer {
-  constructor(config){assert.deepEqual(config.iceServers,[]);this.iceGatheringState='complete';this.connectionState='new';this.localDescription=null;this.closed=false;this.stopped=false;peers.push(this);}
+  constructor(config){assert.deepEqual(config.iceServers,[]);this.iceGatheringState=options.slowIce?'gathering':'complete';this.connectionState='new';this.localDescription=null;this.closed=false;this.stopped=false;this.listeners=new Set();peers.push(this);}
   addTransceiver(track,init){assert.equal(track,input);assert.equal(init.direction,'sendrecv');const transceiver={setCodecPreferences(codecs){assert.equal(codecs.length,1);assert.equal(codecs[0].mimeType,'audio/opus');},stop:()=>{this.stopped=true;}};this.transceiver=transceiver;return transceiver;}
   getTransceivers(){return[this.transceiver];}
-  async createOffer(){return{type:'offer',sdp:'synthetic_sdp'};}
+  async createOffer(){this.offers=(this.offers||0)+1;return options.offer?options.offer.promise:{type:'offer',sdp:'synthetic_sdp'};}
+  addEventListener(name,fn){assert.equal(name,'icegatheringstatechange');this.listeners.add(fn);}
+  removeEventListener(name,fn){assert.equal(name,'icegatheringstatechange');this.listeners.delete(fn);}
   async setLocalDescription(value){this.localDescription=value;}
   async setRemoteDescription(value){assert.equal(value.type,'answer');this.connectionState='connected';this.ontrack?.({streams:[{getTracks:()=>[output]}],track:output});}
   close(){this.closed=true;this.connectionState='closed';this.onconnectionstatechange?.();}
@@ -35,6 +37,18 @@ function setup(options={}){
  };
  const states=[];const link=new AudioLink(audio,(text,state)=>states.push(state),env);
  return{link,input,output,stream,audio,calls,peers,env,getMedia:()=>getMedia,states};
+}
+{
+ const f=setup();await f.link.prime(f.stream);assert.equal(f.link.state,'primed');assert.equal(f.calls.length,0);assert.equal(f.getMedia(),0);assert.equal(f.link.context,null);
+ const peer=f.peers[0];await f.link.start(context,{stream:f.stream});assert.equal(f.peers.length,1);assert.equal(peer.offers,1);assert.equal(f.calls.filter(c=>c==='activate').length,1);assert.equal(f.input.stopped,false);await f.link.stop();assert(peer.closed&&f.input.stopped);
+}
+{
+ const f=setup({slowIce:true});const priming=f.link.prime(f.stream).catch(error=>error);await turn();const peer=f.peers[0];assert.equal(peer.listeners.size,1);
+ const late=[...peer.listeners];await f.link.stop();peer.iceGatheringState='complete';for(const changed of late)changed();assert.match((await priming).message,/取消/);assert.equal(peer.listeners.size,0);assert.equal(f.calls.length,0);assert.equal(f.link.prepared,null);assert(peer.closed&&f.input.stopped);
+}
+{
+ const offer=deferred(),f=setup({offer});const priming=f.link.prime(f.stream).catch(error=>error);await turn();await f.link.stop();offer.resolve({type:'offer',sdp:'late'});
+ assert.match((await priming).message,/取消/);assert.equal(f.calls.length,0);assert.equal(f.link.prepared,null);assert(f.input.stopped&&f.peers[0].closed);
 }
 {
  const f=setup();f.link.mute(true);await f.link.start(context);assert.equal(f.input.enabled,false);assert.equal(f.link.state,'active');assert.equal(f.calls.filter(c=>c==='activate').length,1);

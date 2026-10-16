@@ -39,3 +39,18 @@ Node 三组验证（proof、media 生命周期、一键通话编排）与 JS 语
 9812aa5 / 源6fa7a8a5…本机六 ARM 与同源Native21项/5516704字节、SHA612bd662…/release3m11s均退出0，已严格TLS五资产核对并实测。第八标记实际拨出一通，累计28；观察13:06:31 UTC，PCM13:06:34.73打开、13:06:47.26退出（约12.5秒媒体），623captured/sent、631received、625played、14dropped、1xrun。Native failure=Denied；Edge13:06:47.30明确core_lease拒绝。用户绿色提示包含HTTP403，挂断回复未确认；独立保护13:07:02停止Core后基带所有呼叫terminated，旧四服务/PCM恢复检查通过，原日志分别保存981私有Native/Edge文件。没有再现Codec；不能把锁竞争修正称为403修复。
 
 当前补 Core 的固定拒绝原因、是否仍持有呼叫、剩余租约毫秒和binding_valid，仅写私有日志、不含号码/钥匙/媒体内容；没有放宽授权。合成无PCM端允许最长30秒，以自动做20秒长通话重现；AnswerAuthorized硬件诊断仍最多10秒。接下来先自动测试，不再要求用户反复听音；来源原因尚未确定，整体仍73/100。
+
+## 自动对照与确定根因（2026-10-17）
+
+冻结 a5a4becbc393480198a765f7361dea26604ed6a6，源归档 0e3602abfb5a04352c5ef8078dd10d98ac45ba297fb30f3d42b3ee50418b21c7，115输入。本机六生产ARM程序、同源Native ARM构建退出0；Native 5516704字节、SHA 1e1f59785f3f3aea6727d029a785538a572470306e0db4e78ea3118b7d1a2fe4，21项/release3m43s。Core47项及Clippy通过；不将这些定向检查冒充重跑全workspace。
+
+- a9实际拨出一次，NAS私有信令文件发布时先暴露了未改权限的文件，端点读取拒绝，没有打开PCM。这是测试脚本竞态，随后改为私有临时文件/权限完成后原子发布；不能归咎于固件。
+- a10修正脚本后约11.625秒再次403。Core明确 `reason=call_inactive owned=true lease_remaining_ms=13736 binding_valid=true`；ModemManager在自己的挂断保护前观察到active→terminated。故障不是租约自然到期，也没有证据支持放宽授权。
+- a11只临时停止旧Go agent，ModemManager/NetworkManager/rmtfs保持active，独立75秒恢复计时器先注册。相同固件/真实10010/HTTPS/DTLS/Opus/PCM持续20.640秒通过，最终20.046秒快照991captured/sent/played、994received、2dropped、1可恢复xrun；NAS解码1048帧、DTLS verified、静音上行。原finally重复停止已被systemd收集的Core导致清理脚本提前退出；后续独立实查确认旧agent已恢复、PCM关闭、Voice撤回、通话空闲，报告保留cleanup_note，不冒充原脚本无错退出。
+- a12恢复旧Go agent后再次11.671秒403。只筛选 `org.freedesktop.ModemManager1.Call.Hangup` 方法请求头，通过DBus唯一sender→Unix PID→/proc/PID/exe核对，发起挂断的可执行文件确认为 `/usr/bin/nassimhub-agent`。旧代码 `nassimhub/internal/calllease/manager.go` 的15秒 orphan-call到期策略会结束它未持有的Rust通话。没有保存语音、完整DBus内容或媒体包。
+
+私有证据：headless-corediag-a9/a10/a11/a12.json、headless-a12-trace.json、headless-a12-hangup-trace.log、a5a4bec Core/Native日志及ModemManager观察。累计实际10010为32，新增短信/普通蜂窝/分区写入为0。全部通话terminated，旧四服务active、PCMclosed，预览已停止；Windows本次临时证书installed=false/removed=true，实际当前用户Root核验通过。
+
+新增host-only `tools/legacy_controller.py` 通过单个有界systemd服务独占旧系统试验控制，先确认所有呼叫空闲，设备端先登记ExecStopPost和硬时限，再暂停旧Go agent；退出先停试验Core，再按原状态恢复。实机无拨号试验发现旧agent的ExecStopPost hangup-all在无电话时会返回失败，已用MainPID=0与inactive/failed联合确认进程确实退出；首轮保护仍恢复成功，不能算该轮独占就绪通过。第二轮不由电脑主动释放，设备30秒独立超时自动恢复旧agent，四服务/PCM检查通过，报告exclusive-controller-idle-v2.json passed=true。
+
+网页在拨号前只做本地SDP/ICE准备，仍在精确呼叫ACTIVE及授权后才prepare/activate服务器媒体；通话真实结束时明确显示设备观察结果，挂断RPC拒绝也继续只读确认。Node三组、六项Linux保护脚本失败路径、Edge20项和Clippy通过；实际新版本部署/持续浏览器听音仍待验收。总体73/100，不以根因诊断和自动20秒对照增加P3分。

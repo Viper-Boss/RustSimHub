@@ -33,17 +33,8 @@ export class AudioLink {
   if(this.env.isSecureContext!==true||!this.env.navigator?.mediaDevices?.getUserMedia||!this.env.RTCPeerConnection||!this.env.RTCRtpSender?.getCapabilities)throw Error('请使用受信任的 HTTPS 和支持语音的浏览器');
   return this.env.navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
  }
- async start(context,{stream:provided=null}={}){
-  const closing=this.stop(),g=this.generation;
-  try{
-  await closing;this.current(g);
-  if(this.env.isSecureContext!==true)throw Error('请使用受信任的 HTTPS 和支持语音的浏览器');
-  if(!context?.token||!context.lease)throw Error('请先登录并取得当前通话的控制租约');
-  this.context={token:context.token,lease:{...context.lease}};this.session=this.env.crypto.randomUUID().replaceAll('-','');
-  this.say('opening','正在等待麦克风权限…');
-   const stream=provided||await this.input();
-   if(g!==this.generation){for(const track of stream.getTracks())track.stop();throw Error('声音连接已取消');}
-   this.stream=stream;const tracks=stream.getAudioTracks();if(tracks.length!==1)throw Error('未取得单个麦克风输入');
+ async peer(stream,g){
+   this.current(g);this.stream=stream;const tracks=stream.getAudioTracks();if(tracks.length!==1||tracks[0].readyState==='ended')throw Error('未取得单个麦克风输入');
    tracks[0].enabled=!this.muted;
    const pc=new this.env.RTCPeerConnection({iceServers:[],bundlePolicy:'max-bundle',rtcpMuxPolicy:'require'});this.pc=pc;
    const transceiver=pc.addTransceiver(tracks[0],{direction:'sendrecv'});
@@ -54,6 +45,31 @@ export class AudioLink {
    pc.onconnectionstatechange=()=>{if(g===this.generation&&['failed','closed','disconnected'].includes(pc.connectionState)){void this.stop();this.say('closed','声音连接已断开；可检查网络后手动重连');}};
    const offer=await pc.createOffer();this.current(g);await pc.setLocalDescription(offer);this.current(g);await this.ice(pc,g);this.current(g);
    const sdp=pc.localDescription?.sdp;if(!sdp||sdp.length>16384)throw Error('声音协商信息无效');
+   return {pc,stream,sdp,generation:g};
+ }
+ async prime(stream){
+  const closing=this.stop(),g=this.generation;
+  try{
+   await closing;this.current(g);
+   if(this.env.isSecureContext!==true)throw Error('请使用受信任的 HTTPS 和支持语音的浏览器');
+   this.say('priming','正在准备本地声音连接…');
+   // Only local SDP/ICE. No credentials, remote signaling or PCM before ACTIVE.
+   const prepared=await this.peer(stream,g);this.current(g);this.prepared=prepared;this.say('primed','本地声音连接已准备好');
+  }catch(error){for(const track of stream.getTracks())track.stop();if(g===this.generation){void this.stop();this.say('closed',error.message||'声音准备失败');}throw error;}
+ }
+ async start(context,{stream:provided=null}={}){
+  const prepared=provided&&this.prepared?.stream===provided&&this.prepared.generation===this.generation&&this.prepared.pc===this.pc?this.prepared:null;
+  const closing=prepared?Promise.resolve():this.stop(),g=this.generation;this.prepared=null;
+  try{
+  await closing;this.current(g);
+  if(this.env.isSecureContext!==true)throw Error('请使用受信任的 HTTPS 和支持语音的浏览器');
+  if(!context?.token||!context.lease)throw Error('请先登录并取得当前通话的控制租约');
+  this.context={token:context.token,lease:{...context.lease}};this.session=this.env.crypto.randomUUID().replaceAll('-','');
+  this.say('opening','正在等待麦克风权限…');
+   const stream=provided||await this.input();
+   if(g!==this.generation){for(const track of stream.getTracks())track.stop();throw Error('声音连接已取消');}
+   const {pc,sdp}=prepared||await this.peer(stream,g);this.current(g);
+   if(stream.getAudioTracks().some(track=>track.readyState==='ended'))throw Error('麦克风已关闭');
    this.say('handshaking','正在建立加密声音连接…');
    const answer=await this.send(this.context,this.session,{op:'prepare',offer:sdp},g);if(typeof answer.answer!=='string'||!answer.answer.length)throw Error('声音协商未获得有效应答');
    await pc.setRemoteDescription({type:'answer',sdp:answer.answer});this.current(g);
@@ -71,7 +87,7 @@ export class AudioLink {
   catch(error){if(g===this.generation){void this.stop();this.say('closed',`声音连接失去确认${Number.isInteger(error.status)?`（HTTP ${error.status}）`:''}，麦克风已关闭`);}}
  }
  stop(){
-  const context=this.context,session=this.session;++this.generation;this.context=null;this.session=null;
+  const context=this.context,session=this.session;++this.generation;this.context=null;this.session=null;this.prepared=null;
   for(const controller of this.controllers)controller.abort();this.controllers.clear();for(const cancel of [...this.waiters])cancel();this.waiters.clear();
   const pc=this.pc;this.pc=null;if(pc){for(const t of pc.getTransceivers())try{t.stop();}catch{}try{pc.close();}catch{}}
   const stream=this.stream;this.stream=null;if(stream)for(const track of stream.getTracks())track.stop();

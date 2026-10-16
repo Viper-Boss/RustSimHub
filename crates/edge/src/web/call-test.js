@@ -6,10 +6,14 @@ export class CallTest {
  check(){if(this.cancelled)throw Error('测试已停止');}
  async step(promise){const value=await Promise.race([promise,this.aborted]);this.check();return value;}
  async pause(ms){await this.step(new Promise(resolve=>{this.waitTimer=this.env.setTimeout(resolve,ms);}));}
+ async observedEnded(lease){
+  try{await this.request({op:'call_status'});const call=await this.request({op:'call_detail',call_id:lease.call_id});return call.state==='ended'&&call.availability==='observed';}
+  catch{return false;}
+ }
  async start(){
   if(this.running)return;
   const generation=(this.generation||0)+1;this.generation=generation;
-  this.running=true;this.cancelled=false;this.finishing=null;this.lease=null;this.stream=null;this.dialStarted=false;this.error=null;
+  this.running=true;this.cancelled=false;this.finishing=null;this.lease=null;this.stream=null;this.dialStarted=false;this.error=null;this.endedObserved=false;
   this.aborted=new Promise((_,reject)=>{this.abort=()=>reject(Error('测试已停止'));});this.aborted.catch(()=>{});
   this.say('正在准备测试，请允许麦克风…');
   try{
@@ -27,6 +31,7 @@ export class CallTest {
    if(status.available!==true||status.active_calls!==0)throw Error('设备有未结束或未确认的呼叫，请先结束它');
    const line=await this.step(this.request({op:'line_status'}));
    if(line.status!=='ready')throw Error('SIM 尚未就绪');
+   await this.step(this.audio.prime(this.stream));
    const prepared=await this.step(this.request({op:'prepare_call',line_epoch:line.line,idempotency_key:this.env.crypto.randomUUID(),action:'dial',call_id:null,payload:'10010'}));
    if(prepared.operation?.state!=='prepared')throw Error('测试拨号未准备成功');
    const pending={type:'call',action:'dial',id:prepared.operation.id,state:'prepared',submit_started:false,test10010:true};
@@ -53,7 +58,11 @@ export class CallTest {
    while(true){
     const left=Math.max(0,Math.ceil((this.deadline-(this.env.performance?.now()??Date.now()))/1000));
     this.say(this.audio.state==='active'?`声音已连接 · ${left} 秒后自动结束`:'声音已中断；正在结束本次测试');
-    if(this.audio.state!=='active')throw Error('声音提前中断'+(this.audio.lastMessage?'：'+this.audio.lastMessage:''));
+    if(this.audio.state!=='active'){
+     this.endedObserved=await this.step(this.observedEnded(this.lease));
+     if(this.endedObserved)break;
+     throw Error('声音提前中断'+(this.audio.lastMessage?'：'+this.audio.lastMessage:''));
+    }
     await this.pause(500);
    }
   }catch(error){if(!this.cancelled)this.error=error.message||'测试失败';}
@@ -68,8 +77,10 @@ export class CallTest {
    if(this.stream)for(const track of this.stream.getTracks())track.stop();this.stream=null;
    // Close the microphone immediately; server cleanup must not delay this.
    const closing=this.audio.stop();
-   let confirmed=false;
-   if(hangup&&lease){try{
+   let confirmed=this.endedObserved,alreadyEnded=confirmed;
+   if(hangup&&lease){
+    if(!confirmed)confirmed=alreadyEnded=await this.observedEnded(lease);
+    if(!confirmed)try{
     this.say('正在挂断并关闭声音…');
     const prepared=await this.request({op:'prepare_call',line_epoch:lease.line,idempotency_key:this.env.crypto.randomUUID(),action:'hangup',call_id:lease.call_id,payload:''});
     if(prepared.operation?.state!=='prepared')throw Error('挂断未准备成功');
@@ -77,12 +88,14 @@ export class CallTest {
     await this.setPending({...pending});
     const result=await this.request({op:'submit_call',operation_id:pending.id,lease,urgent:true});
     pending.state=result.operation?.state||'unknown';await this.setPending({...pending});
-    await this.request({op:'call_status'});
-    const call=await this.request({op:'call_detail',call_id:lease.call_id});confirmed=call.state==='ended'&&call.availability==='observed';
-   }catch{ /* Never retry an uncertain submit. The unrenewed Core lease expires. */ }}
+   }catch{ /* Never retry an uncertain submit. The unrenewed Core lease expires. */ }
+    // A rejected prepare or a lost submit reply must not skip read-only proof.
+    if(!confirmed)confirmed=await this.observedEnded(lease);
+   }
    await closing;this.running=false;
    const cleanup=this.dialStarted&&!confirmed?'；挂断尚未确认，设备租约到期后清理，请勿立即重拨':'';
-   this.say((this.error?'测试停止：'+this.error+(confirmed?'；电话已挂断':''):confirmed?'测试已结束，电话已挂断':'测试已停止')+cleanup);
+   const ended=alreadyEnded?'电话已结束':'电话已挂断';
+   this.say((this.error?'测试停止：'+this.error+(confirmed?'；'+ended:''):confirmed?'测试已结束，'+ended:'测试已停止')+cleanup);
    this.error=null;
   })();return this.finishing;
  }
