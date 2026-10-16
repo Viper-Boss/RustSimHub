@@ -87,6 +87,8 @@ pub struct UfiDuplex {
     capture: Option<PCM>,
     playback: Option<PCM>,
     holders: Vec<PCM>,
+    playback_last_success: Option<std::time::Instant>,
+    playback_max_gap_ms: u64,
 }
 impl UfiDuplex {
     /// Routes must already be configured by the platform. No arbitrary ALSA endpoint.
@@ -105,6 +107,8 @@ impl UfiDuplex {
             capture: None,
             playback: None,
             holders: Vec::with_capacity(2),
+            playback_last_success: None,
+            playback_max_gap_ms: 0,
         };
         for direction in [Direction::Playback, Direction::Capture] {
             permit.check(now())?;
@@ -218,7 +222,14 @@ impl Pcm for UfiDuplex {
         })
     }
     fn write(&mut self, samples: &[i16]) -> Result<usize, IoError> {
-        self.playback
+        let now = std::time::Instant::now();
+        let gap = self
+            .playback_last_success
+            .map(|at| now.duration_since(at).as_millis() as u64)
+            .unwrap_or(0);
+        self.playback_max_gap_ms = self.playback_max_gap_ms.max(gap);
+        let result = self
+            .playback
             .as_ref()
             .ok_or(IoError::Device)?
             .io_i16()
@@ -226,10 +237,19 @@ impl Pcm for UfiDuplex {
             .writei(samples)
             .map_err(|e| {
                 if e.errno() != libc::EAGAIN {
-                    eprintln!("pcm_io direction=playback errno={}", e.errno());
+                    eprintln!(
+                        "pcm_io direction=playback errno={} since_success_ms={} max_gap_ms={}",
+                        e.errno(),
+                        gap,
+                        self.playback_max_gap_ms
+                    );
                 }
                 io_error(e)
-            })
+            });
+        if result.as_ref().is_ok_and(|n| *n > 0) {
+            self.playback_last_success = Some(now);
+        }
+        result
     }
     fn recover(&mut self, direction: rustsimhub_media::Direction) -> Result<(), IoError> {
         let pcm = match direction {
@@ -268,6 +288,8 @@ mod tests {
             capture: Some(configured("null", Direction::Capture, 16_000, 320, 960).unwrap()),
             playback: Some(configured("null", Direction::Playback, 16_000, 320, 960).unwrap()),
             holders: Vec::new(),
+            playback_last_success: None,
+            playback_max_gap_ms: 0,
         };
         let mut input = [0i16; 320];
         assert!(device

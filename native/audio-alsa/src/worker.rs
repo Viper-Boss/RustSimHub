@@ -312,21 +312,26 @@ fn session_loop(
             let mut pump=Pump::new(device,permit,local::now_ms()).map_err(|_|Failure::Denied)?;
             {let mut s=audio_shared.lock().map_err(|_|Failure::Unavailable)?;s.pcm_opened=true;if !audio_stop.load(Ordering::Acquire){s.phase=Phase::Active;}}
             let mut next_stats=Instant::now();
+            let mut previous=Instant::now();let mut max_loop=0u128;let mut max_service=0u128;let mut max_step=0u128;let mut max_codec=0u128;
             let result=(|| {
                 loop {
                     stopped(&audio_stop)?;
-                    session.service(&socket,local::now_ms()).map_err(|_|Failure::Closed)?;
-                    pump.step(local::now_ms()).map_err(pcm_failure)?;
+                    let tick=Instant::now();max_loop=max_loop.max(tick.duration_since(previous).as_micros());previous=tick;
+                    let serviced=session.service(&socket,local::now_ms());max_service=max_service.max(tick.elapsed().as_micros());serviced.map_err(|_|Failure::Closed)?;
+                    let tick=Instant::now();let stepped=pump.step(local::now_ms());max_step=max_step.max(tick.elapsed().as_micros());stepped.map_err(pcm_failure)?;
+                    let tick=Instant::now();
                     while let Some(frame)=pump.capture(local::now_ms()).map_err(pcm_failure)? {
                         session.send(&socket,&frame,local::now_ms()).map_err(|_|Failure::Closed)?;
                     }
                     while let Some(frame)=session.receive(local::now_ms()).map_err(|_|Failure::Closed)? {
                         pump.enqueue(frame,local::now_ms()).map_err(pcm_failure)?;
                     }
+                    max_codec=max_codec.max(tick.elapsed().as_micros());
                     if Instant::now()>=next_stats {update_stats(&audio_shared,&session,pump.stats());next_stats=Instant::now()+Duration::from_millis(100);}
                     thread::sleep(Duration::from_millis(2));
                 }
             })();
+            eprintln!("worker_timing max_loop_us={max_loop} max_service_us={max_service} max_pcm_step_us={max_step} max_codec_us={max_codec}");
             pump.close();session.close();update_stats(&audio_shared,&session,pump.stats());result
         }).map_err(|_|Failure::Unavailable)?;
         let mut pulse=tokio::time::interval(Duration::from_millis(250));pulse.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
