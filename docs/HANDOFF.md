@@ -1,5 +1,11 @@
 # RustSimHub 当前接手入口
 
+**最新权威检查点：2026-10-16，72.5/100约73%，10010累计22。** 覆盖下面源码阶段/20次/待编译等历史状态。见VALIDATION-WEB-MEDIA-P3G.md：874f01c/归档ff1d445b…本机六程序ARM和NAS Native ARM退出0；Native5516704字节、SHAe6bf7769…，本机201 workspace/20 Native及两者Clippy、Node媒体/proof通过。private/media-current-build.json和默认source.tar.gz均属于874，旧签名9b应用/fbc整系统组合不变。
+
+严格HTTPS的USB/Wi-Fi各一次10010通过，标记web-media-20261016-a1/a2均已消费；真实DTLS/Opus/PCM、NAS分别159/147帧、重复activate防重、Edge正常退出Core存活而PCM关闭通过，均有1次可恢复xrun；Wi-Fi NAS端2帧丢失保留。另无拨号双接口检查验证相同设备身份/证书名/Origin/同owner token。四份web-media-*-first.json均passed/cleanup_verified；旧四服务active、电话空闲、PCM全关闭、Voice规则已撤回且拒绝，未新增SMS/蜂窝/分区写入；无活跃测试或编译任务。测试工具tools/test-web-media-device.py默认不拨号，可选明确once标记单次10010。
+
+真实浏览器权限/麦克风/人耳听音仍未验收，已异步询问用户是否方便参与，尚未获得答复；还没有给用户操作步骤或启动持久预览。先前同源8448 ERR_BLOCKED_BY_CLIENT不能用其他端口/接口/浏览器绕过。程序化TLS采用显式地址+严格证书名，并不等于DNS/mDNS发现。下一步正式开机组整合Media及Edge硬退出联动、具体可信预览/首次交付，再推进完整系统/恢复；蜂窝仍等换卡，精确kernel/DTB及全部刷写门禁保持。
+
 2026-10-16网页媒体源码阶段：见web-media.md。新Edge /api/media/v1的prepare/poll/activate/stop和capabilities已实现，Core precheck/binding归属与实际TCP peer/local地址绑定；内部IssueMedia/实际peer_key/票据不返回浏览器，通用/v2也拒绝CheckMediaLease。Native新增Edge-only stop_all、受本地配置限制的多bind IP；Edge启动/退出接管清理、TLS目录实例锁、单一Origin多私有监听地址和缺地址等待实现。media.js及页面按钮已实现，迟到权限/取消/丢失授权回复/停止/mute由Node实际源码测试覆盖，未真实浏览器验证。WSL201 workspace/20 Native、两者Clippy通过，日志.private/media-edge-final-source-second.log；Node media/proof均通过。新的ARM冻结构建/HTTP实机和产品单元仍待完成，不能混称e271已验收，也不加分；整体71.5/100、10010仍20，本轮未新增硬件测试。旧四服务/PCM当前实时状态在下一次硬件前重查。
 
 权威最新检查点：整体71.5/100约72%，P0=6.5、P3=13.5，其余权重不变；见VALIDATION-EDL-READ-P0B.md和VALIDATION-MEDIA-WORKER-P3F.md。持续目标100%，换卡流量测试延后。没有活跃设备测试、EDL等待器或编译任务；旧四服务active、电话空闲、PCM关闭、临时规则撤回且Voice拒绝。10010累计20。本段覆盖下方历史构建中/16次等状态。

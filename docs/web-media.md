@@ -1,6 +1,6 @@
 # 网页媒体接入
 
-2026-10-16源码阶段。增加Edge两阶段媒体接口、浏览器麦克风/播放/取消、受信任多监听地址和Native多绑定地址白名单。本机WSL Rust1.98.0通过201项workspace、20项Native及两者Clippy，Node确切media.js生命周期与原proof.js验证通过；最新日志.private/media-edge-final-source-second.log。此接口的ARM、实机和真实浏览器验收尚待完成；上一轮e271常驻媒体验收不能替代网页验收，整体仍71.5/100约72%。
+2026-10-16：增加Edge两阶段媒体接口、浏览器麦克风/播放/取消、受信任多监听地址和Native多绑定地址白名单。本机WSL Rust1.98.0通过201项workspace、20项Native及两者Clippy，Node确切media.js生命周期与原proof.js验证通过；日志.private/media-edge-final-source-second.log。冻结874f01c及归档ff1d445b…的六程序ARM与NAS Native ARM构建通过；实际严格HTTPS的USB/Wi-Fi两轮10010、真实DTLS/Opus/PCM与NAS解码通过，同身份/证书/Origin/owner token跨两个监听地址通过，见VALIDATION-WEB-MEDIA-P3G.md。真实浏览器/麦克风/听音尚未验收，产品服务组的硬退出联动仍待接入。整体72.5/100约73%。
 
 Root管理的Edge私有配置可选择`media_worker_socket`，固定Media UID984；未配置时仍禁用麦克风并返回媒体不可用。`additional_listen_ips`最多三个额外私有地址，与主地址共享固定HTTPS Origin和证书名；尚未分配的地址只做本机bind重试，不探测互联网或回退到蜂窝。实际TCP接受地址决定Native音频源地址，实际TLS客户端地址决定对端，忽略转发头。不同接口的同名域名解析及证书交付仍要独立验收。
 
