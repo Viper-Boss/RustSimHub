@@ -11,9 +11,11 @@ for name in ('nas','device','artifacts','native','report'):p.add_argument('--'+n
 p.add_argument('--root-directory',required=True)
 p.add_argument('--call-10010',action='store_true',help='Explicit opt-in to one carrier call after no-call checks; requires standing human authorization')
 p.add_argument('--once-tag',help='Unique persistent call marker, never reuse or automatically redial after unknown')
+p.add_argument('--capture-frames',type=int,default=100,help='Authorized bounded PCM acceptance target (100..200 frames)')
 a=p.parse_args()
 assert not a.report.exists()
 assert not a.call_10010 or (a.once_tag and re.fullmatch('[a-z0-9-]{8,40}',a.once_tag))
+assert 100<=a.capture_frames<=200
 assert re.fullmatch('/var/tmp/rustsimhub-system-tree-[A-Za-z0-9]{8}/rootfs',a.root_directory)
 nc=json.loads(a.nas.read_text(encoding='utf-8-sig'));dc=json.loads(a.device.read_text(encoding='utf-8-sig'))
 build=json.loads((a.artifacts/'build.json').read_text())
@@ -167,7 +169,7 @@ def carrier_check(image,nas_ip,dev_ip,pid):
     while True:
         sample=worker({'op':'inspect','session':sid})['Ok']
         assert sample['phase'] in ('authorizing','active'),sample['failure']
-        if sample['pcm_opened'] and sample['counters']['captured']>=100 and sample['counters']['received']>=75:break
+        if sample['pcm_opened'] and sample['counters']['captured']>=a.capture_frames and sample['counters']['received']>=max(75,a.capture_frames-25):break
         assert time.monotonic()<deadline;time.sleep(.1)
     worker({'op':'stop','session':sid});deadline=time.monotonic()+3
     while True:

@@ -1,5 +1,25 @@
 # RustSimHub 当前接手入口
 
+权威最新检查点：整体71.5/100约72%，P0=6.5、P3=13.5，其余权重不变；见VALIDATION-EDL-READ-P0B.md和VALIDATION-MEDIA-WORKER-P3F.md。持续目标100%，换卡流量测试延后。没有活跃设备测试、EDL等待器或编译任务；旧四服务active、电话空闲、PCM关闭、临时规则撤回且Voice拒绝。10010累计20。本段覆盖下方历史构建中/16次等状态。
+
+实际媒体源e271ca15bd8c42d670cd54a7c4e253c97283a053/归档621994eb8f429519dda1957f96b0a96ec3a8cd8c78c6cdc65b113123bc27354f。本机194 workspace/19 Native及Clippy、六程序ARM生产、NAS同源Native19项/release退出0。Native .local/native-e271ca1/rustsimhub-audio-alsa，5451168字节、SHA43b46708f8f076b7e73d3448fadff1fc72f5985f5670cb5ccedc7e1827a66d84，完整日志.private/native-e271ca1-build.log。默认source.tar.gz及media-current-build.json属于e271；此前233/173/707/f36归档/制品分别保留，不混标旧签名9b应用或fbc系统组合。
+
+e271 carrier-fifth/sixth均passed/cleanup_verified=true：生产签名owner/Core986、真实peer与单次票据、同PID Media984、NAS静音上行与真实下行解码、主动关闭/挂断通过。第五123帧捕获/123NAS帧、1xrun；第六214捕获/212NAS帧、2xrun，均恢复。固定播放环2560/周期320不变，许可后和恢复时预填2240帧静音，阈值回读、null Running回归通过。欠载未根除，短测不代表长期稳定。第五/第六once a4/a5已消费；不要重用或自动重拨。此前carrier-second/third失败各1电话、fourth虽121NAS帧但5xrun，完整证据保留。受限SDK诊断控制端在宿主以Edge985执行；Core/Media根与inode/UID/空cap已核验。HTTP仍拒绝IssueMedia，media_available=false，正式Edge两阶段接口/网页声音与产品开机单元尚未接入，是下一步重点。
+
+EDL最终派生副本的NSHSTATE旧身份/device.json经只读debugfs导出到NAS Root私有目录，摘要与入场前一致；派生整图未变，日志.private/recovery-derived-identity.log。原图文件系统检查仍失败，不能改成原图一致。实际完整回刷/新OS启动、精确内核/DTB源码及发行门禁未解除。
+
+强本机Native ARM交叉编译尚未配置，主六程序已在本机编译，Native目前仍NAS固定ARM镜像。已查本机官方apt元数据，匹配现有私有GCC15.2.0-16ubuntu1cross1的g++交叉包SHA988221ff…、libstdc++-15-dev-arm64-cross SHAa88bc813…可用；没有安装/修改原GNU工具链。Native需ALSA ARM SDK和AWS-LC的C++交叉支持，若继续迁移请新建独立SDK并记录出处，别改主工具链清单。检查中的工具链路径由.local/wsl-cross/bin/arm64-cc指向私有WSL GNU缓存。
+
+最新检查点：707756562b2e331dcb205ba211fd187d0503e6ad已精确发布GitHub；源码81cd93ad…，本机194 workspace/19 Native和Clippy通过，本机六程序ARM退出0，NAS rustsimhub-audio-7077565仍构建中（只检查同一容器，不重启）。私有构建索引media-current-build.json，状态脚本.local/nas-native-current-status.sh。173b21f先前Native退出0，SHAa4baba2a…/5451168字节；233旧制品已保留。
+
+实际媒体验收：.private/media-worker-preflight-second.json passed/cleanup_verified=true，两次真实DTLS、固定UID/Root拒绝/无Core不打开PCM/同PID复用通过。carrier-first在拨号前遇私有信令文件权限发布竞争，0拨号；已改为临时文件设权限后原子发布。carrier-second消费唯一worker-20261016-a1标记，一次10010提交成功、生产Core预检/票据、PCM及NAS真实解码36帧到达；4次playback EPIPE后媒体关闭，验收失败。电话已清空、PCM全关闭、旧四服务active、临时Voice规则移除且恢复拒绝，累计10010=16。不要重用a1或自动重拨；新707构建修正真实PCM错误不得吞为正常关闭，保留欠载阈值，并用同源Edge985诊断CLI减少每次状态轮询新建systemd命名空间的干扰。该诊断CLI在宿主用户态，Core/Media仍在候选RootDirectory、固定UID和空cap；不是产品Edge。
+
+EDL私有索引recovery-edl-20261016-first.json现passed=true，scope仅physical-edl-entry-read-and-normal-return，phase=completed。最终full-check-preen-derived副本e2fsck -f -p后两分区只读-fn均0，原图不变、GPT/boot不变；完整日志recovery-edl-fullcheck.log及recovery-edl-nas-evidence.json。raw_capture_filesystem_consistent=false，derived_filesystems_consistent=true，全部刷写/恢复发布门禁false。P0加0.5，总体71/100；本段覆盖下文等待/准备状态。没有EDL等待器或设备实机测试活跃，只有NAS新Native构建。
+
+2026-10-16恢复现场新实证：用户已完成同口按键插入，NAS实际识别05c6:9008；只读GPT与完整3909091328字节主区读取通过，一次reset获确认、watcher退出0。报告.private/recovery-edl-20261016-first.json已核验自动返回后boot/身份保持、旧四服务active/PCMclosed/通话空闲/普通蜂窝断开。NAS位置与PID读私有报告；进程已结束，不要重复关机/捕获/重启。原图独立回读SHA264c5c5c…匹配，但rootfs只读e2fsck退出4、提示未回放journal，不能称原图一致或完整恢复验证通过；失败日志及原图保留。准备仅在NAS独立副本验证journal-only回放，绝不对棒子或原图修复。下面“未进入/等待提问”均为历史。没有分区写入；数据测试仍跳过。
+
+媒体构建已完成，见VALIDATION-MEDIA-WORKER-BUILD.md：冻结233110ad5af01973bce0950f1bb94377df8520a3/归档5c33e424…，193 workspace/17 Native及Clippy通过；本机六程序ARM生产与NAS同源Native ARM均退出0。Native .local/native-233110a/rustsimhub-audio-alsa，5451168字节，SHA0c21880e…，完整NAS日志已下载。尚未跑常驻worker实机或接网页，不能宣称media_available。整体仍70.5/100约71%，本轮新增拨号/SMS/蜂窝0，累计10010仍15。默认.local/source.tar.gz现属于233，原签名包/组合镜像不变。
+
 2026-10-16媒体源码检查点：见media-worker.md，常驻Native --serve-worker/有限IPC与SDK、simhubctl私有worker-request、Core无副作用check_media_lease和NAS诊断offer_synthetic_gated已实现。WSL本机Rust1.98.0通过193项workspace/17项Native及两者Clippy（.private/media-worker-source-gated.log），此前host初次缺alsa/C++/cmake，已仅本机补齐并成功；无棒子编译。尚需冻结源、六程序ARM和NativeARM，以及实际worker隔离验收。未新增电话/SMS/蜂窝、整体仍70.5点。HTTP仍拒绝IssueMedia，尚未接两阶段网页信令，media_available=false。恢复按键提问仍待答复；没有EDL操作。
 
 2026-10-16当前：可信首次安装与持久TLS私有交付实机通过，见VALIDATION-INSTALLATION-P6J.md；固定70.5/100约71%，P6=6/12。不可变工具源码fbc2cdba4f8453dfe8484caf35e13a077e41da89，源9f331a82de78d90008b6c7c81858f48995bf23151986633fe10e40246fd22266，191项/六程序ARM/相关Clippy/CI38770338860成功，板级38。主应用/Native仍9b/19f。默认.local/source.tar.gz现属于fbc，独立source-install-fbc2cdba…tar.gz保留；新工具.local/wsl-artifacts-fbc2cdba4f8453dfe8484caf35e13a077e41da89。
