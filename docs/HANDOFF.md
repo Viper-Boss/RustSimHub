@@ -1,10 +1,16 @@
 # RustSimHub 当前接手入口
 
-2026-10-16源码检查点：原子Edge --check-local/--prepare-local、可信Root安装与私有handoff、完成门禁和身份丢失拒绝已实现；Auth31/Edge11+Clippy、板级38通过，见initial-installation.md。尚需冻结本机ARM构建并跑修改后test-boot-service-group.py（要求新不可变Edge辅助能力，App/Native继续9b/19f）。无实机程序运行，不宣称安装已通过，仍70%。
+2026-10-16当前：可信首次安装与持久TLS私有交付实机通过，见VALIDATION-INSTALLATION-P6J.md；固定70.5/100约71%，P6=6/12。不可变工具源码fbc2cdba4f8453dfe8484caf35e13a077e41da89，源9f331a82de78d90008b6c7c81858f48995bf23151986633fe10e40246fd22266，191项/六程序ARM/相关Clippy/CI38770338860成功，板级38。主应用/Native仍9b/19f。默认.local/source.tar.gz现属于fbc，独立source-install-fbc2cdba…tar.gz保留；新工具.local/wsl-artifacts-fbc2cdba4f8453dfe8484caf35e13a077e41da89。
+
+实机.private/installation-boot-first.json passed/cleanup_verified=true：未初始化不启动且不耗恢复预算、错误签名无新身份、Root私有handoff、重复初始化拒绝、首次owner/严格TLS/完整Core及原SIGKILL整组回退回归通过。新fixture /var/tmp/rustsimhub-boot-group-gp3sz82L；无安装生产服务、无新OS启动、actual_nshstate_guard_run=false，实际NSHSTATE初始化尚未做。无活跃实机程序；旧四服务active/PCMclosed，新增电话/SMS/蜂窝0，10010累计15。
+
+新完整组合WSL /home/wzs11/.cache/rustsimhub/system-tree-p6j-installation-first，组合源码fbc，12338条目、树3e3f51ced9e4b377576ccfb7bfb697e1bd6cabad542f7961cff78048a553bf4c；systemd依赖只读验证退出0、树保持。所有刷写/发布/恢复/新OS启动门禁仍false。下面P6I的ed786/f83组合是上一轮已验证历史，不是当前工具或组合输入。
+
+恢复准备进行中：已读旧r138资料，实际设备树只有mode-bootloader/recovery，无mode-edl，未猜测reboot edl。NAS隔离工具目录由.private/recovery-tools-location.log定位；此前固定bkerler-edl源码1cda1a616748d608667b2d13b73a28d3197ceb45/归档2907e7f6…及本人旧8916加载器959439aa…已上传，私有venv安装依赖和无USB --help检查通过。尚未打开EDL USB、进入EDL或离线捕获。已异步问用户实体按键/复位孔及是否在NAS旁，明确先不要操作；等待答复期间继续工具门禁。先准备只读封装及核对固定物理USB端口，再给准确物理操作。不能把旧Windows EDL日志当当前NAS恢复已通过。
 
 空间维护：本机和NAS核对通用归档a73e.../132531369字节后，仅移除棒子多余tree.tar.gz传输副本；候选rootfs及全部实验/失败证据保留，根分区空闲350916608字节。NAS位置读.private/generic-transport-archive-location.json，Win/WSL原归档仍在。旧check-staged-tree-after-runtime.sh不能再直接读设备端归档，后续从已核验副本流式比较。新boot验收可加--reuse-inputs，取.private/boot-service-group-second.json中的directory，只读绑定相同签名package1..3，不删除旧数据。
 
-2026-10-15。持续目标100%，换卡流量测试及确需用户参与时才询问。当前按PROGRESS-SCALE.md固定分母为70/100（P6=5.5/12），不是完成后停工。每次最终回复必须报告百分比。上一轮有实际源码、构建及实机进展；没有当前阻塞，不应标记goal complete/blocked。
+2026-10-15历史检查点：70/100（P6=5.5/12）。持续目标100%，换卡流量测试及确需用户参与时才询问。每次最终回复必须报告百分比；没有当前阻塞，不应标记goal complete/blocked。
 
 ## 本轮最新结果
 
@@ -30,13 +36,13 @@
 
 原归档.private/system-tree-p6f-network.tree.tar.gz：132531369字节，SHA a73e1c0f1bb2ebb9aed764b25fe39313a42b60d36a64d732f53d13e827860cf1。运行后tar全部内容/权限/capability比较通过，.private/system-tree-post-boot-group-compare.log；完整路径清单也匹配12303项，.private/system-tree-post-boot-group-names.log，无额外文件。主机及候选都没有Python；两次尝试未执行，最终用find/sort，没有安装软件。
 
-当前根分区可用约226MB，下一次必须重查。不要再上传/展开另一份400MB树或删除旧失败证据腾空间。NAS空间可存后续镜像；原始日志、SIM/短信/联系人、身份、密钥和备份仅.private/.local。测试fixture目录均保留，详细路径读各私有报告。
+通用归档冗余设备副本已按首部说明移除，最后验收前空闲350916608字节，下一次必须重查。不要再上传/展开另一份400MB树或删除旧失败证据腾空间。NAS空间可存后续镜像；原始日志、SIM/短信/联系人、身份、密钥和备份仅.private/.local。测试fixture目录均保留，详细路径读各私有报告。
 
 设备UFI003/SD410，Debian13.7 ARM64，kernel6.12.49-msm8916-g93a71ee9468d/glibc2.41。Root源码kernel_source_commit仍UNRESOLVED。boot p12 64MiB，rootfs p14 3436183552字节，NSHSTATE p15 135249408字节；准确值以实际只读预检为准，不写NV/校准/GPT。
 
 ## 下一步优先
 
-1. 完成可信安装/首次设置交付：持久Edge TLS/config、设置码与pin/证书的可信本地交付、真实维护公钥安装。现有--prepare-device-setup只准备私有码，不开窗不输出码；simhubctl identity核对socket/peer UID。不要自动删除setup.used或fallback到--serve-local-setup来重开窗口。
+1. 可信安装/设置交付的隔离实机层已完成，继续真实NSHSTATE每设备准备与维护入口、恢复和完整镜像；不要重复初始化测试来代替完整上电。--prepare-device-setup只准备私有码，不开窗不输出码；simhubctl identity核对socket/peer UID。不要自动删除setup.used或fallback到--serve-local-setup来重开窗口。
 2. 完整系统恢复与安装：fastboot进入/只读查询/自动返回已实测，完整EDL/离线一致备份/新系统回刷尚未完成。读VALIDATION-RECOVERY-ENTRY-P0C.md和.private/full-device-live-capture.json。用户已确认需要时能到NAS旁拔插，操作前给明确步骤。
 3. 旧资料../r138-flash-validation/README-r138.md确认同系列板曾在2026-10-07通过EDL写boot/rootfs、维护登录/重启；旧镜像带私人配置且版本过时，不能直接当RustSimHub已验收系统。INSTALL.md记载开机长按约5秒进入9008，必须先核对本机准确方法/programmer/备份，不能猜测或因历史成功跳过当前门禁。
 4. 媒体常驻/浏览器双向声音、来电、TURN/远程；正式网页发送/删除/故障矩阵、NAS原页面/PCM；Wi-Fi其他SSID/无Wi-Fi首启/热点；稳定性、第二台、性能对照、安全和发布验收。手机原生app不做，最小网页仍在范围内。不要继续对已通过的签名组/RootDirectory重复打包自检来代替这些剩余工作。

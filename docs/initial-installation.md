@@ -1,6 +1,6 @@
 # 首次安装与可信本地交付
 
-2026-10-16源码检查点：已实现本地初始化与启动守卫；Auth31项、Edge11项及相关Clippy、板级38项通过，完整冻结构建/实机接线尚待完成。当前仍70/100，不把源码和夹具当完成安装。
+2026-10-16：已实现并完成候选用户态实机初始化、私有交付及启动守卫验收，见VALIDATION-INSTALLATION-P6J.md。冻结源码191项Rust、38项板级、六程序ARM构建及CI通过。固定进度70.5/100，约71%；仍没有刷写或启动新完整系统。
 
 `rustsimhub-install-initialize MAINTENANCE_PUBLIC_FILE LISTEN TLS_NAME NEW_PRIVATE_HANDOFF_DIRECTORY`由可信本地Root显式调用。要求UFI003持久挂载门禁、固定账户私有目录、应用服务已加载且停止、Root私有交付父目录和合法单行Ed25519维护公钥。先验证完整factory签名及纯语法的监听/TLS请求，再以无cap/PrivateDevices/PrivateNetwork的Core/Edge账户准备各自数据。
 
