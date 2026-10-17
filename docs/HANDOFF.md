@@ -5,14 +5,16 @@
 ## 目标与进度
 
 - 持续目标为 100%；用户要求每次最终回复报告百分比。
-- 固定P0—P7分母，当前 **73.5/100，约74%**。P0=6.5、P1=14.5、P2=15、P3=14.5、P4=7.5、P5=5、P6=6.5、P7=4。a15用户确认持续Chrome下行正常，P3+0.5；双向听音、首句完整及新收尾的真实Chrome确认仍缺。见[进度刻度](PROGRESS-SCALE.md)，构建/诊断不加分。
+- 固定P0—P7分母，当前 **73.5/100，约74%**。P0=6.5、P1=14.5、P2=15、P3=14.5、P4=7.5、P5=5、P6=6.5、P7=4。a15持续Chrome下行已计P3+0.5；a19首句完整和新收尾真实Chrome确认通过，不重复计点；双向听音/来电及完整系统启动仍缺。见[进度刻度](PROGRESS-SCALE.md)，构建/诊断不加分。
 - 当前 SIM 没流量：普通 APN、蜂窝互联网探测及 USB/Wi-Fi 失败后的隐式蜂窝回退全部禁止，等换卡并明确安排。电话需要的 WWAN/IMS 保留。
 - 用户持续允许拨打 10010，不需逐次确认。只做独立标记的单次短通话、自动挂断、记录次数；Unknown 先核验，不自动重拨。其他号码或新短信不能推定授权。
 - 内核/DTB 精确来源、完整新 OS 启动、回刷等门禁未解除；不写原始分区/GPT/NV/校准区，不产出可刷发布包。
 
 ## 当前真实浏览器验收
 
-累计实际10010 **37次**。316005e/a17真实Chrome一键先完成DTLS再拨号，页面显示“观察接通后接音0.5秒”，Native持续约26.6秒/1331captured/sent/played；首句完整尚未明确人工确认。页面末尾“挂断尚未确认”，后台停机只读副本显示本次hangup submitted、精确call ended/observed，MM全部terminated；旧四服务active、PCMclosed、Voice撤回/拒绝、预览/独占守卫停止、Windows临时证书移除全部核验。报告.private/browser-a17-acceptance.json。前一a16自动NAS测试观察ACTIVE后1187ms开PCM、媒体20.657秒；无拨号Verified保持12秒/零PCM/无票据也通过。
+2026-10-17，4e6fea6/a19真实Chrome一键听音：用户明确“现在所有的声音都听完整了”，并反馈“测试已结束，电话已挂断；观察接通后接音0.7秒”。Native约24.26秒传声，1212captured/sent/played、1220received、19dropped、1次可恢复xrun；answer1493ms/verified40ms/activation141ms。停机后只读一致数据库确认本次dial/hangup均submitted且同一精确call ended/observed；MM全部terminated、PCMclosed、Voice撤回/拒绝、旧四服务active、预览/独占守卫停止、Windows临时证书直接移除并核验。私有browser-a19-acceptance.json与browser-preview-4e6fea6-a19-native.log保留，累计10010=38。0.7秒是页面观察ACTIVE至媒体启用，不是运营商接通至扬声器首声的端到端测量；尚未验收双向听音。无新短信/普通蜂窝测试/分区写入。
+
+此前316005e/a17显示0.5秒、Native约26.6秒，但当时首句完整和页面挂断未确认；原报告保持。a16无拨号Verified保持12秒/零PCM/无票据及单次通话观察ACTIVE后1187ms开PCM通过。
 
 a15/0587cf7用户确认持续Chrome下行正常，但初始约7秒漏句；P3此前只因该项加0.5，预连接改进不重复加分。a10—12已确定旧Go agent约15秒Hangup冲突，必须保留独占/设备独立恢复；a13原24秒目标未通过，原passed=false与adjudication均保留；a14未拨号，不能计数。a1—17实际标记都不可复用；a17自动撤销了a15留下的旧prepared挂断，无重复提交。
 
@@ -32,7 +34,7 @@ a15/0587cf7用户确认持续Chrome下行正常，但初始约7秒漏句；P3此
 
 ## 当前源码与制品
 
-当前部署构建源 `4e6fea6bf482718e4958d3541a8dee7b362f86c7`，115输入，归档SHA `d02625f65041de8207d8d3d81c20f623c1f9681e00d64abb3f565fee928b6012`。GitHub已精确保存。媒体预连接实际Chrome证据属于316005e，收尾真实控制证据属于4e6fea6/a18，不能混标。
+当前部署构建源 `4e6fea6bf482718e4958d3541a8dee7b362f86c7`，115输入，归档SHA `d02625f65041de8207d8d3d81c20f623c1f9681e00d64abb3f565fee928b6012`。GitHub已精确保存。316005e/a17为历史Chrome预连接证据，4e6fea6/a18为音频stub真实控制，4e6fea6/a19为最新真实Chrome首句/持续下行/收尾证据；新增驱动源码/文档不重标既有应用制品。
 
 - 本机WSL六生产ARM：`.local/wsl-artifacts-4e6fea6bf482718e4958d3541a8dee7b362f86c7`，209 workspace/退出0。4e6只改JS和文档；共享Rust源码的全量Clippy证据仍是316，不称又跑了4e6 Clippy。
 - NAS固定无网络ARM容器Native：`.local/native-4e6fea6/rustsimhub-audio-alsa`，5516704字节、SHA `1733b123fbb40ad18fe4641f181676d943cb5f91359ba76461c096893794bbc2`；21项/release3m12s/退出0，日志`.private/native-4e6fea6-build.log`。旧316 Native/归档及所有日志保留。
@@ -51,6 +53,10 @@ a15/0587cf7用户确认持续Chrome下行正常，但初始约7秒漏句；P3此
 
 ## 接手顺序与工具
 
-4e6正式服务组与P6L当前完整候选离线验证通过。下一步推进内核/音频DTB来源及真实每设备首启、维护与系统恢复门禁；流量待换卡。固定KyonLi6.12.49-1的七个发布输入已下载并核SHA，无存活下载/编译任务；私有`.private/kernel-source-20261017-first`保存acquisition/boot-comparison/dtb-comparison和repository-dtb/DTB-REBUILD.json。备份boot的gzip内核、解压Image、ramdisk和second与上游逐字节一致，DTB经仓库工具/固定AirSimHub源码重建也逐字节一致（afb1027c…/52161字节）。44项板级严格umask回归/真实DTB重建通过；原缺DTC和测试fixture权限失败均保留，v2退出0。DTC工具仅解包在WSL用户cache dtc-tools-20261017，未安装系统包。额外音频模块来源/完整boot重打包及源归属仍未闭环，board.toml保持UNRESOLVED；下一步从已下载上游源码/headers和固定音频补丁核对模块，不重新下载。见KERNEL-PROVENANCE.md。预连接和一次挂断已实机证明，但首句完整、真实Chrome新收尾和真正双向听音仍需用户参与。当前唯一待答问题是a17是否听全开头，无用户测试窗口/临时证书；a1—18标记均已结束/消费，累计37。
+22个额外音频模块已从固定KyonLi 93a71ee源码/headers与AirSimHub ea019485补丁重建，22/22逐字节等同设备现用文件。此前归档的25个qcom模块均为上游原装，不能代替这22个override；16个已加载模块的srcversion与只读捕获一致。本机私有Ubuntu GCC14.2.0-4ubuntu2~24.04.1交叉编译，补丁零fuzz；第二版19/22全字节相同，三差异仅__FILE__路径及build-id，第三版用-fmacro-prefix-map对齐原诊断路径后22/22相同。源码/headers输入未变、未安装或加载新模块。当前P6L通用树尚缺22个override，不能据旧系统通话通过宣布新系统声音可用；下一步在新候选纳入驱动并验证depmod/别名/预加载及冷启动。完整内核/initramfs独立重建、boot重打包和恢复仍缺，board.toml保持UNRESOLVED，所有刷写门禁false，不重复加分。
+
+固定上游七个输入、68个qcom Git blob与补丁均已核验；公开源码/锁firmware/kernel/audio/modules，详细步骤见KERNEL-PROVENANCE.md。私有kernel-source-20261017-first/module-rebuild-third.json、log及exit0；WSL重建目录/home/wzs11/.cache/rustsimhub/kernel-module-audit-20261017/rebuild-third，编译器/home/wzs11/.cache/rustsimhub/module-compiler-20261017。原输入、失败记录和19/22版本均保留；无存活编译任务，不重新下载。DTB固定源码重建与备份逐字节一致，44项板级严格umask回归通过。不要原地修改/重标已审计P6L候选，需新树。
+
+真实Chrome首句/新收尾已由a19人工确认，不必重复问旧问题；双向听音/来电等仍待用户参与，流量待换卡。当前无待答问题、无用户测试窗口/临时证书；a1—19标记均结束/消费，累计38。
 
 Python 使用 `C:/Users/wzs11/AppData/Local/Programs/Python/Python312/python.exe -X utf8`；私有依赖 `.local/python-deps`。SSH用 `tools/remote.py` 读取 `.private/nas.json`/device.json，严格主机钥匙固定，设备经NAS。主六程序强本机WSL user wzs11、持久cache/8路交叉编译；Native仍NAS，未完成本机Native SDK迁移。源先提交、package-source.py冻结；构建索引改变前确认无编译任务。GitHub使用精确非强制对象发布脚本，勿推缺workflow授权的 codex/recovery-ci-pending 历史分支。

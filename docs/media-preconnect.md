@@ -1,6 +1,6 @@
 # 拨号前预连接声音
 
-2026-10-17，316005e已冻结、六ARM生产程序/Native构建和实机预连接通过；209 workspace、21 Native、两者Clippy及Node三组通过。a17真实Chrome页面显示观察ACTIVE后接音0.5秒，设备传声约26.6秒；此前用户反映0587cf7首次接音约7秒。该指标不等于从运营商实际接通到扬声器首声的端到端测量，用户尚未明确确认第一句话完整，不重复增加进度。
+2026-10-17，316005e已冻结、六ARM生产程序/Native构建和实机预连接通过；209 workspace、21 Native、两者Clippy及Node三组通过。a17真实Chrome页面显示观察ACTIVE后接音0.5秒，设备传声约26.6秒；此前用户反映0587cf7首次接音约7秒。该指标不等于从运营商实际接通到扬声器首声的端到端测量，a19最新用户确认第一句话及后续完整、最终挂断成功，页面0.7秒；原a17记录保留，不重复增加进度。
 
 用户一次点击后：麦克风授权/登录及旧操作处理 → 核电话空闲/线路就绪 → 浏览器与设备真实ICE/DTLS握手完成 → 固定10010准备/只提交一次 → 精确呼叫ACTIVE → 核当前租约/实际对端指纹、消费单次票据 → PCM与麦克风内容开启。预连接失败不拨号；拨号结果Unknown只查询，不重试。
 
@@ -25,3 +25,10 @@
 收尾改进4e6fea6已冻结/构建：浏览器在提交拨号起27秒启动一次挂断，给原30秒设备保护预留3秒；保留单次submit/不续租、不重拨。挂断后最多3秒/6次只读观察精确call，包含请求挂起的总超时，晚到查询不再启动新查询。Node回归验证迟到ended、挂断回复丢失、始终active和查询挂起均不再次提交，麦克风立即关闭。六生产ARM/209 workspace、Native21和Node三组通过。
 
 a18以本机Node执行冻结的相同CallTest JS，经真实严格HTTPS/已核签owner/独占控制和独立30秒保护拨打一次10010：一次dial/一次hangup、未续租，精确call ended/observed及最终“测试已结束，电话已挂断”通过，28.654秒。该用例音频对象为stub，完全不测试PCM/麦克风/实际声音；其0.0秒显示值不可当作媒体延迟。退出MM全部terminated、PCMclosed、Voice拒绝、旧四服务active、所有预览/独占守卫停止、证书保持已移除，.private/call-cleanup-a18.json passed/cleanup_verified=true。累计10010=37；真实Chrome新收尾和首句完整仍缺人工确认，不重复加进度。
+
+
+## a19真实Chrome最终验收
+
+2026-10-17，4e6fea6/a19真实Chrome一键听音：用户明确“现在所有的声音都听完整了”，并反馈“测试已结束，电话已挂断；观察接通后接音0.7秒”。Native约24.26秒传声，1212captured/sent/played、1220received、19dropped、1次可恢复xrun；answer1493ms/verified40ms/activation141ms。停机后只读一致数据库确认本次dial/hangup均submitted且同一精确call ended/observed；MM全部terminated、PCMclosed、Voice撤回/拒绝、旧四服务active、预览/独占守卫停止、Windows临时证书直接移除并核验。私有browser-a19-acceptance.json与browser-preview-4e6fea6-a19-native.log保留，累计10010=38。0.7秒是页面观察ACTIVE至媒体启用，不是运营商接通至扬声器首声的端到端测量；尚未验收双向听音。无新短信/普通蜂窝测试/分区写入。
+
+持续下行此前已计入P3，本次首句/收尾闭环不重复计点；整体73.5/100约74%。

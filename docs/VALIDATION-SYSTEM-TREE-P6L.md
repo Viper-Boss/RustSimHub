@@ -19,3 +19,8 @@
 第一次重建包装脚本末尾因Windows换行退出127，但内部七程序probe已exit0/passed；原日志保留。随后用LF脚本对同一新树重新执行七程序与依赖/整树保持检查，`system-tree-p6l-4e6fea6-second-verify.exit`为0，`system-tree-p6l-4e6fea6-second-verification.json`passed=true。不要删除失败记录或重标首次树。
 
 此轮是当前已测应用纳入通用候选并修复真实权限错误，不重复增加P6进度；整体仍73.5/100约74%。尚未在棒子用该整树启动，更未完整上电/刷写或恢复。WSL候选位置及后续内核源对照进展见HANDOFF.md。
+
+
+## 后续发现：额外音频模块尚未纳入
+
+22个额外音频模块已从固定KyonLi 93a71ee源码/headers与AirSimHub ea019485补丁重建，22/22逐字节等同设备现用文件。此前归档的25个qcom模块均为上游原装，不能代替这22个override；16个已加载模块的srcversion与只读捕获一致。本机私有Ubuntu GCC14.2.0-4ubuntu2~24.04.1交叉编译，补丁零fuzz；第二版19/22全字节相同，三差异仅__FILE__路径及build-id，第三版用-fmacro-prefix-map对齐原诊断路径后22/22相同。源码/headers输入未变、未安装或加载新模块。当前P6L通用树尚缺22个override，不能据旧系统通话通过宣布新系统声音可用；下一步在新候选纳入驱动并验证depmod/别名/预加载及冷启动。完整内核/initramfs独立重建、boot重打包和恢复仍缺，board.toml保持UNRESOLVED，所有刷写门禁false，不重复加分。 固定源码/输出锁见firmware/kernel/audio/modules/source.json。既有P6L报告和树摘要不改，离线七程序执行不涵盖驱动加载或真实声音。

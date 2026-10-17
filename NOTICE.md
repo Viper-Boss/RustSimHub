@@ -65,3 +65,7 @@ Opus 原始版权、BSD 条件/免责声明和专利许可链接保留在 `licen
 证书生成的 transitive rcgen/AWS-LC 仍包含 C 依赖和上游 Apache/ISC/OpenSSL 等许可证。
 不能将调用侧 forbid(unsafe_code) 或 rust-crypto feature 宣称为所有传递依赖均为 Rust。
 完整应用发布仍须携带 RustSimHub LICENSE、Opus COPYING 和实际静态依赖的第三方 notices；开发诊断包尚不作为完整发布。
+
+2026-10-17 `firmware/kernel/audio/modules/nassimhub-incall-audio.patch`及`Makefile.outoftree`
+保留AirSimHub同一提交ea019485e5d890a96acae357c52b94c746de837f的原Git内容；原路径/Git blob/SHA与固定内核源码、工具链和模块输出锁见同目录source.json。
+Linux/ASoC补丁按GPL-2.0-only保留，文件已有SPDX及内核声明继续有效，许可证见licenses/GPL-2.0-only.txt；不受本项目AGPL重新许可。没有提交内核模块二进制或设备状态。

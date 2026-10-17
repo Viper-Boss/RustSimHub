@@ -82,3 +82,10 @@ a15独占窗口中用户刷新并只点一次测试，旧挂断在只读一致�
 
 
 4e6fea6/a18补充：冻结相同CallTest JS在本机Node经真实严格HTTPS验证一次10010、一次挂断、不续租、精确ended/observed及最终“电话已挂断”，28.654秒。该用例音频stub，不测试声音；209 workspace/六ARM、Native21/Node三组通过，全部设备清理通过，累计37。真实Chrome新收尾及首句完整不据此宣布完成，见media-preconnect.md。
+
+
+## a19真实Chrome最终验收
+
+2026-10-17，4e6fea6/a19真实Chrome一键听音：用户明确“现在所有的声音都听完整了”，并反馈“测试已结束，电话已挂断；观察接通后接音0.7秒”。Native约24.26秒传声，1212captured/sent/played、1220received、19dropped、1次可恢复xrun；answer1493ms/verified40ms/activation141ms。停机后只读一致数据库确认本次dial/hangup均submitted且同一精确call ended/observed；MM全部terminated、PCMclosed、Voice撤回/拒绝、旧四服务active、预览/独占守卫停止、Windows临时证书直接移除并核验。私有browser-a19-acceptance.json与browser-preview-4e6fea6-a19-native.log保留，累计10010=38。0.7秒是页面观察ACTIVE至媒体启用，不是运营商接通至扬声器首声的端到端测量；尚未验收双向听音。无新短信/普通蜂窝测试/分区写入。
+
+持续下行此前已计入P3，本次首句/收尾闭环不重复计点；整体73.5/100约74%。

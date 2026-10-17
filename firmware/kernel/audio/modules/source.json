@@ -1,0 +1,845 @@
+{
+  "format": 1,
+  "repository": "https://github.com/Viper-Boss/AirSimHub",
+  "revision": "ea019485e5d890a96acae357c52b94c746de837f",
+  "license_default": "GPL-2.0-only; original SPDX and kernel file notices preserved",
+  "upstream_kernel_repository": "https://github.com/KyonLi/ufi003-kernel",
+  "upstream_kernel_commit": "93a71ee9468dd8d47a9e082e5d818608f08712e3",
+  "upstream_qcom_tree": "684153e4ac2d5ece3b79defbbbfe549ae7109110",
+  "kernel_release": "6.12.49-msm8916-g93a71ee9468d",
+  "files": {
+    "nassimhub-incall-audio.patch": {
+      "original_path": "kernel/audio/nassimhub-incall-audio.patch",
+      "sha256": "cd4736021a27c198f2656cbbd76179952ead5a4af23444be7ed8ece7488eef40",
+      "git_blob": "0159f0b37c2f88daa431327d1dc65cd2125f16ba",
+      "bytes": 33733
+    },
+    "Makefile.outoftree": {
+      "original_path": "kernel/audio/src/Makefile.outoftree",
+      "sha256": "a41f93f89dab6a86243315246d6777296b7b985124f980aa4ede0008c019fcd9",
+      "git_blob": "a105fdb2a36e53d6128ccec3536541a9adbe33b9",
+      "bytes": 298
+    }
+  },
+  "upstream_source_inputs": {
+    "COPYING": {
+      "bytes": 496,
+      "sha256": "fb5a425bd3b3cd6071a3a9aff9909a859e7c1158d54d32e07658398cd67eb6a0",
+      "git_blob": "a635a38ef9405fdfcfe97f3a435393c1e9cae971"
+    },
+    "LICENSES/preferred/GPL-2.0": {
+      "bytes": 18729,
+      "sha256": "f6b78c087c3ebdf0f3c13415070dd480a3f35d8fc76f3d02180a407c1c812f79",
+      "git_blob": "ff0812fd89cc41fc1b1ed6732a621057d30ed2ad"
+    },
+    "Makefile": {
+      "bytes": 68977,
+      "sha256": "d4dd16a18f4c75e090cbb5c49c1738c9cf0864cb7b376f4262c71844dc4b1dc6",
+      "git_blob": "66ae67c52da819a0806e4fe7def50e17a47092b8"
+    },
+    "sound/soc/qcom/Kconfig": {
+      "bytes": 5939,
+      "sha256": "845dea7391787d24d077c0d71a5954feea1d9d0bcbe237cd6e5825d0757cb1a3",
+      "git_blob": "28fb7fce6bcf2438547a03cf602455bc25cb70d1"
+    },
+    "sound/soc/qcom/Makefile": {
+      "bytes": 1835,
+      "sha256": "4905b0a4016ba246f0df8cc96773cbe96c3aea7fc094476632f04e626d836a06",
+      "git_blob": "16db7b53ddac7e4941f52f78cb753678e896afa9"
+    },
+    "sound/soc/qcom/apq8016_sbc.c": {
+      "bytes": 9699,
+      "sha256": "7bb5e2a1cc8e5ec47466c0d93d59f85b9ead6539acc887f516b1939d8634c6a2",
+      "git_blob": "3023cf180a755661cf484d635fddf57654d9a05a"
+    },
+    "sound/soc/qcom/apq8096.c": {
+      "bytes": 3958,
+      "sha256": "53db90ae839787547e18d7aac30e8ab76a3ef3c741b5631815c462308e002adb",
+      "git_blob": "4f6594cc723ce592b668fe82a581594eb1d511c6"
+    },
+    "sound/soc/qcom/common.c": {
+      "bytes": 7046,
+      "sha256": "10e562a5837732d5dd93091d90926fe5d881894e52fecc01debae36223429079",
+      "git_blob": "928cf5cb599972f9582faccb58de2cf43b50074c"
+    },
+    "sound/soc/qcom/common.h": {
+      "bytes": 469,
+      "sha256": "6c6195f1162a26b0f7658a7f5802053afd46260a18e16e2156f23460cc97ff09",
+      "git_blob": "1b8d3f90bffaf4c418a4b37522dcd1c81bd2a140"
+    },
+    "sound/soc/qcom/lpass-apq8016.c": {
+      "bytes": 8563,
+      "sha256": "d5736f94968f85a3e09dd078fe59f63900bd20cdd6521947830cdb04db2f2516",
+      "git_blob": "b8f23414eb77702b67eacc40b1e31ccc6a4f03f6"
+    },
+    "sound/soc/qcom/lpass-cdc-dma.c": {
+      "bytes": 8460,
+      "sha256": "13d0465736e4d062066bcaaa28249df0df48f77f0cacf49c7921d906ce68de8a",
+      "git_blob": "8106c586f68a4ec456ae2be11f37b1c2c8cd806c"
+    },
+    "sound/soc/qcom/lpass-cpu.c": {
+      "bytes": 37146,
+      "sha256": "60fb0d5405bd12891369a33af2a3922992d9735304e7c2b0421b780c08fa9d40",
+      "git_blob": "242bc16da36daf9d1a8d28ac85b77abdea21b4f3"
+    },
+    "sound/soc/qcom/lpass-hdmi.c": {
+      "bytes": 6582,
+      "sha256": "938aceefff7f0c34e1168bc68843e2a25db24c8d58d719b54fdf85c8b1765fda",
+      "git_blob": "ce753ebc08945a49283cff0c01de7a084c3c9e15"
+    },
+    "sound/soc/qcom/lpass-hdmi.h": {
+      "bytes": 3137,
+      "sha256": "641eb2b47e12e3cc202bf68f22c9bf1aec28a49bc68eff83d50e7d7073eb79c4",
+      "git_blob": "ee74d783027a2dd822e4c5e3435f869397e8c0d4"
+    },
+    "sound/soc/qcom/lpass-ipq806x.c": {
+      "bytes": 5255,
+      "sha256": "a45e19548ac623d91e59794ea94400fe356c59d29545f5c52dc90c7e85198ccf",
+      "git_blob": "e57d29ea4ce7c53bbb57551a38217ea54500394e"
+    },
+    "sound/soc/qcom/lpass-lpaif-reg.h": {
+      "bytes": 12786,
+      "sha256": "00593f238b8057c27fd6bcc3094a9251083ee9b0e1a6737558f3cece994eaab8",
+      "git_blob": "6d9d9d1f6a4d94905639dbea4a02b5cc3273365e"
+    },
+    "sound/soc/qcom/lpass-platform.c": {
+      "bytes": 41000,
+      "sha256": "53d7521f150b73ec3fe5d2ae9bdbafca996019593fb77a3f3ccd85065de026e2",
+      "git_blob": "b6a33b1f4f7e368a177486c0b5f76d06205a8385"
+    },
+    "sound/soc/qcom/lpass-sc7180.c": {
+      "bytes": 9523,
+      "sha256": "29d761fbe213bbd9f4a36ec71f5b4e055643455d9d731707efa41467d0ad4cef",
+      "git_blob": "fbead6af3d95b73415c35603e09cee727df794d3"
+    },
+    "sound/soc/qcom/lpass-sc7280.c": {
+      "bytes": 14529,
+      "sha256": "18d6760a93e17664d08c49e183da48ca177983c09176f7ea2b271ebb5a940745",
+      "git_blob": "7cd3e291382a8439a2b03a80315298ebdd6d6336"
+    },
+    "sound/soc/qcom/lpass.h": {
+      "bytes": 11736,
+      "sha256": "2546fca9d23cacab49fce34d91a30e5a54d76e7a506487f11287e5bc1562997b",
+      "git_blob": "de3ec6f594c11c9ca2f75fe9811f5ebe8640b168"
+    },
+    "sound/soc/qcom/qdsp6/Makefile": {
+      "bytes": 1062,
+      "sha256": "a62d090c6d6cb249b946585da029ced63888f0d7290711da37468995f4a30bb7",
+      "git_blob": "473266a98716699f26546f3b932d4aec308fba84"
+    },
+    "sound/soc/qcom/qdsp6/audioreach.c": {
+      "bytes": 40659,
+      "sha256": "feb2bb021c2a9260d0343c075536a1cf3ce1e191a1bd27f44803799b49806e20",
+      "git_blob": "3f5eed5afce55e151fc5462d253f673dd0d50e85"
+    },
+    "sound/soc/qcom/qdsp6/audioreach.h": {
+      "bytes": 19676,
+      "sha256": "2047e57f89967b15470498e72772515c802b341b39ac95cfe43026724155287a",
+      "git_blob": "61a69df4f50f6cc90b56697c272ade6f1411bbf2"
+    },
+    "sound/soc/qcom/qdsp6/q6adm.c": {
+      "bytes": 15302,
+      "sha256": "b963f52010352bccb40d752108af82b2f8f58dad9d5ff181aee43cc83ede8eed",
+      "git_blob": "1530e98df16564d683d7f81001e6e699fb53ee15"
+    },
+    "sound/soc/qcom/qdsp6/q6adm.h": {
+      "bytes": 818,
+      "sha256": "772259a6a47d0ee2b038208d93f9ba78632f1fc8a7d22a01434ae22752634950",
+      "git_blob": "4f56999b7fabe4def787affff221e02b5257128e"
+    },
+    "sound/soc/qcom/qdsp6/q6afe-clocks.c": {
+      "bytes": 4050,
+      "sha256": "8247bcc2e2a854e1e3a24a07b8e4d52b80ad4cfeb6a6c9fc43f439eb3d6cf8bf",
+      "git_blob": "84b9018c36bab39d214a7392cfee0900db07a820"
+    },
+    "sound/soc/qcom/qdsp6/q6afe-dai.c": {
+      "bytes": 34150,
+      "sha256": "6e3e33a3d0084fd3d994f7021c9d8b2579bbbe0496b0c65dbf4f34efb0fe6299",
+      "git_blob": "7d9628cda87534dd3cad8bcb1e0faa7b8e5dd770"
+    },
+    "sound/soc/qcom/qdsp6/q6afe.c": {
+      "bytes": 53950,
+      "sha256": "6c13f197deea0dde62a055427741b492d4a25297342d7ad0372317b12af041b6",
+      "git_blob": "ef7557be5d66479ac9a3837edc16d36a0b2cbff7"
+    },
+    "sound/soc/qcom/qdsp6/q6afe.h": {
+      "bytes": 9232,
+      "sha256": "85aed07d22b8279814461332e3c1ffbf7d1a4fb7f2c24e89edc9e468e454e9d8",
+      "git_blob": "65d0676075e1361c9481319a682e51b544874b61"
+    },
+    "sound/soc/qcom/qdsp6/q6apm-dai.c": {
+      "bytes": 24972,
+      "sha256": "0226ed7e8561eab0eac8e079b49a5ced26ebf5d760e1ee47c96fd23cc3dfa5a7",
+      "git_blob": "2cd522108221a2ec5c7bbbb63f7d4ae4f8001cf6"
+    },
+    "sound/soc/qcom/qdsp6/q6apm-lpass-dais.c": {
+      "bytes": 8870,
+      "sha256": "f056569e40eb276a908b77577f1ccc28a3dc656dcf519080cf7106317757a6b6",
+      "git_blob": "b46aff1110e14338a63e117873f48aa547c56ebe"
+    },
+    "sound/soc/qcom/qdsp6/q6apm.c": {
+      "bytes": 21076,
+      "sha256": "2a06796cd872110995b5b355c8dde4235b93669a18edad3abb575b3c5ae6996b",
+      "git_blob": "ca57413cb7847a4322f7b5b598d9c025534925cf"
+    },
+    "sound/soc/qcom/qdsp6/q6apm.h": {
+      "bytes": 5008,
+      "sha256": "822468b76b3a1e1de931790e6c75bf51c5e0632109250200815b3d7c87ba16db",
+      "git_blob": "7ce08b401e31029655f01149a0867b5bd37a7eb6"
+    },
+    "sound/soc/qcom/qdsp6/q6asm-dai.c": {
+      "bytes": 37621,
+      "sha256": "b5ea445bcb5fee161543de45b4124c228fbec6103194f2c6ec227f25dcc00026",
+      "git_blob": "a400c9a31fead57608d46ed6125edf91bebcd995"
+    },
+    "sound/soc/qcom/qdsp6/q6asm.c": {
+      "bytes": 43429,
+      "sha256": "dd3c780c093509b3c0965b1caef79e13b6e0c72a776f40929cb7f5446571abb0",
+      "git_blob": "06a802f9dba5c3a4677b5078d3bbc4c7dc4cae77"
+    },
+    "sound/soc/qcom/qdsp6/q6asm.h": {
+      "bytes": 4767,
+      "sha256": "df4f5eeb94be3486d41358c62f5df4eef190efa008a611c07d0e3398ac55b1bc",
+      "git_blob": "519e1b3a3f7c66d5a9c3d3f1c696be05de8f446a"
+    },
+    "sound/soc/qcom/qdsp6/q6core.c": {
+      "bytes": 8593,
+      "sha256": "b3717216aeedb78e5440b1790c47baf13920e24cbbe9ec6824ba3190d9be0e93",
+      "git_blob": "49cfb32cd20917cea2fe51c4c513fcfadc2a972d"
+    },
+    "sound/soc/qcom/qdsp6/q6core.h": {
+      "bytes": 327,
+      "sha256": "c894805c88754627997aa7c2ab81a55b19cf72338bbd3d21f6f2a8d2f306f4b7",
+      "git_blob": "4105b1d730be886087d3dcbd10923819a0b86e05"
+    },
+    "sound/soc/qcom/qdsp6/q6cvp.c": {
+      "bytes": 4275,
+      "sha256": "593ca7a929d9c196a1c7cbaa2b17c6f7e30ee152000e600b3f2ba2d577524f85",
+      "git_blob": "3549d3f14c914eb387b4087e0db88718a201bb9b"
+    },
+    "sound/soc/qcom/qdsp6/q6cvp.h": {
+      "bytes": 317,
+      "sha256": "1703047aa5adf83f410d9f804de4f48bc82d191ffafd1858b0c409274e9df0de",
+      "git_blob": "2381a3cfe0784d93981c04191523c2c64277fd3d"
+    },
+    "sound/soc/qcom/qdsp6/q6cvs.c": {
+      "bytes": 928,
+      "sha256": "4ff5faad53eee86f0367209948d4b9cb7f2d9f54ef044f45f51747bc234eff38",
+      "git_blob": "440715870a04cf84a86cf3dc4b123759d5c4d521"
+    },
+    "sound/soc/qcom/qdsp6/q6cvs.h": {
+      "bytes": 145,
+      "sha256": "79e72ac6ebbee37b67224880886d5e8d941c1b70813e372beea543abef4d7726",
+      "git_blob": "5c204682c764962b2e16634a2210389753923d05"
+    },
+    "sound/soc/qcom/qdsp6/q6dsp-common.c": {
+      "bytes": 2161,
+      "sha256": "6690240cd1d4dab753fcf7fcc6cc5cbcd4fb2920784440ce779d0468ec09e0d0",
+      "git_blob": "f74585d88bd656442fb322cf2167854173ea9eb7"
+    },
+    "sound/soc/qcom/qdsp6/q6dsp-common.h": {
+      "bytes": 939,
+      "sha256": "8936918ddb66a11bfa16c5ded079b5c4319581535fda34a7753063fe40290b38",
+      "git_blob": "9e704db5f604952bacd8aa06e342d8f716ffca4e"
+    },
+    "sound/soc/qcom/qdsp6/q6dsp-errno.h": {
+      "bytes": 1806,
+      "sha256": "5b29067b646bd22e242a1e709c06a1976129526132a84123b3bf07a526f0c86d",
+      "git_blob": "1ec00ff8c1d299420cddb8ea00b2c9eaeaa2b291"
+    },
+    "sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.c": {
+      "bytes": 4287,
+      "sha256": "678a0a31ade124374fafe5927952dc24f74128e5153d42cc3c7060bed5f4c92b",
+      "git_blob": "e758411603be5157e468e8c076620d7c18661bf3"
+    },
+    "sound/soc/qcom/qdsp6/q6dsp-lpass-clocks.h": {
+      "bytes": 750,
+      "sha256": "6336dffac3bd604ce03532e68fff4ca647470eb4ccf349e71f316a0c9f7dbb1b",
+      "git_blob": "3770d81f2bd6458a500574338b8173b2414416f7"
+    },
+    "sound/soc/qcom/qdsp6/q6dsp-lpass-ports.c": {
+      "bytes": 19611,
+      "sha256": "41a516d93a89b4bbfd83142e6e740ecff7e6bf485b65b4f9411079f946faacc8",
+      "git_blob": "4919001de08b3eec87098c5280e3ee0702952b15"
+    },
+    "sound/soc/qcom/qdsp6/q6dsp-lpass-ports.h": {
+      "bytes": 780,
+      "sha256": "21b02a975cc3f68a13b42d0f178d8523d50991ed1a6f397e526b06ed0c62d021",
+      "git_blob": "7f052c8a125777c557c30df210e4fdb1fa5723e9"
+    },
+    "sound/soc/qcom/qdsp6/q6mvm.c": {
+      "bytes": 3938,
+      "sha256": "032934a8bb128358e51f60eb7b5480af0f26b2139ce31fa991b5317c047dc9b0",
+      "git_blob": "f1f8d520ba0d9b7862d10ab0d11fc8ccf6a7fc9c"
+    },
+    "sound/soc/qcom/qdsp6/q6mvm.h": {
+      "bytes": 371,
+      "sha256": "2e963a2154be60491c6b9cd8066537e1af0e4c3242b296e7fdb64d82d3e842ac",
+      "git_blob": "51279eddb89b66d1ab5b5719cf88d17287597250"
+    },
+    "sound/soc/qcom/qdsp6/q6prm-clocks.c": {
+      "bytes": 3210,
+      "sha256": "c7fb0e6ce1d2f2ea5c095bd5fdd40e9e678f75675d7a231726383532be7feccb",
+      "git_blob": "4c574b48ab0040bc39ae16ec324b41dfc152b408"
+    },
+    "sound/soc/qcom/qdsp6/q6prm.c": {
+      "bytes": 6608,
+      "sha256": "a2442401b3896a044b74fe5fe38d9f294a97ebdf70d6ef1c8288d9641d9f0d4f",
+      "git_blob": "81554d20265897e319fc3cf34d9191960c2bbe51"
+    },
+    "sound/soc/qcom/qdsp6/q6prm.h": {
+      "bytes": 4203,
+      "sha256": "2b60ed09aa08f729f1e1bb0d36da04f2a5a97fa87ec47a7b5cf02e98377ef86a",
+      "git_blob": "a988a32086fe105e32c4fd713b8e0a3d17b83bca"
+    },
+    "sound/soc/qcom/qdsp6/q6routing.c": {
+      "bytes": 47048,
+      "sha256": "29509fa35d7376cdb1986074a2440b2b5dcbab1e422f22c18df2accd7bddf8ec",
+      "git_blob": "90228699ba7d490ae5abee3811b43f3131974eb4"
+    },
+    "sound/soc/qcom/qdsp6/q6routing.h": {
+      "bytes": 277,
+      "sha256": "7e5c286abf4361d2730b465c9e1d1a9305bf0a525808ec4402d900d271f1644d",
+      "git_blob": "35514e6511305ffd81f6536851f1143821695100"
+    },
+    "sound/soc/qcom/qdsp6/q6voice-common.c": {
+      "bytes": 6603,
+      "sha256": "1a2a588a76ae096389be5ca7eb1ce8fb540442f1d430b12b372dae24e75142db",
+      "git_blob": "f821d619e16aaa9dece428aa4bdaf43e6c0c738a"
+    },
+    "sound/soc/qcom/qdsp6/q6voice-common.h": {
+      "bytes": 1079,
+      "sha256": "7c5535963de0af640a0561d1a7960f4d0f7cb8b6c55248acee16c82c45bdc3e3",
+      "git_blob": "6fb3c9560b2e25659cc03367fef0c1b96c2e14df"
+    },
+    "sound/soc/qcom/qdsp6/q6voice-dai.c": {
+      "bytes": 8551,
+      "sha256": "c5538e72524441cc6e6e6ab7750a87db98212925e47a9a5c8b9aaa662695298f",
+      "git_blob": "f3ae9d75f82b7abe4de3689ea2de707b86a2307d"
+    },
+    "sound/soc/qcom/qdsp6/q6voice.c": {
+      "bytes": 5686,
+      "sha256": "546967f4e9ebe13d2652f9f108c2586c57f805f96cce04bc134618286602e0ed",
+      "git_blob": "d5751905a731ef2628c809c01c95a12c770d1418"
+    },
+    "sound/soc/qcom/qdsp6/q6voice.h": {
+      "bytes": 877,
+      "sha256": "f01bbefd0a0b4792b7aad49825e83b01cafd10d07df7f7815a8bbd4d0f2ff3b8",
+      "git_blob": "5b2d2dd679b34d01e503efc81af9e4d92de143e9"
+    },
+    "sound/soc/qcom/qdsp6/topology.c": {
+      "bytes": 35556,
+      "sha256": "d6ed8ab40b5a13dabf70a6213169be684d82855f22e13a8beb9b8d48cdfa8293",
+      "git_blob": "83319a928f291714bd24ad8b5036a75ef326610b"
+    },
+    "sound/soc/qcom/sc7180.c": {
+      "bytes": 15598,
+      "sha256": "0b9107e9560a3bc9ab528705ab632353b3531da6be77b9b270d2e3522148ec55",
+      "git_blob": "bc030ce29680383300cf6a5db9302b16a60d885c"
+    },
+    "sound/soc/qcom/sc7280.c": {
+      "bytes": 12354,
+      "sha256": "120c38dce758b90744ef5b56c4cb7d2f307e7fe2530fad9e93c837fd49a2c47a",
+      "git_blob": "230af8d7b205d418e6d278b4222278a3e6c0c595"
+    },
+    "sound/soc/qcom/sc8280xp.c": {
+      "bytes": 6215,
+      "sha256": "0d41b5e7d0945c035b40af8cdb1e2916b2aaa3add5115a66185a7898d2fe1ac1",
+      "git_blob": "922ecada1cd8d9192cea1d9edf18ef9f6cf3e84d"
+    },
+    "sound/soc/qcom/sdm845.c": {
+      "bytes": 17412,
+      "sha256": "aabd579e90d43ce2907f9d839f2c19fea0f8247ea4ed5948bffbf3a49694c7aa",
+      "git_blob": "314ff68506d9fd83c490b46ec19e93b433f1681c"
+    },
+    "sound/soc/qcom/sdw.c": {
+      "bytes": 4220,
+      "sha256": "f1bf461baf12cd29e14a99a882ff2adeb15a8a532049c94b4fbfbf8e03314774",
+      "git_blob": "f2eda2ff46c04f47b0a992cb42aa7837eb2fd382"
+    },
+    "sound/soc/qcom/sdw.h": {
+      "bytes": 676,
+      "sha256": "b1ac13946cbc0f6791a070ee6f01dda3f05f567060ee14d197060d2a7a5be6af",
+      "git_blob": "392e3455f1b198bb3cba61dfbd3b70eef60f85b2"
+    },
+    "sound/soc/qcom/sm8250.c": {
+      "bytes": 5903,
+      "sha256": "8167443867018cdd3377886342656a427b7672e3844102601e7949936d08e637",
+      "git_blob": "1001fd32138037a8fd569f3ab046b0ddd0e0b3c6"
+    },
+    "sound/soc/qcom/storm.c": {
+      "bytes": 3621,
+      "sha256": "c262c4ab87e3df800975c84d56241d04235eba69b0078ead9a61895a240836d4",
+      "git_blob": "c8d5ac43a176683da70f792477ef601a29e3d778"
+    },
+    "sound/soc/qcom/x1e80100.c": {
+      "bytes": 5767,
+      "sha256": "082352f1d78f55627b7af229c365c5cd5b2461246a7345ce6a0cedc938c6aab5",
+      "git_blob": "898b5c26bf1ee6bfa6a7a296f90257c6b31851fb"
+    }
+  },
+  "toolchain": {
+    "compiler_version": "aarch64-linux-gnu-gcc-14 (Ubuntu 14.2.0-4ubuntu2~24.04.1) 14.2.0",
+    "packages": [
+      {
+        "file": "binutils-aarch64-linux-gnu_2.42-4ubuntu2.10_amd64.deb",
+        "metadata": "Package: binutils-aarch64-linux-gnu\nVersion: 2.42-4ubuntu2.10\nArchitecture: amd64\n",
+        "sha256": "6bb25a05c50681e240b453f6572d8066f2358dee984d0ff1dbcd08852642adf2",
+        "bytes": 3710688
+      },
+      {
+        "file": "binutils-common_2.42-4ubuntu2.10_amd64.deb",
+        "metadata": "Package: binutils-common\nVersion: 2.42-4ubuntu2.10\nArchitecture: amd64\n",
+        "sha256": "d136073f5e2153f3df11c1d08d66727b9466b28ff483f50085f14bbe3464b5ee",
+        "bytes": 240286
+      },
+      {
+        "file": "cpp-14-aarch64-linux-gnu_14.2.0-4ubuntu2~24.04.1cross1_amd64.deb",
+        "metadata": "Package: cpp-14-aarch64-linux-gnu\nVersion: 14.2.0-4ubuntu2~24.04.1cross1\nArchitecture: amd64\n",
+        "sha256": "0d441295a01b857e66d27ce329f8b9db7120276566d7720b44b8837aa26afb0c",
+        "bytes": 12221094
+      },
+      {
+        "file": "gcc-14-aarch64-linux-gnu-base_14.2.0-4ubuntu2~24.04.1cross1_amd64.deb",
+        "metadata": "Package: gcc-14-aarch64-linux-gnu-base\nVersion: 14.2.0-4ubuntu2~24.04.1cross1\nArchitecture: amd64\n",
+        "sha256": "a3ae3cfaaa0ef2c080a9fb62b170f3c3f709a5b2dc516dacdf65ef2a52346025",
+        "bytes": 51198
+      },
+      {
+        "file": "gcc-14-aarch64-linux-gnu_14.2.0-4ubuntu2~24.04.1cross1_amd64.deb",
+        "metadata": "Package: gcc-14-aarch64-linux-gnu\nVersion: 14.2.0-4ubuntu2~24.04.1cross1\nArchitecture: amd64\n",
+        "sha256": "b57833ca982b703e2b40d286d6cc227c4f2dfe1b33df2eea58b25a0376978918",
+        "bytes": 23960052
+      },
+      {
+        "file": "gcc-14-base_14.2.0-4ubuntu2~24.04.1_amd64.deb",
+        "metadata": "Package: gcc-14-base\nVersion: 14.2.0-4ubuntu2~24.04.1\nArchitecture: amd64\n",
+        "sha256": "b95c172411a7fdae70307cf33a9f5320ba5e056b556454543dd5b679d5ce1c4f",
+        "bytes": 51014
+      },
+      {
+        "file": "gcc-14-cross-base_14.2.0-4ubuntu2~24.04.1cross1_all.deb",
+        "metadata": "Package: gcc-14-cross-base\nVersion: 14.2.0-4ubuntu2~24.04.1cross1\nArchitecture: all\n",
+        "sha256": "ed29eff7b53f6c6b10c42bb9539487d1867f119e84f5f678c02411a34b5c09f3",
+        "bytes": 46132
+      },
+      {
+        "file": "libasan8-arm64-cross_14.2.0-4ubuntu2~24.04.1cross1_all.deb",
+        "metadata": "Package: libasan8-arm64-cross\nVersion: 14.2.0-4ubuntu2~24.04.1cross1\nArchitecture: all\n",
+        "sha256": "7e65c44cda6a9c3be17f5042fe1f0e403d9c959797f3d876345a9c66310724d3",
+        "bytes": 523626
+      },
+      {
+        "file": "libatomic1-arm64-cross_14.2.0-4ubuntu2~24.04.1cross1_all.deb",
+        "metadata": "Package: libatomic1-arm64-cross\nVersion: 14.2.0-4ubuntu2~24.04.1cross1\nArchitecture: all\n",
+        "sha256": "1c24a0d6dfcd52492797f8f534a5d696bc70a58e214d16796ec823b417c36ac3",
+        "bytes": 11470
+      },
+      {
+        "file": "libc6-arm64-cross_2.39-0ubuntu8cross1_all.deb",
+        "metadata": "Package: libc6-arm64-cross\nVersion: 2.39-0ubuntu8cross1\nArchitecture: all\n",
+        "sha256": "76547cb8a4d7f057e23dcade45a17fc0f3d5c2fa0d3ff125bca56f7c4ecd7a07",
+        "bytes": 1197434
+      },
+      {
+        "file": "libc6_2.39-0ubuntu8.9_amd64.deb",
+        "metadata": "Package: libc6\nVersion: 2.39-0ubuntu8.9\nArchitecture: amd64\n",
+        "sha256": "ff5557d99b51f761c4b7c92368b9cc45565eda17df9bf9eb4b134d09825008be",
+        "bytes": 3264314
+      },
+      {
+        "file": "libcc1-0_14.2.0-4ubuntu2~24.04.1_amd64.deb",
+        "metadata": "Package: libcc1-0\nVersion: 14.2.0-4ubuntu2~24.04.1\nArchitecture: amd64\n",
+        "sha256": "454456436ca767817a860557263d7cc2489f0a410f03efff4c0bb236d579ec09",
+        "bytes": 48002
+      },
+      {
+        "file": "libgcc-14-dev-arm64-cross_14.2.0-4ubuntu2~24.04.1cross1_all.deb",
+        "metadata": "Package: libgcc-14-dev-arm64-cross\nVersion: 14.2.0-4ubuntu2~24.04.1cross1\nArchitecture: all\n",
+        "sha256": "1b5b098b877eddc9351851d475b90f54656bb84bb689d18def39edd970920889",
+        "bytes": 2759472
+      },
+      {
+        "file": "libgcc-s1-arm64-cross_14.2.0-4ubuntu2~24.04.1cross1_all.deb",
+        "metadata": "Package: libgcc-s1-arm64-cross\nVersion: 14.2.0-4ubuntu2~24.04.1cross1\nArchitecture: all\n",
+        "sha256": "be13b35e1c56c4158817e668f442a363db6f4e13b2ffed1ef6cf91df9961e35d",
+        "bytes": 61860
+      },
+      {
+        "file": "libgcc-s1_14.2.0-4ubuntu2~24.04.1_amd64.deb",
+        "metadata": "Package: libgcc-s1\nVersion: 14.2.0-4ubuntu2~24.04.1\nArchitecture: amd64\n",
+        "sha256": "aa7fadbe33b78bcf99885318040601c550c208929565b179891d9a3cc2aa68cd",
+        "bytes": 78392
+      },
+      {
+        "file": "libgmp10_2%3a6.3.0+dfsg-2ubuntu6.1_amd64.deb",
+        "metadata": "Package: libgmp10\nVersion: 2:6.3.0+dfsg-2ubuntu6.1\nArchitecture: amd64\n",
+        "sha256": "285f8a505dfa8e1b33f357a9d8d3477ad35bf18c0b34771a6df4c25923f3ae0d",
+        "bytes": 253460
+      },
+      {
+        "file": "libgomp1-arm64-cross_14.2.0-4ubuntu2~24.04.1cross1_all.deb",
+        "metadata": "Package: libgomp1-arm64-cross\nVersion: 14.2.0-4ubuntu2~24.04.1cross1\nArchitecture: all\n",
+        "sha256": "8186dd15e27cb872f1d4b963c5adc68094e31b20f60a72211492424e0d3512a1",
+        "bytes": 109584
+      },
+      {
+        "file": "libhwasan0-arm64-cross_14.2.0-4ubuntu2~24.04.1cross1_all.deb",
+        "metadata": "Package: libhwasan0-arm64-cross\nVersion: 14.2.0-4ubuntu2~24.04.1cross1\nArchitecture: all\n",
+        "sha256": "6165c11d179029ae33e12770a6667202f4a6d504b978610c9b3da0b2d165f0d5",
+        "bytes": 303812
+      },
+      {
+        "file": "libisl23_0.26-3build1.1_amd64.deb",
+        "metadata": "Package: libisl23\nVersion: 0.26-3build1.1\nArchitecture: amd64\n",
+        "sha256": "4e040926e50fb961fae9bf95660189d468336a4a17bc321872c434fc8f777e7f",
+        "bytes": 679812
+      },
+      {
+        "file": "libitm1-arm64-cross_14.2.0-4ubuntu2~24.04.1cross1_all.deb",
+        "metadata": "Package: libitm1-arm64-cross\nVersion: 14.2.0-4ubuntu2~24.04.1cross1\nArchitecture: all\n",
+        "sha256": "b0b309433d79b119987c3c7b84bbbbbf26650206e1f48d20cd009c4750b67757",
+        "bytes": 31098
+      },
+      {
+        "file": "libjansson4_2.14-2build2_amd64.deb",
+        "metadata": "Package: libjansson4\nVersion: 2.14-2build2\nArchitecture: amd64\n",
+        "sha256": "0cf79113f5d193ce9af2be2ff4b2c3b30dd4e55a0b6c47f7d28f6c849ff3aa60",
+        "bytes": 32830
+      },
+      {
+        "file": "liblsan0-arm64-cross_14.2.0-4ubuntu2~24.04.1cross1_all.deb",
+        "metadata": "Package: liblsan0-arm64-cross\nVersion: 14.2.0-4ubuntu2~24.04.1cross1\nArchitecture: all\n",
+        "sha256": "b5fd148de67b79fd8308b51270f5cc6eef893d47aaaace297bf4680eeae96e32",
+        "bytes": 237994
+      },
+      {
+        "file": "libmpc3_1.3.1-1build1.1_amd64.deb",
+        "metadata": "Package: libmpc3\nVersion: 1.3.1-1build1.1\nArchitecture: amd64\n",
+        "sha256": "cebe6098bb3d66fdacac9dc6fe406a651216d9c00f27c3f9c159d15d96cdf864",
+        "bytes": 54636
+      },
+      {
+        "file": "libmpfr6_4.2.1-1build1.1_amd64.deb",
+        "metadata": "Package: libmpfr6\nVersion: 4.2.1-1build1.1\nArchitecture: amd64\n",
+        "sha256": "aebc1c8b69a1f98bb43dfc268daecd181116dbf40b13ee4e822eb4bdd52b493a",
+        "bytes": 353020
+      },
+      {
+        "file": "libsframe1_2.42-4ubuntu2.10_amd64.deb",
+        "metadata": "Package: libsframe1\nVersion: 2.42-4ubuntu2.10\nArchitecture: amd64\n",
+        "sha256": "72093fb456864db55f1352bfa5e952a94f7abaff64e71dff1fbf001db1984564",
+        "bytes": 15724
+      },
+      {
+        "file": "libstdc++6-arm64-cross_14.2.0-4ubuntu2~24.04.1cross1_all.deb",
+        "metadata": "Package: libstdc++6-arm64-cross\nVersion: 14.2.0-4ubuntu2~24.04.1cross1\nArchitecture: all\n",
+        "sha256": "5b9168ad31befddb46fe1b6af88aa90bec0fc63c0abfb4f9c68c2cfcc2acda95",
+        "bytes": 658562
+      },
+      {
+        "file": "libstdc++6_14.2.0-4ubuntu2~24.04.1_amd64.deb",
+        "metadata": "Package: libstdc++6\nVersion: 14.2.0-4ubuntu2~24.04.1\nArchitecture: amd64\n",
+        "sha256": "a51f8de7829211db961a31f02158058ad1a95f92ac6d0a5dff6350e2821c54c0",
+        "bytes": 792064
+      },
+      {
+        "file": "libtsan2-arm64-cross_14.2.0-4ubuntu2~24.04.1cross1_all.deb",
+        "metadata": "Package: libtsan2-arm64-cross\nVersion: 14.2.0-4ubuntu2~24.04.1cross1\nArchitecture: all\n",
+        "sha256": "9a67551170ab1305e6ed4797f90bd0af5a696b0799b43aeac09e4ff11bfced67",
+        "bytes": 499758
+      },
+      {
+        "file": "libubsan1-arm64-cross_14.2.0-4ubuntu2~24.04.1cross1_all.deb",
+        "metadata": "Package: libubsan1-arm64-cross\nVersion: 14.2.0-4ubuntu2~24.04.1cross1\nArchitecture: all\n",
+        "sha256": "1a5b3c11901ba5a65b8cadec57ca1af1b567df5bbe7d88d36b2da774fb939a48",
+        "bytes": 218622
+      },
+      {
+        "file": "libzstd1_1.5.5+dfsg2-2build1.1_amd64.deb",
+        "metadata": "Package: libzstd1\nVersion: 1.5.5+dfsg2-2build1.1\nArchitecture: amd64\n",
+        "sha256": "dfcf25061e07aad7efd3f4f880ba5ad4d4d09ebe7fc8cc77ab6b8a161d6d4727",
+        "bytes": 299472
+      },
+      {
+        "file": "make_4.3-4.1build2_amd64.deb",
+        "metadata": "Package: make\nVersion: 4.3-4.1build2\nArchitecture: amd64\n",
+        "sha256": "1fe6a815b56c7b6e9ce4086a363f09444bbd0a0d30e230c453d0b78e44b57a99",
+        "bytes": 179752
+      },
+      {
+        "file": "zlib1g_1%3a1.3.dfsg-3.1ubuntu2.2_amd64.deb",
+        "metadata": "Package: zlib1g\nVersion: 1:1.3.dfsg-3.1ubuntu2.2\nArchitecture: amd64\n",
+        "sha256": "84b9cf5752b29c9f92c27cd4c4ba9bbcc70b5ccf9b1b515421a28ae23212e273",
+        "bytes": 62988
+      }
+    ],
+    "system_package_installation_required": false
+  },
+  "build_recipe": {
+    "patch_strip": 1,
+    "patch_fuzz": 0,
+    "arch": "arm64",
+    "cc": "aarch64-linux-gnu-gcc-14",
+    "diagnostic_source_prefix": "/work/audio/stage-c/build",
+    "kcflags": "-fmacro-prefix-map=<absolute-module-build-directory>=/work/audio/stage-c/build",
+    "module_sources": [
+      "sound/soc/qcom/common.c",
+      "sound/soc/qcom/common.h",
+      "sound/soc/qcom/apq8016_sbc.c",
+      "sound/soc/qcom/qdsp6/"
+    ],
+    "make_target": "modules",
+    "header_package_lock": "firmware/kernel/upstream-source.lock.json",
+    "aarch64_header_helpers_require_emulator_on_x86": true
+  },
+  "expected_modules": [
+    {
+      "name": "q6adm.ko",
+      "bytes": 18320,
+      "sha256": "333e14311a0b2260dbccbf168f003464b0003d9f3e71c43225325a427730f7d8",
+      "modinfo": {
+        "srcversion": "98511AA9C9D0E1F476288D2",
+        "depends": "apr,q6core,q6afe,snd-q6dsp-common",
+        "name": "q6adm",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "q6afe-clocks.ko",
+      "bytes": 12568,
+      "sha256": "991c3e6dea0363bc510a54203402938397e704867be698040aecb012c7f1f850",
+      "modinfo": {
+        "srcversion": "EC6CD7F78B1E1190A6F8601",
+        "depends": "q6afe,snd-q6dsp-common",
+        "name": "q6afe_clocks",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "q6afe-dai.ko",
+      "bytes": 91968,
+      "sha256": "0bb351acbbea4005e3db1be7d9f5ef30339803ff48f0d17cf0b77dd4b4608c90",
+      "modinfo": {
+        "srcversion": "E7920B83CB050DDD4411EDC",
+        "depends": "q6afe,snd-q6dsp-common",
+        "name": "q6afe_dai",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "q6afe.ko",
+      "bytes": 25544,
+      "sha256": "29eb69311ddd62ef5f69b8c01f3299facc28f8499266b7a6c6f0ce7d09fa01e9",
+      "modinfo": {
+        "srcversion": "E3D8386488A142121483428",
+        "depends": "apr,q6core",
+        "name": "q6afe",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "q6apm-dai.ko",
+      "bytes": 20920,
+      "sha256": "ea33952b67b0123865a9e175232b965a0137d28b736bba138c2dc6f77c2245fa",
+      "modinfo": {
+        "srcversion": "E0CA918EB786962777FAD2B",
+        "depends": "snd-q6apm",
+        "name": "q6apm_dai",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "q6apm-lpass-dais.ko",
+      "bytes": 13520,
+      "sha256": "5e8a81fb50f86d84e3257727095b18087660837b987b0aa5dee890b1a9afb484",
+      "modinfo": {
+        "srcversion": "F7BB9D417400C0E9930861C",
+        "depends": "snd-q6apm,snd-q6dsp-common",
+        "name": "q6apm_lpass_dais",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "q6asm-dai.ko",
+      "bytes": 35144,
+      "sha256": "94918bd75ab0e76cee84784a9442dab392343a77b88f29df1914c7f9297da49b",
+      "modinfo": {
+        "srcversion": "39BEA9B8A6F95AC44D68D10",
+        "depends": "q6asm,q6routing",
+        "name": "q6asm_dai",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "q6asm.ko",
+      "bytes": 32368,
+      "sha256": "d51fbe0cd16c1ad1e87d0b4d126a036014435b9b99574c4a8ec5b077701c477f",
+      "modinfo": {
+        "srcversion": "8E544A66DC625993B6E7B7A",
+        "depends": "apr,q6core,snd-q6dsp-common",
+        "name": "q6asm",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "q6core.ko",
+      "bytes": 12576,
+      "sha256": "db9516a850e0ba0c2009dcc3d54af3a7f177e77011e717b89deeaf2d44018c8d",
+      "modinfo": {
+        "srcversion": "70726ACC4F48203E5D9DD1E",
+        "depends": "apr",
+        "name": "q6core",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "q6cvp.ko",
+      "bytes": 8968,
+      "sha256": "3208dbaabdaece3eba138260683880bef99487027ff73fc6a6c378de9024ea29",
+      "modinfo": {
+        "srcversion": "63CA060CFDE8DDB7F6E6D87",
+        "depends": "q6voice-common,apr",
+        "name": "q6cvp",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "q6cvs.ko",
+      "bytes": 9544,
+      "sha256": "d19ef0517006695dcdfaf5effd80d75be08406f16947d001161b3d5f145221ec",
+      "modinfo": {
+        "srcversion": "DDF82E217944835BE43E22E",
+        "depends": "q6voice-common,apr",
+        "name": "q6cvs",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "q6mvm.ko",
+      "bytes": 9904,
+      "sha256": "221bea156ad7919a00bfa8962c46aa6dc2b9896fc5cb7156a896deb26fed9ed7",
+      "modinfo": {
+        "srcversion": "D55826590E7DF6A562B3B95",
+        "depends": "q6voice-common,apr",
+        "name": "q6mvm",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "q6prm-clocks.ko",
+      "bytes": 10984,
+      "sha256": "9262f0f1ab5e6c9e5c9913c8811dc0599a87dfcc4c0776b30c682f87c61b9cc2",
+      "modinfo": {
+        "srcversion": "5A0A30C5C85B902FE48DA0F",
+        "depends": "q6prm,snd-q6dsp-common",
+        "name": "q6prm_clocks",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "q6prm.ko",
+      "bytes": 10432,
+      "sha256": "dea39ce76ff5f38a4680a850a1ca60a20edb8ba811db2e22d12daca24f65ddbf",
+      "modinfo": {
+        "srcversion": "EF8D8AE50D732C57C4BD0B6",
+        "depends": "apr,snd-q6apm",
+        "name": "q6prm",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "q6routing.ko",
+      "bytes": 603080,
+      "sha256": "583c91026271a7190c58fecb55d81550d6eccfbcec4c76e4ad77d15889915fd1",
+      "modinfo": {
+        "srcversion": "C9B663ED6F8E9B8177A3CDA",
+        "depends": "q6adm",
+        "name": "q6routing",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "q6voice-common.ko",
+      "bytes": 14624,
+      "sha256": "22e0f87713886d3f09c1af6787482ae3b8fb5c347e0ea351b282f11af3460e11",
+      "modinfo": {
+        "srcversion": "C28081C2C09C30BB378B1B2",
+        "depends": "apr",
+        "name": "q6voice_common",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "q6voice-dai.ko",
+      "bytes": 22992,
+      "sha256": "5b0ffdaee228d070f0006133311643b7b2708c469d9770647e63ac2cd4ae8575",
+      "modinfo": {
+        "srcversion": "1FBB57F9B23D63C7FF65D46",
+        "depends": "q6voice",
+        "name": "q6voice_dai",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "q6voice.ko",
+      "bytes": 16328,
+      "sha256": "4fefe8aafab0e49fa8b1161b39fdb25768dbcf1347c3b4b1c13d6b2a63ca361e",
+      "modinfo": {
+        "srcversion": "071119184F2F25828DB80AA",
+        "depends": "q6cvs,q6mvm,q6cvp,q6voice-common,q6afe",
+        "name": "q6voice",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "snd-q6apm.ko",
+      "bytes": 51320,
+      "sha256": "e40469ff16c4714430415a2f02126c0c39fcf64aa82d20cc9c7f8e3dcfc97162",
+      "modinfo": {
+        "srcversion": "08D822186837EAA4EB0E8F6",
+        "depends": "apr",
+        "name": "snd_q6apm",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "snd-q6dsp-common.ko",
+      "bytes": 52424,
+      "sha256": "0746a5e687f4e8cb3e9495c382b6373191b82b00225b6ecebbd8888aad94756b",
+      "modinfo": {
+        "srcversion": "F6E0F79137A415C902A4798",
+        "depends": "",
+        "name": "snd_q6dsp_common",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "snd-soc-apq8016-sbc.ko",
+      "bytes": 16320,
+      "sha256": "779ed7aa5d78b93103d562db3510281fc697ad960cd056f6b9991fc407c42748",
+      "modinfo": {
+        "srcversion": "47F4D77147B1FA425F591C5",
+        "depends": "snd-soc-qcom-common",
+        "name": "snd_soc_apq8016_sbc",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    },
+    {
+      "name": "snd-soc-qcom-common.ko",
+      "bytes": 15824,
+      "sha256": "1429434d9021a50f7cdfd9caa1d85b2857556cb67dc9723d8faab77378167250",
+      "modinfo": {
+        "srcversion": "20333E914102513C20C0102",
+        "depends": "",
+        "name": "snd_soc_qcom_common",
+        "vermagic": "6.12.49-msm8916-g93a71ee9468d SMP preempt mod_unload aarch64"
+      }
+    }
+  ],
+  "all_22_byte_rebuild_verified": true,
+  "installed_in_system_candidate": false,
+  "boot_source_gate_resolved": false,
+  "flash_allowed": false,
+  "note": "Public source/build lock, not a module installer or flash manifest. Full kernel/initramfs and boot repacking have not been independently rebuilt."
+}
