@@ -1,0 +1,43 @@
+{
+  "format": 1,
+  "repository": "https://github.com/Viper-Boss/AirSimHub",
+  "revision": "ea019485e5d890a96acae357c52b94c746de837f",
+  "license_default": "GPL-2.0-only; existing file SPDX notices preserved",
+  "upstream_kernel_repository": "https://github.com/KyonLi/ufi003-kernel",
+  "upstream_kernel_commit": "93a71ee9468dd8d47a9e082e5d818608f08712e3",
+  "upstream_release": "6.12.49-1",
+  "input_dtb_sha256": "5c5a12a8237af1d5451774f497dbd75f0c610134db8ec5d9590d741871afab19",
+  "expected_dtb_sha256": "afb1027cc0371d491349dba868bdbabb927ac87c71f8a447dc504303f93f7425",
+  "files": {
+    "ufi003-audio.dtsi": {
+      "original_path": "kernel/audio/ufi003-audio.dtsi",
+      "git_blob": "fc8b54ed1346a6b176bbf55a77266b7335277af6",
+      "sha256": "4255fc8acf149503d83e820f2c2b1513be68146a0d718e03ffadf5a61174e01c",
+      "bytes": 4477
+    },
+    "include/dt-bindings/sound/qcom,q6afe.h": {
+      "original_path": "kernel/audio/include/dt-bindings/sound/qcom,q6afe.h",
+      "git_blob": "9d5d89cfabcff570f22897e65f3770536f99d2e2",
+      "sha256": "40705e919123149802bae69a5fd39eaa074f27fda1b958529eb92df024774b22",
+      "bytes": 284
+    },
+    "include/dt-bindings/sound/qcom,q6asm.h": {
+      "original_path": "kernel/audio/include/dt-bindings/sound/qcom,q6asm.h",
+      "git_blob": "f59d74f14395b72991ae8c1663591d5df60a49af",
+      "sha256": "349e52e66e23b07a17567d6e71aba184b23846e0a9fe835ff614a0310a24cdd8",
+      "bytes": 855
+    },
+    "include/dt-bindings/sound/qcom,q6voice.h": {
+      "original_path": "kernel/audio/include/dt-bindings/sound/qcom,q6voice.h",
+      "git_blob": "fe5aa3a3fce49bc7c8ef1ebd8b7b623d462d0e3f",
+      "sha256": "e83c5d7eef2aa7458a60a191b5984de9994c67c279401aa8655683d763799268",
+      "bytes": 177
+    },
+    "include/dt-bindings/sound/qcom,q6dsp-lpass-ports.h": {
+      "original_path": "kernel/audio/include/dt-bindings/sound/qcom,q6dsp-lpass-ports.h",
+      "git_blob": "39f203256c4f6b96745f8200c0c806f5e22396c0",
+      "sha256": "159122d7d0be8aa4703ece94c0fd26eb106ea4128d572a6061c342686d44c736",
+      "bytes": 7512
+    }
+  }
+}

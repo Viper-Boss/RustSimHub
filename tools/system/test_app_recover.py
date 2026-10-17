@@ -5,7 +5,7 @@ SCRIPT=pathlib.Path(__file__).resolve().parents[2]/'firmware/system/overlay/usr/
 @unittest.skipUnless(os.geteuid()==0,'isolated root required')
 class AppRecoverTests(unittest.TestCase):
     def setUp(self):
-        self.tmp=tempfile.TemporaryDirectory();self.base=pathlib.Path(self.tmp.name);self.runtime=self.base/'runtime';self.runtime.mkdir(mode=0o755)
+        self.tmp=tempfile.TemporaryDirectory();self.base=pathlib.Path(self.tmp.name);self.runtime=self.base/'runtime';self.runtime.mkdir(mode=0o755);self.runtime.chmod(0o755)
         self.fake=self.base/'systemctl';self.calls=self.base/'calls'
         self.fake.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> '+str(self.calls)+'\n');self.fake.chmod(0o755)
     def tearDown(self):self.tmp.cleanup()

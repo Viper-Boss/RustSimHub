@@ -22,7 +22,7 @@ a15/0587cf7用户确认持续Chrome下行正常，但初始约7秒漏句；P3此
 
 ## 当前窗口、守卫和证书清理
 
-主要私有记录 `.private/browser-preview-20261016-first.json`，保留同一设备身份、浏览器配对和预览证书。地址 `https://192.168.120.167:8448`；实际目录、各 unit、owner 私钥和 SSH 凭据只从私有文件读取，不提交或打印。当前程序来自 report.diagnostic_revision 与 media-current-build.json，不能运行旧 874/715 重启脚本。
+主要私有记录 `.private/browser-preview-20261016-first.json`，保留同一设备身份、浏览器配对和预览证书。访问地址从report.origin读取；实际目录、各 unit、owner 私钥和 SSH 凭据只从私有文件读取，不提交或打印。当前程序来自 report.diagnostic_revision 与 media-current-build.json，不能运行旧 874/715 重启脚本。
 
 - 当前 helper：`.local/start-codec-browser-preview.py`、`.local/collect-latest-media-closure.py`、`.local/collect-core-media-diagnostics.py`；a12已消费，禁止复用其once/watch脚本拨号。`tools/legacy_controller.py`管理旧Go控制器的有界暂停/先停Core后恢复，单一systemd unit防重入，保留原先inactive状态；仅供旧系统过渡测试，新OS不包含旧agent。
 - 独立 root 观察器最多等十分钟，发现一次 outgoing 后 30 秒停止 Core，撤回精确哈希的临时 Voice 规则。它不主动拨号或重拨。浏览器自己的测试亦不续租 Core 30 秒控制租约。
@@ -43,6 +43,7 @@ a15/0587cf7用户确认持续Chrome下行正常，但初始约7秒漏句；P3此
 
 ## 已完成但不可扩大的系统实证
 
+- [P6L 当前完整候选](VALIDATION-SYSTEM-TREE-P6L.md)：组合源fba528e、当前4e6签名应用/同源Native与锁定220包基础树，新树12340项/SHA4324468e63920ce79bef8cd0da1a0a2e4bc7c201f6ea866a9da4641e5da8701e。修复umask077导致新公开程序目录0700的真实问题；42项板级、七个非Root ARM实际运行、全服务静态依赖及树保持通过。WSL目录`/home/wzs11/.cache/rustsimhub/system-tree-p6l-4e6fea6-second`，验证报告`.private/system-tree-p6l-4e6fea6-second-verification.json`/verify.exit0。首树权限失败及第二包装脚本CRLF退出127原证据保留，LF脚本重验同一第二树通过；不是新树已在设备启动。新候选全部刷写/发布/恢复/完整启动门禁false，不重复加分。
 - [P6K Media 开机组](VALIDATION-MEDIA-STARTUP-P6K.md)：4e6同源全组已重新通过可信初装、签名槽位/UID/Root/inode/空cap、真实Media SIGKILL整组回退、第三版本确认保持、第二次Edge SIGKILL预算耗尽整组停止和清理；715旧证据保留。P6仍6.5，不重复计点。
 - 完整旧候选用户态 RootDirectory 仍为 `.private` 报告记录的 system-tree-ofY1ttXm/rootfs；不是新系统完整上电。旧P6J组合及离线 rootfs.img仍保留，所有刷写/发布门禁false。实机 NSHSTATE 初始化、实际维护公钥安装、完整开机/掉电/回刷闭环仍缺。
 - [P0B 9008只读](VALIDATION-EDL-READ-P0B.md)：实际进入/完整3909091328字节主区读取/返回通过。原图只读文件系统检查失败，原图保留；独立 preen 派生副本两分区检查0，不等于原图一致或完整恢复成功。boot0/1独立备份保留。无活跃EDL等待器，当前不需要用户拔插。
@@ -50,6 +51,6 @@ a15/0587cf7用户确认持续Chrome下行正常，但初始约7秒漏句；P3此
 
 ## 接手顺序与工具
 
-4e6正式服务组复验与清理已通过。下一步推进完整候选树纳入当前应用/首次设置交付、维护与系统恢复门禁；流量待换卡。预连接和一次挂断已实机证明，但首句完整、真实Chrome新收尾和真正双向听音仍需用户参与。当前唯一待答问题是a17是否听全开头，无用户测试窗口/临时证书；不要擅自开启十分钟窗口让用户错过。a1—18各实际标记均已结束/消费，不得复用；累计37。
+4e6正式服务组与P6L当前完整候选离线验证通过。下一步推进内核/音频DTB来源及真实每设备首启、维护与系统恢复门禁；流量待换卡。固定KyonLi6.12.49-1的七个发布输入已下载并核SHA，无存活下载/编译任务；私有`.private/kernel-source-20261017-first`保存acquisition/boot-comparison/dtb-comparison和repository-dtb/DTB-REBUILD.json。备份boot的gzip内核、解压Image、ramdisk和second与上游逐字节一致，DTB经仓库工具/固定AirSimHub源码重建也逐字节一致（afb1027c…/52161字节）。44项板级严格umask回归/真实DTB重建通过；原缺DTC和测试fixture权限失败均保留，v2退出0。DTC工具仅解包在WSL用户cache dtc-tools-20261017，未安装系统包。额外音频模块来源/完整boot重打包及源归属仍未闭环，board.toml保持UNRESOLVED；下一步从已下载上游源码/headers和固定音频补丁核对模块，不重新下载。见KERNEL-PROVENANCE.md。预连接和一次挂断已实机证明，但首句完整、真实Chrome新收尾和真正双向听音仍需用户参与。当前唯一待答问题是a17是否听全开头，无用户测试窗口/临时证书；a1—18标记均已结束/消费，累计37。
 
 Python 使用 `C:/Users/wzs11/AppData/Local/Programs/Python/Python312/python.exe -X utf8`；私有依赖 `.local/python-deps`。SSH用 `tools/remote.py` 读取 `.private/nas.json`/device.json，严格主机钥匙固定，设备经NAS。主六程序强本机WSL user wzs11、持久cache/8路交叉编译；Native仍NAS，未完成本机Native SDK迁移。源先提交、package-source.py冻结；构建索引改变前确认无编译任务。GitHub使用精确非强制对象发布脚本，勿推缺workflow授权的 codex/recovery-ci-pending 历史分支。

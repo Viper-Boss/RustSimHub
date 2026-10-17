@@ -41,6 +41,12 @@ Linux 内核及相关驱动补丁应保留各自 GPL 许可证；不能用此项
 NasSimHub / ModemDeck 的 PolyForm Noncommercial 与 AGPL 部分必须逐文件核对，
 不得直接整体复制并重新许可。后续复用源码需在本文件补充路径、提交及原许可证。
 
+2026-10-17 `firmware/kernel/audio/ufi003-audio.dtsi`及四个`include/dt-bindings/sound`头文件
+直接保留AirSimHub提交`ea019485e5d890a96acae357c52b94c746de837f`的原始Git内容，
+来源路径、Git blob与SHA256见同目录`source.json`。默认GPL-2.0-only，文件已有SPDX声明保持原文，
+许可证见`licenses/GPL-2.0-only.txt`；不受本项目AGPL重新许可。新增DTB重建工具为AGPL-3.0-only。
+不包含boot二进制、厂商固件、NV或校准数据；重建步骤不写设备。
+
 2026-10-13 音频实现参考 AirSimHub 提交
 `ea019485e5d890a96acae357c52b94c746de837f` 的
 `node/agent/internal/voicealsa/alsa.go` 与 `node/deploy/audio/hold-cs-voice.c`

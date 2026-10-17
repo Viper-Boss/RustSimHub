@@ -1,0 +1,55 @@
+{
+  "format": 1,
+  "kind": "recorded-upstream-source-inputs",
+  "repository": "https://github.com/KyonLi/ufi003-kernel",
+  "commit": "93a71ee9468dd8d47a9e082e5d818608f08712e3",
+  "commit_tree": "72d4e8e42649f763dd969a1de893051ed64387a1",
+  "release_tag": "6.12.49-1",
+  "release_url": "https://github.com/KyonLi/ufi003-kernel/releases/tag/6.12.49-1",
+  "assets": [
+    {
+      "name": "boot.img",
+      "bytes": 20334592,
+      "sha256": "874628988a083f3733e3061cc84c5717ce8e3e61d7b081bf068d03432080158c",
+      "url": "https://github.com/KyonLi/ufi003-kernel/releases/download/6.12.49-1/boot.img"
+    },
+    {
+      "name": "linux-upstream_6.12.49-g93a71ee9468d.orig.tar.gz",
+      "bytes": 245415714,
+      "sha256": "b252cc0e2f9ada0eca126b1df3cfca71a813ac0cc97db5e2a83b4f0260908a60",
+      "url": "https://github.com/KyonLi/ufi003-kernel/releases/download/6.12.49-1/linux-upstream_6.12.49-g93a71ee9468d.orig.tar.gz"
+    },
+    {
+      "name": "linux-upstream_6.12.49-g93a71ee9468d-1.debian.tar.gz",
+      "bytes": 42768,
+      "sha256": "b4328dd8df3cc7ba0cec1d5c6024842d62ca204b898c1127f5bc35a0db9afe4d",
+      "url": "https://github.com/KyonLi/ufi003-kernel/releases/download/6.12.49-1/linux-upstream_6.12.49-g93a71ee9468d-1.debian.tar.gz"
+    },
+    {
+      "name": "linux-upstream_6.12.49-g93a71ee9468d-1.dsc",
+      "bytes": 1454,
+      "sha256": "ce560f77250ee89efc1cf05757ae81df72d421b5354becf3e7289fd40f4b01a2",
+      "url": "https://github.com/KyonLi/ufi003-kernel/releases/download/6.12.49-1/linux-upstream_6.12.49-g93a71ee9468d-1.dsc"
+    },
+    {
+      "name": "linux-upstream_6.12.49-g93a71ee9468d-1_arm64.buildinfo",
+      "bytes": 7263,
+      "sha256": "7b33cf8d3ede67aee054c9b4287095e8239215b4796e5b31e7d2bf3bda8e4859",
+      "url": "https://github.com/KyonLi/ufi003-kernel/releases/download/6.12.49-1/linux-upstream_6.12.49-g93a71ee9468d-1_arm64.buildinfo"
+    },
+    {
+      "name": "linux-headers-6.12.49-msm8916-g93a71ee9468d_6.12.49-g93a71ee9468d-1_arm64.deb",
+      "bytes": 8349956,
+      "sha256": "271b5fe8ebab55b4e962ad0bc4b37b7e10c37fd4ef91e7ab5a0b99a43a761f0d",
+      "url": "https://github.com/KyonLi/ufi003-kernel/releases/download/6.12.49-1/linux-headers-6.12.49-msm8916-g93a71ee9468d_6.12.49-g93a71ee9468d-1_arm64.deb"
+    },
+    {
+      "name": "linux-image-6.12.49-msm8916-g93a71ee9468d_6.12.49-g93a71ee9468d-1_arm64.deb",
+      "bytes": 17086224,
+      "sha256": "90f9d537d9cec00f41098c152e4475af9cf4b973a5ea1ee4dacf2f0fc4dd87a2",
+      "url": "https://github.com/KyonLi/ufi003-kernel/releases/download/6.12.49-1/linux-image-6.12.49-msm8916-g93a71ee9468d_6.12.49-g93a71ee9468d-1_arm64.deb"
+    }
+  ],
+  "boot_source_gate_resolved": false,
+  "note": "Expected public upstream inputs; source attribution of additional local audio modules and boot repacking remains incomplete. Not a flash manifest."
+}

@@ -33,4 +33,4 @@ SSH维护层新增独立持久主机密钥准备和公钥认证配置；首启�
 
 本机隔离测试：`sudo python3 -m unittest discover -s tools/system -p 'test_*.py'`。固件/radio测试复用真实脚本并仅替换固定设备路径；目录准备测试只用一次性目录/合成旧数据，测试挂载守卫失败不写、旧文件内容/owner保持、稳定serial及pending续用、链接/错误owner拒绝。不能代替真实启动、USB链路或恢复验收。
 
-当前共42项隔离测试，含严格umask下服务UID真实执行、既有私有目录保持/链接拒绝、归档守卫、SSH材料、可信初装及应用恢复失败路径。已组合树的程序运行可用`tools/test-base-runtime.py --system-tree --base .../rootfs --artifacts ... --report /private/new-result.json`验证：执行factory的实际安装路径，核对Root0555/摘要/来源，并确认树前后未变。该检查不启动服务组。正式Core/Media/Edge签名组实机硬退出回退证据见docs/VALIDATION-MEDIA-STARTUP-P6K.md；仍未完成板级独立开机。
+当前共44项隔离测试，含严格umask下服务UID真实执行、既有私有目录保持/链接拒绝、归档守卫、SSH材料、可信初装及应用恢复失败路径。已组合树的程序运行可用`tools/test-base-runtime.py --system-tree --base .../rootfs --artifacts ... --report /private/new-result.json`验证：执行factory的实际安装路径，核对Root0555/摘要/来源，并确认树前后未变。该检查不启动服务组。正式Core/Media/Edge签名组实机硬退出回退证据见docs/VALIDATION-MEDIA-STARTUP-P6K.md；仍未完成板级独立开机。
