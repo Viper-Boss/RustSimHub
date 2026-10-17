@@ -10,6 +10,27 @@ export class CallTest {
   try{const status=await this.request({op:'call_status'});if(status.available!==true)return false;const call=await this.request({op:'call_detail',call_id:lease.call_id});return call.state==='ended'&&call.availability==='observed';}
   catch{return false;}
  }
+ async confirmEnded(lease){
+  // Read-only reconciliation may lag the single hangup response. Bound the
+  // whole observation, including stalled HTTP; never submit another hangup.
+  let expired=false,timer;
+  const timeout=new Promise(resolve=>{timer=this.env.setTimeout(()=>{expired=true;resolve(false);},3000);});
+  const observing=(async()=>{
+   for(let attempt=0;attempt<6&&!expired;attempt++){
+    try{
+     const status=await this.request({op:'call_status'});if(expired)return false;
+     if(status.available===true){
+      const call=await this.request({op:'call_detail',call_id:lease.call_id});if(expired)return false;
+      if(call.state==='ended'&&call.availability==='observed')return true;
+     }
+    }catch{if(expired)return false;}
+    if(attempt<5&&!expired)await new Promise(resolve=>this.env.setTimeout(resolve,250));
+   }
+   return false;
+  })();
+  try{return await Promise.race([observing,timeout]);}
+  finally{expired=true;this.env.clearTimeout(timer);}
+ }
  async start(){
   if(this.running)return;
   const generation=(this.generation||0)+1;this.generation=generation;
@@ -51,8 +72,10 @@ export class CallTest {
    await this.step(this.setPending({...pending}));
    // Durable marker precedes the only submission, including lost replies/reload.
    pending.submit_started=true;await this.step(this.setPending({...pending}));
-   this.dialStarted=true;this.deadline=(this.env.performance?.now()??Date.now())+30000;
-   this.deadlineTimer=this.env.setTimeout(()=>{void this.stop();},30000);
+   // Keep the 30-second device limit; reserve 3 seconds for one hangup and
+   // observer confirmation instead of racing lease expiry at second 30.
+   this.dialStarted=true;this.deadline=(this.env.performance?.now()??Date.now())+27000;
+   this.deadlineTimer=this.env.setTimeout(()=>{void this.stop();},27000);
    this.say('正在拨打 10010，约 30 秒后自动结束…');
    const result=await this.step(this.request({op:'submit_call',operation_id:pending.id,lease:null,urgent:false}));
    pending.state=result.operation?.state||'unknown';await this.step(this.setPending({...pending}));
@@ -93,7 +116,6 @@ export class CallTest {
    const closing=this.audio.stop();
    let confirmed=this.endedObserved,alreadyEnded=confirmed;
    if(hangup&&lease){
-    if(!confirmed)confirmed=alreadyEnded=await this.observedEnded(lease);
     if(!confirmed)try{
     this.say('正在挂断并关闭声音…');
     const prepared=await this.request({op:'prepare_call',line_epoch:lease.line,idempotency_key:this.env.crypto.randomUUID(),action:'hangup',call_id:lease.call_id,payload:''});
@@ -104,7 +126,7 @@ export class CallTest {
     pending.state=result.operation?.state||'unknown';await this.setPending({...pending});
    }catch{ /* Never retry an uncertain submit. The unrenewed Core lease expires. */ }
     // A rejected prepare or a lost submit reply must not skip read-only proof.
-    if(!confirmed)confirmed=await this.observedEnded(lease);
+    if(!confirmed)confirmed=await this.confirmEnded(lease);
    }
    await closing;this.running=false;
    const cleanup=this.dialStarted&&!confirmed?'；挂断尚未确认，设备租约到期后清理，请勿立即重拨':'';

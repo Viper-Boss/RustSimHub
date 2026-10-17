@@ -12,15 +12,11 @@
 
 ## 当前真实浏览器验收
 
-累计实际10010 **34次**。最新0587cf7/a15真实Chrome一键已自动撤销旧prepared挂断，再单次10010持续约25.5秒/1275captured/sent/played；用户确认“语音正常”，但首次连接约7秒、漏听初始几句。见P3I末节和.private/browser-a15-acceptance.json。电话terminated、旧四服务active、PCMclosed、Voice撤回/拒绝、预览停止、Windows临时证书移除全部核验。用户现在要求提前连接音频再拨号，按media-preconnect.md继续，无新待答问题。
+累计实际10010 **36次**。316005e/a17真实Chrome一键先完成DTLS再拨号，页面显示“观察接通后接音0.5秒”，Native持续约26.6秒/1331captured/sent/played；首句完整尚未明确人工确认。页面末尾“挂断尚未确认”，后台停机只读副本显示本次hangup submitted、精确call ended/observed，MM全部terminated；旧四服务active、PCMclosed、Voice撤回/拒绝、预览/独占守卫停止、Windows临时证书移除全部核验。报告.private/browser-a17-acceptance.json。前一a16自动NAS测试观察ACTIVE后1187ms开PCM、媒体20.657秒；无拨号Verified保持12秒/零PCM/无票据也通过。
 
-a10—12已确定旧Go agent约15秒Hangup冲突，必须保留独占/设备独立恢复。a13原24秒目标未通过（22.953秒后30秒租约自然到期），passed=false与adjudication均保留；a14未拨号，不能重复计数或复用标记。
+a15/0587cf7用户确认持续Chrome下行正常，但初始约7秒漏句；P3此前只因该项加0.5，预连接改进不重复加分。a10—12已确定旧Go agent约15秒Hangup冲突，必须保留独占/设备独立恢复；a13原24秒目标未通过，原passed=false与adjudication均保留；a14未拨号，不能计数。a1—17实际标记都不可复用；a17自动撤销了a15留下的旧prepared挂断，无重复提交。
 
-1. 715 版本在约 4—5 秒因 Codec 退出。d2b1c13 加诊断并修正晚到/重复包，实机准确抓到 `packet_guard bytes=0` 触发 Codec 退出。
-2. 13f9063 修正已认证空负载安全丢弃，不入 Opus、不消费序列、不刷新有效媒体存活时间。新增顶部一键 10010、自动登录/拨号/接音、约 30 秒结束、立即结束、旧操作防重和麦克风取消；手动步骤收进折叠区。
-3. 用户已实际通过一键操作完成通话全流程，但声音约 13 秒就停止，提示“测试停止：声音提前中断；电话已挂断”。Native 639 captured/sent/played、646 received、13 dropped、1 xrun，无 Codec 拒绝；不是 30 秒保护正常结束。已保存 `.private/browser-preview-13f9063-current-native.log`。
-4. 当前 9812aa5 修正可复现的 reaper/HTTP slot 锁竞争：有界等待 1500ms；授权/归属仍逐次检查；只读 poll 的 429 最多三次查询，prepare/activate/拨号/挂断均不重试，403立即停音。增加固定 stop/拒绝原因及页面 HTTP 状态。旧现场没有 HTTP 状态，不能认定竞争就是该次现场原因。
-5. c1099a2新增独占控制/独立恢复及拨号前本地SDP/ICE；203 workspace/六ARM、Native21、五资产严格TLS均通过。当前新增cancel_prepared_call事务仅prepared可取消，其他状态/外国principal/generation拒绝；取消挂断的重放也不能撤回当前媒体。Node恢复/撤销失败路径通过，Rust全量和新构建进行中。持续真实浏览器声音尚未验收，不加P3分。
+收尾源码已改为拨号提交起27秒开始一次挂断，给不变的30秒设备保护留3秒，取消挂断前的阻塞查询；随后最多3秒/6次只读核精确call，含请求挂起总超时与晚到回应退出。Node三组通过（含迟到ended、丢失挂断回复、始终active、查询挂起），尚未冻结构建和实机验收，不标已解决页面确认。
 
 详细证据见 [浏览器验收](VALIDATION-BROWSER-MEDIA-P3I.md)。此前 Chrome 插件能列标签页但接管为 Debugger unattached，没有实际控制浏览器，也不绕过其他页面的访问阻止。
 
@@ -36,13 +32,14 @@ a10—12已确定旧Go agent约15秒Hangup冲突，必须保留独占/设备独�
 
 ## 当前源码与制品
 
-当前部署构建源 `0587cf74546b08d5df0f8f1e22907da160059e85`，115输入，归档SHA `56bee45f764bfa7c9c24a3277e886b349ab5e1ed4b825a575a21ae900ed3963a`。GitHub main已精确保存；预连接新源码未冻结，不把既有制品重标新源码。
+当前部署构建源 `316005e1d9c83c6348a0342b52ccdb9eb0fd14a7`，115输入，归档SHA `97627e851738653c9dfbde880f6cae2fa6ec72566489ae1965cbd1944cd3207c`。GitHub main已精确保存该源。后续收尾改进尚未新构建，不把316制品重标为新源码。
 
-- 本机WSL Rust1.98.0六生产ARM：`.local/wsl-artifacts-0587cf74546b08d5df0f8f1e22907da160059e85`，206 workspace/退出0，全量Clippy通过。
-- NAS固定无网络ARM容器Native：`.local/native-0587cf7/rustsimhub-audio-alsa`，5516704字节、SHA `6694aadc80ffb1d0618899af7f65d24bfc9a2f4479e5b6b6b566ffdb842af68c`，21项/release3m41s/退出0；日志`.private/native-0587cf7-build.log`。开发签名包.private/boot-application-0587cf7已保留，正式开机组仍715。
-- Edge 20 项定向回归及 Clippy 通过，日志 `.private/media-poll-contention-source.log`；Node proof/media/call-test 通过，额外验证 active 状态的短暂429不关麦、403立即关闭和激活不重试。此前全 workspace202、Native21及Clippy通过；不把定向20项冒充新跑全workspace。
-- `.private/media-current-build.json`、默认`.local/source.tar.gz`和独立frozen 0587归档指当前构建；所有预览/观察/独占单元已停止或独立结束。新预连接Core/Edge/JS已接通，209 workspace/21 Native及两者Clippy、Node三组通过；正在准备冻结构建，实机无拨号及接音延迟仍未验收，不能提前加分。详见media-preconnect.md。
-- `.private/boot-application-13f9063`、d2b1c13、71506f0 开发签名包分别保留，seed只在本机；当前981开发签名包已保存在.private/boot-application-9812aa5。正式Media开机组实证属于715，不能重标当前981。
+- 本机WSL六生产ARM：`.local/wsl-artifacts-316005e1d9c83c6348a0342b52ccdb9eb0fd14a7`，209 workspace/退出0及全量Clippy通过。
+- NAS固定无网络ARM容器Native：`.local/native-316005e/rustsimhub-audio-alsa`，5516704字节，SHA `2ecdad25761d8816769a62beff9cfbee5eb277e8bb2c3fc2f4bd0e94f78ab4e1`；21项/Clippy/release3m12s/退出0，日志`.private/native-316005e-build.log`。
+- 严格TLS五网页与冻结Git资产一致，首次启动检查一次5秒read timeout，随后五项重查全部通过；不隐去该短暂启动超时。Core50/Edge22及浏览器proof/media/call-test三组通过。
+- `.private/media-current-build.json`、默认`.local/source.tar.gz`及独立frozen 316归档指本轮构建。开发签名包`.private/boot-application-316005e`三个epoch已保留，签名seed仅本机；未安装新的正式开机组或完整OS。
+- `.private/http-preconnect-idle.json`、`.private/headless-preconnect-a16.json`、`.private/browser-a17-acceptance.json`记录当前实证；Native日志`.private/browser-preview-316005e-a17-native.log`，Core日志同前缀-a17-core.log（包含旧历史，按PID和时间识别）。无录音/新短信/普通蜂窝测试/分区写入。
+- 旧0587/c1099/981/13f/d2/715制品和开发签名包保留，正式Media开机组实证仍属于715。候选RootDirectory仍旧用户态，不能称完整新OS已刷入。
 
 ## 已完成但不可扩大的系统实证
 
@@ -53,6 +50,6 @@ a10—12已确定旧Go agent约15秒Hangup冲突，必须保留独占/设备独�
 
 ## 接手顺序与工具
 
-先实现真实预连接（Core只核身份/线路fence，Edge限时30秒单会话，浏览器先DTLS Verified才提交拨号，ACTIVE后完整lease/票据一次激活），补越权/超时/取消/零PCM与零拨号失败测试，冻结/构建后先无拨号NAS合成验收。之后才安排新的独立标记10010与用户听音，不能复用a15。保留Core原30秒通话租约/单次票据/断流边界，不提前打开PCM或上传麦克风内容；准备与激活耗时需记录，不能把设计写成延迟已解决。
+先冻结/构建浏览器收尾改进并验证单次挂断及有界结束观察；再安排新的独立标记10010。预连接已实机完成，保持Core原30秒租约/单次票据/断流边界及拨号前零PCM；首句是否完整和真正双向听音仍需用户参与，不能从0.5秒页面指标推定。全部a1—17标记已结束/消费，不复用；当前无等待用户的测试窗口或临时证书。之后推进正式服务组合、首启/系统与恢复门禁；流量待换卡。
 
 Python 使用 `C:/Users/wzs11/AppData/Local/Programs/Python/Python312/python.exe -X utf8`；私有依赖 `.local/python-deps`。SSH用 `tools/remote.py` 读取 `.private/nas.json`/device.json，严格主机钥匙固定，设备经NAS。主六程序强本机WSL user wzs11、持久cache/8路交叉编译；Native仍NAS，未完成本机Native SDK迁移。源先提交、package-source.py冻结；构建索引改变前确认无编译任务。GitHub使用精确非强制对象发布脚本，勿推缺workflow授权的 codex/recovery-ci-pending 历史分支。

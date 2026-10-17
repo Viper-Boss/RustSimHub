@@ -1,4 +1,4 @@
-2026-10-17 权威更新：整体73.5/100约74%，10010累计34。0587cf7同源206 workspace/Clippy/六ARM与Native21项构建、五网页严格TLS、prepared撤销/跨principal拒绝/迟到提交不拨号实机通过。a15浏览器一键自动撤销旧prepared挂断，再单次10010，连续约25.5秒/1275采集帧；用户确认语音正常，但首次连接约7秒、初始几句漏听。旧四服务/电话/PCM/Voice恢复与Windows临时证书直接移除均已核验。P3+0.5，仅计持续Chrome下行；正在实现拨号前真实WebRTC握手，接通后仍须ACTIVE/租约/票据才能打开PCM，未验证优化不额外加分。见VALIDATION-BROWSER-MEDIA-P3I.md与media-preconnect.md。
+2026-10-17 权威更新：整体73.5/100约74%，10010累计36。316005e同源209 workspace/Clippy/六ARM与Native21项构建、五网页严格TLS通过。无拨号真实预连接Verified保持12秒、零PCM/票据通过；a16先握手后拨号，观察ACTIVE后1187ms开PCM、连续媒体20.657秒。a17真实Chrome显示接音0.5秒，Native连续约26.6秒/1331帧；首句完整仍未明确人工确认。页面挂断尚未确认，后台事后已核实该次hangup submitted、call ended/observed及MM全部terminated；旧四服务、PCM/Voice、独占窗口和Windows临时证书清理通过。新增浏览器27秒开始一次挂断、3秒有界只读确认的源码/Node通过，尚待冻结构建及实机收尾验收。不重复加分，流量等换卡、完整OS/恢复门禁保持。详见media-preconnect.md及HANDOFF.md。
 
 2026-10-16 当前：整体仍 73/100，10010 累计 26；实机捕获空音频负载触发 Codec 致命退出。新增空负载安全丢弃与一键 10010/自动连接声音/约30秒结束页面源码，202 workspace、21 Native、Clippy 和 Node 三组通过；新 ARM 与真实听音待验收，不加分。见 VALIDATION-BROWSER-MEDIA-P3I.md。
 

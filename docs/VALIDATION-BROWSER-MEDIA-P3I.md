@@ -72,3 +72,10 @@ a13实际拨出一次，累计33。新独占工具先登记75秒设备独立恢�
 a15独占窗口中用户刷新并只点一次测试，旧挂断在只读一致快照中最终cancelled/resolved；新实际10010一通，累计34。PCM17:46:16.54—17:46:42.08 UTC，约25.5秒，captured/sent/played1275、received1282、dropped32、1次可恢复xrun，结束为transport Closed。用户确认“语音正常”，但指出首次连接约7秒、接通初始几句听不到。只确认持续Chrome下行，不假称双向听音或接音延迟已解决。
 
 私有browser-a15-acceptance.json、browser-preview-0587cf7-a15-native.log及独立观察文件保存。旧四服务active、全部电话terminated、PCMclosed、Voice规则已撤回/拒绝，预览停止；同一Windows临时证书已直接移除并核验installed=false/removed=true。新短信/普通蜂窝/分区写入0。P3加0.5至14.5，总体73.5/100约74%。用户要求优化为先连接声音再拨号，按media-preconnect.md继续；不以新设计加分。
+
+
+## 316005e：拨号前真实预连接与a16/a17
+
+209 workspace/Clippy、六ARM生产程序、Native21/Clippy及Node三组通过。先以真实HTTPS/DTLS无拨号保持Verified12秒，零媒体计数/PCM关闭/无票据；再a16单次10010，拨号前握手3125ms，观察ACTIVE后1187ms开PCM、媒体20.657秒。a17真实Chrome页面显示接音0.5秒，设备约26.6秒传声、1331captured/sent/played、1339received、26dropped及1次可恢复欠载；用户尚未明确确认首句完整，不能称双向听音通过。
+
+用户末尾提示挂断尚未确认。后台事后验证本次hangup submitted、精确call ended/observed、MM全部terminated、PCM关闭、Voice拒绝、旧四服务恢复、独占窗口/预览停止及临时证书已移除。累计10010=36。原报告保留UI确认未完成；收尾新增27秒单次挂断、3秒有界只读观察的Node失败回归通过，尚未新构建/实机。详见media-preconnect.md和.private/browser-a17-acceptance.json。进度仍73.5/100约74%，不重复计点，无新短信/蜂窝/分区写入。
