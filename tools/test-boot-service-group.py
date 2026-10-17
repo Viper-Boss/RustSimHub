@@ -14,7 +14,10 @@ p.add_argument('--root-directory',required=True)
 p.add_argument('--reuse-inputs',help='Existing private fixture containing the identical generic signed packages; bind read-only')
 p.add_argument('--media-lan',action='store_true',help='Provision same-address worker and include it in signed group lifecycle checks; no calls')
 p.add_argument('--failure-role',choices=['core','media'],default='core')
+p.add_argument('--verify-preloaded-audio',action='store_true',help='Read-only verify existing host drivers for this userspace-only trial; does not test module loading or new OS boot')
 a=p.parse_args();assert not a.report.exists()
+audio_guard='rustsimhub-audio-drivers.service' in (ROOT/'firmware/system/overlay/etc/systemd/system/rustsimhub-media.service').read_text()
+assert not audio_guard or a.verify_preloaded_audio, 'This userspace harness requires explicit --verify-preloaded-audio; use full OS boot to validate the real driver loader'
 assert a.failure_role != 'media' or a.media_lan
 assert re.fullmatch('/var/tmp/rustsimhub-system-tree-[A-Za-z0-9]{8}/rootfs',a.root_directory)
 assert not a.reuse_inputs or re.fullmatch('/var/tmp/rustsimhub-boot-group-[A-Za-z0-9]{8}',a.reuse_inputs)
@@ -85,6 +88,14 @@ def verify_processes(hash_value):
  report['candidate_root_signed_slot_inodes_and_nonroot_empty_caps_verified']=True
 try:
  nas=connect(nc);dev=connect(dc,nas.get_transport().open_channel('direct-tcpip',(dc['host'],dc.get('port',22)),('127.0.0.1',0),timeout=12));sf=dev.open_sftp()
+ if audio_guard:
+  import audio_modules
+  audio_profile,_=audio_modules.profile()
+  script='test "$(uname -r)" = '+q(audio_modules.RELEASE)+'\n'
+  for row in audio_modules.loaded_rows(audio_profile):
+   script+='test "$(cat /sys/module/'+row['modinfo']['name']+'/srcversion)" = '+q(row['modinfo']['srcversion'])+'\n'
+  run(script)
+  report.update(preloaded_host_audio_srcversions_verified=True,audio_driver_loading_tested=False,production_audio_driver_dependency_replaced_by_readonly_precondition=True);save()
  base=run('test "$(df -B1 --output=avail /var/tmp | tail -1)" -gt 170000000\nd=$(mktemp -d /var/tmp/rustsimhub-boot-group-XXXXXXXX);chmod 0700 "$d";mkdir -m 0755 "$d/bin" "$d/helpers";mkdir -m 0700 "$d/ledger" "$d/versions" "$d/system" "$d/system/ssh-access" "$d/operator";echo "$d"')[1].strip()
  assert re.fullmatch('/var/tmp/rustsimhub-boot-group-[A-Za-z0-9]{8}',base);report['directory']=base;save()
  run('mount -t tmpfs -o size=1m,mode=0700,nosuid,nodev,noexec tmpfs '+q(base+'/ledger'));mounted=True
@@ -128,6 +139,8 @@ try:
   put(base+'/helpers/'+name,text.encode(),0o555)
  for name in original:
   text=rewrite((overlay/'etc/systemd/system'/name).read_text())
+  if audio_guard and name=='rustsimhub-media.service':
+   text=text.replace(' rustsimhub-audio-drivers.service','')
   text=text.replace('Requires=rustsimhub-firstboot.service\n','').replace('After=rustsimhub-firstboot.service systemd-tmpfiles-setup.service\n','')
   text=text.replace('RuntimeDirectory=rustsimhub-app','RuntimeDirectory='+prefix)
   lines=text.splitlines()

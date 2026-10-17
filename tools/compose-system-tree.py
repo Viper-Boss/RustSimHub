@@ -16,6 +16,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/rootfs/scripts'))
 import rootfs_tools as base_tools
 from application_package import verify_package, FILES as APP_FILES
+import audio_modules
 
 NAMES = ('rustsimhub-core', 'simhubctl', 'rustsimhub-edge', 'rustsimhub-update',
          'rustsimhub-recovery', 'rustsimhub-migrate')
@@ -78,16 +79,19 @@ def main():
     for name in ('signed-application','release-public','updater-artifacts'):
         parser.add_argument('--'+name,type=pathlib.Path)
     parser.add_argument('--native-artifacts', type=pathlib.Path, help='Explicit same-source worker provenance; never inferred from an older signed payload')
+    parser.add_argument('--audio-modules', type=pathlib.Path, help='Exactly 22 source-locked UFI003 modules; required with Native')
     args = parser.parse_args()
     startup = bool(args.signed_application)
     assert not args.native_artifacts or startup
+    assert bool(args.native_artifacts) == bool(args.audio_modules), 'Native and its pinned kernel audio layer must be supplied together'
     assert all((args.signed_application,args.release_public,args.updater_artifacts)) or not any((args.signed_application,args.release_public,args.updater_artifacts))
     if sys.platform != 'linux' or os.geteuid() != 0:
         parser.error('Linux root is required to preserve numeric owners')
     if args.out.exists() or args.out.is_symlink():
         parser.error('Output must be a new directory; failed output is retained')
     assert not git('status', '--porcelain', '--', 'firmware/system', 'firmware/base-system.lock.json',
-                   'tools/compose-system-tree.py', 'tools/application_package.py', 'tools/rootfs').strip(), 'Commit composition inputs first'
+                   'tools/compose-system-tree.py', 'tools/application_package.py', 'tools/audio_modules.py',
+                   'firmware/kernel/audio', 'tools/rootfs').strip(), 'Commit composition inputs first'
     revision = git('rev-parse', 'HEAD').decode().strip()
     base = args.base.resolve(strict=True)
     manifest = json.loads((base / 'ROOTFS-MANIFEST.json').read_text())
@@ -128,11 +132,15 @@ def main():
             assert media_build['target'] == 'aarch64-unknown-linux-gnu' and media_build.get('worker_control_supported') is True and media_build['exit_code'] == 0
             assert verifier.get('media_installation_preparation_supported') is True, 'Immutable setup lacks the media installation profile'
             assert base_tools.sha256_file(native/'rustsimhub-audio-alsa') == media_build['binary_sha256'] == base_tools.sha256_file(signed/'rustsimhub-audio-alsa')
+    if args.audio_modules:
+        audio_profile, _ = audio_modules.profile()
+        audio_modules.verify_artifacts(args.audio_modules, audio_profile)
     directory(args.out, 0o700)
     output = args.out.resolve(strict=True)
     try:
         subprocess.run(['cp', '-a', '--reflink=auto', str(base / 'rootfs'), str(output / 'rootfs')], check=True)
         tree = output / 'rootfs'
+        audio_layer = audio_modules.install(tree, args.audio_modules) if args.audio_modules else None
         for name, number, home in [('rustsimhub-core', 986, '/var/lib/rustsimhub'),
                                    ('rustsimhub-edge', 985, '/nonexistent'),
                                    ('rustsimhub-media', 984, '/nonexistent')]:
@@ -207,6 +215,7 @@ def main():
                      'flash_allowed': False, 'release_ready': False, 'recovery_verified': False,
                      'app_service_group_installed': startup, 'native_media_installed': bool(args.native_artifacts),
                      'media_configuration_required': bool(args.native_artifacts),
+                     'kernel_audio_modules_installed': bool(audio_layer),
                      'board_boot_verified': False, 'private_data_included': False}
         if startup:
             candidate['factory_manifest_sha256']=base_tools.sha256_file(signed/'manifest.json')
@@ -214,6 +223,7 @@ def main():
             candidate['immutable_updater_build']=verifier
             candidate['automatic_update_health_confirmation']=False
             if args.native_artifacts: candidate['native_media_build'] = media_build
+        if audio_layer: candidate['kernel_audio_layer'] = audio_layer
         write_metadata(tree, 'usr/share/rustsimhub/system-candidate.json', candidate)
         spec = importlib.util.spec_from_file_location('base_audit', ROOT / 'tools/rootfs/scripts/audit-rootfs.py')
         audit = importlib.util.module_from_spec(spec)

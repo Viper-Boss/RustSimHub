@@ -1,0 +1,22 @@
+[Unit]
+Description=Load and verify the pinned UFI003 audio drivers
+Requires=rustsimhub-device-firmware.service
+After=rustsimhub-device-firmware.service
+Before=rustsimhub-media.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/rustsimhub-audio-drivers
+RemainAfterExit=yes
+TimeoutStartSec=30
+User=root
+CapabilityBoundingSet=CAP_SYS_MODULE
+AmbientCapabilities=
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+RestrictAddressFamilies=AF_UNIX
+UMask=0077
