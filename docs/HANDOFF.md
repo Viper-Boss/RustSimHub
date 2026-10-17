@@ -45,6 +45,7 @@ a15/0587cf7用户确认持续Chrome下行正常，但初始约7秒漏句；P3此
 
 ## 已完成但不可扩大的系统实证
 
+- [P6M 固定驱动候选](VALIDATION-KERNEL-AUDIO-P6M.md)：2026-10-17 P6M：组合源075b68e、应用/Native仍4e6fea6；22个逐字节重建音频驱动已纳入全新候选。12367项/SHA c621fdbdedee685d0f6a930a949d36f2cb6dea29953d8240b4dda7bb17b95376；host及候选自身ARM modprobe的22项依赖图/四个别名一致，后者在只读/断网/无CAP_SYS_MODULE条件下运行，没有加载模块。七ARM非Root实际执行、包含音频驱动服务的完整systemd静态依赖及树保持通过；55板级/34rootfs回归通过。原initramfs为zstd，551项/100模块，无qcom音频；固定上游boot+重建DTB+root=LABEL=rootfs+补零64MiB完整复现备份SHA d5790e07…。公开核验器只写JSON不写启动镜像，实际报告passed=true；初次只替换DTB对照失败保留。新驱动守卫仅隔离夹具/静态验证，未在棒子加载或启动新OS。旧P6L树、原失败记录及所有旧制品保留，10010仍38，无新短信/蜂窝/分区写入，整体73.5/100约74%。
 - [P6L 当前完整候选](VALIDATION-SYSTEM-TREE-P6L.md)：组合源fba528e、当前4e6签名应用/同源Native与锁定220包基础树，新树12340项/SHA4324468e63920ce79bef8cd0da1a0a2e4bc7c201f6ea866a9da4641e5da8701e。修复umask077导致新公开程序目录0700的真实问题；42项板级、七个非Root ARM实际运行、全服务静态依赖及树保持通过。WSL目录`/home/wzs11/.cache/rustsimhub/system-tree-p6l-4e6fea6-second`，验证报告`.private/system-tree-p6l-4e6fea6-second-verification.json`/verify.exit0。首树权限失败及第二包装脚本CRLF退出127原证据保留，LF脚本重验同一第二树通过；不是新树已在设备启动。新候选全部刷写/发布/恢复/完整启动门禁false，不重复加分。
 - [P6K Media 开机组](VALIDATION-MEDIA-STARTUP-P6K.md)：4e6同源全组已重新通过可信初装、签名槽位/UID/Root/inode/空cap、真实Media SIGKILL整组回退、第三版本确认保持、第二次Edge SIGKILL预算耗尽整组停止和清理；715旧证据保留。P6仍6.5，不重复计点。
 - 完整旧候选用户态 RootDirectory 仍为 `.private` 报告记录的 system-tree-ofY1ttXm/rootfs；不是新系统完整上电。旧P6J组合及离线 rootfs.img仍保留，所有刷写/发布门禁false。实机 NSHSTATE 初始化、实际维护公钥安装、完整开机/掉电/回刷闭环仍缺。
@@ -53,9 +54,13 @@ a15/0587cf7用户确认持续Chrome下行正常，但初始约7秒漏句；P3此
 
 ## 接手顺序与工具
 
-22个额外音频模块已从固定KyonLi 93a71ee源码/headers与AirSimHub ea019485补丁重建，22/22逐字节等同设备现用文件。此前归档的25个qcom模块均为上游原装，不能代替这22个override；16个已加载模块的srcversion与只读捕获一致。本机私有Ubuntu GCC14.2.0-4ubuntu2~24.04.1交叉编译，补丁零fuzz；第二版19/22全字节相同，三差异仅__FILE__路径及build-id，第三版用-fmacro-prefix-map对齐原诊断路径后22/22相同。源码/headers输入未变、未安装或加载新模块。当前P6L通用树尚缺22个override，不能据旧系统通话通过宣布新系统声音可用；下一步在新候选纳入驱动并验证depmod/别名/预加载及冷启动。完整内核/initramfs独立重建、boot重打包和恢复仍缺，board.toml保持UNRESOLVED，所有刷写门禁false，不重复加分。
+当前优先使用P6M候选：/home/wzs11/.cache/rustsimhub/system-tree-p6m-audio-4e6fea6-second，源075b68e，应用4e6不重标，12367项/树SHA c621fdbdedee685d0f6a930a949d36f2cb6dea29953d8240b4dda7bb17b95376。22个源重建驱动已安装，目标ARM modprobe22图/四别名、七ARM程序、完整systemd静态依赖和树保持通过；完整OS上电/实际驱动加载仍未验证。私有system-tree-p6m-audio-4e6fea6-second-verification.json及system-tree-p6m-target-kmod-first.json passed=true。原P6L保持不改；first包装参数+错误在创建树前拒绝、exit2记录保留。
 
-固定上游七个输入、68个qcom Git blob与补丁均已核验；公开源码/锁firmware/kernel/audio/modules，详细步骤见KERNEL-PROVENANCE.md。私有kernel-source-20261017-first/module-rebuild-third.json、log及exit0；WSL重建目录/home/wzs11/.cache/rustsimhub/kernel-module-audit-20261017/rebuild-third，编译器/home/wzs11/.cache/rustsimhub/module-compiler-20261017。原输入、失败记录和19/22版本均保留；无存活编译任务，不重新下载。DTB固定源码重建与备份逐字节一致，44项板级严格umask回归通过。不要原地修改/重标已审计P6L候选，需新树。
+22模块的固定源码/编译器、零fuzz补丁和原诊断路径映射已闭环，公开锁firmware/kernel/audio/modules/source.json，私有重建kernel-source-20261017-first/module-rebuild-third.json/log/exit0。WSL artifacts在/home/wzs11/.cache/rustsimhub/kernel-module-audit-20261017/rebuild-third/artifacts，编译器在/home/wzs11/.cache/rustsimhub/module-compiler-20261017。composer含Native必须--audio-modules；所有组合输入先提交。新test-boot-service-group必须显式--verify-preloaded-audio先只读核16个现存驱动，然后仅验证用户态；它不会调用宿主模块加载器，也不验证新驱动服务的实际加载。既有P6K全组证据属于旧依赖图。
+
+启动配方核验已通过：固定上游boot+源重建DTB、仅root=LABEL=rootfs替换与Android v0 image-id/补零64MiB，完整SHA与board记录d5790e07…一致；tools/verify-audio-boot-recipe.py实际报告repository-boot-recipe-first.json passed=true，只输出JSON，未写boot镜像。原ramdisk只读zstd/CPIO审计无qcom音频模块；初始gzip假设及只替换DTB失败证据保留。55板级/34rootfs最终回归日志audio-module-boot-recipe-tests-final.log/exit0。
+
+下一步推进完整内核/initramfs独立源码构建及每设备初始化、维护/完整冷启动和恢复；boot重打包差异已解释，不再重复排查根标签。board.kernel_source_commit仍UNRESOLVED，所有flash/release/recovery/board_boot门禁false。不要重下载已核验的七个上游输入，不要修改既有候选或使用旧应用制品重启脚本。无存活编译/下载任务，当前不要求用户拔插。
 
 真实Chrome首句/新收尾已由a19人工确认，不必重复问旧问题；双向听音/来电等仍待用户参与，流量待换卡。当前无待答问题、无用户测试窗口/临时证书；a1—19标记均结束/消费，累计38。
 

@@ -10,4 +10,6 @@
 
 旧系统的`test-boot-service-group.py`继续只验证用户态，不能调用未改名的宿主驱动服务。新版必须显式`--verify-preloaded-audio`，先只读核对实际kernel和16项现存srcversion，才在改名试验单元中以该前置证据替代驱动服务依赖；报告明确audio_driver_loading_tested=false，不把这种测试冒充新OS加载或冷启动。先前4e6/P6K证据仍属于旧依赖图。
 
-新离线候选与实际加载结果在验收后追加；目前不能仅凭源码和隔离夹具宣称完整新系统启动或音频驱动服务实机通过。原P6L树保持，新增树必须单独记录源、摘要和验证范围；flash/release/recovery/board_boot门禁保持false，蜂窝流量等待换卡。
+新离线候选P6M已纳入22个驱动，目标ARM modprobe的22个依赖图/四个别名、七ARM程序和全服务静态依赖通过，树摘要保持；见[验收](VALIDATION-KERNEL-AUDIO-P6M.md)。原P6L树保持。源码锁中的installed_in_system_candidate=false表示该来源锁本身不证明安装；实际安装状态以每份SYSTEM-CANDIDATE.json/验收报告为准，不动态改写来源锁而重标旧制品。
+
+当前不能凭隔离夹具和离线解析宣称完整新系统启动或音频驱动服务实机通过。flash/release/recovery/board_boot门禁保持false，蜂窝流量等待换卡。

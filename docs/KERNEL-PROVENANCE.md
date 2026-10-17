@@ -47,3 +47,10 @@ prefix指私有工具链usr/bin；x86主机需已有qemu/binfmt运行headers中�
 私有证据：active-audio-module-capture.json、module-input-preparation.json、module-source-git-verification.json、matching-module-compiler-v3.json、module-rebuild-second.json、module-build-path-differences.json及module-rebuild-third.json/log/exit0。第二版3个不同对象只有.rodata.str1.8和build-id不同；解码证明每个仅一项绝对源码路径变化，第三版映射后22/22全文件SHA一致。全部srcversion/vermagic/.text亦匹配，原source/headers未变。初次ARM helper缺loader及工具链依赖失败保留，不以最终成功抹去。
 
 这闭合额外模块的源码到二进制对应，但没有重建完整kernel/initramfs、重打包boot、安装驱动或实际新OS冷启动。现用旧系统内的声音和P6L用户态探针不能替代这些验收；board源归属/刷写/发布门禁仍false。
+
+
+## P6M后续闭环
+
+2026-10-17 P6M：组合源075b68e、应用/Native仍4e6fea6；22个逐字节重建音频驱动已纳入全新候选。12367项/SHA c621fdbdedee685d0f6a930a949d36f2cb6dea29953d8240b4dda7bb17b95376；host及候选自身ARM modprobe的22项依赖图/四个别名一致，后者在只读/断网/无CAP_SYS_MODULE条件下运行，没有加载模块。七ARM非Root实际执行、包含音频驱动服务的完整systemd静态依赖及树保持通过；55板级/34rootfs回归通过。原initramfs为zstd，551项/100模块，无qcom音频；固定上游boot+重建DTB+root=LABEL=rootfs+补零64MiB完整复现备份SHA d5790e07…。公开核验器只写JSON不写启动镜像，实际报告passed=true；初次只替换DTB对照失败保留。新驱动守卫仅隔离夹具/静态验证，未在棒子加载或启动新OS。旧P6L树、原失败记录及所有旧制品保留，10010仍38，无新短信/蜂窝/分区写入，整体73.5/100约74%。
+
+详细范围、公开命令和证据见[固定驱动候选验收](VALIDATION-KERNEL-AUDIO-P6M.md)。历史boot重打包待查及P6L未纳入驱动的记录已由本节覆盖，不能据此重标旧树。root参数是文件系统LABEL，不是PARTLABEL。完整内核/initramfs独立构建与冷启动/恢复仍缺，board来源门禁暂保持；全boot SHA重现不等于从源码独立重建全部内核。

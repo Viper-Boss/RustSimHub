@@ -51,5 +51,5 @@
     }
   ],
   "boot_source_gate_resolved": false,
-  "note": "Expected public upstream inputs; additional audio modules are byte-rebuilt with the separate audio/modules/source.json lock; complete kernel/initramfs reconstruction, boot repacking and cold boot remain incomplete. Not a flash manifest."
+  "note": "Expected public upstream inputs; additional audio modules are byte-rebuilt with the separate audio/modules/source.json lock; the recorded boot layout and root=LABEL=rootfs recipe are hash-reconstructed; independent complete kernel/initramfs reconstruction and cold boot remain incomplete. Not a flash manifest."
 }

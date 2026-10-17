@@ -47,6 +47,10 @@ NasSimHub / ModemDeck 的 PolyForm Noncommercial 与 AGPL 部分必须逐文件�
 许可证见`licenses/GPL-2.0-only.txt`；不受本项目AGPL重新许可。新增DTB重建工具为AGPL-3.0-only。
 不包含boot二进制、厂商固件、NV或校准数据；重建步骤不写设备。
 
+`tools/verify-audio-boot-recipe.py`及其板级夹具以GPL-2.0-only许可，复用仓库已有的
+GPL-2.0-only Android boot v0解析/重建器`tools/rootfs/kernel/audio/replace-appended-dtb.py`，
+新增固定root标签与只输出摘要报告的核验边界；不受本项目AGPL重新许可。
+
 2026-10-13 音频实现参考 AirSimHub 提交
 `ea019485e5d890a96acae357c52b94c746de837f` 的
 `node/agent/internal/voicealsa/alsa.go` 与 `node/deploy/audio/hold-cs-voice.c`
