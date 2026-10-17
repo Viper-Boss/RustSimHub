@@ -25,6 +25,19 @@ def git(*args):
     return subprocess.check_output(['git', '-c', 'safe.directory='+str(ROOT), '-C', str(ROOT), *args])
 
 
+def directory(path, mode, exist_ok=False):
+    try:
+        path.mkdir(mode=mode)
+    except FileExistsError:
+        if not exist_ok:
+            raise
+        assert not path.is_symlink() and path.is_dir()
+    else:
+        # mkdir's mode is masked by the caller's umask. Only newly created
+        # directories receive this public/system mode; preserve base privacy.
+        path.chmod(mode)
+
+
 def destination(root, relative):
     path = pathlib.PurePosixPath(relative)
     assert not path.is_absolute() and '..' not in path.parts
@@ -33,10 +46,16 @@ def destination(root, relative):
     for part in path.parts[:-1]:
         current /= part
         assert not current.is_symlink(), 'Overlay parent is a symlink'
-        current.mkdir(mode=0o755, exist_ok=True)
+        directory(current, 0o755, exist_ok=True)
     target = current / path.name
     assert not target.is_symlink(), 'Overlay target is a symlink'
     return target
+
+
+def write_metadata(root, relative, value):
+    target = destination(root, relative)
+    target.write_text(json.dumps(value, indent=2)+'\n')
+    target.chmod(0o644)
 
 
 def group_member(root, group, member):
@@ -109,7 +128,7 @@ def main():
             assert media_build['target'] == 'aarch64-unknown-linux-gnu' and media_build.get('worker_control_supported') is True and media_build['exit_code'] == 0
             assert verifier.get('media_installation_preparation_supported') is True, 'Immutable setup lacks the media installation profile'
             assert base_tools.sha256_file(native/'rustsimhub-audio-alsa') == media_build['binary_sha256'] == base_tools.sha256_file(signed/'rustsimhub-audio-alsa')
-    args.out.mkdir(mode=0o700)
+    directory(args.out, 0o700)
     output = args.out.resolve(strict=True)
     try:
         subprocess.run(['cp', '-a', '--reflink=auto', str(base / 'rootfs'), str(output / 'rootfs')], check=True)
@@ -147,7 +166,7 @@ def main():
             shutil.copyfile(artifacts / name, target)
             os.chown(target, 0, 0)
             target.chmod(0o555)
-        destination(tree, slot+'/build.json').write_text(json.dumps(build, indent=2)+'\n')
+        write_metadata(tree, slot+'/build.json', build)
         if startup:
             for name in (*APP_FILES,'manifest.json','manifest.sig'):
                 target=destination(tree,'usr/share/rustsimhub/factory-app/'+name)
@@ -162,13 +181,13 @@ def main():
             shutil.copyfile(updater/'rustsimhub-edge',target);os.chown(target,0,0);target.chmod(0o555)
             assert base_tools.sha256_file(target)==verifier['artifact_sha256']['rustsimhub-edge']
             verify_package(tree/'usr/share/rustsimhub/factory-app',tree/'usr/share/rustsimhub/release.public',build['source_archive_sha256'])
-            destination(tree,'opt/rustsimhub/versions').mkdir(mode=0o700)
-            destination(tree,'opt/rustsimhub/selected').mkdir(mode=0o755)
-            destination(tree,'var/lib/rustsimhub-core').mkdir(mode=0o755)
-            destination(tree,'var/lib/rustsimhub-edge').mkdir(mode=0o755)
-            destination(tree,'var/lib/rustsimhub-media').mkdir(mode=0o755)
+            directory(destination(tree,'opt/rustsimhub/versions'), 0o700)
+            directory(destination(tree,'opt/rustsimhub/selected'), 0o755)
+            directory(destination(tree,'var/lib/rustsimhub-core'), 0o755)
+            directory(destination(tree,'var/lib/rustsimhub-edge'), 0o755)
+            directory(destination(tree,'var/lib/rustsimhub-media'), 0o755)
         state_mount = destination(tree, 'var/lib/rustsimhub')
-        state_mount.mkdir(mode=0o700, exist_ok=True)
+        directory(state_mount, 0o700, exist_ok=True)
         assert not any(state_mount.iterdir())
         state_mount.chmod(0o700)
         units = ['rustsimhub-firstboot.service', 'rustsimhub-usb.service',
@@ -195,7 +214,7 @@ def main():
             candidate['immutable_updater_build']=verifier
             candidate['automatic_update_health_confirmation']=False
             if args.native_artifacts: candidate['native_media_build'] = media_build
-        destination(tree, 'usr/share/rustsimhub/system-candidate.json').write_text(json.dumps(candidate, indent=2)+'\n')
+        write_metadata(tree, 'usr/share/rustsimhub/system-candidate.json', candidate)
         spec = importlib.util.spec_from_file_location('base_audit', ROOT / 'tools/rootfs/scripts/audit-rootfs.py')
         audit = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(audit)

@@ -1,0 +1,9 @@
+# 当前应用的完整系统候选组合
+
+2026-10-17。将已验证的4e6fea6应用、同源Native媒体和签名factory接入锁定220包基础系统的新目录；不原地修改旧候选，不访问棒子或写分区。全部flash/release/recovery/board_boot门禁保持false，完整系统上电仍未证明。
+
+首次在umask077下组合的隐私/来源审计通过，但实际以986执行ARM程序失败：exit126/Permission denied。原树12340项、SHA256 5d0b68a99563e5f0b57154a49a6af941358b4173617ca82b1bd8caa51b812452保持不变；私有system-tree-p6l-4e6fea6-runtime.json passed=false及原候选均保留，不冒充启动成功。
+
+原因是mkdir(mode=0755)仍受调用者umask影响，新建程序上级目录变为0700。修正为仅对新建系统公开目录明确chmod0755、版本目录0700、公开来源元数据0644；既有基础目录权限保持，软链接/非目录及路径越界仍拒绝，不修改全局umask或递归放开权限。
+
+42项Linux板级隔离测试通过，新增用例证明umask077下真实UID986可穿过程序上级目录执行，来源元数据可读，既有0700私有目录保持及链接/文件父目录/越界拒绝。私有composition-permissions-tests.log/exit0。修正后的新树组合、六ARM及Native实际运行、systemd静态依赖与树保持尚待本轮继续验证；不增加进度点。

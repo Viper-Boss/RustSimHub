@@ -9,7 +9,9 @@ sudo python3 tools/compose-system-tree.py \
   --out /private/new-system-tree
 ```
 
-实际可用状态以外部`SYSTEM-CANDIDATE.json`为准。失败保留`COMPOSITION.FAILED`；不复用、修补或自动删除失败目录。输出明确`flash_allowed=false`、`release_ready=false`、`recovery_verified=false`。当前还没有应用开机服务组或native媒体，字段分别为false；此树不是完整产品验收结果。
+实际可用状态以外部`SYSTEM-CANDIDATE.json`为准。失败保留`COMPOSITION.FAILED`；不复用、修补或自动删除失败目录。输出明确`flash_allowed=false`、`release_ready=false`、`recovery_verified=false`。可选`--signed-application`、`--release-public`和`--updater-artifacts`一起接入签名启动组；再以`--native-artifacts`指定同源Native构建才标记native_media_installed=true，核验源归档/程序摘要及真实签名。媒体仍需每设备显式配置，不从旧包推定；此树不是完整产品验收结果。
+
+组合工具显式设置新建公开程序目录0755、公开来源元数据0644及私有版本目录0700，支持调用者使用umask077；既有基础目录权限保持，不能为解决服务执行失败而递归放开私有目录。新候选必须做实际非Root ARM运行与只读systemd依赖检查，不能仅凭组合/隐私审计通过就称服务可运行。
 
 ## 板级启动顺序
 
@@ -27,8 +29,8 @@ NetworkManager的system-connections目录单独绑定到持久分区中root:root
 
 来源与原始SHA见`reuse-provenance.json`及顶层NOTICE，复用部分为AGPL-3.0-only。新增目录/标识准备和树组合工具同为AGPL-3.0-only。内核、Debian包和厂商固件不因此重新许可。
 
-SSH维护层新增独立持久主机密钥准备和公钥认证配置；首启只创建空ssh-access，必须由安装器显式提供维护公钥，缺失时SSH拒绝启动。完整pending目录可续用，损坏或冲突拒绝，保留主机身份。实际安装器/真实维护登录尚未完成，见docs/persistent-ssh-maintenance.md。这些源码尚未组合进原724fc09候选树，原manifest不变。
+SSH维护层新增独立持久主机密钥准备和公钥认证配置；首启只创建空ssh-access，安装器显式提供维护公钥，缺失时SSH拒绝启动。完整pending目录可续用，损坏或冲突拒绝，保留主机身份。可信初始化/Root私有交付及候选namespace中的合成SSH登录/撤销已通过；真实NSHSTATE安装、实际维护钥匙交付与新系统维护登录尚未验收，见docs/persistent-ssh-maintenance.md。原724fc09候选树不原地修改，最新组合以HANDOFF.md为准。
 
 本机隔离测试：`sudo python3 -m unittest discover -s tools/system -p 'test_*.py'`。固件/radio测试复用真实脚本并仅替换固定设备路径；目录准备测试只用一次性目录/合成旧数据，测试挂载守卫失败不写、旧文件内容/owner保持、稳定serial及pending续用、链接/错误owner拒绝。不能代替真实启动、USB链路或恢复验收。
 
-当前共30项隔离测试，含归档路径/链接/类型守卫和SSH材料失败路径。已组合树的程序运行可用`tools/test-base-runtime.py --system-tree --base .../rootfs --artifacts ... --report /private/new-result.json`验证：执行factory的实际安装路径，核对Root0555/摘要/来源，并确认树前后未变。该检查不启动服务组。真实候选RootDirectory的业务/故障和同源音频合成验收见docs/VALIDATION-CANDIDATE-RUNTIME-P6G.md；签名首次安装基线见docs/factory-application-baseline.md，仍未完成板级独立开机。
+当前共42项隔离测试，含严格umask下服务UID真实执行、既有私有目录保持/链接拒绝、归档守卫、SSH材料、可信初装及应用恢复失败路径。已组合树的程序运行可用`tools/test-base-runtime.py --system-tree --base .../rootfs --artifacts ... --report /private/new-result.json`验证：执行factory的实际安装路径，核对Root0555/摘要/来源，并确认树前后未变。该检查不启动服务组。正式Core/Media/Edge签名组实机硬退出回退证据见docs/VALIDATION-MEDIA-STARTUP-P6K.md；仍未完成板级独立开机。
