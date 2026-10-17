@@ -1,4 +1,4 @@
-2026-10-17 权威更新：整体73.5/100约74%，10010累计36。316005e同源209 workspace/Clippy/六ARM与Native21项构建、五网页严格TLS通过。无拨号真实预连接Verified保持12秒、零PCM/票据通过；a16先握手后拨号，观察ACTIVE后1187ms开PCM、连续媒体20.657秒。a17真实Chrome显示接音0.5秒，Native连续约26.6秒/1331帧；首句完整仍未明确人工确认。页面挂断尚未确认，后台事后已核实该次hangup submitted、call ended/observed及MM全部terminated；旧四服务、PCM/Voice、独占窗口和Windows临时证书清理通过。新增浏览器27秒开始一次挂断、3秒有界只读确认的源码/Node通过，尚待冻结构建及实机收尾验收。不重复加分，流量等换卡、完整OS/恢复门禁保持。详见media-preconnect.md及HANDOFF.md。
+2026-10-17 权威更新：整体73.5/100约74%，10010累计37。316005e无拨号真实DTLS保持12秒/零PCM及a16接通后1187ms开PCM通过；a17真实Chrome显示接音0.5秒、设备约26.6秒传声。页面末尾未确认挂断，后台该次hangup submitted、call ended/observed和清理已核实。4e6fea6收尾改为27秒一次挂断、最多3秒/6次只读确认；209 workspace/六ARM、Native21及Node三组通过。a18冻结同一JS在Node经真实严格HTTPS单次10010，一次dial/一次hangup、未续租、精确ended/observed与终态“电话已挂断”通过，28.654秒；该用例不测试音频，不能把stub的0.0秒当声音指标。全部清理/旧四服务/PCM/Voice和临时证书移除核验通过。4e6同源正式服务组首次owner/严格TLS、Media硬退出整组回退、第三版确认保持、第二次Edge故障预算耗尽停组及清理通过；不重复加分，首句完整和双向听音仍待人工，流量等换卡，完整OS/恢复门禁保持。详见HANDOFF.md和media-preconnect.md。
 
 2026-10-16 当前：整体仍 73/100，10010 累计 26；实机捕获空音频负载触发 Codec 致命退出。新增空负载安全丢弃与一键 10010/自动连接声音/约30秒结束页面源码，202 workspace、21 Native、Clippy 和 Node 三组通过；新 ARM 与真实听音待验收，不加分。见 VALIDATION-BROWSER-MEDIA-P3I.md。
 

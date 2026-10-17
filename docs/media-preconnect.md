@@ -22,4 +22,6 @@
 - `.private/headless-preconnect-a16.json`：拨号前握手3125ms，观察ACTIVE后PCM启用1187ms，媒体20657ms；NAS解码1048帧、静音上行、无NAS音频设备或录音。独占控制/独立30秒停止及原服务恢复、Voice撤回/PCM关闭通过，10010累计35。
 - `.private/browser-a17-acceptance.json`：真实Chrome一键，显示0.5秒接音；Native握手answer1525ms/verified43ms，真正PCM activation141ms；1331采集/发送/播放，1339接收、26丢弃、1次可恢复欠载。约26.6秒后结束；页面提示挂断尚未确认。停机后只读数据库显示该次hangup submitted、精确call ended/observed，MM全部terminated，独占守卫/预览停止、旧四服务恢复、PCM关闭、Voice拒绝、Windows临时证书已移除。10010累计36，不能把后台清理成功冒充当时页面已确认。
 
-收尾改进源码：浏览器在提交拨号起27秒启动一次挂断，给原30秒设备保护预留3秒；保留单次submit/不续租、不重拨。挂断后最多3秒/6次只读观察精确call；包含请求挂起的总超时，晚到查询不再启动新查询。Node验证迟到ended、挂断响应丢失、始终active和查询挂起均不会再次提交，麦克风立即关闭。此变更尚未冻结构建/浏览器实机验收，以316现有制品为准。
+收尾改进4e6fea6已冻结/构建：浏览器在提交拨号起27秒启动一次挂断，给原30秒设备保护预留3秒；保留单次submit/不续租、不重拨。挂断后最多3秒/6次只读观察精确call，包含请求挂起的总超时，晚到查询不再启动新查询。Node回归验证迟到ended、挂断回复丢失、始终active和查询挂起均不再次提交，麦克风立即关闭。六生产ARM/209 workspace、Native21和Node三组通过。
+
+a18以本机Node执行冻结的相同CallTest JS，经真实严格HTTPS/已核签owner/独占控制和独立30秒保护拨打一次10010：一次dial/一次hangup、未续租，精确call ended/observed及最终“测试已结束，电话已挂断”通过，28.654秒。该用例音频对象为stub，完全不测试PCM/麦克风/实际声音；其0.0秒显示值不可当作媒体延迟。退出MM全部terminated、PCMclosed、Voice拒绝、旧四服务active、所有预览/独占守卫停止、证书保持已移除，.private/call-cleanup-a18.json passed/cleanup_verified=true。累计10010=37；真实Chrome新收尾和首句完整仍缺人工确认，不重复加进度。

@@ -79,3 +79,6 @@ a15独占窗口中用户刷新并只点一次测试，旧挂断在只读一致�
 209 workspace/Clippy、六ARM生产程序、Native21/Clippy及Node三组通过。先以真实HTTPS/DTLS无拨号保持Verified12秒，零媒体计数/PCM关闭/无票据；再a16单次10010，拨号前握手3125ms，观察ACTIVE后1187ms开PCM、媒体20.657秒。a17真实Chrome页面显示接音0.5秒，设备约26.6秒传声、1331captured/sent/played、1339received、26dropped及1次可恢复欠载；用户尚未明确确认首句完整，不能称双向听音通过。
 
 用户末尾提示挂断尚未确认。后台事后验证本次hangup submitted、精确call ended/observed、MM全部terminated、PCM关闭、Voice拒绝、旧四服务恢复、独占窗口/预览停止及临时证书已移除。累计10010=36。原报告保留UI确认未完成；收尾新增27秒单次挂断、3秒有界只读观察的Node失败回归通过，尚未新构建/实机。详见media-preconnect.md和.private/browser-a17-acceptance.json。进度仍73.5/100约74%，不重复计点，无新短信/蜂窝/分区写入。
+
+
+4e6fea6/a18补充：冻结相同CallTest JS在本机Node经真实严格HTTPS验证一次10010、一次挂断、不续租、精确ended/observed及最终“电话已挂断”，28.654秒。该用例音频stub，不测试声音；209 workspace/六ARM、Native21/Node三组通过，全部设备清理通过，累计37。真实Chrome新收尾及首句完整不据此宣布完成，见media-preconnect.md。
