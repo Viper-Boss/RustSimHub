@@ -60,8 +60,11 @@ a15/0587cf7用户确认持续Chrome下行正常，但初始约7秒漏句；P3此
 
 启动配方核验已通过：固定上游boot+源重建DTB、仅root=LABEL=rootfs替换与Android v0 image-id/补零64MiB，完整SHA与board记录d5790e07…一致；tools/verify-audio-boot-recipe.py实际报告repository-boot-recipe-first.json passed=true，只输出JSON，未写boot镜像。原ramdisk只读zstd/CPIO审计无qcom音频模块；初始gzip假设及只替换DTB失败证据保留。55板级/34rootfs最终回归日志audio-module-boot-recipe-tests-final.log/exit0。
 
-下一步推进完整内核/initramfs独立源码构建及每设备初始化、维护/完整冷启动和恢复；boot重打包差异已解释，不再重复排查根标签。board.kernel_source_commit仍UNRESOLVED，所有flash/release/recovery/board_boot门禁false。不要重下载已核验的七个上游输入，不要修改既有候选或使用旧应用制品重启脚本。无存活编译/下载任务，当前不要求用户拔插。
+下一步先把完整源码Git树的核验固化为公开工具/板级来源记录，再推进每设备初始化、维护/完整冷启动和恢复；独立重编译整个内核是可复现性的后续工作，不把它混同于来源归属；boot重打包差异已解释，不再重复排查根标签。board.kernel_source_commit仍UNRESOLVED，所有flash/release/recovery/board_boot门禁false。不要重下载已核验的七个上游输入，不要修改既有候选或使用旧应用制品重启脚本。无存活编译/下载任务，598f273完整CI已通过，当前不要求用户拔插。
 
 真实Chrome首句/新收尾已由a19人工确认，不必重复问旧问题；双向听音/来电等仍待用户参与，流量待换卡。当前无待答问题、无用户测试窗口/临时证书；a1—19标记均结束/消费，累计38。
 
 Python 使用 `C:/Users/wzs11/AppData/Local/Programs/Python/Python312/python.exe -X utf8`；私有依赖 `.local/python-deps`。SSH用 `tools/remote.py` 读取 `.private/nas.json`/device.json，严格主机钥匙固定，设备经NAS。主六程序强本机WSL user wzs11、持久cache/8路交叉编译；Native仍NAS，未完成本机Native SDK迁移。源先提交、package-source.py冻结；构建索引改变前确认无编译任务。GitHub使用精确非强制对象发布脚本，勿推缺workflow授权的 codex/recovery-ci-pending 历史分支。
+
+
+2026-10-17补充：598f273完整CI通过（https://github.com/Viper-Boss/RustSimHub/actions/runs/38996792278），包含Rust测试/production检查/Clippy与板级夹具。随后对固定orig源码tar流式计算86859个文件/符号链接的Git blob、mode和目录树，1479589504字节，根tree精确为72d4e8e42649f763dd969a1de893051ed64387a1，与93a71ee提交一致；此前只核68个qcom文件的范围已补到完整源码。没有解包或执行源码。私有complete-source-tree-hash.json及.local/hash-complete-kernel-source-tree.py保留；这证明完整来源包与固定Git提交一致，不声称独立重编译了整个内核。

@@ -34,3 +34,6 @@ python3 tools/test-kernel-audio-layer.py \
 最终55项板级隔离及34项rootfs回归通过，严格umask077，独立日志audio-module-boot-recipe-tests-final.log/exit0。没有重新编译未变的Rust应用，不将先前209项证据称为本轮重跑。
 
 此轮证明驱动层来源、实际ARM依赖解析及记录旧boot的完整配方；没有证明新OS冷启动、掉电、物理恢复、维护交付或完整内核/initramfs独立重建。新启动守卫仅有隔离夹具和静态验证，不能称实机加载已通过。真实系统相关门禁继续保持；不新增通话/短信/普通蜂窝测试/分区写入，整体73.5/100约74%，不以构建和重复用户态探针增加进度。
+
+
+2026-10-17补充：598f273完整CI通过（https://github.com/Viper-Boss/RustSimHub/actions/runs/38996792278），包含Rust测试/production检查/Clippy与板级夹具。随后对固定orig源码tar流式计算86859个文件/符号链接的Git blob、mode和目录树，1479589504字节，根tree精确为72d4e8e42649f763dd969a1de893051ed64387a1，与93a71ee提交一致；此前只核68个qcom文件的范围已补到完整源码。没有解包或执行源码。私有complete-source-tree-hash.json及.local/hash-complete-kernel-source-tree.py保留；这证明完整来源包与固定Git提交一致，不声称独立重编译了整个内核。
