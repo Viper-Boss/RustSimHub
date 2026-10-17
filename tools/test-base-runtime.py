@@ -55,11 +55,19 @@ def main():
             assert installed.is_file() and not installed.is_symlink()
             assert installed.stat().st_uid == 0 and installed.stat().st_mode & 0o777 == 0o555
             assert rootfs_tools.sha256_file(installed) == build['artifact_sha256'][name]
+    native = args.system_tree and manifest.get('native_media_installed') is True
+    if native:
+        media = manifest['native_media_build']
+        assert media['revision'] == build['revision'] and media['source_archive_sha256'] == build['source_archive_sha256']
+        installed = base / 'usr/share/rustsimhub/factory-app/rustsimhub-audio-alsa'
+        assert installed.is_file() and not installed.is_symlink()
+        assert installed.stat().st_uid == 0 and installed.stat().st_mode & 0o777 == 0o555
+        assert rootfs_tools.sha256_file(installed) == media['binary_sha256']
     report = {'passed': False, 'hardware_access': False, 'network_access': False,
               'application_revision': build['revision'],
               'source_archive_sha256': build['source_archive_sha256'],
               'base_tree_sha256': before, 'composed_system': args.system_tree,
-              'program_directory': program_directory}
+              'program_directory': program_directory, 'native_media_checked': native}
     try:
         with tempfile.TemporaryDirectory(prefix='rustsimhub-base-runtime-') as temporary:
             work = pathlib.Path(temporary)
@@ -81,12 +89,15 @@ mount -o remount,bind,ro "$2/mnt"
 for name in rustsimhub-core simhubctl rustsimhub-edge rustsimhub-update rustsimhub-recovery rustsimhub-migrate;do
  setpriv --no-new-privs chroot --userspec=986:986 "$2" "$4/$name" --build-info
 done
+if test "$5" = yes;then
+ setpriv --no-new-privs chroot --userspec=984:984 "$2" /usr/share/rustsimhub/factory-app/rustsimhub-audio-alsa --build-info
+fi
 setpriv --no-new-privs chroot --userspec=986:986 "$2" "$4/rustsimhub-core" --self-check
 setpriv --no-new-privs chroot --userspec=986:986 "$2" "$4/simhubctl" --help >/dev/null
 '''
             result = subprocess.run(
                 ['timeout', '--kill-after=2', '35', 'unshare', '--mount', '--net', '--fork', '--propagation', 'private',
-                 'sh', '-ec', script, 'runtime-probe', str(base), str(mounted), str(payload), program_directory],
+                 'sh', '-ec', script, 'runtime-probe', str(base), str(mounted), str(payload), program_directory, 'yes' if native else 'no'],
                 env={'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LC_ALL': 'C'},
                 capture_output=True, text=True, timeout=45)
             report['exit_code'] = result.returncode
@@ -94,11 +105,14 @@ setpriv --no-new-privs chroot --userspec=986:986 "$2" "$4/simhubctl" --help >/de
             report['diagnostics'] = result.stderr
             assert result.returncode == 0
             values = [json.loads(line) for line in result.stdout.splitlines() if line.startswith('{')]
-            assert len(values) == 7
+            assert len(values) == 8 if native else len(values) == 7
             assert all(info['source_archive_sha256'] == build['source_archive_sha256'] for info in values[:6])
             assert values[0]['development_fixtures'] is False
+            if native:
+                assert values[6]['source_archive_sha256'] == media['source_archive_sha256']
+                assert values[6]['local_media_worker_supported'] is True
             assert values[-1]['ok'] is True and values[-1]['hardware_mutations'] is False
-            report['program_count'] = 6
+            report['program_count'] = 7 if native else 6
             report['passed'] = True
     finally:
         report['base_tree_unchanged'] = rootfs_tools.tree_hash(base)[0] == before
@@ -106,7 +120,7 @@ setpriv --no-new-privs chroot --userspec=986:986 "$2" "$4/simhubctl" --help >/de
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(json.dumps(report, indent=2), encoding='utf-8')
     assert report['passed']
-    print('Six production ARM64 programs run in the unchanged base; network and hardware absent')
+    print(f"{report['program_count']} production ARM64 programs run in the unchanged base; network and hardware absent")
 
 
 if __name__ == '__main__':
