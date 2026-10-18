@@ -2,6 +2,8 @@
 
 2026-10-18 当前权威状态；历史原文已完整保留在 [交接归档](archive/handoff-before-oneclick-consolidation-20261016.md)。下述状态覆盖归档中的旧检查点，不把候选用户态当成新系统已经刷入。
 
+**当前已暂停。** 用户要求完成本轮后暂停并外出；三项收尾已完成，收到新的继续指令再启动后续工作。见[执行器P6P](VALIDATION-RESTORE-EXECUTOR-P6P.md)：9947a0f已实现固定恢复执行器，90板级/34rootfs/7恢复测试和完整CI39109738551成功；NAS真实备份/原计划的默认validate实际退出0，未开USB/未写分区/未reset/未消费尝试。私有索引restore-executor-validation-20261018-first.json保存来源、准确路径和结果。没有活跃构建/恢复探针/用户窗口。整体74%，未启动新OS或完成实机恢复；下段“执行器仍未实现”是P6O旧检查点，由本条覆盖。不要重跑已有launcher、旧停机或拨号尝试。
+
 最新接续见[恢复计划P6O](VALIDATION-RESTORE-PLAN-P6O.md)：7b9d40f已在NAS对真实干净备份生成固定p14+p15计划，私有restore-plan-run-20261018-first.json passed/exit0，未开USB/未写分区。acd6b08严格ACK/固定阶段/无重试USB基础模块已通过83板级/34rootfs/7恢复测试及完整CI39099022089；它无CLI，完整恢复执行器仍未实现，勿接旧自动reset探针。维护客户端私钥已在本机生成并由Paramiko加载核对，索引maintenance-bootstrap-20261018-first.json，不要替换；未上NAS/设备，未安装公钥/主机身份。NAS现有USB直达10.55.0.2，但新serial会改变MAC，需有界匹配新物理接口。实际状态落盘需锚定目录FD或离线副本，保留旧101:103:700挂载根；不要用父目录可变的路径式先检查再写入。当前无活跃构建/恢复探针/用户操作窗口。整体74%，应用仍4e6，不重标旧制品。
 
 最新覆盖：见[干净原始备份P0C](VALIDATION-EDL-CLEAN-P0C.md)和[内部镜像P6N](VALIDATION-SYSTEM-IMAGE-P6N.md)。新完整原始备份独立回读、两文件系统只读检查0、整图保持与正常返回通过，P0=7、总74/100约74%；下文旧73.5评分由本条覆盖。f270公开完整源码核验器已实际通过，board.kernel_source_commit现固定93a71ee，旧UNRESOLVED由本条覆盖；完整内核独立重建/冷启动/回刷未完成。新内部rootfs.img构建、逐项只读挂载核对与e2fsck通过。7091d0a完整CI通过：68板级/34rootfs/7恢复工具/209 Rust、production检查及Clippy；GitHub main已匹配7091d0a。所有刷写/发布门禁仍false，累计10010仍38。
