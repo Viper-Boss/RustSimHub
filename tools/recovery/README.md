@@ -25,4 +25,14 @@ python3 edl_readonly.py --tools /absolute/private/tools \
 
 Every hardware action is bounded. Read failure leaves the stick in its observed mode for inspection; it does not automatically restart or redial anything. A reset acknowledgement alone does not prove return to the normal system: check boot hash, identity continuity, services, PCM and non-cellular network state afterward. This helper does not establish `recovery_verified`, authorize raw writes, or provide a released recovery workflow.
 
+`verify-offline-backup.py` checks the frozen regular image on the backup host as Root. Supply independently trusted full-image and concatenated-GPT digests and a new output directory under a Root0700 parent. The input must be a canonical, single-link Root0600 file of the fixed disk length. The verifier pins a read-only file descriptor, checks the complete digest, both GPT copies and the current boot digest, then maps only rootfs and NSHSTATE using read-only bounded loops. It verifies each mapping before running `e2fsck -f -n`, detaches on failure, checks both filesystems even if the first is dirty, and checks the original digest and metadata again. It never mounts or repairs the image and never opens USB. Failed reports/logs are retained and their directory cannot be reused. Keep all inputs, digests and reports private. A successful check proves backup consistency; it does not prove restoration.
+
+```sh
+python3 tools/recovery/verify-offline-backup.py \
+  --image /absolute/private/capture/mmcblk0.img \
+  --output /absolute/private/new-offline-check \
+  --expected-sha256 PRIVATE_CAPTURE_DIGEST \
+  --expected-gpt-sha256 PRIVATE_TRUSTED_GPT_DIGEST
+```
+
 `watch-edl-capture.sh` is the separate operator coordinator for a supervised physical-entry exercise. Install an integrity-checked copy into a new Root0700 output directory, use the Root0700 pinned tool directory and Root0600 expected-device file, and verify the waiting process before shutting down the idle normal system. The coordinator waits up to ten minutes for 05c6:9008 on the recorded port, then runs the fixed GPT check and full user-area read. It explicitly requests one normal reset afterward, including after a failed capture once EDL was observed. The newly created `reset` directory records that attempt; an unknown result must be inspected rather than retried. All logs, images and phase markers remain private. This optional coordinator does not change the helper's read-only operations or make a partial capture valid. A USB disappearance after shutdown and a later enumeration alone do not establish clean filesystems: independently check the frozen image and verify the returned normal system.

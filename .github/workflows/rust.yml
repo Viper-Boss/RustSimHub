@@ -19,6 +19,10 @@ jobs:
           python3 -m unittest discover -s tools/rootfs/scripts -p test_rootfs.py
       - name: Board helper isolated fixtures
         run: sudo -n python3 -m unittest discover -s tools/system -p 'test_*.py'
+      - name: Read-only recovery helper fixtures
+        run: |
+          sh -n tools/recovery/watch-edl-capture.sh
+          python3 -m unittest discover -s tools/recovery -p 'test_*.py'
       - name: Test
         run: cargo test --workspace --all-features --locked
       - name: Check production feature set
