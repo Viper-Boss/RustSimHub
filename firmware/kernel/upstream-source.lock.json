@@ -50,6 +50,14 @@
       "url": "https://github.com/KyonLi/ufi003-kernel/releases/download/6.12.49-1/linux-image-6.12.49-msm8916-g93a71ee9468d_6.12.49-g93a71ee9468d-1_arm64.deb"
     }
   ],
+  "source_tree": {
+    "archive_prefix": "linux",
+    "file_count": 86859,
+    "file_bytes": 1479589504,
+    "git_tree": "72d4e8e42649f763dd969a1de893051ed64387a1",
+    "qcom_git_tree": "684153e4ac2d5ece3b79defbbbfe549ae7109110"
+  },
+  "base_kernel_source_attributed": true,
   "boot_source_gate_resolved": false,
   "note": "Expected public upstream inputs; additional audio modules are byte-rebuilt with the separate audio/modules/source.json lock; the recorded boot layout and root=LABEL=rootfs recipe are hash-reconstructed; independent complete kernel/initramfs reconstruction and cold boot remain incomplete. Not a flash manifest."
 }

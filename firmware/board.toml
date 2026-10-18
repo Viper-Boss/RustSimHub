@@ -17,4 +17,9 @@ release_ready = false
 [immutable_content]
 boot_sha256 = "d5790e07a8ee67c6d80ec24ea9b0cd4b5a78ab4440a3de2b8767fea58a03eaee"
 kernel_modules_manifest_sha256 = "1552358f4e2f63ae0aefc364ade342200269fb673c11c3ad4a4bc3e39f169779"
-kernel_source_commit = "UNRESOLVED"
+# Full source archive matches this Git tree; binaries reuse the pinned upstream release.
+# This is source attribution, not a claim of independently rebuilding the whole kernel.
+kernel_source_commit = "93a71ee9468dd8d47a9e082e5d818608f08712e3"
+kernel_source_git_tree = "72d4e8e42649f763dd969a1de893051ed64387a1"
+kernel_source_archive_sha256 = "b252cc0e2f9ada0eca126b1df3cfca71a813ac0cc97db5e2a83b4f0260908a60"
+kernel_independent_rebuild_verified = false

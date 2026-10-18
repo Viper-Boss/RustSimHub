@@ -10,3 +10,8 @@ boot、内核、模块及恢复链固定后再生成可审核的完整安装清�
 Debian 基础候选的真实包锁为 `base-system.lock.json`，工具见 `../tools/rootfs/README.md`。
 它固定签名快照、220个包的版本/摘要、boot/modules精确哈希和Core数值身份；
 基础树不是完整镜像，也没有替代本目录board.toml的发布刷写门禁。
+
+内核基础源码归属已固定到93a71ee9468d：完整86859文件/链接的orig归档重算Git tree与该提交一致，
+公开核验器为`../tools/verify-kernel-source-tree.py`，不会提取或执行源文件。
+board.toml同时保留kernel_independent_rebuild_verified=false；固定上游二进制、完整源码归属、
+额外22模块逐字节重建与整机冷启动是不同证据，来源字段不再UNRESOLVED不意味着允许刷写。
