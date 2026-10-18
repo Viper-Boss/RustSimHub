@@ -1,3 +1,7 @@
+# 最新开发进度：2026-10-18
+
+整体74/100，约74%；P0=7、P1=14.5、P2=15、P3=14.5、P4=7.5、P5=5、P6=6.5、P7=4。P0C新原始3909091328字节离线捕获独立回读、两文件系统只读e2fsck均0、整图/GPT/boot保持及正常返回通过，增加P0半点。旧不一致原图/派生副本保留，仍未完整回刷或启动新OS。实际NSHSTATE守卫和所有者固件包只读核验通过，旧目录权限/身份/服务保持；未创建Rust状态命名空间或安装真实维护钥匙。只读备份工具/失败路径测试与同步夹具隔离已保存7091d0a，GitHub完整CI39097766897通过68板级/34rootfs/7恢复工具/209 Rust、production检查及Clippy。累计10010仍38，无新短信/普通蜂窝/原始分区写入。见VALIDATION-EDL-CLEAN-P0C.md、PROGRESS-SCALE.md及HANDOFF.md顶部；以下为保留的历史检查点，不代表当前仍在等用户拔插。
+
 2026-10-17补充：598f273完整CI通过（https://github.com/Viper-Boss/RustSimHub/actions/runs/38996792278），包含Rust测试/production检查/Clippy与板级夹具。随后对固定orig源码tar流式计算86859个文件/符号链接的Git blob、mode和目录树，1479589504字节，根tree精确为72d4e8e42649f763dd969a1de893051ed64387a1，与93a71ee提交一致；此前只核68个qcom文件的范围已补到完整源码。没有解包或执行源码。私有complete-source-tree-hash.json及.local/hash-complete-kernel-source-tree.py保留；这证明完整来源包与固定Git提交一致，不声称独立重编译了整个内核。 整体73.5/100约74%，10010仍38。代码在598f273后未变，后续仅此进度/来源文档。
 
 2026-10-17 P6M：组合源075b68e、应用/Native仍4e6fea6；22个逐字节重建音频驱动已纳入全新候选。12367项/SHA c621fdbdedee685d0f6a930a949d36f2cb6dea29953d8240b4dda7bb17b95376；host及候选自身ARM modprobe的22项依赖图/四个别名一致，后者在只读/断网/无CAP_SYS_MODULE条件下运行，没有加载模块。七ARM非Root实际执行、包含音频驱动服务的完整systemd静态依赖及树保持通过；55板级/34rootfs回归通过。原initramfs为zstd，551项/100模块，无qcom音频；固定上游boot+重建DTB+root=LABEL=rootfs+补零64MiB完整复现备份SHA d5790e07…。公开核验器只写JSON不写启动镜像，实际报告passed=true；初次只替换DTB对照失败保留。新驱动守卫仅隔离夹具/静态验证，未在棒子加载或启动新OS。旧P6L树、原失败记录及所有旧制品保留，10010仍38，无新短信/蜂窝/分区写入，整体73.5/100约74%。 详见VALIDATION-KERNEL-AUDIO-P6M.md及HANDOFF.md。

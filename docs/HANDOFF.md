@@ -2,9 +2,9 @@
 
 2026-10-18 当前权威状态；历史原文已完整保留在 [交接归档](archive/handoff-before-oneclick-consolidation-20261016.md)。下述状态覆盖归档中的旧检查点，不把候选用户态当成新系统已经刷入。
 
-最新覆盖：见[内部镜像P6N](VALIDATION-SYSTEM-IMAGE-P6N.md)。f270公开完整源码核验器已实际通过，board.kernel_source_commit现已固定93a71ee，旧文中的UNRESOLVED由本条覆盖；完整内核独立重建/冷启动/回刷仍未完成。新内部rootfs.img构建、逐项只读挂载核对与e2fsck通过，62板级/34rootfs测试通过，所有刷写/发布门禁仍false。整体73.5/100约74%，累计10010仍38。
+最新覆盖：见[干净原始备份P0C](VALIDATION-EDL-CLEAN-P0C.md)和[内部镜像P6N](VALIDATION-SYSTEM-IMAGE-P6N.md)。新完整原始备份独立回读、两文件系统只读检查0、整图保持与正常返回通过，P0=7、总74/100约74%；下文旧73.5评分由本条覆盖。f270公开完整源码核验器已实际通过，board.kernel_source_commit现固定93a71ee，旧UNRESOLVED由本条覆盖；完整内核独立重建/冷启动/回刷未完成。新内部rootfs.img构建、逐项只读挂载核对与e2fsck通过。7091d0a完整CI通过：68板级/34rootfs/7恢复工具/209 Rust、production检查及Clippy；GitHub main已匹配7091d0a。所有刷写/发布门禁仍false，累计10010仍38。
 
-物理阶段进行中：用户2026-10-18确认现在方便。私有recovery-edl-20261018-first.json保存唯一新尝试及NAS探针目录/PID；不得重跑prepare或halt helper。poweroff后实测自动重启，已核验正常返回后仅请求一次halt并等待60秒。后续先核实际phase/PID和SSH停机状态，再给一次按键拔插步骤。当前新捕获/返回/文件系统检查尚未通过；旧20261016备份及派生副本保留，不混为新备份。没有授权绕过恢复/分区门禁刷写。
+物理阶段已结束：用户2026-10-18完成按键拔插，新recovery-edl-20261018-first.json passed=true/phase=completed，汇总recovery-edl-20261018-nas-evidence.json保存实际目录和摘要。探针/离线检查均退出0，两个只读loop已分离；旧系统四服务active、身份/boot保持、PCMclosed、电话空闲、普通蜂窝断开。不得重跑prepare/halt/launch helper，当前不需用户操作。正常poweroff会自动重启，本次另一次正常halt+60秒后才物理进入，事实记录保留。实际状态守卫及私有固件--check第二轮通过，第一轮暂存脚本执行权限失败保留。真实Rust命名空间/维护钥匙仍未安装，旧挂载根101:103:700保持；新首启改根属主意味着回退不能仅换rootfs。下一步先准备维护入口、USB10.55.0.2/29在NAS的接入及有限写入/回读恢复方案，再安排新OS冷启动，不能跳过门禁。
 
 ## 目标与进度
 
