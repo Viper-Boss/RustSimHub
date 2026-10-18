@@ -35,4 +35,17 @@ python3 tools/recovery/verify-offline-backup.py \
   --expected-gpt-sha256 PRIVATE_TRUSTED_GPT_DIGEST
 ```
 
+`plan-system-restore.py` creates a reviewable private JSON plan from that exact clean raw backup, its capture report, its independent check report, and the previously trusted GPT digest. It verifies the pinned capture runtime, report ownership/permissions and both filesystem ranges, re-reads the complete backup twice while hashing each range, and rejects changed metadata, paths, digests, boot content or incomplete evidence before creating output. Only partition14/rootfs and partition15/NSHSTATE appear as write targets. Their complement covers every other byte, including GPT, boot, bootloader, modem/NV/calibration and gaps. It does not extract payloads, open USB, change any device, authorize execution or establish recovery.
+
+Protected-range hashes in the plan describe the **backup snapshot**. A future restore executor must read the device's current protected ranges before writing and verify those exact current bytes afterward. Do not demand that current modem/NV bytes equal a historical snapshot, and never write that snapshot into those regions. Both system partitions need matching restore data: reverting only rootfs can leave legacy state ownership or a new system identity inconsistent. Plans are single new Root0700 directories with Root0600 JSON files; preserve all existing plans. Their private source path and hashes must not be committed.
+
+```sh
+python3 tools/recovery/plan-system-restore.py \
+  --image /absolute/private/capture/mmcblk0.img \
+  --capture-report /absolute/private/capture/report.json \
+  --offline-report /absolute/private/offline-check/report.json \
+  --expected-gpt-sha256 PRIVATE_TRUSTED_GPT_DIGEST \
+  --output /absolute/private/new-restore-plan
+```
+
 `watch-edl-capture.sh` is the separate operator coordinator for a supervised physical-entry exercise. Install an integrity-checked copy into a new Root0700 output directory, use the Root0700 pinned tool directory and Root0600 expected-device file, and verify the waiting process before shutting down the idle normal system. The coordinator waits up to ten minutes for 05c6:9008 on the recorded port, then runs the fixed GPT check and full user-area read. It explicitly requests one normal reset afterward, including after a failed capture once EDL was observed. The newly created `reset` directory records that attempt; an unknown result must be inspected rather than retried. All logs, images and phase markers remain private. This optional coordinator does not change the helper's read-only operations or make a partial capture valid. A USB disappearance after shutdown and a later enumeration alone do not establish clean filesystems: independently check the frozen image and verify the returned normal system.
