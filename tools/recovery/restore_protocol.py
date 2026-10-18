@@ -158,6 +158,10 @@ class RestorePolicy:
         self.current_protected = self._range_hashes(current_protected, self.protected)
         self.phase = 'arm-configuration'
 
+    def finish_readonly_preflight(self, gpt_hash, boot_hash, source_hash, current_protected):
+        self.confirm_preflight(gpt_hash, boot_hash, source_hash, current_protected)
+        self.phase = 'readonly-verified'
+
     def validate_xml(self, data, allow_reset=False):
         # The second argument permits use behind the existing read-only loader's
         # hook. It never grants reset/write authority by itself.
@@ -188,7 +192,7 @@ class RestorePolicy:
                 self._require(command.attrib == expected, 'Program command is outside the next exact target')
                 self.phase = 'program-command-sent'
                 return
-            if self.phase == 'verified' and command.tag == 'power' and command.attrib == {'value': 'reset'}:
+            if self.phase in ('verified', 'readonly-verified') and command.tag == 'power' and command.attrib == {'value': 'reset'}:
                 self.phase = 'reset-sent'
                 return
             self.fail('Operation is not permitted in the current restore phase')
