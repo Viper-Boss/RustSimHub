@@ -12,6 +12,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     for name in ('device','seed-index','client-key-index','report'):p.add_argument('--'+name,type=pathlib.Path,required=True)
     p.add_argument('--root-directory',required=True)
+    p.add_argument('--usb-direct',action='store_true',help='Explicit bounded USB-only listener; NAS connects directly, existing SSH forwarding policy unchanged')
     a=p.parse_args()
     assert not a.report.exists(),'Use a new private report; never repeat an attempt'
     assert re.fullmatch('/var/tmp/rustsimhub-system-tree-[A-Za-z0-9]{8}/rootfs',a.root_directory)
@@ -24,7 +25,9 @@ def main():
     client_key=paramiko.Ed25519Key.from_private_key_file(client_index['private_key'])
     assert public.split()[:2]==[b'ssh-ed25519',client_key.get_base64().encode()]
     cfg=json.loads(a.device.read_text(encoding='utf-8-sig'))
-    report={'passed':False,'cleanup_verified':False,'private_loopback_only':True,
+    if a.usb_direct:assert cfg['host']=='10.55.0.2','Only the fixed USB private address is accepted'
+    listen='10.55.0.2' if a.usb_direct else '127.0.0.1'
+    report={'passed':False,'cleanup_verified':False,'private_loopback_only':not a.usb_direct,'usb_only_listener':a.usb_direct,
             'client_private_key_uploaded':False,'actual_state_guard_run':False,
             'actual_maintenance_installed':False,'production_ssh_changed':False,
             'new_calls':0,'new_sms':0,'cellular_tests':False,'partition_writes':False,
@@ -59,6 +62,10 @@ nmcli -t -f TYPE,STATE device''')
         return raw
     try:
         save();nas=connect(cfg['jump'])
+        if a.usb_direct:
+            raw=run(nas,'ip -j route get 10.55.0.2')
+            route=json.loads(raw[raw.index('['):])[0]
+            assert route.get('prefsrc')=='10.55.0.1' and 'gateway' not in route,'Direct physical USB route required'
         script='''python3 - <<'PY'
 import base64,hashlib,importlib.util,json,pathlib
 output=pathlib.Path(SEED)
@@ -91,7 +98,8 @@ PY'''.replace('SEED',repr(seed)).replace('TOOL_SHA',repr(selected['tool_sha256']
             '/var/lib/rustsimhub/rustsimhub-v1/system','/mnt/probe/system')
         config=(overlay/'etc/ssh/sshd_config.d/20-rustsimhub.conf').read_text().replace(
             '/var/lib/rustsimhub/rustsimhub-v1/system','/mnt/probe/system')
-        config+=f'\nPort {port}\nListenAddress 127.0.0.1\nPidFile /run/probe-sshd.pid\nUsePAM yes\n'
+        if a.usb_direct:config=config.replace('AllowUsers root\n','AllowUsers root@10.55.0.1\n')
+        config+=f'\nPort {port}\nListenAddress {listen}\nPidFile /run/probe-sshd.pid\nUsePAM yes\nUseDNS no\n'
         staged={'system/'+n:d for n,d in files.items()}
         staged.update({'prepare':prepare.encode(),'sshd.conf':config.encode()})
         with dev.open_sftp() as s:
@@ -110,18 +118,19 @@ PY'''.replace('SEED',repr(seed)).replace('TOOL_SHA',repr(selected['tool_sha256']
         run(dev,shlex.join(cmd+['/bin/sh','-ec',body]))
         run(dev,f'''for n in 1 2 3 4 5;do
 systemctl is-active --quiet {unit} || exit 1
-if ss -H -ltn 'sport = :{port}' | grep -q '127.0.0.1:{port}';then exit 0;fi
+if ss -H -ltn 'sport = :{port}' | grep -q '{listen}:{port}';then exit 0;fi
 sleep 1
 done
 exit 1''')
         private=Ed25519PrivateKey.generate().private_bytes(serialization.Encoding.PEM,serialization.PrivateFormat.OpenSSH,serialization.NoEncryption()).decode()
         wrong=paramiko.Ed25519Key.from_private_key(io.StringIO(private))
         def login(key,pinned,expect=None):
-            sock=dev.get_transport().open_channel('direct-tcpip',('127.0.0.1',port),('127.0.0.1',0),timeout=5)
-            probe=paramiko.SSHClient();probe.get_host_keys().add(f'[127.0.0.1]:{port}','ssh-ed25519',pinned)
+            transport=nas.get_transport() if a.usb_direct else dev.get_transport()
+            sock=transport.open_channel('direct-tcpip',(listen,port),('127.0.0.1',0),timeout=5)
+            probe=paramiko.SSHClient();probe.get_host_keys().add(f'[{listen}]:{port}','ssh-ed25519',pinned)
             probe.set_missing_host_key_policy(paramiko.RejectPolicy())
             try:
-                probe.connect('127.0.0.1',port=port,username='root',pkey=key,sock=sock,timeout=5,
+                probe.connect(listen,port=port,username='root',pkey=key,sock=sock,timeout=5,
                               banner_timeout=5,auth_timeout=5,look_for_keys=False,allow_agent=False)
                 assert expect is None,'Unexpected authentication success'
                 _,o,_=probe.exec_command('/usr/bin/id -u',timeout=5)
@@ -147,9 +156,12 @@ exit 1''')
         run(dev,'systemctl stop '+shlex.quote(unit))
         stopped=True
         report['after']=baseline()
-        run(dev,f'! ss -H -ltn "sport = :{port}" | grep -q "127.0.0.1:{port}"')
+        run(dev,f'! ss -H -ltn "sport = :{port}" | grep -q ":{port}"')
         report.update(passed=True,cleanup_verified=True)
-        print('Selected maintenance key passed pinned candidate loopback login and denials; client private key stayed on PC; server stopped')
+        print('Selected maintenance key passed pinned candidate login and denials; client private key stayed on PC; bounded server stopped')
+    except BaseException as exc:
+        report.update(error_type=type(exc).__name__,error=str(exc))
+        raise
     finally:
         if dev and unit and not stopped:
             try:run(dev,'systemctl stop '+shlex.quote(unit))

@@ -18,3 +18,5 @@ python3 tools/system/prepare-maintenance-seed.py \
 `tools/test-maintenance-seed-login.py`用于进一步验收选定身份。它从严格固定主机密钥的NAS连接读取已校验的材料，将服务器身份暂存到棒子Root私有夹具；实际客户端私钥始终由本机Paramiko使用，通过旧SSH通道访问候选ARM sshd的127.0.0.1随机高端口。独立90秒systemd时限及结束停止限制测试窗口。覆盖正确密钥、错误主机指纹、错误客户端、夹具撤销与恢复，以及选定主机身份保持。它不改现用SSH、不开放外部监听、不安装到实际状态分区；候选的挂载守卫明确替换为true，不能据此声称真实NSHSTATE或完整系统维护入口已经验收。实际结果须以新的私有报告为准，不能只根据工具存在判断通过。
 
 NAS侧使用`prepare-nas-usb-profile.py --seed-directory PRIVATE_SEED --expected-public-sha256 PRIVATE_DIGEST --usb-port RECORDED_PORT --output NEW_PRIVATE_OUTPUT`生成独立Root0600 NetworkManager keyfile和计划。只绑定选定USB host MAC，地址10.55.0.1/29，autoconnect=false、never-default=true、忽略自动DNS且禁用IPv6；工具本身不调用NetworkManager、不加载或激活配置、不改地址/路由。计划要求激活前核对实际USB物理口、固件VID/PID、完整serial和host MAC，并检查网段冲突；不得拿新MAC猜旧接口名。实际加载/激活需要另外保存结果，准备文件不代表网络接入通过。
+
+若现用SSH禁止TCP转发，loopback模式应失败并保留记录，不改变旧SSH策略。`--usb-direct`是另一个显式测试模式：只接受固定10.55.0.2地址，NAS必须已有无网关的物理USB直达路由，临时服务仅绑定该地址，并通过AllowUsers将维护认证限制为NAS的10.55.0.1来源；不监听Wi-Fi或公网。NAS经现有允许的设备接入通道直接连接测试端口，客户端私钥仍留在本机，保留90秒时限、精确主机固定和结束停止。该模式同样只验证候选用户态及所选身份，不代表已安装正式维护入口。
