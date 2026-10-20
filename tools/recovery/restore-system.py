@@ -15,6 +15,7 @@ import re
 import signal
 import shutil
 import stat
+import time
 import xml.etree.ElementTree as ET
 
 import edl_readonly as recovery
@@ -245,7 +246,11 @@ class Hardware:
         self.policy.send_payload_chunk(self.output,data)
 
     def final_ack(self):
-        try:self.policy.acknowledge(protocol.read_control_reply(self.input,timeout_seconds=30))
+        try:
+            reply=protocol.read_control_reply(self.input,timeout_seconds=30)
+            self.control_replies.append({'operation':'program-final','target_index':self.policy.index,
+                                         'response':copy.deepcopy(reply)})
+            self.policy.acknowledge(reply)
         except BaseException:self.policy.phase='failed';raise
 
     def close(self):
@@ -279,11 +284,18 @@ def _transaction(source,hardware,tools,output,action,report,save):
             report['current_target']=part['name'];save()
             hardware.control('program',{'SECTOR_SIZE_IN_BYTES':'512','physical_partition_number':'0',
                              'start_sector':part['start_sector'],'num_partition_sectors':part['sector_count']})
+            report.update(phase='sending-fixed-target-payload',raw_payload_transport_bytes=0);save()
             offset=part['offset'];remaining=part['bytes']
+            next_progress=time.monotonic()+8
             while remaining:
                 data=backup.read_at(source.fd,offset,min(protocol.MAX_PAYLOAD,remaining))
                 hardware.payload(data);offset+=len(data);remaining-=len(data)
-            policy.finish_payload();hardware.final_ack()
+                if time.monotonic() >= next_progress:
+                    report['raw_payload_transport_bytes']=policy.sent_bytes;save()
+                    next_progress=time.monotonic()+8
+            policy.finish_payload()
+            report.update(phase='waiting-for-final-program-ack',raw_payload_transport_bytes=policy.sent_bytes);save()
+            hardware.final_ack()
             report.setdefault('programmed_targets',[]).append({'name':part['name'],'bytes':part['bytes'],
                        'explicit_final_ack':True,'before_differs_from_source':before['targets'][index]['backup_sha256']!=part['backup_sha256']})
             save()
