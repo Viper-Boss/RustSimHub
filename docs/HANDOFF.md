@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+**最新 P6S：第一次新系统 p14+p15 安装已完整回读/当前保护范围/两 FS 检查通过，安装退出 0 且 reset 明确 ACK。新 USB 身份出现并完成无默认路由变化的 NAS 接入，但 SSH 持续拒绝，尚未通过首启健康。** 已发现 `PrivateDevices=yes` 与原状态守卫依赖可见物理 `/dev` 的确定冲突；修正改为 mount MAJ:MIN 对固定 sysfs 分区身份，保留隔离。真实一次性 ext4 隐藏 `/dev` 的回归通过，不当成实机新版本已通过。用户已完成新的只读物理进入；当前唯一活动诊断为 `.private/new-os-maintenance-diagnostic-20261021-first.json` / `.local/status-new-os-diagnostic-20261021.py`，保存启动后完整现场，不写分区、不 reset。不要再跑第一次 connect/activate/install 或旧 restore/return。详情见 [P6S](VALIDATION-FIRST-OS-P6S.md)。整体仍74/100、10010仍38；下面“写后回读仍在进行”为历史阶段。
+
 2026-10-21 当前权威状态；历史原文已完整保留在 [交接归档](archive/handoff-before-oneclick-consolidation-20261016.md)。下述状态覆盖归档中的旧检查点，不把候选用户态当成新系统已经刷入。
 
 **当前新安装的p14/rootfs、p15/NSHSTATE均已完整发送且取得明确最终ACK，原安装器正在完整写后回读。** 唯一索引仍`install-first-boot-20261021-first.json`，源8d2fd5a，观察器`.local/status-install-first-boot-20261021.py`；禁止拔插、手动reset或第二任务。尚未取得完整后快照、目标/当前保护范围比较及两FS检查结果，也未请求正常启动，整体仍74/100。成功后原安装器一次reset，先严格所选新USB/主机公钥连接，再真实启动健康核验和可信业务初始化。已准备私有connect-new-os-first-boot、inspect-new-os-health、initialize-new-os-business三个20261021 helper，均有前置状态门禁，不得提前运行或套旧四服务基线。下面“p14仍在发送”为历史阶段。

@@ -7,10 +7,14 @@ state=/var/lib/rustsimhub
 tr '\000' '\n' < /proc/device-tree/compatible | grep -qx 'thwc,ufi003'
 test ! -L "$state"
 mountpoint -q "$state"
-source=$(findmnt -rn -M "$state" -o SOURCE)
-test "$(readlink -f "$source")" = /dev/mmcblk0p15
-test -b /dev/mmcblk0p15
-test "$(readlink -f /dev/disk/by-partlabel/NSHSTATE)" = /dev/mmcblk0p15
+# PrivateDevices hides physical /dev nodes in the SSH preparation unit.
+# Compare the mounted filesystem's kernel device number with the fixed physical
+# partition in sysfs; this does not require exposing or opening a block device.
+partition=/sys/class/block/mmcblk0p15
+test "$(dirname "$(readlink -f "$partition")")" = "$(readlink -f /sys/class/block/mmcblk0)"
+test "$(findmnt -rn -M "$state" -o MAJ:MIN)" = "$(cat "$partition/dev")"
+test "$(cat "$partition/partition")" = 15
+grep -qx 'PARTNAME=NSHSTATE' "$partition/uevent"
 test "$(cat /sys/class/block/mmcblk0p15/size)" = 264159
 test "$(findmnt -rn -M "$state" -o FSTYPE)" = ext4
 test "$(findmnt -rn -M "$state" -o LABEL)" = NSHSTATE
