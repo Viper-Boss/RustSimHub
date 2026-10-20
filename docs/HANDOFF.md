@@ -2,6 +2,8 @@
 
 2026-10-21 当前权威状态；历史原文已完整保留在 [交接归档](archive/handoff-before-oneclick-consolidation-20261016.md)。下述状态覆盖归档中的旧检查点，不把候选用户态当成新系统已经刷入。
 
+**重要：同一新系统安装已开始发送p14/rootfs原始数据。** 16KB配置已通过；完整执行前快照及两FS检查通过，索引`install-first-boot-20261021-first.json`，源8d2fd5a。当前可能已有实际分区写入，旧OS不可假定仍可直接启动；禁止拔插、reset、旧只读返回或第二个安装/恢复任务。只用`.local/status-install-first-boot-20261021.py`观察当前NAS运行，等待两个明确program最终ACK、完整后快照及目标/当前保护字节/文件系统检查，再由原安装器一次reset。新OS尚未取得写后校验或正常启动结论，整体仍74/100；下面的“尚未写入/未开USB”为此前检查点。
+
 **用户已完成本轮新系统物理进入，同一安装watcher已识别9008并启动唯一安装器。** `install-first-boot-20261021-first.json`接续，当前先复核输入、再完整前快照，尚未取得分区写入/新系统启动成功结论。只观察同一运行，不重跑arm/halt/launcher或让用户再拔插；任何NAK/Unknown先查准确阶段，不自动reset或重试。成功的完整回读/reset后再用严格所选新USB身份和主机公钥连接，不能套用旧四服务基线。下文“待本轮物理步骤”已完成；整体仍74/100。
 
 **当前：新OS匹配副本与独立默认验证均已在NAS完成，用户新授权下的唯一新安装探针已就绪，已请求正常halt一次。** 私有索引`install-first-boot-20261021-first.json`固定源8d2fd5a、完整CI39479577805成功、精确计划/工具和NAS目录。3909091328字节副本的保护范围/GPT/boot保持、两FS检查和默认validate实际退出0；无USB/写入/reset/安装标记消费。NAS新USB配置重新核对inactive且无网关/DNS；已核原身份/boot/四服务/空闲。继续时先核同一探针和60秒停机等待，再给本轮新系统安装的物理步骤；不要重跑prepare/arm/halt或旧恢复运行。已准备`.local/status-install-first-boot-20261021.py`观察器及严格新USB/主机公钥维护连接helper。尚未写新OS、未实测启动，仍74/100。详见[实验入口](experimental-first-boot.md)，下文“尚待NAS生成/验证”和“无活跃物理窗口”由本条覆盖。
