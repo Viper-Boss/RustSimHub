@@ -16,6 +16,7 @@ class StateGuardTests(unittest.TestCase):
         self.base = pathlib.Path(self.tmp.name)
         self.state = self.base / 'state'
         self.state.mkdir()
+        (self.state/'rustsimhub-v1/system').mkdir(parents=True)
         self.block = self.base / 'block'
         self.disk = self.block / 'mmcblk0'
         self.part = self.disk / 'mmcblk0p15'
@@ -32,14 +33,14 @@ class StateGuardTests(unittest.TestCase):
             'mountpoint': '#!/bin/sh\nexit "${MOUNT_EXIT:-0}"\n',
             'findmnt': '''#!/bin/sh
 case "$*" in
- *MAJ:MIN) printf '%s\\n' "${MOUNT_DEV:-179:15}";;
+ *MAJ:MIN) case "$3" in */system) echo "${SYSTEM_DEV:-179:15}";; *) echo "${MOUNT_DEV:-179:15}";; esac;;
  *FSTYPE) printf '%s\\n' "${MOUNT_FS:-ext4}";;
  *LABEL) printf '%s\\n' "${MOUNT_LABEL:-NSHSTATE}";;
- *OPTIONS) printf '%s\\n' "${MOUNT_OPTIONS:-rw,relatime}";;
+ *OPTIONS) case "$3" in */system) echo "${SYSTEM_OPTIONS:-rw,relatime}";; *) echo "${MOUNT_OPTIONS:-rw,relatime}";; esac;;
  *) exit 2;;
 esac
 ''',
-            'stat': '#!/bin/sh\nif test "$3" = /; then echo 1; else echo "${STATE_ST_DEV:-2}"; fi\n',
+            'stat': '#!/bin/sh\nif test "$2" = "%u:%g:%a"; then echo "${SYSTEM_STAT:-0:0:700}"; elif test "$3" = /; then echo 1; else echo "${STATE_ST_DEV:-2}"; fi\n',
         }
         for name, text in commands.items():
             file = self.bin / name
@@ -53,9 +54,9 @@ esac
     def tearDown(self):
         self.tmp.cleanup()
 
-    def check(self, **overrides):
+    def check(self, *arguments, **overrides):
         env = dict(os.environ, PATH=str(self.bin)+':'+os.environ['PATH'], **overrides)
-        return subprocess.run(['sh', str(self.script)], env=env, capture_output=True, text=True, timeout=5)
+        return subprocess.run(['sh', str(self.script), *arguments], env=env, capture_output=True, text=True, timeout=5)
 
     def test_private_devices_requires_no_physical_device_node(self):
         # No /dev aliases are substituted or created. The real guard uses only
@@ -90,6 +91,19 @@ esac
 
     def test_state_symlink_and_arguments_are_rejected(self):
         self.assertNotEqual(subprocess.run(['sh', str(self.script), 'other'], capture_output=True).returncode, 0)
+        self.assertNotEqual(self.check('--system-writer','extra').returncode,0)
+        (self.state/'rustsimhub-v1/system').rmdir()
+        (self.state/'rustsimhub-v1').rmdir()
         self.state.rmdir()
         self.state.symlink_to(self.base, target_is_directory=True)
         self.assertNotEqual(self.check().returncode, 0)
+
+    def test_system_writer_proves_writable_same_device_subtree_without_parent_write_access(self):
+        self.assertEqual(self.check('--system-writer',MOUNT_OPTIONS='ro,relatime').returncode,0)
+        self.assertEqual(self.check('--system-writer').returncode,0)
+        for overrides in [{'SYSTEM_DEV':'179:14'}, {'SYSTEM_OPTIONS':'ro,relatime'},
+                          {'SYSTEM_STAT':'0:0:755'}, {'SYSTEM_STAT':'986:986:700'}]:
+            with self.subTest(overrides=overrides):
+                self.assertNotEqual(self.check('--system-writer',MOUNT_OPTIONS='ro,relatime',**overrides).returncode,0)
+        system=self.state/'rustsimhub-v1/system';system.rmdir();system.symlink_to(self.base,target_is_directory=True)
+        self.assertNotEqual(self.check('--system-writer').returncode,0)

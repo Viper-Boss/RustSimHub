@@ -5,7 +5,7 @@ set -eu
 umask 077
 test "$#" = 0
 test "$(id -u)" = 0
-/usr/local/libexec/rustsimhub-state-check
+/usr/local/libexec/rustsimhub-state-check --system-writer
 system=/var/lib/rustsimhub/rustsimhub-v1/system
 private_dir() {
  test ! -L "$1"

@@ -5,22 +5,29 @@ set -eu
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 unset MODPROBE_OPTIONS
+stage=profile
+trap 'status=$?;if test "$status" -ne 0;then printf "RustSimHub audio driver check failed at %s (exit %s)\n" "$stage" "$status" >&2;fi' 0
 profile=/usr/share/rustsimhub/audio-driver-profile
 test -f "$profile" && test ! -L "$profile"
 test "$(stat -c '%u:%g:%a:%h' "$profile")" = 0:0:444:1
 exec 3< "$profile"
 IFS= read -r release <&3
+stage=kernel-release
 test "$release" = 6.12.49-msm8916-g93a71ee9468d
 test "$(uname -r)" = "$release"
 for module in q6afe-dai q6asm-dai q6voice-dai snd-soc-apq8016-sbc; do
+ stage=load-$module
  /usr/sbin/modprobe -C /dev/null --ignore-install "$module"
 done
 count=0
 while read -r module version extra <&3; do
+ stage=profile-row
  test -z "$extra" && test -n "$module" && test "${#version}" = 24
  case "$module" in *[!a-zA-Z0-9_]*|'') exit 1;; esac
  case "$version" in *[!0-9A-F]*|'') exit 1;; esac
+ stage=identity-$module
  test "$(cat "/sys/module/$module/srcversion")" = "$version"
  count=$((count+1))
 done
+stage=profile-count
 test "$count" = 16

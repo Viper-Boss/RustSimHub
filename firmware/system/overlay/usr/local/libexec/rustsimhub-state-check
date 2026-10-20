@@ -2,7 +2,12 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Fixed first-board guard; reads metadata only, never formats or repairs storage.
 set -eu
-test "$#" = 0
+mode=state
+case "$#" in
+ 0) ;;
+ 1) test "$1" = --system-writer;mode=system ;;
+ *) exit 1 ;;
+esac
 state=/var/lib/rustsimhub
 tr '\000' '\n' < /proc/device-tree/compatible | grep -qx 'thwc,ufi003'
 test ! -L "$state"
@@ -18,5 +23,22 @@ grep -qx 'PARTNAME=NSHSTATE' "$partition/uevent"
 test "$(cat /sys/class/block/mmcblk0p15/size)" = 264159
 test "$(findmnt -rn -M "$state" -o FSTYPE)" = ext4
 test "$(findmnt -rn -M "$state" -o LABEL)" = NSHSTATE
-case ",$(findmnt -rn -M "$state" -o OPTIONS)," in *,rw,*) ;; *) exit 1;; esac
+case ",$(findmnt -rn -M "$state" -o OPTIONS)," in
+ *,rw,*) ;;
+ *,ro,*) test "$mode" = system;;
+ *) exit 1;;
+esac
 test "$(stat -c %d "$state")" != "$(stat -c %d /)"
+if test "$mode" = system; then
+ # ProtectSystem=strict makes the parent state mount read-only. The SSH unit
+ # receives only this root-owned subtree as a writable bind mount. Prove the
+ # actual write target remains on the fixed physical state filesystem.
+ for directory in "$state/rustsimhub-v1" "$state/rustsimhub-v1/system"; do
+  test -d "$directory" && test ! -L "$directory"
+  test "$(stat -c '%u:%g:%a' "$directory")" = 0:0:700
+ done
+ system=$state/rustsimhub-v1/system
+ test "$(findmnt -rn -T "$system" -o MAJ:MIN)" = "$(cat "$partition/dev")"
+ test "$(stat -c %d "$system")" = "$(stat -c %d "$state")"
+ case ",$(findmnt -rn -T "$system" -o OPTIONS)," in *,rw,*) ;; *) exit 1;; esac
+fi
