@@ -123,6 +123,18 @@ class RestoreExecutorTests(unittest.TestCase):
             self.assertFalse(source.plan['capture_execution_passed'])
             self.assertFalse(json.loads(self.capture.read_text())['passed'])
         finally:source.close()
+    def test_insufficient_retained_readback_space_refuses_before_attempt_or_write_configuration(self):
+        hardware,wire,before=self.hardware()
+        output=self.base/'full-disk';output.mkdir(mode=0o700);report={}
+        def save():module.save_json(output/'report.json',report)
+        with patch.object(module.backup,'verify'),patch.object(module.shutil,'disk_usage',return_value=types.SimpleNamespace(free=0)):
+            with self.assertRaisesRegex(ValueError,'Insufficient space'):
+                module.transaction(self.source,hardware,self.tools,output,'restore',report,save)
+        self.assertEqual(wire.commands,[])
+        self.assertFalse((self.tools/'restore-attempts').exists())
+        self.assertFalse(report.get('partition_writes_may_have_occurred',False))
+        self.assertEqual(wire.resets,0)
+        hardware.close()
     def test_control_envelope_matches_pinned_reset_and_negative_reply_is_preserved(self):
         self.assertEqual(module.control_xml('power',{'value':'reset'}),
                          b'<?xml version="1.0" ?><data><power value="reset"/></data>')

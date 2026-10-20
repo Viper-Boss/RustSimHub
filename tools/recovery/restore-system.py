@@ -13,6 +13,7 @@ import os
 import pathlib
 import re
 import signal
+import shutil
 import stat
 import xml.etree.ElementTree as ET
 
@@ -28,6 +29,13 @@ backup = planner.backup
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+def require_capture_space(directory, copies):
+    required = copies * recovery.DISK_BYTES + 256 * 1024 * 1024
+    available = shutil.disk_usage(directory).free
+    require(available >= required, 'Insufficient space for retained full captures; no programming is permitted')
+    return {'required_available_bytes':required,'available_bytes':available}
 
 
 def save_json(path, value):
@@ -259,6 +267,7 @@ def _transaction(source,hardware,tools,output,action,report,save):
         policy.finish_readonly_preflight(*proof)
         report['phase']='returning-after-readonly-preflight';save()
     else:
+        report['post_capture_space_check']=require_capture_space(output,1);save()
         report['attempt_marker']=consume_once(tools,source,output,before);save()
         policy.confirm_preflight(*proof)
         report['phase']='write-configuration-attempted';report['write_configuration_attempted']=True;save()
@@ -323,6 +332,9 @@ def main():
     else:require(args.confirm_restore_plan_sha256 is None,'No restore confirmation accepted for non-restore action')
     require(args.output.is_absolute() and args.output.resolve()==args.output and not args.output.exists(),'New private output required')
     recovery.private_directory(args.output.parent,0);recovery.private_directory(args.tools,0)
+    capture_space = None
+    if args.action != 'validate':
+        capture_space = require_capture_space(args.output.parent,2 if args.action == 'restore' else 1)
     expected,_=planner.private_json(args.tools/'expected-device.json')
     if args.action!='validate':require(args.usb_port==expected.get('usb_port'),'Recorded physical USB port required')
     args.output.mkdir(mode=0o700)
@@ -330,6 +342,7 @@ def main():
             'partition_writes_may_have_occurred':False,'normal_reset_attempted':False,'normal_reset_acknowledged':False,
             'recovery_verified':False,'board_boot_verified':False,'release_ready':False,
             'executor_sha256':recovery.digest(pathlib.Path(__file__).resolve())}
+    if capture_space:report['initial_capture_space_check']=capture_space
     source=hardware=None
     def save():save_json(args.output/'report.json',report)
     def stop(*_):raise InterruptedError('Bounded restore operation interrupted; inspect before any new attempt')
