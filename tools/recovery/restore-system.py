@@ -223,14 +223,21 @@ def validate_config_retry(tools, source, path, expected_hash):
             'original_attempt':str(marker),'marker':str(marker/'after-config-nak')}
 
 
-def consume_once(tools, source, output, before):
-    attempts=tools/'restore-attempts'
+def consume_once(tools, source, output, before, namespace='restore-attempts'):
+    require(namespace in ('restore-attempts','install-attempts'),'Unsupported fixed attempt namespace')
+    expected_kind='fixed-system-install-plan' if namespace=='install-attempts' else 'fixed-system-restore-plan'
+    require(source.plan.get('kind')==expected_kind,'Attempt namespace differs from the selected operation')
+    attempts=tools/namespace
     if not attempts.exists() and not attempts.is_symlink():
         attempts.mkdir(mode=0o700)
+        fd=os.open(tools,os.O_RDONLY|os.O_DIRECTORY)
+        try:os.fsync(fd)
+        finally:os.close(fd)
     recovery.private_directory(attempts,0)
     marker=attempts/source.plan['plan_id']
     retry=getattr(source,'config_retry',None)
     if retry:
+        require(namespace=='restore-attempts','Configuration continuation is not an installation')
         validated=validate_config_retry(tools,source,pathlib.Path(retry['failed_report']),retry['failed_report_sha256'])
         require(validated==retry,'Continuation evidence changed after validation')
         marker=pathlib.Path(retry['marker'])
@@ -331,7 +338,7 @@ class Hardware:
         self.cdc.close(reset=False)  # release only; never reset uncertain/partially written storage
 
 
-def _transaction(source,hardware,tools,output,action,report,save):
+def _transaction(source,hardware,tools,output,action,report,save,consume_attempt):
     policy=hardware.policy
     report['phase']='reading-current-preimage';save()
     before_path=output/'current-before.img';hardware.read_image(before_path)
@@ -347,7 +354,7 @@ def _transaction(source,hardware,tools,output,action,report,save):
         report['phase']='returning-after-readonly-preflight';save()
     else:
         report['post_capture_space_check']=require_capture_space(output,1);save()
-        report['attempt_marker']=consume_once(tools,source,output,before);save()
+        report['attempt_marker']=consume_attempt(tools,source,output,before);save()
         policy.confirm_preflight(*proof)
         report['phase']='write-configuration-attempted';report['write_configuration_attempted']=True;save()
         hardware.control('configure',{'MemoryName':'eMMC','Verbose':'0','AlwaysValidate':'0','MaxDigestTableSizeInBytes':'2048',
@@ -388,9 +395,9 @@ def _transaction(source,hardware,tools,output,action,report,save):
     save()
 
 
-def transaction(source,hardware,tools,output,action,report,save):
+def transaction(source,hardware,tools,output,action,report,save,consume_attempt=None):
     try:
-        _transaction(source,hardware,tools,output,action,report,save)
+        _transaction(source,hardware,tools,output,action,report,save,consume_attempt or consume_once)
     except BaseException:
         hardware.policy.phase='failed'
         report['policy_phase']='failed'

@@ -110,8 +110,8 @@ class RestorePolicy:
         self.current_protected = None
         self.sent_bytes = 0
         self.payload_hash = None
-        self._require(plan.get('kind') == 'fixed-system-restore-plan' and plan.get('passed') is True,
-                      'A verified restore plan is required')
+        self._require(plan.get('kind') in ('fixed-system-restore-plan','fixed-system-install-plan')
+                      and plan.get('passed') is True, 'A verified fixed restore or install plan is required')
         self._require(len(targets) == 2 and [(p['index'], p['name']) for p in targets]
                       == [(14, 'rootfs'), (15, 'NSHSTATE')], 'Only the two fixed system partitions may be programmed')
         self._require(plan.get('write_targets') == targets and plan.get('protected_ranges') == protected,
