@@ -105,6 +105,24 @@ class RestoreExecutorTests(unittest.TestCase):
         self.tmp.cleanup()
     def write_json(self,path,value):
         path.write_text(json.dumps(value));path.chmod(0o600)
+    def test_source_loads_verified_preimage_plan_without_relabeling_failed_inspector(self):
+        report={'format':1,'action':'inspect','passed':False,'usb_opened':True,
+                'partition_writes_may_have_occurred':False,'normal_reset_attempted':True,
+                'normal_reset_acknowledged':False,'executor_sha256':module.planner.PREIMAGE_INSPECTOR_SHA256,
+                'phase':'failed-inspect-current-mode','error_type':'ValueError',
+                'error':'Explicit ACK missing; no automatic retry or success inference',
+                'current_before':{'sha256':self.source.plan['source_image_sha256'],'gpt_sha256':self.gpt,
+                                  'boot_sha256':self.source.plan['boot_sha256'],
+                                  'targets':self.source.targets,'protected':self.source.protected}}
+        self.write_json(self.capture,report)
+        directory=self.base/'preimage-plan'
+        module.planner.prepare(self.image,self.capture,self.offline,self.gpt,directory)
+        source=module.Source(directory/'plan.json',recovery.digest(directory/'plan.json'),self.capture,self.offline)
+        try:
+            self.assertEqual(source.targets,self.source.targets)
+            self.assertFalse(source.plan['capture_execution_passed'])
+            self.assertFalse(json.loads(self.capture.read_text())['passed'])
+        finally:source.close()
     def test_control_envelope_matches_pinned_reset_and_negative_reply_is_preserved(self):
         self.assertEqual(module.control_xml('power',{'value':'reset'}),
                          b'<?xml version="1.0" ?><data><power value="reset"/></data>')

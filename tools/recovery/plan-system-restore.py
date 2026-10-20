@@ -19,6 +19,10 @@ spec.loader.exec_module(backup)
 
 TARGETS = ((14, 'rootfs'), (15, 'NSHSTATE'))
 MAX_REPORT_BYTES = 128 * 1024
+# Audited 9947a0f inspector: the full preimage was verified before its reset
+# envelope was refused. Recognize this producer explicitly; never relabel the
+# failed transaction as a successful capture or accept arbitrary executors.
+PREIMAGE_INSPECTOR_SHA256 = '574a5a190820e6f10f86bc192cc05307fc85273a2d675e3dac8eb248642e9a2f'
 
 
 def require(condition, message):
@@ -76,24 +80,55 @@ def geometry(layout):
 
 
 def check_evidence(capture, offline, expected_gpt, layout):
-    require(capture.get('format') == 1 and capture.get('action') == 'read-emmc'
+    if capture.get('action') == 'inspect':
+        require(type(capture.get('format')) is int and capture['format'] == 1
+                and capture.get('executor_sha256') == PREIMAGE_INSPECTOR_SHA256
+                and capture.get('passed') is False and capture.get('usb_opened') is True
+                and capture.get('partition_writes_may_have_occurred') is False
+                and capture.get('normal_reset_attempted') is True
+                and capture.get('normal_reset_acknowledged') is False
+                and capture.get('phase') == 'failed-inspect-current-mode'
+                and capture.get('error_type') == 'ValueError'
+                and capture.get('error') == 'Explicit ACK missing; no automatic retry or success inference',
+                'Only the audited read-only preimage with the recorded reset refusal is accepted')
+        before = capture.get('current_before', {})
+        require(isinstance(before, dict) and before.get('gpt_sha256') == expected_gpt
+                and before.get('boot_sha256') == recovery.BOOT_SHA256
+                and isinstance(before.get('sha256'), str)
+                and re.fullmatch('[0-9a-f]{64}', before['sha256']) is not None,
+                'Verified inspection preimage digests are required')
+        targets, protected = geometry(layout)
+        for key, ranges in (('targets', targets), ('protected', protected)):
+            rows = before.get(key)
+            require(isinstance(rows, list) and len(rows) == len(ranges), 'Incomplete inspection preimage ranges')
+            for row, expected in zip(rows, ranges):
+                require(isinstance(row, dict) and set(row) == set(expected) | {'backup_sha256'}
+                        and {k:v for k,v in row.items() if k != 'backup_sha256'} == expected
+                        and all(type(row[k]) is type(v) for k,v in expected.items())
+                        and isinstance(row.get('backup_sha256'), str)
+                        and re.fullmatch('[0-9a-f]{64}', row['backup_sha256']) is not None,
+                        'Inspection preimage range mismatch')
+        image_sha256 = before['sha256']
+    else:
+        require(capture.get('format') == 1 and capture.get('action') == 'read-emmc'
             and capture.get('passed') is True and capture.get('partition_writes') is False
             and capture.get('bytes') == recovery.DISK_BYTES
             and capture.get('current_boot_verified') is True and capture.get('gpt_copies_checked') is True,
-            'A passed full raw capture is required')
-    require(capture.get('source_revision') == recovery.SOURCE_REVISION
+                'A passed full raw capture is required')
+        require(capture.get('source_revision') == recovery.SOURCE_REVISION
             and capture.get('loader_sha256') == recovery.LOADER_SHA256
             and capture.get('wrapper_sha256') == recovery.digest(pathlib.Path(recovery.__file__).resolve()),
-            'Capture runtime provenance mismatch')
-    require(capture.get('gpt_sha256') == expected_gpt
+                'Capture runtime provenance mismatch')
+        require(capture.get('gpt_sha256') == expected_gpt
             and re.fullmatch('[0-9a-f]{64}', capture.get('sha256', '')) is not None,
-            'Capture digests do not match trusted inputs')
+                'Capture digests do not match trusted inputs')
+        image_sha256 = capture['sha256']
     require(offline.get('format') == 1 and offline.get('passed') is True
             and offline.get('partition_writes') is False and offline.get('image_write_requested') is False
             and offline.get('bytes') == recovery.DISK_BYTES
             and offline.get('image_unchanged_after_fs_checks') is True
             and offline.get('gpt_copies_checked') is True and offline.get('current_boot_verified') is True
-            and offline.get('independent_readback_sha256') == capture['sha256'],
+            and offline.get('independent_readback_sha256') == image_sha256,
             'A passed independent check of this exact raw image is required')
     checks = offline.get('filesystems', {})
     require(isinstance(checks, dict) and set(checks) == {'rootfs', 'NSHSTATE'}, 'Both filesystem results are required')
@@ -102,6 +137,7 @@ def check_evidence(capture, offline, expected_gpt, layout):
                 and result.get('passed') is True and type(result.get('e2fsck_exit')) is int
                 and result['e2fsck_exit'] == 0 and result.get('offset') == layout[name]['first_sector'] * 512
                 and result.get('bytes') == layout[name]['bytes'], 'Raw filesystem result is not clean at the expected range')
+    return image_sha256
 
 
 def hash_coverage(descriptor, targets, protected):
@@ -138,18 +174,22 @@ def prepare(image, capture_path, offline_path, expected_gpt, output):
         require(hashlib.sha256(primary + tail).hexdigest() == expected_gpt, 'Backup GPT differs from trusted digest')
         layout = recovery.validate_gpt(primary, tail, sectors=recovery.SECTORS, partitions=recovery.PARTITIONS)
         targets, protected = geometry(layout)
-        check_evidence(capture, offline, expected_gpt, layout)
-        require(backup.digest_fd(descriptor) == capture['sha256'], 'Backup differs from capture/check reports')
+        image_sha256 = check_evidence(capture, offline, expected_gpt, layout)
+        require(backup.digest_fd(descriptor) == image_sha256, 'Backup differs from capture/check reports')
         boot = layout['boot']
         require(hashlib.sha256(backup.read_at(descriptor, boot['first_sector'] * 512, boot['bytes'])).hexdigest()
                 == recovery.BOOT_SHA256, 'Backup boot mismatch')
-        require(hash_coverage(descriptor, targets, protected) == capture['sha256'], 'Backup changed while computing target digests')
+        require(hash_coverage(descriptor, targets, protected) == image_sha256, 'Backup changed while computing target digests')
+        if capture['action'] == 'inspect':
+            require(targets == capture['current_before']['targets'] and protected == capture['current_before']['protected'],
+                    'Actual preimage range digests differ from inspection evidence')
         require(backup.signature(os.fstat(descriptor)) == before == backup.signature(image.lstat()),
                 'Backup path or metadata changed during planning')
         plan = {'format': 1, 'kind': 'fixed-system-restore-plan', 'passed': True,
                 'plan_id': secrets.token_hex(16), 'board': 'ufi003', 'sector_bytes': 512,
                 'disk_bytes': recovery.DISK_BYTES, 'source_image': str(image),
-                'source_image_sha256': capture['sha256'], 'gpt_sha256': expected_gpt,
+                'source_image_sha256': image_sha256, 'gpt_sha256': expected_gpt,
+                'capture_action': capture['action'], 'capture_execution_passed': capture['passed'],
                 'boot_sha256': recovery.BOOT_SHA256, 'write_targets': targets,
                 'protected_ranges': protected,
                 'protected_range_policy': 'retain-current-device-bytes-and-verify-before-after',

@@ -70,6 +70,51 @@ class RestorePlanTests(unittest.TestCase):
             path.write_text(json.dumps(data));path.chmod(0o600)
     def prepare(self):return module.prepare(self.image,self.cp,self.op,self.gpt,self.base/'plan')
 
+    def inspection_capture(self):
+        targets,protected=module.geometry(LAYOUT)
+        fd=os.open(self.image,os.O_RDONLY)
+        try:digest=module.hash_coverage(fd,targets,protected)
+        finally:os.close(fd)
+        return {'format':1,'action':'inspect','passed':False,'usb_opened':True,
+                'partition_writes_may_have_occurred':False,'normal_reset_attempted':True,
+                'normal_reset_acknowledged':False,'executor_sha256':module.PREIMAGE_INSPECTOR_SHA256,
+                'phase':'failed-inspect-current-mode','error_type':'ValueError',
+                'error':'Explicit ACK missing; no automatic retry or success inference',
+                'current_before':{'sha256':digest,'gpt_sha256':self.gpt,'boot_sha256':self.boot,
+                                  'targets':targets,'protected':protected}}
+
+    def test_verified_preimage_retains_failed_reset_status_and_needs_exact_independent_image_check(self):
+        self.capture=self.inspection_capture();self.write_reports();original=self.cp.read_bytes()
+        plan=self.prepare()
+        self.assertFalse(plan['capture_execution_passed'])
+        self.assertEqual(plan['capture_action'],'inspect')
+        self.assertEqual(plan['source_image_sha256'],self.capture['current_before']['sha256'])
+        self.assertEqual(self.cp.read_bytes(),original)
+        self.assertFalse(json.loads(self.cp.read_text())['passed'])
+        self.assertFalse(plan['execution_authorized'])
+
+    def test_arbitrary_failed_capture_write_attempt_unknown_producer_or_incomplete_reset_stage_is_refused(self):
+        original=self.inspection_capture()
+        for changes in [{'executor_sha256':'0'*64},{'action':'restore'},{'passed':True},
+                        {'normal_reset_attempted':False},{'partition_writes_may_have_occurred':True},
+                        {'normal_reset_acknowledged':True},{'error':'unrelated failure'}]:
+            self.capture=json.loads(json.dumps(original));self.capture.update(changes);self.write_reports()
+            with self.subTest(changes=changes),self.assertRaises(ValueError):self.prepare()
+            self.assertFalse((self.base/'plan').exists())
+
+    def test_preimage_cannot_hide_wrong_range_digest_or_disagree_with_independent_filesystems(self):
+        original=self.inspection_capture()
+        for change in ('range_hash','boolean_range','missing_range','whole_hash','dirty'):
+            self.capture=json.loads(json.dumps(original))
+            if change=='range_hash':self.capture['current_before']['targets'][0]['backup_sha256']='0'*64
+            if change=='boolean_range':self.capture['current_before']['protected'][0]['offset']=False
+            if change=='missing_range':self.capture['current_before']['protected'].pop()
+            if change=='whole_hash':self.capture['current_before']['sha256']='0'*64
+            self.offline['filesystems']['rootfs']['e2fsck_exit']=4 if change=='dirty' else 0
+            self.write_reports()
+            with self.subTest(change=change),self.assertRaises(ValueError):self.prepare()
+            self.assertFalse((self.base/'plan').exists())
+
     def test_real_gpt_and_file_cover_every_byte_but_only_two_targets_are_writable(self):
         before=self.image.read_bytes();result=self.prepare()
         self.assertEqual([(p['index'],p['name']) for p in result['write_targets']],[(14,'rootfs'),(15,'NSHSTATE')])

@@ -104,12 +104,17 @@ class Source:
             tail = backup.read_at(self.fd, recovery.DISK_BYTES-33*512, 33*512)
             require(hashlib.sha256(primary+tail).hexdigest() == plan['gpt_sha256'], 'Source GPT mismatch')
             layout = recovery.validate_gpt(primary, tail, sectors=recovery.SECTORS, partitions=recovery.PARTITIONS)
-            planner.check_evidence(capture, offline, plan['gpt_sha256'], layout)
+            require(planner.check_evidence(capture, offline, plan['gpt_sha256'], layout) == plan['source_image_sha256'],
+                    'Plan source differs from its independent evidence')
             self.targets, self.protected = planner.geometry(layout)
             require(planner.hash_coverage(self.fd, self.targets, self.protected) == plan['source_image_sha256'],
                     'Source image digest mismatch')
             require(self.targets == plan['write_targets'] and self.protected == plan['protected_ranges'],
                     'Source target/protected digests differ from plan')
+            if capture['action'] == 'inspect':
+                require(self.targets == capture['current_before']['targets']
+                        and self.protected == capture['current_before']['protected'],
+                        'Source ranges differ from inspection preimage evidence')
             boot = layout['boot']
             require(hashlib.sha256(backup.read_at(self.fd,boot['first_sector']*512,boot['bytes'])).hexdigest()
                     == plan['boot_sha256'] == recovery.BOOT_SHA256, 'Frozen source boot mismatch')
