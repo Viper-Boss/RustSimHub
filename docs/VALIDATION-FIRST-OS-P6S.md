@@ -4,6 +4,8 @@
 
 修正源bbb1081的新通用候选已完整构建/审计：12367项、tree `ccd56c0480bd9c0c0b99277c0b1915546001adb3706fa41648ca4d2842239a8d`；3436183552字节ext4 SHA `608ebe8dd078d39da8ec0958571e498c3b4e6675d5a678998d86a4e9dedb389c`。七个非Root ARM程序、静态服务依赖、逐项树保持及只读FS检查通过；应用/Native仍4e6fea6，额外22个驱动保持。新版安装器固定这两个摘要，尚未制定第三设备安装计划或写入。
 
+NAS独立复制/fsync/完整哈希冻结已完成，传输索引 `system-image-p6s-system-writer-nas-transfer-20261021-first.json` passed=true；准备索引 `next-new-os-candidate-20261021-third.json`明确未选择新状态、未请求进入恢复和未创建安装计划。准确固定源c5ee339的[完整CI](https://github.com/Viper-Boss/RustSimHub/actions/runs/39505200290)通过，组合修正bbb1081的[完整CI](https://github.com/Viper-Boss/RustSimHub/actions/runs/39504723559)亦通过。第二正常USB现场保留，后续需要用户醒来配合；所有原计划/尝试/失败日志保持。
+
 已另行在本机复现 `ProtectSystem=strict` 的父挂载ro与原守卫强制rw冲突。SSH准备改用 `--system-writer`：父挂载可在本服务隔离中为ro，但真实system写入点须为相同固定p15设备、rw、Root0700且非链接；其他状态检查仍默认强制rw。真实ext4、父只读/子树可写bind、隐藏设备、空capability和真实预选SSH材料组合通过，父只读默认拒绝/错误写设备/只读子树/错误所有权/软链接拒绝通过，131板级回归通过。音频守卫只增加固定阶段错误信息，身份、版本及加载检查保持。修正未安装，第二启动日志仍待捕获，不能断言这是现场唯一问题。用户休息时保留正常USB现场，先构建新通用候选；之后使用独立捕获/计划，不重跑second尝试。
 
 2026-10-21。首次安装冻结源 `8d2fd5afc908898edd815ce0434f088ef12b66d8`，私有索引 `install-first-boot-20261021-first.json`。
