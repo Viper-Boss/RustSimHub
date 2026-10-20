@@ -105,6 +105,20 @@ class RestoreExecutorTests(unittest.TestCase):
         self.tmp.cleanup()
     def write_json(self,path,value):
         path.write_text(json.dumps(value));path.chmod(0o600)
+    def test_control_envelope_matches_pinned_reset_and_negative_reply_is_preserved(self):
+        self.assertEqual(module.control_xml('power',{'value':'reset'}),
+                         b'<?xml version="1.0" ?><data><power value="reset"/></data>')
+        hardware,wire,before=self.hardware('negative-program')
+        output=self.base/'negative-reply';output.mkdir(mode=0o700);report={}
+        def save():module.save_json(output/'report.json',report)
+        with patch.object(module.backup,'verify'):
+            with self.assertRaises(ValueError):
+                module.transaction(self.source,hardware,self.tools,output,'restore',report,save)
+        self.assertEqual(report['control_replies'][-1]['response']['value'],'NAK')
+        self.assertEqual(report['control_replies'][-1]['operation'],'program')
+        self.assertEqual(wire.resets,0)
+        self.assertEqual(report['policy_phase'],'failed')
+        hardware.close()
     def hardware(self,fault=None):
         current=bytearray(self.original)
         for name in ('rootfs','NSHSTATE'):

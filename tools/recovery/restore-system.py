@@ -162,12 +162,15 @@ def consume_once(tools, source, output, before):
 
 def control_xml(name,attributes):
     root=ET.Element('data');ET.SubElement(root,name,{k:str(v) for k,v in attributes.items()})
-    return ET.tostring(root,encoding='utf-8')
+    # Match the separately pinned programmer client's control envelope. Its
+    # reset path uses this declaration and compact empty element spelling.
+    return b'<?xml version="1.0" ?>'+ET.tostring(root,encoding='utf-8').replace(b' />',b'/>')
 
 
 class Hardware:
     def __init__(self,client,policy,binding_check):
         self.client=client;self.policy=policy;self.binding_check=binding_check
+        self.control_replies=[]
         self.fh=client.fh.firehose;self.cdc=client.cdc
         self.input=self.cdc.EP_IN;self.output=self.cdc.EP_OUT
         require(self.input.bEndpointAddress & 0x80 and not self.output.bEndpointAddress & 0x80
@@ -217,6 +220,8 @@ class Hardware:
         try:
             protocol.write_bulk_once(self.output,data)
             reply=protocol.read_control_reply(self.input)
+            self.control_replies.append({'operation':name,'xml_sha256':hashlib.sha256(data).hexdigest(),
+                                         'response':copy.deepcopy(reply)})
             self.policy.acknowledge(reply)
             return reply
         except BaseException:
@@ -279,6 +284,7 @@ def _transaction(source,hardware,tools,output,action,report,save):
     report['phase']='normal-reset-attempted';report['normal_reset_attempted']=True;save()
     hardware.control('power',{'value':'reset'})
     report.update(phase='completed-reset-acknowledged',passed=True,normal_reset_acknowledged=True,policy_phase=policy.phase)
+    report['control_replies']=copy.deepcopy(hardware.control_replies)
     save()
 
 
@@ -288,6 +294,7 @@ def transaction(source,hardware,tools,output,action,report,save):
     except BaseException:
         hardware.policy.phase='failed'
         report['policy_phase']='failed'
+        report['control_replies']=copy.deepcopy(hardware.control_replies)
         save()
         raise
 
