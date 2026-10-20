@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+**当前第二次修正安装正在离线生成/验证候选，尚未启动写入。** 原新OS完整现场已只读保存，GPT/boot保持，SSH失败及音频检查失败有持久日志。两原FS只读检查4原样保留；第三份状态副本强制preen退出1、随后只读0，原图保持、旧101项逐项摘要/元数据相同、业务目录空、所选维护身份保持。前两份只回放/未强制检查的失败副本也保留。源a9cf521完整CI39493697545成功，130板级/34rootfs/7恢复通过；新增固定完整现场摘要的显式未干净卸载替换，默认/旧恢复不放宽。新通用rootfs 7d1860a已重建核对并在NAS独立冻结。接续只看 `.private/install-first-boot-20261021-second.json` / `.local/status-install-second-boot-20261021.py`；候选默认validate通过后由已准备的 `.local/install-second-boot-20261021.py`在当前9008会话单次执行，不再halt/要求拔插，不运行第一次安装/连接器。原首次安装及只读诊断索引保持。当前设备留在9008，禁止手动reset；正常启动仍未验收，整体74/100。详情[P6S](VALIDATION-FIRST-OS-P6S.md)。
+
 **最新 P6S：第一次新系统 p14+p15 安装已完整回读/当前保护范围/两 FS 检查通过，安装退出 0 且 reset 明确 ACK。新 USB 身份出现并完成无默认路由变化的 NAS 接入，但 SSH 持续拒绝，尚未通过首启健康。** 已发现 `PrivateDevices=yes` 与原状态守卫依赖可见物理 `/dev` 的确定冲突；修正改为 mount MAJ:MIN 对固定 sysfs 分区身份，保留隔离。真实一次性 ext4 隐藏 `/dev` 的回归通过，不当成实机新版本已通过。用户已完成新的只读物理进入；当前唯一活动诊断为 `.private/new-os-maintenance-diagnostic-20261021-first.json` / `.local/status-new-os-diagnostic-20261021.py`，保存启动后完整现场，不写分区、不 reset。不要再跑第一次 connect/activate/install 或旧 restore/return。详情见 [P6S](VALIDATION-FIRST-OS-P6S.md)。整体仍74/100、10010仍38；下面“写后回读仍在进行”为历史阶段。
 
 2026-10-21 当前权威状态；历史原文已完整保留在 [交接归档](archive/handoff-before-oneclick-consolidation-20261016.md)。下述状态覆盖归档中的旧检查点，不把候选用户态当成新系统已经刷入。
