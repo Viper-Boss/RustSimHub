@@ -338,7 +338,43 @@ class Hardware:
         self.cdc.close(reset=False)  # release only; never reset uncertain/partially written storage
 
 
-def _transaction(source,hardware,tools,output,action,report,save,consume_attempt):
+def check_current_preimage(source,path,before,output,action,unclean_sha256=None):
+    if unclean_sha256 is not None:
+        require(action=='install' and source.plan.get('kind')=='fixed-system-install-plan'
+                and protocol.sha(unclean_sha256) and before['sha256']==unclean_sha256,
+                'Unclean replacement requires the exact explicitly selected installation preimage')
+    try:
+        backup.verify(path,output/'current-before-check',before['sha256'],before['gpt_sha256'])
+        return False
+    except ValueError as exc:
+        if unclean_sha256 is None:raise
+        # Keep the original failed readonly check intact. An exact captured
+        # preimage permits replacement, never repair of the capture or a claim
+        # that its filesystems passed. Operational/IO/checker errors still stop.
+        check,_=planner.private_json(output/'current-before-check/report.json')
+        require(str(exc).startswith('Frozen filesystems did not pass: ')
+                and check.get('error')==str(exc) and check.get('passed') is False
+                and check.get('partition_writes') is False and check.get('image_write_requested') is False
+                and check.get('independent_readback_sha256')==unclean_sha256
+                and check.get('image_unchanged_after_fs_checks') is True
+                and check.get('gpt_copies_checked') is True and check.get('current_boot_verified') is True,
+                'Unclean replacement cannot bypass capture, GPT, boot or checker failures')
+        rows=check.get('filesystems',{})
+        require(set(rows)=={'rootfs','NSHSTATE'},'Both unclean preimage checks must be retained')
+        failed=False
+        for target in source.targets:
+            row=rows[target['name']];code=row.get('e2fsck_exit')
+            require(row.get('read_only') is True and row.get('detached') is True and 'error' not in row
+                    and type(code) is int and code in (0,4)
+                    and row.get('passed') is (code==0)
+                    and row.get('offset')==target['offset'] and row.get('bytes')==target['bytes'],
+                    'Unexpected preimage filesystem result; no automatic continuation')
+            failed=failed or code==4
+        require(failed,'No retained filesystem refusal to acknowledge')
+        return True
+
+
+def _transaction(source,hardware,tools,output,action,report,save,consume_attempt,unclean_preimage_sha256):
     policy=hardware.policy
     report['phase']='reading-current-preimage';save()
     before_path=output/'current-before.img';hardware.read_image(before_path)
@@ -346,7 +382,12 @@ def _transaction(source,hardware,tools,output,action,report,save,consume_attempt
     require(before['gpt_sha256']==source.plan['gpt_sha256'] and before['boot_sha256']==source.plan['boot_sha256'],
             'Current device GPT/boot differs from the trusted plan')
     report['phase']='checking-current-preimage';report['current_before']=before;save()
-    backup.verify(before_path,output/'current-before-check',before['sha256'],before['gpt_sha256'])
+    accepted=check_current_preimage(source,before_path,before,output,action,unclean_preimage_sha256)
+    if accepted:
+        report.update(unclean_preimage_replacement_confirmed=True,
+                      replaced_unclean_preimage_sha256=unclean_preimage_sha256,
+                      current_preimage_filesystems_passed=False)
+        save()
     source.ensure_frozen()
     proof=(before['gpt_sha256'],before['boot_sha256'],source.plan['source_image_sha256'],range_results(before['protected']))
     if action=='inspect':
@@ -395,9 +436,9 @@ def _transaction(source,hardware,tools,output,action,report,save,consume_attempt
     save()
 
 
-def transaction(source,hardware,tools,output,action,report,save,consume_attempt=None):
+def transaction(source,hardware,tools,output,action,report,save,consume_attempt=None,unclean_preimage_sha256=None):
     try:
-        _transaction(source,hardware,tools,output,action,report,save,consume_attempt or consume_once)
+        _transaction(source,hardware,tools,output,action,report,save,consume_attempt or consume_once,unclean_preimage_sha256)
     except BaseException:
         hardware.policy.phase='failed'
         report['policy_phase']='failed'

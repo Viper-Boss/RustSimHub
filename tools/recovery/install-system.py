@@ -109,6 +109,8 @@ def frozen_inputs(rollback,descriptors):
 
 
 def prepare(args):
+    unclean=getattr(args,'replace_unclean_preimage_sha256',None)
+    require(unclean is None or protocol.sha(unclean),'Exact captured unclean preimage digest required')
     require(not args.output.exists() and not args.output.is_symlink(),'New output required; preserve all existing attempts')
     require(args.output.is_absolute() and args.output.resolve()==args.output,'Canonical private output required')
     recovery.private_directory(args.output.parent,0)
@@ -149,7 +151,8 @@ def prepare(args):
               'backup_protected_hashes_are_snapshot_only':True,'source_image_unchanged':True,
               'execution_authorized':False,'usb_opened':False,'partition_writes':False,
               'experimental_cold_boot_only':True,'restore_rehearsal_verified':False,
-              **{k:False for k in FALSE_GATES},'evidence':evidence}
+              **{k:False for k in FALSE_GATES},'evidence':evidence,
+              'replace_unclean_preimage_sha256':unclean}
         executor.save_json(args.output/'plan.json',plan)
         return plan
     finally:close_inputs(rollback,descriptors)
@@ -173,6 +176,8 @@ class Source:
                 and p.get('protected_range_policy')=='retain-current-device-bytes-and-verify-before-after'
                 and p.get('backup_protected_hashes_are_snapshot_only') is True,'Unexpected install readiness gates')
         e=p['evidence']
+        unclean=p.get('replace_unclean_preimage_sha256')
+        require(unclean is None or protocol.sha(unclean),'Unsupported unclean preimage acknowledgement')
         try:
             self.rollback,self.descriptors,actual=inputs(pathlib.Path(e['backup_plan']),e['backup_plan_sha256'],
                 pathlib.Path(e['capture_report']),pathlib.Path(e['offline_report']),pathlib.Path(e['root_image']),
@@ -206,6 +211,9 @@ def consume_install(tools,source,output,before):
 
 
 def execute(args):
+    unclean=getattr(args,'replace_unclean_preimage_sha256',None)
+    require(unclean is None or (args.action=='install' and protocol.sha(unclean)),
+            'Unclean replacement confirmation is only accepted for explicit installation')
     require(args.action!='install' or (args.accept_unrehearsed_restore
             and args.confirm_install_plan_sha256==args.plan_sha256 and protocol.sha(args.plan_sha256)),
             'Explicit exact experimental install confirmation and unrehearsed-restore acknowledgement required')
@@ -226,6 +234,9 @@ def execute(args):
     source=hardware=None
     try:
         save();source=Source(args.plan,args.plan_sha256)
+        if args.action=='install':
+            require(unclean==source.plan.get('replace_unclean_preimage_sha256'),
+                    'Explicit unclean replacement must match the exact frozen plan')
         require(source.plan['gpt_sha256']==expected.get('gpt_sha256'),'Installation differs from trusted board GPT')
         report.update(plan_sha256=source.plan_hash,plan_id=source.plan['plan_id']);save()
         recovery.verify_tools(args.tools)
@@ -237,7 +248,8 @@ def execute(args):
                 policy=protocol.RestorePolicy(source.plan,source.targets,source.protected)
                 report.update(phase='connecting-recorded-9008',usb_opened=None,usb_open_attempted=True);save()
                 hardware=executor.Hardware.connect(args.tools,args.usb_port,policy);report['usb_opened']=True;save()
-                executor.transaction(source,hardware,args.tools,args.output,'install',report,save,consume_attempt=consume_install)
+                executor.transaction(source,hardware,args.tools,args.output,'install',report,save,
+                    consume_attempt=consume_install,unclean_preimage_sha256=unclean)
                 report['partition_install_readback_verified']=report.pop('partition_restore_readback_verified')
                 report['new_os_partition_payloads_installed']=True
                 # Normal boot/login/health remains a separate independent check.
@@ -260,7 +272,7 @@ def main():
     p.add_argument('--output',type=pathlib.Path,required=True)
     for name in ('backup-plan','capture-report','offline-report','root-image','root-manifest','state-image','state-report','tools','plan'):
         p.add_argument('--'+name,type=pathlib.Path)
-    for name in ('backup-plan-sha256','plan-sha256','usb-port','confirm-install-plan-sha256'):p.add_argument('--'+name)
+    for name in ('backup-plan-sha256','plan-sha256','usb-port','confirm-install-plan-sha256','replace-unclean-preimage-sha256'):p.add_argument('--'+name)
     p.add_argument('--accept-unrehearsed-restore',action='store_true')
     args=p.parse_args();os.umask(0o077)
     require(os.geteuid()==0,'Local Root operator required')

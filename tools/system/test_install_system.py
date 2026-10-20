@@ -129,3 +129,84 @@ class InstallSystemTests(unittest.TestCase):
             args.confirm_install_plan_sha256=confirmed;args.accept_unrehearsed_restore=accepted
             with self.assertRaises(ValueError):module.execute(args)
         self.assertFalse(args.output.exists())
+
+    def dirty_check(self, output, before, changes=None):
+        output.mkdir(mode=0o700)
+        error='Frozen filesystems did not pass: rootfs, NSHSTATE'
+        check={'passed':False,'error':error,'partition_writes':False,'image_write_requested':False,
+               'independent_readback_sha256':before['sha256'],'image_unchanged_after_fs_checks':True,
+               'gpt_copies_checked':True,'current_boot_verified':True,
+               'filesystems':{row['name']:{'read_only':True,'detached':True,'passed':False,
+                   'e2fsck_exit':4,'offset':row['offset'],'bytes':row['bytes']}
+                   for row in self.fixture.source.targets}}
+        if changes:changes(check)
+        self.fixture.write_json(output/'report.json',check)
+        raise ValueError(error)
+
+    def test_explicit_exact_unclean_install_preserves_failed_check_and_requires_clean_final_readback(self):
+        for final_dirty in (False,True):
+            with self.subTest(final_dirty=final_dirty):
+                self.args.output=self.base/('candidate-'+str(final_dirty))
+                current=bytearray(self.fixture.original);current[200*512]=81
+                selected=hashlib.sha256(current).hexdigest()
+                self.args.replace_unclean_preimage_sha256=selected
+                path,plan=self.prepare();source=module.Source(path,fixtures.recovery.digest(path))
+                self.assertEqual(plan['replace_unclean_preimage_sha256'],selected)
+                out=self.base/('unclean-install-'+str(final_dirty));out.mkdir(mode=0o700)
+                policy=module.protocol.RestorePolicy(plan,source.targets,source.protected)
+                wire=fixtures.MemoryWire(current,policy)
+                hardware=module.executor.Hardware(wire.client(),policy,lambda:None);report={};count=0
+                def verify(image,output,digest,gpt):
+                    nonlocal count
+                    count+=1
+                    if count==1:self.dirty_check(output,{'sha256':selected})
+                    if final_dirty:raise ValueError('Final filesystem not clean')
+                try:
+                    with patch.object(module.backup,'verify',side_effect=verify):
+                        if final_dirty:
+                            with self.assertRaisesRegex(ValueError,'Final filesystem'):
+                                module.executor.transaction(source,hardware,self.fixture.tools,out,'install',report,lambda:None,
+                                    consume_attempt=module.consume_install,unclean_preimage_sha256=selected)
+                        else:
+                            module.executor.transaction(source,hardware,self.fixture.tools,out,'install',report,lambda:None,
+                                consume_attempt=module.consume_install,unclean_preimage_sha256=selected)
+                    self.assertEqual(wire.resets,0 if final_dirty else 1)
+                    self.assertEqual(wire.data[200*512],81)
+                    self.assertTrue(report['unclean_preimage_replacement_confirmed'])
+                    self.assertFalse(report['current_preimage_filesystems_passed'])
+                    retained=json.loads((out/'current-before-check/report.json').read_text())
+                    self.assertFalse(retained['passed']);self.assertEqual(retained['filesystems']['rootfs']['e2fsck_exit'],4)
+                    self.assertEqual((out/'current-before.img').read_bytes(),current)
+                finally:hardware.close();source.close()
+
+    def test_unclean_opt_in_does_not_accept_different_preimage_or_operational_check_failures(self):
+        path,plan=self.prepare();source=module.Source(path,fixtures.recovery.digest(path))
+        before={'sha256':'a'*64,'gpt_sha256':plan['gpt_sha256']}
+        try:
+            with patch.object(module.backup,'verify',side_effect=AssertionError('Must refuse before checker')):
+                for action,digest in [('install','b'*64),('restore','a'*64),('inspect','a'*64)]:
+                    with self.assertRaises(ValueError):
+                        module.executor.check_current_preimage(source,path,before,self.base,action,digest)
+            changes=[lambda c:c.update(image_unchanged_after_fs_checks=False),
+                     lambda c:c.update(gpt_copies_checked=False),
+                     lambda c:c['filesystems']['rootfs'].update(e2fsck_exit=8),
+                     lambda c:c['filesystems']['rootfs'].update(detached=False),
+                     lambda c:c['filesystems']['rootfs'].update(offset=0),
+                     lambda c:c['filesystems']['rootfs'].update(error='read failed')]
+            for index,change in enumerate(changes):
+                out=self.base/('invalid-dirty-'+str(index));out.mkdir(mode=0o700)
+                with patch.object(module.backup,'verify',side_effect=lambda image,check,*args:self.dirty_check(check,before,change)):
+                    with self.assertRaises(ValueError):
+                        module.executor.check_current_preimage(source,path,before,out,'install','a'*64)
+        finally:source.close()
+
+    def test_unclean_install_confirmation_is_bound_to_plan_before_usb(self):
+        self.args.replace_unclean_preimage_sha256='a'*64
+        path,plan=self.prepare()
+        args=types.SimpleNamespace(action='install',output=self.base/'wrong-unclean-confirmation',
+            tools=self.fixture.tools,plan=path,plan_sha256=fixtures.recovery.digest(path),
+            confirm_install_plan_sha256=fixtures.recovery.digest(path),accept_unrehearsed_restore=True,
+            usb_port='2-1',replace_unclean_preimage_sha256='b'*64)
+        with patch.object(module.executor.Hardware,'connect',side_effect=AssertionError('USB forbidden')):
+            with self.assertRaisesRegex(ValueError,'exact frozen plan'):module.execute(args)
+        self.assertFalse((self.fixture.tools/'install-attempts').exists())
