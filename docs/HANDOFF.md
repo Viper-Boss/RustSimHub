@@ -4,7 +4,7 @@
 
 ## 当前唯一硬件运行
 
-**第二次修正安装已经单次启动，当前正在保存执行前完整快照。运行可能随后进入实际写入；禁止拔插、手动reset、再次启动安装/恢复/返回任务。**
+**第二次修正安装已收到p14/rootfs与p15/NSHSTATE两个最终program ACK，正在完整写后回读。禁止拔插、手动reset、再次启动安装/恢复/返回任务。**
 
 - 唯一索引：`.private/install-first-boot-20261021-second.json`。
 - 唯一观察器：`.local/status-install-second-boot-20261021.py`。本轮还启动了PC只读监视进程 `.local/monitor-install-second-boot-20261021.py`，每42秒接续该观察器；有活跃监视进程时优先读取其原session输出，避免两个进程同时更新索引。观察进程不发USB命令，不自动重试或reset。
@@ -37,7 +37,11 @@
 4. `.local/initialize-new-os-second-business-20261021.py`：须实际健康和UTC已通过，可信初始化只执行一次；私有交付保存到 `.private/new-os-business-20261021-second`。started/Unknown不得盲目重建身份或设置码。
 5. `.local/claim-new-os-second-owner-20261021.py`：已准备、未运行。PC生成并保留owner私钥，NAS只接收公有证书/请求；严格HTTPS及设备挑战签名核验，setup_finish之前记录一次性状态，再登录检查生产API与收件箱。未知setup结果先用原owner只读核验，不重复初始化。
 
-上述9个私有helper及6段远程Python已做语法检查；这些准备不算实机验收。新系统未安装Python，设备检查使用Shell/SFTP，Python仅运行在PC/NAS。
+上述9个私有helper及6段远程Python已做语法检查；后续现有owner只读登录helper也已检查，健康观察明确要求16项音频身份全部匹配。这些准备不算实机验收。新系统未安装Python，设备检查使用Shell/SFTP，Python仅运行在PC/NAS。
+
+## 本机完整内核构建
+
+固定93a71ee完整源码、原配置与签名校验的Debian GCC14.2.0-19/binutils2.44已在本机WSL完成 `Image.gz modules dtbs`，681模块、15468项导出表一致，完整源码树保持，约193.5秒。报告 `.private/full-kernel-rebuild-20261021-fifth.json`；前四次来源文本/工具链能力/make准备失败保留。独立sixth也已退出0，配置和上游横幅精确相同，仍有14943个字节不同，逐字节复现未通过。原配置无非零CRC，编译器版本一致不代表编译器二进制相同。两轮未访问设备、生成/写入boot或替换冻结安装输入。详见 [P6T](VALIDATION-FULL-KERNEL-P6T.md)。
 
 ## 持续边界与待验收
 

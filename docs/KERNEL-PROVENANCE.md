@@ -1,5 +1,7 @@
 # 当前内核与音频DTB来源对照
 
+2026-10-21补充：完整固定源码的 `Image.gz modules dtbs` 已在本机私有Debian工具链独立构建成功，681模块、15468项导出表匹配、来源树保持；尚不与上游内核逐字节相同，未上机。详见[完整内核构建 P6T](VALIDATION-FULL-KERNEL-P6T.md)。下文“未独立重建完整内核”为保留的历史边界，完整initramfs/新内核真实启动和恢复仍待完成。
+
 2026-10-17。boot/DTB重建不访问棒子；后续额外模块只读捕获设备文件与已加载srcversion，再于本机重建。没有安装/加载新模块或写分区。board.toml的kernel_source_commit仍为UNRESOLVED：本节证明已记录boot备份中部分组件的对应关系，不替代完整boot/模块来源与恢复验收。
 
 固定上游为[KyonLi内核提交93a71ee9468d](https://github.com/KyonLi/ufi003-kernel/commit/93a71ee9468dd8d47a9e082e5d818608f08712e3)，GitHub API标记提交签名verified；其Git tree为72d4e8e42649f763dd969a1de893051ed64387a1。[6.12.49-1发布](https://github.com/KyonLi/ufi003-kernel/releases/tag/6.12.49-1)的boot、完整orig源码、Debian源码补充、dsc/buildinfo、headers/image包共七项均已按上游SHA256核验。公开输入锁见firmware/kernel/upstream-source.lock.json，未提交二进制或设备备份。
