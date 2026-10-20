@@ -24,8 +24,8 @@ protocol=executor.protocol
 
 # Accept only the P6S rebuilt and independently audited generic candidate.
 # The first installation retains its original frozen runtime and image pins.
-ROOTFS_SHA256='6870406b1a71ab3f9e1270169481dfb243b05c952a8c1012ff0408f0e5ecd1fc'
-ROOTFS_TREE='52ab3e371d3bd84d1d90a4e3d67bc395b2ce671876a1cd0abc3f778206afc4d7'
+ROOTFS_SHA256='608ebe8dd078d39da8ec0958571e498c3b4e6675d5a678998d86a4e9dedb389c'
+ROOTFS_TREE='ccd56c0480bd9c0c0b99277c0b1915546001adb3706fa41648ca4d2842239a8d'
 STATE_BUILDER_SHA256='15f5a71f4bbbf9b2ba22a8b274cc8fcff36bb377f7108f02b5908614c79cae74'
 FALSE_GATES=('flash_allowed','release_ready','recovery_verified','board_boot_verified')
 
