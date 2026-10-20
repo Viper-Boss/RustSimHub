@@ -25,6 +25,8 @@ spec = importlib.util.spec_from_file_location('restore_planner', pathlib.Path(__
 planner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(planner)
 backup = planner.backup
+CONFIG_NAK_EXECUTOR_SHA256 = 'b51686a84d09e185b9b82b79fd5b2d3394de3727a797e75d052f887a673a2bae'
+CONFIG_32K_XML_SHA256 = 'c0d85faf5377ac4ccc959532c23838bf4febda34e4ab17050552f2de378525b3'
 
 
 def require(condition, message):
@@ -159,15 +161,87 @@ def tool_lock(tools):
         os.close(fd)
 
 
+def validate_config_retry(tools, source, path, expected_hash):
+    """One explicitly selected continuation of the audited no-program failure.
+
+    Never remove the original attempt or accept a payload/unknown failure.
+    This is readiness validation, not operator authorization or an auto-retry.
+    """
+    failed, digest = planner.private_json(path)
+    require(protocol.sha(expected_hash) and digest == expected_hash, 'Selected failed report digest mismatch')
+    require(type(failed.get('format')) is int and failed['format'] == 1 and failed.get('action') == 'restore'
+            and failed.get('passed') is False and failed.get('phase') == 'failed-inspect-current-mode'
+            and failed.get('executor_sha256') == CONFIG_NAK_EXECUTOR_SHA256
+            and failed.get('error_type') == 'ValueError'
+            and failed.get('error') == 'Explicit ACK missing; no automatic retry or success inference',
+            'Only the audited configuration refusal can be continued')
+    require(failed.get('usb_opened') is True and failed.get('write_configuration_attempted') is True
+            and failed.get('partition_writes_may_have_occurred') is False
+            and failed.get('normal_reset_attempted') is False
+            and failed.get('normal_reset_acknowledged') is False
+            and all(key not in failed for key in ('programmed_targets','current_target','raw_payload_transport_bytes')),
+            'A program, payload or uncertain failure cannot be retried')
+    require(failed.get('plan_sha256') == source.plan_hash and failed.get('plan_id') == source.plan['plan_id']
+            and failed.get('source_image_sha256') == source.plan['source_image_sha256'],
+            'Continuation must retain the exact original source and plan')
+    replies = failed.get('control_replies')
+    require(isinstance(replies,list) and len(replies) == 1 and replies[0].get('operation') == 'configure'
+            and replies[0].get('xml_sha256') == CONFIG_32K_XML_SHA256, 'Exactly the known rejected configuration required')
+    response = replies[0].get('response',{})
+    require(response.get('value') == 'NAK' and response.get('TargetName') == '8916'
+            and response.get('MemoryName') == 'eMMC' and response.get('rawmode') in (None,'false')
+            and response.get('MaxPayloadSizeToTargetInBytesSupported') == '16384'
+            and response.get('MaxPayloadSizeToTargetInBytes') == '16384'
+            and protocol.MAX_PAYLOAD == 16384, 'Unsupported programmer refusal or write limit')
+    attempts = tools/'restore-attempts';marker = attempts/source.plan['plan_id']
+    recovery.private_directory(attempts,0);recovery.private_directory(marker,0)
+    require(failed.get('attempt_marker') == str(marker), 'Original consumed attempt differs')
+    original,_ = planner.private_json(marker/'attempt.json')
+    require(original.get('plan_sha256') == source.plan_hash and original.get('output') == str(path.parent)
+            and protocol.sha(original.get('current_before_sha256'))
+            and original.get('current_before_sha256') == failed.get('current_before',{}).get('sha256'),
+            'Original attempt is not linked to the selected refusal')
+    require(failed['current_before'].get('gpt_sha256') == source.plan['gpt_sha256']
+            and failed['current_before'].get('boot_sha256') == source.plan['boot_sha256'],
+            'Original board preimage differs from the selected plan')
+    check,_ = planner.private_json(path.parent/'current-before-check/report.json')
+    require(check.get('passed') is True and check.get('image_unchanged_after_fs_checks') is True
+            and check.get('independent_readback_sha256') == original['current_before_sha256']
+            and check.get('gpt_copies_checked') is True and check.get('current_boot_verified') is True,
+            'Original clean full preimage evidence required')
+    filesystems = check.get('filesystems',{})
+    require(set(filesystems) == {'rootfs','NSHSTATE'}, 'Both original filesystem checks required')
+    for part in source.targets:
+        row = filesystems[part['name']]
+        require(row.get('passed') is True and row.get('read_only') is True and row.get('detached') is True
+                and type(row.get('e2fsck_exit')) is int and row['e2fsck_exit'] == 0
+                and row.get('offset') == part['offset'] and row.get('bytes') == part['bytes'],
+                'Original filesystem evidence incomplete')
+    require(set(p.name for p in marker.iterdir()) == {'attempt.json'},
+            'Continuation already consumed or original attempt has extra entries')
+    return {'failed_report':str(path),'failed_report_sha256':digest,
+            'original_attempt':str(marker),'marker':str(marker/'after-config-nak')}
+
+
 def consume_once(tools, source, output, before):
     attempts=tools/'restore-attempts'
     if not attempts.exists() and not attempts.is_symlink():
         attempts.mkdir(mode=0o700)
     recovery.private_directory(attempts,0)
     marker=attempts/source.plan['plan_id']
+    retry=getattr(source,'config_retry',None)
+    if retry:
+        validated=validate_config_retry(tools,source,pathlib.Path(retry['failed_report']),retry['failed_report_sha256'])
+        require(validated==retry,'Continuation evidence changed after validation')
+        marker=pathlib.Path(retry['marker'])
     marker.mkdir(mode=0o700)  # atomic one-shot; unknown attempts cannot be overwritten/retried
     save_json(marker/'attempt.json', {'plan_sha256':source.plan_hash,'output':str(output),
-              'current_before_sha256':before['sha256'],'started':datetime.datetime.now(datetime.timezone.utc).isoformat()})
+              'current_before_sha256':before['sha256'],'started':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              **({'explicit_config_retry':retry} if retry else {})})
+    if retry:
+        fd=os.open(marker.parent,os.O_RDONLY|os.O_DIRECTORY)
+        try:os.fsync(fd)
+        finally:os.close(fd)
     fd=os.open(attempts,os.O_RDONLY|os.O_DIRECTORY)
     try:os.fsync(fd)
     finally:os.close(fd)
@@ -336,8 +410,14 @@ def main():
     parser.add_argument('--output',required=True,type=pathlib.Path)
     parser.add_argument('--usb-port')
     parser.add_argument('--confirm-restore-plan-sha256')
+    parser.add_argument('--retry-after-config-nak-report',type=pathlib.Path)
+    parser.add_argument('--retry-after-config-nak-report-sha256')
     args=parser.parse_args();os.umask(0o077)
     require(os.geteuid()==0,'Local Root operator required')
+    require(bool(args.retry_after_config_nak_report)==bool(args.retry_after_config_nak_report_sha256),
+            'Select both the exact failed report and its digest')
+    require(not args.retry_after_config_nak_report or args.action in ('validate','restore'),
+            'Configuration continuation is only available for explicit restore or validation')
     if args.action=='restore':
         require(args.confirm_restore_plan_sha256==args.plan_sha256 and protocol.sha(args.plan_sha256),
                 'Explicit confirmation of this exact restore plan is required')
@@ -365,6 +445,10 @@ def main():
         save()
         source=Source(args.plan,args.plan_sha256,args.capture_report,args.offline_report)
         require(source.plan['gpt_sha256']==expected.get('gpt_sha256'),'Plan differs from trusted device GPT')
+        if args.retry_after_config_nak_report:
+            source.config_retry=validate_config_retry(args.tools,source,args.retry_after_config_nak_report,
+                                                      args.retry_after_config_nak_report_sha256)
+            report['explicit_config_retry']=source.config_retry;save()
         report.update(plan_sha256=source.plan_hash,plan_id=source.plan['plan_id'],source_image_sha256=source.plan['source_image_sha256']);save()
         recovery.verify_tools(args.tools)
         if args.action=='validate':
@@ -373,7 +457,10 @@ def main():
             with tool_lock(args.tools):
                 if args.action=='restore':
                     marker=args.tools/'restore-attempts'/source.plan['plan_id']
-                    require(not marker.exists() and not marker.is_symlink(),'Restore attempt already consumed; inspect, never retry automatically')
+                    if getattr(source,'config_retry',None):
+                        validate_config_retry(args.tools,source,args.retry_after_config_nak_report,args.retry_after_config_nak_report_sha256)
+                    else:
+                        require(not marker.exists() and not marker.is_symlink(),'Restore attempt already consumed; inspect, never retry automatically')
                 policy=protocol.RestorePolicy(source.plan,source.targets,source.protected)
                 report.update(phase='connecting-recorded-9008',usb_opened=None,usb_open_attempted=True);save()
                 hardware=Hardware.connect(args.tools,args.usb_port,policy)

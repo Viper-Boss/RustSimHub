@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
+import copy
 import hashlib
 import importlib.util
 import json
@@ -123,6 +124,81 @@ class RestoreExecutorTests(unittest.TestCase):
             self.assertFalse(source.plan['capture_execution_passed'])
             self.assertFalse(json.loads(self.capture.read_text())['passed'])
         finally:source.close()
+    def config_refusal(self):
+        out=self.base/'original-refusal';out.mkdir(mode=0o700)
+        before={'sha256':self.source.plan['source_image_sha256'],'gpt_sha256':self.gpt,
+                'boot_sha256':self.source.plan['boot_sha256']}
+        marker=module.consume_once(self.tools,self.source,out,before)
+        check=out/'current-before-check';check.mkdir(mode=0o700)
+        self.write_json(check/'report.json',json.loads(self.offline.read_text()))
+        failed={'format':1,'action':'restore','passed':False,'phase':'failed-inspect-current-mode',
+                'executor_sha256':module.CONFIG_NAK_EXECUTOR_SHA256,'error_type':'ValueError',
+                'error':'Explicit ACK missing; no automatic retry or success inference',
+                'usb_opened':True,'write_configuration_attempted':True,'partition_writes_may_have_occurred':False,
+                'normal_reset_attempted':False,'normal_reset_acknowledged':False,
+                'plan_sha256':self.source.plan_hash,'plan_id':self.source.plan['plan_id'],
+                'source_image_sha256':self.source.plan['source_image_sha256'],'attempt_marker':marker,
+                'current_before':before,'control_replies':[{'operation':'configure',
+                    'xml_sha256':module.CONFIG_32K_XML_SHA256,'response':{'value':'NAK','TargetName':'8916',
+                    'MemoryName':'eMMC','MaxPayloadSizeToTargetInBytes':'16384',
+                    'MaxPayloadSizeToTargetInBytesSupported':'16384'}}]}
+        path=out/'report.json';self.write_json(path,failed)
+        return path,failed,pathlib.Path(marker)
+    def test_explicit_known_config_continuation_retains_original_attempt_and_consumes_only_once(self):
+        path,failed,marker=self.config_refusal();original=(marker/'attempt.json').read_bytes()
+        evidence=module.validate_config_retry(self.tools,self.source,path,recovery.digest(path))
+        self.assertEqual(set(p.name for p in marker.iterdir()),{'attempt.json'})
+        self.source.config_retry=evidence
+        out=self.base/'explicit-continuation';out.mkdir(mode=0o700)
+        used=module.consume_once(self.tools,self.source,out,{'sha256':'a'*64})
+        self.assertEqual(used,str(marker/'after-config-nak'))
+        self.assertEqual((marker/'attempt.json').read_bytes(),original)
+        self.assertEqual(json.loads((pathlib.Path(used)/'attempt.json').read_text())['explicit_config_retry'],evidence)
+        with self.assertRaises(ValueError):module.validate_config_retry(self.tools,self.source,path,recovery.digest(path))
+        with self.assertRaises(ValueError):module.consume_once(self.tools,self.source,out,{'sha256':'a'*64})
+    def test_program_uncertain_changed_producer_or_different_plan_cannot_continue(self):
+        path,original,marker=self.config_refusal()
+        changes=[{'partition_writes_may_have_occurred':True},{'partition_writes_may_have_occurred':None},
+                 {'current_target':'rootfs'},{'programmed_targets':[]},{'raw_payload_transport_bytes':0},
+                 {'executor_sha256':'f'*64},{'plan_sha256':'e'*64},{'normal_reset_attempted':True},
+                 {'write_configuration_attempted':False},{'attempt_marker':str(self.base/'other')},
+                 {'control_replies':[]},{'passed':True}]
+        for change in changes:
+            with self.subTest(change=change):
+                self.write_json(path,{**original,**change})
+                with self.assertRaises(ValueError):module.validate_config_retry(self.tools,self.source,path,recovery.digest(path))
+        for response_change in ({'value':'ACK'},{'rawmode':'true'},{'MaxPayloadSizeToTargetInBytesSupported':'32768'}):
+            failed=copy.deepcopy(original);failed['control_replies'][0]['response'].update(response_change)
+            self.write_json(path,failed)
+            with self.assertRaises(ValueError):module.validate_config_retry(self.tools,self.source,path,recovery.digest(path))
+        self.write_json(path,original)
+        with self.assertRaises(ValueError):module.validate_config_retry(self.tools,self.source,path,'0'*64)
+        self.assertEqual(set(p.name for p in marker.iterdir()),{'attempt.json'})
+    def test_continuation_requires_original_clean_checks_and_linked_consumed_marker(self):
+        path,failed,marker=self.config_refusal()
+        check=path.parent/'current-before-check/report.json';original=check.read_bytes()
+        for change in ({'passed':False},{'independent_readback_sha256':'f'*64},{'filesystems':{}}):
+            self.write_json(check,{**json.loads(original),**change})
+            with self.assertRaises(ValueError):module.validate_config_retry(self.tools,self.source,path,recovery.digest(path))
+        check.write_bytes(original)
+        saved=(marker/'attempt.json').read_bytes()
+        self.write_json(marker/'attempt.json',{**json.loads(saved),'output':str(self.base/'elsewhere')})
+        with self.assertRaises(ValueError):module.validate_config_retry(self.tools,self.source,path,recovery.digest(path))
+        (marker/'attempt.json').write_bytes(saved)
+        (marker/'after-config-nak').mkdir(mode=0o700)
+        with self.assertRaises(ValueError):module.validate_config_retry(self.tools,self.source,path,recovery.digest(path))
+    def test_default_continuation_validation_never_opens_usb_or_consumes_another_attempt(self):
+        path,failed,marker=self.config_refusal();out=self.base/'continuation-validation'
+        args=['restore-system','--tools',str(self.tools),'--plan',str(self.plan),'--plan-sha256',self.plan_hash,
+              '--capture-report',str(self.capture),'--offline-report',str(self.offline),'--output',str(out),
+              '--retry-after-config-nak-report',str(path),'--retry-after-config-nak-report-sha256',recovery.digest(path)]
+        with patch.object(sys,'argv',args),patch.object(recovery,'verify_tools'), \
+                patch.object(module.Hardware,'connect',side_effect=AssertionError('USB forbidden')):
+            module.main()
+        result=json.loads((out/'report.json').read_text())
+        self.assertTrue(result['passed']);self.assertFalse(result['usb_opened'])
+        self.assertIn('explicit_config_retry',result)
+        self.assertEqual(set(p.name for p in marker.iterdir()),{'attempt.json'})
     def test_insufficient_retained_readback_space_refuses_before_attempt_or_write_configuration(self):
         hardware,wire,before=self.hardware()
         output=self.base/'full-disk';output.mkdir(mode=0o700);report={}

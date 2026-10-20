@@ -17,7 +17,7 @@ with patch.dict(sys.modules,{'edl_readonly':recovery}):
 
 def xml(name,attributes):return '<data><'+name+' '+' '.join(k+'="'+str(v)+'"' for k,v in attributes.items())+'/></data>'
 CONFIG={'MemoryName':'eMMC','Verbose':'0','AlwaysValidate':'0','MaxDigestTableSizeInBytes':'2048',
-        'MaxPayloadSizeToTargetInBytes':'32768','ZLPAwareHost':'1','SkipStorageInit':'0','SkipWrite':'0'}
+        'MaxPayloadSizeToTargetInBytes':'16384','ZLPAwareHost':'1','SkipStorageInit':'0','SkipWrite':'0'}
 
 
 class Endpoint:
@@ -127,17 +127,36 @@ class RestoreProtocolTests(unittest.TestCase):
             self.assertEqual(len(endpoint.calls),failure[0])
         endpoint=Endpoint();data=b'x'*(module.MAX_PAYLOAD*2+512)
         self.assertEqual(module.write_bulk_once(endpoint,data),len(data))
-        self.assertEqual([len(c[0]) for c in endpoint.calls],[32768,32768,512])
+        self.assertEqual([len(c[0]) for c in endpoint.calls],[16384,16384,512])
         self.assertTrue(all(c[1]==5000 for c in endpoint.calls))
 
     def test_reconfiguration_and_false_preflight_proof_cannot_enable_write(self):
         p=self.policy()
         with self.assertRaises(ValueError):p.confirm_preflight('0'*64,self.plan['boot_sha256'],self.plan['source_image_sha256'],self.current)
-        for changes in ({'SkipWrite':'1'},{'MemoryName':'ufs'},{'MaxPayloadSizeToTargetInBytes':'65536'},{'unexpected':'1'}):
+        for changes in ({'SkipWrite':'1'},{'MemoryName':'ufs'},{'MaxPayloadSizeToTargetInBytes':'32768'},
+                        {'MaxPayloadSizeToTargetInBytes':'65536'},{'unexpected':'1'}):
             p=self.policy();p.confirm_preflight(self.plan['gpt_sha256'],self.plan['boot_sha256'],self.plan['source_image_sha256'],self.current)
             with self.subTest(changes=changes),self.assertRaises(ValueError):p.validate_xml(xml('configure',{**CONFIG,**changes}))
         p=self.policy();self.arm(p)
         with self.assertRaises(ValueError):p.validate_xml(xml('configure',CONFIG))
+
+    def test_real_programmer_configuration_nak_is_terminal_without_program_or_retry(self):
+        p=self.policy()
+        p.confirm_preflight(self.plan['gpt_sha256'],self.plan['boot_sha256'],self.plan['source_image_sha256'],self.current)
+        p.validate_xml(xml('configure',CONFIG))
+        nak={'value':'NAK','MemoryName':'eMMC','MaxPayloadSizeToTargetInBytes':'16384',
+             'MaxPayloadSizeToTargetInBytesSupported':'16384','MaxXMLSizeInBytes':'4096','TargetName':'8916'}
+        with self.assertRaises(ValueError):p.acknowledge(nak)
+        self.assertEqual(p.phase,'failed')
+        self.assertEqual(p.sent_bytes,0)
+        for command in (xml('configure',CONFIG),self.program(0),xml('power',{'value':'reset'})):
+            with self.assertRaises(ValueError):p.validate_xml(command)
+
+    def test_fixed_write_limit_matches_real_programmer_and_splits_before_transport(self):
+        self.assertEqual(module.MAX_PAYLOAD,16384)
+        endpoint=Endpoint()
+        self.assertEqual(module.write_bulk_once(endpoint,b'x'*32768),32768)
+        self.assertEqual([len(data) for data,_ in endpoint.calls],[16384,16384])
 
     def test_readonly_hook_keeps_original_validator_without_recursion(self):
         p=self.policy()

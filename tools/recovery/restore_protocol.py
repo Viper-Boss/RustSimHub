@@ -9,7 +9,10 @@ import xml.etree.ElementTree as ET
 
 import edl_readonly as recovery
 
-MAX_PAYLOAD = 32768
+# The fixed 8916 programmer explicitly reported this limit on the real board.
+# Keep write configuration and raw chunks identical; do not negotiate/retry a
+# rejected write configuration or reuse the read-only client's initial request.
+MAX_PAYLOAD = 16384
 _readonly_xml = recovery.validate_xml
 MAX_REPLY = 65536
 
