@@ -12,6 +12,9 @@ from unittest import mock
 spec = importlib.util.spec_from_file_location('maintenance_seed', pathlib.Path(__file__).with_name('prepare-maintenance-seed.py'))
 seed = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(seed)
+profile_spec = importlib.util.spec_from_file_location('nas_usb_profile', pathlib.Path(__file__).with_name('prepare-nas-usb-profile.py'))
+profile = importlib.util.module_from_spec(profile_spec)
+profile_spec.loader.exec_module(profile)
 
 
 @unittest.skipUnless(os.geteuid() == 0, 'isolated Root ownership tests required')
@@ -121,3 +124,33 @@ class MaintenanceSeedTests(unittest.TestCase):
         self.assertFalse((self.output/'complete.marker').exists())
         with self.assertRaises(FileExistsError):
             self.prepare()
+
+    def test_inactive_nas_profile_uses_selected_identity_and_never_calls_network_manager(self):
+        manifest = self.prepare()
+        target = self.base/'access'
+        with mock.patch.object(profile.seed.subprocess, 'run', wraps=seed.subprocess.run) as calls:
+            plan = profile.prepare(self.output, self.digest, '2-1', target)
+        self.assertEqual([c.args[0][0] for c in calls.call_args_list], ['/usr/bin/ssh-keygen'])
+        self.assertEqual(plan['expected_host_mac'], manifest['usb_host_mac'])
+        self.assertFalse(plan['network_changed'])
+        text = (target/'usb.nmconnection').read_text()
+        for value in ['autoconnect=false', 'never-default=true', 'ignore-auto-dns=true', 'method=disabled', 'address1=10.55.0.1/29']:
+            self.assertIn(value, text)
+        self.assertNotIn('gateway=', text)
+        self.assertIn('mac-address='+manifest['usb_host_mac'], text)
+        original = (target/'access-plan.json').read_bytes()
+        with self.assertRaises(FileExistsError):
+            profile.prepare(self.output, self.digest, '2-1', target)
+        self.assertEqual((target/'access-plan.json').read_bytes(), original)
+
+    def test_bad_usb_port_or_changed_seed_never_produces_nas_profile(self):
+        self.prepare()
+        target = self.base/'access'
+        for port in ['eth0', '2-1;true', '../2-1', '2-1\n']:
+            with self.assertRaises(ValueError):
+                profile.prepare(self.output, self.digest, port, target)
+            self.assertFalse(target.exists())
+        (self.output/'rustsimhub-v1/system/usb.serial').write_bytes(b'z'*32+b'\n')
+        with self.assertRaises(ValueError):
+            profile.prepare(self.output, self.digest, '2-1', target)
+        self.assertFalse(target.exists())

@@ -16,3 +16,5 @@ python3 tools/system/prepare-maintenance-seed.py \
 部署前仍需在受控离线状态副本上安装、核对旧内容保持，并验收固定主机公钥下的真实维护登录。不得直接把资料路径式复制进旧业务用户可改名的状态父目录；不能改变旧挂载根owner破坏业务。此工具不代替首启、可信业务初装、恢复演练或任何刷写门禁。
 
 `tools/test-maintenance-seed-login.py`用于进一步验收选定身份。它从严格固定主机密钥的NAS连接读取已校验的材料，将服务器身份暂存到棒子Root私有夹具；实际客户端私钥始终由本机Paramiko使用，通过旧SSH通道访问候选ARM sshd的127.0.0.1随机高端口。独立90秒systemd时限及结束停止限制测试窗口。覆盖正确密钥、错误主机指纹、错误客户端、夹具撤销与恢复，以及选定主机身份保持。它不改现用SSH、不开放外部监听、不安装到实际状态分区；候选的挂载守卫明确替换为true，不能据此声称真实NSHSTATE或完整系统维护入口已经验收。实际结果须以新的私有报告为准，不能只根据工具存在判断通过。
+
+NAS侧使用`prepare-nas-usb-profile.py --seed-directory PRIVATE_SEED --expected-public-sha256 PRIVATE_DIGEST --usb-port RECORDED_PORT --output NEW_PRIVATE_OUTPUT`生成独立Root0600 NetworkManager keyfile和计划。只绑定选定USB host MAC，地址10.55.0.1/29，autoconnect=false、never-default=true、忽略自动DNS且禁用IPv6；工具本身不调用NetworkManager、不加载或激活配置、不改地址/路由。计划要求激活前核对实际USB物理口、固件VID/PID、完整serial和host MAC，并检查网段冲突；不得拿新MAC猜旧接口名。实际加载/激活需要另外保存结果，准备文件不代表网络接入通过。
