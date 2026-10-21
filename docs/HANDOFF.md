@@ -1,6 +1,10 @@
 # RustSimHub 当前接手入口
 
-2026-10-21。整体 **74/100，约74%**，固定权重见 [进度刻度](PROGRESS-SCALE.md)。用户最新要求继续自主推进，已去休息；当前不需要其操作。完整历史原文见 [本轮前归档](archive/handoff-before-first-os-consolidation-20261021.md) 和 [更早归档](archive/handoff-before-oneclick-consolidation-20261016.md)。
+2026-10-21。整体 **74/100，约74%**，固定权重见 [进度刻度](PROGRESS-SCALE.md)。用户已醒来并完成本轮按键拔插，继续自主推进。完整历史原文见 [本轮前归档](archive/handoff-before-first-os-consolidation-20261021.md) 和 [更早归档](archive/handoff-before-oneclick-consolidation-20261016.md)。
+
+**最新现场优先于下文历史：**新的只读捕获索引为 `.private/new-os-maintenance-diagnostic-20261021-second.json`。同一探针已经观察到9008，正在保存第二次新系统启动现场；不写分区、不自动reset。原启动时无法通过SSH正常关机，原捕获可能未干净，失败检查必须保留。不要重跑prepare或旧安装/USB激活。先查同一索引的最终exit、GPT/boot和完整摘要，再运行独立second离线检查，读取实际启动日志后再决定第三方案。
+
+自动审批服务已恢复，同一正确路径的8项内核工具夹具及139项完整系统工具测试均通过，无跳过。新second目录的完整内核/模块集成复现已退出0，181.333秒；两种内核格式及681个打包模块全字节匹配，源码/配置保持。当前工具证明见P6T；硬件捕获与该本机构建相互独立。
 
 ## 当前硬件现场
 
@@ -51,9 +55,9 @@
 
 最新覆盖：第七份完整构建已将Image及Image.gz逐字节复现到固定上游，完整来源树与配置保持；1759378798内置cpio时间和临时弱横幅无时间须用目标专属make变量，不能简单全局对齐横幅。681个原装模块经新副本 `objcopy --strip-debug` 后681/681等同原上游包，原输出保持；第一次未打包比较false保留。依据及准确摘要见[P6T](VALIDATION-FULL-KERNEL-P6T.md)。设备、NAS候选和c5ee339冻结工具没有改动。
 
-**当前新增工具为待测WIP，不要推送CI或绕过自动审批执行。** `tools/rebuild-base-kernel.py`前版已真实构建175.2秒并匹配内核，初始7项夹具/138板级（1项因sbin PATH跳过后已单独补跑）通过。随后整合ar/tar模块验证、新副本去调试符号和第8项夹具，WSL执行被自动审批服务的额度错误阻止，明确没有执行；不是安全拒绝。当前版本的这些改动未验证。普通Codex额度查询仍允许使用，不能将其当作审批问题已解除。没有活跃构建进程或新的硬件任务。
+`tools/rebuild-base-kernel.py`整合ar/tar模块验证、新副本去调试符号和非普通输入预打开拒绝，当前8项夹具及完整139项系统工具回归全部通过。此前审批服务额度失败后没有改换入口或推送CI绕过；服务恢复后才按正常审批重跑。新的真实集成构建也已通过，前版及独立私有证明分别保留。
 
-恢复审批后先运行 `test_base_kernel_build.py` 和完整板级，再用 `.local/run-public-kernel-rebuild-second-20261021.py`（准备未运行）完成新输出集成构建；不得重跑first目录。证明文件：`.private/full-kernel-rebuild-20261021-seventh.json`、`.private/stock-module-packaging-reproduction-20261021-first.json`；前版公开工具的报告在WSL cache `full-kernel-rebuild-public-20261021-first/BUILD-REPORT.json`，PC结束日志同名前缀。仍缺完整外部initramfs重建、新内核实机/维护首启及恢复，不改变74点和刷写门禁。
+`.local/run-public-kernel-rebuild-second-20261021.py`已执行成功，不得重跑或覆盖first/second目录。最新报告在WSL cache `full-kernel-rebuild-public-20261021-second/BUILD-REPORT.json`及`PACKAGED-MODULES.json`，PC日志同名前缀。历史证明 `full-kernel-rebuild-20261021-seventh.json`、`stock-module-packaging-reproduction-20261021-first.json`及first公开工具报告保持。仍缺完整外部initramfs重建、新内核实机/维护首启及恢复，不改变74点和刷写门禁。
 
 历史第五/第六份报告与未匹配结果保持，不能改写为第七份成功。原配置没有非零CRC，基础内核与打包模块全字节相同不等于另做了CRC兼容性或实机验收。所有重建未访问设备、生成/写入boot或替换冻结安装输入。
 
@@ -62,7 +66,7 @@
 - 整体固定P0—P7=74点：7、14.5、15、14.5、7.5、5、6.5、4；实际新系统健康/业务验收后再按里程碑更新，不按测试数加点。每次最终回复报告百分比。
 - SIM无流量。换卡且用户明确安排前，不启普通蜂窝APN、不让USB/Wi-Fi隐式回退蜂窝、不跑蜂窝互联网探测；保留电话必需WWAN/IMS。
 - 用户持续授权10010短通话，累计 **38**，本轮没有新拨号/SMS/录音。每次独立幂等键和防重标记、有界自动挂断；Unknown先核验，不自动重拨。其他号码或新短信不能推定授权。
-- GPT/boot/基带/NV/校准区不写。完整内核已独立构建但字节复现未通过；完整恢复、新内核上机、掉电/更新恢复、自动健康确认、远程TURN/蜂窝/长期验收等仍缺。
+- GPT/boot/基带/NV/校准区不写。基础内核与681原装模块的整合字节复现已通过；完整恢复、新内核上机、掉电/更新恢复、自动健康确认、远程TURN/蜂窝/长期验收等仍缺。
 - 前次4e6/a19真实Chrome已确认首句及持续下行完整、自动挂断、观察接通至接音0.7秒；不是新OS或双向验收。详见 [浏览器证据](VALIDATION-BROWSER-MEDIA-P3I.md)。Windows临时预览证书已经实际移除；新证书未授权加入系统信任，不复用旧证书授权。
 - 后续确需物理冷启动/恢复按键、人工双向/来电听音或换卡时，保存现场并等用户醒来；继续推进其他不依赖人工的任务。当前不再发送操作请求。
 - 设备标识、凭据、owner/维护私钥、原始日志/短信/快照仅.private/.local，禁止提交；只从私有索引取真实位置/身份，不猜测。

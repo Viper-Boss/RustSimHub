@@ -1,5 +1,13 @@
 # 完整基础内核独立构建 P6T
 
+## 最新：仓库整合工具真实验证通过
+
+自动审批服务恢复后，同一正常路径执行8项 `test_base_kernel_build.py` 夹具和139项完整系统工具测试，全部通过且无跳过。先前一次误用不存在的tools/board目录导致发现失败，修正到tools/system后完成上述回归，没有修改实现来规避失败。
+
+当前工具在全新 `full-kernel-rebuild-public-20261021-second` 输出实际构建，约181.333秒、进程退出0：未压缩Image、Image.gz、681个新副本去调试符号模块均与固定上游逐字节一致；源码和配置保持。`BUILD-REPORT.json`的passed/source_unchanged/image_byte_identical/compressed_kernel_byte_identical/packaged_modules_byte_identical均为true，`PACKAGED-MODULES.json`逐项记录681份证明及原始模块保持。报告记录构建工具摘要，不能以之后未经验证的实现覆盖。
+
+本轮未访问设备、生成boot镜像、部署或加载模块。完整外部initramfs重建、新内核实机启动及恢复仍缺，保持74/100。下文待测/审批阻断内容为先前检查点，原失败报告与first构建证据保留。
+
 ## 2026-10-21后续：基础内核与681个原装模块已逐字节复现
 
 第七份新输出保持完整源码树和配置不变，以GNU make目标专属变量区分临时弱横幅与内置cpio时间，实际约194.0秒构建退出0。Image（17397768字节，SHA `3474aab48d9ff0c9aecfd70201d932a0520f0c93ad416044711ab2644ec8b004`）及Image.gz（7485978字节，SHA `1fbbef6ccaff103af9dc3281aacaa3d81e82e001d5957c4fa6a018faed1f767f`）均与固定上游boot中的基础内核逐字节相同。

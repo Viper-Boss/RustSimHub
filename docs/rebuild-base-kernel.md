@@ -2,7 +2,7 @@
 
 该工具用于从完整固定源码树重建基础内核及原装模块，输出新目录中的普通文件，不生成Android boot、不访问棒子、不部署或加载模块。
 
-**当前状态：整合模块打包后的工作树版本待测。**原工具前版已完成真实完整构建、内核逐字节相同；模块打包的独立私有流程也已681/681字节匹配。二者的当前整合代码不能据此称为验收通过，详见[真实结果与阻断](VALIDATION-FULL-KERNEL-P6T.md)。
+**当前状态：整合工具已完成真实构建验证。**8项工具夹具、139项完整系统工具回归全部通过；新second输出约181.3秒完成，两种内核格式及681个打包模块逐字节匹配，完整源码树保持。详见[真实结果](VALIDATION-FULL-KERNEL-P6T.md)。
 
 ## 准备输入
 
@@ -13,7 +13,7 @@
 
 上述路径和输出使用没有空白或shell语法的规范绝对路径。所有输出必须新建且与源码树分离；失败目录保留，不自动清理或覆盖输入。建议使用私有Linux构建目录，避免将历史输出、原镜像或设备状态用作可写工作区。
 
-## 待审批恢复、夹具通过后执行
+## 执行方式
 
 ```sh
 python3 tools/rebuild-base-kernel.py \
@@ -34,4 +34,4 @@ python3 tools/rebuild-base-kernel.py \
 
 成功输出应包括 `BUILD-REPORT.json`、`build.log`、`metadata.mk`、原始 `build/`、新副本 `packaged-modules/`及全量 `PACKAGED-MODULES.json`。仅同时满足内核两种格式、681个模块及源保持，才可称基础内核复现通过；这些文件不含整机首启、外部initramfs、冷启动、恢复或发布结论。
 
-当前待测命令：在Linux下运行 `python3 -m unittest discover -s tools/system -p test_base_kernel_build.py`，然后完整板级回归，再执行新second目录的实际完整构建。上一轮自动审批额度错误未获解决前，不改用其他入口绕过，不把当前版本交给CI间接执行被阻断的测试。
+验证命令：在Linux下运行 `python3 -m unittest discover -s tools/system -p test_base_kernel_build.py` 和 `python3 -m unittest discover -s tools/system -p 'test_*.py'`。真实挂载隔离夹具需要Root及包含sbin的PATH；完整构建需要上述私有输入。此前审批服务额度错误已在同一正常审批路径恢复，保留历史失败，不曾绕过审批或用CI代跑受阻动作。
