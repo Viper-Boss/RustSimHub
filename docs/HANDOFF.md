@@ -1,6 +1,20 @@
 # RustSimHub 当前接手入口
 
-## 最新：R01-C已在新系统内交付签名业务及配套文件
+## 最新：R11移动数据、后台网络模块及月限额实测收尾
+
+2026-10-22。用户换移动卡并明确授权流量测试、持久安装网络监测/守卫；完成真实DNS/严格HTTPS、接口绑定、1MiB下载短样本约2.16Mbps、独立月账本、实际256字节剩余额度阻断和普通gsm断开。管理网页新增IP/DNS/APN、无线/小区参数、速率曲线、月统计/限额/重置日及授权主动测试。**整体76.5/100，P4由7.5增至8.5；R11部分完成，其他里程碑不加点。** 详见 [P4B](VALIDATION-CELLULAR-NETWORK-P4B.md)、[模块接口](network-diagnostics.md)。
+
+当前交付业务/Native为38366a8、原开发签名身份factory epoch13；Root网络程序为a239f7f；Root灯控保持0c817c1。bbb安装组成与既有维护补丁保持，未刷写原始分区或整张新镜像。原2b/epoch7收据与备份只作历史，以本次交付/最终检查索引为最新文件依据；system-candidate原来源不改写。正式owner、installation.complete及app/state.json仍不存在，正式Core/Edge/Media仍inactive；临时隔离身份的真实API测试不等于首次设置已完成。
+
+232项Rust、8个Rust ARM构建、Native21项、最终Root6项和网页/系统回归通过。实际新业务受限自检、合成Opus500帧/DTLS各50帧通过；正式新系统的真实通话/短信/双向音频仍缺。本轮新增电话0/SMS0，累计10010仍38。
+
+用户要求测试后关流量并已换回原联通卡。**最终只读复核home注册、普通gsm断开、没有gsm自动连接profile、原卡月账本0、监测/灯控active及PCM关闭。** 移动卡非零账本1,152,128字节已保存并在重启后保持；限额默认恢复关闭、10GiB/每月1日，与普通数据已关闭分开记录。不得因换回原卡、Wi-Fi故障或维护任务重新激活APN/互联网探测。
+
+正常poweroff后棒子重新枚举并返回新boot；仅恢复NAS指定USB维护地址后验证数据仍关闭、Root服务和账本正常。**关机自动回启动尚待诊断，不能声称成功停机或完整冷启动验收。** 换卡后再次只读复核通过；未自动重跑关机/安装/首次初始化。
+
+最新私有证据：`.private/r11-live-network-20261022-fourth.json`、`r11-business-delivery-20261022-second.json`、`r11-final-check-20261022-first.json`、`r11-return-data-off-20261022-second.json`、`r11-original-card-return-20261022-first.json`均passed=true；两个成功退出的Native构建容器已清理，日志/源码/输出保留。最初失败记录保留，不重跑任何已消费helper。本轮收尾保存，不开始R02；下一项协调正式owner/端点/可信TLS初始化、正式启动与冷启动，并诊断poweroff返回。
+
+## 此前：R01-C已在新系统内交付签名业务及配套文件（历史）
 
 2026-10-22，用户追加一个任务。严格固定公钥维护SSH及动态modem枚举只读基线通过：home注册、无通话、PCMclosed、普通gsm未连接、业务未初始化。备份并回读13份旧文件后，通过原子目录交换交付2b/epoch7 factory和新六程序slot，替换update/edge-setup/migrate、Core单元、tmpfiles及0c Root灯控六文件；公钥保持。**设备上8个程序来源、Core自检、UID984无设备/外网的合成Opus500帧与DTLS双向50帧通过，灯控采样正常，初次设置门禁实际跳过且未创建台账。整体75.5/100。** 见 [P6W](VALIDATION-DEVICE-DELIVERY-P6W.md)。
 
