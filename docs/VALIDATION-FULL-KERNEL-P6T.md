@@ -1,5 +1,25 @@
 # 完整基础内核独立构建 P6T
 
+## 2026-10-21后续：基础内核与681个原装模块已逐字节复现
+
+第七份新输出保持完整源码树和配置不变，以GNU make目标专属变量区分临时弱横幅与内置cpio时间，实际约194.0秒构建退出0。Image（17397768字节，SHA `3474aab48d9ff0c9aecfd70201d932a0520f0c93ad416044711ab2644ec8b004`）及Image.gz（7485978字节，SHA `1fbbef6ccaff103af9dc3281aacaa3d81e82e001d5957c4fa6a018faed1f767f`）均与固定上游boot中的基础内核逐字节相同。
+
+前一轮14943字节差异的来源已定位：原内核的临时弱横幅不带时间，最终强横幅带时间；将同一全局时间用于两者会扩大只读数据布局，连带改变指令地址引用。内置默认cpio又使用更早的1759378798时间。新构建通过附加MAKEFILES定义两个目标专属的 `KBUILD_BUILD_TIMESTAMP` 输入：`init/utsversion-tmp.h`为空、`usr/initramfs_data.cpio`为该早期时间；其他目标使用原最终时间。没有修改任何源码、替换内核字节或拷贝原内核来生成输出。
+
+固定上游image包中的681个原装模块与完整重建一一对应。未经打包的原始输出0/681全字节匹配，但681/681的modinfo一致，失败比较保持。随后只对**全新副本**执行GNU objcopy2.44的 `--strip-debug`，681/681整文件SHA与上游包一致，原编译输出保持。原装模块、已重建22个额外音频驱动及基础内核的来源分别可追溯；本轮没有加载或安装任何新模块。
+
+私有证据：`full-kernel-rebuild-20261021-seventh.json/log`、`stock-kernel-module-comparison-20261021-first.json`（原始未打包比较false保留）、`stock-module-packaging-reproduction-20261021-first.json`（681/681 true）。第五、第六份未复现结果及下文原始记录保持。
+
+### 仓库工具的验证边界
+
+新增 `firmware/kernel/base-build-profile.json`、`tools/rebuild-base-kernel.py` 和板级夹具。工具的**整合模块包之前版本**已在另一个新目录完整构建约175.2秒，未压缩及压缩内核都匹配，完整源码树保持；报告位于WSL cache的 `full-kernel-rebuild-public-20261021-first/BUILD-REPORT.json`，PC日志 `full-kernel-rebuild-public-20261021-first.log`，原执行handle78806已退出0。初始7项工具夹具通过，整套138项板级测试通过但因PATH缺sbin跳过一项，随后该真实ext4/SSH隔离夹具已单独补跑通过。
+
+**当前工作树新增了Debian ar/tar模块包校验、只写新副本打包及第8项夹具，尚未执行验证。**执行该WSL测试时，自动审批服务因其额度限制未能完成审核，工具明确未执行；这不是安全拒绝。未换执行入口绕过审批，也未通过推送CI来替代被阻断动作。待审批恢复后先跑该夹具和完整回归，再用新的second输出执行整合工具。不得将上述前版成功、独立私有681模块成功或旧CI覆盖到当前未测版本。
+
+接续脚本 `.local/run-public-kernel-rebuild-second-20261021.py` 已准备但未运行，增加固定image包输入、使用全新输出。现用设备与已经冻结的bbb1081候选/c5ee339安装器均不受本轮工具改动影响。详见[使用及待验说明](rebuild-base-kernel.md)。完整外部initramfs重建、独立内核上机、恢复和完整首启健康仍未通过；总进度保持74/100，所有刷写/发布/恢复门禁保持false。
+
+## 先前独立构建记录
+
 2026-10-21。本机WSL在新私有输出目录完成 `Image.gz modules dtbs`。没有在棒子编译、打开设备、生成启动镜像或写boot；本节独立于第二次rootfs/状态分区安装。
 
 ## 输入与实际结果

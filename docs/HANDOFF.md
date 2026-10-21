@@ -49,7 +49,13 @@
 
 ## 本机完整内核构建
 
-固定93a71ee完整源码、原配置与签名校验的Debian GCC14.2.0-19/binutils2.44已在本机WSL完成 `Image.gz modules dtbs`，681模块、15468项导出表一致，完整源码树保持，约193.5秒。报告 `.private/full-kernel-rebuild-20261021-fifth.json`；前四次来源文本/工具链能力/make准备失败保留。独立sixth也已退出0，配置和上游横幅精确相同，仍有14943个字节不同，逐字节复现未通过。原配置无非零CRC，编译器版本一致不代表编译器二进制相同。两轮未访问设备、生成/写入boot或替换冻结安装输入。详见 [P6T](VALIDATION-FULL-KERNEL-P6T.md)。
+最新覆盖：第七份完整构建已将Image及Image.gz逐字节复现到固定上游，完整来源树与配置保持；1759378798内置cpio时间和临时弱横幅无时间须用目标专属make变量，不能简单全局对齐横幅。681个原装模块经新副本 `objcopy --strip-debug` 后681/681等同原上游包，原输出保持；第一次未打包比较false保留。依据及准确摘要见[P6T](VALIDATION-FULL-KERNEL-P6T.md)。设备、NAS候选和c5ee339冻结工具没有改动。
+
+**当前新增工具为待测WIP，不要推送CI或绕过自动审批执行。** `tools/rebuild-base-kernel.py`前版已真实构建175.2秒并匹配内核，初始7项夹具/138板级（1项因sbin PATH跳过后已单独补跑）通过。随后整合ar/tar模块验证、新副本去调试符号和第8项夹具，WSL执行被自动审批服务的额度错误阻止，明确没有执行；不是安全拒绝。当前版本的这些改动未验证。普通Codex额度查询仍允许使用，不能将其当作审批问题已解除。没有活跃构建进程或新的硬件任务。
+
+恢复审批后先运行 `test_base_kernel_build.py` 和完整板级，再用 `.local/run-public-kernel-rebuild-second-20261021.py`（准备未运行）完成新输出集成构建；不得重跑first目录。证明文件：`.private/full-kernel-rebuild-20261021-seventh.json`、`.private/stock-module-packaging-reproduction-20261021-first.json`；前版公开工具的报告在WSL cache `full-kernel-rebuild-public-20261021-first/BUILD-REPORT.json`，PC结束日志同名前缀。仍缺完整外部initramfs重建、新内核实机/维护首启及恢复，不改变74点和刷写门禁。
+
+历史第五/第六份报告与未匹配结果保持，不能改写为第七份成功。原配置没有非零CRC，基础内核与打包模块全字节相同不等于另做了CRC兼容性或实机验收。所有重建未访问设备、生成/写入boot或替换冻结安装输入。
 
 ## 持续边界与待验收
 
