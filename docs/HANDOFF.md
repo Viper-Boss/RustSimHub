@@ -1,18 +1,24 @@
 # RustSimHub 当前接手入口
 
-2026-10-21。整体 **74/100，约74%**，固定权重见 [进度刻度](PROGRESS-SCALE.md)。用户要求当前任务收尾后暂停；当前音频守卫源码修正和回归已完成，保存后暂停，不开启新一轮部署或验收。完整历史原文见 [本轮前归档](archive/handoff-before-first-os-consolidation-20261021.md) 和 [更早归档](archive/handoff-before-oneclick-consolidation-20261016.md)。
+2026-10-21。整体 **74/100，约74%**，固定权重见 [进度刻度](PROGRESS-SCALE.md)。用户追加要求先部署修正版再停；音频守卫和未初始化恢复条件均已部署、实机复核通过，保存后暂停。完整历史原文见 [本轮前归档](archive/handoff-before-first-os-consolidation-20261021.md) 和 [更早归档](archive/handoff-before-oneclick-consolidation-20261016.md)。
 
 ## 当前暂停检查点（优先于下文历史）
 
 第三安装已退出0：p14+p15完整写后回读、保护范围/GPT/boot、两FS及正常reset ACK通过。新系统USB和固定主机公钥/预选客户端密钥维护SSH登录均已通过；安装器、monitor及一次性接续均已结束，禁止重新执行已消费的安装/连接helper。实际系统仍是bbb1081组成、4e6fea6应用，业务未初始化。唯一设备索引为 `.private/install-first-boot-20261021-third.json`，后续普通维护连接用 `.local/new_os_third_ssh_20261021.py`，接续检查点为 `.private/third-attempt-continuation-20261021-first.json`。
 
-首启健康检查未通过：音频守卫误要求24位srcversion，而固定来源的16项实际均为23位、实机16项身份全部匹配。已修正为严格23位，保留完整值匹配、固定加载列表和服务隔离；以真实固定profile替换合成测试数据，增加长度/大小写等拒绝测试。140项完整系统工具回归通过（7.024秒，无跳过），报告 `.private/system-tools-audio-profile-fix-20261021-second.log`。首轮其他隔离夹具失败记录保留；夹具现显式等待并核验自身loop的udev标签，生产状态守卫未变。**音频修正尚未部署，不能据此声称实机音频服务已通过。**
+初次首启健康检查曾失败：音频守卫误要求24位srcversion，而固定来源的16项实际均为23位、实机16项身份全部匹配。已修正为严格23位，保留完整值匹配、固定加载列表和服务隔离；以真实固定profile替换合成测试数据，增加长度/大小写等拒绝测试。140项完整系统工具回归通过（7.024秒，无跳过），报告 `.private/system-tools-audio-profile-fix-20261021-second.log`。首轮其他隔离夹具失败记录保留；夹具现显式等待并核验自身loop的udev标签，生产状态守卫未变。
 
-已观测ModemManager/rmtfs/radio-resume工作、基带恢复后注册home、普通gsm未连接、无通话/PCM关闭；启动曾发生一次modem watchdog，长期稳定性未验收。设备时钟已校正一次，后续只读观察与可信时钟相差约9秒；不重复执行旧校时helper，冷启动时间保持仍待验证。未初始化app-recover的226失败已有源码条件修正，仍未上机。
+用户追加部署授权后，通过现有固定公钥SSH，将提交7d307ce的音频守卫和app-recover条件单元部署为**第三系统上的两个文件维护补丁**。部署前逐文件核原bbb1081清单摘要/Root权限/非链接并保存原件；同目录暂存、摘要验证、fsync、原子替换，部署后摘要及权限再验。记录 `.private/third-runtime-audio-fix-20261021-first.json` passed=true，两个文件均hash_verified。音频单元active/exited、Result=success、ExecMainStatus=0，CAP_SYS_MODULE及PrivateDevices/内核保护保持；16项身份匹配。app-recover因未初始化ConditionResult=no、inactive，未触发业务恢复。没有重启或块设备写入；实际状态应描述为bbb1081+这两个补丁，而非原始镜像逐字节未变。
+
+部署后只读健康复核已通过：持久状态/固件守卫、固定音频模块、无线处理器、系统服务、ModemManager、PCM空闲、普通蜂窝未连接以及时钟检查通过，报告由第三索引 `first_boot_health_observations` 保存。另在部署前后确认基带home注册、业务未初始化、无通话、boot_id相同。**这是当前启动中的修正复核，尚未重启或冷启动验收，也未进行新系统业务听音/短信测试。**
+
+已观测ModemManager/rmtfs/radio-resume工作、基带恢复后注册home、普通gsm未连接、无通话/PCM关闭；启动曾发生一次modem watchdog，长期稳定性未验收。设备时钟已校正一次，后续只读观察与可信时钟相差约9秒；不重复执行旧校时helper，冷启动时间保持仍待验证。未初始化app-recover的226失败由此次补丁消除，原失败报告保留。
 
 TLS修复3da4679的ARM/Native、签名包和离线镜像已验证但未部署；该候选仍含修正前的24位音频守卫，**不得直接安装**。恢复后先纳入本次音频修正重新组成并验证，再交付修正产物、完成实机启动健康和业务初始化；不要直接运行旧owner初始化helper。累计10010仍38次，无新短信/普通蜂窝流量。暂停期间无需用户操作；下文“正在安装/SSH拒绝/待观察”为已结束的历史。
 
-**最新现场优先于下文历史：**新的只读捕获索引为 `.private/new-os-maintenance-diagnostic-20261021-second.json`。用户本轮已完成按键；完整3909091328字节捕获、摘要/GPT/boot、原图保持及loop分离通过，探针退出0，无分区写入或reset。原启动因SSH不可用未正常关机，两FS只读退出4，失败保留。日志确认SSH准备失败、音频检查失败和未初始化时app-recover缺运行目录，尚不能断言维护修正解决全部启动故障。
+## 本轮较早的捕获、安装准备及构建历史（已由上方更新覆盖）
+
+**第三安装前只读捕获（历史）：**新的只读捕获索引为 `.private/new-os-maintenance-diagnostic-20261021-second.json`。用户本轮已完成按键；完整3909091328字节捕获、摘要/GPT/boot、原图保持及loop分离通过，探针退出0，无分区写入或reset。原启动因SSH不可用未正常关机，两FS只读退出4，失败保留。日志确认SSH准备失败、音频检查失败和未初始化时app-recover缺运行目录，尚不能断言维护修正解决全部启动故障。
 
 当前状态独立副本强制preen退出1→只读0，旧101项完全一致、业务目录未初始化且为空、维护/USB材料保持，原图保持。第三安装因此选择同一原始干净维护状态及bbb1081新rootfs；独立 `.private/install-first-boot-20261021-third.json` 的准备/两FS/离线验证全部通过，准备进程退出0。冻结执行工具从已通过CI的c5ee339准确Git对象读取，不用当前HEAD冒充其来源。已在同一已记录9008会话启动一次第三安装：先另存完整现场、核精确未干净摘要，再仅写p14+p15、完整回读/保护范围/两FS和正常reset。结果尚待完成，禁止重复启动或在Unknown后重试。唯一只读monitor为 `.local/monitor-install-third-boot-20261021.py`；执行句柄及准确接续保存在 `.private/third-attempt-continuation-20261021-first.json`。目前无新的物理动作要求，保持连接。
 
