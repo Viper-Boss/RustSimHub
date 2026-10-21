@@ -119,16 +119,18 @@ class AudioModuleSourceTests(unittest.TestCase):
 
 @unittest.skipUnless(hasattr(os,'geteuid') and os.geteuid()==0, 'Linux root ownership guard fixture')
 class AudioDriverGuardTests(unittest.TestCase):
-    def test_fixed_loader_and_kernel_profile_srcversion_failure_paths(self):
+    def test_fixed_loader_uses_real_pinned_profile_and_refuses_mismatch(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = pathlib.Path(temporary)
             profile = directory/'profile'
-            rows = ''.join('q6synthetic'+str(i)+' '+'A'*24+'\n' for i in range(16))
+            pinned, _ = audio.profile()
+            identities = {r['modinfo']['name']: r['modinfo']['srcversion'] for r in audio.loaded_rows(pinned)}
+            rows = ''.join(name+' '+version+'\n' for name, version in identities.items())
             profile.write_text(audio.RELEASE+'\n'+rows);profile.chmod(0o444)
             sysdir = directory/'sys'
-            for i in range(16):
-                path = sysdir/('q6synthetic'+str(i));path.mkdir(parents=True)
-                (path/'srcversion').write_text('A'*24+'\n')
+            for name, version in identities.items():
+                path = sysdir/name;path.mkdir(parents=True)
+                (path/'srcversion').write_text(version+'\n')
             log = directory/'modprobe-calls'
             probe = directory/'probe';probe.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> '+str(log)+'\n');probe.chmod(0o755)
             uname = directory/'uname';uname.write_text('#!/bin/sh\nprintf "%s\\n" '+audio.RELEASE+'\n');uname.chmod(0o755)
@@ -144,10 +146,20 @@ class AudioDriverGuardTests(unittest.TestCase):
             uname.write_text('#!/bin/sh\necho '+audio.RELEASE+'\n')
             profile.chmod(0o644)
             self.assertNotEqual(run().returncode, 0);self.assertFalse(log.exists())
-            profile.chmod(0o444);(sysdir/'q6synthetic0/srcversion').write_text('B'*24+'\n')
+            first = next(iter(identities))
+            version = identities[first]
+            altered = ('0' if version[0] != '0' else '1')+version[1:]
+            profile.chmod(0o444);(sysdir/first/'srcversion').write_text(altered+'\n')
             rejected=run();self.assertNotEqual(rejected.returncode, 0)
-            self.assertIn('identity-q6synthetic0',rejected.stderr)
+            self.assertIn('identity-'+first,rejected.stderr)
             self.assertEqual(log.read_text().splitlines(), expected)
-            (sysdir/'q6synthetic0/srcversion').write_text('A'*24+'\n')
+            (sysdir/first/'srcversion').unlink()
+            self.assertNotEqual(run().returncode, 0)
+            (sysdir/first/'srcversion').write_text(version+'\n')
             profile.write_text(audio.RELEASE+'\n'+rows.rsplit('\n',2)[0]+'\n')
             self.assertNotEqual(run().returncode, 0)
+            for invalid in [rows+'\n', rows.replace(first+' ', first+' ../escape ', 1),
+                            rows.replace(version, version+'0', 1),
+                            rows.replace(version, version.lower(), 1)]:
+                profile.write_text(audio.RELEASE+'\n'+invalid)
+                self.assertNotEqual(run().returncode, 0)

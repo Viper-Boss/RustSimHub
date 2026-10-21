@@ -22,7 +22,9 @@ done
 count=0
 while read -r module version extra <&3; do
  stage=profile-row
- test -z "$extra" && test -n "$module" && test "${#version}" = 24
+ # The source-locked UFI003 module metadata stores 23 uppercase hex digits.
+ # Require that exact format and compare the complete value below.
+ test -z "$extra" && test -n "$module" && test "${#version}" = 23
  case "$module" in *[!a-zA-Z0-9_]*|'') exit 1;; esac
  case "$version" in *[!0-9A-F]*|'') exit 1;; esac
  stage=identity-$module

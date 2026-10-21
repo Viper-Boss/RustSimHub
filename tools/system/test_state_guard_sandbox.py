@@ -16,7 +16,10 @@ SSH_PREPARE = SCRIPT.with_name('rustsimhub-ssh-prepare')
 
 def worker():
     def command(*args):
-        return subprocess.check_output(args, text=True, stderr=subprocess.STDOUT).strip()
+        try:
+            return subprocess.check_output(args, text=True, stderr=subprocess.STDOUT).strip()
+        except subprocess.CalledProcessError as exc:
+            raise AssertionError('Fixture command failed: '+str(args)+'\n'+exc.output) from exc
 
     with tempfile.TemporaryDirectory(prefix='rustsimhub-state-sandbox-') as folder:
         base = pathlib.Path(folder)
@@ -72,6 +75,17 @@ def worker():
             protected_prepare.write_text(prepare.read_text().replace(str(guard),str(protected_guard)).replace(str(state),str(protected)))
             assert subprocess.run(['sh',str(protected_guard)],capture_output=True).returncode!=0
             command('sh',str(protected_guard),'--system-writer')
+            # Real .mount units wait for their udev .device. A direct loop mount
+            # can race label probing after a previously used loop number. Seed
+            # and verify metadata for this fixture's own loop before hiding /dev.
+            device = pathlib.Path('/sys/dev/block')/number
+            loop_name = device.resolve().name
+            assert loop_name.startswith('loop') and loop_name[4:].isdigit()
+            assert pathlib.Path(command('losetup','-n','-O','BACK-FILE',source)).resolve() == image.resolve()
+            command('udevadm','trigger','--action=change','--settle',str(device.resolve()))
+            properties = dict(line.split('=',1) for line in command(
+                'udevadm','info','--query=property','--path='+str(device.resolve())).splitlines() if '=' in line)
+            assert properties.get('ID_FS_LABEL') == 'NSHSTATE'
             # Mount namespace is private. This reproduces PrivateDevices hiding
             # the physical device while leaving the already mounted state intact.
             command('mount', '-t', 'tmpfs', '-o', 'mode=0755,nosuid,noexec', 'tmpfs', '/dev')
@@ -79,7 +93,7 @@ def worker():
             for name,minor in [('null',3),('random',8),('urandom',9)]:
                 os.mknod('/dev/'+name,0o20666,os.makedev(1,minor))
             assert not pathlib.Path(source).exists()
-            command('sh', str(guard))
+            command('sh', '-x', str(guard))
             isolated=['setpriv','--bounding-set=-all','--inh-caps=-all','--ambient-caps=-all']
             command(*isolated,'sh',str(protected_prepare))
             assert (system/'ssh-host/key').read_bytes()==selected_host
@@ -109,7 +123,7 @@ def worker():
 
 
 @unittest.skipUnless(hasattr(os, 'geteuid') and os.geteuid() == 0 and
-                     all(shutil.which(name) for name in ['unshare','mkfs.ext4','mount','losetup','setpriv','ssh-keygen']),
+                     all(shutil.which(name) for name in ['unshare','mkfs.ext4','mount','losetup','setpriv','ssh-keygen','udevadm']),
                      'isolated Linux root mount test required')
 class StateGuardSandboxTests(unittest.TestCase):
     def test_real_ext4_mount_with_hidden_physical_devices(self):
