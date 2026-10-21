@@ -15,7 +15,7 @@ sudo python3 tools/compose-system-tree.py \
 
 ## 板级启动顺序
 
-`rustsimhub-status-led.service`在multi-user启动时，为固定UFI003的`green:wan`选择内核heartbeat触发器，表示操作系统仍在运行；不表示SIM注册、网络、业务或通话验收通过。服务为oneshot，无轮询进程；Root空capability、只开放该灯的固定sysfs目录写入，验证板型、GPIO LED驱动和最大亮度，不使用任意GPIO接口。红/蓝活动灯与mmc指示保持原触发器。`/etc/rustsimhub/status-led.conf`仅接受一行`heartbeat`或`off`，须Root0644、单链接普通文件；修改后重启该服务生效，停止服务也会关闭绿灯。来源验证及真实上机状态见最新HANDOFF，不把核实触发器配置当作肉眼确认。
+`rustsimhub-status-led.service`由独立Rust程序控制固定UFI003的红/绿/蓝三个sysfs通道，空capability且只开放这三个目录写入，不使用任意GPIO接口。`/etc/rustsimhub/status-led.conf`仅接受`auto`或`off`，须Root0644、单链接普通文件。系统组合时通过`--status-led-artifacts`显式提供同组成源码的ARM构建及摘要才启用服务；不能启用不存在的灯控程序。颜色、优先级、短租约、未读动画和GPIO亮度限制见[指示灯约定](../../docs/status-led.md)。Core/更新器事件接线和实机验收以HANDOFF最新记录为准，不把策略测试当成真实业务已接入，也不把sysfs读回当作肉眼混色确认。
 
 `var-lib-rustsimhub.mount`按GPT标签NSHSTATE挂到`/var/lib/rustsimhub`，不格式化。只支持当前实测UFI003布局：mmcblk0p15、264159个512字节扇区、ext4/NSHSTATE、rw且不是根文件系统。检查失败时拒绝进入目录/固件准备，禁止向根文件系统临时目录悄悄降级。
 

@@ -1,13 +1,14 @@
 [Unit]
-Description=UFI003 operating system heartbeat indicator
+Description=UFI003 fixed RGB status indicator
 ConditionPathExists=/sys/class/leds/green:wan/brightness
-After=systemd-udev-trigger.service
+After=systemd-udev-trigger.service NetworkManager.service
 
 [Service]
-Type=oneshot
-ExecStart=/usr/local/libexec/rustsimhub-status-led
-ExecStop=/usr/local/libexec/rustsimhub-status-led --off
-RemainAfterExit=yes
+Type=simple
+ExecStart=/usr/libexec/rustsimhub/rustsimhub-status-led
+ExecStopPost=/usr/libexec/rustsimhub/rustsimhub-status-led --off
+Restart=on-failure
+RestartSec=10
 TimeoutStartSec=5
 TimeoutStopSec=5
 User=root
@@ -22,8 +23,11 @@ ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
 ReadWritePaths=/sys/devices/platform/leds/leds/green:wan
+ReadWritePaths=/sys/devices/platform/leds/leds/red: /sys/devices/platform/leds/leds/blue:
 RestrictAddressFamilies=AF_UNIX
 UMask=0077
+MemoryMax=16M
+TasksMax=12
 
 [Install]
 WantedBy=multi-user.target
