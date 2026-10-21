@@ -24,6 +24,8 @@ mod media_ipc;
 #[cfg(target_os = "linux")]
 mod network;
 #[cfg(target_os = "linux")]
+mod network_diagnostics;
+#[cfg(target_os = "linux")]
 mod network_trial;
 #[cfg(target_os = "linux")]
 mod observer;

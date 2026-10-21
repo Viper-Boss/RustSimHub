@@ -275,6 +275,17 @@ async fn ipc_requires_proof_and_checks_revocation_even_from_same_uid() {
     .await;
     let client_token = client_session["token"].as_str().unwrap().to_owned();
     for command in [
+        AuthCommand::NetworkDiagnostics {
+            token: client_token.clone(),
+        },
+        AuthCommand::SetNetworkPolicy {
+            token: client_token.clone(),
+            request_id: "11111111-1111-4111-8111-111111111111".into(),
+            enabled: false,
+            limit_bytes: 1000000,
+            reset_day: 1,
+            acknowledge_meter_gap: false,
+        },
         AuthCommand::ConfigurationIndicator {
             token: client_token.clone(),
             view_id: "11111111-1111-4111-8111-111111111111".into(),

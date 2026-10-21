@@ -41,6 +41,7 @@ use tokio_rustls::{
 type Result<T> = std::result::Result<T, &'static str>;
 mod installation;
 mod media;
+mod network_test;
 
 #[derive(Deserialize, serde::Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -231,7 +232,10 @@ async fn boundary(State(app): State<App>, req: Request, next: Next) -> Response 
         && headers
             .get(header::HOST)
             .is_some_and(|v| v.as_bytes() == app.authority.as_bytes());
-    let api_path = matches!(req.uri().path(), "/api/v2" | "/api/media/v1");
+    let api_path = matches!(
+        req.uri().path(),
+        "/api/v2" | "/api/media/v1" | "/api/network/v1/test"
+    );
     let media_capabilities = req.uri().path() == "/api/media/capabilities";
     let legacy_path = req.uri().path() == "/v1/session" || req.uri().path() == "/compat/v1/read";
     let origin_ok = headers.get_all(header::ORIGIN).iter().count() == 1
@@ -466,6 +470,15 @@ fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/network.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/network.js"),
+                )
+            }),
+        )
+        .route(
             "/proof.js",
             get(|| async {
                 (
@@ -502,6 +515,7 @@ fn router(app: App) -> Router {
             }),
         )
         .route("/api/v2", post(api))
+        .route("/api/network/v1/test", post(network_test::api))
         .route("/api/media/v1", post(media::api))
         .route("/api/media/capabilities", get(media::capabilities))
         .route("/v1/session", post(legacy_session))

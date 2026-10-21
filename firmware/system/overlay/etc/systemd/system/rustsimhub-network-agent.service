@@ -1,0 +1,36 @@
+[Unit]
+Description=RustSimHub bounded network diagnostics and monthly data guard
+Requires=var-lib-rustsimhub.mount rustsimhub-firstboot.service
+After=var-lib-rustsimhub.mount rustsimhub-firstboot.service systemd-tmpfiles-setup.service dbus.service
+Before=NetworkManager.service
+
+[Service]
+Type=simple
+User=root
+SupplementaryGroups=rustsimhub-core
+ExecStart=/usr/libexec/rustsimhub/rustsimhub-network-agent
+ExecStartPre=/usr/libexec/rustsimhub/rustsimhub-network-agent --early-guard
+ExecStopPost=/usr/libexec/rustsimhub/rustsimhub-network-agent --checkpoint-stop
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=5
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_NET_ADMIN
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ReadWritePaths=/run/rustsimhub-network /var/lib/rustsimhub/rustsimhub-v1/system/network
+ReadOnlyPaths=/run/rustsimhub-network-input
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+UMask=0077
+MemoryMax=48M
+TasksMax=16
+LimitCORE=0
+
+[Install]
+WantedBy=multi-user.target

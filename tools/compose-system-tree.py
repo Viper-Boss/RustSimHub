@@ -81,6 +81,7 @@ def main():
     parser.add_argument('--native-artifacts', type=pathlib.Path, help='Explicit same-source worker provenance; never inferred from an older signed payload')
     parser.add_argument('--audio-modules', type=pathlib.Path, help='Exactly 22 source-locked UFI003 modules; required with Native')
     parser.add_argument('--status-led-artifacts', type=pathlib.Path, help='Separately source-locked ARM status indicator build')
+    parser.add_argument('--network-agent-artifacts', type=pathlib.Path, help='Explicit source-locked network monitor and monthly guard build')
     args = parser.parse_args()
     startup = bool(args.signed_application)
     assert not args.native_artifacts or startup
@@ -144,6 +145,13 @@ def main():
         assert led_build['target'] == 'aarch64-unknown-linux-gnu'
         assert base_tools.sha256_file(led/'rustsimhub-status-led') == led_build['binary_sha256']
         assert 'AArch64' in subprocess.check_output(['readelf','-h',str(led/'rustsimhub-status-led')],text=True)
+    network_build = None
+    if args.network_agent_artifacts:
+        network = args.network_agent_artifacts.resolve(strict=True)
+        network_build = json.loads((network/'build.json').read_text())
+        assert network_build['revision'] == revision and network_build['target'] == 'aarch64-unknown-linux-gnu'
+        assert base_tools.sha256_file(network/'rustsimhub-network-agent') == network_build['artifact_sha256']['rustsimhub-network-agent']
+        assert 'AArch64' in subprocess.check_output(['readelf','-h',str(network/'rustsimhub-network-agent')],text=True)
     directory(args.out, 0o700)
     output = args.out.resolve(strict=True)
     try:
@@ -181,6 +189,13 @@ def main():
             target = destination(tree, 'usr/libexec/rustsimhub/rustsimhub-status-led')
             shutil.copyfile(led/'rustsimhub-status-led',target)
             os.chown(target,0,0);target.chmod(0o555)
+        if network_build:
+            target = destination(tree, 'usr/libexec/rustsimhub/rustsimhub-network-agent')
+            shutil.copyfile(network/'rustsimhub-network-agent',target)
+            os.chown(target,0,0);target.chmod(0o555)
+        else:
+            # Do not introduce a boot dependency on an executable that was not supplied.
+            (tree/'etc/systemd/system/NetworkManager.service.d/50-rustsimhub-network-guard.conf').unlink()
         slot = 'opt/rustsimhub/factory/'+build['source_archive_sha256']
         for name in NAMES:
             target = destination(tree, slot+'/'+name)
@@ -214,6 +229,7 @@ def main():
         units = ['rustsimhub-firstboot.service', 'rustsimhub-usb.service',
                  'rustsimhub-device-firmware.service', 'rustsimhub-radio-resume.service']
         if led_build: units+=['rustsimhub-status-led.service']
+        if network_build: units+=['rustsimhub-network-agent.service']
         if startup:units+=['rustsimhub-app.target']
         for unit in units:
             link = destination(tree, 'etc/systemd/system/multi-user.target.wants/'+unit)
@@ -232,6 +248,8 @@ def main():
                      'kernel_audio_modules_installed': bool(audio_layer),
                      'board_boot_verified': False, 'private_data_included': False}
         candidate['status_led_installed'] = bool(led_build)
+        candidate['network_agent_installed'] = bool(network_build)
+        if network_build: candidate['network_agent_build'] = network_build
         if led_build: candidate['status_led_build'] = led_build
         if startup:
             candidate['factory_manifest_sha256']=base_tools.sha256_file(signed/'manifest.json')

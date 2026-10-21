@@ -3,6 +3,7 @@ import { prove, unhex, hex } from './proof.js';
 import { AudioLink } from './media.js';
 import { CallTest } from './call-test.js';
 import { ConfigurationIndicator } from './indicator.js';
+import { NetworkPanel } from './network.js';
 const $=id=>document.getElementById(id);
 const scopes=['status.read','sms.read','calls.read'];
 let key, publicKey, token=null, busy=false, pending=null, lease=null;
@@ -47,6 +48,12 @@ async function api(command,epoch=viewEpoch){
 }
 function auth(command){if(!token)throw Error('请先登录');return api({...command,token});}
 const notice=text=>{$('notice').textContent=text;};
+const networkPanel=new NetworkPanel({document,request:command=>auth(command),getToken:()=>token,runTest:async command=>{
+ const epoch=viewEpoch,authToken=token;if(!authToken)throw Error('请先登录');
+ const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),35000);requests.add(controller);
+ try{const r=await fetch('/api/network/v1/test',{method:'POST',headers:{'Content-Type':'application/json','X-RustSimHub-Request':'2'},body:JSON.stringify({...command,token:authToken}),signal:controller.signal,credentials:'omit',cache:'no-store',redirect:'error'});current(epoch);if(!r.ok)throw Error(r.status===429?'测试正在运行或需间隔15秒':'请检查网络权限和设备状态');const result=await r.json();current(epoch);return result;}
+ finally{clearTimeout(timer);requests.delete(controller);}
+}});
 function showPending(){
  $('pending').textContent=pending?JSON.stringify({type:pending.type,action:pending.action,operation_id:pending.id,state:pending.state,submit_started:pending.submit_started},null,2):'没有待处理操作';
  $('pending-hint').textContent=!pending?'先在上方准备一笔操作，再在这里核对和提交。':pending.state==='submitted'?'这笔操作已提交，因此不能再次确认。要准备下一笔，请先点击“关闭已完成操作”。':pending.state==='cancelled'?'这笔操作已取消；请关闭它后再准备下一笔。':pending.submit_started?'这笔请求可能已经发出，只能查询结果；请勿重新提交。':!token?'请先在页面上方登录，再查询和核对当前操作。':'操作已准备。核对后点击“确认提交一次”；接通后在上方点击“连接声音”。';
@@ -95,7 +102,7 @@ async function pair(){
 async function login(){
  void audioLink.stop();const epoch=viewEpoch;token=null;lease=null;showAudio();const c=await api({op:'challenge',public_key:Array.from(publicKey)},epoch);const signature=await proof(c,'login',undefined,epoch);current(epoch);
  const r=await api({op:'authenticate',challenge_id:c.id,signature},epoch);current(epoch);if(!/^[a-f0-9]{64}$/.test(r.token))throw Error('登录响应无效');
- token=r.token;configurationOpen=true;void configurationIndicator.set(!document.hidden);notice('已登录；会话最长 15 分钟');await refresh();
+ token=r.token;configurationOpen=true;void configurationIndicator.set(!document.hidden);networkPanel.start();notice('已登录；会话最长 15 分钟');await refresh();
 }
 function row(text,parent,onClick){const item=document.createElement('div');item.className='row';const label=document.createElement('span');label.textContent=text;item.append(label);if(onClick){const button=document.createElement('button');button.textContent='查看';button.onclick=()=>act(onClick);item.append(button);}parent.append(item);}
 async function inboxPage(reset=false){if(reset){inboxCursor=null;$('inbox').replaceChildren();}const page=await auth({op:'inbox',after:inboxCursor,limit:16});for(const s of page.messages)row(`${s.id} · SIM 代次 ${s.line}${s.binary?' · 二进制短信':''}`,$('inbox'),async()=>{$('sms-detail').textContent=JSON.stringify(await auth({op:'sms_detail',sms_id:s.id}),null,2);await auth({op:'notification_read',entity:'sms',record_id:s.id});});inboxCursor=page.cursor;$('more-inbox').disabled=page.messages.length<16;}
@@ -150,6 +157,7 @@ async function query(){const epoch=viewEpoch;if(!pending)return;const r=await au
 async function act(fn){if(busy)return;const generation=++actionGeneration,epoch=viewEpoch;busy=true;try{await fn();}catch(error){if(epoch===viewEpoch&&generation===actionGeneration)notice(error.message||'操作失败');}finally{if(generation===actionGeneration){busy=false;showPending();}}}
 function bind(id,fn){$(id).onclick=()=>act(fn);}
 bind('initialize-owner',initializeOwner);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
+bind('network-login',login);const networkPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{networkPanel.stop();networkPreviousLogout();};
 bind('refresh-history',loadHistory);bind('more-history',()=>historyPage());$('history-source').onchange=()=>act(async()=>{historyTypes();await historyPage(true);});$('history-entity').onchange=()=>act(()=>historyPage(true));
 bind('wifi-begin',beginWifi);bind('wifi-status',()=>wifiAction('wifi_status'));bind('wifi-confirm',()=>wifiAction('wifi_confirm'));bind('wifi-cancel',()=>wifiAction('wifi_cancel'));const previousLogout=$('logout').onclick;$('logout').onclick=()=>{clearWifi();$('wifi-section').hidden=true;previousLogout();};
 bind('more-inbox',()=>inboxPage());bind('more-calls',()=>callsPage());bind('prepare-sms',()=>prepare('sms','send'));for(const action of ['dial','accept','hangup','dtmf'])bind('prepare-'+action,()=>prepare('call',action));bind('submit',submit);bind('query',query);bind('clear',async()=>{if(!pending||!['submitted','cancelled'].includes(pending.state))throw Error('当前结果必须保留查询');pending=null;await save('pending',null);showPending();});
@@ -171,3 +179,4 @@ for(const panel of document.querySelectorAll('details'))panel.addEventListener('
 setInterval(()=>{if(token&&configurationOpen&&!document.hidden)void configurationIndicator.set(true);},10000);
 document.addEventListener('visibilitychange',()=>{if(token)void configurationIndicator.set(configurationOpen&&!document.hidden);});
 addEventListener('pagehide',()=>{configurationOpen=false;void configurationIndicator.set(false);});
+addEventListener('pagehide',()=>networkPanel.stop());

@@ -81,6 +81,18 @@ pub enum AuthCommand {
     NetworkStatus {
         token: String,
     },
+    NetworkDiagnostics {
+        token: String,
+    },
+    SetNetworkPolicy {
+        token: String,
+        request_id: String,
+        enabled: bool,
+        limit_bytes: u64,
+        reset_day: u8,
+        #[serde(default)]
+        acknowledge_meter_gap: bool,
+    },
     WifiTrial {
         token: String,
         idempotency_key: String,
@@ -436,6 +448,24 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 return Err(invalid());
             }
         }
+        AuthCommand::SetNetworkPolicy {
+            token,
+            request_id,
+            limit_bytes,
+            reset_day,
+            ..
+        } => {
+            if token.len() != 64
+                || request_id.len() != 36
+                || !request_id
+                    .bytes()
+                    .all(|b| b.is_ascii_hexdigit() || b == b'-')
+                || !(1..=100 * 1024 * 1024 * 1024 * 1024u64).contains(limit_bytes)
+                || !(1..=31).contains(reset_day)
+            {
+                return Err(invalid());
+            }
+        }
         AuthCommand::WifiBegin {
             token,
             idempotency_key,
@@ -583,6 +613,7 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         | AuthCommand::Capabilities { token }
         | AuthCommand::LineStatus { token }
         | AuthCommand::NetworkStatus { token }
+        | AuthCommand::NetworkDiagnostics { token }
         | AuthCommand::OpenPairing { token }
         | AuthCommand::PendingPairings { token }
         | AuthCommand::Clients { token }
@@ -739,5 +770,26 @@ mod tests {
         let key = vec![0; 32];
         let invalid = serde_json::json!({"protocol":2,"id":"a","command":{"op":"pair_challenge","public_key":key,"kind":"nas","scopes":["everything"]}});
         assert!(parse_auth_request(&serde_json::to_vec(&invalid).unwrap()).is_err());
+    }
+    #[test]
+    fn network_settings_reject_paths_invalid_limits_and_missing_authority() {
+        let valid = serde_json::json!({"protocol":2,"id":"network","command":{"op":"set_network_policy","token":"a".repeat(64),"request_id":"11111111-1111-4111-8111-111111111111","enabled":true,"limit_bytes":1000000,"reset_day":31}});
+        assert!(parse_auth_request(&serde_json::to_vec(&valid).unwrap()).is_ok());
+        for (key, value) in [
+            ("token", serde_json::json!("")),
+            ("request_id", serde_json::json!("../policy")),
+            ("limit_bytes", serde_json::json!(0)),
+            ("reset_day", serde_json::json!(32)),
+            ("path", serde_json::json!("/etc/passwd")),
+            ("operator", serde_json::json!("injected")),
+        ] {
+            let mut v = valid.clone();
+            v["command"][key] = value;
+            assert!(parse_auth_request(&serde_json::to_vec(&v).unwrap()).is_err());
+        }
+        assert!(parse_auth_request(
+            br#"{"protocol":2,"id":"n","command":{"op":"network_diagnostics"}}"#
+        )
+        .is_err());
     }
 }

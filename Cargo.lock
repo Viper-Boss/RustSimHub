@@ -1715,6 +1715,7 @@ name = "rustsimhub-edge"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "getrandom 0.4.3",
  "hyper",
  "hyper-util",
  "rcgen",
@@ -1725,6 +1726,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "socket2",
  "tempfile",
  "tokio",
  "tokio-rustls",
@@ -1742,6 +1744,20 @@ dependencies = [
  "sha2 0.10.9",
  "tempfile",
  "tokio",
+]
+
+[[package]]
+name = "rustsimhub-network-agent"
+version = "0.1.0"
+dependencies = [
+ "fs2",
+ "getrandom 0.4.3",
+ "rustix",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "time",
 ]
 
 [[package]]

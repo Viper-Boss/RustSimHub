@@ -101,6 +101,41 @@ async fn host_origin_content_marker_size_and_role_fail_before_core() {
     );
 }
 #[tokio::test]
+async fn network_tests_keep_the_same_origin_marker_and_query_fences() {
+    let d = tempfile::tempdir().unwrap();
+    let a = app(d.path().join("absent.sock"));
+    for (origin, marker, path) in [
+        ("https://evil.invalid", true, "/api/network/v1/test"),
+        ("https://localhost:8443", false, "/api/network/v1/test"),
+        (
+            "https://localhost:8443",
+            true,
+            "/api/network/v1/test?token=bad",
+        ),
+    ] {
+        let mut r = request(origin, "localhost:8443", br#"{}"#.to_vec());
+        *r.uri_mut() = path.parse().unwrap();
+        if !marker {
+            r.headers_mut().remove("x-rustsimhub-request");
+        }
+        assert_eq!(
+            router(a.clone()).oneshot(r).await.unwrap().status(),
+            StatusCode::FORBIDDEN
+        );
+    }
+    let mut r = request(
+        "https://localhost:8443",
+        "localhost:8443",
+        br#"{"token":"a","interface":"wwan0","profile":"download","url":"http://127.0.0.1"}"#
+            .to_vec(),
+    );
+    *r.uri_mut() = "/api/network/v1/test".parse().unwrap();
+    assert_eq!(
+        router(a).oneshot(r).await.unwrap().status(),
+        StatusCode::BAD_REQUEST
+    );
+}
+#[tokio::test]
 async fn valid_core_response_is_forwarded_but_wrong_id_version_and_size_are_not() {
     for case in 0..4 {
         let dir = tempfile::tempdir().unwrap();

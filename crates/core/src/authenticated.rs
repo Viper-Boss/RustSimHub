@@ -65,7 +65,9 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | WifiStatus { .. }
         | WifiConfirm { .. }
         | WifiCancel { .. }
-        | NetworkStatus { .. } => return Err(rustsimhub_auth::Error::Forbidden),
+        | NetworkStatus { .. }
+        | NetworkDiagnostics { .. }
+        | SetNetworkPolicy { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         Calls {
             token,
             after,
@@ -256,6 +258,11 @@ pub(crate) async fn handle(
             }
         })
         .await?
+    } else if matches!(
+        request.command,
+        AuthCommand::NetworkDiagnostics { .. } | AuthCommand::SetNetworkPolicy { .. }
+    ) {
+        crate::network_diagnostics::authorized(auth.clone(), request.command).await
     } else if let AuthCommand::NetworkStatus { token } = request.command {
         crate::network::authorized(auth.clone(), token).await
     } else if let AuthCommand::WifiTrial {
