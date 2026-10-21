@@ -1,6 +1,6 @@
 # 最新开发进度：2026-10-21
 
-依赖复核：4e6原workspace锁文件命中5条RustSec TLS公告；仅更新rustls 0.23.46/webpki 0.103.16后，同一数据库下workspace及Native均0漏洞，209项Rust/生产检查/Clippy通过。仍有5项维护警告，未忽略。新ARM/签名交付/实机尚待完成，正在安装的bbb1081仍含旧程序，先完成维护诊断，业务初始化暂缓至修复产物交付。详见VALIDATION-DEPENDENCIES-P7D.md；仍74/100。
+依赖复核：4e6原workspace锁文件命中5条RustSec TLS公告；仅更新rustls 0.23.46/webpki 0.103.16后，同一数据库下workspace及Native均0漏洞，209项Rust/生产检查/Clippy通过。仍有5项维护警告，未忽略。3da4679完整CI、六ARM及隔离运行、同源Native21项/构建、复用已选密钥签名，以及新通用树/完整镜像/七ARM非Root/静态启动依赖均通过，新制品尚未部署；正在安装的bbb1081仍含旧程序，先完成维护/音频诊断，业务初始化暂缓至修复产物交付。详见VALIDATION-DEPENDENCIES-P7D.md；仍74/100。
 
 补充：日志证实的未初始化app-recover问题已在源码修正，真实systemd夹具复现前失败/后跳过，并验证初始化后缺目录仍拒绝、一次恢复预算与停组保持；本机140项系统工具回归通过。此改动未纳入正在安装的bbb1081冻结镜像，实机尚待维护入口打通后验证，进度不加点。
 

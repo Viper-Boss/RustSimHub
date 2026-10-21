@@ -16,4 +16,10 @@ workspace仍有5项unmaintained警告，未忽略：basic-toml、proc-macro-erro
 
 这轮仅覆盖Rust锁文件，不覆盖Linux、系统包、C库或全部应用逻辑。私有证据前缀 `rustsec-audit-20261021-first/second`、`tls-security-tests-20261021-first.log`；复制输入和前后摘要保持。审计网络访问发生在本机，不使用棒子流量。
 
-新ARM构建、签名制品及实机TLS验收尚待完成。正在安装的bbb1081镜像仍包含4e6fea6应用，不能记为已更新；先完成该次安装和维护诊断，再在启用新业务前纳入修复产物。整体保持74/100。
+## ARM及完整候选验证
+
+修正源 `3da467944d47ec526d44356e3dd946782510c6d6` 的[完整CI39546547484](https://github.com/Viper-Boss/RustSimHub/actions/runs/39546547484)成功。精确115文件归档SHA为 `e779ef771033f2c47d3bf4e60e0660cdb5983bf293f6eb87b32d1cac9781b81a`；本机Rust1.98/12任务六生产ARM程序构建退出0，架构与glibc边界通过，六程序在NAS Debian13非Root/无网络/无设备容器执行来源信息和Core无硬件自检通过。Native在固定ARM镜像以实际Rust1.99构建，21项测试及源码摘要/worker能力通过；退出0后收集产物并移除唯一临时容器，缓存/源码/日志保留。
+
+使用此前4e6已选签名密钥签署新epoch4/5/6包，没有重新生成或上传私钥。独立通用候选使用epoch4，包含恢复单元完成条件及两项TLS补丁；七个ARM非Root执行、静态单元依赖、源树保持、完整ext4逐项核对/只读FS通过。12367项，tree `0508cc1e5d3beb95ab10cd540475042e472ee9e64912f5dc5a4978e8b81edf78`，3436183552字节，image SHA `c4c34a36512f4fe4e4b9309aa1828e868318788a72a1d2f42eb0999d091032e5`。私有manifest/验证前缀为 `system-image-p6s-tls-security-3da4679-first` / `system-tree-p6s-tls-security-3da4679-first`，完整索引 `tls-security-build-20261021-first.json`。启动前因私有Shell换行错误未开始组合的失败也保留，修正LF后才创建输出。
+
+**该新候选未部署，实机TLS尚待验收。**正在安装的bbb1081镜像仍包含4e6fea6应用，不能记为已更新；先完成该次安装和维护/音频诊断，再决定新通用候选的最终修正并在启用业务前纳入修复产物。整体保持74/100，flash/release/boot/recovery门禁保持false。
