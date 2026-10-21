@@ -20,6 +20,7 @@ refused in both directions.
 import os
 import hashlib
 import pathlib
+import stat
 import sys
 
 sys.dont_write_bytecode = True  # no __pycache__ in the source tree, least of all one owned by root
@@ -82,6 +83,17 @@ def audit(root, setup_ap=False):
         if relative.startswith('etc/rustsimhub/') and relative[len('etc/rustsimhub/'):] not in NASSIMHUB_ETC:
             bad.append('unexpected file in etc/rustsimhub: ' + relative)
         categories = set(rules.name_findings(name, package=False))
+        if relative == 'etc/rustsimhub/status-led.conf':
+            # Match the Rust indicator's exact, bounded mode grammar. In
+            # particular, do not normalize comments or whitespace into a
+            # configuration the installed process would reject at startup.
+            valid = (rules.is_regular(info) and info.st_nlink == 1
+                     and stat.S_IMODE(info.st_mode) == 0o644 and info.st_size <= 16)
+            if valid:
+                with open(absolute, 'rb') as handle:
+                    valid = handle.read(17) in (b'auto', b'auto\n', b'off', b'off\n')
+            if not valid:
+                bad.append('invalid-status-led-config: ' + relative)
         if vendor:
             # In vendor directories only the names that are never legitimate.
             categories &= {'modem-calibration', 'release-private-key'}
@@ -102,11 +114,6 @@ def audit(root, setup_ap=False):
         expected = PUBLIC_CONFIG_SCRIPTS.get(relative)
         if expected and hashlib.sha256(pathlib.Path(absolute).read_bytes()).hexdigest() == expected:
             categories.discard('credential')
-        if relative == 'etc/rustsimhub/status-led.conf':
-            contents = pathlib.Path(absolute).read_text(encoding='utf8')
-            entries = [line.strip() for line in contents.splitlines() if line.strip() and not line.lstrip().startswith('#')]
-            if entries not in [['NSH_STATUS_LED_ENABLED=yes'], ['NSH_STATUS_LED_ENABLED=no']]:
-                categories.add('invalid-status-led-config')
         if relative == 'etc/rustsimhub/ota-keys.json':
             with open(absolute, 'rb') as handle:
                 if rules.public_keyring_problem(handle.read()):

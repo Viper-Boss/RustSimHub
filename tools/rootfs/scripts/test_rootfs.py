@@ -385,6 +385,46 @@ class LockTests(unittest.TestCase):
 
 
 class FinalizeTests(unittest.TestCase):
+    def test_audit_status_indicator_modes_match_the_rust_runtime(self):
+        audit = load('audit_rootfs_indicator', 'scripts/audit-rootfs.py')
+        with tempfile.TemporaryDirectory() as directory:
+            root = base_tree(directory)
+            tools.finalize(root, EPOCH, {'name': 'rustsimhub-core', 'uid': 990, 'gid': 990})
+            path = root / 'etc/rustsimhub/status-led.conf'
+            path.parent.mkdir(exist_ok=True)
+            finding = 'invalid-status-led-config: etc/rustsimhub/status-led.conf'
+            for data in (b'auto', b'auto\n', b'off', b'off\n'):
+                with self.subTest(valid=data):
+                    path.write_bytes(data); path.chmod(0o644)
+                    self.assertEqual(audit.audit(root), [])
+            for data in (b'', b'NSH_STATUS_LED_ENABLED=yes\n', b'NSH_STATUS_LED_ENABLED=no\n',
+                         b'# comment\nauto\n', b' auto\n', b'auto\r\n', b'auto\n\n',
+                         b'auto\noff\n', b'auto\0', b'\xff', b'x' * 17):
+                with self.subTest(invalid=data):
+                    path.write_bytes(data)
+                    self.assertIn(finding, audit.audit(root))
+
+    def test_audit_status_indicator_refuses_unsafe_metadata_without_following_links(self):
+        audit = load('audit_rootfs_indicator_metadata', 'scripts/audit-rootfs.py')
+        with tempfile.TemporaryDirectory() as directory:
+            root = base_tree(directory)
+            tools.finalize(root, EPOCH, {'name': 'rustsimhub-core', 'uid': 990, 'gid': 990})
+            path = root / 'etc/rustsimhub/status-led.conf'
+            path.parent.mkdir(exist_ok=True)
+            finding = 'invalid-status-led-config: etc/rustsimhub/status-led.conf'
+            path.write_bytes(b'auto\n'); path.chmod(0o666)
+            self.assertIn(finding, audit.audit(root))
+            path.chmod(0o644)
+            extra = root / 'tmp/indicator-link'
+            os.link(path, extra)
+            self.assertIn(finding, audit.audit(root))
+            extra.unlink(); path.unlink()
+            # A dangling outside link must be rejected without opening it.
+            path.symlink_to('/outside-rootfs/nonexistent-indicator')
+            self.assertIn(finding, audit.audit(root))
+            path.unlink(); os.mkfifo(path)
+            self.assertIn(finding, audit.audit(root))
+
     def test_rust_core_rule_requires_exact_reviewed_bytes_and_safe_file(self):
         policy=load('rust_imagepolicy','scripts/imagepolicy.py')
         source=ROOT.parents[1]/'firmware/system/overlay/etc/polkit-1/rules.d/45-rustsimhub.rules'
