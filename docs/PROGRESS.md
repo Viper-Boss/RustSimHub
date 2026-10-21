@@ -1,5 +1,7 @@
 # 最新开发进度：2026-10-22
 
+**追加单项R01-C已完成，整体75.5/100。** 13份旧文件备份/回读后，在已安装新OS中原子交付2b/epoch7签名factory、新六程序slot及6个必要配套文件，签名公钥保持；Root灯控更新0c。设备8程序来源、Core自检、UID984空cap/私有设备和网络的合成Opus500帧及DTLS各50帧、灯控GPIO采样、初次设置门禁跳过/不创建台账通过。索引 `.private/r01c-delivery-20261022-first.json`、`r01c-final-gate-20261022-first.json` passed=true，Root私有收据与备份保存；见 [P6W](VALIDATION-DEVICE-DELIVERY-P6W.md)。P6增加0.5实际交付点，未刷整张P6V镜像、未重启/初始化/启动正式业务、无新通话/短信/普通蜂窝；下一项首次所有者/端点/媒体初始化和真实业务/冷启动验收。完成本单项后不继续，下文为历史。
+
 **追加单项R01-B已完成，整体75/100。** 修正镜像审计拒绝新灯控配置的实际缺陷，36项rootfs回归、重建灯控9项通过。0c组成/Root灯控+2b同源签名业务生成3436183552字节通用rootfs；8个ARM程序、18单元静态依赖、候选内合成音频/DTLS、只读FS和12373条目内容/权限/所有者/capabilities核对通过。原基底、源码和制品保持，镜像导出Windows并复核SHA256。索引 `.private/r01b-system-composition-20261022-first.json`、制品 `.local/r01b-system-image-0c817c1-first/`；见 [P6V](VALIDATION-CORRECTED-SYSTEM-P6V.md)。P6增加0.5离线镜像进展，门禁仍false，无设备连接/交付/初始化或新通话/短信/蜂窝；下一项才是交付与实机验收，完成本单项后不继续。下文为历史。
 
 **追加单项R01-A已完成，整体74.5/100。** 精确2b源码的同源Native构建/21项测试、七Rust ARM非Root来源/自检、原开发签名身份epoch7/8/9包，以及实际ARM更新器8拒绝路径、未确认回退、正确确认及合成Opus/DTLS验收通过。补齐LED组件元数据，所有输入摘要保持，私钥留PC；成功/失败日志和索引已保存，临时构建容器已清理。P6增加0.5点候选准备，系统组成/部署仍待做，真实业务与冷启动未验收。本轮无棒子连接、初始化或新电话/短信/蜂窝，完成单项后不进入下一项；见 [P6U](VALIDATION-SIGNED-CANDIDATE-P6U.md)、HANDOFF顶部和 `.private/r01-candidate-preparation-20261021-first.json`。下方74点及Native待构建为此前历史。

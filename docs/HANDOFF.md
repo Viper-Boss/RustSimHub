@@ -1,6 +1,14 @@
 # RustSimHub 当前接手入口
 
-## 最新：R01-B修正版系统与离线镜像已完成
+## 最新：R01-C已在新系统内交付签名业务及配套文件
+
+2026-10-22，用户追加一个任务。严格固定公钥维护SSH及动态modem枚举只读基线通过：home注册、无通话、PCMclosed、普通gsm未连接、业务未初始化。备份并回读13份旧文件后，通过原子目录交换交付2b/epoch7 factory和新六程序slot，替换update/edge-setup/migrate、Core单元、tmpfiles及0c Root灯控六文件；公钥保持。**设备上8个程序来源、Core自检、UID984无设备/外网的合成Opus500帧与DTLS双向50帧通过，灯控采样正常，初次设置门禁实际跳过且未创建台账。整体75.5/100。** 见 [P6W](VALIDATION-DEVICE-DELIVERY-P6W.md)。
+
+唯一交付索引 `.private/r01c-delivery-20261022-first.json` passed=true；门禁/收据 `.private/r01c-final-gate-20261022-first.json` passed=true。PC备份 `.private/r01c-backup-20261022-first/`；设备旧factory位于 `/usr/share/rustsimhub/.factory-app-r01c-2b3c49c-first`（Root0700），收据 `/usr/share/rustsimhub/maintenance-receipts/r01c-20261022.json`（Root0600）。新manifest `cee2f68e30eafbe61f0871982398c14060ffee52cf6c9fbb8920fef877eba256`；epoch7是factory版本，state.json仍不存在，不能当作floor已推进。实际灯控现为0c来源，不能继续按旧2b二进制台账报告。
+
+**当前系统是bbb安装组成+既有维护补丁+本轮文件交付，不是整张P6V镜像已刷入。** 原system-candidate.json/安装出处保持，实际文件状态以本轮收据/索引优先。没有重启、原始分区写入、身份初始化、正式Core/Edge/Media启动或新通话/短信；新二进制受限测试不替代真实业务/冷启动。下一项确定USB/Wi-Fi端点和可信TLS/媒体交付后用新工具首次初始化、启动及验收，不重跑本次helper或旧初始化/安装计划。私有接续/第三安装索引已更新，累计10010仍38，蜂窝等换卡；完成本单项后不启动下一项。
+
+## 此前R01-B检查点：修正版系统与离线镜像已完成（历史）
 
 2026-10-22，用户追加一个任务。镜像审计仍仅接受旧NSH_STATUS_LED_ENABLED配置，实际拒绝新Rust灯控auto；已按精确auto/off字节及安全文件元数据修正，36项rootfs回归通过。冻结组成源码0c817c1，Root灯控按此源重建（9项）；业务仍采用已验证的2b同源Native/签名package7。**完整通用rootfs已组成，8个ARM程序运行、18单元静态依赖、镜像内合成Opus/DTLS及ext4逐项核对均通过。整体75/100，约75%。** 细节与未完成边界见 [P6V](VALIDATION-CORRECTED-SYSTEM-P6V.md)。
 
