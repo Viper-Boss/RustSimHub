@@ -24,6 +24,8 @@ pub use calls::{
     CallSummary,
 };
 mod inbox;
+mod indicator;
+pub use indicator::IndicatorSnapshot;
 mod outgoing;
 pub use inbox::{
     InboxCursor, InboxEvent, InboxEvents, InboxPage, IncomingSms, LineObservation, LineStatus,

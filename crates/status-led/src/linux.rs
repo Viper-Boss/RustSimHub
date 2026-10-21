@@ -6,6 +6,7 @@ use std::{
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::Path,
     process::{Command, Stdio},
+    sync::{Arc, Mutex},
     thread,
     time::{Duration, Instant},
 };
@@ -170,8 +171,22 @@ fn refresh() -> Result<Inputs> {
         )?;
         s.internet = value.lines().any(|v| v.trim().starts_with("4 (full)"));
     }
+    let root = Path::new("/var/lib/rustsimhub/rustsimhub-v1/system/app");
+    if fs::symlink_metadata(root)
+        .is_ok_and(|m| m.is_dir() && m.uid() == 0 && m.mode() & 0o777 == 0o700)
+    {
+        if let Ok(bytes) = checked(&root.join("state.json"), 0, 0o600, 8192) {
+            if let Ok(v) = serde_json::from_slice(&bytes) {
+                if let Some((available, upgrading)) = rustsimhub_status_led::staged_update(&v) {
+                    s.update_available = available;
+                    s.upgrading = upgrading;
+                }
+            }
+        }
+    }
     Ok(s)
 }
+
 fn io_count() -> Option<u64> {
     let text = fs::read_to_string("/sys/block/mmcblk0/stat").ok()?;
     let fields: Vec<_> = text.split_whitespace().collect();
@@ -242,36 +257,46 @@ pub fn run() -> Result<()> {
         _ => return Err("invalid mode".into()),
     };
     let mut policy = Policy::default();
-    let mut snapshot = Inputs::default();
+    let snapshot = Arc::new(Mutex::new(Inputs {
+        configuring: true,
+        ..Inputs::default()
+    }));
+    let sampler = snapshot.clone();
+    thread::spawn(move || loop {
+        let value = refresh().unwrap_or(Inputs {
+            error: true,
+            ..Inputs::default()
+        });
+        if let Ok(mut slot) = sampler.lock() {
+            *slot = value;
+        }
+        thread::sleep(Duration::from_secs(5));
+    });
     let mut previous = None;
-    let mut next = Instant::now();
     let start = Instant::now();
     let boot = uptime()?;
     let mut io_next = Instant::now();
     let mut count = None;
+    let mut business_hint = None;
+    let mut update_hint = None;
     loop {
         let now = boot.saturating_add(start.elapsed().as_millis() as u64);
-        if Instant::now() >= next {
-            snapshot = refresh().unwrap_or(Inputs {
-                error: true,
-                ..Inputs::default()
-            });
-            next = Instant::now() + Duration::from_secs(5);
-        }
-        let mut input = snapshot;
+        let mut input = *snapshot.lock().map_err(|_| "snapshot lock")?;
         input.disabled = disabled;
-        if let Some(b) = business(now) {
+        if Instant::now() >= io_next {
+            count = io_count();
+            business_hint = business(now);
+            update_hint = update(now);
+            io_next = Instant::now() + Duration::from_millis(200);
+        }
+        if let Some(b) = business_hint.and_then(|b: BusinessInput| b.fresh(now)) {
             input.configuring |= b.configuring;
             input.unread_sms = b.unread_sms;
             input.missed_calls = b.missed_calls;
         }
-        if let Some(u) = update(now) {
-            input.upgrading = u.upgrading;
-            input.update_available = u.available;
-        }
-        if Instant::now() >= io_next {
-            count = io_count();
-            io_next = Instant::now() + Duration::from_millis(200);
+        if let Some(u) = update_hint.and_then(|u: UpdateInput| u.fresh(now)) {
+            input.upgrading |= u.upgrading;
+            input.update_available |= u.available;
         }
         let color = policy.frame(input, now, count);
         if previous != Some(color) {
@@ -279,5 +304,29 @@ pub fn run() -> Result<()> {
             previous = Some(color);
         }
         thread::sleep(Duration::from_millis(20));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+    #[test]
+    fn input_metadata_refuses_symlinks_hardlinks_permissions_owner_and_size() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("input");
+        fs::write(&file, b"safe").unwrap();
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o600)).unwrap();
+        let uid = fs::metadata(&file).unwrap().uid();
+        assert_eq!(checked(&file, uid, 0o600, 4).unwrap(), b"safe");
+        assert!(checked(&file, uid + 1, 0o600, 4).is_err());
+        assert!(checked(&file, uid, 0o644, 4).is_err());
+        assert!(checked(&file, uid, 0o600, 3).is_err());
+        let link = dir.path().join("alias");
+        std::os::unix::fs::symlink(&file, &link).unwrap();
+        assert!(checked(&link, uid, 0o600, 4).is_err());
+        let hard = dir.path().join("hard");
+        fs::hard_link(&file, &hard).unwrap();
+        assert!(checked(&file, uid, 0o600, 4).is_err());
     }
 }

@@ -19,6 +19,8 @@ jobs:
           python3 -m unittest discover -s tools/rootfs/scripts -p test_rootfs.py
       - name: Board helper isolated fixtures
         run: sudo -n python3 -m unittest discover -s tools/system -p 'test_*.py'
+      - name: Web configuration indicator ordering
+        run: node tools/test-web-indicator.mjs
       - name: Read-only recovery helper fixtures
         run: |
           sh -n tools/recovery/watch-edl-capture.sh

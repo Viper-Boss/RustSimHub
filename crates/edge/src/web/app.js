@@ -2,6 +2,7 @@
 import { prove, unhex, hex } from './proof.js';
 import { AudioLink } from './media.js';
 import { CallTest } from './call-test.js';
+import { ConfigurationIndicator } from './indicator.js';
 const $=id=>document.getElementById(id);
 const scopes=['status.read','sms.read','calls.read'];
 let key, publicKey, token=null, busy=false, pending=null, lease=null;
@@ -9,6 +10,15 @@ let inboxCursor=null, callsCursor=null, inboxEvents=null, callEvents=null;
 let historyCursor=null, historySources=[];
 let wifiTrial=null;
 let audioReady=false;
+let configurationOpen=true;
+const configurationIndicator=new ConfigurationIndicator(command=>{
+ const authToken=token;
+ return async()=>{
+  if(!authToken)return;
+  const r=await fetch('/api/v2',{method:'POST',headers:{'Content-Type':'application/json','X-RustSimHub-Request':'2'},body:JSON.stringify({protocol:2,id:crypto.randomUUID(),command:{...command,token:authToken}}),credentials:'omit',cache:'no-store',redirect:'error',keepalive:true,signal:AbortSignal.timeout(4000)});
+  if(!r.ok)throw Error('indicator unavailable');
+ };
+});
 const audioLink=new AudioLink($('call-audio'),(text,state)=>{$('audio-state').textContent=text;$('audio-stop').disabled=state==='closed';showAudio();});
 const callTest=new CallTest({audio:audioLink,login:()=>token?Promise.resolve():login(),request:command=>auth(command),context:lease=>({token,lease}),getPending:()=>pending,setPending:async value=>{pending=value;await save('pending',value);showPending();},archivePending:archivePending,onLease:value=>{lease=value;showAudio();},notify:(text,running)=>{$('test-state').textContent=text;$('test-start').disabled=running||!audioReady;$('test-stop').disabled=!running;}});
 function showAudio(){$('audio-start').disabled=!token||!lease||!audioReady||audioLink.state!=='closed';$('audio-stop').disabled=audioLink.state==='closed';}
@@ -85,15 +95,15 @@ async function pair(){
 async function login(){
  void audioLink.stop();const epoch=viewEpoch;token=null;lease=null;showAudio();const c=await api({op:'challenge',public_key:Array.from(publicKey)},epoch);const signature=await proof(c,'login',undefined,epoch);current(epoch);
  const r=await api({op:'authenticate',challenge_id:c.id,signature},epoch);current(epoch);if(!/^[a-f0-9]{64}$/.test(r.token))throw Error('登录响应无效');
- token=r.token;notice('已登录；会话最长 15 分钟');await refresh();
+ token=r.token;configurationOpen=true;void configurationIndicator.set(!document.hidden);notice('已登录；会话最长 15 分钟');await refresh();
 }
 function row(text,parent,onClick){const item=document.createElement('div');item.className='row';const label=document.createElement('span');label.textContent=text;item.append(label);if(onClick){const button=document.createElement('button');button.textContent='查看';button.onclick=()=>act(onClick);item.append(button);}parent.append(item);}
-async function inboxPage(reset=false){if(reset){inboxCursor=null;$('inbox').replaceChildren();}const page=await auth({op:'inbox',after:inboxCursor,limit:16});for(const s of page.messages)row(`${s.id} · SIM 代次 ${s.line}${s.binary?' · 二进制短信':''}`,$('inbox'),async()=>{$('sms-detail').textContent=JSON.stringify(await auth({op:'sms_detail',sms_id:s.id}),null,2);});inboxCursor=page.cursor;$('more-inbox').disabled=page.messages.length<16;}
-async function callsPage(reset=false){if(reset){callsCursor=null;$('calls').replaceChildren();$('call-id').replaceChildren();}const page=await auth({op:'calls',after:callsCursor,limit:16});for(const s of page.calls){row(`${s.id} · ${s.state} · ${s.availability}`,$('calls'));if(s.state!=='ended'){const option=document.createElement('option');option.value=s.id;option.textContent=`${s.state} · ${s.id}`;$('call-id').append(option);}}callsCursor=page.cursor;$('more-calls').disabled=page.calls.length<16;}
+async function inboxPage(reset=false){if(reset){inboxCursor=null;$('inbox').replaceChildren();}const page=await auth({op:'inbox',after:inboxCursor,limit:16});for(const s of page.messages)row(`${s.id} · SIM 代次 ${s.line}${s.binary?' · 二进制短信':''}`,$('inbox'),async()=>{$('sms-detail').textContent=JSON.stringify(await auth({op:'sms_detail',sms_id:s.id}),null,2);await auth({op:'notification_read',entity:'sms',record_id:s.id});});inboxCursor=page.cursor;$('more-inbox').disabled=page.messages.length<16;}
+async function callsPage(reset=false){if(reset){callsCursor=null;$('calls').replaceChildren();$('call-id').replaceChildren();}const page=await auth({op:'calls',after:callsCursor,limit:16});for(const s of page.calls){row(`${s.id} · ${s.state} · ${s.availability}`,$('calls'),async()=>{$('call-detail').textContent=JSON.stringify(await auth({op:'call_detail',call_id:s.id}),null,2);await auth({op:'notification_read',entity:'calls',record_id:s.id});});if(s.state!=='ended'){const option=document.createElement('option');option.value=s.id;option.textContent=`${s.state} · ${s.id}`;$('call-id').append(option);}}callsCursor=page.cursor;$('more-calls').disabled=page.calls.length<16;}
 function clearWifi(){wifiTrial=null;$('wifi-ssid').value='';$('wifi-passphrase').value='';$('wifi-state').textContent='没有试连接';for(const id of ['wifi-status','wifi-confirm','wifi-cancel'])$(id).disabled=true;}
 function showWifi(result){wifiTrial=result;const terminal=['saved','rolled_back','unknown'].includes(result.state);const names={starting:'正在开始',connecting:'正在连接',ready:'已连接，等待确认',saving:'正在保存',saved:'已保存',rolled_back:'已恢复原连接',unknown:'结果不明，请检查设备；不会自动重试'};$('wifi-state').textContent=`${names[result.state]||'未知状态'} · 剩余 ${result.expires_in_seconds} 秒`;$('wifi-status').disabled=!token;$('wifi-confirm').disabled=!token||result.state!=='ready';$('wifi-cancel').disabled=!token||terminal;}
 async function beginWifi(){if(wifiTrial&&!['saved','rolled_back','unknown'].includes(wifiTrial.state))throw Error('请先查询或结束当前试连接');const ssid=$('wifi-ssid').value,passphrase=$('wifi-passphrase').value;if(!ssid||new TextEncoder().encode(ssid).length>32)throw Error('网络名称须为1至32字节');$('wifi-passphrase').value='';showWifi(await auth({op:'wifi_begin',idempotency_key:crypto.randomUUID(),ssid,passphrase}));}
-async function wifiAction(op){if(!wifiTrial)throw Error('没有当前试连接');try{showWifi(await auth({op,trial_id:wifiTrial.trial_id}));}catch(error){clearWifi();throw error;}}
+async function wifiAction(op){if(!wifiTrial)throw Error('没有当前试连接');try{showWifi(await auth({op,trial_id:wifiTrial.trial_id}));if(op==='wifi_confirm'&&wifiTrial.state==='saved'){configurationOpen=false;void configurationIndicator.set(false);}}catch(error){clearWifi();throw error;}}
 function clearHistory(){historyCursor=null;$('history-list').replaceChildren();$('history-detail').textContent='';$('more-history').disabled=true;}
 function historyTypes(){clearHistory();$('history-entity').replaceChildren();const source=historySources.find(s=>s.source===$('history-source').value);for(const entity of source?.entities||[]){const option=document.createElement('option');option.value=entity;option.textContent={sms:'短信',calls:'通话',contacts:'联系人'}[entity]||'未知类型';$('history-entity').append(option);}}
 async function historyPage(reset=false){if(reset)clearHistory();const source=$('history-source').value,entity=$('history-entity').value;if(!source||!entity)return;try{const page=await auth({op:'history_page',source,entity,after:historyCursor,limit:16});for(const record of page.records)row(`${record.id} · ${record.deleted?'已删除的历史':'归档记录'}${record.user_state?.favorite?' · 收藏':''}${record.user_state?.marked_unread?' · 标记未读':''}`,$('history-list'),async()=>{try{$('history-detail').textContent=JSON.stringify(await auth({op:'history_detail',source,entity,record_id:record.id}),null,2);}catch(error){clearHistory();throw error;}});historyCursor=page.cursor;$('more-history').disabled=page.records.length<16;}catch(error){clearHistory();throw error;}}
@@ -154,3 +164,10 @@ bind('audio-play',()=>audioLink.play());
 bind('test-start',()=>callTest.start());$('test-stop').onclick=()=>{void callTest.stop();};
 const audioPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{void callTest.stop(false);void audioLink.stop();$('audio-state').textContent='未连接声音';audioPreviousLogout();showAudio();};
 addEventListener('pagehide',()=>{void callTest.stop(false);void audioLink.stop();});
+const indicatorPreviousLogout=$('logout').onclick;
+$('logout').onclick=()=>{configurationOpen=false;void configurationIndicator.set(false);indicatorPreviousLogout();};
+bind('configuration-done',async()=>{configurationOpen=false;await configurationIndicator.set(false);notice('已结束本页配置');});
+for(const panel of document.querySelectorAll('details'))panel.addEventListener('toggle',()=>{if(panel.open&&token){configurationOpen=true;void configurationIndicator.set(!document.hidden);}});
+setInterval(()=>{if(token&&configurationOpen&&!document.hidden)void configurationIndicator.set(true);},10000);
+document.addEventListener('visibilitychange',()=>{if(token)void configurationIndicator.set(configurationOpen&&!document.hidden);});
+addEventListener('pagehide',()=>{configurationOpen=false;void configurationIndicator.set(false);});

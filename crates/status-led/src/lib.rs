@@ -72,6 +72,38 @@ pub struct Inputs {
     pub internet: bool,
 }
 
+/// The Root updater publishes this record only after signature/payload validation.
+/// The caller must first validate the fixed file's Root ownership and metadata.
+pub fn staged_update(value: &serde_json::Value) -> Option<(bool, bool)> {
+    fn hash(v: &serde_json::Value) -> bool {
+        v.as_str().is_some_and(|s| {
+            s.len() == 64
+                && s.bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        })
+    }
+    if value.get("format")?.as_u64()? != 1 || !hash(value.get("key_sha256")?) {
+        return None;
+    }
+    let candidate = value.get("candidate")?;
+    if candidate.is_null() {
+        return Some((false, false));
+    }
+    let epoch = candidate.get("epoch")?.as_u64()?;
+    let confirmed = value.get("confirmed")?;
+    let floor = value.get("floor")?.as_u64()?;
+    let old = if confirmed.is_null() {
+        0
+    } else {
+        confirmed.get("epoch")?.as_u64()?
+    };
+    if epoch == 0 || epoch > floor || epoch <= old || !hash(candidate.get("hash")?) {
+        return None;
+    }
+    let attempted = value.get("attempted")?.as_bool()?;
+    Some((!attempted, attempted))
+}
+
 #[derive(Default)]
 pub struct Policy {
     io_counter: Option<u64>,
@@ -264,5 +296,31 @@ mod tests {
         s.expires_ms = 40_001;
         assert!(s.fresh(10_000).is_none());
         assert!(serde_json::from_str::<BusinessInput>(r#"{"expires_ms":1,"configuring":true,"unread_sms":false,"missed_calls":false,"path":"/etc/passwd"}"#).is_err());
+    }
+    #[test]
+    fn new_firmware_hint_requires_valid_newer_staged_root_record() {
+        let hash = "a".repeat(64);
+        let mut value = serde_json::json!({"format":1,"key_sha256":hash,"floor":3,"confirmed":{"epoch":2,"hash":"b".repeat(64)},"candidate":{"epoch":3,"hash":"c".repeat(64)},"attempted":false});
+        assert_eq!(staged_update(&value), Some((true, false)));
+        value["attempted"] = true.into();
+        assert_eq!(staged_update(&value), Some((false, true)));
+        value["candidate"]["epoch"] = 2.into();
+        assert_eq!(staged_update(&value), None);
+        value["candidate"]["epoch"] = 4.into();
+        assert_eq!(staged_update(&value), None);
+        value["candidate"] = serde_json::Value::Null;
+        assert_eq!(staged_update(&value), Some((false, false)));
+    }
+    #[test]
+    fn available_notice_is_infrequent_and_does_not_replace_configuration() {
+        let mut p = Policy::default();
+        let mut s = online();
+        s.update_available = true;
+        assert_eq!(p.frame(s, 0, None), Color::Purple);
+        assert_eq!(p.frame(s, 200, None), Color::Blue);
+        assert_eq!(p.frame(s, 9_999, None), Color::Blue);
+        assert_eq!(p.frame(s, 10_000, None), Color::Purple);
+        s.configuring = true;
+        assert_eq!(p.frame(s, 12_000, None), Color::White);
     }
 }

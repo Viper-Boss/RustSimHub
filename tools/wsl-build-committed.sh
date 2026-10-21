@@ -61,7 +61,7 @@ printf 'HOST_TEST_START=%s\n' "$(date -u +%FT%TZ)"
 cargo +1.98.0 test --workspace --all-features --locked -j "$jobs"
 printf 'ARM_BUILD_START=%s\n' "$(date -u +%FT%TZ)"
 cargo +1.98.0 build --release --workspace --no-default-features --locked --target aarch64-unknown-linux-gnu -j "$jobs"
-for name in rustsimhub-core simhubctl rustsimhub-edge rustsimhub-update rustsimhub-recovery rustsimhub-migrate; do
+for name in rustsimhub-core simhubctl rustsimhub-edge rustsimhub-update rustsimhub-recovery rustsimhub-migrate rustsimhub-status-led; do
  install -m 0555 "$CARGO_TARGET_DIR/aarch64-unknown-linux-gnu/release/$name" "$work/artifacts/$name"
  file "$work/artifacts/$name"
  readelf -h "$work/artifacts/$name" | grep 'Machine:.*AArch64'

@@ -274,6 +274,25 @@ async fn ipc_requires_proof_and_checks_revocation_even_from_same_uid() {
     )
     .await;
     let client_token = client_session["token"].as_str().unwrap().to_owned();
+    for command in [
+        AuthCommand::ConfigurationIndicator {
+            token: client_token.clone(),
+            view_id: "11111111-1111-4111-8111-111111111111".into(),
+            active: true,
+        },
+        AuthCommand::NotificationRead {
+            token: client_token.clone(),
+            entity: "sms".into(),
+            record_id: "11111111-1111-4111-8111-111111111111".into(),
+        },
+        AuthCommand::NotificationRead {
+            token: client_token.clone(),
+            entity: "calls".into(),
+            record_id: "11111111-1111-4111-8111-111111111111".into(),
+        },
+    ] {
+        assert_eq!(round_trip(command, auth.clone()).await["error"], "denied");
+    }
     assert_eq!(
         round_trip(
             AuthCommand::Health {

@@ -1,8 +1,18 @@
 # RustSimHub 当前接手入口
 
-2026-10-21。整体 **74/100，约74%**，固定权重见 [进度刻度](PROGRESS-SCALE.md)。用户追加要求先部署修正版再停；音频守卫和未初始化恢复条件均已部署、实机复核通过，保存后暂停。完整历史原文见 [本轮前归档](archive/handoff-before-first-os-consolidation-20261021.md) 和 [更早归档](archive/handoff-before-oneclick-consolidation-20261016.md)。
+2026-10-21。整体 **74/100，约74%**，固定权重见 [进度刻度](PROGRESS-SCALE.md)。本轮按用户要求修复并扩展指示灯，用户要求本任务结束后暂停。正在完成最终制品和接手记录；不以灯语代码替代新业务实机验收。完整历史原文见 [本轮前归档](archive/handoff-before-first-os-consolidation-20261021.md) 和 [更早归档](archive/handoff-before-oneclick-consolidation-20261016.md)。
 
-## 当前暂停检查点（优先于下文历史）
+## 当前灯控任务检查点（优先于下文历史）
+
+原先完全不亮的原因是新系统没有状态灯服务，驱动和三个GPIO LED通道均正常。独立Rust灯控58a43de已安装为四个维护文件，服务enabled/active、空capability且只写三条固定LED路径；8秒RGB采样和用户确认均证明白色慢速亮灭正常。记录`.private/status-led-deployment-20261021-first.json` passed=true；用户确认已单独记入，不把纯软件帧测试当作肉眼确认。初版纯绿heartbeat方案未部署。实际运行系统为bbb1081+此前两个维护补丁+灯控四文件，不再按原rootfs摘要宣称现场未改。
+
+完整颜色/优先级/低频提醒规则见[指示灯约定](status-led.md)，源码及验收报告见[P7E](VALIDATION-STATUS-LED-P7E.md)。Core配置租约、查看后显式确认未读、网页保存/关闭及Root更新接线代码已完成；222项Rust、生产Core/format/Clippy及网页关闭顺序检查通过。系统工具139通过/1项缺make跳过，另用验证过的make补跑8项全部通过。事件采样与动画分线程，不高频写sysfs模拟GPIO不支持的平滑呼吸。
+
+**交付边界：当前业务程序仍4e6fea6，尚未初始化，新增Core/Edge/updater接线尚未上机。** 先完成灯控制品收尾，不自动开启新业务初始化。真实网页关闭、未读短信/未接来电、升级和蜂窝联动不能声称已验收；蜂窝继续等换卡。新业务制品仍需同源Native/签名交付，旧3da离线镜像有24位音频守卫缺陷，不得直接安装。累计10010仍38，未新增通话/SMS/普通蜂窝。完整安装、维护SSH和此前硬件健康证明保持，冷启动未复验。
+
+暂停后接续以`.private/third-attempt-continuation-20261021-first.json`和第三安装索引为准，不重跑已消费安装器/一次性连接/校时helper。继续时先核当前灯控源码及制品版本，交付包含音频/恢复/灯控修正的安全业务候选后再启用业务。下文维护暂停和安装过程为历史。
+
+## 此前维护修正检查点（历史）
 
 第三安装已退出0：p14+p15完整写后回读、保护范围/GPT/boot、两FS及正常reset ACK通过。新系统USB和固定主机公钥/预选客户端密钥维护SSH登录均已通过；安装器、monitor及一次性接续均已结束，禁止重新执行已消费的安装/连接helper。实际系统仍是bbb1081组成、4e6fea6应用，业务未初始化。唯一设备索引为 `.private/install-first-boot-20261021-third.json`，后续普通维护连接用 `.local/new_os_third_ssh_20261021.py`，接续检查点为 `.private/third-attempt-continuation-20261021-first.json`。
 

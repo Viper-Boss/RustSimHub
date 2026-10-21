@@ -141,6 +141,8 @@ pub fn manifest_hash(bytes: &[u8]) -> String {
     hash_hex(bytes)
 }
 #[cfg(target_os = "linux")]
+pub mod indicator;
+#[cfg(target_os = "linux")]
 pub mod store;
 #[cfg(test)]
 mod tests {

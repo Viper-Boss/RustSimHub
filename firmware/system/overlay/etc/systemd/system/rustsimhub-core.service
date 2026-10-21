@@ -16,6 +16,7 @@ ExecStart=/opt/rustsimhub/selected/rustsimhub-core --serve-device /run/rustsimhu
 BindReadOnlyPaths=/run/rustsimhub-app/selected:/opt/rustsimhub/selected
 BindPaths=/var/lib/rustsimhub/rustsimhub-v1/core:/var/lib/rustsimhub-core /run/rustsimhub/core
 ReadWritePaths=/var/lib/rustsimhub-core /run/rustsimhub/core
+ReadWritePaths=/run/rustsimhub-led-input
 InaccessiblePaths=/var/lib/rustsimhub
 ProtectSystem=strict
 ProtectHome=yes

@@ -16,6 +16,28 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth::Result<Value> {
     use AuthCommand::*;
     Ok(match command {
+        ConfigurationIndicator {
+            token,
+            view_id,
+            active,
+        } => crate::status_led::configuration(auth, &token, view_id, active)?,
+        NotificationRead {
+            token,
+            entity,
+            record_id,
+        } => {
+            match entity.as_str() {
+                "sms" => {
+                    auth.sms_detail(&token, record_id.clone())?;
+                }
+                "calls" => {
+                    auth.call_detail(&token, record_id.clone())?;
+                }
+                _ => return Err(rustsimhub_auth::Error::InvalidInput),
+            }
+            crate::status_led::read(&record_id, entity == "sms")?;
+            json!({"ok":true})
+        }
         SetupChallenge { .. }
         | SetupFinish { .. }
         | PrepareSms { .. }
@@ -676,6 +698,7 @@ async fn serve_inner_media(
             Ok((store, Arc::new(Mutex::new(auth)), setup, history, compat))
         })
         .await??;
+    crate::status_led::initialize(store.handle()).await;
     let (listener, runtime) =
         crate::socket_runtime::SocketRuntime::bind(std::path::Path::new(socket))?;
     let limit = Arc::new(Semaphore::new(8));
@@ -749,11 +772,13 @@ async fn serve_inner_media(
         }
     });
     let mut tasks = tokio::task::JoinSet::new();
+    let mut indicator = Box::pin(crate::status_led::run(store.handle()));
     tokio::pin!(stop);
     let result: Result<()> = loop {
         let accepted = tokio::select! {
             biased;
             _=&mut stop=>break Ok(()),
+            _=&mut indicator=>break Err("indicator publisher stopped".into()),
             _=&mut observer=>break Err("observer stopped".into()),
             _=&mut sending=>break Err("sender stopped".into()),
             _=&mut controlling=>break Err("call controller stopped".into()),

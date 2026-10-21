@@ -15,6 +15,16 @@ pub struct AuthRequest {
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AuthCommand {
     Identity {},
+    ConfigurationIndicator {
+        token: String,
+        view_id: String,
+        active: bool,
+    },
+    NotificationRead {
+        token: String,
+        entity: String,
+        record_id: String,
+    },
     BindLegacy {
         token: String,
         core_id: String,
@@ -251,6 +261,29 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         return Err(invalid());
     }
     match &req.command {
+        AuthCommand::NotificationRead {
+            token,
+            entity,
+            record_id,
+        } => {
+            if token.len() != 64
+                || !matches!(entity.as_str(), "sms" | "calls")
+                || record_id.len() != 36
+                || !record_id
+                    .bytes()
+                    .all(|b| b.is_ascii_hexdigit() || b == b'-')
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ConfigurationIndicator { token, view_id, .. } => {
+            if token.len() != 64
+                || view_id.len() != 36
+                || !view_id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')
+            {
+                return Err(invalid());
+            }
+        }
         AuthCommand::BindLegacy {
             token,
             core_id,
@@ -604,6 +637,27 @@ pub fn wifi_credentials_valid(ssid: &str, passphrase: &str) -> bool {
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn indicator_commands_refuse_paths_extra_controls_and_missing_authority() {
+        for command in [
+            serde_json::json!({"op":"configuration_indicator","token":"a".repeat(64),"view_id":"11111111-1111-4111-8111-111111111111","active":true}),
+            serde_json::json!({"op":"notification_read","token":"a".repeat(64),"entity":"sms","record_id":"11111111-1111-4111-8111-111111111111"}),
+        ] {
+            let valid = serde_json::json!({"protocol":2,"id":"indicator","command":command});
+            assert!(super::parse_auth_request(&serde_json::to_vec(&valid).unwrap()).is_ok());
+            for (field, value) in [
+                ("path", serde_json::json!("/sys/class/leds/red:")),
+                ("token", serde_json::json!("short")),
+                ("color", serde_json::json!("red")),
+            ] {
+                let mut bad = valid.clone();
+                bad["command"][field] = value;
+                assert!(super::parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
+            }
+        }
+        let bad = serde_json::json!({"protocol":2,"id":"indicator","command":{"op":"notification_read","token":"a".repeat(64),"entity":"principals","record_id":"11111111-1111-4111-8111-111111111111"}});
+        assert!(super::parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
+    }
     use super::*;
     #[test]
     fn wifi_provisioning_bounds_credentials_and_rejects_network_overrides() {

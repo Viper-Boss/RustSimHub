@@ -512,6 +512,10 @@ impl Worker {
             )
         })
         .await?;
+        if summary.modem_state == 4 {
+            let id = summary.id.clone();
+            let _ = tokio::task::spawn_blocking(move || crate::status_led::connected(&id)).await;
+        }
         let id = summary.id.clone();
         self.live.insert(
             path.to_string(),

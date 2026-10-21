@@ -148,6 +148,7 @@ fn run() -> Result<(), rustsimhub_update::Error> {
                 let signature = read_checked(&directory.join("manifest.sig"), 64)?;
                 let m = verify(&manifest, &signature, &key, 5, store.floor())?;
                 let p = load_payloads(directory, &m)?;
+                let _indicator = rustsimhub_update::indicator::Activity::begin();
                 let hash = store.stage(&manifest, &signature, &p)?;
                 println!(
                     "{}",
@@ -156,6 +157,7 @@ fn run() -> Result<(), rustsimhub_update::Error> {
                 return Ok(());
             }
             ("choose", 3) => {
+                let _indicator = rustsimhub_update::indicator::Activity::begin();
                 let path = store.choose()?;
                 println!("{}", path.display());
                 return Ok(());

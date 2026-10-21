@@ -33,6 +33,8 @@ mod recovery_check;
 mod sender;
 #[cfg(target_os = "linux")]
 mod socket_runtime;
+#[cfg(target_os = "linux")]
+mod status_led;
 #[cfg(feature = "dev-fixtures")]
 mod storage_check;
 
