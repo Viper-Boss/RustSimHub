@@ -199,7 +199,8 @@ def main():
         assert not any(state_mount.iterdir())
         state_mount.chmod(0o700)
         units = ['rustsimhub-firstboot.service', 'rustsimhub-usb.service',
-                 'rustsimhub-device-firmware.service', 'rustsimhub-radio-resume.service']
+                 'rustsimhub-device-firmware.service', 'rustsimhub-radio-resume.service',
+                 'rustsimhub-status-led.service']
         if startup:units+=['rustsimhub-app.target']
         for unit in units:
             link = destination(tree, 'etc/systemd/system/multi-user.target.wants/'+unit)

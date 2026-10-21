@@ -15,6 +15,8 @@ sudo python3 tools/compose-system-tree.py \
 
 ## 板级启动顺序
 
+`rustsimhub-status-led.service`在multi-user启动时，为固定UFI003的`green:wan`选择内核heartbeat触发器，表示操作系统仍在运行；不表示SIM注册、网络、业务或通话验收通过。服务为oneshot，无轮询进程；Root空capability、只开放该灯的固定sysfs目录写入，验证板型、GPIO LED驱动和最大亮度，不使用任意GPIO接口。红/蓝活动灯与mmc指示保持原触发器。`/etc/rustsimhub/status-led.conf`仅接受一行`heartbeat`或`off`，须Root0644、单链接普通文件；修改后重启该服务生效，停止服务也会关闭绿灯。来源验证及真实上机状态见最新HANDOFF，不把核实触发器配置当作肉眼确认。
+
 `var-lib-rustsimhub.mount`按GPT标签NSHSTATE挂到`/var/lib/rustsimhub`，不格式化。只支持当前实测UFI003布局：mmcblk0p15、264159个512字节扇区、ext4/NSHSTATE、rw且不是根文件系统。检查失败时拒绝进入目录/固件准备，禁止向根文件系统临时目录悄悄降级。
 
 `rustsimhub-firstboot`检查板型/挂载和固定Core986、Edge985、Media984、IPC987。挂载根目录收紧为root:root/0700，避免旧NAS服务UID在新发行版中被其他守护程序复用后访问旧文件；不更改旧文件内容及各自owner。只在`rustsimhub-v1`新命名空间创建私有Core/Edge/Media子目录。已有目录的链接、owner或mode不符直接拒绝，不递归chown/repair，不创建业务身份、设置code或认领窗口。

@@ -1,0 +1,33 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-only
+# UFI003 operating-system heartbeat only; not a modem/business readiness claim.
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+test "$#" -le 1
+case "${1-}" in
+ '')
+  config=/etc/rustsimhub/status-led.conf
+  test -f "$config" && test ! -L "$config"
+  test "$(stat -c '%u:%g:%a:%h' "$config")" = 0:0:644:1
+  mode=$(cat "$config")
+  case "$mode" in heartbeat|off) ;; *) exit 1;; esac
+  ;;
+ --off) mode=off ;;
+ *) exit 1 ;;
+esac
+tr '\000' '\n' < /sys/firmware/devicetree/base/compatible | grep -Fxq 'thwc,ufi003'
+led=/sys/class/leds/green:wan
+test "$(readlink -f "$led")" = /sys/devices/platform/leds/leds/green:wan
+test "$(readlink -f "$led/device/driver")" = /sys/bus/platform/drivers/leds-gpio
+test "$(cat "$led/max_brightness")" = 1
+case "$mode" in
+ heartbeat)
+  grep -Eq '(^|[[:space:]])\[?heartbeat\]?([[:space:]]|$)' "$led/trigger"
+  printf 'heartbeat\n' > "$led/trigger"
+  ;;
+ off)
+  printf 'none\n' > "$led/trigger"
+  printf '0\n' > "$led/brightness"
+  ;;
+esac
