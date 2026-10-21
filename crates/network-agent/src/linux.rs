@@ -19,7 +19,7 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 const BASE: &str = "/var/lib/rustsimhub/rustsimhub-v1/system/network";
 const OUTPUT: &str = "/run/rustsimhub-network";
 const INPUT: &str = "/run/rustsimhub-network-input";
-const LIMIT: usize = 262144;
+const LIMIT: usize = rustsimhub_network_agent::MAX_STATE_BYTES;
 
 fn checked(p: &Path, uid: u32, mode: u32) -> Result<Vec<u8>> {
     let f = OpenOptions::new()

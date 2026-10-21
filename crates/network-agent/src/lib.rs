@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use time::{Date, Month, OffsetDateTime, UtcOffset};
 
 pub const MAX_LIMIT: u64 = 100 * 1024 * 1024 * 1024 * 1024;
+pub const MAX_STATE_BYTES: usize = 1024 * 1024;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Policy {
@@ -292,6 +293,20 @@ pub fn lte_channel(earfcn: u32) -> Option<LteChannel> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn complete_retained_ledger_fits_the_private_file_bound() {
+        let mut s = State::new("a".repeat(64));
+        s.days = (0..3200)
+            .map(|day| Day {
+                sim: format!("{day:064x}"),
+                day,
+                rx: u64::MAX,
+                tx: u64::MAX,
+            })
+            .collect();
+        assert!(s.valid());
+        assert!(serde_json::to_vec(&s).unwrap().len() <= MAX_STATE_BYTES);
+    }
     fn stamp(y: i32, m: Month, d: u8) -> i64 {
         Date::from_calendar_date(y, m, d)
             .unwrap()
