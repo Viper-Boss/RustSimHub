@@ -1,5 +1,15 @@
 # RustSimHub 当前接手入口
 
+## 最新：R01-A同源业务候选准备已完成
+
+2026-10-21，用户追加一个任务。本轮完成最新2b3c49c同源Native（21项）、七ARM程序非Root隔离运行、沿用原开发签名身份的epoch7/8/9应用包，以及实际ARM更新器8条拒绝路径、选择/未确认回退/正确确认和合成Opus/DTLS闭环。整体 **74.5/100，约74.5%**，P6仅增加0.5点离线候选准备进展。准确结果与边界见 [P6U](VALIDATION-SIGNED-CANDIDATE-P6U.md)。没有设备连接、刷写、业务初始化、新通话/短信或普通蜂窝；完成本单项后不启动下一项。
+
+唯一新索引 `.private/r01-candidate-preparation-20261021-first.json` passed=true；七Rust制品沿用冻结2b及原归档5d61a1，Native制品 `.local/native-led-candidate-2b3c49c-second`、签名包 `.private/boot-application-led-candidate-2b3c49c-first`、LED组件输入 `.local/status-led-candidate-2b3c49c-first` 已保存。Native固定镜像实际Rust1.99，与七Rust程序1.98分别记录；首轮工具链选择失败、更新夹具三轮权限/执行失败及清理前语法错误均保留。最终Root更新夹具无宿主绑定、无能力/外部网络，不改变生产安全边界；两个已退出构建容器已保存日志后移除，源码/输出/缓存保留，无活跃构建或安装。
+
+当前棒子运行状态沿用下方灯控完成时记录：业务仍4e6且未初始化。**同源Native与签名包已准备，完整系统重新组合、交付和实机验收仍未完成。** 下一项从冻结2b Git树使用上述输入组成修正版，再独立验证；或者新选源码并全部重建。不能伪造revision让文档HEAD匹配旧制品，不重跑已消费helper，不刷旧3da镜像。接续索引 `.private/third-attempt-continuation-20261021-first.json` 已更新；原安装第三索引仍是设备依据。
+
+## 此前文档同步与灯控检查点（历史）
+
 **GitHub同步与接手补充：**用户要求同步最新代码后，正常 `git push origin main` 已成功把远端从11f80da推进到08f29f4，未强制改写历史，工作流改动完整保留。此前Git对象API目录创建HTTP 404的失败日志仍保留；CLI缺少workflow范围不能单独解释全部发布路径，不能再将它当作当前同步阻塞。详细剩余工作、依赖、验收标准及可复制的Claude接手指令见 [剩余工作与Claude接手清单](REMAINING-WORK-AND-CLAUDE-HANDOFF.md)。本次只整理文档并同步GitHub，固件开发继续暂停，未连接NAS/棒子。
 
 2026-10-21。整体 **74/100，约74%**，固定权重见 [进度刻度](PROGRESS-SCALE.md)。本轮灯控修正、验证和制品保存已收尾，按用户要求暂停。原先不亮已解决，用户确认白色慢速亮灭正常；事件接线业务程序尚未启用，不以灯语代码替代新业务实机验收。完整历史原文见 [本轮前归档](archive/handoff-before-first-os-consolidation-20261021.md) 和 [更早归档](archive/handoff-before-oneclick-consolidation-20261016.md)。
