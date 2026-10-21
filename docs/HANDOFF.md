@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+**暂停保存补充：**本轮代码和记录已提交到本地 Git，但 GitHub main 仍为 `11f80dad6790140dcf8dc89de337576acb8c5ff3`。精确对象发布在新提交的目录创建步骤返回 HTTP 404；当前 GitHub CLI 授权只有 `gist, read:org, repo`，没有 `workflow`，本轮包含工作流文件修改，尚不能确认该权限缺失是否为唯一原因。失败日志为 `.private/status-led-final-publish.log` 和 `status-led-final-publish-second.log`。未改写远端历史、未删减工作流以绕过限制；恢复后需通过有相应权限的正常授权完成同步。此问题不影响已部署的灯控修复。
+
 2026-10-21。整体 **74/100，约74%**，固定权重见 [进度刻度](PROGRESS-SCALE.md)。本轮灯控修正、验证和制品保存已收尾，按用户要求暂停。原先不亮已解决，用户确认白色慢速亮灭正常；事件接线业务程序尚未启用，不以灯语代码替代新业务实机验收。完整历史原文见 [本轮前归档](archive/handoff-before-first-os-consolidation-20261021.md) 和 [更早归档](archive/handoff-before-oneclick-consolidation-20261016.md)。
 
 ## 当前灯控任务检查点（优先于下文历史）
