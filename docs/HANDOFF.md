@@ -1,8 +1,12 @@
 # RustSimHub 当前接手入口
 
-2026-10-21。整体 **74/100，约74%**，固定权重见 [进度刻度](PROGRESS-SCALE.md)。本轮按用户要求修复并扩展指示灯，用户要求本任务结束后暂停。正在完成最终制品和接手记录；不以灯语代码替代新业务实机验收。完整历史原文见 [本轮前归档](archive/handoff-before-first-os-consolidation-20261021.md) 和 [更早归档](archive/handoff-before-oneclick-consolidation-20261016.md)。
+2026-10-21。整体 **74/100，约74%**，固定权重见 [进度刻度](PROGRESS-SCALE.md)。本轮灯控修正、验证和制品保存已收尾，按用户要求暂停。原先不亮已解决，用户确认白色慢速亮灭正常；事件接线业务程序尚未启用，不以灯语代码替代新业务实机验收。完整历史原文见 [本轮前归档](archive/handoff-before-first-os-consolidation-20261021.md) 和 [更早归档](archive/handoff-before-oneclick-consolidation-20261016.md)。
 
 ## 当前灯控任务检查点（优先于下文历史）
+
+最终执行程序已更新为精确提交`2b3c49cc469bce5e0f59ae377f9a59db9f9d0a89`，源码归档SHA`5d61a14119580fe216e5922961cf537a0b0673ec9df33e610ed731f23dfb0f61`。七个生产ARM程序已由本机交叉编译成功，归属及glibc边界通过；制品`.local/wsl-artifacts-2b3c49cc469bce5e0f59ae377f9a59db9f9d0a89`，索引`.private/led-final-build-20261021-first.json`。本轮**仅部署其中的灯控程序**：备份旧可执行文件、核固定旧摘要、暂存新程序并以非Root验证build-info、原子替换和fsync、启动/8秒RGB采样均通过。最终记录`.private/status-led-final-deployment-20261021-first.json` passed=true，enabled/active/running、空capability、NRestarts=0，采样MemoryCurrent=618496/MemoryPeak=2723840、两线程；不是长期性能基准。旧58a43de部署和用户确认报告保持，不把其旧二进制摘要冒充当前版本。
+
+本次构建曾因前面Root测试留下的Cargo缓存所有权失败，原日志/exit另存`before-cache-owner-fix`后，仅在核实的本项目target缓存内恢复普通构建用户所有权，再完整构建成功；不删除失败源码目录、不改工具链或宿主其他路径。七ARM制品保存不等于七程序已上机：Core/Edge/updater的事件接线仍待同源Native及签名业务组交付，随后才可初始化业务。此暂停点没有活跃安装器、构建任务或待用户操作窗口；正常灯控服务继续运行。
 
 原先完全不亮的原因是新系统没有状态灯服务，驱动和三个GPIO LED通道均正常。独立Rust灯控58a43de已安装为四个维护文件，服务enabled/active、空capability且只写三条固定LED路径；8秒RGB采样和用户确认均证明白色慢速亮灭正常。记录`.private/status-led-deployment-20261021-first.json` passed=true；用户确认已单独记入，不把纯软件帧测试当作肉眼确认。初版纯绿heartbeat方案未部署。实际运行系统为bbb1081+此前两个维护补丁+灯控四文件，不再按原rootfs摘要宣称现场未改。
 
