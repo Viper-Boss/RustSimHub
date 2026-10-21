@@ -9,6 +9,7 @@
 - [详细开发计划](docs/development-plan.md)
 - [进度](docs/PROGRESS.md)
 - [接手说明](docs/HANDOFF.md)
+- [剩余任务与 Claude 接手清单](docs/REMAINING-WORK-AND-CLAUDE-HANDOFF.md)
 - [首阶段接口边界](docs/architecture-foundation.md)
 - [SQLite 持久化与恢复](docs/storage.md)
 - [设备身份、配对和鉴权](docs/auth.md)
