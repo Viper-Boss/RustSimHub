@@ -1,5 +1,15 @@
 # RustSimHub 当前接手入口
 
+## 最新：R01-B修正版系统与离线镜像已完成
+
+2026-10-22，用户追加一个任务。镜像审计仍仅接受旧NSH_STATUS_LED_ENABLED配置，实际拒绝新Rust灯控auto；已按精确auto/off字节及安全文件元数据修正，36项rootfs回归通过。冻结组成源码0c817c1，Root灯控按此源重建（9项）；业务仍采用已验证的2b同源Native/签名package7。**完整通用rootfs已组成，8个ARM程序运行、18单元静态依赖、镜像内合成Opus/DTLS及ext4逐项核对均通过。整体75/100，约75%。** 细节与未完成边界见 [P6V](VALIDATION-CORRECTED-SYSTEM-P6V.md)。
+
+新唯一索引 `.private/r01b-system-composition-20261022-first.json` passed=true；Windows制品 `.local/r01b-system-image-0c817c1-first/`。镜像3436183552字节，SHA256 `05029f1424e5ad1d85ad0d991f322fda49832ef3e99554a06a1f6fc38af2d852`；树12373项，SHA256 `784247ca5a70b54ff22800409aaa102a04b107cec6a06b1f6f63a3d45eedf87b`。原WSL树/镜像在P6V列明。输入/基底/源码保持，失败目录及日志保留，无活跃构建或安装。静态检查保留两条Debian包单元弃用提示，不当作实机启动通过。
+
+**本轮未连接NAS/棒子，未部署或初始化业务。** 实机状态沿用2026-10-21最后记录，实际已运行灯控仍2b，不能用新候选0c覆盖设备版本台账。新镜像无私有固件/设备状态，flash/release/boot/recovery门禁仍false，R01剩余交付/初始化和硬件验收；累计10010仍38，蜂窝等换卡。下一项用P6V准确输入重新核当前设备/备份后准备交付，不刷旧3da、不重跑已消费helper。接续索引已更新，完成本单项后不启动下一项。
+
+## 此前R01-A检查点（历史）
+
 ## 最新：R01-A同源业务候选准备已完成
 
 2026-10-21，用户追加一个任务。本轮完成最新2b3c49c同源Native（21项）、七ARM程序非Root隔离运行、沿用原开发签名身份的epoch7/8/9应用包，以及实际ARM更新器8条拒绝路径、选择/未确认回退/正确确认和合成Opus/DTLS闭环。整体 **74.5/100，约74.5%**，P6仅增加0.5点离线候选准备进展。准确结果与边界见 [P6U](VALIDATION-SIGNED-CANDIDATE-P6U.md)。没有设备连接、刷写、业务初始化、新通话/短信或普通蜂窝；完成本单项后不启动下一项。
