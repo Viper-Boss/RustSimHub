@@ -1,5 +1,6 @@
 [Unit]
 Description=One automatic application group recovery per boot
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/installation.complete
 After=rustsimhub-core.service rustsimhub-media.service rustsimhub-edge.service rustsimhub-app-select.service
 
 [Service]
