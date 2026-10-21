@@ -286,10 +286,10 @@ fn collect_radio(salt: &str) -> Result<(Value, String)> {
     }
     let simdata: Value =
         serde_json::from_str(&command("/usr/bin/mmcli", &["-i", &sim, "-J"], None)?)?;
-    let iccid = text(&simdata, "/sim/properties/iccid", 32).ok_or("SIM unavailable")?;
-    if iccid.len() < 8 || !iccid.bytes().all(|b| b.is_ascii_digit()) {
-        return Err("invalid SIM".into());
-    }
+    let iccid = rustsimhub_domain::canonical_sim_identifier(
+        &text(&simdata, "/sim/properties/iccid", 32).ok_or("SIM unavailable")?,
+    )
+    .ok_or("invalid SIM")?;
     let key = format!(
         "{:x}",
         Sha256::digest(format!("RustSimHub.NetworkMeter.v1\0{salt}\0{iccid}"))

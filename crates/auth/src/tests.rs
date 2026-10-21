@@ -76,6 +76,22 @@ fn sim_pseudonym_is_device_specific_stable_and_rejects_unknown_identity() {
     assert_ne!(key, i.sim_fingerprint("8901234567890123457").unwrap());
     assert!(i.sim_fingerprint("").is_err());
     assert!(i.sim_fingerprint("/sim/0").is_err());
+    assert_eq!(
+        i.sim_fingerprint("890000L0000000000001").unwrap(),
+        i.sim_fingerprint("890000l0000000000001").unwrap()
+    );
+    assert_ne!(
+        i.sim_fingerprint("890000L0000000000001").unwrap(),
+        i.sim_fingerprint("890000L0000000000002").unwrap()
+    );
+    for invalid in [
+        "890000 L000000000001",
+        "890000\0L00000000001",
+        "890000/L000000000001",
+        "１２３４５６７８９０",
+    ] {
+        assert!(i.sim_fingerprint(invalid).is_err());
+    }
 }
 
 #[test]

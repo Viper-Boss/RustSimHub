@@ -1753,6 +1753,7 @@ dependencies = [
  "fs2",
  "getrandom 0.4.3",
  "rustix",
+ "rustsimhub-domain",
  "serde",
  "serde_json",
  "sha2 0.10.9",

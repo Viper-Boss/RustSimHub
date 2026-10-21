@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 #![forbid(unsafe_code)]
 //! Pure policy types. No hardware, network, clock, or persistence access.
+/// Modem identifiers may contain carrier letters. Bound and normalize before hashing;
+/// preserve every digit of existing numeric identifiers and never trim separators.
+pub fn canonical_sim_identifier(value: &str) -> Option<String> {
+    ((8..=32).contains(&value.len()) && value.bytes().all(|b| b.is_ascii_alphanumeric()))
+        .then(|| value.to_ascii_uppercase())
+}
 mod history;
 pub use history::{HistoryCursor, HistoryEntity};
 mod nas;

@@ -156,10 +156,8 @@ async fn snapshot(
             .path(sim.clone())?
             .build()
             .await?;
-        let iccid = simproxy.sim_identifier().await?;
-        if !(8..=32).contains(&iccid.len()) || !iccid.bytes().all(|b| b.is_ascii_digit()) {
-            return Err("SIM identity unavailable".into());
-        }
+        let iccid = rustsimhub_domain::canonical_sim_identifier(&simproxy.sim_identifier().await?)
+            .ok_or("SIM identity unavailable")?;
         (Some(iccid), LineStatus::Observing)
     };
     if bus.get_name_owner(SERVICE.try_into()?).await?.as_str() != owner {

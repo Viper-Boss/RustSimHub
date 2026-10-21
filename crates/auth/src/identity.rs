@@ -21,9 +21,8 @@ pub struct SimFingerprinter {
 impl SimFingerprinter {
     pub fn fingerprint(&self, iccid: &str) -> Result<[u8; 32]> {
         use hmac::{Hmac, Mac};
-        if !(8..=32).contains(&iccid.len()) || !iccid.bytes().all(|b| b.is_ascii_digit()) {
-            return Err(Error::InvalidInput);
-        }
+        let iccid =
+            rustsimhub_domain::canonical_sim_identifier(iccid).ok_or(Error::InvalidInput)?;
         let mut mac =
             Hmac::<Sha256>::new_from_slice(self.key.as_ref()).map_err(|_| Error::InvalidInput)?;
         mac.update(b"RustSimHub.SimFingerprint.v1\0");
