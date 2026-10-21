@@ -160,6 +160,24 @@ fn quota_exhausted() -> Result<bool> {
 }
 fn lifecycle(stop: bool) -> Result<()> {
     directory(BASE, 0o700)?;
+    // Gate ordinary data before reading any ledger. Corrupt state must not take USB/NM down.
+    let fresh = counters().is_err();
+    if !stop {
+        nft(&rules(
+            &[
+                "wwan0".into(),
+                "wwan1".into(),
+                "wwan2".into(),
+                "wwan3".into(),
+                "wwan4".into(),
+                "wwan5".into(),
+                "wwan6".into(),
+                "wwan7".into(),
+            ],
+            Some(0),
+            fresh,
+        )?)?;
+    }
     let file = Path::new(BASE).join("meter.json");
     let mut state: Option<State> = if file.try_exists()? {
         let s: State = serde_json::from_slice(&checked(&file, 0, 0o600)?)?;
@@ -198,21 +216,7 @@ fn lifecycle(stop: bool) -> Result<()> {
             s.was_running = false;
             publish(BASE, "meter.json", s, 0o600)?;
         }
-    } else if counters().is_err() {
-        nft(&rules(
-            &[
-                "wwan0".into(),
-                "wwan1".into(),
-                "wwan2".into(),
-                "wwan3".into(),
-                "wwan4".into(),
-                "wwan5".into(),
-                "wwan6".into(),
-                "wwan7".into(),
-            ],
-            state.as_ref().filter(|s| s.policy.enabled).map(|_| 0),
-            true,
-        )?)?;
+    } else if fresh {
         if let Some(ref mut s) = state {
             if s.was_running && s.policy.enabled {
                 s.uncertain = true;

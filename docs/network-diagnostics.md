@@ -22,6 +22,8 @@ Root持久目录为`/var/lib/rustsimhub/rustsimhub-v1/system/network`（0700）�
 
 Root服务只具有NET_ADMIN、有限文件写目录、AF_UNIX/NETLINK，只运行固定的nmcli/mmcli/nft命令，无shell和任意参数API。监测服务启动前应用已保存的普通数据守卫，NetworkManager依赖它；停止时先阻断数据再保存最终计数。异常掉电或计数回退导致限额启用时计量不确定，先阻断普通数据，所有者可核对后显式接受已保存统计值。账单仍以运营商为准：本机是IP层估算，丢包、协议层计费与最后一次检查点之间有差异，不能保证运营商计费字节绝不超额。
 
+NetworkManager采用Wants/After顺序拉起守卫，避免运行中重启守卫连带停止USB所用的NM。早期守卫先阻断普通数据，再读取账本；账本损坏时保留材料和阻断规则，USB维护继续可用。新内核仍须单独验证nftables计量/额度能力，不能将此配置当作跨内核启动验收。
+
 提示目录`/run/rustsimhub-network-input`为2750、Core:Root，配置文件0640；Root通过组权限读取，不授予读取所有私有目录的DAC能力。快照目录为2750、Root:Core，文件0640，仅Core可读取投影。
 
 ## 主动测试
