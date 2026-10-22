@@ -1,5 +1,9 @@
 # RustSimHub 当前接手入口
 
+## 最新：收到pon_dump，引用泄漏修正与真实离线构建已核验，未上机
+
+2026-10-23，用户提供完整片段后发现读reg失败分支先取得pdev再直接返回的泄漏，以及所有读取失败仍返回0。审查稿前移失败处理/保留首个错误，省去依据不足的0x0e；GPL来源、实验限制及并发解绑未保证明确保留。实际init的10条模拟依赖分支通过，原片段泄漏/错误成功已复现；两份真实ARM64外部模块编译、vermagic/强依赖、原配置/导出独立核验通过。首次仅最终Git元数据读取被WSL所有权检查拒绝，false保留，second独立复核通过，不改全局Git配置、不重复构建。见 [P6Z](VALIDATION-PON-DUMP-REVIEW-P6Z.md)，唯一成功索引 `.private/pon-dump-review-build-20261023-second.json`。现有匹配vmlinux没有DWARF，未得到faddr2line源码行。没有连接/加载/自动加载/关机/刷写或寄存器实测，电源实机调试仍搁置，软件主线P2C已验证未部署，**整体76.5%**。
+
 ## 最新：已核对用户补充分析，电源实机调试仍搁置
 
 2026-10-23，新增 [补充分析核对](POWEROFF-EXTERNAL-REVIEW-2026-10-23.md)。本机固定源码核对PMIC revision分支/写失败返回及SMD全部5处排队，已有参考配置的init-on-free默认未开；这不是本轮运行时检查。原因寄存器需对应实际返回boot，不能用物理恢复boot读值回填；UAF、锁卡死和迟到排队仍未证明。未收到所述pon_dump源码，未构建/加载/关机/改引导。私有报告 `.private/poweroff-external-review-20261023-first.json`；初次默认WSL用户无法读取Root缓存，随后Root只读核对成功，未改原件。软件主线仍P2C已验证未部署，整体76.5%，不因参考审查加点。
