@@ -19,8 +19,18 @@ jobs:
           python3 -m unittest discover -s tools/rootfs/scripts -p test_rootfs.py
       - name: Board helper isolated fixtures
         run: sudo -n python3 -m unittest discover -s tools/system -p 'test_*.py'
+      - name: Browser fixture runtime
+        run: node --version
+      - name: Web identity and first-owner proof
+        run: node tools/test-web-proof.mjs
+      - name: Web audio lifecycle and authorization
+        run: node tools/test-web-media.mjs
+      - name: Web one-click call operation safety
+        run: node tools/test-web-call-test.mjs
       - name: Web configuration indicator ordering
         run: node tools/test-web-indicator.mjs
+      - name: Web network diagnostics and monthly policy
+        run: node tools/test-web-network.mjs
       - name: Read-only recovery helper fixtures
         run: |
           sh -n tools/recovery/watch-edl-capture.sh
