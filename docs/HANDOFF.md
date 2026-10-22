@@ -2,6 +2,8 @@
 
 ## 最新：关机问题搁置，网页补同步修正已完成本地验证
 
+发布复核：实现提交 `cede3d7` 已同步GitHub，完整 [CI 39829439401](https://github.com/Viper-Boss/RustSimHub/actions/runs/39829439401) success，含新增补同步和既有五组网页、Rust/生产配置/Clippy与系统工具；远程精确提交JSON已保存。仍未交付设备，进度不加点。
+
 2026-10-23，按用户新指示转做其他固件任务。新增有界事件追赶（每类最多8页/256条），列表刷新成功后才提交对应游标；失败可原位置重试，退出/刷新重置任务代次和游标。实际 app 接线/迟到回复隔离及六组网页回归、Linux Edge 26项与Clippy、format/diff检查通过。新脚本路由与CI步骤已接入，未部署或连接设备；**整体仍76.5%**，见 [P2C](VALIDATION-WEB-EVENT-SYNC-P2C.md)，私有索引 `.private/web-event-sync-20261023-first.json`。设备组成/流量关闭状态沿用P6Y最终检查，不冒充本轮实测。电源/内核调试按用户要求搁置；另新增 [可转发的关机证据摘要](POWEROFF-SHAREABLE-BRIEF-2026-10-23.md)，不依赖本机路径。下一项可继续R04/R02准备，不重跑关机/安装helper。
 
 ## 最新：按用户要求整理关机问题，交由用户研究

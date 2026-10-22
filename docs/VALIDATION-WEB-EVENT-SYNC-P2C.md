@@ -40,6 +40,8 @@ cargo clippy -p rustsimhub-edge --all-targets --locked -- -D warnings
 
 私有证据索引 `.private/web-event-sync-20261023-first.json`，六份 `web-event-sync-*-20261023-first.log` 与 `web-event-sync-linux-20261023-first.log`。自动检查配置已接入；当前文档所述通过是本地实际结果，远程 CI 要以发布后的实际运行记录为准。
 
+发布后补充：实现提交 `cede3d775ab88f761556b9d87d12cdbb64036825` 已同步 main，其 [GitHub完整检查39829439401](https://github.com/Viper-Boss/RustSimHub/actions/runs/39829439401) completed/success：六组网页、完整Rust、生产配置、Clippy及系统/恢复工具均通过。正式JSON结果保存为 `.private/web-event-sync-ci-20261023-first.json`，与该精确实现提交核对一致。后续文档提交不冒充这一运行的源提交。
+
 ## 未执行和下一步
 
 本轮未访问 NAS/棒子、重建 ARM 固件、部署、初始化正式业务、拨号、发送短信、开启普通蜂窝数据、关机或刷写。设备状态沿用此前最终检查，不能当本轮新测。用户要求电源/内核问题暂时搁置，交接材料独立保存。
