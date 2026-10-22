@@ -1,5 +1,9 @@
 # RustSimHub 当前接手入口
 
+## 最新：已核对用户补充分析，电源实机调试仍搁置
+
+2026-10-23，新增 [补充分析核对](POWEROFF-EXTERNAL-REVIEW-2026-10-23.md)。本机固定源码核对PMIC revision分支/写失败返回及SMD全部5处排队，已有参考配置的init-on-free默认未开；这不是本轮运行时检查。原因寄存器需对应实际返回boot，不能用物理恢复boot读值回填；UAF、锁卡死和迟到排队仍未证明。未收到所述pon_dump源码，未构建/加载/关机/改引导。私有报告 `.private/poweroff-external-review-20261023-first.json`；初次默认WSL用户无法读取Root缓存，随后Root只读核对成功，未改原件。软件主线仍P2C已验证未部署，整体76.5%，不因参考审查加点。
+
 ## 最新：关机问题搁置，网页补同步修正已完成本地验证
 
 发布复核：实现提交 `cede3d7` 已同步GitHub，完整 [CI 39829439401](https://github.com/Viper-Boss/RustSimHub/actions/runs/39829439401) success，含新增补同步和既有五组网页、Rust/生产配置/Clippy与系统工具；远程精确提交JSON已保存。仍未交付设备，进度不加点。

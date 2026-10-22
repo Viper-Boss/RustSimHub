@@ -1,5 +1,7 @@
 # 最新开发进度：2026-10-23
 
+**补充分析已核对，整体仍76.5%。** 用户转来关机/SMD分析后，仅检查固定源码、已有参考配置和原始上游讨论，保存 [核对说明](POWEROFF-EXTERNAL-REVIEW-2026-10-23.md)。明确PMIC revision分支、PON原因的boot对应及推论边界；没有新的UAF复现或寄存器实测，没有收到pon_dump附件。未连接设备或恢复关机测试，其他固件任务继续按HANDOFF推进；P2C仍已验证未部署。
+
 发布补充：网页补同步实现 `cede3d7` 的完整 [GitHub CI 39829439401](https://github.com/Viper-Boss/RustSimHub/actions/runs/39829439401) 已success，精确源提交与结果核对并保存；代码/交接材料已同步，设备未更新，整体仍76.5%。
 
 **网页事件补同步修正已完成本地验证，整体仍76.5%。** 用户要求搁置关机问题，转做R04离线部分：新增每类8页/256条有界追赶，列表刷新成功才提交游标，失败保留原位置，退出/刷新清理和迟到回复隔离；六组网页回归、Linux Edge 26项及Clippy、format/diff通过，路由/CI已接入，未部署或访问设备。详见 [P2C](VALIDATION-WEB-EVENT-SYNC-P2C.md)，索引 `.private/web-event-sync-20261023-first.json`。另已提供可转发关机证据摘要；不继续电源/内核调试，无新电话/短信或普通蜂窝激活，实际组成保持。
