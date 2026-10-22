@@ -20,6 +20,8 @@
 
 这是工程估算，不能据此推算剩余时间或 token 数。每轮结束在 PROGRESS.md 与 HANDOFF.md 同步实际变化。
 
+2026-10-23 P6Y：临时PMIC加载/绑定通过，单次关机后仍有新boot及基带恢复内核Oops；普通拔插最终恢复/临时材料清理/原卡注册与数据关闭通过。关机修复未通过，整体仍76.5，不加点。后续查SMD/rpmsg恢复路径。见VALIDATION-PMIC-TRIAL-P6Y.md。
+
 2026-10-23追加P6X：只读定位PMIC关机准备驱动缺失，最小两项配置/ARM模块离线通过；未上机加载或验证关机，整体保持76.5，不提前给硬件修复加分。见VALIDATION-POWEROFF-DIAGNOSIS-P6X.md。
 
 2026-10-22追加P7F：五组网页回归接入GitHub，a679da8完整CI39723798698通过；仅补自动执行覆盖，未新增硬件/功能验收点，整体保持76.5。见VALIDATION-WEB-CI-P7F.md。
