@@ -1,5 +1,11 @@
 # RustSimHub 当前接手入口
 
+## 最新：关机重启诊断完成，PMIC候选仅离线验证
+
+2026-10-23。实际poweroff日志确认正常停止/卸载后进入关机，随后新boot；当前内核`INPUT_MISC`未开，PMIC pwrkey节点存在但无驱动/模块/notifier。固定上游驱动负责关机时设置PMIC shutdown类型，缺失是高可信原因，尚未做受控因果验证。新增独立实验配置片段，仅两项有效改变；新输出严格编译生成17,344字节ARM模块，版本/别名/24项原导出核对通过，原源码/配置/导出保持。第一、二轮构建环境/输入失败保留，第三轮通过；未放宽检查。见 [P6X](VALIDATION-POWEROFF-DIAGNOSIS-P6X.md)。**整体仍76.5/100，不宣称修复已上机。**
+
+成功索引`.private/poweroff-offline-candidate-20261023-third.json`，制品`.local/poweroff-driver-candidate-20261023-third/`；最终只读复核`poweroff-final-readonly-20261023-first.json`通过：同一boot、原卡数据关闭、无gsm连接配置、PCM关闭、正式业务仍未初始化。没有加载模块/再次关机/刷写，现用系统版本不变。后续单独协调候选交付、输入事件策略及有恢复条件的关机实测；本次诊断收尾，不自动开始部署或R02。不重跑已消费helper。
+
 ## 最新：网页自动检查补齐，完整GitHub运行通过
 
 2026-10-22，用户追加一个小任务。此前CI只跑网页灯控，已补齐身份/首次owner、音频生命周期、一键通话及网络/月策略四组既有回归；五组本地均通过，配置提交a679da8的 [完整GitHub运行39723798698](https://github.com/Viper-Boss/RustSimHub/actions/runs/39723798698)已success，包含Rust/生产检查/Clippy和系统工具。细节与命令见 [P7F](VALIDATION-WEB-CI-P7F.md)，私有证据`.private/web-ci-20261022-first.json`及`web-ci-run-20261022-first.json`。**整体仍76.5/100，不为已有功能重复加点。**
