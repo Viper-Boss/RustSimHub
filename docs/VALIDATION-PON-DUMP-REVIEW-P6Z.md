@@ -28,6 +28,8 @@ python3 tools/test-pon-dump-review.py --original .local/pon-dump-original-202610
 
 该检查已加入CI，默认检查审查稿的10个分支；原片段负面对照使用本机私有输入，不由CI读取私有目录。模拟引用平衡不证明regmap生命周期或寄存器读取无副作用。
 
+实现提交 `91cb708b48e026ca477a972fbd6566a5806626a6` 已同步GitHub，其 [完整CI 39835048209](https://github.com/Viper-Boss/RustSimHub/actions/runs/39835048209) completed/success，包含新增控制流检查、六组网页、完整Rust/生产配置/Clippy及系统/恢复工具。准确源提交及正式结果保存在 `.private/pon-dump-review-ci-20261023-first.json`。这份CI不构建真实ARM内核模块，真实构建由下节本机证据证明。
+
 ## 真实内核构建与独立核验
 
 在新WSL输出目录，使用已复现的固定 `93a71ee` 源码、原配置、真实生成头、原内核导出与Debian GCC14.2工具链，执行 `modules_prepare` 和两份独立外部模块构建。原配置没有增加PMIC输入驱动选项；没有跳过严格modpost或未定义符号检查。
@@ -42,6 +44,8 @@ python3 tools/test-pon-dump-review.py --original .local/pon-dump-original-202610
 首次构建流程已成功编译并核对两份模块，最后记录Git版本时被WSL Root的仓库所有权检查拒绝，整体报告保持false。没有更改全局safe.directory，也没有重复编译：随后从Windows取得基线版本，在独立second核验中重新检查两个模块的实际摘要、ELF、modinfo、全部强依赖、源文件，以及原配置/导出保持；second通过。
 
 另核对现有匹配 `vmlinux`，**不含 `.debug_info`**，因此尚不具备建议中直接用该ELF运行 `faddr2line` 得到准确源码行的前提。本轮没有重建含DWARF的内核或推定崩溃必然属于哪个循环；此前实际指令映射继续有效。
+
+独立 `pon-dump-dwarf-check-20261023-first.json` 同时检查普通 `.debug*` 及压缩 `.zdebug*` 节，均不存在，不将压缩节遗漏为“无DWARF”。
 
 ## 证据与未验收项
 

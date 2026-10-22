@@ -1,5 +1,7 @@
 # 最新开发进度：2026-10-23
 
+发布补充：`91cb708`已同步，完整 [CI 39835048209](https://github.com/Viper-Boss/RustSimHub/actions/runs/39835048209) success；精确编译输入、模块实际核验和CI各自边界已记录，设备未改动，整体仍76.5%。
+
 **pon_dump片段已审查并实际离线编译，整体76.5%不加点。** 收到源码后修正读reg失败的pdev泄漏及读取全失败仍成功的状态，移除缺依据的0x0e；实际init模拟依赖10分支与原版负面对照通过。原版逻辑副本/审查稿真实ARM64模块分别7568/7776字节，版本/9和10强依赖及原配置/导出通过；首次仅Git元数据收尾失败保留false，second独立核验通过。现有匹配ELF无DWARF，尚不能按所提方式得到准确行号。未访问/加载到设备或关机，继续搁置实机电源调试；详见 [P6Z](VALIDATION-PON-DUMP-REVIEW-P6Z.md)，私有索引 `.private/pon-dump-review-build-20261023-second.json`。并发解绑和寄存器读取无副作用均未证明。
 
 **补充分析已核对，整体仍76.5%。** 用户转来关机/SMD分析后，仅检查固定源码、已有参考配置和原始上游讨论，保存 [核对说明](POWEROFF-EXTERNAL-REVIEW-2026-10-23.md)。明确PMIC revision分支、PON原因的boot对应及推论边界；没有新的UAF复现或寄存器实测，没有收到pon_dump附件。未连接设备或恢复关机测试，其他固件任务继续按HANDOFF推进；P2C仍已验证未部署。
