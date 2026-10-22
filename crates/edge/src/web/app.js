@@ -4,10 +4,11 @@ import { AudioLink } from './media.js';
 import { CallTest } from './call-test.js';
 import { ConfigurationIndicator } from './indicator.js';
 import { NetworkPanel } from './network.js';
+import { EventSync } from './event-sync.js';
 const $=id=>document.getElementById(id);
 const scopes=['status.read','sms.read','calls.read'];
 let key, publicKey, token=null, busy=false, pending=null, lease=null;
-let inboxCursor=null, callsCursor=null, inboxEvents=null, callEvents=null;
+let inboxCursor=null, callsCursor=null;
 let historyCursor=null, historySources=[];
 let wifiTrial=null;
 let audioReady=false;
@@ -47,6 +48,7 @@ async function api(command,epoch=viewEpoch){
  }finally{clearTimeout(timer);requests.delete(controller);}
 }
 function auth(command){if(!token)throw Error('请先登录');return api({...command,token});}
+const eventSync=new EventSync({request:command=>auth(command),reload:{sms:()=>inboxPage(true),calls:()=>callsPage(true)}});
 const notice=text=>{$('notice').textContent=text;};
 const networkPanel=new NetworkPanel({document,request:command=>auth(command),getToken:()=>token,runTest:async command=>{
  const epoch=viewEpoch,authToken=token;if(!authToken)throw Error('请先登录');
@@ -116,6 +118,7 @@ function historyTypes(){clearHistory();$('history-entity').replaceChildren();con
 async function historyPage(reset=false){if(reset)clearHistory();const source=$('history-source').value,entity=$('history-entity').value;if(!source||!entity)return;try{const page=await auth({op:'history_page',source,entity,after:historyCursor,limit:16});for(const record of page.records)row(`${record.id} · ${record.deleted?'已删除的历史':'归档记录'}${record.user_state?.favorite?' · 收藏':''}${record.user_state?.marked_unread?' · 标记未读':''}`,$('history-list'),async()=>{try{$('history-detail').textContent=JSON.stringify(await auth({op:'history_detail',source,entity,record_id:record.id}),null,2);}catch(error){clearHistory();throw error;}});historyCursor=page.cursor;$('more-history').disabled=page.records.length<16;}catch(error){clearHistory();throw error;}}
 async function loadHistory(){clearHistory();$('history-source').replaceChildren();const result=await auth({op:'history_sources'});historySources=result.sources;for(const [index,source] of historySources.entries()){const option=document.createElement('option');option.value=source.source;option.textContent=`历史库 ${index+1} · ${source.source.slice(0,8)}`;$('history-source').append(option);}historyTypes();await historyPage(true);}
 async function refresh(){
+ eventSync.reset();$('events').textContent='已重置补同步位置；可点击“补同步事件”追赶历史变化';
  const epoch=viewEpoch;const health=await auth({op:'health'});current(epoch);
  const line=await auth({op:'line_status'});current(epoch);
  async function optional(op){try{return await auth({op});}catch(error){current(epoch);return {available:false,reason:'暂不可用或未授予此项权限'};}}
@@ -126,9 +129,9 @@ async function refresh(){
  showAudio();
 }
 async function sync(){
- let messages=await auth({op:'inbox_events',after:inboxEvents,limit:32});let calls=await auth({op:'call_events',after:callEvents,limit:32});
- inboxEvents=messages.cursor;callEvents=calls.cursor;$('events').textContent=`本次补同步 ${messages.events.length} 条短信事件、${calls.events.length} 条通话事件。`;
- if(messages.events.length)await inboxPage(true);if(calls.events.length)await callsPage(true);
+ const epoch=viewEpoch;
+ try{const result=await eventSync.run();current(epoch);$('events').textContent=`本次补同步 ${result.sms.count} 条短信事件、${result.calls.count} 条通话事件。${result.sms.more||result.calls.more?'可能仍有更多，请再次点击继续补同步。':'已追赶到本次查询末尾。'}`;}
+ catch(error){if(epoch===viewEpoch)$('events').textContent='补同步未完成；失败部分保留原位置，可再次点击重试。若提示游标或事件库变化，请先刷新状态。';throw error;}
 }
 async function prepare(type,action){
  const epoch=viewEpoch;if(pending)throw Error('请先查询并关闭当前操作；不自动覆盖结果不明的提交');
@@ -158,6 +161,7 @@ async function act(fn){if(busy)return;const generation=++actionGeneration,epoch=
 function bind(id,fn){$(id).onclick=()=>act(fn);}
 bind('initialize-owner',initializeOwner);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
 bind('network-login',login);const networkPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{networkPanel.stop();networkPreviousLogout();};
+const syncPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{eventSync.reset();inboxCursor=null;callsCursor=null;$('more-inbox').disabled=true;$('more-calls').disabled=true;syncPreviousLogout();};
 bind('refresh-history',loadHistory);bind('more-history',()=>historyPage());$('history-source').onchange=()=>act(async()=>{historyTypes();await historyPage(true);});$('history-entity').onchange=()=>act(()=>historyPage(true));
 bind('wifi-begin',beginWifi);bind('wifi-status',()=>wifiAction('wifi_status'));bind('wifi-confirm',()=>wifiAction('wifi_confirm'));bind('wifi-cancel',()=>wifiAction('wifi_cancel'));const previousLogout=$('logout').onclick;$('logout').onclick=()=>{clearWifi();$('wifi-section').hidden=true;previousLogout();};
 bind('more-inbox',()=>inboxPage());bind('more-calls',()=>callsPage());bind('prepare-sms',()=>prepare('sms','send'));for(const action of ['dial','accept','hangup','dtmf'])bind('prepare-'+action,()=>prepare('call',action));bind('submit',submit);bind('query',query);bind('clear',async()=>{if(!pending||!['submitted','cancelled'].includes(pending.state))throw Error('当前结果必须保留查询');pending=null;await save('pending',null);showPending();});
@@ -180,3 +184,4 @@ setInterval(()=>{if(token&&configurationOpen&&!document.hidden)void configuratio
 document.addEventListener('visibilitychange',()=>{if(token)void configurationIndicator.set(configurationOpen&&!document.hidden);});
 addEventListener('pagehide',()=>{configurationOpen=false;void configurationIndicator.set(false);});
 addEventListener('pagehide',()=>networkPanel.stop());
+addEventListener('pagehide',()=>eventSync.reset());

@@ -31,6 +31,8 @@ jobs:
         run: node tools/test-web-indicator.mjs
       - name: Web network diagnostics and monthly policy
         run: node tools/test-web-network.mjs
+      - name: Web event catch-up and retry lifecycle
+        run: node tools/test-web-event-sync.mjs
       - name: Read-only recovery helper fixtures
         run: |
           sh -n tools/recovery/watch-edl-capture.sh
