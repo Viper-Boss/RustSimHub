@@ -1,5 +1,7 @@
 # RustSimHub 剩余未完成清单
 
+P2F补充：正式单浏览器Owner删除/恢复及实际SIM读回已通过，当前67行；多客户端补同步、发送及故障矩阵仍缺。最近登录提示/提交前资格检查已修源码，尚未交付，见[P2F](VALIDATION-SMS-FORMAL-MANAGEMENT-P2F.md)。整体78.5%不重复加点。
+
 最新P6AG：整体**78.5%**，剩余**21.5点**。正式epoch25在普通拔插后自动启动，保存Wi‑Fi且NAS USB无IPv4时严格HTTPS通过；原43条短信/Owner保留，七路初始化0→7，用户完整10010听音/0.4秒、挂断清理通过，累计44。P2E并排候选/正文用户截图确认；本次又保留23条重观测候选，共66行，未自动合并。见[P6AG](VALIDATION-FORMAL-COLDBOOT-P6AG.md)。
 
 

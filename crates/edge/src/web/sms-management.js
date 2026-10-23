@@ -10,7 +10,7 @@ export class SmsManager {
  current(g){if(g!==this.generation)throw Error('短信管理会话已结束');}
  update(){this.review.setOwner(this.available);this.$('delete-sms').disabled=!this.available||!this.selected||!!this.active||!!this.loading||this.uncertain;this.$('trash-refresh').disabled=!this.available||!!this.active||!!this.loading;for(const button of this.restoreButtons)button.disabled=!this.available||!!this.active||!!this.loading||this.uncertain;}
  select(id,detail=null){this.selected=id;this.review.select(id,detail);this.update();}
- async permissions(){const g=this.generation;try{const r=await this.request({op:'sms_management_status'});this.current(g);this.available=r.available===true;this.$('trash-section').hidden=!this.available;this.update();}catch{if(g===this.generation){this.available=false;this.$('trash-section').hidden=true;this.update();}}}
+ async permissions(){const g=this.generation;try{const r=await this.request({op:'sms_management_status'});this.current(g);this.available=r.available===true;this.$('trash-section').hidden=!this.available;this.update();return this.available;}catch{if(g===this.generation){this.available=false;this.$('trash-section').hidden=true;this.update();}return false;}}
  async loadTrash(reset=false,internal=false){
   if(!this.available||this.loading||this.active&&!internal)return;
   const g=this.generation,marker={};this.loading=marker;this.update();
@@ -29,10 +29,12 @@ export class SmsManager {
  async deleteSelected(){const id=this.selected;if(!this.available||!id||this.active||this.loading||this.uncertain)return;if(!this.confirm('将这条短信移到棒子本地回收站？其他客户端也会隐藏它，SIM 存储保持不变。'))return;await this.change(id,true);}
  async restore(id){if(!this.available||this.active||this.loading||this.uncertain)return;if(!this.confirm('恢复这条短信，让其他客户端重新可见？'))return;await this.change(id,false);}
  async change(id,deleted){
-  const g=this.generation,marker={};let confirmed=false;this.active=marker;this.update();
-  try{const result=await this.request({op:deleted?'delete_sms':'restore_sms',sms_id:id});this.current(g);if(result.sms_id!==id||result.deleted!==deleted)throw Error('操作响应不匹配');confirmed=true;this.selected=null;this.review.reset();this.$('sms-detail').textContent='';this.$('trash-detail').textContent='';this.preview++;
+  const g=this.generation,marker={};let confirmed=false,submitted=false;this.active=marker;this.update();
+  try{const allowed=await this.permissions();this.current(g);if(!allowed){this.$('sms-management-state').textContent='操作未提交：无法确认最近5分钟内的所有者登录。请点击“重新登录管理短信”，再选择记录操作。';return;}
+   if(deleted&&this.selected!==id){this.$('sms-management-state').textContent='当前短信选择已变化，操作未提交；请重新核对记录。';return;}
+   submitted=true;const result=await this.request({op:deleted?'delete_sms':'restore_sms',sms_id:id});this.current(g);if(result.sms_id!==id||result.deleted!==deleted)throw Error('操作响应不匹配');confirmed=true;this.selected=null;this.review.reset();this.$('sms-detail').textContent='';this.$('trash-detail').textContent='';this.preview++;
    await this.reloadInbox();this.current(g);if(!await this.loadTrash(true,true))throw Error('回收站刷新未完成');this.current(g);this.$('sms-management-state').textContent=deleted?'已移到本地回收站；其他客户端补同步后会隐藏该记录':'已恢复；其他客户端补同步后可重新查看';
-  }catch(error){if(g===this.generation){this.uncertain=!confirmed;this.$('sms-management-state').textContent=confirmed?'操作已确认，列表刷新未完成；请刷新核对':`操作结果未确认：${error.message||'连接中断'}。请刷新状态核对；不会自动重试`;}}
+  }catch(error){if(g===this.generation){this.uncertain=submitted&&!confirmed;this.$('sms-management-state').textContent=confirmed?'操作已确认，列表刷新未完成；请刷新核对':submitted?`操作结果未确认：${error.message||'连接中断'}。请刷新状态核对；不会自动重试`:'操作未提交，请重新登录后核对记录。';}}
   finally{if(this.active===marker){this.active=null;this.update();}}
  }
 }
@@ -61,7 +63,7 @@ export class SmsDuplicateReview {
    const text=reviewText(detail,id),candidate=detail.summary.duplicate_candidate;
    if(!smsUuid(candidate)||candidate===id)throw Error('候选关联无效');
    this.id=id;this.candidate=candidate;this.$('sms-comparison-current').textContent=text;
-   this.$('sms-comparison-state').textContent='可能与旧记录相同，请先核对。相同内容也可能来自两条真实来信；保留或移到本地回收站由你决定。';
+   this.$('sms-comparison-state').textContent='候选旧记录保留独立ID。相同内容也可能来自两条真实来信；请先核对，再决定是否将当前记录移到本地回收站。';
   }catch(error){this.$('sms-comparison-state').textContent=error.message||'候选关联暂不可用';}
   this.update();
  }
@@ -72,7 +74,7 @@ export class SmsDuplicateReview {
    const detail=await this.request({op:trash?'deleted_sms_detail':'sms_detail',sms_id:candidate});
    if(g!==this.generation||id!==this.id||candidate!==this.candidate||trash&&!this.owner)return false;
    const text=reviewText(detail,candidate);this.$('sms-comparison-prior').textContent=text;this.loadedFromTrash=trash;
-   this.$('sms-comparison-state').textContent=trash?'已读取回收站中的候选旧记录。核对后可使用“移到回收站”处理当前记录；旧记录保持原状态。':'已读取候选旧记录。核对后可使用“移到回收站”处理当前记录，也可保留两份。';return true;
+   this.$('sms-comparison-state').textContent=trash?'已读取回收站中的候选旧记录。核对后可使用“移到回收站”处理当前记录；旧记录保持原状态。':'已读取候选旧记录；两条本地记录各有独立ID。核对后可使用“移到回收站”处理当前记录，也可保留两份。';return true;
   }catch(error){if(g===this.generation){this.$('sms-comparison-prior').textContent='';this.$('sms-comparison-state').textContent=trash?'回收站中的候选暂不可查看，请检查所有者登录和权限。':'候选旧记录暂不可查看；它可能已移入回收站。所有者可手动选择从回收站读取。';}return false;}
   finally{if(this.loading===marker){this.loading=null;this.update();}}
  }

@@ -16,15 +16,15 @@ function fixture(respond=async c=>c.op==='sms_management_status'?{available:true
 }
 {
  const f=fixture();await f.manager.permissions();f.manager.select(id);f.consent(false);await f.manager.deleteSelected();assert.deepEqual(f.commands.map(c=>c.op),['sms_management_status']);assert.equal(f.$('delete-sms').disabled,false);
- f.consent(true);await f.manager.deleteSelected();assert.equal(f.reloads,1);assert.deepEqual(f.commands.map(c=>c.op),['sms_management_status','delete_sms','deleted_inbox']);assert.equal(f.manager.selected,null);assert.match(f.$('sms-management-state').textContent,/已移到/);
- await f.manager.restore(id);assert.equal(f.reloads,2);assert.equal(f.commands[3].op,'restore_sms');assert.match(f.$('sms-management-state').textContent,/已恢复/);
+ f.consent(true);await f.manager.deleteSelected();assert.equal(f.reloads,1);assert.deepEqual(f.commands.map(c=>c.op),['sms_management_status','sms_management_status','delete_sms','deleted_inbox']);assert.equal(f.manager.selected,null);assert.match(f.$('sms-management-state').textContent,/已移到/);
+ await f.manager.restore(id);assert.equal(f.reloads,2);assert.equal(f.commands[5].op,'restore_sms');assert.match(f.$('sms-management-state').textContent,/已恢复/);
 }
 {
  const f=fixture(async()=>({available:false}));await f.manager.permissions();f.manager.select(id);await f.manager.deleteSelected();await f.manager.restore(id);await f.manager.loadTrash();assert.equal(f.commands.length,1);assert.equal(f.$('delete-sms').disabled,true);assert.equal(f.$('trash-section').hidden,true);
 }
 {
- const gate=deferred();const f=fixture(async c=>c.op==='sms_management_status'?{available:true}:c.op==='delete_sms'?gate.promise:page());await f.manager.permissions();f.manager.select(id);const pending=f.manager.deleteSelected();await f.manager.deleteSelected();await f.manager.restore(id);await f.manager.loadTrash();assert.equal(f.commands.filter(c=>c.op==='delete_sms').length,1);assert.equal(f.$('delete-sms').disabled,true);
- gate.reject(Error('offline'));await pending;assert.equal(f.manager.uncertain,true);await f.manager.deleteSelected();assert.equal(f.commands.length,2);assert.match(f.$('sms-management-state').textContent,/不会自动重试/);
+ const gate=deferred();const f=fixture(async c=>c.op==='sms_management_status'?{available:true}:c.op==='delete_sms'?gate.promise:page());await f.manager.permissions();f.manager.select(id);const pending=f.manager.deleteSelected();await Promise.resolve();await f.manager.deleteSelected();await f.manager.restore(id);await f.manager.loadTrash();assert.equal(f.commands.filter(c=>c.op==='delete_sms').length,1);assert.equal(f.$('delete-sms').disabled,true);
+ gate.reject(Error('offline'));await pending;assert.equal(f.manager.uncertain,true);await f.manager.deleteSelected();assert.equal(f.commands.length,3);assert.match(f.$('sms-management-state').textContent,/不会自动重试/);
  // A read does not silently resolve an unknown write. Fresh session/reset required.
  await f.manager.loadTrash(true);assert.equal(f.manager.uncertain,true);f.manager.reset();assert.equal(f.manager.uncertain,false);
 }
@@ -95,3 +95,22 @@ for(const invalidate of [f=>f.manager.reset(),f=>f.manager.select(other,detail(o
  f.manager.select(other,detail(other,null));assert.equal(f.$('sms-comparison').hidden,true);assert.equal(f.$('sms-comparison-current').textContent,'');assert.equal(f.$('sms-comparison-prior').textContent,'');
 }
 console.log('SMS management and candidate review: read-only comparison, explicit trash reads, bounded DTOs, selection/logout/revocation races, consent, restore and uncertain writes passed');
+
+// The server's fresh-owner decision must be rechecked on every explicit write.
+for(const restore of [false,true]){
+ for(const offline of [false,true]){
+  let checks=0;const f=fixture(async c=>{if(c.op==='sms_management_status'){if(++checks===1)return {available:true};if(offline)throw Error('offline');return {available:false};}throw Error('mutation must not be submitted');});
+  await f.manager.permissions();f.manager.select(id);if(restore)await f.manager.restore(id);else await f.manager.deleteSelected();
+  assert.equal(f.commands.filter(c=>['delete_sms','restore_sms'].includes(c.op)).length,0);assert.equal(f.manager.uncertain,false);assert.match(f.$('sms-management-state').textContent,/操作未提交/);assert.equal(f.$('delete-sms').disabled,true);
+ }
+}
+for(const invalidate of [f=>f.manager.reset(),f=>f.manager.select(other)]){
+ const gate=deferred();let checks=0;const f=fixture(async c=>c.op==='sms_management_status'?(++checks===1?{available:true}:gate.promise):Promise.reject(Error('no mutation allowed')));
+ await f.manager.permissions();f.manager.select(id);const changing=f.manager.deleteSelected();invalidate(f);gate.resolve({available:true});await changing;
+ assert.equal(f.commands.filter(c=>c.op==='delete_sms').length,0);assert.equal(f.manager.uncertain,false);assert.equal(f.manager.active,null);
+}
+{
+ let checks=0;const f=fixture(async c=>{if(c.op==='sms_management_status'){checks++;return {available:true};}throw Error('post-submit response lost');});await f.manager.permissions();f.manager.select(id);await f.manager.deleteSelected();
+ assert.equal(checks,2);assert.equal(f.manager.uncertain,true);await f.manager.deleteSelected();assert.equal(f.commands.filter(c=>c.op==='delete_sms').length,1,'no retry after a write may have reached the server');
+}
+console.log('Fresh-owner write preflight: expired/offline checks, selection/logout races, no mutation before approval and unchanged uncertain-write lock passed');
