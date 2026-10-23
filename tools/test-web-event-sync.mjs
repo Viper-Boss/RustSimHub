@@ -222,4 +222,31 @@ for(const fails of [false,true]){
  old.resolve(callPage(['old']));await rejected;await assert.rejects(f.callsPage(),/列表正在加载/);assert.equal(f.sent.length,2);
  fresh.resolve(callPage(['new']));await second;assert.match(f.elements.get('calls').children[0].children[0].textContent,/new/);
 }
-console.log('PASS: bounded catch-up and real-app SMS/calls/history pagination, stale-detail/source isolation, logout, retry and cursor commit races; no network or hardware.');
+{
+ const current='00000000-0000-4000-8000-000000000001',prior='00000000-0000-4000-8000-000000000002';
+ const makeDetail=(id,candidate)=>({summary:{id,line:2,duplicate_candidate:candidate,binary:false},sender:'synthetic sender',timestamp:'time',text:'synthetic comparison text',data:[]});
+ const gate=deferred();const f=browserFixture(async c=>{
+  if(c.op==='inbox')return {messages:[{id:current,line:2,duplicate_candidate:prior}],cursor:{db_epoch:epoch,seq:'1'}};
+  if(c.op==='sms_detail')return c.sms_id===current?makeDetail(current,prior):gate.promise;
+  if(c.op==='notification_read')return {};
+  throw Error('unexpected command');
+ });
+ await f.inboxPage(true);assert.match(f.elements.get('inbox').children[0].children[0].textContent,/可能重复/);
+ await f.elements.get('inbox').children[0].children[1].onclick();assert.equal(f.elements.get('sms-comparison').hidden,false);
+ assert.equal(f.sent.filter(c=>c.op==='sms_detail').length,1,'opening current detail does not fetch candidate automatically');
+ const comparison=f.elements.get('sms-compare').onclick();await turn();assert.equal(f.sent.at(-1).sms_id,prior);
+ f.logout();gate.resolve(makeDetail(prior,null));await comparison;assert.equal(f.elements.get('sms-comparison').hidden,true);assert.equal(f.elements.get('sms-comparison-current').textContent,'');assert.equal(f.elements.get('sms-comparison-prior').textContent,'');
+ assert.equal(f.sent.filter(c=>['delete_sms','restore_sms','deleted_sms_detail'].includes(c.op)).length,0);
+}
+{
+ const id='00000000-0000-4000-8000-000000000001',prior='00000000-0000-4000-8000-000000000002';
+ const gate=deferred();let n=0;const f=browserFixture(async c=>{
+  if(c.op==='inbox')return {messages:[{id,line:2,duplicate_candidate:prior}],cursor:{db_epoch:epoch,seq:'1'}};
+  if(c.op==='sms_detail')return ++n===1?{summary:{id,line:2,duplicate_candidate:prior},sender:'s',timestamp:'t',text:'body',data:[]}:gate.promise;
+  return {};
+ });
+ await f.inboxPage(true);const button=f.elements.get('inbox').children[0].children[1];await button.onclick();assert.equal(f.elements.get('sms-compare').disabled,false);
+ const next=button.onclick();await turn();assert.equal(f.elements.get('sms-comparison').hidden,true,'changing selection clears old comparison before network reply');assert.equal(f.elements.get('delete-sms').disabled,true);
+ gate.resolve({summary:{id,line:2,duplicate_candidate:null},sender:'s',timestamp:'t',text:'fresh',data:[]});await next;assert.equal(f.elements.get('sms-comparison').hidden,true);
+}
+console.log('PASS: bounded catch-up and real-app SMS/calls/history pagination, candidate review wiring, stale selection/detail/source isolation, logout, retry and cursor commit races; no network or hardware.');

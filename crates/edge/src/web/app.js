@@ -122,7 +122,7 @@ async function inboxPage(reset=false){
  if(reset){smsView++;smsPreview++;inboxCursor=null;smsManager.select(null);$('sms-detail').textContent='';$('inbox').replaceChildren();$('more-inbox').disabled=true;}
  const view=smsView;
  try{const page=await auth({op:'inbox',after:inboxCursor,limit:16});if(!load.current()||view!==smsView)throw Error('短信列表已变化，请重新刷新');
-  for(const s of page.messages)row(`${s.id} · SIM 代次 ${s.line}${s.binary?' · 二进制短信':''}`,$('inbox'),async()=>{const preview=++smsPreview,detail=await auth({op:'sms_detail',sms_id:s.id});if(view!==smsView||preview!==smsPreview)return;$('sms-detail').textContent=JSON.stringify(detail,null,2);smsManager.select(s.id);await auth({op:'notification_read',entity:'sms',record_id:s.id});});
+  for(const s of page.messages)row(`${s.id} · SIM 代次 ${s.line}${s.binary?' · 二进制短信':''}${s.duplicate_candidate?' · 可能重复，待核对':''}`,$('inbox'),async()=>{const preview=++smsPreview;smsManager.select(null);$('sms-detail').textContent='';const detail=await auth({op:'sms_detail',sms_id:s.id});if(view!==smsView||preview!==smsPreview)return;$('sms-detail').textContent=JSON.stringify(detail,null,2);smsManager.select(s.id,detail);await auth({op:'notification_read',entity:'sms',record_id:s.id});});
   inboxCursor=page.cursor;$('more-inbox').disabled=page.messages.length<16;
  }finally{load.finish();}
 }

@@ -53,4 +53,45 @@ for(const op of ['sms_management_status','deleted_inbox','deleted_sms_detail','d
 for(const malformed of [{},page([{id:'bad'}]),page(Array(17).fill({id})),{messages:[],cursor:{seq:3,db_epoch:id}}]){
  const f=fixture(async c=>c.op==='sms_management_status'?{available:true}:malformed);await f.manager.permissions();assert.equal(await f.manager.loadTrash(true),false);assert.equal(f.manager.cursor,null);assert.equal(f.$('trash-list').children.length,0);
 }
-console.log('SMS management: permissions, consent, pagination, restore, uncertain writes, stale replies and read failures passed');
+const detail=(record=id,candidate=other)=>({summary:{id:record,line:4,binary:false,duplicate_candidate:candidate},sender:'synthetic sender',timestamp:'2026-01-01T00:00:00Z',text:'synthetic text <img src=x onerror=alert(1)>',data:[]});
+{
+ const f=fixture(async c=>{assert.equal(c.op,'sms_detail');assert.equal(c.sms_id,other);return detail(other,null);});
+ f.manager.select(id,detail());assert.equal(f.$('sms-comparison').hidden,false);assert.match(f.$('sms-comparison-current').textContent,/<img/);assert.equal(f.commands.length,0);
+ assert.equal(await f.$('sms-compare').onclick(),true);assert.equal(f.commands.length,1);assert.match(f.$('sms-comparison-prior').textContent,/synthetic sender/);assert.equal(f.$('sms-compare-trash').hidden,true);
+ await f.manager.review.compare(true);await f.manager.deleteSelected();assert.equal(f.commands.length,1,'read-only client cannot inspect trash or delete');
+}
+{
+ const f=fixture(async c=>{if(c.op==='sms_management_status')return {available:true};if(c.op==='sms_detail')throw Error('not found');assert.equal(c.op,'deleted_sms_detail');return detail(other,null);});
+ await f.manager.permissions();f.manager.select(id,detail());assert.equal(await f.manager.review.compare(),false);assert.deepEqual(f.commands.map(c=>c.op),['sms_management_status','sms_detail'],'no fallback read without another click');
+ assert.equal(await f.$('sms-compare-trash').onclick(),true);assert.match(f.$('sms-comparison-state').textContent,/回收站中的候选旧记录/);assert.equal(f.commands.length,3);
+ f.manager.review.setOwner(false);assert.equal(f.$('sms-comparison-prior').textContent,'');assert.equal(f.$('sms-compare-trash').hidden,true);
+}
+for(const candidate of [id,'bad','https://example.invalid/','x'.repeat(4096)]){
+ const f=fixture();f.manager.select(id,detail(id,candidate));assert.equal(f.$('sms-compare').disabled,true);await f.manager.review.compare();assert.equal(f.commands.length,0);assert.equal(f.$('sms-comparison-current').textContent,'');
+}
+for(const reply of [detail(id,null),{}, {...detail(other),data:[256]}, {...detail(other),text:'x'.repeat(4097)}]){
+ const f=fixture(async()=>reply);f.manager.select(id,detail());assert.equal(await f.manager.review.compare(),false);assert.equal(f.$('sms-comparison-prior').textContent,'');assert.equal(f.commands.length,1);
+}
+for(const invalidate of [f=>f.manager.reset(),f=>f.manager.select(other,detail(other,id)),f=>f.manager.select(null)]){
+ for(const fails of [false,true]){
+  const gate=deferred(),f=fixture(()=>gate.promise);f.manager.select(id,detail());const pending=f.manager.review.compare();invalidate(f);const text=f.$('sms-comparison-state').textContent;
+  if(fails)gate.reject(Error('old access revoked'));else gate.resolve(detail(other,null));assert.equal(await pending,false);assert.equal(f.$('sms-comparison-prior').textContent,'');assert.equal(f.$('sms-comparison-state').textContent,text);
+ }
+}
+{
+ const gate=deferred();const f=fixture(async c=>c.op==='sms_management_status'?{available:true}:gate.promise);await f.manager.permissions();f.manager.select(id,detail());
+ const pending=f.manager.review.compare(true);f.manager.review.setOwner(false);gate.resolve(detail(other,null));assert.equal(await pending,false);assert.equal(f.$('sms-comparison-prior').textContent,'');
+}
+{
+ const old=deferred(),fresh=deferred();let n=0;const f=fixture(()=>++n===1?old.promise:fresh.promise);f.manager.select(id,detail());const a=f.manager.review.compare();await f.manager.review.compare();assert.equal(n,1);
+ f.manager.select(other,detail(other,id));const b=f.manager.review.compare();old.resolve(detail(other,null));assert.equal(await a,false);assert.equal(f.$('sms-compare').disabled,true,'old completion cannot release new request');fresh.resolve(detail(id,null));assert.equal(await b,true);assert.equal(f.$('sms-compare').disabled,false);
+}
+{
+ const gate=deferred();const f=fixture(async c=>c.op==='sms_management_status'?{available:true}:c.op==='sms_detail'?gate.promise:c.op==='deleted_inbox'?page():{sms_id:id,deleted:true});await f.manager.permissions();f.manager.select(id,detail());
+ const comparison=f.manager.review.compare();await f.manager.deleteSelected();gate.resolve(detail(other,null));assert.equal(await comparison,false);assert.equal(f.$('sms-comparison').hidden,true);assert.equal(f.$('sms-comparison-prior').textContent,'');assert.equal(f.commands.filter(c=>c.op==='delete_sms').length,1);
+}
+{
+ const f=fixture(async()=>({...detail(other,null),data:[0,10,255],text:''}));f.manager.select(id,{...detail(),data:[0,10,255],text:''});assert.equal(await f.manager.review.compare(),true);assert.match(f.$('sms-comparison-prior').textContent,/000aff/);
+ f.manager.select(other,detail(other,null));assert.equal(f.$('sms-comparison').hidden,true);assert.equal(f.$('sms-comparison-current').textContent,'');assert.equal(f.$('sms-comparison-prior').textContent,'');
+}
+console.log('SMS management and candidate review: read-only comparison, explicit trash reads, bounded DTOs, selection/logout/revocation races, consent, restore and uncertain writes passed');
