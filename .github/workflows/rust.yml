@@ -40,6 +40,8 @@ jobs:
         run: node tools/test-web-media.mjs
       - name: Web one-click call operation safety
         run: node tools/test-web-call-test.mjs
+      - name: Web one-click incoming call safety
+        run: node tools/test-web-incoming-call-test.mjs
       - name: Web configuration indicator ordering
         run: node tools/test-web-indicator.mjs
       - name: Web network diagnostics and monthly policy

@@ -21,6 +21,15 @@ function matchingLease(result,line){
  const l=result?.lease;
  return l&&l.call_id===result.operation?.call_id&&typeof l.call_id==='string'&&l.call_id.length>0&&l.line===line&&Number.isSafeInteger(l.generation)&&l.generation>0&&/^[a-f0-9]{64}$/.test(l.boot)&&Number.isInteger(l.expires_in_seconds)&&l.expires_in_seconds>0&&l.expires_in_seconds<=30?l:null;
 }
+function liveCalls(status,line){
+ if(status.available!==true||!Array.isArray(status.live_calls)||status.live_calls.length>64)throw Error('当前设备未提供可确认的实时呼叫目录，请更新后再测试');
+ const seen=new Set();
+ for(const call of status.live_calls){
+  if(!call||typeof call.id!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(call.id)||seen.has(call.id)||call.line!==line||call.availability!=='observed'||!Number.isInteger(call.modem_state)||call.modem_state<0||call.modem_state>7)throw Error('实时呼叫目录已变化，未自动接听');
+  seen.add(call.id);
+ }
+ return status.live_calls;
+}
 export class CallTest {
  constructor(options){Object.assign(this,options);this.env=options.env||globalThis;this.running=false;this.lease=null;}
  say(text){this.notify(text,this.running);}
@@ -52,8 +61,32 @@ export class CallTest {
   try{return await Promise.race([observing,timeout]);}
   finally{expired=true;this.env.clearTimeout(timer);}
  }
- async start(){
+ async incomingCall(line,initial){
+  const before=new Set(liveCalls(initial,line.line).map(call=>call.id));
+  // Local preparation has no server session, ticket or PCM. A remote
+  // preconnection has an absolute 30s limit and cannot cover this wait.
+  await this.step(this.audio.prime(this.stream));
+  this.deadlineTimer=this.env.setTimeout(()=>{this.error='等待来电超时，未接听任何电话';void this.stop();},120000);
+  this.say('声音已准备好，请用另一部手机拨入；两分钟内自动接听一次新来电');
+  while(true){
+   const status=await this.step(this.request({op:'call_status'}));
+   const current=await this.step(this.request({op:'line_status'}));
+   if(current.status!=='ready'||current.line!==line.line)throw Error('SIM 线路已变化，未自动接听');
+   const calls=liveCalls(status,line.line),incoming=calls.filter(call=>!before.has(call.id)&&call.direction===1&&call.state==='ringing_in'&&call.modem_state===3);
+   if(incoming.length===1&&status.active_calls===1){
+    const call=await this.step(this.request({op:'call_detail',call_id:incoming[0].id}));
+    if(call.id!==incoming[0].id||call.line!==line.line||call.availability!=='observed'||call.direction!==1||call.state!=='ringing_in'||call.modem_state!==3)throw Error('来电状态已变化，未自动接听');
+    this.env.clearTimeout(this.deadlineTimer);return call;
+   }
+   if(status.active_calls!==0)throw Error('出现其他或多个呼叫，未自动接听，请先结束后重试');
+   await this.pause(2000);
+  }
+ }
+ flags(){return this.incoming?{test_incoming:true}:{test10010:true};}
+ async start(mode='outgoing'){
   if(this.running)return;
+  if(!['outgoing','incoming'].includes(mode))return;
+  this.incoming=mode==='incoming';
   const generation=(this.generation||0)+1;this.generation=generation;
   this.running=true;this.cancelled=false;this.finishing=null;this.lease=null;this.stream=null;this.dialStarted=false;this.error=null;this.endedObserved=false;this.callActiveAt=null;this.audioDelayMs=null;this.uncertainDial=null;
   this.aborted=new Promise((_,reject)=>{this.abort=()=>reject(Error('测试已停止'));});this.aborted.catch(()=>{});
@@ -89,11 +122,13 @@ export class CallTest {
    if(status.available!==true||status.active_calls!==0)throw Error('设备有未结束或未确认的呼叫，请先结束它');
    const line=await this.step(this.request({op:'line_status'}));
    if(line.status!=='ready')throw Error('SIM 尚未就绪');
-   this.say('正在提前连接加密声音，完成后自动拨打 10010…');
-   await this.step(this.audio.connect(this.context(null),{stream:this.stream}));
-   const prepared=await this.step(this.request({op:'prepare_call',line_epoch:line.line,idempotency_key:this.env.crypto.randomUUID(),action:'dial',call_id:null,payload:'10010'}));
-   if(prepared.operation?.state!=='prepared')throw Error('测试拨号未准备成功');
-   const pending={type:'call',action:'dial',id:prepared.operation.id,state:'prepared',submit_started:false,test10010:true};
+   let target=null;
+   if(this.incoming)target=await this.incomingCall(line,status);
+   else{this.say('正在提前连接加密声音，完成后自动拨打 10010…');await this.step(this.audio.connect(this.context(null),{stream:this.stream}));}
+   const action=this.incoming?'accept':'dial';
+   const prepared=await this.step(this.request({op:'prepare_call',line_epoch:line.line,idempotency_key:this.env.crypto.randomUUID(),action,call_id:target?.id||null,payload:this.incoming?'':'10010'}));
+   if(prepared.operation?.state!=='prepared'||this.incoming&&prepared.operation.call_id!==target.id)throw Error('测试操作未准备成功');
+   const pending={type:'call',action,id:prepared.operation.id,state:'prepared',submit_started:false,...this.flags()};
    await this.step(this.setPending({...pending}));
    // Durable marker precedes the only submission, including lost replies/reload.
    pending.submit_started=true;await this.step(this.setPending({...pending}));
@@ -101,20 +136,22 @@ export class CallTest {
    // observer confirmation instead of racing lease expiry at second 30.
    this.dialStarted=true;this.deadline=(this.env.performance?.now()??Date.now())+27000;
    this.deadlineTimer=this.env.setTimeout(()=>{void this.stop();},27000);
-   this.say('正在拨打 10010，约 30 秒后自动结束…');
+   this.say(this.incoming?'正在接听本次新来电，约30秒后自动结束…':'正在拨打 10010，约 30 秒后自动结束…');
    const result=await this.step(this.request({op:'submit_call',operation_id:pending.id,lease:null,urgent:false}));
    // An uncertain dial may still own a valid lease. Retain only the exact
    // returned call binding for one bounded hangup, never to dial again or open PCM.
-   this.lease=matchingLease(result,line.line);if(this.lease)this.onLease(this.lease);
-   pending.state=result.operation?.state||'unknown';await this.step(this.setPending({...pending}));
-   if(pending.state!=='submitted'||!this.lease){this.uncertainDial={...pending};throw Error('拨号结果未确认；不会重拨，请查询当前操作');}
+   this.lease=matchingLease(result,line.line);
+   if(this.incoming&&(result.operation?.id!==pending.id||this.lease?.call_id!==target.id))this.lease=null;
+   if(this.lease)this.onLease(this.lease);
+   pending.state=this.incoming&&!this.lease?'unknown':result.operation?.state||'unknown';await this.step(this.setPending({...pending}));
+   if(pending.state!=='submitted'||!this.lease){this.uncertainDial={...pending};throw Error(this.incoming?'接听结果未确认；不会再次接听，请查询当前操作':'拨号结果未确认；不会重拨，请查询当前操作');}
    while(true){
     // Refresh the trusted observer, then inspect this exact call, not a history page.
     await this.step(this.request({op:'call_status'}));
     const call=await this.step(this.request({op:'call_detail',call_id:this.lease.call_id}));
     if(call.state==='active'&&call.availability==='observed'){this.callActiveAt=this.env.performance?.now()??Date.now();break;}
-    if(call.state==='ended')throw Error('10010 已结束，未连接声音');
-    await this.step(this.audio.hold());this.say('声音已准备好，等待 10010 接通…');await this.pause(500);
+    if(call.state==='ended')throw Error('电话已结束，未连接声音');
+    if(!this.incoming)await this.step(this.audio.hold());this.say(this.incoming?'正在等待接听确认…':'声音已准备好，等待 10010 接通…');await this.pause(500);
    }
    this.say('已接通，正在自动连接声音…');
    await this.step(this.audio.start(this.context(this.lease),{stream:this.stream}));
@@ -147,7 +184,7 @@ export class CallTest {
     this.say('正在挂断并关闭声音…');
     const prepared=await this.request({op:'prepare_call',line_epoch:lease.line,idempotency_key:this.env.crypto.randomUUID(),action:'hangup',call_id:lease.call_id,payload:''});
     if(prepared.operation?.state!=='prepared')throw Error('挂断未准备成功');
-    const pending={type:'call',action:'hangup',id:prepared.operation.id,state:'prepared',submit_started:true,test10010:true};
+    const pending={type:'call',action:'hangup',id:prepared.operation.id,state:'prepared',submit_started:true,...this.flags()};
     if(this.uncertainDial)pending.prior_operation=this.uncertainDial;
     await this.setPending({...pending});
     const result=await this.request({op:'submit_call',operation_id:pending.id,lease,urgent:true});

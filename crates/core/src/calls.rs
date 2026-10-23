@@ -653,8 +653,17 @@ impl Worker {
             AuthCommand::CallStatus { token } => {
                 self.principal(&token, Scope::CallsRead).await?;
                 let _ = self.refresh().await;
+                let mut live_calls: Vec<_> = if self.catalogue {
+                    self.live
+                        .values()
+                        .map(|call| call.summary.clone())
+                        .collect()
+                } else {
+                    Vec::new()
+                };
+                live_calls.sort_by(|a, b| a.id.cmp(&b.id));
                 Ok(
-                    json!({"available":self.catalogue,"observed_calls":self.live.len(),"active_calls":self.live.values().filter(|l|l.summary.modem_state!=7).count(),"control_api":self.writes,"media_authorization_api":self.media_enabled,"media_available":false}),
+                    json!({"available":self.catalogue,"observed_calls":self.live.len(),"active_calls":self.live.values().filter(|l|l.summary.modem_state!=7).count(),"live_calls":live_calls,"control_api":self.writes,"media_authorization_api":self.media_enabled,"media_available":false}),
                 )
             }
             AuthCommand::PrepareCall {

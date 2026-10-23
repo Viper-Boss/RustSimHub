@@ -90,17 +90,17 @@ class Element {
  replaceChildren(...v){this.children=v;this.textContent='';if(this.tag==='select')this._value='';}append(...v){this.children.push(...v);}addEventListener(){}
 }
 function browserFixture(respond){
- const elements=new Map(),sent=[];
+ const elements=new Map(),sent=[],testStarts=[];
  const document={hidden:false,getElementById(id){if(!elements.has(id))elements.set(id,new Element(['history-source','history-entity','call-id'].includes(id)?'select':''));return elements.get(id);},createElement:tag=>new Element(tag),querySelectorAll:()=>[],addEventListener(){}};
  const context={document,crypto:webcrypto,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},
   indexedDB:{open:()=>({})},EventSync,SmsManager,
   AudioLink:class {constructor(){this.state='closed';}async stop(){}},
   ConfigurationIndicator:class {async set(){}},
-  CallTest:class {async stop(){}},NetworkPanel:class {start(){}stop(){}},
+  CallTest:class {async start(mode='outgoing'){testStarts.push(mode);}async stop(){}},NetworkPanel:class {start(){}stop(){}},
   fetch:async(_url,options)=>{const body=JSON.parse(options.body);sent.push(body.command);const result=await respond(body.command);return {ok:true,json:async()=>({protocol:2,id:body.id,result})};},
  };
  vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={sync,refresh,eventSync,inboxPage,callsPage,historyPage,loadHistory,clearHistory,loginAs:()=>{token="synthetic";},logout:()=>$("logout").onclick()};',context);
- context.fixture.loginAs();return {...context.fixture,elements,sent};
+ context.fixture.loginAs();return {...context.fixture,elements,sent,testStarts};
 }
 {
  const f=browserFixture(async c=>{
@@ -250,3 +250,10 @@ for(const fails of [false,true]){
  gate.resolve({summary:{id,line:2,duplicate_candidate:null},sender:'s',timestamp:'t',text:'fresh',data:[]});await next;assert.equal(f.elements.get('sms-comparison').hidden,true);
 }
 console.log('PASS: bounded catch-up and real-app SMS/calls/history pagination, candidate review wiring, stale selection/detail/source isolation, logout, retry and cursor commit races; no network or hardware.');
+
+{
+ const f=browserFixture(async()=>({}));await f.elements.get('test-incoming-start').onclick();await f.elements.get('test-start').onclick();assert.deepEqual(f.testStarts,['incoming','outgoing']);assert.equal(f.sent.length,0);
+}
+{
+ const f=browserFixture(async()=>({calls:[{id:'old',state:'reconciling',availability:'reconciling'},{id:'unknown',state:'reconciling',availability:'observed'},{id:'live',state:'ringing_in',availability:'observed'}],cursor:{db_epoch:epoch,seq:'3'}}));await f.callsPage(true);assert.equal(f.elements.get('calls').children.length,3,'history remains visible');assert.deepEqual(f.elements.get('call-id').children.map(x=>x.value),['live'],'only current actionable state is offered');
+}

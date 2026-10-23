@@ -60,3 +60,8 @@ core/连接重启后清空租约，未完成动作 Unknown，旧呼叫记录 Rec
 SQLite 与基带无法跨进程原子提交，仍有极短物理换卡竞态；权限线性化点是持久许可，不撤回已进入 MM 的动作。
 
 真实拨号/音频/来电/VoLTE、生产非 root 权限、重启孤儿管理及最终 UI 还需各自实机验收。当前验证见 VALIDATION-CALLS-P3.md。
+
+
+## 一键来电需要的当前目录
+
+call_status.live_calls是刷新成功后的当前目录摘要，最多64条、按ID排序，目录不可用时为空；只含既有CallSummary，不含号码或ModemManager路径。调用仍要求calls.read，不授予接听权。历史calls分页不适合判定可接听对象；客户端必须拒绝reconciling和不确定目录。实际接听仍使用原prepare_call/submit_call对象/线路/租约门禁。见[P3L](VALIDATION-ONE-CLICK-INCOMING-P3L.md)。

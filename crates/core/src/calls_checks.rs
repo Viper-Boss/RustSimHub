@@ -309,6 +309,43 @@ struct Fixture {
     owner: Principal,
 }
 #[tokio::test]
+async fn live_status_excludes_persisted_history_and_unavailable_catalogue() {
+    let mut f = fixture(true).await;
+    let status = |token: &str| AuthCommand::CallStatus {
+        token: token.into(),
+    };
+    assert!(f.worker.process(status(&"0".repeat(64))).await.is_err());
+    let current = f.worker.process(status(&f.first)).await.unwrap();
+    assert_eq!(current["available"], true);
+    let calls = current["live_calls"].as_array().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0]["state"], "ringing_in");
+    assert_eq!(calls[0]["availability"], "observed");
+    assert!(calls[0].get("number").is_none());
+    assert!(calls[0].get("source").is_none());
+    let bindings = f.worker.bindings.clone();
+    f.worker.bindings = watch::channel(None).1;
+    let unavailable = f.worker.process(status(&f.first)).await.unwrap();
+    assert_eq!(unavailable["available"], false);
+    assert_eq!(unavailable["live_calls"], json!([]));
+    assert_eq!(f.worker.live.len(), 1); // Stale memory is not a live authority.
+    f.worker.bindings = bindings;
+    f.data.paths.lock().unwrap().clear();
+    let empty = f.worker.process(status(&f.first)).await.unwrap();
+    assert_eq!(empty["live_calls"], json!([]));
+    let historical = f.worker.store.calls(None, 16).unwrap();
+    assert_eq!(historical.calls.len(), 1);
+    assert_eq!(historical.calls[0].availability, "reconciling");
+    f.worker.bindings = watch::channel(None).1;
+    let unavailable = f.worker.process(status(&f.first)).await.unwrap();
+    assert_eq!(unavailable["available"], false);
+    assert_eq!(unavailable["live_calls"], json!([]));
+    assert_eq!(f.data.accepts.load(Ordering::SeqCst), 0);
+    assert_eq!(f.data.starts.load(Ordering::SeqCst), 0);
+    assert_eq!(f.data.hangups.load(Ordering::SeqCst), 0);
+    f.server.close().await.unwrap();
+}
+#[tokio::test]
 async fn media_session_cannot_continue_after_hold_reuse_binding_loss_or_disconnect() {
     for cause in 0..4 {
         let mut f = fixture(false).await;

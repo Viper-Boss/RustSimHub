@@ -30,7 +30,7 @@ const configurationIndicator=new ConfigurationIndicator(command=>{
  };
 });
 const audioLink=new AudioLink($('call-audio'),(text,state)=>{$('audio-state').textContent=text;$('audio-stop').disabled=state==='closed';showAudio();});
-const callTest=new CallTest({audio:audioLink,login:()=>token?Promise.resolve():login(),request:command=>auth(command),context:lease=>({token,lease}),getPending:()=>pending,setPending:async value=>{pending=value;await save('pending',value);showPending();},archivePending:archivePending,onLease:value=>{lease=value;showAudio();},notify:(text,running)=>{$('test-state').textContent=text;$('test-start').disabled=running||!audioReady;$('test-stop').disabled=!running;}});
+const callTest=new CallTest({audio:audioLink,login:()=>token?Promise.resolve():login(),request:command=>auth(command),context:lease=>({token,lease}),getPending:()=>pending,setPending:async value=>{pending=value;await save('pending',value);showPending();},archivePending:archivePending,onLease:value=>{lease=value;showAudio();},notify:(text,running)=>{$('test-state').textContent=text;$('test-start').disabled=running||!audioReady;$('test-incoming-start').disabled=running||!audioReady;$('test-stop').disabled=!running;}});
 function showAudio(){$('audio-start').disabled=!token||!lease||!audioReady||audioLink.state!=='closed';$('audio-stop').disabled=audioLink.state==='closed';}
 let db;
 let viewEpoch=0, actionGeneration=0;const requests=new Set();
@@ -79,7 +79,7 @@ async function initialize(){
  const identity=await api({op:'identity'});$('first-setup').hidden=identity.owner_setup_available!==true;
  try{const response=await fetch('/api/media/capabilities',{credentials:'omit',cache:'no-store',redirect:'error'});const capability=await response.json();audioReady=response.ok&&capability.protocol===1&&capability.enabled===true;}catch{audioReady=false;}
  $('audio-section').hidden=!audioReady;showAudio();
- $('test-start').disabled=!audioReady;$('test-state').textContent=audioReady?'点击一次即可；首次使用请允许麦克风。':'此设备暂未开启浏览器音频。';
+ $('test-start').disabled=!audioReady;$('test-incoming-start').disabled=!audioReady;$('test-state').textContent=audioReady?'点击一次即可；首次使用请允许麦克风。':'此设备暂未开启浏览器音频。';
 }
 async function proof(challenge,purpose,pairScopes,epoch=viewEpoch){
  let expectedKind=purpose==='bootstrap'?'owner':'client';
@@ -135,7 +135,7 @@ async function callsPage(reset=false){
    const preview=++callsPreview;$('call-detail').textContent='';
    const detail=await auth({op:'call_detail',call_id:s.id});if(view!==callsView||preview!==callsPreview)return;
    $('call-detail').textContent=JSON.stringify(detail,null,2);await auth({op:'notification_read',entity:'calls',record_id:s.id});
-  });if(s.state!=='ended'){const option=document.createElement('option');option.value=s.id;option.textContent=`${s.state} · ${s.id}`;$('call-id').append(option);}}
+  });if(s.availability==='observed'&&['outgoing_pending','dialing','ringing_out','ringing_in','active','held','waiting'].includes(s.state)){const option=document.createElement('option');option.value=s.id;option.textContent=`${s.state} · ${s.id}`;$('call-id').append(option);}}
   callsCursor=page.cursor;$('more-calls').disabled=page.calls.length<16;
  }finally{load.finish();}
 }
@@ -221,7 +221,7 @@ $('audio-start').onclick=()=>{if(!token||!lease){notice('请先取得当前通�
 $('audio-stop').onclick=()=>{void audioLink.stop();$('audio-state').textContent='声音已关闭；电话可在上方挂断';showAudio();};
 $('audio-muted').onchange=()=>audioLink.mute($('audio-muted').checked);
 bind('audio-play',()=>audioLink.play());
-bind('test-start',()=>callTest.start());$('test-stop').onclick=()=>{void callTest.stop();};
+bind('test-start',()=>callTest.start());bind('test-incoming-start',()=>callTest.start('incoming'));$('test-stop').onclick=()=>{void callTest.stop();};
 const audioPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{void callTest.stop(false);void audioLink.stop();$('audio-state').textContent='未连接声音';audioPreviousLogout();showAudio();};
 addEventListener('pagehide',()=>{void callTest.stop(false);void audioLink.stop();});
 const indicatorPreviousLogout=$('logout').onclick;
