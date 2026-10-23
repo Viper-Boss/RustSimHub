@@ -29,11 +29,11 @@ class ApplicationPackageTests(unittest.TestCase):
         with self.assertRaises(subprocess.CalledProcessError):self.verify()
         self.pub.write_bytes(public);(self.package/module.FILES[0]).write_bytes(b'changed')
         with self.assertRaises(AssertionError):self.verify()
-    def test_schema_six_explicitly_rejects_old_application_and_accepts_migrating_build(self):
+    def test_schema_six_requires_explicit_maintenance_transition(self):
         with self.assertRaises(AssertionError):module.verify_package(self.package,self.pub,self.source,schema=6)
-        self.manifest['schema_max']=6;self.sign()
+        self.manifest['schema_min']=6;self.manifest['schema_max']=6;self.sign()
         self.assertEqual(module.verify_package(self.package,self.pub,self.source,schema=6)['schema_max'],6)
-        self.assertEqual(self.verify()['schema_min'],5)
+        with self.assertRaises(AssertionError):self.verify()
     def test_signed_ambiguous_or_unsupported_manifest_is_denied(self):
         for field,value in [('development_fixtures',True),('board','foreign'),('format',True),('schema_min',6)]:
             old=self.manifest[field];self.manifest[field]=value;self.sign()

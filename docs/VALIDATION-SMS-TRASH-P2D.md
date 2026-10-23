@@ -32,7 +32,7 @@ CLI新增：`simhubctl delete-sms SOCKET SESSION ID`、`restore-sms`、`deleted-
 
 数据库5→6增加inbox_tombstones，并在事务内重建事件表以允许两个新事件，保留原记录、db_epoch、seq及AUTOINCREMENT高水位。失败应回滚迁移；旧v5应用拒绝打开v6，不能用它直接回退。此项属于开发计划6.3的维护迁移范围，**尚不具备可自动回退到现场旧应用的部署条件**。
 
-Core/updater的build-info声明schema6；本地构建元数据核对存储/Core/updater一致。新包声明5..6，打包器按真实构建元数据保留旧制品的5..5，不把旧二进制重标成兼容6。离线包验证器可显式指定schema，系统组合器检查应用和updater一致；新updater以6检查，拒绝只支持5的包。
+Core/updater的build-info声明schema6；本地构建元数据核对存储/Core/updater一致。P2D最初包声明5..6，后续[P6AA](VALIDATION-SCHEMA-ADMISSION-P6AA.md)发现这会让旧升级器接受不可回退的迁移，已修为维护包6..6；打包器仍保留旧制品的5..5，不重标旧二进制。数据库代码能迁移v5，不等于可经v5自动升级通道部署。离线包验证器可显式指定schema，系统组合器检查应用和updater一致；新updater以6检查，拒绝只支持5的包。
 
 上机前须用旧版本生成一致性业务备份、验证保留新增消息的迁移/恢复方案，并准备兼容6的完整回退应用组；不能仅替换Core，不能将旧v5数据备份静默覆盖新短信。本轮未改现场updater、签名组、业务数据库或分区。
 

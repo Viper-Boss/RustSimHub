@@ -73,7 +73,8 @@ fn run() -> Result<(), rustsimhub_update::Error> {
                 board: BOARD.into(),
                 arch: "aarch64-linux".into(),
                 epoch: epoch.parse().map_err(|_| Error::Invalid)?,
-                schema_min: 5,
+                // Schema 6 is a maintenance transition: v5 updaters must refuse it.
+                schema_min: SCHEMA,
                 schema_max: SCHEMA,
                 source_sha256: source.clone(),
                 development_fixtures: false,

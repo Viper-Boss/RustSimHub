@@ -324,6 +324,13 @@ impl Store {
         if self.state.candidate.is_some() {
             return Err(Error::Busy);
         }
+        // Admission must retain a verified fallback under this updater's schema.
+        // Refuse before writing payloads or advancing the epoch floor. Merely
+        // replacing the updater cannot turn an incompatible old baseline into
+        // a safe maintenance transition.
+        if let Some(baseline) = &self.state.confirmed {
+            self.verify_version(baseline)?;
+        }
         let m = verify(
             manifest,
             signature,
@@ -446,6 +453,64 @@ mod tests {
     }
     fn key() -> [u8; 32] {
         SigningKey::from_bytes(&[77; 32]).verifying_key().to_bytes()
+    }
+    fn schema_package(epoch: u64, schema: u32) -> (Vec<u8>, [u8; 64], Vec<Vec<u8>>) {
+        let (k, mut m, p) = crate::tests::fixture();
+        m.epoch = epoch;
+        m.schema_min = schema;
+        m.schema_max = schema;
+        let b = serde_json::to_vec(&m).unwrap();
+        let sig = k.sign(&crate::signing_bytes(&b).unwrap()).to_bytes();
+        (b, sig, p)
+    }
+    #[test]
+    fn schema_transition_cannot_stage_over_an_unreadable_fallback_or_advance_floor() {
+        let d = directory();
+        let mut s = Store::open(d.path(), key(), 5).unwrap();
+        let (b, g, p) = package(1);
+        let baseline = s.install_factory(&b, &g, &p).unwrap();
+        let before = fs::read(d.path().join("state.json")).unwrap();
+        drop(s);
+        let (b, g, p) = schema_package(2, 6);
+        let hash = manifest_hash(&b);
+        let mut s = Store::open(d.path(), key(), 6).unwrap();
+        assert_eq!(s.stage(&b, &g, &p), Err(Error::Schema));
+        assert_eq!(fs::read(d.path().join("state.json")).unwrap(), before);
+        assert!(!d.path().join("versions").join(hash).exists());
+        drop(s);
+        let mut old = Store::open(d.path(), key(), 5).unwrap();
+        assert_eq!(old.stage(&b, &g, &p), Err(Error::Schema));
+        assert_eq!(old.choose().unwrap(), baseline);
+        assert_eq!(old.floor(), 1);
+    }
+    #[test]
+    fn corrupt_confirmed_group_blocks_admission_before_candidate_files_or_floor() {
+        let d = directory();
+        let mut s = Store::open(d.path(), key(), 5).unwrap();
+        let (b, g, p) = package(1);
+        let baseline = s.install_factory(&b, &g, &p).unwrap();
+        fs::set_permissions(baseline.join(FILES[0]), fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(baseline.join(FILES[0]), b"corrupt").unwrap();
+        let before = fs::read(d.path().join("state.json")).unwrap();
+        let (b, g, p) = package(2);
+        assert!(s.stage(&b, &g, &p).is_err());
+        assert_eq!(fs::read(d.path().join("state.json")).unwrap(), before);
+        assert!(!d.path().join("versions").join(manifest_hash(&b)).exists());
+    }
+    #[test]
+    fn compatible_schema_six_group_reopens_and_falls_back_without_lowering_floor() {
+        let d = directory();
+        let mut s = Store::open(d.path(), key(), 6).unwrap();
+        let (b, g, p) = schema_package(1, 6);
+        let baseline = s.install_factory(&b, &g, &p).unwrap();
+        let (b, g, p) = schema_package(2, 6);
+        let candidate = s.stage(&b, &g, &p).unwrap();
+        assert!(s.choose().unwrap().ends_with(&candidate));
+        drop(s);
+        let mut s = Store::open(d.path(), key(), 6).unwrap();
+        assert_eq!(s.choose().unwrap(), baseline);
+        assert_eq!(s.floor(), 2);
+        assert_eq!(s.stage(&b, &g, &p), Err(Error::Rollback));
     }
     #[test]
     fn confirmed_factory_failed_candidate_and_epoch_floor_survive_reopen() {

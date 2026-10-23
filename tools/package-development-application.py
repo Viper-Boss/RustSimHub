@@ -37,7 +37,7 @@ write(a.output/'release.seed',key.private_bytes(serialization.Encoding.Raw,seria
 write(a.output/'release.public',key.public_key().public_bytes(serialization.Encoding.Raw,serialization.PublicFormat.Raw))
 for epoch in (1,2,3):
     directory=a.output/f'package{epoch}';directory.mkdir(mode=0o700)
-    manifest={'format':1,'kind':'application','board':'ufi003-v02','arch':'aarch64-linux','epoch':epoch,'schema_min':5,'schema_max':schema,'source_sha256':source,'development_fixtures':False,'files':[{'name':n,'bytes':len(blobs[n]),'sha256':hashlib.sha256(blobs[n]).hexdigest()} for n in names]}
+    manifest={'format':1,'kind':'application','board':'ufi003-v02','arch':'aarch64-linux','epoch':epoch,'schema_min':schema,'schema_max':schema,'source_sha256':source,'development_fixtures':False,'files':[{'name':n,'bytes':len(blobs[n]),'sha256':hashlib.sha256(blobs[n]).hexdigest()} for n in names]}
     raw=json.dumps(manifest,separators=(',',':')).encode()
     write(directory/'manifest.json',raw)
     write(directory/'manifest.sig',key.sign(b'RustSimHub.AppManifest.v1\0'+raw))

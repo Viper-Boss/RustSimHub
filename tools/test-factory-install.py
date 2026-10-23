@@ -68,7 +68,7 @@ def main():
                     with sftp.open(base+'/'+name, 'wx') as f: f.write(data)
                     sftp.chmod(base+'/'+name, 0o555 if name == 'updater' else 0o600)
                 for epoch in (1, 2, 3):
-                    m = {'format': 1, 'kind': 'application', 'board': 'ufi003-v02', 'arch': 'aarch64-linux', 'epoch': epoch, 'schema_min': 5, 'schema_max': app.get('database_schema',5), 'source_sha256': app['source_archive_sha256'], 'development_fixtures': False, 'files': [{'name': name, 'bytes': len(blobs[name]), 'sha256': hashlib.sha256(blobs[name]).hexdigest()} for name in names]}
+                    m = {'format': 1, 'kind': 'application', 'board': 'ufi003-v02', 'arch': 'aarch64-linux', 'epoch': epoch, 'schema_min': app.get('database_schema',5), 'schema_max': app.get('database_schema',5), 'source_sha256': app['source_archive_sha256'], 'development_fixtures': False, 'files': [{'name': name, 'bytes': len(blobs[name]), 'sha256': hashlib.sha256(blobs[name]).hexdigest()} for name in names]}
                     manifest = json.dumps(m, separators=(',', ':')).encode()
                     archive = directory/f'package{epoch}.tar.gz'
                     with tarfile.open(archive, 'w:gz') as tar:
