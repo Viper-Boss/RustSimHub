@@ -36,30 +36,41 @@ pub(super) fn request(origin: &str, host: &str, body: Vec<u8>) -> Request {
         .unwrap()
 }
 #[tokio::test]
-async fn event_sync_asset_is_served_with_the_existing_host_and_cache_boundary() {
+async fn sms_assets_are_served_with_the_existing_host_and_cache_boundary() {
     let dir = tempfile::tempdir().unwrap();
     let a = app(dir.path().join("absent.sock"));
-    for (host, status) in [
-        ("localhost:8443", StatusCode::OK),
-        ("invalid.example", StatusCode::FORBIDDEN),
+    for (path, expected) in [
+        (
+            "/event-sync.js",
+            include_bytes!("../web/event-sync.js").as_slice(),
+        ),
+        (
+            "/sms-management.js",
+            include_bytes!("../web/sms-management.js").as_slice(),
+        ),
     ] {
-        let req = Request::builder()
-            .uri("/event-sync.js")
-            .header(header::HOST, host)
-            .body(Body::empty())
-            .unwrap();
-        let response = router(a.clone()).oneshot(req).await.unwrap();
-        assert_eq!(response.status(), status);
-        assert_eq!(response.headers()["cache-control"], "no-store");
-        if status == StatusCode::OK {
-            assert_eq!(
-                response.headers()[header::CONTENT_TYPE],
-                "text/javascript; charset=utf-8"
-            );
-            let bytes = axum::body::to_bytes(response.into_body(), MAX_FRAME)
-                .await
+        for (host, status) in [
+            ("localhost:8443", StatusCode::OK),
+            ("invalid.example", StatusCode::FORBIDDEN),
+        ] {
+            let req = Request::builder()
+                .uri(path)
+                .header(header::HOST, host)
+                .body(Body::empty())
                 .unwrap();
-            assert_eq!(&bytes[..], include_bytes!("../web/event-sync.js"));
+            let response = router(a.clone()).oneshot(req).await.unwrap();
+            assert_eq!(response.status(), status);
+            assert_eq!(response.headers()["cache-control"], "no-store");
+            if status == StatusCode::OK {
+                assert_eq!(
+                    response.headers()[header::CONTENT_TYPE],
+                    "text/javascript; charset=utf-8"
+                );
+                let bytes = axum::body::to_bytes(response.into_body(), MAX_FRAME)
+                    .await
+                    .unwrap();
+                assert_eq!(&bytes[..], expected);
+            }
         }
     }
 }

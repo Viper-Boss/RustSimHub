@@ -116,11 +116,12 @@ def main():
     if startup:
         signed = args.signed_application.resolve(strict=True)
         release = args.release_public.resolve(strict=True)
-        app = verify_package(signed,release,build['source_archive_sha256'])
+        app = verify_package(signed,release,build['source_archive_sha256'],schema=build.get('database_schema',5))
         for name in ('rustsimhub-core','simhubctl','rustsimhub-edge'):
             assert base_tools.sha256_file(signed/name)==build['artifact_sha256'][name]
         updater = args.updater_artifacts.resolve(strict=True)
         verifier = json.loads((updater/'build.json').read_text())
+        assert verifier.get('database_schema',5)==build.get('database_schema',5),'Updater and application schema contract differ'
         assert verifier['target']=='aarch64-unknown-linux-gnu' and verifier['development_fixtures'] is False
         assert verifier.get('boot_runtime_selection_supported') is True,'Updater lacks the boot group selection contract'
         assert verifier.get('local_installation_preparation_supported') is True,'Immutable Edge lacks atomic initialization'
@@ -216,7 +217,7 @@ def main():
             target=destination(tree,'usr/libexec/rustsimhub/rustsimhub-edge-setup')
             shutil.copyfile(updater/'rustsimhub-edge',target);os.chown(target,0,0);target.chmod(0o555)
             assert base_tools.sha256_file(target)==verifier['artifact_sha256']['rustsimhub-edge']
-            verify_package(tree/'usr/share/rustsimhub/factory-app',tree/'usr/share/rustsimhub/release.public',build['source_archive_sha256'])
+            verify_package(tree/'usr/share/rustsimhub/factory-app',tree/'usr/share/rustsimhub/release.public',build['source_archive_sha256'],schema=build.get('database_schema',5))
             directory(destination(tree,'opt/rustsimhub/versions'), 0o700)
             directory(destination(tree,'opt/rustsimhub/selected'), 0o755)
             directory(destination(tree,'var/lib/rustsimhub-core'), 0o755)

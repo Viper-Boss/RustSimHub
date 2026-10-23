@@ -46,7 +46,7 @@ fn principal(conn: &Connection, key: &[u8; 32]) -> Result<Option<Principal>> {
 pub(super) fn lookup_principal(conn: &Connection, key: &[u8; 32]) -> Result<Option<Principal>> {
     principal(conn, key)
 }
-fn checked_owner(conn: &Connection, owner: &Principal) -> Result<()> {
+pub(super) fn checked_owner(conn: &Connection, owner: &Principal) -> Result<()> {
     let current = principal(conn, &owner.public_key)?.ok_or(Error::Forbidden)?;
     if !current.active || current.kind != Kind::Owner || current != *owner {
         return Err(Error::Forbidden);

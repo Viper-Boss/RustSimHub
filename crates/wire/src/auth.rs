@@ -139,6 +139,26 @@ pub enum AuthCommand {
         token: String,
         sms_id: String,
     },
+    SmsManagementStatus {
+        token: String,
+    },
+    DeleteSms {
+        token: String,
+        sms_id: String,
+    },
+    RestoreSms {
+        token: String,
+        sms_id: String,
+    },
+    DeletedInbox {
+        token: String,
+        after: Option<rustsimhub_domain::InboxCursor>,
+        limit: usize,
+    },
+    DeletedSmsDetail {
+        token: String,
+        sms_id: String,
+    },
     InboxEvents {
         token: String,
         after: Option<rustsimhub_domain::InboxCursor>,
@@ -614,6 +634,7 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         | AuthCommand::LineStatus { token }
         | AuthCommand::NetworkStatus { token }
         | AuthCommand::NetworkDiagnostics { token }
+        | AuthCommand::SmsManagementStatus { token }
         | AuthCommand::OpenPairing { token }
         | AuthCommand::PendingPairings { token }
         | AuthCommand::Clients { token }
@@ -633,12 +654,19 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
             }
         }
         AuthCommand::PairChallenge { scopes, .. } if scopes.len() > 10 => return Err(invalid()),
-        AuthCommand::Inbox { token, limit, .. } | AuthCommand::InboxEvents { token, limit, .. } => {
+        AuthCommand::Inbox { token, limit, .. }
+        | AuthCommand::InboxEvents { token, limit, .. }
+        | AuthCommand::DeletedInbox { token, limit, .. } => {
             if token.len() != 64 || !(1..=32).contains(limit) {
                 return Err(invalid());
             }
         }
-        AuthCommand::SmsDetail { token, sms_id } if token.len() != 64 || sms_id.len() != 36 => {
+        AuthCommand::SmsDetail { token, sms_id }
+        | AuthCommand::DeleteSms { token, sms_id }
+        | AuthCommand::RestoreSms { token, sms_id }
+        | AuthCommand::DeletedSmsDetail { token, sms_id }
+            if token.len() != 64 || sms_id.len() != 36 =>
+        {
             return Err(invalid())
         }
         _ => {}
@@ -668,6 +696,27 @@ pub fn wifi_credentials_valid(ssid: &str, passphrase: &str) -> bool {
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn sms_management_is_bounded_and_cannot_override_owner_or_modem_actions() {
+        for op in ["delete_sms", "restore_sms", "deleted_sms_detail"] {
+            let valid = serde_json::json!({"protocol":2,"id":"trash","command":{"op":op,"token":"a".repeat(64),"sms_id":"11111111-1111-4111-8111-111111111111"}});
+            assert!(super::parse_auth_request(&serde_json::to_vec(&valid).unwrap()).is_ok());
+            for (key, value) in [
+                ("token", serde_json::json!("short")),
+                ("sms_id", serde_json::json!("../path")),
+                ("owner", serde_json::json!(true)),
+                ("delete_from_sim", serde_json::json!(true)),
+            ] {
+                let mut bad = valid.clone();
+                bad["command"][key] = value;
+                assert!(super::parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
+            }
+        }
+        for limit in [0, 33] {
+            let bad = serde_json::json!({"protocol":2,"id":"trash","command":{"op":"deleted_inbox","token":"a".repeat(64),"after":null,"limit":limit}});
+            assert!(super::parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
+        }
+    }
     #[test]
     fn indicator_commands_refuse_paths_extra_controls_and_missing_authority() {
         for command in [

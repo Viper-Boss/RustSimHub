@@ -329,7 +329,7 @@ pub async fn run(args: &[String]) -> Result<()> {
         }
     }
     if let [command, socket, path, id] = args {
-        if command == "sms" {
+        if ["sms", "delete-sms", "restore-sms", "deleted-sms"].contains(&command.as_str()) {
             let s = Session::load(Path::new(path))?;
             check_session(socket, &s)?;
             println!(
@@ -337,9 +337,23 @@ pub async fn run(args: &[String]) -> Result<()> {
                 serde_json::to_string(
                     &call(
                         socket,
-                        AuthCommand::SmsDetail {
-                            token: s.token.clone(),
-                            sms_id: id.clone()
+                        match command.as_str() {
+                            "delete-sms" => AuthCommand::DeleteSms {
+                                token: s.token.clone(),
+                                sms_id: id.clone()
+                            },
+                            "restore-sms" => AuthCommand::RestoreSms {
+                                token: s.token.clone(),
+                                sms_id: id.clone()
+                            },
+                            "deleted-sms" => AuthCommand::DeletedSmsDetail {
+                                token: s.token.clone(),
+                                sms_id: id.clone()
+                            },
+                            _ => AuthCommand::SmsDetail {
+                                token: s.token.clone(),
+                                sms_id: id.clone()
+                            },
                         }
                     )
                     .await?
@@ -417,6 +431,14 @@ pub async fn run(args: &[String]) -> Result<()> {
                 token: s.token.clone(),
                 after: None,
                 limit: 32,
+            },
+            "deleted-inbox" => AuthCommand::DeletedInbox {
+                token: s.token.clone(),
+                after: None,
+                limit: 32,
+            },
+            "sms-management" => AuthCommand::SmsManagementStatus {
+                token: s.token.clone(),
             },
             "open-pairing" => AuthCommand::OpenPairing {
                 token: s.token.clone(),

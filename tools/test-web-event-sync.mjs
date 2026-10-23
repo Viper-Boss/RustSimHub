@@ -6,6 +6,8 @@ import vm from 'node:vm';
 import {webcrypto} from 'node:crypto';
 const bytes=await readFile(new URL('../crates/edge/src/web/event-sync.js',import.meta.url));
 const {EventSync}=await import('data:text/javascript;base64,'+bytes.toString('base64'));
+const smsBytes=await readFile(new URL('../crates/edge/src/web/sms-management.js',import.meta.url));
+const {SmsManager}=await import('data:text/javascript;base64,'+smsBytes.toString('base64'));
 const deferred=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return {promise,resolve};};
 const turn=()=>new Promise(r=>setImmediate(r));
 const epoch='00000000-0000-4000-8000-000000000001';
@@ -90,13 +92,13 @@ function browserFixture(respond){
  const elements=new Map(),sent=[];
  const document={hidden:false,getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(){}};
  const context={document,crypto:webcrypto,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},
-  indexedDB:{open:()=>({})},EventSync,
+  indexedDB:{open:()=>({})},EventSync,SmsManager,
   AudioLink:class {constructor(){this.state='closed';}async stop(){}},
   ConfigurationIndicator:class {async set(){}},
   CallTest:class {async stop(){}},NetworkPanel:class {start(){}stop(){}},
   fetch:async(_url,options)=>{const body=JSON.parse(options.body);sent.push(body.command);const result=await respond(body.command);return {ok:true,json:async()=>({protocol:2,id:body.id,result})};},
  };
- vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={sync,refresh,eventSync,loginAs:()=>{token="synthetic";},logout:()=>$("logout").onclick()};',context);
+ vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={sync,refresh,eventSync,inboxPage,loginAs:()=>{token="synthetic";},logout:()=>$("logout").onclick()};',context);
  context.fixture.loginAs();return {...context.fixture,elements,sent};
 }
 {
@@ -130,4 +132,14 @@ function browserFixture(respond){
  });
  await f.sync();assert.ok(f.eventSync.cursors.sms);await f.refresh();assert.equal(f.eventSync.cursors.sms,null);
 }
-console.log('PASS: bounded multi-page catch-up, retry without cursor loss, independent streams, sequence validation, large cursors, reset/concurrency fences, and real app refresh/logout wiring; no network or hardware.');
+{
+ const gate=deferred();let calls=0;const f=browserFixture(async c=>{
+  if(c.op==='inbox')return {messages:++calls===1?[{id:'synthetic',line:1}]:[],cursor:{db_epoch:epoch,seq:'1'}};
+  if(c.op==='sms_detail')return gate.promise;
+  throw Error('unexpected command');
+ });
+ await f.inboxPage(true);const click=f.elements.get('inbox').children[0].children[1].onclick();await turn();
+ await f.inboxPage(true);gate.resolve({text:'stale deleted synthetic'});await click;
+ assert.equal(f.elements.get('sms-detail').textContent,'');assert.equal(f.sent.filter(c=>c.op==='notification_read').length,0);
+}
+console.log('PASS: bounded catch-up, retry/cursor isolation, real app refresh/logout wiring, and late deleted-detail suppression; no network or hardware.');

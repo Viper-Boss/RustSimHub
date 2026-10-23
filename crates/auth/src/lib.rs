@@ -205,6 +205,39 @@ impl Auth {
         self.authorize(token, Scope::SmsRead)?;
         Ok(self.store.inbox_events(after, limit)?)
     }
+    pub fn sms_management_available(&mut self, token: &str) -> Result<bool> {
+        self.authorize(token, Scope::SmsRead)?;
+        Ok(self.owner(token).is_ok())
+    }
+    pub fn set_sms_deleted(
+        &mut self,
+        token: &str,
+        id: String,
+        deleted: bool,
+    ) -> Result<rustsimhub_storage::SmsVisibility> {
+        let owner = self.owner(token)?;
+        self.authorize(token, Scope::SmsRead)?;
+        Ok(self.store.set_sms_deleted(owner, id, deleted)?)
+    }
+    pub fn deleted_inbox(
+        &mut self,
+        token: &str,
+        after: Option<rustsimhub_storage::InboxCursor>,
+        limit: usize,
+    ) -> Result<rustsimhub_storage::InboxPage> {
+        let owner = self.owner(token)?;
+        self.authorize(token, Scope::SmsRead)?;
+        Ok(self.store.deleted_inbox(owner, after, limit)?)
+    }
+    pub fn deleted_sms_detail(
+        &mut self,
+        token: &str,
+        id: String,
+    ) -> Result<rustsimhub_storage::SmsDetail> {
+        let owner = self.owner(token)?;
+        self.authorize(token, Scope::SmsRead)?;
+        Ok(self.store.deleted_sms_detail(owner, id)?)
+    }
     /// Never generate a replacement seed for a DB that already has a bound identity.
     pub fn open(directory: impl AsRef<std::path::Path>, store: Handle) -> Result<Self> {
         let identity = if store.identity_public_key()?.is_some() {

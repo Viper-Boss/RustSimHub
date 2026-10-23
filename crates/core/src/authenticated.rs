@@ -112,6 +112,27 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
             .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
         SmsDetail { token, sms_id } => serde_json::to_value(auth.sms_detail(&token, sms_id)?)
             .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        SmsManagementStatus { token } => {
+            json!({"available":auth.sms_management_available(&token)?})
+        }
+        DeleteSms { token, sms_id } => {
+            serde_json::to_value(auth.set_sms_deleted(&token, sms_id, true)?)
+                .map_err(|_| rustsimhub_auth::Error::InvalidInput)?
+        }
+        RestoreSms { token, sms_id } => {
+            serde_json::to_value(auth.set_sms_deleted(&token, sms_id, false)?)
+                .map_err(|_| rustsimhub_auth::Error::InvalidInput)?
+        }
+        DeletedInbox {
+            token,
+            after,
+            limit,
+        } => serde_json::to_value(auth.deleted_inbox(&token, after, limit)?)
+            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        DeletedSmsDetail { token, sms_id } => {
+            serde_json::to_value(auth.deleted_sms_detail(&token, sms_id)?)
+                .map_err(|_| rustsimhub_auth::Error::InvalidInput)?
+        }
         InboxEvents {
             token,
             after,

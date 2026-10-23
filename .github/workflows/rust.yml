@@ -33,6 +33,8 @@ jobs:
         run: node tools/test-web-network.mjs
       - name: Web event catch-up and retry lifecycle
         run: node tools/test-web-event-sync.mjs
+      - name: Web SMS recycle bin and uncertain writes
+        run: node tools/test-web-sms-management.mjs
       - name: PON diagnostic reference and error paths
         run: python3 tools/test-pon-dump-review.py
       - name: Read-only recovery helper fixtures

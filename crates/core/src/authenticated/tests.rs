@@ -3,6 +3,135 @@ use super::*;
 use ed25519_dalek::{Signer, SigningKey};
 
 #[tokio::test]
+async fn sms_trash_round_trip_preserves_identity_and_rejects_unsigned_mutation() {
+    let d = directory();
+    let i = directory();
+    let store = Store::open(d.path()).unwrap();
+    let h = store.handle();
+    let mut a = Auth::new(Identity::open(i.path()).unwrap(), h.clone()).unwrap();
+    let key = SigningKey::from_bytes(&[96; 32]);
+    let c = a
+        .bootstrap_challenge(key.verifying_key().to_bytes())
+        .unwrap();
+    a.bootstrap_finish(&c.id, &key.sign(&c.transcript).to_bytes())
+        .unwrap();
+    let c = a.login_challenge(key.verifying_key().to_bytes()).unwrap();
+    let token = a
+        .login_finish(&c.id, &key.sign(&c.transcript).to_bytes())
+        .unwrap()
+        .expose()
+        .to_owned();
+    let auth = Arc::new(Mutex::new(a));
+    let line = h
+        .observe_line(rustsimhub_storage::LineObservation {
+            backend: "synthetic".into(),
+            fingerprint: Some([2; 32]),
+            status: rustsimhub_storage::LineStatus::Ready,
+        })
+        .unwrap()
+        .line;
+    let id = h
+        .receive_sms(rustsimhub_storage::IncomingSms {
+            line,
+            source: "synthetic".into(),
+            sender: "synthetic".into(),
+            timestamp: "synthetic".into(),
+            text: "synthetic body".into(),
+            data: vec![],
+        })
+        .unwrap()
+        .id;
+    assert_eq!(
+        round_trip(
+            AuthCommand::SmsManagementStatus {
+                token: token.clone()
+            },
+            auth.clone()
+        )
+        .await["available"],
+        true
+    );
+    assert_eq!(
+        round_trip(
+            AuthCommand::DeleteSms {
+                token: "0".repeat(64),
+                sms_id: id.clone()
+            },
+            auth.clone()
+        )
+        .await["error"],
+        "denied"
+    );
+    let result = round_trip(
+        AuthCommand::DeleteSms {
+            token: token.clone(),
+            sms_id: id.clone(),
+        },
+        auth.clone(),
+    )
+    .await;
+    assert_eq!(result["sms_id"], id);
+    assert_eq!(result["deleted"], true);
+    assert_eq!(
+        round_trip(
+            AuthCommand::Inbox {
+                token: token.clone(),
+                after: None,
+                limit: 16
+            },
+            auth.clone()
+        )
+        .await["messages"],
+        serde_json::json!([])
+    );
+    assert_eq!(
+        round_trip(
+            AuthCommand::DeletedInbox {
+                token: token.clone(),
+                after: None,
+                limit: 16
+            },
+            auth.clone()
+        )
+        .await["messages"][0]["id"],
+        id
+    );
+    assert_eq!(
+        round_trip(
+            AuthCommand::DeletedSmsDetail {
+                token: token.clone(),
+                sms_id: id.clone()
+            },
+            auth.clone()
+        )
+        .await["text"],
+        "synthetic body"
+    );
+    assert_eq!(
+        round_trip(
+            AuthCommand::RestoreSms {
+                token: token.clone(),
+                sms_id: id.clone()
+            },
+            auth.clone()
+        )
+        .await["deleted"],
+        false
+    );
+    assert_eq!(
+        round_trip(
+            AuthCommand::SmsDetail {
+                token,
+                sms_id: id.clone()
+            },
+            auth
+        )
+        .await["summary"]["id"],
+        id
+    );
+}
+
+#[tokio::test]
 async fn graceful_shutdown_closes_store_and_restarts_on_same_socket() {
     let d = directory();
     let i = directory();

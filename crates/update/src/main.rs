@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 #[cfg(target_os = "linux")]
 fn run() -> Result<(), rustsimhub_update::Error> {
+    const SCHEMA: u32 = 6;
     use ed25519_dalek::{Signer, SigningKey};
     use rustsimhub_update::{
         manifest_hash, signing_bytes,
@@ -14,7 +15,7 @@ fn run() -> Result<(), rustsimhub_update::Error> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            serde_json::json!({"source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"system_ota_supported":false,"boot_runtime_selection_supported":true})
+            serde_json::json!({"source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"system_ota_supported":false,"boot_runtime_selection_supported":true,"database_schema":SCHEMA})
         );
         return Ok(());
     }
@@ -30,7 +31,7 @@ fn run() -> Result<(), rustsimhub_update::Error> {
             let directory = Path::new(directory);
             let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;
             let signature = read_checked(&directory.join("manifest.sig"), 64)?;
-            let verified = verify(&manifest, &signature, &key, 5, 0)?;
+            let verified = verify(&manifest, &signature, &key, SCHEMA, 0)?;
             verify_payload(&verified, &load_payloads(directory, &verified)?)?;
             println!(
                 "{}",
@@ -73,7 +74,7 @@ fn run() -> Result<(), rustsimhub_update::Error> {
                 arch: "aarch64-linux".into(),
                 epoch: epoch.parse().map_err(|_| Error::Invalid)?,
                 schema_min: 5,
-                schema_max: 5,
+                schema_max: SCHEMA,
                 source_sha256: source.clone(),
                 development_fixtures: false,
                 files: FILES
@@ -92,7 +93,7 @@ fn run() -> Result<(), rustsimhub_update::Error> {
                 &bytes,
                 &sig.to_bytes(),
                 &signing.verifying_key().to_bytes(),
-                5,
+                SCHEMA,
                 0,
             )?;
             verify_payload(&m, &payloads)?;
@@ -118,14 +119,14 @@ fn run() -> Result<(), rustsimhub_update::Error> {
             .as_slice()
             .try_into()
             .map_err(|_| Error::Invalid)?;
-        let mut store = Store::open(root, key, 5)?;
+        let mut store = Store::open(root, key, SCHEMA)?;
         match (command.as_str(), args.len()) {
             ("boot-select", 6) => {
                 store.check_runtime_paths(Path::new(&args[4]), Path::new(&args[5]))?;
                 let directory = Path::new(&args[3]);
                 let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;
                 let signature = read_checked(&directory.join("manifest.sig"), 64)?;
-                let m = verify(&manifest, &signature, &key, 5, 0)?;
+                let m = verify(&manifest, &signature, &key, SCHEMA, 0)?;
                 let payloads = load_payloads(directory, &m)?;
                 store.install_factory(&manifest, &signature, &payloads)?;
                 let selected = store.select_runtime(Path::new(&args[4]), Path::new(&args[5]))?;
@@ -136,7 +137,7 @@ fn run() -> Result<(), rustsimhub_update::Error> {
                 let directory = Path::new(&args[3]);
                 let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;
                 let signature = read_checked(&directory.join("manifest.sig"), 64)?;
-                let m = verify(&manifest, &signature, &key, 5, 0)?;
+                let m = verify(&manifest, &signature, &key, SCHEMA, 0)?;
                 let payloads = load_payloads(directory, &m)?;
                 let path = store.install_factory(&manifest, &signature, &payloads)?;
                 println!("{}", path.display());
@@ -146,7 +147,7 @@ fn run() -> Result<(), rustsimhub_update::Error> {
                 let directory = Path::new(&args[3]);
                 let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;
                 let signature = read_checked(&directory.join("manifest.sig"), 64)?;
-                let m = verify(&manifest, &signature, &key, 5, store.floor())?;
+                let m = verify(&manifest, &signature, &key, SCHEMA, store.floor())?;
                 let p = load_payloads(directory, &m)?;
                 let _indicator = rustsimhub_update::indicator::Activity::begin();
                 let hash = store.stage(&manifest, &signature, &p)?;

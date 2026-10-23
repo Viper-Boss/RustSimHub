@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-10-23：按用户要求继续搁置关机问题，完成短信本地删除/回收站/恢复的代码与离线验证。Owner最近5分钟认证、存储generation复核、原子删除事件、列表/详情/未读灯过滤及网页失败/迟到回复隔离已实现；普通Client/NAS不能修改。完整Linux回归241项、七组网页、生产检查及Clippy通过。schema5→6是维护迁移，旧v5应用不能直接回退，尚未安装现场；不宣称新系统短信/完整NAS删除同步实机闭环完成。详见 [P2D](VALIDATION-SMS-TRASH-P2D.md)，私有索引`.private/sms-management-20261023-first.json`。普通数据关闭、无新电话/SMS，当前不需要用户操作；整体暂保持76.5%。
+
 ## 最新：收到pon_dump，引用泄漏修正与真实离线构建已核验，未上机
 
 发布复核：实现 `91cb708` 已同步GitHub，完整 [CI 39835048209](https://github.com/Viper-Boss/RustSimHub/actions/runs/39835048209) success。源码hash与实际编译输入一致，CI仅验证模拟依赖控制流及既有工作区；真实模块编译由私有second报告单独证明。Git常规传输及API发布失败保留，最后仅本次命令使用HTTP/1.1推送成功，未改全局配置。DWARF普通/压缩节独立检查均无，仍未上机。

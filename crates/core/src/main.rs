@@ -75,7 +75,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            json!({"source_archive_sha256":rustsimhub_wire::build_source_sha256(),"development_fixtures":cfg!(feature="dev-fixtures")})
+            json!({"source_archive_sha256":rustsimhub_wire::build_source_sha256(),"development_fixtures":cfg!(feature="dev-fixtures"),"database_schema":6})
         );
         return Ok(());
     }

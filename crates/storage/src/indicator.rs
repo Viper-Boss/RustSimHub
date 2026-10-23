@@ -14,7 +14,7 @@ impl Handle {
     pub fn indicator_snapshot(&self) -> Result<IndicatorSnapshot> {
         self.call(|db| {
             let mut value = IndicatorSnapshot::default();
-            let mut s = db.connection.prepare("SELECT id FROM inbox WHERE line_epoch=(SELECT line_epoch FROM meta WHERE singleton=1) ORDER BY seq LIMIT 32769")?;
+            let mut s = db.connection.prepare("SELECT id FROM inbox WHERE line_epoch=(SELECT line_epoch FROM meta WHERE singleton=1) AND NOT EXISTS(SELECT 1 FROM inbox_tombstones t WHERE t.sms_id=inbox.id) ORDER BY seq LIMIT 32769")?;
             for row in s.query_map([], |r| r.get::<_, String>(0))? { value.sms.push(row?); }
             let mut s = db.connection.prepare("SELECT id,direction,state FROM calls WHERE line_epoch=(SELECT line_epoch FROM meta WHERE singleton=1) AND availability='observed' ORDER BY seq LIMIT 32769")?;
             for row in s.query_map([], |r| Ok((r.get::<_,String>(0)?,r.get::<_,i32>(1)?,r.get::<_,i32>(2)?)))? { value.calls.push(row?); }
@@ -70,7 +70,7 @@ mod tests {
             let version: i64 = db
                 .connection
                 .pragma_query_value(None, "user_version", |r| r.get(0))?;
-            assert_eq!(version, 5);
+            assert_eq!(version, 6);
             Ok(())
         })
         .unwrap();

@@ -16,7 +16,7 @@ use std::{
 use uuid::Uuid;
 
 const APP_ID: i64 = 1381189698;
-const SCHEMA: i64 = 5;
+const SCHEMA: i64 = 6;
 mod auth;
 mod calls;
 pub use calls::{
@@ -24,6 +24,8 @@ pub use calls::{
     CallSummary,
 };
 mod inbox;
+mod inbox_management;
+pub use inbox_management::SmsVisibility;
 mod indicator;
 pub use indicator::IndicatorSnapshot;
 mod outgoing;
@@ -482,6 +484,11 @@ impl Database {
         if version < 5 {
             let tx = db.connection.transaction()?;
             tx.execute_batch(include_str!("calls.sql"))?;
+            tx.commit()?;
+        }
+        if version < 6 {
+            let tx = db.connection.transaction()?;
+            tx.execute_batch(include_str!("inbox-management.sql"))?;
             tx.commit()?;
         }
 

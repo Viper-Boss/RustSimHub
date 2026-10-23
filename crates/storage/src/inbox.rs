@@ -120,7 +120,7 @@ pub(super) fn position(
     };
     Ok((epoch, seq))
 }
-fn summary(r: &rusqlite::Row<'_>) -> rusqlite::Result<SmsSummary> {
+pub(super) fn summary(r: &rusqlite::Row<'_>) -> rusqlite::Result<SmsSummary> {
     Ok(SmsSummary {
         id: r.get(0)?,
         line: LineEpoch(r.get::<_, i64>(1)? as u64),
@@ -186,7 +186,7 @@ impl Handle {
     pub fn inbox(&self, after: Option<InboxCursor>, limit: usize) -> Result<InboxPage> {
         self.call(move |db| {
         let (epoch, mut seq)=position(&db.connection,after.as_ref(),"inbox",limit)?;
-        let mut stmt=db.connection.prepare("SELECT id,line_epoch,length(data)>0,duplicate_candidate,seq FROM inbox WHERE seq>? ORDER BY seq LIMIT ?")?;
+        let mut stmt=db.connection.prepare("SELECT id,line_epoch,length(data)>0,duplicate_candidate,seq FROM inbox WHERE seq>? AND NOT EXISTS(SELECT 1 FROM inbox_tombstones t WHERE t.sms_id=inbox.id) ORDER BY seq LIMIT ?")?;
         let rows=stmt.query_map(params![seq,limit as i64],|r|Ok((summary(r)?,r.get::<_,i64>(4)?)))?;
         let mut messages=Vec::new(); for row in rows {let (s,n)=row?; messages.push(s);seq=n;}
         Ok(InboxPage{messages,cursor:InboxCursor{db_epoch:epoch,seq:seq.to_string()}})
@@ -195,7 +195,7 @@ impl Handle {
     pub fn sms_detail(&self, id: String) -> Result<SmsDetail> {
         self.call(move |db| {
         if Uuid::parse_str(&id).is_err() { return Err(Error::InvalidInput); }
-        db.connection.query_row("SELECT id,line_epoch,length(data)>0,duplicate_candidate,sender,timestamp,body,data FROM inbox WHERE id=?",[id],|r|Ok(SmsDetail{summary:summary(r)?,sender:r.get(4)?,timestamp:r.get(5)?,text:r.get(6)?,data:r.get(7)?})).optional()?.ok_or(Error::NotFound)
+        db.connection.query_row("SELECT id,line_epoch,length(data)>0,duplicate_candidate,sender,timestamp,body,data FROM inbox WHERE id=? AND NOT EXISTS(SELECT 1 FROM inbox_tombstones t WHERE t.sms_id=inbox.id)",[id],|r|Ok(SmsDetail{summary:summary(r)?,sender:r.get(4)?,timestamp:r.get(5)?,text:r.get(6)?,data:r.get(7)?})).optional()?.ok_or(Error::NotFound)
     })
     }
     pub fn inbox_events(&self, after: Option<InboxCursor>, limit: usize) -> Result<InboxEvents> {

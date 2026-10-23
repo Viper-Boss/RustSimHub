@@ -5,10 +5,11 @@ import { CallTest } from './call-test.js';
 import { ConfigurationIndicator } from './indicator.js';
 import { NetworkPanel } from './network.js';
 import { EventSync } from './event-sync.js';
+import { SmsManager } from './sms-management.js';
 const $=id=>document.getElementById(id);
 const scopes=['status.read','sms.read','calls.read'];
 let key, publicKey, token=null, busy=false, pending=null, lease=null;
-let inboxCursor=null, callsCursor=null;
+let inboxCursor=null, callsCursor=null,smsView=0,smsPreview=0;
 let historyCursor=null, historySources=[];
 let wifiTrial=null;
 let audioReady=false;
@@ -49,6 +50,7 @@ async function api(command,epoch=viewEpoch){
 }
 function auth(command){if(!token)throw Error('请先登录');return api({...command,token});}
 const eventSync=new EventSync({request:command=>auth(command),reload:{sms:()=>inboxPage(true),calls:()=>callsPage(true)}});
+const smsManager=new SmsManager({document,request:command=>auth(command),reloadInbox:()=>inboxPage(true),confirm:message=>confirm(message)});
 const notice=text=>{$('notice').textContent=text;};
 const networkPanel=new NetworkPanel({document,request:command=>auth(command),getToken:()=>token,runTest:async command=>{
  const epoch=viewEpoch,authToken=token;if(!authToken)throw Error('请先登录');
@@ -107,7 +109,7 @@ async function login(){
  token=r.token;configurationOpen=true;void configurationIndicator.set(!document.hidden);networkPanel.start();notice('已登录；会话最长 15 分钟');await refresh();
 }
 function row(text,parent,onClick){const item=document.createElement('div');item.className='row';const label=document.createElement('span');label.textContent=text;item.append(label);if(onClick){const button=document.createElement('button');button.textContent='查看';button.onclick=()=>act(onClick);item.append(button);}parent.append(item);}
-async function inboxPage(reset=false){if(reset){inboxCursor=null;$('inbox').replaceChildren();}const page=await auth({op:'inbox',after:inboxCursor,limit:16});for(const s of page.messages)row(`${s.id} · SIM 代次 ${s.line}${s.binary?' · 二进制短信':''}`,$('inbox'),async()=>{$('sms-detail').textContent=JSON.stringify(await auth({op:'sms_detail',sms_id:s.id}),null,2);await auth({op:'notification_read',entity:'sms',record_id:s.id});});inboxCursor=page.cursor;$('more-inbox').disabled=page.messages.length<16;}
+async function inboxPage(reset=false){if(reset){smsView++;smsPreview++;inboxCursor=null;smsManager.select(null);$('sms-detail').textContent='';$('inbox').replaceChildren();}const view=smsView,page=await auth({op:'inbox',after:inboxCursor,limit:16});if(view!==smsView)return;for(const s of page.messages)row(`${s.id} · SIM 代次 ${s.line}${s.binary?' · 二进制短信':''}`,$('inbox'),async()=>{const preview=++smsPreview,detail=await auth({op:'sms_detail',sms_id:s.id});if(view!==smsView||preview!==smsPreview)return;$('sms-detail').textContent=JSON.stringify(detail,null,2);smsManager.select(s.id);await auth({op:'notification_read',entity:'sms',record_id:s.id});});inboxCursor=page.cursor;$('more-inbox').disabled=page.messages.length<16;}
 async function callsPage(reset=false){if(reset){callsCursor=null;$('calls').replaceChildren();$('call-id').replaceChildren();}const page=await auth({op:'calls',after:callsCursor,limit:16});for(const s of page.calls){row(`${s.id} · ${s.state} · ${s.availability}`,$('calls'),async()=>{$('call-detail').textContent=JSON.stringify(await auth({op:'call_detail',call_id:s.id}),null,2);await auth({op:'notification_read',entity:'calls',record_id:s.id});});if(s.state!=='ended'){const option=document.createElement('option');option.value=s.id;option.textContent=`${s.state} · ${s.id}`;$('call-id').append(option);}}callsCursor=page.cursor;$('more-calls').disabled=page.calls.length<16;}
 function clearWifi(){wifiTrial=null;$('wifi-ssid').value='';$('wifi-passphrase').value='';$('wifi-state').textContent='没有试连接';for(const id of ['wifi-status','wifi-confirm','wifi-cancel'])$(id).disabled=true;}
 function showWifi(result){wifiTrial=result;const terminal=['saved','rolled_back','unknown'].includes(result.state);const names={starting:'正在开始',connecting:'正在连接',ready:'已连接，等待确认',saving:'正在保存',saved:'已保存',rolled_back:'已恢复原连接',unknown:'结果不明，请检查设备；不会自动重试'};$('wifi-state').textContent=`${names[result.state]||'未知状态'} · 剩余 ${result.expires_in_seconds} 秒`;$('wifi-status').disabled=!token;$('wifi-confirm').disabled=!token||result.state!=='ready';$('wifi-cancel').disabled=!token||terminal;}
@@ -118,6 +120,7 @@ function historyTypes(){clearHistory();$('history-entity').replaceChildren();con
 async function historyPage(reset=false){if(reset)clearHistory();const source=$('history-source').value,entity=$('history-entity').value;if(!source||!entity)return;try{const page=await auth({op:'history_page',source,entity,after:historyCursor,limit:16});for(const record of page.records)row(`${record.id} · ${record.deleted?'已删除的历史':'归档记录'}${record.user_state?.favorite?' · 收藏':''}${record.user_state?.marked_unread?' · 标记未读':''}`,$('history-list'),async()=>{try{$('history-detail').textContent=JSON.stringify(await auth({op:'history_detail',source,entity,record_id:record.id}),null,2);}catch(error){clearHistory();throw error;}});historyCursor=page.cursor;$('more-history').disabled=page.records.length<16;}catch(error){clearHistory();throw error;}}
 async function loadHistory(){clearHistory();$('history-source').replaceChildren();const result=await auth({op:'history_sources'});historySources=result.sources;for(const [index,source] of historySources.entries()){const option=document.createElement('option');option.value=source.source;option.textContent=`历史库 ${index+1} · ${source.source.slice(0,8)}`;$('history-source').append(option);}historyTypes();await historyPage(true);}
 async function refresh(){
+ smsManager.reset();await smsManager.permissions();
  eventSync.reset();$('events').textContent='已重置补同步位置；可点击“补同步事件”追赶历史变化';
  const epoch=viewEpoch;const health=await auth({op:'health'});current(epoch);
  const line=await auth({op:'line_status'});current(epoch);
@@ -162,6 +165,7 @@ function bind(id,fn){$(id).onclick=()=>act(fn);}
 bind('initialize-owner',initializeOwner);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
 bind('network-login',login);const networkPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{networkPanel.stop();networkPreviousLogout();};
 const syncPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{eventSync.reset();inboxCursor=null;callsCursor=null;$('more-inbox').disabled=true;$('more-calls').disabled=true;syncPreviousLogout();};
+const smsPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{smsManager.reset();smsPreviousLogout();};
 bind('refresh-history',loadHistory);bind('more-history',()=>historyPage());$('history-source').onchange=()=>act(async()=>{historyTypes();await historyPage(true);});$('history-entity').onchange=()=>act(()=>historyPage(true));
 bind('wifi-begin',beginWifi);bind('wifi-status',()=>wifiAction('wifi_status'));bind('wifi-confirm',()=>wifiAction('wifi_confirm'));bind('wifi-cancel',()=>wifiAction('wifi_cancel'));const previousLogout=$('logout').onclick;$('logout').onclick=()=>{clearWifi();$('wifi-section').hidden=true;previousLogout();};
 bind('more-inbox',()=>inboxPage());bind('more-calls',()=>callsPage());bind('prepare-sms',()=>prepare('sms','send'));for(const action of ['dial','accept','hangup','dtmf'])bind('prepare-'+action,()=>prepare('call',action));bind('submit',submit);bind('query',query);bind('clear',async()=>{if(!pending||!['submitted','cancelled'].includes(pending.state))throw Error('当前结果必须保留查询');pending=null;await save('pending',null);showPending();});
@@ -185,3 +189,4 @@ document.addEventListener('visibilitychange',()=>{if(token)void configurationInd
 addEventListener('pagehide',()=>{configurationOpen=false;void configurationIndicator.set(false);});
 addEventListener('pagehide',()=>networkPanel.stop());
 addEventListener('pagehide',()=>eventSync.reset());
+addEventListener('pagehide',()=>smsManager.reset());

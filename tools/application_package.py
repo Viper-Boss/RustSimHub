@@ -26,7 +26,7 @@ def unique_object(pairs):
     return result
 
 
-def verify_package(directory, public_path, source):
+def verify_package(directory, public_path, source, schema=5):
     directory = pathlib.Path(directory);public_path = pathlib.Path(public_path)
     public = checked(public_path,32);assert len(public)==32
     manifest = checked(directory/'manifest.json',8192)
@@ -36,7 +36,8 @@ def verify_package(directory, public_path, source):
     assert set(m)=={'format','kind','board','arch','epoch','schema_min','schema_max','source_sha256','development_fixtures','files'}
     assert type(m['format']) is int and m['format']==1 and m['kind']=='application' and m['board']=='ufi003-v02' and m['arch']=='aarch64-linux'
     assert type(m['epoch']) is int and 0<m['epoch']<2**64
-    assert type(m['schema_min']) is int and type(m['schema_max']) is int and 0<=m['schema_min']<=5<=m['schema_max']<2**32
+    assert type(schema) is int and 0<=schema<2**32
+    assert type(m['schema_min']) is int and type(m['schema_max']) is int and 0<=m['schema_min']<=schema<=m['schema_max']<2**32
     assert m['development_fixtures'] is False and m['source_sha256']==source
     assert len(m['files'])==len(FILES)
     total=0

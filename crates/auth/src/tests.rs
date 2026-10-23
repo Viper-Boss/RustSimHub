@@ -6,6 +6,89 @@ use std::{fs, path::Path};
 use tempfile::TempDir;
 
 #[test]
+fn only_recent_owner_can_manage_trash_and_readers_observe_delete_and_restore() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let i = directory();
+    let mut a = start(i.path(), &s);
+    let key = SigningKey::from_bytes(&[94; 32]);
+    let reader_key = SigningKey::from_bytes(&[95; 32]);
+    let token = owner(&mut a, &key);
+    pair(&mut a, &token, &reader_key, Kind::Client, &[Scope::SmsRead]);
+    let reader = login(&mut a, &reader_key);
+    let h = s.handle();
+    let line = h
+        .observe_line(rustsimhub_storage::LineObservation {
+            backend: "synthetic".into(),
+            fingerprint: Some([1; 32]),
+            status: rustsimhub_storage::LineStatus::Ready,
+        })
+        .unwrap()
+        .line;
+    let sms = h
+        .receive_sms(rustsimhub_storage::IncomingSms {
+            line,
+            source: "synthetic".into(),
+            sender: "synthetic".into(),
+            timestamp: "synthetic".into(),
+            text: "synthetic".into(),
+            data: vec![],
+        })
+        .unwrap();
+    assert!(a.sms_management_available(token.expose()).unwrap());
+    assert!(!a.sms_management_available(reader.expose()).unwrap());
+    assert!(a
+        .set_sms_deleted(reader.expose(), sms.id.clone(), true)
+        .is_err());
+    assert!(a.deleted_inbox(reader.expose(), None, 32).is_err());
+    let cursor = a.inbox_events(reader.expose(), None, 32).unwrap().cursor;
+    a.set_sms_deleted(token.expose(), sms.id.clone(), true)
+        .unwrap();
+    assert!(a
+        .inbox(reader.expose(), None, 32)
+        .unwrap()
+        .messages
+        .is_empty());
+    assert!(a.sms_detail(reader.expose(), sms.id.clone()).is_err());
+    assert!(a
+        .deleted_sms_detail(reader.expose(), sms.id.clone())
+        .is_err());
+    assert_eq!(
+        a.inbox_events(reader.expose(), Some(cursor), 32)
+            .unwrap()
+            .events[0]
+            .kind,
+        "sms_deleted"
+    );
+    assert_eq!(
+        a.deleted_sms_detail(token.expose(), sms.id.clone())
+            .unwrap()
+            .text,
+        "synthetic"
+    );
+    a.set_sms_deleted(token.expose(), sms.id.clone(), false)
+        .unwrap();
+    assert_eq!(
+        a.inbox(reader.expose(), None, 32).unwrap().messages[0].id,
+        sms.id
+    );
+    a.sessions
+        .get_mut(&token_digest(token.expose()).unwrap())
+        .unwrap()
+        .authenticated = Instant::now() - REAUTH_TTL;
+    assert!(!a.sms_management_available(token.expose()).unwrap());
+    assert!(a
+        .set_sms_deleted(token.expose(), sms.id.clone(), true)
+        .is_err());
+    assert!(a.inbox(token.expose(), None, 32).is_ok());
+    assert!(a.deleted_inbox(token.expose(), None, 32).is_err());
+    let renewed = login(&mut a, &key);
+    a.revoke(renewed.expose(), reader_key.verifying_key().to_bytes())
+        .unwrap();
+    assert!(a.inbox(reader.expose(), None, 32).is_err());
+}
+
+#[test]
 fn inbox_scope_and_live_revocation_protect_metadata_events_and_body() {
     let d = directory();
     let s = Store::open(d.path()).unwrap();

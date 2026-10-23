@@ -14,6 +14,7 @@ a=p.parse_args();assert not a.output.exists()
 assert a.output.resolve().is_relative_to((ROOT/'.private').resolve()),'Development signing material stays private'
 build=json.loads((a.artifacts/'build.json').read_text())
 assert build['development_fixtures'] is False and build['target']=='aarch64-unknown-linux-gnu'
+schema=build.get('database_schema',5);assert type(schema) is int and schema in (5,6)
 source=build['source_archive_sha256'];assert re.fullmatch('[0-9a-f]{64}',source)
 log=a.native_log.read_text(encoding='utf-8')
 infos=[json.loads(line) for line in log.splitlines() if line.startswith('{')]
@@ -36,7 +37,7 @@ write(a.output/'release.seed',key.private_bytes(serialization.Encoding.Raw,seria
 write(a.output/'release.public',key.public_key().public_bytes(serialization.Encoding.Raw,serialization.PublicFormat.Raw))
 for epoch in (1,2,3):
     directory=a.output/f'package{epoch}';directory.mkdir(mode=0o700)
-    manifest={'format':1,'kind':'application','board':'ufi003-v02','arch':'aarch64-linux','epoch':epoch,'schema_min':5,'schema_max':5,'source_sha256':source,'development_fixtures':False,'files':[{'name':n,'bytes':len(blobs[n]),'sha256':hashlib.sha256(blobs[n]).hexdigest()} for n in names]}
+    manifest={'format':1,'kind':'application','board':'ufi003-v02','arch':'aarch64-linux','epoch':epoch,'schema_min':5,'schema_max':schema,'source_sha256':source,'development_fixtures':False,'files':[{'name':n,'bytes':len(blobs[n]),'sha256':hashlib.sha256(blobs[n]).hexdigest()} for n in names]}
     raw=json.dumps(manifest,separators=(',',':')).encode()
     write(directory/'manifest.json',raw)
     write(directory/'manifest.sig',key.sign(b'RustSimHub.AppManifest.v1\0'+raw))
