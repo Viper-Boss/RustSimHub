@@ -1,5 +1,7 @@
 # 剩余工作与 Claude 接手清单
 
+2026-10-23 [P6AC](VALIDATION-ARM-DATA-MIGRATION-P6AC.md)：NAS真实ARM生产Core已验证v5→v6、Owner/Client签名IPC、删除保持、兼容v6 Core读取新增合成记录/恢复及cursor100→103。直接存储入口的旧v5拒绝和DDL迁移冲突后数据库逐字节保持通过；first错误字符串假设、second镜像输入失败均保留false，third汇总通过，并独立核对三版本生产元数据/ELF/hash及最终库完整性。合成新记录在Core停止时注入，不是modem收信，未证明完整签名组与真实新短信切换闭环。无棒子访问/部署，整体77%，原卡数据关闭、关机仍搁置。下一步核现场首启与维护条件。
+
 P6AA收尾：精确提交`9528712`的完整 [CI 39901072969](https://github.com/Viper-Boss/RustSimHub/actions/runs/39901072969) success，固定源码244项Linux及八个生产ARM64程序通过。同一归档的Native21项及release构建通过，私有开发签名epoch1/2/3完整应用组已生成；OpenSSL验证每组签名/所有文件、v5拒绝和实际篡改副本拒绝通过。Native使用既有离线ARM镜像Rust1.99，主要程序为本机1.98，区别已记录。制品只是候选，未部署、未运行实际ARM升级器选组或保留新短信的维护迁移。整体77%，关机继续搁置。
 
 2026-10-23 P6AA：修正schema6维护包准入。新包改为6..6，旧updater不能接受；暂存候选前必须核验当前confirmed组，避免单换updater后接受无兼容回退基线的候选。拒绝时不写候选目录、不推进floor；损坏基线拒绝、6组内失败回选与反回退通过。244项Linux、生产检查/Clippy及系统工具141项（1跳过）通过。见 [P6AA](VALIDATION-SCHEMA-ADMISSION-P6AA.md)，索引`.private/schema-admission-20261023-first.json`。未访问/部署设备，尚未验证Native同源签名组和保留新短信的实机维护迁移；关机继续搁置、原卡数据关闭，整体77%。
