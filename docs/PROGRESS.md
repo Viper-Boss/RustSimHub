@@ -1,5 +1,7 @@
 # 最新开发进度：2026-10-23
 
+2026-10-23 [P6AD](VALIDATION-SCHEMA6-DEVICE-P6AD.md)：原发布信任下schema6应用已实际交付，factory现为9528712/epoch16，旧epoch13及文件备份保留；Root网络a239f7f/灯控0c817c1未变。设备包验证、自检和隔离合成音频通过。按用户选择只读恢复此前Wi-Fi并实际连接，自动连接已保存，USB配置保持、普通gsm断开。TLS/媒体配置已准备，正式身份/业务库/installation.complete与Owner窗口仍未创建，业务服务inactive。等用户就绪后进行首次认领；不重跑已消费helper。无新电话/SMS、无重启/刷写，关机继续搁置；整体77%。下方旧“未交付/epoch13”是历史检查点。
+
 现场补充只读复核：`.private/firstboot-prerequisites-20261023-first.json`通过；固定身份SSH/同boot维护，MM/NM/rmtfs/网络守卫/灯控active，正式Core/Edge/Media inactive。installation.complete、正式identity.seed、业务store.sqlite3和升级账本state.json均不存在，PCM关闭、普通gsm断开且无gsm配置。当前factory epoch13声明5..5。未安装或初始化。后续应按空正式业务的v6首次安装准备，不能把隔离v5迁移试验说成已迁移现场；仍需沿用正确发布信任和交付完整基线、Owner/证书流程。整体77%，关机继续搁置。
 
 2026-10-23 [P6AC](VALIDATION-ARM-DATA-MIGRATION-P6AC.md)：NAS真实ARM生产Core已验证v5→v6、Owner/Client签名IPC、删除保持、兼容v6 Core读取新增合成记录/恢复及cursor100→103。直接存储入口的旧v5拒绝和DDL迁移冲突后数据库逐字节保持通过；first错误字符串假设、second镜像输入失败均保留false，third汇总通过，并独立核对三版本生产元数据/ELF/hash及最终库完整性。合成新记录在Core停止时注入，不是modem收信，未证明完整签名组与真实新短信切换闭环。无棒子访问/部署，整体77%，原卡数据关闭、关机仍搁置。下一步核现场首启与维护条件。
