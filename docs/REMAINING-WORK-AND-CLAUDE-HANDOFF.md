@@ -1,5 +1,7 @@
 # 剩余工作与 Claude 接手清单
 
+2026-10-23当前接手校正：整体**78.5%**，剩余21.5点。正式应用e0f843b/confirmed25/schema6，Root网络0d56647、Root音频平台998d48f、灯控0c817c1。P6AG普通冷启动已验证身份/Owner/原43短信保留、NAS USB无IPv4时保存Wi‑Fi严格HTTPS可用、七路0→7初始化及用户完整10010听音/0.4秒；累计44。P2E当前/候选两栏用户截图通过，共66收件箱行（本次新增23条带候选的重观测，不是23条新来信）。临时证书已移除，普通数据关闭、关机搁置。当前剩余以[最新清单](REMAINING-2026-10-23.md)、[P6AG证据](VALIDATION-FORMAL-COLDBOOT-P6AG.md)和HANDOFF顶部为准；下方“未初始化/语音失败/未冷启动”等为历史记录，不能覆盖当前现场。R01/R02的正常应用交付及保存Wi‑Fi冷启动部分已完成；仍缺故障回退、无保存SSID首次AP、双向/来电接听、正式短信跨客户端、NAS控制/媒体、远程和长期验收。
+
 2026-10-23 [P6AF正式应用升级](VALIDATION-INITIALIZED-APP-UPGRADE-P6AF.md)完成：固定3216745的245项Rust/八ARM/同源Native21项及CI通过，原信任epoch22已通过正常暂存、整组选中、数据健康核验及精确摘要确认；保留原factory16、唯一Owner、20条短信、原Unknown操作，未重初始化/刷写/重启系统。用户真实重新登录成功。本轮仅一笔10010，累计41，始终dialing、未ACTIVE、PCM未打开，用户无声且另报来电不通；不能计语音通过。终止对象重新观测造成两条额外历史为已知问题。普通数据关闭、关机继续搁置、临时证书已移除。P6增加0.5点，总78%。后续未接通提示仅有源码/离线回归，尚未交付；先查语音网络，不重拨Unknown。下方epoch16与未部署P3J为历史。
 
 2026-10-23 [P6AE正式首次设置](VALIDATION-FORMAL-FIRST-OWNER-P6AE.md)已完成：官方初始化、同一设备身份/严格HTTPS、公有证书私有交付及用户真实Owner认领/登录通过，唯一active Owner核实，Core/Edge/Media正式运行，窗口已消费关闭。P1补0.5点，总77.5%。两笔10010均已结束，第一笔只dialing、第二笔QMI90/IncompatibleState，PCM未打开，不能计通话通过，累计40。已补[P3J](VALIDATION-UNCERTAIN-CALL-CLEANUP-P3J.md)匹配租约异常清理和手动归档，七组网页/Edge26项/Clippy通过但未部署。现场仍9528712/epoch16，已初始化，禁止重跑空状态交付/初始化helper或删setup.used；原卡普通数据关闭、关机继续搁置。67ba519离线完整ARM/Native/原信任epoch19-21及CI已过，不包含后加P3J。临时证书已按授权移除；下一步冻结P3J、正常签名升级路径交付，再定位语音网络问题。下方未初始化记录均为历史。
