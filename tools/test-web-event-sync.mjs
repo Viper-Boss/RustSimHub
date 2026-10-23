@@ -8,7 +8,7 @@ const bytes=await readFile(new URL('../crates/edge/src/web/event-sync.js',import
 const {EventSync}=await import('data:text/javascript;base64,'+bytes.toString('base64'));
 const smsBytes=await readFile(new URL('../crates/edge/src/web/sms-management.js',import.meta.url));
 const {SmsManager}=await import('data:text/javascript;base64,'+smsBytes.toString('base64'));
-const deferred=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return {promise,resolve};};
+const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};};
 const turn=()=>new Promise(r=>setImmediate(r));
 const epoch='00000000-0000-4000-8000-000000000001';
 function page(after,count=0,db=epoch){const start=BigInt(after?.seq||'0');return {events:Array.from({length:count},(_,i)=>({seq:String(start+BigInt(i)+1n)})),cursor:{db_epoch:db,seq:String(start+BigInt(count))}};}
@@ -85,12 +85,13 @@ for(const malformed of [
 // unrelated browser/media services stubbed. EventSync remains the shipped class.
 const app=await readFile(new URL('../crates/edge/src/web/app.js',import.meta.url),'utf8');
 class Element {
- constructor(){this.value='';this.textContent='';this.children=[];this.disabled=false;}
- replaceChildren(...v){this.children=v;this.textContent='';}append(...v){this.children.push(...v);}addEventListener(){}
+ constructor(tag=''){this.tag=tag;this._value='';this.textContent='';this.children=[];this.disabled=false;}
+ get value(){return this._value||(this.tag==='select'?this.children[0]?.value||'':'');}set value(v){this._value=v;}
+ replaceChildren(...v){this.children=v;this.textContent='';if(this.tag==='select')this._value='';}append(...v){this.children.push(...v);}addEventListener(){}
 }
 function browserFixture(respond){
  const elements=new Map(),sent=[];
- const document={hidden:false,getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(){}};
+ const document={hidden:false,getElementById(id){if(!elements.has(id))elements.set(id,new Element(['history-source','history-entity','call-id'].includes(id)?'select':''));return elements.get(id);},createElement:tag=>new Element(tag),querySelectorAll:()=>[],addEventListener(){}};
  const context={document,crypto:webcrypto,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},
   indexedDB:{open:()=>({})},EventSync,SmsManager,
   AudioLink:class {constructor(){this.state='closed';}async stop(){}},
@@ -98,7 +99,7 @@ function browserFixture(respond){
   CallTest:class {async stop(){}},NetworkPanel:class {start(){}stop(){}},
   fetch:async(_url,options)=>{const body=JSON.parse(options.body);sent.push(body.command);const result=await respond(body.command);return {ok:true,json:async()=>({protocol:2,id:body.id,result})};},
  };
- vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={sync,refresh,eventSync,inboxPage,loginAs:()=>{token="synthetic";},logout:()=>$("logout").onclick()};',context);
+ vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={sync,refresh,eventSync,inboxPage,callsPage,historyPage,loadHistory,clearHistory,loginAs:()=>{token="synthetic";},logout:()=>$("logout").onclick()};',context);
  context.fixture.loginAs();return {...context.fixture,elements,sent};
 }
 {
@@ -142,4 +143,83 @@ function browserFixture(respond){
  await f.inboxPage(true);gate.resolve({text:'stale deleted synthetic'});await click;
  assert.equal(f.elements.get('sms-detail').textContent,'');assert.equal(f.sent.filter(c=>c.op==='notification_read').length,0);
 }
-console.log('PASS: bounded catch-up, retry/cursor isolation, real app refresh/logout wiring, and late deleted-detail suppression; no network or hardware.');
+const callPage=(ids=[],seq='0')=>({calls:ids.map(id=>({id,state:'active',availability:'observed'})),cursor:{db_epoch:epoch,seq}});
+const historyPageResult=(ids=[],seq='0')=>({records:ids.map(id=>({id})),cursor:{db_epoch:epoch,seq}});
+function historySelection(f,source='source-a',entity='sms'){f.elements.get('history-source').value=source;f.elements.get('history-entity').value=entity;}
+{
+ const old=deferred();let n=0;const f=browserFixture(()=>++n===1?old.promise:callPage(['new-call'],'2'));
+ const first=f.callsPage(true),rejected=assert.rejects(first,/通话列表已变化/);await f.callsPage(true);old.resolve(callPage(['old-call'],'1'));await rejected;
+ assert.equal(f.elements.get('calls').children.length,1);assert.match(f.elements.get('calls').children[0].children[0].textContent,/new-call/);
+ assert.equal(f.elements.get('call-id').children.length,1);assert.equal(f.elements.get('call-id').children[0].value,'new-call');
+}
+for(const [method,op,result] of [['callsPage','calls',callPage],['inboxPage','inbox',(ids=[],seq='0')=>({messages:ids.map(id=>({id,line:1})),cursor:{db_epoch:epoch,seq}})]]){
+ const gate=deferred();let n=0;const f=browserFixture(()=>++n===1?result(Array.from({length:16},(_,i)=>String(i)),'16'):gate.promise);
+ await f[method](true);const next=f[method]();await assert.rejects(f[method](),/列表正在加载/);assert.equal(f.sent.length,2);
+ const rejected=assert.rejects(next,/offline/);gate.reject(Error('offline'));await rejected;
+ const retry=f[method]();assert.equal(f.sent[2].after.seq,'16');await assert.rejects(retry,/offline/);
+ assert.equal(f.sent.filter(c=>c.op===op).length,3);
+}
+{
+ const detail=deferred();let n=0;const f=browserFixture(async c=>{
+  if(c.op==='calls')return callPage(++n===1?['old-call']:[],'1');
+  if(c.op==='call_detail')return detail.promise;throw Error('unexpected read marker');
+ });
+ await f.callsPage(true);const click=f.elements.get('calls').children[0].children[1].onclick();await turn();await f.callsPage(true);
+ detail.resolve({number:'stale synthetic'});await click;assert.equal(f.elements.get('call-detail').textContent,'');assert.equal(f.sent.filter(c=>c.op==='notification_read').length,0);
+ f.elements.get('call-detail').textContent='synthetic private detail';f.logout();assert.equal(f.elements.get('call-detail').textContent,'');
+}
+{
+ const f=browserFixture(async c=>c.op==='calls'?callPage(['current-call']):c.op==='call_detail'?{number:'synthetic current'}:{});
+ await f.callsPage(true);await f.elements.get('calls').children[0].children[1].onclick();
+ assert.match(f.elements.get('call-detail').textContent,/synthetic current/);assert.equal(f.sent.filter(c=>c.op==='notification_read').length,1);
+ assert.equal(f.sent.at(-1).record_id,'current-call');
+}
+{
+ const pending=deferred(),f=browserFixture(()=>pending.promise);historySelection(f);
+ const first=f.historyPage(true),rejected=assert.rejects(first,/选择已变化/);historySelection(f,'source-b');pending.resolve(historyPageResult(['source-a-record'],'1'));await rejected;
+ assert.equal(f.elements.get('history-list').children.length,0);
+}
+for(const fails of [false,true]){
+ const old=deferred();const f=browserFixture(async c=>c.op==='history_detail'?old.promise:historyPageResult([c.source+'-record'],'1'));historySelection(f);
+ await f.historyPage(true);const click=f.elements.get('history-list').children[0].children[1].onclick();await turn();
+ historySelection(f,'source-b','calls');await f.historyPage(true);f.elements.get('history-detail').textContent='new source detail';
+ if(fails)old.reject(Error('revoked old source'));else old.resolve({body:'old source secret'});await click;
+ assert.equal(f.elements.get('history-detail').textContent,'new source detail');assert.match(f.elements.get('history-list').children[0].children[0].textContent,/source-b-record/);
+}
+{
+ // Source/entity change invalidation happens before the global action guard,
+ // even while a detail click is still occupying it.
+ const gate=deferred(),f=browserFixture(async c=>c.op==='history_detail'?gate.promise:historyPageResult(['record']));historySelection(f);
+ await f.historyPage(true);const click=f.elements.get('history-list').children[0].children[1].onclick();await turn();
+ f.elements.get('history-entity').value='calls';await f.elements.get('history-entity').onchange();assert.equal(f.elements.get('history-list').children.length,0);
+ gate.resolve({body:'old entity'});await click;assert.equal(f.elements.get('history-detail').textContent,'');
+}
+{
+ const old=deferred();let n=0;const f=browserFixture(async c=>c.op==='history_sources'?(++n===1?old.promise:{sources:[{source:'source-b',entities:['sms']}]}):historyPageResult(['fresh'],'1'));
+ const first=f.loadHistory(),rejected=assert.rejects(first,/历史来源已变化/);await f.loadHistory();old.resolve({sources:[{source:'source-a',entities:['calls']}]});await rejected;
+ assert.equal(f.elements.get('history-source').value,'source-b');assert.equal(f.elements.get('history-entity').value,'sms');assert.match(f.elements.get('history-list').children[0].children[0].textContent,/fresh/);
+}
+{
+ const gate=deferred();let n=0;const f=browserFixture(async()=>++n===1?historyPageResult(Array.from({length:16},(_,i)=>String(i)),'16'):gate.promise);historySelection(f);
+ await f.historyPage(true);const next=f.historyPage();await assert.rejects(f.historyPage(),/列表正在加载/);assert.equal(f.sent.length,2);assert.equal(f.sent[1].after.seq,'16');
+ gate.resolve(historyPageResult(['last'],'17'));await next;assert.equal(f.elements.get('history-list').children.length,17);assert.equal(f.elements.get('more-history').disabled,true);
+}
+{
+ // A superseded catch-up reload is a failure, so its event cursor cannot
+ // commit before a different, still-pending visible reload has succeeded.
+ const old=deferred(),fresh=deferred();let n=0;const f=browserFixture(async c=>{
+  if(c.op==='inbox_events')return page(c.after,1);
+  if(c.op==='inbox')return ++n===1?old.promise:fresh.promise;
+  throw Error('unexpected command');
+ });
+ const syncing=f.sync(),rejected=assert.rejects(syncing,/短信列表已变化/);await turn();const resetting=f.inboxPage(true);
+ old.resolve({messages:[],cursor:{db_epoch:epoch,seq:'1'}});await rejected;assert.equal(f.eventSync.cursors.sms,null);
+ fresh.resolve({messages:[],cursor:{db_epoch:epoch,seq:'2'}});await resetting;
+}
+{
+ const old=deferred(),fresh=deferred();let n=0;const f=browserFixture(()=>++n===1?old.promise:fresh.promise);
+ const first=f.callsPage(true),rejected=assert.rejects(first,/会话已结束/);f.logout();f.loginAs();const second=f.callsPage(true);
+ old.resolve(callPage(['old']));await rejected;await assert.rejects(f.callsPage(),/列表正在加载/);assert.equal(f.sent.length,2);
+ fresh.resolve(callPage(['new']));await second;assert.match(f.elements.get('calls').children[0].children[0].textContent,/new/);
+}
+console.log('PASS: bounded catch-up and real-app SMS/calls/history pagination, stale-detail/source isolation, logout, retry and cursor commit races; no network or hardware.');
