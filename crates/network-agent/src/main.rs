@@ -2,6 +2,8 @@
 #![forbid(unsafe_code)]
 #[cfg(target_os = "linux")]
 mod linux;
+#[cfg(target_os = "linux")]
+mod voice_domain;
 fn main() {
     #[cfg(target_os = "linux")]
     if linux::run().is_err() {

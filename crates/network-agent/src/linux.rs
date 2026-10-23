@@ -549,6 +549,16 @@ pub fn run() -> Result<()> {
     if rustix::process::geteuid().as_raw() != 0 {
         return Err("Root service required".into());
     }
+    if args.len() == 1
+        && [
+            "--voice-domain-get",
+            "--voice-domain-ps-preferred",
+            "--voice-domain-cs-preferred",
+        ]
+        .contains(&args[0].as_str())
+    {
+        return crate::voice_domain::run(&args[0]);
+    }
     if args == ["--early-guard"] {
         return lifecycle(false);
     }

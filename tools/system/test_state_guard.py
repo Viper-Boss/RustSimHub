@@ -73,6 +73,13 @@ esac
             with self.subTest(override=override):
                 self.assertNotEqual(self.check(**override).returncode, 0)
 
+    def test_read_only_mode_still_proves_exact_physical_state_identity(self):
+        self.assertEqual(self.check('--read-only',MOUNT_OPTIONS='ro,relatime').returncode,0)
+        self.assertEqual(self.check('--read-only').returncode,0)
+        self.assertNotEqual(self.check('--read-only','extra').returncode,0)
+        for override in [{'MOUNT_DEV':'179:14'},{'MOUNT_FS':'tmpfs'},{'MOUNT_LABEL':'rootfs'},{'MOUNT_EXIT':'1'},{'STATE_ST_DEV':'1'}]:
+            self.assertNotEqual(self.check('--read-only',MOUNT_OPTIONS='ro,relatime',**override).returncode,0)
+
     def test_wrong_board_partition_label_size_or_parent_is_rejected(self):
         for name, bad in [('partition','14\n'), ('size','264158\n'), ('uevent','PARTNAME=rootfs\n')]:
             file = self.part / name

@@ -74,6 +74,7 @@ def worker():
             protected_prepare=base/'protected-prepare'
             protected_prepare.write_text(prepare.read_text().replace(str(guard),str(protected_guard)).replace(str(state),str(protected)))
             assert subprocess.run(['sh',str(protected_guard)],capture_output=True).returncode!=0
+            command('sh',str(protected_guard),'--read-only')
             command('sh',str(protected_guard),'--system-writer')
             # Real .mount units wait for their udev .device. A direct loop mount
             # can race label probing after a previously used loop number. Seed

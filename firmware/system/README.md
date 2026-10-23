@@ -36,3 +36,10 @@ SSH维护层新增独立持久主机密钥准备和公钥认证配置；首启�
 本机隔离测试：`sudo python3 -m unittest discover -s tools/system -p 'test_*.py'`。固件/radio测试复用真实脚本并仅替换固定设备路径；目录准备测试只用一次性目录/合成旧数据，测试挂载守卫失败不写、旧文件内容/owner保持、稳定serial及pending续用、链接/错误owner拒绝。不能代替真实启动、USB链路或恢复验收。
 
 当前共44项隔离测试，含严格umask下服务UID真实执行、既有私有目录保持/链接拒绝、归档守卫、SSH材料、可信初装及应用恢复失败路径。已组合树的程序运行可用`tools/test-base-runtime.py --system-tree --base .../rootfs --artifacts ... --report /private/new-result.json`验证：执行factory的实际安装路径，核对Root0555/摘要/来源，并确认树前后未变。该检查不启动服务组。正式Core/Media/Edge签名组实机硬退出回退证据见docs/VALIDATION-MEDIA-STARTUP-P6K.md；仍未完成板级独立开机。
+# 2026-10-23 联通语音可选启动适配
+
+Root网络组件内的Rust有限QMI代理工具、`rustsimhub-carrier-voice.service`和
+`rustsimhub-rmtfs-profile`补齐旧系统的两个启动入口，见
+[P4C](../../docs/VALIDATION-CARRIER-STARTUP-P4C.md)。默认不带启用标记或私有profile；
+启用须先核对本机备份、板型、摘要和无活动呼叫。只读shadow与本次上电语音偏好
+不等同于修改硬件NV；尚未完成的冷启动和语音验收不能记为通过。

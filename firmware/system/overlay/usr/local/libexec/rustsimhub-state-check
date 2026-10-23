@@ -5,7 +5,7 @@ set -eu
 mode=state
 case "$#" in
  0) ;;
- 1) test "$1" = --system-writer;mode=system ;;
+ 1) case "$1" in --system-writer) mode=system;; --read-only) mode=readonly;; *) exit 1;; esac ;;
  *) exit 1 ;;
 esac
 state=/var/lib/rustsimhub
@@ -25,7 +25,7 @@ test "$(findmnt -rn -M "$state" -o FSTYPE)" = ext4
 test "$(findmnt -rn -M "$state" -o LABEL)" = NSHSTATE
 case ",$(findmnt -rn -M "$state" -o OPTIONS)," in
  *,rw,*) ;;
- *,ro,*) test "$mode" = system;;
+ *,ro,*) test "$mode" = system || test "$mode" = readonly;;
  *) exit 1;;
 esac
 test "$(stat -c %d "$state")" != "$(stat -c %d /)"

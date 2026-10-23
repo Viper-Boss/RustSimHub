@@ -61,6 +61,28 @@
       "original_path": "scripts/test_radio_resume.py",
       "resolved_path": "scripts/test_radio_resume.py",
       "sha256": "825fa7c79346bb992026114b617d473e927e5b909aa651d0f4060fb29bf232f1"
+    },
+    "firmware/system/overlay/usr/local/libexec/rustsimhub-rmtfs-profile": {
+      "original_path": "node/deploy/audio/rmtfs-local-profile",
+      "resolved_path": "node/deploy/audio/rmtfs-local-profile",
+      "sha256": "3f1e3f68ae9a0a1ce321da2f9371ab2033094f37396f141f98b116b22f9a084f"
+    },
+    "firmware/system/overlay/usr/local/libexec/rustsimhub-carrier-voice": {
+      "original_path": "node/deploy/carrier/nassimhub-carrier-voice",
+      "resolved_path": "node/deploy/carrier/nassimhub-carrier-voice",
+      "sha256": "02c775a9b159ba9471f83593398479d7dd8af78cbdd53bddc003bb54cf16250f"
+    },
+    "firmware/system/overlay/etc/systemd/system/rustsimhub-carrier-voice.service": {
+      "original_path": "node/deploy/carrier/nassimhub-carrier-voice.service",
+      "resolved_path": "node/deploy/carrier/nassimhub-carrier-voice.service",
+      "sha256": "a26653f3977d66b7591dc3ec7af416466c537529d3df123a5891dd473309a8bd"
     }
+  },
+  "carrier_voice_rust_protocol_reference": {
+    "revision": "ea019485e5d890a96acae357c52b94c746de837f",
+    "path": "node/agent/cmd/nassimhub-voice-domain/main.go",
+    "language": "Rust",
+    "license": "AGPL-3.0-only",
+    "old_go_binary_shipped": false
   }
 }

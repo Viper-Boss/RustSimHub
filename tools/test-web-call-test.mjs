@@ -23,16 +23,31 @@ function fixture(options={}){
    case 'line_status':return {line:2,status:'ready'};
    case 'call_operation':return command.operation_id==='old-op'?{operation:{state:options.oldState||'prepared',call_id:options.oldCallId||null}}:{operation:{...pending,call_id:lease.call_id}};
    case 'cancel_prepared_call':assert.equal(command.operation_id,'old-op');if(options.cancelLost)throw Error('lost cancellation reply');return {operation:{state:options.cancelBusy?'submitting':'cancelled'}};
-   case 'prepare_call':assert.equal(command.line_epoch,2);if(command.action==='dial'){assert(primed);assert.equal(command.payload,'10010');assert.equal(command.call_id,null);}else{assert.equal(command.call_id,lease.call_id);if(options.endOnHangupPrepare){ended=true;throw Error('call already ended');}}return {operation:{id:command.action+'-op',state:'prepared'}};
+   case 'prepare_call':assert.equal(command.line_epoch,2);if(command.action==='dial'){ending=false;ended=false;endReads=0;assert(primed);assert.equal(command.payload,'10010');assert.equal(command.call_id,null);}else{assert.equal(command.call_id,lease.call_id);if(options.endOnHangupPrepare){ended=true;throw Error('call already ended');}}return {operation:{id:command.action+'-op',state:'prepared'}};
    case 'submit_call':
     assert.equal(pending.id,command.operation_id);assert.equal(pending.submit_started,true);
     if(command.operation_id==='dial-op'){assert.equal(command.lease,null);if(options.lost)throw Error('lost reply');if(options.submit)return options.submit.promise;return {operation:{id:'dial-op',action:'dial',state:options.dialState||'submitted',call_id:lease.call_id},lease:options.noLease?null:{...lease,...options.leaseOverride}};}
     assert.equal(command.urgent,true);ending=true;ended=!options.delayedHangup&&!options.neverEnded;if(options.lostHangup)throw Error('lost hangup reply');return {operation:{state:'submitted'}};
-   case 'call_detail':if(command.call_id===options.oldCallId)return{state:options.oldEnded?'ended':'active',availability:options.oldUnavailable?'reconciling':'observed'};assert.equal(command.call_id,lease.call_id);if(ending&&options.delayedHangup&&++endReads>=3)ended=true;return {state:ended?'ended':'active',availability:'observed'};
+   case 'call_detail':if(command.call_id===options.oldCallId)return{state:options.oldEnded?'ended':'active',availability:options.oldUnavailable?'reconciling':'observed'};assert.equal(command.call_id,lease.call_id);if(ending&&options.delayedHangup&&++endReads>=3)ended=true;return {state:ended?'ended':options.neverConnected?'dialing':'active',availability:'observed'};
    default:throw Error('Unexpected API: '+command.op);
   }
  }});
  return {test,track,stream,audio,calls,states,timers,archived,scheduled,pending:()=>pending,loginCount:()=>loginCount,close:()=>{for(const timer of timers)clearTimeout(timer);}};
+}
+{
+ const options={neverConnected:true},f=fixture(options);await f.test.start();
+ assert.match(f.states.at(-1).text,/未观察到电话接通，未启用通话声音；电话已挂断/);
+ assert.equal(f.test.callActiveAt,null);assert.equal(f.test.audioDelayMs,null);assert(f.track.stopped);assert.equal(f.audio.state,'closed');
+ assert.equal(f.calls.filter(c=>c.op==='submit_call'&&c.operation_id==='dial-op').length,1);
+ assert.equal(f.calls.filter(c=>c.op==='submit_call'&&c.operation_id==='hangup-op').length,1);
+ assert.equal(f.calls.filter(c=>c.op==='renew_call').length,0);
+ options.neverConnected=false;await f.test.start();assert(!/未观察到电话接通/.test(f.states.at(-1).text));assert.match(f.states.at(-1).text,/观察接通后接音/);f.close();
+}
+{
+ const f=fixture({neverConnected:true,neverEnded:true});await f.test.start();
+ assert.match(f.states.at(-1).text,/未观察到电话接通/);assert.match(f.states.at(-1).text,/挂断尚未确认/);
+ assert.equal(f.calls.filter(c=>c.op==='submit_call'&&c.operation_id==='dial-op').length,1);
+ assert.equal(f.calls.filter(c=>c.op==='submit_call'&&c.operation_id==='hangup-op').length,1);assert(f.track.stopped);f.close();
 }
 {
  const f=fixture({delayedHangup:true,lostHangup:true});await f.test.start();

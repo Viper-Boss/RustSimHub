@@ -230,7 +230,7 @@ def main():
         units = ['rustsimhub-firstboot.service', 'rustsimhub-usb.service',
                  'rustsimhub-device-firmware.service', 'rustsimhub-radio-resume.service']
         if led_build: units+=['rustsimhub-status-led.service']
-        if network_build: units+=['rustsimhub-network-agent.service']
+        if network_build: units+=['rustsimhub-network-agent.service','rustsimhub-carrier-voice.service']
         if startup:units+=['rustsimhub-app.target']
         for unit in units:
             link = destination(tree, 'etc/systemd/system/multi-user.target.wants/'+unit)

@@ -2,6 +2,15 @@
 
 RustSimHub 的新增源码使用 AGPL-3.0-only；详见 LICENSE。
 
+2026-10-23 联通语音适配参考 AirSimHub 固定提交
+`ea019485e5d890a96acae357c52b94c746de837f` 的
+`node/agent/cmd/nassimhub-voice-domain/main.go`、
+`node/deploy/carrier/nassimhub-carrier-voice`及其单元、
+`node/deploy/audio/rmtfs-local-profile`（均为AGPL-3.0-only）。
+Rust在Root网络组件内重写有限QMI代理协议，不分发旧Go程序；启动脚本迁移并加强
+本机opt-in、私有profile摘要/权限、活动呼叫门禁及丢回复后的持久意图防重。
+不附带任何设备的profile、NV、SIM、基带、启用标记或运营商保证。
+
 2026-10-15 `firmware/system/` 的固件加载/radio/USB及相关单元和
 `tools/system/` 对应隔离测试复用 AirSimHub 同一提交
 `ea019485e5d890a96acae357c52b94c746de837f` 的 AGPL-3.0-only 板级集成代码。

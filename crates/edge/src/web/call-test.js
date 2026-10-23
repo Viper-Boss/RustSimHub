@@ -159,7 +159,10 @@ export class CallTest {
    await closing;this.running=false;
    const cleanup=this.dialStarted&&!confirmed?'；挂断尚未确认，设备租约到期后清理，请勿立即重拨':'';
    const ended=alreadyEnded?'电话已结束':'电话已挂断';
-   this.say((this.error?'测试停止：'+this.error+(confirmed?'；'+ended:''):confirmed?'测试已结束，'+ended:'测试已停止')+cleanup+(Number.isFinite(this.audioDelayMs)?`；观察接通后接音 ${(this.audioDelayMs/1000).toFixed(1)} 秒`:''));
+   // A successful dial submission and hangup do not prove the call connected.
+   // Keep the no-ACTIVE outcome explicit even when the deadline stops the run.
+   const outcome=this.error?'测试停止：'+this.error+(confirmed?'；'+ended:''):this.dialStarted&&!Number.isFinite(this.callActiveAt)?'测试结束：未观察到电话接通，未启用通话声音'+(confirmed?'；'+ended:''):confirmed?'测试已结束，'+ended:'测试已停止';
+   this.say(outcome+cleanup+(Number.isFinite(this.audioDelayMs)?`；观察接通后接音 ${(this.audioDelayMs/1000).toFixed(1)} 秒`:''));
    this.error=null;
   })();return this.finishing;
  }
