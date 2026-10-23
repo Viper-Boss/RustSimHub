@@ -1,6 +1,6 @@
 # 开机音频设备状态的有界等待
 
-2026-10-24。整体79.5%，本项暂不增加里程碑分数。
+2026-10-24。第二次普通拔插已验证首次直接启动成功；整体79.5%，修复不重复增加已有冷启动分数。下方保留实现、首次失败及修正过程。
 
 ## 现场问题
 
@@ -39,3 +39,17 @@ P6AG保存Wi-Fi的冷启动最终能自动恢复业务，但完整日志显示�
 参考：[systemd设备许可](https://www.freedesktop.org/software/systemd/man/257/systemd.resource-control.html)说明许可在服务启动时解析；[任务超时](https://www.freedesktop.org/software/systemd/man/257/systemd.unit.html)区分排队任务与服务启动超时。目标首个失败进程已退出，未直接读取其过滤器；虚拟设备确定性复现证明该机制存在，目标因果归属仍须后续冷启动验证。
 
 私有入口：audio-readiness-native-20261024-second.json、audio-readiness-delivery-20261024-first.json、audio-readiness-coldboot-backup-20261024-first.json、audio-readiness-coldboot-health-20261024-first.json（首次失败）、audio-readiness-coldboot-health-20261024-second.json（仅恢复后健康）、audio-control-device-order-20261024-first.json、audio-control-order-fixture-20261024-first.log。
+
+## 有序设备依赖的交付和第二次普通冷启动：通过
+
+固定0a823e2只更新初始化单元：Requires/After精确controlC0设备、JobTimeout60秒，原control-only/空capabilities和Rust20秒等待保持。Native仍为已验证88692b4；正式业务仍935ea9d/confirmed31。155项Root系统夹具（1跳过）及完整[CI39989478746](https://github.com/Viper-Boss/RustSimHub/actions/runs/39989478746)通过。旧单元在棒子和本机两份备份，目标systemd解析的依赖、30秒进程超时和1分钟排队超时均读回；业务PID/账本/恢复标记保持，未重启进程来假装冷启动。
+
+首次冷启动后NAS USB维护IPv4未自动激活，第二次备份尝试因USB SSH连接失败在停止业务之前结束，记录保留；新的第三份备份改用相同SSH身份钉住的既有Wi-Fi通道，一致性归档276480字节、独立回读及数据库检查通过，然后暂停业务并同步。用户按明确步骤普通拔插，没有刷写、调用关机驱动或重置恢复预算。
+
+第二次新boot的单调日志：音频驱动19.33秒完成，精确控制设备就绪后23.73秒开始初始化，23.86秒ready_ms=0、七路changed=7且不开PCM，24.44秒Core、24.65秒Media、25.07秒HTTPS Edge启动。仅一次路由初始化；app-recover日志为空、新boot不存在recovery.used。保存Wi-Fi连接、NAS USB维护IPv4尚未激活时严格HTTPS三项静态文件精确匹配935ea9d。
+
+同一身份、唯一Owner、原67条短信、原操作收据/Unknown、删除标记、TLS、私有profile和PS语音偏好、三个签名业务程序及confirmed/floor31均核实保持。本轮没有新增短信候选、拨号、短信发送或普通蜂窝数据。结束时PCM关闭。此次只验证启动和数据/设备就绪；双向听音是此前P3L用户验收，新boot未再拨号。一个成功样本不代替长期、多次启动或第二台设备。
+
+首份严格失败、独立恢复后健康、第二次真实首次成功三种结果分别留存，不篡改失败，不重复加分，整体79.5%。本轮无待用户物理操作，临时浏览器证书仍移除。
+
+最新私有入口：audio-control-unit-delivery-20261024-first.json、audio-readiness-coldboot-backup-20261024-third.json、audio-readiness-coldboot-health-20261024-third.json、audio-readiness-checkpoint-20261024-first.json。
