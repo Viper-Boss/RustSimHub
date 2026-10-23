@@ -133,6 +133,7 @@ def main():
             media_build = json.loads((native/'build.json').read_text())
             assert media_build['revision'] == build['revision'] and media_build['source_archive_sha256'] == build['source_archive_sha256']
             assert media_build['target'] == 'aarch64-unknown-linux-gnu' and media_build.get('worker_control_supported') is True and media_build['exit_code'] == 0
+            assert media_build.get('platform_audio_routes_supported') is True, 'Native lacks the fixed platform route initializer'
             assert verifier.get('media_installation_preparation_supported') is True, 'Immutable setup lacks the media installation profile'
             assert base_tools.sha256_file(native/'rustsimhub-audio-alsa') == media_build['binary_sha256'] == base_tools.sha256_file(signed/'rustsimhub-audio-alsa')
     if args.audio_modules:
@@ -218,6 +219,12 @@ def main():
             shutil.copyfile(updater/'rustsimhub-edge',target);os.chown(target,0,0);target.chmod(0o555)
             assert base_tools.sha256_file(target)==verifier['artifact_sha256']['rustsimhub-edge']
             verify_package(tree/'usr/share/rustsimhub/factory-app',tree/'usr/share/rustsimhub/release.public',build['source_archive_sha256'],schema=build.get('database_schema',5))
+            if args.native_artifacts:
+                target = destination(tree, 'usr/libexec/rustsimhub/rustsimhub-audio-platform')
+                shutil.copyfile(native/'rustsimhub-audio-alsa', target)
+                os.chown(target, 0, 0)
+                target.chmod(0o555)
+                assert base_tools.sha256_file(target) == media_build['binary_sha256']
             directory(destination(tree,'opt/rustsimhub/versions'), 0o700)
             directory(destination(tree,'opt/rustsimhub/selected'), 0o755)
             directory(destination(tree,'var/lib/rustsimhub-core'), 0o755)

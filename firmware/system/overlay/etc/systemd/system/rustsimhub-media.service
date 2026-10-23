@@ -2,8 +2,8 @@
 Description=RustSimHub isolated LAN media worker
 ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/installation.complete
 ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/media/config.json
-Requires=rustsimhub-app-select.service rustsimhub-core.service rustsimhub-audio-drivers.service
-After=rustsimhub-app-select.service rustsimhub-core.service rustsimhub-audio-drivers.service
+Requires=rustsimhub-app-select.service rustsimhub-core.service rustsimhub-audio-drivers.service rustsimhub-audio-routes.service
+After=rustsimhub-app-select.service rustsimhub-core.service rustsimhub-audio-drivers.service rustsimhub-audio-routes.service
 BindsTo=rustsimhub-core.service rustsimhub-edge.service
 Before=rustsimhub-edge.service
 PartOf=rustsimhub-app.target

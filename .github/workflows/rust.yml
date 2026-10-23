@@ -3,6 +3,19 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  native-audio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Native toolchain and libraries
+        run: |
+          rustup toolchain install 1.98.0 --profile minimal --component clippy
+          sudo apt-get update -q
+          sudo apt-get install -y libasound2-dev libopus-dev pkg-config
+      - name: Native audio and fixed platform routes
+        run: cargo test --manifest-path native/audio-alsa/Cargo.toml --locked
+      - name: Native lint
+        run: cargo clippy --manifest-path native/audio-alsa/Cargo.toml --all-targets --locked -- -D warnings
   test:
     runs-on: ubuntu-latest
     steps:

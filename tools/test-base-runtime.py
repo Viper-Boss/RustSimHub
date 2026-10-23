@@ -63,6 +63,11 @@ def main():
         assert installed.is_file() and not installed.is_symlink()
         assert installed.stat().st_uid == 0 and installed.stat().st_mode & 0o777 == 0o555
         assert rootfs_tools.sha256_file(installed) == media['binary_sha256']
+        platform = base / 'usr/libexec/rustsimhub/rustsimhub-audio-platform'
+        assert media.get('platform_audio_routes_supported') is True
+        assert platform.is_file() and not platform.is_symlink()
+        assert platform.stat().st_uid == 0 and platform.stat().st_mode & 0o777 == 0o555
+        assert rootfs_tools.sha256_file(platform) == media['binary_sha256']
     report = {'passed': False, 'hardware_access': False, 'network_access': False,
               'application_revision': build['revision'],
               'source_archive_sha256': build['source_archive_sha256'],

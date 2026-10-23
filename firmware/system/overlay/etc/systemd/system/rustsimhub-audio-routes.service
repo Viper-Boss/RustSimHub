@@ -1,0 +1,26 @@
+[Unit]
+Description=Initialize the seven fixed UFI003 voice routes without PCM
+Requires=rustsimhub-audio-drivers.service
+Wants=alsa-restore.service
+After=rustsimhub-audio-drivers.service alsa-restore.service
+Before=rustsimhub-core.service rustsimhub-media.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/libexec/rustsimhub/rustsimhub-audio-platform --prepare-routes
+RemainAfterExit=yes
+TimeoutStartSec=10
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=no
+DevicePolicy=closed
+DeviceAllow=/dev/snd/controlC0 rw
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX
+MemoryMax=32M
+TasksMax=4
+UMask=0077

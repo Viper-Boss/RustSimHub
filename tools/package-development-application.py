@@ -19,7 +19,7 @@ source=build['source_archive_sha256'];assert re.fullmatch('[0-9a-f]{64}',source)
 log=a.native_log.read_text(encoding='utf-8')
 infos=[json.loads(line) for line in log.splitlines() if line.startswith('{')]
 assert len(infos)==1 and infos[0]['source_archive_sha256']==source
-assert set(infos[0]) <= {'source_archive_sha256','local_media_worker_supported'}
+assert set(infos[0]) <= {'source_archive_sha256','local_media_worker_supported','platform_audio_routes_supported'}
 assert not a.require_media_worker or infos[0].get('local_media_worker_supported') is True
 names=['rustsimhub-core','simhubctl','rustsimhub-edge','rustsimhub-audio-alsa','Opus-COPYING.txt']
 blobs={name:(a.native if name==names[3] else ROOT/'licenses'/name if name==names[4] else a.artifacts/name).read_bytes() for name in names}

@@ -141,6 +141,9 @@ try:
   text=rewrite((overlay/'etc/systemd/system'/name).read_text())
   if audio_guard and name=='rustsimhub-media.service':
    text=text.replace(' rustsimhub-audio-drivers.service','')
+   # Userspace-only trial explicitly relies on existing platform initialization;
+   # never pull in the production host's route writer from an isolated group.
+   text=text.replace(' rustsimhub-audio-routes.service','')
   text=text.replace('Requires=rustsimhub-firstboot.service\n','').replace('After=rustsimhub-firstboot.service systemd-tmpfiles-setup.service\n','')
   text=text.replace('RuntimeDirectory=rustsimhub-app','RuntimeDirectory='+prefix)
   lines=text.splitlines()

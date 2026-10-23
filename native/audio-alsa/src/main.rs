@@ -7,6 +7,16 @@ mod trusted;
 mod worker;
 fn main() {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    if args == ["--prepare-routes"] {
+        match rustsimhub_audio_alsa::prepare_routes() {
+            Ok(changed) => println!("audio_routes ready=7 changed={changed} pcm_opened=false"),
+            Err(reason) => {
+                eprintln!("platform audio routes failed: {reason}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
     if let [command, config] = args.as_slice() {
         if command == "--serve-worker" {
             if let Err(reason) = worker::run(config) {
@@ -46,7 +56,7 @@ fn main() {
     if args == ["--build-info"] {
         println!(
             "{}",
-            serde_json::json!({"source_archive_sha256":rustsimhub_media::build_source_sha256(),"local_media_worker_supported":true})
+            serde_json::json!({"source_archive_sha256":rustsimhub_media::build_source_sha256(),"local_media_worker_supported":true,"platform_audio_routes_supported":true})
         );
         return;
     }
