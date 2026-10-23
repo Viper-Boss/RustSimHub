@@ -21,6 +21,62 @@ fn path() -> OwnedObjectPath {
         .unwrap()
 }
 struct FakeVoice(FakeState);
+
+#[tokio::test]
+async fn session_continuation_preserves_live_call_lease_and_media_binding() {
+    let mut f = fixture(false).await;
+    let token = f.first.clone();
+    let id = prepare(
+        &mut f.worker,
+        &token,
+        "continuation-dial",
+        CallAction::Dial,
+        None,
+        "10010",
+    )
+    .await;
+    let result = submit(&mut f.worker, &token, &id, None).await.unwrap();
+    let lease: CallLease = serde_json::from_value(result["lease"].clone()).unwrap();
+    f.worker.media_enabled = true;
+    let check = || AuthCommand::CheckMediaLease {
+        token: token.clone(),
+        lease: lease.clone(),
+    };
+    let before = f.worker.process(check()).await.unwrap();
+    let continued = {
+        let mut auth = f.worker.auth.lock().unwrap();
+        let c = auth.session_challenge(&token).unwrap();
+        let key = SigningKey::from_bytes(&[72; 32]);
+        auth.renew_session(&token, &c.id, &key.sign(&c.transcript).to_bytes())
+            .unwrap()
+            .expose()
+            .to_owned()
+    };
+    assert_eq!(before, f.worker.process(check()).await.unwrap());
+    assert_eq!(
+        before,
+        f.worker
+            .process(AuthCommand::CheckMediaLease {
+                token: continued.clone(),
+                lease: lease.clone()
+            })
+            .await
+            .unwrap()
+    );
+    let renewed = f
+        .worker
+        .process(AuthCommand::RenewCall {
+            token: continued,
+            lease: lease.clone(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(renewed["lease"]["generation"], lease.generation);
+    assert_eq!(renewed["lease"]["call_id"], lease.call_id);
+    assert_eq!(f.data.creates.load(Ordering::SeqCst), 1);
+    assert_eq!(f.data.starts.load(Ordering::SeqCst), 1);
+    assert_eq!(f.data.hangups.load(Ordering::SeqCst), 0);
+}
 #[zbus::interface(name = "org.freedesktop.ModemManager1.Modem.Voice")]
 impl FakeVoice {
     #[zbus(property)]

@@ -14,6 +14,7 @@ pub enum ProofExpectation {
     Bootstrap,
     RecoverOwner,
     Login,
+    SessionRenew { session_digest: [u8; 32] },
     Pair { kind: Kind, scopes: u16 },
 }
 #[derive(Deserialize)]
@@ -28,6 +29,8 @@ struct Transcript {
     kind: Kind,
     scopes: u16,
     generation: u64,
+    #[serde(default)]
+    session_digest: Option<[u8; 32]>,
 }
 fn nonce_valid(nonce: &str) -> bool {
     nonce.len() == 64
@@ -95,6 +98,11 @@ impl ClientKey {
                     && t.generation > 0
             }
             ProofExpectation::Login => t.purpose == Purpose::Login && t.generation > 0,
+            ProofExpectation::SessionRenew { session_digest } => {
+                t.purpose == Purpose::SessionRenew
+                    && t.generation > 0
+                    && t.session_digest == Some(session_digest)
+            }
             ProofExpectation::Pair { kind, scopes } => {
                 kind != Kind::Owner
                     && t.purpose == Purpose::Pair
@@ -102,7 +110,10 @@ impl ClientKey {
                     && t.scopes == scopes
             }
         };
-        if !valid {
+        if !valid
+            || !matches!(expectation, ProofExpectation::SessionRenew { .. })
+                && t.session_digest.is_some()
+        {
             return Err(Error::Forbidden);
         }
         Ok(self.signing.sign(&c.transcript).to_bytes().to_vec())

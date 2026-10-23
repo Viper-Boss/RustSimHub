@@ -57,6 +57,7 @@ enum Purpose {
     Bootstrap,
     Pair,
     Login,
+    SessionRenew,
     RecoverOwner,
 }
 
@@ -80,6 +81,8 @@ struct Transcript<'a> {
     kind: Kind,
     scopes: u16,
     generation: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    session_digest: Option<[u8; 32]>,
 }
 struct PendingChallenge {
     challenge: Challenge,
@@ -88,6 +91,7 @@ struct PendingChallenge {
     scopes: u16,
     generation: u64,
     purpose: Purpose,
+    session_digest: Option<[u8; 32]>,
     deadline: Instant,
 }
 struct Pairing {
@@ -344,6 +348,17 @@ impl Auth {
         generation: u64,
         purpose: Purpose,
     ) -> Result<Challenge> {
+        self.challenge_bound(key, kind, scopes, generation, purpose, None)
+    }
+    fn challenge_bound(
+        &mut self,
+        key: [u8; 32],
+        kind: Kind,
+        scopes: u16,
+        generation: u64,
+        purpose: Purpose,
+        session_digest: Option<[u8; 32]>,
+    ) -> Result<Challenge> {
         self.rate_limit(Instant::now())?;
         key_valid(&key)?;
         if key == self.public_key() || self.challenges.len() >= 32 {
@@ -360,6 +375,7 @@ impl Auth {
             kind,
             scopes,
             generation,
+            session_digest,
         })
         .map_err(|_| Error::InvalidInput)?;
         let reply = Challenge {
@@ -383,6 +399,7 @@ impl Auth {
                 scopes,
                 generation,
                 purpose,
+                session_digest,
                 deadline: Instant::now() + CHALLENGE_TTL,
             },
         );
@@ -489,7 +506,7 @@ impl Auth {
         );
         Ok(token)
     }
-    pub fn authorize(&mut self, token: &str, scope: Scope) -> Result<Principal> {
+    fn session_principal(&mut self, token: &str) -> Result<Principal> {
         self.prune(Instant::now());
         let digest = token_digest(token)?;
         let session = self.sessions.get(&digest).ok_or(Error::Forbidden)?;
@@ -498,10 +515,65 @@ impl Auth {
             .principal(session.principal.public_key)?
             .filter(|p| p.active && *p == session.principal)
             .ok_or(Error::Forbidden)?;
+        Ok(current)
+    }
+    pub fn authorize(&mut self, token: &str, scope: Scope) -> Result<Principal> {
+        let current = self.session_principal(token)?;
         if !allows(current.scopes, scope) {
             return Err(Error::Forbidden);
         }
         Ok(current)
+    }
+    /// Proof-of-key continuation, not a new interactive owner authentication.
+    /// Old bearers retain their original expiry for in-flight media polls;
+    /// a successor preserves owner freshness, scopes and principal generation.
+    pub fn session_challenge(&mut self, token: &str) -> Result<Challenge> {
+        let p = self.session_principal(token)?;
+        self.challenge_bound(
+            p.public_key,
+            p.kind,
+            p.scopes,
+            p.generation,
+            Purpose::SessionRenew,
+            Some(token_digest(token)?),
+        )
+    }
+    pub fn renew_session(&mut self, token: &str, id: &str, signature: &[u8]) -> Result<Token> {
+        let proof = self.consume(id, signature, Purpose::SessionRenew)?;
+        let digest = token_digest(token)?;
+        if proof.session_digest != Some(digest) {
+            return Err(Error::Forbidden);
+        }
+        let p = self.session_principal(token)?;
+        if p.public_key != proof.key
+            || p.kind != proof.kind
+            || p.scopes != proof.scopes
+            || p.generation != proof.generation
+        {
+            return Err(Error::Forbidden);
+        }
+        let authenticated = self
+            .sessions
+            .get(&digest)
+            .ok_or(Error::Forbidden)?
+            .authenticated;
+        if self.sessions.len() >= 64 {
+            return Err(Error::Busy);
+        }
+        let next = Token(Zeroizing::new(random_hex()?));
+        let next_digest = token_digest(next.expose())?;
+        if self.sessions.contains_key(&next_digest) {
+            return Err(Error::Entropy);
+        }
+        self.sessions.insert(
+            next_digest,
+            Session {
+                principal: p,
+                deadline: Instant::now() + SESSION_TTL,
+                authenticated,
+            },
+        );
+        Ok(next)
     }
     fn owner(&mut self, token: &str) -> Result<Principal> {
         let p = self.authorize(token, Scope::ClientsManage)?;

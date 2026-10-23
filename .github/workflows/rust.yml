@@ -54,6 +54,8 @@ jobs:
         run: node tools/test-web-daily-sms.mjs
       - name: Web daily calls and bounded ownership
         run: node tools/test-web-daily-phone.mjs
+      - name: Web signed session continuation
+        run: node tools/test-web-session.mjs
       - name: PON diagnostic reference and error paths
         run: python3 tools/test-pon-dump-review.py
       - name: Read-only recovery helper fixtures

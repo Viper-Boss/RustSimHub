@@ -117,5 +117,11 @@ export class AudioLink {
   if(context&&session)return this.send(context,session,{op:'stop'},this.generation,true).catch(()=>{});return Promise.resolve();
  }
  mute(muted){this.muted=!!muted;if(this.stream)for(const track of this.stream.getAudioTracks())track.enabled=this.state==='active'&&!this.muted;}
+ updateAuthentication(previous,next){
+  if(!/^[a-f0-9]{64}$/.test(previous)||!/^[a-f0-9]{64}$/.test(next)||previous===next)throw Error('声音登录续期无效');
+  if(this.context&&this.context.token!==previous||this.prepared?.remote&&this.prepared.token!==previous)throw Error('声音登录会话已变化');
+  if(this.context)this.context={...this.context,token:next};
+  if(this.prepared?.remote)this.prepared={...this.prepared,token:next};
+ }
  async play(){if(this.audio.srcObject)await this.audio.play();}
 }

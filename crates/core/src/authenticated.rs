@@ -94,6 +94,16 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
             let token = auth.login_finish(&challenge_id, &signature)?;
             json!({"token":token.expose(),"expires_in_seconds":900})
         }
+        SessionChallenge { token } => serde_json::to_value(auth.session_challenge(&token)?)
+            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        RenewSession {
+            token,
+            challenge_id,
+            signature,
+        } => {
+            let next = auth.renew_session(&token, &challenge_id, &signature)?;
+            json!({"renewed":true,"token":next.expose(),"expires_in_seconds":900,"recent_owner_login_refreshed":false})
+        }
         Health { token } => {
             auth.authorize(&token, Scope::StatusRead)?;
             json!({"ok":true,"mode":"authenticated_read_only","write_api":false})

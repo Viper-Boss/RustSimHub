@@ -461,6 +461,15 @@ fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/session.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/session.js"),
+                )
+            }),
+        )
+        .route(
             "/phone.js",
             get(|| async {
                 (

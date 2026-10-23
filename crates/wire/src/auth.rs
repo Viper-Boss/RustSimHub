@@ -69,6 +69,14 @@ pub enum AuthCommand {
         challenge_id: String,
         signature: Vec<u8>,
     },
+    SessionChallenge {
+        token: String,
+    },
+    RenewSession {
+        token: String,
+        challenge_id: String,
+        signature: Vec<u8>,
+    },
     Health {
         token: String,
     },
@@ -617,6 +625,30 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 return Err(invalid());
             }
         }
+        AuthCommand::RenewSession {
+            token,
+            challenge_id,
+            signature,
+        } => {
+            let hex = |value: &str| {
+                value.len() == 64
+                    && value
+                        .bytes()
+                        .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            };
+            if !hex(token) || !hex(challenge_id) || signature.len() != 64 {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::SessionChallenge { token } => {
+            if token.len() != 64
+                || !token
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            {
+                return Err(invalid());
+            }
+        }
         AuthCommand::Authenticate {
             challenge_id,
             signature,
@@ -819,6 +851,21 @@ mod tests {
         let key = vec![0; 32];
         let invalid = serde_json::json!({"protocol":2,"id":"a","command":{"op":"pair_challenge","public_key":key,"kind":"nas","scopes":["everything"]}});
         assert!(parse_auth_request(&serde_json::to_vec(&invalid).unwrap()).is_err());
+    }
+    #[test]
+    fn continuation_requires_bound_bearer_nonce_and_exact_signature_shape() {
+        let valid = serde_json::json!({"protocol":2,"id":"renew","command":{"op":"renew_session","token":"a".repeat(64),"challenge_id":"b".repeat(64),"signature":vec![0;64]}});
+        assert!(parse_auth_request(&serde_json::to_vec(&valid).unwrap()).is_ok());
+        for (key, value) in [
+            ("token", serde_json::json!("x".repeat(64))),
+            ("challenge_id", serde_json::json!("x".repeat(64))),
+            ("signature", serde_json::json!(vec![0; 63])),
+            ("authenticated", serde_json::json!(0)),
+        ] {
+            let mut v = valid.clone();
+            v["command"][key] = value;
+            assert!(parse_auth_request(&serde_json::to_vec(&v).unwrap()).is_err());
+        }
     }
     #[test]
     fn network_settings_reject_paths_invalid_limits_and_missing_authority() {

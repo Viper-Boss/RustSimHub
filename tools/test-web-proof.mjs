@@ -33,3 +33,14 @@ for(const overrides of [{generation:1},{scopes:11},{kind:'client'},{purpose:'rec
 }
 await prove(await challenge({kind:'owner',scopes:1023}),pin,pub,client.privateKey,'login',undefined,'owner');
 console.log('Browser first-owner proof tests passed: signed owner role, full scope, bootstrap generation and purpose');
+const sessionToken='e'.repeat(64),digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(sessionToken))));
+const continuing=await challenge({purpose:'session_renew',session_digest:digest});
+const continuingProof=await prove(continuing,pin,pub,client.privateKey,'session_renew',undefined,'client',sessionToken);
+assert(await crypto.subtle.verify('Ed25519',client.publicKey,new Uint8Array(continuingProof),new Uint8Array(continuing.transcript)));
+await assert.rejects(prove(continuing,pin,pub,client.privateKey,'login'));
+await assert.rejects(prove(continuing,pin,pub,client.privateKey,'session_renew',undefined,'client','f'.repeat(64)));
+for(const overrides of [{session_digest:Array(32).fill(0)},{generation:0},{purpose:'login'},{session_digest:undefined}]){
+ await assert.rejects(prove(await challenge({purpose:'session_renew',session_digest:digest,...overrides}),pin,pub,client.privateKey,'session_renew',undefined,'client',sessionToken));
+}
+await assert.rejects(prove(await challenge({session_digest:digest}),pin,pub,client.privateKey,'login'));
+console.log('Browser continuation proof passed: exact session digest, pin, scope, purpose and generation.');

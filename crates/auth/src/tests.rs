@@ -6,6 +6,157 @@ use std::{fs, path::Path};
 use tempfile::TempDir;
 
 #[test]
+fn session_continuation_requires_exact_live_bearer_key_and_preserves_owner_freshness() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let i = directory();
+    let mut a = start(i.path(), &s);
+    let key = SigningKey::from_bytes(&[101; 32]);
+    let token = owner(&mut a, &key);
+    let digest = token_digest(token.expose()).unwrap();
+    let original = Instant::now() - REAUTH_TTL;
+    let session = a.sessions.get_mut(&digest).unwrap();
+    session.authenticated = original;
+    session.deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = session.deadline;
+    let c = a.session_challenge(token.expose()).unwrap();
+    let value: serde_json::Value = serde_json::from_slice(&c.transcript).unwrap();
+    assert_eq!(value["purpose"], "session_renew");
+    assert_eq!(value["session_digest"], serde_json::json!(digest));
+    let signature = key.sign(&c.transcript).to_bytes();
+    let continued = a.renew_session(token.expose(), &c.id, &signature).unwrap();
+    let next_digest = token_digest(continued.expose()).unwrap();
+    assert_ne!(digest, next_digest);
+    assert_eq!(a.sessions.len(), 2);
+    assert_eq!(a.sessions[&digest].deadline, deadline);
+    assert!(a.sessions[&next_digest].deadline > deadline);
+    assert_eq!(a.sessions[&next_digest].authenticated, original);
+    assert!(a.authorize(token.expose(), Scope::CallsControl).is_ok());
+    assert!(a.recent_owner(token.expose()).is_err());
+    assert!(a.recent_owner(continued.expose()).is_err());
+    assert!(a.renew_session(token.expose(), &c.id, &signature).is_err());
+    let other = login(&mut a, &key);
+    let c = a.session_challenge(token.expose()).unwrap();
+    let sig = key.sign(&c.transcript).to_bytes();
+    let before = a.sessions[&digest].deadline;
+    assert!(a.renew_session(other.expose(), &c.id, &sig).is_err());
+    assert_eq!(a.sessions[&digest].deadline, before);
+    let c = a.session_challenge(token.expose()).unwrap();
+    let wrong = SigningKey::from_bytes(&[102; 32])
+        .sign(&c.transcript)
+        .to_bytes();
+    assert!(a.renew_session(token.expose(), &c.id, &wrong).is_err());
+    assert!(a
+        .renew_session(token.expose(), &c.id, &key.sign(&c.transcript).to_bytes())
+        .is_err());
+    let c = a.session_challenge(token.expose()).unwrap();
+    assert!(a
+        .login_finish(&c.id, &key.sign(&c.transcript).to_bytes())
+        .is_err());
+    let c = a.login_challenge(key.verifying_key().to_bytes()).unwrap();
+    assert!(a
+        .renew_session(token.expose(), &c.id, &key.sign(&c.transcript).to_bytes())
+        .is_err());
+    let c = a.session_challenge(token.expose()).unwrap();
+    a.sessions.get_mut(&digest).unwrap().deadline = Instant::now();
+    assert!(a
+        .renew_session(token.expose(), &c.id, &key.sign(&c.transcript).to_bytes())
+        .is_err());
+    assert!(a.session_challenge(token.expose()).is_err());
+    assert!(a.authorize(continued.expose(), Scope::CallsControl).is_ok());
+}
+
+#[test]
+fn session_continuation_does_not_survive_revocation_or_identity_restart() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let i = directory();
+    let mut a = start(i.path(), &s);
+    let owner_key = SigningKey::from_bytes(&[103; 32]);
+    let owner_token = owner(&mut a, &owner_key);
+    let client = SigningKey::from_bytes(&[104; 32]);
+    pair(
+        &mut a,
+        &owner_token,
+        &client,
+        Kind::Client,
+        &[Scope::CallsRead],
+    );
+    let token = login(&mut a, &client);
+    let first = a.session_challenge(token.expose()).unwrap();
+    let continued = a
+        .renew_session(
+            token.expose(),
+            &first.id,
+            &client.sign(&first.transcript).to_bytes(),
+        )
+        .unwrap();
+    assert!(a.authorize(continued.expose(), Scope::CallsRead).is_ok());
+    assert!(a
+        .authorize(continued.expose(), Scope::ClientsManage)
+        .is_err());
+    let c = a.session_challenge(token.expose()).unwrap();
+    a.revoke(owner_token.expose(), client.verifying_key().to_bytes())
+        .unwrap();
+    assert!(a.authorize(continued.expose(), Scope::CallsRead).is_err());
+    assert!(a
+        .renew_session(
+            token.expose(),
+            &c.id,
+            &client.sign(&c.transcript).to_bytes()
+        )
+        .is_err());
+    let c = a.session_challenge(owner_token.expose()).unwrap();
+    drop(a);
+    let mut fresh = start(i.path(), &s);
+    assert!(fresh
+        .renew_session(
+            owner_token.expose(),
+            &c.id,
+            &owner_key.sign(&c.transcript).to_bytes()
+        )
+        .is_err());
+}
+
+#[test]
+fn independent_client_proof_checks_the_session_digest_and_dedicated_purpose() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let i = directory();
+    let mut a = start(i.path(), &s);
+    let kdir = directory();
+    let client = ClientKey::create(kdir.path()).unwrap();
+    let pin = a.public_key();
+    let c = a.bootstrap_challenge(client.public_key()).unwrap();
+    let sig = client.prove(&c, pin, ProofExpectation::Bootstrap).unwrap();
+    a.bootstrap_finish(&c.id, &sig).unwrap();
+    let c = a.login_challenge(client.public_key()).unwrap();
+    let sig = client.prove(&c, pin, ProofExpectation::Login).unwrap();
+    let token = a.login_finish(&c.id, &sig).unwrap();
+    let c = a.session_challenge(token.expose()).unwrap();
+    assert!(client.prove(&c, pin, ProofExpectation::Login).is_err());
+    assert!(client
+        .prove(
+            &c,
+            pin,
+            ProofExpectation::SessionRenew {
+                session_digest: [0; 32]
+            }
+        )
+        .is_err());
+    let sig = client
+        .prove(
+            &c,
+            pin,
+            ProofExpectation::SessionRenew {
+                session_digest: token_digest(token.expose()).unwrap(),
+            },
+        )
+        .unwrap();
+    a.renew_session(token.expose(), &c.id, &sig).unwrap();
+}
+
+#[test]
 fn only_recent_owner_can_manage_trash_and_readers_observe_delete_and_restore() {
     let d = directory();
     let s = Store::open(d.path()).unwrap();

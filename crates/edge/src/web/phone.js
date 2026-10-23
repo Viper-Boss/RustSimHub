@@ -15,7 +15,7 @@ function boundLease(value,call,line){
 }
 export class DailyPhone {
  constructor(options){
-  Object.assign(this,options);this.env=options.env||globalThis;this.$=id=>this.document.getElementById(id);this.generation=0;this.action=0;this.enabled=false;this.working=false;this.managing=false;this.calls=[];
+  Object.assign(this,options);this.env=options.env||globalThis;this.ensureSession=options.ensureSession||(()=>Promise.resolve());this.$=id=>this.document.getElementById(id);this.generation=0;this.action=0;this.enabled=false;this.working=false;this.managing=false;this.calls=[];
   this.$('phone-dial').onclick=()=>this.run(()=>this.begin('dial'));
   this.$('phone-hangup').onclick=()=>this.hangup();
   this.$('phone-refresh').onclick=()=>void this.refresh().catch(error=>this.say(error.message));
@@ -70,6 +70,7 @@ export class DailyPhone {
   if(!this.enabled||!this.token()||this.working||this.blocked()||this.polling)return;
   const g=this.generation,a=this.action,marker={};this.polling=marker;
   try{
+   if(this.managing&&this.confirmedControl){await this.ensureSession();this.current(g,a);}
    const snapshot=await this.snapshotNow(g,a);this.current(g,a);this.snapshot=snapshot;this.calls=snapshot.calls;
    const fingerprint=snapshot.calls.map(call=>call.id+':'+call.modem_state).join(',');
    if(fingerprint!==this.observedFingerprint){this.observedFingerprint=fingerprint;this.say(snapshot.calls.length?snapshot.calls.some(call=>call.modem_state===3)?'有来电，请接听或拒接。':snapshot.calls.some(call=>call.modem_state===4)?'电话已接通。':'正在等待电话接通…':'已登录，当前没有通话。');}
@@ -124,6 +125,7 @@ export class DailyPhone {
  }
  async begin(action,target=null){
   const g=this.generation,a=this.action;
+  if(['dial','accept','dtmf'].includes(action)){await this.ensureSession();this.current(g,a);}
   const payload=action==='dial'?this.$('phone-number').value.trim():action==='dtmf'?this.$('phone-tone').value.toUpperCase():'';
   if(action==='dial'&&(payload.length>32||!/^\+?[0-9]{3,32}$/.test(payload)))throw Error('请输入有效的拨出号码');
   if(action==='dtmf'&&!/^[0-9ABCD*#]$/.test(payload))throw Error('每次发送一个按键：0–9、*、#、A–D');
@@ -134,6 +136,7 @@ export class DailyPhone {
   if(action==='accept'||action==='reject'){if(!incoming()||snapshot.calls.length!==1||this.lease)throw Error('这通来电已变化，请刷新后核对');}
   if(['dial','accept'].includes(action)){
    const stream=await this.input(g,a);
+   await this.ensureSession();this.current(g,a);
    if(action==='dial')await this.audio.connect(this.context(null),{stream});else await this.audio.prime(stream);
    this.current(g,a);snapshot=await this.snapshotNow(g,a);
    if(action==='dial'&&(snapshot.calls.length||this.$('phone-number').value.trim()!==payload))throw Error('号码或电话状态已变化，未拨号');
@@ -193,8 +196,10 @@ export class DailyPhone {
  }
  async connect(){
   const g=this.generation,a=this.action,lease=this.lease;if(!lease||!this.confirmedControl)throw Error('请先查询并确认当前电话控制权');
+  await this.ensureSession();this.current(g,a);
   const snapshot=await this.snapshotNow(g,a);if(snapshot.line!==lease.line||!snapshot.calls.some(call=>call.id===lease.call_id&&call.modem_state===4))throw Error('请等待电话接通');
-  const stream=await this.input(g,a);await this.audio.start(this.context(lease),{stream});this.current(g,a);this.audioAttempted=true;this.say('声音已连接');
+  try{const stream=await this.input(g,a);await this.ensureSession();this.current(g,a);await this.audio.start(this.context(lease),{stream});this.current(g,a);this.audioAttempted=true;this.say('声音已连接');}
+  catch(error){if(g===this.generation&&a===this.action)void this.closeMedia();throw error;}
  }
  render(){
   const online=this.enabled&&!!this.token(),blocked=this.blocked(),pending=this.getPending();

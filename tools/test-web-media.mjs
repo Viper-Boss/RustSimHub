@@ -105,4 +105,14 @@ function setup(options={}){
 {
  const f=setup();await f.link.start(context);f.peers[0].connectionState='disconnected';f.peers[0].onconnectionstatechange();await turn();assert(f.input.stopped);assert.equal(f.link.state,'closed');assert.equal(f.calls.filter(c=>c==='activate').length,1);
 }
-console.log('Web media lifecycle passed: single activation, late permission cancellation, mute, close, lost replies, identity and secure-context gates');
+{
+ const f=setup();await f.link.start(context);const pc=f.link.pc,session=f.link.session,g=f.link.generation,stream=f.link.stream;
+ f.link.updateAuthentication(context.token,'e'.repeat(64));assert.equal(f.link.pc,pc);assert.equal(f.link.session,session);assert.equal(f.link.generation,g);assert.equal(f.link.stream,stream);assert.equal(f.link.state,'active');
+ await f.link.poll(g);assert.equal(f.requests.at(-1).token,'e'.repeat(64));assert.equal(f.calls.filter(c=>c==='activate').length,1);
+ assert.throws(()=>f.link.updateAuthentication(context.token,'f'.repeat(64)),/已变化/);assert.equal(f.link.context.token,'e'.repeat(64));await f.link.stop();
+}
+{
+ const f=setup();await f.link.connect({token:context.token,lease:null},{stream:f.stream});f.link.updateAuthentication(context.token,'e'.repeat(64));
+ await f.link.start({...context,token:'e'.repeat(64)},{stream:f.stream});assert.equal(f.peers.length,1);assert.equal(f.calls.filter(c=>c==='connect').length,1);assert.equal(f.calls.filter(c=>c==='prepare').length,0);assert.equal(f.calls.filter(c=>c==='activate').length,1);await f.link.stop();
+}
+console.log('Web media lifecycle passed: single activation, authentication rotation without reconnect, late permission cancellation, mute, close, lost replies, identity and secure-context gates');

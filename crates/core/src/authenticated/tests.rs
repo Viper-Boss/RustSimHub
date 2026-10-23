@@ -3,6 +3,63 @@ use super::*;
 use ed25519_dalek::{Signer, SigningKey};
 
 #[tokio::test]
+async fn signed_session_continuation_round_trip_rotates_with_existing_overlap() {
+    let d = directory();
+    let i = directory();
+    let s = Store::open(d.path()).unwrap();
+    let mut a = Auth::new(Identity::open(i.path()).unwrap(), s.handle()).unwrap();
+    let k = SigningKey::from_bytes(&[106; 32]);
+    let c = a.bootstrap_challenge(k.verifying_key().to_bytes()).unwrap();
+    a.bootstrap_finish(&c.id, &k.sign(&c.transcript).to_bytes())
+        .unwrap();
+    let c = a.login_challenge(k.verifying_key().to_bytes()).unwrap();
+    let token = a
+        .login_finish(&c.id, &k.sign(&c.transcript).to_bytes())
+        .unwrap()
+        .expose()
+        .to_owned();
+    let auth = Arc::new(Mutex::new(a));
+    let c: rustsimhub_auth::Challenge = serde_json::from_value(
+        round_trip(
+            AuthCommand::SessionChallenge {
+                token: token.clone(),
+            },
+            auth.clone(),
+        )
+        .await,
+    )
+    .unwrap();
+    let request = || AuthCommand::RenewSession {
+        token: token.clone(),
+        challenge_id: c.id.clone(),
+        signature: k.sign(&c.transcript).to_bytes().to_vec(),
+    };
+    let reply = round_trip(request(), auth.clone()).await;
+    assert_eq!(reply["renewed"], true);
+    assert_eq!(reply["expires_in_seconds"], 900);
+    assert_eq!(reply["recent_owner_login_refreshed"], false);
+    let continued = reply["token"].as_str().unwrap().to_owned();
+    assert_ne!(continued, token);
+    assert_eq!(continued.len(), 64);
+    assert!(
+        round_trip(AuthCommand::Health { token: continued }, auth.clone())
+            .await
+            .get("error")
+            .is_none()
+    );
+    assert!(round_trip(
+        AuthCommand::Health {
+            token: token.clone()
+        },
+        auth.clone()
+    )
+    .await
+    .get("error")
+    .is_none());
+    assert!(round_trip(request(), auth).await.get("error").is_some());
+}
+
+#[tokio::test]
 async fn sms_trash_round_trip_preserves_identity_and_rejects_unsigned_mutation() {
     let d = directory();
     let i = directory();
