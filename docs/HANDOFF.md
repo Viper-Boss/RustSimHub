@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+现场补充只读复核：`.private/firstboot-prerequisites-20261023-first.json`通过；固定身份SSH/同boot维护，MM/NM/rmtfs/网络守卫/灯控active，正式Core/Edge/Media inactive。installation.complete、正式identity.seed、业务store.sqlite3和升级账本state.json均不存在，PCM关闭、普通gsm断开且无gsm配置。当前factory epoch13声明5..5。未安装或初始化。后续应按空正式业务的v6首次安装准备，不能把隔离v5迁移试验说成已迁移现场；仍需沿用正确发布信任和交付完整基线、Owner/证书流程。整体77%，关机继续搁置。
+
 2026-10-23 [P6AC](VALIDATION-ARM-DATA-MIGRATION-P6AC.md)：NAS真实ARM生产Core已验证v5→v6、Owner/Client签名IPC、删除保持、兼容v6 Core读取新增合成记录/恢复及cursor100→103。直接存储入口的旧v5拒绝和DDL迁移冲突后数据库逐字节保持通过；first错误字符串假设、second镜像输入失败均保留false，third汇总通过，并独立核对三版本生产元数据/ELF/hash及最终库完整性。合成新记录在Core停止时注入，不是modem收信，未证明完整签名组与真实新短信切换闭环。无棒子访问/部署，整体77%，原卡数据关闭、关机仍搁置。下一步核现场首启与维护条件。
 
 2026-10-23：用户要求的[当前剩余未完成清单](REMAINING-2026-10-23.md)已生成，按实现/验收/参与条件列出23点缺口，同时修正旧任务包合计23.5为23。继续完成[P6AB实际ARM升级器验证](VALIDATION-ARM-UPDATE-RUNTIME-P6AB.md)：NAS隔离环境真实签名、boot-select发布/回选、floor保持、确认和账本恢复、篡改拒绝通过。first/second失败保留，third通过；未访问/部署棒子，尚未验证业务数据迁移与候选新短信保留，整体77%，关机仍搁置。

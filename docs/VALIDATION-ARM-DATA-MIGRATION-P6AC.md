@@ -41,3 +41,7 @@ compat是较早v6 Core的单程序兼容检查，没有将其拼成一个新的�
 离线快照不是业务backup API/restore API的完整验收；恢复后生成新db_epoch及权限隔离仍按既有单元证据记录。本轮也未完成维护安装工具、正式Owner/证书交付、冷启动或真实掉电矩阵。
 
 下一步核对现场的未初始化状态与维护条件，准备兼容v6的完整基线及可信备份/交付流程，再安排正式业务初始化；不将新库直接交给旧v5应用，不把旧备份覆盖候选期间新短信当作回退。关机问题仍搁置，原卡普通数据不启用。
+
+## 数据试验后的现场只读复核
+
+现场补充只读复核：`.private/firstboot-prerequisites-20261023-first.json`通过；固定身份SSH/同boot维护，MM/NM/rmtfs/网络守卫/灯控active，正式Core/Edge/Media inactive。installation.complete、正式identity.seed、业务store.sqlite3和升级账本state.json均不存在，PCM关闭、普通gsm断开且无gsm配置。当前factory epoch13声明5..5。未安装或初始化。后续应按空正式业务的v6首次安装准备，不能把隔离v5迁移试验说成已迁移现场；仍需沿用正确发布信任和交付完整基线、Owner/证书流程。整体77%，关机继续搁置。
