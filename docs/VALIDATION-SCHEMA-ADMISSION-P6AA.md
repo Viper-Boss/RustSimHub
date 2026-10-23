@@ -27,3 +27,9 @@ P2D新包最初声明schema_min=5/schema_max=6。它表达了新Core能从v5迁�
 离线Python签名包测试要求6验证器接受6..6，同时5验证器拒绝；系统工具共141项（1项跳过）通过。生产检查和Clippy、发布CI结果由接手入口及私有索引记录，不把前轮ARM制品重标为本轮构建。
 
 代码入口：`crates/update/src/store.rs`、`crates/update/src/main.rs`、`tools/package-development-application.py`、`tools/test-factory-install.py`、`tools/system/test_application_package.py`。对同一数据库保持新收件记录的实际应用回退、完整Native同源签名组及实机部署仍未验证。
+
+## 同源制品收尾
+
+P6AA收尾：精确提交`9528712`的完整 [CI 39901072969](https://github.com/Viper-Boss/RustSimHub/actions/runs/39901072969) success，固定源码244项Linux及八个生产ARM64程序通过。同一归档的Native21项及release构建通过，私有开发签名epoch1/2/3完整应用组已生成；OpenSSL验证每组签名/所有文件、v5拒绝和实际篡改副本拒绝通过。Native使用既有离线ARM镜像Rust1.99，主要程序为本机1.98，区别已记录。制品只是候选，未部署、未运行实际ARM升级器选组或保留新短信的维护迁移。整体77%，关机继续搁置。
+
+源码提交`9528712c784d80c9326b99f46b1f72971b5714d2`，源码归档SHA256 `9bbc71d42fb5b10d0a2346579dccc56f6d732828689c2879fed48b1b796a5d39`。主要制品`.local/wsl-artifacts-9528712c784d80c9326b99f46b1f72971b5714d2/`，Native`.local/native-schema6-9528712-first/`，开发签名组`.private/schema6-signed-20261023-first/`；私有签名种子不得公开或作为生产信任根。索引`.private/schema-admission-20261023-first.json`，Native构建`schema-native-20261023-first.json`，实际签名组核验`schema-group-verified-20261023-first.json`。NAS仅使用无网络/设备、无capabilities、资源有界的构建容器，现已正常退出并保留证据；没有访问棒子。
