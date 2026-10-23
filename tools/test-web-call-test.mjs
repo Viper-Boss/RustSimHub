@@ -5,6 +5,7 @@ import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
 const bytes=await readFile(new URL('../crates/edge/src/web/call-test.js',import.meta.url));
 const {CallTest,archiveEndedOperation}=await import('data:text/javascript;base64,'+bytes.toString('base64'));
+const unknownOperation=JSON.parse(await readFile(new URL('./fixtures/call-operation-unknown.json',import.meta.url),'utf8'));
 const turn=()=>new Promise(resolve=>setImmediate(resolve));
 const deferred=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return {promise,resolve};};
 function fixture(options={}){
@@ -124,22 +125,25 @@ for(const options of [{noLease:true},...[
 }
 async function archiveFixture(options={}){
  const calls=[],receipts=[];let cleared=false,cancelled=false;
- const pending={type:'call',action:'dial',id:'old-op',state:'unknown',submit_started:true,...options.pending};
+ const pending={type:'call',action:'dial',id:unknownOperation.id,state:'unknown',submit_started:true,...options.pending};
  const job=()=>archiveEndedOperation({pending,current:()=>{if(cancelled)throw Error('session ended');},request:async c=>{
   calls.push(c);if(options.denied)throw Error('denied');if(options.cancelAfter===c.op)cancelled=true;
-  if(c.op==='call_operation')return {operation:{id:pending.id,action:pending.action,state:'unknown',call_id:'exact-ended',...options.operation}};
+  if(c.op==='call_operation')return {operation:{...unknownOperation,...options.operation}};
   if(c.op==='call_status')return {available:true,active_calls:0,...options.status};
-  if(c.op==='call_detail')return {id:'exact-ended',state:'ended',availability:'observed',...options.detail};throw Error('unexpected mutation');
+  if(c.op==='call_detail')return {id:unknownOperation.call_id,state:'ended',availability:'observed',modem_state:7,...options.detail};throw Error('unexpected mutation');
  },archivePending:async receipt=>{if(options.archiveFailure)throw Error('archive failed');receipts.push(receipt);},setPending:async value=>{assert.equal(value,null);cleared=true;}});
  return {calls,receipts,job,cleared:()=>cleared};
 }
 {
- const f=await archiveFixture();await f.job();assert.equal(f.cleared(),true);assert.equal(f.receipts[0].ended_call_id,'exact-ended');assert.equal(f.receipts[0].state,'unknown');assert.equal(f.receipts[0].manual_archive,true);assert.deepEqual(f.calls.map(c=>c.op),['call_operation','call_status','call_detail']);
+ const f=await archiveFixture();await f.job();assert.equal(f.cleared(),true);assert.equal(f.receipts[0].ended_call_id,unknownOperation.call_id);assert.equal(f.receipts[0].state,'unknown');assert.equal(f.receipts[0].manual_archive,true);assert.deepEqual(f.calls.map(c=>c.op),['call_operation','call_status','call_detail']);
+}
+{
+ const f=await archiveFixture({detail:{state:'reconciling',availability:'reconciling',modem_state:7}});await f.job();assert.equal(f.cleared(),true);assert.equal(f.receipts[0].state,'unknown');
 }
 for(const options of [{denied:true},{archiveFailure:true},{pending:{type:'sms'}},{pending:{action:'dtmf'}},{pending:{submit_started:false}},
- {operation:{id:'another-op'}},{operation:{action:'hangup'}},{operation:{call_id:null}},{operation:{state:'prepared'}},
+ {operation:{id:'another-op'}},{operation:{call_id:null}},{operation:{state:'prepared'}},
  {status:{available:false}},{status:{active_calls:1}},
- {detail:{id:'another-call'}},{detail:{state:'active'}},{detail:{availability:'reconciling'}},
+ {detail:{id:'another-call'}},{detail:{state:'active'}},{detail:{availability:'reconciling'}},{detail:{state:'reconciling',availability:'reconciling',modem_state:4}},
  ...['call_operation','call_status','call_detail'].map(cancelAfter=>({cancelAfter}))]){
  const f=await archiveFixture(options);await assert.rejects(f.job());assert.equal(f.cleared(),false);assert.equal(f.receipts.length,0);assert(!f.calls.some(c=>c.op.startsWith('submit_')));
 }

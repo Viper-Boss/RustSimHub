@@ -2,6 +2,20 @@
 use super::*;
 use rustsimhub_domain::CallAction;
 use rustsimhub_policy::{mask, Kind, Scope};
+#[test]
+fn public_operation_shape_matches_browser_reconciliation_fixture() {
+    let expected: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../tools/fixtures/call-operation-unknown.json"
+    ))
+    .unwrap();
+    let operation = CallOperation {
+        id: "00000000-0000-4000-8000-000000000001".into(),
+        call_id: Some("00000000-0000-4000-8000-000000000002".into()),
+        line: LineEpoch(2),
+        state: SmsState::Unknown,
+    };
+    assert_eq!(serde_json::to_value(operation).unwrap(), expected);
+}
 fn fixture() -> (
     tempfile::TempDir,
     Store,

@@ -4,10 +4,16 @@ export async function archiveEndedOperation({pending,request,archivePending,setP
  current();
  if(pending?.type!=='call'||!['dial','hangup'].includes(pending.action)||!pending.submit_started)throw Error('只能归档已提交且已结束的不确定呼叫');
  const result=await request({op:'call_operation',operation_id:pending.id});current();const operation=result.operation;
- if(operation?.id!==pending.id||operation.action!==pending.action||!['unknown','submitting'].includes(operation.state)||!operation.call_id)throw Error('当前操作不符合归档条件；请查询结果');
+ // The public operation response deliberately omits action and payload.
+ if(operation?.id!==pending.id||!['unknown','submitting'].includes(operation.state)||!operation.call_id)throw Error('当前操作不符合归档条件；请查询结果');
  const status=await request({op:'call_status'});current();if(status.available!==true||status.active_calls!==0)throw Error('仍有未结束或未确认的呼叫，不能归档');
  const call=await request({op:'call_detail',call_id:operation.call_id});current();
- if(call.id!==operation.call_id||call.state!=='ended'||call.availability!=='observed')throw Error('尚未确认这笔呼叫已结束，不能归档');
+ const ended=call.state==='ended'&&call.availability==='observed';
+ // A Core restart invalidates current availability but preserves the last
+ // observed modem state. Terminal state 7 is history, never authority for a
+ // new modem action; the fresh empty catalogue above is also required.
+ const previouslyEnded=call.state==='reconciling'&&call.availability==='reconciling'&&call.modem_state===7;
+ if(call.id!==operation.call_id||!(ended||previouslyEnded))throw Error('尚未确认这笔呼叫已结束，不能归档');
  await archivePending({...pending,state:operation.state,ended_call_id:operation.call_id,manual_archive:true});current();
  await setPending(null);current();
 }

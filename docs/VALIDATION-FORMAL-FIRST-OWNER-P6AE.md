@@ -4,7 +4,7 @@
 
 ## 已验证
 
-- 用户明确选择复用已测试Wi-Fi，并确认现在参加首次设置；另行批准本次准确指纹证书的Windows当前用户临时信任。导入前核对DER摘要，记录准确证书及是否由本轮新增，后续只移除本轮新增项。
+- 用户明确选择复用已测试Wi-Fi，并确认现在参加首次设置；另行批准本次准确指纹证书的Windows当前用户临时信任。导入前核对DER摘要，记录准确证书及是否由本轮新增，本轮测试结束后已核对移除本轮新增项，原有根信任保持。
 - 原信任factory epoch16/schema6的官方`rustsimhub-install-initialize`成功，创建稳定身份、业务库、Root身份锚、媒体配置及六文件私有交付，最后写installation.complete。未自行替换维护密钥或重造发布根。
 - 初始化完成后先核对服务仍停止、setup.used不存在；用户就绪后只启动一次正式应用target。select、Core、Edge、Media均active，身份Unix套接字确认UID986及交付公钥，窗口实际打开。
 - 用户确认“已初始化并登录”；随后固定身份SSH读取窗口已关闭，诊断快照确认只有一个principal且唯一active Owner。未读取或复制浏览器私钥。
@@ -31,3 +31,5 @@
 - `.private/formal-call-inspection-20261023-first.json`：两个呼叫、操作阶段和基带日志；诊断库为在线文件两轮字节保持的只读复制，本机SQLite quick_check通过，不能当成正式一致性恢复备份。设备无Python/SQLite CLI，最初只读Python检查失败保留。
 
 设备实际业务仍为9528712/epoch16，不是随后离线67ba519候选。正式身份已创建且Owner已认领，**不能重跑初始化器、删setup.used或另造Owner**。后续须走已初始化设备的签名应用升级与受控重启路径；此前仅接受空正式状态的交付helper不再适用。下一步交付P3J并验证异常操作查询/归档，再按实际网络证据安排语音复测和独立冷启动。
+
+收尾只读健康复核见`.private/formal-final-health-20261023-first.json`；只有其passed=true才能沿用“当前服务/注册/PCM和数据关闭正常”的结论。P3J交付后还需重新核对，不能把旧PID和来源套到新程序。
