@@ -1,5 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // A user click authorizes one fixed 10010 call. No retry, resume or lease renewal.
+export async function archiveEndedOperation({pending,request,archivePending,setPending,current}){
+ current();
+ if(pending?.type!=='call'||!['dial','hangup'].includes(pending.action)||!pending.submit_started)throw Error('只能归档已提交且已结束的不确定呼叫');
+ const result=await request({op:'call_operation',operation_id:pending.id});current();const operation=result.operation;
+ if(operation?.id!==pending.id||operation.action!==pending.action||!['unknown','submitting'].includes(operation.state)||!operation.call_id)throw Error('当前操作不符合归档条件；请查询结果');
+ const status=await request({op:'call_status'});current();if(status.available!==true||status.active_calls!==0)throw Error('仍有未结束或未确认的呼叫，不能归档');
+ const call=await request({op:'call_detail',call_id:operation.call_id});current();
+ if(call.id!==operation.call_id||call.state!=='ended'||call.availability!=='observed')throw Error('尚未确认这笔呼叫已结束，不能归档');
+ await archivePending({...pending,state:operation.state,ended_call_id:operation.call_id,manual_archive:true});current();
+ await setPending(null);current();
+}
+function matchingLease(result,line){
+ const l=result?.lease;
+ return l&&l.call_id===result.operation?.call_id&&typeof l.call_id==='string'&&l.call_id.length>0&&l.line===line&&Number.isSafeInteger(l.generation)&&l.generation>0&&/^[a-f0-9]{64}$/.test(l.boot)&&Number.isInteger(l.expires_in_seconds)&&l.expires_in_seconds>0&&l.expires_in_seconds<=30?l:null;
+}
 export class CallTest {
  constructor(options){Object.assign(this,options);this.env=options.env||globalThis;this.running=false;this.lease=null;}
  say(text){this.notify(text,this.running);}
@@ -34,7 +49,7 @@ export class CallTest {
  async start(){
   if(this.running)return;
   const generation=(this.generation||0)+1;this.generation=generation;
-  this.running=true;this.cancelled=false;this.finishing=null;this.lease=null;this.stream=null;this.dialStarted=false;this.error=null;this.endedObserved=false;this.callActiveAt=null;this.audioDelayMs=null;
+  this.running=true;this.cancelled=false;this.finishing=null;this.lease=null;this.stream=null;this.dialStarted=false;this.error=null;this.endedObserved=false;this.callActiveAt=null;this.audioDelayMs=null;this.uncertainDial=null;
   this.aborted=new Promise((_,reject)=>{this.abort=()=>reject(Error('测试已停止'));});this.aborted.catch(()=>{});
   this.say('正在准备测试，请允许麦克风…');
   try{
@@ -58,6 +73,10 @@ export class CallTest {
      await this.step(this.archivePending({...old,state,ended_call_id:callId}));
      }
     }
+    if(old.prior_operation){
+     if(typeof this.archivePending!=='function')throw Error('不确定拨号记录尚未保存，不能开始新测试');
+     await this.step(this.archivePending({...old,cleanup_receipt:true}));
+    }
     await this.step(this.setPending(null));
    }
    const status=await this.step(this.request({op:'call_status'}));
@@ -78,9 +97,11 @@ export class CallTest {
    this.deadlineTimer=this.env.setTimeout(()=>{void this.stop();},27000);
    this.say('正在拨打 10010，约 30 秒后自动结束…');
    const result=await this.step(this.request({op:'submit_call',operation_id:pending.id,lease:null,urgent:false}));
+   // An uncertain dial may still own a valid lease. Retain only the exact
+   // returned call binding for one bounded hangup, never to dial again or open PCM.
+   this.lease=matchingLease(result,line.line);if(this.lease)this.onLease(this.lease);
    pending.state=result.operation?.state||'unknown';await this.step(this.setPending({...pending}));
-   if(pending.state!=='submitted'||!result.lease)throw Error('拨号结果未确认；不会重拨，请查询当前操作');
-   this.lease=result.lease;this.onLease(this.lease);
+   if(pending.state!=='submitted'||!this.lease){this.uncertainDial={...pending};throw Error('拨号结果未确认；不会重拨，请查询当前操作');}
    while(true){
     // Refresh the trusted observer, then inspect this exact call, not a history page.
     await this.step(this.request({op:'call_status'}));
@@ -121,6 +142,7 @@ export class CallTest {
     const prepared=await this.request({op:'prepare_call',line_epoch:lease.line,idempotency_key:this.env.crypto.randomUUID(),action:'hangup',call_id:lease.call_id,payload:''});
     if(prepared.operation?.state!=='prepared')throw Error('挂断未准备成功');
     const pending={type:'call',action:'hangup',id:prepared.operation.id,state:'prepared',submit_started:true,test10010:true};
+    if(this.uncertainDial)pending.prior_operation=this.uncertainDial;
     await this.setPending({...pending});
     const result=await this.request({op:'submit_call',operation_id:pending.id,lease,urgent:true});
     pending.state=result.operation?.state||'unknown';await this.setPending({...pending});

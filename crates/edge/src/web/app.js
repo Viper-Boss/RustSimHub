@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import { prove, unhex, hex } from './proof.js';
 import { AudioLink } from './media.js';
-import { CallTest } from './call-test.js';
+import { CallTest, archiveEndedOperation } from './call-test.js';
 import { ConfigurationIndicator } from './indicator.js';
 import { NetworkPanel } from './network.js';
 import { EventSync } from './event-sync.js';
@@ -66,9 +66,10 @@ const networkPanel=new NetworkPanel({document,request:command=>auth(command),get
  finally{clearTimeout(timer);requests.delete(controller);}
 }});
 function showPending(){
- $('pending').textContent=pending?JSON.stringify({type:pending.type,action:pending.action,operation_id:pending.id,state:pending.state,submit_started:pending.submit_started},null,2):'没有待处理操作';
+ $('pending').textContent=pending?JSON.stringify({type:pending.type,action:pending.action,operation_id:pending.id,state:pending.state,submit_started:pending.submit_started,prior_operation:pending.prior_operation},null,2):'没有待处理操作';
  $('pending-hint').textContent=!pending?'先在上方准备一笔操作，再在这里核对和提交。':pending.state==='submitted'?'这笔操作已提交，因此不能再次确认。要准备下一笔，请先点击“关闭已完成操作”。':pending.state==='cancelled'?'这笔操作已取消；请关闭它后再准备下一笔。':pending.submit_started?'这笔请求可能已经发出，只能查询结果；请勿重新提交。':!token?'请先在页面上方登录，再查询和核对当前操作。':'操作已准备。核对后点击“确认提交一次”；接通后在上方点击“连接声音”。';
  $('submit').disabled=!token||!pending||pending.submit_started||pending.state!=='prepared';$('query').disabled=!token||!pending;$('clear').disabled=!pending||!['submitted','cancelled'].includes(pending.state);
+ $('archive-ended-call').disabled=!token||pending?.type!=='call'||!['dial','hangup'].includes(pending?.action)||!pending?.submit_started||!['unknown','submitting'].includes(pending?.state);
 }
 async function initialize(){
  db=await new Promise((resolve,reject)=>{const opening=indexedDB.open('rustsimhub-client-v1',1);opening.onupgradeneeded=()=>opening.result.createObjectStore('state');opening.onsuccess=()=>resolve(opening.result);opening.onerror=()=>reject(Error('浏览器存储不可用'));});
@@ -210,6 +211,7 @@ const smsPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{smsManager.
 bind('refresh-history',loadHistory);bind('more-history',()=>historyPage());$('history-source').onchange=()=>{historyTypes();return act(()=>historyPage(true));};$('history-entity').onchange=()=>{clearHistory();return act(()=>historyPage(true));};
 bind('wifi-begin',beginWifi);bind('wifi-status',()=>wifiAction('wifi_status'));bind('wifi-confirm',()=>wifiAction('wifi_confirm'));bind('wifi-cancel',()=>wifiAction('wifi_cancel'));const previousLogout=$('logout').onclick;$('logout').onclick=()=>{clearWifi();$('wifi-section').hidden=true;previousLogout();};
 bind('more-inbox',()=>inboxPage());bind('more-calls',()=>callsPage());bind('prepare-sms',()=>prepare('sms','send'));for(const action of ['dial','accept','hangup','dtmf'])bind('prepare-'+action,()=>prepare('call',action));bind('submit',submit);bind('query',query);bind('clear',async()=>{if(!pending||!['submitted','cancelled'].includes(pending.state))throw Error('当前结果必须保留查询');pending=null;await save('pending',null);showPending();});
+bind('archive-ended-call',async()=>{const epoch=viewEpoch,old=pending;await archiveEndedOperation({pending:old,request:command=>auth(command),archivePending,setPending:async value=>{current(epoch);await save('pending',value);current(epoch);pending=value;},current:()=>{current(epoch);if(pending?.id!==old?.id&&pending!==null)throw Error('当前操作已变化');}});showPending();notice('已核对呼叫结束并保存不确定操作记录；未重拨，设备原记录保持');});
 setInterval(()=>{if(token&&lease&&!busy&&!callTest.running)act(async()=>{try{const r=await auth({op:'renew_call',lease});lease=r.lease;$('lease').textContent='控制租约已续期';showAudio();}catch(e){lease=null;void audioLink.stop();showAudio();$('lease').textContent='控制租约已失效；核心清理正在处理';throw e;}});},10000);
 initialize().catch(error=>notice('初始化失败：'+error.message));
 

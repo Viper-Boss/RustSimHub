@@ -1,5 +1,7 @@
 # 最新开发进度：2026-10-23
 
+2026-10-23 [P6AE正式首次设置](VALIDATION-FORMAL-FIRST-OWNER-P6AE.md)已完成：官方初始化、同一设备身份/严格HTTPS、公有证书私有交付及用户真实Owner认领/登录通过，唯一active Owner核实，Core/Edge/Media正式运行，窗口已消费关闭。P1补0.5点，总77.5%。两笔10010均已结束，第一笔只dialing、第二笔QMI90/IncompatibleState，PCM未打开，不能计通话通过，累计40。已补[P3J](VALIDATION-UNCERTAIN-CALL-CLEANUP-P3J.md)匹配租约异常清理和手动归档，七组网页/Edge26项/Clippy通过但未部署。现场仍9528712/epoch16，已初始化，禁止重跑空状态交付/初始化helper或删setup.used；原卡普通数据关闭、关机继续搁置。67ba519离线完整ARM/Native/原信任epoch19-21及CI已过，不包含后加P3J。临时证书已按授权移除；下一步冻结P3J、正常签名升级路径交付，再定位语音网络问题。下方未初始化记录均为历史。
+
 2026-10-23 [P7G](VALIDATION-WEB-VIEW-LIFECYCLE-P7G.md)：补齐通话/历史列表及详情的迟到回复隔离、分页在途检查和注销清理；被替代的刷新拒绝，避免补同步游标提前提交。实际app回归、旧版预期失败对照、七组网页、Linux Edge26项/Clippy通过。未访问/部署设备，现场仍9528712/epoch16，首次Owner与新证书授权问题待用户回复；关机继续搁置、原卡数据关闭，整体77%。
 
 2026-10-23 [P6AD](VALIDATION-SCHEMA6-DEVICE-P6AD.md)：原发布信任下schema6应用已实际交付，factory现为9528712/epoch16，旧epoch13及文件备份保留；Root网络a239f7f/灯控0c817c1未变。设备包验证、自检和隔离合成音频通过。按用户选择只读恢复此前Wi-Fi并实际连接，自动连接已保存，USB配置保持、普通gsm断开。TLS/媒体配置已准备，正式身份/业务库/installation.complete与Owner窗口仍未创建，业务服务inactive。等用户就绪后进行首次认领；不重跑已消费helper。无新电话/SMS、无重启/刷写，关机继续搁置；整体77%。下方旧“未交付/epoch13”是历史检查点。
