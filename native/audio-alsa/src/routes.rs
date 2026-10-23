@@ -1,6 +1,63 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Fixed platform initialization. Never opens PCM or accepts a control name.
 use crate::{probe, CString, Ctl, ElemId, ElemIface, ElemType, ElemValue, CTL, ROUTES};
+use std::{io, time::Duration};
+
+const STREAMS: [&str; 4] = ["pcm0p", "pcm1c", "pcm4p", "pcm4c"];
+const READINESS_TIMEOUT: Duration = Duration::from_secs(20);
+const READINESS_POLL: Duration = Duration::from_millis(100);
+
+trait Readiness {
+    fn status(&mut self, stream: &str) -> io::Result<String>;
+    fn elapsed(&self) -> Duration;
+    fn pause(&mut self, duration: Duration);
+}
+
+struct ProcReadiness(std::time::Instant);
+impl Readiness for ProcReadiness {
+    fn status(&mut self, stream: &str) -> io::Result<String> {
+        std::fs::read_to_string(format!("/proc/asound/card0/{stream}/sub0/status"))
+    }
+    fn elapsed(&self) -> Duration {
+        self.0.elapsed()
+    }
+    fn pause(&mut self, duration: Duration) {
+        std::thread::sleep(duration);
+    }
+}
+
+// Module loading may return before the sound card finishes registering. Only a
+// missing fixed status file is retryable; missing never means an idle device.
+// Check every stream on each pass so a missing file cannot conceal a busy one.
+fn wait_closed(readiness: &mut impl Readiness) -> Result<(), String> {
+    loop {
+        if readiness.elapsed() >= READINESS_TIMEOUT {
+            return Err("PCM readiness timed out".into());
+        }
+        let mut missing = false;
+        for stream in STREAMS {
+            match readiness.status(stream) {
+                Ok(status) if status.trim() == "closed" => (),
+                Ok(_) => return Err(format!("PCM is in use or status invalid: {stream}")),
+                Err(error) if error.kind() == io::ErrorKind::NotFound => missing = true,
+                Err(error) => {
+                    return Err(format!(
+                        "PCM status unavailable: {stream} {:?}",
+                        error.kind()
+                    ));
+                }
+            }
+        }
+        let remaining = READINESS_TIMEOUT.saturating_sub(readiness.elapsed());
+        if remaining.is_zero() {
+            return Err("PCM readiness timed out".into());
+        }
+        if !missing {
+            return Ok(());
+        }
+        readiness.pause(READINESS_POLL.min(remaining));
+    }
+}
 
 trait Controls {
     fn write(&mut self, index: usize, enabled: bool) -> Result<(), ()>;
@@ -77,16 +134,12 @@ pub fn prepare_routes() -> Result<usize, String> {
     if !compatible.split(|b| *b == 0).any(|v| v == b"thwc,ufi003") {
         return Err("unsupported board".into());
     }
-    for stream in ["pcm0p", "pcm1c", "pcm4p", "pcm4c"] {
-        let path = format!("/proc/asound/card0/{stream}/sub0/status");
-        if std::fs::read_to_string(path)
-            .map_err(|_| "PCM status unavailable")?
-            .trim()
-            != "closed"
-        {
-            return Err("PCM is in use".into());
-        }
-    }
+    let mut readiness = ProcReadiness(std::time::Instant::now());
+    wait_closed(&mut readiness)?;
+    eprintln!(
+        "platform_readiness ready_ms={}",
+        readiness.elapsed().as_millis()
+    );
     let before = probe().map_err(|e| format!("fixed audio profile unavailable: {e:?}"))?;
     let mut controls = Alsa(Ctl::new(CTL, false).map_err(|_| "control unavailable")?);
     enable(&mut controls, before.routes_on)
@@ -95,6 +148,158 @@ pub fn prepare_routes() -> Result<usize, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[derive(Default)]
+    struct Card {
+        elapsed: Duration,
+        ready_at: [Duration; 4],
+        fail: Option<(usize, io::ErrorKind)>,
+        nonclosed: Option<(usize, &'static str)>,
+        pauses: usize,
+        slow_read: bool,
+        oversleep: bool,
+    }
+    impl Readiness for Card {
+        fn status(&mut self, stream: &str) -> io::Result<String> {
+            let index = STREAMS.iter().position(|v| *v == stream).unwrap();
+            if self.slow_read {
+                self.elapsed += Duration::from_secs(6);
+            }
+            if let Some((failed, kind)) = self.fail {
+                if index == failed {
+                    return Err(io::Error::from(kind));
+                }
+            }
+            if self.elapsed < self.ready_at[index] {
+                return Err(io::Error::from(io::ErrorKind::NotFound));
+            }
+            if let Some((busy, value)) = self.nonclosed {
+                if index == busy {
+                    return Ok(value.into());
+                }
+            }
+            Ok("closed\n".into())
+        }
+        fn elapsed(&self) -> Duration {
+            self.elapsed
+        }
+        fn pause(&mut self, duration: Duration) {
+            self.pauses += 1;
+            self.elapsed += if self.oversleep {
+                Duration::from_secs(21)
+            } else {
+                duration
+            };
+        }
+    }
+
+    #[test]
+    fn closed_card_needs_no_delay() {
+        let mut card = Card::default();
+        assert_eq!(wait_closed(&mut card), Ok(()));
+        assert_eq!(card.pauses, 0);
+    }
+
+    #[test]
+    fn waits_for_every_fixed_stream_to_appear_closed() {
+        let mut card = Card {
+            ready_at: [0, 100, 700, 1500].map(Duration::from_millis),
+            ..Card::default()
+        };
+        assert_eq!(wait_closed(&mut card), Ok(()));
+        assert_eq!(card.elapsed, Duration::from_millis(1500));
+        assert_eq!(card.pauses, 15);
+    }
+
+    #[test]
+    fn missing_status_has_a_fixed_deadline_and_is_never_assumed_closed() {
+        let mut card = Card {
+            ready_at: [Duration::from_secs(21); 4],
+            ..Card::default()
+        };
+        assert_eq!(
+            wait_closed(&mut card),
+            Err("PCM readiness timed out".into())
+        );
+        assert_eq!(card.elapsed, READINESS_TIMEOUT);
+        assert_eq!(card.pauses, 200);
+    }
+
+    #[test]
+    fn stream_appearing_busy_during_wait_fails_before_initialization() {
+        let mut card = Card {
+            ready_at: [Duration::from_millis(300); 4],
+            nonclosed: Some((3, "RUNNING")),
+            ..Card::default()
+        };
+        assert!(wait_closed(&mut card).unwrap_err().contains("pcm4c"));
+        assert_eq!(card.elapsed, Duration::from_millis(300));
+        assert_eq!(card.pauses, 3);
+    }
+
+    #[test]
+    fn missing_earlier_stream_does_not_hide_busy_or_invalid_status() {
+        for value in ["RUNNING", "", "closed\nRUNNING", "not closed"] {
+            let mut card = Card {
+                ready_at: [
+                    Duration::from_secs(21),
+                    Duration::ZERO,
+                    Duration::ZERO,
+                    Duration::ZERO,
+                ],
+                nonclosed: Some((3, value)),
+                ..Card::default()
+            };
+            assert!(wait_closed(&mut card).unwrap_err().contains("pcm4c"));
+            assert_eq!(card.pauses, 0);
+        }
+    }
+
+    #[test]
+    fn errors_other_than_not_found_fail_without_retry() {
+        for kind in [
+            io::ErrorKind::PermissionDenied,
+            io::ErrorKind::InvalidData,
+            io::ErrorKind::Interrupted,
+        ] {
+            let mut card = Card {
+                ready_at: [
+                    Duration::from_secs(21),
+                    Duration::ZERO,
+                    Duration::ZERO,
+                    Duration::ZERO,
+                ],
+                fail: Some((2, kind)),
+                ..Card::default()
+            };
+            assert!(wait_closed(&mut card).unwrap_err().contains("pcm4p"));
+            assert_eq!(card.pauses, 0);
+        }
+    }
+
+    #[test]
+    fn elapsed_budget_is_not_extended_by_slow_reads_or_oversleep() {
+        let mut slow = Card {
+            slow_read: true,
+            ..Card::default()
+        };
+        assert_eq!(
+            wait_closed(&mut slow),
+            Err("PCM readiness timed out".into())
+        );
+        assert_eq!(slow.pauses, 0);
+        let mut late = Card {
+            ready_at: [Duration::from_secs(1); 4],
+            oversleep: true,
+            ..Card::default()
+        };
+        assert_eq!(
+            wait_closed(&mut late),
+            Err("PCM readiness timed out".into())
+        );
+        assert_eq!(late.pauses, 1);
+    }
+
     #[derive(Default)]
     struct Mock {
         state: [bool; 7],

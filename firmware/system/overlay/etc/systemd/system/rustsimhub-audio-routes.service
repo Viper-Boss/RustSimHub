@@ -10,7 +10,8 @@ Type=oneshot
 User=root
 ExecStart=/usr/libexec/rustsimhub/rustsimhub-audio-platform --prepare-routes
 RemainAfterExit=yes
-TimeoutStartSec=10
+# Allow the helper's bounded 20-second card-enumeration wait plus ALSA readback.
+TimeoutStartSec=30
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
