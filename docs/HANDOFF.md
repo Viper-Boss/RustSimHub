@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-10-24 P6AH：88692b4/Root音频已交付并经普通拔插；首次直接启动仍失败，PCM出现后控制设备许可尚未正确建立，随后既有恢复启动成功。严格first失败保留，second仅恢复后健康：原67短信/Owner/TLS/epoch31保持，普通数据关闭。真实systemd合成设备复现“缺节点时建许可→后来仍EPERM”，有序依赖后ENXIO（无实际硬件）；源码补Requires/After精确控制设备、JobTimeout60，尚待交付/第二次冷启动。恢复标记未重置，整体79.5%，关机搁置。
+
 2026-10-24 [P6AH音频启动等待](VALIDATION-AUDIO-READINESS-P6AH.md)源码已补：只对固定PCM状态NotFound作20秒单调截止等待，占用/无效/其他错误立即拒绝，全部明确closed后才检查profile/初始化；oneshot超时30秒、原权限和一次恢复预算保持。33项Native/严格Clippy及154项Root系统夹具（1跳过）通过，尚未固定ARM构建/部署或新冷启动；业务仍935ea9d/confirmed31。整体79.5%，关机继续搁置。
 
 2026-10-24 [P3L一键来电](VALIDATION-ONE-CLICK-INCOMING-P3L.md)真实验收通过：用户反馈两端正常、接音1.9秒；后台第二通新来电ringing-in→ACTIVE→27秒后terminated，精确目标各一次accept/hangup、双向收发播放均1200多帧、结束后六个PCM关闭。第一通未接来电使首份观测提前结束，未冒充语音证据；后续独立日志/数据库核验通过。原Owner/67条短信/Unknown保持，临时证书已移除，10010累计仍44、普通数据关闭、关机搁置。P3加1点至15.5，整体79.5%；有19帧丢弃/1次可恢复xrun，远程/长期/竞争仍缺。接下来修开机早期音频设备状态出现较晚的有界等待。

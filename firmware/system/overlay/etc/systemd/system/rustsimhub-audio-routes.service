@@ -1,9 +1,11 @@
 [Unit]
 Description=Initialize the seven fixed UFI003 voice routes without PCM
-Requires=rustsimhub-audio-drivers.service
+Requires=rustsimhub-audio-drivers.service dev-snd-controlC0.device
 Wants=alsa-restore.service
-After=rustsimhub-audio-drivers.service alsa-restore.service
+After=rustsimhub-audio-drivers.service alsa-restore.service dev-snd-controlC0.device
 Before=rustsimhub-core.service rustsimhub-media.service
+# Bound the complete job, including waiting for the device dependency.
+JobTimeoutSec=60
 
 [Service]
 Type=oneshot
