@@ -1,5 +1,7 @@
 # RustSimHub 剩余未完成清单
 
+2026-10-24 [P4D网页Wi-Fi选网](VALIDATION-WIFI-CATALOGUE-P4D.md)已交付185ec6e/confirmed43：508份固定Git文件、267项Rust、八ARM、同源Native33、12组网页及CI40022101743通过。Owner缓存选网、同区登录和隐藏SSID手输已上线，选中只填名称；40秒试连接规则保持，查询失败保留trial_id。原信任签名/设备回读、一致性备份、九份严格HTTPS资源/身份和新接口无效凭证拒绝通过；原Owner/67短信/Unknown、Root音频/单元/网络及普通数据关闭保持，同boot无恢复预算消耗，无新电话/SMS、无重启/刷分区/扫描/切网。真实Owner缓存读取、网页和切网未验收，整体79.5%、10010仍44；Windows临时证书确认未受信任。当前不需用户配合，用户休息期间继续独立配网/NAS功能准备，不安排物理/听音操作。最新私有索引wifi-catalogue-checkpoint-20261024-first.json。
+
 2026-10-24 [P4D网页Wi-Fi选网](VALIDATION-WIFI-CATALOGUE-P4D.md)源码完成：Owner最近登录下读取设备缓存，显示SSID/信号/频率/加密，显式选择只填名称；配网移入网络配置区并有同区重新登录，隐藏网络手输和原40秒确认保持。267项Rust、严格Clippy、生产检查及12组网页通过；查询失败保留trial_id，不自动扫描、连接或确认。尚未固定ARM构建/交付/实机验收，现场仍c91d7cd/confirmed40及67短信。无设备访问/新电话/SMS发送，普通数据关闭、关机搁置，整体79.5%、10010仍44；用户可休息，当前不需配合。下一步固定同源构建和正常签名应用升级。
 
 2026-10-24 [P3N签名会话续期](VALIDATION-CALL-SESSION-P3N.md)已交付c91d7cd/confirmed40：262项Rust、八ARM、同源Native33、十一组网页和CI40016691893通过。原信任签名、备份回读、受限进程、九份严格HTTPS资源/身份及新接口无效凭证拒绝通过；原Owner/67短信/Unknown、Root音频886/单元0a/网络及普通数据关闭保持，同boot无恢复预算消耗，无新电话/SMS发送、无重启/刷分区。短期凭证轮换不延长旧期限或敏感管理登录时间，声音/预连接连续性已离线验证，真实长通话尚未验收。整体79.5%、10010仍44。另只读确认NM声明AP能力，未扫描/开热点/切网，准备后续独立配网；用户休息期间不安排物理/听音操作。最新私有索引session-continuation-checkpoint-20261024-first.json。
@@ -13,7 +15,7 @@
 ## 目前已能做到
 
 - 完整Linux系统已安装，正式首次Owner认领、身份/严格HTTPS和本地业务已启用；不能重跑首次初始化器。
-- 正式业务为c91d7cd/confirmed40/schema6，原factory16和此前应用组保留；原唯一Owner、67条短信和旧Unknown操作保持。
+- 正式业务为185ec6e/confirmed43/schema6，原factory16和此前应用组保留；原唯一Owner、67条短信和旧Unknown操作保持。
 - 首页日常短信/电话已交付：可读收件箱、确认一次发送、显示实时来电/号码、拨号、接听/拒接、挂断、按键及静音。新日常页面的实际发送、听音、拒接和DTMF仍待验收，不与下方既有一键测试结果混算。
 - 保存Wi-Fi场景断电重插后能自动恢复业务；NAS USB维护IPv4未激活时，Wi-Fi的HTTPS可用。P6AH已修正初始化与设备许可顺序，最新一次普通冷启动直接成功；长期和更多启动样本仍缺。
 - 10010完整下行声音和自动挂断已通过；[P3L](VALIDATION-ONE-CLICK-INCOMING-P3L.md)一键来电、自动接听、手机与电脑两端说话、自动挂断及PCM关闭也已通过，用户接音1.9秒。10010累计44。
@@ -74,7 +76,7 @@
 
 ## 4. 无NAS首次配网与远程
 
-- [P4D网页选网](VALIDATION-WIFI-CATALOGUE-P4D.md)源码和267项Rust/12组网页通过，提供Owner缓存列表、名称/信号/频率/加密和同区重新登录；尚未ARM构建、交付或真实选网/切网验收，不等于主动扫描或首次热点已完成。
+- [P4D网页选网](VALIDATION-WIFI-CATALOGUE-P4D.md)已交付185ec6e/confirmed43，267项Rust、八ARM、Native33、12组网页及CI通过，提供Owner缓存列表、名称/信号/频率/加密和同区重新登录；尚未真实Owner缓存读取/网页/切网验收，不等于主动扫描或首次热点已完成。
 - 无保存SSID时受保护AP/首次设置、错密码、SSID变化、回退与重试。
 - [独立配网前置检查](WIFI-STANDALONE-READINESS-2026-10-24.md)只读确认NetworkManager声明AP能力；尚未开启或实测热点，不证明AP和路由器Wi-Fi可并行。
 - 设备发现、可信证书交付、多浏览器配对/撤销、USB只供电的操作流程。

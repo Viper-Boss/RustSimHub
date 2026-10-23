@@ -1,6 +1,6 @@
 # 新 Wi-Fi 配置
 
-2026-10-24补充：[P4D选网入口](VALIDATION-WIFI-CATALOGUE-P4D.md)源码已完成，尚未交付或实机验收。新增所有者`wifi_networks`只读缓存列表；不请求扫描，不改变现有连接。网页配网移动到网络配置折叠区，提供同区重新登录、名称/信号/频率/加密选择及隐藏网络手输。原试连接/确认/回退规则保持。
+2026-10-24补充：[P4D选网入口](VALIDATION-WIFI-CATALOGUE-P4D.md)已交付185ec6e/confirmed43，真实Owner读取缓存和网页/切网验收仍待进行。新增所有者`wifi_networks`只读缓存列表；不请求扫描，不改变现有连接。网页配网移动到网络配置折叠区，提供同区重新登录、名称/信号/频率/加密选择及隐藏网络手输。原试连接/确认/回退规则保持。
 
 Core显式启用 `--serve-network-provisioning SOCKET ALLOWED_UID STATE_DIR IDENTITY_DIR JOURNAL_DIR`；其他模式拒绝新配置命令。JOURNAL_DIR须是Core拥有的私有目录。现有严格HTTPS/v2授权入口承载请求，不增加任意shell、NM设置字典或AT接口。
 
