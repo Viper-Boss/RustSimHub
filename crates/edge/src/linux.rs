@@ -461,6 +461,15 @@ fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/phone.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/phone.js"),
+                )
+            }),
+        )
+        .route(
             "/sms-management.js",
             get(|| async {
                 (

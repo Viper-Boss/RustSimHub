@@ -12,6 +12,8 @@ pub struct CallSummary {
     pub reason: i32,
     pub availability: String,
     pub media_state: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number: Option<String>,
 }
 pub struct CallObservation {
     pub source: String,
@@ -86,6 +88,7 @@ fn read_summary(r: &rusqlite::Row<'_>) -> rusqlite::Result<CallSummary> {
         reason: r.get(4)?,
         availability,
         media_state: "none",
+        number: None,
     })
 }
 fn call_summary(c: &Connection, id: &str) -> Result<CallSummary> {
@@ -154,7 +157,15 @@ impl Handle {
  })
     }
     pub fn call_detail(&self, id: String) -> Result<CallSummary> {
-        self.call(move |db| call_summary(&db.connection, &id))
+        self.call(move |db| {
+            let mut detail = call_summary(&db.connection, &id)?;
+            detail.number = Some(db.connection.query_row(
+                "SELECT number FROM calls WHERE id=?",
+                [id],
+                |row| row.get(0),
+            )?);
+            Ok(detail)
+        })
     }
     pub fn call_events(&self, after: Option<InboxCursor>, limit: usize) -> Result<CallEvents> {
         self.call(move|db|{

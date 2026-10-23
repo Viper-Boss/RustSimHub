@@ -590,6 +590,92 @@ async fn prepared_cancellation_checks_owner_mode_and_never_calls_modem() {
     assert_eq!(f.data.starts.load(Ordering::SeqCst), 0);
     assert_eq!(f.data.hangups.load(Ordering::SeqCst), 0);
 }
+
+#[tokio::test]
+async fn ringing_rejection_is_single_use_and_never_acquires_persistent_ownership() {
+    for failed in [false, true] {
+        let mut f = fixture(true).await;
+        f.worker.refresh().await.unwrap();
+        let target = f.worker.live.values().next().unwrap().summary.id.clone();
+        let token = f.first.clone();
+        let id = prepare(
+            &mut f.worker,
+            &token,
+            "reject",
+            CallAction::Hangup,
+            Some(target),
+            "",
+        )
+        .await;
+        if failed {
+            f.data.mode.store(4, Ordering::SeqCst);
+        }
+        let result = submit(&mut f.worker, &token, &id, None).await.unwrap();
+        assert_eq!(
+            result["operation"]["state"],
+            if failed { "unknown" } else { "submitted" }
+        );
+        assert!(result["lease"].is_null() && f.worker.owned.is_none());
+        submit(&mut f.worker, &token, &id, None).await.unwrap();
+        f.worker.advance_ms += 31_000;
+        f.worker.expire().await;
+        assert_eq!(f.data.hangups.load(Ordering::SeqCst), 1);
+        assert_eq!(f.data.accepts.load(Ordering::SeqCst), 0);
+        assert_eq!(f.data.creates.load(Ordering::SeqCst), 0);
+    }
+}
+
+#[tokio::test]
+async fn ringing_rejection_cannot_take_an_answered_outgoing_or_other_owned_call() {
+    for (state, direction) in [(4, 1), (3, 2), (6, 1), (7, 1)] {
+        let mut f = fixture(true).await;
+        f.worker.refresh().await.unwrap();
+        let target = f.worker.live.values().next().unwrap().summary.id.clone();
+        let token = f.first.clone();
+        let id = prepare(
+            &mut f.worker,
+            &token,
+            "changed-rejection",
+            CallAction::Hangup,
+            Some(target),
+            "",
+        )
+        .await;
+        f.data.state.store(state, Ordering::SeqCst);
+        f.data.direction.store(direction, Ordering::SeqCst);
+        assert!(submit(&mut f.worker, &token, &id, None).await.is_err());
+        assert_eq!(f.data.hangups.load(Ordering::SeqCst), 0);
+        assert!(f.worker.owned.is_none());
+    }
+    let mut f = fixture(true).await;
+    f.worker.refresh().await.unwrap();
+    let target = f.worker.live.values().next().unwrap().summary.id.clone();
+    let first = f.first.clone();
+    let second = f.second.clone();
+    let rejection = prepare(
+        &mut f.worker,
+        &second,
+        "rejection",
+        CallAction::Hangup,
+        Some(target.clone()),
+        "",
+    )
+    .await;
+    let answer = prepare(
+        &mut f.worker,
+        &first,
+        "answer",
+        CallAction::Accept,
+        Some(target),
+        "",
+    )
+    .await;
+    submit(&mut f.worker, &first, &answer, None).await.unwrap();
+    assert!(submit(&mut f.worker, &second, &rejection, None)
+        .await
+        .is_err());
+    assert_eq!(f.data.hangups.load(Ordering::SeqCst), 0);
+}
 #[tokio::test]
 async fn replay_of_cancelled_hangup_cannot_revoke_current_media() {
     let mut f = fixture(false).await;

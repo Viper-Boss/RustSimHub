@@ -128,6 +128,12 @@ fn calls_preserve_history_without_inventing_ended_after_disconnect_or_restart() 
         h.call_detail(c.id.clone()).unwrap().state,
         rustsimhub_domain::CallState::Active
     );
+    assert_eq!(
+        h.call_detail(c.id.clone()).unwrap().number.as_deref(),
+        Some(observation("unused", 4).number.as_str())
+    );
+    let page = serde_json::to_value(h.calls(None, 32).unwrap()).unwrap();
+    assert!(page["calls"][0].get("number").is_none());
     assert!(h
         .observe_call(b.clone(), observation("stale", 7), || false)
         .is_err());

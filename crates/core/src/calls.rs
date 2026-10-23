@@ -788,7 +788,19 @@ impl Worker {
         {
             return Err("stale_operation");
         }
-        if matches!(intent.action, CallAction::Dial | CallAction::Accept) {
+        // Rejecting a still-unowned ringing incoming call uses the existing
+        // Hangup intent, without granting general lease-free hangup authority.
+        // Its temporary ownership is released on every terminal path below;
+        // an uncertain rejection must never schedule another cleanup hangup.
+        let rejecting = intent.action == CallAction::Hangup
+            && receipt.is_none()
+            && self.live.values().any(|l| {
+                intent.operation.call_id.as_deref() == Some(&l.summary.id)
+                    && l.summary.direction == 1
+                    && l.summary.modem_state == 3
+            });
+        let acquiring = matches!(intent.action, CallAction::Dial | CallAction::Accept) || rejecting;
+        if acquiring {
             if self.owned.is_some() {
                 return Err("call_owned");
             }
@@ -806,7 +818,7 @@ impl Worker {
                 .ok_or("target_missing")?;
             self.validate_lease(p, receipt.ok_or("lease_required")?, target)?;
         }
-        let grant = if matches!(intent.action, CallAction::Dial | CallAction::Accept) {
+        let grant = if acquiring {
             Some(
                 self.book
                     .acquire(p.id.clone(), self.now(), false)
@@ -896,6 +908,7 @@ impl Worker {
                 .ok_or("call_unavailable")?;
             let data = read_call(&b, &l.path).await?;
             if !intent.action.allowed(data.state, data.direction)
+                || rejecting && (data.state != 3 || data.direction != 1)
                 || intent.action == CallAction::Dial && data.number != intent.payload
                 || !b.call_valid(l.path.as_str(), l.revision)
                 || !b.fresh().await
@@ -935,6 +948,9 @@ impl Worker {
         .await;
         if permit.is_err() {
             self.finish(id, p, SmsState::Cancelled).await;
+            if rejecting {
+                self.release_rejection(id, p);
+            }
             return Ok(());
         }
         let l = self
@@ -954,6 +970,16 @@ impl Worker {
                 .map_err(|_| "lease_expired")?;
             if !b.call_valid(path.as_str(), revision) || !b.fresh().await {
                 return Err("call_changed");
+            }
+            if rejecting {
+                let current = read_call(&b, &path).await?;
+                if current.state != 3
+                    || current.direction != 1
+                    || !b.call_valid(path.as_str(), revision)
+                    || !b.fresh().await
+                {
+                    return Err("call_changed");
+                }
             }
             self.principal(token, Scope::CallsControl).await?;
             let proxy = CallProxy::builder(&b.connection)
@@ -986,7 +1012,21 @@ impl Worker {
         {
             self.finish(id, p, SmsState::Unknown).await;
         }
+        if rejecting {
+            self.release_rejection(id, p);
+        }
         Ok(())
+    }
+    fn release_rejection(&mut self, id: &str, p: &Principal) {
+        if self
+            .owned
+            .as_ref()
+            .is_some_and(|o| o.origin == id && o.principal == *p)
+        {
+            if let Some(o) = self.owned.take() {
+                let _ = self.book.release(&o.grant, &p.id, self.now());
+            }
+        }
     }
     async fn confirm(
         &self,
