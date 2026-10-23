@@ -46,6 +46,8 @@ jobs:
         run: node tools/test-web-indicator.mjs
       - name: Web network diagnostics and monthly policy
         run: node tools/test-web-network.mjs
+      - name: Web Wi-Fi catalogue and explicit selection
+        run: node tools/test-web-wifi.mjs
       - name: Web event catch-up and retry lifecycle
         run: node tools/test-web-event-sync.mjs
       - name: Web SMS recycle bin and uncertain writes

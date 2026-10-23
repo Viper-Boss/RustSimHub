@@ -89,6 +89,9 @@ pub enum AuthCommand {
     NetworkStatus {
         token: String,
     },
+    WifiNetworks {
+        token: String,
+    },
     NetworkDiagnostics {
         token: String,
     },
@@ -665,6 +668,7 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         | AuthCommand::Capabilities { token }
         | AuthCommand::LineStatus { token }
         | AuthCommand::NetworkStatus { token }
+        | AuthCommand::WifiNetworks { token }
         | AuthCommand::NetworkDiagnostics { token }
         | AuthCommand::SmsManagementStatus { token }
         | AuthCommand::OpenPairing { token }
@@ -728,6 +732,21 @@ pub fn wifi_credentials_valid(ssid: &str, passphrase: &str) -> bool {
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn wifi_catalogue_cannot_request_scan_select_devices_or_read_secrets() {
+        let valid = serde_json::json!({"protocol":2,"id":"wifi","command":{"op":"wifi_networks","token":"a".repeat(64)}});
+        assert!(super::parse_auth_request(&serde_json::to_vec(&valid).unwrap()).is_ok());
+        for (key, value) in [
+            ("token", serde_json::json!("short")),
+            ("scan", serde_json::json!(true)),
+            ("device", serde_json::json!("/foreign/1")),
+            ("secrets", serde_json::json!(true)),
+        ] {
+            let mut bad = valid.clone();
+            bad["command"][key] = value;
+            assert!(super::parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
+        }
+    }
     #[test]
     fn sms_management_is_bounded_and_cannot_override_owner_or_modem_actions() {
         for op in ["delete_sms", "restore_sms", "deleted_sms_detail"] {

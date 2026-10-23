@@ -22,6 +22,7 @@ function pageLoad(kind,reset){
 }
 function invalidatePage(kind){pageLoads[kind].id++;pageLoads[kind].pending=false;}
 let wifiTrial=null;
+let wifiCatalogueGeneration=0;
 let audioReady=false;
 let configurationOpen=false;
 function configurationVisible(){return Array.from(document.querySelectorAll('details[data-configuration]')).some(panel=>panel.open);}
@@ -129,6 +130,7 @@ async function pair(){
  notice('配对申请已提交。请由设备所有者核对浏览器公钥、权限和申请 ID 后批准：'+result.pairing_id);
 }
 async function login(){
+ clearWifiNetworks();
  sessionKeeper.reset();void audioLink.stop();const epoch=viewEpoch;token=null;lease=null;showAudio();const c=await api({op:'challenge',public_key:Array.from(publicKey)},epoch);const signature=await proof(c,'login',undefined,epoch);current(epoch);
  const r=await api({op:'authenticate',challenge_id:c.id,signature},epoch);current(epoch);if(!/^[a-f0-9]{64}$/.test(r.token))throw Error('登录响应无效');
  sessionKeeper.start(r.token,r.expires_in_seconds);token=r.token;configurationOpen=configurationVisible();void configurationIndicator.set(configurationOpen&&!document.hidden);networkPanel.start();dailyPhone.start();notice('已登录；会话15分钟，通话期间验证身份后续期');await refresh();
@@ -156,10 +158,35 @@ async function callsPage(reset=false){
   callsCursor=page.cursor;$('more-calls').disabled=page.calls.length<16;
  }finally{load.finish();}
 }
-function clearWifi(){wifiTrial=null;$('wifi-ssid').value='';$('wifi-passphrase').value='';$('wifi-state').textContent='没有试连接';for(const id of ['wifi-status','wifi-confirm','wifi-cancel'])$(id).disabled=true;}
+function clearWifiNetworks(){wifiCatalogueGeneration++;$('wifi-networks').replaceChildren();$('wifi-networks-state').textContent='点击读取设备已发现的网络，也可手输网络名。';$('wifi-networks-refresh').disabled=false;}
+function clearWifi(){clearWifiNetworks();wifiTrial=null;$('wifi-ssid').value='';$('wifi-passphrase').value='';$('wifi-state').textContent='没有试连接';for(const id of ['wifi-status','wifi-confirm','wifi-cancel'])$(id).disabled=true;}
+async function loadWifiNetworks(){
+ const generation=++wifiCatalogueGeneration;
+ $('wifi-networks').replaceChildren();$('wifi-networks-refresh').disabled=true;$('wifi-networks-state').textContent='正在读取设备已发现的网络…';
+ try{
+  const result=await auth({op:'wifi_networks'});if(generation!==wifiCatalogueGeneration)return;
+  if(result?.schema!==1||result.source!=='networkmanager_cache'||result.scan_requested!==false||result.hardware_mutations!==false||typeof result.wifi_enabled!=='boolean'||typeof result.scan_cache_known!=='boolean'||typeof result.truncated!=='boolean'||!Number.isInteger(result.omitted)||result.omitted<0||result.omitted>128||!Array.isArray(result.networks)||result.networks.length>32)throw Error('网络列表格式无效');
+  // Validate the whole finite catalogue before creating any selection callbacks.
+  for(const n of result.networks){
+   if(typeof n.ssid!=='string'||!n.ssid||new TextEncoder().encode(n.ssid).length>32||/[\u0000-\u001f\u007f-\u009f]/u.test(n.ssid)||!Number.isInteger(n.strength)||n.strength<0||n.strength>100||!Number.isInteger(n.frequency_mhz)||n.frequency_mhz<2000||n.frequency_mhz>8000||!['wpa2_personal','open','unsupported'].includes(n.security)||typeof n.connected!=='boolean'||n.selectable!==(n.security==='wpa2_personal'))throw Error('网络条目格式无效');
+  }
+  for(const n of result.networks){
+   const item=document.createElement('div'),label=document.createElement('span'),select=document.createElement('button');item.className='wifi-network';
+   label.textContent=`${n.ssid}${n.connected?' · 当前连接':''}\n信号 ${n.strength}% · ${n.frequency_mhz} MHz · ${{wpa2_personal:'WPA2 个人网络',open:'开放网络，暂不支持',unsupported:'暂不支持此加密方式'}[n.security]}`;
+   select.textContent='选择';select.disabled=!n.selectable;select.onclick=()=>act(()=>{
+    if(generation!==wifiCatalogueGeneration||!token)throw Error('网络列表已变化，请重新读取');
+    if(!n.selectable)throw Error('暂不支持此网络的加密方式，请选择 WPA2 个人网络');
+    if(wifiTrial&&!['saved','rolled_back'].includes(wifiTrial.state))throw Error('请先查询或结束当前试连接');
+    $('wifi-ssid').value=n.ssid;$('wifi-passphrase').value='';$('wifi-passphrase').focus();$('wifi-networks-state').textContent=`已选择 ${n.ssid}，填写密码后点“试连接”；尚未切换网络。`;
+   });item.append(label,select);$('wifi-networks').append(item);
+  }
+  $('wifi-networks-state').textContent=!result.wifi_enabled?'设备 Wi-Fi 当前关闭；此操作不会开启无线。':result.networks.length?`已读取设备缓存，共 ${result.networks.length} 项${result.truncated?'（仅显示前32项）':''}。没有发起新扫描；选择后仍需试连接并确认。`:result.scan_cache_known?'缓存中没有可显示的网络，请手输网络名。':'设备暂无扫描缓存，请手输网络名。';
+ }catch(error){if(generation===wifiCatalogueGeneration){$('wifi-networks').replaceChildren();$('wifi-networks-state').textContent='未能读取列表，请在本区重新登录后重试，或手输网络名。';}throw error;}
+ finally{if(generation===wifiCatalogueGeneration)$('wifi-networks-refresh').disabled=false;}
+}
 function showWifi(result){wifiTrial=result;const terminal=['saved','rolled_back','unknown'].includes(result.state);const names={starting:'正在开始',connecting:'正在连接',ready:'已连接，等待确认',saving:'正在保存',saved:'已保存',rolled_back:'已恢复原连接',unknown:'结果不明，请检查设备；不会自动重试'};$('wifi-state').textContent=`${names[result.state]||'未知状态'} · 剩余 ${result.expires_in_seconds} 秒`;$('wifi-status').disabled=!token;$('wifi-confirm').disabled=!token||result.state!=='ready';$('wifi-cancel').disabled=!token||terminal;}
 async function beginWifi(){if(wifiTrial&&!['saved','rolled_back','unknown'].includes(wifiTrial.state))throw Error('请先查询或结束当前试连接');const ssid=$('wifi-ssid').value,passphrase=$('wifi-passphrase').value;if(!ssid||new TextEncoder().encode(ssid).length>32)throw Error('网络名称须为1至32字节');$('wifi-passphrase').value='';showWifi(await auth({op:'wifi_begin',idempotency_key:crypto.randomUUID(),ssid,passphrase}));}
-async function wifiAction(op){if(!wifiTrial)throw Error('没有当前试连接');try{showWifi(await auth({op,trial_id:wifiTrial.trial_id}));if(op==='wifi_confirm'&&wifiTrial.state==='saved'){configurationOpen=false;void configurationIndicator.set(false);}}catch(error){clearWifi();throw error;}}
+async function wifiAction(op){if(!wifiTrial)throw Error('没有当前试连接');try{showWifi(await auth({op,trial_id:wifiTrial.trial_id}));if(op==='wifi_confirm'&&wifiTrial.state==='saved'){configurationOpen=false;void configurationIndicator.set(false);}}catch(error){if(token){$('wifi-confirm').disabled=true;$('wifi-state').textContent='本次查询未确认；保留试连接编号，请重新查询，设备计时回退仍有效。';}throw error;}}
 function clearHistory(){historyView++;historyPreview++;invalidatePage('history');historyCursor=null;$('history-list').replaceChildren();$('history-detail').textContent='';$('more-history').disabled=true;}
 function historyTypes(){clearHistory();$('history-entity').replaceChildren();const source=historySources.find(s=>s.source===$('history-source').value);for(const entity of source?.entities||[]){const option=document.createElement('option');option.value=entity;option.textContent={sms:'短信',calls:'通话',contacts:'联系人'}[entity]||'未知类型';$('history-entity').append(option);}}
 async function historyPage(reset=false){
@@ -255,7 +282,7 @@ const smsPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{smsManager.
 const phonePreviousLogout=$('logout').onclick;$('logout').onclick=()=>{dailyPhone.reset();phonePreviousLogout();};
 const sessionPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{sessionKeeper.reset();sessionPreviousLogout();};
 bind('refresh-history',loadHistory);bind('more-history',()=>historyPage());$('history-source').onchange=()=>{historyTypes();return act(()=>historyPage(true));};$('history-entity').onchange=()=>{clearHistory();return act(()=>historyPage(true));};
-bind('wifi-begin',beginWifi);bind('wifi-status',()=>wifiAction('wifi_status'));bind('wifi-confirm',()=>wifiAction('wifi_confirm'));bind('wifi-cancel',()=>wifiAction('wifi_cancel'));const previousLogout=$('logout').onclick;$('logout').onclick=()=>{clearWifi();$('wifi-section').hidden=true;previousLogout();};
+bind('wifi-login',login);bind('wifi-networks-refresh',loadWifiNetworks);bind('wifi-begin',beginWifi);bind('wifi-status',()=>wifiAction('wifi_status'));bind('wifi-confirm',()=>wifiAction('wifi_confirm'));bind('wifi-cancel',()=>wifiAction('wifi_cancel'));const previousLogout=$('logout').onclick;$('logout').onclick=()=>{clearWifi();$('wifi-section').hidden=true;previousLogout();};
 bind('more-inbox',()=>inboxPage());bind('more-calls',()=>callsPage());bind('prepare-sms',()=>prepare('sms','send'));for(const action of ['dial','accept','hangup','dtmf'])bind('prepare-'+action,()=>prepare('call',action));bind('submit',submit);bind('query',query);bind('clear',async()=>{if(!pending||!['submitted','cancelled'].includes(pending.state))throw Error('当前结果必须保留查询');pending=null;await save('pending',null);showPending();});
 bind('archive-ended-call',async()=>{const epoch=viewEpoch,old=pending;await archiveEndedOperation({pending:old,request:command=>auth(command),archivePending,setPending:async value=>{current(epoch);await save('pending',value);current(epoch);pending=value;},current:()=>{current(epoch);if(pending?.id!==old?.id&&pending!==null)throw Error('当前操作已变化');}});showPending();notice('已核对呼叫结束并保存不确定操作记录；未重拨，设备原记录保持');});
 setInterval(()=>{if(token&&lease&&!busy&&!callTest.running&&!dailyPhone.managing)act(async()=>{try{const r=await auth({op:'renew_call',lease});lease=r.lease;$('lease').textContent='控制租约已续期';showAudio();}catch(e){lease=null;void audioLink.stop();showAudio();$('lease').textContent='控制租约已失效；核心清理正在处理';throw e;}});},10000);

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Read-only NetworkManager snapshot. No shell, settings secrets, scan or activation.
+pub(crate) mod wifi;
 use rustsimhub_auth::{Auth, Error};
 use rustsimhub_policy::{Principal, Scope};
 use serde::Serialize;

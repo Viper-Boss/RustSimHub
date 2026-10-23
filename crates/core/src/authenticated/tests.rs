@@ -3,6 +3,24 @@ use super::*;
 use ed25519_dalek::{Signer, SigningKey};
 
 #[tokio::test]
+async fn wifi_catalogue_rejects_unsigned_session_through_real_ipc_before_bus_access() {
+    let d = directory();
+    let i = directory();
+    let store = Store::open(d.path()).unwrap();
+    let auth = Arc::new(Mutex::new(
+        Auth::new(Identity::open(i.path()).unwrap(), store.handle()).unwrap(),
+    ));
+    let result = round_trip(
+        AuthCommand::WifiNetworks {
+            token: "0".repeat(64),
+        },
+        auth,
+    )
+    .await;
+    assert!(result.get("error").is_some());
+}
+
+#[tokio::test]
 async fn signed_session_continuation_round_trip_rotates_with_existing_overlap() {
     let d = directory();
     let i = directory();
