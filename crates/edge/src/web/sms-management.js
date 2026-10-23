@@ -1,4 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+export function smsListText(sms){
+ const d=sms?.display;
+ const prefix=d&&typeof d.sender==='string'&&typeof d.timestamp==='string'&&typeof d.preview==='string'
+  ?`${d.sender.slice(0,256)||'未知发件人'}\n${d.timestamp.slice(0,128)||'时间未知'}\n${d.preview.slice(0,384)|| (sms.binary?'二进制短信':'（正文为空）')}`
+  :'短信 · 点击查看内容';
+ return prefix+(sms.binary?'\n二进制短信':'')+(sms.duplicate_candidate?'\n可能重复，待核对':'');
+}
+export function smsDetailText(detail){
+ if(typeof detail?.sender!=='string'||detail.sender.length>256||typeof detail.timestamp!=='string'||detail.timestamp.length>128||typeof detail.text!=='string'||detail.text.length>4096||!Array.isArray(detail.data)||detail.data.length>4096||detail.data.some(v=>!Number.isInteger(v)||v<0||v>255))throw Error('短信详情暂不可显示');
+ return `来自：${detail.sender}\n时间：${detail.timestamp||'未知'}\n\n${detail.text||'（没有文字正文）'}`+(detail.data.length?`\n\n二进制内容：${detail.data.length} 字节`:'');
+}
 export class SmsManager {
  constructor({document,request,reloadInbox,confirm}){
   this.doc=document;this.request=request;this.reloadInbox=reloadInbox;this.confirm=confirm;this.$=id=>document.getElementById(id);this.generation=0;
@@ -18,14 +29,14 @@ export class SmsManager {
    if(!Array.isArray(page.messages)||page.messages.length>16||!page.cursor||typeof page.cursor.seq!=='string'||typeof page.cursor.db_epoch!=='string')throw Error('回收站响应无效');
    const rows=[],buttons=[];
    for(const sms of page.messages){if(typeof sms.id!=='string'||sms.id.length!==36)throw Error('回收站记录无效');
-    const row=this.doc.createElement('div'),label=this.doc.createElement('span'),view=this.doc.createElement('button'),restore=this.doc.createElement('button');row.className='row';label.textContent=`${sms.id} · SIM 代次 ${sms.line}`;view.textContent='查看';restore.textContent='恢复';view.onclick=()=>void this.showDeleted(sms.id);restore.onclick=()=>void this.restore(sms.id);row.append(label,view,restore);rows.push(row);buttons.push(restore);
+    const row=this.doc.createElement('div'),label=this.doc.createElement('span'),view=this.doc.createElement('button'),restore=this.doc.createElement('button');row.className='row sms-row';label.textContent=smsListText(sms);view.textContent='查看';restore.textContent='恢复';view.onclick=()=>void this.showDeleted(sms.id);restore.onclick=()=>void this.restore(sms.id);row.append(label,view,restore);rows.push(row);buttons.push(restore);
    }
    if(reset){this.$('trash-list').replaceChildren();this.$('trash-detail').textContent='';this.preview++;this.restoreButtons.clear();}
    this.$('trash-list').append(...rows);for(const button of buttons)this.restoreButtons.add(button);this.cursor=page.cursor;this.$('more-trash').disabled=page.messages.length<16;this.$('sms-management-state').textContent=page.messages.length?'回收站已更新':'本页没有已删除的短信';return true;
   }catch(error){if(g===this.generation)this.$('sms-management-state').textContent=`回收站读取失败：${error.message||'请重新登录后刷新'}`;return false;}
   finally{if(this.loading===marker){this.loading=null;this.update();}}
  }
- async showDeleted(id){const g=this.generation,preview=++this.preview;try{const detail=await this.request({op:'deleted_sms_detail',sms_id:id});this.current(g);if(preview===this.preview)this.$('trash-detail').textContent=JSON.stringify(detail,null,2);}catch(error){if(g===this.generation&&preview===this.preview){this.$('trash-detail').textContent='';this.$('sms-management-state').textContent=error.message||'回收站详情暂不可用';}}}
+ async showDeleted(id){const g=this.generation,preview=++this.preview;try{const detail=await this.request({op:'deleted_sms_detail',sms_id:id});this.current(g);if(preview===this.preview)this.$('trash-detail').textContent=smsDetailText(detail);}catch(error){if(g===this.generation&&preview===this.preview){this.$('trash-detail').textContent='';this.$('sms-management-state').textContent=error.message||'回收站详情暂不可用';}}}
  async deleteSelected(){const id=this.selected;if(!this.available||!id||this.active||this.loading||this.uncertain)return;if(!this.confirm('将这条短信移到棒子本地回收站？其他客户端也会隐藏它，SIM 存储保持不变。'))return;await this.change(id,true);}
  async restore(id){if(!this.available||this.active||this.loading||this.uncertain)return;if(!this.confirm('恢复这条短信，让其他客户端重新可见？'))return;await this.change(id,false);}
  async change(id,deleted){

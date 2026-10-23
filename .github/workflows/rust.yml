@@ -50,6 +50,8 @@ jobs:
         run: node tools/test-web-event-sync.mjs
       - name: Web SMS recycle bin and uncertain writes
         run: node tools/test-web-sms-management.mjs
+      - name: Web daily SMS and durable submission
+        run: node tools/test-web-daily-sms.mjs
       - name: PON diagnostic reference and error paths
         run: python3 tools/test-pon-dump-review.py
       - name: Read-only recovery helper fixtures

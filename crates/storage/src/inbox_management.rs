@@ -76,10 +76,10 @@ impl Handle {
             owner(&db.connection, &principal)?;
             let (epoch, mut seq) = super::inbox::position(&db.connection, after.as_ref(), "inbox", limit)?;
             let mut statement = db.connection.prepare(
-                "SELECT id,line_epoch,length(data)>0,duplicate_candidate,i.seq FROM inbox i JOIN inbox_tombstones t ON t.sms_id=i.id WHERE i.seq>? ORDER BY i.seq LIMIT ?",
+                "SELECT id,line_epoch,length(data)>0,duplicate_candidate,i.seq,sender,timestamp,substr(body,1,96) FROM inbox i JOIN inbox_tombstones t ON t.sms_id=i.id WHERE i.seq>? ORDER BY i.seq LIMIT ?",
             )?;
             let rows = statement.query_map(params![seq, limit as i64], |r| {
-                Ok((super::inbox::summary(r)?, r.get::<_, i64>(4)?))
+                Ok((super::inbox::list_summary(r)?, r.get::<_, i64>(4)?))
             })?;
             let mut messages = Vec::new();
             for row in rows {

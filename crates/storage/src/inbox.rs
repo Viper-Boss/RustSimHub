@@ -47,6 +47,20 @@ pub struct SmsSummary {
     pub line: LineEpoch,
     pub binary: bool,
     pub duplicate_candidate: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display: Option<SmsDisplay>,
+}
+/// Bounded list presentation; canonical full content remains in SmsDetail.
+#[derive(Clone, Serialize)]
+pub struct SmsDisplay {
+    pub sender: String,
+    pub timestamp: String,
+    pub preview: String,
+}
+impl std::fmt::Debug for SmsDisplay {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("SmsDisplay([redacted])")
+    }
 }
 // No Debug: reading a message must not accidentally log its contents.
 #[derive(Serialize)]
@@ -126,7 +140,17 @@ pub(super) fn summary(r: &rusqlite::Row<'_>) -> rusqlite::Result<SmsSummary> {
         line: LineEpoch(r.get::<_, i64>(1)? as u64),
         binary: r.get(2)?,
         duplicate_candidate: r.get(3)?,
+        display: None,
     })
+}
+pub(super) fn list_summary(r: &rusqlite::Row<'_>) -> rusqlite::Result<SmsSummary> {
+    let mut value = summary(r)?;
+    value.display = Some(SmsDisplay {
+        sender: r.get::<_, String>(5)?.chars().take(64).collect(),
+        timestamp: r.get::<_, String>(6)?.chars().take(48).collect(),
+        preview: r.get(7)?,
+    });
+    Ok(value)
 }
 impl Handle {
     /// Restore source identities only within the same verified bus/MM/SIM line epoch.
@@ -186,8 +210,8 @@ impl Handle {
     pub fn inbox(&self, after: Option<InboxCursor>, limit: usize) -> Result<InboxPage> {
         self.call(move |db| {
         let (epoch, mut seq)=position(&db.connection,after.as_ref(),"inbox",limit)?;
-        let mut stmt=db.connection.prepare("SELECT id,line_epoch,length(data)>0,duplicate_candidate,seq FROM inbox WHERE seq>? AND NOT EXISTS(SELECT 1 FROM inbox_tombstones t WHERE t.sms_id=inbox.id) ORDER BY seq LIMIT ?")?;
-        let rows=stmt.query_map(params![seq,limit as i64],|r|Ok((summary(r)?,r.get::<_,i64>(4)?)))?;
+        let mut stmt=db.connection.prepare("SELECT id,line_epoch,length(data)>0,duplicate_candidate,seq,sender,timestamp,substr(body,1,96) FROM inbox WHERE seq>? AND NOT EXISTS(SELECT 1 FROM inbox_tombstones t WHERE t.sms_id=inbox.id) ORDER BY seq LIMIT ?")?;
+        let rows=stmt.query_map(params![seq,limit as i64],|r|Ok((list_summary(r)?,r.get::<_,i64>(4)?)))?;
         let mut messages=Vec::new(); for row in rows {let (s,n)=row?; messages.push(s);seq=n;}
         Ok(InboxPage{messages,cursor:InboxCursor{db_epoch:epoch,seq:seq.to_string()}})
     })
@@ -311,6 +335,7 @@ impl Database {
             line: input.line,
             binary: !input.data.is_empty(),
             duplicate_candidate: candidate,
+            display: None,
         })
     }
 }

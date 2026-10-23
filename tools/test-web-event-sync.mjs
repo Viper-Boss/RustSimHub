@@ -7,7 +7,7 @@ import {webcrypto} from 'node:crypto';
 const bytes=await readFile(new URL('../crates/edge/src/web/event-sync.js',import.meta.url));
 const {EventSync}=await import('data:text/javascript;base64,'+bytes.toString('base64'));
 const smsBytes=await readFile(new URL('../crates/edge/src/web/sms-management.js',import.meta.url));
-const {SmsManager}=await import('data:text/javascript;base64,'+smsBytes.toString('base64'));
+const {SmsManager,smsListText,smsDetailText}=await import('data:text/javascript;base64,'+smsBytes.toString('base64'));
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};};
 const turn=()=>new Promise(r=>setImmediate(r));
 const epoch='00000000-0000-4000-8000-000000000001';
@@ -93,7 +93,7 @@ function browserFixture(respond){
  const elements=new Map(),sent=[],testStarts=[];
  const document={hidden:false,getElementById(id){if(!elements.has(id))elements.set(id,new Element(['history-source','history-entity','call-id'].includes(id)?'select':''));return elements.get(id);},createElement:tag=>new Element(tag),querySelectorAll:()=>[],addEventListener(){}};
  const context={document,crypto:webcrypto,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},
-  indexedDB:{open:()=>({})},EventSync,SmsManager,
+  indexedDB:{open:()=>({})},EventSync,SmsManager,smsListText,smsDetailText,
   AudioLink:class {constructor(){this.state='closed';}async stop(){}},
   ConfigurationIndicator:class {async set(){}},
   CallTest:class {async start(mode='outgoing'){testStarts.push(mode);}async stop(){}},NetworkPanel:class {start(){}stop(){}},

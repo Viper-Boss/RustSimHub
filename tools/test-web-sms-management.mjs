@@ -42,10 +42,10 @@ for(const op of ['sms_management_status','deleted_inbox','deleted_sms_detail','d
 }
 {
  const f=fixture(async c=>c.op==='sms_management_status'?{available:true}:page(Array.from({length:16},()=>({id,line:2})),'19'));await f.manager.permissions();await f.manager.loadTrash(true);assert.equal(f.$('trash-list').children.length,16);assert.equal(f.$('more-trash').disabled,false);await f.manager.loadTrash();assert.equal(f.commands[2].after.seq,'19');assert.equal(f.$('trash-list').children.length,32);
- const row=f.$('trash-list').children[0];assert.equal(row.children[0].textContent,`${id} · SIM 代次 2`);assert.equal(row.children[2].textContent,'恢复');
+ const row=f.$('trash-list').children[0];assert.equal(row.children[0].textContent,'短信 · 点击查看内容');assert.equal(row.children[2].textContent,'恢复');
 }
 {
- const one=deferred(),two=deferred();let n=0;const f=fixture(async c=>c.op==='sms_management_status'?{available:true}:++n===1?one.promise:two.promise);await f.manager.permissions();const a=f.manager.showDeleted(id),b=f.manager.showDeleted(other);two.resolve({text:'latest synthetic'});await b;one.resolve({text:'stale synthetic'});await a;assert.match(f.$('trash-detail').textContent,/latest/);assert.doesNotMatch(f.$('trash-detail').textContent,/stale/);
+ const one=deferred(),two=deferred();let n=0;const f=fixture(async c=>c.op==='sms_management_status'?{available:true}:++n===1?one.promise:two.promise);await f.manager.permissions();const a=f.manager.showDeleted(id),b=f.manager.showDeleted(other);two.resolve({sender:'synthetic',timestamp:'time',text:'latest synthetic',data:[]});await b;one.resolve({sender:'synthetic',timestamp:'time',text:'stale synthetic',data:[]});await a;assert.match(f.$('trash-detail').textContent,/latest/);assert.doesNotMatch(f.$('trash-detail').textContent,/stale/);
 }
 {
  const gate=deferred();const f=fixture(async c=>c.op==='sms_management_status'?{available:true}:gate.promise);await f.manager.permissions();f.manager.select(id);const load=f.manager.loadTrash();await f.manager.deleteSelected();assert.equal(f.commands.length,2);assert.equal(f.$('delete-sms').disabled,true);gate.resolve(page());await load;assert.equal(f.$('delete-sms').disabled,false);

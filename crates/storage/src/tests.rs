@@ -193,6 +193,60 @@ fn inbox_bounds_conflicts_and_future_cursors_fail_closed() {
 }
 
 #[test]
+fn daily_inbox_display_is_bounded_unicode_and_never_changes_canonical_content() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let h = s.handle();
+    let owner = h.bootstrap_owner([93; 32]).unwrap();
+    let line = observed(&h, "daily-fixture", 1, LineStatus::Ready);
+    let body = "合成🙂".repeat(200);
+    let mut message = inbound(line, "daily/1");
+    message.sender = "synthetic-private-sender".into();
+    message.text = body.clone();
+    let saved = h.receive_sms(message).unwrap();
+    assert!(saved.display.is_none());
+    let page = h.inbox(None, 32).unwrap();
+    let display = page.messages[0].display.as_ref().unwrap();
+    assert_eq!(display.sender, "synthetic-private-sender");
+    assert_eq!(display.preview, body.chars().take(96).collect::<String>());
+    assert!(!format!("{page:?}").contains("synthetic-private-sender"));
+    assert!(!format!("{page:?}").contains("合成"));
+    assert_eq!(h.sms_detail(saved.id.clone()).unwrap().text, body);
+    h.set_sms_deleted(owner.clone(), saved.id.clone(), true)
+        .unwrap();
+    assert!(h.inbox(None, 32).unwrap().messages.is_empty());
+    let deleted = h.deleted_inbox(owner.clone(), None, 32).unwrap();
+    assert_eq!(
+        deleted.messages[0].display.as_ref().unwrap().preview,
+        display.preview
+    );
+    assert_eq!(h.deleted_sms_detail(owner, saved.id).unwrap().text, body);
+}
+
+#[test]
+fn maximum_daily_inbox_page_fits_ipc_even_with_json_escaping() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let h = s.handle();
+    let line = observed(&h, "daily-fixture", 1, LineStatus::Ready);
+    for index in 0..32 {
+        let mut message = inbound(line, &format!("escaped/{index}"));
+        message.sender = "\u{1}".repeat(256);
+        message.timestamp = "\u{1}".repeat(128);
+        message.text = "\u{1}".repeat(4096);
+        h.receive_sms(message).unwrap();
+    }
+    let page = h.inbox(None, 32).unwrap();
+    assert_eq!(page.messages.len(), 32);
+    let encoded = serde_json::to_vec(&page).unwrap();
+    assert!(
+        encoded.len() + 1024 < 65_536,
+        "Leave room for the IPC envelope"
+    );
+    assert_eq!(page.messages[0].display.as_ref().unwrap().preview.len(), 96);
+}
+
+#[test]
 fn recovery_commit_failure_cannot_activate_owner_or_clients() {
     let d = directory();
     let s = Store::open(d.path()).unwrap();
