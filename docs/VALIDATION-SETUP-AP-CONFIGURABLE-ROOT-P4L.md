@@ -1,5 +1,7 @@
 # P4L Root热点试连请求与执行循环
 
+精确源码f255136的[CI40068753797](https://github.com/Viper-Boss/RustSimHub/actions/runs/40068753797)两个任务全部成功，含真实材料CLI步骤；私有完整证据configurable-ap-ci-20261024-first.json。候选未部署。
+
 最终本地345项工作区Rust（setup-ap 57项）、严格Clippy、Core生产检查、三个实际材料CLI及三程序/库ARM64通过；精确提交CI待单独核对。私有configurable-ap-full-20261024-second.log/.exit、configurable-ap-arm-20261024-first.json为最终本地结果。
 
 2026-10-24。Root新增显式`--serve-configurable`，接入受保护的STA试连/取消文件、持久防重、执行进度和返回AP后的真实HTTPS复核。原`--serve`路径保持默认行为。尚未接Core真实Owner命令生产者、网页或最终保存；不宣称完成独立配网。原P0–P7进度保持79.5%，业务仍是此前确认的185ec6e/43。
