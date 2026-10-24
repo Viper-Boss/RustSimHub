@@ -21,7 +21,7 @@
 
 `tools/test-forwarding-worker-ipc.py`使用本机一次性临时目录和真实不同UID进程：非Root Core、Root、Edge、worker及可访问socket目录的其他UID分别连接，确认权限来自实际SO_PEERCRED；以真实Owner主开关关闭后停止并重开测试Core，代次/关闭/Unknown保持，旧能力拒绝。所有Core和短期客户端都等待退出。没有安装真实worker服务，也没有HTTP递送；测试中的Confirmed是合成回执输入，不能替代真实接收方确认。
 
-最初Clippy风格告警已修正并保留失败日志。本机sudo -n没有免密权限，未启动多UID测试；随后通过明确的WSL Root入口仅运行该临时目录测试并退出0。主开关及内容绑定更新后再次通过真实Root测试。CI新增同一隔离步骤，精确提交结果另记。
+最初Clippy风格告警已修正并保留失败日志。本机sudo -n没有免密权限，未启动多UID测试；随后通过明确的WSL Root入口仅运行该临时目录测试并退出0。主开关及内容绑定更新后再次通过真实Root测试。精确源码`cd19a50be57c840aee1ea3f7b4d2f69fc4eb8bb1`的[CI40103249020](https://github.com/Viper-Boss/RustSimHub/actions/runs/40103249020)两个任务均success，新增真实Root/worker隔离步骤通过；含404项Rust、13组网页/系统夹具、材料CLI和Native音频。后续仅文档提交与本源码证明分开。
 
 最终本地日志`.private/forwarding-worker-ipc-20261024-fourth.log`与exit=0；真实Root测试`.private/forwarding-worker-ipc-root-20261024-second.log`与exit=0。三份ARM制品核对AArch64与哈希，未签名/安装。另在现有QEMU直接运行实际ARM生产程序：build-info确认development_fixtures=false，开发fixture命令拒绝，新服务模式在创建文件前拒绝Root worker UID，有限客户端命令实际识别且只尝试临时目录中不存在的Unix路径。对应报告`forwarding-worker-ipc-arm-runtime-20261024-first.json`；优化器可将参数比较编译为机器指令，不能以二进制内是否存在完整参数字符串来判定功能。并行README文档已逐字节核对后正常快进至3dcdbbf，另一个任务的未提交接手记录保留，没有reset或stash。
 
