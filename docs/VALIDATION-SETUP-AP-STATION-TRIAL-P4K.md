@@ -1,5 +1,7 @@
 # P4K 热点到家庭Wi-Fi的试连与返回后端
 
+精确源码01ea674的[GitHub CI40065960462](https://github.com/Viper-Boss/RustSimHub/actions/runs/40065960462)两个任务全部成功，含真实材料CLI步骤；完整证据station-trial-ci-20261024-first.json。候选未部署。
+
 最终本地332项工作区Rust（setup-ap 44项）、全工作区严格Clippy、Core生产检查、三个实际材料CLI和三程序/库ARM64通过。首次候选改名清理测试失败保留，修正及最终追加授权/隔离校验后的第二份全量日志为权威结果。精确提交CI另记，未部署。
 
 2026-10-24。本轮增加独立的AP→STA→原AP试连后端，尚未接到Root执行循环、Core命令和网页，也未部署。它只测试WPA2关联和可用IPv4地址，不保存家庭Wi-Fi、不验证互联网可达，不宣称完整配网完成。整体保持79.5%，棒子仍为已交付185ec6e/confirmed43。
