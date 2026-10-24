@@ -1,5 +1,7 @@
 # RustSimHub 剩余未完成清单
 
+2026-10-24 [P4J首次窗口/有限AP租约](VALIDATION-SETUP-AP-BOOTSTRAP-P4J.md)源码完成：真实LocalSetup设备证明和新鲜通话空闲接入唯一Start/有限心跳，签名认领保留原截止时间；恢复仅取消，Unknown持锁至Root精确Closed。320项Rust、严格Clippy、生产检查、三个真实CLI及三程序/库ARM64通过。仅只读确认现场43组服务正常/无通话/普通数据关闭，未部署本轮代码或开热点；无SIM首配、AP到STA、重启配置恢复/网页仍缺。用户已醒，已请求只读Wi-Fi列表/布局验收，暂不试连接；整体79.5%、10010仍44。
+
 2026-10-24 P4I后续：源码d63672e的精确CI40062341541两任务全部成功，含真实Core/Edge/Root CLI、311项Rust、网页/系统夹具和Native音频。代码与进度已同步，仍未部署/访问设备，首次自动AP租约与切网继续待实现，整体79.5%。上轮额度导致的收尾审批未完成已解除，本轮补齐提交和私有索引。
 
 2026-10-24 [P4I真实Core绑定/首次代码交付](VALIDATION-SETUP-AP-BINDING-P4I.md)源码完成：Core从实际Auth/DB导出realm/公钥/UID，Root按Core所有权导入并私有导出初始认领代码；与原for_device共用目录锁，已用/错误绑定/已有Owner拒绝，Root误用Core入口不产生状态。311项Rust、严格Clippy、生产检查、三程序/库ARM64及三个真实Core/Edge/Root临时目录CLI联调通过。未部署/未访问棒子，自动首次AP租约、认领后配置交接/AP到STA/网页仍缺；当前不需用户操作，上次确认业务185ec6e/43、整体79.5%、10010仍44。

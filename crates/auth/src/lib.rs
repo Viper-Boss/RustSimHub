@@ -13,7 +13,7 @@ pub use identity::{Identity, SimFingerprinter};
 use rustsimhub_policy::{allows, mask, Kind, Principal, Scope, ALL_SCOPES};
 use rustsimhub_storage::Handle;
 use serde::{Deserialize, Serialize};
-pub use setup::LocalSetup;
+pub use setup::{DeviceSetupContext, LocalSetup};
 use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,

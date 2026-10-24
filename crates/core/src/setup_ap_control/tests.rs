@@ -30,6 +30,9 @@ impl Idle for NoCalls {
             Ok(())
         }
     }
+    async fn device(&self, _setup: Arc<Mutex<rustsimhub_auth::LocalSetup>>) -> Result<()> {
+        self.check("").await
+    }
 }
 fn idle() -> NoCalls {
     NoCalls {

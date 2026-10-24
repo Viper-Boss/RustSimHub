@@ -784,7 +784,7 @@ async fn serve_inner_media(
         }
     });
     let calls = (call_mode > 0).then_some(call_controller);
-    crate::setup_ap_control::bind(auth.clone(), calls.clone());
+    crate::setup_ap_control::bind(auth.clone(), calls.clone(), setup.clone());
     let mut controlling = Box::pin(async move {
         if call_mode > 0 {
             call_worker.run().await

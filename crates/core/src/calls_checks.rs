@@ -21,6 +21,51 @@ fn path() -> OwnedObjectPath {
         .unwrap()
 }
 struct FakeVoice(FakeState);
+#[tokio::test]
+async fn first_setup_idle_needs_a_real_device_window_and_fresh_voice_without_an_owner_token() {
+    let mut f = fixture(false).await;
+    let data = directory();
+    let identity = directory();
+    let setup = directory();
+    let store = rustsimhub_storage::Store::open(data.path()).unwrap();
+    let h = store.handle();
+    let line = h
+        .observe_line(rustsimhub_storage::LineObservation {
+            backend: "synthetic-voice".into(),
+            fingerprint: Some([9; 32]),
+            status: rustsimhub_storage::LineStatus::Ready,
+        })
+        .unwrap()
+        .line;
+    assert_eq!(line, f.worker.binding().unwrap().context.line);
+    let auth = Auth::new(
+        rustsimhub_auth::Identity::open(identity.path()).unwrap(),
+        h.clone(),
+    )
+    .unwrap();
+    rustsimhub_auth::LocalSetup::prepare_device_code(setup.path(), &auth).unwrap();
+    let gate = Arc::new(Mutex::new(
+        rustsimhub_auth::LocalSetup::for_device(setup.path(), &auth)
+            .unwrap()
+            .unwrap(),
+    ));
+    let explicit = Arc::new(Mutex::new(
+        rustsimhub_auth::LocalSetup::load(&setup.path().join("setup.code")).unwrap(),
+    ));
+    f.worker.auth = Arc::new(Mutex::new(auth));
+    f.worker.store = h;
+    assert!(f.worker.device_setup_idle(explicit).await.is_err());
+    assert!(f.worker.device_setup_idle(gate.clone()).await.is_ok());
+    f.data.paths.lock().unwrap().push(path());
+    f.data.state.store(3, Ordering::SeqCst);
+    assert!(f.worker.device_setup_idle(gate.clone()).await.is_err());
+    f.data.paths.lock().unwrap().clear();
+    f.worker.bindings = watch::channel(None).1;
+    assert!(f.worker.device_setup_idle(gate).await.is_err());
+    assert_eq!(f.data.creates.load(Ordering::SeqCst), 0);
+    assert_eq!(f.data.starts.load(Ordering::SeqCst), 0);
+    assert_eq!(f.data.hangups.load(Ordering::SeqCst), 0);
+}
 
 #[tokio::test]
 async fn setup_ap_quiescence_requires_fresh_real_voice_catalogue_and_owner() {

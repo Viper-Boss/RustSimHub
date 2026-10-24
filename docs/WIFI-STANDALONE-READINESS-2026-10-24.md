@@ -1,5 +1,7 @@
 # 独立配网前置检查
 
+2026-10-24 [P4J首次窗口/有限AP租约](VALIDATION-SETUP-AP-BOOTSTRAP-P4J.md)源码完成：真实LocalSetup设备证明和新鲜通话空闲接入唯一Start/有限心跳，签名认领保留原截止时间；恢复仅取消，Unknown持锁至Root精确Closed。320项Rust、严格Clippy、生产检查、三个真实CLI及三程序/库ARM64通过。仅只读确认现场43组服务正常/无通话/普通数据关闭，未部署本轮代码或开热点；无SIM首配、AP到STA、重启配置恢复/网页仍缺。用户已醒，已请求只读Wi-Fi列表/布局验收，暂不试连接；整体79.5%、10010仍44。
+
 2026-10-24：[P4I真实Core绑定和首次代码私有导出](VALIDATION-SETUP-AP-BINDING-P4I.md)源码及三项真实CLI联调通过；尚未将未认领窗口接到自动AP租约/切网，未部署。
 
 2026-10-24：[P4H材料/证书与可信导出](VALIDATION-SETUP-AP-MATERIAL-P4H.md)源码和隔离CLI联调通过，候选模板未进入overlay，实际首次窗口/切网/联合安装与AP实机仍未完成；当前不切换保存Wi-Fi。

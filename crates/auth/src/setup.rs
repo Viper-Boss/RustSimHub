@@ -15,6 +15,17 @@ pub struct LocalSetup {
     remaining: u8,
     challenge: Option<String>,
     consumed: bool,
+    device: Option<(String, [u8; 32], String)>,
+    claimed: Option<Principal>,
+}
+/// Local-only proof context. Not serialized or accepted from a remote request.
+#[derive(Clone, PartialEq, Eq)]
+pub struct DeviceSetupContext {
+    pub window_id: String,
+    pub device_public_key: [u8; 32],
+    pub realm: String,
+    pub remaining: Duration,
+    pub claimed: Option<Principal>,
 }
 impl LocalSetup {
     /// Explicit local installer preparation; never opens or renews a window.
@@ -108,7 +119,12 @@ impl LocalSetup {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(_) => return Err(Error::Io),
         }
-        let gate = Self::load(&code)?;
+        let mut gate = Self::load(&code)?;
+        gate.device = Some((
+            crate::random_hex()?,
+            auth.public_key(),
+            auth.durable_realm()?,
+        ));
         // Publish before admitting requests. A crash or partial write closes
         // the window on restart instead of resetting its budget or ownership.
         crate::write_private_new(&marker, &expected)?;
@@ -128,6 +144,39 @@ impl LocalSetup {
             remaining: 16,
             challenge: None,
             consumed: false,
+            device: None,
+            claimed: None,
+        })
+    }
+    /// A real device window, including its original bounded claim-to-configuration period.
+    /// Explicit load(), exhausted attempts, changed realm/key or replaced/revoked Owner never qualify.
+    pub fn device_ap_context(&self, auth: &Auth) -> Result<DeviceSetupContext> {
+        let (id, key, realm) = self.device.as_ref().ok_or(Error::Forbidden)?;
+        if Instant::now() >= self.deadline
+            || *key != auth.public_key()
+            || *realm != auth.durable_realm()?
+        {
+            return Err(Error::Forbidden);
+        }
+        if self.consumed {
+            let claimed = self.claimed.as_ref().ok_or(Error::Forbidden)?;
+            if claimed.kind != crate::Kind::Owner
+                || auth.current_principal(claimed.public_key)? != *claimed
+            {
+                return Err(Error::Forbidden);
+            }
+        } else {
+            if self.remaining == 0 {
+                return Err(Error::Forbidden);
+            }
+            self.require_empty(auth)?;
+        }
+        Ok(DeviceSetupContext {
+            window_id: id.clone(),
+            device_public_key: *key,
+            realm: realm.clone(),
+            remaining: self.deadline.saturating_duration_since(Instant::now()),
+            claimed: self.claimed.clone(),
         })
     }
     fn check(&mut self, presented: &str) -> Result<()> {
@@ -189,6 +238,7 @@ impl LocalSetup {
         }
         let owner = auth.bootstrap_finish(id, signature)?;
         self.consumed = true;
+        self.claimed = Some(owner.clone());
         self.secret.fill(0);
         Ok(owner)
     }
@@ -200,6 +250,78 @@ mod tests {
     use ed25519_dalek::{Signer, SigningKey};
     use rustsimhub_storage::Store;
     use std::fs;
+    #[test]
+    fn device_ap_proof_is_local_one_shot_and_survives_only_the_original_signed_claim_period() {
+        let state = private_directory();
+        let identity = private_directory();
+        let setup = private_directory();
+        let store = Store::open(state.path()).unwrap();
+        let mut auth = Auth::open(identity.path(), store.handle()).unwrap();
+        LocalSetup::prepare_device_code(setup.path(), &auth).unwrap();
+        let explicit = LocalSetup::load(&setup.path().join("setup.code")).unwrap();
+        assert!(explicit.device_ap_context(&auth).is_err());
+        let mut gate = LocalSetup::for_device(setup.path(), &auth)
+            .unwrap()
+            .unwrap();
+        let before = gate.device_ap_context(&auth).unwrap();
+        assert!(before.claimed.is_none());
+        assert_eq!(before.device_public_key, auth.public_key());
+        let code = read_private(&setup.path().join("setup.code"), 32)
+            .unwrap()
+            .iter()
+            .map(|v| format!("{v:02x}"))
+            .collect::<String>();
+        let key = SigningKey::from_bytes(&[92; 32]);
+        let challenge = gate
+            .begin(&mut auth, &code, key.verifying_key().to_bytes())
+            .unwrap();
+        let owner = gate
+            .finish(
+                &mut auth,
+                &code,
+                &challenge.id,
+                &key.sign(&challenge.transcript).to_bytes(),
+            )
+            .unwrap();
+        let after = gate.device_ap_context(&auth).unwrap();
+        assert!(!gate.available());
+        assert_eq!(after.claimed, Some(owner));
+        assert_eq!(before.window_id, after.window_id);
+        assert!(after.remaining <= before.remaining);
+        assert!(LocalSetup::for_device(setup.path(), &auth)
+            .unwrap()
+            .is_none());
+        gate.deadline = Instant::now() - Duration::from_secs(1);
+        assert!(gate.device_ap_context(&auth).is_err());
+    }
+    #[test]
+    fn device_ap_proof_is_denied_after_exhausted_attempts_or_outside_owner_creation() {
+        let state = private_directory();
+        let identity = private_directory();
+        let setup = private_directory();
+        let store = Store::open(state.path()).unwrap();
+        let mut auth = Auth::open(identity.path(), store.handle()).unwrap();
+        LocalSetup::prepare_device_code(setup.path(), &auth).unwrap();
+        let mut gate = LocalSetup::for_device(setup.path(), &auth)
+            .unwrap()
+            .unwrap();
+        for _ in 0..16 {
+            assert!(gate.begin(&mut auth, "bad", [4; 32]).is_err());
+        }
+        assert!(gate.device_ap_context(&auth).is_err());
+        let other = private_directory();
+        LocalSetup::prepare_device_code(other.path(), &auth).unwrap();
+        let gate = LocalSetup::for_device(other.path(), &auth)
+            .unwrap()
+            .unwrap();
+        let key = SigningKey::from_bytes(&[92; 32]);
+        let c = auth
+            .bootstrap_challenge(key.verifying_key().to_bytes())
+            .unwrap();
+        auth.bootstrap_finish(&c.id, &key.sign(&c.transcript).to_bytes())
+            .unwrap();
+        assert!(gate.device_ap_context(&auth).is_err());
+    }
     #[cfg(target_os = "linux")]
     #[test]
     fn ap_binding_comes_from_real_core_and_does_not_reopen_used_setup() {

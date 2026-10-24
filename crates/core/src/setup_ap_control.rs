@@ -21,6 +21,7 @@ use std::{
     },
 };
 use tokio::sync::OwnedRwLockWriteGuard;
+mod bootstrap;
 type Result<T> = rustsimhub_auth::Result<T>;
 static RUNTIME: OnceLock<Arc<Runtime>> = OnceLock::new();
 fn denied<T>(v: rustsimhub_setup_ap::Result<T>) -> Result<T> {
@@ -119,6 +120,10 @@ async fn owner(auth: Arc<Mutex<Auth>>, token: String, recent: bool) -> Result<Co
 }
 trait Idle {
     fn check(&self, token: &str) -> impl std::future::Future<Output = Result<()>> + Send;
+    fn device(
+        &self,
+        setup: Arc<Mutex<rustsimhub_auth::LocalSetup>>,
+    ) -> impl std::future::Future<Output = Result<()>> + Send;
 }
 struct Calls(Option<crate::calls::Controller>);
 impl Idle for Calls {
@@ -130,8 +135,17 @@ impl Idle for Calls {
             .await
             .map_err(|_| Error::Busy)
     }
+    async fn device(&self, setup: Arc<Mutex<rustsimhub_auth::LocalSetup>>) -> Result<()> {
+        self.0
+            .as_ref()
+            .ok_or(Error::Forbidden)?
+            .device_setup_idle(setup)
+            .await
+            .map_err(|_| Error::Busy)
+    }
 }
 pub(crate) struct Runtime {
+    bootstrap: bootstrap::Bootstrap,
     input: Directory,
     output: Directory,
     journal: PathBuf,
@@ -158,6 +172,11 @@ impl Runtime {
             return Err(Error::Forbidden);
         }
         let record = Self::read_record(&journal.join("pending.json"))?;
+        if record.is_some()
+            && fs::symlink_metadata(journal.join("first-setup.pending.json")).is_ok()
+        {
+            return Err(Error::Forbidden);
+        }
         let session = record
             .map(|record| -> Result<Session> {
                 let permit = coordination.network().map_err(|_| Error::Busy)?;
@@ -174,6 +193,12 @@ impl Runtime {
             })
             .transpose()?;
         let runtime = Self {
+            bootstrap: bootstrap::Bootstrap::open(
+                input.clone(),
+                output.clone(),
+                journal.clone(),
+                coordination.clone(),
+            )?,
             input,
             output,
             journal,
@@ -235,6 +260,10 @@ impl Runtime {
                 return Err(Error::Forbidden);
             }
             return Ok(Self::view(s));
+        }
+        drop(active);
+        if let Some(view) = self.bootstrap.view()? {
+            return Ok(view);
         }
         Ok(
             json!({"available":self.availability(&c).is_ok(),"state":"idle","credentials_returned":false,"cellular_activation":false}),
@@ -347,6 +376,9 @@ impl Runtime {
     }
     async fn cancel(&self, auth: Arc<Mutex<Auth>>, token: String, id: String) -> Result<Value> {
         let c = owner(auth, token, true).await?;
+        if let Some(view) = self.bootstrap.cancel(&id)? {
+            return Ok(view);
+        }
         let mut active = self.session.try_lock().map_err(|_| Error::Busy)?;
         let s = active.as_mut().ok_or(Error::Forbidden)?;
         if s.record.owner != Owner::from(&c.principal) || s.record.binding.request_id != id {
@@ -528,7 +560,11 @@ pub(crate) fn enable(input: &Path, output: &Path, journal: &Path) -> Result<()> 
     )?;
     RUNTIME.set(Arc::new(runtime)).map_err(|_| Error::Forbidden)
 }
-pub(crate) fn bind(auth: Arc<Mutex<Auth>>, calls: Option<crate::calls::Controller>) {
+pub(crate) fn bind(
+    auth: Arc<Mutex<Auth>>,
+    calls: Option<crate::calls::Controller>,
+    setup: Option<Arc<Mutex<rustsimhub_auth::LocalSetup>>>,
+) {
     let Some(runtime) = RUNTIME.get().cloned() else {
         return;
     };
@@ -538,6 +574,17 @@ pub(crate) fn bind(auth: Arc<Mutex<Auth>>, calls: Option<crate::calls::Controlle
     tokio::spawn(async move {
         let idle = Calls(calls);
         loop {
+            if !runtime.running.load(Ordering::SeqCst) {
+                return;
+            }
+            if runtime
+                .bootstrap
+                .tick(auth.clone(), setup.clone(), &idle)
+                .await
+                .is_err()
+            {
+                runtime.bootstrap.failed();
+            }
             if runtime.tick(auth.clone(), &idle).await.is_err() {
                 if let Ok(mut active) = runtime.session.try_lock() {
                     if let Some(s) = active.as_mut() {
@@ -557,6 +604,8 @@ pub(crate) fn bind(auth: Arc<Mutex<Auth>>, calls: Option<crate::calls::Controlle
 }
 pub(crate) async fn shutdown() {
     if let Some(runtime) = RUNTIME.get() {
+        runtime.running.store(false, Ordering::SeqCst);
+        runtime.bootstrap.stop();
         if let Ok(mut state) = runtime.session.try_lock() {
             if let Some(s) = state.as_mut() {
                 if s.phase != State::Closed {

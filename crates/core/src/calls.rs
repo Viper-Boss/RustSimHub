@@ -32,9 +32,13 @@ trait Call {
     fn send_dtmf(&self, dtmf: &str) -> zbus::Result<()>;
 }
 struct Job {
-    command: AuthCommand,
+    command: JobCommand,
     reply: oneshot::Sender<Result<Value>>,
-    strict_idle: bool,
+}
+enum JobCommand {
+    Command(AuthCommand),
+    OwnerIdle(String),
+    DeviceIdle(Arc<Mutex<rustsimhub_auth::LocalSetup>>),
 }
 #[derive(Clone)]
 pub(crate) struct Controller {
@@ -154,9 +158,8 @@ impl Controller {
         let urgent = matches!(&command, AuthCommand::SubmitCall { urgent: true, .. });
         (if urgent { &self.urgent } else { &self.normal })
             .try_send(Job {
-                command,
+                command: JobCommand::Command(command),
                 reply,
-                strict_idle: false,
             })
             .map_err(|_| "call_controller_busy")?;
         tokio::time::timeout(Duration::from_secs(8), rx)
@@ -168,9 +171,25 @@ impl Controller {
         let (reply, rx) = oneshot::channel();
         self.normal
             .try_send(Job {
-                command: AuthCommand::CallStatus { token },
+                command: JobCommand::OwnerIdle(token),
                 reply,
-                strict_idle: true,
+            })
+            .map_err(|_| "call_controller_busy")?;
+        tokio::time::timeout(Duration::from_secs(8), rx)
+            .await
+            .map_err(|_| "modem_timeout")?
+            .map_err(|_| "controller_stopped")??;
+        Ok(())
+    }
+    pub(crate) async fn device_setup_idle(
+        &self,
+        setup: Arc<Mutex<rustsimhub_auth::LocalSetup>>,
+    ) -> Result<()> {
+        let (reply, rx) = oneshot::channel();
+        self.normal
+            .try_send(Job {
+                command: JobCommand::DeviceIdle(setup),
+                reply,
             })
             .map_err(|_| "call_controller_busy")?;
         tokio::time::timeout(Duration::from_secs(8), rx)
@@ -350,10 +369,12 @@ impl Worker {
             };
             if let Some(j) = job {
                 self.expire().await;
-                let result = if j.strict_idle {
-                    self.setup_ap_idle(j.command).await
-                } else {
-                    self.process(j.command).await
+                let result = match j.command {
+                    JobCommand::OwnerIdle(token) => {
+                        self.setup_ap_idle(AuthCommand::CallStatus { token }).await
+                    }
+                    JobCommand::DeviceIdle(setup) => self.device_setup_idle(setup).await,
+                    JobCommand::Command(command) => self.process(command).await,
                 };
                 let _ = j.reply.send(result);
             } else {
@@ -387,6 +408,42 @@ impl Worker {
         }
         if self.principal(&token, Scope::NetworkManage).await? != p {
             return Err("call_denied");
+        }
+        Ok(json!({"quiescent":true}))
+    }
+    async fn device_context(
+        &self,
+        setup: Arc<Mutex<rustsimhub_auth::LocalSetup>>,
+    ) -> Result<rustsimhub_auth::DeviceSetupContext> {
+        let auth = self.auth.clone();
+        tokio::task::spawn_blocking(move || {
+            let auth = auth.try_lock().map_err(|_| "setup_busy")?;
+            let setup = setup.try_lock().map_err(|_| "setup_busy")?;
+            setup.device_ap_context(&auth).map_err(|_| "setup_denied")
+        })
+        .await
+        .map_err(|_| "setup_busy")?
+    }
+    async fn device_setup_idle(
+        &mut self,
+        setup: Arc<Mutex<rustsimhub_auth::LocalSetup>>,
+    ) -> Result<Value> {
+        let before = self.device_context(setup.clone()).await?;
+        self.refresh().await?;
+        let b = self.binding()?;
+        if !self.catalogue
+            || !b.fresh().await
+            || self.owned.is_some()
+            || self.live.values().any(|l| l.summary.modem_state != 7)
+        {
+            return Err("voice_not_quiescent");
+        }
+        let after = self.device_context(setup).await?;
+        if before.window_id != after.window_id
+            || before.realm != after.realm
+            || before.device_public_key != after.device_public_key
+        {
+            return Err("setup_changed");
         }
         Ok(json!({"quiescent":true}))
     }
