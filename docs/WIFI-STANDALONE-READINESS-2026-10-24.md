@@ -13,7 +13,7 @@
 ## 后续功能顺序
 
 1. 已有所有者的Wi-Fi选择/配置页面：[P4D](VALIDATION-WIFI-CATALOGUE-P4D.md)已交付185ec6e/confirmed43，提供只读缓存列表、同区登录、显式选网和手输隐藏SSID；复用当前受限试连接、40秒未确认回退和最近登录要求。真实Owner读取和网页/切网尚未验收，不等同主动扫描。
-2. [P4F Core控制侧](VALIDATION-SETUP-AP-CONTROL-P4F.md)和保护文件租约已实现，真实Root消费执行/证书/首次窗口仍缺，默认禁用且不部署；[P4E事务库](VALIDATION-SETUP-AP-TRANSACTION-P4E.md)已实现并通过Rust/ARM和隔离规则加载，尚未接授权/证书/网页或部署。继续准备无保存SSID时的受保护管理热点：每台独立凭据、明确初始化窗口、只开放配置需要的设备端服务；不默认共享蜂窝或NAS网络。
+2. [P4G Root执行程序](VALIDATION-SETUP-AP-EXECUTOR-P4G.md)及[P4F Core控制侧](VALIDATION-SETUP-AP-CONTROL-P4F.md)源码已连接保护文件租约、热点事务和真实TLS就绪检查；材料证书安装/首次窗口/切网/网页及实机仍缺，默认禁用且不部署；[P4E事务库](VALIDATION-SETUP-AP-TRANSACTION-P4E.md)已实现并通过Rust/ARM和隔离规则加载，尚未接授权/证书/网页或部署。继续准备无保存SSID时的受保护管理热点：每台独立凭据、明确初始化窗口、只开放配置需要的设备端服务；不默认共享蜂窝或NAS网络。
 3. 把设备身份、公钥及可信HTTPS交付和首次Owner流程接起来。保留证书验证，不用开放热点或关闭HTTPS检查代替首次信任。
 4. 再验证热点切到路由器Wi-Fi、错密码、超时回退、手机重新发现设备和保存后冷启动。
 

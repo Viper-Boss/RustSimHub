@@ -72,7 +72,7 @@ impl Directory {
         }
         Ok(())
     }
-    fn read_name(&self, name: &str, mode: u32) -> Result<Option<Vec<u8>>> {
+    pub(crate) fn read_name(&self, name: &str, mode: u32) -> Result<Option<Vec<u8>>> {
         self.check()?;
         let f = match OpenOptions::new()
             .read(true)
@@ -164,7 +164,7 @@ impl Journal {
         }
         Self::open(Directory::open(path, 0, 0, 0o700)?)
     }
-    fn open(dir: Directory) -> Result<Self> {
+    pub(crate) fn open(dir: Directory) -> Result<Self> {
         let f = OpenOptions::new()
             .read(true)
             .write(true)
@@ -206,6 +206,19 @@ impl Journal {
             .write_name(&format!("{key}.consumed"), &bytes, 0o600, true)?;
         self.dir.write_name("active.json", &bytes, 0o600, true)
     }
+    /// A durable completed receipt may be republished after a lost output write. Never activates.
+    pub fn closed(&self, binding: &Binding) -> Result<Option<Status>> {
+        let key = binding.journal_key()?;
+        let Some(bytes) = self.dir.read_name(&format!("{key}.closed"), 0o600)? else {
+            return Ok(None);
+        };
+        let receipt: Status = serde_json::from_slice(&bytes).map_err(|_| Error::Invalid)?;
+        receipt.validate(binding, receipt.sample_uptime_ms)?;
+        if receipt.state != State::Closed {
+            return Err(Error::Denied);
+        }
+        Ok(Some(receipt))
+    }
     /// No Unknown or unverified cleanup can clear the pending marker.
     pub fn finish_closed(&self, status: &Status, now: u64) -> Result<()> {
         let binding = self.pending()?.ok_or(Error::Denied)?;
@@ -214,12 +227,14 @@ impl Journal {
             return Err(Error::Denied);
         }
         let key = binding.journal_key()?;
-        self.dir.write_name(
-            &format!("{key}.closed"),
-            &serde_json::to_vec(status).map_err(|_| Error::Invalid)?,
-            0o600,
-            true,
-        )?;
+        if self.closed(&binding)?.is_none() {
+            self.dir.write_name(
+                &format!("{key}.closed"),
+                &serde_json::to_vec(status).map_err(|_| Error::Invalid)?,
+                0o600,
+                true,
+            )?;
+        }
         fs::remove_file(self.dir.path.join("active.json")).map_err(|_| Error::Io)?;
         File::open(&self.dir.path)
             .and_then(|d| d.sync_all())

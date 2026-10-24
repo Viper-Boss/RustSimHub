@@ -1789,12 +1789,15 @@ version = "0.1.0"
 dependencies = [
  "fs2",
  "getrandom 0.4.3",
+ "httparse",
+ "rcgen",
  "rustix",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "tempfile",
  "tokio",
+ "tokio-rustls",
  "zbus",
  "zeroize",
 ]
