@@ -1,6 +1,6 @@
 # RustSimHub 剩余未完成清单
 
-2026-10-24 [P4E热点事务层](VALIDATION-SETUP-AP-TRANSACTION-P4E.md)源码完成：新增setup-ap库的每设备随机材料、固定WPA2临时AP、有限NM checkpoint、单次激活/精确回退和Root固定隔离；276项Rust、严格Clippy、生产检查和ARM64库通过，NAS私有网络命名空间加载/排他创建/删除规则通过，无宿主防火墙或棒子无线修改，未做报文实测。尚未接Core真实授权/首次认领、证书Origin、AP到STA试用、网页或启动服务，不部署/不开热点。上次确认业务185ec6e/43保持，10010仍44、整体79.5%；用户休息期间继续独立工作，无当前用户操作。
+2026-10-24 [P4E热点事务层](VALIDATION-SETUP-AP-TRANSACTION-P4E.md)源码完成：新增setup-ap库的每设备随机材料、固定WPA2临时AP、有限NM checkpoint、单次激活/精确回退和Root固定隔离；276项Rust、严格Clippy、生产检查、ARM64库及精确源码CI40042735327通过，NAS私有网络命名空间加载/排他创建/删除规则通过，无宿主防火墙或棒子无线修改，未做报文实测。尚未接Core真实授权/首次认领、证书Origin、AP到STA试用、网页或启动服务，不部署/不开热点。上次确认业务185ec6e/43保持，10010仍44、整体79.5%；用户休息期间继续独立工作，无当前用户操作。
 
 2026-10-24 [P4D网页Wi-Fi选网](VALIDATION-WIFI-CATALOGUE-P4D.md)已交付185ec6e/confirmed43：508份固定Git文件、267项Rust、八ARM、同源Native33、12组网页及CI40022101743通过。Owner缓存选网、同区登录和隐藏SSID手输已上线，选中只填名称；40秒试连接规则保持，查询失败保留trial_id。原信任签名/设备回读、一致性备份、九份严格HTTPS资源/身份和新接口无效凭证拒绝通过；原Owner/67短信/Unknown、Root音频/单元/网络及普通数据关闭保持，同boot无恢复预算消耗，无新电话/SMS、无重启/刷分区/扫描/切网。真实Owner缓存读取、网页和切网未验收，整体79.5%、10010仍44；Windows临时证书确认未受信任。当前不需用户配合，用户休息期间继续独立配网/NAS功能准备，不安排物理/听音操作。最新私有索引wifi-catalogue-checkpoint-20261024-first.json。
 
