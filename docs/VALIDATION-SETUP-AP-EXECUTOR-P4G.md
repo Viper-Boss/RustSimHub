@@ -1,5 +1,7 @@
 # P4G 配网热点Root执行程序
 
+精确源码38be15d的[GitHub CI40048512048](https://github.com/Viper-Boss/RustSimHub/actions/runs/40048512048)两任务已全部成功；私有完整结果为setup-ap-executor-ci-20261024-first.json。当前仍未部署。
+
 2026-10-24。已实现显式启动的Root执行程序，将P4F保护文件租约连接到P4E热点事务、NetworkManager及固定nft隔离。301项工作区Rust测试、严格Clippy、Core生产检查及执行程序/库ARM64构建通过。本轮没有访问棒子，没有安装服务、开热点、切换Wi-Fi、拨号、发短信或启用普通数据。上次确认的业务仍为185ec6e/confirmed43，整体79.5%。
 
 ## 已实现的闭环
