@@ -158,6 +158,20 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     worker.parse()?,
                     state,
                     identity,
+                    None,
+                ));
+            }
+        }
+        #[cfg(feature = "dev-fixtures")]
+        if let [command, socket, edge, worker, state, identity, target] = args.as_slice() {
+            if command == "--forwarding-ipc-fixture" {
+                return runtime.block_on(forwarding::ipc::fixture::run(
+                    socket,
+                    edge.parse()?,
+                    worker.parse()?,
+                    state,
+                    identity,
+                    Some(target),
                 ));
             }
         }

@@ -18,6 +18,10 @@ mod delivery;
 #[cfg(target_os = "linux")]
 pub use delivery::*;
 #[cfg(target_os = "linux")]
+pub mod egress;
+#[cfg(target_os = "linux")]
+pub mod worker;
+#[cfg(target_os = "linux")]
 pub mod worker_ipc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

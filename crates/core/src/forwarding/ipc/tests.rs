@@ -8,6 +8,66 @@ use tokio::net::UnixListener;
 fn token(value: &Value) -> Secret {
     Secret::new(value["lease"].as_str().unwrap().into())
 }
+
+#[tokio::test]
+async fn busy_reply_precedes_claim_but_lost_claim_is_never_retry_later() {
+    let f = Fixture::new();
+    f.request(f.configure(0, REQUEST, true)).await;
+    f.incoming("admission contention");
+    let lease = root(&f, wire::Command::Grant {}).await;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("core.sock");
+    let listener = UnixListener::bind(&path).unwrap();
+    let auth = f.auth.clone();
+    let c = f.control.clone();
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        handle(&mut stream, auth, c, Route::Worker).await.unwrap();
+    });
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel();
+    let (release_tx, release_rx) = std::sync::mpsc::channel();
+    let auth = f.auth.clone();
+    let holder = std::thread::spawn(move || {
+        let _guard = auth.lock().unwrap();
+        ready_tx.send(()).unwrap();
+        let _ = release_rx.recv_timeout(Duration::from_secs(5));
+    });
+    ready_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+    let result = wire::request(
+        &path,
+        rustix::process::geteuid().as_raw(),
+        wire::Command::Acquire {
+            lease: token(&lease),
+        },
+    )
+    .await;
+    release_tx.send(()).unwrap();
+    holder.join().unwrap();
+    server.await.unwrap();
+    assert!(matches!(result, Err(rustsimhub_forwarder::Error::Busy)));
+    let claim = worker(
+        &f,
+        wire::Command::Acquire {
+            lease: token(&lease),
+        },
+    )
+    .await
+    .unwrap();
+    assert!(
+        !claim["claim"].is_null(),
+        "contention must not consume the task"
+    );
+    assert!(matches!(
+        worker(
+            &f,
+            wire::Command::Acquire {
+                lease: token(&lease)
+            }
+        )
+        .await,
+        Err(Error::Forbidden)
+    ));
+}
 async fn root(f: &Fixture, command: wire::Command) -> Value {
     f.control
         .private_request(f.auth.clone(), Route::Root, command)

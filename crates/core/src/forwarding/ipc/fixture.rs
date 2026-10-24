@@ -13,6 +13,7 @@ pub(crate) async fn run(
     worker: u32,
     state: &str,
     identity: &str,
+    target: Option<&str>,
 ) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let access = Access::new(edge, worker)?;
     let store = Store::open(state)?;
@@ -30,7 +31,7 @@ pub(crate) async fn run(
     let controller = Controller::new(Path::new(state), store.handle());
     let policy = json!({"enabled":true,"targets":[{
         "id":"33333333-3333-4333-8333-333333333333","destination":{
-            "kind":"webhook","url":"https://example.invalid/synthetic-only","bearer":"synthetic"}}],
+            "kind":"webhook","url":target.unwrap_or("https://example.invalid/synthetic-only"),"bearer":"synthetic"}}],
         "rules":[{"id":"44444444-4444-4444-8444-444444444444",
             "targets":["33333333-3333-4333-8333-333333333333"],"sender_equals":null,
             "body_contains":null,"line":null,"share":"notice"}]});

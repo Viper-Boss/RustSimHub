@@ -123,22 +123,27 @@ pub async fn request(socket: &std::path::Path, core_uid: u32, command: Command) 
         parse(&bytes)?;
         write_frame(&mut stream, &bytes).await?;
         let response: Response = serde_json::from_slice(&read_frame(&mut stream).await?)?;
-        if response.protocol != PROTOCOL
-            || response.id != id
-            || response.result.get("error").is_some()
-        {
+        if response.protocol != PROTOCOL || response.id != id {
             return Err(Error::Forbidden);
+        }
+        if let Some(error) = response.result.get("error") {
+            return Err(if error == "retry_later" {
+                Error::Busy
+            } else {
+                Error::Forbidden
+            });
         }
         Ok(response.result)
     })
     .await
-    .map_err(|_| Error::Busy)?
+    .map_err(|_| Error::Storage)? // A lost response is ambiguous, never retry-later.
 }
 pub struct Client {
     socket: PathBuf,
     core_uid: u32,
     lease: Secret,
 }
+
 /// Hash the ACTUAL immutable claim about to be used by the HTTPS sender,
 /// including target URL, credentials, payload, IDs, generation and SIM line.
 /// Never reuse a digest copied from a pre-mutation/acquire response.
@@ -210,5 +215,44 @@ impl Fence for Client {
             return Err(Error::Forbidden);
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[tokio::test]
+    async fn only_explicit_preadmission_busy_is_retryable() {
+        for close in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("core.sock");
+            let listener = tokio::net::UnixListener::bind(&path).unwrap();
+            let server = tokio::spawn(async move {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let request = parse(&read_frame(&mut stream).await.unwrap()).unwrap();
+                if !close {
+                    let response = Response {
+                        protocol: PROTOCOL,
+                        id: request.id,
+                        result: serde_json::json!({"error":"retry_later"}),
+                    };
+                    write_frame(&mut stream, &serde_json::to_vec(&response).unwrap())
+                        .await
+                        .unwrap();
+                }
+            });
+            let result = request(
+                &path,
+                rustix::process::geteuid().as_raw(),
+                Command::Grant {},
+            )
+            .await;
+            server.await.unwrap();
+            if close {
+                assert!(result.is_err() && !matches!(result, Err(Error::Busy)));
+            } else {
+                assert!(matches!(result, Err(Error::Busy)));
+            }
+        }
     }
 }

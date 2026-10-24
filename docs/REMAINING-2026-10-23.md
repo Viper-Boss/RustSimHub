@@ -1,5 +1,7 @@
 # RustSimHub 剩余未完成清单
 
+2026-10-24 [X1E固定出口与独立转发程序](VALIDATION-FORWARDING-WORKER-PROCESS-X1E.md)源码验证通过：独立非Root前台worker、每个DNS/TCP实际绑定网卡/ifindex/源IP、有限DNS解析、真实Core fence与HTTPS、信号取消。416项Rust/严格Clippy/生产Core、实际多UIDCLI与四个真实进程DNS/TLS/停止场景通过；四份生产ARM64及QEMU元数据通过。Root服务主管/开机策略、网页和签名安装仍缺，未部署或访问棒子，不宣称已安装服务在OFF/冷启动无PID。短信发送已消费且无重发；原整体80%，扩展单列，当前不需用户操作。
+
 2026-10-24 [X1D转发执行通道与主开关](VALIDATION-FORWARDING-WORKER-IPC-X1D.md)源码验证通过：现有Core socket按实际UID隔离Root/Edge/worker，有限能力、唯一Claim、每阶段实际内容摘要及Owner/代次/SIM复核；总开关无需回显密钥。完整404项Rust、严格Clippy/生产Core、三份ARM64及真实多UID临时进程/关闭后重开测试通过。Root固定服务主管、独立worker程序/出口和网页仍缺，未部署或访问棒子，不宣称实际关闭无PID。精确源码cd19a50的[CI40103249020](https://github.com/Viper-Boss/RustSimHub/actions/runs/40103249020)两个任务及新增多UID步骤success。保留并行README文档与原接手笔记；原整体80%，短信授权已消费，当前不需用户操作。
 
 2026-10-24 [X1C Core转发管理](VALIDATION-FORWARDING-CORE-X1C.md)源码通过：五个实际Owner管理命令、只读模式不开放配置、默认查询不建目录或启动任务、目标凭据不回显，配置重查不因新来信而冲突或跳过新消息。新增8项真实Core IPC测试、完整393项Rust/严格Clippy/生产Core及Core/Edge/转发库ARM64通过；X1B精确源码ecd3545的CI40088053542及X1C精确源码33488ce的[CI40089301860](https://github.com/Viper-Boss/RustSimHub/actions/runs/40089301860)均两个任务success。实际worker IPC/出口/Root主管/网页仍缺，未部署或启用；现场7a60650/confirmed46、68短信，原整体80%，单条CXYE发送授权已消费，当前不需用户操作。

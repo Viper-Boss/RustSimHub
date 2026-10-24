@@ -82,10 +82,14 @@ pub(crate) async fn handle(
 ) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let bytes = timeout(Duration::from_secs(5), wire::read_frame(stream)).await??;
     let request = wire::parse(&bytes)?;
-    let result = controller
+    let result = match controller
         .private_request(auth, route, request.command)
         .await
-        .unwrap_or_else(|_| json!({"error":"denied"}));
+    {
+        Ok(value) => value,
+        Err(Error::Busy) => json!({"error":"retry_later"}), // Rejected before admission/mutation.
+        Err(_) => json!({"error":"denied"}),
+    };
     let bytes = serde_json::to_vec(&wire::Response {
         protocol: wire::PROTOCOL,
         id: request.id,
@@ -220,7 +224,7 @@ impl Management {
                 self.validate(auth, &lease)?;
                 let s = self.worker.as_mut().ok_or(Error::Forbidden)?;
                 if s.claim.is_some() {
-                    return Err(Error::Busy);
+                    return Err(Error::Forbidden); // A possibly lost claim is NOT retry-later.
                 }
                 let q = self.queue.as_mut().ok_or(Error::Forbidden)?;
                 denied(q.capture_current(auth, &self.reader, s.generation))?;

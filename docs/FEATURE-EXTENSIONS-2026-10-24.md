@@ -6,7 +6,7 @@
 
 | 编号 | 功能 | 交付形式 | 当前状态 |
 | --- | --- | --- | --- |
-| X1 | SmsForwarder同类短信转发 | ARM64 Linux原生Rust规则/队列/发送服务，网页开关与规则 | [规则/队列](VALIDATION-FORWARDER-OUTBOX-X1A.md)、[HTTPS](VALIDATION-FORWARDER-HTTPS-X1B.md)、[Core管理](VALIDATION-FORWARDING-CORE-X1C.md)及[实际Root/worker通道与主开关](VALIDATION-FORWARDING-WORKER-IPC-X1D.md)源码验证通过；worker程序/出口/Root服务/网页仍缺，未部署 |
+| X1 | SmsForwarder同类短信转发 | ARM64 Linux原生Rust规则/队列/发送服务，网页开关与规则 | [规则/队列](VALIDATION-FORWARDER-OUTBOX-X1A.md)、[HTTPS](VALIDATION-FORWARDER-HTTPS-X1B.md)、[Core管理](VALIDATION-FORWARDING-CORE-X1C.md)及[实际Root/worker通道与主开关](VALIDATION-FORWARDING-WORKER-IPC-X1D.md)源码验证通过；[固定出口与独立worker](VALIDATION-FORWARDING-WORKER-PROCESS-X1E.md)也已通过416项Rust、真实进程DNS/TLS/停止及ARM64验证；Root服务/开机政策/网页仍缺，未部署 |
 | X2 | NKNGuard远程接入 | 棒子原生受限服务，直连优先、NKN中继及已授权私有DHT | 待移植与实测 |
 | X3 | 通过NKN统计使用设备数 | 独立统计协议/密钥/主题，24小时、30天、90天展示 | 已定位参考源码，待开发 |
 

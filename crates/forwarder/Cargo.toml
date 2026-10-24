@@ -21,7 +21,10 @@ http = "1"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 fs2 = "0.4"
 rustix = { version = "1", features = ["process", "fs"] }
-tokio = { version = "1", features = ["rt", "net", "io-util", "time", "sync", "macros"] }
+tokio = { version = "1", features = ["rt", "net", "io-util", "time", "sync", "macros", "signal"] }
+socket2 = { version = "=0.6.5", features = ["all"] }
+hickory-proto = { version = "=0.26.3", default-features = false, features = ["std"] }
+getrandom = "0.4"
 hyper = { version = "1", features = ["client", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = "0.1"
