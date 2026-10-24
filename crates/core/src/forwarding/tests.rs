@@ -322,27 +322,7 @@ async fn disabling_via_actual_ipc_revokes_inflight_and_restart_preserves_unknown
 #[tokio::test]
 async fn even_privileged_signed_paired_client_cannot_read_or_configure_forwarding() {
     let f = Fixture::new();
-    let token = {
-        let mut a = f.auth.lock().unwrap();
-        let key = SigningKey::from_bytes(&[127; 32]);
-        let scopes = [Scope::SmsRead, Scope::SystemManage, Scope::ClientsManage];
-        a.open_pairing(&f.token).unwrap();
-        let c = a
-            .pairing_challenge(key.verifying_key().to_bytes(), Kind::Client, &scopes)
-            .unwrap();
-        let id = a
-            .pairing_finish(&c.id, &key.sign(&c.transcript).to_bytes())
-            .unwrap();
-        a.approve(
-            &f.token,
-            &id,
-            key.verifying_key().to_bytes(),
-            Kind::Client,
-            &scopes,
-        )
-        .unwrap();
-        login(&mut a, &key)
-    };
+    let token = delegated(&f);
     for token in [token, "0".repeat(64)] {
         for command in [
             AuthCommand::SetForwardingEnabled {
@@ -378,6 +358,27 @@ async fn even_privileged_signed_paired_client_cannot_read_or_configure_forwardin
         }
     }
     assert!(!f.state.path().join("forwarding").exists());
+}
+pub(super) fn delegated(f: &Fixture) -> String {
+    let mut a = f.auth.lock().unwrap();
+    let key = SigningKey::from_bytes(&[127; 32]);
+    let scopes = [Scope::SmsRead, Scope::SystemManage, Scope::ClientsManage];
+    a.open_pairing(&f.token).unwrap();
+    let c = a
+        .pairing_challenge(key.verifying_key().to_bytes(), Kind::Client, &scopes)
+        .unwrap();
+    let id = a
+        .pairing_finish(&c.id, &key.sign(&c.transcript).to_bytes())
+        .unwrap();
+    a.approve(
+        &f.token,
+        &id,
+        key.verifying_key().to_bytes(),
+        Kind::Client,
+        &scopes,
+    )
+    .unwrap();
+    login(&mut a, &key)
 }
 
 #[tokio::test]

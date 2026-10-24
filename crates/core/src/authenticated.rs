@@ -222,6 +222,7 @@ pub(crate) async fn handle(
     let history_enabled = history.is_some();
     let compat_enabled = compat.is_some();
     let forwarding_config_api = forwarding.is_some();
+    let forwarding_service_api = forwarding.as_ref().is_some_and(|c| c.service_management());
     let health = matches!(request.command, AuthCommand::Health { .. });
     let capabilities = matches!(request.command, AuthCommand::Capabilities { .. });
     let line_status = matches!(request.command, AuthCommand::LineStatus { .. });
@@ -376,6 +377,7 @@ pub(crate) async fn handle(
                 value["call_control_api"] = calling_enabled.into();
                 value["forwarding_configuration_api"] = forwarding_config_api.into();
                 value["forwarding_delivery_api"] = false.into();
+                value["forwarding_service_management_api"] = forwarding_service_api.into();
                 value["call_observer"] = calls_observed.into();
                 value["saved_wifi_trial_api"] = crate::network_trial::enabled().into();
                 value["wifi_provisioning_api"] = crate::network_trial::provision::enabled().into();
@@ -411,6 +413,7 @@ pub(crate) async fn handle(
                 value["legacy_read_api"] = compat_enabled.into();
                 value["forwarding_configuration_api"] = forwarding_config_api.into();
                 value["forwarding_delivery_api"] = false.into();
+                value["forwarding_service_management_api"] = forwarding_service_api.into();
             }
             if let (true, Some(m)) = (line_status, metrics) {
                 if let Ok(s) = m.lock() {
@@ -498,6 +501,7 @@ pub async fn serve_media_bundle(
         identity,
         RuntimeExtras {
             forwarding_uid: None,
+            forwarding_managed: false,
             media: Some(media),
             setup: None,
             history,
@@ -513,7 +517,7 @@ pub async fn serve_device(
     identity: &str,
     media: (&str, u32),
     history: (&str, &str),
-    local: (&str, &str, Option<u32>),
+    local: (&str, &str, Option<u32>, bool),
 ) -> Result<()> {
     serve_bundle_options(
         socket,
@@ -522,6 +526,7 @@ pub async fn serve_device(
         identity,
         RuntimeExtras {
             forwarding_uid: local.2,
+            forwarding_managed: local.3,
             media: Some(media),
             setup: Some(SetupMode::Device(local.1)),
             history: Some(history),
@@ -600,6 +605,7 @@ pub async fn serve_setup(
         (true, false, 1),
         RuntimeExtras {
             forwarding_uid: None,
+            forwarding_managed: false,
             media: None,
             setup: Some(SetupMode::Explicit(secret_file)),
             history: None,
@@ -711,6 +717,7 @@ async fn serve_inner(
 #[derive(Default)]
 struct RuntimeExtras<'a> {
     forwarding_uid: Option<u32>,
+    forwarding_managed: bool,
     media: Option<(&'a str, u32)>,
     setup: Option<SetupMode<'a>>,
     history: Option<(&'a str, &'a str)>,
@@ -733,6 +740,9 @@ async fn serve_inner_media(
         .forwarding_uid
         .map(|worker| crate::forwarding::ipc::Access::new(uid, worker))
         .transpose()?;
+    if extras.forwarding_managed && forwarding_access.is_none() {
+        return Err("forwarding management requires explicit worker UID routing".into());
+    }
     let (state, identity) = (state.to_owned(), identity.to_owned());
     let forwarding_state = std::path::PathBuf::from(&state);
     let setup_file = extras.setup.map(|mode| match mode {
@@ -787,8 +797,14 @@ async fn serve_inner_media(
     crate::status_led::initialize(store.handle()).await;
     // A passive Core-owned configuration handle, not a forwarding daemon.
     // No directory, worker, socket or periodic scan is created at startup.
-    let forwarding = (observing && messaging && call_mode == 2)
-        .then(|| crate::forwarding::Controller::new(&forwarding_state, store.handle()));
+    let forwarding = (observing && messaging && call_mode == 2).then(|| {
+        let c = crate::forwarding::Controller::new(&forwarding_state, store.handle());
+        if extras.forwarding_managed {
+            c.with_service_management()
+        } else {
+            c
+        }
+    });
     let (listener, runtime) =
         crate::socket_runtime::SocketRuntime::bind(std::path::Path::new(socket))?;
     let limit = Arc::new(Semaphore::new(8));

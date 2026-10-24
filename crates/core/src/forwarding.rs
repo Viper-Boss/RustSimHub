@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-//! Core-owned, on-demand management. No polling, network, forwarding task or
-//! process starts here. Root must independently prove the worker lifecycle.
+//! Core-owned, on-demand management. Passive by default; explicit management
+//! mode invokes finite Root jobs. No forwarding loop or startup poller in Core.
 use rustsimhub_auth::{Auth, Error};
 use rustsimhub_forwarder::{Binding, Policy, Queue};
 use rustsimhub_storage::Handle;
@@ -15,12 +15,13 @@ use std::{
 
 type Result<T> = rustsimhub_auth::Result<T>;
 pub(crate) mod ipc;
+mod service;
 fn denied<T>(result: rustsimhub_forwarder::Result<T>) -> Result<T> {
     result.map_err(|_| Error::Forbidden)
 }
 
 #[derive(Clone)]
-pub(crate) struct Controller(Arc<Mutex<Management>>);
+pub(crate) struct Controller(Arc<Mutex<Management>>, Option<Arc<service::Coordinator>>);
 struct Management {
     // Parent is the already-private business state directory, not a browser path.
     directory: PathBuf,
@@ -31,14 +32,37 @@ struct Management {
 impl Controller {
     /// Does not create files, start a task, read SMS or touch an interface.
     pub fn new(state: &Path, reader: Handle) -> Self {
-        Self(Arc::new(Mutex::new(Management {
-            directory: state.join("forwarding"),
-            reader,
-            queue: None,
-            worker: None,
-        })))
+        Self(
+            Arc::new(Mutex::new(Management {
+                directory: state.join("forwarding"),
+                reader,
+                queue: None,
+                worker: None,
+            })),
+            None,
+        )
+    }
+    pub fn with_service_management(mut self) -> Self {
+        self.1 = Some(Arc::new(service::Coordinator::production()));
+        self
+    }
+    pub fn service_management(&self) -> bool {
+        self.1.is_some()
+    }
+    #[cfg(feature = "dev-fixtures")]
+    pub(crate) fn with_fixture_management(mut self, path: &Path) -> Result<Self> {
+        self.1 = Some(Arc::new(service::Coordinator::fixture(path)?));
+        Ok(self)
     }
     pub async fn request(&self, auth: Arc<Mutex<Auth>>, command: AuthCommand) -> Result<Value> {
+        if let Some(coordinator) = self.1.as_ref() {
+            if let Some(action) = service::Action::from_command(&command) {
+                return coordinator.request(self, auth, command, action).await;
+            }
+        }
+        self.passive_request(auth, command).await
+    }
+    async fn passive_request(&self, auth: Arc<Mutex<Auth>>, command: AuthCommand) -> Result<Value> {
         let state = self.0.clone();
         tokio::task::spawn_blocking(move || {
             // All control/queue operations use the SAME order. Never block the

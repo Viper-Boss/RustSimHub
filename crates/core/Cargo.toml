@@ -30,7 +30,7 @@ sha2 = "0.10"
 zbus = { version = "5.19", default-features = false, features = ["tokio"] }
 tokio = { version = "1", features = ["rt", "net", "time", "io-util", "macros", "sync", "signal"] }
 fs2 = "0.4"
-rustix = { version = "1", features = ["process","fs","net"] }
+rustix = { version = "1", features = ["process","fs","net","time"] }
 getrandom = "0.4"
 zeroize = "1"
 

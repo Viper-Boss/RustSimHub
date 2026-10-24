@@ -1,5 +1,7 @@
 # 剩余工作与 Claude 接手清单
 
+2026-10-25 [X1G Core有限服务协调](VALIDATION-FORWARDING-COORDINATION-X1G.md)源码验证通过：显式管理模式将Owner开关接至两个固定Root服务，核对真实job及新鲜Owner/代次/Core/boot绑定回执；8秒截止保留已保存意图，丢失启动回复不重发。424项Rust、严格检查、实际Core→DBus→polkit→PID1、旧执行通道兼容及四份生产ARM64通过；两个合成HTTP各一次，实际整组关闭及临时授权清理通过。网页/安装/棒子验收仍缺，未部署、未访问设备；原整体80%，扩展单列、SMS剩余0，当前不需用户操作。X1F及其WIP为历史。
+
 2026-10-25 [X1F有限转发服务管理](VALIDATION-FORWARDING-SUPERVISOR-X1F.md)源码验证通过：PID1直接以低权限身份、空能力和私有只读credential启动worker；Root仅有限管理，实际核对整组进程及条件启动。419项Rust、严格Clippy/生产feature、真实systemd/cgroup/凭据正反对照、旧多UID及DNS/TLS执行通道兼容和四份生产ARM64通过；OFF整组清理及条件boot跳过已在本机实测，未部署棒子、未验证物理冷启动。网页与Core服务协调仍缺，不能将基础查询标为进程已核实。旧WIP失败保留，下方为历史；原整体80%，扩展单列、SMS剩余0，本轮不需用户操作。
 
 2026-10-24 [X1E固定出口与独立转发程序](VALIDATION-FORWARDING-WORKER-PROCESS-X1E.md)源码验证通过：独立非Root前台worker、每个DNS/TCP实际绑定网卡/ifindex/源IP、有限DNS解析、真实Core fence与HTTPS、信号取消。416项Rust/严格Clippy/生产Core、实际多UIDCLI与四个真实进程DNS/TLS/停止场景通过；四份生产ARM64及QEMU元数据通过。Root服务主管/开机策略、网页和签名安装仍缺，未部署或访问棒子，不宣称已安装服务在OFF/冷启动无PID。短信发送已消费且无重发；原整体80%，扩展单列，当前不需用户操作。

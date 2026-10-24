@@ -1,6 +1,6 @@
 # rustsimhub-forwarder
 
-Rust原生短信转发后端：规则、请求编码、有界持久outbox及真实Auth/Store适配。已有Core管理/执行IPC、固定出口HTTPS、独立worker及通过临时systemd验证的有限服务管理候选；Core自动协调、网页和签名安装仍缺，未交付棒子。构造库不会启动进程/线程或网络访问。
+Rust原生短信转发后端：规则、请求编码、有界持久outbox及真实Auth/Store适配。已有Core管理/执行IPC、固定出口HTTPS、独立worker及通过临时systemd验证的有限服务管理候选；Core显式有限协调也已通过本机真实链路；网页和签名安装仍缺，未交付棒子。构造库不会启动进程/线程或网络访问。
 
 - `model.rs`：最多8个目标、32条规则；发送方/正文/线路匹配；通知或明确的完整正文；Webhook/Bark/Telegram请求编码与应答判定。不是实际HTTPS客户端。重叠规则对同一消息/目标按首条匹配规则只排一次。
 - `queue.rs`：Core阻塞actor独占writer；私有0700目录/0600单链接文件；SQLite独立format1，不改变主库schema6。游标与全部收件目标同事务；256条未决/4096条回执的有界背压。重启中断、失去确认、停用后的迟到回复均不会回队重发。
@@ -15,7 +15,7 @@ Rust原生短信转发后端：规则、请求编码、有界持久outbox及真�
 
 Core集成应使用 `Binding::from_recent_owner` / `Queue::configure_owner` / `capture_current` / `claim_current` / `check_current_claim`。原始队列API只供可信Core内部状态机，不能映射为未鉴权的IPC。HTTP worker需要受限独立通道，取得一次claim并在实际写应用数据前再次向Core检查，不能拿本地绑定或旧的“允许”布尔值代替。
 
-`Queue::status().enabled`只是持久意图，基础Queue/Core查询的`process_state_verified`仍为false。独立Root报告只能在本机单元/整个cgroup/专用UID进程核对后为true；尚未接入Core/网页，不得把基础查询当成停止证明。完整关闭还必须清理启动触发器及私有凭据，并另做设备冷启动验收。
+`Queue::status().enabled`只是持久意图，基础Queue/被动Core查询的`process_state_verified`仍为false；[显式Core管理模式](../../docs/VALIDATION-FORWARDING-COORDINATION-X1G.md)仅在实际job成功及新鲜绑定报告均通过时才标为已核实。独立Root报告只能在本机单元/整个cgroup/专用UID进程核对后为true；尚未接入Core/网页，不得把基础查询当成停止证明。完整关闭还必须清理启动触发器及私有凭据，并另做设备冷启动验收。
 
 接口核对参考：
 

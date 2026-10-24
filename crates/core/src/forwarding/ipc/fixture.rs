@@ -14,6 +14,7 @@ pub(crate) async fn run(
     state: &str,
     identity: &str,
     target: Option<&str>,
+    management: Option<&Path>,
 ) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let access = Access::new(edge, worker)?;
     let store = Store::open(state)?;
@@ -28,7 +29,7 @@ pub(crate) async fn run(
     let token = a.login_finish(&c.id, &key.sign(&c.transcript).to_bytes())?;
     let owner_token = token.expose().to_owned();
     let auth = Arc::new(Mutex::new(a));
-    let controller = Controller::new(Path::new(state), store.handle());
+    let mut controller = Controller::new(Path::new(state), store.handle());
     let policy = json!({"enabled":true,"targets":[{
         "id":"33333333-3333-4333-8333-333333333333","destination":{
             "kind":"webhook","url":target.unwrap_or("https://example.invalid/synthetic-only"),"bearer":"synthetic"}}],
@@ -65,6 +66,9 @@ pub(crate) async fn run(
                 data: vec![],
             })?;
         }
+    }
+    if let Some(path) = management {
+        controller = controller.with_fixture_management(path)?;
     }
     let (listener, _runtime) = crate::socket_runtime::SocketRuntime::bind(Path::new(socket))?;
     // Only the disposable Root test parent receives this synthetic Owner

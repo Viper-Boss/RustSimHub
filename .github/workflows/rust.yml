@@ -84,6 +84,11 @@ jobs:
         run: |
           cargo build -p rustsimhub-forwarder --features dev-fixtures --locked
           sudo -n unshare --net python3 tools/test-forwarding-supervisor.py --core target/debug/rustsimhub-core --worker target/debug/rustsimhub-forwarder
+      - name: Real Owner forwarding service coordination
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y polkitd
+          sudo -n unshare --net python3 tools/test-forwarding-supervisor.py --core target/debug/rustsimhub-core --worker target/debug/rustsimhub-forwarder --managed
       - name: Check production feature set
         run: cargo check -p rustsimhub-core --no-default-features --locked
       - name: Lint

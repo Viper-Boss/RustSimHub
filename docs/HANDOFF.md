@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-10-25 [X1G Core有限服务协调](VALIDATION-FORWARDING-COORDINATION-X1G.md)源码验证通过：显式管理模式将Owner开关接至两个固定Root服务，核对真实job及新鲜Owner/代次/Core/boot绑定回执；8秒截止保留已保存意图，丢失启动回复不重发。424项Rust、严格检查、实际Core→DBus→polkit→PID1、旧执行通道兼容及四份生产ARM64通过；两个合成HTTP各一次，实际整组关闭及临时授权清理通过。网页/安装/棒子验收仍缺，未部署、未访问设备；原整体80%，扩展单列、SMS剩余0，当前不需用户操作。X1F及其WIP为历史。
+
 2026-10-25 [X1F有限转发服务管理](VALIDATION-FORWARDING-SUPERVISOR-X1F.md)源码验证通过：PID1直接以低权限身份、空能力和私有只读credential启动worker；Root仅有限管理，实际核对整组进程及条件启动。419项Rust、严格Clippy/生产feature、真实systemd/cgroup/凭据正反对照、旧多UID及DNS/TLS执行通道兼容和四份生产ARM64通过；OFF整组清理及条件boot跳过已在本机实测，未部署棒子、未验证物理冷启动。网页与Core服务协调仍缺，不能将基础查询标为进程已核实。旧WIP失败保留，下方为历史；原整体80%，扩展单列、SMS剩余0，本轮不需用户操作。
 
 2026-10-25 [X1F转发服务管理候选](VALIDATION-FORWARDING-SUPERVISOR-X1F-WIP.md)尚未验收：已转为PID1直接以专用低权限用户、空能力和私有只读credential启动worker，Root仅有限启停/状态；条件清理匹配当前能力，避免旧清理撤销新能力。最新开发构建tenth通过后又有静态修正；服务tenth测试因夹具数字UID无法解析而失败，改用既有NSS测试身份后尚未重跑。增加Root环境能力方案的编辑被自动审批拒绝且未执行；替代方案未增加环境能力。随后自动审批服务额度限制使下一次测试未执行，不能绕过。代码/失败记录与下一步已存私有检查点；未提交本轮候选、未部署/访问设备，原整体80%，SMS发送剩余0。最后通过的发布基线仍c76c825/X1E/416项及CI40109167277。

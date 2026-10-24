@@ -5,8 +5,12 @@
 Require Root, running systemd/cgroup v2 and a fresh `unshare --net`. Only
 unique runtime fixture units are created, stopped and removed. No account,
 production service, host network, modem or external destination is modified.
+With --managed, a temporary polkit rule permits only the existing test UID to
+start two unique fixture oneshots, then is removed. Shared polkit infrastructure
+may be activated; cleanup does not stop that shared service.
 """
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import grp
 import pwd
 import importlib.util
@@ -98,7 +102,14 @@ def credential_guards(base):
     Path(path).unlink()
 
 
-def test(core_binary, worker_binary):
+def test(core_binary, worker_binary, managed=False):
+    global CORE
+    if managed:
+        # Reuse a real, existing non-root NSS identity. Polkit resolves the
+        # caller, while the worker still uses the distinct existing nobody.
+        account = pwd.getpwuid(core_binary.stat().st_uid)
+        assert account.pw_uid not in [0, EDGE, WORKER]
+        CORE = account.pw_uid
     assert os.geteuid() == 0 and socket.if_nameindex() == [(1, 'lo')]
     assert Path('/proc/1/comm').read_text().strip() == 'systemd'
     assert Path('/sys/fs/cgroup/cgroup.controllers').exists()
@@ -108,6 +119,9 @@ def test(core_binary, worker_binary):
     assert not unit.exists()
     helpers = {action:Path('/run/systemd/system')/(name.removesuffix('.service')+'-'+action+'.service') for action in ['reconcile','status','boot']}
     assert all(not p.exists() for p in helpers.values())
+    rule = Path('/etc/polkit-1/rules.d')/('49-rsh-fwd-fixture-'+name.split('fixture-',1)[1]+'.rules') if managed else None
+    if rule:
+        assert rule.parent.is_dir() and rule.parent.stat().st_uid == 0 and not rule.exists()
     with tempfile.TemporaryDirectory(prefix='rsh-fwd-root-', dir='/run') as temporary:
         base = Path(temporary)
         assert base.parent == Path('/run')
@@ -116,6 +130,12 @@ def test(core_binary, worker_binary):
                                   ('client.py', ROOT/'tools/test-forwarding-worker-ipc.py')]:
             shutil.copyfile(origin, base/filename)
             (base/filename).chmod(0o755)
+        if managed:
+            client = base/'client.py'
+            source = client.read_text()
+            old = 'EDGE, CORE, WORKER, OTHER = 65529, 65530, 65531, 65532'
+            assert old in source
+            client.write_text(source.replace(old, f'EDGE, CORE, WORKER, OTHER = {EDGE}, {CORE}, {WORKER}, 65532').replace('stream.settimeout(3)', 'stream.settimeout(12)'))
         for folder, uid, mode in [('state', CORE, 0o700), ('identity', CORE, 0o700),
                                   ('ipc', CORE, 0o2750), ('runtime', 0, 0o2750), ('persistent', 0, 0o700)]:
             path = base/folder
@@ -157,6 +177,13 @@ def test(core_binary, worker_binary):
         started = []
         events = []
         registered = False
+        rule_written = False
+        if managed:
+            choice = {'reconcile': helpers['reconcile'].name, 'status': helpers['status'].name,
+                      'report': str(base/'runtime/status.json')}
+            (base/'management.json').write_text(json.dumps(choice))
+            os.chown(base/'management.json', 0, IPC)
+            (base/'management.json').chmod(0o640)
 
         def ctl(*args, check=True):
             return subprocess.run(['systemctl', '--no-ask-password', *args], check=check,
@@ -165,7 +192,8 @@ def test(core_binary, worker_binary):
         def rpc(uid, command, protocol=4):
             request = {'protocol': protocol, 'id': str(uuid.uuid4()), 'command': command}
             result = subprocess.run([sys.executable, str(base/'client.py'), '--client', sock], input=json.dumps(request),
-                text=True, capture_output=True, timeout=6, preexec_fn=identity(uid), cwd=base)
+                text=True, capture_output=True, timeout=13 if managed else 6,
+                user=uid, group=IPC, extra_groups=[IPC], cwd=base)
             assert result.returncode == 0, 'Core transport failed'
             response = json.loads(result.stdout)
             assert 'error' not in response, 'Core refused request'
@@ -206,8 +234,11 @@ def test(core_binary, worker_binary):
             with (base/'core.out').open('wb') as out, (base/'core.err').open('wb') as err:
                 (base/'core.out').chmod(0o600)
                 (base/'core.err').chmod(0o600)
-                core = subprocess.Popen([str(base/'core'), '--forwarding-ipc-fixture', sock, str(EDGE), str(WORKER),
-                    str(base/'state'), str(base/'identity'), f'https://fixture.test:{tls_port}/synthetic-only'],
+                arguments = [str(base/'core'), '--forwarding-service-fixture' if managed else '--forwarding-ipc-fixture', sock, str(EDGE), str(WORKER),
+                    str(base/'state'), str(base/'identity'), f'https://fixture.test:{tls_port}/synthetic-only']
+                if managed:
+                    arguments.append(str(base/'management.json'))
+                core = subprocess.Popen(arguments,
                     preexec_fn=identity(CORE), stdout=out, stderr=err, cwd=base)
 
             def ready():
@@ -237,9 +268,21 @@ def test(core_binary, worker_binary):
                 helper.write_text(source)
                 helper.chmod(0o644)
             ctl('daemon-reload')
+            if managed:
+                # Only this UID can start these TWO unique, Root-owned fixture
+                # oneshots. No production rule/account/unit is changed.
+                grant = 'polkit.addRule(function(action, subject) { if (action.id === "org.freedesktop.systemd1.manage-units" && subject.user === '+json.dumps(account.pw_name)+' && action.lookup("verb") === "start" && '+json.dumps([helpers['reconcile'].name, helpers['status'].name])+'.indexOf(action.lookup("unit")) >= 0) { return polkit.Result.YES; } });\n'
+                with rule.open('x') as policy:
+                    rule_written = True
+                    policy.write(grant)
+                rule.chmod(0o644)
+                ctl('start', 'polkit.service')  # Shared system infrastructure; never stop it in cleanup.
+                time.sleep(1)  # Permit its rule monitor to load only this temporary rule.
             network()
-            rpc(EDGE, {'op': 'set_forwarding_enabled', 'token': owner, 'expected_generation': 1,
+            disabled = rpc(EDGE, {'op': 'set_forwarding_enabled', 'token': owner, 'expected_generation': 1,
                        'request_id': str(uuid.uuid4()), 'enabled': False}, 2)
+            if managed:
+                assert disabled['process_state_verified'] and disabled['state'] == 'disabled', disabled
             root('reconcile')
             assert report()['state'] == 'disabled' and report()['process_state_verified']
             ctl('start', name)
@@ -249,8 +292,10 @@ def test(core_binary, worker_binary):
             ctl('start', helpers['boot'].name)
             assert ctl('show', helpers['boot'].name, '--property=ConditionResult', '--value').stdout.strip() == 'no'
             assert ctl('show', helpers['boot'].name, '--property=ExecMainPID', '--value').stdout.strip() == '0'
-            rpc(EDGE, {'op': 'set_forwarding_enabled', 'token': owner, 'expected_generation': 2,
+            enabled = rpc(EDGE, {'op': 'set_forwarding_enabled', 'token': owner, 'expected_generation': 2,
                        'request_id': str(uuid.uuid4()), 'enabled': True}, 2)
+            if managed:
+                assert enabled['process_state_verified'] and enabled['state'] == 'running', enabled
             root('reconcile')
             running = report()
             assert running['state'] == 'running' and running['process_state_verified']
@@ -275,12 +320,22 @@ def test(core_binary, worker_binary):
             cgroup.write_text(str(stubborn.pid))
             rejected = root('status', check=False)
             assert rejected.returncode != 0, 'unexpected extra worker was called verified'
-            rpc(EDGE, {'op': 'set_forwarding_enabled', 'token': owner, 'expected_generation': 3,
-                       'request_id': str(uuid.uuid4()), 'enabled': False}, 2)
-            action = subprocess.Popen(['systemctl', '--no-ask-password', 'start', helpers['reconcile'].name],
-                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-            assert stubborn.wait(timeout=12) == -signal.SIGKILL
-            assert action.wait(timeout=20) == 0
+            off = {'op': 'set_forwarding_enabled', 'token': owner, 'expected_generation': 3,
+                   'request_id': str(uuid.uuid4()), 'enabled': False}
+            if managed:
+                # The fixture parent must reap its own artificial child while
+                # Core waits for the real cgroup proof, like a real child reaper.
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    pending = executor.submit(rpc, EDGE, off, 2)
+                    assert stubborn.wait(timeout=12) == -signal.SIGKILL
+                    stopped = pending.result(timeout=13)
+                assert stopped['process_state_verified'] and stopped['state'] == 'disabled', stopped
+            else:
+                rpc(EDGE, off, 2)
+                action = subprocess.Popen(['systemctl', '--no-ask-password', 'start', helpers['reconcile'].name],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                assert stubborn.wait(timeout=12) == -signal.SIGKILL
+                assert action.wait(timeout=20) == 0
             assert report()['state'] == 'disabled' and report()['process_state_verified']
             assert not Path('/proc/'+str(running['worker_pid'])).exists()
             assert not (base/'persistent/enabled.json').exists()
@@ -310,6 +365,11 @@ def test(core_binary, worker_binary):
                 print(ctl('status', helper.name, '--no-pager', check=False).stdout[-2500:], file=sys.stderr)
             raise
         finally:
+            # Revoke the temporary privilege first, even if a later stop or
+            # daemon-reload fails. Root cleanup does not need this grant.
+            if rule_written:
+                assert rule.parent == Path('/etc/polkit-1/rules.d') and rule.name.startswith('49-rsh-fwd-fixture-')
+                rule.unlink()
             if registered:
                 for helper in helpers.values():
                     ctl('stop', helper.name, check=False)
@@ -339,6 +399,8 @@ def test(core_binary, worker_binary):
             dns.close()
             tcp.close()
     print(json.dumps({'passed': True, 'actual_systemd': True, 'actual_cgroup': True,
+        'actual_core_dbus_polkit_coordination': managed,
+        'temporary_polkit_rule_removed': managed,
         'http_requests': 2, 'extra_child_forcibly_reaped': True, 'off_startup_job_created_no_worker': True,
         'credential_metadata_negative_cases': 3, 'credential_ipc_positive_control': True,
         'root_and_service_credentials_removed_on_off': True,
@@ -353,5 +415,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--core', required=True, type=Path)
     parser.add_argument('--worker', required=True, type=Path)
+    parser.add_argument('--managed', action='store_true', help='Also test actual Core -> fixed PID1 jobs with a temporary, unique-unit polkit rule; existing non-root artifact owner required')
     args = parser.parse_args()
-    test(args.core.resolve(strict=True), args.worker.resolve(strict=True))
+    test(args.core.resolve(strict=True), args.worker.resolve(strict=True), args.managed)

@@ -159,6 +159,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     state,
                     identity,
                     None,
+                    None,
                 ));
             }
         }
@@ -172,6 +173,23 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     state,
                     identity,
                     Some(target),
+                    None,
+                ));
+            }
+        }
+        #[cfg(feature = "dev-fixtures")]
+        if let [command, socket, edge, worker, state, identity, target, management] =
+            args.as_slice()
+        {
+            if command == "--forwarding-service-fixture" {
+                return runtime.block_on(forwarding::ipc::fixture::run(
+                    socket,
+                    edge.parse()?,
+                    worker.parse()?,
+                    state,
+                    identity,
+                    Some(target),
+                    Some(std::path::Path::new(management)),
                 ));
             }
         }
@@ -192,11 +210,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     identity,
                     (media_path, media_uid.parse()?),
                     (archive, access),
-                    (compat, setup, None),
+                    (compat, setup, None, false),
                 ));
             }
             [command, path, uid, state, identity, media_path, media_uid, archive, access, compat, journal, setup, worker_uid]
-                if command == "--serve-device-forwarding" =>
+                if command == "--serve-device-forwarding"
+                    || command == "--serve-device-forwarding-managed" =>
             {
                 forwarding::ipc::Access::new(uid.parse()?, worker_uid.parse()?)?;
                 network_trial::provision::enable(std::path::Path::new(journal))?;
@@ -207,7 +226,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     identity,
                     (media_path, media_uid.parse()?),
                     (archive, access),
-                    (compat, setup, Some(worker_uid.parse()?)),
+                    (
+                        compat,
+                        setup,
+                        Some(worker_uid.parse()?),
+                        command == "--serve-device-forwarding-managed",
+                    ),
                 ));
             }
             [command, path, uid, state, identity, media_path, media_uid, archive, access, compat, journal, setup]
@@ -221,7 +245,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     identity,
                     (media_path, media_uid.parse()?),
                     (archive, access),
-                    (compat, setup, None),
+                    (compat, setup, None, false),
                 ));
             }
             [command, path, uid, state, identity, media_path, media_uid, archive, access, compat, journal]
