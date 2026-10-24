@@ -8,7 +8,8 @@ const app=await readFile(new URL('../crates/edge/src/web/app.js',import.meta.url
 const html=await readFile(new URL('../crates/edge/src/web/index.html',import.meta.url),'utf8');
 const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);assert.equal(new Set(ids).size,ids.length);
 for(const match of app.matchAll(/\$\('(wifi-[^']+)'\)/g))assert(ids.includes(match[1]),match[1]+' missing from HTML');
-assert(html.indexOf('id="wifi-section"')<html.indexOf('<summary>一键通话测试'));
+assert(html.indexOf('id="test-center"')<html.indexOf('id="wifi-section"'));
+assert(html.indexOf('<details data-configuration><summary>网络状态、流量与配置</summary>')<html.indexOf('id="wifi-section"'));
 assert(app.includes("bind('wifi-login',login)")&&app.includes("bind('wifi-networks-refresh',loadWifiNetworks)"));
 const clone=value=>structuredClone(value);
 const row={ssid:'合成 <img src=x>',strength:80,frequency_mhz:2412,security:'wpa2_personal',selectable:true,connected:true};

@@ -24,6 +24,7 @@ function invalidatePage(kind){pageLoads[kind].id++;pageLoads[kind].pending=false
 let wifiTrial=null;
 let wifiCatalogueGeneration=0;
 let audioReady=false;
+let testWorking=false,testGeneration=0,testTask=null,testResult=null;
 let configurationOpen=false;
 function configurationVisible(){return Array.from(document.querySelectorAll('details[data-configuration]')).some(panel=>panel.open);}
 const configurationIndicator=new ConfigurationIndicator(command=>{
@@ -35,7 +36,7 @@ const configurationIndicator=new ConfigurationIndicator(command=>{
  };
 });
 const audioLink=new AudioLink($('call-audio'),(text,state)=>{$('audio-state').textContent=text;$('audio-stop').disabled=state==='closed';showAudio();});
-const callTest=new CallTest({audio:audioLink,login:()=>token?Promise.resolve():login(),request:command=>auth(command),context:lease=>({token,lease}),getPending:()=>pending,setPending:async value=>{pending=value;await save('pending',value);showPending();},archivePending:archivePending,onLease:value=>{lease=value;showAudio();},notify:(text,running)=>{$('test-state').textContent=text;$('test-start').disabled=running||!audioReady;$('test-incoming-start').disabled=running||!audioReady;$('test-stop').disabled=!running;}});
+const callTest=new CallTest({audio:audioLink,login:()=>token?Promise.resolve():login(),request:command=>auth(command),context:lease=>({token,lease}),getPending:()=>pending,setPending:async value=>{pending=value;await save('pending',value);showPending();},archivePending:archivePending,onLease:value=>{lease=value;showAudio();},notify:(text,running)=>{$('test-state').textContent=text;testResult=text;showTestControls();}});
 function showAudio(){$('audio-start').disabled=!token||!lease||!audioReady||audioLink.state!=='closed';$('audio-stop').disabled=audioLink.state==='closed';}
 let db;
 let viewEpoch=0, actionGeneration=0;const requests=new Set();
@@ -77,6 +78,7 @@ const networkPanel=new NetworkPanel({document,request:command=>auth(command),get
  finally{clearTimeout(timer);requests.delete(controller);}
 }});
 function showPending(){
+ showTestControls();
  $('pending').textContent=pending?JSON.stringify({type:pending.type,action:pending.action,operation_id:pending.id,state:pending.state,submit_started:pending.submit_started,prior_operation:pending.prior_operation},null,2):'没有待处理操作';
  $('pending-hint').textContent=!pending?'先在上方准备一笔操作，再在这里核对和提交。':pending.state==='submitted'?'这笔操作已提交，因此不能再次确认。要准备下一笔，请先点击“关闭已完成操作”。':pending.state==='cancelled'?'这笔操作已取消；请关闭它后再准备下一笔。':pending.submit_started?'这笔请求可能已经发出，只能查询结果；请勿重新提交。':!token?'请先在页面上方登录，再查询和核对当前操作。':'操作已准备。核对后点击“确认提交一次”；接通后在上方点击“连接声音”。';
  $('submit').disabled=!token||!pending||pending.submit_started||pending.state!=='prepared';$('query').disabled=!token||!pending;$('clear').disabled=!pending||!['submitted','cancelled'].includes(pending.state);
@@ -94,10 +96,11 @@ async function initialize(){
  key=await stored('key');if(!key){key=await crypto.subtle.generateKey({name:'Ed25519'},false,['sign','verify']);await save('key',key);}
  publicKey=new Uint8Array(await crypto.subtle.exportKey('raw',key.publicKey));
  $('client-key').textContent='浏览器公钥：'+hex(publicKey);$('pin').value=await stored('pin')||'';pending=await stored('pending')||null;showPending();
+ $('test-restore-draft').hidden=!await stored('test-center-saved-draft');
  const identity=await api({op:'identity'});$('first-setup').hidden=identity.owner_setup_available!==true;
  try{const response=await fetch('/api/media/capabilities',{credentials:'omit',cache:'no-store',redirect:'error'});const capability=await response.json();audioReady=response.ok&&capability.protocol===1&&capability.enabled===true;}catch{audioReady=false;}
  $('audio-section').hidden=!audioReady;showAudio();
- $('test-start').disabled=!audioReady;$('test-incoming-start').disabled=!audioReady;$('test-state').textContent=audioReady?'点击一次即可；首次使用请允许麦克风。':'此设备暂未开启浏览器音频。';
+ showTestControls();$('test-state').textContent=audioReady?'选一个测试即可。来电测试开始后，再用另一部手机拨入。':'可以检查状态和测试短信；此设备暂未开启浏览器音频。';
 }
 async function proof(challenge,purpose,pairScopes,epoch=viewEpoch,sessionToken=null){
  let expectedKind=purpose==='bootstrap'?'owner':'client';
@@ -236,31 +239,34 @@ async function prepare(type,action){
  }
  pending={type,action,id:operation.id,state:operation.state,submit_started:false};await save('pending',pending);current(epoch);showPending();notice('操作已准备；核对后确认提交一次');
 }
-async function submit(){
+async function submit(check=()=>{}){
+ check();
  if(!pending||pending.state!=='prepared'||pending.submit_started)throw Error('当前操作只能查询');
  const epoch=viewEpoch,old=pending,authToken=token;
  // Commit the client marker BEFORE the request. EOF, reload or timeout never auto-resubmits.
- pending.submit_started=true;await save('pending',pending);current(epoch);if(pending!==old||token!==authToken)throw Error('操作已变化，未继续提交');showPending();
+ pending.submit_started=true;await save('pending',pending);current(epoch);if(pending!==old||token!==authToken)throw Error('操作已变化，未继续提交');showPending();check();
  if(pending.type==='call'&&pending.action==='hangup')void audioLink.stop();
  let r;if(pending.type==='sms')r=await auth({op:'submit_sms',operation_id:pending.id});
  else r=await auth({op:'submit_call',operation_id:pending.id,lease,urgent:pending.action==='hangup'});
  current(epoch);if(pending!==old||token!==authToken)throw Error('操作已变化，请重新查询');if(r.lease)lease=r.lease;showAudio();await query();
 }
 async function query(){const epoch=viewEpoch,old=pending;if(!old)return;const r=await auth({op:old.type==='sms'?'sms_operation':'call_operation',operation_id:old.id});current(epoch);if(pending!==old)throw Error('当前操作已变化');const operation=old.type==='call'?r.operation:r;if(operation?.id!==old.id||!['prepared','submitting','submitted','cancelled','unknown'].includes(operation.state))throw Error('操作响应不匹配，请稍后查询');if(r.lease)lease=r.lease;old.state=operation.state;await save('pending',old);current(epoch);showPending();showAudio();notice('操作状态：'+operation.state+'；没有重复提交');}
-async function dailySendSms(){
+async function dailySendSms(check=()=>{}){
+ check();
  const epoch=viewEpoch;if(!token)throw Error('请先登录');if(pending)throw Error('请先查询并完成当前操作');
  const recipient=$('recipient').value.trim(),text=$('text').value;
  if(recipient.length<3||recipient.length>32||!/^\+?[0-9]+$/.test(recipient))throw Error('请输入有效的接收号码');
  if(!text||new TextEncoder().encode(text).length>4096||text.includes('\0'))throw Error('短信内容须为1至4096字节且不含空字符');
- if(!confirm(`确认发送给 ${recipient}？\n\n${text}`))return;
- const line=await auth({op:'line_status'});current(epoch);if(line.status!=='ready')throw Error('SIM 尚未就绪');
+ if(!confirm(`确认发送给 ${recipient}？\n\n${text}`))return false;
+ check();
+ const line=await auth({op:'line_status'});current(epoch);check();if(line.status!=='ready')throw Error('SIM 尚未就绪');
  if(pending||$('recipient').value.trim()!==recipient||$('text').value!==text)throw Error('草稿或当前操作已变化，未发送');
  const operation=await auth({op:'prepare_sms',line_epoch:line.line,idempotency_key:crypto.randomUUID(),recipient,text});current(epoch);
  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(operation?.id||'')||operation.state!=='prepared')throw Error('准备结果未确认，未提交发送');
  if(pending)throw Error('已有其他操作，本次未提交');
- const old={type:'sms',action:'send',id:operation.id,state:operation.state,submit_started:false};pending=old;await save('pending',old);current(epoch);
+ const old={type:'sms',action:'send',id:operation.id,state:operation.state,submit_started:false};pending=old;await save('pending',old);current(epoch);check();
  if(pending!==old||$('recipient').value.trim()!==recipient||$('text').value!==text)throw Error('草稿已变化，尚未发送；可放弃未发送操作');
- await submit();
+ await submit(check);return true;
 }
 async function closeSms(){
  const epoch=viewEpoch,old=pending;if(old?.type!=='sms'||!(['submitted','cancelled'].includes(old.state)||old.state==='prepared'&&!old.submit_started))throw Error('发送结果尚未确认，请保留并查询');
@@ -270,12 +276,114 @@ async function closeSms(){
  await save('pending',null);current(epoch);if(pending!==old)throw Error('当前操作已变化');pending=null;
  if(old.state!=='prepared'){$('recipient').value='';$('text').value='';}smsLength();showPending();notice(old.state==='prepared'?'未发送操作已关闭，正文保留。':'本次操作已完成，记录已保存。');
 }
+// One visible task owns the same durable operation slot as daily/manual controls.
+// Recovery only queries/archives exact receipts. It never retries an old action.
+function showTestControls(){
+ const running=testWorking||callTest.running,locked=busy||running;
+ $('test-check').disabled=locked;$('test-sms').disabled=locked;
+ $('test-start').disabled=locked||!audioReady;$('test-incoming-start').disabled=locked||!audioReady;
+ $('test-stop').disabled=!running;$('test-recover').disabled=locked||!pending;
+ $('test-recovery').hidden=!pending;
+ $('test-pending-state').textContent=pending?'有一笔上次的操作需要核对。测试会先核对它；结果不明时会保留，不会重拨或重发。':'';
+ $('test-copy').disabled=!testResult&&!pending;
+}
+function testMessage(text){testResult=text;$('test-state').textContent=text;showTestControls();}
+async function testLogin(check){
+ testMessage('正在登录此浏览器…');
+ if(token)await sessionKeeper.ensure();else await login();check();
+}
+async function archiveTestCall(check=()=>{}){
+ const epoch=viewEpoch,old=pending;
+ await archiveEndedOperation({pending:old,request:command=>auth(command),archivePending,
+  setPending:async value=>{current(epoch);check();if(pending!==old)throw Error('当前操作已变化');await save('pending',value);current(epoch);check();if(pending!==old)throw Error('当前操作已变化');pending=value;},
+  current:()=>{current(epoch);check();if(pending!==old&&pending!==null)throw Error('当前操作已变化');}});
+ showPending();
+}
+async function reconcileTestPending(check){
+ const old=pending;if(!old)return;
+ testMessage('正在核对上次操作，不会重新提交…');await query();check();
+ if(pending!==old)throw Error('当前操作已变化');
+ if(old.type==='call'&&['unknown','submitting'].includes(old.state)){
+  await archiveTestCall(check);check();return;
+ }
+ const known=['submitted','cancelled'].includes(old.state);
+ const unsent=old.state==='prepared'&&old.submit_started===false;
+ if(!known&&!unsent)throw Error('上次操作结果尚未确认。请点击“复制测试结果”发给开发者；不会重拨或重发');
+ if(unsent&&!confirm('上次有尚未提交的操作。保存回执并关闭它，再继续本次测试？旧操作不会被发送。'))throw Error('已保留上次尚未提交的操作');
+ check();
+ if(old.type==='call'){
+  const status=await auth({op:'call_status'});check();
+  if(status.available!==true||status.active_calls!==0)throw Error('仍有未结束或未确认的电话，请先结束通话');
+  if(old.state==='submitted'){
+   const response=await auth({op:'call_operation',operation_id:old.id});check();
+   if(response.operation?.id!==old.id||response.operation.state!=='submitted'||!response.operation.call_id)throw Error('上次电话结果尚未确认');
+   const call=await auth({op:'call_detail',call_id:response.operation.call_id});check();
+   if(call.id!==response.operation.call_id||!(call.state==='ended'&&call.availability==='observed'||call.state==='reconciling'&&call.availability==='reconciling'&&call.modem_state===7))throw Error('尚未核实上次电话已结束');
+  }
+ }
+ const receipt={...old,test_center_archive:true,local_discarded:unsent};
+ await archivePending(receipt);check();if(pending!==old)throw Error('当前操作已变化');
+ await save('pending',null);check();if(pending!==old)throw Error('当前操作已变化');pending=null;showPending();
+}
+async function runTestCenter(task){
+ if(testWorking||callTest.running)return;
+ const generation=++testGeneration,epoch=viewEpoch;testWorking=true;testTask=task;
+ const check=()=>{current(epoch);if(generation!==testGeneration)throw Error('测试已停止；不会继续提交，已有操作保留核对');};
+ showTestControls();
+ try{
+  await testLogin(check);
+  if(task==='check'){
+   testMessage('正在检查设备与电话状态…');
+   const line=await auth({op:'line_status'});check();const call=await auth({op:'call_status'});check();
+   let network=null;try{network=await auth({op:'network_status'});}catch{check();}check();
+   const connected=kind=>network?.devices?.some(device=>device.kind===kind&&device.state===100);
+   testMessage(`检查完成：SIM ${line.status==='ready'?'已就绪':'尚未就绪'}；电话${call.available===true?'服务可用':'服务暂不可用'}；${Number.isSafeInteger(call.active_calls)?call.active_calls:'未知'}个活动呼叫。`+(network?`\nWi-Fi ${connected('wifi')?'已连接':'未连接'}；USB ${connected('ethernet')?'已连接':'未连接'}；蜂窝数据${connected('cellular')?'已连接':'未连接'}。`:'\n网络状态暂不可读取。')+(pending?'\n有上次操作，请点击下方“核对上次操作”。':'\n没有待处理操作。'));return;
+  }
+  await reconcileTestPending(check);check();
+  if(task==='recover'){testMessage('上次操作已核对，回执已保存。现在可以选择一项测试。');return;}
+  if(task==='sms'){
+   const draft=$('text').value,recipient=$('recipient').value;
+   if((draft&&draft!=='CXYE')||(recipient&&recipient!=='10010')){
+    if(!confirm('当前有其他短信草稿。将它保存在本机，再准备 10010 / CXYE 测试？')){testMessage('已保留草稿，未发送测试短信。');return;}
+    const savedDraft=await stored('test-center-saved-draft');check();
+    if(savedDraft&&(savedDraft.recipient!==recipient||savedDraft.text!==draft))throw Error('还有一份已保存草稿，请先在“短信 · 日常使用”恢复它，再测试');
+    await save('test-center-saved-draft',{recipient,text:draft});check();$('test-restore-draft').hidden=false;
+   }
+   $('recipient').value='10010';$('text').value='CXYE';smsLength();
+   testMessage('即将查询余额；请确认弹窗中的 10010 / CXYE。只发送一次。');
+   const sent=await dailySendSms(check);check();
+   testMessage(!sent?'已取消，未发送测试短信。':pending?.state==='submitted'?'测试短信已提交一次。正在读取收件箱；运营商回复可能稍后到达。':'发送结果未确认，记录已保留；不会再次发送。');
+   if(sent&&pending?.state==='submitted'){await inboxPage(true);check();$('sms-panel').open=true;testMessage('测试短信已提交一次，收件箱已展开。请查看最新运营商回复；需要时点击“刷新收件箱”，不要重复发送。');}return;
+  }
+  if(!['outgoing','incoming'].includes(task))throw Error('测试类型无效');
+  await callTest.start(task);check();
+ }catch(error){if(generation===testGeneration&&epoch===viewEpoch)testMessage('测试停止：'+(error.message||'请稍后核对')+'；已有记录保留，不会自动重试');}
+ finally{testWorking=false;showTestControls();}
+}
+async function copyTestResult(){
+ const states=['prepared','submitting','submitted','cancelled','unknown'];
+ const report={format:1,test:['check','recover','sms','outgoing','incoming'].includes(testTask)?testTask:null,result:testResult||'尚未测试',operation:pending?{type:['call','sms'].includes(pending.type)?pending.type:'other',action:['dial','accept','hangup','dtmf','send'].includes(pending.action)?pending.action:'other',operation_id:/^[0-9a-f-]{36}$/i.test(pending.id||'')?pending.id:null,state:states.includes(pending.state)?pending.state:'other',submit_started:pending.submit_started===true}:null};
+ const text=JSON.stringify(report,null,2);
+ try{await navigator.clipboard.writeText(text);notice('测试结果已复制，直接粘贴发来即可。');}
+ catch{$('test-report').value=text;$('test-report').hidden=false;notice('请选取首页结果框中的文字，复制发来即可。');}
+}
+async function restoreTestDraft(){
+ const epoch=viewEpoch;if(pending)throw Error('请先核对上次操作，再恢复草稿');
+ const draft=await stored('test-center-saved-draft');current(epoch);
+ if(!draft||typeof draft.recipient!=='string'||typeof draft.text!=='string'||draft.recipient.length>32||new TextEncoder().encode(draft.text).length>4096)throw Error('没有可恢复的草稿');
+ if(!confirm('恢复测试前的草稿并替换当前输入？只恢复文字，不发送。'))return;
+ if(pending)throw Error('当前操作已变化');
+ // Publish the text before clearing its durable backup; a failed write keeps it recoverable.
+ $('recipient').value=draft.recipient;$('text').value=draft.text;smsLength();
+ await save('test-center-saved-draft',null);current(epoch);$('test-restore-draft').hidden=true;notice('已恢复原草稿，尚未发送。');
+}
 function smsLength(){$('sms-length').textContent=`正文 ${new TextEncoder().encode($('text').value).length} / 4096 字节`;} $('text').oninput=smsLength;
 async function act(fn){if(busy)return;if(dailyPhone?.working||dailyPhone?.managing){notice('请先在电话区结束当前操作或通话');return;}const generation=++actionGeneration,epoch=viewEpoch;busy=true;showPending();try{await fn();}catch(error){if(epoch===viewEpoch&&generation===actionGeneration)notice(error.message||'操作失败');}finally{if(generation===actionGeneration){busy=false;showPending();}}}
 function bind(id,fn){$(id).onclick=()=>act(fn);}
 bind('initialize-owner',initializeOwner);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
 bind('sms-login',async()=>{await login();$('sms-management-state').textContent=smsManager.available?'已重新登录，请重新选择短信后管理。':'当前浏览器没有所有者管理权限，请使用已认领的所有者浏览器。';});
 bind('daily-login',login);$('daily-logout').onclick=()=>$('logout').onclick();bind('sms-refresh',()=>inboxPage(true));bind('send-sms',dailySendSms);bind('sms-query',query);bind('sms-close',closeSms);
+bind('test-restore-draft',restoreTestDraft);
 bind('network-login',login);const networkPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{networkPanel.stop();networkPreviousLogout();};
 const syncPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{eventSync.reset();smsView++;smsPreview++;callsView++;callsPreview++;historySourcesView++;invalidatePage('sms');invalidatePage('calls');inboxCursor=null;callsCursor=null;$('call-detail').textContent='';$('more-inbox').disabled=true;$('more-calls').disabled=true;syncPreviousLogout();};
 const smsPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{smsManager.reset();smsPreviousLogout();};
@@ -293,7 +401,9 @@ $('audio-start').onclick=()=>{if(!token||!lease){notice('请先取得当前通�
 $('audio-stop').onclick=()=>{void audioLink.stop();$('audio-state').textContent='声音已关闭；电话可在上方挂断';showAudio();};
 $('audio-muted').onchange=()=>audioLink.mute($('audio-muted').checked);
 bind('audio-play',()=>audioLink.play());
-bind('test-start',()=>callTest.start());bind('test-incoming-start',()=>callTest.start('incoming'));$('test-stop').onclick=()=>{void callTest.stop();};
+for(const [id,task] of [['test-check','check'],['test-start','outgoing'],['test-incoming-start','incoming'],['test-sms','sms'],['test-recover','recover']])bind(id,()=>runTestCenter(task));
+$('test-copy').onclick=()=>{void copyTestResult();};
+$('test-stop').onclick=()=>{testGeneration++;void callTest.stop();testMessage('已请求停止；尚未提交的动作不会继续。已提交的短信不能撤回，结果不明记录会保留。');};
 const audioPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{void callTest.stop(false);void audioLink.stop();$('audio-state').textContent='未连接声音';audioPreviousLogout();showAudio();};
 addEventListener('pagehide',()=>{void callTest.stop(false);void audioLink.stop();});
 const indicatorPreviousLogout=$('logout').onclick;
