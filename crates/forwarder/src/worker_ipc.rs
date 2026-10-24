@@ -26,6 +26,9 @@ pub enum Command {
     State {},
     Grant {},
     Revoke {},
+    Retire {
+        lease_sha256: [u8; 32],
+    },
     Acquire {
         lease: Secret,
     },
@@ -43,7 +46,10 @@ pub enum Command {
 }
 impl Command {
     pub fn root_only(&self) -> bool {
-        matches!(self, Self::State {} | Self::Grant {} | Self::Revoke {})
+        matches!(
+            self,
+            Self::State {} | Self::Grant {} | Self::Revoke {} | Self::Retire { .. }
+        )
     }
 }
 #[derive(Serialize, Deserialize)]

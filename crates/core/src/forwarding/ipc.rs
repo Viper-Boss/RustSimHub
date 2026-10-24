@@ -180,7 +180,8 @@ impl Management {
         Ok(match command {
             wire::Command::State {} => {
                 if !self.root_open(auth)? {
-                    json!({"configured":false,"enabled":false,"generation":0,"lease_active":false,"process_state_verified":false})
+                    json!({"configured":false,"enabled":false,"generation":0,"lease_active":false,"process_state_verified":false,
+                        "core_instance":auth.observer_instance(),"binding_sha256":null,"lease_sha256":null})
                 } else {
                     let mut v = serde_json::to_value(denied(
                         self.queue.as_ref().ok_or(Error::Forbidden)?.status(),
@@ -188,6 +189,17 @@ impl Management {
                     .map_err(|_| Error::Forbidden)?;
                     v["configured"] = true.into();
                     v["lease_active"] = self.worker.is_some().into();
+                    v["core_instance"] = auth.observer_instance().into();
+                    v["binding_sha256"] = serde_json::to_value(binding_sha256(&denied(
+                        self.queue
+                            .as_ref()
+                            .ok_or(Error::Forbidden)?
+                            .current_binding(auth),
+                    )?)?)
+                    .map_err(|_| Error::Forbidden)?;
+                    v["lease_sha256"] =
+                        serde_json::to_value(self.worker.as_ref().map(|s| s.token_digest))
+                            .map_err(|_| Error::Forbidden)?;
                     v
                 }
             }
@@ -214,11 +226,21 @@ impl Management {
                     next_stage: 0,
                 });
                 json!({"lease":token,"generation":status.generation,"expires_in_seconds":30,
-                    "core_instance":auth.observer_instance(),"process_state_verified":false})
+                    "core_instance":auth.observer_instance(),"lease_sha256":token_digest,"process_state_verified":false})
             }
             wire::Command::Revoke {} => {
                 self.retire();
                 json!({"revoked":true,"process_state_verified":false})
+            }
+            wire::Command::Retire { lease_sha256 } => {
+                let matching = self
+                    .worker
+                    .as_ref()
+                    .is_some_and(|s| s.token_digest == lease_sha256);
+                if matching {
+                    self.retire();
+                }
+                json!({"revoked":matching,"process_state_verified":false})
             }
             wire::Command::Acquire { lease } => {
                 self.validate(auth, &lease)?;
@@ -314,6 +336,10 @@ impl Management {
             }
         })
     }
+}
+
+fn binding_sha256(binding: &Binding) -> Result<[u8; 32]> {
+    Ok(Sha256::digest(serde_json::to_vec(binding).map_err(|_| Error::Forbidden)?).into())
 }
 
 #[cfg(test)]

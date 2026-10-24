@@ -6,7 +6,7 @@
 
 | 编号 | 功能 | 交付形式 | 当前状态 |
 | --- | --- | --- | --- |
-| X1 | SmsForwarder同类短信转发 | ARM64 Linux原生Rust规则/队列/发送服务，网页开关与规则 | [规则/队列](VALIDATION-FORWARDER-OUTBOX-X1A.md)、[HTTPS](VALIDATION-FORWARDER-HTTPS-X1B.md)、[Core管理](VALIDATION-FORWARDING-CORE-X1C.md)及[实际Root/worker通道与主开关](VALIDATION-FORWARDING-WORKER-IPC-X1D.md)源码验证通过；[固定出口与独立worker](VALIDATION-FORWARDING-WORKER-PROCESS-X1E.md)也已通过416项Rust、真实进程DNS/TLS/停止及ARM64验证；Root服务/开机政策/网页仍缺，未部署 |
+| X1 | SmsForwarder同类短信转发 | ARM64 Linux原生Rust规则/队列/发送服务，网页开关与规则 | [规则/队列](VALIDATION-FORWARDER-OUTBOX-X1A.md)、[HTTPS](VALIDATION-FORWARDER-HTTPS-X1B.md)、[Core管理](VALIDATION-FORWARDING-CORE-X1C.md)及[实际Root/worker通道与主开关](VALIDATION-FORWARDING-WORKER-IPC-X1D.md)源码验证通过；[固定出口与独立worker](VALIDATION-FORWARDING-WORKER-PROCESS-X1E.md)也已通过416项Rust、真实进程DNS/TLS/停止及ARM64验证；[有限Root服务管理](VALIDATION-FORWARDING-SUPERVISOR-X1F.md)已通过419项Rust、真实systemd/低权限凭据/整组停止及ARM64，Core服务协调/网页/安装实测仍缺，未部署 |
 | X2 | NKNGuard远程接入 | 棒子原生受限服务，直连优先、NKN中继及已授权私有DHT | 待移植与实测 |
 | X3 | 通过NKN统计使用设备数 | 独立统计协议/密钥/主题，24小时、30天、90天展示 | 已定位参考源码，待开发 |
 
@@ -29,7 +29,7 @@
 - [ ] 一键“测试转发”只使用合成文本；实短信转发按已配置规则执行。默认不外发验证码/完整正文，用户可明确选择转发内容和脱敏方式。
 - [ ] 验收：关闭/重启无进程和网络请求；启用唯一进程；反复开关、网络断开、队列满、撤权、设备重启、SIM切换候选、第三方超时均不误发/循环；停止不影响电话和短信收取。
 
-实际wire/Core管理接口已有`forwarding_status`、`forwarding_configure`、`forwarding_rules`、`forwarding_receipts`、`forwarding_prune`，及X1D新增的`set_forwarding_enabled`，后者保持目标/凭据而只改总开关；enabled仍只是意图，进程状态未核实，未部署。规则局部编辑/`forwarding_test`与网页仍待开发。Root有限worker能力通道已存在，实际启停小助手后续只按固定服务名操作，不提供任意命令接口。
+实际wire/Core管理接口已有`forwarding_status`、`forwarding_configure`、`forwarding_rules`、`forwarding_receipts`、`forwarding_prune`，及X1D新增的`set_forwarding_enabled`，后者保持目标/凭据而只改总开关；enabled仍只是意图，进程状态未核实，未部署。规则局部编辑/`forwarding_test`与网页仍待开发。Root有限worker能力通道和只操作固定服务名的有限管理候选已存在，本机真实服务验证通过；Core尚未触发管理单元、尚未消费新鲜且绑定当前上下文的Root报告，不能把持久意图等同于实际启停。不提供任意命令接口。
 
 来源注意：已读仓库LICENSE（BSD-2-Clause），README另有非商业说明。先记录来源、固定实际复用提交并核对文件/依赖声明；首版独立Rust实现所需功能，不能仅凭GitHub标签宣称所有代码可无条件复制。短信转发器的Android通知监控、手机电量和手机通讯录不属于棒子首版；棒子已有的短信/通话事件可单独适配。
 

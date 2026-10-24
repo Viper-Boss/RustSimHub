@@ -1,0 +1,38 @@
+[Unit]
+Description=RustSimHub optional native forwarding worker
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/forwarding/enabled.json
+ConditionPathExists=/run/rustsimhub-forwarding/settings.json
+Requires=rustsimhub-core.service rustsimhub-network-agent.service
+After=rustsimhub-core.service rustsimhub-network-agent.service
+BindsTo=rustsimhub-core.service
+PartOf=rustsimhub-app.target
+
+[Service]
+Type=exec
+User=rustsimhub-forwarder
+Group=rustsimhub-forwarder
+SupplementaryGroups=rustsimhub-ipc
+ExecStart=/opt/rustsimhub/selected/rustsimhub-forwarder --service-worker
+LoadCredential=forwarding.json:/run/rustsimhub-forwarding/settings.json
+BindReadOnlyPaths=/run/rustsimhub-app/selected:/opt/rustsimhub/selected
+InaccessiblePaths=/run/rustsimhub-forwarding
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+KillMode=control-group
+SendSIGKILL=yes
+Delegate=no
+Restart=no
+TimeoutStopSec=15
+MemoryMax=96M
+TasksMax=16
+UMask=0077
+LimitCORE=0

@@ -1,5 +1,9 @@
 # RustSimHub 剩余未完成清单
 
+2026-10-25 [X1F有限转发服务管理](VALIDATION-FORWARDING-SUPERVISOR-X1F.md)源码验证通过：PID1直接以低权限身份、空能力和私有只读credential启动worker；Root仅有限管理，实际核对整组进程及条件启动。419项Rust、严格Clippy/生产feature、真实systemd/cgroup/凭据正反对照、旧多UID及DNS/TLS执行通道兼容和四份生产ARM64通过；OFF整组清理及条件boot跳过已在本机实测，未部署棒子、未验证物理冷启动。网页与Core服务协调仍缺，不能将基础查询标为进程已核实。旧WIP失败保留，下方为历史；原整体80%，扩展单列、SMS剩余0，本轮不需用户操作。
+
+2026-10-25 [X1F转发服务管理候选](VALIDATION-FORWARDING-SUPERVISOR-X1F-WIP.md)尚未验收：已转为PID1直接以专用低权限用户、空能力和私有只读credential启动worker，Root仅有限启停/状态；条件清理匹配当前能力，避免旧清理撤销新能力。最新开发构建tenth通过后又有静态修正；服务tenth测试因夹具数字UID无法解析而失败，改用既有NSS测试身份后尚未重跑。增加Root环境能力方案的编辑被自动审批拒绝且未执行；替代方案未增加环境能力。随后自动审批服务额度限制使下一次测试未执行，不能绕过。代码/失败记录与下一步已存私有检查点；未提交本轮候选、未部署/访问设备，原整体80%，SMS发送剩余0。最后通过的发布基线仍c76c825/X1E/416项及CI40109167277。
+
 2026-10-24 [X1E固定出口与独立转发程序](VALIDATION-FORWARDING-WORKER-PROCESS-X1E.md)源码验证通过：独立非Root前台worker、每个DNS/TCP实际绑定网卡/ifindex/源IP、有限DNS解析、真实Core fence与HTTPS、信号取消。416项Rust/严格Clippy/生产Core、实际多UIDCLI与四个真实进程DNS/TLS/停止场景通过；四份生产ARM64及QEMU元数据通过。Root服务主管/开机策略、网页和签名安装仍缺，未部署或访问棒子，不宣称已安装服务在OFF/冷启动无PID。短信发送已消费且无重发；原整体80%，扩展单列，当前不需用户操作。
 
 2026-10-24 [X1D转发执行通道与主开关](VALIDATION-FORWARDING-WORKER-IPC-X1D.md)源码验证通过：现有Core socket按实际UID隔离Root/Edge/worker，有限能力、唯一Claim、每阶段实际内容摘要及Owner/代次/SIM复核；总开关无需回显密钥。完整404项Rust、严格Clippy/生产Core、三份ARM64及真实多UID临时进程/关闭后重开测试通过。Root固定服务主管、独立worker程序/出口和网页仍缺，未部署或访问棒子，不宣称实际关闭无PID。精确源码cd19a50的[CI40103249020](https://github.com/Viper-Boss/RustSimHub/actions/runs/40103249020)两个任务及新增多UID步骤success。保留并行README文档与原接手笔记；原整体80%，短信授权已消费，当前不需用户操作。

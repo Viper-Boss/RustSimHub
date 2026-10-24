@@ -75,11 +75,23 @@ pub(crate) async fn run(
         json!({"fixture_ready":true,"owner_token":owner_token,"new":new})
     );
     let mut term = signal(SignalKind::terminate())?;
+    let mut synthetic = signal(SignalKind::user_defined1())?;
+    let mut batch = 0u32;
     let mut tasks = tokio::task::JoinSet::new();
-    let deadline = tokio::time::sleep(Duration::from_secs(45));
+    let deadline = tokio::time::sleep(Duration::from_secs(120));
     tokio::pin!(deadline);
     loop {
         let accepted = tokio::select! {
+            _=synthetic.recv()=>{
+                batch+=1;
+                let line=store.handle().line_epoch()?;
+                for i in 0..2 {
+                    store.handle().receive_sms(IncomingSms {line,source:format!("synthetic-signal-{batch}-{i}"),
+                        sender:"synthetic sender".into(),timestamp:"synthetic timestamp".into(),
+                        text:format!("synthetic body batch {batch} {i}"),data:vec![]})?;
+                }
+                continue;
+            },
             _=term.recv()=>break,
             _=&mut deadline=>break,
             _=tasks.join_next(),if !tasks.is_empty()=>continue,

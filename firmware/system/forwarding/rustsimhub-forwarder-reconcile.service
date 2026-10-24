@@ -1,0 +1,27 @@
+[Unit]
+Description=RustSimHub finite forwarding enable or stop reconciliation
+Requires=rustsimhub-core.service
+After=rustsimhub-core.service
+
+[Service]
+Type=oneshot
+User=root
+SupplementaryGroups=rustsimhub-ipc
+ExecStart=/opt/rustsimhub/selected/rustsimhub-forwarder --root-reconcile
+BindReadOnlyPaths=/run/rustsimhub-app/selected:/opt/rustsimhub/selected
+ReadWritePaths=/run/rustsimhub-forwarding /var/lib/rustsimhub/rustsimhub-v1/system/forwarding
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX
+Restart=no
+TimeoutStartSec=28
+TimeoutStopSec=3
+MemoryMax=48M
+TasksMax=8
+UMask=0077
+LimitCORE=0

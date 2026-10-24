@@ -1,5 +1,7 @@
 # 剩余工作与 Claude 接手清单
 
+2026-10-25 [X1F有限转发服务管理](VALIDATION-FORWARDING-SUPERVISOR-X1F.md)源码验证通过：PID1直接以低权限身份、空能力和私有只读credential启动worker；Root仅有限管理，实际核对整组进程及条件启动。419项Rust、严格Clippy/生产feature、真实systemd/cgroup/凭据正反对照、旧多UID及DNS/TLS执行通道兼容和四份生产ARM64通过；OFF整组清理及条件boot跳过已在本机实测，未部署棒子、未验证物理冷启动。网页与Core服务协调仍缺，不能将基础查询标为进程已核实。旧WIP失败保留，下方为历史；原整体80%，扩展单列、SMS剩余0，本轮不需用户操作。
+
 2026-10-24 [X1E固定出口与独立转发程序](VALIDATION-FORWARDING-WORKER-PROCESS-X1E.md)源码验证通过：独立非Root前台worker、每个DNS/TCP实际绑定网卡/ifindex/源IP、有限DNS解析、真实Core fence与HTTPS、信号取消。416项Rust/严格Clippy/生产Core、实际多UIDCLI与四个真实进程DNS/TLS/停止场景通过；四份生产ARM64及QEMU元数据通过。Root服务主管/开机策略、网页和签名安装仍缺，未部署或访问棒子，不宣称已安装服务在OFF/冷启动无PID。短信发送已消费且无重发；原整体80%，扩展单列，当前不需用户操作。
 
 2026-10-24：当前原P0–P7整体80%，首个Owner、日常局域网双向短通话、最新首次直接冷启动及正式一键短信收发均已通过。现场7a60650/confirmed46、68条短信，单条10010/CXYE授权已消费；新增转发管理/HTTPS源码未部署。最新离线协作范围与可复制首个任务见[Claude离线任务包](CLAUDE-OFFLINE-HANDOFF.md)，剩余工作见[当前清单](REMAINING-2026-10-23.md)与[新增扩展](FEATURE-EXTENSIONS-2026-10-24.md)。以下按日期保留历史，旧分工、现场版本及“授权未用”不能覆盖最新入口。

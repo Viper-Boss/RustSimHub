@@ -10,6 +10,40 @@ fn token(value: &Value) -> Secret {
 }
 
 #[tokio::test]
+async fn old_root_cleanup_cannot_revoke_a_replacement_capability() {
+    let f = Fixture::new();
+    f.request(f.configure(0, REQUEST, true)).await;
+    let first = root(&f, wire::Command::Grant {}).await;
+    root(&f, wire::Command::Revoke {}).await;
+    let current = root(&f, wire::Command::Grant {}).await;
+    let digest = |v: &Value| serde_json::from_value::<[u8; 32]>(v["lease_sha256"].clone()).unwrap();
+    assert_ne!(digest(&first), digest(&current));
+    let retired = root(
+        &f,
+        wire::Command::Retire {
+            lease_sha256: digest(&first),
+        },
+    )
+    .await;
+    assert_eq!(retired["revoked"], false);
+    let status = root(&f, wire::Command::State {}).await;
+    assert_eq!(status["lease_sha256"], current["lease_sha256"]);
+    assert!(status["binding_sha256"].is_array());
+    assert_eq!(status["core_instance"], current["core_instance"]);
+    root(
+        &f,
+        wire::Command::Retire {
+            lease_sha256: digest(&current),
+        },
+    )
+    .await;
+    assert_eq!(
+        root(&f, wire::Command::State {}).await["lease_active"],
+        false
+    );
+}
+
+#[tokio::test]
 async fn busy_reply_precedes_claim_but_lost_claim_is_never_retry_later() {
     let f = Fixture::new();
     f.request(f.configure(0, REQUEST, true)).await;

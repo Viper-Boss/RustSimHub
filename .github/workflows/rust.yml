@@ -80,6 +80,10 @@ jobs:
         run: |
           cargo build -p rustsimhub-forwarder --locked
           sudo -n unshare --net python3 tools/test-forwarding-worker-process.py --core target/debug/rustsimhub-core --worker target/debug/rustsimhub-forwarder
+      - name: Real forwarding systemd credentials and full cgroup stop
+        run: |
+          cargo build -p rustsimhub-forwarder --features dev-fixtures --locked
+          sudo -n unshare --net python3 tools/test-forwarding-supervisor.py --core target/debug/rustsimhub-core --worker target/debug/rustsimhub-forwarder
       - name: Check production feature set
         run: cargo check -p rustsimhub-core --no-default-features --locked
       - name: Lint

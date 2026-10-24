@@ -34,6 +34,35 @@ pub fn read_settings(input: &mut impl Read) -> Result<Settings> {
     }
     Ok(serde_json::from_slice(&bytes)?)
 }
+pub fn read_service_settings() -> Result<Settings> {
+    let base = std::env::var_os("CREDENTIALS_DIRECTORY")
+        .map(PathBuf::from)
+        .ok_or(Error::Forbidden)?;
+    let metadata = std::fs::symlink_metadata(&base)?;
+    let uid = rustix::process::geteuid().as_raw();
+    if uid == 0
+        || !base.is_absolute()
+        || !metadata.is_dir()
+        || metadata.mode() & 0o022 != 0
+        || ![0, uid].contains(&metadata.uid())
+    {
+        return Err(Error::Forbidden);
+    }
+    let mut file = OpenOptions::new()
+        .read(true)
+        .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
+        .open(base.join("forwarding.json"))?;
+    let m = file.metadata()?;
+    if !m.is_file()
+        || ![0, uid].contains(&m.uid())
+        || m.nlink() != 1
+        || m.mode() & 0o222 != 0
+        || m.len() > 65536
+    {
+        return Err(Error::Forbidden);
+    }
+    read_settings(&mut file)
+}
 fn certificates(path: &Path) -> Result<Vec<CertificateDer<'static>>> {
     if !path.is_absolute() {
         return Err(Error::Invalid);
