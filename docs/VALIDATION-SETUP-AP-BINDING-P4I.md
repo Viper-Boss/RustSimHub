@@ -1,5 +1,7 @@
 # P4I Core真实绑定与首次认领材料交付
 
+精确源码d63672e的[GitHub CI40062341541](https://github.com/Viper-Boss/RustSimHub/actions/runs/40062341541)两个任务全部成功，真实Core材料/代码CLI步骤成功；完整结果为setup-ap-binding-ci-20261024-first.json。当前仍未部署。
+
 2026-10-24。已将AP材料准备接到实际Core生成的realm、公钥和运行UID，增加初始认领代码的私有导出及与窗口启用的目录锁。311项工作区Rust测试、严格Clippy、生产检查和三程序/库ARM64构建通过；三个真实Core/Edge/Root命令联合测试通过。本轮没有访问棒子、安装应用、开热点、切网、拨号、发短信、开普通数据或改变证书信任。上次确认业务185ec6e/confirmed43，整体79.5%。
 
 这里的真实Core联调运行在一次性Linux临时目录中，身份和数据库由实际Core二进制生成；不是读取或改变棒子的现有身份。热点自动首次窗口、AP到STA交接和正式安装仍未完成。
