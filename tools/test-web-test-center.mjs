@@ -99,4 +99,10 @@ for(const stage of ['line_status','prepare_sms','marker']){
 {
  const gate=deferred();const f=fixture({respond:async c=>c.op==='line_status'?gate.promise:{id,state:'prepared'}});f.$('text').value='';f.$('recipient').value='';const sending=f.$('test-sms').onclick();await turn();f.logout();gate.resolve({status:'ready',line:7});await sending;assert.equal(f.sent.filter(c=>c.op==='submit_sms').length,0);
 }
+{
+ const f=fixture();f.saved.set('test-center-saved-draft',{recipient:'12025550199',text:'合成旧草稿'});await f.$('test-restore-draft').onclick();assert.equal(f.$('recipient').value,'12025550199');assert.equal(f.$('text').value,'合成旧草稿');f.logout();assert.equal(f.saved.get('test-center-saved-draft').text,'合成旧草稿');assert.equal(f.sent.length,0);
+}
+{
+ const f=fixture({consent:false});f.saved.set('test-center-saved-draft',{recipient:'12025550199',text:'另一份合成草稿'});await f.$('test-restore-draft').onclick();assert.equal(f.$('recipient').value,'12025550123');assert.equal(f.saved.get('test-center-saved-draft').text,'另一份合成草稿');assert.equal(f.sent.length,0);
+}
 console.log('PASS: visible four-task center, collapsed panels, automatic login, exact no-retry recovery, safe result copy, one SMS submit, draft preservation and stop/logout/storage races; synthetic only.');
