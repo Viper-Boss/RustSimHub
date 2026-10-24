@@ -13,6 +13,8 @@ pub enum Slot {
     Hint,
     Status,
     Availability,
+    StationRequest,
+    StationStatus,
 }
 impl Slot {
     fn name(self) -> &'static str {
@@ -20,6 +22,8 @@ impl Slot {
             Self::Hint => "hint.json",
             Self::Status => "status.json",
             Self::Availability => "availability.json",
+            Self::StationRequest => "station-request.json",
+            Self::StationStatus => "station-status.json",
         }
     }
 }
@@ -178,6 +182,71 @@ pub struct Journal {
     _lock: File,
 }
 impl Journal {
+    pub(crate) fn trial_consumed(&self, intent: &super::station::Intent) -> Result<bool> {
+        let name = format!("{}.intent", intent.key()?);
+        let Some(bytes) = self.dir.read_name(&name, 0o600)? else {
+            return Ok(false);
+        };
+        let old: super::station::Intent =
+            serde_json::from_slice(&bytes).map_err(|_| Error::Invalid)?;
+        if old != *intent {
+            return Err(Error::Changed);
+        }
+        Ok(true)
+    }
+    /// Password-free, immutable intent must be durable before station/checkpoint changes.
+    pub(crate) fn consume_trial(&self, intent: &super::station::Intent) -> Result<()> {
+        if self.pending()?.as_ref() != Some(&intent.binding) || self.trial_consumed(intent)? {
+            return Err(Error::Denied);
+        }
+        if fs::read_dir(&self.dir.path)
+            .map_err(|_| Error::Io)?
+            .take(513)
+            .count()
+            >= 512
+        {
+            return Err(Error::Busy);
+        }
+        self.dir.write_name(
+            &format!("{}.intent", intent.key()?),
+            &serde_json::to_vec(intent).map_err(|_| Error::Invalid)?,
+            0o600,
+            true,
+        )
+    }
+    pub(crate) fn trial_result(
+        &self,
+        intent: &super::station::Intent,
+    ) -> Result<Option<super::station::Status>> {
+        if !self.trial_consumed(intent)? {
+            return Ok(None);
+        }
+        let Some(bytes) = self
+            .dir
+            .read_name(&format!("{}.result", intent.key()?), 0o600)?
+        else {
+            return Ok(None);
+        };
+        let status: super::station::Status =
+            serde_json::from_slice(&bytes).map_err(|_| Error::Invalid)?;
+        status.validate(status.sample_uptime_ms)?;
+        if status.intent != *intent || status.phase == super::station::Phase::Testing {
+            return Err(Error::Denied);
+        }
+        Ok(Some(status))
+    }
+    pub(crate) fn finish_trial(&self, status: &super::station::Status) -> Result<()> {
+        status.validate(super::uptime_ms()?)?;
+        if !self.trial_consumed(&status.intent)? || status.phase == super::station::Phase::Testing {
+            return Err(Error::Denied);
+        }
+        self.dir.write_name(
+            &format!("{}.result", status.intent.key()?),
+            &serde_json::to_vec(status).map_err(|_| Error::Invalid)?,
+            0o600,
+            true,
+        )
+    }
     pub fn root(path: &Path) -> Result<Self> {
         if rustix::process::geteuid().as_raw() != 0 {
             return Err(Error::Denied);

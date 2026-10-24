@@ -44,6 +44,12 @@ pub trait StationNetwork {
         credentials: &StationCredentials,
     ) -> impl Future<Output = Result<()>> + Send;
 }
+pub trait StationProvider {
+    fn station_session<'a>(
+        &'a mut self,
+        ap: &'a crate::Credentials,
+    ) -> Result<impl StationNetwork + Send + 'a>;
+}
 /// Must verify the fixed AP isolation including the DHCP-client return path.
 /// The normal AP-only guard intentionally does not implement this capability successfully.
 pub trait TrialGuard {

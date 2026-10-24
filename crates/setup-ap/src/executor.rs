@@ -21,6 +21,7 @@ use tokio::{
     sync::{watch, Mutex},
     time::{timeout, Instant},
 };
+mod configuration;
 mod material;
 mod provision;
 use material::Material;
@@ -320,7 +321,9 @@ pub fn cli(args: Vec<String>) -> Result<()> {
     let [mode, config, input, output, journal] = args.as_slice() else {
         return Err(Error::Invalid);
     };
-    if mode != "--serve" || rustix::process::geteuid().as_raw() != 0 {
+    if !["--serve", "--serve-configurable"].contains(&mode.as_str())
+        || rustix::process::geteuid().as_raw() != 0
+    {
         return Err(Error::Denied);
     }
     let material = Material::root(Path::new(config))?;
@@ -349,13 +352,18 @@ pub fn cli(args: Vec<String>) -> Result<()> {
                 tokio::select! { _ = term.recv() => {}, _ = interrupt.recv() => {} }
                 stop.send_replace(true);
             });
-            let result = serve(worker, material, stopped).await;
+            let result = serve(worker, material, stopped, mode == "--serve-configurable").await;
             signals.abort();
             let _ = signals.await;
             result
         })
 }
-async fn serve(worker: Worker, material: Material, stopped: watch::Receiver<bool>) -> Result<()> {
+async fn serve(
+    worker: Worker,
+    material: Material,
+    stopped: watch::Receiver<bool>,
+    configurable: bool,
+) -> Result<()> {
     let mut next_probe = Instant::now();
     loop {
         if *stopped.borrow() || stopped.has_changed().is_err() {
@@ -395,17 +403,32 @@ async fn serve(worker: Worker, material: Material, stopped: watch::Receiver<bool
                             )
                             .await
                             .map_err(|_| Error::Busy)??;
-                            let mut guard = crate::guard::NftGuard::new();
-                            let _result = execute(
-                                &worker,
-                                &mut network,
-                                &mut guard,
-                                &material,
-                                &material.credentials,
-                                hint,
-                                stopped.clone(),
-                            )
-                            .await;
+                            if configurable {
+                                network.retain_ap_for_station_trial()?;
+                                let mut guard = crate::guard::NftGuard::for_station_trial();
+                                let _result = configuration::execute(
+                                    &worker,
+                                    &mut network,
+                                    &mut guard,
+                                    &material,
+                                    &material.credentials,
+                                    hint,
+                                    stopped.clone(),
+                                )
+                                .await;
+                            } else {
+                                let mut guard = crate::guard::NftGuard::new();
+                                let _result = execute(
+                                    &worker,
+                                    &mut network,
+                                    &mut guard,
+                                    &material,
+                                    &material.credentials,
+                                    hint,
+                                    stopped.clone(),
+                                )
+                                .await;
+                            }
                             next_probe = Instant::now();
                         }
                     }

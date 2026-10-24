@@ -77,3 +77,54 @@ fn root_journal_persists_unknown_and_never_replays_consumed_operations() {
     assert!(j.consume(&b).is_err());
     j.consume(&other).unwrap();
 }
+#[test]
+fn station_intent_is_immutable_password_free_and_survives_restart_without_replay() {
+    let (_d, dir) = dir(0o700);
+    let j = Journal::open(dir.clone()).unwrap();
+    let r = crate::channel::station::tests::request();
+    let intent = r.intent().unwrap();
+    assert!(j.consume_trial(&intent).is_err());
+    j.consume(&r.binding).unwrap();
+    j.consume_trial(&intent).unwrap();
+    let raw = dir
+        .read_name(&format!("{}.intent", intent.key().unwrap()), 0o600)
+        .unwrap()
+        .unwrap();
+    let text = String::from_utf8(raw).unwrap();
+    assert!(!text.contains("synthetic") && !text.contains("passphrase"));
+    assert!(j.consume_trial(&intent).is_err());
+    drop(j);
+    let j = Journal::open(dir).unwrap();
+    assert!(j.trial_consumed(&intent).unwrap());
+    assert!(j.trial_result(&intent).unwrap().is_none());
+    assert!(j.consume_trial(&intent).is_err());
+    let mut changed = intent;
+    changed.request_sha256 = "f".repeat(64);
+    assert!(j.trial_consumed(&changed).is_err());
+}
+#[test]
+fn station_terminal_receipt_cannot_be_overwritten_or_forge_https_verification() {
+    let (_d, dir) = dir(0o700);
+    let j = Journal::open(dir).unwrap();
+    let mut r = crate::channel::station::tests::request();
+    let t = crate::channel::uptime_ms().unwrap();
+    r.binding.created_uptime_ms = t;
+    r.binding.deadline_uptime_ms = t + 120000;
+    r.requested_uptime_ms = t;
+    r.deadline_uptime_ms = t + 40000;
+    let intent = r.intent().unwrap();
+    j.consume(&r.binding).unwrap();
+    j.consume_trial(&intent).unwrap();
+    let mut status = crate::channel::station::Status {
+        format: 1,
+        intent: intent.clone(),
+        phase: crate::channel::station::Phase::Ready,
+        sample_uptime_ms: t,
+        ap_https_verified: false,
+    };
+    assert!(j.finish_trial(&status).is_err());
+    status.ap_https_verified = true;
+    j.finish_trial(&status).unwrap();
+    assert!(j.finish_trial(&status).is_err());
+    assert!(j.trial_result(&intent).unwrap().unwrap().ap_https_verified);
+}

@@ -66,6 +66,14 @@ impl NetworkManager {
         Ok(())
     }
 }
+impl crate::station_trial::StationProvider for NetworkManager {
+    fn station_session<'a>(
+        &'a mut self,
+        ap: &'a Credentials,
+    ) -> Result<impl StationNetwork + Send + 'a> {
+        self.station_trial(ap)
+    }
+}
 fn fingerprint(c: &StationCredentials) -> [u8; 32] {
     let mut h = Sha256::new();
     h.update(c.uuid.as_bytes());

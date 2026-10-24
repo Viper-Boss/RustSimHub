@@ -259,5 +259,6 @@ impl RootLease {
 }
 
 pub mod files;
+pub mod station;
 #[cfg(test)]
 mod tests;
