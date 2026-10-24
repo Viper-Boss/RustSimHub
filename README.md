@@ -1,5 +1,7 @@
 <div align="center">
 
+# RustSimHub · 中文介绍
+
 ![RustSimHub：属于你自己的独立 SIM 通信设备](docs/assets/hero.svg)
 
 **让一张 SIM 卡，拥有独立运行的通信系统。**
@@ -9,7 +11,7 @@ Linux + Rust 用户态 · 短信 · 电话与双向语音 · 设备本地存储 
 [![Rust CI](https://github.com/Viper-Boss/RustSimHub/actions/workflows/rust.yml/badge.svg)](https://github.com/Viper-Boss/RustSimHub/actions/workflows/rust.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-67ddd3?style=flat-square)](LICENSE)
 ![Platform](https://img.shields.io/badge/Platform-MSM8916_%2F_ARM64-253a56?style=flat-square)
-![Stage](https://img.shields.io/badge/Stage-Active_Development-e8b86d?style=flat-square)
+![开发阶段](https://img.shields.io/badge/阶段-持续开发中-e8b86d?style=flat-square)
 
 [了解项目](#为什么做-rustsimhub) · [界面预览](#未来界面预览) · [功能进展](#功能与当前进展) · [本地开发](#本地开发) · [文档导航](#文档导航)
 
@@ -46,7 +48,7 @@ RustSimHub 面向 **Snapdragon 410 / MSM8916** 棒子，将 SIM、短信、电�
 
 ![未来手机网页概念图：总览、短信列表和拨号；示例数据，非已发布 App](docs/assets/mobile-concept.svg)
 
-图中英文用于视觉排版，产品界面计划以中文优先。图内状态、消息、数量及时间均为虚构数据，不代表真实设备、性能结果或已上线服务。当前网页包含一键测试、日常电话、短信和网络配置；上面的视觉重设计尚未接入实际 API。
+概念图采用中文界面。图内状态、消息、数量及时间均为虚构数据，不代表真实设备、性能结果或已上线服务。当前网页包含一键测试、日常电话、短信和网络配置；上面的视觉重设计尚未接入实际 API。
 
 [查看前端设计说明、页面规划与交互状态 →](docs/frontend-vision.md)
 
