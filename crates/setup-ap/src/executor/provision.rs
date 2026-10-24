@@ -228,13 +228,39 @@ fn prepare_owned(
     edge_uid: u32,
     owner: u32,
 ) -> Result<serde_json::Value> {
+    prepare_with_binding_owner(parent, binding_dir, edge_dir, edge_uid, owner, owner)
+}
+pub(super) fn prepare_from_core(
+    parent: &Path,
+    core: &Path,
+    edge: &Path,
+    edge_uid: u32,
+    core_uid: u32,
+) -> Result<serde_json::Value> {
+    if core_uid == 0 || core_uid == u32::MAX {
+        return Err(Error::Denied);
+    }
+    prepare_with_binding_owner(parent, core, edge, edge_uid, 0, core_uid)
+}
+fn prepare_with_binding_owner(
+    parent: &Path,
+    binding_dir: &Path,
+    edge_dir: &Path,
+    edge_uid: u32,
+    owner: u32,
+    binding_owner: u32,
+) -> Result<serde_json::Value> {
     let _lock = lock(parent, owner)?;
-    let binding_dir = Directory::open(binding_dir, owner, owner, 0o700)?;
+    let binding_dir = Directory::open(binding_dir, binding_owner, binding_owner, 0o700)?;
+    let _binding_lock = binding_dir.lock_directory()?;
     let raw = binding_dir
         .read_name("binding.json", 0o600)?
         .ok_or(Error::Denied)?;
     let binding: BindingFile = serde_json::from_slice(&raw).map_err(|_| Error::Invalid)?;
     binding.validate()?;
+    if binding_owner != owner && binding.core_uid != binding_owner {
+        return Err(Error::Denied);
+    }
     let edge = snapshot(edge_dir, edge_uid, &binding)?;
     let destination = parent.join("installation");
     let pending = parent.join("installation.pending");
@@ -304,11 +330,66 @@ struct TrustedConnection<'a> {
     device_public_key: String,
     device_key_sha256: String,
     certificate_sha256: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    setup_code: Option<&'a str>,
 }
 pub(super) fn export(material: &Path, output: &Path) -> Result<serde_json::Value> {
     export_owned(material, output, 0)
 }
 fn export_owned(material: &Path, output: &Path, owner: u32) -> Result<serde_json::Value> {
+    export_with_code(material, output, owner, None)
+}
+pub(super) fn export_first_setup(
+    material: &Path,
+    core: &Path,
+    core_uid: u32,
+    output: &Path,
+) -> Result<serde_json::Value> {
+    if core_uid == 0 || core_uid == u32::MAX {
+        return Err(Error::Denied);
+    }
+    export_first_owned(material, core, core_uid, output, 0)
+}
+fn export_first_owned(
+    material: &Path,
+    core: &Path,
+    core_uid: u32,
+    output: &Path,
+    owner: u32,
+) -> Result<serde_json::Value> {
+    let source = Directory::open(core, core_uid, core_uid, 0o700)?;
+    let _setup_lock = source.lock_directory()?;
+    if exists(&core.join("setup.used"))? {
+        return Err(Error::Denied);
+    }
+    let raw = source
+        .read_name("binding.json", 0o600)?
+        .ok_or(Error::Denied)?;
+    let binding: BindingFile = serde_json::from_slice(&raw).map_err(|_| Error::Invalid)?;
+    binding.validate()?;
+    let prepared = Material::open(Directory::open(material, owner, owner, 0o700)?)?;
+    if binding.core_uid != core_uid
+        || !prepared.matches(&binding.realm, core_uid, &binding.device_public_key)
+    {
+        return Err(Error::Changed);
+    }
+    let code = Zeroizing::new(
+        source
+            .read_name("setup.code", 0o600)?
+            .ok_or(Error::Denied)?,
+    );
+    if code.len() != 32 {
+        return Err(Error::Invalid);
+    }
+    let encoded = Zeroizing::new(code.iter().map(|v| format!("{v:02x}")).collect::<String>());
+    export_with_code(material, output, owner, Some(&encoded))
+}
+fn export_with_code(
+    material: &Path,
+    output: &Path,
+    owner: u32,
+    setup_code: Option<&str>,
+) -> Result<serde_json::Value> {
     let source = Directory::open(material, owner, owner, 0o700)?;
     let material = Material::open(source.clone())?;
     let certificate = source.read_name("cert.der", 0o600)?.ok_or(Error::Denied)?;
@@ -344,6 +425,7 @@ fn export_owned(material: &Path, output: &Path, owner: u32) -> Result<serde_json
         device_public_key: material.device_public_key_hex(),
         device_key_sha256: material.device_hash(),
         certificate_sha256: hash(&certificate),
+        setup_code,
     };
     let bytes = Zeroizing::new(serde_json::to_vec(&connection).map_err(|_| Error::Invalid)?);
     target.write_name("connection.json", &bytes, 0o600, true)?;
@@ -352,7 +434,7 @@ fn export_owned(material: &Path, output: &Path, owner: u32) -> Result<serde_json
         .and_then(|f| f.sync_all())
         .map_err(|_| Error::Io)?;
     Ok(
-        serde_json::json!({"trusted_export_written":true,"credentials_in_stdout":false,"certificate_sha256":hash(&certificate),"ap_started":false}),
+        serde_json::json!({"trusted_export_written":true,"credentials_in_stdout":false,"first_setup_code_in_private_export":setup_code.is_some(),"certificate_sha256":hash(&certificate),"ap_started":false}),
     )
 }
 #[cfg(test)]

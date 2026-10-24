@@ -102,13 +102,23 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(target_os = "linux")]
     {
         if let [command, state, identity, setup] = args.as_slice() {
-            if command == "--prepare-device-setup" {
+            if command == "--prepare-device-setup" || command == "--prepare-device-ap" {
+                if command == "--prepare-device-ap" && rustix::process::geteuid().as_raw() == 0 {
+                    return Err("AP binding preparation must run as Core".into());
+                }
                 let store = rustsimhub_storage::Store::open(state)?;
                 let auth = rustsimhub_auth::Auth::open(identity, store.handle())?;
-                rustsimhub_auth::LocalSetup::prepare_device_code(
-                    std::path::Path::new(setup),
-                    &auth,
-                )?;
+                if command == "--prepare-device-ap" {
+                    rustsimhub_auth::LocalSetup::prepare_device_ap(
+                        std::path::Path::new(setup),
+                        &auth,
+                    )?;
+                } else {
+                    rustsimhub_auth::LocalSetup::prepare_device_code(
+                        std::path::Path::new(setup),
+                        &auth,
+                    )?;
+                }
                 let public = auth
                     .public_key()
                     .iter()
@@ -116,7 +126,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     .collect::<String>();
                 println!(
                     "{}",
-                    json!({"setup_code_prepared":true,"device_public_key_hex":public,"setup_code_disclosed":false,"window_opened":false})
+                    json!({"setup_code_prepared":true,"device_binding_prepared":command=="--prepare-device-ap","device_public_key_hex":public,"setup_code_disclosed":false,"window_opened":false})
                 );
                 return Ok(());
             }

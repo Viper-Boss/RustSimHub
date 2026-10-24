@@ -68,8 +68,8 @@ jobs:
         run: cargo test --workspace --all-features --locked
       - name: Isolated AP material preparation CLIs
         run: |
-          cargo build -p rustsimhub-edge -p rustsimhub-setup-ap --locked
-          sudo -n python3 tools/test-setup-ap-material.py --edge target/debug/rustsimhub-edge --ap target/debug/rustsimhub-setup-ap --edge-user "$(id -un)"
+          cargo build -p rustsimhub-core -p rustsimhub-edge -p rustsimhub-setup-ap --locked
+          sudo -n python3 tools/test-setup-ap-material.py --core target/debug/rustsimhub-core --edge target/debug/rustsimhub-edge --ap target/debug/rustsimhub-setup-ap --edge-user "$(id -un)"
       - name: Check production feature set
         run: cargo check -p rustsimhub-core --no-default-features --locked
       - name: Lint

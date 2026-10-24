@@ -93,6 +93,26 @@ impl Directory {
         }
         Ok(Some(b))
     }
+    pub(crate) fn lock_directory(&self) -> Result<File> {
+        self.check()?;
+        let file = OpenOptions::new()
+            .read(true)
+            .custom_flags(
+                (rustix::fs::OFlags::DIRECTORY | rustix::fs::OFlags::NOFOLLOW).bits() as i32,
+            )
+            .open(&self.path)
+            .map_err(|_| Error::Io)?;
+        let m = file.metadata().map_err(|_| Error::Io)?;
+        if !m.is_dir()
+            || m.uid() != self.owner
+            || m.gid() != self.group
+            || m.mode() & 0o7777 != self.mode
+        {
+            return Err(Error::Denied);
+        }
+        file.try_lock_exclusive().map_err(|_| Error::Busy)?;
+        Ok(file)
+    }
     pub(crate) fn write_name(&self, name: &str, bytes: &[u8], mode: u32, new: bool) -> Result<()> {
         self.check()?;
         if self.owner != rustix::process::geteuid().as_raw() || bytes.len() > MAX_BYTES {

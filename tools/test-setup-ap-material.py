@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Real preparation CLIs in disposable directories; no --serve, services, radio or TLS trust changes."""
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -88,16 +89,61 @@ class Preparation(unittest.TestCase):
         self.root_prepare(False)
         self.assertTrue(config.read_bytes() == original)
 
+    def test_actual_core_binding_and_first_setup_code_are_private_and_cannot_reopen(self):
+        self.edge_prepare()
+        wrong_user=[self.base/name for name in ('root-state','root-identity','root-setup')]
+        for folder in wrong_user:
+            folder.mkdir(mode=0o700)
+        self.command([CORE,'--prepare-device-ap',*(str(p) for p in wrong_user)],False)
+        self.assertTrue(all(not list(p.iterdir()) for p in wrong_user))
+        folders=[self.base / name for name in ('core-state','core-identity','core-setup')]
+        for folder in folders:
+            folder.mkdir(mode=0o700); os.chown(folder,986,986)
+        core=["setpriv","--reuid=986","--regid=986","--clear-groups",CORE,"--prepare-device-ap",*(str(p) for p in folders)]
+        result=self.command(core)
+        setup=folders[2]
+        binding=json.loads((setup/'binding.json').read_bytes())
+        code=(setup/'setup.code').read_bytes().hex()
+        actual_key=bytes(binding['device_public_key']).hex()
+        self.assertTrue(result['device_public_key_hex']==actual_key and binding['core_uid']==986)
+        self.assertTrue(code not in json.dumps(result) and not (setup/'setup.used').exists())
+        self.command(core)
+        self.assertTrue((setup/'setup.code').read_bytes().hex()==code)
+        self.command([AP,'--prepare-from-core',str(self.root_parent),str(setup),str(self.edge_parent/'installation'),str(EDGE_USER.pw_uid),'986'])
+        output=self.root_parent/'first-setup-copy'
+        exported=self.command([AP,'--export-first-setup',str(self.root_parent/'installation'),str(setup),'986',str(output)])
+        self.assertTrue(code not in json.dumps(exported))
+        connection=json.loads((output/'connection.json').read_bytes())
+        self.assertTrue(connection['setup_code']==code and connection['device_public_key']==actual_key)
+        original_binding=(setup/'binding.json').read_bytes()
+        wrong=dict(binding,realm='00000000-0000-4000-8000-000000000099')
+        (setup/'binding.json').write_bytes(json.dumps(wrong).encode())
+        self.command([AP,'--export-first-setup',str(self.root_parent/'installation'),str(setup),'986',str(self.root_parent/'wrong-realm-copy')],False)
+        (setup/'binding.json').write_bytes(original_binding)
+        self.command([AP,'--export-first-setup',str(self.root_parent/'installation'),str(setup),'987',str(self.root_parent/'wrong-uid-copy')],False)
+        locked=os.open(setup,os.O_RDONLY|os.O_DIRECTORY)
+        try:
+            fcntl.flock(locked,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            self.command([AP,'--export-first-setup',str(self.root_parent/'installation'),str(setup),'986',str(self.root_parent/'busy-copy')],False)
+        finally:
+            os.close(locked)
+        marker=setup/'setup.used';marker.write_bytes(b'used-fixture')
+        self.command(core,False)
+        self.command([AP,'--export-first-setup',str(self.root_parent/'installation'),str(setup),'986',str(self.root_parent/'used-copy')],False)
+        self.assertTrue(not (self.root_parent/'used-copy').exists())
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--edge', required=True)
+    parser.add_argument('--core', required=True)
     parser.add_argument('--ap', required=True)
     parser.add_argument('--edge-user', required=True)
     args, remaining = parser.parse_known_args()
     if os.geteuid() != 0:
         parser.error('requires an isolated root test invocation')
     EDGE = str(Path(args.edge).resolve(strict=True))
+    CORE = str(Path(args.core).resolve(strict=True))
     AP = str(Path(args.ap).resolve(strict=True))
     EDGE_USER = pwd.getpwnam(args.edge_user)
     if EDGE_USER.pw_uid == 0 or EDGE_USER.pw_uid != EDGE_USER.pw_gid:

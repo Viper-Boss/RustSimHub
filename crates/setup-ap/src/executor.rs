@@ -264,6 +264,37 @@ impl Worker {
     }
 }
 pub fn cli(args: Vec<String>) -> Result<()> {
+    if let [mode, parent, core, edge, edge_uid, core_uid] = args.as_slice() {
+        if mode == "--prepare-from-core" {
+            if rustix::process::geteuid().as_raw() != 0 {
+                return Err(Error::Denied);
+            }
+            let value = provision::prepare_from_core(
+                Path::new(parent),
+                Path::new(core),
+                Path::new(edge),
+                edge_uid.parse().map_err(|_| Error::Invalid)?,
+                core_uid.parse().map_err(|_| Error::Invalid)?,
+            )?;
+            println!("{value}");
+            return Ok(());
+        }
+    }
+    if let [mode, material, core, uid, output] = args.as_slice() {
+        if mode == "--export-first-setup" {
+            if rustix::process::geteuid().as_raw() != 0 {
+                return Err(Error::Denied);
+            }
+            let value = provision::export_first_setup(
+                Path::new(material),
+                Path::new(core),
+                uid.parse().map_err(|_| Error::Invalid)?,
+                Path::new(output),
+            )?;
+            println!("{value}");
+            return Ok(());
+        }
+    }
     if let [mode, parent, binding, edge, uid] = args.as_slice() {
         if mode == "--prepare-material" {
             if rustix::process::geteuid().as_raw() != 0 {

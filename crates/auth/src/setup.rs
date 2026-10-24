@@ -20,6 +20,11 @@ impl LocalSetup {
     /// Explicit local installer preparation; never opens or renews a window.
     /// The code stays in its private file and is not returned or logged.
     pub fn prepare_device_code(directory: &Path, auth: &Auth) -> Result<()> {
+        #[cfg(target_os = "linux")]
+        let _lock = crate::lock_private_directory(directory)?;
+        Self::prepare_device_code_unlocked(directory, auth)
+    }
+    fn prepare_device_code_unlocked(directory: &Path, auth: &Auth) -> Result<()> {
         crate::identity::check(directory, true)?;
         match std::fs::symlink_metadata(directory.join("setup.used")) {
             Ok(_) => return Err(Error::Forbidden),
@@ -46,11 +51,39 @@ impl LocalSetup {
         }
         Ok(())
     }
+    /// Export only the actual offline Core identity/realm. Does not open a window or renew setup.
+    #[cfg(target_os = "linux")]
+    pub fn prepare_device_ap(directory: &Path, auth: &Auth) -> Result<()> {
+        let uid = rustix::process::geteuid().as_raw();
+        if uid == 0 || uid == u32::MAX {
+            return Err(Error::Forbidden);
+        }
+        let _lock = crate::lock_private_directory(directory)?;
+        let bytes=serde_json::to_vec(&serde_json::json!({"format":1,"realm":auth.durable_realm()?,"core_uid":uid,"device_public_key":auth.public_key()})).map_err(|_|Error::InvalidInput)?;
+        let path = directory.join("binding.json");
+        let existing = match std::fs::symlink_metadata(&path) {
+            Ok(_) => {
+                if read_private(&path, 4096)?.as_slice() != bytes {
+                    return Err(Error::Forbidden);
+                }
+                true
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
+            Err(_) => return Err(Error::Io),
+        };
+        Self::prepare_device_code_unlocked(directory, auth)?;
+        if !existing {
+            crate::write_private_new(&path, &bytes)?;
+        }
+        Ok(())
+    }
     /// Explicit device startup: one process may open a locally requested window.
     /// A synced, identity-bound marker survives both process and business DB loss.
     /// This never renews a window or removes a marker; only trusted maintenance
     /// may request another window after inspecting the durable state.
     pub fn for_device(directory: &Path, auth: &Auth) -> Result<Option<Self>> {
+        #[cfg(target_os = "linux")]
+        let _lock = crate::lock_private_directory(directory)?;
         crate::identity::check(directory, true)?;
         let marker = directory.join("setup.used");
         let mut expected = b"RustSimHub.DeviceSetup.Window.v1\0".to_vec();
@@ -167,6 +200,56 @@ mod tests {
     use ed25519_dalek::{Signer, SigningKey};
     use rustsimhub_storage::Store;
     use std::fs;
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn ap_binding_comes_from_real_core_and_does_not_reopen_used_setup() {
+        let state = private_directory();
+        let identity = private_directory();
+        let setup = private_directory();
+        let store = Store::open(state.path()).unwrap();
+        let auth = Auth::open(identity.path(), store.handle()).unwrap();
+        if rustix::process::geteuid().as_raw() == 0 {
+            assert!(LocalSetup::prepare_device_ap(setup.path(), &auth).is_err());
+            return;
+        }
+        LocalSetup::prepare_device_ap(setup.path(), &auth).unwrap();
+        let code = fs::read(setup.path().join("setup.code")).unwrap();
+        let binding = fs::read(setup.path().join("binding.json")).unwrap();
+        let data: serde_json::Value = serde_json::from_slice(&binding).unwrap();
+        assert_eq!(data["realm"], auth.durable_realm().unwrap());
+        assert_eq!(
+            data["device_public_key"],
+            serde_json::json!(auth.public_key())
+        );
+        assert_eq!(data["core_uid"], rustix::process::geteuid().as_raw());
+        assert!(!setup.path().join("setup.used").exists());
+        LocalSetup::prepare_device_ap(setup.path(), &auth).unwrap();
+        assert_eq!(code, fs::read(setup.path().join("setup.code")).unwrap());
+        assert!(LocalSetup::for_device(setup.path(), &auth)
+            .unwrap()
+            .is_some());
+        assert!(LocalSetup::prepare_device_ap(setup.path(), &auth).is_err());
+        assert_eq!(
+            binding,
+            fs::read(setup.path().join("binding.json")).unwrap()
+        );
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn wrong_binding_or_directory_contention_cannot_create_a_new_setup_secret() {
+        let state = private_directory();
+        let identity = private_directory();
+        let setup = private_directory();
+        let store = Store::open(state.path()).unwrap();
+        let auth = Auth::open(identity.path(), store.handle()).unwrap();
+        crate::write_private_new(&setup.path().join("binding.json"), b"{}").unwrap();
+        assert!(LocalSetup::prepare_device_ap(setup.path(), &auth).is_err());
+        assert!(!setup.path().join("setup.code").exists());
+        let _lock = crate::lock_private_directory(setup.path()).unwrap();
+        assert!(LocalSetup::prepare_device_code(setup.path(), &auth).is_err());
+        assert!(LocalSetup::for_device(setup.path(), &auth).is_err());
+        assert!(!setup.path().join("setup.used").exists());
+    }
     fn private_directory() -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         #[cfg(unix)]
@@ -197,6 +280,8 @@ mod tests {
         fs::remove_file(&code).unwrap();
         assert!(LocalSetup::prepare_device_code(setup.path(), &auth).is_err());
         assert!(!code.exists());
+        #[cfg(target_os = "linux")]
+        assert!(LocalSetup::prepare_device_ap(setup.path(), &auth).is_err());
     }
     #[test]
     fn owned_or_malformed_local_setup_is_not_repaired_or_overwritten() {
@@ -226,6 +311,9 @@ mod tests {
         auth.bootstrap_finish(&challenge.id, &key.sign(&challenge.transcript).to_bytes())
             .unwrap();
         assert!(LocalSetup::prepare_device_code(setup.path(), &auth).is_err());
+        #[cfg(target_os = "linux")]
+        assert!(LocalSetup::prepare_device_ap(setup.path(), &auth).is_err());
+        assert!(!setup.path().join("binding.json").exists());
         assert!(!code.exists());
     }
     #[test]
