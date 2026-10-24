@@ -162,16 +162,31 @@ fn profile_matches(p: &Settings, c: &Credentials) -> Result<bool> {
         .map_err(|_| Error::Io)?
         .try_into()
         .map_err(|_| Error::Io)?;
+    let cipher = |key: &str| -> Result<Vec<String>> {
+        security
+            .get(key)
+            .ok_or(Error::Io)?
+            .try_clone()
+            .map_err(|_| Error::Io)?
+            .try_into()
+            .map_err(|_| Error::Io)
+    };
     Ok(text(connection, "uuid")? == c.uuid()
         && text(connection, "type")? == "802-11-wireless"
         && text(connection, "interface-name")? == INTERFACE
         && !boolean(connection, "autoconnect")?
         && text(wifi, "mode")? == "ap"
+        && text(wifi, "band")? == "bg"
+        && wifi.get("ap-isolation").and_then(|v| i32::try_from(v).ok()) == Some(1)
         && ssid == c.ssid().as_bytes()
         && text(security, "key-mgmt")? == "wpa-psk"
         && protocol == ["rsn"]
+        && cipher("pairwise")? == ["ccmp"]
+        && cipher("group")? == ["ccmp"]
+        && number(security, "psk-flags")? == 0
         && text(ip, "method")? == "shared"
         && boolean(ip, "never-default")?
+        && !boolean(ip, "may-fail")?
         && address_data.len() == 1
         && text(&address_data[0], "address")? == ADDRESS
         && number(&address_data[0], "prefix")? == PREFIX
@@ -186,6 +201,8 @@ pub struct NetworkManager {
     checkpoint_requested: bool,
     profile: Option<OwnedObjectPath>,
     activation_requested: bool,
+    retain_ap: bool,
+    station: Option<station::Trial>,
 }
 impl NetworkManager {
     pub async fn system() -> Result<Self> {
@@ -202,7 +219,18 @@ impl NetworkManager {
             checkpoint_requested: false,
             profile: None,
             activation_requested: false,
+            retain_ap: false,
+            station: None,
         }
+    }
+    /// Opt in before preflight only. Keeps this private AP profile in RAM while a station is tested.
+    /// The normal AP worker remains volatile; this does not install or enable the handoff flow.
+    pub fn retain_ap_for_station_trial(&mut self) -> Result<()> {
+        if self.owner.is_some() {
+            return Err(Error::Denied);
+        }
+        self.retain_ap = true;
+        Ok(())
     }
     async fn current_owner(&self) -> Result<zbus::names::OwnedUniqueName> {
         zbus::fdo::DBusProxy::new(&self.connection)
@@ -393,7 +421,10 @@ impl Network for NetworkManager {
                     self.wifi.as_ref().ok_or(Error::Denied)?,
                     OwnedObjectPath::try_from("/").map_err(|_| Error::Invalid)?,
                     HashMap::from([
-                        ("persist", string("volatile")),
+                        (
+                            "persist",
+                            string(if self.retain_ap { "memory" } else { "volatile" }),
+                        ),
                         ("bind-activation", string("dbus-client")),
                     ]),
                 ),
@@ -478,6 +509,9 @@ impl Network for NetworkManager {
         Ok(true)
     }
     async fn rollback(&mut self, c: &Credentials) -> Result<()> {
+        if self.station.is_some() {
+            return Err(Error::Denied);
+        }
         self.fence().await?;
         if self.checkpoint_requested && self.checkpoint.is_none() {
             let root = self.properties(ROOT, NAME).await?;
@@ -574,6 +608,8 @@ impl Network for NetworkManager {
         self.fence().await
     }
 }
+
+mod station;
 
 #[cfg(test)]
 mod tests;

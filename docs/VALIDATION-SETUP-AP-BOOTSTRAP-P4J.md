@@ -1,5 +1,7 @@
 # P4J 首次认领窗口与有限热点租约
 
+后续[P4K](VALIDATION-SETUP-AP-STATION-TRIAL-P4K.md)已增加STA试连并返回原AP的后端及固定DHCP隔离，尚未接Root循环/Core/网页或保存；下文保留P4J边界。
+
 精确源码1643a52的[GitHub CI40064456827](https://github.com/Viper-Boss/RustSimHub/actions/runs/40064456827)两个任务全部成功，含真实材料CLI步骤；私有完整证据setup-ap-bootstrap-ci-20261024-first.json。候选仍未部署。
 
 2026-10-24。Core已将真实设备的首次LocalSetup窗口接入热点控制面，认领成功后保留原截止时间供配置交接。320项工作区Rust测试、严格Clippy、生产Core检查、三个真实材料CLI联合测试及三程序/库ARM64构建通过。本轮只读确认现有棒子服务正常；没有部署本轮代码、开启热点、切网、拨号、发送短信、启用普通数据或修改证书信任。整体79.5%，上次交付业务185ec6e/confirmed43保持。

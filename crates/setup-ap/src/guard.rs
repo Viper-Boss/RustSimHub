@@ -21,6 +21,18 @@ add rule inet rustsimhub_setup input iifname "wlan0" drop
 add rule inet rustsimhub_setup forward iifname "wlan0" drop
 add rule inet rustsimhub_setup forward oifname "wlan0" drop
 "#;
+// The trial returns to the AP before reporting. Only DHCP replies are additionally allowed;
+// no station HTTPS listener, general established traffic, DNS proxy or forwarding is opened.
+pub const TRIAL_RULES: &str = r#"create table inet rustsimhub_setup
+add chain inet rustsimhub_setup input { type filter hook input priority -290; policy accept; }
+add chain inet rustsimhub_setup forward { type filter hook forward priority -290; policy accept; }
+add rule inet rustsimhub_setup input iifname "wlan0" meta nfproto ipv4 udp sport 68 udp dport 67 accept
+add rule inet rustsimhub_setup input iifname "wlan0" ip saddr 172.31.85.0/24 ip daddr 172.31.85.1 tcp dport 8443 accept
+add rule inet rustsimhub_setup input iifname "wlan0" meta nfproto ipv4 udp sport 67 udp dport 68 accept
+add rule inet rustsimhub_setup input iifname "wlan0" drop
+add rule inet rustsimhub_setup forward iifname "wlan0" drop
+add rule inet rustsimhub_setup forward oifname "wlan0" drop
+"#;
 fn canonical(bytes: &[u8]) -> Result<[u8; 32]> {
     let mut v: Value = serde_json::from_slice(bytes).map_err(|_| Error::Invalid)?;
     let rows = v
@@ -31,7 +43,7 @@ fn canonical(bytes: &[u8]) -> Result<[u8; 32]> {
         return Err(Error::Invalid);
     }
     rows.retain(|r| r.get("metainfo").is_none());
-    if rows.len() != 8 {
+    if ![8, 9].contains(&rows.len()) {
         return Err(Error::Changed);
     }
     fn clean(v: &mut Value) {
@@ -105,10 +117,18 @@ async fn command(args: &[&str], input: Option<&str>) -> Result<Vec<u8>> {
 #[derive(Default)]
 pub struct NftGuard {
     baseline: Option<[u8; 32]>,
+    station_trial: bool,
 }
 impl NftGuard {
     pub fn new() -> Self {
         Self::default()
+    }
+    /// Explicit candidate path only; the ordinary AP worker keeps its original guard.
+    pub fn for_station_trial() -> Self {
+        Self {
+            baseline: None,
+            station_trial: true,
+        }
     }
 }
 impl Guard for NftGuard {
@@ -117,8 +137,20 @@ impl Guard for NftGuard {
             return Err(Error::Denied);
         }
         // Existing tables are not replaced or automatically removed after an unknown outcome.
-        command(&["-f", "-"], Some(RULES)).await?;
-        let expected = canonical(include_bytes!("setup-guard-v1.json"))?;
+        command(
+            &["-f", "-"],
+            Some(if self.station_trial {
+                TRIAL_RULES
+            } else {
+                RULES
+            }),
+        )
+        .await?;
+        let expected = canonical(if self.station_trial {
+            include_bytes!("setup-guard-trial-v1.json").as_slice()
+        } else {
+            include_bytes!("setup-guard-v1.json").as_slice()
+        })?;
         let actual =
             canonical(&command(&["-j", "list", "table", "inet", "rustsimhub_setup"], None).await?)?;
         if actual != expected {
@@ -141,6 +173,14 @@ impl Guard for NftGuard {
         command(&["delete", "table", "inet", "rustsimhub_setup"], None).await?;
         self.baseline = None;
         Ok(())
+    }
+}
+impl crate::station_trial::TrialGuard for NftGuard {
+    async fn verify_trial(&self) -> Result<()> {
+        if !self.station_trial {
+            return Err(Error::Denied);
+        }
+        self.verify().await
     }
 }
 #[cfg(test)]
@@ -190,6 +230,22 @@ mod tests {
         assert_ne!(
             expected,
             canonical(&serde_json::to_vec(&v).unwrap()).unwrap()
+        );
+    }
+    #[test]
+    fn station_trial_adds_only_dhcp_client_replies_and_keeps_all_ap_and_forwarding_rules() {
+        let old: Value = serde_json::from_slice(include_bytes!("setup-guard-v1.json")).unwrap();
+        let mut trial: Value =
+            serde_json::from_slice(include_bytes!("setup-guard-trial-v1.json")).unwrap();
+        let added = trial["nftables"].as_array_mut().unwrap().remove(5);
+        assert_eq!(trial, old);
+        assert_eq!(added["rule"]["expr"][2]["match"]["right"], 67);
+        assert_eq!(added["rule"]["expr"][3]["match"]["right"], 68);
+        assert!(TRIAL_RULES.contains("udp sport 67 udp dport 68 accept"));
+        assert!(!TRIAL_RULES.contains("ct state") && !TRIAL_RULES.contains("dport 53"));
+        assert_ne!(
+            canonical(include_bytes!("setup-guard-trial-v1.json")).unwrap(),
+            canonical(include_bytes!("setup-guard-v1.json")).unwrap()
         );
     }
 }

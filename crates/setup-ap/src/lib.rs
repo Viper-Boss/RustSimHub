@@ -100,6 +100,8 @@ pub mod guard;
 #[cfg(target_os = "linux")]
 pub mod nm;
 #[cfg(target_os = "linux")]
+pub mod station_trial;
+#[cfg(target_os = "linux")]
 pub mod transaction;
 
 #[cfg(test)]
