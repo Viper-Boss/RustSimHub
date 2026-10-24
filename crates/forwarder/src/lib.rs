@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 #![forbid(unsafe_code)]
-//! Native forwarding rules and durable outbox. This library starts no thread,
-//! service, socket, network request or modem action. Core must authenticate a
+//! Native forwarding rules, durable outbox and explicitly invoked HTTPS.
+//! Construction starts no thread, service, socket or modem action. Core must authenticate a
 //! current recent Owner before configuring it, and the live Owner/SIM fence
 //! must also be checked by the eventual delivery worker before writing bytes.
 //! A Binding identifies that authority; it is deliberately NOT an auth proof.
@@ -13,6 +13,10 @@ mod authority;
 mod queue;
 #[cfg(target_os = "linux")]
 pub use queue::*;
+#[cfg(target_os = "linux")]
+mod delivery;
+#[cfg(target_os = "linux")]
+pub use delivery::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {

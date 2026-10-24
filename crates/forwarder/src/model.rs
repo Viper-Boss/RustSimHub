@@ -79,7 +79,7 @@ pub enum Destination {
     Bark { server: String, key: Secret },
     Telegram { bot_token: Secret, chat_id: Secret },
 }
-fn endpoint(url: &str) -> Result<()> {
+pub(crate) fn endpoint(url: &str) -> Result<()> {
     if url.len() > 2048
         || url.contains('#')
         || url.chars().any(|c| c.is_control() || c.is_whitespace())
@@ -90,10 +90,24 @@ fn endpoint(url: &str) -> Result<()> {
     let authority = uri.authority().ok_or(Error::Invalid)?;
     if uri.scheme_str() != Some("https")
         || authority.as_str().contains('@')
-        || uri.host().is_none()
-        || uri.port_u16() == Some(0)
+        || authority.host().is_empty()
     {
         return Err(Error::Invalid);
+    }
+    // http::Uri accepts an authority whose port does not fit u16; port_u16()
+    // then returns None, which must NOT be mistaken for omitted port 443.
+    let suffix = authority
+        .as_str()
+        .strip_prefix(authority.host())
+        .ok_or(Error::Invalid)?;
+    if !suffix.is_empty() {
+        let port = suffix.strip_prefix(':').ok_or(Error::Invalid)?;
+        if port.is_empty()
+            || !port.bytes().all(|b| b.is_ascii_digit())
+            || port.parse::<u16>().ok().is_none_or(|p| p == 0)
+        {
+            return Err(Error::Invalid);
+        }
     }
     Ok(())
 }

@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-10-24 [X1B实际HTTPS](VALIDATION-FORWARDER-HTTPS-X1B.md)组件源码/回环验证完成：rustls/Hyper、有限证书/请求/响应、10秒截止、取消关闭连接、三阶段Core fence及唯一尝试，16项新增/40项转发、完整385项Rust、严格Clippy/生产Core/ARM64库通过；实际出口/worker/Core wire/Root主管/网页仍缺，未交付转发。另[P2H正式一键短信](VALIDATION-ONE-CLICK-SMS-P2H.md)用户晚到回执经独立只读核实：唯一10010/CXYE操作/尝试、MM sent及新10010 received正文一致，原67条无损现68条，数据关闭/confirmed46保持。回信仅引导App查询，没有余额数值；一次发送授权已用尽。P2加0.5至16，原整体80%，新扩展单列，继续真实worker/启停/网页。
+
 2026-10-24 X1A后续：精确源码ee14f94的CI40085052613两个任务均success，含369项Rust/24项转发、三个真实材料CLI、13组网页/系统夹具与Native音频；ARM64库已核对AArch64及哈希，仍未部署或实现实际HTTPS/worker。简化首页的真实状态与旧操作核对由用户确认成功。第二次十分钟只读短信观测12755已正常终止：无新SMS操作/发送尝试，原67条保持；先前一次CXYE授权未用，不重启观测或重发，已通知用户窗口结束暂不用点。原整体79.5%，新扩展单列，无活跃构建/安装，继续实际发送/独立服务。
 
 2026-10-24 [X1A短信转发规则/队列](VALIDATION-FORWARDER-OUTBOX-X1A.md)源码完成：真实Store事件尾、默认关闭、有限规则与Webhook/Bark/Telegram编码、原子outbox/游标、唯一claim/Unknown保留及真实签名Owner/realm/代次/SIM派发核对。新增24项、完整369项Rust、严格Clippy、生产Core和ARM64库通过。尚无实际HTTPS、Core wire接线、worker/Root主管/网页及无进程验收，不安装/启用、不外发短信或修改无线配置；现场仍7a60650/confirmed46，原整体79.5%。用户已实机验收简化首页状态读取并成功核对旧操作；单条10010/CXYE仍使用原授权，新的只读观测12755就绪等待用户一次点击，不自动重试。

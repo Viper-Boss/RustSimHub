@@ -6,7 +6,7 @@
 
 | 编号 | 功能 | 交付形式 | 当前状态 |
 | --- | --- | --- | --- |
-| X1 | SmsForwarder同类短信转发 | ARM64 Linux原生Rust规则/队列/发送服务，网页开关与规则 | [规则/队列及Auth适配源码完成](VALIDATION-FORWARDER-OUTBOX-X1A.md)，实际HTTPS/服务/网页仍缺 |
+| X1 | SmsForwarder同类短信转发 | ARM64 Linux原生Rust规则/队列/发送服务，网页开关与规则 | [规则/队列及Auth适配源码完成](VALIDATION-FORWARDER-OUTBOX-X1A.md)，[HTTPS组件回环验证通过](VALIDATION-FORWARDER-HTTPS-X1B.md)，实际worker/出口/服务/网页仍缺 |
 | X2 | NKNGuard远程接入 | 棒子原生受限服务，直连优先、NKN中继及已授权私有DHT | 待移植与实测 |
 | X3 | 通过NKN统计使用设备数 | 独立统计协议/密钥/主题，24小时、30天、90天展示 | 已定位参考源码，待开发 |
 
