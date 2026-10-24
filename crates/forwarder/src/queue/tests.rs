@@ -100,8 +100,18 @@ fn configure_idempotency_generation_and_binding_are_exact() {
             .unwrap(),
         1
     );
+    assert_eq!(
+        q.configure(&binding(), 0, &request, policy(), head(6))
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        q.event_cursor().unwrap().seq,
+        "5",
+        "retry cannot move the first baseline"
+    );
     assert!(matches!(
-        q.configure(&binding(), 0, &request, policy(), head(6)),
+        q.configure(&binding(), 0, &request, Policy::default(), head(6)),
         Err(Error::Conflict)
     ));
     assert!(matches!(

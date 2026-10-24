@@ -1674,6 +1674,7 @@ dependencies = [
  "rustsimhub-auth",
  "rustsimhub-compat",
  "rustsimhub-domain",
+ "rustsimhub-forwarder",
  "rustsimhub-media",
  "rustsimhub-policy",
  "rustsimhub-setup-ap",

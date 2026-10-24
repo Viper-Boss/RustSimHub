@@ -71,6 +71,11 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | SetupApStatus { .. }
         | SetupApCancel { .. }
         | NetworkDiagnostics { .. }
+        | ForwardingStatus { .. }
+        | ForwardingConfigure { .. }
+        | ForwardingRules { .. }
+        | ForwardingReceipts { .. }
+        | ForwardingPrune { .. }
         | SetNetworkPolicy { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         Calls {
             token,
@@ -187,6 +192,7 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
 }
 #[derive(Clone, Default)]
 pub(crate) struct Providers {
+    pub forwarding: Option<crate::forwarding::Controller>,
     pub setup: Option<Arc<Mutex<rustsimhub_auth::LocalSetup>>>,
     pub history: Option<Arc<Mutex<rustsimhub_compat::history::HistoryService>>>,
     pub compat: Option<Arc<Mutex<rustsimhub_compat::session::Authority>>>,
@@ -200,6 +206,7 @@ pub(crate) async fn handle(
     providers: Providers,
 ) -> Result<()> {
     let Providers {
+        forwarding,
         setup,
         history,
         compat,
@@ -213,6 +220,7 @@ pub(crate) async fn handle(
     let messaging_enabled = sender.is_some();
     let history_enabled = history.is_some();
     let compat_enabled = compat.is_some();
+    let forwarding_config_api = forwarding.is_some();
     let health = matches!(request.command, AuthCommand::Health { .. });
     let capabilities = matches!(request.command, AuthCommand::Capabilities { .. });
     let line_status = matches!(request.command, AuthCommand::LineStatus { .. });
@@ -250,6 +258,18 @@ pub(crate) async fn handle(
             crate::compat_api::dispatch(&mut a, &mut gate, request.command)
         })
         .await?
+    } else if matches!(
+        request.command,
+        AuthCommand::ForwardingStatus { .. }
+            | AuthCommand::ForwardingConfigure { .. }
+            | AuthCommand::ForwardingRules { .. }
+            | AuthCommand::ForwardingReceipts { .. }
+            | AuthCommand::ForwardingPrune { .. }
+    ) {
+        match forwarding {
+            Some(c) => c.request(auth.clone(), request.command).await,
+            None => Err(rustsimhub_auth::Error::Forbidden),
+        }
     } else if matches!(
         request.command,
         AuthCommand::HistorySources { .. }
@@ -352,6 +372,8 @@ pub(crate) async fn handle(
                 let mut value = serde_json::to_value(p)?;
                 value["messaging_api"] = messaging_enabled.into();
                 value["call_control_api"] = calling_enabled.into();
+                value["forwarding_configuration_api"] = forwarding_config_api.into();
+                value["forwarding_delivery_api"] = false.into();
                 value["call_observer"] = calls_observed.into();
                 value["saved_wifi_trial_api"] = crate::network_trial::enabled().into();
                 value["wifi_provisioning_api"] = crate::network_trial::provision::enabled().into();
@@ -385,6 +407,8 @@ pub(crate) async fn handle(
                 value["wifi_provisioning_api"] = crate::network_trial::provision::enabled().into();
                 value["history_read_api"] = history_enabled.into();
                 value["legacy_read_api"] = compat_enabled.into();
+                value["forwarding_configuration_api"] = forwarding_config_api.into();
+                value["forwarding_delivery_api"] = false.into();
             }
             if let (true, Some(m)) = (line_status, metrics) {
                 if let Ok(s) = m.lock() {
@@ -700,6 +724,7 @@ async fn serve_inner_media(
     stop: impl std::future::Future<Output = ()>,
 ) -> Result<()> {
     let (state, identity) = (state.to_owned(), identity.to_owned());
+    let forwarding_state = std::path::PathBuf::from(&state);
     let setup_file = extras.setup.map(|mode| match mode {
         SetupMode::Explicit(path) => (false, path.to_owned()),
         SetupMode::Device(path) => (true, path.to_owned()),
@@ -750,6 +775,10 @@ async fn serve_inner_media(
         })
         .await??;
     crate::status_led::initialize(store.handle()).await;
+    // A passive Core-owned configuration handle, not a forwarding daemon.
+    // No directory, worker, socket or periodic scan is created at startup.
+    let forwarding = (observing && messaging && call_mode == 2)
+        .then(|| crate::forwarding::Controller::new(&forwarding_state, store.handle()));
     let (listener, runtime) =
         crate::socket_runtime::SocketRuntime::bind(std::path::Path::new(socket))?;
     let limit = Arc::new(Semaphore::new(8));
@@ -859,6 +888,7 @@ async fn serve_inner_media(
         let setup = setup.clone();
         let history = history.clone();
         let providers = Providers {
+            forwarding: forwarding.clone(),
             setup,
             history,
             compat: compat.clone(),

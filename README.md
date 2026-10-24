@@ -4,12 +4,13 @@
 设备自身管理电话、短信、授权和数据，支持 USB/NAS、Wi-Fi 与蜂窝网络。
 手机客户端另行开发。
 
-当前为开发初始阶段，不能作为可刷写发行版。已有系统继续承担实际通信。
+当前已有棒子实机开发系统，原P0–P7进度约80%；仍未形成可供其他设备直接刷写的正式发行版。已验收和未完成的范围以进度与接手说明为准。
 
 - [详细开发计划](docs/development-plan.md)
 - [进度](docs/PROGRESS.md)
 - [接手说明](docs/HANDOFF.md)
 - [剩余任务与 Claude 接手清单](docs/REMAINING-WORK-AND-CLAUDE-HANDOFF.md)
+- [新增短信转发、NKNGuard与使用统计](docs/FEATURE-EXTENSIONS-2026-10-24.md)
 - [首阶段接口边界](docs/architecture-foundation.md)
 - [SQLite 持久化与恢复](docs/storage.md)
 - [设备身份、配对和鉴权](docs/auth.md)

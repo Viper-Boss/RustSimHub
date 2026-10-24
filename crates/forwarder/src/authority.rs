@@ -30,6 +30,14 @@ fn binding(auth: &Auth, owner: &Principal) -> Result<Binding> {
     Ok(b)
 }
 impl Binding {
+    /// Authenticated Owner-only read access; does not refresh sensitive login
+    /// age or grant configuration/enable authority.
+    pub fn from_owner(auth: &mut Auth, token: &str) -> Result<Self> {
+        let owner = auth
+            .authorize(token, Scope::SystemManage)
+            .map_err(|_| Error::Forbidden)?;
+        binding(auth, &owner)
+    }
     pub fn from_recent_owner(auth: &mut Auth, token: &str) -> Result<Self> {
         recent(auth, token)
     }

@@ -185,6 +185,41 @@ pub struct Policy {
     pub targets: Vec<Target>,
     pub rules: Vec<Rule>,
 }
+/// Credential-free management response. Even URLs and chat IDs are omitted:
+/// webhook query strings and provider destination names can contain secrets.
+#[derive(Serialize)]
+pub struct PolicyView {
+    pub enabled: bool,
+    pub targets: Vec<TargetView>,
+    pub rules: Vec<Rule>,
+}
+#[derive(Serialize)]
+pub struct TargetView {
+    pub id: String,
+    pub kind: &'static str,
+    pub credentials_redacted: bool,
+}
+impl Policy {
+    pub fn view(&self) -> PolicyView {
+        PolicyView {
+            enabled: self.enabled,
+            targets: self
+                .targets
+                .iter()
+                .map(|t| TargetView {
+                    id: t.id.clone(),
+                    kind: match t.destination {
+                        Destination::Webhook { .. } => "webhook",
+                        Destination::Bark { .. } => "bark",
+                        Destination::Telegram { .. } => "telegram",
+                    },
+                    credentials_redacted: true,
+                })
+                .collect(),
+            rules: self.rules.clone(),
+        }
+    }
+}
 impl Policy {
     pub fn validate(&self) -> Result<()> {
         if self.targets.len() > MAX_TARGETS

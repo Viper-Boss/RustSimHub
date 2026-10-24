@@ -114,6 +114,13 @@ fn file(path: &Path) -> Result<File> {
     Ok(f)
 }
 impl Queue {
+    pub fn require_binding(&self, binding: &Binding) -> Result<()> {
+        if binding == &self.binding {
+            Ok(())
+        } else {
+            Err(Error::Forbidden)
+        }
+    }
     pub(crate) fn binding(&self) -> &Binding {
         &self.binding
     }
@@ -274,6 +281,9 @@ CREATE INDEX pending ON jobs(state,seq);")?;
             process_state_verified: false,
         })
     }
+    pub fn policy_view(&self) -> Result<PolicyView> {
+        Ok(self.meta()?.policy.view())
+    }
     /// Caller authenticates and rechecks the actual recent Owner. Start/change
     /// uses the REAL committed business event head, never a caller's old cursor.
     pub fn configure(
@@ -291,7 +301,11 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         }
         let seq = cursor(&head, &binding.realm)?;
         let encoded = serde_json::to_string(&policy)?;
-        let digest = Sha256::digest(serde_json::to_vec(&(binding, expected, &encoded, &head))?);
+        // Only client intent identifies a retry. The live business head may
+        // advance between an applied request and a lost-response retry; it
+        // must not turn that same request into a conflicting new operation.
+        // The FIRST committed request still samples/persists the actual head.
+        let digest = Sha256::digest(serde_json::to_vec(&(binding, expected, &encoded))?);
         let old = self
             .conn
             .query_row(

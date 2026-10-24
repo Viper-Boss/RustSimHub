@@ -15,6 +15,30 @@ pub struct AuthRequest {
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AuthCommand {
     Identity {},
+    ForwardingStatus {
+        token: String,
+    },
+    ForwardingConfigure {
+        token: String,
+        expected_generation: u64,
+        request_id: String,
+        // Bounded by MAX_FRAME here, then decoded and validated by Core.
+        // No Debug implementation: this object can contain target credentials.
+        policy: serde_json::Value,
+    },
+    ForwardingRules {
+        token: String,
+    },
+    ForwardingReceipts {
+        token: String,
+        after: String,
+        limit: usize,
+    },
+    ForwardingPrune {
+        token: String,
+        generation: u64,
+        through: String,
+    },
     ConfigurationIndicator {
         token: String,
         view_id: String,
@@ -315,6 +339,47 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         return Err(invalid());
     }
     match &req.command {
+        AuthCommand::ForwardingStatus { token } | AuthCommand::ForwardingRules { token } => {
+            if token.len() != 64 {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ForwardingConfigure {
+            token,
+            expected_generation,
+            request_id,
+            policy,
+        } => {
+            if token.len() != 64
+                || *expected_generation >= i64::MAX as u64
+                || !canonical_uuid(request_id)
+                || !policy.is_object()
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ForwardingReceipts {
+            token,
+            after,
+            limit,
+        } => {
+            if token.len() != 64 || !decimal_sequence(after) || !(1..=32).contains(limit) {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ForwardingPrune {
+            token,
+            generation,
+            through,
+        } => {
+            if token.len() != 64
+                || *generation == 0
+                || *generation > i64::MAX as u64
+                || !decimal_sequence(through)
+            {
+                return Err(invalid());
+            }
+        }
         AuthCommand::NotificationRead {
             token,
             entity,
@@ -745,6 +810,21 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         _ => {}
     }
     Ok(req)
+}
+fn canonical_uuid(value: &str) -> bool {
+    value.len() == 36
+        && value.bytes().enumerate().all(|(i, b)| {
+            if [8, 13, 18, 23].contains(&i) {
+                b == b'-'
+            } else {
+                b.is_ascii_digit() || (b'a'..=b'f').contains(&b)
+            }
+        })
+}
+fn decimal_sequence(value: &str) -> bool {
+    value
+        .parse::<i64>()
+        .is_ok_and(|n| n >= 0 && n.to_string() == value)
 }
 fn legacy_id(value: &str) -> bool {
     !value.is_empty()

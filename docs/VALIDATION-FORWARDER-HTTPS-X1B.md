@@ -28,7 +28,7 @@ Connector和Fence都是必须由调用者提供的接口：分别负责真实已
 
 命令（Rust1.98.0）：cargo test --workspace --all-features --locked --offline；cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings；cargo check -p rustsimhub-core --no-default-features --locked --offline；cargo build -p rustsimhub-forwarder --release --target aarch64-unknown-linux-gnu --locked --offline。
 
-最终本地日志：`.private/forwarder-https-workspace-20261024-first.log`与exit=0；精确提交CI、库架构与哈希记录完成后附加。
+最终本地日志：`.private/forwarder-https-workspace-20261024-first.log`与exit=0。精确提交`ecd3545cbbc2afe0651d6922d89880bcbaed5ba3`的[CI40088053542](https://github.com/Viper-Boss/RustSimHub/actions/runs/40088053542)两个任务均success，包括385项Rust、13组网页/系统夹具、三个实际材料CLI及Native音频。ARM64库已保存并经readelf核对AArch64，SHA-256为`cc0cb84b5d4b030441290941ed7568712c40ab71d69abc5346ff4160341b3243`。它是库构建证据，不是设备安装或转发服务验收。
 
 ## 还缺
 

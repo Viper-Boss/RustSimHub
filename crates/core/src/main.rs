@@ -14,6 +14,8 @@ mod compat_api;
 #[cfg(target_os = "linux")]
 mod coordination;
 #[cfg(target_os = "linux")]
+mod forwarding;
+#[cfg(target_os = "linux")]
 mod history_api;
 #[cfg(feature = "dev-fixtures")]
 mod inbox_check;
