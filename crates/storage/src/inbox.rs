@@ -222,6 +222,26 @@ impl Handle {
         db.connection.query_row("SELECT id,line_epoch,length(data)>0,duplicate_candidate,sender,timestamp,body,data FROM inbox WHERE id=? AND NOT EXISTS(SELECT 1 FROM inbox_tombstones t WHERE t.sms_id=inbox.id)",[id],|r|Ok(SmsDetail{summary:summary(r)?,sender:r.get(4)?,timestamp:r.get(5)?,text:r.get(6)?,data:r.get(7)?})).optional()?.ok_or(Error::NotFound)
     })
     }
+    /// A consumer can start at the committed tail without reading historical
+    /// bodies. The realm and sequence are sampled on the same SQLite actor.
+    pub fn inbox_event_head(&self) -> Result<InboxCursor> {
+        self.call(move |db| {
+            let epoch: String = db.connection.query_row(
+                "SELECT db_epoch FROM meta WHERE singleton=1",
+                [],
+                |r| r.get(0),
+            )?;
+            let seq: i64 = db.connection.query_row(
+                "SELECT coalesce(max(seq),0) FROM inbox_events",
+                [],
+                |r| r.get(0),
+            )?;
+            Ok(InboxCursor {
+                db_epoch: epoch,
+                seq: seq.to_string(),
+            })
+        })
+    }
     pub fn inbox_events(&self, after: Option<InboxCursor>, limit: usize) -> Result<InboxEvents> {
         self.call(move |db| {
         let (epoch,mut seq)=position(&db.connection,after.as_ref(),"inbox_events",limit)?;

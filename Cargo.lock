@@ -1735,6 +1735,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustsimhub-forwarder"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "fs2",
+ "http",
+ "rusqlite",
+ "rustix",
+ "rustsimhub-auth",
+ "rustsimhub-domain",
+ "rustsimhub-policy",
+ "rustsimhub-storage",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
 name = "rustsimhub-media"
 version = "0.1.0"
 dependencies = [

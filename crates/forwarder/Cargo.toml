@@ -1,0 +1,27 @@
+[package]
+name = "rustsimhub-forwarder"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+rustsimhub-domain = { path = "../domain" }
+rustsimhub-storage = { path = "../storage" }
+rustsimhub-auth = { path = "../auth" }
+rustsimhub-policy = { path = "../policy" }
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+zeroize = "1"
+http = "1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+fs2 = "0.4"
+rustix = { version = "1", features = ["process", "fs"] }
+
+[dev-dependencies]
+tempfile = "3"
+ed25519-dalek = "2.2"

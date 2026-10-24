@@ -1,5 +1,7 @@
 # 最新开发进度：2026-10-23
 
+2026-10-24 [X1A短信转发规则/队列](VALIDATION-FORWARDER-OUTBOX-X1A.md)源码完成：真实Store事件尾、默认关闭、有限规则与Webhook/Bark/Telegram编码、原子outbox/游标、唯一claim/Unknown保留及真实签名Owner/realm/代次/SIM派发核对。新增24项、完整369项Rust、严格Clippy、生产Core和ARM64库通过。尚无实际HTTPS、Core wire接线、worker/Root主管/网页及无进程验收，不安装/启用、不外发短信或修改无线配置；现场仍7a60650/confirmed46，原整体79.5%。用户已实机验收简化首页状态读取并成功核对旧操作；单条10010/CXYE仍使用原授权，新的只读观测12755就绪等待用户一次点击，不自动重试。
+
 2026-10-24 [P7A简化测试首页](VALIDATION-TEST-CENTER-P7A.md)已交付7a60650/confirmed46：首页四个测试入口与停止、同处显示结果和旧操作核对，日常/网络/调试默认折叠。555份固定Git文件、345项Rust、八ARM、同源Native33、13组网页及精确CI40070893296通过；原信任签名/备份回读/九份严格HTTPS资源/身份、原Owner/67短信/Unknown和Root音频/网络保持，同boot无恢复预算消耗。用户刷新/真实网页短信尚待验收，本轮无新电话/SMS、普通数据关闭、关机搁置，10010仍44，整体79.5%。新增X1转发/X2 NKNGuard/X3使用统计已登记，尚未实现；AP Root程序/服务仍未交付或开启。当前无活跃构建/安装，单条CXYE授权仍未使用。
 
 2026-10-24 新增[X1短信转发、X2 NKNGuard、X3 NKN使用设备统计](FEATURE-EXTENSIONS-2026-10-24.md)待办：已定位Viper-Boss/nknguard固定c32952d的usagestats/链上确认/应用装配源码。短信转发明确默认关闭、关闭/重启无转发进程与触发器，独立Rust原生服务；NKN接入和统计各自授权/开关/产品主题，不混用原AlwaysEnabled策略。仅计划和来源核对，未实现/启用/外发/链上签到；原P0–P7仍79.5%，新增三项及BLE单独跟踪。
