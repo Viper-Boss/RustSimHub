@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-10-25 X1G关闭后置条件修正：首次CI e425732/40131412624因systemctl在强杀子进程后返回非零而失败，原日志保留。主管现以实际PID、job、整个cgroup及触发源全部为空作为关闭判据，有限等待父进程回收，仍拒绝残留进程/命令传输超时；不重发启动或降低检查。修正版424项Rust/严格检查、Root直接与Core→PID1两条真实关闭路径及四份生产ARM64已通过，后续精确CI另存。未部署/访问棒子、无新电话或短信，原整体80%，当前不需用户操作；下一步Owner网页。
+
 2026-10-25 [X1G Core有限服务协调](VALIDATION-FORWARDING-COORDINATION-X1G.md)源码验证通过：显式管理模式将Owner开关接至两个固定Root服务，核对真实job及新鲜Owner/代次/Core/boot绑定回执；8秒截止保留已保存意图，丢失启动回复不重发。424项Rust、严格检查、实际Core→DBus→polkit→PID1、旧执行通道兼容及四份生产ARM64通过；两个合成HTTP各一次，实际整组关闭及临时授权清理通过。网页/安装/棒子验收仍缺，未部署、未访问设备；原整体80%，扩展单列、SMS剩余0，当前不需用户操作。X1F及其WIP为历史。
 
 2026-10-25 [X1F有限转发服务管理](VALIDATION-FORWARDING-SUPERVISOR-X1F.md)源码验证通过：PID1直接以低权限身份、空能力和私有只读credential启动worker；Root仅有限管理，实际核对整组进程及条件启动。419项Rust、严格Clippy/生产feature、真实systemd/cgroup/凭据正反对照、旧多UID及DNS/TLS执行通道兼容和四份生产ARM64通过；OFF整组清理及条件boot跳过已在本机实测，未部署棒子、未验证物理冷启动。网页与Core服务协调仍缺，不能将基础查询标为进程已核实。旧WIP失败保留，下方为历史；原整体80%，扩展单列、SMS剩余0，本轮不需用户操作。

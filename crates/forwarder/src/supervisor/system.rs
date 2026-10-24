@@ -174,13 +174,25 @@ impl<'a> System<'a> {
     pub(super) async fn stop(&self) -> Result<()> {
         for name in self.triggers().into_iter().chain([self.c.unit.clone()]) {
             if self.unit(&name).await?.load != "not-found" {
-                let (ok, _) = command(&["stop", "--", &name], Duration::from_secs(18)).await?;
-                if !ok {
-                    return Err(Error::Forbidden);
-                }
+                // A completed stop command may report failure when PID1 had
+                // to SIGKILL a stubborn child. Its exit code is NOT a proof
+                // either way. Transport timeout still fails closed; after a
+                // reply, verify every actual PID/job/trigger and cgroup below.
+                command(&["stop", "--", &name], Duration::from_secs(18)).await?;
             }
         }
-        self.empty().await
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(4);
+        loop {
+            match self.empty().await {
+                Ok(()) => return Ok(()),
+                Err(Error::Forbidden) if tokio::time::Instant::now() < deadline => {
+                    // An external parent may need a scheduling turn to reap
+                    // its killed child. Do not ignore zombies or live PIDs.
+                    tokio::time::sleep(Duration::from_millis(50)).await;
+                }
+                Err(error) => return Err(error),
+            }
+        }
     }
     pub(super) async fn empty(&self) -> Result<()> {
         self.triggers_inert().await?;
@@ -360,6 +372,9 @@ mod tests {
     fn status_needs_inactive_no_pid_no_job_and_no_start_trigger() {
         let base="LoadState=loaded\nActiveState=inactive\nMainPID=0\nControlPID=0\nControlGroup=\nUnitFileState=static\nTriggeredBy=\nTriggers=\nKillMode=control-group\nDelegate=no\nRestart=no\nJob=0\n";
         assert!(Unit::parse(base).unwrap().inert());
+        assert!(Unit::parse(&base.replace("inactive", "failed"))
+            .unwrap()
+            .inert());
         assert!(Unit::parse(&base.replace("Job=0", "Job=")).unwrap().inert());
         for (from, to) in [
             ("inactive", "active"),
