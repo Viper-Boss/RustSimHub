@@ -39,4 +39,4 @@ Core在阻塞工作任务内依次取得Auth和管理锁，唯一Queue写入者�
 - SQLite触发器模拟落盘失败，不回假成功或推进代次；解除故障后同请求安全完成。
 - wire溢出/非规范游标/未知字段/缺字段拒绝。
 
-完整393项Rust、全工作区严格Clippy、生产Core无默认特征检查，以及Core/Edge程序和转发库ARM64构建通过，三份制品均核对AArch64与SHA-256；本地日志`.private/forwarder-core-workspace-20261024-first.log`及exit=0。制品未签名、未交付，不能代替正常同源签名安装包。精确提交CI结果随后记录。转发实际worker IPC、绑定出口的Connector、Root启停/开机策略、网页总开关/规则表单与合成测试、正常签名交付、关闭/重启无PID验收仍未完成。X1单列，原P0–P7仍80%；当前现场短信68条、普通数据关闭，一次10010/CXYE发送授权已经消费，不得重发。
+完整393项Rust、全工作区严格Clippy、生产Core无默认特征检查，以及Core/Edge程序和转发库ARM64构建通过，三份制品均核对AArch64与SHA-256；本地日志`.private/forwarder-core-workspace-20261024-first.log`及exit=0。制品未签名、未交付，不能代替正常同源签名安装包。精确源码`33488cea39163dda0c658634c7d9a06a60fae660`的[CI40089301860](https://github.com/Viper-Boss/RustSimHub/actions/runs/40089301860)两个任务均success，包含完整393项Rust、13组网页/系统夹具、三个实际材料CLI及Native音频；后续仅文档提交与此源码验证分开记录。转发实际worker IPC、绑定出口的Connector、Root启停/开机策略、网页总开关/规则表单与合成测试、正常签名交付、关闭/重启无PID验收仍未完成。X1单列，原P0–P7仍80%；当前现场短信68条、普通数据关闭，一次10010/CXYE发送授权已经消费，不得重发。
