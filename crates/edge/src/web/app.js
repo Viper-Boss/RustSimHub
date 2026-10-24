@@ -346,7 +346,8 @@ async function runTestCenter(task){
    if((draft&&draft!=='CXYE')||(recipient&&recipient!=='10010')){
     if(!confirm('当前有其他短信草稿。将它保存在本机，再准备 10010 / CXYE 测试？')){testMessage('已保留草稿，未发送测试短信。');return;}
     const savedDraft=await stored('test-center-saved-draft');check();
-    if(savedDraft&&(savedDraft.recipient!==recipient||savedDraft.text!==draft))throw Error('还有一份已保存草稿，请先在“短信 · 日常使用”恢复它，再测试');
+    if(savedDraft&&(savedDraft.recipient!==recipient||savedDraft.text!==draft)&&!confirm('本机已有另一份测试前草稿备份。用当前草稿替换该备份？取消可保留两者并停止测试。'))throw Error('原备份与当前草稿均已保留，未发送');
+    check();
     await save('test-center-saved-draft',{recipient,text:draft});check();$('test-restore-draft').hidden=false;
    }
    $('recipient').value='10010';$('text').value='CXYE';smsLength();
@@ -373,9 +374,9 @@ async function restoreTestDraft(){
  if(!draft||typeof draft.recipient!=='string'||typeof draft.text!=='string'||draft.recipient.length>32||new TextEncoder().encode(draft.text).length>4096)throw Error('没有可恢复的草稿');
  if(!confirm('恢复测试前的草稿并替换当前输入？只恢复文字，不发送。'))return;
  if(pending)throw Error('当前操作已变化');
- // Publish the text before clearing its durable backup; a failed write keeps it recoverable.
+ // Retain the backup: logout can clear the visible fields at any time.
  $('recipient').value=draft.recipient;$('text').value=draft.text;smsLength();
- await save('test-center-saved-draft',null);current(epoch);$('test-restore-draft').hidden=true;notice('已恢复原草稿，尚未发送。');
+ notice('已恢复原草稿，尚未发送；本机备份仍保留。');
 }
 function smsLength(){$('sms-length').textContent=`正文 ${new TextEncoder().encode($('text').value).length} / 4096 字节`;} $('text').oninput=smsLength;
 async function act(fn){if(busy)return;if(dailyPhone?.working||dailyPhone?.managing){notice('请先在电话区结束当前操作或通话');return;}const generation=++actionGeneration,epoch=viewEpoch;busy=true;showPending();try{await fn();}catch(error){if(epoch===viewEpoch&&generation===actionGeneration)notice(error.message||'操作失败');}finally{if(generation===actionGeneration){busy=false;showPending();}}}
