@@ -149,6 +149,18 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
+        #[cfg(feature = "dev-fixtures")]
+        if let [command, socket, edge, worker, state, identity] = args.as_slice() {
+            if command == "--forwarding-ipc-fixture" {
+                return runtime.block_on(forwarding::ipc::fixture::run(
+                    socket,
+                    edge.parse()?,
+                    worker.parse()?,
+                    state,
+                    identity,
+                ));
+            }
+        }
         match args.as_slice() {
             [command, path, uid, state, identity, media_path, media_uid, archive, access, compat, journal, setup, ap_input, ap_output, ap_journal]
                 if command == "--serve-device-setup-ap" =>
@@ -166,7 +178,22 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     identity,
                     (media_path, media_uid.parse()?),
                     (archive, access),
-                    (compat, setup),
+                    (compat, setup, None),
+                ));
+            }
+            [command, path, uid, state, identity, media_path, media_uid, archive, access, compat, journal, setup, worker_uid]
+                if command == "--serve-device-forwarding" =>
+            {
+                forwarding::ipc::Access::new(uid.parse()?, worker_uid.parse()?)?;
+                network_trial::provision::enable(std::path::Path::new(journal))?;
+                return runtime.block_on(authenticated::serve_device(
+                    path,
+                    uid.parse()?,
+                    state,
+                    identity,
+                    (media_path, media_uid.parse()?),
+                    (archive, access),
+                    (compat, setup, Some(worker_uid.parse()?)),
                 ));
             }
             [command, path, uid, state, identity, media_path, media_uid, archive, access, compat, journal, setup]
@@ -180,7 +207,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     identity,
                     (media_path, media_uid.parse()?),
                     (archive, access),
-                    (compat, setup),
+                    (compat, setup, None),
                 ));
             }
             [command, path, uid, state, identity, media_path, media_uid, archive, access, compat, journal]
@@ -344,6 +371,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
             [command, path] if command == "--request-auth" => {
                 return runtime.block_on(authenticated::request(path));
+            }
+            [command, path, uid] if command == "--request-forwarding" => {
+                return runtime.block_on(forwarding::ipc::cli(path, uid.parse()?));
             }
             _ => {}
         }

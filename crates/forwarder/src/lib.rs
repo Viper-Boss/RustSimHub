@@ -17,6 +17,8 @@ pub use queue::*;
 mod delivery;
 #[cfg(target_os = "linux")]
 pub use delivery::*;
+#[cfg(target_os = "linux")]
+pub mod worker_ipc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {

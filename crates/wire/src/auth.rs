@@ -18,6 +18,12 @@ pub enum AuthCommand {
     ForwardingStatus {
         token: String,
     },
+    SetForwardingEnabled {
+        token: String,
+        expected_generation: u64,
+        request_id: String,
+        enabled: bool,
+    },
     ForwardingConfigure {
         token: String,
         expected_generation: u64,
@@ -339,6 +345,19 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         return Err(invalid());
     }
     match &req.command {
+        AuthCommand::SetForwardingEnabled {
+            token,
+            expected_generation,
+            request_id,
+            ..
+        } => {
+            if token.len() != 64
+                || *expected_generation >= i64::MAX as u64
+                || !canonical_uuid(request_id)
+            {
+                return Err(invalid());
+            }
+        }
         AuthCommand::ForwardingStatus { token } | AuthCommand::ForwardingRules { token } => {
             if token.len() != 64 {
                 return Err(invalid());

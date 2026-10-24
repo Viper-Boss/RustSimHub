@@ -72,6 +72,10 @@ jobs:
         run: |
           cargo build -p rustsimhub-core -p rustsimhub-edge -p rustsimhub-setup-ap --locked
           sudo -n python3 tools/test-setup-ap-material.py --core target/debug/rustsimhub-core --edge target/debug/rustsimhub-edge --ap target/debug/rustsimhub-setup-ap --edge-user "$(id -un)"
+      - name: Isolated forwarding Root and worker IPC
+        run: |
+          cargo build -p rustsimhub-core --features dev-fixtures --locked
+          sudo -n python3 tools/test-forwarding-worker-ipc.py --core target/debug/rustsimhub-core
       - name: Check production feature set
         run: cargo check -p rustsimhub-core --no-default-features --locked
       - name: Lint

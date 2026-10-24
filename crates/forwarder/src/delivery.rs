@@ -23,7 +23,8 @@ use tokio_rustls::{
 const BUDGET: Duration = Duration::from_secs(10);
 const MAX_RESPONSE: usize = 8192;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Stage {
     BeforeConnect,
     BeforeTls,
@@ -45,7 +46,8 @@ pub trait Fence {
     async fn check(&mut self, stage: Stage, claim: &Claim) -> Result<()>;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Failure {
     InvalidRequest,
     Denied,
@@ -57,7 +59,8 @@ pub enum Failure {
     Cancelled,
     Deadline,
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum DeliveryOutcome {
     NotSubmitted {
         reason: Failure,

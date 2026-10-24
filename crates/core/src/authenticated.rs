@@ -72,6 +72,7 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | SetupApCancel { .. }
         | NetworkDiagnostics { .. }
         | ForwardingStatus { .. }
+        | SetForwardingEnabled { .. }
         | ForwardingConfigure { .. }
         | ForwardingRules { .. }
         | ForwardingReceipts { .. }
@@ -261,6 +262,7 @@ pub(crate) async fn handle(
     } else if matches!(
         request.command,
         AuthCommand::ForwardingStatus { .. }
+            | AuthCommand::SetForwardingEnabled { .. }
             | AuthCommand::ForwardingConfigure { .. }
             | AuthCommand::ForwardingRules { .. }
             | AuthCommand::ForwardingReceipts { .. }
@@ -495,6 +497,7 @@ pub async fn serve_media_bundle(
         state,
         identity,
         RuntimeExtras {
+            forwarding_uid: None,
             media: Some(media),
             setup: None,
             history,
@@ -510,7 +513,7 @@ pub async fn serve_device(
     identity: &str,
     media: (&str, u32),
     history: (&str, &str),
-    local: (&str, &str),
+    local: (&str, &str, Option<u32>),
 ) -> Result<()> {
     serve_bundle_options(
         socket,
@@ -518,6 +521,7 @@ pub async fn serve_device(
         state,
         identity,
         RuntimeExtras {
+            forwarding_uid: local.2,
             media: Some(media),
             setup: Some(SetupMode::Device(local.1)),
             history: Some(history),
@@ -595,6 +599,7 @@ pub async fn serve_setup(
         identity,
         (true, false, 1),
         RuntimeExtras {
+            forwarding_uid: None,
             media: None,
             setup: Some(SetupMode::Explicit(secret_file)),
             history: None,
@@ -705,6 +710,7 @@ async fn serve_inner(
 }
 #[derive(Default)]
 struct RuntimeExtras<'a> {
+    forwarding_uid: Option<u32>,
     media: Option<(&'a str, u32)>,
     setup: Option<SetupMode<'a>>,
     history: Option<(&'a str, &'a str)>,
@@ -723,6 +729,10 @@ async fn serve_inner_media(
     extras: RuntimeExtras<'_>,
     stop: impl std::future::Future<Output = ()>,
 ) -> Result<()> {
+    let forwarding_access = extras
+        .forwarding_uid
+        .map(|worker| crate::forwarding::ipc::Access::new(uid, worker))
+        .transpose()?;
     let (state, identity) = (state.to_owned(), identity.to_owned());
     let forwarding_state = std::path::PathBuf::from(&state);
     let setup_file = extras.setup.map(|mode| match mode {
@@ -871,9 +881,16 @@ async fn serve_inner_media(
             Ok(s) => s,
             Err(e) => break Err(e.into()),
         };
-        if stream.peer_cred().map(|c| c.uid()).ok() != Some(uid) {
-            continue;
-        }
+        let route = match forwarding_access {
+            Some(access) => match access.route(&stream) {
+                Some(route) => route,
+                None => continue,
+            },
+            None if stream.peer_cred().map(|c| c.uid()).ok() == Some(uid) => {
+                crate::forwarding::ipc::Route::Browser
+            }
+            None => continue,
+        };
         if tasks.len() >= 8 {
             continue;
         }
@@ -894,11 +911,19 @@ async fn serve_inner_media(
             compat: compat.clone(),
         };
         tasks.spawn(async move {
-            let _ = timeout(
-                Duration::from_secs(15),
-                handle(&mut stream, auth, Some(metrics), sender, calls, providers),
-            )
-            .await;
+            if route == crate::forwarding::ipc::Route::Browser {
+                let _ = timeout(
+                    Duration::from_secs(15),
+                    handle(&mut stream, auth, Some(metrics), sender, calls, providers),
+                )
+                .await;
+            } else if let Some(controller) = providers.forwarding {
+                let _ = timeout(
+                    Duration::from_secs(15),
+                    crate::forwarding::ipc::handle(&mut stream, auth, controller, route),
+                )
+                .await;
+            }
             drop(permit);
         });
     };

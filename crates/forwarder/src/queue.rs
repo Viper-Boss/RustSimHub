@@ -71,6 +71,8 @@ pub struct Receipt {
 }
 
 // Never Debug: contains the immutable destination, credentials and SMS payload.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Claim {
     pub id: String,
     pub attempt_id: String,
@@ -145,12 +147,32 @@ impl Queue {
     /// it never silently adopts old jobs for a new owner or restored database.
     pub fn open(directory: &Path, binding: Binding) -> Result<Self> {
         binding.validate()?;
+        Self::open_inner(directory, Some(binding), None)
+    }
+    /// Core-only reopening after restart. Reads the saved binding from this
+    /// private DB, then validates against ACTUAL current Auth before adoption
+    /// or recovery writes. Never initializes an absent/empty/foreign database.
+    pub fn open_current(directory: &Path, auth: &rustsimhub_auth::Auth) -> Result<Self> {
+        Self::open_inner(directory, None, Some(auth))
+    }
+    pub fn current_binding(&self, auth: &rustsimhub_auth::Auth) -> Result<Binding> {
+        self.binding.check_current(auth)?;
+        Ok(self.binding.clone())
+    }
+    fn open_inner(
+        directory: &Path,
+        requested: Option<Binding>,
+        auth: Option<&rustsimhub_auth::Auth>,
+    ) -> Result<Self> {
         let m = fs::symlink_metadata(directory)?;
         if !m.is_dir()
             || m.uid() != rustix::process::geteuid().as_raw()
             || m.mode() & 0o777 != 0o700
         {
             return Err(Error::Forbidden);
+        }
+        if requested.is_none() {
+            fs::symlink_metadata(directory.join("outbox.sqlite3"))?;
         }
         let lock = file(&directory.join(".writer.lock"))?;
         lock.try_lock_exclusive().map_err(|_| Error::Busy)?;
@@ -178,12 +200,28 @@ impl Queue {
             |r| r.get(0),
         )?;
         if version == 0 {
-            if app != 0 || objects != 0 {
+            if app != 0 || objects != 0 || requested.is_none() {
                 return Err(Error::Forbidden);
             }
         } else if version != FORMAT || app != APP_ID {
             return Err(Error::Forbidden);
         }
+        let binding = match requested {
+            Some(b) => b,
+            None => {
+                let saved: String =
+                    conn.query_row("SELECT binding FROM meta WHERE singleton=1", [], |r| {
+                        r.get(0)
+                    })?;
+                if saved.len() > 4096 {
+                    return Err(Error::Storage);
+                }
+                let b: Binding = serde_json::from_str(&saved)?;
+                b.validate()?;
+                b.check_current(auth.ok_or(Error::Forbidden)?)?;
+                b
+            }
+        };
         conn.execute_batch("PRAGMA trusted_schema=OFF;PRAGMA synchronous=FULL;PRAGMA foreign_keys=ON;PRAGMA secure_delete=ON;PRAGMA max_page_count=8192;")?;
         let mode: String = conn.query_row("PRAGMA journal_mode=DELETE", [], |r| r.get(0))?;
         if mode != "delete" {
@@ -283,6 +321,12 @@ CREATE INDEX pending ON jobs(state,seq);")?;
     }
     pub fn policy_view(&self) -> Result<PolicyView> {
         Ok(self.meta()?.policy.view())
+    }
+    pub(crate) fn policy_with_enabled(&self, enabled: bool) -> Result<Policy> {
+        let mut policy = self.meta()?.policy;
+        policy.enabled = enabled;
+        policy.validate()?;
+        Ok(policy)
     }
     /// Caller authenticates and rechecks the actual recent Owner. Start/change
     /// uses the REAL committed business event head, never a caller's old cursor.

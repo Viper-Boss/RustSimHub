@@ -11,8 +11,8 @@ use rustsimhub_wire::{AuthRequest, Response, AUTH_PROTOCOL};
 use std::os::unix::fs::{symlink, PermissionsExt};
 use tokio::net::UnixStream;
 
-const REQUEST: &str = "11111111-1111-4111-8111-111111111111";
-const CHANGE: &str = "22222222-2222-4222-8222-222222222222";
+pub(super) const REQUEST: &str = "11111111-1111-4111-8111-111111111111";
+pub(super) const CHANGE: &str = "22222222-2222-4222-8222-222222222222";
 const TARGET: &str = "33333333-3333-4333-8333-333333333333";
 const RULE: &str = "44444444-4444-4444-8444-444444444444";
 fn dir() -> tempfile::TempDir {
@@ -27,17 +27,17 @@ fn login(a: &mut Auth, key: &SigningKey) -> String {
         .expose()
         .to_owned()
 }
-struct Fixture {
-    state: tempfile::TempDir,
+pub(super) struct Fixture {
+    pub(super) state: tempfile::TempDir,
     _identity: tempfile::TempDir,
-    store: Store,
-    auth: Arc<Mutex<Auth>>,
-    control: Controller,
+    pub(super) store: Store,
+    pub(super) auth: Arc<Mutex<Auth>>,
+    pub(super) control: Controller,
     token: String,
     line: LineEpoch,
 }
 impl Fixture {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let state = dir();
         let identity = dir();
         let store = Store::open(state.path()).unwrap();
@@ -69,10 +69,10 @@ impl Fixture {
             line,
         }
     }
-    async fn request(&self, command: AuthCommand) -> Value {
+    pub(super) async fn request(&self, command: AuthCommand) -> Value {
         rpc(self.auth.clone(), Some(self.control.clone()), command).await
     }
-    fn configure(&self, expected: u64, request: &str, enabled: bool) -> AuthCommand {
+    pub(super) fn configure(&self, expected: u64, request: &str, enabled: bool) -> AuthCommand {
         AuthCommand::ForwardingConfigure {
             token: self.token.clone(),
             expected_generation: expected,
@@ -80,7 +80,7 @@ impl Fixture {
             policy: policy(enabled),
         }
     }
-    fn incoming(&self, name: &str) {
+    pub(super) fn incoming(&self, name: &str) {
         self.store
             .handle()
             .receive_sms(IncomingSms {
@@ -345,6 +345,12 @@ async fn even_privileged_signed_paired_client_cannot_read_or_configure_forwardin
     };
     for token in [token, "0".repeat(64)] {
         for command in [
+            AuthCommand::SetForwardingEnabled {
+                token: token.clone(),
+                expected_generation: 0,
+                request_id: REQUEST.into(),
+                enabled: true,
+            },
             AuthCommand::ForwardingStatus {
                 token: token.clone(),
             },
@@ -470,6 +476,37 @@ async fn sqlite_abort_during_actual_configure_is_not_reported_as_applied_and_ret
     assert_eq!(
         f.request(f.configure(1, CHANGE, false)).await["generation"],
         2
+    );
+}
+
+#[tokio::test]
+async fn master_switch_preserves_secret_targets_and_only_captures_messages_after_reenable() {
+    let f = Fixture::new();
+    let switch = |expected, request: &str, enabled| AuthCommand::SetForwardingEnabled {
+        token: f.token.clone(),
+        expected_generation: expected,
+        request_id: request.into(),
+        enabled,
+    };
+    assert_eq!(f.request(switch(0, REQUEST, true)).await["error"], "denied");
+    assert!(!f.state.path().join("forwarding").exists());
+    f.request(f.configure(0, REQUEST, true)).await;
+    assert_eq!(f.request(switch(1, CHANGE, false)).await["generation"], 2);
+    f.incoming("while disabled");
+    let reenable = "55555555-5555-4555-8555-555555555555";
+    assert_eq!(f.request(switch(2, reenable, true)).await["generation"], 3);
+    let baseline = f.store.handle().inbox_event_head().unwrap();
+    f.incoming("after reenable");
+    assert_eq!(f.request(switch(2, reenable, true)).await["generation"], 3);
+    let a = f.auth.lock().unwrap();
+    let mut m = f.control.0.lock().unwrap();
+    let q = m.queue.as_mut().unwrap();
+    assert_eq!(q.event_cursor().unwrap().seq, baseline.seq);
+    assert_eq!(q.capture_current(&a, &f.store.handle(), 3).unwrap(), 1);
+    let claim = q.claim_current(&a, &f.store.handle(), 3).unwrap().unwrap();
+    assert_eq!(
+        claim.request.bearer.unwrap().expose(),
+        "synthetic-bearer-secret"
     );
 }
 

@@ -14,6 +14,7 @@ use std::{
 };
 
 type Result<T> = rustsimhub_auth::Result<T>;
+pub(crate) mod ipc;
 fn denied<T>(result: rustsimhub_forwarder::Result<T>) -> Result<T> {
     result.map_err(|_| Error::Forbidden)
 }
@@ -25,6 +26,7 @@ struct Management {
     directory: PathBuf,
     reader: Handle,
     queue: Option<Queue>,
+    worker: Option<ipc::Session>,
 }
 impl Controller {
     /// Does not create files, start a task, read SMS or touch an interface.
@@ -33,6 +35,7 @@ impl Controller {
             directory: state.join("forwarding"),
             reader,
             queue: None,
+            worker: None,
         })))
     }
     pub async fn request(&self, auth: Arc<Mutex<Auth>>, command: AuthCommand) -> Result<Value> {
@@ -106,6 +109,35 @@ impl Management {
     }
     fn dispatch(&mut self, auth: &mut Auth, command: AuthCommand) -> Result<Value> {
         Ok(match command {
+            AuthCommand::SetForwardingEnabled {
+                token,
+                expected_generation,
+                request_id,
+                enabled,
+            } => {
+                let b = denied(Binding::from_recent_owner(auth, &token))?;
+                let exists = self.existing(b.clone())?.is_some();
+                if !exists && (enabled || expected_generation != 0) {
+                    return Err(Error::InvalidInput);
+                }
+                let reader = self.reader.clone();
+                let applied = denied(self.create(b.clone())?.set_enabled_owner(
+                    auth,
+                    &reader,
+                    &token,
+                    expected_generation,
+                    &request_id,
+                    enabled,
+                ))?;
+                if self
+                    .worker
+                    .as_ref()
+                    .is_some_and(|s| s.generation != applied)
+                {
+                    self.worker = None;
+                }
+                self.status(b)?
+            }
             AuthCommand::ForwardingStatus { token } => {
                 let b = denied(Binding::from_owner(auth, &token))?;
                 let value = self.status(b.clone())?;
@@ -136,7 +168,7 @@ impl Management {
                     return Err(Error::Forbidden);
                 }
                 let reader = self.reader.clone();
-                denied(self.create(b.clone())?.configure_owner(
+                let applied = denied(self.create(b.clone())?.configure_owner(
                     auth,
                     &reader,
                     &token,
@@ -144,6 +176,15 @@ impl Management {
                     &request_id,
                     policy,
                 ))?;
+                // An exact lost-response retry must NOT revoke the already
+                // current worker. An actual new generation always does.
+                if self
+                    .worker
+                    .as_ref()
+                    .is_some_and(|s| s.generation != applied)
+                {
+                    self.worker = None;
+                }
                 self.status(b)?
             }
             AuthCommand::ForwardingReceipts {

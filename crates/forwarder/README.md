@@ -4,10 +4,11 @@ Rust原生短信转发后端：规则、请求编码、有界持久outbox及真�
 
 - `model.rs`：最多8个目标、32条规则；发送方/正文/线路匹配；通知或明确的完整正文；Webhook/Bark/Telegram请求编码与应答判定。不是实际HTTPS客户端。重叠规则对同一消息/目标按首条匹配规则只排一次。
 - `queue.rs`：Core阻塞actor独占writer；私有0700目录/0600单链接文件；SQLite独立format1，不改变主库schema6。游标与全部收件目标同事务；256条未决/4096条回执的有界背压。重启中断、失去确认、停用后的迟到回复均不会回队重发。
-- `delivery.rs`：真实rustls/Hyper HTTPS、10秒总截止、取消/主管消失关闭socket；无孤立driver、重试或重定向。生产Connector和Core Fence必须另行接入，当前仅合成回环适配器；参见[验证边界](../../docs/VALIDATION-FORWARDER-HTTPS-X1B.md)。
+- `delivery.rs`：真实rustls/Hyper HTTPS、10秒总截止、取消/主管消失关闭socket；无孤立driver、重试或重定向。生产Connector仍缺；Core Fence已有实际IPC客户端，仍需与独立worker/Root服务组合。HTTPS组件目前只做合成回环验证，参见[验证边界](../../docs/VALIDATION-FORWARDER-HTTPS-X1B.md)。
 - `authority.rs`：从真实Auth的设备身份、realm和最近登录Owner派生绑定；实际派发检查持久Owner代次、真实业务库和SIM线路。即便客户端具有system.manage，也不能冒充Owner配置。`Binding`本身不是凭证。
 - `storage::Handle::inbox_event_head`：首次/重新启用只读当前真实事件尾，不扫描历史正文；需要补发历史时必须另做显式流程。
 - `core::forwarding`：[实际Owner管理接线](../../docs/VALIDATION-FORWARDING-CORE-X1C.md)，提供状态、凭据隐藏的规则、有限回执、最近登录下的配置与清理。Core持有被动句柄，默认查询不建目录或启动任务；配置重查保持第一次实际事件起点。
+- `worker_ipc.rs`：[实际Root/worker通道与主开关](../../docs/VALIDATION-FORWARDING-WORKER-IPC-X1D.md)，按真实UID分流、有限能力、唯一Claim与实际内容摘要核对，提供真正的Core Fence客户端；独立worker程序、出口和Root服务主管仍缺，不能据能力撤销显示进程已停止。
 
 Core集成应使用 `Binding::from_recent_owner` / `Queue::configure_owner` / `capture_current` / `claim_current` / `check_current_claim`。原始队列API只供可信Core内部状态机，不能映射为未鉴权的IPC。HTTP worker需要受限独立通道，取得一次claim并在实际写应用数据前再次向Core检查，不能拿本地绑定或旧的“允许”布尔值代替。
 

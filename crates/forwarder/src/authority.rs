@@ -54,6 +54,22 @@ impl Binding {
     }
 }
 impl Queue {
+    /// Owner's master switch never needs credentials returned to the browser.
+    /// All targets/rules remain inside the private Core-owned database.
+    pub fn set_enabled_owner(
+        &mut self,
+        auth: &mut Auth,
+        reader: &Handle,
+        token: &str,
+        expected: u64,
+        request_id: &str,
+        enabled: bool,
+    ) -> Result<u64> {
+        let b = recent(auth, token)?;
+        self.require_binding(&b)?;
+        let policy = self.policy_with_enabled(enabled)?;
+        self.configure_owner(auth, reader, token, expected, request_id, policy)
+    }
     pub fn configure_owner(
         &mut self,
         auth: &mut Auth,
