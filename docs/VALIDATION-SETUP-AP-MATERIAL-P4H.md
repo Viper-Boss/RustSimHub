@@ -1,5 +1,7 @@
 # P4H 独立配网材料、证书和可信导出
 
+精确源码54bf31f的[GitHub CI40050411713](https://github.com/Viper-Boss/RustSimHub/actions/runs/40050411713)两任务已全部成功，新增真实CLI隔离步骤成功；完整结果保存在setup-ap-material-ci-20261024-first.json。当前仍未部署。
+
 2026-10-24。新增AP专用Edge准备模式、Root材料准备和私有可信导出，配套独立服务候选模板。完整309项Rust测试、严格Clippy、Core生产检查、两程序及库ARM64构建通过；真实Edge/Root命令在Linux临时目录完成两项联合测试。本轮未访问/安装棒子，未启动服务或热点、未切网/拨号/发短信、未启用普通数据或修改系统证书信任。整体仍79.5%。
 
 ## 实际可用的本地命令
