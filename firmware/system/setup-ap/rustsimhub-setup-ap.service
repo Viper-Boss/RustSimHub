@@ -1,0 +1,31 @@
+# Candidate only: never starts AP without a valid finite Core lease.
+[Unit]
+Description=RustSimHub bounded protected setup AP consumer
+Requires=rustsimhub-setup-edge.service NetworkManager.service
+After=rustsimhub-setup-edge.service NetworkManager.service systemd-tmpfiles-setup.service
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/setup-ap/installation/config.json
+PartOf=rustsimhub-app.target
+
+[Service]
+Type=exec
+User=root
+Group=root
+ExecStart=/usr/libexec/rustsimhub/rustsimhub-setup-ap --serve /var/lib/rustsimhub/rustsimhub-v1/system/setup-ap/installation /run/rustsimhub-setup-ap-core /run/rustsimhub-setup-ap-root /var/lib/rustsimhub/rustsimhub-v1/system/setup-ap/journal
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_NET_ADMIN
+AmbientCapabilities=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ReadOnlyPaths=/run/rustsimhub-setup-ap-core /var/lib/rustsimhub/rustsimhub-v1/system/setup-ap/installation
+ReadWritePaths=/run/rustsimhub-setup-ap-root /var/lib/rustsimhub/rustsimhub-v1/system/setup-ap/journal
+RestrictAddressFamilies=AF_UNIX AF_INET AF_NETLINK
+UMask=0077
+MemoryMax=64M
+TasksMax=12
+TimeoutStopSec=25
+LimitCORE=0

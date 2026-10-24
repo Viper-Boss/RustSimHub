@@ -93,7 +93,7 @@ impl Directory {
         }
         Ok(Some(b))
     }
-    fn write_name(&self, name: &str, bytes: &[u8], mode: u32, new: bool) -> Result<()> {
+    pub(crate) fn write_name(&self, name: &str, bytes: &[u8], mode: u32, new: bool) -> Result<()> {
         self.check()?;
         if self.owner != rustix::process::geteuid().as_raw() || bytes.len() > MAX_BYTES {
             return Err(Error::Denied);

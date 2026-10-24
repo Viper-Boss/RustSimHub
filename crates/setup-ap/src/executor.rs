@@ -22,6 +22,7 @@ use tokio::{
     time::{timeout, Instant},
 };
 mod material;
+mod provision;
 use material::Material;
 
 struct LeaseGate<'a, R> {
@@ -263,6 +264,28 @@ impl Worker {
     }
 }
 pub fn cli(args: Vec<String>) -> Result<()> {
+    if let [mode, parent, binding, edge, uid] = args.as_slice() {
+        if mode == "--prepare-material" {
+            if rustix::process::geteuid().as_raw() != 0 {
+                return Err(Error::Denied);
+            }
+            let uid = uid.parse().map_err(|_| Error::Invalid)?;
+            let value =
+                provision::prepare(Path::new(parent), Path::new(binding), Path::new(edge), uid)?;
+            println!("{value}");
+            return Ok(());
+        }
+    }
+    if let [mode, material, output] = args.as_slice() {
+        if mode == "--export-material-trusted" {
+            if rustix::process::geteuid().as_raw() != 0 {
+                return Err(Error::Denied);
+            }
+            let value = provision::export(Path::new(material), Path::new(output))?;
+            println!("{value}");
+            return Ok(());
+        }
+    }
     let [mode, config, input, output, journal] = args.as_slice() else {
         return Err(Error::Invalid);
     };

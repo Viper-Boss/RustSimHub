@@ -1,0 +1,3 @@
+# Candidate only: install explicitly with the matching Core mode and service package.
+d /run/rustsimhub-setup-ap-core 2750 rustsimhub-core root -
+d /run/rustsimhub-setup-ap-root 2750 root rustsimhub-core -

@@ -623,6 +623,12 @@ fn tls(dir: &Path) -> Result<TlsAcceptor> {
     Ok(TlsAcceptor::from(Arc::new(config)))
 }
 pub fn run(args: Vec<String>) -> Result<()> {
+    if let [command, directory] = args.as_slice() {
+        if command == "--prepare-setup-local" {
+            println!("{}", installation::prepare_setup(Path::new(directory))?);
+            return Ok(());
+        }
+    }
     if args == ["--build-info"] {
         println!(
             "{}",

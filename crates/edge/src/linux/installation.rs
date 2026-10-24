@@ -192,6 +192,26 @@ pub(super) fn prepare_profile(
     let canonical = canonical_name(name);
     let name = canonical.as_str();
     let config = expected_profile(listen, name, additional)?;
+    prepare_config(directory, config, name)
+}
+pub(super) fn prepare_setup(directory: &Path) -> Result<serde_json::Value> {
+    let config = Config {
+        listen: "127.0.0.1:8443"
+            .parse()
+            .map_err(|_| "invalid fixed AP bind")?,
+        origin: "https://172.31.85.1:8443".into(),
+        core_socket: "/run/rustsimhub/core/core.sock".into(),
+        core_uid: 986,
+        tls_directory: "/var/lib/rustsimhub-setup-edge/installation/tls".into(),
+        legacy_compat: false,
+        media_worker_socket: None,
+        additional_listen_ips: vec!["172.31.85.1".parse().map_err(|_| "invalid fixed AP IP")?],
+    };
+    config.authority()?;
+    prepare_config(directory, config, "172.31.85.1")
+}
+fn prepare_config(directory: &Path, config: Config, name: &str) -> Result<serde_json::Value> {
+    let listen = config.listen;
     let _lock = rustsimhub_auth::lock_private_directory(directory)
         .map_err(|_| "private installation directory unavailable or busy")?;
     let destination = directory.join("installation");
@@ -249,6 +269,49 @@ pub(super) fn prepare_profile(
 mod tests {
     use super::*;
     use std::os::unix::fs::{symlink, PermissionsExt};
+    #[test]
+    fn setup_profile_is_separate_fixed_and_repeatable_without_media_or_legacy() {
+        let d = directory();
+        let first = prepare_setup(d.path()).unwrap();
+        assert_eq!(first["origin"], "https://172.31.85.1:8443");
+        assert_eq!(first["listener_started"], false);
+        assert_eq!(first["credentials_disclosed"], false);
+        let path = d.path().join("installation/config.json");
+        let before = fs::read(&path).unwrap();
+        let config: Config = serde_json::from_slice(&before).unwrap();
+        assert_eq!(config.listen, "127.0.0.1:8443".parse().unwrap());
+        assert_eq!(
+            config.additional_listen_ips,
+            vec!["172.31.85.1".parse::<std::net::IpAddr>().unwrap()]
+        );
+        assert!(!config.legacy_compat && config.media_worker_socket.is_none());
+        assert_eq!(
+            config.tls_directory,
+            Path::new("/var/lib/rustsimhub-setup-edge/installation/tls")
+        );
+        let second = prepare_setup(d.path()).unwrap();
+        assert_eq!(first, second);
+        assert_eq!(before, fs::read(path).unwrap());
+        assert!(!d.path().join("installation/media.json").exists());
+    }
+    #[test]
+    fn setup_profile_does_not_replace_existing_daily_edge_or_changed_material() {
+        let d = directory();
+        prepare(d.path(), "192.168.1.2:8443".parse().unwrap(), "192.168.1.2").unwrap();
+        let before = fs::read(d.path().join("installation/tls/cert.der")).unwrap();
+        assert!(prepare_setup(d.path()).is_err());
+        assert_eq!(
+            before,
+            fs::read(d.path().join("installation/tls/cert.der")).unwrap()
+        );
+        let d = directory();
+        prepare_setup(d.path()).unwrap();
+        let path = d.path().join("installation/config.json");
+        let mut config: Config = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        config.legacy_compat = true;
+        fs::write(&path, serde_json::to_vec(&config).unwrap()).unwrap();
+        assert!(prepare_setup(d.path()).is_err());
+    }
     fn directory() -> tempfile::TempDir {
         let d = tempfile::tempdir().unwrap();
         fs::set_permissions(d.path(), fs::Permissions::from_mode(0o700)).unwrap();

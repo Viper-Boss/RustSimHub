@@ -1,0 +1,29 @@
+# Candidate only: outside the system overlay, no automatic enablement.
+[Unit]
+Description=RustSimHub setup-only HTTPS edge
+Requires=rustsimhub-app-select.service rustsimhub-core.service
+After=rustsimhub-app-select.service rustsimhub-core.service
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/setup-edge/installation/config.json
+PartOf=rustsimhub-app.target
+
+[Service]
+Type=exec
+User=rustsimhub-edge
+Group=rustsimhub-edge
+SupplementaryGroups=rustsimhub-ipc
+ExecStart=/opt/rustsimhub/selected/rustsimhub-edge --serve /var/lib/rustsimhub-setup-edge/installation/config.json
+BindReadOnlyPaths=/run/rustsimhub-app/selected:/opt/rustsimhub/selected /var/lib/rustsimhub/rustsimhub-v1/setup-edge:/var/lib/rustsimhub-setup-edge /run/rustsimhub/core
+InaccessiblePaths=/run/dbus /var/lib/rustsimhub /var/lib/rustsimhub-core /run/rustsimhub/media
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET
+UMask=0077
+MemoryMax=64M
+TasksMax=12
+TimeoutStopSec=5
+LimitCORE=0

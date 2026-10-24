@@ -55,7 +55,7 @@ impl Material {
     pub(super) fn root(path: &Path) -> Result<Self> {
         Self::open(Directory::open(path, 0, 0, 0o700)?)
     }
-    fn open(directory: Directory) -> Result<Self> {
+    pub(super) fn open(directory: Directory) -> Result<Self> {
         let raw = Zeroizing::new(
             directory
                 .read_name("config.json", 0o600)?
@@ -97,6 +97,12 @@ impl Material {
     }
     pub(super) fn device_hash(&self) -> String {
         hex(&Sha256::digest(self.public_key))
+    }
+    pub(super) fn device_public_key_hex(&self) -> String {
+        hex(&self.public_key)
+    }
+    pub(super) fn matches(&self, realm: &str, uid: u32, key: &[u8; 32]) -> bool {
+        self.realm == realm && self.core_uid == uid && self.public_key == *key
     }
     fn unchanged(&self) -> Result<()> {
         let raw = Zeroizing::new(
