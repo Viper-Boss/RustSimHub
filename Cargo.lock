@@ -1675,6 +1675,7 @@ dependencies = [
  "rustsimhub-domain",
  "rustsimhub-media",
  "rustsimhub-policy",
+ "rustsimhub-setup-ap",
  "rustsimhub-storage",
  "rustsimhub-wire",
  "serde",
@@ -1786,11 +1787,13 @@ dependencies = [
 name = "rustsimhub-setup-ap"
 version = "0.1.0"
 dependencies = [
+ "fs2",
  "getrandom 0.4.3",
  "rustix",
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "tempfile",
  "tokio",
  "zbus",
  "zeroize",

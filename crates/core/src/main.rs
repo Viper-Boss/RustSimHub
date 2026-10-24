@@ -34,6 +34,8 @@ mod recovery_check;
 #[cfg(target_os = "linux")]
 mod sender;
 #[cfg(target_os = "linux")]
+mod setup_ap_control;
+#[cfg(target_os = "linux")]
 mod socket_runtime;
 #[cfg(target_os = "linux")]
 mod status_led;
@@ -136,6 +138,25 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .enable_all()
             .build()?;
         match args.as_slice() {
+            [command, path, uid, state, identity, media_path, media_uid, archive, access, compat, journal, setup, ap_input, ap_output, ap_journal]
+                if command == "--serve-device-setup-ap" =>
+            {
+                setup_ap_control::enable(
+                    std::path::Path::new(ap_input),
+                    std::path::Path::new(ap_output),
+                    std::path::Path::new(ap_journal),
+                )?;
+                network_trial::provision::enable(std::path::Path::new(journal))?;
+                return runtime.block_on(authenticated::serve_device(
+                    path,
+                    uid.parse()?,
+                    state,
+                    identity,
+                    (media_path, media_uid.parse()?),
+                    (archive, access),
+                    (compat, setup),
+                ));
+            }
             [command, path, uid, state, identity, media_path, media_uid, archive, access, compat, journal, setup]
                 if command == "--serve-device" =>
             {

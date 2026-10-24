@@ -34,6 +34,7 @@ trait Call {
 struct Job {
     command: AuthCommand,
     reply: oneshot::Sender<Result<Value>>,
+    strict_idle: bool,
 }
 #[derive(Clone)]
 pub(crate) struct Controller {
@@ -152,12 +153,31 @@ impl Controller {
         let (reply, rx) = oneshot::channel();
         let urgent = matches!(&command, AuthCommand::SubmitCall { urgent: true, .. });
         (if urgent { &self.urgent } else { &self.normal })
-            .try_send(Job { command, reply })
+            .try_send(Job {
+                command,
+                reply,
+                strict_idle: false,
+            })
             .map_err(|_| "call_controller_busy")?;
         tokio::time::timeout(Duration::from_secs(8), rx)
             .await
             .map_err(|_| "pending_query_operation")?
             .map_err(|_| "controller_stopped")?
+    }
+    pub(crate) async fn setup_ap_idle(&self, token: String) -> Result<()> {
+        let (reply, rx) = oneshot::channel();
+        self.normal
+            .try_send(Job {
+                command: AuthCommand::CallStatus { token },
+                reply,
+                strict_idle: true,
+            })
+            .map_err(|_| "call_controller_busy")?;
+        tokio::time::timeout(Duration::from_secs(8), rx)
+            .await
+            .map_err(|_| "modem_timeout")?
+            .map_err(|_| "controller_stopped")??;
+        Ok(())
     }
 }
 async fn db<T: Send + 'static>(
@@ -330,7 +350,11 @@ impl Worker {
             };
             if let Some(j) = job {
                 self.expire().await;
-                let result = self.process(j.command).await;
+                let result = if j.strict_idle {
+                    self.setup_ap_idle(j.command).await
+                } else {
+                    self.process(j.command).await
+                };
                 let _ = j.reply.send(result);
             } else {
                 let _ = self.refresh().await;
@@ -343,6 +367,28 @@ impl Worker {
         #[cfg(test)]
         let now = now.saturating_add(self.advance_ms);
         now
+    }
+    async fn setup_ap_idle(&mut self, command: AuthCommand) -> Result<Value> {
+        let AuthCommand::CallStatus { token } = command else {
+            return Err("call_invalid");
+        };
+        let p = self.principal(&token, Scope::NetworkManage).await?;
+        if p.kind != rustsimhub_policy::Kind::Owner {
+            return Err("call_denied");
+        }
+        self.refresh().await?;
+        let b = self.binding()?;
+        if !self.catalogue
+            || !b.fresh().await
+            || self.owned.is_some()
+            || self.live.values().any(|l| l.summary.modem_state != 7)
+        {
+            return Err("voice_not_quiescent");
+        }
+        if self.principal(&token, Scope::NetworkManage).await? != p {
+            return Err("call_denied");
+        }
+        Ok(json!({"quiescent":true}))
     }
     fn binding(&self) -> Result<Binding> {
         self.bindings

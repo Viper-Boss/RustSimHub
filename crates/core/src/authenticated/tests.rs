@@ -3,6 +3,52 @@ use super::*;
 use ed25519_dalek::{Signer, SigningKey};
 
 #[tokio::test]
+async fn setup_ap_real_ipc_is_disabled_without_explicit_local_mode_even_for_owner() {
+    let d = directory();
+    let i = directory();
+    let s = Store::open(d.path()).unwrap();
+    let mut a = Auth::new(Identity::open(i.path()).unwrap(), s.handle()).unwrap();
+    let k = SigningKey::from_bytes(&[113; 32]);
+    let c = a.bootstrap_challenge(k.verifying_key().to_bytes()).unwrap();
+    a.bootstrap_finish(&c.id, &k.sign(&c.transcript).to_bytes())
+        .unwrap();
+    let c = a.login_challenge(k.verifying_key().to_bytes()).unwrap();
+    let token = a
+        .login_finish(&c.id, &k.sign(&c.transcript).to_bytes())
+        .unwrap()
+        .expose()
+        .to_owned();
+    let auth = Arc::new(Mutex::new(a));
+    let disabled = round_trip(
+        AuthCommand::SetupApStatus {
+            token: token.clone(),
+        },
+        auth.clone(),
+    )
+    .await;
+    assert_eq!(disabled["available"], false);
+    assert_eq!(disabled["state"], "disabled");
+    let denied = round_trip(
+        AuthCommand::SetupApStart {
+            token,
+            idempotency_key: "no-mode".into(),
+        },
+        auth.clone(),
+    )
+    .await;
+    assert!(denied.get("error").is_some());
+    assert!(round_trip(
+        AuthCommand::SetupApStatus {
+            token: "0".repeat(64)
+        },
+        auth
+    )
+    .await
+    .get("error")
+    .is_some());
+}
+
+#[tokio::test]
 async fn wifi_catalogue_rejects_unsigned_session_through_real_ipc_before_bus_access() {
     let d = directory();
     let i = directory();

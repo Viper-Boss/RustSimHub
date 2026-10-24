@@ -1,5 +1,7 @@
 # P4E 受保护配网热点事务层
 
+2026-10-24后续：[P4F](VALIDATION-SETUP-AP-CONTROL-P4F.md)已接Core真实Owner控制和保护文件租约/防重，Root消费执行进程仍未实现；下文保留P4E当时的事务层边界。未因此启用设备热点。
+
 2026-10-24。新增Rust库`crates/setup-ap`，实现临时AP的真实NetworkManager后端、Root固定nft隔离和有界事务。它尚未接入Core授权/首次认领、Edge证书与Origin、网页或开机服务，也没有部署或开启棒子热点。上轮确认的业务仍为185ec6e/confirmed43；整体79.5%，不能据此增加独立配网验收分数。
 
 ## 已实现

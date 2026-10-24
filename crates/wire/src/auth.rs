@@ -92,6 +92,17 @@ pub enum AuthCommand {
     WifiNetworks {
         token: String,
     },
+    SetupApStatus {
+        token: String,
+    },
+    SetupApStart {
+        token: String,
+        idempotency_key: String,
+    },
+    SetupApCancel {
+        token: String,
+        operation_id: String,
+    },
     NetworkDiagnostics {
         token: String,
     },
@@ -497,6 +508,31 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 return Err(invalid());
             }
         }
+        AuthCommand::SetupApStart {
+            token,
+            idempotency_key,
+        } => {
+            if token.len() != 64
+                || idempotency_key.is_empty()
+                || idempotency_key.len() > 128
+                || idempotency_key.chars().any(char::is_control)
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::SetupApCancel {
+            token,
+            operation_id,
+        } => {
+            if token.len() != 64
+                || operation_id.len() != 36
+                || !operation_id
+                    .bytes()
+                    .all(|b| b.is_ascii_hexdigit() || b == b'-')
+            {
+                return Err(invalid());
+            }
+        }
         AuthCommand::WifiBegin {
             token,
             idempotency_key,
@@ -669,6 +705,7 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         | AuthCommand::LineStatus { token }
         | AuthCommand::NetworkStatus { token }
         | AuthCommand::WifiNetworks { token }
+        | AuthCommand::SetupApStatus { token }
         | AuthCommand::NetworkDiagnostics { token }
         | AuthCommand::SmsManagementStatus { token }
         | AuthCommand::OpenPairing { token }
@@ -732,6 +769,30 @@ pub fn wifi_credentials_valid(ssid: &str, passphrase: &str) -> bool {
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn setup_ap_commands_are_finite_and_cannot_supply_root_authority_or_settings() {
+        for op in ["setup_ap_status", "setup_ap_start", "setup_ap_cancel"] {
+            let mut value = serde_json::json!({"protocol":2,"id":"ap","command":{"op":op,"token":"a".repeat(64)}});
+            if op == "setup_ap_start" {
+                value["command"]["idempotency_key"] = "once".into();
+            }
+            if op == "setup_ap_cancel" {
+                value["command"]["operation_id"] = "00000000-0000-4000-8000-000000000001".into();
+            }
+            assert!(super::parse_auth_request(&serde_json::to_vec(&value).unwrap()).is_ok());
+            for (key, extra) in [
+                ("uid", serde_json::json!(0)),
+                ("interface", serde_json::json!("other")),
+                ("nonce", serde_json::json!("b".repeat(64))),
+                ("window_seconds", serde_json::json!(999999)),
+                ("passphrase", serde_json::json!("unsafe")),
+            ] {
+                let mut bad = value.clone();
+                bad["command"][key] = extra;
+                assert!(super::parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
+            }
+        }
+    }
     #[test]
     fn wifi_catalogue_cannot_request_scan_select_devices_or_read_secrets() {
         let valid = serde_json::json!({"protocol":2,"id":"wifi","command":{"op":"wifi_networks","token":"a".repeat(64)}});

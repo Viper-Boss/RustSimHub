@@ -23,6 +23,41 @@ fn path() -> OwnedObjectPath {
 struct FakeVoice(FakeState);
 
 #[tokio::test]
+async fn setup_ap_quiescence_requires_fresh_real_voice_catalogue_and_owner() {
+    let mut f = fixture(false).await;
+    let token = {
+        let mut a = f.worker.auth.lock().unwrap();
+        let k = SigningKey::from_bytes(&[71; 32]);
+        let c = a.login_challenge(k.verifying_key().to_bytes()).unwrap();
+        a.login_finish(&c.id, &k.sign(&c.transcript).to_bytes())
+            .unwrap()
+            .expose()
+            .to_owned()
+    };
+    let request = || AuthCommand::CallStatus {
+        token: token.clone(),
+    };
+    assert!(f.worker.setup_ap_idle(request()).await.is_ok());
+    assert!(f
+        .worker
+        .setup_ap_idle(AuthCommand::CallStatus {
+            token: f.first.clone()
+        })
+        .await
+        .is_err());
+    let binding = f.worker.bindings.clone();
+    f.worker.bindings = watch::channel(None).1;
+    assert!(f.worker.setup_ap_idle(request()).await.is_err());
+    f.worker.bindings = binding;
+    f.data.paths.lock().unwrap().push(path());
+    f.data.state.store(3, Ordering::SeqCst);
+    assert!(f.worker.setup_ap_idle(request()).await.is_err());
+    assert_eq!(f.data.creates.load(Ordering::SeqCst), 0);
+    assert_eq!(f.data.starts.load(Ordering::SeqCst), 0);
+    assert_eq!(f.data.hangups.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
 async fn session_continuation_preserves_live_call_lease_and_media_binding() {
     let mut f = fixture(false).await;
     let token = f.first.clone();

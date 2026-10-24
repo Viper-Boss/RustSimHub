@@ -17,6 +17,7 @@ rustsimhub-auth = { path = "../auth" }
 rustsimhub-policy = { path = "../policy" }
 rustsimhub-media = { path = "../media" }
 rustsimhub-compat = { path = "../compat" }
+rustsimhub-setup-ap = { path = "../setup-ap" }
 ed25519-dalek = { version = "2.2", optional = true }
 
 serde.workspace = true

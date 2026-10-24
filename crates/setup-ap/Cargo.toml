@@ -11,9 +11,13 @@ serde_json.workspace = true
 getrandom = "0.4"
 zeroize = "1"
 sha2 = "0.10"
+fs2 = "0.4"
+
+[dev-dependencies]
+tempfile = "3"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-rustix = { version = "1", features = ["process"] }
+rustix = { version = "1", features = ["process", "fs", "time"] }
 tokio = { version = "1", features = ["rt", "net", "time", "macros", "sync", "process", "io-util"] }
 zbus = { version = "5.19", default-features = false, features = ["tokio"] }
 

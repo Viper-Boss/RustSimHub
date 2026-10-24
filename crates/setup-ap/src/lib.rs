@@ -92,6 +92,8 @@ impl Credentials {
 }
 
 #[cfg(target_os = "linux")]
+pub mod channel;
+#[cfg(target_os = "linux")]
 pub mod guard;
 #[cfg(target_os = "linux")]
 pub mod nm;

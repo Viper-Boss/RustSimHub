@@ -67,6 +67,9 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | WifiCancel { .. }
         | NetworkStatus { .. }
         | WifiNetworks { .. }
+        | SetupApStart { .. }
+        | SetupApStatus { .. }
+        | SetupApCancel { .. }
         | NetworkDiagnostics { .. }
         | SetNetworkPolicy { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         Calls {
@@ -299,6 +302,13 @@ pub(crate) async fn handle(
         crate::network::authorized(auth.clone(), token).await
     } else if let AuthCommand::WifiNetworks { token } = request.command {
         crate::network::wifi::authorized(auth.clone(), token).await
+    } else if matches!(
+        request.command,
+        AuthCommand::SetupApStart { .. }
+            | AuthCommand::SetupApStatus { .. }
+            | AuthCommand::SetupApCancel { .. }
+    ) {
+        crate::setup_ap_control::authorized(auth.clone(), calls.clone(), request.command).await
     } else if let AuthCommand::WifiTrial {
         token,
         idempotency_key,
@@ -774,6 +784,7 @@ async fn serve_inner_media(
         }
     });
     let calls = (call_mode > 0).then_some(call_controller);
+    crate::setup_ap_control::bind(auth.clone(), calls.clone());
     let mut controlling = Box::pin(async move {
         if call_mode > 0 {
             call_worker.run().await
@@ -863,6 +874,7 @@ async fn serve_inner_media(
     };
     drop(listener); // Stop admission before draining outstanding work.
     crate::network_trial::provision::shutdown().await;
+    crate::setup_ap_control::shutdown().await;
     drop(media_serving);
     if let Some(c) = &calls {
         c.shutdown();
