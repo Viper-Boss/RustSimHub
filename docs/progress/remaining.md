@@ -1,12 +1,12 @@
 # RustSimHub 完整剩余行动台账
 
-快照：2026-10-25T17:54:13.777993+00:00 · 基线：remaining-v1-2026-10-25
+快照：2026-10-25T22:05:54.421936+00:00 · 基线：remaining-v1-2026-10-25
 
 原P0–P7：**80%**，剩余 **20** 个验收点。新增X1/X2/X3/BLE独立保留，不混入旧分母。
 
-本轮台账：**4/169** 动作已完成，按冻结工时中值加权 **1.0%**；另有9项搁置/按需动作不计入本轮分母。
+本轮台账：**6/169** 动作已完成，按冻结工时中值加权 **1.8%**；另有9项搁置/按需动作不计入本轮分母。
 
-剩余有效开发工时粗估 **195–465.5小时**。工时折合天数不含换卡、真人听音、第二设备、服务器及单独BLE授权等待；长测等待可以与其他开发重叠。
+剩余有效开发工时粗估 **193.5–462小时**。工时折合天数不含换卡、真人听音、第二设备、服务器及单独BLE授权等待；长测等待可以与其他开发重叠。
 
 看板入口：[GitHub Pages](https://viper-boss.github.io/RustSimHub/) · [单文件HTML](index.html) · [结构化台账](progress.json)
 
@@ -21,11 +21,11 @@ python tools/progress/build.py --check
 
 ## 当前关卡
 
-**FWD-05 · 验收Owner配置与一键合成测试**：等待已说明的用户配合。用真实Owner浏览器保存目标、登录过期、刷新页面和恢复不确定操作；只发标明测试的合成文本。 验收：一次点击只递送一次；凭据不回显；页面与Core/Root状态一致。
+**AP-01 · 冻结Core授权与请求契约**：正在推进。Bark已验收手机通知、唯一回执和自动关闭；推进Owner授权、Root能力标志、无口令持久意图与试连状态查询。
 
 ## FWD · 短信转发 · 独立服务
 
-新增扩展 · 22个动作 · 已完成4个
+新增扩展 · 22个动作 · 已完成6个
 
 原生Rust队列、HTTPS、配置页与六文件应用已交付；服务安装与默认OFF已验真；继续验收一键递送、故障和冷启动。
 
@@ -77,15 +77,16 @@ python tools/progress/build.py --check
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
 - 证据：[VALIDATION-FORWARDING-INSTALL-OFF-X1N.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-FORWARDING-INSTALL-OFF-X1N.md)
 
-### [ ] FWD-05 · 验收Owner配置与一键合成测试
+### [x] FWD-05 · 验收Owner配置与一键合成测试
 
-- 状态：待用户
+- 状态：已完成
 - 动作：用真实Owner浏览器保存目标、登录过期、刷新页面和恢复不确定操作；只发标明测试的合成文本。
 - 验收：一次点击只递送一次；凭据不回显；页面与Core/Root状态一致。
 - 预计有效工时：1–2小时
 - 前置：FWD-04
 - 配合/条件：用户配合、获准提供商目标
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
+- 证据：[VALIDATION-BARK-ONE-CLICK-END-TO-END-X1Q.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-BARK-ONE-CLICK-END-TO-END-X1Q.md)
 
 ### [ ] FWD-06 · Webhook真实递送闭环
 
@@ -97,15 +98,16 @@ python tools/progress/build.py --check
 - 配合/条件：获准提供商目标
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
 
-### [ ] FWD-07 · Bark真实递送闭环
+### [x] FWD-07 · Bark真实递送闭环
 
-- 状态：待做
+- 状态：已完成
 - 动作：核对目标URL、设备key、中文与长度限制；使用合成通知。
 - 验收：终端可见通知且回执对应本次任务；HTTP错误不能冒充成功。
 - 预计有效工时：0.5–1.5小时
 - 前置：FWD-05
 - 配合/条件：获准提供商目标
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
+- 证据：[VALIDATION-BARK-ONE-CLICK-END-TO-END-X1Q.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-BARK-ONE-CLICK-END-TO-END-X1Q.md)
 
 ### [ ] FWD-08 · Telegram真实递送闭环
 
@@ -269,7 +271,7 @@ python tools/progress/build.py --check
 
 ### [ ] AP-01 · 冻结Core授权与请求契约
 
-- 状态：待做
+- 状态：进行中
 - 动作：把已有Owner生产者接至Root试连/取消槽；固定请求ID、代次、最近登录和电话空闲证据。
 - 验收：真实授权可通过；旧/伪造/重复请求拒绝；普通USB流程保持。
 - 预计有效工时：1–3小时

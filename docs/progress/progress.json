@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1-2026-10-25",
-  "updated_at": "2026-10-25T17:54:13.777993+00:00",
+  "updated_at": "2026-10-25T22:05:54.421936+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原80%仍按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "FWD-05",
-    "title": "验收Owner配置与一键合成测试",
-    "state": "等待已说明的用户配合",
-    "description": "用真实Owner浏览器保存目标、登录过期、刷新页面和恢复不确定操作；只发标明测试的合成文本。 验收：一次点击只递送一次；凭据不回显；页面与Core/Root状态一致。"
+    "task_id": "AP-01",
+    "title": "冻结Core授权与请求契约",
+    "state": "正在推进",
+    "description": "Bark已验收手机通知、唯一回执和自动关闭；推进Owner授权、Root能力标志、无口令持久意图与试连状态查询。"
   },
   "facts": [
     {
@@ -227,11 +227,13 @@
           "dependencies": [
             "FWD-04"
           ],
-          "status": "needs_user",
+          "status": "done",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
-          "completed_at": null,
+          "evidence": [
+            "docs/VALIDATION-BARK-ONE-CLICK-END-TO-END-X1Q.md"
+          ],
+          "completed_at": "2026-10-25T22:05:53.701110+00:00",
           "actual_hours": null
         },
         {
@@ -271,11 +273,13 @@
           "dependencies": [
             "FWD-05"
           ],
-          "status": "todo",
+          "status": "done",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
-          "completed_at": null,
+          "evidence": [
+            "docs/VALIDATION-BARK-ONE-CLICK-END-TO-END-X1Q.md"
+          ],
+          "completed_at": "2026-10-25T22:05:53.940783+00:00",
           "actual_hours": null
         },
         {
@@ -620,7 +624,7 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -4236,6 +4240,50 @@
       "evidence": [
         "docs/VALIDATION-FORWARDING-ONE-CLICK-DEVICE-X1P.md"
       ]
+    },
+    {
+      "at": "2026-10-25T22:05:53.701110+00:00",
+      "type": "completed",
+      "title": "FWD-05 · 已完成：验收Owner配置与一键合成测试",
+      "detail": "真实Owner保存、刷新、自动登录与一次合成受理通过；手机通知及设备唯一任务、attempt和自动关闭一致。",
+      "task_ids": [
+        "FWD-05"
+      ],
+      "evidence": [
+        "docs/VALIDATION-BARK-ONE-CLICK-END-TO-END-X1Q.md"
+      ]
+    },
+    {
+      "at": "2026-10-25T22:05:53.940783+00:00",
+      "type": "completed",
+      "title": "FWD-07 · 已完成：Bark真实递送闭环",
+      "detail": "用户确认收到Bark合成通知；设备唯一递送confirmed，三次无进程及凭据标记清理通过，保存规则和原业务保持。",
+      "task_ids": [
+        "FWD-07"
+      ],
+      "evidence": [
+        "docs/VALIDATION-BARK-ONE-CLICK-END-TO-END-X1Q.md"
+      ]
+    },
+    {
+      "at": "2026-10-25T22:05:54.178158+00:00",
+      "type": "state",
+      "title": "AP-01 · 状态更新：冻结Core授权与请求契约",
+      "detail": "继续首次配网Core真实Owner到Root试连与取消槽的授权接线；只做源码和隔离验证，不切换现有Wi-Fi。",
+      "task_ids": [
+        "AP-01"
+      ],
+      "evidence": []
+    },
+    {
+      "at": "2026-10-25T22:05:54.421936+00:00",
+      "type": "state",
+      "title": "AP-01 · 下一关卡：冻结Core授权与请求契约",
+      "detail": "Bark已验收手机通知、唯一回执和自动关闭；推进Owner授权、Root能力标志、无口令持久意图与试连状态查询。",
+      "task_ids": [
+        "AP-01"
+      ],
+      "evidence": []
     }
   ]
 }
