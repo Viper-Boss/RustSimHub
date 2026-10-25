@@ -18,6 +18,7 @@ class LedgerTests(unittest.TestCase):
                 if module['scope']!='parked':task.update(status='todo',evidence=[],completed_at=None,actual_hours=None)
         for task in self.fixture['modules'][0]['tasks'][:2]:
             task.update(status='done',evidence=['docs/VALIDATION-FORWARDING-INSTALLER-X1M.md'],completed_at='2026-10-25T13:00:00+00:00')
+        self.fixture=update.transition(self.fixture,'FWD-03','focus','Synthetic dependency frontier; not actual work.',now='2026-10-25T13:00:00+00:00')
     def test_complete_scope_and_milestone_evidence(self):
         tasks=build.validate(self.data);value=build.metrics(self.data)
         self.assertEqual(value['original_percent'],sum(m['done_points'] for m in self.data['original_milestones']))

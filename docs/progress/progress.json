@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1-2026-10-25",
-  "updated_at": "2026-10-25T13:54:32.529299+00:00",
+  "updated_at": "2026-10-25T16:34:05.007507+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原80%仍按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "FWD-03",
-    "title": "转发服务实机安装",
-    "state": "维护包已验真，下一动作已就绪",
-    "description": "实际应用epoch47已确认；安装器14项和系统173项通过，修正版CI成功、设备只读检查通过。尚未安装转发账户或服务。"
+    "task_id": "FWD-05",
+    "title": "验收Owner配置与一键合成测试",
+    "state": "正在执行；完成后附证据",
+    "description": "用真实Owner浏览器保存目标、登录过期、刷新页面和恢复不确定操作；只发标明测试的合成文本。 验收：一次点击只递送一次；凭据不回显；页面与Core/Root状态一致。"
   },
   "facts": [
     {
@@ -178,11 +178,13 @@
             "FWD-01",
             "FWD-02"
           ],
-          "status": "ready",
+          "status": "done",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
-          "completed_at": null,
+          "evidence": [
+            "docs/VALIDATION-FORWARDING-INSTALL-OFF-X1N.md"
+          ],
+          "completed_at": "2026-10-25T14:45:17.595495+00:00",
           "actual_hours": null
         },
         {
@@ -200,11 +202,13 @@
           "dependencies": [
             "FWD-03"
           ],
-          "status": "todo",
+          "status": "done",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
-          "completed_at": null,
+          "evidence": [
+            "docs/VALIDATION-FORWARDING-INSTALL-OFF-X1N.md"
+          ],
+          "completed_at": "2026-10-25T14:45:17.813544+00:00",
           "actual_hours": null
         },
         {
@@ -223,7 +227,7 @@
           "dependencies": [
             "FWD-04"
           ],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": false,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -4164,6 +4168,50 @@
       "type": "dashboard",
       "title": "交付可视化任务控制台",
       "detail": "25模块/169动作与9项搁置；搜索、详情、估时、交接复制、单文件离线和证据更新已接线，桌面/390px/320px真实DOM验证通过。"
+    },
+    {
+      "at": "2026-10-25T14:17:52.771293+00:00",
+      "type": "state",
+      "title": "FWD-03 · 状态更新：安装锁定账户与固定Root服务",
+      "detail": "复核现场与已验证维护包，准备有界停机、当前业务备份和固定转发服务安装。",
+      "task_ids": [
+        "FWD-03"
+      ],
+      "evidence": []
+    },
+    {
+      "at": "2026-10-25T14:45:17.595495+00:00",
+      "type": "completed",
+      "title": "FWD-03 · 已完成：安装锁定账户与固定Root服务",
+      "detail": "固定九文件与专用身份实际安装通过；一致性备份回读及应用恢复通过。",
+      "task_ids": [
+        "FWD-03"
+      ],
+      "evidence": [
+        "docs/VALIDATION-FORWARDING-INSTALL-OFF-X1N.md"
+      ]
+    },
+    {
+      "at": "2026-10-25T14:45:17.813544+00:00",
+      "type": "completed",
+      "title": "FWD-04 · 已完成：核验默认OFF与真实PID1回执",
+      "detail": "真实PID1默认OFF回执、五角色权限及三次无转发进程采样通过；提供商和冷启动另验。",
+      "task_ids": [
+        "FWD-04"
+      ],
+      "evidence": [
+        "docs/VALIDATION-FORWARDING-INSTALL-OFF-X1N.md"
+      ]
+    },
+    {
+      "at": "2026-10-25T16:34:05.007507+00:00",
+      "type": "state",
+      "title": "FWD-05 · 状态更新：验收Owner配置与一键合成测试",
+      "detail": "真实Owner保存Bark目标已核对，关闭且队列为空；等待一次固定合成通知及回执，临时规则隔离真实短信。",
+      "task_ids": [
+        "FWD-05"
+      ],
+      "evidence": []
     }
   ]
 }

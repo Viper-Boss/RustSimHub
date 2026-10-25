@@ -1,12 +1,12 @@
 # RustSimHub 完整剩余行动台账
 
-快照：2026-10-25T13:54:32.529299+00:00 · 基线：remaining-v1-2026-10-25
+快照：2026-10-25T16:34:05.007507+00:00 · 基线：remaining-v1-2026-10-25
 
 原P0–P7：**80%**，剩余 **20** 个验收点。新增X1/X2/X3/BLE独立保留，不混入旧分母。
 
-本轮台账：**2/169** 动作已完成，按冻结工时中值加权 **0.4%**；另有9项搁置/按需动作不计入本轮分母。
+本轮台账：**4/169** 动作已完成，按冻结工时中值加权 **1.0%**；另有9项搁置/按需动作不计入本轮分母。
 
-剩余有效开发工时粗估 **196–468.5小时**。工时折合天数不含换卡、真人听音、第二设备、服务器及单独BLE授权等待；长测等待可以与其他开发重叠。
+剩余有效开发工时粗估 **195–465.5小时**。工时折合天数不含换卡、真人听音、第二设备、服务器及单独BLE授权等待；长测等待可以与其他开发重叠。
 
 看板入口：[GitHub Pages](https://viper-boss.github.io/RustSimHub/) · [单文件HTML](index.html) · [结构化台账](progress.json)
 
@@ -21,11 +21,11 @@ python tools/progress/build.py --check
 
 ## 当前关卡
 
-**FWD-03 · 转发服务实机安装**：维护包已验真，下一动作已就绪。实际应用epoch47已确认；安装器14项和系统173项通过，修正版CI成功、设备只读检查通过。尚未安装转发账户或服务。
+**FWD-05 · 验收Owner配置与一键合成测试**：正在执行；完成后附证据。用真实Owner浏览器保存目标、登录过期、刷新页面和恢复不确定操作；只发标明测试的合成文本。 验收：一次点击只递送一次；凭据不回显；页面与Core/Root状态一致。
 
 ## FWD · 短信转发 · 独立服务
 
-新增扩展 · 22个动作 · 已完成2个
+新增扩展 · 22个动作 · 已完成4个
 
 原生Rust队列、HTTPS、配置页与六文件应用已交付；继续安装服务，关闭时真正没有转发进程。
 
@@ -55,29 +55,31 @@ python tools/progress/build.py --check
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
 - 证据：[VALIDATION-FORWARDING-INSTALLER-X1M.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-FORWARDING-INSTALLER-X1M.md)
 
-### [ ] FWD-03 · 安装锁定账户与固定Root服务
+### [x] FWD-03 · 安装锁定账户与固定Root服务
 
-- 状态：就绪
+- 状态：已完成
 - 动作：设置有界业务恢复动作；停机后安装983账户、固定单元、polkit、目录及Core管理参数。
 - 验收：逐文件摘要/权限、实际启动参数和空能力匹配；原业务恢复，身份不变。
 - 预计有效工时：0.5–1.5小时
 - 前置：FWD-01、FWD-02
 - 配合/条件：代理实机
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
+- 证据：[VALIDATION-FORWARDING-INSTALL-OFF-X1N.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-FORWARDING-INSTALL-OFF-X1N.md)
 
-### [ ] FWD-04 · 核验默认OFF与真实PID1回执
+### [x] FWD-04 · 核验默认OFF与真实PID1回执
 
-- 状态：待做
+- 状态：已完成
 - 动作：运行有限status/reconcile；检查worker、整个cgroup和timer/socket/path触发源。
 - 验收：Root回执新鲜且为off；无worker PID、凭据或启用标记；不影响短信/电话。
 - 预计有效工时：0.5–1.5小时
 - 前置：FWD-03
 - 配合/条件：代理实机
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
+- 证据：[VALIDATION-FORWARDING-INSTALL-OFF-X1N.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-FORWARDING-INSTALL-OFF-X1N.md)
 
 ### [ ] FWD-05 · 验收Owner配置与一键合成测试
 
-- 状态：待做
+- 状态：进行中
 - 动作：用真实Owner浏览器保存目标、登录过期、刷新页面和恢复不确定操作；只发标明测试的合成文本。
 - 验收：一次点击只递送一次；凭据不回显；页面与Core/Root状态一致。
 - 预计有效工时：1–2小时
