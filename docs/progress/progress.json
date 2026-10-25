@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1-2026-10-25",
-  "updated_at": "2026-10-25T23:00:11.494010+00:00",
+  "updated_at": "2026-10-25T23:43:55.370361+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原80%仍按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "AP-03",
-    "title": "实现最终保存与回执",
-    "state": "正在推进",
-    "description": "为AP-02确认按钮补齐真实保存能力；继续Root确认请求/持久审计、已提交终态和Core最近Owner确认/查询。底层已实现，完整功能和实机未验收。"
+    "task_id": "AP-02",
+    "title": "接通AP配置网页",
+    "state": "下一动作已选定；按前置和验收推进",
+    "description": "下一步接入已验证的试连、明确确认、取消和只读回执；一次只保留一笔，刷新不重发。AP-03仍待安装及设备重启连接验收。"
   },
   "facts": [
     {
@@ -646,7 +646,7 @@
           "dependencies": [
             "AP-01"
           ],
-          "status": "todo",
+          "status": "ready",
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -4318,6 +4318,62 @@
       "detail": "为AP-02确认按钮补齐真实保存能力；继续Root确认请求/持久审计、已提交终态和Core最近Owner确认/查询。底层已实现，完整功能和实机未验收。",
       "task_ids": [
         "AP-03"
+      ],
+      "evidence": []
+    },
+    {
+      "at": "2026-10-25T23:37:35.375431+00:00",
+      "type": "state",
+      "title": "AP-03 · 状态更新：实现最终保存与回执",
+      "detail": "Root真实持久审计/执行循环和Core当前Owner确认、查询、只读恢复已接线，496项与严格检查通过。网页、首配接管、真实NM跨进程、安装及设备重启连接验收仍缺，不计完成。",
+      "task_ids": [
+        "AP-03"
+      ],
+      "evidence": [
+        "docs/VALIDATION-SETUP-AP-COMMIT-OWNER-P4O.md"
+      ]
+    },
+    {
+      "at": "2026-10-25T23:37:35.636369+00:00",
+      "type": "state",
+      "title": "AP-02 · 状态更新：接通AP配置网页",
+      "detail": "Core/Root保存接口已可供源码接线，下一步提供简洁配网页；尚未编写或交付该页面。",
+      "task_ids": [
+        "AP-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-SETUP-AP-COMMIT-OWNER-P4O.md"
+      ]
+    },
+    {
+      "at": "2026-10-25T23:37:35.880918+00:00",
+      "type": "state",
+      "title": "AP-02 · 下一关卡：接通AP配置网页",
+      "detail": "接入现有试连、明确确认、取消及按操作ID只读查询；一次只保留一个事务，刷新不重发。AP-03仍待安装与真实重启验收。",
+      "task_ids": [
+        "AP-02"
+      ],
+      "evidence": []
+    },
+    {
+      "at": "2026-10-25T23:43:55.124401+00:00",
+      "type": "state",
+      "title": "AP-02 · 状态更新：接通AP配置网页",
+      "detail": "保存接口及源码验证已准备好，网页尚未编写；纠正为就绪，避免把排队中的网页接线算作正在实现。",
+      "task_ids": [
+        "AP-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-SETUP-AP-COMMIT-OWNER-P4O.md"
+      ]
+    },
+    {
+      "at": "2026-10-25T23:43:55.370361+00:00",
+      "type": "state",
+      "title": "AP-02 · 下一关卡：接通AP配置网页",
+      "detail": "下一步接入已验证的试连、明确确认、取消和只读回执；一次只保留一笔，刷新不重发。AP-03仍待安装及设备重启连接验收。",
+      "task_ids": [
+        "AP-02"
       ],
       "evidence": []
     }

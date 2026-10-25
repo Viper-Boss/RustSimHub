@@ -1,5 +1,9 @@
 # P4N：Wi-Fi 最终保存底层事务
 
+后续源码接线见 [P4O Root/Core 确认与回执](VALIDATION-SETUP-AP-COMMIT-OWNER-P4O.md)：Root 持久审计、Core Owner 确认/查询和只读恢复已继续实现；本页保留 e7731dd 底层阶段的范围。网页、跨进程真实 NM 及设备验收仍未完成。
+
+构建证据更正：后续 P4O ARM 构建发现共享 target 可能复用旧配网库。此前本页 ARM 记录不再作为新增模块精确源码的编译归属证明；主机 472 项和 e7731dd 的干净 CI 分别保留。本轮已用 P4O 的固定 d4fda4b、全新空 target、刷新源码时间和实际二进制协议检查重编，覆盖本页保存后端及新增接线；不能将新结果回写为旧产物已验证。
+
 2026-10-26。AP-03 进行中。本轮增加 Root 库内的最终 STA 提交事务与实际 NetworkManager D-Bus 后端；**尚未接通 Root worker、Core 确认命令或网页，不是已经可用的完整配网功能**。本轮无部署、切网或硬件操作；原 P0–P7 仍为 80%，剩余台账不因组件实现而计为 AP-03 完成。
 
 ## 提交顺序
@@ -36,7 +40,7 @@
 
 固定源码为 `e7731ddbe08c1aa1803911e56885afdf134d910d`，647 文件归档逐字节核对 Git，SHA-256 `f18ec700a78a43ee7e97260ead22648f69ad565111827b600b3f45e6fce1b16e`。归档源码的生产 Core/setup-ap ARM64 release 均构建通过，ELF AArch64、GLIBC 需求在设备边界内；QEMU 实际 Core 元数据确认相同归档摘要、schema6、开发夹具关闭，AP 无效命令有界拒绝。该检查证明交叉编译和元数据，不代替新增保存函数的实机执行。
 
-精确源码 [CI40242843736](https://github.com/Viper-Boss/RustSimHub/actions/runs/40242843736)已启动，最后观察仍运行中，不能宣称通过。上一轮 AP-01 的固定 `3516f45` / [CI40241225479](https://github.com/Viper-Boss/RustSimHub/actions/runs/40241225479)两任务已成功；两轮证据分别归属。
+精确源码 [CI40242843736](https://github.com/Viper-Boss/RustSimHub/actions/runs/40242843736)两任务均 success，已在后续轮次核对。上一轮 AP-01 的固定 `3516f45` / [CI40241225479](https://github.com/Viper-Boss/RustSimHub/actions/runs/40241225479)两任务也已成功；这些证据不代替后续确认接线的 CI。
 
 ## 代码与接手动作
 
