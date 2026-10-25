@@ -71,6 +71,7 @@ fn fixture() -> Fixture {
                 tls_origin_ready: true,
                 gate_ready: true,
                 station_trial_supported: false,
+                station_save_supported: false,
             },
         )
         .unwrap();

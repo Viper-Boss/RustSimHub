@@ -3,9 +3,11 @@
 use super::*;
 use crate::{
     channel::station::{self, Intent, Operation, Request},
+    station_commit::CommitProvider,
     station_trial::{self, StationProvider, TrialGuard, TrialOutcome},
 };
 use zeroize::Zeroizing;
+pub(super) mod commit;
 
 async fn stop(rx: &mut watch::Receiver<bool>) {
     loop {
@@ -130,7 +132,7 @@ async fn trial<N: Network + StationProvider, G: Guard + TrialGuard, R: Ready + S
 
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn execute<
-    N: Network + StationProvider,
+    N: Network + StationProvider + CommitProvider,
     G: Guard + TrialGuard,
     R: Ready + Sync,
 >(
@@ -141,7 +143,7 @@ pub(super) async fn execute<
     ap: &Credentials,
     hint: Hint,
     mut stopped: watch::Receiver<bool>,
-) -> Result<Status> {
+) -> Result<Option<Status>> {
     let lease = RootLease::begin(
         hint.clone(),
         channel::uptime_ms()?,
@@ -196,6 +198,7 @@ pub(super) async fn execute<
             value=timeout(Duration::from_millis(remaining.min(20_000)),&mut start)=>matches!(value,Ok(Ok(()))),
         }
     };
+    let mut final_commit = None;
     let _body:Result<()>=async {
     if started {
         let mut seen=false;let initial=Instant::now();let mut last:Option<station::Status>=None;let mut trials=0;
@@ -209,6 +212,16 @@ pub(super) async fn execute<
                 if seen || initial.elapsed()>=Duration::from_secs(10) { break; }
             } else {
                 seen=true;
+                if let Some(raw)=worker.input.read(Slot::StationCommitRequest)? {
+                    let raw=Zeroizing::new(raw);
+                    if let Ok(q)=channel::commit::Request::parse(&raw,&hint.binding,channel::uptime_ms()?) {
+                        match commit::execute(worker,network,guard,readiness,&gate,ap,q,&stopped).await? {
+                            commit::Completion::Saved=>{final_commit=Some(true);return Ok(());}
+                            commit::Completion::Unknown=>{final_commit=Some(false);return Ok(());}
+                            commit::Completion::Restored=>{}
+                        }
+                    }
+                }
                 if let Some(s)=last.as_mut() { s.sample_uptime_ms=channel::uptime_ms()?;if publish_trial(worker,s).is_err() { break; } }
                 match request(worker,&hint.binding) {
                     Ok(Some(r)) if matches!(r.operation,Operation::Test{..})=>{
@@ -241,6 +254,18 @@ pub(super) async fn execute<
     }
     Ok(())
     }.await;
+    if let Some(saved) = final_commit {
+        if saved {
+            return Ok(None);
+        }
+        let unknown = receipt(
+            &hint.binding,
+            State::Unknown,
+            gate.sequence.load(Ordering::SeqCst),
+        )?;
+        publish(&worker.output, &unknown)?;
+        return Ok(Some(unknown));
+    }
     // If guard installation was attempted, only proven full AP cleanup permits release.
     let restored = !guard_attempted
         || timeout(Duration::from_secs(10), network.rollback(ap))
@@ -264,7 +289,7 @@ pub(super) async fn execute<
         worker.journal.finish_closed(&done, done.sample_uptime_ms)?;
     }
     publish(&worker.output, &done)?;
-    Ok(done)
+    Ok(Some(done))
 }
 
 #[cfg(test)]

@@ -113,6 +113,7 @@ fn availability_requires_the_exact_realm_device_boot_and_prepared_tls() {
         tls_origin_ready: true,
         gate_ready: true,
         station_trial_supported: false,
+        station_save_supported: false,
     };
     assert!(a
         .validate(1000, &b.boot_id, &b.realm, &b.device_key_sha256)
@@ -143,6 +144,7 @@ fn station_capability_is_explicit_and_legacy_availability_bytes_stay_compatible(
         tls_origin_ready: true,
         gate_ready: true,
         station_trial_supported: false,
+        station_save_supported: false,
     };
     let bytes = serde_json::to_vec(&a).unwrap();
     assert!(!String::from_utf8(bytes.clone())
@@ -168,4 +170,37 @@ fn station_capability_is_explicit_and_legacy_availability_bytes_stay_compatible(
     );
     value["station_trial_supported"] = "true".into();
     assert!(serde_json::from_value::<Availability>(value).is_err());
+}
+#[test]
+fn saving_requires_explicit_trial_and_save_support_and_legacy_defaults_off() {
+    let b = binding();
+    let mut a = Availability {
+        format: 1,
+        boot_id: b.boot_id.clone(),
+        realm: b.realm.clone(),
+        device_key_sha256: b.device_key_sha256.clone(),
+        material_sha256: "d".repeat(64),
+        sample_uptime_ms: 1000,
+        tls_origin_ready: true,
+        gate_ready: true,
+        station_trial_supported: false,
+        station_save_supported: false,
+    };
+    let bytes = serde_json::to_vec(&a).unwrap();
+    assert!(!String::from_utf8(bytes.clone())
+        .unwrap()
+        .contains("station_save_supported"));
+    assert!(
+        !Availability::parse(&bytes, 1000, &b.boot_id, &b.realm, &b.device_key_sha256)
+            .unwrap()
+            .station_save_supported
+    );
+    a.station_save_supported = true;
+    assert!(a
+        .validate(1000, &b.boot_id, &b.realm, &b.device_key_sha256)
+        .is_err());
+    a.station_trial_supported = true;
+    assert!(a
+        .validate(1000, &b.boot_id, &b.realm, &b.device_key_sha256)
+        .is_ok());
 }

@@ -205,11 +205,46 @@ struct Worker {
     material: String,
 }
 impl Worker {
+    fn query_completed_commit(&self) -> Result<bool> {
+        let Some(bytes) = self.input.read(Slot::StationCommitQuery)? else {
+            return Ok(false);
+        };
+        let intent: channel::commit::Intent =
+            serde_json::from_slice(&bytes).map_err(|_| Error::Invalid)?;
+        if !intent.valid() {
+            return Err(Error::Denied);
+        }
+        if let Some(done) = self.journal.commit_result(&intent)? {
+            self.publish_commit(done)?;
+            return Ok(true);
+        }
+        Ok(false)
+    }
+    fn publish_commit(&self, mut status: channel::commit::Status) -> Result<()> {
+        status.refresh()?;
+        self.output.publish(Slot::StationCommitStatus, &status)
+    }
     /// Recovery can re-emit a durable terminal proof, never Start or guessed rollback.
     fn recover(&self) -> Result<bool> {
         let Some(binding) = self.journal.pending()? else {
             return Ok(false);
         };
+        if let Some(done) = self.journal.committed(&binding)? {
+            self.journal.finish_commit(&done)?;
+            self.publish_commit(done)?;
+            return Ok(false);
+        }
+        if let Some(intent) = self.journal.commit_pending(&binding)? {
+            let done = match self.journal.commit_result(&intent)? {
+                Some(s) => s,
+                None => configuration::commit::status(intent, channel::commit::Phase::Unknown)?,
+            };
+            self.journal.finish_commit(&done)?;
+            self.publish_commit(done)?;
+            if self.journal.pending()?.is_none() {
+                return Ok(false);
+            }
+        }
         if let Some(mut closed) = self.journal.closed(&binding)? {
             closed.sample_uptime_ms = channel::uptime_ms()?;
             self.journal
@@ -241,6 +276,10 @@ impl Worker {
             return Err(Error::Invalid);
         }
         let hint: Hint = serde_json::from_slice(raw).map_err(|_| Error::Invalid)?;
+        if let Some(done) = self.journal.committed(&hint.binding)? {
+            self.publish_commit(done)?;
+            return Ok(true);
+        }
         if let Some(mut done) = self.journal.closed(&hint.binding)? {
             done.sample_uptime_ms = channel::uptime_ms()?;
             publish(&self.output, &done)?;
@@ -261,6 +300,7 @@ impl Worker {
                 tls_origin_ready: ready,
                 gate_ready: ready,
                 station_trial_supported: configurable,
+                station_save_supported: configurable,
             },
         )
     }
@@ -371,6 +411,7 @@ async fn serve(
             worker.availability(false, configurable)?;
             return Ok(());
         }
+        worker.query_completed_commit()?;
         if worker.recover()? {
             worker.availability(false, configurable)?;
         } else {

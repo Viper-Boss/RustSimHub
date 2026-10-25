@@ -73,6 +73,8 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | SetupApWifiBegin { .. }
         | SetupApWifiStatus { .. }
         | SetupApWifiCancel { .. }
+        | SetupApWifiConfirm { .. }
+        | SetupApWifiCommitStatus { .. }
         | NetworkDiagnostics { .. }
         | ForwardingStatus { .. }
         | SetForwardingEnabled { .. }
@@ -344,6 +346,8 @@ pub(crate) async fn handle(
             | AuthCommand::SetupApWifiBegin { .. }
             | AuthCommand::SetupApWifiStatus { .. }
             | AuthCommand::SetupApWifiCancel { .. }
+            | AuthCommand::SetupApWifiConfirm { .. }
+            | AuthCommand::SetupApWifiCommitStatus { .. }
     ) {
         crate::setup_ap_control::authorized(auth.clone(), calls.clone(), request.command).await
     } else if let AuthCommand::WifiTrial {

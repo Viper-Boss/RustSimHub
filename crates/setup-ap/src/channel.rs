@@ -142,6 +142,8 @@ pub struct Availability {
     pub gate_ready: bool,
     #[serde(default, skip_serializing_if = "unsupported")]
     pub station_trial_supported: bool,
+    #[serde(default, skip_serializing_if = "unsupported")]
+    pub station_save_supported: bool,
 }
 fn unsupported(value: &bool) -> bool {
     !*value
@@ -160,6 +162,7 @@ impl Availability {
             || now.saturating_sub(self.sample_uptime_ms) > HEARTBEAT_MS
             || !self.tls_origin_ready
             || !self.gate_ready
+            || self.station_save_supported && !self.station_trial_supported
         {
             return Err(Error::Denied);
         }
@@ -263,6 +266,7 @@ impl RootLease {
     }
 }
 
+pub mod commit;
 pub mod files;
 pub mod station;
 #[cfg(test)]

@@ -6,6 +6,7 @@ use rustsimhub_setup_ap::channel::station::{
     Intent, Operation, Phase, Request, Secret, Status as TrialStatus,
 };
 use zeroize::Zeroizing;
+pub(super) mod commit;
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -420,6 +421,7 @@ impl Runtime {
             || s.station_count >= 16
             || s.trial.as_ref().is_some_and(|t| !t.finished)
             || pending(&self.journal)?.is_some()
+            || commit::pending(&self.journal)?.is_some()
         {
             return Err(Error::Forbidden);
         }
@@ -520,6 +522,7 @@ impl Runtime {
             .as_mut()
             .filter(|s| s.record.binding == record.intent.binding)
         {
+            self.commit_cancel(s, &record)?;
             if let Some(t) = s.trial.as_mut().filter(|t| t.record == record) {
                 t.cancelled = true;
                 if !t.finished {

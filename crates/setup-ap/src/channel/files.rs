@@ -16,6 +16,9 @@ pub enum Slot {
     Availability,
     StationRequest,
     StationStatus,
+    StationCommitRequest,
+    StationCommitStatus,
+    StationCommitQuery,
 }
 impl Slot {
     fn name(self) -> &'static str {
@@ -25,6 +28,9 @@ impl Slot {
             Self::Availability => "availability.json",
             Self::StationRequest => "station-request.json",
             Self::StationStatus => "station-status.json",
+            Self::StationCommitRequest => "station-commit-request.json",
+            Self::StationCommitStatus => "station-commit-status.json",
+            Self::StationCommitQuery => "station-commit-query.json",
         }
     }
 }
@@ -341,5 +347,6 @@ impl Journal {
     }
 }
 
+mod commit;
 #[cfg(test)]
 mod tests;

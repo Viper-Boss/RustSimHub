@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
+mod commit;
 use crate::station_trial::{StationCredentials, StationNetwork};
 use std::{
     fs,
@@ -83,6 +84,10 @@ struct Model {
     unknown: bool,
     https_lost_after_restore: bool,
     revoke_during_return_https: bool,
+    commit_fail_persist: bool,
+    commit_unknown: bool,
+    commit_blocked: bool,
+    commit_uuid: Option<String>,
 }
 type Shared = Arc<StdMutex<Model>>;
 struct Wifi(Shared);
@@ -148,6 +153,60 @@ impl StationProvider for Wifi {
         _: &'a Credentials,
     ) -> Result<impl StationNetwork + Send + 'a> {
         Ok(Session(self.0.clone()))
+    }
+}
+struct CommitSession(Shared);
+impl crate::station_trial::StationNetwork for CommitSession {
+    async fn begin(&mut self, c: &StationCredentials) -> Result<()> {
+        let blocked = {
+            let mut m = self.0.lock().unwrap();
+            m.events.push("commit-begin");
+            m.ap = false;
+            m.commit_uuid = Some(c.uuid.clone());
+            m.commit_blocked
+        };
+        if blocked {
+            std::future::pending::<()>().await;
+        }
+        Ok(())
+    }
+    async fn usable(&self, _: &StationCredentials) -> Result<bool> {
+        Ok(true)
+    }
+    async fn restore_ap(&mut self, _: &StationCredentials) -> Result<()> {
+        let mut m = self.0.lock().unwrap();
+        m.events.push("commit-restore");
+        m.ap = true;
+        Ok(())
+    }
+}
+impl crate::station_commit::CommitNetwork for CommitSession {
+    async fn persist(&mut self, _: &StationCredentials) -> Result<()> {
+        let mut m = self.0.lock().unwrap();
+        m.events.push("commit-persist");
+        if m.commit_fail_persist {
+            Err(Error::Io)
+        } else {
+            Ok(())
+        }
+    }
+    async fn finish<A: Gate + Sync>(&mut self, _: &StationCredentials, gate: &A) -> Result<()> {
+        gate.check().await?;
+        let mut m = self.0.lock().unwrap();
+        m.events.push("commit-finish");
+        if m.commit_unknown {
+            Err(Error::Io)
+        } else {
+            Ok(())
+        }
+    }
+}
+impl crate::station_commit::CommitProvider for Wifi {
+    fn commit_session<'a>(
+        &'a mut self,
+        _: &'a Credentials,
+    ) -> Result<impl crate::station_commit::CommitNetwork + Send + 'a> {
+        Ok(CommitSession(self.0.clone()))
     }
 }
 struct Firewall(Shared);
@@ -242,7 +301,7 @@ async fn protected_request_runs_once_returns_https_verified_result_and_keeps_out
         execute(&f.worker, &mut n, &mut g, &r, &ap, f.hint.clone(), rx),
         monitor
     );
-    assert!(result.unwrap().state == State::Closed);
+    assert!(result.unwrap().unwrap().state == State::Closed);
     assert!(f.worker.journal.trial_result(&intent).unwrap().is_some());
     assert!(f.worker.journal.pending().unwrap().is_none());
     let events = &m.lock().unwrap().events;
@@ -280,7 +339,7 @@ async fn shutdown_or_expired_lease_cancels_blocked_station_and_awaits_cleanup() 
             ),
             monitor
         );
-        assert!(result.unwrap().unwrap().state == State::Closed);
+        assert!(result.unwrap().unwrap().unwrap().state == State::Closed);
         assert!(m.lock().unwrap().events.contains(&"station-restore"));
         assert!(
             f.worker
@@ -312,6 +371,7 @@ async fn unknown_station_restore_retains_full_ap_marker_and_isolation() {
         execute(&f.worker, &mut n, &mut g, &r, &ap, f.hint.clone(), rx),
     )
     .await
+    .unwrap()
     .unwrap()
     .unwrap();
     assert!(s.state == State::Unknown);
@@ -347,6 +407,7 @@ async fn ap_https_loss_after_network_restore_is_not_ready() {
     )
     .await
     .unwrap()
+    .unwrap()
     .unwrap();
     assert!(s.state == State::Closed);
     let trial = f.worker.journal.trial_result(&intent).unwrap().unwrap();
@@ -376,7 +437,7 @@ async fn changed_payload_with_same_trial_id_never_replays_station_activation() {
         ),
         monitor
     );
-    assert!(result.unwrap().unwrap().state == State::Closed);
+    assert!(result.unwrap().unwrap().unwrap().state == State::Closed);
     assert_eq!(
         m.lock()
             .unwrap()
@@ -424,7 +485,7 @@ async fn exact_local_cancel_waits_for_restore_but_wrong_owner_cancel_is_ignored(
         ),
         monitor
     );
-    assert!(result.unwrap().unwrap().state == State::Closed);
+    assert!(result.unwrap().unwrap().unwrap().state == State::Closed);
 }
 #[tokio::test]
 async fn authority_change_during_return_https_probe_cannot_publish_ready() {
@@ -444,6 +505,7 @@ async fn authority_change_during_return_https_probe_cannot_publish_ready() {
         execute(&f.worker, &mut n, &mut g, &r, &ap, f.hint.clone(), rx),
     )
     .await
+    .unwrap()
     .unwrap()
     .unwrap();
     assert!(s.state == State::Closed);

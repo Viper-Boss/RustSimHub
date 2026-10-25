@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
+mod commit;
 use crate::channel::tests::binding;
 fn dir(mode: u32) -> (tempfile::TempDir, Directory) {
     let d = tempfile::tempdir().unwrap();

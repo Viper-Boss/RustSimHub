@@ -4,10 +4,10 @@ use super::super::tests::{fixture, hint, root_status, Fixture};
 use super::*;
 use ed25519_dalek::{Signer, SigningKey};
 use std::os::unix::fs::PermissionsExt;
-const ID: &str = "11111111-1111-4111-8111-111111111111";
+pub(super) const ID: &str = "11111111-1111-4111-8111-111111111111";
 const OTHER: &str = "22222222-2222-4222-8222-222222222222";
-const SSID: &str = "SYNTHETIC_PRIVATE_SSID";
-const PASS: &str = "SYNTHETIC_PRIVATE_PASSWORD";
+pub(super) const SSID: &str = "SYNTHETIC_PRIVATE_SSID";
+pub(super) const PASS: &str = "SYNTHETIC_PRIVATE_PASSWORD";
 struct Quiet;
 impl Idle for Quiet {
     async fn check(&self, _: &str) -> Result<()> {
@@ -17,7 +17,7 @@ impl Idle for Quiet {
         Ok(())
     }
 }
-async fn ready(supported: bool) -> Fixture {
+pub(super) async fn ready(supported: bool) -> Fixture {
     let f = fixture();
     let mut a: Availability =
         serde_json::from_slice(&f.runtime.output.read(Slot::Availability).unwrap().unwrap())
@@ -42,7 +42,7 @@ async fn ready(supported: bool) -> Fixture {
     f.runtime.output.publish(Slot::Availability, &a).unwrap();
     f
 }
-async fn begin(f: &Fixture, id: &str, password: &str) -> Result<Value> {
+pub(super) async fn begin(f: &Fixture, id: &str, password: &str) -> Result<Value> {
     f.runtime
         .station_begin(
             f.auth.clone(),
@@ -59,7 +59,7 @@ fn request(f: &Fixture) -> Request {
     let raw = f.runtime.input.read(Slot::StationRequest).unwrap().unwrap();
     Request::parse(&raw, &hint(f).binding, now().unwrap()).unwrap()
 }
-fn root(f: &Fixture, phase: Phase, change: impl FnOnce(&mut TrialStatus)) {
+pub(super) fn root(f: &Fixture, phase: Phase, change: impl FnOnce(&mut TrialStatus)) {
     let active = f.runtime.session.lock().unwrap();
     let intent = active
         .as_ref()
@@ -80,7 +80,7 @@ fn root(f: &Fixture, phase: Phase, change: impl FnOnce(&mut TrialStatus)) {
     change(&mut s);
     f.runtime.output.publish(Slot::StationStatus, &s).unwrap();
 }
-async fn query(f: &Fixture, id: &str) -> Result<Value> {
+pub(super) async fn query(f: &Fixture, id: &str) -> Result<Value> {
     f.runtime
         .station_status(
             f.auth.clone(),

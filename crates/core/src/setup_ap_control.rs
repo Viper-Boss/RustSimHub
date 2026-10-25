@@ -92,6 +92,8 @@ struct Session {
     cancelled: bool,
     permit: Option<OwnedRwLockWriteGuard<()>>,
     station_supported: bool,
+    save_supported: bool,
+    committed: bool,
     trial: Option<station::Trial>,
     station_count: usize,
 }
@@ -175,7 +177,8 @@ impl Runtime {
         {
             return Err(Error::Forbidden);
         }
-        let record = Self::read_record(&journal.join("pending.json"))?;
+        let mut record = Self::read_record(&journal.join("pending.json"))?;
+        station::commit::recover(&input, &journal, &mut record)?;
         if record.is_some()
             && fs::symlink_metadata(journal.join("first-setup.pending.json")).is_ok()
         {
@@ -195,6 +198,8 @@ impl Runtime {
                     cancelled: true,
                     permit: Some(permit),
                     station_supported: false,
+                    save_supported: false,
+                    committed: false,
                     trial,
                     station_count: 0,
                 })
@@ -217,6 +222,7 @@ impl Runtime {
         {
             let mut recovered = runtime.session.try_lock().map_err(|_| Error::Busy)?;
             if let Some(s) = recovered.as_mut() {
+                runtime.commit_recover(s)?;
                 runtime.station_recover(s)?;
                 runtime.publish_cancel(s)?;
                 s.phase = State::Unknown;
@@ -249,7 +255,7 @@ impl Runtime {
     fn view(s: &Session) -> Value {
         json!({"available":true,"operation_id":s.record.binding.request_id,"state":s.phase,
             "expires_in_seconds":s.record.binding.deadline_uptime_ms.saturating_sub(now().unwrap_or(u64::MAX))/1000,
-            "wifi_only":true,"cellular_activation":false,"credentials_returned":false})
+            "wifi_only":true,"cellular_activation":false,"credentials_returned":false,"completion_saved":s.committed})
     }
     fn availability(&self, c: &Context) -> Result<Availability> {
         let bytes = denied(self.output.read(Slot::Availability))?.ok_or(Error::Forbidden)?;
@@ -269,8 +275,16 @@ impl Runtime {
                 return Err(Error::Forbidden);
             }
             let mut view = Self::view(s);
-            view["station_trial_api"] =
-                (s.station_supported && !s.cancelled && s.phase == State::Ready).into();
+            view["station_trial_api"] = (s.station_supported
+                && !s.cancelled
+                && s.phase == State::Ready
+                && station::commit::pending(&self.journal)?.is_none())
+            .into();
+            view["station_save_api"] = (s.save_supported
+                && !s.cancelled
+                && s.phase == State::Ready
+                && station::commit::pending(&self.journal)?.is_none())
+            .into();
             return Ok(view);
         }
         drop(active);
@@ -328,6 +342,12 @@ impl Runtime {
             .map_err(|_| Error::Forbidden)?
             .is_some()
             || station::pending(&self.journal)?.is_some()
+            || station::commit::pending(&self.journal)?.is_some()
+            || self
+                .input
+                .read(Slot::StationCommitRequest)
+                .map_err(|_| Error::Forbidden)?
+                .is_some()
         {
             return Err(Error::Busy);
         }
@@ -384,6 +404,8 @@ impl Runtime {
             cancelled: false,
             permit: Some(permit),
             station_supported: available.station_trial_supported,
+            save_supported: available.station_save_supported,
+            committed: false,
             trial: None,
             station_count: 0,
         });
@@ -483,6 +505,14 @@ impl Runtime {
             (s.record.clone(), s.token.clone(), s.cancelled)
         };
         let time = now()?;
+        {
+            let mut active = self.session.try_lock().map_err(|_| Error::Busy)?;
+            let s = active.as_mut().ok_or(Error::Busy)?;
+            self.commit_tick(s, time)?;
+            if s.phase == State::Closed {
+                return Ok(());
+            }
+        }
         if let Some(bytes) = denied(self.output.read(Slot::Status))? {
             if let Ok(status) = Status::parse(&bytes, &record.binding, time) {
                 let mut active = self.session.try_lock().map_err(|_| Error::Busy)?;
@@ -491,6 +521,13 @@ impl Runtime {
                     return Err(Error::Busy);
                 }
                 if status.state == State::Closed {
+                    if station::commit::pending(&self.journal)?.is_some() {
+                        s.cancelled = true;
+                        s.token = None;
+                        s.phase = State::Unknown;
+                        self.commit_recover(s)?;
+                        return Ok(());
+                    }
                     return self.closed(s, &status, time);
                 }
                 if status.sequence >= s.root_sequence {
@@ -649,12 +686,13 @@ pub(crate) async fn authorized(
     command: AuthCommand,
 ) -> Result<Value> {
     let (token, recent) = match &command {
-        AuthCommand::SetupApStatus { token } | AuthCommand::SetupApWifiStatus { token, .. } => {
-            (token.clone(), false)
-        }
+        AuthCommand::SetupApStatus { token }
+        | AuthCommand::SetupApWifiStatus { token, .. }
+        | AuthCommand::SetupApWifiCommitStatus { token, .. } => (token.clone(), false),
         AuthCommand::SetupApStart { token, .. }
         | AuthCommand::SetupApCancel { token, .. }
         | AuthCommand::SetupApWifiBegin { token, .. }
+        | AuthCommand::SetupApWifiConfirm { token, .. }
         | AuthCommand::SetupApWifiCancel { token, .. } => (token.clone(), true),
         _ => return Err(Error::InvalidInput),
     };
@@ -667,6 +705,36 @@ pub(crate) async fn authorized(
         };
     };
     match command {
+        AuthCommand::SetupApWifiConfirm {
+            token,
+            operation_id,
+            trial_id,
+            commit_id,
+            ssid,
+            passphrase,
+        } => {
+            runtime
+                .commit_begin(
+                    auth,
+                    token,
+                    operation_id,
+                    trial_id,
+                    commit_id,
+                    ssid,
+                    zeroize::Zeroizing::new(passphrase),
+                    &Calls(calls),
+                )
+                .await
+        }
+        AuthCommand::SetupApWifiCommitStatus {
+            token,
+            operation_id,
+            commit_id,
+        } => {
+            runtime
+                .commit_status(auth, token, operation_id, commit_id)
+                .await
+        }
         AuthCommand::SetupApStatus { token } => runtime.status(auth, token).await,
         AuthCommand::SetupApStart {
             token,
