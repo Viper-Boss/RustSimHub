@@ -160,8 +160,8 @@ assert.throws(()=>pendingInput({format:1,id,kind:'test',expected_generation:1}))
 assert.throws(()=>pendingInput({format:1,id,kind:'configure',expected_generation:1,target_id:other}));
 console.log('PASS: explicit synthetic target, durable no-repeat marker, bounded receipt reads, confirmed/failed/unknown/timeout/lost replies and panel-close cancellation.');
 
-function quickFixture({state='confirmed',active=false,lost=false,saveFails=false,enabled=false,stop=true,readFails=false}={}){
- let pending=null,accepted=false,logins=0;const calls=[],messages=[],archives=[],gate=deferred();
+function quickFixture({state='confirmed',active=false,lost=false,saveFails=false,enabled=false,stop=true,readFails=false,initialPending=null,configurationKnown=true}={}){
+ let pending=clone(initialPending),accepted=false,logins=0;const calls=[],messages=[],archives=[],gate=deferred();
  const status=()=>({quick_test_api:true,service_management_api:true,enabled,process_state_verified:true,state:enabled?'running':'disabled',quick_test_active:false,generation:1});
  const quick=new ForwardingQuickTest({crypto:webcrypto,login:async()=>{logins++;},notify:s=>messages.push(s),delay:async()=>{await gate.promise;},
   loadPending:async()=>clone(pending),savePending:async(value,expected)=>{assert.equal(pending?.id??null,expected);if(saveFails&&value)throw Error('storage failed');pending=clone(value);},archivePending:async value=>archives.push(clone(value)),
@@ -169,6 +169,7 @@ function quickFixture({state='confirmed',active=false,lost=false,saveFails=false
    calls.push(clone(c));
    if(c.op==='forwarding_status')return {...status(),...(stop?{}:{process_state_verified:false})};
    if(c.op==='forwarding_rules')return {generation:1,enabled:false,targets:[{id,kind:'bark',credentials_redacted:true}]};
+   if(c.op==='forwarding_request')return {request_id:c.request_id,known:configurationKnown,current_generation:1,applied_generation:configurationKnown?1:null,not_found_is_not_proof:true};
    if(c.op==='forwarding_quick_test'){
     assert.equal(pending.kind,'quick_test');assert.equal(pending.id,c.request_id);accepted=true;
     if(lost)throw Error('lost admission reply');return {accepted:true,quick_test:true,request_id:c.request_id};
@@ -199,6 +200,19 @@ for(const state of ['failed','cancelled','unknown']){
 }
 {
  const f=quickFixture({readFails:true});await f.quick.run();assert.ok(f.pending());assert.equal(f.calls.filter(c=>c.op==='forwarding_quick_test').length,1);
+}
+for(const configurationKnown of [true,false]){
+ const previous={format:1,id:other,kind:'configure',expected_generation:0};
+ const f=quickFixture({initialPending:previous,configurationKnown});await f.quick.run();
+ assert.equal(f.pending(),null);assert.equal(f.archives.length,2);assert.equal(f.archives[0].id,other);
+ assert.equal(f.archives[0].applied_generation,configurationKnown?1:null);assert.equal(f.archives[0].uncertain,!configurationKnown);
+ assert.equal(f.calls.filter(c=>c.op==='forwarding_quick_test').length,1);
+ assert.ok(f.calls.every(c=>!['forwarding_configure','set_forwarding_enabled'].includes(c.op)));
+}
+{
+ const previous={format:1,id:other,kind:'enable',expected_generation:1};
+ const f=quickFixture({initialPending:previous,configurationKnown:false,enabled:true});await f.quick.run();
+ assert.deepEqual(f.pending(),previous);assert.equal(f.archives.length,0);assert.equal(f.calls.filter(c=>c.op==='forwarding_quick_test').length,0);
 }
 {
  const f=quickFixture({active:true});const run=f.quick.run();while(!f.messages.some(m=>m.includes('正在自动关闭')))await turn();

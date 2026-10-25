@@ -264,12 +264,28 @@ export class ForwardingQuickTest {
  constructor({login,request,loadPending,savePending,archivePending,notify,crypto=globalThis.crypto,delay=()=>new Promise(resolve=>setTimeout(resolve,1000))}){
   Object.assign(this,{login,request,loadPending,savePending,archivePending,notify,crypto,delay});this.busy=false;
  }
+ async recoverConfiguration(record){
+  const r=await this.request({op:'forwarding_request',request_id:record.id});
+  requireValue(r.request_id===record.id&&typeof r.known==='boolean'&&generation(r.current_generation)&&r.not_found_is_not_proof===true,'上次配置回执未获确认；本次没有发送。');
+  let applied=null;
+  if(r.known){requireValue(r.applied_generation===record.expected_generation+1&&r.applied_generation<=r.current_generation,'上次配置回执不匹配；本次没有发送。');applied=r.applied_generation;}
+  else {
+   const s=await this.request({op:'forwarding_status'});
+   requireValue(s.quick_test_api===true&&s.enabled===false&&s.quick_test_active===false&&s.state==='disabled'&&s.process_state_verified===true&&s.generation===r.current_generation&&s.generation>=record.expected_generation,'上次配置结果仍需核对；本次没有发送。');
+  }
+  // Missing configuration receipts remain explicitly uncertain in history.
+  // Never replay the old switch/rule write; the probe is a separate, OFF-only,
+  // generation-checked operation and cannot turn ordinary forwarding on.
+  await this.archivePending({...record,applied_generation:applied,uncertain:applied===null});
+  await this.savePending(null,record.id);
+ }
  async run(){
   if(this.busy)return;this.busy=true;
   try{
    this.notify('正在自动登录并检查 Bark 目标…');await this.login();
    let record=pendingInput(await this.loadPending());
-   if(record){requireValue(record.kind==='quick_test','有旧转发操作待核对；本次没有发送通知。');this.notify('正在核对上一次测试，不会重新发送…');}
+   if(record&&!testKind(record.kind)){this.notify('正在自动核对并保存上次配置回执；不会重做旧操作…');await this.recoverConfiguration(record);record=null;}
+   if(record){this.notify('正在核对上一次测试，不会重新发送…');}
    else {
     const s=await this.request({op:'forwarding_status'});
     requireValue(s.quick_test_api===true&&s.service_management_api===true,'当前设备尚未支持一键转发测试，请等待新版部署。');
@@ -298,7 +314,7 @@ export class ForwardingQuickTest {
      if(['confirmed','failed','cancelled'].includes(receipt.state)){
       await this.archivePending({...record,applied_generation:record.expected_generation,uncertain:false});
       await this.savePending(null,record.id);
-      this.notify(receipt.state==='confirmed'?'测试完成：Bark 已确认，转发已自动关闭。请看手机是否收到“RustSimHub 合成测试”。':`测试${states[receipt.state]}；转发已自动关闭，不会自动重发。`);return;
+      this.notify(receipt.state==='confirmed'?(record.kind==='quick_test'?'测试完成：Bark 已确认，转发已自动关闭。请看手机是否收到“RustSimHub 合成测试”。':'上次合成测试已确认，转发已关闭；本次没有再次发送。'):`测试${states[receipt.state]}；转发已确认关闭，不会自动重发。`);return;
      }
      this.notify('测试结果未确认；转发已关闭，回执已保留，不会自动重发。');return;
     }
