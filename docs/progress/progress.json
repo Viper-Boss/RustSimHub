@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1-2026-10-25",
-  "updated_at": "2026-10-25T17:14:09.398289+00:00",
+  "updated_at": "2026-10-25T17:54:13.777993+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -69,7 +69,7 @@
   "focus": {
     "task_id": "FWD-05",
     "title": "验收Owner配置与一键合成测试",
-    "state": "正在执行；完成后附证据",
+    "state": "等待已说明的用户配合",
     "description": "用真实Owner浏览器保存目标、登录过期、刷新页面和恢复不确定操作；只发标明测试的合成文本。 验收：一次点击只递送一次；凭据不回显；页面与Core/Root状态一致。"
   },
   "facts": [
@@ -113,7 +113,7 @@
       "title": "短信转发 · 独立服务",
       "scope": "extension",
       "phase": "usable",
-      "summary": "原生Rust队列、HTTPS、配置页与六文件应用已交付；继续安装服务，关闭时真正没有转发进程。",
+      "summary": "原生Rust队列、HTTPS、配置页与六文件应用已交付；服务安装与默认OFF已验真；继续验收一键递送、故障和冷启动。",
       "paths": [
         "crates/forwarder",
         "crates/core/src/forwarding.rs",
@@ -227,7 +227,7 @@
           "dependencies": [
             "FWD-04"
           ],
-          "status": "in_progress",
+          "status": "needs_user",
           "offline_delegable": false,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -4223,6 +4223,18 @@
       ],
       "evidence": [
         "docs/VALIDATION-FORWARDING-ONE-CLICK-X1O.md"
+      ]
+    },
+    {
+      "at": "2026-10-25T17:54:13.777993+00:00",
+      "type": "state",
+      "title": "FWD-05 · 状态更新：验收Owner配置与一键合成测试",
+      "detail": "epoch48一键Bark已交付并健康确认：444项/Native33/14组网页/CI及严格HTTPS13资源通过；等待用户单击后的手机通知与唯一递送/自动关闭证据。",
+      "task_ids": [
+        "FWD-05"
+      ],
+      "evidence": [
+        "docs/VALIDATION-FORWARDING-ONE-CLICK-DEVICE-X1P.md"
       ]
     }
   ]
