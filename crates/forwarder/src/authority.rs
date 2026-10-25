@@ -54,6 +54,26 @@ impl Binding {
     }
 }
 impl Queue {
+    pub fn probe_owner(
+        &mut self,
+        auth: &mut Auth,
+        reader: &Handle,
+        token: &str,
+        generation: u64,
+        request_id: &str,
+        target_id: &str,
+    ) -> Result<Receipt> {
+        let binding = recent(auth, token)?;
+        self.require_binding(&binding)?;
+        self.begin_probe(&binding, generation, request_id, target_id)?;
+        match self.test_owner(auth, reader, token, generation, request_id, target_id) {
+            Ok(receipt) => Ok(receipt),
+            Err(error) => {
+                self.end_probe(request_id)?;
+                Err(error)
+            }
+        }
+    }
     pub fn test_owner(
         &mut self,
         auth: &mut Auth,

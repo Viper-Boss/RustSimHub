@@ -77,6 +77,7 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | ForwardingRules { .. }
         | ForwardingRequest { .. }
         | ForwardingTest { .. }
+        | ForwardingQuickTest { .. }
         | ForwardingTestRequest { .. }
         | ForwardingReceipts { .. }
         | ForwardingPrune { .. }
@@ -271,6 +272,7 @@ pub(crate) async fn handle(
             | AuthCommand::ForwardingRules { .. }
             | AuthCommand::ForwardingRequest { .. }
             | AuthCommand::ForwardingTest { .. }
+            | AuthCommand::ForwardingQuickTest { .. }
             | AuthCommand::ForwardingTestRequest { .. }
             | AuthCommand::ForwardingReceipts { .. }
             | AuthCommand::ForwardingPrune { .. }

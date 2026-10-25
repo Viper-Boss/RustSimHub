@@ -5,7 +5,7 @@ import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
 import vm from 'node:vm';
 const forwardingModule=await readFile(new URL('../crates/edge/src/web/forwarding.js',import.meta.url));
-const {ForwardingPanel,pendingInput:forwardingPendingInput}=await import('data:text/javascript;base64,'+forwardingModule.toString('base64'));
+const {ForwardingPanel,ForwardingQuickTest,pendingInput:forwardingPendingInput}=await import('data:text/javascript;base64,'+forwardingModule.toString('base64'));
 const bytes=await readFile(new URL('../crates/edge/src/web/phone.js',import.meta.url));
 const {DailyPhone}=await import('data:text/javascript;base64,'+bytes.toString('base64'));
 const html=await readFile(new URL('../crates/edge/src/web/index.html',import.meta.url),'utf8');
@@ -140,7 +140,7 @@ for(const stage of ['prepare_call','submit_call']){
 }
 {
  const f=fixture({skipMarkerCheck:true}),saved=new Map(),sent=[];
- const context={ForwardingPanel,forwardingPendingInput,document:f.document,crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval:()=>1,clearInterval(){},addEventListener(){},indexedDB:{open:()=>({})},DailyPhone,SessionKeeper:class{start(){}reset(){}async ensure(){}},
+ const context={ForwardingPanel,ForwardingQuickTest,forwardingPendingInput,document:f.document,crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval:()=>1,clearInterval(){},addEventListener(){},indexedDB:{open:()=>({})},DailyPhone,SessionKeeper:class{start(){}reset(){}async ensure(){}},
   AudioLink:class{constructor(){return f.audio;}},ConfigurationIndicator:class{async set(){}},CallTest:class{async stop(){}},NetworkPanel:class{stop(){}start(){}},EventSync:class{reset(){}},SmsManager:class{reset(){}},
   fetch:async(_url,options)=>{const body=JSON.parse(options.body),c=body.command;sent.push(c);if(c.op==='submit_call')assert.equal(saved.get('pending').submit_started,true);return {ok:true,json:async()=>({protocol:2,id:body.id,result:await f.backend(c)})};},
  };

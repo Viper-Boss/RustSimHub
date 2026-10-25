@@ -244,6 +244,7 @@ impl Coordinator {
                 return Err(Error::Forbidden);
             }
             value["service_management_api"] = true.into();
+            value["quick_test_api"] = true.into();
             value["service_action"] = outcome.into();
             value["state"] = if after.enabled {
                 "awaiting_service"
@@ -267,6 +268,60 @@ impl Coordinator {
         })
         .await
         .map_err(|_| Error::Forbidden)?
+    }
+    pub(super) async fn cleanup_probe(
+        &self,
+        controller: &Controller,
+        auth: Arc<Mutex<Auth>>,
+        id: &str,
+    ) -> Result<bool> {
+        let _slot = timeout(self.budget(), self.slot.lock())
+            .await
+            .map_err(|_| Error::Busy)?;
+        let state = controller.0.clone();
+        let id = id.to_owned();
+        let snapshot = tokio::task::spawn_blocking(move || {
+            let a = auth.try_lock().map_err(|_| Error::Busy)?;
+            let s = state.try_lock().map_err(|_| Error::Busy)?;
+            if s.quick.as_deref() != Some(id.as_str()) {
+                return Err(Error::Forbidden);
+            }
+            let q = s.queue.as_ref().ok_or(Error::Forbidden)?;
+            let status = denied(q.status())?;
+            if q.probe_active() || status.enabled {
+                return Err(Error::Forbidden);
+            }
+            Ok(Snapshot {
+                binding: denied(q.current_binding(&a))?,
+                core: a.observer_instance().to_owned(),
+                generation: status.generation,
+                enabled: false,
+                configured: true,
+            })
+        })
+        .await
+        .ok()
+        .and_then(std::result::Result::ok);
+        let start = uptime()?;
+        // No Owner token is needed to finish an already-admitted probe. This
+        // fixed Root unit reads current Core authority; it cannot force ON.
+        let outcome = timeout(self.budget(), async {
+            let connection = self.connection().await?;
+            job(&connection, &self.units[0]).await
+        })
+        .await;
+        if !matches!(outcome, Ok(Ok(Completion::Done))) {
+            return Ok(false);
+        }
+        let path = self.report_path().to_owned();
+        let uid = self.report_uid();
+        let report = tokio::task::spawn_blocking(move || read_report(&path, uid))
+            .await
+            .map_err(|_| Error::Io)??;
+        let Some(snapshot) = snapshot else {
+            return Ok(false);
+        };
+        verified(&snapshot, &report, start, &boot()?, uptime()?)
     }
     fn report_path(&self) -> &Path {
         #[cfg(test)]

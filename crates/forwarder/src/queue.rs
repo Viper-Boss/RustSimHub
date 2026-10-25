@@ -9,7 +9,7 @@ use std::{
     fs::{self, File, OpenOptions},
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::Path,
-    time::Duration,
+    time::{Duration, Instant},
 };
 use uuid::Uuid;
 
@@ -88,6 +88,12 @@ pub struct Queue {
     conn: Connection,
     _lock: File,
     binding: Binding,
+    probe: Option<Probe>,
+}
+struct Probe {
+    id: String,
+    target: String,
+    deadline: Instant,
 }
 struct Meta {
     generation: i64,
@@ -269,10 +275,14 @@ CREATE INDEX pending ON jobs(state,seq);")?;
             "UPDATE jobs SET state='unknown' WHERE state='in_flight'",
             [],
         )?;
+        // A temporary OFF-state probe never resumes after Core restarts.
+        // Ordinary policy and its cursor remain unchanged.
+        conn.execute("UPDATE jobs SET state='cancelled',request=NULL WHERE state='queued' AND purpose='test' AND (SELECT enabled FROM meta WHERE singleton=1)=0", [])?;
         let q = Self {
             conn,
             _lock: lock,
             binding,
+            probe: None,
         };
         q.meta()?;
         File::open(directory)?.sync_all()?;
@@ -302,6 +312,12 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         if policy.enabled != enabled {
             return Err(Error::Storage);
         }
+        let enabled = self
+            .probe
+            .as_ref()
+            .map_or(enabled, |p| Instant::now() < p.deadline);
+        let mut policy = policy;
+        policy.enabled = enabled;
         Ok(Meta {
             generation,
             enabled,
@@ -379,6 +395,9 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         policy: Policy,
         head: InboxCursor,
     ) -> Result<u64> {
+        if self.probe.is_some() {
+            return Err(Error::Busy);
+        }
         binding.validate()?;
         policy.validate()?;
         if binding != &self.binding || !crate::model::uuid(request_id) {
@@ -458,6 +477,9 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         if !m.enabled {
             return Err(Error::Disabled);
         }
+        if self.probe.is_some() {
+            return Ok(0);
+        }
         let seq = cursor(&at, &binding.realm)?;
         if seq < m.seq {
             return Err(Error::Stale);
@@ -529,6 +551,10 @@ CREATE INDEX pending ON jobs(state,seq);")?;
     ) -> Result<usize> {
         if !self.fence(binding, generation)?.enabled {
             return Err(Error::Disabled);
+        }
+        if self.probe.is_some() {
+            // Do not even read business SMS while testing a push destination.
+            return Ok(0);
         }
         let before = reader.line_status().map_err(|_| Error::Storage)?;
         if before.status != rustsimhub_storage::LineStatus::Ready {
@@ -602,10 +628,11 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         if live_line.0 == 0 || live_line.0 > i64::MAX as u64 {
             return Err(Error::Invalid);
         }
+        let probe_id = self.probe.as_ref().map(|p| p.id.as_str());
         let tx = self.conn.transaction()?;
         let active: bool = tx.query_row(
-            "SELECT EXISTS(SELECT 1 FROM jobs WHERE state='in_flight')",
-            [],
+            "SELECT EXISTS(SELECT 1 FROM jobs WHERE state='in_flight' AND (?1 IS NULL OR id!=?1 OR attempt_id IS NOT NULL))",
+            [probe_id],
             |r| r.get(0),
         )?;
         if active {
@@ -617,8 +644,8 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         )?;
         let row = tx
             .query_row(
-                "SELECT id,generation,request FROM jobs WHERE state='queued' ORDER BY seq LIMIT 1",
-                [],
+                "SELECT id,generation,request FROM jobs WHERE (?1 IS NULL AND state='queued') OR (id=?1 AND state='in_flight' AND attempt_id IS NULL AND purpose='test' AND line=?2) ORDER BY seq LIMIT 1",
+                params![probe_id, live_line.0 as i64],
                 |r| {
                     Ok((
                         r.get::<_, String>(0)?,
@@ -635,7 +662,7 @@ CREATE INDEX pending ON jobs(state,seq);")?;
             let request: PreparedRequest = serde_json::from_str(&request)?;
             let attempt_id = Uuid::new_v4().to_string();
             tx.execute(
-                "UPDATE jobs SET state='in_flight',attempt_id=? WHERE id=? AND state='queued'",
+                "UPDATE jobs SET state='in_flight',attempt_id=? WHERE id=? AND (state='queued' OR (state='in_flight' AND attempt_id IS NULL AND purpose='test'))",
                 params![attempt_id, id],
             )?;
             Some(Claim {
@@ -738,6 +765,13 @@ impl Queue {
         if !meta.enabled {
             return Err(Error::Disabled);
         }
+        if self
+            .probe
+            .as_ref()
+            .is_some_and(|p| p.id != request_id || p.target != target_id)
+        {
+            return Err(Error::Forbidden);
+        }
         if !model::uuid(request_id) || !model::uuid(target_id) {
             return Err(Error::Invalid);
         }
@@ -763,8 +797,16 @@ impl Queue {
         // A caller controls the request UUID, never a business message UUID.
         // Keep synthetic message identities separate from any caller-chosen SMS.
         let message_id = Uuid::new_v4().to_string();
-        self.conn.execute("INSERT INTO jobs(id,message_id,target_id,rule_id,generation,line,state,request,purpose) VALUES(?,?,?,?,?,?,'queued',?,'test')",
-            params![request_id,message_id,target_id,request_id,generation as i64,line.0 as i64,request])?;
+        // Temporary probes are durably reserved immediately. Even an older
+        // compatible Core turns a crash/rollback into Unknown, never a queued
+        // probe that might later escape when ordinary forwarding is enabled.
+        let state = if self.probe.is_some() {
+            "in_flight"
+        } else {
+            "queued"
+        };
+        self.conn.execute("INSERT INTO jobs(id,message_id,target_id,rule_id,generation,line,state,request,purpose) VALUES(?,?,?,?,?,?,?,?, 'test')",
+            params![request_id,message_id,target_id,request_id,generation as i64,line.0 as i64,state,request])?;
         self.test_receipt(binding, request_id)?
             .ok_or(Error::Storage)
     }
@@ -789,6 +831,68 @@ impl Queue {
             .next()
             .map(Some)
             .ok_or(Error::Storage)
+    }
+}
+
+impl Queue {
+    /// Internal Core admission after a recent Owner and live SIM check. The
+    /// window is process-local, fixed at 45 seconds and cannot renew itself.
+    /// It does not persistently enable forwarding or edit a saved policy.
+    pub fn begin_probe(
+        &mut self,
+        binding: &Binding,
+        generation: u64,
+        id: &str,
+        target: &str,
+    ) -> Result<()> {
+        let meta = self.fence(binding, generation)?;
+        if self.probe.is_some() || meta.enabled {
+            return Err(Error::Busy);
+        }
+        if !model::uuid(id)
+            || !model::uuid(target)
+            || !meta.policy.targets.iter().any(|t| t.id == target)
+        {
+            return Err(Error::Invalid);
+        }
+        if self.test_receipt(binding, id)?.is_some() {
+            return Err(Error::Conflict);
+        }
+        let pending: i64 = self.conn.query_row(
+            "SELECT count(*) FROM jobs WHERE state IN('queued','in_flight','unknown')",
+            [],
+            |r| r.get(0),
+        )?;
+        if pending != 0 {
+            return Err(Error::Busy);
+        }
+        self.probe = Some(Probe {
+            id: id.into(),
+            target: target.into(),
+            deadline: Instant::now() + Duration::from_secs(45),
+        });
+        Ok(())
+    }
+    pub fn probe_active(&self) -> bool {
+        self.probe.is_some()
+    }
+    /// Exact-session cleanup; never revives or retries an ambiguous attempt.
+    pub fn end_probe(&mut self, id: &str) -> Result<bool> {
+        if !self.probe.as_ref().is_some_and(|p| p.id == id) {
+            return Ok(false);
+        }
+        // Revocation does not depend on a successful disk write. If receipt
+        // cleanup fails, all subsequent worker fences still fail closed.
+        self.probe.as_mut().ok_or(Error::Stale)?.deadline = Instant::now();
+        let tx = self.conn.transaction()?;
+        tx.execute("UPDATE jobs SET state='cancelled',request=NULL WHERE id=? AND purpose='test' AND (state='queued' OR (state='in_flight' AND attempt_id IS NULL))", [id])?;
+        tx.execute(
+            "UPDATE jobs SET state='unknown' WHERE id=? AND purpose='test' AND state='in_flight'",
+            [id],
+        )?;
+        tx.commit()?;
+        self.probe = None;
+        Ok(true)
     }
 }
 

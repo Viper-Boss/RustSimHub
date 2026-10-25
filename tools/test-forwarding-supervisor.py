@@ -366,6 +366,32 @@ def test(core_binary, worker_binary, managed=False):
             assert not (base/'persistent/enabled.json').exists()
             assert not (base/'runtime/settings.json').exists()
             assert not Path('/run/credentials', name).exists()
+            if managed:
+                # The real Owner API must run an OFF-state probe through the
+                # actual fixed PID1 jobs/credentials/worker and stop itself.
+                # No ordinary switch/rule mutation is used to make this pass.
+                network()
+                view = rpc(EDGE, {'op': 'forwarding_rules', 'token': owner}, 2)
+                assert view['enabled'] is False and view['generation'] == 4
+                probe_id = str(uuid.uuid4())
+                probe = {'op': 'forwarding_quick_test', 'token': owner, 'expected_generation': 4,
+                    'request_id': probe_id, 'target_id': view['targets'][0]['id']}
+                admitted = rpc(EDGE, probe, 2)
+                assert admitted['accepted'] and admitted['quick_test']
+                def probe_closed():
+                    receipt = rpc(EDGE, {'op': 'forwarding_test_request', 'token': owner, 'request_id': probe_id}, 2)
+                    return receipt['known'] and receipt['receipt']['state'] == 'confirmed' and receipt['quick_active'] is False and receipt['automatic_stop_verified'] is True
+                fixture.wait_for(probe_closed, 20)
+                assert event_count() == 4
+                assert rpc(EDGE, probe, 2)['receipt']['state'] == 'confirmed'
+                time.sleep(.2)
+                assert event_count() == 4
+                assert report()['state'] == 'disabled' and report()['process_state_verified']
+                assert ctl('show', name, '--property=MainPID', '--value').stdout.strip() == '0'
+                assert not (base/'persistent/enabled.json').exists()
+                assert not (base/'runtime/settings.json').exists()
+                assert not Path('/run/credentials', name).exists()
+                assert rpc(EDGE, {'op': 'forwarding_rules', 'token': owner}, 2) == view
             for helper in helpers.values():
                 assert ctl('show', helper.name, '--property=MainPID', '--value').stdout.strip() == '0'
             ctl('reset-failed', name, check=False)
@@ -376,9 +402,9 @@ def test(core_binary, worker_binary, managed=False):
             assert report()['state'] == 'disabled'
             dc.send('stop')
             tc.send('stop')
-            assert dc.poll(2) and dc.recv()['dns_queries'] == (3 if managed else 2)
+            assert dc.poll(2) and dc.recv()['dns_queries'] == (4 if managed else 2)
             fixture.wait_for(lambda: fixture.drain_result(tc, events), 3)
-            assert next(v for v in events if 'http_requests' in v)['http_requests'] == (3 if managed else 2)
+            assert next(v for v in events if 'http_requests' in v)['http_requests'] == (4 if managed else 2)
             for server in started:
                 server.join(timeout=3)
                 assert server.exitcode == 0
@@ -428,7 +454,8 @@ def test(core_binary, worker_binary, managed=False):
         'retained_credentials_and_exact_configuration_receipt': managed,
         'temporary_polkit_rule_removed': managed,
         'synthetic_test_once_and_exact_receipt': managed,
-        'http_requests': 3 if managed else 2, 'extra_child_forcibly_reaped': True, 'off_startup_job_created_no_worker': True,
+        'http_requests': 4 if managed else 2, 'extra_child_forcibly_reaped': True, 'off_startup_job_created_no_worker': True,
+        'off_state_quick_probe_and_automatic_stop': managed,
         'credential_metadata_negative_cases': 3, 'credential_ipc_positive_control': True,
         'root_and_service_credentials_removed_on_off': True,
         'boot_oneshot_skipped_when_off': True, 'boot_reconcile_idempotent_when_on': True,

@@ -8,7 +8,7 @@ import { EventSync } from './event-sync.js';
 import { SmsManager, smsListText, smsDetailText } from './sms-management.js';
 import { DailyPhone } from './phone.js';
 import { SessionKeeper } from './session.js';
-import { ForwardingPanel, pendingInput as forwardingPendingInput } from './forwarding.js';
+import { ForwardingPanel, ForwardingQuickTest, pendingInput as forwardingPendingInput } from './forwarding.js';
 const $=id=>document.getElementById(id);
 const scopes=['status.read','sms.read','calls.read'];
 let key, publicKey, token=null, busy=false, pending=null, lease=null;
@@ -63,8 +63,8 @@ const forwardingPanel=new ForwardingPanel({document,request:command=>auth(comman
  loadPending:()=>stored('forwarding-pending'),savePending:(value,expected)=>atomicStored('forwarding-pending',saved=>{
   const current=forwardingPendingInput(saved);if((current?.id??null)!==expected)throw Error('转发保存记录已由另一页面更新');return value;
  }),archivePending:async value=>{
-  const epoch=viewEpoch,record=forwardingPendingInput({format:value.format,id:value.id,kind:value.kind,expected_generation:value.expected_generation,...(value.kind==='test'?{target_id:value.target_id}:{})});
-  if(value.applied_generation!==null&&(!Number.isSafeInteger(value.applied_generation)||(record.kind==='test'?value.applied_generation!==record.expected_generation:value.applied_generation<=record.expected_generation)))throw Error('转发回执无效');
+  const epoch=viewEpoch,record=forwardingPendingInput({format:value.format,id:value.id,kind:value.kind,expected_generation:value.expected_generation,...(['test','quick_test'].includes(value.kind)?{target_id:value.target_id}:{})});
+  if(value.applied_generation!==null&&(!Number.isSafeInteger(value.applied_generation)||(['test','quick_test'].includes(record.kind)?value.applied_generation!==record.expected_generation:value.applied_generation<=record.expected_generation)))throw Error('转发回执无效');
   await atomicStored('forwarding-config-receipts',saved=>{current(epoch);let receipts=saved||[];
   if(!Array.isArray(receipts)||receipts.length>64)throw Error('转发回执不可用');
   const previous=receipts.find(r=>r.id===record.id);if(previous?.applied_generation!==null&&previous?.applied_generation!==undefined&&value.applied_generation===null)return receipts;
@@ -72,6 +72,7 @@ const forwardingPanel=new ForwardingPanel({document,request:command=>auth(comman
   if(receipts.length>=64){const known=receipts.findIndex(r=>Number.isSafeInteger(r.applied_generation));if(known<0)throw Error('未确认回执已满，请使用维护入口导出处理');receipts.splice(known,1);}
   return [...receipts,{...record,applied_generation:value.applied_generation,uncertain:value.applied_generation===null}];});current(epoch);
  }});
+const forwardingQuick=new ForwardingQuickTest({login:()=>login(),request:command=>auth(command),loadPending:forwardingPanel.loadPending,savePending:forwardingPanel.savePending,archivePending:forwardingPanel.archivePending,notify:testMessage,crypto});
 async function api(command,epoch=viewEpoch){
  current(epoch);
  const id=crypto.randomUUID();const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),18000);requests.add(controller);
@@ -303,8 +304,9 @@ async function closeSms(){
 function showTestControls(){
  const running=testWorking||callTest.running,locked=busy||running;
  $('test-check').disabled=locked;$('test-sms').disabled=locked;
+ $('test-forwarding').disabled=locked;
  $('test-start').disabled=locked||!audioReady;$('test-incoming-start').disabled=locked||!audioReady;
- $('test-stop').disabled=!running;$('test-recover').disabled=locked||!pending;
+ $('test-stop').disabled=!running||testTask==='forwarding';$('test-recover').disabled=locked||!pending;
  $('test-recovery').hidden=!pending;
  $('test-pending-state').textContent=pending?'有一笔上次的操作需要核对。测试会先核对它；结果不明时会保留，不会重拨或重发。':'';
  $('test-copy').disabled=!testResult&&!pending;
@@ -385,7 +387,7 @@ async function runTestCenter(task){
 }
 async function copyTestResult(){
  const states=['prepared','submitting','submitted','cancelled','unknown'];
- const report={format:1,test:['check','recover','sms','outgoing','incoming'].includes(testTask)?testTask:null,result:testResult||'尚未测试',operation:pending?{type:['call','sms'].includes(pending.type)?pending.type:'other',action:['dial','accept','hangup','dtmf','send'].includes(pending.action)?pending.action:'other',operation_id:/^[0-9a-f-]{36}$/i.test(pending.id||'')?pending.id:null,state:states.includes(pending.state)?pending.state:'other',submit_started:pending.submit_started===true}:null};
+ const report={format:1,test:['check','recover','sms','outgoing','incoming','forwarding'].includes(testTask)?testTask:null,result:testResult||'尚未测试',operation:pending?{type:['call','sms'].includes(pending.type)?pending.type:'other',action:['dial','accept','hangup','dtmf','send'].includes(pending.action)?pending.action:'other',operation_id:/^[0-9a-f-]{36}$/i.test(pending.id||'')?pending.id:null,state:states.includes(pending.state)?pending.state:'other',submit_started:pending.submit_started===true}:null};
  const text=JSON.stringify(report,null,2);
  try{await navigator.clipboard.writeText(text);notice('测试结果已复制，直接粘贴发来即可。');}
  catch{$('test-report').value=text;$('test-report').hidden=false;notice('请选取首页结果框中的文字，复制发来即可。');}
@@ -428,6 +430,10 @@ $('audio-stop').onclick=()=>{void audioLink.stop();$('audio-state').textContent=
 $('audio-muted').onchange=()=>audioLink.mute($('audio-muted').checked);
 bind('audio-play',()=>audioLink.play());
 for(const [id,task] of [['test-check','check'],['test-start','outgoing'],['test-incoming-start','incoming'],['test-sms','sms'],['test-recover','recover']])bind(id,()=>runTestCenter(task));
+bind('test-forwarding',async()=>{
+ if(testWorking||callTest.running)return;if(lease){testMessage('请先结束当前通话或释放控制租约，再测试 Bark。');return;}testWorking=true;testTask='forwarding';showTestControls();
+ try{await forwardingQuick.run();}finally{testWorking=false;showTestControls();}
+});
 $('test-copy').onclick=()=>{void copyTestResult();};
 $('test-stop').onclick=()=>{testGeneration++;void callTest.stop();testMessage('已请求停止；尚未提交的动作不会继续。已提交的短信不能撤回，结果不明记录会保留。');};
 const audioPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{void callTest.stop(false);void audioLink.stop();$('audio-state').textContent='未连接声音';audioPreviousLogout();showAudio();};

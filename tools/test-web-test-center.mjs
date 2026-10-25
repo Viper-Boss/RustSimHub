@@ -5,7 +5,7 @@ import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import {webcrypto} from 'node:crypto';
 const forwardingModule=await readFile(new URL('../crates/edge/src/web/forwarding.js',import.meta.url));
-const {ForwardingPanel,pendingInput:forwardingPendingInput}=await import('data:text/javascript;base64,'+forwardingModule.toString('base64'));
+const {ForwardingPanel,ForwardingQuickTest,pendingInput:forwardingPendingInput}=await import('data:text/javascript;base64,'+forwardingModule.toString('base64'));
 const app=await readFile(new URL('../crates/edge/src/web/app.js',import.meta.url),'utf8');
 const bytes=await readFile(new URL('../crates/edge/src/web/sms-management.js',import.meta.url));
 const {SmsManager,smsListText,smsDetailText}=await import('data:text/javascript;base64,'+bytes.toString('base64'));
@@ -25,7 +25,7 @@ function fixture({respond,onPut,consent=true,loggedIn=true}={}){
  const $=name=>{if(!elements.has(name))elements.set(name,new Element());return elements.get(name);};
  const document={hidden:false,getElementById:$,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(){}};
  let state='submitted';
- const context={ForwardingPanel,forwardingPendingInput,document,crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},
+ const context={ForwardingPanel,ForwardingQuickTest,forwardingPendingInput,document,crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},
   indexedDB:{open:()=>({})},SmsManager,smsListText,smsDetailText,DailyPhone:class{constructor(){this.managing=false;this.working=false;}reset(){}start(){}},SessionKeeper:class{start(){}reset(){}async ensure(){}},
   AudioLink:class{constructor(){this.state='closed';}async stop(){}},
   ConfigurationIndicator:class{async set(){}},CallTest:class{constructor(options){this.options=options;this.running=false;}async start(mode){starts.push(mode);this.running=true;this.options.notify("synthetic running",true);this.running=false;this.options.notify("synthetic completed",false);}async stop(){this.running=false;}},archiveEndedOperation,navigator:{clipboard:{async writeText(text){copied.push(text);}}},NetworkPanel:class{start(){}stop(){}},EventSync:class{reset(){}},
@@ -47,8 +47,8 @@ const html=await readFile(new URL('../crates/edge/src/web/index.html',import.met
 const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]);
 assert.equal(new Set(ids).size,ids.length,'No duplicate IDs after moving existing controls');
 const center=html.slice(html.indexOf('<section id="test-center"'),html.indexOf('<details id="account-panel"'));
-assert.equal([...center.matchAll(/class="primary"/g)].length,4);
-for(const name of ['test-check','test-start','test-incoming-start','test-sms','test-stop','test-copy','test-recover'])assert.match(center,new RegExp('id="'+name+'"'));
+assert.equal([...center.matchAll(/class="primary"/g)].length,5);
+for(const name of ['test-check','test-start','test-incoming-start','test-sms','test-forwarding','test-stop','test-copy','test-recover'])assert.match(center,new RegExp('id="'+name+'"'));
 for(const name of ['phone-panel','sms-panel','account-panel'])assert.match(html,new RegExp('<details id="'+name+'">'));
 assert.equal((html.match(/<details[^>]*\sopen(?:>|\s)/g)||[]).length,1,'Only the nested composer is open inside its closed SMS panel');
 {
@@ -132,7 +132,7 @@ for(const stage of ['line_status','prepare_sms','marker']){
  assert.equal(f.saved.get('forwarding-config-receipts').length,2);f.logout();assert.equal(panel.targets.length,0);assert.equal(panel.pending,null);
  assert.equal(f.sent.filter(c=>c.op==='submit_sms'||c.op==='submit_call').length,0);
 }
-console.log('PASS: visible four-task center, collapsed panels, automatic login, exact no-retry recovery, safe result copy, one SMS submit, draft preservation, forwarding real app/IndexedDB wiring and stop/logout/storage races; synthetic only.');
+console.log('PASS: visible five-task center, collapsed panels, automatic login, exact no-retry recovery, safe result copy, one SMS submit, draft preservation, forwarding real app/IndexedDB wiring and stop/logout/storage races; synthetic only.');
 
 {
  const policy={enabled:true,generation:5,targets:[{id,kind:'webhook',credentials_redacted:true}],rules:[{id:other,targets:[id],sender_equals:null,body_contains:null,line:null,share:'notice'}]};
@@ -148,3 +148,28 @@ console.log('PASS: visible four-task center, collapsed panels, automatic login, 
  const record=f.saved.get('forwarding-config-receipts').at(-1);assert.equal(record.kind,'test');assert.equal(record.target_id,id);assert.equal(record.applied_generation,5);
  assert.equal(f.sent.filter(c=>c.op==='submit_sms'||c.op==='submit_call').length,0);
 }
+
+{
+ let admitted;
+ const f=fixture({loggedIn:false,respond:async c=>{
+  if(c.op==='forwarding_status')return {quick_test_api:true,service_management_api:true,enabled:false,state:'disabled',process_state_verified:true,quick_test_active:false,generation:1};
+  if(c.op==='forwarding_rules')return {enabled:false,generation:1,targets:[{id,kind:'bark',credentials_redacted:true}]};
+  if(c.op==='forwarding_quick_test'){
+   assert.equal(f.saved.get('forwarding-pending').id,c.request_id);admitted=c;
+   return {request_id:c.request_id,accepted:true,quick_test:true};
+  }
+  assert.equal(c.op,'forwarding_test_request');
+  return {request_id:c.request_id,known:true,quick_active:false,automatic_stop_verified:true,
+   receipt:{id:c.request_id,target_id:id,generation:1,synthetic:true,state:'confirmed'}};
+ }});f.mockLogin();
+ await f.$('test-forwarding').onclick();
+ assert.equal(f.loginCount(),1);assert.equal(f.sent.filter(c=>c.op==='forwarding_quick_test').length,1);
+ assert.equal(f.saved.get('forwarding-pending'),null);
+ const record=f.saved.get('forwarding-config-receipts').at(-1);
+ assert.equal(record.kind,'quick_test');assert.equal(record.id,admitted.request_id);assert.equal(record.applied_generation,1);
+ assert.match(f.$('test-state').textContent,/Bark 已确认.*自动关闭/);
+ assert.equal(f.$('test-forwarding').disabled,false);assert.equal(f.$('test-stop').disabled,true);
+ await f.$('test-copy').onclick();while(!f.copied.length)await turn();assert.equal(JSON.parse(f.copied[0]).test,'forwarding');
+ assert.ok(f.sent.every(c=>!['set_forwarding_enabled','forwarding_configure','submit_sms','submit_call'].includes(c.op)));
+}
+console.log('PASS: actual homepage Bark button, automatic Owner login, shared IndexedDB reservation, exact quick-test archive and copy result; no switch/config/SMS/call writes.');

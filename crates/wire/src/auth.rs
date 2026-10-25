@@ -45,6 +45,12 @@ pub enum AuthCommand {
         request_id: String,
         target_id: String,
     },
+    ForwardingQuickTest {
+        token: String,
+        expected_generation: u64,
+        request_id: String,
+        target_id: String,
+    },
     ForwardingTestRequest {
         token: String,
         request_id: String,
@@ -384,6 +390,12 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
             }
         }
         AuthCommand::ForwardingTest {
+            token,
+            expected_generation,
+            request_id,
+            target_id,
+        }
+        | AuthCommand::ForwardingQuickTest {
             token,
             expected_generation,
             request_id,

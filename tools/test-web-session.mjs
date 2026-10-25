@@ -5,7 +5,7 @@ import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
 import vm from 'node:vm';
 const forwardingModule=await readFile(new URL('../crates/edge/src/web/forwarding.js',import.meta.url));
-const {ForwardingPanel,pendingInput:forwardingPendingInput}=await import('data:text/javascript;base64,'+forwardingModule.toString('base64'));
+const {ForwardingPanel,ForwardingQuickTest,pendingInput:forwardingPendingInput}=await import('data:text/javascript;base64,'+forwardingModule.toString('base64'));
 if(!globalThis.crypto)Object.defineProperty(globalThis,'crypto',{value:webcrypto});
 async function module(name){const b=await readFile(new URL('../crates/edge/src/web/'+name,import.meta.url));return import('data:text/javascript;base64,'+b.toString('base64'));}
 const {SessionKeeper}=await module('session.js'),{DailyPhone}=await module('phone.js'),{prove,hex,unhex}=await module('proof.js');
@@ -44,7 +44,7 @@ async function appFixture({denied=false,wait=null,owner=false}={}){
  const c=clock(),elements=new Map(),sent=[];const $=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
  const document={getElementById:$,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(){}};
  let transcript;const audio={state:'active',stops:0,starts:0,context:{token,lease},async stop(){this.stops++;this.state='closed';},async start(){this.starts++;},updateAuthentication(old,next){assert.equal(this.context.token,old);this.context={...this.context,token:next};},mute(){},async play(){}};
- const context={ForwardingPanel,forwardingPendingInput,document,crypto:webcrypto,TextEncoder,TextDecoder,AbortController,AbortSignal,setTimeout:c.setTimeout,clearTimeout:c.clearTimeout,setInterval:c.setInterval,clearInterval:c.clearInterval,performance:c.performance,addEventListener(){},indexedDB:{open:()=>({})},DailyPhone,SessionKeeper,prove,hex,unhex,
+ const context={ForwardingPanel,ForwardingQuickTest,forwardingPendingInput,document,crypto:webcrypto,TextEncoder,TextDecoder,AbortController,AbortSignal,setTimeout:c.setTimeout,clearTimeout:c.clearTimeout,setInterval:c.setInterval,clearInterval:c.clearInterval,performance:c.performance,addEventListener(){},indexedDB:{open:()=>({})},DailyPhone,SessionKeeper,prove,hex,unhex,
   AudioLink:class{constructor(){return audio;}},ConfigurationIndicator:class{async set(){}},CallTest:class{async stop(){}},NetworkPanel:class{stop(){}start(){}},EventSync:class{reset(){}},SmsManager:class{reset(){}},
   fetch:async(_url,options)=>{
    const body=JSON.parse(options.body),command=body.command;sent.push(command);let result;

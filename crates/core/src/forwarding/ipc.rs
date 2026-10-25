@@ -136,7 +136,7 @@ impl Management {
         )?;
         Ok(true)
     }
-    fn retire(&mut self) {
+    pub(super) fn retire(&mut self) {
         if let Some(session) = self.worker.take() {
             if let (Some(q), Some(claim)) = (self.queue.as_mut(), session.claim) {
                 // Safe even after Owner revocation. This is ONLY an ambiguity

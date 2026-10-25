@@ -331,6 +331,133 @@ async fn default_off_can_be_verified_without_creating_an_outbox_or_forwarding_pr
         .await;
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
+
+#[tokio::test]
+async fn quick_probe_owns_start_and_cleanup_without_changing_the_saved_policy() {
+    let mut f = Fixture::new();
+    let (_server, calls, _directory) = managed(&mut f, Mode::Done).await;
+    f.request(f.configure(0, REQUEST, false)).await;
+    let before = calls.load(Ordering::SeqCst);
+    let target = {
+        let s = f.control.0.lock().unwrap();
+        s.queue.as_ref().unwrap().policy_view().unwrap().targets[0]
+            .id
+            .clone()
+    };
+    let command = || AuthCommand::ForwardingQuickTest {
+        token: token(&f),
+        expected_generation: 1,
+        request_id: CHANGE.into(),
+        target_id: target.clone(),
+    };
+    let accepted = f.request(command()).await;
+    assert_eq!(accepted["accepted"], true);
+    assert_eq!(accepted["receipt"]["state"], "in_flight");
+    let duplicate = f.request(command()).await;
+    // A concurrent Root snapshot may make the nonblocking Auth admission Busy;
+    // either result must leave the one durable receipt and one start intact.
+    assert!(
+        duplicate["accepted"] == true || duplicate["error"] == "denied",
+        "{duplicate}"
+    );
+    f.incoming("during-probe");
+    {
+        let a = f.auth.lock().unwrap();
+        let mut s = f.control.0.lock().unwrap();
+        let q = s.queue.as_mut().unwrap();
+        assert_eq!(q.capture_current(&a, &f.store.handle(), 1).unwrap(), 0);
+        let claim = q.claim_current(&a, &f.store.handle(), 1).unwrap().unwrap();
+        let binding = q.current_binding(&a).unwrap();
+        q.finish(&binding, &claim, rustsimhub_forwarder::State::Confirmed)
+            .unwrap();
+    }
+    let result = tokio::time::timeout(Duration::from_secs(8), async {
+        loop {
+            let r = f
+                .request(AuthCommand::ForwardingTestRequest {
+                    token: token(&f),
+                    request_id: CHANGE.into(),
+                })
+                .await;
+            if r["quick_active"] == false {
+                break r;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(result["receipt"]["state"], "confirmed");
+    assert_eq!(result["automatic_stop_verified"], true);
+    assert_eq!(calls.load(Ordering::SeqCst), before + 2);
+    let s = f.control.0.lock().unwrap();
+    let q = s.queue.as_ref().unwrap();
+    assert!(!q.status().unwrap().enabled);
+    assert_eq!(q.status().unwrap().generation, 1);
+    assert_eq!(q.receipts(0, 16).unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn failed_quick_start_still_retires_its_probe_and_never_claims_stop_success() {
+    for mode in [Mode::Failed, Mode::LostReply] {
+        let mut f = Fixture::new();
+        f.request(f.configure(0, REQUEST, false)).await;
+        let (_server, calls, _directory) = managed(&mut f, mode).await;
+        let target = f
+            .control
+            .0
+            .lock()
+            .unwrap()
+            .queue
+            .as_ref()
+            .unwrap()
+            .policy_view()
+            .unwrap()
+            .targets[0]
+            .id
+            .clone();
+        let r = f
+            .request(AuthCommand::ForwardingQuickTest {
+                token: token(&f),
+                expected_generation: 1,
+                request_id: CHANGE.into(),
+                target_id: target,
+            })
+            .await;
+        assert_eq!(r["accepted"], true);
+        let result = tokio::time::timeout(Duration::from_secs(8), async {
+            loop {
+                let r = f
+                    .request(AuthCommand::ForwardingTestRequest {
+                        token: token(&f),
+                        request_id: CHANGE.into(),
+                    })
+                    .await;
+                if r["quick_active"] == false {
+                    break r;
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(result["receipt"]["state"], "cancelled");
+        assert_eq!(result["automatic_stop_verified"], false);
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+        assert!(
+            !f.control
+                .0
+                .lock()
+                .unwrap()
+                .queue
+                .as_ref()
+                .unwrap()
+                .status()
+                .unwrap()
+                .enabled
+        );
+    }
+}
 #[test]
 fn root_report_metadata_and_all_binding_fields_are_checked() {
     let f = Fixture::new();

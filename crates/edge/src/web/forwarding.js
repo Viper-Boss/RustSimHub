@@ -4,6 +4,7 @@
 class FormError extends Error {}
 const uuid=s=>typeof s==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s);
 const generation=n=>Number.isSafeInteger(n)&&n>=0;
+const testKind=kind=>kind==='test'||kind==='quick_test';
 const kinds={webhook:'Webhook',bark:'Bark',telegram:'Telegram'};
 const states={queued:'排队中',in_flight:'递送中',confirmed:'已确认',failed:'失败',unknown:'结果不确定，不会自动重发',cancelled:'已取消'};
 function requireValue(ok,message='响应无效，请重新读取状态'){if(!ok)throw new FormError(message);}
@@ -50,10 +51,11 @@ export function policyInput(targets,rules,enabled){
 }
 export function pendingInput(value){
  if(value===null||value===undefined)return null;
- requireValue(value&&value.format===1&&uuid(value.id)&&['configure','enable','disable','test'].includes(value.kind)&&generation(value.expected_generation)&&Object.keys(value).every(k=>['format','id','kind','expected_generation','target_id'].includes(k))&&(value.kind==='test'?value.expected_generation>0&&uuid(value.target_id):!Object.hasOwn(value,'target_id')),'本机保存回执损坏，请保留记录并使用维护入口核对');
- return {format:1,id:value.id,kind:value.kind,expected_generation:value.expected_generation,...(value.kind==='test'?{target_id:value.target_id}:{})};
+ requireValue(value&&value.format===1&&uuid(value.id)&&['configure','enable','disable','test','quick_test'].includes(value.kind)&&generation(value.expected_generation)&&Object.keys(value).every(k=>['format','id','kind','expected_generation','target_id'].includes(k))&&(testKind(value.kind)?value.expected_generation>0&&uuid(value.target_id):!Object.hasOwn(value,'target_id')),'本机保存回执损坏，请保留记录并使用维护入口核对');
+ return {format:1,id:value.id,kind:value.kind,expected_generation:value.expected_generation,...(testKind(value.kind)?{target_id:value.target_id}:{})};
 }
 export function processText(s){
+ if(s?.quick_test_active===true)return '合成测试进行中；真实短信转发保持关闭';
  if(s?.process_state_verified===true&&s.enabled===false&&s.state==='disabled')return '转发进程已关闭';
  if(s?.process_state_verified===true&&s.enabled===true&&s.state==='running')return '转发服务运行中';
  if(s?.enabled===false)return '开关意图为关闭，进程尚未确认';
@@ -90,7 +92,7 @@ export class ForwardingPanel {
  }
  message(text){this.$('forwarding-state').textContent=text;}
  update(){
-  const blocked=this.busy||!this.ready||!!this.pending;
+  const blocked=this.busy||!this.ready||!!this.pending||this.sample?.quick_test_active===true;
   for(const card of this.cards)card.disabled=blocked;
   for(const id of ['forwarding-save','forwarding-toggle','forwarding-add-target','forwarding-add-rule'])this.$(id).disabled=blocked;
   this.$('forwarding-add-target').disabled=blocked||this.targets.length>=8;this.$('forwarding-add-rule').disabled=blocked||this.rules.length>=32;
@@ -208,7 +210,7 @@ export class ForwardingPanel {
  async query(g){
   this.current(g);
   requireValue(!!this.pending,'没有待核对的保存');const record=this.pending;
-  if(record.kind==='test'){await this.inspectTest(g,record,await this.request({op:'forwarding_test_request',request_id:record.id}));return;}
+  if(testKind(record.kind)){await this.inspectTest(g,record,await this.request({op:'forwarding_test_request',request_id:record.id}));return;}
   const result=await this.request({op:'forwarding_request',request_id:record.id});this.current(g);
   requireValue(result.request_id===record.id&&typeof result.known==='boolean'&&result.not_found_is_not_proof===true&&generation(result.current_generation));
   if(!result.known){this.message('没有找到这笔保存回执；记录可能未受理、已清理或来自恢复前。不会重提，记录继续保留。');return;}
@@ -253,5 +255,58 @@ export class ForwardingPanel {
   requireValue(Array.isArray(result.receipts)&&result.receipts.length<=16);const rows=[];let cursor=reset?'0':this.cursor;
   for(const r of result.receipts){requireValue(typeof r.seq==='string'&&/^(0|[1-9][0-9]{0,18})$/.test(r.seq)&&BigInt(r.seq)<=9223372036854775807n&&BigInt(r.seq)>BigInt(cursor)&&uuid(r.id)&&uuid(r.message_id)&&uuid(r.target_id)&&Object.hasOwn(states,r.state));cursor=r.seq;rows.push(this.element('p',`${r.synthetic===true?'合成测试':'短信'} ${r.message_id.slice(0,8)} → 目标 ${r.target_id.slice(0,8)} · ${states[r.state]}`));}
   if(reset)this.$('forwarding-receipts').replaceChildren();this.$('forwarding-receipts').append(...rows);this.cursor=cursor;this.more=result.receipts.length===16;this.message(rows.length?'已读取递送回执；不包含短信正文或目标凭据。':'暂时没有新的递送回执。');
+ }
+}
+
+// A single explicit button owns only the browser receipt. Core owns the finite
+// test window and its cleanup even when this page disappears or logs out.
+export class ForwardingQuickTest {
+ constructor({login,request,loadPending,savePending,archivePending,notify,crypto=globalThis.crypto,delay=()=>new Promise(resolve=>setTimeout(resolve,1000))}){
+  Object.assign(this,{login,request,loadPending,savePending,archivePending,notify,crypto,delay});this.busy=false;
+ }
+ async run(){
+  if(this.busy)return;this.busy=true;
+  try{
+   this.notify('正在自动登录并检查 Bark 目标…');await this.login();
+   let record=pendingInput(await this.loadPending());
+   if(record){requireValue(record.kind==='quick_test','有旧转发操作待核对；本次没有发送通知。');this.notify('正在核对上一次测试，不会重新发送…');}
+   else {
+    const s=await this.request({op:'forwarding_status'});
+    requireValue(s.quick_test_api===true&&s.service_management_api===true,'当前设备尚未支持一键转发测试，请等待新版部署。');
+    requireValue(s.enabled===false&&s.process_state_verified===true&&s.state==='disabled'&&s.quick_test_active===false,'转发尚未确认关闭，或另一测试正在运行；本次未发送。');
+    const v=await this.request({op:'forwarding_rules'});
+    requireValue(v.generation===s.generation&&v.enabled===false&&Array.isArray(v.targets),'配置已变化；本次未发送。');
+    const targets=v.targets.filter(t=>t.kind==='bark'&&t.credentials_redacted===true&&uuid(t.id));
+    requireValue(targets.length===1,'请先保存一个 Bark 目标；多个 Bark 目标需先选定，避免发错设备。');
+    record=pendingInput({format:1,id:this.crypto.randomUUID(),kind:'quick_test',expected_generation:s.generation,target_id:targets[0].id});
+    await this.savePending(record,null);
+    this.notify('正在临时准备 Bark 测试；不会开启真实短信转发…');
+    const r=await this.request({op:'forwarding_quick_test',request_id:record.id,expected_generation:record.expected_generation,target_id:record.target_id});
+    requireValue(r.accepted===true&&r.quick_test===true&&r.request_id===record.id,'测试受理结果未确认；回执已保留，不会重新发送。');
+   }
+   const deadline=Date.now()+65000;
+   for(let attempt=0;attempt<65&&Date.now()<deadline;attempt++){
+    const r=await this.request({op:'forwarding_test_request',request_id:record.id});
+    requireValue(r.request_id===record.id&&typeof r.known==='boolean','测试回执无效；不会重新发送。');
+    requireValue(r.known===true,'没有找到这笔测试回执；不代表未外发，记录已保留，不会重新发送。');
+    const receipt=r.receipt;
+    requireValue(receipt&&receipt.id===record.id&&receipt.target_id===record.target_id&&receipt.generation===record.expected_generation&&receipt.synthetic===true&&Object.hasOwn(states,receipt.state)&&typeof r.quick_active==='boolean','测试回执不匹配；不会重新发送。');
+    if(r.quick_active===false){
+     let closed=r.automatic_stop_verified===true;
+     if(!closed){const s=await this.request({op:'forwarding_status'});closed=s.quick_test_active===false&&s.enabled===false&&s.state==='disabled'&&s.process_state_verified===true;}
+     requireValue(closed,'测试已停止，但转发进程关闭尚未确认；回执已保留，请勿重复测试。');
+     if(['confirmed','failed','cancelled'].includes(receipt.state)){
+      await this.archivePending({...record,applied_generation:record.expected_generation,uncertain:false});
+      await this.savePending(null,record.id);
+      this.notify(receipt.state==='confirmed'?'测试完成：Bark 已确认，转发已自动关闭。请看手机是否收到“RustSimHub 合成测试”。':`测试${states[receipt.state]}；转发已自动关闭，不会自动重发。`);return;
+     }
+     this.notify('测试结果未确认；转发已关闭，回执已保留，不会自动重发。');return;
+    }
+    this.notify(receipt.state==='confirmed'?'Bark 已确认，正在自动关闭测试进程…':'正在发送并核对一次合成通知；结束后自动关闭…');
+    await this.delay();
+   }
+   this.notify('等待测试结果超时；回执已保留，不会重复发送。设备会按测试期限自动收尾。');
+  }catch(error){this.notify(error instanceof FormError?error.message:'测试未获确认；回执已保留，不会自动重发。已受理的设备测试会自动收尾。');}
+  finally{this.busy=false;}
  }
 }

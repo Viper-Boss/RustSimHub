@@ -15,6 +15,7 @@ use std::{
 
 type Result<T> = rustsimhub_auth::Result<T>;
 pub(crate) mod ipc;
+mod quick;
 mod service;
 fn denied<T>(result: rustsimhub_forwarder::Result<T>) -> Result<T> {
     result.map_err(|_| Error::Forbidden)
@@ -28,6 +29,8 @@ struct Management {
     reader: Handle,
     queue: Option<Queue>,
     worker: Option<ipc::Session>,
+    quick: Option<String>,
+    quick_stop: Option<(String, bool)>,
 }
 impl Controller {
     /// Does not create files, start a task, read SMS or touch an interface.
@@ -38,6 +41,8 @@ impl Controller {
                 reader,
                 queue: None,
                 worker: None,
+                quick: None,
+                quick_stop: None,
             })),
             None,
         )
@@ -55,6 +60,23 @@ impl Controller {
         Ok(self)
     }
     pub async fn request(&self, auth: Arc<Mutex<Auth>>, command: AuthCommand) -> Result<Value> {
+        if let AuthCommand::ForwardingQuickTest {
+            token,
+            expected_generation,
+            request_id,
+            target_id,
+        } = command
+        {
+            return quick::start(
+                self,
+                auth,
+                token,
+                expected_generation,
+                request_id,
+                target_id,
+            )
+            .await;
+        }
         if let Some(coordinator) = self.1.as_ref() {
             if let Some(action) = service::Action::from_command(&command) {
                 return coordinator.request(self, auth, command, action).await;
@@ -125,6 +147,8 @@ impl Management {
         value["retained_credentials_api"] = true.into();
         value["request_receipt_api"] = true.into();
         value["synthetic_test_api"] = true.into();
+        value["quick_test_api"] = false.into();
+        value["quick_test_active"] = self.quick.is_some().into();
         value["delivery_api"] = false.into();
         value["state"] = if value["enabled"] == true {
             "awaiting_service"
@@ -135,6 +159,17 @@ impl Management {
         Ok(value)
     }
     fn dispatch(&mut self, auth: &mut Auth, command: AuthCommand) -> Result<Value> {
+        if self.quick.is_some()
+            && matches!(
+                command,
+                AuthCommand::SetForwardingEnabled { .. }
+                    | AuthCommand::ForwardingConfigure { .. }
+                    | AuthCommand::ForwardingTest { .. }
+                    | AuthCommand::ForwardingPrune { .. }
+            )
+        {
+            return Err(Error::Busy);
+        }
         Ok(match command {
             AuthCommand::SetForwardingEnabled {
                 token,
@@ -222,7 +257,9 @@ impl Management {
                     None => None,
                 };
                 denied(b.check_current(auth))?;
-                json!({"request_id":request_id,"known":receipt.is_some(),"receipt":receipt,"not_found_is_not_proof":true})
+                json!({"request_id":request_id,"known":receipt.is_some(),"receipt":receipt,"not_found_is_not_proof":true,
+                    "quick_active":self.quick.as_deref()==Some(request_id.as_str()),
+                    "automatic_stop_verified":self.quick_stop.as_ref().filter(|(id,_)|id==&request_id).map(|(_,verified)|*verified)})
             }
             AuthCommand::ForwardingConfigure {
                 token,

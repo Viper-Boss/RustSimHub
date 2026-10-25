@@ -71,6 +71,137 @@ fn enabled() -> (TempDir, Queue) {
     (d, q)
 }
 
+fn probe() -> (TempDir, Queue, String) {
+    let (d, mut q) = queue();
+    let mut p = policy();
+    p.enabled = false;
+    q.configure(&binding(), 0, &id(), p, head(5)).unwrap();
+    let request = id();
+    q.begin_probe(&binding(), 1, &request, TARGET).unwrap();
+    (d, q, request)
+}
+
+#[test]
+fn probe_never_enables_saved_policy_or_ingests_real_sms() {
+    let (_d, mut q, request) = probe();
+    assert!(q.status().unwrap().enabled);
+    assert_eq!(
+        q.ingest(&binding(), 1, head(6), Some(&message())).unwrap(),
+        0
+    );
+    assert_eq!(q.event_cursor().unwrap().seq, "5");
+    let (enabled, encoded): (bool, String) = q
+        .conn
+        .query_row("SELECT enabled,policy FROM meta", [], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })
+        .unwrap();
+    assert!(!enabled);
+    assert!(!serde_json::from_str::<Policy>(&encoded).unwrap().enabled);
+    let receipt = q
+        .enqueue_test(&binding(), 1, &request, TARGET, LineEpoch(2))
+        .unwrap();
+    assert!(receipt.synthetic);
+    assert!(q
+        .enqueue_test(&binding(), 1, &id(), TARGET, LineEpoch(2))
+        .is_err());
+    assert!(q
+        .configure(&binding(), 1, &id(), policy(), head(6))
+        .is_err());
+    assert!(q.end_probe(&request).unwrap());
+    assert!(!q.status().unwrap().enabled);
+    assert_eq!(
+        q.test_receipt(&binding(), &request).unwrap().unwrap().state,
+        State::Cancelled
+    );
+}
+
+#[test]
+fn probe_cleanup_is_exact_and_preserves_unknown_after_submit() {
+    let (_d, mut q, request) = probe();
+    q.enqueue_test(&binding(), 1, &request, TARGET, LineEpoch(2))
+        .unwrap();
+    let claim = q.claim(&binding(), 1, LineEpoch(2)).unwrap().unwrap();
+    assert!(!q.end_probe(&id()).unwrap());
+    assert!(q.probe_active());
+    assert!(q.end_probe(&request).unwrap());
+    assert_eq!(
+        q.test_receipt(&binding(), &request).unwrap().unwrap().state,
+        State::Unknown
+    );
+    assert!(q.finish(&binding(), &claim, State::Confirmed).is_err());
+    assert!(q.begin_probe(&binding(), 1, &request, TARGET).is_err());
+    assert!(q.begin_probe(&binding(), 1, &id(), TARGET).is_err());
+}
+
+#[test]
+fn probe_has_a_fixed_deadline_and_no_renewal() {
+    let (_d, mut q, request) = probe();
+    q.enqueue_test(&binding(), 1, &request, TARGET, LineEpoch(2))
+        .unwrap();
+    q.probe.as_mut().unwrap().deadline = Instant::now() - Duration::from_millis(1);
+    assert!(!q.status().unwrap().enabled);
+    assert!(q.claim(&binding(), 1, LineEpoch(2)).is_err());
+    assert!(q.begin_probe(&binding(), 1, &id(), TARGET).is_err());
+    assert!(q.end_probe(&request).unwrap());
+}
+
+#[test]
+fn probe_revocation_does_not_depend_on_receipt_write_success() {
+    let (_d, mut q, request) = probe();
+    q.enqueue_test(&binding(), 1, &request, TARGET, LineEpoch(2))
+        .unwrap();
+    q.conn.execute_batch("PRAGMA query_only=ON").unwrap();
+    assert!(q.end_probe(&request).is_err());
+    assert!(!q.status().unwrap().enabled);
+    assert!(q.claim(&binding(), 1, LineEpoch(2)).is_err());
+    q.conn.execute_batch("PRAGMA query_only=OFF").unwrap();
+    assert!(q.end_probe(&request).unwrap());
+    assert_eq!(
+        q.test_receipt(&binding(), &request).unwrap().unwrap().state,
+        State::Cancelled
+    );
+}
+
+#[test]
+fn probe_is_not_resumed_after_core_restart() {
+    let (d, mut q, request) = probe();
+    q.enqueue_test(&binding(), 1, &request, TARGET, LineEpoch(2))
+        .unwrap();
+    drop(q);
+    let q = Queue::open(d.path(), binding()).unwrap();
+    assert!(!q.status().unwrap().enabled);
+    assert!(!q.probe_active());
+    assert_eq!(
+        q.test_receipt(&binding(), &request).unwrap().unwrap().state,
+        State::Unknown
+    );
+    assert_eq!(q.event_cursor().unwrap().seq, "5");
+}
+
+#[test]
+fn probe_rejects_an_enabled_service_stale_generation_or_binding() {
+    let (_d, mut q) = enabled();
+    assert!(q.begin_probe(&binding(), 1, &id(), TARGET).is_err());
+    q.configure(
+        &binding(),
+        1,
+        &id(),
+        Policy {
+            enabled: false,
+            ..policy()
+        },
+        head(5),
+    )
+    .unwrap();
+    assert!(q.begin_probe(&binding(), 1, &id(), TARGET).is_err());
+    let mut wrong = binding();
+    wrong.owner_generation += 1;
+    assert!(q.begin_probe(&wrong, 2, &id(), TARGET).is_err());
+    assert!(q.begin_probe(&binding(), 2, &id(), &id()).is_err());
+    assert!(!q.status().unwrap().enabled);
+}
+
 #[test]
 fn default_off_has_no_producer_read_and_cannot_claim() {
     let (_d, mut q) = queue();

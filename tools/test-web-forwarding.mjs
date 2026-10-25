@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
 const source=await readFile(new URL('../crates/edge/src/web/forwarding.js',import.meta.url));
-const {ForwardingPanel,policyInput,pendingInput,processText}=await import('data:text/javascript;base64,'+source.toString('base64'));
+const {ForwardingPanel,ForwardingQuickTest,policyInput,pendingInput,processText}=await import('data:text/javascript;base64,'+source.toString('base64'));
 const id='11111111-1111-4111-8111-111111111111',rule='22222222-2222-4222-8222-222222222222';
 const other='33333333-3333-4333-8333-333333333333';
 const secret='synthetic-only-credential',endpoint='https://example.invalid/notify?key='+secret;
@@ -159,3 +159,50 @@ for(const state of ['queued','unknown','failed','cancelled']){
 assert.throws(()=>pendingInput({format:1,id,kind:'test',expected_generation:1}));
 assert.throws(()=>pendingInput({format:1,id,kind:'configure',expected_generation:1,target_id:other}));
 console.log('PASS: explicit synthetic target, durable no-repeat marker, bounded receipt reads, confirmed/failed/unknown/timeout/lost replies and panel-close cancellation.');
+
+function quickFixture({state='confirmed',active=false,lost=false,saveFails=false,enabled=false,stop=true,readFails=false}={}){
+ let pending=null,accepted=false,logins=0;const calls=[],messages=[],archives=[],gate=deferred();
+ const status=()=>({quick_test_api:true,service_management_api:true,enabled,process_state_verified:true,state:enabled?'running':'disabled',quick_test_active:false,generation:1});
+ const quick=new ForwardingQuickTest({crypto:webcrypto,login:async()=>{logins++;},notify:s=>messages.push(s),delay:async()=>{await gate.promise;},
+  loadPending:async()=>clone(pending),savePending:async(value,expected)=>{assert.equal(pending?.id??null,expected);if(saveFails&&value)throw Error('storage failed');pending=clone(value);},archivePending:async value=>archives.push(clone(value)),
+  request:async c=>{
+   calls.push(clone(c));
+   if(c.op==='forwarding_status')return {...status(),...(stop?{}:{process_state_verified:false})};
+   if(c.op==='forwarding_rules')return {generation:1,enabled:false,targets:[{id,kind:'bark',credentials_redacted:true}]};
+   if(c.op==='forwarding_quick_test'){
+    assert.equal(pending.kind,'quick_test');assert.equal(pending.id,c.request_id);accepted=true;
+    if(lost)throw Error('lost admission reply');return {accepted:true,quick_test:true,request_id:c.request_id};
+   }
+   assert.equal(c.op,'forwarding_test_request');if(readFails)throw Error('logged out');
+   return {request_id:c.request_id,known:accepted,not_found_is_not_proof:true,quick_active:active,automatic_stop_verified:stop,
+    receipt:accepted?{id:c.request_id,target_id:id,generation:1,synthetic:true,state}:null};
+  }});
+ return {quick,calls,messages,archives,pending:()=>pending,gate,logins:()=>logins};
+}
+{
+ const f=quickFixture();await f.quick.run();assert.equal(f.logins(),1);assert.equal(f.pending(),null);assert.match(f.messages.at(-1),/Bark 已确认.*自动关闭/);
+ assert.equal(f.calls.filter(c=>c.op==='forwarding_quick_test').length,1);assert.equal(f.archives[0].kind,'quick_test');
+ assert.ok(f.calls.every(c=>!['set_forwarding_enabled','forwarding_configure','forwarding_test'].includes(c.op)));
+}
+for(const state of ['failed','cancelled','unknown']){
+ const f=quickFixture({state});await f.quick.run();assert.equal(!!f.pending(),state==='unknown');assert.match(f.messages.at(-1),/自动关闭|转发已关闭/);
+}
+{
+ const f=quickFixture({lost:true});await f.quick.run();assert.ok(f.pending());await f.quick.run();
+ assert.equal(f.calls.filter(c=>c.op==='forwarding_quick_test').length,1);assert.equal(f.pending(),null);assert.match(f.messages.at(-1),/已确认/);
+}
+{
+ const f=quickFixture({saveFails:true});await f.quick.run();assert.equal(f.calls.filter(c=>c.op==='forwarding_quick_test').length,0);
+}
+{
+ const f=quickFixture({enabled:true});await f.quick.run();assert.equal(f.calls.filter(c=>c.op==='forwarding_quick_test').length,0);assert.equal(f.pending(),null);
+}
+{
+ const f=quickFixture({readFails:true});await f.quick.run();assert.ok(f.pending());assert.equal(f.calls.filter(c=>c.op==='forwarding_quick_test').length,1);
+}
+{
+ const f=quickFixture({active:true});const run=f.quick.run();while(!f.messages.some(m=>m.includes('正在自动关闭')))await turn();
+ await f.quick.run();assert.equal(f.logins(),1);f.gate.resolve();await run;assert.ok(f.pending());assert.equal(f.calls.filter(c=>c.op==='forwarding_quick_test').length,1);assert.match(f.messages.at(-1),/超时/);
+}
+assert.match(html,/id="test-forwarding"/);
+console.log('PASS: one-click Bark admission, unchanged policy, metadata before submit, lost reply recovery without resubmission, terminal/Unknown/timeout/logout/storage failure and duplicate-click fences.');
