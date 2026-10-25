@@ -5,9 +5,9 @@ fn run() -> Result<(), rustsimhub_update::Error> {
     const SCHEMA: u32 = 6;
     use ed25519_dalek::{Signer, SigningKey};
     use rustsimhub_update::{
-        manifest_hash, signing_bytes,
+        application_files, manifest_hash, signing_bytes,
         store::{load_payloads, read_checked, write_new, Store},
-        verify, verify_payload, Entry, Error, Manifest, BOARD, FILES, MAX_MANIFEST, MAX_PAYLOAD,
+        verify, verify_payload, Entry, Error, Manifest, BOARD, MAX_MANIFEST, MAX_PAYLOAD,
     };
     use std::{fs, path::Path};
     use zeroize::Zeroizing;
@@ -15,7 +15,7 @@ fn run() -> Result<(), rustsimhub_update::Error> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            serde_json::json!({"source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"system_ota_supported":false,"boot_runtime_selection_supported":true,"database_schema":SCHEMA})
+            serde_json::json!({"source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"system_ota_supported":false,"boot_runtime_selection_supported":true,"forwarding_application_format_supported":true,"signed_application_formats":[1,2],"database_schema":SCHEMA})
         );
         return Ok(());
     }
@@ -57,18 +57,20 @@ fn run() -> Result<(), rustsimhub_update::Error> {
         }
     }
     if let [command, key, source, epoch, input, output] = args.as_slice() {
-        if command == "make" {
+        if command == "make" || command == "make-forwarding" {
+            let format = if command == "make-forwarding" { 2 } else { 1 };
+            let names = application_files(format)?;
             let seed = Zeroizing::new(read_checked(Path::new(key), 32)?);
             let seed: &[u8; 32] = seed.as_slice().try_into().map_err(|_| Error::Invalid)?;
             let signing = SigningKey::from_bytes(seed);
             let input = Path::new(input);
             let output = Path::new(output);
             let mut payloads = Vec::new();
-            for name in FILES {
+            for name in names {
                 payloads.push(read_checked(&input.join(name), MAX_PAYLOAD as usize)?);
             }
             let m = Manifest {
-                format: 1,
+                format,
                 kind: "application".into(),
                 board: BOARD.into(),
                 arch: "aarch64-linux".into(),
@@ -78,7 +80,7 @@ fn run() -> Result<(), rustsimhub_update::Error> {
                 schema_max: SCHEMA,
                 source_sha256: source.clone(),
                 development_fixtures: false,
-                files: FILES
+                files: names
                     .iter()
                     .zip(&payloads)
                     .map(|(name, b)| Entry {
@@ -100,7 +102,7 @@ fn run() -> Result<(), rustsimhub_update::Error> {
             verify_payload(&m, &payloads)?;
             write_new(&output.join("manifest.json"), &bytes, false)?;
             write_new(&output.join("manifest.sig"), &sig.to_bytes(), false)?;
-            for (name, payload) in FILES.into_iter().zip(payloads) {
+            for (name, payload) in names.iter().zip(payloads) {
                 write_new(&output.join(name), &payload, false)?;
             }
             fs::File::open(output)

@@ -10,6 +10,13 @@ import subprocess
 import tempfile
 
 FILES = ('rustsimhub-core','simhubctl','rustsimhub-edge','rustsimhub-audio-alsa','Opus-COPYING.txt')
+FORWARDING_FILES = (*FILES[:-1], 'rustsimhub-forwarder', FILES[-1])
+
+
+def application_files(format):
+    assert type(format) is int and format in (1, 2), 'Unsupported application format'
+    return FILES if format == 1 else FORWARDING_FILES
+
 
 
 def checked(path, limit):
@@ -34,20 +41,21 @@ def verify_package(directory, public_path, source, schema=5):
     assert re.fullmatch('[0-9a-f]{64}',source)
     m=json.loads(manifest,object_pairs_hook=unique_object)
     assert set(m)=={'format','kind','board','arch','epoch','schema_min','schema_max','source_sha256','development_fixtures','files'}
-    assert type(m['format']) is int and m['format']==1 and m['kind']=='application' and m['board']=='ufi003-v02' and m['arch']=='aarch64-linux'
+    names = application_files(m['format'])
+    assert m['kind']=='application' and m['board']=='ufi003-v02' and m['arch']=='aarch64-linux'
     assert type(m['epoch']) is int and 0<m['epoch']<2**64
     assert type(schema) is int and 0<=schema<2**32
     assert type(m['schema_min']) is int and type(m['schema_max']) is int and 0<=m['schema_min']<=schema<=m['schema_max']<2**32
     assert m['development_fixtures'] is False and m['source_sha256']==source
-    assert len(m['files'])==len(FILES)
+    assert len(m['files'])==len(names)
     total=0
-    for entry,name in zip(m['files'],FILES):
+    for entry,name in zip(m['files'],names):
         assert set(entry)=={'name','bytes','sha256'} and entry['name']==name
         data=checked(directory/name,24*1024*1024)
         assert type(entry['bytes']) is int and 0<len(data)==entry['bytes']
         assert hashlib.sha256(data).hexdigest()==entry['sha256']
         total+=len(data)
-        if name!=FILES[-1]:
+        if name!=names[-1]:
             assert len(data)>=64 and data[:7]==b'\x7fELF\x02\x01\x01'
             assert int.from_bytes(data[16:18],'little') in (2,3) and int.from_bytes(data[18:20],'little')==183
             assert int.from_bytes(data[52:54],'little')==64

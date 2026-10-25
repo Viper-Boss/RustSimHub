@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Root-owned application slots. Data and firmware partitions are outside this namespace.
 use crate::{
-    hex_digest, manifest_hash, verify, verify_payload, Error, Manifest, FILES, MAX_MANIFEST,
-    MAX_PAYLOAD,
+    application_files, hex_digest, manifest_hash, verify, verify_payload, Error, Manifest,
+    MAX_MANIFEST, MAX_PAYLOAD,
 };
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
@@ -251,11 +251,14 @@ impl Store {
         self.check_runtime_paths(runtime, payload_root)?;
         let selected = self.choose()?;
         let hash = selected.file_name().ok_or(Error::Invalid)?;
-        for name in FILES {
+        let manifest = read_checked(&selected.join("manifest.json"), MAX_MANIFEST)?;
+        let signature = read_checked(&selected.join("manifest.sig"), 64)?;
+        let m = verify(&manifest, &signature, &self.key, self.schema, 0)?;
+        for name in application_files(m.format)? {
             let path = selected.join(name);
             fs::set_permissions(
                 &path,
-                fs::Permissions::from_mode(if name == "Opus-COPYING.txt" {
+                fs::Permissions::from_mode(if *name == "Opus-COPYING.txt" {
                     0o444
                 } else {
                     0o555
@@ -346,8 +349,12 @@ impl Store {
         fs::set_permissions(&target, fs::Permissions::from_mode(0o700)).map_err(|_| Error::Io)?;
         write_new(&target.join("manifest.json"), manifest, false)?;
         write_new(&target.join("manifest.sig"), signature, false)?;
-        for (name, payload) in FILES.into_iter().zip(payloads) {
-            write_new(&target.join(name), payload, name != "Opus-COPYING.txt")?;
+        for (entry, payload) in m.files.iter().zip(payloads) {
+            write_new(
+                &target.join(&entry.name),
+                payload,
+                entry.name != "Opus-COPYING.txt",
+            )?;
         }
         sync_dir(&target)?;
         sync_dir(&self.root.join("versions"))?;
@@ -370,6 +377,27 @@ impl Store {
         let sig = read_checked(&path.join("manifest.sig"), 64)?;
         let m = verify(&manifest, &sig, &self.key, self.schema, 0)?;
         if m.epoch != v.epoch {
+            return Err(Error::Integrity);
+        }
+        let expected: std::collections::HashSet<&str> = m
+            .files
+            .iter()
+            .map(|e| e.name.as_str())
+            .chain(["manifest.json", "manifest.sig"])
+            .collect();
+        let mut count = 0;
+        for entry in fs::read_dir(&path).map_err(|_| Error::Io)? {
+            let entry = entry.map_err(|_| Error::Io)?;
+            if !entry
+                .file_name()
+                .to_str()
+                .is_some_and(|name| expected.contains(name))
+            {
+                return Err(Error::Integrity);
+            }
+            count += 1;
+        }
+        if count != expected.len() {
             return Err(Error::Integrity);
         }
         let payloads = load_payloads(&path, &m)?;
@@ -417,10 +445,14 @@ fn parse_state(bytes: &[u8]) -> Result<State, Error> {
     Ok(s)
 }
 pub fn load_payloads(directory: &Path, m: &Manifest) -> Result<Vec<Vec<u8>>, Error> {
+    let names = application_files(m.format)?;
+    if m.files.len() != names.len() {
+        return Err(Error::Invalid);
+    }
     let mut total = 0u64;
     let mut payloads = Vec::new();
-    for e in &m.files {
-        if !FILES.contains(&e.name.as_str()) || e.bytes > MAX_PAYLOAD {
+    for (e, name) in m.files.iter().zip(names) {
+        if e.name != *name || e.bytes == 0 || e.bytes > MAX_PAYLOAD {
             return Err(Error::Invalid);
         }
         total = total.checked_add(e.bytes).ok_or(Error::Invalid)?;
@@ -438,6 +470,7 @@ pub fn load_payloads(directory: &Path, m: &Manifest) -> Result<Vec<Vec<u8>>, Err
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::FILES;
     use ed25519_dalek::{Signer, SigningKey};
     fn package(epoch: u64) -> (Vec<u8>, [u8; 64], Vec<Vec<u8>>) {
         let (k, mut m, p) = crate::tests::fixture();
@@ -718,5 +751,67 @@ mod tests {
         );
         assert_eq!(fs::read(&target).unwrap(), b"do not overwrite");
         assert_eq!(fs::read(d.path().join("state.json")).unwrap(), before);
+    }
+    fn forwarding_package(epoch: u64) -> (Vec<u8>, [u8; 64], Vec<Vec<u8>>) {
+        let (key, mut m, p) = crate::tests::forwarding_fixture();
+        m.epoch = epoch;
+        let raw = serde_json::to_vec(&m).unwrap();
+        let sig = key.sign(&crate::signing_bytes(&raw).unwrap()).to_bytes();
+        (raw, sig, p)
+    }
+    #[test]
+    fn both_exact_groups_stage_select_fallback_and_confirm_without_partial_worker() {
+        let d = directory();
+        let runtime = directory();
+        let mut store = Store::open(d.path(), key(), 5).unwrap();
+        let (b, s, p) = package(1);
+        store.install_factory(&b, &s, &p).unwrap();
+        let (b, s, p) = forwarding_package(2);
+        let hash = store.stage(&b, &s, &p).unwrap();
+        let selected = store
+            .select_runtime(runtime.path(), &d.path().join("versions"))
+            .unwrap();
+        assert_eq!(selected.file_name().unwrap().to_str().unwrap(), hash);
+        assert_eq!(
+            fs::metadata(selected.join("rustsimhub-forwarder"))
+                .unwrap()
+                .mode()
+                & 0o777,
+            0o555
+        );
+        let fallback = store.choose().unwrap();
+        assert!(!fallback.join("rustsimhub-forwarder").exists());
+        assert_eq!(store.floor(), 2);
+        let (b, s, p) = forwarding_package(3);
+        let hash = store.stage(&b, &s, &p).unwrap();
+        store.choose().unwrap();
+        store.confirm(&hash).unwrap();
+        drop(store);
+        let mut store = Store::open(d.path(), key(), 5).unwrap();
+        assert!(store
+            .choose()
+            .unwrap()
+            .join("rustsimhub-forwarder")
+            .exists());
+    }
+    #[test]
+    fn tampered_worker_or_unsigned_extra_file_cannot_be_selected() {
+        let d = directory();
+        let mut store = Store::open(d.path(), key(), 5).unwrap();
+        let (b, s, p) = package(1);
+        let baseline = store.install_factory(&b, &s, &p).unwrap();
+        let (b, s, p) = forwarding_package(2);
+        let hash = store.stage(&b, &s, &p).unwrap();
+        fs::write(
+            d.path()
+                .join("versions")
+                .join(hash)
+                .join("rustsimhub-forwarder"),
+            b"corrupt worker",
+        )
+        .unwrap();
+        assert_eq!(store.choose().unwrap(), baseline);
+        fs::write(baseline.join("rustsimhub-forwarder"), &p[4]).unwrap();
+        assert_eq!(store.choose().err(), Some(Error::Integrity));
     }
 }

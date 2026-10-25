@@ -6,7 +6,7 @@
 
 | 编号 | 功能 | 交付形式 | 当前状态 |
 | --- | --- | --- | --- |
-| X1 | SmsForwarder同类短信转发 | ARM64 Linux原生Rust规则/队列/发送服务，网页开关与规则 | [规则/队列](VALIDATION-FORWARDER-OUTBOX-X1A.md)、[HTTPS](VALIDATION-FORWARDER-HTTPS-X1B.md)、[Core管理](VALIDATION-FORWARDING-CORE-X1C.md)及[实际Root/worker通道与主开关](VALIDATION-FORWARDING-WORKER-IPC-X1D.md)源码验证通过；[固定出口与独立worker](VALIDATION-FORWARDING-WORKER-PROCESS-X1E.md)也已通过416项Rust、真实进程DNS/TLS/停止及ARM64验证；[有限Root服务管理](VALIDATION-FORWARDING-SUPERVISOR-X1F.md)已通过419项Rust、真实systemd/低权限凭据/整组停止及ARM64，[Core有限协调](VALIDATION-FORWARDING-COORDINATION-X1G.md)已通过424项Rust及实际Owner/Core/DBus/polkit/PID1链路；[所有者配置页](VALIDATION-FORWARDING-OWNER-UI-X1H.md)已通过427项Rust、14组网页、实际保留凭据及回执链路；[一键合成测试](VALIDATION-FORWARDING-SYNTHETIC-X1I.md)也已通过433项Rust、实际单次HTTP/精确回执及ARM64；尚缺签名安装/真实浏览器与设备验收，未部署 |
+| X1 | SmsForwarder同类短信转发 | ARM64 Linux原生Rust规则/队列/发送服务，网页开关与规则 | [规则/队列](VALIDATION-FORWARDER-OUTBOX-X1A.md)、[HTTPS](VALIDATION-FORWARDER-HTTPS-X1B.md)、[Core管理](VALIDATION-FORWARDING-CORE-X1C.md)及[实际Root/worker通道与主开关](VALIDATION-FORWARDING-WORKER-IPC-X1D.md)源码验证通过；[固定出口与独立worker](VALIDATION-FORWARDING-WORKER-PROCESS-X1E.md)也已通过416项Rust、真实进程DNS/TLS/停止及ARM64验证；[有限Root服务管理](VALIDATION-FORWARDING-SUPERVISOR-X1F.md)已通过419项Rust、真实systemd/低权限凭据/整组停止及ARM64，[Core有限协调](VALIDATION-FORWARDING-COORDINATION-X1G.md)已通过424项Rust及实际Owner/Core/DBus/polkit/PID1链路；[所有者配置页](VALIDATION-FORWARDING-OWNER-UI-X1H.md)已通过427项Rust、14组网页、实际保留凭据及回执链路；[一键合成测试](VALIDATION-FORWARDING-SYNTHETIC-X1I.md)也已通过433项Rust、实际单次HTTP/精确回执及ARM64；[六文件签名组](VALIDATION-FORWARDING-SIGNED-GROUP-X1J.md)也已有436项Rust、实际CLI/打包/组合和ARM64更新器证据；仍缺一致性备份/数据回退、正式安装和真实浏览器/设备验收，未部署 |
 | X2 | NKNGuard远程接入 | 棒子原生受限服务，直连优先、NKN中继及已授权私有DHT | 待移植与实测 |
 | X3 | 通过NKN统计使用设备数 | 独立统计协议/密钥/主题，24小时、30天、90天展示 | 已定位参考源码，待开发 |
 

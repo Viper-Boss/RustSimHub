@@ -14,6 +14,23 @@ pub const FILES: [&str; 5] = [
     "rustsimhub-audio-alsa",
     "Opus-COPYING.txt",
 ];
+pub const FORWARDING_FILES: [&str; 6] = [
+    "rustsimhub-core",
+    "simhubctl",
+    "rustsimhub-edge",
+    "rustsimhub-audio-alsa",
+    "rustsimhub-forwarder",
+    "Opus-COPYING.txt",
+];
+/// Two exact signed payload sets; format 2 adds the native forwarder. The
+/// signature envelope/domain remains v1 and covers the exact format field.
+pub fn application_files(format: u16) -> Result<&'static [&'static str], Error> {
+    match format {
+        1 => Ok(&FILES),
+        2 => Ok(&FORWARDING_FILES),
+        _ => Err(Error::Invalid),
+    }
+}
 const DOMAIN: &[u8] = b"RustSimHub.AppManifest.v1\0";
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
@@ -81,8 +98,8 @@ pub fn verify(
     key.verify_strict(&signing, &signature)
         .map_err(|_| Error::Signature)?;
     let m: Manifest = serde_json::from_slice(manifest).map_err(|_| Error::Invalid)?;
-    if m.format != 1
-        || m.kind != "application"
+    let names = application_files(m.format)?;
+    if m.kind != "application"
         || m.arch != "aarch64-linux"
         || m.development_fixtures
         || m.epoch == 0
@@ -99,12 +116,12 @@ pub fn verify(
     if m.epoch <= floor {
         return Err(Error::Rollback);
     }
-    if m.files.len() != FILES.len() {
+    if m.files.len() != names.len() {
         return Err(Error::Invalid);
     }
     let mut total = 0u64;
-    for (e, name) in m.files.iter().zip(FILES) {
-        if e.name != name || e.bytes == 0 || e.bytes > MAX_PAYLOAD || !hex_digest(&e.sha256) {
+    for (e, name) in m.files.iter().zip(names) {
+        if e.name != *name || e.bytes == 0 || e.bytes > MAX_PAYLOAD || !hex_digest(&e.sha256) {
             return Err(Error::Invalid);
         }
         total = total.checked_add(e.bytes).ok_or(Error::Invalid)?;
@@ -115,7 +132,11 @@ pub fn verify(
     Ok(m)
 }
 pub fn verify_payload(m: &Manifest, payloads: &[Vec<u8>]) -> Result<(), Error> {
-    if payloads.len() != FILES.len() {
+    let names = application_files(m.format)?;
+    if payloads.len() != names.len()
+        || m.files.len() != names.len()
+        || m.files.iter().zip(names).any(|(e, n)| e.name != *n)
+    {
         return Err(Error::Integrity);
     }
     for (e, bytes) in m.files.iter().zip(payloads) {
@@ -244,5 +265,57 @@ mod tests {
             )
             .is_err());
         }
+    }
+    pub(crate) fn forwarding_fixture() -> (SigningKey, Manifest, Vec<Vec<u8>>) {
+        let (k, mut m, mut payloads) = fixture();
+        m.format = 2;
+        let worker = payloads[0].clone();
+        m.files.insert(
+            4,
+            Entry {
+                name: "rustsimhub-forwarder".into(),
+                bytes: worker.len() as u64,
+                sha256: hash_hex(&worker),
+            },
+        );
+        payloads.insert(4, worker);
+        (k, m, payloads)
+    }
+    #[test]
+    fn fixed_forwarding_group_is_signed_and_rejects_partial_cross_format_or_foreign_worker() {
+        let (key, m, payloads) = forwarding_fixture();
+        let sign = |m: &Manifest| {
+            let b = serde_json::to_vec(m).unwrap();
+            let sig = key.sign(&signing_bytes(&b).unwrap());
+            verify(&b, &sig.to_bytes(), &key.verifying_key().to_bytes(), 5, 0)
+        };
+        let valid = sign(&m).unwrap();
+        verify_payload(&valid, &payloads).unwrap();
+        let mut wrong = m.clone();
+        wrong.format = 1;
+        assert!(sign(&wrong).is_err());
+        let mut wrong = m.clone();
+        wrong.files.remove(4);
+        assert!(sign(&wrong).is_err());
+        let mut wrong = m.clone();
+        wrong.files.swap(3, 4);
+        assert!(sign(&wrong).is_err());
+        let mut wrong = m.clone();
+        wrong.files[4].name = "../rustsimhub-forwarder".into();
+        assert!(sign(&wrong).is_err());
+        let mut wrong = m.clone();
+        wrong.files[4].name = "rustsimhub-core".into();
+        assert!(sign(&wrong).is_err());
+        let mut partial = payloads.clone();
+        partial.remove(4);
+        assert!(verify_payload(&valid, &partial).is_err());
+        let mut foreign = payloads;
+        foreign[4][18] = 62;
+        let mut foreign_manifest = m;
+        foreign_manifest.files[4].sha256 = hash_hex(&foreign[4]);
+        assert_eq!(
+            verify_payload(&sign(&foreign_manifest).unwrap(), &foreign),
+            Err(Error::Board)
+        );
     }
 }

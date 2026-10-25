@@ -15,7 +15,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/rootfs/scripts'))
 import rootfs_tools as base_tools
-from application_package import verify_package, FILES as APP_FILES
+from application_package import verify_package, application_files, checked as application_checked
 import audio_modules
 
 NAMES = ('rustsimhub-core', 'simhubctl', 'rustsimhub-edge', 'rustsimhub-update',
@@ -57,6 +57,33 @@ def write_metadata(root, relative, value):
     target = destination(root, relative)
     target.write_text(json.dumps(value, indent=2)+'\n')
     target.chmod(0o644)
+
+
+def publish_application(root, signed, release, source, schema):
+    """Publish one verified fixed group into a fresh offline tree, then reverify.
+
+    This neither enables forwarding nor proves that its runtime/data can roll
+    back. The caller separately checks updater support before composition.
+    """
+    public = application_checked(release, 32)
+    app = verify_package(signed, release, source, schema=schema)
+    names = application_files(app['format'])
+    package = root/'usr/share/rustsimhub/factory-app'
+    assert not package.exists() and not package.is_symlink(), 'Factory application destination must be fresh'
+    for name in (*names, 'manifest.json', 'manifest.sig'):
+        target = destination(root, 'usr/share/rustsimhub/factory-app/'+name)
+        shutil.copyfile(signed/name, target)
+        os.chown(target, 0, 0)
+        target.chmod(0o555 if name in names[:-1] else 0o444)
+    target = destination(root, 'usr/share/rustsimhub/release.public')
+    assert not target.exists(), 'Release key destination must be fresh'
+    shutil.copyfile(release, target)
+    os.chown(target, 0, 0)
+    target.chmod(0o444)
+    assert application_checked(target, 32) == public, 'Release key changed during copy'
+    copied = verify_package(package, target, source, schema=schema)
+    assert copied == app, 'Signed package changed during copy'
+    return app
 
 
 def group_member(root, group, member):
@@ -117,13 +144,15 @@ def main():
         signed = args.signed_application.resolve(strict=True)
         release = args.release_public.resolve(strict=True)
         app = verify_package(signed,release,build['source_archive_sha256'],schema=build.get('database_schema',5))
-        for name in ('rustsimhub-core','simhubctl','rustsimhub-edge'):
+        for name in ('rustsimhub-core','simhubctl','rustsimhub-edge') + (('rustsimhub-forwarder',) if app['format']==2 else ()):
             assert base_tools.sha256_file(signed/name)==build['artifact_sha256'][name]
         updater = args.updater_artifacts.resolve(strict=True)
         verifier = json.loads((updater/'build.json').read_text())
         assert verifier.get('database_schema',5)==build.get('database_schema',5),'Updater and application schema contract differ'
         assert verifier['target']=='aarch64-unknown-linux-gnu' and verifier['development_fixtures'] is False
         assert verifier.get('boot_runtime_selection_supported') is True,'Updater lacks the boot group selection contract'
+        if app['format']==2:
+            assert verifier.get('forwarding_application_format_supported') is True,'Updater lacks fixed forwarding application support'
         assert verifier.get('local_installation_preparation_supported') is True,'Immutable Edge lacks atomic initialization'
         assert base_tools.sha256_file(updater/'rustsimhub-edge')==verifier['artifact_sha256']['rustsimhub-edge']
         assert base_tools.sha256_file(updater/'rustsimhub-update')==verifier['artifact_sha256']['rustsimhub-update']
@@ -206,11 +235,8 @@ def main():
             target.chmod(0o555)
         write_metadata(tree, slot+'/build.json', build)
         if startup:
-            for name in (*APP_FILES,'manifest.json','manifest.sig'):
-                target=destination(tree,'usr/share/rustsimhub/factory-app/'+name)
-                shutil.copyfile(signed/name,target);os.chown(target,0,0);target.chmod(0o555 if name in APP_FILES[:-1] else 0o444)
-            target=destination(tree,'usr/share/rustsimhub/release.public')
-            shutil.copyfile(release,target);os.chown(target,0,0);target.chmod(0o444)
+            published = publish_application(tree,signed,release,build['source_archive_sha256'],build.get('database_schema',5))
+            assert published == app
             for name,origin in [('rustsimhub-update',updater),('rustsimhub-migrate',artifacts)]:
                 target=destination(tree,'usr/libexec/rustsimhub/'+name)
                 shutil.copyfile(origin/name,target);os.chown(target,0,0);target.chmod(0o555)

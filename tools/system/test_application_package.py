@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-import hashlib,importlib.util,json,pathlib,shutil,subprocess,tempfile,unittest
+import hashlib,importlib.util,json,os,pathlib,shutil,subprocess,sys,tempfile,unittest
 spec=importlib.util.spec_from_file_location('application_package',pathlib.Path(__file__).resolve().parents[1]/'application_package.py')
 module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 
@@ -48,3 +48,46 @@ class ApplicationPackageTests(unittest.TestCase):
         self.source='a'*64
         target=self.package/module.FILES[0];target.rename(self.base/'outside');target.symlink_to(self.base/'outside')
         with self.assertRaises(OSError):self.verify()
+
+    def forwarding(self):
+        data=(self.package/module.FILES[0]).read_bytes();(self.package/'rustsimhub-forwarder').write_bytes(data)
+        self.manifest['format']=2
+        self.manifest['files'].insert(4,{'name':'rustsimhub-forwarder','bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()});self.sign()
+    def test_forwarding_exact_group_signature_worker_and_missing_file(self):
+        self.forwarding();self.assertEqual(self.verify()['format'],2)
+        worker=self.package/'rustsimhub-forwarder';worker.write_bytes(b'changed')
+        with self.assertRaises(AssertionError):self.verify()
+        worker.unlink()
+        with self.assertRaises(OSError):self.verify()
+    def test_forwarding_cross_format_reordering_and_foreign_worker(self):
+        self.forwarding();self.manifest['format']=1;self.sign()
+        with self.assertRaises(AssertionError):self.verify()
+        self.manifest['format']=2;self.manifest['files'][3],self.manifest['files'][4]=self.manifest['files'][4],self.manifest['files'][3];self.sign()
+        with self.assertRaises(AssertionError):self.verify()
+        self.manifest['files'][3],self.manifest['files'][4]=self.manifest['files'][4],self.manifest['files'][3]
+        worker=self.package/'rustsimhub-forwarder';data=bytearray(worker.read_bytes());data[18]=62;worker.write_bytes(data);self.manifest['files'][4]['sha256']=hashlib.sha256(data).hexdigest();self.sign()
+        with self.assertRaises(AssertionError):self.verify()
+
+    @unittest.skipUnless(hasattr(os,'geteuid') and os.geteuid()==0,'Root offline composition fixture')
+    def test_actual_composition_publishes_both_complete_fixed_groups_and_rejects_reuse(self):
+        sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]))
+        spec=importlib.util.spec_from_file_location('compose_signed_fixture',pathlib.Path(__file__).resolve().parents[1]/'compose-system-tree.py')
+        compose=importlib.util.module_from_spec(spec);spec.loader.exec_module(compose)
+        for format in (1,2):
+            if format==2:self.forwarding()
+            root=self.base/f'tree{format}';root.mkdir()
+            compose.publish_application(root,self.package,self.pub,self.source,5)
+            output=root/'usr/share/rustsimhub/factory-app'
+            self.assertEqual(set(p.name for p in output.iterdir()),set(module.application_files(format))|{'manifest.json','manifest.sig'})
+            for name in module.application_files(format):
+                self.assertEqual((output/name).stat().st_mode&0o777,0o444 if name=='Opus-COPYING.txt' else 0o555)
+            with self.assertRaises(AssertionError):compose.publish_application(root,self.package,self.pub,self.source,5)
+    @unittest.skipUnless(hasattr(os,'geteuid') and os.geteuid()==0,'Root offline composition fixture')
+    def test_composition_rejects_changed_worker_before_creating_factory_paths(self):
+        sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]))
+        spec=importlib.util.spec_from_file_location('compose_signed_reject',pathlib.Path(__file__).resolve().parents[1]/'compose-system-tree.py')
+        compose=importlib.util.module_from_spec(spec);spec.loader.exec_module(compose)
+        self.forwarding();(self.package/'rustsimhub-forwarder').write_bytes(b'changed')
+        root=self.base/'rejected-tree';root.mkdir()
+        with self.assertRaises(AssertionError):compose.publish_application(root,self.package,self.pub,self.source,5)
+        self.assertEqual(list(root.iterdir()),[])

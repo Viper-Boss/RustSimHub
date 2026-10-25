@@ -8,3 +8,5 @@
 - 根目录的持久`enabled.json`默认不存在。app.target候选drop-in仅请求boot oneshot；条件不满足时不执行进程，不创建转发timer/socket/path。
 
 安装前必须核验：服务用户/组无数字ID冲突；当前Core显式启用受限worker UID通道；Root私有持久目录、runtime目录、只读CA及固定接口选择均正确；systemd至少支持LoadCredential（247+）；签名应用组包含同源forwarder与兼容Core；所有启停/故障/完整关闭及设备冷启动验收已完成。缺任一项时拒绝安装，不能用测试夹具或旧Root启动器替代。
+
+2026-10-25：[固定六文件签名组](../../../docs/VALIDATION-FORWARDING-SIGNED-GROUP-X1J.md)已接入更新器、开发打包和离线组合并通过实际CLI验证；尚未生成冻结生产组或安装服务。文件组回退不能代替outbox格式/数据回退；安装前门禁继续保留。
