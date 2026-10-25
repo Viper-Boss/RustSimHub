@@ -25,3 +25,5 @@ Pages独立工作流只发布HTML、公开JSON和Markdown三个固定文件，�
 - 原两次手机溢出失败保留；检查定位到装饰透视层，修正宽度/标题换行后通过。实际截图已目视检查，任务详情可读、无横向溢出。公开README截图是有日期的看板快照，不冒充固件界面。
 
 私有UI记录`.local/progress-ui-20261025-third/result.json`及截图不承载设备资料；发布运行与线上文件摘要保存到后续私有检查点。看板没有完成任何额外电话/SMS/蜂窝数据/BLE或刷写验收；当前转发服务仍未安装，下一动作FWD-03。
+
+2026-10-25上线复核：源码b99a04ad40cbfb1e763d54572772cc2cb2742e10的[Pages运行40200607465](https://github.com/Viper-Boss/RustSimHub/actions/runs/40200607465) build/deploy均成功。[线上看板](https://viper-boss.github.io/RustSimHub/)的HTML、JSON和Markdown严格HTTPS均返回200，三文件逐字节匹配固定源码。首轮线上文件比较不一致的失败保留，再次独立读取一致；不以部署按钮成功代替实际站点核验。实际Windows副本上也运行了维护入口：锁/原子替换、HTML/MD重建及焦点推进通过，正式台账未被测试改变。
