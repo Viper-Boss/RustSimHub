@@ -314,7 +314,7 @@ export class ForwardingQuickTest {
      if(['confirmed','failed','cancelled'].includes(receipt.state)){
       await this.archivePending({...record,applied_generation:record.expected_generation,uncertain:false});
       await this.savePending(null,record.id);
-      this.notify(receipt.state==='confirmed'?(record.kind==='quick_test'?'测试完成：Bark 已确认，转发已自动关闭。请看手机是否收到“RustSimHub 合成测试”。':'上次合成测试已确认，转发已关闭；本次没有再次发送。'):`测试${states[receipt.state]}；转发已确认关闭，不会自动重发。`);return;
+      this.notify(receipt.state==='confirmed'?(record.kind==='quick_test'?'测试完成：Bark 已确认，转发已自动关闭。请看手机是否收到“RustSimHub 合成测试”。':'上次合成测试已确认，转发已关闭；本次没有再次发送。'):`测试${states[receipt.state]}；${record.kind==='quick_test'?'转发已自动关闭':'转发已确认关闭'}，不会自动重发。`);return;
      }
      this.notify('测试结果未确认；转发已关闭，回执已保留，不会自动重发。');return;
     }
