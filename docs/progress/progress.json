@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1-2026-10-25",
-  "updated_at": "2026-10-25T22:41:08.839871+00:00",
+  "updated_at": "2026-10-25T23:00:11.494010+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原80%仍按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "AP-02",
-    "title": "接通AP配置网页",
-    "state": "前置已完成，按所列条件继续推进",
-    "description": "提供SSID、加密方式、密码输入、试连/确认/取消及同处进度；隐藏复杂调试入口。 验收：一次只保留一个事务；刷新可查询，提交不自动重发。"
+    "task_id": "AP-03",
+    "title": "实现最终保存与回执",
+    "state": "正在推进",
+    "description": "为AP-02确认按钮补齐真实保存能力；继续Root确认请求/持久审计、已提交终态和Core最近Owner确认/查询。底层已实现，完整功能和实机未验收。"
   },
   "facts": [
     {
@@ -666,7 +666,7 @@
           "dependencies": [
             "AP-01"
           ],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -4298,6 +4298,28 @@
       "evidence": [
         "docs/VALIDATION-SETUP-AP-OWNER-TRIAL-P4M.md"
       ]
+    },
+    {
+      "at": "2026-10-25T23:00:11.229575+00:00",
+      "type": "state",
+      "title": "AP-03 · 状态更新：实现最终保存与回执",
+      "detail": "先补最终保存后端：显式提交事务、精确NM候选、分两步写盘与自动重连、checkpoint/AP清理。Root/Core确认槽、持久审计、网页与实机仍缺，本动作继续进行，不计完成。",
+      "task_ids": [
+        "AP-03"
+      ],
+      "evidence": [
+        "docs/VALIDATION-SETUP-AP-COMMIT-BACKEND-P4N.md"
+      ]
+    },
+    {
+      "at": "2026-10-25T23:00:11.494010+00:00",
+      "type": "state",
+      "title": "AP-03 · 下一关卡：实现最终保存与回执",
+      "detail": "为AP-02确认按钮补齐真实保存能力；继续Root确认请求/持久审计、已提交终态和Core最近Owner确认/查询。底层已实现，完整功能和实机未验收。",
+      "task_ids": [
+        "AP-03"
+      ],
+      "evidence": []
     }
   ]
 }

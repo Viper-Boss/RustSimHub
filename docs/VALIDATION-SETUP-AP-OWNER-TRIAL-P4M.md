@@ -36,7 +36,7 @@ Wire 增加三个有限命令，沿用已认证 Core 分派路径：
 
 第一次故障注入测试在读取夹具 Hint 时提前遇到模拟权限错误，并未测到目标发布路径。已改为在权限变化前捕获父 ID，第二轮通过；随后增加采样下界、活动期限与两项事务隔离检查，第三轮 459 项和严格检查全部通过。三轮原日志均保留在私有目录，不覆盖失败记录。
 
-固定源码 643 文件归档逐字节与 Git 核对，SHA-256 为 `aed623a485907407beaff87af96623fcf9bfc01f820f3492439dc6fa05d78589`。归档源码的生产 Core/setup-ap 两程序 ARM64 release 构建通过，ELF 均为 AArch64、GLIBC 需求不超过设备边界。QEMU 实际 Core 元数据确认相同归档摘要、schema6、开发夹具关闭；setup-ap 无效命令有界拒绝。未调用无线服务入口。精确源码的 [CI40241225479](https://github.com/Viper-Boss/RustSimHub/actions/runs/40241225479)已启动，最终结论另行核对。
+固定源码 643 文件归档逐字节与 Git 核对，SHA-256 为 `aed623a485907407beaff87af96623fcf9bfc01f820f3492439dc6fa05d78589`。归档源码的生产 Core/setup-ap 两程序 ARM64 release 构建通过，ELF 均为 AArch64、GLIBC 需求不超过设备边界。QEMU 实际 Core 元数据确认相同归档摘要、schema6、开发夹具关闭；setup-ap 无效命令有界拒绝。未调用无线服务入口。精确源码的 [CI40241225479](https://github.com/Viper-Boss/RustSimHub/actions/runs/40241225479)两个任务均 success，已在后续轮次核对；不据此推定后续保存事务也已通过 CI。
 
 尚未验收：真实 Core socket 到 Root 无线操作联调、AP 配置网页、最终持久保存、首次 Owner 认领后接管 bootstrap AP、联合签名安装、硬件错误密码/回退/冷启动。AP-02、AP-03、AP-05、AP-06 及后续实机动作继续独立跟踪。当前部署仍为已确认 epoch48；普通蜂窝数据关闭，无新短信、电话、分区或关机试验。
 
