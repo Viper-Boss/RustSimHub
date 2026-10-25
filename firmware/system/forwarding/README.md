@@ -9,7 +9,7 @@
 
 安装前必须核验服务用户/组无数字ID冲突、备份可回读、签名应用已确认且兼容管理参数、目录与只读CA及固定接口选择正确、systemd支持LoadCredential（247+）。安装后仍需真实默认OFF、启停/故障/完整关闭及设备冷启动验收；不能用测试夹具或旧Root启动器代替。
 
-2026-10-25：[X1L](../../../docs/VALIDATION-FORWARDING-DEVICE-X1L.md)已将冻结六文件应用组部署并确认epoch47，原Owner及短信保持；不代表Root服务安装。[X1M安装器](../../../docs/VALIDATION-FORWARDING-INSTALLER-X1M.md)新增固定材料生成器和`install.sh`，13项本机测试通过；实际安装结果按后续设备记录判定。
+2026-10-25：[X1L](../../../docs/VALIDATION-FORWARDING-DEVICE-X1L.md)已将冻结六文件应用组部署并确认epoch47，原Owner及短信保持；不代表Root服务安装。[X1M安装器](../../../docs/VALIDATION-FORWARDING-INSTALLER-X1M.md)新增固定材料生成器和`install.sh`，14项本机测试通过，包含实际Windows清单字节测试；实际安装结果按后续设备记录判定。
 
 维护电脑使用`tools/system/forwarding_install.py --inventory 私有清单 --backup 已验证归档 --output 新的绝对目录`生成包。复制到棒子Root独占0700目录，各文件0600后，使用`sh 包目录/apply.sh 包目录 --check`只读检查。停止应用组并设好有限恢复动作后才执行`--apply`。首次安装拒绝所有已有目的地，不能拿它覆盖升级或自动修复半安装账户。
 

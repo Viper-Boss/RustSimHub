@@ -125,7 +125,9 @@ def create_bundle(inventory, output, backup):
     for name, data in payloads.items():
         (output / name).write_bytes(data)
         (output / name).chmod(0o600)
-    (output / 'SHA256SUMS').write_text(''.join(sha(data) + '  ' + name + '\n' for name, data in sorted(payloads.items())), encoding='ascii')
+    # Windows is a supported maintenance host. Never let host text I/O turn
+    # the POSIX checksum filename delimiter into a trailing carriage return.
+    (output / 'SHA256SUMS').write_bytes(''.join(sha(data) + '  ' + name + '\n' for name, data in sorted(payloads.items())).encode('ascii'))
     (output / 'SHA256SUMS').chmod(0o600)
     return plan
 

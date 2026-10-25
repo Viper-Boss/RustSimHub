@@ -83,6 +83,17 @@ class AdmissionTests(unittest.TestCase):
 
 
 class BundleTests(unittest.TestCase):
+    def test_checksum_file_is_posix_bytes_on_actual_host(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);backup=root/'backup';backup.write_bytes(b'synthetic coherent backup')
+            output=root/'bundle';module.create_bundle(inventory(),output,backup)
+            raw=(output/'SHA256SUMS').read_bytes()
+            self.assertNotIn(b'\r',raw)
+            self.assertEqual(raw.count(b'\n'),18)
+            for line in raw.split(b'\n')[:-1]:
+                name=line[66:].decode('ascii');self.assertTrue((output/name).is_file())
+                self.assertEqual(module.sha((output/name).read_bytes()).encode('ascii'),line[:64])
+
     def test_actual_bundle_checksums_paths_and_shell_syntax(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);backup=root/'backup';backup.write_bytes(b'synthetic coherent backup')
