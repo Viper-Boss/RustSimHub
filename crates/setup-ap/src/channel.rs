@@ -140,6 +140,11 @@ pub struct Availability {
     pub sample_uptime_ms: u64,
     pub tls_origin_ready: bool,
     pub gate_ready: bool,
+    #[serde(default, skip_serializing_if = "unsupported")]
+    pub station_trial_supported: bool,
+}
+fn unsupported(value: &bool) -> bool {
+    !*value
 }
 impl Availability {
     pub fn validate(&self, now: u64, boot: &str, realm: &str, key: &str) -> Result<()> {

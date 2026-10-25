@@ -158,6 +158,7 @@ impl Status {
     pub fn validate(&self, now: u64) -> Result<()> {
         if self.format != 1
             || !self.intent.valid()
+            || self.sample_uptime_ms < self.intent.requested_uptime_ms
             || self.sample_uptime_ms > now
             || now.saturating_sub(self.sample_uptime_ms) > HEARTBEAT_MS
             || self.ap_https_verified != matches!(self.phase, Phase::Ready | Phase::Failed)

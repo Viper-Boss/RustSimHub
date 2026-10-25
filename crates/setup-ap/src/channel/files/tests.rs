@@ -35,6 +35,29 @@ fn fixed_slots_reject_links_weak_metadata_and_oversized_files() {
     fs::hard_link(&path, d.path().join("second")).unwrap();
     assert!(v.read(Slot::Hint).is_err());
 }
+
+#[test]
+fn fixed_slot_cleanup_refuses_links_and_does_not_touch_other_slots() {
+    let (d, v) = dir(0o2750);
+    v.publish(Slot::Hint, &super::super::tests::start())
+        .unwrap();
+    v.publish(
+        Slot::StationRequest,
+        &serde_json::json!({"synthetic":"private"}),
+    )
+    .unwrap();
+    v.clear(Slot::StationRequest).unwrap();
+    assert!(v.read(Slot::StationRequest).unwrap().is_none());
+    assert!(v.read(Slot::Hint).unwrap().is_some());
+    v.clear(Slot::StationRequest).unwrap();
+    std::os::unix::fs::symlink(
+        d.path().join("hint.json"),
+        d.path().join("station-request.json"),
+    )
+    .unwrap();
+    assert!(v.clear(Slot::StationRequest).is_err());
+    assert!(v.read(Slot::Hint).unwrap().is_some());
+}
 #[test]
 fn root_journal_persists_unknown_and_never_replays_consumed_operations() {
     let (d, v) = dir(0o700);

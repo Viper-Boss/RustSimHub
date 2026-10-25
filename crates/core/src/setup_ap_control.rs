@@ -22,6 +22,7 @@ use std::{
 };
 use tokio::sync::OwnedRwLockWriteGuard;
 mod bootstrap;
+mod station;
 type Result<T> = rustsimhub_auth::Result<T>;
 static RUNTIME: OnceLock<Arc<Runtime>> = OnceLock::new();
 fn denied<T>(v: rustsimhub_setup_ap::Result<T>) -> Result<T> {
@@ -90,6 +91,9 @@ struct Session {
     root_sequence: u64,
     cancelled: bool,
     permit: Option<OwnedRwLockWriteGuard<()>>,
+    station_supported: bool,
+    trial: Option<station::Trial>,
+    station_count: usize,
 }
 struct Context {
     principal: Principal,
@@ -177,6 +181,7 @@ impl Runtime {
         {
             return Err(Error::Forbidden);
         }
+        let trial = station::recover(&input, &journal, record.as_ref())?;
         let session = record
             .map(|record| -> Result<Session> {
                 let permit = coordination.network().map_err(|_| Error::Busy)?;
@@ -189,6 +194,9 @@ impl Runtime {
                     root_sequence: 0,
                     cancelled: true,
                     permit: Some(permit),
+                    station_supported: false,
+                    trial,
+                    station_count: 0,
                 })
             })
             .transpose()?;
@@ -209,6 +217,7 @@ impl Runtime {
         {
             let mut recovered = runtime.session.try_lock().map_err(|_| Error::Busy)?;
             if let Some(s) = recovered.as_mut() {
+                runtime.station_recover(s)?;
                 runtime.publish_cancel(s)?;
                 s.phase = State::Unknown;
             }
@@ -259,14 +268,17 @@ impl Runtime {
             if s.record.owner != Owner::from(&c.principal) {
                 return Err(Error::Forbidden);
             }
-            return Ok(Self::view(s));
+            let mut view = Self::view(s);
+            view["station_trial_api"] =
+                (s.station_supported && !s.cancelled && s.phase == State::Ready).into();
+            return Ok(view);
         }
         drop(active);
         if let Some(view) = self.bootstrap.view()? {
             return Ok(view);
         }
         Ok(
-            json!({"available":self.availability(&c).is_ok(),"state":"idle","credentials_returned":false,"cellular_activation":false}),
+            json!({"available":self.availability(&c).is_ok(),"station_trial_api":self.availability(&c).is_ok_and(|v|v.station_trial_supported),"state":"idle","credentials_returned":false,"cellular_activation":false}),
         )
     }
     async fn start(
@@ -310,6 +322,15 @@ impl Runtime {
             return Err(Error::Forbidden);
         }
         let available = self.availability(&after)?;
+        if self
+            .input
+            .read(Slot::StationRequest)
+            .map_err(|_| Error::Forbidden)?
+            .is_some()
+            || station::pending(&self.journal)?.is_some()
+        {
+            return Err(Error::Busy);
+        }
         let time = now()?;
         let binding = Binding {
             request_id: request_id()?,
@@ -362,6 +383,9 @@ impl Runtime {
             root_sequence: 0,
             cancelled: false,
             permit: Some(permit),
+            station_supported: available.station_trial_supported,
+            trial: None,
+            station_count: 0,
         });
         let published = denied(self.input.publish(Slot::Hint, &hint));
         let s = active.as_mut().ok_or(Error::Io)?;
@@ -437,6 +461,7 @@ impl Runtime {
                 &serde_json::to_vec(status).map_err(|_| Error::InvalidInput)?,
             )?;
         }
+        self.station_parent_closed(s)?;
         fs::remove_file(self.journal.join("pending.json")).map_err(|_| Error::Io)?;
         fs::File::open(&self.journal)
             .and_then(|d| d.sync_all())
@@ -517,6 +542,7 @@ impl Runtime {
         if s.phase == State::Closed {
             return Ok(());
         }
+        self.station_tick(s, time)?;
         if !allowed || s.cancelled || time >= s.record.binding.deadline_uptime_ms {
             if !s.cancelled {
                 s.cancelled = true;
@@ -623,10 +649,13 @@ pub(crate) async fn authorized(
     command: AuthCommand,
 ) -> Result<Value> {
     let (token, recent) = match &command {
-        AuthCommand::SetupApStatus { token } => (token.clone(), false),
-        AuthCommand::SetupApStart { token, .. } | AuthCommand::SetupApCancel { token, .. } => {
-            (token.clone(), true)
+        AuthCommand::SetupApStatus { token } | AuthCommand::SetupApWifiStatus { token, .. } => {
+            (token.clone(), false)
         }
+        AuthCommand::SetupApStart { token, .. }
+        | AuthCommand::SetupApCancel { token, .. }
+        | AuthCommand::SetupApWifiBegin { token, .. }
+        | AuthCommand::SetupApWifiCancel { token, .. } => (token.clone(), true),
         _ => return Err(Error::InvalidInput),
     };
     owner(auth.clone(), token, recent).await?;
@@ -651,6 +680,43 @@ pub(crate) async fn authorized(
             token,
             operation_id,
         } => runtime.cancel(auth, token, operation_id).await,
+        AuthCommand::SetupApWifiBegin {
+            token,
+            operation_id,
+            trial_id,
+            ssid,
+            passphrase,
+        } => {
+            runtime
+                .station_begin(
+                    auth,
+                    token,
+                    operation_id,
+                    trial_id,
+                    ssid,
+                    zeroize::Zeroizing::new(passphrase),
+                    &Calls(calls),
+                )
+                .await
+        }
+        AuthCommand::SetupApWifiStatus {
+            token,
+            operation_id,
+            trial_id,
+        } => {
+            runtime
+                .station_status(auth, token, operation_id, trial_id)
+                .await
+        }
+        AuthCommand::SetupApWifiCancel {
+            token,
+            operation_id,
+            trial_id,
+        } => {
+            runtime
+                .station_cancel(auth, token, operation_id, trial_id)
+                .await
+        }
         _ => Err(Error::InvalidInput),
     }
 }

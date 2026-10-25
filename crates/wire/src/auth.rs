@@ -153,6 +153,23 @@ pub enum AuthCommand {
         token: String,
         operation_id: String,
     },
+    SetupApWifiBegin {
+        token: String,
+        operation_id: String,
+        trial_id: String,
+        ssid: String,
+        passphrase: String,
+    },
+    SetupApWifiStatus {
+        token: String,
+        operation_id: String,
+        trial_id: String,
+    },
+    SetupApWifiCancel {
+        token: String,
+        operation_id: String,
+        trial_id: String,
+    },
     NetworkDiagnostics {
         token: String,
     },
@@ -664,6 +681,35 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 return Err(invalid());
             }
         }
+        AuthCommand::SetupApWifiBegin {
+            token,
+            operation_id,
+            trial_id,
+            ssid,
+            passphrase,
+        } => {
+            if token.len() != 64
+                || !canonical_uuid(operation_id)
+                || !canonical_uuid(trial_id)
+                || !crate::wifi_credentials_valid(ssid, passphrase)
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::SetupApWifiStatus {
+            token,
+            operation_id,
+            trial_id,
+        }
+        | AuthCommand::SetupApWifiCancel {
+            token,
+            operation_id,
+            trial_id,
+        } => {
+            if token.len() != 64 || !canonical_uuid(operation_id) || !canonical_uuid(trial_id) {
+                return Err(invalid());
+            }
+        }
         AuthCommand::WifiBegin {
             token,
             idempotency_key,
@@ -1113,5 +1159,35 @@ mod tests {
             br#"{"protocol":2,"id":"n","command":{"op":"network_diagnostics"}}"#
         )
         .is_err());
+    }
+
+    #[test]
+    fn ap_station_commands_bind_canonical_ids_and_cannot_supply_root_authority() {
+        let valid = serde_json::json!({"protocol":2,"id":"ap-station","command":{"op":"setup_ap_wifi_begin","token":"a".repeat(64),"operation_id":"11111111-1111-4111-8111-111111111111","trial_id":"22222222-2222-4222-8222-222222222222","ssid":"synthetic","passphrase":"synthetic-password"}});
+        assert!(parse_auth_request(&serde_json::to_vec(&valid).unwrap()).is_ok());
+        for (key, value) in [
+            ("operation_id", serde_json::json!("../pending")),
+            ("trial_id", serde_json::json!("not-a-uuid")),
+            ("ssid", serde_json::json!("中".repeat(11))),
+            ("passphrase", serde_json::json!("short")),
+            ("token", serde_json::json!("")),
+            ("owner_generation", serde_json::json!(1)),
+            ("interface", serde_json::json!("wwan0")),
+            ("settings", serde_json::json!({"apn":"injected"})),
+            ("path", serde_json::json!("/etc/passwd")),
+        ] {
+            let mut bad = valid.clone();
+            bad["command"][key] = value;
+            assert!(parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
+        }
+        for op in ["setup_ap_wifi_status", "setup_ap_wifi_cancel"] {
+            let mut c = valid.clone();
+            c["command"].as_object_mut().unwrap().remove("ssid");
+            c["command"].as_object_mut().unwrap().remove("passphrase");
+            c["command"]["op"] = op.into();
+            assert!(parse_auth_request(&serde_json::to_vec(&c).unwrap()).is_ok());
+            c["command"]["trial_id"] = "../other".into();
+            assert!(parse_auth_request(&serde_json::to_vec(&c).unwrap()).is_err());
+        }
     }
 }

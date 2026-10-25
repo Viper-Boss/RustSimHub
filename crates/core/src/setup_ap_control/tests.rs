@@ -10,11 +10,11 @@ fn directory(mode: u32) -> tempfile::TempDir {
     fs::set_permissions(d.path(), fs::Permissions::from_mode(mode)).unwrap();
     d
 }
-struct Fixture {
-    runtime: Runtime,
-    auth: Arc<Mutex<Auth>>,
-    token: String,
-    dirs: Vec<tempfile::TempDir>,
+pub(super) struct Fixture {
+    pub(super) runtime: Runtime,
+    pub(super) auth: Arc<Mutex<Auth>>,
+    pub(super) token: String,
+    pub(super) dirs: Vec<tempfile::TempDir>,
     _store: Store,
 }
 struct NoCalls {
@@ -40,7 +40,7 @@ fn idle() -> NoCalls {
         fail: false,
     }
 }
-fn fixture() -> Fixture {
+pub(super) fn fixture() -> Fixture {
     let data = directory(0o700);
     let identity = directory(0o700);
     let input = directory(0o2750);
@@ -80,6 +80,7 @@ fn fixture() -> Fixture {
         sample_uptime_ms: now().unwrap(),
         tls_origin_ready: true,
         gate_ready: true,
+        station_trial_supported: false,
     };
     runtime.output.publish(Slot::Availability, &a).unwrap();
     Fixture {
@@ -90,10 +91,10 @@ fn fixture() -> Fixture {
         _store: store,
     }
 }
-fn hint(f: &Fixture) -> Hint {
+pub(super) fn hint(f: &Fixture) -> Hint {
     serde_json::from_slice(&f.runtime.input.read(Slot::Hint).unwrap().unwrap()).unwrap()
 }
-fn root_status(f: &Fixture, state: State, mutate: impl FnOnce(&mut Status)) {
+pub(super) fn root_status(f: &Fixture, state: State, mutate: impl FnOnce(&mut Status)) {
     let h = hint(f);
     let mut s = Status {
         format: 1,

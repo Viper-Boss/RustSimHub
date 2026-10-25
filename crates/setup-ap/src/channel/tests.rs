@@ -112,6 +112,7 @@ fn availability_requires_the_exact_realm_device_boot_and_prepared_tls() {
         sample_uptime_ms: 1000,
         tls_origin_ready: true,
         gate_ready: true,
+        station_trial_supported: false,
     };
     assert!(a
         .validate(1000, &b.boot_id, &b.realm, &b.device_key_sha256)
@@ -127,4 +128,44 @@ fn availability_requires_the_exact_realm_device_boot_and_prepared_tls() {
     assert!(a
         .validate(1000, &b.boot_id, "other", &b.device_key_sha256)
         .is_err());
+}
+
+#[test]
+fn station_capability_is_explicit_and_legacy_availability_bytes_stay_compatible() {
+    let b = binding();
+    let a = Availability {
+        format: 1,
+        boot_id: b.boot_id.clone(),
+        realm: b.realm.clone(),
+        device_key_sha256: b.device_key_sha256.clone(),
+        material_sha256: "d".repeat(64),
+        sample_uptime_ms: 1000,
+        tls_origin_ready: true,
+        gate_ready: true,
+        station_trial_supported: false,
+    };
+    let bytes = serde_json::to_vec(&a).unwrap();
+    assert!(!String::from_utf8(bytes.clone())
+        .unwrap()
+        .contains("station_trial_supported"));
+    assert!(
+        !Availability::parse(&bytes, 1000, &b.boot_id, &b.realm, &b.device_key_sha256)
+            .unwrap()
+            .station_trial_supported
+    );
+    let mut value = serde_json::to_value(&a).unwrap();
+    value["station_trial_supported"] = true.into();
+    assert!(
+        Availability::parse(
+            &serde_json::to_vec(&value).unwrap(),
+            1000,
+            &b.boot_id,
+            &b.realm,
+            &b.device_key_sha256
+        )
+        .unwrap()
+        .station_trial_supported
+    );
+    value["station_trial_supported"] = "true".into();
+    assert!(serde_json::from_value::<Availability>(value).is_err());
 }

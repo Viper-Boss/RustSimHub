@@ -78,6 +78,9 @@ fn station_success_requires_https_and_fresh_active_ap_receipt() {
         ap_https_verified: true,
     };
     assert!(s.validate(3000).is_ok());
+    s.sample_uptime_ms = 1999;
+    assert!(s.validate(3000).is_err());
+    s.sample_uptime_ms = 3000;
     s.ap_https_verified = false;
     assert!(s.validate(3000).is_err());
     s.phase = Phase::Testing;

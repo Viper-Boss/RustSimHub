@@ -248,7 +248,7 @@ impl Worker {
         }
         Ok(false)
     }
-    fn availability(&self, ready: bool) -> Result<()> {
+    fn availability(&self, ready: bool, configurable: bool) -> Result<()> {
         self.output.publish(
             Slot::Availability,
             &Availability {
@@ -260,6 +260,7 @@ impl Worker {
                 sample_uptime_ms: channel::uptime_ms()?,
                 tls_origin_ready: ready,
                 gate_ready: ready,
+                station_trial_supported: configurable,
             },
         )
     }
@@ -367,17 +368,18 @@ async fn serve(
     let mut next_probe = Instant::now();
     loop {
         if *stopped.borrow() || stopped.has_changed().is_err() {
-            worker.availability(false)?;
+            worker.availability(false, configurable)?;
             return Ok(());
         }
         if worker.recover()? {
-            worker.availability(false)?;
+            worker.availability(false, configurable)?;
         } else {
             if Instant::now() >= next_probe {
                 worker.availability(
                     timeout(Duration::from_secs(3), material.check())
                         .await
                         .is_ok_and(|v| v.is_ok()),
+                    configurable,
                 )?;
                 next_probe = Instant::now() + Duration::from_secs(3);
             }
@@ -396,7 +398,7 @@ async fn serve(
                             .is_ok()
                         {
                             // Consumed requests are denied by the journal before any side effect.
-                            worker.availability(false)?;
+                            worker.availability(false, configurable)?;
                             let mut network = timeout(
                                 Duration::from_secs(5),
                                 crate::nm::NetworkManager::system(),

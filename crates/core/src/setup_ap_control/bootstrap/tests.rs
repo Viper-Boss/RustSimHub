@@ -70,6 +70,7 @@ fn fixture() -> Fixture {
                 sample_uptime_ms: now().unwrap(),
                 tls_origin_ready: true,
                 gate_ready: true,
+                station_trial_supported: false,
             },
         )
         .unwrap();

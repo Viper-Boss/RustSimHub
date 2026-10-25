@@ -8,6 +8,7 @@ use std::{
     os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
 };
+use zeroize::Zeroizing;
 #[derive(Clone, Copy)]
 pub enum Slot {
     Hint,
@@ -137,7 +138,7 @@ impl Directory {
             f.sync_all().map_err(|_| Error::Io)?;
         } else {
             // Validate an existing destination without following links, then atomically publish.
-            self.read_name(name, mode)?;
+            let _old = self.read_name(name, mode)?.map(Zeroizing::new);
             let mut random = [0u8; 16];
             getrandom::fill(&mut random).map_err(|_| Error::Io)?;
             let suffix = random
@@ -168,12 +169,21 @@ impl Directory {
         self.read_name(slot.name(), 0o640)
     }
     pub fn publish<T: Serialize>(&self, slot: Slot, value: &T) -> Result<()> {
-        self.write_name(
-            slot.name(),
-            &serde_json::to_vec(value).map_err(|_| Error::Invalid)?,
-            0o640,
-            false,
-        )
+        let bytes = Zeroizing::new(serde_json::to_vec(value).map_err(|_| Error::Invalid)?);
+        self.write_name(slot.name(), &bytes, 0o640, false)
+    }
+    /// Sole-writer fixed-slot cleanup; validate ownership, mode and links first.
+    pub fn clear(&self, slot: Slot) -> Result<()> {
+        if self.owner != rustix::process::geteuid().as_raw() {
+            return Err(Error::Denied);
+        }
+        let Some(_bytes) = self.read(slot)?.map(Zeroizing::new) else {
+            return Ok(());
+        };
+        fs::remove_file(self.path.join(slot.name())).map_err(|_| Error::Io)?;
+        File::open(&self.path)
+            .and_then(|d| d.sync_all())
+            .map_err(|_| Error::Io)
     }
 }
 
