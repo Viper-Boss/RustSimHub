@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {calculate,selectModules,estimateDays,escapeHTML,dependencyReady,handoffText,publicURL} from '../../docs/progress/dashboard.mjs';
+const data=JSON.parse(readFileSync(new URL('../../docs/progress/progress.json',import.meta.url),'utf8'));
+const stats=calculate(data);
+assert.equal(stats.original,data.original_milestones.reduce((sum,m)=>sum+m.done_points,0));assert.equal(stats.total,169);assert.equal(stats.parked,9);
+assert.equal(stats.done+stats.remaining,169);
+assert.ok(stats.hours[0]>0&&stats.hours[1]>=stats.hours[0]);
+assert.equal(selectModules(data).length,23);
+assert.equal(selectModules(data,{scope:'parked'}).flatMap(row=>row.matches).length,9);
+assert.equal(selectModules(data,{query:'FWD-03'}).length,1);
+assert.equal(selectModules(data,{query:'FWD-03'})[0].matches[0].id,'FWD-03');
+assert.equal(selectModules(data,{query:'不存在的完全随机任务'}).length,0);
+assert.equal(selectModules(data,{condition:'done'}).reduce((sum,row)=>sum+row.matches.length,0),stats.done);
+assert.ok(selectModules(data,{condition:'offline'}).flatMap(row=>row.matches).every(t=>t.offline_delegable&&t.status!=='done'));
+const map=new Map(data.modules.flatMap(m=>m.tasks).map(t=>[t.id,t]));
+for(const id of ['FWD-01','FWD-02'])map.set(id,{...map.get(id),status:'done'});
+for(const id of ['FWD-03','FWD-04'])map.set(id,{...map.get(id),status:'todo'});
+assert.equal(dependencyReady(map.get('FWD-03'),map),true);assert.equal(dependencyReady(map.get('FWD-04'),map),false);
+assert.deepEqual(estimateDays([24,48],12),[2,4]);assert.throws(()=>estimateDays([24,48],0));
+assert.equal(escapeHTML('<img onerror="bad">'), '&lt;img onerror=&quot;bad&quot;&gt;');
+assert.ok(publicURL('docs/PROGRESS-SCALE.md').startsWith('https://github.com/Viper-Boss/RustSimHub/blob/main/'));
+assert.ok(handoffText(data.modules[0]).includes('FWD-22'));
+assert.ok(handoffText(data.modules[0]).includes('不要假定你可以操作设备'));
+const revised=structuredClone(data),candidate=revised.modules.filter(m=>m.scope!=='parked').flatMap(m=>m.tasks).find(t=>t.status!=='done');
+if(candidate){candidate.status='done';assert.equal(calculate(revised).original,stats.original);assert.equal(calculate(revised).done,stats.done+1);assert.ok(calculate(revised).weighted>stats.weighted);}
+console.log('Dashboard calculation/filter/dependency/estimate/escaping/handoff checks passed.');

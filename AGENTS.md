@@ -4,6 +4,7 @@
 
 - 先读 docs/HANDOFF.md、docs/PROGRESS.md 和 docs/development-plan.md。
 - 每次结束更新进度：实际完成、验证命令及结果、阻塞、下一步。禁止将设计写成已实现。
+- 用户2026-10-25要求完成每项工作同步公开动画进度看板：维护docs/progress/progress.json中的稳定动作ID、状态、公开脱敏证据和实耗；用tools/progress/update.py记录完成并重建HTML/Markdown，同提交更新证据。原P0–P7点数仍以PROGRESS-SCALE.md为准；新增扩展与本轮行动台账权重分开。新增范围显式修订基线，不能靠拆动作或改分母虚增进度。Pages发布通过并实际访问后才称已上线。
 - 用户要求：每次最终回复报告整体完成百分比。按 docs/PROGRESS-SCALE.md 固定里程碑权重估算，附实际验收边界，不按代码行数或测试数计算。
 - 凭据、设备标识、SIM/短信/联系人、原始硬件日志及备份仅放 .private/ 或 .local/；禁止提交。
 - Rust 核心负责业务状态；NAS 为可选接入层。硬件权限集中在有限接口，不提供任意 shell/AT/QMI 执行 API。
