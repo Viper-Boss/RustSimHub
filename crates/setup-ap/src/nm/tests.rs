@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
+mod commit;
 use std::sync::{Arc, Mutex};
 const WIFI: &str = "/org/freedesktop/NetworkManager/Devices/1";
 const PROFILE: &str = "/org/freedesktop/NetworkManager/Settings/1";
@@ -28,6 +29,15 @@ struct Model {
     fail_station_rollback: bool,
     tamper_station: bool,
     invalid_station_ip: bool,
+    commit_mode: bool,
+    saved: bool,
+    lost_save_reply: bool,
+    lost_enable_reply: bool,
+    unsaved_after_save: bool,
+    volatile_after_save: bool,
+    lost_outer_destroy_reply: bool,
+    lost_inner_destroy_reply: bool,
+    lost_ap_delete_reply: bool,
 }
 type Shared = Arc<Mutex<Model>>;
 struct Bus(Shared);
@@ -109,12 +119,17 @@ impl Manager {
     ) -> zbus::fdo::Result<(OwnedObjectPath, OwnedObjectPath, Properties)> {
         assert_eq!(device.as_str(), WIFI);
         assert_eq!(specific.as_str(), "/");
-        assert_eq!(text(&options, "bind-activation").unwrap(), "dbus-client");
-        assert_eq!(options.len(), 2);
         let mut m = self.0.lock().unwrap();
         if text(&settings["802-11-wireless"], "mode").unwrap() == "infrastructure" {
             assert!(m.station_cp && m.cp && m.active && m.retain_ap);
             assert_eq!(text(&options, "persist").unwrap(), "memory");
+            if m.commit_mode {
+                assert_eq!(options.len(), 1);
+                assert!(!options.contains_key("bind-activation"));
+            } else {
+                assert_eq!(options.len(), 2);
+                assert_eq!(text(&options, "bind-activation").unwrap(), "dbus-client");
+            }
             m.active = false;
             m.station_active = true;
             m.station_profile = Some(settings);
@@ -130,6 +145,8 @@ impl Manager {
                 HashMap::new(),
             ));
         }
+        assert_eq!(text(&options, "bind-activation").unwrap(), "dbus-client");
+        assert_eq!(options.len(), 2);
         assert_eq!(
             text(&options, "persist").unwrap(),
             if m.retain_ap { "memory" } else { "volatile" }
@@ -172,18 +189,31 @@ impl Manager {
         }
         Ok(HashMap::from([(WIFI.into(), 0)]))
     }
-    fn checkpoint_destroy(&self, cp: OwnedObjectPath) {
+    fn checkpoint_destroy(&self, cp: OwnedObjectPath) -> zbus::fdo::Result<()> {
         let mut m = self.0.lock().unwrap();
         if cp.as_str() == STATION_CP {
             assert!(m.station_cp);
             m.station_cp = false;
             m.events.push("station-destroy");
-            return;
+            return if m.lost_inner_destroy_reply {
+                Err(zbus::fdo::Error::Failed(
+                    "synthetic lost inner destroy reply".into(),
+                ))
+            } else {
+                Ok(())
+            };
         }
         assert_eq!(cp.as_str(), CP);
         assert!(m.cp);
         m.cp = false;
         m.events.push("destroy");
+        if m.lost_outer_destroy_reply {
+            Err(zbus::fdo::Error::Failed(
+                "synthetic lost outer destroy reply".into(),
+            ))
+        } else {
+            Ok(())
+        }
     }
 }
 struct Device(Shared);
@@ -269,6 +299,50 @@ impl SettingsManager {
 struct Connection(Shared, bool);
 #[zbus::interface(name = "org.freedesktop.NetworkManager.Settings.Connection")]
 impl Connection {
+    #[zbus(property)]
+    fn unsaved(&self) -> bool {
+        let m = self.0.lock().unwrap();
+        !self.1 || !m.saved || m.unsaved_after_save
+    }
+    #[zbus(property)]
+    fn flags(&self) -> u32 {
+        let m = self.0.lock().unwrap();
+        if self.1 && m.volatile_after_save {
+            4
+        } else {
+            0
+        }
+    }
+    fn update2(
+        &self,
+        settings: Settings,
+        flags: u32,
+        args: Properties,
+    ) -> zbus::fdo::Result<Properties> {
+        assert!(self.1);
+        assert_eq!(flags, 1);
+        assert!(args.is_empty());
+        let mut m = self.0.lock().unwrap();
+        assert!(m.commit_mode && m.station_active);
+        let enabled = boolean(&settings["connection"], "autoconnect").unwrap();
+        if enabled {
+            assert!(!m.cp && !m.station_cp);
+        } else {
+            assert!(m.cp && m.station_cp);
+        }
+        m.station_profile = Some(settings);
+        m.saved = true;
+        m.events.push(if enabled {
+            "station-enable"
+        } else {
+            "station-save"
+        });
+        if m.lost_save_reply || enabled && m.lost_enable_reply {
+            Err(zbus::fdo::Error::Failed("synthetic lost save reply".into()))
+        } else {
+            Ok(HashMap::new())
+        }
+    }
     fn get_settings(&self) -> zbus::fdo::Result<Settings> {
         let m = self.0.lock().unwrap();
         let p = (if self.1 {
@@ -297,16 +371,24 @@ impl Connection {
         }
         Ok(copy)
     }
-    fn delete(&self) {
+    fn delete(&self) -> zbus::fdo::Result<()> {
         let mut m = self.0.lock().unwrap();
         if self.1 {
             assert!(!m.station_active);
             m.station_profile = None;
+            m.saved = false;
             m.events.push("station-delete");
-            return;
+            return Ok(());
         }
         m.profile = None;
         m.events.push("delete");
+        if m.lost_ap_delete_reply {
+            Err(zbus::fdo::Error::Failed(
+                "synthetic lost AP delete reply".into(),
+            ))
+        } else {
+            Ok(())
+        }
     }
 }
 struct Active(&'static str);

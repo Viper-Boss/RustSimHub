@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! A nested checkpoint tests STA then restores the same RAM-only AP; no save operation here.
 use super::*;
+use crate::station_commit::{CommitNetwork, CommitProvider};
 use crate::station_trial::{StationCredentials, StationNetwork};
 use sha2::{Digest, Sha256};
 
@@ -10,17 +11,24 @@ pub(super) struct Trial {
     activation_requested: bool,
     fingerprint: [u8; 32],
     profiles_before: Vec<OwnedObjectPath>,
+    persist_attempted: bool,
+    committing: bool,
 }
 pub struct Session<'a> {
     nm: &'a mut NetworkManager,
     ap: &'a Credentials,
+    committing: bool,
 }
 impl NetworkManager {
     pub fn station_trial<'a>(&'a mut self, ap: &'a Credentials) -> Result<Session<'a>> {
         if !self.retain_ap {
             return Err(Error::Denied);
         }
-        Ok(Session { nm: self, ap })
+        Ok(Session {
+            nm: self,
+            ap,
+            committing: false,
+        })
     }
     async fn checkpoints(&self) -> Result<Vec<OwnedObjectPath>> {
         self.fence().await?;
@@ -64,6 +72,21 @@ impl NetworkManager {
             return Err(Error::Changed);
         }
         Ok(())
+    }
+}
+impl CommitProvider for NetworkManager {
+    fn commit_session<'a>(
+        &'a mut self,
+        ap: &'a Credentials,
+    ) -> Result<impl CommitNetwork + Send + 'a> {
+        if !self.retain_ap {
+            return Err(Error::Denied);
+        }
+        Ok(Session {
+            nm: self,
+            ap,
+            committing: true,
+        })
     }
 }
 impl crate::station_trial::StationProvider for NetworkManager {
@@ -133,7 +156,18 @@ fn settings(c: &StationCredentials) -> Result<Settings> {
         ),
     ]))
 }
+fn saved_settings(c: &StationCredentials, enabled: bool) -> Result<Settings> {
+    let mut s = settings(c)?;
+    let connection = s.get_mut("connection").ok_or(Error::Io)?;
+    connection.insert("id".into(), string("RustSimHub Wi-Fi"));
+    connection.insert("autoconnect".into(), enabled.into());
+    connection.insert("autoconnect-priority".into(), 50i32.into());
+    Ok(s)
+}
 fn matches(s: &Settings, c: &StationCredentials) -> Result<bool> {
+    matches_mode(s, c, false)
+}
+fn matches_mode(s: &Settings, c: &StationCredentials, saved: bool) -> Result<bool> {
     let conn = s.get("connection").ok_or(Error::Io)?;
     let wifi = s.get("802-11-wireless").ok_or(Error::Io)?;
     let security = s.get("802-11-wireless-security").ok_or(Error::Io)?;
@@ -158,7 +192,18 @@ fn matches(s: &Settings, c: &StationCredentials) -> Result<bool> {
     Ok(text(conn, "uuid")? == c.uuid
         && text(conn, "type")? == "802-11-wireless"
         && text(conn, "interface-name")? == INTERFACE
-        && !boolean(conn, "autoconnect")?
+        && (!boolean(conn, "autoconnect")? || saved)
+        && text(conn, "id")?
+            == if saved {
+                "RustSimHub Wi-Fi"
+            } else {
+                "RustSimHub station test"
+            }
+        && (!saved
+            || conn
+                .get("autoconnect-priority")
+                .and_then(|v| i32::try_from(v).ok())
+                == Some(50))
         && text(wifi, "mode")? == "infrastructure"
         && ssid == c.ssid.as_bytes()
         && text(security, "key-mgmt")? == "wpa-psk"
@@ -195,6 +240,8 @@ impl StationNetwork for Session<'_> {
             activation_requested: false,
             fingerprint: fingerprint(c),
             profiles_before,
+            persist_attempted: false,
+            committing: self.committing,
         });
         // Only this already-owned AP checkpoint may overlap. Never destroy another checkpoint.
         let cp: OwnedObjectPath = nm
@@ -228,10 +275,17 @@ impl StationNetwork for Session<'_> {
                     settings(c)?,
                     nm.wifi.as_ref().ok_or(Error::Denied)?,
                     OwnedObjectPath::try_from("/").map_err(|_| Error::Invalid)?,
-                    HashMap::from([
-                        ("persist", string("memory")),
-                        ("bind-activation", string("dbus-client")),
-                    ]),
+                    if self.committing {
+                        // The final STA must survive this temporary worker's bus disconnect.
+                        // Persist with autoconnect off until final handoff. Do not use
+                        // DELETE_NEW_CONNECTIONS: it can delete unrelated interfaces' profiles.
+                        HashMap::from([("persist", string("memory"))])
+                    } else {
+                        HashMap::from([
+                            ("persist", string("memory")),
+                            ("bind-activation", string("dbus-client")),
+                        ])
+                    },
                 ),
             )
             .await
@@ -250,15 +304,28 @@ impl StationNetwork for Session<'_> {
         nm.fence().await
     }
     async fn usable(&self, c: &StationCredentials) -> Result<bool> {
+        self.candidate_usable(c, true).await
+    }
+    async fn restore_ap(&mut self, c: &StationCredentials) -> Result<()> {
+        self.restore_candidate(c).await
+    }
+}
+impl Session<'_> {
+    async fn candidate_usable(&self, c: &StationCredentials, tracked: bool) -> Result<bool> {
         let nm = &self.nm;
-        nm.trial_checkpoints(true).await?;
-        nm.ap_profile_intact(self.ap).await?;
+        if tracked {
+            nm.trial_checkpoints(true).await?;
+            nm.ap_profile_intact(self.ap).await?;
+        } else if !nm.checkpoints().await?.is_empty() {
+            return Err(Error::Changed);
+        }
         let s = nm.station.as_ref().ok_or(Error::Denied)?;
         if s.fingerprint != fingerprint(c) {
             return Err(Error::Changed);
         }
         let profile = s.profile.as_ref().ok_or(Error::Denied)?;
-        if !matches(&nm.get_settings(profile).await?, c)? {
+        let settings = nm.get_settings(profile).await?;
+        if !matches(&settings, c)? && !(s.persist_attempted && matches_mode(&settings, c, true)?) {
             return Err(Error::Changed);
         }
         let device = nm
@@ -325,7 +392,7 @@ impl StationNetwork for Session<'_> {
         nm.fence().await?;
         Ok(usable)
     }
-    async fn restore_ap(&mut self, c: &StationCredentials) -> Result<()> {
+    async fn restore_candidate(&mut self, c: &StationCredentials) -> Result<()> {
         let nm = &mut self.nm;
         nm.fence().await?;
         let Some(trial) = nm.station.as_ref() else {
@@ -339,6 +406,7 @@ impl StationNetwork for Session<'_> {
             return Err(Error::Changed);
         }
         let activated = trial.activation_requested;
+        let persisted = trial.persist_attempted;
         let profiles_before = trial.profiles_before.clone();
         let inner = trial.checkpoint.clone();
         let present = nm.trial_checkpoints(false).await?;
@@ -385,7 +453,7 @@ impl StationNetwork for Session<'_> {
                 return Err(Error::Changed);
             }
             if text(s.get("connection").ok_or(Error::Io)?, "uuid")? == c.uuid {
-                if !activated || !matches(&s, c)? {
+                if !activated || (!matches(&s, c)? && !(persisted && matches_mode(&s, c, true)?)) {
                     return Err(Error::Changed);
                 }
                 candidates.push(p);
@@ -426,5 +494,159 @@ impl StationNetwork for Session<'_> {
         }
         nm.station = None;
         Ok(())
+    }
+}
+
+impl CommitNetwork for Session<'_> {
+    async fn persist(&mut self, c: &StationCredentials) -> Result<()> {
+        if !self.committing || !self.candidate_usable(c, true).await? {
+            return Err(Error::Denied);
+        }
+        let nm = &mut self.nm;
+        let trial = nm.station.as_mut().ok_or(Error::Denied)?;
+        if !trial.committing || trial.persist_attempted {
+            return Err(Error::Denied);
+        }
+        trial.persist_attempted = true;
+        let profile = trial.profile.clone().ok_or(Error::Denied)?;
+        let _: Properties = nm
+            .proxy(profile.as_str(), SETTING)
+            .await?
+            .call(
+                "Update2",
+                &(
+                    saved_settings(c, false)?,
+                    1u32,
+                    HashMap::<String, OwnedValue>::new(),
+                ),
+            )
+            .await
+            .map_err(|_| Error::Io)?;
+        self.saved(c, false).await?;
+        if !self.candidate_usable(c, true).await? {
+            return Err(Error::Changed);
+        }
+        Ok(())
+    }
+    async fn finish<A: crate::transaction::Gate + Sync>(
+        &mut self,
+        c: &StationCredentials,
+        gate: &A,
+    ) -> Result<()> {
+        if !self.committing {
+            return Err(Error::Denied);
+        }
+        self.saved(c, false).await?;
+        if !self.candidate_usable(c, true).await? {
+            return Err(Error::Changed);
+        }
+        gate.check().await?;
+        let nm = &mut self.nm;
+        let trial = nm.station.as_ref().ok_or(Error::Denied)?;
+        let inner = trial.checkpoint.clone().ok_or(Error::Denied)?;
+        let outer = nm.checkpoint.clone().ok_or(Error::Denied)?;
+        let ap_profile = nm.profile.clone().ok_or(Error::Denied)?;
+        let candidate = trial.profile.clone().ok_or(Error::Denied)?;
+        let before = trial.profiles_before.clone();
+        if !before.contains(&ap_profile) {
+            return Err(Error::Changed);
+        }
+        // Keep the inner automatic AP rollback timer until the final commit point.
+        let _: () = nm
+            .proxy(ROOT, NAME)
+            .await?
+            .call("CheckpointDestroy", &(&outer,))
+            .await
+            .map_err(|_| Error::Io)?;
+        nm.fence().await?;
+        if nm.checkpoints().await? != [inner.clone()] {
+            return Err(Error::Changed);
+        }
+        gate.check().await?;
+        let _: () = nm
+            .proxy(ROOT, NAME)
+            .await?
+            .call("CheckpointDestroy", &(&inner,))
+            .await
+            .map_err(|_| Error::Io)?;
+        nm.fence().await?;
+        if !nm.checkpoints().await?.is_empty() {
+            return Err(Error::Changed);
+        }
+        // A crash before this last step leaves a dormant saved profile. Only the
+        // explicit final handoff enables reconnect; no broad profile-deletion flag.
+        gate.check().await?;
+        let profile = nm
+            .station
+            .as_ref()
+            .and_then(|s| s.profile.as_ref())
+            .ok_or(Error::Denied)?;
+        let _: Properties = nm
+            .proxy(profile.as_str(), SETTING)
+            .await?
+            .call(
+                "Update2",
+                &(
+                    saved_settings(c, true)?,
+                    1u32,
+                    HashMap::<String, OwnedValue>::new(),
+                ),
+            )
+            .await
+            .map_err(|_| Error::Io)?;
+        let saved = nm.properties(profile.as_str(), SETTING).await?;
+        let saved_profile = nm.get_settings(profile).await?;
+        if boolean(&saved, "Unsaved")?
+            || number(&saved, "Flags")? & 4 != 0
+            || !matches_mode(&saved_profile, c, true)?
+            || !boolean(&saved_profile["connection"], "autoconnect")?
+        {
+            return Err(Error::Changed);
+        }
+        nm.ap_profile_intact(self.ap).await?;
+        let _: () = nm
+            .proxy(ap_profile.as_str(), SETTING)
+            .await?
+            .call("Delete", &())
+            .await
+            .map_err(|_| Error::Io)?;
+        let actual = nm.connections().await?;
+        let expected: Vec<_> = before
+            .into_iter()
+            .filter(|p| p != &ap_profile)
+            .chain([candidate])
+            .collect();
+        if actual.len() != expected.len() || actual.iter().any(|p| !expected.contains(p)) {
+            return Err(Error::Changed);
+        }
+        self.saved(c, true).await?;
+        if !self.candidate_usable(c, false).await? {
+            return Err(Error::Changed);
+        }
+        self.nm.station = None;
+        self.nm.profile = None;
+        self.nm.checkpoint = None;
+        Ok(())
+    }
+}
+impl Session<'_> {
+    async fn saved(&self, c: &StationCredentials, enabled: bool) -> Result<()> {
+        let nm = &self.nm;
+        let trial = nm.station.as_ref().ok_or(Error::Denied)?;
+        if !trial.committing || !trial.persist_attempted || trial.fingerprint != fingerprint(c) {
+            return Err(Error::Denied);
+        }
+        let p = trial.profile.as_ref().ok_or(Error::Denied)?;
+        let settings = nm.get_settings(p).await?;
+        if !matches_mode(&settings, c, true)?
+            || boolean(&settings["connection"], "autoconnect")? != enabled
+        {
+            return Err(Error::Changed);
+        }
+        let properties = nm.properties(p.as_str(), SETTING).await?;
+        if boolean(&properties, "Unsaved")? || number(&properties, "Flags")? & 4 != 0 {
+            return Err(Error::Changed);
+        }
+        nm.fence().await
     }
 }
