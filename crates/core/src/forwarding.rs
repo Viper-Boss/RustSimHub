@@ -2,7 +2,7 @@
 //! Core-owned, on-demand management. Passive by default; explicit management
 //! mode invokes finite Root jobs. No forwarding loop or startup poller in Core.
 use rustsimhub_auth::{Auth, Error};
-use rustsimhub_forwarder::{Binding, Policy, Queue};
+use rustsimhub_forwarder::{Binding, Policy, PolicyEdit, Queue};
 use rustsimhub_storage::Handle;
 use rustsimhub_wire::AuthCommand;
 use serde_json::{json, Value};
@@ -122,6 +122,8 @@ impl Management {
         // Intent is deliberately separate from observed service/process state.
         value["available"] = true.into();
         value["configuration_api"] = true.into();
+        value["retained_credentials_api"] = true.into();
+        value["request_receipt_api"] = true.into();
         value["delivery_api"] = false.into();
         value["state"] = if value["enabled"] == true {
             "awaiting_service"
@@ -170,12 +172,27 @@ impl Management {
             }
             AuthCommand::ForwardingRules { token } => {
                 let b = denied(Binding::from_owner(auth, &token))?;
-                let view = match self.existing(b.clone())? {
-                    Some(q) => denied(q.policy_view())?,
-                    None => Policy::default().view(),
+                let (view, generation) = match self.existing(b.clone())? {
+                    Some(q) => (denied(q.policy_view())?, denied(q.status())?.generation),
+                    None => (Policy::default().view(), 0),
                 };
                 denied(b.check_current(auth))?;
-                serde_json::to_value(view).map_err(|_| Error::Forbidden)?
+                let mut value = serde_json::to_value(view).map_err(|_| Error::Forbidden)?;
+                value["generation"] = generation.into();
+                value
+            }
+            AuthCommand::ForwardingRequest { token, request_id } => {
+                let b = denied(Binding::from_owner(auth, &token))?;
+                let (generation, applied) = match self.existing(b.clone())? {
+                    Some(q) => (
+                        denied(q.status())?.generation,
+                        denied(q.configuration_receipt(&b, &request_id))?,
+                    ),
+                    None => (0, None),
+                };
+                denied(b.check_current(auth))?;
+                json!({"request_id":request_id,"known":applied.is_some(),"applied_generation":applied,
+                    "current_generation":generation,"not_found_is_not_proof":true})
             }
             AuthCommand::ForwardingConfigure {
                 token,
@@ -184,13 +201,18 @@ impl Management {
                 policy,
             } => {
                 let b = denied(Binding::from_recent_owner(auth, &token))?;
-                let policy: Policy =
+                let edit: PolicyEdit =
                     serde_json::from_value(policy).map_err(|_| Error::InvalidInput)?;
-                denied(policy.validate())?;
                 // All semantic/Owner validation precedes filesystem creation.
-                if self.existing(b.clone())?.is_none() && expected_generation != 0 {
-                    return Err(Error::Forbidden);
-                }
+                let policy = match self.existing(b.clone())? {
+                    Some(q) => denied(q.resolve_policy_edit(&b, edit))?,
+                    None => {
+                        if expected_generation != 0 {
+                            return Err(Error::Forbidden);
+                        }
+                        denied(edit.resolve(Policy::default()))?
+                    }
+                };
                 let reader = self.reader.clone();
                 let applied = denied(self.create(b.clone())?.configure_owner(
                     auth,

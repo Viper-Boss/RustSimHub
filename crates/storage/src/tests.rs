@@ -515,6 +515,35 @@ fn second_writer_cannot_trigger_recovery_of_active_submission() {
     );
     assert_eq!(handle.cursor().unwrap_err(), Error::Stopped);
 }
+#[cfg(target_os = "linux")]
+#[test]
+fn shutdown_releases_writer_lock_despite_a_retained_open_description() {
+    let d = directory();
+    let store = Store::open(d.path()).unwrap();
+    let h = store.handle();
+    let operation = h.prepare_sms(request("retained-lock")).unwrap();
+    h.begin_submit(&operation.id, "test-client").unwrap();
+    // A process spawn can temporarily retain a reference to the same open
+    // description before exec closes CLOEXEC descriptors. No second writer
+    // uses the duplicate; it just outlives the original database connection.
+    let duplicate = h
+        .call(|database| Ok(database._lock.0.try_clone()?))
+        .unwrap();
+    assert!(matches!(Store::open(d.path()), Err(Error::AlreadyOpen)));
+    drop(store);
+    assert_eq!(h.cursor().unwrap_err(), Error::Stopped);
+    let reopened = Store::open(d.path()).unwrap();
+    assert_eq!(
+        reopened
+            .handle()
+            .operation(&operation.id, "test-client")
+            .unwrap()
+            .state,
+        SmsState::Unknown
+    );
+    drop(duplicate);
+    assert!(matches!(Store::open(d.path()), Err(Error::AlreadyOpen)));
+}
 
 #[test]
 fn cursor_cannot_skip_history_or_overflow() {

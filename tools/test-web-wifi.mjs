@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
 import vm from 'node:vm';
+const forwardingModule=await readFile(new URL('../crates/edge/src/web/forwarding.js',import.meta.url));
+const {ForwardingPanel,pendingInput:forwardingPendingInput}=await import('data:text/javascript;base64,'+forwardingModule.toString('base64'));
 const app=await readFile(new URL('../crates/edge/src/web/app.js',import.meta.url),'utf8');
 const html=await readFile(new URL('../crates/edge/src/web/index.html',import.meta.url),'utf8');
 const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);assert.equal(new Set(ids).size,ids.length);
@@ -25,7 +27,7 @@ class Element{
 function fixture(respond=()=>clone(catalogue)){
  const elements=new Map(),sent=[];
  const $=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
- const context={document:{hidden:false,getElementById:$,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(){}},crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},indexedDB:{open:()=>({})},
+ const context={ForwardingPanel,forwardingPendingInput,document:{hidden:false,getElementById:$,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(){}},crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},indexedDB:{open:()=>({})},
   AudioLink:class{constructor(){this.state='closed';}async stop(){}},ConfigurationIndicator:class{async set(){}},CallTest:class{async stop(){}},NetworkPanel:class{start(){}stop(){}},EventSync:class{reset(){}},SmsManager:class{reset(){}},DailyPhone:class{reset(){}},SessionKeeper:class{reset(){}},
   fetch:async(_url,options)=>{const body=JSON.parse(options.body),command=body.command;sent.push(command);const result=await respond(command,sent.length);return {ok:true,json:async()=>({protocol:2,id:body.id,result})};},
  };

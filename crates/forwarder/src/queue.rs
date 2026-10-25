@@ -322,6 +322,38 @@ CREATE INDEX pending ON jobs(state,seq);")?;
     pub fn policy_view(&self) -> Result<PolicyView> {
         Ok(self.meta()?.policy.view())
     }
+    pub fn resolve_policy_edit(&self, binding: &Binding, edit: PolicyEdit) -> Result<Policy> {
+        self.require_binding(binding)?;
+        edit.resolve(self.meta()?.policy)
+    }
+    /// Bounded request history. Absence may also mean pruning or recovery;
+    /// it is deliberately not a proof that a mutation never happened.
+    pub fn configuration_receipt(
+        &self,
+        binding: &Binding,
+        request_id: &str,
+    ) -> Result<Option<u64>> {
+        self.require_binding(binding)?;
+        if !crate::model::uuid(request_id) {
+            return Err(Error::Invalid);
+        }
+        let generation: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT generation FROM requests WHERE id=?",
+                [request_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        generation
+            .map(|n| {
+                u64::try_from(n)
+                    .ok()
+                    .filter(|n| *n > 0)
+                    .ok_or(Error::Storage)
+            })
+            .transpose()
+    }
     pub(crate) fn policy_with_enabled(&self, enabled: bool) -> Result<Policy> {
         let mut policy = self.meta()?.policy;
         policy.enabled = enabled;

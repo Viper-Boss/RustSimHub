@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import {webcrypto} from 'node:crypto';
+const forwardingModule=await readFile(new URL('../crates/edge/src/web/forwarding.js',import.meta.url));
+const {ForwardingPanel,pendingInput:forwardingPendingInput}=await import('data:text/javascript;base64,'+forwardingModule.toString('base64'));
 const app=await readFile(new URL('../crates/edge/src/web/app.js',import.meta.url),'utf8');
 const bytes=await readFile(new URL('../crates/edge/src/web/sms-management.js',import.meta.url));
 const {SmsManager,smsListText,smsDetailText}=await import('data:text/javascript;base64,'+bytes.toString('base64'));
@@ -16,13 +18,14 @@ class Element {
  constructor(){this.value='';this.textContent='';this.children=[];this.disabled=false;this.hidden=false;}
  set innerHTML(_){throw Error('Message data must never be parsed as HTML');}
  append(...values){this.children.push(...values);}replaceChildren(...values){this.children=values;this.textContent='';}addEventListener(){}
+ get options(){return this.children;}
 }
 function fixture({respond,onPut,consent=true,loggedIn=true}={}){
  const elements=new Map(),sent=[],saved=new Map(),confirmations=[],starts=[],copied=[];let logins=0;
  const $=name=>{if(!elements.has(name))elements.set(name,new Element());return elements.get(name);};
  const document={hidden:false,getElementById:$,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(){}};
  let state='submitted';
- const context={document,crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},
+ const context={ForwardingPanel,forwardingPendingInput,document,crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},
   indexedDB:{open:()=>({})},SmsManager,smsListText,smsDetailText,DailyPhone:class{constructor(){this.managing=false;this.working=false;}reset(){}start(){}},SessionKeeper:class{start(){}reset(){}async ensure(){}},
   AudioLink:class{constructor(){this.state='closed';}async stop(){}},
   ConfigurationIndicator:class{async set(){}},CallTest:class{constructor(options){this.options=options;this.running=false;}async start(mode){starts.push(mode);this.running=true;this.options.notify("synthetic running",true);this.running=false;this.options.notify("synthetic completed",false);}async stop(){this.running=false;}},archiveEndedOperation,navigator:{clipboard:{async writeText(text){copied.push(text);}}},NetworkPanel:class{start(){}stop(){}},EventSync:class{reset(){}},
@@ -30,9 +33,9 @@ function fixture({respond,onPut,consent=true,loggedIn=true}={}){
   fetch:async(_url,options)=>{const body=JSON.parse(options.body),c=body.command;sent.push(c);const result=respond?await respond(c):c.op==='line_status'?{status:'ready',line:7}:c.op==='prepare_sms'?{id,state:'prepared'}:{id,state};return {ok:true,json:async()=>({protocol:2,id:body.id,result})};},
  };
  context.loginCount=0;
- vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={runTestCenter,copyTestResult,reconcileTestPending,setAudio:value=>{audioReady=value;showPending();},clearLogin:()=>{token=null;},mockLogin:()=>{login=async()=>{globalThis.loginCount++;token="synthetic-session";};},dailySendSms,submit,query,closeSms,inboxPage,act,showPending,loginAs:()=>{token="synthetic-session";},setDb:value=>{db=value;},setPending:value=>{pending=value;showPending();},pending:()=>pending,logout:()=>$("logout").onclick()};',context);
+ vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={forwarding:()=>forwardingPanel,runTestCenter,copyTestResult,reconcileTestPending,setAudio:value=>{audioReady=value;showPending();},clearLogin:()=>{token=null;},mockLogin:()=>{login=async()=>{globalThis.loginCount++;token="synthetic-session";};},dailySendSms,submit,query,closeSms,inboxPage,act,showPending,loginAs:()=>{token="synthetic-session";},setDb:value=>{db=value;},setPending:value=>{pending=value;showPending();},pending:()=>pending,logout:()=>$("logout").onclick()};',context);
  context.fixture.setDb({transaction(){
-  const tx={};tx.objectStore=()=>({get:key=>{const request={};queueMicrotask(()=>{request.result=saved.get(key);request.onsuccess?.();});return request;},put:(value,key)=>{
+  const tx={abort(){this.onabort?.();}};tx.objectStore=()=>({get:key=>{const request={};queueMicrotask(()=>{request.result=saved.get(key);request.onsuccess?.();});return request;},put:(value,key)=>{
    const snapshot=structuredClone(value);const completion=onPut?.(key,snapshot);queueMicrotask(async()=>{try{await completion;saved.set(key,snapshot);tx.oncomplete?.();}catch{tx.onerror?.();}});
   }});return tx;
  }});
@@ -105,4 +108,28 @@ for(const stage of ['line_status','prepare_sms','marker']){
 {
  const f=fixture({consent:false});f.saved.set('test-center-saved-draft',{recipient:'12025550199',text:'另一份合成草稿'});await f.$('test-restore-draft').onclick();assert.equal(f.$('recipient').value,'12025550123');assert.equal(f.saved.get('test-center-saved-draft').text,'另一份合成草稿');assert.equal(f.sent.length,0);
 }
-console.log('PASS: visible four-task center, collapsed panels, automatic login, exact no-retry recovery, safe result copy, one SMS submit, draft preservation and stop/logout/storage races; synthetic only.');
+{
+ let savedPolicy=null,gen=0,writeGate=null;
+ const state=()=>({available:true,configuration_api:true,retained_credentials_api:true,request_receipt_api:true,service_management_api:true,enabled:false,generation:gen,state:'disabled',process_state_verified:true});
+ const f=fixture({respond:async c=>{
+  if(c.op==='forwarding_status')return state();
+  if(c.op==='forwarding_rules')return {enabled:false,generation:gen,targets:savedPolicy?.targets.map(t=>({id:t.id,kind:t.destination.kind,credentials_redacted:true}))||[],rules:savedPolicy?.rules||[]};
+  if(c.op==='forwarding_configure'){if(writeGate)return writeGate.promise;savedPolicy=structuredClone(c.policy);gen++;return {...state(),configuration_applied:true,request_id:c.request_id};}
+  throw Error('unexpected request');
+ }});
+ const panel=f.forwarding();await panel.action(g=>panel.read(g));const input=panel.targets[0].endpointInput;
+ input.value='https://example.invalid/synthetic-secret';await panel.action(g=>panel.save(g));
+ assert.equal(f.sent.filter(c=>c.op==='forwarding_configure').length,1);assert.equal(f.saved.get('forwarding-pending'),null);
+ assert.equal(f.saved.get('forwarding-config-receipts').length,1);assert.ok(!JSON.stringify([...f.saved.entries()]).includes('synthetic-secret'));
+ assert.equal(input.value,'');
+ const external={format:1,id:other,kind:'disable',expected_generation:1};f.saved.set('forwarding-pending',external);
+ await panel.action(g=>panel.save(g));assert.equal(f.sent.filter(c=>c.op==='forwarding_configure').length,1);assert.deepEqual(f.saved.get('forwarding-pending'),external,'Do not overwrite another tab reservation');
+ f.saved.set('forwarding-pending',null);writeGate=deferred();const sending=panel.action(g=>panel.save(g));
+ while(f.sent.filter(c=>c.op==='forwarding_configure').length<2)await turn();
+ const submitted=f.sent.filter(c=>c.op==='forwarding_configure').at(-1);f.saved.set('forwarding-pending',external);gen=2;
+ writeGate.resolve({...state(),configuration_applied:true,request_id:submitted.request_id});await sending;
+ assert.deepEqual(f.saved.get('forwarding-pending'),external,'A stale completion must not clear another tab reservation');
+ assert.equal(f.saved.get('forwarding-config-receipts').length,2);f.logout();assert.equal(panel.targets.length,0);assert.equal(panel.pending,null);
+ assert.equal(f.sent.filter(c=>c.op==='submit_sms'||c.op==='submit_call').length,0);
+}
+console.log('PASS: visible four-task center, collapsed panels, automatic login, exact no-retry recovery, safe result copy, one SMS submit, draft preservation, forwarding real app/IndexedDB wiring and stop/logout/storage races; synthetic only.');

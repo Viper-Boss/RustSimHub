@@ -41,6 +41,10 @@ async fn sms_assets_are_served_with_the_existing_host_and_cache_boundary() {
     let a = app(dir.path().join("absent.sock"));
     for (path, expected) in [
         (
+            "/forwarding.js",
+            include_bytes!("../web/forwarding.js").as_slice(),
+        ),
+        (
             "/event-sync.js",
             include_bytes!("../web/event-sync.js").as_slice(),
         ),

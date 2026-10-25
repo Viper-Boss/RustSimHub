@@ -252,8 +252,20 @@ impl Handle {
 }
 
 struct Database {
+    // Fields drop in declaration order: close SQLite before releasing the
+    // writer fence, including when an unrelated spawn retains an FD copy.
     connection: Connection,
-    _lock: File,
+    _lock: WriterLock,
+}
+struct WriterLock(File);
+impl Drop for WriterLock {
+    fn drop(&mut self) {
+        // Closing just this descriptor does not release an OFD lock while a
+        // duplicate/inherited descriptor remains. Only the database owner
+        // unlocks, after its connection is closed; active writers still use
+        // the same non-blocking exclusive admission check.
+        let _ = FileExt::unlock(&self.0);
+    }
 }
 
 fn private_directory(path: &Path) -> Result<()> {
@@ -385,6 +397,7 @@ impl Database {
         reject_links(directory)?;
         let lock = private_file(&directory.join(".writer.lock"), false)?;
         lock.try_lock_exclusive().map_err(|_| Error::AlreadyOpen)?;
+        let lock = WriterLock(lock);
         let path = directory.join("store.sqlite3");
         let restore_marker = directory.join(".restore-pending");
         if restore.is_none() && restore_marker.exists() && !path.exists() {

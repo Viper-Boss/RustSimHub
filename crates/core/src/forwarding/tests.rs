@@ -139,6 +139,10 @@ async fn actual_owner_default_off_reads_do_not_create_files_or_claim_process_sto
     let path = f.state.path().join("forwarding");
     assert!(!path.exists());
     for command in [
+        AuthCommand::ForwardingRequest {
+            token: f.token.clone(),
+            request_id: REQUEST.into(),
+        },
         AuthCommand::ForwardingStatus {
             token: f.token.clone(),
         },
@@ -325,6 +329,10 @@ async fn even_privileged_signed_paired_client_cannot_read_or_configure_forwardin
     let token = delegated(&f);
     for token in [token, "0".repeat(64)] {
         for command in [
+            AuthCommand::ForwardingRequest {
+                token: token.clone(),
+                request_id: REQUEST.into(),
+            },
             AuthCommand::SetForwardingEnabled {
                 token: token.clone(),
                 expected_generation: 0,
@@ -358,6 +366,127 @@ async fn even_privileged_signed_paired_client_cannot_read_or_configure_forwardin
         }
     }
     assert!(!f.state.path().join("forwarding").exists());
+}
+#[tokio::test]
+async fn owner_edits_keep_credentials_inside_core_and_use_exact_durable_receipts() {
+    let f = Fixture::new();
+    f.request(f.configure(0, REQUEST, true)).await;
+    let mut edit = policy(true);
+    edit["targets"][0]["destination"] = json!({"kind":"keep"});
+    edit["rules"][0]["body_contains"] = "keep-message".into();
+    let command = || AuthCommand::ForwardingConfigure {
+        token: f.token.clone(),
+        expected_generation: 1,
+        request_id: CHANGE.into(),
+        policy: edit.clone(),
+    };
+    assert_eq!(f.request(command()).await["generation"], 2);
+    assert_eq!(f.request(command()).await["generation"], 2); // Lost reply retry, same resolved secrets.
+    let receipt = f
+        .request(AuthCommand::ForwardingRequest {
+            token: f.token.clone(),
+            request_id: CHANGE.into(),
+        })
+        .await;
+    assert_eq!(receipt["known"], true);
+    assert_eq!(receipt["applied_generation"], 2);
+    assert!(!receipt.to_string().contains("synthetic-query-secret"));
+    let view = f
+        .request(AuthCommand::ForwardingRules {
+            token: f.token.clone(),
+        })
+        .await;
+    assert_eq!(view["generation"], 2);
+    assert!(!view.to_string().contains("synthetic-bearer-secret"));
+    f.incoming("keep-message");
+    let mut a = f.auth.lock().unwrap();
+    let b = Binding::from_owner(&mut a, &f.token).unwrap();
+    let mut s = f.control.0.lock().unwrap();
+    let q = s.queue.as_mut().unwrap();
+    q.capture_current(&a, &f.store.handle(), 2).unwrap();
+    let claim = q.claim_current(&a, &f.store.handle(), 2).unwrap().unwrap();
+    assert_eq!(
+        claim.request.url.expose(),
+        "https://example.invalid/path-secret?secret=synthetic-query-secret"
+    );
+    assert_eq!(
+        claim.request.bearer.as_ref().unwrap().expose(),
+        "synthetic-bearer-secret"
+    );
+    q.finish(&b, &claim, rustsimhub_forwarder::State::Unknown)
+        .unwrap();
+}
+#[tokio::test]
+async fn keep_requires_existing_target_and_absent_receipt_does_not_claim_never_applied() {
+    let f = Fixture::new();
+    let absent = f
+        .request(AuthCommand::ForwardingRequest {
+            token: f.token.clone(),
+            request_id: REQUEST.into(),
+        })
+        .await;
+    assert_eq!(absent["known"], false);
+    assert_eq!(absent["not_found_is_not_proof"], true);
+    assert!(!f.state.path().join("forwarding").exists());
+    for destination in [
+        json!({"kind":"keep"}),
+        json!({"kind":"keep","url":"https://example.invalid/unexpected"}),
+    ] {
+        let mut edit = policy(false);
+        edit["targets"][0]["destination"] = destination;
+        assert_eq!(
+            f.request(AuthCommand::ForwardingConfigure {
+                token: f.token.clone(),
+                expected_generation: 0,
+                request_id: REQUEST.into(),
+                policy: edit
+            })
+            .await["error"],
+            "denied"
+        );
+        assert!(!f.state.path().join("forwarding").exists());
+    }
+    f.request(f.configure(0, REQUEST, true)).await;
+    let before = f
+        .request(AuthCommand::ForwardingRules {
+            token: f.token.clone(),
+        })
+        .await;
+    let mut extra = policy(true);
+    extra["targets"][0]["destination"] =
+        json!({"kind":"keep","url":"https://example.invalid/unexpected"});
+    assert_eq!(
+        f.request(AuthCommand::ForwardingConfigure {
+            token: f.token.clone(),
+            expected_generation: 1,
+            request_id: CHANGE.into(),
+            policy: extra
+        })
+        .await["error"],
+        "denied"
+    );
+    let mut edit = policy(true);
+    edit["targets"][0]["id"] = "55555555-5555-4555-8555-555555555555".into();
+    edit["targets"][0]["destination"] = json!({"kind":"keep"});
+    assert_eq!(
+        f.request(AuthCommand::ForwardingConfigure {
+            token: f.token.clone(),
+            expected_generation: 1,
+            request_id: CHANGE.into(),
+            policy: edit
+        })
+        .await["error"],
+        "denied"
+    );
+    assert_eq!(
+        f.request(AuthCommand::ForwardingRules {
+            token: f.token.clone()
+        })
+        .await,
+        before
+    );
+    let bad = json!({"protocol":2,"id":"id","command":{"op":"forwarding_request","token":"a".repeat(64),"request_id":"bad"}});
+    assert!(rustsimhub_wire::parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
 }
 pub(super) fn delegated(f: &Fixture) -> String {
     let mut a = f.auth.lock().unwrap();

@@ -56,6 +56,8 @@ jobs:
         run: node tools/test-web-daily-sms.mjs
       - name: Web simplified one-click test center
         run: node tools/test-web-test-center.mjs
+      - name: Web Owner forwarding configuration and receipt recovery
+        run: node tools/test-web-forwarding.mjs
       - name: Web daily calls and bounded ownership
         run: node tools/test-web-daily-phone.mjs
       - name: Web signed session continuation

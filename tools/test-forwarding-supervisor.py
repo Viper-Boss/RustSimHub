@@ -292,10 +292,23 @@ def test(core_binary, worker_binary, managed=False):
             ctl('start', helpers['boot'].name)
             assert ctl('show', helpers['boot'].name, '--property=ConditionResult', '--value').stdout.strip() == 'no'
             assert ctl('show', helpers['boot'].name, '--property=ExecMainPID', '--value').stdout.strip() == '0'
-            enabled = rpc(EDGE, {'op': 'set_forwarding_enabled', 'token': owner, 'expected_generation': 2,
-                       'request_id': str(uuid.uuid4()), 'enabled': True}, 2)
+            enable_id = str(uuid.uuid4())
+            enable_command = {'op': 'set_forwarding_enabled', 'token': owner, 'expected_generation': 2,
+                              'request_id': enable_id, 'enabled': True}
+            if managed:
+                # The actual browser editor keeps secrets inside Core. Its
+                # typed input must still reach the real worker/TLS endpoint.
+                view = rpc(EDGE, {'op': 'forwarding_rules', 'token': owner}, 2)
+                assert view['generation'] == 2
+                enable_command = {'op': 'forwarding_configure', 'token': owner, 'expected_generation': 2,
+                    'request_id': enable_id, 'policy': {'enabled': True,
+                        'targets': [{'id': t['id'], 'destination': {'kind': 'keep'}} for t in view['targets']],
+                        'rules': view['rules']}}
+            enabled = rpc(EDGE, enable_command, 2)
             if managed:
                 assert enabled['process_state_verified'] and enabled['state'] == 'running', enabled
+                saved = rpc(EDGE, {'op': 'forwarding_request', 'token': owner, 'request_id': enable_id}, 2)
+                assert saved['known'] and saved['applied_generation'] == 3 and saved['not_found_is_not_proof']
             root('reconcile')
             running = report()
             assert running['state'] == 'running' and running['process_state_verified']
@@ -400,6 +413,7 @@ def test(core_binary, worker_binary, managed=False):
             tcp.close()
     print(json.dumps({'passed': True, 'actual_systemd': True, 'actual_cgroup': True,
         'actual_core_dbus_polkit_coordination': managed,
+        'retained_credentials_and_exact_configuration_receipt': managed,
         'temporary_polkit_rule_removed': managed,
         'http_requests': 2, 'extra_child_forcibly_reaped': True, 'off_startup_job_created_no_worker': True,
         'credential_metadata_negative_cases': 3, 'credential_ipc_positive_control': True,

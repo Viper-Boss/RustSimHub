@@ -7,6 +7,8 @@
 //! A Binding identifies that authority; it is deliberately NOT an auth proof.
 mod model;
 pub use model::*;
+mod edit;
+pub use edit::*;
 #[cfg(target_os = "linux")]
 mod authority;
 #[cfg(target_os = "linux")]

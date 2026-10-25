@@ -35,6 +35,10 @@ pub enum AuthCommand {
     ForwardingRules {
         token: String,
     },
+    ForwardingRequest {
+        token: String,
+        request_id: String,
+    },
     ForwardingReceipts {
         token: String,
         after: String,
@@ -360,6 +364,11 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         }
         AuthCommand::ForwardingStatus { token } | AuthCommand::ForwardingRules { token } => {
             if token.len() != 64 {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ForwardingRequest { token, request_id } => {
+            if token.len() != 64 || !canonical_uuid(request_id) {
                 return Err(invalid());
             }
         }
