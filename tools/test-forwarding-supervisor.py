@@ -320,6 +320,18 @@ def test(core_binary, worker_binary, managed=False):
             fixture.wait_for(lambda: event_count() == 2, 8)
             fixture.wait_for(lambda: sum(v['state'] == 'confirmed' for v in rpc(EDGE,
                 {'op': 'forwarding_receipts', 'token': owner, 'after': '0', 'limit': 32}, 2)['receipts']) == 2, 5)
+            if managed:
+                test_id = str(uuid.uuid4())
+                test_command = {'op': 'forwarding_test', 'token': owner, 'expected_generation': 3,
+                    'request_id': test_id, 'target_id': view['targets'][0]['id']}
+                test_result = rpc(EDGE, test_command, 2)
+                assert test_result['accepted'] and test_result['receipt']['synthetic']
+                fixture.wait_for(lambda: event_count() == 3, 8)
+                def test_confirmed():
+                    receipt = rpc(EDGE, {'op': 'forwarding_test_request', 'token': owner, 'request_id': test_id}, 2)
+                    return receipt['known'] and receipt['receipt']['synthetic'] and receipt['receipt']['state'] == 'confirmed'
+                fixture.wait_for(test_confirmed, 5)
+                assert rpc(EDGE, test_command, 2)['receipt']['state'] == 'confirmed'
             credential_guards(base)
             # A process which ignores SIGTERM is deliberately moved ONLY into
             # this unique owned cgroup. systemd must reap the full group, not
@@ -364,9 +376,9 @@ def test(core_binary, worker_binary, managed=False):
             assert report()['state'] == 'disabled'
             dc.send('stop')
             tc.send('stop')
-            assert dc.poll(2) and dc.recv()['dns_queries'] == 2
+            assert dc.poll(2) and dc.recv()['dns_queries'] == (3 if managed else 2)
             fixture.wait_for(lambda: fixture.drain_result(tc, events), 3)
-            assert next(v for v in events if 'http_requests' in v)['http_requests'] == 2
+            assert next(v for v in events if 'http_requests' in v)['http_requests'] == (3 if managed else 2)
             for server in started:
                 server.join(timeout=3)
                 assert server.exitcode == 0
@@ -415,7 +427,8 @@ def test(core_binary, worker_binary, managed=False):
         'actual_core_dbus_polkit_coordination': managed,
         'retained_credentials_and_exact_configuration_receipt': managed,
         'temporary_polkit_rule_removed': managed,
-        'http_requests': 2, 'extra_child_forcibly_reaped': True, 'off_startup_job_created_no_worker': True,
+        'synthetic_test_once_and_exact_receipt': managed,
+        'http_requests': 3 if managed else 2, 'extra_child_forcibly_reaped': True, 'off_startup_job_created_no_worker': True,
         'credential_metadata_negative_cases': 3, 'credential_ipc_positive_control': True,
         'root_and_service_credentials_removed_on_off': True,
         'boot_oneshot_skipped_when_off': True, 'boot_reconcile_idempotent_when_on': True,

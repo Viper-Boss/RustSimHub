@@ -14,7 +14,7 @@ use std::{
 use uuid::Uuid;
 
 const APP_ID: i64 = 0x52534657;
-const FORMAT: i64 = 1;
+const FORMAT: i64 = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -68,6 +68,7 @@ pub struct Receipt {
     pub rule_id: String,
     pub generation: u64,
     pub state: State,
+    pub synthetic: bool,
 }
 
 // Never Debug: contains the immutable destination, credentials and SMS payload.
@@ -203,7 +204,7 @@ impl Queue {
             if app != 0 || objects != 0 || requested.is_none() {
                 return Err(Error::Forbidden);
             }
-        } else if version != FORMAT || app != APP_ID {
+        } else if ![1, FORMAT].contains(&version) || app != APP_ID {
             return Err(Error::Forbidden);
         }
         let binding = match requested {
@@ -231,7 +232,7 @@ impl Queue {
             let tx = conn.transaction()?;
             tx.execute_batch("CREATE TABLE meta(singleton INTEGER PRIMARY KEY CHECK(singleton=1),binding TEXT NOT NULL,generation INTEGER NOT NULL CHECK(generation>=0),enabled INTEGER NOT NULL CHECK(enabled IN(0,1)),cursor INTEGER NOT NULL CHECK(cursor>=0),policy TEXT NOT NULL) STRICT;
 CREATE TABLE requests(seq INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT NOT NULL UNIQUE,digest BLOB NOT NULL CHECK(length(digest)=32),generation INTEGER NOT NULL) STRICT;
-CREATE TABLE jobs(seq INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT NOT NULL UNIQUE,message_id TEXT NOT NULL,target_id TEXT NOT NULL,rule_id TEXT NOT NULL,generation INTEGER NOT NULL,line INTEGER NOT NULL,state TEXT NOT NULL CHECK(state IN('queued','in_flight','confirmed','failed','unknown','cancelled')),attempt_id TEXT,request TEXT,UNIQUE(message_id,target_id,generation)) STRICT;
+CREATE TABLE jobs(seq INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT NOT NULL UNIQUE,message_id TEXT NOT NULL,target_id TEXT NOT NULL,rule_id TEXT NOT NULL,generation INTEGER NOT NULL,line INTEGER NOT NULL,state TEXT NOT NULL CHECK(state IN('queued','in_flight','confirmed','failed','unknown','cancelled')),attempt_id TEXT,request TEXT,purpose TEXT NOT NULL DEFAULT 'sms' CHECK(purpose IN('sms','test')),UNIQUE(message_id,target_id,generation)) STRICT;
 CREATE INDEX pending ON jobs(state,seq);")?;
             tx.execute(
                 "INSERT INTO meta VALUES(1,?,0,0,0,?)",
@@ -254,6 +255,14 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         let integrity: String = conn.query_row("PRAGMA quick_check", [], |r| r.get(0))?;
         if integrity != "ok" {
             return Err(Error::Storage);
+        }
+        // Binding and integrity checks precede migration. Existing delivery
+        // bodies/cursors are untouched; version 1 cannot interpret new tests.
+        if version == 1 {
+            let tx = conn.transaction()?;
+            tx.execute_batch("ALTER TABLE jobs ADD COLUMN purpose TEXT NOT NULL DEFAULT 'sms' CHECK(purpose IN('sms','test'));")?;
+            tx.pragma_update(None, "user_version", FORMAT)?;
+            tx.commit()?;
         }
         // A lost worker/Core reply is never queued for automatic delivery again.
         conn.execute(
@@ -662,7 +671,7 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         if after < 0 || !(1..=32).contains(&limit) {
             return Err(Error::Invalid);
         }
-        let mut statement=self.conn.prepare("SELECT seq,id,message_id,target_id,rule_id,generation,state FROM jobs WHERE seq>? ORDER BY seq LIMIT ?")?;
+        let mut statement=self.conn.prepare("SELECT seq,id,message_id,target_id,rule_id,generation,state,purpose='test' FROM jobs WHERE seq>? ORDER BY seq LIMIT ?")?;
         let rows = statement.query_map(params![after, limit as i64], |r| {
             Ok((
                 r.get::<_, i64>(0)?,
@@ -672,10 +681,11 @@ CREATE INDEX pending ON jobs(state,seq);")?;
                 r.get::<_, String>(4)?,
                 r.get::<_, i64>(5)?,
                 r.get::<_, String>(6)?,
+                r.get::<_, bool>(7)?,
             ))
         })?;
         rows.map(|row| {
-            let (seq, id, message_id, target_id, rule_id, generation, state) = row?;
+            let (seq, id, message_id, target_id, rule_id, generation, state, synthetic) = row?;
             let generation = u64::try_from(generation)
                 .ok()
                 .filter(|n| *n > 0)
@@ -688,6 +698,7 @@ CREATE INDEX pending ON jobs(state,seq);")?;
                 rule_id,
                 generation,
                 state: State::parse(&state)?,
+                synthetic,
             })
         })
         .collect()
@@ -705,9 +716,79 @@ CREATE INDEX pending ON jobs(state,seq);")?;
             return Err(Error::Invalid);
         }
         Ok(self.conn.execute(
-            "DELETE FROM jobs WHERE seq<=? AND state IN('confirmed','failed','cancelled')",
-            [through],
+            "DELETE FROM jobs WHERE seq<=? AND state IN('confirmed','failed','cancelled') AND NOT(purpose='test' AND generation=?)",
+            params![through, generation as i64],
         )?)
+    }
+}
+
+impl Queue {
+    /// Current-generation test receipts remain until a new policy generation,
+    /// including after explicit terminal pruning. This bounds replay history
+    /// without allowing a pruned request to cause another provider write.
+    pub fn enqueue_test(
+        &mut self,
+        binding: &Binding,
+        generation: u64,
+        request_id: &str,
+        target_id: &str,
+        line: LineEpoch,
+    ) -> Result<Receipt> {
+        let meta = self.fence(binding, generation)?;
+        if !meta.enabled {
+            return Err(Error::Disabled);
+        }
+        if !model::uuid(request_id) || !model::uuid(target_id) {
+            return Err(Error::Invalid);
+        }
+        if let Some(receipt) = self.test_receipt(binding, request_id)? {
+            if receipt.generation != generation || receipt.target_id != target_id {
+                return Err(Error::Conflict);
+            }
+            return Ok(receipt);
+        }
+        let target = meta
+            .policy
+            .targets
+            .iter()
+            .find(|t| t.id == target_id)
+            .ok_or(Error::Invalid)?;
+        let request = serde_json::to_string(&prepare_test(target, request_id, line)?)?;
+        let (pending, total, tests): (i64, i64, i64) = self.conn.query_row(
+            "SELECT coalesce(sum(state IN('queued','in_flight','unknown')),0),count(*),coalesce(sum(purpose='test' AND generation=?),0) FROM jobs",
+            [generation as i64], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
+        if pending >= MAX_PENDING as i64 || total >= MAX_RECEIPTS as i64 || tests >= 64 {
+            return Err(Error::Full);
+        }
+        // A caller controls the request UUID, never a business message UUID.
+        // Keep synthetic message identities separate from any caller-chosen SMS.
+        let message_id = Uuid::new_v4().to_string();
+        self.conn.execute("INSERT INTO jobs(id,message_id,target_id,rule_id,generation,line,state,request,purpose) VALUES(?,?,?,?,?,?,'queued',?,'test')",
+            params![request_id,message_id,target_id,request_id,generation as i64,line.0 as i64,request])?;
+        self.test_receipt(binding, request_id)?
+            .ok_or(Error::Storage)
+    }
+    pub fn test_receipt(&self, binding: &Binding, request_id: &str) -> Result<Option<Receipt>> {
+        self.require_binding(binding)?;
+        if !model::uuid(request_id) {
+            return Err(Error::Invalid);
+        }
+        let seq: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT seq FROM jobs WHERE id=? AND purpose='test'",
+                [request_id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        let Some(seq) = seq else {
+            return Ok(None);
+        };
+        self.receipts(seq - 1, 1)?
+            .into_iter()
+            .next()
+            .map(Some)
+            .ok_or(Error::Storage)
     }
 }
 

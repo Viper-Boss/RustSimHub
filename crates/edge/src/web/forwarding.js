@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// No timers or automatic mutation. Credential drafts stay in password inputs.
+// No passive polling or automatic mutation. Explicit synthetic tests have a
+// bounded read-only receipt observation. Credentials stay in password inputs.
 class FormError extends Error {}
 const uuid=s=>typeof s==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s);
 const generation=n=>Number.isSafeInteger(n)&&n>=0;
@@ -49,8 +50,8 @@ export function policyInput(targets,rules,enabled){
 }
 export function pendingInput(value){
  if(value===null||value===undefined)return null;
- requireValue(value&&value.format===1&&uuid(value.id)&&['configure','enable','disable'].includes(value.kind)&&generation(value.expected_generation)&&Object.keys(value).every(k=>['format','id','kind','expected_generation'].includes(k)),'本机保存回执损坏，请保留记录并使用维护入口核对');
- return {format:1,id:value.id,kind:value.kind,expected_generation:value.expected_generation};
+ requireValue(value&&value.format===1&&uuid(value.id)&&['configure','enable','disable','test'].includes(value.kind)&&generation(value.expected_generation)&&Object.keys(value).every(k=>['format','id','kind','expected_generation','target_id'].includes(k))&&(value.kind==='test'?value.expected_generation>0&&uuid(value.target_id):!Object.hasOwn(value,'target_id')),'本机保存回执损坏，请保留记录并使用维护入口核对');
+ return {format:1,id:value.id,kind:value.kind,expected_generation:value.expected_generation,...(value.kind==='test'?{target_id:value.target_id}:{})};
 }
 export function processText(s){
  if(s?.process_state_verified===true&&s.enabled===false&&s.state==='disabled')return '转发进程已关闭';
@@ -71,19 +72,21 @@ function viewInput(v,s){
  return v;
 }
 export class ForwardingPanel {
- constructor({document,request,getToken,confirm,loadPending,savePending,archivePending,crypto=globalThis.crypto}){
-  Object.assign(this,{doc:document,request,getToken,confirm,loadPending,savePending,archivePending,crypto});this.epoch=0;this.secretInputs=new Set();
+ constructor({document,request,getToken,confirm,loadPending,savePending,archivePending,crypto=globalThis.crypto,delay=()=>new Promise(resolve=>setTimeout(resolve,1000))}){
+  Object.assign(this,{doc:document,request,getToken,confirm,loadPending,savePending,archivePending,crypto,delay});this.epoch=0;this.secretInputs=new Set();
   for(const [id,fn] of [['forwarding-refresh',g=>this.read(g)],['forwarding-toggle',g=>this.toggle(g)],['forwarding-save',g=>this.save(g)],['forwarding-query',g=>this.query(g)],['forwarding-archive',g=>this.archiveUnknown(g)],['forwarding-receipts-refresh',g=>this.receipts(g,true)],['forwarding-receipts-more',g=>this.receipts(g,false)]])this.$(id).onclick=()=>this.action(fn);
   this.$('forwarding-add-target').onclick=()=>{if(this.busy||!this.ready||this.pending||this.targets.length>=8)return;this.targets.push(this.target());this.dirty=true;this.render();};
   this.$('forwarding-add-rule').onclick=()=>{if(this.busy||!this.ready||this.pending||this.rules.length>=32)return;this.rules.push(this.rule());this.dirty=true;this.render();};
+  this.$('forwarding-test').onclick=()=>this.action(g=>this.test(g));
   this.reset();
  }
  $(id){return this.doc.getElementById(id);}
  current(g){if(g!==this.epoch||!this.getToken())throw new FormError('会话已变化，请重新读取');}
  clearSecrets(){for(const input of this.secretInputs)input.value='';}
+ suspend(){this.epoch++;this.clearSecrets();this.busy=false;this.ready=false;this.sample=null;this.update();}
  reset(){
   this.epoch++;this.clearSecrets();this.secretInputs.clear();this.busy=false;this.ready=false;this.sample=null;this.view=null;this.pending=null;this.targets=[];this.rules=[];this.cards=[];this.dirty=false;this.cursor='0';this.more=false;
-  this.$('forwarding-targets').replaceChildren();this.$('forwarding-rules').replaceChildren();this.$('forwarding-receipts').replaceChildren();this.$('forwarding-pending').textContent='';this.message('所有者登录后，点击“读取状态”。此区域不会自动轮询。');this.update();
+  this.$('forwarding-test-target').replaceChildren();this.$('forwarding-targets').replaceChildren();this.$('forwarding-rules').replaceChildren();this.$('forwarding-receipts').replaceChildren();this.$('forwarding-pending').textContent='';this.message('所有者登录后，点击“读取状态”。此区域不会自动轮询。');this.update();
  }
  message(text){this.$('forwarding-state').textContent=text;}
  update(){
@@ -96,7 +99,9 @@ export class ForwardingPanel {
   this.$('forwarding-query').hidden=!this.pending;this.$('forwarding-query').disabled=this.busy||!this.pending;
   this.$('forwarding-archive').hidden=!this.pending;this.$('forwarding-archive').disabled=this.busy||!this.pending;
   this.$('forwarding-receipts-more').disabled=this.busy||!this.more;
-  this.$('forwarding-pending').textContent=this.pending?'上次保存待核对：'+this.pending.id+'。不会自动重新提交。':'';
+  this.$('forwarding-test').disabled=blocked||!this.sample?.synthetic_test_api||this.sample?.enabled!==true||this.sample?.process_state_verified!==true||this.sample?.state!=='running'||this.sample?.delivery_api!==true||!this.view?.targets.length;
+  this.$('forwarding-test-target').disabled=blocked;
+  this.$('forwarding-pending').textContent=this.pending?'上次'+(this.pending.kind==='test'?'合成测试':'保存')+'待核对：'+this.pending.id+'。不会自动重新提交。':'';
  }
  async action(fn){
   if(this.busy)return;const g=this.epoch;this.busy=true;this.update();
@@ -128,6 +133,9 @@ export class ForwardingPanel {
   this.clearSecrets();this.secretInputs.clear();this.targets=v.targets.map(t=>this.target(t));this.rules=v.rules.map(r=>this.rule(r));
   if(!this.targets.length&&!this.rules.length){this.targets=[this.target()];this.rules=[this.rule()];}
   this.dirty=false;this.render();
+  const select=this.$('forwarding-test-target');select.replaceChildren();
+  for(const [i,t] of v.targets.entries()){const option=this.element('option',`目标 ${i+1} · ${kinds[t.kind]} · ${t.id.slice(0,8)}`);option.value=t.id;select.append(option);}
+  select.value=v.targets[0]?.id||'';
  }
  element(tag,text){const e=this.doc.createElement(tag);if(text!==undefined)e.textContent=text;return e;}
  label(text,input){const label=this.element('label',text);label.append(input);return label;}
@@ -200,11 +208,38 @@ export class ForwardingPanel {
  async query(g){
   this.current(g);
   requireValue(!!this.pending,'没有待核对的保存');const record=this.pending;
+  if(record.kind==='test'){await this.inspectTest(g,record,await this.request({op:'forwarding_test_request',request_id:record.id}));return;}
   const result=await this.request({op:'forwarding_request',request_id:record.id});this.current(g);
   requireValue(result.request_id===record.id&&typeof result.known==='boolean'&&result.not_found_is_not_proof===true&&generation(result.current_generation));
   if(!result.known){this.message('没有找到这笔保存回执；记录可能未受理、已清理或来自恢复前。不会重提，记录继续保留。');return;}
   requireValue(generation(result.applied_generation)&&result.applied_generation===record.expected_generation+1&&result.applied_generation<=result.current_generation);
   await this.archive(record,result.applied_generation,g);const sample=await this.load(g);this.message('已核对保存并归档回执；'+processText(sample)+'。');
+ }
+ async inspectTest(g,record,result){
+  this.current(g);requireValue(result.request_id===record.id&&(result.accepted===true||typeof result.known==='boolean'));
+  if(result.known===false){requireValue(result.not_found_is_not_proof===true);this.message('没有找到这笔合成测试回执；不代表从未外发，不会重新提交。');return true;}
+  const r=result.receipt;requireValue(r&&r.id===record.id&&r.target_id===record.target_id&&r.generation===record.expected_generation&&r.synthetic===true&&Object.hasOwn(states,r.state));
+  if(['confirmed','failed','cancelled'].includes(r.state)){
+   await this.archive(record,r.generation,g);await this.load(g);this.message(r.state==='confirmed'?'合成测试已获目标确认；没有读取或发送真实短信。':'合成测试'+states[r.state]+'；不会自动重发。');return true;
+  }
+  if(r.state==='unknown'){this.message('合成测试结果不确定，回执已保留；不会自动重发。');return true;}
+  this.message('合成测试'+states[r.state]+'，正在核对回执；只提交一次。');return false;
+ }
+ async test(g){
+  this.current(g);requireValue(this.ready&&!this.pending&&this.sample?.synthetic_test_api&&this.sample.enabled&&this.sample.process_state_verified&&this.sample.state==='running'&&this.sample.delivery_api,'请先保存目标、开启转发并读取确认运行状态');
+  const target=this.$('forwarding-test-target').value;requireValue(this.view.targets.some(t=>t.id===target),'请选择已保存的测试目标');
+  if(!this.confirm('向所选已保存目标发送一条固定合成通知？不读取真实短信。'+(this.dirty?'未保存的输入会清空，不会提交。':'')))return;
+  const record={format:1,id:this.crypto.randomUUID(),kind:'test',expected_generation:this.sample.generation,target_id:target};
+  this.clearSecrets();
+  try{await this.savePending(record,null);}catch{throw new FormError('本机回执未能保存或另一页面已有请求；本次未提交测试');}this.current(g);this.pending=record;this.update();
+  const deadline=Date.now()+15000;
+  const result=await this.request({op:'forwarding_test',expected_generation:record.expected_generation,request_id:record.id,target_id:target});
+  if(await this.inspectTest(g,record,result))return;
+  for(let i=0;i<10&&Date.now()<deadline;i++){
+   await this.delay();this.current(g);if(Date.now()>=deadline)break;
+   if(await this.inspectTest(g,record,await this.request({op:'forwarding_test_request',request_id:record.id})))return;
+  }
+  this.message('合成测试仍在处理，回执已保留；可点击核对上次请求，不会重新提交。');
  }
  async archiveUnknown(g){
   this.current(g);
@@ -216,7 +251,7 @@ export class ForwardingPanel {
   requireValue(!!this.getToken(),'请先使用所有者浏览器登录');
   const result=await this.request({op:'forwarding_receipts',after:reset?'0':this.cursor,limit:16});this.current(g);
   requireValue(Array.isArray(result.receipts)&&result.receipts.length<=16);const rows=[];let cursor=reset?'0':this.cursor;
-  for(const r of result.receipts){requireValue(typeof r.seq==='string'&&/^(0|[1-9][0-9]{0,18})$/.test(r.seq)&&BigInt(r.seq)<=9223372036854775807n&&BigInt(r.seq)>BigInt(cursor)&&uuid(r.id)&&uuid(r.message_id)&&uuid(r.target_id)&&Object.hasOwn(states,r.state));cursor=r.seq;rows.push(this.element('p',`短信 ${r.message_id.slice(0,8)} → 目标 ${r.target_id.slice(0,8)} · ${states[r.state]}`));}
+  for(const r of result.receipts){requireValue(typeof r.seq==='string'&&/^(0|[1-9][0-9]{0,18})$/.test(r.seq)&&BigInt(r.seq)<=9223372036854775807n&&BigInt(r.seq)>BigInt(cursor)&&uuid(r.id)&&uuid(r.message_id)&&uuid(r.target_id)&&Object.hasOwn(states,r.state));cursor=r.seq;rows.push(this.element('p',`${r.synthetic===true?'合成测试':'短信'} ${r.message_id.slice(0,8)} → 目标 ${r.target_id.slice(0,8)} · ${states[r.state]}`));}
   if(reset)this.$('forwarding-receipts').replaceChildren();this.$('forwarding-receipts').append(...rows);this.cursor=cursor;this.more=result.receipts.length===16;this.message(rows.length?'已读取递送回执；不包含短信正文或目标凭据。':'暂时没有新的递送回执。');
  }
 }

@@ -172,7 +172,16 @@ fn capture_cursor_and_all_targets_commit_together_and_overlap_sends_once() {
         .unwrap()
         .is_empty());
     let text = serde_json::to_string(&receipt).unwrap();
-    assert!(!text.contains("synthetic") && !text.contains("123456"));
+    assert!(!receipt[0].synthetic);
+    for private in [
+        "synthetic sender",
+        "synthetic time",
+        "synthetic-bearer",
+        "example.invalid",
+        "123456",
+    ] {
+        assert!(!text.contains(private));
+    }
     let payload: Option<String> = q
         .conn
         .query_row("SELECT request FROM jobs", [], |r| r.get(0))
@@ -603,4 +612,173 @@ fn existing_store_accepted_sender_and_control_text_cannot_block_following_sms() 
     }
     assert_eq!(q.capture(&b, 1, &h).unwrap(), 2);
     assert_eq!(q.receipts(0, 32).unwrap().len(), 2);
+}
+
+#[test]
+fn synthetic_test_is_single_target_idempotent_and_survives_pruning_and_restart() {
+    let (d, mut q) = enabled();
+    let before = q.event_cursor().unwrap();
+    let request = id();
+    let receipt = q
+        .enqueue_test(&binding(), 1, &request, TARGET, LineEpoch(2))
+        .unwrap();
+    assert!(receipt.synthetic);
+    assert_eq!(receipt.id, request);
+    assert_eq!(
+        q.enqueue_test(&binding(), 1, &request, TARGET, LineEpoch(2))
+            .unwrap()
+            .id,
+        request
+    );
+    assert_eq!(q.receipts(0, 32).unwrap().len(), 1);
+    assert_eq!(q.event_cursor().unwrap().seq, before.seq);
+    let claim = q.claim(&binding(), 1, LineEpoch(2)).unwrap().unwrap();
+    let body: serde_json::Value = serde_json::from_str(claim.request.body.expose()).unwrap();
+    assert_eq!(body["event"], "forwarding_test");
+    assert_eq!(body["text"], SYNTHETIC_NOTICE);
+    assert_eq!(body["test"], true);
+    assert!(body.get("line").is_none() && body.get("sender").is_none());
+    q.finish(&binding(), &claim, State::Confirmed).unwrap();
+    assert_eq!(q.prune_terminal(&binding(), 1, i64::MAX).unwrap(), 0);
+    drop(q);
+    let mut q = Queue::open(d.path(), binding()).unwrap();
+    assert_eq!(
+        q.enqueue_test(&binding(), 1, &request, TARGET, LineEpoch(2))
+            .unwrap()
+            .state,
+        State::Confirmed
+    );
+    assert!(q.claim(&binding(), 1, LineEpoch(2)).unwrap().is_none());
+    assert!(matches!(
+        q.enqueue_test(&binding(), 1, &request, &id(), LineEpoch(2)),
+        Err(Error::Conflict)
+    ));
+    q.configure(&binding(), 1, &id(), policy(), head(5))
+        .unwrap();
+    assert!(matches!(
+        q.enqueue_test(&binding(), 1, &request, TARGET, LineEpoch(2)),
+        Err(Error::Stale)
+    ));
+    assert_eq!(q.prune_terminal(&binding(), 2, i64::MAX).unwrap(), 1);
+    assert!(q.test_receipt(&binding(), &request).unwrap().is_none());
+    assert!(q
+        .enqueue_test(&binding(), 1, &request, TARGET, LineEpoch(2))
+        .is_err());
+}
+
+#[test]
+fn synthetic_test_has_a_bounded_generation_history_and_keeps_unknown() {
+    let (_d, mut q) = enabled();
+    for _ in 0..64 {
+        q.enqueue_test(&binding(), 1, &id(), TARGET, LineEpoch(2))
+            .unwrap();
+    }
+    assert!(matches!(
+        q.enqueue_test(&binding(), 1, &id(), TARGET, LineEpoch(2)),
+        Err(Error::Full)
+    ));
+    let claim = q.claim(&binding(), 1, LineEpoch(2)).unwrap().unwrap();
+    q.finish(&binding(), &claim, State::Unknown).unwrap();
+    q.configure(&binding(), 1, &id(), policy(), head(5))
+        .unwrap();
+    assert_eq!(q.prune_terminal(&binding(), 2, i64::MAX).unwrap(), 63);
+    assert_eq!(
+        q.test_receipt(&binding(), &claim.id)
+            .unwrap()
+            .unwrap()
+            .state,
+        State::Unknown
+    );
+    assert!(q.claim(&binding(), 2, LineEpoch(2)).unwrap().is_none());
+    let mut foreign = binding();
+    foreign.owner_generation += 1;
+    assert!(q
+        .enqueue_test(&foreign, 2, &id(), TARGET, LineEpoch(2))
+        .is_err());
+    assert!(q.test_receipt(&foreign, &claim.id).is_err());
+    assert!(q
+        .enqueue_test(&binding(), 2, &id(), TARGET, LineEpoch(0))
+        .is_err());
+    assert!(q
+        .enqueue_test(&binding(), 2, &id(), &id(), LineEpoch(2))
+        .is_err());
+    let mut disabled = policy();
+    disabled.enabled = false;
+    q.configure(&binding(), 2, &id(), disabled, head(5))
+        .unwrap();
+    assert!(matches!(
+        q.enqueue_test(&binding(), 3, &id(), TARGET, LineEpoch(2)),
+        Err(Error::Disabled)
+    ));
+}
+
+#[test]
+fn format_one_migrates_only_after_binding_validation_preserving_sms_and_unknown() {
+    let (d, mut q) = enabled();
+    q.ingest(&binding(), 1, head(6), Some(&message())).unwrap();
+    let claim = q.claim(&binding(), 1, LineEpoch(2)).unwrap().unwrap();
+    let payload = claim.request.body.expose().to_owned();
+    q.conn
+        .execute_batch("ALTER TABLE jobs DROP COLUMN purpose; PRAGMA user_version=1;")
+        .unwrap();
+    drop(q);
+    let mut foreign = binding();
+    foreign.owner_generation += 1;
+    assert!(Queue::open(d.path(), foreign).is_err());
+    let c = Connection::open(d.path().join("outbox.sqlite3")).unwrap();
+    assert_eq!(
+        c.pragma_query_value::<i64, _>(None, "user_version", |r| r.get(0))
+            .unwrap(),
+        1
+    );
+    drop(c);
+    let q = Queue::open(d.path(), binding()).unwrap();
+    assert_eq!(
+        q.conn
+            .pragma_query_value::<i64, _>(None, "user_version", |r| r.get(0))
+            .unwrap(),
+        2
+    );
+    assert_eq!(q.event_cursor().unwrap().seq, "6");
+    let receipts = q.receipts(0, 32).unwrap();
+    assert!(!receipts[0].synthetic);
+    assert_eq!(receipts[0].state, State::Unknown);
+    assert_eq!(
+        q.conn
+            .query_row::<String, _, _>("SELECT request FROM jobs WHERE id=?", [&claim.id], |r| r
+                .get(0))
+            .unwrap(),
+        serde_json::to_string(&claim.request).unwrap()
+    );
+    assert!(payload.contains("sms_received"));
+}
+
+#[test]
+fn synthetic_provider_messages_are_explicit_fixed_content() {
+    for destination in [
+        Destination::Bark {
+            server: "https://example.invalid/".into(),
+            key: Secret::new("synthetic-key".into()),
+        },
+        Destination::Telegram {
+            bot_token: Secret::new("1:synthetic".into()),
+            chat_id: Secret::new("synthetic-chat".into()),
+        },
+    ] {
+        let request = prepare_test(
+            &Target {
+                id: TARGET.into(),
+                destination,
+            },
+            &id(),
+            LineEpoch(2),
+        )
+        .unwrap();
+        let value: serde_json::Value = serde_json::from_str(request.body.expose()).unwrap();
+        assert_eq!(
+            value.get("text").or_else(|| value.get("body")).unwrap(),
+            SYNTHETIC_NOTICE
+        );
+        assert!(request.acknowledged(200, b"{\"code\":200,\"ok\":true}"));
+    }
 }

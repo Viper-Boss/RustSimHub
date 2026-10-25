@@ -115,7 +115,11 @@ def tls_server(listener, control, cert, key, hold):
                     assert part
                     body += part
                 assert len(body) == size
-                json.loads(body)
+                payload = json.loads(body)
+                if payload.get('event') == 'forwarding_test':
+                    assert set(payload) == {'format', 'event', 'test', 'delivery_id', 'text'}
+                    assert payload['test'] is True
+                    assert payload['text'] == '[RustSimHub 合成测试] 转发通道测试，不包含真实短信、号码或验证码。'
                 assert b'synthetic body' not in body, 'notice must not share full text'
                 delivery = fields[b'x-rustsimhub-delivery-id'].decode('ascii')
                 assert str(uuid.UUID(delivery)) == delivery and delivery not in ids

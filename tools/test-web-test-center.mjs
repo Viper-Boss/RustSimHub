@@ -133,3 +133,18 @@ for(const stage of ['line_status','prepare_sms','marker']){
  assert.equal(f.sent.filter(c=>c.op==='submit_sms'||c.op==='submit_call').length,0);
 }
 console.log('PASS: visible four-task center, collapsed panels, automatic login, exact no-retry recovery, safe result copy, one SMS submit, draft preservation, forwarding real app/IndexedDB wiring and stop/logout/storage races; synthetic only.');
+
+{
+ const policy={enabled:true,generation:5,targets:[{id,kind:'webhook',credentials_redacted:true}],rules:[{id:other,targets:[id],sender_equals:null,body_contains:null,line:null,share:'notice'}]};
+ const f=fixture({respond:async c=>{
+  if(c.op==='forwarding_status')return {available:true,configuration_api:true,retained_credentials_api:true,request_receipt_api:true,service_management_api:true,synthetic_test_api:true,delivery_api:true,enabled:true,generation:5,state:'running',process_state_verified:true};
+  if(c.op==='forwarding_rules')return policy;
+  if(c.op==='forwarding_test')return {request_id:c.request_id,accepted:true,synthetic:true,receipt:{id:c.request_id,target_id:id,generation:5,synthetic:true,state:'queued'}};
+  if(c.op==='forwarding_test_request')return {request_id:c.request_id,known:true,receipt:{id:c.request_id,target_id:id,generation:5,synthetic:true,state:'confirmed'}};
+  throw Error('unexpected request');
+ }});
+ const panel=f.forwarding();panel.delay=async()=>{};await panel.action(g=>panel.read(g));await panel.action(g=>panel.test(g));
+ assert.equal(f.sent.filter(c=>c.op==='forwarding_test').length,1);assert.equal(f.saved.get('forwarding-pending'),null);
+ const record=f.saved.get('forwarding-config-receipts').at(-1);assert.equal(record.kind,'test');assert.equal(record.target_id,id);assert.equal(record.applied_generation,5);
+ assert.equal(f.sent.filter(c=>c.op==='submit_sms'||c.op==='submit_call').length,0);
+}

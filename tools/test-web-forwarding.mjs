@@ -15,14 +15,14 @@ class Element {
  append(...items){this.children.push(...items);}replaceChildren(...items){this.children=items;this.textContent='';}get options(){return this.children;}
  set innerHTML(_){throw Error('Never parse provider/configuration data as HTML');}
 }
-function fixture({existing=false,managed=true,consent=true,onRequest,onSave,onLoad}={}){
+function fixture({existing=false,managed=true,consent=true,onRequest,onSave,onLoad,testState='confirmed',onDelay}={}){
  const elements=new Map(),$=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
  const doc={getElementById:$,createElement:tag=>new Element(tag)};
  let token=true,pending=null,policy={enabled:false,targets:existing?[{id,destination:{kind:'webhook',url:endpoint,bearer:secret}}]:[],rules:existing?[{id:rule,targets:[id],sender_equals:'sender',body_contains:null,line:null,share:'notice'}]:[]};
- let current=existing?1:0;const calls=[],writes=[],archives=[],markers=[],requests=new Map(),confirmations=[];
- const status=()=>({available:true,configured:current>0,generation:current,enabled:policy.enabled,configuration_api:true,retained_credentials_api:true,request_receipt_api:true,service_management_api:managed,process_state_verified:true,state:policy.enabled?'running':'disabled'});
+ let current=existing?1:0;const calls=[],writes=[],archives=[],markers=[],requests=new Map(),tests=new Map(),confirmations=[];
+ const status=()=>({available:true,configured:current>0,generation:current,enabled:policy.enabled,configuration_api:true,retained_credentials_api:true,request_receipt_api:true,synthetic_test_api:true,delivery_api:policy.enabled,service_management_api:managed,process_state_verified:true,state:policy.enabled?'running':'disabled'});
  const view=()=>({enabled:policy.enabled,generation:current,targets:policy.targets.map(t=>({id:t.id,kind:t.destination.kind,credentials_redacted:true})),rules:clone(policy.rules)});
- const panel=new ForwardingPanel({document:doc,crypto:webcrypto,getToken:()=>token,confirm:message=>{confirmations.push(message);return consent;},
+ const panel=new ForwardingPanel({document:doc,crypto:webcrypto,delay:async()=>{await onDelay?.();},getToken:()=>token,confirm:message=>{confirmations.push(message);return consent;},
   loadPending:async()=>{await onLoad?.();return clone(pending);},savePending:async value=>{await onSave?.(value);pending=clone(value);markers.push(clone(value));},archivePending:async value=>{archives.push(clone(value));},
   request:async c=>{
    calls.push(clone(c));const custom=await onRequest?.(c);if(custom!==undefined)return custom;
@@ -30,6 +30,12 @@ function fixture({existing=false,managed=true,consent=true,onRequest,onSave,onLo
    if(c.op==='forwarding_rules')return view();
    if(c.op==='forwarding_request'){const gen=requests.get(c.request_id);return {request_id:c.request_id,known:!!gen,applied_generation:gen??null,current_generation:current,not_found_is_not_proof:true};}
    if(c.op==='forwarding_receipts')return {receipts:[]};
+   if(c.op==='forwarding_test'){
+    assert.equal(policy.enabled,true);assert.deepEqual(pending,{format:1,id:c.request_id,kind:'test',expected_generation:current,target_id:c.target_id});
+    const receipt={id:c.request_id,target_id:c.target_id,generation:current,synthetic:true,state:'queued'};tests.set(c.request_id,receipt);return {request_id:c.request_id,accepted:true,synthetic:true,receipt:clone(receipt)};
+   }
+   if(c.op==='forwarding_test_request'){const receipt=tests.get(c.request_id);if(receipt)receipt.state=testState;return {request_id:c.request_id,known:!!receipt,not_found_is_not_proof:true,receipt:clone(receipt??null)};}
+
    if(c.op==='forwarding_configure'||c.op==='set_forwarding_enabled'){
     assert.equal(c.expected_generation,current);assert.deepEqual(pending,{format:1,id:c.request_id,kind:c.op==='forwarding_configure'?'configure':c.enabled?'enable':'disable',expected_generation:current});
     for(const input of panel.secretInputs)assert.equal(input.value,'','Clear drafts before dispatch');
@@ -120,5 +126,36 @@ const html=await readFile(new URL('../crates/edge/src/web/index.html',import.met
  assert.equal(f.panel.ready,false);assert.equal(f.panel.sample,null);assert.equal(f.$('forwarding-save').disabled,true);assert.equal(f.writes.length,0);
 }
 assert.match(html,/<details id="forwarding-panel" data-configuration>/);assert.doesNotMatch(html,/<details id="forwarding-panel"[^>]*\bopen\b/);
-assert.doesNotMatch(source.toString(),/setInterval|setTimeout|localStorage|innerHTML/);
-console.log('PASS: actual forwarding panel, redacted keep edits, durable metadata before one submit, exact receipt reconciliation, no auto retry/poll, input privacy, limits and logout/storage races; synthetic only.');
+assert.doesNotMatch(source.toString(),/setInterval|localStorage|innerHTML/);
+console.log('PASS: actual forwarding panel, redacted keep edits, durable metadata before one submit, exact receipt reconciliation, no automatic mutation/passive polling, input privacy, limits and logout/storage races; synthetic only.');
+
+async function readyTest(options={}){const f=fixture({existing:true,...options});await f.read();assert.equal(f.$('forwarding-test').disabled,true);await f.panel.action(g=>f.panel.toggle(g));assert.equal(f.$('forwarding-test').disabled,false);return f;}
+{
+ const f=await readyTest();await f.panel.action(g=>f.panel.test(g));
+ assert.equal(f.calls.filter(c=>c.op==='forwarding_test').length,1);assert.equal(f.calls.filter(c=>c.op==='forwarding_test_request').length,1);
+ assert.equal(f.pending(),null);assert.equal(f.archives.at(-1).kind,'test');assert.equal(f.archives.at(-1).target_id,id);assert.equal(f.archives.at(-1).applied_generation,2);assert.ok(!JSON.stringify(f.archives).includes(secret));assert.match(allText(f),/合成测试已获目标确认/);
+}
+for(const state of ['queued','unknown','failed','cancelled']){
+ const f=await readyTest({testState:state});await f.panel.action(g=>f.panel.test(g));
+ assert.equal(f.calls.filter(c=>c.op==='forwarding_test').length,1);
+ assert.equal(f.calls.filter(c=>c.op==='forwarding_test_request').length,state==='queued'?10:1);
+ assert.equal(!!f.pending(),['queued','unknown'].includes(state));
+ if(state==='unknown'){await f.panel.action(g=>f.panel.query(g));assert.equal(f.calls.filter(c=>c.op==='forwarding_test').length,1);assert.ok(f.pending());}
+}
+{
+ let fail=true;const f=await readyTest({onRequest:async c=>{if(c.op==='forwarding_test'&&fail)throw Error('lost reply');}});
+ await f.panel.action(g=>f.panel.test(g));assert.ok(f.pending());assert.equal(f.calls.filter(c=>c.op==='forwarding_test_request').length,0);
+ fail=false;await f.panel.action(g=>f.panel.query(g));assert.ok(f.pending());assert.match(allText(f),/不代表从未外发/);assert.equal(f.calls.filter(c=>c.op==='forwarding_test').length,1);
+}
+{
+ let reject=false;const f=await readyTest({onSave:async value=>{if(reject&&value)throw Error('storage failed');}});reject=true;
+ await f.panel.action(g=>f.panel.test(g));assert.equal(f.calls.filter(c=>c.op==='forwarding_test').length,0);assert.match(allText(f),/本次未提交测试/);
+}
+{
+ const gate=deferred();let waiting=false;const f=await readyTest({onDelay:async()=>{waiting=true;await gate.promise;}});
+ const running=f.panel.action(g=>f.panel.test(g));while(!waiting)await turn();f.panel.suspend();gate.resolve();await running;
+ assert.equal(f.calls.filter(c=>c.op==='forwarding_test').length,1);assert.equal(f.calls.filter(c=>c.op==='forwarding_test_request').length,0);assert.ok(f.pending());assert.equal(f.$('forwarding-test').disabled,true);
+}
+assert.throws(()=>pendingInput({format:1,id,kind:'test',expected_generation:1}));
+assert.throws(()=>pendingInput({format:1,id,kind:'configure',expected_generation:1,target_id:other}));
+console.log('PASS: explicit synthetic target, durable no-repeat marker, bounded receipt reads, confirmed/failed/unknown/timeout/lost replies and panel-close cancellation.');

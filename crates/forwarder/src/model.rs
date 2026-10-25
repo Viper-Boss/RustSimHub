@@ -404,3 +404,42 @@ pub fn prepare(
         acknowledgement: ack,
     })
 }
+
+pub const SYNTHETIC_NOTICE: &str =
+    "[RustSimHub 合成测试] 转发通道测试，不包含真实短信、号码或验证码。";
+
+/// Uses the same validated destination and provider encoding, but never a
+/// business-store message or a caller-supplied body/address.
+pub fn prepare_test(target: &Target, request_id: &str, line: LineEpoch) -> Result<PreparedRequest> {
+    let message = Message {
+        id: request_id.into(),
+        line,
+        sender: "RustSimHub 合成测试".into(),
+        timestamp: String::new(),
+        body: SYNTHETIC_NOTICE.into(),
+        duplicate_candidate: false,
+        binary: false,
+    };
+    let rule = Rule {
+        id: request_id.into(),
+        targets: vec![target.id.clone()],
+        sender_equals: None,
+        body_contains: None,
+        line: None,
+        share: Share::FullText,
+    };
+    let mut request = prepare(target, &rule, &message, request_id)?;
+    let mut value: serde_json::Value = serde_json::from_str(request.body.expose())?;
+    match target.destination {
+        Destination::Webhook { .. } => {
+            value = serde_json::json!({"format":1,"event":"forwarding_test","test":true,"delivery_id":request_id,"text":SYNTHETIC_NOTICE})
+        }
+        Destination::Bark { .. } => {
+            value["title"] = "RustSimHub 合成测试".into();
+            value["body"] = SYNTHETIC_NOTICE.into();
+        }
+        Destination::Telegram { .. } => value["text"] = SYNTHETIC_NOTICE.into(),
+    }
+    request.body = Secret::new(serde_json::to_string(&value)?);
+    Ok(request)
+}

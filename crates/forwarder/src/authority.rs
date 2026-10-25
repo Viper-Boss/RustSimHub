@@ -54,6 +54,34 @@ impl Binding {
     }
 }
 impl Queue {
+    pub fn test_owner(
+        &mut self,
+        auth: &mut Auth,
+        reader: &Handle,
+        token: &str,
+        generation: u64,
+        request_id: &str,
+        target_id: &str,
+    ) -> Result<Receipt> {
+        let binding = recent(auth, token)?;
+        self.require_binding(&binding)?;
+        if reader
+            .inbox_event_head()
+            .map_err(|_| Error::Storage)?
+            .db_epoch
+            != binding.realm
+        {
+            return Err(Error::Stale);
+        }
+        let live = reader.line_status().map_err(|_| Error::Storage)?;
+        if live.status != LineStatus::Ready {
+            return Err(Error::Stale);
+        }
+        if recent(auth, token)? != binding {
+            return Err(Error::Forbidden);
+        }
+        self.enqueue_test(&binding, generation, request_id, target_id, live.line)
+    }
     /// Owner's master switch never needs credentials returned to the browser.
     /// All targets/rules remain inside the private Core-owned database.
     pub fn set_enabled_owner(

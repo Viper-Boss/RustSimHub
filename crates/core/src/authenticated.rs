@@ -76,6 +76,8 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | ForwardingConfigure { .. }
         | ForwardingRules { .. }
         | ForwardingRequest { .. }
+        | ForwardingTest { .. }
+        | ForwardingTestRequest { .. }
         | ForwardingReceipts { .. }
         | ForwardingPrune { .. }
         | SetNetworkPolicy { .. } => return Err(rustsimhub_auth::Error::Forbidden),
@@ -268,6 +270,8 @@ pub(crate) async fn handle(
             | AuthCommand::ForwardingConfigure { .. }
             | AuthCommand::ForwardingRules { .. }
             | AuthCommand::ForwardingRequest { .. }
+            | AuthCommand::ForwardingTest { .. }
+            | AuthCommand::ForwardingTestRequest { .. }
             | AuthCommand::ForwardingReceipts { .. }
             | AuthCommand::ForwardingPrune { .. }
     ) {

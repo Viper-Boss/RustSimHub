@@ -39,6 +39,16 @@ pub enum AuthCommand {
         token: String,
         request_id: String,
     },
+    ForwardingTest {
+        token: String,
+        expected_generation: u64,
+        request_id: String,
+        target_id: String,
+    },
+    ForwardingTestRequest {
+        token: String,
+        request_id: String,
+    },
     ForwardingReceipts {
         token: String,
         after: String,
@@ -367,8 +377,24 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 return Err(invalid());
             }
         }
-        AuthCommand::ForwardingRequest { token, request_id } => {
+        AuthCommand::ForwardingRequest { token, request_id }
+        | AuthCommand::ForwardingTestRequest { token, request_id } => {
             if token.len() != 64 || !canonical_uuid(request_id) {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ForwardingTest {
+            token,
+            expected_generation,
+            request_id,
+            target_id,
+        } => {
+            if token.len() != 64
+                || *expected_generation == 0
+                || *expected_generation > i64::MAX as u64
+                || !canonical_uuid(request_id)
+                || !canonical_uuid(target_id)
+            {
                 return Err(invalid());
             }
         }

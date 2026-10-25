@@ -3,7 +3,7 @@
 这些文件特意不在自动复制的`overlay/`中，未安装、未启用，也不属于当前已签名应用组。源码已通过本机真实systemd/凭据/cgroup验证，范围及原失败见[验证记录](../../../docs/VALIDATION-FORWARDING-SUPERVISOR-X1F.md)，不能据此跳过安装和设备验收。
 
 - worker由PID1以专用用户`rustsimhub-forwarder`启动，UID/GID预定983，附加IPC组987。其CapabilityBoundingSet和AmbientCapabilities均为空，NoNewPrivileges开启；Root不驻留，不承担身份切换。
-- Root reconcile/status/boot是有限oneshot，能力集合均为空，只控制固定worker单元。Core最终只可启动reconcile/status两个管理单元；[Core显式管理模式](../../../docs/VALIDATION-FORWARDING-COORDINATION-X1G.md)已通过真实本机链路；网页和安装仍缺，尚未安装生产polkit规则。
+- Root reconcile/status/boot是有限oneshot，能力集合均为空，只控制固定worker单元。Core最终只可启动reconcile/status两个管理单元；[Core显式管理模式](../../../docs/VALIDATION-FORWARDING-COORDINATION-X1G.md)已通过真实本机链路；所有者网页和一键合成测试已有源码/本机链路证据；签名安装和实机仍缺，尚未安装生产polkit规则。
 - Root将有限配置写入`/run/rustsimhub-forwarding/settings.json`（0600），PID1通过LoadCredential提供每个服务私有的只读副本。argv和环境变量不包含令牌；环境只含凭据目录路径。关闭后停整个cgroup、核对专用UID进程并删除运行时配置。
 - 根目录的持久`enabled.json`默认不存在。app.target候选drop-in仅请求boot oneshot；条件不满足时不执行进程，不创建转发timer/socket/path。
 

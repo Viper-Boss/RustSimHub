@@ -139,6 +139,10 @@ async fn actual_owner_default_off_reads_do_not_create_files_or_claim_process_sto
     let path = f.state.path().join("forwarding");
     assert!(!path.exists());
     for command in [
+        AuthCommand::ForwardingTestRequest {
+            token: f.token.clone(),
+            request_id: REQUEST.into(),
+        },
         AuthCommand::ForwardingRequest {
             token: f.token.clone(),
             request_id: REQUEST.into(),
@@ -229,7 +233,26 @@ async fn actual_core_ipc_persists_rules_redacts_secrets_and_retries_without_skip
         .await;
     assert_eq!(page["receipts"].as_array().unwrap().len(), 1);
     assert_eq!(page["receipts"][0]["state"], "queued");
-    assert!(!page.to_string().contains("synthetic"));
+    assert_eq!(page["receipts"][0]["synthetic"], false);
+    assert!(page["receipts"][0].as_object().unwrap().keys().all(|key| [
+        "seq",
+        "id",
+        "message_id",
+        "target_id",
+        "rule_id",
+        "generation",
+        "state",
+        "synthetic"
+    ]
+    .contains(&key.as_str())));
+    for secret in [
+        "synthetic private body",
+        "synthetic-bearer-secret",
+        "synthetic-query-secret",
+        "path-secret",
+    ] {
+        assert!(!page.to_string().contains(secret));
+    }
     assert_eq!(
         f.request(f.configure(0, REQUEST, false)).await["error"],
         "denied"
@@ -329,6 +352,16 @@ async fn even_privileged_signed_paired_client_cannot_read_or_configure_forwardin
     let token = delegated(&f);
     for token in [token, "0".repeat(64)] {
         for command in [
+            AuthCommand::ForwardingTest {
+                token: token.clone(),
+                expected_generation: 1,
+                request_id: CHANGE.into(),
+                target_id: TARGET.into(),
+            },
+            AuthCommand::ForwardingTestRequest {
+                token: token.clone(),
+                request_id: CHANGE.into(),
+            },
             AuthCommand::ForwardingRequest {
                 token: token.clone(),
                 request_id: REQUEST.into(),
@@ -662,4 +695,96 @@ fn management_wire_rejects_overflow_noncanonical_sequence_unknown_fields_and_mis
             rustsimhub_wire::parse_auth_request(&serde_json::to_vec(&request).unwrap()).is_err()
         );
     }
+}
+
+#[tokio::test]
+async fn synthetic_owner_test_uses_no_inbox_message_and_exact_receipt_never_resubmits() {
+    let f = Fixture::new();
+    let command = || AuthCommand::ForwardingTest {
+        token: f.token.clone(),
+        expected_generation: 1,
+        request_id: CHANGE.into(),
+        target_id: TARGET.into(),
+    };
+    assert_eq!(f.request(command()).await["error"], "denied");
+    assert!(!f.state.path().join("forwarding").exists());
+    f.request(f.configure(0, REQUEST, true)).await;
+    let before = f.store.handle().inbox_event_head().unwrap();
+    let result = f.request(command()).await;
+    assert_eq!(result["accepted"], true);
+    assert_eq!(result["receipt"]["synthetic"], true);
+    assert_eq!(result["receipt"]["state"], "queued");
+    assert_eq!(f.request(command()).await["receipt"], result["receipt"]);
+    {
+        let mut state = f.control.0.lock().unwrap();
+        let q = state.queue.as_mut().unwrap();
+        assert_eq!(q.event_cursor().unwrap().seq, before.seq);
+        assert_eq!(q.receipts(0, 32).unwrap().len(), 1);
+        let auth = f.auth.lock().unwrap();
+        let claim = q
+            .claim_current(&auth, &f.store.handle(), 1)
+            .unwrap()
+            .unwrap();
+        q.check_current_claim(&auth, &f.store.handle(), &claim)
+            .unwrap();
+        let body: Value = serde_json::from_str(claim.request.body.expose()).unwrap();
+        assert_eq!(body["event"], "forwarding_test");
+        q.finish(
+            &q.current_binding(&auth).unwrap(),
+            &claim,
+            rustsimhub_forwarder::State::Unknown,
+        )
+        .unwrap();
+    }
+    let receipt = f
+        .request(AuthCommand::ForwardingTestRequest {
+            token: f.token.clone(),
+            request_id: CHANGE.into(),
+        })
+        .await;
+    assert_eq!(receipt["known"], true);
+    assert_eq!(receipt["receipt"]["state"], "unknown");
+    assert_eq!(f.request(command()).await["receipt"]["state"], "unknown");
+    assert_eq!(f.store.handle().inbox_event_head().unwrap().seq, before.seq);
+    assert_eq!(
+        f.request(AuthCommand::ForwardingTestRequest {
+            token: f.token.clone(),
+            request_id: RULE.into()
+        })
+        .await["not_found_is_not_proof"],
+        true
+    );
+}
+
+#[tokio::test]
+async fn synthetic_test_rejects_unready_sim_and_unknown_target_without_queueing() {
+    let f = Fixture::new();
+    f.request(f.configure(0, REQUEST, true)).await;
+    let command = |target: &str| AuthCommand::ForwardingTest {
+        token: f.token.clone(),
+        expected_generation: 1,
+        request_id: CHANGE.into(),
+        target_id: target.into(),
+    };
+    assert_eq!(f.request(command(RULE)).await["error"], "denied");
+    f.store
+        .handle()
+        .observe_line(LineObservation {
+            backend: "synthetic modem".into(),
+            fingerprint: Some([19; 32]),
+            status: LineStatus::Observing,
+        })
+        .unwrap();
+    assert_eq!(f.request(command(TARGET)).await["error"], "denied");
+    assert!(f
+        .control
+        .0
+        .lock()
+        .unwrap()
+        .queue
+        .as_ref()
+        .unwrap()
+        .receipts(0, 32)
+        .unwrap()
+        .is_empty());
 }

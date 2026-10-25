@@ -124,6 +124,7 @@ impl Management {
         value["configuration_api"] = true.into();
         value["retained_credentials_api"] = true.into();
         value["request_receipt_api"] = true.into();
+        value["synthetic_test_api"] = true.into();
         value["delivery_api"] = false.into();
         value["state"] = if value["enabled"] == true {
             "awaiting_service"
@@ -193,6 +194,35 @@ impl Management {
                 denied(b.check_current(auth))?;
                 json!({"request_id":request_id,"known":applied.is_some(),"applied_generation":applied,
                     "current_generation":generation,"not_found_is_not_proof":true})
+            }
+            AuthCommand::ForwardingTest {
+                token,
+                expected_generation,
+                request_id,
+                target_id,
+            } => {
+                let b = denied(Binding::from_recent_owner(auth, &token))?;
+                let reader = self.reader.clone();
+                let q = self.existing(b.clone())?.ok_or(Error::Forbidden)?;
+                let receipt = denied(q.test_owner(
+                    auth,
+                    &reader,
+                    &token,
+                    expected_generation,
+                    &request_id,
+                    &target_id,
+                ))?;
+                denied(b.check_current(auth))?;
+                json!({"request_id":request_id,"accepted":true,"synthetic":true,"receipt":receipt})
+            }
+            AuthCommand::ForwardingTestRequest { token, request_id } => {
+                let b = denied(Binding::from_owner(auth, &token))?;
+                let receipt = match self.existing(b.clone())? {
+                    Some(q) => denied(q.test_receipt(&b, &request_id))?,
+                    None => None,
+                };
+                denied(b.check_current(auth))?;
+                json!({"request_id":request_id,"known":receipt.is_some(),"receipt":receipt,"not_found_is_not_proof":true})
             }
             AuthCommand::ForwardingConfigure {
                 token,

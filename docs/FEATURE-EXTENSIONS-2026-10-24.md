@@ -6,7 +6,7 @@
 
 | 编号 | 功能 | 交付形式 | 当前状态 |
 | --- | --- | --- | --- |
-| X1 | SmsForwarder同类短信转发 | ARM64 Linux原生Rust规则/队列/发送服务，网页开关与规则 | [规则/队列](VALIDATION-FORWARDER-OUTBOX-X1A.md)、[HTTPS](VALIDATION-FORWARDER-HTTPS-X1B.md)、[Core管理](VALIDATION-FORWARDING-CORE-X1C.md)及[实际Root/worker通道与主开关](VALIDATION-FORWARDING-WORKER-IPC-X1D.md)源码验证通过；[固定出口与独立worker](VALIDATION-FORWARDING-WORKER-PROCESS-X1E.md)也已通过416项Rust、真实进程DNS/TLS/停止及ARM64验证；[有限Root服务管理](VALIDATION-FORWARDING-SUPERVISOR-X1F.md)已通过419项Rust、真实systemd/低权限凭据/整组停止及ARM64，[Core有限协调](VALIDATION-FORWARDING-COORDINATION-X1G.md)已通过424项Rust及实际Owner/Core/DBus/polkit/PID1链路；[所有者配置页](VALIDATION-FORWARDING-OWNER-UI-X1H.md)已通过427项Rust、14组网页、实际保留凭据及回执链路；尚缺签名安装/真实浏览器与设备验收，未部署 |
+| X1 | SmsForwarder同类短信转发 | ARM64 Linux原生Rust规则/队列/发送服务，网页开关与规则 | [规则/队列](VALIDATION-FORWARDER-OUTBOX-X1A.md)、[HTTPS](VALIDATION-FORWARDER-HTTPS-X1B.md)、[Core管理](VALIDATION-FORWARDING-CORE-X1C.md)及[实际Root/worker通道与主开关](VALIDATION-FORWARDING-WORKER-IPC-X1D.md)源码验证通过；[固定出口与独立worker](VALIDATION-FORWARDING-WORKER-PROCESS-X1E.md)也已通过416项Rust、真实进程DNS/TLS/停止及ARM64验证；[有限Root服务管理](VALIDATION-FORWARDING-SUPERVISOR-X1F.md)已通过419项Rust、真实systemd/低权限凭据/整组停止及ARM64，[Core有限协调](VALIDATION-FORWARDING-COORDINATION-X1G.md)已通过424项Rust及实际Owner/Core/DBus/polkit/PID1链路；[所有者配置页](VALIDATION-FORWARDING-OWNER-UI-X1H.md)已通过427项Rust、14组网页、实际保留凭据及回执链路；[一键合成测试](VALIDATION-FORWARDING-SYNTHETIC-X1I.md)也已通过433项Rust、实际单次HTTP/精确回执及ARM64；尚缺签名安装/真实浏览器与设备验收，未部署 |
 | X2 | NKNGuard远程接入 | 棒子原生受限服务，直连优先、NKN中继及已授权私有DHT | 待移植与实测 |
 | X3 | 通过NKN统计使用设备数 | 独立统计协议/密钥/主题，24小时、30天、90天展示 | 已定位参考源码，待开发 |
 
@@ -29,7 +29,7 @@
 - [ ] 一键“测试转发”只使用合成文本；实短信转发按已配置规则执行。默认不外发验证码/完整正文，用户可明确选择转发内容和脱敏方式。
 - [ ] 验收：关闭/重启无进程和网络请求；启用唯一进程；反复开关、网络断开、队列满、撤权、设备重启、SIM切换候选、第三方超时均不误发/循环；停止不影响电话和短信收取。
 
-实际wire/Core管理接口已有`forwarding_status`、`forwarding_configure`、`forwarding_rules`、`forwarding_receipts`、`forwarding_prune`，及X1D新增的`set_forwarding_enabled`，后者保持目标/凭据而只改总开关；enabled仍只是意图，进程状态未核实，未部署。X1H新增凭据保留编辑与`forwarding_request`精确回执查询，所有者网页已接线；`forwarding_test`合成测试仍待开发。Root有限worker能力通道和只操作固定服务名的有限管理候选已存在，本机真实服务验证通过；Core显式管理模式已触发有限单元并消费新鲜、绑定当前上下文的Root报告，本机真实链路通过；被动模式仍不调用服务，网页已接线并区分意图与真实进程证明，签名安装/实机仍缺，不能把持久意图等同于实际启停。不提供任意命令接口。
+实际wire/Core管理接口已有`forwarding_status`、`forwarding_configure`、`forwarding_rules`、`forwarding_receipts`、`forwarding_prune`，及X1D新增的`set_forwarding_enabled`，后者保持目标/凭据而只改总开关；enabled仍只是意图，进程状态未核实，未部署。X1H新增凭据保留编辑与`forwarding_request`精确回执查询，所有者网页已接线；X1I已新增`forwarding_test`和`forwarding_test_request`及一键入口，本机真实单次HTTPS/回执通过，仍未部署。Root有限worker能力通道和只操作固定服务名的有限管理候选已存在，本机真实服务验证通过；Core显式管理模式已触发有限单元并消费新鲜、绑定当前上下文的Root报告，本机真实链路通过；被动模式仍不调用服务，网页已接线并区分意图与真实进程证明，签名安装/实机仍缺，不能把持久意图等同于实际启停。不提供任意命令接口。
 
 来源注意：已读仓库LICENSE（BSD-2-Clause），README另有非商业说明。先记录来源、固定实际复用提交并核对文件/依赖声明；首版独立Rust实现所需功能，不能仅凭GitHub标签宣称所有代码可无条件复制。短信转发器的Android通知监控、手机电量和手机通讯录不属于棒子首版；棒子已有的短信/通话事件可单独适配。
 

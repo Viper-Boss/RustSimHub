@@ -63,8 +63,8 @@ const forwardingPanel=new ForwardingPanel({document,request:command=>auth(comman
  loadPending:()=>stored('forwarding-pending'),savePending:(value,expected)=>atomicStored('forwarding-pending',saved=>{
   const current=forwardingPendingInput(saved);if((current?.id??null)!==expected)throw Error('转发保存记录已由另一页面更新');return value;
  }),archivePending:async value=>{
-  const epoch=viewEpoch,record=forwardingPendingInput({format:value.format,id:value.id,kind:value.kind,expected_generation:value.expected_generation});
-  if(value.applied_generation!==null&&(!Number.isSafeInteger(value.applied_generation)||value.applied_generation<=record.expected_generation))throw Error('转发回执无效');
+  const epoch=viewEpoch,record=forwardingPendingInput({format:value.format,id:value.id,kind:value.kind,expected_generation:value.expected_generation,...(value.kind==='test'?{target_id:value.target_id}:{})});
+  if(value.applied_generation!==null&&(!Number.isSafeInteger(value.applied_generation)||(record.kind==='test'?value.applied_generation!==record.expected_generation:value.applied_generation<=record.expected_generation)))throw Error('转发回执无效');
   await atomicStored('forwarding-config-receipts',saved=>{current(epoch);let receipts=saved||[];
   if(!Array.isArray(receipts)||receipts.length>64)throw Error('转发回执不可用');
   const previous=receipts.find(r=>r.id===record.id);if(previous?.applied_generation!==null&&previous?.applied_generation!==undefined&&value.applied_generation===null)return receipts;
@@ -408,7 +408,7 @@ bind('sms-login',async()=>{await login();$('sms-management-state').textContent=s
 bind('daily-login',login);$('daily-logout').onclick=()=>$('logout').onclick();bind('sms-refresh',()=>inboxPage(true));bind('send-sms',dailySendSms);bind('sms-query',query);bind('sms-close',closeSms);
 bind('forwarding-login',async()=>{await login();await forwardingPanel.action(g=>forwardingPanel.read(g));});
 const forwardingPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{forwardingPanel.reset();forwardingPreviousLogout();};
-$('forwarding-panel').ontoggle=()=>{if(!$('forwarding-panel').open)forwardingPanel.clearSecrets();};
+$('forwarding-panel').ontoggle=()=>{if(!$('forwarding-panel').open)forwardingPanel.suspend();};
 bind('test-restore-draft',restoreTestDraft);
 bind('network-login',login);const networkPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{networkPanel.stop();networkPreviousLogout();};
 const syncPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{eventSync.reset();smsView++;smsPreview++;callsView++;callsPreview++;historySourcesView++;invalidatePage('sms');invalidatePage('calls');inboxCursor=null;callsCursor=null;$('call-detail').textContent='';$('more-inbox').disabled=true;$('more-calls').disabled=true;syncPreviousLogout();};
