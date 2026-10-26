@@ -10,9 +10,9 @@
       ],
       "role": "项目负责人 · 主线开发 / 架构 / 设备 / 审核",
       "access": "现有主线维护；实际权限沿用仓库设置",
-      "package": "转发规则与游标收尾、主线构建/评审",
+      "package": "显式历史补发、主线构建/评审",
       "task_ids": [
-        "FWD-11"
+        "FWD-12"
       ],
       "step_ids": [],
       "handoff": "docs/team/README.md",

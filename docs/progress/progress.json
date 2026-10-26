@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-26T18:46:59.736375+00:00",
+  "updated_at": "2026-10-26T22:02:19.778071+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原80%仍按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "FWD-11",
-    "title": "关闭期间与重新开启游标",
+    "task_id": "FWD-12",
+    "title": "显式历史补发事务",
     "state": "正在推进",
-    "description": "完成关闭期间不扫描、重新开启默认新消息起点和旧代次任务作废；只用真实SQLite/Owner IPC合成夹具，不访问设备、不外发通知。"
+    "description": "先做范围、数量、目标及正文模式的有限预览；Owner确认后唯一入队，关闭总开关不隐式开启，旧代次/取消/Unknown不重放。"
   },
   "facts": [
     {
@@ -358,13 +358,13 @@
           "dependencies": [
             "FWD-04"
           ],
-          "status": "in_progress",
+          "status": "done",
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [
             "docs/VALIDATION-FORWARDING-CURSOR-X1U.md"
           ],
-          "completed_at": null,
+          "completed_at": "2026-10-26T22:01:04.519879+00:00",
           "actual_hours": null
         },
         {
@@ -380,7 +380,7 @@
           "dependencies": [
             "FWD-11"
           ],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -4685,12 +4685,44 @@
         "FWD-11"
       ],
       "evidence": []
+    },
+    {
+      "at": "2026-10-26T22:01:04.519879+00:00",
+      "type": "completed",
+      "title": "FWD-11 · 已完成：关闭期间与重新开启游标",
+      "detail": "关闭/旧代次不读短信源的真实负例已先失败再通过；3轮关开与实际DB重开、暂停积压不补发、旧任务与丢回复防重、222项及固定adcefbe完整CI40383795138通过。未部署/未外发。",
+      "task_ids": [
+        "FWD-11"
+      ],
+      "evidence": [
+        "docs/VALIDATION-FORWARDING-CURSOR-X1U.md"
+      ]
+    },
+    {
+      "at": "2026-10-26T22:01:05.702402+00:00",
+      "type": "state",
+      "title": "FWD-12 · 状态更新：显式历史补发事务",
+      "detail": "开始显式历史补发事务；先核对真实业务分页、策略/目标/内容授权与队列兼容，再接Owner预览、确认、防重和独立回执。仅合成隔离验证，不调用真实外发。",
+      "task_ids": [
+        "FWD-12"
+      ],
+      "evidence": []
+    },
+    {
+      "at": "2026-10-26T22:01:06.825277+00:00",
+      "type": "state",
+      "title": "FWD-12 · 下一关卡：显式历史补发事务",
+      "detail": "先做范围、数量、目标及正文模式的有限预览；Owner确认后唯一入队，关闭总开关不隐式开启，旧代次/取消/Unknown不重放。",
+      "task_ids": [
+        "FWD-12"
+      ],
+      "evidence": []
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "c95a887c5141791626c1b4da3ca051680132e480",
-    "generated_at": "2026-10-26T18:46:59.736375+00:00",
+    "source_revision": "adcefbee7f7071e2fba8bb4dcfe18ed66b24dd47",
+    "generated_at": "2026-10-26T22:02:19.778071+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -4699,9 +4731,9 @@
         "login": "Viper-Boss",
         "role": "项目负责人 · 主线开发 / 架构 / 设备 / 审核",
         "access": "现有主线维护；实际权限沿用仓库设置",
-        "package": "转发规则与游标收尾、主线构建/评审",
+        "package": "显式历史补发、主线构建/评审",
         "task_ids": [
-          "FWD-11"
+          "FWD-12"
         ],
         "step_ids": [],
         "handoff": "docs/team/README.md",
@@ -4709,15 +4741,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 45316,
-            "tests": 26942,
+            "product": 45330,
+            "tests": 27128,
             "tooling": 8715,
             "firmware": 1132
           },
-          "commits": 313,
-          "code_commits": 217,
-          "added": 86154,
-          "deleted": 2149
+          "commits": 315,
+          "code_commits": 218,
+          "added": 86370,
+          "deleted": 2162
         },
         "work": {
           "assigned_steps": 0,
@@ -4957,8 +4989,8 @@
       "deleted": 0
     },
     "totals": {
-      "product": 45867,
-      "tests": 27503,
+      "product": 45881,
+      "tests": 27689,
       "tooling": 8715,
       "firmware": 1132
     },
