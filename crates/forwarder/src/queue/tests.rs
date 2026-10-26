@@ -302,6 +302,29 @@ fn default_off_has_no_producer_read_and_cannot_claim() {
     ));
     assert_eq!(q.event_cursor().unwrap().seq, "0");
 }
+
+#[test]
+fn live_line_read_is_fenced_and_failed_reads_never_reserve_a_delivery() {
+    let (_d, mut q) = queue();
+    assert!(matches!(
+        q.claim_with_live_line(&binding(), 0, || panic!("off must not read")),
+        Err(Error::Disabled)
+    ));
+    q.configure(&binding(), 0, &id(), policy(), head(5))
+        .unwrap();
+    q.ingest(&binding(), 1, head(6), Some(&message())).unwrap();
+    assert!(matches!(
+        q.claim_with_live_line(&binding(), 0, || panic!("stale generation must not read")),
+        Err(Error::Stale)
+    ));
+    assert!(matches!(
+        q.claim_with_live_line(&binding(), 1, || Err(Error::Storage)),
+        Err(Error::Storage)
+    ));
+    assert_eq!(q.status().unwrap().queued, 1);
+    assert_eq!(q.status().unwrap().in_flight, 0);
+    assert!(q.claim(&binding(), 1, LineEpoch(2)).unwrap().is_some());
+}
 #[test]
 fn configure_idempotency_generation_and_binding_are_exact() {
     let (_d, mut q) = queue();

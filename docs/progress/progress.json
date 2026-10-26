@@ -361,7 +361,9 @@
           "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/VALIDATION-FORWARDING-CURSOR-X1U.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },

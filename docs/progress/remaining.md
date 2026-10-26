@@ -149,6 +149,7 @@ python tools/progress/build.py --check
 - 前置：FWD-04
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[VALIDATION-FORWARDING-CURSOR-X1U.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-FORWARDING-CURSOR-X1U.md)
 
 ### [ ] FWD-12 · 显式历史补发事务
 

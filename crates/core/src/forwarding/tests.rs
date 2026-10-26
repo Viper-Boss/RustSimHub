@@ -726,6 +726,172 @@ async fn master_switch_preserves_secret_targets_and_only_captures_messages_after
     );
 }
 
+#[tokio::test]
+async fn disabled_producers_do_not_touch_an_unavailable_sms_event_source() {
+    let f = Fixture::new();
+    f.request(f.configure(0, REQUEST, false)).await;
+    let connection = rusqlite::Connection::open(f.state.path().join("store.sqlite3")).unwrap();
+    connection
+        .execute_batch("DROP TABLE inbox_events;")
+        .unwrap();
+    let reader = f.store.handle();
+    assert!(reader.inbox_event_head().is_err());
+    let auth = f.auth.lock().unwrap();
+    let mut management = f.control.0.lock().unwrap();
+    let q = management.queue.as_mut().unwrap();
+    let before = q.event_cursor().unwrap();
+    assert!(matches!(
+        q.capture_current(&auth, &reader, 1),
+        Err(rustsimhub_forwarder::Error::Disabled)
+    ));
+    assert!(matches!(
+        q.claim_current(&auth, &reader, 1),
+        Err(rustsimhub_forwarder::Error::Disabled)
+    ));
+    let after = q.event_cursor().unwrap();
+    assert_eq!((after.db_epoch, after.seq), (before.db_epoch, before.seq));
+    assert_eq!(q.status().unwrap().queued, 0);
+}
+
+#[tokio::test]
+async fn repeated_switches_and_queue_reopens_never_forward_disabled_backlogs_or_old_claims() {
+    let f = Fixture::new();
+    let binding = Binding::from_owner(&mut f.auth.lock().unwrap(), &f.token).unwrap();
+    let switch = |expected, request: &str, enabled| AuthCommand::SetForwardingEnabled {
+        token: f.token.clone(),
+        expected_generation: expected,
+        request_id: request.into(),
+        enabled,
+    };
+    f.request(f.configure(0, REQUEST, true)).await;
+    let mut generation = 1;
+    for cycle in 0..3 {
+        f.incoming(&format!("inflight-{cycle}"));
+        let old_claim = {
+            let auth = f.auth.lock().unwrap();
+            let mut m = f.control.0.lock().unwrap();
+            let q = m.queue.as_mut().unwrap();
+            assert_eq!(
+                q.capture_current(&auth, &f.store.handle(), generation)
+                    .unwrap(),
+                1
+            );
+            q.claim_current(&auth, &f.store.handle(), generation)
+                .unwrap()
+                .unwrap()
+        };
+        f.incoming(&format!("unclaimed-{cycle}"));
+        {
+            let auth = f.auth.lock().unwrap();
+            let mut m = f.control.0.lock().unwrap();
+            assert_eq!(
+                m.queue
+                    .as_mut()
+                    .unwrap()
+                    .capture_current(&auth, &f.store.handle(), generation)
+                    .unwrap(),
+                1
+            );
+        }
+        let disable = format!("77777777-7777-4777-8777-{:012}", cycle * 2 + 1);
+        let closed = f.request(switch(generation, &disable, false)).await;
+        generation += 1;
+        assert_eq!(closed["generation"], generation);
+        assert_eq!(closed["queued"], 0);
+        assert_eq!(closed["unknown"], cycle + 1);
+        let stopped_cursor = {
+            f.control
+                .0
+                .lock()
+                .unwrap()
+                .queue
+                .as_ref()
+                .unwrap()
+                .event_cursor()
+                .unwrap()
+        };
+        for i in 0..65 {
+            f.incoming(&format!("disabled-{cycle}-{i}"));
+        }
+        {
+            let auth = f.auth.lock().unwrap();
+            let mut m = f.control.0.lock().unwrap();
+            // Close the actual DB/file lock and reopen it, without changing Auth/SIM.
+            drop(m.queue.take());
+            m.queue = Some(Queue::open(&m.directory, binding.clone()).unwrap());
+            let q = m.queue.as_mut().unwrap();
+            assert!(!q.status().unwrap().enabled);
+            let after = q.event_cursor().unwrap();
+            assert_eq!(
+                (after.db_epoch, after.seq),
+                (stopped_cursor.db_epoch, stopped_cursor.seq)
+            );
+            assert!(matches!(
+                q.capture_current(&auth, &f.store.handle(), generation),
+                Err(rustsimhub_forwarder::Error::Disabled)
+            ));
+            let current_binding = binding.clone();
+            assert!(q
+                .finish(
+                    &current_binding,
+                    &old_claim,
+                    rustsimhub_forwarder::State::Confirmed
+                )
+                .is_err());
+        }
+        let baseline = f.store.handle().inbox_event_head().unwrap();
+        let enable = format!("77777777-7777-4777-8777-{:012}", cycle * 2 + 2);
+        assert_eq!(
+            f.request(switch(generation, &enable, true)).await["generation"],
+            generation + 1
+        );
+        generation += 1;
+        f.incoming(&format!("after-reenable-{cycle}"));
+        let expected = f
+            .store
+            .handle()
+            .inbox_events(Some(baseline.clone()), 32)
+            .unwrap()
+            .events
+            .into_iter()
+            .find(|e| e.kind == "sms_received")
+            .unwrap()
+            .sms_id
+            .unwrap();
+        // A lost-reply replay must preserve the original start point.
+        assert_eq!(
+            f.request(switch(generation - 1, &enable, true)).await["generation"],
+            generation
+        );
+        let auth = f.auth.lock().unwrap();
+        let mut m = f.control.0.lock().unwrap();
+        let q = m.queue.as_mut().unwrap();
+        let after = q.event_cursor().unwrap();
+        assert_eq!(
+            (after.db_epoch, after.seq),
+            (baseline.db_epoch, baseline.seq)
+        );
+        assert_eq!(
+            q.capture_current(&auth, &f.store.handle(), generation)
+                .unwrap(),
+            1
+        );
+        let claim = q
+            .claim_current(&auth, &f.store.handle(), generation)
+            .unwrap()
+            .unwrap();
+        let sent: Value = serde_json::from_str(claim.request.body.expose()).unwrap();
+        assert_eq!(sent["message_id"], expected);
+        q.finish(&binding, &claim, rustsimhub_forwarder::State::Confirmed)
+            .unwrap();
+        assert!(q
+            .claim_current(&auth, &f.store.handle(), generation)
+            .unwrap()
+            .is_none());
+        assert_eq!(q.status().unwrap().unknown, cycle as usize + 1);
+    }
+}
+
 #[test]
 fn management_wire_rejects_overflow_noncanonical_sequence_unknown_fields_and_missing_consent() {
     let good = json!({"protocol":2,"id":"id","command":{"op":"forwarding_configure",

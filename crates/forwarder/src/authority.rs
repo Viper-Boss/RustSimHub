@@ -157,19 +157,21 @@ impl Queue {
     ) -> Result<Option<Claim>> {
         let b = self.binding().clone();
         b.check_current(auth)?;
-        if reader
-            .inbox_event_head()
-            .map_err(|_| Error::Storage)?
-            .db_epoch
-            != b.realm
-        {
-            return Err(Error::Stale);
-        }
-        let live = reader.line_status().map_err(|_| Error::Storage)?;
-        if live.status != LineStatus::Ready {
-            return Err(Error::Stale);
-        }
-        let claim = self.claim(&b, generation, live.line)?;
+        let claim = self.claim_with_live_line(&b, generation, || {
+            if reader
+                .inbox_event_head()
+                .map_err(|_| Error::Storage)?
+                .db_epoch
+                != b.realm
+            {
+                return Err(Error::Stale);
+            }
+            let live = reader.line_status().map_err(|_| Error::Storage)?;
+            if live.status != LineStatus::Ready {
+                return Err(Error::Stale);
+            }
+            Ok(live.line)
+        })?;
         if let Some(claim) = claim.as_ref() {
             if let Err(error) = self.check_current_claim(auth, reader, claim) {
                 // A fenced-out reservation is ambiguous, never automatically

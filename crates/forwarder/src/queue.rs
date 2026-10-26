@@ -652,10 +652,22 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         generation: u64,
         live_line: LineEpoch,
     ) -> Result<Option<Claim>> {
+        self.claim_with_live_line(binding, generation, || Ok(live_line))
+    }
+    /// Fence the switch/generation before asking the business store for a line.
+    /// The deferred read also avoids a second policy decode or reservation when
+    /// the SMS source is unavailable. No callback runs while forwarding is off.
+    pub(crate) fn claim_with_live_line(
+        &mut self,
+        binding: &Binding,
+        generation: u64,
+        live_line: impl FnOnce() -> Result<LineEpoch>,
+    ) -> Result<Option<Claim>> {
         let m = self.fence(binding, generation)?;
         if !m.enabled {
             return Err(Error::Disabled);
         }
+        let live_line = live_line()?;
         if live_line.0 == 0 || live_line.0 > i64::MAX as u64 {
             return Err(Error::Invalid);
         }
