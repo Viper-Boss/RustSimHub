@@ -77,6 +77,10 @@ jobs:
           cargo build -p rustsimhub-update --locked
           sudo -n unshare --net python3 tools/test-signed-application-formats.py --updater target/debug/rustsimhub-update
           python3 tools/test-development-application-packager.py
+      - name: Separate signed setup AP maintenance material
+        run: |
+          python3 tools/test-setup-ap-package.py
+          sudo -n python3 tools/test-setup-ap-units.py
       - name: Isolated AP material preparation CLIs
         run: |
           cargo build -p rustsimhub-core -p rustsimhub-edge -p rustsimhub-setup-ap --locked

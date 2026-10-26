@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "auth_protocol": 2,
+  "database_schema": 6,
+  "application_format": 2,
+  "parent_channel": 1,
+  "station_trial_channel": 1,
+  "station_commit_channel": 1,
+  "material_format": 1,
+  "owner_adoption": 1,
+  "core_mode": "--serve-device-forwarding-managed-setup-ap",
+  "root_mode": "--serve-configurable",
+  "origin": "https://172.31.85.1:8443",
+  "maximum_window_seconds": 300
+}

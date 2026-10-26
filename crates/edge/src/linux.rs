@@ -650,7 +650,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            serde_json::json!({"source_archive_sha256":rustsimhub_wire::build_source_sha256(),"local_installation_preparation_supported":true,"media_installation_preparation_supported":true})
+            serde_json::json!({"component":"edge","target_arch":std::env::consts::ARCH,"development_fixtures":false,"source_archive_sha256":rustsimhub_wire::build_source_sha256(),"local_installation_preparation_supported":true,"media_installation_preparation_supported":true,"setup_ap_installation_contract":rustsimhub_wire::setup_ap_installation_contract()})
         );
         return Ok(());
     }

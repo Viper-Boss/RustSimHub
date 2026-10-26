@@ -11,6 +11,14 @@ pub use rustsimhub_domain::{InboxCursor, NasEntity};
 pub const MAX_FRAME: usize = 65_536;
 pub const PROTOCOL: u16 = 1;
 
+/// Frozen joint installation contract, shared with the privileged AP program.
+pub fn setup_ap_installation_contract() -> serde_json::Value {
+    serde_json::from_str(include_str!(
+        "../../../firmware/system/setup-ap/contract.json"
+    ))
+    .expect("compiled setup AP contract is valid JSON")
+}
+
 /// Compile-time provenance; Cargo tracks this environment input in its fingerprint.
 pub fn build_source_sha256() -> Option<&'static str> {
     option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256").filter(|s| {
@@ -87,6 +95,15 @@ pub fn parse_request(body: &[u8]) -> io::Result<Request> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn joint_installation_contract_keeps_existing_business_and_explicit_authority() {
+        let c = super::setup_ap_installation_contract();
+        assert_eq!(c["auth_protocol"], super::AUTH_PROTOCOL);
+        assert_eq!(c["database_schema"], 6);
+        assert_eq!(c["core_mode"], "--serve-device-forwarding-managed-setup-ap");
+        assert_eq!(c["owner_adoption"], 1);
+        assert_eq!(c["application_format"], 2);
+    }
     use super::*;
     #[test]
     fn untrusted_size_is_rejected_before_body_read() {

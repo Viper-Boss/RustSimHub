@@ -65,6 +65,15 @@ impl LocalSetup {
     /// Export only the actual offline Core identity/realm. Does not open a window or renew setup.
     #[cfg(target_os = "linux")]
     pub fn prepare_device_ap(directory: &Path, auth: &Auth) -> Result<()> {
+        Self::prepare_binding(directory, auth, true)
+    }
+    /// Owner-preserving maintenance export. Never creates a setup code/window.
+    #[cfg(target_os = "linux")]
+    pub fn prepare_device_ap_binding(directory: &Path, auth: &Auth) -> Result<()> {
+        Self::prepare_binding(directory, auth, false)
+    }
+    #[cfg(target_os = "linux")]
+    fn prepare_binding(directory: &Path, auth: &Auth, prepare_code: bool) -> Result<()> {
         let uid = rustix::process::geteuid().as_raw();
         if uid == 0 || uid == u32::MAX {
             return Err(Error::Forbidden);
@@ -82,7 +91,9 @@ impl LocalSetup {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
             Err(_) => return Err(Error::Io),
         };
-        Self::prepare_device_code_unlocked(directory, auth)?;
+        if prepare_code {
+            Self::prepare_device_code_unlocked(directory, auth)?;
+        }
         if !existing {
             crate::write_private_new(&path, &bytes)?;
         }
@@ -247,6 +258,78 @@ impl LocalSetup {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn binding_only_export_does_not_create_an_anonymous_setup_window() {
+        if rustix::process::geteuid().as_raw() == 0 {
+            return;
+        }
+        let state = private_directory();
+        let identity = private_directory();
+        let setup = private_directory();
+        let store = Store::open(state.path()).unwrap();
+        let auth = Auth::open(identity.path(), store.handle()).unwrap();
+        LocalSetup::prepare_device_ap_binding(setup.path(), &auth).unwrap();
+        assert!(!setup.path().join("setup.code").exists());
+        assert!(!setup.path().join("setup.used").exists());
+        let original = std::fs::read(setup.path().join("binding.json")).unwrap();
+        LocalSetup::prepare_device_ap_binding(setup.path(), &auth).unwrap();
+        assert_eq!(
+            std::fs::read(setup.path().join("binding.json")).unwrap(),
+            original
+        );
+        let mut record: serde_json::Value = serde_json::from_slice(&original).unwrap();
+        record["realm"] = "00000000-0000-4000-8000-000000000001".into();
+        std::fs::write(
+            setup.path().join("binding.json"),
+            serde_json::to_vec(&record).unwrap(),
+        )
+        .unwrap();
+        assert!(LocalSetup::prepare_device_ap_binding(setup.path(), &auth).is_err());
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn existing_owner_binding_export_keeps_used_marker_code_and_principal() {
+        if rustix::process::geteuid().as_raw() == 0 {
+            return;
+        }
+        let state = private_directory();
+        let identity = private_directory();
+        let setup = private_directory();
+        let store = Store::open(state.path()).unwrap();
+        let mut auth = Auth::open(identity.path(), store.handle()).unwrap();
+        LocalSetup::prepare_device_code(setup.path(), &auth).unwrap();
+        let mut gate = LocalSetup::for_device(setup.path(), &auth)
+            .unwrap()
+            .unwrap();
+        let marker = std::fs::read(setup.path().join("setup.used")).unwrap();
+        let raw = read_private(&setup.path().join("setup.code"), 32).unwrap();
+        let code = raw.iter().map(|b| format!("{b:02x}")).collect::<String>();
+        let key = SigningKey::from_bytes(&[93; 32]);
+        let c = gate
+            .begin(&mut auth, &code, key.verifying_key().to_bytes())
+            .unwrap();
+        let principal = gate
+            .finish(&mut auth, &code, &c.id, &key.sign(&c.transcript).to_bytes())
+            .unwrap();
+        LocalSetup::prepare_device_ap_binding(setup.path(), &auth).unwrap();
+        assert_eq!(
+            auth.current_principal(principal.public_key).unwrap(),
+            principal
+        );
+        assert_eq!(
+            std::fs::read(setup.path().join("setup.used")).unwrap(),
+            marker
+        );
+        assert_eq!(
+            read_private(&setup.path().join("setup.code"), 32).unwrap(),
+            raw
+        );
+        assert!(LocalSetup::for_device(setup.path(), &auth)
+            .unwrap()
+            .is_none());
+        assert!(LocalSetup::prepare_device_ap(setup.path(), &auth).is_err());
+    }
     use ed25519_dalek::{Signer, SigningKey};
     use rustsimhub_storage::Store;
     use std::fs;

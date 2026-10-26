@@ -306,6 +306,10 @@ impl Worker {
     }
 }
 pub fn cli(args: Vec<String>) -> Result<()> {
+    if args == ["--build-info"] {
+        println!("{}", crate::installation_build_info());
+        return Ok(());
+    }
     if let [mode, parent, core, edge, edge_uid, core_uid] = args.as_slice() {
         if mode == "--prepare-from-core" {
             if rustix::process::geteuid().as_raw() != 0 {

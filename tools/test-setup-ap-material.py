@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import pwd
+import select
 import subprocess
 import sys
 import tempfile
@@ -15,6 +16,46 @@ import unittest
 
 
 class Preparation(unittest.TestCase):
+    def test_joint_build_contract_is_identical_without_opening_material(self):
+        infos=[self.command([binary,'--build-info']) for binary in [CORE,EDGE,AP]]
+        self.assertEqual([v['component'] for v in infos],['core','edge','setup-ap'])
+        self.assertTrue(all(v['setup_ap_installation_contract']==infos[0]['setup_ap_installation_contract'] for v in infos))
+        self.assertEqual(infos[0]['setup_ap_installation_contract']['core_mode'],'--serve-device-forwarding-managed-setup-ap')
+        self.assertTrue(all(not list(p.iterdir()) for p in [self.edge_parent,self.root_parent]))
+
+    def test_combined_mode_rejects_uid_alias_before_creating_any_runtime_state(self):
+        paths=[self.base/name for name in ['core.sock','state','identity','media.sock','archive','access','compat','network-journal','setup','ap-input','ap-output','ap-journal']]
+        for worker in ['985','0','invalid']:
+            command=['runuser','-u',EDGE_USER.pw_name,'--',CORE,'--serve-device-forwarding-managed-setup-ap',str(paths[0]),'985',str(paths[1]),str(paths[2]),str(paths[3]),'984',*(str(v) for v in paths[4:9]),worker,*(str(v) for v in paths[9:])]
+            self.command(command,False)
+            self.assertTrue(all(not p.exists() for p in paths))
+
+    def test_actual_owner_binding_only_export_preserves_used_marker_and_never_creates_code(self):
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        folders=[self.base/name for name in ['owned-state','owned-identity','owned-setup']]
+        for folder in folders:folder.mkdir(mode=0o700);os.chown(folder,986,986)
+        prefix=['setpriv','--reuid=986','--regid=986','--clear-groups',CORE]
+        exported=self.command([*prefix,'--prepare-device-ap-binding',*(str(p) for p in folders)])
+        self.assertFalse(exported['setup_code_prepared']);self.assertFalse((folders[2]/'setup.code').exists())
+        key=Ed25519PrivateKey.from_private_bytes(bytes([120])*32)
+        public=key.public_key().public_bytes(serialization.Encoding.Raw,serialization.PublicFormat.Raw).hex()
+        process=subprocess.Popen([*prefix,'--provision-owner',str(folders[0]),str(folders[1]),public],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        try:
+            self.assertTrue(select.select([process.stdout],[],[],5)[0])
+            challenge=json.loads(process.stdout.readline(16385));proof=key.sign(bytes(challenge['transcript']))
+            tail,error=process.communicate(json.dumps(list(proof)).encode(),timeout=10)
+            self.assertEqual(process.returncode,0,error.decode('utf8','replace'))
+            self.assertTrue(json.loads(tail)['owner_initialized'])
+        finally:
+            if process.poll() is None:process.kill();process.wait(timeout=5)
+        marker=folders[2]/'setup.used';marker.write_bytes(b'RustSimHub.DeviceSetup.Window.v1\0'+bytes.fromhex(exported['device_public_key_hex']));marker.chmod(0o600);os.chown(marker,986,986)
+        before=marker.read_bytes();binding=(folders[2]/'binding.json').read_bytes()
+        again=self.command([*prefix,'--prepare-device-ap-binding',*(str(p) for p in folders)])
+        self.assertEqual(again,exported);self.assertEqual(marker.read_bytes(),before);self.assertEqual((folders[2]/'binding.json').read_bytes(),binding)
+        self.assertFalse((folders[2]/'setup.code').exists())
+        self.command([*prefix,'--prepare-device-ap',*(str(p) for p in folders)],False)
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix='rustsimhub-setup-material-')
         self.base = Path(self.tmp.name)

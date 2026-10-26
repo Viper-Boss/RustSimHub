@@ -10,6 +10,20 @@ pub const PREFIX: u32 = 24;
 pub const HTTPS_PORT: u16 = 8443;
 pub const MAX_WINDOW_SECONDS: u32 = 300;
 
+/// Read-only installation metadata; no material, bus or network access.
+pub fn installation_build_info() -> serde_json::Value {
+    let source = option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256").filter(|s| {
+        s.len() == 64
+            && s.bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    });
+    let contract: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../firmware/system/setup-ap/contract.json"
+    ))
+    .expect("compiled setup AP contract");
+    serde_json::json!({"component":"setup-ap","target_arch":std::env::consts::ARCH,"source_archive_sha256":source,"development_fixtures":false,"setup_ap_installation_contract":contract})
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error {
     Invalid,
@@ -108,6 +122,22 @@ pub mod transaction;
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn installation_metadata_matches_the_finite_compiled_contract() {
+        let info = super::installation_build_info();
+        let contract = &info["setup_ap_installation_contract"];
+        assert_eq!(info["component"], "setup-ap");
+        assert_eq!(info["development_fixtures"], false);
+        assert_eq!(
+            contract["maximum_window_seconds"],
+            super::MAX_WINDOW_SECONDS
+        );
+        assert_eq!(
+            contract["origin"],
+            format!("https://{}:{}", super::ADDRESS, super::HTTPS_PORT)
+        );
+        assert_eq!(contract["root_mode"], "--serve-configurable");
+    }
     use super::*;
     #[test]
     fn per_device_material_is_random_and_rejects_weak_or_injectable_settings() {

@@ -79,7 +79,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            json!({"source_archive_sha256":rustsimhub_wire::build_source_sha256(),"development_fixtures":cfg!(feature="dev-fixtures"),"database_schema":6})
+            json!({"component":"core","target_arch":std::env::consts::ARCH,"source_archive_sha256":rustsimhub_wire::build_source_sha256(),"development_fixtures":cfg!(feature="dev-fixtures"),"database_schema":6,"setup_ap_installation_contract":rustsimhub_wire::setup_ap_installation_contract()})
         );
         return Ok(());
     }
@@ -104,13 +104,24 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(target_os = "linux")]
     {
         if let [command, state, identity, setup] = args.as_slice() {
-            if command == "--prepare-device-setup" || command == "--prepare-device-ap" {
-                if command == "--prepare-device-ap" && rustix::process::geteuid().as_raw() == 0 {
+            if [
+                "--prepare-device-setup",
+                "--prepare-device-ap",
+                "--prepare-device-ap-binding",
+            ]
+            .contains(&command.as_str())
+            {
+                if command != "--prepare-device-setup" && rustix::process::geteuid().as_raw() == 0 {
                     return Err("AP binding preparation must run as Core".into());
                 }
                 let store = rustsimhub_storage::Store::open(state)?;
                 let auth = rustsimhub_auth::Auth::open(identity, store.handle())?;
-                if command == "--prepare-device-ap" {
+                if command == "--prepare-device-ap-binding" {
+                    rustsimhub_auth::LocalSetup::prepare_device_ap_binding(
+                        std::path::Path::new(setup),
+                        &auth,
+                    )?;
+                } else if command == "--prepare-device-ap" {
                     rustsimhub_auth::LocalSetup::prepare_device_ap(
                         std::path::Path::new(setup),
                         &auth,
@@ -128,7 +139,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     .collect::<String>();
                 println!(
                     "{}",
-                    json!({"setup_code_prepared":true,"device_binding_prepared":command=="--prepare-device-ap","device_public_key_hex":public,"setup_code_disclosed":false,"window_opened":false})
+                    json!({"setup_code_prepared":command!="--prepare-device-ap-binding","device_binding_prepared":command!="--prepare-device-setup","device_public_key_hex":public,"setup_code_disclosed":false,"window_opened":false})
                 );
                 return Ok(());
             }
@@ -194,6 +205,26 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         match args.as_slice() {
+            [command, path, uid, state, identity, media_path, media_uid, archive, access, compat, journal, setup, worker_uid, ap_input, ap_output, ap_journal]
+                if command == "--serve-device-forwarding-managed-setup-ap" =>
+            {
+                forwarding::ipc::Access::new(uid.parse()?, worker_uid.parse()?)?;
+                setup_ap_control::enable(
+                    std::path::Path::new(ap_input),
+                    std::path::Path::new(ap_output),
+                    std::path::Path::new(ap_journal),
+                )?;
+                network_trial::provision::enable(std::path::Path::new(journal))?;
+                return runtime.block_on(authenticated::serve_device(
+                    path,
+                    uid.parse()?,
+                    state,
+                    identity,
+                    (media_path, media_uid.parse()?),
+                    (archive, access),
+                    (compat, setup, Some(worker_uid.parse()?), true),
+                ));
+            }
             [command, path, uid, state, identity, media_path, media_uid, archive, access, compat, journal, setup, ap_input, ap_output, ap_journal]
                 if command == "--serve-device-setup-ap" =>
             {
