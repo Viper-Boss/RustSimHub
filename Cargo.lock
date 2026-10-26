@@ -1948,6 +1948,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustsimhub-core-launcher"
+version = "0.1.0"
+dependencies = [
+ "rustix",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "rustsimhub-ctl"
 version = "0.1.0"
 dependencies = [

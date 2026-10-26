@@ -21,7 +21,8 @@ PERSISTENT='/var/lib/rustsimhub/rustsimhub-v1/system/setup-ap'
 SETUP_EDGE='/var/lib/rustsimhub/rustsimhub-v1/setup-edge'
 DIRECTORIES=(PERSISTENT,SETUP_EDGE,CORE+'/setup-ap-journal',PERSISTENT+'/journal','/run/rustsimhub-setup-ap-core','/run/rustsimhub-setup-ap-root')
 JOINT_EXEC=next(line.split('=',1)[1] for line in (package.MATERIAL/'50-setup-ap-core.conf').read_text().splitlines() if line.startswith('ExecStart=') and line!='ExecStart=')
-BASE_EXEC=JOINT_EXEC.rsplit(' ',3)[0].replace('--serve-device-forwarding-managed-setup-ap','--serve-device-forwarding-managed')
+DEVICE_EXEC=next(line.split('=',1)[1] for line in (ROOT/'firmware/system/overlay/etc/systemd/system/rustsimhub-core.service').read_text().splitlines() if line.startswith('ExecStart='))
+BASE_EXEC=DEVICE_EXEC.replace(' --serve-device ', ' --serve-device-forwarding-managed ',1)+' 983'
 BOUND={
  'application-manifest.sha256':'manifest_sha256','application-ledger.sha256':'ledger_sha256',
  'core-unit.sha256':'core_unit_sha256','forwarding-unit.sha256':'forwarding_unit_sha256',
@@ -102,7 +103,7 @@ def create_delivery(inventory,directory,public,source,backup,output):
         'starts_services':False,'changes_network':False,'restores_business_database':False,'retained_on_rollback':['prepared private materials','binding metadata','journal directories'],
         'invocation_requirement':'Root over pinned maintenance transport must check the helper digest before execution and supply the expected SHA256SUMS digest'}
     blobs['plan.json']=(json.dumps(plan,sort_keys=True,indent=2)+'\n').encode()
-    require(len(blobs)==27,'fixed delivery file count')
+    require(len(blobs)==28,'fixed delivery file count')
     output.mkdir(mode=0o700)
     for name,value in blobs.items():
         with (output/name).open('xb') as file:file.write(value)

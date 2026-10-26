@@ -79,7 +79,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            json!({"component":"core","target_arch":std::env::consts::ARCH,"source_archive_sha256":rustsimhub_wire::build_source_sha256(),"development_fixtures":cfg!(feature="dev-fixtures"),"database_schema":6,"setup_ap_installation_contract":rustsimhub_wire::setup_ap_installation_contract()})
+            json!({"component":"core","target_arch":std::env::consts::ARCH,"source_archive_sha256":rustsimhub_wire::build_source_sha256(),"development_fixtures":cfg!(feature="dev-fixtures"),"database_schema":6,"setup_ap_installation_contract":rustsimhub_wire::setup_ap_installation_contract(),"service_launch":{"format":1,"modes":["device","forwarding_managed","setup_ap"]}})
         );
         return Ok(());
     }

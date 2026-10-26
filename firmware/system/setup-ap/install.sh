@@ -17,7 +17,7 @@ test "$(stat -c '%u:%g:%a' "$bundle")" = 0:0:700
 cd "$bundle"
 digest() { sha256sum "$1" | cut -d ' ' -f 1; }
 test "$(digest SHA256SUMS)" = "$expected"
-names='payload-[0-6]|application-manifest.sha256|application-ledger.sha256|core-unit.sha256|forwarding-unit.sha256|passwd.sha256|group.sha256|edge-config.sha256|identity.sha256|setup-used.sha256|core.sha256|edge.sha256|setup-code.sha256|boot-id|modem-path|business-before.tar|signed-manifest.json|signed-manifest.sig|signer.public|apply.sh|plan.json'
+names='payload-[0-7]|application-manifest.sha256|application-ledger.sha256|core-unit.sha256|forwarding-unit.sha256|passwd.sha256|group.sha256|edge-config.sha256|identity.sha256|setup-used.sha256|core.sha256|edge.sha256|setup-code.sha256|boot-id|modem-path|business-before.tar|signed-manifest.json|signed-manifest.sig|signer.public|apply.sh|plan.json'
 # Include dotfiles in the rejection set, including dangling links.
 for file in ./* ./.[!.]* ./..?*;do
  test -e "$file" || test -L "$file" || continue
@@ -25,9 +25,9 @@ for file in ./* ./.[!.]* ./..?*;do
  test -f "$file"; test ! -L "$file"
  test "$(stat -c '%u:%g:%a:%h' "$file")" = 0:0:600:1
 done
-test "$(wc -l < SHA256SUMS)" = 27
-test "$(cut -c 67- SHA256SUMS | sort -u | wc -l)" = 27
-test "$(grep -Ec "^[0-9a-f]{64}  ($names)$" SHA256SUMS)" = 27
+test "$(wc -l < SHA256SUMS)" = 28
+test "$(cut -c 67- SHA256SUMS | sort -u | wc -l)" = 28
+test "$(grep -Ec "^[0-9a-f]{64}  ($names)$" SHA256SUMS)" = 28
 sha256sum -c SHA256SUMS >/dev/null
 # Do not allow a different script with the same unchecked command line.
 test "$(digest "$0")" = "$(digest apply.sh)"
@@ -94,6 +94,7 @@ payload-1 644 /etc/systemd/system/rustsimhub-setup-ap.service
 payload-2 644 /etc/systemd/system/rustsimhub-setup-edge.service
 payload-3 644 /etc/tmpfiles.d/rustsimhub-setup-ap.conf
 payload-6 644 /etc/rustsimhub/setup-ap-contract.json
+payload-7 755 /usr/libexec/rustsimhub/rustsimhub-core-launcher
 payload-4 644 /etc/systemd/system/rustsimhub-core.service.d/50-setup-ap.conf
 payload-5 644 /etc/systemd/system/rustsimhub-app.target.d/50-setup-ap.conf
 FILES
@@ -157,7 +158,7 @@ if test "$action" = --check;then
 fi
 if test "$action" = --rollback;then
  test "$resume" = true
- # All seven destinations, staging files and journals were checked first.
+ # All eight destinations, staging files and journals were checked first.
  mapping | while read -r name mode target;do
   rm -f -- "$target" "$target.rsh-ap-new"
   parent=$(dirname "$target");while test ! -d "$parent";do parent=$(dirname "$parent");done
@@ -178,7 +179,7 @@ put() {
   mv -T "$target.rsh-ap-new" "$target";sync -f "$(dirname "$target")"
  fi
 }
-mapping | head -n 5 | while read -r name mode target;do put "$name" "$mode" "$target";done
+mapping | head -n 6 | while read -r name mode target;do put "$name" "$mode" "$target";done
 # Fixed offline CLI arguments only. Do not reopen setup, export credentials or
 # restore databases. Activation drop-ins are published only after preparation.
 timeout 20 runuser -u rustsimhub-core -- "$selected/rustsimhub-core" --prepare-device-ap-binding "$core/state" "$core/identity" "$core/setup" >/dev/null

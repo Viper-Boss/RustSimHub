@@ -88,7 +88,7 @@ class Delivery(unittest.TestCase):
         result=self.create();self.assertFalse(result['device_changed'])
         raw=(self.output/'SHA256SUMS').read_bytes();self.assertNotIn(b'\r',raw)
         self.assertEqual(module.sha(raw),result['delivery_sha256'])
-        lines=raw.decode().splitlines();self.assertEqual(len(lines),27)
+        lines=raw.decode().splitlines();self.assertEqual(len(lines),28)
         for line in lines:self.assertEqual(module.sha((self.output/line[66:]).read_bytes()),line[:64])
         self.assertEqual({line[66:] for line in lines},{p.name for p in self.output.iterdir()}-{'SHA256SUMS'})
         helper=(self.output/'apply.sh').read_text()

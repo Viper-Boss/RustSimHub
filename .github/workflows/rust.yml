@@ -84,10 +84,12 @@ jobs:
           sudo -n python3 tools/test-setup-ap-units.py
       - name: Isolated AP material preparation CLIs
         run: |
-          cargo build -p rustsimhub-core -p rustsimhub-edge -p rustsimhub-setup-ap --locked
+          cargo build -p rustsimhub-core -p rustsimhub-edge -p rustsimhub-setup-ap -p rustsimhub-core-launcher --locked
           sudo -n python3 tools/test-setup-ap-material.py --core target/debug/rustsimhub-core --edge target/debug/rustsimhub-edge --ap target/debug/rustsimhub-setup-ap --edge-user "$(id -un)"
+      - name: Finite Core launcher with real service UID and historical fallback
+        run: sudo -n python3 tools/test-core-launcher.py --launcher target/debug/rustsimhub-core-launcher
       - name: Bounded AP first-install and rollback in disposable chroot
-        run: sudo -n python3 tools/test-setup-ap-install-chroot.py --core target/debug/rustsimhub-core --edge target/debug/rustsimhub-edge --ap target/debug/rustsimhub-setup-ap
+        run: sudo -n python3 tools/test-setup-ap-install-chroot.py --core target/debug/rustsimhub-core --edge target/debug/rustsimhub-edge --ap target/debug/rustsimhub-setup-ap --launcher target/debug/rustsimhub-core-launcher
       - name: Isolated forwarding Root and worker IPC
         run: |
           cargo build -p rustsimhub-core --features dev-fixtures --locked

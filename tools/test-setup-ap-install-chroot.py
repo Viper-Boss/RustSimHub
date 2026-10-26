@@ -130,11 +130,11 @@ class Installer(unittest.TestCase):
                 if not src.is_symlink():s=src.stat();os.chown(dst,s.st_uid,s.st_gid)
         self.bundle=self.root/'bundle';self.bundle.mkdir(mode=0o700)
         material=module.package.MATERIAL
-        blobs={f'payload-{n}':Path(AP).read_bytes() if n==0 else (material/name).read_bytes().replace(b'\r\n',b'\n') for n,(name,_,_) in enumerate(module.package.FILES)}
+        blobs={f'payload-{n}':Path(AP).read_bytes() if n==0 else Path(LAUNCHER).read_bytes() if n==7 else (material/name).read_bytes().replace(b'\r\n',b'\n') for n,(name,_,_) in enumerate(module.package.FILES)}
         paths={'application-manifest.sha256':'/run/rustsimhub-app/selected/manifest.json','application-ledger.sha256':'/var/lib/rustsimhub/rustsimhub-v1/system/app/state.json','core-unit.sha256':'/etc/systemd/system/rustsimhub-core.service','forwarding-unit.sha256':'/etc/systemd/system/rustsimhub-core.service.d/30-forwarding.conf','passwd.sha256':'/etc/passwd','group.sha256':'/etc/group','edge-config.sha256':'/var/lib/rustsimhub/rustsimhub-v1/edge/installation/config.json','identity.sha256':module.CORE+'/identity/identity.seed','setup-used.sha256':module.CORE+'/setup/setup.used','core.sha256':'/run/rustsimhub-app/selected/rustsimhub-core','edge.sha256':'/run/rustsimhub-app/selected/rustsimhub-edge'}
         blobs.update({name:(module.sha((self.root/path.lstrip('/')).read_bytes())+'\n').encode() for name,path in paths.items()})
         blobs.update({'setup-code.sha256':b'absent\n','boot-id':(self.root/'proc/sys/kernel/random/boot_id').read_bytes(),'modem-path':b'/org/freedesktop/ModemManager1/Modem/0\n','business-before.tar':b'explicit synthetic backup, never extracted','signed-manifest.json':b'explicit native fixture, not production-admitted','signed-manifest.sig':b'fixture','signer.public':b'fixture','apply.sh':(material/'install.sh').read_bytes().replace(b'\r\n',b'\n'),'plan.json':b'{}\n'})
-        self.assertEqual(len(blobs),27)
+        self.assertEqual(len(blobs),28)
         for name,data in blobs.items():put(self.root,'/bundle/'+name,data)
         self.sums()
 
@@ -224,6 +224,6 @@ class Installer(unittest.TestCase):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
-    for name in ['core','edge','ap']:parser.add_argument('--'+name,required=True,type=Path)
-    args,rest=parser.parse_known_args();CORE,EDGE,AP=[str(getattr(args,name).resolve(strict=True)) for name in ['core','edge','ap']]
+    for name in ['core','edge','ap','launcher']:parser.add_argument('--'+name,required=True,type=Path)
+    args,rest=parser.parse_known_args();CORE,EDGE,AP,LAUNCHER=[str(getattr(args,name).resolve(strict=True)) for name in ['core','edge','ap','launcher']]
     unittest.main(argv=[sys.argv[0],*rest])
