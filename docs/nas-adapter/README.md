@@ -118,6 +118,7 @@ Linux 的 `TestCLISyntheticConfigAndRead` 使用真实 `runCLI`、0700/0600 临�
 同一夹具还构建并执行真实 CLI 程序，验证 stdin/输出和进程退出行为。
 Linux 的 compat 测试增加一个 Go 互操作入口（因此要求 PATH 上有 Go），
 禁用 Go 模块下载并检查 Linux CLI 夹具确实执行；未修改仓库 CI 工作流。
+入口放在独立 migrate 二进制测试进程，避免在库内并行历史锁测试运行时启动 Go 子进程。
 其他平台运行纯模型、黄金向量及 TLS 测试，CLI 明确拒绝读取凭据，不降低权限检查。
 交叉编译通过只证明可编译，不能代替执行此 Linux 测试。
 

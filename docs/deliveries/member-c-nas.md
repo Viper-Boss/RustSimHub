@@ -6,12 +6,12 @@
 ## 提交截面与当前状态
 
 - 起始 main：`ffbb72d05f4f865b501d7ab021fe62996dbe8c6c`。
-- 原仓库完整代码 HEAD：`46ee6b20e0c34482c3a89e00731e496e1bb58a24`。
+- 原仓库首版完整代码 HEAD：`46ee6b20e0c34482c3a89e00731e496e1bb58a24`；后续测试隔离提交及当前完整 HEAD 见 PR 正文。
 - 本地验证提交：`be44659b953a4e31b663dd76a3618e5936d0fe06`；通过 GitHub API 发布后逐字节代码树相同，未改变实现。
 - 代码树：`61894dbb02dac8dcae54d205e3a10ab3fe9b707d`。
 - 分支：`codex/nas-readonly-history`。
 - 提交方式：用户传达负责人最新安排，直接使用原仓库 `Viper-Boss/RustSimHub` 的独立开发分支向 main 提交第一批 PR，不使用 fork，不直接推送 main。
-- 当前本地验证通过，原仓库开发分支已创建；Linux 执行和 PR 发布结果须另核，不能称整批已验收。
+- 已创建原仓库 [PR #3](https://github.com/Viper-Boss/RustSimHub/pull/3)，当前为草稿。首轮 Linux 的 Go/CLI 夹具通过，但两项历史锁测试失败，正在隔离新增测试并补验，不能称整批已验收。
 - 本报告另作提交，当前最终 PR HEAD 应在 PR 正文逐次更新，不能把旧代码 HEAD 当作新增提交后的审核截面。
 - 第二批 C-05～C-08 未开始，等待第一批契约获得主线审核。
 
@@ -33,7 +33,7 @@
 
 ## 修改文件与依赖
 
-- `crates/compat/src/lib.rs`：仅注册 Linux 测试模块，不改签名、授权或版本协商。
+- `crates/compat/src/migrate.rs`：仅在独立二进制测试进程注册 Linux Go 互操作模块，不改迁移、签名、授权或版本协商。
 - `crates/compat/src/nas_adapter_tests.rs`：Linux compat 测试调用真实 Go 夹具，检查 CLI 夹具确实执行。
 - `tools/nas-adapter/main.go`：真实 CLI 使用只读类型和有限错误，保留会话签名字节和设备绑定证明。
 - `tools/nas-adapter/readonly.go`：输入/响应类型、版本、结构、分页和 ID 对应校验。
@@ -82,8 +82,9 @@ Go 环境同上，另设 `RSH_GOLDEN_FILE` 为本仓库黄金向量的绝对路�
 - 首轮 307 测试预期为传输错误，实际因请求体无 GetBody 而直接返回 HTTP 307。
   修正为保留 HTTP 错误并断言未访问目标，另补 302 的 CheckRedirect 拒绝测试；最终均通过。
 - 新增 Rust 测试文件首轮 fmt 检查有差异，格式化后最终检查通过。
-- 本机没有 Linux/WSL 发行版，未执行 Linux 私有文件检查、真实 CLI 正向夹具、Linux history/session 测试或该平台 Clippy。交叉编译和 Linux vet 已完成。
-- 计划让 PR 的现有 Linux `cargo test --workspace --all-features --locked` 执行新增 Go 互操作测试；CI 运行结果须针对实际 PR HEAD 另记，不预填成功。
+- 本机没有 Linux/WSL 发行版，本地没有执行 Linux 私有文件检查、CLI 正向夹具、history/session 或该平台 Clippy。交叉编译和 Linux vet 已完成；后续 Linux 证据来自实际 GitHub Actions。
+- 首轮 CI [40335570789](https://github.com/Viper-Boss/RustSimHub/actions/runs/40335570789)，完整 HEAD `9585946cd7ffbb6fc00406b1925306c82c907721`：Linux `nas_adapter_tests::go_nas_readonly_contract_and_synthetic_cli` 已实际通过（内部强制检查真实 CLI 夹具运行），会话和签名测试通过；compat 18/20，通过项不冒充全包通过。两项原历史测试 `grants_survive_normal_restart_but_never_changed_identity_realm_or_archive` 和 `two_nas_namespaces_never_merge_identical_legacy_ids` 失败，其中后者明确为 Busy。
+- 新增 Go 子进程原先与库内并行的历史/SQLite 锁夹具同处一个测试进程，现改放到独立 migrate 二进制测试进程，避免潜在描述符继承干扰；不放宽历史锁、权限或原断言。根因与修复效果仍以新的对应 HEAD CI 为准，不能仅凭推断记通过。
 - 此前按默认 fork 流程尝试发布，GitHub 返回 403 `Resource not accessible by integration`。
   之后用户明确传达负责人要求直接在原仓库提 PR；原仓库独立分支创建已成功，不再要求个人 fork 授权。
 - 没有真实 NAS/设备、旧页面、实际撤销/重启、控制或媒体测试；这些留给主线，不冒充完成。
