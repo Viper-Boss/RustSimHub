@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-26T17:23:19.770940+00:00",
+  "updated_at": "2026-10-26T17:28:03.302428+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -4631,8 +4631,8 @@
   ],
   "team": {
     "schema": 1,
-    "source_revision": "b5cb0a502f8e9d000e82d862587f63f7bd909d8e",
-    "generated_at": "2026-10-26T17:23:19.770940+00:00",
+    "source_revision": "bcd90f1a3dfaa019dd0f2b804e5f57a684972aeb",
+    "generated_at": "2026-10-26T17:28:03.302428+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -4656,7 +4656,7 @@
             "tooling": 8709,
             "firmware": 1132
           },
-          "commits": 309,
+          "commits": 310,
           "code_commits": 215,
           "added": 85086,
           "deleted": 2114
@@ -4732,7 +4732,7 @@
         "name": "wnfhsj",
         "login": "wnfhsj",
         "role": "月流量计量 / 网络显示 · 离线边界",
-        "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
+        "access": "同仓库Write已生效；本人功能分支 → PR审核",
         "package": "计量与月结 → 展示、回归与交接",
         "task_ids": [
           "NET-01",

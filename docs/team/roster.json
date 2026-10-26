@@ -59,7 +59,7 @@
       "login": "wnfhsj",
       "git_names": [],
       "role": "月流量计量 / 网络显示 · 离线边界",
-      "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
+      "access": "同仓库Write已生效；本人功能分支 → PR审核",
       "package": "计量与月结 → 展示、回归与交接",
       "task_ids": [
         "NET-01",

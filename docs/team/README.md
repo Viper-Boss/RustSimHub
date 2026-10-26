@@ -10,7 +10,7 @@
 | 成员C：[yh1030](https://github.com/yh1030) | NAS只读兼容、历史导入与幂等 | [C任务书](MEMBER-C-NAS-COMPAT.md)，NAS-01/05/06的离线部分 | 无需设备 |
 | [RedamancyGTW](https://github.com/RedamancyGTW)，成员D | 短信事件同步、对象换代、故障恢复 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，SMS-02～06的离线部分 | 无需设备 |
 
-四名成员均使用自己的GitHub账号和Codex；不用共享负责人账号、Token、NAS地址或SSH材料。旧Claude任务包仅供历史参考，本目录是本轮明确分工。yh1030的Write已生效；fungi1220已有Write邀请，wnfhsj和RedamancyGTW的新Write邀请已由GitHub接受并回读确认，三人待本人接受。后两人的公开主页仍有404现象，不能据此判断账号不存在或确定风控原因。权限明细见[仓库访问状态](ACCESS.md)。
+四名成员均使用自己的GitHub账号和Codex；不用共享负责人账号、Token、NAS地址或SSH材料。旧Claude任务包仅供历史参考，本目录是本轮明确分工。yh1030与wnfhsj的Write最终回读已生效；fungi1220和RedamancyGTW的Write邀请已就绪，等待本人接受。此前wnfhsj与RedamancyGTW的公开主页有404现象，不能据此判断账号不存在或确定风控原因。权限明细见[仓库访问状态](ACCESS.md)。
 
 A/B/C/D各8步是交付拆分，映射到原有STAT/NET/NAS/SMS动作，不向169个项目动作额外加32个，也不重复累加项目预计工时。成员计划区间用于安排本轮工作，实际以交付和复核为准。
 

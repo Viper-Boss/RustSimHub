@@ -6,10 +6,10 @@
 |---|---|---|
 | fungi1220 | 已有Write邀请，本轮回读确认，待接受 | 本人接受邀请后推送本仓库功能分支 |
 | yh1030 | Write已生效 | 可直接推送本人功能分支并提交PR |
-| wnfhsj | 新Write邀请已创建并回读确认，待接受 | 本人接受邀请；公开主页404原因另向GitHub核实 |
+| wnfhsj | 最终回读Write已生效 | 可直接推送本人功能分支并提交PR；此前主页404原因另核 |
 | RedamancyGTW | 新Write邀请已创建并回读确认，待接受 | 本人接受邀请；公开主页404原因另向GitHub核实 |
 
-邀请待接受和权限已生效分别记录。没有授予Admin，也没有替成员接受邀请。三位成员可登录自己的GitHub查看[通知](https://github.com/notifications)，或访问[本仓库邀请页](https://github.com/Viper-Boss/RustSimHub/invitations)。无需向负责人共享密码、令牌或SSH私钥。
+邀请待接受和权限已生效分别记录。没有授予Admin，也没有替成员接受邀请。仍待接受的两位成员可登录自己的GitHub查看[通知](https://github.com/notifications)，或访问[本仓库邀请页](https://github.com/Viper-Boss/RustSimHub/invitations)。无需向负责人共享密码、令牌或SSH私钥。
 
 两位主页404的账号均已被GitHub邀请接口识别；这不能证明公开可见性异常的原因。GitHub说明账号在部分临时限制下仍可登录、但主页或搜索不可用，实际原因以账号提示/邮件及官方支持回复为准。[GitHub官方说明](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/preventing-unauthorized-access#account-is-restricted-after-suspected-compromise)
 
