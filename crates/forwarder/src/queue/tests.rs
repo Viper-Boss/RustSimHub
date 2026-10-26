@@ -518,6 +518,90 @@ fn bounded_backpressure_keeps_cursor_and_unknown_receipts() {
     q.ingest(&binding(), 1, head(300), None).unwrap();
     assert_eq!(q.status().unwrap().queued, MAX_PENDING);
 }
+
+#[test]
+fn receipt_capacity_rejects_new_jobs_and_owner_pruning_never_removes_unknown() {
+    let (_d, mut q) = enabled();
+    q.ingest(&binding(), 1, head(6), Some(&message())).unwrap();
+    let claim = q.claim(&binding(), 1, LineEpoch(2)).unwrap().unwrap();
+    q.finish(&binding(), &claim, State::Unknown).unwrap();
+    // Populate terminal history in one fixture transaction. Admission and
+    // pruning below are the real queue API, not a replacement counter.
+    let tx = q.conn.transaction().unwrap();
+    for _ in 1..MAX_RECEIPTS {
+        tx.execute("INSERT INTO jobs(id,message_id,target_id,rule_id,generation,line,state,request) VALUES(?,?,?,?,1,2,'confirmed',NULL)",params![id(),id(),TARGET,RULE]).unwrap();
+    }
+    tx.commit().unwrap();
+    let before = q.event_cursor().unwrap();
+    let sms = message();
+    assert!(matches!(
+        q.ingest(&binding(), 1, head(7), Some(&sms)),
+        Err(Error::Full)
+    ));
+    assert_eq!(q.event_cursor().unwrap().seq, before.seq);
+    assert_eq!(q.status().unwrap().unknown, 1);
+    assert_eq!(q.status().unwrap().queued, 0);
+    assert_eq!(
+        q.prune_terminal(&binding(), 1, i64::MAX).unwrap(),
+        MAX_RECEIPTS - 1
+    );
+    assert_eq!(q.receipts(0, 32).unwrap()[0].id, claim.id);
+    assert_eq!(q.receipts(0, 32).unwrap()[0].state, State::Unknown);
+    assert_eq!(q.ingest(&binding(), 1, head(7), Some(&sms)).unwrap(), 1);
+    assert_eq!(q.status().unwrap().unknown, 1);
+    assert_eq!(q.status().unwrap().queued, 1);
+}
+
+#[test]
+fn real_sqlite_full_rolls_back_new_payload_and_cursor_without_losing_unknown() {
+    let (_d, mut q) = queue();
+    let mut full = policy();
+    full.rules[0].share = Share::FullText;
+    q.configure(&binding(), 0, &id(), full, head(5)).unwrap();
+    q.ingest(&binding(), 1, head(6), Some(&message())).unwrap();
+    let claim = q.claim(&binding(), 1, LineEpoch(2)).unwrap().unwrap();
+    q.finish(&binding(), &claim, State::Unknown).unwrap();
+    let pages: i64 = q
+        .conn
+        .pragma_query_value(None, "page_count", |r| r.get(0))
+        .unwrap();
+    assert_eq!(
+        q.conn
+            .pragma_query_value::<i64, _>(None, "freelist_count", |r| r.get(0))
+            .unwrap(),
+        0
+    );
+    q.conn.pragma_update(None, "max_page_count", pages).unwrap();
+    let engine = q
+        .conn
+        .execute("CREATE TABLE synthetic_full_probe(value BLOB)", [])
+        .unwrap_err();
+    assert_eq!(
+        engine.sqlite_error_code(),
+        Some(rusqlite::ErrorCode::DiskFull)
+    );
+    let mut sms = message();
+    sms.body = "a".repeat(4096);
+    let before = q.event_cursor().unwrap();
+    assert!(matches!(
+        q.ingest(&binding(), 1, head(7), Some(&sms)),
+        Err(Error::Storage)
+    ));
+    assert_eq!(q.event_cursor().unwrap().seq, before.seq);
+    assert_eq!(q.status().unwrap().queued, 0);
+    assert_eq!(q.receipts(0, 32).unwrap()[0].state, State::Unknown);
+    assert_eq!(
+        q.conn
+            .query_row::<String, _, _>("SELECT request FROM jobs WHERE id=?", [&claim.id], |r| r
+                .get(0))
+            .unwrap(),
+        serde_json::to_string(&claim.request).unwrap()
+    );
+    q.conn.pragma_update(None, "max_page_count", 8192).unwrap();
+    assert_eq!(q.ingest(&binding(), 1, head(7), Some(&sms)).unwrap(), 1);
+    assert_eq!(q.status().unwrap().unknown, 1);
+    assert_eq!(q.status().unwrap().queued, 1);
+}
 #[test]
 fn rejects_foreign_owner_unsafe_files_and_second_writer() {
     let (d, q) = queue();

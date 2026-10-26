@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-10-27 [X1X错误矩阵](VALIDATION-FORWARDING-FAILURES-X1X.md)推进：新增真实4096回执容量/保留Unknown的显式清理恢复、SQLite实际FULL回滚/恢复，以及11种4xx/429/5xx+Retry-After的本机TLS单次Unknown；最终157Core+78转发+18Wire共253项及严格/生产检查通过。仅合成数据/loopback；SQLite页上限不等于OS磁盘实满，下一补有限tmpfs的实际ENOSPC与固定CI，FWD-15不计完成。FWD-12固定9117647已完成；台账13/169、余156、6.4%，原80%。无设备/外发/普通流量/关机操作，成员任务不接管。
+
 2026-10-27 [X1W显式历史补发](VALIDATION-FORWARDING-HISTORY-WEB-X1W.md)完成：固定9117647a85a68056f31044f47ecc941184d63d08的728文件27acbc0、11个全新生产ARM/实际QEMU及八文件签名材料通过，完整CI40416902303两任务success；250项、16网页、实际Chrome/IDB三宽及L1的19项100轮证据完整。FWD-12完成，台账13/169、余156、加权6.4%，原P0–P7仍80%；下一FWD-15进行中，已补253项的SQLite_FULL/容量/HTTP错误矩阵，OS层ENOSPC仍待补。未部署/外发，最后实机50不变；成员/用户验收、普通数据/转发OFF和关机搁置保持。
 
 2026-10-27 [L1启动器夹具](VALIDATION-LAUNCHER-FIXTURE-L1.md)修正：63c6113完整CI40415313882在既有16KiB单测失败，保留；原727文件2eb691c及11生产ARM/八文件材料成功不替代CI。私有副本第8轮复现临时脚本spawn ETXTBSY/errno26；不等同证明原CI errno。抽取同一私有读取函数供测试经固定解释器读脚本，生产仍仅固定Core/--build-info，无shell/重试或放宽限制。19项100轮及严格检查通过，待新固定CI/ARM，FWD-12仍进行。历史网页250项/16网页/实际IDB三宽证据保持；台账12/169、5.5%，原80%，未部署/外发。

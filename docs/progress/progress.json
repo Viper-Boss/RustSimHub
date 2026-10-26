@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-26T23:13:10.925124+00:00",
+  "updated_at": "2026-10-26T23:17:21.057135+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -69,7 +69,7 @@
   "focus": {
     "task_id": "FWD-15",
     "title": "队列满与提供商错误矩阵",
-    "state": "正在推进",
+    "state": "正在执行；完成后附证据",
     "description": "在有界、可销毁的临时文件系统验证真实ENOSPC，并结合既有TLS/超时/退出矩阵核对Unknown、资源上限与无重试；不访问设备或真实提供商。"
   },
   "facts": [
@@ -4798,6 +4798,18 @@
       ],
       "evidence": [
         "docs/VALIDATION-FORWARDING-HISTORY-WEB-X1W.md"
+      ]
+    },
+    {
+      "at": "2026-10-26T23:17:21.057135+00:00",
+      "type": "state",
+      "title": "FWD-15 · 状态更新：队列满与提供商错误矩阵",
+      "detail": "新增253项截面通过：4096回执上限与Unknown保留/腾位恢复、SQLite实际FULL回滚、11个4xx/429/5xx TLS单次Unknown；仍缺OS级有界tmpfs ENOSPC和最新固定CI，保留为进行中。",
+      "task_ids": [
+        "FWD-15"
+      ],
+      "evidence": [
+        "docs/VALIDATION-FORWARDING-FAILURES-X1X.md"
       ]
     }
   ],

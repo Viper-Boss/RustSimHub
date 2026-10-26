@@ -429,6 +429,32 @@ async fn redirects_and_server_errors_are_never_retried_or_followed() {
         assert_eq!(sender.deliver(&claim(server.url()),&mut egress,&mut check(),cancel).await,DeliveryOutcome::Unknown{status:Some(status),reason:Failure::Unconfirmed});server.joined().await;assert_eq!(egress.calls,1);assert_eq!(server.seen.lock().unwrap().len(),1);
     }
 }
+
+#[tokio::test]
+async fn client_errors_rate_limits_and_gateway_errors_with_retry_after_are_single_unknown_attempts()
+{
+    for status in [400, 401, 403, 404, 408, 413, 429, 500, 502, 503, 504] {
+        let raw=format!("HTTP/1.1 {status} Synthetic\r\nRetry-After: 3600\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{{}}");
+        let mut server = Server::start(Reply::Bytes(raw.into_bytes())).await;
+        let sender = HttpsSender::new(vec![server.certificate.clone()]).unwrap();
+        let mut egress = route(&server);
+        let (_stop, cancel) = watch::channel(false);
+        let outcome = sender
+            .deliver(&claim(server.url()), &mut egress, &mut check(), cancel)
+            .await;
+        assert_eq!(
+            outcome,
+            DeliveryOutcome::Unknown {
+                status: Some(status),
+                reason: Failure::Unconfirmed
+            }
+        );
+        assert_eq!(outcome.queue_state(), State::Unknown);
+        server.joined().await;
+        assert_eq!(egress.calls, 1);
+        assert_eq!(server.seen.lock().unwrap().len(), 1);
+    }
+}
 #[tokio::test]
 async fn oversized_fixed_and_chunked_responses_are_bounded_without_decompression() {
     let replies=[response("200 OK",&vec![b'x';8193]),Reply::Bytes([b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n2001\r\n".as_slice(),&vec![b'x';8193],b"\r\n0\r\n\r\n"].concat())];
