@@ -37,9 +37,13 @@ impl Drop for Reap {
     }
 }
 fn metadata(program: &Path, budget: Duration) -> Result<Vec<u8>, Error> {
+    let mut command = Command::new(program);
+    command.arg("--build-info");
+    metadata_command(command, budget)
+}
+fn metadata_command(mut command: Command, budget: Duration) -> Result<Vec<u8>, Error> {
     let mut child = Reap(
-        Command::new(program)
-            .arg("--build-info")
+        command
             .env_clear()
             .stdin(Stdio::null())
             .stdout(Stdio::piped())

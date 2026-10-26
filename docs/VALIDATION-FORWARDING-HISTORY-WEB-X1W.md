@@ -26,3 +26,5 @@ X1V初期格式3元数据如缺确认码，在实际绑定/完整性核对之后
 - 后续UI起点改为选项后，输入上限用例曾因“归档更新下一批选项”覆盖了故意设置的坏输入而失败；已将故障输入放在归档之后，重新通过。Rust截面之后仅调整HTML/JS及此网页夹具，Rust文件逐哈希保持；最终同源生产构建和CI另核。
 
 X1V固定`3e68d5eaab552584d9e73ed8afc12ee8c92ff145`的[完整CI40412089446](https://github.com/Viper-Boss/RustSimHub/actions/runs/40412089446)两任务已成功；该结果不替代本轮固定源码的CI。下一步完成本轮生产ARM、精确CI及发布核对，再记录FWD-12验收。
+
+固定63c6113的生产ARM与后续CI失败/启动器夹具修正见[L1](VALIDATION-LAUNCHER-FIXTURE-L1.md)。原记录不提前改成完成。
