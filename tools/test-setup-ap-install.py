@@ -21,7 +21,7 @@ fixture=importlib.util.module_from_spec(spec);spec.loader.exec_module(fixture)
 
 def inventory(manifest):
     passwd='root:x:0:0:root:/root:/bin/sh\n'+''.join(f'rustsimhub-{name}:x:{uid}:{uid}::/nonexistent:/usr/sbin/nologin\n' for name,uid in [('core',986),('edge',985),('media',984),('forwarder',983)])
-    group='root:x:0:\n'+''.join(f'rustsimhub-{name}:x:{uid}:\n' for name,uid in [('core',986),('edge',985),('media',984),('forwarder',983)])+'rustsimhub-ipc:x:987:rustsimhub-core,rustsimhub-edge,rustsimhub-media,rustsimhub-forwarder\n'
+    group='root:x:0:\n'+''.join(f'rustsimhub-{name}:x:{uid}:\n' for name,uid in [('core',986),('edge',985),('media',984),('forwarder',983)])+'audio:x:29:rustsimhub-media\nrustsimhub-ipc:x:987:rustsimhub-core,rustsimhub-edge,rustsimhub-media,rustsimhub-forwarder\n'
     i={'format':1,'local_passwd':passwd,'nss_passwd':passwd,'local_group':group,'nss_group':group,
        'application':{'format':2,'epoch':49,'schema_min':6,'schema_max':6,'source_sha256':manifest['source_sha256'],'core_sha256':manifest['builds']['core']['sha256'],'edge_sha256':manifest['builds']['edge']['sha256'],'manifest_sha256':'1'*64,'verified':True,'confirmed':{'epoch':49,'hash':'1'*64},'floor':49,'candidate':None,'attempted':False},
        'core_exec_start':module.BASE_EXEC,'systemd_version':257,'active_calls':0,'pcm_closed':True,'ordinary_data_connected':False,'backup_verified':True,'recovery_used':False,'owner_count':1,'owner_verified':True,
@@ -45,6 +45,19 @@ class Admission(unittest.TestCase):
         self.assertIs(module.validate(self.i,self.manifest),self.i)
         self.assertNotIn('setup-ap',module.BASE_EXEC)
         self.assertIn('--serve-device-forwarding-managed ',module.BASE_EXEC)
+
+    def test_only_media_may_keep_the_existing_unaliased_audio_group(self):
+        for group in [
+            self.i['local_group'].replace('audio:x:29:', 'audio:x:30:'),
+            self.i['local_group']+'aliased-audio:x:29:\n',
+            self.i['local_group'].replace('audio:x:29:rustsimhub-media', 'audio:x:29:rustsimhub-media,rustsimhub-core'),
+            self.i['local_group'].replace('audio:x:29:rustsimhub-media', 'disk:x:6:rustsimhub-media'),
+        ]:
+            for prefix in ['local','nss']:
+                with self.subTest(prefix=prefix,group=group):
+                    i=copy.deepcopy(self.i);i[prefix+'_group']=group
+                    if prefix=='local':i['group_sha256']=module.sha(group.encode())
+                    self.rejects(i)
 
     def test_old_epoch_group_source_schema_or_bytes_never_force_install(self):
         for key,value in [('format',1),('schema_min',5),('schema_max',True),('source_sha256','b'*64),('core_sha256','b'*64),('edge_sha256','b'*64),('verified',False),('epoch',True),('floor',True),('candidate',{}),('attempted',True),('confirmed',{'epoch':48,'hash':'1'*64})]:

@@ -157,6 +157,18 @@ class Installer(unittest.TestCase):
         before=self.snapshot();self.assertTrue(self.run_helper()['preflight']);self.assertEqual(self.snapshot(),before)
         self.run_helper(digest='0'*64,success=False);self.assertEqual(self.snapshot(),before)
 
+    def test_audio_is_preserved_only_for_media_before_any_target_changes(self):
+        group=self.root/'etc/group';original=group.read_text()
+        self.assertIn('audio:x:29:rustsimhub-media\n',original)
+        self.assertTrue(self.run_helper()['preflight'])
+        for invalid in [original.replace('audio:x:29:rustsimhub-media','audio:x:29:rustsimhub-core'),
+                        original.replace('audio:x:29:rustsimhub-media','disk:x:6:rustsimhub-media')]:
+            group.write_text(invalid)
+            put(self.root,'/bundle/group.sha256',module.sha(group.read_bytes())+'\n');self.sums()
+            before=self.snapshot();self.run_helper('--apply',False)
+            self.assertEqual(self.snapshot(),before)
+            self.assertFalse((self.bundle/'operation.log').exists())
+
     def test_real_offline_clis_apply_repeat_and_exact_rollback_preserve_business(self):
         self.assertTrue(self.run_helper('--apply')['prepared'])
         self.assertEqual(self.business(self.root),self.baseline)

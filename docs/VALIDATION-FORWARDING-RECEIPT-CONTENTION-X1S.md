@@ -17,6 +17,8 @@
 
 ## 待完成
 
-精确提交的完整 CI、固定归档的新生产 ARM 与音频构建、重新签名/验包、当前状态备份后维护部署；上述尚未完成，不以本机夹具替代实机联调。随后继续 AP-06 的有限 Root 安装与 Core–Root–NetworkManager 验证。AP-03/07/08 的实际配网保存、地址/证书交接、冷启动继续待验收。
+精确提交 `0edfc5488edbd791c35d48f4d68bd309873f855e` 的[完整 CI40321970699](https://github.com/Viper-Boss/RustSimHub/actions/runs/40321970699)两任务通过；701文件归档、新空target十一生产ARM、同源音频33项ARM/QEMU、复用原开发信任签名及实际ARM更新器验包通过。设备新备份回读后已确认应用50，14个严格HTTPS资源、原身份/Owner/69条短信/Unknown保护表、音频7/7、转发OFF与原Bark回执保持。未新发外部通知，用户收件不重复验收。
+
+随后继续 AP-06 的有限 Root 安装与 Core–Root–NetworkManager 验证。实际准入发现的媒体音频组兼容问题及修正见[P4V](VALIDATION-SETUP-AP-AUDIO-IDENTITY-P4V.md)。AP-03/07/08 的实际配网保存、地址/证书交接、冷启动继续待验收。
 
 原 P0–P7 整体 80%；扩展台账仍 9/169，剩余160，加权3.6%。修复与材料准备不虚增实机完成率。

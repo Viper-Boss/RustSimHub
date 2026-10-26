@@ -63,7 +63,12 @@ for pair in core:986 edge:985 media:984 forwarder:983;do
  test "$(id -u "$name")" = "$uid"; test "$(id -g "$name")" = "$uid"
  test "$(getent passwd "$uid" | cut -d: -f1)" = "$name"
  test "$(getent group "$uid" | cut -d: -f1)" = "$name"
- for gid in $(id -G "$name");do test "$gid" = "$uid" || test "$gid" = 987;done
+ for gid in $(id -G "$name");do
+  if test "$name:$gid" = rustsimhub-media:29;then
+   test "$(getent group 29 | cut -d: -f1)" = audio
+   test "$(getent group audio | cut -d: -f3)" = 29
+  else test "$gid" = "$uid" || test "$gid" = 987;fi
+ done
 done
 test "$(getent group 987 | cut -d: -f1)" = rustsimhub-ipc
 for unit in rustsimhub-setup-ap.service rustsimhub-setup-edge.service;do

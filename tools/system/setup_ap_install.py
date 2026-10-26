@@ -48,7 +48,11 @@ def identities(passwd,group):
         require([(u[0],u[2],u[3]) for u in users if u[0]==name or u[2]==str(uid)]==[(name,str(uid),str(uid))],'service UID/GID missing or aliased')
         require([(g[0],g[2]) for g in groups if g[0]==name or g[2]==str(uid)]==[(name,str(uid))],'service group missing or aliased')
         require(all(u[0]==name for u in users if u[3]==str(uid)),'foreign primary service group')
-        require(all(g[2] in [str(uid),'987'] for g in groups if name in g[3].split(',')),'unexpected supplementary service group')
+        # The existing media unit requires Debian's audio group for ALSA.
+        # Preserve only that named, unaliased group for this one service;
+        # never grant audio to Core/Edge/forwarder or accept a renamed GID.
+        audio=uid==984 and [(g[0],g[2]) for g in groups if g[0]=='audio' or g[2]=='29']==[('audio','29')]
+        require(all(g[2] in [str(uid),'987'] or (audio and g[0]=='audio' and g[2]=='29') for g in groups if name in g[3].split(',')),'unexpected supplementary service group')
         require(all(not g[3] or set(g[3].split(','))<={name} for g in groups if g[2]==str(uid)),'foreign supplementary service member')
     ipc=[g for g in groups if g[0]=='rustsimhub-ipc' or g[2]=='987']
     require(len(ipc)==1 and ipc[0][0]=='rustsimhub-ipc' and ipc[0][2]=='987','IPC group identity')

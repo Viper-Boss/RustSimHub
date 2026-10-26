@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-26T12:21:39.863467+00:00",
+  "updated_at": "2026-10-26T12:51:14.893514+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -70,7 +70,7 @@
     "task_id": "AP-06",
     "title": "同源Root程序与联合安装材料",
     "state": "正在推进",
-    "description": "X1S复现并修正回执只读查询锁竞争；34项/严格检查与隔离PID1、polkit、cgroup四笔合成HTTP通过。设备仍49，待精确CI与新归档构建后部署，再继续Root热点联合权限联调。"
+    "description": "X1S精确CI、同源十一ARM/音频33项、原信任及实机健康确认50完成；身份69短信/Unknown/音频7/7/转发OFF保持。P4V补媒体原audio组准入，10主机/10实际CLI-chroot通过，继续有限Root安装与真实服务联调；配网保存和冷启动未验收。"
   },
   "facts": [
     {
@@ -4561,6 +4561,18 @@
       ],
       "evidence": [
         "docs/VALIDATION-FORWARDING-RECEIPT-CONTENTION-X1S.md"
+      ]
+    },
+    {
+      "at": "2026-10-26T12:51:14.893514+00:00",
+      "type": "state",
+      "title": "AP-06 · 下一关卡：同源Root程序与联合安装材料",
+      "detail": "X1S精确CI、同源十一ARM/音频33项、原信任及实机健康确认50完成；身份69短信/Unknown/音频7/7/转发OFF保持。P4V补媒体原audio组准入，10主机/10实际CLI-chroot通过，继续有限Root安装与真实服务联调；配网保存和冷启动未验收。",
+      "task_ids": [
+        "AP-06"
+      ],
+      "evidence": [
+        "docs/VALIDATION-SETUP-AP-AUDIO-IDENTITY-P4V.md"
       ]
     }
   ],
