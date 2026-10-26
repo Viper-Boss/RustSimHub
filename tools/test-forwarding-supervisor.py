@@ -165,7 +165,7 @@ def test(core_binary, worker_binary, managed=False):
         dc, dchild = mp.Pipe()
         tc, tchild = mp.Pipe()
         servers = [mp.Process(target=fixture.dns_server, args=(dns, dchild)),
-                   mp.Process(target=fixture.tls_server, args=(tcp, tchild, str(base/'server.pem'), str(base/'server.key'), False))]
+                   mp.Process(target=fixture.tls_server, args=(tcp, tchild, str(base/'server.pem'), str(base/'server.key'), False, 1 if managed else 0))]
         sock = str(base/'ipc/core.sock')
         context = {'core_socket': sock, 'core_uid': CORE, 'worker_uid': WORKER,
             'worker_gid': IPC, 'worker_group': IPC, 'program': str(base/'forwarder'),
@@ -378,8 +378,11 @@ def test(core_binary, worker_binary, managed=False):
                     'request_id': probe_id, 'target_id': view['targets'][0]['id']}
                 admitted = rpc(EDGE, probe, 2)
                 assert admitted['accepted'] and admitted['quick_test']
+                probe_observation = {}
                 def probe_closed():
                     receipt = rpc(EDGE, {'op': 'forwarding_test_request', 'token': owner, 'request_id': probe_id}, 2)
+                    probe_observation.update(known=receipt['known'], state=(receipt.get('receipt') or {}).get('state'),
+                        quick_active=receipt.get('quick_active'), automatic_stop_verified=receipt.get('automatic_stop_verified'))
                     return receipt['known'] and receipt['receipt']['state'] == 'confirmed' and receipt['quick_active'] is False and receipt['automatic_stop_verified'] is True
                 fixture.wait_for(probe_closed, 20)
                 assert event_count() == 4
@@ -409,6 +412,9 @@ def test(core_binary, worker_binary, managed=False):
                 server.join(timeout=3)
                 assert server.exitcode == 0
         except BaseException:
+            if managed and 'probe_observation' in locals():
+                # State labels only: no IDs, credentials, message or target.
+                print(json.dumps({'last_probe':probe_observation,'synthetic_http_events':event_count()}),file=sys.stderr)
             # Only properties of this disposable unit; no bearer/config/body.
             print(ctl('show', name, '--property=LoadState,ActiveState,Result,MainPID,ControlPID,ControlGroup,UnitFileState,Job', check=False).stdout, file=sys.stderr)
             print(ctl('status', name, '--no-pager', check=False).stdout[-3000:], file=sys.stderr)

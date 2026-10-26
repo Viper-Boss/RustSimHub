@@ -74,7 +74,8 @@ def dns_server(listener, control):
         listener.close()
 
 
-def tls_server(listener, control, cert, key, hold):
+def tls_server(listener, control, cert, key, hold, response_delay=0):
+    assert 0 <= response_delay <= 2  # Test-only latency, never a timeout override.
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.load_cert_chain(cert, key)
     context.minimum_version = ssl.TLSVersion.TLSv1_2
@@ -134,6 +135,7 @@ def tls_server(listener, control, cert, key, hold):
                         pass
                     control.send({'event': 'peer_closed'})
                 else:
+                    time.sleep(response_delay)
                     stream.sendall(b'HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n')
         assert control.recv() == 'stop'
         control.send({'http_requests': len(ids), 'handshake_failures': handshake_failures})
