@@ -602,6 +602,128 @@ fn real_sqlite_full_rolls_back_new_payload_and_cursor_without_losing_unknown() {
     assert_eq!(q.status().unwrap().unknown, 1);
     assert_eq!(q.status().unwrap().queued, 1);
 }
+
+#[test]
+#[ignore = "requires tools/test-forwarding-storage-full.py with a bounded private tmpfs"]
+fn real_filesystem_enospc_preserves_unknown_and_cursor_then_recovers_once() {
+    use std::io::Write;
+    let root = std::path::PathBuf::from(
+        std::env::var_os("RUSTSIMHUB_TEST_FULL_FS").expect("isolated fixture path required"),
+    );
+    assert_eq!(root.canonicalize().unwrap(), root);
+    assert_eq!(root.file_name().unwrap(), "full");
+    assert_eq!(
+        root.parent().unwrap().parent().unwrap(),
+        Path::new("/var/tmp")
+    );
+    assert!(root
+        .parent()
+        .unwrap()
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .starts_with("rustsimhub-forwarding-full-"));
+    assert_eq!(
+        rustix::fs::statfs(&root).unwrap().f_type,
+        0x0102_1994,
+        "only tmpfs may be filled"
+    );
+    let capacity = fs2::statvfs(&root).unwrap().total_space();
+    assert!(
+        (1024 * 1024..=2 * 1024 * 1024).contains(&capacity),
+        "refuse an unbounded filesystem"
+    );
+    assert_eq!(rustix::process::geteuid().as_raw(), 65534);
+    let status = fs::read_to_string("/proc/self/status").unwrap();
+    for (key, value) in [
+        ("CapEff:", "0000000000000000"),
+        ("CapPrm:", "0000000000000000"),
+        ("CapAmb:", "0000000000000000"),
+        ("NoNewPrivs:", "1"),
+    ] {
+        assert_eq!(
+            status
+                .lines()
+                .find_map(|l| l.strip_prefix(key))
+                .unwrap()
+                .trim(),
+            value
+        );
+    }
+    let d = tempfile::Builder::new()
+        .prefix("outbox-")
+        .tempdir_in(&root)
+        .unwrap();
+    fs::set_permissions(d.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let mut q = Queue::open(d.path(), binding()).unwrap();
+    let mut p = policy();
+    p.rules[0].share = Share::FullText;
+    q.configure(&binding(), 0, &id(), p, head(5)).unwrap();
+    q.ingest(&binding(), 1, head(6), Some(&message())).unwrap();
+    let old = q.claim(&binding(), 1, LineEpoch(2)).unwrap().unwrap();
+    q.finish(&binding(), &old, State::Unknown).unwrap();
+    let before = q.event_cursor().unwrap();
+    let old_payload = serde_json::to_string(&old.request).unwrap();
+    let filler_path = root.join("synthetic-filler");
+    let mut filler = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&filler_path)
+        .unwrap();
+    let block = [0u8; 65536];
+    let mut written = 0u64;
+    loop {
+        assert!(
+            written <= capacity,
+            "filler cannot exceed verified small capacity"
+        );
+        match filler.write(&block) {
+            Ok(n) => {
+                assert!(n > 0);
+                written += n as u64;
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(e) => {
+                assert_eq!(
+                    e.raw_os_error(),
+                    Some(28),
+                    "must actually observe OS ENOSPC"
+                );
+                break;
+            }
+        }
+    }
+    assert_eq!(fs2::statvfs(&root).unwrap().available_space(), 0);
+    let mut sms = message();
+    sms.body = "a".repeat(4096);
+    assert!(matches!(
+        q.ingest(&binding(), 1, head(7), Some(&sms)),
+        Err(Error::Storage)
+    ));
+    assert_eq!(q.event_cursor().unwrap().seq, before.seq);
+    assert_eq!(q.status().unwrap().queued, 0);
+    assert_eq!(q.receipts(0, 32).unwrap()[0].state, State::Unknown);
+    assert_eq!(
+        q.conn
+            .query_row::<String, _, _>("SELECT request FROM jobs WHERE id=?", [&old.id], |r| r
+                .get(0))
+            .unwrap(),
+        old_payload
+    );
+    drop(filler);
+    fs::remove_file(filler_path).unwrap();
+    assert_eq!(q.ingest(&binding(), 1, head(7), Some(&sms)).unwrap(), 1);
+    assert_eq!(q.ingest(&binding(), 1, head(7), Some(&sms)).unwrap(), 0);
+    let next = q.claim(&binding(), 1, LineEpoch(2)).unwrap().unwrap();
+    assert!(next.request.body.expose().contains(&sms.body));
+    q.finish(&binding(), &next, State::Confirmed).unwrap();
+    assert!(q.claim(&binding(), 1, LineEpoch(2)).unwrap().is_none());
+    assert_eq!(q.status().unwrap().unknown, 1);
+    assert_eq!(q.event_cursor().unwrap().seq, "7");
+    println!("BOUNDED_TMPFS_ENOSPC_PASSED capacity={capacity} uid=65534 errno=28 unknown_preserved=true cursor_preserved=true recovery_once=true");
+}
 #[test]
 fn rejects_foreign_owner_unsafe_files_and_second_writer() {
     let (d, q) = queue();

@@ -48,14 +48,19 @@ pub(crate) async fn run(
                 },
             )
             .await?;
-        let line = store
-            .handle()
-            .observe_line(LineObservation {
-                backend: "synthetic-only".into(),
-                fingerprint: Some([30; 32]),
-                status: LineStatus::Ready,
-            })?
-            .line;
+    }
+    // Store::open deliberately invalidates the last live line observation.
+    // Re-observe the same synthetic SIM after every fixture start, as the
+    // production observer does; never reseed messages or replace the epoch.
+    let line = store
+        .handle()
+        .observe_line(LineObservation {
+            backend: "synthetic-only".into(),
+            fingerprint: Some([30; 32]),
+            status: LineStatus::Ready,
+        })?
+        .line;
+    if new {
         for i in 0..2 {
             store.handle().receive_sms(IncomingSms {
                 line,

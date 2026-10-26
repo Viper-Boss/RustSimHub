@@ -12,6 +12,7 @@ import multiprocessing
 import os
 from pathlib import Path
 import shutil
+import signal
 import socket
 import ssl
 import struct
@@ -74,7 +75,7 @@ def dns_server(listener, control):
         listener.close()
 
 
-def tls_server(listener, control, cert, key, hold, response_delay=0):
+def tls_server(listener, control, cert, key, hold, response_delay=0, hold_first=False):
     assert 0 <= response_delay <= 2  # Test-only latency, never a timeout override.
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.load_cert_chain(cert, key)
@@ -126,9 +127,9 @@ def tls_server(listener, control, cert, key, hold, response_delay=0):
                 assert str(uuid.UUID(delivery)) == delivery and delivery not in ids
                 ids.append(delivery)
                 control.send({'event': 'posted', 'count': len(ids)})
-                if hold:
+                if hold and (not hold_first or len(ids) == 1):
                     # No HTTP response: the real worker must close its owned
-                    # TLS transport when it receives SIGTERM after admission.
+                    # TLS transport on termination or a hard process kill.
                     try:
                         assert stream.recv(1) == b''
                     except ssl.SSLEOFError:
@@ -204,7 +205,8 @@ def run_case(core_binary, worker_binary, mode):
         tc, tchild = ctx.Pipe()
         ds = ctx.Process(target=dns_server, args=(dns, dchild))
         ts = ctx.Process(target=tls_server, args=(tcp, tchild, str(base / 'server.pem'),
-                                                str(base / 'server.key'), mode == 'lost_ack'))
+                                                str(base / 'server.key'), mode in ('lost_ack', 'killed_after_post'),
+                                                0, mode == 'killed_after_post'))
         core = worker = None
         events = []
         started = []
@@ -270,7 +272,7 @@ def run_case(core_binary, worker_binary, mode):
                     stdout=subprocess.DEVNULL, stderr=err, preexec_fn=drop(WORKER), cwd=base)
                 worker.stdin.write(json.dumps(settings).encode())
                 worker.stdin.close()
-            if mode in ('confirmed', 'lost_ack'):
+            if mode in ('confirmed', 'lost_ack', 'killed_after_post'):
                 wait_for(lambda: event('posted', 2 if mode == 'confirmed' else 1), 8)
                 status = Path(f'/proc/{worker.pid}/status').read_text().splitlines()
                 for field in ['CapEff:', 'CapPrm:', 'CapAmb:']:
@@ -280,11 +282,44 @@ def run_case(core_binary, worker_binary, mode):
                 assert worker.wait(timeout=8) == 1
             if mode == 'confirmed':
                 wait_for(lambda: count_receipts('confirmed') == 2)
+            if mode == 'killed_after_post':
+                # No graceful cleanup can acknowledge the already received
+                # request. Kill both processes, then reopen the SAME private
+                # state/identity with the actual Core fixture.
+                worker.kill()
+                assert worker.wait(timeout=3) == -signal.SIGKILL
+                wait_for(lambda: event('peer_closed'), 2)
+                core.kill()
+                assert core.wait(timeout=3) == -signal.SIGKILL
+                with (base / 'core.out').open('wb') as out, (base / 'core.err').open('ab') as err:
+                    core = subprocess.Popen([str(base / 'core'), '--forwarding-ipc-fixture', path,
+                        str(EDGE), str(WORKER), str(base / 'state'), str(base / 'identity'),
+                        f'https://fixture.test:{tls_port}/synthetic-only'],
+                        stdout=out, stderr=err, preexec_fn=drop(CORE), cwd=base)
+                reopened = wait_for(ready, 8)
+                assert reopened['new'] is False
+                owner = reopened['owner_token']
+                recovered = rpc(0, {'op': 'state'})
+                assert recovered['unknown'] == 1 and recovered['queued'] == 1
+                assert count_receipts('confirmed') == 0
+                assert len(receipts()) == 2  # Original jobs, no synthetic reseed.
+                # Start a real replacement worker using a newly granted lease.
+                # It may deliver the second, never submitted job; the server
+                # rejects any repeated delivery ID from the first request.
+                settings['lease'] = rpc(0, {'op': 'grant'})['lease']
+                with (base / 'worker.err').open('ab') as err:
+                    worker = subprocess.Popen([str(base / 'worker'), '--worker'], stdin=subprocess.PIPE,
+                        stdout=subprocess.DEVNULL, stderr=err, preexec_fn=drop(WORKER), cwd=base)
+                    worker.stdin.write(json.dumps(settings).encode())
+                    worker.stdin.close()
+                wait_for(lambda: event('posted', 2), 8)
+                wait_for(lambda: count_receipts('confirmed') == 1)
+                assert rpc(0, {'op': 'state'})['unknown'] == 1
             disabled = rpc(EDGE, {'op': 'set_forwarding_enabled', 'token': owner,
                 'expected_generation': 1, 'request_id': str(uuid.uuid4()), 'enabled': False}, 2)
             assert disabled['enabled'] is False
             stopped_at = time.monotonic()
-            stop_process(worker, clean=mode in ('confirmed', 'lost_ack'))
+            stop_process(worker, clean=mode in ('confirmed', 'lost_ack', 'killed_after_post'))
             assert time.monotonic() - stopped_at < 6
             if mode == 'lost_ack':
                 wait_for(lambda: event('peer_closed'), 2)
@@ -296,6 +331,8 @@ def run_case(core_binary, worker_binary, mode):
                 assert count_receipts('confirmed') == 2 and state['unknown'] == 0
             elif mode == 'lost_ack':
                 assert state['unknown'] == 1 and count_receipts('confirmed') == 0
+            elif mode == 'killed_after_post':
+                assert state['unknown'] == 1 and count_receipts('confirmed') == 1
             elif mode == 'wrong_ca':
                 assert count_receipts('failed') == 1 and count_receipts('confirmed') == 0
             else:
@@ -311,13 +348,15 @@ def run_case(core_binary, worker_binary, mode):
             for server in started:
                 server.join(timeout=3)
                 assert server.exitcode == 0, 'fixture server failed or leaked'
-            expected = {'confirmed': 2, 'lost_ack': 1, 'wrong_route': 0, 'wrong_ca': 0}[mode]
+            expected = {'confirmed': 2, 'lost_ack': 1, 'killed_after_post': 2, 'wrong_route': 0, 'wrong_ca': 0}[mode]
             assert tls_result['http_requests'] == expected
-            assert dns_result['dns_queries'] == (2 if mode == 'confirmed' else 0 if mode == 'wrong_route' else 1)
+            assert dns_result['dns_queries'] == (2 if mode in ('confirmed', 'killed_after_post')
+                                                else 0 if mode == 'wrong_route' else 1)
             if mode == 'wrong_ca':
                 assert tls_result['handshake_failures'] == 1
             return {'case': mode, 'passed': True, 'http_requests': expected,
-                    'actual_worker_reaped': True, 'external_network': False}
+                    'actual_worker_reaped': True, 'external_network': False,
+                    'hard_kill_reopen_and_replacement': mode == 'killed_after_post'}
         finally:
             stop_process(worker)
             stop_process(core)
@@ -351,6 +390,6 @@ if __name__ == '__main__':
     assert os.geteuid() == 0 and socket.if_nameindex() == [(1, 'lo')], 'require fresh unshare --net'
     subprocess.run(['ip', 'link', 'set', 'lo', 'up'], check=True)
     results = [run_case(args.core.resolve(strict=True), args.worker.resolve(strict=True), mode)
-               for mode in ['confirmed', 'lost_ack', 'wrong_route', 'wrong_ca']]
+               for mode in ['confirmed', 'lost_ack', 'killed_after_post', 'wrong_route', 'wrong_ca']]
     print(json.dumps({'passed': True, 'cases': results, 'device_access': False,
                       'installed_service_verified': False}))

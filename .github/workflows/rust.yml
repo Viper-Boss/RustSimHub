@@ -74,6 +74,10 @@ jobs:
           python3 -m unittest discover -s tools/recovery -p 'test_*.py'
       - name: Test
         run: cargo test --workspace --all-features --locked
+      - name: Forwarding actual filesystem ENOSPC in a bounded private tmpfs
+        run: |
+          cargo test -p rustsimhub-forwarder --lib --all-features --locked --no-run --message-format=json > /tmp/rustsimhub-forwarder-test-artifacts.json
+          sudo -n python3 tools/test-forwarding-storage-full.py --cargo-artifacts /tmp/rustsimhub-forwarder-test-artifacts.json
       - name: Signed legacy and forwarding application groups
         run: |
           cargo build -p rustsimhub-update --locked
@@ -96,7 +100,7 @@ jobs:
         run: |
           cargo build -p rustsimhub-core --features dev-fixtures --locked
           sudo -n python3 tools/test-forwarding-worker-ipc.py --core target/debug/rustsimhub-core
-      - name: Real forwarding worker DNS TLS and bounded stop
+      - name: Real forwarding worker DNS TLS hard crash and bounded stop
         run: |
           cargo build -p rustsimhub-forwarder --locked
           sudo -n unshare --net python3 tools/test-forwarding-worker-process.py --core target/debug/rustsimhub-core --worker target/debug/rustsimhub-forwarder
