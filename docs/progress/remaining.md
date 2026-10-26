@@ -1,6 +1,6 @@
 # RustSimHub 完整剩余行动台账
 
-快照：2026-10-26T04:00:30.547825+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
+快照：2026-10-26T04:36:52.252464+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
 
 原P0–P7：**80%**，剩余 **20** 个验收点。新增X1/X2/X3/BLE独立保留，不混入旧分母。
 
@@ -21,7 +21,7 @@ python tools/progress/build.py --check
 
 ## 当前关卡
 
-**AP-06 · 同源Root程序与联合安装材料**：下一动作已选定；按前置和验收推进。准备同源Root/Edge/Core联合材料与有限安装契约，再进行真实NM联调；实机保存/冷启动保持独立验收。
+**AP-06 · 同源Root程序与联合安装材料**：正在执行；完成后附证据。准备同源Root/Edge/Core联合材料与有限安装契约，再进行真实NM联调；实机保存/冷启动保持独立验收。
 
 ## FWD · 短信转发 · 独立服务
 
@@ -263,11 +263,11 @@ python tools/progress/build.py --check
 
 原计划收尾 · 12个动作 · 已完成3个
 
-Owner配网页及首次认领接管源码已接通；准备联合安装与真实NM联调，保存冷启动、地址交接及无NAS启动继续验收。
+认领与配网页源码已接通，实际联合签名材料已验证；继续受限安装/回退、实际权限及NM联调，实机保存冷启动和地址交接待验收。
 
 代码/资料：`crates/setup-ap`、`crates/core/src/setup_ap_control`、`crates/edge/src/web/ap-wifi.js`、`firmware/system`
 
-[范围来源](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-SETUP-AP-CLAIM-ADOPTION-P4Q.md)
+[范围来源](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-SETUP-AP-JOINT-MATERIALS-P4R.md)
 
 ### [x] AP-01 · 冻结Core授权与请求契约
 
@@ -324,7 +324,7 @@ Owner配网页及首次认领接管源码已接通；准备联合安装与真实
 
 ### [ ] AP-06 · 同源Root程序与联合安装材料
 
-- 状态：就绪
+- 状态：进行中
 - 动作：构建生产AP执行程序、Edge材料及有限单元，明确与应用组的版本契约。
 - 验收：同源/签名/权限核验通过；不混用旧Root候选或测试夹具。
 - 预计有效工时：1–3小时
