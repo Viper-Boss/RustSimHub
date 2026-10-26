@@ -29,7 +29,11 @@ def classify(name):
         return None
     suffix = path.suffix.lower()
     if name.startswith(('crates/', 'native/audio-alsa/src/')) and suffix in ('.rs', '.js', '.mjs', '.html', '.css'):
-        return 'tests' if '/tests/' in name or path.name in ('tests.rs', 'test.rs') else 'product'
+        return 'tests' if '/tests/' in name or path.name in ('tests.rs', 'test.rs') or path.name.endswith(('_tests.rs', '_test.rs')) else 'product'
+    # The NAS bridge is a shipped Go client, even though its source is under
+    # tools/. Count its real implementation and fixtures, not vendor sources.
+    if name.startswith('tools/nas-adapter/') and suffix == '.go' and 'vendor' not in path.parts:
+        return 'tests' if path.name.endswith('_test.go') else 'product'
     if name.startswith('tools/') and suffix in ('.py', '.sh', '.js', '.mjs'):
         return 'tests' if path.name.startswith(('test_', 'test-')) else 'tooling'
     if name.startswith('firmware/system/') and suffix in ('.sh', '.json', '.conf', '.service', '.target', '.rules'):
@@ -65,7 +69,9 @@ def identity(name, email, members):
     for member in members:
         if login and member['login'] and login == member['login'].casefold():
             return member['id']
-        if name.casefold() in {alias.casefold() for alias in member['git_names']}:
+        # roster_valid treats an explicit GitHub login as a declared alias too.
+        # A member may commit with a verified non-noreply email: never publish it.
+        if (member['login'] and name.casefold() == member['login'].casefold()) or name.casefold() in {alias.casefold() for alias in member['git_names']}:
             return member['id']
     return 'unmapped'
 

@@ -18,6 +18,8 @@ class Team(unittest.TestCase):
         for path, category in [('crates/a/src/lib.rs','product'),('crates/a/src/tests.rs','tests'),
                                ('crates/edge/src/web/network.js','product'),('tools/progress/team.py','tooling'),
                                ('tools/test-web-network.mjs','tests'),('firmware/system/a.service','firmware'),
+                               ('tools/nas-adapter/readonly.go','product'),('tools/nas-adapter/http_test.go','tests'),
+                               ('crates/compat/src/nas_adapter_tests.rs','tests'),('tools/nas-adapter/vendor/x.go',None),
                                ('docs/progress/index.html',None),('Cargo.lock',None),('../crates/a.rs',None)]:
             self.assertEqual(team.classify(path),category)
 
@@ -54,9 +56,34 @@ class Team(unittest.TestCase):
             self.assertEqual(stats['member-a']['current_lines']['tooling'],1)
             self.assertEqual(sum(row['commits'] for row in stats.values()),5)
 
+    def test_merged_go_bridge_and_tests_keep_their_actual_authors(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            def git(*args, who='Viper-Boss'):
+                env = dict(os.environ, GIT_AUTHOR_NAME=who, GIT_AUTHOR_EMAIL=who+'@users.noreply.github.com',
+                           GIT_COMMITTER_NAME=who, GIT_COMMITTER_EMAIL=who+'@users.noreply.github.com')
+                return subprocess.check_output(['git', *args], cwd=root, env=env, stderr=subprocess.DEVNULL).decode().strip()
+            git('init', '-b', 'main')
+            directory = root/'tools/nas-adapter'; directory.mkdir(parents=True)
+            (directory/'main.go').write_text('package main\n\nfunc original() {}\n')
+            git('add', '.'); git('commit', '-m', 'original bridge')
+            git('switch', '-c', 'member-c')
+            (directory/'main.go').write_text('package main\n\nfunc original() {}\nfunc added() {}\n')
+            (directory/'main_test.go').write_text('package main\nfunc TestRead() {}\n')
+            git('add', '.'); git('commit', '-m', 'bridge and fixture', who='yh1030')
+            git('switch', 'main'); git('merge', '--no-ff', 'member-c', '-m', 'reviewed merge')
+            stats = team.code_stats(root, git('rev-parse', 'HEAD'), self.members)
+            self.assertEqual(stats['lead']['current_lines']['product'], 2)
+            self.assertEqual(stats['member-c']['current_lines']['product'], 1)
+            self.assertEqual(stats['member-c']['current_lines']['tests'], 2)
+            self.assertEqual(stats['member-c']['commits'], 1)
+            self.assertEqual(stats['member-c']['added'], 3)
+
     def test_identity_aliases_are_explicit_not_default_owner(self):
         self.assertEqual(team.identity('unknown','private@example.invalid',self.members),'unmapped')
         self.assertEqual(team.identity('another name','123+fungi1220@users.noreply.github.com',self.members),'member-a')
+        self.assertEqual(team.identity('yh1030','private@example.invalid',self.members),'member-c')
+        self.assertEqual(team.identity('YH1030','another@example.invalid',self.members),'member-c')
         data=copy.deepcopy(self.roster);data['members'][2]['git_names']=['Viper-Boss']
         with self.assertRaises(ValueError):team.roster_valid(data)
 
