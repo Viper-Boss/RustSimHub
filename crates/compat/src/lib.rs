@@ -167,6 +167,9 @@ pub fn negotiate(node: &Compatibility, core: &Requirements<'_>) -> Result<()> {
 #[cfg(test)]
 mod legacy_golden;
 
+#[cfg(all(test, target_os = "linux"))]
+mod nas_adapter_tests;
+
 /// Read-only subset; signing primitives alone never authorize ownership or mint v2 tokens.
 pub fn endpoint_scope(method: &str, path: &str) -> Result<Scope> {
     match (method, path) {

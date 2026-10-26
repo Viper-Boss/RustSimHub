@@ -3,12 +3,10 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
@@ -17,12 +15,9 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -35,38 +30,6 @@ type config struct {
 	KeyFile         string `json:"key_file"`
 }
 
-func private(path string, maximum int64) ([]byte, error) {
-	if !filepath.IsAbs(path) {
-		return nil, errors.New("private_file_required")
-	}
-	resolved, e := filepath.EvalSymlinks(path)
-	if e != nil || resolved != path {
-		return nil, errors.New("private_file_required")
-	}
-	parent, e := os.Stat(filepath.Dir(path))
-	if e != nil || !parent.IsDir() || parent.Mode().Perm()&0077 != 0 {
-		return nil, errors.New("private_file_required")
-	}
-	ps, ok := parent.Sys().(*syscall.Stat_t)
-	if !ok || int(ps.Uid) != os.Geteuid() {
-		return nil, errors.New("private_file_required")
-	}
-	fd, e := syscall.Open(path, syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
-	if e != nil {
-		return nil, errors.New("private_file_required")
-	}
-	f := os.NewFile(uintptr(fd), path)
-	defer f.Close()
-	m, e := f.Stat()
-	if e != nil || !m.Mode().IsRegular() || m.Mode().Perm()&0077 != 0 || m.Size() > maximum {
-		return nil, errors.New("private_file_required")
-	}
-	st, ok := m.Sys().(*syscall.Stat_t)
-	if !ok || int(st.Uid) != os.Geteuid() || st.Nlink != 1 {
-		return nil, errors.New("private_file_required")
-	}
-	return io.ReadAll(io.LimitReader(f, maximum+1))
-}
 func canonical(method, path, stamp, nonce string, body []byte) []byte {
 	sum := sha256.Sum256(body)
 	return []byte(strings.Join([]string{strings.ToUpper(method), path, stamp, nonce, base64.StdEncoding.EncodeToString(sum[:])}, "\n"))
@@ -76,18 +39,16 @@ func bound(device, epoch, request []byte) []byte {
 	proof = append(proof, epoch...)
 	return append(proof, request...)
 }
-func run() error {
-	if len(os.Args) != 3 || (os.Args[1] != "session" && os.Args[1] != "read") {
+func runCLI(args []string, input io.Reader, output io.Writer) error {
+	if len(args) != 3 || (args[1] != "session" && args[1] != "read") {
 		return errors.New("usage_session_or_read_private_config")
 	}
-	raw, e := private(os.Args[2], 8192)
+	raw, e := private(args[2], 8192)
 	if e != nil {
 		return e
 	}
 	var cfg config
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.DisallowUnknownFields()
-	if e = decoder.Decode(&cfg); e != nil {
+	if e = strictJSON(raw, &cfg); e != nil {
 		return errors.New("invalid_config")
 	}
 	target, e := url.Parse(cfg.URL)
@@ -103,7 +64,7 @@ func run() error {
 		return errors.New("invalid_device_pin")
 	}
 	epoch, e := hex.DecodeString(cfg.BindingEpoch)
-	if e != nil || len(epoch) != 32 {
+	if e != nil || len(epoch) != 32 || !hexToken(cfg.BindingEpoch) {
 		return errors.New("invalid_binding")
 	}
 	if cfg.CoreID == "" || len(cfg.CoreID) > 128 || strings.ContainsAny(cfg.CoreID, "\r\n") {
@@ -117,8 +78,8 @@ func run() error {
 	if !roots.AppendCertsFromPEM(pem) {
 		return errors.New("trusted_ca_required")
 	}
-	transport := &http.Transport{Proxy: nil, TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS13}, DisableKeepAlives: true, MaxConnsPerHost: 1, TLSHandshakeTimeout: 5 * time.Second, ResponseHeaderTimeout: 10 * time.Second}
-	client := &http.Client{Transport: transport, Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("redirect_denied") }}
+	client := newHTTPClient(roots)
+	defer client.CloseIdleConnections()
 	nonceBytes := make([]byte, 32)
 	if _, e = rand.Read(nonceBytes); e != nil {
 		return errors.New("entropy_unavailable")
@@ -126,9 +87,8 @@ func run() error {
 	nonce := hex.EncodeToString(nonceBytes)
 	var path string
 	var body []byte
-	var token string
 	headers := map[string]string{"X-RSH-Legacy-Compat": "1", "X-RSH-Request-Id": nonce}
-	if os.Args[1] == "session" {
+	if args[1] == "session" {
 		seed, e := private(cfg.KeyFile, 32)
 		if e != nil || len(seed) != 32 {
 			return errors.New("private_nas_seed_required")
@@ -158,58 +118,43 @@ func run() error {
 		headers["X-RSH-Binding-Epoch"] = cfg.BindingEpoch
 	} else {
 		path = "/compat/v1/read"
-		input, e := io.ReadAll(io.LimitReader(os.Stdin, 8193))
-		if e != nil || len(input) > 8192 {
-			return errors.New("invalid_query")
+		rawInput, err := io.ReadAll(io.LimitReader(input, 8193))
+		if err != nil {
+			return &Failure{Kind: "invalid_query"}
 		}
-		var request struct {
-			Token string          `json:"token"`
-			Query json.RawMessage `json:"query"`
+		token, query, err := readInput(rawInput)
+		if err != nil {
+			return err
 		}
-		d := json.NewDecoder(bytes.NewReader(input))
-		d.DisallowUnknownFields()
-		if d.Decode(&request) != nil || len(request.Token) != 64 || len(request.Query) == 0 {
-			return errors.New("invalid_query")
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		reply, err := readOnce(ctx, client, cfg.URL, token, nonce, query)
+		if err != nil {
+			return err
 		}
-		token = request.Token
-		body = request.Query
-		headers["Authorization"] = "Bearer " + token
+		return json.NewEncoder(output).Encode(reply)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	request, e := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimSuffix(cfg.URL, "/")+path, io.NopCloser(bytes.NewReader(body)))
+	data, e := exchange(ctx, client, cfg.URL, path, headers, body)
 	if e != nil {
-		return errors.New("invalid_request")
+		return e
 	}
-	request.ContentLength = int64(len(body))
-	request.Header.Set("Content-Type", "application/json")
-	for k, v := range headers {
-		request.Header.Set(k, v)
+	// Session minting is the sole output allowed to contain the new bearer.
+	var session struct {
+		Token     string `json:"token"`
+		ExpiresAt string `json:"expires_at"`
 	}
-	response, e := client.Do(request)
-	if e != nil {
-		return errors.New("transport_failed")
+	if strictJSON(data, &session) != nil || !hexToken(session.Token) {
+		return invalidReply()
 	}
-	defer response.Body.Close()
-	data, e := io.ReadAll(io.LimitReader(response.Body, 65537))
-	if e != nil || len(data) > 65536 {
-		return errors.New("invalid_reply")
+	if _, e := time.Parse(time.RFC3339, session.ExpiresAt); e != nil {
+		return invalidReply()
 	}
-	if response.StatusCode != http.StatusOK {
-		var failure struct {
-			Code string `json:"code"`
-		}
-		if json.Unmarshal(data, &failure) == nil && failure.Code != "" {
-			return errors.New(failure.Code)
-		}
-		return errors.New("request_rejected")
-	}
-	if !json.Valid(data) {
-		return errors.New("invalid_reply")
-	}
-	_, e = os.Stdout.Write(append(data, '\n'))
-	return e
+	return json.NewEncoder(output).Encode(session)
 }
+func run() error { return runCLI(os.Args, os.Stdin, os.Stdout) }
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "nas-adapter:", err.Error())
