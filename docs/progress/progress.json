@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-26T17:41:39.536969+00:00",
+  "updated_at": "2026-10-26T18:46:59.736375+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原80%仍按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "FWD-10",
-    "title": "短信转发规则与隐私策略",
-    "state": "主线独立开发进行中",
-    "description": "补正文正则、时间窗口、有限目标组和正文/验证码脱敏的显式选择，保持默认不外发完整内容；只用合成消息及隔离HTTP验证，不发送真实短信/推送。成员任务和用户实测范围保留。"
+    "task_id": "FWD-11",
+    "title": "关闭期间与重新开启游标",
+    "state": "正在推进",
+    "description": "完成关闭期间不扫描、重新开启默认新消息起点和旧代次任务作废；只用真实SQLite/Owner IPC合成夹具，不访问设备、不外发通知。"
   },
   "facts": [
     {
@@ -336,13 +336,13 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "in_progress",
+          "status": "done",
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [
             "docs/VALIDATION-FORWARDING-RULES-PRIVACY-X1T.md"
           ],
-          "completed_at": null,
+          "completed_at": "2026-10-26T18:43:54.105343+00:00",
           "actual_hours": null
         },
         {
@@ -358,7 +358,7 @@
           "dependencies": [
             "FWD-04"
           ],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -4651,12 +4651,44 @@
       "evidence": [
         "docs/VALIDATION-FORWARDING-RULES-PRIVACY-X1T.md"
       ]
+    },
+    {
+      "at": "2026-10-26T18:43:54.105343+00:00",
+      "type": "completed",
+      "title": "FWD-10 · 已完成：补齐规则与内容隐私策略",
+      "detail": "固定c95a887源码、219项隔离Rust测试、15网页组/真实Chrome、全新11份生产ARM及8文件Root材料实际签名验签、精确完整CI均通过；规则/隐私动作完成，尚未部署或触发真实转发。",
+      "task_ids": [
+        "FWD-10"
+      ],
+      "evidence": [
+        "docs/VALIDATION-FORWARDING-RULES-PRIVACY-X1T.md"
+      ]
+    },
+    {
+      "at": "2026-10-26T18:43:55.152087+00:00",
+      "type": "state",
+      "title": "FWD-11 · 状态更新：关闭期间与重新开启游标",
+      "detail": "核对现有真实Owner开关/游标；补关闭期间无短信扫描、多次关开与重开数据库、旧任务失效和丢回复重试的证据。",
+      "task_ids": [
+        "FWD-11"
+      ],
+      "evidence": []
+    },
+    {
+      "at": "2026-10-26T18:43:56.236188+00:00",
+      "type": "state",
+      "title": "FWD-11 · 下一关卡：关闭期间与重新开启游标",
+      "detail": "完成关闭期间不扫描、重新开启默认新消息起点和旧代次任务作废；只用真实SQLite/Owner IPC合成夹具，不访问设备、不外发通知。",
+      "task_ids": [
+        "FWD-11"
+      ],
+      "evidence": []
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "7967ab0c93a3517334765e25b2dfda5b26a10d29",
-    "generated_at": "2026-10-26T17:41:39.536969+00:00",
+    "source_revision": "c95a887c5141791626c1b4da3ca051680132e480",
+    "generated_at": "2026-10-26T18:46:59.736375+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -4665,9 +4697,9 @@
         "login": "Viper-Boss",
         "role": "项目负责人 · 主线开发 / 架构 / 设备 / 审核",
         "access": "现有主线维护；实际权限沿用仓库设置",
-        "package": "AP-07及实机集成、主线评审",
+        "package": "转发规则与游标收尾、主线构建/评审",
         "task_ids": [
-          "AP-07"
+          "FWD-11"
         ],
         "step_ids": [],
         "handoff": "docs/team/README.md",
@@ -4675,15 +4707,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 45080,
-            "tests": 26457,
-            "tooling": 8709,
+            "product": 45316,
+            "tests": 26942,
+            "tooling": 8715,
             "firmware": 1132
           },
-          "commits": 311,
-          "code_commits": 215,
-          "added": 85374,
-          "deleted": 2114
+          "commits": 313,
+          "code_commits": 217,
+          "added": 86154,
+          "deleted": 2149
         },
         "work": {
           "assigned_steps": 0,
@@ -4923,9 +4955,9 @@
       "deleted": 0
     },
     "totals": {
-      "product": 45631,
-      "tests": 27018,
-      "tooling": 8709,
+      "product": 45867,
+      "tests": 27503,
+      "tooling": 8715,
       "firmware": 1132
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。"
