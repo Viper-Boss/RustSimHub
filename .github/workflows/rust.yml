@@ -80,6 +80,7 @@ jobs:
       - name: Separate signed setup AP maintenance material
         run: |
           python3 tools/test-setup-ap-package.py
+          python3 tools/test-setup-ap-install.py
           sudo -n python3 tools/test-setup-ap-units.py
       - name: Isolated AP material preparation CLIs
         run: |

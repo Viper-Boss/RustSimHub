@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 import unittest
 
-spec=importlib.util.spec_from_file_location('setup_ap_install',Path(__file__).with_name('setup_ap_install.py'))
+spec=importlib.util.spec_from_file_location('setup_ap_install',Path(__file__).parent/'system/setup_ap_install.py')
 module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 spec=importlib.util.spec_from_file_location('setup_ap_bundle_fixture',module.ROOT/'tools/test-setup-ap-package.py')
 fixture=importlib.util.module_from_spec(spec);spec.loader.exec_module(fixture)

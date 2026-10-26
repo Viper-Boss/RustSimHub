@@ -10,6 +10,7 @@ only in this test's synthetic delivery, whose digest is pinned by the caller.
 """
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -23,8 +24,8 @@ import tempfile
 import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(ROOT/'tools/system'))
-import test_setup_ap_install as host
+spec=importlib.util.spec_from_file_location('setup_ap_install_fixture',ROOT/'tools/test-setup-ap-install.py')
+host=importlib.util.module_from_spec(spec);spec.loader.exec_module(host)
 module=host.module
 
 
