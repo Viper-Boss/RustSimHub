@@ -6,15 +6,18 @@ use rustsimhub_domain::{InboxCursor, LineEpoch};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::{
+    cell::RefCell,
     fs::{self, File, OpenOptions},
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::Path,
+    sync::Arc,
     time::{Duration, Instant},
 };
 use uuid::Uuid;
 
 const APP_ID: i64 = 0x52534657;
 const FORMAT: i64 = 2;
+type CachedPolicy = ([u8; 32], Arc<Policy>);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -89,6 +92,7 @@ pub struct Queue {
     _lock: File,
     binding: Binding,
     probe: Option<Probe>,
+    policy_cache: RefCell<Option<CachedPolicy>>,
 }
 struct Probe {
     id: String,
@@ -99,7 +103,7 @@ struct Meta {
     generation: i64,
     enabled: bool,
     seq: i64,
-    policy: Policy,
+    policy: Arc<Policy>,
 }
 
 fn file(path: &Path) -> Result<File> {
@@ -283,6 +287,7 @@ CREATE INDEX pending ON jobs(state,seq);")?;
             _lock: lock,
             binding,
             probe: None,
+            policy_cache: RefCell::new(None),
         };
         q.meta()?;
         File::open(directory)?.sync_all()?;
@@ -307,8 +312,24 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         if json.len() > 65536 || generation < 0 || seq < 0 {
             return Err(Error::Storage);
         }
-        let policy: Policy = serde_json::from_str(&json)?;
-        policy.validate()?;
+        let json = zeroize::Zeroizing::new(json);
+        let hash: [u8; 32] = Sha256::digest(json.as_bytes()).into();
+        let cached = self
+            .policy_cache
+            .borrow()
+            .as_ref()
+            .filter(|(saved, _)| saved == &hash)
+            .map(|(_, p)| p.clone());
+        let policy = match cached {
+            Some(policy) => policy,
+            None => {
+                let policy: Policy = serde_json::from_str(&json)?;
+                policy.validate()?;
+                let policy = Arc::new(policy);
+                *self.policy_cache.borrow_mut() = Some((hash, policy.clone()));
+                policy
+            }
+        };
         if policy.enabled != enabled {
             return Err(Error::Storage);
         }
@@ -316,8 +337,6 @@ CREATE INDEX pending ON jobs(state,seq);")?;
             .probe
             .as_ref()
             .map_or(enabled, |p| Instant::now() < p.deadline);
-        let mut policy = policy;
-        policy.enabled = enabled;
         Ok(Meta {
             generation,
             enabled,
@@ -345,11 +364,21 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         })
     }
     pub fn policy_view(&self) -> Result<PolicyView> {
-        Ok(self.meta()?.policy.view())
+        let meta = self.meta()?;
+        let mut view = meta.policy.view();
+        view.enabled = meta.enabled;
+        Ok(view)
+    }
+    fn owned_policy(&self) -> Result<Policy> {
+        let meta = self.meta()?;
+        let bytes = zeroize::Zeroizing::new(serde_json::to_vec(meta.policy.as_ref())?);
+        let mut policy: Policy = serde_json::from_slice(&bytes)?;
+        policy.enabled = meta.enabled;
+        Ok(policy)
     }
     pub fn resolve_policy_edit(&self, binding: &Binding, edit: PolicyEdit) -> Result<Policy> {
         self.require_binding(binding)?;
-        edit.resolve(self.meta()?.policy)
+        edit.resolve(self.owned_policy()?)
     }
     /// Bounded request history. Absence may also mean pruning or recovery;
     /// it is deliberately not a proof that a mutation never happened.
@@ -380,7 +409,7 @@ CREATE INDEX pending ON jobs(state,seq);")?;
             .transpose()
     }
     pub(crate) fn policy_with_enabled(&self, enabled: bool) -> Result<Policy> {
-        let mut policy = self.meta()?.policy;
+        let mut policy = self.owned_policy()?;
         policy.enabled = enabled;
         policy.validate()?;
         Ok(policy)
@@ -455,6 +484,8 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         // longer matches. Keep a bounded 64-response idempotency window.
         tx.execute("DELETE FROM requests WHERE seq NOT IN(SELECT seq FROM requests ORDER BY seq DESC LIMIT 64)",[])?;
         tx.commit()?;
+        // Drop cached old credentials/compiled filters on a committed change.
+        self.policy_cache.get_mut().take();
         Ok(next)
     }
     pub fn event_cursor(&self) -> Result<InboxCursor> {

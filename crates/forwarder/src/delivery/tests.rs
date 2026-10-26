@@ -4,8 +4,8 @@
 //! HTTP implementation; production uses Hyper and rustls without bypasses.
 use super::*;
 use crate::{
-    Acknowledgement, Binding, Destination, Policy, PreparedRequest, Queue, Rule, Secret, Share,
-    Target,
+    Acknowledgement, Binding, BodyPattern, Destination, Policy, PreparedRequest, Queue, Rule,
+    RuleConditions, Secret, Share, Target, TimeWindow,
 };
 use rcgen::generate_simple_self_signed;
 use std::{
@@ -603,6 +603,9 @@ struct Business {
     _directories: Vec<tempfile::TempDir>,
 }
 fn business(url: String) -> Business {
+    business_with_masked_rule(url, false)
+}
+fn business_with_masked_rule(url: String, masked: bool) -> Business {
     use ed25519_dalek::{Signer, SigningKey};
     use rustsimhub_storage::{IncomingSms, LineObservation, LineStatus, Store};
     use std::{fs, os::unix::fs::PermissionsExt};
@@ -658,7 +661,23 @@ fn business(url: String) -> Business {
             sender_equals: None,
             body_contains: None,
             line: None,
-            share: Share::Notice,
+            share: if masked {
+                Share::MaskedText
+            } else {
+                Share::Notice
+            },
+            conditions: if masked {
+                Some(RuleConditions {
+                    body_regex: Some(BodyPattern::new("验证码[0-9]{6}".into()).unwrap()),
+                    time_window: Some(TimeWindow {
+                        start_minute: 540,
+                        end_minute: 600,
+                        utc_offset_minutes: 480,
+                    }),
+                })
+            } else {
+                None
+            },
         }],
     };
     q.configure_owner(
@@ -674,8 +693,18 @@ fn business(url: String) -> Business {
         line,
         source: "synthetic-source".into(),
         sender: "synthetic sender".into(),
-        timestamp: "synthetic time".into(),
-        text: "synthetic private SMS".into(),
+        timestamp: if masked {
+            "2026-10-27T09:30:00+08:00"
+        } else {
+            "synthetic time"
+        }
+        .into(),
+        text: if masked {
+            "验证码123456，保留中文提示ABC。"
+        } else {
+            "synthetic private SMS"
+        }
+        .into(),
         data: vec![],
     })
     .unwrap();
@@ -689,6 +718,43 @@ fn business(url: String) -> Business {
         claim,
         _directories: directories,
     }
+}
+#[tokio::test]
+async fn actual_authority_queue_and_tls_send_only_masked_body_once() {
+    let mut server = Server::start(response("200 OK", b"{}")).await;
+    let mut b = business_with_masked_rule(server.url(), true);
+    let sender = HttpsSender::new(vec![server.certificate.clone()]).unwrap();
+    let (_stop, cancel) = watch::channel(false);
+    let outcome = sender
+        .deliver(
+            &b.claim,
+            &mut route(&server),
+            &mut Current {
+                q: &b.q,
+                auth: &b.auth,
+                reader: b.store.handle(),
+                revoke: None,
+            },
+            cancel,
+        )
+        .await;
+    assert_eq!(outcome, DeliveryOutcome::Confirmed { status: 200 });
+    b.q.finish(&b.binding, &b.claim, outcome.queue_state())
+        .unwrap();
+    assert!(b
+        .q
+        .claim_current(&b.auth, &b.store.handle(), 1)
+        .unwrap()
+        .is_none());
+    server.joined().await;
+    let rows = server.seen.lock().unwrap();
+    assert_eq!(rows.len(), 1);
+    let body: serde_json::Value = serde_json::from_slice(&rows[0].body).unwrap();
+    assert_eq!(body["text"], "验证码******，保留中文提示***。");
+    assert_eq!(body["redacted"], true);
+    assert!(body.get("sender").is_none());
+    assert!(body.get("timestamp").is_none());
+    assert!(!String::from_utf8_lossy(&rows[0].body).contains("123456"));
 }
 struct Current<'a> {
     q: &'a Queue,

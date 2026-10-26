@@ -144,6 +144,7 @@ impl Management {
         // Intent is deliberately separate from observed service/process state.
         value["available"] = true.into();
         value["configuration_api"] = true.into();
+        value["rules_revision"] = rustsimhub_forwarder::RULES_REVISION.into();
         value["retained_credentials_api"] = true.into();
         value["request_receipt_api"] = true.into();
         value["synthetic_test_api"] = true.into();

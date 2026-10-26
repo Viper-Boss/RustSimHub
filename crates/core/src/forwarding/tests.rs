@@ -134,6 +134,59 @@ fn policy(enabled: bool) -> Value {
 }
 
 #[tokio::test]
+async fn actual_owner_ipc_preserves_advanced_rules_and_blocks_stale_policy_edits() {
+    let f = Fixture::new();
+    assert_eq!(
+        f.request(AuthCommand::ForwardingStatus {
+            token: f.token.clone()
+        })
+        .await["rules_revision"],
+        2
+    );
+    let mut advanced = policy(false);
+    advanced["rules_revision"] = 2.into();
+    advanced["rules"][0]["share"] = "masked_text".into();
+    advanced["rules"][0]["conditions"] = json!({"body_regex":"验证码[0-9]{6}","time_window":{"start_minute":540,"end_minute":600,"utc_offset_minutes":480}});
+    let command = |value: Value, expected, request: &str| AuthCommand::ForwardingConfigure {
+        token: f.token.clone(),
+        expected_generation: expected,
+        request_id: request.into(),
+        policy: value,
+    };
+    assert_eq!(
+        f.request(command(advanced.clone(), 0, REQUEST)).await["generation"],
+        1
+    );
+    let read = f
+        .request(AuthCommand::ForwardingRules {
+            token: f.token.clone(),
+        })
+        .await;
+    assert_eq!(read["rules"], advanced["rules"]);
+    assert!(!read.to_string().contains("synthetic-query-secret"));
+    assert_eq!(
+        f.request(command(policy(false), 1, CHANGE)).await["error"],
+        "denied"
+    );
+    let after = f
+        .request(AuthCommand::ForwardingRules {
+            token: f.token.clone(),
+        })
+        .await;
+    assert_eq!(after, read);
+    let mut clear = policy(false);
+    clear["rules_revision"] = 2.into();
+    assert_eq!(f.request(command(clear, 1, CHANGE)).await["generation"], 2);
+    assert_eq!(
+        f.request(AuthCommand::ForwardingRules {
+            token: f.token.clone()
+        })
+        .await["rules"][0]["share"],
+        "notice"
+    );
+}
+
+#[tokio::test]
 async fn actual_owner_default_off_reads_do_not_create_files_or_claim_process_stopped() {
     let f = Fixture::new();
     let path = f.state.path().join("forwarding");

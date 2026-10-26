@@ -138,6 +138,7 @@ python tools/progress/build.py --check
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[VALIDATION-FORWARDING-RULES-PRIVACY-X1T.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-FORWARDING-RULES-PRIVACY-X1T.md)
 
 ### [ ] FWD-11 · 关闭期间与重新开启游标
 

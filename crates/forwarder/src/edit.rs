@@ -21,6 +21,7 @@ pub struct TargetEdit {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PolicyEdit {
+    pub rules_revision: Option<u32>,
     pub enabled: bool,
     pub targets: Vec<TargetEdit>,
     pub rules: Vec<Rule>,
@@ -30,6 +31,13 @@ impl PolicyEdit {
     /// subsequent configure transaction still enforces generation/request ID.
     pub fn resolve(self, previous: Policy) -> Result<Policy> {
         previous.validate()?;
+        if self.rules_revision.is_some_and(|v| v != RULES_REVISION)
+            || ((previous.rules.iter().any(Rule::extended)
+                || self.rules.iter().any(Rule::extended))
+                && self.rules_revision != Some(RULES_REVISION))
+        {
+            return Err(Error::Invalid);
+        }
         if self.targets.len() > MAX_TARGETS || self.rules.len() > MAX_RULES {
             return Err(Error::Invalid);
         }

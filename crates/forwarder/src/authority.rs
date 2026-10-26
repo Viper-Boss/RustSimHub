@@ -245,6 +245,7 @@ mod tests {
                 body_contains: None,
                 line: None,
                 share: Share::Notice,
+                conditions: None,
             }],
         }
     }

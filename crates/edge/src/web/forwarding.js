@@ -16,7 +16,22 @@ function https(s,base=false){
  if(base)requireValue(u.pathname==='/'&&!u.search,'Bark 服务地址不能含路径或查询参数');
  return s;
 }
-export function policyInput(targets,rules,enabled){
+function minute(value){
+ requireValue(typeof value==='string'&&/^[0-9]{2}:[0-9]{2}$/.test(value),'时间须为 HH:MM');
+ const [h,m]=value.split(':').map(Number);requireValue(h<24&&m<60,'时间超出范围');return h*60+m;
+}
+const clock=n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
+function ruleRow(r){
+ const w=r?.conditions?.time_window;
+ return {id:r?.id,targets:r?.targets,sender:r?.sender_equals||'',contains:r?.body_contains||'',line:r?.line??'',full:r?.share==='full_text',masked:r?.share==='masked_text',regex:r?.conditions?.body_regex??'',window:!!w,start:w?clock(w.start_minute):'09:00',end:w?clock(w.end_minute):'18:00',offset:String(w?.utc_offset_minutes??480)};
+}
+function privacyText(rules){
+ if(rules.some(r=>r.share==='full_text'))return '现有规则包含完整正文转发';
+ if(rules.some(r=>r.share==='masked_text'))return '部分规则转发正文并隐藏英文字母和数字；不转发原始发送方';
+ return '现有规则仅发送新短信通知';
+}
+export function policyInput(targets,rules,enabled,rulesRevision=null){
+ requireValue(rulesRevision===null||rulesRevision===2,'规则版本不支持，请更新页面');
  requireValue(typeof enabled==='boolean','开关状态无效');
  requireValue(Array.isArray(targets)&&targets.length<=8&&Array.isArray(rules)&&rules.length<=32,'最多8个目标、32条规则');
  const ids=new Set();
@@ -44,10 +59,20 @@ export function policyInput(targets,rules,enabled){
   requireValue(text(r.sender,256)&&text(r.contains,256),'发送方和正文条件各最多256字节');
   const line=r.line===''||r.line===null?null:Number(r.line);
   requireValue(line===null||generation(line)&&line>0,'SIM 代次须为正整数，留空表示不限');
-  return {id:r.id,targets:r.targets.slice(),sender_equals:r.sender||null,body_contains:r.contains||null,line,share:r.full?'full_text':'notice'};
+  const regex=r.regex??'';requireValue(text(regex,256),'正则条件最多256个UTF-8字节');
+  requireValue(!(r.full&&r.masked),'请只选择一种正文模式');
+  let time_window=null;
+  if(r.window){
+   const start_minute=minute(r.start),end_minute=minute(r.end);
+   requireValue(typeof r.offset==='string'&&/^-?[0-9]{1,3}$/.test(r.offset),'UTC偏移须为分钟整数');
+   const utc_offset_minutes=Number(r.offset);requireValue(start_minute!==end_minute&&utc_offset_minutes>=-840&&utc_offset_minutes<=840,'起止不能相同，UTC偏移须在-840到840分钟内');
+   time_window={start_minute,end_minute,utc_offset_minutes};
+  }
+  requireValue(!regex&&!time_window&&!r.masked||rulesRevision===2,'设备尚不支持新版规则，请保持原配置并升级');
+  return {id:r.id,targets:r.targets.slice(),sender_equals:r.sender||null,body_contains:r.contains||null,line,share:r.full?'full_text':r.masked?'masked_text':'notice',...(regex||time_window?{conditions:{body_regex:regex||null,time_window}}:{})};
  });
  requireValue(!enabled||selected.length>0&&matched.length>0,'请先保存至少一个目标和一条规则');
- return {enabled:enabled===true,targets:selected,rules:matched};
+ return {enabled:enabled===true,targets:selected,rules:matched,...(rulesRevision===2?{rules_revision:2}:{})};
 }
 export function pendingInput(value){
  if(value===null||value===undefined)return null;
@@ -67,10 +92,16 @@ function viewInput(v,s){
  const ids=new Set();
  for(const t of v.targets){requireValue(uuid(t.id)&&!ids.has(t.id)&&Object.hasOwn(kinds,t.kind)&&t.credentials_redacted===true&&Object.keys(t).every(k=>['id','kind','credentials_redacted'].includes(k)));ids.add(t.id);}
  const ruleIds=new Set();
- for(const r of v.rules){requireValue(uuid(r.id)&&!ruleIds.has(r.id)&&Array.isArray(r.targets)&&r.targets.length>0&&r.targets.length<=8&&r.targets.every(id=>ids.has(id))&&new Set(r.targets).size===r.targets.length&&text(r.sender_equals??'',256)&&text(r.body_contains??'',256));ruleIds.add(r.id);}
+ for(const r of v.rules){requireValue(uuid(r.id)&&!ruleIds.has(r.id)&&Array.isArray(r.targets)&&r.targets.length>0&&r.targets.length<=8&&r.targets.every(id=>ids.has(id))&&new Set(r.targets).size===r.targets.length&&text(r.sender_equals??'',256)&&text(r.body_contains??'',256)&&Object.keys(r).every(k=>['id','targets','sender_equals','body_contains','line','share','conditions'].includes(k)));ruleIds.add(r.id);
+  if(r.conditions!==null&&r.conditions!==undefined){
+   const c=r.conditions;requireValue(c&&typeof c==='object'&&!Array.isArray(c)&&Object.keys(c).every(k=>['body_regex','time_window'].includes(k))&&(c.body_regex!==null&&c.body_regex!==undefined||c.time_window!==null&&c.time_window!==undefined));
+   if(c.body_regex!==null&&c.body_regex!==undefined)requireValue(text(c.body_regex,256,false));
+   if(c.time_window!==null&&c.time_window!==undefined){const w=c.time_window;requireValue(w&&typeof w==='object'&&!Array.isArray(w)&&Object.keys(w).every(k=>['start_minute','end_minute','utc_offset_minutes'].includes(k))&&generation(w.start_minute)&&w.start_minute<1440&&generation(w.end_minute)&&w.end_minute<1440&&w.start_minute!==w.end_minute&&Number.isSafeInteger(w.utc_offset_minutes)&&Math.abs(w.utc_offset_minutes)<=840);}
+  }
+ }
  // Reuse production input limits without requesting any retained secret.
- policyInput(v.targets.map(t=>({id:t.id,kind:t.kind,existing:true,keep:true})),v.rules.map(r=>({id:r.id,targets:r.targets,sender:r.sender_equals||'',contains:r.body_contains||'',line:r.line??'',full:r.share==='full_text'})),v.enabled);
- for(const r of v.rules)requireValue(['notice','full_text'].includes(r.share));
+ policyInput(v.targets.map(t=>({id:t.id,kind:t.kind,existing:true,keep:true})),v.rules.map(ruleRow),v.enabled,s.rules_revision??null);
+ for(const r of v.rules)requireValue(['notice','masked_text','full_text'].includes(r.share));
  return v;
 }
 export class ForwardingPanel {
@@ -125,12 +156,12 @@ export class ForwardingPanel {
   if(this.dirty&&!this.confirm('重新读取会清空未保存的目标和规则输入，继续？'))return;
   this.clearSecrets();this.ready=false;this.sample=null;
   const pending=pendingInput(await this.loadPending());this.current(g);this.pending=pending;
-  const s=await this.load(g);this.message(processText(s)+(this.ready?(this.view.rules.some(r=>r.share==='full_text')?'。现有规则包含完整正文转发；凭据不回显。':'。现有规则仅发送新短信通知；凭据不回显。'):'。当前安装尚未启用完整转发服务管理。'));
+  const s=await this.load(g);this.message(processText(s)+(this.ready?'。'+privacyText(this.view.rules)+'；凭据不回显。':'。当前安装尚未启用完整转发服务管理。'));
  }
  target(t=null){
   const row={id:t?.id||this.crypto.randomUUID(),existing:!!t,kind:t?.kind||'webhook',keep:!!t,endpoint:'',bearer:'',key:'',chat:''};return row;
  }
- rule(r=null){return {id:r?.id||this.crypto.randomUUID(),targets:r?.targets.slice()||this.targets.slice(0,1).map(t=>t.id),sender:r?.sender_equals||'',contains:r?.body_contains||'',line:r?.line??'',full:r?.share==='full_text'};}
+ rule(r=null){return {...ruleRow(r),id:r?.id||this.crypto.randomUUID(),targets:r?.targets.slice()||this.targets.slice(0,1).map(t=>t.id)};}
  loadView(v){
   this.clearSecrets();this.secretInputs.clear();this.targets=v.targets.map(t=>this.target(t));this.rules=v.rules.map(r=>this.rule(r));
   if(!this.targets.length&&!this.rules.length){this.targets=[this.target()];this.rules=[this.rule()];}
@@ -171,7 +202,11 @@ export class ForwardingPanel {
    const select=this.element('select');select.multiple=true;select.size=Math.max(1,Math.min(4,this.targets.length));
    for(const [j,t] of this.targets.entries()){const option=this.element('option',`目标 ${j+1} · ${kinds[t.kind]} · ${t.id.slice(0,8)}`);option.value=t.id;option.selected=r.targets.includes(t.id);select.append(option);}r.select=select;select.onchange=()=>{r.targets=Array.from(select.options).filter(o=>o.selected).map(o=>o.value);this.dirty=true;};card.append(this.label('发送到（可多选）',select));
    card.append(this.field(r,'sender','发送方完全等于（留空不限）'),this.field(r,'contains','正文包含（留空不限）'),this.field(r,'line','SIM 代次（留空不限）',{max:16}));
-   const full=this.element('input');full.type='checkbox';full.checked=r.full;full.onchange=()=>{r.full=full.checked;this.dirty=true;};card.append(this.label('明确允许向目标发送短信发送方和完整正文',full));
+   const share=this.element('select');share.ariaLabel='内容隐私';for(const [value,label] of [['notice','仅通知（默认，不发送正文）'],['masked_text','正文隐藏英数字（不发送原始发送方）'],['full_text','明确允许发送完整正文和发送方']]){const o=this.element('option',label);o.value=value;share.append(o);}share.value=r.full?'full_text':r.masked?'masked_text':'notice';share.onchange=()=>{r.full=share.value==='full_text';r.masked=share.value==='masked_text';this.dirty=true;};card.append(this.label('内容隐私',share));
+   const advanced=this.element('details');advanced.append(this.element('summary','高级筛选 · 正则与时间段'));advanced.append(this.field(r,'regex','正文正则（留空不限，最多256字节）'));
+   const window=this.element('input');window.type='checkbox';window.checked=r.window;window.onchange=()=>{r.window=window.checked;this.dirty=true;};advanced.append(this.label('按短信标注时间筛选；无有效时间的短信不匹配',window));
+   advanced.append(this.field(r,'start','开始 HH:MM（含）',{max:5}),this.field(r,'end','结束 HH:MM（不含，可跨午夜）',{max:5}),this.field(r,'offset','固定 UTC 偏移分钟（中国480，无自动夏令时）',{max:4}));
+   advanced.append(this.element('p','小型Rust正则不支持环视、反向引用或Unicode属性。隐藏英数字不识别所有敏感内容；敏感短信请用“仅通知”。'));card.append(advanced);
    const remove=this.element('button','移除此规则');remove.onclick=()=>{if(this.busy)return;this.capture();this.rules=this.rules.filter(x=>x!==r);this.dirty=true;this.render();};card.append(remove);rules.push(card);
   }
   for(const input of oldSecrets)if(!this.secretInputs.has(input))input.value='';
@@ -196,8 +231,8 @@ export class ForwardingPanel {
  }
  async save(g){
   this.current(g);requireValue(this.ready&&!this.pending,'请先读取状态并核对上次保存');
-  this.capture();const targets=this.targets.map(t=>({id:t.id,kind:t.kind,existing:t.existing,keep:t.keep,endpoint:t.endpointInput?.value||'',bearer:t.bearerInput?.value||'',key:t.keyInput?.value||'',chat:t.chatInput?.value||''}));const policy=policyInput(targets,this.rules,this.sample?.enabled===true);
-  if(!this.confirm('保存这些目标和规则？'+(policy.enabled?'转发已开启，新规则将立即生效。':'保存后仍保持关闭。')+(policy.rules.some(r=>r.share==='full_text')?'已选择转发完整短信正文。':'仅发送新短信通知。')))return;
+  this.capture();const targets=this.targets.map(t=>({id:t.id,kind:t.kind,existing:t.existing,keep:t.keep,endpoint:t.endpointInput?.value||'',bearer:t.bearerInput?.value||'',key:t.keyInput?.value||'',chat:t.chatInput?.value||''}));const policy=policyInput(targets,this.rules,this.sample?.enabled===true,this.sample?.rules_revision??null);
+  if(!this.confirm('保存这些目标和规则？'+(policy.enabled?'转发已开启，新规则将立即生效。':'保存后仍保持关闭。')+(policy.rules.some(r=>r.share==='full_text')?'已选择转发完整短信正文。':privacyText(policy.rules)+'。')))return;
   await this.mutate(g,'configure',{op:'forwarding_configure',policy});
  }
  async toggle(g){

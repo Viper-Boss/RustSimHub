@@ -40,6 +40,7 @@ fn policy() -> Policy {
             body_contains: None,
             line: None,
             share: Share::Notice,
+            conditions: None,
         }],
     }
 }
@@ -69,6 +70,90 @@ fn enabled() -> (TempDir, Queue) {
     q.configure(&binding(), 0, &id(), policy(), head(5))
         .unwrap();
     (d, q)
+}
+
+#[test]
+fn extended_rules_persist_filter_and_enqueue_only_sanitized_immutable_payloads() {
+    let (d, mut q) = queue();
+    let mut p = policy();
+    p.rules[0].share = Share::MaskedText;
+    p.rules[0].conditions = Some(RuleConditions {
+        body_regex: Some(BodyPattern::new("验证码 [0-9]{6}".into()).unwrap()),
+        time_window: Some(TimeWindow {
+            start_minute: 540,
+            end_minute: 600,
+            utc_offset_minutes: 480,
+        }),
+    });
+    q.configure(&binding(), 0, &id(), p, head(5)).unwrap();
+    let mut m = message();
+    m.timestamp = "2026-10-27T11:00:00+08:00".into();
+    assert_eq!(q.ingest(&binding(), 1, head(6), Some(&m)).unwrap(), 0);
+    assert_eq!(q.event_cursor().unwrap().seq, "6");
+    m.id = id();
+    m.timestamp = "2026-10-27T09:30:00+08:00".into();
+    assert_eq!(q.ingest(&binding(), 1, head(7), Some(&m)).unwrap(), 1);
+    // Opening the same real DB again preserves both filter semantics and the outbox.
+    drop(q);
+    let mut q = Queue::open(d.path(), binding()).unwrap();
+    assert_eq!(q.policy_view().unwrap().rules[0].share, Share::MaskedText);
+    let claim = q.claim(&binding(), 1, LineEpoch(2)).unwrap().unwrap();
+    let body = claim.request.body.expose();
+    assert!(body.contains("******"));
+    assert!(!body.contains("123456"));
+    assert!(!body.contains("synthetic sender"));
+    assert_eq!(q.ingest(&binding(), 1, head(7), Some(&m)).unwrap(), 0);
+    q.finish(&binding(), &claim, State::Confirmed).unwrap();
+}
+
+#[test]
+fn failed_extended_edit_keeps_policy_cursor_and_receipts_unchanged() {
+    let (_d, mut q) = enabled();
+    let before = serde_json::to_value(q.policy_view().unwrap()).unwrap();
+    let mut v = before.clone();
+    v["rules"][0]["share"] = "masked_text".into();
+    v["targets"][0] = serde_json::json!({"id":TARGET,"destination":{"kind":"keep"}});
+    let edit: PolicyEdit = serde_json::from_value(v.clone()).unwrap();
+    assert!(q.resolve_policy_edit(&binding(), edit).is_err());
+    assert_eq!(
+        serde_json::to_value(q.policy_view().unwrap()).unwrap(),
+        before
+    );
+    assert_eq!(q.event_cursor().unwrap().seq, "5");
+    v["rules_revision"] = 2.into();
+    let edit: PolicyEdit = serde_json::from_value(v).unwrap();
+    let p = q.resolve_policy_edit(&binding(), edit).unwrap();
+    q.configure(&binding(), 1, &id(), p, head(5)).unwrap();
+    let legacy = serde_json::json!({"enabled":true,"targets":[{"id":TARGET,"destination":{"kind":"keep"}}],"rules":[{"id":RULE,"targets":[TARGET],"share":"notice"}]});
+    assert!(q
+        .resolve_policy_edit(&binding(), serde_json::from_value(legacy).unwrap())
+        .is_err());
+    assert_eq!(q.status().unwrap().generation, 2);
+    assert_eq!(q.status().unwrap().queued, 0);
+}
+
+#[test]
+fn cached_policy_is_reused_but_never_hides_changed_or_corrupt_database_bytes() {
+    let (_d, mut q) = enabled();
+    let first = q.meta().unwrap().policy;
+    let second = q.meta().unwrap().policy;
+    assert!(std::sync::Arc::ptr_eq(&first, &second));
+    let mut p = policy();
+    p.rules[0].share = Share::MaskedText;
+    q.configure(&binding(), 1, &id(), p, head(5)).unwrap();
+    let changed = q.meta().unwrap().policy;
+    assert!(!std::sync::Arc::ptr_eq(&first, &changed));
+    assert_eq!(changed.rules[0].share, Share::MaskedText);
+    // No generation change: even corruption outside the normal writer cannot
+    // make a successful cache hit return stale policy or old compiled filters.
+    q.conn
+        .execute(
+            "UPDATE meta SET policy=?",
+            ["{\"enabled\":true,\"invalid\":true}"],
+        )
+        .unwrap();
+    assert!(q.status().is_err());
+    assert!(q.ingest(&binding(), 2, head(6), Some(&message())).is_err());
 }
 
 fn probe() -> (TempDir, Queue, String) {

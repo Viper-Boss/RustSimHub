@@ -165,6 +165,7 @@ pub struct Target {
 #[serde(rename_all = "snake_case")]
 pub enum Share {
     Notice,
+    MaskedText,
     FullText,
 }
 
@@ -177,6 +178,8 @@ pub struct Rule {
     pub body_contains: Option<String>,
     pub line: Option<LineEpoch>,
     pub share: Share,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conditions: Option<crate::RuleConditions>,
 }
 #[derive(Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -255,6 +258,10 @@ impl Policy {
                     .as_ref()
                     .is_some_and(|s| s.is_empty() || !text(s, 256))
                 || rule.line.is_some_and(|l| l.0 == 0 || l.0 > i64::MAX as u64)
+                || rule
+                    .conditions
+                    .as_ref()
+                    .is_some_and(|c| c.validate().is_err())
             {
                 return Err(Error::Invalid);
             }
@@ -291,8 +298,12 @@ impl Message {
     }
 }
 impl Rule {
+    pub fn extended(&self) -> bool {
+        self.conditions.is_some() || self.share == Share::MaskedText
+    }
     pub fn matches(&self, m: &Message) -> bool {
-        !m.binary
+        m.validate().is_ok()
+            && !m.binary
             && !m.duplicate_candidate
             && self.sender_equals.as_ref().is_none_or(|s| s == &m.sender)
             && self
@@ -300,6 +311,10 @@ impl Rule {
                 .as_ref()
                 .is_none_or(|s| m.body.contains(s))
             && self.line.is_none_or(|l| l == m.line)
+            && self
+                .conditions
+                .as_ref()
+                .is_none_or(|c| c.matches(&m.body, &m.timestamp))
     }
 }
 
@@ -351,10 +366,14 @@ pub fn prepare(
     {
         return Err(Error::Invalid);
     }
-    let content = if rule.share == Share::FullText {
-        format!("{}\n{}\n{}", m.sender, m.timestamp, m.body)
-    } else {
-        "收到一条新短信，请在 RustSimHub 查看。".into()
+    let safe_body = match rule.share {
+        Share::FullText => m.body.clone(),
+        Share::MaskedText => crate::masked_text(&m.body),
+        Share::Notice => "收到一条新短信，请在 RustSimHub 查看。".into(),
+    };
+    let content = match rule.share {
+        Share::FullText => format!("{}\n{}\n{}", m.sender, m.timestamp, safe_body),
+        _ => safe_body.clone(),
     };
     let (url, bearer, body, ack) = match &target.destination {
         Destination::Webhook { url, bearer } => {
@@ -363,6 +382,9 @@ pub fn prepare(
                 value["sender"] = m.sender.clone().into();
                 value["timestamp"] = m.timestamp.clone().into();
                 value["text"] = m.body.clone().into();
+            } else if rule.share == Share::MaskedText {
+                value["text"] = safe_body.clone().into();
+                value["redacted"] = true.into();
             }
             (
                 url.expose().to_string(),
@@ -382,7 +404,7 @@ pub fn prepare(
             // complete bounded body rather than truncating it or retrying a
             // split message; omit the metadata prefix only when it won't fit.
             let content = if content.encode_utf16().count() > 4096 {
-                m.body.as_str()
+                safe_body.as_str()
             } else {
                 content.as_str()
             };
@@ -427,6 +449,7 @@ pub fn prepare_test(target: &Target, request_id: &str, line: LineEpoch) -> Resul
         body_contains: None,
         line: None,
         share: Share::FullText,
+        conditions: None,
     };
     let mut request = prepare(target, &rule, &message, request_id)?;
     let mut value: serde_json::Value = serde_json::from_str(request.body.expose())?;

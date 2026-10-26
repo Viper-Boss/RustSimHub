@@ -339,7 +339,9 @@
           "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/VALIDATION-FORWARDING-RULES-PRIVACY-X1T.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -4636,6 +4638,18 @@
       "evidence": [
         "docs/team/REVIEW-PR-3-751e4a9.md",
         "docs/team/CONTRIBUTION-RECORDS.md"
+      ]
+    },
+    {
+      "at": "2026-10-26T18:26:48.755761+00:00",
+      "type": "verified",
+      "title": "FWD-10规则与隐私源码验证",
+      "detail": "147 Core+72转发、严格检查、15网页组与真实Chrome三宽通过；含受限正则/时间窗口、默认仅通知、隐藏英数字、旧页面覆盖保护和编译缓存。尚未部署，ARM和精确CI待核，不计动作完成。",
+      "task_ids": [
+        "FWD-10"
+      ],
+      "evidence": [
+        "docs/VALIDATION-FORWARDING-RULES-PRIVACY-X1T.md"
       ]
     }
   ],

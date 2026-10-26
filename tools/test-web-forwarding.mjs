@@ -15,12 +15,12 @@ class Element {
  append(...items){this.children.push(...items);}replaceChildren(...items){this.children=items;this.textContent='';}get options(){return this.children;}
  set innerHTML(_){throw Error('Never parse provider/configuration data as HTML');}
 }
-function fixture({existing=false,managed=true,consent=true,onRequest,onSave,onLoad,testState='confirmed',onDelay}={}){
+function fixture({existing=false,managed=true,consent=true,onRequest,onSave,onLoad,testState='confirmed',onDelay,rulesRevision=2}={}){
  const elements=new Map(),$=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
  const doc={getElementById:$,createElement:tag=>new Element(tag)};
  let token=true,pending=null,policy={enabled:false,targets:existing?[{id,destination:{kind:'webhook',url:endpoint,bearer:secret}}]:[],rules:existing?[{id:rule,targets:[id],sender_equals:'sender',body_contains:null,line:null,share:'notice'}]:[]};
  let current=existing?1:0;const calls=[],writes=[],archives=[],markers=[],requests=new Map(),tests=new Map(),confirmations=[];
- const status=()=>({available:true,configured:current>0,generation:current,enabled:policy.enabled,configuration_api:true,retained_credentials_api:true,request_receipt_api:true,synthetic_test_api:true,delivery_api:policy.enabled,service_management_api:managed,process_state_verified:true,state:policy.enabled?'running':'disabled'});
+ const status=()=>({rules_revision:rulesRevision,available:true,configured:current>0,generation:current,enabled:policy.enabled,configuration_api:true,retained_credentials_api:true,request_receipt_api:true,synthetic_test_api:true,delivery_api:policy.enabled,service_management_api:managed,process_state_verified:true,state:policy.enabled?'running':'disabled'});
  const view=()=>({enabled:policy.enabled,generation:current,targets:policy.targets.map(t=>({id:t.id,kind:t.destination.kind,credentials_redacted:true})),rules:clone(policy.rules)});
  const panel=new ForwardingPanel({document:doc,crypto:webcrypto,delay:async()=>{await onDelay?.();},getToken:()=>token,confirm:message=>{confirmations.push(message);return consent;},
   loadPending:async()=>{await onLoad?.();return clone(pending);},savePending:async value=>{await onSave?.(value);pending=clone(value);markers.push(clone(value));},archivePending:async value=>{archives.push(clone(value));},
@@ -220,3 +220,28 @@ for(const configurationKnown of [true,false]){
 }
 assert.match(html,/id="test-forwarding"/);
 console.log('PASS: one-click Bark admission, unchanged policy, metadata before submit, lost reply recovery without resubmission, terminal/Unknown/timeout/logout/storage failure and duplicate-click fences.');
+
+// New rule fields survive real panel read/edit/save, and are never silently lost.
+{
+ const f=fixture({existing:true});
+ const p={enabled:false,targets:[{id,destination:{kind:'webhook',url:endpoint,bearer:secret}}],rules:[{id:rule,targets:[id],sender_equals:null,body_contains:null,line:4,share:'masked_text',conditions:{body_regex:'验证码[A-Z0-9]{6}',time_window:{start_minute:1320,end_minute:360,utc_offset_minutes:480}}}]};
+ f.apply(p,4);await f.read();assert.equal(f.panel.ready,true);assert.equal(f.panel.rules[0].masked,true);
+ assert.equal(f.panel.rules[0].start,'22:00');assert.equal(f.panel.rules[0].end,'06:00');
+ assert.match(allText(f),/隐藏英文字母和数字/);
+ f.panel.rules[0].sender='synthetic-sender';await f.panel.action(g=>f.panel.save(g));
+ assert.equal(f.writes.length,1);assert.equal(f.writes[0].policy.rules_revision,2);
+ assert.deepEqual(f.writes[0].policy.rules[0].conditions,p.rules[0].conditions);
+ assert.equal(f.writes[0].policy.rules[0].share,'masked_text');assert.ok(!JSON.stringify(f.writes).includes(secret));
+ const legacy=fixture({existing:true,rulesRevision:null});legacy.apply(p,4);await legacy.read();assert.equal(legacy.panel.ready,false);assert.equal(legacy.writes.length,0);
+ const unknown=fixture({existing:true});const future=clone(p);future.rules[0].conditions.unrecognized_filter=true;unknown.apply(future,4);await unknown.read();assert.equal(unknown.panel.ready,false);assert.equal(unknown.writes.length,0);
+}
+{
+ const targets=[{id,kind:'webhook',existing:true,keep:true}];
+ const base={id:rule,targets:[id],sender:'',contains:'',line:'',full:false,masked:true,regex:'通知',window:true,start:'09:00',end:'18:00',offset:'480'};
+ assert.throws(()=>policyInput(targets,[base],false),/设备尚不支持/);
+ const result=policyInput(targets,[base],false,2);assert.equal(result.rules[0].share,'masked_text');assert.equal(result.rules_revision,2);
+ for(const changed of [{start:'24:00'},{end:'09:00'},{offset:'841'},{offset:''},{regex:'x'.repeat(257)},{full:true}])assert.throws(()=>policyInput(targets,[{...base,...changed}],false,2));
+ // Browser does not execute arbitrary user regex with JS's backtracking engine.
+ assert.equal(policyInput(targets,[{...base,regex:'(?=unsupported)'}],false,2).rules[0].conditions.body_regex,'(?=unsupported)');
+}
+console.log('Extended rule roundtrip, legacy-client guard, privacy mode and bounded form checks passed.');
