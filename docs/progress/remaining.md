@@ -1,12 +1,12 @@
 # RustSimHub 完整剩余行动台账
 
-快照：2026-10-25T23:43:55.370361+00:00 · 基线：remaining-v1-2026-10-25
+快照：2026-10-26T00:30:16.520113+00:00 · 基线：remaining-v1-2026-10-25
 
 原P0–P7：**80%**，剩余 **20** 个验收点。新增X1/X2/X3/BLE独立保留，不混入旧分母。
 
-本轮台账：**7/169** 动作已完成，按冻结工时中值加权 **2.4%**；另有9项搁置/按需动作不计入本轮分母。
+本轮台账：**8/169** 动作已完成，按冻结工时中值加权 **3.0%**；另有9项搁置/按需动作不计入本轮分母。
 
-剩余有效开发工时粗估 **192.5–459小时**。工时折合天数不含换卡、真人听音、第二设备、服务器及单独BLE授权等待；长测等待可以与其他开发重叠。
+剩余有效开发工时粗估 **191.5–456小时**。工时折合天数不含换卡、真人听音、第二设备、服务器及单独BLE授权等待；长测等待可以与其他开发重叠。
 
 看板入口：[GitHub Pages](https://viper-boss.github.io/RustSimHub/) · [单文件HTML](index.html) · [结构化台账](progress.json)
 
@@ -21,7 +21,7 @@ python tools/progress/build.py --check
 
 ## 当前关卡
 
-**AP-02 · 接通AP配置网页**：下一动作已选定；按前置和验收推进。下一步接入已验证的试连、明确确认、取消和只读回执；一次只保留一笔，刷新不重发。AP-03仍待安装及设备重启连接验收。
+**AP-05 · 首次认领与已认领设备边界**：下一动作已选定；按前置和验收推进。继续首次Owner认领接管，随后真实NM联合安装与设备切网；普通数据关闭，PMIC搁置。
 
 ## FWD · 短信转发 · 独立服务
 
@@ -261,13 +261,13 @@ python tools/progress/build.py --check
 
 ## AP · 独立首次配网 · AP→STA
 
-原计划收尾 · 12个动作 · 已完成1个
+原计划收尾 · 12个动作 · 已完成2个
 
-受保护热点已有库、Root循环与材料；真实Core/网页/保存、联合安装和无NAS首配仍未闭环。
+Owner Core、Root保存与简洁网页源码已接通；首次认领接管、真实NM联调、联合安装、地址交接及无NAS冷启动继续验收。
 
-代码/资料：`crates/setup-ap`、`crates/core/src/network_trial`、`crates/edge/src/web/network.js`、`firmware/system`
+代码/资料：`crates/setup-ap`、`crates/core/src/setup_ap_control`、`crates/edge/src/web/ap-wifi.js`、`firmware/system`
 
-[范围来源](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-SETUP-AP-CONFIGURABLE-ROOT-P4L.md)
+[范围来源](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-SETUP-AP-WEB-P4P.md)
 
 ### [x] AP-01 · 冻结Core授权与请求契约
 
@@ -280,15 +280,16 @@ python tools/progress/build.py --check
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
 - 证据：[VALIDATION-SETUP-AP-OWNER-TRIAL-P4M.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-SETUP-AP-OWNER-TRIAL-P4M.md)
 
-### [ ] AP-02 · 接通AP配置网页
+### [x] AP-02 · 接通AP配置网页
 
-- 状态：就绪
+- 状态：已完成
 - 动作：提供SSID、加密方式、密码输入、试连/确认/取消及同处进度；隐藏复杂调试入口。
 - 验收：一次只保留一个事务；刷新可查询，提交不自动重发。
 - 预计有效工时：1–3小时
 - 前置：AP-01
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[VALIDATION-SETUP-AP-WEB-P4P.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-SETUP-AP-WEB-P4P.md)
 
 ### [ ] AP-03 · 实现最终保存与回执
 
@@ -312,7 +313,7 @@ python tools/progress/build.py --check
 
 ### [ ] AP-05 · 首次认领与已认领设备边界
 
-- 状态：待做
+- 状态：就绪
 - 动作：接通初始代码、可信设备pin、首次Owner窗口与已用setup标记。
 - 验收：已有Owner不能匿名重领；第一所有者流程可在合成新状态完成。
 - 预计有效工时：1–3小时

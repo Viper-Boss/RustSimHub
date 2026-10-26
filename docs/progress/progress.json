@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1-2026-10-25",
-  "updated_at": "2026-10-25T23:43:55.370361+00:00",
+  "updated_at": "2026-10-26T00:30:16.520113+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原80%仍按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "AP-02",
-    "title": "接通AP配置网页",
+    "task_id": "AP-05",
+    "title": "首次认领与已认领设备边界",
     "state": "下一动作已选定；按前置和验收推进",
-    "description": "下一步接入已验证的试连、明确确认、取消和只读回执；一次只保留一笔，刷新不重发。AP-03仍待安装及设备重启连接验收。"
+    "description": "继续首次Owner认领接管，随后真实NM联合安装与设备切网；普通数据关闭，PMIC搁置。"
   },
   "facts": [
     {
@@ -604,14 +604,14 @@
       "title": "独立首次配网 · AP→STA",
       "scope": "original",
       "phase": "usable",
-      "summary": "受保护热点已有库、Root循环与材料；真实Core/网页/保存、联合安装和无NAS首配仍未闭环。",
+      "summary": "Owner Core、Root保存与简洁网页源码已接通；首次认领接管、真实NM联调、联合安装、地址交接及无NAS冷启动继续验收。",
       "paths": [
         "crates/setup-ap",
-        "crates/core/src/network_trial",
-        "crates/edge/src/web/network.js",
+        "crates/core/src/setup_ap_control",
+        "crates/edge/src/web/ap-wifi.js",
         "firmware/system"
       ],
-      "source": "docs/VALIDATION-SETUP-AP-CONFIGURABLE-ROOT-P4L.md",
+      "source": "docs/VALIDATION-SETUP-AP-WEB-P4P.md",
       "tasks": [
         {
           "id": "AP-01",
@@ -646,12 +646,14 @@
           "dependencies": [
             "AP-01"
           ],
-          "status": "ready",
+          "status": "done",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
-          "completed_at": null,
-          "actual_hours": null
+          "evidence": [
+            "docs/VALIDATION-SETUP-AP-WEB-P4P.md"
+          ],
+          "completed_at": "2026-10-26T00:30:16.002909+00:00",
+          "actual_hours": 0.5
         },
         {
           "id": "AP-03",
@@ -704,7 +706,7 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "ready",
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -4374,6 +4376,40 @@
       "detail": "下一步接入已验证的试连、明确确认、取消和只读回执；一次只保留一笔，刷新不重发。AP-03仍待安装及设备重启连接验收。",
       "task_ids": [
         "AP-02"
+      ],
+      "evidence": []
+    },
+    {
+      "at": "2026-10-26T00:30:16.002909+00:00",
+      "type": "completed",
+      "title": "AP-02 · 已完成：接通AP配置网页",
+      "detail": "Owner配网页源码已接线，唯一事务/只读恢复/失败路径及21组真实DOM检查通过；498项与三份同源ARM64通过，首次认领、实机保存和地址交接继续单列。",
+      "task_ids": [
+        "AP-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-SETUP-AP-WEB-P4P.md"
+      ]
+    },
+    {
+      "at": "2026-10-26T00:30:16.267936+00:00",
+      "type": "state",
+      "title": "AP-05 · 状态更新：首次认领与已认领设备边界",
+      "detail": "下一步接管首次认领后的bootstrap会话；已有Owner与新Owner边界分开验收，不访问设备。",
+      "task_ids": [
+        "AP-05"
+      ],
+      "evidence": [
+        "docs/VALIDATION-SETUP-AP-WEB-P4P.md"
+      ]
+    },
+    {
+      "at": "2026-10-26T00:30:16.520113+00:00",
+      "type": "state",
+      "title": "AP-05 · 下一关卡：首次认领与已认领设备边界",
+      "detail": "继续首次Owner认领接管，随后真实NM联合安装与设备切网；普通数据关闭，PMIC搁置。",
+      "task_ids": [
+        "AP-05"
       ],
       "evidence": []
     }
