@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "members": [
+    {"id":"lead","name":"Viper-Boss","login":"Viper-Boss","git_names":["Viper-Boss"],"role":"项目负责人 · 主线开发 / 架构 / 设备 / 审核","access":"现有主线维护；实际权限沿用仓库设置","package":"AP-06及实机集成、主线评审","task_ids":["AP-06"],"step_ids":[],"handoff":"docs/team/README.md","state":"in_progress","estimate_hours":null},
+    {"id":"member-a","name":"fungi1220","login":"fungi1220","git_names":[],"role":"NKN活跃安装统计 · 离线Rust组件","access":"fork + PR；未新增上游写权限","package":"统计纯组件 → 确认状态机与失败矩阵","task_ids":["STAT-01","STAT-02","STAT-03","STAT-04","STAT-05","STAT-06","STAT-07"],"step_ids":["A-01","A-02","A-03","A-04","A-05","A-06","A-07","A-08"],"handoff":"docs/team/MEMBER-A-USAGE-STATS.md","state":"assigned","estimate_hours":[10,24]},
+    {"id":"member-b","name":"成员B · 账号待补","login":null,"git_names":[],"role":"月流量计量 / 网络显示 · 离线边界","access":"待登记账号；默认fork + PR","package":"计量与月结 → 展示、回归与交接","task_ids":["NET-01","NET-02","NET-03"],"step_ids":["B-01","B-02","B-03","B-04","B-05","B-06","B-07","B-08"],"handoff":"docs/team/MEMBER-B-NETWORK-ACCOUNTING.md","state":"assigned","estimate_hours":[6,16]}
+  ]
+}

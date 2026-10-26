@@ -86,6 +86,9 @@ def validate(data):
         if task['status'] == 'done':
             require(all(tasks[x]['status'] == 'done' for x in task['dependencies']), 'done before dependency: '+key)
     require(data['focus']['task_id'] in tasks, 'focus task missing')
+    if 'team' in data:
+        import team
+        team.validate_snapshot(data['team'], tasks)
     for source in data['sources']:
         public_evidence(source)
     # Public metadata may contain source SHA/estimates, never maintenance hosts
@@ -146,7 +149,7 @@ def outputs(data):
     validate(data)
     template = (DIRECTORY/'index.template.html').read_text(encoding='utf-8')
     payload = json.dumps(data, ensure_ascii=False, separators=(',', ':')).replace('<','\\u003c').replace('\u2028','\\u2028').replace('\u2029','\\u2029')
-    css = (DIRECTORY/'dashboard.css').read_text(encoding='utf-8')
+    css = (DIRECTORY/'dashboard.css').read_text(encoding='utf-8')+'\n'+(DIRECTORY/'team.css').read_text(encoding='utf-8')
     script = (DIRECTORY/'dashboard.mjs').read_text(encoding='utf-8')
     require('</script' not in script.lower() and '</style' not in css.lower(), 'unsafe embedded source delimiter')
     result = template.replace('<!-- DASHBOARD_STYLE -->', '<style>\n'+css+'\n</style>').replace('<!-- DASHBOARD_DATA -->','<script id="progress-data" type="application/json">'+payload+'</script>').replace('<!-- DASHBOARD_SCRIPT -->','<script type="module">\n'+script+'\n</script>')

@@ -182,6 +182,7 @@ Linux 下 `rustsimhub-core --probe` 只读查询系统和 ModemManager 能力，
 | --- | --- |
 | 最新进度与验收 | [开发进度](docs/PROGRESS.md) · [固定量表](docs/PROGRESS-SCALE.md) · [接手说明](docs/HANDOFF.md) |
 | 规划与剩余任务 | [开发计划](docs/development-plan.md) · [剩余工作](docs/REMAINING-WORK-AND-CLAUDE-HANDOFF.md) |
+| 团队分工与贡献 | [三人协作入口](docs/team/README.md) · [fungi1220任务书](docs/team/MEMBER-A-USAGE-STATS.md) · [成员B任务书](docs/team/MEMBER-B-NETWORK-ACCOUNTING.md) · [统计口径](docs/team/CONTRIBUTION-RECORDS.md) |
 | 前端未来形态 | [前端设计与交互说明](docs/frontend-vision.md) |
 | 身份、存储与恢复 | [身份鉴权](docs/auth.md) · [SQLite](docs/storage.md) · [恢复与 CLI](docs/recovery-clients.md) |
 | 短信与事件 | [SIM / 收件箱](docs/sim-inbox.md) · [发送](docs/sms-send.md) · [事件订阅](docs/observer-events.md) |

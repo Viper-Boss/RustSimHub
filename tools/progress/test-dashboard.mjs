@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {calculate,selectModules,estimateDays,escapeHTML,dependencyReady,handoffText,publicURL} from '../../docs/progress/dashboard.mjs';
+import {calculate,selectModules,estimateDays,escapeHTML,dependencyReady,handoffText,publicURL,teamHTML} from '../../docs/progress/dashboard.mjs';
 const data=JSON.parse(readFileSync(new URL('../../docs/progress/progress.json',import.meta.url),'utf8'));
 const stats=calculate(data);
 assert.equal(stats.original,data.original_milestones.reduce((sum,m)=>sum+m.done_points,0));assert.equal(stats.total,169);assert.equal(stats.parked,9);
@@ -26,3 +26,11 @@ assert.ok(handoffText(data.modules[0]).includes('不要假定你可以操作设�
 const revised=structuredClone(data),candidate=revised.modules.filter(m=>m.scope!=='parked').flatMap(m=>m.tasks).find(t=>t.status!=='done');
 if(candidate){candidate.status='done';assert.equal(calculate(revised).original,stats.original);assert.equal(calculate(revised).done,stats.done+1);assert.ok(calculate(revised).weighted>stats.weighted);}
 console.log('Dashboard calculation/filter/dependency/estimate/escaping/handoff checks passed.');
+const cards=teamHTML(data.team);
+assert.ok(cards.includes('fungi1220'));assert.ok(cards.includes('成员B'));
+assert.ok(cards.includes('未填报'));assert.ok(cards.includes('0 / 8'));
+assert.equal((cards.match(/<article/g)||[]).length,3);
+const hostile=structuredClone(data.team);hostile.members[1].name='<img src=x onerror=bad>';
+assert.ok(teamHTML(hostile).includes('&lt;img'));assert.ok(!teamHTML(hostile).includes('<img'));
+assert.ok(teamHTML(null).includes('尚未生成'));
+console.log('Team cards, independent work/code metrics, pending member and HTML escaping passed.');

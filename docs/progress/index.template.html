@@ -12,7 +12,7 @@
 <div class="ambient ambient-a" aria-hidden="true"></div><div class="ambient ambient-b" aria-hidden="true"></div>
 <header class="topbar shell">
  <a href="#overview" class="brand" aria-label="RustSimHub进度总览"><span class="brand-mark" aria-hidden="true">R<span>↗</span></span><span>RustSimHub<small>独立通信 · 开发任务控制台</small></span></a>
- <nav aria-label="主导航"><a href="#overview">总览</a><a href="#modules">全部模块</a><a href="#route">交付路线</a><a href="#activity">更新记录</a></nav>
+ <nav aria-label="主导航"><a href="#overview">总览</a><a href="#team">团队协作</a><a href="#modules">全部模块</a><a href="#route">交付路线</a><a href="#activity">更新记录</a></nav>
  <div class="top-actions"><button id="motion-toggle" class="icon-button" aria-pressed="false" title="暂停装饰动画">◫<span>动画</span></button><a class="github-link" href="https://github.com/Viper-Boss/RustSimHub" target="_blank" rel="noopener">GitHub ↗</a></div>
 </header>
 <main class="shell">
@@ -36,6 +36,11 @@
   <article class="evidence-card"><div class="section-micro">最近已验真的基线 <span class="verified-dot"></span></div><div id="facts" class="fact-grid"></div></article>
  </section>
  <section class="milestone-panel" aria-labelledby="milestone-title"><div class="section-heading compact"><div><span class="eyebrow">ORIGINAL MILESTONES</span><h2 id="milestone-title">80%的来处，每一项都保留边界。</h2></div><a href="https://github.com/Viper-Boss/RustSimHub/blob/main/docs/PROGRESS-SCALE.md" target="_blank" rel="noopener">查看固定权重 ↗</a></div><div id="milestones" class="milestones"></div></section>
+ <section id="team" class="team-section" aria-labelledby="team-title">
+  <div class="section-heading"><div><span class="eyebrow">THREE PEOPLE · ONE MAINLINE</span><h2 id="team-title">分工清楚，贡献留下真实记录。</h2><p>负责人继续推进实机，两位成员并行离线开发；自己的分支提交，按完整HEAD审核。</p></div><a href="https://github.com/Viper-Boss/RustSimHub/blob/main/docs/team/README.md" target="_blank" rel="noopener">协作入口与任务书 ↗</a></div>
+  <p id="team-source" class="team-source"></p><div id="team-grid" class="team-grid"></div>
+  <div class="team-note"><strong>代码量 ≠ 工作量 ≠ 权属比例</strong><p>代码按固定主线提交的Git作者统计，未合并代码另看PR；工作量按逐HEAD审核的步骤记录，工时只显示成员自报。没有证据的地方保留未知。<a href="https://github.com/Viper-Boss/RustSimHub/blob/main/docs/team/CONTRIBUTION-RECORDS.md" target="_blank" rel="noopener">查看统计与资料留存口径 ↗</a></p></div>
+ </section>
  <section id="modules" class="module-section" aria-labelledby="modules-title">
   <div class="section-heading"><div><span class="eyebrow">THE REMAINING WORK</span><h2 id="modules-title">剩余工作，展开到每一个动作。</h2><p>原计划收尾 + 转发 / NKNGuard / 使用统计 / BLE，全范围保留。</p></div><button class="text-button" id="export-json">下载台账 JSON ↓</button></div>
   <div class="filters"><label class="search"><span aria-hidden="true">⌕</span><input type="search" id="search" placeholder="搜索模块、动作、文件或验收条件" aria-label="搜索剩余任务"><kbd>/</kbd></label><div class="filter-tabs" role="group" aria-label="范围筛选"><button data-scope="all" class="selected" aria-pressed="true">当前范围</button><button data-scope="original" aria-pressed="false">原计划</button><button data-scope="extension" aria-pressed="false">新增扩展</button><button data-scope="parked" aria-pressed="false">已搁置</button></div><select id="task-filter" aria-label="动作条件筛选"><option value="all">所有动作</option><option value="actionable">现在可推进</option><option value="offline">可离线 / 可交Claude</option><option value="assist">后续需协助</option><option value="done">已完成</option></select></div>
