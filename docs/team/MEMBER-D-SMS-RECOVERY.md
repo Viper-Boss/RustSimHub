@@ -1,6 +1,6 @@
 # 成员D任务书：短信同步、对象换代与故障恢复 · 离线开发
 
-执行成员：[RedamancyGTW](https://github.com/RedamancyGTW)，用户已提供账号；稳定ID `member-d`。2026-10-26公开API查询暂返回404，按用户给定拼写登记，不影响离线开发；默认本人fork分支提交PR，未自动修改上游权限。建议分支 `codex/sms-offline-recovery`。预计有效开发8～20小时，分两批PR；不需要SIM或设备。
+执行成员：[RedamancyGTW](https://github.com/RedamancyGTW)，稳定ID `member-d`。公开主页有404现象，2026-10-27 GitHub已接受并回读确认本仓库Write邀请。本人接受后，直接在 `Viper-Boss/RustSimHub` 创建 `codex/sms-offline-recovery` 分支并提交PR到main，由负责人审核。不要fork，不直接推送main；命令见[团队入口](README.md)。预计有效开发8～20小时，分两批PR；不需要SIM或设备。
 
 ## 直接给你的Codex
 

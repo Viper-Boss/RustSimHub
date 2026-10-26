@@ -2,6 +2,8 @@
 
 执行成员：[yh1030](https://github.com/yh1030)，稳定ID `member-c`。建议分支 `codex/nas-readonly-history`。预计有效开发8～20小时，分两批PR；计划不是实耗。
 
+提交入口：本仓库Write已核验生效。直接在 `Viper-Boss/RustSimHub` 创建上述功能分支并提交PR到main，由负责人审核。不要fork，不直接推送main；命令见[团队入口](README.md)。
+
 ## 直接给你的Codex
 
 > 从最新main建立独立分支，按本文实现可运行、可测试的NAS只读适配和历史导入边界。先读AGENTS.md、团队README、HANDOFF顶部、nas-online-bridge及当前compat实现。没有NAS、棒子或真实用户数据访问任务，只用合成数据与本地临时目录/回环服务。不要启用兼容网关或网络服务，不连接实际设备，不改Core授权、签名算法、wire、默认配置、系统单元或其他成员文件。先完成第一批PR并交付完整HEAD，主线审核契约后再继续第二批；不以伪造旧NAS响应冒充兼容完成。

@@ -2,6 +2,8 @@
 
 执行成员：用户已再次确认账号 `wnfhsj`；主页 https://github.com/wnfhsj 当前公开查询返回404，原因未定，账号按用户确认保留；稳定成员ID仍为 `member-b`。建议分支 `codex/network-accounting-offline`。预计有效开发6～16小时，仅为计划。主线有真实设备，你没有设备访问任务；公开主页查询异常不妨碍先阅读和离线开发。
 
+提交入口：2026-10-27 GitHub已接受并回读确认本仓库Write邀请。本人接受后，在 `Viper-Boss/RustSimHub` 直接创建上述分支并提交PR到main，由负责人审核。不要fork，不直接推送main；命令见[团队入口](README.md)。
+
 ## 直接给你的Codex
 
 > 从RustSimHub最新main建立独立分支，修正或补齐已有网络计量/网络展示的明确边界并提供真实回归。先读AGENTS.md、HANDOFF顶部、本任务书及团队README。不得连接NAS/棒子、拨号、发短信、启用流量、调用真实NetworkManager/nftables或写系统目录。优先复用已有State/Policy/展示模块，不能另造一套计费后端。没有复现缺陷时提交覆盖真实边界的测试与证据，不为改代码量强行重写。不得改统计组件、Core权限、wire协议或主线发布/签名逻辑。

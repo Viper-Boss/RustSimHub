@@ -1,4 +1,21 @@
 {
   "schema": 1,
-  "reviews": []
+  "reviews": [
+    {
+      "member_id": "member-c",
+      "pr": 3,
+      "head": "751e4a964e14db0142b34b3dc4afa245971bb54c",
+      "decision": "offline_accepted",
+      "steps": [
+        "C-01",
+        "C-02",
+        "C-03",
+        "C-04"
+      ],
+      "evidence": [
+        "docs/team/REVIEW-PR-3-751e4a9.md"
+      ],
+      "self_reported_hours": null
+    }
+  ]
 }

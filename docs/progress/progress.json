@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-26T13:22:23.790696+00:00",
+  "updated_at": "2026-10-26T17:23:19.770940+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原80%仍按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "AP-06",
-    "title": "同源Root程序与联合安装材料",
-    "state": "正在推进",
-    "description": "应用50健康确认、T3最后账号与线上面板完成。P4W解决私有父目录的离线准备：10准入/10真实私有挂载CLI安装回退及实机四个PID1权限探针通过；首次失败已精确回退并恢复业务。重新备份交付后继续Root服务安装，配网/冷启动尚未验收。"
+    "task_id": "AP-07",
+    "title": "设备首次热点与隔离实测",
+    "state": "下一动作已选定；按前置和验收推进",
+    "description": "同源Root安装和真实权限/HTTPS已通过。下一步准备现有Owner可用的简短热点实测入口，验证隔离、真实AP连接及可信配置；AP-03/08的保存、跨地址身份/证书和冷启动继续独立验收。"
   },
   "facts": [
     {
@@ -605,14 +605,14 @@
       "title": "独立首次配网 · AP→STA",
       "scope": "original",
       "phase": "usable",
-      "summary": "认领与配网页源码已接通，实际联合签名材料已验证；继续受限安装/回退、实际权限及NM联调，实机保存冷启动和地址交接待验收。",
+      "summary": "同源应用50与联合Root配网服务已安装，真实权限和严格HTTPS健康检查通过；实际热点隔离、Wi-Fi保存冷启动和地址交接仍待验收。",
       "paths": [
         "crates/setup-ap",
         "crates/core/src/setup_ap_control",
         "crates/edge/src/web/ap-wifi.js",
         "firmware/system"
       ],
-      "source": "docs/VALIDATION-SETUP-AP-JOINT-MATERIALS-P4R.md",
+      "source": "docs/VALIDATION-SETUP-AP-PRIVATE-PREPARE-P4W.md",
       "tasks": [
         {
           "id": "AP-01",
@@ -730,11 +730,13 @@
             "AP-01",
             "AP-05"
           ],
-          "status": "in_progress",
+          "status": "done",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
-          "completed_at": null,
+          "evidence": [
+            "docs/VALIDATION-SETUP-AP-PRIVATE-PREPARE-P4W.md"
+          ],
+          "completed_at": "2026-10-26T16:56:46.058433+00:00",
           "actual_hours": null
         },
         {
@@ -1615,10 +1617,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/team/REVIEW-PR-3-751e4a9.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -4586,12 +4590,49 @@
       "evidence": [
         "docs/VALIDATION-SETUP-AP-PRIVATE-PREPARE-P4W.md"
       ]
+    },
+    {
+      "at": "2026-10-26T16:56:46.058433+00:00",
+      "type": "completed",
+      "title": "AP-06 · 已完成：同源Root程序与联合安装材料",
+      "detail": "P4W精确CI、同源签名及实际八文件安装/受限Core-Root权限与两处严格HTTPS通过；confirmed50、Owner69短信/Unknown、Bark OFF、音频7/7保持。验收边界仅联合材料/权限；真实热点、试连保存、证书交接和冷启动仍待AP-03/07/08。",
+      "task_ids": [
+        "AP-06"
+      ],
+      "evidence": [
+        "docs/VALIDATION-SETUP-AP-PRIVATE-PREPARE-P4W.md"
+      ]
+    },
+    {
+      "at": "2026-10-26T16:56:46.313209+00:00",
+      "type": "state",
+      "title": "AP-07 · 下一关卡：设备首次热点与隔离实测",
+      "detail": "同源Root安装和真实权限/HTTPS已通过。下一步准备现有Owner可用的简短热点实测入口，验证隔离、真实AP连接及可信配置；AP-03/08的保存、跨地址身份/证书和冷启动继续独立验收。",
+      "task_ids": [
+        "AP-07"
+      ],
+      "evidence": [
+        "docs/VALIDATION-SETUP-AP-PRIVATE-PREPARE-P4W.md"
+      ]
+    },
+    {
+      "at": "2026-10-26T17:24:02.017469+00:00",
+      "type": "verified",
+      "title": "同仓库协作权限与NAS第一批离线审核",
+      "detail": "四位成员Write已核验或邀请待接受；main审核/CI保护已回读。PR#3固定751e4a9离线C-01～04通过，仍Draft未合并，主线NAS实际兼容待验收；原80%、台账10/169保持。",
+      "task_ids": [
+        "NAS-01"
+      ],
+      "evidence": [
+        "docs/team/ACCESS.md",
+        "docs/team/REVIEW-PR-3-751e4a9.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "c00d5c69bb4c1f65d2403ff0112e01b64ae24dfa",
-    "generated_at": "2026-10-26T12:57:25.346786+00:00",
+    "source_revision": "b5cb0a502f8e9d000e82d862587f63f7bd909d8e",
+    "generated_at": "2026-10-26T17:23:19.770940+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -4600,9 +4641,9 @@
         "login": "Viper-Boss",
         "role": "项目负责人 · 主线开发 / 架构 / 设备 / 审核",
         "access": "现有主线维护；实际权限沿用仓库设置",
-        "package": "AP-06及实机集成、主线评审",
+        "package": "AP-07及实机集成、主线评审",
         "task_ids": [
-          "AP-06"
+          "AP-07"
         ],
         "step_ids": [],
         "handoff": "docs/team/README.md",
@@ -4611,14 +4652,14 @@
         "stats": {
           "current_lines": {
             "product": 46323,
-            "tests": 24975,
+            "tests": 25019,
             "tooling": 8709,
-            "firmware": 1107
+            "firmware": 1132
           },
-          "commits": 307,
-          "code_commits": 213,
-          "added": 85010,
-          "deleted": 2107
+          "commits": 309,
+          "code_commits": 215,
+          "added": 85086,
+          "deleted": 2114
         },
         "work": {
           "assigned_steps": 0,
@@ -4639,7 +4680,7 @@
         "name": "fungi1220",
         "login": "fungi1220",
         "role": "NKN活跃安装统计 · 离线Rust组件",
-        "access": "fork + PR；未新增上游写权限",
+        "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
         "package": "统计纯组件 → 确认状态机与失败矩阵",
         "task_ids": [
           "STAT-01",
@@ -4691,7 +4732,7 @@
         "name": "wnfhsj",
         "login": "wnfhsj",
         "role": "月流量计量 / 网络显示 · 离线边界",
-        "access": "用户已确认账号；公开主页查询异常，默认fork + PR",
+        "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
         "package": "计量与月结 → 展示、回归与交接",
         "task_ids": [
           "NET-01",
@@ -4739,7 +4780,7 @@
         "name": "yh1030",
         "login": "yh1030",
         "role": "NAS只读兼容 / 历史导入 · 离线适配",
-        "access": "公开账号已核对；fork + PR，未新增上游写权限",
+        "access": "同仓库Write已生效；本人功能分支 → PR审核",
         "package": "兼容契约与只读桥 → 历史差异与幂等",
         "task_ids": [
           "NAS-01",
@@ -4757,7 +4798,7 @@
           "C-08"
         ],
         "handoff": "docs/team/MEMBER-C-NAS-COMPAT.md",
-        "state": "assigned",
+        "state": "in_progress",
         "estimate_hours": [
           8,
           20
@@ -4776,10 +4817,22 @@
         },
         "work": {
           "assigned_steps": 8,
-          "accepted_steps": 0,
+          "accepted_steps": 4,
           "self_reported_hours": null,
-          "reviews": [],
-          "deliveries": []
+          "reviews": [
+            {
+              "pr": 3,
+              "head": "751e4a964e14db0142b34b3dc4afa245971bb54c",
+              "state": "offline_accepted"
+            }
+          ],
+          "deliveries": [
+            {
+              "pr": 3,
+              "head": "751e4a964e14db0142b34b3dc4afa245971bb54c",
+              "state": "OPEN"
+            }
+          ]
         }
       },
       {
@@ -4787,7 +4840,7 @@
         "name": "RedamancyGTW",
         "login": "RedamancyGTW",
         "role": "短信同步 / 对象换代 / 故障恢复 · 离线回归",
-        "access": "用户已提供账号；公开查询暂404，默认fork + PR，未新增上游写权限",
+        "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
         "package": "事件同步与对象生命周期 → 内容、候选与提交恢复",
         "task_ids": [
           "SMS-02",
@@ -4847,9 +4900,9 @@
     },
     "totals": {
       "product": 46323,
-      "tests": 24975,
+      "tests": 25019,
       "tooling": 8709,
-      "firmware": 1107
+      "firmware": 1132
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。"
   }

@@ -18,4 +18,16 @@
 
 先前P4V的CI40325758049在既有启动器16KiB边界测试失败；后续T3完整提交[CI40327585407](https://github.com/Viper-Boss/RustSimHub/actions/runs/40327585407)两任务成功。该边界偶发原因尚未证实，未扩大输出上限或截止，不能将重跑成功记为修复。
 
-下一步固定本轮脚本，重新核对空回退目录、新备份和28文件交付，实际安装并检查受限服务/Core–Root空闲通道；热点切换/试连/保存和冷启动仍独立待验收。AP-06保持进行；整体80%，扩展9/169、余160、加权3.6%。
+## 最终实机交付（2026-10-27）
+
+固定脚本提交 `b5cb0a502f8e9d000e82d862587f63f7bd909d8e` 的[完整CI40330027498](https://github.com/Viper-Boss/RustSimHub/actions/runs/40330027498)两任务成功。回退遗留的六个目录逐个核对为空且拥有者/模式精确匹配后，仅用rmdir移除；没有删除文件或业务数据。随后重新备份、回读、准入、独立验签并上传28文件交付，实际只读预检通过。
+
+第二次实际安装通过：八个固定目标回读一致，Core为非Root联合模式，普通Edge/媒体/配网Edge均无有效capabilities，Root热点执行程序只具CAP_NET_ADMIN，五个服务均NoNewPrivileges。Core/Edge离线准备由上述有限PID1任务完成；原身份、所有者、setup.used和普通TLS保持，恢复守卫已解除，原厂16、confirmed50和恢复预算保持。
+
+完整健康检查通过：14个普通HTTPS资源精确匹配真实生产源码；配网Edge在设备回环口的HTTPS经过现有OpenSSL证书与IP校验，页面精确匹配Git，客户端退出0。设备没有curl且维护SSH禁用TCP转发，保留这些设置；用设备本地既有OpenSSL验证，没有安装工具、改SSH或系统证书库。最初探针缺curl、转发拒绝和文本/字节流夹具错误均保留，不作为设备故障或成功证据。
+
+主库完整性、一个原Owner、69条短信、七个保护表（含Unknown发送/通话回执）、原Bark策略和唯一confirmed回执均与新备份一致；转发OFF且无worker/临时凭据，普通数据断开，音频7/7。网络连接配置与活动连接集合未变，没有启动AP、试连STA、保存Wi-Fi、拨号、发送短信或推送，也未重启/刷分区。浏览器插件本轮接管超时，没有替代成用户已听音/点击验收。
+
+AP-06的“同源/签名/权限核验及联合安装材料”验收已满足。其完成不包含AP-03的保存与冷启动，也不包含AP-07/08的真实热点隔离、手机接入、地址/证书/身份交接。原P0–P7仍80%；扩展动作完成10/169，剩159；实际工时未独立计时，保持未知。
+
+私有索引：`receipt-delivery-maintenance-health-confirm-20261026-first.json`、`setup-ap-installation-maintenance-backup-20261026-second.json`、`setup-ap-installation-assembly-20261026-third.json`、`setup-ap-installation-upload-check-20261026-second.json`、`setup-ap-installation-apply-20261026-second.json`、`setup-ap-installation-health-20261027-fifth.json`和`ap-openssl-probe-20261026-first.json`；原始日志、身份和备份不公开。

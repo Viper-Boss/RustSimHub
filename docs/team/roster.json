@@ -10,9 +10,9 @@
       ],
       "role": "项目负责人 · 主线开发 / 架构 / 设备 / 审核",
       "access": "现有主线维护；实际权限沿用仓库设置",
-      "package": "AP-06及实机集成、主线评审",
+      "package": "AP-07及实机集成、主线评审",
       "task_ids": [
-        "AP-06"
+        "AP-07"
       ],
       "step_ids": [],
       "handoff": "docs/team/README.md",
@@ -25,7 +25,7 @@
       "login": "fungi1220",
       "git_names": [],
       "role": "NKN活跃安装统计 · 离线Rust组件",
-      "access": "fork + PR；未新增上游写权限",
+      "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
       "package": "统计纯组件 → 确认状态机与失败矩阵",
       "task_ids": [
         "STAT-01",
@@ -59,7 +59,7 @@
       "login": "wnfhsj",
       "git_names": [],
       "role": "月流量计量 / 网络显示 · 离线边界",
-      "access": "用户已确认账号；公开主页查询异常，默认fork + PR",
+      "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
       "package": "计量与月结 → 展示、回归与交接",
       "task_ids": [
         "NET-01",
@@ -89,7 +89,7 @@
       "login": "yh1030",
       "git_names": [],
       "role": "NAS只读兼容 / 历史导入 · 离线适配",
-      "access": "公开账号已核对；fork + PR，未新增上游写权限",
+      "access": "同仓库Write已生效；本人功能分支 → PR审核",
       "package": "兼容契约与只读桥 → 历史差异与幂等",
       "task_ids": [
         "NAS-01",
@@ -107,7 +107,7 @@
         "C-08"
       ],
       "handoff": "docs/team/MEMBER-C-NAS-COMPAT.md",
-      "state": "assigned",
+      "state": "in_progress",
       "estimate_hours": [
         8,
         20
@@ -119,7 +119,7 @@
       "login": "RedamancyGTW",
       "git_names": [],
       "role": "短信同步 / 对象换代 / 故障恢复 · 离线回归",
-      "access": "用户已提供账号；公开查询暂404，默认fork + PR，未新增上游写权限",
+      "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
       "package": "事件同步与对象生命周期 → 内容、候选与提交恢复",
       "task_ids": [
         "SMS-02",

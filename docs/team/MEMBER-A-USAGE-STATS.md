@@ -2,6 +2,8 @@
 
 执行成员：[fungi1220](https://github.com/fungi1220)。稳定成员ID `member-a`。建议分支 `codex/usage-stats-offline`。预计有效开发10～24小时，仅为计划，不是已发生工时。
 
+提交入口：接受本仓库Write邀请后，在 `Viper-Boss/RustSimHub` 直接创建上述功能分支并提交PR到main，由负责人审核。不要fork，不直接推送main；具体命令见[团队入口](README.md)。
+
 ## 直接给你的Codex
 
 > 在RustSimHub最新main的独立分支实现本任务书要求的离线统计组件和真实回归测试。先读AGENTS.md、HANDOFF顶部、PROGRESS、本文和团队README。没有设备，也没有连接NAS、真实NKN/RPC、Bark、运营商或生产服务的授权；不提交链上交易、不自动联网，不读取任何私有维护目录。交付可审查Rust代码，不能只写设计或实现只返回假成功的stub。按下列两批PR执行，先完成第一批，等待主线契约审核后再接后续。不要改Core/Edge/Root服务、默认开机策略、现有身份或全局进度。

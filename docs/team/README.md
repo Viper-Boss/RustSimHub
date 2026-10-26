@@ -1,6 +1,6 @@
 # RustSimHub 五人协作入口
 
-日期：2026-10-26。现为负责人加四位离线协作者；本次扩展参考主线 `70313dbd58ed60e1d978061b59643438ac60db19`，原A/B任务书从18349a8起登记。实际开工从最新 `origin/main` 建立分支并记录起始SHA，不能退回旧提交覆盖新代码。原P0–P7整体80%；分配任务不增加验收比例。
+日期：2026-10-27。现为负责人加四位离线协作者；用户已要求改为本仓库直接分支协作。原A/B任务书从18349a8起登记，五人扩展从70313db起登记；实际开工从最新 `origin/main` 建立分支并记录起始SHA，不能退回旧提交覆盖新代码。原P0–P7整体80%；分配任务或发出邀请不增加验收比例。
 
 | 人员 | 责任 | 本轮任务 | 设备 |
 |---|---|---|---|
@@ -10,28 +10,30 @@
 | 成员C：[yh1030](https://github.com/yh1030) | NAS只读兼容、历史导入与幂等 | [C任务书](MEMBER-C-NAS-COMPAT.md)，NAS-01/05/06的离线部分 | 无需设备 |
 | [RedamancyGTW](https://github.com/RedamancyGTW)，成员D | 短信事件同步、对象换代、故障恢复 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，SMS-02～06的离线部分 | 无需设备 |
 
-四名成员均使用自己的GitHub账号和Codex；不用共享负责人账号、Token、NAS地址或SSH材料。旧Claude任务包仅供历史参考，本目录是本轮明确分工。fungi1220、yh1030的公开主页已核对；wnfhsj账号已由用户再次确认，公开查询仍404，原因未定。最后一位现已登记为RedamancyGTW，其公开API查询也暂返回404；均按用户给定账号保留，不改名、不阻止离线开发，不把登记账号冒充实际授权。
+四名成员均使用自己的GitHub账号和Codex；不用共享负责人账号、Token、NAS地址或SSH材料。旧Claude任务包仅供历史参考，本目录是本轮明确分工。yh1030的Write已生效；fungi1220已有Write邀请，wnfhsj和RedamancyGTW的新Write邀请已由GitHub接受并回读确认，三人待本人接受。后两人的公开主页仍有404现象，不能据此判断账号不存在或确定风控原因。权限明细见[仓库访问状态](ACCESS.md)。
 
 A/B/C/D各8步是交付拆分，映射到原有STAT/NET/NAS/SMS动作，不向169个项目动作额外加32个，也不重复累加项目预计工时。成员计划区间用于安排本轮工作，实际以交付和复核为准。
 
 ## 现在如何提交
 
-默认使用 **fork → 自己的分支 → PR到本仓库main → 主线审核**。这不要求给予上游仓库写权限，也不允许直接向main推送。账号记录和实际GitHub权限分别维护；当前没有因登记姓名而自动邀请协作者、授予Write/Admin或更改分支保护。缺失/更正账号收到后修改稳定成员ID对应的展示名，不新建或合并历史身份。
+统一使用 **克隆本仓库 → 本仓库中的个人功能分支 → PR到main → 负责人审核合并**，不再使用fork流程。先以本人账号接受仓库邀请，再向个人分支推送；未接受时仍可克隆公共仓库进行本地开发。Write权限用于提交分支；禁止直接推送main、强推主线、修改他人分支或自行合并未经负责人审核的PR。main的实际保护规则和回读结果单列在[访问状态](ACCESS.md)，不能把文档要求冒充已启用规则。
 
 ```sh
-git clone https://github.com/你的账号/RustSimHub.git
+git clone https://github.com/Viper-Boss/RustSimHub.git
 cd RustSimHub
-git remote add upstream https://github.com/Viper-Boss/RustSimHub.git
-git fetch upstream
-git switch -c codex/usage-stats-offline upstream/main   # 成员A
+git fetch origin
+git switch -c codex/usage-stats-offline origin/main   # 成员A
 # 成员B改为：codex/network-accounting-offline
 # 成员C改为：codex/nas-readonly-history
 # 成员D改为：codex/sms-offline-recovery
 git rev-parse HEAD
-# 开发、测试、提交到自己的origin，再创建PR到Viper-Boss/RustSimHub:main
+# 开发、测试、提交；确认当前是自己的功能分支
+git branch --show-current
+git push -u origin HEAD
+gh pr create --repo Viper-Boss/RustSimHub --base main
 ```
 
-如果仓库已有克隆/remote/未提交工作，先检查，不能按上述示例强制重置。后续若改为同仓库分支协作，应先核验main保护及审核规则，再由负责人处理最小必要权限；任务书不代替实际权限配置。
+如果仓库已有克隆/remote/未提交工作，先检查，不能按示例强制重置或丢弃工作。确认推送remote确实指向 `Viper-Boss/RustSimHub`；原有个人fork可保留为备用remote，后续交付必须推送到本仓库的个人功能分支。每个人只维护自己的分支；主线变更用fetch后正常合并/变基处理，不覆盖别人的提交。
 
 ## 四条分支如何避免冲突
 

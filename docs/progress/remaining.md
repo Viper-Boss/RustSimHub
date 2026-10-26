@@ -1,12 +1,12 @@
 # RustSimHub 完整剩余行动台账
 
-快照：2026-10-26T13:22:23.790696+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
+快照：2026-10-26T17:23:19.770940+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
 
 原P0–P7：**80%**，剩余 **20** 个验收点。新增X1/X2/X3/BLE独立保留，不混入旧分母。
 
-本轮台账：**9/169** 动作已完成，按冻结工时中值加权 **3.6%**；另有9项搁置/按需动作不计入本轮分母。
+本轮台账：**10/169** 动作已完成，按冻结工时中值加权 **4.2%**；另有9项搁置/按需动作不计入本轮分母。
 
-剩余有效开发工时粗估 **190.5–453小时**。工时折合天数不含换卡、真人听音、第二设备、服务器及单独BLE授权等待；长测等待可以与其他开发重叠。
+剩余有效开发工时粗估 **189.5–450小时**。工时折合天数不含换卡、真人听音、第二设备、服务器及单独BLE授权等待；长测等待可以与其他开发重叠。
 
 看板入口：[GitHub Pages](https://viper-boss.github.io/RustSimHub/) · [单文件HTML](index.html) · [结构化台账](progress.json)
 
@@ -21,7 +21,7 @@ python tools/progress/build.py --check
 
 ## 当前关卡
 
-**AP-06 · 同源Root程序与联合安装材料**：正在推进。应用50健康确认、T3最后账号与线上面板完成。P4W解决私有父目录的离线准备：10准入/10真实私有挂载CLI安装回退及实机四个PID1权限探针通过；首次失败已精确回退并恢复业务。重新备份交付后继续Root服务安装，配网/冷启动尚未验收。
+**AP-07 · 设备首次热点与隔离实测**：下一动作已选定；按前置和验收推进。同源Root安装和真实权限/HTTPS已通过。下一步准备现有Owner可用的简短热点实测入口，验证隔离、真实AP连接及可信配置；AP-03/08的保存、跨地址身份/证书和冷启动继续独立验收。
 
 ## FWD · 短信转发 · 独立服务
 
@@ -261,13 +261,13 @@ python tools/progress/build.py --check
 
 ## AP · 独立首次配网 · AP→STA
 
-原计划收尾 · 12个动作 · 已完成3个
+原计划收尾 · 12个动作 · 已完成4个
 
-认领与配网页源码已接通，实际联合签名材料已验证；继续受限安装/回退、实际权限及NM联调，实机保存冷启动和地址交接待验收。
+同源应用50与联合Root配网服务已安装，真实权限和严格HTTPS健康检查通过；实际热点隔离、Wi-Fi保存冷启动和地址交接仍待验收。
 
 代码/资料：`crates/setup-ap`、`crates/core/src/setup_ap_control`、`crates/edge/src/web/ap-wifi.js`、`firmware/system`
 
-[范围来源](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-SETUP-AP-JOINT-MATERIALS-P4R.md)
+[范围来源](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-SETUP-AP-PRIVATE-PREPARE-P4W.md)
 
 ### [x] AP-01 · 冻结Core授权与请求契约
 
@@ -322,15 +322,16 @@ python tools/progress/build.py --check
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
 - 证据：[VALIDATION-SETUP-AP-CLAIM-ADOPTION-P4Q.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-SETUP-AP-CLAIM-ADOPTION-P4Q.md)
 
-### [ ] AP-06 · 同源Root程序与联合安装材料
+### [x] AP-06 · 同源Root程序与联合安装材料
 
-- 状态：进行中
+- 状态：已完成
 - 动作：构建生产AP执行程序、Edge材料及有限单元，明确与应用组的版本契约。
 - 验收：同源/签名/权限核验通过；不混用旧Root候选或测试夹具。
 - 预计有效工时：1–3小时
 - 前置：AP-01、AP-05
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[VALIDATION-SETUP-AP-PRIVATE-PREPARE-P4W.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-SETUP-AP-PRIVATE-PREPARE-P4W.md)
 
 ### [ ] AP-07 · 设备首次热点与隔离实测
 
@@ -764,13 +765,14 @@ python tools/progress/build.py --check
 
 ### [ ] NAS-01 · 冻结兼容API与状态含义
 
-- 状态：待做
+- 状态：进行中
 - 动作：对照原NasSimHub版本，列出支持的状态、只读、控制及媒体接口。
 - 验收：离线指示反映适配状态，不能以旧页面离线推断SIM故障。
 - 预计有效工时：1–2小时
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[REVIEW-PR-3-751e4a9.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/team/REVIEW-PR-3-751e4a9.md)
 
 ### [ ] NAS-02 · 原NAS页面真实只读回归
 
