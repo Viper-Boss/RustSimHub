@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-26T05:30:56.899693+00:00",
+  "updated_at": "2026-10-26T07:53:39.048114+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -69,8 +69,8 @@
   "focus": {
     "task_id": "AP-06",
     "title": "同源Root程序与联合安装材料",
-    "state": "正在执行；完成后附证据",
-    "description": "准备同源Root/Edge/Core联合材料与有限安装契约，再进行真实NM联调；实机保存/冷启动保持独立验收。"
+    "state": "正在推进",
+    "description": "49版已交付，下一关卡是有限Core启动入口：按显式版本契约选择联合AP/受管转发/旧版基本模式，保持已验证旧组可回退；随后安装同源Root材料并做实际权限/NM验收。"
   },
   "facts": [
     {
@@ -4483,6 +4483,31 @@
       ],
       "evidence": [
         "docs/VALIDATION-SETUP-AP-INSTALL-P4S.md"
+      ]
+    },
+    {
+      "at": "2026-10-26T07:53:38.775082+00:00",
+      "type": "state",
+      "title": "AP-06 · 状态更新：同源Root程序与联合安装材料",
+      "detail": "P4T：同源49六文件组已实机选择/确认；新备份、14严格HTTPS、原Owner/69短信/Unknown、Bark配置和confirmed回执、转发OFF/无进程、路由7/7及数据关闭保持。十ARM+本机音频33ARM测试/CI40279947571通过；七文件Root包未安装。先补旧Core回退的有限模式入口，再联合Root权限/NM。暂存路径/floor脚本错误保留，未重复暂存或降下限；整体80%及动作分母保持。",
+      "task_ids": [
+        "AP-06"
+      ],
+      "evidence": [
+        "docs/VALIDATION-SETUP-AP-APPLICATION-P4T.md",
+        "docs/VALIDATION-FORWARDING-LATENCY-X1R.md"
+      ]
+    },
+    {
+      "at": "2026-10-26T07:53:39.048114+00:00",
+      "type": "state",
+      "title": "AP-06 · 下一关卡：同源Root程序与联合安装材料",
+      "detail": "49版已交付，下一关卡是有限Core启动入口：按显式版本契约选择联合AP/受管转发/旧版基本模式，保持已验证旧组可回退；随后安装同源Root材料并做实际权限/NM验收。",
+      "task_ids": [
+        "AP-06"
+      ],
+      "evidence": [
+        "docs/VALIDATION-SETUP-AP-APPLICATION-P4T.md"
       ]
     }
   ]
