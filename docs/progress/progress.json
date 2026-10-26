@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-26T23:01:36.627385+00:00",
+  "updated_at": "2026-10-26T23:13:10.925124+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原80%仍按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "FWD-12",
-    "title": "显式历史补发事务",
-    "state": "正在执行；完成后附证据",
-    "description": "先做范围、数量、目标及正文模式的有限预览；Owner确认后唯一入队，关闭总开关不隐式开启，旧代次/取消/Unknown不重放。"
+    "task_id": "FWD-15",
+    "title": "队列满与提供商错误矩阵",
+    "state": "正在推进",
+    "description": "在有界、可销毁的临时文件系统验证真实ENOSPC，并结合既有TLS/超时/退出矩阵核对Unknown、资源上限与无重试；不访问设备或真实提供商。"
   },
   "facts": [
     {
@@ -380,11 +380,13 @@
           "dependencies": [
             "FWD-11"
           ],
-          "status": "in_progress",
+          "status": "done",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
-          "completed_at": null,
+          "evidence": [
+            "docs/VALIDATION-FORWARDING-HISTORY-WEB-X1W.md"
+          ],
+          "completed_at": "2026-10-26T23:11:32.372508+00:00",
           "actual_hours": null
         },
         {
@@ -442,7 +444,7 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -539,7 +541,7 @@
         {
           "id": "FWD-20",
           "title": "应用/Root配置/outbox兼容回退",
-          "work": "演练含outbox格式2的新旧应用选择，明确Root参数与数据保留策略。",
+          "work": "演练含outbox格式1/2/3的新旧应用选择，明确Root参数与数据保留策略。",
           "acceptance": "代码回退不盲目还原短信DB；已发回执及Unknown不丢失。",
           "estimate_hours": [
             2,
@@ -4753,12 +4755,56 @@
       "evidence": [
         "docs/VALIDATION-LAUNCHER-FIXTURE-L1.md"
       ]
+    },
+    {
+      "at": "2026-10-26T23:11:32.372508+00:00",
+      "type": "completed",
+      "title": "FWD-12 · 已完成：显式历史补发事务",
+      "detail": "历史补发范围/目标/内容预览、真实Owner确认/取消、唯一确认码与原子入队、IndexedDB双标签/刷新/Unknown保护及有限归档完成；250项/16网页/实际Chrome与19项100轮通过。固定9117647全新11生产ARM、八文件签名材料及完整CI40416902303成功；未部署/外发。",
+      "task_ids": [
+        "FWD-12"
+      ],
+      "evidence": [
+        "docs/VALIDATION-FORWARDING-HISTORY-WEB-X1W.md"
+      ]
+    },
+    {
+      "at": "2026-10-26T23:11:33.511688+00:00",
+      "type": "state",
+      "title": "FWD-15 · 状态更新：队列满与提供商错误矩阵",
+      "detail": "开始错误/容量矩阵收尾：回执4096上限、实际SQLITE_FULL回滚与11种HTTP错误的隔离回归已通过；下一补操作系统级ENOSPC和精确CI，不能把分页上限等同文件系统实满。",
+      "task_ids": [
+        "FWD-15"
+      ],
+      "evidence": []
+    },
+    {
+      "at": "2026-10-26T23:11:34.636931+00:00",
+      "type": "state",
+      "title": "FWD-15 · 下一关卡：队列满与提供商错误矩阵",
+      "detail": "在有界、可销毁的临时文件系统验证真实ENOSPC，并结合既有TLS/超时/退出矩阵核对Unknown、资源上限与无重试；不访问设备或真实提供商。",
+      "task_ids": [
+        "FWD-15"
+      ],
+      "evidence": []
+    },
+    {
+      "at": "2026-10-26T23:12:16.554918+00:00",
+      "type": "state",
+      "title": "FWD-20 · 兼容说明包含当前格式3",
+      "detail": "既有应用/Root/outbox回退范围明确含1/2/3；动作数量、估时、权重与未验收状态不变，不把格式升级当成回退通过。",
+      "task_ids": [
+        "FWD-20"
+      ],
+      "evidence": [
+        "docs/VALIDATION-FORWARDING-HISTORY-WEB-X1W.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "adcefbee7f7071e2fba8bb4dcfe18ed66b24dd47",
-    "generated_at": "2026-10-26T22:02:19.778071+00:00",
+    "source_revision": "9117647a85a68056f31044f47ecc941184d63d08",
+    "generated_at": "2026-10-26T23:13:10.925124+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -4767,9 +4813,9 @@
         "login": "Viper-Boss",
         "role": "项目负责人 · 主线开发 / 架构 / 设备 / 审核",
         "access": "现有主线维护；实际权限沿用仓库设置",
-        "package": "显式历史补发、主线构建/评审",
+        "package": "转发错误与容量矩阵、主线构建/评审",
         "task_ids": [
-          "FWD-12"
+          "FWD-15"
         ],
         "step_ids": [],
         "handoff": "docs/team/README.md",
@@ -4777,15 +4823,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 45330,
-            "tests": 27128,
+            "product": 46297,
+            "tests": 27753,
             "tooling": 8715,
             "firmware": 1132
           },
-          "commits": 315,
-          "code_commits": 218,
-          "added": 86370,
-          "deleted": 2162
+          "commits": 319,
+          "code_commits": 221,
+          "added": 88009,
+          "deleted": 2199
         },
         "work": {
           "assigned_steps": 0,
@@ -5025,8 +5071,8 @@
       "deleted": 0
     },
     "totals": {
-      "product": 45881,
-      "tests": 27689,
+      "product": 46848,
+      "tests": 28314,
       "tooling": 8715,
       "firmware": 1132
     },

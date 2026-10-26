@@ -1,6 +1,6 @@
 # X1W · 历史补发网页、确认码与有限归档
 
-2026-10-27，FWD-12持续推进，承接[X1V后端](VALIDATION-FORWARDING-HISTORY-X1V.md)。本轮已完成网页和下述隔离验证；固定提交完整CI及同源生产ARM尚待完成，暂不把动作标完成，也未部署或外发真实短信/推送。
+2026-10-27，FWD-12持续推进，承接[X1V后端](VALIDATION-FORWARDING-HISTORY-X1V.md)。网页、下述隔离验证、固定提交完整CI及同源生产ARM已完成，FWD-12完成；未部署或外发真实短信/推送。
 
 ## 使用流程
 
@@ -28,3 +28,11 @@ X1V初期格式3元数据如缺确认码，在实际绑定/完整性核对之后
 X1V固定`3e68d5eaab552584d9e73ed8afc12ee8c92ff145`的[完整CI40412089446](https://github.com/Viper-Boss/RustSimHub/actions/runs/40412089446)两任务已成功；该结果不替代本轮固定源码的CI。下一步完成本轮生产ARM、精确CI及发布核对，再记录FWD-12验收。
 
 固定63c6113的生产ARM与后续CI失败/启动器夹具修正见[L1](VALIDATION-LAUNCHER-FIXTURE-L1.md)。原记录不提前改成完成。
+
+## 最终固定交付证据
+
+固定源码 `9117647a85a68056f31044f47ecc941184d63d08`，728个Git文件逐blob核对，规范归档SHA-256 `27acbc0a6e4d9972b9b6563ec8979c902f07edccf340925b61e480aef83b6ba9`。全新空target、固定Rust1.98.0在本机交叉编译11个生产ARM程序；全部ELF/AArch64/GLIBC、实际ARM/QEMU构建来源、schema6及联合契约核对通过，八文件Root AP材料用外部临时测试签名者签名并独立验包。没有装置信任或部署，不把63c6113旧材料冒充本次。
+
+[完整CI40416902303](https://github.com/Viper-Boss/RustSimHub/actions/runs/40416902303)已逐任务核对：test和native-audio均success，覆盖全workspace、16组网页、真实UID启动器、隔离chroot安装/回退、真实worker DNS/TLS/停止、systemd凭据和cgroup、Owner主管协调、生产检查与严格lint。此前63c6113的失败保留；L1修正的19项100轮及实际生产固定参数验证通过，未放宽限制。
+
+本项验收仅覆盖显式历史补发事务/网页及独立构建，不替代提供商手机递送、开关冷启动、FWD-20实际回退或整机长稳。设备最后验证为应用50，本轮未访问或修改，普通数据和转发没有被启用。下一功能FWD-15错误/容量矩阵继续推进。

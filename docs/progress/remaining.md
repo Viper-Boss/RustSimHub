@@ -1,12 +1,12 @@
 # RustSimHub 完整剩余行动台账
 
-快照：2026-10-26T23:01:36.627385+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
+快照：2026-10-26T23:13:10.925124+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
 
 原P0–P7：**80%**，剩余 **20** 个验收点。新增X1/X2/X3/BLE独立保留，不混入旧分母。
 
-本轮台账：**12/169** 动作已完成，按冻结工时中值加权 **5.5%**；另有9项搁置/按需动作不计入本轮分母。
+本轮台账：**13/169** 动作已完成，按冻结工时中值加权 **6.4%**；另有9项搁置/按需动作不计入本轮分母。
 
-剩余有效开发工时粗估 **186.5–444小时**。工时折合天数不含换卡、真人听音、第二设备、服务器及单独BLE授权等待；长测等待可以与其他开发重叠。
+剩余有效开发工时粗估 **184.5–440小时**。工时折合天数不含换卡、真人听音、第二设备、服务器及单独BLE授权等待；长测等待可以与其他开发重叠。
 
 看板入口：[GitHub Pages](https://viper-boss.github.io/RustSimHub/) · [单文件HTML](index.html) · [结构化台账](progress.json)
 
@@ -21,11 +21,11 @@ python tools/progress/build.py --check
 
 ## 当前关卡
 
-**FWD-12 · 显式历史补发事务**：正在执行；完成后附证据。先做范围、数量、目标及正文模式的有限预览；Owner确认后唯一入队，关闭总开关不隐式开启，旧代次/取消/Unknown不重放。
+**FWD-15 · 队列满与提供商错误矩阵**：正在推进。在有界、可销毁的临时文件系统验证真实ENOSPC，并结合既有TLS/超时/退出矩阵核对Unknown、资源上限与无重试；不访问设备或真实提供商。
 
 ## FWD · 短信转发 · 独立服务
 
-新增扩展 · 22个动作 · 已完成8个
+新增扩展 · 22个动作 · 已完成9个
 
 原生Rust队列、HTTPS、配置页与六文件应用已交付；服务安装与默认OFF已验真；继续验收一键递送、故障和冷启动。
 
@@ -151,15 +151,16 @@ python tools/progress/build.py --check
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
 - 证据：[VALIDATION-FORWARDING-CURSOR-X1U.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-FORWARDING-CURSOR-X1U.md)
 
-### [ ] FWD-12 · 显式历史补发事务
+### [x] FWD-12 · 显式历史补发事务
 
-- 状态：进行中
+- 状态：已完成
 - 动作：增加范围、数量、目标预览、唯一提交键和独立回执；只在Owner确认后入队。
 - 验收：取消无外发；重复提交不加队；Unknown可核对且不自动再投。
 - 预计有效工时：2–4小时
 - 前置：FWD-11
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[VALIDATION-FORWARDING-HISTORY-WEB-X1W.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-FORWARDING-HISTORY-WEB-X1W.md)
 
 ### [ ] FWD-13 · 并发关闭与迟到响应
 
@@ -183,7 +184,7 @@ python tools/progress/build.py --check
 
 ### [ ] FWD-15 · 队列满与提供商错误矩阵
 
-- 状态：待做
+- 状态：进行中
 - 动作：覆盖队列上限、磁盘满、4xx/5xx/429、响应超长、TLS失败、超时和进程退出。
 - 验收：内存/并发有界；确认前失败策略明确；不存在无限重试或丢失Unknown。
 - 预计有效工时：2–4小时
@@ -234,7 +235,7 @@ python tools/progress/build.py --check
 ### [ ] FWD-20 · 应用/Root配置/outbox兼容回退
 
 - 状态：待做
-- 动作：演练含outbox格式2的新旧应用选择，明确Root参数与数据保留策略。
+- 动作：演练含outbox格式1/2/3的新旧应用选择，明确Root参数与数据保留策略。
 - 验收：代码回退不盲目还原短信DB；已发回执及Unknown不丢失。
 - 预计有效工时：2–4小时
 - 前置：FWD-03
