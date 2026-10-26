@@ -187,6 +187,16 @@ printf 'arg=%s\\n' "$@"
         self.core.write_text('#!/bin/sh\ni=0; while [ "$i" -lt 17000 ]; do printf x; i=$((i+1)); done\n')
         self.refused()
 
+    def test_exact_limit_valid_metadata_then_one_byte_larger(self):
+        # Independent producer (cat) and real UID exercise the production path,
+        # including JSON parsing and exec, not only the private reader helper.
+        self.metadata['padding']=''
+        self.metadata['padding']='a'*(16384-len(json.dumps(self.metadata).encode()))
+        self.assertEqual(len(json.dumps(self.metadata).encode()),16384)
+        self.mode('--serve-device',12)
+        self.metadata['padding']+='a'
+        self.refused()
+
 
 def main():
     global LAUNCHER

@@ -29,7 +29,9 @@ fn nonzero_and_invalid_program_are_rejected() {
 #[test]
 fn output_at_limit_is_accepted_and_over_limit_is_refused() {
     for (size, accepted) in [(16384, true), (16385, false)] {
-        let (_dir, path) = program(&format!("exec /usr/bin/head -c {size} /dev/zero"));
+        // Shell builtin only: this boundary test must not depend on the host's
+        // head implementation, its runtime libraries or /dev/zero policy.
+        let (_dir, path) = program(&format!("printf '%s' '{}'", "a".repeat(size)));
         let output = metadata(&path, Duration::from_secs(1));
         assert_eq!(output.is_ok(), accepted);
         if accepted {
