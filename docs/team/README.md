@@ -1,20 +1,22 @@
-# RustSimHub 三人协作入口
+# RustSimHub 五人协作入口
 
-日期：2026-10-26。任务书起点为主线 `18349a81a76400f264163c37538334387b7a47bc`；实际开工从最新 `origin/main` 建立分支并记录起始SHA，不能退回旧提交覆盖新代码。原P0–P7整体80%；分配任务不增加验收比例。
+日期：2026-10-26。现为负责人加四位离线协作者；本次扩展参考主线 `70313dbd58ed60e1d978061b59643438ac60db19`，原A/B任务书从18349a8起登记。实际开工从最新 `origin/main` 建立分支并记录起始SHA，不能退回旧提交覆盖新代码。原P0–P7整体80%；分配任务不增加验收比例。
 
 | 人员 | 责任 | 本轮任务 | 设备 |
 |---|---|---|---|
-| Viper-Boss / 项目负责人 | 总体设计、主线开发、设备集成、审核与合并 | AP-06及首配/交付，审核两条离线分支 | 由负责人操作 |
+| Viper-Boss / 项目负责人 | 总体设计、主线开发、设备集成、审核与合并 | AP-06及首配/交付，审核四条离线分支 | 由负责人操作 |
 | 成员A：[fungi1220](https://github.com/fungi1220) | NKN活跃安装统计的独立Rust组件 | [A任务书](MEMBER-A-USAGE-STATS.md)，STAT-01～07的离线部分 | 无需设备 |
-| 成员B：账号待补 | 网络月计量、异常边界与展示 | [B任务书](MEMBER-B-NETWORK-ACCOUNTING.md)，NET-01～03的离线部分 | 无需设备 |
+| 成员B：wnfhsj（用户已确认，主页查询异常） | 网络月计量、异常边界与展示 | [B任务书](MEMBER-B-NETWORK-ACCOUNTING.md)，NET-01～03的离线部分 | 无需设备 |
+| 成员C：[yh1030](https://github.com/yh1030) | NAS只读兼容、历史导入与幂等 | [C任务书](MEMBER-C-NAS-COMPAT.md)，NAS-01/05/06的离线部分 | 无需设备 |
+| 成员D：最后一位同学，账号待补 | 短信事件同步、对象换代、故障恢复 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，SMS-02～06的离线部分 | 无需设备 |
 
-两名成员均使用自己的GitHub账号和Codex；不用共享负责人账号、Token、NAS地址或SSH材料。旧Claude任务包仅供历史参考，本目录是本轮明确分工。
+四名成员均使用自己的GitHub账号和Codex；不用共享负责人账号、Token、NAS地址或SSH材料。旧Claude任务包仅供历史参考，本目录是本轮明确分工。fungi1220、yh1030的公开主页已核对；wnfhsj账号已由用户再次确认，公开查询仍404，原因未定；不改名、不阻止离线开发，最后一位收到账号后补入member-d。
 
-A/B各8步是交付拆分，映射到原有STAT/NET动作，不向169个项目动作额外加16个，也不重复累加项目预计工时。成员计划区间用于安排本轮工作，实际以交付和复核为准。
+A/B/C/D各8步是交付拆分，映射到原有STAT/NET/NAS/SMS动作，不向169个项目动作额外加32个，也不重复累加项目预计工时。成员计划区间用于安排本轮工作，实际以交付和复核为准。
 
 ## 现在如何提交
 
-默认使用 **fork → 自己的分支 → PR到本仓库main → 主线审核**。这不要求给予上游仓库写权限，也不允许直接向main推送。账号记录和实际GitHub权限分别维护；当前没有因登记姓名而自动邀请协作者、授予Write/Admin或更改分支保护。第二个账号收到后修改稳定成员ID对应的展示名，不新建或合并历史身份。
+默认使用 **fork → 自己的分支 → PR到本仓库main → 主线审核**。这不要求给予上游仓库写权限，也不允许直接向main推送。账号记录和实际GitHub权限分别维护；当前没有因登记姓名而自动邀请协作者、授予Write/Admin或更改分支保护。缺失/更正账号收到后修改稳定成员ID对应的展示名，不新建或合并历史身份。
 
 ```sh
 git clone https://github.com/你的账号/RustSimHub.git
@@ -23,17 +25,21 @@ git remote add upstream https://github.com/Viper-Boss/RustSimHub.git
 git fetch upstream
 git switch -c codex/usage-stats-offline upstream/main   # 成员A
 # 成员B改为：codex/network-accounting-offline
+# 成员C改为：codex/nas-readonly-history
+# 成员D改为：codex/sms-offline-recovery
 git rev-parse HEAD
 # 开发、测试、提交到自己的origin，再创建PR到Viper-Boss/RustSimHub:main
 ```
 
 如果仓库已有克隆/remote/未提交工作，先检查，不能按上述示例强制重置。后续若改为同仓库分支协作，应先核验main保护及审核规则，再由负责人处理最小必要权限；任务书不代替实际权限配置。
 
-## 两条分支如何避免冲突
+## 四条分支如何避免冲突
 
 - A独占新增 `crates/usage-stats/`、相关文档与测试，以及新增该成员所需的workspace/Cargo.lock最小改动。
 - B只改既有 `crates/network-agent/` 和明确列出的网络显示/测试文件，不调整workspace成员、wire协议或Core。
-- 主线继续处理Core、AP、Edge主入口、系统单元、应用签名与设备维护。两位均不修改 `docs/progress/`、本目录的成员/审核数据、HANDOFF顶部或整体百分比；交付证据写各自报告，审核后由主线更新面板。
+- C只改 `crates/compat/`、`tools/nas-adapter/`及本人的文档，不改Core/wire/storage接口。
+- D只改明确列出的storage收件/操作回执及observer测试/最小修正，不改compat、network-agent、统计组件或Core授权/派发。
+- 主线继续处理Core授权/派发、AP、Edge主入口、系统单元、应用签名与设备维护。四位均不修改 `docs/progress/`、本目录的成员/审核数据、HANDOFF顶部或整体百分比；交付证据写各自报告，审核后由主线更新面板。
 - 先交小PR，再继续下一包。合同或数据结构需要共同变化时，先在PR给出具体提案，不能自行将变更扩展到另一个人的范围。
 
 ## 交付与审核

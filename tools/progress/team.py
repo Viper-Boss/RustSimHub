@@ -40,7 +40,9 @@ def classify(name):
 def roster_valid(roster):
     require(roster.get('schema') == 1, 'roster schema')
     members = roster['members']
-    require([m['id'] for m in members] == ['lead', 'member-a', 'member-b'], 'stable three member IDs')
+    ids=[m['id'] for m in members]
+    require(1 <= len(ids) <= 20 and ids[0]=='lead' and len(set(ids))==len(ids)
+            and all(re.fullmatch('member-[a-z]+',value) for value in ids[1:]), 'stable member IDs, lead first')
     aliases = {}
     for member in members:
         login = member['login']
@@ -190,7 +192,9 @@ def snapshot(repo, revision, roster, reviews, prs):
 def validate_snapshot(value, task_ids):
     require(value.get('schema') == 1 and re.fullmatch('[0-9a-f]{40}', value['source_revision']), 'team snapshot source')
     require(set(value) == {'schema','source_revision','generated_at','method','members','unmapped','totals','historical_note'}, 'team snapshot allowlist')
-    require([m['id'] for m in value['members']] == ['lead','member-a','member-b'], 'team snapshot member set')
+    ids=[m['id'] for m in value['members']]
+    require(1 <= len(ids) <= 20 and ids[0]=='lead' and len(set(ids))==len(ids)
+            and all(re.fullmatch('member-[a-z]+',item) for item in ids[1:]), 'team snapshot member set')
     member_keys = {'id','name','login','role','access','package','task_ids','step_ids','handoff','state','estimate_hours','stats','work'}
     for member in value['members']:
         require(set(member) == member_keys, 'public member allowlist')

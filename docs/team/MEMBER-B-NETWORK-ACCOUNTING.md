@@ -1,6 +1,6 @@
 # 成员B任务书：月流量计量和网络信息边界 · 离线实现
 
-执行成员：账号待补，稳定成员ID `member-b`。建议分支 `codex/network-accounting-offline`。预计有效开发6～16小时，仅为计划。主线有真实设备，你没有设备访问任务。
+执行成员：用户已再次确认账号 `wnfhsj`；主页 https://github.com/wnfhsj 当前公开查询返回404，原因未定，账号按用户确认保留；稳定成员ID仍为 `member-b`。建议分支 `codex/network-accounting-offline`。预计有效开发6～16小时，仅为计划。主线有真实设备，你没有设备访问任务；公开主页查询异常不妨碍先阅读和离线开发。
 
 ## 直接给你的Codex
 
