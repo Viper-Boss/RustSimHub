@@ -48,7 +48,7 @@ fn path(dir: &Path, id: &str, suffix: &str) -> Result<PathBuf> {
     }
     Ok(dir.join(format!("station-{id}.{suffix}")))
 }
-fn read<T: serde::de::DeserializeOwned>(path: &Path) -> Result<Option<T>> {
+pub(super) fn read<T: serde::de::DeserializeOwned>(path: &Path) -> Result<Option<T>> {
     match fs::symlink_metadata(path) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(_) => return Err(Error::Io),

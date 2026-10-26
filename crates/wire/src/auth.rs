@@ -145,6 +145,10 @@ pub enum AuthCommand {
     SetupApStatus {
         token: String,
     },
+    SetupApOperationStatus {
+        token: String,
+        request_key_sha256: String,
+    },
     SetupApStart {
         token: String,
         idempotency_key: String,
@@ -677,6 +681,19 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 || idempotency_key.is_empty()
                 || idempotency_key.len() > 128
                 || idempotency_key.chars().any(char::is_control)
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::SetupApOperationStatus {
+            token,
+            request_key_sha256,
+        } => {
+            if token.len() != 64
+                || request_key_sha256.len() != 64
+                || !request_key_sha256
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
             {
                 return Err(invalid());
             }
@@ -1253,5 +1270,18 @@ mod tests {
         assert!(parse_auth_request(&serde_json::to_vec(&status).unwrap()).is_ok());
         status["command"]["commit_id"] = "../no".into();
         assert!(parse_auth_request(&serde_json::to_vec(&status).unwrap()).is_err());
+    }
+    #[test]
+    fn ap_read_only_lookup_rejects_paths_uppercase_and_extra_fields() {
+        let good = serde_json::json!({"protocol":2,"id":"lookup","command":{"op":"setup_ap_operation_status","token":"a".repeat(64),"request_key_sha256":"b".repeat(64)}});
+        assert!(parse_auth_request(&serde_json::to_vec(&good).unwrap()).is_ok());
+        for v in ["../pending".to_owned(), "B".repeat(64), "a".repeat(63)] {
+            let mut bad = good.clone();
+            bad["command"]["request_key_sha256"] = v.into();
+            assert!(parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
+        }
+        let mut bad = good;
+        bad["command"]["path"] = "/etc/profile".into();
+        assert!(parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
     }
 }

@@ -9,10 +9,12 @@ import { SmsManager, smsListText, smsDetailText } from './sms-management.js';
 import { DailyPhone } from './phone.js';
 import { SessionKeeper } from './session.js';
 import { ForwardingPanel, ForwardingQuickTest, pendingInput as forwardingPendingInput } from './forwarding.js';
+import { ApConfigurator, pendingInput as apPendingInput } from './ap-wifi.js';
 const $=id=>document.getElementById(id);
 const scopes=['status.read','sms.read','calls.read'];
 let key, publicKey, token=null, busy=false, pending=null, lease=null;
 let dailyPhone=null;
+let apConfigurator=null;
 let inboxCursor=null, callsCursor=null,smsView=0,smsPreview=0,callsView=0,callsPreview=0;
 let historyCursor=null, historySources=[],historyView=0,historyPreview=0,historySourcesView=0;
 const pageLoads={sms:{id:0,pending:false},calls:{id:0,pending:false},history:{id:0,pending:false}};
@@ -92,7 +94,7 @@ const sessionKeeper=new SessionKeeper({env:globalThis,token:()=>token,apply:(old
  const signature=await proof(c,'session_renew',undefined,epoch,old);active();
  const result=await api({op:'renew_session',token:old,challenge_id:c.id,signature},epoch);current(epoch);active();return result;
 }});
-dailyPhone=new DailyPhone({document,env:globalThis,ensureSession:()=>sessionKeeper.ensure(),audio:audioLink,audioReady:()=>audioReady,context:value=>({token,lease:value}),request:command=>auth(command),getPending:()=>pending,setPending:async value=>{const epoch=viewEpoch;pending=value;await save('pending',value);current(epoch);showPending();},archivePending,archiveKnown:async value=>{const epoch=viewEpoch,receipts=await stored('phone-operation-receipts')||[];current(epoch);if(!Array.isArray(receipts))throw Error('电话回执不可用');await save('phone-operation-receipts',[...receipts.filter(x=>x.id!==value.id),value].slice(-64));current(epoch);},setLease:value=>{lease=value;showAudio();},blocked:()=>busy||callTest.running||!!lease&&!dailyPhone?.managing});
+dailyPhone=new DailyPhone({document,env:globalThis,ensureSession:()=>sessionKeeper.ensure(),audio:audioLink,audioReady:()=>audioReady,context:value=>({token,lease:value}),request:command=>auth(command),getPending:()=>pending,setPending:async value=>{const epoch=viewEpoch;pending=value;await save('pending',value);current(epoch);showPending();},archivePending,archiveKnown:async value=>{const epoch=viewEpoch,receipts=await stored('phone-operation-receipts')||[];current(epoch);if(!Array.isArray(receipts))throw Error('电话回执不可用');await save('phone-operation-receipts',[...receipts.filter(x=>x.id!==value.id),value].slice(-64));current(epoch);},setLease:value=>{lease=value;showAudio();},blocked:()=>busy||apConfigurator?.working||apConfigurator?.managing||callTest.running||!!lease&&!dailyPhone?.managing});
 const networkPanel=new NetworkPanel({document,request:command=>auth(command),getToken:()=>token,runTest:async command=>{
  const epoch=viewEpoch,authToken=token;if(!authToken)throw Error('请先登录');
  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),35000);requests.add(controller);
@@ -118,6 +120,18 @@ async function initialize(){
  key=await stored('key');if(!key){key=await crypto.subtle.generateKey({name:'Ed25519'},false,['sign','verify']);await save('key',key);}
  publicKey=new Uint8Array(await crypto.subtle.exportKey('raw',key.publicKey));
  $('client-key').textContent='浏览器公钥：'+hex(publicKey);$('pin').value=await stored('pin')||'';pending=await stored('pending')||null;showPending();
+ apConfigurator=new ApConfigurator({document,env:globalThis,crypto,request:command=>auth(command),login:()=>login(),getToken:()=>token,
+  blocked:()=>busy||testWorking||callTest.running||!!lease||!!pending||dailyPhone?.working||dailyPhone?.managing,
+  loadPending:()=>stored('ap-wifi-pending'),savePending:(value,expected)=>atomicStored('ap-wifi-pending',saved=>{
+   const old=apPendingInput(saved);if((old?.id??null)!==(expected?.id??null)||(old?.revision??null)!==(expected?.revision??null))throw Error('配网记录已由另一页面更新，请重新查询');return value;
+  }),archivePending:value=>atomicStored('ap-wifi-receipts',saved=>{
+   const record=apPendingInput(value.record);if(!['saved','closed'].includes(value.state))throw Error('配网结果未确认');const records=saved||[];
+   if(!Array.isArray(records)||records.length>32)throw Error('配网回执不可用');const filtered=records.filter(v=>v.record?.id!==record.id);if(filtered.length>=32)filtered.shift();return [...filtered,{record,state:value.state}];
+  })});
+ await apConfigurator.initialize();
+ $('ap-wifi-panel').addEventListener('toggle',()=>{if($('ap-wifi-panel').open)void apConfigurator.open().catch(error=>notice(error.message));else apConfigurator.suspend();});
+ if(globalThis.location?.hostname==='172.31.85.1')document.body.classList.add('ap-setup-view');
+ if(globalThis.location?.hostname==='172.31.85.1'||globalThis.location?.hash==='#ap-wifi-panel'){$('ap-wifi-panel').open=true;await apConfigurator.open();$('ap-wifi-panel').scrollIntoView({block:'start'});}
  $('test-restore-draft').hidden=!await stored('test-center-saved-draft');
  const identity=await api({op:'identity'});$('first-setup').hidden=identity.owner_setup_available!==true;
  try{const response=await fetch('/api/media/capabilities',{credentials:'omit',cache:'no-store',redirect:'error'});const capability=await response.json();audioReady=response.ok&&capability.protocol===1&&capability.enabled===true;}catch{audioReady=false;}
@@ -351,6 +365,7 @@ async function reconcileTestPending(check){
 }
 async function runTestCenter(task){
  if(testWorking||callTest.running)return;
+ if(apConfigurator?.working||apConfigurator?.managing){testMessage('请先在 Wi-Fi 配置区查询或结束当前配置，再开始其他测试。');return;}
  const generation=++testGeneration,epoch=viewEpoch;testWorking=true;testTask=task;
  const check=()=>{current(epoch);if(generation!==testGeneration)throw Error('测试已停止；不会继续提交，已有操作保留核对');};
  showTestControls();
@@ -403,7 +418,7 @@ async function restoreTestDraft(){
  notice('已恢复原草稿，尚未发送；本机备份仍保留。');
 }
 function smsLength(){$('sms-length').textContent=`正文 ${new TextEncoder().encode($('text').value).length} / 4096 字节`;} $('text').oninput=smsLength;
-async function act(fn){if(busy)return;if(dailyPhone?.working||dailyPhone?.managing){notice('请先在电话区结束当前操作或通话');return;}const generation=++actionGeneration,epoch=viewEpoch;busy=true;showPending();try{await fn();}catch(error){if(epoch===viewEpoch&&generation===actionGeneration)notice(error.message||'操作失败');}finally{if(generation===actionGeneration){busy=false;showPending();}}}
+async function act(fn){if(busy)return;if(apConfigurator?.working||apConfigurator?.managing){notice('请先在 Wi-Fi 配置区查询或结束当前配置');return;}if(dailyPhone?.working||dailyPhone?.managing){notice('请先在电话区结束当前操作或通话');return;}const generation=++actionGeneration,epoch=viewEpoch;busy=true;showPending();try{await fn();}catch(error){if(epoch===viewEpoch&&generation===actionGeneration)notice(error.message||'操作失败');}finally{if(generation===actionGeneration){busy=false;showPending();}}}
 function bind(id,fn){$(id).onclick=()=>act(fn);}
 bind('initialize-owner',initializeOwner);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
 bind('sms-login',async()=>{await login();$('sms-management-state').textContent=smsManager.available?'已重新登录，请重新选择短信后管理。':'当前浏览器没有所有者管理权限，请使用已认领的所有者浏览器。';});
@@ -431,7 +446,7 @@ $('audio-muted').onchange=()=>audioLink.mute($('audio-muted').checked);
 bind('audio-play',()=>audioLink.play());
 for(const [id,task] of [['test-check','check'],['test-start','outgoing'],['test-incoming-start','incoming'],['test-sms','sms'],['test-recover','recover']])bind(id,()=>runTestCenter(task));
 bind('test-forwarding',async()=>{
- if(testWorking||callTest.running)return;if(lease){testMessage('请先结束当前通话或释放控制租约，再测试 Bark。');return;}testWorking=true;testTask='forwarding';showTestControls();
+ if(testWorking||callTest.running)return;if(apConfigurator?.working||apConfigurator?.managing){testMessage('请先在 Wi-Fi 配置区查询或结束当前配置，再测试 Bark。');return;}if(lease){testMessage('请先结束当前通话或释放控制租约，再测试 Bark。');return;}testWorking=true;testTask='forwarding';showTestControls();
  try{await forwardingQuick.run();}finally{testWorking=false;showTestControls();}
 });
 $('test-copy').onclick=()=>{void copyTestResult();};
@@ -451,3 +466,5 @@ addEventListener('pagehide',()=>smsManager.reset());
 addEventListener('pagehide',()=>dailyPhone.reset());
 addEventListener('pagehide',()=>sessionKeeper.reset());
 addEventListener('pagehide',()=>forwardingPanel.reset());
+const apPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{apConfigurator?.suspend();apPreviousLogout();};
+addEventListener('pagehide',()=>apConfigurator?.suspend());

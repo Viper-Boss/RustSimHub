@@ -33,7 +33,7 @@ function fixture({respond,onPut,consent=true,loggedIn=true}={}){
   fetch:async(_url,options)=>{const body=JSON.parse(options.body),c=body.command;sent.push(c);const result=respond?await respond(c):c.op==='line_status'?{status:'ready',line:7}:c.op==='prepare_sms'?{id,state:'prepared'}:{id,state};return {ok:true,json:async()=>({protocol:2,id:body.id,result})};},
  };
  context.loginCount=0;
- vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={forwarding:()=>forwardingPanel,runTestCenter,copyTestResult,reconcileTestPending,setAudio:value=>{audioReady=value;showPending();},clearLogin:()=>{token=null;},mockLogin:()=>{login=async()=>{globalThis.loginCount++;token="synthetic-session";};},dailySendSms,submit,query,closeSms,inboxPage,act,showPending,loginAs:()=>{token="synthetic-session";},setDb:value=>{db=value;},setPending:value=>{pending=value;showPending();},pending:()=>pending,logout:()=>$("logout").onclick()};',context);
+ vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={setAp:value=>{apConfigurator=value;},forwarding:()=>forwardingPanel,runTestCenter,copyTestResult,reconcileTestPending,setAudio:value=>{audioReady=value;showPending();},clearLogin:()=>{token=null;},mockLogin:()=>{login=async()=>{globalThis.loginCount++;token="synthetic-session";};},dailySendSms,submit,query,closeSms,inboxPage,act,showPending,loginAs:()=>{token="synthetic-session";},setDb:value=>{db=value;},setPending:value=>{pending=value;showPending();},pending:()=>pending,logout:()=>$("logout").onclick()};',context);
  context.fixture.setDb({transaction(){
   const tx={abort(){this.onabort?.();}};tx.objectStore=()=>({get:key=>{const request={};queueMicrotask(()=>{request.result=saved.get(key);request.onsuccess?.();});return request;},put:(value,key)=>{
    const snapshot=structuredClone(value);const completion=onPut?.(key,snapshot);queueMicrotask(async()=>{try{await completion;saved.set(key,snapshot);tx.oncomplete?.();}catch{tx.onerror?.();}});
@@ -173,3 +173,14 @@ console.log('PASS: visible five-task center, collapsed panels, automatic login, 
  assert.ok(f.sent.every(c=>!['set_forwarding_enabled','forwarding_configure','submit_sms','submit_call'].includes(c.op)));
 }
 console.log('PASS: actual homepage Bark button, automatic Owner login, shared IndexedDB reservation, exact quick-test archive and copy result; no switch/config/SMS/call writes.');
+
+// The real app gates all one-click tests while an AP transaction is unresolved.
+for(const state of [{working:true,managing:false},{working:false,managing:true}]){
+ const f=fixture();f.setAp(state);
+ for(const name of ['test-start','test-sms','test-forwarding']){
+  await f.$(name).onclick();assert.equal(f.sent.length,0);assert.equal(f.starts.length,0);
+  assert.match(f.$('notice').textContent+f.$('test-state').textContent,/Wi-Fi 配置区/);
+ }
+ let ran=false;await f.act(async()=>{ran=true;});assert.equal(ran,false);
+ await f.runTestCenter('sms');assert.match(f.$('test-state').textContent,/Wi-Fi 配置区/);assert.equal(f.sent.length,0);
+}

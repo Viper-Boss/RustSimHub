@@ -551,6 +551,15 @@ fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/ap-wifi.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/ap-wifi.js"),
+                )
+            }),
+        )
+        .route(
             "/style.css",
             get(|| async {
                 (

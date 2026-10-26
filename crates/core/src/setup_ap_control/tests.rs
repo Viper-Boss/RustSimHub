@@ -40,6 +40,56 @@ fn idle() -> NoCalls {
         fail: false,
     }
 }
+#[tokio::test]
+async fn operation_lookup_is_read_only_exact_and_retains_closed_proof_after_runtime_restart() {
+    let f = fixture();
+    let key = "lookup-parent";
+    let started = f
+        .runtime
+        .start(f.auth.clone(), f.token.clone(), key.into(), &idle())
+        .await
+        .unwrap();
+    assert_eq!(started["request_key_sha256"], hash(key.as_bytes()));
+    let before = f.runtime.input.read(Slot::Hint).unwrap().unwrap();
+    let v = f
+        .runtime
+        .operation_status(f.auth.clone(), f.token.clone(), hash(key.as_bytes()))
+        .await
+        .unwrap();
+    assert_eq!(v["operation_id"], started["operation_id"]);
+    assert_eq!(v["known"], true);
+    assert_eq!(f.runtime.input.read(Slot::Hint).unwrap().unwrap(), before);
+    root_status(&f, State::Closed, |_| {});
+    f.runtime.tick(f.auth.clone(), &idle()).await.unwrap();
+    let runtime = Runtime::with_coordination(
+        f.runtime.input.clone(),
+        f.runtime.output.clone(),
+        f.runtime.journal.clone(),
+        Arc::new(crate::coordination::Coordination::default()),
+    )
+    .unwrap();
+    let v = runtime
+        .operation_status(f.auth.clone(), f.token.clone(), hash(key.as_bytes()))
+        .await
+        .unwrap();
+    assert_eq!(v["state"], "closed");
+    assert_eq!(v["historical"], true);
+    assert_eq!(v["operation_id"], started["operation_id"]);
+    let absent = runtime
+        .operation_status(f.auth.clone(), f.token.clone(), "f".repeat(64))
+        .await
+        .unwrap();
+    assert_eq!(absent["known"], false);
+    assert_eq!(absent["not_found_is_not_proof"], true);
+    assert!(runtime
+        .operation_status(f.auth.clone(), f.token.clone(), "../intent".into())
+        .await
+        .is_err());
+    assert!(runtime
+        .operation_status(f.auth.clone(), "0".repeat(64), hash(key.as_bytes()))
+        .await
+        .is_err());
+}
 pub(super) fn fixture() -> Fixture {
     let data = directory(0o700);
     let identity = directory(0o700);
@@ -203,6 +253,11 @@ async fn delegated_or_missing_permissions_and_root_readiness_never_publish_a_sta
             .expose()
             .to_owned()
     };
+    assert!(f
+        .runtime
+        .operation_status(f.auth.clone(), token.clone(), "f".repeat(64))
+        .await
+        .is_err());
     assert!(f
         .runtime
         .start(f.auth.clone(), token, "no".into(), &idle())

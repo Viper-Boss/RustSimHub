@@ -270,6 +270,21 @@ async fn root_ack_scrubs_password_and_complete_saved_proof_releases_parent_then_
         .unwrap();
     assert_eq!(v["state"], "saved");
     assert_eq!(v["historical"], true);
+    let parent = runtime
+        .operation_status(
+            f.auth.clone(),
+            f.token.clone(),
+            load(&f.runtime.journal, COMMIT)
+                .unwrap()
+                .unwrap()
+                .trial
+                .parent_key_sha256,
+        )
+        .await
+        .unwrap();
+    assert_eq!(parent["state"], "closed");
+    assert_eq!(parent["completion_saved"], true);
+    assert_eq!(parent["historical"], true);
     assert_eq!(confirm(&f, COMMIT, PASS).await.unwrap()["state"], "saved");
     assert!(f
         .runtime

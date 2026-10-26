@@ -148,6 +148,21 @@ pub(in crate::setup_ap_control) fn recover(
     }
     Ok(())
 }
+pub(in crate::setup_ap_control) fn parent_committed(
+    dir: &Path,
+    parent: &super::super::Record,
+) -> Result<bool> {
+    let proof: Option<Saved> = read(&dir.join(format!("{}.committed", parent.key_sha256)))?;
+    let Some(proof) = proof else {
+        return Ok(false);
+    };
+    validate(&proof.record)?;
+    check_saved(&proof, &proof.record)?;
+    if proof.root.phase != CommitPhase::Saved || !parent_matches(&proof.record, parent) {
+        return Err(Error::Forbidden);
+    }
+    Ok(true)
+}
 fn owned(c: &Context, r: &Record, operation: &str) -> Result<()> {
     super::owned(c, &r.trial, operation)
 }

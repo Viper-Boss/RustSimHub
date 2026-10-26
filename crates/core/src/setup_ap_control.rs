@@ -254,6 +254,9 @@ impl Runtime {
     }
     fn view(s: &Session) -> Value {
         json!({"available":true,"operation_id":s.record.binding.request_id,"state":s.phase,
+            "request_key_sha256":s.record.key_sha256,
+            "station_trial_api":s.station_supported&&!s.cancelled&&s.phase==State::Ready,
+            "station_save_api":s.save_supported&&!s.cancelled&&s.phase==State::Ready,
             "expires_in_seconds":s.record.binding.deadline_uptime_ms.saturating_sub(now().unwrap_or(u64::MAX))/1000,
             "wifi_only":true,"cellular_activation":false,"credentials_returned":false,"completion_saved":s.committed})
     }
@@ -291,8 +294,62 @@ impl Runtime {
         if let Some(view) = self.bootstrap.view()? {
             return Ok(view);
         }
+        let available = self.availability(&c).ok();
         Ok(
-            json!({"available":self.availability(&c).is_ok(),"station_trial_api":self.availability(&c).is_ok_and(|v|v.station_trial_supported),"state":"idle","credentials_returned":false,"cellular_activation":false}),
+            json!({"available":available.is_some(),"station_trial_api":available.as_ref().is_some_and(|v|v.station_trial_supported),"station_save_api":available.as_ref().is_some_and(|v|v.station_save_supported),"state":"idle","credentials_returned":false,"cellular_activation":false}),
+        )
+    }
+    async fn operation_status(
+        &self,
+        auth: Arc<Mutex<Auth>>,
+        token: String,
+        digest: String,
+    ) -> Result<Value> {
+        let c = owner(auth, token, false).await?;
+        if digest.len() != 64
+            || !digest
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        {
+            return Err(Error::InvalidInput);
+        }
+        let Some(record) = Self::read_record(&self.journal.join(format!("{digest}.intent")))?
+        else {
+            return Ok(
+                json!({"known":false,"request_key_sha256":digest,"state":"not_found","not_found_is_not_proof":true}),
+            );
+        };
+        if record.key_sha256 != digest
+            || record.owner != Owner::from(&c.principal)
+            || record.binding.realm != c.realm
+            || record.binding.device_key_sha256 != c.key
+        {
+            return Err(Error::Forbidden);
+        }
+        let active = self.session.try_lock().map_err(|_| Error::Busy)?;
+        if let Some(s) = active.as_ref().filter(|s| s.record.key_sha256 == digest) {
+            let mut view = Self::view(s);
+            view["known"] = true.into();
+            view["historical"] = false.into();
+            if station::commit::pending(&self.journal)?.is_some() {
+                view["station_trial_api"] = false.into();
+                view["station_save_api"] = false.into();
+            }
+            return Ok(view);
+        }
+        let closed: Option<Status> = station::read(&self.journal.join(format!("{digest}.closed")))?;
+        let rolled_back = if let Some(proof) = closed {
+            denied(proof.validate(&record.binding, proof.sample_uptime_ms))?;
+            if proof.state != State::Closed {
+                return Err(Error::Forbidden);
+            }
+            true
+        } else {
+            false
+        };
+        let committed = station::commit::parent_committed(&self.journal, &record)?;
+        Ok(
+            json!({"known":true,"request_key_sha256":digest,"operation_id":record.binding.request_id,"state":if rolled_back||committed {"closed"}else{"unknown"},"historical":true,"completion_saved":committed,"station_trial_api":false,"station_save_api":false,"credentials_returned":false,"cellular_activation":false,"expires_in_seconds":0}),
         )
     }
     async fn start(
@@ -687,6 +744,7 @@ pub(crate) async fn authorized(
 ) -> Result<Value> {
     let (token, recent) = match &command {
         AuthCommand::SetupApStatus { token }
+        | AuthCommand::SetupApOperationStatus { token, .. }
         | AuthCommand::SetupApWifiStatus { token, .. }
         | AuthCommand::SetupApWifiCommitStatus { token, .. } => (token.clone(), false),
         AuthCommand::SetupApStart { token, .. }
@@ -736,6 +794,14 @@ pub(crate) async fn authorized(
                 .await
         }
         AuthCommand::SetupApStatus { token } => runtime.status(auth, token).await,
+        AuthCommand::SetupApOperationStatus {
+            token,
+            request_key_sha256,
+        } => {
+            runtime
+                .operation_status(auth, token, request_key_sha256)
+                .await
+        }
         AuthCommand::SetupApStart {
             token,
             idempotency_key,
