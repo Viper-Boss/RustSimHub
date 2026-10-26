@@ -145,6 +145,7 @@ impl Management {
         value["available"] = true.into();
         value["configuration_api"] = true.into();
         value["rules_revision"] = rustsimhub_forwarder::RULES_REVISION.into();
+        value["history_api"] = true.into();
         value["retained_credentials_api"] = true.into();
         value["request_receipt_api"] = true.into();
         value["synthetic_test_api"] = true.into();
@@ -167,6 +168,9 @@ impl Management {
                     | AuthCommand::ForwardingConfigure { .. }
                     | AuthCommand::ForwardingTest { .. }
                     | AuthCommand::ForwardingPrune { .. }
+                    | AuthCommand::ForwardingHistoryPrepare { .. }
+                    | AuthCommand::ForwardingHistoryCommit { .. }
+                    | AuthCommand::ForwardingHistoryCancel { .. }
             )
         {
             return Err(Error::Busy);
@@ -329,6 +333,59 @@ impl Management {
                 let pruned = denied(q.prune_terminal(&b, generation, through))?;
                 denied(b.check_current(auth))?;
                 json!({"pruned":pruned,"unknown_preserved":true})
+            }
+            AuthCommand::ForwardingHistoryPrepare {
+                token,
+                expected_generation,
+                request_id,
+                range,
+            } => {
+                let binding = denied(Binding::from_recent_owner(auth, &token))?;
+                let range = serde_json::from_value(range).map_err(|_| Error::InvalidInput)?;
+                let reader = self.reader.clone();
+                let q = self.existing(binding)?.ok_or(Error::Forbidden)?;
+                let receipt = denied(q.prepare_history_owner(
+                    auth,
+                    &reader,
+                    &token,
+                    expected_generation,
+                    &request_id,
+                    range,
+                ))?;
+                serde_json::to_value(receipt).map_err(|_| Error::Forbidden)?
+            }
+            AuthCommand::ForwardingHistoryCommit {
+                token,
+                expected_generation,
+                request_id,
+                accept_full_text,
+            } => {
+                let binding = denied(Binding::from_recent_owner(auth, &token))?;
+                let reader = self.reader.clone();
+                let q = self.existing(binding)?.ok_or(Error::Forbidden)?;
+                let receipt = denied(q.commit_history_owner(
+                    auth,
+                    &reader,
+                    &token,
+                    expected_generation,
+                    &request_id,
+                    accept_full_text,
+                ))?;
+                serde_json::to_value(receipt).map_err(|_| Error::Forbidden)?
+            }
+            AuthCommand::ForwardingHistoryCancel { token, request_id } => {
+                let binding = denied(Binding::from_recent_owner(auth, &token))?;
+                let q = self.existing(binding)?.ok_or(Error::Forbidden)?;
+                let receipt = denied(q.cancel_history_owner(auth, &token, &request_id))?;
+                serde_json::to_value(receipt).map_err(|_| Error::Forbidden)?
+            }
+            AuthCommand::ForwardingHistoryRequest { token, request_id } => {
+                let binding = denied(Binding::from_owner(auth, &token))?;
+                let receipt = match self.existing(binding)? {
+                    Some(q) => denied(q.history_receipt_owner(auth, &token, &request_id))?,
+                    None => None,
+                };
+                json!({"known":receipt.is_some(),"request_id":request_id,"receipt":receipt,"not_found_is_not_proof":true})
             }
             _ => return Err(Error::Forbidden),
         })

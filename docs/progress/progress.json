@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-26T22:02:19.778071+00:00",
+  "updated_at": "2026-10-26T22:23:21.227324+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -69,7 +69,7 @@
   "focus": {
     "task_id": "FWD-12",
     "title": "显式历史补发事务",
-    "state": "正在推进",
+    "state": "正在执行；完成后附证据",
     "description": "先做范围、数量、目标及正文模式的有限预览；Owner确认后唯一入队，关闭总开关不隐式开启，旧代次/取消/Unknown不重放。"
   },
   "facts": [
@@ -4717,6 +4717,18 @@
         "FWD-12"
       ],
       "evidence": []
+    },
+    {
+      "at": "2026-10-26T22:23:21.227324+00:00",
+      "type": "state",
+      "title": "FWD-12 · 状态更新：显式历史补发事务",
+      "detail": "历史补发Owner/Core/持久队列后端与249项隔离检查通过：有限预览、唯一确认、整批回滚、取消/重启过期和Unknown防重。格式3迁移已测；网页/浏览器回执、有限归档、生产ARM及精确CI待完成，未部署或外发。",
+      "task_ids": [
+        "FWD-12"
+      ],
+      "evidence": [
+        "docs/VALIDATION-FORWARDING-HISTORY-X1V.md"
+      ]
     }
   ],
   "team": {

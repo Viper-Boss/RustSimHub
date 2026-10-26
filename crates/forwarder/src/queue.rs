@@ -16,8 +16,10 @@ use std::{
 use uuid::Uuid;
 
 const APP_ID: i64 = 0x52534657;
-const FORMAT: i64 = 2;
+const FORMAT: i64 = 3;
 type CachedPolicy = ([u8; 32], Arc<Policy>);
+mod history;
+pub use history::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -93,6 +95,7 @@ pub struct Queue {
     binding: Binding,
     probe: Option<Probe>,
     policy_cache: RefCell<Option<CachedPolicy>>,
+    history_deadlines: std::collections::HashMap<String, Instant>,
 }
 struct Probe {
     id: String,
@@ -214,7 +217,7 @@ impl Queue {
             if app != 0 || objects != 0 || requested.is_none() {
                 return Err(Error::Forbidden);
             }
-        } else if ![1, FORMAT].contains(&version) || app != APP_ID {
+        } else if ![1, 2, FORMAT].contains(&version) || app != APP_ID {
             return Err(Error::Forbidden);
         }
         let binding = match requested {
@@ -244,6 +247,7 @@ impl Queue {
 CREATE TABLE requests(seq INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT NOT NULL UNIQUE,digest BLOB NOT NULL CHECK(length(digest)=32),generation INTEGER NOT NULL) STRICT;
 CREATE TABLE jobs(seq INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT NOT NULL UNIQUE,message_id TEXT NOT NULL,target_id TEXT NOT NULL,rule_id TEXT NOT NULL,generation INTEGER NOT NULL,line INTEGER NOT NULL,state TEXT NOT NULL CHECK(state IN('queued','in_flight','confirmed','failed','unknown','cancelled')),attempt_id TEXT,request TEXT,purpose TEXT NOT NULL DEFAULT 'sms' CHECK(purpose IN('sms','test')),UNIQUE(message_id,target_id,generation)) STRICT;
 CREATE INDEX pending ON jobs(state,seq);")?;
+            tx.execute_batch(history::SCHEMA)?;
             tx.execute(
                 "INSERT INTO meta VALUES(1,?,0,0,0,?)",
                 params![
@@ -268,9 +272,12 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         }
         // Binding and integrity checks precede migration. Existing delivery
         // bodies/cursors are untouched; version 1 cannot interpret new tests.
-        if version == 1 {
+        if version == 1 || version == 2 {
             let tx = conn.transaction()?;
-            tx.execute_batch("ALTER TABLE jobs ADD COLUMN purpose TEXT NOT NULL DEFAULT 'sms' CHECK(purpose IN('sms','test'));")?;
+            if version == 1 {
+                tx.execute_batch("ALTER TABLE jobs ADD COLUMN purpose TEXT NOT NULL DEFAULT 'sms' CHECK(purpose IN('sms','test'));")?;
+            }
+            tx.execute_batch(history::SCHEMA)?;
             tx.pragma_update(None, "user_version", FORMAT)?;
             tx.commit()?;
         }
@@ -282,12 +289,18 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         // A temporary OFF-state probe never resumes after Core restarts.
         // Ordinary policy and its cursor remain unchanged.
         conn.execute("UPDATE jobs SET state='cancelled',request=NULL WHERE state='queued' AND purpose='test' AND (SELECT enabled FROM meta WHERE singleton=1)=0", [])?;
+        // A restart can only expire unconfirmed previews, never enqueue them.
+        conn.execute(
+            "UPDATE history_batches SET state='expired' WHERE state='prepared'",
+            [],
+        )?;
         let q = Self {
             conn,
             _lock: lock,
             binding,
             probe: None,
             policy_cache: RefCell::new(None),
+            history_deadlines: std::collections::HashMap::new(),
         };
         q.meta()?;
         File::open(directory)?.sync_all()?;
@@ -473,6 +486,10 @@ CREATE INDEX pending ON jobs(state,seq);")?;
             [],
         )?;
         tx.execute(
+            "UPDATE history_batches SET state='cancelled' WHERE state='prepared'",
+            [],
+        )?;
+        tx.execute(
             "UPDATE meta SET generation=?,enabled=?,cursor=?,policy=? WHERE singleton=1",
             params![next as i64, policy.enabled, seq, encoded],
         )?;
@@ -486,6 +503,7 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         tx.commit()?;
         // Drop cached old credentials/compiled filters on a committed change.
         self.policy_cache.get_mut().take();
+        self.history_deadlines.clear();
         Ok(next)
     }
     pub fn event_cursor(&self) -> Result<InboxCursor> {

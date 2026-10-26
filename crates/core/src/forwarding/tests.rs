@@ -10,6 +10,7 @@ use rustsimhub_storage::{IncomingSms, LineObservation, LineStatus, Store};
 use rustsimhub_wire::{AuthRequest, Response, AUTH_PROTOCOL};
 use std::os::unix::fs::{symlink, PermissionsExt};
 use tokio::net::UnixStream;
+mod history;
 
 pub(super) const REQUEST: &str = "11111111-1111-4111-8111-111111111111";
 pub(super) const CHANGE: &str = "22222222-2222-4222-8222-222222222222";

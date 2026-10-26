@@ -976,7 +976,7 @@ fn format_one_migrates_only_after_binding_validation_preserving_sms_and_unknown(
         q.conn
             .pragma_query_value::<i64, _>(None, "user_version", |r| r.get(0))
             .unwrap(),
-        2
+        FORMAT
     );
     assert_eq!(q.event_cursor().unwrap().seq, "6");
     let receipts = q.receipts(0, 32).unwrap();
@@ -990,6 +990,50 @@ fn format_one_migrates_only_after_binding_validation_preserving_sms_and_unknown(
         serde_json::to_string(&claim.request).unwrap()
     );
     assert!(payload.contains("sms_received"));
+}
+
+#[test]
+fn format_two_gains_history_metadata_only_after_owner_validation_and_preserves_old_claims() {
+    let (d, mut q) = enabled();
+    q.ingest(&binding(), 1, head(6), Some(&message())).unwrap();
+    let claim = q.claim(&binding(), 1, LineEpoch(2)).unwrap().unwrap();
+    let payload = serde_json::to_string(&claim.request).unwrap();
+    q.conn
+        .execute_batch("DROP TABLE history_batches; PRAGMA user_version=2;")
+        .unwrap();
+    drop(q);
+    let mut wrong = binding();
+    wrong.owner_generation += 1;
+    assert!(Queue::open(d.path(), wrong).is_err());
+    let db = Connection::open(d.path().join("outbox.sqlite3")).unwrap();
+    assert_eq!(
+        db.pragma_query_value::<i64, _>(None, "user_version", |r| r.get(0))
+            .unwrap(),
+        2
+    );
+    drop(db);
+    let q = Queue::open(d.path(), binding()).unwrap();
+    assert_eq!(
+        q.conn
+            .pragma_query_value::<i64, _>(None, "user_version", |r| r.get(0))
+            .unwrap(),
+        3
+    );
+    assert_eq!(q.receipts(0, 32).unwrap()[0].state, State::Unknown);
+    assert_eq!(
+        q.conn
+            .query_row::<String, _, _>("SELECT request FROM jobs WHERE id=?", [claim.id], |r| r
+                .get(0))
+            .unwrap(),
+        payload
+    );
+    assert_eq!(q.event_cursor().unwrap().seq, "6");
+    assert_eq!(
+        q.conn
+            .query_row::<i64, _, _>("SELECT count(*) FROM history_batches", [], |r| r.get(0))
+            .unwrap(),
+        0
+    );
 }
 
 #[test]

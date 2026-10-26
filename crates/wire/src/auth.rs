@@ -65,6 +65,26 @@ pub enum AuthCommand {
         generation: u64,
         through: String,
     },
+    ForwardingHistoryPrepare {
+        token: String,
+        expected_generation: u64,
+        request_id: String,
+        range: serde_json::Value,
+    },
+    ForwardingHistoryCommit {
+        token: String,
+        expected_generation: u64,
+        request_id: String,
+        accept_full_text: bool,
+    },
+    ForwardingHistoryCancel {
+        token: String,
+        request_id: String,
+    },
+    ForwardingHistoryRequest {
+        token: String,
+        request_id: String,
+    },
     ConfigurationIndicator {
         token: String,
         view_id: String,
@@ -418,6 +438,8 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
             }
         }
         AuthCommand::ForwardingRequest { token, request_id }
+        | AuthCommand::ForwardingHistoryCancel { token, request_id }
+        | AuthCommand::ForwardingHistoryRequest { token, request_id }
         | AuthCommand::ForwardingTestRequest { token, request_id } => {
             if token.len() != 64 || !canonical_uuid(request_id) {
                 return Err(invalid());
@@ -454,6 +476,35 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 || *expected_generation >= i64::MAX as u64
                 || !canonical_uuid(request_id)
                 || !policy.is_object()
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ForwardingHistoryPrepare {
+            token,
+            expected_generation,
+            request_id,
+            range,
+        } => {
+            if token.len() != 64
+                || *expected_generation == 0
+                || *expected_generation > i64::MAX as u64
+                || !canonical_uuid(request_id)
+                || !range.is_object()
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ForwardingHistoryCommit {
+            token,
+            expected_generation,
+            request_id,
+            ..
+        } => {
+            if token.len() != 64
+                || *expected_generation == 0
+                || *expected_generation > i64::MAX as u64
+                || !canonical_uuid(request_id)
             {
                 return Err(invalid());
             }
@@ -1283,5 +1334,40 @@ mod tests {
         let mut bad = good;
         bad["command"]["path"] = "/etc/profile".into();
         assert!(parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
+    }
+    #[test]
+    fn historical_forwarding_commands_reject_unsafe_identifiers_generations_and_authority_overrides(
+    ) {
+        let valid = serde_json::json!({"protocol":2,"id":"history","command":{"op":"forwarding_history_prepare","token":"a".repeat(64),"expected_generation":1,"request_id":"11111111-1111-4111-8111-111111111111","range":{"after":null,"limit":16,"targets":["22222222-2222-4222-8222-222222222222"]}}});
+        assert!(parse_auth_request(&serde_json::to_vec(&valid).unwrap()).is_ok());
+        for (key, value) in [
+            ("request_id", serde_json::json!("../outbox")),
+            ("expected_generation", serde_json::json!(0)),
+            ("owner_generation", serde_json::json!(1)),
+            ("path", serde_json::json!("/run/worker")),
+        ] {
+            let mut bad = valid.clone();
+            bad["command"][key] = value;
+            assert!(parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
+        }
+        let mut commit = valid.clone();
+        commit["command"]["op"] = "forwarding_history_commit".into();
+        commit["command"].as_object_mut().unwrap().remove("range");
+        assert!(parse_auth_request(&serde_json::to_vec(&commit).unwrap()).is_err());
+        commit["command"]["accept_full_text"] = false.into();
+        assert!(parse_auth_request(&serde_json::to_vec(&commit).unwrap()).is_ok());
+        for op in ["forwarding_history_cancel", "forwarding_history_request"] {
+            let mut command = commit.clone();
+            command["command"]["op"] = op.into();
+            command["command"]
+                .as_object_mut()
+                .unwrap()
+                .remove("expected_generation");
+            command["command"]
+                .as_object_mut()
+                .unwrap()
+                .remove("accept_full_text");
+            assert!(parse_auth_request(&serde_json::to_vec(&command).unwrap()).is_ok());
+        }
     }
 }
