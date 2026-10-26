@@ -115,11 +115,11 @@
     },
     {
       "id": "member-d",
-      "name": "成员D · 账号待补",
-      "login": null,
+      "name": "RedamancyGTW",
+      "login": "RedamancyGTW",
       "git_names": [],
       "role": "短信同步 / 对象换代 / 故障恢复 · 离线回归",
-      "access": "待登记账号；默认fork + PR",
+      "access": "用户已提供账号；公开查询暂404，默认fork + PR，未新增上游写权限",
       "package": "事件同步与对象生命周期 → 内容、候选与提交恢复",
       "task_ids": [
         "SMS-02",

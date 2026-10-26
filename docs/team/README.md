@@ -8,9 +8,9 @@
 | 成员A：[fungi1220](https://github.com/fungi1220) | NKN活跃安装统计的独立Rust组件 | [A任务书](MEMBER-A-USAGE-STATS.md)，STAT-01～07的离线部分 | 无需设备 |
 | 成员B：wnfhsj（用户已确认，主页查询异常） | 网络月计量、异常边界与展示 | [B任务书](MEMBER-B-NETWORK-ACCOUNTING.md)，NET-01～03的离线部分 | 无需设备 |
 | 成员C：[yh1030](https://github.com/yh1030) | NAS只读兼容、历史导入与幂等 | [C任务书](MEMBER-C-NAS-COMPAT.md)，NAS-01/05/06的离线部分 | 无需设备 |
-| 成员D：最后一位同学，账号待补 | 短信事件同步、对象换代、故障恢复 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，SMS-02～06的离线部分 | 无需设备 |
+| [RedamancyGTW](https://github.com/RedamancyGTW)，成员D | 短信事件同步、对象换代、故障恢复 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，SMS-02～06的离线部分 | 无需设备 |
 
-四名成员均使用自己的GitHub账号和Codex；不用共享负责人账号、Token、NAS地址或SSH材料。旧Claude任务包仅供历史参考，本目录是本轮明确分工。fungi1220、yh1030的公开主页已核对；wnfhsj账号已由用户再次确认，公开查询仍404，原因未定；不改名、不阻止离线开发，最后一位收到账号后补入member-d。
+四名成员均使用自己的GitHub账号和Codex；不用共享负责人账号、Token、NAS地址或SSH材料。旧Claude任务包仅供历史参考，本目录是本轮明确分工。fungi1220、yh1030的公开主页已核对；wnfhsj账号已由用户再次确认，公开查询仍404，原因未定。最后一位现已登记为RedamancyGTW，其公开API查询也暂返回404；均按用户给定账号保留，不改名、不阻止离线开发，不把登记账号冒充实际授权。
 
 A/B/C/D各8步是交付拆分，映射到原有STAT/NET/NAS/SMS动作，不向169个项目动作额外加32个，也不重复累加项目预计工时。成员计划区间用于安排本轮工作，实际以交付和复核为准。
 

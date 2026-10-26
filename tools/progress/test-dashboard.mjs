@@ -27,7 +27,7 @@ const revised=structuredClone(data),candidate=revised.modules.filter(m=>m.scope!
 if(candidate){candidate.status='done';assert.equal(calculate(revised).original,stats.original);assert.equal(calculate(revised).done,stats.done+1);assert.ok(calculate(revised).weighted>stats.weighted);}
 console.log('Dashboard calculation/filter/dependency/estimate/escaping/handoff checks passed.');
 const cards=teamHTML(data.team);
-assert.ok(cards.includes('fungi1220'));assert.ok(cards.includes('wnfhsj'));assert.ok(cards.includes('yh1030'));assert.ok(cards.includes('成员D'));
+assert.ok(cards.includes('fungi1220'));assert.ok(cards.includes('wnfhsj'));assert.ok(cards.includes('yh1030'));assert.ok(cards.includes('RedamancyGTW'));
 assert.ok(cards.includes('未填报'));assert.ok(cards.includes('0 / 8'));
 assert.equal((cards.match(/<article/g)||[]).length,5);
 const hostile=structuredClone(data.team);hostile.members[1].name='<img src=x onerror=bad>';

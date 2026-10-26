@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-26T12:51:14.893514+00:00",
+  "updated_at": "2026-10-26T12:57:25.346786+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -4578,8 +4578,8 @@
   ],
   "team": {
     "schema": 1,
-    "source_revision": "70313dbd58ed60e1d978061b59643438ac60db19",
-    "generated_at": "2026-10-26T11:47:25.091252+00:00",
+    "source_revision": "c00d5c69bb4c1f65d2403ff0112e01b64ae24dfa",
+    "generated_at": "2026-10-26T12:57:25.346786+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -4598,15 +4598,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 46250,
-            "tests": 24944,
-            "tooling": 8701,
-            "firmware": 1102
+            "product": 46323,
+            "tests": 24975,
+            "tooling": 8709,
+            "firmware": 1107
           },
-          "commits": 304,
-          "code_commits": 210,
-          "added": 84855,
-          "deleted": 2075
+          "commits": 307,
+          "code_commits": 213,
+          "added": 85010,
+          "deleted": 2107
         },
         "work": {
           "assigned_steps": 0,
@@ -4772,10 +4772,10 @@
       },
       {
         "id": "member-d",
-        "name": "成员D · 账号待补",
-        "login": null,
+        "name": "RedamancyGTW",
+        "login": "RedamancyGTW",
         "role": "短信同步 / 对象换代 / 故障恢复 · 离线回归",
-        "access": "待登记账号；默认fork + PR",
+        "access": "用户已提供账号；公开查询暂404，默认fork + PR，未新增上游写权限",
         "package": "事件同步与对象生命周期 → 内容、候选与提交恢复",
         "task_ids": [
           "SMS-02",
@@ -4834,10 +4834,10 @@
       "deleted": 0
     },
     "totals": {
-      "product": 46250,
-      "tests": 24944,
-      "tooling": 8701,
-      "firmware": 1102
+      "product": 46323,
+      "tests": 24975,
+      "tooling": 8709,
+      "firmware": 1107
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。"
   }

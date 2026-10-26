@@ -1,5 +1,7 @@
 # T2：四位离线成员和五人贡献面板
 
+后续登记：用户现已提供最后一位同学账号RedamancyGTW，已按稳定ID member-d更新任务书、名册与面板，见[T3](VALIDATION-TEAM-LAST-ACCOUNT-T3.md)。下文保留扩展当时的核对记录。
+
 2026-10-26。用户增加两位成员，并提供现有同学账号；承接[T1](VALIDATION-TEAM-COLLABORATION-T1.md)，不覆盖原分工和Git历史。
 
 | 稳定ID | 用户提供账号 | 任务 |

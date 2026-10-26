@@ -1,6 +1,6 @@
 # 成员D任务书：短信同步、对象换代与故障恢复 · 离线开发
 
-执行成员：第二位同学，GitHub主页待补；稳定ID `member-d`。建议分支 `codex/sms-offline-recovery`。预计有效开发8～20小时，分两批PR；不需要SIM或设备。
+执行成员：[RedamancyGTW](https://github.com/RedamancyGTW)，用户已提供账号；稳定ID `member-d`。2026-10-26公开API查询暂返回404，按用户给定拼写登记，不影响离线开发；默认本人fork分支提交PR，未自动修改上游权限。建议分支 `codex/sms-offline-recovery`。预计有效开发8～20小时，分两批PR；不需要SIM或设备。
 
 ## 直接给你的Codex
 
