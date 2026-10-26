@@ -20,14 +20,14 @@ class Element{
  setAttribute(k,v){this.attributes[k]=v;}
  set innerHTML(_){throw Error('Never parse untrusted content as HTML');}
 }
-async function fixture({record=null,hook=null,loginHook=null,storageError=false,blocked=false,created=false,archiveError=false}={}){
+async function fixture({record=null,hook=null,loginHook=null,storageError=false,blocked=false,created=false,bootstrap=false,archiveError=false}={}){
  const elements=new Map(ids.map(id=>[id,new Element()])),calls=[],archives=[];let storage=clone(record),authenticated=false,now=0,phase='ready',failWrite=false;
  const parent=()=>({known:true,available:true,request_key_sha256:storage?.request_key_sha256||HASH,operation_id:OP,state:phase,credentials_returned:false,cellular_activation:false,completion_saved:false,station_trial_api:phase==='ready',station_save_api:phase==='ready'});
  const trial=(c,state='ready',extra={})=>({known:true,operation_id:OP,trial_id:c.trial_id,state,authoritative_result:state!=='testing'&&state!=='unknown',ap_return_verified:['ready','failed','cancelled'].includes(state),requires_confirmation:state==='ready',settings_saved:false,credentials_returned:false,cellular_activation:false,...extra});
  const commit=(c,state='saved',extra={})=>({known:true,operation_id:OP,trial_id:storage.commits.find(v=>v.id===c.commit_id)?.trial_id,commit_id:c.commit_id,state,settings_saved:state==='saved',authoritative_result:['saved','restored_ap','unknown'].includes(state),credentials_returned:false,cellular_activation:false,not_resubmitted:true,...extra});
  const defaults=async c=>{
   switch(c.op){
-   case 'setup_ap_status':return created?{state:'idle',available:true,station_trial_api:true,station_save_api:true}:parent();
+   case 'setup_ap_status':if(bootstrap)return {state:'ready',available:true,first_setup:true,owner_adoption_required:true,operation_id:OP,credentials_returned:false,cellular_activation:false,station_trial_api:true,station_save_api:true};return created?{state:'idle',available:true,station_trial_api:true,station_save_api:true}:parent();
    case 'setup_ap_start':assert(storage?.start_key===c.idempotency_key);return parent();
    case 'setup_ap_operation_status':return parent();
    case 'setup_ap_wifi_begin':assert.equal(storage.trials.at(-1),c.trial_id);return trial(c,'testing');
@@ -114,4 +114,30 @@ console.log('AP Wi-Fi: automatic finite trial, explicit confirmation, metadata C
  const f=await fixture({archiveError:true});f.fill();await f.click('begin');await f.click('confirm');await f.click('finish');
  assert(f.storage());assert.equal(f.panel.phase,'unknown');assert(!f.panel.terminal);assert(!f.$('ap-wifi-query').hidden);
  await f.click('query');assert.equal(f.panel.phase,'saved');assert.equal(f.calls.filter(c=>c.op==='setup_ap_wifi_confirm').length,1);
+}
+
+// A just-claimed setup AP is adopted by the existing explicit Owner-start API.
+{
+ const f=await fixture({bootstrap:true});f.fill();await f.click('begin');assert.equal(f.panel.phase,'trial_ready');
+ assert.equal(f.calls.filter(c=>c.op==='setup_ap_start').length,1);assert.equal(f.storage().operation_id,OP);
+ assert(f.storage().start_key);await f.click('confirm');assert.equal(f.panel.phase,'saved');
+}
+{
+ const f=await fixture({bootstrap:true,hook:async(c,x)=>{if(c.op==='setup_ap_start')throw Error('lost adoption reply');return x.defaults(c);}});
+ f.fill();await f.click('begin');assert.equal(f.panel.phase,'unknown');assert.equal(f.storage().operation_id,null);
+ const next=await fixture({record:f.storage()});await next.click('query');assert.equal(next.panel.phase,'parent_ready');assert.equal(next.storage().operation_id,OP);
+ assert.deepEqual(next.calls.map(c=>c.op),['setup_ap_operation_status']);
+}
+
+// A partial server-side handoff may still use the original bootstrap cancel.
+// Its acknowledgement cannot itself claim completion; query proves closure.
+{
+ let closed=false;
+ const f=await fixture({bootstrap:true,hook:async(c,x)=>{
+  if(c.op==='setup_ap_start')throw Error('adoption metadata reply lost');
+  if(c.op==='setup_ap_cancel'){closed=true;return {first_setup:true,operation_id:OP,state:'closing',credentials_returned:false,cellular_activation:false};}
+  if(c.op==='setup_ap_operation_status'&&closed)return {...x.parent(),state:'closed'};
+  return x.defaults(c);
+ }});f.fill();await f.click('begin');assert.equal(f.panel.phase,'unknown');await f.click('cancel');
+ assert.equal(f.panel.phase,'closed');assert(f.panel.terminal);assert.equal(f.calls.filter(c=>c.op==='setup_ap_start').length,1);assert.equal(f.calls.filter(c=>c.op==='setup_ap_cancel').length,1);
 }

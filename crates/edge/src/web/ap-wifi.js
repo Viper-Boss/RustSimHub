@@ -26,6 +26,7 @@ function parentInput(v,record=null){
  need(v&&typeof v.state==='string');
  if(['idle','disabled'].includes(v.state)){need(typeof v.available==='boolean');return v;}
  if(v.state==='not_found'){need(v.known===false&&v.not_found_is_not_proof===true);return v;}
+ if(v.first_setup===true){need(!record&&['starting','ready','closing','unknown'].includes(v.state)&&uuid(v.operation_id)&&v.credentials_returned===false&&v.cellular_activation===false&&typeof v.owner_adoption_required==='boolean');return v;}
  need(['starting','ready','closing','closed','unknown'].includes(v.state)&&uuid(v.operation_id)&&digest(v.request_key_sha256));
  need(v.credentials_returned===false&&v.cellular_activation===false);
  if(record)need(v.request_key_sha256===record.request_key_sha256&&(!record.operation_id||v.operation_id===record.operation_id));
@@ -127,8 +128,8 @@ export class ApConfigurator {
   await this.signed(true,g);await this.currentRecord(g);
   if(!this.record){
    const p=parentInput(await this.call({op:'setup_ap_status'},g));
-   if(p.state!=='ready'&&p.state!=='idle'||p.available!==true||p.station_trial_api!==true||p.station_save_api!==true){this.phase='unavailable';this.render();return;}
-   const created=p.state==='idle',start=created?this.crypto.randomUUID():null;
+   if(p.state!=='ready'&&p.state!=='idle'||p.available!==true||p.station_trial_api!==true||p.station_save_api!==true||p.first_setup===true&&p.owner_adoption_required!==true){this.phase='unavailable';this.render();return;}
+   const created=p.state==='idle'||p.first_setup===true&&p.owner_adoption_required===true,start=created?this.crypto.randomUUID():null;
    const key=created?Array.from(new Uint8Array(await this.crypto.subtle.digest('SHA-256',new TextEncoder().encode(start))),b=>b.toString(16).padStart(2,'0')).join(''):p.request_key_sha256;
    this.check(g);await this.write({format:1,id:this.crypto.randomUUID(),revision:0,source:created?'created':'existing',start_key:start,request_key_sha256:key,operation_id:created?null:p.operation_id,trials:[],commits:[],cancel_sent:false},g);
    if(created){this.phase='starting';this.render();const v=parentInput(await this.call({op:'setup_ap_start',idempotency_key:start},g),this.record);await this.update({operation_id:v.operation_id},g);}
@@ -185,7 +186,10 @@ export class ApConfigurator {
   const g=this.epoch;await this.currentRecord(g);need(this.record&&!this.record.cancel_sent,'请查询原来的结束请求');await this.signed(true,g);
   if(!this.record.operation_id){await this.parentStatus(g);need(this.record.operation_id,'尚未确定配置操作，只能继续查询');}
   await this.update({cancel_sent:true},g);this.wipe();this.phase='closing';this.render();
-  parentInput(await this.call({op:'setup_ap_cancel',operation_id:this.record.operation_id},g),this.record);await this.readResult(g);
+  const v=await this.call({op:'setup_ap_cancel',operation_id:this.record.operation_id},g);
+  if(v?.first_setup===true)need(v.operation_id===this.record.operation_id&&['closing','unknown'].includes(v.state)&&v.credentials_returned===false&&v.cellular_activation===false);
+  else parentInput(v,this.record);
+  await this.readResult(g);
  }
  async finish(){
   const g=this.epoch;need(this.terminal&&this.record,'请先查询设备确认的结果');await this.currentRecord(g);

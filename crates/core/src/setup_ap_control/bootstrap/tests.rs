@@ -5,6 +5,8 @@ use ed25519_dalek::{Signer, SigningKey};
 use rustsimhub_auth::{Identity, LocalSetup};
 use rustsimhub_storage::Store;
 use std::os::unix::fs::PermissionsExt;
+#[path = "adoption_tests.rs"]
+mod adoption_tests;
 fn directory(mode: u32) -> tempfile::TempDir {
     let d = tempfile::tempdir().unwrap();
     fs::set_permissions(d.path(), fs::Permissions::from_mode(mode)).unwrap();

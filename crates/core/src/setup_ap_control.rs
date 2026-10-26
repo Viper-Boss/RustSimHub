@@ -74,7 +74,7 @@ impl From<&Principal> for Owner {
         }
     }
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Record {
     format: u16,
@@ -177,6 +177,7 @@ impl Runtime {
         {
             return Err(Error::Forbidden);
         }
+        bootstrap::adoption::recover(&journal)?;
         let mut record = Self::read_record(&journal.join("pending.json"))?;
         station::commit::recover(&input, &journal, &mut record)?;
         if record.is_some()
@@ -291,7 +292,15 @@ impl Runtime {
             return Ok(view);
         }
         drop(active);
-        if let Some(view) = self.bootstrap.view()? {
+        if let Some(mut view) = self.bootstrap.view()? {
+            let available = self.availability(&c).ok();
+            let supported = view["state"] == "ready"
+                && available
+                    .as_ref()
+                    .is_some_and(|v| v.station_trial_supported && v.station_save_supported);
+            view["owner_adoption_required"] = supported.into();
+            view["station_trial_api"] = supported.into();
+            view["station_save_api"] = supported.into();
             return Ok(view);
         }
         let available = self.availability(&c).ok();
@@ -380,6 +389,9 @@ impl Runtime {
         }
         if Self::read_record(&self.journal.join(format!("{digest}.intent")))?.is_some() {
             return Err(Error::Forbidden);
+        }
+        if self.bootstrap.view()?.is_some() {
+            return self.adopt_bootstrap(auth, token, digest, c, idle).await;
         }
         self.availability(&c)?;
         let permit = self.coordination.network().map_err(|_| Error::Busy)?;

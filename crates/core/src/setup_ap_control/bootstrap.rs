@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! One-shot local device-window AP producer. No anonymous API, bearer or invented Owner.
 use super::*;
-#[derive(Clone, Serialize, Deserialize)]
+pub(super) mod adoption;
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Record {
     format: u16,
@@ -311,6 +312,7 @@ impl Bootstrap {
                 &serde_json::to_vec(status).map_err(|_| Error::InvalidInput)?,
             )?;
         }
+        adoption::closed(&self.journal, &s.record, status)?;
         fs::remove_file(self.path()).map_err(|_| Error::Io)?;
         fs::File::open(&self.journal)
             .and_then(|f| f.sync_all())
