@@ -5,7 +5,7 @@ import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import {webcrypto} from 'node:crypto';
 const forwardingModule=await readFile(new URL('../crates/edge/src/web/forwarding.js',import.meta.url));
-const {ForwardingPanel,ForwardingQuickTest,pendingInput:forwardingPendingInput}=await import('data:text/javascript;base64,'+forwardingModule.toString('base64'));
+const {ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,pendingInput:forwardingPendingInput}=await import('data:text/javascript;base64,'+forwardingModule.toString('base64'));
 const bytes=await readFile(new URL('../crates/edge/src/web/event-sync.js',import.meta.url));
 const {EventSync}=await import('data:text/javascript;base64,'+bytes.toString('base64'));
 const smsBytes=await readFile(new URL('../crates/edge/src/web/sms-management.js',import.meta.url));
@@ -94,7 +94,7 @@ class Element {
 function browserFixture(respond){
  const elements=new Map(),sent=[],testStarts=[];
  const document={hidden:false,getElementById(id){if(!elements.has(id))elements.set(id,new Element(['history-source','history-entity','call-id'].includes(id)?'select':''));return elements.get(id);},createElement:tag=>new Element(tag),querySelectorAll:()=>[],addEventListener(){}};
- const context={ForwardingPanel,ForwardingQuickTest,forwardingPendingInput,document,crypto:webcrypto,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},
+ const context={ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,forwardingPendingInput,document,crypto:webcrypto,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},
   indexedDB:{open:()=>({})},EventSync,SmsManager,smsListText,smsDetailText,DailyPhone:class{constructor(){this.managing=false;this.working=false;}reset(){}start(){}},SessionKeeper:class{start(){}reset(){}async ensure(){}},
   AudioLink:class {constructor(){this.state='closed';}async stop(){}},
   ConfigurationIndicator:class {async set(){}},

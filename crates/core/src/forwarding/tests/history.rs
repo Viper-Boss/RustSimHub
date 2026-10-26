@@ -2,6 +2,18 @@
 use super::*;
 
 const SECOND: &str = "55555555-5555-4555-8555-555555555555";
+fn confirmation(f: &Fixture, id: &str) -> String {
+    let db = rusqlite::Connection::open(f.state.path().join("forwarding/outbox.sqlite3")).unwrap();
+    let plan: String = db
+        .query_row("SELECT plan FROM history_batches WHERE id=?", [id], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    serde_json::from_str::<Value>(&plan).unwrap()["preview"]["confirmation_id"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
 fn prepare(f: &Fixture, id: &str, generation: u64) -> AuthCommand {
     AuthCommand::ForwardingHistoryPrepare {
         token: f.token.clone(),
@@ -15,6 +27,7 @@ fn commit(f: &Fixture, id: &str, generation: u64, full: bool) -> AuthCommand {
         token: f.token.clone(),
         expected_generation: generation,
         request_id: id.into(),
+        confirmation_id: confirmation(f, id),
         accept_full_text: full,
     }
 }
@@ -38,6 +51,13 @@ async fn historical_commands_reject_a_real_delegated_principal_even_with_managem
         AuthCommand::ForwardingHistoryCancel {
             token: f.token.clone(),
             request_id: CHANGE.into(),
+            confirmation_id: confirmation(&f, CHANGE),
+        },
+        AuthCommand::ForwardingHistoryArchive {
+            token: f.token.clone(),
+            expected_generation: 1,
+            request_id: CHANGE.into(),
+            confirmation_id: confirmation(&f, CHANGE),
         },
     ] {
         match &mut command {
@@ -45,6 +65,7 @@ async fn historical_commands_reject_a_real_delegated_principal_even_with_managem
             | AuthCommand::ForwardingHistoryCommit { token: t, .. }
             | AuthCommand::ForwardingHistoryRequest { token: t, .. }
             | AuthCommand::ForwardingHistoryCancel { token: t, .. } => *t = token.clone(),
+            AuthCommand::ForwardingHistoryArchive { token: t, .. } => *t = token.clone(),
             _ => unreachable!(),
         }
         assert_eq!(f.request(command).await["error"], "denied");
@@ -106,10 +127,36 @@ async fn history_owner_ipc_previews_without_queueing_and_commits_once_across_los
             .unwrap()
     };
     assert!(claim.request.body.expose().contains("sms_received"));
+    let old_confirmation = confirmation(&f, CHANGE);
+    {
+        let db =
+            rusqlite::Connection::open(f.state.path().join("forwarding/outbox.sqlite3")).unwrap();
+        let raw: String = db
+            .query_row(
+                "SELECT plan FROM history_batches WHERE id=?",
+                [CHANGE],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let mut plan: Value = serde_json::from_str(&raw).unwrap();
+        plan["preview"]
+            .as_object_mut()
+            .unwrap()
+            .remove("confirmation_id");
+        db.execute(
+            "UPDATE history_batches SET plan=? WHERE id=?",
+            rusqlite::params![plan.to_string(), CHANGE],
+        )
+        .unwrap();
+    }
     f.control.0.lock().unwrap().queue = None;
     let recovered = f.request(query(&f, CHANGE)).await;
     assert_eq!(recovered["receipt"]["state"], "submitted");
     assert_eq!(recovered["receipt"]["receipts"][0]["state"], "unknown");
+    assert_ne!(
+        recovered["receipt"]["preview"]["confirmation_id"],
+        old_confirmation
+    );
     let status = f
         .request(AuthCommand::SetForwardingEnabled {
             token: f.token.clone(),
@@ -141,6 +188,7 @@ async fn history_cancel_and_core_restart_never_turn_an_unconfirmed_preview_into_
         .request(AuthCommand::ForwardingHistoryCancel {
             token: f.token.clone(),
             request_id: CHANGE.into(),
+            confirmation_id: confirmation(&f, CHANGE),
         })
         .await;
     assert_eq!(cancelled["state"], "cancelled");
@@ -362,4 +410,90 @@ async fn history_does_not_recreate_unknown_deliveries_after_a_new_configuration_
         .await;
     assert_eq!(status["queued"], 0);
     assert_eq!(status["unknown"], 1);
+    assert_eq!(
+        f.request(AuthCommand::ForwardingHistoryArchive {
+            token: f.token.clone(),
+            expected_generation: 3,
+            request_id: CHANGE.into(),
+            confirmation_id: confirmation(&f, CHANGE)
+        })
+        .await["error"],
+        "denied"
+    );
+}
+
+#[tokio::test]
+async fn archived_preview_challenges_fence_late_commit_and_cancel_even_if_the_client_reuses_its_uuid(
+) {
+    let f = Fixture::new();
+    f.incoming("archive-challenge");
+    f.request(f.configure(0, REQUEST, true)).await;
+    f.request(prepare(&f, CHANGE, 1)).await;
+    let old = commit(&f, CHANGE, 1, false);
+    let old_confirmation = confirmation(&f, CHANGE);
+    assert_eq!(
+        f.request(AuthCommand::ForwardingHistoryCancel {
+            token: f.token.clone(),
+            request_id: CHANGE.into(),
+            confirmation_id: old_confirmation.clone()
+        })
+        .await["state"],
+        "cancelled"
+    );
+    assert_eq!(
+        f.request(AuthCommand::ForwardingHistoryArchive {
+            token: f.token.clone(),
+            expected_generation: 1,
+            request_id: CHANGE.into(),
+            confirmation_id: old_confirmation.clone()
+        })
+        .await["archived"],
+        true
+    );
+    assert_eq!(f.request(query(&f, CHANGE)).await["known"], false);
+    assert_eq!(f.request(prepare(&f, CHANGE, 1)).await["state"], "prepared");
+    assert_ne!(confirmation(&f, CHANGE), old_confirmation);
+    assert_eq!(f.request(old).await["error"], "denied");
+    assert_eq!(
+        f.request(AuthCommand::ForwardingHistoryCancel {
+            token: f.token.clone(),
+            request_id: CHANGE.into(),
+            confirmation_id: old_confirmation
+        })
+        .await["error"],
+        "denied"
+    );
+    let committed = f.request(commit(&f, CHANGE, 1, false)).await;
+    assert_eq!(committed["state"], "submitted");
+    let archive = || AuthCommand::ForwardingHistoryArchive {
+        token: f.token.clone(),
+        expected_generation: 1,
+        request_id: CHANGE.into(),
+        confirmation_id: confirmation(&f, CHANGE),
+    };
+    assert_eq!(f.request(archive()).await["error"], "denied");
+    {
+        let mut a = f.auth.lock().unwrap();
+        let b = Binding::from_owner(&mut a, &f.token).unwrap();
+        let mut s = f.control.0.lock().unwrap();
+        let q = s.queue.as_mut().unwrap();
+        let claim = q.claim_current(&a, &f.store.handle(), 1).unwrap().unwrap();
+        q.finish(&b, &claim, rustsimhub_forwarder::State::Confirmed)
+            .unwrap();
+    }
+    assert_eq!(f.request(archive()).await["jobs_preserved"], true);
+    assert_eq!(f.request(query(&f, CHANGE)).await["known"], false);
+    assert_eq!(
+        f.control
+            .0
+            .lock()
+            .unwrap()
+            .queue
+            .as_ref()
+            .unwrap()
+            .receipts(0, 32)
+            .unwrap()[0]
+            .state,
+        rustsimhub_forwarder::State::Confirmed
+    );
 }

@@ -90,6 +90,7 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | ForwardingHistoryPrepare { .. }
         | ForwardingHistoryCommit { .. }
         | ForwardingHistoryCancel { .. }
+        | ForwardingHistoryArchive { .. }
         | ForwardingHistoryRequest { .. }
         | SetNetworkPolicy { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         Calls {
@@ -289,6 +290,7 @@ pub(crate) async fn handle(
             | AuthCommand::ForwardingHistoryPrepare { .. }
             | AuthCommand::ForwardingHistoryCommit { .. }
             | AuthCommand::ForwardingHistoryCancel { .. }
+            | AuthCommand::ForwardingHistoryArchive { .. }
             | AuthCommand::ForwardingHistoryRequest { .. }
     ) {
         match forwarding {

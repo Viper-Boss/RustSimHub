@@ -131,6 +131,7 @@ impl Management {
         self.queue.as_mut().ok_or(Error::Forbidden)
     }
     fn status(&mut self, binding: Binding) -> Result<Value> {
+        let history_realm = binding.realm.clone();
         let mut value = match self.existing(binding)? {
             Some(q) => {
                 let mut v =
@@ -146,6 +147,8 @@ impl Management {
         value["configuration_api"] = true.into();
         value["rules_revision"] = rustsimhub_forwarder::RULES_REVISION.into();
         value["history_api"] = true.into();
+        value["history_revision"] = 2.into();
+        value["history_realm"] = history_realm.into();
         value["retained_credentials_api"] = true.into();
         value["request_receipt_api"] = true.into();
         value["synthetic_test_api"] = true.into();
@@ -171,6 +174,7 @@ impl Management {
                     | AuthCommand::ForwardingHistoryPrepare { .. }
                     | AuthCommand::ForwardingHistoryCommit { .. }
                     | AuthCommand::ForwardingHistoryCancel { .. }
+                    | AuthCommand::ForwardingHistoryArchive { .. }
             )
         {
             return Err(Error::Busy);
@@ -358,6 +362,7 @@ impl Management {
                 token,
                 expected_generation,
                 request_id,
+                confirmation_id,
                 accept_full_text,
             } => {
                 let binding = denied(Binding::from_recent_owner(auth, &token))?;
@@ -368,16 +373,38 @@ impl Management {
                     &reader,
                     &token,
                     expected_generation,
-                    &request_id,
+                    (&request_id, &confirmation_id),
                     accept_full_text,
                 ))?;
                 serde_json::to_value(receipt).map_err(|_| Error::Forbidden)?
             }
-            AuthCommand::ForwardingHistoryCancel { token, request_id } => {
+            AuthCommand::ForwardingHistoryCancel {
+                token,
+                request_id,
+                confirmation_id,
+            } => {
                 let binding = denied(Binding::from_recent_owner(auth, &token))?;
                 let q = self.existing(binding)?.ok_or(Error::Forbidden)?;
-                let receipt = denied(q.cancel_history_owner(auth, &token, &request_id))?;
+                let receipt =
+                    denied(q.cancel_history_owner(auth, &token, &request_id, &confirmation_id))?;
                 serde_json::to_value(receipt).map_err(|_| Error::Forbidden)?
+            }
+            AuthCommand::ForwardingHistoryArchive {
+                token,
+                expected_generation,
+                request_id,
+                confirmation_id,
+            } => {
+                let binding = denied(Binding::from_recent_owner(auth, &token))?;
+                let q = self.existing(binding)?.ok_or(Error::Forbidden)?;
+                denied(q.archive_history_owner(
+                    auth,
+                    &token,
+                    expected_generation,
+                    &request_id,
+                    &confirmation_id,
+                ))?;
+                json!({"archived":true,"request_id":request_id,"confirmation_id":confirmation_id,"jobs_preserved":true})
             }
             AuthCommand::ForwardingHistoryRequest { token, request_id } => {
                 let binding = denied(Binding::from_owner(auth, &token))?;

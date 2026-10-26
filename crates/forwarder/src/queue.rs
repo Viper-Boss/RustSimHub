@@ -282,6 +282,7 @@ CREATE INDEX pending ON jobs(state,seq);")?;
             tx.commit()?;
         }
         // A lost worker/Core reply is never queued for automatic delivery again.
+        history::ensure_confirmation_ids(&mut conn)?;
         conn.execute(
             "UPDATE jobs SET state='unknown' WHERE state='in_flight'",
             [],

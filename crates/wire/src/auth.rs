@@ -75,11 +75,19 @@ pub enum AuthCommand {
         token: String,
         expected_generation: u64,
         request_id: String,
+        confirmation_id: String,
         accept_full_text: bool,
     },
     ForwardingHistoryCancel {
         token: String,
         request_id: String,
+        confirmation_id: String,
+    },
+    ForwardingHistoryArchive {
+        token: String,
+        expected_generation: u64,
+        request_id: String,
+        confirmation_id: String,
     },
     ForwardingHistoryRequest {
         token: String,
@@ -438,7 +446,6 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
             }
         }
         AuthCommand::ForwardingRequest { token, request_id }
-        | AuthCommand::ForwardingHistoryCancel { token, request_id }
         | AuthCommand::ForwardingHistoryRequest { token, request_id }
         | AuthCommand::ForwardingTestRequest { token, request_id } => {
             if token.len() != 64 || !canonical_uuid(request_id) {
@@ -499,12 +506,30 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
             token,
             expected_generation,
             request_id,
+            confirmation_id,
             ..
+        }
+        | AuthCommand::ForwardingHistoryArchive {
+            token,
+            expected_generation,
+            request_id,
+            confirmation_id,
         } => {
             if token.len() != 64
                 || *expected_generation == 0
                 || *expected_generation > i64::MAX as u64
                 || !canonical_uuid(request_id)
+                || !canonical_uuid(confirmation_id)
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ForwardingHistoryCancel {
+            token,
+            request_id,
+            confirmation_id,
+        } => {
+            if token.len() != 64 || !canonical_uuid(request_id) || !canonical_uuid(confirmation_id)
             {
                 return Err(invalid());
             }
@@ -1355,6 +1380,8 @@ mod tests {
         commit["command"].as_object_mut().unwrap().remove("range");
         assert!(parse_auth_request(&serde_json::to_vec(&commit).unwrap()).is_err());
         commit["command"]["accept_full_text"] = false.into();
+        assert!(parse_auth_request(&serde_json::to_vec(&commit).unwrap()).is_err());
+        commit["command"]["confirmation_id"] = "33333333-3333-4333-8333-333333333333".into();
         assert!(parse_auth_request(&serde_json::to_vec(&commit).unwrap()).is_ok());
         for op in ["forwarding_history_cancel", "forwarding_history_request"] {
             let mut command = commit.clone();
@@ -1367,7 +1394,20 @@ mod tests {
                 .as_object_mut()
                 .unwrap()
                 .remove("accept_full_text");
+            if op == "forwarding_history_request" {
+                command["command"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("confirmation_id");
+            }
             assert!(parse_auth_request(&serde_json::to_vec(&command).unwrap()).is_ok());
         }
+        let mut archive = commit;
+        archive["command"]["op"] = "forwarding_history_archive".into();
+        archive["command"]
+            .as_object_mut()
+            .unwrap()
+            .remove("accept_full_text");
+        assert!(parse_auth_request(&serde_json::to_vec(&archive).unwrap()).is_ok());
     }
 }

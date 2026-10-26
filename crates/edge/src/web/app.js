@@ -8,7 +8,7 @@ import { EventSync } from './event-sync.js';
 import { SmsManager, smsListText, smsDetailText } from './sms-management.js';
 import { DailyPhone } from './phone.js';
 import { SessionKeeper } from './session.js';
-import { ForwardingPanel, ForwardingQuickTest, pendingInput as forwardingPendingInput } from './forwarding.js';
+import { ForwardingPanel, ForwardingQuickTest, ForwardingHistory, historyPendingInput, pendingInput as forwardingPendingInput } from './forwarding.js';
 import { ApConfigurator, pendingInput as apPendingInput } from './ap-wifi.js';
 const $=id=>document.getElementById(id);
 const scopes=['status.read','sms.read','calls.read'];
@@ -75,6 +75,17 @@ const forwardingPanel=new ForwardingPanel({document,request:command=>auth(comman
   return [...receipts,{...record,applied_generation:value.applied_generation,uncertain:value.applied_generation===null}];});current(epoch);
  }});
 const forwardingQuick=new ForwardingQuickTest({login:()=>login(),request:command=>auth(command),loadPending:forwardingPanel.loadPending,savePending:forwardingPanel.savePending,archivePending:forwardingPanel.archivePending,notify:testMessage,crypto});
+const forwardingHistory=new ForwardingHistory({document,request:command=>auth(command),getToken:()=>token,confirm:message=>confirm(message),crypto,
+ loadPending:()=>stored('forwarding-history-pending'),savePending:(value,expected)=>atomicStored('forwarding-history-pending',saved=>{
+  const actual=historyPendingInput(saved);if(JSON.stringify(actual)!==JSON.stringify(expected))throw Error('补发记录已由另一页面更新；请重新读取');return historyPendingInput(value);
+ }),loadArchives:async()=>await stored('forwarding-history-receipts')||[],archivePending:async entry=>{
+  const epoch=viewEpoch,record=historyPendingInput(entry.record);if(!record||!['submitted','cancelled','expired','not_found'].includes(entry.state)||typeof entry.uncertain!=='boolean')throw Error('补发摘要无效');
+  await atomicStored('forwarding-history-receipts',saved=>{current(epoch);let rows=saved||[];
+   if(!Array.isArray(rows)||rows.length>64||rows.some(r=>!historyPendingInput(r.record)||typeof r.uncertain!=='boolean'||!['submitted','cancelled','expired','not_found'].includes(r.state)))throw Error('补发摘要不可用');
+   rows=rows.filter(r=>r.record.id!==record.id||r.record.confirmation_id!==record.confirmation_id);
+   if(rows.length>=64){const index=rows.findIndex(r=>r.uncertain===false);if(index<0)throw Error('未决摘要已满，请保留并通过维护入口导出');rows.splice(index,1);}
+   return [...rows,{record,state:entry.state,uncertain:entry.uncertain}];});current(epoch);
+ }});
 async function api(command,epoch=viewEpoch){
  current(epoch);
  const id=crypto.randomUUID();const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),18000);requests.add(controller);
@@ -169,7 +180,7 @@ async function pair(){
  notice('配对申请已提交。请由设备所有者核对浏览器公钥、权限和申请 ID 后批准：'+result.pairing_id);
 }
 async function login(){
- forwardingPanel.reset();
+ forwardingPanel.reset();forwardingHistory.reset();
  clearWifiNetworks();
  sessionKeeper.reset();void audioLink.stop();const epoch=viewEpoch;token=null;lease=null;showAudio();const c=await api({op:'challenge',public_key:Array.from(publicKey)},epoch);const signature=await proof(c,'login',undefined,epoch);current(epoch);
  const r=await api({op:'authenticate',challenge_id:c.id,signature},epoch);current(epoch);if(!/^[a-f0-9]{64}$/.test(r.token))throw Error('登录响应无效');
@@ -424,8 +435,9 @@ bind('initialize-owner',initializeOwner);bind('pair',pair);bind('login',login);$
 bind('sms-login',async()=>{await login();$('sms-management-state').textContent=smsManager.available?'已重新登录，请重新选择短信后管理。':'当前浏览器没有所有者管理权限，请使用已认领的所有者浏览器。';});
 bind('daily-login',login);$('daily-logout').onclick=()=>$('logout').onclick();bind('sms-refresh',()=>inboxPage(true));bind('send-sms',dailySendSms);bind('sms-query',query);bind('sms-close',closeSms);
 bind('forwarding-login',async()=>{await login();await forwardingPanel.action(g=>forwardingPanel.read(g));});
-const forwardingPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{forwardingPanel.reset();forwardingPreviousLogout();};
-$('forwarding-panel').ontoggle=()=>{if(!$('forwarding-panel').open)forwardingPanel.suspend();};
+bind('forwarding-history-login',async()=>{await login();await forwardingHistory.action(g=>forwardingHistory.read(g));});
+const forwardingPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{forwardingPanel.reset();forwardingHistory.reset();forwardingPreviousLogout();};
+$('forwarding-panel').ontoggle=()=>{if(!$('forwarding-panel').open){forwardingPanel.suspend();forwardingHistory.reset();}};
 bind('test-restore-draft',restoreTestDraft);
 bind('network-login',login);const networkPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{networkPanel.stop();networkPreviousLogout();};
 const syncPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{eventSync.reset();smsView++;smsPreview++;callsView++;callsPreview++;historySourcesView++;invalidatePage('sms');invalidatePage('calls');inboxCursor=null;callsCursor=null;$('call-detail').textContent='';$('more-inbox').disabled=true;$('more-calls').disabled=true;syncPreviousLogout();};
@@ -465,6 +477,6 @@ addEventListener('pagehide',()=>eventSync.reset());
 addEventListener('pagehide',()=>smsManager.reset());
 addEventListener('pagehide',()=>dailyPhone.reset());
 addEventListener('pagehide',()=>sessionKeeper.reset());
-addEventListener('pagehide',()=>forwardingPanel.reset());
+addEventListener('pagehide',()=>{forwardingPanel.reset();forwardingHistory.reset();});
 const apPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{apConfigurator?.suspend();apPreviousLogout();};
 addEventListener('pagehide',()=>apConfigurator?.suspend());

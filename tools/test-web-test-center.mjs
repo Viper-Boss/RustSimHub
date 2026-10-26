@@ -5,7 +5,7 @@ import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import {webcrypto} from 'node:crypto';
 const forwardingModule=await readFile(new URL('../crates/edge/src/web/forwarding.js',import.meta.url));
-const {ForwardingPanel,ForwardingQuickTest,pendingInput:forwardingPendingInput}=await import('data:text/javascript;base64,'+forwardingModule.toString('base64'));
+const {ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,pendingInput:forwardingPendingInput}=await import('data:text/javascript;base64,'+forwardingModule.toString('base64'));
 const app=await readFile(new URL('../crates/edge/src/web/app.js',import.meta.url),'utf8');
 const bytes=await readFile(new URL('../crates/edge/src/web/sms-management.js',import.meta.url));
 const {SmsManager,smsListText,smsDetailText}=await import('data:text/javascript;base64,'+bytes.toString('base64'));
@@ -25,7 +25,7 @@ function fixture({respond,onPut,consent=true,loggedIn=true}={}){
  const $=name=>{if(!elements.has(name))elements.set(name,new Element());return elements.get(name);};
  const document={hidden:false,getElementById:$,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(){}};
  let state='submitted';
- const context={ForwardingPanel,ForwardingQuickTest,forwardingPendingInput,document,crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},
+ const context={ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,forwardingPendingInput,document,crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},
   indexedDB:{open:()=>({})},SmsManager,smsListText,smsDetailText,DailyPhone:class{constructor(){this.managing=false;this.working=false;}reset(){}start(){}},SessionKeeper:class{start(){}reset(){}async ensure(){}},
   AudioLink:class{constructor(){this.state='closed';}async stop(){}},
   ConfigurationIndicator:class{async set(){}},CallTest:class{constructor(options){this.options=options;this.running=false;}async start(mode){starts.push(mode);this.running=true;this.options.notify("synthetic running",true);this.running=false;this.options.notify("synthetic completed",false);}async stop(){this.running=false;}},archiveEndedOperation,navigator:{clipboard:{async writeText(text){copied.push(text);}}},NetworkPanel:class{start(){}stop(){}},EventSync:class{reset(){}},

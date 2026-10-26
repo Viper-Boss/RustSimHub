@@ -49,6 +49,7 @@ pub struct HistoryDelivery {
 #[serde(deny_unknown_fields)]
 pub struct HistoryPreview {
     pub id: String,
+    pub confirmation_id: String,
     pub generation: u64,
     pub line: LineEpoch,
     pub range: HistoryRange,
@@ -63,6 +64,51 @@ pub struct HistoryPreview {
 struct SavedPlan {
     preview: HistoryPreview,
     digests: Vec<[u8; 32]>,
+}
+/// Early format-3 prototypes had no confirmation challenge. Preserve their
+/// receipts, expire their previews on open, and reject every old wire commit.
+pub(super) fn ensure_confirmation_ids(conn: &mut Connection) -> Result<()> {
+    let mut rows = Vec::new();
+    {
+        let mut query = conn.prepare("SELECT id,plan FROM history_batches LIMIT 65")?;
+        for row in query.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))? {
+            rows.push(row?);
+        }
+    }
+    if rows.len() > MAX_BATCHES as usize {
+        return Err(Error::Storage);
+    }
+    let tx = conn.transaction()?;
+    for (id, raw) in rows {
+        if raw.len() > 65536 {
+            return Err(Error::Storage);
+        }
+        let mut value: serde_json::Value = serde_json::from_str(&raw)?;
+        let preview = value
+            .get_mut("preview")
+            .and_then(|v| v.as_object_mut())
+            .ok_or(Error::Storage)?;
+        if !preview.contains_key("confirmation_id") {
+            preview.insert("confirmation_id".into(), Uuid::new_v4().to_string().into());
+            let saved: SavedPlan = serde_json::from_value(value)?;
+            if saved.preview.id != id
+                || saved.preview.deliveries.len() != saved.digests.len()
+                || saved.digests.len() > MAX_HISTORY_DELIVERIES
+            {
+                return Err(Error::Storage);
+            }
+            let raw = serde_json::to_string(&saved)?;
+            if raw.len() > 65536 {
+                return Err(Error::Storage);
+            }
+            tx.execute(
+                "UPDATE history_batches SET plan=? WHERE id=?",
+                params![raw, id],
+            )?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }
 #[derive(Serialize)]
 pub struct HistoryReceipt {
@@ -156,6 +202,7 @@ impl Queue {
                 }
                 let plan: SavedPlan = serde_json::from_str(&plan)?;
                 if plan.preview.id != id
+                    || !crate::model::uuid(&plan.preview.confirmation_id)
                     || plan.digests.len() != plan.preview.deliveries.len()
                     || plan.digests.len() > MAX_HISTORY_DELIVERIES
                 {
@@ -263,6 +310,7 @@ impl Queue {
         }
         let mut preview = HistoryPreview {
             id: id.into(),
+            confirmation_id: Uuid::new_v4().to_string(),
             generation,
             line,
             range,
@@ -341,11 +389,15 @@ impl Queue {
         auth: &mut Auth,
         token: &str,
         id: &str,
+        confirmation_id: &str,
     ) -> Result<HistoryReceipt> {
         let binding = Binding::from_recent_owner(auth, token)?;
         self.require_binding(&binding)?;
         self.expire_history()?;
-        let (state, _) = self.saved_history(&binding, id)?.ok_or(Error::Stale)?;
+        let (state, saved) = self.saved_history(&binding, id)?.ok_or(Error::Stale)?;
+        if saved.preview.confirmation_id != confirmation_id {
+            return Err(Error::Stale);
+        }
         if state == "submitted" {
             return Err(Error::Conflict);
         }
@@ -363,13 +415,17 @@ impl Queue {
         reader: &Handle,
         token: &str,
         generation: u64,
-        id: &str,
+        confirmation: (&str, &str),
         accept_full_text: bool,
     ) -> Result<HistoryReceipt> {
+        let (id, confirmation_id) = confirmation;
         let binding = Binding::from_recent_owner(auth, token)?;
         self.require_binding(&binding)?;
         self.expire_history()?;
         let (state, saved) = self.saved_history(&binding, id)?.ok_or(Error::Stale)?;
+        if saved.preview.confirmation_id != confirmation_id {
+            return Err(Error::Stale);
+        }
         // Lost-reply recovery is read-only even after disable or a new SIM.
         if saved.preview.generation != generation {
             return Err(Error::Conflict);
@@ -462,6 +518,45 @@ impl Queue {
         self.history_deadlines.remove(id);
         self.history_receipt_owner(auth, token, id)?
             .ok_or(Error::Storage)
+    }
+    /// Explicit removal of a terminal batch index only. Job receipts and
+    /// idempotency remain separate; a new preview always has a new challenge,
+    /// so a delayed old confirmation/cancellation cannot act on it.
+    pub fn archive_history_owner(
+        &mut self,
+        auth: &mut Auth,
+        token: &str,
+        generation: u64,
+        id: &str,
+        confirmation_id: &str,
+    ) -> Result<()> {
+        let binding = Binding::from_recent_owner(auth, token)?;
+        self.fence(&binding, generation)?;
+        self.expire_history()?;
+        let (state, saved) = self.saved_history(&binding, id)?.ok_or(Error::Stale)?;
+        if saved.preview.confirmation_id != confirmation_id || state == "prepared" {
+            return Err(Error::Stale);
+        }
+        if state == "submitted" {
+            for delivery in &saved.preview.deliveries {
+                let state: Option<String> = self
+                    .conn
+                    .query_row("SELECT state FROM jobs WHERE id=?", [&delivery.id], |r| {
+                        r.get(0)
+                    })
+                    .optional()?;
+                if !state
+                    .as_deref()
+                    .is_some_and(|s| matches!(s, "confirmed" | "failed" | "cancelled"))
+                {
+                    return Err(Error::Busy);
+                }
+            }
+        }
+        self.conn
+            .execute("DELETE FROM history_batches WHERE id=?", [id])?;
+        self.history_deadlines.remove(id);
+        Ok(())
     }
 }
 

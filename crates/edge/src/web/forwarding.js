@@ -361,3 +361,119 @@ export class ForwardingQuickTest {
   finally{this.busy=false;}
  }
 }
+
+// Historical batches have separate durable markers. Refresh/read never repeats
+// either mutation, and the server challenge also fences archived/reused IDs.
+export function historyPendingInput(value){
+ if(value===null||value===undefined)return null;
+ requireValue(value&&value.format===1&&uuid(value.id)&&generation(value.expected_generation)&&value.expected_generation>0&&(value.confirmation_id===null||uuid(value.confirmation_id))&&typeof value.submit_started==='boolean'&&typeof value.archive_started==='boolean'&&(!value.submit_started||uuid(value.confirmation_id))&&Object.keys(value).every(k=>['format','id','expected_generation','confirmation_id','submit_started','archive_started'].includes(k)),'历史补发记录损坏；请保留记录并通过维护入口核对');
+ return {format:1,id:value.id,expected_generation:value.expected_generation,confirmation_id:value.confirmation_id,submit_started:value.submit_started,archive_started:value.archive_started};
+}
+const sequence=s=>typeof s==='string'&&/^(0|[1-9][0-9]{0,18})$/.test(s)&&BigInt(s)<=9223372036854775807n;
+const shares={notice:'仅通知',masked_text:'正文隐藏英数字',full_text:'完整正文和发送方'};
+const batchStates={prepared:'等待确认',submitted:'已入队',cancelled:'已取消',expired:'预览已失效'};
+export function historyReceiptInput(value,record){
+ requireValue(value&&Object.hasOwn(batchStates,value.state)&&value.not_found_is_not_proof===true&&typeof value.missing_receipts==='boolean'&&generation(value.expires_in_seconds)&&value.expires_in_seconds<=300&&Array.isArray(value.receipts)&&value.receipts.length<=64);
+ const p=value.preview;
+ requireValue(p&&p.id===record.id&&p.generation===record.expected_generation&&uuid(p.confirmation_id)&&(!record.confirmation_id||p.confirmation_id===record.confirmation_id)&&generation(p.line)&&p.line>0&&uuid(p.cursor?.db_epoch)&&sequence(p.cursor.seq)&&generation(p.scanned)&&p.scanned<=32&&generation(p.skipped_messages)&&p.skipped_messages<=p.scanned&&generation(p.already_queued_or_recorded)&&p.already_queued_or_recorded<=256&&Array.isArray(p.deliveries)&&p.deliveries.length<=64);
+ const r=p.range;requireValue(r&&generation(r.limit)&&r.limit>=1&&r.limit<=32&&Array.isArray(r.targets)&&r.targets.length>=1&&r.targets.length<=8&&r.targets.every(uuid)&&new Set(r.targets).size===r.targets.length&&(r.after===null||r.after&&r.after.db_epoch===p.cursor.db_epoch&&sequence(r.after.seq)&&BigInt(p.cursor.seq)>=BigInt(r.after.seq)));
+ const seen=new Set();const deliveries=p.deliveries.map(d=>{requireValue(d&&uuid(d.id)&&!seen.has(d.id)&&uuid(d.message_id)&&r.targets.includes(d.target_id)&&uuid(d.rule_id)&&Object.hasOwn(shares,d.share));seen.add(d.id);return {id:d.id,message_id:d.message_id,target_id:d.target_id,rule_id:d.rule_id,share:d.share};});
+ const receipts=value.receipts.map(x=>{const d=deliveries.find(d=>d.id===x?.id);requireValue(d&&sequence(x.seq)&&x.message_id===d.message_id&&x.target_id===d.target_id&&x.rule_id===d.rule_id&&x.generation===p.generation&&x.synthetic===false&&Object.hasOwn(states,x.state));return {seq:x.seq,id:x.id,message_id:x.message_id,target_id:x.target_id,rule_id:x.rule_id,generation:x.generation,synthetic:false,state:x.state};});
+ requireValue(new Set(receipts.map(r=>r.id)).size===receipts.length&&(value.state==='submitted'?value.missing_receipts||receipts.length===deliveries.length:receipts.length===0));
+ return {preview:{id:p.id,confirmation_id:p.confirmation_id,generation:p.generation,line:p.line,range:{after:r.after?{db_epoch:r.after.db_epoch,seq:r.after.seq}:null,limit:r.limit,targets:r.targets.slice()},cursor:{db_epoch:p.cursor.db_epoch,seq:p.cursor.seq},scanned:p.scanned,skipped_messages:p.skipped_messages,already_queued_or_recorded:p.already_queued_or_recorded,deliveries},state:value.state,expires_in_seconds:value.expires_in_seconds,receipts,missing_receipts:value.missing_receipts,not_found_is_not_proof:true};
+}
+export class ForwardingHistory {
+ constructor({document,request,getToken,confirm,loadPending,savePending,archivePending,loadArchives,crypto=globalThis.crypto}){
+  Object.assign(this,{doc:document,request,getToken,confirm,loadPending,savePending,archivePending,loadArchives,crypto});this.epoch=0;
+  for(const name of ['prepare','commit','cancel','query','archive'])this.$('forwarding-history-'+name).onclick=()=>this.action(g=>this[name](g));
+  this.reset();
+ }
+ $(id){return this.doc.getElementById(id);}
+ current(g){requireValue(g===this.epoch&&!!this.getToken(),'会话已变化，请重新读取历史补发状态');}
+ reset(){this.epoch++;this.busy=false;this.sample=null;this.pending=null;this.result=null;this.view=null;this.nextCursor=null;this.$('forwarding-history-targets').replaceChildren();this.$('forwarding-history-preview').replaceChildren();this.$('forwarding-history-full').checked=false;this.message('点击管理登录并读取，选择范围和目标，再预览。没有自动补发。');this.update();}
+ message(s){this.$('forwarding-history-state').textContent=s;}
+ update(){
+  const ready=!!this.sample&&!this.busy,prepared=this.result?.state==='prepared'&&!!this.pending?.confirmation_id&&!this.pending.submit_started&&!this.pending.archive_started;
+  this.$('forwarding-history-login').disabled=this.busy;
+  for(const suffix of ['after','limit','targets'])this.$('forwarding-history-'+suffix).disabled=!ready||!!this.pending;
+  this.$('forwarding-history-prepare').disabled=!ready||!!this.pending||this.sample?.quick_test_active===true;
+  this.$('forwarding-history-commit').disabled=!ready||!prepared||!this.result?.preview.deliveries.length||!this.sample.enabled||this.pending.expected_generation!==this.sample.generation||this.result.expires_in_seconds===0;
+  this.$('forwarding-history-cancel').disabled=!ready||this.result?.state!=='prepared'||!this.pending?.confirmation_id||this.pending.archive_started;
+  this.$('forwarding-history-query').disabled=this.busy||!this.pending;
+  this.$('forwarding-history-archive').disabled=!ready||!this.pending||this.result?.state==='prepared';
+  this.$('forwarding-history-full').disabled=!ready||!prepared||!this.result?.preview.deliveries.some(d=>d.share==='full_text');
+ }
+ async action(fn){if(this.busy)return;const g=this.epoch;this.busy=true;this.update();try{await fn(g);}catch(e){if(g===this.epoch)this.message(e instanceof FormError?e.message:'操作结果未确认；请核对本批回执。记录已保留，不会重新提交。');}finally{if(g===this.epoch){this.busy=false;this.update();}}}
+ async replace(next,expected,g){this.current(g);await this.savePending(next,expected);this.current(g);this.pending=next;}
+ rangeOptions(next=null){
+  if(next&&next.db_epoch===this.sample?.history_realm&&sequence(next.seq))this.nextCursor=next;
+  const select=this.$('forwarding-history-after');select.replaceChildren();const first=this.doc.createElement('option');first.value='0';first.textContent='从最早保存的短信开始';select.append(first);
+  if(this.nextCursor?.db_epoch===this.sample?.history_realm&&this.nextCursor.seq!=='0'){const option=this.doc.createElement('option');option.value=this.nextCursor.seq;option.textContent='继续上一批之后的短信';select.append(option);select.value=option.value;}else select.value='0';
+ }
+ async read(g){
+  this.current(g);this.pending=historyPendingInput(await this.loadPending());this.current(g);this.result=null;
+  const s=await this.request({op:'forwarding_status'});this.current(g);
+  requireValue(s?.history_api===true&&s.history_revision===2&&uuid(s.history_realm)&&generation(s.generation)&&typeof s.enabled==='boolean','此设备尚不支持这版历史补发，请保持原记录并升级');
+  const v=viewInput(await this.request({op:'forwarding_rules'}),s);this.current(g);this.sample=s;this.view=v;this.rangeOptions();
+  const select=this.$('forwarding-history-targets');select.replaceChildren();
+  for(const [i,t] of v.targets.entries()){const o=this.doc.createElement('option');o.value=t.id;o.textContent=`目标 ${i+1} · ${kinds[t.kind]} · ${t.id.slice(0,8)}`;o.selected=v.targets.length===1;select.append(o);}
+  if(this.pending)await this.query(g);else{this.render();this.message(s.enabled?'选择本批范围和目标，先预览；不会自动发送。':'转发关闭。可预览；如需补发，请先在上方开启，再读取并重新预览。');}await this.showArchives(g);
+ }
+ async accept(value,g){
+  this.current(g);const r=historyReceiptInput(value,this.pending);
+  if(!this.pending.confirmation_id){const old=this.pending;await this.replace({...old,confirmation_id:r.preview.confirmation_id},old,g);}
+  this.current(g);this.result=r;this.rangeOptions(r.preview.range.after);this.$('forwarding-history-after').value=r.preview.range.after?.seq??'0';this.$('forwarding-history-limit').value=String(r.preview.range.limit);for(const o of this.$('forwarding-history-targets').options)o.selected=r.preview.range.targets.includes(o.value);this.$('forwarding-history-full').checked=false;this.render();
+  this.message(r.state==='prepared'?(this.pending.submit_started?'提交结果尚需核对；设备仍显示预览。不会再次提交，可取消后核对。':`预览已准备：${r.preview.deliveries.length}个递送；确认前不会发送。`):r.state==='submitted'?'本批已入队。请核对逐项回执；Unknown不会自动重投。':batchStates[r.state]+'，没有因此再次发送。');
+ }
+ async prepare(g){
+  this.current(g);requireValue(this.sample&&!this.pending&&this.view,'请先读取并核对上次补发');
+  const seq=this.$('forwarding-history-after').value,limit=Number(this.$('forwarding-history-limit').value),targets=Array.from(this.$('forwarding-history-targets').options).filter(o=>o.selected).map(o=>o.value);
+  requireValue(sequence(seq)&&Number.isSafeInteger(limit)&&limit>=1&&limit<=32&&targets.length>=1&&targets.length<=8&&targets.every(id=>this.view.targets.some(t=>t.id===id)),'请填写有效列表位置、1～32条范围，并选择目标');
+  const record={format:1,id:this.crypto.randomUUID(),expected_generation:this.sample.generation,confirmation_id:null,submit_started:false,archive_started:false};historyPendingInput(record);
+  await this.replace(record,null,g);
+  await this.accept(await this.request({op:'forwarding_history_prepare',expected_generation:record.expected_generation,request_id:record.id,range:{after:seq==='0'?null:{db_epoch:this.sample.history_realm,seq},limit,targets}}),g);
+ }
+ async commit(g){
+  this.current(g);const old=this.pending,r=this.result;
+  requireValue(old&&r?.state==='prepared'&&!old.submit_started&&!old.archive_started&&r.expires_in_seconds>0&&r.preview.deliveries.length&&this.sample.enabled&&old.expected_generation===this.sample.generation,'请先核对有效预览；不能重复确认或在关闭时补发');
+  const full=r.preview.deliveries.some(d=>d.share==='full_text');requireValue(!full||this.$('forwarding-history-full').checked,'本批包含完整正文；请先明确勾选同意');
+  if(!this.confirm(`按预览向已选目标补发${r.preview.deliveries.length}个递送？${full?'包含完整正文和发送方。':''}已发出的请求无法撤回；仅提交一次。`))return;
+  const record={...old,submit_started:true};await this.replace(record,old,g);
+  await this.accept(await this.request({op:'forwarding_history_commit',expected_generation:record.expected_generation,request_id:record.id,confirmation_id:record.confirmation_id,accept_full_text:full}),g);
+ }
+ async cancel(g){
+  this.current(g);requireValue(this.pending?.confirmation_id&&this.result?.state==='prepared'&&!this.pending.archive_started,'只可取消未提交预览');
+  if(!this.confirm('取消这份未提交预览？如提交已被受理，设备会拒绝取消；请继续核对。'))return;
+  await this.accept(await this.request({op:'forwarding_history_cancel',request_id:this.pending.id,confirmation_id:this.pending.confirmation_id}),g);
+ }
+ async query(g){
+  this.current(g);requireValue(this.pending,'没有本批记录，请先读取');const record=this.pending;
+  const v=await this.request({op:'forwarding_history_request',request_id:record.id});this.current(g);
+  requireValue(v?.request_id===record.id&&typeof v.known==='boolean'&&v.not_found_is_not_proof===true);
+  if(!v.known){this.result=null;this.render();this.message('没有找到本批索引；不代表从未入队或外发。记录继续保留，可保存不确定摘要后继续；不会重新提交。');return;}
+  await this.accept(v.receipt,g);
+ }
+ async archive(g){
+  this.current(g);const old=this.pending,r=this.result;requireValue(old&&r?.state!=='prepared'&&this.sample,'先取消未提交预览，或查询本批回执');
+  const uncertain=!r||r.missing_receipts||r.receipts.some(x=>['queued','in_flight','unknown'].includes(x.state));
+  if(!this.confirm(uncertain?'将本批不确定摘要保存在浏览器并继续？设备索引和Unknown保持，不会再次发送。':'保存本批摘要并归档设备批次索引？递送回执保留，不会重新发送。'))return;
+  await this.archivePending({record:old,state:r?.state??'not_found',uncertain});this.current(g);
+  if(!uncertain){
+   const marker={...old,archive_started:true};await this.replace(marker,old,g);
+   const ack=await this.request({op:'forwarding_history_archive',expected_generation:this.sample.generation,request_id:marker.id,confirmation_id:marker.confirmation_id});this.current(g);
+   requireValue(ack?.archived===true&&ack.jobs_preserved===true&&ack.request_id===marker.id&&ack.confirmation_id===marker.confirmation_id,'归档未获确认；摘要已保留，请查询');
+   await this.replace(null,marker,g);
+  }else await this.replace(null,old,g);
+  this.rangeOptions(r?.preview.cursor);this.result=null;this.render();this.message(uncertain?'不确定摘要已保留，设备索引和递送回执保持；不会自动重投。':'本批摘要已保存并归档；设备递送回执保持。');await this.showArchives(g);
+ }
+ render(){
+  const area=this.$('forwarding-history-preview');area.replaceChildren();if(!this.result)return;
+  const r=this.result,p=r.preview;const summary=this.doc.createElement('p');summary.textContent=`${batchStates[r.state]} · 查看${p.scanned}条 · 跳过${p.skipped_messages}条 · 已有任务/回执${p.already_queued_or_recorded}个 · ${p.deliveries.length}个递送`;area.append(summary);
+  for(const [i,d] of p.deliveries.entries()){const row=this.doc.createElement('p');const index=this.view?.targets.findIndex(t=>t.id===d.target_id);const receipt=r.receipts.find(x=>x.id===d.id);row.textContent=`第${i+1}条短信 → 目标 ${index>=0?index+1:d.target_id} · ${shares[d.share]} · ${receipt?states[receipt.state]:r.state==='submitted'?'回执缺失，不能推断未发送':'尚未入队'}`;const details=this.doc.createElement('details'),label=this.doc.createElement('summary'),id=this.doc.createElement('p');label.textContent='查看记录标识';id.className='mono';id.textContent='短信 '+d.message_id+' · 递送 '+d.id;details.append(label,id);area.append(row,details);}
+ }
+ async showArchives(g){
+  const rows=await this.loadArchives();this.current(g);requireValue(Array.isArray(rows)&&rows.length<=64,'保存的补发摘要无效');
+  const area=this.$('forwarding-history-saved');area.replaceChildren();
+  for(const entry of rows){const record=historyPendingInput(entry.record);const row=this.doc.createElement('div');row.className='row mono';row.textContent=`${record.id} · ${entry.uncertain?'未决摘要保留':batchStates[entry.state]??'已保存'} `;const button=this.doc.createElement('button');button.textContent='核对';button.disabled=!!this.pending;button.onclick=()=>this.action(async g=>{requireValue(!this.pending,'请先处理当前批次');await this.replace(record,null,g);await this.query(g);});row.append(button);area.append(row);}
+ }
+}
