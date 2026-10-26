@@ -189,14 +189,14 @@ def test(core_binary, worker_binary, managed=False):
             return subprocess.run(['systemctl', '--no-ask-password', *args], check=check,
                                   capture_output=True, text=True, timeout=22)
 
-        def rpc(uid, command, protocol=4):
+        def rpc(uid, command, protocol=4, allow_denied=False):
             request = {'protocol': protocol, 'id': str(uuid.uuid4()), 'command': command}
             result = subprocess.run([sys.executable, str(base/'client.py'), '--client', sock], input=json.dumps(request),
                 text=True, capture_output=True, timeout=13 if managed else 6,
                 user=uid, group=IPC, extra_groups=[IPC], cwd=base)
             assert result.returncode == 0, 'Core transport failed'
             response = json.loads(result.stdout)
-            assert 'error' not in response, 'Core refused request'
+            assert 'error' not in response or (allow_denied and response.get('error') == 'denied'), 'Core refused request'
             return response
 
         def root(action, check=True):
@@ -380,7 +380,15 @@ def test(core_binary, worker_binary, managed=False):
                 assert admitted['accepted'] and admitted['quick_test']
                 probe_observation = {}
                 def probe_closed():
-                    receipt = rpc(EDGE, {'op': 'forwarding_test_request', 'token': owner, 'request_id': probe_id}, 2)
+                    receipt = rpc(EDGE, {'op': 'forwarding_test_request', 'token': owner, 'request_id': probe_id}, 2,
+                                  allow_denied=True)
+                    # This read shares Core's nonblocking Auth/queue mutexes
+                    # with the worker. A refused read is not a final receipt.
+                    # Retry only observation within the existing 20s bound;
+                    # never retry the start/send/configuration commands.
+                    if 'error' in receipt:
+                        probe_observation['refused_reads'] = probe_observation.get('refused_reads', 0) + 1
+                        return False
                     probe_observation.update(known=receipt['known'], state=(receipt.get('receipt') or {}).get('state'),
                         quick_active=receipt.get('quick_active'), automatic_stop_verified=receipt.get('automatic_stop_verified'))
                     return receipt['known'] and receipt['receipt']['state'] == 'confirmed' and receipt['quick_active'] is False and receipt['automatic_stop_verified'] is True

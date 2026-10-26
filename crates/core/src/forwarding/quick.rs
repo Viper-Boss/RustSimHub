@@ -3,6 +3,35 @@
 use super::*;
 use std::time::Duration;
 
+async fn wait_for_receipt<F, R>(mut observe: F) -> Result<()>
+where
+    F: FnMut() -> R,
+    R: std::future::Future<Output = Result<Value>>,
+{
+    for _ in 0..30 {
+        match observe().await {
+            // Admission was refused before any mutation. A competing read
+            // must not retire a worker while its HTTPS reply is outstanding.
+            // Only this passive read is retried, within the original budget.
+            Err(Error::Busy) => {}
+            Err(error) => return Err(error),
+            Ok(value) => {
+                if value["known"] != true {
+                    return Err(Error::Forbidden);
+                }
+                if !matches!(
+                    value["receipt"]["state"].as_str(),
+                    Some("queued" | "in_flight")
+                ) {
+                    return Ok(());
+                }
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+    Err(Error::Busy)
+}
+
 pub(super) async fn start(
     controller: &Controller,
     auth: Arc<Mutex<Auth>>,
@@ -55,28 +84,16 @@ pub(super) async fn start(
                 if value["state"] != "running" || value["process_state_verified"] != true {
                     return Err(Error::Forbidden);
                 }
-                for _ in 0..30 {
-                    let value = controller
-                        .passive_request(
-                            auth.clone(),
-                            AuthCommand::ForwardingTestRequest {
-                                token: token.clone(),
-                                request_id: id.clone(),
-                            },
-                        )
-                        .await?;
-                    if value["known"] != true {
-                        return Err(Error::Forbidden);
-                    }
-                    if !matches!(
-                        value["receipt"]["state"].as_str(),
-                        Some("queued" | "in_flight")
-                    ) {
-                        return Ok(());
-                    }
-                    tokio::time::sleep(Duration::from_millis(500)).await;
-                }
-                Err(Error::Busy)
+                wait_for_receipt(|| {
+                    controller.passive_request(
+                        auth.clone(),
+                        AuthCommand::ForwardingTestRequest {
+                            token: token.clone(),
+                            request_id: id.clone(),
+                        },
+                    )
+                })
+                .await
             };
             let _ = tokio::time::timeout(Duration::from_secs(30), run).await;
             let state = controller.0.clone();
@@ -119,4 +136,64 @@ pub(super) async fn start(
         });
     }
     Ok(response)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::forwarding::tests::{Fixture, REQUEST};
+
+    #[tokio::test]
+    async fn receipt_lock_contention_does_not_cancel_an_in_flight_probe() {
+        let f = Fixture::new();
+        let token = match f.configure(0, REQUEST, false) {
+            AuthCommand::ForwardingConfigure { token, .. } => token,
+            _ => unreachable!(),
+        };
+        // Exercise the real nonblocking Auth mutex, not an invented error.
+        let auth = f.auth.clone();
+        let (ready, held) = std::sync::mpsc::sync_channel(0);
+        let (release, done) = std::sync::mpsc::sync_channel(0);
+        let holder = std::thread::spawn(move || {
+            let _guard = auth.lock().unwrap();
+            ready.send(()).unwrap();
+            done.recv().unwrap();
+        });
+        held.recv().unwrap();
+        let busy = f
+            .control
+            .passive_request(
+                f.auth.clone(),
+                AuthCommand::ForwardingTestRequest {
+                    token,
+                    request_id: REQUEST.into(),
+                },
+            )
+            .await;
+        release.send(()).unwrap();
+        holder.join().unwrap();
+        assert!(matches!(busy, Err(Error::Busy)));
+        let mut observations = [
+            busy,
+            Ok(json!({"known":true,"receipt":{"state":"in_flight"}})),
+            Ok(json!({"known":true,"receipt":{"state":"confirmed"}})),
+        ]
+        .into_iter();
+        wait_for_receipt(|| std::future::ready(observations.next().unwrap()))
+            .await
+            .unwrap();
+        assert!(observations.next().is_none());
+    }
+
+    #[tokio::test]
+    async fn receipt_denial_and_missing_receipt_still_end_the_probe_immediately() {
+        for value in [Err(Error::Forbidden), Ok(json!({"known":false}))] {
+            let mut value = Some(value);
+            assert!(matches!(
+                wait_for_receipt(|| std::future::ready(value.take().unwrap())).await,
+                Err(Error::Forbidden)
+            ));
+            assert!(value.is_none());
+        }
+    }
 }
