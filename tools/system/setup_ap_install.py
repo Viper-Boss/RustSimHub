@@ -104,7 +104,7 @@ def create_delivery(inventory,directory,public,source,backup,output):
     plan={'format':1,'kind':'first-setup-ap-install','source_sha256':source,'existing_owner_preserved':True,'signature_verified_off_device':True,
         'signed_manifest_sha256':sha(blobs['signed-manifest.json']),'helper_sha256':sha(blobs['apply.sh']),
         'files':[{'payload':f'payload-{n}','target':target,'mode':mode,'sha256':sha(blobs[f'payload-{n}'])} for n,(_,target,mode) in enumerate(package.FILES)],
-        'starts_services':False,'changes_network':False,'restores_business_database':False,'retained_on_rollback':['prepared private materials','binding metadata','journal directories'],
+        'starts_services':False,'starts_preparation_jobs':True,'changes_network':False,'restores_business_database':False,'retained_on_rollback':['prepared private materials','binding metadata','journal directories'],
         'invocation_requirement':'Root over pinned maintenance transport must check the helper digest before execution and supply the expected SHA256SUMS digest'}
     blobs['plan.json']=(json.dumps(plan,sort_keys=True,indent=2)+'\n').encode()
     require(len(blobs)==28,'fixed delivery file count')

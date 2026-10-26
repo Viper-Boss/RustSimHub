@@ -187,10 +187,35 @@ put() {
 mapping | head -n 6 | while read -r name mode target;do put "$name" "$mode" "$target";done
 # Fixed offline CLI arguments only. Do not reopen setup, export credentials or
 # restore databases. Activation drop-ins are published only after preparation.
-timeout 20 runuser -u rustsimhub-core -- "$selected/rustsimhub-core" --prepare-device-ap-binding "$core/state" "$core/identity" "$core/setup" >/dev/null
-timeout 20 runuser -u rustsimhub-edge -- "$selected/rustsimhub-edge" --prepare-setup-local "$edge" >/dev/null
+prepare() {
+ case "$1" in
+  core) user=rustsimhub-core; source=$core; alias=/var/lib/rustsimhub-core; program=rustsimhub-core
+   set -- --prepare-device-ap-binding "$alias/state" "$alias/identity" "$alias/setup";;
+  edge) user=rustsimhub-edge; source=$edge; alias=/var/lib/rustsimhub-setup-edge; program=rustsimhub-edge
+   set -- --prepare-setup-local "$alias";;
+  *) return 1;;
+ esac
+ # The persistent state and version-store parents are deliberately Root-only.
+ # PID1 binds just the selected program and this role's directory before
+ # dropping privileges, exactly as the normal service does. Never chmod the
+ # parents or run preparation as Root. Lost callers cannot leave a lasting job.
+ timeout 20 systemd-run --quiet --wait --pipe --collect \
+  --property=Type=exec --property="User=$user" --property="Group=$user" \
+  --property="BindReadOnlyPaths=$selected:/opt/rustsimhub/selected" \
+  --property="BindPaths=$source:$alias" --property="ReadWritePaths=$alias" \
+  --property=ProtectSystem=strict --property=ProtectHome=yes \
+  --property=InaccessiblePaths=/var/lib/rustsimhub \
+  --property=PrivateTmp=yes --property=PrivateDevices=yes --property=PrivateNetwork=yes \
+  --property=NoNewPrivileges=yes --property=CapabilityBoundingSet= \
+  --property=RestrictAddressFamilies=AF_UNIX --property=UMask=0077 \
+  --property=RuntimeMaxSec=15 --property=TimeoutStopSec=3 \
+  --property=MemoryMax=96M --property=TasksMax=8 \
+  /usr/bin/env -i "/opt/rustsimhub/selected/$program" "$@" >/dev/null
+}
+prepare core
+prepare edge
 timeout 20 /usr/libexec/rustsimhub/rustsimhub-setup-ap --prepare-from-core "$persistent" "$core/setup" "$edge/installation" 985 986 >/dev/null
 snapshot
 mapping | tail -n 2 | while read -r name mode target;do put "$name" "$mode" "$target";done
 printf 'prepared-services-not-started\n' >> operation.log;sync -f operation.log
-printf '{"prepared":true,"services_started":false,"network_changed":false,"business_data_restored":false}\n'
+printf '{"prepared":true,"services_started":false,"preparation_jobs_started":true,"network_changed":false,"business_data_restored":false}\n'

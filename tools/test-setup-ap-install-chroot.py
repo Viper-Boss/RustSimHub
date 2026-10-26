@@ -59,7 +59,7 @@ class Installer(unittest.TestCase):
         cls.temporary=tempfile.TemporaryDirectory(prefix='rsh-ap-install-')
         cls.base=Path(cls.temporary.name);cls.template=cls.base/'template';cls.template.mkdir(mode=0o755)
         root=cls.template
-        programs=['sh','id','stat','grep','wc','cut','sort','sha256sum','cat','awk','tr','find','dirname','flock','ps','head','tail','install','sync','mv','rm','timeout','getent','setpriv']
+        programs=['sh','id','stat','grep','wc','cut','sort','sha256sum','cat','awk','tr','find','dirname','flock','ps','head','tail','install','sync','mv','rm','timeout','getent','setpriv','unshare','mount','env']
         for name in programs:
             path=shutil.which(name);assert path,name
             copy_program(root,path,'/usr/bin/'+name)
@@ -75,6 +75,44 @@ class Installer(unittest.TestCase):
         put(root,'/usr/bin/ps','#!/bin/sh\nprintf "0\\n"\n',0o755)
         put(root,'/usr/bin/systemctl','#!/bin/sh\ncase "$*" in *MainPID*|*ControlPID*) echo 0;; *Job*) if test -e /fixture/job;then echo "12 queued-job";else echo 0;fi;; *ActiveState*) if test -e /fixture/busy;then echo active;else echo inactive;fi;; *) exit 1;; esac\n',0o755)
         put(root,'/usr/bin/runuser','#!/bin/sh\ncase "$2" in rustsimhub-core) uid=986;; rustsimhub-edge) test ! -e /fixture/fail-edge || exit 73;uid=985;; *) exit 1;; esac\nshift 3\nexec setpriv --reuid="$uid" --regid="$uid" --clear-groups "$@"\n',0o755)
+        # Explicit PID1 fixture, with actual private mount namespaces and UIDs.
+        # Only this disposable chroot's files are bound. It is not a real PID1
+        # property/limit test; no host files or production units are exposed.
+        put(root,'/usr/bin/systemd-run','''#!/bin/sh
+set -eu
+user=;binding=;readonly=;network=;caps=;deadline=;write=
+while test "$#" -gt 0;do
+ case "$1" in
+  --property=User=*) user=${1#--property=User=};;
+  --property=BindPaths=*) binding=${1#--property=BindPaths=};;
+  --property=BindReadOnlyPaths=*) readonly=${1#--property=BindReadOnlyPaths=};;
+  --property=ReadWritePaths=*) write=${1#--property=ReadWritePaths=};;
+  --property=PrivateNetwork=yes) network=yes;;
+  --property=CapabilityBoundingSet=) caps=empty;;
+  --property=RuntimeMaxSec=15) deadline=yes;;
+  --*) ;;
+  *) break;;
+ esac
+ shift
+done
+test "$network:$caps:$deadline" = yes:empty:yes
+test "$readonly" = /run/rustsimhub-app/selected:/opt/rustsimhub/selected
+case "$user" in
+ rustsimhub-core) uid=986;source=/var/lib/rustsimhub/rustsimhub-v1/core;alias=/var/lib/rustsimhub-core;program=rustsimhub-core;;
+ rustsimhub-edge) test ! -e /fixture/fail-edge || exit 73;uid=985;source=/var/lib/rustsimhub/rustsimhub-v1/setup-edge;alias=/var/lib/rustsimhub-setup-edge;program=rustsimhub-edge;;
+ *) exit 1;;
+esac
+test "$binding" = "$source:$alias";test "$write" = "$alias"
+test "$1" = /usr/bin/env;test "$2" = -i
+test "$3" = "/opt/rustsimhub/selected/$program"
+install -d -m 755 /opt /opt/rustsimhub /opt/rustsimhub/selected "$alias"
+exec unshare --mount --propagation unchanged /bin/sh -c '
+ source=$1;alias=$2;uid=$3;shift 3
+ mount -n --bind /run/rustsimhub-app/selected /opt/rustsimhub/selected
+ mount -n --bind "$source" "$alias"
+ exec setpriv --reuid="$uid" --regid="$uid" --clear-groups --bounding-set=-all --inh-caps=-all --ambient-caps=-all --no-new-privs "$@"
+' fixture "$source" "$alias" "$uid" "$@"
+''',0o755)
         selected='/run/rustsimhub-app/selected'
         for path,name in [(CORE,'rustsimhub-core'),(EDGE,'rustsimhub-edge')]:copy_program(root,path,selected+'/'+name)
         # Libraries for the subsequently installed native AP executable.
@@ -109,6 +147,10 @@ class Installer(unittest.TestCase):
         put(root,module.CORE+'/state/protected-business-sentinel',b'business data must never be restored or removed',0o600,986,986)
         cls.db=next((core/'state').glob('*.sqlite3')).relative_to(root)
         cls.baseline=cls.business(root)
+        # Model the real device's private version/state ancestors. Only the
+        # per-job bind aliases let its unprivileged preparation process in.
+        for name in ['run/rustsimhub-app','var/lib/rustsimhub','var/lib/rustsimhub/rustsimhub-v1']:
+            (root/name).chmod(0o700)
 
     @classmethod
     def tearDownClass(cls):cls.temporary.cleanup()
@@ -143,7 +185,9 @@ class Installer(unittest.TestCase):
         put(self.root,'/bundle/SHA256SUMS',sums);self.digest=module.sha(sums)
 
     def run_helper(self,action='--check',success=True,digest=None):
-        result=command(['chroot',str(self.root),'/bin/sh','/bundle/apply.sh','/bundle',action,digest or self.digest])
+        # Make propagation private before chroot: its root directory need not
+        # itself be a mount point. Inner fixture jobs inherit that isolation.
+        result=command(['unshare','--mount','--propagation','private','chroot',str(self.root),'/bin/sh','/bundle/apply.sh','/bundle',action,digest or self.digest])
         if success:self.assertEqual(result.returncode,0,result.stderr.decode(errors='replace'))
         else:self.assertNotEqual(result.returncode,0);return None
         return json.loads(result.stdout)
