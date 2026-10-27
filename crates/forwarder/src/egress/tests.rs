@@ -25,6 +25,76 @@ async fn listener() -> (TcpListener, SocketAddr) {
     let a = l.local_addr().unwrap();
     (l, a)
 }
+// UDP's ephemeral allocator does not reserve a TCP port. Reserve TCP first,
+// then hold both sockets; only fixture setup may retry an occupied UDP port.
+// No DNS/HTTP request has been sent and no production retry is introduced.
+fn dns_listeners_with(
+    mut bind_udp: impl FnMut(SocketAddr) -> std::io::Result<std::net::UdpSocket>,
+) -> std::io::Result<(UdpSocket, TcpListener, SocketAddr)> {
+    for _ in 0..16 {
+        let tcp = std::net::TcpListener::bind("127.0.0.1:0")?;
+        let address = tcp.local_addr()?;
+        let udp = match bind_udp(address) {
+            Ok(udp) => udp,
+            Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => continue,
+            Err(e) => return Err(e),
+        };
+        tcp.set_nonblocking(true)?;
+        udp.set_nonblocking(true)?;
+        return Ok((
+            UdpSocket::from_std(udp)?,
+            TcpListener::from_std(tcp)?,
+            address,
+        ));
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::AddrInUse,
+        "fixture could not reserve one TCP/UDP port within 16 attempts",
+    ))
+}
+fn dns_listeners() -> (UdpSocket, TcpListener, SocketAddr) {
+    dns_listeners_with(std::net::UdpSocket::bind).unwrap()
+}
+#[tokio::test]
+async fn dns_fixture_recovers_from_an_actual_udp_collision_before_any_traffic() {
+    let mut occupied = None;
+    let mut attempts = 0;
+    let (udp, tcp, address) = dns_listeners_with(|address| {
+        attempts += 1;
+        if occupied.is_none() {
+            occupied = Some(std::net::UdpSocket::bind(address)?);
+        }
+        std::net::UdpSocket::bind(address)
+    })
+    .unwrap();
+    assert!((2..=16).contains(&attempts));
+    assert_ne!(address, occupied.unwrap().local_addr().unwrap());
+    assert_eq!(udp.local_addr().unwrap(), address);
+    assert_eq!(tcp.local_addr().unwrap(), address);
+}
+#[tokio::test]
+async fn dns_fixture_collision_budget_is_finite_and_other_errors_are_not_retried() {
+    let mut occupied = Vec::new();
+    let mut attempts = 0;
+    let result = dns_listeners_with(|address| {
+        attempts += 1;
+        // Keep a real conflicting UDP socket for every TCP candidate.
+        occupied.push(std::net::UdpSocket::bind(address)?);
+        std::net::UdpSocket::bind(address)
+    });
+    assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::AddrInUse);
+    assert_eq!(attempts, 16);
+    let mut calls = 0;
+    let result = dns_listeners_with(|_| {
+        calls += 1;
+        Err(std::io::ErrorKind::PermissionDenied.into())
+    });
+    assert_eq!(
+        result.unwrap_err().kind(),
+        std::io::ErrorKind::PermissionDenied
+    );
+    assert_eq!(calls, 1);
+}
 fn question() -> Query {
     Query::query(Name::from_ascii("fixture.test.").unwrap(), RecordType::A)
 }
@@ -161,9 +231,7 @@ async fn cname_only_reply_gets_a_bounded_fresh_query_to_same_explicit_resolver()
 }
 #[tokio::test]
 async fn truncated_udp_uses_tcp_dns_on_the_same_bound_interface_and_source() {
-    let dns = UdpSocket::bind("127.0.0.1:0").await.unwrap();
-    let dns_addr = dns.local_addr().unwrap();
-    let tcp = TcpListener::bind(dns_addr).await.unwrap();
+    let (dns, tcp, dns_addr) = dns_listeners();
     let (server, addr) = listener().await;
     let mut r = route();
     r.dns_servers.push(dns_addr);
@@ -290,9 +358,7 @@ async fn ipv6_literal_and_aaaa_answers_use_only_the_explicit_ipv6_source() {
 }
 #[tokio::test]
 async fn connector_deadline_drops_a_stalled_tcp_dns_socket_without_background_driver() {
-    let dns = UdpSocket::bind("127.0.0.1:0").await.unwrap();
-    let address = dns.local_addr().unwrap();
-    let tcp = TcpListener::bind(address).await.unwrap();
+    let (dns, tcp, address) = dns_listeners();
     let mut r = route();
     r.dns_servers.push(address);
     let (ready_tx, ready_rx) = oneshot::channel();

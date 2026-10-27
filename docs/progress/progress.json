@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-27T00:18:01.674708+00:00",
+  "updated_at": "2026-10-27T03:21:20.466730+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -69,8 +69,8 @@
   "focus": {
     "task_id": "UPD-01",
     "title": "Root与应用版本能力契约",
-    "state": "主线开发已暂停；成员离线任务按新分工排队",
-    "description": "UPD-01保留待续；本次只追加离线分工及发布资料，未恢复设备或主线固件开发。四位成员先交当前批，经审核按任务书继续追加包。"
+    "state": "正在推进",
+    "description": "目标已恢复。先修复固定6f964ce完整CI中已有DNS夹具跨UDP/TCP端口占用（errno98），不改变产品重试/出口/截止；随后继续Root与应用版本兼容，成员新增范围保留。"
   },
   "facts": [
     {
@@ -4870,12 +4870,24 @@
       "evidence": [
         "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md"
       ]
+    },
+    {
+      "at": "2026-10-27T03:07:04.755807+00:00",
+      "type": "state",
+      "title": "UPD-01 · 下一关卡：Root与应用版本能力契约",
+      "detail": "目标已恢复。先修复固定6f964ce完整CI中已有DNS夹具跨UDP/TCP端口占用（errno98），不改变产品重试/出口/截止；随后继续Root与应用版本兼容，成员新增范围保留。",
+      "task_ids": [
+        "UPD-01"
+      ],
+      "evidence": [
+        "docs/APPLICATION-ROOT-VERSION-CONTRACT.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "909f2395e7835676fef629f2dd93a7fce6a8c747",
-    "generated_at": "2026-10-27T00:18:01.674708+00:00",
+    "source_revision": "6f964ceb53a5d1effba9bf79748b327b7375b353",
+    "generated_at": "2026-10-27T03:21:20.466730+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -4884,25 +4896,25 @@
         "login": "Viper-Boss",
         "role": "项目负责人 · 主线开发 / 架构 / 设备 / 审核",
         "access": "现有主线维护；实际权限沿用仓库设置",
-        "package": "主线暂停 · UPD-01待续 / 审核与设备集成",
+        "package": "CI端口夹具修复 → UPD-01版本兼容 / 主线审核与设备集成",
         "task_ids": [
           "UPD-01"
         ],
         "step_ids": [],
         "handoff": "docs/team/README.md",
-        "state": "assigned",
+        "state": "in_progress",
         "estimate_hours": null,
         "stats": {
           "current_lines": {
             "product": 46302,
-            "tests": 28211,
+            "tests": 28212,
             "tooling": 8715,
             "firmware": 1132
           },
-          "commits": 322,
-          "code_commits": 223,
-          "added": 88520,
-          "deleted": 2217
+          "commits": 323,
+          "code_commits": 224,
+          "added": 88522,
+          "deleted": 2218
         },
         "work": {
           "assigned_steps": 0,
@@ -5181,7 +5193,7 @@
     },
     "totals": {
       "product": 46853,
-      "tests": 28772,
+      "tests": 28773,
       "tooling": 8715,
       "firmware": 1132
     },

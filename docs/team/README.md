@@ -4,7 +4,7 @@
 
 | 人员 | 责任 | 本轮任务 | 设备 |
 |---|---|---|---|
-| Viper-Boss / 项目负责人 | 总体设计、主线开发、设备集成、审核与合并 | 主线开发暂停，UPD-01待续；负责跨模块审核、设备与签名交付 | 由负责人操作 |
+| Viper-Boss / 项目负责人 | 总体设计、主线开发、设备集成、审核与合并 | UPD-01版本契约；维护主线CI、跨模块审核及设备/签名交付 | 由负责人操作 |
 | 成员A：[fungi1220](https://github.com/fungi1220) | NKN活跃安装统计的独立Rust组件 | [A任务书](MEMBER-A-USAGE-STATS.md)，STAT-01～07、追加NKN-01/02和SEC-05离线部分（16步） | 无需设备 |
 | 成员B：wnfhsj（用户已确认，主页查询异常） | 网络月计量、异常边界与展示 | [B任务书](MEMBER-B-NETWORK-ACCOUNTING.md)，NET-01～03、追加WEB-01/05和STAB-01离线部分（16步） | 无需设备 |
 | 成员C：[yh1030](https://github.com/yh1030) | NAS只读兼容、历史导入与幂等 | [C任务书](MEMBER-C-NAS-COMPAT.md)，NAS-01/05/06、追加REC-04/UPD-06及REL-05草稿（16步，已审4步） | 无需设备 |
