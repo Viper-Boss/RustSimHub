@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-27T17:52:55.901384+00:00",
+  "updated_at": "2026-10-27T17:56:39.861389+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -4942,8 +4942,8 @@
   ],
   "team": {
     "schema": 1,
-    "source_revision": "6f228fd3dcb9ce6da54d7910f4b044833e71a91a",
-    "generated_at": "2026-10-27T17:52:55.901384+00:00",
+    "source_revision": "c185325062617995f5644f436c31cf8ab9ace4ad",
+    "generated_at": "2026-10-27T17:56:39.861389+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -4962,14 +4962,14 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 46882,
-            "tests": 28987,
+            "product": 46889,
+            "tests": 29014,
             "tooling": 8715,
             "firmware": 1132
           },
-          "commits": 331,
-          "code_commits": 228,
-          "added": 90051,
+          "commits": 332,
+          "code_commits": 229,
+          "added": 90086,
           "deleted": 2238
         },
         "work": {
@@ -5011,6 +5011,11 @@
             {
               "pr": 14,
               "head": "f8bd02dd24c3db9587a0b52622ecfb77e77b00bc",
+              "state": "MERGED"
+            },
+            {
+              "pr": 15,
+              "head": "0c44c55f804af6e152e3f358760f3ad69786ac1c",
               "state": "OPEN"
             }
           ]
@@ -5341,8 +5346,8 @@
       "deleted": 0
     },
     "totals": {
-      "product": 48046,
-      "tests": 30995,
+      "product": 48053,
+      "tests": 31022,
       "tooling": 8715,
       "firmware": 1132
     },

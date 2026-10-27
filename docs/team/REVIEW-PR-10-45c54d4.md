@@ -50,8 +50,8 @@
 - `Database::backup`（storage/src/lib.rs:745）用 Backup API 从 WAL 库复制，产出的 `backup.sqlite3` 文件头仍是 WAL 模式。
 - `Store::restore` 用 `SQLITE_OPEN_READ_ONLY` 打开源文件（lib.rs:424）。只读连接打开 WAL 库时会创建 `-shm`/`-wal`，关闭时不清理。已用最小 Python/SQLite 3.46.1 实验独立复现。
 - 影响：恢复后源备份目录多出文件，与文档中“来源保持”的说法不符。另外推断从只读介质恢复可能失败，这一点**未验证**。
-- 成员 C 不能改 storage 生产代码。负责人决定由主线修复：[Viper-Boss/RustSimHub#14](https://github.com/Viper-Boss/RustSimHub/pull/14)（提交 `f8bd02dd24c3db9587a0b52622ecfb77e77b00bc`，未合并）让 `Store::backup` 在发布前把目标库切到 `journal_mode=DELETE`，恢复语义不变，并附回归测试。
-- 本机 WSL2 上，#10 HEAD 叠加 #14 后，15 个场景全部通过，退出码 0。成员 C **不需要**为 F1 修改这 3 处断言，也不要改成忽略 sidecar；等 #14 合并后 rebase 即可。
+- 成员 C 不能改 storage 生产代码。负责人决定由主线修复：[Viper-Boss/RustSimHub#14](https://github.com/Viper-Boss/RustSimHub/pull/14)（提交 `f8bd02dd24c3db9587a0b52622ecfb77e77b00bc`，2026-10-28 合并到 main，merge commit `c185325062617995f5644f436c31cf8ab9ace4ad`；CI 因账单未启动）让 `Store::backup` 在发布前把目标库切到 `journal_mode=DELETE`，恢复语义不变，并附回归测试。
+- 本机 WSL2 上，#10 HEAD 叠加 #14 后，15 个场景全部通过，退出码 0。成员 C **不需要**为 F1 修改这 3 处断言，也不要改成忽略 sidecar；rebase 到当前 main 即可。
 - #14 不改写修复前生成的旧 WAL 格式备份，这些备份恢复时仍会多出 sidecar。C 的 `docs/recovery/` 里关于“来源保持”的表述，应注明这一点以 #14 为前提。
 
 ### F2（夹具缺陷）`wal_backup…` 自己制造了 sidecar
@@ -80,6 +80,6 @@ business.rs:24 的 `logical(&backup…)` 先用只读方式打开了备份，第
 1. 修 F2（先列目录再打开，或只读改用 `immutable`）。
 2. 修 F3（不要硬编码 7）。可选再处理 F4。
 3. `docs/recovery/` 和报告中补上：F1 由主线 #14 修复，旧 WAL 格式备份仍有限制。
-4. 等 #14 合并后 rebase 到 main，再提交新 HEAD 的实际 Linux 结果。
+4. rebase 到已包含 #14 的 main，再提交新 HEAD 的实际 Linux 结果。
 
 新增提交会让本结论失效，需按新 HEAD 重跑。
