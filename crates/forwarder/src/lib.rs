@@ -11,12 +11,18 @@ mod rules;
 pub use rules::*;
 mod edit;
 pub use edit::*;
+mod compatibility;
+pub use compatibility::*;
 #[cfg(target_os = "linux")]
 mod authority;
 #[cfg(target_os = "linux")]
 mod queue;
 #[cfg(target_os = "linux")]
 pub use queue::*;
+#[cfg(target_os = "linux")]
+mod inspection;
+#[cfg(target_os = "linux")]
+pub use inspection::{inspect_outbox, OutboxInspection};
 #[cfg(target_os = "linux")]
 mod delivery;
 #[cfg(target_os = "linux")]

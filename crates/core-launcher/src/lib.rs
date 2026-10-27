@@ -4,6 +4,8 @@
 //! network, policy mutation, account creation or service control.
 use serde::Deserialize;
 use serde_json::Value;
+mod compatibility;
+pub use compatibility::{check_upgrade, UpgradeReport};
 
 #[cfg(target_os = "linux")]
 mod linux;
@@ -24,7 +26,8 @@ const APP49: &str = "f0226d2b32ec69a7ab1a062516a75dfbe7229b403d8f72210c7c8e2a099
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Error;
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Mode {
     Device,
     Forwarding,
@@ -80,6 +83,10 @@ fn digest(value: &str) -> bool {
 /// Explicit new capabilities plus exactly three verified historical profiles.
 /// A missing/unusable AP contract disables AP, never forwarding or phone/SMS.
 pub fn select(metadata: &[u8], installed: Option<&[u8]>) -> Result<Mode, Error> {
+    select_for_arch(metadata, installed, std::env::consts::ARCH)
+}
+
+fn select_for_arch(metadata: &[u8], installed: Option<&[u8]>, arch: &str) -> Result<Mode, Error> {
     if metadata.len() > 16384 {
         return Err(Error);
     }
@@ -88,16 +95,13 @@ pub fn select(metadata: &[u8], installed: Option<&[u8]>) -> Result<Mode, Error> 
         || meta.development_fixtures
         || !digest(&meta.source_archive_sha256)
         || meta.component.as_deref().is_some_and(|v| v != "core")
-        || meta
-            .target_arch
-            .as_deref()
-            .is_some_and(|v| v != std::env::consts::ARCH)
+        || meta.target_arch.as_deref().is_some_and(|v| v != arch)
     {
         return Err(Error);
     }
     let (forwarding, ap) = if let Some(caps) = meta.service_launch {
         if meta.component.as_deref() != Some("core")
-            || meta.target_arch.as_deref() != Some(std::env::consts::ARCH)
+            || meta.target_arch.as_deref() != Some(arch)
             || caps.format != 1
             || caps.modes.is_empty()
             || caps.modes.len() > 3

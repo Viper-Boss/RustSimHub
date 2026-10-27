@@ -1,5 +1,17 @@
 # RustSimHub 当前接手入口
 
+2026-10-27 [U3固定补验](VALIDATION-UPGRADE-COMPARISON-U3.md)：81068ab10e379d53792039c6a154bcfc53a6cabf的push40449868904/PR40449872660两轮test/native-audio均success，两实际job日志含11新增比较测试和15个生产CLI。Git精确745文件3239b03、全新十一生产ARM、QEMU十九outbox及十五联合CLI、真实旧2126f7d Core无ABI需维护、八文件Root材料验签通过，未部署。实际Root/签名字节/数据锁下准入仍缺，UPD-01仍进行；原80%、14/169、7.3%保持。PR4虽显示clean，普通自动合并因仓库禁用失败、普通合并仍被分支策略拒绝；无管理员绕过，先前授权待答。继续独立开发，目标active，四位/真人/关机约束及旧README笔记保持。
+
+2026-10-27 [U3联合比较](VALIDATION-UPGRADE-COMPARISON-U3.md)实现Root模式/契约、三角色Core/worker及数据版本的有限CLI；先投影候选迁移/新建后的outbox，再检查fallback，历史缺ABI需维护，0/3/4/1退出码不把拒绝当shell成功。744文件2542641，经清理三变更包后297项/严格/fmt、三生产Native及实际stdout+SQLite探针的15个CLI用例通过。仅版本比较，签名字节/实际Root盘点/数据锁下维护准入仍缺，UPD-01不计完成；待本次固定CI/ARM。前一5c1c97a的push40448029548/PR40448035346均成功。四位任务/用户实测保留，原80%、14/169、7.3%不变，目标active，无设备/外发/关机；保留旧README笔记。
+
+2026-10-27 [U2补验](VALIDATION-OUTBOX-INSPECTION-U2.md)：代码固定02204a8443bcc5885eb87f7c7f6f169dffe761ce的push40447155396/PR40447159015两轮test/native-audio均成功，实际两job日志含9项inspection和19个生产CLI用例。Git精确741文件a2a1c6b、全新target十一生产ARM、实际Core/worker QEMU契约及ARM十九CLI、八文件Root材料验签通过，未安装。首个shell换行失败已保留并修正。Root/候选/回选联合准入仍待做，UPD-01进行中；原80%、14/169、7.3%保持。主线PR门禁授权待答，继续功能分支；无设备/外发/普通数据/关机，四位任务和旧README笔记保持。
+
+2026-10-27 [U2只读outbox检查](VALIDATION-OUTBOX-INSPECTION-U2.md)完成阶段数据探针：实际writer锁/只读SQLite、先拒绝WAL与辅助文件、查询预算、版本/需迁移/拒绝分类，267项/严格/生产构建和19个真实CLI用例（含实际异常退出journal）通过，字节/节点/权限/mtime保持。最终740文件de9362c；U1固定7dfd6a0两轮CI均test/native-audio成功。Root/候选/回选联合准入、ARM和实机仍缺，UPD-01不计完成；原80%、14/169、7.3%保持。仅功能分支，不绕过main门禁，不碰设备/外发/成员任务/关机；继续下一阶段，目标active，旧README笔记保留。
+
+2026-10-27 [U1版本能力](VALIDATION-APPLICATION-CONTRACT-U1.md)阶段一：Core/worker实际build-info新增严格版本契约，worker协议4/outbox读写3/需迁移1、2与实际实现共享常量；原授权/迁移行为不变。736文件c1cdd51经清理变更包后257项/严格/fmt及两个真正生产Native CLI核对通过，未建工作目录文件；Root/数据/候选比较、维护准入、ARM/设备尚缺，UPD-01不计完成。前置PR#4固定5c6e4e2的push40443986959和PR40444040928两轮完整CI全部成功，仍open/blocked；自动审批拒绝直接main，已改PR并等单笔管理员合并授权，不绕过保护。目标active，四位新增分工保留，原80%、14/169、7.3%不变；无设备/外发/流量/关机，保留两份旧README笔记。
+
+2026-10-27 目标已恢复。[L2 DNS夹具](VALIDATION-DNS-FIXTURE-L2.md)修正T3固定6f964ce/CI40425761573的真实errno98：测试先UDP分端口再TCP bind冲突；仅测试夹具改为持有成对端口、受限16次准备预算，增加真实UDP占用/预算耗尽与错误不重试用例，产品出口/截止/重试不变。保留旧target误用导致第97轮旧用例冲突与冗余闭包Clippy失败；全新target验证新清单后100轮通过，最终显式清理本包产物重建，735文件a723dff的12项100轮/255项普通/严格/生产检查通过，待本次固定CI。T3面板40425761478成功、严格HTTPS三文件及五份任务书字节已核，四位新增分工保持。原80%、14/169、7.3%不虚增；继续UPD-01，未部署/外发/碰设备/关机，原两份旧README笔记保留。
+
 2026-10-27 [T3追加离线分工](team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md)正式登记：A接NKN-01/02、SEC-05；B接WEB-01/05、STAB-01；C接REC-04、UPD-06及REL-05草稿；D接CALL-08，各16/16/16/12步。原8步和C的PR#3四步审核保留，不接管设备/Core授权/Root/签名，成员按小PR和明确前置交付；新动作只是既有台账子范围，不增加169分母或进度。原80%、14/169、7.3%保持，主线目标仍paused，UPD-01待续。本机18项/Node/真实Chrome三宽、任务ID/链接与原审核不变核对通过；GitHub发布和三文件严格HTTPS核对按实际结果另记。FWD-15已完成记录一并同步，原工作区两份旧README笔记不混入提交。
 
 2026-10-27 [X1X转发故障矩阵](VALIDATION-FORWARDING-FAILURES-X1X.md)完成：固定909f2395e7835676fef629f2dd93a7fce6a8c747完整CI40422681951两个任务success，实际日志确认2MiB/UID65534/errno28专用ENOSPC、强杀Core+worker后同目录重开/新lease替换只发原未提交任务、真实凭据/cgroup和Owner服务协调；253项普通与专用故障/五进程/五准入证据分列。首轮加强夹具因Store重开线路失效未恢复而停，修正仅dev-fixtures重新观测同一合成SIM，保留原失败。FWD-15完成，14/169、余155、加权7.3%，原80%；下一UPD-01已盘点Root/应用/outbox版本并保留门禁缺口。无设备/真实外发/普通数据/关机操作，应用50最后现场保持；四位成员与用户验收不接管。

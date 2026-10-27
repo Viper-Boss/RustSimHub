@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-27T00:18:01.674708+00:00",
+  "updated_at": "2026-10-27T04:40:56.294899+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -69,8 +69,8 @@
   "focus": {
     "task_id": "UPD-01",
     "title": "Root与应用版本能力契约",
-    "state": "主线开发已暂停；成员离线任务按新分工排队",
-    "description": "UPD-01保留待续；本次只追加离线分工及发布资料，未恢复设备或主线固件开发。四位成员先交当前批，经审核按任务书继续追加包。"
+    "state": "正在推进",
+    "description": "U3联合比较通过297项/15生产CLI；81068ab两轮完整CI、十一生产ARM、实际旧Core/QEMU及八文件Root材料验签通过。继续真实Root/签名字节/数据锁下维护准入，UPD-01仍进行；原进度和成员/真人边界保持。"
   },
   "facts": [
     {
@@ -4870,12 +4870,48 @@
       "evidence": [
         "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md"
       ]
+    },
+    {
+      "at": "2026-10-27T03:07:04.755807+00:00",
+      "type": "state",
+      "title": "UPD-01 · 下一关卡：Root与应用版本能力契约",
+      "detail": "目标已恢复。先修复固定6f964ce完整CI中已有DNS夹具跨UDP/TCP端口占用（errno98），不改变产品重试/出口/截止；随后继续Root与应用版本兼容，成员新增范围保留。",
+      "task_ids": [
+        "UPD-01"
+      ],
+      "evidence": [
+        "docs/APPLICATION-ROOT-VERSION-CONTRACT.md"
+      ]
+    },
+    {
+      "at": "2026-10-27T03:35:58.452277+00:00",
+      "type": "state",
+      "title": "UPD-01 · 下一关卡：Root与应用版本能力契约",
+      "detail": "U1阶段一已补实际Core/worker版本契约；257项/严格及生产Native CLI通过，继续历史档位/Root/数据只读比较和维护准入。PR#4两轮完整CI已绿，主线合并门禁待处理，不接管四位成员或用户实测。",
+      "task_ids": [
+        "UPD-01"
+      ],
+      "evidence": [
+        "docs/VALIDATION-APPLICATION-CONTRACT-U1.md"
+      ]
+    },
+    {
+      "at": "2026-10-27T03:57:57.144202+00:00",
+      "type": "progress",
+      "title": "UPD-01实际持久数据只读检查",
+      "detail": "267项/19进程、固定02204a8两轮完整CI与11生产ARM/实际QEMU/八文件材料验签通过；联合维护准入仍缺，未部署，不增加完成数。"
+    },
+    {
+      "at": "2026-10-27T04:26:45.947419+00:00",
+      "type": "progress",
+      "title": "UPD-01联合版本比较与迁移后回退",
+      "detail": "297项/15个生产CLI及81068ab两轮完整CI通过；全新十一ARM、实际QEMU十五联合/十九outbox用例和真实旧Core无ABI拒绝自动兼容已验真。Root/签名字节/持锁维护接线仍缺，未部署，不增加完成数。"
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "909f2395e7835676fef629f2dd93a7fce6a8c747",
-    "generated_at": "2026-10-27T00:18:01.674708+00:00",
+    "source_revision": "6f964ceb53a5d1effba9bf79748b327b7375b353",
+    "generated_at": "2026-10-27T03:21:20.466730+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -4884,25 +4920,25 @@
         "login": "Viper-Boss",
         "role": "项目负责人 · 主线开发 / 架构 / 设备 / 审核",
         "access": "现有主线维护；实际权限沿用仓库设置",
-        "package": "主线暂停 · UPD-01待续 / 审核与设备集成",
+        "package": "CI端口夹具修复 → UPD-01版本兼容 / 主线审核与设备集成",
         "task_ids": [
           "UPD-01"
         ],
         "step_ids": [],
         "handoff": "docs/team/README.md",
-        "state": "assigned",
+        "state": "in_progress",
         "estimate_hours": null,
         "stats": {
           "current_lines": {
             "product": 46302,
-            "tests": 28211,
+            "tests": 28212,
             "tooling": 8715,
             "firmware": 1132
           },
-          "commits": 322,
-          "code_commits": 223,
-          "added": 88520,
-          "deleted": 2217
+          "commits": 323,
+          "code_commits": 224,
+          "added": 88522,
+          "deleted": 2218
         },
         "work": {
           "assigned_steps": 0,
@@ -5181,7 +5217,7 @@
     },
     "totals": {
       "product": 46853,
-      "tests": 28772,
+      "tests": 28773,
       "tooling": 8715,
       "firmware": 1132
     },
