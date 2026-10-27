@@ -7,10 +7,24 @@ fn run() -> rustsimhub_forwarder::Result<()> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            serde_json::json!({"worker":true,"protocol":4,"development_fixtures":cfg!(feature="dev-fixtures"),"finite_root_actions":true,
+            serde_json::json!({"worker":true,"protocol":rustsimhub_forwarder::FORWARDING_WORKER_PROTOCOL,"development_fixtures":cfg!(feature="dev-fixtures"),"finite_root_actions":true,
+            "forwarding_runtime_contract":rustsimhub_forwarder::runtime_compatibility(),
             "source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256")})
         );
         return Ok(());
+    }
+    if let [command, path] = args.as_slice() {
+        if command == "--inspect-outbox" {
+            // Before Tokio, settings, credentials and all Root/worker actions.
+            // The probe holds the writer fence through report serialization.
+            let probe = rustsimhub_forwarder::inspect_outbox(std::path::Path::new(path))?;
+            println!(
+                "{}",
+                serde_json::json!({"format":1,"read_only":true,"authorization_verified":false,
+                    "outbox":probe.version(),"compatibility":probe.assessment()?})
+            );
+            return Ok(());
+        }
     }
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()

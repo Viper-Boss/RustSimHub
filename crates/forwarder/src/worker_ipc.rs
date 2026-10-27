@@ -11,7 +11,7 @@ use tokio::{
     time::timeout,
 };
 
-pub const PROTOCOL: u16 = 4;
+pub const PROTOCOL: u16 = crate::FORWARDING_WORKER_PROTOCOL;
 pub const MAX_FRAME: usize = 65_536;
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

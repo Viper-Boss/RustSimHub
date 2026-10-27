@@ -24,7 +24,7 @@ regex-lite = "=0.1.9"
 time = { version = "0.3.55", features = ["parsing"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-rusqlite = { version = "0.40.2", features = ["bundled"] }
+rusqlite = { version = "0.40.2", features = ["bundled", "hooks"] }
 fs2 = "0.4"
 rustix = { version = "1", features = ["process", "fs", "time"] }
 tokio = { version = "1", features = ["rt", "net", "io-util", "time", "sync", "macros", "signal", "process"] }
