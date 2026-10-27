@@ -5,14 +5,14 @@
 | 人员 | 责任 | 本轮任务 | 设备 |
 |---|---|---|---|
 | Viper-Boss / 项目负责人 | 总体设计、主线开发、设备集成、审核与合并 | UPD-01版本契约；维护主线CI、跨模块审核及设备/签名交付 | 由负责人操作 |
-| 成员A：[fungi1220](https://github.com/fungi1220) | NKN活跃安装统计的独立Rust组件 | [A任务书](MEMBER-A-USAGE-STATS.md)，STAT-01～07、追加NKN-01/02和SEC-05离线部分（16步） | 无需设备 |
-| 成员B：wnfhsj（用户已确认，主页查询异常） | 网络月计量、异常边界与展示 | [B任务书](MEMBER-B-NETWORK-ACCOUNTING.md)，NET-01～03、追加WEB-01/05和STAB-01离线部分（16步） | 无需设备 |
-| 成员C：[yh1030](https://github.com/yh1030) | NAS只读兼容、历史导入与幂等 | [C任务书](MEMBER-C-NAS-COMPAT.md)，NAS-01/05/06、追加REC-04/UPD-06及REL-05草稿（16步，已审4步） | 无需设备 |
-| [RedamancyGTW](https://github.com/RedamancyGTW)，成员D | 短信事件同步、对象换代、故障恢复 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，SMS-02～06、追加CALL-08离线实现（12步） | 无需设备 |
+| 成员A：[fungi1220](https://github.com/fungi1220) | NKN活跃安装统计的独立Rust组件 | [A任务书](MEMBER-A-USAGE-STATS.md)，STAT-01～07、NKN-01/02、SEC-05及T4的SEC-01/04离线部分（20步） | 无需设备 |
+| 成员B：wnfhsj（用户已确认，主页查询异常） | 网络月计量、异常边界与展示 | [B任务书](MEMBER-B-NETWORK-ACCOUNTING.md)，NET-01～03、WEB-01/05、STAB-01及T4的WEB-02/06离线部分（20步） | 无需设备 |
+| 成员C：[yh1030](https://github.com/yh1030) | NAS只读兼容、历史导入与幂等 | [C任务书](MEMBER-C-NAS-COMPAT.md)，NAS-01/05/06、REC-04/UPD-06、REL-05草稿及T4的UPD-07（20步，离线已审6步） | 无需设备 |
+| [RedamancyGTW](https://github.com/RedamancyGTW)，成员D | 短信事件同步、对象换代、故障恢复 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，SMS-02～06、CALL-08及T4的LED-07/SEC-06部分（16步） | 无需设备 |
 
 四名成员均使用自己的GitHub账号和Codex；不用共享负责人账号、Token、NAS地址或SSH材料。旧Claude任务包仅供历史参考，本目录是本轮明确分工。yh1030与wnfhsj的Write最终回读已生效；fungi1220和RedamancyGTW的Write邀请已就绪，等待本人接受。此前wnfhsj与RedamancyGTW的公开主页有404现象，不能据此判断账号不存在或确定风控原因。权限明细见[仓库访问状态](ACCESS.md)。
 
-原A/B/C/D各8步保留。2026-10-27追加后分别16/16/16/12步，共60个成员交付步骤，映射原有项目动作，不向169个动作加28个，不重复累加项目工时。原成员C的4步已审记录保持；分母变化来自新增分工，不是撤销验收。计划区间含原包与追加包，不代表剩余或实际工时。详见[追加任务与执行顺序](ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md)。
+原A/B/C/D各8步保留。2026-10-27 T3为16/16/16/12步；同日T4再加16步，现为20/20/20/16步，共76个成员交付步骤，涉及35个项目动作的离线子范围。169个项目动作及原估时权重保持，项目仍14项完成、155项未闭环；120项未转交，35项仍保留主线集成验收。C-01～06的6步离线审核保留；分母变化来自新增分工，不是撤销验收。成员计划工时不与项目台账重复求和，也不是剩余或实际工时。详见[追加任务与执行顺序](ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md)。
 
 ## 现在如何提交
 

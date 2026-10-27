@@ -113,3 +113,9 @@ NET-04～06的真实数据卡、启停限额、流量耗用、实际切网/掉�
 | B-16 | 提交第四批PR，交付可重跑脚本、合成数据和设备测量清单 | 实机预算冻结、长测、与旧系统同功能性能比较仍由主线验收 |
 
 **追加文件边界**：可新增`crates/edge/src/web/test-center.js`、`tools/test-web-test-center-component.mjs`、`tools/fixtures/test-center/`、`tools/performance/`、`docs/web/test-center-integration.md`、`docs/performance/`和本人报告；现有network.js范围继续有效。复用既有模块但不修改call-test.js、forwarding.js、session.js、短信/电话业务模块。`app.js`、页面模板、Rust静态路由、全局CSS及Root/系统单元由主线接线，不直接改；可提交文档中的最小接线提案。测试必须加载真实组件及既有业务模块，模拟仅用于外部依赖，不能用测试专用实现自证。
+
+## 2026-10-27第二次追加T4 · 详细任务集中在当日分工文档
+
+B-17～20：WEB-02/06回执与配置状态组件，累计20步；全部分配粗估12～29小时。以上是任务计划，不是实际工时或已完成声明；原T3步骤及审核记录保持。
+
+完整动作、文件权限、依赖、分支和验收以[今天的分工文档 · T4](ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages)中本人账号对应小节为准。先交当前小PR，审核后串行接下一包；本追加仅开放该节明确列出的路径，其他生产范围继续只读。不要修改本任务书、名册、审核数据或全局进度。
