@@ -15,12 +15,21 @@ fn run() -> Result<(), rustsimhub_update::Error> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            serde_json::json!({"source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"system_ota_supported":false,"boot_runtime_selection_supported":true,"forwarding_application_format_supported":true,"signed_application_formats":[1,2],"database_schema":SCHEMA})
+            serde_json::json!({"source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"system_ota_supported":false,"boot_runtime_selection_supported":true,"forwarding_application_format_supported":true,"signed_application_formats":[1,2],"database_schema":SCHEMA,"maintenance_observation_protocol":1})
         );
         return Ok(());
     }
     if rustix::process::geteuid().as_raw() != 0 {
         return Err(Error::Denied);
+    }
+    if args == ["inspect-maintenance"] {
+        let snapshot = rustsimhub_update::admission::MaintenanceSnapshot::observe()?;
+        snapshot.revalidate()?;
+        println!(
+            "{}",
+            serde_json::to_string(&snapshot.report()).map_err(|_| Error::Invalid)?
+        );
+        return Ok(());
     }
     if let [command, public, directory] = args.as_slice() {
         if command == "verify-package" {

@@ -1,0 +1,1562 @@
+{
+  "schema": 1,
+  "revision": "T5-T6-2026-10-27",
+  "baseline_version": "remaining-v1.1-2026-10-26-dependency",
+  "source_revision": "6f228fd3dcb9ce6da54d7910f4b044833e71a91a",
+  "remaining_actions": 155,
+  "offline_owned_actions": 90,
+  "main_only_actions": 65,
+  "note": "离线所有权不代表整项完成；90项仍有主线审核/集成/真实环境验收。实际功能状态仍以progress.json为准。",
+  "actions": [
+    {
+      "id": "FWD-06",
+      "title": "Webhook真实递送闭环",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为实际获准提供商目标的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "FWD-08",
+      "title": "Telegram真实递送闭环",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为实际获准提供商目标的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "FWD-09",
+      "title": "补齐邮件发送器",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "加入有限SMTP/TLS配置、凭据私有存储、证书检查、地址/正文大小限制及回执映射。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认；实际获准提供商目标"
+    },
+    {
+      "id": "FWD-13",
+      "title": "并发关闭与迟到响应",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实棒子/Root运行的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "FWD-14",
+      "title": "断网与固定出口恢复",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实棒子/Root运行的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "FWD-16",
+      "title": "凭据更新与撤权",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实棒子/Root运行的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "FWD-17",
+      "title": "换卡与疑似重复隔离",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实棒子/Root运行的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "FWD-18",
+      "title": "关闭状态冷启动",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "FWD-19",
+      "title": "开启状态冷启动与延迟联网",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察、实际获准提供商目标的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "FWD-20",
+      "title": "应用/Root配置/outbox兼容回退",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实棒子/Root运行的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "FWD-21",
+      "title": "资源与业务并发",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察、实际获准提供商目标的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "FWD-22",
+      "title": "功能说明与发行组合接线",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "更新配置指引、关闭语义、渠道支持表；把Root材料纳入可复现的正式组合流程。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "AP-03",
+      "title": "实现最终保存与回执",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "后端与回执代码已有离线交付，剩真实首次保存和恢复/冷启动闭环；失败矩阵由C负责AP-04。"
+    },
+    {
+      "id": "AP-04",
+      "title": "错误密码与回退矩阵",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "覆盖错密码、SSID消失、DHCP超时、取消、浏览器关闭和Root执行中断。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "AP-07",
+      "title": "设备首次热点与隔离实测",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察、第二台真实设备的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "AP-08",
+      "title": "真实AP→路由器→网页",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "AP-09",
+      "title": "USB仅供电与无NAS启动",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "AP-10",
+      "title": "其他SSID与网络重命名",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "AP-11",
+      "title": "配置后冷启动和失败恢复",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "AP-12",
+      "title": "独立配网手册与一键检查",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "整理设备pin/证书交付、识别地址、失败恢复步骤和测试结果复制。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "SMS-01",
+      "title": "独立第二客户端同步",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "SMS-02",
+      "title": "旧游标、离线追赶与乱序",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "构造过旧游标、重复/乱序事件、列表刷新失败和恢复连接。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "SMS-03",
+      "title": "中文/emoji/长短信/二进制",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "补齐分段、编码、截断、大小限制与无效PDU输入矩阵。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "SMS-04",
+      "title": "SIM满与MM对象换代",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "模拟SIM存储满、路径复用、ModemManager重连和信号丢失。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "SMS-05",
+      "title": "疑似重复与跨启动易用性",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "保留不同消息ID及可证明来源，优化候选显示/人工核对及重观察行为。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "SMS-06",
+      "title": "提交后断线/退出/磁盘满",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "用故障夹具插入提交前后各边界，覆盖本地事务与MM返回失去确认。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "SMS-07",
+      "title": "真实发送故障与结果对账",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察、具体真实发送授权的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "SMS-08",
+      "title": "恢复、换卡与委派视图",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实棒子/Root运行的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "SMS-09",
+      "title": "签名候选与双端终验",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察、具体真实发送授权的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "CALL-01",
+      "title": "来电拒接与双方先挂断",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "CALL-02",
+      "title": "DTMF菜单实测",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实棒子/Root运行的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "CALL-03",
+      "title": "多浏览器与NAS控制竞争",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "CALL-04",
+      "title": "撤权、页面关闭与后台挂起",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "CALL-05",
+      "title": "Core/Media退出与欠载恢复",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实棒子/Root运行的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "CALL-06",
+      "title": "跨15分钟会话轮换听音",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "CALL-07",
+      "title": "长通话与质量采样",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "CALL-08",
+      "title": "终止Call重观察去重",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "基于可证明的对象代次与身份处理重启后终止对象，不按号码猜合并。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "CALL-09",
+      "title": "远程TURN与切网媒体验收",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察、实际外网对端的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "CALL-10",
+      "title": "最终电话一键回归与记录",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "NET-01",
+      "title": "月结日、时间回拨与重启",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "覆盖跨月、月份切换、系统时间跳变、计数器归零和持久化失败。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "NET-02",
+      "title": "计量源失效与多接口切换",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "模拟接口重建、读计数失败、Wi-Fi/USB/蜂窝路由切换。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "NET-03",
+      "title": "网络信息缺值与显示核对",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "核对IP/DNS/APN、频段/频率/小区/带宽/速率来源及单位。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "NET-04",
+      "title": "漫游与真实限额边界复验",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实流量卡与计费/切网的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "NET-05",
+      "title": "真实速率/流量/切换和掉电",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实流量卡与计费/切网、真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "NET-06",
+      "title": "测试后关闭普通数据并恢复原卡",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实流量卡与计费/切网、真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "REMOTE-01",
+      "title": "固定远程入口与发现契约",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "明确HTTPS如何经X2通道到达棒子，区分设备发现、信令和媒体，定义可信设备pin。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "REMOTE-02",
+      "title": "盘点并配置测试中继",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "优先复用已有服务器；准备DNS/证书、TURN账号、端口、限额及清理方案。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认；真实服务器"
+    },
+    {
+      "id": "REMOTE-03",
+      "title": "远程API权限与媒体预授权",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "将真实远程通道加入显式绑定和授权，拒绝仅靠Origin/IP放行。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "REMOTE-04",
+      "title": "NAT、IPv6和TLS-only矩阵",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为实际外网对端的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "REMOTE-05",
+      "title": "强制TURN媒体与资源预算",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "完成受限凭据、ICE/DTLS/Opus及强制中继路径，记录延迟/带宽/CPU。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认；实际外网对端、真实服务器"
+    },
+    {
+      "id": "REMOTE-06",
+      "title": "断线、重连与切网",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为实际外网对端的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "REMOTE-07",
+      "title": "远程一键诊断与支持说明",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "给出真实链路类型、延迟和失败原因，整理地址发现与证书交付步骤。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "NAS-01",
+      "title": "冻结兼容API与状态含义",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "对照原NasSimHub版本，列出支持的状态、只读、控制及媒体接口。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "NAS-02",
+      "title": "原NAS页面真实只读回归",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实棒子/Root运行的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "NAS-03",
+      "title": "NAS电话控制适配",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "将旧页面拨号/接听/拒接/挂断映射到Core唯一控制者和持久操作。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认；真人操作/听音/观察"
+    },
+    {
+      "id": "NAS-04",
+      "title": "NAS PCM/声音适配",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "实现明确的格式、采样率、方向、鉴权与租约转换，复用已验证音频链。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认；真人操作/听音/观察"
+    },
+    {
+      "id": "NAS-05",
+      "title": "旧数据导入差异报告",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "整理旧短信/联系人/通话到只读历史视图及迁移映射，报告未知字段和冲突。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "NAS-06",
+      "title": "重复导入与恢复防重",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "覆盖重复包、部分导入、恢复realm改变及委派权限。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "NAS-07",
+      "title": "授权撤销与NAS重启",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实棒子/Root运行的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "NAS-08",
+      "title": "兼容版本与端到端验收",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "UPD-01",
+      "title": "Root与应用版本能力契约",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "当前主线U4未提交现场的持锁联合准入需要先收口，提交接口后其余更新实现由C消费。"
+    },
+    {
+      "id": "UPD-02",
+      "title": "签名维护材料与固定写入表",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "将需要的Root单元/助手纳入受限可复现交付；拒绝任意路径和旧密钥包。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "UPD-03",
+      "title": "最新完整系统组合",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "把已验收应用、Root网络/音频/灯控和可选扩展组合到干净rootfs。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "UPD-04",
+      "title": "候选失败后的真实整组回选",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实棒子/Root运行的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "UPD-05",
+      "title": "自动健康确认",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "用有限、与实际应用绑定的健康证据确认候选；不能仅进程存活即确认。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "UPD-06",
+      "title": "迁移/写满/掉电边界矩阵",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "在暂存、发布、选中、迁移及确认阶段注入退出/磁盘满，模拟fsync边界。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "UPD-07",
+      "title": "匹配boot/DTB/模块/固件",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "核验固定内核、设备树、681原装模块及固件来源，消除混版组合。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "UPD-08",
+      "title": "外部initramfs与新构建启动验证",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "准备可审查候选与恢复路径，独立验证外部initramfs和匹配的新构建内核。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认；真人操作/听音/观察"
+    },
+    {
+      "id": "UPD-09",
+      "title": "最终镜像安装与全回读",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "UPD-10",
+      "title": "整机升级支持声明与发布门槛",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "根据真实引导/恢复能力确定支持方式，提供签名校验、安装和回退手册。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "REC-01",
+      "title": "刷新当前恢复资料",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "涉及当前设备真实状态与私有备份索引，不能交给无设备成员读取。"
+    },
+    {
+      "id": "REC-02",
+      "title": "准备新系统恢复演练包",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "需要冻结实际恢复快照/写入目标、核验备份及物理恢复窗口；通用恢复代码/测试交C。"
+    },
+    {
+      "id": "REC-03",
+      "title": "完整恢复实际演练",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "REC-04",
+      "title": "业务备份与回执恢复矩阵",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "验证主库/WAL、outbox、身份、配置和恢复realm的一致性及交叉版本拒绝。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "REC-05",
+      "title": "可复用恢复手册与终验",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "整理离线步骤、故障诊断、恢复失败分支和当前支持的设备范围。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "LED-01",
+      "title": "联网原色与断网两种情况",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察、真实流量卡与计费/切网的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "LED-02",
+      "title": "故障红色与优先级",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "LED-03",
+      "title": "青色读写与低频闪烁",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "LED-04",
+      "title": "配置白色租约及退出",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "LED-05",
+      "title": "短信/未接电话两组跑马灯",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "LED-06",
+      "title": "已验证更新与升级紫色",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "LED-07",
+      "title": "灯控权限与持久标记复验",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "核对固定sysfs、空能力、Core输入新鲜度、读取标记和换卡范围。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "WEB-01",
+      "title": "统一日常/测试/调试入口",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "梳理现有按钮和可见条件，首页只保留高频任务，复杂调试默认收起。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "WEB-02",
+      "title": "统一操作回执与旧操作核对",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "覆盖刷新、登录过期、Unknown、只读查询和精确归档，保留操作ID。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "WEB-03",
+      "title": "手机窄屏与长中文布局",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "验证短信详情双栏、回收站、网络表单、虚拟键盘及通话中挂断入口。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认；真人操作/听音/观察"
+    },
+    {
+      "id": "WEB-04",
+      "title": "多端配对/撤销与证书交付",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "WEB-05",
+      "title": "一键测试错误分支",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "把未注册、权限不足、麦克风拒绝、旧操作未决和停止动作呈现在同处。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "WEB-06",
+      "title": "配置保存与服务真实状态",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "逐区核对网络/转发/扩展开关的保存、查询及超时状态。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "WEB-07",
+      "title": "网页回归与实际可访问性终验",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "覆盖键盘、读屏名称、对比度、缩放、后台恢复及所有现有网页测试。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认；真人操作/听音/观察"
+    },
+    {
+      "id": "STAB-01",
+      "title": "冻结预算与可复现负载",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "列出空闲、收件、通话、转发、远程连接各场景的测量方法与预算。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "STAB-02",
+      "title": "启动/RSS/CPU/延迟/功耗基线",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实棒子/Root运行的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "STAB-03",
+      "title": "24小时初步稳定性",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实棒子/Root运行的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "STAB-04",
+      "title": "72小时组合稳定性",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实棒子/Root运行的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "STAB-05",
+      "title": "旧系统等功能性能对照",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为第二台真实设备的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "STAB-06",
+      "title": "资源回归阈值与发布报告",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "把可重复的回归阈值接CI/测试工具，记录长测结果及剩余风险。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "SEC-01",
+      "title": "整理完整攻击面与权限表",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "列出HTTP/IPC/GATT、固定Root动作、身份/密钥、媒体和文件写入路径。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "SEC-02",
+      "title": "鉴权/跨线路/重放矩阵",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "覆盖Owner/委派/撤销/过期/并发与restore realm、SIM代次及操作重放。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "SEC-03",
+      "title": "Root单元与最小权限复核",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "核对用户、能力、目录、设备、地址族、polkit、credential及整组停止。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认；真实棒子/Root运行"
+    },
+    {
+      "id": "SEC-04",
+      "title": "秘密与公开产物扫描",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "审查日志、错误、UI、备份索引、Actions产物和发布包。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "SEC-05",
+      "title": "依赖、许可证与供应链",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "核对锁定版本、通告、来源、AGPL义务、Go/NKN及Native第三方许可。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "SEC-06",
+      "title": "有界输入和协议模糊测试",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "覆盖HTTP/IPC/配置/短信/媒体/蓝牙帧的大小、深度、超时和资源限制。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "SEC-07",
+      "title": "最终修复与安全结论",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "修复高风险问题，逐项核验真正解决与待接受限制。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "REL-01",
+      "title": "冻结支持矩阵与发行候选",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "明确板型、运营商、SIM、网络方式和已交付扩展，固定候选SHA。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "REL-02",
+      "title": "第二根同型号首次安装",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为第二台真实设备、真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "REL-03",
+      "title": "第二设备恢复复验",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为第二台真实设备、真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "REL-04",
+      "title": "逐项最终验收与缺陷收口",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "对开发计划13.2/13.3、扩展清单和本台账逐项审计，不以全绿CI代替实机。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "REL-05",
+      "title": "用户/维护/升级手册与发行包",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "整理单页入门、故障排查、签名核验、刷写/恢复和升级限制及许可证。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "REL-06",
+      "title": "最终100%审计与交接",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "全局最终100%验收签认与交接，必须由负责人对真实证据负责；证据工具/手册交B/C。"
+    },
+    {
+      "id": "NKN-01",
+      "title": "冻结上游与最小接入契约",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "核对c32952d源码/许可/配置，圈定需要的NKN、DHT、成员与WireGuard功能。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "NKN-02",
+      "title": "ARM64离线构建与依赖清单",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "固定Go/NKN依赖，构建受限Linux程序并验证元数据、ELF和许可证。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "NKN-03",
+      "title": "TUN/WireGuard与固定Root助手",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "离线核对内核/用户态能力，设计固定接口、地址、路由和过滤动作。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "NKN-04",
+      "title": "Rust监督与独立开关",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "加入低权限进程、资源预算、启动/停止回执、有限重连和空闲关闭。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "NKN-05",
+      "title": "成员证明、配对与撤销",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "复用签名成员证明并映射到现有Core权限，不创建第二Owner库。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "NKN-06",
+      "title": "仅路由获准设备服务",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "把远程HTTPS/必要信令接到明确虚拟地址及端口，保持设备pin。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "NKN-07",
+      "title": "状态、延迟与一键诊断页",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "展示直连/中继/DHT/不可达、收发量、延迟及有限错误。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "NKN-08",
+      "title": "真实外网直连与中继",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为实际外网对端的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "NKN-09",
+      "title": "弱设备并发与断线恢复",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真实棒子/Root运行的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "NKN-10",
+      "title": "签名交付与故障回选",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "将引擎、Rust适配和有限Root材料纳入现有可信交付流程。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "NKN-11",
+      "title": "用户流程及终验",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "整理如何开启/关闭、加入获准成员、复制诊断和远程权限解释。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "STAT-01",
+      "title": "协议/主题/窗口冻结",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "核对24小时/30天/90天窗口及真实链参数，定义RustSimHub独立主题。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "STAT-02",
+      "title": "独立统计密钥与持久状态",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "做域分离密钥和重启状态；与Owner/SIM/通信主密钥隔离。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "STAT-03",
+      "title": "链上订阅与确认实现",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "复用经审查的参考逻辑，加入超时、确认、退避和时间回拨处理。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "STAT-04",
+      "title": "人数查询与缓存",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "实现有限RPC读取、最近成功时间、缓存和离线未知状态。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "STAT-05",
+      "title": "独立隐私开关与公开字段说明",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "Owner开启前说明统计公钥/主题/时间及RPC出口可见性，默认关闭。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "STAT-06",
+      "title": "关闭后的任务/共享引擎管理",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "停止签到和自动查询；没有其他使用者时释放相关后台进程。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "STAT-07",
+      "title": "失败、到期和隔离测试",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "previous_offline_scope",
+      "deliverable": "覆盖主题串用、密钥串用、重启、确认失败、过期、离线与时间变化。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "STAT-08",
+      "title": "获准后的真实NKN试验",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "STAT-09",
+      "title": "统计页面、关闭验收与文档",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "展示窗口/更新时间/未知/开关，并验证关闭后不新增签到。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认；真人操作/听音/观察"
+    },
+    {
+      "id": "BLE0-01",
+      "title": "离线能力矩阵",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "核对固定内核/DTB/固件/BlueZ来源及启动记录。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE0-02",
+      "title": "准备只读硬件检查清单",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "列清具体查询、授权边界、备份与失败退出，不加载驱动或修改NV。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE0-03",
+      "title": "获准后的HCI/GATT/RF核验",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为单独BLE实机授权/恢复窗口的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "BLE0-04",
+      "title": "固定支持矩阵与降级入口",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "确定Windows/Android支持方式，记录不支持的平台和硬件前提。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE1-01",
+      "title": "UUID、帧和资源限制",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "固定版本化GATT UUID、消息类型、分片/重组、长度、单会话和超时。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE1-02",
+      "title": "标准密钥协商与身份签名",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "选择可互操作的ECDH/HKDF/AEAD，绑定设备pin、会话转录和恢复公钥。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE1-03",
+      "title": "Rust/浏览器跨语言向量",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "实现双方加解密、签名验证和失败向量。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE1-04",
+      "title": "协议审查与版本文档",
+      "offline_owner": "member-a",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "冻结允许命令及升级兼容，不开放任意配置或业务读取。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE2-01",
+      "title": "恢复公钥注册与撤销",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "增加最近Owner授权、独立wifi.recovery能力、generation和撤销。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE2-02",
+      "title": "强类型可信BLE通道",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "新增受限IPC/SO_PEERCRED和类型化来源，绑定恢复会话与请求。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE2-03",
+      "title": "无USB Wi-Fi事务接线",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "在开始/确认/保存均复核授权、网络锁、电话状态和回退记录。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE2-04",
+      "title": "恢复与并发失败矩阵",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "覆盖撤销、重放、断连、Core退出、Wi-Fi错误密码和并发网页配置。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE3-01",
+      "title": "BlueZ GATT/广播适配",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "实现有限BlueZ D-Bus注册/撤销、连接生命周期和单会话预算。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE3-02",
+      "title": "限权IPC与Core绑定",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "把经过认证的有限恢复命令接到Core，核对真实UID和会话。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE3-03",
+      "title": "服务单元与开关预算",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "设置低权限用户、资源/设备/地址族限制与缺硬件降级。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE3-04",
+      "title": "恶意帧/断连/崩溃测试",
+      "offline_owner": "member-d",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "覆盖帧洪泛、连接抢占、服务退出及BlueZ重启。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE4-01",
+      "title": "连接与可信设备pin界面",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "实现原生设备选择、pin核验、独立非导出恢复密钥和明确的平台提示。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE4-02",
+      "title": "状态与Wi-Fi确认/取消",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "加入有限状态、输入、试连、保存、取消与结果不明查询。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE4-03",
+      "title": "PWA静态缓存与离线升级",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "首次联网缓存静态公开资源，验证相对路径、版本切换和离线打开。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE4-04",
+      "title": "Windows/Android模拟接线与布局",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "用合成GATT测试加密/分片/权限失败，检查手机和键盘可用性。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE5-01",
+      "title": "独立路由与构建契约",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "固定/configurator/路径及静态产物列表，保留进度看板和现有Rust CI。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE5-02",
+      "title": "真实Pages配置器部署",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "统一Pages真实部署、账号权限和HTTPS线上字节核对；构建/allowlist实现交B。"
+    },
+    {
+      "id": "BLE5-03",
+      "title": "发布/离线手册",
+      "offline_owner": "member-b",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "整理提前绑定恢复身份、缓存PWA、权限及失败恢复步骤。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    },
+    {
+      "id": "BLE6-01",
+      "title": "单独授权与恢复窗口",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为单独BLE实机授权/恢复窗口的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "BLE6-02",
+      "title": "Windows与Android真实互操作",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为单独BLE实机授权/恢复窗口、真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "BLE6-03",
+      "title": "无USB/断网恢复与失败回退",
+      "offline_owner": null,
+      "execution_owner": "lead",
+      "scope": "main_only_execution",
+      "deliverable": null,
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "本项剩余为单独BLE实机授权/恢复窗口、真人操作/听音/观察的执行/核验；发现代码缺口退回对应模块成员，不重复分配已具备的离线测试。"
+    },
+    {
+      "id": "BLE6-04",
+      "title": "BLE完整证据与交接",
+      "offline_owner": "member-c",
+      "execution_owner": "lead",
+      "scope": "offline_implementation",
+      "deliverable": "汇总HCI/RF、加密、权限、Windows/Android和PWA/Pages证据。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
+      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
+    }
+  ]
+}
