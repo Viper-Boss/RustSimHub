@@ -197,7 +197,8 @@ C-05 已由负责人 Viper-Boss 合并 PR #6，合并提交 `c9763c17407a382b51e
 
 - 起始最新 main：`b1a926d6e5ab8b2c3fcc0c835280f8677b838531`。
 - 本人功能分支：`Viper-Boss/RustSimHub:codex/nas-history-recovery` → main；同仓库 PR，不 fork、不直接推 main。
-- 当前完整 HEAD、PR 和对应 CI 在 PR 正文逐次维护；本地 Linux 尚未执行，不预填成功。
+- 原仓库 [PR #7](https://github.com/Viper-Boss/RustSimHub/pull/7) 交付 C-06；代码与离线验证完成，负责人审核及实机验收不代填。
+- Linux 全部 CI 通过的完整代码 HEAD：`8b8d83b3f0466cfb7a1ce3baefd3bba712a2d95e`，对应树 `343932cb7a2757388254f1806700d9a7bdac1428`。本次证据补记仅修改本报告，最终完整 HEAD 与其 CI 状态在 PR 正文逐次维护。
 - 文件仅 `crates/compat/src/migrate.rs` 的 cfg(test) 模块接入、`crates/compat/src/history_recovery_tests.rs`、`docs/nas-adapter/history-recovery.md` 和本报告。
 - 不改变生产导入器、归档格式、权限、会话、Core/wire/storage、workspace/Cargo.lock、默认配置或其他成员文件；无新增依赖。
 
@@ -218,8 +219,10 @@ C-05 已由负责人 Viper-Boss 合并 PR #6，合并提交 `c9763c17407a382b51e
 - Windows `cargo test -p rustsimhub-compat --locked --offline`：退出码 0，5 项适用签名/契约回归；新增 Linux 测试不在此运行，不据此称 C-06 通过。
 - Windows `cargo clippy -p rustsimhub-compat --all-targets --locked --offline -- -D warnings`：退出码 0；保留增量缓存硬链接失败后复制的环境提示。
 - `cargo fmt -p rustsimhub-compat`、`git diff --check`：退出码 0；最终格式与 Linux 运行结果以 PR 对应 HEAD 实测补记。
-- 本机无 Linux/WSL，新增 7 项父测试及真实子进程入口等待原仓库 Linux CI；缺工具/失败不静默跳过。
+- 本机无 Linux/WSL，Linux 实际运行证据来自原仓库 GitHub Actions；缺工具/失败不静默跳过。
 - 首轮 [CI 40468724355](https://github.com/Viper-Boss/RustSimHub/actions/runs/40468724355)，完整 HEAD `fc505032941db5ef463dca22273a835593537862`：compat 库 32 项通过；migrate 4 通过/5 失败/1 专用 worker 忽略。实际文件大小写失败（新/已有目标）、报告丢失重试、跨源冲突、journal 下 SIGKILL 恢复通过；realm/代次/游标断言已执行到最后表检查，误将 PRAGMA optimize 创建的 sqlite_stat1/stat4 当成业务表导致失败。其余 4 项被测试互斥锁 PoisonError 连带阻止，不算通过。修正为只比较非 sqlite_* 业务表，保留严格两张历史业务表及其他断言；不修改生产逻辑、SQLite 优化或权限，最终按新 HEAD 重跑。
+- 修正后 [CI 40469187650](https://github.com/Viper-Boss/RustSimHub/actions/runs/40469187650)，完整代码 HEAD `8b8d83b3f0466cfb7a1ce3baefd3bba712a2d95e`：`test` 与 `native-audio` 均 success。实际 `cargo test --workspace --all-features --locked` 退出码 0，compat 库 32 项通过；migrate 9 通过/0 失败/1 专用 worker 忽略，其中 7 项 C-06 父测试全部实际通过，另两项为既有真实 Go/CLI 互操作及 C-05 生产预检入口。ignored worker 已由父场景在真实子进程调用，文件大小失败覆盖新/已有两种目标，强杀实际核实 signal=9，报告丢失核实退出 72；没有把 helper 单独 ignored 当作测试跳过。
+- 同一代码 HEAD 的 `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`、`cargo fmt --all -- --check`、生产特性及现有系统回归均退出码 0。既有 proc-macro-error2 未来兼容提示保留，未改依赖。最终仅报告的提交不冒用本代码 HEAD 的 CI 结果。
 - 没有真实 NAS、设备、用户数据、通信发送、Core 换卡集成或硬件掉电测试。文件大小限制不是实际 ENOSPC，进程退出不是断电；不删除来源、手工 journal 或清库来通过测试。
 
 ### 集成、风险、回退与来源
@@ -232,4 +235,4 @@ Linux 准备锁定 Rust、python3 标准库及原 Go 工具链，运行上述 co
 
 复用固定 main 的既有导入器、查询器和独立合成 schema，保留 AGPL-3.0-only；Codex 辅助实现、验证和报告。
 不代用户声称人工审核，不估造有效工时，不改作者/贡献数字。负责人按最终完整 HEAD 审核，结论待填。
-下一步补 Linux 实际证据、提交可审核 PR；C-07 及后续尚未执行。整体固定量表仍约 **80%**，不自行增加验收点。
+下一步由负责人按 PR 当前完整 HEAD 审核；C-07 及后续尚未执行。整体固定量表仍约 **80%**，不自行增加验收点。
