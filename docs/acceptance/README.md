@@ -9,7 +9,7 @@
 | 现场 | 动作 | 需要什么 | 状态 |
 |---|---|---|---|
 | [听音场](session-call.md) | CALL-01、CALL-03（仅浏览器部分）、CALL-04、CALL-06 | 你本人、第二部手机、两个浏览器 | 材料已写 |
-| 看灯场 | LED-02～06 | 你本人在棒子旁观察 | 待写 |
+| [看灯场](session-led.md) | LED-03、LED-04（网页部分）、LED-05；LED-02 待你决定故障注入方式；LED-06 跟随下一次真实升级 | 你本人在棒子旁、第二部手机（只来电/来信） | 材料已写 |
 | 换卡场 | NET-04～06、LED-01 | 有流量的测试卡、你本人 | 待写；换卡前不做任何流量测试 |
 | AP 配网场 | AP-07～11 | 你本人、第二设备、测试路由器 | 待写 |
 | 长测 | STAB-03（24 小时）、STAB-04（72 小时） | 设备持续在线 | 待写；可与开发并行 |
@@ -30,11 +30,13 @@
 - 相关服务的 `is-active` 状态（包括旧 `nassimhub-agent`）；
 - ModemManager 当前呼叫，只输出编号、方向、状态和原因，**不输出号码**；
 - 所有 PCM 子设备的状态（`closed` / `RUNNING` 等）；
-- NetworkManager 设备状态。
+- NetworkManager 设备状态；
+- 指示灯：三通道亮度（`rgb=`）、trigger、灯控模式、安装是否完成，以及两个灯控输入文件里的布尔值（不输出其他字段）。
 
 ```sh
 rsh-readonly-snapshot.sh once          # 一次快照
 rsh-readonly-snapshot.sh watch 300     # 最多 900 秒，只在状态变化时输出
+rsh-readonly-snapshot.sh led-trace 60  # 最多 120 秒，约 20 毫秒采样，只记录灯色变化
 ```
 
 它不会拨号、接听、挂断、发短信、写 sysfs、改服务或网络，也不读任何凭据。
