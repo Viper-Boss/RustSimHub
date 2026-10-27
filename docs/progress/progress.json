@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-27T04:40:56.294899+00:00",
+  "updated_at": "2026-10-27T09:04:21.252294+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -4906,12 +4906,44 @@
       "type": "progress",
       "title": "UPD-01联合版本比较与迁移后回退",
       "detail": "297项/15个生产CLI及81068ab两轮完整CI通过；全新十一ARM、实际QEMU十五联合/十九outbox用例和真实旧Core无ABI拒绝自动兼容已验真。Root/签名字节/持锁维护接线仍缺，未部署，不增加完成数。"
+    },
+    {
+      "at": "2026-10-27T08:44:44.877278+00:00",
+      "type": "state",
+      "title": "手动合并后复核 · C-05/C-06离线通过",
+      "detail": "固定主线独立32+9测试与CI通过；C为6/16。UPD-01继续，原80%与14/169、7.3%不变。",
+      "task_ids": [
+        "NAS-05",
+        "NAS-06",
+        "UPD-01"
+      ],
+      "evidence": [
+        "docs/team/REVIEW-MERGED-PRS-2026-10-27.md"
+      ]
+    },
+    {
+      "at": "2026-10-27T09:04:21.252294+00:00",
+      "type": "state",
+      "title": "T4 · 再分4个离线包，成员累计76步",
+      "detail": "A权限/公开扫描、B回执/配置状态、C内核制品一致性、D灯控/通信输入矩阵。详细任务集中在当日分工文档；20/20/20/16步，C已审6步。项目动作/权重/完成率不变，设备与主线集成保留。",
+      "task_ids": [
+        "SEC-01",
+        "SEC-04",
+        "WEB-02",
+        "WEB-06",
+        "UPD-07",
+        "LED-07",
+        "SEC-06"
+      ],
+      "evidence": [
+        "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "6f964ceb53a5d1effba9bf79748b327b7375b353",
-    "generated_at": "2026-10-27T03:21:20.466730+00:00",
+    "source_revision": "2f1595aa3b71fbfdefdbc8801ff6ecd844144b85",
+    "generated_at": "2026-10-27T09:04:21.252294+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -4920,7 +4952,7 @@
         "login": "Viper-Boss",
         "role": "项目负责人 · 主线开发 / 架构 / 设备 / 审核",
         "access": "现有主线维护；实际权限沿用仓库设置",
-        "package": "CI端口夹具修复 → UPD-01版本兼容 / 主线审核与设备集成",
+        "package": "UPD-01版本能力与维护准入 / 主线审核和设备集成",
         "task_ids": [
           "UPD-01"
         ],
@@ -4930,15 +4962,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 46302,
-            "tests": 28212,
+            "product": 46882,
+            "tests": 28987,
             "tooling": 8715,
             "firmware": 1132
           },
-          "commits": 323,
-          "code_commits": 224,
-          "added": 88522,
-          "deleted": 2218
+          "commits": 329,
+          "code_commits": 228,
+          "added": 90051,
+          "deleted": 2238
         },
         "work": {
           "assigned_steps": 0,
@@ -4946,6 +4978,21 @@
           "self_reported_hours": null,
           "reviews": [],
           "deliveries": [
+            {
+              "pr": 8,
+              "head": "0d33295fdd1c807e1d9114d055c5e9f1c565ff17",
+              "state": "OPEN"
+            },
+            {
+              "pr": 5,
+              "head": "7ecf8c93c1b21dca6874d1d9b8e7de1e4f5aeccb",
+              "state": "MERGED"
+            },
+            {
+              "pr": 4,
+              "head": "8a3e520c111771c13b6eb265d7920e2a22c00037",
+              "state": "MERGED"
+            },
             {
               "pr": 1,
               "head": "3f41a3fd581b2827a1b61700ab1455385ae951a2",
@@ -4960,7 +5007,7 @@
         "login": "fungi1220",
         "role": "NKN活跃安装统计 · 离线Rust组件",
         "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
-        "package": "NKN统计 → 最小引擎/ARM64构建 → 依赖许可证清单",
+        "package": "NKN统计/引擎/依赖 → 权限清单与公开产物秘密扫描",
         "task_ids": [
           "STAT-01",
           "STAT-02",
@@ -4971,7 +5018,9 @@
           "STAT-07",
           "NKN-01",
           "NKN-02",
-          "SEC-05"
+          "SEC-05",
+          "SEC-01",
+          "SEC-04"
         ],
         "step_ids": [
           "A-01",
@@ -4989,13 +5038,17 @@
           "A-13",
           "A-14",
           "A-15",
-          "A-16"
+          "A-16",
+          "A-17",
+          "A-18",
+          "A-19",
+          "A-20"
         ],
         "handoff": "docs/team/MEMBER-A-USAGE-STATS.md",
         "state": "assigned",
         "estimate_hours": [
-          14,
-          33
+          17,
+          39
         ],
         "stats": {
           "current_lines": {
@@ -5010,7 +5063,7 @@
           "deleted": 0
         },
         "work": {
-          "assigned_steps": 16,
+          "assigned_steps": 20,
           "accepted_steps": 0,
           "self_reported_hours": null,
           "reviews": [],
@@ -5023,14 +5076,16 @@
         "login": "wnfhsj",
         "role": "月流量计量 / 网络显示 · 离线边界",
         "access": "同仓库Write已生效；本人功能分支 → PR审核",
-        "package": "网络计量 → 一键测试组件 → 性能负载工具",
+        "package": "网络计量/测试中心/性能工具 → 回执与配置状态组件",
         "task_ids": [
           "NET-01",
           "NET-02",
           "NET-03",
           "WEB-01",
           "WEB-05",
-          "STAB-01"
+          "STAB-01",
+          "WEB-02",
+          "WEB-06"
         ],
         "step_ids": [
           "B-01",
@@ -5048,13 +5103,17 @@
           "B-13",
           "B-14",
           "B-15",
-          "B-16"
+          "B-16",
+          "B-17",
+          "B-18",
+          "B-19",
+          "B-20"
         ],
         "handoff": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
         "state": "assigned",
         "estimate_hours": [
-          9,
-          23
+          12,
+          29
         ],
         "stats": {
           "current_lines": {
@@ -5069,7 +5128,7 @@
           "deleted": 0
         },
         "work": {
-          "assigned_steps": 16,
+          "assigned_steps": 20,
           "accepted_steps": 0,
           "self_reported_hours": null,
           "reviews": [],
@@ -5082,14 +5141,15 @@
         "login": "yh1030",
         "role": "NAS只读兼容 / 历史导入 · 离线适配",
         "access": "同仓库Write已生效；本人功能分支 → PR审核",
-        "package": "NAS/历史导入 → 备份升级故障 → 用户手册草稿",
+        "package": "NAS/历史/恢复更新矩阵/手册 → 内核制品一致性检查",
         "task_ids": [
           "NAS-01",
           "NAS-05",
           "NAS-06",
           "REC-04",
           "UPD-06",
-          "REL-05"
+          "REL-05",
+          "UPD-07"
         ],
         "step_ids": [
           "C-01",
@@ -5107,38 +5167,62 @@
           "C-13",
           "C-14",
           "C-15",
-          "C-16"
+          "C-16",
+          "C-17",
+          "C-18",
+          "C-19",
+          "C-20"
         ],
         "handoff": "docs/team/MEMBER-C-NAS-COMPAT.md",
         "state": "in_progress",
         "estimate_hours": [
-          13,
-          32
+          15,
+          36
         ],
         "stats": {
           "current_lines": {
-            "product": 551,
-            "tests": 561,
+            "product": 1164,
+            "tests": 1453,
             "tooling": 0,
             "firmware": 0
           },
-          "commits": 4,
-          "code_commits": 2,
-          "added": 1172,
-          "deleted": 91
+          "commits": 10,
+          "code_commits": 6,
+          "added": 2744,
+          "deleted": 174
         },
         "work": {
-          "assigned_steps": 16,
-          "accepted_steps": 4,
+          "assigned_steps": 20,
+          "accepted_steps": 6,
           "self_reported_hours": null,
           "reviews": [
             {
               "pr": 3,
               "head": "751e4a964e14db0142b34b3dc4afa245971bb54c",
               "state": "offline_accepted"
+            },
+            {
+              "pr": 6,
+              "head": "9c0802f30607f1badfb2666c3a46ba12a866a408",
+              "state": "offline_accepted"
+            },
+            {
+              "pr": 7,
+              "head": "b13bae7ea80a4c8f45396609b22bfe1f8cc42923",
+              "state": "offline_accepted"
             }
           ],
           "deliveries": [
+            {
+              "pr": 7,
+              "head": "b13bae7ea80a4c8f45396609b22bfe1f8cc42923",
+              "state": "MERGED"
+            },
+            {
+              "pr": 6,
+              "head": "9c0802f30607f1badfb2666c3a46ba12a866a408",
+              "state": "MERGED"
+            },
             {
               "pr": 3,
               "head": "751e4a964e14db0142b34b3dc4afa245971bb54c",
@@ -5153,14 +5237,16 @@
         "login": "RedamancyGTW",
         "role": "短信同步 / 对象换代 / 故障恢复 · 离线回归",
         "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
-        "package": "短信同步/恢复 → 通话终止对象重观察去重",
+        "package": "短信/通话对象恢复 → 灯控与通信输入失败矩阵",
         "task_ids": [
           "SMS-02",
           "SMS-03",
           "SMS-04",
           "SMS-05",
           "SMS-06",
-          "CALL-08"
+          "CALL-08",
+          "LED-07",
+          "SEC-06"
         ],
         "step_ids": [
           "D-01",
@@ -5174,13 +5260,17 @@
           "D-09",
           "D-10",
           "D-11",
-          "D-12"
+          "D-12",
+          "D-13",
+          "D-14",
+          "D-15",
+          "D-16"
         ],
         "handoff": "docs/team/MEMBER-D-SMS-RECOVERY.md",
         "state": "assigned",
         "estimate_hours": [
-          9,
-          23
+          12,
+          29
         ],
         "stats": {
           "current_lines": {
@@ -5195,7 +5285,7 @@
           "deleted": 0
         },
         "work": {
-          "assigned_steps": 12,
+          "assigned_steps": 16,
           "accepted_steps": 0,
           "self_reported_hours": null,
           "reviews": [],
@@ -5216,8 +5306,8 @@
       "deleted": 0
     },
     "totals": {
-      "product": 46853,
-      "tests": 28773,
+      "product": 48046,
+      "tests": 30440,
       "tooling": 8715,
       "firmware": 1132
     },

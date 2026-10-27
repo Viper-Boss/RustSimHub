@@ -91,3 +91,9 @@
 | D-12 | 提交第三批PR：cargo test -p rustsimhub-storage --locked、受影响Core检查、严格Clippy/fmt及真实临时数据库重开证据 | 保留未运行实机项和跨模块提案；主线再核对真实MM对象、冷启动与通话行为，不由成员拨号或修改设备 |
 
 **追加文件边界**：在原范围外，新增允许`crates/storage/src/calls.rs`中观测/记录映射的最小修正、`calls_tests.rs`及独立`call_reobserve_tests.rs`；`lib.rs`仅可增加cfg(test)模块接入。Core observer/checks.rs、sources.rs、watch.rs延续原来的已复现问题最小修正范围；`calls.rs`业务控制、`calls_checks.rs`、wire/Auth、表结构/版本、网页和Root服务仍只读。成员C新增恢复/升级测试只调用公共模块，不修改这些收件/通话实现，避免重叠。
+
+## 2026-10-27第二次追加T4 · 详细任务集中在当日分工文档
+
+D-13～16：LED-07及SEC-06短信/通话输入子范围，累计16步；全部分配粗估12～29小时。以上是任务计划，不是实际工时或已完成声明；原T3步骤及审核记录保持。
+
+完整动作、文件权限、依赖、分支和验收以[今天的分工文档 · T4](ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages)中本人账号对应小节为准。先交当前小PR，审核后串行接下一包；本追加仅开放该节明确列出的路径，其他生产范围继续只读。不要修改本任务书、名册、审核数据或全局进度。

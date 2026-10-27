@@ -110,3 +110,9 @@
 | C-16 | 提交第四批PR，给出真实命令、失败/未运行项、格式兼容提案和手册截图/本地链接校验 | 正式发行包、签名验证/设备恢复步骤和REL-01支持矩阵最终定稿由主线完成 |
 
 **追加文件边界**：可新增`crates/recovery/tests/`、`crates/update/tests/`、`tools/fixtures/backup-recovery/`、`tools/test-business-recovery-matrix.py`、`tools/test-update-failure-matrix.py`、`docs/recovery/`、`docs/update/`、`docs/manuals/`和本人报告；确需私有API测试可在recovery/src/lib.rs、update/src/store.rs的既有cfg(test)区域增加测试或最小测试模块接入，不能混入生产逻辑。storage/Core/forwarder/认证/更新器生产逻辑、schema、Root安装器/签名和设备脚本仍只读；发现问题交最小复现与修正提案，由主线协调，防止与成员D或主线UPD-01冲突。所有密钥、消息、应用组和数据库均为明确合成样例，不使用生产备份。
+
+## 2026-10-27第二次追加T4 · 详细任务集中在当日分工文档
+
+C-17～20：UPD-07内核/DTB/模块/固件一致性检查，累计20步，其中C-01～06离线已验收；全部分配粗估15～36小时。以上是任务计划，不是实际工时或已完成声明；原T3步骤及审核记录保持。
+
+完整动作、文件权限、依赖、分支和验收以[今天的分工文档 · T4](ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages)中本人账号对应小节为准。先交当前小PR，审核后串行接下一包；本追加仅开放该节明确列出的路径，其他生产范围继续只读。不要修改本任务书、名册、审核数据或全局进度。
