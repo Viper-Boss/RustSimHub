@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "contract_id": "t5-offline-adapters-v1",
+  "baseline_sha": "3eb42bca52768d2f08c81cd8eb860e4fef681d59",
+  "status": "frozen_offline_boundary",
+  "production_ready": false,
+  "crypto_wire_frozen": false,
+  "task_ids": ["NKN-07", "BLE4-01", "BLE4-02", "BLE4-03", "BLE4-04", "AP-04", "BLE3-01", "BLE3-04"],
+  "gatt": {
+    "service_uuid": "002c85a2-c6d6-411c-b266-9e99fb4cdd0a",
+    "object_root": "/org/rustsimhub/recovery/v1",
+    "characteristics": {
+      "device_info": {"uuid": "4a13c416-2d30-46e1-a8fe-8cc00fa82ce7", "flags": ["read"]},
+      "auth_exchange": {"uuid": "f443c973-2d89-4991-830f-634bd75dc3cd", "flags": ["write", "notify"]},
+      "command": {"uuid": "dc9899ec-c8f0-43cf-9202-ed5cdebd4562", "flags": ["write"]},
+      "result": {"uuid": "4faaacb4-d4aa-44df-afdd-5e474c9e7f86", "flags": ["read", "notify"]}
+    },
+    "limits": {"sessions": 1, "inflight_messages": 1, "message_bytes": 2048, "fragments": 256, "frame_header_bytes": 12, "initial_attribute_bytes": 20, "attribute_bytes_cap": 244, "assembly_ms": 15000, "queued_results": 4, "dbus_call_ms": 5000},
+    "lifecycle": ["disabled", "registering", "advertising", "connected", "stopping", "unknown"],
+    "byte_order": "little_endian",
+    "header": ["magic:2=5242", "version:u8=1", "kind:u8", "message_id:u16", "fragment_index:u16", "fragment_count:u16", "total_bytes:u16"],
+    "kinds": {"auth": 1, "command": 2, "result": 3},
+    "production_default": "deny_without_main_secure_port"
+  },
+  "recovery": {
+    "methods": ["connectFromGesture", "readStatus", "beginWifi", "queryOperation", "confirmWifi", "cancelWifi", "disconnect"],
+    "request_id_pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+    "device_pin_pattern": "^[0-9a-f]{64}$",
+    "trial_id_pattern": "^[0-9a-f]{64}$",
+    "operation_actions": ["begin_wifi", "confirm_wifi", "cancel_wifi"],
+    "operation_states": ["starting", "connecting", "ready", "saving", "saved", "rolled_back", "unknown"],
+    "operation_fields": ["contract", "source", "request_id", "action", "trial_id", "state", "authoritative", "settings_saved", "rollback_verified", "expires_in_ms"],
+    "operation_sources": ["core", "mock"],
+    "lookup_states": ["found", "not_found", "unknown"],
+    "lookup_fields": ["contract", "source", "target_request_id", "lookup", "operation"],
+    "status_fields": ["contract", "source", "wifi", "busy", "recovery_available"],
+    "wifi_states": ["connected", "disconnected", "unknown"],
+    "pending_fields": ["contract", "device_pin", "revision", "requests"],
+    "pending_request_fields": ["request_id", "action", "trial_id", "submit_started"],
+    "pending_request_limit": 16,
+    "core_deadline_ms": 40000,
+    "nm_checkpoint_ms": 45000,
+    "query_deadline_ms": 3000,
+    "wifi": {"ssid_utf8_bytes": [1, 32], "reject_unicode_controls": true, "passphrase_ascii_bytes": [8, 63], "passphrase_hex_bytes": 64},
+    "errors": ["unsupported", "permission_denied", "not_preapproved", "pin_mismatch", "auth_failed", "revoked", "busy", "invalid_input", "protocol_error", "transport_lost", "deadline", "unknown", "unavailable"]
+  },
+  "nkn_status": {
+    "method": "readStatus",
+    "fields": ["contract", "source", "generation", "sequence", "age_ms", "enabled", "service", "path", "dht", "rx_bytes", "tx_bytes", "rtt_ms", "peer_count", "last_error"],
+    "sources": ["engine", "mock", "unavailable"],
+    "enabled": ["on", "off", "unknown"],
+    "service": ["stopped", "starting", "running", "stopping", "failed", "unknown"],
+    "path": ["direct", "relay", "offline", "unknown"],
+    "dht": ["connected", "disconnected", "unknown"],
+    "errors": [null, "engine_unavailable", "deadline", "protocol_error", "stale", "permission_denied"],
+    "u64_format": "canonical_decimal_string",
+    "snapshot_bytes": 4096,
+    "fresh_ms": 5000,
+    "query_deadline_ms": 3000
+  },
+  "wifi_failure": {
+    "source": "crates/setup-ap/src",
+    "traits": ["StationNetwork", "StationProvider", "TrialGuard", "CommitNetwork", "CommitProvider", "CommitAudit", "Gate", "Guard"],
+    "production_entrypoints": ["station_trial::run", "station_commit::run"],
+    "trial_outcomes": ["UsableAndRestored", "FailedAndRestored", "Unknown"],
+    "commit_outcomes": ["Saved", "RestoredAp", "Unknown"],
+    "max_window_ms": 40000,
+    "case_ids": ["wrong_password", "ssid_missing", "dhcp_deadline", "cancel_before_start", "cancel_during_trial", "caller_dropped", "partial_persist", "restore_failed", "revoke_before_commit", "stale_completion"]
+  },
+  "pwa": {
+    "path": "/RustSimHub/configurator/",
+    "worker_scope": "/RustSimHub/configurator/",
+    "max_static_files": 32,
+    "max_static_bytes": 2097152,
+    "max_static_file_bytes": 524288,
+    "cache": "explicit_same_origin_static_GET_allowlist_only",
+    "production_backend_owner": "lead",
+    "mock_backend_in_production": false
+  }
+}

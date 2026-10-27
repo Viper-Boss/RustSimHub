@@ -8,9 +8,9 @@
       "git_names": [
         "Viper-Boss"
       ],
-      "role": "项目负责人 · 主线开发 / 架构 / 设备 / 审核",
+      "role": "项目负责人 · 接口/安全方案审核 / 真实部署 / 集成验收",
       "access": "现有主线维护；实际权限沿用仓库设置",
-      "package": "UPD-01版本能力与维护准入 / 主线审核和设备集成",
+      "package": "UPD-01现有收口；65项真实执行、生产签名与全组审核/集成",
       "task_ids": [
         "UPD-01"
       ],
@@ -26,7 +26,7 @@
       "git_names": [],
       "role": "NKN活跃安装统计 · 离线Rust组件",
       "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
-      "package": "NKN统计/引擎/依赖 → 权限清单与公开产物秘密扫描",
+      "package": "NKN/安全会话/权限审计/邮件离线实现",
       "task_ids": [
         "STAT-01",
         "STAT-02",
@@ -39,7 +39,23 @@
         "NKN-02",
         "SEC-05",
         "SEC-01",
-        "SEC-04"
+        "SEC-04",
+        "NKN-07",
+        "NKN-03",
+        "NKN-04",
+        "NKN-05",
+        "NKN-06",
+        "NKN-10",
+        "NKN-11",
+        "REMOTE-01",
+        "BLE1-01",
+        "BLE1-02",
+        "BLE1-03",
+        "BLE1-04",
+        "SEC-02",
+        "SEC-03",
+        "SEC-07",
+        "FWD-09"
       ],
       "step_ids": [
         "A-01",
@@ -61,13 +77,23 @@
         "A-17",
         "A-18",
         "A-19",
-        "A-20"
+        "A-20",
+        "A-21",
+        "A-22",
+        "A-23",
+        "A-24",
+        "A-25",
+        "A-26",
+        "A-27",
+        "A-28",
+        "A-29",
+        "A-30"
       ],
       "handoff": "docs/team/MEMBER-A-USAGE-STATS.md",
       "state": "assigned",
       "estimate_hours": [
-        17,
-        39
+        39,
+        88
       ]
     },
     {
@@ -77,7 +103,7 @@
       "git_names": [],
       "role": "月流量计量 / 网络显示 · 离线边界",
       "access": "同仓库Write已生效；本人功能分支 → PR审核",
-      "package": "网络计量/测试中心/性能工具 → 回执与配置状态组件",
+      "package": "网络/全部网页/PWA/测试工具与性能报告",
       "task_ids": [
         "NET-01",
         "NET-02",
@@ -86,7 +112,19 @@
         "WEB-05",
         "STAB-01",
         "WEB-02",
-        "WEB-06"
+        "WEB-06",
+        "BLE4-01",
+        "BLE4-02",
+        "BLE4-03",
+        "BLE4-04",
+        "AP-12",
+        "REMOTE-07",
+        "STAB-06",
+        "BLE5-01",
+        "BLE5-03",
+        "WEB-03",
+        "WEB-07",
+        "STAT-09"
       ],
       "step_ids": [
         "B-01",
@@ -108,13 +146,25 @@
         "B-17",
         "B-18",
         "B-19",
-        "B-20"
+        "B-20",
+        "B-21",
+        "B-22",
+        "B-23",
+        "B-24",
+        "B-25",
+        "B-26",
+        "B-27",
+        "B-28",
+        "B-29",
+        "B-30",
+        "B-31",
+        "B-32"
       ],
       "handoff": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
       "state": "assigned",
       "estimate_hours": [
-        12,
-        29
+        28,
+        63
       ]
     },
     {
@@ -124,7 +174,7 @@
       "git_names": [],
       "role": "NAS只读兼容 / 历史导入 · 离线适配",
       "access": "同仓库Write已生效；本人功能分支 → PR审核",
-      "package": "NAS/历史/恢复更新矩阵/手册 → 内核制品一致性检查",
+      "package": "NAS/系统构建/更新恢复/发行材料与证据",
       "task_ids": [
         "NAS-01",
         "NAS-05",
@@ -132,7 +182,24 @@
         "REC-04",
         "UPD-06",
         "REL-05",
-        "UPD-07"
+        "UPD-07",
+        "AP-04",
+        "FWD-22",
+        "UPD-02",
+        "UPD-03",
+        "UPD-05",
+        "UPD-10",
+        "REC-05",
+        "REL-01",
+        "REL-04",
+        "BLE0-01",
+        "BLE0-02",
+        "BLE0-04",
+        "BLE6-04",
+        "REMOTE-02",
+        "NAS-03",
+        "NAS-04",
+        "UPD-08"
       ],
       "step_ids": [
         "C-01",
@@ -154,13 +221,23 @@
         "C-17",
         "C-18",
         "C-19",
-        "C-20"
+        "C-20",
+        "C-21",
+        "C-22",
+        "C-23",
+        "C-24",
+        "C-25",
+        "C-26",
+        "C-27",
+        "C-28",
+        "C-29",
+        "C-30"
       ],
       "handoff": "docs/team/MEMBER-C-NAS-COMPAT.md",
       "state": "in_progress",
       "estimate_hours": [
-        15,
-        36
+        35,
+        80
       ]
     },
     {
@@ -170,7 +247,7 @@
       "git_names": [],
       "role": "短信同步 / 对象换代 / 故障恢复 · 离线回归",
       "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
-      "package": "短信/通话对象恢复 → 灯控与通信输入失败矩阵",
+      "package": "通信观测/Core恢复授权/BLE/远程媒体离线实现",
       "task_ids": [
         "SMS-02",
         "SMS-03",
@@ -179,7 +256,17 @@
         "SMS-06",
         "CALL-08",
         "LED-07",
-        "SEC-06"
+        "SEC-06",
+        "BLE3-01",
+        "BLE3-04",
+        "REMOTE-03",
+        "REMOTE-05",
+        "BLE2-01",
+        "BLE2-02",
+        "BLE2-03",
+        "BLE2-04",
+        "BLE3-02",
+        "BLE3-03"
       ],
       "step_ids": [
         "D-01",
@@ -197,13 +284,23 @@
         "D-13",
         "D-14",
         "D-15",
-        "D-16"
+        "D-16",
+        "D-17",
+        "D-18",
+        "D-19",
+        "D-20",
+        "D-21",
+        "D-22",
+        "D-23",
+        "D-24",
+        "D-25",
+        "D-26"
       ],
       "handoff": "docs/team/MEMBER-D-SMS-RECOVERY.md",
       "state": "assigned",
       "estimate_hours": [
-        12,
-        29
+        33,
+        75
       ]
     }
   ]

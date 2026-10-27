@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "contract_id": "t5-offline-adapters-v1",
+  "wifi_inputs": [
+    {"name": "ascii_minimum", "ssid": "synthetic-network", "passphrase": "12345678", "accepted": true},
+    {"name": "chinese_ssid", "ssid": "合成网络", "passphrase": "synthetic-pass", "accepted": true},
+    {"name": "hex_psk", "ssid": "synthetic", "passphrase": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "accepted": true},
+    {"name": "empty_ssid", "ssid": "", "passphrase": "12345678", "accepted": false},
+    {"name": "ssid_over_32_utf8_bytes", "ssid": "合合合合合合合合合合合", "passphrase": "12345678", "accepted": false},
+    {"name": "control_in_ssid", "ssid": "synthetic\nnetwork", "passphrase": "12345678", "accepted": false},
+    {"name": "short_password", "ssid": "synthetic", "passphrase": "1234567", "accepted": false},
+    {"name": "non_ascii_password", "ssid": "synthetic", "passphrase": "合成测试口令", "accepted": false},
+    {"name": "non_hex_64", "ssid": "synthetic", "passphrase": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", "accepted": false}
+  ],
+  "mock_recovery_operation": {"contract": 1, "source": "mock", "request_id": "00000000-0000-4000-8000-000000000001", "action": "begin_wifi", "trial_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "state": "ready", "authoritative": true, "settings_saved": false, "rollback_verified": null, "expires_in_ms": 20000},
+  "mock_recovery_lookup_unknown": {"contract": 1, "source": "mock", "target_request_id": "00000000-0000-4000-8000-000000000001", "lookup": "unknown", "operation": null},
+  "mock_nkn_status": {"contract": 1, "source": "mock", "generation": 1, "sequence": 1, "age_ms": 0, "enabled": "on", "service": "running", "path": "relay", "dht": "connected", "rx_bytes": "9007199254740993", "tx_bytes": "18446744073709551615", "rtt_ms": 250, "peer_count": 2, "last_error": null},
+  "unavailable_nkn_status": {"contract": 1, "source": "unavailable", "generation": 1, "sequence": 2, "age_ms": null, "enabled": "unknown", "service": "unknown", "path": "unknown", "dht": "unknown", "rx_bytes": null, "tx_bytes": null, "rtt_ms": null, "peer_count": null, "last_error": "engine_unavailable"},
+  "gatt_frames": [
+    {"name": "single_auth_fragment", "attribute_bytes": 20, "hex": "524201010100000001000300616263", "complete_hex": "616263"},
+    {"name": "first_auth_fragment", "attribute_bytes": 20, "hex": "5242010102000000020009006162636465666768", "complete_hex": null},
+    {"name": "last_auth_fragment", "attribute_bytes": 20, "hex": "52420101020001000200090069", "complete_hex": "616263646566676869"}
+  ]
+}

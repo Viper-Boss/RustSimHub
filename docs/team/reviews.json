@@ -58,6 +58,19 @@
         "docs/team/REVIEW-PR-10-45c54d4.md"
       ],
       "self_reported_hours": null
+    },
+    {
+      "member_id": "member-c",
+      "pr": 13,
+      "head": "e782f985dc5995a076e83e8482b73a693f687ea1",
+      "decision": "offline_accepted",
+      "steps": [
+        "C-15"
+      ],
+      "evidence": [
+        "docs/team/REVIEW-PR-13-e782f98.md"
+      ],
+      "self_reported_hours": null
     }
   ]
 }
