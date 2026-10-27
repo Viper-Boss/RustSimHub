@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-27T04:07:38.849756+00:00",
+  "updated_at": "2026-10-27T04:26:45.947419+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -70,7 +70,7 @@
     "task_id": "UPD-01",
     "title": "Root与应用版本能力契约",
     "state": "正在推进",
-    "description": "U2只读outbox检查通过267项、19个生产CLI用例；固定02204a8两轮完整CI、11生产ARM/实际QEMU及八文件维护材料验签通过，未部署。继续Root/候选/回选联合比较与维护准入，UPD-01仍进行；成员和用户验收保持。"
+    "description": "U3联合比较与有限CLI通过297项、15个生产CLI用例，检查候选迁移后fallback兼容性；不是维护授权，继续签名字节/真实Root/数据锁下准入。UPD-01仍进行，成员与用户验收保持。"
   },
   "facts": [
     {
@@ -4900,6 +4900,12 @@
       "type": "progress",
       "title": "UPD-01实际持久数据只读检查",
       "detail": "267项/19进程、固定02204a8两轮完整CI与11生产ARM/实际QEMU/八文件材料验签通过；联合维护准入仍缺，未部署，不增加完成数。"
+    },
+    {
+      "at": "2026-10-27T04:26:45.947419+00:00",
+      "type": "progress",
+      "title": "UPD-01联合版本比较与迁移后回退",
+      "detail": "297项/严格及真实Core/worker stdout、SQLite探针的15个生产CLI用例通过；实际Root与签名字节的维护准入继续接线，不增加完成数。"
     }
   ],
   "team": {

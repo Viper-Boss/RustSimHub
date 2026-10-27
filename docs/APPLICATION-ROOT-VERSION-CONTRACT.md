@@ -1,5 +1,7 @@
 # 应用、Root维护配置与持久数据的版本契约
 
+2026-10-27更新：[U3联合比较](VALIDATION-UPGRADE-COMPARISON-U3.md)已实现selected/candidate/fallback、Root模式/契约与实际/投影数据版本比较的有限CLI，297项及15个真实生产CLI用例通过。比较结果不是授权；真实Root/签名字节/数据锁下的维护准入继续接线，UPD-01仍进行。U2固定代码02204a8的11生产ARM/实际QEMU已补验，不能据早期阶段记录称所有ARM都未做。
+
 2026-10-27更新：[U2只读数据检查](VALIDATION-OUTBOX-INSPECTION-U2.md)已补生产CLI、实际writer锁/SQLite查询预算、当前/需迁移/拒绝分类；267项、19个真实进程用例通过。它不是Owner或维护准入证明；Root/候选/回选联合门禁、ARM/实机仍缺，UPD-01不计完成。
 
 2026-10-27更新：[U1阶段一](VALIDATION-APPLICATION-CONTRACT-U1.md)已实现Core/worker实际构建能力描述和严格解析，257项及实际native生产CLI通过；Root/数据/候选比较、维护准入、ARM/设备仍未验收，UPD-01继续进行。

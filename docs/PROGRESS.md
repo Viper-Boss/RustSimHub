@@ -1,5 +1,7 @@
 # 最新开发进度：2026-10-23
 
+2026-10-27 [U3联合比较](VALIDATION-UPGRADE-COMPARISON-U3.md)实现Root模式/契约、三角色Core/worker及数据版本的有限CLI；先投影候选迁移/新建后的outbox，再检查fallback，历史缺ABI需维护，0/3/4/1退出码不把拒绝当shell成功。744文件2542641，经清理三变更包后297项/严格/fmt、三生产Native及实际stdout+SQLite探针的15个CLI用例通过。仅版本比较，签名字节/实际Root盘点/数据锁下维护准入仍缺，UPD-01不计完成；待本次固定CI/ARM。前一5c1c97a的push40448029548/PR40448035346均成功。四位任务/用户实测保留，原80%、14/169、7.3%不变，目标active，无设备/外发/关机；保留旧README笔记。
+
 2026-10-27 [U2补验](VALIDATION-OUTBOX-INSPECTION-U2.md)：代码固定02204a8443bcc5885eb87f7c7f6f169dffe761ce的push40447155396/PR40447159015两轮test/native-audio均成功，实际两job日志含9项inspection和19个生产CLI用例。Git精确741文件a2a1c6b、全新target十一生产ARM、实际Core/worker QEMU契约及ARM十九CLI、八文件Root材料验签通过，未安装。首个shell换行失败已保留并修正。Root/候选/回选联合准入仍待做，UPD-01进行中；原80%、14/169、7.3%保持。主线PR门禁授权待答，继续功能分支；无设备/外发/普通数据/关机，四位任务和旧README笔记保持。
 
 2026-10-27 [U2只读outbox检查](VALIDATION-OUTBOX-INSPECTION-U2.md)完成阶段数据探针：实际writer锁/只读SQLite、先拒绝WAL与辅助文件、查询预算、版本/需迁移/拒绝分类，267项/严格/生产构建和19个真实CLI用例（含实际异常退出journal）通过，字节/节点/权限/mtime保持。最终740文件de9362c；U1固定7dfd6a0两轮CI均test/native-audio成功。Root/候选/回选联合准入、ARM和实机仍缺，UPD-01不计完成；原80%、14/169、7.3%保持。仅功能分支，不绕过main门禁，不碰设备/外发/成员任务/关机；继续下一阶段，目标active，旧README笔记保留。
