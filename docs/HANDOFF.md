@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-10-28 [轮询与计量落盘修改提案](PROPOSAL-POLLING-AND-METER-WRITES.md)（不改代码）：经授权的维护密钥Wi-Fi只读登录确认灯控约13%、network-agent约15.8%单核CPU，整机eMMC约1.4GB/天、p15日志线程居写盘首位。源码显示灯控每5秒起3～4个systemctl/nmcli，network-agent每2秒nmcli+nft、每15秒4次mmcli，并每5秒无条件fsync写meter.json。提案：A1内容变化才写（B，语义不变）、C1灯控降频（主线）、B1 agent降频缩字段（B）、C2灯控复用agent状态；A2/B2/C3需负责人决定或依赖变更。归因为推断，STAB-03结束后用/proc/<pid>/stat自身与子进程CPU及write_bytes只读确认，子进程占比低于一半则不按提案实施。STAB-03 10-28 03:14起只读运行至10-29 03:15，未完成。原80%、14/169、余155、7.3%不变。
+
 2026-10-28 [LED-02前置核实](VALIDATION-LED02-MODEMMANAGER-LOSS.md)按用户选择的方案一完成隔离环境部分：Core serve主循环中observer/sender/call controller/灯控/媒体任一返回即退出，逐个核对MM消失时均不返回；WSL私有dbus-daemon+合成MM（拒绝CreateCall）下，真实Core --serve-device（main同源与应用50源码0edfc54各一次）经4轮SIGKILL（缺席2～45秒）、5次抖动不退出，7次探测正常，5次重新绑定（3.5～30.5秒），SIGTERM退出0，日志为空。systemd替身单元照搬Requires/OnFailure：SIGKILL及reset-failed+start不连带core/edge、不触发OnFailure；restart/stop会连带重启/停止，实机禁止。首轮夹具漏migrate init致Core以auth: Forbidden退出，补齐后通过。看灯场LED-02改为有门禁的实机步骤（先只读确认MM Restart=no等），需用户单独同意；夹具入tools/field/mm-loss。x86 debug、合成MM、无ARM/真实基带；未上设备。原80%、14/169、余155、7.3%不变。
 
 2026-10-28 [看灯场](acceptance/session-led.md)材料：按灯控源码核对颜色/时序/优先级，LED-03青色有界写入、LED-04网页配置白色（打开/结束/后台/关闭/退出/异常断开到期/未授权不改灯）、LED-05短信与未接跑马灯及配置压制已写判据；USB/首配白色随计划内重启另记。LED-02未写执行步骤：core/edge/media/app-select故障会触发每次开机一次的app-recover，开机硬件oneshot、NM、rmtfs均有副作用，MM受core Requires且Core对MM消失的反应未核实，列三种方案待用户决定。LED-06只能跟随下一次真实签名升级，本次仅做无候选不出紫的负向核对。源码发现：未接来电只能在“手动调试与设备管理→电话”详情确认，日常电话区无确认入口，记为改进项。只读快照新增灯状态（rgb/trigger/模式/输入布尔值）与led-trace（≤120秒、约20ms、/proc/uptime厘秒），WSL dash桩测试5项连跑5轮通过。仅材料，未上设备。原80%、14/169、余155、7.3%不变。
