@@ -103,6 +103,7 @@ jobs:
       - name: Real forwarding worker DNS TLS hard crash and bounded stop
         run: |
           cargo build -p rustsimhub-forwarder --locked
+          python3 tools/test-forwarding-inspection.py --worker target/debug/rustsimhub-forwarder
           sudo -n unshare --net python3 tools/test-forwarding-worker-process.py --core target/debug/rustsimhub-core --worker target/debug/rustsimhub-forwarder
       - name: Real forwarding systemd credentials and full cgroup stop
         run: |

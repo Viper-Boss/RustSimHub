@@ -1,5 +1,7 @@
 # 应用、Root维护配置与持久数据的版本契约
 
+2026-10-27更新：[U2只读数据检查](VALIDATION-OUTBOX-INSPECTION-U2.md)已补生产CLI、实际writer锁/SQLite查询预算、当前/需迁移/拒绝分类；267项、19个真实进程用例通过。它不是Owner或维护准入证明；Root/候选/回选联合门禁、ARM/实机仍缺，UPD-01不计完成。
+
 2026-10-27更新：[U1阶段一](VALIDATION-APPLICATION-CONTRACT-U1.md)已实现Core/worker实际构建能力描述和严格解析，257项及实际native生产CLI通过；Root/数据/候选比较、维护准入、ARM/设备仍未验收，UPD-01继续进行。
 
 2026-10-27，UPD-01启动盘点。状态：下列现状已对照源码；整体兼容选择/回选门禁尚未完成，不据本文把UPD-01或FWD-20计完成。本文不是设备升级指令。

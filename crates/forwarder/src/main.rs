@@ -13,6 +13,19 @@ fn run() -> rustsimhub_forwarder::Result<()> {
         );
         return Ok(());
     }
+    if let [command, path] = args.as_slice() {
+        if command == "--inspect-outbox" {
+            // Before Tokio, settings, credentials and all Root/worker actions.
+            // The probe holds the writer fence through report serialization.
+            let probe = rustsimhub_forwarder::inspect_outbox(std::path::Path::new(path))?;
+            println!(
+                "{}",
+                serde_json::json!({"format":1,"read_only":true,"authorization_verified":false,
+                    "outbox":probe.version(),"compatibility":probe.assessment()?})
+            );
+            return Ok(());
+        }
+    }
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;

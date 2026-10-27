@@ -26,6 +26,44 @@ pub struct RuntimeCompatibility {
     pub outbox: OutboxCompatibility,
 }
 
+/// Version facts only: neither this value nor an assessment authenticates an
+/// Owner or authorizes a migration, delivery, update or rollback.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct OutboxVersion {
+    pub application_id: i64,
+    pub format: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OutboxCompatibilityAssessment {
+    ReadWrite,
+    MigrationRequired,
+    ForeignApplication,
+    UnsupportedFormat,
+}
+
+/// Only an explicitly supported runtime contract can be compared. In
+/// particular, absent historical metadata is not today's capability.
+pub fn assess_outbox_compatibility(
+    runtime: &RuntimeCompatibility,
+    actual: OutboxVersion,
+) -> Result<OutboxCompatibilityAssessment> {
+    use OutboxCompatibilityAssessment::*;
+    if runtime != &runtime_compatibility() {
+        return Err(Error::Invalid);
+    }
+    Ok(if actual.application_id != runtime.outbox.application_id {
+        ForeignApplication
+    } else if actual.format == runtime.outbox.read_format {
+        ReadWrite
+    } else if runtime.outbox.migrate_from.contains(&actual.format) {
+        MigrationRequired
+    } else {
+        UnsupportedFormat
+    })
+}
+
 pub fn runtime_compatibility() -> RuntimeCompatibility {
     RuntimeCompatibility {
         format: 1,
@@ -64,6 +102,26 @@ mod tests {
             "application_id":0x5253_4657_i64,"read_format":3,"write_format":3,"migrate_from":[1,2]}});
         let parsed = parse_runtime_compatibility(&serde_json::to_vec(&expected).unwrap()).unwrap();
         assert_eq!(serde_json::to_value(parsed).unwrap(), expected);
+    }
+
+    #[test]
+    fn unknown_runtime_cannot_claim_current_data_compatibility() {
+        let mut runtime = runtime_compatibility();
+        runtime.outbox.read_format = 2;
+        let current = OutboxVersion {
+            application_id: OUTBOX_APPLICATION_ID,
+            format: 3,
+        };
+        assert_eq!(
+            assess_outbox_compatibility(&runtime, current),
+            Err(Error::Invalid)
+        );
+        runtime = runtime_compatibility();
+        runtime.worker_protocol += 1;
+        assert_eq!(
+            assess_outbox_compatibility(&runtime, current),
+            Err(Error::Invalid)
+        );
     }
 
     #[test]
