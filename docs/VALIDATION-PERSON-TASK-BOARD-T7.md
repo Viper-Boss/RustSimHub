@@ -27,3 +27,9 @@
 5. 生成一致性与公开内容保护检查通过；最终发布仍严格限定`index.html`、`progress.json`、`remaining.md`。GitHub/Pages状态以合并和发布后的实际回读为准。
 
 原P0～P7仍80%；扩展台账14/169完成、155剩余、估时加权7.3%、9项搁置。此次是任务可见性改进，不新增功能完成分。
+
+## GitHub同步状态
+
+看板实现提交`89bff771be793c3337d91e58f49e331ecc56c0a8`已推至[PR #11](https://github.com/Viper-Boss/RustSimHub/pull/11)。远端三份公开产物的Git blob SHA与本地提交逐项一致。
+
+该提交的push与PR两轮CI（40499791125、40499798745）均未启动任何测试步骤。GitHub检查注释提示账户计费或消费限额限制；不能据此声称远端CI通过，也不能解释为产品测试已运行并失败。本机22项Python、Node、生成一致性和Chrome三宽验证证据保持。PR尚未合并，Pages尚未发布这版；须先解除GitHub账户侧阻塞，完成正常检查和合并，再核对线上三文件。
