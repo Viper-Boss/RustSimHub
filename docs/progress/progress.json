@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-27T18:01:22.528392+00:00",
+  "updated_at": "2026-10-27T18:06:09.934501+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -5027,8 +5027,8 @@
   ],
   "team": {
     "schema": 1,
-    "source_revision": "b9e40850e287d3bad3c76451e6087b69e2f9d497",
-    "generated_at": "2026-10-27T18:01:22.528392+00:00",
+    "source_revision": "5c429716aa20eb708a8a1f66705a6524161aab89",
+    "generated_at": "2026-10-27T18:06:09.934501+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5368,14 +5368,14 @@
             "tooling": 0,
             "firmware": 0
           },
-          "commits": 13,
+          "commits": 14,
           "code_commits": 8,
           "added": 3316,
           "deleted": 179
         },
         "work": {
           "assigned_steps": 30,
-          "accepted_steps": 6,
+          "accepted_steps": 7,
           "self_reported_hours": null,
           "reviews": [
             {
@@ -5397,6 +5397,11 @@
               "pr": 10,
               "head": "45c54d4b32bc00a1093cf54d4faead9795cdbdc7",
               "state": "needs_changes"
+            },
+            {
+              "pr": 13,
+              "head": "e782f985dc5995a076e83e8482b73a693f687ea1",
+              "state": "offline_accepted"
             }
           ],
           "deliveries": [
@@ -5428,7 +5433,7 @@
             {
               "pr": 13,
               "head": "e782f985dc5995a076e83e8482b73a693f687ea1",
-              "state": "OPEN"
+              "state": "MERGED"
             }
           ]
         }
@@ -6525,7 +6530,7 @@
               "line": 109,
               "batch": "第四批PR：C-13～16 / UPD-06与REL-05草稿",
               "task_ids": [],
-              "status": "not_accepted"
+              "status": "offline_accepted"
             },
             {
               "id": "C-16",

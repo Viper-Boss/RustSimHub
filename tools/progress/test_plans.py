@@ -21,7 +21,7 @@ class Plans(unittest.TestCase):
             member = next(m for m in self.members if m['id']==entry['member_id'])
             self.assertEqual([s['id'] for s in entry['steps']],member['step_ids'])
         c = next(m for m in value['members'] if m['member_id']=='member-c')
-        self.assertEqual([s['id'] for s in c['steps'] if s['status']!='not_accepted'],['C-01','C-02','C-03','C-04','C-05','C-06'])
+        self.assertEqual([s['id'] for s in c['steps'] if s['status']!='not_accepted'],['C-01','C-02','C-03','C-04','C-05','C-06','C-15'])
         self.assertEqual(next(s for s in c['steps'] if s['id']=='C-07')['status'],'not_accepted')
 
     def test_missing_or_duplicate_steps_cannot_silently_disappear(self):
