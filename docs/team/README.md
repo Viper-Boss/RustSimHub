@@ -4,15 +4,15 @@
 
 | 人员 | 责任 | 本轮任务 | 设备 |
 |---|---|---|---|
-| Viper-Boss / 项目负责人 | 总体设计、主线开发、设备集成、审核与合并 | AP-06及首配/交付，审核四条离线分支 | 由负责人操作 |
-| 成员A：[fungi1220](https://github.com/fungi1220) | NKN活跃安装统计的独立Rust组件 | [A任务书](MEMBER-A-USAGE-STATS.md)，STAT-01～07的离线部分 | 无需设备 |
-| 成员B：wnfhsj（用户已确认，主页查询异常） | 网络月计量、异常边界与展示 | [B任务书](MEMBER-B-NETWORK-ACCOUNTING.md)，NET-01～03的离线部分 | 无需设备 |
-| 成员C：[yh1030](https://github.com/yh1030) | NAS只读兼容、历史导入与幂等 | [C任务书](MEMBER-C-NAS-COMPAT.md)，NAS-01/05/06的离线部分 | 无需设备 |
-| [RedamancyGTW](https://github.com/RedamancyGTW)，成员D | 短信事件同步、对象换代、故障恢复 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，SMS-02～06的离线部分 | 无需设备 |
+| Viper-Boss / 项目负责人 | 总体设计、主线开发、设备集成、审核与合并 | 主线开发暂停，UPD-01待续；负责跨模块审核、设备与签名交付 | 由负责人操作 |
+| 成员A：[fungi1220](https://github.com/fungi1220) | NKN活跃安装统计的独立Rust组件 | [A任务书](MEMBER-A-USAGE-STATS.md)，STAT-01～07、追加NKN-01/02和SEC-05离线部分（16步） | 无需设备 |
+| 成员B：wnfhsj（用户已确认，主页查询异常） | 网络月计量、异常边界与展示 | [B任务书](MEMBER-B-NETWORK-ACCOUNTING.md)，NET-01～03、追加WEB-01/05和STAB-01离线部分（16步） | 无需设备 |
+| 成员C：[yh1030](https://github.com/yh1030) | NAS只读兼容、历史导入与幂等 | [C任务书](MEMBER-C-NAS-COMPAT.md)，NAS-01/05/06、追加REC-04/UPD-06及REL-05草稿（16步，已审4步） | 无需设备 |
+| [RedamancyGTW](https://github.com/RedamancyGTW)，成员D | 短信事件同步、对象换代、故障恢复 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，SMS-02～06、追加CALL-08离线实现（12步） | 无需设备 |
 
 四名成员均使用自己的GitHub账号和Codex；不用共享负责人账号、Token、NAS地址或SSH材料。旧Claude任务包仅供历史参考，本目录是本轮明确分工。yh1030与wnfhsj的Write最终回读已生效；fungi1220和RedamancyGTW的Write邀请已就绪，等待本人接受。此前wnfhsj与RedamancyGTW的公开主页有404现象，不能据此判断账号不存在或确定风控原因。权限明细见[仓库访问状态](ACCESS.md)。
 
-A/B/C/D各8步是交付拆分，映射到原有STAT/NET/NAS/SMS动作，不向169个项目动作额外加32个，也不重复累加项目预计工时。成员计划区间用于安排本轮工作，实际以交付和复核为准。
+原A/B/C/D各8步保留。2026-10-27追加后分别16/16/16/12步，共60个成员交付步骤，映射原有项目动作，不向169个动作加28个，不重复累加项目工时。原成员C的4步已审记录保持；分母变化来自新增分工，不是撤销验收。计划区间含原包与追加包，不代表剩余或实际工时。详见[追加任务与执行顺序](ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md)。
 
 ## 现在如何提交
 
@@ -36,6 +36,8 @@ gh pr create --repo Viper-Boss/RustSimHub --base main
 如果仓库已有克隆/remote/未提交工作，先检查，不能按示例强制重置或丢弃工作。确认推送remote确实指向 `Viper-Boss/RustSimHub`；原有个人fork可保留为备用remote，后续交付必须推送到本仓库的个人功能分支。每个人只维护自己的分支；主线变更用fetch后正常合并/变基处理，不覆盖别人的提交。
 
 ## 四条分支如何避免冲突
+
+以下为原任务边界；追加授权只按本人任务书末节和追加总表扩展，不一并开放其他路径。
 
 - A独占新增 `crates/usage-stats/`、相关文档与测试，以及新增该成员所需的workspace/Cargo.lock最小改动。
 - B只改既有 `crates/network-agent/` 和明确列出的网络显示/测试文件，不调整workspace成员、wire协议或Core。

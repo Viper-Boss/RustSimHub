@@ -10,13 +10,13 @@
       ],
       "role": "项目负责人 · 主线开发 / 架构 / 设备 / 审核",
       "access": "现有主线维护；实际权限沿用仓库设置",
-      "package": "转发错误与容量矩阵、主线构建/评审",
+      "package": "主线暂停 · UPD-01待续 / 审核与设备集成",
       "task_ids": [
-        "FWD-15"
+        "UPD-01"
       ],
       "step_ids": [],
       "handoff": "docs/team/README.md",
-      "state": "in_progress",
+      "state": "assigned",
       "estimate_hours": null
     },
     {
@@ -26,7 +26,7 @@
       "git_names": [],
       "role": "NKN活跃安装统计 · 离线Rust组件",
       "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
-      "package": "统计纯组件 → 确认状态机与失败矩阵",
+      "package": "NKN统计 → 最小引擎/ARM64构建 → 依赖许可证清单",
       "task_ids": [
         "STAT-01",
         "STAT-02",
@@ -34,7 +34,10 @@
         "STAT-04",
         "STAT-05",
         "STAT-06",
-        "STAT-07"
+        "STAT-07",
+        "NKN-01",
+        "NKN-02",
+        "SEC-05"
       ],
       "step_ids": [
         "A-01",
@@ -44,13 +47,21 @@
         "A-05",
         "A-06",
         "A-07",
-        "A-08"
+        "A-08",
+        "A-09",
+        "A-10",
+        "A-11",
+        "A-12",
+        "A-13",
+        "A-14",
+        "A-15",
+        "A-16"
       ],
       "handoff": "docs/team/MEMBER-A-USAGE-STATS.md",
       "state": "assigned",
       "estimate_hours": [
-        10,
-        24
+        14,
+        33
       ]
     },
     {
@@ -60,11 +71,14 @@
       "git_names": [],
       "role": "月流量计量 / 网络显示 · 离线边界",
       "access": "同仓库Write已生效；本人功能分支 → PR审核",
-      "package": "计量与月结 → 展示、回归与交接",
+      "package": "网络计量 → 一键测试组件 → 性能负载工具",
       "task_ids": [
         "NET-01",
         "NET-02",
-        "NET-03"
+        "NET-03",
+        "WEB-01",
+        "WEB-05",
+        "STAB-01"
       ],
       "step_ids": [
         "B-01",
@@ -74,13 +88,21 @@
         "B-05",
         "B-06",
         "B-07",
-        "B-08"
+        "B-08",
+        "B-09",
+        "B-10",
+        "B-11",
+        "B-12",
+        "B-13",
+        "B-14",
+        "B-15",
+        "B-16"
       ],
       "handoff": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
       "state": "assigned",
       "estimate_hours": [
-        6,
-        16
+        9,
+        23
       ]
     },
     {
@@ -90,11 +112,14 @@
       "git_names": [],
       "role": "NAS只读兼容 / 历史导入 · 离线适配",
       "access": "同仓库Write已生效；本人功能分支 → PR审核",
-      "package": "兼容契约与只读桥 → 历史差异与幂等",
+      "package": "NAS/历史导入 → 备份升级故障 → 用户手册草稿",
       "task_ids": [
         "NAS-01",
         "NAS-05",
-        "NAS-06"
+        "NAS-06",
+        "REC-04",
+        "UPD-06",
+        "REL-05"
       ],
       "step_ids": [
         "C-01",
@@ -104,13 +129,21 @@
         "C-05",
         "C-06",
         "C-07",
-        "C-08"
+        "C-08",
+        "C-09",
+        "C-10",
+        "C-11",
+        "C-12",
+        "C-13",
+        "C-14",
+        "C-15",
+        "C-16"
       ],
       "handoff": "docs/team/MEMBER-C-NAS-COMPAT.md",
       "state": "in_progress",
       "estimate_hours": [
-        8,
-        20
+        13,
+        32
       ]
     },
     {
@@ -120,13 +153,14 @@
       "git_names": [],
       "role": "短信同步 / 对象换代 / 故障恢复 · 离线回归",
       "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
-      "package": "事件同步与对象生命周期 → 内容、候选与提交恢复",
+      "package": "短信同步/恢复 → 通话终止对象重观察去重",
       "task_ids": [
         "SMS-02",
         "SMS-03",
         "SMS-04",
         "SMS-05",
-        "SMS-06"
+        "SMS-06",
+        "CALL-08"
       ],
       "step_ids": [
         "D-01",
@@ -136,13 +170,17 @@
         "D-05",
         "D-06",
         "D-07",
-        "D-08"
+        "D-08",
+        "D-09",
+        "D-10",
+        "D-11",
+        "D-12"
       ],
       "handoff": "docs/team/MEMBER-D-SMS-RECOVERY.md",
       "state": "assigned",
       "estimate_hours": [
-        8,
-        20
+        9,
+        23
       ]
     }
   ]

@@ -55,7 +55,7 @@ export function teamHTML(team) {
   if(!team?.members?.length)return '<p>团队统计尚未生成；不显示推测数值。</p>';
   const count=value=>Number.isSafeInteger(value)&&value>=0?value:0;
   const number=value=>count(value).toLocaleString('zh-CN');
-  const total=count(team.totals.product), labels={assigned:'已分配 · 待开工',in_progress:'主线进行中',submitted:'已提交 · 待审核'};
+  const total=count(team.totals.product), labels={assigned:'已分配 · 待开工',in_progress:'任务进行中',submitted:'已提交 · 待审核'};
   return team.members.map((m,index)=>{
     const s=m.stats,w=m.work,product=count(s.current_lines.product),pct=total?product/total*100:0;
     const accepted=count(w.accepted_steps),assigned=count(w.assigned_steps);

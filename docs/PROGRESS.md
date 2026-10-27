@@ -1,5 +1,9 @@
 # 最新开发进度：2026-10-23
 
+2026-10-27 [T3追加离线分工](team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md)正式登记：A接NKN-01/02、SEC-05；B接WEB-01/05、STAB-01；C接REC-04、UPD-06及REL-05草稿；D接CALL-08，各16/16/16/12步。原8步和C的PR#3四步审核保留，不接管设备/Core授权/Root/签名，成员按小PR和明确前置交付；新动作只是既有台账子范围，不增加169分母或进度。原80%、14/169、7.3%保持，主线目标仍paused，UPD-01待续。本机18项/Node/真实Chrome三宽、任务ID/链接与原审核不变核对通过；GitHub发布和三文件严格HTTPS核对按实际结果另记。FWD-15已完成记录一并同步，原工作区两份旧README笔记不混入提交。
+
+2026-10-27 [X1X转发故障矩阵](VALIDATION-FORWARDING-FAILURES-X1X.md)完成：固定909f2395e7835676fef629f2dd93a7fce6a8c747完整CI40422681951两个任务success，实际日志确认2MiB/UID65534/errno28专用ENOSPC、强杀Core+worker后同目录重开/新lease替换只发原未提交任务、真实凭据/cgroup和Owner服务协调；253项普通与专用故障/五进程/五准入证据分列。首轮加强夹具因Store重开线路失效未恢复而停，修正仅dev-fixtures重新观测同一合成SIM，保留原失败。FWD-15完成，14/169、余155、加权7.3%，原80%；下一UPD-01已盘点Root/应用/outbox版本并保留门禁缺口。无设备/真实外发/普通数据/关机操作，应用50最后现场保持；四位成员与用户验收不接管。
+
 2026-10-27 [X1X错误矩阵](VALIDATION-FORWARDING-FAILURES-X1X.md)推进：新增真实4096回执容量/保留Unknown的显式清理恢复、SQLite实际FULL回滚/恢复，以及11种4xx/429/5xx+Retry-After的本机TLS单次Unknown；最终157Core+78转发+18Wire共253项及严格/生产检查通过。仅合成数据/loopback；SQLite页上限不等于OS磁盘实满，下一补有限tmpfs的实际ENOSPC与固定CI，FWD-15不计完成。FWD-12固定9117647已完成；台账13/169、余156、6.4%，原80%。无设备/外发/普通流量/关机操作，成员任务不接管。
 
 2026-10-27 [X1W显式历史补发](VALIDATION-FORWARDING-HISTORY-WEB-X1W.md)完成：固定9117647a85a68056f31044f47ecc941184d63d08的728文件27acbc0、11个全新生产ARM/实际QEMU及八文件签名材料通过，完整CI40416902303两任务success；250项、16网页、实际Chrome/IDB三宽及L1的19项100轮证据完整。FWD-12完成，台账13/169、余156、加权6.4%，原P0–P7仍80%；下一FWD-15进行中，已补253项的SQLite_FULL/容量/HTTP错误矩阵，OS层ENOSPC仍待补。未部署/外发，最后实机50不变；成员/用户验收、普通数据/转发OFF和关机搁置保持。

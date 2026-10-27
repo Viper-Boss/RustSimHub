@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-26T23:17:21.057135+00:00",
+  "updated_at": "2026-10-27T00:18:01.674708+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原80%仍按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "FWD-15",
-    "title": "队列满与提供商错误矩阵",
-    "state": "正在执行；完成后附证据",
-    "description": "在有界、可销毁的临时文件系统验证真实ENOSPC，并结合既有TLS/超时/退出矩阵核对Unknown、资源上限与无重试；不访问设备或真实提供商。"
+    "task_id": "UPD-01",
+    "title": "Root与应用版本能力契约",
+    "state": "主线开发已暂停；成员离线任务按新分工排队",
+    "description": "UPD-01保留待续；本次只追加离线分工及发布资料，未恢复设备或主线固件开发。四位成员先交当前批，经审核按任务书继续追加包。"
   },
   "facts": [
     {
@@ -80,8 +80,8 @@
     },
     {
       "label": "运行应用",
-      "value": "epoch 49",
-      "detail": "已确认运行；50已上传，尚未暂存"
+      "value": "epoch 50",
+      "detail": "最近已验收交付记录；本轮未连接设备复核"
     },
     {
       "label": "安装器",
@@ -444,11 +444,13 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "in_progress",
+          "status": "done",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
-          "completed_at": null,
+          "evidence": [
+            "docs/VALIDATION-FORWARDING-FAILURES-X1X.md"
+          ],
+          "completed_at": "2026-10-27T00:01:19.663098+00:00",
           "actual_hours": null
         },
         {
@@ -1811,7 +1813,7 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -4811,12 +4813,69 @@
       "evidence": [
         "docs/VALIDATION-FORWARDING-FAILURES-X1X.md"
       ]
+    },
+    {
+      "at": "2026-10-26T23:59:48.802781+00:00",
+      "type": "state",
+      "title": "UPD-01 · 状态更新：Root与应用版本能力契约",
+      "detail": "已对照Core启动器三个历史档位、八文件Root材料、普通应用格式1/2和outbox格式1/2/3；发现普通schema检查尚不覆盖全部Root/outbox语义，开始补明确版本契约，不提前验收。",
+      "task_ids": [
+        "UPD-01"
+      ],
+      "evidence": [
+        "docs/APPLICATION-ROOT-VERSION-CONTRACT.md"
+      ]
+    },
+    {
+      "at": "2026-10-27T00:01:19.663098+00:00",
+      "type": "completed",
+      "title": "FWD-15 · 已完成：队列满与提供商错误矩阵",
+      "detail": "固定909f239完整CI40422681951成功；真实2MiB tmpfs ENOSPC、253项普通回归/专用故障、五种进程含强杀Core与worker后同目录重开、新lease替换只发未提交任务，系统凭据/cgroup和Owner协调均通过；Unknown不重发或丢失。",
+      "task_ids": [
+        "FWD-15"
+      ],
+      "evidence": [
+        "docs/VALIDATION-FORWARDING-FAILURES-X1X.md"
+      ]
+    },
+    {
+      "at": "2026-10-27T00:01:19.947550+00:00",
+      "type": "state",
+      "title": "UPD-01 · 下一关卡：Root与应用版本能力契约",
+      "detail": "下一项补Root与应用/outbox的明确兼容契约，已盘点三个历史启动档位及当前签名材料；不把主库schema6当全部数据兼容，不接管四位成员或用户实测。",
+      "task_ids": [
+        "UPD-01"
+      ],
+      "evidence": [
+        "docs/APPLICATION-ROOT-VERSION-CONTRACT.md"
+      ]
+    },
+    {
+      "at": "2026-10-27T00:15:44.399384+00:00",
+      "type": "state",
+      "title": "T3 · 正式追加四位成员离线任务",
+      "detail": "A接NKN引擎/ARM构建与依赖清单，B接简化测试组件/性能工具，C接备份升级故障/手册草稿，D接通话重观察；原审核不变，成员步骤16/16/16/12，不增加169动作或完成比例。主线仍暂停。",
+      "task_ids": [
+        "NKN-01",
+        "NKN-02",
+        "SEC-05",
+        "WEB-01",
+        "WEB-05",
+        "STAB-01",
+        "REC-04",
+        "UPD-06",
+        "REL-05",
+        "CALL-08"
+      ],
+      "evidence": [
+        "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "9117647a85a68056f31044f47ecc941184d63d08",
-    "generated_at": "2026-10-26T23:13:10.925124+00:00",
+    "source_revision": "909f2395e7835676fef629f2dd93a7fce6a8c747",
+    "generated_at": "2026-10-27T00:18:01.674708+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -4825,25 +4884,25 @@
         "login": "Viper-Boss",
         "role": "项目负责人 · 主线开发 / 架构 / 设备 / 审核",
         "access": "现有主线维护；实际权限沿用仓库设置",
-        "package": "转发错误与容量矩阵、主线构建/评审",
+        "package": "主线暂停 · UPD-01待续 / 审核与设备集成",
         "task_ids": [
-          "FWD-15"
+          "UPD-01"
         ],
         "step_ids": [],
         "handoff": "docs/team/README.md",
-        "state": "in_progress",
+        "state": "assigned",
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 46297,
-            "tests": 27753,
+            "product": 46302,
+            "tests": 28211,
             "tooling": 8715,
             "firmware": 1132
           },
-          "commits": 319,
-          "code_commits": 221,
-          "added": 88009,
-          "deleted": 2199
+          "commits": 322,
+          "code_commits": 223,
+          "added": 88520,
+          "deleted": 2217
         },
         "work": {
           "assigned_steps": 0,
@@ -4865,7 +4924,7 @@
         "login": "fungi1220",
         "role": "NKN活跃安装统计 · 离线Rust组件",
         "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
-        "package": "统计纯组件 → 确认状态机与失败矩阵",
+        "package": "NKN统计 → 最小引擎/ARM64构建 → 依赖许可证清单",
         "task_ids": [
           "STAT-01",
           "STAT-02",
@@ -4873,7 +4932,10 @@
           "STAT-04",
           "STAT-05",
           "STAT-06",
-          "STAT-07"
+          "STAT-07",
+          "NKN-01",
+          "NKN-02",
+          "SEC-05"
         ],
         "step_ids": [
           "A-01",
@@ -4883,13 +4945,21 @@
           "A-05",
           "A-06",
           "A-07",
-          "A-08"
+          "A-08",
+          "A-09",
+          "A-10",
+          "A-11",
+          "A-12",
+          "A-13",
+          "A-14",
+          "A-15",
+          "A-16"
         ],
         "handoff": "docs/team/MEMBER-A-USAGE-STATS.md",
         "state": "assigned",
         "estimate_hours": [
-          10,
-          24
+          14,
+          33
         ],
         "stats": {
           "current_lines": {
@@ -4904,7 +4974,7 @@
           "deleted": 0
         },
         "work": {
-          "assigned_steps": 8,
+          "assigned_steps": 16,
           "accepted_steps": 0,
           "self_reported_hours": null,
           "reviews": [],
@@ -4917,11 +4987,14 @@
         "login": "wnfhsj",
         "role": "月流量计量 / 网络显示 · 离线边界",
         "access": "同仓库Write已生效；本人功能分支 → PR审核",
-        "package": "计量与月结 → 展示、回归与交接",
+        "package": "网络计量 → 一键测试组件 → 性能负载工具",
         "task_ids": [
           "NET-01",
           "NET-02",
-          "NET-03"
+          "NET-03",
+          "WEB-01",
+          "WEB-05",
+          "STAB-01"
         ],
         "step_ids": [
           "B-01",
@@ -4931,13 +5004,21 @@
           "B-05",
           "B-06",
           "B-07",
-          "B-08"
+          "B-08",
+          "B-09",
+          "B-10",
+          "B-11",
+          "B-12",
+          "B-13",
+          "B-14",
+          "B-15",
+          "B-16"
         ],
         "handoff": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
         "state": "assigned",
         "estimate_hours": [
-          6,
-          16
+          9,
+          23
         ],
         "stats": {
           "current_lines": {
@@ -4952,7 +5033,7 @@
           "deleted": 0
         },
         "work": {
-          "assigned_steps": 8,
+          "assigned_steps": 16,
           "accepted_steps": 0,
           "self_reported_hours": null,
           "reviews": [],
@@ -4965,11 +5046,14 @@
         "login": "yh1030",
         "role": "NAS只读兼容 / 历史导入 · 离线适配",
         "access": "同仓库Write已生效；本人功能分支 → PR审核",
-        "package": "兼容契约与只读桥 → 历史差异与幂等",
+        "package": "NAS/历史导入 → 备份升级故障 → 用户手册草稿",
         "task_ids": [
           "NAS-01",
           "NAS-05",
-          "NAS-06"
+          "NAS-06",
+          "REC-04",
+          "UPD-06",
+          "REL-05"
         ],
         "step_ids": [
           "C-01",
@@ -4979,13 +5063,21 @@
           "C-05",
           "C-06",
           "C-07",
-          "C-08"
+          "C-08",
+          "C-09",
+          "C-10",
+          "C-11",
+          "C-12",
+          "C-13",
+          "C-14",
+          "C-15",
+          "C-16"
         ],
         "handoff": "docs/team/MEMBER-C-NAS-COMPAT.md",
         "state": "in_progress",
         "estimate_hours": [
-          8,
-          20
+          13,
+          32
         ],
         "stats": {
           "current_lines": {
@@ -5000,7 +5092,7 @@
           "deleted": 91
         },
         "work": {
-          "assigned_steps": 8,
+          "assigned_steps": 16,
           "accepted_steps": 4,
           "self_reported_hours": null,
           "reviews": [
@@ -5025,13 +5117,14 @@
         "login": "RedamancyGTW",
         "role": "短信同步 / 对象换代 / 故障恢复 · 离线回归",
         "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
-        "package": "事件同步与对象生命周期 → 内容、候选与提交恢复",
+        "package": "短信同步/恢复 → 通话终止对象重观察去重",
         "task_ids": [
           "SMS-02",
           "SMS-03",
           "SMS-04",
           "SMS-05",
-          "SMS-06"
+          "SMS-06",
+          "CALL-08"
         ],
         "step_ids": [
           "D-01",
@@ -5041,13 +5134,17 @@
           "D-05",
           "D-06",
           "D-07",
-          "D-08"
+          "D-08",
+          "D-09",
+          "D-10",
+          "D-11",
+          "D-12"
         ],
         "handoff": "docs/team/MEMBER-D-SMS-RECOVERY.md",
         "state": "assigned",
         "estimate_hours": [
-          8,
-          20
+          9,
+          23
         ],
         "stats": {
           "current_lines": {
@@ -5062,7 +5159,7 @@
           "deleted": 0
         },
         "work": {
-          "assigned_steps": 8,
+          "assigned_steps": 12,
           "accepted_steps": 0,
           "self_reported_hours": null,
           "reviews": [],
@@ -5083,8 +5180,8 @@
       "deleted": 0
     },
     "totals": {
-      "product": 46848,
-      "tests": 28314,
+      "product": 46853,
+      "tests": 28772,
       "tooling": 8715,
       "firmware": 1132
     },
