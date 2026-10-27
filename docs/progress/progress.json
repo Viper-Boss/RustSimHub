@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-27T11:54:27.634570+00:00",
+  "updated_at": "2026-10-27T13:35:54.403760+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -70,7 +70,7 @@
     "task_id": "UPD-01",
     "title": "Root与应用版本能力契约",
     "state": "正在推进",
-    "description": "U3联合比较通过297项/15生产CLI；81068ab两轮完整CI、十一生产ARM、实际旧Core/QEMU及八文件Root材料验签通过。继续真实Root/签名字节/数据锁下维护准入，UPD-01仍进行；原进度和成员/真人边界保持。"
+    "description": "U4真实Root配置/业务与outbox持锁只读观察完成；30项updater、严格检查/生产Native及18项真实Root CLI通过。继续实际验签程序与有效systemd/持锁准入接线，UPD-01仍进行；原进度与成员/真人边界保持。"
   },
   "facts": [
     {
@@ -5011,6 +5011,18 @@
       "at": "2026-10-27T11:54:27.634570+00:00",
       "title": "按人查看全部任务 · 五人各自展开",
       "detail": "118个个人步骤直接展示工作、验收和来源；90项离线负责、65项主线执行及14项闭环归档分别列出。支持精确ID搜索、人员跳转、分组展开和个人清单复制；6步已审和原80%/14项闭环保持。"
+    },
+    {
+      "at": "2026-10-27T13:35:54.403760+00:00",
+      "type": "state",
+      "title": "U4 · 实际Root与持锁数据观察",
+      "detail": "30项updater及18项真实Root CLI通过；报告明确未完成签名程序/有效systemd及写入准入，不新增功能完成分。",
+      "task_ids": [
+        "UPD-01"
+      ],
+      "evidence": [
+        "docs/VALIDATION-MAINTENANCE-OBSERVATION-U4.md"
+      ]
     }
   ],
   "team": {
