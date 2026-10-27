@@ -265,6 +265,7 @@ Linux 准备锁定 Rust、python3 标准库及原 Go 工具链，运行上述 co
 - 首次 Go 测试退出 1：我把黄金向量路径误写到不存在的 testdata，且当前受限环境回环 TLS 读取返回 transport_failed；修正路径并允许本机合成回环测试后，上述实际完整重跑通过。未关闭 TLS 校验/重定向保护或改变期望来通过。
 - `cargo fmt -p rustsimhub-compat`、`git diff --check`：退出码 0；提交前再做全仓 fmt 检查。
 - 本机无 Linux/WSL，新增 SQLite/会话矩阵及现有真实 Go CLI/恢复子进程等待本批 PR 的对应 HEAD Linux CI；未填成功，不将交叉编译视为执行。
+- 首轮 [CI 40478550024](https://github.com/Viper-Boss/RustSimHub/actions/runs/40478550024)，完整 HEAD `cf309c95ba7ceedf44de95df21105fb82cb6e36f`：compat 库 41 通过/2 失败，新增 9/11 通过；过期、签名时间边界、版本、恶意游标/ID、非法记录/缺字段/重复、合法未知值及真实文件上限已通过。两处测试假设错误：inactive sources 返回 Forbidden 而非空列表；既有 Path equality 规范化无害 ./，该路径仍是同源且可幂等读取。修正为分别断言明确拒绝与同源 0/15；相对路径、..、链接、NUL、权限/来源等拒绝断言保持，不改生产逻辑。首轮库失败后 bin/Go 及严格 Clippy 未运行，不算通过，最终按新 HEAD 重跑。
 
 ### 集成、限制、来源与下一步
 

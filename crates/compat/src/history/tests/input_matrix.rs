@@ -56,7 +56,11 @@ fn nas_identity_scope_and_revocation_denials_preserve_archive_access_and_current
     variants.push(narrowed);
     let before = watch(root.path());
     for actor in variants {
-        assert!(service.sources(&actor).unwrap().is_empty());
+        if actor.active {
+            assert!(service.sources(&actor).unwrap().is_empty());
+        } else {
+            assert!(matches!(service.sources(&actor), Err(Error::Forbidden)));
+        }
         assert!(matches!(
             service.page(&actor, SOURCE, E::Sms, Some(&cursor), 1),
             Err(Error::Forbidden)
@@ -261,15 +265,28 @@ fn noncanonical_paths_links_and_invalid_source_ids_leave_all_files_unchanged() {
     // Do not recursively walk the directory symlink; compare real directories only.
     let before_source = fs::read(&input).unwrap();
     let before_archive = watch(&archive);
-    for path in [
+    // Path equality normalizes harmless `.` components in the existing policy.
+    // This remains the same source, not a new namespace or path escape.
+    assert_eq!(
+        import(&root.path().join("./snapshot.sqlite"), SOURCE, &archive)
+            .unwrap()
+            .unchanged,
+        15
+    );
+    for (index, path) in [
         PathBuf::from("snapshot.sqlite"),
-        root.path().join("./snapshot.sqlite"),
         root.path().join("archive/../snapshot.sqlite"),
         link,
         directory_link.join("snapshot.sqlite"),
         root.path().join("bad\0.sqlite"),
-    ] {
-        assert!(import(&path, SOURCE, &archive).is_err());
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        assert!(
+            import(&path, SOURCE, &archive).is_err(),
+            "invalid path case {index} was accepted"
+        );
     }
     assert!(import(&input, SOURCE, &root.path().join("archive/../archive")).is_err());
     let hard = root.path().join("hard.sqlite");

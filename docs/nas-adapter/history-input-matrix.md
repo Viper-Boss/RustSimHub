@@ -13,7 +13,7 @@
 | 非法来源/缺字段 | BLOB、无效 UTF-8、零 ID、空/NULL 复合键、缺列/表分别走真实 validate/import/preflight。已有有效归档和相邻当前哨兵保持；文本字段未超限但 canonical JSON 超 128 KiB 仍拒绝 |
 | 重复复合键 | 同内容重复 sms_contacts：首次 15 新增/1 unchanged，再跑 0/16；改变重复项且先插入排序更早的新短信后整批冲突，原归档 3 条短信和所有文件保持 |
 | 合法文本/未知值 | 合法 UTF-8 中的 NUL 作为正文数据保留，不冒充二进制；缺 timestamp/sender 保持 NULL，不合成号码/时间；来源字节保持 |
-| 路径/namespace | 相对路径、带 ./ 或 .. 的非规范路径、符号链接文件/目录、NUL 路径、硬链接（含原文件 nlink>1）、非规范目标路径拒绝。namespace 空/63/65 位/大写/换行/路径/NUL 拒绝；默认报告不回显恶意来源 |
+| 路径/namespace | 相对路径、带 .. 的非规范路径、符号链接文件/目录、NUL 路径、硬链接（含原文件 nlink>1）、非规范目标路径拒绝。既有 Path 相等规则规范化无害的 ./，验证仍是同源 0 新增/15 unchanged，不增加命名空间。namespace 空/63/65 位/大写/换行/路径/NUL 拒绝；默认报告不回显恶意来源 |
 | 错误归档版本 | application_id 错误或 user_version=2，真实 import 和 HistoryService 拒绝，不创建 access 或替换已有库 |
 | 文件上限 | 临时稀疏来源 256 MiB+1，真实 import 有界读取后拒绝；归档 512 MiB+1，import/reader 拒绝。不截断/重建，核对长度、原有效前缀及另一库保持；不把大文件整体读入测试内存 |
 | 会话真正过期 | 真实签名发出会话并核对 expires_at=now+900；仅在 cfg(test) 中把该真实内存会话 deadline 置于过去，再调用原 subject/authorize 必须拒绝，持久授权库不变；新 nonce 可重新签发，旧 token 不复活 |
