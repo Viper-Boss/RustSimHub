@@ -15,8 +15,8 @@ use std::{
 };
 use uuid::Uuid;
 
-const APP_ID: i64 = 0x52534657;
-const FORMAT: i64 = 3;
+const APP_ID: i64 = OUTBOX_APPLICATION_ID;
+const FORMAT: i64 = OUTBOX_CURRENT_FORMAT;
 type CachedPolicy = ([u8; 32], Arc<Policy>);
 mod history;
 pub use history::*;
@@ -217,7 +217,9 @@ impl Queue {
             if app != 0 || objects != 0 || requested.is_none() {
                 return Err(Error::Forbidden);
             }
-        } else if ![1, 2, FORMAT].contains(&version) || app != APP_ID {
+        } else if !(version == FORMAT || OUTBOX_MIGRATION_FORMATS.contains(&version))
+            || app != APP_ID
+        {
             return Err(Error::Forbidden);
         }
         let binding = match requested {
@@ -272,7 +274,7 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         }
         // Binding and integrity checks precede migration. Existing delivery
         // bodies/cursors are untouched; version 1 cannot interpret new tests.
-        if version == 1 || version == 2 {
+        if OUTBOX_MIGRATION_FORMATS.contains(&version) {
             let tx = conn.transaction()?;
             if version == 1 {
                 tx.execute_batch("ALTER TABLE jobs ADD COLUMN purpose TEXT NOT NULL DEFAULT 'sms' CHECK(purpose IN('sms','test'));")?;

@@ -7,7 +7,8 @@ fn run() -> rustsimhub_forwarder::Result<()> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            serde_json::json!({"worker":true,"protocol":4,"development_fixtures":cfg!(feature="dev-fixtures"),"finite_root_actions":true,
+            serde_json::json!({"worker":true,"protocol":rustsimhub_forwarder::FORWARDING_WORKER_PROTOCOL,"development_fixtures":cfg!(feature="dev-fixtures"),"finite_root_actions":true,
+            "forwarding_runtime_contract":rustsimhub_forwarder::runtime_compatibility(),
             "source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256")})
         );
         return Ok(());

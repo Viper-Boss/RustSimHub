@@ -11,6 +11,8 @@ mod rules;
 pub use rules::*;
 mod edit;
 pub use edit::*;
+mod compatibility;
+pub use compatibility::*;
 #[cfg(target_os = "linux")]
 mod authority;
 #[cfg(target_os = "linux")]
