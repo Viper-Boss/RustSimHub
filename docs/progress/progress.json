@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-27T18:06:09.934501+00:00",
+  "updated_at": "2026-10-27T19:29:01.817564+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -5027,8 +5027,8 @@
   ],
   "team": {
     "schema": 1,
-    "source_revision": "5c429716aa20eb708a8a1f66705a6524161aab89",
-    "generated_at": "2026-10-27T18:06:09.934501+00:00",
+    "source_revision": "7c51d591a03917a040d91d72eae2e22239097511",
+    "generated_at": "2026-10-27T19:29:01.817564+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5047,15 +5047,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 46889,
-            "tests": 29014,
-            "tooling": 8715,
+            "product": 47556,
+            "tests": 29737,
+            "tooling": 9200,
             "firmware": 1132
           },
-          "commits": 334,
-          "code_commits": 229,
-          "added": 90086,
-          "deleted": 2238
+          "commits": 343,
+          "code_commits": 235,
+          "added": 92096,
+          "deleted": 2249
         },
         "work": {
           "assigned_steps": 0,
@@ -5086,12 +5086,12 @@
             {
               "pr": 11,
               "head": "cf9161ea98d623238a1f6ad6e950ce37508f6e0b",
-              "state": "OPEN"
+              "state": "MERGED"
             },
             {
               "pr": 12,
               "head": "529a54128bde0da3aa34818ff3615310a28dd56f",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 14,
@@ -5101,6 +5101,31 @@
             {
               "pr": 15,
               "head": "7d033de5654e32f6d65ca378df67336d1b8cbc31",
+              "state": "MERGED"
+            },
+            {
+              "pr": 16,
+              "head": "b3863bf87a1aad6a46e095fd0e0b8b285a5ba9e6",
+              "state": "MERGED"
+            },
+            {
+              "pr": 17,
+              "head": "bd03d9d9e8b0776b557b9534b9973a061132eabd",
+              "state": "MERGED"
+            },
+            {
+              "pr": 18,
+              "head": "089a4031358c872acc5832c1276ff8fad87e5f35",
+              "state": "MERGED"
+            },
+            {
+              "pr": 19,
+              "head": "f2ba7707e467214fac83f8e6486bb8ccea7c6f92",
+              "state": "MERGED"
+            },
+            {
+              "pr": 20,
+              "head": "d444b905f848af9bd09036d25bc8f712e694f5ba",
               "state": "MERGED"
             }
           ]
@@ -5375,7 +5400,7 @@
         },
         "work": {
           "assigned_steps": 30,
-          "accepted_steps": 7,
+          "accepted_steps": 9,
           "self_reported_hours": null,
           "reviews": [
             {
@@ -5391,6 +5416,11 @@
             {
               "pr": 7,
               "head": "b13bae7ea80a4c8f45396609b22bfe1f8cc42923",
+              "state": "offline_accepted"
+            },
+            {
+              "pr": 9,
+              "head": "c10c95ce35fb029678457069cc6354337e4121f3",
               "state": "offline_accepted"
             },
             {
@@ -5533,9 +5563,9 @@
       "deleted": 0
     },
     "totals": {
-      "product": 48053,
-      "tests": 31022,
-      "tooling": 8715,
+      "product": 48720,
+      "tests": 31745,
+      "tooling": 9200,
       "firmware": 1132
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。",
@@ -6442,7 +6472,7 @@
                 "NAS-05",
                 "NAS-06"
               ],
-              "status": "not_accepted"
+              "status": "offline_accepted"
             },
             {
               "id": "C-08",
@@ -6453,7 +6483,7 @@
               "line": 80,
               "batch": "第二批：历史差异与幂等（C-05～C-08）",
               "task_ids": [],
-              "status": "not_accepted"
+              "status": "offline_accepted"
             },
             {
               "id": "C-09",
