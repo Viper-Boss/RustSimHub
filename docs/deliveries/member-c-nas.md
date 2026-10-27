@@ -188,3 +188,47 @@ API/CLI 均只给出瞬时诊断，不作为授权或后续写入许可。未给
 Codex 辅助实现、测试和报告；不代用户声称人工审核，未估造实耗。没有真实 NAS、设备、用户数据或通信副作用。
 后续 C-06 的导入故障/恢复、C-07 的完整权限/输入矩阵及 C-08 的综合交付仍待安排。
 整体主线估算仍约 **80%**，本项不自行改变进度或真实设备验收。
+
+## 2026-10-27 · C-06 独立交付
+
+成员 yh1030 / member-c。本轮仅执行 C-06 / NAS-06 的重复、部分导入及恢复离线范围，
+按任务书及 PR-DELIVERY-TEMPLATE 交付；不计 C-07～16，不接管设备或全局进度。
+C-05 已由负责人 Viper-Boss 合并 PR #6，合并提交 `c9763c17407a382b51ec80c329618c290e73d0d1`。
+
+- 起始最新 main：`b1a926d6e5ab8b2c3fcc0c835280f8677b838531`。
+- 本人功能分支：`Viper-Boss/RustSimHub:codex/nas-history-recovery` → main；同仓库 PR，不 fork、不直接推 main。
+- 当前完整 HEAD、PR 和对应 CI 在 PR 正文逐次维护；本地 Linux 尚未执行，不预填成功。
+- 文件仅 `crates/compat/src/migrate.rs` 的 cfg(test) 模块接入、`crates/compat/src/history_recovery_tests.rs`、`docs/nas-adapter/history-recovery.md` 和本报告。
+- 不改变生产导入器、归档格式、权限、会话、Core/wire/storage、workspace/Cargo.lock、默认配置或其他成员文件；无新增依赖。
+
+### 实现、原数据保持与要求映射
+
+详细动作/断言见 [C-06 测试矩阵与边界](../nas-adapter/history-recovery.md)。新增 7 个父测试和 1 个专用子进程入口，
+均调用真实 history::import/HistoryService、临时 SQLite 和既有独立合成 schema，子进程与现有 Go/预检文件夹具串行隔离。
+
+| 要求 | 本次验证 |
+|---|---|
+| 相同包幂等、同旧 ID 不盲目覆盖 | 15 条首次 + 5 次重复，完整 ID/payload/digest/批次和文件字节；排序更早的新记录后发生同源冲突，全批回滚；不同源 16 条独立保存和 3 次重跑 |
+| 真实后端中断/写入失败/恢复 | 真实 SQLite 在 3 条插入后 ABORT，2 次失败后去除故障再跑；非空 journal 下真实 SIGKILL；128 KiB 子进程 OS 文件大小限制触发真实数据库写失败，新/已有目标分别重开恢复再导入 3015 条和重复；另测提交后报告丢失的 3 次重试 |
+| realm/SIM 代次/旧游标与映射隔离 | 真实 HistoryService 的 realm/归档绑定、principal generation、audience/epoch 游标与跨来源 record_id 拒绝；变化后的合成相邻 SIM 代次哨兵保持，历史仍标 archived，不冒充 Core 换卡实机验收 |
+| 不恢复发送/通话和硬件副作用 | 提供历史 submitting/dialing 及相同 request_id；历史列表/详情仅 archived、归档仅两张历史表；源文件/相邻合成当前库/身份/Owner 字节保持，报告 hardware_operations=0；没有硬件或发送接口 |
+
+### 实际验证及未运行项
+
+- Windows `cargo test -p rustsimhub-compat --locked --offline`：退出码 0，5 项适用签名/契约回归；新增 Linux 测试不在此运行，不据此称 C-06 通过。
+- Windows `cargo clippy -p rustsimhub-compat --all-targets --locked --offline -- -D warnings`：退出码 0；保留增量缓存硬链接失败后复制的环境提示。
+- `cargo fmt -p rustsimhub-compat`、`git diff --check`：退出码 0；最终格式与 Linux 运行结果以 PR 对应 HEAD 实测补记。
+- 本机无 Linux/WSL，新增 7 项父测试及真实子进程入口等待原仓库 Linux CI；缺工具/失败不静默跳过。
+- 没有真实 NAS、设备、用户数据、通信发送、Core 换卡集成或硬件掉电测试。文件大小限制不是实际 ENOSPC，进程退出不是断电；不删除来源、手工 journal 或清库来通过测试。
+
+### 集成、风险、回退与来源
+
+Linux 准备锁定 Rust、python3 标准库及原 Go 工具链，运行上述 compat 测试/严格 Clippy/fmt；
+专用 ignored worker 由父测试实际执行，不能把普通输出的该 worker ignored 当作父场景未运行。
+临时 SQLite 失败触发器仅用于测试数据库，Python 只给子进程设置资源限制并 exec 同一 Rust 测试程序；没有产品故障开关或替代迁移器。
+新目标中途失败允许留下有效空 schema，禁止半批记录/成功标记；完整逻辑状态在正常 SQLite 重开后核对。
+本批只改测试和说明，回退本 PR 即可，不需要数据迁移或设备恢复。
+
+复用固定 main 的既有导入器、查询器和独立合成 schema，保留 AGPL-3.0-only；Codex 辅助实现、验证和报告。
+不代用户声称人工审核，不估造有效工时，不改作者/贡献数字。负责人按最终完整 HEAD 审核，结论待填。
+下一步补 Linux 实际证据、提交可审核 PR；C-07 及后续尚未执行。整体固定量表仍约 **80%**，不自行增加验收点。

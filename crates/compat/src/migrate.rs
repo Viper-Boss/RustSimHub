@@ -4,6 +4,8 @@
 // concurrently with the library's history/SQLite lock fixtures can retain open
 // descriptors in a child while those fixtures are checking immediate unlocks.
 #[cfg(all(test, target_os = "linux"))]
+mod history_recovery_tests;
+#[cfg(all(test, target_os = "linux"))]
 mod nas_adapter_tests;
 #[cfg(all(test, target_os = "linux"))]
 mod preflight_cli_tests;
