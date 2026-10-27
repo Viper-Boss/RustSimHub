@@ -358,3 +358,16 @@ Codex 辅助盘点、实现、测试和报告；未估造有效工时、不改�
 - 结束生成单独 `results-*.zip`，只包括步骤日志和 `summary.json`；不打包工作区、数据库、密钥或缓存。负责人回传此结果后，成员 C 核对完整 HEAD、修正范围内问题并补交实测报告。
 - 本机实际验证：外层脚本 Python 语法解析、`--verify-only`、766 文件逐个 Git blob 比对、ZIP CRC 和四文件清单均通过；没有执行外层 Linux 路径或十五项业务测试，不把打包/完整性验证写成 Linux 成功。
 - 本次报告补交只记录交接，不改变已打包代码；源码归档固定在上述完整 HEAD。PR 当前报告提交 HEAD 单列在 PR 正文；完整仓库 CI、真实恢复、主线审核/合并仍未验收，整体仍约 **80%**。
+
+### 2026-10-27 · 本机 WSL2 测试环境准备（待 Windows 重启）
+
+用户改为在本机安装 WSL2，并要求后续 Linux 测试默认由代理在 WSL2 执行；不再把负责人 Linux/Actions 额度作为唯一执行条件。
+本轮已完成 Windows 侧组件安装，尚未运行 Linux 测试，不能将环境准备计作 C10/C11 验收。
+
+- 硬件只读检查：x64 Windows build 26200.9711，固件虚拟化与二级地址转换已启用；安装前 hypervisor 未运行。没有更改 BIOS 或安全策略。
+- 下载 Microsoft 官方稳定 WSL 3.0.3.0 x64 MSI；SHA256 `ae977286974255bd26bf925f00f40f5692c6b2084155cbc0563c09aea091f211` 与官方发布一致，Authenticode 为 Valid，签名者 Microsoft Corporation。
+- 标准管理员确认后，Windows 原生 DISM 启用 VirtualMachinePlatform，实际退出码 3010、日志明确需要重启；`/norestart` 生效。原生 msiexec 安装 WSL，实际退出码 0，没有自动重启。
+- `wsl.exe --version`：退出 0，实际 WSL 应用 3.0.3.0、内核 6.18.54.1-1；`wsl.exe --status`：退出 0、默认 WSL 版本 2，但仍提示当前 WSL2 无法启动，不能仅凭退出码称环境可用。`wsl.exe --list --online`：退出 0，确认 Ubuntu-24.04 可用；尚未安装发行版。
+- 保留失败：原精简 wsl 安装入口带参数未开始安装；旧 Windows PowerShell 默认脚本策略阻止安装脚本，未执行。没有放宽策略，改用 Microsoft 签名的原生 DISM/msiexec 完成上述实际安装。原始安装日志与接续记录仅本机保管。
+- 下一步需要用户保存其他应用工作并允许/手动重启 Windows。重启后继续安装 Ubuntu、普通 Linux 测试用户与锁定工具链；使用 Linux 原生文件系统执行固定 HEAD 的十五场景、Cargo 接入及严格检查，再验证默认 WSL2 测试入口和结果收集流程。
+- 本轮无 Ubuntu/WSL2 用户进程测试、无 Rust/Go/业务矩阵新结果、无设备/真实通信/推送/流量或分区操作。C09～C12 的运行证据和验收仍缺，整体按固定量表保持 **80%**。
