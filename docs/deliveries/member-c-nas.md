@@ -1,5 +1,7 @@
 # 成员 C · NAS 第一批离线交付
 
+2026-10-27 追加 C-05，见文末“C-05 独立交付”。第一批各节保留提交时的历史快照；PR #3 后续已获负责人批准并合并。
+
 日期：2026-10-26（Asia/Shanghai）。成员：yh1030 / member-c。
 任务：C-01～C-04，对应 NAS-01 的契约盘点和只读桥离线范围。
 
@@ -132,3 +134,52 @@ Go 环境同上，另设 `RSH_GOLDEN_FILE` 为本仓库黄金向量的绝对路�
 
 整体进度沿用主线固定量表约 **80%**，本批未经过主线逐 HEAD 验收，不调整全局台账。
 审核结论：待审核。第一批通过前不开展第二批。
+
+## 2026-10-27 · C-05 独立交付
+
+本轮仅执行用户指定的 C-05 / NAS-05“导入前差异报告”，不计入 C-06～08 或追加任务的完成。
+第一批门槛已由 PR #3 对完整 HEAD `751e4a964e14db0142b34b3dc4afa245971bb54c` 的负责人批准和合并满足。
+
+- 起始最新 main：`6f964ceb53a5d1effba9bf79748b327b7375b353`。
+- 功能分支：原仓库 `Viper-Boss/RustSimHub:codex/nas-history-preflight`，提交 PR 到 main，不 fork、不直接推 main。
+- 当前完整 HEAD、PR 链接和对应 CI 状态在 PR 正文记录；没有借用第一批 HEAD 的测试结论。
+- 当前为本地实现和初步检查完成，Linux 实际预检/CLI 及全包验证等待 PR CI，不预填成功。
+
+### 实现与要求映射
+
+| C-05 要求 | 本次实现与证据 |
+|---|---|
+| 复用已有迁移，报告格式/版本、记录类型/数量、缺字段、冲突和拒绝原因 | `history::preflight::preflight` 复用既有私有文件/只读 SQLite、静态 CONTRACTS、记录 canonical 解码、hash 和归档检查；新增 `rustsimhub-migrate preflight`。报告含实际 SQLite app/version、未知产品版本、静态表计数、缺列/缺值、新增/已存在/重复/冲突/拒绝/未比较统计及有限原因 |
+| 合成短信/通话/联系人，未实现类型明确不支持 | 使用原独立合成 test-schema 和临时真实 SQLite；未知表/视图按数量明确为 unsupported，不回显名称或执行未知视图，凭据表只计排除数量 |
+| 历史与当前状态隔离，保留来源/未知值，不覆盖身份、Owner、当前线路/发送 | namespace + snapshot 摘要保持来源；NULL/空值仅计数，不造号码/时间。预检只读，源目标重合拒绝；测试逐字节/目录比较来源、已有历史和相邻合成身份/当前状态哨兵不变 |
+| 默认不包含正文/号码，逐条调试只在合成夹具展开 | 报告不含旧键、记录 ID、内容、联系人/号码/凭据或未知表名；合成秘密标记的脱敏断言。没有新增对外 debug 明细模式 |
+
+### 文件、兼容与依赖
+
+- `crates/compat/src/history.rs`：抽取既有离线 sidecar 检查、有界 hash 和记录解码为共享函数；原 validate/import 仍执行相同严格契约，未改归档 schema 或导入格式。
+- `crates/compat/src/history/preflight.rs`、`history/preflight/tests.rs`：只读报告实现和真实临时数据库测试。
+- `crates/compat/src/migrate.rs`、`preflight_cli_tests.rs`：新增命令及生产参数解析/输出路径测试；保留旧命令和非 Linux 拒绝行为。
+- `crates/compat/src/nas_adapter_tests.rs`：已有 Go 夹具和新增 CLI 文件夹具共享仅测试用互斥锁，防止并行启动子进程影响文件锁；不改 Go 桥产品逻辑。
+- `docs/nas-adapter/history-preflight.md`：报告字段、格式/版本含义、只读边界、限制和使用方法。
+- 本报告。没有 workspace、Cargo.lock、Core/wire/storage、授权、默认配置、系统单元、其他成员文件或全局台账变更；没有新增依赖。
+
+### 已执行与未运行
+
+- Windows `cargo test -p rustsimhub-compat --locked`：退出码 0，5 项适用的规则/签名回归通过；新 SQLite 预检仅 Linux，未借此称其通过。
+- Windows `cargo clippy -p rustsimhub-compat --all-targets --locked --offline -- -D warnings`：退出码 0；有系统增量缓存硬链接失败后复制的环境提示，不作为 Linux 结论。
+- `cargo fmt -p rustsimhub-compat` 和 `git diff --check`：退出码 0。
+- 初次离线 Cargo 因最新主线的 regex-lite 索引未缓存而退出 101；按锁定依赖联网刷新后成功，未更改锁文件。
+- 本机仍无 Linux，真实预检、CLI 及 history/session 回归由 PR 的 Linux CI 执行；C-05 夹具未执行前不标通过。
+
+### 主线集成、风险、来源与下一步
+
+API/CLI 均只给出瞬时诊断，不作为授权或后续写入许可。未给目标时 `eligible_for_history_import=null`，
+不假装已经比较冲突；有阻断时输出原因且非零退出。未知类型不宣称完整迁移。
+128 KiB/100000 行等上限保留并用于诊断扫描，未知表预算和 128 个 schema 对象限制明确记在说明中。
+没有创建目标目录、锁文件、归档或业务记录，没有调用硬件、发送、Owner 或当前 SIM 接口。
+真实导入仍由原导入器重新检查；回退本 PR 即可，无迁移和硬件状态需要恢复。
+
+来源为上述固定 main 的既有 history 实现、独立合成 schema 和第一批测试隔离方式，保留 AGPL-3.0-only。
+Codex 辅助实现、测试和报告；不代用户声称人工审核，未估造实耗。没有真实 NAS、设备、用户数据或通信副作用。
+后续 C-06 的导入故障/恢复、C-07 的完整权限/输入矩阵及 C-08 的综合交付仍待安排。
+整体主线估算仍约 **80%**，本项不自行改变进度或真实设备验收。
