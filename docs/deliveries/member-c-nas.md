@@ -143,7 +143,8 @@ Go 环境同上，另设 `RSH_GOLDEN_FILE` 为本仓库黄金向量的绝对路�
 - 起始最新 main：`6f964ceb53a5d1effba9bf79748b327b7375b353`。
 - 功能分支：原仓库 `Viper-Boss/RustSimHub:codex/nas-history-preflight`，提交 PR 到 main，不 fork、不直接推 main。
 - 当前完整 HEAD、PR 链接和对应 CI 状态在 PR 正文记录；没有借用第一批 HEAD 的测试结论。
-- 当前为本地实现和初步检查完成，Linux 实际预检/CLI 及全包验证等待 PR CI，不预填成功。
+- C-05 实现与离线验证完成，原仓库 [PR #6](https://github.com/Viper-Boss/RustSimHub/pull/6) 提交审核；负责人验收、真实 NAS 与后续任务不计完成。
+- Linux 完整 CI 通过的代码 HEAD：`ac272e7d5addfdf6d2f36e532dab55ccb4548db5`，代码树 `6248f4307d2f3075f040cad6cb1715477259d98e`。本次最终证据补记只修改本报告，最终提交 HEAD 及其 CI 状态在 PR 正文单独维护。
 
 ### 实现与要求映射
 
@@ -171,7 +172,9 @@ Go 环境同上，另设 `RSH_GOLDEN_FILE` 为本仓库黄金向量的绝对路�
 - 初次离线 Cargo 因最新主线的 regex-lite 索引未缓存而退出 101；按锁定依赖联网刷新后成功，未更改锁文件。
 - 首轮 Linux CI [40451542534](https://github.com/Viper-Boss/RustSimHub/actions/runs/40451542534)，完整 HEAD `048255bc882d8c1f672776e370cb4ce6c04c9a86`：compat 29/30，通过的新预检包括格式/数量、缺值、预测与原导入器对照、冲突/来源隔离、未知类型、非法记录、上限和不写文件。符号链接已拒绝但原因归为不可读，与夹具预期的私有普通文件要求不符；补充预检文件类型诊断，保留底层 NOFOLLOW、权限和原迁移行为。旧会话/历史测试通过；没有据首轮结果标整包成功。
 - 同轮审查补充已知表的未映射列拒绝，以及源未读取/扫描中断时不谎报 unknown 统计完整，增加对应真实 SQLite 夹具；最终以新 HEAD CI 核对。
-- 本机仍无 Linux，真实预检、CLI 及 history/session 回归由 PR 的 Linux CI 执行；C-05 夹具未执行前不标通过。
+- 修正后的 Linux CI [40452099907](https://github.com/Viper-Boss/RustSimHub/actions/runs/40452099907)，完整代码 HEAD `ac272e7d5addfdf6d2f36e532dab55ccb4548db5`：`test` 与 `native-audio` 两任务均 success。实际日志确认 `cargo test --workspace --all-features --locked` 退出码 0，compat 库 32 项通过（包含 13 项预检夹具及原 history/session 回归），migrate 二进制测试 2 项通过（生产预检 CLI 入口和既有真实 Go/CLI 互操作）。不将入口函数测试写成新预检独立可执行进程测试。
+- 同一 HEAD 的 `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings` 与 `cargo fmt --all -- --check` 均退出码 0；生产特性及现有系统材料/转发/服务回归步骤通过。日志中的既有 proc-macro-error2 未来兼容提示保留，没有据此修改依赖。
+- 本机仍无 Linux，Linux 运行证据来自上述 GitHub Actions。本轮未运行真实 NAS、旧页面或设备验证；最终仅报告的提交不冒用前一 HEAD 的 CI 结论。
 
 ### 主线集成、风险、来源与下一步
 
