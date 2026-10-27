@@ -169,6 +169,8 @@ Go 环境同上，另设 `RSH_GOLDEN_FILE` 为本仓库黄金向量的绝对路�
 - Windows `cargo clippy -p rustsimhub-compat --all-targets --locked --offline -- -D warnings`：退出码 0；有系统增量缓存硬链接失败后复制的环境提示，不作为 Linux 结论。
 - `cargo fmt -p rustsimhub-compat` 和 `git diff --check`：退出码 0。
 - 初次离线 Cargo 因最新主线的 regex-lite 索引未缓存而退出 101；按锁定依赖联网刷新后成功，未更改锁文件。
+- 首轮 Linux CI [40451542534](https://github.com/Viper-Boss/RustSimHub/actions/runs/40451542534)，完整 HEAD `048255bc882d8c1f672776e370cb4ce6c04c9a86`：compat 29/30，通过的新预检包括格式/数量、缺值、预测与原导入器对照、冲突/来源隔离、未知类型、非法记录、上限和不写文件。符号链接已拒绝但原因归为不可读，与夹具预期的私有普通文件要求不符；补充预检文件类型诊断，保留底层 NOFOLLOW、权限和原迁移行为。旧会话/历史测试通过；没有据首轮结果标整包成功。
+- 同轮审查补充已知表的未映射列拒绝，以及源未读取/扫描中断时不谎报 unknown 统计完整，增加对应真实 SQLite 夹具；最终以新 HEAD CI 核对。
 - 本机仍无 Linux，真实预检、CLI 及 history/session 回归由 PR 的 Linux CI 执行；C-05 夹具未执行前不标通过。
 
 ### 主线集成、风险、来源与下一步

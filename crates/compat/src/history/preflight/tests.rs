@@ -135,7 +135,7 @@ fn conflicts_new_rows_and_distinct_sources_are_reported_without_overwrite() {
 }
 
 #[test]
-fn missing_schema_and_null_keys_are_explicit_not_zero_record_success() {
+fn missing_schema_is_explicit_not_zero_record_success() {
     let (root, input, _) = fixture();
     let db = Connection::open(&input).unwrap();
     db.execute_batch("ALTER TABLE sms DROP COLUMN timestamp; DROP TABLE contacts;")
@@ -187,6 +187,23 @@ fn invalid_rows_and_missing_keys_are_rejected_with_finite_reasons() {
     assert_eq!(report.tables["contact_phones"].missing_values["id"], 1);
     assert!(report.reasons.contains_key(&Reason::InvalidRecord));
     assert!(report.reasons.contains_key(&Reason::InvalidText));
+    assert_eq!(manifest(root.path()), before);
+}
+
+#[test]
+fn unknown_columns_are_not_silently_treated_as_complete_migration() {
+    let (root, input, _) = fixture();
+    let db = Connection::open(&input).unwrap();
+    db.execute_batch("ALTER TABLE sms ADD COLUMN PRIVATE_ADDED_COLUMN TEXT; UPDATE sms SET PRIVATE_ADDED_COLUMN='PRIVATE_ADDED_VALUE';").unwrap();
+    drop(db);
+    let before = manifest(root.path());
+    let report = preflight(&input, SOURCE, None);
+    assert!(!report.accepted);
+    assert_eq!(report.tables["sms"].unmapped_columns, 1);
+    assert!(report.reasons.contains_key(&Reason::UnsupportedColumns));
+    assert!(!serde_json::to_string(&report)
+        .unwrap()
+        .contains("PRIVATE_ADDED"));
     assert_eq!(manifest(root.path()), before);
 }
 
@@ -264,6 +281,7 @@ fn source_permissions_links_sidecars_and_invalid_namespace_are_denied() {
         .contains_key(&Reason::OfflineSourceRequired));
     let bad = preflight(&input, "PRIVATE_INVALID_NAMESPACE", None);
     assert!(bad.reasons.contains_key(&Reason::InvalidNamespace));
+    assert!(!bad.unsupported_counts_complete);
     assert!(!serde_json::to_string(&bad)
         .unwrap()
         .contains("PRIVATE_INVALID_NAMESPACE"));
@@ -290,6 +308,20 @@ fn row_and_row_count_limits_are_not_silently_truncated() {
     assert!(!report.accepted && report.reasons.contains_key(&Reason::Bound));
     assert_eq!(report.tables["sms_contacts"].rows, Some(MAX_ROWS + 1));
     assert!(!report.tables["sms_contacts"].row_count_exact);
+}
+
+#[test]
+fn truncated_catalog_does_not_report_complete_unsupported_counts() {
+    let (_root, input, _) = fixture();
+    let db = Connection::open(&input).unwrap();
+    for i in 0..MAX_OBJECTS {
+        db.execute_batch(&format!("CREATE VIEW synthetic_future_{i} AS SELECT 1;"))
+            .unwrap();
+    }
+    drop(db);
+    let report = preflight(&input, SOURCE, None);
+    assert!(!report.accepted && !report.unsupported_counts_complete);
+    assert!(report.reasons.contains_key(&Reason::Bound));
 }
 
 #[test]

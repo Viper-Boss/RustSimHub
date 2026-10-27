@@ -60,6 +60,7 @@ rustsimhub-migrate preflight "$PRIVATE_OFFLINE_SNAPSHOT" "$SOURCE_NAMESPACE" "$P
 
 - `present`、`rows`、`row_count_exact`：缺失表的数量为 null，不能用 0 冒充空表。
 - `missing_columns`：缺失的静态列名；有记录但缺列时，报告记录数与拒绝数，不静默跳过。
+- `unmapped_columns`：已知表中契约外列的数量；不回显未知列名，明确拒绝为 `unsupported_columns`，不能把忽略新字段声称完整迁移。原导入器的投影格式保持不变。
 - `missing_values`：NULL 或空字符串的字段计数，包括未知号码/时间；不输出值，也不补造默认号码/时间。
   非键列的 NULL/空值沿用现有导入器语义，不因未知时间而伪造值或拒绝合法历史。
 - `counts.rows/valid/rejected`：已知数量、通过现有记录解码的数量和被拒绝的数量。
@@ -83,7 +84,7 @@ rustsimhub-migrate preflight "$PRIVATE_OFFLINE_SNAPSHOT" "$SOURCE_NAMESPACE" "$P
 `reasons` 是有限原因与计数，例如：
 
 - 无效 namespace、来源私有文件/离线快照要求、忙、来源损坏/不可读/变化；
-- 缺表、缺列、不支持的记录、非法记录、无效 UTF-8、超限、记录冲突；
+- 缺表、缺列、未映射列、不支持的记录、非法记录、无效 UTF-8、超限、记录冲突；
 - 目标私有文件/离线要求、错误归档格式、不可读/变化，或来源与目标重合。
 
 复用原 256 MiB 来源、512 MiB 归档、128 KiB 单记录和 100000 行上限；

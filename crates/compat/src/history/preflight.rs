@@ -19,6 +19,7 @@ pub enum Reason {
     Bound,
     MissingTable,
     MissingColumns,
+    UnsupportedColumns,
     UnsupportedRecords,
     InvalidRecord,
     InvalidText,
@@ -59,6 +60,7 @@ pub struct TableReport {
     pub rows: Option<usize>,
     pub row_count_exact: bool,
     pub missing_columns: Vec<&'static str>,
+    pub unmapped_columns: usize,
     pub missing_values: BTreeMap<&'static str, usize>,
     pub counts: Counts,
 }
@@ -132,7 +134,7 @@ impl PreflightReport {
             tables: BTreeMap::new(),
             unsupported_tables: 0,
             unsupported_known_rows: 0,
-            unsupported_counts_complete: true,
+            unsupported_counts_complete: false,
             excluded_credential_tables: 0,
             excluded_credential_rows: 0,
             reasons: BTreeMap::new(),
@@ -169,6 +171,7 @@ impl ReadArchive {
                 return Ok(None);
             }
             Err(e) => return Err(e.into()),
+            Ok(metadata) if !metadata.is_file() => return Err(Error::Forbidden),
             Ok(_) => {}
         }
         let lock = archive_lock(path, false)?;
@@ -250,7 +253,6 @@ fn scan_table(
     c: &Contract,
     source: &str,
     archive: Option<&ReadArchive>,
-    comparison: Comparison,
     report: &mut PreflightReport,
     table: &mut TableReport,
 ) -> Result<()> {
@@ -299,10 +301,8 @@ fn scan_table(
             continue;
         }
         seen.insert(record.key.clone(), record.digest);
-        if report.archive.comparison == Comparison::Rejected {
-            table.counts.uncompared += 1;
-        } else if let Some(archive) = archive {
-            match archive.classify(source, c, &record) {
+        match (report.archive.comparison, archive) {
+            (Comparison::Compared, Some(archive)) => match archive.classify(source, c, &record) {
                 Ok(true) => table.counts.unchanged += 1,
                 Ok(false) => table.counts.new += 1,
                 Err(Error::Conflict) => {
@@ -314,11 +314,9 @@ fn scan_table(
                     report.reject(archive_reason(error));
                     table.counts.uncompared += 1;
                 }
-            }
-        } else if comparison == Comparison::NewArchive {
-            table.counts.new += 1;
-        } else {
-            table.counts.uncompared += 1;
+            },
+            (Comparison::NewArchive, _) => table.counts.new += 1,
+            _ => table.counts.uncompared += 1,
         }
     }
     Ok(())
@@ -356,6 +354,7 @@ fn analyze(
         }
         catalog.insert(name, (kind, root));
     }
+    report.unsupported_counts_complete = true;
     let mut total = 0usize;
     let mut schema_matches = true;
     for c in CONTRACTS {
@@ -397,6 +396,13 @@ fn analyze(
             .filter(|name| !names.contains(**name))
             .copied()
             .collect();
+        table.unmapped_columns = names
+            .iter()
+            .filter(|name| !c.columns.contains(&name.as_str()))
+            .count();
+        if table.unmapped_columns > 0 {
+            report.reject(Reason::UnsupportedColumns);
+        }
         if !table.missing_columns.is_empty() {
             schema_matches = false;
             table.counts.rejected = n;
@@ -431,15 +437,7 @@ fn analyze(
     for c in CONTRACTS {
         let mut table = report.tables.remove(c.table).unwrap_or_default();
         if table.present && table.missing_columns.is_empty() {
-            if let Err(error) = scan_table(
-                snapshot,
-                c,
-                source,
-                archive,
-                report.archive.comparison,
-                report,
-                &mut table,
-            ) {
+            if let Err(error) = scan_table(snapshot, c, source, archive, report, &mut table) {
                 report.tables.insert(c.table, table);
                 return Err(error);
             }
@@ -464,6 +462,19 @@ pub fn preflight(input: &Path, source: &str, destination: Option<&Path>) -> Pref
         return report;
     }
     report.source.namespace = Some(source.to_owned());
+    match fs::symlink_metadata(input) {
+        Ok(metadata) if metadata.is_file() => {}
+        Ok(_) => {
+            report.reject(Reason::PrivateSourceRequired);
+            report.finish(destination.is_some());
+            return report;
+        }
+        Err(_) => {
+            report.reject(Reason::SourceUnreadable);
+            report.finish(destination.is_some());
+            return report;
+        }
+    }
     let mut snapshot = match Snapshot::open_raw(input) {
         Ok(v) => v,
         Err(error) => {
@@ -490,6 +501,7 @@ pub fn preflight(input: &Path, source: &str, destination: Option<&Path>) -> Pref
         }
     });
     if let Err(error) = analyze(&snapshot, source, archive.as_ref(), &mut report) {
+        report.unsupported_counts_complete = false;
         report.reject(source_reason(error));
     }
     if snapshot.unchanged().is_err() || offline_file(input).is_err() {
