@@ -28,7 +28,7 @@
 | 真实文件写入失败 | Python 标准库仅在子进程设置 RLIMIT_FSIZE=128 KiB、忽略 SIGXFSZ、禁止 core dump，然后 exec 同一个 Rust 测试程序。实际 import 返回数据库失败而非信号退出；分别验证新目标和已有 A 的目标，重开无部分 B 记录/标记，解除子进程限制后 3015 条导入成功且文件超过原限制，再跑 unchanged |
 | 提交成功但回执丢失 | 子进程完成真实 import 后、输出报告前以 72 退出；父进程确认已提交 15 条/1 批，重跑 3 次不重分配 ID、不增加批次 |
 | realm/代次/旧映射 | 正常重开可继续历史分页；NAS principal generation 改变后旧授权拒绝，重新授权后旧 audience 游标仍拒绝。旧 access 不得用于其他 realm 或变化后的归档，新 realm 无授权时也不能用旧游标；归档变化后旧 epoch 游标拒绝，A 的记录 ID 不能当作 B 的 ID |
-| 业务隔离 | 合成旧记录故意包含与旁边哨兵相同的 request_id，以及 submitting/dialing 状态。实际 HistoryService 列表/详情始终 archived；归档只含 history_records/history_batches，来源、相邻合成当前库、身份和 Owner 字节不变 |
+| 业务隔离 | 合成旧记录故意包含与旁边哨兵相同的 request_id，以及 submitting/dialing 状态。实际 HistoryService 列表/详情始终 archived；归档业务表只含 history_records/history_batches（SQLite 内部统计表除外），来源、相邻合成当前库、身份和 Owner 字节不变 |
 
 上述是测试动作及断言，执行结果必须看对应完整 HEAD 的
 [交付报告](../deliveries/member-c-nas.md)，不因写出矩阵就视为已运行成功。

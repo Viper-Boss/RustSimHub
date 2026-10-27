@@ -515,8 +515,10 @@ fn realm_generation_and_archive_changes_never_reuse_old_authority_or_live_operat
         mapping
     );
     let db = Connection::open(f.archive.join("history.sqlite")).unwrap();
+    // PRAGMA optimize may maintain sqlite_stat1/stat4; they are internal
+    // statistics, not imported live business or operation tables.
     let names = db
-        .prepare("SELECT name FROM sqlite_schema WHERE type='table' ORDER BY name")
+        .prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT GLOB 'sqlite_*' ORDER BY name")
         .unwrap()
         .query_map([], |r| r.get::<_, String>(0))
         .unwrap()

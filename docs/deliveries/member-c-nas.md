@@ -211,7 +211,7 @@ C-05 已由负责人 Viper-Boss 合并 PR #6，合并提交 `c9763c17407a382b51e
 | 相同包幂等、同旧 ID 不盲目覆盖 | 15 条首次 + 5 次重复，完整 ID/payload/digest/批次和文件字节；排序更早的新记录后发生同源冲突，全批回滚；不同源 16 条独立保存和 3 次重跑 |
 | 真实后端中断/写入失败/恢复 | 真实 SQLite 在 3 条插入后 ABORT，2 次失败后去除故障再跑；非空 journal 下真实 SIGKILL；128 KiB 子进程 OS 文件大小限制触发真实数据库写失败，新/已有目标分别重开恢复再导入 3015 条和重复；另测提交后报告丢失的 3 次重试 |
 | realm/SIM 代次/旧游标与映射隔离 | 真实 HistoryService 的 realm/归档绑定、principal generation、audience/epoch 游标与跨来源 record_id 拒绝；变化后的合成相邻 SIM 代次哨兵保持，历史仍标 archived，不冒充 Core 换卡实机验收 |
-| 不恢复发送/通话和硬件副作用 | 提供历史 submitting/dialing 及相同 request_id；历史列表/详情仅 archived、归档仅两张历史表；源文件/相邻合成当前库/身份/Owner 字节保持，报告 hardware_operations=0；没有硬件或发送接口 |
+| 不恢复发送/通话和硬件副作用 | 提供历史 submitting/dialing 及相同 request_id；历史列表/详情仅 archived、归档业务表仅两张历史表（SQLite 内部统计表除外）；源文件/相邻合成当前库/身份/Owner 字节保持，报告 hardware_operations=0；没有硬件或发送接口 |
 
 ### 实际验证及未运行项
 
@@ -219,6 +219,7 @@ C-05 已由负责人 Viper-Boss 合并 PR #6，合并提交 `c9763c17407a382b51e
 - Windows `cargo clippy -p rustsimhub-compat --all-targets --locked --offline -- -D warnings`：退出码 0；保留增量缓存硬链接失败后复制的环境提示。
 - `cargo fmt -p rustsimhub-compat`、`git diff --check`：退出码 0；最终格式与 Linux 运行结果以 PR 对应 HEAD 实测补记。
 - 本机无 Linux/WSL，新增 7 项父测试及真实子进程入口等待原仓库 Linux CI；缺工具/失败不静默跳过。
+- 首轮 [CI 40468724355](https://github.com/Viper-Boss/RustSimHub/actions/runs/40468724355)，完整 HEAD `fc505032941db5ef463dca22273a835593537862`：compat 库 32 项通过；migrate 4 通过/5 失败/1 专用 worker 忽略。实际文件大小写失败（新/已有目标）、报告丢失重试、跨源冲突、journal 下 SIGKILL 恢复通过；realm/代次/游标断言已执行到最后表检查，误将 PRAGMA optimize 创建的 sqlite_stat1/stat4 当成业务表导致失败。其余 4 项被测试互斥锁 PoisonError 连带阻止，不算通过。修正为只比较非 sqlite_* 业务表，保留严格两张历史业务表及其他断言；不修改生产逻辑、SQLite 优化或权限，最终按新 HEAD 重跑。
 - 没有真实 NAS、设备、用户数据、通信发送、Core 换卡集成或硬件掉电测试。文件大小限制不是实际 ENOSPC，进程退出不是断电；不删除来源、手工 journal 或清库来通过测试。
 
 ### 集成、风险、回退与来源
