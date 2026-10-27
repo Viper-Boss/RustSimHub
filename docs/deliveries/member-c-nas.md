@@ -1,6 +1,6 @@
-# 成员 C · NAS 第一批离线交付
+# 成员 C · NAS 兼容与历史离线交付
 
-2026-10-27 追加 C-05，见文末“C-05 独立交付”。第一批各节保留提交时的历史快照；PR #3 后续已获负责人批准并合并。
+本报告按日期追加交付；当前 C-07/C-08 见文末及 [PR #9](https://github.com/Viper-Boss/RustSimHub/pull/9)。第一批、C-05 和 C-06 各节保留提交时的历史快照；PR #3、#6、#7 后续已由负责人合并。当前批次的实现、测试和审核状态以本批节及对应完整 HEAD 为准。
 
 日期：2026-10-26（Asia/Shanghai）。成员：yh1030 / member-c。
 任务：C-01～C-04，对应 NAS-01 的契约盘点和只读桥离线范围。
@@ -236,3 +236,48 @@ Linux 准备锁定 Rust、python3 标准库及原 Go 工具链，运行上述 co
 复用固定 main 的既有导入器、查询器和独立合成 schema，保留 AGPL-3.0-only；Codex 辅助实现、验证和报告。
 不代用户声称人工审核，不估造有效工时，不改作者/贡献数字。负责人按最终完整 HEAD 审核，结论待填。
 下一步由负责人按 PR 当前完整 HEAD 审核；C-07 及后续尚未执行。整体固定量表仍约 **80%**，不自行增加验收点。
+
+## 2026-10-27 · C-07 / C-08 第二批收尾交付
+
+成员 yh1030 / member-c；用户授权继续任务后，从已合并 C-06 的最新主线开展 C-07，并按 C-08 汇总第二批交付。
+既有各节为当时历史记录，不覆盖原失败与验证证据；本批未执行 C-09～16，不调整全局进度。
+
+- 起始 main：`2f1595aa3b71fbfdefdbc8801ff6ecd844144b85`，也是负责人合并 PR #7 的提交；C-06 PR HEAD 为 `b13bae7ea80a4c8f45396609b22bfe1f8cc42923`。
+- 原仓库个人分支：`Viper-Boss/RustSimHub:codex/nas-history-input-matrix` → main；完整当前 HEAD 和 PR 链接逐次写在 PR 正文，不 fork、不直接推 main。
+- 原仓库 [PR #9](https://github.com/Viper-Boss/RustSimHub/pull/9) 交付 C-07/C-08；实现和离线验证完成，待负责人按最终完整 HEAD 审核，不代填审核/合并或实机验收。
+- Linux 完整 CI 通过的代码 HEAD：`f9b6f7c40e041895849a533ecb96e50f4b0d075f`，对应树 `6fcf2508433653623fec6b53489c4307ffe4443c`。本次最终补记仅改本报告，最终提交 HEAD 及其 CI 在 PR 正文单独维护，不混用截面。
+- 新增历史测试 8 项、会话测试 3 项，复用真实 API/原 fixture 与签名 Request，分别由既有 history/session tests.rs 接入；只改测试、本人 docs/nas-adapter 文档和本报告。
+- 无生产逻辑、授权/签名/期限/格式协商变更，无 workspace/Cargo.lock 或新依赖，不改 Core/wire/storage、默认配置、其他成员/全局台账或设备。
+
+### 任务、文件和证据
+
+| 任务 | 实际交付 |
+|---|---|
+| C-07 权限/输入 | `crates/compat/src/history/tests/input_matrix.rs` 与 `session/tests/input_matrix.rs`；NAS 身份/撤销/范围、游标与 ID、实际过期与签名时间边界、错误版本、非法路径/namespace、BLOB/UTF-8/缺列/复合键、canonical JSON 与稀疏文件上限，拒绝后原文件保持；[完整矩阵](../nas-adapter/history-input-matrix.md)映射已有测试，避免重复实现 |
+| C-08 综合交付 | [第二批汇总](../nas-adapter/second-batch-delivery.md)，分别列 C-05/06 已有 HEAD/CI 与本批结果、导入前后数量/重复次数、保持证据、主线集成和真实 NAS 补验，不拿旧 HEAD 的结果冒充新增提交 |
+
+会话到期通过 cfg(test) 设置真实会话的内存 deadline 为过去，再调用原 subject/authorize；验证签发 expires_at 仍为 now+900。
+不等待 15 分钟、不新增产品时钟注入、不修改会话期限。相邻 current/outbox 文件只是合成保持哨兵，不冒称 Core 队列集成。
+
+### 已执行、失败与未运行项
+
+- Windows `cargo test -p rustsimhub-compat --locked --offline`：退出码 0，5 项适用回归；新增 11 项 Linux 测试未在 Windows 运行。
+- Windows `cargo clippy -p rustsimhub-compat --all-targets --locked --offline -- -D warnings`：退出码 0；硬链接缓存失败后复制的环境提示保留。
+- 官方便携 Go 1.27.3，标准库/无模块下载，`go test -count=1 -timeout=60s -v ./tools/nas-adapter`：退出码 0，Windows 14 个顶层测试通过；`go vet ./tools/nas-adapter`：退出码 0。黄金向量明确为 `crates/compat/src/legacy-golden.json`，缓存仅 .local。
+- 首次 Go 测试退出 1：我把黄金向量路径误写到不存在的 testdata，且当前受限环境回环 TLS 读取返回 transport_failed；修正路径并允许本机合成回环测试后，上述实际完整重跑通过。未关闭 TLS 校验/重定向保护或改变期望来通过。
+- `cargo fmt -p rustsimhub-compat`、`cargo fmt --all -- --check`、`git diff --check`：退出码 0。
+- 本机无 Linux/WSL，Linux 执行证据来自本批原仓库 GitHub Actions，不将 Windows 或交叉编译视为 Linux 执行。
+- 首轮 [CI 40478550024](https://github.com/Viper-Boss/RustSimHub/actions/runs/40478550024)，完整 HEAD `cf309c95ba7ceedf44de95df21105fb82cb6e36f`：compat 库 41 通过/2 失败，新增 9/11 通过；过期、签名时间边界、版本、恶意游标/ID、非法记录/缺字段/重复、合法未知值及真实文件上限已通过。两处测试假设错误：inactive sources 返回 Forbidden 而非空列表；既有 Path equality 规范化无害 ./，该路径仍是同源且可幂等读取。修正为分别断言明确拒绝与同源 0/15；相对路径、..、链接、NUL、权限/来源等拒绝断言保持，不改生产逻辑。首轮库失败后 bin/Go 及严格 Clippy 未运行，不算通过，最终按新 HEAD 重跑。
+- 修正后 [CI 40479180274](https://github.com/Viper-Boss/RustSimHub/actions/runs/40479180274)，完整代码 HEAD `f9b6f7c40e041895849a533ecb96e50f4b0d075f`：`test` 与 `native-audio` 均 success。实际 `cargo test --workspace --all-features --locked` 退出码 0；compat 库 43 项全部通过，包含本批全部 11 项新增矩阵及原 history/session/预检/签名回归。migrate 9 通过/0 失败/1 专用 worker 忽略，包含 C-06 七项真实恢复父场景、Go 真实 CLI 互操作和 C-05 生产预检入口；worker 由父测试实际在子进程调用，不属于静默跳过。
+- 同一代码 HEAD 的 `cargo clippy --workspace --all-targets --all-features --locked -- -D warnings`、`cargo fmt --all -- --check`、生产特性检查与现有系统回归均退出码 0。保留既有 proc-macro-error2 未来兼容提示，未改依赖。最终仅报告提交的 CI 以 PR 正文记录为准，不拿本代码 HEAD 的结果冒充最终提交结果。
+
+### 集成、限制、来源与下一步
+
+按 C-08 文档核对同 HEAD 的真实 compat/Go、严格检查；保留原私有文件/离线锁、格式和鉴权边界。
+错误版本/冲突不重新初始化，来源/授权/历史不通过删除或改 namespace 来“修复”。大文件是临时稀疏文件，内存保持有界，不填满宿主磁盘。
+没有真实 NAS/设备/通信副作用；Core/HTTPS 组合鉴权、真实 SIM/旧页面、声音和硬件故障由主线补验，不扩大离线范围。
+回退本批测试和文档即可，无数据迁移/部署或设备恢复。
+
+来源为固定 main 的真实 history/session/签名模块及原独立合成 schema，新增源码保留 AGPL-3.0-only，无新依赖。
+Codex 辅助实现、验证和报告；不估造有效工时、不改作者/贡献数字、不代用户或负责人声称人工审核通过。
+下一步由负责人按 PR 最终完整 HEAD 审核，随后安排 C-09 等后续包；本批不自动增加已验收计数。整体固定量表仍约 **80%**，真实 NAS/Core/设备补验边界保持。
