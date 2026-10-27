@@ -42,6 +42,22 @@
         "docs/team/REVIEW-MERGED-PRS-2026-10-27.md"
       ],
       "self_reported_hours": null
+    },
+    {
+      "member_id": "member-c",
+      "pr": 10,
+      "head": "45c54d4b32bc00a1093cf54d4faead9795cdbdc7",
+      "decision": "needs_changes",
+      "steps": [
+        "C-09",
+        "C-10",
+        "C-11",
+        "C-12"
+      ],
+      "evidence": [
+        "docs/team/REVIEW-PR-10-45c54d4.md"
+      ],
+      "self_reported_hours": null
     }
   ]
 }

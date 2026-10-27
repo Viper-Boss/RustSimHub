@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-27T09:04:21.252294+00:00",
+  "updated_at": "2026-10-27T17:52:55.901384+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -4942,8 +4942,8 @@
   ],
   "team": {
     "schema": 1,
-    "source_revision": "2f1595aa3b71fbfdefdbc8801ff6ecd844144b85",
-    "generated_at": "2026-10-27T09:04:21.252294+00:00",
+    "source_revision": "6f228fd3dcb9ce6da54d7910f4b044833e71a91a",
+    "generated_at": "2026-10-27T17:52:55.901384+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -4967,7 +4967,7 @@
             "tooling": 8715,
             "firmware": 1132
           },
-          "commits": 329,
+          "commits": 331,
           "code_commits": 228,
           "added": 90051,
           "deleted": 2238
@@ -4979,13 +4979,8 @@
           "reviews": [],
           "deliveries": [
             {
-              "pr": 8,
-              "head": "0d33295fdd1c807e1d9114d055c5e9f1c565ff17",
-              "state": "OPEN"
-            },
-            {
-              "pr": 5,
-              "head": "7ecf8c93c1b21dca6874d1d9b8e7de1e4f5aeccb",
+              "pr": 1,
+              "head": "3f41a3fd581b2827a1b61700ab1455385ae951a2",
               "state": "MERGED"
             },
             {
@@ -4994,9 +4989,29 @@
               "state": "MERGED"
             },
             {
-              "pr": 1,
-              "head": "3f41a3fd581b2827a1b61700ab1455385ae951a2",
+              "pr": 5,
+              "head": "7ecf8c93c1b21dca6874d1d9b8e7de1e4f5aeccb",
               "state": "MERGED"
+            },
+            {
+              "pr": 8,
+              "head": "3eb42bca52768d2f08c81cd8eb860e4fef681d59",
+              "state": "MERGED"
+            },
+            {
+              "pr": 11,
+              "head": "cf9161ea98d623238a1f6ad6e950ce37508f6e0b",
+              "state": "OPEN"
+            },
+            {
+              "pr": 12,
+              "head": "529a54128bde0da3aa34818ff3615310a28dd56f",
+              "state": "OPEN"
+            },
+            {
+              "pr": 14,
+              "head": "f8bd02dd24c3db9587a0b52622ecfb77e77b00bc",
+              "state": "OPEN"
             }
           ]
         }
@@ -5182,14 +5197,14 @@
         "stats": {
           "current_lines": {
             "product": 1164,
-            "tests": 1453,
+            "tests": 2008,
             "tooling": 0,
             "firmware": 0
           },
-          "commits": 10,
-          "code_commits": 6,
-          "added": 2744,
-          "deleted": 174
+          "commits": 13,
+          "code_commits": 8,
+          "added": 3316,
+          "deleted": 179
         },
         "work": {
           "assigned_steps": 20,
@@ -5210,12 +5225,17 @@
               "pr": 7,
               "head": "b13bae7ea80a4c8f45396609b22bfe1f8cc42923",
               "state": "offline_accepted"
+            },
+            {
+              "pr": 10,
+              "head": "45c54d4b32bc00a1093cf54d4faead9795cdbdc7",
+              "state": "needs_changes"
             }
           ],
           "deliveries": [
             {
-              "pr": 7,
-              "head": "b13bae7ea80a4c8f45396609b22bfe1f8cc42923",
+              "pr": 3,
+              "head": "751e4a964e14db0142b34b3dc4afa245971bb54c",
               "state": "MERGED"
             },
             {
@@ -5224,9 +5244,24 @@
               "state": "MERGED"
             },
             {
-              "pr": 3,
-              "head": "751e4a964e14db0142b34b3dc4afa245971bb54c",
+              "pr": 7,
+              "head": "b13bae7ea80a4c8f45396609b22bfe1f8cc42923",
               "state": "MERGED"
+            },
+            {
+              "pr": 9,
+              "head": "c10c95ce35fb029678457069cc6354337e4121f3",
+              "state": "MERGED"
+            },
+            {
+              "pr": 10,
+              "head": "45c54d4b32bc00a1093cf54d4faead9795cdbdc7",
+              "state": "OPEN"
+            },
+            {
+              "pr": 13,
+              "head": "e782f985dc5995a076e83e8482b73a693f687ea1",
+              "state": "OPEN"
             }
           ]
         }
@@ -5307,7 +5342,7 @@
     },
     "totals": {
       "product": 48046,
-      "tests": 30440,
+      "tests": 30995,
       "tooling": 8715,
       "firmware": 1132
     },
