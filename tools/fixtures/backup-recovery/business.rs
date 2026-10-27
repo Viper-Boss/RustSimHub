@@ -196,7 +196,8 @@ fn sms_and_calls_restore_preserve_ids_unknowns_and_invalidate_old_cursors() {
     assert_eq!(rb.line, b.line);
     let rh = restored.handle();
     let mut permits = 0;
-    for (id, prior) in operations {
+    let before_replay = logical(&target.join("store.sqlite3"));
+    for (index, (id, prior)) in operations.into_iter().enumerate() {
         let op = rh.operation(&id, &owner.id).unwrap();
         assert_eq!(op.id, id);
         assert_eq!(op.line, b.line);
@@ -208,9 +209,14 @@ fn sms_and_calls_restore_preserve_ids_unknowns_and_invalidate_old_cursors() {
                 SmsState::Unknown
             }
         );
+        let replay = rh
+            .prepare_sms(request(&owner.id, &format!("sms-{index}"), b.line))
+            .unwrap();
+        assert_eq!(replay.id, id);
+        assert_eq!(replay.state, op.state);
         permits += usize::from(rh.begin_submit(&id, &owner.id).is_ok());
     }
-    for (id, prior) in calls {
+    for (index, (id, prior)) in calls.into_iter().enumerate() {
         let op = rh.call_operation(id.clone(), p.clone()).unwrap();
         assert_eq!(op.id, id);
         assert_eq!(op.line, b.line);
@@ -222,9 +228,26 @@ fn sms_and_calls_restore_preserve_ids_unknowns_and_invalidate_old_cursors() {
                 SmsState::Unknown
             }
         );
+        let replay = rh
+            .prepare_call(
+                CallRequest {
+                    idempotency_key: format!("call-{index}"),
+                    line: b.line,
+                    action: CallAction::Dial,
+                    call_id: None,
+                    payload: PHONE.into(),
+                },
+                p.clone(),
+                rb.clone(),
+                || true,
+            )
+            .unwrap();
+        assert_eq!(replay.id, id);
+        assert_eq!(replay.state, op.state);
         permits += usize::from(rh.begin_call(id, p.clone(), rb.clone(), || true).is_ok());
     }
     assert_eq!(permits, 0, "restored operations issued a new begin permit");
+    assert!(logical(&target.join("store.sqlite3")) == before_replay);
     assert!(matches!(
         rh.events(old, 16),
         Err(StorageError::ResyncRequired)
@@ -499,9 +522,18 @@ fn restored_unknown_operations_cannot_become_new_current_line_actions() {
     let destination = f.dir("restored");
     let restored = Store::restore(&backup, &destination).unwrap();
     recover_owner(&restored, &f.identity, &key, pin);
+    let h = restored.handle();
+    let before_replay = logical(&destination.join("store.sqlite3"));
+    for _ in 0..3 {
+        let replay = h
+            .prepare_sms(request(&owner.id, "same-key", before_line.line))
+            .unwrap();
+        assert_eq!(replay.id, op.id);
+        assert_eq!(replay.state, SmsState::Unknown);
+    }
+    assert!(logical(&destination.join("store.sqlite3")) == before_replay);
     let next = observe(&restored, [9; 32]);
     assert!(next.line.0 > before_line.line.0);
-    let h = restored.handle();
     let before = logical(&destination.join("store.sqlite3"));
     assert_eq!(
         h.prepare_sms(request(&owner.id, "same-key", next.line)),

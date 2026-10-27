@@ -38,7 +38,7 @@ sha2 0.10 为既有项目直接接口，age 的 0.11 ABI 仍由真实依赖加�
 |---|---|
 | business / wal_backup… | 原 Store 活跃且有非空 WAL；实际 Backup API 获取完整同库逻辑记录和最新短信，来源逻辑不变；输出仅 backup.sqlite3，不包括其他域；已有 final/pending 均不覆盖 |
 | business / matching_identity… | 明文 Identity::backup + Store::backup/restore 同批恢复，pin 保留、realm 变化、全部授权先隔离；实际 Owner challenge/签名恢复原 ID，Owner generation 共+2，NAS 仍 inactive 且不能登录 |
-| business / sms_and_calls… | 用公开 API 建立各四条 prepared/submitting/unknown/submitted 短信与通话操作，并建立真实合成通话观察/permit/confirm。恢复前三类 Unknown、submitted 保持，ID/线路/正文/记录保留，旧三类游标拒绝，重新观察并恢复 Owner 后旧八条操作仍不能取得 begin 许可，许可计数 0；关库重开再次核对 |
+| business / sms_and_calls… | 用公开 API 建立各四条 prepared/submitting/unknown/submitted 短信与通话操作，并建立真实合成通话观察/permit/confirm。恢复前三类 Unknown、submitted 保持，ID/线路/正文/记录保留，旧三类游标拒绝。重新观察并恢复 Owner 后，逐条重放原幂等键/请求必须返回同一 ID/状态；旧八条操作仍不能取得 begin 许可，许可计数 0，重放和拒绝前后所有业务表逻辑保持；关库重开再次核对 |
 | business / repeated_restore… | 同一备份恢复到三个新目标，realm 各不相同；操作 ID 不变。对在线/关库已有目标均拒绝且不覆盖，正常重开保持原 realm，来源备份保持 |
 | business / corrupt_missing… | 缺文件、截断、空、错误 app、未来 schema 分别调用真实 restore；来源和原业务数据保持。原已有目标保持；新目标可能留下 pending/无效副本，正常 open 仍拒绝，不清除后伪装成功 |
 | identity / identity_ciphertext… | 错收件私钥、错 pin、AEAD 损坏、截断、超限、缺私钥/包拒绝；另用真实 age 加密格式正确但内部 RSHIBK02 的有效 AEAD 包，原恢复器拒绝且无明文写入。缺失原身份不被 backup 创建；合法包最终恢复 pin/seed 一致 |
@@ -50,7 +50,7 @@ sha2 0.10 为既有项目直接接口，age 的 0.11 ABI 仍由真实依赖加�
 | outbox / same_device_mixed… | 把同身份较新业务备份 B、旧关闭 outbox A 和配置哨兵组合。实际 Store::restore 仍只接纳 backup.sqlite3 的五条短信，不检查或复制其他域；单独 outbox 检查仍可通过。明确作为现有跨域一致性缺口证据，不伪造统一校验器 |
 | business / missing_outbox… | Store 备份/恢复均不制造缺少的 outbox、identity.seed、配置或联合 manifest；原身份和配置哨兵保持。库有绑定公钥不等于包含私钥 |
 | business / database_backup… | 非目录/缺目标、符号链接目录/备份文件、仅 pending、公开备份文件模式等路径失败；原备份、pending 和已存在普通文件保持 |
-| business / restored_unknown… | 恢复后换合成 SIM 指纹形成新 LineEpoch，同幂等键的新线路请求冲突，旧 Unknown 不能 begin；原操作/短信仍带旧线路和原 ID，拒绝不改逻辑库 |
+| business / restored_unknown… | 恢复后对原幂等键/请求连续重放三次，均返回原 ID/Unknown，逻辑库不变。再换合成 SIM 指纹形成新 LineEpoch，同幂等键的新线路请求冲突，旧 Unknown 不能 begin；原操作/短信仍带旧线路和原 ID，拒绝不改逻辑库 |
 
 完整函数名由驱动固定核对；Rust 测试列表及实际 passed 集合必须全部匹配，禁止 ignored/过滤成更小集合后报通过。
 C-11 的 confirmed 是通过真实 Queue::finish 写入的合成确认，短信 submitted 不是运营商送达确认。

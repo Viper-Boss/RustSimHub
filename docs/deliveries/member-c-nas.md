@@ -333,4 +333,14 @@ Confirmed 仅是实际 Queue::finish 的合成确认，无提供商/设备发送
 
 来源为固定 main 的真实公开模块及已有合成夹具方法；新增源码保留 AGPL-3.0-only，无新第三方依赖。
 Codex 辅助盘点、实现、测试和报告；未估造有效工时、不改作者或贡献数字、不代负责人填写验收结论。
-下一步补本批 Linux 证据、提交可审核 PR；整体按固定量表仍约 **80%**，不自行更新全局验收。
+下一步补本批 Linux 证据，完成 PR 审核就绪交付；整体按固定量表仍约 **80%**，不自行更新全局验收。
+
+### C-09～C-12 补记：原仓库 PR 与 CI 启动阻塞
+
+- 原仓库 [PR #10](https://github.com/Viper-Boss/RustSimHub/pull/10) 已创建，保持 Draft；尚未完成 Linux 验证，不标记 Ready、审核通过或任务验收。
+- 首次公开交付完整 HEAD：`befa0307cf59b97179b53830532d982e024659b4`；当前补交后的完整 HEAD 与精确 CI 状态由 PR 正文维护，不能将旧提交测试结果移作新提交证据。
+- 该 HEAD 的 [push CI 40492864750](https://github.com/Viper-Boss/RustSimHub/actions/runs/40492864750) 和 [PR CI 40493025940](https://github.com/Viper-Boss/RustSimHub/actions/runs/40493025940) 均失败。检查详情明确：账号付款失败或费用额度需要调整，任务没有启动。PR run 的 `test`（122151413668）及 `native-audio`（122151413896）均没有步骤、runner_id=0；push 的 test（122150885009）亦回读到同一付款/额度注释。没有实际编译/运行结果，也没有可下载的 test 日志；取日志返回 404 BlobNotFound，不能当代码测试失败或通过。
+- 没有修改仓库费用、工作流、配额、主线或部署；需要负责人恢复 Actions 可运行条件，或在已有 Linux 环境按矩阵文档执行同一完整 HEAD。未因这次启动失败盲目重复运行，也不把 Ubuntu 镜像迁移通知误当失败原因。
+- 本次仅增强 C-11：恢复后对原短信/通话请求逐项重放，断言原 ID/状态、无新许可及全业务表逻辑不变；另对原 Unknown 短信请求连续重放三次，再验证换 SIM 后冲突。所有调用仍为真实公开模块，未增加生产接口或发送器；这些新增断言尚未在 Linux 执行，不能称通过。
+- 补交源码本机 `rustfmt --edition 2024 --check tools/fixtures/backup-recovery/matrix.rs`、`cargo fmt --all -- --check`、`git diff --check` 均退出 0；计划模式退出 0，仍仅列 15 个场景；控制器单测实际 4 通过/0 失败，退出 0。这些静态/选择器检查不代替 Linux 15 场景、全 targets Clippy 或完整 CI。
+- C-09 盘点及 C-10/C-11 的测试源码、C-12 文档和 PR 已提交；C-10/C-11 运行验收与 C-12 最终证据收尾仍待上述执行条件。保持原生产缺口、来源/许可、真实设备未验收及整体 **80%** 边界，不开始 C-13～20。
