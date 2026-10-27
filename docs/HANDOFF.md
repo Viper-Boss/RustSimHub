@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-10-28 [LED-02前置核实](VALIDATION-LED02-MODEMMANAGER-LOSS.md)按用户选择的方案一完成隔离环境部分：Core serve主循环中observer/sender/call controller/灯控/媒体任一返回即退出，逐个核对MM消失时均不返回；WSL私有dbus-daemon+合成MM（拒绝CreateCall）下，真实Core --serve-device（main同源与应用50源码0edfc54各一次）经4轮SIGKILL（缺席2～45秒）、5次抖动不退出，7次探测正常，5次重新绑定（3.5～30.5秒），SIGTERM退出0，日志为空。systemd替身单元照搬Requires/OnFailure：SIGKILL及reset-failed+start不连带core/edge、不触发OnFailure；restart/stop会连带重启/停止，实机禁止。首轮夹具漏migrate init致Core以auth: Forbidden退出，补齐后通过。看灯场LED-02改为有门禁的实机步骤（先只读确认MM Restart=no等），需用户单独同意；夹具入tools/field/mm-loss。x86 debug、合成MM、无ARM/真实基带；未上设备。原80%、14/169、余155、7.3%不变。
+
 2026-10-28 [看灯场](acceptance/session-led.md)材料：按灯控源码核对颜色/时序/优先级，LED-03青色有界写入、LED-04网页配置白色（打开/结束/后台/关闭/退出/异常断开到期/未授权不改灯）、LED-05短信与未接跑马灯及配置压制已写判据；USB/首配白色随计划内重启另记。LED-02未写执行步骤：core/edge/media/app-select故障会触发每次开机一次的app-recover，开机硬件oneshot、NM、rmtfs均有副作用，MM受core Requires且Core对MM消失的反应未核实，列三种方案待用户决定。LED-06只能跟随下一次真实签名升级，本次仅做无候选不出紫的负向核对。源码发现：未接来电只能在“手动调试与设备管理→电话”详情确认，日常电话区无确认入口，记为改进项。只读快照新增灯状态（rgb/trigger/模式/输入布尔值）与led-trace（≤120秒、约20ms、/proc/uptime厘秒），WSL dash桩测试5项连跑5轮通过。仅材料，未上设备。原80%、14/169、余155、7.3%不变。
 
 2026-10-28 [负责人实机验收现场包](acceptance/README.md)开工：按一次准备覆盖多项的原则分听音/看灯/换卡/AP配网/长测五个现场，共用门禁写明唯一控制者、先只读、普通数据关闭、逐次授权、关机搁置和隐私。首个[听音场](acceptance/session-call.md)覆盖CALL-01/04/06及CALL-03浏览器部分（NAS控制方待NAS-02～04，不计CALL-03完成），逐步操作、判据、停止与还原（含撤销临时批准浏览器）已写。新增[只读快照](../tools/field/rsh-readonly-snapshot.sh)：服务、ModemManager呼叫（不输出号码）、PCM、NM状态，watch最长900秒；WSL dash下桩命令测试4项通过（只读白名单、无号码、有界、非法参数零调用），已接CI。仅材料，未上传/运行到设备、无通话/外发；看灯/换卡/AP/长测现场待写。原80%、14/169、余155、7.3%不变。

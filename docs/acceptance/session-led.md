@@ -11,7 +11,7 @@
 | LED-03 青色读写 | 做 | — |
 | LED-04 白色配置 | 做网页配置部分 | USB 初始化、首次配置的白色只在开机时出现，随下一次计划内重启顺带观察，本次不计 |
 | LED-05 未读跑马灯 | 做 | 未接来电可以和听音场 01-b 共用同一通电话 |
-| LED-02 红色故障 | **不做，待你决定** | 目前没有零副作用的故障注入方法，见下文 |
+| LED-02 红色故障 | **需要你单独同意后再做** | 用 ModemManager 制造故障；隔离核实已通过，见下文 |
 | LED-06 紫色升级 | **不单独做** | 只能跟着下一次真实的签名应用组升级观察；本次只核对“没有候选时不出现紫色” |
 
 ## 颜色和时序（来自源码）
@@ -97,22 +97,50 @@
 
 **已知缺口（源码核对，非实测）**：网页里只有两处会发送“已读/已确认”：短信是“短信 · 日常使用”里的“查看”；未接来电只能在“手动调试与设备管理 → 电话”列表里打开详情来确认。“电话 · 日常使用”没有确认未接来电的入口，普通用户不太可能找到这一步。这不影响本现场按上表执行，但要单独记录下来，作为日常电话页面的改进项。
 
-## LED-02 · 红色故障（待你决定）
+## LED-02 · 红色故障
 
-灯控在以下单元任一进入 `failed` 时亮红：`rustsimhub-firstboot`、`rustsimhub-usb`、`rustsimhub-device-firmware`、`rustsimhub-audio-drivers`、`rustsimhub-radio-resume`、`rmtfs`、`ModemManager`、`NetworkManager`，以及安装完成后的 `rustsimhub-core`、`rustsimhub-edge`。在生产设备上，这些单元都没有能零副作用制造故障的方法：
+灯控在以下单元任一进入 `failed` 时亮红：`rustsimhub-firstboot`、`rustsimhub-usb`、`rustsimhub-device-firmware`、`rustsimhub-audio-drivers`、`rustsimhub-radio-resume`、`rmtfs`、`ModemManager`、`NetworkManager`，以及安装完成后的 `rustsimhub-core`、`rustsimhub-edge`。这些单元里只有 ModemManager 能比较可控地用来制造故障：
 
 - **core、edge 不能用。** 它们配置了 `OnFailure=rustsimhub-app-recover.service`，会触发**每次开机仅一次**的自动应用组恢复，消耗恢复预算，还可能切换应用组。
 - **开机硬件准备的 oneshot 不能用**（device-firmware、radio-resume、audio-drivers、firstboot、usb）。重跑它们会触碰固件、射频、音频驱动或 USB 维护链路。
 - **NetworkManager、rmtfs 不能用。** 前者可能切断 Wi-Fi/USB 维护连接，后者和基带固件服务相关。
-- **ModemManager 理论上可以，但风险未排除。** 用 SIGKILL 让它进入 `failed`，再 `reset-failed` 并启动。问题在于 core 对它是 `Requires=`，而 MM 消失时 Core 是否会自己退出（进而触发 app-recover）目前**没有核实**；并且期间电话和短信中断。
 
-可选方案，需要你选择：
+你选择了方案一：用 ModemManager 做，先在隔离环境核实。核实已完成，见 [LED-02 前置核实](../VALIDATION-LED02-MODEMMANAGER-LOSS.md)：真实 Core（包括部署源码 `0edfc54`）在 MM 被 SIGKILL、长时间缺席或快速抖动时都不退出；systemd 在 SIGKILL 以及随后的 `reset-failed` + `start` 下，既不连带停止 core/edge，也不触发 OnFailure；但 **`restart` 和 `stop` 都会连带重启或停止 core/edge**。
 
-1. **先离线核实，再用 ModemManager 做。** 先在隔离环境确认 Core 在 MM 消失、重新出现时不会退出、不会触发 OnFailure，再安排一次电话空闲时、经你同意的 MM 故障注入，约 1～2 分钟中断。验证的是真实检测路径。
-2. **主线给灯控加一个“故障演练”输入。** 仿照现有升级提示，做成 Root 专用、有期限的输入。可以重复验证红色显示和优先级，但验证不了真实检测路径；而且这是产品改动，需要另外排期。
-3. **长测时顺带观察。** STAB-03/04 期间保持 `led-trace` 和日志采样，遇到真实故障再记录。不可预约。
+**实机执行需要你单独同意**，并且最好放在看灯场最前面，或者单独一个时段。代价是电话和短信中断约 1～2 分钟，期间的来电会漏接。
 
-在你决定之前，LED-02 不执行、不记完成。
+### 开始前（只读）
+
+1. `systemctl show ModemManager -p Restart -p ActiveState -p NRestarts`：**`Restart` 必须是 `no`**。如果不是，SIGKILL 后 MM 会自动重启，单元处于 `activating`，灯会亮白色而不是红色。这时停止，不执行 LED-02。
+2. `systemctl --version | head -1`；`systemctl show rustsimhub-core -p MainPID -p ActiveState -p NRestarts`，记下 core 的 MainPID；`systemctl show rustsimhub-app-recover -p ActiveState`，应为 `inactive`。
+3. `rsh-readonly-snapshot.sh once`：`calls none`，PCM 全 `closed`，没有进行中的短信发送，灯为原色。
+4. 你本人确认：接下来 2～3 分钟不打电话、不发短信。
+
+### 操作
+
+1. 维护通道开始 `rsh-readonly-snapshot.sh led-trace 120`（另开一个会话），你本人看灯。
+2. `systemctl kill -s KILL ModemManager`
+3. 保持约 15 秒（灯控每 5 秒采样一次单元状态）。预期：`systemctl is-active ModemManager` 为 `failed`，灯变红（`100`）。
+4. 恢复，**只能用下面这两条命令**：
+   ```sh
+   systemctl reset-failed ModemManager
+   systemctl start ModemManager
+   ```
+   **禁止使用 `systemctl restart ModemManager` 或 `stop`**，它们会连带重启或停止 core/edge。
+5. 等待 MM 重新探测到调制解调器（`mmcli -L` 能列出），以及 Core 重新绑定线路。隔离环境中，Core 在 MM 回来后 3.5～30.5 秒内完成重新绑定；实机还要加上调制解调器的探测时间。网页上点“检查状态”，确认线路恢复。
+
+### 判据
+
+- 灯在 MM `failed` 期间为红色，恢复后回到原色。
+- core 的 MainPID 不变，`NRestarts` 不变；`rustsimhub-app-recover` 没有运行过（仍为 `inactive`，日志里没有本次运行记录）。
+- 结束快照与开始时一致：`calls none`、PCM 全 `closed`、`gsm` 仍 `disconnected`；`rustsimhub-carrier-voice` 仍为 `active`。
+- 可选的优先级核对：如果在 LED-05 查看短信之前做 LED-02，红色期间不应出现未读动画。
+
+### 中途停止
+
+- 第 1 步发现 `Restart` 不是 `no`：不执行。
+- core 的 MainPID 变化，或者 app-recover 开始运行：立即停止所有操作，跑快照、记录，不再做任何写操作，交负责人处理。
+- MM 在 `start` 后 3 分钟仍未探测到调制解调器：记录，不要反复重启 MM，交负责人处理。
 
 ## LED-06 · 紫色升级（跟随真实升级）
 
@@ -133,7 +161,7 @@
 2. 确认 `/var/tmp/rsh-led-io-test` 不存在。
 3. 运行 `rsh-readonly-snapshot.sh once`，与开始时对比：服务状态相同，灯回到原色，`gsm` 仍 `disconnected`。
 4. 测试短信和未接来电记录留在设备上，属于正常业务记录，不删除。
-5. 按[证据模板](README.md#证据模板)写 `docs/VALIDATION-LED-FIELD-<日期>.md`，附各段 `led-trace` 的要点；原始 trace 放 `.private/`。只把判据逐条满足的动作记完成：本现场最多是 LED-03、LED-05，以及 LED-04 的网页部分（USB/首次配置白色另记）。
+5. 按[证据模板](README.md#证据模板)写 `docs/VALIDATION-LED-FIELD-<日期>.md`，附各段 `led-trace` 的要点；原始 trace 放 `.private/`。只把判据逐条满足的动作记完成：本现场最多是 LED-03、LED-05、LED-02（如果你同意并执行了），以及 LED-04 的网页部分（USB/首次配置白色另记）。
 
 ## 中途停止条件
 
