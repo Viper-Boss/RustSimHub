@@ -3,6 +3,7 @@ use super::*;
 use std::os::unix::fs::{symlink, PermissionsExt};
 const SOURCE: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const REALM: &str = "ce24de2e-57ee-456e-999a-a62899f96a23";
+mod input_matrix;
 #[test]
 fn standalone_empty_archive_has_no_nas_dependency_and_does_not_overwrite() {
     let (root, input, archive) = fixture();

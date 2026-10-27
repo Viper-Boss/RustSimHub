@@ -4,6 +4,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use ed25519_dalek::{Signer, SigningKey};
 use std::{fs, os::unix::fs::PermissionsExt};
 const REALM: &str = "e6c33cf2-3697-4504-ab68-32f0ca6d37a0";
+mod input_matrix;
 fn dir() -> tempfile::TempDir {
     let d = tempfile::tempdir().unwrap();
     fs::set_permissions(d.path(), fs::Permissions::from_mode(0o700)).unwrap();
