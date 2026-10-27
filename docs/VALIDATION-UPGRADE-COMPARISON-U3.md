@@ -23,7 +23,15 @@
 - 真正生产CLI的15个用例使用实际Core/worker stdout和真实只读SQLite探针结果，验证0/3/4/1退出码；未知格式、三角色来源冲突、Root冲突、错误架构、缺ABI历史档位、重复/缺失/超限输入均按预期。比较过程不创建工作目录文件。native历史档位是明确合成fixture，不称实际历史程序；后续ARM可单独传入实际旧程序验证。
 - CI已添加同一真实生产CLI步骤，使用该checkout实际tar摘要构建程序；本提交精确CI和ARM结果另记。不得把前一5c1c97a的两个成功运行移作本次结果。
 
-## 下一步与边界
+## 固定提交的完整CI与ARM补验
+
+代码HEAD `81068ab10e379d53792039c6a154bcfc53a6cabf` 的[push CI40449868904](https://github.com/Viper-Boss/RustSimHub/actions/runs/40449868904)及[PR CI40449872660](https://github.com/Viper-Boss/RustSimHub/actions/runs/40449872660)两个运行各自test/native-audio均success。两个test job实际日志都核对11个新增比较测试及15个生产CLI用例；日志还含forwarder原3个同名模块runtime测试，分开计数，不把14项混称本模块新增。
+
+Git精确745文件归档SHA-256 `3239b03acd76d6baf4e0a16f79d0220a3f47bf0f802546b7893a09b9f0c580fb`，全新空target构建11生产ARM程序，readelf/GLIBC及实际Core/worker同源契约通过。实际ARM程序经QEMU完成19个outbox只读CLI和15个联合比较CLI；后者传入了真正旧版Core，不是修改当前JSON冒充旧版本。旧Core先独立与既有产物摘要核对，再实际QEMU读取build-info，来源归档为`2126f7d3c9fa009478027edd7a436afe55bdcabfacee679a22d837592d17fdf9`、无dev-fixtures且确实没有forwarding_runtime_contract，比较结果为需要维护。8文件Root材料同源/签名/外部公钥验签通过，仅保存在`.private/upd-compatibility-production-*20261027-first*`。
+
+这只补齐本阶段ARM/CLI/材料证据，没有进行设备升级或Root实盘准入。后续补录证据的文档提交另有CI，不能把本代码提交的成功称为之后所有HEAD的成功。
+
+## 仍需接线的维护入口
 
 1. 将签名程序字节、真实Root安装模式/配置、选定与回退身份，以及业务/outbox数据观察绑定进有限维护动作，持有约束至写入完成。当前比较器不改变既有stage/choose行为。
 2. UPD-02仍负责签名维护材料接线；FWD-20仍负责格式1/2/3真实回退，不能用比较单测代替设备验收。

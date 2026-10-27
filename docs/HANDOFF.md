@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-10-27 [U3固定补验](VALIDATION-UPGRADE-COMPARISON-U3.md)：81068ab10e379d53792039c6a154bcfc53a6cabf的push40449868904/PR40449872660两轮test/native-audio均success，两实际job日志含11新增比较测试和15个生产CLI。Git精确745文件3239b03、全新十一生产ARM、QEMU十九outbox及十五联合CLI、真实旧2126f7d Core无ABI需维护、八文件Root材料验签通过，未部署。实际Root/签名字节/数据锁下准入仍缺，UPD-01仍进行；原80%、14/169、7.3%保持。PR4虽显示clean，普通自动合并因仓库禁用失败、普通合并仍被分支策略拒绝；无管理员绕过，先前授权待答。继续独立开发，目标active，四位/真人/关机约束及旧README笔记保持。
+
 2026-10-27 [U3联合比较](VALIDATION-UPGRADE-COMPARISON-U3.md)实现Root模式/契约、三角色Core/worker及数据版本的有限CLI；先投影候选迁移/新建后的outbox，再检查fallback，历史缺ABI需维护，0/3/4/1退出码不把拒绝当shell成功。744文件2542641，经清理三变更包后297项/严格/fmt、三生产Native及实际stdout+SQLite探针的15个CLI用例通过。仅版本比较，签名字节/实际Root盘点/数据锁下维护准入仍缺，UPD-01不计完成；待本次固定CI/ARM。前一5c1c97a的push40448029548/PR40448035346均成功。四位任务/用户实测保留，原80%、14/169、7.3%不变，目标active，无设备/外发/关机；保留旧README笔记。
 
 2026-10-27 [U2补验](VALIDATION-OUTBOX-INSPECTION-U2.md)：代码固定02204a8443bcc5885eb87f7c7f6f169dffe761ce的push40447155396/PR40447159015两轮test/native-audio均成功，实际两job日志含9项inspection和19个生产CLI用例。Git精确741文件a2a1c6b、全新target十一生产ARM、实际Core/worker QEMU契约及ARM十九CLI、八文件Root材料验签通过，未安装。首个shell换行失败已保留并修正。Root/候选/回选联合准入仍待做，UPD-01进行中；原80%、14/169、7.3%保持。主线PR门禁授权待答，继续功能分支；无设备/外发/普通数据/关机，四位任务和旧README笔记保持。
