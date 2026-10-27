@@ -72,6 +72,10 @@ jobs:
         run: |
           sh -n tools/recovery/watch-edl-capture.sh
           python3 -m unittest discover -s tools/recovery -p 'test_*.py'
+      - name: Read-only field snapshot
+        run: |
+          sh -n tools/field/rsh-readonly-snapshot.sh
+          python3 -m unittest discover -s tools/field -p 'test_*.py'
       - name: Test
         run: cargo test --workspace --all-features --locked
       - name: Forwarding actual filesystem ENOSPC in a bounded private tmpfs
