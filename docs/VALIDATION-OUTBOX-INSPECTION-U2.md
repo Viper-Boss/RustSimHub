@@ -22,10 +22,18 @@
 - 两个实际生产CLI的build-info同源/无dev-fixtures/契约核对保持通过。第一版266项和19个进程用例也通过；最终新增VM预算后重新完整执行，按最终267项计，不合计两轮。
 - CI新增在真实生产worker构建后执行同一CLI脚本。本次源码的精确提交CI结果另行记录；不借用旧提交成功冒充当前CI。
 
-## 仍待完成
+## 固定提交的CI与ARM补验
+
+代码HEAD `02204a8443bcc5885eb87f7c7f6f169dffe761ce` 的[push CI40447155396](https://github.com/Viper-Boss/RustSimHub/actions/runs/40447155396)和[PR CI40447159015](https://github.com/Viper-Boss/RustSimHub/actions/runs/40447159015)均completed/success；两个运行各自test/native-audio均成功。独立读取两个test job的实际日志，均包含9项inspection测试、查询预算中断和19个生产CLI用例通过，不只依据总状态。
+
+从该提交的Git精确字节重新冻结741文件，归档SHA-256 `a2a1c6bc4470975671dfeff9f8091e2a709d92e0777b1e6edfc270faba76a0c2`；全新空target、生产feature构建11个ARM64程序，readelf/GLIBC界限通过。实际Core/worker经QEMU输出同源当前契约，实际ARM worker经QEMU执行同一19进程检查全部通过；8文件Root维护包同源/签名/外部公钥验签通过。材料仅保存在`.private/upd-inspection-production-*20261027-first*`，不安装信任、不部署到设备。首个临时shell因Windows换行在编译前退出，修正LF后首次真正构建成功，未覆盖失败为成功。
+
+这些结果只支持U2代码及材料，不证明设备启动、真实回选或Root联合准入。补录证据的后续文档提交另有自己的CI状态。
+
+## 仍待完成的联合准入
 
 1. 用可信的实际Root安装配置和选定/候选/回选程序做联合比较；历史缺失能力需维护或拒绝，不能猜旧outbox可读版本。
 2. 在有限维护准入中持有完整停止/身份/签名/数据观察约束；当前CLI报告本身不授予更新权限。
-3. UPD-02签名材料接线、生产ARM及实际格式1/2/3回退、冷启动分别保留原验收。
+3. UPD-02签名材料接线及实际格式1/2/3回退、冷启动分别保留原验收；本阶段生产ARM已补验，后续联合准入变更仍需对应新构建。
 
 四位成员的文件边界不变，PMIC/关机继续搁置。原P0–P7为80%，扩展台账14/169、加权7.3%保持。

@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-10-27 [U2补验](VALIDATION-OUTBOX-INSPECTION-U2.md)：代码固定02204a8443bcc5885eb87f7c7f6f169dffe761ce的push40447155396/PR40447159015两轮test/native-audio均成功，实际两job日志含9项inspection和19个生产CLI用例。Git精确741文件a2a1c6b、全新target十一生产ARM、实际Core/worker QEMU契约及ARM十九CLI、八文件Root材料验签通过，未安装。首个shell换行失败已保留并修正。Root/候选/回选联合准入仍待做，UPD-01进行中；原80%、14/169、7.3%保持。主线PR门禁授权待答，继续功能分支；无设备/外发/普通数据/关机，四位任务和旧README笔记保持。
+
 2026-10-27 [U2只读outbox检查](VALIDATION-OUTBOX-INSPECTION-U2.md)完成阶段数据探针：实际writer锁/只读SQLite、先拒绝WAL与辅助文件、查询预算、版本/需迁移/拒绝分类，267项/严格/生产构建和19个真实CLI用例（含实际异常退出journal）通过，字节/节点/权限/mtime保持。最终740文件de9362c；U1固定7dfd6a0两轮CI均test/native-audio成功。Root/候选/回选联合准入、ARM和实机仍缺，UPD-01不计完成；原80%、14/169、7.3%保持。仅功能分支，不绕过main门禁，不碰设备/外发/成员任务/关机；继续下一阶段，目标active，旧README笔记保留。
 
 2026-10-27 [U1版本能力](VALIDATION-APPLICATION-CONTRACT-U1.md)阶段一：Core/worker实际build-info新增严格版本契约，worker协议4/outbox读写3/需迁移1、2与实际实现共享常量；原授权/迁移行为不变。736文件c1cdd51经清理变更包后257项/严格/fmt及两个真正生产Native CLI核对通过，未建工作目录文件；Root/数据/候选比较、维护准入、ARM/设备尚缺，UPD-01不计完成。前置PR#4固定5c6e4e2的push40443986959和PR40444040928两轮完整CI全部成功，仍open/blocked；自动审批拒绝直接main，已改PR并等单笔管理员合并授权，不绕过保护。目标active，四位新增分工保留，原80%、14/169、7.3%不变；无设备/外发/流量/关机，保留两份旧README笔记。
