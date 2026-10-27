@@ -2,6 +2,8 @@
 
 本报告按日期追加交付；当前 C-07/C-08 见文末及 [PR #9](https://github.com/Viper-Boss/RustSimHub/pull/9)。第一批、C-05 和 C-06 各节保留提交时的历史快照；PR #3、#6、#7 后续已由负责人合并。当前批次的实现、测试和审核状态以本批节及对应完整 HEAD 为准。
 
+当前追加 C-09～C-12 备份恢复离线包见文末；C-07/C-08 的 PR #9 已由负责人合并，各前批节的待验描述保留为当时提交截面。
+
 日期：2026-10-26（Asia/Shanghai）。成员：yh1030 / member-c。
 任务：C-01～C-04，对应 NAS-01 的契约盘点和只读桥离线范围。
 
@@ -281,3 +283,54 @@ Linux 准备锁定 Rust、python3 标准库及原 Go 工具链，运行上述 co
 来源为固定 main 的真实 history/session/签名模块及原独立合成 schema，新增源码保留 AGPL-3.0-only，无新依赖。
 Codex 辅助实现、验证和报告；不估造有效工时、不改作者/贡献数字、不代用户或负责人声称人工审核通过。
 下一步由负责人按 PR 最终完整 HEAD 审核，随后安排 C-09 等后续包；本批不自动增加已验收计数。整体固定量表仍约 **80%**，真实 NAS/Core/设备补验边界保持。
+
+## 2026-10-27 · C-09～C-12 备份恢复离线交付
+
+成员 yh1030 / member-c；用户明确授权“继续开展 C09-C12，按照要求提交文件与报告”。
+从已合并 PR #9 的最新主线独立开工，不执行 C-13～20，不接管主线生产修复或设备恢复。
+
+- 起始 main：`6f228fd3dcb9ce6da54d7910f4b044833e71a91a`。
+- 分支：原仓库 `Viper-Boss/RustSimHub:codex/member-c-recovery-matrix` → main；完整当前 HEAD、PR 与对应 CI 在 PR 正文逐次维护，不 fork、不直接推 main。
+- 文件仅新增 `crates/recovery/tests/offline_business_matrix.rs`、`tools/test-business-recovery-matrix.py`、`tools/fixtures/backup-recovery/{matrix,business,identity,outbox}.rs` 与控制器 `test_runner.py`、`docs/recovery/` 三份说明和本报告。
+- 没有改 storage/Core/forwarder/auth/recovery 的生产逻辑、schema、Root/设备脚本、workspace/Cargo.lock、依赖版本、其他成员文件或全局台账。
+
+### 逐项交付与验收边界
+
+| 要求 | 本次材料与真实模块验证 |
+|---|---|
+| C-09 盘点备份、一致性、WAL、realm | [范围清单](../recovery/backup-scope.md)：逐接口列 Store 全表快照、明文/加密身份、独立 outbox、NAS 历史/授权和公开部署配置域；实际代码区分 Store SQLite Backup API 与在线主文件复制，列恢复 realm/授权/操作规则 |
+| C-10 成功/失败矩阵 | 15 个命名 Rust 场景中，实际 backup/restore/Identity/Auth/Queue 覆盖同批、混批、截断/空/缺包、错 key/pin/device/Owner/realm/version、重复及错误路径；已有数据保持、无效新目标隔离证据保留，不清库来通过 |
+| C-11 操作/回执与重开 | 用真实 API 构造短信/通话 prepared/submitting/Unknown/submitted 和 outbox confirmed/unknown/in_flight/queued；恢复核对 ID/attempt/回执/短信/通话/游标，旧八条 SMS/call 操作 begin 许可为 0；正常重开和新 realm 绑定拒绝分别验证，不恢复为自动发送 |
+| C-12 文件与交付 | [完整矩阵/命令](../recovery/offline-matrix.md)、[生产缺口与最小提案](../recovery/consistency-gaps.md)及本报告；原仓库小 PR，所有输入合成，仅临时目录，无设备/EDL/分区/维护脚本 |
+
+真实模块由 Cargo 按根锁文件构建到新临时 target，取 compiler-artifact JSON 的精确 rlib，
+同一 Clippy driver 对独立夹具 `-D warnings` 编译后运行，15 个固定场景必须逐个通过且零 ignored。
+Cargo 的 recovery 集成测试自动调用；不用新增 manifest/依赖或把别人的生产文件加入本批。
+四项 Python 单测只验证构建元数据选择，不能替代十五项业务矩阵。
+
+### 已执行与待补验证
+
+- 本机 Windows；`python tools/test-business-recovery-matrix.py`：退出 0，只列计划，未构建/恢复；Linux 实际模式不在 Windows 假跑。
+- `python -m unittest discover -s tools/fixtures/backup-recovery -p test_runner.py`：4 项通过，退出 0；首次受限临时目录创建/清理 ACL 失败，换为允许本机临时测试的执行环境后真实重跑，未放宽选择器断言。
+- `cargo test -p rustsimhub-recovery --lib --locked --offline`：退出 0，Windows 3 项原加密身份回归通过；新增 Linux 业务矩阵未借此标成功。
+- `cargo test -p rustsimhub-recovery --locked --no-run`：退出 0，库/bin/新测试入口编译。最初 offline 因 aead 等已锁依赖本机未缓存失败；联网获取锁定依赖后编译，未改锁文件。保留原 recovery/main.rs 在非 Linux 的未使用 Path 提示，不为本包改生产入口。
+- Windows `cargo clippy -p rustsimhub-recovery --lib --locked --offline -- -D warnings`：退出 0；此项仅库，不冒称 Windows bin 全 targets 严格检查通过。既有 proc-macro-error2 未来兼容提示保留。
+- `cargo fmt --all -- --check`、`rustfmt --edition 2024 --check tools/fixtures/backup-recovery/matrix.rs`、`git diff --check`：退出 0。
+- 本机无 Linux/WSL；15 个真实业务场景、Linux 集成接入和全 targets/独立夹具严格检查待本批 PR CI，未填成功。最终以对应完整 HEAD 的实际结果补记。
+
+### 保持证据、已发现边界与主线接手
+
+关闭的备份/身份/目标比对文件摘要；活跃 SQLite 比对各表真实类型化逻辑记录，避免把 WAL/SHM 内部读标记当业务变化。
+Store 恢复可能在新目标留下 pending/无效副本；不声称所有失败零写入，已有活动/关闭目标不覆盖。
+同身份跨批 Store B + 关闭 outbox A 的复现明确暴露缺少联合 manifest/一致切面；Store 单库成功不是完整包成功。
+旧 outbox 在恢复后被当前 Auth/realm 拒绝，证明隔离而非联合恢复已实现；不重写绑定，不把 Unknown 变 queued。
+Confirmed 仅是实际 Queue::finish 的合成确认，无提供商/设备发送；许可和 transport 计数不冒充实机通信计数。
+
+主线按完整 HEAD 运行正常 recovery 测试（需 Python、锁定 Rust/Clippy 和缓存依赖），或显式 --run；
+审阅三个缺口及版本化联合包/写者协调的最小提案，再决定是否扩展生产接口。本包不实现替代联合校验器。
+真实数据、硬件掉电/文件系统、系统恢复与部署由主线处理；无设备访问、真实短信/电话/推送、网络 transport、Root/签名/分区操作。
+回退本批新测试/文档即可，无产品格式或设备状态需回退。
+
+来源为固定 main 的真实公开模块及已有合成夹具方法；新增源码保留 AGPL-3.0-only，无新第三方依赖。
+Codex 辅助盘点、实现、测试和报告；未估造有效工时、不改作者或贡献数字、不代负责人填写验收结论。
+下一步补本批 Linux 证据、提交可审核 PR；整体按固定量表仍约 **80%**，不自行更新全局验收。
