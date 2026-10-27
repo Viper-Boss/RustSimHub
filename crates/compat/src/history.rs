@@ -15,6 +15,7 @@ use std::{
     },
     path::Path,
 };
+pub mod preflight;
 mod reader;
 pub use reader::{HistoryService, HistorySource};
 
@@ -264,6 +265,9 @@ pub(crate) fn private_file(path: &Path, write: bool, create: bool) -> Result<Fil
     Ok(file)
 }
 fn hash(file: &mut File) -> Result<[u8; 32]> {
+    hash_bounded(file, MAX_SNAPSHOT)
+}
+fn hash_bounded(file: &mut File, maximum: u64) -> Result<[u8; 32]> {
     file.seek(SeekFrom::Start(0))?;
     let mut digest = Sha256::new();
     let mut buffer = [0; 32768];
@@ -274,7 +278,7 @@ fn hash(file: &mut File) -> Result<[u8; 32]> {
             break;
         }
         total += n as u64;
-        if total > MAX_SNAPSHOT {
+        if total > maximum {
             return Err(Error::Bound);
         }
         digest.update(&buffer[..n]);
@@ -297,22 +301,26 @@ fn db_read(file: &File) -> Result<Connection> {
     }
     Ok(db)
 }
+fn offline_file(path: &Path) -> Result<()> {
+    for suffix in ["-wal", "-shm", "-journal"] {
+        let mut sibling = path.as_os_str().to_os_string();
+        sibling.push(suffix);
+        match fs::symlink_metadata(sibling) {
+            Ok(_) => return Err(Error::SnapshotRequired),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Err(Error::Io),
+        }
+    }
+    Ok(())
+}
 struct Snapshot {
     file: File,
     db: Connection,
     digest: [u8; 32],
 }
 impl Snapshot {
-    fn open(path: &Path) -> Result<Self> {
-        for suffix in ["-wal", "-shm", "-journal"] {
-            let mut sibling = path.as_os_str().to_os_string();
-            sibling.push(suffix);
-            match fs::symlink_metadata(sibling) {
-                Ok(_) => return Err(Error::SnapshotRequired),
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                Err(_) => return Err(Error::Io),
-            }
-        }
+    fn open_raw(path: &Path) -> Result<Self> {
+        offline_file(path)?;
         let mut file = private_file(path, false, false)?;
         FileExt::try_lock_shared(&file).map_err(|_| Error::Busy)?;
         if file.metadata()?.len() < 512 {
@@ -320,6 +328,11 @@ impl Snapshot {
         }
         let digest = hash(&mut file)?;
         let db = db_read(&file)?;
+        Ok(Self { file, db, digest })
+    }
+    fn open(path: &Path) -> Result<Self> {
+        let snapshot = Self::open_raw(path)?;
+        let db = &snapshot.db;
         for c in CONTRACTS {
             let table = db
                 .query_row(
@@ -335,7 +348,7 @@ impl Snapshot {
             let sql = format!("SELECT {} FROM {} LIMIT 0", c.columns.join(","), c.table);
             db.prepare(&sql).map_err(|_| Error::Schema)?;
         }
-        Ok(Self { file, db, digest })
+        Ok(snapshot)
     }
     fn unchanged(&mut self) -> Result<()> {
         if hash(&mut self.file)? != self.digest {
@@ -348,6 +361,49 @@ struct Record {
     key: String,
     payload: String,
     digest: [u8; 32],
+}
+fn decode_record(c: &Contract, row: &rusqlite::Row<'_>) -> Result<Record> {
+    let mut object = Map::new();
+    for (i, name) in c.columns.iter().enumerate() {
+        let value = match row.get_ref(i)? {
+            ValueRef::Null => Value::Null,
+            ValueRef::Integer(v) => Value::from(v),
+            ValueRef::Text(v) => {
+                if v.len() > MAX_ROW {
+                    return Err(Error::Bound);
+                }
+                Value::String(
+                    std::str::from_utf8(v)
+                        .map_err(|_| Error::Corrupt)?
+                        .to_owned(),
+                )
+            }
+            _ => return Err(Error::Schema),
+        };
+        object.insert((*name).into(), value);
+    }
+    let mut key = Vec::new();
+    for name in c.keys {
+        match object.get(*name) {
+            Some(Value::String(v)) if !v.is_empty() && v.len() <= 512 => {
+                key.push(Value::String(v.clone()))
+            }
+            Some(Value::Number(v)) if v.as_i64().is_some_and(|n| n > 0) => {
+                key.push(Value::Number(v.clone()))
+            }
+            _ => return Err(Error::Schema),
+        }
+    }
+    let payload = serde_json::to_string(&object).map_err(|_| Error::Corrupt)?;
+    if payload.len() > MAX_ROW {
+        return Err(Error::Bound);
+    }
+    let digest = Sha256::digest(payload.as_bytes()).into();
+    Ok(Record {
+        key: serde_json::to_string(&key).map_err(|_| Error::Corrupt)?,
+        payload,
+        digest,
+    })
 }
 fn visit(
     snapshot: &Snapshot,
@@ -371,50 +427,7 @@ fn visit(
             if total > MAX_ROWS {
                 return Err(Error::Bound);
             }
-            let mut object = Map::new();
-            for (i, name) in c.columns.iter().enumerate() {
-                let value = match row.get_ref(i)? {
-                    ValueRef::Null => Value::Null,
-                    ValueRef::Integer(v) => Value::from(v),
-                    ValueRef::Text(v) => {
-                        if v.len() > MAX_ROW {
-                            return Err(Error::Bound);
-                        }
-                        Value::String(
-                            std::str::from_utf8(v)
-                                .map_err(|_| Error::Corrupt)?
-                                .to_owned(),
-                        )
-                    }
-                    _ => return Err(Error::Schema),
-                };
-                object.insert((*name).into(), value);
-            }
-            let mut key = Vec::new();
-            for name in c.keys {
-                match object.get(*name) {
-                    Some(Value::String(v)) if !v.is_empty() && v.len() <= 512 => {
-                        key.push(Value::String(v.clone()))
-                    }
-                    Some(Value::Number(v)) if v.as_i64().is_some_and(|n| n > 0) => {
-                        key.push(Value::Number(v.clone()))
-                    }
-                    _ => return Err(Error::Schema),
-                }
-            }
-            let payload = serde_json::to_string(&object).map_err(|_| Error::Corrupt)?;
-            if payload.len() > MAX_ROW {
-                return Err(Error::Bound);
-            }
-            let digest = Sha256::digest(payload.as_bytes()).into();
-            accept(
-                c,
-                Record {
-                    key: serde_json::to_string(&key).map_err(|_| Error::Corrupt)?,
-                    payload,
-                    digest,
-                },
-            )?;
+            accept(c, decode_record(c, row)?)?;
         }
         report.rows_by_entity.insert(c.table.into(), count);
     }
