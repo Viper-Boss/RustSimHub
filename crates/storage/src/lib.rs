@@ -757,6 +757,13 @@ impl Database {
                 Duration::from_millis(1),
                 None,
             )?;
+            // The copy inherits WAL mode; a read-only open (restore) would leave -wal/-shm
+            // beside the published backup. Publish a self-contained rollback-journal file.
+            let mode: String =
+                destination.query_row("PRAGMA journal_mode=DELETE", [], |row| row.get(0))?;
+            if mode != "delete" {
+                return Err(Error::Database);
+            }
         }
         File::open(&pending)?.sync_all()?;
         fs::rename(&pending, &final_path)?;
