@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-27T04:40:56.294899+00:00",
+  "updated_at": "2026-10-27T08:44:44.877278+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -4906,12 +4906,26 @@
       "type": "progress",
       "title": "UPD-01联合版本比较与迁移后回退",
       "detail": "297项/15个生产CLI及81068ab两轮完整CI通过；全新十一ARM、实际QEMU十五联合/十九outbox用例和真实旧Core无ABI拒绝自动兼容已验真。Root/签名字节/持锁维护接线仍缺，未部署，不增加完成数。"
+    },
+    {
+      "at": "2026-10-27T08:44:44.877278+00:00",
+      "type": "state",
+      "title": "手动合并后复核 · C-05/C-06离线通过",
+      "detail": "固定主线独立32+9测试与CI通过；C为6/16。UPD-01继续，原80%与14/169、7.3%不变。",
+      "task_ids": [
+        "NAS-05",
+        "NAS-06",
+        "UPD-01"
+      ],
+      "evidence": [
+        "docs/team/REVIEW-MERGED-PRS-2026-10-27.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "6f964ceb53a5d1effba9bf79748b327b7375b353",
-    "generated_at": "2026-10-27T03:21:20.466730+00:00",
+    "source_revision": "2f1595aa3b71fbfdefdbc8801ff6ecd844144b85",
+    "generated_at": "2026-10-27T08:44:44.877278+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -4920,7 +4934,7 @@
         "login": "Viper-Boss",
         "role": "项目负责人 · 主线开发 / 架构 / 设备 / 审核",
         "access": "现有主线维护；实际权限沿用仓库设置",
-        "package": "CI端口夹具修复 → UPD-01版本兼容 / 主线审核与设备集成",
+        "package": "UPD-01版本能力与维护准入 / 主线审核和设备集成",
         "task_ids": [
           "UPD-01"
         ],
@@ -4930,15 +4944,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 46302,
-            "tests": 28212,
+            "product": 46882,
+            "tests": 28987,
             "tooling": 8715,
             "firmware": 1132
           },
-          "commits": 323,
-          "code_commits": 224,
-          "added": 88522,
-          "deleted": 2218
+          "commits": 329,
+          "code_commits": 228,
+          "added": 90051,
+          "deleted": 2238
         },
         "work": {
           "assigned_steps": 0,
@@ -4946,6 +4960,16 @@
           "self_reported_hours": null,
           "reviews": [],
           "deliveries": [
+            {
+              "pr": 5,
+              "head": "7ecf8c93c1b21dca6874d1d9b8e7de1e4f5aeccb",
+              "state": "MERGED"
+            },
+            {
+              "pr": 4,
+              "head": "8a3e520c111771c13b6eb265d7920e2a22c00037",
+              "state": "MERGED"
+            },
             {
               "pr": 1,
               "head": "3f41a3fd581b2827a1b61700ab1455385ae951a2",
@@ -5117,28 +5141,48 @@
         ],
         "stats": {
           "current_lines": {
-            "product": 551,
-            "tests": 561,
+            "product": 1164,
+            "tests": 1453,
             "tooling": 0,
             "firmware": 0
           },
-          "commits": 4,
-          "code_commits": 2,
-          "added": 1172,
-          "deleted": 91
+          "commits": 10,
+          "code_commits": 6,
+          "added": 2744,
+          "deleted": 174
         },
         "work": {
           "assigned_steps": 16,
-          "accepted_steps": 4,
+          "accepted_steps": 6,
           "self_reported_hours": null,
           "reviews": [
             {
               "pr": 3,
               "head": "751e4a964e14db0142b34b3dc4afa245971bb54c",
               "state": "offline_accepted"
+            },
+            {
+              "pr": 6,
+              "head": "9c0802f30607f1badfb2666c3a46ba12a866a408",
+              "state": "offline_accepted"
+            },
+            {
+              "pr": 7,
+              "head": "b13bae7ea80a4c8f45396609b22bfe1f8cc42923",
+              "state": "offline_accepted"
             }
           ],
           "deliveries": [
+            {
+              "pr": 7,
+              "head": "b13bae7ea80a4c8f45396609b22bfe1f8cc42923",
+              "state": "MERGED"
+            },
+            {
+              "pr": 6,
+              "head": "9c0802f30607f1badfb2666c3a46ba12a866a408",
+              "state": "MERGED"
+            },
             {
               "pr": 3,
               "head": "751e4a964e14db0142b34b3dc4afa245971bb54c",
@@ -5216,8 +5260,8 @@
       "deleted": 0
     },
     "totals": {
-      "product": 46853,
-      "tests": 28773,
+      "product": 48046,
+      "tests": 30440,
       "tooling": 8715,
       "firmware": 1132
     },

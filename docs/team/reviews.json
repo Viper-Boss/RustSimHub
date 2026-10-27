@@ -16,6 +16,32 @@
         "docs/team/REVIEW-PR-3-751e4a9.md"
       ],
       "self_reported_hours": null
+    },
+    {
+      "member_id": "member-c",
+      "pr": 6,
+      "head": "9c0802f30607f1badfb2666c3a46ba12a866a408",
+      "decision": "offline_accepted",
+      "steps": [
+        "C-05"
+      ],
+      "evidence": [
+        "docs/team/REVIEW-MERGED-PRS-2026-10-27.md"
+      ],
+      "self_reported_hours": null
+    },
+    {
+      "member_id": "member-c",
+      "pr": 7,
+      "head": "b13bae7ea80a4c8f45396609b22bfe1f8cc42923",
+      "decision": "offline_accepted",
+      "steps": [
+        "C-06"
+      ],
+      "evidence": [
+        "docs/team/REVIEW-MERGED-PRS-2026-10-27.md"
+      ],
+      "self_reported_hours": null
     }
   ]
 }
