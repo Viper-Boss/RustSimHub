@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-28T08:10:34.901312+00:00",
+  "updated_at": "2026-10-28T08:13:01.671275+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -1819,7 +1819,7 @@
           "evidence": [
             "docs/VALIDATION-UPD01-FIELD-20261028.md"
           ],
-          "completed_at": "2026-10-28T08:10:34.901312+00:00",
+          "completed_at": "2026-10-28T08:13:01.671275+00:00",
           "actual_hours": 3.0
         },
         {
@@ -5079,7 +5079,19 @@
       ]
     },
     {
-      "at": "2026-10-28T08:10:34.901312+00:00",
+      "at": "2026-10-28T07:38:51.343230+00:00",
+      "type": "state",
+      "title": "LED-05 · 状态更新：短信/未接电话两组跑马灯",
+      "detail": "05-a/c/d/f及05-b（全部标为已读后短信组停止）已满足；只差05-e配置面板压制",
+      "task_ids": [
+        "LED-05"
+      ],
+      "evidence": [
+        "docs/acceptance/session-led.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T08:13:01.671275+00:00",
       "type": "completed",
       "title": "UPD-01 · 已完成：Root与应用版本能力契约",
       "detail": "新更新器装到设备；admit-stage在真实Root配置与业务数据上三方兼容判断后持锁暂存epoch 55，试运行并确认",
