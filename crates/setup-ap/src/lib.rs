@@ -8,7 +8,8 @@ pub const INTERFACE: &str = "wlan0";
 pub const ADDRESS: &str = "192.168.100.1";
 pub const PREFIX: u32 = 24;
 pub const HTTPS_PORT: u16 = 8443;
-pub const MAX_WINDOW_SECONDS: u32 = 300;
+/// First-setup rounds may last an hour (user decision 2026-10-29); owner windows stay 5 minutes.
+pub const MAX_WINDOW_SECONDS: u32 = 3600;
 
 /// Read-only installation metadata; no material, bus or network access.
 pub fn installation_build_info() -> serde_json::Value {

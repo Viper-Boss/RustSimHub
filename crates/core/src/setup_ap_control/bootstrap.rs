@@ -232,7 +232,10 @@ impl Bootstrap {
         }
         let available = self.available(&after)?;
         let t = now()?;
-        let remaining = after.deadline.saturating_sub(t).min(300000);
+        let remaining = after
+            .deadline
+            .saturating_sub(t)
+            .min(u64::from(rustsimhub_setup_ap::MAX_WINDOW_SECONDS) * 1000);
         if remaining < 1000 {
             return Err(Error::Forbidden);
         }
@@ -331,6 +334,22 @@ impl Bootstrap {
         s.permit.take();
         Ok(())
     }
+    fn reopen(
+        &self,
+        auth: Arc<Mutex<Auth>>,
+        setup: Option<Arc<Mutex<rustsimhub_auth::LocalSetup>>>,
+    ) -> Result<()> {
+        let Some(gate) = setup else { return Ok(()) };
+        let auth = auth.try_lock().map_err(|_| Error::Busy)?;
+        let mut gate = gate.try_lock().map_err(|_| Error::Busy)?;
+        if gate.next_device_window(&auth).is_ok() {
+            let mut a = self.active.try_lock().map_err(|_| Error::Busy)?;
+            if a.as_ref().is_some_and(|s| s.phase == State::Closed) {
+                *a = None;
+            }
+        }
+        Ok(())
+    }
     pub(super) async fn tick(
         &self,
         auth: Arc<Mutex<Auth>>,
@@ -343,7 +362,12 @@ impl Bootstrap {
         let active = {
             let a = self.active.try_lock().map_err(|_| Error::Busy)?;
             match a.as_ref() {
-                Some(s) if s.phase == State::Closed => return Ok(()),
+                Some(s) if s.phase == State::Closed => {
+                    // Unowned device: keep the hotspot available (user decision 2026-10-29).
+                    // Only a verified Closed round reopens; Unknown keeps its protection.
+                    drop(a);
+                    return self.reopen(auth, setup);
+                }
                 Some(s) => Some((s.record.clone(), s.gate.clone(), s.cancelled)),
                 None => None,
             }
