@@ -13,9 +13,13 @@ const pageCrypto={randomUUID:uuid,subtle:{digest:async(_algorithm,data)=>sha256(
 async function api(command){
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),18000);
  try{
-  const r=await fetch('/api/v2',{method:'POST',headers:{'Content-Type':'application/json','X-RustSimHub-Request':'2'},body:JSON.stringify({protocol:2,id:uuid(),command}),signal:controller.signal,credentials:'omit',cache:'no-store',redirect:'error'});
+  const id=uuid();
+  const r=await fetch('/api/v2',{method:'POST',headers:{'Content-Type':'application/json','X-RustSimHub-Request':'2'},body:JSON.stringify({protocol:2,id,command}),signal:controller.signal,credentials:'omit',cache:'no-store',redirect:'error'});
   if(!r.ok)throw Error('请求被拒绝或服务暂不可用');
-  const v=await r.json();if(v&&typeof v==='object'&&'error' in v)throw Error('设备拒绝了请求');return v;
+  // Same envelope as the https app: {protocol, id, result}; Core errors arrive inside result.
+  const v=await r.json();if(v?.protocol!==2||v.id!==id)throw Error('设备应答不匹配');
+  if(!v.result||typeof v.result!=='object'||'error' in v.result)throw Error('设备拒绝了请求');
+  return v.result;
  }finally{clearTimeout(timer);}
 }
 const bytes=(v,n)=>{if(!Array.isArray(v)||(n&&v.length!==n)||v.some(b=>!Number.isInteger(b)||b<0||b>255))throw Error('设备应答格式无效');return new Uint8Array(v);};

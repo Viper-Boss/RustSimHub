@@ -41,7 +41,9 @@ async function run({password,ownerExists=false}){
  const doc=documentStub();
  globalThis.document=doc;globalThis.localStorage={m:new Map(),getItem(k){return this.m.get(k)??null;},setItem(k,v){this.m.set(k,v);},removeItem(k){this.m.delete(k);}};
  globalThis.fetch=async(url,init)=>{assert.equal(url,'/api/v2');assert.equal(init.headers['X-RustSimHub-Request'],'2');const body=JSON.parse(init.body);
-  const v=await handle(body.command);return {ok:true,json:async()=>v};};
+  const v=await handle(body.command);
+  // Real Core envelope (errors inside result), so unwrapping bugs cannot hide.
+  return {ok:true,json:async()=>({protocol:2,id:body.id,result:v})};};
  const mod=await import('../crates/edge/src/web/setup.js?'+Math.random());void mod;
  await new Promise(r=>setTimeout(r,50));
  const $=id=>doc.getElementById(id);
