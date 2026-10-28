@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-28T17:08:36.814525+00:00",
+  "updated_at": "2026-10-28T17:40:28.245099+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原固件81.5%按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "CALL-08",
-    "title": "终止Call重观察去重",
-    "state": "离线包待审核；完整身份方案与实测待补",
-    "description": "主线新增D-05～12离线包：内容/候选/持久发送与通话重观察，跨SIM通话来源碰撞已复现修复，228项及严格检查通过；累计接回12步，D余14。持久身份/完整跨启动去重仍为提案，功能与实机不计完成。"
+    "task_id": "SEC-06",
+    "title": "有界输入和协议模糊测试",
+    "state": "正在推进",
+    "description": "继续D-26真实生产模块失败矩阵；已修复蓝牙清理责任误报，保持A安全会话和D-21/24/25接口方案待审边界。"
   },
   "facts": [
     {
@@ -2710,7 +2710,7 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -5195,6 +5195,38 @@
       "evidence": [
         "docs/progress/TEAM-VIEW-20261029.md"
       ]
+    },
+    {
+      "at": "2026-10-28T17:40:27.558133+00:00",
+      "type": "state",
+      "title": "独立公开看板已上线，固件仓库保持私有",
+      "detail": "用户确认后仅发布白名单页面与任务资料；Pages built/deploy成功，实际HTTPS与页面/JSON/清单摘要匹配。新入口为RustSimHub-progress，旧地址没有重定向。",
+      "task_ids": [],
+      "evidence": [
+        "docs/progress/PUBLICATION-20261029.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T17:40:27.837727+00:00",
+      "type": "state",
+      "title": "SEC-06 · 状态更新：有界输入和协议模糊测试",
+      "detail": "D-26局部修复99a7f16：实际蓝牙关闭失败后不再误报资源清理完成；先保留失败基线，新增4项25向量、BLE42+灯控24、严格检查和Python24通过。完整Core/BLE安全/TURN矩阵仍缺，D余6不扣步。",
+      "task_ids": [
+        "SEC-06"
+      ],
+      "evidence": [
+        "docs/testing/ble-cleanup-quiescence.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T17:40:28.245099+00:00",
+      "type": "state",
+      "title": "SEC-06 · 下一关卡：有界输入和协议模糊测试",
+      "detail": "继续D-26真实生产模块失败矩阵；已修复蓝牙清理责任误报，保持A安全会话和D-21/24/25接口方案待审边界。",
+      "task_ids": [
+        "SEC-06"
+      ],
+      "evidence": []
     }
   ],
   "team": {
@@ -5842,7 +5874,7 @@
         },
         {
           "path": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-          "sha256": "c4c32b1155dcce84c9c76d89a29ba15092dc9a50dca242676069b95c20a4efb7"
+          "sha256": "2d5673e305996cc223b39334e5d54f5892c11fda1370a974e666646123460c07"
         }
       ],
       "members": [

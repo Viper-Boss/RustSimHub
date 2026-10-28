@@ -337,6 +337,8 @@ T5已有方法、DTO、错误、UUID和预算继续适用；本地记录按已�
 | D-25 | REMOTE-03/05：实现现有身份/媒体预授权在远程通道的绑定、撤销及受限TURN/ICE/DTLS/Opus适配，保留票据/peer/call/line/租约关系 | 本地合成对端/私有测试TLS环境做强制中继与失败测试，不连接真实外网服务器。NAS/C仅消费已审核的正常接口，不允许NKN隧道绕过权限 |
 | D-26 | 扩展本人SEC-06输入矩阵至实际新增Core/媒体/BLE解析及跨模块故障：并发控制、过期/撤销、退出、回调迟到、分片/队列/超时 | 测试真实生产模块，模拟仅外部后端；不拉长产品租约/队列或删拒绝断言。提交最小复现/修正、真实命令及尚未运行的设备/TURN/两端听音清单 |
 
+2026-10-29 D-26局部进展：lead完成[实际蓝牙清理失败反例与修正](../testing/ble-cleanup-quiescence.md)，新增4项/25结果向量，代码99a7f16；66项Rust、严格检查及Python24通过。该前置修复不等于D-26完整跨模块验收，仍保留D-21～26六步，其他成员边界不动。公开看板已迁到独立仓库，固件仓库继续私有。
+
 新增允许：在先审接口/迁移PR之后，修改`crates/auth/`、`crates/policy/`、`crates/wire/`与`crates/core/`中独立BLE授权/可信来源/远程媒体接线；`crates/media/`的对应授权/远程适配与测试；`crates/ble/`、`firmware/system/ble/`、`configurator/src/security/`、`configurator/src/production-backend.js`。正常通话/短信授权、身份、旧协议和USB路径保持，需改变时单独列兼容提案/拒绝路径，不暗改。不要改A密码原语/会话库、C updater/旧NAS客户端、B UI控制器；公共入口同一时间一个PR，其他包先交接口/最小提案。Root安装及生产启用仍主线。
 
 ### 7. 主线真正保留的工作

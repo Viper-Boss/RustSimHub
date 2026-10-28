@@ -13,7 +13,7 @@ Linux + Rust 用户态 · 短信 · 电话与双向语音 · 设备本地存储 
 ![Platform](https://img.shields.io/badge/Platform-MSM8916_%2F_ARM64-253a56?style=flat-square)
 ![开发阶段](https://img.shields.io/badge/阶段-持续开发中-e8b86d?style=flat-square)
 
-[🚀 完整进度看板](https://viper-boss.github.io/RustSimHub/) · [了解项目](#为什么做-rustsimhub) · [界面预览](#未来界面预览) · [功能进展](#功能与当前进展) · [本地开发](#本地开发) · [文档导航](#文档导航)
+[🚀 完整进度看板](https://viper-boss.github.io/RustSimHub-progress/) · [了解项目](#为什么做-rustsimhub) · [界面预览](#未来界面预览) · [功能进展](#功能与当前进展) · [本地开发](#本地开发) · [文档导航](#文档导航)
 
 </div>
 
@@ -22,11 +22,11 @@ Linux + Rust 用户态 · 短信 · 电话与双向语音 · 设备本地存储 
 
 ## 开发任务控制台
 
-[打开动画看板 →](https://viper-boss.github.io/RustSimHub/) · [完整逐动作清单](docs/progress/remaining.md) · [更新方法](docs/progress/README.md)
+[打开动画看板 →](https://viper-boss.github.io/RustSimHub-progress/) · [完整逐动作清单](docs/progress/remaining.md) · [更新方法](docs/progress/README.md)
 
 原计划 **80%**；完整台账 **25个模块 / 169个当前动作**，另列9项搁置或按需动作。每项包含具体工作、验收、依赖、工时范围和配合条件；每次完成附证据更新，Pages随提交发布。原计划点数与新增范围分别计算。
 
-[![开发任务看板截图：原计划80%，完整剩余动作与预计工时；2026-10-25快照，最新以在线台账为准](docs/progress/preview.png)](https://viper-boss.github.io/RustSimHub/)
+[![开发任务看板截图：原计划80%，完整剩余动作与预计工时；2026-10-25快照，最新以在线台账为准](docs/progress/preview.png)](https://viper-boss.github.io/RustSimHub-progress/)
 
 ## 为什么做 RustSimHub
 

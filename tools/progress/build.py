@@ -122,7 +122,7 @@ def markdown(data):
         f"原P0–P7：**{value['original_percent']:g}%**，剩余 **{100-value['original_percent']:g}** 个验收点。新增X1/X2/X3/BLE独立保留，不混入旧分母。", '',
         f"本轮台账：**{value['done']}/{value['active']}** 动作已完成，按冻结工时中值加权 **{value['sprint_percent']}%**；另有{value['parked']}项搁置/按需动作不计入本轮分母。", '',
         f"剩余有效开发工时粗估 **{value['remaining_hours'][0]:g}–{value['remaining_hours'][1]:g}小时**。{data['estimate']['calendar_note']}", '',
-        '看板入口：[GitHub Pages](https://viper-boss.github.io/RustSimHub/) · [单文件HTML](index.html) · [结构化台账](progress.json)', '',
+        '看板入口：[GitHub Pages](https://viper-boss.github.io/RustSimHub-progress/) · [单文件HTML](index.html) · [结构化台账](progress.json)', '',
         '## 使用和更新', '', '完成标准以每项验收为准；源码通过、设备交付、真人验收分开记录。每次完成后附公开脱敏证据，用维护脚本更新，再生成HTML/本清单并随提交发布。', '',
         '```sh', 'python tools/progress/update.py complete FWD-03 --evidence docs/验证记录.md --note "实际完成及验收结果" --actual-hours 1.0', 'python tools/progress/build.py --check', '```', '',
         '## 当前关卡', '', f"**{data['focus']['task_id']} · {data['focus']['title']}**：{data['focus']['state']}。{data['focus']['description']}", '']

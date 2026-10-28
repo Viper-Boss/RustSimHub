@@ -1,5 +1,11 @@
 # 通信观测工作包交付与主线接回台账
 
+## 2026-10-29 D-26局部修复与公开看板
+
+[蓝牙清理失败责任](../testing/ble-cleanup-quiescence.md)：真实库最小反例先失败，再在代码99a7f163c23e7afa7cb344bdad4b48b3d66e596d中修正quiescent漏查cleanup_failed。新增4项/25向量，BLE42+灯控24、严格Clippy/fmt和Python24通过；无新依赖、协议、安全端口实现或设备操作。D-26整体仍待其他生产前置，不扣步，lead20/D6/118保持。A按用户要求继续原分工。原固件经独立复核为81.5%，行动台账20/169、10.6%。
+
+[独立公开看板](../progress/PUBLICATION-20261029.md)已built、部署与实际HTTPS摘要核对通过，原固件仓库仍私有。发布看板不是将产品PR合入main；每批完成仍据实际验收扣账，不用截图/CI/分支标题冒充交付。
+
 ## 当前结算 · 2026-10-28 GATT 离线库批次
 
 **最新同步后截面：** 已接续PR50更新 `2b13b25f4ffad0fed04643fedadbdec60fed9f64` 与Claude main dfd11e9，保留用户新灯色及UPD-04/STAB-03/SMS-05，最新台账20/169、加权10.6%、余149、原80%；lead20/D6不变。新截面归档 `4898875176e75cec26e30f532eb398b7361f64ade94beb604e6d4921800e3c5a`、日志 `d8ba77e0d818a2881b839aa9cd810d82a88b9a8da61ad93aa02440638cdd3d3f`：蓝牙38+灯控24、严格Clippy/fmt及Python23全部通过，Node看板/生成一致性通过。下文旧数量/23灯控是先前截面证据，保留作历史。未宣称Pages或main已包含本PR。
