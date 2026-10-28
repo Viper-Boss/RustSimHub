@@ -120,7 +120,7 @@
 
 1. 维护通道开始 `rsh-readonly-snapshot.sh led-trace 120`（另开一个会话），你本人看灯。
 2. `systemctl kill -s KILL ModemManager`
-3. 保持约 15 秒（灯控每 5 秒采样一次单元状态）。预期：`systemctl is-active ModemManager` 为 `failed`，灯变红（`100`）。
+3. 保持至少 25 秒（灯控每 15 秒采样一次单元状态）。预期：`systemctl is-active ModemManager` 为 `failed`，灯变红（`100`）。
 4. 恢复，**只能用下面这两条命令**：
    ```sh
    systemctl reset-failed ModemManager
