@@ -784,3 +784,9 @@ mod calls_tests;
 
 #[cfg(test)]
 mod inbox_recovery_tests;
+
+#[cfg(test)]
+mod inbox_content_tests;
+
+#[cfg(test)]
+mod outgoing_recovery_tests;
