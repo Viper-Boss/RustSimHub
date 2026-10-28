@@ -337,3 +337,25 @@ async fn keep_alives_are_rate_limited_so_long_rounds_stay_under_the_sequence_cap
     // Ten quick ticks inside one keep-alive period publish nothing new.
     assert!(hint(&f) == first);
 }
+#[tokio::test]
+async fn a_stale_availability_record_during_the_round_keeps_wifi_setup_open() {
+    let f = fixture();
+    // Like the real Root: station trial/save supported when the round starts.
+    let raw = f.runtime.output.read(Slot::Availability).unwrap().unwrap();
+    let mut a: Availability = serde_json::from_slice(&raw).unwrap();
+    a.station_trial_supported = true;
+    a.station_save_supported = true;
+    f.runtime.output.publish(Slot::Availability, &a).unwrap();
+    tick(&f).await.unwrap();
+    status(&f, State::Ready, |_| {});
+    tick(&f).await.unwrap();
+    let token = claim(&f);
+    // Root stops refreshing availability while the window runs (field test 2026-10-29).
+    a.sample_uptime_ms = 1;
+    f.runtime.output.publish(Slot::Availability, &a).unwrap();
+    tick(&f).await.unwrap();
+    let view = f.runtime.status(f.auth.clone(), token).await.unwrap();
+    assert_eq!(view["owner_adoption_required"], true);
+    assert_eq!(view["station_trial_api"], true);
+    assert_eq!(view["station_save_api"], true);
+}

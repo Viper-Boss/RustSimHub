@@ -20,6 +20,10 @@ struct Active {
     permit: Option<OwnedRwLockWriteGuard<()>>,
     /// Uptime of the last published keep-alive.
     keepalive_ms: u64,
+    /// Root's station trial/save support, read from the fresh availability at round start.
+    /// Root stops refreshing availability while a window runs (field test 2026-10-29), so later
+    /// status and adoption checks use this instead of the then-stale record.
+    supported: bool,
 }
 const KEEPALIVE_MS: u64 = 5_000;
 struct Context {
@@ -108,6 +112,7 @@ impl Bootstrap {
                     root_sequence: 0,
                     acknowledged: true,
                     keepalive_ms: 0,
+                    supported: false,
                     cancelled: true,
                     gate: None,
                     permit: Some(coordination.network().map_err(|_| Error::Busy)?),
@@ -143,6 +148,12 @@ impl Bootstrap {
         Ok(a.as_ref()
             .filter(|s| s.phase != State::Closed)
             .map(Self::projection))
+    }
+    /// Ready, not cancelled, and Root supported station trial and save at round start.
+    pub(super) fn supported(&self) -> Result<bool> {
+        let a = self.active.try_lock().map_err(|_| Error::Busy)?;
+        Ok(a.as_ref()
+            .is_some_and(|s| s.phase == State::Ready && !s.cancelled && s.supported))
     }
     pub(super) fn ready(&self) -> Result<bool> {
         let a = self.active.try_lock().map_err(|_| Error::Busy)?;
@@ -299,6 +310,7 @@ impl Bootstrap {
             root_sequence: 0,
             acknowledged: false,
             keepalive_ms: 0,
+            supported: available.station_trial_supported && available.station_save_supported,
             cancelled: false,
             gate: Some(gate),
             permit: Some(permit),
