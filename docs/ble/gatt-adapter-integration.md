@@ -2,6 +2,8 @@
 
 日期2026-10-28。实现者 Viper-Boss / Codex。包 `crates/ble`（`rustsimhub-ble`），无守护进程、无默认 BlueZ 后端、无生产安全端口，不安装服务、不访问 HCI。D-17～20 是这份可复用库与失败矩阵的离线交付；BLE3-01/04 整项仍有真实后端和设备验收要求。
 
+最新接续PR50的2b13b25及Claude main dfd11e9后，GATT代码be02191保持原样，灯控断言跟随用户新配色。最终归档 `4898875176e75cec26e30f532eb398b7361f64ade94beb604e6d4921800e3c5a`、日志 `d8ba77e0d818a2881b839aa9cd810d82a88b9a8da61ad93aa02440638cdd3d3f`：蓝牙38+灯控24、严格Clippy/fmt、Python进度23和Node看板一致性通过。最新台账20/169、10.6%；下文早期61项/18条完成记录为历史证据，不当成当前计数。
+
 ## 接口来源与固定对象
 
 唯一项目协议依据是 `docs/team/interfaces/t5-offline-v1.json` 和 `t5-vectors-v1.json`，基线3eb42bca52768d2f08c81cd8eb860e4fef681d59。实际测试直接读取两个 JSON，逐项核对 UUID、flags、资源上限、帧字节和重组结果，避免复制一套夹具后互相自证。

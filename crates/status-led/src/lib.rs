@@ -169,16 +169,15 @@ impl Policy {
             Yellow
         };
         let t = now.saturating_sub(self.unread_anchor) % 30_000;
-        let mut sequence = [Off; 6];
-        let mut len = 0;
-        if unread.0 {
-            sequence[..3].copy_from_slice(&[Blue, Cyan, Green]);
-            len += 3;
-        }
-        if unread.1 {
-            sequence[len..len + 3].copy_from_slice(&[Red, Yellow, Purple]);
-            len += 3;
-        }
+        // Owner's 2026-10-28 scheme: no colour shared with the blue (Wi-Fi) or
+        // green (data) base, so a group is visible on either background.
+        let sequence: &[Color] = match unread {
+            (true, true) => &[Red, Yellow, Purple, Red, Yellow, Purple],
+            (true, false) => &[Yellow, Purple, Yellow, Purple],
+            (false, true) => &[Red, Purple, Red, Purple],
+            (false, false) => &[],
+        };
+        let len = sequence.len();
         if t < (len as u64) * 300 {
             return if t % 300 < 280 {
                 sequence[(t / 300) as usize]
@@ -281,15 +280,15 @@ mod tests {
         assert_eq!(p.frame(s, 8_000, Some(0)), Color::Blue);
     }
     #[test]
-    fn notifications_are_nine_tenths_and_one_point_eight_seconds() {
+    fn notifications_are_one_point_two_and_one_point_eight_seconds() {
         let mut p = Policy::default();
         let mut s = online();
         s.unread_sms = true;
         s.missed_calls = true;
         let colors = [
-            Color::Blue,
-            Color::Cyan,
-            Color::Green,
+            Color::Red,
+            Color::Yellow,
+            Color::Purple,
             Color::Red,
             Color::Yellow,
             Color::Purple,
@@ -299,7 +298,7 @@ mod tests {
         }
         assert_eq!(p.frame(s, 1_800, None), Color::Blue);
         assert_eq!(p.frame(s, 29_999, None), Color::Blue);
-        assert_eq!(p.frame(s, 30_300, None), Color::Cyan);
+        assert_eq!(p.frame(s, 30_300, None), Color::Yellow);
         s.unread_sms = false;
         s.missed_calls = false;
         assert_eq!(p.frame(s, 30_310, None), Color::Blue);
@@ -307,8 +306,14 @@ mod tests {
     #[test]
     fn individual_sequences_and_dark_separators() {
         for (sms, colors) in [
-            (true, [Color::Blue, Color::Cyan, Color::Green]),
-            (false, [Color::Red, Color::Yellow, Color::Purple]),
+            (
+                true,
+                [Color::Yellow, Color::Purple, Color::Yellow, Color::Purple],
+            ),
+            (
+                false,
+                [Color::Red, Color::Purple, Color::Red, Color::Purple],
+            ),
         ] {
             let mut p = Policy::default();
             let s = Inputs {
@@ -320,7 +325,30 @@ mod tests {
                 assert_eq!(p.frame(s, i as u64 * 300, None), *color);
                 assert_eq!(p.frame(s, i as u64 * 300 + 280, None), Color::Off);
             }
-            assert_eq!(p.frame(s, 900, None), Color::Blue);
+            assert_eq!(p.frame(s, 1_200, None), Color::Blue);
+        }
+    }
+    #[test]
+    fn unread_groups_never_use_the_blue_or_green_base_colours() {
+        for (sms, missed, len) in [(true, false, 4), (false, true, 4), (true, true, 6)] {
+            for cellular in [false, true] {
+                let mut p = Policy::default();
+                let s = Inputs {
+                    unread_sms: sms,
+                    missed_calls: missed,
+                    cellular_connected: cellular,
+                    ..online()
+                };
+                for t in (0..len * 300).step_by(10) {
+                    let c = p.frame(s, t, None);
+                    assert!(
+                        matches!(c, Color::Red | Color::Yellow | Color::Purple | Color::Off),
+                        "{c:?} at {t}"
+                    );
+                }
+                let base = if cellular { Color::Green } else { Color::Blue };
+                assert_eq!(p.frame(s, len * 300, None), base);
+            }
         }
     }
     #[test]
