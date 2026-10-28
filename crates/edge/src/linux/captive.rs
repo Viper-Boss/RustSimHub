@@ -138,6 +138,15 @@ pub(super) fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/ap-wifi.js",
+            get(|| async {
+                asset(
+                    "text/javascript; charset=utf-8",
+                    include_str!("../web/ap-wifi.js"),
+                )
+            }),
+        )
+        .route(
             "/style.css",
             get(|| async { asset("text/css; charset=utf-8", include_str!("../web/style.css")) }),
         )
