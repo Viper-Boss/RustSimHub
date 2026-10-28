@@ -467,3 +467,36 @@ C09盘点、C10/C11完整合成矩阵及C12离线文件/报告交付已具备真
 - C15已由负责人合并PR #13，仅草稿离线范围通过。手册过期Linux措辞由后续C16按真实证据刷新，本PR不扩写正式发布支持声明。
 
 本轮合并与修改的精确提交、Linux实测退出码及剩余项待执行后补记；没有宣称旧审查已批准新HEAD。真实恢复/设备/只读介质/硬件掉电仍待主线，整体固定里程碑仍 **80%**。
+
+#### 接入主线后的精确源码及实际复测（本节为最新结果）
+
+代码完整HEAD：`c9aed5f4ef3c84fec92b7ac4dd2f297fa70910a8`；tree：`e7edac9490d46994135de47811f981e5f171edab`。
+它是正常双亲合并，双亲为本人旧HEAD `8fa23619a868d0ab280bf5f80205a774bdd37964` 与主线 `516228a73a7de1fa4a8a2dac40ca9f57e96a07ca`，原yh1030和主线作者/历史均保留。
+相对该主线只有本批13个测试/工具/文档路径；C15报告两边追加均完整保留，没有修改他人生产逻辑或全局台账。
+之前45c需修改、旧基线临时辅助文件断言和f5实测均是历史截面，已由本节的主线#14修复及严格断言复测取代，不能混作同一源码证据。
+
+| 精确来源 / 实际命令 | 本轮结果 |
+|---|---|
+| tree e7edac9：`python tools/fixtures/backup-recovery/wsl_test.py --run --suite recovery --fetch --ref e7edac9490d46994135de47811f981e5f171edab` | 退出0、passed=true；四项元数据单测、直接15个业务场景零忽略、recovery库4项+接入1项（内部再跑同15场景）、fmt、包全targets严格Clippy全部0；直接矩阵65.878秒、Cargo121.011秒、Clippy44.944秒 |
+| commit c9aed5f：`python tools/fixtures/backup-recovery/wsl_test.py --run --suite workspace --ref c9aed5f4ef3c84fec92b7ac4dd2f297fa70910a8` | 退出0、passed=true；虚拟workspace根的实际`cargo test --all-features --locked --offline`共653通过/0失败/4标记忽略，包含完整recovery接入；`cargo clippy --all-targets --all-features --locked --offline -- -D warnings`及fmt均0，Clippy78.325秒 |
+| Windows静态/控制器 | rustfmt及git diff检查0；四项控制器首次因默认临时目录ACL失败，未改产品/单测，指定本仓库私有临时目录后4通过/0失败。不能把这次Windows结果代替Linux执行 |
+| 手册结构回归 | `python docs/manuals/check-links.py`退出0：7页、117个本地链接/锚点、16个证据ID，无错误。没有改已合并的C15手册或把结构检查称为实机验收 |
+
+两轮均为WSL2 Ubuntu-24.04、普通UID1000、Rust1.98.0、813个公开/可交付源码文件，源码/TMPDIR/target均在Linux原生用户目录。
+e7edac9树与发布代码c9aed5f的tree完全一致；树验证没有冒充提交，提交另跑了整仓。
+入口在虚拟workspace根选择全部成员，日志中的Cargo命令没有显式`--workspace`；此前报告用该选项描述整仓范围，本轮按日志记录实际参数，不修改历史日志。
+
+4个ignored逐项说明：C06 import_worker由父测试实际调用；forwarder真实OS ENOSPC需要独立有界tmpfs脚本，本轮未执行；
+主线新增的两个actual_root_capture测试需要隔离Root/CAP_SETUID/CAP_SETGID及CAP_KILL正/负路径，本轮未执行，不算通过。
+原生音频33项及严格检查的历史实测来源仍为f5e4cb8。逐文件核对native（含独立Cargo.lock）、media及auth/policy/wire/domain路径、工具链在c9均未变，本轮未重复跑native，不冒称c9存在新的原生运行记录。
+既有proc-macro-error2未来兼容提示保留，没有升级依赖或把提示隐藏。
+
+- 新源码复核包`C09-C12-Linux-c9aed5f.zip`：2,490,677字节，SHA256 `bf44a95c348811b1ffd699a745e9d640c3df152aa8f8a6398abf97f291d136f5`；813个文件逐个与c9 Git blob相同，SOURCE.json含完整HEAD/tree/归档摘要，外层`--verify-only`和ZIP CRC通过。该检查只证明打包完整性；旧bfaa8dc源码包及11/4失败保留为历史，不能继续把旧包当已修正代码。
+- 新结果包`C09-C12-WSL2-validation-c9aed5f.zip`：35,967字节，SHA256 `655ec8f6d9cad8611de9da7283e27d3bde5b6fbc4a66c2d453edcedb3ebe53aa`；包含上述两轮来源/summary/日志、真实命令/退出码/实耗和历史包索引，CRC通过。不含源码、数据库、密钥、工作区或缓存。两包仅在本机准备，经聊天供用户转交，未代发负责人。
+- 代码c9的[Actions run40634706914/test122638880008](https://github.com/Viper-Boss/RustSimHub/actions/runs/40634706914/job/122638880008)实际检查注释仍为付款失败/费用额度，任务未启动；本机通过不表示Actions或完整Root专项/ARM/设备CI成功。
+- PR #10回读为Ready、open、未合并、无代码合并冲突；需负责人按新HEAD重新审查，旧45c的需修改结论不自行改成已批准。最终报告补记提交的完整HEAD由PR正文单列，若只改本报告则与c9代码逐文件等同，不重复运行相同代码的全套测试。
+
+实际完成：F1～F4范围内修改、主线接入、C09盘点/C10-C11真实矩阵/C12离线交付和默认WSL2执行流程；无设备/真实通信/普通蜂窝/部署签名/分区操作。
+剩余：跨域一致切面与联合恢复协议、旧WAL/只读介质/恶意旁路日志准入、真实恢复/硬件掉电、上述专用测试及主线精确HEAD复审/合并。
+下一步按任务书串行规则等待当前包复审，期间已只读盘点C13/C14现有Store接口/重复覆盖与实际IO失败方案；未将C13/C14/C16～30标完成或另造未批准格式。
+整体固定P0～P7仍 **80%**，成员C不更新全局验收/面板或代负责人合并。
