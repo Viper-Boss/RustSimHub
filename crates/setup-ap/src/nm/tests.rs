@@ -644,8 +644,9 @@ fn ap_settings_are_fixed_and_subnet_collision_is_not_guessed_away() {
         .unwrap()
         .insert("autoconnect".into(), true.into());
     assert!(!profile_matches(&s, &c).unwrap());
-    assert!(subnet_conflict("172.31.1.1", 16).unwrap());
-    assert!(subnet_conflict("172.31.85.240", 32).unwrap());
+    assert!(subnet_conflict("192.168.1.1", 16).unwrap());
+    assert!(!subnet_conflict("172.31.1.1", 16).unwrap());
+    assert!(subnet_conflict("192.168.100.240", 32).unwrap());
     assert!(!subnet_conflict("192.168.120.2", 24).unwrap());
     assert!(subnet_conflict("invalid", 24).is_err());
     assert!(subnet_conflict("10.0.0.1", 33).is_err());

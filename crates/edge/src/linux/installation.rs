@@ -199,16 +199,16 @@ pub(super) fn prepare_setup(directory: &Path) -> Result<serde_json::Value> {
         listen: "127.0.0.1:8443"
             .parse()
             .map_err(|_| "invalid fixed AP bind")?,
-        origin: "https://172.31.85.1:8443".into(),
+        origin: "https://192.168.100.1:8443".into(),
         core_socket: "/run/rustsimhub/core/core.sock".into(),
         core_uid: 986,
         tls_directory: "/var/lib/rustsimhub-setup-edge/installation/tls".into(),
         legacy_compat: false,
         media_worker_socket: None,
-        additional_listen_ips: vec!["172.31.85.1".parse().map_err(|_| "invalid fixed AP IP")?],
+        additional_listen_ips: vec!["192.168.100.1".parse().map_err(|_| "invalid fixed AP IP")?],
     };
     config.authority()?;
-    prepare_config(directory, config, "172.31.85.1")
+    prepare_config(directory, config, "192.168.100.1")
 }
 fn prepare_config(directory: &Path, config: Config, name: &str) -> Result<serde_json::Value> {
     let listen = config.listen;
@@ -273,7 +273,7 @@ mod tests {
     fn setup_profile_is_separate_fixed_and_repeatable_without_media_or_legacy() {
         let d = directory();
         let first = prepare_setup(d.path()).unwrap();
-        assert_eq!(first["origin"], "https://172.31.85.1:8443");
+        assert_eq!(first["origin"], "https://192.168.100.1:8443");
         assert_eq!(first["listener_started"], false);
         assert_eq!(first["credentials_disclosed"], false);
         let path = d.path().join("installation/config.json");
@@ -282,7 +282,7 @@ mod tests {
         assert_eq!(config.listen, "127.0.0.1:8443".parse().unwrap());
         assert_eq!(
             config.additional_listen_ips,
-            vec!["172.31.85.1".parse::<std::net::IpAddr>().unwrap()]
+            vec!["192.168.100.1".parse::<std::net::IpAddr>().unwrap()]
         );
         assert!(!config.legacy_compat && config.media_worker_socket.is_none());
         assert_eq!(
