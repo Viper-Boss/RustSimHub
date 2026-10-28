@@ -30,6 +30,8 @@
 | 6 | 成员 C 的 #10 需要修改 F2/F3 和文档说明 | [#10 审核](team/REVIEW-PR-10-45c54d4.md) | 成员 C |
 | 7 | STAB-03 的分析和验证记录未完成；长测工具 `tools/field/stab-longrun.py` 未提交 | 运行到 2026-10-29 03:15 | **部分处理**：用户提前结束（6.4 小时），工具已提交（#23），分析见 [STAB-03 部分记录](VALIDATION-STAB03-PARTIAL-20261028.md)；未满 24 小时，STAB-03 不记完成，是否接受 6.4 小时由用户决定 |
 
+| 25 | 换到其他 Wi-Fi 网络后，媒体进程（native/audio-alsa）允许绑定的地址仍是固定的 192.168.120.167 和 10.55.0.2，新网络上通话媒体可能不通；edge 页面已能跟随新地址 | [应用 58 部署记录](VALIDATION-APP58-DEPLOY-2026-10-28.md) |
+
 ## P3（记录即可）
 
 | # | 问题 | 证据 |
@@ -44,6 +46,7 @@
 | 15 | 本机旧连接配置 `.private/device.json` 已过期 | **已处理**：新建 `.private/device-wifi.json`，旧文件保留作历史 |
 | 16 | 会话（15 分钟，只在通话中续期）过期后，配置面板的白灯信号被设备拒绝，网页不提示；灯保持原色，容易让人以为白灯坏了 | 2026-10-28 实测：面板展开但 `configuring=false`、8443 无连接；重新登录后白灯正常。`app.js` 的 `ConfigurationIndicator` 有意吞掉错误。可在信号失败时提示“请重新登录” |
 | 17 | compat 测试锁连带失败的数量随执行顺序变化（应用 54 回归时多出 3 项 `history_recovery_tests`） | 单独重跑 7/7 通过；与 #14 同一原因 |
+| 24 | Core 测试 `failed_quick_start_still_retires_its_probe_and_never_claims_stop_success` 在整个工作区并行跑时偶发失败（期望调用 2 次，实际 1 次），疑似计时敏感 | 应用 58 回归；单独运行 5/5 通过 |
 
 ## 不是缺陷，属于待做的开发或验收
 

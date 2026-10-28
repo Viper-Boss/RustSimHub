@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-10-28 应用58已上设备并确认（[部署记录](VALIDATION-APP58-DEPLOY-2026-10-28.md)）：配网三段与“edge跟随wlan0地址”修复（分支b3aef0d，未合并main）。部署窗口替换Root配网助手、写入设备名、重新生成配网edge（主网址仍为192.168.100.1，附加.local）和热点材料，暂存试运行纪元58，安装mdns；健康检查通过后确认。日常edge单独改址为https://<设备名>.local:8443，原IP留作别名，媒体配置不变。Windows能解析.local；两个网址严格HTTPS和设备身份校验通过，外来Origin返回403。回归664通过/9失败（已知环境项和1个负载下偶发项，单独重跑通过）。待用户：浏览器重新信任证书并配对，热点实测。待办#25：换网后媒体绑定地址固定。
+
 2026-10-28 配网第三段“已联网设备重新配网”代码（基于第一、二段分支）：Root预检允许恰好一个已保存Wi-Fi并记录为原Wi-Fi（多个→station_saved，被其他连接占用→station_connected），检查点/激活/回滚核对改为“空闲或原Wi-Fi”，回滚由NM检查点恢复原Wi-Fi，原Wi-Fi从不修改或删除；试连允许原Wi-Fi存在；网页新增“开启热点”按钮，与“开始试连”共用持久记录和单次开启。测试：setup-ap 91（新增3）、Core配网50、edge 32、mdns 7、网页16/16（新增2）、fmt、严格clippy通过。未验证：已有原Wi-Fi时的保存路径与真实NM恢复行为，需实机。未部署。
 
 2026-10-28 配网第二段“固定网址”代码（[设计](DESIGN-AP-RECONFIGURE-2026-10-28.md)，草稿PR#49）：新crate rustsimhub-mdns只回答<设备名>.local的A/ANY，仅wlan0/usb0、朝提问者的私有地址、有界解析、每秒≤20次、无capabilities，附systemd单元；热点nft保护表仅加放行热点网段到224.0.0.251的UDP 5353，参考JSON已在设备真实nft 1.1.3临时命名空间中核对一致。edge支持最多2个后备origin（Host选定配对、Origin必须匹配该Host）、证书多名字、记录新增tls_alt_names；日常--prepare-local/--check-local可带1个别名；热点--prepare-setup-local读/etc/rustsimhub/device-name，存在时加https://<名>.local:8443（主origin仍为192.168.100.1以保持契约）；热点助手只接受恰好一个固定.local后备origin且证书备用名一致。测试：mdns 7、setup-ap 87、edge 32（新增4）、fmt、严格clippy通过。未部署：需在设备写device-name、安装mdns、日常edge改主机名并重新配对浏览器、热点材料重生成。
