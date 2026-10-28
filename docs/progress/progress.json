@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-28T12:31:38.477444+00:00",
+  "updated_at": "2026-10-28T13:38:59.789306+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -2710,7 +2710,7 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -5170,6 +5170,18 @@
       ],
       "evidence": [
         "docs/VALIDATION-STAB03-PARTIAL-20261028.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T13:38:59.789306+00:00",
+      "type": "state",
+      "title": "SEC-06 · 状态更新：有界输入和协议模糊测试",
+      "detail": "D25/26前置：实际媒体Unix客户端/Permit/Pump新增6入口和16类失败，复现并修正计数耗尽及已发送RPC取消后的许可未立即撤销；媒体25+Core170、严格Clippy/fmt通过。新Core/BLE恢复与TURN接线尚未实现，SEC-06保持进行中，不标done、不减剩余6步。",
+      "task_ids": [
+        "SEC-06"
+      ],
+      "evidence": [
+        "docs/testing/media-ipc-failure-boundaries.md"
       ]
     }
   ],

@@ -1,5 +1,11 @@
 # 通信观测工作包交付与主线接回台账
 
+## D-25/26前置推进：实际媒体IPC失败关闭
+
+代码 `10966baef286f37cb93eea33e0d00c5c29201a13` 复现并修复两条有限心跳窗口内的边界：请求序号耗尽提前返回未撤销、已发出RPC的future被取消但Client保留时未撤销。均有真实Unix端复现失败（许可实际Ok/预期Denied）；最小计数失败撤销及ExchangeGuard修正后，新增6入口/16类socket失败矩阵验证实际Client/Permit/Pump。独立媒体25+Core170=195项、严格Clippy/fmt通过，真实音频设备/主线设备不参与。源码归档eadca6afb26852855c96eea68d0273c0481b5f79014c7f25a5d436a67c5b1494、日志f662c36c33b0b62bbe0d6114394d347867d64fadf0fb8d2297427b7e29725a23，详见[失败边界报告](../testing/media-ipc-failure-boundaries.md)。
+
+没有新协议、scope/schema、依赖、采样/租约/队列变化；未接管A。审计确认原生音频已有Opus/DTLS/LAN ICE，后续应复用，不能通过移除LAN限制冒充TURN。D-25仍欠受限TURN/远程接线与实际私有TLS中继测试，D-26仍欠尚未实现模块的完整跨模块矩阵。**两步仍未完成，D-21～26六步不减，lead20/总118和20/169、10.6%、原80%保持。** SEC-06按真实工作标进行中，不标done。D24独立候选材料在[草案PR53](https://github.com/Viper-Boss/RustSimHub/pull/53)，未安装。
+
 ## 当前结算 · 2026-10-28 GATT 离线库批次
 
 **最新同步后截面：** 已接续PR50更新 `2b13b25f4ffad0fed04643fedadbdec60fed9f64` 与Claude main dfd11e9，保留用户新灯色及UPD-04/STAB-03/SMS-05，最新台账20/169、加权10.6%、余149、原80%；lead20/D6不变。新截面归档 `4898875176e75cec26e30f532eb398b7361f64ade94beb604e6d4921800e3c5a`、日志 `d8ba77e0d818a2881b839aa9cd810d82a88b9a8da61ad93aa02440638cdd3d3f`：蓝牙38+灯控24、严格Clippy/fmt及Python23全部通过，Node看板/生成一致性通过。下文旧数量/23灯控是先前截面证据，保留作历史。未宣称Pages或main已包含本PR。

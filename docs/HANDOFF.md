@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+本轮继续D-25/26前置：[实际媒体IPC失败关闭报告](testing/media-ipc-failure-boundaries.md)对应代码10966baef，修复极端计数耗尽和已发RPC取消两条许可撤销缺口，真实Unix Client/Permit/Pump新增6入口/16类失败，媒体25+Core170及严格Clippy/fmt通过。协议/租约/采样/队列不变，无设备/公网/PCM。保留A原分工；现有原生Opus/DTLS/LAN ICE可复用，TURN并未实现。D-21～26仍6步、lead20、总118，SEC-06进行中、20/169及原80%保持。D21草案PR52、D24候选PR53都不是生产启用，完整D25/26仍待。
+
 最新同步：本分支已接续PR50的2b13b25与Claude main dfd11e9，保留UPD-04/STAB-03及SMS-05的验收记录，最新台账20/169、加权10.6%、余149、原80%；lead接回20/D余6，总118。下面18/169和旧main计数是历史截面。
 
 2026-10-28 [D-17～20蓝牙离线库](ble/gatt-adapter-integration.md)：固定manifest/类型/分片、实际注册/Release/迟到补偿及有限Transport接线已实现；38项蓝牙、独立灯控23、严格Clippy/fmt及Python23通过。无默认假安全端口，未接真实BlueZ/密码/Core恢复权限、未装服务或动设备。lead累计20、D余D-21～26共6、总118不变，BLE3-01/04仍未闭环；交付分支18/169、9.6%、余151和原80%保持，等待正常PR审核/集成，不能据此称Pages已更新。
