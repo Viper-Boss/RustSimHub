@@ -57,6 +57,10 @@ assert.deepEqual(r.log.slice(0,5),['identity','setup_open_challenge','setup_open
 assert.equal(r.$('setup-wifi').hidden,false);
 assert.equal(r.$('setup-networks').children.length,1);
 assert.match(r.$('setup-networks-note').textContent,/开启热点前/);
+// Refresh rebuilds the list instead of appending duplicates.
+await r.$('setup-networks-refresh').onclick();await new Promise(x=>setTimeout(x,20));
+assert.equal(r.$('setup-networks').children.length,1);
+assert.equal(r.log.filter(o=>o==='wifi_networks').length,2);
 assert.equal(r.$('setup-password').value,'');
 // 2) Too-short password never reaches the device.
 r=await run({password:'short'});

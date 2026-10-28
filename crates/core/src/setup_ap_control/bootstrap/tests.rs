@@ -306,3 +306,34 @@ async fn restart_only_cancels_pending_bootstrap_and_waits_for_exact_root_close()
     tick(&f).await.unwrap();
     assert!(f.runtime.coordination.network().is_ok());
 }
+#[tokio::test]
+// Deliberately holds the auth lock across a tick, as a concurrent request would.
+#[allow(clippy::await_holding_lock)]
+async fn a_busy_auth_lock_skips_a_tick_instead_of_cancelling_the_round() {
+    let f = fixture();
+    tick(&f).await.unwrap();
+    status(&f, State::Ready, |_| {});
+    tick(&f).await.unwrap();
+    let before = hint(&f);
+    {
+        // The page holding the auth lock (Owner creation, login) during a tick.
+        let _held = f.auth.lock().unwrap();
+        let _ = tick(&f).await;
+    }
+    assert!(hint(&f).action != Action::Cancel);
+    assert!(hint(&f).sequence >= before.sequence);
+}
+#[tokio::test]
+async fn keep_alives_are_rate_limited_so_long_rounds_stay_under_the_sequence_cap() {
+    let f = fixture();
+    tick(&f).await.unwrap();
+    status(&f, State::Ready, |_| {});
+    tick(&f).await.unwrap();
+    let first = hint(&f);
+    assert!(first.action == Action::KeepAlive);
+    for _ in 0..10 {
+        tick(&f).await.unwrap();
+    }
+    // Ten quick ticks inside one keep-alive period publish nothing new.
+    assert!(hint(&f) == first);
+}

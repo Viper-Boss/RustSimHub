@@ -18,7 +18,10 @@ struct Active {
     cancelled: bool,
     gate: Option<Arc<Mutex<rustsimhub_auth::LocalSetup>>>,
     permit: Option<OwnedRwLockWriteGuard<()>>,
+    /// Uptime of the last published keep-alive.
+    keepalive_ms: u64,
 }
+const KEEPALIVE_MS: u64 = 5_000;
 struct Context {
     window: rustsimhub_auth::DeviceSetupContext,
     instance: String,
@@ -104,6 +107,7 @@ impl Bootstrap {
                     sequence: 1,
                     root_sequence: 0,
                     acknowledged: true,
+                    keepalive_ms: 0,
                     cancelled: true,
                     gate: None,
                     permit: Some(coordination.network().map_err(|_| Error::Busy)?),
@@ -294,6 +298,7 @@ impl Bootstrap {
             sequence: 1,
             root_sequence: 0,
             acknowledged: false,
+            keepalive_ms: 0,
             cancelled: false,
             gate: Some(gate),
             permit: Some(permit),
@@ -413,18 +418,22 @@ impl Bootstrap {
                 }
             }
         }
-        let allowed = if let Some(g) = gate.filter(|_| !cancelled) {
-            if context(auth.clone(), g.clone())
-                .await
-                .is_ok_and(|c| same(&c, &record))
-                && idle.device(g.clone()).await.is_ok()
-            {
-                context(auth, g).await.is_ok_and(|c| same(&c, &record))
-            } else {
-                false
-            }
-        } else {
-            false
+        // Field test 2026-10-29: one lock contention (the page creating the Owner or logging
+        // in) used to cancel the round for good. Only a real denial cancels now; a busy lock
+        // or a non-idle device skips this tick, and a lapse lets Root's heartbeat close it.
+        let allowed = match gate.filter(|_| !cancelled) {
+            None => Some(false),
+            Some(g) => match context(auth.clone(), g.clone()).await {
+                Err(Error::Busy) => None,
+                Err(_) => Some(false),
+                Ok(c) if !same(&c, &record) => Some(false),
+                Ok(_) if idle.device(g.clone()).await.is_err() => None,
+                Ok(_) => match context(auth, g).await {
+                    Err(Error::Busy) => None,
+                    Err(_) => Some(false),
+                    Ok(c) => Some(same(&c, &record)),
+                },
+            },
         };
         let t = now()?;
         let mut a = self.active.try_lock().map_err(|_| Error::Busy)?;
@@ -432,7 +441,7 @@ impl Bootstrap {
         if s.phase == State::Closed {
             return Ok(());
         }
-        if !allowed || s.cancelled || t >= record.binding.deadline_uptime_ms {
+        if allowed == Some(false) || s.cancelled || t >= record.binding.deadline_uptime_ms {
             if !s.cancelled {
                 s.cancelled = true;
                 s.gate = None;
@@ -448,6 +457,12 @@ impl Bootstrap {
             }
             return Ok(());
         }
+        // Keep-alives at most every KEEPALIVE_MS: an hour-long round stays far below the
+        // 1024-sequence cap (one per 1 s tick exhausted it after ~17 minutes).
+        if allowed.is_none() || t < s.keepalive_ms.saturating_add(KEEPALIVE_MS) {
+            return Ok(());
+        }
+        s.keepalive_ms = t;
         s.sequence = s
             .sequence
             .checked_add(1)
