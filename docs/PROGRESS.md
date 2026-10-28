@@ -1,5 +1,7 @@
 # 最新开发进度：2026-10-23
 
+2026-10-29 [D-21请求授权与私有能力](ble/recovery-capability.md)：代码6c018ca把认证请求限定到当前Auth/设备/连接/realm/grant代次、动作/正文及单调期限，真实Store前后复核，过期/重放/断线拒绝。新增11项、完整302项与严格Clippy/fmt通过。生产验证器默认缺失，A会话/浏览器/IPC/Wi-Fi与持久操作账本仍待；默认Core schema6、设备未动。D仍余6、lead20/118、原81.5%、20/169保持。
+
 2026-10-29 [D-21恢复授权管理局部实现](ble/recovery-owner-management.md)：用户允许先独立分支离线实现、合并前审核。代码c5f9ea7已实现显式候选schema7、真实Store事务/CAS/备份隔离及近期Owner管理，新增16项、总291项与严格Clippy/fmt通过。默认Core仍schema6；实际authorize/私有能力、浏览器恢复key、A会话和IPC/Wi-Fi未接，不动设备。D仍余6、lead20/总118、原81.5%、20/169保持，未将局部代码算整步完成。
 
 2026-10-29 [独立公开看板发布](progress/PUBLICATION-20261029.md)：https://viper-boss.github.io/RustSimHub-progress/ 已built/deploy成功，实际HTTPS和页面/JSON/清单摘要核对通过；仅发布13个白名单文件，固件仓库仍私有。来源五人并排版PR58，原81.5%、20/169、D20/26保持。[D-26蓝牙局部修复](testing/ble-cleanup-quiescence.md)代码99a7f16已通过66项Rust、严格检查和Python24，整项仍未完成，不扣步。
