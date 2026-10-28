@@ -3,6 +3,7 @@
 //! Serialized by core on a blocking worker. No remote-supplied clock or role.
 mod client;
 mod identity;
+pub mod recovery;
 mod setup;
 pub use client::{ClientKey, ProofExpectation};
 use ed25519_dalek::{Signature, VerifyingKey};

@@ -17,7 +17,10 @@ use uuid::Uuid;
 
 const APP_ID: i64 = 1381189698;
 const SCHEMA: i64 = 6;
+const RECOVERY_SCHEMA: i64 = 7;
 mod auth;
+mod recovery;
+pub use recovery::{RecoveryAudit, RecoveryGrant, RecoveryKey, RecoveryLimits};
 mod calls;
 pub use calls::{
     CallEvent, CallEvents, CallIntent, CallObservation, CallOperation, CallPage, CallRequest,
@@ -136,7 +139,12 @@ pub struct Store {
 
 impl Store {
     pub fn open(directory: impl AsRef<Path>) -> Result<Self> {
-        Self::start(directory.as_ref().to_owned(), None)
+        Self::start(directory.as_ref().to_owned(), None, false)
+    }
+    /// Explicit offline migration only. The normal Core/schema-6 path never calls this.
+    /// Production activation still requires schema-7 update/rollback admission.
+    pub fn open_recovery(directory: impl AsRef<Path>) -> Result<Self> {
+        Self::start(directory.as_ref().to_owned(), None, true)
     }
     /// Offline restore to a fresh directory only; replaces the event epoch.
     pub fn restore(
@@ -146,15 +154,27 @@ impl Store {
         Self::start(
             destination.as_ref().to_owned(),
             Some(backup_directory.as_ref().to_owned()),
+            false,
         )
     }
-    fn start(directory: PathBuf, restore: Option<PathBuf>) -> Result<Self> {
+    /// Restore a schema-7 backup offline; all restored recovery grants are quarantined.
+    pub fn restore_recovery(
+        backup_directory: impl AsRef<Path>,
+        destination: impl AsRef<Path>,
+    ) -> Result<Self> {
+        Self::start(
+            destination.as_ref().to_owned(),
+            Some(backup_directory.as_ref().to_owned()),
+            true,
+        )
+    }
+    fn start(directory: PathBuf, restore: Option<PathBuf>, recovery: bool) -> Result<Self> {
         let (sender, receiver) = mpsc::sync_channel::<Message>(32);
         let (ready_tx, ready_rx) = mpsc::sync_channel(1);
         let worker = thread::Builder::new()
             .name("rustsimhub-sqlite".into())
             .spawn(move || {
-                let mut database = match Database::open(&directory, restore.as_deref()) {
+                let mut database = match Database::open(&directory, restore.as_deref(), recovery) {
                     Ok(db) => {
                         let _ = ready_tx.send(Ok(()));
                         db
@@ -392,7 +412,7 @@ fn cursor(connection: &Connection) -> Result<Cursor> {
     })
 }
 impl Database {
-    fn open(directory: &Path, restore: Option<&Path>) -> Result<Self> {
+    fn open(directory: &Path, restore: Option<&Path>, recovery: bool) -> Result<Self> {
         private_directory(directory)?;
         reject_links(directory)?;
         let lock = private_file(&directory.join(".writer.lock"), false)?;
@@ -442,7 +462,7 @@ impl Database {
         )?;
         connection.busy_timeout(Duration::from_secs(3))?;
         let version: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
-        if version > SCHEMA {
+        if version > if recovery { RECOVERY_SCHEMA } else { SCHEMA } {
             return Err(Error::NewerSchema);
         }
         if restore_marker.exists() && version == 0 {
@@ -503,6 +523,14 @@ impl Database {
             let tx = db.connection.transaction()?;
             tx.execute_batch(include_str!("inbox-management.sql"))?;
             tx.commit()?;
+        }
+        if recovery && version < RECOVERY_SCHEMA {
+            let tx = db.connection.transaction()?;
+            tx.execute_batch(include_str!("recovery.sql"))?;
+            tx.commit()?;
+        }
+        if recovery {
+            recovery::validate(&db.connection)?;
         }
 
         let restoring = restore_marker.exists();
@@ -643,6 +671,11 @@ impl Database {
             )?;
             // Old backups may precede a revocation. Preserve ownership, quarantine ALL grants.
             tx.execute("UPDATE principals SET active=0,generation=generation+1", [])?;
+            if tx.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))?
+                == RECOVERY_SCHEMA
+            {
+                recovery::quarantine(&tx)?;
+            }
         }
         let pending: Vec<(String, i64)> = {
             let mut query = tx.prepare(
