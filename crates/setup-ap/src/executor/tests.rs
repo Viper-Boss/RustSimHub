@@ -451,3 +451,37 @@ async fn lost_status_publication_still_cleans_and_republishes_only_durable_proof
         1
     );
 }
+#[tokio::test]
+async fn one_transient_setup_page_probe_failure_keeps_the_round_ready() {
+    let f = Fixture::new(15_000);
+    let c = f.credentials();
+    let ready = Readiness::good();
+    let (stop, rx) = watch::channel(false);
+    let (mut n, mut g, _e) = backends(&f, "normal");
+    n.cancel_on_ready = None;
+    let operation = execute(&f.worker, &mut n, &mut g, &ready, &c, f.hint.clone(), rx);
+    let state = || {
+        let raw = f.worker.output.read(Slot::Status).unwrap().unwrap();
+        Status::parse(&raw, &f.hint.binding, channel::uptime_ms().unwrap())
+            .unwrap()
+            .state
+    };
+    let observer = async {
+        while state() != State::Ready {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        // A single busy probe (one 500 ms poll) is tolerated.
+        ready.ap.store(false, Ordering::SeqCst);
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        ready.ap.store(true, Ordering::SeqCst);
+        tokio::time::sleep(Duration::from_millis(1200)).await;
+        assert_eq!(state(), State::Ready);
+        stop.send_replace(true);
+    };
+    let (done, ()) = timeout(Duration::from_secs(8), async {
+        tokio::join!(operation, observer)
+    })
+    .await
+    .unwrap();
+    assert_eq!(done.unwrap().state, State::Closed);
+}

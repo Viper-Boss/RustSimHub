@@ -153,6 +153,8 @@ async fn execute<N: Network, G: Guard, R: Ready + Sync>(
         let mut shutting_down = false;
         let mut heard_ready = false;
         let mut waiting_ap: Option<Instant> = None;
+        // Consecutive failed setup-page probes after Ready (see configuration.rs).
+        let mut misses = 0u8;
         loop {
             tokio::select! {
                 biased;
@@ -177,6 +179,9 @@ async fn execute<N: Network, G: Guard, R: Ready + Sync>(
                         let usable = timeout(Duration::from_secs(3), readiness.ap_check()).await.is_ok_and(|v| v.is_ok());
                         if usable {
                             heard_ready = true;
+                            misses = 0;
+                        } else if heard_ready && { misses += 1; misses < configuration::MAX_MISSES } {
+                            state = State::Ready; // Tolerate a transiently busy setup page.
                         } else if heard_ready || waiting_ap.get_or_insert_with(Instant::now).elapsed() >= Duration::from_secs(10) {
                             shutting_down = true; cancel.send_replace(true); state = State::Closing;
                         } else {

@@ -131,6 +131,8 @@ async fn trial<N: Network + StationProvider, G: Guard + TrialGuard, R: Ready + S
 }
 
 #[allow(clippy::too_many_arguments)]
+/// Consecutive busy/slow setup-page probes tolerated after Ready.
+pub(super) const MAX_MISSES: u8 = 3;
 pub(super) async fn execute<
     N: Network + StationProvider + CommitProvider,
     G: Guard + TrialGuard,
@@ -202,15 +204,27 @@ pub(super) async fn execute<
     let _body:Result<()>=async {
     if started {
         let mut seen=false;let initial=Instant::now();let mut last:Option<station::Status>=None;let mut trials=0;
+        // Field test 2026-10-29: one slow or rate-limited probe of the setup page (a busy Core
+        // lock, the phone's own polling) used to end the round. Only a busy/slow probe counts
+        // as a miss; MAX_MISSES in a row (~12 s) end it; a denied lease still ends it at once.
+        let mut misses=0u8;
         loop {
             if *stopped.borrow() || stopped.has_changed().is_err() || channel::uptime_ms()?>=hint.binding.deadline_uptime_ms { break; }
-            if !timeout(Duration::from_secs(4),gate.check()).await.is_ok_and(|v|v.is_ok())
-                || !timeout(Duration::from_secs(4),guard.verify()).await.is_ok_and(|v|v.is_ok()) { break; }
+            let gate_ok=match timeout(Duration::from_secs(4),gate.check()).await {
+                Ok(Ok(()))=>true,
+                Ok(Err(Error::Busy))|Err(_)=>false,
+                Ok(Err(_))=>break,
+            };
+            if !timeout(Duration::from_secs(4),guard.verify()).await.is_ok_and(|v|v.is_ok()) { break; }
             let up=timeout(Duration::from_secs(3),network.ready(ap)).await.is_ok_and(|v|v==Ok(true));
-            let https=up && timeout(Duration::from_secs(3),readiness.ap_check()).await.is_ok_and(|v|v.is_ok());
+            let https=gate_ok && up && timeout(Duration::from_secs(3),readiness.ap_check()).await.is_ok_and(|v|v.is_ok());
             if !https {
-                if seen || initial.elapsed()>=Duration::from_secs(10) { break; }
+                if !seen && initial.elapsed()>=Duration::from_secs(10) { break; }
+                if seen { misses+=1; if misses>=MAX_MISSES { break; } }
+                tokio::time::sleep(Duration::from_millis(500)).await;
+                continue;
             } else {
+                misses=0;
                 seen=true;
                 if let Some(raw)=worker.input.read(Slot::StationCommitRequest)? {
                     let raw=Zeroizing::new(raw);

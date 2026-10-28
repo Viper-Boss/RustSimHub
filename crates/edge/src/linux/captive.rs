@@ -158,6 +158,16 @@ pub(super) fn router(app: App) -> Router {
 }
 /// Serves until the process ends; the AP address exists only while the hotspot is up.
 pub(super) async fn serve(addr: SocketAddr, app: App) {
+    // Own rate and concurrency budget: the phone's page polling must never starve Root's
+    // readiness probe on the https listener (field test 2026-10-29).
+    let app = App {
+        rate: Arc::new(Mutex::new(Rate {
+            since: Instant::now(),
+            remaining: 120,
+        })),
+        limit: Arc::new(Semaphore::new(4)),
+        ..app
+    };
     loop {
         match tokio::net::TcpListener::bind(addr).await {
             Ok(listener) => {
