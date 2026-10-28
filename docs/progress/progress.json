@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-27T19:29:01.817564+00:00",
+  "updated_at": "2026-10-28T01:56:38.461202+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -2034,12 +2034,14 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "done",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
-          "completed_at": null,
-          "actual_hours": null
+          "evidence": [
+            "docs/VALIDATION-REC01-DEVICE-20261028.md"
+          ],
+          "completed_at": "2026-10-28T01:53:39.943914+00:00",
+          "actual_hours": 1.5
         },
         {
           "id": "REC-02",
@@ -5023,12 +5025,24 @@
       "evidence": [
         "docs/VALIDATION-MAINTENANCE-OBSERVATION-U4.md"
       ]
+    },
+    {
+      "at": "2026-10-28T01:53:39.943914+00:00",
+      "type": "completed",
+      "title": "REC-01 · 已完成：刷新当前恢复资料",
+      "detail": "设备只读核对分区几何/epoch 50/SSH身份/p15固件；固件只读复制到私有目录并核对；NAS 10-21镜像整盘/p14/p15哈希与41/41固件一致；10-26业务备份可读。",
+      "task_ids": [
+        "REC-01"
+      ],
+      "evidence": [
+        "docs/VALIDATION-REC01-DEVICE-20261028.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "7c51d591a03917a040d91d72eae2e22239097511",
-    "generated_at": "2026-10-27T19:29:01.817564+00:00",
+    "source_revision": "21475a5ea82451584fc2087cd2e90230faa4683c",
+    "generated_at": "2026-10-28T01:56:38.461202+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5052,7 +5066,7 @@
             "tooling": 9200,
             "firmware": 1132
           },
-          "commits": 343,
+          "commits": 345,
           "code_commits": 235,
           "added": 92096,
           "deleted": 2249
@@ -5126,6 +5140,26 @@
             {
               "pr": 20,
               "head": "d444b905f848af9bd09036d25bc8f712e694f5ba",
+              "state": "MERGED"
+            },
+            {
+              "pr": 21,
+              "head": "3dbbda7c3ce324baf4a07982f4bff48a99e3a7ef",
+              "state": "OPEN"
+            },
+            {
+              "pr": 22,
+              "head": "377837970a9de195cfc69f339f9fc255ead7168f",
+              "state": "OPEN"
+            },
+            {
+              "pr": 23,
+              "head": "e909012c4cf5d9504ed35984ec559f24144e417a",
+              "state": "OPEN"
+            },
+            {
+              "pr": 24,
+              "head": "bbe9bc8360efbd548061e67a86fcdca4f3dd14a0",
               "state": "MERGED"
             }
           ]
