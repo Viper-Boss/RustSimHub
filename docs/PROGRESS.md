@@ -2,6 +2,8 @@
 
 2026-10-28 配网第二段“固定网址”代码（[设计](DESIGN-AP-RECONFIGURE-2026-10-28.md)，草稿PR#49）：新crate rustsimhub-mdns只回答<设备名>.local的A/ANY，仅wlan0/usb0、朝提问者的私有地址、有界解析、每秒≤20次、无capabilities，附systemd单元；热点nft保护表仅加放行热点网段到224.0.0.251的UDP 5353，参考JSON已在设备真实nft 1.1.3临时命名空间中核对一致。edge支持最多2个后备origin（Host选定配对、Origin必须匹配该Host）、证书多名字、记录新增tls_alt_names；日常--prepare-local/--check-local可带1个别名；热点--prepare-setup-local读/etc/rustsimhub/device-name，存在时加https://<名>.local:8443（主origin仍为192.168.100.1以保持契约）；热点助手只接受恰好一个固定.local后备origin且证书备用名一致。测试：mdns 7、setup-ap 87、edge 32（新增4）、fmt、严格clippy通过。未部署：需在设备写device-name、安装mdns、日常edge改主机名并重新配对浏览器、热点材料重生成。
 
+2026-10-28 配网第一段“拒绝原因显示”（用户同意的设计，[草案](DESIGN-AP-RECONFIGURE-2026-10-28.md)见PR#47）：setup-ap新增有限原因码Refusal（wifi_disabled/checkpoint_exists/ap_unsupported/subnet_conflict/station_connected/station_saved/gsm_autoconnect），NM预检在每个拒绝点记录，执行器仅在预检失败（保护安装前、无网络改动）时写入回执的可选refusal字段；Status校验只允许refusal出现在已验证的Closed回执上，旧回执无此字段照常解析，未知原因码拒绝。Core会话保存并在实时与重启后的历史查询中输出refusal；网页按原因码显示中文说明，未知码或非关闭状态的原因码按无效输入拒绝。测试：setup-ap 87、Core配网50（新增2）、edge 28、网页16/16（新增4组）、fmt、严格clippy通过。只在电脑上写和测，未部署。
+
 2026-10-28 热点配网地址改为192.168.100.1（用户要求）：setup-ap ADDRESS与/24网段、nft守卫规则及两份守卫JSON、安装契约origin、edge热点配置origin/监听/证书名、网页热点视图判断、安装工具检查共26处由172.31.85.x改为192.168.100.x；子网冲突测试改用192.168.1.1/16为冲突例、172.31.1.1/16为不冲突例。WSL：setup-ap 86、edge 28、网页16/16、安装工具10项、fmt、严格clippy全部通过。注意：目标Wi-Fi若同为192.168.100.0/24，会被现有冲突检查拒绝（安全失败）。设备上现有热点配置证书按旧地址签发，需重新生成并重装配网组件后才能实测，尚未部署。
 
 2026-10-28 STAB-03按用户决定记完成：用户明确接受10-28那次6.4小时只读长测（385次采样、769次HTTPS全部成功、所有服务NRestarts为0、可用内存无下降趋势），不再续测24小时，“以后有问题再说”。验收时长由用户豁免，结果见[STAB-03记录](VALIDATION-STAB03-PARTIAL-20261028.md)。台账19/169。

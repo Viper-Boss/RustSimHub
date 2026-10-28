@@ -72,6 +72,14 @@ impl<R: Ready + Sync> Gate for LeaseGate<'_, R> {
     }
 }
 fn receipt(binding: &Binding, state: State, sequence: u64) -> Result<Status> {
+    refused(binding, state, sequence, None)
+}
+fn refused(
+    binding: &Binding,
+    state: State,
+    sequence: u64,
+    refusal: Option<crate::transaction::Refusal>,
+) -> Result<Status> {
     let v = Status {
         format: 1,
         binding: binding.clone(),
@@ -80,6 +88,7 @@ fn receipt(binding: &Binding, state: State, sequence: u64) -> Result<Status> {
         sample_uptime_ms: channel::uptime_ms()?,
         rollback_verified: state == State::Closed,
         guard_released: state == State::Closed,
+        refusal,
     };
     v.validate(binding, v.sample_uptime_ms)?;
     Ok(v)
@@ -127,56 +136,59 @@ async fn execute<N: Network, G: Guard, R: Ready + Sync>(
         .deadline_uptime_ms
         .checked_sub(channel::uptime_ms()?)
         .ok_or(Error::Denied)?;
-    let work = transaction::run(
-        network,
-        guard,
-        &gate,
-        credentials,
-        Duration::from_millis(remaining),
-        cancelled,
-        phases,
-    );
-    tokio::pin!(work);
-    let mut poll = tokio::time::interval(Duration::from_millis(500));
-    poll.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-    let mut shutting_down = false;
-    let mut heard_ready = false;
-    let mut waiting_ap: Option<Instant> = None;
-    let outcome = loop {
-        tokio::select! {
-            biased;
-            result = &mut work => break result,
-            _ = stopped.changed(), if !shutting_down => {
-                shutting_down = true;
-                cancel.send_replace(true);
-            }
-            _ = poll.tick() => {
-                if !shutting_down && (*stopped.borrow() || gate.check().await.is_err()) {
+    // The transaction borrows `network` mutably; scope it so the refusal can be read afterwards.
+    let outcome = {
+        let work = transaction::run(
+            network,
+            guard,
+            &gate,
+            credentials,
+            Duration::from_millis(remaining),
+            cancelled,
+            phases,
+        );
+        tokio::pin!(work);
+        let mut poll = tokio::time::interval(Duration::from_millis(500));
+        poll.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let mut shutting_down = false;
+        let mut heard_ready = false;
+        let mut waiting_ap: Option<Instant> = None;
+        loop {
+            tokio::select! {
+                biased;
+                result = &mut work => break result,
+                _ = stopped.changed(), if !shutting_down => {
                     shutting_down = true;
                     cancel.send_replace(true);
                 }
-                let mut state = if shutting_down { State::Closing } else { match *phase.borrow_and_update() {
-                    Phase::Preflight | Phase::Starting => State::Starting,
-                    Phase::Ready => State::Ready,
-                    Phase::Closing => State::Closing,
-                    Phase::Closed => State::Closing, // Only the returned verified outcome closes.
-                    Phase::Unknown => State::Unknown,
-                }};
-                if state == State::Ready {
-                    let usable = timeout(Duration::from_secs(3), readiness.ap_check()).await.is_ok_and(|v| v.is_ok());
-                    if usable {
-                        heard_ready = true;
-                    } else if heard_ready || waiting_ap.get_or_insert_with(Instant::now).elapsed() >= Duration::from_secs(10) {
-                        shutting_down = true; cancel.send_replace(true); state = State::Closing;
-                    } else {
-                        state = State::Starting; // NM up is insufficient: Edge must accept the AP address.
+                _ = poll.tick() => {
+                    if !shutting_down && (*stopped.borrow() || gate.check().await.is_err()) {
+                        shutting_down = true;
+                        cancel.send_replace(true);
                     }
+                    let mut state = if shutting_down { State::Closing } else { match *phase.borrow_and_update() {
+                        Phase::Preflight | Phase::Starting => State::Starting,
+                        Phase::Ready => State::Ready,
+                        Phase::Closing => State::Closing,
+                        Phase::Closed => State::Closing, // Only the returned verified outcome closes.
+                        Phase::Unknown => State::Unknown,
+                    }};
+                    if state == State::Ready {
+                        let usable = timeout(Duration::from_secs(3), readiness.ap_check()).await.is_ok_and(|v| v.is_ok());
+                        if usable {
+                            heard_ready = true;
+                        } else if heard_ready || waiting_ap.get_or_insert_with(Instant::now).elapsed() >= Duration::from_secs(10) {
+                            shutting_down = true; cancel.send_replace(true); state = State::Closing;
+                        } else {
+                            state = State::Starting; // NM up is insufficient: Edge must accept the AP address.
+                        }
+                    }
+                    if state == State::Ready && gate.check().await.is_err() {
+                        shutting_down = true; cancel.send_replace(true); state = State::Closing;
+                    }
+                    let result = receipt(&hint.binding, state, gate.sequence.load(Ordering::SeqCst)).and_then(|v| publish(&worker.output, &v));
+                    if result.is_err() { shutting_down = true; cancel.send_replace(true); }
                 }
-                if state == State::Ready && gate.check().await.is_err() {
-                    shutting_down = true; cancel.send_replace(true); state = State::Closing;
-                }
-                let result = receipt(&hint.binding, state, gate.sequence.load(Ordering::SeqCst)).and_then(|v| publish(&worker.output, &v));
-                if result.is_err() { shutting_down = true; cancel.send_replace(true); }
             }
         }
     };
@@ -187,7 +199,18 @@ async fn execute<N: Network, G: Guard, R: Ready + Sync>(
     } else {
         State::Closed
     };
-    let done = receipt(&hint.binding, state, gate.sequence.load(Ordering::SeqCst))?;
+    // A refusal is reported only when preflight itself failed (Err before guard installation).
+    let refusal = if outcome.is_err() {
+        network.refusal()
+    } else {
+        None
+    };
+    let done = refused(
+        &hint.binding,
+        state,
+        gate.sequence.load(Ordering::SeqCst),
+        refusal,
+    )?;
     if state == State::Closed {
         worker.journal.finish_closed(&done, done.sample_uptime_ms)?;
     }

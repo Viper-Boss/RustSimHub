@@ -228,6 +228,7 @@ impl Runtime {
             committed: false,
             trial: None,
             station_count: 0,
+            refusal: None,
         });
         Ok(Self::view(parent.as_ref().ok_or(Error::Forbidden)?))
     }

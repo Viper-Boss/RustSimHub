@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Fixed-interface volatile AP, unique NM owner, finite checkpoint; no modem/APN writes.
-use crate::{transaction::Network, Credentials, Error, Result, ADDRESS, INTERFACE, PREFIX};
+use crate::{
+    transaction::{Network, Refusal},
+    Credentials, Error, Result, ADDRESS, INTERFACE, PREFIX,
+};
 use std::{
     collections::{HashMap, HashSet},
     net::Ipv4Addr,
@@ -203,6 +206,7 @@ pub struct NetworkManager {
     activation_requested: bool,
     retain_ap: bool,
     station: Option<station::Trial>,
+    refusal: Option<Refusal>,
 }
 impl NetworkManager {
     pub async fn system() -> Result<Self> {
@@ -221,6 +225,7 @@ impl NetworkManager {
             activation_requested: false,
             retain_ap: false,
             station: None,
+            refusal: None,
         }
     }
     /// Opt in before preflight only. Keeps this private AP profile in RAM while a station is tested.
@@ -239,6 +244,11 @@ impl NetworkManager {
             .get_name_owner(NAME.try_into().map_err(|_| Error::Invalid)?)
             .await
             .map_err(|_| Error::Io)
+    }
+    /// Records a known precondition refusal. Only reached before checkpoint, guard or activation.
+    fn refuse(&mut self, reason: Refusal, error: Error) -> Result<()> {
+        self.refusal = Some(reason);
+        Err(error)
     }
     async fn fence(&self) -> Result<()> {
         if self.owner.as_ref() != Some(&self.current_owner().await?) {
@@ -311,7 +321,7 @@ impl Network for NetworkManager {
         self.owner = Some(self.current_owner().await?);
         let root = self.properties(ROOT, NAME).await?;
         if !boolean(&root, "NetworkingEnabled")? || !boolean(&root, "WirelessEnabled")? {
-            return Err(Error::Denied);
+            return self.refuse(Refusal::WifiDisabled, Error::Denied);
         }
         let points: Vec<OwnedObjectPath> = root
             .get("Checkpoints")
@@ -321,7 +331,7 @@ impl Network for NetworkManager {
             .try_into()
             .map_err(|_| Error::Io)?;
         if !points.is_empty() {
-            return Err(Error::Busy);
+            return self.refuse(Refusal::CheckpointExists, Error::Busy);
         }
         let paths: Vec<OwnedObjectPath> = self
             .proxy(ROOT, NAME)
@@ -339,7 +349,7 @@ impl Network for NetworkManager {
                     || !boolean(&p, "Managed")?
                     || self.wifi.replace(device.clone()).is_some())
             {
-                return Err(Error::Denied);
+                return self.refuse(Refusal::ApUnsupported, Error::Denied);
             }
             let ip = path(&p, "Ip4Config")?;
             if ip.as_str() != "/" {
@@ -358,28 +368,39 @@ impl Network for NetworkManager {
                 }
                 for row in rows {
                     if subnet_conflict(text(&row, "address")?, number(&row, "prefix")?)? {
-                        return Err(Error::Denied);
+                        return self.refuse(Refusal::SubnetConflict, Error::Denied);
                     }
                 }
             }
         }
-        self.disconnected().await?;
+        if self.wifi.is_none() {
+            return self.refuse(Refusal::ApUnsupported, Error::Denied);
+        }
+        if let Err(e) = self.disconnected().await {
+            return self.refuse(Refusal::StationConnected, e);
+        }
         let wifi = self
             .properties(self.wifi.as_ref().ok_or(Error::Denied)?.as_str(), WIRELESS)
             .await?;
         if number(&wifi, "WirelessCapabilities")? & 0x40 == 0 {
-            return Err(Error::Denied);
+            return self.refuse(Refusal::ApUnsupported, Error::Denied);
         }
         // This first setup path must not displace a saved station or race NM autoconnect.
         for p in self.connections().await? {
             let s = self.get_settings(&p).await?;
             let connection = s.get("connection").ok_or(Error::Io)?;
             let kind = text(connection, "type")?;
-            if kind == "802-11-wireless" || kind == "gsm" && boolean(connection, "autoconnect")? {
-                return Err(Error::Denied);
+            if kind == "802-11-wireless" {
+                return self.refuse(Refusal::StationSaved, Error::Denied);
+            }
+            if kind == "gsm" && boolean(connection, "autoconnect")? {
+                return self.refuse(Refusal::GsmAutoconnect, Error::Denied);
             }
         }
         self.fence().await
+    }
+    fn refusal(&self) -> Option<Refusal> {
+        self.refusal
     }
     async fn checkpoint(&mut self, seconds: u32) -> Result<()> {
         if !(30..=330).contains(&seconds) || self.checkpoint_requested {

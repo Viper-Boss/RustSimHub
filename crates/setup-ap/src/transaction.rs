@@ -17,6 +17,18 @@ pub enum Phase {
     Closed,
     Unknown,
 }
+/// Why preflight refused before any network change. Finite on purpose: no NM text is relayed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Refusal {
+    WifiDisabled,
+    CheckpointExists,
+    ApUnsupported,
+    SubnetConflict,
+    StationConnected,
+    StationSaved,
+    GsmAutoconnect,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Outcome {
     RolledBack,
@@ -41,6 +53,10 @@ pub trait Network {
     fn activate(&mut self, credentials: &Credentials) -> impl Future<Output = Result<()>> + Send;
     fn ready(&self, credentials: &Credentials) -> impl Future<Output = Result<bool>> + Send;
     fn rollback(&mut self, credentials: &Credentials) -> impl Future<Output = Result<()>> + Send;
+    /// The specific reason the last preflight refused, if it was a known precondition.
+    fn refusal(&self) -> Option<Refusal> {
+        None
+    }
 }
 async fn stop(rx: &mut watch::Receiver<bool>) {
     loop {

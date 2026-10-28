@@ -187,6 +187,9 @@ pub struct Status {
     pub sample_uptime_ms: u64,
     pub rollback_verified: bool,
     pub guard_released: bool,
+    /// Present only on a Closed receipt whose preflight refused before any network change.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refusal: Option<crate::transaction::Refusal>,
 }
 impl Status {
     pub fn validate(&self, binding: &Binding, now: u64) -> Result<()> {
@@ -203,6 +206,7 @@ impl Status {
             || self.state != State::Closed && self.guard_released
             || matches!(self.state, State::Idle | State::Starting | State::Ready)
                 && self.rollback_verified
+            || self.refusal.is_some() && self.state != State::Closed
         {
             return Err(Error::Denied);
         }
