@@ -100,6 +100,8 @@ fn sync_dir(path: &Path) -> Result<(), Error> {
         .and_then(|f| f.sync_all())
         .map_err(|_| Error::Io)
 }
+/// Manifest, signature and payloads exactly as signed.
+pub(crate) type SignedGroup = (Vec<u8>, Vec<u8>, Vec<Vec<u8>>);
 pub struct Store {
     root: PathBuf,
     key: [u8; 32],
@@ -211,7 +213,7 @@ impl Store {
     }
     /// Exact signed bytes of the confirmed group. With no candidate pending it
     /// is both the running role and the fallback role of a new candidate.
-    pub(crate) fn admission_baseline(&self) -> Result<(Vec<u8>, Vec<u8>, Vec<Vec<u8>>), Error> {
+    pub(crate) fn admission_baseline(&self) -> Result<SignedGroup, Error> {
         if self.state.candidate.is_some() {
             return Err(Error::Busy);
         }
