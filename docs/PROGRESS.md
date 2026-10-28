@@ -1,5 +1,7 @@
 # 最新开发进度：2026-10-23
 
+2026-10-28 [REC-01设备侧与本机索引核对](VALIDATION-REC01-DEVICE-20261028.md)：经用户批准用维护密钥只读SSH。p14/p15起始扇区和扇区数与10-21冻结恢复计划完全一致；应用组confirmed epoch 50、floor 50、无候选，selected指向已确认组；SSH主机密钥和授权密钥都在p15，sshd禁止口令登录；p15设备专属固件35/35与自带SHA256SUMS一致，modem目录5个文件无校验文件，哈希只存私有索引。10-26最近业务备份只读打开integrity ok、schema 6、收件箱69条，但不含固件和SSH身份。P2：约52MB设备专属固件在设备外没有确认过的副本；全盘镜像早于epoch 50。NAS镜像可读性需用户安排，REC-01未完成。原80%、14/169、余155、7.3%不变。
+
 2026-10-28 [轮询与计量落盘修改提案](PROPOSAL-POLLING-AND-METER-WRITES.md)（不改代码）：经授权的维护密钥Wi-Fi只读登录确认灯控约13%、network-agent约15.8%单核CPU，整机eMMC约1.4GB/天、p15日志线程居写盘首位。源码显示灯控每5秒起3～4个systemctl/nmcli，network-agent每2秒nmcli+nft、每15秒4次mmcli，并每5秒无条件fsync写meter.json。提案：A1内容变化才写（B，语义不变）、C1灯控降频（主线）、B1 agent降频缩字段（B）、C2灯控复用agent状态；A2/B2/C3需负责人决定或依赖变更。归因为推断，STAB-03结束后用/proc/<pid>/stat自身与子进程CPU及write_bytes只读确认，子进程占比低于一半则不按提案实施。STAB-03 10-28 03:14起只读运行至10-29 03:15，未完成。原80%、14/169、余155、7.3%不变。
 
 2026-10-28 [LED-02前置核实](VALIDATION-LED02-MODEMMANAGER-LOSS.md)按用户选择的方案一完成隔离环境部分：Core serve主循环中observer/sender/call controller/灯控/媒体任一返回即退出，逐个核对MM消失时均不返回；WSL私有dbus-daemon+合成MM（拒绝CreateCall）下，真实Core --serve-device（main同源与应用50源码0edfc54各一次）经4轮SIGKILL（缺席2～45秒）、5次抖动不退出，7次探测正常，5次重新绑定（3.5～30.5秒），SIGTERM退出0，日志为空。systemd替身单元照搬Requires/OnFailure：SIGKILL及reset-failed+start不连带core/edge、不触发OnFailure；restart/stop会连带重启/停止，实机禁止。首轮夹具漏migrate init致Core以auth: Forbidden退出，补齐后通过。看灯场LED-02改为有门禁的实机步骤（先只读确认MM Restart=no等），需用户单独同意；夹具入tools/field/mm-loss。x86 debug、合成MM、无ARM/真实基带；未上设备。原80%、14/169、余155、7.3%不变。
