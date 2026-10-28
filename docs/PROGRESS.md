@@ -1,5 +1,7 @@
 # 最新开发进度：2026-10-23
 
+2026-10-28 [UPD-04实机验证](VALIDATION-UPD04-FIELD-20261028.md)：用户批准。epoch 56（同源重签）经admit-stage暂存并试运行；候选期间用户发来1条短信（95→96）；SIGKILL Core一次后OnFailure触发app-recover（recovery.used写入，恢复1次），约4秒回到已确认55，candidate丢弃、floor 56；96条短信、0删除标记、1有效所有者、身份、55签名程序、空capabilities均核对通过，PCM关闭、数据断开、无失败单元。**UPD-04完成**。本次开机恢复预算已用尽，重启前不再自动恢复。LED-06：升级6秒紫色慢脉冲和回退后清理已录到，0.2秒/10秒紫闪未出现，暂不记完成。LED-02：开始前检查发现ModemManager Restart=on-abort，按方案不执行。原P0–P7约80%；台账18/169。
+
 2026-10-28 [UPD-01实机验证](VALIDATION-UPD01-FIELD-20261028.md)：用户批准替换rootfs更新器并实测admit-stage。新更新器552936b（相对现装6853d71只有新增，boot-select/stage/choose与存储格式未改）原子替换，旧程序双备份；前五次因检查写法错误（set -e下`命令; echo $?`等）被误判，均按设计自动换回，第六次通过。epoch 55（同源重签）在停机窗口用admit-stage暂存：退出码0，信任/槽位/有效systemd通过，root_mode setup_ap，数据schema 6/outbox 3，当前组/候选/回退三方compatible，staged。重启应用组时选择单元直接试运行候选（既有设计），脚本误期望回到54；未再停启，逐项核对后健康确认，floor/confirmed=55，14个资源、身份、95条短信、音频7/7不变，转发和数据关闭。**UPD-01完成**；UPD-02授权、UPD-04实机失败注入另行处理。原P0–P7约80%；台账17/169。
 
 2026-10-28 [应用54实机安装](VALIDATION-APP54-DELIVERY-20261028.md)：“全部标为已读”节流修复。main 552936b，ARM 11、音频QEMU 33通过；回归642/10，其中7项已知WSL失败，另3项是compat测试锁被缺Go的测试毒化后的连带失败，单独重跑7/7通过；签名后真实ARM更新器验签和3个反例通过；预检→上传→备份→暂存→启动→健康→确认一次通过，floor/confirmed=54，14个资源一致，身份、95条短信、音频7/7不变，转发和数据关闭。待用户点按钮后录灯核对。
