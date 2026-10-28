@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-28T12:31:38.477444+00:00",
+  "updated_at": "2026-10-28T16:47:36.119946+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -5171,6 +5171,19 @@
       "evidence": [
         "docs/VALIDATION-STAB03-PARTIAL-20261028.md"
       ]
+    },
+    {
+      "at": "2026-10-28T16:47:36.119946+00:00",
+      "type": "state",
+      "title": "D-25a · 远程媒体接线与TURN依赖提案待审",
+      "detail": "核对既有Opus/str0m、Worker v1、Core绑定和低权服务；列12组待运行验收及固定候选源码/许可。仅前置提案，无生产接线或TURN实测，不扣D-25/26；D仍余6，A保持原分工。",
+      "task_ids": [
+        "REMOTE-03",
+        "REMOTE-05"
+      ],
+      "evidence": [
+        "docs/remote/relay-media-proposal.md"
+      ]
     }
   ],
   "team": {
@@ -5818,7 +5831,7 @@
         },
         {
           "path": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-          "sha256": "c4c32b1155dcce84c9c76d89a29ba15092dc9a50dca242676069b95c20a4efb7"
+          "sha256": "c7e8af0a2665303d491e3511b6907ddba96eb3d1ad4adcc65b6ae640fee7f8b3"
         }
       ],
       "members": [

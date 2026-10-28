@@ -339,6 +339,8 @@ T5已有方法、DTO、错误、UUID和预算继续适用；本地记录按已�
 
 新增允许：在先审接口/迁移PR之后，修改`crates/auth/`、`crates/policy/`、`crates/wire/`与`crates/core/`中独立BLE授权/可信来源/远程媒体接线；`crates/media/`的对应授权/远程适配与测试；`crates/ble/`、`firmware/system/ble/`、`configurator/src/security/`、`configurator/src/production-backend.js`。正常通话/短信授权、身份、旧协议和USB路径保持，需改变时单独列兼容提案/拒绝路径，不暗改。不要改A密码原语/会话库、C updater/旧NAS客户端、B UI控制器；公共入口同一时间一个PR，其他包先交接口/最小提案。Root安装及生产启用仍主线。
 
+2026-10-29补记：lead已交[D-25a远程媒体接线/依赖提案](../remote/relay-media-proposal.md)，供独立审核后实施。不是D-25/26完成，仍保留D-21～26六步；A安全会话按用户最新确认保持原分工。提案复用native既有音频栈，新增native接入许可/协议/依赖仍须先审，不隐含批准生产变更。具体已交与未交见[交付台账](../deliveries/member-d-sms.md)。
+
 ### 7. 主线真正保留的工作
 
 1. 当前UPD-01/U4未提交现场由主线收口并提交供C消费，避免将半成品与新成员修改混在同一工作树；这是当前的暂时例外，不把后续普通更新代码永远留主线。
