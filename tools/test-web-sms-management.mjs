@@ -114,3 +114,41 @@ for(const invalidate of [f=>f.manager.reset(),f=>f.manager.select(other)]){
  assert.equal(checks,2);assert.equal(f.manager.uncertain,true);await f.manager.deleteSelected();assert.equal(f.commands.filter(c=>c.op==='delete_sms').length,1,'no retry after a write may have reached the server');
 }
 console.log('Fresh-owner write preflight: expired/offline checks, selection/logout races, no mutation before approval and unchanged uncertain-write lock passed');
+// "全部标为已读": every listed message is marked read, across pages, in order.
+const smsId=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const inbox=(all,after)=>{const start=after?Number(after.seq):0,messages=all.slice(start,start+16);return {messages:messages.map(id=>({id})),cursor:{db_epoch:id,seq:String(start+messages.length)}};};
+{
+ const all=Array.from({length:20},(_,n)=>smsId(n+1));const f=fixture(async c=>c.op==='inbox'?inbox(all,c.after):{});
+ await f.$('sms-read-all').onclick();await new Promise(r=>setTimeout(r,0));
+ assert.deepEqual(f.commands.filter(c=>c.op==='inbox').map(c=>c.after?.seq??null),[null,'16']);
+ assert.deepEqual(f.commands.filter(c=>c.op==='notification_read').map(c=>[c.entity,c.record_id]),all.map(x=>['sms',x]));
+ assert.match(f.$('sms-read-state').textContent,/已将 20 条/);assert.equal(f.$('sms-read-all').disabled,false);assert.equal(f.manager.reading,false);
+}
+{
+ const f=fixture(async c=>c.op==='inbox'?inbox([],null):{});await f.manager.markAllRead();
+ assert.equal(f.commands.filter(c=>c.op==='notification_read').length,0);assert.equal(f.$('sms-read-state').textContent,'收件箱没有短信');
+}
+{
+ // A failure stops at once; earlier marks stay, nothing is retried.
+ const all=[smsId(1),smsId(2),smsId(3)];const f=fixture(async c=>{if(c.op==='inbox')return inbox(all,c.after);if(c.record_id===all[1])throw Error('offline');return {};});
+ await f.manager.markAllRead();
+ assert.deepEqual(f.commands.filter(c=>c.op==='notification_read').map(c=>c.record_id),all.slice(0,2));
+ assert.match(f.$('sms-read-state').textContent,/已标记 1 条.*offline/);assert.equal(f.$('sms-read-all').disabled,false);
+}
+for(const malformed of [{},{messages:[{id:'bad'}]},{messages:Array(17).fill({id})}]){
+ const f=fixture(async c=>c.op==='inbox'?malformed:{});await f.manager.markAllRead();
+ assert.equal(f.commands.filter(c=>c.op==='notification_read').length,0);assert.match(f.$('sms-read-state').textContent,/没有全部完成/);
+}
+{
+ // Endless paging is bounded.
+ const f=fixture(async c=>c.op==='inbox'?{messages:Array.from({length:16},(_,n)=>({id:smsId(n)})),cursor:{db_epoch:id,seq:'1'}}:{});await f.manager.markAllRead();
+ assert.equal(f.commands.filter(c=>c.op==='inbox').length,64);assert.equal(f.commands.filter(c=>c.op==='notification_read').length,0);assert.match(f.$('sms-read-state').textContent,/短信过多/);
+}
+{
+ // Second click while running is ignored; logout/reset abandons the run without writing state.
+ const gate=deferred();const f=fixture(async c=>c.op==='inbox'?gate.promise:{});
+ const pending=f.manager.markAllRead();await f.manager.markAllRead();assert.equal(f.commands.filter(c=>c.op==='inbox').length,1);assert.equal(f.$('sms-read-all').disabled,true);
+ f.manager.reset();assert.equal(f.$('sms-read-all').disabled,false);gate.resolve(inbox([smsId(1)],null));await pending;
+ assert.equal(f.commands.filter(c=>c.op==='notification_read').length,0);assert.equal(f.$('sms-read-state').textContent,'');assert.equal(f.manager.reading,false);
+}
+console.log('sms mark-all-read checks passed');
