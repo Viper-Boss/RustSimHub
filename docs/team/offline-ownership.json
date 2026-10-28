@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "revision": "T10-2026-10-28-D-led",
+  "revision": "T11-2026-10-28-D-gatt",
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
   "source_revision": "6f228fd3dcb9ce6da54d7910f4b044833e71a91a",
   "remaining_actions": 155,
   "offline_owned_actions": 90,
   "main_only_actions": 65,
-  "note": "历史155项分配截面不作为当前剩余计数；90项离线责任含成员82项及主线接回8项，65项原主线专属。当前状态以progress.json为准。",
+  "note": "历史155项分配截面不作为当前剩余计数；90项离线责任含成员80项及主线接回10项，65项原主线专属。当前状态以progress.json为准。",
   "actions": [
     {
       "id": "FWD-06",
@@ -1411,11 +1411,11 @@
     {
       "id": "BLE3-01",
       "title": "BlueZ GATT/广播适配",
-      "offline_owner": "member-d",
+      "offline_owner": "lead",
       "execution_owner": "lead",
       "scope": "offline_implementation",
-      "deliverable": "实现有限BlueZ D-Bus注册/撤销、连接生命周期和单会话预算。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "deliverable": "实现有限BlueZ D-Bus注册/撤销、连接生命周期和单会话预算。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。；2026-10-28 D-17～20主线交付实际GATT纯库/注册状态机/有限传输与失败矩阵，真实BlueZ/密码/Core授权/安装尚待，不等于完整BLE支持。",
+      "handoff": "docs/deliveries/member-d-sms.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
@@ -1441,11 +1441,11 @@
     {
       "id": "BLE3-04",
       "title": "恶意帧/断连/崩溃测试",
-      "offline_owner": "member-d",
+      "offline_owner": "lead",
       "execution_owner": "lead",
       "scope": "offline_implementation",
-      "deliverable": "覆盖帧洪泛、连接抢占、服务退出及BlueZ重启。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "deliverable": "覆盖帧洪泛、连接抢占、服务退出及BlueZ重启。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。；2026-10-28 D-17～20主线交付实际GATT纯库/注册状态机/有限传输与失败矩阵，真实BlueZ/密码/Core授权/安装尚待，不等于完整BLE支持。",
+      "handoff": "docs/deliveries/member-d-sms.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {

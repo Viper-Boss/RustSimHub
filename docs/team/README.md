@@ -1,5 +1,7 @@
 # RustSimHub 五人协作入口
 
+**最新：D-17～20 GATT离线库再交lead，累计20步；RedamancyGTW只剩D-21～26共6步，98+20=118。** 密码/Core恢复授权、服务安装与设备前置不因纯库通过而完成；以下较早计数为历史，详情见[逐批交付](../deliveries/member-d-sms.md)。
+
 当前2026-10-28灯控批次：D-01～16离线包已交lead，RedamancyGTW保留D-17～26共10步；四位102+主线16=118。LED-07/SEC-06整项仍待，归属不等于审核或设备通过。[交付结算](../deliveries/member-d-sms.md)优先于下文历史数量。
 2026-10-28调整：用户授权主线接手尚未开工的成员D范围。累计 D-01～D-12 离线包转到 lead（D-11持久身份方案仍为待审提案），RedamancyGTW 保留14步；118个步骤总量不变，四位当前持有106步、主线接回12步。原26步估时为历史预算。交付/审核/实机与完整去重各自记录，详情见[同一交付台账](../deliveries/member-d-sms.md)。以下2026-10-27计数为历史分配。
 
@@ -11,7 +13,7 @@
 | 成员A：[fungi1220](https://github.com/fungi1220) | NKN、密码会话、邮件及安全离线实现 | [A任务书](MEMBER-A-USAGE-STATS.md)，累计30步 | 无需设备 |
 | 成员B：wnfhsj | 网络、全部网页/PWA装配及测试/报告工具 | [B任务书](MEMBER-B-NETWORK-ACCOUNTING.md)，累计32步 | 无需设备 |
 | 成员C：[yh1030](https://github.com/yh1030) | NAS、系统更新恢复及发行证据 | [C任务书](MEMBER-C-NAS-COMPAT.md)，累计30步，离线已审6步 | 无需设备 |
-| [RedamancyGTW](https://github.com/RedamancyGTW)，成员D | 灯控输入、Core BLE恢复及远程媒体 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，当前10步；16步离线包已接回主线 | 无需设备 |
+| [RedamancyGTW](https://github.com/RedamancyGTW)，成员D | 灯控输入、Core BLE恢复及远程媒体 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，当前6步；20步离线包已接回主线 | 无需设备 |
 
 四名成员均使用自己的GitHub账号和Codex；不用共享负责人账号、Token、NAS地址或SSH材料。旧Claude任务包仅供历史参考，本目录是本轮明确分工。yh1030与wnfhsj的Write最终回读已生效；fungi1220和RedamancyGTW的Write邀请已就绪，等待本人接受。此前wnfhsj与RedamancyGTW的公开主页有404现象，不能据此判断账号不存在或确定风控原因。权限明细见[仓库访问状态](ACCESS.md)。
 

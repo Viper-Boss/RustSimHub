@@ -1,5 +1,22 @@
 # 通信观测工作包交付与主线接回台账
 
+## 当前结算 · 2026-10-28 GATT 离线库批次
+
+**D-17～20再由主线交付4步，累计lead接回D-01～20共20步；RedamancyGTW现余D-21～26共6步。四位成员98+lead20=118不变。** BLE3-01/04离线责任移lead，整项仍未闭环。D-21～26按原要求继续做，其他成员范围、实际作者和已审数量不动。[接线文档](../ble/gatt-adapter-integration.md)明确生产缺口。
+
+| 步骤 | 实际交付 | 验收边界 |
+|---|---|---|
+| D-17 | crates/ble的固定manifest/UUID、预算/帧类型、拥有型Send future端口，测试直接核对冻结JSON | 未改冻结接口JSON，无生产依赖；serde_json仅复用现有开发依赖 |
+| D-18 | 实际Lifecycle的注册/部分失败补偿/撤销/Release/epoch/连接代次、5秒截止及迟到清理 | 缺安全端口拒绝；无法证实清理保持unknown，不假装真实BlueZ已接入 |
+| D-19 | 实际Transport接生产分片/生命周期与注入SecurePort，cfg(test)外部端口验证洪泛、过期/迟到、通知确认丢失、同peer重连/旧owner/第二peer | 未实现密码握手/Core恢复权限；测试opaque回复不是认证；不自动重发Unknown |
+| D-20 | 38个真实Rust库测试、严格Clippy/fmt、固定向量/预算、外部夹具入口和主线接线报告 | 真实BlueZ/HCI/ARM/密码互操作/安装待验，BLE3-01/04不标done |
+
+最终代码截面见本批代码提交be02191；源码归档27678878ec04ca0efdcae203ba15083dcb1858223484bc5cc369b7ae637e81f6，日志990a51a6b4b34ec71ea5823394c687014403381797419f87254ec3fe0d5460ae。隔离Linux/Rust1.98、UID65534、无网络/设备：蓝牙38+独立灯控23、严格Clippy/fmt、Python进度23全部通过，后续20/6分工与当前PR HEAD验证另补。原Windows缺link.exe和两处早期测试lint失败均保留；不关闭lint，不伪称Windows原生编译通过。
+
+20/6分工、交付报告与看板生成后的最终归档 `31dcca7e8d1e0eff57781fb962d7f49edf4f168b74d2ccf33fe439656631b523`、日志 `67e8c9bb4a90d4bb89d8edb815adc3da3396b918bf9d71dc3f4d0e5a8c5b7359`：蓝牙38+灯控23、严格Clippy/fmt、进度Python23全部通过；Windows Node面板/唯一归属检查、生成一致性、冲突标记零与diff检查通过。后续仅补本段结果；精确代码SHA为 `be0219119add5517161a8429328b5c0d1740641d`。本批PR堆叠在D-13～16的PR #50（66bb456c7768d1790dd79e0432941e87c6ef4dc0），前置正常合入前不绕过其审核。
+
+本批没有Core/Auth/policy/wire/media生产接线或服务/UID/Root变更，不动Claude设备任务。D-11持久身份、LED提示代次与全部新增模块授权缺口继续保留。台账仍18/169、加权9.6%、余151，原P0–P7约80%；这些是交付分支截至合并3d7f848的截面，不是新增功能验收或当前Pages发布证明。以下灯控/短信批次为历史结算。
+
 ## 当前结算 · 2026-10-28 灯控输入批次
 
 新增接回 D-13～D-16，详见[真实输入边界与失败证据](../testing/led-input-boundaries.md)。D-13盘点实际策略/Core/Store与权限；D-14补公开策略和真实文件矩阵；D-15固定26向量对真实Store验证；D-16完成256项、严格Clippy/fmt、23进度检查及报告。复现并修复Core/灯控打开FIFO会在类型检查前阻塞；两个真实子进程反例失败后，最小加入O_NONBLOCK。没有新增依赖、灯色/节奏/权限/租约或产品路径。

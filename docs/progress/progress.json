@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-28T11:52:05.128948+00:00",
+  "updated_at": "2026-10-28T12:19:49.221302+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -5148,7 +5148,7 @@
   "team": {
     "schema": 1,
     "source_revision": "dfd11e9e75d7b532de5fcaeacbdb9fcd87e33215",
-    "generated_at": "2026-10-28T11:52:05.128948+00:00",
+    "generated_at": "2026-10-28T12:19:49.221302+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5157,7 +5157,7 @@
         "login": "Viper-Boss",
         "role": "项目负责人 · 接口/安全方案审核 / 真实部署 / 集成验收",
         "access": "现有主线维护；实际权限沿用仓库设置",
-        "package": "实际执行与集成审核；接回D-01～16离线包，完整通话持久去重及LED代次方案未实现",
+        "package": "实际执行与集成审核；接回D-01～20离线包；GATT库已交，生产密码/Core授权与设备验收仍待",
         "task_ids": [
           "UPD-01",
           "SMS-02",
@@ -5167,7 +5167,9 @@
           "SMS-06",
           "CALL-08",
           "LED-07",
-          "SEC-06"
+          "SEC-06",
+          "BLE3-01",
+          "BLE3-04"
         ],
         "step_ids": [
           "D-01",
@@ -5185,7 +5187,11 @@
           "D-13",
           "D-14",
           "D-15",
-          "D-16"
+          "D-16",
+          "D-17",
+          "D-18",
+          "D-19",
+          "D-20"
         ],
         "handoff": "docs/team/README.md",
         "state": "in_progress",
@@ -5203,7 +5209,7 @@
           "deleted": 2352
         },
         "work": {
-          "assigned_steps": 16,
+          "assigned_steps": 20,
           "accepted_steps": 0,
           "self_reported_hours": null,
           "reviews": [],
@@ -5694,10 +5700,8 @@
         "login": "RedamancyGTW",
         "role": "短信同步 / 对象换代 / 故障恢复 · 离线回归",
         "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
-        "package": "D-17～26 GATT/Core恢复授权/远程媒体；前16步离线包已由主线接回，D-26仍补跨模块SEC-06",
+        "package": "D-21～26 Core恢复授权/IPC/Wi-Fi/服务及远程媒体；前20步离线包主线接回，D-26仍补跨模块SEC-06",
         "task_ids": [
-          "BLE3-01",
-          "BLE3-04",
           "REMOTE-03",
           "REMOTE-05",
           "BLE2-01",
@@ -5708,10 +5712,6 @@
           "BLE3-03"
         ],
         "step_ids": [
-          "D-17",
-          "D-18",
-          "D-19",
-          "D-20",
           "D-21",
           "D-22",
           "D-23",
@@ -5738,7 +5738,7 @@
           "deleted": 0
         },
         "work": {
-          "assigned_steps": 10,
+          "assigned_steps": 6,
           "accepted_steps": 0,
           "self_reported_hours": null,
           "reviews": [],
@@ -5770,7 +5770,7 @@
       "sources": [
         {
           "path": "docs/team/README.md",
-          "sha256": "8fcf2c36bf1a3cb479512678a266bc2a0177bdd11eb2a9978bfc3d90f7d5bfec"
+          "sha256": "80e685c3cef463873275febb5bf60c2f2b01c4e678826dd077e9e37306647089"
         },
         {
           "path": "docs/team/MEMBER-A-USAGE-STATS.md",
@@ -5786,11 +5786,11 @@
         },
         {
           "path": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-          "sha256": "397206f2b0624e11316c78649396920d00fcaf5286f2e5b61bad625d7bfac405"
+          "sha256": "3828c7566fea5d341decd514ae34583ee65e7c008eb3445de0e3fbb3363006fe"
         },
         {
           "path": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-          "sha256": "b8b2ec466dd4c5fbe0e3fd28da5eea26f93a0d03a614e79e4cb8ac8028a0912c"
+          "sha256": "c4c32b1155dcce84c9c76d89a29ba15092dc9a50dca242676069b95c20a4efb7"
         }
       ],
       "members": [
@@ -5803,7 +5803,7 @@
               "work": "1. 阅读storage收件/删除恢复及Core observer的实际入口和既有测试，画出source路径、记录ID、line epoch、事件游标关系。\n2. 给每个拟修问题建立最小输入序列和期望结果，先证明缺陷或说明是已有行为补验。\n3. 固定原则：收到相同事件不重复副作用，失败不推进成功游标，旧代次不能污染新SIM。\n4. 不把短信正文/号码相同当作物理同一短信；不能为方便测试关闭身份/线路隔离。",
               "acceptance": "",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 24,
+              "line": 26,
               "batch": "第一批：事件同步和对象生命周期（D-01～D-04）",
               "task_ids": [
                 "SMS-02"
@@ -5816,7 +5816,7 @@
               "work": "1. 覆盖过旧游标、分页边界、重复/乱序/丢事件、列表读取失败和恢复连接。\n2. 读取/消费/持久化失败后不丢项、不提前推进游标；重读保持原稳定ID。\n3. 删除/恢复/已读事件追赶不能使旧记录复活或把新记录误删。\n4. 使用真实Store/observer模块多步执行，保存数据库再重开验证；不能只比较手写期望JSON。",
               "acceptance": "",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 31,
+              "line": 33,
               "batch": "第一批：事件同步和对象生命周期（D-01～D-04）",
               "task_ids": [
                 "SMS-02"
@@ -5829,7 +5829,7 @@
               "work": "1. 覆盖同一路径复用、对象销毁重建、重连、信号丢失、大于旧批次上限的列表以及轮询/信号竞争。\n2. 切换SIM/line后，旧异步读取完成不得写入新代次；后端不可用不等于删除本地已确认短信。\n3. SIM满、读失败和部分列表不能伪装成完整空收件箱；保留恢复后的可查询证据。\n4. 用已有本地模拟源注入错误，不运行真实ModemManager/nmcli或连接系统D-Bus。",
               "acceptance": "",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 38,
+              "line": 40,
               "batch": "第一批：事件同步和对象生命周期（D-01～D-04）",
               "task_ids": [
                 "SMS-04"
@@ -5842,7 +5842,7 @@
               "work": "1. 运行storage与Core的针对性测试、fmt、相应严格Clippy；能运行workspace回归再记录，不把未运行写通过。\n2. 报告每个输入序列、真实状态/事件数量、修复前后差异和原数据保持结果。\n3. 交付小PR和完整40位HEAD，区分“发现并修正缺陷”与“既有行为已复核”。不改SMS台账为done。",
               "acceptance": "",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 45,
+              "line": 47,
               "batch": "第一批：事件同步和对象生命周期（D-01～D-04）",
               "task_ids": [],
               "status": "not_accepted"
@@ -5853,7 +5853,7 @@
               "work": "1. 中文、emoji、组合字符、长文本、分段不完整、空正文、二进制、极限长度和超限。\n2. 检查字节/字符限制和截断标记；无效或未完整内容不冒充完整正文，不崩溃。\n3. 如果现有后端已由ModemManager解码，不另造PDU解码器；列出尚未暴露的原始PDU边界作为主线缺口。\n4. 夹具正文可公开、明确合成；错误消息/报告不得输出真实通信数据。",
               "acceptance": "",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 53,
+              "line": 55,
               "batch": "第二批：内容、重复候选和提交恢复（D-05～D-08）",
               "task_ids": [
                 "SMS-03"
@@ -5866,7 +5866,7 @@
               "work": "1. 同号码/正文/时间但不同稳定ID仍保留；缺乏可证明来源时标候选，不自动合并。\n2. 对象重观察与恢复后再次观察不反复增加相同副作用；旧候选与当前记录可分别查询。\n3. 删除/恢复保持当前ID，旧记录只读，不改变候选对方；重开后标记与权限一致。\n4. 本批不改网页；有交互缺口写具体需求给主线，避免和其他人的前端工作冲突。",
               "acceptance": "",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 60,
+              "line": 62,
               "batch": "第二批：内容、重复候选和提交恢复（D-05～D-08）",
               "task_ids": [
                 "SMS-05"
@@ -5879,7 +5879,7 @@
               "work": "1. 在现有prepare/提交/确认各边界注入保存失败、退出、数据库事务失败、超时/回复丢失。\n2. 验证一个操作最多一个实际发送尝试；Unknown只查询原ID，不自动新建幂等键或重发。\n3. 重启/恢复不能让旧prepared重新成为发送任务，也不能丢弃已有发送回执。\n4. 模拟发送器统计调用次数，不调用真实MM发送；若发现生产修改涉及跨模块接口，先交复现和最小提案，不扩大修改范围。",
               "acceptance": "",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 67,
+              "line": 69,
               "batch": "第二批：内容、重复候选和提交恢复（D-05～D-08）",
               "task_ids": [
                 "SMS-06"
@@ -5892,7 +5892,7 @@
               "work": "1. `cargo test -p rustsimhub-storage --locked`，Core中实际受影响测试、fmt和对应Clippy；记录完整命令/退出码。\n2. 将矩阵按“新增测试/修复/已有行为/未实现/未运行”分类，给出逐HEAD报告。\n3. 写实机补验清单：新发送授权、双端同步、真实对象/信号、换卡和冷启动；不要求自己获取设备。\n4. 全局进度、签名构建和设备部署由主线审核后处理，不以离线测试宣称运营商短信、真实SIM存储满或冷启动通过。",
               "acceptance": "",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 74,
+              "line": 76,
               "batch": "第二批：内容、重复候选和提交恢复（D-05～D-08）",
               "task_ids": [],
               "status": "not_accepted"
@@ -5903,7 +5903,7 @@
               "work": "阅读实际CallObservation/来源映射/终止状态/observer重连与Store重开；建立可证明的对象代次和身份图，给最小复现序列",
               "acceptance": "分清同一对象重观察、同路径新对象、后台实例更换与真正新通话；禁止按号码/正文/时间近似猜合并",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 91,
+              "line": 93,
               "batch": "第三批PR：D-09～12 / CALL-08",
               "task_ids": [],
               "status": "not_accepted"
@@ -5914,7 +5914,7 @@
               "work": "用真实Store和已有模拟observer验证重复终止事件、乱序、路径复用、后端重启、换SIM、列表失败、并发和多次重开",
               "acceptance": "同一可靠身份不反复增加假活动行/副作用；同号码的真实不同通话保持独立，历史/事件/游标数量可核验",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 92,
+              "line": 94,
               "batch": "第三批PR：D-09～12 / CALL-08",
               "task_ids": [],
               "status": "not_accepted"
@@ -5925,7 +5925,7 @@
               "work": "只修复已证实的最小缺陷并补“修正前失败、修正后通过”；说明持久映射和Unknown/终态语义",
               "acceptance": "不改拨号/接听/挂断、媒体、权限、租约、schema或幂等键；若缺少持久证据必须改schema，先交设计/迁移提案，不假装在无证据时完成去重",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 93,
+              "line": 95,
               "batch": "第三批PR：D-09～12 / CALL-08",
               "task_ids": [],
               "status": "not_accepted"
@@ -5936,7 +5936,7 @@
               "work": "提交第三批PR：cargo test -p rustsimhub-storage --locked、受影响Core检查、严格Clippy/fmt及真实临时数据库重开证据",
               "acceptance": "保留未运行实机项和跨模块提案；主线再核对真实MM对象、冷启动与通话行为，不由成员拨号或修改设备",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 94,
+              "line": 96,
               "batch": "第三批PR：D-09～12 / CALL-08",
               "task_ids": [],
               "status": "not_accepted"
@@ -5947,7 +5947,7 @@
               "work": "对照真实status-led策略、Core状态输入、storage indicator映射和系统单元，列固定路径/UID/租约/标记生命周期及SIM隔离的源码证据",
               "acceptance": "不修改用户已确认的颜色、优先级、跑马灯次序与低频闪烁预算；实际sysfs/UID/硬件仍列主线待验",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 124,
+              "line": 126,
               "batch": "RedamancyGTW · D-13～16 · 灯控与通信输入失败矩阵",
               "task_ids": [
                 "LED-07"
@@ -5960,7 +5960,7 @@
               "work": "直接调用真实策略/已有Store接口，使用临时文件与可控时间测试旧代次、过期/超远期租约、损坏输入、切换配置/升级/未读状态；有现成文件适配器才复用假sysfs目录",
               "acceptance": "过期/旧SIM不能作为当前配置或新未读生效；不读取真实sysfs/设备节点，不另写一套灯控实现替代被测代码。不支持目录注入时交缺口，不开放任意sysfs路径",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 125,
+              "line": 127,
               "batch": "RedamancyGTW · D-13～16 · 灯控与通信输入失败矩阵",
               "task_ids": [
                 "LED-07"
@@ -5973,7 +5973,7 @@
               "work": "在真实公开解析/存储入口上运行有限、可重放的合成边界语料：UTF-8、空/超长/二进制字段、非法枚举/数字、截断及重复/乱序事件；固定种子、次数与资源预算",
               "acceptance": "无新依赖的确定性测试优先；不新增PDU解析器、生产HTTP/IPC入口或schema。拒绝不推进游标、不产生发送/拨号副作用。无法到达的内部入口先交最小测试接入提案",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 126,
+              "line": 128,
               "batch": "RedamancyGTW · D-13～16 · 灯控与通信输入失败矩阵",
               "task_ids": [],
               "status": "not_accepted"
@@ -5984,9 +5984,65 @@
               "work": "跑`cargo test -p rustsimhub-status-led --locked`、storage/受影响Core针对性测试、严格Clippy/fmt，记录最小失败输入、次数和环境；提交修复提案",
               "acceptance": "本T4只补测试/审计和最小cfg(test)接入，不改灯控策略、鉴权、限额、控制/媒体或生产解析语义。发现真实缺陷由主线另行修正；真实灯效和完整SEC-06仍未验收",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 127,
+              "line": 129,
               "batch": "RedamancyGTW · D-13～16 · 灯控与通信输入失败矩阵",
               "task_ids": [],
+              "status": "not_accepted"
+            },
+            {
+              "id": "D-17",
+              "title": "按II建立固定对象/UUID、帧/预算类型与端口",
+              "work": "按II建立固定对象/UUID、帧/预算类型与端口",
+              "acceptance": "BLE3-01/04离线部分。先交当前D包；只实现可复用库与注入后端，缺安全端口默认拒绝。真实BlueZ绑定、Core IPC、密码协议、服务UID/Root安装与BLE3-02/03保持主线",
+              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
+              "line": 232,
+              "batch": "T5 · RedamancyGTW接口离线包",
+              "task_ids": [
+                "BLE3-01",
+                "BLE3-04"
+              ],
+              "status": "not_accepted"
+            },
+            {
+              "id": "D-18",
+              "title": "实际注册/撤销/Release/epoch状态机",
+              "work": "实际注册/撤销/Release/epoch状态机",
+              "acceptance": "BLE3-01/04离线部分。先交当前D包；只实现可复用库与注入后端，缺安全端口默认拒绝。真实BlueZ绑定、Core IPC、密码协议、服务UID/Root安装与BLE3-02/03保持主线",
+              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
+              "line": 232,
+              "batch": "T5 · RedamancyGTW接口离线包",
+              "task_ids": [
+                "BLE3-01",
+                "BLE3-04"
+              ],
+              "status": "not_accepted"
+            },
+            {
+              "id": "D-19",
+              "title": "借助Mock BlueZ与测试SecurePort验证广播部分失败、第二peer、乱序/洪泛/断连/重启/晚到注册",
+              "work": "借助Mock BlueZ与测试SecurePort验证广播部分失败、第二peer、乱序/洪泛/断连/重启/晚到注册",
+              "acceptance": "BLE3-01/04离线部分。先交当前D包；只实现可复用库与注入后端，缺安全端口默认拒绝。真实BlueZ绑定、Core IPC、密码协议、服务UID/Root安装与BLE3-02/03保持主线",
+              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
+              "line": 232,
+              "batch": "T5 · RedamancyGTW接口离线包",
+              "task_ids": [
+                "BLE3-01",
+                "BLE3-04"
+              ],
+              "status": "not_accepted"
+            },
+            {
+              "id": "D-20",
+              "title": "真实库/帧向量/资源上限测试和主线接线交付",
+              "work": "真实库/帧向量/资源上限测试和主线接线交付",
+              "acceptance": "BLE3-01/04离线部分。先交当前D包；只实现可复用库与注入后端，缺安全端口默认拒绝。真实BlueZ绑定、Core IPC、密码协议、服务UID/Root安装与BLE3-02/03保持主线",
+              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
+              "line": 232,
+              "batch": "T5 · RedamancyGTW接口离线包",
+              "task_ids": [
+                "BLE3-01",
+                "BLE3-04"
+              ],
               "status": "not_accepted"
             }
           ]
@@ -6176,7 +6232,7 @@
               "work": "按固定SHA只读盘点HTTP、IPC、媒体、文件写入及固定Root动作；逐入口记录源码位置、调用者、scope、身份/线路绑定、期限、输入上限和撤销路径",
               "acceptance": "已实现/计划/未知分开；每条结论有实际符号/位置。Core、Root、GATT授权设计只提出缺口，不修改",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 85,
+              "line": 87,
               "batch": "fungi1220 · A-17～20 · 权限清单与公开产物扫描",
               "task_ids": [
                 "SEC-01"
@@ -6189,7 +6245,7 @@
               "work": "新增只读扫描工具，默认只输出计划；显式扫描Git已跟踪的公开文本白名单或隔离合成发行目录；限制文件/总量/时间，拒绝越界路径、链接及特殊文件",
               "acceptance": "使用有限规则识别私钥块、Wi-Fi口令字段、令牌和疑似个人通信字段；输出规则ID/相对位置/统计，不回显命中原文或值；无上传、联网、自动修复/删除",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 86,
+              "line": 88,
               "batch": "fungi1220 · A-17～20 · 权限清单与公开产物扫描",
               "task_ids": [
                 "SEC-04"
@@ -6202,7 +6258,7 @@
               "work": "正例使用明显标记的合成秘密，反例覆盖公开公钥/摘要/示例字段；覆盖超限、无效编码、未知二进制、重复路径和读取失败",
               "acceptance": "错误/跳过不显示“全部干净”；退出状态区分通过/发现/未完成；支持按规则说明误报，不能直接全局忽略凭据类别。扫描通过不等于已证明制品无任何秘密",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 87,
+              "line": 89,
               "batch": "fungi1220 · A-17～20 · 权限清单与公开产物扫描",
               "task_ids": [
                 "SEC-04"
@@ -6215,7 +6271,7 @@
               "work": "提交权限表、扫描脚本/测试、合成报告与CI接入建议；执行真实脚本和测试，附公开输入清单与输出脱敏证明",
               "acceptance": "不修改Actions或生产打包器；主线决定正式发行白名单、真实私有制品审查和修复。SEC-01/04全局仍待主线审核",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 88,
+              "line": 90,
               "batch": "fungi1220 · A-17～20 · 权限清单与公开产物扫描",
               "task_ids": [],
               "status": "not_accepted"
@@ -6226,7 +6282,7 @@
               "work": "按III盘点真实引擎可提供字段",
               "acceptance": "NKN-07离线部分。等待A-13～16引擎接口获审后修改引擎输出；无法提供的字段不造值。主线负责Core读取鉴权、实际网络及控制开关",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 227,
+              "line": 229,
               "batch": "T5 · fungi1220接口离线包",
               "task_ids": [
                 "NKN-07"
@@ -6239,7 +6295,7 @@
               "work": "实现只读DTO/未知字段映射",
               "acceptance": "NKN-07离线部分。等待A-13～16引擎接口获审后修改引擎输出；无法提供的字段不造值。主线负责Core读取鉴权、实际网络及控制开关",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 227,
+              "line": 229,
               "batch": "T5 · fungi1220接口离线包",
               "task_ids": [
                 "NKN-07"
@@ -6252,7 +6308,7 @@
               "work": "独立状态展示组件及u64/陈旧/乱序/取消测试",
               "acceptance": "NKN-07离线部分。等待A-13～16引擎接口获审后修改引擎输出；无法提供的字段不造值。主线负责Core读取鉴权、实际网络及控制开关",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 227,
+              "line": 229,
               "batch": "T5 · fungi1220接口离线包",
               "task_ids": [
                 "NKN-07"
@@ -6265,7 +6321,7 @@
               "work": "交实际组件、本地浏览器与主线接线报告",
               "acceptance": "NKN-07离线部分。等待A-13～16引擎接口获审后修改引擎输出；无法提供的字段不造值。主线负责Core读取鉴权、实际网络及控制开关",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 227,
+              "line": 229,
               "batch": "T5 · fungi1220接口离线包",
               "task_ids": [
                 "NKN-07"
@@ -6278,7 +6334,7 @@
               "work": "NKN-03/04：基于已有最小引擎，完成固定Root策略端口、低权监督、开关/资源所有权及退出/重连预算库；注入Mock Root/引擎，覆盖部分启动、停止超时、旧epoch迟到、引用释放",
               "acceptance": "真正运行生产监督代码，不用mock状态机自证；真实路由/Root激活和实际cgroup由主线核验",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 294,
+              "line": 296,
               "batch": "3. fungi1220 · A-25～30 · 引擎、安全会话与邮件",
               "task_ids": [
                 "NKN-03",
@@ -6292,7 +6348,7 @@
               "work": "NKN-05/06、REMOTE-01：明确发现/信令/媒体分层，复用成员证明，有限设备服务路由与撤销/重放/默认拒绝；先交字段/签名域/状态与允许服务的接口PR",
               "acceptance": "不产生第二Owner或任意LAN出口。Core权限桥由D实现；A交真实协议/路由策略库及模拟端口测试，主线批准后接线",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 295,
+              "line": 297,
               "batch": "3. fungi1220 · A-25～30 · 引擎、安全会话与邮件",
               "task_ids": [
                 "NKN-05",
@@ -6307,7 +6363,7 @@
               "work": "BLE1-01～04：T5帧预算保持，提交标准安全会话/依赖/密钥域/设备pin及transcript提案；获审后实现Rust与浏览器加解密/互操作、错误pin/撤销/重放/旧会话向量",
               "acceptance": "明确安全套件尚未获审时不能写成已冻结；不用假签名、固定钥匙或自造加密算法。生产绑定由D在真实Core grant下使用，不是前端自报认证",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 296,
+              "line": 298,
               "batch": "3. fungi1220 · A-25～30 · 引擎、安全会话与邮件",
               "task_ids": [
                 "BLE1-01",
@@ -6323,7 +6379,7 @@
               "work": "SEC-02/03/07：扩展既有权限清单至Auth/realm/SIM/重放/撤销失败矩阵及Root单元静态检查；复核实际UID/能力/地址族/路径/polkit/credential约束，给出逐SHA缺陷和最小复现",
               "acceptance": "可用真实Core开发夹具/临时IPC测试拒绝路径；主线负责受限Root实测及最终安全结论。生产缺陷按文件负责人修复，不跨包抢改",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 297,
+              "line": 299,
               "batch": "3. fungi1220 · A-25～30 · 引擎、安全会话与邮件",
               "task_ids": [
                 "SEC-02",
@@ -6338,7 +6394,7 @@
               "work": "FWD-09：按EmailSenderV1实现SMTP/TLS、有限配置及真实本机TLS邮件服务夹具，覆盖拒绝、认证失败、DATA前/后断线、超时和关闭",
               "acceptance": "不发真实邮件、不放松Fence/固定出口/证书检查；配置/queue版本/新依赖的兼容PR先获审。发布支持仍等获准邮箱实测",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 298,
+              "line": 300,
               "batch": "3. fungi1220 · A-25～30 · 引擎、安全会话与邮件",
               "task_ids": [
                 "FWD-09"
@@ -6351,7 +6407,7 @@
               "work": "NKN-10/11：提交可复现引擎/会话/Root策略材料、来源许可、有限开关/远程流程文档及故障回选接口说明，完成本包真实回归和交接",
               "acceptance": "C组装候选，主线持钥签名/安装/外网验收；不能另设无签名更新器或用Go代码冒充Rust",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 299,
+              "line": 301,
               "batch": "3. fungi1220 · A-25～30 · 引擎、安全会话与邮件",
               "task_ids": [
                 "NKN-10",
@@ -6548,7 +6604,7 @@
               "work": "对照phone、sms-management、forwarding、ap-wifi、session的真实结果，列出prepare/提交/确认/Unknown/归档矩阵；区分登录过期、权限拒绝与设备未确认",
               "acceptance": "保留原操作ID及提交标记；查询、刷新、渲染和登录均不会产生提交。现有IndexedDB防重语义保持",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 98,
+              "line": 100,
               "batch": "wnfhsj · B-17～20 · 回执与配置状态组件",
               "task_ids": [
                 "WEB-02"
@@ -6561,7 +6617,7 @@
               "work": "新增独立`operation-receipt.js`显示组件，输入为有限快照与显式callbacks；区分仅查询、已证实可归档、等待确认和操作完成",
               "acceptance": "组件只渲染文本/发送显式用户动作回调；无设备访问/网络轮询/私有存储。Unknown不能自动归档、重拨、重发或改幂等键；主线业务模块继续决定允许动作",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 99,
+              "line": 101,
               "batch": "wnfhsj · B-17～20 · 回执与配置状态组件",
               "task_ids": [
                 "WEB-02"
@@ -6574,7 +6630,7 @@
               "work": "新增独立`configuration-state.js`，展示保存意图、设备已保存、服务启动/停止确认与陈旧/未知状态；用真实组件覆盖超时、退出、旧代次迟到回复、乱序及重新登录",
               "acceptance": "“保存成功”不冒充进程运行；无有效新鲜证据保持未知。凭据不进入DOM/报告；与B-10共享的组件接线必须串行，不能各自覆盖测试中心",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 100,
+              "line": 102,
               "batch": "wnfhsj · B-17～20 · 回执与配置状态组件",
               "task_ids": [
                 "WEB-06"
@@ -6587,7 +6643,7 @@
               "work": "Node实际模块测试＋真实浏览器本地合成页1440/390/320、键盘和长错误提示；提交最小接线说明",
               "acceptance": "测试必须加载交付的组件；模拟仅限外部callbacks。主线装配app.js/HTML/静态路由并进行真实设备确认；WEB-02/06不由成员标完成",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 101,
+              "line": 103,
               "batch": "wnfhsj · B-17～20 · 回执与配置状态组件",
               "task_ids": [],
               "status": "not_accepted"
@@ -6598,7 +6654,7 @@
               "work": "实现注入式RecoveryClientV1控制器和点击选择",
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 228,
+              "line": 230,
               "batch": "T5 · wnfhsj接口离线包",
               "task_ids": [
                 "BLE4-01",
@@ -6614,7 +6670,7 @@
               "work": "pin/未预绑定/撤销/缺provider页面",
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 228,
+              "line": 230,
               "batch": "T5 · wnfhsj接口离线包",
               "task_ids": [
                 "BLE4-01",
@@ -6630,7 +6686,7 @@
               "work": "有限试连与明确保存/取消",
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 228,
+              "line": 230,
               "batch": "T5 · wnfhsj接口离线包",
               "task_ids": [
                 "BLE4-01",
@@ -6646,7 +6702,7 @@
               "work": "真实CAS记录、丢回复及刷新只查询",
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 228,
+              "line": 230,
               "batch": "T5 · wnfhsj接口离线包",
               "task_ids": [
                 "BLE4-01",
@@ -6662,7 +6718,7 @@
               "work": "静态PWA允许清单",
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 228,
+              "line": 230,
               "batch": "T5 · wnfhsj接口离线包",
               "task_ids": [
                 "BLE4-01",
@@ -6678,7 +6734,7 @@
               "work": "离线/缓存升级与未确认操作保护",
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 228,
+              "line": 230,
               "batch": "T5 · wnfhsj接口离线包",
               "task_ids": [
                 "BLE4-01",
@@ -6694,7 +6750,7 @@
               "work": "实际模块＋模拟端口/分片向量及1440/390/320/键盘测试",
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 228,
+              "line": 230,
               "batch": "T5 · wnfhsj接口离线包",
               "task_ids": [
                 "BLE4-01",
@@ -6710,7 +6766,7 @@
               "work": "交四项映射和生产接线缺口",
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 228,
+              "line": 230,
               "batch": "T5 · wnfhsj接口离线包",
               "task_ids": [
                 "BLE4-01",
@@ -6726,7 +6782,7 @@
               "work": "WEB-03/07、STAT-09：接独立组件到现有日常网页，完成手机/长中文/回收站/键盘与无障碍；增加窗口/更新时间/未知/关闭语义的统计展示",
               "acceptance": "状态来自A的实际DTO/注入接口，按钮调用已授权现有业务控制器；不另造登录、Owner、提交队列或用渲染触发请求。真实Android/第二端及关闭无PID由主线验收",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 307,
+              "line": 309,
               "batch": "4. wnfhsj · B-29～32 · 网页装配、PWA材料和报告",
               "task_ids": [
                 "STAT-09",
@@ -6741,7 +6797,7 @@
               "work": "AP-12、REMOTE-07：为配网/远程整理可复制脱敏诊断、地址/pin/证书交付指引；接入明确的状态/禁止原因及只查询操作核对",
               "acceptance": "不把HTTPS浏览器提示等同业务离线，不返回任意跳转/控制命令；手册只引用已验证支持，生产事实由主线提供",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 308,
+              "line": 310,
               "batch": "4. wnfhsj · B-29～32 · 网页装配、PWA材料和报告",
               "task_ids": [
                 "AP-12",
@@ -6755,7 +6811,7 @@
               "work": "BLE5-01/03：实现/configurator/相对构建、严格静态产物清单、根看板共存及离线/更新说明；提交统一Pages流程的最小改动和合成产物泄露反例",
               "acceptance": "不新建覆盖根站点的第二发布流；不上传整个仓库/私有目录、Mock或密钥。主线审核合并后执行真实部署与HTTPS字节复核，BLE5-02仍主线",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 309,
+              "line": 311,
               "batch": "4. wnfhsj · B-29～32 · 网页装配、PWA材料和报告",
               "task_ids": [
                 "BLE5-01",
@@ -6769,7 +6825,7 @@
               "work": "STAB-06：将本人性能工具输出转换为有来源/样本/阈值提案的比较和发布报告；覆盖缺样本、异常、旧SHA、单位错误和短样本不外推",
               "acceptance": "真实棒子样本/旧新等功能测量由主线采集；未获批准预算和缺测量不填达标。提交实际浏览器/Node回归、接线差异及未验收项",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 310,
+              "line": 312,
               "batch": "4. wnfhsj · B-29～32 · 网页装配、PWA材料和报告",
               "task_ids": [
                 "STAB-06"
@@ -6976,7 +7032,7 @@
               "work": "对照`firmware/base-system.lock.json`、`board.toml`、内核公开锁定资料及既有verify-kernel-source-tree/verify-audio-boot-recipe脚本，建立版本和来源清单",
               "acceptance": "复用已有锁定事实，不另造相冲突的manifest；分别列kernel release/来源提交、DTB板型、模块vermagic/依赖、固件许可/摘要，缺失值不猜测",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 111,
+              "line": 113,
               "batch": "yh1030 · C-17～20 · 内核/DTB/模块/固件一致性",
               "task_ids": [
                 "UPD-07"
@@ -6989,7 +7045,7 @@
               "work": "新增离线只读一致性检查器，默认只列计划；只读取显式传入的公开/合成manifest及隔离制品目录，不执行被检查的程序或脚本",
               "acceptance": "摘要、架构、板型、release、必需文件和声明的模块依赖逐项核对；限量/路径/链接/重复条目/未知版本失败明确；报告仅含允许公开的制品事实",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 112,
+              "line": 114,
               "batch": "yh1030 · C-17～20 · 内核/DTB/模块/固件一致性",
               "task_ids": [
                 "UPD-07"
@@ -7002,7 +7058,7 @@
               "work": "合成匹配和混版样本，覆盖错板DTB、缺模块/固件、摘要变化、冲突release/vermagic、损坏ELF/元数据及清单不完整；复用已有校验模块",
               "acceptance": "断言真实检查器的通过/拒绝/未核验结果；不能只比较手写JSON，也不能用任意合成哈希声称681原装模块或真实boot已匹配",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 113,
+              "line": 115,
               "batch": "yh1030 · C-17～20 · 内核/DTB/模块/固件一致性",
               "task_ids": [
                 "UPD-07"
@@ -7015,7 +7071,7 @@
               "work": "提交检查器、合成样本、输入格式、执行结果及主线补验清单，说明公开锁定事实与真实制品证据的区别",
               "acceptance": "不写镜像/分区、修改boot/DTB/驱动/NV，不加载模块、不签名；主线取得实际制品后再完成重建、签名及实机验收",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 114,
+              "line": 116,
               "batch": "yh1030 · C-17～20 · 内核/DTB/模块/固件一致性",
               "task_ids": [],
               "status": "not_accepted"
@@ -7026,7 +7082,7 @@
               "work": "对照IV列已有覆盖和10类case",
               "acceptance": "AP-04离线部分。依赖实际公开trait已存在，可在当前历史PR获审后与恢复/制品包串行。Root实际失败/SSID/DHCP/物理回退仍归主线；原AP-03完整实机前置保持",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 229,
+              "line": 231,
               "batch": "T5 · yh1030接口离线包",
               "task_ids": [
                 "AP-04"
@@ -7039,7 +7095,7 @@
               "work": "真实station_trial::run错误/取消/restore矩阵",
               "acceptance": "AP-04离线部分。依赖实际公开trait已存在，可在当前历史PR获审后与恢复/制品包串行。Root实际失败/SSID/DHCP/物理回退仍归主线；原AP-03完整实机前置保持",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 229,
+              "line": 231,
               "batch": "T5 · yh1030接口离线包",
               "task_ids": [
                 "AP-04"
@@ -7052,7 +7108,7 @@
               "work": "真实station_commit::run部分保存/audit/撤销/迟到结果矩阵",
               "acceptance": "AP-04离线部分。依赖实际公开trait已存在，可在当前历史PR获审后与恢复/制品包串行。Root实际失败/SSID/DHCP/物理回退仍归主线；原AP-03完整实机前置保持",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 229,
+              "line": 231,
               "batch": "T5 · yh1030接口离线包",
               "task_ids": [
                 "AP-04"
@@ -7065,7 +7121,7 @@
               "work": "实际测试、调用序列、失败最小样本和设备补验交付",
               "acceptance": "AP-04离线部分。依赖实际公开trait已存在，可在当前历史PR获审后与恢复/制品包串行。Root实际失败/SSID/DHCP/物理回退仍归主线；原AP-03完整实机前置保持",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 229,
+              "line": 231,
               "batch": "T5 · yh1030接口离线包",
               "task_ids": [
                 "AP-04"
@@ -7078,7 +7134,7 @@
               "work": "UPD-02/03：消费主线已收口UPD-01契约，做固定Root材料计划/验证、干净rootfs组合与可复现产物检查；合成密钥/隔离输出覆盖错误版本、任意路径、错hash/权限和中断",
               "acceptance": "**UPD-01当前U4未提交区域禁止抢改**，等主线提交接口后才接该实现。不能用设备当前Owner/短信/Wi-Fi口令制镜像，不能生产签名/安装/choose",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 318,
+              "line": 320,
               "batch": "5. yh1030 · C-25～30 · 系统材料、NAS与发行证据",
               "task_ids": [
                 "UPD-02",
@@ -7092,7 +7148,7 @@
               "work": "UPD-05：在真实更新器基础上实现精确候选健康评估库/证据验证与接口接线提案，覆盖进程存活但Core/Root/data不匹配、旧来源、伪造/过期回执",
               "acceptance": "不把输入JSON自报healthy当确认授权；实际confirm调用和Root可信证据来源由主线接纳。保留fallback与数据兼容，不能靠清floor/预算通过",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 319,
+              "line": 321,
               "batch": "5. yh1030 · C-25～30 · 系统材料、NAS与发行证据",
               "task_ids": [
                 "UPD-05"
@@ -7105,7 +7161,7 @@
               "work": "UPD-08：基于本人UPD-07清单完善匹配的内核/DTB/模块/外部initramfs离线构建材料及重建/静态校验工具",
               "acceptance": "无设备只交构建/格式/来源证据；不执行真实启动/分区写入。实际boot和恢复路径仍主线验证",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 320,
+              "line": 322,
               "batch": "5. yh1030 · C-25～30 · 系统材料、NAS与发行证据",
               "task_ids": [
                 "UPD-08"
@@ -7118,7 +7174,7 @@
               "work": "NAS-03/04：用独立正常控制客户端会话实现NasControlClientV1和NasAudioPortV1，保留旧NAS只读桥；核对已知旧源码版本，模拟真实Core服务验证操作/租约与音频转换",
               "acceptance": "LegacyRead/Nas身份不得自动获得控制权限；不复制Owner私钥、不直接拨号或接PCM硬件。无法获得固定旧页面源码时明示缺口，不伪造兼容；真实NAS/两端听音由主线验收",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 321,
+              "line": 323,
               "batch": "5. yh1030 · C-25～30 · 系统材料、NAS与发行证据",
               "task_ids": [
                 "NAS-03",
@@ -7132,7 +7188,7 @@
               "work": "FWD-22、UPD-10、REC-05、REL-01/04、BLE0-01/02/04、BLE6-04：给出固定来源/支持事实/缺口的证据索引与校验器、公开能力矩阵、只读硬件计划及安装/回退/使用文档",
               "acceptance": "复用已分配REL-05手册，不重复造文档。缺真实HCI/RF/恢复/OTA证据保持未知或不支持；校验器拒绝错SHA/漏项，不能代替负责人最终签认REL-06",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 322,
+              "line": 324,
               "batch": "5. yh1030 · C-25～30 · 系统材料、NAS与发行证据",
               "task_ids": [
                 "BLE0-01",
@@ -7153,7 +7209,7 @@
               "work": "REMOTE-02：提供测试中继/TURN/DNS/证书的有限私有模板、预算/停机/清理计划与离线校验；合并本包失败矩阵和来源许可",
               "acceptance": "不连接实际服务器，不在仓库放账号/证书私钥或自动开端口。真实资源由主线配置与验收，实际部署不算成员已做",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 323,
+              "line": 325,
               "batch": "5. yh1030 · C-25～30 · 系统材料、NAS与发行证据",
               "task_ids": [
                 "REMOTE-02"
@@ -7166,68 +7222,12 @@
           "member_id": "member-d",
           "steps": [
             {
-              "id": "D-17",
-              "title": "按II建立固定对象/UUID、帧/预算类型与端口",
-              "work": "按II建立固定对象/UUID、帧/预算类型与端口",
-              "acceptance": "BLE3-01/04离线部分。先交当前D包；只实现可复用库与注入后端，缺安全端口默认拒绝。真实BlueZ绑定、Core IPC、密码协议、服务UID/Root安装与BLE3-02/03保持主线",
-              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 230,
-              "batch": "T5 · RedamancyGTW接口离线包",
-              "task_ids": [
-                "BLE3-01",
-                "BLE3-04"
-              ],
-              "status": "not_accepted"
-            },
-            {
-              "id": "D-18",
-              "title": "实际注册/撤销/Release/epoch状态机",
-              "work": "实际注册/撤销/Release/epoch状态机",
-              "acceptance": "BLE3-01/04离线部分。先交当前D包；只实现可复用库与注入后端，缺安全端口默认拒绝。真实BlueZ绑定、Core IPC、密码协议、服务UID/Root安装与BLE3-02/03保持主线",
-              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 230,
-              "batch": "T5 · RedamancyGTW接口离线包",
-              "task_ids": [
-                "BLE3-01",
-                "BLE3-04"
-              ],
-              "status": "not_accepted"
-            },
-            {
-              "id": "D-19",
-              "title": "借助Mock BlueZ与测试SecurePort验证广播部分失败、第二peer、乱序/洪泛/断连/重启/晚到注册",
-              "work": "借助Mock BlueZ与测试SecurePort验证广播部分失败、第二peer、乱序/洪泛/断连/重启/晚到注册",
-              "acceptance": "BLE3-01/04离线部分。先交当前D包；只实现可复用库与注入后端，缺安全端口默认拒绝。真实BlueZ绑定、Core IPC、密码协议、服务UID/Root安装与BLE3-02/03保持主线",
-              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 230,
-              "batch": "T5 · RedamancyGTW接口离线包",
-              "task_ids": [
-                "BLE3-01",
-                "BLE3-04"
-              ],
-              "status": "not_accepted"
-            },
-            {
-              "id": "D-20",
-              "title": "真实库/帧向量/资源上限测试和主线接线交付",
-              "work": "真实库/帧向量/资源上限测试和主线接线交付",
-              "acceptance": "BLE3-01/04离线部分。先交当前D包；只实现可复用库与注入后端，缺安全端口默认拒绝。真实BlueZ绑定、Core IPC、密码协议、服务UID/Root安装与BLE3-02/03保持主线",
-              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 230,
-              "batch": "T5 · RedamancyGTW接口离线包",
-              "task_ids": [
-                "BLE3-01",
-                "BLE3-04"
-              ],
-              "status": "not_accepted"
-            },
-            {
               "id": "D-21",
               "title": "BLE2-01：按RecoveryAuthorizerV1提独立恢复能力/批准撤销/存储迁移提案，获审后在现有Auth/Core唯一权威实现",
               "work": "BLE2-01：按RecoveryAuthorizerV1提独立恢复能力/批准撤销/存储迁移提案，获审后在现有Auth/Core唯一权威实现；浏览器绑定非导出恢复密钥",
               "acceptance": "不使用匿名首次认领窗口、不制造Owner，不改旧scope bit含义。新版本/损坏/旧realm/grant撤销/重启迁移和无权限全部有真实模块测试",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 331,
+              "line": 333,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "BLE2-01"
@@ -7240,7 +7240,7 @@
               "work": "BLE2-02、BLE3-02：完成固定Unix IPC/真实SO_PEERCRED来源与会话绑定，接A安全会话和本人Gatt适配库，构造Core内部不可由payload伪造的可信能力",
               "acceptance": "测试真实临时socket/不同UID可执行部分，权限不足的Root用例标未运行。禁止前端channel=ble、固定假uid或Mock安全port进入生产路径",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 332,
+              "line": 334,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "BLE2-02",
@@ -7254,7 +7254,7 @@
               "work": "BLE2-03/04：把合法恢复上下文接现有Wi-Fi开始/查询/确认/取消；保留USB原门禁、唯一网络锁、电话协调、WWAN/IMS/默认APN边界",
               "acceptance": "无USB未认证拒绝、合法恢复通过、保存前后撤权/断连/重放/并发网页路径覆盖；Unknown保留，不新建共享业务库或第二网络事务",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 333,
+              "line": 335,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "BLE2-03",
@@ -7268,7 +7268,7 @@
               "work": "BLE3-03：交付有限低权服务/账户/目录/设备/地址族/预算模板和关闭清理；与Root安装器/C材料组装协调",
               "acceptance": "账户角色/实际UID和许可表先审，不自行占用既有UID。无BLE时Core仍运行，关闭清理广播/会话，无常驻任意Root；真实NSS/cgroup/BlueZ权限由主线安装复核",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 334,
+              "line": 336,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "BLE3-03"
@@ -7281,7 +7281,7 @@
               "work": "REMOTE-03/05：实现现有身份/媒体预授权在远程通道的绑定、撤销及受限TURN/ICE/DTLS/Opus适配，保留票据/peer/call/line/租约关系",
               "acceptance": "本地合成对端/私有测试TLS环境做强制中继与失败测试，不连接真实外网服务器。NAS/C仅消费已审核的正常接口，不允许NKN隧道绕过权限",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 335,
+              "line": 337,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "REMOTE-03",
@@ -7295,7 +7295,7 @@
               "work": "扩展本人SEC-06输入矩阵至实际新增Core/媒体/BLE解析及跨模块故障：并发控制、过期/撤销、退出、回调迟到、分片/队列/超时",
               "acceptance": "测试真实生产模块，模拟仅外部后端；不拉长产品租约/队列或删拒绝断言。提交最小复现/修正、真实命令及尚未运行的设备/TURN/两端听音清单",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 336,
+              "line": 338,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [],
               "status": "not_accepted"

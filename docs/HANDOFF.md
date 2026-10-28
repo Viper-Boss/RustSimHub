@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-10-28 [D-17～20蓝牙离线库](ble/gatt-adapter-integration.md)：固定manifest/类型/分片、实际注册/Release/迟到补偿及有限Transport接线已实现；38项蓝牙、独立灯控23、严格Clippy/fmt及Python23通过。无默认假安全端口，未接真实BlueZ/密码/Core恢复权限、未装服务或动设备。lead累计20、D余D-21～26共6、总118不变，BLE3-01/04仍未闭环；交付分支18/169、9.6%、余151和原80%保持，等待正常PR审核/集成，不能据此称Pages已更新。
+
 2026-10-28 [D-13～16灯控输入交付](testing/led-input-boundaries.md)：实际策略/文件/Core账本与Store快照矩阵、26向量、两个真实FIFO阻塞复现及最小非阻塞打开修复；256项、严格Clippy/fmt与23进度测试通过。lead累计16、D余10、总118不变；LED-07/SEC-06仍待，提示无SIM epoch等缺口保留，未碰设备。合并Claude主线UPD-01证据并保留SMS-05后，本交付分支18/169、9.6%、余151，原80%；正常审核合入前不能称main/Pages已发布。
 2026-10-28 [主线D第二/三批交付](deliveries/member-d-sms.md)：代码07a98395/adb7bb6e覆盖D-05～08的内容、候选、事务/六阶段实际进程退出与真实发送Worker重建（Create/Send各1）；D-09～12补通话身份审计、4Store+1peer，修复换SIM后backend/source碰撞会重写旧历史的问题，保留拒绝后的历史/事件。跨启动完整去重缺持久身份，单独提案未实现，不计CALL-08完成。Core167+Store61=228项、严格Clippy/fmt及阶段23项进度检查通过；当前Node短信管理通过。[SMS-05独立原判据](VALIDATION-SMS05-CANDIDATES-20261028.md)通过，在本交付分支完成为17/169、9.0%、余152，原80%不变，main待正常PR合入。累计lead接回12步，D余14、总118保持，成员已审/Git贡献不预加。当前分支基于PR34，前置未合入时按堆叠PR审核；无设备/外发/签名/部署，与CC设备工作分开。后续D-13～26与其他成员范围保留，当前HEAD最终检查见PR说明。
 

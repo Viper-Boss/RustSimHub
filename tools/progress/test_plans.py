@@ -47,19 +47,19 @@ class Plans(unittest.TestCase):
         members=copy.deepcopy(self.members)
         lead=next(m for m in members if m['id']=='lead')
         other=next(m for m in members if m['id']=='member-d')
-        self.assertEqual(lead['step_ids'],['D-'+str(n).zfill(2) for n in range(1,17)])
+        self.assertEqual(lead['step_ids'],['D-'+str(n).zfill(2) for n in range(1,21)])
         self.assertFalse(set(lead['step_ids']) & set(other['step_ids']))
         value=plans.build(team.ROOT,members,self.reviews,{m['id']:m['work'] for m in members})
         steps=next(m for m in value['members'] if m['member_id']=='lead')['steps']
         self.assertEqual([s['id'] for s in steps],lead['step_ids'])
         self.assertEqual([s['source'] for s in steps],
             ['docs/team/MEMBER-D-SMS-RECOVERY.md'] * 12 +
-            ['docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md'] * 4)
+            ['docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md'] * 8)
         self.assertTrue(all(s['status']=='not_accepted' for s in steps))
         roster=json.loads((team.ROOT/'docs/team/roster.json').read_text(encoding='utf8'))
         next(m for m in roster['members'] if m['id']=='member-d')['step_ids'].append('D-01')
         with self.assertRaisesRegex(ValueError,'multiple owners'):team.roster_valid(roster)
-        self.assertEqual(len(other['step_ids']),10)
+        self.assertEqual(len(other['step_ids']),6)
         self.assertEqual(sum(len(m['step_ids']) for m in members),118)
 
 
