@@ -755,6 +755,12 @@ pub(crate) async fn shutdown() {
         }
     }
 }
+/// True only while the device-window (first-setup) AP is Ready.
+pub(crate) fn first_setup_ready() -> bool {
+    RUNTIME
+        .get()
+        .is_some_and(|r| r.bootstrap.ready().unwrap_or(false))
+}
 pub(crate) async fn authorized(
     auth: Arc<Mutex<Auth>>,
     calls: Option<crate::calls::Controller>,

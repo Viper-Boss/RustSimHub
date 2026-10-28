@@ -218,6 +218,40 @@ impl LocalSetup {
             .verify_slice(&proposed.finalize().into_bytes())
             .map_err(|_| Error::Forbidden)
     }
+    /// Same one-shot window without the out-of-band code. The caller (Core) allows it only
+    /// while the first-setup AP is Ready, i.e. the claimant is on the device's own hotspot.
+    /// Attempts still count against the window, and the store must still have no principal.
+    fn check_open(&mut self) -> Result<()> {
+        if self.consumed || Instant::now() >= self.deadline || self.remaining == 0 {
+            return Err(Error::Forbidden);
+        }
+        self.remaining -= 1;
+        Ok(())
+    }
+    pub fn begin_open(&mut self, auth: &mut Auth, key: [u8; 32]) -> Result<Challenge> {
+        self.check_open()?;
+        self.require_empty(auth)?;
+        let challenge = auth.bootstrap_challenge(key)?;
+        self.challenge = Some(challenge.id.clone());
+        Ok(challenge)
+    }
+    pub fn finish_open(
+        &mut self,
+        auth: &mut Auth,
+        id: &str,
+        signature: &[u8],
+    ) -> Result<Principal> {
+        self.check_open()?;
+        self.require_empty(auth)?;
+        if self.challenge.take().as_deref() != Some(id) {
+            return Err(Error::Replay);
+        }
+        let owner = auth.bootstrap_finish(id, signature)?;
+        self.consumed = true;
+        self.claimed = Some(owner.clone());
+        self.secret.fill(0);
+        Ok(owner)
+    }
     pub fn available(&self) -> bool {
         !self.consumed && Instant::now() < self.deadline && self.remaining > 0
     }
@@ -376,6 +410,73 @@ mod tests {
             .is_none());
         gate.deadline = Instant::now() - Duration::from_secs(1);
         assert!(gate.device_ap_context(&auth).is_err());
+    }
+    #[test]
+    fn open_claim_is_one_shot_signed_budgeted_and_never_replaces_an_owner() {
+        let state = private_directory();
+        let identity = private_directory();
+        let setup = private_directory();
+        let store = Store::open(state.path()).unwrap();
+        let mut auth = Auth::open(identity.path(), store.handle()).unwrap();
+        LocalSetup::prepare_device_code(setup.path(), &auth).unwrap();
+        let mut gate = LocalSetup::for_device(setup.path(), &auth)
+            .unwrap()
+            .unwrap();
+        let key = SigningKey::from_bytes(&[41; 32]);
+        let public = key.verifying_key().to_bytes();
+        // Only the last challenge can finish; a bad signature burns that challenge.
+        let first = gate.begin_open(&mut auth, public).unwrap();
+        let c = gate.begin_open(&mut auth, public).unwrap();
+        assert!(gate
+            .finish_open(
+                &mut auth,
+                &first.id,
+                &key.sign(&first.transcript).to_bytes()
+            )
+            .is_err());
+        let c2 = gate.begin_open(&mut auth, public).unwrap();
+        assert!(gate.finish_open(&mut auth, &c2.id, &[0; 64]).is_err());
+        assert!(gate
+            .finish_open(&mut auth, &c.id, &key.sign(&c.transcript).to_bytes())
+            .is_err());
+        let c = gate.begin_open(&mut auth, public).unwrap();
+        let owner = gate
+            .finish_open(&mut auth, &c.id, &key.sign(&c.transcript).to_bytes())
+            .unwrap();
+        assert_eq!(owner.kind, crate::Kind::Owner);
+        assert_eq!(owner.public_key, public);
+        // Window consumed: neither the open path nor the coded path can claim again.
+        assert!(gate.begin_open(&mut auth, [7; 32]).is_err());
+        assert_eq!(gate.device_ap_context(&auth).unwrap().claimed, Some(owner));
+        // A fresh window on an owned store refuses even before issuing a challenge.
+        let other = private_directory();
+        LocalSetup::prepare_device_code(other.path(), &auth).unwrap_or(());
+        let mut loaded = LocalSetup::load(&setup.path().join("setup.code")).unwrap();
+        assert!(loaded.begin_open(&mut auth, [7; 32]).is_err());
+    }
+    #[test]
+    fn open_claim_attempt_budget_and_deadline_are_finite() {
+        let state = private_directory();
+        let identity = private_directory();
+        let setup = private_directory();
+        let store = Store::open(state.path()).unwrap();
+        let mut auth = Auth::open(identity.path(), store.handle()).unwrap();
+        LocalSetup::prepare_device_code(setup.path(), &auth).unwrap();
+        let mut gate = LocalSetup::for_device(setup.path(), &auth)
+            .unwrap()
+            .unwrap();
+        let key = SigningKey::from_bytes(&[42; 32]);
+        let public = key.verifying_key().to_bytes();
+        let mut issued = 0;
+        while gate.begin_open(&mut auth, public).is_ok() {
+            issued += 1;
+            assert!(issued <= 255);
+        }
+        assert!(issued > 0);
+        assert!(!gate.available());
+        let mut gate = LocalSetup::load(&setup.path().join("setup.code")).unwrap();
+        gate.deadline = Instant::now() - Duration::from_secs(1);
+        assert!(gate.begin_open(&mut auth, public).is_err());
     }
     #[test]
     fn device_ap_proof_is_denied_after_exhausted_attempts_or_outside_owner_creation() {

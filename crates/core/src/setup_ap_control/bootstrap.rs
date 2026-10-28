@@ -135,6 +135,11 @@ impl Bootstrap {
             .filter(|s| s.phase != State::Closed)
             .map(Self::projection))
     }
+    pub(super) fn ready(&self) -> Result<bool> {
+        let a = self.active.try_lock().map_err(|_| Error::Busy)?;
+        Ok(a.as_ref()
+            .is_some_and(|s| s.phase == State::Ready && !s.cancelled))
+    }
     pub(super) fn cancel(&self, id: &str) -> Result<Option<Value>> {
         let mut a = self.active.try_lock().map_err(|_| Error::Busy)?;
         let Some(s) = a

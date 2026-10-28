@@ -140,6 +140,15 @@ pub enum AuthCommand {
         challenge_id: String,
         signature: Vec<u8>,
     },
+    /// First Owner claim without the setup code; Core allows it only while the
+    /// first-setup AP is Ready (the claimant is on the device's own hotspot).
+    SetupOpenChallenge {
+        public_key: [u8; 32],
+    },
+    SetupOpenFinish {
+        challenge_id: String,
+        signature: Vec<u8>,
+    },
     Challenge {
         public_key: [u8; 32],
     },
@@ -728,6 +737,20 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
             }
             let invalid_finish = matches!(&req.command,AuthCommand::SetupFinish {challenge_id,signature,..} if challenge_id.len()!=64 || !challenge_id.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) || signature.len()!=64);
             if invalid_finish {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::SetupOpenChallenge { .. } => {}
+        AuthCommand::SetupOpenFinish {
+            challenge_id,
+            signature,
+        } => {
+            if challenge_id.len() != 64
+                || !challenge_id
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+                || signature.len() != 64
+            {
                 return Err(invalid());
             }
         }
@@ -1346,6 +1369,25 @@ mod tests {
         assert!(parse_auth_request(&serde_json::to_vec(&status).unwrap()).is_ok());
         status["command"]["commit_id"] = "../no".into();
         assert!(parse_auth_request(&serde_json::to_vec(&status).unwrap()).is_err());
+    }
+    #[test]
+    fn open_setup_claim_has_no_code_or_token_and_rejects_malformed_finish() {
+        let challenge = serde_json::json!({"protocol":2,"id":"open","command":{"op":"setup_open_challenge","public_key":vec![1;32]}});
+        assert!(parse_auth_request(&serde_json::to_vec(&challenge).unwrap()).is_ok());
+        let mut bad = challenge.clone();
+        bad["command"]["setup_code"] = "0".repeat(64).into();
+        assert!(parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
+        let good = serde_json::json!({"protocol":2,"id":"open","command":{"op":"setup_open_finish","challenge_id":"a".repeat(64),"signature":vec![0;64]}});
+        assert!(parse_auth_request(&serde_json::to_vec(&good).unwrap()).is_ok());
+        for (key, value) in [
+            ("challenge_id", serde_json::json!("A".repeat(64))),
+            ("challenge_id", serde_json::json!("../x")),
+            ("signature", serde_json::json!(vec![0; 63])),
+        ] {
+            let mut bad = good.clone();
+            bad["command"][key] = value;
+            assert!(parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
+        }
     }
     #[test]
     fn ap_read_only_lookup_rejects_paths_uppercase_and_extra_fields() {
