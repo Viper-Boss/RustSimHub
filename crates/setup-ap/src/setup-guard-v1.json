@@ -168,6 +168,70 @@
             }
           },
           {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "ip",
+                  "field": "saddr"
+                }
+              },
+              "right": {
+                "prefix": {
+                  "addr": "192.168.100.0",
+                  "len": 24
+                }
+              }
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "ip",
+                  "field": "daddr"
+                }
+              },
+              "right": "224.0.0.251"
+            }
+          },
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "payload": {
+                  "protocol": "udp",
+                  "field": "dport"
+                }
+              },
+              "right": 5353
+            }
+          },
+          {
+            "accept": null
+          }
+        ]
+      }
+    },
+    {
+      "rule": {
+        "family": "inet",
+        "table": "rustsimhub_setup",
+        "chain": "input",
+        "expr": [
+          {
+            "match": {
+              "op": "==",
+              "left": {
+                "meta": {
+                  "key": "iifname"
+                }
+              },
+              "right": "wlan0"
+            }
+          },
+          {
             "drop": null
           }
         ]

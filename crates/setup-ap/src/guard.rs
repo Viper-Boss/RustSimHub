@@ -10,13 +10,14 @@ use tokio::{
     time::timeout,
 };
 
-// DHCP and HTTPS to this AP only. DNS, SSH, other local services, IPv6 and forwarding
-// remain unavailable over the setup AP. Other interfaces and quota tables are untouched.
+// DHCP, HTTPS to this AP and mDNS queries for the fixed device name only. DNS, SSH, other
+// local services, IPv6 and forwarding remain unavailable over the setup AP. Other interfaces and quota tables are untouched.
 pub const RULES: &str = r#"create table inet rustsimhub_setup
 add chain inet rustsimhub_setup input { type filter hook input priority -290; policy accept; }
 add chain inet rustsimhub_setup forward { type filter hook forward priority -290; policy accept; }
 add rule inet rustsimhub_setup input iifname "wlan0" meta nfproto ipv4 udp sport 68 udp dport 67 accept
 add rule inet rustsimhub_setup input iifname "wlan0" ip saddr 192.168.100.0/24 ip daddr 192.168.100.1 tcp dport 8443 accept
+add rule inet rustsimhub_setup input iifname "wlan0" ip saddr 192.168.100.0/24 ip daddr 224.0.0.251 udp dport 5353 accept
 add rule inet rustsimhub_setup input iifname "wlan0" drop
 add rule inet rustsimhub_setup forward iifname "wlan0" drop
 add rule inet rustsimhub_setup forward oifname "wlan0" drop
@@ -28,6 +29,7 @@ add chain inet rustsimhub_setup input { type filter hook input priority -290; po
 add chain inet rustsimhub_setup forward { type filter hook forward priority -290; policy accept; }
 add rule inet rustsimhub_setup input iifname "wlan0" meta nfproto ipv4 udp sport 68 udp dport 67 accept
 add rule inet rustsimhub_setup input iifname "wlan0" ip saddr 192.168.100.0/24 ip daddr 192.168.100.1 tcp dport 8443 accept
+add rule inet rustsimhub_setup input iifname "wlan0" ip saddr 192.168.100.0/24 ip daddr 224.0.0.251 udp dport 5353 accept
 add rule inet rustsimhub_setup input iifname "wlan0" meta nfproto ipv4 udp sport 67 udp dport 68 accept
 add rule inet rustsimhub_setup input iifname "wlan0" drop
 add rule inet rustsimhub_setup forward iifname "wlan0" drop
@@ -43,7 +45,7 @@ fn canonical(bytes: &[u8]) -> Result<[u8; 32]> {
         return Err(Error::Invalid);
     }
     rows.retain(|r| r.get("metainfo").is_none());
-    if ![8, 9].contains(&rows.len()) {
+    if ![9, 10].contains(&rows.len()) {
         return Err(Error::Changed);
     }
     fn clean(v: &mut Value) {
@@ -196,10 +198,15 @@ mod tests {
                 && RULES.contains("forward oifname \"wlan0\" drop")
         );
         assert!(RULES.contains("udp dport 67 accept") && RULES.contains("tcp dport 8443 accept"));
-        assert!(!RULES.contains("dport 53") && !RULES.contains("wwan") && !RULES.contains("usb0"));
+        // DNS (53) stays closed; only mDNS to the multicast group, from the AP subnet, is open.
+        assert!(!RULES.contains("dport 53 ") && !RULES.contains("wwan") && !RULES.contains("usb0"));
+        assert!(RULES.contains(
+            "iifname \"wlan0\" ip saddr 192.168.100.0/24 ip daddr 224.0.0.251 udp dport 5353 accept"
+        ));
+        assert_eq!(RULES.matches("5353").count(), 1);
         let mut rows = vec![serde_json::json!({"metainfo":{"version":"synthetic"}})];
         rows.extend(
-            (0..8).map(|n| serde_json::json!({"rule":{"handle":n,"expr":[{"drop":null}]}})),
+            (0..9).map(|n| serde_json::json!({"rule":{"handle":n,"expr":[{"drop":null}]}})),
         );
         let mut v = serde_json::json!({"nftables":rows});
         let before = canonical(&serde_json::to_vec(&v).unwrap()).unwrap();
@@ -237,12 +244,12 @@ mod tests {
         let old: Value = serde_json::from_slice(include_bytes!("setup-guard-v1.json")).unwrap();
         let mut trial: Value =
             serde_json::from_slice(include_bytes!("setup-guard-trial-v1.json")).unwrap();
-        let added = trial["nftables"].as_array_mut().unwrap().remove(5);
+        let added = trial["nftables"].as_array_mut().unwrap().remove(6);
         assert_eq!(trial, old);
         assert_eq!(added["rule"]["expr"][2]["match"]["right"], 67);
         assert_eq!(added["rule"]["expr"][3]["match"]["right"], 68);
         assert!(TRIAL_RULES.contains("udp sport 67 udp dport 68 accept"));
-        assert!(!TRIAL_RULES.contains("ct state") && !TRIAL_RULES.contains("dport 53"));
+        assert!(!TRIAL_RULES.contains("ct state") && !TRIAL_RULES.contains("dport 53 "));
         assert_ne!(
             canonical(include_bytes!("setup-guard-trial-v1.json")).unwrap(),
             canonical(include_bytes!("setup-guard-v1.json")).unwrap()
