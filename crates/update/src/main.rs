@@ -216,6 +216,29 @@ fn run() -> Result<(), rustsimhub_update::Error> {
                 );
                 return Ok(());
             }
+            ("admit-stage", 4) => {
+                // Opt-in maintenance path; `stage` is unchanged. Core must be
+                // stopped: the snapshot takes the data writer fences.
+                let directory = Path::new(&args[3]);
+                let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;
+                let signature = read_checked(&directory.join("manifest.sig"), 64)?;
+                let m = verify(&manifest, &signature, &key, SCHEMA, store.floor())?;
+                let p = load_payloads(directory, &m)?;
+                let code = {
+                    // Release fences and the indicator before a classified exit.
+                    let snapshot = rustsimhub_update::admission::MaintenanceSnapshot::observe()?;
+                    let _indicator = rustsimhub_update::indicator::Activity::begin();
+                    let admission = rustsimhub_update::admission::admit_stage(
+                        &mut store, &snapshot, &manifest, &signature, &p,
+                    )?;
+                    println!("{}", admission.report);
+                    admission.exit_code
+                };
+                if code != 0 {
+                    std::process::exit(code);
+                }
+                return Ok(());
+            }
             ("choose", 3) => {
                 let _indicator = rustsimhub_update::indicator::Activity::begin();
                 let path = store.choose()?;

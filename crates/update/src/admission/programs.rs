@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Metadata from the exact signed executable bytes, never caller-supplied JSON.
 use super::{MaintenanceSnapshot, ProgramMetadata, Result};
-use crate::{manifest_hash, verify, verify_payload, Error};
+use crate::{manifest_hash, store::Store, verify, verify_payload, Error};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
@@ -164,6 +164,73 @@ impl SignedVersionCheck<'_> {
     }
 }
 
+/// Result of the opt-in maintenance admission. `exit_code` is the comparison
+/// class (0 compatible and staged, 3 maintenance required, 4 rejected).
+pub struct Admission {
+    pub staged: Option<String>,
+    pub exit_code: i32,
+    pub report: serde_json::Value,
+}
+
+/// Stage only when the installed roles compare compatible. Roles and trust come
+/// from the locked store, never from caller paths: with no candidate pending,
+/// the confirmed group is both selected and fallback. The snapshot's data
+/// fences (Core stopped) stay held until the store has published the candidate.
+pub fn admit_stage(
+    store: &mut Store,
+    snapshot: &MaintenanceSnapshot,
+    manifest: &[u8],
+    signature: &[u8],
+    payloads: &[Vec<u8>],
+) -> Result<Admission> {
+    let (key, schema) = store.trusted_key();
+    let key = *key;
+    admit_stage_with(
+        store,
+        snapshot,
+        manifest,
+        signature,
+        payloads,
+        |m, s, p| SignedPrograms::inspect(m, s, &key, p, schema),
+        MaintenanceSnapshot::verify_effective_systemd,
+    )
+}
+
+fn admit_stage_with(
+    store: &mut Store,
+    snapshot: &MaintenanceSnapshot,
+    manifest: &[u8],
+    signature: &[u8],
+    payloads: &[Vec<u8>],
+    mut inspect: impl FnMut(&[u8], &[u8], &[Vec<u8>]) -> Result<SignedPrograms>,
+    effective: impl Fn(&MaintenanceSnapshot) -> Result<()>,
+) -> Result<Admission> {
+    effective(snapshot)?;
+    let (baseline_manifest, baseline_signature, baseline_payloads) = store.admission_baseline()?;
+    let baseline = inspect(&baseline_manifest, &baseline_signature, &baseline_payloads)?;
+    let candidate = inspect(manifest, signature, payloads)?;
+    let check = snapshot.compare_signed(&baseline, &candidate, &baseline)?;
+    let exit_code = check.exit_code();
+    let comparison = serde_json::to_value(check.report()).map_err(|_| Error::Invalid)?;
+    let staged = if exit_code == 0 {
+        // Re-read the loaded units and every fence immediately before mutation.
+        effective(snapshot)?;
+        check.revalidate()?;
+        Some(store.stage(manifest, signature, payloads)?)
+    } else {
+        None
+    };
+    let report = serde_json::json!({"format":1,"authorization_verified":false,
+        "installed_trust_verified":true,"slot_identity_verified":true,
+        "effective_systemd_verified":true,"staged":staged.is_some(),
+        "manifest_sha256":staged,"comparison":comparison});
+    Ok(Admission {
+        staged,
+        exit_code,
+        report,
+    })
+}
+
 fn sealed(bytes: &[u8]) -> Result<File> {
     use rustix::fs::{fchmod, fcntl_add_seals, memfd_create, MemfdFlags, Mode, SealFlags};
     let fd = memfd_create(
@@ -182,7 +249,7 @@ fn sealed(bytes: &[u8]) -> Result<File> {
     Ok(file)
 }
 
-struct Reap(Child);
+pub(super) struct Reap(pub(super) Child);
 impl Drop for Reap {
     fn drop(&mut self) {
         if !matches!(self.0.try_wait(), Ok(Some(_))) {

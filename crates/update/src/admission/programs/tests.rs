@@ -5,7 +5,12 @@ use ed25519_dalek::Signer;
 use std::{cell::Cell, fs};
 
 fn package() -> (ed25519_dalek::SigningKey, Vec<u8>, Vec<u8>, Vec<Vec<u8>>) {
+    package_at(1)
+}
+
+fn package_at(epoch: u64) -> (ed25519_dalek::SigningKey, Vec<u8>, Vec<u8>, Vec<Vec<u8>>) {
     let (key, mut manifest, initial) = crate::tests::fixture();
+    manifest.epoch = epoch;
     let mut payloads = initial[..4].to_vec();
     payloads.push(initial[0].clone());
     payloads.push(initial[4].clone());
@@ -228,4 +233,139 @@ fn actual_root_capture_requires_the_ability_to_terminate_its_dropped_uid_child()
         Some(Error::Denied)
     );
     assert!(start.elapsed() < Duration::from_secs(1));
+}
+
+fn installed() -> (tempfile::TempDir, Store) {
+    use std::os::unix::fs::PermissionsExt;
+    let directory = tempfile::tempdir().unwrap();
+    fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let (key, manifest, signature, payloads) = package_at(1);
+    let mut store = Store::open(directory.path(), key.verifying_key().to_bytes(), 6).unwrap();
+    store
+        .install_factory(&manifest, &signature, &payloads)
+        .unwrap();
+    (directory, store)
+}
+
+/// Fake build-info reader: core first, then worker, for every inspected group.
+fn admit(
+    store: &mut Store,
+    snapshot: &MaintenanceSnapshot,
+    candidate_schema: u32,
+    effective: impl Fn(&MaintenanceSnapshot) -> Result<()>,
+) -> (Result<Admission>, usize) {
+    let (key, manifest, signature, payloads) = package_at(2);
+    let inspected = Cell::new(0);
+    let result = admit_stage_with(
+        store,
+        snapshot,
+        &manifest,
+        &signature,
+        &payloads,
+        |m, s, p| {
+            inspected.set(inspected.get() + 1);
+            let schema = if inspected.get() == 2 {
+                candidate_schema
+            } else {
+                6
+            };
+            let mut calls = 0;
+            SignedPrograms::inspect_with(m, s, &key.verifying_key().to_bytes(), p, 6, |_| {
+                calls += 1;
+                let mut info: serde_json::Value =
+                    serde_json::from_slice(&info(calls == 2, &"a".repeat(64))).unwrap();
+                if calls == 1 {
+                    info["database_schema"] = schema.into();
+                }
+                Ok(serde_json::to_vec(&info).unwrap())
+            })
+        },
+        effective,
+    );
+    (result, inspected.get())
+}
+
+#[test]
+fn compatible_installed_roles_stage_the_candidate_while_fences_are_held() {
+    let root = super::super::tests::fixture(rustsimhub_core_launcher::Mode::SetupAp, true);
+    let snapshot = super::super::tests::snapshot(root.path());
+    let (_directory, mut store) = installed();
+    let (result, inspected) = admit(&mut store, &snapshot, 6, |_| Ok(()));
+    let admission = result.unwrap();
+    let (_, manifest, _, _) = package_at(2);
+    assert_eq!(inspected, 2);
+    assert_eq!(admission.exit_code, 0);
+    assert_eq!(
+        admission.staged.as_deref(),
+        Some(manifest_hash(&manifest).as_str())
+    );
+    assert_eq!(store.status()["candidate"], manifest_hash(&manifest));
+    assert_eq!(store.floor(), 2);
+    assert_eq!(admission.report["staged"], true);
+    assert_eq!(admission.report["authorization_verified"], false);
+    assert_eq!(
+        admission.report["comparison"]["signed_programs_verified"],
+        true
+    );
+}
+
+#[test]
+fn rejected_comparison_failed_units_or_pending_candidate_stage_nothing() {
+    let root = super::super::tests::fixture(rustsimhub_core_launcher::Mode::SetupAp, true);
+    let snapshot = super::super::tests::snapshot(root.path());
+    let (directory, mut store) = installed();
+    let before = fs::read(directory.path().join("state.json")).unwrap();
+    let (_, manifest, _, _) = package_at(2);
+    let target = directory
+        .path()
+        .join("versions")
+        .join(manifest_hash(&manifest));
+
+    let admission = admit(&mut store, &snapshot, 7, |_| Ok(())).0.unwrap();
+    assert_eq!(admission.exit_code, 4);
+    assert_eq!(admission.staged, None);
+    assert_eq!(admission.report["staged"], false);
+
+    let (result, inspected) = admit(&mut store, &snapshot, 6, |_| Err(Error::Integrity));
+    assert_eq!(result.err(), Some(Error::Integrity));
+    assert_eq!(inspected, 0);
+
+    // Fences changed after a passing comparison: refuse before any slot write.
+    let calls = Cell::new(0);
+    let (result, _) = admit(&mut store, &snapshot, 6, |_| {
+        calls.set(calls.get() + 1);
+        if calls.get() == 2 {
+            fs::write(root.path().join(super::super::BASE_PATH), b"changed").unwrap();
+        }
+        Ok(())
+    });
+    assert_eq!(result.err(), Some(Error::Busy));
+    assert_eq!(
+        fs::read(directory.path().join("state.json")).unwrap(),
+        before
+    );
+    assert!(!target.exists());
+
+    let root = super::super::tests::fixture(rustsimhub_core_launcher::Mode::SetupAp, true);
+    let snapshot = super::super::tests::snapshot(root.path());
+    let (_, manifest, signature, payloads) = package_at(3);
+    store.stage(&manifest, &signature, &payloads).unwrap();
+    let (result, inspected) = admit(&mut store, &snapshot, 6, |_| Ok(()));
+    assert_eq!(result.err(), Some(Error::Busy));
+    assert_eq!(inspected, 0);
+}
+
+#[test]
+fn admission_requires_an_installed_confirmed_baseline() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = super::super::tests::fixture(rustsimhub_core_launcher::Mode::SetupAp, true);
+    let snapshot = super::super::tests::snapshot(root.path());
+    let directory = tempfile::tempdir().unwrap();
+    fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let (key, _, _, _) = package_at(1);
+    let mut store = Store::open(directory.path(), key.verifying_key().to_bytes(), 6).unwrap();
+    let (result, inspected) = admit(&mut store, &snapshot, 6, |_| Ok(()));
+    assert_eq!(result.err(), Some(Error::Denied));
+    assert_eq!(inspected, 0);
+    assert!(!directory.path().join("state.json").exists());
 }
