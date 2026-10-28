@@ -173,6 +173,7 @@ impl Bootstrap {
                 sequence: s.sequence,
                 valid_until_uptime_ms:
                     (t + channel::HEARTBEAT_MS).min(s.record.binding.deadline_uptime_ms),
+                open: true,
             },
         ))
     }
@@ -275,6 +276,7 @@ impl Bootstrap {
             sequence: 1,
             valid_until_uptime_ms: (t + channel::HEARTBEAT_MS)
                 .min(record.binding.deadline_uptime_ms),
+            open: true,
         };
         *a = Some(Active {
             record,
@@ -423,6 +425,7 @@ impl Bootstrap {
                 sequence: s.sequence,
                 valid_until_uptime_ms:
                     (t + channel::HEARTBEAT_MS).min(record.binding.deadline_uptime_ms),
+                open: true,
             },
         ))
     }

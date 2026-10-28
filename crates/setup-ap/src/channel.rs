@@ -91,6 +91,10 @@ pub struct Hint {
     pub action: Action,
     pub sequence: u64,
     pub valid_until_uptime_ms: u64,
+    /// First-setup (unowned device) window: open AP. Omitted when false, so owner windows keep
+    /// the exact existing wire form; an older Root rejects the unknown field and starts nothing.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub open: bool,
 }
 impl Hint {
     pub fn validate(&self, now: u64, boot: &str) -> Result<()> {

@@ -466,6 +466,7 @@ impl Runtime {
             action: Action::Start,
             sequence: 1,
             valid_until_uptime_ms: time + channel::HEARTBEAT_MS,
+            open: false,
         };
         *active = Some(Session {
             record,
@@ -530,6 +531,7 @@ impl Runtime {
                 sequence: s.sequence,
                 valid_until_uptime_ms:
                     (time + channel::HEARTBEAT_MS).min(s.record.binding.deadline_uptime_ms),
+                open: false,
             },
         ))
     }
@@ -685,6 +687,7 @@ impl Runtime {
                 sequence: s.sequence,
                 valid_until_uptime_ms:
                     (time + channel::HEARTBEAT_MS).min(s.record.binding.deadline_uptime_ms),
+                open: false,
             },
         ))
     }

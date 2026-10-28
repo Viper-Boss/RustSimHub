@@ -49,6 +49,7 @@ impl Fixture {
             action: Action::Start,
             sequence: 1,
             valid_until_uptime_ms: now + ttl_ms,
+            open: false,
         };
         i.publish(Slot::Hint, &hint).unwrap();
         let worker = Worker {

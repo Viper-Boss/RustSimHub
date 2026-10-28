@@ -235,6 +235,7 @@ async fn real_owner_start_is_durable_single_use_and_waits_for_root_consumption_b
         .await
         .unwrap();
     let initial = hint(&f);
+    assert!(!initial.open, "owner windows keep the encrypted AP");
     assert!(initial.action == Action::Start);
     assert_eq!(initial.sequence, 1);
     assert!(f.dirs[4].path().join("pending.json").is_file());

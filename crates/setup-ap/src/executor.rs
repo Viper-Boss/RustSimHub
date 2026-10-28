@@ -218,6 +218,15 @@ async fn execute<N: Network, G: Guard, R: Ready + Sync>(
     Ok(done)
 }
 
+/// Fixed device name written by the trusted installer; the open SSID is derived from it.
+fn device_name() -> Result<String> {
+    let raw = std::fs::read("/etc/rustsimhub/device-name").map_err(|_| Error::Denied)?;
+    if raw.len() > 64 {
+        return Err(Error::Invalid);
+    }
+    let text = String::from_utf8(raw).map_err(|_| Error::Invalid)?;
+    Ok(text.trim_end_matches(char::from(10)).to_owned())
+}
 struct Worker {
     input: Directory,
     output: Directory,
@@ -465,6 +474,22 @@ async fn serve(
                             )
                             .is_ok()
                         {
+                            // First-setup windows run the open variant; without a valid device
+                            // name nothing starts (fail closed, never an unnamed open AP).
+                            let open = if hint.open {
+                                match device_name()
+                                    .and_then(|n| material.credentials.open_variant(&n))
+                                {
+                                    Ok(c) => Some(c),
+                                    Err(_) => {
+                                        tokio::time::sleep(Duration::from_millis(500)).await;
+                                        continue;
+                                    }
+                                }
+                            } else {
+                                None
+                            };
+                            let credentials = open.as_ref().unwrap_or(&material.credentials);
                             // Consumed requests are denied by the journal before any side effect.
                             worker.availability(false, configurable)?;
                             let mut network = timeout(
@@ -481,7 +506,7 @@ async fn serve(
                                     &mut network,
                                     &mut guard,
                                     &material,
-                                    &material.credentials,
+                                    credentials,
                                     hint,
                                     stopped.clone(),
                                 )
@@ -493,7 +518,7 @@ async fn serve(
                                     &mut network,
                                     &mut guard,
                                     &material,
-                                    &material.credentials,
+                                    credentials,
                                     hint,
                                     stopped.clone(),
                                 )

@@ -20,7 +20,22 @@ pub(super) fn start() -> Hint {
         action: Action::Start,
         sequence: 1,
         valid_until_uptime_ms: 16000,
+        open: false,
     }
+}
+#[test]
+fn owner_hints_keep_the_old_wire_form_and_open_is_explicit() {
+    let owner = start();
+    let v = serde_json::to_value(&owner).unwrap();
+    assert!(v.get("open").is_none());
+    let parsed: Hint = serde_json::from_value(v.clone()).unwrap();
+    assert!(!parsed.open);
+    let mut first = owner;
+    first.open = true;
+    assert_eq!(serde_json::to_value(&first).unwrap()["open"], true);
+    let mut bad = v;
+    bad["open"] = "yes".into();
+    assert!(serde_json::from_value::<Hint>(bad).is_err());
 }
 #[test]
 fn hints_are_typed_boot_bound_fresh_and_cannot_extend_or_retarget_a_lease() {

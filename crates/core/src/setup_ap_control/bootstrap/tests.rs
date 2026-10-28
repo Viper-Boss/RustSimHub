@@ -134,6 +134,7 @@ async fn real_device_window_starts_once_and_retains_original_deadline_after_sign
     let f = fixture();
     tick(&f).await.unwrap();
     let start = hint(&f);
+    assert!(start.open, "first-setup windows ask Root for the open AP");
     assert!(start.action == Action::Start);
     assert!(start.binding.deadline_uptime_ms - start.binding.created_uptime_ms <= 300000);
     tick(&f).await.unwrap();

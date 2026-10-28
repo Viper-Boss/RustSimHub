@@ -705,6 +705,20 @@ fn ap_settings_are_fixed_and_subnet_collision_is_not_guessed_away() {
     assert!(subnet_conflict("10.0.0.1", 33).is_err());
 }
 #[test]
+fn open_first_setup_profile_has_no_security_and_never_matches_the_other_kind() {
+    let c = Credentials::generate().unwrap();
+    let o = c.open_variant("rustsimhub-0087").unwrap();
+    let open = settings(&o).unwrap();
+    assert!(!open.contains_key("802-11-wireless-security"));
+    assert!(profile_matches(&open, &o).unwrap());
+    let secured = settings(&c).unwrap();
+    assert!(secured.contains_key("802-11-wireless-security"));
+    assert!(profile_matches(&secured, &c).unwrap());
+    // Same UUID, wrong kind: rollback must not treat one as the other.
+    assert!(!profile_matches(&open, &c).unwrap());
+    assert!(!profile_matches(&secured, &o).unwrap());
+}
+#[test]
 fn real_nm_read_back_without_default_psk_flags_still_matches() {
     // Field test (app 58): NM's GetSettings drops psk-flags=0, which made rollback refuse
     // to delete the exact AP profile and end in Unknown.

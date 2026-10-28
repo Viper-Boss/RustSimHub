@@ -39,8 +39,30 @@ pub struct Credentials {
     ssid: String,
     passphrase: Zeroizing<String>,
     uuid: String,
+    open: bool,
 }
 impl Credentials {
+    /// First-setup variant (user decision 2026-10-28): open AP named `RustSimHub-XXXX` after the
+    /// device name, same profile UUID so rollback still finds exactly this profile.
+    pub fn open_variant(&self, device_name: &str) -> Result<Self> {
+        let tail = device_name
+            .strip_prefix("rustsimhub-")
+            .filter(|t| {
+                t.len() == 4
+                    && t.bytes()
+                        .all(|b| b.is_ascii_digit() || b.is_ascii_lowercase())
+            })
+            .ok_or(Error::Invalid)?;
+        Ok(Self {
+            ssid: format!("RustSimHub-{}", tail.to_ascii_uppercase()),
+            passphrase: Zeroizing::new(String::new()),
+            uuid: self.uuid.clone(),
+            open: true,
+        })
+    }
+    pub fn is_open(&self) -> bool {
+        self.open
+    }
     pub fn generate() -> Result<Self> {
         let mut random = Zeroizing::new([0u8; 46]);
         getrandom::fill(random.as_mut()).map_err(|_| Error::Io)?;
@@ -91,6 +113,7 @@ impl Credentials {
             ssid,
             passphrase,
             uuid,
+            open: false,
         })
     }
     pub fn ssid(&self) -> &str {
@@ -122,6 +145,26 @@ pub mod transaction;
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn open_variant_is_named_after_the_device_and_keeps_the_profile_uuid() {
+        let c = super::Credentials::generate().unwrap();
+        assert!(!c.is_open());
+        let o = c.open_variant("rustsimhub-0087").unwrap();
+        assert!(o.is_open());
+        assert_eq!(o.ssid(), "RustSimHub-0087");
+        assert_eq!(o.uuid(), c.uuid());
+        assert!(o.expose_passphrase_for_trusted_delivery().is_empty());
+        for bad in [
+            "",
+            "rustsimhub-87",
+            "rustsimhub-00870",
+            "RustSimHub-0087",
+            "rustsimhub-00 7",
+            "other-0087",
+        ] {
+            assert!(c.open_variant(bad).is_err(), "{bad}");
+        }
+    }
     #[test]
     fn installation_metadata_matches_the_finite_compiled_contract() {
         let info = super::installation_build_info();

@@ -77,6 +77,14 @@ fn subnet_conflict(address: &str, prefix: u32) -> Result<bool> {
     Ok(candidate & mask == ip & mask || candidate & 0xffff_ff00 == ip & 0xffff_ff00)
 }
 pub fn settings(c: &Credentials) -> Result<Settings> {
+    let mut s = base_settings(c)?;
+    // First-setup AP is open (user decision 2026-10-28): no security section at all.
+    if c.is_open() {
+        s.remove("802-11-wireless-security");
+    }
+    Ok(s)
+}
+fn base_settings(c: &Credentials) -> Result<Settings> {
     let addresses = vec![HashMap::from([
         ("address".to_owned(), string(ADDRESS)),
         ("prefix".to_owned(), PREFIX.into()),
@@ -119,6 +127,7 @@ pub fn settings(c: &Credentials) -> Result<Settings> {
                     "psk".into(),
                     string(c.expose_passphrase_for_trusted_delivery()),
                 ),
+                // An open variant never sends this section (removed in settings()).
                 ("psk-flags".into(), 0u32.into()),
             ]),
         ),
@@ -146,7 +155,6 @@ pub fn settings(c: &Credentials) -> Result<Settings> {
 fn profile_matches(p: &Settings, c: &Credentials) -> Result<bool> {
     let connection = p.get("connection").ok_or(Error::Io)?;
     let wifi = p.get("802-11-wireless").ok_or(Error::Io)?;
-    let security = p.get("802-11-wireless-security").ok_or(Error::Io)?;
     let ip = p.get("ipv4").ok_or(Error::Io)?;
     let ipv6 = p.get("ipv6").ok_or(Error::Io)?;
     let ssid: Vec<u8> = wifi
@@ -163,6 +171,30 @@ fn profile_matches(p: &Settings, c: &Credentials) -> Result<bool> {
         .map_err(|_| Error::Io)?
         .try_into()
         .map_err(|_| Error::Io)?;
+    let secured = match (c.is_open(), p.get("802-11-wireless-security")) {
+        (true, None) => true,
+        (false, Some(security)) => security_matches(security)?,
+        _ => false,
+    };
+    Ok(secured
+        && text(connection, "uuid")? == c.uuid()
+        && text(connection, "type")? == "802-11-wireless"
+        && text(connection, "interface-name")? == INTERFACE
+        && !boolean(connection, "autoconnect")?
+        && text(wifi, "mode")? == "ap"
+        && text(wifi, "band")? == "bg"
+        && wifi.get("ap-isolation").and_then(|v| i32::try_from(v).ok()) == Some(1)
+        && ssid == c.ssid().as_bytes()
+        && text(ip, "method")? == "shared"
+        && boolean(ip, "never-default")?
+        && !boolean(ip, "may-fail")?
+        && address_data.len() == 1
+        && text(&address_data[0], "address")? == ADDRESS
+        && number(&address_data[0], "prefix")? == PREFIX
+        && text(ipv6, "method")? == "disabled"
+        && boolean(ipv6, "never-default")?)
+}
+fn security_matches(security: &Properties) -> Result<bool> {
     let protocol: Vec<String> = security
         .get("proto")
         .ok_or(Error::Io)?
@@ -179,29 +211,13 @@ fn profile_matches(p: &Settings, c: &Credentials) -> Result<bool> {
             .try_into()
             .map_err(|_| Error::Io)
     };
-    Ok(text(connection, "uuid")? == c.uuid()
-        && text(connection, "type")? == "802-11-wireless"
-        && text(connection, "interface-name")? == INTERFACE
-        && !boolean(connection, "autoconnect")?
-        && text(wifi, "mode")? == "ap"
-        && text(wifi, "band")? == "bg"
-        && wifi.get("ap-isolation").and_then(|v| i32::try_from(v).ok()) == Some(1)
-        && ssid == c.ssid().as_bytes()
-        && text(security, "key-mgmt")? == "wpa-psk"
+    Ok(text(security, "key-mgmt")? == "wpa-psk"
         && protocol == ["rsn"]
         && cipher("pairwise")? == ["ccmp"]
         && cipher("group")? == ["ccmp"]
         && security.get("pmf").and_then(|v| i32::try_from(v).ok()) == Some(PMF_DISABLE)
         // NM omits settings at their default (psk-flags 0) from GetSettings.
-        && security.get("psk-flags").map_or(Ok(0), |v| u32::try_from(v).map_err(|_| Error::Io))? == 0
-        && text(ip, "method")? == "shared"
-        && boolean(ip, "never-default")?
-        && !boolean(ip, "may-fail")?
-        && address_data.len() == 1
-        && text(&address_data[0], "address")? == ADDRESS
-        && number(&address_data[0], "prefix")? == PREFIX
-        && text(ipv6, "method")? == "disabled"
-        && boolean(ipv6, "never-default")?)
+        && security.get("psk-flags").map_or(Ok(0), |v| u32::try_from(v).map_err(|_| Error::Io))? == 0)
 }
 pub struct NetworkManager {
     connection: zbus::Connection,
