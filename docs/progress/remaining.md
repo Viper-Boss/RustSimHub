@@ -1,12 +1,12 @@
 # RustSimHub 完整剩余行动台账
 
-快照：2026-10-28T07:38:51.343230+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
+快照：2026-10-28T08:13:01.671275+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
 
 原P0–P7：**80%**，剩余 **20** 个验收点。新增X1/X2/X3/BLE独立保留，不混入旧分母。
 
-本轮台账：**16/169** 动作已完成，按冻结工时中值加权 **8.4%**；另有9项搁置/按需动作不计入本轮分母。
+本轮台账：**17/169** 动作已完成，按冻结工时中值加权 **9.0%**；另有9项搁置/按需动作不计入本轮分母。
 
-剩余有效开发工时粗估 **180.5–431小时**。工时折合天数不含换卡、真人听音、第二设备、服务器及单独BLE授权等待；长测等待可以与其他开发重叠。
+剩余有效开发工时粗估 **179.5–428小时**。工时折合天数不含换卡、真人听音、第二设备、服务器及单独BLE授权等待；长测等待可以与其他开发重叠。
 
 看板入口：[GitHub Pages](https://viper-boss.github.io/RustSimHub/) · [单文件HTML](index.html) · [结构化台账](progress.json)
 
@@ -21,7 +21,7 @@ python tools/progress/build.py --check
 
 ## 当前关卡
 
-**UPD-01 · Root与应用版本能力契约**：正在推进。U4真实Root配置/业务与outbox持锁只读观察完成；30项updater、严格检查/生产Native及18项真实Root CLI通过。继续实际验签程序与有效systemd/持锁准入接线，UPD-01仍进行；原进度与成员/真人边界保持。
+**UPD-02 · 签名维护材料与固定写入表**：前置已完成，按所列条件继续推进。将需要的Root单元/助手纳入受限可复现交付；拒绝任意路径和旧密钥包。 验收：签名、来源、目标、权限和恢复材料均可验证。
 
 ## FWD · 短信转发 · 独立服务
 
@@ -850,7 +850,7 @@ python tools/progress/build.py --check
 
 ## UPD · 签名应用、整机组合与更新
 
-原计划收尾 · 10个动作 · 已完成0个
+原计划收尾 · 10个动作 · 已完成1个
 
 正常签名应用升级多次通过；剩余是Root组合契约、实际失败回退、掉电和最终整机一致性。
 
@@ -858,15 +858,16 @@ python tools/progress/build.py --check
 
 [范围来源](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/REMAINING-2026-10-23.md)
 
-### [ ] UPD-01 · Root与应用版本能力契约
+### [x] UPD-01 · Root与应用版本能力契约
 
-- 状态：进行中
+- 状态：已完成
 - 动作：固定Core管理参数、forwarder/outbox、AP及Root助手的兼容要求。
 - 验收：每个可回选基线均支持其Root配置；不以文件组回退代替数据回退。
 - 预计有效工时：1–3小时
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[VALIDATION-UPD01-FIELD-20261028.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-UPD01-FIELD-20261028.md)
 
 ### [ ] UPD-02 · 签名维护材料与固定写入表
 
