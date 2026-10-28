@@ -401,3 +401,21 @@ Codex 辅助盘点、实现、测试和报告；未估造有效工时、不改�
 所有步骤命令/退出码/实耗与来源保存在同轮日志；既有 proc-macro-error2 未来兼容提示保留，未变更依赖。
 该证据明确标记为 tree，而不是最终提交HEAD通过；发布后仍须核对最终完整提交的适当回归及范围。
 无设备/实际通信/普通蜂窝/签名部署/分区操作；整体仍按固定量表 **80%**，成员不更新主线验收。
+
+#### 完整代码 HEAD 的最终 WSL2 回归及交付
+
+完整代码提交 `f5e4cb8cfc886828e43394b016a3df9d9834e2e6`，tree `dbb3a95f4ef29a5d4231a003b1d40aa83d680892`；
+与上述已通过的 a7fd84f 暂存树逐文件比较，仅本人报告不同，测试/工具/矩阵文档未变。
+之后补记仅更新本人报告与 WSL 环境依赖说明，PR 正文分别维护代码 HEAD、最终文档 HEAD 及各自检查范围。
+
+- `python tools/fixtures/backup-recovery/wsl_test.py --run --suite workspace --ref f5e4cb8cfc886828e43394b016a3df9d9834e2e6`：最终返回0、passed=true。实际 `cargo test --workspace --all-features --locked --offline` 退出0，Cargo结果共621通过/0失败/2标记忽略；其中 recovery 接入完整再跑十五场景通过。`cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings` 与 fmt 均0。
+- 两个 ignored 分列：C06 import_worker 是由父场景实际调用的专用子进程入口，不能算父测试未跑；forwarder 专用真实 OS ENOSPC 仍需独立有限 tmpfs 脚本，本轮未执行，不计通过。Root安装/系统服务/签名专项、ARM及实机验证未借此填成功。
+- 原生音频同一完整提交首次 `--suite native --fetch` 依赖准备达到600秒边界，退出124、passed=false、未编译测试；Windows代理下载仅缺少的9个原锁文件包并逐项校验后导入。随后离线编译明确缺少CMake，test/Clippy均101、未执行测试；这轮失败原样保留，没有改源码或提高限额。
+- 安装 Ubuntu 官方 CMake3.28.3 后，`python tools/fixtures/backup-recovery/wsl_test.py --run --suite native --ref f5e4cb8cfc886828e43394b016a3df9d9834e2e6`：最终0、passed=true。实际 native Cargo 库23项+bin10项，共33通过/0失败/0忽略，全部targets严格Clippy和fmt均0。这是主机原生/回环验证，不是实际ALSA设备、电话或ARM测试。
+- 实际默认 `wsl -d Ubuntu-24.04 --exec id` 为UID/GID1000；测试目录 stat 文件系统类型 ext2/ext3，实际4 CPU。所有恢复数据库/TMPDIR/target位于Linux原生用户目录，未用Windows挂载盘的SQLite权限行为冒充。
+- 已生成 `C09-C12-WSL2-validation-f5e4cb8.zip`，61,054字节，SHA256 `34c08ec07f7dadee20bacba4f04adf15eff4e05eec98aca58a85fb24614460d8`。六轮来源/summary/步骤日志及真实失败全部保留、ZIP CRC通过；不含源码归档、数据库、密钥、工作区或缓存。经当前聊天供用户转交，不声称已向负责人代发。
+- 当前代码 HEAD 的 GitHub CI40630396003 仍因账号付款/额度未启动，已回读test检查注释；WSL通过不表示Actions/账单已恢复，也不冒称完成整套CI的Root专项。负责人可以按本机证据核对代码，成员不绕过保护或自行合并。
+
+C09盘点、C10/C11完整合成矩阵及C12离线文件/报告交付已具备真实Linux证据，主线逐HEAD审核/合并及真实设备恢复保持待验。
+四项生产缺口未修复；没有将测试观察器当作新生产恢复器。后续Linux测试默认复用已验证的本机WSL2入口，
+格式或依赖变化时按实际失败修正环境/范围内测试，不能退回Windows跳过结果报成功。整体固定里程碑仍约 **80%**。

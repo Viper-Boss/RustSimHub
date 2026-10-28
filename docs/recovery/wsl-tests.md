@@ -7,7 +7,7 @@
 
 Windows 侧安装 Microsoft WSL，Ubuntu-24.04 以 WSL2 模式运行。
 测试使用普通 Linux 用户 `rsh-test`，Rust 工具链与根 `rust-toolchain.toml` 一致（1.98.0，包含 rustfmt/Clippy）。
-准备 Python、C 编译器；compat/完整工作区测试还需要 Go，网页检查需要 Node，原生音频需要 ALSA/Opus 开发库。
+准备 Python、C 编译器；compat/完整工作区测试还需要 Go，网页检查需要 Node，原生音频需要 CMake 和 ALSA/Opus 开发库。
 工具安装和已经验证的版本以本人交付报告为准；WSL 程序的版本号与发行版的 WSL1/2 模式是两回事。
 
 本机镜像网络曾返回系统错误，已回退到 NAT，保留防火墙；不会为了下载依赖关闭 TLS 验证或开放 LAN 代理。
