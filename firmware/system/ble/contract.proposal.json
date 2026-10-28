@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "stage": "proposal",
+  "role": "rustsimhub-ble",
+  "proposed_uid": 982,
+  "proposed_gid": 982,
+  "supplementary_group": "rustsimhub-ipc",
+  "core_uid": 986,
+  "ipc_gid": 987,
+  "gatt_contract": "t5-offline-adapters-v1",
+  "unit_template": "rustsimhub-ble.service.in",
+  "sysusers_template": "rustsimhub-ble.sysusers.in",
+  "dbus_template": "rustsimhub-ble.policy.in",
+  "default_enabled": false,
+  "production_ready": false
+}

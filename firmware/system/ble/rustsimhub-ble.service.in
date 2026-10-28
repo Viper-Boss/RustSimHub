@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# REVIEW CANDIDATE ONLY. No executable/service mode is delivered by D-17–20.
+# Not installed, enabled or included in the rootfs overlay.
+[Unit]
+Description=RustSimHub optional BLE recovery transport
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/ble/enabled.json
+ConditionPathExists=/run/rustsimhub-ble/bridge-policy.json
+Requires=rustsimhub-core.service bluetooth.service
+After=rustsimhub-core.service bluetooth.service dbus.service
+BindsTo=rustsimhub-core.service bluetooth.service
+PartOf=rustsimhub-app.target
+
+[Service]
+Type=exec
+User=rustsimhub-ble
+Group=rustsimhub-ble
+SupplementaryGroups=rustsimhub-ipc
+ExecStart=/opt/rustsimhub/selected/rustsimhub-ble --service
+LoadCredential=bridge-policy.json:/run/rustsimhub-ble/bridge-policy.json
+BindReadOnlyPaths=/run/rustsimhub-app/selected:/opt/rustsimhub/selected /run/rustsimhub/core /run/dbus
+InaccessiblePaths=/var/lib/rustsimhub /var/lib/rustsimhub-core /var/lib/rustsimhub-edge /var/lib/rustsimhub-media /var/lib/rustsimhub-forwarder /run/rustsimhub-ble
+RuntimeDirectory=rustsimhub-ble-worker
+RuntimeDirectoryMode=0700
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateIPC=yes
+PrivateNetwork=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+DevicePolicy=closed
+KillMode=control-group
+SendSIGKILL=yes
+Delegate=no
+Restart=no
+TimeoutStopSec=25
+MemoryMax=48M
+TasksMax=16
+CPUQuota=10%
+UMask=0077
+LimitCORE=0

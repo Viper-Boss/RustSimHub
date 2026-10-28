@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+本轮D-24前置：[服务材料/真实拒绝证据](ble/service-materials-proposal.md)已有proposal/.in模板、只读检查器和13项隔离Linux测试（真实私有总线、临时root解析、旧AP NSS检查拒绝新IPC成员）通过。代码00f87779，未保留UID982、未装账号/服务/总线策略。用户确认A密码包尚未完成、保持原分工；D-21～23仍等待A与[授权/迁移草案PR52](https://github.com/Viper-Boss/RustSimHub/pull/52)。D-24也未完成，不减账：lead20/D6、总118、20/169加权10.6%和原80%保持。下一步先审角色/Root契约，再接真实服务，不把静态/私有夹具当实机。
+
 最新同步：本分支已接续PR50的2b13b25与Claude main dfd11e9，保留UPD-04/STAB-03及SMS-05的验收记录，最新台账20/169、加权10.6%、余149、原80%；lead接回20/D余6，总118。下面18/169和旧main计数是历史截面。
 
 2026-10-28 [D-17～20蓝牙离线库](ble/gatt-adapter-integration.md)：固定manifest/类型/分片、实际注册/Release/迟到补偿及有限Transport接线已实现；38项蓝牙、独立灯控23、严格Clippy/fmt及Python23通过。无默认假安全端口，未接真实BlueZ/密码/Core恢复权限、未装服务或动设备。lead累计20、D余D-21～26共6、总118不变，BLE3-01/04仍未闭环；交付分支18/169、9.6%、余151和原80%保持，等待正常PR审核/集成，不能据此称Pages已更新。

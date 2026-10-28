@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+<!-- Proposed user role only; no global policy or installed bus reload. -->
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <policy user="rustsimhub-ble">
+    <deny own="*"/>
+    <deny send_destination="*"/>
+    <deny receive_sender="*"/>
+    <allow send_destination="org.freedesktop.DBus" send_interface="org.freedesktop.DBus" send_member="Hello"/>
+    <allow send_destination="org.freedesktop.DBus" send_interface="org.freedesktop.DBus" send_member="GetNameOwner"/>
+    <allow send_destination="org.freedesktop.DBus" send_interface="org.freedesktop.DBus" send_member="GetId"/>
+    <allow send_destination="org.freedesktop.DBus" send_interface="org.freedesktop.DBus" send_member="AddMatch"/>
+    <allow send_destination="org.freedesktop.DBus" send_interface="org.freedesktop.DBus" send_member="RemoveMatch"/>
+    <allow send_destination="org.bluez" send_interface="org.bluez.GattManager1" send_member="RegisterApplication"/>
+    <allow send_destination="org.bluez" send_interface="org.bluez.GattManager1" send_member="UnregisterApplication"/>
+    <allow send_destination="org.bluez" send_interface="org.bluez.LEAdvertisingManager1" send_member="RegisterAdvertisement"/>
+    <allow send_destination="org.bluez" send_interface="org.bluez.LEAdvertisingManager1" send_member="UnregisterAdvertisement"/>
+    <allow send_destination="org.bluez" send_interface="org.freedesktop.DBus.ObjectManager" send_member="GetManagedObjects"/>
+    <allow send_destination="org.bluez" send_interface="org.freedesktop.DBus.Properties" send_member="Get"/>
+    <allow send_destination="org.bluez" send_interface="org.freedesktop.DBus.Properties" send_member="GetAll"/>
+    <allow send_destination="org.bluez" send_interface="org.freedesktop.DBus.Properties" send_member="PropertiesChanged" send_type="signal"/>
+    <allow send_destination="org.bluez" send_type="method_return" send_requested_reply="true"/>
+    <allow send_destination="org.bluez" send_type="error" send_requested_reply="true"/>
+    <allow receive_sender="org.bluez" receive_type="method_call"/>
+    <allow receive_sender="org.bluez" receive_type="method_return" receive_requested_reply="true"/>
+    <allow receive_sender="org.bluez" receive_type="error" receive_requested_reply="true"/>
+    <allow receive_sender="org.bluez" receive_interface="org.freedesktop.DBus.Properties" receive_type="signal"/>
+    <allow receive_sender="org.bluez" receive_interface="org.freedesktop.DBus.ObjectManager" receive_type="signal"/>
+    <allow receive_sender="org.freedesktop.DBus" receive_type="method_return" receive_requested_reply="true"/>
+    <allow receive_sender="org.freedesktop.DBus" receive_type="error" receive_requested_reply="true"/>
+    <allow receive_sender="org.freedesktop.DBus" receive_interface="org.freedesktop.DBus" receive_member="NameOwnerChanged" receive_type="signal"/>
+    <allow receive_sender="org.freedesktop.DBus" receive_interface="org.freedesktop.DBus" receive_member="NameAcquired" receive_type="signal"/>
+    <allow receive_sender="org.freedesktop.DBus" receive_interface="org.freedesktop.DBus" receive_member="NameLost" receive_type="signal"/>
+  </policy>
+</busconfig>
