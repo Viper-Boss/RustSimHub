@@ -16,7 +16,7 @@ fs2 = "0.4"
 rustsimhub-core-launcher = { path = "../core-launcher" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-rustix = { version = "1", features = ["process", "fs"] }
+rustix = { version = "1", features = ["process", "fs", "thread"] }
 rusqlite = { version = "0.40.2", features = ["bundled", "hooks"] }
 
 [dev-dependencies]
