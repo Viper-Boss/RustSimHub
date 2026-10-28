@@ -485,3 +485,36 @@ async fn one_transient_setup_page_probe_failure_keeps_the_round_ready() {
     .unwrap();
     assert_eq!(done.unwrap().state, State::Closed);
 }
+#[tokio::test]
+async fn the_open_first_setup_ap_waits_for_the_setup_page_instead_of_closing() {
+    let f = Fixture::new(15_000);
+    let c = f.credentials().open_variant("rustsimhub-0087").unwrap();
+    let ready = Readiness::good();
+    let (stop, rx) = watch::channel(false);
+    let (mut n, mut g, _e) = backends(&f, "normal");
+    n.cancel_on_ready = None;
+    let operation = execute(&f.worker, &mut n, &mut g, &ready, &c, f.hint.clone(), rx);
+    let state = || {
+        let raw = f.worker.output.read(Slot::Status).unwrap().unwrap();
+        Status::parse(&raw, &f.hint.binding, channel::uptime_ms().unwrap())
+            .unwrap()
+            .state
+    };
+    let observer = async {
+        while state() != State::Ready {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        // The setup page stays unreachable for well over the encrypted-AP tolerance.
+        ready.ap.store(false, Ordering::SeqCst);
+        tokio::time::sleep(Duration::from_millis(3000)).await;
+        assert_ne!(state(), State::Closing);
+        assert_ne!(state(), State::Closed);
+        stop.send_replace(true);
+    };
+    let (done, ()) = timeout(Duration::from_secs(10), async {
+        tokio::join!(operation, observer)
+    })
+    .await
+    .unwrap();
+    assert_eq!(done.unwrap().state, State::Closed);
+}

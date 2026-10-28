@@ -98,7 +98,14 @@ struct Session {
     station_count: usize,
     /// Root's finite preflight refusal, kept only for display after a verified close.
     refusal: Option<rustsimhub_setup_ap::transaction::Refusal>,
+    /// Adopted first-setup round (open AP, user decision 2026-10-29): it stays up until Wi-Fi is
+    /// saved, so no 5-minute re-verification, no live token and no cancel on a busy check.
+    first_setup: bool,
+    /// Uptime of the last published keep-alive (first-setup rounds rate-limit them).
+    keepalive_ms: u64,
 }
+/// First-setup keep-alive period: an hour-long round stays far below the 1024-sequence cap.
+const FIRST_SETUP_KEEPALIVE_MS: u64 = 5_000;
 struct Context {
     principal: Principal,
     realm: String,
@@ -206,6 +213,8 @@ impl Runtime {
                     trial,
                     station_count: 0,
                     refusal: None,
+                    first_setup: false,
+                    keepalive_ms: 0,
                 })
             })
             .transpose()?;
@@ -483,6 +492,8 @@ impl Runtime {
             trial: None,
             station_count: 0,
             refusal: None,
+            first_setup: false,
+            keepalive_ms: 0,
         });
         let published = denied(self.input.publish(Slot::Hint, &hint));
         let s = active.as_mut().ok_or(Error::Io)?;
@@ -571,7 +582,7 @@ impl Runtime {
         Ok(())
     }
     async fn tick(&self, auth: Arc<Mutex<Auth>>, idle: &impl Idle) -> Result<()> {
-        let (record, token, cancelled) = {
+        let (record, token, cancelled, first_setup) = {
             let active = self.session.try_lock().map_err(|_| Error::Busy)?;
             let Some(s) = active.as_ref() else {
                 return Ok(());
@@ -579,7 +590,12 @@ impl Runtime {
             if s.phase == State::Closed {
                 return Ok(());
             }
-            (s.record.clone(), s.token.clone(), s.cancelled)
+            (
+                s.record.clone(),
+                s.token.clone(),
+                s.cancelled,
+                s.first_setup,
+            )
         };
         let time = now()?;
         {
@@ -626,7 +642,9 @@ impl Runtime {
                 }
             }
         }
-        let allowed = if let Some(token) = token.as_ref().filter(|_| !cancelled) {
+        let allowed = if first_setup && !cancelled {
+            true
+        } else if let Some(token) = token.as_ref().filter(|_| !cancelled) {
             match owner(auth.clone(), token.clone(), true).await {
                 Ok(c)
                     if Owner::from(&c.principal) == record.owner
@@ -674,6 +692,12 @@ impl Runtime {
             }
             return Ok(());
         }
+        if s.first_setup {
+            if time < s.keepalive_ms.saturating_add(FIRST_SETUP_KEEPALIVE_MS) {
+                return Ok(());
+            }
+            s.keepalive_ms = time;
+        }
         s.sequence = s.sequence.checked_add(1).ok_or(Error::InvalidInput)?;
         if s.sequence > 1024 {
             return Err(Error::Forbidden);
@@ -687,7 +711,7 @@ impl Runtime {
                 sequence: s.sequence,
                 valid_until_uptime_ms:
                     (time + channel::HEARTBEAT_MS).min(s.record.binding.deadline_uptime_ms),
-                open: false,
+                open: s.first_setup,
             },
         ))
     }
