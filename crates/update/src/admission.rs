@@ -12,7 +12,12 @@ use std::{
     path::{Path, PathBuf},
 };
 mod database;
+mod programs;
+mod systemd;
 use database::Database;
+pub use programs::{
+    admit_stage, Admission, SignedPrograms, SignedVersionCheck, SignedVersionReport,
+};
 
 type Result<T> = std::result::Result<T, Error>;
 const STATE: &str = "var/lib/rustsimhub/rustsimhub-v1/core/state";

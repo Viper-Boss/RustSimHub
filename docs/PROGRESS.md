@@ -4,6 +4,10 @@
 
 2026-10-28 补审[PR#9](team/REVIEW-PR-9-c10c95c.md)：c10c95c仅测试/文档、调用真实HistoryService/Authority，WSL下11项input_matrix全过、compat 50过（2项为WSL缺Go的既有互操作失败）、严格Clippy/fmt通过，C-07/C-08离线通过，成员C 9/30。按用户要求转向主线写代码任务（UPD-01），其他发现的问题记入[待处理问题清单](ISSUES-BACKLOG-2026-10-28.md)，不急的后续处理。STAB-03仍在只读运行。原80%、14/169、余155、7.3%不变。
 
+2026-10-28 [U6维护准入暂存](VALIDATION-UPD01-ADMIT-STAGE.md)：经用户确认最小方案，新增独立`admit-stage ROOT KEY PACKAGE`，现有stage/choose未改。信任取自持锁Store（state.json key_sha256绑定），无待定候选时已确认组同为当前/回退角色，已有候选Busy、无已确认组Denied且不检查程序；固定systemctl show核对Core单元已加载、fragment为/etc、无待reload、drop-in恰为观察到的Root模式集合；签名比较兼容后再核对单元和全部数据锁才调用原Store::stage，3/4不暂存。WSL（468078b）：fmt/严格Clippy通过，updater 42项（新增6项失败路径为主），整仓639/7失败与U5已知环境项相同。未上设备；宿主机直接运行写底层versions目录、维护授权仍属UPD-02；UPD-01未完成。原80%、14/169、余155、7.3%不变。
+
+2026-10-28 [U5签名程序检查](VALIDATION-SIGNED-PROGRAMS-U5.md)：用户决定由Claude接手UPD-01，Codex主工作区未提交代码原样复制为WIP 579d7ae（主工作区未动、两段旧README笔记未带入）并推送备份。WSL整仓回归：fmt/严格Clippy通过，updater 36项、Root降权元数据与缺kill防护夹具、U4维护观察18项通过；整仓633/7失败均为已知环境项。角色绑定、有效systemd核对、stage/choose准入仍缺，UPD-01未完成。原80%、14/169、余155、7.3%不变。
+
 2026-10-28 [轮询与计量落盘修改提案](PROPOSAL-POLLING-AND-METER-WRITES.md)（不改代码）：经授权的维护密钥Wi-Fi只读登录确认灯控约13%、network-agent约15.8%单核CPU，整机eMMC约1.4GB/天、p15日志线程居写盘首位。源码显示灯控每5秒起3～4个systemctl/nmcli，network-agent每2秒nmcli+nft、每15秒4次mmcli，并每5秒无条件fsync写meter.json。提案：A1内容变化才写（B，语义不变）、C1灯控降频（主线）、B1 agent降频缩字段（B）、C2灯控复用agent状态；A2/B2/C3需负责人决定或依赖变更。归因为推断，STAB-03结束后用/proc/<pid>/stat自身与子进程CPU及write_bytes只读确认，子进程占比低于一半则不按提案实施。STAB-03 10-28 03:14起只读运行至10-29 03:15，未完成。原80%、14/169、余155、7.3%不变。
 
 2026-10-28 [LED-02前置核实](VALIDATION-LED02-MODEMMANAGER-LOSS.md)按用户选择的方案一完成隔离环境部分：Core serve主循环中observer/sender/call controller/灯控/媒体任一返回即退出，逐个核对MM消失时均不返回；WSL私有dbus-daemon+合成MM（拒绝CreateCall）下，真实Core --serve-device（main同源与应用50源码0edfc54各一次）经4轮SIGKILL（缺席2～45秒）、5次抖动不退出，7次探测正常，5次重新绑定（3.5～30.5秒），SIGTERM退出0，日志为空。systemd替身单元照搬Requires/OnFailure：SIGKILL及reset-failed+start不连带core/edge、不触发OnFailure；restart/stop会连带重启/停止，实机禁止。首轮夹具漏migrate init致Core以auth: Forbidden退出，补齐后通过。看灯场LED-02改为有门禁的实机步骤（先只读确认MM Restart=no等），需用户单独同意；夹具入tools/field/mm-loss。x86 debug、合成MM、无ARM/真实基带；未上设备。原80%、14/169、余155、7.3%不变。

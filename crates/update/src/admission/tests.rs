@@ -14,7 +14,7 @@ fn put(root: &Path, path: &str, bytes: &[u8], mode: u32) {
     fs::write(&path, bytes).unwrap();
     fs::set_permissions(path, fs::Permissions::from_mode(mode)).unwrap();
 }
-fn fixture(mode: Mode, outbox: bool) -> TempDir {
+pub(super) fn fixture(mode: Mode, outbox: bool) -> TempDir {
     let root = tempfile::tempdir().unwrap();
     put(root.path(), BASE_PATH, &text(BASE), 0o644);
     if mode != Mode::Device {
@@ -64,7 +64,7 @@ fn fixture(mode: Mode, outbox: bool) -> TempDir {
     }
     root
 }
-fn snapshot(root: &Path) -> MaintenanceSnapshot {
+pub(super) fn snapshot(root: &Path) -> MaintenanceSnapshot {
     MaintenanceSnapshot::observe_at(root, uid(), uid()).unwrap()
 }
 fn tree(root: &Path) -> Vec<(PathBuf, Vec<u8>)> {

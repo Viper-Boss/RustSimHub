@@ -100,6 +100,8 @@ fn sync_dir(path: &Path) -> Result<(), Error> {
         .and_then(|f| f.sync_all())
         .map_err(|_| Error::Io)
 }
+/// Manifest, signature and payloads exactly as signed.
+pub(crate) type SignedGroup = (Vec<u8>, Vec<u8>, Vec<Vec<u8>>);
 pub struct Store {
     root: PathBuf,
     key: [u8; 32],
@@ -204,6 +206,28 @@ impl Store {
     }
     pub fn floor(&self) -> u64 {
         self.state.floor
+    }
+    /// The trust this store was installed with (bound by `key_sha256` at open).
+    pub(crate) fn trusted_key(&self) -> (&[u8; 32], u32) {
+        (&self.key, self.schema)
+    }
+    /// Exact signed bytes of the confirmed group. With no candidate pending it
+    /// is both the running role and the fallback role of a new candidate.
+    pub(crate) fn admission_baseline(&self) -> Result<SignedGroup, Error> {
+        if self.state.candidate.is_some() {
+            return Err(Error::Busy);
+        }
+        let v = self.state.confirmed.as_ref().ok_or(Error::Denied)?;
+        let path = self.verify_version(v)?;
+        let manifest = read_checked(&path.join("manifest.json"), MAX_MANIFEST)?;
+        let signature = read_checked(&path.join("manifest.sig"), 64)?;
+        if manifest_hash(&manifest) != v.hash {
+            return Err(Error::Integrity);
+        }
+        let m = verify(&manifest, &signature, &self.key, self.schema, 0)?;
+        let payloads = load_payloads(&path, &m)?;
+        verify_payload(&m, &payloads)?;
+        Ok((manifest, signature, payloads))
     }
     /// Select once for the whole boot group. The versions bind must name the
     /// same directory on the root filesystem; the ledger stays on persistent state.
