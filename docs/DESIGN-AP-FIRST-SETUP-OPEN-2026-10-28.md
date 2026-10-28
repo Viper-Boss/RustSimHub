@@ -92,3 +92,11 @@
 - 固件新增 `/etc/NetworkManager/dnsmasq-shared.d/rustsimhub-setup.conf`：所有域名都解析到热点地址。
 - 测试：edge 36（新增 2：只放行白名单命令；探测地址跳转、页面头、Origin 必须精确、超大请求拒绝），setup-ap 97（新增 2：只接受固定的 captive 监听；只有开放热点打开 DNS 和配网页，规则顺序与参考行数），Core 50，fmt 和 clippy 干净。
 - **尚未完成**：`setup.html`/`setup.js` 目前只是占位，第 4 段实现；dnsmasq 配置还没登记到系统镜像组装清单；以上都需要实机验证（手机能否自动弹页、NM 是否读取 dnsmasq-shared.d）。
+
+## 第 4 段实现记录（首次设置页面，2026-10-28）
+
+- `setup.html` / `setup.js`（http 页面，通过热点 8080 提供，同时提供 `ap-wifi.js`）：先读取设备身份；没有管理员时显示“创建管理员”（用户名、密码、确认密码），否则显示“登录”。在浏览器里派生密钥后：`setup_open_challenge` → 签名 → `setup_open_finish` → `challenge` → `authenticate` 拿到令牌。之后显示附近的 Wi-Fi 下拉框（只列可选网络，并标明是开启热点前扫描的）和手动输入框，并复用现有的配网控制器 `ApConfigurator`（试连、确认保存、查询、结果不明时的恢复）。http 页面没有 `crypto.randomUUID` 和 `crypto.subtle`，改用随机数生成 UUID、用纯 JS SHA-256 实现 digest；本地记录用 `localStorage`，不可用时只放在内存里。
+- 每个挑战都核对记录内容（用途、owner、1023 权限、设备公钥、本机公钥、代次）；**不核对设备签名**：http 页面没有 WebCrypto，而且开放热点上任何人都能伪造整个页面，签名核对意义有限，这是首次配网接受的风险。
+- 密码和派生出的密钥只留在当前页面内存里，输入框在派生后立即清空。
+- 测试：新增 `tools/test-web-setup.mjs`，用模拟设备按 Core 的格式出挑战，并用 Node WebCrypto 真实校验页面签名，覆盖 3 个流程：新设备创建管理员、登录、列出 Wi-Fi；密码过短时请求不会发到设备；已有管理员时只走登录。全部 18 个网页测试通过，edge 36。
+- **尚未完成**：日常 https 页面的用户名密码登录（下一步）；dnsmasq 配置和新程序的系统镜像登记；所有部分都需要实机验证，需要让设备回到“没有管理员”的状态，执行前单独确认。
