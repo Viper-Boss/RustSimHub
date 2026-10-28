@@ -22,3 +22,9 @@ Windows换行导致最初发布清单中的三个文本摘要与Git规范化后�
 北京时间2026-10-29 01:46复核第二批公开快照：公开提交 `932dd377a50c8e0ecd27db0892f599d34e003f7e`，来源私有提交 `60af31a2f166e920eaf7858796fe9fae15eca73f`（PR59）。Pages构建1322180778为built，[运行40738531683](https://github.com/Viper-Boss/RustSimHub-progress/actions/runs/40738531683)success；带缓存区分参数实际下载页面/JSON/Markdown/发布清单并逐项比对摘要通过。页面摘要 `0cf608d252fc6257dd2be66049de6e0276f989723aab14acf7e659bb46e17d9c`，焦点SEC-06且状态in_progress，81.5%及20/169保持；Markdown入口已指向新网址。证据保存于上述私有目录的update-932dd37子目录。
 
 本轮仅同步既有13文件白名单，没有扩大公开范围。生产修复仍待PR正常审核和后续实际集成，网页快照不是固件已部署的证明。补记只变本文，不重做已通过的生产测试或伪称新运行。
+
+## D-21恢复授权管理快照更新
+
+北京时间2026-10-29 02:27复核第三批快照：公开提交`2aa844af7e914a4f4561cdfcefe3520178e14925`，固定私有来源`4866f89e5b712f7ced079ae0f23afd03c8fee38b`（PR60）。Pages构建1322268008为built，[运行40745069157](https://github.com/Viper-Boss/RustSimHub-progress/actions/runs/40745069157)completed/success。页面、JSON、Markdown和发布清单带独立缓存参数实际HTTPS均200，前三文件逐项SHA匹配清单，收到的清单也与固定导出相等；页面摘要`a7dab8cd35282f12a915a286539230786c93f4724f228765259e153c1623c0d3`。
+
+焦点BLE2-01为in_progress，原81.5%、20/169保持；任务书展示D-21真实Store/Auth局部实现与尚缺authorize/A/浏览器/IPC/Wi-Fi，未扣整步。仍仅同步13文件白名单，本地看板三文件也来自同一快照。原始下载与证明仅存私有update-2aa844a目录。此处补记不代表产品PR已合并或上机，也不冒记视觉/点击验收。
