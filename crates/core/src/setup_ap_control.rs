@@ -96,6 +96,8 @@ struct Session {
     committed: bool,
     trial: Option<station::Trial>,
     station_count: usize,
+    /// Root's finite preflight refusal, kept only for display after a verified close.
+    refusal: Option<rustsimhub_setup_ap::transaction::Refusal>,
 }
 struct Context {
     principal: Principal,
@@ -203,6 +205,7 @@ impl Runtime {
                     committed: false,
                     trial,
                     station_count: 0,
+                    refusal: None,
                 })
             })
             .transpose()?;
@@ -259,7 +262,8 @@ impl Runtime {
             "station_trial_api":s.station_supported&&!s.cancelled&&s.phase==State::Ready,
             "station_save_api":s.save_supported&&!s.cancelled&&s.phase==State::Ready,
             "expires_in_seconds":s.record.binding.deadline_uptime_ms.saturating_sub(now().unwrap_or(u64::MAX))/1000,
-            "wifi_only":true,"cellular_activation":false,"credentials_returned":false,"completion_saved":s.committed})
+            "wifi_only":true,"cellular_activation":false,"credentials_returned":false,"completion_saved":s.committed,
+            "refusal":s.refusal})
     }
     fn availability(&self, c: &Context) -> Result<Availability> {
         let bytes = denied(self.output.read(Slot::Availability))?.ok_or(Error::Forbidden)?;
@@ -347,18 +351,18 @@ impl Runtime {
             return Ok(view);
         }
         let closed: Option<Status> = station::read(&self.journal.join(format!("{digest}.closed")))?;
-        let rolled_back = if let Some(proof) = closed {
+        let (rolled_back, refusal) = if let Some(proof) = closed {
             denied(proof.validate(&record.binding, proof.sample_uptime_ms))?;
             if proof.state != State::Closed {
                 return Err(Error::Forbidden);
             }
-            true
+            (true, proof.refusal)
         } else {
-            false
+            (false, None)
         };
         let committed = station::commit::parent_committed(&self.journal, &record)?;
         Ok(
-            json!({"known":true,"request_key_sha256":digest,"operation_id":record.binding.request_id,"state":if rolled_back||committed {"closed"}else{"unknown"},"historical":true,"completion_saved":committed,"station_trial_api":false,"station_save_api":false,"credentials_returned":false,"cellular_activation":false,"expires_in_seconds":0}),
+            json!({"known":true,"request_key_sha256":digest,"operation_id":record.binding.request_id,"state":if rolled_back||committed {"closed"}else{"unknown"},"historical":true,"completion_saved":committed,"station_trial_api":false,"station_save_api":false,"credentials_returned":false,"cellular_activation":false,"expires_in_seconds":0,"refusal":refusal}),
         )
     }
     async fn start(
@@ -462,6 +466,7 @@ impl Runtime {
             action: Action::Start,
             sequence: 1,
             valid_until_uptime_ms: time + channel::HEARTBEAT_MS,
+            open: false,
         };
         *active = Some(Session {
             record,
@@ -477,6 +482,7 @@ impl Runtime {
             committed: false,
             trial: None,
             station_count: 0,
+            refusal: None,
         });
         let published = denied(self.input.publish(Slot::Hint, &hint));
         let s = active.as_mut().ok_or(Error::Io)?;
@@ -525,6 +531,7 @@ impl Runtime {
                 sequence: s.sequence,
                 valid_until_uptime_ms:
                     (time + channel::HEARTBEAT_MS).min(s.record.binding.deadline_uptime_ms),
+                open: false,
             },
         ))
     }
@@ -559,6 +566,7 @@ impl Runtime {
             .map_err(|_| Error::Io)?;
         s.token = None;
         s.phase = State::Closed;
+        s.refusal = status.refusal;
         s.permit.take();
         Ok(())
     }
@@ -679,6 +687,7 @@ impl Runtime {
                 sequence: s.sequence,
                 valid_until_uptime_ms:
                     (time + channel::HEARTBEAT_MS).min(s.record.binding.deadline_uptime_ms),
+                open: false,
             },
         ))
     }
@@ -748,6 +757,12 @@ pub(crate) async fn shutdown() {
             }
         }
     }
+}
+/// True only while the device-window (first-setup) AP is Ready.
+pub(crate) fn first_setup_ready() -> bool {
+    RUNTIME
+        .get()
+        .is_some_and(|r| r.bootstrap.ready().unwrap_or(false))
 }
 pub(crate) async fn authorized(
     auth: Arc<Mutex<Auth>>,

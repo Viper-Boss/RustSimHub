@@ -45,6 +45,8 @@ impl BindingFile {
         Ok(())
     }
 }
+/// Must match the setup edge's fixed captive listener (`captive::LISTEN`).
+pub(crate) const CAPTIVE_PORT: u16 = 8080;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EdgeConfig {
@@ -59,6 +61,11 @@ struct EdgeConfig {
     media_worker_socket: Option<PathBuf>,
     #[serde(default)]
     additional_listen_ips: Vec<std::net::IpAddr>,
+    #[serde(default)]
+    additional_origins: Vec<String>,
+    /// First-setup plain-HTTP page; only the fixed AP address and port are accepted.
+    #[serde(default)]
+    captive_listen: Option<std::net::SocketAddr>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -71,6 +78,28 @@ struct EdgeRecord {
     config_sha256: String,
     #[serde(default)]
     media_sha256: Option<String>,
+    #[serde(default)]
+    tls_alt_names: Vec<String>,
+}
+/// The setup Edge may additionally serve exactly the device's fixed `.local` name.
+fn fixed_name_origin(config: &EdgeConfig, record: &EdgeRecord) -> bool {
+    match (
+        config.additional_origins.as_slice(),
+        record.tls_alt_names.as_slice(),
+    ) {
+        ([], []) => true,
+        ([origin], [host]) => {
+            host.strip_prefix("rustsimhub-")
+                .and_then(|t| t.strip_suffix(".local"))
+                .is_some_and(|t| {
+                    t.len() == 4
+                        && t.bytes()
+                            .all(|b| b.is_ascii_digit() || b.is_ascii_lowercase())
+                })
+                && *origin == format!("https://{host}:{}", crate::HTTPS_PORT)
+        }
+        _ => false,
+    }
 }
 struct Snapshot {
     cert: Vec<u8>,
@@ -96,11 +125,15 @@ fn snapshot(path: &Path, uid: u32, binding: &BindingFile) -> Result<Snapshot> {
         || config.legacy_compat
         || config.media_worker_socket.is_some()
         || config.additional_listen_ips != [ap]
+        || config
+            .captive_listen
+            .is_some_and(|a| a != std::net::SocketAddr::new(ap, CAPTIVE_PORT))
         || record.format != 1
         || record.listen != loopback
         || record.tls_name != crate::ADDRESS
         || record.config_sha256 != hash(&raw)
         || record.media_sha256.is_some()
+        || !fixed_name_origin(&config, &record)
     {
         return Err(Error::Changed);
     }

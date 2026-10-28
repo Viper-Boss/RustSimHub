@@ -9,6 +9,8 @@ use std::{
 };
 use zeroize::Zeroizing;
 
+/// Effectively unlimited for an unowned device (user decision 2026-10-29).
+const DEVICE_WINDOW: Duration = Duration::from_secs(10 * 365 * 24 * 3600);
 pub struct LocalSetup {
     secret: Zeroizing<Vec<u8>>,
     deadline: Instant,
@@ -110,18 +112,23 @@ impl LocalSetup {
         let marker = directory.join("setup.used");
         let mut expected = b"RustSimHub.DeviceSetup.Window.v1\0".to_vec();
         expected.extend_from_slice(&auth.public_key());
-        match std::fs::symlink_metadata(&marker) {
+        // User decision 2026-10-29: an unowned device stays in first setup across reboots
+        // (a power cut before setup must not lock the user out). The marker only seals the
+        // window once an Owner exists; a foreign marker is still refused.
+        let marked = match std::fs::symlink_metadata(&marker) {
             Ok(_) => {
                 if read_private(&marker, expected.len())?.as_slice() != expected {
                     return Err(Error::Forbidden);
                 }
-                return Ok(None);
+                true
             }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
             Err(_) => return Err(Error::Io),
-        }
+        };
         if !auth.store.principals()?.is_empty() {
-            crate::write_private_new(&marker, &expected)?;
+            if !marked {
+                crate::write_private_new(&marker, &expected)?;
+            }
             return Ok(None);
         }
         let code = directory.join("setup.code");
@@ -136,9 +143,12 @@ impl LocalSetup {
             auth.public_key(),
             auth.durable_realm()?,
         ));
-        // Publish before admitting requests. A crash or partial write closes
-        // the window on restart instead of resetting its budget or ownership.
-        crate::write_private_new(&marker, &expected)?;
+        // No expiry while unowned; each hotspot round gets a fresh attempt budget.
+        gate.deadline = Instant::now() + DEVICE_WINDOW;
+        gate.remaining = u8::MAX;
+        if !marked {
+            crate::write_private_new(&marker, &expected)?;
+        }
         Ok(Some(gate))
     }
 
@@ -217,6 +227,54 @@ impl LocalSetup {
         expected
             .verify_slice(&proposed.finalize().into_bytes())
             .map_err(|_| Error::Forbidden)
+    }
+    /// Same one-shot window without the out-of-band code. The caller (Core) allows it only
+    /// while the first-setup AP is Ready, i.e. the claimant is on the device's own hotspot.
+    /// Attempts still count against the window, and the store must still have no principal.
+    fn check_open(&mut self) -> Result<()> {
+        if self.consumed || Instant::now() >= self.deadline || self.remaining == 0 {
+            return Err(Error::Forbidden);
+        }
+        self.remaining -= 1;
+        Ok(())
+    }
+    pub fn begin_open(&mut self, auth: &mut Auth, key: [u8; 32]) -> Result<Challenge> {
+        self.check_open()?;
+        self.require_empty(auth)?;
+        let challenge = auth.bootstrap_challenge(key)?;
+        self.challenge = Some(challenge.id.clone());
+        Ok(challenge)
+    }
+    pub fn finish_open(
+        &mut self,
+        auth: &mut Auth,
+        id: &str,
+        signature: &[u8],
+    ) -> Result<Principal> {
+        self.check_open()?;
+        self.require_empty(auth)?;
+        if self.challenge.take().as_deref() != Some(id) {
+            return Err(Error::Replay);
+        }
+        let owner = auth.bootstrap_finish(id, signature)?;
+        self.consumed = true;
+        self.claimed = Some(owner.clone());
+        self.secret.fill(0);
+        Ok(owner)
+    }
+    /// Next hotspot round of the same unowned device window: a new window id (fresh journal
+    /// names) and attempt budget. Refused once an Owner exists or the window was consumed.
+    pub fn next_device_window(&mut self, auth: &Auth) -> Result<()> {
+        if self.consumed || self.device.is_none() {
+            return Err(Error::Forbidden);
+        }
+        self.require_empty(auth)?;
+        if let Some((id, _, _)) = self.device.as_mut() {
+            *id = crate::random_hex()?;
+        }
+        self.challenge = None;
+        self.remaining = u8::MAX;
+        Ok(())
     }
     pub fn available(&self) -> bool {
         !self.consumed && Instant::now() < self.deadline && self.remaining > 0
@@ -378,6 +436,92 @@ mod tests {
         assert!(gate.device_ap_context(&auth).is_err());
     }
     #[test]
+    fn open_claim_is_one_shot_signed_budgeted_and_never_replaces_an_owner() {
+        let state = private_directory();
+        let identity = private_directory();
+        let setup = private_directory();
+        let store = Store::open(state.path()).unwrap();
+        let mut auth = Auth::open(identity.path(), store.handle()).unwrap();
+        LocalSetup::prepare_device_code(setup.path(), &auth).unwrap();
+        let mut gate = LocalSetup::for_device(setup.path(), &auth)
+            .unwrap()
+            .unwrap();
+        let key = SigningKey::from_bytes(&[41; 32]);
+        let public = key.verifying_key().to_bytes();
+        // Only the last challenge can finish; a bad signature burns that challenge.
+        let first = gate.begin_open(&mut auth, public).unwrap();
+        let c = gate.begin_open(&mut auth, public).unwrap();
+        assert!(gate
+            .finish_open(
+                &mut auth,
+                &first.id,
+                &key.sign(&first.transcript).to_bytes()
+            )
+            .is_err());
+        let c2 = gate.begin_open(&mut auth, public).unwrap();
+        assert!(gate.finish_open(&mut auth, &c2.id, &[0; 64]).is_err());
+        assert!(gate
+            .finish_open(&mut auth, &c.id, &key.sign(&c.transcript).to_bytes())
+            .is_err());
+        let c = gate.begin_open(&mut auth, public).unwrap();
+        let owner = gate
+            .finish_open(&mut auth, &c.id, &key.sign(&c.transcript).to_bytes())
+            .unwrap();
+        assert_eq!(owner.kind, crate::Kind::Owner);
+        assert_eq!(owner.public_key, public);
+        // Window consumed: neither the open path nor the coded path can claim again.
+        assert!(gate.begin_open(&mut auth, [7; 32]).is_err());
+        assert_eq!(gate.device_ap_context(&auth).unwrap().claimed, Some(owner));
+        // A fresh window on an owned store refuses even before issuing a challenge.
+        let other = private_directory();
+        LocalSetup::prepare_device_code(other.path(), &auth).unwrap_or(());
+        let mut loaded = LocalSetup::load(&setup.path().join("setup.code")).unwrap();
+        assert!(loaded.begin_open(&mut auth, [7; 32]).is_err());
+    }
+    #[test]
+    fn open_claim_attempt_budget_and_deadline_are_finite() {
+        let state = private_directory();
+        let identity = private_directory();
+        let setup = private_directory();
+        let store = Store::open(state.path()).unwrap();
+        let mut auth = Auth::open(identity.path(), store.handle()).unwrap();
+        LocalSetup::prepare_device_code(setup.path(), &auth).unwrap();
+        let mut gate = LocalSetup::for_device(setup.path(), &auth)
+            .unwrap()
+            .unwrap();
+        let key = SigningKey::from_bytes(&[42; 32]);
+        let public = key.verifying_key().to_bytes();
+        let mut issued = 0;
+        while gate.begin_open(&mut auth, public).is_ok() {
+            issued += 1;
+            assert!(issued <= 255);
+        }
+        assert!(issued > 0);
+        // A new hotspot round refreshes the budget under a new window id; an Owner ends it.
+        let before = gate.device_ap_context(&auth).ok().map(|c| c.window_id);
+        gate.next_device_window(&auth).unwrap();
+        let after = gate.device_ap_context(&auth).unwrap().window_id;
+        assert_ne!(before.as_deref(), Some(after.as_str()));
+        assert!(gate.available());
+        // Any principal in the store ends the rounds.
+        let owned_state = private_directory();
+        let owned_identity = private_directory();
+        let owned_store = Store::open(owned_state.path()).unwrap();
+        let mut owned = Auth::open(owned_identity.path(), owned_store.handle()).unwrap();
+        let k = SigningKey::from_bytes(&[43; 32]);
+        let c = owned
+            .bootstrap_challenge(k.verifying_key().to_bytes())
+            .unwrap();
+        owned
+            .bootstrap_finish(&c.id, &k.sign(&c.transcript).to_bytes())
+            .unwrap();
+        assert!(gate.next_device_window(&owned).is_err());
+        // The explicit installer window keeps its fixed 5-minute expiry.
+        let mut gate = LocalSetup::load(&setup.path().join("setup.code")).unwrap();
+        gate.deadline = Instant::now() - Duration::from_secs(1);
+        assert!(gate.begin_open(&mut auth, public).is_err());
+    }
+    #[test]
     fn device_ap_proof_is_denied_after_exhausted_attempts_or_outside_owner_creation() {
         let state = private_directory();
         let identity = private_directory();
@@ -388,7 +532,7 @@ mod tests {
         let mut gate = LocalSetup::for_device(setup.path(), &auth)
             .unwrap()
             .unwrap();
-        for _ in 0..16 {
+        for _ in 0..u8::MAX {
             assert!(gate.begin(&mut auth, "bad", [4; 32]).is_err());
         }
         assert!(gate.device_ap_context(&auth).is_err());
@@ -522,7 +666,7 @@ mod tests {
         assert!(!code.exists());
     }
     #[test]
-    fn device_window_is_opt_in_and_cannot_restart_after_crash_or_db_loss() {
+    fn device_window_is_opt_in_reopens_while_unowned_and_never_after_an_owner() {
         let state = private_directory();
         let identity = private_directory();
         let config = private_directory();
@@ -536,9 +680,10 @@ mod tests {
         let mut gate = LocalSetup::for_device(config.path(), &auth)
             .unwrap()
             .unwrap();
+        // User decision 2026-10-29: while unowned, a restart reopens the window.
         assert!(LocalSetup::for_device(config.path(), &auth)
             .unwrap()
-            .is_none());
+            .is_some());
         let key = SigningKey::from_bytes(&[12; 32]);
         let challenge = gate
             .begin(&mut auth, &"0b".repeat(32), key.verifying_key().to_bytes())

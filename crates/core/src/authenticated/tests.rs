@@ -343,6 +343,45 @@ async fn round_trip_setup(
     response.result
 }
 #[tokio::test]
+async fn open_setup_claim_is_refused_without_a_ready_first_setup_hotspot() {
+    let d = directory();
+    let i = directory();
+    let config = directory();
+    let store = Store::open(d.path()).unwrap();
+    let auth = Arc::new(Mutex::new(Auth::open(i.path(), store.handle()).unwrap()));
+    let path = config.path().join("setup.code");
+    rustsimhub_auth::write_private_new(&path, &[11; 32]).unwrap();
+    let setup = Some(Arc::new(Mutex::new(
+        rustsimhub_auth::LocalSetup::load(&path).unwrap(),
+    )));
+    let key = SigningKey::from_bytes(&[73; 32]);
+    // An open window exists, but no first-setup AP is Ready: the code-less claim is denied
+    // and nothing is created, so the coded path still works afterwards.
+    let open = round_trip_setup(
+        AuthCommand::SetupOpenChallenge {
+            public_key: key.verifying_key().to_bytes(),
+        },
+        auth.clone(),
+        setup.clone(),
+    )
+    .await;
+    assert!(open.get("error").is_some());
+    let finish = round_trip_setup(
+        AuthCommand::SetupOpenFinish {
+            challenge_id: "ab".repeat(32),
+            signature: vec![0; 64],
+        },
+        auth.clone(),
+        setup.clone(),
+    )
+    .await;
+    assert!(finish.get("error").is_some());
+    assert!(store.handle().principals().unwrap().is_empty());
+    assert!(setup
+        .as_ref()
+        .is_some_and(|s| s.lock().unwrap().available()));
+}
+#[tokio::test]
 async fn setup_ipc_is_opt_in_private_code_bound_signed_and_cannot_replace_owner() {
     let d = directory();
     let i = directory();

@@ -305,3 +305,30 @@ async fn catalogue_needs_recent_real_owner_and_rechecks_after_read() {
     .await
     .is_err());
 }
+#[test]
+fn first_setup_falls_back_to_the_recent_pre_ap_snapshot_only() {
+    let n = network(&ap(b"home", 70, 0x100, 1), true).unwrap().unwrap();
+    let mut full = empty(true);
+    full.scan_cache_known = true;
+    full.networks = vec![n];
+    // Empty catalogues are never remembered.
+    remember(empty(true), std::time::Instant::now());
+    remember(full.clone(), std::time::Instant::now());
+    // Outside first setup, or when the live cache has networks, the live answer wins.
+    assert_eq!(before_setup_ap(empty(true), false).networks.len(), 0);
+    assert_eq!(
+        before_setup_ap(full.clone(), true).source,
+        "networkmanager_cache"
+    );
+    // During first setup with an empty live cache: the snapshot, labelled, never "connected".
+    let used = before_setup_ap(empty(true), true);
+    assert_eq!(used.source, "before_setup_ap");
+    assert_eq!(used.networks.len(), 1);
+    assert!(!used.networks[0].connected);
+    // A stale snapshot is not served.
+    remember(
+        full,
+        std::time::Instant::now() - BEFORE_AP_MAX_AGE - Duration::from_secs(1),
+    );
+    assert_eq!(before_setup_ap(empty(true), true).networks.len(), 0);
+}

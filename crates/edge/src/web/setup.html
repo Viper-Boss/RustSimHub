@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RustSimHub 首次设置</title><link rel="stylesheet" href="/style.css"></head>
+<body><main>
+<h1>RustSimHub 首次设置</h1>
+<p id="setup-notice" role="status" aria-live="polite">正在连接设备…</p>
+<section id="setup-account" hidden aria-labelledby="setup-account-title">
+ <h2 id="setup-account-title">第一步：设置管理员账号</h2>
+ <p id="setup-account-hint">用户名和密码只在本页使用，用来生成你的管理员身份；设备不会收到或保存密码。以后在家里的 Wi-Fi 上用同样的用户名和密码登录。</p>
+ <label>用户名<input id="setup-username" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="32"></label>
+ <label>密码（8–64 个字符）<input id="setup-password" type="password" autocomplete="new-password" maxlength="64"></label>
+ <label id="setup-confirm-label">再次输入密码<input id="setup-confirm" type="password" autocomplete="new-password" maxlength="64"></label>
+ <div class="actions"><button id="setup-account-go" class="primary">创建管理员并继续</button></div>
+</section>
+<section id="setup-wifi" hidden aria-labelledby="setup-networks-title">
+ <h2 id="setup-networks-title">第二步：选择要连接的 Wi-Fi</h2>
+ <label>附近的 Wi-Fi<select id="setup-networks"><option value="">（也可以在下面手动输入名称）</option></select></label>
+ <p id="setup-networks-note"></p>
+<section class="ap-wifi-card" aria-labelledby="ap-wifi-title">
+ <div class="ap-wifi-heading"><span class="ap-wifi-icon" aria-hidden="true">⌁</span><div><h2 id="ap-wifi-title">连接你的 Wi-Fi</h2><span class="ap-wifi-badge">先试连，再保存</span></div></div>
+ <p>填一次名称和密码，我们会完成试连。成功后，由你确认保存。</p>
+ <ol class="ap-wifi-steps" aria-label="配置进度"><li id="ap-wifi-step-input" aria-current="step"><b>01</b>填写网络</li><li id="ap-wifi-step-test"><b>02</b>自动试连</li><li id="ap-wifi-step-save"><b>03</b>确认保存</li></ol>
+ <fieldset id="ap-wifi-fields" class="ap-wifi-fields"><legend>Wi-Fi 名称和密码</legend><div class="ap-wifi-form">
+  <label>Wi-Fi 名称<input id="ap-wifi-ssid" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="32" aria-describedby="ap-wifi-security" placeholder="也可以输入隐藏网络名称"></label>
+  <label>Wi-Fi 密码<input id="ap-wifi-passphrase" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="64"></label>
+ </div><label><input id="ap-wifi-show" type="checkbox">显示密码</label><p id="ap-wifi-security" class="ap-wifi-security">加密方式：WPA2 个人网络（AES）。密码不会保存到本机草稿。</p></fieldset>
+ <div id="ap-wifi-progress" aria-busy="false"><p id="ap-wifi-state" role="status" aria-live="polite">正在准备配置页面…</p></div>
+ <p id="ap-wifi-reenter" hidden>页面重新打开后，请再填写相同的名称和密码，才可确认保存。</p>
+ <div id="ap-wifi-actions" class="actions"><span hidden><button id="ap-wifi-open">开启热点</button></span><button id="ap-wifi-begin" class="primary" disabled>开始试连</button><button id="ap-wifi-confirm" class="primary" hidden>确认保存并连接</button><button id="ap-wifi-query" hidden>查询进度</button><button id="ap-wifi-cancel" hidden>结束本次配置</button><button id="ap-wifi-finish" hidden>完成并保留回执</button></div>
+ <p class="ap-wifi-privacy">切网可能使页面短暂断开。保存后，请连接目标 Wi-Fi 并通过设备管理入口继续。结果未确认时，保留操作编号，不要重复提交。</p>
+ <details><summary>操作编号与恢复</summary><p>重新打开本页后点“查询进度”。查询不会重新开启热点、试连或保存。</p><pre id="ap-wifi-details"></pre></details>
+</section>
+ <p>保存成功后，请把手机或电脑连回家里的 Wi-Fi，打开 <b id="setup-home-url">https://设备名.local:8443</b>，用刚才的用户名和密码登录。</p>
+</section>
+</main><script type="module" src="/setup.js"></script></body>
+</html>

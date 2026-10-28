@@ -60,7 +60,11 @@ pub(super) struct Bootstrap {
     coordination: Arc<crate::coordination::Coordination>,
     active: Mutex<Option<Active>>,
     stopped: AtomicBool,
+    /// Uptime of the last automatic reopen: at most one per REOPEN_GAP_MS, so rounds that
+    /// close at once (field test 2026-10-29) cannot spin.
+    reopened_ms: std::sync::atomic::AtomicU64,
 }
+const REOPEN_GAP_MS: u64 = 30_000;
 impl Bootstrap {
     fn path(&self) -> PathBuf {
         self.journal.join("first-setup.pending.json")
@@ -113,6 +117,7 @@ impl Bootstrap {
             coordination,
             active: Mutex::new(active),
             stopped: AtomicBool::new(false),
+            reopened_ms: std::sync::atomic::AtomicU64::new(0),
         };
         {
             let mut a = v.active.try_lock().map_err(|_| Error::Busy)?;
@@ -134,6 +139,11 @@ impl Bootstrap {
         Ok(a.as_ref()
             .filter(|s| s.phase != State::Closed)
             .map(Self::projection))
+    }
+    pub(super) fn ready(&self) -> Result<bool> {
+        let a = self.active.try_lock().map_err(|_| Error::Busy)?;
+        Ok(a.as_ref()
+            .is_some_and(|s| s.phase == State::Ready && !s.cancelled))
     }
     pub(super) fn cancel(&self, id: &str) -> Result<Option<Value>> {
         let mut a = self.active.try_lock().map_err(|_| Error::Busy)?;
@@ -168,6 +178,7 @@ impl Bootstrap {
                 sequence: s.sequence,
                 valid_until_uptime_ms:
                     (t + channel::HEARTBEAT_MS).min(s.record.binding.deadline_uptime_ms),
+                open: true,
             },
         ))
     }
@@ -210,6 +221,8 @@ impl Bootstrap {
         self.available(&c)?;
         let permit = self.coordination.network().map_err(|_| Error::Busy)?;
         idle.device(gate.clone()).await?;
+        // Keep the nearby-network list for the setup page before the radio becomes the AP.
+        crate::network::wifi::capture_before_setup_ap().await;
         let after = context(auth, gate.clone()).await?;
         if self.stopped.load(Ordering::SeqCst) {
             return Err(Error::Forbidden);
@@ -224,7 +237,10 @@ impl Bootstrap {
         }
         let available = self.available(&after)?;
         let t = now()?;
-        let remaining = after.deadline.saturating_sub(t).min(300000);
+        let remaining = after
+            .deadline
+            .saturating_sub(t)
+            .min(u64::from(rustsimhub_setup_ap::MAX_WINDOW_SECONDS) * 1000);
         if remaining < 1000 {
             return Err(Error::Forbidden);
         }
@@ -270,6 +286,7 @@ impl Bootstrap {
             sequence: 1,
             valid_until_uptime_ms: (t + channel::HEARTBEAT_MS)
                 .min(record.binding.deadline_uptime_ms),
+            open: true,
         };
         *a = Some(Active {
             record,
@@ -322,6 +339,28 @@ impl Bootstrap {
         s.permit.take();
         Ok(())
     }
+    fn reopen(
+        &self,
+        auth: Arc<Mutex<Auth>>,
+        setup: Option<Arc<Mutex<rustsimhub_auth::LocalSetup>>>,
+    ) -> Result<()> {
+        let Some(gate) = setup else { return Ok(()) };
+        let t = now()?;
+        let last = self.reopened_ms.load(Ordering::SeqCst);
+        if last != 0 && t < last.saturating_add(REOPEN_GAP_MS) {
+            return Ok(());
+        }
+        let auth = auth.try_lock().map_err(|_| Error::Busy)?;
+        let mut gate = gate.try_lock().map_err(|_| Error::Busy)?;
+        if gate.next_device_window(&auth).is_ok() {
+            let mut a = self.active.try_lock().map_err(|_| Error::Busy)?;
+            if a.as_ref().is_some_and(|s| s.phase == State::Closed) {
+                *a = None;
+                self.reopened_ms.store(t.max(1), Ordering::SeqCst);
+            }
+        }
+        Ok(())
+    }
     pub(super) async fn tick(
         &self,
         auth: Arc<Mutex<Auth>>,
@@ -334,7 +373,12 @@ impl Bootstrap {
         let active = {
             let a = self.active.try_lock().map_err(|_| Error::Busy)?;
             match a.as_ref() {
-                Some(s) if s.phase == State::Closed => return Ok(()),
+                Some(s) if s.phase == State::Closed => {
+                    // Unowned device: keep the hotspot available (user decision 2026-10-29).
+                    // Only a verified Closed round reopens; Unknown keeps its protection.
+                    drop(a);
+                    return self.reopen(auth, setup);
+                }
                 Some(s) => Some((s.record.clone(), s.gate.clone(), s.cancelled)),
                 None => None,
             }
@@ -418,6 +462,7 @@ impl Bootstrap {
                 sequence: s.sequence,
                 valid_until_uptime_ms:
                     (t + channel::HEARTBEAT_MS).min(record.binding.deadline_uptime_ms),
+                open: true,
             },
         ))
     }

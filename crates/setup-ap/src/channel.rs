@@ -91,6 +91,10 @@ pub struct Hint {
     pub action: Action,
     pub sequence: u64,
     pub valid_until_uptime_ms: u64,
+    /// First-setup (unowned device) window: open AP. Omitted when false, so owner windows keep
+    /// the exact existing wire form; an older Root rejects the unknown field and starts nothing.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub open: bool,
 }
 impl Hint {
     pub fn validate(&self, now: u64, boot: &str) -> Result<()> {
@@ -187,6 +191,9 @@ pub struct Status {
     pub sample_uptime_ms: u64,
     pub rollback_verified: bool,
     pub guard_released: bool,
+    /// Present only on a Closed receipt whose preflight refused before any network change.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refusal: Option<crate::transaction::Refusal>,
 }
 impl Status {
     pub fn validate(&self, binding: &Binding, now: u64) -> Result<()> {
@@ -203,6 +210,7 @@ impl Status {
             || self.state != State::Closed && self.guard_released
             || matches!(self.state, State::Idle | State::Starting | State::Ready)
                 && self.rollback_verified
+            || self.refusal.is_some() && self.state != State::Closed
         {
             return Err(Error::Denied);
         }

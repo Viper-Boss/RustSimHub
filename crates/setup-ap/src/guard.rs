@@ -10,13 +10,14 @@ use tokio::{
     time::timeout,
 };
 
-// DHCP and HTTPS to this AP only. DNS, SSH, other local services, IPv6 and forwarding
-// remain unavailable over the setup AP. Other interfaces and quota tables are untouched.
+// DHCP, HTTPS to this AP and mDNS queries for the fixed device name only. DNS, SSH, other
+// local services, IPv6 and forwarding remain unavailable over the setup AP. Other interfaces and quota tables are untouched.
 pub const RULES: &str = r#"create table inet rustsimhub_setup
 add chain inet rustsimhub_setup input { type filter hook input priority -290; policy accept; }
 add chain inet rustsimhub_setup forward { type filter hook forward priority -290; policy accept; }
 add rule inet rustsimhub_setup input iifname "wlan0" meta nfproto ipv4 udp sport 68 udp dport 67 accept
 add rule inet rustsimhub_setup input iifname "wlan0" ip saddr 192.168.100.0/24 ip daddr 192.168.100.1 tcp dport 8443 accept
+add rule inet rustsimhub_setup input iifname "wlan0" ip saddr 192.168.100.0/24 ip daddr 224.0.0.251 udp dport 5353 accept
 add rule inet rustsimhub_setup input iifname "wlan0" drop
 add rule inet rustsimhub_setup forward iifname "wlan0" drop
 add rule inet rustsimhub_setup forward oifname "wlan0" drop
@@ -28,10 +29,20 @@ add chain inet rustsimhub_setup input { type filter hook input priority -290; po
 add chain inet rustsimhub_setup forward { type filter hook forward priority -290; policy accept; }
 add rule inet rustsimhub_setup input iifname "wlan0" meta nfproto ipv4 udp sport 68 udp dport 67 accept
 add rule inet rustsimhub_setup input iifname "wlan0" ip saddr 192.168.100.0/24 ip daddr 192.168.100.1 tcp dport 8443 accept
+add rule inet rustsimhub_setup input iifname "wlan0" ip saddr 192.168.100.0/24 ip daddr 224.0.0.251 udp dport 5353 accept
 add rule inet rustsimhub_setup input iifname "wlan0" meta nfproto ipv4 udp sport 67 udp dport 68 accept
 add rule inet rustsimhub_setup input iifname "wlan0" drop
 add rule inet rustsimhub_setup forward iifname "wlan0" drop
 add rule inet rustsimhub_setup forward oifname "wlan0" drop
+"#;
+// Open first-setup hotspot only (user decision 2026-10-28): DNS to the AP's own resolver
+// (NM shared dnsmasq answers every name with the AP address) and the plain-HTTP setup page,
+// with port 80 redirected to the unprivileged edge on 8080. Inserted ahead of the final drop.
+pub const OPEN_EXTRA: &str = r#"insert rule inet rustsimhub_setup input iifname "wlan0" ip saddr 192.168.100.0/24 ip daddr 192.168.100.1 tcp dport 8080 accept
+insert rule inet rustsimhub_setup input iifname "wlan0" ip saddr 192.168.100.0/24 ip daddr 192.168.100.1 tcp dport 53 accept
+insert rule inet rustsimhub_setup input iifname "wlan0" ip saddr 192.168.100.0/24 ip daddr 192.168.100.1 udp dport 53 accept
+add chain inet rustsimhub_setup prerouting { type nat hook prerouting priority -100; policy accept; }
+add rule inet rustsimhub_setup prerouting iifname "wlan0" ip saddr 192.168.100.0/24 ip daddr 192.168.100.1 tcp dport 80 redirect to :8080
 "#;
 fn canonical(bytes: &[u8]) -> Result<[u8; 32]> {
     let mut v: Value = serde_json::from_slice(bytes).map_err(|_| Error::Invalid)?;
@@ -43,7 +54,7 @@ fn canonical(bytes: &[u8]) -> Result<[u8; 32]> {
         return Err(Error::Invalid);
     }
     rows.retain(|r| r.get("metainfo").is_none());
-    if ![8, 9].contains(&rows.len()) {
+    if ![9, 10, 14, 15].contains(&rows.len()) {
         return Err(Error::Changed);
     }
     fn clean(v: &mut Value) {
@@ -118,6 +129,7 @@ async fn command(args: &[&str], input: Option<&str>) -> Result<Vec<u8>> {
 pub struct NftGuard {
     baseline: Option<[u8; 32]>,
     station_trial: bool,
+    open: bool,
 }
 impl NftGuard {
     pub fn new() -> Self {
@@ -128,6 +140,31 @@ impl NftGuard {
         Self {
             baseline: None,
             station_trial: true,
+            open: false,
+        }
+    }
+    /// Adds the open first-setup rows (DNS + plain-HTTP page) to either variant.
+    pub fn with_open(self, open: bool) -> Self {
+        Self { open, ..self }
+    }
+    fn script(&self) -> String {
+        let base = if self.station_trial {
+            TRIAL_RULES
+        } else {
+            RULES
+        };
+        if self.open {
+            format!("{base}{OPEN_EXTRA}")
+        } else {
+            base.to_owned()
+        }
+    }
+    fn reference(&self) -> &'static [u8] {
+        match (self.station_trial, self.open) {
+            (false, false) => include_bytes!("setup-guard-v1.json"),
+            (true, false) => include_bytes!("setup-guard-trial-v1.json"),
+            (false, true) => include_bytes!("setup-guard-open-v1.json"),
+            (true, true) => include_bytes!("setup-guard-open-trial-v1.json"),
         }
     }
 }
@@ -137,20 +174,8 @@ impl Guard for NftGuard {
             return Err(Error::Denied);
         }
         // Existing tables are not replaced or automatically removed after an unknown outcome.
-        command(
-            &["-f", "-"],
-            Some(if self.station_trial {
-                TRIAL_RULES
-            } else {
-                RULES
-            }),
-        )
-        .await?;
-        let expected = canonical(if self.station_trial {
-            include_bytes!("setup-guard-trial-v1.json").as_slice()
-        } else {
-            include_bytes!("setup-guard-v1.json").as_slice()
-        })?;
+        command(&["-f", "-"], Some(&self.script())).await?;
+        let expected = canonical(self.reference())?;
         let actual =
             canonical(&command(&["-j", "list", "table", "inet", "rustsimhub_setup"], None).await?)?;
         if actual != expected {
@@ -187,6 +212,37 @@ impl crate::station_trial::TrialGuard for NftGuard {
 mod tests {
     use super::*;
     #[test]
+    fn only_the_open_first_setup_guard_opens_dns_and_the_setup_page() {
+        for g in [NftGuard::new(), NftGuard::for_station_trial()] {
+            let s = g.script();
+            assert!(!s.contains("dport 53 ") && !s.contains("8080") && !s.contains("redirect"));
+        }
+        for g in [
+            NftGuard::new().with_open(true),
+            NftGuard::for_station_trial().with_open(true),
+        ] {
+            let s = g.script();
+            // Accepts are inserted ahead of the final drop; only from the AP subnet to the AP.
+            for port in [
+                "udp dport 53 accept",
+                "tcp dport 53 accept",
+                "tcp dport 8080 accept",
+            ] {
+                assert!(s.contains(&format!("insert rule inet rustsimhub_setup input iifname \"wlan0\" ip saddr 192.168.100.0/24 ip daddr 192.168.100.1 {port}")));
+            }
+            assert!(s.contains("tcp dport 80 redirect to :8080"));
+            assert!(!s.contains("masquerade") && !s.contains("wwan") && !s.contains("usb0"));
+            assert!(s.contains("forward iifname \"wlan0\" drop"));
+            // The live table must equal the device-generated reference for this variant.
+            let rows = serde_json::from_slice::<Value>(g.reference()).unwrap()["nftables"]
+                .as_array()
+                .unwrap()
+                .len();
+            assert_eq!(rows, if g.station_trial { 15 } else { 14 });
+            assert!(canonical(g.reference()).is_ok());
+        }
+    }
+    #[test]
     fn isolation_is_fixed_and_verification_ignores_only_kernel_handles_and_metainfo() {
         assert!(RULES.contains(crate::ADDRESS) && RULES.contains(crate::INTERFACE));
         assert!(RULES.contains(&format!("tcp dport {}", crate::HTTPS_PORT)));
@@ -196,10 +252,15 @@ mod tests {
                 && RULES.contains("forward oifname \"wlan0\" drop")
         );
         assert!(RULES.contains("udp dport 67 accept") && RULES.contains("tcp dport 8443 accept"));
-        assert!(!RULES.contains("dport 53") && !RULES.contains("wwan") && !RULES.contains("usb0"));
+        // DNS (53) stays closed; only mDNS to the multicast group, from the AP subnet, is open.
+        assert!(!RULES.contains("dport 53 ") && !RULES.contains("wwan") && !RULES.contains("usb0"));
+        assert!(RULES.contains(
+            "iifname \"wlan0\" ip saddr 192.168.100.0/24 ip daddr 224.0.0.251 udp dport 5353 accept"
+        ));
+        assert_eq!(RULES.matches("5353").count(), 1);
         let mut rows = vec![serde_json::json!({"metainfo":{"version":"synthetic"}})];
         rows.extend(
-            (0..8).map(|n| serde_json::json!({"rule":{"handle":n,"expr":[{"drop":null}]}})),
+            (0..9).map(|n| serde_json::json!({"rule":{"handle":n,"expr":[{"drop":null}]}})),
         );
         let mut v = serde_json::json!({"nftables":rows});
         let before = canonical(&serde_json::to_vec(&v).unwrap()).unwrap();
@@ -237,12 +298,12 @@ mod tests {
         let old: Value = serde_json::from_slice(include_bytes!("setup-guard-v1.json")).unwrap();
         let mut trial: Value =
             serde_json::from_slice(include_bytes!("setup-guard-trial-v1.json")).unwrap();
-        let added = trial["nftables"].as_array_mut().unwrap().remove(5);
+        let added = trial["nftables"].as_array_mut().unwrap().remove(6);
         assert_eq!(trial, old);
         assert_eq!(added["rule"]["expr"][2]["match"]["right"], 67);
         assert_eq!(added["rule"]["expr"][3]["match"]["right"], 68);
         assert!(TRIAL_RULES.contains("udp sport 67 udp dport 68 accept"));
-        assert!(!TRIAL_RULES.contains("ct state") && !TRIAL_RULES.contains("dport 53"));
+        assert!(!TRIAL_RULES.contains("ct state") && !TRIAL_RULES.contains("dport 53 "));
         assert_ne!(
             canonical(include_bytes!("setup-guard-trial-v1.json")).unwrap(),
             canonical(include_bytes!("setup-guard-v1.json")).unwrap()
