@@ -229,8 +229,9 @@ pub(super) fn check_media(
     listen: SocketAddr,
     name: &str,
     additional: &[std::net::IpAddr],
+    alias: &[String],
 ) -> Result<serde_json::Value> {
-    let config = expected_profile(listen, &canonical_name(name), Some(additional), &[])?;
+    let config = expected_profile(listen, &canonical_name(name), Some(additional), alias)?;
     Ok(
         serde_json::json!({"request_validated":true,"origin":config.origin,"listener_started":false,"media_config_prepared":true}),
     )
@@ -240,10 +241,11 @@ pub(super) fn prepare_profile(
     listen: SocketAddr,
     name: &str,
     additional: Option<&[std::net::IpAddr]>,
+    alias: &[String],
 ) -> Result<serde_json::Value> {
     let canonical = canonical_name(name);
     let name = canonical.as_str();
-    let config = expected_profile(listen, name, additional, &[])?;
+    let config = expected_profile(listen, name, additional, alias)?;
     prepare_config(directory, config, name)
 }
 /// The setup edge keeps the fixed AP IP origin (the installed contract) and, when the
@@ -472,32 +474,36 @@ mod tests {
     fn media_installation_is_bound_to_exact_addresses_and_never_upgrades_existing_state() {
         let d = directory();
         let extra = ["127.0.0.2".parse().unwrap()];
-        let first = prepare_profile(d.path(), listen(), "hub.local", Some(&extra)).unwrap();
+        let first = prepare_profile(d.path(), listen(), "hub.local", Some(&extra), &[]).unwrap();
         assert_eq!(first["media_config_prepared"], true);
         assert_eq!(
-            prepare_profile(d.path(), listen(), "hub.local", Some(&extra)).unwrap(),
+            prepare_profile(d.path(), listen(), "hub.local", Some(&extra), &[]).unwrap(),
             first
         );
         assert!(prepare(d.path(), listen(), "hub.local", &[]).is_err());
-        assert!(prepare_profile(d.path(), listen(), "hub.local", Some(&[])).is_err());
+        assert!(prepare_profile(d.path(), listen(), "hub.local", Some(&[]), &[]).is_err());
         let p = d.path().join("installation/media.json");
         let old = fs::read(&p).unwrap();
         fs::write(&p, b"corrupt").unwrap();
-        assert!(prepare_profile(d.path(), listen(), "hub.local", Some(&extra)).is_err());
+        assert!(prepare_profile(d.path(), listen(), "hub.local", Some(&extra), &[]).is_err());
         fs::write(&p, old).unwrap();
         let d = directory();
         prepare(d.path(), listen(), "hub.local", &[]).unwrap();
-        assert!(prepare_profile(d.path(), listen(), "hub.local", Some(&extra)).is_err());
+        assert!(prepare_profile(d.path(), listen(), "hub.local", Some(&extra), &[]).is_err());
         let d = directory();
         for (address, ips) in [
             ("[::1]:8448", vec![]),
             ("127.0.0.1:8448", vec!["127.0.0.1".parse().unwrap()]),
             ("127.0.0.1:8448", vec!["8.8.8.8".parse().unwrap()]),
         ] {
-            assert!(
-                prepare_profile(d.path(), address.parse().unwrap(), "hub.local", Some(&ips))
-                    .is_err()
-            );
+            assert!(prepare_profile(
+                d.path(),
+                address.parse().unwrap(),
+                "hub.local",
+                Some(&ips),
+                &[]
+            )
+            .is_err());
             assert_eq!(fs::read_dir(d.path()).unwrap().count(), 0);
         }
     }

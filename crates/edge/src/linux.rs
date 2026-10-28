@@ -39,6 +39,7 @@ use tokio_rustls::{
     TlsAcceptor,
 };
 type Result<T> = std::result::Result<T, &'static str>;
+mod addresses;
 mod installation;
 mod media;
 mod network_test;
@@ -708,15 +709,27 @@ pub fn run(args: Vec<String>) -> Result<()> {
             let listen = rest[offset]
                 .parse()
                 .map_err(|_| "invalid local listen address")?;
-            let name = &rest[offset + 1];
+            // NAME may be "primary,alias": the alias becomes one additional origin.
+            let mut names = rest[offset + 1].split(',');
+            let name = names.next().unwrap_or_default();
+            let alias: Vec<String> = names.map(str::to_owned).collect();
+            if alias.len() > 1 {
+                return Err("at most one alias");
+            }
             let additional = rest[required..]
                 .iter()
                 .map(|s| s.parse().map_err(|_| "invalid additional address"))
                 .collect::<Result<Vec<std::net::IpAddr>>>()?;
             let result = if preparing {
-                installation::prepare_profile(Path::new(&rest[0]), listen, name, Some(&additional))?
+                installation::prepare_profile(
+                    Path::new(&rest[0]),
+                    listen,
+                    name,
+                    Some(&additional),
+                    &alias,
+                )?
             } else {
-                installation::check_media(listen, name, &additional)?
+                installation::check_media(listen, name, &additional, &alias)?
             };
             println!("{result}");
             return Ok(());
@@ -783,6 +796,25 @@ pub fn run(args: Vec<String>) -> Result<()> {
             .iter()
             .map(|ip| SocketAddr::new(*ip, config.listen.port())),
     );
+    // Served under the fixed .local name: also follow wlan0's current private address, so a
+    // Wi-Fi change keeps the daily page reachable. Never cellular; Host/Origin checks unchanged.
+    let follow_wifi = origins.first().is_some_and(|(_, a)| {
+        a.rsplit_once(':')
+            .is_some_and(|(h, _)| h.ends_with(".local"))
+    });
+    let port = config.listen.port();
+    let wanted = move |configured: &[SocketAddr]| -> Vec<SocketAddr> {
+        let mut v = configured.to_vec();
+        if follow_wifi {
+            for ip in addresses::wlan0() {
+                let a = SocketAddr::new(ip.into(), port);
+                if !v.contains(&a) {
+                    v.push(a);
+                }
+            }
+        }
+        v
+    };
     let media = config
         .media_worker_socket
         .map(|p| Arc::new(media::Bridge::new(p)));
@@ -810,7 +842,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
     runtime.block_on(async {
         let accept_one=|listener:TcpListener|async move{let accepted=listener.accept().await;(listener,accepted)};
         let mut acceptors=JoinSet::new();let mut listening=Vec::new();
-        for address in &configured_addresses {match TcpListener::bind(address).await {Ok(listener)=>{acceptors.spawn(accept_one(listener));listening.push(*address);},Err(e) if e.kind()==std::io::ErrorKind::AddrNotAvailable=>{},Err(_)=>return Err("listener unavailable"),}}
+        for address in &wanted(&configured_addresses) {match TcpListener::bind(address).await {Ok(listener)=>{acceptors.spawn(accept_one(listener));listening.push(*address);},Err(e) if e.kind()==std::io::ErrorKind::AddrNotAvailable=>{},Err(_) if !configured_addresses.contains(address)=>{},Err(_)=>return Err("listener unavailable"),}}
         if let Some(bridge)=&app.media {bridge.takeover().await?;}
         let mut retry_bind=tokio::time::interval(Duration::from_secs(5));retry_bind.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         let slots=Arc::new(Semaphore::new(24)); let mut tasks=JoinSet::new();
@@ -827,7 +859,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 _=interrupt.recv()=>break,
                 _=tasks.join_next(),if !tasks.is_empty()=>{},
                 _=reaper.tick(),if app.media.is_some()=>{if let Some(bridge)=&app.media {bridge.reap().await;}},
-                _=retry_bind.tick()=>{for address in &configured_addresses {if !listening.contains(address) {match TcpListener::bind(address).await {Ok(listener)=>{acceptors.spawn(accept_one(listener));listening.push(*address);},Err(e) if e.kind()==std::io::ErrorKind::AddrNotAvailable=>{},Err(_)=>return Err("additional listener unavailable"),}}}},
+                _=retry_bind.tick()=>{for address in &wanted(&configured_addresses) {if !listening.contains(address) && listening.len()<8 {match TcpListener::bind(address).await {Ok(listener)=>{acceptors.spawn(accept_one(listener));listening.push(*address);},Err(e) if e.kind()==std::io::ErrorKind::AddrNotAvailable=>{},Err(_) if !configured_addresses.contains(address)=>{},Err(_)=>return Err("additional listener unavailable"),}}}},
                 incoming=acceptors.join_next(),if !acceptors.is_empty()=>{
                     let (listener,incoming)=incoming.ok_or("listeners stopped")?.map_err(|_|"listener failed")?;
                     acceptors.spawn(accept_one(listener));
