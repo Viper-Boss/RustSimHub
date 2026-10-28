@@ -86,6 +86,7 @@ fn root_status_cannot_close_another_operation_or_claim_unverified_cleanup() {
         sample_uptime_ms: 3000,
         rollback_verified: true,
         guard_released: true,
+        refusal: None,
     };
     assert!(s.validate(&b, 3000).is_ok());
     s.guard_released = false;
@@ -99,6 +100,48 @@ fn root_status_cannot_close_another_operation_or_claim_unverified_cleanup() {
     assert!(s.validate(&b, 3000).is_err());
     s.binding = b.clone();
     assert!(s.validate(&b, 19000).is_err());
+}
+#[test]
+fn refusal_is_only_on_a_verified_closed_receipt_and_old_receipts_still_parse() {
+    use crate::transaction::Refusal;
+    let b = binding();
+    let mut s = Status {
+        format: 1,
+        binding: b.clone(),
+        state: State::Closed,
+        sequence: 2,
+        sample_uptime_ms: 3000,
+        rollback_verified: true,
+        guard_released: true,
+        refusal: Some(Refusal::StationConnected),
+    };
+    assert!(s.validate(&b, 3000).is_ok());
+    let bytes = serde_json::to_vec(&s).unwrap();
+    assert!(String::from_utf8_lossy(&bytes).contains("\"refusal\":\"station_connected\""));
+    assert_eq!(Status::parse(&bytes, &b, 3000).unwrap().refusal, s.refusal);
+    for state in [
+        State::Starting,
+        State::Ready,
+        State::Closing,
+        State::Unknown,
+    ] {
+        s.state = state;
+        s.rollback_verified = false;
+        s.guard_released = false;
+        assert!(s.validate(&b, 3000).is_err(), "{state:?}");
+    }
+    // A receipt without the field (older Root) is still a valid closed receipt.
+    s.state = State::Closed;
+    s.rollback_verified = true;
+    s.guard_released = true;
+    s.refusal = None;
+    let old = serde_json::to_vec(&s).unwrap();
+    assert!(!String::from_utf8_lossy(&old).contains("refusal"));
+    assert!(Status::parse(&old, &b, 3000).unwrap().refusal.is_none());
+    // Only the finite vocabulary is accepted; NM text can never be relayed.
+    let mut v = serde_json::to_value(&s).unwrap();
+    v["refusal"] = "org.freedesktop.NetworkManager failed".into();
+    assert!(Status::parse(&serde_json::to_vec(&v).unwrap(), &b, 3000).is_err());
 }
 #[test]
 fn availability_requires_the_exact_realm_device_boot_and_prepared_tls() {

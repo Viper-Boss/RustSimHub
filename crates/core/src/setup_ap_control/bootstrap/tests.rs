@@ -98,6 +98,7 @@ fn status(f: &Fixture, state: State, mutate: impl FnOnce(&mut Status)) {
         sample_uptime_ms: now().unwrap(),
         rollback_verified: state == State::Closed,
         guard_released: state == State::Closed,
+        refusal: None,
     };
     mutate(&mut s);
     f.runtime.output.publish(Slot::Status, &s).unwrap();

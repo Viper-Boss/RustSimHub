@@ -22,8 +22,11 @@ export function credentialsInput(ssid,passphrase){
  need(typeof passphrase==='string'&&(/^[\x20-\x7e]{8,63}$/.test(passphrase)||/^[a-fA-F0-9]{64}$/.test(passphrase)),'请填写8–63位 WPA2 密码，或64位十六进制密钥');
  return {ssid,passphrase};
 }
+// Root's finite preflight refusals (before any network change) and what the owner can do.
+export const refusals={wifi_disabled:'设备的 Wi-Fi 功能已关闭，未开启配置热点。',checkpoint_exists:'设备正在进行另一项网络操作，请稍后再试。',ap_unsupported:'设备的无线网卡当前不能开启热点。',subnet_conflict:'设备当前网络与配置热点的网段（192.168.100.x）冲突，未开启热点。',station_connected:'设备已连接 Wi-Fi。现有热点配网只用于首次配置，已联网设备的“重新配网”正在开发。',station_saved:'设备已保存过 Wi-Fi。现有热点配网只用于首次配置，已联网设备的“重新配网”正在开发。',gsm_autoconnect:'设备存在会自动连接的蜂窝数据配置，为避免产生流量，未开启热点。'};
 function parentInput(v,record=null){
  need(v&&typeof v.state==='string');
+ need(v.refusal===undefined||v.refusal===null||v.state==='closed'&&typeof v.refusal==='string'&&Object.hasOwn(refusals,v.refusal));
  if(['idle','disabled'].includes(v.state)){need(typeof v.available==='boolean');return v;}
  if(v.state==='not_found'){need(v.known===false&&v.not_found_is_not_proof===true);return v;}
  if(v.first_setup===true){need(!record&&['starting','ready','closing','unknown'].includes(v.state)&&uuid(v.operation_id)&&v.credentials_returned===false&&v.cellular_activation===false&&typeof v.owner_adoption_required==='boolean');return v;}
@@ -66,7 +69,7 @@ export class ApConfigurator {
  suspend(){this.epoch++;this.opened=false;this.working=false;this.wipe();this.trial=null;this.commit=null;this.parent=null;this.terminal=false;this.phase=this.record?'unknown':'idle';this.render();}
  render(message=null){
   const state=this.phase,waiting=['starting','testing','saving','closing'].includes(state);
-  this.$('ap-wifi-state').textContent=this.storageError?'本机配网记录无法核对，已停止提交。请保留记录并通过维护入口处理。':message||messages[state]||messages.unknown;
+  this.$('ap-wifi-state').textContent=this.storageError?'本机配网记录无法核对，已停止提交。请保留记录并通过维护入口处理。':message||state==='closed'&&this.refusal&&refusals[this.refusal]||messages[state]||messages.unknown;
   this.$('ap-wifi-state').dataset.phase=state;this.$('ap-wifi-progress').setAttribute('aria-busy',String(this.working&&waiting));
   for(const [i,id] of ['ap-wifi-step-input','ap-wifi-step-test','ap-wifi-step-save'].entries()){
    const n=state==='saved'?3:['saving','trial_ready','restored_ap'].includes(state)?2:state==='testing'?1:0;
@@ -110,7 +113,7 @@ export class ApConfigurator {
   if(v.known!==true){this.phase='unknown';this.render();return null;}
   if(!r.operation_id)await this.update({operation_id:v.operation_id},g);
   this.parent=v;
-  if(v.state==='closed'){this.terminal=true;this.phase='closed';this.wipe();this.render();}
+  if(v.state==='closed'){this.terminal=true;this.phase='closed';this.refusal=v.refusal||null;this.wipe();this.render();}
   return v;
  }
  async pause(ms,g=this.epoch){await new Promise(resolve=>this.env.setTimeout(resolve,ms));this.check(g);}
