@@ -297,11 +297,11 @@ impl Runtime {
         }
         drop(active);
         if let Some(mut view) = self.bootstrap.view()? {
-            let available = self.availability(&c).ok();
-            let supported = view["state"] == "ready"
-                && available
-                    .as_ref()
-                    .is_some_and(|v| v.station_trial_supported && v.station_save_supported);
+            let fresh = self
+                .availability(&c)
+                .ok()
+                .is_some_and(|v| v.station_trial_supported && v.station_save_supported);
+            let supported = view["state"] == "ready" && (fresh || self.bootstrap.supported()?);
             view["owner_adoption_required"] = supported.into();
             view["station_trial_api"] = supported.into();
             view["station_save_api"] = supported.into();

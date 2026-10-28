@@ -140,11 +140,14 @@ impl Runtime {
         if c.principal != after.principal || !matches_claim(&after, &claimed, &record) {
             return Err(Error::Forbidden);
         }
-        let available = self.availability(&after)?;
-        if available.material_sha256 != record.binding.material_sha256
-            || !available.station_trial_supported
-            || !available.station_save_supported
-        {
+        // Support was read from the fresh availability at round start (the record binds its
+        // material); Root no longer refreshes availability while the window runs.
+        let fresh = self.availability(&after).ok().is_some_and(|a| {
+            a.material_sha256 == record.binding.material_sha256
+                && a.station_trial_supported
+                && a.station_save_supported
+        });
+        if !fresh && !self.bootstrap.supported()? {
             return Err(Error::Forbidden);
         }
         if station::pending(&self.journal)?.is_some()
