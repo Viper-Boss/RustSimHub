@@ -7,8 +7,10 @@ pub(super) fn app(path: PathBuf) -> App {
     let uid = std::fs::metadata(path.parent().unwrap()).unwrap().uid();
     App {
         media: None,
-        origin: "https://localhost:8443".into(),
-        authority: "localhost:8443".into(),
+        origins: Arc::from([(
+            Box::<str>::from("https://localhost:8443"),
+            Box::<str>::from("localhost:8443"),
+        )]),
         socket: Arc::new(path),
         uid,
         legacy_compat: false,
@@ -234,6 +236,7 @@ async fn changed_core_uid_or_writable_parent_is_rejected_without_connecting() {
 #[test]
 fn config_rejects_unrestricted_binds_credentials_and_noncanonical_origins() {
     let mut c = Config {
+        additional_origins: Vec::new(),
         additional_listen_ips: Vec::new(),
         media_worker_socket: None,
         listen: "127.0.0.1:8443".parse().unwrap(),
@@ -274,6 +277,7 @@ fn configured_media_and_extra_listeners_stay_private_explicit_and_unique() {
         legacy_compat: false,
         media_worker_socket: Some("/run/media/worker.sock".into()),
         additional_listen_ips: vec!["127.0.0.2".parse().unwrap()],
+        additional_origins: Vec::new(),
     };
     assert!(c.authority().is_ok());
     for path in ["relative.sock", "/run/../worker.sock", "/run/./worker.sock"] {
@@ -376,4 +380,103 @@ async fn legacy_capacity_does_not_consume_the_normal_api_budget() {
     let response = legacy_forward(&a, &headers, AuthCommand::Identity {}).await;
     assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
     assert_eq!(a.rate.lock().unwrap().remaining, 120);
+}
+
+#[test]
+fn additional_origins_are_exact_unique_bounded_and_omitted_when_empty() {
+    let mut c = Config {
+        additional_origins: vec!["https://rustsimhub-0087.local:8443".into()],
+        additional_listen_ips: Vec::new(),
+        media_worker_socket: None,
+        listen: "192.168.120.167:8443".parse().unwrap(),
+        origin: "https://192.168.120.167:8443".into(),
+        core_socket: "/tmp/synthetic.sock".into(),
+        core_uid: 0,
+        tls_directory: "/tmp/synthetic".into(),
+        legacy_compat: false,
+    };
+    let pairs = c.origins().unwrap();
+    assert_eq!(pairs[0].1, "192.168.120.167:8443");
+    assert_eq!(
+        pairs[1],
+        (
+            "https://rustsimhub-0087.local:8443".into(),
+            "rustsimhub-0087.local:8443".into()
+        )
+    );
+    for bad in [
+        vec!["http://rustsimhub-0087.local:8443"],
+        vec!["https://rustsimhub-0087.local:8443/"],
+        vec!["https://u@rustsimhub-0087.local:8443"],
+        vec!["https://192.168.120.167:8443"],
+        vec!["https://a.local:8443", "https://a.local:8443"],
+        vec![
+            "https://a.local:8443",
+            "https://b.local:8443",
+            "https://c.local:8443",
+        ],
+    ] {
+        c.additional_origins = bad.into_iter().map(String::from).collect();
+        assert!(c.origins().is_err(), "{:?}", c.additional_origins);
+    }
+    c.additional_origins.clear();
+    let value = serde_json::to_value(&c).unwrap();
+    assert!(value.get("additional_origins").is_none());
+}
+
+#[tokio::test]
+async fn host_selects_an_accepted_origin_and_the_origin_header_must_match_that_host() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut a = app(dir.path().join("core.sock"));
+    a.origins = Arc::from([
+        (
+            Box::<str>::from("https://192.168.100.1:8443"),
+            Box::<str>::from("192.168.100.1:8443"),
+        ),
+        (
+            Box::<str>::from("https://rustsimhub-0087.local:8443"),
+            Box::<str>::from("rustsimhub-0087.local:8443"),
+        ),
+    ]);
+    let router = axum::Router::new()
+        .route("/api/v2", axum::routing::post(|| async { "ok" }))
+        .layer(axum::middleware::from_fn_with_state(a.clone(), boundary))
+        .with_state(a);
+    let call = |host: &str, origin: &str| {
+        axum::http::Request::post("/api/v2")
+            .header(header::HOST, host)
+            .header(header::ORIGIN, origin)
+            .header(header::CONTENT_TYPE, "application/json")
+            .header("x-rustsimhub-request", "2")
+            .body(Body::from("{}"))
+            .unwrap()
+    };
+    for (host, origin, ok) in [
+        (
+            "rustsimhub-0087.local:8443",
+            "https://rustsimhub-0087.local:8443",
+            true,
+        ),
+        ("192.168.100.1:8443", "https://192.168.100.1:8443", true),
+        // Mixed pairs are refused: the Origin must belong to the Host that was reached.
+        (
+            "192.168.100.1:8443",
+            "https://rustsimhub-0087.local:8443",
+            false,
+        ),
+        (
+            "rustsimhub-0087.local:8443",
+            "https://192.168.100.1:8443",
+            false,
+        ),
+        ("evil.local:8443", "https://evil.local:8443", false),
+    ] {
+        let status = router
+            .clone()
+            .oneshot(call(host, origin))
+            .await
+            .unwrap()
+            .status();
+        assert_eq!(status.is_success(), ok, "{host} {origin} {status}");
+    }
 }

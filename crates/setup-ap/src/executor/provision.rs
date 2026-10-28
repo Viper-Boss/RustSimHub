@@ -59,6 +59,8 @@ struct EdgeConfig {
     media_worker_socket: Option<PathBuf>,
     #[serde(default)]
     additional_listen_ips: Vec<std::net::IpAddr>,
+    #[serde(default)]
+    additional_origins: Vec<String>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -71,6 +73,28 @@ struct EdgeRecord {
     config_sha256: String,
     #[serde(default)]
     media_sha256: Option<String>,
+    #[serde(default)]
+    tls_alt_names: Vec<String>,
+}
+/// The setup Edge may additionally serve exactly the device's fixed `.local` name.
+fn fixed_name_origin(config: &EdgeConfig, record: &EdgeRecord) -> bool {
+    match (
+        config.additional_origins.as_slice(),
+        record.tls_alt_names.as_slice(),
+    ) {
+        ([], []) => true,
+        ([origin], [host]) => {
+            host.strip_prefix("rustsimhub-")
+                .and_then(|t| t.strip_suffix(".local"))
+                .is_some_and(|t| {
+                    t.len() == 4
+                        && t.bytes()
+                            .all(|b| b.is_ascii_digit() || b.is_ascii_lowercase())
+                })
+                && *origin == format!("https://{host}:{}", crate::HTTPS_PORT)
+        }
+        _ => false,
+    }
 }
 struct Snapshot {
     cert: Vec<u8>,
@@ -101,6 +125,7 @@ fn snapshot(path: &Path, uid: u32, binding: &BindingFile) -> Result<Snapshot> {
         || record.tls_name != crate::ADDRESS
         || record.config_sha256 != hash(&raw)
         || record.media_sha256.is_some()
+        || !fixed_name_origin(&config, &record)
     {
         return Err(Error::Changed);
     }
