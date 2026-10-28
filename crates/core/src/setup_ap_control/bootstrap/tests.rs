@@ -220,6 +220,23 @@ async fn unowned_device_reopens_the_hotspot_after_a_verified_closed_round() {
     assert_ne!(second.binding.nonce, first.binding.nonce);
 }
 #[tokio::test]
+async fn rounds_that_close_at_once_are_not_reopened_in_a_tight_loop() {
+    let f = fixture();
+    tick(&f).await.unwrap();
+    status(&f, State::Closed, |_| {});
+    tick(&f).await.unwrap();
+    tick(&f).await.unwrap();
+    tick(&f).await.unwrap();
+    let second = hint(&f);
+    assert!(second.action == Action::Start);
+    // The second round also closes at once: no third round inside the reopen gap.
+    status(&f, State::Closed, |_| {});
+    for _ in 0..5 {
+        tick(&f).await.unwrap();
+    }
+    assert!(hint(&f) == second);
+}
+#[tokio::test]
 async fn exhausted_setup_budget_cancels_and_unknown_never_frees_the_network_guard() {
     let f = fixture();
     tick(&f).await.unwrap();

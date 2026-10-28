@@ -60,7 +60,11 @@ pub(super) struct Bootstrap {
     coordination: Arc<crate::coordination::Coordination>,
     active: Mutex<Option<Active>>,
     stopped: AtomicBool,
+    /// Uptime of the last automatic reopen: at most one per REOPEN_GAP_MS, so rounds that
+    /// close at once (field test 2026-10-29) cannot spin.
+    reopened_ms: std::sync::atomic::AtomicU64,
 }
+const REOPEN_GAP_MS: u64 = 30_000;
 impl Bootstrap {
     fn path(&self) -> PathBuf {
         self.journal.join("first-setup.pending.json")
@@ -113,6 +117,7 @@ impl Bootstrap {
             coordination,
             active: Mutex::new(active),
             stopped: AtomicBool::new(false),
+            reopened_ms: std::sync::atomic::AtomicU64::new(0),
         };
         {
             let mut a = v.active.try_lock().map_err(|_| Error::Busy)?;
@@ -340,12 +345,18 @@ impl Bootstrap {
         setup: Option<Arc<Mutex<rustsimhub_auth::LocalSetup>>>,
     ) -> Result<()> {
         let Some(gate) = setup else { return Ok(()) };
+        let t = now()?;
+        let last = self.reopened_ms.load(Ordering::SeqCst);
+        if last != 0 && t < last.saturating_add(REOPEN_GAP_MS) {
+            return Ok(());
+        }
         let auth = auth.try_lock().map_err(|_| Error::Busy)?;
         let mut gate = gate.try_lock().map_err(|_| Error::Busy)?;
         if gate.next_device_window(&auth).is_ok() {
             let mut a = self.active.try_lock().map_err(|_| Error::Busy)?;
             if a.as_ref().is_some_and(|s| s.phase == State::Closed) {
                 *a = None;
+                self.reopened_ms.store(t.max(1), Ordering::SeqCst);
             }
         }
         Ok(())

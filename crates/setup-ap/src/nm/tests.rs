@@ -108,7 +108,7 @@ impl Manager {
             }
             return Ok(STATION_CP.try_into().unwrap());
         }
-        assert_eq!(seconds, 330);
+        assert!((30..=crate::MAX_WINDOW_SECONDS + 30).contains(&seconds));
         assert_eq!(flags, 0);
         m.cp = true;
         m.cp_home = m.home_active;
@@ -819,4 +819,15 @@ async fn a_foreign_connection_appearing_after_preflight_blocks_checkpoint_and_ac
     assert!(nm.checkpoint(330).await.is_err());
     assert!(nm.activate(&c).await.is_err());
     assert!(model.lock().unwrap().events.is_empty());
+}
+#[tokio::test]
+async fn checkpoint_accepts_the_longest_window_and_nothing_beyond() {
+    let model = Arc::new(Mutex::new(Model::default()));
+    let (_s, mut nm) = fixture(model.clone()).await;
+    nm.preflight().await.unwrap();
+    assert!(nm.checkpoint(crate::MAX_WINDOW_SECONDS + 31).await.is_err());
+    assert!(nm.checkpoint(29).await.is_err());
+    assert!(model.lock().unwrap().events.is_empty());
+    nm.checkpoint(crate::MAX_WINDOW_SECONDS + 30).await.unwrap();
+    assert_eq!(model.lock().unwrap().events, ["checkpoint"]);
 }

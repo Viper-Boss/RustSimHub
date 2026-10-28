@@ -462,7 +462,9 @@ impl Network for NetworkManager {
         self.refusal
     }
     async fn checkpoint(&mut self, seconds: u32) -> Result<()> {
-        if !(30..=330).contains(&seconds) || self.checkpoint_requested {
+        // Window plus the 30 s rollback margin; must follow MAX_WINDOW_SECONDS (field test
+        // 2026-10-29: a stale 330 s limit refused every one-hour first-setup round).
+        if !(30..=crate::MAX_WINDOW_SECONDS + 30).contains(&seconds) || self.checkpoint_requested {
             return Err(Error::Invalid);
         }
         self.idle_or_saved().await?;
