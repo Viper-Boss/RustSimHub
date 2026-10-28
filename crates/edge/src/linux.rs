@@ -587,6 +587,15 @@ fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/password.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/password.js"),
+                )
+            }),
+        )
+        .route(
             "/ap-wifi.js",
             get(|| async {
                 (

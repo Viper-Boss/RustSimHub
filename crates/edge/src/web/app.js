@@ -10,6 +10,7 @@ import { DailyPhone } from './phone.js';
 import { SessionKeeper } from './session.js';
 import { ForwardingPanel, ForwardingQuickTest, ForwardingHistory, historyPendingInput, pendingInput as forwardingPendingInput } from './forwarding.js';
 import { ApConfigurator, pendingInput as apPendingInput } from './ap-wifi.js';
+import { deriveSeed, importKeyPair, publicKey as seedPublicKey } from './password.js';
 const $=id=>document.getElementById(id);
 const scopes=['status.read','sms.read','calls.read'];
 let key, publicKey, token=null, busy=false, pending=null, lease=null;
@@ -160,6 +161,17 @@ async function proof(challenge,purpose,pairScopes,epoch=viewEpoch,sessionToken=n
  }
  const pin=unhex($('pin').value.trim());const signature=await prove(challenge,pin,publicKey,key.privateKey,purpose,pairScopes,expectedKind,sessionToken);current(epoch);
  if(purpose!=='session_renew')await save('pin',hex(pin));current(epoch);return signature;
+}
+// Username + password Owner login: the key is derived here (never sent), imported as a
+// non-extractable WebCrypto key and kept as this browser's key; a paired key is archived.
+async function passwordLogin(){
+ const epoch=viewEpoch;
+ if(!/^[a-fA-F0-9]{64}$/.test($('pin').value.trim())){const v=await api({op:'identity'},epoch);current(epoch);if(!Array.isArray(v.public_key)||v.public_key.length!==32)throw Error('设备身份无效');$('pin').value=hex(new Uint8Array(v.public_key));}
+ const pin=unhex($('pin').value.trim());notice('正在生成身份…');
+ const seed=deriveSeed(pin,$('owner-username').value,$('owner-password').value);$('owner-password').value='';
+ const pair=await importKeyPair(seed);const derived=seedPublicKey(seed);seed.fill(0);current(epoch);
+ if(hex(derived)!==hex(publicKey)){if(!await stored('key-before-password'))await save('key-before-password',key);key=pair;publicKey=derived;await save('key',key);}
+ $('client-key').textContent='浏览器公钥：'+hex(publicKey);await login();
 }
 async function initializeOwner(){
  const epoch=viewEpoch;const setup_code=$('setup-code').value.trim().toLowerCase();
@@ -431,7 +443,7 @@ async function restoreTestDraft(){
 function smsLength(){$('sms-length').textContent=`正文 ${new TextEncoder().encode($('text').value).length} / 4096 字节`;} $('text').oninput=smsLength;
 async function act(fn){if(busy)return;if(apConfigurator?.working||apConfigurator?.managing){notice('请先在 Wi-Fi 配置区查询或结束当前配置');return;}if(dailyPhone?.working||dailyPhone?.managing){notice('请先在电话区结束当前操作或通话');return;}const generation=++actionGeneration,epoch=viewEpoch;busy=true;showPending();try{await fn();}catch(error){if(epoch===viewEpoch&&generation===actionGeneration)notice(error.message||'操作失败');}finally{if(generation===actionGeneration){busy=false;showPending();}}}
 function bind(id,fn){$(id).onclick=()=>act(fn);}
-bind('initialize-owner',initializeOwner);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
+bind('initialize-owner',initializeOwner);bind('password-login',passwordLogin);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
 bind('sms-login',async()=>{await login();$('sms-management-state').textContent=smsManager.available?'已重新登录，请重新选择短信后管理。':'当前浏览器没有所有者管理权限，请使用已认领的所有者浏览器。';});
 bind('daily-login',login);$('daily-logout').onclick=()=>$('logout').onclick();bind('sms-refresh',()=>inboxPage(true));bind('send-sms',dailySendSms);bind('sms-query',query);bind('sms-close',closeSms);
 bind('forwarding-login',async()=>{await login();await forwardingPanel.action(g=>forwardingPanel.read(g));});
