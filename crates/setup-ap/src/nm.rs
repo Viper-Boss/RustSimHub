@@ -28,6 +28,8 @@ fn text<'a>(p: &'a Properties, k: &str) -> Result<&'a str> {
         .and_then(|v| <&str>::try_from(v).ok())
         .ok_or(Error::Io)
 }
+/// NM `802-11-wireless-security.pmf`: 1 = disable.
+const PMF_DISABLE: i32 = 1;
 fn number(p: &Properties, k: &str) -> Result<u32> {
     p.get(k)
         .and_then(|v| u32::try_from(v).ok())
@@ -110,6 +112,9 @@ pub fn settings(c: &Credentials) -> Result<Settings> {
                 ("proto".into(), strings(vec!["rsn"])?),
                 ("pairwise".into(), strings(vec!["ccmp"])?),
                 ("group".into(), strings(vec!["ccmp"])?),
+                // wcn36xx has no BIP/AES-CMAC: NM's default optional PMF adds an IGTK the
+                // kernel rejects ("key setting validation failed") and the AP never starts.
+                ("pmf".into(), PMF_DISABLE.into()),
                 (
                     "psk".into(),
                     string(c.expose_passphrase_for_trusted_delivery()),
@@ -186,6 +191,7 @@ fn profile_matches(p: &Settings, c: &Credentials) -> Result<bool> {
         && protocol == ["rsn"]
         && cipher("pairwise")? == ["ccmp"]
         && cipher("group")? == ["ccmp"]
+        && security.get("pmf").and_then(|v| i32::try_from(v).ok()) == Some(PMF_DISABLE)
         && number(security, "psk-flags")? == 0
         && text(ip, "method")? == "shared"
         && boolean(ip, "never-default")?

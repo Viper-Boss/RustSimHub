@@ -721,6 +721,9 @@ fn restoring_ap_also_requires_the_original_isolation_ciphers_and_address_policy(
             strings(vec!["tkip"]).unwrap(),
         ),
         ("802-11-wireless-security", "psk-flags", 1u32.into()),
+        // Optional or required PMF makes wcn36xx refuse the AP keys.
+        ("802-11-wireless-security", "pmf", 0i32.into()),
+        ("802-11-wireless-security", "pmf", 2i32.into()),
         ("ipv4", "may-fail", true.into()),
     ] {
         let mut s = settings(&c).unwrap();
