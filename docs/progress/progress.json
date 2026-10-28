@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-28T06:52:04.631982+00:00",
+  "updated_at": "2026-10-28T08:10:34.901312+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原80%仍按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "UPD-01",
-    "title": "Root与应用版本能力契约",
-    "state": "正在推进",
-    "description": "U4真实Root配置/业务与outbox持锁只读观察完成；30项updater、严格检查/生产Native及18项真实Root CLI通过。继续实际验签程序与有效systemd/持锁准入接线，UPD-01仍进行；原进度与成员/真人边界保持。"
+    "task_id": "UPD-02",
+    "title": "签名维护材料与固定写入表",
+    "state": "前置已完成，按所列条件继续推进",
+    "description": "将需要的Root单元/助手纳入受限可复现交付；拒绝任意路径和旧密钥包。 验收：签名、来源、目标、权限和恢复材料均可验证。"
   },
   "facts": [
     {
@@ -1813,12 +1813,14 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "in_progress",
+          "status": "done",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
-          "completed_at": null,
-          "actual_hours": null
+          "evidence": [
+            "docs/VALIDATION-UPD01-FIELD-20261028.md"
+          ],
+          "completed_at": "2026-10-28T08:10:34.901312+00:00",
+          "actual_hours": 3.0
         },
         {
           "id": "UPD-02",
@@ -5074,6 +5076,18 @@
       ],
       "evidence": [
         "docs/VALIDATION-REC02-SNAPSHOT-AND-POWER-20261028.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T08:10:34.901312+00:00",
+      "type": "completed",
+      "title": "UPD-01 · 已完成：Root与应用版本能力契约",
+      "detail": "新更新器装到设备；admit-stage在真实Root配置与业务数据上三方兼容判断后持锁暂存epoch 55，试运行并确认",
+      "task_ids": [
+        "UPD-01"
+      ],
+      "evidence": [
+        "docs/VALIDATION-UPD01-FIELD-20261028.md"
       ]
     }
   ],
