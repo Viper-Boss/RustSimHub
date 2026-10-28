@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-28T06:52:04.631982+00:00",
+  "updated_at": "2026-10-28T07:24:41.907613+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原80%仍按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "UPD-01",
-    "title": "Root与应用版本能力契约",
-    "state": "正在推进",
-    "description": "U4真实Root配置/业务与outbox持锁只读观察完成；30项updater、严格检查/生产Native及18项真实Root CLI通过。继续实际验签程序与有效systemd/持锁准入接线，UPD-01仍进行；原进度与成员/真人边界保持。"
+    "task_id": "SMS-04",
+    "title": "SIM满与MM对象换代",
+    "state": "下一动作已选定；按前置和验收推进",
+    "description": "主线接回D-01～04：对象读取途中退休的旧回复已复现并修复，Core/Store 209项及严格检查通过；成员D保留22步，原验收与百分比保持。"
   },
   "facts": [
     {
@@ -5075,12 +5075,24 @@
       "evidence": [
         "docs/VALIDATION-REC02-SNAPSHOT-AND-POWER-20261028.md"
       ]
+    },
+    {
+      "at": "2026-10-28T07:24:41.907613+00:00",
+      "type": "state",
+      "title": "SMS-04 · 下一关卡：SIM满与MM对象换代",
+      "detail": "主线接回D-01～04：对象读取途中退休的旧回复已复现并修复，Core/Store 209项及严格检查通过；成员D保留22步，原验收与百分比保持。",
+      "task_ids": [
+        "SMS-04"
+      ],
+      "evidence": [
+        "docs/deliveries/member-d-sms.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "21475a5ea82451584fc2087cd2e90230faa4683c",
-    "generated_at": "2026-10-28T01:56:38.461202+00:00",
+    "source_revision": "7407976c8f566df96394310e690db1650c10598e",
+    "generated_at": "2026-10-28T07:24:41.812320+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5089,28 +5101,35 @@
         "login": "Viper-Boss",
         "role": "项目负责人 · 接口/安全方案审核 / 真实部署 / 集成验收",
         "access": "现有主线维护；实际权限沿用仓库设置",
-        "package": "UPD-01现有收口；65项真实执行、生产签名与全组审核/集成",
+        "package": "UPD-01现有收口；65项真实执行、生产签名与全组审核/集成；接回D-01～04短信同步/对象生命周期离线交付",
         "task_ids": [
-          "UPD-01"
+          "UPD-01",
+          "SMS-02",
+          "SMS-04"
         ],
-        "step_ids": [],
+        "step_ids": [
+          "D-01",
+          "D-02",
+          "D-03",
+          "D-04"
+        ],
         "handoff": "docs/team/README.md",
         "state": "in_progress",
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 47556,
-            "tests": 29737,
-            "tooling": 9200,
+            "product": 48419,
+            "tests": 30335,
+            "tooling": 9466,
             "firmware": 1132
           },
-          "commits": 345,
-          "code_commits": 235,
-          "added": 92096,
-          "deleted": 2249
+          "commits": 363,
+          "code_commits": 245,
+          "added": 93989,
+          "deleted": 2306
         },
         "work": {
-          "assigned_steps": 0,
+          "assigned_steps": 4,
           "accepted_steps": 0,
           "self_reported_hours": null,
           "reviews": [],
@@ -5182,23 +5201,63 @@
             },
             {
               "pr": 21,
-              "head": "3dbbda7c3ce324baf4a07982f4bff48a99e3a7ef",
-              "state": "OPEN"
+              "head": "4d7c67175f5cd593c7952c151699f92a676ae42d",
+              "state": "MERGED"
             },
             {
               "pr": 22,
-              "head": "377837970a9de195cfc69f339f9fc255ead7168f",
-              "state": "OPEN"
+              "head": "6b1a028db851724770f8db9ee55d11f927a49f95",
+              "state": "MERGED"
             },
             {
               "pr": 23,
-              "head": "e909012c4cf5d9504ed35984ec559f24144e417a",
-              "state": "OPEN"
+              "head": "3168f349e7501b0d31968d9c271e1e46cb41d340",
+              "state": "MERGED"
             },
             {
               "pr": 24,
               "head": "bbe9bc8360efbd548061e67a86fcdca4f3dd14a0",
               "state": "MERGED"
+            },
+            {
+              "pr": 25,
+              "head": "daeba6ec4d09162f1dc83d4d2597695adf58e9c2",
+              "state": "MERGED"
+            },
+            {
+              "pr": 26,
+              "head": "af7fb0f79b0808b6aae86878ab927f0702ab824e",
+              "state": "MERGED"
+            },
+            {
+              "pr": 27,
+              "head": "4d86473415ddc410be33dbeaa4e5be5b2be4f642",
+              "state": "MERGED"
+            },
+            {
+              "pr": 28,
+              "head": "8d7a73b2a0886c9381826de8ea999dca02f0715f",
+              "state": "MERGED"
+            },
+            {
+              "pr": 29,
+              "head": "ac756ecbf7c50436da31a211e2ebf013264114d7",
+              "state": "MERGED"
+            },
+            {
+              "pr": 30,
+              "head": "9fead6682d7cd49e0c2891e96e42c7d6b6f4636b",
+              "state": "MERGED"
+            },
+            {
+              "pr": 31,
+              "head": "0a0f0b57f41770f9ecc8c8d691a14f03c7ce7955",
+              "state": "MERGED"
+            },
+            {
+              "pr": 32,
+              "head": "e44a19b2e0808e9db7d24589b66bf34e46760f9e",
+              "state": "OPEN"
             }
           ]
         }
@@ -5498,7 +5557,7 @@
             {
               "pr": 10,
               "head": "45c54d4b32bc00a1093cf54d4faead9795cdbdc7",
-              "state": "needs_changes"
+              "state": "needs_re_review"
             },
             {
               "pr": 13,
@@ -5529,7 +5588,7 @@
             },
             {
               "pr": 10,
-              "head": "45c54d4b32bc00a1093cf54d4faead9795cdbdc7",
+              "head": "b66c0e1df606980524d94fb26585b4a73aa7f7e3",
               "state": "OPEN"
             },
             {
@@ -5546,11 +5605,9 @@
         "login": "RedamancyGTW",
         "role": "短信同步 / 对象换代 / 故障恢复 · 离线回归",
         "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
-        "package": "通信观测/Core恢复授权/BLE/远程媒体离线实现",
+        "package": "D-05～26通信观测/Core恢复授权/BLE/远程媒体；首批4步主线已接回",
         "task_ids": [
-          "SMS-02",
           "SMS-03",
-          "SMS-04",
           "SMS-05",
           "SMS-06",
           "CALL-08",
@@ -5568,10 +5625,6 @@
           "BLE3-03"
         ],
         "step_ids": [
-          "D-01",
-          "D-02",
-          "D-03",
-          "D-04",
           "D-05",
           "D-06",
           "D-07",
@@ -5614,7 +5667,7 @@
           "deleted": 0
         },
         "work": {
-          "assigned_steps": 26,
+          "assigned_steps": 22,
           "accepted_steps": 0,
           "self_reported_hours": null,
           "reviews": [],
@@ -5635,15 +5688,19 @@
       "deleted": 0
     },
     "totals": {
-      "product": 48720,
-      "tests": 31745,
-      "tooling": 9200,
+      "product": 49583,
+      "tests": 32343,
+      "tooling": 9466,
       "firmware": 1132
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。",
     "task_plan": {
       "schema": 1,
       "sources": [
+        {
+          "path": "docs/team/README.md",
+          "sha256": "7682c821fd8f4031bcc4fe6984d7bd557137bb2ed437233400d28fb344d25dc8"
+        },
         {
           "path": "docs/team/MEMBER-A-USAGE-STATS.md",
           "sha256": "7138cfadc17de440c22775b415d4c8a69437457fdff13bfe8a6243c50741cf91"
@@ -5658,14 +5715,69 @@
         },
         {
           "path": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-          "sha256": "269b82253da8978e628322769d7dc5aa4edc627b0087afb19ee35f7b21c5d873"
+          "sha256": "79f647b8ea911aaaa3e76203ddf3d2357c5fa704c09d23b5c3b955d67a910a80"
         },
         {
           "path": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-          "sha256": "96d8e5860a6297631106538fdc3ea827bfa1f1b463ec836a3c2025d2e499b88e"
+          "sha256": "29e1da1a48f951b1bc24842c385aa10a09a352392b02013ad019a0f012e396c7"
         }
       ],
       "members": [
+        {
+          "member_id": "lead",
+          "steps": [
+            {
+              "id": "D-01",
+              "title": "SMS-02：先梳理现有状态和不变量",
+              "work": "1. 阅读storage收件/删除恢复及Core observer的实际入口和既有测试，画出source路径、记录ID、line epoch、事件游标关系。\n2. 给每个拟修问题建立最小输入序列和期望结果，先证明缺陷或说明是已有行为补验。\n3. 固定原则：收到相同事件不重复副作用，失败不推进成功游标，旧代次不能污染新SIM。\n4. 不把短信正文/号码相同当作物理同一短信；不能为方便测试关闭身份/线路隔离。",
+              "acceptance": "",
+              "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
+              "line": 23,
+              "batch": "第一批：事件同步和对象生命周期（D-01～D-04）",
+              "task_ids": [
+                "SMS-02"
+              ],
+              "status": "not_accepted"
+            },
+            {
+              "id": "D-02",
+              "title": "SMS-02：旧游标、分页和乱序",
+              "work": "1. 覆盖过旧游标、分页边界、重复/乱序/丢事件、列表读取失败和恢复连接。\n2. 读取/消费/持久化失败后不丢项、不提前推进游标；重读保持原稳定ID。\n3. 删除/恢复/已读事件追赶不能使旧记录复活或把新记录误删。\n4. 使用真实Store/observer模块多步执行，保存数据库再重开验证；不能只比较手写期望JSON。",
+              "acceptance": "",
+              "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
+              "line": 30,
+              "batch": "第一批：事件同步和对象生命周期（D-01～D-04）",
+              "task_ids": [
+                "SMS-02"
+              ],
+              "status": "not_accepted"
+            },
+            {
+              "id": "D-03",
+              "title": "SMS-04：ModemManager对象换代",
+              "work": "1. 覆盖同一路径复用、对象销毁重建、重连、信号丢失、大于旧批次上限的列表以及轮询/信号竞争。\n2. 切换SIM/line后，旧异步读取完成不得写入新代次；后端不可用不等于删除本地已确认短信。\n3. SIM满、读失败和部分列表不能伪装成完整空收件箱；保留恢复后的可查询证据。\n4. 用已有本地模拟源注入错误，不运行真实ModemManager/nmcli或连接系统D-Bus。",
+              "acceptance": "",
+              "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
+              "line": 37,
+              "batch": "第一批：事件同步和对象生命周期（D-01～D-04）",
+              "task_ids": [
+                "SMS-04"
+              ],
+              "status": "not_accepted"
+            },
+            {
+              "id": "D-04",
+              "title": "第一批交付",
+              "work": "1. 运行storage与Core的针对性测试、fmt、相应严格Clippy；能运行workspace回归再记录，不把未运行写通过。\n2. 报告每个输入序列、真实状态/事件数量、修复前后差异和原数据保持结果。\n3. 交付小PR和完整40位HEAD，区分“发现并修正缺陷”与“既有行为已复核”。不改SMS台账为done。",
+              "acceptance": "",
+              "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
+              "line": 44,
+              "batch": "第一批：事件同步和对象生命周期（D-01～D-04）",
+              "task_ids": [],
+              "status": "not_accepted"
+            }
+          ]
+        },
         {
           "member_id": "member-a",
           "steps": [
@@ -6841,62 +6953,12 @@
           "member_id": "member-d",
           "steps": [
             {
-              "id": "D-01",
-              "title": "SMS-02：先梳理现有状态和不变量",
-              "work": "1. 阅读storage收件/删除恢复及Core observer的实际入口和既有测试，画出source路径、记录ID、line epoch、事件游标关系。\n2. 给每个拟修问题建立最小输入序列和期望结果，先证明缺陷或说明是已有行为补验。\n3. 固定原则：收到相同事件不重复副作用，失败不推进成功游标，旧代次不能污染新SIM。\n4. 不把短信正文/号码相同当作物理同一短信；不能为方便测试关闭身份/线路隔离。",
-              "acceptance": "",
-              "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 21,
-              "batch": "第一批：事件同步和对象生命周期（D-01～D-04）",
-              "task_ids": [
-                "SMS-02"
-              ],
-              "status": "not_accepted"
-            },
-            {
-              "id": "D-02",
-              "title": "SMS-02：旧游标、分页和乱序",
-              "work": "1. 覆盖过旧游标、分页边界、重复/乱序/丢事件、列表读取失败和恢复连接。\n2. 读取/消费/持久化失败后不丢项、不提前推进游标；重读保持原稳定ID。\n3. 删除/恢复/已读事件追赶不能使旧记录复活或把新记录误删。\n4. 使用真实Store/observer模块多步执行，保存数据库再重开验证；不能只比较手写期望JSON。",
-              "acceptance": "",
-              "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 28,
-              "batch": "第一批：事件同步和对象生命周期（D-01～D-04）",
-              "task_ids": [
-                "SMS-02"
-              ],
-              "status": "not_accepted"
-            },
-            {
-              "id": "D-03",
-              "title": "SMS-04：ModemManager对象换代",
-              "work": "1. 覆盖同一路径复用、对象销毁重建、重连、信号丢失、大于旧批次上限的列表以及轮询/信号竞争。\n2. 切换SIM/line后，旧异步读取完成不得写入新代次；后端不可用不等于删除本地已确认短信。\n3. SIM满、读失败和部分列表不能伪装成完整空收件箱；保留恢复后的可查询证据。\n4. 用已有本地模拟源注入错误，不运行真实ModemManager/nmcli或连接系统D-Bus。",
-              "acceptance": "",
-              "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 35,
-              "batch": "第一批：事件同步和对象生命周期（D-01～D-04）",
-              "task_ids": [
-                "SMS-04"
-              ],
-              "status": "not_accepted"
-            },
-            {
-              "id": "D-04",
-              "title": "第一批交付",
-              "work": "1. 运行storage与Core的针对性测试、fmt、相应严格Clippy；能运行workspace回归再记录，不把未运行写通过。\n2. 报告每个输入序列、真实状态/事件数量、修复前后差异和原数据保持结果。\n3. 交付小PR和完整40位HEAD，区分“发现并修正缺陷”与“既有行为已复核”。不改SMS台账为done。",
-              "acceptance": "",
-              "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 42,
-              "batch": "第一批：事件同步和对象生命周期（D-01～D-04）",
-              "task_ids": [],
-              "status": "not_accepted"
-            },
-            {
               "id": "D-05",
               "title": "SMS-03：内容与边界",
               "work": "1. 中文、emoji、组合字符、长文本、分段不完整、空正文、二进制、极限长度和超限。\n2. 检查字节/字符限制和截断标记；无效或未完整内容不冒充完整正文，不崩溃。\n3. 如果现有后端已由ModemManager解码，不另造PDU解码器；列出尚未暴露的原始PDU边界作为主线缺口。\n4. 夹具正文可公开、明确合成；错误消息/报告不得输出真实通信数据。",
               "acceptance": "",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 50,
+              "line": 52,
               "batch": "第二批：内容、重复候选和提交恢复（D-05～D-08）",
               "task_ids": [
                 "SMS-03"
@@ -6909,7 +6971,7 @@
               "work": "1. 同号码/正文/时间但不同稳定ID仍保留；缺乏可证明来源时标候选，不自动合并。\n2. 对象重观察与恢复后再次观察不反复增加相同副作用；旧候选与当前记录可分别查询。\n3. 删除/恢复保持当前ID，旧记录只读，不改变候选对方；重开后标记与权限一致。\n4. 本批不改网页；有交互缺口写具体需求给主线，避免和其他人的前端工作冲突。",
               "acceptance": "",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 57,
+              "line": 59,
               "batch": "第二批：内容、重复候选和提交恢复（D-05～D-08）",
               "task_ids": [
                 "SMS-05"
@@ -6922,7 +6984,7 @@
               "work": "1. 在现有prepare/提交/确认各边界注入保存失败、退出、数据库事务失败、超时/回复丢失。\n2. 验证一个操作最多一个实际发送尝试；Unknown只查询原ID，不自动新建幂等键或重发。\n3. 重启/恢复不能让旧prepared重新成为发送任务，也不能丢弃已有发送回执。\n4. 模拟发送器统计调用次数，不调用真实MM发送；若发现生产修改涉及跨模块接口，先交复现和最小提案，不扩大修改范围。",
               "acceptance": "",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 64,
+              "line": 66,
               "batch": "第二批：内容、重复候选和提交恢复（D-05～D-08）",
               "task_ids": [
                 "SMS-06"
@@ -6935,7 +6997,7 @@
               "work": "1. `cargo test -p rustsimhub-storage --locked`，Core中实际受影响测试、fmt和对应Clippy；记录完整命令/退出码。\n2. 将矩阵按“新增测试/修复/已有行为/未实现/未运行”分类，给出逐HEAD报告。\n3. 写实机补验清单：新发送授权、双端同步、真实对象/信号、换卡和冷启动；不要求自己获取设备。\n4. 全局进度、签名构建和设备部署由主线审核后处理，不以离线测试宣称运营商短信、真实SIM存储满或冷启动通过。",
               "acceptance": "",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 71,
+              "line": 73,
               "batch": "第二批：内容、重复候选和提交恢复（D-05～D-08）",
               "task_ids": [],
               "status": "not_accepted"
@@ -6946,7 +7008,7 @@
               "work": "阅读实际CallObservation/来源映射/终止状态/observer重连与Store重开；建立可证明的对象代次和身份图，给最小复现序列",
               "acceptance": "分清同一对象重观察、同路径新对象、后台实例更换与真正新通话；禁止按号码/正文/时间近似猜合并",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 88,
+              "line": 90,
               "batch": "第三批PR：D-09～12 / CALL-08",
               "task_ids": [],
               "status": "not_accepted"
@@ -6957,7 +7019,7 @@
               "work": "用真实Store和已有模拟observer验证重复终止事件、乱序、路径复用、后端重启、换SIM、列表失败、并发和多次重开",
               "acceptance": "同一可靠身份不反复增加假活动行/副作用；同号码的真实不同通话保持独立，历史/事件/游标数量可核验",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 89,
+              "line": 91,
               "batch": "第三批PR：D-09～12 / CALL-08",
               "task_ids": [],
               "status": "not_accepted"
@@ -6968,7 +7030,7 @@
               "work": "只修复已证实的最小缺陷并补“修正前失败、修正后通过”；说明持久映射和Unknown/终态语义",
               "acceptance": "不改拨号/接听/挂断、媒体、权限、租约、schema或幂等键；若缺少持久证据必须改schema，先交设计/迁移提案，不假装在无证据时完成去重",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 90,
+              "line": 92,
               "batch": "第三批PR：D-09～12 / CALL-08",
               "task_ids": [],
               "status": "not_accepted"
@@ -6979,7 +7041,7 @@
               "work": "提交第三批PR：cargo test -p rustsimhub-storage --locked、受影响Core检查、严格Clippy/fmt及真实临时数据库重开证据",
               "acceptance": "保留未运行实机项和跨模块提案；主线再核对真实MM对象、冷启动与通话行为，不由成员拨号或修改设备",
               "source": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-              "line": 91,
+              "line": 93,
               "batch": "第三批PR：D-09～12 / CALL-08",
               "task_ids": [],
               "status": "not_accepted"

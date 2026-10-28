@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "revision": "T5-T6-2026-10-27",
+  "revision": "T8-2026-10-28-D-first-batch",
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
   "source_revision": "6f228fd3dcb9ce6da54d7910f4b044833e71a91a",
   "remaining_actions": 155,
   "offline_owned_actions": 90,
   "main_only_actions": 65,
-  "note": "离线所有权不代表整项完成；90项仍有主线审核/集成/真实环境验收。实际功能状态仍以progress.json为准。",
+  "note": "历史155项的分配截面不作为当前剩余计数；90项离线责任含成员88项及主线接回2项，65项原主线专属。当前完成数以progress.json为准。",
   "actions": [
     {
       "id": "FWD-06",
@@ -221,11 +221,11 @@
     {
       "id": "SMS-02",
       "title": "旧游标、离线追赶与乱序",
-      "offline_owner": "member-d",
+      "offline_owner": "lead",
       "execution_owner": "lead",
       "scope": "previous_offline_scope",
-      "deliverable": "构造过旧游标、重复/乱序事件、列表刷新失败和恢复连接。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "deliverable": "构造过旧游标、重复/乱序事件、列表刷新失败和恢复连接。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。；2026-10-28主线接回D-01～04，离线交付不等于实机完成。",
+      "handoff": "docs/deliveries/member-d-sms.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
@@ -241,11 +241,11 @@
     {
       "id": "SMS-04",
       "title": "SIM满与MM对象换代",
-      "offline_owner": "member-d",
+      "offline_owner": "lead",
       "execution_owner": "lead",
       "scope": "previous_offline_scope",
-      "deliverable": "模拟SIM存储满、路径复用、ModemManager重连和信号丢失。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "deliverable": "模拟SIM存储满、路径复用、ModemManager重连和信号丢失。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。；2026-10-28主线接回D-01～04，离线交付不等于实机完成。",
+      "handoff": "docs/deliveries/member-d-sms.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {

@@ -48,12 +48,15 @@ def roster_valid(roster):
     require(1 <= len(ids) <= 20 and ids[0]=='lead' and len(set(ids))==len(ids)
             and all(re.fullmatch('member-[a-z]+',value) for value in ids[1:]), 'stable member IDs, lead first')
     aliases = {}
+    assigned_steps = set()
     for member in members:
         login = member['login']
         require(login is None or re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?', login), 'GitHub login')
         require(0 < len(member['name']) <= 100 and member['state'] in ('assigned', 'in_progress', 'submitted'), 'member display/state')
         require(member['handoff'].startswith('docs/team/') and '..' not in PurePosixPath(member['handoff']).parts, 'public taskbook')
         require(len(set(member['step_ids'])) == len(member['step_ids']), 'duplicate assignment step')
+        require(not assigned_steps.intersection(member['step_ids']), 'assignment step has multiple owners')
+        assigned_steps.update(member['step_ids'])
         for alias in [*member['git_names'], *([login] if login else [])]:
             key = alias.casefold()
             require(key not in aliases or aliases[key] == member['id'], 'ambiguous Git identity mapping')

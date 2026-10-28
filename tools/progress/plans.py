@@ -73,7 +73,7 @@ def parse_document(text, source, wanted, allowed):
 def build(root, members, reviews, work):
     root = Path(root)
     sources = []; documents = []
-    paths = list(dict.fromkeys([m['handoff'] for m in members if m['id'] != 'lead'] +
+    paths = list(dict.fromkeys([m['handoff'] for m in members if m['id'] != 'lead' or m['step_ids']] +
                               ['docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md']))
     for path in paths:
         target = root/path
@@ -83,7 +83,7 @@ def build(root, members, reviews, work):
         documents.append((path, raw.decode('utf8')))
     output = []
     for member in members:
-        if member['id'] == 'lead':
+        if member['id'] == 'lead' and not member['step_ids']:
             continue
         wanted = set(member['step_ids']); steps = {}
         for source, text in documents:
@@ -118,7 +118,7 @@ def validate(plan, members, root=None):
             target = Path(root)/source['path']
             require(target.resolve().is_relative_to(Path(root).resolve()) and target.is_file()
                     and hashlib.sha256(target.read_bytes()).hexdigest() == source['sha256'], 'task plan source changed; regenerate task plan')
-    expected = {m['id']: m for m in members if m['id'] != 'lead'}
+    expected = {m['id']: m for m in members if m['id'] != 'lead' or m['step_ids']}
     require({m['member_id'] for m in plan['members']} == set(expected) and len(plan['members']) == len(expected), 'plan member inventory')
     for entry in plan['members']:
         require(set(entry) == {'member_id','steps'}, 'plan member fields')

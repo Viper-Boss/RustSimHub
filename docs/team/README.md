@@ -1,5 +1,7 @@
 # RustSimHub 五人协作入口
 
+2026-10-28调整：用户授权主线接手尚未开工的成员D范围。首批 D-01～D-04 已转到 lead，RedamancyGTW 保留22步；118个步骤总量不变，四位当前持有114步、主线接回4步。原26步估时为历史预算。代码/离线交付与审核/实机验收分开，详情见[同一交付台账](../deliveries/member-d-sms.md)。以下2026-10-27计数为历史分配。
+
 日期：2026-10-27。现为负责人加四位离线协作者；用户已要求改为本仓库直接分支协作。原A/B任务书从18349a8起登记，五人扩展从70313db起登记；实际开工从最新 `origin/main` 建立分支并记录起始SHA，不能退回旧提交覆盖新代码。原P0–P7整体80%；分配任务或发出邀请不增加验收比例。
 
 | 人员 | 责任 | 本轮任务 | 设备 |
@@ -8,7 +10,7 @@
 | 成员A：[fungi1220](https://github.com/fungi1220) | NKN、密码会话、邮件及安全离线实现 | [A任务书](MEMBER-A-USAGE-STATS.md)，累计30步 | 无需设备 |
 | 成员B：wnfhsj | 网络、全部网页/PWA装配及测试/报告工具 | [B任务书](MEMBER-B-NETWORK-ACCOUNTING.md)，累计32步 | 无需设备 |
 | 成员C：[yh1030](https://github.com/yh1030) | NAS、系统更新恢复及发行证据 | [C任务书](MEMBER-C-NAS-COMPAT.md)，累计30步，离线已审6步 | 无需设备 |
-| [RedamancyGTW](https://github.com/RedamancyGTW)，成员D | 通信观测、Core BLE恢复及远程媒体 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，累计26步 | 无需设备 |
+| [RedamancyGTW](https://github.com/RedamancyGTW)，成员D | 通信观测、Core BLE恢复及远程媒体 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，当前22步；首批4步已接回主线 | 无需设备 |
 
 四名成员均使用自己的GitHub账号和Codex；不用共享负责人账号、Token、NAS地址或SSH材料。旧Claude任务包仅供历史参考，本目录是本轮明确分工。yh1030与wnfhsj的Write最终回读已生效；fungi1220和RedamancyGTW的Write邀请已就绪，等待本人接受。此前wnfhsj与RedamancyGTW的公开主页有404现象，不能据此判断账号不存在或确定风控原因。权限明细见[仓库访问状态](ACCESS.md)。
 

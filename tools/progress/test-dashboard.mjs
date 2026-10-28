@@ -35,6 +35,10 @@ const hostile=structuredClone(data.team);hostile.members[1].name='<img src=x one
 assert.ok(teamHTML(hostile).includes('&lt;img'));assert.ok(!teamHTML(hostile).includes('<img'));
 assert.ok(teamHTML(null).includes('尚未生成'));
 const people=personAssignments(data),lead=people.find(p=>p.member.id==='lead');
+assert.deepEqual(lead.steps.map(s=>s.id),['D-01','D-02','D-03','D-04']);
+assert.ok(personHandoffText(lead).includes('D-03'));
+assert.ok(!people.find(p=>p.member.id==='member-d').steps.some(s=>s.id==='D-03'));
+assert.ok(teamHTML(data.team,data,{query:'D-03'}).includes('data-person-id="lead"'));
 const allProjects=people.flatMap(p=>p.projects.map(row=>row.task.id));
 assert.equal(allProjects.length,stats.total);assert.equal(new Set(allProjects).size,stats.total);
 assert.equal(people.reduce((n,p)=>n+p.remaining,0),stats.remaining);

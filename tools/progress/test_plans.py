@@ -43,5 +43,20 @@ class Plans(unittest.TestCase):
         value=copy.deepcopy(self.data['team']['task_plan']);value['members'][0]['steps'][0]['status']='accepted'
         with self.assertRaisesRegex(ValueError,'accepted'):plans.validate(value,self.members)
 
+    def test_transferred_steps_have_one_owner_and_lead_gets_the_original_specification(self):
+        members=copy.deepcopy(self.members)
+        lead=next(m for m in members if m['id']=='lead')
+        other=next(m for m in members if m['id']=='member-d')
+        self.assertEqual(lead['step_ids'],['D-01','D-02','D-03','D-04'])
+        self.assertFalse(set(lead['step_ids']) & set(other['step_ids']))
+        value=plans.build(team.ROOT,members,self.reviews,{m['id']:m['work'] for m in members})
+        steps=next(m for m in value['members'] if m['member_id']=='lead')['steps']
+        self.assertEqual([s['id'] for s in steps],lead['step_ids'])
+        self.assertTrue(all(s['source']=='docs/team/MEMBER-D-SMS-RECOVERY.md' for s in steps))
+        self.assertTrue(all(s['status']=='not_accepted' for s in steps))
+        roster=json.loads((team.ROOT/'docs/team/roster.json').read_text(encoding='utf8'))
+        next(m for m in roster['members'] if m['id']=='member-d')['step_ids'].append('D-01')
+        with self.assertRaisesRegex(ValueError,'multiple owners'):team.roster_valid(roster)
+
 
 if __name__=='__main__':unittest.main()

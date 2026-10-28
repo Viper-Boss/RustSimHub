@@ -1,5 +1,7 @@
 # 成员D任务书：短信同步、对象换代与故障恢复 · 离线开发
 
+**2026-10-28主线接回，优先于下方历史分工：** 用户确认本人尚未开工，并授权负责人接手。D-01～D-04 已由 Viper-Boss/Codex 实现并离线验证，转到 lead 名下，提交待审；本人当前保留 D-05～D-26 共22步。不要重复修改首批 observer/Store 文件。逐步结算与证据见[交付台账](../deliveries/member-d-sms.md)。后续接回仍逐批登记，不把全部26步预先算主线完成。
+
 最新分工已扩展到T5/T6，先读本文末尾入口及今天分工文档；只有对应章节明确列出的路径和阶段扩展原文件边界。
 
 执行成员：[RedamancyGTW](https://github.com/RedamancyGTW)，稳定ID `member-d`。公开主页有404现象，2026-10-27 GitHub已接受并回读确认本仓库Write邀请。本人接受后，直接在 `Viper-Boss/RustSimHub` 创建 `codex/sms-offline-recovery` 分支并提交PR到main，由负责人审核。不要fork，不直接推送main；命令见[团队入口](README.md)。预计有效开发8～20小时，分两批PR；不需要SIM或设备。
