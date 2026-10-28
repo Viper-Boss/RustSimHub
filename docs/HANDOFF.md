@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+当前继续D-21：已提交[恢复授权/数据兼容独立提案](ble/recovery-authorization-proposal.md)，逐项核对10scope、schema6、现有OwnerGate与真实IPC；未实现或启用恢复权限/迁移，不扣减剩余6步。先审候选schema7三方回退兼容与A安全会话后接Core，不能以Connection/布尔或复制Owner身份代替。D-17～20交付PR51当前9f4ff043，D-13～16为PR50当前2b13b25；两批本地验证通过但待正常审核，CI曾因账单/额度不启动。全局交付截面20/169、10.6%、原80%，工作树/私有失败证据保留。
+
 最新同步：本分支已接续PR50的2b13b25与Claude main dfd11e9，保留UPD-04/STAB-03及SMS-05的验收记录，最新台账20/169、加权10.6%、余149、原80%；lead接回20/D余6，总118。下面18/169和旧main计数是历史截面。
 
 2026-10-28 [D-17～20蓝牙离线库](ble/gatt-adapter-integration.md)：固定manifest/类型/分片、实际注册/Release/迟到补偿及有限Transport接线已实现；38项蓝牙、独立灯控23、严格Clippy/fmt及Python23通过。无默认假安全端口，未接真实BlueZ/密码/Core恢复权限、未装服务或动设备。lead累计20、D余D-21～26共6、总118不变，BLE3-01/04仍未闭环；交付分支18/169、9.6%、余151和原80%保持，等待正常PR审核/集成，不能据此称Pages已更新。
