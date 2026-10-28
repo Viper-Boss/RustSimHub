@@ -148,6 +148,9 @@ function initialize() {
   function renderSummary() {
     const value=calculate(data);
     byId('overall-value').textContent=number(value.original);byId('overall-gauge').style.setProperty('--progress',value.original+'%');
+    byId('mission-visual').setAttribute('aria-label',`原计划进度${number(value.original)}%，目标100%`);
+    byId('original-progress-description').textContent=`已有${number(value.original)}点；新增扩展独立跟踪`;
+    byId('milestone-title').textContent=`${number(value.original)}%的来处，每一项都保留边界。`;
     byId('original-remaining').textContent=number(100-value.original);byId('original-bar').style.width=value.original+'%';
     byId('sprint-percent').textContent=value.weighted.toFixed(1);byId('sprint-bar').style.width=value.weighted+'%';
     byId('done-fraction').textContent=`${value.done} / ${value.total} 已完成`;byId('remaining-count').textContent=value.remaining;byId('parked-count').textContent=`另${value.parked}项搁置`;

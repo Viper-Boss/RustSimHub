@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-28T12:31:38.477444+00:00",
+  "updated_at": "2026-10-28T16:55:27.912456+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -50,13 +50,13 @@
       "id": "P6",
       "label": "系统与更新",
       "weight": 12,
-      "done_points": 9
+      "done_points": 10
     },
     {
       "id": "P7",
       "label": "发布质量",
       "weight": 8,
-      "done_points": 4
+      "done_points": 4.5
     }
   ],
   "estimate": {
@@ -64,7 +64,7 @@
     "confidence": "首次粗估，完成更多动作后按实耗校准",
     "default_hours_per_day": 12,
     "calendar_note": "工时折合天数不含换卡、真人听音、第二设备、服务器及单独BLE授权等待；长测等待可以与其他开发重叠。",
-    "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原80%仍按固定P0–P7里程碑，不与新增范围混算。"
+    "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原固件81.5%按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
     "task_id": "CALL-08",
@@ -5170,6 +5170,20 @@
       ],
       "evidence": [
         "docs/VALIDATION-STAB03-PARTIAL-20261028.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T16:55:27.912456+00:00",
+      "type": "state",
+      "title": "原固件主线进度复核：80% → 81.5%",
+      "detail": "回填已有实机证据：UPD-01维护准入+0.5、UPD-04候选失败回选+0.5、用户接受的STAB-03初步稳定性+0.5。权重不变；完整剩余行动台账与新增扩展单列，不计新动作完成。",
+      "task_ids": [
+        "UPD-01",
+        "UPD-04",
+        "STAB-03"
+      ],
+      "evidence": [
+        "docs/PROGRESS-AUDIT-20261029.md"
       ]
     }
   ],

@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="dark"><meta name="description" content="RustSimHub公开开发进度：原计划80%，完整剩余动作、验收证据、依赖和预计工时。">
+<meta name="color-scheme" content="dark"><meta name="description" content="RustSimHub公开开发进度：原计划{{MILESTONE_PERCENT}}%，完整剩余动作、验收证据、依赖和预计工时。">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'none'; base-uri 'none'; form-action 'none'">
 <title>RustSimHub · 向100%推进</title>
 <!-- DASHBOARD_STYLE -->
@@ -18,15 +18,15 @@
 <main class="shell">
  <section class="hero" id="overview" aria-labelledby="headline">
   <div class="hero-copy"><div class="eyebrow"><i class="pulse" aria-hidden="true"></i> MISSION IN PROGRESS <span>公开开发快照</span></div><h1 id="headline">一根棒子，独立通信。<br>向 <em>100%</em> 继续推进。</h1><p class="hero-intro">已经跑通的，留下证据。还没完成的，拆成动作。<br>从当前可用系统，走到可以放心交付的完整固件。</p><div class="hero-actions"><button class="primary" id="focus-open">查看当前关卡 <span>↗</span></button><a class="secondary" href="remaining.md" download>下载详细清单 ↓</a></div><div class="snapshot"><span id="snapshot-time">读取快照…</span><button id="refresh-data">读取最新进度 ↻</button></div></div>
-  <div class="mission-visual" aria-label="原计划进度80%，目标100%">
+  <div class="mission-visual" id="mission-visual" aria-label="原计划进度{{MILESTONE_PERCENT}}%，目标100%">
    <div class="orbit orbit-one" aria-hidden="true"><span></span></div><div class="orbit orbit-two" aria-hidden="true"><span></span></div><div class="orbit orbit-three" aria-hidden="true"></div>
-   <div class="gauge" id="overall-gauge"><div class="gauge-inside"><span class="gauge-label">原计划验收</span><div><strong id="overall-value">80</strong><b>%</b></div><span class="gauge-tail">P0—P7 · 100个固定点数</span></div></div>
+   <div class="gauge" id="overall-gauge" style="--progress:{{MILESTONE_PERCENT}}%"><div class="gauge-inside"><span class="gauge-label">原计划验收</span><div><strong id="overall-value">{{MILESTONE_PERCENT}}</strong><b>%</b></div><span class="gauge-tail">P0—P7 · 100个固定点数</span></div></div>
    <div class="orbit-label label-one"><i></i> Rust Core</div><div class="orbit-label label-two"><i></i> ARM64 · 独立运行</div><div class="orbit-label label-three">TARGET / 100</div>
    <div class="visual-floor" aria-hidden="true"></div>
   </div>
  </section>
  <section class="metric-grid" aria-label="量化进度">
-  <article class="metric"><span class="metric-label">原计划还剩</span><div><strong id="original-remaining">20</strong><span>验收点</span></div><p>已有80点；新增扩展独立跟踪</p><div class="mini-track"><i id="original-bar"></i></div></article>
+  <article class="metric"><span class="metric-label">原计划还剩</span><div><strong id="original-remaining">{{MILESTONE_REMAINING}}</strong><span>验收点</span></div><p id="original-progress-description">已有{{MILESTONE_PERCENT}}点；新增扩展独立跟踪</p><div class="mini-track"><i id="original-bar" style="width:{{MILESTONE_PERCENT}}%"></i></div></article>
   <article class="metric"><span class="metric-label">本轮行动台账 <span class="tiny-tag">新基线</span></span><div><strong id="sprint-percent">—</strong><span>%</span><small id="done-fraction"></small></div><p>完成才计分 · 以冻结工时中值加权</p><div class="mini-track lavender"><i id="sprint-bar"></i></div></article>
   <article class="metric"><span class="metric-label">剩余动作 / 已搁置</span><div><strong id="remaining-count">—</strong><span>个动作</span><small id="parked-count"></small></div><p id="module-count">正在核对模块…</p><div class="dot-strip" aria-hidden="true">································</div></article>
   <article class="metric estimate-metric"><span class="metric-label">剩余有效开发工时 <span class="tiny-tag">粗估</span></span><div><strong id="hours-range">—</strong><span>小时</span></div><p id="days-range">以有效工作小时折合，等待另计</p><label class="capacity"><span>每天有效工作</span><select id="capacity" aria-label="每天有效工作小时"><option value="4">4小时</option><option value="8">8小时</option><option value="12" selected>12小时</option><option value="16">16小时</option><option value="24">24小时</option></select></label></article>
@@ -35,7 +35,7 @@
   <article class="focus-card"><div class="focus-symbol" aria-hidden="true">↗</div><div class="focus-content"><span class="eyebrow">NEXT CHECKPOINT <span id="focus-id">FWD-03</span></span><h2 id="focus-title">转发服务实机安装</h2><p id="focus-description"></p><div id="focus-flags" class="tag-row"></div></div><button class="round-button" id="focus-detail" aria-label="展开当前关卡详情">↗</button></article>
   <article class="evidence-card"><div class="section-micro">最近已验真的基线 <span class="verified-dot"></span></div><div id="facts" class="fact-grid"></div></article>
  </section>
- <section class="milestone-panel" aria-labelledby="milestone-title"><div class="section-heading compact"><div><span class="eyebrow">ORIGINAL MILESTONES</span><h2 id="milestone-title">80%的来处，每一项都保留边界。</h2></div><a href="https://github.com/Viper-Boss/RustSimHub/blob/main/docs/PROGRESS-SCALE.md" target="_blank" rel="noopener">查看固定权重 ↗</a></div><div id="milestones" class="milestones"></div></section>
+ <section class="milestone-panel" aria-labelledby="milestone-title"><div class="section-heading compact"><div><span class="eyebrow">ORIGINAL MILESTONES</span><h2 id="milestone-title">{{MILESTONE_PERCENT}}%的来处，每一项都保留边界。</h2></div><a href="https://github.com/Viper-Boss/RustSimHub/blob/main/docs/PROGRESS-SCALE.md" target="_blank" rel="noopener">查看固定权重 ↗</a></div><div id="milestones" class="milestones"></div></section>
  <section id="team" class="team-section" aria-labelledby="team-title">
   <div class="section-heading"><div><span class="eyebrow">FIVE PEOPLE · ONE MAINLINE</span><h2 id="team-title">每个人的任务，直接放在这里。</h2><p>按人查看具体步骤、动作和验收要求；成员离线交付、主线实际执行与审核集成各自保留。</p></div><a href="https://github.com/Viper-Boss/RustSimHub/blob/main/docs/team/README.md" target="_blank" rel="noopener">协作入口与任务书 ↗</a></div>
   <p id="team-source" class="team-source"></p>

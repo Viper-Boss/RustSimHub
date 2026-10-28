@@ -148,6 +148,8 @@ def markdown(data):
 def outputs(data):
     validate(data)
     template = (DIRECTORY/'index.template.html').read_text(encoding='utf-8')
+    original = metrics(data)['original_percent']
+    template = template.replace('{{MILESTONE_PERCENT}}', f'{original:g}').replace('{{MILESTONE_REMAINING}}', f'{100-original:g}')
     payload = json.dumps(data, ensure_ascii=False, separators=(',', ':')).replace('<','\\u003c').replace('\u2028','\\u2028').replace('\u2029','\\u2029')
     css = (DIRECTORY/'dashboard.css').read_text(encoding='utf-8')+'\n'+(DIRECTORY/'team.css').read_text(encoding='utf-8')
     script = (DIRECTORY/'dashboard.mjs').read_text(encoding='utf-8')
