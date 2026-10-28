@@ -5,7 +5,7 @@
 use zeroize::Zeroizing;
 
 pub const INTERFACE: &str = "wlan0";
-pub const ADDRESS: &str = "172.31.85.1";
+pub const ADDRESS: &str = "192.168.100.1";
 pub const PREFIX: u32 = 24;
 pub const HTTPS_PORT: u16 = 8443;
 pub const MAX_WINDOW_SECONDS: u32 = 300;

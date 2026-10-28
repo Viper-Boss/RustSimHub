@@ -34,7 +34,7 @@ impl Fixture {
             "binding.json",
             &serde_json::to_vec(&data).unwrap(),
         );
-        let config = serde_json::json!({"listen":"127.0.0.1:8443","origin":"https://172.31.85.1:8443","core_socket":"/run/rustsimhub/core/core.sock","core_uid":986,"tls_directory":"/var/lib/rustsimhub-setup-edge/installation/tls","legacy_compat":false,"additional_listen_ips":["172.31.85.1"]});
+        let config = serde_json::json!({"listen":"127.0.0.1:8443","origin":"https://192.168.100.1:8443","core_socket":"/run/rustsimhub/core/core.sock","core_uid":986,"tls_directory":"/var/lib/rustsimhub-setup-edge/installation/tls","legacy_compat":false,"additional_listen_ips":["192.168.100.1"]});
         let cert = rcgen::generate_simple_self_signed(vec![crate::ADDRESS.into()]).unwrap();
         let config = serde_json::to_vec(&config).unwrap();
         let pem = cert.cert.pem();

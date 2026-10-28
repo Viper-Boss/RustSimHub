@@ -64,8 +64,8 @@ async fn server(
                         .unwrap()
                         .value
                 };
-                assert_eq!(header("host"), b"172.31.85.1:8443");
-                assert_eq!(header("origin"), b"https://172.31.85.1:8443");
+                assert_eq!(header("host"), b"192.168.100.1:8443");
+                assert_eq!(header("origin"), b"https://192.168.100.1:8443");
                 assert_eq!(header("x-rustsimhub-request"), b"2");
                 let length = std::str::from_utf8(header("content-length"))
                     .unwrap()

@@ -16,7 +16,7 @@ pub const RULES: &str = r#"create table inet rustsimhub_setup
 add chain inet rustsimhub_setup input { type filter hook input priority -290; policy accept; }
 add chain inet rustsimhub_setup forward { type filter hook forward priority -290; policy accept; }
 add rule inet rustsimhub_setup input iifname "wlan0" meta nfproto ipv4 udp sport 68 udp dport 67 accept
-add rule inet rustsimhub_setup input iifname "wlan0" ip saddr 172.31.85.0/24 ip daddr 172.31.85.1 tcp dport 8443 accept
+add rule inet rustsimhub_setup input iifname "wlan0" ip saddr 192.168.100.0/24 ip daddr 192.168.100.1 tcp dport 8443 accept
 add rule inet rustsimhub_setup input iifname "wlan0" drop
 add rule inet rustsimhub_setup forward iifname "wlan0" drop
 add rule inet rustsimhub_setup forward oifname "wlan0" drop
@@ -27,7 +27,7 @@ pub const TRIAL_RULES: &str = r#"create table inet rustsimhub_setup
 add chain inet rustsimhub_setup input { type filter hook input priority -290; policy accept; }
 add chain inet rustsimhub_setup forward { type filter hook forward priority -290; policy accept; }
 add rule inet rustsimhub_setup input iifname "wlan0" meta nfproto ipv4 udp sport 68 udp dport 67 accept
-add rule inet rustsimhub_setup input iifname "wlan0" ip saddr 172.31.85.0/24 ip daddr 172.31.85.1 tcp dport 8443 accept
+add rule inet rustsimhub_setup input iifname "wlan0" ip saddr 192.168.100.0/24 ip daddr 192.168.100.1 tcp dport 8443 accept
 add rule inet rustsimhub_setup input iifname "wlan0" meta nfproto ipv4 udp sport 67 udp dport 68 accept
 add rule inet rustsimhub_setup input iifname "wlan0" drop
 add rule inet rustsimhub_setup forward iifname "wlan0" drop

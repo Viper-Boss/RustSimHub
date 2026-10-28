@@ -77,7 +77,7 @@ class Admission(unittest.TestCase):
             i=copy.deepcopy(self.i);i['nss_group']=i['nss_group'].replace(*value);self.rejects(i)
 
     def test_listener_conflicts_wildcards_and_missing_destinations_refuse(self):
-        for host in ['127.0.0.1','172.31.85.1','0.0.0.0','::','::ffff:127.0.0.1','::ffff:172.31.85.1']:
+        for host in ['127.0.0.1','192.168.100.1','0.0.0.0','::','::ffff:127.0.0.1','::ffff:192.168.100.1']:
             i=copy.deepcopy(self.i);i['normal_edge']['additional_listen_ips']=[host];self.rejects(i)
         for path in self.i['destinations']:
             i=copy.deepcopy(self.i);i['destinations'][path]='present';self.rejects(i)
