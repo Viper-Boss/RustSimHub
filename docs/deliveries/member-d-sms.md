@@ -1,5 +1,11 @@
 # 通信观测工作包交付与主线接回台账
 
+## D-24前置推进 · 仍未完成，不减账
+
+用户已确认A安全会话尚未完成，保持原分工；不接管A密码包。新增[BLE服务候选/检查报告](../ble/service-materials-proposal.md)，材料代码 `00f87779ff79ca680433e0a0b5ed35c7d19437c1`：四份proposal/.in模板、只读检查器及13项真实边界测试。隔离Linux/Python3.14、UID65534/无capabilities、无网络/设备：13项0跳过通过，含真实私有D-Bus允许/拒绝、systemd临时root只读解析与现有AP账号预检拒绝第五IPC成员的前后复现。最新源码归档f6a303f68195a06ca41ebb65309b1ac7c54955e41b030a8e9a33824129d8ce20、日志201d2b7dc0a8a99cf88e5b0a3b413e7bd87f7b59e3a329e126e15b48f82902e9。
+
+候选UID982未保留、未核对设备NSS、未创建账号。旧Root许可表仍拒绝新成员，需新角色契约先审；服务程序/Core路由/A安全会话也未交，检查器恒输出production_ready=false/install_permitted=false，不装服务或改总线。**D-24未完成，成员D仍D-21～26六步，lead已交20，118总步骤和20/169、10.6%、原80%保持。** 以上是前置代码与材料检查，不能改记已审或设备通过。
+
 ## 当前结算 · 2026-10-28 GATT 离线库批次
 
 **最新同步后截面：** 已接续PR50更新 `2b13b25f4ffad0fed04643fedadbdec60fed9f64` 与Claude main dfd11e9，保留用户新灯色及UPD-04/STAB-03/SMS-05，最新台账20/169、加权10.6%、余149、原80%；lead20/D6不变。新截面归档 `4898875176e75cec26e30f532eb398b7361f64ade94beb604e6d4921800e3c5a`、日志 `d8ba77e0d818a2881b839aa9cd810d82a88b9a8da61ad93aa02440638cdd3d3f`：蓝牙38+灯控24、严格Clippy/fmt及Python23全部通过，Node看板/生成一致性通过。下文旧数量/23灯控是先前截面证据，保留作历史。未宣称Pages或main已包含本PR。

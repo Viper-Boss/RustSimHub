@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-28T12:31:38.477444+00:00",
+  "updated_at": "2026-10-28T13:12:29.158370+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -5170,6 +5170,18 @@
       ],
       "evidence": [
         "docs/VALIDATION-STAB03-PARTIAL-20261028.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T13:12:29.158370+00:00",
+      "type": "state",
+      "title": "BLE3-03 · 状态更新：服务单元与开关预算",
+      "detail": "D-24前置材料与只读检查器已实现，13项隔离Linux测试通过；旧AP角色检查实际拒绝第五IPC成员。角色/UID/Root契约及Core路由、真实服务程序、A安全会话未定，保持待办，不减账、不安装。",
+      "task_ids": [
+        "BLE3-03"
+      ],
+      "evidence": [
+        "docs/ble/service-materials-proposal.md"
       ]
     }
   ],
