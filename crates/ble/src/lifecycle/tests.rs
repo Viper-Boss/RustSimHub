@@ -363,6 +363,119 @@ fn session_cleanup_is_awaited_before_application_removal_or_a_new_peer() {
 }
 
 #[test]
+fn failed_secure_close_cannot_report_quiescence_after_application_removal() {
+    for error in [Error::Unknown, Error::Backend, Error::Deadline] {
+        let (mut adapter, control) = fixture();
+        let epoch = adapter.start(0).unwrap();
+        drive(&mut adapter, 1);
+        adapter.connected(epoch, peer(), 2).unwrap();
+        control.lock().unwrap().expect(Call::Unadv, Some(Ok(())));
+        control
+            .lock()
+            .unwrap()
+            .expect(Call::Close, Some(Err(error)));
+        adapter.stop(3).unwrap();
+        assert_eq!(drive(&mut adapter, 4), State::Unknown);
+        assert!(!adapter.has_pending_backend());
+        assert!(!adapter.app_maybe && !adapter.adv_maybe && adapter.peer.is_none());
+        assert!(
+            !adapter.is_quiescent(),
+            "unconfirmed security cleanup must remain owned"
+        );
+        assert_eq!(adapter.last_error(), Some(error));
+        assert_eq!(adapter.start(5), Err(Error::Busy));
+        let calls = control.lock().unwrap().names();
+        assert_eq!(
+            calls,
+            vec![Call::App, Call::Adv, Call::Unadv, Call::Close, Call::Unapp]
+        );
+        adapter.stop(6).unwrap();
+        assert_eq!(drive(&mut adapter, 7), State::Unknown);
+        assert!(!adapter.is_quiescent());
+        assert_eq!(control.lock().unwrap().names(), calls);
+    }
+}
+
+#[test]
+fn failed_secure_close_remains_owned_for_every_shutdown_route() {
+    for route in ["stop", "disconnect", "owner_lost", "release"] {
+        for error in [Error::Unknown, Error::Backend, Error::Deadline] {
+            let (mut adapter, control) = fixture();
+            let epoch = adapter.start(0).unwrap();
+            drive(&mut adapter, 1);
+            adapter.connected(epoch, peer(), 2).unwrap();
+            let connection = adapter.connection().unwrap();
+            if matches!(route, "stop" | "owner_lost") {
+                control.lock().unwrap().expect(Call::Unadv, Some(Ok(())));
+            }
+            control
+                .lock()
+                .unwrap()
+                .expect(Call::Close, Some(Err(error)));
+            match route {
+                "stop" => adapter.stop(3).unwrap(),
+                "disconnect" => adapter.disconnected(&connection, 3).unwrap(),
+                "owner_lost" => adapter.owner_lost(":1.42", 3).unwrap(),
+                "release" => adapter.advertisement_released(epoch, ":1.42", 3).unwrap(),
+                _ => unreachable!(),
+            }
+            assert_eq!(drive(&mut adapter, 4), State::Unknown, "{route}");
+            assert!(!adapter.is_current(&connection));
+            assert!(adapter.connection().is_none());
+            assert!(!adapter.is_quiescent(), "{route}: {error:?}");
+            assert!(!adapter.has_pending_backend());
+            assert_eq!(adapter.last_error(), Some(error));
+            let calls = control.lock().unwrap().names();
+            assert_eq!(calls.iter().filter(|c| **c == Call::Close).count(), 1);
+            assert_eq!(calls.iter().filter(|c| **c == Call::Unapp).count(), 1);
+            assert!(adapter.start(5).is_err());
+            adapter.stop(6).unwrap();
+            assert_eq!(drive(&mut adapter, 7), State::Unknown);
+            assert!(!adapter.is_quiescent());
+            assert_eq!(control.lock().unwrap().names(), calls);
+        }
+    }
+}
+
+#[test]
+fn timed_out_secure_close_requires_actual_late_success_to_be_quiescent() {
+    for late in [
+        Err(Error::Unknown),
+        Err(Error::Backend),
+        Err(Error::Deadline),
+        Ok(()),
+    ] {
+        let (mut adapter, control) = fixture();
+        let epoch = adapter.start(0).unwrap();
+        drive(&mut adapter, 1);
+        adapter.connected(epoch, peer(), 2).unwrap();
+        control.lock().unwrap().expect(Call::Unadv, Some(Ok(())));
+        let gate = control.lock().unwrap().expect(Call::Close, None);
+        adapter.stop(3).unwrap();
+        assert_eq!(drive(&mut adapter, 4), State::Stopping);
+        assert_eq!(drive(&mut adapter, 5004), State::Unknown);
+        assert!(adapter.has_pending_backend());
+        assert!(!adapter.is_quiescent());
+        *gate.lock().unwrap() = Some(late);
+        let expected = if late.is_ok() {
+            State::Disabled
+        } else {
+            State::Unknown
+        };
+        assert_eq!(drive(&mut adapter, 5005), expected);
+        assert!(!adapter.has_pending_backend());
+        assert_eq!(adapter.is_quiescent(), late.is_ok());
+        let calls = control.lock().unwrap().names();
+        assert_eq!(
+            calls,
+            vec![Call::App, Call::Adv, Call::Unadv, Call::Close, Call::Unapp]
+        );
+        assert_eq!(drive(&mut adapter, 5006), expected);
+        assert_eq!(control.lock().unwrap().names(), calls);
+    }
+}
+
+#[test]
 fn foreign_epoch_owner_and_second_peer_cannot_overwrite_the_current_session() {
     let (mut adapter, control) = fixture();
     let epoch = adapter.start(0).unwrap();
