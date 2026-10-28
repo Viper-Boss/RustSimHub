@@ -1904,6 +1904,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustsimhub-ble"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "rustsimhub-compat"
 version = "0.1.0"
 dependencies = [

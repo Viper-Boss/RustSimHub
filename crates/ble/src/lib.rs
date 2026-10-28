@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+#![forbid(unsafe_code)]
+//! Bounded, opaque GATT transport for the frozen T5 offline contract.
+//!
+//! This crate does not authenticate a browser, decrypt commands, authorize Core
+//! operations, access BlueZ, or start a service. Backend integration must supply
+//! those authorities. Framing identifiers are never security nonces or proofs.
+
+pub mod framing;
+pub mod lifecycle;
+pub mod manifest;
+pub mod ports;
+pub mod transport;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Error {
+    InvalidInput,
+    Protocol,
+    Deadline,
+    Exhausted,
+    Busy,
+    StaleContext,
+    Unavailable,
+    Backend,
+    Unknown,
+}
+
+#[cfg(test)]
+mod tests;
