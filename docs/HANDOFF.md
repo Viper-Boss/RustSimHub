@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-10-28 [STAB-03只读长测6.4小时](VALIDATION-STAB03-PARTIAL-20261028.md)：用户决定提前结束，验收要求24小时，不计完成。03:14～09:39共385次采样，单会话无断线，HTTPS 769/769（p50 2.13秒），各服务NRestarts均为0，可用内存271～280MB无下降，数据/分区大小不变，整机eMMC约1.27GB/天，设备未写入。设备上的采样shell断线后由init接管，下一次输出时退出，已只读复查无残留。归因：灯控、network-agent超过95%的CPU花在子进程上，降频提案有依据；network-agent自身写盘约54MB/天，只占整机4%左右，eMMC写入大头仍未归因。长测工具tools/field/stab-longrun.py随本记录提交。原80%、14/169、余155、7.3%不变。
+
 2026-10-28 [轮询与计量落盘修改提案](PROPOSAL-POLLING-AND-METER-WRITES.md)（不改代码）：经授权的维护密钥Wi-Fi只读登录确认灯控约13%、network-agent约15.8%单核CPU，整机eMMC约1.4GB/天、p15日志线程居写盘首位。源码显示灯控每5秒起3～4个systemctl/nmcli，network-agent每2秒nmcli+nft、每15秒4次mmcli，并每5秒无条件fsync写meter.json。提案：A1内容变化才写（B，语义不变）、C1灯控降频（主线）、B1 agent降频缩字段（B）、C2灯控复用agent状态；A2/B2/C3需负责人决定或依赖变更。归因为推断，STAB-03结束后用/proc/<pid>/stat自身与子进程CPU及write_bytes只读确认，子进程占比低于一半则不按提案实施。STAB-03 10-28 03:14起只读运行至10-29 03:15，未完成。原80%、14/169、余155、7.3%不变。
 
 2026-10-28 [LED-02前置核实](VALIDATION-LED02-MODEMMANAGER-LOSS.md)按用户选择的方案一完成隔离环境部分：Core serve主循环中observer/sender/call controller/灯控/媒体任一返回即退出，逐个核对MM消失时均不返回；WSL私有dbus-daemon+合成MM（拒绝CreateCall）下，真实Core --serve-device（main同源与应用50源码0edfc54各一次）经4轮SIGKILL（缺席2～45秒）、5次抖动不退出，7次探测正常，5次重新绑定（3.5～30.5秒），SIGTERM退出0，日志为空。systemd替身单元照搬Requires/OnFailure：SIGKILL及reset-failed+start不连带core/edge、不触发OnFailure；restart/stop会连带重启/停止，实机禁止。首轮夹具漏migrate init致Core以auth: Forbidden退出，补齐后通过。看灯场LED-02改为有门禁的实机步骤（先只读确认MM Restart=no等），需用户单独同意；夹具入tools/field/mm-loss。x86 debug、合成MM、无ARM/真实基带；未上设备。原80%、14/169、余155、7.3%不变。
