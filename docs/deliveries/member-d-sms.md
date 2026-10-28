@@ -1,5 +1,7 @@
 # 通信观测工作包交付与主线接回台账
 
+2026-10-29 [D-21恢复授权管理局部实现](../ble/recovery-owner-management.md)：用户允许先独立分支离线实现、合并前审核。代码c5f9ea7已实现显式候选schema7、真实Store事务/CAS/备份隔离及近期Owner管理，新增16项、总291项与严格Clippy/fmt通过。默认Core仍schema6；实际authorize/私有能力、浏览器恢复key、A会话和IPC/Wi-Fi未接，不动设备。D仍余6、lead20/总118、原81.5%、20/169保持，未将局部代码算整步完成。
+
 ## 2026-10-29 D-26局部修复与公开看板
 
 [蓝牙清理失败责任](../testing/ble-cleanup-quiescence.md)：真实库最小反例先失败，再在代码99a7f163c23e7afa7cb344bdad4b48b3d66e596d中修正quiescent漏查cleanup_failed。新增4项/25向量，BLE42+灯控24、严格Clippy/fmt和Python24通过；无新依赖、协议、安全端口实现或设备操作。D-26整体仍待其他生产前置，不扣步，lead20/D6/118保持。A按用户要求继续原分工。原固件经独立复核为81.5%，行动台账20/169、10.6%。

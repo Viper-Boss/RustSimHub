@@ -1,5 +1,7 @@
 # 最新开发进度：2026-10-23
 
+2026-10-29 [D-21恢复授权管理局部实现](ble/recovery-owner-management.md)：用户允许先独立分支离线实现、合并前审核。代码c5f9ea7已实现显式候选schema7、真实Store事务/CAS/备份隔离及近期Owner管理，新增16项、总291项与严格Clippy/fmt通过。默认Core仍schema6；实际authorize/私有能力、浏览器恢复key、A会话和IPC/Wi-Fi未接，不动设备。D仍余6、lead20/总118、原81.5%、20/169保持，未将局部代码算整步完成。
+
 2026-10-29 [独立公开看板发布](progress/PUBLICATION-20261029.md)：https://viper-boss.github.io/RustSimHub-progress/ 已built/deploy成功，实际HTTPS和页面/JSON/清单摘要核对通过；仅发布13个白名单文件，固件仓库仍私有。来源五人并排版PR58，原81.5%、20/169、D20/26保持。[D-26蓝牙局部修复](testing/ble-cleanup-quiescence.md)代码99a7f16已通过66项Rust、严格检查和Python24，整项仍未完成，不扣步。
 
 2026-10-29 [看板团队区](progress/TEAM-VIEW-20261029.md)：五人并排、同刻度竖条/代码占比，点击详情才显示个人任务。主线Git截面和验收状态不变；Node检查通过，真实浏览器自动验证因file URL策略受阻。原81.5%、行动20/169、D20/26保持；本地快照更新，源码待正常审核。

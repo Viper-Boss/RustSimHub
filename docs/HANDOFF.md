@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-10-29 [D-21恢复授权管理局部实现](ble/recovery-owner-management.md)：用户允许先独立分支离线实现、合并前审核。代码c5f9ea7已实现显式候选schema7、真实Store事务/CAS/备份隔离及近期Owner管理，新增16项、总291项与严格Clippy/fmt通过。默认Core仍schema6；实际authorize/私有能力、浏览器恢复key、A会话和IPC/Wi-Fi未接，不动设备。D仍余6、lead20/总118、原81.5%、20/169保持，未将局部代码算整步完成。
+
 2026-10-29 [公开看板已发布](progress/PUBLICATION-20261029.md)：用户批准单独公开页面，网址 https://viper-boss.github.io/RustSimHub-progress/ ，固件仓库保持私有。Pages built、部署success及实际HTTPS页面/JSON/清单摘要核对通过，来源PR58；原81.5%、20/169和D20/26不变，产品PR未合入。独立公开目录仅13个白名单文件，原旧网址仍未启用。
 
 2026-10-29 [D-26蓝牙清理责任修正](testing/ble-cleanup-quiescence.md)：保留实际失败基线，代码99a7f16给quiescent补已有cleanup_failed检查；四入口/超时/迟到及实际Transport共4项25向量，BLE42+灯控24、严格Clippy/fmt及Python24通过。没有接A密码/Core/真实BlueZ或动设备，D仍余6、SEC-06进行中，81.5%和20/169保持。

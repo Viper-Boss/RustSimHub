@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-28T17:40:28.245099+00:00",
+  "updated_at": "2026-10-28T18:24:20.226299+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原固件81.5%按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "SEC-06",
-    "title": "有界输入和协议模糊测试",
+    "task_id": "BLE2-01",
+    "title": "恢复公钥注册与撤销",
     "state": "正在推进",
-    "description": "继续D-26真实生产模块失败矩阵；已修复蓝牙清理责任误报，保持A安全会话和D-21/24/25接口方案待审边界。"
+    "description": "D-21局部代码c5f9ea7：真实Store授权/CAS/候选迁移与近期Owner管理、291项离线通过；实际authorize/浏览器/A会话/IPC/Wi-Fi仍待，默认Core schema6，设备未动。不扣整步。"
   },
   "facts": [
     {
@@ -3544,7 +3544,7 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -5227,6 +5227,30 @@
         "SEC-06"
       ],
       "evidence": []
+    },
+    {
+      "at": "2026-10-28T18:24:20.097749+00:00",
+      "type": "state",
+      "title": "BLE2-01 · 状态更新：恢复公钥注册与撤销",
+      "detail": "D-21局部代码c5f9ea7：真实Store授权/CAS/候选迁移与近期Owner管理、291项离线通过；实际authorize/浏览器/A会话/IPC/Wi-Fi仍待，默认Core schema6，设备未动。不扣整步。",
+      "task_ids": [
+        "BLE2-01"
+      ],
+      "evidence": [
+        "docs/ble/recovery-owner-management.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T18:24:20.226299+00:00",
+      "type": "state",
+      "title": "BLE2-01 · 下一关卡：恢复公钥注册与撤销",
+      "detail": "D-21局部代码c5f9ea7：真实Store授权/CAS/候选迁移与近期Owner管理、291项离线通过；实际authorize/浏览器/A会话/IPC/Wi-Fi仍待，默认Core schema6，设备未动。不扣整步。",
+      "task_ids": [
+        "BLE2-01"
+      ],
+      "evidence": [
+        "docs/ble/recovery-owner-management.md"
+      ]
     }
   ],
   "team": {
@@ -5874,7 +5898,7 @@
         },
         {
           "path": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-          "sha256": "2d5673e305996cc223b39334e5d54f5892c11fda1370a974e666646123460c07"
+          "sha256": "69ab38e2247b1accdeada0ffedfebd3a06f821db35a5df449bf5bee21a33b3a5"
         }
       ],
       "members": [
@@ -7311,7 +7335,7 @@
               "work": "BLE2-01：按RecoveryAuthorizerV1提独立恢复能力/批准撤销/存储迁移提案，获审后在现有Auth/Core唯一权威实现；浏览器绑定非导出恢复密钥",
               "acceptance": "不使用匿名首次认领窗口、不制造Owner，不改旧scope bit含义。新版本/损坏/旧realm/grant撤销/重启迁移和无权限全部有真实模块测试",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 333,
+              "line": 337,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "BLE2-01"
@@ -7324,7 +7348,7 @@
               "work": "BLE2-02、BLE3-02：完成固定Unix IPC/真实SO_PEERCRED来源与会话绑定，接A安全会话和本人Gatt适配库，构造Core内部不可由payload伪造的可信能力",
               "acceptance": "测试真实临时socket/不同UID可执行部分，权限不足的Root用例标未运行。禁止前端channel=ble、固定假uid或Mock安全port进入生产路径",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 334,
+              "line": 338,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "BLE2-02",
@@ -7338,7 +7362,7 @@
               "work": "BLE2-03/04：把合法恢复上下文接现有Wi-Fi开始/查询/确认/取消；保留USB原门禁、唯一网络锁、电话协调、WWAN/IMS/默认APN边界",
               "acceptance": "无USB未认证拒绝、合法恢复通过、保存前后撤权/断连/重放/并发网页路径覆盖；Unknown保留，不新建共享业务库或第二网络事务",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 335,
+              "line": 339,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "BLE2-03",
@@ -7352,7 +7376,7 @@
               "work": "BLE3-03：交付有限低权服务/账户/目录/设备/地址族/预算模板和关闭清理；与Root安装器/C材料组装协调",
               "acceptance": "账户角色/实际UID和许可表先审，不自行占用既有UID。无BLE时Core仍运行，关闭清理广播/会话，无常驻任意Root；真实NSS/cgroup/BlueZ权限由主线安装复核",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 336,
+              "line": 340,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "BLE3-03"
@@ -7365,7 +7389,7 @@
               "work": "REMOTE-03/05：实现现有身份/媒体预授权在远程通道的绑定、撤销及受限TURN/ICE/DTLS/Opus适配，保留票据/peer/call/line/租约关系",
               "acceptance": "本地合成对端/私有测试TLS环境做强制中继与失败测试，不连接真实外网服务器。NAS/C仅消费已审核的正常接口，不允许NKN隧道绕过权限",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 337,
+              "line": 341,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "REMOTE-03",
@@ -7379,7 +7403,7 @@
               "work": "扩展本人SEC-06输入矩阵至实际新增Core/媒体/BLE解析及跨模块故障：并发控制、过期/撤销、退出、回调迟到、分片/队列/超时",
               "acceptance": "测试真实生产模块，模拟仅外部后端；不拉长产品租约/队列或删拒绝断言。提交最小复现/修正、真实命令及尚未运行的设备/TURN/两端听音清单",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 338,
+              "line": 342,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [],
               "status": "not_accepted"
