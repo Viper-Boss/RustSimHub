@@ -16,3 +16,9 @@ Windows换行导致最初发布清单中的三个文本摘要与Git规范化后�
 后续更新只从经过验证的固定源码提交导出明确允许文件到 `.publish/RustSimHub-progress` 独立公开目录，重建/摘要核对后正常推送，再等Pages built并下载缓存区分版本核验。不要将固件仓库设为public，不复制整个仓库或私有验证目录。页面内指向私有证据的链接仍要求登录授权。
 
 原 `https://viper-boss.github.io/RustSimHub/` 未配置，仍不是看板入口；对外应使用上面的独立公开网址。当前README、看板说明和Markdown生成器已同步新入口，历史记录中的旧地址不代表已配置重定向。
+
+## D-26进展快照更新
+
+北京时间2026-10-29 01:46复核第二批公开快照：公开提交 `932dd377a50c8e0ecd27db0892f599d34e003f7e`，来源私有提交 `60af31a2f166e920eaf7858796fe9fae15eca73f`（PR59）。Pages构建1322180778为built，[运行40738531683](https://github.com/Viper-Boss/RustSimHub-progress/actions/runs/40738531683)success；带缓存区分参数实际下载页面/JSON/Markdown/发布清单并逐项比对摘要通过。页面摘要 `0cf608d252fc6257dd2be66049de6e0276f989723aab14acf7e659bb46e17d9c`，焦点SEC-06且状态in_progress，81.5%及20/169保持；Markdown入口已指向新网址。证据保存于上述私有目录的update-932dd37子目录。
+
+本轮仅同步既有13文件白名单，没有扩大公开范围。生产修复仍待PR正常审核和后续实际集成，网页快照不是固件已部署的证明。补记只变本文，不重做已通过的生产测试或伪称新运行。
