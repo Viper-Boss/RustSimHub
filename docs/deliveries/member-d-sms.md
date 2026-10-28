@@ -1,5 +1,11 @@
 # 通信观测工作包交付与主线接回台账
 
+## 2026-10-29 D-25a远程媒体接口前置（不扣步）
+
+[远程媒体接线提案](../remote/relay-media-proposal.md)已按实际native Opus/str0m、Worker v1、Core票据和低权媒体服务核对，列出独立远程协议、真实TURN allocation/selected pair/DTLS指纹/Core绑定、有限目标与取消清理、候选依赖固定版本/许可及12组待运行矩阵。仅提案，未添加依赖、实现TURN或修改身份/协议/Root服务；需要正常独立审核。A安全会话尚未完成，用户确认保持原分工。
+
+前置分别交付在[PR52恢复授权提案](https://github.com/Viper-Boss/RustSimHub/pull/52)、[PR53有限服务材料草案](https://github.com/Viper-Boss/RustSimHub/pull/53)及[PR55实际媒体IPC撤销修复](https://github.com/Viper-Boss/RustSimHub/pull/55)，均不把整项D-21/24/25/26计完成；本分支不宣称包含这些独立分支源码。D-01～20离线交付、D余D-21～26共6步、lead20/D6/总118保持；全局交付分支20/169、加权10.6%、原80%，不是main或Pages发布。
+
 ## 当前结算 · 2026-10-28 GATT 离线库批次
 
 **最新同步后截面：** 已接续PR50更新 `2b13b25f4ffad0fed04643fedadbdec60fed9f64` 与Claude main dfd11e9，保留用户新灯色及UPD-04/STAB-03/SMS-05，最新台账20/169、加权10.6%、余149、原80%；lead20/D6不变。新截面归档 `4898875176e75cec26e30f532eb398b7361f64ade94beb604e6d4921800e3c5a`、日志 `d8ba77e0d818a2881b839aa9cd810d82a88b9a8da61ad93aa02440638cdd3d3f`：蓝牙38+灯控24、严格Clippy/fmt及Python23全部通过，Node看板/生成一致性通过。下文旧数量/23灯控是先前截面证据，保留作历史。未宣称Pages或main已包含本PR。
