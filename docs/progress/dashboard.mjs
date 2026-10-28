@@ -118,7 +118,8 @@ export function teamHTML(team, data=null, {query=''}={}) {
     const work=index===0?`历史主线 + 集成 / 设备 / 审核${assigned?` · 接回 ${assigned} 步，已审 ${accepted}`:''}`:`已审 ${accepted} / ${assigned} 个分配步骤`;
     const prRows=w.deliveries.map(p=>{const review=w.reviews.find(r=>r.pr===p.pr),state=review?({needs_re_review:'HEAD变化 · 需复审',needs_changes:'需修改',offline_accepted:'离线范围通过',accepted:'范围已验收'}[review.state]||'待审核'):'未关联验收';return `<a href="https://github.com/Viper-Boss/RustSimHub/pull/${count(p.pr)}" target="_blank" rel="noopener">PR #${count(p.pr)} · ${escapeHTML(state)}</a>`;}).join('');
     const tasks=personTasksHTML(people[index],data,query);if(tasks===null)return '';
-    return `<article id="person-${escapeHTML(m.id)}" data-person-id="${escapeHTML(m.id)}" class="team-card team-tone-${index}"><div class="team-profile"><div class="team-person"><span class="team-avatar" aria-hidden="true">${escapeHTML(m.id==='lead'?'V':m.id.slice('member-'.length).toUpperCase())}</span><div><h3>${github}</h3><span>${escapeHTML(m.role)}</span></div></div><b class="team-state">${escapeHTML(labels[m.state]||'状态待核对')}</b><div class="team-work"><strong>${escapeHTML(work)}</strong><p>${escapeHTML(m.package)}</p><div class="team-work-track"><i style="width:${assigned?Math.min(100,accepted/assigned*100):0}%"></i></div><span>计划：${m.estimate_hours?m.estimate_hours.map(number).join('–')+'小时':'主线持续推进'} · 实耗：${w.self_reported_hours===null?'未填报':escapeHTML(w.self_reported_hours)+'小时（自报）'}</span></div><a class="team-task" href="${escapeHTML(publicURL(m.handoff))}" target="_blank" rel="noopener">任务书与交付要求 ↗</a><details class="team-contribution"><summary>代码贡献与PR记录</summary><div class="team-code"><strong>${number(product)}</strong><span>主线产品非空行</span><small>当前产品代码归属 ${pct.toFixed(1)}%</small></div><div class="team-share" aria-label="当前产品代码归属比例"><i style="width:${pct.toFixed(3)}%"></i></div><dl class="team-numbers"><div><dt>独立测试行</dt><dd>${number(s.current_lines.tests)}</dd></div><div><dt>工具 / 配置行</dt><dd>${number(count(s.current_lines.tooling)+count(s.current_lines.firmware))}</dd></div><div><dt>主线提交（含文档）</dt><dd>${number(s.commits)}</dd></div><div><dt>累计增 / 删（含空行）</dt><dd>+${number(s.added)} / −${number(s.deleted)}</dd></div></dl><div class="team-prs">${prRows||'<span>尚无本仓库PR交付</span>'}</div><p class="team-access">${escapeHTML(m.access)}</p></details></div>${tasks}</article>`;
+    const details=`<div class="person-detail-scope" data-person-id="${escapeHTML(m.id)}"><div class="person-detail-overview"><b class="team-state">${escapeHTML(labels[m.state]||'状态待核对')}</b><div class="team-work"><strong>${escapeHTML(work)}</strong><p>${escapeHTML(m.package)}</p><div class="team-work-track"><i style="width:${assigned?Math.min(100,accepted/assigned*100):0}%"></i></div><span>计划：${m.estimate_hours?m.estimate_hours.map(number).join('–')+'小时':'主线持续推进'} · 实耗：${w.self_reported_hours===null?'未填报':escapeHTML(w.self_reported_hours)+'小时（自报）'}</span></div><a class="team-task" href="${escapeHTML(publicURL(m.handoff))}" target="_blank" rel="noopener">任务书与交付要求 ↗</a></div>${tasks}<details class="team-contribution"><summary>代码贡献与PR记录</summary><dl class="team-numbers"><div><dt>独立测试行</dt><dd>${number(s.current_lines.tests)}</dd></div><div><dt>工具 / 配置行</dt><dd>${number(count(s.current_lines.tooling)+count(s.current_lines.firmware))}</dd></div><div><dt>主线提交（含文档）</dt><dd>${number(s.commits)}</dd></div><div><dt>累计增 / 删（含空行）</dt><dd>+${number(s.added)} / −${number(s.deleted)}</dd></div></dl><div class="team-prs">${prRows||'<span>尚无本仓库PR交付</span>'}</div><p class="team-access">${escapeHTML(m.access)}</p></details></div>`;
+    return `<article id="person-${escapeHTML(m.id)}" data-person-id="${escapeHTML(m.id)}" class="team-card team-tone-${index}"><div class="team-profile"><div class="team-person"><span class="team-avatar" aria-hidden="true">${escapeHTML(m.id==='lead'?'V':m.id.slice('member-'.length).toUpperCase())}</span><div><h3>${github}</h3><span>${escapeHTML(m.role)}</span></div></div><div class="team-percentage"><strong>${total?pct.toFixed(1):'—'}</strong><span>${total?'%':''}</span><small>主线产品代码占比</small></div><div class="team-column" role="img" aria-label="${escapeHTML(m.name)}：${total?pct.toFixed(1)+'%':'暂无统计'}"><div class="team-column-track"><i style="height:${Math.min(100,pct).toFixed(3)}%"></i></div></div><p class="team-line-count"><strong>${number(product)}</strong> 行产品代码</p><button type="button" class="team-details-button" data-person-details="${escapeHTML(m.id)}" aria-haspopup="dialog" aria-label="查看${escapeHTML(m.name)}的详情">详情 <span aria-hidden="true">↗</span></button></div><template data-person-template="${escapeHTML(m.id)}">${details}</template></article>`;
   }).join('');
 }
 
@@ -127,6 +128,7 @@ function initialize() {
   let scope='all', shown=[], selectedModule=null, selectedFocus=null;
   const byId=id=>document.getElementById(id), html=escapeHTML;
   const dialog=byId('module-dialog');
+  const personDialog=byId('person-dialog');
   function renderPeople(){
     const output=teamHTML(data.team,data,{query:byId('team-search')?.value||''});
     byId('team-grid').innerHTML=output||'<p class="person-empty">没有匹配的人员或任务，请换一个关键词。</p>';
@@ -221,14 +223,27 @@ function initialize() {
     event.preventDefault();if(byId('team-search').value){byId('team-search').value='';renderPeople();}
     byId('person-'+link.dataset.personJump)?.scrollIntoView({block:'start',behavior:paused||motionMedia.matches?'auto':'smooth'});
   });
-  byId('team-grid')?.addEventListener('click',async event=>{
+  async function handlePersonAction(event){
+    const details=event.target.closest('[data-person-details]');
+    if(details){
+      const member=data.team?.members.find(m=>m.id===details.dataset.personDetails);
+      const template=details.closest('.team-card')?.querySelector('template[data-person-template]');
+      if(!member||!template)return;
+      byId('person-dialog-title').textContent=member.name+' · 详情与剩余任务';
+      byId('person-dialog-body').replaceChildren(template.content.cloneNode(true));
+      personDialog.showModal();document.body.style.overflow='hidden';return;
+    }
     const task=event.target.closest('[data-team-task]');
-    if(task){const module=data.modules.find(m=>m.tasks.some(t=>t.id===task.dataset.teamTask));if(module)openModule(module.id,task.dataset.teamTask);return;}
+    if(task){const module=data.modules.find(m=>m.tasks.some(t=>t.id===task.dataset.teamTask));if(module){personDialog.close();openModule(module.id,task.dataset.teamTask);}return;}
     const expand=event.target.closest('[data-person-expand]');
     if(expand){const card=expand.closest('[data-person-id]'),open=expand.getAttribute('aria-expanded')!=='true';card.querySelectorAll('[data-person-batch],.person-projects').forEach(node=>{node.open=open;});expand.setAttribute('aria-expanded',String(open));expand.textContent=open?'收起任务分组':'显示全部任务';return;}
     const copy=event.target.closest('[data-person-copy]');
     if(copy){const person=personAssignments(data).find(p=>p.member.id===copy.dataset.personCopy);if(!person)return;try{await navigator.clipboard.writeText(personHandoffText(person));toast('已复制本人步骤、项目动作和验收边界。');}catch{toast('当前环境不能写剪贴板，请展开任务或查看任务书。');}}
-  });
+  }
+  byId('team-grid')?.addEventListener('click',handlePersonAction);
+  personDialog.addEventListener('click',handlePersonAction);
+  byId('person-dialog-close').addEventListener('click',()=>personDialog.close());
+  personDialog.addEventListener('close',()=>{if(!dialog.open)document.body.style.overflow='';byId('person-dialog-body').replaceChildren();});
   const openFocus=()=>{const module=data.modules.find(m=>m.tasks.some(t=>t.id===data.focus.task_id));if(module)openModule(module.id,data.focus.task_id);};
   byId('focus-open').addEventListener('click',openFocus);byId('focus-detail').addEventListener('click',openFocus);
   byId('dialog-close').addEventListener('click',()=>dialog.close());dialog.addEventListener('close',()=>{document.body.style.overflow='';selectedModule=null;selectedFocus=null;});

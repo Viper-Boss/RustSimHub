@@ -64,3 +64,39 @@
 @media(max-width:1050px){#team-grid .team-card:nth-child(n){grid-template-columns:minmax(200px,.9fr) minmax(0,2.1fr);gap:22px}.person-batches{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:760px){#team-grid .team-card:nth-child(n){grid-template-columns:minmax(0,1fr);gap:22px}.team-profile{position:static}.team-profile .team-work{padding-top:12px}.team-profile .team-work p{margin-bottom:8px}.person-toolbar{align-items:stretch}.person-toolbar .person-jumps{gap:7px}.person-toolbar .search{flex-basis:100%}.person-jumps a{font-size:10px;padding:8px 10px}.team-profile .team-numbers{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:400px){#team-grid .team-card:nth-child(n){padding:15px}.person-tasks-head button{font-size:10px;padding:7px 9px}.person-batch>summary{font-size:11px;padding:11px 10px}.person-step>summary{padding:10px 9px;grid-template-columns:41px minmax(0,1fr)}.person-project{grid-template-columns:58px minmax(0,1fr)}.person-tasks-head h4{font-size:14px}}
+
+/* Compare all five people first; task lists live in a full-width dialog. */
+#team-grid.team-grid{grid-template-columns:repeat(5,minmax(160px,1fr));gap:12px;align-items:start;overflow-x:auto;padding-bottom:12px;scroll-snap-type:x proximity}
+#team-grid .team-card:nth-child(n){display:block;padding:22px 15px;scroll-snap-align:start;--team-accent:#79efd0}
+#team-grid .team-tone-1{--team-accent:#c5b2ff}
+#team-grid .team-tone-2{--team-accent:#90cbff}
+#team-grid .team-tone-3{--team-accent:#ffd18b}
+#team-grid .team-tone-4{--team-accent:#f7a9cd}
+#team-grid .team-profile{position:static;text-align:center}
+#team-grid .team-person{display:flex;flex-direction:column;align-items:center;gap:12px;min-height:112px}
+#team-grid .team-person>div{flex:none;width:100%;min-width:0}
+#team-grid .team-person h3{font-size:13px;line-height:1.5;margin:0 0 5px}
+#team-grid .team-person>div>span{display:block;font-size:10px;line-height:1.65;min-height:33px}
+#team-grid .team-avatar{width:38px;height:38px;border-radius:13px}
+.team-percentage{margin:16px 0 18px;color:var(--team-accent);white-space:nowrap}
+.team-percentage strong{font:600 32px/1.15 ui-monospace,monospace;letter-spacing:-1.5px}
+.team-percentage>span{font-size:14px;margin-left:3px}
+.team-percentage small{display:block;white-space:normal;color:#8da8bd;font-size:10px;margin-top:9px;line-height:1.7}
+.team-column{height:150px;display:flex;justify-content:center;margin:0 auto 18px;padding-top:2px}
+.team-column-track{position:relative;width:48px;height:100%;border:1px solid #ffffff12;border-radius:13px;background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),#ffffff0b calc(25% - 1px),#ffffff0b 25%),#ffffff03;overflow:hidden}
+.team-column-track>i{position:absolute;bottom:0;left:0;right:0;display:block;border-radius:10px 10px 0 0;background:linear-gradient(to top,color-mix(in srgb,var(--team-accent) 30%,transparent),var(--team-accent));box-shadow:0 -4px 24px color-mix(in srgb,var(--team-accent) 22%,transparent);transition:height .6s ease}
+.team-line-count{font-size:10px;color:#8da8bd;margin:0 0 18px;line-height:1.7}
+.team-line-count strong{display:block;color:#d6e6ec;font:500 18px/1.7 ui-monospace,monospace}
+.team-details-button{display:flex;justify-content:space-between;align-items:center;width:100%;padding:10px 12px;border:1px solid color-mix(in srgb,var(--team-accent) 30%,transparent);border-radius:9px;background:color-mix(in srgb,var(--team-accent) 7%,transparent);color:var(--team-accent);font:inherit;font-size:11px;cursor:pointer}
+.team-details-button:hover{background:color-mix(in srgb,var(--team-accent) 15%,transparent)}
+.team-details-button:focus-visible{outline:2px solid var(--team-accent);outline-offset:3px}
+.person-details-dialog{width:min(980px,calc(100% - 32px))}
+.person-detail-overview{padding-bottom:22px;margin-bottom:23px;border-bottom:1px solid #ffffff12}
+.person-detail-overview>.team-state{display:inline-block}
+.person-detail-overview .team-work{border-top:0;padding-top:16px}
+.person-detail-overview .team-work p{min-height:0}
+.person-details-dialog .team-numbers{grid-template-columns:repeat(4,minmax(0,1fr))}
+.person-details-dialog .person-batches{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:760px){.person-details-dialog .person-batches{grid-template-columns:minmax(0,1fr)}.person-details-dialog .team-numbers{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){.team-column-track>i{transition:none}}
+.motion-paused .team-column-track>i{transition:none}

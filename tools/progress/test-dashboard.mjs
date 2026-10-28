@@ -31,6 +31,21 @@ assert.ok(cards.includes('fungi1220'));assert.ok(cards.includes('wnfhsj'));asser
 assert.ok(cards.includes('未填报'));
 for(const member of data.team.members.filter(m=>m.id!=='lead'))assert.ok(cards.includes(`${member.work.accepted_steps} / ${member.work.assigned_steps}`));
 assert.equal((cards.match(/<article/g)||[]).length,5);
+assert.equal((cards.match(/data-person-details=/g)||[]).length,5);
+assert.equal((cards.match(/<template data-person-template=/g)||[]).length,5);
+// Task content must remain available for each owner, but be inert until Details opens.
+const visibleCards=cards.replace(/<template\b[^>]*>[\s\S]*?<\/template>/g,'');
+assert.ok(!visibleCards.includes('data-step-id='));
+assert.ok(!visibleCards.includes('class="person-tasks"'));
+assert.equal((visibleCards.match(/class="team-column"/g)||[]).length,5);
+for(const member of data.team.members){
+  const expected=(member.stats.current_lines.product/data.team.totals.product*100).toFixed(1);
+  assert.ok(visibleCards.includes(`<strong>${expected}</strong><span>%</span>`));
+}
+const noProduct=structuredClone(data.team);noProduct.totals.product=0;
+assert.ok(!teamHTML(noProduct).includes('height:NaN'));
+assert.ok(!teamHTML(noProduct).includes('<strong>NaN</strong>'));
+assert.ok(teamHTML(noProduct).includes('暂无统计'));
 const hostile=structuredClone(data.team);hostile.members[1].name='<img src=x onerror=bad>';
 assert.ok(teamHTML(hostile).includes('&lt;img'));assert.ok(!teamHTML(hostile).includes('<img'));
 assert.ok(teamHTML(null).includes('尚未生成'));

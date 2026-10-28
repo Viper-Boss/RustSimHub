@@ -37,7 +37,7 @@
  </section>
  <section class="milestone-panel" aria-labelledby="milestone-title"><div class="section-heading compact"><div><span class="eyebrow">ORIGINAL MILESTONES</span><h2 id="milestone-title">{{MILESTONE_PERCENT}}%的来处，每一项都保留边界。</h2></div><a href="https://github.com/Viper-Boss/RustSimHub/blob/main/docs/PROGRESS-SCALE.md" target="_blank" rel="noopener">查看固定权重 ↗</a></div><div id="milestones" class="milestones"></div></section>
  <section id="team" class="team-section" aria-labelledby="team-title">
-  <div class="section-heading"><div><span class="eyebrow">FIVE PEOPLE · ONE MAINLINE</span><h2 id="team-title">每个人的任务，直接放在这里。</h2><p>按人查看具体步骤、动作和验收要求；成员离线交付、主线实际执行与审核集成各自保留。</p></div><a href="https://github.com/Viper-Boss/RustSimHub/blob/main/docs/team/README.md" target="_blank" rel="noopener">协作入口与任务书 ↗</a></div>
+  <div class="section-heading"><div><span class="eyebrow">FIVE PEOPLE · ONE MAINLINE</span><h2 id="team-title">五人并肩，代码贡献一眼看清。</h2><p>竖条显示已合并产品代码占比；点击“详情”查看个人剩余任务、交付步骤和审核记录。</p></div><a href="https://github.com/Viper-Boss/RustSimHub/blob/main/docs/team/README.md" target="_blank" rel="noopener">协作入口与任务书 ↗</a></div>
   <p id="team-source" class="team-source"></p>
   <div class="person-toolbar"><label class="search"><span aria-hidden="true">⌕</span><input type="search" id="team-search" placeholder="搜索姓名、步骤ID、动作或验收要求" aria-label="搜索人员和个人任务"></label><nav id="team-jumps" class="person-jumps" aria-label="跳到个人任务"></nav></div>
   <p id="team-result" class="team-source" aria-live="polite"></p><div id="team-grid" class="team-grid"></div>
@@ -54,6 +54,7 @@
 </main>
 <footer class="shell footer"><span>RustSimHub <b>·</b> BUILT TO STAND ALONE.</span><span id="footer-status">仓库快照 · 不代表设备实时遥测</span><a href="https://github.com/Viper-Boss/RustSimHub" target="_blank" rel="noopener">代码与证据 ↗</a></footer>
 <dialog id="module-dialog" aria-labelledby="dialog-title"><div class="dialog-head"><div><span class="eyebrow" id="dialog-code"></span><h2 id="dialog-title"></h2></div><button id="dialog-close" class="icon-button" aria-label="关闭模块详情">✕</button></div><div class="dialog-body"><p id="dialog-summary"></p><div id="dialog-stat" class="tag-row"></div><div class="path-box" id="dialog-paths"></div><div class="dialog-tools"><button id="copy-handoff" class="secondary">复制模块接手说明</button><a id="dialog-source" target="_blank" rel="noopener">范围来源 ↗</a></div><div id="task-list"></div></div></dialog>
+<dialog id="person-dialog" class="person-details-dialog" aria-labelledby="person-dialog-title"><div class="dialog-head"><div><span class="eyebrow">PERSONAL DELIVERY</span><h2 id="person-dialog-title"></h2></div><button id="person-dialog-close" class="icon-button" aria-label="关闭个人详情">✕</button></div><div class="dialog-body" id="person-dialog-body"></div></dialog>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 <noscript><div class="shell no-script">请启用JavaScript查看交互看板；也可直接打开<a href="remaining.md">完整Markdown清单</a>。</div></noscript>
 <!-- DASHBOARD_DATA -->
