@@ -813,7 +813,12 @@ async fn serve_inner_media(
             let setup = setup_file
                 .map(|(device, path)| {
                     let gate = if device {
-                        rustsimhub_auth::LocalSetup::for_device(std::path::Path::new(&path), &auth)?
+                        let path = std::path::Path::new(&path);
+                        match rustsimhub_auth::LocalSetup::for_device(path, &auth)? {
+                            Some(gate) => Some(gate),
+                            // Owned device: first setup may still be needed until Wi-Fi is saved.
+                            None => rustsimhub_auth::LocalSetup::for_owned_device(path, &auth)?,
+                        }
                     } else {
                         let gate = rustsimhub_auth::LocalSetup::load(std::path::Path::new(&path))?;
                         gate.require_empty(&auth)?;
