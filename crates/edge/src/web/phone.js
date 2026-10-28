@@ -19,6 +19,7 @@ export class DailyPhone {
   this.$('phone-dial').onclick=()=>this.run(()=>this.begin('dial'));
   this.$('phone-hangup').onclick=()=>this.hangup();
   this.$('phone-refresh').onclick=()=>void this.refresh().catch(error=>this.say(error.message));
+  this.$('phone-missed-ack').onclick=()=>this.run(()=>this.acknowledgeMissed());
   this.$('phone-query').onclick=()=>this.run(()=>this.query());
   this.$('phone-close').onclick=()=>this.run(()=>this.close());
   this.$('phone-connect').onclick=()=>this.run(()=>this.connect());
@@ -201,6 +202,24 @@ export class DailyPhone {
   try{const stream=await this.input(g,a);await this.ensureSession();this.current(g,a);await this.audio.start(this.context(lease),{stream});this.current(g,a);this.audioAttempted=true;this.say('声音已连接');}
   catch(error){if(g===this.generation&&a===this.action)void this.closeMedia();throw error;}
  }
+ // Clears the missed-call indicator: every ended incoming call on the current SIM
+ // is marked seen. Answered ones are harmless; Core already counts them as connected.
+ async acknowledgeMissed(){
+  const g=this.generation,a=this.action;
+  const line=await this.requestCurrent({op:'line_status'},g,a);
+  if(line.status!=='ready'||!Number.isSafeInteger(line.line)||line.line<=0)throw Error('SIM 尚未就绪');
+  const ids=[];let after=null;
+  for(let page=0;;page++){
+   if(page===64)throw Error('通话记录过多，请在“手动调试与设备管理”中逐条确认');
+   const result=await this.requestCurrent({op:'calls',after,limit:16},g,a);
+   if(!Array.isArray(result?.calls)||result.calls.length>16||result.calls.some(call=>!uuid(call?.id)))throw Error('通话列表已变化，请稍后再试');
+   for(const call of result.calls)if(call.line===line.line&&call.direction===1&&call.modem_state===7&&call.availability==='observed')ids.push(call.id);
+   if(result.calls.length<16)break;
+   after=result.cursor;
+  }
+  for(const id of ids)await this.requestCurrent({op:'notification_read',entity:'calls',record_id:id},g,a);
+  this.say(ids.length?`已确认 ${ids.length} 通来电，未接提示会停止`:'没有需要确认的未接来电');
+ }
  render(){
   const online=this.enabled&&!!this.token(),blocked=this.blocked(),pending=this.getPending();
   this.$('phone-dial').disabled=!online||blocked||this.working||this.managing||!!this.calls.length;
@@ -209,6 +228,7 @@ export class DailyPhone {
   this.$('phone-close').disabled=!online||blocked||this.working||this.managing||pending?.type!=='call';
   this.$('phone-connect').disabled=!online||blocked||this.working||!this.lease||!this.confirmedControl||this.audio.state==='active';
   this.$('phone-tone-send').disabled=!online||blocked||this.working||!this.lease||!this.calls.some(call=>call.id===this.lease.call_id&&call.modem_state===4);
+  this.$('phone-missed-ack').disabled=!online||blocked||this.working;
   this.$('phone-muted').checked=this.audio.muted===true;
   const list=this.$('phone-live');list.replaceChildren();
   for(const call of this.calls){
