@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-28T08:28:13.109637+00:00",
+  "updated_at": "2026-10-28T08:52:59.468585+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -2510,12 +2510,14 @@
             "device"
           ],
           "dependencies": [],
-          "status": "todo",
+          "status": "done",
           "offline_delegable": false,
           "passive_wait_hours": 24,
-          "evidence": [],
-          "completed_at": null,
-          "actual_hours": null
+          "evidence": [
+            "docs/VALIDATION-STAB03-PARTIAL-20261028.md"
+          ],
+          "completed_at": "2026-10-28T08:52:59.468585+00:00",
+          "actual_hours": 1.0
         },
         {
           "id": "STAB-04",
@@ -5114,6 +5116,18 @@
       ],
       "evidence": [
         "docs/VALIDATION-UPD04-FIELD-20261028.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T08:52:59.468585+00:00",
+      "type": "completed",
+      "title": "STAB-03 · 已完成：24小时初步稳定性",
+      "detail": "用户2026-10-28决定接受6.4小时只读长测（无崩溃、无内存增长、769次HTTPS全部成功、服务NRestarts全0），不再续测24小时，以后有问题再说",
+      "task_ids": [
+        "STAB-03"
+      ],
+      "evidence": [
+        "docs/VALIDATION-STAB03-PARTIAL-20261028.md"
       ]
     }
   ],
