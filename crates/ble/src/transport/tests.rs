@@ -18,6 +18,7 @@ struct Control {
     notifications: Vec<(Epoch, Peer, Characteristic, Vec<u8>)>,
     secure_gate: Option<ReplyGate>,
     notify_gate: Option<NotifyGate>,
+    close_gate: Option<NotifyGate>,
     reject_secure: bool,
 }
 
@@ -93,8 +94,11 @@ impl SecurePortV1 for Mock {
         })
     }
     fn disconnected(&mut self, _: Epoch, _: Peer) -> Pending<()> {
-        self.0.lock().unwrap().calls.push("close");
-        ready(())
+        let mut c = self.0.lock().unwrap();
+        c.calls.push("close");
+        c.close_gate
+            .take()
+            .map_or_else(|| ready(()), |g| Box::pin(Wait(g)) as Pending<()>)
     }
 }
 fn fixture() -> (Transport<Mock, Mock>, Arc<Mutex<Control>>) {
@@ -411,4 +415,44 @@ fn second_peer_and_owner_loss_cannot_inherit_replies_or_auto_restart() {
     assert!(c.lock().unwrap().notifications.is_empty());
     assert!(t.is_quiescent());
     assert_eq!(t.start(8), Err(Error::StaleContext));
+}
+
+#[test]
+fn transport_keeps_failed_secure_cleanup_unknown_after_late_reply_drains() {
+    for pending_reply in [false, true] {
+        for error in [Error::Unknown, Error::Backend, Error::Deadline] {
+            let (mut t, c) = fixture();
+            let connection = connect(&mut t);
+            write(&mut t, &connection, 1, InputKind::Command, 3).unwrap();
+            drive(&mut t, 4);
+            assert!(t.read_result(&connection, 0).is_ok());
+            let before_notifications = c.lock().unwrap().notifications.len();
+            let gate = Arc::new(Mutex::new(None));
+            if pending_reply {
+                c.lock().unwrap().secure_gate = Some(gate.clone());
+                write(&mut t, &connection, 2, InputKind::Command, 5).unwrap();
+            }
+            c.lock().unwrap().close_gate = Some(Arc::new(Mutex::new(Some(Err(error)))));
+            t.stop(6).unwrap();
+            assert_eq!(drive(&mut t, 7), State::Unknown);
+            assert!(t.read_result(&connection, 0).is_err());
+            if pending_reply {
+                *gate.lock().unwrap() = Some(Ok(SecureReply::Application(
+                    OpaqueBytes::new(b"late-opaque-reply".to_vec()).unwrap(),
+                )));
+            }
+            assert_eq!(drive(&mut t, 8), State::Unknown);
+            assert!(!t.is_quiescent());
+            assert_eq!(t.last_error(), Some(error));
+            assert_eq!(t.start(9), Err(Error::Busy));
+            let calls = c.lock().unwrap().calls.clone();
+            assert_eq!(calls.iter().filter(|name| **name == "close").count(), 1);
+            assert_eq!(calls.iter().filter(|name| **name == "unapp").count(), 1);
+            assert_eq!(c.lock().unwrap().notifications.len(), before_notifications);
+            t.stop(10).unwrap();
+            assert_eq!(drive(&mut t, 11), State::Unknown);
+            assert!(!t.is_quiescent());
+            assert_eq!(c.lock().unwrap().calls, calls);
+        }
+    }
 }

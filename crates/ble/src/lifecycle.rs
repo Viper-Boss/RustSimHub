@@ -137,7 +137,13 @@ impl<B: GattBackendV1, S: SecurePortV1> Lifecycle<B, S> {
     }
 
     pub fn is_quiescent(&self) -> bool {
-        self.job.is_none() && !self.app_maybe && !self.adv_maybe && self.peer.is_none()
+        // Removing the local handle does not prove external session cleanup.
+        // A failed close remains unknown even after all D-Bus objects are gone.
+        !self.cleanup_failed
+            && self.job.is_none()
+            && !self.app_maybe
+            && !self.adv_maybe
+            && self.peer.is_none()
     }
 
     fn clock(&mut self, now: u64) -> Result<u64, Error> {
