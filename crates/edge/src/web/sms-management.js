@@ -12,8 +12,8 @@ export function smsDetailText(detail){
  return `来自：${detail.sender}\n时间：${detail.timestamp||'未知'}\n\n${detail.text||'（没有文字正文）'}`+(detail.data.length?`\n\n二进制内容：${detail.data.length} 字节`:'');
 }
 export class SmsManager {
- constructor({document,request,reloadInbox,confirm}){
-  this.doc=document;this.request=request;this.reloadInbox=reloadInbox;this.confirm=confirm;this.$=id=>document.getElementById(id);this.generation=0;
+ constructor({document,request,reloadInbox,confirm,sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms))}){
+  this.doc=document;this.sleep=sleep;this.request=request;this.reloadInbox=reloadInbox;this.confirm=confirm;this.$=id=>document.getElementById(id);this.generation=0;
   this.$('delete-sms').onclick=()=>void this.deleteSelected();
   this.$('trash-refresh').onclick=()=>void this.loadTrash(true);
   this.$('more-trash').onclick=()=>void this.loadTrash();
@@ -22,7 +22,9 @@ export class SmsManager {
  reset(){this.generation++;this.reading=false;this.$('sms-read-all').disabled=false;this.$('sms-read-state').textContent='';this.available=false;this.selected=null;this.review.reset();this.cursor=null;this.active=null;this.loading=null;this.uncertain=false;this.preview=0;this.restoreButtons=new Set();this.$('trash-section').hidden=true;this.$('trash-list').replaceChildren();this.$('trash-detail').textContent='';this.$('sms-management-state').textContent='删除和恢复需要所有者最近5分钟内登录';this.$('more-trash').disabled=true;this.update();}
  current(g){if(g!==this.generation)throw Error('短信管理会话已结束');}
  // Clears the unread-SMS indicator: every message the inbox lists is marked seen,
- // the same as opening each one. Stops at the first failure; marked ones stay read.
+ // the same as opening each one. Paced to one per second: Edge allows 120 API requests a
+ // minute in total and the phone panel polls every 2 s. A failed mark is retried once after
+ // the rate window resets (marking read is idempotent); a second failure stops, marked ones stay read.
  async markAllRead(){
   if(this.reading)return;
   const g=this.generation,button=this.$('sms-read-all'),state=this.$('sms-read-state');this.reading=true;button.disabled=true;state.textContent='正在标记…';
@@ -37,7 +39,12 @@ export class SmsManager {
     if(result.messages.length<16)break;
     after=result.cursor;
    }
-   for(const id of ids){await this.request({op:'notification_read',entity:'sms',record_id:id});this.current(g);done++;}
+   for(const id of ids){
+    const mark=()=>this.request({op:'notification_read',entity:'sms',record_id:id});
+    if(done)await this.sleep(1000);this.current(g);
+    try{await mark();}catch{this.current(g);state.textContent=`已标记 ${done}/${ids.length} 条，请求过于频繁，1 分钟后自动继续…`;await this.sleep(61000);this.current(g);await mark();}
+    this.current(g);done++;state.textContent=`正在标记 ${done}/${ids.length}…`;
+   }
    state.textContent=ids.length?`已将 ${done} 条短信标为已读，短信提示会停止`:'收件箱没有短信';
   }catch(error){if(g===this.generation)state.textContent=`没有全部完成（已标记 ${done} 条，保持已读）：${error.message}`;}
   finally{if(g===this.generation){this.reading=false;button.disabled=false;}}

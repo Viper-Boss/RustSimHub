@@ -9,10 +9,10 @@ const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve
 class Element {constructor(){this.textContent='';this.children=[];this.disabled=false;this.hidden=false;}replaceChildren(...v){this.children=v;this.textContent='';}append(...v){this.children.push(...v);}}
 const page=(messages=[],seq='0')=>({messages,cursor:{db_epoch:id,seq}});
 function fixture(respond=async c=>c.op==='sms_management_status'?{available:true}:c.op==='deleted_inbox'?page():{sms_id:c.sms_id,deleted:c.op==='delete_sms'}){
- const elements=new Map(),commands=[];let consent=true,reloads=0;
+ const elements=new Map(),commands=[],sleeps=[];let consent=true,reloads=0;
  const document={getElementById(key){if(!elements.has(key))elements.set(key,new Element());return elements.get(key);},createElement:()=>new Element()};
- const manager=new SmsManager({document,request:async c=>{commands.push(c);return respond(c);},reloadInbox:async()=>{reloads++;},confirm:()=>consent});
- return {manager,commands,$:key=>document.getElementById(key),consent:v=>{consent=v;},get reloads(){return reloads;}};
+ const manager=new SmsManager({document,request:async c=>{commands.push(c);return respond(c);},reloadInbox:async()=>{reloads++;},confirm:()=>consent,sleep:async ms=>{sleeps.push(ms);commands.push({op:'sleep',ms});}});
+ return {manager,commands,sleeps,$:key=>document.getElementById(key),consent:v=>{consent=v;},get reloads(){return reloads;}};
 }
 {
  const f=fixture();await f.manager.permissions();f.manager.select(id);f.consent(false);await f.manager.deleteSelected();assert.deepEqual(f.commands.map(c=>c.op),['sms_management_status']);assert.equal(f.$('delete-sms').disabled,false);
@@ -129,11 +129,37 @@ const inbox=(all,after)=>{const start=after?Number(after.seq):0,messages=all.sli
  assert.equal(f.commands.filter(c=>c.op==='notification_read').length,0);assert.equal(f.$('sms-read-state').textContent,'收件箱没有短信');
 }
 {
- // A failure stops at once; earlier marks stay, nothing is retried.
+ // Marks are paced one per second so the whole page stays under Edge's 120 requests a minute.
+ const all=Array.from({length:95},(_,n)=>smsId(n+1));const f=fixture(async c=>c.op==='inbox'?inbox(all,c.after):{});
+ await f.manager.markAllRead();
+ assert.equal(f.sleeps.length,94);assert.ok(f.sleeps.every(ms=>ms===1000));
+ const ops=f.commands.map(c=>c.op);assert.ok(ops.indexOf('sleep')>ops.indexOf('notification_read'));
+ for(let i=1;i<ops.length;i++)if(ops[i]==='notification_read'&&ops[i-1]==='notification_read')assert.fail('two marks without a pause');
+ assert.match(f.$('sms-read-state').textContent,/已将 95 条/);
+}
+{
+ // One rejected mark (e.g. HTTP 429) waits for the rate window and retries the same record once.
+ const all=[smsId(1),smsId(2),smsId(3)];let failures=0;
+ const f=fixture(async c=>{if(c.op==='inbox')return inbox(all,c.after);if(c.record_id===all[1]&&failures++===0)throw Error('busy');return {};});
+ await f.manager.markAllRead();
+ assert.deepEqual(f.commands.filter(c=>c.op==='notification_read').map(c=>c.record_id),[all[0],all[1],all[1],all[2]]);
+ assert.ok(f.sleeps.includes(61000));assert.match(f.$('sms-read-state').textContent,/已将 3 条/);
+}
+{
+ // A second failure on the same record stops; earlier marks stay, nothing further is sent.
  const all=[smsId(1),smsId(2),smsId(3)];const f=fixture(async c=>{if(c.op==='inbox')return inbox(all,c.after);if(c.record_id===all[1])throw Error('offline');return {};});
  await f.manager.markAllRead();
- assert.deepEqual(f.commands.filter(c=>c.op==='notification_read').map(c=>c.record_id),all.slice(0,2));
+ assert.deepEqual(f.commands.filter(c=>c.op==='notification_read').map(c=>c.record_id),[all[0],all[1],all[1]]);
  assert.match(f.$('sms-read-state').textContent,/已标记 1 条.*offline/);assert.equal(f.$('sms-read-all').disabled,false);
+}
+{
+ // Logout during the rate-limit wait abandons the run without another request or status text.
+ const all=[smsId(1),smsId(2)];let f;
+ f=fixture(async c=>{if(c.op==='inbox')return inbox(all,c.after);if(c.record_id===all[0])throw Error('busy');return {};});
+ const original=f.manager.sleep;f.manager.sleep=async ms=>{if(ms===61000)f.manager.reset();return original(ms);};
+ await f.manager.markAllRead();
+ assert.deepEqual(f.commands.filter(c=>c.op==='notification_read').map(c=>c.record_id),[all[0]]);
+ assert.equal(f.$('sms-read-state').textContent,'');assert.equal(f.manager.reading,false);
 }
 for(const malformed of [{},{messages:[{id:'bad'}]},{messages:Array(17).fill({id})}]){
  const f=fixture(async c=>c.op==='inbox'?malformed:{});await f.manager.markAllRead();
