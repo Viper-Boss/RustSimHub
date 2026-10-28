@@ -149,7 +149,7 @@ console.log('AP Wi-Fi: automatic finite trial, explicit confirmation, metadata C
   return x.defaults(c);
  }});f.fill();await f.click('begin');
  assert.equal(f.panel.phase,'closed');assert(f.panel.terminal);
- assert.equal(f.$('ap-wifi-state').textContent,refusals.station_connected);assert.match(refusals.station_connected,/重新配网/);
+ assert.equal(f.$('ap-wifi-state').textContent,refusals.station_connected);assert.match(refusals.station_connected,/其他连接/);assert.match(refusals.station_saved,/多个 Wi-Fi/);
  assert.equal(f.calls.filter(c=>c.op==='setup_ap_wifi_begin').length,0);
 }
 // A closed session without a refusal keeps the plain closed message.
@@ -171,4 +171,32 @@ for(const bad of [{state:'closed',refusal:'org.freedesktop.NetworkManager.Error'
  assert.notEqual(f.panel.phase,'closed');assert.doesNotMatch(f.$('ap-wifi-state').textContent,/NetworkManager/);
 }
 for(const [code,text] of Object.entries(refusals))assert(typeof code==='string'&&/^[a-z_]+$/.test(code)&&text.length>8);
-console.log('refusal display checks passed');
+// "开启热点": one durable start, waits for ready, never begins a trial or sends credentials.
+{
+ const f=await fixture({created:true,hook:async(c,x)=>{
+  if(c.op==='setup_ap_start')return {...x.parent(),state:'starting'};
+  return x.defaults(c);
+ }});
+ assert.equal(f.$('ap-wifi-open').hidden,false);
+ await f.click('open');
+ assert.equal(f.panel.phase,'parent_ready');assert.match(f.$('ap-wifi-state').textContent,/配置热点已开启/);
+ assert.equal(f.calls.filter(c=>c.op==='setup_ap_start').length,1);
+ assert.equal(f.calls.filter(c=>c.op==='setup_ap_wifi_begin').length,0);
+ assert(f.storage().start_key&&f.storage().trials.length===0);
+ assert.equal(f.$('ap-wifi-open').hidden,true);
+ // A later trial reuses the same parent: no second start.
+ f.fill();await f.click('begin');
+ assert.equal(f.calls.filter(c=>c.op==='setup_ap_start').length,1);
+ assert.equal(f.calls.filter(c=>c.op==='setup_ap_wifi_begin').length,1);
+}
+// A refused start shows the reason after "开启热点" too.
+{
+ const f=await fixture({created:true,hook:async(c,x)=>{
+  if(c.op==='setup_ap_start')return {...x.parent(),state:'starting'};
+  if(c.op==='setup_ap_operation_status')return {...x.parent(),state:'closed',refusal:'station_saved'};
+  return x.defaults(c);
+ }});
+ await f.click('open');
+ assert.equal(f.panel.phase,'closed');assert.equal(f.$('ap-wifi-state').textContent,refusals.station_saved);
+}
+console.log('refusal display and open-AP checks passed');

@@ -1,5 +1,7 @@
 # 最新开发进度：2026-10-23
 
+2026-10-28 配网第三段“已联网设备重新配网”代码（基于第一、二段分支）：Root预检允许恰好一个已保存Wi-Fi并记录为原Wi-Fi（多个→station_saved，被其他连接占用→station_connected），检查点/激活/回滚核对改为“空闲或原Wi-Fi”，回滚由NM检查点恢复原Wi-Fi，原Wi-Fi从不修改或删除；试连允许原Wi-Fi存在；网页新增“开启热点”按钮，与“开始试连”共用持久记录和单次开启。测试：setup-ap 91（新增3）、Core配网50、edge 32、mdns 7、网页16/16（新增2）、fmt、严格clippy通过。未验证：已有原Wi-Fi时的保存路径与真实NM恢复行为，需实机。未部署。
+
 2026-10-28 配网第二段“固定网址”代码（[设计](DESIGN-AP-RECONFIGURE-2026-10-28.md)，草稿PR#49）：新crate rustsimhub-mdns只回答<设备名>.local的A/ANY，仅wlan0/usb0、朝提问者的私有地址、有界解析、每秒≤20次、无capabilities，附systemd单元；热点nft保护表仅加放行热点网段到224.0.0.251的UDP 5353，参考JSON已在设备真实nft 1.1.3临时命名空间中核对一致。edge支持最多2个后备origin（Host选定配对、Origin必须匹配该Host）、证书多名字、记录新增tls_alt_names；日常--prepare-local/--check-local可带1个别名；热点--prepare-setup-local读/etc/rustsimhub/device-name，存在时加https://<名>.local:8443（主origin仍为192.168.100.1以保持契约）；热点助手只接受恰好一个固定.local后备origin且证书备用名一致。测试：mdns 7、setup-ap 87、edge 32（新增4）、fmt、严格clippy通过。未部署：需在设备写device-name、安装mdns、日常edge改主机名并重新配对浏览器、热点材料重生成。
 
 2026-10-28 配网第一段“拒绝原因显示”（用户同意的设计，[草案](DESIGN-AP-RECONFIGURE-2026-10-28.md)见PR#47）：setup-ap新增有限原因码Refusal（wifi_disabled/checkpoint_exists/ap_unsupported/subnet_conflict/station_connected/station_saved/gsm_autoconnect），NM预检在每个拒绝点记录，执行器仅在预检失败（保护安装前、无网络改动）时写入回执的可选refusal字段；Status校验只允许refusal出现在已验证的Closed回执上，旧回执无此字段照常解析，未知原因码拒绝。Core会话保存并在实时与重启后的历史查询中输出refusal；网页按原因码显示中文说明，未知码或非关闭状态的原因码按无效输入拒绝。测试：setup-ap 87、Core配网50（新增2）、edge 28、网页16/16（新增4组）、fmt、严格clippy通过。只在电脑上写和测，未部署。

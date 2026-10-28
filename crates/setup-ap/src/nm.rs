@@ -207,6 +207,8 @@ pub struct NetworkManager {
     retain_ap: bool,
     station: Option<station::Trial>,
     refusal: Option<Refusal>,
+    /// Reconfigure mode: the one saved station this session must hand back on rollback.
+    saved: Option<OwnedObjectPath>,
 }
 impl NetworkManager {
     pub async fn system() -> Result<Self> {
@@ -226,6 +228,7 @@ impl NetworkManager {
             retain_ap: false,
             station: None,
             refusal: None,
+            saved: None,
         }
     }
     /// Opt in before preflight only. Keeps this private AP profile in RAM while a station is tested.
@@ -302,6 +305,36 @@ impl NetworkManager {
             .await
             .map_err(|_| Error::Io)
     }
+    /// Wi-Fi is idle, or (reconfiguration only) activating/active on the recorded saved
+    /// station. Anything else, including our AP or an unknown connection, is a change.
+    async fn idle_or_saved(&self) -> Result<()> {
+        if self.disconnected().await.is_ok() {
+            return Ok(());
+        }
+        self.fence().await?;
+        let saved = self.saved.as_ref().ok_or(Error::Changed)?;
+        let p = self
+            .properties(self.wifi.as_ref().ok_or(Error::Denied)?.as_str(), DEVICE)
+            .await?;
+        let active = path(&p, "ActiveConnection")?;
+        if !(40..=100).contains(&number(&p, "State")?)
+            || !active
+                .as_str()
+                .starts_with("/org/freedesktop/NetworkManager/ActiveConnection/")
+        {
+            return Err(Error::Changed);
+        }
+        let a = self
+            .properties(
+                active.as_str(),
+                "org.freedesktop.NetworkManager.Connection.Active",
+            )
+            .await?;
+        if path(&a, "Connection")? != *saved {
+            return Err(Error::Changed);
+        }
+        Ok(())
+    }
     async fn disconnected(&self) -> Result<()> {
         self.fence().await?;
         let p = self
@@ -376,26 +409,29 @@ impl Network for NetworkManager {
         if self.wifi.is_none() {
             return self.refuse(Refusal::ApUnsupported, Error::Denied);
         }
-        if let Err(e) = self.disconnected().await {
-            return self.refuse(Refusal::StationConnected, e);
-        }
         let wifi = self
             .properties(self.wifi.as_ref().ok_or(Error::Denied)?.as_str(), WIRELESS)
             .await?;
         if number(&wifi, "WirelessCapabilities")? & 0x40 == 0 {
             return self.refuse(Refusal::ApUnsupported, Error::Denied);
         }
-        // This first setup path must not displace a saved station or race NM autoconnect.
+        // First setup has no saved station. Reconfiguration keeps exactly one, which is
+        // never modified or deleted and is what the outer checkpoint hands back on rollback.
+        let mut saved = None;
         for p in self.connections().await? {
             let s = self.get_settings(&p).await?;
             let connection = s.get("connection").ok_or(Error::Io)?;
             let kind = text(connection, "type")?;
-            if kind == "802-11-wireless" {
+            if kind == "802-11-wireless" && saved.replace(p.clone()).is_some() {
                 return self.refuse(Refusal::StationSaved, Error::Denied);
             }
             if kind == "gsm" && boolean(connection, "autoconnect")? {
                 return self.refuse(Refusal::GsmAutoconnect, Error::Denied);
             }
+        }
+        self.saved = saved;
+        if let Err(e) = self.idle_or_saved().await {
+            return self.refuse(Refusal::StationConnected, e);
         }
         self.fence().await
     }
@@ -406,7 +442,7 @@ impl Network for NetworkManager {
         if !(30..=330).contains(&seconds) || self.checkpoint_requested {
             return Err(Error::Invalid);
         }
-        self.disconnected().await?;
+        self.idle_or_saved().await?;
         self.checkpoint_requested = true;
         let path: OwnedObjectPath = self
             .proxy(ROOT, NAME)
@@ -430,7 +466,7 @@ impl Network for NetworkManager {
         if self.activation_requested || self.checkpoint.is_none() {
             return Err(Error::Denied);
         }
-        self.disconnected().await?;
+        self.idle_or_saved().await?;
         self.activation_requested = true; // Retain uncertainty even if the D-Bus reply is lost.
         let (p, a, _): (OwnedObjectPath, OwnedObjectPath, Properties) = self
             .proxy(ROOT, NAME)
@@ -612,7 +648,7 @@ impl Network for NetworkManager {
         tokio::time::timeout(std::time::Duration::from_secs(3), async {
             loop {
                 self.fence().await?;
-                if self.disconnected().await.is_ok() {
+                if self.idle_or_saved().await.is_ok() {
                     return Ok::<(), Error>(());
                 }
                 tokio::time::sleep(std::time::Duration::from_millis(100)).await;

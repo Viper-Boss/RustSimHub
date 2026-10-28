@@ -10,6 +10,9 @@ const IP: &str = "/org/freedesktop/NetworkManager/IP4Config/1";
 const STATION_PROFILE: &str = "/org/freedesktop/NetworkManager/Settings/2";
 const STATION_ACTIVE: &str = "/org/freedesktop/NetworkManager/ActiveConnection/2";
 const STATION_CP: &str = "/org/freedesktop/NetworkManager/Checkpoint/2";
+const HOME_PROFILE: &str = "/org/freedesktop/NetworkManager/Settings/3";
+const HOME_ACTIVE: &str = "/org/freedesktop/NetworkManager/ActiveConnection/3";
+const OTHER_PROFILE: &str = "/org/freedesktop/NetworkManager/Settings/4";
 #[derive(Default)]
 struct Model {
     active: bool,
@@ -38,6 +41,12 @@ struct Model {
     lost_outer_destroy_reply: bool,
     lost_inner_destroy_reply: bool,
     lost_ap_delete_reply: bool,
+    /// Reconfiguration: one saved home station, whether it is connected, and what the
+    /// outer checkpoint captured; `other` adds a second saved station.
+    home: bool,
+    home_active: bool,
+    cp_home: bool,
+    other: bool,
 }
 type Shared = Arc<Mutex<Model>>;
 struct Bus(Shared);
@@ -102,6 +111,7 @@ impl Manager {
         assert_eq!(seconds, 330);
         assert_eq!(flags, 0);
         m.cp = true;
+        m.cp_home = m.home_active;
         m.events.push("checkpoint");
         if m.lost_checkpoint_reply {
             return Err(zbus::fdo::Error::Failed(
@@ -152,6 +162,7 @@ impl Manager {
             if m.retain_ap { "memory" } else { "volatile" }
         );
         m.active = true;
+        m.home_active = false; // NM displaces the station on the same device
         m.profile = Some(settings);
         m.events.push("activate");
         if m.lost_reply {
@@ -183,6 +194,7 @@ impl Manager {
         }
         assert_eq!(cp.as_str(), CP);
         m.active = false;
+        m.home_active = m.cp_home;
         m.events.push("rollback");
         if m.rollback_consumes {
             m.cp = false;
@@ -234,7 +246,7 @@ impl Device {
     #[zbus(property)]
     fn state(&self) -> u32 {
         let m = self.0.lock().unwrap();
-        if m.active || m.station_active {
+        if m.active || m.station_active || m.home_active {
             100
         } else {
             30
@@ -247,6 +259,8 @@ impl Device {
             STATION_ACTIVE
         } else if m.active {
             ACTIVE
+        } else if m.home_active {
+            HOME_ACTIVE
         } else {
             "/"
         }
@@ -256,7 +270,7 @@ impl Device {
     #[zbus(property)]
     fn ip4_config(&self) -> OwnedObjectPath {
         let m = self.0.lock().unwrap();
-        if m.active || m.station_active {
+        if m.active || m.station_active || m.home_active {
             IP
         } else {
             "/"
@@ -293,9 +307,40 @@ impl SettingsManager {
         if m.station_profile.is_some() {
             v.push(STATION_PROFILE.try_into().unwrap());
         }
+        if m.home {
+            v.push(HOME_PROFILE.try_into().unwrap());
+        }
+        if m.other {
+            v.push(OTHER_PROFILE.try_into().unwrap());
+        }
         v
     }
 }
+/// A saved station owned by the user: readable, never updated or deleted by setup.
+struct Saved(&'static str);
+#[zbus::interface(name = "org.freedesktop.NetworkManager.Settings.Connection")]
+impl Saved {
+    fn get_settings(&self) -> Settings {
+        HashMap::from([
+            (
+                "connection".into(),
+                HashMap::from([
+                    ("type".into(), string("802-11-wireless")),
+                    ("uuid".into(), string(self.0)),
+                    ("autoconnect".into(), true.into()),
+                ]),
+            ),
+            (
+                "802-11-wireless".into(),
+                HashMap::from([("mode".into(), string("infrastructure"))]),
+            ),
+        ])
+    }
+    fn delete(&self) -> zbus::fdo::Result<()> {
+        panic!("setup must never delete a saved station");
+    }
+}
+
 struct Connection(Shared, bool);
 #[zbus::interface(name = "org.freedesktop.NetworkManager.Settings.Connection")]
 impl Connection {
@@ -410,6 +455,8 @@ impl Ip {
                 "address".into(),
                 string(if m.station_active && !m.invalid_station_ip {
                     "192.168.88.20"
+                } else if m.home_active && !m.active {
+                    "192.168.120.167"
                 } else {
                     ADDRESS
                 }),
@@ -444,6 +491,12 @@ async fn fixture(m: Shared) -> (zbus::Connection, NetworkManager) {
         .serve_at(ACTIVE, Active(PROFILE))
         .unwrap()
         .serve_at(STATION_ACTIVE, Active(STATION_PROFILE))
+        .unwrap()
+        .serve_at(HOME_PROFILE, Saved("11111111-1111-4111-8111-111111111111"))
+        .unwrap()
+        .serve_at(OTHER_PROFILE, Saved("22222222-2222-4222-8222-222222222222"))
+        .unwrap()
+        .serve_at(HOME_ACTIVE, Active(HOME_PROFILE))
         .unwrap()
         .serve_at(IP, Ip(m))
         .unwrap();
@@ -674,4 +727,68 @@ fn restoring_ap_also_requires_the_original_isolation_ciphers_and_address_policy(
         s.get_mut(section).unwrap().insert(key.into(), value);
         assert!(!profile_matches(&s, &c).unwrap());
     }
+}
+#[tokio::test]
+async fn reconfigure_displaces_the_one_saved_station_and_rollback_hands_it_back() {
+    for home_active in [true, false] {
+        let model = Arc::new(Mutex::new(Model {
+            home: true,
+            home_active,
+            ..Default::default()
+        }));
+        let (_server, mut nm) = fixture(model.clone()).await;
+        let c = Credentials::generate().unwrap();
+        nm.preflight().await.unwrap();
+        assert!(nm.refusal().is_none());
+        nm.checkpoint(330).await.unwrap();
+        nm.activate(&c).await.unwrap();
+        assert!(nm.ready(&c).await.unwrap());
+        assert!(!model.lock().unwrap().home_active);
+        nm.rollback(&c).await.unwrap();
+        let m = model.lock().unwrap();
+        // The AP is gone and the checkpoint restored the station exactly as it was.
+        assert!(!m.active && m.profile.is_none() && m.home);
+        assert_eq!(m.home_active, home_active);
+        assert_eq!(
+            m.events,
+            ["checkpoint", "activate", "rollback", "destroy", "delete"]
+        );
+    }
+}
+#[tokio::test]
+async fn reconfigure_refuses_two_saved_stations_or_a_foreign_active_connection() {
+    let model = Arc::new(Mutex::new(Model {
+        home: true,
+        other: true,
+        ..Default::default()
+    }));
+    let (_s, mut nm) = fixture(model.clone()).await;
+    assert!(nm.preflight().await.is_err());
+    assert_eq!(nm.refusal(), Some(Refusal::StationSaved));
+    assert!(model.lock().unwrap().events.is_empty());
+    // A connection other than the saved station holds Wi-Fi: never displaced.
+    let model = Arc::new(Mutex::new(Model {
+        home: true,
+        station_active: true,
+        ..Default::default()
+    }));
+    let (_s, mut nm) = fixture(model.clone()).await;
+    assert!(nm.preflight().await.is_err());
+    assert_eq!(nm.refusal(), Some(Refusal::StationConnected));
+    assert!(model.lock().unwrap().events.is_empty());
+}
+#[tokio::test]
+async fn a_foreign_connection_appearing_after_preflight_blocks_checkpoint_and_activation() {
+    let model = Arc::new(Mutex::new(Model {
+        home: true,
+        ..Default::default()
+    }));
+    let (_s, mut nm) = fixture(model.clone()).await;
+    let c = Credentials::generate().unwrap();
+    nm.preflight().await.unwrap();
+    // Our AP profile from elsewhere is active: it is not the recorded station.
+    model.lock().unwrap().active = true;
+    assert!(nm.checkpoint(330).await.is_err());
+    assert!(nm.activate(&c).await.is_err());
+    assert!(model.lock().unwrap().events.is_empty());
 }

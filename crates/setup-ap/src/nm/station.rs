@@ -228,7 +228,9 @@ impl StationNetwork for Session<'_> {
             let conn = s.get("connection").ok_or(Error::Io)?;
             let kind = text(conn, "type")?;
             if text(conn, "uuid")? == c.uuid
-                || kind == "802-11-wireless" && Some(p) != nm.profile.as_ref()
+                || kind == "802-11-wireless"
+                    && Some(p) != nm.profile.as_ref()
+                    && Some(p) != nm.saved.as_ref()
                 || kind == "gsm" && boolean(conn, "autoconnect")?
             {
                 return Err(Error::Denied);
