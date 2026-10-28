@@ -1,5 +1,7 @@
 # 最新开发进度：2026-10-23
 
+2026-10-28 [REC-01设备侧与本机索引核对](VALIDATION-REC01-DEVICE-20261028.md)：经用户批准用维护密钥只读SSH。p14/p15起始扇区和扇区数与10-21冻结恢复计划完全一致；应用组confirmed epoch 50、floor 50、无候选，selected指向已确认组；SSH主机密钥和授权密钥都在p15，sshd禁止口令登录；p15设备专属固件35/35与自带SHA256SUMS一致，modem目录5个文件无校验文件，哈希只存私有索引。10-26最近业务备份只读打开integrity ok、schema 6、收件箱69条，但不含固件和SSH身份。P2：约52MB设备专属固件在设备外没有确认过的副本；全盘镜像早于epoch 50。补充：经批准只读SFTP复制41个固件文件（53,324,009字节）到私有目录，哈希全部一致；用户在NAS运行只读脚本，10-21镜像整盘/p14/p15哈希与计划一致，p15镜像内41/41固件与设备相同，固件P2已解决。REC-01完成；镜像早于epoch 50留给REC-02。原80%不变；台账15/169、余154、加权7.8%。
+
 2026-10-28 [U6维护准入暂存](VALIDATION-UPD01-ADMIT-STAGE.md)：经用户确认最小方案，新增独立`admit-stage ROOT KEY PACKAGE`，现有stage/choose未改。信任取自持锁Store（state.json key_sha256绑定），无待定候选时已确认组同为当前/回退角色，已有候选Busy、无已确认组Denied且不检查程序；固定systemctl show核对Core单元已加载、fragment为/etc、无待reload、drop-in恰为观察到的Root模式集合；签名比较兼容后再核对单元和全部数据锁才调用原Store::stage，3/4不暂存。WSL（468078b）：fmt/严格Clippy通过，updater 42项（新增6项失败路径为主），整仓639/7失败与U5已知环境项相同。未上设备；宿主机直接运行写底层versions目录、维护授权仍属UPD-02；UPD-01未完成。原80%、14/169、余155、7.3%不变。
 
 2026-10-28 [U5签名程序检查](VALIDATION-SIGNED-PROGRAMS-U5.md)：用户决定由Claude接手UPD-01，Codex主工作区未提交代码原样复制为WIP 579d7ae（主工作区未动、两段旧README笔记未带入）并推送备份。WSL整仓回归：fmt/严格Clippy通过，updater 36项、Root降权元数据与缺kill防护夹具、U4维护观察18项通过；整仓633/7失败均为已知环境项。角色绑定、有效systemd核对、stage/choose准入仍缺，UPD-01未完成。原80%、14/169、余155、7.3%不变。
