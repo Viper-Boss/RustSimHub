@@ -244,3 +244,17 @@ pub(super) fn valid(rx: &watch::Receiver<Notice>, fence: u64) -> bool {
         !n.ended && n.fence == fence
     }
 }
+
+/// The cycle revision is sampled before session consumes source retirements.
+/// A newer per-object retirement (or overflow reset) also fences late replies.
+pub(super) fn sms_valid(
+    rx: &watch::Receiver<Notice>,
+    fence: u64,
+    revision: u64,
+    path: &str,
+) -> bool {
+    valid(rx, fence) && {
+        let n = rx.borrow();
+        n.reset_sources <= revision && !n.retired.iter().any(|(r, p)| *r > revision && p == path)
+    }
+}
