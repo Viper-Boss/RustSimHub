@@ -7,7 +7,7 @@ use std::{
     collections::{BTreeSet, HashMap},
     fs::{self, OpenOptions},
     io::{Read, Write},
-    os::unix::fs::{MetadataExt, OpenOptionsExt},
+    os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
     path::Path,
     sync::{Mutex, OnceLock},
     time::{Duration, Instant},
@@ -41,10 +41,26 @@ fn directory(path: &Path) -> Result<()> {
     }
     Ok(())
 }
+/// The LED runs as root without capabilities, so it reads through group root:
+/// setgid 2750 owned by Core. A legacy 0700 directory still publishes, unread.
+fn input_directory(path: &Path) -> Result<()> {
+    let m = fs::symlink_metadata(path).map_err(|_| Error::Io)?;
+    let shared = m.mode() & 0o7777 == 0o2750 && m.gid() == 0;
+    if !m.is_dir()
+        || m.uid() != rustix::process::geteuid().as_raw()
+        || !(shared || m.mode() & 0o7777 == 0o700)
+    {
+        return Err(Error::Forbidden);
+    }
+    Ok(())
+}
 fn enabled() -> bool {
-    directory(Path::new(INPUT)).is_ok()
+    input_directory(Path::new(INPUT)).is_ok()
 }
 fn checked_read(path: &Path) -> Result<Vec<u8>> {
+    checked_read_mode(path, &[0o600])
+}
+fn checked_read_mode(path: &Path, modes: &[u32]) -> Result<Vec<u8>> {
     let f = OpenOptions::new()
         .read(true)
         .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
@@ -53,7 +69,7 @@ fn checked_read(path: &Path) -> Result<Vec<u8>> {
     let m = f.metadata().map_err(|_| Error::Io)?;
     if !m.is_file()
         || m.uid() != rustix::process::geteuid().as_raw()
-        || m.mode() & 0o777 != 0o600
+        || !modes.contains(&(m.mode() & 0o7777))
         || m.nlink() != 1
         || m.len() > 4_194_304
     {
@@ -70,10 +86,18 @@ fn checked_read(path: &Path) -> Result<Vec<u8>> {
 }
 fn atomic(path: &Path, bytes: &[u8], persistent: bool) -> Result<()> {
     let parent = path.parent().ok_or(Error::Io)?;
-    directory(parent)?;
+    // Persistent ledger stays private; the runtime hint is group-readable.
+    let mode = if persistent {
+        directory(parent)?;
+        0o600
+    } else {
+        input_directory(parent)?;
+        0o640
+    };
     match fs::symlink_metadata(path) {
         Ok(_) => {
-            checked_read(path)?;
+            // A hint left by an older Core (0600) is replaced, not trusted.
+            checked_read_mode(path, &[mode, 0o600])?;
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
         Err(_) => return Err(Error::Io),
@@ -85,8 +109,10 @@ fn atomic(path: &Path, bytes: &[u8], persistent: bool) -> Result<()> {
     let mut f = OpenOptions::new()
         .create_new(true)
         .write(true)
-        .mode(0o600)
+        .mode(mode)
         .open(&temp)
+        .map_err(|_| Error::Io)?;
+    f.set_permissions(fs::Permissions::from_mode(mode))
         .map_err(|_| Error::Io)?;
     f.write_all(bytes).map_err(|_| Error::Io)?;
     if persistent {
@@ -237,6 +263,13 @@ fn indicators(
     });
     (sms, calls, changed)
 }
+/// An incoming call that is ringing now (modem phase 3), for the LED flash.
+fn ringing(snapshot: &rustsimhub_storage::IndicatorSnapshot) -> bool {
+    snapshot
+        .calls
+        .iter()
+        .any(|(_, direction, phase)| *direction == 1 && *phase == 3)
+}
 fn publish(store: &rustsimhub_storage::Handle) -> Result<()> {
     let version = store.indicator_version().map_err(|_| Error::Io)?;
     let mut s = state().lock().map_err(|_| Error::Busy)?;
@@ -250,6 +283,7 @@ fn publish(store: &rustsimhub_storage::Handle) -> Result<()> {
     s.views.retain(|_, end| *end > now);
     let configuring = !s.views.is_empty();
     let (sms, calls, changed) = indicators(s.ledger.as_mut().ok_or(Error::Io)?, &snapshot);
+    let ringing = ringing(&snapshot);
     s.dirty |= changed;
     flush(&mut s)?;
     s.snapshot = Some(snapshot);
@@ -264,7 +298,7 @@ fn publish(store: &rustsimhub_storage::Handle) -> Result<()> {
         .checked_mul(1000)
         .ok_or(Error::Io)?;
     let bytes = serde_json::to_vec(&serde_json::json!({"expires_ms":ms+10_000,
-        "configuring":configuring,"unread_sms":sms,"missed_calls":calls}))
+        "configuring":configuring,"unread_sms":sms,"missed_calls":calls,"ringing":ringing}))
     .map_err(|_| Error::Io)?;
     atomic(&Path::new(INPUT).join("state.json"), &bytes, false)
 }
@@ -312,6 +346,48 @@ mod tests {
         s.calls[0].1 = 2;
         l.calls.clear();
         assert_eq!(indicators(&mut l, &s), (false, false, false));
+    }
+    #[test]
+    fn only_a_ringing_incoming_call_flashes() {
+        let mut s = rustsimhub_storage::IndicatorSnapshot {
+            sms: vec![],
+            calls: vec![(CALL.into(), 1, 3)],
+        };
+        assert!(ringing(&s));
+        for (direction, phase) in [(2, 3), (1, 4), (1, 7), (2, 2)] {
+            s.calls[0] = (CALL.into(), direction, phase);
+            assert!(!ringing(&s));
+        }
+    }
+    #[test]
+    fn runtime_hint_is_group_readable_and_replaces_a_legacy_private_file() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let input = dir.path().join("input");
+        fs::create_dir(&input).unwrap();
+        fs::set_permissions(&input, fs::Permissions::from_mode(0o700)).unwrap();
+        let path = input.join("state.json");
+        fs::write(&path, b"old").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        atomic(&path, b"{}", false).unwrap();
+        assert_eq!(fs::metadata(&path).unwrap().mode() & 0o7777, 0o640);
+        assert_eq!(fs::read(&path).unwrap(), b"{}");
+        // Wrong mode on an existing hint or a world-accessible directory is refused.
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(atomic(&path, b"{}", false).is_err());
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o640)).unwrap();
+        fs::set_permissions(&input, fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(atomic(&path, b"{}", false).is_err());
+        assert!(input_directory(&input).is_err());
+        // The persistent ledger keeps its private 0600 mode.
+        let ledger = dir.path().join("ledger");
+        fs::create_dir(&ledger).unwrap();
+        fs::set_permissions(&ledger, fs::Permissions::from_mode(0o700)).unwrap();
+        atomic(&ledger.join("l.json"), b"{}", true).unwrap();
+        assert_eq!(
+            fs::metadata(ledger.join("l.json")).unwrap().mode() & 0o7777,
+            0o600
+        );
     }
     #[test]
     fn ledger_round_trip_and_path_payload_rejection() {
