@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-27T18:06:09.934501+00:00",
+  "updated_at": "2026-10-28T01:53:39.943914+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -2034,12 +2034,14 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "done",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
-          "completed_at": null,
-          "actual_hours": null
+          "evidence": [
+            "docs/VALIDATION-REC01-DEVICE-20261028.md"
+          ],
+          "completed_at": "2026-10-28T01:53:39.943914+00:00",
+          "actual_hours": 1.5
         },
         {
           "id": "REC-02",
@@ -5022,6 +5024,18 @@
       ],
       "evidence": [
         "docs/VALIDATION-MAINTENANCE-OBSERVATION-U4.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T01:53:39.943914+00:00",
+      "type": "completed",
+      "title": "REC-01 · 已完成：刷新当前恢复资料",
+      "detail": "设备只读核对分区几何/epoch 50/SSH身份/p15固件；固件只读复制到私有目录并核对；NAS 10-21镜像整盘/p14/p15哈希与41/41固件一致；10-26业务备份可读。",
+      "task_ids": [
+        "REC-01"
+      ],
+      "evidence": [
+        "docs/VALIDATION-REC01-DEVICE-20261028.md"
       ]
     }
   ],
