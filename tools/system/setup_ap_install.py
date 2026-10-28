@@ -86,7 +86,7 @@ def validate(inventory,manifest):
     for raw in [host,*edge['additional_listen_ips']]:
         ip=ipaddress.ip_address(raw)
         if isinstance(ip,ipaddress.IPv6Address) and ip.ipv4_mapped:ip=ip.ipv4_mapped
-        require(not ip.is_unspecified and str(ip) not in ['127.0.0.1','172.31.85.1'],'normal Edge conflicts with setup listener')
+        require(not ip.is_unspecified and str(ip) not in ['127.0.0.1','192.168.100.1'],'normal Edge conflicts with setup listener')
     expected={target for _,target,_ in package.FILES}|set(DIRECTORIES)
     require(set(i['destinations'])==expected and all(value=='absent' for value in i['destinations'].values()),'first-install destinations must all be absent')
     return i
