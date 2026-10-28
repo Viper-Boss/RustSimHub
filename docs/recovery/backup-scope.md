@@ -1,6 +1,6 @@
 # C-09 · 备份范围与恢复语义盘点
 
-固定源码：main `6f228fd3dcb9ce6da54d7910f4b044833e71a91a`。
+原盘点源码：main `6f228fd3dcb9ce6da54d7910f4b044833e71a91a`；本轮接入主线 `516228a73a7de1fa4a8a2dac40ca9f57e96a07ca`，包含#14备份发布修复。
 本盘点只读公开源码，不读取设备、用户目录、真实备份或维护凭据；表内是实现事实，不是整机恢复验收。
 
 | 域 | 实际接口/源码 | 包含与不包含 |
@@ -32,9 +32,10 @@ Store 的 actor 串行处理数据库工作，Backup API 在 SQLite 层取得一
 `Store::restore` 限制输入名为 backup.sqlite3，复制到另一目录后才做 app/version/quick_check 和恢复处理。
 因此不合法输入可能在新目标留下 `.restore-pending` 与未接纳的数据库；不能声称拒绝总是零写入。
 原来源和已有目标不被覆盖；有效旧目标/在线写者分别受 BackupExists/AlreadyOpen 保护。
-“不覆盖”不等于来源目录零写入：Linux 下该 WAL 格式快照被 SQLite 只读打开时，仍可能新建
-`backup.sqlite3-wal` 和 `backup.sqlite3-shm`。首轮真实矩阵已观察到这一点；原有文件逐个核对摘要，
-新增仅允许空 WAL 和有界 SHM，完整有效快照再核对逻辑记录。不能将来源写保护或整目录字节不变宣传为现有保证。
+主线[PR #14](https://github.com/Viper-Boss/RustSimHub/pull/14)已让新备份发布为DELETE journal：
+本批新产出的备份restore前后严格核对来源完整目录/摘要，不放行新增WAL/SHM。
+修复前生成的旧WAL格式备份仍可能被普通只读打开创建辅助文件，#14不会改写旧包；
+只读介质和恶意预置WAL的完整准入没有在本批验收，不能外推来源写保护支持。
 测试对已完成的独立快照使用带 `immutable=1` 的只读观察器避免观察本身创建辅助文件，
 且先拒绝非空 WAL；活动业务库仍使用正常读取以覆盖真实 WAL 提交，产品 restore 的打开方式不变。
 测试保留新目标失败证据，并检查 pending/无效版本不会被普通 open 当作空新库初始化；不删除证据来重跑。

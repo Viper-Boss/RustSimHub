@@ -181,23 +181,28 @@ def snapshot(repo, revision, roster, reviews, prs):
     require(reviews.get('schema') == 1, 'reviews schema')
     require(all(row['member_id'] in {m['id'] for m in members} for row in reviews['reviews']), 'unknown reviewer member')
     require(len({row['pr'] for row in reviews['reviews']}) == len(reviews['reviews']), 'duplicate PR review')
+    work = {m['id']: review_summary(m, reviews['reviews'], prs) for m in members}
+    import plans
+    task_plan = plans.build(ROOT, members, reviews['reviews'], work)
     stats = code_stats(repo, revision, members)
     public = []
     for member in members:
         item = {key: value for key, value in member.items() if key != 'git_names'}
-        item.update(stats=stats[member['id']], work=review_summary(member, reviews['reviews'], prs))
+        item.update(stats=stats[member['id']], work=work[member['id']])
         public.append(item)
     return {'schema': 1, 'source_revision': revision,
             'generated_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
             'method': 'Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报',
             'members': public, 'unmapped': stats['unmapped'],
             'totals': {kind: sum(row['current_lines'][kind] for row in stats.values()) for kind in CATEGORIES},
-            'historical_note': '团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。'}
+            'historical_note': '团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。',
+            'task_plan': task_plan}
 
 
 def validate_snapshot(value, task_ids):
     require(value.get('schema') == 1 and re.fullmatch('[0-9a-f]{40}', value['source_revision']), 'team snapshot source')
-    require(set(value) == {'schema','source_revision','generated_at','method','members','unmapped','totals','historical_note'}, 'team snapshot allowlist')
+    fields = {'schema','source_revision','generated_at','method','members','unmapped','totals','historical_note'}
+    require(set(value) == fields or set(value) == fields | {'task_plan'}, 'team snapshot allowlist')
     ids=[m['id'] for m in value['members']]
     require(1 <= len(ids) <= 20 and ids[0]=='lead' and len(set(ids))==len(ids)
             and all(re.fullmatch('member-[a-z]+',item) for item in ids[1:]), 'team snapshot member set')
@@ -219,6 +224,11 @@ def validate_snapshot(value, task_ids):
     require(set(value['totals']) == set(CATEGORIES), 'total category set')
     for category in CATEGORIES:
         require(value['totals'][category] == sum(m['stats']['current_lines'][category] for m in value['members'])+value['unmapped']['current_lines'][category], 'team total drift')
+    assigned = [task for m in value['members'] if m['id'] != 'lead' for task in m['task_ids']]
+    require(len(assigned) == len(set(assigned)), 'project action has multiple offline owners')
+    if 'task_plan' in value:
+        import plans
+        plans.validate(value['task_plan'], value['members'], ROOT)
 
 
 def main():

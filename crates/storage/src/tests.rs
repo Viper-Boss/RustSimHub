@@ -492,6 +492,34 @@ fn backup_restore_preserves_data_and_rotates_event_epoch() {
 }
 
 #[test]
+fn published_backup_is_self_contained_and_restore_leaves_source_untouched() {
+    let source = directory();
+    let backup = directory();
+    let store = Store::open(source.path()).unwrap();
+    store.handle().prepare_sms(request("backup")).unwrap();
+    store.handle().backup(backup.path()).unwrap();
+    let file = backup.path().join("backup.sqlite3");
+    let bytes = fs::read(&file).unwrap();
+    // SQLite header bytes 18/19: 1 = rollback journal, 2 = WAL.
+    assert_eq!((bytes[18], bytes[19]), (1, 1));
+    let listing = || {
+        let mut names: Vec<_> = fs::read_dir(backup.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        names.sort();
+        names
+    };
+    assert_eq!(listing(), ["backup.sqlite3"]);
+    for _ in 0..2 {
+        let target = directory();
+        drop(Store::restore(backup.path(), target.path()).unwrap());
+        assert_eq!(listing(), ["backup.sqlite3"]);
+        assert_eq!(fs::read(&file).unwrap(), bytes);
+    }
+}
+
+#[test]
 fn second_writer_cannot_trigger_recovery_of_active_submission() {
     let dir = directory();
     let store = Store::open(dir.path()).unwrap();

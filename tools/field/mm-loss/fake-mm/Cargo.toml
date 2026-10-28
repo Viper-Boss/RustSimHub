@@ -1,0 +1,12 @@
+[package]
+name = "rsh-fake-modemmanager"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+publish = false
+
+[dependencies]
+zbus = { version = "=5.19.0", default-features = false, features = ["tokio"] }
+tokio = { version = "1", features = ["rt", "macros"] }
+
+[workspace]

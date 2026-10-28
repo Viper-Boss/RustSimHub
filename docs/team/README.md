@@ -5,14 +5,14 @@
 | 人员 | 责任 | 本轮任务 | 设备 |
 |---|---|---|---|
 | Viper-Boss / 项目负责人 | 总体设计、主线开发、设备集成、审核与合并 | UPD-01版本契约；维护主线CI、跨模块审核及设备/签名交付 | 由负责人操作 |
-| 成员A：[fungi1220](https://github.com/fungi1220) | NKN活跃安装统计的独立Rust组件 | [A任务书](MEMBER-A-USAGE-STATS.md)，STAT-01～07、NKN-01/02、SEC-05及T4的SEC-01/04离线部分（20步） | 无需设备 |
-| 成员B：wnfhsj（用户已确认，主页查询异常） | 网络月计量、异常边界与展示 | [B任务书](MEMBER-B-NETWORK-ACCOUNTING.md)，NET-01～03、WEB-01/05、STAB-01及T4的WEB-02/06离线部分（20步） | 无需设备 |
-| 成员C：[yh1030](https://github.com/yh1030) | NAS只读兼容、历史导入与幂等 | [C任务书](MEMBER-C-NAS-COMPAT.md)，NAS-01/05/06、REC-04/UPD-06、REL-05草稿及T4的UPD-07（20步，离线已审6步） | 无需设备 |
-| [RedamancyGTW](https://github.com/RedamancyGTW)，成员D | 短信事件同步、对象换代、故障恢复 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，SMS-02～06、CALL-08及T4的LED-07/SEC-06部分（16步） | 无需设备 |
+| 成员A：[fungi1220](https://github.com/fungi1220) | NKN、密码会话、邮件及安全离线实现 | [A任务书](MEMBER-A-USAGE-STATS.md)，累计30步 | 无需设备 |
+| 成员B：wnfhsj | 网络、全部网页/PWA装配及测试/报告工具 | [B任务书](MEMBER-B-NETWORK-ACCOUNTING.md)，累计32步 | 无需设备 |
+| 成员C：[yh1030](https://github.com/yh1030) | NAS、系统更新恢复及发行证据 | [C任务书](MEMBER-C-NAS-COMPAT.md)，累计30步，离线已审6步 | 无需设备 |
+| [RedamancyGTW](https://github.com/RedamancyGTW)，成员D | 通信观测、Core BLE恢复及远程媒体 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，累计26步 | 无需设备 |
 
 四名成员均使用自己的GitHub账号和Codex；不用共享负责人账号、Token、NAS地址或SSH材料。旧Claude任务包仅供历史参考，本目录是本轮明确分工。yh1030与wnfhsj的Write最终回读已生效；fungi1220和RedamancyGTW的Write邀请已就绪，等待本人接受。此前wnfhsj与RedamancyGTW的公开主页有404现象，不能据此判断账号不存在或确定风控原因。权限明细见[仓库访问状态](ACCESS.md)。
 
-原A/B/C/D各8步保留。2026-10-27 T3为16/16/16/12步；同日T4再加16步，现为20/20/20/16步，共76个成员交付步骤，涉及35个项目动作的离线子范围。169个项目动作及原估时权重保持，项目仍14项完成、155项未闭环；120项未转交，35项仍保留主线集成验收。C-01～06的6步离线审核保留；分母变化来自新增分工，不是撤销验收。成员计划工时不与项目台账重复求和，也不是剩余或实际工时。详见[追加任务与执行顺序](ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md)。
+原A/B/C/D各8步保留；T3为60步、T4为76步、T5为96步，最新T6为30/32/30/26共118步。90个项目动作的离线部分有负责人，65项保留主线专属执行；所有155项仍按原验收闭环，169分母/估时权重/14项完成不变。C-01～06的6步离线审核保持。详细接口、步骤、文件权限和每项主线保留原因集中在[今天分工文档](ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation)，[逐动作映射](offline-ownership.json)可供程序核对。成员粗估不是实际/剩余工时，不与项目台账重复求和。
 
 ## 现在如何提交
 
@@ -37,13 +37,13 @@ gh pr create --repo Viper-Boss/RustSimHub --base main
 
 ## 四条分支如何避免冲突
 
-以下为原任务边界；追加授权只按本人任务书末节和追加总表扩展，不一并开放其他路径。
+以下为原包的历史边界；最新T5/T6已经把多数离线实现转交成员，新的路径与审批阶段以当日分工文档为准。安全约束继续有效，未明确开放的路径不一并授权。
 
 - A独占新增 `crates/usage-stats/`、相关文档与测试，以及新增该成员所需的workspace/Cargo.lock最小改动。
 - B只改既有 `crates/network-agent/` 和明确列出的网络显示/测试文件，不调整workspace成员、wire协议或Core。
 - C只改 `crates/compat/`、`tools/nas-adapter/`及本人的文档，不改Core/wire/storage接口。
 - D只改明确列出的storage收件/操作回执及observer测试/最小修正，不改compat、network-agent、统计组件或Core授权/派发。
-- 主线继续处理Core授权/派发、AP、Edge主入口、系统单元、应用签名与设备维护。四位均不修改 `docs/progress/`、本目录的成员/审核数据、HANDOFF顶部或整体百分比；交付证据写各自报告，审核后由主线更新面板。
+- 最新T6将Core恢复/远程媒体、网页装配、有限系统材料等离线实现按目录转给成员；主线保留接口审核、当前UPD-01收口、真实集成/签名/部署与最终验收。四位均不修改 `docs/progress/`、本目录的成员/审核数据、HANDOFF顶部或整体百分比；交付证据写各自报告，审核后由主线更新面板。
 - 先交小PR，再继续下一包。合同或数据结构需要共同变化时，先在PR给出具体提案，不能自行将变更扩展到另一个人的范围。
 
 ## 交付与审核

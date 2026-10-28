@@ -328,7 +328,7 @@ fn repeated_restore_rotates_realms_and_never_overwrites_existing_targets() {
             *epochs.last().unwrap()
         );
     }
-    assert_backup_files_preserved(&backup, &before);
+    assert!(manifest(&backup) == before);
     assert!(logical_closed(&backup.join("backup.sqlite3")) == source);
 }
 
@@ -359,6 +359,12 @@ fn corrupt_missing_and_newer_database_backups_preserve_original_state() {
         if fault != "missing" {
             fs::copy(backup.join("backup.sqlite3"), &path).unwrap();
         }
+        if fault == "newer" {
+            let current: i64 = closed_readonly(&path)
+                .pragma_query_value(None, "user_version", |row| row.get(0))
+                .unwrap();
+            assert!(current < 99, "future-schema fixture needs a newer version");
+        }
         match fault {
             "truncated" => {
                 fs::OpenOptions::new()
@@ -379,7 +385,7 @@ fn corrupt_missing_and_newer_database_backups_preserve_original_state() {
             "newer" | "foreign" => {
                 let db = Connection::open(&path).unwrap();
                 db.execute_batch(if fault == "newer" {
-                    "PRAGMA user_version=7"
+                    "PRAGMA user_version=99"
                 } else {
                     "PRAGMA application_id=0"
                 })
@@ -393,10 +399,15 @@ fn corrupt_missing_and_newer_database_backups_preserve_original_state() {
             Store::restore(&bad, &destination).is_err(),
             "bad database was accepted"
         );
-        if destination.join(".restore-pending").exists() {
+        assert_eq!(
+            destination.join(".restore-pending").exists(),
+            fault != "missing",
+            "unexpected quarantine state for {fault}"
+        );
+        if fault != "missing" {
             assert!(Store::open(&destination).is_err());
         }
-        assert_backup_files_preserved(&bad, &before);
+        assert!(manifest(&bad) == before);
         assert!(Store::restore(&bad, &occupied).is_err());
         assert!(manifest(&occupied) == occupied_before);
     }

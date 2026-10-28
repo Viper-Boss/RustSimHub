@@ -1,6 +1,47 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 #![forbid(unsafe_code)]
 #[cfg(target_os = "linux")]
+fn check_maintenance_versions(
+    paths: &[String],
+    schema: u32,
+) -> Result<i32, rustsimhub_update::Error> {
+    use rustsimhub_update::{
+        admission::{MaintenanceSnapshot, SignedPrograms},
+        store::{load_payloads, read_checked},
+        verify, Error, MAX_MANIFEST,
+    };
+    use std::path::Path;
+    let key: [u8; 32] = read_checked(Path::new(&paths[0]), 32)?
+        .as_slice()
+        .try_into()
+        .map_err(|_| Error::Invalid)?;
+    let snapshot = MaintenanceSnapshot::observe()?;
+    let inspect = |directory: &str| {
+        let directory = Path::new(directory);
+        let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;
+        let signature = read_checked(&directory.join("manifest.sig"), 64)?;
+        let verified = verify(&manifest, &signature, &key, schema, 0)?;
+        SignedPrograms::inspect(
+            &manifest,
+            &signature,
+            &key,
+            &load_payloads(directory, &verified)?,
+            schema,
+        )
+    };
+    let selected = inspect(&paths[1])?;
+    let candidate = inspect(&paths[2])?;
+    let fallback = inspect(&paths[3])?;
+    let check = snapshot.compare_signed(&selected, &candidate, &fallback)?;
+    check.revalidate()?;
+    println!(
+        "{}",
+        serde_json::to_string(&check.report()).map_err(|_| Error::Invalid)?
+    );
+    Ok(check.exit_code())
+}
+
+#[cfg(target_os = "linux")]
 fn run() -> Result<(), rustsimhub_update::Error> {
     const SCHEMA: u32 = 6;
     use ed25519_dalek::{Signer, SigningKey};
@@ -15,12 +56,27 @@ fn run() -> Result<(), rustsimhub_update::Error> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            serde_json::json!({"source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"system_ota_supported":false,"boot_runtime_selection_supported":true,"forwarding_application_format_supported":true,"signed_application_formats":[1,2],"database_schema":SCHEMA})
+            serde_json::json!({"source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"system_ota_supported":false,"boot_runtime_selection_supported":true,"forwarding_application_format_supported":true,"signed_application_formats":[1,2],"database_schema":SCHEMA,"maintenance_observation_protocol":1})
         );
         return Ok(());
     }
     if rustix::process::geteuid().as_raw() != 0 {
         return Err(Error::Denied);
+    }
+    if args == ["inspect-maintenance"] {
+        let snapshot = rustsimhub_update::admission::MaintenanceSnapshot::observe()?;
+        snapshot.revalidate()?;
+        println!(
+            "{}",
+            serde_json::to_string(&snapshot.report()).map_err(|_| Error::Invalid)?
+        );
+        return Ok(());
+    }
+    if args.len() == 5 && args[0] == "check-maintenance-versions" {
+        // All guards in this finite diagnostic are dropped before exit. The
+        // provided trust/roles are not promoted to installed slot identities.
+        let code = check_maintenance_versions(&args[1..], SCHEMA)?;
+        std::process::exit(code);
     }
     if let [command, public, directory] = args.as_slice() {
         if command == "verify-package" {
@@ -158,6 +214,29 @@ fn run() -> Result<(), rustsimhub_update::Error> {
                     "{}",
                     serde_json::json!({"staged":true,"manifest_sha256":hash})
                 );
+                return Ok(());
+            }
+            ("admit-stage", 4) => {
+                // Opt-in maintenance path; `stage` is unchanged. Core must be
+                // stopped: the snapshot takes the data writer fences.
+                let directory = Path::new(&args[3]);
+                let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;
+                let signature = read_checked(&directory.join("manifest.sig"), 64)?;
+                let m = verify(&manifest, &signature, &key, SCHEMA, store.floor())?;
+                let p = load_payloads(directory, &m)?;
+                let code = {
+                    // Release fences and the indicator before a classified exit.
+                    let snapshot = rustsimhub_update::admission::MaintenanceSnapshot::observe()?;
+                    let _indicator = rustsimhub_update::indicator::Activity::begin();
+                    let admission = rustsimhub_update::admission::admit_stage(
+                        &mut store, &snapshot, &manifest, &signature, &p,
+                    )?;
+                    println!("{}", admission.report);
+                    admission.exit_code
+                };
+                if code != 0 {
+                    std::process::exit(code);
+                }
                 return Ok(());
             }
             ("choose", 3) => {

@@ -261,7 +261,7 @@ fn same_device_mixed_batches_have_no_product_wide_consistency_proof() {
     assert!(!target.join("outbox.sqlite3").exists());
     assert!(!target.join("synthetic-config.json").exists());
     assert!(rustsimhub_forwarder::inspect_outbox(&old_outbox).is_ok());
-    assert_backup_files_preserved(&mixed, &before);
+    assert!(manifest(&mixed) == before);
     assert!(logical_closed(&mixed.join("backup.sqlite3")) == source);
     assert!(!mixed.join("bundle-manifest.json").exists());
 }

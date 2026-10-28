@@ -151,4 +151,32 @@ for(const stage of ['prepare_call','submit_call']){
  await f.$('prepare-sms').onclick();assert.equal(sent.filter(c=>c.op==='prepare_sms').length,0);assert.match(f.$('notice').textContent,/电话区/);
  context.fixture.logout();assert.equal(context.fixture.phone().enabled,false);assert.equal(f.audio.state,'closed');assert(saved.get('pending').submit_started);
 }
-console.log('PASS: production daily call controls, incoming/reject, preconnection, ACTIVE audio, lease renewal, durable single submits, uncertainty, cancellation/logout/storage/poll races; synthetic only.');
+{
+ // Missed-call confirmation: only ended incoming calls on the current line, paged, sequential.
+ const ended=(n,extra={})=>({id:uuid(n),line,direction:1,state:'ended',modem_state:7,availability:'observed',...extra});
+ const history=[ended(201),ended(202,{direction:2}),ended(203,{line:line-1}),ended(204,{state:'ringing_in',modem_state:3}),ended(205,{availability:'reconciling'}),...Array.from({length:14},(_,i)=>ended(300+i))];
+ const read=[];const f=fixture({respond:async c=>{
+  if(c.op==='calls'){const start=c.after===null?0:Number(c.after);return {calls:history.slice(start,start+c.limit).map(x=>({...x})),cursor:String(start+c.limit)};}
+  if(c.op==='notification_read'){assert.equal(c.entity,'calls');read.push(c.record_id);return {ok:true};}
+ }});
+ assert.equal(f.$('phone-missed-ack').disabled,false);await f.$('phone-missed-ack').onclick();
+ assert.deepEqual(f.sent.filter(c=>c.op==='calls').map(c=>c.after),[null,'16']);
+ assert.deepEqual(read,[uuid(201),...Array.from({length:14},(_,i)=>uuid(300+i))]);
+ assert.match(f.$('phone-state').textContent,/已确认 15 通/);assert.equal(f.sent.filter(c=>c.op==='prepare_call').length,0,'Confirming never touches a call');
+}
+{
+ const f=fixture({respond:async c=>{if(c.op==='calls')return {calls:[{id:'not-a-uuid'}],cursor:'1'};if(c.op==='notification_read')throw Error('must not confirm');}});
+ await f.$('phone-missed-ack').onclick();assert.match(f.$('phone-state').textContent,/通话列表已变化/);assert.equal(f.sent.filter(c=>c.op==='notification_read').length,0);
+}
+{
+ const calls=[1,2].map(n=>({id:uuid(400+n),line,direction:1,state:'ended',modem_state:7,availability:'observed'}));
+ const f=fixture({respond:async c=>{if(c.op==='calls')return {calls,cursor:'2'};if(c.op==='notification_read')throw Error('指示灯状态暂不可写');}});
+ await f.$('phone-missed-ack').onclick();assert.equal(f.sent.filter(c=>c.op==='notification_read').length,1,'Stops at the first failed confirmation');
+ assert.match(f.$('phone-state').textContent,/指示灯状态暂不可写/);
+}
+{
+ const f=fixture({respond:async c=>{if(c.op==='calls')return {calls:[],cursor:'0'};}});
+ f.phone.enabled=false;f.phone.render();assert(f.$('phone-missed-ack').disabled);await f.$('phone-missed-ack').onclick();assert.equal(f.sent.length,0);
+ f.phone.enabled=true;await f.$('phone-missed-ack').onclick();assert.match(f.$('phone-state').textContent,/没有需要确认/);
+}
+console.log('PASS: production daily call controls, missed-call confirmation, incoming/reject, preconnection, ACTIVE audio, lease renewal, durable single submits, uncertainty, cancellation/logout/storage/poll races; synthetic only.');

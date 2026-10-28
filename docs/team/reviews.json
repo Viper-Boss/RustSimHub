@@ -42,6 +42,49 @@
         "docs/team/REVIEW-MERGED-PRS-2026-10-27.md"
       ],
       "self_reported_hours": null
+    },
+    {
+      "member_id": "member-c",
+      "pr": 9,
+      "head": "c10c95ce35fb029678457069cc6354337e4121f3",
+      "decision": "offline_accepted",
+      "steps": [
+        "C-07",
+        "C-08"
+      ],
+      "evidence": [
+        "docs/team/REVIEW-PR-9-c10c95c.md"
+      ],
+      "self_reported_hours": null
+    },
+    {
+      "member_id": "member-c",
+      "pr": 10,
+      "head": "45c54d4b32bc00a1093cf54d4faead9795cdbdc7",
+      "decision": "needs_changes",
+      "steps": [
+        "C-09",
+        "C-10",
+        "C-11",
+        "C-12"
+      ],
+      "evidence": [
+        "docs/team/REVIEW-PR-10-45c54d4.md"
+      ],
+      "self_reported_hours": null
+    },
+    {
+      "member_id": "member-c",
+      "pr": 13,
+      "head": "e782f985dc5995a076e83e8482b73a693f687ea1",
+      "decision": "offline_accepted",
+      "steps": [
+        "C-15"
+      ],
+      "evidence": [
+        "docs/team/REVIEW-PR-13-e782f98.md"
+      ],
+      "self_reported_hours": null
     }
   ]
 }

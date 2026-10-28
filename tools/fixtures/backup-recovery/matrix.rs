@@ -58,27 +58,6 @@ fn closed_readonly(path: &Path) -> Connection {
     )
     .unwrap()
 }
-fn assert_backup_files_preserved(path: &Path, before: &BTreeMap<PathBuf, [u8; 32]>) {
-    let after = manifest(path);
-    for (file, bytes) in before {
-        assert!(after.get(file) == Some(bytes), "pre-existing input changed");
-    }
-    for file in after.keys().filter(|file| !before.contains_key(*file)) {
-        // The actual product's read-only SQLite open can create these files.
-        // Permit only an empty WAL and bounded index, not arbitrary new data.
-        match file.file_name().unwrap().to_str().unwrap() {
-            "backup.sqlite3-wal" => assert_eq!(fs::metadata(file).unwrap().len(), 0),
-            "backup.sqlite3-shm" => {
-                assert!(fs::metadata(file).unwrap().len() <= 32_768);
-                assert_eq!(
-                    fs::metadata(path.join("backup.sqlite3-wal")).unwrap().len(),
-                    0
-                );
-            }
-            _ => panic!("unexpected new input artifact"),
-        }
-    }
-}
 fn manifest(path: &Path) -> BTreeMap<PathBuf, [u8; 32]> {
     let mut out = BTreeMap::new();
     for item in fs::read_dir(path).unwrap() {

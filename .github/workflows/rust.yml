@@ -72,6 +72,10 @@ jobs:
         run: |
           sh -n tools/recovery/watch-edl-capture.sh
           python3 -m unittest discover -s tools/recovery -p 'test_*.py'
+      - name: Read-only field snapshot
+        run: |
+          sh -n tools/field/rsh-readonly-snapshot.sh
+          python3 -m unittest discover -s tools/field -p 'test_*.py'
       - name: Test
         run: cargo test --workspace --all-features --locked
       - name: Forwarding actual filesystem ENOSPC in a bounded private tmpfs
@@ -81,6 +85,10 @@ jobs:
       - name: Signed legacy and forwarding application groups
         run: |
           cargo build -p rustsimhub-update --locked
+          cargo test -p rustsimhub-update --lib --all-features --locked --no-run --message-format=json > /tmp/rustsimhub-update-test-artifacts.json
+          sudo -n unshare --net setpriv --no-new-privs python3 tools/test-metadata-process.py --cargo-artifacts /tmp/rustsimhub-update-test-artifacts.json
+          sudo -n unshare --net setpriv --bounding-set=-kill --no-new-privs python3 tools/test-metadata-process.py --cargo-artifacts /tmp/rustsimhub-update-test-artifacts.json --missing-kill
+          sudo -n unshare --net python3 tools/test-maintenance-observation.py --updater target/debug/rustsimhub-update
           sudo -n unshare --net python3 tools/test-signed-application-formats.py --updater target/debug/rustsimhub-update
           python3 tools/test-development-application-packager.py
       - name: Separate signed setup AP maintenance material

@@ -13,6 +13,15 @@ use std::{
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 const LEDS: [&str; 3] = ["red:", "green:wan", "blue:"];
 fn checked(path: &Path, uid: u32, mode: u32, limit: u64) -> Result<Vec<u8>> {
+    checked_owned(path, uid, None, mode, limit)
+}
+fn checked_owned(
+    path: &Path,
+    uid: u32,
+    gid: Option<u32>,
+    mode: u32,
+    limit: u64,
+) -> Result<Vec<u8>> {
     let file = OpenOptions::new()
         .read(true)
         .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
@@ -20,7 +29,8 @@ fn checked(path: &Path, uid: u32, mode: u32, limit: u64) -> Result<Vec<u8>> {
     let m = file.metadata()?;
     if !m.is_file()
         || m.uid() != uid
-        || m.mode() & 0o777 != mode
+        || gid.is_some_and(|g| m.gid() != g)
+        || m.mode() & 0o7777 != mode
         || m.nlink() != 1
         || m.len() > limit
     {
@@ -103,43 +113,60 @@ fn command(program: &str, args: &[&str]) -> Result<String> {
         thread::sleep(Duration::from_millis(20));
     }
 }
+const BASE_UNITS: [&str; 8] = [
+    "rustsimhub-firstboot.service",
+    "rustsimhub-usb.service",
+    "rustsimhub-device-firmware.service",
+    "rustsimhub-audio-drivers.service",
+    "rustsimhub-radio-resume.service",
+    "rmtfs.service",
+    "ModemManager.service",
+    "NetworkManager.service",
+];
+const BUSINESS_UNITS: [&str; 2] = ["rustsimhub-core.service", "rustsimhub-edge.service"];
+/// (failed, activating) from one `systemctl show -p ActiveState` over all
+/// units. Paragraphs follow argument order (an alias would report another Id),
+/// so they are matched by position. Business units count only once
+/// installation is complete; activating ones never mean "configuring".
+fn unit_states(text: &str, complete: bool) -> Result<(bool, bool)> {
+    let states = text
+        .split(
+            "
+
+",
+        )
+        .filter(|p| !p.trim().is_empty())
+        .map(|p| {
+            let mut lines = p.lines();
+            match (
+                lines.next().and_then(|l| l.strip_prefix("ActiveState=")),
+                lines.next(),
+            ) {
+                (Some(state), None) => Ok(state),
+                _ => Err("malformed unit status"),
+            }
+        })
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    if states.len() != BASE_UNITS.len() + BUSINESS_UNITS.len() {
+        return Err("incomplete unit status".into());
+    }
+    let (base, business) = states.split_at(BASE_UNITS.len());
+    let failed = base.contains(&"failed") || (complete && business.contains(&"failed"));
+    Ok((failed, base.contains(&"activating")))
+}
 fn refresh() -> Result<Inputs> {
     let complete =
         Path::new("/var/lib/rustsimhub/rustsimhub-v1/system/installation.complete").is_file();
-    let units = command(
-        "/usr/bin/systemctl",
-        &[
-            "show",
-            "rustsimhub-firstboot.service",
-            "rustsimhub-usb.service",
-            "rustsimhub-device-firmware.service",
-            "rustsimhub-audio-drivers.service",
-            "rustsimhub-radio-resume.service",
-            "rmtfs.service",
-            "ModemManager.service",
-            "NetworkManager.service",
-            "-p",
-            "ActiveState",
-        ],
-    )?;
+    let mut args = vec!["show"];
+    args.extend(BASE_UNITS);
+    args.extend(BUSINESS_UNITS);
+    args.extend(["-p", "ActiveState"]);
+    let (failed, activating) = unit_states(&command("/usr/bin/systemctl", &args)?, complete)?;
     let mut s = Inputs {
-        error: units.lines().any(|v| v == "ActiveState=failed"),
-        configuring: !complete || units.lines().any(|v| v == "ActiveState=activating"),
+        error: failed,
+        configuring: !complete || activating,
         ..Inputs::default()
     };
-    if complete {
-        let business = command(
-            "/usr/bin/systemctl",
-            &[
-                "show",
-                "rustsimhub-core.service",
-                "rustsimhub-edge.service",
-                "-p",
-                "ActiveState",
-            ],
-        )?;
-        s.error |= business.lines().any(|v| v == "ActiveState=failed");
-    }
     let devices = command(
         "/usr/bin/nmcli",
         &["-t", "-f", "DEVICE,TYPE,STATE", "device"],
@@ -197,14 +224,16 @@ fn io_count() -> Option<u64> {
         .checked_add(fields.get(4)?.parse::<u64>().ok()?)
 }
 fn business(now: u64) -> Option<BusinessInput> {
+    // Root here has no capabilities: Core shares the hint through group root.
     let dir = fs::symlink_metadata("/run/rustsimhub-led-input").ok()?;
-    if !dir.is_dir() || dir.uid() != 986 || dir.mode() & 0o777 != 0o700 {
+    if !dir.is_dir() || dir.uid() != 986 || dir.gid() != 0 || dir.mode() & 0o7777 != 0o2750 {
         return None;
     }
-    let bytes = checked(
+    let bytes = checked_owned(
         Path::new("/run/rustsimhub-led-input/state.json"),
         986,
-        0o600,
+        Some(0),
+        0o640,
         512,
     )
     .ok()?;
@@ -270,7 +299,8 @@ pub fn run() -> Result<()> {
         if let Ok(mut slot) = sampler.lock() {
             *slot = value;
         }
-        thread::sleep(Duration::from_secs(5));
+        // Unit and NM state change rarely; every child process costs CPU.
+        thread::sleep(Duration::from_secs(15));
     });
     let mut previous = None;
     let start = Instant::now();
@@ -293,6 +323,7 @@ pub fn run() -> Result<()> {
             input.configuring |= b.configuring;
             input.unread_sms = b.unread_sms;
             input.missed_calls = b.missed_calls;
+            input.ringing = b.ringing;
         }
         if let Some(u) = update_hint.and_then(|u: UpdateInput| u.fresh(now)) {
             input.upgrading |= u.upgrading;
@@ -311,6 +342,97 @@ pub fn run() -> Result<()> {
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
+    /// Unit state text in argument order, as `systemctl show` prints it.
+    fn with(id: &str, state: &str) -> String {
+        BASE_UNITS
+            .iter()
+            .chain(&BUSINESS_UNITS)
+            .map(|u| {
+                format!(
+                    "ActiveState={}
+",
+                    if *u == id { state } else { "active" }
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(
+                "
+",
+            )
+    }
+    #[test]
+    fn one_status_query_keeps_the_previous_red_and_white_rules() {
+        assert_eq!(unit_states(&with("", ""), true).unwrap(), (false, false));
+        assert_eq!(
+            unit_states(&with("ModemManager.service", "failed"), true).unwrap(),
+            (true, false)
+        );
+        assert_eq!(
+            unit_states(&with("rmtfs.service", "activating"), true).unwrap(),
+            (false, true)
+        );
+        assert_eq!(
+            unit_states(&with("rustsimhub-core.service", "failed"), true).unwrap(),
+            (true, false)
+        );
+        // Before installation completes, business units neither turn red nor white.
+        assert_eq!(
+            unit_states(&with("rustsimhub-edge.service", "failed"), false).unwrap(),
+            (false, false)
+        );
+        assert_eq!(
+            unit_states(&with("rustsimhub-core.service", "activating"), true).unwrap(),
+            (false, false)
+        );
+        assert_eq!(
+            unit_states(&with("rustsimhub-usb.service", "failed"), false).unwrap(),
+            (true, false)
+        );
+    }
+    #[test]
+    fn malformed_partial_or_extra_status_is_an_error_not_green() {
+        let good = with("", "");
+        let mut parts: Vec<_> = good
+            .split(
+                "
+
+",
+            )
+            .collect();
+        parts.pop();
+        assert!(unit_states(
+            &parts.join(
+                "
+
+"
+            ),
+            true
+        )
+        .is_err());
+        assert!(unit_states(&good.replacen("ActiveState=", "SubState=", 1), true).is_err());
+        assert!(unit_states(
+            &good.replacen(
+                "ActiveState=active
+",
+                "ActiveState=active
+Id=x
+",
+                1
+            ),
+            true
+        )
+        .is_err());
+        assert!(unit_states(
+            &format!(
+                "{good}
+ActiveState=active
+"
+            ),
+            true
+        )
+        .is_err());
+        assert!(unit_states("", true).is_err());
+    }
     #[test]
     fn input_metadata_refuses_symlinks_hardlinks_permissions_owner_and_size() {
         let dir = tempfile::tempdir().unwrap();
