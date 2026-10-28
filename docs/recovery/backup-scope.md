@@ -32,6 +32,11 @@ Store 的 actor 串行处理数据库工作，Backup API 在 SQLite 层取得一
 `Store::restore` 限制输入名为 backup.sqlite3，复制到另一目录后才做 app/version/quick_check 和恢复处理。
 因此不合法输入可能在新目标留下 `.restore-pending` 与未接纳的数据库；不能声称拒绝总是零写入。
 原来源和已有目标不被覆盖；有效旧目标/在线写者分别受 BackupExists/AlreadyOpen 保护。
+“不覆盖”不等于来源目录零写入：Linux 下该 WAL 格式快照被 SQLite 只读打开时，仍可能新建
+`backup.sqlite3-wal` 和 `backup.sqlite3-shm`。首轮真实矩阵已观察到这一点；原有文件逐个核对摘要，
+新增仅允许空 WAL 和有界 SHM，完整有效快照再核对逻辑记录。不能将来源写保护或整目录字节不变宣传为现有保证。
+测试对已完成的独立快照使用带 `immutable=1` 的只读观察器避免观察本身创建辅助文件，
+且先拒绝非空 WAL；活动业务库仍使用正常读取以覆盖真实 WAL 提交，产品 restore 的打开方式不变。
 测试保留新目标失败证据，并检查 pending/无效版本不会被普通 open 当作空新库初始化；不删除证据来重跑。
 Store 的“新目标”约束主要是没有现存 store.sqlite3，并不等同于 identity restore 要求整个目录为空。
 

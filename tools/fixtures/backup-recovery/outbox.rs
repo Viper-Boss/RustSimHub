@@ -240,13 +240,14 @@ fn same_device_mixed_batches_have_no_product_wide_consistency_proof() {
     .unwrap();
     write(&mixed.join("synthetic-config.json"), b"{\"batch\":\"A\"}");
     let before = manifest(&mixed);
+    let source = logical_closed(&mixed.join("backup.sqlite3"));
     let target = a.f.dir("restored-mix");
     // This is evidence of the CURRENT gap, not a test-only bundle validator:
     // Store::restore consumes only backup.sqlite3 and ignores the other domains.
     let restored = Store::restore(&mixed, &target).unwrap();
     assert_eq!(restored.handle().inbox(None, 16).unwrap().messages.len(), 5);
     assert_eq!(
-        readonly(&batch_a.join("backup.sqlite3"))
+        closed_readonly(&batch_a.join("backup.sqlite3"))
             .query_row("SELECT COUNT(*) FROM inbox", [], |r| r.get::<_, i64>(0))
             .unwrap(),
         4
@@ -260,6 +261,7 @@ fn same_device_mixed_batches_have_no_product_wide_consistency_proof() {
     assert!(!target.join("outbox.sqlite3").exists());
     assert!(!target.join("synthetic-config.json").exists());
     assert!(rustsimhub_forwarder::inspect_outbox(&old_outbox).is_ok());
-    assert!(manifest(&mixed) == before);
+    assert_backup_files_preserved(&mixed, &before);
+    assert!(logical_closed(&mixed.join("backup.sqlite3")) == source);
     assert!(!mixed.join("bundle-manifest.json").exists());
 }

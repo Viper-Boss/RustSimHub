@@ -21,13 +21,14 @@ fn wal_backup_captures_committed_data_and_omits_other_backup_domains() {
     );
     let before = logical(&f.state.join("store.sqlite3"));
     let backup = f.backup(&store, "backup");
-    assert!(logical(&backup.join("backup.sqlite3")) == before);
     let files: Vec<_> = fs::read_dir(&backup)
         .unwrap()
         .map(|e| e.unwrap().file_name())
         .collect();
     assert_eq!(files, ["backup.sqlite3"]);
-    let db = readonly(&backup.join("backup.sqlite3"));
+    let backup_bytes = manifest(&backup);
+    assert!(logical_closed(&backup.join("backup.sqlite3")) == before);
+    let db = closed_readonly(&backup.join("backup.sqlite3"));
     assert_eq!(
         db.query_row("SELECT COUNT(*) FROM inbox WHERE id=?", [&message], |r| r
             .get::<_, i64>(
@@ -36,6 +37,7 @@ fn wal_backup_captures_committed_data_and_omits_other_backup_domains() {
         .unwrap(),
         1
     );
+    assert!(manifest(&backup) == backup_bytes);
     assert!(logical(&f.state.join("store.sqlite3")) == before);
     assert_eq!(
         store.handle().backup(&backup),
@@ -297,6 +299,7 @@ fn repeated_restore_rotates_realms_and_never_overwrites_existing_targets() {
         .unwrap();
     let backup = f.backup(&store, "backup");
     let before = manifest(&backup);
+    let source = logical_closed(&backup.join("backup.sqlite3"));
     let mut epochs = Vec::new();
     for n in 0..3 {
         let path = f.dir(&format!("restore-{n}"));
@@ -325,7 +328,8 @@ fn repeated_restore_rotates_realms_and_never_overwrites_existing_targets() {
             *epochs.last().unwrap()
         );
     }
-    assert!(manifest(&backup) == before);
+    assert_backup_files_preserved(&backup, &before);
+    assert!(logical_closed(&backup.join("backup.sqlite3")) == source);
 }
 
 #[test]
@@ -392,7 +396,7 @@ fn corrupt_missing_and_newer_database_backups_preserve_original_state() {
         if destination.join(".restore-pending").exists() {
             assert!(Store::open(&destination).is_err());
         }
-        assert!(manifest(&bad) == before);
+        assert_backup_files_preserved(&bad, &before);
         assert!(Store::restore(&bad, &occupied).is_err());
         assert!(manifest(&occupied) == occupied_before);
     }

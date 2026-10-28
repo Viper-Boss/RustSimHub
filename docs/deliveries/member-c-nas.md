@@ -371,3 +371,33 @@ Codex 辅助盘点、实现、测试和报告；未估造有效工时、不改�
 - 保留失败：原精简 wsl 安装入口带参数未开始安装；旧 Windows PowerShell 默认脚本策略阻止安装脚本，未执行。没有放宽策略，改用 Microsoft 签名的原生 DISM/msiexec 完成上述实际安装。原始安装日志与接续记录仅本机保管。
 - 下一步需要用户保存其他应用工作并允许/手动重启 Windows。重启后继续安装 Ubuntu、普通 Linux 测试用户与锁定工具链；使用 Linux 原生文件系统执行固定 HEAD 的十五场景、Cargo 接入及严格检查，再验证默认 WSL2 测试入口和结果收集流程。
 - 本轮无 Ubuntu/WSL2 用户进程测试、无 Rust/Go/业务矩阵新结果、无设备/真实通信/推送/流量或分区操作。C09～C12 的运行证据和验收仍缺，整体按固定量表保持 **80%**。
+
+### 2026-10-28 · 本机 WSL2 已启动，真实矩阵复测
+
+用户已完成重启，并要求离开期间继续推进。实际 HypervisorPresent=true；官方 Ubuntu-24.04 已安装并启动，
+发行版为 Ubuntu 24.04.5 LTS，内核 `6.18.54.1-microsoft-standard-WSL2`，测试用户 UID/GID1000，未授予 sudo。
+本机新建 WSL 配置限制6GB/4CPU且保持防火墙。镜像网络失败（ConfigureNetworking/0x8007054f）后安全回退到 NAT，
+普通用户直接访问 Ubuntu/Rust/Cargo 官方下载地址成功，未开放LAN代理或放宽TLS验证。
+
+- 已实际安装 C 编译器/Python/Go/Node 与必要开发库。Rust 官方脚本下载停滞、静态安装器直连180秒超时的失败保留；改由本机代理下载官方程序与五个锁定组件，逐项核对官方 SHA256 后导入 Linux 缓存，原生 rustup 安装 1.98.0/rustfmt/Clippy 成功。
+- 只复用 Cargo.lock 校验过的164个公开 crate 包和292条公开索引，未复制凭据、Windows可执行程序或修改锁文件；其余依赖由 Linux Cargo 实际准备。
+- 新增 `tools/fixtures/backup-recovery/wsl_test.py` 与 [WSL入口说明](../recovery/wsl-tests.md)：固定 Git commit/tree 归档、SHA256、普通用户/WSL2内核核对、Linux原生源码/TMPDIR/target、有界步骤、完整日志/退出码/实耗和仅日志的 evidence.zip。默认只列计划；后续 Linux 测试采用这一入口或同一 WSL2 发行版的明确命令。
+
+首轮精确提交 `45c54d4b32bc00a1093cf54d4faead9795cdbdc7`，源码 tree `f9aad114260be0e3d7c2748fcd3543f15d0baffb`：
+`python tools/fixtures/backup-recovery/wsl_test.py --run --suite recovery --fetch --ref 45c54d4b32bc00a1093cf54d4faead9795cdbdc7` 返回1。
+该轮 WSL 执行器为另行记录 SHA256 的新本地文件，不冒充该提交已有工具。
+依赖/格式/四项控制器/严格Clippy均0；直接矩阵11通过/4失败/0忽略；Cargo recovery库4通过，集成矩阵同样11/4导致退出101。
+失败和成功步骤原样保存，日志压缩包CRC检查通过且只含步骤日志/来源/summary，没有数据库或密钥。
+
+四项失败发生在只读观察/恢复的来源目录检查：SQLite WAL格式文件被普通只读打开后可新建 WAL/SHM。
+备份输出单文件清单原本在观察后才检查，混入观察器副作用；其余整目录等值也没有区分原文件和新增辅助文件。
+修正仅在测试：发布后先检查单文件；已完成、无非空WAL的快照用 immutable URI 观察；产品 restore 打开方式不改。
+来源原有文件逐个摘要保持、有效快照完整逻辑保持；新增只允许空WAL与有界SHM；已有目标仍严格不覆盖。
+没有删辅助文件、清库或屏蔽失败。新增 GAP-REC-04 明确来源目录非零写入及只读介质/恶意旁路WAL尚未验收，最小生产提案交主线。
+
+修正后精确暂存 tree `a7fd84f98d7a6a30e0c217d34b3cf1846194ce21`，
+`python tools/fixtures/backup-recovery/wsl_test.py --run --suite recovery --ref a7fd84f98d7a6a30e0c217d34b3cf1846194ce21`：
+该轮已实际完成：直接十五项真实模块矩阵全部通过、0忽略；Cargo recovery库4项通过、集成入口1项通过（内部再次执行全部十五场景）、bin/文档0测试正常退出；包全targets严格Clippy、依赖/格式/四项控制器也均为0，执行器最终 passed=true。
+所有步骤命令/退出码/实耗与来源保存在同轮日志；既有 proc-macro-error2 未来兼容提示保留，未变更依赖。
+该证据明确标记为 tree，而不是最终提交HEAD通过；发布后仍须核对最终完整提交的适当回归及范围。
+无设备/实际通信/普通蜂窝/签名部署/分区操作；整体仍按固定量表 **80%**，成员不更新主线验收。
