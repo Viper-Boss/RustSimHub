@@ -1,5 +1,11 @@
 # 通信观测工作包交付与主线接回台账
 
+## 正在准备：D-21 恢复授权
+
+已基于9f4ff043的实际policy/Auth/Store/Core Wi-Fi提交[独立恢复授权与schema兼容提案](../ble/recovery-authorization-proposal.md)。推荐保留旧10个scope/ALL_SCOPES/Kind、Core终止安全会话、真实Owner预批准的受限能力和同一Store/网络事务；候选schema7必须与现装/候选/回退数据兼容一起审查，当前没有改格式、写表或启用入口。密码套件仍由A方案审查提供，GATT连接令牌不能代替Core权限。
+
+本次仅完成D-21a源码审计/提案，未实现D-21b、未运行恢复授权实现测试；**不减账、不新增done：主线累计接回20步，D-21～26仍6步，20/169、10.6%和原80%保持。** 接口/迁移按任务书先审后接线，未变更Auth/Root/设备，也不把提案算成员审核或整机通过。
+
 ## 当前结算 · 2026-10-28 GATT 离线库批次
 
 **最新同步后截面：** 已接续PR50更新 `2b13b25f4ffad0fed04643fedadbdec60fed9f64` 与Claude main dfd11e9，保留用户新灯色及UPD-04/STAB-03/SMS-05，最新台账20/169、加权10.6%、余149、原80%；lead20/D6不变。新截面归档 `4898875176e75cec26e30f532eb398b7361f64ade94beb604e6d4921800e3c5a`、日志 `d8ba77e0d818a2881b839aa9cd810d82a88b9a8da61ad93aa02440638cdd3d3f`：蓝牙38+灯控24、严格Clippy/fmt及Python23全部通过，Node看板/生成一致性通过。下文旧数量/23灯控是先前截面证据，保留作历史。未宣称Pages或main已包含本PR。
