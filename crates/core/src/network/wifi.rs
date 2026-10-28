@@ -71,6 +71,59 @@ pub(crate) async fn authorized(
     })
     .await
 }
+/// Saved station (infrastructure) Wi-Fi profiles in NM; AP profiles do not count. Read-only and
+/// bounded; errors propagate so callers can fail closed.
+pub(crate) async fn saved_stations() -> rustsimhub_auth::Result<usize> {
+    timeout(Duration::from_secs(5), async {
+        let c = zbus::Connection::system().await.map_err(|_| Error::Io)?;
+        let settings = zbus::Proxy::new(
+            &c,
+            "org.freedesktop.NetworkManager",
+            "/org/freedesktop/NetworkManager/Settings",
+            "org.freedesktop.NetworkManager.Settings",
+        )
+        .await
+        .map_err(|_| Error::Io)?;
+        let paths: Vec<OwnedObjectPath> = settings
+            .call("ListConnections", &())
+            .await
+            .map_err(|_| Error::Io)?;
+        if paths.len() > 64 {
+            return Err(Error::Forbidden);
+        }
+        let mut count = 0;
+        for path in paths {
+            let p = zbus::Proxy::new(
+                &c,
+                "org.freedesktop.NetworkManager",
+                path.as_str(),
+                "org.freedesktop.NetworkManager.Settings.Connection",
+            )
+            .await
+            .map_err(|_| Error::Io)?;
+            let s: HashMap<String, HashMap<String, OwnedValue>> =
+                p.call("GetSettings", &()).await.map_err(|_| Error::Io)?;
+            if station(&s) {
+                count += 1;
+            }
+        }
+        Ok(count)
+    })
+    .await
+    .map_err(|_| Error::Busy)?
+}
+/// A Wi-Fi profile that is not an access point (an absent mode means infrastructure).
+fn station(s: &HashMap<String, HashMap<String, OwnedValue>>) -> bool {
+    let kind = s
+        .get("connection")
+        .and_then(|c| c.get("type"))
+        .and_then(|v| <&str>::try_from(v).ok());
+    let mode = s
+        .get("802-11-wireless")
+        .and_then(|w| w.get("mode"))
+        .and_then(|v| <&str>::try_from(v).ok());
+    kind == Some("802-11-wireless") && mode.is_none_or(|m| m == "infrastructure")
+}
 /// Last non-empty catalogue taken just before the first-setup AP started: the single radio
 /// usually cannot keep a station scan cache while it serves the AP.
 static BEFORE_AP: std::sync::Mutex<Option<(std::time::Instant, Catalogue)>> =

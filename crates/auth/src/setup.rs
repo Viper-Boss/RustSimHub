@@ -262,13 +262,65 @@ impl LocalSetup {
         self.secret.fill(0);
         Ok(owner)
     }
-    /// Next hotspot round of the same unowned device window: a new window id (fresh journal
-    /// names) and attempt budget. Refused once an Owner exists or the window was consumed.
+    /// Device window for an owned device that may still lack Wi-Fi (user decision 2026-10-29:
+    /// a power cut after creating the Owner must not lock first setup out). It is already
+    /// consumed by the single active Owner, so it can never create another principal; Core opens
+    /// rounds from it only while no Wi-Fi is saved.
+    pub fn for_owned_device(directory: &Path, auth: &Auth) -> Result<Option<Self>> {
+        #[cfg(target_os = "linux")]
+        let _lock = crate::lock_private_directory(directory)?;
+        crate::identity::check(directory, true)?;
+        let marker = directory.join("setup.used");
+        let mut expected = b"RustSimHub.DeviceSetup.Window.v1\0".to_vec();
+        expected.extend_from_slice(&auth.public_key());
+        match std::fs::symlink_metadata(&marker) {
+            Ok(_) if read_private(&marker, expected.len())?.as_slice() == expected => {}
+            Ok(_) => return Err(Error::Forbidden),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(_) => return Err(Error::Io),
+        }
+        let owners: Vec<Principal> = auth
+            .store
+            .principals()?
+            .into_iter()
+            .filter(|p| p.kind == crate::Kind::Owner && p.active)
+            .collect();
+        let [owner] = owners.as_slice() else {
+            return Ok(None);
+        };
+        let mut secret = Zeroizing::new(vec![0u8; 32]);
+        getrandom::fill(secret.as_mut_slice()).map_err(|_| Error::Entropy)?;
+        Ok(Some(Self {
+            secret,
+            deadline: Instant::now() + DEVICE_WINDOW,
+            remaining: u8::MAX,
+            challenge: None,
+            consumed: true,
+            device: Some((
+                crate::random_hex()?,
+                auth.public_key(),
+                auth.durable_realm()?,
+            )),
+            claimed: Some(owner.clone()),
+        }))
+    }
+    /// Next hotspot round of the same device window: a new window id (fresh journal names) and
+    /// attempt budget. An unowned window needs an empty store; a consumed one needs its
+    /// claimant to still be the current Owner.
     pub fn next_device_window(&mut self, auth: &Auth) -> Result<()> {
-        if self.consumed || self.device.is_none() {
+        if self.device.is_none() {
             return Err(Error::Forbidden);
         }
-        self.require_empty(auth)?;
+        if self.consumed {
+            let claimed = self.claimed.as_ref().ok_or(Error::Forbidden)?;
+            if claimed.kind != crate::Kind::Owner
+                || auth.current_principal(claimed.public_key)? != *claimed
+            {
+                return Err(Error::Forbidden);
+            }
+        } else {
+            self.require_empty(auth)?;
+        }
         if let Some((id, _, _)) = self.device.as_mut() {
             *id = crate::random_hex()?;
         }
@@ -477,6 +529,45 @@ mod tests {
         LocalSetup::prepare_device_code(other.path(), &auth).unwrap_or(());
         let mut loaded = LocalSetup::load(&setup.path().join("setup.code")).unwrap();
         assert!(loaded.begin_open(&mut auth, [7; 32]).is_err());
+    }
+    #[test]
+    fn owned_device_window_needs_the_marker_and_exactly_one_owner_and_rotates() {
+        let state = private_directory();
+        let identity = private_directory();
+        let setup = private_directory();
+        let store = Store::open(state.path()).unwrap();
+        let mut auth = Auth::open(identity.path(), store.handle()).unwrap();
+        LocalSetup::prepare_device_code(setup.path(), &auth).unwrap();
+        // No marker yet (window never opened): nothing.
+        assert!(LocalSetup::for_owned_device(setup.path(), &auth)
+            .unwrap()
+            .is_none());
+        let mut gate = LocalSetup::for_device(setup.path(), &auth)
+            .unwrap()
+            .unwrap();
+        // Marker present but no Owner: nothing (the ordinary unowned window applies).
+        assert!(LocalSetup::for_owned_device(setup.path(), &auth)
+            .unwrap()
+            .is_none());
+        let key = SigningKey::from_bytes(&[44; 32]);
+        let c = gate
+            .begin_open(&mut auth, key.verifying_key().to_bytes())
+            .unwrap();
+        let owner = gate
+            .finish_open(&mut auth, &c.id, &key.sign(&c.transcript).to_bytes())
+            .unwrap();
+        // After a restart: the owned window is consumed by that Owner and cannot claim again.
+        let mut owned = LocalSetup::for_owned_device(setup.path(), &auth)
+            .unwrap()
+            .unwrap();
+        let first = owned.device_ap_context(&auth).unwrap();
+        assert_eq!(first.claimed, Some(owner));
+        assert!(owned.begin_open(&mut auth, [9; 32]).is_err());
+        owned.next_device_window(&auth).unwrap();
+        assert_ne!(
+            owned.device_ap_context(&auth).unwrap().window_id,
+            first.window_id
+        );
     }
     #[test]
     fn open_claim_attempt_budget_and_deadline_are_finite() {

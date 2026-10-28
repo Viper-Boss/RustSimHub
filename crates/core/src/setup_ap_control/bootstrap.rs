@@ -67,11 +67,16 @@ pub(super) struct Bootstrap {
     coordination: Arc<crate::coordination::Coordination>,
     active: Mutex<Option<Active>>,
     stopped: AtomicBool,
+    /// Cached "no Wi-Fi saved" answer and when it was taken (uptime ms): at most one NM read
+    /// per UNCONFIGURED_TTL_MS.
+    unconfigured: AtomicBool,
+    unconfigured_ms: std::sync::atomic::AtomicU64,
     /// Uptime of the last automatic reopen: at most one per REOPEN_GAP_MS, so rounds that
     /// close at once (field test 2026-10-29) cannot spin.
     reopened_ms: std::sync::atomic::AtomicU64,
 }
 const REOPEN_GAP_MS: u64 = 30_000;
+const UNCONFIGURED_TTL_MS: u64 = 30_000;
 impl Bootstrap {
     fn path(&self) -> PathBuf {
         self.journal.join("first-setup.pending.json")
@@ -126,6 +131,8 @@ impl Bootstrap {
             coordination,
             active: Mutex::new(active),
             stopped: AtomicBool::new(false),
+            unconfigured: AtomicBool::new(false),
+            unconfigured_ms: std::sync::atomic::AtomicU64::new(0),
             reopened_ms: std::sync::atomic::AtomicU64::new(0),
         };
         {
@@ -154,6 +161,19 @@ impl Bootstrap {
         let a = self.active.try_lock().map_err(|_| Error::Busy)?;
         Ok(a.as_ref()
             .is_some_and(|s| s.phase == State::Ready && !s.cancelled && s.supported))
+    }
+    /// True only when NM positively reports no saved station Wi-Fi; any error counts as
+    /// configured, so an owned device never opens the open AP by mistake.
+    async fn unconfigured(&self) -> bool {
+        let t = now().unwrap_or(0);
+        let at = self.unconfigured_ms.load(Ordering::SeqCst);
+        if at != 0 && t < at.saturating_add(UNCONFIGURED_TTL_MS) {
+            return self.unconfigured.load(Ordering::SeqCst);
+        }
+        let none = matches!(crate::network::wifi::saved_stations().await, Ok(0));
+        self.unconfigured.store(none, Ordering::SeqCst);
+        self.unconfigured_ms.store(t.max(1), Ordering::SeqCst);
+        none
     }
     pub(super) fn ready(&self) -> Result<bool> {
         let a = self.active.try_lock().map_err(|_| Error::Busy)?;
@@ -230,7 +250,8 @@ impl Bootstrap {
         idle: &impl Idle,
     ) -> Result<()> {
         let c = context(auth.clone(), gate.clone()).await?;
-        if c.window.claimed.is_some() {
+        // An owned device gets first-setup rounds only while no Wi-Fi is saved.
+        if c.window.claimed.is_some() && !self.unconfigured().await {
             return Ok(());
         }
         self.available(&c)?;
@@ -242,7 +263,7 @@ impl Bootstrap {
         if self.stopped.load(Ordering::SeqCst) {
             return Err(Error::Forbidden);
         }
-        if after.window.claimed.is_some()
+        if after.window.claimed != c.window.claimed
             || c.window.window_id != after.window.window_id
             || c.window.realm != after.window.realm
             || c.window.device_public_key != after.window.device_public_key

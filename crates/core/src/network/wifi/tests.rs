@@ -373,3 +373,30 @@ fn first_setup_falls_back_to_the_recent_pre_ap_snapshot_only() {
     );
     assert_eq!(before_setup_ap(empty(true), true).networks.len(), 0);
 }
+#[test]
+fn only_station_wifi_profiles_count_as_configured() {
+    let s = |kind: &str, mode: Option<&str>| {
+        let mut w = HashMap::new();
+        if let Some(m) = mode {
+            w.insert(
+                "mode".to_owned(),
+                OwnedValue::from(zbus::zvariant::Str::from(m)),
+            );
+        }
+        HashMap::from([
+            (
+                "connection".to_owned(),
+                HashMap::from([(
+                    "type".to_owned(),
+                    OwnedValue::from(zbus::zvariant::Str::from(kind)),
+                )]),
+            ),
+            ("802-11-wireless".to_owned(), w),
+        ])
+    };
+    assert!(station(&s("802-11-wireless", None)));
+    assert!(station(&s("802-11-wireless", Some("infrastructure"))));
+    assert!(!station(&s("802-11-wireless", Some("ap"))));
+    assert!(!station(&s("802-3-ethernet", None)));
+    assert!(!station(&s("gsm", None)));
+}
