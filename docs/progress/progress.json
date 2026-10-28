@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-28T08:13:01.671275+00:00",
+  "updated_at": "2026-10-28T08:28:13.109637+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -1877,12 +1877,14 @@
           "dependencies": [
             "UPD-01"
           ],
-          "status": "todo",
+          "status": "done",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
-          "completed_at": null,
-          "actual_hours": null
+          "evidence": [
+            "docs/VALIDATION-UPD04-FIELD-20261028.md"
+          ],
+          "completed_at": "2026-10-28T08:28:13.109637+00:00",
+          "actual_hours": 1.5
         },
         {
           "id": "UPD-05",
@@ -5100,6 +5102,18 @@
       ],
       "evidence": [
         "docs/VALIDATION-UPD01-FIELD-20261028.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T08:28:13.109637+00:00",
+      "type": "completed",
+      "title": "UPD-04 · 已完成：候选失败后的真实整组回选",
+      "detail": "SIGKILL候选Core后经OnFailure与app-recover回到已确认55，候选期间新短信、所有者、删除标记、身份保留，恢复1次",
+      "task_ids": [
+        "UPD-04"
+      ],
+      "evidence": [
+        "docs/VALIDATION-UPD04-FIELD-20261028.md"
       ]
     }
   ],
