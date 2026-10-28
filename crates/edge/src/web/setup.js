@@ -48,14 +48,26 @@ const pending={
 };
 const wifi=new ApConfigurator({document,env:globalThis,crypto:pageCrypto,request:command=>{if(!token)throw Error('请先设置管理员账号');return api({...command,token});},
  login,getToken:()=>token,blocked:()=>busy,loadPending:pending.load,savePending:pending.save,archivePending:pending.archive});
+let listing=false,refresher=null;
+// Rebuilds the list (keeping the current choice); also run every 20 s while this step is shown.
 async function networks(){
  const list=$('setup-networks'),note=$('setup-networks-note');
+ if(listing||!token)return;listing=true;$('setup-networks-refresh').disabled=true;
  try{
-  const v=await api({op:'wifi_networks',token});
+  const v=await api({op:'wifi_networks',token}),chosen=list.value;
+  const placeholder=list.children[0];list.replaceChildren(placeholder);
   for(const n of (v.networks||[]).filter(n=>n.selectable).slice(0,64)){const o=document.createElement('option');o.value=n.ssid;o.textContent=`${n.ssid}（信号 ${n.strength}%）`;list.append(o);}
-  note.textContent=v.source==='before_setup_ap'?'列表是开启热点前扫描到的；没有找到时请手动输入名称。':(v.networks||[]).length?'':'没有扫描到 Wi-Fi，请手动输入名称。';
+  if(chosen)list.value=chosen;
+  const when=new Date().toLocaleTimeString();
+  note.textContent=(v.source==='before_setup_ap'?'列表是开启热点前扫描到的（热点开着时设备无法重新扫描）':'列表来自设备最近一次扫描')+`，${when} 更新。`+((v.networks||[]).length?'':'没有找到时请手动输入名称。');
  }catch{note.textContent='暂时无法获取附近的 Wi-Fi，请手动输入名称。';}
- list.onchange=()=>{if(list.value){$('ap-wifi-ssid').value=list.value;$('ap-wifi-passphrase').focus();}};
+ finally{listing=false;$('setup-networks-refresh').disabled=false;}
+}
+function watchNetworks(){
+ $('setup-networks').onchange=()=>{const v=$('setup-networks').value;if(v){$('ap-wifi-ssid').value=v;$('ap-wifi-passphrase').focus();}};
+ $('setup-networks-refresh').onclick=()=>void networks();
+ if(!refresher)refresher=setInterval(()=>{if(!$('setup-wifi').hidden)void networks();},20000);
+ refresher?.unref?.();
 }
 async function account(create){
  if(busy)return;busy=true;$('setup-account-go').disabled=true;
@@ -73,7 +85,7 @@ async function account(create){
   await login();
   $('setup-account').hidden=true;$('setup-wifi').hidden=false;
   $('setup-notice').textContent=create?'管理员已创建。请选择要连接的 Wi-Fi。':'已登录。请选择要连接的 Wi-Fi。';
-  await networks();await wifi.open();
+  watchNetworks();await networks();await wifi.open();
  }catch(e){seed=null;token=null;$('setup-notice').textContent=e.message||'操作失败，请重试';}
  finally{busy=false;$('setup-account-go').disabled=false;}
 }
