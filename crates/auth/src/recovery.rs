@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-//! Owner management only. No handshake, recovery bearer or ordinary-role minting.
+//! Recovery records and sealed request authority. No handshake or ordinary-role minting.
+pub(crate) mod authority;
 use super::{Auth, Error, Result};
+pub use authority::{
+    AuthorizedRecoveryRequest, RecoveryAction, RecoveryCapability, RecoveryConnection,
+    RecoveryProofBinding, RecoveryProofContext, RecoveryRequestVerifierV1, VerifiedRecoveryRequest,
+};
 use rustsimhub_policy::{Principal, Scope};
 pub use rustsimhub_storage::{RecoveryAudit, RecoveryGrant, RecoveryKey, RecoveryLimits};
 

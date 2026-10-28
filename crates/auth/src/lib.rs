@@ -125,6 +125,7 @@ pub struct Auth {
     window: Option<Instant>,
     budget: u32,
     refill: Instant,
+    recovery: recovery::authority::State,
 }
 fn random_hex() -> Result<String> {
     let mut bytes = Zeroizing::new([0u8; 32]);
@@ -264,6 +265,7 @@ impl Auth {
             window: None,
             budget: 32,
             refill: Instant::now(),
+            recovery: recovery::authority::State::default(),
         })
     }
     pub fn public_key(&self) -> [u8; 32] {

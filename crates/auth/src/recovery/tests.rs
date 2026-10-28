@@ -7,7 +7,7 @@ use rustsimhub_storage::Store;
 use std::{cell::Cell, time::Instant};
 use tempfile::TempDir;
 
-struct TestKeyRegistry(Cell<usize>);
+pub(super) struct TestKeyRegistry(pub(super) Cell<usize>);
 impl RecoveryKeyVerifierV1 for TestKeyRegistry {
     fn validate_recovery_key(&self, key: &RecoveryKey) -> Result<()> {
         self.0.set(self.0.get() + 1);
@@ -26,13 +26,13 @@ fn directory() -> TempDir {
     }
     d
 }
-fn key() -> RecoveryKey {
+pub(super) fn key() -> RecoveryKey {
     RecoveryKey {
         profile: "test-only-v1".into(),
         public_key: vec![42; 33],
     }
 }
-fn limits() -> RecoveryLimits {
+pub(super) fn limits() -> RecoveryLimits {
     RecoveryLimits {
         session_ms: 120_000,
         request_budget: 64,
@@ -43,7 +43,7 @@ fn login(auth: &mut Auth, k: &SigningKey) -> Token {
     auth.login_finish(&c.id, &k.sign(&c.transcript).to_bytes())
         .unwrap()
 }
-fn fixture(recovery: bool) -> (TempDir, TempDir, Store, Auth, SigningKey, Token) {
+pub(super) fn fixture(recovery: bool) -> (TempDir, TempDir, Store, Auth, SigningKey, Token) {
     let dir = directory();
     let identity = directory();
     let store = if recovery {
