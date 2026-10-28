@@ -40,6 +40,7 @@ use tokio_rustls::{
 };
 type Result<T> = std::result::Result<T, &'static str>;
 mod addresses;
+mod captive;
 mod installation;
 mod media;
 mod network_test;
@@ -62,6 +63,10 @@ struct Config {
     /// next to an IP origin. Each must pass the same checks as `origin`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     additional_origins: Vec<String>,
+    /// Plain-HTTP first-setup page (setup edge only); the AP firewall forwards port 80 here
+    /// only while the open hotspot is up. Fixed value, see `captive::LISTEN`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    captive_listen: Option<SocketAddr>,
 }
 fn origin_authority(origin: &str) -> Result<String> {
     let uri: axum::http::Uri = origin.parse().map_err(|_| "invalid origin")?;
@@ -815,6 +820,10 @@ pub fn run(args: Vec<String>) -> Result<()> {
         }
         v
     };
+    let captive_listen = config.captive_listen;
+    if captive_listen.is_some_and(|a| a != captive::LISTEN) {
+        return Err("invalid captive listener");
+    }
     let media = config
         .media_worker_socket
         .map(|p| Arc::new(media::Bridge::new(p)));
@@ -844,6 +853,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
         let mut acceptors=JoinSet::new();let mut listening=Vec::new();
         for address in &wanted(&configured_addresses) {match TcpListener::bind(address).await {Ok(listener)=>{acceptors.spawn(accept_one(listener));listening.push(*address);},Err(e) if e.kind()==std::io::ErrorKind::AddrNotAvailable=>{},Err(_) if !configured_addresses.contains(address)=>{},Err(_)=>return Err("listener unavailable"),}}
         if let Some(bridge)=&app.media {bridge.takeover().await?;}
+        if let Some(addr)=captive_listen {tokio::spawn(captive::serve(addr,app.clone()));}
         let mut retry_bind=tokio::time::interval(Duration::from_secs(5));retry_bind.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         let slots=Arc::new(Semaphore::new(24)); let mut tasks=JoinSet::new();
         let mut term=tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).map_err(|_|"signal unavailable")?;

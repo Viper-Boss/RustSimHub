@@ -500,7 +500,8 @@ async fn serve(
                             .map_err(|_| Error::Busy)??;
                             if configurable {
                                 network.retain_ap_for_station_trial()?;
-                                let mut guard = crate::guard::NftGuard::for_station_trial();
+                                let mut guard = crate::guard::NftGuard::for_station_trial()
+                                    .with_open(credentials.is_open());
                                 let _result = configuration::execute(
                                     &worker,
                                     &mut network,
@@ -512,7 +513,8 @@ async fn serve(
                                 )
                                 .await;
                             } else {
-                                let mut guard = crate::guard::NftGuard::new();
+                                let mut guard =
+                                    crate::guard::NftGuard::new().with_open(credentials.is_open());
                                 let _result = execute(
                                     &worker,
                                     &mut network,

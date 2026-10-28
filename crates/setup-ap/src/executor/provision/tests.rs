@@ -263,3 +263,35 @@ fn export_refuses_changed_material_before_creating_a_secret_copy() {
     assert!(export_owned(&f.material(), &output, f.uid).is_err());
     assert!(!output.exists());
 }
+/// Sets one config field coherently (record hash updated).
+fn with_field(f: &Fixture, key: &str, v: serde_json::Value) {
+    let config = f.edge.join("config.json");
+    let mut value: serde_json::Value = serde_json::from_slice(&fs::read(&config).unwrap()).unwrap();
+    value[key] = v;
+    let bytes = serde_json::to_vec(&value).unwrap();
+    fs::write(&config, &bytes).unwrap();
+    let record = f.edge.join("record.json");
+    let mut r: serde_json::Value = serde_json::from_slice(&fs::read(&record).unwrap()).unwrap();
+    r["config_sha256"] = hash(&bytes).into();
+    fs::write(&record, serde_json::to_vec(&r).unwrap()).unwrap();
+}
+#[test]
+fn only_the_fixed_captive_listener_is_accepted() {
+    let f = Fixture::new();
+    with_field(
+        &f,
+        "captive_listen",
+        serde_json::json!("192.168.100.1:8080"),
+    );
+    assert!(f.prepare().is_ok());
+    for bad in [
+        "192.168.100.1:80",
+        "0.0.0.0:8080",
+        "127.0.0.1:8080",
+        "192.168.120.167:8080",
+    ] {
+        let f = Fixture::new();
+        with_field(&f, "captive_listen", serde_json::json!(bad));
+        assert!(f.prepare().is_err(), "{bad}");
+    }
+}

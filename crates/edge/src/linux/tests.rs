@@ -238,6 +238,7 @@ fn config_rejects_unrestricted_binds_credentials_and_noncanonical_origins() {
     let mut c = Config {
         additional_origins: Vec::new(),
         additional_listen_ips: Vec::new(),
+        captive_listen: None,
         media_worker_socket: None,
         listen: "127.0.0.1:8443".parse().unwrap(),
         origin: "https://localhost:8443".into(),
@@ -277,6 +278,7 @@ fn configured_media_and_extra_listeners_stay_private_explicit_and_unique() {
         legacy_compat: false,
         media_worker_socket: Some("/run/media/worker.sock".into()),
         additional_listen_ips: vec!["127.0.0.2".parse().unwrap()],
+        captive_listen: None,
         additional_origins: Vec::new(),
     };
     assert!(c.authority().is_ok());
@@ -387,6 +389,7 @@ fn additional_origins_are_exact_unique_bounded_and_omitted_when_empty() {
     let mut c = Config {
         additional_origins: vec!["https://rustsimhub-0087.local:8443".into()],
         additional_listen_ips: Vec::new(),
+        captive_listen: None,
         media_worker_socket: None,
         listen: "192.168.120.167:8443".parse().unwrap(),
         origin: "https://192.168.120.167:8443".into(),

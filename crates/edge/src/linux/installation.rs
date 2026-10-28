@@ -107,6 +107,7 @@ fn expected_profile(
     let config = Config {
         additional_origins,
         additional_listen_ips: additional.unwrap_or_default().to_vec(),
+        captive_listen: None,
         media_worker_socket: additional.map(|_| "/run/rustsimhub/media/worker.sock".into()),
         listen,
         origin: format!("https://{authority}"),
@@ -268,6 +269,7 @@ pub(super) fn prepare_setup(directory: &Path, device: Option<&str>) -> Result<se
         legacy_compat: false,
         media_worker_socket: None,
         additional_listen_ips: vec!["192.168.100.1".parse().map_err(|_| "invalid fixed AP IP")?],
+        captive_listen: Some(super::captive::LISTEN),
     };
     config.authority()?;
     prepare_config(directory, config, "192.168.100.1")

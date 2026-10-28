@@ -45,6 +45,8 @@ impl BindingFile {
         Ok(())
     }
 }
+/// Must match the setup edge's fixed captive listener (`captive::LISTEN`).
+pub(crate) const CAPTIVE_PORT: u16 = 8080;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EdgeConfig {
@@ -61,6 +63,9 @@ struct EdgeConfig {
     additional_listen_ips: Vec<std::net::IpAddr>,
     #[serde(default)]
     additional_origins: Vec<String>,
+    /// First-setup plain-HTTP page; only the fixed AP address and port are accepted.
+    #[serde(default)]
+    captive_listen: Option<std::net::SocketAddr>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -120,6 +125,9 @@ fn snapshot(path: &Path, uid: u32, binding: &BindingFile) -> Result<Snapshot> {
         || config.legacy_compat
         || config.media_worker_socket.is_some()
         || config.additional_listen_ips != [ap]
+        || config
+            .captive_listen
+            .is_some_and(|a| a != std::net::SocketAddr::new(ap, CAPTIVE_PORT))
         || record.format != 1
         || record.listen != loopback
         || record.tls_name != crate::ADDRESS
