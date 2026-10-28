@@ -364,7 +364,15 @@ impl Bootstrap {
         let Some(gate) = setup else { return Ok(()) };
         let t = now()?;
         let last = self.reopened_ms.load(Ordering::SeqCst);
-        if last != 0 && t < last.saturating_add(REOPEN_GAP_MS) {
+        // Only rounds that ended quickly wait out the gap; a round that ran its course
+        // reopens at once so the hotspot stays available.
+        let quick = self
+            .active
+            .try_lock()
+            .map_err(|_| Error::Busy)?
+            .as_ref()
+            .is_some_and(|s| t < s.record.binding.created_uptime_ms.saturating_add(60_000));
+        if quick && last != 0 && t < last.saturating_add(REOPEN_GAP_MS) {
             return Ok(());
         }
         let auth = auth.try_lock().map_err(|_| Error::Busy)?;
@@ -471,7 +479,9 @@ impl Bootstrap {
         }
         // Keep-alives at most every KEEPALIVE_MS: an hour-long round stays far below the
         // 1024-sequence cap (one per 1 s tick exhausted it after ~17 minutes).
-        if allowed.is_none() || t < s.keepalive_ms.saturating_add(KEEPALIVE_MS) {
+        // A busy check (None) still keeps the open first-setup AP alive; only a real denial
+        // (Some(false), handled above) ends the round (user decision 2026-10-29).
+        if t < s.keepalive_ms.saturating_add(KEEPALIVE_MS) {
             return Ok(());
         }
         s.keepalive_ms = t;

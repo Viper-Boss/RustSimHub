@@ -508,3 +508,29 @@ async fn mismatched_transfer_or_pending_is_rejected_before_recovery_writes() {
         assert!(f.runtime.journal.join("first-setup.pending.json").exists());
     }
 }
+#[tokio::test]
+async fn adopted_first_setup_round_keeps_the_open_ap_alive_without_a_live_token() {
+    let (f, token) = ready().await;
+    adopt(&f, &token).await.unwrap();
+    // The administrator's session token is gone (page closed, 15-minute expiry): the open
+    // first-setup round is still kept alive, with open keep-alives at a bounded rate.
+    if let Some(s) = f.runtime.session.try_lock().unwrap().as_mut() {
+        s.token = None;
+    }
+    f.runtime.tick(f.auth.clone(), &idle()).await.unwrap();
+    let first = hint(&f);
+    assert!(first.action == Action::KeepAlive && first.open);
+    for _ in 0..5 {
+        f.runtime.tick(f.auth.clone(), &idle()).await.unwrap();
+    }
+    assert!(hint(&f) == first, "keep-alives are rate-limited");
+    assert!(
+        !f.runtime
+            .session
+            .try_lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .cancelled
+    );
+}

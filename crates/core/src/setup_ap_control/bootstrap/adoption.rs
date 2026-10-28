@@ -232,6 +232,8 @@ impl Runtime {
             trial: None,
             station_count: 0,
             refusal: None,
+            first_setup: true,
+            keepalive_ms: 0,
         });
         Ok(Self::view(parent.as_ref().ok_or(Error::Forbidden)?))
     }

@@ -180,7 +180,7 @@ async fn execute<N: Network, G: Guard, R: Ready + Sync>(
                         if usable {
                             heard_ready = true;
                             misses = 0;
-                        } else if heard_ready && { misses += 1; misses < configuration::MAX_MISSES } {
+                        } else if heard_ready && (credentials.is_open() || { misses += 1; misses < configuration::MAX_MISSES }) {
                             state = State::Ready; // Tolerate a transiently busy setup page.
                         } else if heard_ready || waiting_ap.get_or_insert_with(Instant::now).elapsed() >= Duration::from_secs(10) {
                             shutting_down = true; cancel.send_replace(true); state = State::Closing;

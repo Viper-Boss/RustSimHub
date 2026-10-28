@@ -219,8 +219,12 @@ pub(super) async fn execute<
             let up=timeout(Duration::from_secs(3),network.ready(ap)).await.is_ok_and(|v|v==Ok(true));
             let https=gate_ok && up && timeout(Duration::from_secs(3),readiness.ap_check()).await.is_ok_and(|v|v.is_ok());
             if !https {
-                if !seen && initial.elapsed()>=Duration::from_secs(10) { break; }
-                if seen { misses+=1; if misses>=MAX_MISSES { break; } }
+                // The open first-setup AP waits for the page to come back instead of closing
+                // (user decision 2026-10-29); a denied lease or changed guard still ends it above.
+                if !ap.is_open() {
+                    if !seen && initial.elapsed()>=Duration::from_secs(10) { break; }
+                    if seen { misses+=1; if misses>=MAX_MISSES { break; } }
+                }
                 tokio::time::sleep(Duration::from_millis(500)).await;
                 continue;
             } else {
