@@ -13,6 +13,15 @@ use std::{
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 const LEDS: [&str; 3] = ["red:", "green:wan", "blue:"];
 fn checked(path: &Path, uid: u32, mode: u32, limit: u64) -> Result<Vec<u8>> {
+    checked_owned(path, uid, None, mode, limit)
+}
+fn checked_owned(
+    path: &Path,
+    uid: u32,
+    gid: Option<u32>,
+    mode: u32,
+    limit: u64,
+) -> Result<Vec<u8>> {
     let file = OpenOptions::new()
         .read(true)
         .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
@@ -20,7 +29,8 @@ fn checked(path: &Path, uid: u32, mode: u32, limit: u64) -> Result<Vec<u8>> {
     let m = file.metadata()?;
     if !m.is_file()
         || m.uid() != uid
-        || m.mode() & 0o777 != mode
+        || gid.is_some_and(|g| m.gid() != g)
+        || m.mode() & 0o7777 != mode
         || m.nlink() != 1
         || m.len() > limit
     {
@@ -214,14 +224,16 @@ fn io_count() -> Option<u64> {
         .checked_add(fields.get(4)?.parse::<u64>().ok()?)
 }
 fn business(now: u64) -> Option<BusinessInput> {
+    // Root here has no capabilities: Core shares the hint through group root.
     let dir = fs::symlink_metadata("/run/rustsimhub-led-input").ok()?;
-    if !dir.is_dir() || dir.uid() != 986 || dir.mode() & 0o777 != 0o700 {
+    if !dir.is_dir() || dir.uid() != 986 || dir.gid() != 0 || dir.mode() & 0o7777 != 0o2750 {
         return None;
     }
-    let bytes = checked(
+    let bytes = checked_owned(
         Path::new("/run/rustsimhub-led-input/state.json"),
         986,
-        0o600,
+        Some(0),
+        0o640,
         512,
     )
     .ok()?;
@@ -311,6 +323,7 @@ pub fn run() -> Result<()> {
             input.configuring |= b.configuring;
             input.unread_sms = b.unread_sms;
             input.missed_calls = b.missed_calls;
+            input.ringing = b.ringing;
         }
         if let Some(u) = update_hint.and_then(|u: UpdateInput| u.fresh(now)) {
             input.upgrading |= u.upgrading;
