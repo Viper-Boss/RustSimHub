@@ -1,5 +1,6 @@
 # RustSimHub 当前接手入口
 
+2026-10-28 [D-13～16灯控输入交付](testing/led-input-boundaries.md)：实际策略/文件/Core账本与Store快照矩阵、26向量、两个真实FIFO阻塞复现及最小非阻塞打开修复；256项、严格Clippy/fmt与23进度测试通过。lead累计16、D余10、总118不变；LED-07/SEC-06仍待，提示无SIM epoch等缺口保留，未碰设备。合并Claude主线UPD-01证据并保留SMS-05后，本交付分支18/169、9.6%、余151，原80%；正常审核合入前不能称main/Pages已发布。
 2026-10-28 [主线D第二/三批交付](deliveries/member-d-sms.md)：代码07a98395/adb7bb6e覆盖D-05～08的内容、候选、事务/六阶段实际进程退出与真实发送Worker重建（Create/Send各1）；D-09～12补通话身份审计、4Store+1peer，修复换SIM后backend/source碰撞会重写旧历史的问题，保留拒绝后的历史/事件。跨启动完整去重缺持久身份，单独提案未实现，不计CALL-08完成。Core167+Store61=228项、严格Clippy/fmt及阶段23项进度检查通过；当前Node短信管理通过。[SMS-05独立原判据](VALIDATION-SMS05-CANDIDATES-20261028.md)通过，在本交付分支完成为17/169、9.0%、余152，原80%不变，main待正常PR合入。累计lead接回12步，D余14、总118保持，成员已审/Git贡献不预加。当前分支基于PR34，前置未合入时按堆叠PR审核；无设备/外发/签名/部署，与CC设备工作分开。后续D-13～26与其他成员范围保留，当前HEAD最终检查见PR说明。
 
 2026-10-28 [主线接回D首批](deliveries/member-d-sms.md)：用户确认RedamancyGTW尚未开工，授权主线接手；D-01～04由lead交付，D余22步，118总步骤不变，SMS-02/04离线责任同步移到lead。固定代码17a63d56的真实peer复现“SMS对象退休后旧GetAll仍入库”，修复为按session消费revision做读取后及writer内双重检查，保留SIM/同内容候选/原UUID语义；新增7项，Core/Store209项、严格Clippy/fmt、23项Linux进度/Git测试、Node/生成一致性通过。分工文档、原任务书、名册、映射和按人看板已更新；接回步骤待PR审核，不伪记成员完成或Git贡献。独立工作目录保留原U5现场，未碰设备/CC应用53/签名/流量/关机；原80%、16/169、余153、8.4%保持。后续按D-05～08等小批次逐项扣账，其他成员范围不变。

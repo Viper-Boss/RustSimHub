@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "revision": "T9-2026-10-28-D-followup",
+  "revision": "T10-2026-10-28-D-led",
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
   "source_revision": "6f228fd3dcb9ce6da54d7910f4b044833e71a91a",
   "remaining_actions": 155,
   "offline_owned_actions": 90,
   "main_only_actions": 65,
-  "note": "历史155项的分配截面不作为当前剩余计数；90项离线责任含成员84项及主线接回6项，65项原主线专属。当前状态以progress.json为准。",
+  "note": "历史155项分配截面不作为当前剩余计数；90项离线责任含成员82项及主线接回8项，65项原主线专属。当前状态以progress.json为准。",
   "actions": [
     {
       "id": "FWD-06",
@@ -821,11 +821,11 @@
     {
       "id": "LED-07",
       "title": "灯控权限与持久标记复验",
-      "offline_owner": "member-d",
+      "offline_owner": "lead",
       "execution_owner": "lead",
       "scope": "previous_offline_scope",
-      "deliverable": "核对固定sysfs、空能力、Core输入新鲜度、读取标记和换卡范围。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "deliverable": "核对固定sysfs、空能力、Core输入新鲜度、读取标记和换卡范围。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。；2026-10-28 D-13～16主线接回，真实策略/文件/Store离线矩阵及FIFO修复；LED跨进程代次和新增BLE/媒体矩阵仍待，不等于整项闭环。",
+      "handoff": "docs/deliveries/member-d-sms.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
@@ -1011,11 +1011,11 @@
     {
       "id": "SEC-06",
       "title": "有界输入和协议模糊测试",
-      "offline_owner": "member-d",
+      "offline_owner": "lead",
       "execution_owner": "lead",
       "scope": "previous_offline_scope",
-      "deliverable": "覆盖HTTP/IPC/配置/短信/媒体/蓝牙帧的大小、深度、超时和资源限制。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "deliverable": "覆盖HTTP/IPC/配置/短信/媒体/蓝牙帧的大小、深度、超时和资源限制。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。；2026-10-28 D-13～16主线接回，真实策略/文件/Store离线矩阵及FIFO修复；LED跨进程代次和新增BLE/媒体矩阵仍待，不等于整项闭环。",
+      "handoff": "docs/deliveries/member-d-sms.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
