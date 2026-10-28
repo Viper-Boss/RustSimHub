@@ -22,6 +22,7 @@ pub struct CallObservation {
     pub state: i32,
     pub reason: i32,
 }
+type PriorCallObservation = (String, String, i32, i32, i32, String, i64, Vec<u8>);
 #[derive(Serialize)]
 pub struct CallPage {
     pub calls: Vec<CallSummary>,
@@ -128,8 +129,10 @@ impl Handle {
         self.call(move|db|{
    if o.source.is_empty()||o.source.len()>256||o.number.len()>256||!(0..=2).contains(&o.direction)||!(0..=7).contains(&o.state)||!(0..=255).contains(&o.reason){return Err(Error::InvalidInput);}
    let tx=db.connection.transaction()?;if !guard(){return Err(Error::StaleLine);}super::outgoing::ready(&tx,&b)?;
-   let old:Option<(String,String,i32,i32,i32,String)>=tx.query_row("SELECT id,number,direction,state,reason,availability FROM calls WHERE backend=? AND source=?",params![b.backend,o.source],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?))).optional()?;
-   let id=if let Some((id,number,direction,state,reason,availability))=old {
+   let old:Option<PriorCallObservation>=tx.query_row("SELECT id,number,direction,state,reason,availability,line_epoch,fingerprint FROM calls WHERE backend=? AND source=?",params![b.backend,o.source],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?,r.get(6)?,r.get(7)?))).optional()?;
+   let id=if let Some((id,number,direction,state,reason,availability,line,fingerprint))=old {
+    // A reused path is not authority to rewrite another SIM's historical row.
+    if line!=checked_line(b.line)?||fingerprint.as_slice()!=b.fingerprint.as_slice(){return Err(Error::StaleLine);}
     if number!=o.number||direction!=o.direction {return Err(Error::Conflict);}
     if state!=o.state||reason!=o.reason||availability!="observed"{
      tx.execute("UPDATE calls SET state=?,reason=?,availability='observed' WHERE id=?",params![o.state,o.reason,id])?;
