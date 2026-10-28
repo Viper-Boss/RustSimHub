@@ -1,12 +1,12 @@
 # RustSimHub 完整剩余行动台账
 
-快照：2026-10-28T01:56:38.461202+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
+快照：2026-10-28T06:52:04.631982+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
 
 原P0–P7：**80%**，剩余 **20** 个验收点。新增X1/X2/X3/BLE独立保留，不混入旧分母。
 
-本轮台账：**15/169** 动作已完成，按冻结工时中值加权 **7.8%**；另有9项搁置/按需动作不计入本轮分母。
+本轮台账：**16/169** 动作已完成，按冻结工时中值加权 **8.4%**；另有9项搁置/按需动作不计入本轮分母。
 
-剩余有效开发工时粗估 **181.5–434小时**。工时折合天数不含换卡、真人听音、第二设备、服务器及单独BLE授权等待；长测等待可以与其他开发重叠。
+剩余有效开发工时粗估 **180.5–431小时**。工时折合天数不含换卡、真人听音、第二设备、服务器及单独BLE授权等待；长测等待可以与其他开发重叠。
 
 看板入口：[GitHub Pages](https://viper-boss.github.io/RustSimHub/) · [单文件HTML](index.html) · [结构化台账](progress.json)
 
@@ -960,7 +960,7 @@ python tools/progress/build.py --check
 
 ## REC · 备份与完整恢复闭环
 
-原计划收尾 · 5个动作 · 已完成1个
+原计划收尾 · 5个动作 · 已完成2个
 
 已有全盘备份、恢复入口和新系统安装证据；完整恢复能力仍需独立演练。
 
@@ -979,15 +979,16 @@ python tools/progress/build.py --check
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
 - 证据：[VALIDATION-REC01-DEVICE-20261028.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-REC01-DEVICE-20261028.md)
 
-### [ ] REC-02 · 准备新系统恢复演练包
+### [x] REC-02 · 准备新系统恢复演练包
 
-- 状态：待做
+- 状态：已完成
 - 动作：使用已验证的新系统快照，冻结p14/p15写入目标、校验及返回流程。
 - 验收：不是要求回刷旧系统；写入前有完整可审查恢复计划和物理窗口。
 - 预计有效工时：1–3小时
 - 前置：REC-01
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[VALIDATION-REC02-SNAPSHOT-AND-POWER-20261028.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-REC02-SNAPSHOT-AND-POWER-20261028.md)
 
 ### [ ] REC-03 · 完整恢复实际演练
 
@@ -1071,7 +1072,7 @@ python tools/progress/build.py --check
 
 ### [ ] LED-05 · 短信/未接电话两组跑马灯
 
-- 状态：待做
+- 状态：待用户
 - 动作：短信蓝→青→绿0.9秒；未接红→黄→紫0.9秒；都有时连跑1.8秒。
 - 验收：最多每30秒一组；真实查看/确认后停止对应组，高优先级压制有效。
 - 预计有效工时：0.5–1.5小时

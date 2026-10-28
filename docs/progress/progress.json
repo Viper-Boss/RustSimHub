@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-28T01:56:38.461202+00:00",
+  "updated_at": "2026-10-28T06:52:04.631982+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -2056,12 +2056,14 @@
           "dependencies": [
             "REC-01"
           ],
-          "status": "todo",
+          "status": "done",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
-          "completed_at": null,
-          "actual_hours": null
+          "evidence": [
+            "docs/VALIDATION-REC02-SNAPSHOT-AND-POWER-20261028.md"
+          ],
+          "completed_at": "2026-10-28T06:52:04.631982+00:00",
+          "actual_hours": 2.5
         },
         {
           "id": "REC-03",
@@ -2234,7 +2236,7 @@
             "user"
           ],
           "dependencies": [],
-          "status": "todo",
+          "status": "needs_user",
           "offline_delegable": false,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -5036,6 +5038,42 @@
       ],
       "evidence": [
         "docs/VALIDATION-REC01-DEVICE-20261028.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T06:17:31.532512+00:00",
+      "type": "state",
+      "title": "REC-02 · 状态更新：准备新系统恢复演练包",
+      "detail": "演练包、快照版本核对工具与测试已完成；新系统快照需要用户决定并到场的物理窗口（halt后9008只读读取），未拍快照前不计完成",
+      "task_ids": [
+        "REC-02"
+      ],
+      "evidence": [
+        "docs/REC-02-RECOVERY-DRILL.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T06:17:31.780874+00:00",
+      "type": "state",
+      "title": "LED-05 · 状态更新：短信/未接电话两组跑马灯",
+      "detail": "实测六色两组时序正确；用户确认未接来电后红黄紫组停止(只读灯记录)；尚缺查看短信后短信组停止、配置面板压制两条",
+      "task_ids": [
+        "LED-05"
+      ],
+      "evidence": [
+        "docs/acceptance/session-led.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T06:52:04.631982+00:00",
+      "type": "completed",
+      "title": "REC-02 · 已完成：准备新系统恢复演练包",
+      "detail": "新系统epoch 52全盘快照经9008只读读取、离线核对、快照版本核对、恢复计划生成与校验全部通过；无分区写入",
+      "task_ids": [
+        "REC-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-REC02-SNAPSHOT-AND-POWER-20261028.md"
       ]
     }
   ],
