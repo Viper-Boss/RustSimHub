@@ -192,7 +192,8 @@ fn profile_matches(p: &Settings, c: &Credentials) -> Result<bool> {
         && cipher("pairwise")? == ["ccmp"]
         && cipher("group")? == ["ccmp"]
         && security.get("pmf").and_then(|v| i32::try_from(v).ok()) == Some(PMF_DISABLE)
-        && number(security, "psk-flags")? == 0
+        // NM omits settings at their default (psk-flags 0) from GetSettings.
+        && security.get("psk-flags").map_or(Ok(0), |v| u32::try_from(v).map_err(|_| Error::Io))? == 0
         && text(ip, "method")? == "shared"
         && boolean(ip, "never-default")?
         && !boolean(ip, "may-fail")?

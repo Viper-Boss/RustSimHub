@@ -705,6 +705,17 @@ fn ap_settings_are_fixed_and_subnet_collision_is_not_guessed_away() {
     assert!(subnet_conflict("10.0.0.1", 33).is_err());
 }
 #[test]
+fn real_nm_read_back_without_default_psk_flags_still_matches() {
+    // Field test (app 58): NM's GetSettings drops psk-flags=0, which made rollback refuse
+    // to delete the exact AP profile and end in Unknown.
+    let c = Credentials::generate().unwrap();
+    let mut s = settings(&c).unwrap();
+    let security = s.get_mut("802-11-wireless-security").unwrap();
+    security.remove("psk-flags");
+    security.remove("psk");
+    assert!(profile_matches(&s, &c).unwrap());
+}
+#[test]
 fn restoring_ap_also_requires_the_original_isolation_ciphers_and_address_policy() {
     let c = Credentials::generate().unwrap();
     for (section, key, value) in [
