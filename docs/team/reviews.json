@@ -45,6 +45,20 @@
     },
     {
       "member_id": "member-c",
+      "pr": 9,
+      "head": "c10c95ce35fb029678457069cc6354337e4121f3",
+      "decision": "offline_accepted",
+      "steps": [
+        "C-07",
+        "C-08"
+      ],
+      "evidence": [
+        "docs/team/REVIEW-PR-9-c10c95c.md"
+      ],
+      "self_reported_hours": null
+    },
+    {
+      "member_id": "member-c",
       "pr": 10,
       "head": "45c54d4b32bc00a1093cf54d4faead9795cdbdc7",
       "decision": "needs_changes",
