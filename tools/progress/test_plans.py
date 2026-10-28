@@ -47,7 +47,7 @@ class Plans(unittest.TestCase):
         members=copy.deepcopy(self.members)
         lead=next(m for m in members if m['id']=='lead')
         other=next(m for m in members if m['id']=='member-d')
-        self.assertEqual(lead['step_ids'],['D-01','D-02','D-03','D-04'])
+        self.assertEqual(lead['step_ids'],['D-'+str(n).zfill(2) for n in range(1,13)])
         self.assertFalse(set(lead['step_ids']) & set(other['step_ids']))
         value=plans.build(team.ROOT,members,self.reviews,{m['id']:m['work'] for m in members})
         steps=next(m for m in value['members'] if m['member_id']=='lead')['steps']
@@ -57,6 +57,8 @@ class Plans(unittest.TestCase):
         roster=json.loads((team.ROOT/'docs/team/roster.json').read_text(encoding='utf8'))
         next(m for m in roster['members'] if m['id']=='member-d')['step_ids'].append('D-01')
         with self.assertRaisesRegex(ValueError,'multiple owners'):team.roster_valid(roster)
+        self.assertEqual(len(other['step_ids']),14)
+        self.assertEqual(sum(len(m['step_ids']) for m in members),118)
 
 
 if __name__=='__main__':unittest.main()

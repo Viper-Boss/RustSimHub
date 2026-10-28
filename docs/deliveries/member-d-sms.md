@@ -1,5 +1,48 @@
 # 通信观测工作包交付与主线接回台账
 
+## 当前结算 · 2026-10-28 第二轮
+
+主线新增交付 D-05～D-08 的短信内容/候选/持久发送恢复包，以及 D-09～D-12 的通话重观察审计、失败矩阵、防串线最小修复与持久身份提案。**D-11 的跨启动完整去重方案仍是提案，尚未实现；交付该提案不等于去重功能完成。** 所有接回步骤待对应PR当前HEAD审核，不记为 RedamancyGTW 完成。
+
+**本轮接回8步，累计主线12步；RedamancyGTW 从22步再减8步，当前保留 D-13～D-26 共14步。** 118步骤总量不变：四位成员持有106步，主线持有接回12步。SMS-03/05/06与CALL-08离线责任移到lead，与此前SMS-02/04一致。另按[SMS-05原判据验收](../VALIDATION-SMS05-CANDIDATES-20261028.md)单独关闭疑似重复/恢复查询动作：本交付分支为17/169、加权9.0%、余152；main在本PR合入前仍为16/169。原80%和其他功能/实机状态保持。
+
+| 步骤 | 本次实际交付 | 范围和未完成项 |
+|---|---|---|
+| D-05 | 实际MM属性解码→Store：中文/emoji/组合字符/ZWJ/空正文/二进制、4096字节边界、缺字段/错类型/混合载荷/未完成及非接收状态 | 新增回归，已有行为通过；依赖MM解码，不新增PDU解码器，未测真实运营商分段 |
+| D-06 | 真实SQLite重开/备份恢复中，不同来源同正文保留独立ID；候选边、删除/恢复保持；跨卡不关联；旧Owner在恢复后被隔离 | 已有行为补验；不修改网页、权限或schema |
+| D-07 | prepare/begin事件失败、bind/permit写入失败、确认失败；6阶段真实进程退出；真实Auth/Store/发送Worker重建后查询同一Unknown | 不会重新Create/Send；正常重开Prepared仍待显式授权提交，备份恢复将旧Prepared隔离为Unknown；不声称自动重发 |
+| D-08 | 分类别记录、固定源码、完整命令、失败夹具修正及实机补验清单 | 223项阶段回归通过，待当前PR审核 |
+| D-09 | 读取Core和Store实际来源链、MM owner/line/path/revision/UUID图；明确持久身份缺口 | 见[身份边界与提案](../testing/call-reobserve-identity.md)，不按号码猜合并 |
+| D-10 | Store并发/终态重观察/重开/backend变化/换SIM/事务失败；真实Core peer的无关SMS通知和Call退休 | 4个Store+1个peer新增测试；没有真实MM/硬件观察 |
+| D-11 | 修复跨SIM来源碰撞会重写旧历史的问题，修复前复现失败、修复后通过；交持久身份/迁移候选提案 | 最小保护已实现；跨启动全场景去重未实现、schema方案待审 |
+| D-12 | 通话代码提交、228项完整Core/Store、严格Clippy/fmt及23项进度回归 | 离线包提交；CALL-08不标done，不修改拨号/接听/挂断/媒体/租约 |
+
+### 本轮固定来源
+
+- 基线与前置：PR #34 的 `8edb20334fa05e97e1d7efe33e1f87990fa5e7b2`；第二批分支 `codex/lead-member-d-sms-content-20261028`。PR #34未合入时，本PR先以其功能分支为base，避免把首批误称为本轮新增；前置合并后正常接续main。
+- D-05～08代码：`07a98395da961898d199d57c0f65db26315875a5`；D-09～12代码：`adb7bb6e1598e1a2a5a130821c996733d19c4e65`。
+- 本轮新增19个Rust测试入口（含1个仅供子进程调用的入口），其中6种实际进程退出场景由父测试分别启动、核验；不是19种实机测试。
+- 223项阶段归档 `1c40a40ef6818bd8b15e52d36c02ff7919afcbec9e8ca0cfbac53e70c785dbb4`；加入通话修复后228项归档 `4a26803a5e5fce5765ba2b3bc25eeb9bf3949086d73299e12967527f0143ea6f`，日志摘要 `f9deae6610fb03cb277d091ef84439c374b57255fa34fd99e02734737b8a7cc1`。
+- 环境：同首批WSL/Linux、Rust1.98、UID65534/无capabilities、无网络/设备、只读源码/缓存，临时库与私有peer。没有签名、部署、真实发送或拨号，不与CC争用设备。
+
+### 结果与补验
+
+```sh
+cargo test -p rustsimhub-storage -p rustsimhub-core --all-features --locked --offline -j3
+cargo clippy -p rustsimhub-storage -p rustsimhub-core --all-targets --all-features --locked --offline -j3 -- -D warnings
+cargo fmt --all -- --check
+python3 -m unittest discover -s tools/progress -p 'test_*.py'
+python3 tools/progress/build.py --check
+```
+
+最终阶段：Core167 + Store61 = **228项通过，0失败/忽略**；Clippy/fmt、23项Python进度检查、Node短信管理/按人看板与生成一致性通过。包含12/14分工、SMS-05闭环和测试分类修正的最终测试截面摘要为 `3572f4cf81cc4dabe86fd944e44ccb9b9f3881e5ffbdb43fc59a35321ae3afcf`，日志摘要为 `4121535cc2cd5da2fd4d4a5564e242f56aa358ebd5ec566142579ce58cbed201`；后续仅补本文验证结果。贡献统计把已核对的Core cfg(test)独立夹具改列测试，重算固定main历史，不将其算产品码或预记本分支行数。PR HEAD及CI实际结果在PR说明核对。
+
+保留的夹具失败：未提交确认场景最初将Connection传给需Transaction的event助手，随后分支中已移动operation ID未显式声明不返回；改为真实Transaction且强制退出不展开Drop。MM完整PDU类型夹具最初用i32，真实解码器正确拒绝，改成与接口一致的u32后通过。均未为测试放宽生产类型/约束。通话跨SIM测试在原实现上确实失败，才增加持久line/fingerprint保护。
+
+新发现并修复：通话历史跨SIM误更新。新增测试/已有行为补验：短信内容、候选、发送事务与进程恢复、持续观察下的通话去重。未实现：MM原始PDU解析、无可靠身份时的跨启动完整通话去重方案。未运行：真实发送授权、真实分段/SIM满、双端补同步、换卡、真实MM重建/通知丢失、ARM、冷启动与当前设备安装。恢复后Owner隔离测试只使用可信离线恢复入口，不代表开放网络认领或新建Owner。
+
+后续主线按真实结果集成/发布；D-13～26的灯控输入、GATT及恢复/远程媒体仍保留待办。下面首批记录是历史结算，不覆盖本节当前12/14数量。
+
 ## 2026-10-28：主线完成 D-01～D-04 的离线实现
 
 用户明确说明 RedamancyGTW 尚未开始，并授权主线直接接手。执行者为项目负责人 Viper-Boss（本会话 Codex 辅助），不计入 RedamancyGTW 已完成工作；不更改历史 Git 作者或他人提交。

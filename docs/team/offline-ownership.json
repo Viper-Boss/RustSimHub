@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "revision": "T8-2026-10-28-D-first-batch",
+  "revision": "T9-2026-10-28-D-followup",
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
   "source_revision": "6f228fd3dcb9ce6da54d7910f4b044833e71a91a",
   "remaining_actions": 155,
   "offline_owned_actions": 90,
   "main_only_actions": 65,
-  "note": "历史155项的分配截面不作为当前剩余计数；90项离线责任含成员88项及主线接回2项，65项原主线专属。当前完成数以progress.json为准。",
+  "note": "历史155项的分配截面不作为当前剩余计数；90项离线责任含成员84项及主线接回6项，65项原主线专属。当前状态以progress.json为准。",
   "actions": [
     {
       "id": "FWD-06",
@@ -231,11 +231,11 @@
     {
       "id": "SMS-03",
       "title": "中文/emoji/长短信/二进制",
-      "offline_owner": "member-d",
+      "offline_owner": "lead",
       "execution_owner": "lead",
       "scope": "previous_offline_scope",
-      "deliverable": "补齐分段、编码、截断、大小限制与无效PDU输入矩阵。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "deliverable": "补齐分段、编码、截断、大小限制与无效PDU输入矩阵。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。；2026-10-28 D-05～12主线接回；CALL-08持久身份方案待审，离线包不等于完整实机验收。",
+      "handoff": "docs/deliveries/member-d-sms.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
@@ -251,21 +251,21 @@
     {
       "id": "SMS-05",
       "title": "疑似重复与跨启动易用性",
-      "offline_owner": "member-d",
+      "offline_owner": "lead",
       "execution_owner": "lead",
       "scope": "previous_offline_scope",
-      "deliverable": "保留不同消息ID及可证明来源，优化候选显示/人工核对及重观察行为。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "deliverable": "保留不同消息ID及可证明来源，优化候选显示/人工核对及重观察行为。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。；2026-10-28 D-05～12主线接回；CALL-08持久身份方案待审，离线包不等于完整实机验收。",
+      "handoff": "docs/deliveries/member-d-sms.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
       "id": "SMS-06",
       "title": "提交后断线/退出/磁盘满",
-      "offline_owner": "member-d",
+      "offline_owner": "lead",
       "execution_owner": "lead",
       "scope": "previous_offline_scope",
-      "deliverable": "用故障夹具插入提交前后各边界，覆盖本地事务与MM返回失去确认。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "deliverable": "用故障夹具插入提交前后各边界，覆盖本地事务与MM返回失去确认。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。；2026-10-28 D-05～12主线接回；CALL-08持久身份方案待审，离线包不等于完整实机验收。",
+      "handoff": "docs/deliveries/member-d-sms.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
@@ -371,11 +371,11 @@
     {
       "id": "CALL-08",
       "title": "终止Call重观察去重",
-      "offline_owner": "member-d",
+      "offline_owner": "lead",
       "execution_owner": "lead",
       "scope": "previous_offline_scope",
-      "deliverable": "基于可证明的对象代次与身份处理重启后终止对象，不按号码猜合并。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t4-offline-packages",
+      "deliverable": "基于可证明的对象代次与身份处理重启后终止对象，不按号码猜合并。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。；2026-10-28 D-05～12主线接回；CALL-08持久身份方案待审，离线包不等于完整实机验收。",
+      "handoff": "docs/deliveries/member-d-sms.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {

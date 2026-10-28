@@ -16,6 +16,9 @@ class Team(unittest.TestCase):
 
     def test_source_categories_exclude_generated_docs_and_dependencies(self):
         for path, category in [('crates/a/src/lib.rs','product'),('crates/a/src/tests.rs','tests'),
+                               ('crates/core/src/calls_checks.rs','tests'),('crates/core/src/observer/checks.rs','tests'),
+                               ('crates/core/src/observer/checks/content.rs','tests'),('crates/core/src/observer/checks/sender_recovery.rs','tests'),
+                               ('crates/other/src/checks.rs','product'),
                                ('crates/edge/src/web/network.js','product'),('tools/progress/team.py','tooling'),
                                ('tools/test-web-network.mjs','tests'),('firmware/system/a.service','firmware'),
                                ('tools/nas-adapter/readonly.go','product'),('tools/nas-adapter/http_test.go','tests'),
