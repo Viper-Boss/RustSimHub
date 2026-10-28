@@ -38,6 +38,9 @@ pub struct BusinessInput {
     pub configuring: bool,
     pub unread_sms: bool,
     pub missed_calls: bool,
+    /// Absent from older Core builds, which never report ringing.
+    #[serde(default)]
+    pub ringing: bool,
 }
 impl BusinessInput {
     pub fn fresh(self, now: u64) -> Option<Self> {
@@ -67,6 +70,7 @@ pub struct Inputs {
     pub update_available: bool,
     pub unread_sms: bool,
     pub missed_calls: bool,
+    pub ringing: bool,
     pub cellular_connected: bool,
     pub wifi_connected: bool,
     pub internet: bool,
@@ -142,6 +146,10 @@ impl Policy {
         if input.disabled {
             return Off;
         }
+        // An incoming call outranks every other state: fast white flash.
+        if input.ringing {
+            return if now % 400 < 200 { White } else { Off };
+        }
         if input.error {
             return Red;
         }
@@ -200,6 +208,36 @@ mod tests {
             internet: true,
             ..Inputs::default()
         }
+    }
+    #[test]
+    fn ringing_flashes_white_fast_above_error_and_configuration() {
+        let mut p = Policy::default();
+        let mut s = online();
+        s.ringing = true;
+        s.error = true;
+        s.configuring = true;
+        s.missed_calls = true;
+        assert_eq!(p.frame(s, 0, None), Color::White);
+        assert_eq!(p.frame(s, 199, None), Color::White);
+        assert_eq!(p.frame(s, 200, None), Color::Off);
+        assert_eq!(p.frame(s, 400, None), Color::White);
+        s.disabled = true;
+        assert_eq!(p.frame(s, 0, None), Color::Off);
+        s.disabled = false;
+        s.ringing = false;
+        assert_eq!(p.frame(s, 0, None), Color::Red);
+    }
+    #[test]
+    fn older_core_hint_without_ringing_still_parses() {
+        let old: BusinessInput = serde_json::from_str(
+            r#"{"expires_ms":5,"configuring":false,"unread_sms":true,"missed_calls":false}"#,
+        )
+        .unwrap();
+        assert!(!old.ringing && old.unread_sms);
+        assert!(serde_json::from_str::<BusinessInput>(
+            r#"{"expires_ms":5,"configuring":false,"unread_sms":true,"missed_calls":false,"ringing":true,"x":1}"#
+        )
+        .is_err());
     }
     #[test]
     fn link_priority_and_offline_internet() {
