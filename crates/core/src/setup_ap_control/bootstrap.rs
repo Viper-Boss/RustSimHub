@@ -216,6 +216,8 @@ impl Bootstrap {
         self.available(&c)?;
         let permit = self.coordination.network().map_err(|_| Error::Busy)?;
         idle.device(gate.clone()).await?;
+        // Keep the nearby-network list for the setup page before the radio becomes the AP.
+        crate::network::wifi::capture_before_setup_ap().await;
         let after = context(auth, gate.clone()).await?;
         if self.stopped.load(Ordering::SeqCst) {
             return Err(Error::Forbidden);

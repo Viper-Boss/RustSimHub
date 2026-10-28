@@ -17,7 +17,7 @@ struct Network {
     selectable: bool,
     connected: bool,
 }
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 struct Catalogue {
     schema: u16,
     source: &'static str,
@@ -66,9 +66,52 @@ pub(crate) async fn authorized(
 ) -> rustsimhub_auth::Result<Value> {
     guarded(auth, token, || async {
         let c = zbus::Connection::system().await.map_err(|_| Error::Io)?;
-        probe(&c).await
+        let live = probe(&c).await?;
+        Ok(before_setup_ap(
+            live,
+            crate::setup_ap_control::first_setup_ready(),
+        ))
     })
     .await
+}
+/// Last non-empty catalogue taken just before the first-setup AP started: the single radio
+/// usually cannot keep a station scan cache while it serves the AP.
+static BEFORE_AP: std::sync::Mutex<Option<(std::time::Instant, Catalogue)>> =
+    std::sync::Mutex::new(None);
+const BEFORE_AP_MAX_AGE: Duration = Duration::from_secs(600);
+/// Best-effort, bounded and read-only (no scan request); failures leave the old snapshot.
+pub(crate) async fn capture_before_setup_ap() {
+    let read = timeout(Duration::from_secs(3), async {
+        let c = zbus::Connection::system().await.ok()?;
+        probe(&c).await.ok()
+    })
+    .await;
+    if let Ok(Some(catalogue)) = read {
+        remember(catalogue, std::time::Instant::now());
+    }
+}
+fn remember(catalogue: Catalogue, at: std::time::Instant) {
+    if !catalogue.networks.is_empty() {
+        if let Ok(mut slot) = BEFORE_AP.lock() {
+            *slot = Some((at, catalogue));
+        }
+    }
+}
+fn before_setup_ap(live: Catalogue, first_setup: bool) -> Catalogue {
+    if !first_setup || !live.networks.is_empty() {
+        return live;
+    }
+    let snapshot = BEFORE_AP.lock().ok().and_then(|s| s.clone());
+    match snapshot {
+        Some((at, mut saved)) if at.elapsed() <= BEFORE_AP_MAX_AGE => {
+            saved.source = "before_setup_ap";
+            for n in &mut saved.networks {
+                n.connected = false;
+            }
+            saved
+        }
+        _ => live,
+    }
 }
 fn empty(wifi_enabled: bool) -> Catalogue {
     Catalogue {
