@@ -781,3 +781,6 @@ mod outgoing_tests;
 
 #[cfg(test)]
 mod calls_tests;
+
+#[cfg(test)]
+mod inbox_recovery_tests;
