@@ -500,3 +500,30 @@ e7edac9树与发布代码c9aed5f的tree完全一致；树验证没有冒充提�
 剩余：跨域一致切面与联合恢复协议、旧WAL/只读介质/恶意旁路日志准入、真实恢复/硬件掉电、上述专用测试及主线精确HEAD复审/合并。
 下一步按任务书串行规则等待当前包复审，期间已只读盘点C13/C14现有Store接口/重复覆盖与实际IO失败方案；未将C13/C14/C16～30标完成或另造未批准格式。
 整体固定P0～P7仍 **80%**，成员C不更新全局验收/面板或代负责人合并。
+
+#### 2026-10-28 · WSL2隔离专用边界补验（更新上述未运行项）
+
+源码仍为完整代码HEAD `c9aed5f4ef3c84fec92b7ac4dd2f297fa70910a8`、tree `e7edac9490d46994135de47811f981e5f171edab`；不改生产代码或测试断言。
+对之前同一WSL2原生副本的813个源码文件逐个与原Git归档字节相等核验后，普通UID1000分别运行
+`cargo test -p rustsimhub-forwarder --lib --all-features --locked --offline --no-run --message-format=json`、
+`cargo test -p rustsimhub-update --lib --all-features --locked --offline --no-run --message-format=json`，各取得唯一精确Cargo测试ELF及摘要，再运行主线既有夹具。
+测试所需Root仅用于独立WSL网络/挂载隔离；未给rsh-test授予sudo，没有设备、生产秘密、外网或部署。
+
+| 既有脚本 / 实际边界 | 结果 |
+|---|---|
+| `python3 -I tools/test-forwarding-storage-full.py --cargo-artifacts <forwarder-artifacts.json>` | 退出0；独立mount/net命名空间，2,097,152字节tmpfs，实际测试UID65534/NoNewPrivileges，真实errno28；Unknown和游标保留、释放空间后只恢复一次，1通过/0失败/0忽略。其余92个被精确筛选的用例没有借此计通过；退出正常卸载，不填宿主磁盘 |
+| `unshare --net setpriv --no-new-privs python3 -I tools/test-metadata-process.py --cargo-artifacts <update-artifacts.json>` | 退出0；合成ELF实际UID/GID986、附加组与环境清空，密封执行、3秒/16KiB预算验证，1个指定Root场景通过 |
+| `unshare --net setpriv --bounding-set=-kill --no-new-privs python3 -I tools/test-metadata-process.py --cargo-artifacts <update-artifacts.json> --missing-kill` | 退出0；保留SETUID/SETGID但移除CAP_KILL，在启动降权子进程前拒绝，1个指定Root场景通过；没有把未启动子进程的UID或输出伪填成功 |
+
+各步由空环境和固定PATH执行。Linux侧源码/产物准备加三项专项全部0、最终passed=true；不是四个新业务测试。
+普通整仓653通过/0失败/4标记忽略的原始结果保持不变：C06 worker已由父测试调用，另外三项现在有独立实际通过证据，不再处于未运行。
+这没有补齐其余Root/服务协调CI、生产ARM或真实恢复；原生33项仍是已说明的历史源码等同证据。
+
+新增仅日志证据包`C09-C12-WSL2-special-c9aed5f.zip`，26,775字节，SHA256 `793ee1383d626a3f989e165bf15bc3ca5949fab9574f58a415aabf2dabf40942`。
+包含来源/summary/四步日志/两份Cargo产物清单与逐文件原始/共享摘要，ZIP CRC及仅允许文件清单检查通过；没有ELF、源码、数据库、密钥、工作区或缓存。
+这是明确标注的路径脱敏副本，仅将Windows用户目录中的结果/源码归档/执行器路径替换为固定占位符，真实测试输出、退出码、摘要和实耗不改。
+首次打包的路径检查发现执行器路径尚未替换而拒绝，该不完整包仅在本机标为失败保留；补齐该路径脱敏后再生成上述通过检查的包，未把打包检查失败称为业务失败或删除原始证据。
+包在本机准备供用户转交，未代发负责人。WSL说明补上现有专项的复现方法；本次只改说明和本人报告，与c9产品/测试/工具代码一致，不重复跑相同代码全套。
+
+当前PR #10仍等待负责人按最终HEAD复审/合并；未自行改审核结论、全局验收或开启下一修改包。C13/C14继续只读预研；任务书要求当前包审核后串行接续，实际接口/Root授权方案仍由主线收口。
+项目整体按固定P0～P7仍 **80%**，上述隔离通过不替代实机恢复、只读介质、恶意WAL准入或硬件掉电验收。
