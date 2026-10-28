@@ -141,8 +141,8 @@ async function initialize(){
   })});
  await apConfigurator.initialize();
  $('ap-wifi-panel').addEventListener('toggle',()=>{if($('ap-wifi-panel').open)void apConfigurator.open().catch(error=>notice(error.message));else apConfigurator.suspend();});
- if(globalThis.location?.hostname==='172.31.85.1')document.body.classList.add('ap-setup-view');
- if(globalThis.location?.hostname==='172.31.85.1'||globalThis.location?.hash==='#ap-wifi-panel'){$('ap-wifi-panel').open=true;await apConfigurator.open();$('ap-wifi-panel').scrollIntoView({block:'start'});}
+ if(globalThis.location?.hostname==='192.168.100.1')document.body.classList.add('ap-setup-view');
+ if(globalThis.location?.hostname==='192.168.100.1'||globalThis.location?.hash==='#ap-wifi-panel'){$('ap-wifi-panel').open=true;await apConfigurator.open();$('ap-wifi-panel').scrollIntoView({block:'start'});}
  $('test-restore-draft').hidden=!await stored('test-center-saved-draft');
  const identity=await api({op:'identity'});$('first-setup').hidden=identity.owner_setup_available!==true;
  try{const response=await fetch('/api/media/capabilities',{credentials:'omit',cache:'no-store',redirect:'error'});const capability=await response.json();audioReady=response.ok&&capability.protocol===1&&capability.enabled===true;}catch{audioReady=false;}

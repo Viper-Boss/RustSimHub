@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-28T11:52:05.128948+00:00",
+  "updated_at": "2026-10-28T12:27:33.532816+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -1879,12 +1879,14 @@
           "dependencies": [
             "UPD-01"
           ],
-          "status": "todo",
+          "status": "done",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
-          "completed_at": null,
-          "actual_hours": null
+          "evidence": [
+            "docs/VALIDATION-UPD04-FIELD-20261028.md"
+          ],
+          "completed_at": "2026-10-28T08:28:13.109637+00:00",
+          "actual_hours": 1.5
         },
         {
           "id": "UPD-05",
@@ -2230,7 +2232,7 @@
         {
           "id": "LED-05",
           "title": "短信/未接电话两组跑马灯",
-          "work": "短信蓝→青→绿0.9秒；未接红→黄→紫0.9秒；都有时连跑1.8秒。",
+          "work": "短信黄→紫→黄→紫1.2秒；未接红→紫→红→紫1.2秒；都有时红→黄→紫→红→黄→紫1.8秒（2026-10-28用户改定配色）。",
           "acceptance": "最多每30秒一组；真实查看/确认后停止对应组，高优先级压制有效。",
           "estimate_hours": [
             0.5,
@@ -2510,12 +2512,14 @@
             "device"
           ],
           "dependencies": [],
-          "status": "todo",
+          "status": "done",
           "offline_delegable": false,
           "passive_wait_hours": 24,
-          "evidence": [],
-          "completed_at": null,
-          "actual_hours": null
+          "evidence": [
+            "docs/VALIDATION-STAB03-PARTIAL-20261028.md"
+          ],
+          "completed_at": "2026-10-28T08:52:59.468585+00:00",
+          "actual_hours": 1.0
         },
         {
           "id": "STAB-04",
@@ -5143,12 +5147,36 @@
       "evidence": [
         "docs/VALIDATION-UPD01-FIELD-20261028.md"
       ]
+    },
+    {
+      "at": "2026-10-28T08:28:13.109637+00:00",
+      "type": "completed",
+      "title": "UPD-04 · 已完成：候选失败后的真实整组回选",
+      "detail": "SIGKILL候选Core后经OnFailure与app-recover回到已确认55，候选期间新短信、所有者、删除标记、身份保留，恢复1次",
+      "task_ids": [
+        "UPD-04"
+      ],
+      "evidence": [
+        "docs/VALIDATION-UPD04-FIELD-20261028.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T08:52:59.468585+00:00",
+      "type": "completed",
+      "title": "STAB-03 · 已完成：24小时初步稳定性",
+      "detail": "用户2026-10-28决定接受6.4小时只读长测（无崩溃、无内存增长、769次HTTPS全部成功、服务NRestarts全0），不再续测24小时，以后有问题再说",
+      "task_ids": [
+        "STAB-03"
+      ],
+      "evidence": [
+        "docs/VALIDATION-STAB03-PARTIAL-20261028.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
     "source_revision": "dfd11e9e75d7b532de5fcaeacbdb9fcd87e33215",
-    "generated_at": "2026-10-28T11:52:05.128948+00:00",
+    "generated_at": "2026-10-28T12:27:33.532816+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
