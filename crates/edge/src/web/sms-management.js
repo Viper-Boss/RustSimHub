@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+const uuid=value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 export function smsListText(sms){
  const d=sms?.display;
  const prefix=d&&typeof d.sender==='string'&&typeof d.timestamp==='string'&&typeof d.preview==='string'
@@ -15,10 +16,32 @@ export class SmsManager {
   this.doc=document;this.request=request;this.reloadInbox=reloadInbox;this.confirm=confirm;this.$=id=>document.getElementById(id);this.generation=0;
   this.$('delete-sms').onclick=()=>void this.deleteSelected();
   this.$('trash-refresh').onclick=()=>void this.loadTrash(true);
-  this.$('more-trash').onclick=()=>void this.loadTrash();this.review=new SmsDuplicateReview({document,request});this.reset();
+  this.$('more-trash').onclick=()=>void this.loadTrash();
+  this.$('sms-read-all').onclick=()=>void this.markAllRead();this.review=new SmsDuplicateReview({document,request});this.reset();
  }
- reset(){this.generation++;this.available=false;this.selected=null;this.review.reset();this.cursor=null;this.active=null;this.loading=null;this.uncertain=false;this.preview=0;this.restoreButtons=new Set();this.$('trash-section').hidden=true;this.$('trash-list').replaceChildren();this.$('trash-detail').textContent='';this.$('sms-management-state').textContent='删除和恢复需要所有者最近5分钟内登录';this.$('more-trash').disabled=true;this.update();}
+ reset(){this.generation++;this.reading=false;this.$('sms-read-all').disabled=false;this.$('sms-read-state').textContent='';this.available=false;this.selected=null;this.review.reset();this.cursor=null;this.active=null;this.loading=null;this.uncertain=false;this.preview=0;this.restoreButtons=new Set();this.$('trash-section').hidden=true;this.$('trash-list').replaceChildren();this.$('trash-detail').textContent='';this.$('sms-management-state').textContent='删除和恢复需要所有者最近5分钟内登录';this.$('more-trash').disabled=true;this.update();}
  current(g){if(g!==this.generation)throw Error('短信管理会话已结束');}
+ // Clears the unread-SMS indicator: every message the inbox lists is marked seen,
+ // the same as opening each one. Stops at the first failure; marked ones stay read.
+ async markAllRead(){
+  if(this.reading)return;
+  const g=this.generation,button=this.$('sms-read-all'),state=this.$('sms-read-state');this.reading=true;button.disabled=true;state.textContent='正在标记…';
+  let done=0;
+  try{
+   const ids=[];let after=null;
+   for(let page=0;;page++){
+    if(page===64)throw Error('短信过多，请逐条查看');
+    const result=await this.request({op:'inbox',after,limit:16});this.current(g);
+    if(!Array.isArray(result?.messages)||result.messages.length>16||result.messages.some(sms=>!uuid(sms?.id)))throw Error('短信列表已变化，请稍后再试');
+    for(const sms of result.messages)ids.push(sms.id);
+    if(result.messages.length<16)break;
+    after=result.cursor;
+   }
+   for(const id of ids){await this.request({op:'notification_read',entity:'sms',record_id:id});this.current(g);done++;}
+   state.textContent=ids.length?`已将 ${done} 条短信标为已读，短信提示会停止`:'收件箱没有短信';
+  }catch(error){if(g===this.generation)state.textContent=`没有全部完成（已标记 ${done} 条，保持已读）：${error.message}`;}
+  finally{if(g===this.generation){this.reading=false;button.disabled=false;}}
+ }
  update(){this.review.setOwner(this.available);this.$('delete-sms').disabled=!this.available||!this.selected||!!this.active||!!this.loading||this.uncertain;this.$('trash-refresh').disabled=!this.available||!!this.active||!!this.loading;for(const button of this.restoreButtons)button.disabled=!this.available||!!this.active||!!this.loading||this.uncertain;}
  select(id,detail=null){this.selected=id;this.review.select(id,detail);this.update();}
  async permissions(){const g=this.generation;try{const r=await this.request({op:'sms_management_status'});this.current(g);this.available=r.available===true;this.$('trash-section').hidden=!this.available;this.update();return this.available;}catch{if(g===this.generation){this.available=false;this.$('trash-section').hidden=true;this.update();}return false;}}
