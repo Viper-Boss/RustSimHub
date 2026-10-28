@@ -867,3 +867,6 @@ mod outgoing_recovery_tests;
 
 #[cfg(test)]
 mod call_reobserve_tests;
+
+#[cfg(test)]
+mod offline_input_boundary_tests;

@@ -11,6 +11,9 @@ use std::{
     time::{Duration, Instant},
 };
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+#[cfg(test)]
+#[path = "linux_input_boundary_tests.rs"]
+mod input_boundary_tests;
 const LEDS: [&str; 3] = ["red:", "green:wan", "blue:"];
 fn checked(path: &Path, uid: u32, mode: u32, limit: u64) -> Result<Vec<u8>> {
     checked_owned(path, uid, None, mode, limit)
@@ -24,7 +27,8 @@ fn checked_owned(
 ) -> Result<Vec<u8>> {
     let file = OpenOptions::new()
         .read(true)
-        .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+        // Reject FIFOs at the metadata check instead of blocking in open().
+        .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
         .open(path)?;
     let m = file.metadata()?;
     if !m.is_file()
