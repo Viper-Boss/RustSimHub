@@ -24,6 +24,8 @@ struct Catalogue {
     scan_requested: bool,
     wifi_enabled: bool,
     scan_cache_known: bool,
+    /// Age of the pre-AP display snapshot, not a promise of a live scan.
+    snapshot_age_seconds: Option<u64>,
     networks: Vec<Network>,
     omitted: usize,
     truncated: bool,
@@ -69,7 +71,7 @@ pub(crate) async fn authorized(
         let live = probe(&c).await?;
         Ok(before_setup_ap(
             live,
-            crate::setup_ap_control::first_setup_ready(),
+            crate::setup_ap_control::first_setup_catalogue(),
         ))
     })
     .await
@@ -131,9 +133,14 @@ fn station(s: &HashMap<String, HashMap<String, OwnedValue>>) -> bool {
 /// usually cannot keep a station scan cache while it serves the AP.
 static BEFORE_AP: std::sync::Mutex<Option<(std::time::Instant, Catalogue)>> =
     std::sync::Mutex::new(None);
-const BEFORE_AP_MAX_AGE: Duration = Duration::from_secs(600);
+const BEFORE_AP_MAX_AGE: Duration =
+    Duration::from_secs(rustsimhub_setup_ap::MAX_WINDOW_SECONDS as u64);
 /// Best-effort, bounded and read-only (no scan request); failures leave the old snapshot.
 pub(crate) async fn capture_before_setup_ap() {
+    // New round: never inherit a previous round's display choices if this read fails.
+    if let Ok(mut slot) = BEFORE_AP.lock() {
+        *slot = None;
+    }
     let read = timeout(Duration::from_secs(3), async {
         let c = zbus::Connection::system().await.ok()?;
         probe(&c).await.ok()
@@ -144,20 +151,32 @@ pub(crate) async fn capture_before_setup_ap() {
     }
 }
 fn remember(catalogue: Catalogue, at: std::time::Instant) {
-    if !catalogue.networks.is_empty() {
+    if catalogue.networks.iter().any(|n| n.selectable) {
         if let Ok(mut slot) = BEFORE_AP.lock() {
             *slot = Some((at, catalogue));
         }
     }
 }
 fn before_setup_ap(live: Catalogue, first_setup: bool) -> Catalogue {
-    if !first_setup || !live.networks.is_empty() {
+    let snapshot = BEFORE_AP.lock().ok().and_then(|s| s.clone());
+    with_pre_ap_snapshot(live, first_setup, snapshot)
+}
+fn with_pre_ap_snapshot(
+    live: Catalogue,
+    first_setup: bool,
+    snapshot: Option<(std::time::Instant, Catalogue)>,
+) -> Catalogue {
+    // The radio may report only the open setup AP (not a selectable station).
+    // Such a nonempty cache must not hide useful pre-AP station choices.
+    if !first_setup || live.networks.iter().any(|n| n.selectable) {
         return live;
     }
-    let snapshot = BEFORE_AP.lock().ok().and_then(|s| s.clone());
     match snapshot {
-        Some((at, mut saved)) if at.elapsed() <= BEFORE_AP_MAX_AGE => {
+        Some((at, mut saved))
+            if at.elapsed() <= BEFORE_AP_MAX_AGE && saved.networks.iter().any(|n| n.selectable) =>
+        {
             saved.source = "before_setup_ap";
+            saved.snapshot_age_seconds = Some(at.elapsed().as_secs());
             for n in &mut saved.networks {
                 n.connected = false;
             }
@@ -173,6 +192,7 @@ fn empty(wifi_enabled: bool) -> Catalogue {
         scan_requested: false,
         wifi_enabled,
         scan_cache_known: false,
+        snapshot_age_seconds: None,
         networks: vec![],
         omitted: 0,
         truncated: false,

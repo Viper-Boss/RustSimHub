@@ -91,7 +91,10 @@ async fn device_claim_to_trial_confirmation_and_saved_proof_keeps_one_original_p
     use zeroize::Zeroizing;
     let (f, token) = ready().await;
     let before = hint(&f);
+    assert!(f.runtime.first_setup_catalogue());
     adopt(&f, &token).await.unwrap();
+    assert!(!f.runtime.bootstrap.ready().unwrap());
+    assert!(f.runtime.first_setup_catalogue());
     let trial = "22222222-2222-4222-8222-222222222222";
     let commit = "33333333-3333-4333-8333-333333333333";
     let ssid = "synthetic-adopted-wifi";
@@ -188,6 +191,7 @@ async fn device_claim_to_trial_confirmation_and_saved_proof_keeps_one_original_p
         "saved"
     );
     assert!(f.runtime.coordination.network().is_ok());
+    assert!(!f.runtime.first_setup_catalogue());
     assert!(f
         .runtime
         .input
