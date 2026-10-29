@@ -1,5 +1,7 @@
 # 通信观测工作包交付与主线接回台账
 
+2026-10-29 [D-23持久回执与能力接线](../ble/recovery-ledger.md)：代码a9f5f59已实现同Store有限回执/一次claim/重启Unknown、显式候选schema8与Auth私有能力绑定。合入Claude main677ba57保留首次配网/mdns，324项及严格检查通过；team.py按当前main重算真实贡献。Wi-Fi唯一执行器/Root/真实IPC/A会话仍待，不扣D-23整步。D余6、lead20/118、原81.5%、20/169保持，设备未动。
+
 2026-10-29 [D-21请求授权与私有能力](../ble/recovery-capability.md)：代码6c018ca把认证请求限定到当前Auth/设备/连接/realm/grant代次、动作/正文及单调期限，真实Store前后复核，过期/重放/断线拒绝。新增11项、完整302项与严格Clippy/fmt通过。生产验证器默认缺失，A会话/浏览器/IPC/Wi-Fi与持久操作账本仍待；默认Core schema6、设备未动。D仍余6、lead20/118、原81.5%、20/169保持。
 
 2026-10-29 [D-21恢复授权管理局部实现](../ble/recovery-owner-management.md)：用户允许先独立分支离线实现、合并前审核。代码c5f9ea7已实现显式候选schema7、真实Store事务/CAS/备份隔离及近期Owner管理，新增16项、总291项与严格Clippy/fmt通过。默认Core仍schema6；实际authorize/私有能力、浏览器恢复key、A会话和IPC/Wi-Fi未接，不动设备。D仍余6、lead20/总118、原81.5%、20/169保持，未将局部代码算整步完成。

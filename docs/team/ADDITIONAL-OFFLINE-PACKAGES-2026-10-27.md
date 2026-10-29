@@ -328,6 +328,8 @@ T5已有方法、DTO、错误、UUID和预算继续适用；本地记录按已�
 
 ### 6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体
 
+2026-10-29 D-23局部实现：lead交[持久回执与能力接线](../ble/recovery-ledger.md)，同Store一次claim/Unknown墓碑/候选schema8迁移、Auth能力绑定已实现；同步main677ba57后324项通过。实际Wi-Fi/Root/IPC/A会话未接，不扣整步，D余6/lead20/总118保持。
+
 2026-10-29 D-21后续：lead交[实际请求授权与私有能力](../ble/recovery-capability.md)，代码6c018ca、302项通过；当前设备/连接/realm/代次/动作正文/期限及重放拒绝已实现。A生产会话/浏览器、IPC/Wi-Fi/持久操作账本未接，D-21不扣整步，D余6/lead20/总118保持。
 
 2026-10-29 D-21局部实现：lead已交[恢复授权记录与近期Owner管理](../ble/recovery-owner-management.md)，代码c5f9ea7、291项通过；显式候选schema7不接生产，实际authorize/私有能力/浏览器/A会话/IPC/Wi-Fi仍待。D-21不扣整步，累计lead20、D余6、总118保持。

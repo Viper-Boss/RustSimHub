@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-28T18:36:33.236617+00:00",
+  "updated_at": "2026-10-29T01:47:50.834737+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -70,7 +70,7 @@
     "task_id": "BLE2-01",
     "title": "恢复公钥注册与撤销",
     "state": "正在推进",
-    "description": "D-21继续：6c018ca已实现真实Auth请求能力与Store复核、连接/代次/动作正文/期限绑定，302项通过；缺A生产会话/浏览器/IPC/Wi-Fi/持久操作账本，不扣整步，设备未动。"
+    "description": "D-23局部a9f5f59：同Store持久回执、一次claim、重启Unknown与Auth能力绑定；候选schema8仅离线。同步main677ba57后324项通过，Wi-Fi/Root/IPC/A会话未接，不扣整步。"
   },
   "facts": [
     {
@@ -5275,12 +5275,24 @@
       "evidence": [
         "docs/ble/recovery-capability.md"
       ]
+    },
+    {
+      "at": "2026-10-29T01:47:50.834737+00:00",
+      "type": "state",
+      "title": "BLE2-01 · 下一关卡：恢复公钥注册与撤销",
+      "detail": "D-23局部a9f5f59：同Store持久回执、一次claim、重启Unknown与Auth能力绑定；候选schema8仅离线。同步main677ba57后324项通过，Wi-Fi/Root/IPC/A会话未接，不扣整步。",
+      "task_ids": [
+        "BLE2-01"
+      ],
+      "evidence": [
+        "docs/ble/recovery-ledger.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "dfd11e9e75d7b532de5fcaeacbdb9fcd87e33215",
-    "generated_at": "2026-10-28T12:31:38.477444+00:00",
+    "source_revision": "677ba57eaebaae9aede4968e32758a754b9703fa",
+    "generated_at": "2026-10-29T01:45:40.167754+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5330,15 +5342,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 46556,
-            "tests": 32260,
+            "product": 48428,
+            "tests": 33144,
             "tooling": 9466,
-            "firmware": 1132
+            "firmware": 1169
           },
-          "commits": 374,
-          "code_commits": 248,
-          "added": 94097,
-          "deleted": 2352
+          "commits": 406,
+          "code_commits": 264,
+          "added": 97190,
+          "deleted": 2609
         },
         "work": {
           "assigned_steps": 20,
@@ -5484,6 +5496,136 @@
             {
               "pr": 35,
               "head": "cca6261259f53b1ae69bf5eb424b108bad73488d",
+              "state": "MERGED"
+            },
+            {
+              "pr": 36,
+              "head": "ded090a120f7c240e40e5321cdd3bda234d51f5c",
+              "state": "MERGED"
+            },
+            {
+              "pr": 37,
+              "head": "69773e8c95197f988702a7dfbb811a88e66ac860",
+              "state": "OPEN"
+            },
+            {
+              "pr": 38,
+              "head": "d915b0e4b784504dd66f7eb2403773fc7f83659a",
+              "state": "MERGED"
+            },
+            {
+              "pr": 39,
+              "head": "97f86ae093a111d1ea71b313bd476f9bac0aa6b5",
+              "state": "MERGED"
+            },
+            {
+              "pr": 40,
+              "head": "c78dc8c3b4ef27e3701c41cb3356a71c8b796099",
+              "state": "MERGED"
+            },
+            {
+              "pr": 42,
+              "head": "0011fd8c8726bdf850d5ab0d0f891f18de1119d1",
+              "state": "MERGED"
+            },
+            {
+              "pr": 43,
+              "head": "6915e0f58e18d66d7a608fcd71499deaf49dc988",
+              "state": "MERGED"
+            },
+            {
+              "pr": 44,
+              "head": "d757818e2400fb4f7a2a3172499c407c58e343dc",
+              "state": "MERGED"
+            },
+            {
+              "pr": 45,
+              "head": "02f0214bf91e2521356c31c9acd6b1c6fc6f7e8c",
+              "state": "MERGED"
+            },
+            {
+              "pr": 46,
+              "head": "31c9f8e74d2ac8092ebe71685cc415e44ec852a9",
+              "state": "MERGED"
+            },
+            {
+              "pr": 47,
+              "head": "60307e8565e96ae00b07b2f4ce6b4f3739cba3ec",
+              "state": "MERGED"
+            },
+            {
+              "pr": 48,
+              "head": "5bfe8bece8b27067e46ba8216e52d3f58561227f",
+              "state": "MERGED"
+            },
+            {
+              "pr": 49,
+              "head": "587067384b44f0e05030a5dfce6bdec4db2b512a",
+              "state": "MERGED"
+            },
+            {
+              "pr": 50,
+              "head": "2b13b25f4ffad0fed04643fedadbdec60fed9f64",
+              "state": "OPEN"
+            },
+            {
+              "pr": 51,
+              "head": "9f4ff04373846bd1555b3f471bc92072eaf5c412",
+              "state": "OPEN"
+            },
+            {
+              "pr": 52,
+              "head": "ce478c70b15784f043a865299c74cac7300b97ff",
+              "state": "OPEN"
+            },
+            {
+              "pr": 53,
+              "head": "9a95b239ee5adf3eb5c7a7f9e87b72b1f1dc6efb",
+              "state": "OPEN"
+            },
+            {
+              "pr": 54,
+              "head": "028ca246efa87ef2840d5585cdc61ce1ff5cc393",
+              "state": "MERGED"
+            },
+            {
+              "pr": 55,
+              "head": "d9cb52d182b3e457b51efe0e88dda5753416b066",
+              "state": "OPEN"
+            },
+            {
+              "pr": 56,
+              "head": "31ec213840566c8715b741bcb318943169f8196a",
+              "state": "OPEN"
+            },
+            {
+              "pr": 57,
+              "head": "a785531af02a085c59410bb2698792d0647144c7",
+              "state": "OPEN"
+            },
+            {
+              "pr": 58,
+              "head": "bcefada0d3c04d7a8523a71859d8f2b3441b0d95",
+              "state": "OPEN"
+            },
+            {
+              "pr": 59,
+              "head": "71ded6b468f90aa1c02a939825ab92605b162dfd",
+              "state": "OPEN"
+            },
+            {
+              "pr": 60,
+              "head": "d3de1956fbc8fbbcd4bcc36bdda2c603cc1b06ed",
+              "state": "OPEN"
+            },
+            {
+              "pr": 61,
+              "head": "bc9fb583debcf58d3bdebed9665ab1b631525328",
+              "state": "OPEN"
+            },
+            {
+              "pr": 62,
+              "head": "9dae7482a47c9071e980324cc871bdb0b5bb09af",
               "state": "OPEN"
             }
           ]
@@ -5581,7 +5723,13 @@
           "accepted_steps": 0,
           "self_reported_hours": null,
           "reviews": [],
-          "deliveries": []
+          "deliveries": [
+            {
+              "pr": 41,
+              "head": "295c47655af1d69d2eb0568eda09023c4599c16b",
+              "state": "OPEN"
+            }
+          ]
         }
       },
       {
@@ -5891,10 +6039,10 @@
       "deleted": 0
     },
     "totals": {
-      "product": 47720,
-      "tests": 34268,
+      "product": 49592,
+      "tests": 35152,
       "tooling": 9466,
-      "firmware": 1132
+      "firmware": 1169
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。",
     "task_plan": {
@@ -5922,7 +6070,7 @@
         },
         {
           "path": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-          "sha256": "9e45691121243acf40ab4d577ba0ccf8a1f318acc67fde0df75e4cc5ba7c3bea"
+          "sha256": "09afa0cd6dc838ff90c0b3d3b007ecad71aef92f7cd607662efe02c8e7618e81"
         }
       ],
       "members": [
@@ -7359,7 +7507,7 @@
               "work": "BLE2-01：按RecoveryAuthorizerV1提独立恢复能力/批准撤销/存储迁移提案，获审后在现有Auth/Core唯一权威实现；浏览器绑定非导出恢复密钥",
               "acceptance": "不使用匿名首次认领窗口、不制造Owner，不改旧scope bit含义。新版本/损坏/旧realm/grant撤销/重启迁移和无权限全部有真实模块测试",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 339,
+              "line": 341,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "BLE2-01"
@@ -7372,7 +7520,7 @@
               "work": "BLE2-02、BLE3-02：完成固定Unix IPC/真实SO_PEERCRED来源与会话绑定，接A安全会话和本人Gatt适配库，构造Core内部不可由payload伪造的可信能力",
               "acceptance": "测试真实临时socket/不同UID可执行部分，权限不足的Root用例标未运行。禁止前端channel=ble、固定假uid或Mock安全port进入生产路径",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 340,
+              "line": 342,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "BLE2-02",
@@ -7386,7 +7534,7 @@
               "work": "BLE2-03/04：把合法恢复上下文接现有Wi-Fi开始/查询/确认/取消；保留USB原门禁、唯一网络锁、电话协调、WWAN/IMS/默认APN边界",
               "acceptance": "无USB未认证拒绝、合法恢复通过、保存前后撤权/断连/重放/并发网页路径覆盖；Unknown保留，不新建共享业务库或第二网络事务",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 341,
+              "line": 343,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "BLE2-03",
@@ -7400,7 +7548,7 @@
               "work": "BLE3-03：交付有限低权服务/账户/目录/设备/地址族/预算模板和关闭清理；与Root安装器/C材料组装协调",
               "acceptance": "账户角色/实际UID和许可表先审，不自行占用既有UID。无BLE时Core仍运行，关闭清理广播/会话，无常驻任意Root；真实NSS/cgroup/BlueZ权限由主线安装复核",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 342,
+              "line": 344,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "BLE3-03"
@@ -7413,7 +7561,7 @@
               "work": "REMOTE-03/05：实现现有身份/媒体预授权在远程通道的绑定、撤销及受限TURN/ICE/DTLS/Opus适配，保留票据/peer/call/line/租约关系",
               "acceptance": "本地合成对端/私有测试TLS环境做强制中继与失败测试，不连接真实外网服务器。NAS/C仅消费已审核的正常接口，不允许NKN隧道绕过权限",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 343,
+              "line": 345,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "REMOTE-03",
@@ -7427,7 +7575,7 @@
               "work": "扩展本人SEC-06输入矩阵至实际新增Core/媒体/BLE解析及跨模块故障：并发控制、过期/撤销、退出、回调迟到、分片/队列/超时",
               "acceptance": "测试真实生产模块，模拟仅外部后端；不拉长产品租约/队列或删拒绝断言。提交最小复现/修正、真实命令及尚未运行的设备/TURN/两端听音清单",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 344,
+              "line": 346,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [],
               "status": "not_accepted"
