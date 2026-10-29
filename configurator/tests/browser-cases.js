@@ -24,5 +24,11 @@ async () => {
  assert(!isStaticRequest(new Request(location.origin+BASE+'index.html?password=synthetic'),location.origin),'query never cached');
  assert(!isStaticRequest(new Request(location.origin+BASE+'index.html',{headers:{Authorization:'synthetic'}}),location.origin),'credentials never cached');
  assert(!isStaticRequest(new Request(location.origin+BASE+'tests/mock-provider.js'),location.origin),'mock never cached');
+ const {mount}=await import('/RustSimHub/configurator/src/app.js');let cancelCalls=0;
+ const trial='d'.repeat(64),uiStore=new PendingStore(indexedDB,'synthetic-ui-cancel');
+ const result=(id,action,state)=>({contract:1,source:'core',request_id:id,action,trial_id:trial,state,authoritative:true,settings_saved:false,rollback_verified:state==='rolled_back',expires_in_ms:40000});
+ mount({document,store:uiStore,client:{connectFromGesture:async()=>{},readStatus:async()=>({contract:1,source:'core',wifi:'unknown',busy:false,recovery_available:true}),beginWifi:async a=>result(a.requestId,'begin_wifi','connecting'),cancelWifi:async a=>{cancelCalls++;return result(a.requestId,'cancel_wifi','rolled_back');}}});
+ document.getElementById('pin').value=p;await document.getElementById('connect').onclick();document.getElementById('ssid').value='synthetic';document.getElementById('password').value='abcdefgh';await document.getElementById('begin').onclick();
+ assert(document.getElementById('confirm').disabled,'cannot save connecting trial');assert(!document.getElementById('cancel').disabled,'connecting trial has explicit cancel');await document.getElementById('cancel').onclick();assert(cancelCalls===1&&document.getElementById('cancel').disabled,'cancelled trial cannot restart from stale connecting view');
  return {cas_winners:raced.filter(Boolean).length,writes,queries,credentials_persisted:false};
 }
