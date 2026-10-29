@@ -35,6 +35,8 @@ mod observer;
 mod recovery_authorization;
 #[cfg(feature = "dev-fixtures")]
 mod recovery_check;
+#[cfg(all(test, target_os = "linux"))]
+mod recovery_ipc_contract_tests;
 #[cfg(target_os = "linux")]
 mod sender;
 #[cfg(target_os = "linux")]
