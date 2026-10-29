@@ -114,9 +114,23 @@ impl State {
             &self.active_sim
         };
         if !key.is_empty() && (dr > 0 || dt > 0) {
+            // Reject before pruning or inserting: a failed checkpoint must remain reloadable.
+            let existing = self.days.iter().any(|d| d.sim == key && d.day == day);
+            let retained = self.days.iter().filter(|d| d.day >= day - 399).count();
+            if retained + usize::from(!existing) > 3200 {
+                self.uncertain = true;
+                return Err("accounting catalogue full");
+            }
             if let Some(row) = self.days.iter_mut().find(|d| d.sim == key && d.day == day) {
-                row.rx = row.rx.checked_add(dr).ok_or("counter overflow")?;
-                row.tx = row.tx.checked_add(dt).ok_or("counter overflow")?;
+                // Validate both directions before committing either delta. The checkpoint
+                // remains unchanged on failure, so retrying must not charge RX twice.
+                let next = row.rx.checked_add(dr).zip(row.tx.checked_add(dt));
+                let Some((rx, tx)) = next else {
+                    self.uncertain = true;
+                    return Err("counter overflow");
+                };
+                row.rx = rx;
+                row.tx = tx;
             } else {
                 self.days.push(Day {
                     sim: key.to_owned(),
@@ -401,3 +415,6 @@ mod tests {
         assert!(lte_channel(999999).is_none());
     }
 }
+
+#[cfg(test)]
+mod accounting_tests;
