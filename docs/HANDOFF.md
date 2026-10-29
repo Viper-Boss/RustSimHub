@@ -4,6 +4,8 @@
 
 看板发布并发更新：已保留远端GTW提交f56ab19的PR提交量展示并接回生成源，PR快照原始时间单独记录，不将本次改名时间当成最新PR同步。重复编号/三种状态/未知状态及HEAD变化Node向量通过，合并后26项Python再次通过；没有继续固件任务。
 
+最终发布确认：[公开看板](https://viper-boss.github.io/RustSimHub-progress/)提交17495d2，源3d07a8e；Pages built、运行40940006389 success，实际HTTPS四文件及本地三文件摘要一致。成员B展示wnfhsj88，原81.5%、20/169保持。用户要求的其他任务暂停；不因看板发布续做固件或任务书。
+
 2026-10-29 [D-23持久回执与能力接线](ble/recovery-ledger.md)：代码a9f5f59已实现同Store有限回执/一次claim/重启Unknown、显式候选schema8与Auth私有能力绑定。合入Claude main677ba57保留首次配网/mdns，324项及严格检查通过；team.py按当前main重算真实贡献。Wi-Fi唯一执行器/Root/真实IPC/A会话仍待，不扣D-23整步。D余6、lead20/118、原81.5%、20/169保持，设备未动。
 
 2026-10-29 [D-21请求授权与私有能力](ble/recovery-capability.md)：代码6c018ca把认证请求限定到当前Auth/设备/连接/realm/grant代次、动作/正文及单调期限，真实Store前后复核，过期/重放/断线拒绝。新增11项、完整302项与严格Clippy/fmt通过。生产验证器默认缺失，A会话/浏览器/IPC/Wi-Fi与持久操作账本仍待；默认Core schema6、设备未动。D仍余6、lead20/118、原81.5%、20/169保持。

@@ -13,3 +13,9 @@
 验证：普通用户WSL运行`python3 -m unittest discover -s tools/progress -p 'test_*.py'`，26项通过；原生Node看板检查、生成一致性、差异空白检查通过。保留多成员步骤不重叠检查，没有覆盖已有校验。
 
 发布仅同步既有13文件白名单到独立公开仓库及本地三文件快照。推送不等于部署成功：以Pages构建/部署结果和实际HTTPS四文件摘要核对为准；发布证据只放忽略的私有目录。本记录不代表固件PR合并、设备交付或新增视觉验收。
+
+## 最终发布确认
+
+已发布：[公开看板](https://viper-boss.github.io/RustSimHub-progress/)，公开提交`17495d2334ec3590c9375c534d30a788e5df566a`，固定源快照`3d07a8ece8c8e03c698342da8fbf2d195a7f12d3`（PR66）。Pages回读built，[运行40940006389](https://github.com/Viper-Boss/RustSimHub-progress/actions/runs/40940006389)completed/success。
+
+实际正常HTTPS带本轮缓存参数核对index.html、progress.json、remaining.md及publication.json四文件，摘要均与固定导出一致；本地看板三文件也逐项匹配。HTML SHA-256为`5c0da0e20528fbb822ee7ae861b15b00f499eab2f699734b521920081be6da2d`。验证证明仅在忽略目录中保存，未导出设备资料。固件和新任务入口整理维持暂停，本轮发布到此结束。
