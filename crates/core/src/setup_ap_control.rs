@@ -788,6 +788,21 @@ pub(crate) fn first_setup_ready() -> bool {
         .get()
         .is_some_and(|r| r.bootstrap.ready().unwrap_or(false))
 }
+/// Read-only Wi-Fi catalogue context. Adoption ends the anonymous device window
+/// but must not discard its cached networks while the same open AP is still up.
+/// Never use this broader projection to authorize anonymous Owner claims.
+pub(crate) fn first_setup_catalogue() -> bool {
+    RUNTIME.get().is_some_and(|r| r.first_setup_catalogue())
+}
+impl Runtime {
+    fn first_setup_catalogue(&self) -> bool {
+        self.bootstrap.ready().unwrap_or(false)
+            || self.session.try_lock().is_ok_and(|s| {
+                s.as_ref()
+                    .is_some_and(|s| s.first_setup && !s.cancelled && s.phase == State::Ready)
+            })
+    }
+}
 pub(crate) async fn authorized(
     auth: Arc<Mutex<Auth>>,
     calls: Option<crate::calls::Controller>,

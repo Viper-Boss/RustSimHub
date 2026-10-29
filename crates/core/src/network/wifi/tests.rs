@@ -400,3 +400,62 @@ fn only_station_wifi_profiles_count_as_configured() {
     assert!(!station(&s("802-3-ethernet", None)));
     assert!(!station(&s("gsm", None)));
 }
+#[test]
+fn unselectable_live_aps_do_not_hide_a_valid_pre_ap_station_snapshot() {
+    let mut live = empty(true);
+    live.networks.push(
+        network(&ap(b"open-setup-ap", 90, 0, 0), false)
+            .unwrap()
+            .unwrap(),
+    );
+    let mut saved = empty(true);
+    saved
+        .networks
+        .push(network(&ap(b"home", 70, 0x100, 1), false).unwrap().unwrap());
+    let snapshot = Some((std::time::Instant::now(), saved.clone()));
+    assert_eq!(
+        with_pre_ap_snapshot(live.clone(), true, snapshot.clone()).networks[0].ssid,
+        "home"
+    );
+    assert_eq!(
+        with_pre_ap_snapshot(live.clone(), false, snapshot).source,
+        "networkmanager_cache"
+    );
+    assert_eq!(
+        with_pre_ap_snapshot(
+            live.clone(),
+            true,
+            Some((
+                std::time::Instant::now() - BEFORE_AP_MAX_AGE - Duration::from_secs(1),
+                saved
+            ))
+        )
+        .source,
+        "networkmanager_cache"
+    );
+    assert_eq!(
+        with_pre_ap_snapshot(live.clone(), true, Some((std::time::Instant::now(), live))).source,
+        "networkmanager_cache"
+    );
+}
+#[test]
+fn first_setup_snapshot_is_labelled_and_available_for_the_current_hour_round() {
+    let mut saved = empty(true);
+    saved
+        .networks
+        .push(network(&ap(b"home", 70, 0x100, 1), false).unwrap().unwrap());
+    let shown = with_pre_ap_snapshot(
+        empty(true),
+        true,
+        Some((
+            std::time::Instant::now() - Duration::from_secs(12 * 60),
+            saved,
+        )),
+    );
+    assert_eq!(shown.source, "before_setup_ap");
+    assert!(shown
+        .snapshot_age_seconds
+        .is_some_and(|age| (12 * 60..13 * 60).contains(&age)));
+    assert_eq!(shown.networks.len(), 1);
+    assert!(!shown.scan_requested);
+}

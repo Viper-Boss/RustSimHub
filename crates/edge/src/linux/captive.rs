@@ -27,6 +27,10 @@ pub(super) fn allowed(command: &AuthCommand) -> bool {
             | AuthCommand::SessionChallenge { .. }
             | AuthCommand::RenewSession { .. }
             | AuthCommand::WifiNetworks { .. }
+            // The current Owner adopts the already-open first-setup round via
+            // this command before station trial. Core still checks the real
+            // Owner and exact live bootstrap binding; this does not claim one.
+            | AuthCommand::SetupApStart { .. }
             | AuthCommand::SetupApStatus { .. }
             | AuthCommand::SetupApOperationStatus { .. }
             | AuthCommand::SetupApCancel { .. }
@@ -195,6 +199,7 @@ mod tests {
             serde_json::json!({"op":"setup_open_challenge","public_key":vec![1;32]}),
             serde_json::json!({"op":"wifi_networks","token":t}),
             serde_json::json!({"op":"setup_ap_status","token":t}),
+            serde_json::json!({"op":"setup_ap_start","token":t,"idempotency_key":"once"}),
         ] {
             assert!(allowed(&parse(op.clone())), "{op}");
         }
@@ -211,6 +216,14 @@ mod tests {
                 assert!(!allowed(&r.command), "{op}");
             }
         }
+    }
+    #[tokio::test]
+    async fn owner_adoption_start_reaches_core_on_the_real_captive_router() {
+        let body=serde_json::json!({"protocol":2,"id":"adopt","command":{"op":"setup_ap_start","token":"a".repeat(64),"idempotency_key":"01010101-0101-4101-8101-010101010101"}}).to_string();
+        // No Core is installed in this test: a forwarded request must fail 503.
+        // 404 means the captive route blocked the UI's required adoption command.
+        let response = send(post("http://192.168.100.1", &body)).await;
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
     }
     async fn send(req: axum::http::Request<axum::body::Body>) -> Response {
         use tower::ServiceExt;

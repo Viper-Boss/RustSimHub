@@ -56,10 +56,12 @@ async function networks(){
  try{
   const v=await api({op:'wifi_networks',token}),chosen=list.value;
   const placeholder=list.children[0];list.replaceChildren(placeholder);
-  for(const n of (v.networks||[]).filter(n=>n.selectable).slice(0,64)){const o=document.createElement('option');o.value=n.ssid;o.textContent=`${n.ssid}（信号 ${n.strength}%）`;list.append(o);}
+  const choices=(v.networks||[]).filter(n=>n.selectable).slice(0,64);
+  for(const n of choices){const o=document.createElement('option');o.value=n.ssid;o.textContent=`${n.ssid}（信号 ${n.strength}%）`;list.append(o);}
   if(chosen)list.value=chosen;
   const when=new Date().toLocaleTimeString();
-  note.textContent=(v.source==='before_setup_ap'?'列表是开启热点前扫描到的（热点开着时设备无法重新扫描）':'列表来自设备最近一次扫描')+`，${when} 更新。`+((v.networks||[]).length?'':'没有找到时请手动输入名称。');
+  const age=Number.isFinite(v.snapshot_age_seconds)&&v.snapshot_age_seconds>=0?`，约${Math.floor(v.snapshot_age_seconds/60)}分钟前的缓存`:'';
+  note.textContent=(v.source==='before_setup_ap'?'列表是开启热点前扫描到的'+age+'（热点开着时设备无法重新扫描）':'列表来自设备扫描缓存')+`，${when} 读取。`+(choices.length?'':'当前缓存没有可选的 WPA2 网络；热点开启时无法重新扫描，请手动输入名称。');
  }catch{note.textContent='暂时无法获取附近的 Wi-Fi，请手动输入名称。';}
  finally{listing=false;$('setup-networks-refresh').disabled=false;}
 }
