@@ -71,16 +71,29 @@ pub(super) async fn start(
         tokio::spawn(async move {
             // This task belongs to Core, not the HTTP connection or browser tab.
             let run = async {
-                let value = service
-                    .request(
-                        &controller,
-                        auth.clone(),
-                        AuthCommand::ForwardingStatus {
-                            token: token.clone(),
-                        },
-                        service::Action::Reconcile,
-                    )
-                    .await?;
+                // `request` refuses with Busy before any dispatch or Root call when a page's
+                // poll holds the Auth/state lock at that instant; a bounded retry keeps such a
+                // collision from silently skipping the start (backlog #24).
+                let mut attempt = 0;
+                let value = loop {
+                    match service
+                        .request(
+                            &controller,
+                            auth.clone(),
+                            AuthCommand::ForwardingStatus {
+                                token: token.clone(),
+                            },
+                            service::Action::Reconcile,
+                        )
+                        .await
+                    {
+                        Err(Error::Busy) if attempt < 5 => {
+                            attempt += 1;
+                            tokio::time::sleep(Duration::from_millis(20 << attempt)).await;
+                        }
+                        result => break result?,
+                    }
+                };
                 if value["state"] != "running" || value["process_state_verified"] != true {
                     return Err(Error::Forbidden);
                 }
