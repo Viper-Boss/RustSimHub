@@ -34,3 +34,9 @@ Windows换行导致最初发布清单中的三个文本摘要与Git规范化后�
 北京时间2026-10-29 02:39复核：公开提交`da9c53fde7ecbdabc46ec541de70a21f1af03ee9`，固定私有来源`7f52333a420362112c98d66c58abd3bbabfaba2f`（PR61）。Pages构建1322293194为built，[运行40746958571](https://github.com/Viper-Boss/RustSimHub-progress/actions/runs/40746958571)completed/success。带独立缓存参数实际HTTPS下载四文件全部200，HTML/JSON/Markdown摘要逐项匹配清单，收到的清单与导出一致；HTML摘要`ae6d14a21dfa71d8e84e38260d8f0c2fe14870129279505af49b02695a953e36`。
 
 焦点BLE2-01描述含本批302项离线结果及未接A/浏览器/IPC/Wi-Fi/账本边界，原81.5%、20/169和D余6不变。本地三文件同源，公开仍为13文件白名单。证明只在私有update-da9c53f目录，未声称产品合并/上机/视觉点击验收。本段补记不重做已通过的生产测试。
+
+## D-23回执与当前main贡献快照
+
+北京时间2026-10-29 09:50复核：公开提交`065cfe509ef57844fdf7c4b79b11204a61b38a87`，固定私有来源`579268da8f7ce57b0f62a40d5d748e9b9fa3ddf6`（PR63），Git贡献来源main677ba57。Pages构建1323096961为built，[运行40802722112](https://github.com/Viper-Boss/RustSimHub-progress/actions/runs/40802722112)completed/success。页面/JSON/Markdown/发布清单带独立缓存参数实际HTTPS全部200；前三摘要匹配清单，清单与导出一致，页面SHA-256`2d3b3810ebbf4aecb075375f908b7e51ef8a82aeef3cd6f81718cd6789c117a3`。
+
+公开焦点含324项与D-23局部边界，团队贡献已更新到真实main（产品49592行：lead48428、yh1030 1164，其他三位0），未将本批未合并代码冒记。原81.5%、20/169、D余6保持。本地三文件同源，13文件白名单不变。固件仓库实际回读private=true、has_pages=false；未运行设备。原始下载/验证仅保存在私有update-065cfe5目录，本段不代表视觉点击、产品合并或上机验收。

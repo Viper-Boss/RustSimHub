@@ -62,3 +62,5 @@ cargo run -p rustsimhub-core --locked --offline -j3 -- --build-info
 ## 本批投影验证
 
 最终任务书/归属/统计归档`a0b5f5515c6f6e841d8fde9df5a6e0ad31a820c14eb8539aa8cd8ac966efba2b`、日志`11e1292ea2ca78974515f33b7af1c9df892c6f115a5c85482d2793fe4e8e840a`：Linux进度Python24项0跳过与生成一致性通过；Windows Node个人任务/唯一归属/计算/转义及diff检查通过。此后只补本段验证记录，不重计Rust测试。
+
+完整提交定位：本批代码`a9f5f592ab1a84a326bb8e78a9f08a4f64318c1a`，合入既有Claude main的提交`b9a73d21d5f92210f1de335a41fbf789106d5a3f`。公开快照固定在PR63的`579268da8f7ce57b0f62a40d5d748e9b9fa3ddf6`；后续只补上线证明，不把截图/推送当设备验收。
