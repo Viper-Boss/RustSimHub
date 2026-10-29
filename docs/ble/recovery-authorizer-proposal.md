@@ -68,13 +68,18 @@ Core 进程实例、可信 peer/连接代次、安全会话 id/期限与请求 i
 | 表 | 字段与约束 |
 |---|---|
 | recovery_grants | id：服务端UUID主键；independent_public_key：32字节、唯一且有效非弱Ed25519公钥；device_public_key：32字节；realm：当前db_epoch；owner_id：引用principals.id；owner_generation：1..i64::MAX-1；generation：相同范围；active：0/1；capability：精确wifi.recovery；max_trial_ms：1..40000；format：精确1 |
-| recovery_grant_receipts | realm + owner_id + request_id 唯一；action：grant/revoke；payload_digest：32字节；grant_id 与 resulting_generation；成功回执与grant同事务提交；最多256条，满则拒绝新变更，不删证据、不自动重放 |
+| recovery_grant_receipts | realm + owner_id + request_id 唯一；action：grant/revoke；payload_digest：32字节；grant_id 与 resulting_generation；成功回执与grant同事务提交；最多256条，保留每个活动grant的一个撤销名额 |
 
 请求ID沿用冻结 canonical UUID 格式。digest 由 Auth 内对固定版本、有长度界限的规范
 参数编码计算，只用于请求去重，不作为签名或安全会话证明；编码必须在实现 PR 中附向量。
 参数包含动作、独立公钥、constraints、expectedGeneration及当前 Owner/realm。
 同 requestId/同参数返回原成功回执；不同参数拒绝。回执丢失时只查询原请求，
-不创建新 requestId。失败/事务回滚无成功回执；generation 满、容量满均拒绝。
+不创建新 requestId。失败/事务回滚无成功回执。
+grant只创建新记录或重新批准已停用记录，活动记录需先撤销再改变约束。
+每次新grant必须在事务内满足 `回执数 + 1 + 变更后活动grant数 <= 256`，
+从而预留全部活动grant的撤销回执位置；容量用尽只阻止新增/重新批准，不阻止撤销。
+重复撤销已停用项不创建新授权或新回执。grant到达代次上限前拒绝重新批准，
+预留一个撤销增量；损坏/溢出记录不能继续授权，不能因generation满而保持有效。
 
 预期迁移过程：先读取且核对精确来源/数据版本、私有一致备份与剩余空间；在同一
 writer 事务创建两个 STRICT 表、索引与约束，最后设user_version=7再提交。
