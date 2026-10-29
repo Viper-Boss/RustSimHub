@@ -29,6 +29,7 @@ pub enum Error {
     Deadline,
     Io,
     Entropy,
+    Worker,
 }
 pub type Result<T> = std::result::Result<T, Error>;
 impl std::fmt::Display for Error {
@@ -306,3 +307,4 @@ impl PeerConnection {
 
 #[cfg(test)]
 mod tests;
+mod verification;
