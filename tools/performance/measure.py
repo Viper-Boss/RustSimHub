@@ -117,11 +117,26 @@ def worker(profile, deadline):
     return 0
 
 
+def provenance(profile):
+    """Capture both boundaries; metadata collection is outside the sample window."""
+    return {
+        'source_sha': subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True, timeout=3).strip(),
+        'source_dirty': bool(subprocess.check_output(['git', '-C', str(ROOT), 'status', '--porcelain'], timeout=3)),
+        'runner_sha256': hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest(),
+        'workload_sha256': hashlib.sha256((ROOT / PROFILES[profile]).read_bytes()).hexdigest(),
+        'environment': {'os': platform.system(), 'architecture': platform.machine(),
+                        'python': platform.python_version(),
+                        'node': subprocess.check_output(['node', '--version'], text=True, timeout=3).strip(),
+                        'clock_ticks': os.sysconf('SC_CLK_TCK')},
+    }
+
+
 def measure(profile, seconds=5, warmup=.5, interval=.1, cancel=None):
     if profile not in PROFILES or not (.5 <= seconds <= 20 and 0 <= warmup <= 2 and .05 <= interval <= 1):
         raise ValueError('bounded profile/window required')
     if platform.system() != 'Linux':
         raise ValueError('Linux /proc required')
+    source = provenance(profile)
     started = time.monotonic()
     samples, identities, previous, previous_at = [], [], None, None
     outcome = 'completed'
@@ -204,16 +219,16 @@ def measure(profile, seconds=5, warmup=.5, interval=.1, cancel=None):
                     break
                 time.sleep(.05)
     cpu = [s['cpu_percent'] for s in samples if s['cpu_percent'] is not None]
-    sha = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
-    return {'schema': 2, 'kind': 'synthetic-functional', 'scope': SCOPE,
-            'profile': profile, 'source_sha': sha, 'source_dirty': bool(subprocess.check_output(['git', '-C', str(ROOT), 'status', '--porcelain'])),
-            'runner_sha256': hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest(),
-            'workload_sha256': hashlib.sha256((ROOT / PROFILES[profile]).read_bytes()).hexdigest(),
+    after = provenance(profile)
+    source_changed = source != after
+    if source_changed and outcome == 'completed':
+        outcome = 'source_changed'
+    return {'schema': 3, 'kind': 'synthetic-functional', 'scope': SCOPE,
+            **source, 'profile': profile, 'source_changed': source_changed,
+            'source_dirty': source['source_dirty'] or after['source_dirty'],
             'completed_iterations': completed, 'outcome': outcome,
             'cleanup_verified': cleanup, 'requested_seconds': seconds, 'warmup_seconds': warmup,
             'sample_interval_seconds': interval, 'measured_seconds': measured_seconds,
-            'environment': {'os': platform.system(), 'architecture': platform.machine(),
-                            'python': platform.python_version(), 'node': subprocess.check_output(['node', '--version'], text=True).strip(), 'clock_ticks': os.sysconf('SC_CLK_TCK')},
             'samples': samples, 'sample_count': len(samples),
             'mean_cpu_percent': statistics.mean(cpu) if cpu else None,
             'peak_rss_bytes': max((s['rss_bytes'] for s in samples), default=None),

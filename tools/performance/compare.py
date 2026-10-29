@@ -27,9 +27,10 @@ def load(path, expected_sha):
     report = json.loads(data)
     if not re.fullmatch('[a-f0-9]{40}', expected_sha) or report.get('source_sha') != expected_sha:
         raise ValueError('source SHA mismatch')
-    if (report.get('schema') != 2 or report.get('kind') != 'synthetic-functional'
+    if (report.get('schema') != 3 or report.get('kind') != 'synthetic-functional'
             or report.get('scope') != SCOPE or report.get('profile') not in PROFILES
             or report.get('source_dirty') is not False or report.get('outcome') != 'completed'
+            or report.get('source_changed') is not False
             or report.get('cleanup_verified') is not True
             or report.get('device_performance_verified') is not False
             or report.get('budget_approved') is not False):
@@ -37,6 +38,18 @@ def load(path, expected_sha):
     for key in ('runner_sha256', 'workload_sha256'):
         if not re.fullmatch('[a-f0-9]{64}', report.get(key, '')):
             raise ValueError('missing provenance')
+    environment = report.get('environment')
+    if (not isinstance(environment, dict)
+            or set(environment) != {'os', 'architecture', 'python', 'node', 'clock_ticks'}
+            or environment['os'] != 'Linux'
+            or type(environment['clock_ticks']) is not int or environment['clock_ticks'] <= 0):
+        raise ValueError('complete Linux measurement environment required')
+    patterns = {'architecture': r'[A-Za-z0-9_-]+',
+                'python': r'[0-9]+\.[0-9]+\.[0-9]+[A-Za-z0-9.+-]*',
+                'node': r'v[0-9]+\.[0-9]+\.[0-9]+[A-Za-z0-9.+-]*'}
+    if any(not isinstance(environment[key], str) or not 1 <= len(environment[key]) <= 64
+           or not re.fullmatch(pattern, environment[key]) for key, pattern in patterns.items()):
+        raise ValueError('invalid measurement environment metadata')
     window = report.get('requested_seconds')
     warmup = report.get('warmup_seconds')
     interval = report.get('sample_interval_seconds')
@@ -89,7 +102,7 @@ def compare(old, new, old_sha, new_sha):
     settings = ('requested_seconds', 'warmup_seconds', 'sample_interval_seconds')
     if any(a[key] != b[key] for key in settings):
         raise ValueError('same window, warmup and interval required')
-    return {'schema': 2, 'scope': SCOPE, 'profile': a['profile'],
+    return {'schema': 3, 'scope': SCOPE, 'profile': a['profile'],
             'old_sha': old_sha, 'new_sha': new_sha,
             'measurement': {key: a[key] for key in settings},
             'measured_seconds': {'old': a['measured_seconds'], 'new': b['measured_seconds']},
