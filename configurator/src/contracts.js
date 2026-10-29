@@ -25,7 +25,7 @@ export function pending(v,expectedPin){
  need(v.requests.every(r=>exact(r,['request_id','action','trial_id','submit_started'])&&requestId(r.request_id)&&actions.includes(r.action)&&(r.trial_id===null||pin(r.trial_id))&&typeof r.submit_started==='boolean'));
  return structuredClone(v);
 }
-export function credentials(ssid,passphrase){need(typeof ssid==='string'&&typeof passphrase==='string','invalid_input');const n=new TextEncoder().encode(ssid).length;need(n>=1&&n<=32&&!/[\p{Cc}\p{Cf}]/u.test(ssid),'invalid_input');need(/^[\x20-\x7e]{8,63}$/.test(passphrase)||/^[0-9a-fA-F]{64}$/.test(passphrase),'invalid_input');return {ssid,passphrase};}
+export function credentials(ssid,passphrase){need(typeof ssid==='string'&&typeof passphrase==='string','invalid_input');const n=new TextEncoder().encode(ssid).length;need(n>=1&&n<=32&&!/[\u0000-\u001f\u007f-\u009f]/u.test(ssid),'invalid_input');need(/^[\x20-\x7e]{8,63}$/.test(passphrase)||/^[0-9a-fA-F]{64}$/.test(passphrase),'invalid_input');return {ssid,passphrase};}
 export const terminal=o=>o?.authoritative===true&&(o.state==='saved'&&o.settings_saved===true||o.state==='rolled_back'&&o.settings_saved===false&&o.rollback_verified===true);
 
 export const errors=['unsupported','permission_denied','not_preapproved','pin_mismatch','auth_failed','revoked','busy','invalid_input','protocol_error','transport_lost','deadline','unknown','unavailable'];

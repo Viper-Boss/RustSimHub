@@ -1,0 +1,4 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>合成统计展示</title><style>body{font:16px system-ui;margin:16px}main{max-width:1000px;margin:auto;overflow-wrap:anywhere}button,select{font:inherit;min-height:44px;max-width:100%}dd{margin-left:12px}button:focus-visible,select:focus-visible{outline:3px solid teal}</style></head><body><main id="stats"></main><script type="module">
+import {UsageStatsPanel} from '/usage-stats.js';window.calls=0;
+const p=new UsageStatsPanel({document,root:document.getElementById('stats'),read:async({window})=>{calls++;return {status:'cached',freshness:'expired',reason:'offline',entry:{window,count:42,source:'read_only_transport',observed_at_secs:1793203200,succeeded_at_secs:1793203201,expires_at_secs:1793203801,freshness_revoked:false}};}});window.ready=true;
+</script></body></html>
