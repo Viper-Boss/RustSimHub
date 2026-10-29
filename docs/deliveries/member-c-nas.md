@@ -317,3 +317,213 @@ C09～C12 仍在独立 PR #10 等待真实 Linux 结果，本分支不包含、�
 Codex 辅助资料核对、写作和检查；未估造实际工时、不修改作者/贡献数据、不代负责人声称验收。
 回退本轮新手册及报告追加即可，无产品数据或设备状态需要回退。
 整体按固定 P0～P7 量表仍约 **80%**，C15 草稿不自行增加正式支持或主线验收点数。
+
+## 2026-10-27 · C-09～C-12 备份恢复离线交付
+
+成员 yh1030 / member-c；用户明确授权“继续开展 C09-C12，按照要求提交文件与报告”。
+从已合并 PR #9 的最新主线独立开工，不执行 C-13～20，不接管主线生产修复或设备恢复。
+
+- 起始 main：`6f228fd3dcb9ce6da54d7910f4b044833e71a91a`。
+- 分支：原仓库 `Viper-Boss/RustSimHub:codex/member-c-recovery-matrix` → main；完整当前 HEAD、PR 与对应 CI 在 PR 正文逐次维护，不 fork、不直接推 main。
+- 文件仅新增 `crates/recovery/tests/offline_business_matrix.rs`、`tools/test-business-recovery-matrix.py`、`tools/fixtures/backup-recovery/{matrix,business,identity,outbox}.rs` 与控制器 `test_runner.py`、`docs/recovery/` 三份说明和本报告。
+- 没有改 storage/Core/forwarder/auth/recovery 的生产逻辑、schema、Root/设备脚本、workspace/Cargo.lock、依赖版本、其他成员文件或全局台账。
+
+### 逐项交付与验收边界
+
+| 要求 | 本次材料与真实模块验证 |
+|---|---|
+| C-09 盘点备份、一致性、WAL、realm | [范围清单](../recovery/backup-scope.md)：逐接口列 Store 全表快照、明文/加密身份、独立 outbox、NAS 历史/授权和公开部署配置域；实际代码区分 Store SQLite Backup API 与在线主文件复制，列恢复 realm/授权/操作规则 |
+| C-10 成功/失败矩阵 | 15 个命名 Rust 场景中，实际 backup/restore/Identity/Auth/Queue 覆盖同批、混批、截断/空/缺包、错 key/pin/device/Owner/realm/version、重复及错误路径；已有数据保持、无效新目标隔离证据保留，不清库来通过 |
+| C-11 操作/回执与重开 | 用真实 API 构造短信/通话 prepared/submitting/Unknown/submitted 和 outbox confirmed/unknown/in_flight/queued；恢复核对 ID/attempt/回执/短信/通话/游标，旧八条 SMS/call 操作 begin 许可为 0；正常重开和新 realm 绑定拒绝分别验证，不恢复为自动发送 |
+| C-12 文件与交付 | [完整矩阵/命令](../recovery/offline-matrix.md)、[生产缺口与最小提案](../recovery/consistency-gaps.md)及本报告；原仓库小 PR，所有输入合成，仅临时目录，无设备/EDL/分区/维护脚本 |
+
+真实模块由 Cargo 按根锁文件构建到新临时 target，取 compiler-artifact JSON 的精确 rlib，
+同一 Clippy driver 对独立夹具 `-D warnings` 编译后运行，15 个固定场景必须逐个通过且零 ignored。
+Cargo 的 recovery 集成测试自动调用；不用新增 manifest/依赖或把别人的生产文件加入本批。
+四项 Python 单测只验证构建元数据选择，不能替代十五项业务矩阵。
+
+### 已执行与待补验证
+
+- 本机 Windows；`python tools/test-business-recovery-matrix.py`：退出 0，只列计划，未构建/恢复；Linux 实际模式不在 Windows 假跑。
+- `python -m unittest discover -s tools/fixtures/backup-recovery -p test_runner.py`：4 项通过，退出 0；首次受限临时目录创建/清理 ACL 失败，换为允许本机临时测试的执行环境后真实重跑，未放宽选择器断言。
+- `cargo test -p rustsimhub-recovery --lib --locked --offline`：退出 0，Windows 3 项原加密身份回归通过；新增 Linux 业务矩阵未借此标成功。
+- `cargo test -p rustsimhub-recovery --locked --no-run`：退出 0，库/bin/新测试入口编译。最初 offline 因 aead 等已锁依赖本机未缓存失败；联网获取锁定依赖后编译，未改锁文件。保留原 recovery/main.rs 在非 Linux 的未使用 Path 提示，不为本包改生产入口。
+- Windows `cargo clippy -p rustsimhub-recovery --lib --locked --offline -- -D warnings`：退出 0；此项仅库，不冒称 Windows bin 全 targets 严格检查通过。既有 proc-macro-error2 未来兼容提示保留。
+- `cargo fmt --all -- --check`、`rustfmt --edition 2024 --check tools/fixtures/backup-recovery/matrix.rs`、`git diff --check`：退出 0。
+- 本机无 Linux/WSL；15 个真实业务场景、Linux 集成接入和全 targets/独立夹具严格检查待本批 PR CI，未填成功。最终以对应完整 HEAD 的实际结果补记。
+
+### 保持证据、已发现边界与主线接手
+
+关闭的备份/身份/目标比对文件摘要；活跃 SQLite 比对各表真实类型化逻辑记录，避免把 WAL/SHM 内部读标记当业务变化。
+Store 恢复可能在新目标留下 pending/无效副本；不声称所有失败零写入，已有活动/关闭目标不覆盖。
+同身份跨批 Store B + 关闭 outbox A 的复现明确暴露缺少联合 manifest/一致切面；Store 单库成功不是完整包成功。
+旧 outbox 在恢复后被当前 Auth/realm 拒绝，证明隔离而非联合恢复已实现；不重写绑定，不把 Unknown 变 queued。
+Confirmed 仅是实际 Queue::finish 的合成确认，无提供商/设备发送；许可和 transport 计数不冒充实机通信计数。
+
+主线按完整 HEAD 运行正常 recovery 测试（需 Python、锁定 Rust/Clippy 和缓存依赖），或显式 --run；
+审阅三个缺口及版本化联合包/写者协调的最小提案，再决定是否扩展生产接口。本包不实现替代联合校验器。
+真实数据、硬件掉电/文件系统、系统恢复与部署由主线处理；无设备访问、真实短信/电话/推送、网络 transport、Root/签名/分区操作。
+回退本批新测试/文档即可，无产品格式或设备状态需回退。
+
+来源为固定 main 的真实公开模块及已有合成夹具方法；新增源码保留 AGPL-3.0-only，无新第三方依赖。
+Codex 辅助盘点、实现、测试和报告；未估造有效工时、不改作者或贡献数字、不代负责人填写验收结论。
+下一步补本批 Linux 证据，完成 PR 审核就绪交付；整体按固定量表仍约 **80%**，不自行更新全局验收。
+
+### C-09～C-12 补记：原仓库 PR 与 CI 启动阻塞
+
+- 原仓库 [PR #10](https://github.com/Viper-Boss/RustSimHub/pull/10) 已创建，保持 Draft；尚未完成 Linux 验证，不标记 Ready、审核通过或任务验收。
+- 首次公开交付完整 HEAD：`befa0307cf59b97179b53830532d982e024659b4`；当前补交后的完整 HEAD 与精确 CI 状态由 PR 正文维护，不能将旧提交测试结果移作新提交证据。
+- 该 HEAD 的 [push CI 40492864750](https://github.com/Viper-Boss/RustSimHub/actions/runs/40492864750) 和 [PR CI 40493025940](https://github.com/Viper-Boss/RustSimHub/actions/runs/40493025940) 均失败。检查详情明确：账号付款失败或费用额度需要调整，任务没有启动。PR run 的 `test`（122151413668）及 `native-audio`（122151413896）均没有步骤、runner_id=0；push 的 test（122150885009）亦回读到同一付款/额度注释。没有实际编译/运行结果，也没有可下载的 test 日志；取日志返回 404 BlobNotFound，不能当代码测试失败或通过。
+- 没有修改仓库费用、工作流、配额、主线或部署；需要负责人恢复 Actions 可运行条件，或在已有 Linux 环境按矩阵文档执行同一完整 HEAD。未因这次启动失败盲目重复运行，也不把 Ubuntu 镜像迁移通知误当失败原因。
+- 本次仅增强 C-11：恢复后对原短信/通话请求逐项重放，断言原 ID/状态、无新许可及全业务表逻辑不变；另对原 Unknown 短信请求连续重放三次，再验证换 SIM 后冲突。所有调用仍为真实公开模块，未增加生产接口或发送器；这些新增断言尚未在 Linux 执行，不能称通过。
+- 补交源码本机 `rustfmt --edition 2024 --check tools/fixtures/backup-recovery/matrix.rs`、`cargo fmt --all -- --check`、`git diff --check` 均退出 0；计划模式退出 0，仍仅列 15 个场景；控制器单测实际 4 通过/0 失败，退出 0。这些静态/选择器检查不代替 Linux 15 场景、全 targets Clippy 或完整 CI。
+- C-09 盘点及 C-10/C-11 的测试源码、C-12 文档和 PR 已提交；C-10/C-11 运行验收与 C-12 最终证据收尾仍待上述执行条件。保持原生产缺口、来源/许可、真实设备未验收及整体 **80%** 边界，不开始 C-13～20。
+
+### C-09～C-12 补记：负责人 Linux 补验包已准备
+
+用户确认负责人有 Linux 环境，并要求把待测材料打包交负责人执行。
+已从完整代码 HEAD `bfaa8dcea7980e9e95fad5c6754fb3482f55a33d` 的 Git 归档生成 `C09-C12-Linux-bfaa8dc.zip`（2,257,992 字节）；
+压缩包 SHA256 为 `4ad2b9d25bb3600d0b5c719fc10f944eb9534f0440aca5cdee6d032eeb328099`。
+包经当前聊天交付用户转交，不声称已发送负责人或负责人已经执行。
+
+- 内容为中文说明、`SOURCE.json`、独立 `run-linux.py` 和固定源码 `source.tar.gz`；766 个公开源码文件逐个 Git blob 核对一致，保留许可证/来源；没有 .git/.local/.private、真实数据、凭据、生产数据库或预编译产物。
+- 解压后 Linux 普通用户运行 `python3 run-linux.py`；缺依赖缓存且允许下载锁定依赖时用 `python3 run-linux.py --fetch`。需要既有 Rust 1.98.0/rustfmt/Clippy、Python 3.10+、C 编译器；不用 sudo 或设备访问。
+- 外层收集工具先验证归档，再从固定源码解压到独立新目录，依次运行四项控制器单测、fmt、直接十五项矩阵、Cargo recovery 接入和严格 Clippy；逐步保留真实命令/退出码/耗时/日志，受限超时及失败不静默跳过。两次矩阵分别验证直接入口和 Cargo 接入，不重复增加任务数或验收比例。
+- 结束生成单独 `results-*.zip`，只包括步骤日志和 `summary.json`；不打包工作区、数据库、密钥或缓存。负责人回传此结果后，成员 C 核对完整 HEAD、修正范围内问题并补交实测报告。
+- 本机实际验证：外层脚本 Python 语法解析、`--verify-only`、766 文件逐个 Git blob 比对、ZIP CRC 和四文件清单均通过；没有执行外层 Linux 路径或十五项业务测试，不把打包/完整性验证写成 Linux 成功。
+- 本次报告补交只记录交接，不改变已打包代码；源码归档固定在上述完整 HEAD。PR 当前报告提交 HEAD 单列在 PR 正文；完整仓库 CI、真实恢复、主线审核/合并仍未验收，整体仍约 **80%**。
+
+### 2026-10-27 · 本机 WSL2 测试环境准备（待 Windows 重启）
+
+用户改为在本机安装 WSL2，并要求后续 Linux 测试默认由代理在 WSL2 执行；不再把负责人 Linux/Actions 额度作为唯一执行条件。
+本轮已完成 Windows 侧组件安装，尚未运行 Linux 测试，不能将环境准备计作 C10/C11 验收。
+
+- 硬件只读检查：x64 Windows build 26200.9711，固件虚拟化与二级地址转换已启用；安装前 hypervisor 未运行。没有更改 BIOS 或安全策略。
+- 下载 Microsoft 官方稳定 WSL 3.0.3.0 x64 MSI；SHA256 `ae977286974255bd26bf925f00f40f5692c6b2084155cbc0563c09aea091f211` 与官方发布一致，Authenticode 为 Valid，签名者 Microsoft Corporation。
+- 标准管理员确认后，Windows 原生 DISM 启用 VirtualMachinePlatform，实际退出码 3010、日志明确需要重启；`/norestart` 生效。原生 msiexec 安装 WSL，实际退出码 0，没有自动重启。
+- `wsl.exe --version`：退出 0，实际 WSL 应用 3.0.3.0、内核 6.18.54.1-1；`wsl.exe --status`：退出 0、默认 WSL 版本 2，但仍提示当前 WSL2 无法启动，不能仅凭退出码称环境可用。`wsl.exe --list --online`：退出 0，确认 Ubuntu-24.04 可用；尚未安装发行版。
+- 保留失败：原精简 wsl 安装入口带参数未开始安装；旧 Windows PowerShell 默认脚本策略阻止安装脚本，未执行。没有放宽策略，改用 Microsoft 签名的原生 DISM/msiexec 完成上述实际安装。原始安装日志与接续记录仅本机保管。
+- 下一步需要用户保存其他应用工作并允许/手动重启 Windows。重启后继续安装 Ubuntu、普通 Linux 测试用户与锁定工具链；使用 Linux 原生文件系统执行固定 HEAD 的十五场景、Cargo 接入及严格检查，再验证默认 WSL2 测试入口和结果收集流程。
+- 本轮无 Ubuntu/WSL2 用户进程测试、无 Rust/Go/业务矩阵新结果、无设备/真实通信/推送/流量或分区操作。C09～C12 的运行证据和验收仍缺，整体按固定量表保持 **80%**。
+
+### 2026-10-28 · 本机 WSL2 已启动，真实矩阵复测
+
+用户已完成重启，并要求离开期间继续推进。实际 HypervisorPresent=true；官方 Ubuntu-24.04 已安装并启动，
+发行版为 Ubuntu 24.04.5 LTS，内核 `6.18.54.1-microsoft-standard-WSL2`，测试用户 UID/GID1000，未授予 sudo。
+本机新建 WSL 配置限制6GB/4CPU且保持防火墙。镜像网络失败（ConfigureNetworking/0x8007054f）后安全回退到 NAT，
+普通用户直接访问 Ubuntu/Rust/Cargo 官方下载地址成功，未开放LAN代理或放宽TLS验证。
+
+- 已实际安装 C 编译器/Python/Go/Node 与必要开发库。Rust 官方脚本下载停滞、静态安装器直连180秒超时的失败保留；改由本机代理下载官方程序与五个锁定组件，逐项核对官方 SHA256 后导入 Linux 缓存，原生 rustup 安装 1.98.0/rustfmt/Clippy 成功。
+- 只复用 Cargo.lock 校验过的164个公开 crate 包和292条公开索引，未复制凭据、Windows可执行程序或修改锁文件；其余依赖由 Linux Cargo 实际准备。
+- 新增 `tools/fixtures/backup-recovery/wsl_test.py` 与 [WSL入口说明](../recovery/wsl-tests.md)：固定 Git commit/tree 归档、SHA256、普通用户/WSL2内核核对、Linux原生源码/TMPDIR/target、有界步骤、完整日志/退出码/实耗和仅日志的 evidence.zip。默认只列计划；后续 Linux 测试采用这一入口或同一 WSL2 发行版的明确命令。
+
+首轮精确提交 `45c54d4b32bc00a1093cf54d4faead9795cdbdc7`，源码 tree `f9aad114260be0e3d7c2748fcd3543f15d0baffb`：
+`python tools/fixtures/backup-recovery/wsl_test.py --run --suite recovery --fetch --ref 45c54d4b32bc00a1093cf54d4faead9795cdbdc7` 返回1。
+该轮 WSL 执行器为另行记录 SHA256 的新本地文件，不冒充该提交已有工具。
+依赖/格式/四项控制器/严格Clippy均0；直接矩阵11通过/4失败/0忽略；Cargo recovery库4通过，集成矩阵同样11/4导致退出101。
+失败和成功步骤原样保存，日志压缩包CRC检查通过且只含步骤日志/来源/summary，没有数据库或密钥。
+
+四项失败发生在只读观察/恢复的来源目录检查：SQLite WAL格式文件被普通只读打开后可新建 WAL/SHM。
+备份输出单文件清单原本在观察后才检查，混入观察器副作用；其余整目录等值也没有区分原文件和新增辅助文件。
+修正仅在测试：发布后先检查单文件；已完成、无非空WAL的快照用 immutable URI 观察；产品 restore 打开方式不改。
+来源原有文件逐个摘要保持、有效快照完整逻辑保持；新增只允许空WAL与有界SHM；已有目标仍严格不覆盖。
+没有删辅助文件、清库或屏蔽失败。新增 GAP-REC-04 明确来源目录非零写入及只读介质/恶意旁路WAL尚未验收，最小生产提案交主线。
+
+修正后精确暂存 tree `a7fd84f98d7a6a30e0c217d34b3cf1846194ce21`，
+`python tools/fixtures/backup-recovery/wsl_test.py --run --suite recovery --ref a7fd84f98d7a6a30e0c217d34b3cf1846194ce21`：
+该轮已实际完成：直接十五项真实模块矩阵全部通过、0忽略；Cargo recovery库4项通过、集成入口1项通过（内部再次执行全部十五场景）、bin/文档0测试正常退出；包全targets严格Clippy、依赖/格式/四项控制器也均为0，执行器最终 passed=true。
+所有步骤命令/退出码/实耗与来源保存在同轮日志；既有 proc-macro-error2 未来兼容提示保留，未变更依赖。
+该证据明确标记为 tree，而不是最终提交HEAD通过；发布后仍须核对最终完整提交的适当回归及范围。
+无设备/实际通信/普通蜂窝/签名部署/分区操作；整体仍按固定量表 **80%**，成员不更新主线验收。
+
+#### 完整代码 HEAD 的最终 WSL2 回归及交付
+
+完整代码提交 `f5e4cb8cfc886828e43394b016a3df9d9834e2e6`，tree `dbb3a95f4ef29a5d4231a003b1d40aa83d680892`；
+与上述已通过的 a7fd84f 暂存树逐文件比较，仅本人报告不同，测试/工具/矩阵文档未变。
+之后补记仅更新本人报告与 WSL 环境依赖说明，PR 正文分别维护代码 HEAD、最终文档 HEAD 及各自检查范围。
+
+- `python tools/fixtures/backup-recovery/wsl_test.py --run --suite workspace --ref f5e4cb8cfc886828e43394b016a3df9d9834e2e6`：最终返回0、passed=true。实际 `cargo test --workspace --all-features --locked --offline` 退出0，Cargo结果共621通过/0失败/2标记忽略；其中 recovery 接入完整再跑十五场景通过。`cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings` 与 fmt 均0。
+- 两个 ignored 分列：C06 import_worker 是由父场景实际调用的专用子进程入口，不能算父测试未跑；forwarder 专用真实 OS ENOSPC 仍需独立有限 tmpfs 脚本，本轮未执行，不计通过。Root安装/系统服务/签名专项、ARM及实机验证未借此填成功。
+- 原生音频同一完整提交首次 `--suite native --fetch` 依赖准备达到600秒边界，退出124、passed=false、未编译测试；Windows代理下载仅缺少的9个原锁文件包并逐项校验后导入。随后离线编译明确缺少CMake，test/Clippy均101、未执行测试；这轮失败原样保留，没有改源码或提高限额。
+- 安装 Ubuntu 官方 CMake3.28.3 后，`python tools/fixtures/backup-recovery/wsl_test.py --run --suite native --ref f5e4cb8cfc886828e43394b016a3df9d9834e2e6`：最终0、passed=true。实际 native Cargo 库23项+bin10项，共33通过/0失败/0忽略，全部targets严格Clippy和fmt均0。这是主机原生/回环验证，不是实际ALSA设备、电话或ARM测试。
+- 实际默认 `wsl -d Ubuntu-24.04 --exec id` 为UID/GID1000；测试目录 stat 文件系统类型 ext2/ext3，实际4 CPU。所有恢复数据库/TMPDIR/target位于Linux原生用户目录，未用Windows挂载盘的SQLite权限行为冒充。
+- 已生成 `C09-C12-WSL2-validation-f5e4cb8.zip`，61,054字节，SHA256 `34c08ec07f7dadee20bacba4f04adf15eff4e05eec98aca58a85fb24614460d8`。六轮来源/summary/步骤日志及真实失败全部保留、ZIP CRC通过；不含源码归档、数据库、密钥、工作区或缓存。经当前聊天供用户转交，不声称已向负责人代发。
+- 当前代码 HEAD 的 GitHub CI40630396003 仍因账号付款/额度未启动，已回读test检查注释；WSL通过不表示Actions/账单已恢复，也不冒称完成整套CI的Root专项。负责人可以按本机证据核对代码，成员不绕过保护或自行合并。
+
+C09盘点、C10/C11完整合成矩阵及C12离线文件/报告交付已具备真实Linux证据，主线逐HEAD审核/合并及真实设备恢复保持待验。
+四项生产缺口未修复；没有将测试观察器当作新生产恢复器。后续Linux测试默认复用已验证的本机WSL2入口，
+格式或依赖变化时按实际失败修正环境/范围内测试，不能退回Windows跳过结果报成功。整体固定里程碑仍约 **80%**。
+
+
+### 2026-10-28 · 按负责人 PR #10 审查接入主线 #14
+
+审查文档 `docs/team/REVIEW-PR-10-45c54d4.md` 对旧45c54d4提出需修改；此前本机f5e4cb8结果属于旧6f228fd基线，不能替代本轮新源码验证。
+本轮正常合并主线 `516228a73a7de1fa4a8a2dac40ca9f57e96a07ca`，保留双方提交及C15已合并交付记录；不修改他人生产实现或全局台账。
+
+- F1：主线PR #14已把新备份发布为DELETE journal单文件。撤回旧基线临时允许空WAL/有界SHM的夹具助手，三处来源检查恢复完整目录/摘要严格相等；不是忽略sidecar。旧WAL格式备份的限制另记，不把历史f5通过外推到只读介质。
+- F2：发布后先检查单文件，再进行immutable离线观察；活动业务库仍正常WAL感知读取，不改产品打开方式。
+- F3：未来schema负例改为99，并先读取合法备份当前版本断言小于99，避免主线升级后负例失效。
+- F4：拒绝来源后明确断言pending标记状态：缺文件在标记前拒绝，其余无效数据库留下隔离标记且普通open拒绝，不以条件断言跳过。
+- C15已由负责人合并PR #13，仅草稿离线范围通过。手册过期Linux措辞由后续C16按真实证据刷新，本PR不扩写正式发布支持声明。
+
+本轮合并与修改的精确提交、Linux实测退出码及剩余项待执行后补记；没有宣称旧审查已批准新HEAD。真实恢复/设备/只读介质/硬件掉电仍待主线，整体固定里程碑仍 **80%**。
+
+#### 接入主线后的精确源码及实际复测（本节为最新结果）
+
+代码完整HEAD：`c9aed5f4ef3c84fec92b7ac4dd2f297fa70910a8`；tree：`e7edac9490d46994135de47811f981e5f171edab`。
+它是正常双亲合并，双亲为本人旧HEAD `8fa23619a868d0ab280bf5f80205a774bdd37964` 与主线 `516228a73a7de1fa4a8a2dac40ca9f57e96a07ca`，原yh1030和主线作者/历史均保留。
+相对该主线只有本批13个测试/工具/文档路径；C15报告两边追加均完整保留，没有修改他人生产逻辑或全局台账。
+之前45c需修改、旧基线临时辅助文件断言和f5实测均是历史截面，已由本节的主线#14修复及严格断言复测取代，不能混作同一源码证据。
+
+| 精确来源 / 实际命令 | 本轮结果 |
+|---|---|
+| tree e7edac9：`python tools/fixtures/backup-recovery/wsl_test.py --run --suite recovery --fetch --ref e7edac9490d46994135de47811f981e5f171edab` | 退出0、passed=true；四项元数据单测、直接15个业务场景零忽略、recovery库4项+接入1项（内部再跑同15场景）、fmt、包全targets严格Clippy全部0；直接矩阵65.878秒、Cargo121.011秒、Clippy44.944秒 |
+| commit c9aed5f：`python tools/fixtures/backup-recovery/wsl_test.py --run --suite workspace --ref c9aed5f4ef3c84fec92b7ac4dd2f297fa70910a8` | 退出0、passed=true；虚拟workspace根的实际`cargo test --all-features --locked --offline`共653通过/0失败/4标记忽略，包含完整recovery接入；`cargo clippy --all-targets --all-features --locked --offline -- -D warnings`及fmt均0，Clippy78.325秒 |
+| Windows静态/控制器 | rustfmt及git diff检查0；四项控制器首次因默认临时目录ACL失败，未改产品/单测，指定本仓库私有临时目录后4通过/0失败。不能把这次Windows结果代替Linux执行 |
+| 手册结构回归 | `python docs/manuals/check-links.py`退出0：7页、117个本地链接/锚点、16个证据ID，无错误。没有改已合并的C15手册或把结构检查称为实机验收 |
+
+两轮均为WSL2 Ubuntu-24.04、普通UID1000、Rust1.98.0、813个公开/可交付源码文件，源码/TMPDIR/target均在Linux原生用户目录。
+e7edac9树与发布代码c9aed5f的tree完全一致；树验证没有冒充提交，提交另跑了整仓。
+入口在虚拟workspace根选择全部成员，日志中的Cargo命令没有显式`--workspace`；此前报告用该选项描述整仓范围，本轮按日志记录实际参数，不修改历史日志。
+
+4个ignored逐项说明：C06 import_worker由父测试实际调用；forwarder真实OS ENOSPC需要独立有界tmpfs脚本，本轮未执行；
+主线新增的两个actual_root_capture测试需要隔离Root/CAP_SETUID/CAP_SETGID及CAP_KILL正/负路径，本轮未执行，不算通过。
+原生音频33项及严格检查的历史实测来源仍为f5e4cb8。逐文件核对native（含独立Cargo.lock）、media及auth/policy/wire/domain路径、工具链在c9均未变，本轮未重复跑native，不冒称c9存在新的原生运行记录。
+既有proc-macro-error2未来兼容提示保留，没有升级依赖或把提示隐藏。
+
+- 新源码复核包`C09-C12-Linux-c9aed5f.zip`：2,490,677字节，SHA256 `bf44a95c348811b1ffd699a745e9d640c3df152aa8f8a6398abf97f291d136f5`；813个文件逐个与c9 Git blob相同，SOURCE.json含完整HEAD/tree/归档摘要，外层`--verify-only`和ZIP CRC通过。该检查只证明打包完整性；旧bfaa8dc源码包及11/4失败保留为历史，不能继续把旧包当已修正代码。
+- 新结果包`C09-C12-WSL2-validation-c9aed5f.zip`：35,967字节，SHA256 `655ec8f6d9cad8611de9da7283e27d3bde5b6fbc4a66c2d453edcedb3ebe53aa`；包含上述两轮来源/summary/日志、真实命令/退出码/实耗和历史包索引，CRC通过。不含源码、数据库、密钥、工作区或缓存。两包仅在本机准备，经聊天供用户转交，未代发负责人。
+- 代码c9的[Actions run40634706914/test122638880008](https://github.com/Viper-Boss/RustSimHub/actions/runs/40634706914/job/122638880008)实际检查注释仍为付款失败/费用额度，任务未启动；本机通过不表示Actions或完整Root专项/ARM/设备CI成功。
+- PR #10回读为Ready、open、未合并、无代码合并冲突；需负责人按新HEAD重新审查，旧45c的需修改结论不自行改成已批准。最终报告补记提交的完整HEAD由PR正文单列，若只改本报告则与c9代码逐文件等同，不重复运行相同代码的全套测试。
+
+实际完成：F1～F4范围内修改、主线接入、C09盘点/C10-C11真实矩阵/C12离线交付和默认WSL2执行流程；无设备/真实通信/普通蜂窝/部署签名/分区操作。
+剩余：跨域一致切面与联合恢复协议、旧WAL/只读介质/恶意旁路日志准入、真实恢复/硬件掉电、上述专用测试及主线精确HEAD复审/合并。
+下一步按任务书串行规则等待当前包复审，期间已只读盘点C13/C14现有Store接口/重复覆盖与实际IO失败方案；未将C13/C14/C16～30标完成或另造未批准格式。
+整体固定P0～P7仍 **80%**，成员C不更新全局验收/面板或代负责人合并。
+
+#### 2026-10-28 · WSL2隔离专用边界补验（更新上述未运行项）
+
+源码仍为完整代码HEAD `c9aed5f4ef3c84fec92b7ac4dd2f297fa70910a8`、tree `e7edac9490d46994135de47811f981e5f171edab`；不改生产代码或测试断言。
+对之前同一WSL2原生副本的813个源码文件逐个与原Git归档字节相等核验后，普通UID1000分别运行
+`cargo test -p rustsimhub-forwarder --lib --all-features --locked --offline --no-run --message-format=json`、
+`cargo test -p rustsimhub-update --lib --all-features --locked --offline --no-run --message-format=json`，各取得唯一精确Cargo测试ELF及摘要，再运行主线既有夹具。
+测试所需Root仅用于独立WSL网络/挂载隔离；未给rsh-test授予sudo，没有设备、生产秘密、外网或部署。
+
+| 既有脚本 / 实际边界 | 结果 |
+|---|---|
+| `python3 -I tools/test-forwarding-storage-full.py --cargo-artifacts <forwarder-artifacts.json>` | 退出0；独立mount/net命名空间，2,097,152字节tmpfs，实际测试UID65534/NoNewPrivileges，真实errno28；Unknown和游标保留、释放空间后只恢复一次，1通过/0失败/0忽略。其余92个被精确筛选的用例没有借此计通过；退出正常卸载，不填宿主磁盘 |
+| `unshare --net setpriv --no-new-privs python3 -I tools/test-metadata-process.py --cargo-artifacts <update-artifacts.json>` | 退出0；合成ELF实际UID/GID986、附加组与环境清空，密封执行、3秒/16KiB预算验证，1个指定Root场景通过 |
+| `unshare --net setpriv --bounding-set=-kill --no-new-privs python3 -I tools/test-metadata-process.py --cargo-artifacts <update-artifacts.json> --missing-kill` | 退出0；保留SETUID/SETGID但移除CAP_KILL，在启动降权子进程前拒绝，1个指定Root场景通过；没有把未启动子进程的UID或输出伪填成功 |
+
+各步由空环境和固定PATH执行。Linux侧源码/产物准备加三项专项全部0、最终passed=true；不是四个新业务测试。
+普通整仓653通过/0失败/4标记忽略的原始结果保持不变：C06 worker已由父测试调用，另外三项现在有独立实际通过证据，不再处于未运行。
+这没有补齐其余Root/服务协调CI、生产ARM或真实恢复；原生33项仍是已说明的历史源码等同证据。
+
+新增仅日志证据包`C09-C12-WSL2-special-c9aed5f.zip`，26,775字节，SHA256 `793ee1383d626a3f989e165bf15bc3ca5949fab9574f58a415aabf2dabf40942`。
+包含来源/summary/四步日志/两份Cargo产物清单与逐文件原始/共享摘要，ZIP CRC及仅允许文件清单检查通过；没有ELF、源码、数据库、密钥、工作区或缓存。
+这是明确标注的路径脱敏副本，仅将Windows用户目录中的结果/源码归档/执行器路径替换为固定占位符，真实测试输出、退出码、摘要和实耗不改。
+首次打包的路径检查发现执行器路径尚未替换而拒绝，该不完整包仅在本机标为失败保留；补齐该路径脱敏后再生成上述通过检查的包，未把打包检查失败称为业务失败或删除原始证据。
+包在本机准备供用户转交，未代发负责人。WSL说明补上现有专项的复现方法；本次只改说明和本人报告，与c9产品/测试/工具代码一致，不重复跑相同代码全套。
+
+当前PR #10仍等待负责人按最终HEAD复审/合并；未自行改审核结论、全局验收或开启下一修改包。C13/C14继续只读预研；任务书要求当前包审核后串行接续，实际接口/Root授权方案仍由主线收口。
+项目整体按固定P0～P7仍 **80%**，上述隔离通过不替代实机恢复、只读介质、恶意WAL准入或硬件掉电验收。
