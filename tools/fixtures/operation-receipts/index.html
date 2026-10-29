@@ -1,0 +1,7 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>离线回执组件夹具</title><style>body{font:16px system-ui;margin:16px}main{max-width:1100px;margin:auto;overflow-wrap:anywhere}button{font:inherit;min-height:44px;max-width:100%;white-space:normal}button:focus-visible{outline:3px solid teal}</style></head><body><main><h1>合成回执/配置状态</h1><section id="receipt"></section><section id="configuration"></section><p id="long-help"></p></main><script type="module">
+import {OperationReceipt} from '/operation-receipt.js';import {ConfigurationState} from '/configuration-state.js';
+window.calls=[];const r=new OperationReceipt({document,root:document.getElementById('receipt'),query:async id=>{calls.push(id);},archive:async()=>{throw Error('must not archive');}});
+r.update({id:'11111111-1111-4111-8111-111111111111',state:'unknown',submit_started:true,canQuery:true});
+const c=new ConfigurationState({document,root:document.getElementById('configuration'),read:async()=>{calls.push('read');return {source:'forwarding',data:{configuration_applied:true,process_state_verified:false},age_ms:0};}});
+document.getElementById('long-help').textContent='结果未确认时保留原操作，不重拨、不重发；保存意图与进程状态分别核对。'.repeat(30);window.ready=true;
+</script></body></html>
