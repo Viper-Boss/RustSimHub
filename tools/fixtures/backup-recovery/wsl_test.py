@@ -22,7 +22,7 @@ import tempfile
 import time
 import zipfile
 
-SUITES = ('recovery', 'compat', 'workspace', 'native')
+SUITES = ('recovery', 'compat', 'workspace', 'native', 'update')
 
 
 def digest(path):
@@ -136,6 +136,8 @@ def worker(meta_path):
             steps += [('05-controller',['python3','-m','unittest','discover','-s',
                        'tools/fixtures/backup-recovery','-p','test_runner.py'],120),
                       ('06-matrix',['python3','tools/test-business-recovery-matrix.py','--run'],900)]
+        if suite == 'update':
+            steps += [('06-matrix',['python3','tools/test-update-failure-matrix.py','--run'],1000)]
         package = [] if suite in ('workspace','native') else ['-p','rustsimhub-'+suite]
         features = ['--all-features'] if suite == 'workspace' else []
         steps += [('07-cargo-test',['cargo','test',*native,*package,*features,'--locked','--offline'],1800),
