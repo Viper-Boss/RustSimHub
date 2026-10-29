@@ -20,9 +20,13 @@ import zlib
 
 SECTOR = 512
 DISK_SECTORS = 7634944
-# NV/calibration and the boot chain: must keep exact LBAs and never be targets.
-PROTECTED = ('modem', 'sbl1', 'sbl1bak', 'aboot', 'abootbak', 'rpm', 'rpmbak', 'tz', 'tzbak', 'hyp', 'hypbak',
+# NV/calibration and the boot chain: entries kept byte-identical (same LBAs).
+PROTECTED = ('modem', 'sbl1', 'sbl1bak', 'aboot', 'abootbak', 'rpm', 'rpmbak', 'tzbak', 'hyp', 'hypbak',
              'pad', 'modemst1', 'modemst2', 'misc', 'fsc', 'ssd', 'splash', 'DDR', 'fsg', 'sec', 'persist')
+# The stock tz range holds physically bad sectors (270826-270827). Keep the tz
+# entry's type/unique GUID, attributes and name; only move its LBAs into a range
+# the full-disk scan read stably. sbl1 finds tz by type GUID.
+MOVED = {'tz': (1513984, 1024)}
 DROPPED = ('boot', 'system', 'cache', 'recovery', 'userdata')
 EXPECTED_STOCK = ('modem', 'sbl1', 'sbl1bak', 'aboot', 'abootbak', 'rpm', 'rpmbak', 'tz', 'tzbak', 'hyp', 'hypbak',
                   'pad', 'modemst1', 'modemst2', 'misc', 'fsc', 'ssd', 'splash', 'DDR', 'fsg', 'sec', 'boot',
@@ -30,12 +34,14 @@ EXPECTED_STOCK = ('modem', 'sbl1', 'sbl1bak', 'aboot', 'abootbak', 'rpm', 'rpmba
 LINUX_DATA = uuid.UUID('0fc63daf-8483-4772-8e79-3d69d8477de4')
 DEVINFO_TYPE = uuid.UUID('65addcf4-0c5c-4d9a-ac2d-d90b5cbfcd03')
 NAMESPACE = uuid.UUID('6e736866-7566-6930-3033-736563737469')
-# name -> (first sector, sectors, type GUID or None to keep stock boot's type)
+# name -> (first sector, sectors, type GUID or None to keep stock boot's type).
+# Placed only in ranges with no unstable sector in the full-disk double read
+# (system area 1116554-2067551, userdata area 4789152-7634910).
 NEW = {
-    'boot': (396384, 131072, None),
-    'NSHSTATE': (527456, 264159, LINUX_DATA),
-    'devinfo': (792576, 2048, DEVINFO_TYPE),
-    'rootfs': (2134016, 5500888, LINUX_DATA),
+    'boot': (1116672, 131072, None),
+    'NSHSTATE': (1247744, 264159, LINUX_DATA),
+    'devinfo': (1511936, 2048, DEVINFO_TYPE),
+    'rootfs': (4789248, 2845656, LINUX_DATA),
 }
 # Final entry order; NSHSTATE must be partition 15 (rustsimhub-state-check).
 ORDER = ('modem', 'sbl1', 'sbl1bak', 'aboot', 'abootbak', 'rpm', 'rpmbak', 'tz', 'tzbak', 'hyp', 'hypbak',
@@ -122,6 +128,9 @@ def build(primary, backup):
     rows = {}
     for name in PROTECTED:
         rows[name] = by_name[name]['raw']
+    for name, (first, sectors) in MOVED.items():
+        raw = by_name[name]['raw']
+        rows[name] = raw[:32] + struct.pack('<QQ', first, first + sectors - 1) + raw[48:]
     boot_type = uuid.UUID(by_name['boot']['type'])
     for name, (first, sectors, type_guid) in NEW.items():
         rows[name] = entry_bytes(name, first, sectors, type_guid or boot_type)
@@ -150,12 +159,16 @@ def check(new_primary, new_backup, stock):
     new = {e['name']: e for e in entries}
     for name in PROTECTED:
         require(new[name]['raw'] == old[name]['raw'], f'{name}: retained entry changed')
+    for name, (first, sectors) in MOVED.items():
+        moved, stock_entry = new[name]['raw'], old[name]['raw']
+        require(moved[:32] == stock_entry[:32] and moved[48:] == stock_entry[48:], f'{name}: moved entry changed beyond LBAs')
+        require(sectors == old[name]['last'] - old[name]['first'] + 1, f'{name}: moved entry changed size')
     spans = sorted((e['first'], e['last'], e['name']) for e in entries)
     for (a_first, a_last, a_name), (b_first, _b_last, b_name) in zip(spans, spans[1:]):
         require(a_last < b_first, f'{a_name} overlaps {b_name}')
     require(spans[0][0] >= head['first'] and spans[-1][1] <= head['last'], 'Partition outside usable area')
     targets = []
-    for name in NEW:
+    for name in (*MOVED, *NEW):
         e = new[name]
         for keep in PROTECTED:
             k = old[keep]
@@ -169,15 +182,39 @@ def check(new_primary, new_backup, stock):
                 new_targets=targets, protected=protected)
 
 
+def read_unstable(path):
+    """Absolute sectors listed by UsbTool's *.mismatch.txt (comment lines start with #)."""
+    sectors = set()
+    for line in path.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if line and not line.startswith('#'):
+            require(line.isdigit(), f'Bad sector list line: {line!r}')
+            sectors.add(int(line))
+    return sectors
+
+
+def check_unstable(layout, unstable):
+    for target in layout['new_targets']:
+        last = target['first_sector'] + target['sectors'] - 1
+        hits = sorted(s for s in unstable if target['first_sector'] <= s <= last)
+        require(not hits, f"{target['name']} covers {len(hits)} unstable sectors, first {hits[:3]}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--primary', type=pathlib.Path, required=True)
     parser.add_argument('--backup', type=pathlib.Path, required=True)
     parser.add_argument('--out', type=pathlib.Path, required=True, help='new directory; must not exist')
+    parser.add_argument('--unstable', type=pathlib.Path, action='append', default=[],
+                        help='UsbTool mismatch list; targets must avoid every listed sector (repeatable)')
     args = parser.parse_args()
     try:
         primary, backup = args.primary.read_bytes(), args.backup.read_bytes()
         new_primary, new_backup, layout = build(primary, backup)
+        unstable = set()
+        for path in args.unstable:
+            unstable |= read_unstable(path)
+        check_unstable(layout, unstable)
         args.out.mkdir(mode=0o700)
         (args.out / 'gpt-primary.bin').write_bytes(new_primary)
         (args.out / 'gpt-backup.bin').write_bytes(new_backup)
@@ -187,7 +224,7 @@ def main():
                     primary=dict(first_sector=0, sectors=34, sha256=hashlib.sha256(new_primary).hexdigest()),
                     backup=dict(first_sector=DISK_SECTORS - 33, sectors=33,
                                 sha256=hashlib.sha256(new_backup).hexdigest()),
-                    **layout)
+                    unstable_sectors_checked=len(unstable), **layout)
         (args.out / 'plan.json').write_text(json.dumps(plan, indent=1) + '\n')
     except (PlanError, OSError) as error:
         print(f'refused: {error}', file=sys.stderr)

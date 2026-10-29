@@ -71,6 +71,34 @@ class PlanGptTest(unittest.TestCase):
             self.assertEqual(new[name], old[name], name)
         self.assertLessEqual(by_name['rootfs']['first_sector'] + by_name['rootfs']['sectors'] - 1, N - 34)
 
+    def test_tz_moves_but_keeps_its_identity(self):
+        primary, backup = stock()
+        new_primary = plan.build(primary, backup)[0]
+        old = {e['name']: e for e in plan.read_stock(primary, backup)[1]}
+        head = plan.parse_header(new_primary[512:1024])
+        new = {e['name']: e for e in plan.parse_entries(new_primary[1024:], head)}
+        self.assertEqual(new['tz']['raw'][:32], old['tz']['raw'][:32])
+        self.assertEqual(new['tz']['raw'][48:], old['tz']['raw'][48:])
+        self.assertEqual((new['tz']['first'], new['tz']['last']), (1513984, 1513984 + 1023))
+        self.assertGreater(new['tz']['first'], 270827)
+        self.assertEqual(new['tzbak']['raw'], old['tzbak']['raw'])
+
+    def test_unstable_sector_inside_a_target_is_refused(self):
+        layout = plan.build(*stock())[2]
+        plan.check_unstable(layout, {270826, 270827, 1116554})
+        for sector in (1116672, 1247744 + 5, 1513984, 7634903):
+            with self.assertRaisesRegex(plan.PlanError, 'unstable'):
+                plan.check_unstable(layout, {sector})
+
+    def test_unstable_list_parser(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'm.txt'
+            path.write_text('# header\n12\n34\n', encoding='utf-8')
+            self.assertEqual(plan.read_unstable(path), {12, 34})
+            path.write_text('12\nx\n', encoding='utf-8')
+            with self.assertRaises(plan.PlanError):
+                plan.read_unstable(path)
+
     def test_output_is_deterministic(self):
         primary, backup = stock()
         self.assertEqual(plan.build(primary, backup)[:2], plan.build(primary, backup)[:2])
@@ -92,7 +120,7 @@ class PlanGptTest(unittest.TestCase):
             plan.build(*stock(rows))
 
     def test_refuses_moved_nv_partition(self):
-        rows = [(n, f + 2048, l + 2048) if n == 'persist' else (n, f, l) for n, f, l in STOCK]
+        rows = [(n, 4790000, 4790000 + 65535) if n == 'persist' else (n, f, l) for n, f, l in STOCK]
         with self.assertRaisesRegex(plan.PlanError, 'protected persist|overlaps'):
             plan.build(*stock(rows))
 
