@@ -27,7 +27,7 @@ def load(path, expected_sha):
     report = json.loads(data)
     if not re.fullmatch('[a-f0-9]{40}', expected_sha) or report.get('source_sha') != expected_sha:
         raise ValueError('source SHA mismatch')
-    if (report.get('schema') != 1 or report.get('kind') != 'synthetic-functional'
+    if (report.get('schema') != 2 or report.get('kind') != 'synthetic-functional'
             or report.get('scope') != SCOPE or report.get('profile') not in PROFILES
             or report.get('source_dirty') is not False or report.get('outcome') != 'completed'
             or report.get('cleanup_verified') is not True
@@ -37,6 +37,15 @@ def load(path, expected_sha):
     for key in ('runner_sha256', 'workload_sha256'):
         if not re.fullmatch('[a-f0-9]{64}', report.get(key, '')):
             raise ValueError('missing provenance')
+    window = report.get('requested_seconds')
+    warmup = report.get('warmup_seconds')
+    interval = report.get('sample_interval_seconds')
+    measured = report.get('measured_seconds')
+    if (not finite(window) or not .5 <= window <= 20
+            or not finite(warmup) or not 0 <= warmup <= 2
+            or not finite(interval) or not .05 <= interval <= 1
+            or not finite(measured) or measured < window):
+        raise ValueError('complete bounded measurement window required')
     samples = report.get('samples')
     if not isinstance(samples, list) or not 10 <= len(samples) <= 500 or report.get('sample_count') != len(samples):
         raise ValueError('insufficient/bounded samples required')
@@ -47,8 +56,10 @@ def load(path, expected_sha):
     rss = []
     for sample in samples:
         elapsed = sample.get('elapsed_s')
-        if not finite(elapsed) or elapsed <= previous:
+        if not finite(elapsed) or elapsed <= previous or elapsed > window:
             raise ValueError('invalid monotonic samples')
+        if previous >= 0 and elapsed - previous > 2 * interval:
+            raise ValueError('sampling gap exceeds interval tolerance')
         previous = elapsed
         if not finite(sample.get('rss_bytes')) or type(sample['rss_bytes']) is not int:
             raise ValueError('RSS must be nonnegative integer bytes')
@@ -62,6 +73,8 @@ def load(path, expected_sha):
         rss.append(sample['rss_bytes'])
     if len(valid_cpu) < 9 or samples[-1]['elapsed_s'] - samples[0]['elapsed_s'] < 4:
         raise ValueError('short/missing samples cannot establish a comparison')
+    if samples[0]['elapsed_s'] > 1.5 * interval or samples[-1]['elapsed_s'] < window - 1.5 * interval:
+        raise ValueError('samples do not cover the requested window')
     # Recompute rather than trusting user-provided summary metrics or units.
     return report, {'mean_cpu_percent': sum(valid_cpu) / len(valid_cpu), 'peak_rss_bytes': max(rss)}
 
@@ -73,8 +86,13 @@ def compare(old, new, old_sha, new_sha):
         raise ValueError('same profile/environment evidence required')
     if a.get('runner_sha256') != b.get('runner_sha256'):
         raise ValueError('same measurement runner required')
-    return {'schema': 1, 'scope': SCOPE, 'profile': a['profile'],
+    settings = ('requested_seconds', 'warmup_seconds', 'sample_interval_seconds')
+    if any(a[key] != b[key] for key in settings):
+        raise ValueError('same window, warmup and interval required')
+    return {'schema': 2, 'scope': SCOPE, 'profile': a['profile'],
             'old_sha': old_sha, 'new_sha': new_sha,
+            'measurement': {key: a[key] for key in settings},
+            'measured_seconds': {'old': a['measured_seconds'], 'new': b['measured_seconds']},
             'metrics': {key: {'old': ma[key], 'new': mb[key],
                               'change_percent': (mb[key] / ma[key] - 1) * 100 if ma[key] else None}
                         for key in ma},
