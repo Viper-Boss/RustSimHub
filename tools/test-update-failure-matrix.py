@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Run the seven public-API C13 cases on ordinary Linux; default is a plan."""
+"""Run fixed public-API C13/C14 ordinary-UID cases; default is a plan."""
 import argparse
 import json
 import os
@@ -19,20 +19,31 @@ CASES = {
     'p06_repeated_confirm_refuses_without_changing_durable_state',
     'p07_valid_stale_floor_and_foreign_trust_next_are_never_adopted',
 }
+C14_CASES = {
+    'c14_stage_completed_then_sigkill_reopens_candidate_once',
+    'c14_chosen_unconfirmed_then_sigkill_reopens_fallback',
+    'c14_signature_and_schema_rejection_preserve_actual_store',
+    'c14_real_outbox_unknown_and_projected_fallback_rejection_preserve_receipts',
+}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run', action='store_true')
+    parser.add_argument('--suite', choices=('c13', 'c14'), default='c13')
     args = parser.parse_args()
+    cases = CASES if args.suite == 'c13' else C14_CASES
     if not args.run:
-        print(json.dumps({'execute': False, 'cases': sorted(CASES), 'formats': [1, 2],
+        print(json.dumps({'execute': False, 'cases': sorted(cases), 'formats': [1, 2],
                           'root': False, 'payload_execution': False, 'device_access': False}))
         return 0
     if sys.platform != 'linux' or os.geteuid() == 0:
         parser.error('ordinary Linux UID required; use the WSL update suite on Windows')
-    command = ['cargo', 'test', '-p', 'rustsimhub-update', '--test', 'failure_matrix',
+    target = 'failure_matrix' if args.suite == 'c13' else 'crash_matrix'
+    command = ['cargo', 'test', '-p', 'rustsimhub-update', '--test', target,
                '--locked', '--offline', '--', '--nocapture']
+    if args.suite == 'c14':
+        command += ['--skip', 'c14_process_worker', '--skip', 'c14_tmpfs_enospc']
     child = subprocess.Popen(command, cwd=Path(__file__).resolve().parents[1],
                              stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT, text=True, start_new_session=True)
@@ -46,8 +57,8 @@ def main():
         return 124
     print(output, end='')
     passed = set(re.findall(r'^test (\w+) \.\.\. ok$', output, re.M))
-    ok = child.returncode == 0 and passed == CASES and '7 passed; 0 failed; 0 ignored;' in output
-    print(json.dumps({'passed': ok, 'case_count': len(CASES), 'cases': sorted(passed),
+    ok = child.returncode == 0 and passed == cases and f'{len(cases)} passed; 0 failed; 0 ignored;' in output
+    print(json.dumps({'passed': ok, 'case_count': len(cases), 'cases': sorted(passed),
                       'formats': [1, 2], 'backend': 'public-production-Store-API',
                       'payload_execution': False, 'device_access': False,
                       'c14_internal_interruptions_tested': False}))
