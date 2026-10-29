@@ -90,6 +90,25 @@ class Team(unittest.TestCase):
         data=copy.deepcopy(self.roster);data['members'][2]['git_names']=['Viper-Boss']
         with self.assertRaises(ValueError):team.roster_valid(data)
 
+    def test_account_migration_preserves_old_author_and_review_but_not_unrelated_users(self):
+        member=copy.deepcopy(next(m for m in self.members if m['id']=='member-b'))
+        member.update(login='wnfhsj88',name='wnfhsj88',previous_logins=['wnfhsj'])
+        for login in ['wnfhsj','wnfhsj88']:
+            self.assertEqual(team.identity('other name','123+'+login+'@users.noreply.github.com',[member]),'member-b')
+            self.assertEqual(team.identity(login,'private@example.invalid',[member]),'member-b')
+        self.assertEqual(team.identity('stranger','123+unrelated@users.noreply.github.com',[member]),'unmapped')
+        review={'member_id':'member-b','pr':123,'head':'a'*40,'decision':'offline_accepted','steps':['B-01'],'evidence':['docs/team/README.md']}
+        actual={123:{'number':123,'headRefOid':'a'*40,'state':'MERGED','author':{'login':'wnfhsj'}}}
+        self.assertEqual(team.review_summary(member,[review],actual)['accepted_steps'],1)
+        actual[123]['headRefOid']='b'*40
+        self.assertEqual(team.review_summary(member,[review],actual)['accepted_steps'],0)
+
+    def test_account_aliases_cannot_collide_with_another_member_or_accept_invalid_handles(self):
+        for aliases in [['Viper-Boss'],['bad/name'],['same','SAME']]:
+            data=copy.deepcopy(self.roster)
+            next(m for m in data['members'] if m['id']=='member-b')['previous_logins']=aliases
+            with self.assertRaises(ValueError):team.roster_valid(data)
+
     def test_changed_head_and_wrong_author_cannot_count_old_acceptance(self):
         member=self.members[1]
         review={'member_id':'member-a','pr':2,'head':'a'*40,'decision':'offline_accepted','steps':['A-01','A-02'],'evidence':['docs/team/README.md'],'self_reported_hours':2}

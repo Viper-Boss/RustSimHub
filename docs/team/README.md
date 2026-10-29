@@ -11,11 +11,11 @@
 |---|---|---|---|
 | Viper-Boss / 项目负责人 | 总体设计、主线开发、设备集成、审核与合并 | UPD-01版本契约；维护主线CI、跨模块审核及设备/签名交付 | 由负责人操作 |
 | 成员A：[fungi1220](https://github.com/fungi1220) | NKN、密码会话、邮件及安全离线实现 | [A任务书](MEMBER-A-USAGE-STATS.md)，累计30步 | 无需设备 |
-| 成员B：wnfhsj | 网络、全部网页/PWA装配及测试/报告工具 | [B任务书](MEMBER-B-NETWORK-ACCOUNTING.md)，累计32步 | 无需设备 |
+| 成员B：wnfhsj88 | 网络、全部网页/PWA装配及测试/报告工具 | [B任务书](MEMBER-B-NETWORK-ACCOUNTING.md)，累计32步 | 无需设备 |
 | 成员C：[yh1030](https://github.com/yh1030) | NAS、系统更新恢复及发行证据 | [C任务书](MEMBER-C-NAS-COMPAT.md)，累计30步，离线已审6步 | 无需设备 |
 | [RedamancyGTW](https://github.com/RedamancyGTW)，成员D | 灯控输入、Core BLE恢复及远程媒体 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，当前6步；20步离线包已接回主线 | 无需设备 |
 
-四名成员均使用自己的GitHub账号和Codex；不用共享负责人账号、Token、NAS地址或SSH材料。旧Claude任务包仅供历史参考，本目录是本轮明确分工。yh1030与wnfhsj的Write最终回读已生效；fungi1220和RedamancyGTW的Write邀请已就绪，等待本人接受。此前wnfhsj与RedamancyGTW的公开主页有404现象，不能据此判断账号不存在或确定风控原因。权限明细见[仓库访问状态](ACCESS.md)。
+四名成员均使用自己的GitHub账号和Codex；不用共享负责人账号、Token、NAS地址或SSH材料。成员B当前账号为`wnfhsj88`，2026-10-30回读Write已生效；稳定ID、32步分工和历史贡献保持。其他成员状态及较早记录见[仓库访问状态](ACCESS.md)。旧Claude任务包仅供历史参考，本目录是本轮明确分工。
 
 原A/B/C/D各8步保留；T3为60步、T4为76步、T5为96步，最新T6为30/32/30/26共118步。90个项目动作的离线部分有负责人，65项保留主线专属执行；所有155项仍按原验收闭环，169分母/估时权重/14项完成不变。C-01～06的6步离线审核保持。详细接口、步骤、文件权限和每项主线保留原因集中在[今天分工文档](ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation)，[逐动作映射](offline-ownership.json)可供程序核对。成员粗估不是实际/剩余工时，不与项目台账重复求和。
 

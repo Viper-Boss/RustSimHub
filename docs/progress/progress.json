@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-29T13:09:28.414547+00:00",
+  "updated_at": "2026-10-29T19:19:17.348846+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -70,7 +70,7 @@
     "task_id": "AP-07",
     "title": "设备首次热点与隔离实测",
     "state": "下一动作已选定；按前置和验收推进",
-    "description": "热点内重扫Root受理边界已补齐源码验证：367项Rust/严格检查通过，Refused明确未执行，实时冷却/剩余次数/冲突/窗口原因已接入，丢回复同编号不扫描。Core认证/持久进度和一键网页仍待；PR69草稿，无新ARM/部署/设备操作。70候选来源及先前确认69保持，手机验收另约；D暂停，贡献/81.5%/20项不变。"
+    "description": "热点内重扫已接上Core认证、单次派发、持久进度/取消/重启收尾及首配HTTP入口；固定实现1909a0af，409项Rust与严格检查通过，草稿PR69。新网页一键入口、ARM构建、部署和手机验收仍待；本轮按用户要求暂停固件与任务书整理，仅更新发布看板。成员B现为wnfhsj88，32步分工、历史贡献和审核状态不变。"
   },
   "facts": [
     {
@@ -5424,7 +5424,7 @@
   "team": {
     "schema": 1,
     "source_revision": "677ba57eaebaae9aede4968e32758a754b9703fa",
-    "generated_at": "2026-10-29T01:45:40.167754+00:00",
+    "generated_at": "2026-10-29T19:19:17.348846+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5866,10 +5866,10 @@
       },
       {
         "id": "member-b",
-        "name": "wnfhsj",
-        "login": "wnfhsj",
+        "name": "wnfhsj88",
+        "login": "wnfhsj88",
         "role": "月流量计量 / 网络显示 · 离线边界",
-        "access": "同仓库Write已生效；本人功能分支 → PR审核",
+        "access": "Write已生效（2026-10-29回读）；本人功能分支 → PR审核",
         "package": "网络/全部网页/PWA/测试工具与性能报告",
         "task_ids": [
           "NET-01",
@@ -6182,7 +6182,7 @@
       "sources": [
         {
           "path": "docs/team/README.md",
-          "sha256": "80e685c3cef463873275febb5bf60c2f2b01c4e678826dd077e9e37306647089"
+          "sha256": "7b921f20fc937eee0c7b2682bc58027e2ecfc5b6959536aec5176b4e42b4563c"
         },
         {
           "path": "docs/team/MEMBER-A-USAGE-STATS.md",
@@ -6190,7 +6190,7 @@
         },
         {
           "path": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-          "sha256": "ccd38720d654e3bb762274c917bc37f16bb2f6962a8476bd74181b80ac040e85"
+          "sha256": "05ce0c4b718bbe6e4aded2c8fdbdcb3c86dd0b670f84508f96d345d43ecccbc5"
         },
         {
           "path": "docs/team/MEMBER-C-NAS-COMPAT.md",
@@ -6202,7 +6202,7 @@
         },
         {
           "path": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-          "sha256": "09afa0cd6dc838ff90c0b3d3b007ecad71aef92f7cd607662efe02c8e7618e81"
+          "sha256": "ec648b7aff25c539547f972ffb54afed00f2cabb055de904cd5b8c808b8d2107"
         }
       ],
       "members": [
@@ -7017,7 +7017,7 @@
               "acceptance": "保留原操作ID及提交标记；查询、刷新、渲染和登录均不会产生提交。现有IndexedDB防重语义保持",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
               "line": 100,
-              "batch": "wnfhsj · B-17～20 · 回执与配置状态组件",
+              "batch": "wnfhsj88 · B-17～20 · 回执与配置状态组件",
               "task_ids": [
                 "WEB-02"
               ],
@@ -7030,7 +7030,7 @@
               "acceptance": "组件只渲染文本/发送显式用户动作回调；无设备访问/网络轮询/私有存储。Unknown不能自动归档、重拨、重发或改幂等键；主线业务模块继续决定允许动作",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
               "line": 101,
-              "batch": "wnfhsj · B-17～20 · 回执与配置状态组件",
+              "batch": "wnfhsj88 · B-17～20 · 回执与配置状态组件",
               "task_ids": [
                 "WEB-02"
               ],
@@ -7043,7 +7043,7 @@
               "acceptance": "“保存成功”不冒充进程运行；无有效新鲜证据保持未知。凭据不进入DOM/报告；与B-10共享的组件接线必须串行，不能各自覆盖测试中心",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
               "line": 102,
-              "batch": "wnfhsj · B-17～20 · 回执与配置状态组件",
+              "batch": "wnfhsj88 · B-17～20 · 回执与配置状态组件",
               "task_ids": [
                 "WEB-06"
               ],
@@ -7056,7 +7056,7 @@
               "acceptance": "测试必须加载交付的组件；模拟仅限外部callbacks。主线装配app.js/HTML/静态路由并进行真实设备确认；WEB-02/06不由成员标完成",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
               "line": 103,
-              "batch": "wnfhsj · B-17～20 · 回执与配置状态组件",
+              "batch": "wnfhsj88 · B-17～20 · 回执与配置状态组件",
               "task_ids": [],
               "status": "not_accepted"
             },
@@ -7067,7 +7067,7 @@
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
               "line": 230,
-              "batch": "T5 · wnfhsj接口离线包",
+              "batch": "T5 · wnfhsj88接口离线包",
               "task_ids": [
                 "BLE4-01",
                 "BLE4-02",
@@ -7083,7 +7083,7 @@
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
               "line": 230,
-              "batch": "T5 · wnfhsj接口离线包",
+              "batch": "T5 · wnfhsj88接口离线包",
               "task_ids": [
                 "BLE4-01",
                 "BLE4-02",
@@ -7099,7 +7099,7 @@
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
               "line": 230,
-              "batch": "T5 · wnfhsj接口离线包",
+              "batch": "T5 · wnfhsj88接口离线包",
               "task_ids": [
                 "BLE4-01",
                 "BLE4-02",
@@ -7115,7 +7115,7 @@
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
               "line": 230,
-              "batch": "T5 · wnfhsj接口离线包",
+              "batch": "T5 · wnfhsj88接口离线包",
               "task_ids": [
                 "BLE4-01",
                 "BLE4-02",
@@ -7131,7 +7131,7 @@
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
               "line": 230,
-              "batch": "T5 · wnfhsj接口离线包",
+              "batch": "T5 · wnfhsj88接口离线包",
               "task_ids": [
                 "BLE4-01",
                 "BLE4-02",
@@ -7147,7 +7147,7 @@
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
               "line": 230,
-              "batch": "T5 · wnfhsj接口离线包",
+              "batch": "T5 · wnfhsj88接口离线包",
               "task_ids": [
                 "BLE4-01",
                 "BLE4-02",
@@ -7163,7 +7163,7 @@
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
               "line": 230,
-              "batch": "T5 · wnfhsj接口离线包",
+              "batch": "T5 · wnfhsj88接口离线包",
               "task_ids": [
                 "BLE4-01",
                 "BLE4-02",
@@ -7179,7 +7179,7 @@
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
               "line": 230,
-              "batch": "T5 · wnfhsj接口离线包",
+              "batch": "T5 · wnfhsj88接口离线包",
               "task_ids": [
                 "BLE4-01",
                 "BLE4-02",
@@ -7195,7 +7195,7 @@
               "acceptance": "状态来自A的实际DTO/注入接口，按钮调用已授权现有业务控制器；不另造登录、Owner、提交队列或用渲染触发请求。真实Android/第二端及关闭无PID由主线验收",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
               "line": 309,
-              "batch": "4. wnfhsj · B-29～32 · 网页装配、PWA材料和报告",
+              "batch": "4. wnfhsj88 · B-29～32 · 网页装配、PWA材料和报告",
               "task_ids": [
                 "STAT-09",
                 "WEB-03",
@@ -7210,7 +7210,7 @@
               "acceptance": "不把HTTPS浏览器提示等同业务离线，不返回任意跳转/控制命令；手册只引用已验证支持，生产事实由主线提供",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
               "line": 310,
-              "batch": "4. wnfhsj · B-29～32 · 网页装配、PWA材料和报告",
+              "batch": "4. wnfhsj88 · B-29～32 · 网页装配、PWA材料和报告",
               "task_ids": [
                 "AP-12",
                 "REMOTE-07"
@@ -7224,7 +7224,7 @@
               "acceptance": "不新建覆盖根站点的第二发布流；不上传整个仓库/私有目录、Mock或密钥。主线审核合并后执行真实部署与HTTPS字节复核，BLE5-02仍主线",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
               "line": 311,
-              "batch": "4. wnfhsj · B-29～32 · 网页装配、PWA材料和报告",
+              "batch": "4. wnfhsj88 · B-29～32 · 网页装配、PWA材料和报告",
               "task_ids": [
                 "BLE5-01",
                 "BLE5-03"
@@ -7238,7 +7238,7 @@
               "acceptance": "真实棒子样本/旧新等功能测量由主线采集；未获批准预算和缺测量不填达标。提交实际浏览器/Node回归、接线差异及未验收项",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
               "line": 312,
-              "batch": "4. wnfhsj · B-29～32 · 网页装配、PWA材料和报告",
+              "batch": "4. wnfhsj88 · B-29～32 · 网页装配、PWA材料和报告",
               "task_ids": [
                 "STAB-06"
               ],

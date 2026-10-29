@@ -27,7 +27,7 @@ const revised=structuredClone(data),candidate=revised.modules.filter(m=>m.scope!
 if(candidate){candidate.status='done';assert.equal(calculate(revised).original,stats.original);assert.equal(calculate(revised).done,stats.done+1);assert.ok(calculate(revised).weighted>stats.weighted);}
 console.log('Dashboard calculation/filter/dependency/estimate/escaping/handoff checks passed.');
 const cards=teamHTML(data.team,data);
-assert.ok(cards.includes('fungi1220'));assert.ok(cards.includes('wnfhsj'));assert.ok(cards.includes('yh1030'));assert.ok(cards.includes('RedamancyGTW'));
+assert.ok(cards.includes('fungi1220'));assert.ok(cards.includes('wnfhsj88'));assert.ok(cards.includes('https://github.com/wnfhsj88'));assert.ok(!cards.includes('>wnfhsj<'));assert.ok(cards.includes('yh1030'));assert.ok(cards.includes('RedamancyGTW'));
 assert.ok(cards.includes('未填报'));
 for(const member of data.team.members.filter(m=>m.id!=='lead'))assert.ok(cards.includes(`${member.work.accepted_steps} / ${member.work.assigned_steps}`));
 assert.equal((cards.match(/<article/g)||[]).length,5);

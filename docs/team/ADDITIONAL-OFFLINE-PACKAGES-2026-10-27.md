@@ -11,7 +11,7 @@
 |---|---|---|---|---|
 | Viper-Boss负责人主线 | 接口/权限方案审核、真实环境、签名、集成和发布 | 当前UPD-01/U4收口；65项主线执行及90项成员实现的审查/集成 | 不将团队步骤折成主线百分比 | 未估造 |
 | [fungi1220](MEMBER-A-USAGE-STATS.md) | 原统计/NKN/依赖/扫描包保留 | T5 NKN状态；T6引擎/会话/邮件/安全，详见下文 | 30 / 0 | 39～88小时 |
-| [wnfhsj](MEMBER-B-NETWORK-ACCOUNTING.md) | 原网络/测试中心/性能/回执包保留 | T5配置器/PWA；T6网页装配/发布材料/报告 | 32 / 0 | 28～63小时 |
+| [wnfhsj88](MEMBER-B-NETWORK-ACCOUNTING.md) | 原网络/测试中心/性能/回执包保留 | T5配置器/PWA；T6网页装配/发布材料/报告 | 32 / 0 | 28～63小时 |
 | [yh1030](MEMBER-C-NAS-COMPAT.md) | 原NAS/恢复/升级矩阵/制品包保留 | T5 AP失败测试；T6更新/系统材料/NAS控制音频/证据 | 30 / 6，仅离线通过 | 35～80小时 |
 | [RedamancyGTW](MEMBER-D-SMS-RECOVERY.md) | 原通信观测/灯控输入包保留 | T5 GATT适配；T6恢复授权/Core/远程媒体 | 26 / 0 | 33～75小时 |
 
@@ -91,7 +91,7 @@
 
 可写：新增`tools/security-inventory/`、`docs/security/interface-inventory.md`、`docs/security/public-artifact-scan.md`及本人交付报告；可只读复用`tools/dependencies/`清单。禁止改Core/policy/wire、Root单元、依赖版本、签名器、生产配置和全局面板。扫描器检查的是本地公开构建资料，不探测任何联网服务。
 
-### wnfhsj · B-17～20 · 回执与配置状态组件
+### wnfhsj88 · B-17～20 · 回执与配置状态组件
 
 建议分支：`codex/member-b-operation-receipts`。依赖：B-09～12测试中心组件契约获审后开展，复用已有业务模块；WEB-06的主线前置FWD-04已完成。若实际操作DTO尚不一致，先交字段/适配提案，不能自行统一业务状态机。
 
@@ -227,7 +227,7 @@ B提供静态资源/相对路径/版本化缓存及有限更新提示，主线�
 | 人员 / 建议分支 | 步骤与动作 | 验收及主线保留 |
 |---|---|---|
 | fungi1220 / `codex/member-a-nkn-status` | A-21：按III盘点真实引擎可提供字段；A-22：实现只读DTO/未知字段映射；A-23：独立状态展示组件及u64/陈旧/乱序/取消测试；A-24：交实际组件、本地浏览器与主线接线报告 | NKN-07离线部分。等待A-13～16引擎接口获审后修改引擎输出；无法提供的字段不造值。主线负责Core读取鉴权、实际网络及控制开关 |
-| wnfhsj / `codex/member-b-ble-configurator` | B-21：实现注入式RecoveryClientV1控制器和点击选择；B-22：pin/未预绑定/撤销/缺provider页面；B-23：有限试连与明确保存/取消；B-24：真实CAS记录、丢回复及刷新只查询；B-25：静态PWA允许清单；B-26：离线/缓存升级与未确认操作保护；B-27：实际模块＋模拟端口/分片向量及1440/390/320/键盘测试；B-28：交四项映射和生产接线缺口 | BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝 |
+| wnfhsj88 / `codex/member-b-ble-configurator` | B-21：实现注入式RecoveryClientV1控制器和点击选择；B-22：pin/未预绑定/撤销/缺provider页面；B-23：有限试连与明确保存/取消；B-24：真实CAS记录、丢回复及刷新只查询；B-25：静态PWA允许清单；B-26：离线/缓存升级与未确认操作保护；B-27：实际模块＋模拟端口/分片向量及1440/390/320/键盘测试；B-28：交四项映射和生产接线缺口 | BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝 |
 | yh1030 / `codex/member-c-ap-failure-matrix` | C-21：对照IV列已有覆盖和10类case；C-22：真实station_trial::run错误/取消/restore矩阵；C-23：真实station_commit::run部分保存/audit/撤销/迟到结果矩阵；C-24：实际测试、调用序列、失败最小样本和设备补验交付 | AP-04离线部分。依赖实际公开trait已存在，可在当前历史PR获审后与恢复/制品包串行。Root实际失败/SSID/DHCP/物理回退仍归主线；原AP-03完整实机前置保持 |
 | RedamancyGTW / `codex/member-d-ble-gatt-adapter` | D-17：按II建立固定对象/UUID、帧/预算类型与端口；D-18：实际注册/撤销/Release/epoch状态机；D-19：借助Mock BlueZ与测试SecurePort验证广播部分失败、第二peer、乱序/洪泛/断连/重启/晚到注册；D-20：真实库/帧向量/资源上限测试和主线接线交付 | BLE3-01/04离线部分。先交当前D包；只实现可复用库与注入后端，缺安全端口默认拒绝。真实BlueZ绑定、Core IPC、密码协议、服务UID/Root安装与BLE3-02/03保持主线 |
 
@@ -262,7 +262,7 @@ BlueZ对象树/注册、特征值方法及广播生命周期依据上游[GattMan
 | 人员 | 当前累计步骤 / 离线已审 | T6追加实现责任 | 全部分配粗估 |
 |---|---|---|---|
 | fungi1220 | A-01～30 / 0 | NKN进程/路由边界与成员证明、BLE安全会话库、邮件通道、安全矩阵/静态权限审查 | 39～88工程小时 |
-| wnfhsj | B-01～32 / 0 | 全部网页组件装配和窄屏/无障碍、统计展示、PWA发布材料、说明/性能报告工具 | 28～63工程小时 |
+| wnfhsj88 | B-01～32 / 0 | 全部网页组件装配和窄屏/无障碍、统计展示、PWA发布材料、说明/性能报告工具 | 28～63工程小时 |
 | yh1030 | C-01～30 / 6 | 更新/干净系统/健康判定离线实现、内核构建材料、NAS控制/声音客户端、恢复/发布证据与测试中继模板 | 35～80工程小时 |
 | RedamancyGTW | D-01～26 / 0 | Core BLE恢复授权/IPC/Wi-Fi接线、有限服务模板、远程API与TURN媒体、跨模块失败测试 | 33～75工程小时 |
 
@@ -302,7 +302,7 @@ T5已有方法、DTO、错误、UUID和预算继续适用；本地记录按已�
 
 可写：原本人路径及新`crates/nkn-agent/`、`crates/recovery-session/`、`configurator/src/crypto/`、`tools/test-web-recovery-session.mjs`、`tools/security-matrix/`、`firmware/system/nkn/`、`crates/forwarder/src/email/`及相应独立测试/文档。forwarder生产配置/发送器枚举只在兼容接口PR获审后最小接入；outbox/schema/Core派发保持其负责人审批。Core安全测试优先经现有dev-fixtures外部驱动，确需私有hook先提最小提案。A只写自己的密码库和前端crypto子目录，不写D的binding/grant/production-backend实现。
 
-### 4. wnfhsj · B-29～32 · 网页装配、PWA材料和报告
+### 4. wnfhsj88 · B-29～32 · 网页装配、PWA材料和报告
 
 | 步骤 | 对应动作与具体工作 | 接手/验收 |
 |---|---|---|

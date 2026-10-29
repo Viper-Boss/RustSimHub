@@ -36,6 +36,9 @@ class Plans(unittest.TestCase):
         rows=plans.parse_document('| wnfhsj / branch | B-21：first；B-22：second | package acceptance |','docs/team/example.md',{'B-21','B-22'},['BLE4-01','BLE4-02','BLE4-03','BLE4-04'])
         self.assertEqual(rows['B-21']['work'],'first')
         self.assertEqual(rows['B-22']['acceptance'],'package acceptance')
+        renamed=plans.parse_document('| wnfhsj88 / branch | B-21：first；B-22：second | package acceptance |','docs/team/example.md',{'B-21','B-22'},['BLE4-01','BLE4-02','BLE4-03','BLE4-04'])
+        self.assertEqual(renamed['B-21']['work'],'first')
+        self.assertEqual(renamed['B-22']['acceptance'],'package acceptance')
 
     def test_source_drift_and_unapproved_acceptance_fail(self):
         value=copy.deepcopy(self.data['team']['task_plan']);value['sources'][0]['sha256']='0'*64

@@ -14,6 +14,11 @@ REPO = 'Viper-Boss/RustSimHub'
 CATEGORIES = ('product', 'tests', 'tooling', 'firmware')
 
 
+def logins(member):
+    """Declared account aliases preserve historical attribution, never authenticate access."""
+    return {value.casefold() for value in [member.get('login'), *member.get('previous_logins', [])] if value}
+
+
 def require(value, message):
     if not value:
         raise ValueError(message)
@@ -53,12 +58,16 @@ def roster_valid(roster):
     for member in members:
         login = member['login']
         require(login is None or re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?', login), 'GitHub login')
+        previous=member.get('previous_logins', [])
+        require(type(previous) is list and len(previous)<=8 and all(isinstance(value,str)
+                and re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?',value) for value in previous), 'previous GitHub logins')
+        require(len({value.casefold() for value in previous})==len(previous), 'duplicate previous login')
         require(0 < len(member['name']) <= 100 and member['state'] in ('assigned', 'in_progress', 'submitted'), 'member display/state')
         require(member['handoff'].startswith('docs/team/') and '..' not in PurePosixPath(member['handoff']).parts, 'public taskbook')
         require(len(set(member['step_ids'])) == len(member['step_ids']), 'duplicate assignment step')
         require(not assigned_steps.intersection(member['step_ids']), 'assignment step has multiple owners')
         assigned_steps.update(member['step_ids'])
-        for alias in [*member['git_names'], *([login] if login else [])]:
+        for alias in [*member['git_names'], *logins(member)]:
             key = alias.casefold()
             require(key not in aliases or aliases[key] == member['id'], 'ambiguous Git identity mapping')
             aliases[key] = member['id']
@@ -71,11 +80,11 @@ def identity(name, email, members):
     match = re.fullmatch(r'(?:\d+\+)?([A-Za-z0-9-]+)@users\.noreply\.github\.com', email, re.I)
     login = match[1].casefold() if match else None
     for member in members:
-        if login and member['login'] and login == member['login'].casefold():
+        if login and login in logins(member):
             return member['id']
         # roster_valid treats an explicit GitHub login as a declared alias too.
         # A member may commit with a verified non-noreply email: never publish it.
-        if (member['login'] and name.casefold() == member['login'].casefold()) or name.casefold() in {alias.casefold() for alias in member['git_names']}:
+        if name.casefold() in logins(member) or name.casefold() in {alias.casefold() for alias in member['git_names']}:
             return member['id']
     return 'unmapped'
 
@@ -165,7 +174,7 @@ def review_summary(member, reviews, prs):
         require(all(p.startswith('docs/') and '..' not in PurePosixPath(p).parts for p in row['evidence']), 'public review evidence')
         actual = prs.get(row['pr'])
         fresh = (actual is not None and actual['headRefOid'] == row['head'] and member['login'] is not None
-                 and actual['author']['login'].casefold() == member['login'].casefold())
+                 and actual['author']['login'].casefold() in logins(member))
         state = row['decision'] if fresh else 'needs_re_review'
         if fresh and row['decision'] in ('offline_accepted', 'accepted'):
             accepted.update(row['steps'])
@@ -175,7 +184,7 @@ def review_summary(member, reviews, prs):
                 reported.append(hours)
         states.append({'pr': row['pr'], 'head': row['head'], 'state': state})
     delivered = [{'pr': p['number'], 'head': p['headRefOid'], 'state': p['state']} for p in prs.values()
-                 if member['login'] and p['author']['login'].casefold() == member['login'].casefold()]
+                 if member['login'] and p['author']['login'].casefold() in logins(member)]
     return {'assigned_steps': len(member['step_ids']), 'accepted_steps': len(accepted),
             'self_reported_hours': sum(reported) if reported else None, 'reviews': states, 'deliveries': delivered}
 
@@ -191,7 +200,7 @@ def snapshot(repo, revision, roster, reviews, prs):
     stats = code_stats(repo, revision, members)
     public = []
     for member in members:
-        item = {key: value for key, value in member.items() if key != 'git_names'}
+        item = {key: value for key, value in member.items() if key not in ('git_names','previous_logins')}
         item.update(stats=stats[member['id']], work=work[member['id']])
         public.append(item)
     return {'schema': 1, 'source_revision': revision,

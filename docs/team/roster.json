@@ -129,11 +129,11 @@
     },
     {
       "id": "member-b",
-      "name": "wnfhsj",
-      "login": "wnfhsj",
+      "name": "wnfhsj88",
+      "login": "wnfhsj88",
       "git_names": [],
       "role": "月流量计量 / 网络显示 · 离线边界",
-      "access": "同仓库Write已生效；本人功能分支 → PR审核",
+      "access": "Write已回读生效；本人功能分支 → PR审核",
       "package": "网络/全部网页/PWA/测试工具与性能报告",
       "task_ids": [
         "NET-01",
@@ -196,6 +196,9 @@
       "estimate_hours": [
         28,
         63
+      ],
+      "previous_logins": [
+        "wnfhsj"
       ]
     },
     {
