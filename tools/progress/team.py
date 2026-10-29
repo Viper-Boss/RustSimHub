@@ -215,7 +215,13 @@ def snapshot(repo, revision, roster, reviews, prs):
 def validate_snapshot(value, task_ids):
     require(value.get('schema') == 1 and re.fullmatch('[0-9a-f]{40}', value['source_revision']), 'team snapshot source')
     fields = {'schema','source_revision','generated_at','method','members','unmapped','totals','historical_note'}
-    require(set(value) == fields or set(value) == fields | {'task_plan'}, 'team snapshot allowlist')
+    require(fields <= set(value) <= fields | {'task_plan','pr_method','pr_snapshot_at'}, 'team snapshot allowlist')
+    if 'pr_method' in value:
+        require(isinstance(value['pr_method'],str) and 0 < len(value['pr_method']) <= 500, 'PR method boundary')
+    if 'pr_snapshot_at' in value:
+        stamp=value['pr_snapshot_at']
+        require(isinstance(stamp,str) and 0 < len(stamp) <= 64, 'PR snapshot time boundary')
+        require(datetime.datetime.fromisoformat(stamp).tzinfo is not None, 'PR snapshot time must include timezone')
     ids=[m['id'] for m in value['members']]
     require(1 <= len(ids) <= 20 and ids[0]=='lead' and len(set(ids))==len(ids)
             and all(re.fullmatch('member-[a-z]+',item) for item in ids[1:]), 'team snapshot member set')

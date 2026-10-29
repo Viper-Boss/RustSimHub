@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-29T19:19:17.348846+00:00",
+  "updated_at": "2026-10-29T19:22:19.830838+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -7715,6 +7715,8 @@
           ]
         }
       ]
-    }
+    },
+    "pr_method": "按成员已收录PR编号去重，每个PR计1次；OPEN/MERGED/CLOSED均计入。数据尚未完成最新远程同步。",
+    "pr_snapshot_at": "2026-10-29T01:45:40.167754+00:00"
   }
 }

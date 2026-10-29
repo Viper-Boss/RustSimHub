@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {calculate,selectModules,estimateDays,escapeHTML,dependencyReady,handoffText,publicURL,teamHTML,personAssignments,personHandoffText} from '../../docs/progress/dashboard.mjs';
+import {calculate,selectModules,estimateDays,escapeHTML,dependencyReady,handoffText,publicURL,teamHTML,personAssignments,personHandoffText,prSummary} from '../../docs/progress/dashboard.mjs';
 const data=JSON.parse(readFileSync(new URL('../../docs/progress/progress.json',import.meta.url),'utf8'));
 const stats=calculate(data);
 assert.equal(stats.original,data.original_milestones.reduce((sum,m)=>sum+m.done_points,0));assert.equal(stats.total,169);assert.equal(stats.parked,9);
@@ -38,14 +38,22 @@ const visibleCards=cards.replace(/<template\b[^>]*>[\s\S]*?<\/template>/g,'');
 assert.ok(!visibleCards.includes('data-step-id='));
 assert.ok(!visibleCards.includes('class="person-tasks"'));
 assert.equal((visibleCards.match(/class="team-column"/g)||[]).length,5);
+const totalPRs=data.team.members.reduce((sum,m)=>sum+prSummary(m).total,0);
 for(const member of data.team.members){
-  const expected=(member.stats.current_lines.product/data.team.totals.product*100).toFixed(1);
-  assert.ok(visibleCards.includes(`<strong>${expected}</strong><span>%</span>`));
+  const count=prSummary(member).total;
+  if(count&&totalPRs)assert.ok(visibleCards.includes(`<strong>${(count/totalPRs*100).toFixed(1)}</strong><span>%</span>`));
 }
-const noProduct=structuredClone(data.team);noProduct.totals.product=0;
-assert.ok(!teamHTML(noProduct).includes('height:NaN'));
-assert.ok(!teamHTML(noProduct).includes('<strong>NaN</strong>'));
-assert.ok(teamHTML(noProduct).includes('暂无统计'));
+assert.ok(visibleCards.includes('已收录 PR 数量占比'));
+const noPRs=structuredClone(data.team);for(const member of noPRs.members)member.work.deliveries=[];
+assert.ok(!teamHTML(noPRs).includes('height:NaN'));
+assert.ok(!teamHTML(noPRs).includes('<strong>NaN</strong>'));
+assert.ok(teamHTML(noPRs).includes('此快照未收录PR'));
+const summary=prSummary({work:{deliveries:[{pr:1,state:'OPEN'},{pr:1,state:'MERGED'},{pr:2,state:'CLOSED'},{pr:3,state:'OPEN'},{pr:4,state:'UNRECOGNIZED'},{pr:-1,state:'MERGED'}]}});
+assert.deepEqual([summary.total,summary.open,summary.merged,summary.closed,summary.unknown],[4,1,1,1,1]);
+const stale=structuredClone(data.team);
+stale.members[0].work.deliveries=[{pr:999,head:'b'.repeat(40),state:'OPEN'}];
+stale.members[0].work.reviews=[{pr:999,head:'a'.repeat(40),state:'accepted'}];
+assert.ok(teamHTML(stale).includes('PR #999 · 未合并 · 当前HEAD未关联验收'));
 const hostile=structuredClone(data.team);hostile.members[1].name='<img src=x onerror=bad>';
 assert.ok(teamHTML(hostile).includes('&lt;img'));assert.ok(!teamHTML(hostile).includes('<img'));
 assert.ok(teamHTML(null).includes('尚未生成'));

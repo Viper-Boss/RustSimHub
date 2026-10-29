@@ -105,21 +105,29 @@ function personTasksHTML(person,data,query) {
   return `<div class="person-tasks"><div class="person-tasks-head"><h4>${m.id==='lead'?'主线执行清单':'个人交付清单'}</h4><div><button type="button" data-person-expand="${escapeHTML(m.id)}" aria-expanded="false">显示全部任务</button><button type="button" data-person-copy="${escapeHTML(m.id)}">复制个人清单</button></div></div>${body}${archived.length?`<details class="person-archive" ${term?'open':''}><summary>已闭环项目归档 · ${archived.length}项</summary><p class="person-boundary">归档入口不用于推定代码作者或贡献比例。</p><div class="person-project-list">${projectHTML(archived)}</div></details>`:''}</div>`;
 }
 
+// PR numbers are deduplicated within each member's recorded snapshot.
+export function prSummary(member) {
+  const deliveries=[...new Map((member.work?.deliveries||[]).filter(p=>Number.isSafeInteger(p.pr)&&p.pr>0).map(p=>[p.pr,p])).values()];
+  const result={total:deliveries.length,open:0,merged:0,closed:0,unknown:0,deliveries};
+  for(const pr of deliveries){const key={OPEN:'open',MERGED:'merged',CLOSED:'closed'}[pr.state]||'unknown';result[key]++;}
+  return result;
+}
+
 export function teamHTML(team, data=null, {query=''}={}) {
   if(!team?.members?.length)return '<p>团队统计尚未生成；不显示推测数值。</p>';
   const count=value=>Number.isSafeInteger(value)&&value>=0?value:0;
   const number=value=>count(value).toLocaleString('zh-CN');
-  const total=count(team.totals.product), labels={assigned:'已分配 · 待开工',in_progress:'任务进行中',submitted:'已提交 · 待审核'};
+  const total=team.members.reduce((sum,m)=>sum+prSummary(m).total,0), labels={assigned:'已分配 · 待开工',in_progress:'任务进行中',submitted:'已提交 · 待审核'};
   const people=personAssignments(data,team);
   return team.members.map((m,index)=>{
-    const s=m.stats,w=m.work,product=count(s.current_lines.product),pct=total?product/total*100:0;
+    const w=m.work,prs=prSummary(m),pct=total?prs.total/total*100:0;
     const accepted=count(w.accepted_steps),assigned=count(w.assigned_steps);
     const github=m.login?`<a href="https://github.com/${encodeURIComponent(m.login)}" target="_blank" rel="noopener">${escapeHTML(m.name)} ↗</a>`:escapeHTML(m.name);
     const work=index===0?`历史主线 + 集成 / 设备 / 审核${assigned?` · 接回 ${assigned} 步，已审 ${accepted}`:''}`:`已审 ${accepted} / ${assigned} 个分配步骤`;
-    const prRows=w.deliveries.map(p=>{const review=w.reviews.find(r=>r.pr===p.pr),state=review?({needs_re_review:'HEAD变化 · 需复审',needs_changes:'需修改',offline_accepted:'离线范围通过',accepted:'范围已验收'}[review.state]||'待审核'):'未关联验收';return `<a href="https://github.com/Viper-Boss/RustSimHub/pull/${count(p.pr)}" target="_blank" rel="noopener">PR #${count(p.pr)} · ${escapeHTML(state)}</a>`;}).join('');
+    const prRows=prs.deliveries.map(p=>{const review=w.reviews.find(r=>r.pr===p.pr&&r.head===p.head),state={OPEN:'未合并',MERGED:'已合并',CLOSED:'已关闭未合并'}[p.state]||'状态未知';const acceptance=review?({needs_re_review:'需复审',needs_changes:'需修改',offline_accepted:'离线范围通过',accepted:'范围已验收'}[review.state]||'待审核'):'当前HEAD未关联验收';return `<a href="https://github.com/Viper-Boss/RustSimHub/pull/${count(p.pr)}" target="_blank" rel="noopener">PR #${count(p.pr)} · ${escapeHTML(state)} · ${escapeHTML(acceptance)}</a>`;}).join('');
     const tasks=personTasksHTML(people[index],data,query);if(tasks===null)return '';
-    const details=`<div class="person-detail-scope" data-person-id="${escapeHTML(m.id)}"><div class="person-detail-overview"><b class="team-state">${escapeHTML(labels[m.state]||'状态待核对')}</b><div class="team-work"><strong>${escapeHTML(work)}</strong><p>${escapeHTML(m.package)}</p><div class="team-work-track"><i style="width:${assigned?Math.min(100,accepted/assigned*100):0}%"></i></div><span>计划：${m.estimate_hours?m.estimate_hours.map(number).join('–')+'小时':'主线持续推进'} · 实耗：${w.self_reported_hours===null?'未填报':escapeHTML(w.self_reported_hours)+'小时（自报）'}</span></div><a class="team-task" href="${escapeHTML(publicURL(m.handoff))}" target="_blank" rel="noopener">任务书与交付要求 ↗</a></div>${tasks}<details class="team-contribution"><summary>代码贡献与PR记录</summary><dl class="team-numbers"><div><dt>独立测试行</dt><dd>${number(s.current_lines.tests)}</dd></div><div><dt>工具 / 配置行</dt><dd>${number(count(s.current_lines.tooling)+count(s.current_lines.firmware))}</dd></div><div><dt>主线提交（含文档）</dt><dd>${number(s.commits)}</dd></div><div><dt>累计增 / 删（含空行）</dt><dd>+${number(s.added)} / −${number(s.deleted)}</dd></div></dl><div class="team-prs">${prRows||'<span>尚无本仓库PR交付</span>'}</div><p class="team-access">${escapeHTML(m.access)}</p></details></div>`;
-    return `<article id="person-${escapeHTML(m.id)}" data-person-id="${escapeHTML(m.id)}" class="team-card team-tone-${index}"><div class="team-profile"><div class="team-person"><span class="team-avatar" aria-hidden="true">${escapeHTML(m.id==='lead'?'V':m.id.slice('member-'.length).toUpperCase())}</span><div><h3>${github}</h3><span>${escapeHTML(m.role)}</span></div></div><div class="team-percentage"><strong>${total?pct.toFixed(1):'—'}</strong><span>${total?'%':''}</span><small>主线产品代码占比</small></div><div class="team-column" role="img" aria-label="${escapeHTML(m.name)}：${total?pct.toFixed(1)+'%':'暂无统计'}"><div class="team-column-track"><i style="height:${Math.min(100,pct).toFixed(3)}%"></i></div></div><p class="team-line-count"><strong>${number(product)}</strong> 行产品代码</p><button type="button" class="team-details-button" data-person-details="${escapeHTML(m.id)}" aria-haspopup="dialog" aria-label="查看${escapeHTML(m.name)}的详情">详情 <span aria-hidden="true">↗</span></button></div><template data-person-template="${escapeHTML(m.id)}">${details}</template></article>`;
+    const details=`<div class="person-detail-scope" data-person-id="${escapeHTML(m.id)}"><div class="person-detail-overview"><b class="team-state">${escapeHTML(labels[m.state]||'状态待核对')}</b><div class="team-work"><strong>${escapeHTML(work)}</strong><p>${escapeHTML(m.package)}</p><div class="team-work-track"><i style="width:${assigned?Math.min(100,accepted/assigned*100):0}%"></i></div><span>计划：${m.estimate_hours?m.estimate_hours.map(number).join('–')+'小时':'主线持续推进'} · 实耗：${w.self_reported_hours===null?'未填报':escapeHTML(w.self_reported_hours)+'小时（自报）'}</span></div><a class="team-task" href="${escapeHTML(publicURL(m.handoff))}" target="_blank" rel="noopener">任务书与交付要求 ↗</a></div>${tasks}<details class="team-contribution"><summary>提交工作量与PR记录</summary><dl class="team-numbers"><div><dt>已收录 PR</dt><dd>${number(prs.total)}</dd></div><div><dt>未合并</dt><dd>${number(prs.open)}</dd></div><div><dt>已合并</dt><dd>${number(prs.merged)}</dd></div><div><dt>已关闭未合并</dt><dd>${number(prs.closed)}</dd></div>${prs.unknown?`<div><dt>状态未知</dt><dd>${number(prs.unknown)}</dd></div>`:''}</dl><div class="team-prs">${prRows||'<span>此快照尚未收录该成员的PR</span>'}</div><p class="team-access">${escapeHTML(m.access)}</p></details></div>`;
+    return `<article id="person-${escapeHTML(m.id)}" data-person-id="${escapeHTML(m.id)}" class="team-card team-tone-${index}"><div class="team-profile"><div class="team-person"><span class="team-avatar" aria-hidden="true">${escapeHTML(m.id==='lead'?'V':m.id.slice('member-'.length).toUpperCase())}</span><div><h3>${github}</h3><span>${escapeHTML(m.role)}</span></div></div><div class="team-percentage"><strong>${total&&prs.total?pct.toFixed(1):'—'}</strong><span>${total&&prs.total?'%':''}</span><small>已收录 PR 数量占比</small></div><div class="team-column" role="img" aria-label="${escapeHTML(m.name)}：${prs.total&&total?pct.toFixed(1)+'%':'此快照未收录PR'}"><div class="team-column-track"><i style="height:${Math.min(100,pct).toFixed(3)}%"></i></div></div><p class="team-line-count"><strong>${prs.total?number(prs.total):'未收录'}</strong> 已收录 PR<br>未合并 ${number(prs.open)} · 已合并 ${number(prs.merged)}<br>关闭未合并 ${number(prs.closed)}</p><button type="button" class="team-details-button" data-person-details="${escapeHTML(m.id)}" aria-haspopup="dialog" aria-label="查看${escapeHTML(m.name)}的详情">详情 <span aria-hidden="true">↗</span></button></div><template data-person-template="${escapeHTML(m.id)}">${details}</template></article>`;
   }).join('');
 }
 
@@ -168,7 +176,9 @@ function initialize() {
     byId('footer-status').textContent=`${value.total}个当前动作 · ${data.modules.length}个模块 · 仓库快照，非设备实时遥测`;
     if(byId('team-grid')){
       renderPeople();
-      byId('team-source').textContent=data.team?`Git统计截面 ${data.team.source_revision.slice(0,12)} · ${date(data.team.generated_at)} · 产品 / 测试 / 工具分别计数；未映射产品作者 ${number(data.team.unmapped.current_lines.product)}行`:'团队统计待生成';
+      byId('team-source').textContent=data.team?`PR数据快照：${date(data.team.pr_snapshot_at||data.team.generated_at)} · 尚未完成最新远程同步；未收录不代表没有提交。`:'团队统计待生成';
+      const summary=(data.team?.members||[]).map(prSummary).reduce((sum,p)=>({total:sum.total+p.total,open:sum.open+p.open,merged:sum.merged+p.merged,closed:sum.closed+p.closed}),{total:0,open:0,merged:0,closed:0});
+      if(byId('team-summary'))byId('team-summary').textContent=`已收录 ${summary.total} 个 PR · 未合并 ${summary.open} · 已合并 ${summary.merged} · 关闭未合并 ${summary.closed} · 每个PR计1份提交工作量`;
     }
     renderEstimate();renderRoute();renderModules();
   }

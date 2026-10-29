@@ -133,12 +133,16 @@ class Team(unittest.TestCase):
         snapshot=data['team'];tasks={t['id'] for m in data['modules'] for t in m['tasks']}
         team.validate_snapshot(snapshot,tasks)
         self.assertNotIn('@',json.dumps(snapshot))
-        for mutation in ['total','task','email','work']:
+        for mutation in ['total','task','email','work','unknown_field','pr_method','pr_time','pr_time_zone']:
             changed=copy.deepcopy(snapshot)
             if mutation=='total':changed['totals']['product']+=1
             elif mutation=='task':changed['members'][1]['task_ids']=['NOT-01']
             elif mutation=='email':changed['members'][1]['email']='private@example.invalid'
-            else:changed['members'][1]['work']['accepted_steps']=99
+            elif mutation=='work':changed['members'][1]['work']['accepted_steps']=99
+            elif mutation=='unknown_field':changed['raw_private_prs']=[]
+            elif mutation=='pr_method':changed['pr_method']={}
+            elif mutation=='pr_time':changed['pr_snapshot_at']='not-a-time'
+            else:changed['pr_snapshot_at']='2026-10-30T02:00:00'
             with self.assertRaises(ValueError):team.validate_snapshot(changed,tasks)
 
 

@@ -2,6 +2,8 @@
 
 2026-10-30 [看板账号与焦点更新](progress/MEMBER-B-REFRESH-20261030.md)：用户要求先暂停固件与任务书，仅更新发布看板。成员B现为wnfhsj88，Write已回读，历史贡献/审核、32步和五人归属保持。焦点同步Core热点重扫已通过的409项源码验证，网页一键入口/ARM/实机仍待；本轮26项Python与Node/生成检查通过。原81.5%、20/169、加权10.6%不变，发布需另核Pages和实际HTTPS。
 
+并发公开更新已保留：GTW f56ab19的PR数量视图接回看板源，PR快照仍显示原始时间，未伪称最新同步。新增Node去重/状态/未收录/HEAD变化向量通过，合并后Python26项再次通过。仅看板发布，无固件开发/设备操作。
+
 2026-10-29 [D-23持久回执与能力接线](ble/recovery-ledger.md)：代码a9f5f59已实现同Store有限回执/一次claim/重启Unknown、显式候选schema8与Auth私有能力绑定。合入Claude main677ba57保留首次配网/mdns，324项及严格检查通过；team.py按当前main重算真实贡献。Wi-Fi唯一执行器/Root/真实IPC/A会话仍待，不扣D-23整步。D余6、lead20/118、原81.5%、20/169保持，设备未动。
 
 2026-10-29 [D-21请求授权与私有能力](ble/recovery-capability.md)：代码6c018ca把认证请求限定到当前Auth/设备/连接/realm/grant代次、动作/正文及单调期限，真实Store前后复核，过期/重放/断线拒绝。新增11项、完整302项与严格Clippy/fmt通过。生产验证器默认缺失，A会话/浏览器/IPC/Wi-Fi与持久操作账本仍待；默认Core schema6、设备未动。D仍余6、lead20/118、原81.5%、20/169保持。
