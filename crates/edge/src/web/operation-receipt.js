@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Proposed display contract. Every action remains authorized by the host business module.
+const uuid=s=>typeof s==='string'&&/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(s);
+const states={prepared:'已准备；尚未证明提交',submitting:'提交中；请查询原操作',submitted:'设备已接受提交；业务完成仍需核对',cancelled:'操作取消回执',unknown:'结果不明；保留原记录，只查询',starting:'开始中',connecting:'连接中',ready:'已就绪；尚未保存',saving:'保存中',saved:'保存回执已确认',rolled_back:'回滚回执已确认',confirmed:'目标回执已确认',ended:'结束证据已核对'};
+export class OperationReceipt {
+ constructor({document,root,query,archive}){this.callbacks={query,archive};this.epoch=0;this.busy=false;this.text=document.createElement('p');this.text.setAttribute('role','status');this.text.style.overflowWrap='anywhere';this.text.style.whiteSpace='pre-wrap';this.buttons={};for(const [key,label] of [['query','查询原操作'],['archive','按业务证据核对归档']]){const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>this.run(key);this.buttons[key]=b;}root.replaceChildren(this.text,...Object.values(this.buttons));this.reset();}
+ update(value={}){this.epoch++;this.busy=false;this.view=value&&uuid(value.id)?{id:value.id,state:Object.hasOwn(states,value.state)?value.state:'unknown',submit_started:value.submit_started===true,failure:['expired','denied','unconfirmed'].includes(value.failure)?value.failure:null,canQuery:value.canQuery===true,canArchive:value.canArchive===true}:null;this.render();}
+ controls(){for(const [k,b] of Object.entries(this.buttons))b.disabled=this.busy||!this.view||typeof this.callbacks[k]!=='function'||!(k==='query'?this.view.canQuery:this.view.canArchive);}
+ render(){const v=this.view;this.text.textContent=v?`原操作 ${v.id}\n${states[v.state]}\n${({expired:'登录已过期，请通过原入口重新登录',denied:'权限被拒绝；没有执行新提交',unconfirmed:'设备结果尚未确认'})[v.failure]||''}\n提交标记：${v.submit_started?'已记录提交开始（不等于执行成功）':'没有已知提交开始标记'}\n查询、刷新和本组件不产生提交；归档仍由原业务模块重新核验。`:'没有可核验的原操作；等待宿主页提供状态';this.controls();}
+ async run(key){if(!this.buttons[key]||this.buttons[key].disabled)return;const epoch=this.epoch,id=this.view.id;this.busy=true;this.controls();try{await this.callbacks[key](id,{isCurrent:()=>epoch===this.epoch,update:v=>{if(epoch===this.epoch)this.update(v);}});if(epoch===this.epoch)this.text.textContent='回调已返回；保留原显示，等待业务模块核对并更新';}catch{if(epoch===this.epoch)this.text.textContent='结果仍未确认；原记录保留，没有自动重试或归档';}finally{if(epoch===this.epoch){this.busy=false;this.controls();}}}
+ reset(){this.epoch++;this.busy=false;this.view=null;this.render();}
+}
