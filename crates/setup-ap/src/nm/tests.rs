@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
 mod commit;
+mod scan;
 use std::sync::{Arc, Mutex};
 const WIFI: &str = "/org/freedesktop/NetworkManager/Devices/1";
 const PROFILE: &str = "/org/freedesktop/NetworkManager/Settings/1";
@@ -49,6 +50,24 @@ struct Model {
     home_active: bool,
     cp_home: bool,
     other: bool,
+    scan_result: ScanResult,
+    last_scan: i64,
+    scan_paths: Vec<OwnedObjectPath>,
+    radio_disabled: bool,
+}
+
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
+enum ScanResult {
+    #[default]
+    Complete,
+    Denied,
+    LostReply,
+    NoCompletion,
+    OwnerChanged,
+    ConnectionChanged,
+    FutureTimestamp,
+    CheckpointChanged,
+    RadioDisabled,
 }
 type Shared = Arc<Mutex<Model>>;
 struct Bus(Shared);
@@ -76,7 +95,7 @@ impl Manager {
     }
     #[zbus(property)]
     fn wireless_enabled(&self) -> bool {
-        true
+        !self.0.lock().unwrap().radio_disabled
     }
     #[zbus(property)]
     fn checkpoints(&self) -> Vec<OwnedObjectPath> {
@@ -284,6 +303,41 @@ impl Device {
 struct Wireless(Shared);
 #[zbus::interface(name = "org.freedesktop.NetworkManager.Device.Wireless")]
 impl Wireless {
+    fn request_scan(&self, options: Properties) -> zbus::fdo::Result<()> {
+        assert!(
+            options.is_empty(),
+            "no directed SSID or caller supplied scan settings"
+        );
+        let mut m = self.0.lock().unwrap();
+        m.events.push("scan");
+        if m.scan_result == ScanResult::Denied {
+            return Err(zbus::fdo::Error::AccessDenied("synthetic refusal".into()));
+        }
+        if m.scan_result != ScanResult::NoCompletion {
+            m.last_scan = crate::channel::uptime_ms().unwrap() as i64;
+        }
+        match m.scan_result {
+            ScanResult::LostReply => {
+                return Err(zbus::fdo::Error::Failed("synthetic lost reply".into()))
+            }
+            ScanResult::OwnerChanged => m.changed = true,
+            ScanResult::ConnectionChanged => m.active = true,
+            ScanResult::FutureTimestamp => m.last_scan += 10_000,
+            ScanResult::CheckpointChanged => m.cp = true,
+            ScanResult::RadioDisabled => m.radio_disabled = true,
+            _ => (),
+        }
+        Ok(())
+    }
+    fn get_all_access_points(&self) -> Vec<OwnedObjectPath> {
+        let mut m = self.0.lock().unwrap();
+        m.events.push("scan-list");
+        m.scan_paths.clone()
+    }
+    #[zbus(property)]
+    fn last_scan(&self) -> i64 {
+        self.0.lock().unwrap().last_scan
+    }
     #[zbus(property)]
     fn wireless_capabilities(&self) -> u32 {
         0x40
@@ -295,6 +349,42 @@ impl Wireless {
         } else {
             2
         }
+    }
+}
+struct Nearby;
+#[zbus::interface(name = "org.freedesktop.NetworkManager.AccessPoint")]
+impl Nearby {
+    #[zbus(property)]
+    fn ssid(&self) -> Vec<u8> {
+        b"Synthetic nearby Wi-Fi".to_vec()
+    }
+    #[zbus(property)]
+    fn last_seen(&self) -> i32 {
+        (crate::channel::uptime_ms().unwrap() / 1000) as i32
+    }
+    #[zbus(property)]
+    fn mode(&self) -> u32 {
+        2
+    }
+    #[zbus(property)]
+    fn strength(&self) -> u8 {
+        81
+    }
+    #[zbus(property)]
+    fn frequency(&self) -> u32 {
+        2412
+    }
+    #[zbus(property)]
+    fn flags(&self) -> u32 {
+        1
+    }
+    #[zbus(property)]
+    fn wpa_flags(&self) -> u32 {
+        0
+    }
+    #[zbus(property)]
+    fn rsn_flags(&self) -> u32 {
+        0x100
     }
 }
 struct SettingsManager(Shared);
@@ -484,6 +574,8 @@ async fn fixture(m: Shared) -> (zbus::Connection, NetworkManager) {
         .serve_at(WIFI, Device(m.clone()))
         .unwrap()
         .serve_at(WIFI, Wireless(m.clone()))
+        .unwrap()
+        .serve_at("/org/freedesktop/NetworkManager/AccessPoint/1", Nearby)
         .unwrap()
         .serve_at(
             "/org/freedesktop/NetworkManager/Settings",

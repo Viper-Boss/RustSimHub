@@ -47,6 +47,16 @@ for(const security of ['open','unsupported']){
  const f=fixture(()=>({...clone(catalogue),networks:[{...row,security,selectable:false}]}));await f.loadWifiNetworks();
  const button=f.$('wifi-networks').children[0].children[1];assert(button.disabled);await button.onclick();assert.equal(f.$('wifi-ssid').value,'');assert.equal(f.sent.length,1);
 }
+for(const source of ['before_setup_ap','before_setup_ap_scan']){
+ const f=fixture(()=>({...clone(catalogue),source,snapshot_age_seconds:12}));await f.loadWifiNetworks();
+ assert.equal(f.$('wifi-networks').children.length,1);
+ assert.match(f.$('wifi-networks-state').textContent,source==='before_setup_ap_scan'?/主动扫描的快照/:/缓存快照/);
+ assert.deepEqual(f.sent.map(c=>c.op),['wifi_networks']);
+}
+{
+ const f=fixture(()=>({...clone(catalogue),source:'before_setup_ap_scan',snapshot_age_seconds:0,networks:[]}));await f.loadWifiNetworks();
+ assert.equal(f.$('wifi-networks').children.length,0);assert.match(f.$('wifi-networks-state').textContent,/本轮主动扫描没有/);
+}
 for(const bad of [
  {...clone(catalogue),networks:Array.from({length:33},()=>clone(row))},
  {...clone(catalogue),networks:[row,{...row,strength:101}]},
@@ -55,6 +65,9 @@ for(const bad of [
  {...clone(catalogue),networks:[{...row,security:'open',selectable:true}]},
  {...clone(catalogue),scan_requested:true},
  {...clone(catalogue),source:'new_scan'},
+ {...clone(catalogue),source:'before_setup_ap_scan',snapshot_age_seconds:-1},
+ {...clone(catalogue),source:'before_setup_ap_scan',snapshot_age_seconds:3601},
+ {...clone(catalogue),source:'before_setup_ap_scan',snapshot_age_seconds:null},
 ]){
  const f=fixture(()=>bad);await assert.rejects(f.loadWifiNetworks());assert.equal(f.$('wifi-networks').children.length,0);assert.match(f.$('wifi-networks-state').textContent,/未能读取/);
 }

@@ -28,6 +28,8 @@ use material::Material;
 
 struct LeaseGate<'a, R> {
     input: &'a Directory,
+    output: &'a Directory,
+    binding: Binding,
     readiness: &'a R,
     lease: Mutex<RootLease>,
     sequence: AtomicU64,
@@ -39,6 +41,17 @@ trait Ready {
     fn ap_check(&self) -> impl std::future::Future<Output = Result<()>> + Send;
 }
 impl<R: Ready + Sync> Gate for LeaseGate<'_, R> {
+    async fn publish_scan(&self, snapshot: crate::nm::scan::Snapshot) -> Result<()> {
+        self.check().await?;
+        let proof = channel::scan::Proof {
+            format: 1,
+            binding: self.binding.clone(),
+            snapshot,
+        };
+        proof.validate(&self.binding, channel::uptime_ms()?)?;
+        self.output.publish(Slot::ScanSnapshot, &proof)?;
+        self.check().await
+    }
     async fn check(&self) -> Result<()> {
         let bytes = self.input.read(Slot::Hint)?.ok_or(Error::Denied)?;
         let hint = Hint::parse(&bytes, channel::uptime_ms()?, &self.boot)?;
@@ -118,6 +131,8 @@ async fn execute<N: Network, G: Guard, R: Ready + Sync>(
     )?;
     let gate = LeaseGate {
         input: &worker.input,
+        output: &worker.output,
+        binding: hint.binding.clone(),
         readiness,
         lease: Mutex::new(lease),
         sequence: AtomicU64::new(1),
@@ -197,7 +212,8 @@ async fn execute<N: Network, G: Guard, R: Ready + Sync>(
             }
         }
     };
-    // Err is possible only BEFORE guard.install in transaction::run; no side effect was attempted.
+    // Err is possible only BEFORE guard.install; a bounded scan may already have been requested,
+    // but no checkpoint, profile, connection switch or forwarding mutation was attempted.
     // Once guard installation is attempted all uncertain failures return Outcome::Unknown.
     let state = if matches!(outcome, Ok(Outcome::Unknown)) {
         State::Unknown

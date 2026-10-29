@@ -794,7 +794,38 @@ pub(crate) fn first_setup_ready() -> bool {
 pub(crate) fn first_setup_catalogue() -> bool {
     RUNTIME.get().is_some_and(|r| r.first_setup_catalogue())
 }
+/// Display only, behind the Wi-Fi catalogue's Owner checks. Never authorizes an open claim.
+pub(crate) fn setup_ap_scan_snapshot() -> Option<rustsimhub_setup_ap::nm::scan::Snapshot> {
+    RUNTIME.get()?.scan_snapshot()
+}
+fn read_scan_snapshot(
+    output: &Directory,
+    binding: &Binding,
+) -> Option<rustsimhub_setup_ap::nm::scan::Snapshot> {
+    let now = now().ok()?;
+    let status = Status::parse(&output.read(Slot::Status).ok()??, binding, now).ok()?;
+    if status.state != State::Ready {
+        return None;
+    }
+    let proof = rustsimhub_setup_ap::channel::scan::Proof::parse(
+        &output.read(Slot::ScanSnapshot).ok()??,
+        binding,
+        now,
+    )
+    .ok()?;
+    Some(proof.snapshot)
+}
 impl Runtime {
+    fn scan_snapshot(&self) -> Option<rustsimhub_setup_ap::nm::scan::Snapshot> {
+        if let Some(snapshot) = self.bootstrap.scan_snapshot() {
+            return Some(snapshot);
+        }
+        let session = self.session.try_lock().ok()?;
+        let s = session
+            .as_ref()
+            .filter(|s| s.phase == State::Ready && !s.cancelled)?;
+        read_scan_snapshot(&self.output, &s.record.binding)
+    }
     fn first_setup_catalogue(&self) -> bool {
         self.bootstrap.ready().unwrap_or(false)
             || self.session.try_lock().is_ok_and(|s| {

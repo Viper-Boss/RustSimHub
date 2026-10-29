@@ -228,7 +228,7 @@ async function loadWifiNetworks(){
  $('wifi-networks').replaceChildren();$('wifi-networks-refresh').disabled=true;$('wifi-networks-state').textContent='正在读取设备已发现的网络…';
  try{
   const result=await auth({op:'wifi_networks'});if(generation!==wifiCatalogueGeneration)return;
-  if(result?.schema!==1||result.source!=='networkmanager_cache'||result.scan_requested!==false||result.hardware_mutations!==false||typeof result.wifi_enabled!=='boolean'||typeof result.scan_cache_known!=='boolean'||typeof result.truncated!=='boolean'||!Number.isInteger(result.omitted)||result.omitted<0||result.omitted>128||!Array.isArray(result.networks)||result.networks.length>32)throw Error('网络列表格式无效');
+  if(result?.schema!==1||!['networkmanager_cache','before_setup_ap','before_setup_ap_scan'].includes(result.source)||result.scan_requested!==false||result.hardware_mutations!==false||typeof result.wifi_enabled!=='boolean'||typeof result.scan_cache_known!=='boolean'||typeof result.truncated!=='boolean'||!Number.isInteger(result.omitted)||result.omitted<0||result.omitted>128||!Array.isArray(result.networks)||result.networks.length>32||result.source!=='networkmanager_cache'&&(!Number.isInteger(result.snapshot_age_seconds)||result.snapshot_age_seconds<0||result.snapshot_age_seconds>3600))throw Error('网络列表格式无效');
   // Validate the whole finite catalogue before creating any selection callbacks.
   for(const n of result.networks){
    if(typeof n.ssid!=='string'||!n.ssid||new TextEncoder().encode(n.ssid).length>32||/[\u0000-\u001f\u007f-\u009f]/u.test(n.ssid)||!Number.isInteger(n.strength)||n.strength<0||n.strength>100||!Number.isInteger(n.frequency_mhz)||n.frequency_mhz<2000||n.frequency_mhz>8000||!['wpa2_personal','open','unsupported'].includes(n.security)||typeof n.connected!=='boolean'||n.selectable!==(n.security==='wpa2_personal'))throw Error('网络条目格式无效');
@@ -243,7 +243,8 @@ async function loadWifiNetworks(){
     $('wifi-ssid').value=n.ssid;$('wifi-passphrase').value='';$('wifi-passphrase').focus();$('wifi-networks-state').textContent=`已选择 ${n.ssid}，填写密码后点“试连接”；尚未切换网络。`;
    });item.append(label,select);$('wifi-networks').append(item);
   }
-  $('wifi-networks-state').textContent=!result.wifi_enabled?'设备 Wi-Fi 当前关闭；此操作不会开启无线。':result.networks.length?`已读取设备缓存，共 ${result.networks.length} 项${result.truncated?'（仅显示前32项）':''}。没有发起新扫描；选择后仍需试连接并确认。`:result.scan_cache_known?'缓存中没有可显示的网络，请手输网络名。':'设备暂无扫描缓存，请手输网络名。';
+  const source=result.source==='before_setup_ap_scan'?`开启热点前主动扫描的快照（约${result.snapshot_age_seconds}秒前）`:result.source==='before_setup_ap'?'开启热点前的缓存快照':'设备缓存';
+  $('wifi-networks-state').textContent=!result.wifi_enabled?'设备 Wi-Fi 当前关闭；此操作不会开启无线。':result.networks.length?`已读取${source}，共 ${result.networks.length} 项${result.truncated?'（仅显示前32项）':''}。本次读取没有发起新扫描；选择后仍需试连接并确认。`:result.source==='before_setup_ap_scan'?'本轮主动扫描没有可显示的网络，请手输网络名。':result.scan_cache_known?'缓存中没有可显示的网络，请手输网络名。':'设备暂无扫描缓存，请手输网络名。';
  }catch(error){if(generation===wifiCatalogueGeneration){$('wifi-networks').replaceChildren();$('wifi-networks-state').textContent='未能读取列表，请在本区重新登录后重试，或手输网络名。';}throw error;}
  finally{if(generation===wifiCatalogueGeneration)$('wifi-networks-refresh').disabled=false;}
 }

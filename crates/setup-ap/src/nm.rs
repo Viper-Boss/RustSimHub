@@ -232,6 +232,8 @@ pub struct NetworkManager {
     refusal: Option<Refusal>,
     /// Reconfigure mode: the one saved station this session must hand back on rollback.
     saved: Option<OwnedObjectPath>,
+    preflight_complete: bool,
+    scan_requested: bool,
 }
 impl NetworkManager {
     pub async fn system() -> Result<Self> {
@@ -252,6 +254,8 @@ impl NetworkManager {
             station: None,
             refusal: None,
             saved: None,
+            preflight_complete: false,
+            scan_requested: false,
         }
     }
     /// Opt in before preflight only. Keeps this private AP profile in RAM while a station is tested.
@@ -456,10 +460,24 @@ impl Network for NetworkManager {
         if let Err(e) = self.idle_or_saved().await {
             return self.refuse(Refusal::StationConnected, e);
         }
-        self.fence().await
+        self.fence().await?;
+        self.preflight_complete = true;
+        Ok(())
     }
     fn refusal(&self) -> Option<Refusal> {
         self.refusal
+    }
+    async fn scan_before_start(&mut self) -> Result<Option<scan::Snapshot>> {
+        match self.scan_before_ap().await {
+            Ok(snapshot) => Ok(Some(snapshot)),
+            Err(e @ (Error::Changed | Error::Invalid)) => Err(e),
+            Err(_) => {
+                // Unsupported/refused/lost scanning does not fabricate a fresh list or block
+                // manual SSID input. Still require the exact NM owner and original station.
+                self.scan_context().await?;
+                Ok(None)
+            }
+        }
     }
     async fn checkpoint(&mut self, seconds: u32) -> Result<()> {
         // Window plus the 30 s rollback margin; must follow MAX_WINDOW_SECONDS (field test
@@ -691,6 +709,7 @@ impl Network for NetworkManager {
     }
 }
 
+pub mod scan;
 mod station;
 
 #[cfg(test)]

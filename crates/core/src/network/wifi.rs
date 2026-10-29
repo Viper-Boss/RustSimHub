@@ -69,9 +69,11 @@ pub(crate) async fn authorized(
     guarded(auth, token, || async {
         let c = zbus::Connection::system().await.map_err(|_| Error::Io)?;
         let live = probe(&c).await?;
-        Ok(before_setup_ap(
+        let live = before_setup_ap(live, crate::setup_ap_control::first_setup_catalogue());
+        Ok(with_root_scan(
             live,
-            crate::setup_ap_control::first_setup_catalogue(),
+            crate::setup_ap_control::setup_ap_scan_snapshot(),
+            rustsimhub_setup_ap::channel::uptime_ms().map_err(|_| Error::Io)?,
         ))
     })
     .await
@@ -197,6 +199,54 @@ fn empty(wifi_enabled: bool) -> Catalogue {
         omitted: 0,
         truncated: false,
         hardware_mutations: false,
+    }
+}
+fn with_root_scan(
+    live: Catalogue,
+    snapshot: Option<rustsimhub_setup_ap::nm::scan::Snapshot>,
+    now: u64,
+) -> Catalogue {
+    use rustsimhub_setup_ap::nm::scan::Security;
+    let Some(snapshot) = snapshot
+        .filter(|s| {
+            s.valid()
+                && s.completed_uptime_ms <= now
+                && now.saturating_sub(s.completed_uptime_ms)
+                    <= u64::from(rustsimhub_setup_ap::MAX_WINDOW_SECONDS) * 1000
+        })
+        .filter(|_| live.wifi_enabled)
+    else {
+        return live;
+    };
+    Catalogue {
+        schema: 1,
+        source: "before_setup_ap_scan",
+        scan_requested: false,
+        hardware_mutations: false,
+        wifi_enabled: true,
+        scan_cache_known: true,
+        snapshot_age_seconds: Some(now.saturating_sub(snapshot.completed_uptime_ms) / 1000),
+        networks: snapshot
+            .networks
+            .into_iter()
+            .map(|n| {
+                let security = match n.security {
+                    Security::Wpa2Personal => "wpa2_personal",
+                    Security::Open => "open",
+                    Security::Unsupported => "unsupported",
+                };
+                Network {
+                    ssid: n.ssid,
+                    strength: n.strength,
+                    frequency_mhz: n.frequency_mhz,
+                    security,
+                    selectable: security == "wpa2_personal",
+                    connected: false,
+                }
+            })
+            .collect(),
+        omitted: snapshot.omitted,
+        truncated: snapshot.truncated,
     }
 }
 fn ap_paths_valid(paths: &[OwnedObjectPath]) -> bool {

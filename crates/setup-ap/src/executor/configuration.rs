@@ -156,6 +156,8 @@ pub(super) async fn execute<
     )?;
     let gate = LeaseGate {
         input: &worker.input,
+        output: &worker.output,
+        binding: hint.binding.clone(),
         readiness,
         lease: Mutex::new(lease),
         sequence: AtomicU64::new(1),
@@ -176,6 +178,7 @@ pub(super) async fn execute<
         let start = async {
             gate.check().await?;
             network.preflight().await?;
+            transaction::scan_before_start(network, &gate).await?;
             gate.check().await?;
             guard_attempted = true;
             guard.install().await?;

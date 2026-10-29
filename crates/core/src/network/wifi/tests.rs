@@ -359,6 +359,49 @@ fn only_station_wifi_profiles_count_as_configured() {
     assert!(!station(&s("802-3-ethernet", None)));
     assert!(!station(&s("gsm", None)));
 }
+
+#[test]
+fn verified_root_scan_replaces_old_cache_even_when_the_scan_found_nothing() {
+    use rustsimhub_setup_ap::nm::scan::{Choice, Security, Snapshot};
+    let mut live = empty(true);
+    live.networks.push(
+        network(&ap(b"Old cache", 70, 0x100, 1), true)
+            .unwrap()
+            .unwrap(),
+    );
+    let mut scan = Snapshot {
+        requested_uptime_ms: 1000,
+        completed_uptime_ms: 1200,
+        last_scan_uptime_ms: 1100,
+        networks: vec![],
+        omitted: 0,
+        truncated: false,
+    };
+    let empty_scan = with_root_scan(live.clone(), Some(scan.clone()), 2200);
+    assert!(empty_scan.networks.is_empty());
+    assert_eq!(empty_scan.source, "before_setup_ap_scan");
+    assert!(!empty_scan.scan_requested && !empty_scan.hardware_mutations);
+    assert_eq!(empty_scan.snapshot_age_seconds, Some(1));
+    scan.networks.push(Choice {
+        ssid: "New scan".into(),
+        strength: 81,
+        frequency_mhz: 2412,
+        security: Security::Wpa2Personal,
+    });
+    let fresh = with_root_scan(live.clone(), Some(scan.clone()), 2200);
+    assert_eq!(fresh.networks[0].ssid, "New scan");
+    assert!(fresh.networks[0].selectable);
+    assert!(!fresh.networks[0].connected);
+    assert_eq!(
+        with_root_scan(live.clone(), Some(scan.clone()), 1199).source,
+        "networkmanager_cache"
+    );
+    assert_eq!(
+        with_root_scan(live, Some(scan.clone()), 3_601_201).source,
+        "networkmanager_cache"
+    );
+    assert!(!with_root_scan(empty(false), Some(scan), 2200).wifi_enabled);
+}
 #[test]
 fn unselectable_live_aps_do_not_hide_a_valid_pre_ap_station_snapshot() {
     let mut live = empty(true);
