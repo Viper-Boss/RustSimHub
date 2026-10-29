@@ -8,6 +8,7 @@ use crate::{
 };
 use zeroize::Zeroizing;
 pub(super) mod commit;
+pub(super) mod rescan;
 
 async fn stop(rx: &mut watch::Receiver<bool>) {
     loop {
@@ -134,7 +135,7 @@ async fn trial<N: Network + StationProvider, G: Guard + TrialGuard, R: Ready + S
 /// Consecutive busy/slow setup-page probes tolerated after Ready.
 pub(super) const MAX_MISSES: u8 = 3;
 pub(super) async fn execute<
-    N: Network + StationProvider + CommitProvider,
+    N: Network + StationProvider + CommitProvider + crate::ap_rescan::RescanProvider,
     G: Guard + TrialGuard,
     R: Ready + Sync,
 >(
@@ -204,6 +205,10 @@ pub(super) async fn execute<
         }
     };
     let mut final_commit = None;
+    let mut rescan_unknown = false;
+    let mut rescan_budget = rescan::Budget::default();
+    let mut rescan_barrier: Option<u64> = None;
+    let mut rescan_after: Option<u64> = None;
     let _body:Result<()>=async {
     if started {
         let mut seen=false;let initial=Instant::now();let mut last:Option<station::Status>=None;let mut trials=0;
@@ -233,13 +238,48 @@ pub(super) async fn execute<
             } else {
                 misses=0;
                 seen=true;
+                worker.query_completed_rescan()?;
+                rescan::capability(worker,&hint.binding,rescan_budget.available()
+                    && hint.binding.deadline_uptime_ms.saturating_sub(channel::uptime_ms()?)>=60_000)?;
                 if let Some(raw)=worker.input.read(Slot::StationCommitRequest)? {
                     let raw=Zeroizing::new(raw);
                     if let Ok(q)=channel::commit::Request::parse(&raw,&hint.binding,channel::uptime_ms()?) {
+                        if rescan_barrier.is_none_or(|t|q.requested_uptime_ms>t) {
+                        let intent=q.intent()?;
                         match commit::execute(worker,network,guard,readiness,&gate,ap,q,&stopped).await? {
                             commit::Completion::Saved=>{final_commit=Some(true);return Ok(());}
                             commit::Completion::Unknown=>{final_commit=Some(false);return Ok(());}
-                            commit::Completion::Restored=>{}
+                            commit::Completion::Restored=>{
+                                let finished=worker.journal.commit_result(&intent)?.ok_or(Error::Denied)?.execution_uptime_ms;
+                                rescan_after=Some(rescan_after.unwrap_or(0).max(finished));
+                            }
+                        }
+                        }
+                    }
+                }
+                if let Some(r)=rescan::request(worker,&hint.binding)? {
+                    if r.action==channel::rescan::Action::Scan {
+                        let intent=r.intent()?;
+                        match worker.journal.rescan_consumed(&intent) {
+                            Ok(true)=>{
+                                let saved=rescan::cached(worker,&intent)?.ok_or(Error::Denied)?;
+                                if saved.phase==channel::rescan::Phase::Unknown {rescan_unknown=true;return Ok(());}
+                                if let Some(t)=saved.finished_uptime_ms {rescan_barrier=Some(rescan_barrier.unwrap_or(0).max(t));}
+                            }
+                            Ok(false) if rescan_barrier.is_none_or(|t|r.requested_uptime_ms>t)
+                                && rescan_after.is_none_or(|t|r.requested_uptime_ms>t)
+                                && rescan_budget.admit_once(&intent)
+                                && !rescan::conflicts(worker,&hint.binding,last.as_ref())?=>{
+                                rescan::capability(worker,&hint.binding,false)?;
+                                match rescan::execute(worker,network,guard,readiness,&gate,ap,r,&stopped).await {
+                                    Ok(s) if s.phase!=channel::rescan::Phase::Unknown=>{rescan_barrier=Some(channel::uptime_ms()?);}
+                                    _=>{
+                                        if worker.journal.rescan_consumed(&intent).unwrap_or(true) {rescan_unknown=true;return Ok(());}
+                                    }
+                                }
+                            }
+                            Err(_)=>{rescan_unknown=true;return Ok(());}
+                            _=>{}
                         }
                     }
                 }
@@ -255,10 +295,10 @@ pub(super) async fn execute<
                                 if saved.phase==station::Phase::Unknown || publish_trial(worker,&saved).is_err() { break; }
                                 last=Some(saved);
                             }
-                            Ok(false) if trials<16=>{
+                            Ok(false) if trials<16 && rescan_barrier.is_none_or(|t|r.requested_uptime_ms>t)=>{
                                 trials+=1;
                                 match trial(worker,network,guard,readiness,&gate,ap,r,&stopped).await {
-                                    Ok(s) if s.phase!=station::Phase::Unknown=>{ last=Some(s); }
+                                    Ok(s) if s.phase!=station::Phase::Unknown=>{ rescan_after=Some(channel::uptime_ms()?); last=Some(s); }
                                     _=>break,
                                 }
                             }
@@ -275,6 +315,15 @@ pub(super) async fn execute<
     }
     Ok(())
     }.await;
+    if rescan_unknown || worker.journal.ensure_rescans_closed(&hint.binding).is_err() {
+        let unknown = receipt(
+            &hint.binding,
+            State::Unknown,
+            gate.sequence.load(Ordering::SeqCst),
+        )?;
+        publish(&worker.output, &unknown)?;
+        return Ok(Some(unknown));
+    }
     if let Some(saved) = final_commit {
         if saved {
             return Ok(None);
