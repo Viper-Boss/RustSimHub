@@ -9,6 +9,7 @@ license.workspace = true
 default = []
 dev-fixtures = ["dep:ed25519-dalek"]
 recovery-grants = ["rustsimhub-auth/recovery-grants"]
+recovery-transport = []
 
 [dependencies]
 rustsimhub-domain = { path = "../domain" }
