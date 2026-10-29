@@ -41,6 +41,12 @@ impl PeerConnection {
 
 // The retained resource is moved into the thread, never kept solely by the waiting
 // future. No Tokio shared blocking-pool slot or runtime-shutdown join is required.
+struct Completed<R, T> {
+    // Field order matters when the receiver is gone or an unread delivery is dropped:
+    // finish dropping late adapter output before closing/releasing the connection.
+    result: Result<T>,
+    resource: R,
+}
 async fn run_owned<R, T, F>(resource: R, deadline: Instant, work: F) -> Result<(R, T)>
 where
     R: Send + 'static,
@@ -61,10 +67,10 @@ where
             };
             // A dropped waiter cannot resurrect the connection or receive a late
             // result. Failed send owns and drops both resource and adapter output.
-            let _ = send.send((resource, result));
+            let _ = send.send(Completed { result, resource });
         })
         .map_err(|_| Error::Worker)?;
-    let (resource, result) = timeout_at(deadline, receive)
+    let completed = timeout_at(deadline, receive)
         .await
         .map_err(|_| Error::Deadline)?
         .map_err(|_| Error::Worker)?;
@@ -72,7 +78,7 @@ where
     if Instant::now() >= deadline {
         return Err(Error::Deadline);
     }
-    result.map(|output| (resource, output))
+    completed.result.map(|output| (completed.resource, output))
 }
 
 #[cfg(test)]

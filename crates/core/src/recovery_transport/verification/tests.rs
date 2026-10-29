@@ -129,6 +129,58 @@ async fn timeout_keeps_real_stream_and_slot_until_worker_and_late_output_are_dro
     signal(output_dropped).await;
 }
 
+struct SlowOutputDrop {
+    entered: Option<oneshot::Sender<()>>,
+    release: mpsc::Receiver<()>,
+}
+impl Drop for SlowOutputDrop {
+    fn drop(&mut self) {
+        self.entered.take().unwrap().send(()).unwrap();
+        self.release.recv_timeout(Duration::from_secs(2)).unwrap();
+    }
+}
+
+#[tokio::test]
+async fn late_output_cleanup_finishes_before_the_connection_slot_is_released() {
+    let (held, peer, active, dropped) = resource();
+    let (started_tx, started) = oneshot::channel();
+    let (finish_work, work_wait) = mpsc::channel();
+    let (drop_entered, dropping) = oneshot::channel();
+    let (finish_drop, drop_wait) = mpsc::channel();
+    let work = run_owned(
+        held,
+        Instant::now() + Duration::from_millis(100),
+        move |_| {
+            started_tx.send(()).unwrap();
+            work_wait.recv_timeout(Duration::from_secs(2)).unwrap();
+            Ok(SlowOutputDrop {
+                entered: Some(drop_entered),
+                release: drop_wait,
+            })
+        },
+    );
+    tokio::pin!(work);
+    tokio::select! {
+        () = signal(started) => (),
+        _ = &mut work => panic!("worker completed before release"),
+    }
+    assert!(matches!(work.await, Err(Error::Deadline)));
+    finish_work.send(()).unwrap();
+    signal(dropping).await;
+    // Always release the fixture before asserting, including on the old bad order.
+    let still_occupied = active.load(Ordering::Acquire);
+    let still_open = peer
+        .try_read(&mut [0])
+        .is_err_and(|e| e.kind() == std::io::ErrorKind::WouldBlock);
+    finish_drop.send(()).unwrap();
+    closed(peer, &active, dropped).await;
+    assert!(
+        still_occupied,
+        "late output cleanup released slot too early"
+    );
+    assert!(still_open, "late output cleanup closed stream too early");
+}
+
 #[tokio::test]
 async fn cancelling_polled_waiter_does_not_release_resources_or_deliver_late_output() {
     let (held, peer, active, dropped) = resource();
