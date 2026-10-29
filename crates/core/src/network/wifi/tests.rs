@@ -226,8 +226,39 @@ async fn cached_dbus_catalogue_is_owner_pinned_and_scan_consistent_without_write
         }
     }
 }
+fn signed_in(a: &mut Auth, key: &SigningKey) -> String {
+    let c = a.login_challenge(key.verifying_key().to_bytes()).unwrap();
+    a.login_finish(&c.id, &key.sign(&c.transcript).to_bytes())
+        .unwrap()
+        .expose()
+        .to_owned()
+}
+fn approved(
+    a: &mut Auth,
+    owner: &str,
+    key: &SigningKey,
+    kind: rustsimhub_policy::Kind,
+    scopes: &[Scope],
+) {
+    a.open_pairing(owner).unwrap();
+    let c = a
+        .pairing_challenge(key.verifying_key().to_bytes(), kind, scopes)
+        .unwrap();
+    let pairing = a
+        .pairing_finish(&c.id, &key.sign(&c.transcript).to_bytes())
+        .unwrap();
+    a.approve(
+        owner,
+        &pairing,
+        key.verifying_key().to_bytes(),
+        kind,
+        scopes,
+    )
+    .unwrap();
+}
 #[tokio::test]
-async fn catalogue_needs_recent_real_owner_and_rechecks_after_read() {
+async fn catalogue_needs_owner_or_approved_network_client_and_rechecks_after_read() {
+    use rustsimhub_policy::Kind;
     let d = tempfile::tempdir().unwrap();
     let i = tempfile::tempdir().unwrap();
     use std::os::unix::fs::PermissionsExt;
@@ -243,54 +274,64 @@ async fn catalogue_needs_recent_real_owner_and_rechecks_after_read() {
         .unwrap();
     a.bootstrap_finish(&challenge.id, &key.sign(&challenge.transcript).to_bytes())
         .unwrap();
-    let challenge = a.login_challenge(key.verifying_key().to_bytes()).unwrap();
-    let token = a
-        .login_finish(&challenge.id, &key.sign(&challenge.transcript).to_bytes())
-        .unwrap()
-        .expose()
-        .to_owned();
-    let client = SigningKey::from_bytes(&[109; 32]);
-    let kind = rustsimhub_policy::Kind::Client;
-    let scopes = [Scope::NetworkManage];
-    a.open_pairing(&token).unwrap();
-    let c = a
-        .pairing_challenge(client.verifying_key().to_bytes(), kind, &scopes)
-        .unwrap();
-    let pairing = a
-        .pairing_finish(&c.id, &client.sign(&c.transcript).to_bytes())
-        .unwrap();
-    a.approve(
+    let token = signed_in(&mut a, &key);
+    let tool = SigningKey::from_bytes(&[109; 32]);
+    approved(
+        &mut a,
         &token,
-        &pairing,
-        client.verifying_key().to_bytes(),
-        kind,
-        &scopes,
-    )
-    .unwrap();
-    let c = a
-        .login_challenge(client.verifying_key().to_bytes())
-        .unwrap();
-    let delegated = a
-        .login_finish(&c.id, &client.sign(&c.transcript).to_bytes())
-        .unwrap()
-        .expose()
-        .to_owned();
+        &tool,
+        Kind::Client,
+        &[Scope::StatusRead, Scope::NetworkManage],
+    );
+    let delegated = signed_in(&mut a, &tool);
+    let reader = SigningKey::from_bytes(&[110; 32]);
+    approved(&mut a, &token, &reader, Kind::Client, &[Scope::StatusRead]);
+    let reader = signed_in(&mut a, &reader);
+    let nas = SigningKey::from_bytes(&[111; 32]);
+    approved(
+        &mut a,
+        &token,
+        &nas,
+        Kind::Nas,
+        &[Scope::StatusRead, Scope::NetworkManage],
+    );
+    let nas = signed_in(&mut a, &nas);
     let auth = Arc::new(Mutex::new(a));
     let entered = AtomicBool::new(false);
-    assert!(guarded(auth.clone(), delegated, || async {
-        entered.store(true, Ordering::SeqCst);
+    // Missing network.manage, a NAS principal and an unknown bearer never reach the read.
+    for refused in [reader, nas, "0".repeat(64)] {
+        assert!(guarded(auth.clone(), refused, || async {
+            entered.store(true, Ordering::SeqCst);
+            Ok(empty(true))
+        })
+        .await
+        .is_err());
+        assert!(!entered.load(Ordering::SeqCst));
+    }
+    let value = guarded(auth.clone(), delegated.clone(), || async {
+        Ok(empty(true))
+    })
+    .await
+    .unwrap();
+    assert_eq!(value["scan_requested"], false);
+    // Revoking the tool while its read waits discards the answer.
+    let revoker = auth.clone();
+    let (owner_token, tool_key) = (token.clone(), tool.verifying_key().to_bytes());
+    assert!(guarded(auth.clone(), delegated.clone(), || async {
+        revoker
+            .lock()
+            .unwrap()
+            .revoke(&owner_token, tool_key)
+            .unwrap();
         Ok(empty(true))
     })
     .await
     .is_err());
-    assert!(!entered.load(Ordering::SeqCst));
-    assert!(guarded(auth.clone(), "0".repeat(64), || async {
-        entered.store(true, Ordering::SeqCst);
-        Ok(empty(true))
-    })
-    .await
-    .is_err());
-    assert!(!entered.load(Ordering::SeqCst));
+    assert!(
+        guarded(auth.clone(), delegated, || async { Ok(empty(true)) })
+            .await
+            .is_err()
+    );
     let value = guarded(auth.clone(), token.clone(), || async { Ok(empty(true)) })
         .await
         .unwrap();

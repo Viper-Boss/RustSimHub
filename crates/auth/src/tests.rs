@@ -883,3 +883,63 @@ fn permissive_symlink_and_hardlink_identity_files_are_rejected() {
     fs::hard_link(&path, other.path().join("linked")).unwrap();
     assert!(matches!(Identity::open(d.path()), Err(Error::Forbidden)));
 }
+#[test]
+fn network_manager_is_recent_owner_or_live_approved_client_only() {
+    let d = directory();
+    let s = Store::open(d.path()).unwrap();
+    let i = directory();
+    let mut a = start(i.path(), &s);
+    let o = SigningKey::from_bytes(&[121; 32]);
+    let t = owner(&mut a, &o);
+    let owner_principal = a.network_manager(t.expose()).unwrap();
+    assert_eq!(owner_principal.kind, Kind::Owner);
+    let tool = SigningKey::from_bytes(&[122; 32]);
+    let key = tool.verifying_key().to_bytes();
+    let scopes = [Scope::StatusRead, Scope::NetworkManage];
+    // A proved but unapproved request has no principal: no login, no session.
+    a.open_pairing(t.expose()).unwrap();
+    let c = a.pairing_challenge(key, Kind::Client, &scopes).unwrap();
+    a.pairing_finish(&c.id, &sign(&c, &tool)).unwrap();
+    assert!(a.login_challenge(key).is_err());
+    assert_eq!(a.network_manager(&"0".repeat(64)), Err(Error::Forbidden));
+    let first = pair(&mut a, &t, &tool, Kind::Client, &scopes);
+    let old = login(&mut a, &tool);
+    assert_eq!(a.network_manager(old.expose()).unwrap(), first);
+    // The tool gains nothing else that is owner-only.
+    assert!(a.recent_owner(old.expose()).is_err());
+    assert!(a.open_pairing(old.expose()).is_err());
+    assert!(a.clients(old.expose()).is_err());
+    assert!(a.pending_pairings(old.expose()).is_err());
+    assert!(a
+        .revoke(old.expose(), o.verifying_key().to_bytes())
+        .is_err());
+    // Revocation ends the session at once.
+    a.revoke(t.expose(), key).unwrap();
+    assert_eq!(a.network_manager(old.expose()), Err(Error::Forbidden));
+    // Re-approval bumps the generation: the pre-revocation bearer stays dead.
+    let second = pair(&mut a, &t, &tool, Kind::Client, &scopes);
+    assert!(second.generation > first.generation);
+    assert_eq!(a.network_manager(old.expose()), Err(Error::Forbidden));
+    let fresh = login(&mut a, &tool);
+    assert_eq!(a.network_manager(fresh.expose()).unwrap(), second);
+    // A store-side revocation under a still-cached session is refused too.
+    let p = a.authorize(t.expose(), Scope::ClientsManage).unwrap();
+    s.handle().revoke_client(p, key).unwrap();
+    assert_eq!(a.network_manager(fresh.expose()), Err(Error::Forbidden));
+    // Without network.manage, or as a NAS even with it, the tool is refused.
+    let reader = SigningKey::from_bytes(&[123; 32]);
+    pair(&mut a, &t, &reader, Kind::Client, &[Scope::StatusRead]);
+    let reader = login(&mut a, &reader);
+    assert_eq!(a.network_manager(reader.expose()), Err(Error::Forbidden));
+    let nas = SigningKey::from_bytes(&[124; 32]);
+    pair(&mut a, &t, &nas, Kind::Nas, &scopes);
+    let nas = login(&mut a, &nas);
+    assert!(a.authorize(nas.expose(), Scope::NetworkManage).is_ok());
+    assert_eq!(a.network_manager(nas.expose()), Err(Error::Forbidden));
+    // The owner still needs a fresh interactive login for Wi-Fi changes.
+    a.sessions
+        .get_mut(&token_digest(t.expose()).unwrap())
+        .unwrap()
+        .authenticated = Instant::now() - REAUTH_TTL;
+    assert_eq!(a.network_manager(t.expose()), Err(Error::Expired));
+}

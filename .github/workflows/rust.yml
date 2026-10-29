@@ -66,6 +66,8 @@ jobs:
         run: node tools/test-web-daily-phone.mjs
       - name: Web signed session continuation
         run: node tools/test-web-session.mjs
+      - name: Web owner pairing approval and revocation
+        run: node tools/test-web-clients.mjs
       - name: PON diagnostic reference and error paths
         run: python3 tools/test-pon-dump-review.py
       - name: Read-only recovery helper fixtures

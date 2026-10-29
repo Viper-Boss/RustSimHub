@@ -425,6 +425,11 @@ mod tests {
             serde_json::from_slice(&fs::read(d.path().join("installation/record.json")).unwrap())
                 .unwrap();
         assert_eq!(record.tls_alt_names, vec!["192.168.120.167".to_owned()]);
+        // The certificate a USB tool pins carries the .local name it sends as Host/Origin,
+        // whatever address (wlan0 or the followed usb0 10.55.0.2) the TCP connection reaches.
+        assert_eq!(record.tls_name, "rustsimhub-0087.local");
+        let der = fs::read(d.path().join("installation/tls/cert.der")).unwrap();
+        assert!(String::from_utf8_lossy(&der).contains("rustsimhub-0087.local"));
         // Without the alias the same directory is a different request, not silently reused.
         assert!(prepare(
             d.path(),

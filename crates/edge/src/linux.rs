@@ -551,6 +551,15 @@ fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/clients.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/clients.js"),
+                )
+            }),
+        )
+        .route(
             "/network.js",
             get(|| async {
                 (
@@ -811,23 +820,20 @@ pub fn run(args: Vec<String>) -> Result<()> {
             .map(|ip| SocketAddr::new(*ip, config.listen.port())),
     );
     // Served under the fixed .local name: also follow wlan0's current private address, so a
-    // Wi-Fi change keeps the daily page reachable. Never cellular; Host/Origin checks unchanged.
-    let follow_wifi = origins.first().is_some_and(|(_, a)| {
+    // Wi-Fi change keeps the daily page reachable, and the fixed usb0 address for a USB tool.
+    // Never cellular; Host/Origin checks unchanged (the .local origin, whatever the TCP address).
+    let follow_local = origins.first().is_some_and(|(_, a)| {
         a.rsplit_once(':')
             .is_some_and(|(h, _)| h.ends_with(".local"))
     });
     let port = config.listen.port();
     let wanted = move |configured: &[SocketAddr]| -> Vec<SocketAddr> {
-        let mut v = configured.to_vec();
-        if follow_wifi {
-            for ip in addresses::wlan0() {
-                let a = SocketAddr::new(ip.into(), port);
-                if !v.contains(&a) {
-                    v.push(a);
-                }
-            }
-        }
-        v
+        let wlan = if follow_local {
+            addresses::wlan0()
+        } else {
+            Vec::new()
+        };
+        addresses::followed(configured, port, follow_local, &wlan)
     };
     let captive_listen = config.captive_listen;
     if captive_listen.is_some_and(|a| a != captive::LISTEN) {
