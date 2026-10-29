@@ -54,6 +54,10 @@ async fn sms_assets_are_served_with_the_existing_host_and_cache_boundary() {
             "/sms-management.js",
             include_bytes!("../web/sms-management.js").as_slice(),
         ),
+        (
+            "/clients.js",
+            include_bytes!("../web/clients.js").as_slice(),
+        ),
     ] {
         for (host, status) in [
             ("localhost:8443", StatusCode::OK),

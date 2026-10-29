@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-//! Owner-only, bounded Wi-Fi cache. Never requests a scan or changes a connection.
+//! Bounded Wi-Fi cache for a recent owner or an approved `network.manage` client.
+//! Never requests a scan or changes a connection.
 use super::*;
 use std::collections::BTreeMap;
 
@@ -29,14 +30,10 @@ struct Catalogue {
     truncated: bool,
     hardware_mutations: bool,
 }
-async fn owner(auth: Arc<Mutex<Auth>>, token: String) -> rustsimhub_auth::Result<Principal> {
+async fn manager(auth: Arc<Mutex<Auth>>, token: String) -> rustsimhub_auth::Result<Principal> {
     tokio::task::spawn_blocking(move || {
         let mut a = auth.try_lock().map_err(|_| Error::Busy)?;
-        let p = a.recent_owner(&token)?;
-        if a.authorize(&token, Scope::NetworkManage)? != p {
-            return Err(Error::Forbidden);
-        }
-        Ok(p)
+        a.network_manager(&token)
     })
     .await
     .map_err(|_| Error::Busy)?
@@ -50,12 +47,12 @@ where
     F: FnOnce() -> Fut,
     Fut: std::future::Future<Output = rustsimhub_auth::Result<Catalogue>>,
 {
-    let before = owner(auth.clone(), token.clone()).await?;
+    let before = manager(auth.clone(), token.clone()).await?;
     let _slot = CATALOGUES.try_acquire().map_err(|_| Error::Busy)?;
     let catalogue = timeout(Duration::from_secs(5), read())
         .await
         .map_err(|_| Error::Busy)??;
-    if owner(auth, token).await? != before {
+    if manager(auth, token).await? != before {
         return Err(Error::Forbidden);
     }
     serde_json::to_value(catalogue).map_err(|_| Error::InvalidInput)

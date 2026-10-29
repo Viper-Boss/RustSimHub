@@ -95,7 +95,7 @@ function browserFixture(respond){
  const elements=new Map(),sent=[],testStarts=[];
  const document={hidden:false,getElementById(id){if(!elements.has(id))elements.set(id,new Element(['history-source','history-entity','call-id'].includes(id)?'select':''));return elements.get(id);},createElement:tag=>new Element(tag),querySelectorAll:()=>[],addEventListener(){}};
  const context={ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,forwardingPendingInput,document,crypto:webcrypto,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},
-  indexedDB:{open:()=>({})},EventSync,SmsManager,smsListText,smsDetailText,DailyPhone:class{constructor(){this.managing=false;this.working=false;}reset(){}start(){}},SessionKeeper:class{start(){}reset(){}async ensure(){}},
+  indexedDB:{open:()=>({})},EventSync,SmsManager,smsListText,smsDetailText,DailyPhone:class{constructor(){this.managing=false;this.working=false;}reset(){}start(){}},ClientsPanel:class{reset(){}},SessionKeeper:class{start(){}reset(){}async ensure(){}},
   AudioLink:class {constructor(){this.state='closed';}async stop(){}},
   ConfigurationIndicator:class {async set(){}},
   CallTest:class {async start(mode='outgoing'){testStarts.push(mode);}async stop(){}},NetworkPanel:class {start(){}stop(){}},

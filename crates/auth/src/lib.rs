@@ -319,6 +319,17 @@ impl Auth {
     pub fn recent_owner(&mut self, token: &str) -> Result<Principal> {
         self.owner(token)
     }
+    /// Wi-Fi catalogue and trial: a recent owner, or an owner-approved, still active client
+    /// holding `network.manage` at its current generation. A NAS never qualifies, whatever
+    /// scopes it was approved with; every other owner-only operation keeps `owner`.
+    pub fn network_manager(&mut self, token: &str) -> Result<Principal> {
+        let p = self.authorize(token, Scope::NetworkManage)?;
+        match p.kind {
+            Kind::Owner if self.owner(token)? == p => Ok(p),
+            Kind::Client => Ok(p),
+            _ => Err(Error::Forbidden),
+        }
+    }
     fn prune(&mut self, now: Instant) {
         self.challenges.retain(|_, p| now < p.deadline);
         self.pairings.retain(|_, p| now < p.deadline);

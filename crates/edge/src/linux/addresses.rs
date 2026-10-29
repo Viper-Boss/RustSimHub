@@ -2,10 +2,35 @@
 //! Current private IPv4 addresses of wlan0, read from /proc without ioctl or unsafe code.
 //! Used only when the Edge is served under the fixed `.local` name, so a Wi-Fi change
 //! (reconfiguration or a new DHCP lease) does not leave the daily page unreachable.
-use std::net::Ipv4Addr;
+//! The same daily Edge also follows the fixed usb0 address, so a USB tool on the owner's
+//! computer reaches it with the `.local` Host/Origin over the cable.
+use std::net::{Ipv4Addr, SocketAddr};
 
 const INTERFACE: &str = "wlan0";
 const MAX_ADDRESSES: usize = 2;
+/// Fixed device side of the USB link (shipped `usb.nmconnection`, 10.55.0.2/29). Never DHCP.
+pub(super) const USB0: Ipv4Addr = Ipv4Addr::new(10, 55, 0, 2);
+
+/// Listener set: the configured addresses first, then, only under the `.local` name, the
+/// fixed usb0 address and the current wlan0 addresses. No duplicates; an address that is not
+/// assigned yet is skipped at bind time and retried.
+pub(super) fn followed(
+    configured: &[SocketAddr],
+    port: u16,
+    follow: bool,
+    wlan: &[Ipv4Addr],
+) -> Vec<SocketAddr> {
+    let mut v = configured.to_vec();
+    if follow {
+        for ip in std::iter::once(&USB0).chain(wlan) {
+            let a = SocketAddr::new((*ip).into(), port);
+            if !v.contains(&a) {
+                v.push(a);
+            }
+        }
+    }
+    v
+}
 
 pub(super) fn wlan0() -> Vec<Ipv4Addr> {
     match (
@@ -77,6 +102,25 @@ usb0\t0000370A\t00000000\t0001\t0\t0\t100\tF8FFFFFF\n";
         assert!(current(TRIE, usb_only).is_empty());
         assert!(current("", ROUTES).is_empty());
         assert!(current(TRIE, "").is_empty());
+    }
+
+    #[test]
+    fn usb0_is_followed_only_under_the_local_name_and_never_duplicated() {
+        let configured: Vec<SocketAddr> = vec!["192.168.120.167:8443".parse().unwrap()];
+        let wlan = [Ipv4Addr::new(192, 168, 0, 42)];
+        assert_eq!(
+            followed(&configured, 8443, true, &wlan),
+            [
+                configured[0],
+                "10.55.0.2:8443".parse().unwrap(),
+                "192.168.0.42:8443".parse().unwrap()
+            ]
+        );
+        // An IP-origin Edge (the setup Edge) keeps exactly its configured listeners.
+        assert_eq!(followed(&configured, 8443, false, &wlan), configured);
+        // Already configured (e.g. an explicit additional listen IP): listed once.
+        let with_usb: Vec<SocketAddr> = vec![configured[0], "10.55.0.2:8443".parse().unwrap()];
+        assert_eq!(followed(&with_usb, 8443, true, &[]), with_usb);
     }
 
     #[test]

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-//! Owner-confirmed WPA2 provisioning. NM owns the finite rollback timer, not the Core task.
+//! Confirmed WPA2 provisioning by a recent owner or an approved `network.manage` client
+//! (`Auth::network_manager`); a trial stays bound to the exact principal that began it.
+//! NM owns the finite rollback timer, not the Core task.
 use super::*;
 use rustsimhub_wire::AuthCommand;
 use serde_json::{json, Value};
@@ -58,6 +60,23 @@ struct Session {
     control: mpsc::Sender<Control>,
     deadline: Instant,
 }
+impl Session {
+    /// Only the exact principal (key, kind, scopes, generation) that began a trial may see or
+    /// steer it; an owner and an approved client never reach each other's trial.
+    fn owned_by(&self, id: &str, p: &Principal) -> Result<()> {
+        if self.id != id || self.principal != *p {
+            return Err(Error::Forbidden);
+        }
+        Ok(())
+    }
+    /// A reused idempotency key replays only for the same principal and the same input.
+    fn replays(&self, p: &Principal, fingerprint: &[u8; 32]) -> Result<()> {
+        if self.principal != *p || self.fingerprint != *fingerprint {
+            return Err(Error::Forbidden);
+        }
+        Ok(())
+    }
+}
 struct Control {
     confirm: bool,
     reply: oneshot::Sender<State>,
@@ -66,26 +85,22 @@ fn view(id: &str, state: State, deadline: Instant) -> Value {
     json!({"trial_id":id,"state":state,"expires_in_seconds":deadline.saturating_duration_since(Instant::now()).as_secs(),
         "wifi_only":true,"requires_confirmation":!state.terminal(),"credentials_returned":false,"cellular_activation":false})
 }
-async fn owner(auth: Arc<Mutex<Auth>>, token: String) -> Result<Principal> {
+async fn manager(auth: Arc<Mutex<Auth>>, token: String) -> Result<Principal> {
     tokio::task::spawn_blocking(move || {
         let mut a = auth.try_lock().map_err(|_| Error::Busy)?;
-        let p = a.recent_owner(&token)?;
-        if a.authorize(&token, Scope::NetworkManage)? != p {
-            return Err(Error::Forbidden);
-        }
-        Ok(p)
+        a.network_manager(&token)
     })
     .await
     .map_err(|_| Error::Busy)?
 }
-struct OwnerGate {
+struct ManagerGate {
     auth: Arc<Mutex<Auth>>,
     token: String,
     expected: Principal,
 }
-impl Gate for OwnerGate {
+impl Gate for ManagerGate {
     async fn check(&self) -> Result<()> {
-        if owner(self.auth.clone(), self.token.clone()).await? != self.expected {
+        if manager(self.auth.clone(), self.token.clone()).await? != self.expected {
             return Err(Error::Forbidden);
         }
         Ok(())
@@ -236,14 +251,12 @@ pub(crate) async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> 
             {
                 return Err(Error::InvalidInput);
             }
-            let p = owner(auth.clone(), token.clone()).await?;
+            let p = manager(auth.clone(), token.clone()).await?;
             let mut active = ACTIVE.try_lock().map_err(|_| Error::Busy)?;
             if let Some(old) = active.as_ref() {
                 let old_state = *old.state.lock().await;
                 if old.key == idempotency_key {
-                    if old.principal != p || old.fingerprint != credentials.fingerprint() {
-                        return Err(Error::Forbidden);
-                    }
+                    old.replays(&p, &credentials.fingerprint())?;
                     return Ok(view(&old.id, old_state, old.deadline));
                 }
                 if !old_state.terminal() {
@@ -277,7 +290,7 @@ pub(crate) async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> 
             };
             *active = Some(session);
             tokio::spawn(async move {
-                let gate = OwnerGate {
+                let gate = ManagerGate {
                     auth,
                     token,
                     expected: p,
@@ -303,12 +316,10 @@ pub(crate) async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> 
             ))
         }
         AuthCommand::WifiStatus { token, trial_id } => {
-            let p = owner(auth, token).await?;
+            let p = manager(auth, token).await?;
             let active = ACTIVE.try_lock().map_err(|_| Error::Busy)?;
             let s = active.as_ref().ok_or(Error::Forbidden)?;
-            if s.id != trial_id || s.principal != p {
-                return Err(Error::Forbidden);
-            }
+            s.owned_by(&trial_id, &p)?;
             let state = *s.state.lock().await;
             Ok(view(&s.id, state, s.deadline))
         }
@@ -323,13 +334,11 @@ async fn control(
     id: String,
     confirm: bool,
 ) -> Result<Value> {
-    let p = owner(auth, token).await?;
+    let p = manager(auth, token).await?;
     let (tx, deadline) = {
         let active = ACTIVE.try_lock().map_err(|_| Error::Busy)?;
         let s = active.as_ref().ok_or(Error::Forbidden)?;
-        if s.id != id || s.principal != p {
-            return Err(Error::Forbidden);
-        }
+        s.owned_by(&id, &p)?;
         let state = *s.state.lock().await;
         if state.terminal() {
             return Ok(view(&id, state, s.deadline));

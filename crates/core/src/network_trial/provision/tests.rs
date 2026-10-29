@@ -310,3 +310,120 @@ async fn unconfirmed_timeout_and_revocation_after_partial_commit_restore() {
         );
     }
 }
+#[tokio::test]
+async fn approved_client_trials_stay_bound_to_their_principal_and_end_on_revoke() {
+    use ed25519_dalek::{Signer, SigningKey};
+    use rustsimhub_policy::Kind;
+    let (d, i) = (directory(), directory());
+    let store = rustsimhub_storage::Store::open(d.path()).unwrap();
+    let mut a = Auth::new(
+        rustsimhub_auth::Identity::open(i.path()).unwrap(),
+        store.handle(),
+    )
+    .unwrap();
+    let login = |a: &mut Auth, k: &SigningKey| {
+        let c = a.login_challenge(k.verifying_key().to_bytes()).unwrap();
+        a.login_finish(&c.id, &k.sign(&c.transcript).to_bytes())
+            .unwrap()
+            .expose()
+            .to_owned()
+    };
+    let o = SigningKey::from_bytes(&[131; 32]);
+    let c = a.bootstrap_challenge(o.verifying_key().to_bytes()).unwrap();
+    a.bootstrap_finish(&c.id, &o.sign(&c.transcript).to_bytes())
+        .unwrap();
+    let owner_token = login(&mut a, &o);
+    let scopes = [Scope::StatusRead, Scope::NetworkManage];
+    let mut tools = vec![];
+    for seed in [132u8, 133] {
+        let k = SigningKey::from_bytes(&[seed; 32]);
+        a.open_pairing(&owner_token).unwrap();
+        let c = a
+            .pairing_challenge(k.verifying_key().to_bytes(), Kind::Client, &scopes)
+            .unwrap();
+        let id = a
+            .pairing_finish(&c.id, &k.sign(&c.transcript).to_bytes())
+            .unwrap();
+        a.approve(
+            &owner_token,
+            &id,
+            k.verifying_key().to_bytes(),
+            Kind::Client,
+            &scopes,
+        )
+        .unwrap();
+        let token = login(&mut a, &k);
+        tools.push((k, token));
+    }
+    let auth = Arc::new(Mutex::new(a));
+    let owner_p = manager(auth.clone(), owner_token.clone()).await.unwrap();
+    let tool_p = manager(auth.clone(), tools[0].1.clone()).await.unwrap();
+    let other_p = manager(auth.clone(), tools[1].1.clone()).await.unwrap();
+    assert_eq!(tool_p.kind, Kind::Client);
+    let (control, _) = mpsc::channel(1);
+    let session = Session {
+        id: "a".repeat(64),
+        key: "once".into(),
+        principal: tool_p.clone(),
+        fingerprint: credentials().fingerprint(),
+        state: Arc::new(tokio::sync::Mutex::new(State::Ready)),
+        control,
+        deadline: Instant::now() + DEADLINE,
+    };
+    // Status/confirm/cancel: the tool's own trial id only; never another client's or the owner's.
+    session.owned_by(&"a".repeat(64), &tool_p).unwrap();
+    assert_eq!(
+        session.owned_by(&"b".repeat(64), &tool_p),
+        Err(Error::Forbidden)
+    );
+    assert_eq!(
+        session.owned_by(&"a".repeat(64), &other_p),
+        Err(Error::Forbidden)
+    );
+    assert_eq!(
+        session.owned_by(&"a".repeat(64), &owner_p),
+        Err(Error::Forbidden)
+    );
+    // Idempotency: same principal and same input replay; anything else under the key is refused.
+    session
+        .replays(&tool_p, &credentials().fingerprint())
+        .unwrap();
+    let changed = Credentials {
+        ssid: "synthetic-network".into(),
+        passphrase: Zeroizing::new("other-secret".into()),
+    };
+    assert_eq!(
+        session.replays(&tool_p, &changed.fingerprint()),
+        Err(Error::Forbidden)
+    );
+    assert_eq!(
+        session.replays(&other_p, &credentials().fingerprint()),
+        Err(Error::Forbidden)
+    );
+    assert_eq!(
+        session.replays(&owner_p, &credentials().fingerprint()),
+        Err(Error::Forbidden)
+    );
+    // The in-trial gate passes for the tool, then fails once the owner revokes it.
+    let gate = ManagerGate {
+        auth: auth.clone(),
+        token: tools[0].1.clone(),
+        expected: tool_p.clone(),
+    };
+    gate.check().await.unwrap();
+    let wrong = ManagerGate {
+        auth: auth.clone(),
+        token: tools[1].1.clone(),
+        expected: tool_p,
+    };
+    assert_eq!(wrong.check().await, Err(Error::Forbidden));
+    auth.lock()
+        .unwrap()
+        .revoke(&owner_token, tools[0].0.verifying_key().to_bytes())
+        .unwrap();
+    assert_eq!(gate.check().await, Err(Error::Forbidden));
+    assert_eq!(
+        manager(auth, tools[0].1.clone()).await,
+        Err(Error::Forbidden)
+    );
+}
