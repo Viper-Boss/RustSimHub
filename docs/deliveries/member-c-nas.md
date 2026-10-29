@@ -609,3 +609,58 @@ Windows上两个入口不带--run均实际返回execute=false计划，未启动L
 C13本包为已实现且本机自测通过，仍待负责人审核/合并；不自动宣布C13全范围验收或C14完成。
 项目AGPL-3.0-only/原SPDX保留；Codex辅助实现和核对，无新增依赖，无本人自报有效工时，不估造。
 整体按固定P0～P7仍80%。
+
+## 2026-10-30 · C14真实ENOSPC、异常退出与兼容/回执
+
+C13的PR #85已由Viper-Boss合并，merge ce36d37d0358a5c5d6e2413602c212ea68f757a4。
+本包起始main完整SHA：`5238670246e7c6e43184534a7a6ee4b13c293ffd`，
+本人同仓库分支`codex/member-c-update-crash-tests`，只交当前C14修改包到main，不自合并。
+精确代码提交：`8fb320942c635331c50291f8d4617cd861f3d179`，
+tree `d51542ffa6f47440418b1e15e4b4e8849126c961`。
+普通和tmpfs专项先按该固定tree运行，后续发布代码提交树完全一致；本报告/说明随后补记，
+最终PR完整HEAD列于PR正文，不冒称文档提交另有一轮业务执行。
+
+只改分配范围：新crash_matrix集成测试及c14_support合成包模块、新有限tmpfs执行器、
+已有C13驱动/WSL入口接入C14、[C14说明](../update/crash-matrix.md)和本人报告。
+不改生产Store、schema、签名、Root单元/账户、锁文件、他人代码或全局台账。
+核心失败逻辑全部由原Store、Queue、inspect_outbox、check_upgrade处理，没有自建替代更新器或新增生产hook。
+
+普通实测命令：`python tools/fixtures/backup-recovery/wsl_test.py --run --suite update --ref d51542ffa6f47440418b1e15e4b4e8849126c961`。
+WSL2 Ubuntu-24.04、内核6.18.54.1-microsoft-standard-WSL2，UID1000、Rust1.98.0，
+926个固定Git源码文件、Linux原生source/TMPDIR/target、锁定离线依赖。
+北京时间2026-10-30 00:53:22至00:55:29，C13直接回归7/0/0、C14普通直接4/0/0，
+Cargo库42通过/0失败/2个既有Root metadata ignored，crash集成4通过/0失败/2个专项/worker ignored，
+C13集成7/0/0；fmt和包all-targets严格Clippy全部退出0，passed=true。
+同病例由驱动和Cargo重复执行不增加新增数量：本包4项普通测试，另1项有界tmpfs专项，worker只供父测试调用。
+
+SIGKILL实际定位为原stage成功返回后、原choose成功返回未confirm后。每项format1/2各一次，
+父进程核对phase/hash握手、精确子PID、实际signal9及wait，然后原Store重开。
+直接矩阵实际4次终止，Cargo接入重复4次；原组内容保持、候选只试一次/回退、floor2不降。
+签名/载荷/schema用独立合成输入，真实API分别拒绝且台账不变。
+outbox由原Queue公开API创建真实Unknown及原attempt；只读inspect和真实数据版本比较拒绝投影后旧fallback，
+实际库/业务库比较前后保持，正常Queue迁移重开后原回执、payload、attempt和游标保持，
+显式打开合成策略仍不重新claim Unknown。程序metadata为合成比较输入，authorization_verified=false，
+不是已验签程序的真实build-info或Root维护准入证明，也未通过网络发送任何请求。
+
+tmpfs专项在同一原生源码先以UID1000离线生成crash_matrix Cargo产物清单，逐文件重核926个源码与原Git归档。
+随后WSL root只调用`python3 -B -I tools/fixtures/backup-recovery/update_full.py --cargo-artifacts <本轮实际清单>`，
+完整路径保留本机原记录，共享包将两项Windows输入路径显式替换为占位并记录原始/共享SHA。
+北京时间00:56:21至00:56:28，两步退出0；新mount/net命名空间传播private、2097152字节tmpfs、nosuid/nodev/noexec。
+实际测试UID65534、有效/许可/ambient能力零、NoNewPrivileges=1；两种包格式都实际写到filler errno28、可用空间0，
+原stage返回Io，原state/A1和floor保持；释放的仅filler，重开仍选A1，半成品未删除规避；独立可写对照通过。
+单列Rust专项1通过/0失败/0忽略，正常卸载后才报告tmpfs_unmounted=true。
+本轮测试ELF SHA256 `b92214b16daa000bf2e745fd226b00be67364c3ca41c30abccde69c4228d1434`。
+
+前两轮普通树93446f8、a91a1feb均通过；第一轮tmpfs也通过。补强迁移重开后的payload/attempt断言，
+再收紧产物清单读取上限及成功报告卸载边界后，按上述最后d515树全部重跑；旧来源/日志保留，不混算执行。
+Python三文件语法、默认无运行计划、说明链接和git diff --check另核对，无新增依赖/真实设备或通信数据。
+
+共享日志包C14-WSL2-validation-d51542f.zip：13463字节，SHA256
+`e48730d8fd8f4b066b292602bc7019db9b4d6fbbe3d3d592c12af86ec14b39fb`，17条目、CRC/逐文件摘要通过。
+只含来源/summary/脱敏日志和原始/共享SHA索引，不含源码、ELF、密钥、数据库或缓存；本机保存供用户转交，未代发负责人。
+
+普通Cargo原始ignored统计保留：worker已由父测试实际调用，tmpfs已单独实跑；两个既有Root metadata专项本轮未跑。
+未验收persist内部write/sync/rename精确中断、eMMC/硬件掉电/fsync断电保证、Root/ARM或实际设备升级恢复；
+没有新增内部hook，不把API返回后的SIGKILL冒充内部故障命中，不把tmpfs当物理磁盘证据。
+下一步按最终完整HEAD提交负责人审核；本包离线自测通过不等于C14全范围自验收。
+AGPL-3.0-only和复用源SPDX保留，Codex辅助实现/核对，工时没有本人自报、不估造；整体固定P0～P7仍80%。
