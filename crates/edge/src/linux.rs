@@ -39,6 +39,8 @@ use tokio_rustls::{
     TlsAcceptor,
 };
 type Result<T> = std::result::Result<T, &'static str>;
+mod addresses;
+mod captive;
 mod installation;
 mod media;
 mod network_test;
@@ -57,18 +59,47 @@ struct Config {
     media_worker_socket: Option<PathBuf>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     additional_listen_ips: Vec<std::net::IpAddr>,
+    /// Other exact origins served by this listener, e.g. the fixed `.local` name
+    /// next to an IP origin. Each must pass the same checks as `origin`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    additional_origins: Vec<String>,
+    /// Plain-HTTP first-setup page (setup edge only); the AP firewall forwards port 80 here
+    /// only while the open hotspot is up. Fixed value, see `captive::LISTEN`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    captive_listen: Option<SocketAddr>,
+}
+fn origin_authority(origin: &str) -> Result<String> {
+    let uri: axum::http::Uri = origin.parse().map_err(|_| "invalid origin")?;
+    let authority = uri.authority().ok_or("invalid origin")?;
+    if uri.scheme_str() != Some("https")
+        || authority.as_str().contains('@')
+        || uri.path_and_query().is_some_and(|v| v.as_str() != "/")
+        || origin != format!("https://{authority}")
+        || origin.len() > 255
+    {
+        return Err("invalid origin");
+    }
+    Ok(authority.as_str().to_owned())
 }
 impl Config {
-    fn authority(&self) -> Result<String> {
-        let uri: axum::http::Uri = self.origin.parse().map_err(|_| "invalid origin")?;
-        let authority = uri.authority().ok_or("invalid origin")?;
-        if uri.scheme_str() != Some("https")
-            || authority.as_str().contains('@')
-            || uri.path_and_query().is_some_and(|v| v.as_str() != "/")
-            || self.origin != format!("https://{authority}")
-        {
-            return Err("invalid origin");
+    /// Primary origin first, then the additional ones; every Host/Origin pair the
+    /// listener accepts. Any invalid, duplicate or excess origin rejects the config.
+    fn origins(&self) -> Result<Vec<(String, String)>> {
+        let mut pairs = vec![(self.origin.clone(), self.authority()?)];
+        if self.additional_origins.len() > 2 {
+            return Err("too many additional origins");
         }
+        for origin in &self.additional_origins {
+            let authority = origin_authority(origin)?;
+            if pairs.iter().any(|(o, a)| o == origin || *a == authority) {
+                return Err("duplicate origin");
+            }
+            pairs.push((origin.clone(), authority));
+        }
+        Ok(pairs)
+    }
+    fn authority(&self) -> Result<String> {
+        let authority = origin_authority(&self.origin)?;
         let ip = self.listen.ip();
         let local = match ip {
             std::net::IpAddr::V4(v) => v.is_private() || v.is_loopback() || v.is_link_local(),
@@ -110,7 +141,7 @@ impl Config {
                 return Err("explicit IPv4 media socket required");
             }
         }
-        Ok(authority.as_str().to_owned())
+        Ok(authority)
     }
 }
 struct Rate {
@@ -132,8 +163,8 @@ impl Rate {
 }
 #[derive(Clone)]
 struct App {
-    origin: Arc<str>,
-    authority: Arc<str>,
+    /// Accepted (origin, authority) pairs; Host selects the pair, Origin must match it.
+    origins: Arc<[(Box<str>, Box<str>)]>,
     socket: Arc<PathBuf>,
     uid: u32,
     limit: Arc<Semaphore>,
@@ -228,10 +259,15 @@ async fn api(State(app): State<App>, body: Bytes) -> Response {
 }
 async fn boundary(State(app): State<App>, req: Request, next: Next) -> Response {
     let headers = req.headers();
-    let host_ok = headers.get_all(header::HOST).iter().count() == 1
-        && headers
-            .get(header::HOST)
-            .is_some_and(|v| v.as_bytes() == app.authority.as_bytes());
+    let pair = (headers.get_all(header::HOST).iter().count() == 1)
+        .then(|| headers.get(header::HOST))
+        .flatten()
+        .and_then(|v| {
+            app.origins
+                .iter()
+                .find(|(_, a)| v.as_bytes() == a.as_bytes())
+        });
+    let host_ok = pair.is_some();
     let api_path = matches!(
         req.uri().path(),
         "/api/v2" | "/api/media/v1" | "/api/network/v1/test"
@@ -241,7 +277,7 @@ async fn boundary(State(app): State<App>, req: Request, next: Next) -> Response 
     let origin_ok = headers.get_all(header::ORIGIN).iter().count() == 1
         && headers
             .get(header::ORIGIN)
-            .is_some_and(|v| v.as_bytes() == app.origin.as_bytes());
+            .is_some_and(|v| pair.is_some_and(|(o, _)| v.as_bytes() == o.as_bytes()));
     let content_ok = headers.get_all(header::CONTENT_TYPE).iter().count() == 1
         && headers
             .get(header::CONTENT_TYPE)
@@ -551,6 +587,15 @@ fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/password.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/password.js"),
+                )
+            }),
+        )
+        .route(
             "/ap-wifi.js",
             get(|| async {
                 (
@@ -588,20 +633,24 @@ fn router(app: App) -> Router {
         .layer(middleware::from_fn_with_state(app.clone(), boundary))
         .with_state(app)
 }
-fn create_tls(dir: &Path, hostname: &str) -> Result<String> {
-    if hostname.is_empty()
-        || hostname.len() > 253
-        || hostname
-            .bytes()
-            .any(|b| !(b.is_ascii_alphanumeric() || b".:-".contains(&b)))
+fn create_tls(dir: &Path, names: &[String]) -> Result<String> {
+    if names.is_empty()
+        || names.len() > 3
+        || names.iter().any(|hostname| {
+            hostname.is_empty()
+                || hostname.len() > 253
+                || hostname
+                    .bytes()
+                    .any(|b| !(b.is_ascii_alphanumeric() || b".:-".contains(&b)))
+        })
     {
         return Err("invalid TLS name");
     }
     std::fs::create_dir(dir).map_err(|_| "new private TLS directory required")?;
     std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))
         .map_err(|_| "private TLS directory unavailable")?;
-    let key = rcgen::generate_simple_self_signed(vec![hostname.to_owned()])
-        .map_err(|_| "TLS generation failed")?;
+    let key =
+        rcgen::generate_simple_self_signed(names.to_vec()).map_err(|_| "TLS generation failed")?;
     rustsimhub_auth::write_private_new(dir.join("cert.der").as_path(), key.cert.der())
         .map_err(|_| "TLS write failed")?;
     rustsimhub_auth::write_private_new(dir.join("cert.pem").as_path(), key.cert.pem().as_bytes())
@@ -619,7 +668,7 @@ fn create_tls(dir: &Path, hostname: &str) -> Result<String> {
     Ok(pin)
 }
 fn init_tls(dir: &Path, hostname: &str) -> Result<()> {
-    let pin = create_tls(dir, hostname)?;
+    let pin = create_tls(dir, &[hostname.to_owned()])?;
     println!(
         "{}",
         serde_json::json!({"tls_created":true,"certificate_sha256":pin,"self_signed":true})
@@ -643,7 +692,16 @@ fn tls(dir: &Path) -> Result<TlsAcceptor> {
 pub fn run(args: Vec<String>) -> Result<()> {
     if let [command, directory] = args.as_slice() {
         if command == "--prepare-setup-local" {
-            println!("{}", installation::prepare_setup(Path::new(directory))?);
+            // The fixed device name is optional: older installations keep the IP origin only.
+            let name = match std::fs::read_to_string("/etc/rustsimhub/device-name") {
+                Ok(v) => Some(v.trim().to_owned()),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+                Err(_) => return Err("device name unavailable"),
+            };
+            println!(
+                "{}",
+                installation::prepare_setup(Path::new(directory), name.as_deref())?
+            );
             return Ok(());
         }
     }
@@ -665,41 +723,56 @@ pub fn run(args: Vec<String>) -> Result<()> {
             let listen = rest[offset]
                 .parse()
                 .map_err(|_| "invalid local listen address")?;
-            let name = &rest[offset + 1];
+            // NAME may be "primary,alias": the alias becomes one additional origin.
+            let mut names = rest[offset + 1].split(',');
+            let name = names.next().unwrap_or_default();
+            let alias: Vec<String> = names.map(str::to_owned).collect();
+            if alias.len() > 1 {
+                return Err("at most one alias");
+            }
             let additional = rest[required..]
                 .iter()
                 .map(|s| s.parse().map_err(|_| "invalid additional address"))
                 .collect::<Result<Vec<std::net::IpAddr>>>()?;
             let result = if preparing {
-                installation::prepare_profile(Path::new(&rest[0]), listen, name, Some(&additional))?
+                installation::prepare_profile(
+                    Path::new(&rest[0]),
+                    listen,
+                    name,
+                    Some(&additional),
+                    &alias,
+                )?
             } else {
-                installation::check_media(listen, name, &additional)?
+                installation::check_media(listen, name, &additional, &alias)?
             };
             println!("{result}");
             return Ok(());
         }
     }
-    if let [command, directory, listen, name] = args.as_slice() {
-        if command == "--prepare-local" {
+    if let [command, directory, listen, name, alias @ ..] = args.as_slice() {
+        if command == "--prepare-local" && alias.len() <= 1 {
             let listen = listen.parse().map_err(|_| "invalid local listen address")?;
             println!(
                 "{}",
-                installation::prepare(Path::new(directory), listen, name)?
+                installation::prepare(Path::new(directory), listen, name, alias)?
+            );
+            return Ok(());
+        }
+    }
+    if let [command, dir, name, alias @ ..] = args.as_slice() {
+        if command == "--check-local" && alias.len() <= 1 {
+            println!(
+                "{}",
+                installation::check(
+                    dir.parse().map_err(|_| "invalid local listen address")?,
+                    name,
+                    alias
+                )?
             );
             return Ok(());
         }
     }
     if let [command, dir, name] = args.as_slice() {
-        if command == "--check-local" {
-            println!(
-                "{}",
-                installation::check(
-                    dir.parse().map_err(|_| "invalid local listen address")?,
-                    name
-                )?
-            );
-            return Ok(());
-        }
         if command == "--init-tls" {
             return init_tls(Path::new(dir), name);
         }
@@ -715,7 +788,11 @@ pub fn run(args: Vec<String>) -> Result<()> {
             .map_err(|_| "private config required")?,
     )
     .map_err(|_| "invalid config")?;
-    let authority = config.authority()?;
+    let origins: Arc<[(Box<str>, Box<str>)]> = config
+        .origins()?
+        .into_iter()
+        .map(|(o, a)| (o.into_boxed_str(), a.into_boxed_str()))
+        .collect();
     let _media_owner = if config.media_worker_socket.is_some() {
         Some(
             rustsimhub_auth::lock_private_directory(&config.tls_directory)
@@ -733,12 +810,34 @@ pub fn run(args: Vec<String>) -> Result<()> {
             .iter()
             .map(|ip| SocketAddr::new(*ip, config.listen.port())),
     );
+    // Served under the fixed .local name: also follow wlan0's current private address, so a
+    // Wi-Fi change keeps the daily page reachable. Never cellular; Host/Origin checks unchanged.
+    let follow_wifi = origins.first().is_some_and(|(_, a)| {
+        a.rsplit_once(':')
+            .is_some_and(|(h, _)| h.ends_with(".local"))
+    });
+    let port = config.listen.port();
+    let wanted = move |configured: &[SocketAddr]| -> Vec<SocketAddr> {
+        let mut v = configured.to_vec();
+        if follow_wifi {
+            for ip in addresses::wlan0() {
+                let a = SocketAddr::new(ip.into(), port);
+                if !v.contains(&a) {
+                    v.push(a);
+                }
+            }
+        }
+        v
+    };
+    let captive_listen = config.captive_listen;
+    if captive_listen.is_some_and(|a| a != captive::LISTEN) {
+        return Err("invalid captive listener");
+    }
     let media = config
         .media_worker_socket
         .map(|p| Arc::new(media::Bridge::new(p)));
     let app = App {
-        origin: config.origin.into(),
-        authority: authority.into(),
+        origins,
         socket: Arc::new(config.core_socket),
         uid: config.core_uid,
         limit: Arc::new(Semaphore::new(8)),
@@ -761,8 +860,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
     runtime.block_on(async {
         let accept_one=|listener:TcpListener|async move{let accepted=listener.accept().await;(listener,accepted)};
         let mut acceptors=JoinSet::new();let mut listening=Vec::new();
-        for address in &configured_addresses {match TcpListener::bind(address).await {Ok(listener)=>{acceptors.spawn(accept_one(listener));listening.push(*address);},Err(e) if e.kind()==std::io::ErrorKind::AddrNotAvailable=>{},Err(_)=>return Err("listener unavailable"),}}
+        for address in &wanted(&configured_addresses) {match TcpListener::bind(address).await {Ok(listener)=>{acceptors.spawn(accept_one(listener));listening.push(*address);},Err(e) if e.kind()==std::io::ErrorKind::AddrNotAvailable=>{},Err(_) if !configured_addresses.contains(address)=>{},Err(_)=>return Err("listener unavailable"),}}
         if let Some(bridge)=&app.media {bridge.takeover().await?;}
+        if let Some(addr)=captive_listen {tokio::spawn(captive::serve(addr,app.clone()));}
         let mut retry_bind=tokio::time::interval(Duration::from_secs(5));retry_bind.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         let slots=Arc::new(Semaphore::new(24)); let mut tasks=JoinSet::new();
         let mut term=tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).map_err(|_|"signal unavailable")?;
@@ -778,7 +878,7 @@ pub fn run(args: Vec<String>) -> Result<()> {
                 _=interrupt.recv()=>break,
                 _=tasks.join_next(),if !tasks.is_empty()=>{},
                 _=reaper.tick(),if app.media.is_some()=>{if let Some(bridge)=&app.media {bridge.reap().await;}},
-                _=retry_bind.tick()=>{for address in &configured_addresses {if !listening.contains(address) {match TcpListener::bind(address).await {Ok(listener)=>{acceptors.spawn(accept_one(listener));listening.push(*address);},Err(e) if e.kind()==std::io::ErrorKind::AddrNotAvailable=>{},Err(_)=>return Err("additional listener unavailable"),}}}},
+                _=retry_bind.tick()=>{for address in &wanted(&configured_addresses) {if !listening.contains(address) && listening.len()<8 {match TcpListener::bind(address).await {Ok(listener)=>{acceptors.spawn(accept_one(listener));listening.push(*address);},Err(e) if e.kind()==std::io::ErrorKind::AddrNotAvailable=>{},Err(_) if !configured_addresses.contains(address)=>{},Err(_)=>return Err("additional listener unavailable"),}}}},
                 incoming=acceptors.join_next(),if !acceptors.is_empty()=>{
                     let (listener,incoming)=incoming.ok_or("listeners stopped")?.map_err(|_|"listener failed")?;
                     acceptors.spawn(accept_one(listener));

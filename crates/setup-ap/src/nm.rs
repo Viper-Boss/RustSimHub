@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Fixed-interface volatile AP, unique NM owner, finite checkpoint; no modem/APN writes.
-use crate::{transaction::Network, Credentials, Error, Result, ADDRESS, INTERFACE, PREFIX};
+use crate::{
+    transaction::{Network, Refusal},
+    Credentials, Error, Result, ADDRESS, INTERFACE, PREFIX,
+};
 use std::{
     collections::{HashMap, HashSet},
     net::Ipv4Addr,
@@ -25,6 +28,8 @@ fn text<'a>(p: &'a Properties, k: &str) -> Result<&'a str> {
         .and_then(|v| <&str>::try_from(v).ok())
         .ok_or(Error::Io)
 }
+/// NM `802-11-wireless-security.pmf`: 1 = disable.
+const PMF_DISABLE: i32 = 1;
 fn number(p: &Properties, k: &str) -> Result<u32> {
     p.get(k)
         .and_then(|v| u32::try_from(v).ok())
@@ -72,6 +77,14 @@ fn subnet_conflict(address: &str, prefix: u32) -> Result<bool> {
     Ok(candidate & mask == ip & mask || candidate & 0xffff_ff00 == ip & 0xffff_ff00)
 }
 pub fn settings(c: &Credentials) -> Result<Settings> {
+    let mut s = base_settings(c)?;
+    // First-setup AP is open (user decision 2026-10-28): no security section at all.
+    if c.is_open() {
+        s.remove("802-11-wireless-security");
+    }
+    Ok(s)
+}
+fn base_settings(c: &Credentials) -> Result<Settings> {
     let addresses = vec![HashMap::from([
         ("address".to_owned(), string(ADDRESS)),
         ("prefix".to_owned(), PREFIX.into()),
@@ -107,10 +120,14 @@ pub fn settings(c: &Credentials) -> Result<Settings> {
                 ("proto".into(), strings(vec!["rsn"])?),
                 ("pairwise".into(), strings(vec!["ccmp"])?),
                 ("group".into(), strings(vec!["ccmp"])?),
+                // wcn36xx has no BIP/AES-CMAC: NM's default optional PMF adds an IGTK the
+                // kernel rejects ("key setting validation failed") and the AP never starts.
+                ("pmf".into(), PMF_DISABLE.into()),
                 (
                     "psk".into(),
                     string(c.expose_passphrase_for_trusted_delivery()),
                 ),
+                // An open variant never sends this section (removed in settings()).
                 ("psk-flags".into(), 0u32.into()),
             ]),
         ),
@@ -138,7 +155,6 @@ pub fn settings(c: &Credentials) -> Result<Settings> {
 fn profile_matches(p: &Settings, c: &Credentials) -> Result<bool> {
     let connection = p.get("connection").ok_or(Error::Io)?;
     let wifi = p.get("802-11-wireless").ok_or(Error::Io)?;
-    let security = p.get("802-11-wireless-security").ok_or(Error::Io)?;
     let ip = p.get("ipv4").ok_or(Error::Io)?;
     let ipv6 = p.get("ipv6").ok_or(Error::Io)?;
     let ssid: Vec<u8> = wifi
@@ -155,6 +171,30 @@ fn profile_matches(p: &Settings, c: &Credentials) -> Result<bool> {
         .map_err(|_| Error::Io)?
         .try_into()
         .map_err(|_| Error::Io)?;
+    let secured = match (c.is_open(), p.get("802-11-wireless-security")) {
+        (true, None) => true,
+        (false, Some(security)) => security_matches(security)?,
+        _ => false,
+    };
+    Ok(secured
+        && text(connection, "uuid")? == c.uuid()
+        && text(connection, "type")? == "802-11-wireless"
+        && text(connection, "interface-name")? == INTERFACE
+        && !boolean(connection, "autoconnect")?
+        && text(wifi, "mode")? == "ap"
+        && text(wifi, "band")? == "bg"
+        && wifi.get("ap-isolation").and_then(|v| i32::try_from(v).ok()) == Some(1)
+        && ssid == c.ssid().as_bytes()
+        && text(ip, "method")? == "shared"
+        && boolean(ip, "never-default")?
+        && !boolean(ip, "may-fail")?
+        && address_data.len() == 1
+        && text(&address_data[0], "address")? == ADDRESS
+        && number(&address_data[0], "prefix")? == PREFIX
+        && text(ipv6, "method")? == "disabled"
+        && boolean(ipv6, "never-default")?)
+}
+fn security_matches(security: &Properties) -> Result<bool> {
     let protocol: Vec<String> = security
         .get("proto")
         .ok_or(Error::Io)?
@@ -171,27 +211,13 @@ fn profile_matches(p: &Settings, c: &Credentials) -> Result<bool> {
             .try_into()
             .map_err(|_| Error::Io)
     };
-    Ok(text(connection, "uuid")? == c.uuid()
-        && text(connection, "type")? == "802-11-wireless"
-        && text(connection, "interface-name")? == INTERFACE
-        && !boolean(connection, "autoconnect")?
-        && text(wifi, "mode")? == "ap"
-        && text(wifi, "band")? == "bg"
-        && wifi.get("ap-isolation").and_then(|v| i32::try_from(v).ok()) == Some(1)
-        && ssid == c.ssid().as_bytes()
-        && text(security, "key-mgmt")? == "wpa-psk"
+    Ok(text(security, "key-mgmt")? == "wpa-psk"
         && protocol == ["rsn"]
         && cipher("pairwise")? == ["ccmp"]
         && cipher("group")? == ["ccmp"]
-        && number(security, "psk-flags")? == 0
-        && text(ip, "method")? == "shared"
-        && boolean(ip, "never-default")?
-        && !boolean(ip, "may-fail")?
-        && address_data.len() == 1
-        && text(&address_data[0], "address")? == ADDRESS
-        && number(&address_data[0], "prefix")? == PREFIX
-        && text(ipv6, "method")? == "disabled"
-        && boolean(ipv6, "never-default")?)
+        && security.get("pmf").and_then(|v| i32::try_from(v).ok()) == Some(PMF_DISABLE)
+        // NM omits settings at their default (psk-flags 0) from GetSettings.
+        && security.get("psk-flags").map_or(Ok(0), |v| u32::try_from(v).map_err(|_| Error::Io))? == 0)
 }
 pub struct NetworkManager {
     connection: zbus::Connection,
@@ -203,6 +229,9 @@ pub struct NetworkManager {
     activation_requested: bool,
     retain_ap: bool,
     station: Option<station::Trial>,
+    refusal: Option<Refusal>,
+    /// Reconfigure mode: the one saved station this session must hand back on rollback.
+    saved: Option<OwnedObjectPath>,
 }
 impl NetworkManager {
     pub async fn system() -> Result<Self> {
@@ -221,6 +250,8 @@ impl NetworkManager {
             activation_requested: false,
             retain_ap: false,
             station: None,
+            refusal: None,
+            saved: None,
         }
     }
     /// Opt in before preflight only. Keeps this private AP profile in RAM while a station is tested.
@@ -239,6 +270,11 @@ impl NetworkManager {
             .get_name_owner(NAME.try_into().map_err(|_| Error::Invalid)?)
             .await
             .map_err(|_| Error::Io)
+    }
+    /// Records a known precondition refusal. Only reached before checkpoint, guard or activation.
+    fn refuse(&mut self, reason: Refusal, error: Error) -> Result<()> {
+        self.refusal = Some(reason);
+        Err(error)
     }
     async fn fence(&self) -> Result<()> {
         if self.owner.as_ref() != Some(&self.current_owner().await?) {
@@ -292,6 +328,36 @@ impl NetworkManager {
             .await
             .map_err(|_| Error::Io)
     }
+    /// Wi-Fi is idle, or (reconfiguration only) activating/active on the recorded saved
+    /// station. Anything else, including our AP or an unknown connection, is a change.
+    async fn idle_or_saved(&self) -> Result<()> {
+        if self.disconnected().await.is_ok() {
+            return Ok(());
+        }
+        self.fence().await?;
+        let saved = self.saved.as_ref().ok_or(Error::Changed)?;
+        let p = self
+            .properties(self.wifi.as_ref().ok_or(Error::Denied)?.as_str(), DEVICE)
+            .await?;
+        let active = path(&p, "ActiveConnection")?;
+        if !(40..=100).contains(&number(&p, "State")?)
+            || !active
+                .as_str()
+                .starts_with("/org/freedesktop/NetworkManager/ActiveConnection/")
+        {
+            return Err(Error::Changed);
+        }
+        let a = self
+            .properties(
+                active.as_str(),
+                "org.freedesktop.NetworkManager.Connection.Active",
+            )
+            .await?;
+        if path(&a, "Connection")? != *saved {
+            return Err(Error::Changed);
+        }
+        Ok(())
+    }
     async fn disconnected(&self) -> Result<()> {
         self.fence().await?;
         let p = self
@@ -311,7 +377,7 @@ impl Network for NetworkManager {
         self.owner = Some(self.current_owner().await?);
         let root = self.properties(ROOT, NAME).await?;
         if !boolean(&root, "NetworkingEnabled")? || !boolean(&root, "WirelessEnabled")? {
-            return Err(Error::Denied);
+            return self.refuse(Refusal::WifiDisabled, Error::Denied);
         }
         let points: Vec<OwnedObjectPath> = root
             .get("Checkpoints")
@@ -321,7 +387,7 @@ impl Network for NetworkManager {
             .try_into()
             .map_err(|_| Error::Io)?;
         if !points.is_empty() {
-            return Err(Error::Busy);
+            return self.refuse(Refusal::CheckpointExists, Error::Busy);
         }
         let paths: Vec<OwnedObjectPath> = self
             .proxy(ROOT, NAME)
@@ -339,7 +405,7 @@ impl Network for NetworkManager {
                     || !boolean(&p, "Managed")?
                     || self.wifi.replace(device.clone()).is_some())
             {
-                return Err(Error::Denied);
+                return self.refuse(Refusal::ApUnsupported, Error::Denied);
             }
             let ip = path(&p, "Ip4Config")?;
             if ip.as_str() != "/" {
@@ -358,34 +424,50 @@ impl Network for NetworkManager {
                 }
                 for row in rows {
                     if subnet_conflict(text(&row, "address")?, number(&row, "prefix")?)? {
-                        return Err(Error::Denied);
+                        return self.refuse(Refusal::SubnetConflict, Error::Denied);
                     }
                 }
             }
         }
-        self.disconnected().await?;
+        if self.wifi.is_none() {
+            return self.refuse(Refusal::ApUnsupported, Error::Denied);
+        }
         let wifi = self
             .properties(self.wifi.as_ref().ok_or(Error::Denied)?.as_str(), WIRELESS)
             .await?;
         if number(&wifi, "WirelessCapabilities")? & 0x40 == 0 {
-            return Err(Error::Denied);
+            return self.refuse(Refusal::ApUnsupported, Error::Denied);
         }
-        // This first setup path must not displace a saved station or race NM autoconnect.
+        // First setup has no saved station. Reconfiguration keeps exactly one, which is
+        // never modified or deleted and is what the outer checkpoint hands back on rollback.
+        let mut saved = None;
         for p in self.connections().await? {
             let s = self.get_settings(&p).await?;
             let connection = s.get("connection").ok_or(Error::Io)?;
             let kind = text(connection, "type")?;
-            if kind == "802-11-wireless" || kind == "gsm" && boolean(connection, "autoconnect")? {
-                return Err(Error::Denied);
+            if kind == "802-11-wireless" && saved.replace(p.clone()).is_some() {
+                return self.refuse(Refusal::StationSaved, Error::Denied);
             }
+            if kind == "gsm" && boolean(connection, "autoconnect")? {
+                return self.refuse(Refusal::GsmAutoconnect, Error::Denied);
+            }
+        }
+        self.saved = saved;
+        if let Err(e) = self.idle_or_saved().await {
+            return self.refuse(Refusal::StationConnected, e);
         }
         self.fence().await
     }
+    fn refusal(&self) -> Option<Refusal> {
+        self.refusal
+    }
     async fn checkpoint(&mut self, seconds: u32) -> Result<()> {
-        if !(30..=330).contains(&seconds) || self.checkpoint_requested {
+        // Window plus the 30 s rollback margin; must follow MAX_WINDOW_SECONDS (field test
+        // 2026-10-29: a stale 330 s limit refused every one-hour first-setup round).
+        if !(30..=crate::MAX_WINDOW_SECONDS + 30).contains(&seconds) || self.checkpoint_requested {
             return Err(Error::Invalid);
         }
-        self.disconnected().await?;
+        self.idle_or_saved().await?;
         self.checkpoint_requested = true;
         let path: OwnedObjectPath = self
             .proxy(ROOT, NAME)
@@ -409,7 +491,7 @@ impl Network for NetworkManager {
         if self.activation_requested || self.checkpoint.is_none() {
             return Err(Error::Denied);
         }
-        self.disconnected().await?;
+        self.idle_or_saved().await?;
         self.activation_requested = true; // Retain uncertainty even if the D-Bus reply is lost.
         let (p, a, _): (OwnedObjectPath, OwnedObjectPath, Properties) = self
             .proxy(ROOT, NAME)
@@ -591,7 +673,7 @@ impl Network for NetworkManager {
         tokio::time::timeout(std::time::Duration::from_secs(3), async {
             loop {
                 self.fence().await?;
-                if self.disconnected().await.is_ok() {
+                if self.idle_or_saved().await.is_ok() {
                     return Ok::<(), Error>(());
                 }
                 tokio::time::sleep(std::time::Duration::from_millis(100)).await;

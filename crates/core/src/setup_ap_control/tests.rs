@@ -90,6 +90,71 @@ async fn operation_lookup_is_read_only_exact_and_retains_closed_proof_after_runt
         .await
         .is_err());
 }
+#[tokio::test]
+async fn root_refusal_is_shown_live_and_after_restart_but_only_on_a_verified_close() {
+    use rustsimhub_setup_ap::transaction::Refusal;
+    let f = fixture();
+    let key = "refused-parent";
+    f.runtime
+        .start(f.auth.clone(), f.token.clone(), key.into(), &idle())
+        .await
+        .unwrap();
+    // A refusal on a non-closed receipt is invalid and ignored: the operation stays open.
+    root_status(&f, State::Starting, |s| {
+        s.refusal = Some(Refusal::StationSaved)
+    });
+    f.runtime.tick(f.auth.clone(), &idle()).await.unwrap();
+    let live = f
+        .runtime
+        .operation_status(f.auth.clone(), f.token.clone(), hash(key.as_bytes()))
+        .await
+        .unwrap();
+    assert_ne!(live["state"], "closed");
+    assert!(live["refusal"].is_null());
+    root_status(&f, State::Closed, |s| {
+        s.refusal = Some(Refusal::StationConnected)
+    });
+    f.runtime.tick(f.auth.clone(), &idle()).await.unwrap();
+    let live = f
+        .runtime
+        .operation_status(f.auth.clone(), f.token.clone(), hash(key.as_bytes()))
+        .await
+        .unwrap();
+    assert_eq!(live["state"], "closed");
+    assert_eq!(live["refusal"], "station_connected");
+    let runtime = Runtime::with_coordination(
+        f.runtime.input.clone(),
+        f.runtime.output.clone(),
+        f.runtime.journal.clone(),
+        Arc::new(crate::coordination::Coordination::default()),
+    )
+    .unwrap();
+    let historical = runtime
+        .operation_status(f.auth.clone(), f.token.clone(), hash(key.as_bytes()))
+        .await
+        .unwrap();
+    assert_eq!(historical["historical"], true);
+    assert_eq!(historical["state"], "closed");
+    assert_eq!(historical["refusal"], "station_connected");
+}
+#[tokio::test]
+async fn a_close_without_refusal_reports_none() {
+    let f = fixture();
+    let key = "plain-close";
+    f.runtime
+        .start(f.auth.clone(), f.token.clone(), key.into(), &idle())
+        .await
+        .unwrap();
+    root_status(&f, State::Closed, |_| {});
+    f.runtime.tick(f.auth.clone(), &idle()).await.unwrap();
+    let v = f
+        .runtime
+        .operation_status(f.auth.clone(), f.token.clone(), hash(key.as_bytes()))
+        .await
+        .unwrap();
+    assert_eq!(v["state"], "closed");
+    assert!(v["refusal"].is_null());
+}
 pub(super) fn fixture() -> Fixture {
     let data = directory(0o700);
     let identity = directory(0o700);
@@ -155,6 +220,7 @@ pub(super) fn root_status(f: &Fixture, state: State, mutate: impl FnOnce(&mut St
         sample_uptime_ms: now().unwrap(),
         rollback_verified: state == State::Closed,
         guard_released: state == State::Closed,
+        refusal: None,
     };
     mutate(&mut s);
     f.runtime.output.publish(Slot::Status, &s).unwrap();
@@ -169,6 +235,7 @@ async fn real_owner_start_is_durable_single_use_and_waits_for_root_consumption_b
         .await
         .unwrap();
     let initial = hint(&f);
+    assert!(!initial.open, "owner windows keep the encrypted AP");
     assert!(initial.action == Action::Start);
     assert_eq!(initial.sequence, 1);
     assert!(f.dirs[4].path().join("pending.json").is_file());

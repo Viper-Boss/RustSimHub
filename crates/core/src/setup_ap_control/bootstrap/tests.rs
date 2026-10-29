@@ -98,6 +98,7 @@ fn status(f: &Fixture, state: State, mutate: impl FnOnce(&mut Status)) {
         sample_uptime_ms: now().unwrap(),
         rollback_verified: state == State::Closed,
         guard_released: state == State::Closed,
+        refusal: None,
     };
     mutate(&mut s);
     f.runtime.output.publish(Slot::Status, &s).unwrap();
@@ -133,8 +134,12 @@ async fn real_device_window_starts_once_and_retains_original_deadline_after_sign
     let f = fixture();
     tick(&f).await.unwrap();
     let start = hint(&f);
+    assert!(start.open, "first-setup windows ask Root for the open AP");
     assert!(start.action == Action::Start);
-    assert!(start.binding.deadline_uptime_ms - start.binding.created_uptime_ms <= 300000);
+    assert!(
+        start.binding.deadline_uptime_ms - start.binding.created_uptime_ms
+            <= u64::from(rustsimhub_setup_ap::MAX_WINDOW_SECONDS) * 1000
+    );
     tick(&f).await.unwrap();
     assert!(hint(&f) == start);
     assert!(f.runtime.coordination.network().is_err());
@@ -198,6 +203,40 @@ async fn explicit_load_missing_tls_or_busy_voice_never_produces_start() {
     assert!(f.runtime.input.read(Slot::Hint).unwrap().is_none());
 }
 #[tokio::test]
+async fn unowned_device_reopens_the_hotspot_after_a_verified_closed_round() {
+    let f = fixture();
+    tick(&f).await.unwrap();
+    let first = hint(&f);
+    status(&f, State::Ready, |_| {});
+    tick(&f).await.unwrap();
+    status(&f, State::Closed, |_| {});
+    tick(&f).await.unwrap();
+    // The closed round is released, then the next tick starts a new open round.
+    tick(&f).await.unwrap();
+    tick(&f).await.unwrap();
+    let second = hint(&f);
+    assert!(second.action == Action::Start && second.open);
+    assert_ne!(second.binding.request_id, first.binding.request_id);
+    assert_ne!(second.binding.nonce, first.binding.nonce);
+}
+#[tokio::test]
+async fn rounds_that_close_at_once_are_not_reopened_in_a_tight_loop() {
+    let f = fixture();
+    tick(&f).await.unwrap();
+    status(&f, State::Closed, |_| {});
+    tick(&f).await.unwrap();
+    tick(&f).await.unwrap();
+    tick(&f).await.unwrap();
+    let second = hint(&f);
+    assert!(second.action == Action::Start);
+    // The second round also closes at once: no third round inside the reopen gap.
+    status(&f, State::Closed, |_| {});
+    for _ in 0..5 {
+        tick(&f).await.unwrap();
+    }
+    assert!(hint(&f) == second);
+}
+#[tokio::test]
 async fn exhausted_setup_budget_cancels_and_unknown_never_frees_the_network_guard() {
     let f = fixture();
     tick(&f).await.unwrap();
@@ -206,7 +245,7 @@ async fn exhausted_setup_budget_cancels_and_unknown_never_frees_the_network_guar
     {
         let mut a = f.auth.lock().unwrap();
         let mut g = f.gate.lock().unwrap();
-        for _ in 0..16 {
+        for _ in 0..u8::MAX {
             assert!(g.begin(&mut a, "bad", [8; 32]).is_err());
         }
     }

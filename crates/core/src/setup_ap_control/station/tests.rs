@@ -405,6 +405,7 @@ async fn old_core_closed_proof_permits_scoped_secret_cleanup_after_rollback() {
         sample_uptime_ms: now().unwrap(),
         rollback_verified: true,
         guard_released: true,
+        refusal: None,
     };
     write(
         &f.runtime

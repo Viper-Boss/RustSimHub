@@ -42,6 +42,7 @@ impl Fixture {
             action: Action::Start,
             sequence: 1,
             valid_until_uptime_ms: t + ttl,
+            open: false,
         };
         input.publish(Slot::Hint, &hint).unwrap();
         Self {

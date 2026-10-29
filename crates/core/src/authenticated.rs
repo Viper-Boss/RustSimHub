@@ -40,6 +40,8 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         }
         SetupChallenge { .. }
         | SetupFinish { .. }
+        | SetupOpenChallenge { .. }
+        | SetupOpenFinish { .. }
         | PrepareSms { .. }
         | SubmitSms { .. }
         | SmsOperation { .. }
@@ -316,9 +318,21 @@ pub(crate) async fn handle(
         .await?
     } else if matches!(
         request.command,
-        AuthCommand::SetupChallenge { .. } | AuthCommand::SetupFinish { .. }
+        AuthCommand::SetupChallenge { .. }
+            | AuthCommand::SetupFinish { .. }
+            | AuthCommand::SetupOpenChallenge { .. }
+            | AuthCommand::SetupOpenFinish { .. }
     ) {
+        let open = matches!(
+            request.command,
+            AuthCommand::SetupOpenChallenge { .. } | AuthCommand::SetupOpenFinish { .. }
+        );
+
         tokio::task::spawn_blocking(move || {
+            // The code-less claim exists only while the first-setup hotspot is up.
+            if open && !crate::setup_ap_control::first_setup_ready() {
+                return Err(rustsimhub_auth::Error::Forbidden);
+            }
             let setup = setup.ok_or(rustsimhub_auth::Error::Forbidden)?;
             let mut auth = auth.try_lock().map_err(|_| rustsimhub_auth::Error::Busy)?;
             let mut gate = setup.try_lock().map_err(|_| rustsimhub_auth::Error::Busy)?;
@@ -334,6 +348,17 @@ pub(crate) async fn handle(
                     signature,
                 } => {
                     gate.finish(&mut auth, &setup_code, &challenge_id, &signature)?;
+                    Ok(json!({"ok":true,"owner_initialized":true}))
+                }
+                AuthCommand::SetupOpenChallenge { public_key } => {
+                    serde_json::to_value(gate.begin_open(&mut auth, public_key)?)
+                        .map_err(|_| rustsimhub_auth::Error::InvalidInput)
+                }
+                AuthCommand::SetupOpenFinish {
+                    challenge_id,
+                    signature,
+                } => {
+                    gate.finish_open(&mut auth, &challenge_id, &signature)?;
                     Ok(json!({"ok":true,"owner_initialized":true}))
                 }
                 _ => Err(rustsimhub_auth::Error::Forbidden),

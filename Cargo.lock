@@ -2049,6 +2049,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustsimhub-mdns"
+version = "0.1.0"
+dependencies = [
+ "socket2",
+]
+
+[[package]]
 name = "rustsimhub-media"
 version = "0.1.0"
 dependencies = [

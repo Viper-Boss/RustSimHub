@@ -22,8 +22,11 @@ export function credentialsInput(ssid,passphrase){
  need(typeof passphrase==='string'&&(/^[\x20-\x7e]{8,63}$/.test(passphrase)||/^[a-fA-F0-9]{64}$/.test(passphrase)),'请填写8–63位 WPA2 密码，或64位十六进制密钥');
  return {ssid,passphrase};
 }
+// Root's finite preflight refusals (before any network change) and what the owner can do.
+export const refusals={wifi_disabled:'设备的 Wi-Fi 功能已关闭，未开启配置热点。',checkpoint_exists:'设备正在进行另一项网络操作，请稍后再试。',ap_unsupported:'设备的无线网卡当前不能开启热点。',subnet_conflict:'设备当前网络与配置热点的网段（192.168.100.x）冲突，未开启热点。',station_connected:'设备的 Wi-Fi 正被其他连接占用，未开启热点。',station_saved:'设备保存了多个 Wi-Fi，重新配网要求只保留一个，未开启热点。',gsm_autoconnect:'设备存在会自动连接的蜂窝数据配置，为避免产生流量，未开启热点。'};
 function parentInput(v,record=null){
  need(v&&typeof v.state==='string');
+ need(v.refusal===undefined||v.refusal===null||v.state==='closed'&&typeof v.refusal==='string'&&Object.hasOwn(refusals,v.refusal));
  if(['idle','disabled'].includes(v.state)){need(typeof v.available==='boolean');return v;}
  if(v.state==='not_found'){need(v.known===false&&v.not_found_is_not_proof===true);return v;}
  if(v.first_setup===true){need(!record&&['starting','ready','closing','unknown'].includes(v.state)&&uuid(v.operation_id)&&v.credentials_returned===false&&v.cellular_activation===false&&typeof v.owner_adoption_required==='boolean');return v;}
@@ -51,6 +54,7 @@ export class ApConfigurator {
   Object.assign(this,{doc:document,env,crypto,request,login,getToken,loadPending,savePending,archivePending,blocked});
   this.$=id=>document.getElementById(id);this.epoch=0;this.record=null;this.working=false;this.opened=false;this.initialized=false;this.storageError=false;this.phase='idle';this.secret=null;this.trial=null;this.commit=null;this.parent=null;this.terminal=false;
   this.$('ap-wifi-begin').onclick=()=>this.action(()=>this.begin());
+  this.$('ap-wifi-open').onclick=()=>this.action(()=>this.openAp());
   this.$('ap-wifi-confirm').onclick=()=>this.action(()=>this.confirm());
   this.$('ap-wifi-cancel').onclick=()=>this.action(()=>this.cancel());
   this.$('ap-wifi-query').onclick=()=>this.action(()=>this.refresh());
@@ -66,7 +70,7 @@ export class ApConfigurator {
  suspend(){this.epoch++;this.opened=false;this.working=false;this.wipe();this.trial=null;this.commit=null;this.parent=null;this.terminal=false;this.phase=this.record?'unknown':'idle';this.render();}
  render(message=null){
   const state=this.phase,waiting=['starting','testing','saving','closing'].includes(state);
-  this.$('ap-wifi-state').textContent=this.storageError?'本机配网记录无法核对，已停止提交。请保留记录并通过维护入口处理。':message||messages[state]||messages.unknown;
+  this.$('ap-wifi-state').textContent=this.storageError?'本机配网记录无法核对，已停止提交。请保留记录并通过维护入口处理。':message||state==='closed'&&this.refusal&&refusals[this.refusal]||messages[state]||messages.unknown;
   this.$('ap-wifi-state').dataset.phase=state;this.$('ap-wifi-progress').setAttribute('aria-busy',String(this.working&&waiting));
   for(const [i,id] of ['ap-wifi-step-input','ap-wifi-step-test','ap-wifi-step-save'].entries()){
    const n=state==='saved'?3:['saving','trial_ready','restored_ap'].includes(state)?2:state==='testing'?1:0;
@@ -76,6 +80,7 @@ export class ApConfigurator {
   const confirm=this.record&&!this.record.cancel_sent&&['trial_ready','restored_ap'].includes(state);
   this.$('ap-wifi-begin').hidden=!begin;this.$('ap-wifi-begin').disabled=this.working||this.storageError||state==='unavailable';
   this.$('ap-wifi-begin').textContent=state==='failed'?'重新试连':'开始试连';
+  this.$('ap-wifi-open').hidden=!!this.record;this.$('ap-wifi-open').disabled=this.working||this.storageError;
   this.$('ap-wifi-confirm').hidden=!confirm;this.$('ap-wifi-confirm').disabled=this.working;
   this.$('ap-wifi-query').hidden=!this.record||this.terminal;this.$('ap-wifi-query').disabled=this.working;
   this.$('ap-wifi-cancel').hidden=!this.record||this.terminal;this.$('ap-wifi-cancel').disabled=this.working||this.record?.cancel_sent===true;
@@ -110,7 +115,7 @@ export class ApConfigurator {
   if(v.known!==true){this.phase='unknown';this.render();return null;}
   if(!r.operation_id)await this.update({operation_id:v.operation_id},g);
   this.parent=v;
-  if(v.state==='closed'){this.terminal=true;this.phase='closed';this.wipe();this.render();}
+  if(v.state==='closed'){this.terminal=true;this.phase='closed';this.refusal=v.refusal||null;this.wipe();this.render();}
   return v;
  }
  async pause(ms,g=this.epoch){await new Promise(resolve=>this.env.setTimeout(resolve,ms));this.check(g);}
@@ -123,8 +128,8 @@ export class ApConfigurator {
   }
   this.phase='unknown';this.render();return false;
  }
- async begin(){
-  const g=this.epoch,creds=credentialsInput(this.$('ap-wifi-ssid').value,this.$('ap-wifi-passphrase').value);
+ // Shared by "开启热点" and "开始试连": one durable record, at most one start, then wait for ready.
+ async prepareParent(g){
   await this.signed(true,g);await this.currentRecord(g);
   if(!this.record){
    const p=parentInput(await this.call({op:'setup_ap_status'},g));
@@ -135,7 +140,20 @@ export class ApConfigurator {
    if(created){this.phase='starting';this.render();const v=parentInput(await this.call({op:'setup_ap_start',idempotency_key:start},g),this.record);await this.update({operation_id:v.operation_id},g);}
   }
   need(!this.record.cancel_sent&&!this.record.commits.length,'已有保存或结束请求，只能先查询');
-  if(!await this.readyParent(g))return;
+  return this.readyParent(g);
+ }
+ // Opening the AP moves Wi-Fi off the current network, so this page disconnects; the owner
+ // continues from a device joined to the AP, at the same fixed address.
+ async openAp(){
+  const g=this.epoch,host=globalThis.location?.host;
+  const where=host&&host.endsWith('.local:8443')?'https://'+host:'设备的固定网址（https://rustsimhub-设备号.local:8443）';
+  this.phase='starting';this.render('正在开启配置热点。本页面会断开：请把手机或电脑连接到设备热点，再打开 '+where+' 继续。');
+  if(!await this.prepareParent(g))return;
+  this.phase='parent_ready';this.render('配置热点已开启。在已连接热点的设备上打开 '+where+'，填写要连接的 Wi-Fi 后开始试连。');
+ }
+ async begin(){
+  const g=this.epoch,creds=credentialsInput(this.$('ap-wifi-ssid').value,this.$('ap-wifi-passphrase').value);
+  if(!await this.prepareParent(g))return;
   if(this.record.trials.length){const v=trialInput(await this.call({op:'setup_ap_wifi_status',operation_id:this.record.operation_id,trial_id:this.record.trials.at(-1)},g),this.record);need(['failed','cancelled'].includes(v.state)&&v.ap_return_verified&&v.authoritative_result,'上次试连仍需核对，不会再次提交');}
   need(this.record.trials.length<16,'本次配置的试连次数已用完，请结束后再配置');
   this.secret=creds;const id=this.crypto.randomUUID();await this.update({trials:[...this.record.trials,id]},g);

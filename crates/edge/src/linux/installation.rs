@@ -16,6 +16,56 @@ struct Record {
     config_sha256: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     media_sha256: Option<String>,
+    /// Certificate names besides `tls_name`, one per additional origin.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    tls_alt_names: Vec<String>,
+}
+/// Host part of each additional origin, in order: the extra certificate names.
+fn alt_names(config: &Config) -> Result<Vec<String>> {
+    config
+        .origins()?
+        .into_iter()
+        .skip(1)
+        .map(|(_, authority)| {
+            let host = authority
+                .rsplit_once(':')
+                .map(|(h, _)| h)
+                .ok_or("invalid origin")?;
+            Ok(host
+                .trim_start_matches('[')
+                .trim_end_matches(']')
+                .to_owned())
+        })
+        .collect()
+}
+fn authority_for(name: &str, port: u16) -> String {
+    if name.contains(':') {
+        format!("[{name}]:{port}")
+    } else {
+        format!("{name}:{port}")
+    }
+}
+fn valid_tls_name(name: &str) -> Result<()> {
+    if name.is_empty()
+        || name.len() > 253
+        || name
+            .bytes()
+            .any(|b| !(b.is_ascii_alphanumeric() || b".:-".contains(&b)))
+    {
+        return Err("invalid TLS name");
+    }
+    use tokio_rustls::rustls::pki_types::ServerName;
+    ServerName::try_from(name.to_owned()).map_err(|_| "invalid TLS name")?;
+    Ok(())
+}
+/// `rustsimhub-` followed by 4 lowercase alphanumerics (same rule as the mDNS responder).
+fn valid_device_name(name: &str) -> bool {
+    name.strip_prefix("rustsimhub-").is_some_and(|tail| {
+        tail.len() == 4
+            && tail
+                .bytes()
+                .all(|b| b.is_ascii_digit() || b.is_ascii_lowercase())
+    })
 }
 #[derive(Serialize)]
 struct MediaConfig {
@@ -37,31 +87,27 @@ fn exists(path: &Path) -> Result<bool> {
         Err(_) => Err("installation state unavailable"),
     }
 }
-fn expected(listen: SocketAddr, name: &str) -> Result<Config> {
-    expected_profile(listen, name, None)
+fn expected(listen: SocketAddr, name: &str, alias: &[String]) -> Result<Config> {
+    expected_profile(listen, name, None, alias)
 }
 fn expected_profile(
     listen: SocketAddr,
     name: &str,
     additional: Option<&[std::net::IpAddr]>,
+    alias: &[String],
 ) -> Result<Config> {
-    if name.is_empty()
-        || name.len() > 253
-        || name
-            .bytes()
-            .any(|b| !(b.is_ascii_alphanumeric() || b".:-".contains(&b)))
-    {
-        return Err("invalid TLS name");
+    valid_tls_name(name)?;
+    let authority = authority_for(name, listen.port());
+    let mut additional_origins = Vec::new();
+    for a in alias {
+        let a = canonical_name(a);
+        valid_tls_name(&a)?;
+        additional_origins.push(format!("https://{}", authority_for(&a, listen.port())));
     }
-    use tokio_rustls::rustls::pki_types::ServerName;
-    ServerName::try_from(name.to_owned()).map_err(|_| "invalid TLS name")?;
-    let authority = if name.contains(':') {
-        format!("[{name}]:{}", listen.port())
-    } else {
-        format!("{name}:{}", listen.port())
-    };
     let config = Config {
+        additional_origins,
         additional_listen_ips: additional.unwrap_or_default().to_vec(),
+        captive_listen: None,
         media_worker_socket: additional.map(|_| "/run/rustsimhub/media/worker.sock".into()),
         listen,
         origin: format!("https://{authority}"),
@@ -124,7 +170,11 @@ fn complete(directory: &Path, request: &Config, name: &str) -> Result<Record> {
             .map_err(|_| "incomplete installation record")?,
     )
     .map_err(|_| "invalid installation record")?;
-    if record.format != 1 || record.listen != request.listen || record.tls_name != name {
+    if record.format != 1
+        || record.listen != request.listen
+        || record.tls_name != name
+        || record.tls_alt_names != alt_names(request)?
+    {
         return Err("installation request differs; explicit migration required");
     }
     let bytes = rustsimhub_auth::read_private(&directory.join("config.json"), 4096)
@@ -159,9 +209,9 @@ fn canonical_name(name: &str) -> String {
         .map(|ip| ip.to_string())
         .unwrap_or_else(|_| name.to_ascii_lowercase())
 }
-pub(super) fn check(listen: SocketAddr, name: &str) -> Result<serde_json::Value> {
+pub(super) fn check(listen: SocketAddr, name: &str, alias: &[String]) -> Result<serde_json::Value> {
     let name = canonical_name(name);
-    let config = expected(listen, &name)?;
+    let config = expected(listen, &name, alias)?;
     Ok(
         serde_json::json!({"request_validated":true,"origin":config.origin,"listener_started":false}),
     )
@@ -170,15 +220,19 @@ pub(super) fn prepare(
     directory: &Path,
     listen: SocketAddr,
     name: &str,
+    alias: &[String],
 ) -> Result<serde_json::Value> {
-    prepare_profile(directory, listen, name, None)
+    let canonical = canonical_name(name);
+    let config = expected(listen, &canonical, alias)?;
+    prepare_config(directory, config, &canonical)
 }
 pub(super) fn check_media(
     listen: SocketAddr,
     name: &str,
     additional: &[std::net::IpAddr],
+    alias: &[String],
 ) -> Result<serde_json::Value> {
-    let config = expected_profile(listen, &canonical_name(name), Some(additional))?;
+    let config = expected_profile(listen, &canonical_name(name), Some(additional), alias)?;
     Ok(
         serde_json::json!({"request_validated":true,"origin":config.origin,"listener_started":false,"media_config_prepared":true}),
     )
@@ -188,14 +242,23 @@ pub(super) fn prepare_profile(
     listen: SocketAddr,
     name: &str,
     additional: Option<&[std::net::IpAddr]>,
+    alias: &[String],
 ) -> Result<serde_json::Value> {
     let canonical = canonical_name(name);
     let name = canonical.as_str();
-    let config = expected_profile(listen, name, additional)?;
+    let config = expected_profile(listen, name, additional, alias)?;
     prepare_config(directory, config, name)
 }
-pub(super) fn prepare_setup(directory: &Path) -> Result<serde_json::Value> {
+/// The setup edge keeps the fixed AP IP origin (the installed contract) and, when the
+/// device has a fixed name, also serves `https://<name>.local:8443` with the same listener.
+pub(super) fn prepare_setup(directory: &Path, device: Option<&str>) -> Result<serde_json::Value> {
+    let additional_origins = match device {
+        None => vec![],
+        Some(name) if valid_device_name(name) => vec![format!("https://{name}.local:8443")],
+        Some(_) => return Err("invalid device name"),
+    };
     let config = Config {
+        additional_origins,
         listen: "127.0.0.1:8443"
             .parse()
             .map_err(|_| "invalid fixed AP bind")?,
@@ -206,6 +269,7 @@ pub(super) fn prepare_setup(directory: &Path) -> Result<serde_json::Value> {
         legacy_compat: false,
         media_worker_socket: None,
         additional_listen_ips: vec!["192.168.100.1".parse().map_err(|_| "invalid fixed AP IP")?],
+        captive_listen: Some(super::captive::LISTEN),
     };
     config.authority()?;
     prepare_config(directory, config, "192.168.100.1")
@@ -227,7 +291,10 @@ fn prepare_config(directory: &Path, config: Config, name: &str) -> Result<serde_
                 .mode(0o700)
                 .create(&pending)
                 .map_err(|_| "new pending directory required")?;
-            let digest = create_tls(&pending.join("tls"), name)?;
+            let alt = alt_names(&config)?;
+            let mut names = vec![name.to_owned()];
+            names.extend(alt.iter().cloned());
+            let digest = create_tls(&pending.join("tls"), &names)?;
             let bytes = serde_json::to_vec(&config).map_err(|_| "config encoding failed")?;
             rustsimhub_auth::write_private_new(&pending.join("config.json"), &bytes)
                 .map_err(|_| "config write failed")?;
@@ -248,6 +315,7 @@ fn prepare_config(directory: &Path, config: Config, name: &str) -> Result<serde_
                 pem_sha256: hash(&pem),
                 config_sha256: hash(&bytes),
                 media_sha256,
+                tls_alt_names: alt,
             };
             rustsimhub_auth::write_private_new(
                 &pending.join("record.json"),
@@ -272,7 +340,7 @@ mod tests {
     #[test]
     fn setup_profile_is_separate_fixed_and_repeatable_without_media_or_legacy() {
         let d = directory();
-        let first = prepare_setup(d.path()).unwrap();
+        let first = prepare_setup(d.path(), None).unwrap();
         assert_eq!(first["origin"], "https://192.168.100.1:8443");
         assert_eq!(first["listener_started"], false);
         assert_eq!(first["credentials_disclosed"], false);
@@ -289,28 +357,112 @@ mod tests {
             config.tls_directory,
             Path::new("/var/lib/rustsimhub-setup-edge/installation/tls")
         );
-        let second = prepare_setup(d.path()).unwrap();
+        let second = prepare_setup(d.path(), None).unwrap();
         assert_eq!(first, second);
         assert_eq!(before, fs::read(path).unwrap());
         assert!(!d.path().join("installation/media.json").exists());
     }
     #[test]
+    fn setup_profile_with_device_name_serves_the_fixed_local_name_too() {
+        let d = directory();
+        let v = prepare_setup(d.path(), Some("rustsimhub-0087")).unwrap();
+        assert_eq!(v["origin"], "https://192.168.100.1:8443");
+        let config: Config =
+            serde_json::from_slice(&fs::read(d.path().join("installation/config.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            config.additional_origins,
+            vec!["https://rustsimhub-0087.local:8443".to_owned()]
+        );
+        let record: Record =
+            serde_json::from_slice(&fs::read(d.path().join("installation/record.json")).unwrap())
+                .unwrap();
+        assert_eq!(record.tls_name, "192.168.100.1");
+        assert_eq!(
+            record.tls_alt_names,
+            vec!["rustsimhub-0087.local".to_owned()]
+        );
+        // The certificate really carries both names.
+        let der = fs::read(d.path().join("installation/tls/cert.der")).unwrap();
+        let text = String::from_utf8_lossy(&der);
+        assert!(text.contains("rustsimhub-0087.local"));
+        // Repeating with the same name is idempotent; switching names needs a migration.
+        assert_eq!(prepare_setup(d.path(), Some("rustsimhub-0087")).unwrap(), v);
+        assert!(prepare_setup(d.path(), None).is_err());
+        assert!(prepare_setup(d.path(), Some("rustsimhub-0088")).is_err());
+        for bad in [
+            "RustSimHub-0087",
+            "rustsimhub-87",
+            "rustsimhub-0087.local",
+            "../x",
+        ] {
+            assert!(
+                prepare_setup(directory().path(), Some(bad)).is_err(),
+                "{bad}"
+            );
+        }
+    }
+    #[test]
+    fn daily_profile_alias_adds_one_extra_origin_and_certificate_name() {
+        let d = directory();
+        let alias = ["192.168.120.167".to_owned()];
+        prepare(
+            d.path(),
+            "192.168.120.167:8443".parse().unwrap(),
+            "rustsimhub-0087.local",
+            &alias,
+        )
+        .unwrap();
+        let config: Config =
+            serde_json::from_slice(&fs::read(d.path().join("installation/config.json")).unwrap())
+                .unwrap();
+        assert_eq!(config.origin, "https://rustsimhub-0087.local:8443");
+        assert_eq!(
+            config.additional_origins,
+            vec!["https://192.168.120.167:8443".to_owned()]
+        );
+        let record: Record =
+            serde_json::from_slice(&fs::read(d.path().join("installation/record.json")).unwrap())
+                .unwrap();
+        assert_eq!(record.tls_alt_names, vec!["192.168.120.167".to_owned()]);
+        // Without the alias the same directory is a different request, not silently reused.
+        assert!(prepare(
+            d.path(),
+            "192.168.120.167:8443".parse().unwrap(),
+            "rustsimhub-0087.local",
+            &[]
+        )
+        .is_err());
+        assert!(check(
+            "192.168.120.167:8443".parse().unwrap(),
+            "rustsimhub-0087.local",
+            &["bad name!".to_owned()]
+        )
+        .is_err());
+    }
+    #[test]
     fn setup_profile_does_not_replace_existing_daily_edge_or_changed_material() {
         let d = directory();
-        prepare(d.path(), "192.168.1.2:8443".parse().unwrap(), "192.168.1.2").unwrap();
+        prepare(
+            d.path(),
+            "192.168.1.2:8443".parse().unwrap(),
+            "192.168.1.2",
+            &[],
+        )
+        .unwrap();
         let before = fs::read(d.path().join("installation/tls/cert.der")).unwrap();
-        assert!(prepare_setup(d.path()).is_err());
+        assert!(prepare_setup(d.path(), None).is_err());
         assert_eq!(
             before,
             fs::read(d.path().join("installation/tls/cert.der")).unwrap()
         );
         let d = directory();
-        prepare_setup(d.path()).unwrap();
+        prepare_setup(d.path(), None).unwrap();
         let path = d.path().join("installation/config.json");
         let mut config: Config = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
         config.legacy_compat = true;
         fs::write(&path, serde_json::to_vec(&config).unwrap()).unwrap();
-        assert!(prepare_setup(d.path()).is_err());
+        assert!(prepare_setup(d.path(), None).is_err());
     }
     fn directory() -> tempfile::TempDir {
         let d = tempfile::tempdir().unwrap();
@@ -324,55 +476,71 @@ mod tests {
     fn media_installation_is_bound_to_exact_addresses_and_never_upgrades_existing_state() {
         let d = directory();
         let extra = ["127.0.0.2".parse().unwrap()];
-        let first = prepare_profile(d.path(), listen(), "hub.local", Some(&extra)).unwrap();
+        let first = prepare_profile(d.path(), listen(), "hub.local", Some(&extra), &[]).unwrap();
         assert_eq!(first["media_config_prepared"], true);
         assert_eq!(
-            prepare_profile(d.path(), listen(), "hub.local", Some(&extra)).unwrap(),
+            prepare_profile(d.path(), listen(), "hub.local", Some(&extra), &[]).unwrap(),
             first
         );
-        assert!(prepare(d.path(), listen(), "hub.local").is_err());
-        assert!(prepare_profile(d.path(), listen(), "hub.local", Some(&[])).is_err());
+        assert!(prepare(d.path(), listen(), "hub.local", &[]).is_err());
+        assert!(prepare_profile(d.path(), listen(), "hub.local", Some(&[]), &[]).is_err());
         let p = d.path().join("installation/media.json");
         let old = fs::read(&p).unwrap();
         fs::write(&p, b"corrupt").unwrap();
-        assert!(prepare_profile(d.path(), listen(), "hub.local", Some(&extra)).is_err());
+        assert!(prepare_profile(d.path(), listen(), "hub.local", Some(&extra), &[]).is_err());
         fs::write(&p, old).unwrap();
         let d = directory();
-        prepare(d.path(), listen(), "hub.local").unwrap();
-        assert!(prepare_profile(d.path(), listen(), "hub.local", Some(&extra)).is_err());
+        prepare(d.path(), listen(), "hub.local", &[]).unwrap();
+        assert!(prepare_profile(d.path(), listen(), "hub.local", Some(&extra), &[]).is_err());
         let d = directory();
         for (address, ips) in [
             ("[::1]:8448", vec![]),
             ("127.0.0.1:8448", vec!["127.0.0.1".parse().unwrap()]),
             ("127.0.0.1:8448", vec!["8.8.8.8".parse().unwrap()]),
         ] {
-            assert!(
-                prepare_profile(d.path(), address.parse().unwrap(), "hub.local", Some(&ips))
-                    .is_err()
-            );
+            assert!(prepare_profile(
+                d.path(),
+                address.parse().unwrap(),
+                "hub.local",
+                Some(&ips),
+                &[]
+            )
+            .is_err());
             assert_eq!(fs::read_dir(d.path()).unwrap().count(), 0);
         }
     }
     #[test]
     fn credentials_are_persistent_and_complete_pending_resumes() {
         let d = directory();
-        assert!(prepare(d.path(), listen(), "bad_name.local").is_err());
+        assert!(prepare(d.path(), listen(), "bad_name.local", &[]).is_err());
         assert_eq!(fs::read_dir(d.path()).unwrap().count(), 0);
-        let first = prepare(d.path(), listen(), "127.0.0.1").unwrap();
+        let first = prepare(d.path(), listen(), "127.0.0.1", &[]).unwrap();
         let key = fs::read(d.path().join("installation/tls/key.der")).unwrap();
-        assert_eq!(prepare(d.path(), listen(), "127.0.0.1").unwrap(), first);
+        assert_eq!(
+            prepare(d.path(), listen(), "127.0.0.1", &[]).unwrap(),
+            first
+        );
         fs::rename(
             d.path().join("installation"),
             d.path().join("installation.pending"),
         )
         .unwrap();
-        assert_eq!(prepare(d.path(), listen(), "127.0.0.1").unwrap(), first);
+        assert_eq!(
+            prepare(d.path(), listen(), "127.0.0.1", &[]).unwrap(),
+            first
+        );
         assert_eq!(
             fs::read(d.path().join("installation/tls/key.der")).unwrap(),
             key
         );
         assert!(!d.path().join("installation.pending").exists());
-        assert!(prepare(d.path(), "127.0.0.1:8449".parse().unwrap(), "127.0.0.1").is_err());
+        assert!(prepare(
+            d.path(),
+            "127.0.0.1:8449".parse().unwrap(),
+            "127.0.0.1",
+            &[]
+        )
+        .is_err());
     }
     #[test]
     fn partial_conflicting_or_linked_state_is_never_repaired() {
@@ -381,36 +549,36 @@ mod tests {
         fs::create_dir(&pending).unwrap();
         fs::set_permissions(&pending, fs::Permissions::from_mode(0o700)).unwrap();
         fs::write(pending.join("partial"), b"preserve").unwrap();
-        assert!(prepare(d.path(), listen(), "127.0.0.1").is_err());
+        assert!(prepare(d.path(), listen(), "127.0.0.1", &[]).is_err());
         assert_eq!(fs::read(pending.join("partial")).unwrap(), b"preserve");
         let d = directory();
         let outside = directory();
         symlink(outside.path(), d.path().join("installation")).unwrap();
-        assert!(prepare(d.path(), listen(), "127.0.0.1").is_err());
+        assert!(prepare(d.path(), listen(), "127.0.0.1", &[]).is_err());
         assert_eq!(fs::read_dir(outside.path()).unwrap().count(), 0);
         let d = directory();
-        prepare(d.path(), listen(), "127.0.0.1").unwrap();
+        prepare(d.path(), listen(), "127.0.0.1", &[]).unwrap();
         fs::create_dir(d.path().join("installation.pending")).unwrap();
-        assert!(prepare(d.path(), listen(), "127.0.0.1").is_err());
+        assert!(prepare(d.path(), listen(), "127.0.0.1", &[]).is_err());
     }
     #[test]
     fn bad_request_busy_parent_and_tampered_material_fail_closed() {
         let d = directory();
-        assert!(prepare(d.path(), "0.0.0.0:8448".parse().unwrap(), "127.0.0.1").is_err());
+        assert!(prepare(d.path(), "0.0.0.0:8448".parse().unwrap(), "127.0.0.1", &[]).is_err());
         assert_eq!(fs::read_dir(d.path()).unwrap().count(), 0);
         let lock = rustsimhub_auth::lock_private_directory(d.path()).unwrap();
-        assert!(prepare(d.path(), listen(), "127.0.0.1").is_err());
+        assert!(prepare(d.path(), listen(), "127.0.0.1", &[]).is_err());
         drop(lock);
-        prepare(d.path(), listen(), "127.0.0.1").unwrap();
+        prepare(d.path(), listen(), "127.0.0.1", &[]).unwrap();
         for file in ["config.json", "tls/cert.pem", "tls/cert.der", "tls/key.der"] {
             let path = d.path().join("installation").join(file);
             let original = fs::read(&path).unwrap();
             fs::write(&path, b"corrupt").unwrap();
-            assert!(prepare(d.path(), listen(), "127.0.0.1").is_err());
+            assert!(prepare(d.path(), listen(), "127.0.0.1", &[]).is_err());
             assert_eq!(fs::read(&path).unwrap(), b"corrupt");
             fs::write(path, original).unwrap();
         }
         fs::set_permissions(d.path(), fs::Permissions::from_mode(0o755)).unwrap();
-        assert!(prepare(d.path(), listen(), "127.0.0.1").is_err());
+        assert!(prepare(d.path(), listen(), "127.0.0.1", &[]).is_err());
     }
 }

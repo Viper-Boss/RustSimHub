@@ -194,6 +194,63 @@ fn a_coherent_but_wrong_edge_origin_never_becomes_importable_material() {
     assert!(f.prepare().is_err());
     assert!(!f.material().exists());
 }
+/// Rewrites the Edge config/record pair coherently (hashes updated) with extra fields.
+fn with_origins(f: &Fixture, origins: serde_json::Value, alt: serde_json::Value) {
+    let config = f.edge.join("config.json");
+    let mut value: serde_json::Value = serde_json::from_slice(&fs::read(&config).unwrap()).unwrap();
+    value["additional_origins"] = origins;
+    let bytes = serde_json::to_vec(&value).unwrap();
+    fs::write(&config, &bytes).unwrap();
+    let record = f.edge.join("record.json");
+    let mut r: serde_json::Value = serde_json::from_slice(&fs::read(&record).unwrap()).unwrap();
+    r["config_sha256"] = hash(&bytes).into();
+    r["tls_alt_names"] = alt;
+    fs::write(&record, serde_json::to_vec(&r).unwrap()).unwrap();
+}
+#[test]
+fn the_fixed_local_name_is_the_only_extra_origin_the_setup_edge_may_serve() {
+    let f = Fixture::new();
+    with_origins(
+        &f,
+        serde_json::json!(["https://rustsimhub-0087.local:8443"]),
+        serde_json::json!(["rustsimhub-0087.local"]),
+    );
+    assert!(f.prepare().is_ok());
+    for (origins, alt) in [
+        (
+            serde_json::json!(["https://evil.local:8443"]),
+            serde_json::json!(["evil.local"]),
+        ),
+        (
+            serde_json::json!(["https://rustsimhub-0087.local:8443"]),
+            serde_json::json!(["rustsimhub-0088.local"]),
+        ),
+        (
+            serde_json::json!(["https://rustsimhub-0087.local:8443"]),
+            serde_json::json!([]),
+        ),
+        (
+            serde_json::json!([]),
+            serde_json::json!(["rustsimhub-0087.local"]),
+        ),
+        (
+            serde_json::json!(["https://rustsimhub-0087.local:9443"]),
+            serde_json::json!(["rustsimhub-0087.local"]),
+        ),
+        (
+            serde_json::json!([
+                "https://rustsimhub-0087.local:8443",
+                "https://rustsimhub-0088.local:8443"
+            ]),
+            serde_json::json!(["rustsimhub-0087.local", "rustsimhub-0088.local"]),
+        ),
+    ] {
+        let f = Fixture::new();
+        with_origins(&f, origins.clone(), alt.clone());
+        assert!(f.prepare().is_err(), "{origins} {alt}");
+        assert!(!f.material().exists());
+    }
+}
 #[test]
 fn export_refuses_changed_material_before_creating_a_secret_copy() {
     let f = Fixture::new();
@@ -205,4 +262,36 @@ fn export_refuses_changed_material_before_creating_a_secret_copy() {
     let output = f.parent.join("must-not-exist");
     assert!(export_owned(&f.material(), &output, f.uid).is_err());
     assert!(!output.exists());
+}
+/// Sets one config field coherently (record hash updated).
+fn with_field(f: &Fixture, key: &str, v: serde_json::Value) {
+    let config = f.edge.join("config.json");
+    let mut value: serde_json::Value = serde_json::from_slice(&fs::read(&config).unwrap()).unwrap();
+    value[key] = v;
+    let bytes = serde_json::to_vec(&value).unwrap();
+    fs::write(&config, &bytes).unwrap();
+    let record = f.edge.join("record.json");
+    let mut r: serde_json::Value = serde_json::from_slice(&fs::read(&record).unwrap()).unwrap();
+    r["config_sha256"] = hash(&bytes).into();
+    fs::write(&record, serde_json::to_vec(&r).unwrap()).unwrap();
+}
+#[test]
+fn only_the_fixed_captive_listener_is_accepted() {
+    let f = Fixture::new();
+    with_field(
+        &f,
+        "captive_listen",
+        serde_json::json!("192.168.100.1:8080"),
+    );
+    assert!(f.prepare().is_ok());
+    for bad in [
+        "192.168.100.1:80",
+        "0.0.0.0:8080",
+        "127.0.0.1:8080",
+        "192.168.120.167:8080",
+    ] {
+        let f = Fixture::new();
+        with_field(&f, "captive_listen", serde_json::json!(bad));
+        assert!(f.prepare().is_err(), "{bad}");
+    }
 }

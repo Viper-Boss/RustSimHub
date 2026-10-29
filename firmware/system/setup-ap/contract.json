@@ -11,5 +11,5 @@
   "core_mode": "--serve-device-forwarding-managed-setup-ap",
   "root_mode": "--serve-configurable",
   "origin": "https://192.168.100.1:8443",
-  "maximum_window_seconds": 300
+  "maximum_window_seconds": 3600
 }

@@ -75,6 +75,7 @@ fn root_journal_persists_unknown_and_never_replays_consumed_operations() {
         sample_uptime_ms: 2000,
         rollback_verified: false,
         guard_released: false,
+        refusal: None,
     };
     assert!(j.finish_closed(&unknown, 2000).is_err());
     drop(j);
