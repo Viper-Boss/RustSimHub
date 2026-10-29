@@ -243,6 +243,30 @@ impl Store {
     }
 }
 impl Handle {
+    /// Read-only authorization gate on the single writer, not a network proof.
+    /// A historical grant-management receipt is never sufficient authority.
+    pub fn check_recovery_grant(&self, expected: RecoveryGrant) -> Result<RecoveryGrant> {
+        self.call(move |db| {
+            let tx = db.connection.transaction()?;
+            require_schema(&tx)?;
+            let current = lookup(&tx, expected.independent_public_key)?
+                .ok_or(Error::Forbidden)?;
+            let (realm, pin) = context(&tx)?;
+            let owner_matches: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM principals WHERE id=? AND kind='owner' AND active=1 AND generation=?)",
+                params![current.owner_id, current.owner_generation as i64], |r| r.get(0),
+            )?;
+            let owners: i64 = tx.query_row(
+                "SELECT COUNT(*) FROM principals WHERE kind='owner' AND active=1", [], |r| r.get(0),
+            )?;
+            if !current.active || current != expected || current.realm != realm
+                || current.device_public_key != pin || !owner_matches || owners != 1 {
+                return Err(Error::Forbidden);
+            }
+            tx.commit()?;
+            Ok(current)
+        })
+    }
     /// Auth supplies its existing Ed25519 verifier. Storage has no second crypto implementation.
     pub fn check_recovery_key_material(&self, valid: fn(&[u8; 32]) -> bool) -> Result<()> {
         self.call(move |db| {

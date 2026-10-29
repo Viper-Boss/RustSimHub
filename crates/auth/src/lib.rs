@@ -4,6 +4,8 @@
 mod client;
 mod identity;
 #[cfg(feature = "recovery-grants")]
+pub mod recovery_capability;
+#[cfg(feature = "recovery-grants")]
 mod recovery_grants;
 mod setup;
 pub use client::{ClientKey, ProofExpectation};
@@ -126,6 +128,8 @@ pub struct Auth {
     window: Option<Instant>,
     budget: u32,
     refill: Instant,
+    #[cfg(feature = "recovery-grants")]
+    recovery: recovery_capability::State,
 }
 fn random_hex() -> Result<String> {
     let mut bytes = Zeroizing::new([0u8; 32]);
@@ -267,6 +271,8 @@ impl Auth {
             window: None,
             budget: 32,
             refill: Instant::now(),
+            #[cfg(feature = "recovery-grants")]
+            recovery: recovery_capability::State::default(),
         })
     }
     pub fn public_key(&self) -> [u8; 32] {
