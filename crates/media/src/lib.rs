@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 #![forbid(unsafe_code)]
 //! Audio primitives, with no network listener, filesystem recording or hardware discovery.
+pub mod addresses;
 mod authorization;
 pub use authorization::{Authority, Context, Permit, RemoteAuthority, Ticket};
 #[cfg(target_os = "linux")]

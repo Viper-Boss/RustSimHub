@@ -103,6 +103,9 @@ struct Manager {
     core_socket: PathBuf,
     bind_ip: IpAddr,
     allowed_bind_ips: Vec<IpAddr>,
+    /// wlan0's current private addresses: the daily Edge follows them after a Wi-Fi change,
+    /// so the worker accepts them too (never usb0, the setup AP or a public address).
+    current: fn() -> Vec<IpAddr>,
 }
 impl Manager {
     fn new(core_socket: PathBuf, bind_ip: IpAddr) -> Self {
@@ -112,6 +115,12 @@ impl Manager {
             core_socket,
             bind_ip,
             allowed_bind_ips: vec![bind_ip],
+            current: || {
+                rustsimhub_media::addresses::wlan0()
+                    .into_iter()
+                    .map(IpAddr::V4)
+                    .collect()
+            },
         }
     }
     #[cfg(test)]
@@ -126,7 +135,7 @@ impl Manager {
         bind_ip: Option<IpAddr>,
     ) -> Result<Snapshot> {
         let bind_ip = bind_ip.unwrap_or(self.bind_ip);
-        if !self.allowed_bind_ips.contains(&bind_ip) {
+        if !self.allowed_bind_ips.contains(&bind_ip) && !(self.current)().contains(&bind_ip) {
             return Err(Failure::Denied);
         }
         if let Some(active) = &self.active {
@@ -550,6 +559,7 @@ mod tests {
         let socket = UdpSocket::bind((ip, 0)).unwrap();
         let (_, offer, _) = Session::offer(&socket, ip).unwrap();
         let mut manager = Manager::new(PathBuf::from("/absent/core.sock"), ip);
+        manager.current = Vec::new;
         assert!(matches!(
             manager.prepare_on(id('a'), ip, offer.clone(), Some(other)),
             Err(Failure::Denied)
@@ -580,6 +590,36 @@ mod tests {
             .process(Command::StopAll { session: id('f') })
             .unwrap();
         assert!(manager.active.is_none());
+    }
+    #[test]
+    fn current_wifi_address_is_accepted_but_other_addresses_stay_denied() {
+        // After a Wi-Fi change the Edge passes the new wlan0 address it was reached on.
+        let ip = "127.0.0.1".parse().unwrap();
+        let moved: IpAddr = "127.0.0.3".parse().unwrap();
+        let socket = UdpSocket::bind((ip, 0)).unwrap();
+        let (_, offer, _) = Session::offer(&socket, ip).unwrap();
+        let mut manager = Manager::new(PathBuf::from("/absent/core.sock"), ip);
+        manager.current = || vec!["127.0.0.3".parse().unwrap()];
+        assert!(manager
+            .prepare_on(id('a'), ip, offer.clone(), Some(moved))
+            .unwrap()
+            .answer
+            .unwrap()
+            .contains("127.0.0.3"));
+        manager
+            .process(Command::StopAll { session: id('f') })
+            .unwrap();
+        // An address that is neither configured nor on wlan0 now (e.g. usb0) is refused.
+        assert!(matches!(
+            manager.prepare_on(id('b'), ip, offer.clone(), Some("127.0.0.4".parse().unwrap())),
+            Err(Failure::Denied)
+        ));
+        // Once the old address is gone from wlan0 it is no longer accepted.
+        manager.current = Vec::new;
+        assert!(matches!(
+            manager.prepare_on(id('c'), ip, offer, Some(moved)),
+            Err(Failure::Denied)
+        ));
     }
     #[test]
     fn pcm_faults_and_unexpected_transport_close_are_not_successful_stop() {
