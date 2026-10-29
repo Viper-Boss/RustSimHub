@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
 mod commit;
+mod refresh;
 mod scan;
 use std::sync::{Arc, Mutex};
 const WIFI: &str = "/org/freedesktop/NetworkManager/Devices/1";
@@ -54,6 +55,11 @@ struct Model {
     last_scan: i64,
     scan_paths: Vec<OwnedObjectPath>,
     radio_disabled: bool,
+    lost_deactivate_reply: bool,
+    failed_deactivate: bool,
+    lost_inner_rollback_reply: bool,
+    foreign_checkpoint: bool,
+    home_during_refresh: bool,
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
@@ -68,6 +74,7 @@ enum ScanResult {
     FutureTimestamp,
     CheckpointChanged,
     RadioDisabled,
+    ForeignCheckpoint,
 }
 type Shared = Arc<Mutex<Model>>;
 struct Bus(Shared);
@@ -106,6 +113,13 @@ impl Manager {
         }
         if m.station_cp {
             v.push(STATION_CP.try_into().unwrap());
+        }
+        if m.foreign_checkpoint {
+            v.push(
+                "/org/freedesktop/NetworkManager/Checkpoint/9"
+                    .try_into()
+                    .unwrap(),
+            );
         }
         v
     }
@@ -207,9 +221,15 @@ impl Manager {
             }
             m.active = true;
             m.station_active = false;
+            m.home_active = false;
             m.events.push("station-rollback");
             if m.rollback_consumes {
                 m.station_cp = false;
+            }
+            if m.lost_inner_rollback_reply {
+                return Err(zbus::fdo::Error::Failed(
+                    "synthetic lost rollback acknowledgement".into(),
+                ));
             }
             return Ok(HashMap::from([(WIFI.into(), 0)]));
         }
@@ -221,6 +241,29 @@ impl Manager {
             m.cp = false;
         }
         Ok(HashMap::from([(WIFI.into(), 0)]))
+    }
+    fn deactivate_connection(&self, active: OwnedObjectPath) -> zbus::fdo::Result<()> {
+        assert_eq!(
+            active.as_str(),
+            ACTIVE,
+            "never deactivate a saved station, USB or cellular connection"
+        );
+        let mut m = self.0.lock().unwrap();
+        assert!(m.cp && m.station_cp && m.active && m.retain_ap);
+        m.events.push("deactivate");
+        if m.failed_deactivate {
+            return Err(zbus::fdo::Error::Failed(
+                "synthetic pre-apply refusal".into(),
+            ));
+        }
+        m.active = false;
+        m.home_active = m.home && m.home_during_refresh;
+        if m.lost_deactivate_reply {
+            return Err(zbus::fdo::Error::Failed(
+                "synthetic lost deactivation acknowledgement".into(),
+            ));
+        }
+        Ok(())
     }
     fn checkpoint_destroy(&self, cp: OwnedObjectPath) -> zbus::fdo::Result<()> {
         let mut m = self.0.lock().unwrap();
@@ -325,6 +368,7 @@ impl Wireless {
             ScanResult::FutureTimestamp => m.last_scan += 10_000,
             ScanResult::CheckpointChanged => m.cp = true,
             ScanResult::RadioDisabled => m.radio_disabled = true,
+            ScanResult::ForeignCheckpoint => m.foreign_checkpoint = true,
             _ => (),
         }
         Ok(())

@@ -234,6 +234,7 @@ pub struct NetworkManager {
     saved: Option<OwnedObjectPath>,
     preflight_complete: bool,
     scan_requested: bool,
+    refresh: Option<refresh::Refresh>,
 }
 impl NetworkManager {
     pub async fn system() -> Result<Self> {
@@ -256,6 +257,7 @@ impl NetworkManager {
             saved: None,
             preflight_complete: false,
             scan_requested: false,
+            refresh: None,
         }
     }
     /// Opt in before preflight only. Keeps this private AP profile in RAM while a station is tested.
@@ -609,7 +611,7 @@ impl Network for NetworkManager {
         Ok(true)
     }
     async fn rollback(&mut self, c: &Credentials) -> Result<()> {
-        if self.station.is_some() {
+        if self.station.is_some() || self.refresh.is_some() {
             return Err(Error::Denied);
         }
         self.fence().await?;
@@ -709,6 +711,7 @@ impl Network for NetworkManager {
     }
 }
 
+mod refresh;
 pub mod scan;
 mod station;
 

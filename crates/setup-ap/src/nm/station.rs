@@ -21,7 +21,7 @@ pub struct Session<'a> {
 }
 impl NetworkManager {
     pub fn station_trial<'a>(&'a mut self, ap: &'a Credentials) -> Result<Session<'a>> {
-        if !self.retain_ap {
+        if !self.retain_ap || self.refresh.is_some() {
             return Err(Error::Denied);
         }
         Ok(Session {
@@ -61,7 +61,7 @@ impl NetworkManager {
         }
         Ok(present)
     }
-    async fn ap_profile_intact(&self, ap: &Credentials) -> Result<()> {
+    pub(super) async fn ap_profile_intact(&self, ap: &Credentials) -> Result<()> {
         self.fence().await?;
         if !profile_matches(
             &self
@@ -79,7 +79,7 @@ impl CommitProvider for NetworkManager {
         &'a mut self,
         ap: &'a Credentials,
     ) -> Result<impl CommitNetwork + Send + 'a> {
-        if !self.retain_ap {
+        if !self.retain_ap || self.refresh.is_some() {
             return Err(Error::Denied);
         }
         Ok(Session {
