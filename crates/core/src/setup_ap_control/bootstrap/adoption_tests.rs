@@ -25,6 +25,46 @@ async fn adopt(f: &Fixture, token: &str) -> Result<Value> {
         )
         .await
 }
+#[tokio::test]
+async fn scan_snapshot_is_exact_read_only_and_survives_the_same_round_owner_adoption() {
+    use rustsimhub_setup_ap::{channel::scan::Proof, nm::scan::Snapshot};
+    let (f, token) = ready().await;
+    let h = hint(&f);
+    let t = now().unwrap();
+    let mut proof = Proof {
+        format: 1,
+        binding: h.binding.clone(),
+        snapshot: Snapshot {
+            requested_uptime_ms: t,
+            completed_uptime_ms: t,
+            last_scan_uptime_ms: t,
+            networks: vec![],
+            omitted: 0,
+            truncated: false,
+        },
+    };
+    f.runtime
+        .output
+        .publish(Slot::ScanSnapshot, &proof)
+        .unwrap();
+    assert!(f.runtime.scan_snapshot().is_some());
+    assert!(hint(&f) == h);
+    adopt(&f, &token).await.unwrap();
+    assert!(f.runtime.scan_snapshot().is_some());
+    proof.binding.nonce = "e".repeat(64);
+    f.runtime
+        .output
+        .publish(Slot::ScanSnapshot, &proof)
+        .unwrap();
+    assert!(f.runtime.scan_snapshot().is_none());
+    proof.binding = h.binding;
+    f.runtime
+        .output
+        .publish(Slot::ScanSnapshot, &proof)
+        .unwrap();
+    status(&f, State::Unknown, |_| {});
+    assert!(f.runtime.scan_snapshot().is_none());
+}
 fn reload(f: Fixture) -> Fixture {
     let Fixture {
         runtime,

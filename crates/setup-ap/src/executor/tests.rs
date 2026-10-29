@@ -130,8 +130,32 @@ struct Wifi {
     rollback_bad: bool,
     blocked: bool,
     cancel_on_ready: Option<(Directory, Hint)>,
+    scan: bool,
+    cancel_on_scan: Option<(Directory, Hint)>,
 }
 impl Network for Wifi {
+    async fn scan_before_start(&mut self) -> Result<Option<crate::nm::scan::Snapshot>> {
+        if !self.scan {
+            return Ok(None);
+        }
+        self.events.lock().unwrap().push("scan");
+        if let Some((dir, h)) = &self.cancel_on_scan {
+            let mut h = h.clone();
+            h.sequence = 2;
+            h.action = Action::Cancel;
+            h.valid_until_uptime_ms = channel::uptime_ms()? + 1000;
+            dir.publish(Slot::Hint, &h)?;
+        }
+        let t = channel::uptime_ms()?;
+        Ok(Some(crate::nm::scan::Snapshot {
+            requested_uptime_ms: t,
+            completed_uptime_ms: t,
+            last_scan_uptime_ms: t,
+            networks: vec![],
+            omitted: 0,
+            truncated: false,
+        }))
+    }
     async fn preflight(&mut self) -> Result<()> {
         self.events.lock().unwrap().push("preflight");
         Ok(())
@@ -179,6 +203,9 @@ fn backends(f: &Fixture, mode: &str) -> (Wifi, Firewall, Events) {
             } else {
                 Some((f.worker.input.clone(), f.hint.clone()))
             },
+            scan: mode.starts_with("scan"),
+            cancel_on_scan: (mode == "scan-revoked")
+                .then(|| (f.worker.input.clone(), f.hint.clone())),
         },
         Firewall {
             events: e.clone(),
@@ -186,6 +213,62 @@ fn backends(f: &Fixture, mode: &str) -> (Wifi, Firewall, Events) {
         },
         e,
     )
+}
+#[tokio::test]
+async fn guarded_scan_publishes_the_exact_round_and_failure_never_reaches_activation() {
+    for mode in ["scan", "scan-output", "scan-revoked"] {
+        let f = Fixture::new(15_000);
+        let ready = Readiness::good();
+        let credentials = f.credentials();
+        let (_stop, rx) = watch::channel(false);
+        let (mut n, mut g, events) = backends(&f, mode);
+        let target = f._journal.path().join("keep-intact");
+        if mode == "scan-output" {
+            fs::write(&target, b"keep-intact").unwrap();
+            std::os::unix::fs::symlink(&target, f._output.path().join("scan-snapshot.json"))
+                .unwrap();
+        }
+        let done = timeout(
+            Duration::from_secs(5),
+            execute(
+                &f.worker,
+                &mut n,
+                &mut g,
+                &ready,
+                &credentials,
+                f.hint.clone(),
+                rx,
+            ),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(done.state, State::Closed);
+        let events = events.lock().unwrap();
+        assert_eq!(events.iter().filter(|v| **v == "scan").count(), 1);
+        if mode == "scan" {
+            let bytes = f.worker.output.read(Slot::ScanSnapshot).unwrap().unwrap();
+            let proof =
+                channel::scan::Proof::parse(&bytes, &f.hint.binding, channel::uptime_ms().unwrap())
+                    .unwrap();
+            assert!(proof.binding == f.hint.binding);
+            assert!(proof.snapshot.networks.is_empty());
+            assert!(
+                events.iter().position(|v| *v == "scan")
+                    < events.iter().position(|v| *v == "guard")
+            );
+            assert!(events.contains(&"activate"));
+        } else {
+            assert!(!events.contains(&"guard"));
+            assert!(!events.contains(&"activate"));
+            if mode == "scan-output" {
+                assert_eq!(fs::read(target).unwrap(), b"keep-intact");
+            } else {
+                assert!(f.worker.output.read(Slot::ScanSnapshot).unwrap().is_none());
+            }
+        }
+        assert!(f.worker.journal.consume(&f.hint.binding).is_err());
+    }
 }
 #[tokio::test]
 async fn root_consumer_durable_start_single_activation_and_cancel_cleanup() {

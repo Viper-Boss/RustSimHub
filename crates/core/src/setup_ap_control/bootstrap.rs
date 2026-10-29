@@ -180,6 +180,13 @@ impl Bootstrap {
         Ok(a.as_ref()
             .is_some_and(|s| s.phase == State::Ready && !s.cancelled))
     }
+    pub(super) fn scan_snapshot(&self) -> Option<rustsimhub_setup_ap::nm::scan::Snapshot> {
+        let active = self.active.try_lock().ok()?;
+        let s = active
+            .as_ref()
+            .filter(|s| s.phase == State::Ready && !s.cancelled)?;
+        super::read_scan_snapshot(&self.output, &s.record.binding)
+    }
     pub(super) fn cancel(&self, id: &str) -> Result<Option<Value>> {
         let mut a = self.active.try_lock().map_err(|_| Error::Busy)?;
         let Some(s) = a
