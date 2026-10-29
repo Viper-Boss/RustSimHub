@@ -32,6 +32,7 @@ fn done(intent: Intent, phase: Phase) -> Status {
         phase,
         ap_https_verified: phase == Phase::Failed,
         snapshot: None,
+        refusal: None,
     }
 }
 #[test]
@@ -118,4 +119,107 @@ fn rescan_files_refuse_symlink_and_overfull_journal() {
     }
     assert!(j.consume_rescan(&intent).is_err());
     assert!(j.ensure_rescans_closed(&r.binding).is_err());
+}
+
+fn refusal(intent: Intent, reason: Refusal) -> Status {
+    let mut s = done(intent, Phase::Refused);
+    s.refusal = Some(reason);
+    s
+}
+#[test]
+fn refusal_is_one_atomic_decision_survives_restart_and_does_not_consume_scan_budget() {
+    let (d, dir, j, r) = setup();
+    let intent = r.intent().unwrap();
+    let status = refusal(intent.clone(), Refusal::Conflict);
+    j.refuse_rescan(&status).unwrap();
+    assert!(j.rescan_consumed(&intent).unwrap());
+    assert!(!d
+        .path()
+        .join(format!("{}.intent", intent.key().unwrap()))
+        .exists());
+    assert!(j.rescan_pending().unwrap().is_none());
+    assert!(j.consume_rescan(&intent).is_err());
+    assert!(j.refuse_rescan(&status).is_err());
+    assert_eq!(
+        j.rescan_admission(&r.binding, r.requested_uptime_ms)
+            .unwrap()
+            .remaining,
+        8
+    );
+    j.ensure_rescans_closed(&r.binding).unwrap();
+    drop(j);
+    let j = Journal::open(dir).unwrap();
+    let saved = j.rescan_result(&intent).unwrap().unwrap();
+    assert!(saved.phase == Phase::Refused && saved.refusal == Some(Refusal::Conflict));
+    let mut changed = intent;
+    changed.owner_generation += 1;
+    assert!(j.rescan_consumed(&changed).is_err());
+}
+#[test]
+fn refusal_cannot_hide_accepted_unknown_or_replace_an_accepted_result() {
+    let (_d, _dir, j, r) = setup();
+    let intent = r.intent().unwrap();
+    j.consume_rescan(&intent).unwrap();
+    assert!(j
+        .refuse_rescan(&refusal(intent.clone(), Refusal::Conflict))
+        .is_err());
+    assert!(j
+        .finish_rescan(&refusal(intent.clone(), Refusal::Conflict))
+        .is_err());
+    assert!(j
+        .rescan_admission(&r.binding, r.requested_uptime_ms)
+        .is_err());
+    j.finish_rescan(&done(intent, Phase::Unknown)).unwrap();
+    assert!(j
+        .rescan_admission(&r.binding, r.requested_uptime_ms)
+        .is_err());
+}
+#[test]
+fn admission_exposes_original_cooldown_and_exact_persisted_scan_limit() {
+    let (_d, _dir, j, mut r) = setup();
+    let t = r.requested_uptime_ms;
+    r.requested_uptime_ms = t - 10000;
+    r.deadline_uptime_ms = t + 30000;
+    let i = r.intent().unwrap();
+    j.consume_rescan(&i).unwrap();
+    j.finish_rescan(&done(i, Phase::Failed)).unwrap();
+    let a = j.rescan_admission(&r.binding, t).unwrap();
+    assert!(a.refusal == Some(Refusal::Cooldown));
+    assert_eq!(a.retry_after_uptime_ms, Some(t + 20000));
+    assert_eq!(a.remaining, 7);
+    let a = j.rescan_admission(&r.binding, t + 20000).unwrap();
+    assert!(a.refusal.is_none());
+    assert!(a.retry_after_uptime_ms.is_none());
+    // Queries do not advance the stored start time or the next admission time.
+    assert_eq!(
+        j.rescan_admission(&r.binding, t)
+            .unwrap()
+            .retry_after_uptime_ms,
+        Some(t + 20000)
+    );
+}
+#[test]
+fn refusal_storage_is_bounded_and_links_cannot_turn_refusal_into_permission() {
+    let (d, _dir, j, mut r) = setup();
+    for i in 0..MAX_REFUSALS_PER_PARENT {
+        r.scan_id = format!("00000000-0000-4000-8000-{:012}", 100 + i);
+        j.refuse_rescan(&refusal(r.intent().unwrap(), Refusal::Conflict))
+            .unwrap();
+    }
+    assert!(
+        j.rescan_admission(&r.binding, r.requested_uptime_ms)
+            .unwrap()
+            .refusal
+            == Some(Refusal::Capacity)
+    );
+    r.scan_id = "00000000-0000-4000-8000-000000000999".into();
+    let intent = r.intent().unwrap();
+    assert!(j
+        .refuse_rescan(&refusal(intent.clone(), Refusal::Conflict))
+        .is_err());
+    assert!(j.consume_rescan(&intent).is_err());
+    let name = format!("{}.refusal", intent.key().unwrap());
+    std::os::unix::fs::symlink(d.path().join("target"), d.path().join(name)).unwrap();
+    assert!(j.rescan_consumed(&intent).is_err());
+    assert!(!d.path().join("target").exists());
 }

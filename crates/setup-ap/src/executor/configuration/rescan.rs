@@ -10,7 +10,20 @@ pub(super) fn request(worker: &Worker, binding: &Binding) -> Result<Option<proto
     let Some(raw) = worker.input.read(Slot::RescanRequest)? else {
         return Ok(None);
     };
-    Ok(protocol::Request::parse(&raw, binding, channel::uptime_ms()?).ok())
+    let Ok(request) = serde_json::from_slice::<protocol::Request>(&raw) else {
+        return Ok(None);
+    };
+    let now = channel::uptime_ms()?;
+    // Keep structurally valid stale requests visible so they receive an explicit non-execution
+    // decision. validate() remains mandatory before hardware admission.
+    if request.intent().is_err()
+        || request.binding != *binding
+        || request.requested_uptime_ms > now
+        || now >= binding.deadline_uptime_ms
+    {
+        return Ok(None);
+    }
+    Ok(Some(request))
 }
 pub(super) fn status(
     intent: protocol::Intent,
@@ -35,6 +48,7 @@ pub(super) fn status(
         finished_uptime_ms: finished,
         ap_https_verified: matches!(phase, protocol::Phase::Ready | protocol::Phase::Failed),
         snapshot,
+        refusal: None,
     };
     status.validate(t, &status.sample_boot_id)?;
     Ok(status)
@@ -43,14 +57,33 @@ pub(super) fn publish_status(worker: &Worker, status: &protocol::Status) -> Resu
     status.validate(channel::uptime_ms()?, &worker.boot)?;
     worker.output.publish(Slot::RescanStatus, status)
 }
-pub(super) fn capability(worker: &Worker, binding: &Binding, available: bool) -> Result<()> {
+pub(super) fn capability(
+    worker: &Worker,
+    binding: &Binding,
+    blocked: Option<protocol::Refusal>,
+) -> Result<()> {
+    let now = channel::uptime_ms()?;
+    let admission = worker.journal.rescan_admission(binding, now)?;
+    let refusal = blocked
+        .or_else(|| {
+            (binding.deadline_uptime_ms.saturating_sub(now) < 60_000)
+                .then_some(protocol::Refusal::WindowClosing)
+        })
+        .or(admission.refusal);
     let c = protocol::Capability {
         format: 1,
         binding: binding.clone(),
-        sample_uptime_ms: channel::uptime_ms()?,
-        available,
+        sample_uptime_ms: now,
+        available: refusal.is_none(),
         max_per_parent: protocol::MAX_PER_PARENT,
         cooldown_ms: protocol::COOLDOWN_MS,
+        remaining: admission.remaining,
+        refusal,
+        retry_after_uptime_ms: if refusal == Some(protocol::Refusal::Cooldown) {
+            admission.retry_after_uptime_ms
+        } else {
+            None
+        },
     };
     protocol::Capability::parse(
         &serde_json::to_vec(&c).map_err(|_| Error::Invalid)?,
@@ -114,24 +147,65 @@ fn publish_snapshot(worker: &Worker, status: &protocol::Status) -> Result<()> {
     }
     worker.output.publish(Slot::ScanSnapshot, &proof)
 }
-#[derive(Default)]
-pub(super) struct Budget {
-    seen: Vec<protocol::Intent>,
+fn refuse(
+    worker: &Worker,
+    intent: protocol::Intent,
+    reason: protocol::Refusal,
+) -> Result<protocol::Status> {
+    let mut s = status(intent, protocol::Phase::Unknown, None)?;
+    s.phase = protocol::Phase::Refused;
+    s.refusal = Some(reason);
+    s.validate(channel::uptime_ms()?, &worker.boot)?;
+    worker.journal.refuse_rescan(&s)?;
+    publish_status(worker, &s)?;
+    Ok(s)
 }
-impl Budget {
-    /// Admission failures are not queued for automatic execution when conditions change.
-    pub(super) fn admit_once(&mut self, intent: &protocol::Intent) -> bool {
-        if self.seen.len() >= protocol::MAX_PER_PARENT
-            || self.seen.iter().any(|old| old.scan_id == intent.scan_id)
-        {
-            return false;
-        }
-        self.seen.push(intent.clone());
-        true
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn handle<N: Network + RescanProvider, G: Guard + TrialGuard, R: Ready + Sync>(
+    worker: &Worker,
+    network: &mut N,
+    guard: &G,
+    readiness: &R,
+    gate: &LeaseGate<'_, R>,
+    ap: &Credentials,
+    last: Option<&station::Status>,
+    barrier: Option<u64>,
+    stopped: &watch::Receiver<bool>,
+) -> Result<Option<protocol::Status>> {
+    let Some(r) = request(worker, &gate.binding)? else {
+        return Ok(None);
+    };
+    let intent = r.intent()?;
+    if let Some(s) = cached(worker, &intent)? {
+        return Ok(Some(s));
     }
-    pub(super) fn available(&self) -> bool {
-        self.seen.len() < protocol::MAX_PER_PARENT
+    gate.check().await?;
+    let now = channel::uptime_ms()?;
+    // Missing terminal evidence from an accepted operation is not a mere refusal to a new
+    // request. rescan_admission() fails closed and the caller retains the parent Unknown.
+    let admission = worker
+        .journal
+        .rescan_admission(&gate.binding, r.requested_uptime_ms)?;
+    let reason = if r.action == protocol::Action::Cancel {
+        Some(protocol::Refusal::Cancelled)
+    } else if gate.binding.deadline_uptime_ms.saturating_sub(now) < 60_000 {
+        Some(protocol::Refusal::WindowClosing)
+    } else if r.validate(&gate.binding, now).is_err() {
+        Some(protocol::Refusal::Stale)
+    } else if barrier.is_some_and(|t| r.requested_uptime_ms <= t) {
+        Some(protocol::Refusal::Superseded)
+    } else if conflicts(worker, &gate.binding, last)? {
+        Some(protocol::Refusal::Conflict)
+    } else {
+        admission.refusal
+    };
+    if let Some(reason) = reason {
+        return Ok(Some(refuse(worker, intent, reason)?));
     }
+    capability(worker, &gate.binding, Some(protocol::Refusal::Conflict))?;
+    execute(worker, network, guard, readiness, gate, ap, r, stopped)
+        .await
+        .map(Some)
 }
 pub(super) fn conflicts(
     worker: &Worker,
