@@ -40,7 +40,7 @@
 | 9 | sshd 和 journald 分别累计写盘 229 MB、347 MB | 只读基线；随 #3 一起看 |
 | 10 | 根分区保留了 13 个历史应用组（每个约 15～19 MB），剩余空间 1.9 GB，目前不紧张 | 只读基线 |
 | 11 | 修复前生成的旧 WAL 格式备份，恢复时仍会在源目录留下 sidecar | [#14](https://github.com/Viper-Boss/RustSimHub/pull/14) |
-| 12 | 设备网页每次 HTTPS 请求约 2.1 秒，主要是 TLS 握手 | STAB-03 `https.log` |
+| 12 | 设备网页每次 HTTPS 请求约 2.1 秒，主要是 TLS 握手 | STAB-03 `https.log`；**已查明，非设备问题**（2026-10-29）：电脑系统代理 localhost:15236 让 Python urllib 每次多约 2 秒；直连设备 TLS1.3 握手约 13 ms、整个请求中位数 47 ms。长测工具已改为不走代理 |
 | 13 | 设备 Wi-Fi 地址由 DHCP 分配，可能变化；任何时候都不能静默接受新的主机密钥 | 连接核实 |
 | 14 | compat 测试之间共享锁：在没有 Go 的环境里，Go 用例一旦 panic，会连带让其他用例因 `PoisonError` 失败（单独运行时全部通过） | 2026-10-28 WSL 回归；**已修**：测试锁中毒后恢复使用（2026-10-29），没有 Go 时只剩 Go 用例本身失败 |
 | 15 | 本机旧连接配置 `.private/device.json` 已过期 | **已处理**：新建 `.private/device-wifi.json`，旧文件保留作历史 |
