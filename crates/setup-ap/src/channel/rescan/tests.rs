@@ -22,6 +22,7 @@ fn failed(r: &Request) -> Status {
         finished_uptime_ms: Some(3000),
         ap_https_verified: true,
         snapshot: None,
+        refusal: None,
     }
 }
 #[test]
@@ -126,6 +127,9 @@ fn rescan_capability_is_fresh_exact_and_separate_from_parent_availability() {
         available: true,
         max_per_parent: MAX_PER_PARENT,
         cooldown_ms: COOLDOWN_MS,
+        remaining: MAX_PER_PARENT,
+        refusal: None,
+        retry_after_uptime_ms: None,
     };
     let bytes = serde_json::to_vec(&c).unwrap();
     assert!(Capability::parse(&bytes, &r.binding, 2000, &r.binding.boot_id).is_ok());
@@ -139,4 +143,79 @@ fn rescan_capability_is_fresh_exact_and_separate_from_parent_availability() {
         &r.binding.boot_id
     )
     .is_err());
+}
+
+#[test]
+fn refused_is_an_explicit_non_execution_decision_without_fake_https_or_snapshot() {
+    let r = request();
+    let mut s = failed(&r);
+    s.phase = Phase::Refused;
+    s.ap_https_verified = false;
+    assert!(s.validate(3000, &r.binding.boot_id).is_err());
+    s.refusal = Some(Refusal::Conflict);
+    assert!(s.validate(3000, &r.binding.boot_id).is_ok());
+    s.ap_https_verified = true;
+    assert!(s.validate(3000, &r.binding.boot_id).is_err());
+    s.ap_https_verified = false;
+    s.finished_uptime_ms = None;
+    assert!(s.validate(3000, &r.binding.boot_id).is_err());
+    s.finished_uptime_ms = Some(3000);
+    s.phase = Phase::Unknown;
+    assert!(s.validate(3000, &r.binding.boot_id).is_err());
+    s.phase = Phase::Refused;
+    s.sample_uptime_ms = 100000;
+    s.finished_uptime_ms = Some(100000);
+    s.refusal = Some(Refusal::Stale);
+    assert!(s.validate(100000, &r.binding.boot_id).is_ok());
+    let mut raw = serde_json::to_value(s).unwrap();
+    raw["refusal"] = "arbitrary_command".into();
+    assert!(Status::parse(
+        &serde_json::to_vec(&raw).unwrap(),
+        &r.intent().unwrap(),
+        100000,
+        &r.binding.boot_id
+    )
+    .is_err());
+}
+
+#[test]
+fn live_capability_has_consistent_reason_remaining_and_cooldown_clock() {
+    let r = request();
+    let mut c = Capability {
+        format: 1,
+        binding: r.binding.clone(),
+        sample_uptime_ms: 2000,
+        available: false,
+        max_per_parent: MAX_PER_PARENT,
+        cooldown_ms: COOLDOWN_MS,
+        remaining: 7,
+        refusal: Some(Refusal::Cooldown),
+        retry_after_uptime_ms: Some(32000),
+    };
+    let valid = |c: &Capability| {
+        Capability::parse(
+            &serde_json::to_vec(c).unwrap(),
+            &r.binding,
+            2000,
+            &r.binding.boot_id,
+        )
+        .is_ok()
+    };
+    assert!(valid(&c));
+    c.retry_after_uptime_ms = Some(2000);
+    assert!(!valid(&c));
+    c.retry_after_uptime_ms = None;
+    assert!(!valid(&c));
+    c.refusal = Some(Refusal::Limit);
+    assert!(!valid(&c));
+    c.remaining = 0;
+    assert!(valid(&c));
+    c.available = true;
+    assert!(!valid(&c));
+    c.refusal = None;
+    assert!(!valid(&c));
+    c.remaining = 8;
+    assert!(valid(&c));
+    c.retry_after_uptime_ms = Some(32000);
+    assert!(!valid(&c));
 }

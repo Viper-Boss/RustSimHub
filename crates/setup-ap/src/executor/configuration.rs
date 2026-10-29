@@ -206,7 +206,6 @@ pub(super) async fn execute<
     };
     let mut final_commit = None;
     let mut rescan_unknown = false;
-    let mut rescan_budget = rescan::Budget::default();
     let mut rescan_barrier: Option<u64> = None;
     let mut rescan_after: Option<u64> = None;
     let _body:Result<()>=async {
@@ -239,8 +238,9 @@ pub(super) async fn execute<
                 misses=0;
                 seen=true;
                 worker.query_completed_rescan()?;
-                rescan::capability(worker,&hint.binding,rescan_budget.available()
-                    && hint.binding.deadline_uptime_ms.saturating_sub(channel::uptime_ms()?)>=60_000)?;
+                rescan::capability(worker,&hint.binding,if rescan::conflicts(worker,&hint.binding,last.as_ref())? {
+                    Some(channel::rescan::Refusal::Conflict)
+                }else{None})?;
                 if let Some(raw)=worker.input.read(Slot::StationCommitRequest)? {
                     let raw=Zeroizing::new(raw);
                     if let Ok(q)=channel::commit::Request::parse(&raw,&hint.binding,channel::uptime_ms()?) {
@@ -257,31 +257,16 @@ pub(super) async fn execute<
                         }
                     }
                 }
-                if let Some(r)=rescan::request(worker,&hint.binding)? {
-                    if r.action==channel::rescan::Action::Scan {
-                        let intent=r.intent()?;
-                        match worker.journal.rescan_consumed(&intent) {
-                            Ok(true)=>{
-                                let saved=rescan::cached(worker,&intent)?.ok_or(Error::Denied)?;
-                                if saved.phase==channel::rescan::Phase::Unknown {rescan_unknown=true;return Ok(());}
-                                if let Some(t)=saved.finished_uptime_ms {rescan_barrier=Some(rescan_barrier.unwrap_or(0).max(t));}
-                            }
-                            Ok(false) if rescan_barrier.is_none_or(|t|r.requested_uptime_ms>t)
-                                && rescan_after.is_none_or(|t|r.requested_uptime_ms>t)
-                                && rescan_budget.admit_once(&intent)
-                                && !rescan::conflicts(worker,&hint.binding,last.as_ref())?=>{
-                                rescan::capability(worker,&hint.binding,false)?;
-                                match rescan::execute(worker,network,guard,readiness,&gate,ap,r,&stopped).await {
-                                    Ok(s) if s.phase!=channel::rescan::Phase::Unknown=>{rescan_barrier=Some(channel::uptime_ms()?);}
-                                    _=>{
-                                        if worker.journal.rescan_consumed(&intent).unwrap_or(true) {rescan_unknown=true;return Ok(());}
-                                    }
-                                }
-                            }
-                            Err(_)=>{rescan_unknown=true;return Ok(());}
-                            _=>{}
+                match rescan::handle(worker,network,guard,readiness,&gate,ap,last.as_ref(),
+                    rescan_barrier.max(rescan_after),&stopped).await {
+                    Ok(Some(s))=>{
+                        if s.phase==channel::rescan::Phase::Unknown {rescan_unknown=true;return Ok(());}
+                        if matches!(s.phase,channel::rescan::Phase::Ready|channel::rescan::Phase::Failed) {
+                            if let Some(t)=s.finished_uptime_ms {rescan_barrier=Some(rescan_barrier.unwrap_or(0).max(t));}
                         }
                     }
+                    Err(_)=>{rescan_unknown=true;return Ok(());}
+                    Ok(None)=>{}
                 }
                 if let Some(s)=last.as_mut() { s.sample_uptime_ms=channel::uptime_ms()?;if publish_trial(worker,s).is_err() { break; } }
                 match request(worker,&hint.binding) {

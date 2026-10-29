@@ -96,7 +96,8 @@ async fn protected_rescan_runs_once_publishes_empty_snapshot_and_preserves_paren
             &f.worker.boot,
         )
         .unwrap();
-        assert!(c.available);
+        assert!(!c.available && c.refusal == Some(protocol::Refusal::Cooldown));
+        assert_eq!(c.remaining, protocol::MAX_PER_PARENT - 1);
         tx.send_replace(true);
     };
     let (result, _) = tokio::join!(
@@ -264,22 +265,8 @@ async fn lost_initial_status_output_consumes_intent_but_never_touches_radio_or_r
     assert!(read(&f).phase == protocol::Phase::Unknown);
 }
 #[test]
-fn request_admission_is_bounded_and_conflicted_request_is_not_queued_for_later() {
+fn station_conflicts_require_an_exact_explicit_cancel() {
     let f = Fixture::new(15000);
-    let mut budget = rpc::Budget::default();
-    let mut req = request(&f);
-    for i in 0..protocol::MAX_PER_PARENT {
-        req.scan_id = format!("00000000-0000-4000-8000-{:012}", 100 + i);
-        let intent = req.intent().unwrap();
-        assert!(budget.admit_once(&intent));
-        assert!(!budget.admit_once(&intent));
-        let mut changed = intent;
-        changed.owner_generation += 1;
-        assert!(!budget.admit_once(&changed));
-    }
-    assert!(!budget.available());
-    req.scan_id = "00000000-0000-4000-8000-000000000999".into();
-    assert!(!budget.admit_once(&req.intent().unwrap()));
     let station = f.request();
     let intent = station.intent().unwrap();
     f.worker.journal.consume(&station.binding).unwrap();
@@ -329,11 +316,19 @@ async fn request_seen_with_station_work_cannot_run_later_when_station_is_cancell
             .unwrap();
         tokio::time::sleep(Duration::from_millis(1100)).await;
         assert!(!m.lock().unwrap().events.contains(&"rescan-pause"));
-        assert!(!f
+        let s = read(&f);
+        assert!(
+            s.phase == protocol::Phase::Refused && s.refusal == Some(protocol::Refusal::Conflict)
+        );
+        assert!(f
             .worker
             .journal
             .rescan_consumed(&scan.intent().unwrap())
             .unwrap());
+        assert!(!f._dirs[2]
+            .path()
+            .join(format!("{}.intent", scan.intent().unwrap().key().unwrap()))
+            .exists());
         tx.send_replace(true);
     };
     let (result, _) = tokio::join!(
@@ -391,4 +386,218 @@ fn querying_an_old_success_never_replaces_a_newer_snapshot() {
     assert_eq!(proof.snapshot.completed_uptime_ms, later);
     result.refresh().unwrap();
     assert_eq!(read(&f).finished_uptime_ms, result.finished_uptime_ms);
+}
+
+fn aged_fixture(age: u64) -> Fixture {
+    let mut f = Fixture::new(15000);
+    f.hint.binding.created_uptime_ms = f.hint.binding.created_uptime_ms.saturating_sub(age);
+    f.worker.input.publish(Slot::Hint, &f.hint).unwrap();
+    f
+}
+async fn refusal_ready(f: &Fixture, reason: protocol::Refusal) {
+    timeout(Duration::from_secs(4), async {
+        loop {
+            if let Some(raw) = f.worker.output.read(Slot::RescanStatus).unwrap() {
+                let s: protocol::Status = serde_json::from_slice(&raw).unwrap();
+                if s.phase == protocol::Phase::Refused {
+                    assert!(s.refusal == Some(reason));
+                    return;
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+}
+fn history(f: &Fixture, offset: u64, id: usize) {
+    let mut req = request(f);
+    let t = channel::uptime_ms().unwrap();
+    req.requested_uptime_ms = t - offset;
+    req.deadline_uptime_ms = req.requested_uptime_ms + 40000;
+    req.scan_id = format!("00000000-0000-4000-8000-{:012}", 100 + id);
+    let intent = req.intent().unwrap();
+    f.worker.journal.consume_rescan(&intent).unwrap();
+    let s = protocol::Status {
+        format: 1,
+        intent,
+        phase: protocol::Phase::Failed,
+        sample_boot_id: f.worker.boot.clone(),
+        sample_uptime_ms: t,
+        finished_uptime_ms: Some(req.requested_uptime_ms + 1),
+        ap_https_verified: true,
+        snapshot: None,
+        refusal: None,
+    };
+    f.worker.journal.finish_rescan(&s).unwrap();
+}
+#[tokio::test]
+async fn stale_cancelled_or_closing_request_gets_a_durable_non_execution_receipt() {
+    for reason in [
+        protocol::Refusal::Stale,
+        protocol::Refusal::Cancelled,
+        protocol::Refusal::WindowClosing,
+    ] {
+        let mut f = aged_fixture(20000);
+        if reason == protocol::Refusal::WindowClosing {
+            f.hint.binding.deadline_uptime_ms = channel::uptime_ms().unwrap() + 50000;
+            f.worker.input.publish(Slot::Hint, &f.hint).unwrap();
+        }
+        let mut req = request(&f);
+        if reason == protocol::Refusal::Stale {
+            req.requested_uptime_ms -= 16000;
+            req.deadline_uptime_ms = req.requested_uptime_ms + 40000;
+        }
+        if reason == protocol::Refusal::Cancelled {
+            req.action = protocol::Action::Cancel;
+        }
+        if reason == protocol::Refusal::WindowClosing {
+            req.deadline_uptime_ms = req.requested_uptime_ms + 20000;
+        }
+        let intent = req.intent().unwrap();
+        f.worker.input.publish(Slot::RescanRequest, &req).unwrap();
+        let m = Arc::new(StdMutex::new(Model::default()));
+        let (mut n, mut g, r) = setup(m.clone());
+        let (tx, rx) = watch::channel(false);
+        let ap = Credentials::generate().unwrap();
+        let monitor = async {
+            refusal_ready(&f, reason).await;
+            assert!(!read(&f).ap_https_verified);
+            tx.send_replace(true);
+        };
+        let (result, _) = tokio::join!(
+            execute(&f.worker, &mut n, &mut g, &r, &ap, f.hint.clone(), rx),
+            monitor
+        );
+        assert!(result.unwrap().unwrap().state == State::Closed);
+        assert!(!m.lock().unwrap().events.contains(&"rescan-pause"));
+        f.worker.input.publish(Slot::RescanQuery, &intent).unwrap();
+        assert!(f.worker.query_completed_rescan().unwrap());
+        assert!(read(&f).phase == protocol::Phase::Refused && read(&f).refusal == Some(reason));
+    }
+}
+#[tokio::test]
+async fn cooldown_and_exhausted_budget_are_authoritative_without_any_radio_work() {
+    for reason in [protocol::Refusal::Cooldown, protocol::Refusal::Limit] {
+        let f = aged_fixture(300000);
+        let m = Arc::new(StdMutex::new(Model::default()));
+        let (mut n, mut g, r) = setup(m.clone());
+        let (tx, rx) = watch::channel(false);
+        let ap = Credentials::generate().unwrap();
+        let monitor = async {
+            wait(&m, "ap-activate").await;
+            if reason == protocol::Refusal::Cooldown {
+                history(&f, 10000, 0);
+            } else {
+                for i in 0..8 {
+                    history(&f, 240000 - i as u64 * 30000, i);
+                }
+            }
+            let req = request(&f);
+            f.worker.input.publish(Slot::RescanRequest, &req).unwrap();
+            refusal_ready(&f, reason).await;
+            let c = protocol::Capability::parse(
+                &f.worker
+                    .output
+                    .read(Slot::RescanCapability)
+                    .unwrap()
+                    .unwrap(),
+                &req.binding,
+                channel::uptime_ms().unwrap(),
+                &f.worker.boot,
+            )
+            .unwrap();
+            assert!(!c.available && c.refusal == Some(reason));
+            assert_eq!(
+                c.remaining,
+                if reason == protocol::Refusal::Limit {
+                    0
+                } else {
+                    7
+                }
+            );
+            tx.send_replace(true);
+        };
+        let (result, _) = tokio::join!(
+            execute(&f.worker, &mut n, &mut g, &r, &ap, f.hint.clone(), rx),
+            monitor
+        );
+        assert!(result.unwrap().unwrap().state == State::Closed);
+        assert!(!m.lock().unwrap().events.contains(&"rescan-pause"));
+    }
+}
+#[tokio::test]
+async fn a_scan_posted_during_station_work_is_refused_after_station_cleanup() {
+    let f = Fixture::new(15000);
+    let mut station = f.request();
+    f.worker
+        .input
+        .publish(Slot::StationRequest, &station)
+        .unwrap();
+    let m = Arc::new(StdMutex::new(Model {
+        blocked: true,
+        ..Default::default()
+    }));
+    let (mut n, mut g, r) = setup(m.clone());
+    let (tx, rx) = watch::channel(false);
+    let ap = Credentials::generate().unwrap();
+    let monitor = async {
+        wait(&m, "station-begin").await;
+        let req = request(&f);
+        f.worker.input.publish(Slot::RescanRequest, &req).unwrap();
+        tokio::time::sleep(Duration::from_millis(2)).await;
+        station.operation = Operation::Cancel;
+        f.worker
+            .input
+            .publish(Slot::StationRequest, &station)
+            .unwrap();
+        refusal_ready(&f, protocol::Refusal::Superseded).await;
+        assert!(!m.lock().unwrap().events.contains(&"rescan-pause"));
+        tx.send_replace(true);
+    };
+    let (result, _) = tokio::join!(
+        execute(&f.worker, &mut n, &mut g, &r, &ap, f.hint.clone(), rx),
+        monitor
+    );
+    assert!(result.unwrap().unwrap().state == State::Closed);
+}
+
+#[tokio::test]
+async fn a_lost_refusal_reply_stays_durable_without_becoming_a_scan_after_query() {
+    let f = Fixture::new(15000);
+    let mut req = request(&f);
+    req.action = protocol::Action::Cancel;
+    let intent = req.intent().unwrap();
+    f.worker.input.publish(Slot::RescanRequest, &req).unwrap();
+    let output = f._dirs[1].path();
+    let link = output.join("rescan-status.json");
+    std::os::unix::fs::symlink(output.join("missing-target"), &link).unwrap();
+    let m = Arc::new(StdMutex::new(Model::default()));
+    let (mut n, mut g, r) = setup(m.clone());
+    let (_tx, rx) = watch::channel(false);
+    let ap = Credentials::generate().unwrap();
+    let result = execute(&f.worker, &mut n, &mut g, &r, &ap, f.hint.clone(), rx)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(result.state == State::Unknown);
+    assert!(!m.lock().unwrap().events.contains(&"rescan-pause"));
+    let stored = f.worker.journal.rescan_result(&intent).unwrap().unwrap();
+    assert!(
+        stored.phase == protocol::Phase::Refused
+            && stored.refusal == Some(protocol::Refusal::Cancelled)
+    );
+    fs::remove_file(link).unwrap();
+    let before = m.lock().unwrap().events.clone();
+    f.worker.input.publish(Slot::RescanQuery, &intent).unwrap();
+    assert!(f.worker.query_completed_rescan().unwrap());
+    assert!(read(&f).phase == protocol::Phase::Refused);
+    assert_eq!(m.lock().unwrap().events, before);
+    // A later Scan with the identical ID/body is already terminally refused.
+    req.action = protocol::Action::Scan;
+    assert!(f
+        .worker
+        .journal
+        .consume_rescan(&req.intent().unwrap())
+        .is_err());
 }

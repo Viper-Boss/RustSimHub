@@ -5,6 +5,7 @@ use crate::nm::scan::Snapshot;
 pub const MAX_PER_PARENT: usize = 8;
 pub const COOLDOWN_MS: u64 = 30_000;
 pub const MAX_REQUEST_MS: u64 = 40_000;
+pub const MAX_REFUSALS_PER_PARENT: usize = 32;
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -120,6 +121,20 @@ pub enum Phase {
     Ready,
     Failed,
     Unknown,
+    Refused,
+}
+/// A durable decision made before consuming a hardware intent. Never means AP restoration.
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Refusal {
+    Cooldown,
+    Limit,
+    Conflict,
+    Stale,
+    WindowClosing,
+    Superseded,
+    Cancelled,
+    Capacity,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -133,6 +148,8 @@ pub struct Status {
     pub ap_https_verified: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub snapshot: Option<Snapshot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refusal: Option<Refusal>,
 }
 impl Status {
     pub fn validate(&self, now: u64, boot: &str) -> Result<()> {
@@ -145,6 +162,8 @@ impl Status {
             || self.sample_uptime_ms > now
             || now.saturating_sub(self.sample_uptime_ms) > HEARTBEAT_MS
             || self.ap_https_verified != matches!(self.phase, Phase::Ready | Phase::Failed)
+            || (self.phase == Phase::Refused) != self.refusal.is_some()
+            || self.phase == Phase::Refused && self.finished_uptime_ms.is_none()
             || self.phase == Phase::Scanning && (!same_boot || self.finished_uptime_ms.is_some())
             || self.finished_uptime_ms.is_some_and(|t| {
                 t < self.intent.requested_uptime_ms || same_boot && t > self.sample_uptime_ms
@@ -164,7 +183,7 @@ impl Status {
             {
                 Ok(())
             }
-            (None, Phase::Scanning | Phase::Failed | Phase::Unknown) => Ok(()),
+            (None, Phase::Scanning | Phase::Failed | Phase::Unknown | Phase::Refused) => Ok(()),
             _ => Err(Error::Denied),
         }
     }
@@ -195,6 +214,9 @@ pub struct Capability {
     pub available: bool,
     pub max_per_parent: usize,
     pub cooldown_ms: u64,
+    pub remaining: usize,
+    pub refusal: Option<Refusal>,
+    pub retry_after_uptime_ms: Option<u64>,
 }
 impl Capability {
     pub fn parse(bytes: &[u8], binding: &Binding, now: u64, boot: &str) -> Result<Self> {
@@ -212,6 +234,23 @@ impl Capability {
             || now >= binding.deadline_uptime_ms
             || c.max_per_parent != MAX_PER_PARENT
             || c.cooldown_ms != COOLDOWN_MS
+            || c.remaining > MAX_PER_PARENT
+            || c.available != c.refusal.is_none()
+            || c.available
+                && (c.remaining == 0
+                    || binding
+                        .deadline_uptime_ms
+                        .saturating_sub(c.sample_uptime_ms)
+                        < 60_000)
+            || c.refusal == Some(Refusal::Limit) && c.remaining != 0
+            || match (c.refusal, c.retry_after_uptime_ms) {
+                (Some(Refusal::Cooldown), Some(t)) => {
+                    t <= c.sample_uptime_ms || t >= binding.deadline_uptime_ms
+                }
+                (Some(Refusal::Cooldown), None) => true,
+                (_, Some(_)) => true,
+                _ => false,
+            }
         {
             return Err(Error::Denied);
         }
