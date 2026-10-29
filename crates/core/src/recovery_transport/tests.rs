@@ -13,6 +13,17 @@ fn wire(kind: Kind, payload: &[u8]) -> Vec<u8> {
     bytes.extend(payload);
     bytes
 }
+async fn fill_send_buffer(stream: &UnixStream) {
+    stream.writable().await.unwrap();
+    for _ in 0..1024 {
+        match stream.try_write(&[0; 4096]) {
+            Ok(_) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => return,
+            Err(e) => panic!("synthetic socket fill: {e}"),
+        }
+    }
+    panic!("bounded synthetic send buffer did not fill");
+}
 #[tokio::test]
 async fn actual_unix_pairs_round_trip_boundaries_and_keep_frames_separate() {
     for size in [0, 1, 19, 244, 1024, 2048] {
@@ -163,19 +174,7 @@ async fn cancelled_polled_partial_read_cannot_accept_late_bytes() {
 #[tokio::test]
 async fn cancelled_blocked_write_is_unknown_and_connection_is_not_reusable() {
     let (stream, _peer) = UnixStream::pair().unwrap();
-    stream.writable().await.unwrap();
-    let mut blocked = false;
-    for _ in 0..1024 {
-        match stream.try_write(&[0; 4096]) {
-            Ok(_) => {}
-            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                blocked = true;
-                break;
-            }
-            Err(e) => panic!("synthetic socket fill: {e}"),
-        }
-    }
-    assert!(blocked, "bounded synthetic send buffer did not fill");
+    fill_send_buffer(&stream).await;
     let mut io = FramedIo::new(stream);
     let packet = Packet::new(Kind::EncryptedRequest, vec![3; 2048]).unwrap();
     let mut future = Box::pin(io.write(&packet));
@@ -197,10 +196,11 @@ async fn write_deadline_and_peer_loss_keep_connection_fenced() {
     assert_eq!(io.write(&packet).await, Err(Error::Io));
     assert!(io.is_poisoned());
     let (stream, _peer) = UnixStream::pair().unwrap();
+    fill_send_buffer(&stream).await;
     let mut io = FramedIo::new(stream);
-    let past = Instant::now() - Duration::from_millis(1);
+    let deadline = Instant::now() + Duration::from_millis(25);
     assert!(matches!(
-        io.write_until(&packet, past).await,
+        io.write_until(&packet, deadline).await,
         Err(Error::Deadline)
     ));
     assert!(io.is_poisoned());
