@@ -101,10 +101,14 @@ def main():
 
     def https_loop():
         ctx = ssl.create_default_context(cafile=a.cert)
+        # Direct to the device: a system proxy on the workstation (seen 2026-10-29 at
+        # localhost:15236) added ~2 s to every sample and was mistaken for slow device TLS.
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}),
+                                             urllib.request.HTTPSHandler(context=ctx))
         while not stop.is_set() and time.time() < end:
             t = time.time()
             try:
-                with urllib.request.urlopen(a.url, context=ctx, timeout=15) as r:
+                with opener.open(a.url, timeout=15) as r:
                     body = r.read()
                 log('https.log', f'ok status={r.status} bytes={len(body)} ms={int((time.time() - t) * 1000)} '
                                  f'sha={hashlib.sha256(body).hexdigest()[:12]}')
