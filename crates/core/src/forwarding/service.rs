@@ -237,8 +237,11 @@ impl Coordinator {
         };
         let state = controller.0.clone();
         tokio::task::spawn_blocking(move || {
-            let mut a = auth.try_lock().map_err(|_| Error::Busy)?;
-            let mut s = state.try_lock().map_err(|_| Error::Busy)?;
+            // The Root call is over: wait for the locks (each holder releases them without
+            // awaiting) instead of reporting Busy, so Busy from this function always means
+            // "nothing was dispatched or called" and a caller may retry it.
+            let mut a = auth.lock().map_err(|_| Error::Io)?;
+            let mut s = state.lock().map_err(|_| Error::Io)?;
             let (after, mut value) = Snapshot::new(&mut a, &mut s, &token)?;
             if before != after {
                 return Err(Error::Forbidden);
