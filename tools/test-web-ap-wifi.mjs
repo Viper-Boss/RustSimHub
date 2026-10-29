@@ -104,6 +104,19 @@ for(const extra of [{settings_saved:false},{authoritative_result:false},{commit_
 }
 console.log('AP Wi-Fi: automatic finite trial, explicit confirmation, metadata CAS, read-only recovery, lost replies, permissions boundary and credential cleanup passed.');
 
+// A reopened page has no Wi-Fi secret. Input validation cannot make a known
+// successful trial "unknown": no save was submitted and the same trial remains usable.
+for(const bad of [{ssid:'',passphrase:PASS},{ssid:SSID,passphrase:''},{ssid:SSID,passphrase:'short'}]){
+ const f=await fixture();f.fill();await f.click('begin');await f.reopen();
+ assert.equal(f.panel.phase,'trial_ready');const before=f.storage(),calls=f.calls.length;
+ f.$('ap-wifi-ssid').value=bad.ssid;f.$('ap-wifi-passphrase').value=bad.passphrase;
+ await f.click('confirm');assert.equal(f.panel.phase,'trial_ready');assert.deepEqual(f.storage(),before);
+ assert.equal(f.calls.length,calls);assert(!f.$('ap-wifi-confirm').hidden);assert(!f.$('ap-wifi-passphrase').readOnly);
+ assert.match(f.$('ap-wifi-state').textContent,/尚未提交/);assert.doesNotMatch(f.$('ap-wifi-state').textContent,/进度已保留|结果未确认/);
+ f.fill();await f.click('confirm');assert.equal(f.panel.phase,'saved');
+ assert.equal(f.calls.filter(c=>c.op==='setup_ap_wifi_begin').length,1);assert.equal(f.calls.filter(c=>c.op==='setup_ap_wifi_confirm').length,1);
+}
+
 // A successful final bounded poll must not be overwritten with Unknown.
 {
  let polls=0;const f=await fixture({hook:async(c,x)=>c.op==='setup_ap_wifi_status'?x.trial(c,++polls===60?'ready':'testing'):x.defaults(c)});

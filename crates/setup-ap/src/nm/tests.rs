@@ -41,6 +41,8 @@ struct Model {
     lost_outer_destroy_reply: bool,
     lost_inner_destroy_reply: bool,
     lost_ap_delete_reply: bool,
+    /// Real NM GetSettings elides connection.autoconnect at its true default.
+    omit_default_autoconnect: bool,
     /// Reconfiguration: one saved home station, whether it is connected, and what the
     /// outer checkpoint captured; `other` adds a second saved station.
     home: bool,
@@ -402,7 +404,11 @@ impl Connection {
         for (group, values) in p {
             let mut row = HashMap::new();
             for (k, v) in values {
-                if k != "psk" {
+                let omitted_default = m.omit_default_autoconnect
+                    && group == "connection"
+                    && k == "autoconnect"
+                    && bool::try_from(v).ok() == Some(true);
+                if k != "psk" && !omitted_default {
                     row.insert(k.clone(), v.try_clone().unwrap());
                 }
             }

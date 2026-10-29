@@ -4,6 +4,10 @@
 const uuid=s=>typeof s==='string'&&/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(s);
 const digest=s=>typeof s==='string'&&/^[0-9a-f]{64}$/.test(s);
 const need=(ok,message='设备返回的配网状态无效，进度已保留，请查询')=>{if(!ok)throw Error(message);};
+// These failures happen locally before any network submission. Keep an already
+// proven trial usable instead of reporting its result as unknown.
+class WifiInputError extends Error {}
+const inputNeed=(ok,message)=>{if(!ok)throw new WifiInputError(message);};
 const clone=v=>structuredClone(v);
 export function pendingInput(value){
  if(value===null||value===undefined)return null;
@@ -18,8 +22,8 @@ export function pendingInput(value){
  return clone(value);
 }
 export function credentialsInput(ssid,passphrase){
- need(typeof ssid==='string'&&ssid.length>0&&new TextEncoder().encode(ssid).length<=32&&!/[\u0000-\u001f\u007f-\u009f]/u.test(ssid),'请填写有效的 Wi-Fi 名称（最多32字节）');
- need(typeof passphrase==='string'&&(/^[\x20-\x7e]{8,63}$/.test(passphrase)||/^[a-fA-F0-9]{64}$/.test(passphrase)),'请填写8–63位 WPA2 密码，或64位十六进制密钥');
+ inputNeed(typeof ssid==='string'&&ssid.length>0&&new TextEncoder().encode(ssid).length<=32&&!/[\u0000-\u001f\u007f-\u009f]/u.test(ssid),'请填写目标 Wi-Fi 名称（最多32字节）');
+ inputNeed(typeof passphrase==='string'&&(/^[\x20-\x7e]{8,63}$/.test(passphrase)||/^[a-fA-F0-9]{64}$/.test(passphrase)),'请填写目标 Wi-Fi 的8–63位 WPA2 密码，或64位十六进制密钥');
  return {ssid,passphrase};
 }
 // Root's finite preflight refusals (before any network change) and what the owner can do.
@@ -70,7 +74,8 @@ export class ApConfigurator {
  suspend(){this.epoch++;this.opened=false;this.working=false;this.wipe();this.trial=null;this.commit=null;this.parent=null;this.terminal=false;this.phase=this.record?'unknown':'idle';this.render();}
  render(message=null){
   const state=this.phase,waiting=['starting','testing','saving','closing'].includes(state);
-  this.$('ap-wifi-state').textContent=this.storageError?'本机配网记录无法核对，已停止提交。请保留记录并通过维护入口处理。':message||state==='closed'&&this.refusal&&refusals[this.refusal]||messages[state]||messages.unknown;
+  const reenter=state==='trial_ready'&&!this.secret?'试连成功，尚未保存。请重新填写目标 Wi-Fi 名称和密码，再点击“确认保存并连接”。':null;
+  this.$('ap-wifi-state').textContent=this.storageError?'本机配网记录无法核对，已停止提交。请保留记录并通过维护入口处理。':message||reenter||state==='closed'&&this.refusal&&refusals[this.refusal]||messages[state]||messages.unknown;
   this.$('ap-wifi-state').dataset.phase=state;this.$('ap-wifi-progress').setAttribute('aria-busy',String(this.working&&waiting));
   for(const [i,id] of ['ap-wifi-step-input','ap-wifi-step-test','ap-wifi-step-save'].entries()){
    const n=state==='saved'?3:['saving','trial_ready','restored_ap'].includes(state)?2:state==='testing'?1:0;
@@ -94,7 +99,7 @@ export class ApConfigurator {
   if(this.working)return;if(this.blocked()){this.render('请先完成其他测试或通话，再配置 Wi-Fi。');return;}
   this.opened=true;const g=this.epoch;this.working=true;this.render();
   try{if(!this.initialized)await this.initialize();this.check(g);need(!this.storageError,'配网记录不可用');await work(g);}
-  catch(error){if(g===this.epoch){this.terminal=false;this.phase=this.record?'unknown':'idle';this.render(this.record?'进度已保留，请查询。'+(error.message||'操作未确认'):(error.message||'暂不能配置'));}}
+  catch(error){if(g===this.epoch){if(error instanceof WifiInputError){this.render('尚未提交：'+error.message);}else{this.terminal=false;this.phase=this.record?'unknown':'idle';this.render(this.record?'进度已保留，请查询。'+(error.message||'操作未确认'):(error.message||'暂不能配置'));}}}
   finally{if(g===this.epoch){this.working=false;this.render(this.$('ap-wifi-state').textContent);}}
  }
  async currentRecord(g=this.epoch){
