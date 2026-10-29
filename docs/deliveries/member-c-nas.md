@@ -565,3 +565,47 @@ e7edac9树与发布代码c9aed5f的tree完全一致；树验证没有冒充提�
 提案先审不是C13任务完成声明；C15已合并草稿与后续C17～30均不借此计完成。
 源码按本项目AGPL-3.0-only等各文件SPDX保留；Codex辅助盘点与整理，未新增依赖，工时无本人自报、不估造。
 整体固定P0～P7仍80%。
+
+## 2026-10-30 · C13真实Store失败矩阵实现与WSL实测
+
+PR #81已由负责人合并（merge c65cd256e699636eab5b58c656c2aee7cd775953），
+本实现起始main完整SHA为`b6c73c6a47e00654bff51ae2b221fdcd7e9458e0`；
+本人同仓库分支`codex/member-c-update-failure-tests`，PR到main由负责人审核，不自行合并。
+精确实测代码提交：`438fe6e4a61ca7bc1686235720c9c78e98b3fc01`，
+tree `fe4f25929c57afc3562797a057cea1af075f25c7`。
+实际测试先按暂存tree归档运行，随后发布的代码提交树与该tree完全相等；
+本报告/说明随后补记，最终PR完整HEAD列于PR正文，不将后续文档提交冒称为另一轮代码执行。
+
+实现文件：crates/update/tests/failure_matrix.rs、tools/test-update-failure-matrix.py、
+本人既有tools/fixtures/backup-recovery/wsl_test.py增加update suite；说明见
+[C13矩阵](../update/failure-matrix.md)。仅公开Store API，无生产hook或依赖变化。
+7个Rust测试分别验证目录真实EACCES、stage/choose/confirm的state.next冲突、
+运行链接发布EACCES、重复确认、有效但低floor/异key的next拒绝；每项覆盖format1/2。
+合成包验签/载荷由原更新器完成，合成ARM头不执行。独立可写对照验证正常stage/choose/confirm，
+权限负例先用真实probe核对errno13，Store错误仍只称Io；孤儿组和原state保持证据。
+
+真实命令：
+`python tools/fixtures/backup-recovery/wsl_test.py --run --suite update --ref fe4f25929c57afc3562797a057cea1af075f25c7`。
+WSL2 Ubuntu-24.04、内核6.18.54.1-microsoft-standard-WSL2、普通UID1000、Rust1.98.0，
+904个源码文件由Git归档到Linux原生source/TMPDIR/target；依赖锁定且离线。
+北京时间2026-10-30 00:23:04至00:24:40，元数据/依赖/格式、直接矩阵、Cargo包测试、严格Clippy全部退出0，passed=true。
+直接矩阵7通过/0失败/0忽略；Cargo库42通过/0失败/2个既有Root metadata专项ignored，
+新集成7通过/0失败/0忽略；主程序和doc测试无用例。严格Clippy覆盖包all-targets、-D warnings。
+同7项经驱动与Cargo各运行一次，不能计成14项新测试；参数组合不折算成验收步数。
+两项Root专项本轮未运行，未借用旧c9结果伪称本HEAD通过。
+Windows上两个入口不带--run均实际返回execute=false计划，未启动Linux或Cargo。
+
+实际观察：P02/P03/P04证实当前错误返回后内存与磁盘可不同，测试丢弃句柄再重开，
+不把status当持久成功；P05证实运行链接创建失败前attempt已经持久化，重开回退A1且floor不降。
+本包保留这些生产行为，不擅自更改错误后句柄契约或试运行预算。
+
+仅日志包C13-WSL2-validation-fe4f259.zip：7766字节，SHA256
+`59de95aea9217edbde1591ead0ba2658f06fe4735acacdd895c443b39f6798d7`，CRC通过；
+只含来源/summary和步骤日志，不含源码、ELF、密钥、数据库或缓存。本机保留供用户转交，未代发负责人。
+源码固定tree、代码提交与文件范围检查后提交PR，完整HEAD由PR回读。
+
+未验收：C14 tmpfs真实ENOSPC、精确子进程退出/内部persist同步点、联合schema/outbox/回执矩阵，
+以及Root/ARM/真实升级、硬件掉电/fsync与设备恢复。没有设备、生产数据、Root安装、实际通信或签名发布。
+C13本包为已实现且本机自测通过，仍待负责人审核/合并；不自动宣布C13全范围验收或C14完成。
+项目AGPL-3.0-only/原SPDX保留；Codex辅助实现和核对，无新增依赖，无本人自报有效工时，不估造。
+整体按固定P0～P7仍80%。
