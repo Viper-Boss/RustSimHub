@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-29T01:47:50.834737+00:00",
+  "updated_at": "2026-10-29T02:47:24.953393+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原固件81.5%按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "BLE2-01",
-    "title": "恢复公钥注册与撤销",
-    "state": "正在推进",
-    "description": "D-23局部a9f5f59：同Store持久回执、一次claim、重启Unknown与Auth能力绑定；候选schema8仅离线。同步main677ba57后324项通过，Wi-Fi/Root/IPC/A会话未接，不扣整步。"
+    "task_id": "AP-07",
+    "title": "设备首次热点与隔离实测",
+    "state": "下一动作已选定；按前置和验收推进",
+    "description": "Codex接手首次配网：已复现接管命令在HTTP入口被404拦截并修正；354项相关Rust、18组网页、12个ARM程序和33项音频QEMU通过，67版已验签。正在备份真实数据并推进安装，手机试连/保存尚未验收，原D任务暂停，不增加完成点。"
   },
   "facts": [
     {
@@ -5286,6 +5286,18 @@
       ],
       "evidence": [
         "docs/ble/recovery-ledger.md"
+      ]
+    },
+    {
+      "at": "2026-10-29T02:47:24.953393+00:00",
+      "type": "state",
+      "title": "AP-07 · 下一关卡：设备首次热点与隔离实测",
+      "detail": "Codex接手首次配网：已复现接管命令在HTTP入口被404拦截并修正；354项相关Rust、18组网页、12个ARM程序和33项音频QEMU通过，67版已验签。正在备份真实数据并推进安装，手机试连/保存尚未验收，原D任务暂停，不增加完成点。",
+      "task_ids": [
+        "AP-07"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/65"
       ]
     }
   ],
