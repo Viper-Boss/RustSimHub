@@ -7,6 +7,7 @@
 - 宿主调用 app.js 的 mount({client,store})，client 必须是主线认证的 RecoveryClientV1。connect 在点击栈内直接调用 connectFromGesture，再等待存储与状态。没有 query/localStorage/隐藏按钮的 Mock 开关，无广播名/MAC/verified flag 认领，没有复制 Owner 私钥。
 - pin_mismatch/not_preapproved/revoked/auth_failed/permission_denied 使用有限错误码；没有后端时明确显示尚未安装。原始错误/帧/任意恢复 URL 不进入 DOM。
 - begin/confirm/cancel 均是明确动作；confirmed ready、剩余期限与 trial64hex 校验，超过 40 秒本地剩余期拒绝确认；主线端口还必须在每次写和后台重新验 grant、网络锁、电话空闲和普通数据关闭。UI 不承担这些授权。
+- 保存只接受有效 ready；明确取消可接受同一试连当前有效的 starting/connecting/ready 证明。其他未知请求继续阻止新写；取消丢回复后保留原 ID，只查询。已证实保存/回滚的试连不会因归档取消回执而重新启用旧快照；重新连接后必须重新查询原请求。
 - 严格字段/类型/版本/state/proof 校验，生产控制器只接受 source=core，拒绝 mock 源和多余字段。saved/rolled_back 要求对应 authoritative/settings/rollback 证明；not_found 不是未执行证明。
 - PendingStore 只保存 `{contract,device_pin,revision,requests:[{request_id,action,trial_id,submit_started}]}`。每笔写先单事务 CAS 保存 submit_started，再调用端口；失败/冲突禁止写。每设备最多16笔，重开先加载原 ID，不自动发送；未知状态不能清除或归档，只有有效终态证据后人工 archive。请求 UUID 与 trial64hex 不混用。
 - `save(next,expectedRevision)` 明确返回 true 才算 CAS 成功；false/异常均拒绝发送。本元数据库名 rustsimhub-recovery-metadata-v1，不读写主线身份绑定库、CryptoKey 或凭据。主线若提供其他 Store，需要按此安全返回合同适配，不把 void 当成功。
