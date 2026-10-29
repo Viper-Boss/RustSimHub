@@ -32,7 +32,7 @@ pub(super) struct Trial {
     finished: bool,
     cancelled: bool,
 }
-fn uuid(s: &str) -> bool {
+pub(super) fn uuid(s: &str) -> bool {
     s.len() == 36
         && s.bytes().enumerate().all(|(i, b)| {
             if [8, 13, 18, 23].contains(&i) {
@@ -263,7 +263,32 @@ fn view(r: &Record, phase: Phase, authoritative: bool, cancelled: bool, live: bo
         "requires_confirmation":live&&authoritative&&phase==Phase::Ready&&!cancelled,
         "wifi_only":true,"cellular_activation":false,"credentials_returned":false,"settings_saved":false})
 }
+pub(super) fn rescan_trial_may_end(s: &Session) -> bool {
+    s.trial
+        .as_ref()
+        .is_some_and(|t| t.finished && t.phase == Phase::Ready)
+}
 impl Runtime {
+    pub(super) fn station_end_for_rescan(&self, s: &mut Session) -> Result<()> {
+        let t = s.trial.as_mut().ok_or(Error::Forbidden)?;
+        let proof = saved(&self.journal, &t.record)?.ok_or(Error::Forbidden)?;
+        if !t.finished
+            || t.phase != Phase::Ready
+            || !proof
+                .root
+                .is_some_and(|r| r.phase == Phase::Ready && r.ap_https_verified)
+        {
+            return Err(Error::Forbidden);
+        }
+        if !cancel_mark(&self.journal, &t.record)? {
+            write(
+                &path(&self.journal, &t.record.intent.trial_id, "cancel")?,
+                &t.record,
+            )?;
+        }
+        t.cancelled = true;
+        cancel_request(&self.input, &t.record)
+    }
     fn station_view(&self, r: &Record, s: Option<&Session>) -> Result<Value> {
         let live = s.is_some_and(|s| {
             s.record.binding == r.intent.binding
@@ -422,6 +447,7 @@ impl Runtime {
             || s.trial.as_ref().is_some_and(|t| !t.finished)
             || pending(&self.journal)?.is_some()
             || commit::pending(&self.journal)?.is_some()
+            || self.rescan_blocks(s)?
         {
             return Err(Error::Forbidden);
         }
@@ -535,4 +561,4 @@ impl Runtime {
 }
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;

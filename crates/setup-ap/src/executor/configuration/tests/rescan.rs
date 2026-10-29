@@ -601,3 +601,177 @@ async fn a_lost_refusal_reply_stays_durable_without_becoming_a_scan_after_query(
         .consume_rescan(&req.intent().unwrap())
         .is_err());
 }
+
+#[test]
+fn unconsumed_query_needs_exact_durable_parent_close_before_proving_non_execution() {
+    let f = Fixture::new(15000);
+    let req = request(&f);
+    let intent = req.intent().unwrap();
+    f.worker.journal.consume(&req.binding).unwrap();
+    f.worker.input.publish(Slot::RescanQuery, &intent).unwrap();
+    assert!(!f.worker.query_completed_rescan().unwrap());
+    let closed = receipt(&req.binding, State::Closed, 1).unwrap();
+    f.worker
+        .journal
+        .finish_closed(&closed, closed.sample_uptime_ms)
+        .unwrap();
+    assert!(f.worker.query_completed_rescan().unwrap());
+    let result = read(&f);
+    assert!(
+        result.phase == protocol::Phase::Refused
+            && result.refusal == Some(protocol::Refusal::ParentClosed)
+    );
+    assert!(!result.ap_https_verified);
+    assert!(f.worker.journal.consume_rescan(&intent).is_err());
+    let mut wrong = intent;
+    wrong.binding.nonce = "f".repeat(64);
+    f.worker.input.publish(Slot::RescanQuery, &wrong).unwrap();
+    assert!(f.worker.query_completed_rescan().is_err());
+}
+#[test]
+fn closed_parent_non_execution_query_across_boots_does_not_fabricate_an_old_clock_completion() {
+    let f = Fixture::new(15000);
+    let req = protocol::tests::request();
+    let intent = req.intent().unwrap();
+    f.worker.journal.consume(&req.binding).unwrap();
+    let closed = crate::channel::Status {
+        format: 1,
+        binding: req.binding.clone(),
+        state: State::Closed,
+        sequence: 1,
+        sample_uptime_ms: 3000,
+        rollback_verified: true,
+        guard_released: true,
+        refusal: None,
+    };
+    f.worker.journal.finish_closed(&closed, 3000).unwrap();
+    f.worker.input.publish(Slot::RescanQuery, &intent).unwrap();
+    assert!(f.worker.query_completed_rescan().unwrap());
+    let result = read(&f);
+    assert!(
+        result.phase == protocol::Phase::Refused
+            && result.refusal == Some(protocol::Refusal::ParentClosed)
+    );
+    assert!(result.finished_uptime_ms.is_none());
+    assert_eq!(result.sample_boot_id, f.worker.boot);
+}
+
+fn lease_gate<'a, R: Ready + Sync>(f: &'a Fixture, r: &'a R) -> LeaseGate<'a, R> {
+    let w = &f.worker;
+    LeaseGate {
+        input: &w.input,
+        output: &w.output,
+        binding: f.hint.binding.clone(),
+        readiness: r,
+        lease: Mutex::new(
+            RootLease::begin(
+                f.hint.clone(),
+                channel::uptime_ms().unwrap(),
+                &w.boot,
+                &w.realm,
+                &w.key,
+                &w.material,
+            )
+            .unwrap(),
+        ),
+        sequence: AtomicU64::new(1),
+        boot: w.boot.clone(),
+    }
+}
+#[tokio::test]
+async fn admission_rechecks_only_transient_readiness_busy_without_consuming_a_radio_intent() {
+    struct Flaky(AtomicU64, bool);
+    impl Ready for Flaky {
+        async fn check(&self) -> Result<()> {
+            let seen = self.0.fetch_add(1, Ordering::SeqCst);
+            if self.1 {
+                Err(Error::Denied)
+            } else if seen == 0 {
+                Err(Error::Busy)
+            } else {
+                Ok(())
+            }
+        }
+        async fn ap_check(&self) -> Result<()> {
+            Ok(())
+        }
+    }
+    for denied in [false, true] {
+        let f = Fixture::new(15000);
+        let r = Flaky(AtomicU64::new(0), denied);
+        let gate = lease_gate(&f, &r);
+        let req = request(&f);
+        let (_tx, rx) = watch::channel(false);
+        let original = req.deadline_uptime_ms;
+        assert_eq!(rpc::admission_gate(&gate, &req, &rx).await.is_ok(), !denied);
+        assert_eq!(r.0.load(Ordering::SeqCst), if denied { 1 } else { 2 });
+        assert_eq!(req.deadline_uptime_ms, original);
+        assert!(!f
+            .worker
+            .journal
+            .rescan_consumed(&req.intent().unwrap())
+            .unwrap());
+    }
+}
+#[tokio::test]
+async fn permanent_busy_or_cancellation_cannot_make_admission_wait_forever_or_touch_radio() {
+    struct Busy;
+    impl Ready for Busy {
+        async fn check(&self) -> Result<()> {
+            Err(Error::Busy)
+        }
+        async fn ap_check(&self) -> Result<()> {
+            Ok(())
+        }
+    }
+    let f = Fixture::new(15000);
+    let gate = lease_gate(&f, &Busy);
+    let req = request(&f);
+    let (tx, rx) = watch::channel(false);
+    let result = timeout(
+        Duration::from_secs(3),
+        rpc::admission_gate(&gate, &req, &rx),
+    )
+    .await
+    .unwrap();
+    assert!(matches!(result, Err(Error::Busy)));
+    tx.send_replace(true);
+    assert!(matches!(
+        rpc::admission_gate(&gate, &req, &rx).await,
+        Err(Error::Denied)
+    ));
+    assert!(!f
+        .worker
+        .journal
+        .rescan_consumed(&req.intent().unwrap())
+        .unwrap());
+}
+#[tokio::test]
+async fn a_cancel_in_the_slot_before_admission_is_durably_refused_without_any_pause() {
+    let f = Fixture::new(15000);
+    let req = request(&f);
+    f.worker.journal.consume(&req.binding).unwrap();
+    let mut cancel = req.clone();
+    cancel.action = protocol::Action::Cancel;
+    f.worker
+        .input
+        .publish(Slot::RescanRequest, &cancel)
+        .unwrap();
+    let m = Arc::new(StdMutex::new(Model {
+        ap: true,
+        ..Default::default()
+    }));
+    let (mut n, g, r) = setup(m.clone());
+    let gate = lease_gate(&f, &r);
+    let (_tx, rx) = watch::channel(false);
+    let ap = Credentials::generate().unwrap();
+    let result = rpc::execute(&f.worker, &mut n, &g, &r, &gate, &ap, req, &rx)
+        .await
+        .unwrap();
+    assert!(
+        result.phase == protocol::Phase::Refused
+            && result.refusal == Some(protocol::Refusal::Cancelled)
+    );
+    assert!(m.lock().unwrap().events.is_empty());
+    assert!(f.worker.journal.rescan_pending().unwrap().is_none());
+}

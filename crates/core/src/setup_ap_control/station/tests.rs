@@ -4,10 +4,10 @@ use super::super::tests::{fixture, hint, root_status, Fixture};
 use super::*;
 use ed25519_dalek::{Signer, SigningKey};
 use std::os::unix::fs::PermissionsExt;
-pub(super) const ID: &str = "11111111-1111-4111-8111-111111111111";
+pub(in crate::setup_ap_control) const ID: &str = "11111111-1111-4111-8111-111111111111";
 const OTHER: &str = "22222222-2222-4222-8222-222222222222";
-pub(super) const SSID: &str = "SYNTHETIC_PRIVATE_SSID";
-pub(super) const PASS: &str = "SYNTHETIC_PRIVATE_PASSWORD";
+pub(in crate::setup_ap_control) const SSID: &str = "SYNTHETIC_PRIVATE_SSID";
+pub(in crate::setup_ap_control) const PASS: &str = "SYNTHETIC_PRIVATE_PASSWORD";
 struct Quiet;
 impl Idle for Quiet {
     async fn check(&self, _: &str) -> Result<()> {
@@ -42,7 +42,11 @@ pub(super) async fn ready(supported: bool) -> Fixture {
     f.runtime.output.publish(Slot::Availability, &a).unwrap();
     f
 }
-pub(super) async fn begin(f: &Fixture, id: &str, password: &str) -> Result<Value> {
+pub(in crate::setup_ap_control) async fn begin(
+    f: &Fixture,
+    id: &str,
+    password: &str,
+) -> Result<Value> {
     f.runtime
         .station_begin(
             f.auth.clone(),
@@ -59,7 +63,11 @@ fn request(f: &Fixture) -> Request {
     let raw = f.runtime.input.read(Slot::StationRequest).unwrap().unwrap();
     Request::parse(&raw, &hint(f).binding, now().unwrap()).unwrap()
 }
-pub(super) fn root(f: &Fixture, phase: Phase, change: impl FnOnce(&mut TrialStatus)) {
+pub(in crate::setup_ap_control) fn root(
+    f: &Fixture,
+    phase: Phase,
+    change: impl FnOnce(&mut TrialStatus),
+) {
     let active = f.runtime.session.lock().unwrap();
     let intent = active
         .as_ref()
@@ -80,7 +88,7 @@ pub(super) fn root(f: &Fixture, phase: Phase, change: impl FnOnce(&mut TrialStat
     change(&mut s);
     f.runtime.output.publish(Slot::StationStatus, &s).unwrap();
 }
-pub(super) async fn query(f: &Fixture, id: &str) -> Result<Value> {
+pub(in crate::setup_ap_control) async fn query(f: &Fixture, id: &str) -> Result<Value> {
     f.runtime
         .station_status(
             f.auth.clone(),

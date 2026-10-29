@@ -364,6 +364,9 @@ impl Runtime {
         }
         let mut active = self.session.try_lock().map_err(|_| Error::Busy)?;
         let s = active.as_mut().ok_or(Error::Forbidden)?;
+        if self.rescan_blocks(s)? {
+            return Err(Error::Busy);
+        }
         let time = now()?;
         if !s.save_supported
             || s.cancelled
