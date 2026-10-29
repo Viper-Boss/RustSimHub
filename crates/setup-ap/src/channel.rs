@@ -276,6 +276,7 @@ impl RootLease {
 
 pub mod commit;
 pub mod files;
+pub mod rescan;
 pub mod scan;
 pub mod station;
 #[cfg(test)]

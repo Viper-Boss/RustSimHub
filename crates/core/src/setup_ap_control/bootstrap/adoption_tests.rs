@@ -65,6 +65,46 @@ async fn scan_snapshot_is_exact_read_only_and_survives_the_same_round_owner_adop
     status(&f, State::Unknown, |_| {});
     assert!(f.runtime.scan_snapshot().is_none());
 }
+
+#[tokio::test]
+async fn claimed_owner_can_rescan_the_adopted_round_without_new_start_or_deadline() {
+    use rustsimhub_setup_ap::channel::rescan as scan;
+    let (f, token) = ready().await;
+    let initial = hint(&f);
+    adopt(&f, &token).await.unwrap();
+    let c = scan::Capability {
+        format: 1,
+        binding: initial.binding.clone(),
+        sample_uptime_ms: now().unwrap(),
+        available: true,
+        max_per_parent: scan::MAX_PER_PARENT,
+        cooldown_ms: scan::COOLDOWN_MS,
+        remaining: 8,
+        refusal: None,
+        retry_after_uptime_ms: None,
+    };
+    f.runtime
+        .output
+        .publish(Slot::RescanCapability, &c)
+        .unwrap();
+    let v = f
+        .runtime
+        .rescan_begin(
+            f.auth.clone(),
+            token,
+            initial.binding.request_id.clone(),
+            "44444444-4444-4444-8444-444444444444".into(),
+            &idle(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(v["state"], "submitting");
+    let q: scan::Request =
+        serde_json::from_slice(&f.runtime.input.read(Slot::RescanRequest).unwrap().unwrap())
+            .unwrap();
+    assert!(q.binding == initial.binding);
+    assert!(hint(&f) == initial);
+}
 fn reload(f: Fixture) -> Fixture {
     let Fixture {
         runtime,

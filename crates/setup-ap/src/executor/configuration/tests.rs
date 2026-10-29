@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
 mod commit;
+mod rescan;
 use crate::station_trial::{StationCredentials, StationNetwork};
 use std::{
     fs,
@@ -240,10 +241,12 @@ impl Ready for Readiness {
     }
     async fn ap_check(&self) -> Result<()> {
         let m = self.0.lock().unwrap();
-        if m.revoke_during_return_https && m.events.contains(&"station-restore") {
+        let returned =
+            m.events.contains(&"station-restore") || m.events.contains(&"rescan-restore");
+        if m.revoke_during_return_https && returned {
             self.1.store(false, Ordering::SeqCst);
         }
-        if m.ap && !(m.https_lost_after_restore && m.events.contains(&"station-restore")) {
+        if m.ap && !(m.https_lost_after_restore && returned) {
             Ok(())
         } else {
             Err(Error::Denied)

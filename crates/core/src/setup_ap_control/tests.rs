@@ -15,7 +15,7 @@ pub(super) struct Fixture {
     pub(super) auth: Arc<Mutex<Auth>>,
     pub(super) token: String,
     pub(super) dirs: Vec<tempfile::TempDir>,
-    _store: Store,
+    pub(super) _store: Store,
 }
 struct NoCalls {
     checks: AtomicUsize,

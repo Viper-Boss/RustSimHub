@@ -39,6 +39,9 @@ pub(super) fn allowed(command: &AuthCommand) -> bool {
             | AuthCommand::SetupApWifiCancel { .. }
             | AuthCommand::SetupApWifiConfirm { .. }
             | AuthCommand::SetupApWifiCommitStatus { .. }
+            | AuthCommand::SetupApScanBegin { .. }
+            | AuthCommand::SetupApScanStatus { .. }
+            | AuthCommand::SetupApScanCancel { .. }
     )
 }
 fn redirect() -> Response {
@@ -224,6 +227,46 @@ mod tests {
         // 404 means the captive route blocked the UI's required adoption command.
         let response = send(post("http://192.168.100.1", &body)).await;
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+    #[tokio::test]
+    async fn finite_rescan_commands_reach_core_but_keep_origin_and_body_boundaries() {
+        for op in [
+            "setup_ap_scan_begin",
+            "setup_ap_scan_status",
+            "setup_ap_scan_cancel",
+        ] {
+            let good = serde_json::json!({"protocol":2,"id":"scan","command":{"op":op,"token":"a".repeat(64),
+                "operation_id":"11111111-1111-4111-8111-111111111111","scan_id":"22222222-2222-4222-8222-222222222222"}});
+            // Absent Core -> 503 proves forwarding only, not successful authorization/execution.
+            assert_eq!(
+                send(post("http://192.168.100.1", &good.to_string()))
+                    .await
+                    .status(),
+                StatusCode::SERVICE_UNAVAILABLE
+            );
+            assert_eq!(
+                send(post("http://evil.example", &good.to_string()))
+                    .await
+                    .status(),
+                StatusCode::FORBIDDEN
+            );
+            let mut extra = good.clone();
+            extra["command"]["interface"] = "wlan0".into();
+            assert_eq!(
+                send(post("http://192.168.100.1", &extra.to_string()))
+                    .await
+                    .status(),
+                StatusCode::BAD_REQUEST
+            );
+            let mut unsigned = good;
+            unsigned["command"].as_object_mut().unwrap().remove("token");
+            assert_eq!(
+                send(post("http://192.168.100.1", &unsigned.to_string()))
+                    .await
+                    .status(),
+                StatusCode::BAD_REQUEST
+            );
+        }
     }
     async fn send(req: axum::http::Request<axum::body::Body>) -> Response {
         use tower::ServiceExt;

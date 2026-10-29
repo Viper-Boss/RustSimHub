@@ -73,6 +73,9 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | SetupApStatus { .. }
         | SetupApOperationStatus { .. }
         | SetupApCancel { .. }
+        | SetupApScanBegin { .. }
+        | SetupApScanStatus { .. }
+        | SetupApScanCancel { .. }
         | SetupApWifiBegin { .. }
         | SetupApWifiStatus { .. }
         | SetupApWifiCancel { .. }
@@ -377,6 +380,9 @@ pub(crate) async fn handle(
     } else if matches!(
         request.command,
         AuthCommand::SetupApStart { .. }
+            | AuthCommand::SetupApScanBegin { .. }
+            | AuthCommand::SetupApScanStatus { .. }
+            | AuthCommand::SetupApScanCancel { .. }
             | AuthCommand::SetupApStatus { .. }
             | AuthCommand::SetupApOperationStatus { .. }
             | AuthCommand::SetupApCancel { .. }

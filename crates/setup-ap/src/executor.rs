@@ -258,6 +258,17 @@ struct Worker {
     material: String,
 }
 impl Worker {
+    fn query_completed_rescan(&self) -> Result<bool> {
+        let Some(raw) = self.input.read(Slot::RescanQuery)? else {
+            return Ok(false);
+        };
+        let intent: channel::rescan::Intent =
+            serde_json::from_slice(&raw).map_err(|_| Error::Invalid)?;
+        if !intent.valid() {
+            return Err(Error::Denied);
+        }
+        Ok(configuration::rescan::cached(self, &intent)?.is_some())
+    }
     fn query_completed_commit(&self) -> Result<bool> {
         let Some(bytes) = self.input.read(Slot::StationCommitQuery)? else {
             return Ok(false);
@@ -469,6 +480,7 @@ async fn serve(
             return Ok(());
         }
         worker.query_completed_commit()?;
+        worker.query_completed_rescan()?;
         if worker.recover()? {
             worker.availability(false, configurable)?;
         } else {
