@@ -1,0 +1,1 @@
+{"name": "RustSimHub 恢复配置器", "short_name": "恢复配置", "lang": "zh-CN", "id": "./", "start_url": "./", "scope": "./", "display": "standalone", "background_color": "#13282a", "theme_color": "#13282a", "icons": [{"src": "./assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]}
