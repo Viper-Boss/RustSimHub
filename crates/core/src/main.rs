@@ -31,6 +31,8 @@ mod network_diagnostics;
 mod network_trial;
 #[cfg(target_os = "linux")]
 mod observer;
+#[cfg(target_os = "linux")]
+mod recovery_authorization;
 #[cfg(feature = "dev-fixtures")]
 mod recovery_check;
 #[cfg(target_os = "linux")]

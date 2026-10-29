@@ -3,6 +3,8 @@
 use serde::{Deserialize, Serialize};
 use std::io::{self, Read, Write};
 mod auth;
+#[cfg(test)]
+mod recovery_grant_tests;
 pub use auth::{
     parse_auth_request, wifi_credentials_valid, AuthCommand, AuthRequest, AUTH_PROTOCOL,
 };

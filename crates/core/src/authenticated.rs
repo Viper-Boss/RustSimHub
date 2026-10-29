@@ -16,6 +16,10 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth::Result<Value> {
     use AuthCommand::*;
     Ok(match command {
+        command @ (RecoveryGrant { .. }
+        | RecoveryRevoke { .. }
+        | RecoveryKey { .. }
+        | RecoveryRequest { .. }) => crate::recovery_authorization::dispatch(auth, command)?,
         ConfigurationIndicator {
             token,
             view_id,

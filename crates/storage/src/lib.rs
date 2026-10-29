@@ -17,6 +17,16 @@ use uuid::Uuid;
 
 const APP_ID: i64 = 1381189698;
 const SCHEMA: i64 = 6;
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum OpenMode {
+    Standard,
+    #[cfg(feature = "recovery-grants")]
+    Recovery,
+}
+#[cfg(feature = "recovery-grants")]
+mod recovery_grants;
+#[cfg(feature = "recovery-grants")]
+pub use recovery_grants::{RecoveryChange, RecoveryGrant};
 mod auth;
 mod calls;
 pub use calls::{
@@ -136,7 +146,7 @@ pub struct Store {
 
 impl Store {
     pub fn open(directory: impl AsRef<Path>) -> Result<Self> {
-        Self::start(directory.as_ref().to_owned(), None)
+        Self::start(directory.as_ref().to_owned(), None, OpenMode::Standard)
     }
     /// Offline restore to a fresh directory only; replaces the event epoch.
     pub fn restore(
@@ -146,15 +156,16 @@ impl Store {
         Self::start(
             destination.as_ref().to_owned(),
             Some(backup_directory.as_ref().to_owned()),
+            OpenMode::Standard,
         )
     }
-    fn start(directory: PathBuf, restore: Option<PathBuf>) -> Result<Self> {
+    fn start(directory: PathBuf, restore: Option<PathBuf>, mode: OpenMode) -> Result<Self> {
         let (sender, receiver) = mpsc::sync_channel::<Message>(32);
         let (ready_tx, ready_rx) = mpsc::sync_channel(1);
         let worker = thread::Builder::new()
             .name("rustsimhub-sqlite".into())
             .spawn(move || {
-                let mut database = match Database::open(&directory, restore.as_deref()) {
+                let mut database = match Database::open(&directory, restore.as_deref(), mode) {
                     Ok(db) => {
                         let _ = ready_tx.send(Ok(()));
                         db
@@ -392,7 +403,7 @@ fn cursor(connection: &Connection) -> Result<Cursor> {
     })
 }
 impl Database {
-    fn open(directory: &Path, restore: Option<&Path>) -> Result<Self> {
+    fn open(directory: &Path, restore: Option<&Path>, mode: OpenMode) -> Result<Self> {
         private_directory(directory)?;
         reject_links(directory)?;
         let lock = private_file(&directory.join(".writer.lock"), false)?;
@@ -442,8 +453,19 @@ impl Database {
         )?;
         connection.busy_timeout(Duration::from_secs(3))?;
         let version: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
-        if version > SCHEMA {
+        let supported = match mode {
+            OpenMode::Standard => SCHEMA,
+            #[cfg(feature = "recovery-grants")]
+            _ => 7,
+        };
+        if version > supported {
             return Err(Error::NewerSchema);
+        }
+        #[cfg(not(feature = "recovery-grants"))]
+        let _ = mode;
+        #[cfg(feature = "recovery-grants")]
+        if mode == OpenMode::Recovery && version != 7 {
+            return Err(Error::InvalidTransition);
         }
         if restore_marker.exists() && version == 0 {
             return Err(Error::Corrupt);
@@ -462,8 +484,9 @@ impl Database {
             return Err(Error::Corrupt);
         }
         connection.execute_batch("PRAGMA trusted_schema=OFF; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL; PRAGMA wal_autocheckpoint=256; PRAGMA journal_size_limit=4194304; PRAGMA max_page_count=8192;")?;
-        let mode: String = connection.query_row("PRAGMA journal_mode=WAL", [], |row| row.get(0))?;
-        if mode != "wal" {
+        let journal_mode: String =
+            connection.query_row("PRAGMA journal_mode=WAL", [], |row| row.get(0))?;
+        if journal_mode != "wal" {
             return Err(Error::Database);
         }
         let mut db = Self {
@@ -503,6 +526,11 @@ impl Database {
             let tx = db.connection.transaction()?;
             tx.execute_batch(include_str!("inbox-management.sql"))?;
             tx.commit()?;
+        }
+
+        #[cfg(feature = "recovery-grants")]
+        if mode != OpenMode::Standard {
+            recovery_grants::validate(&db.connection)?;
         }
 
         let restoring = restore_marker.exists();

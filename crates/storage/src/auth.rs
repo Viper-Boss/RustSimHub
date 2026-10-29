@@ -185,6 +185,12 @@ impl Handle {
         self.call(move |db| {
             let tx = db.connection.transaction()?;
             checked_owner(&tx, &owner)?;
+            #[cfg(feature = "recovery-grants")]
+            if tx.pragma_query_value::<i64, _>(None, "user_version", |r| r.get(0))? == 7
+                && tx.query_row("SELECT EXISTS(SELECT 1 FROM recovery_grants WHERE independent_public_key=?)", [key.as_slice()], |r| r.get::<_, bool>(0))?
+            {
+                return Err(Error::Forbidden);
+            }
             let p = if expected_generation==0 {
                 insert(&tx,key,kind,scopes)?
             } else {

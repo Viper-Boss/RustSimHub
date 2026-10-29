@@ -14,6 +14,27 @@ pub struct AuthRequest {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AuthCommand {
+    RecoveryGrant {
+        token: String,
+        public_key: [u8; 32],
+        max_trial_ms: u32,
+        expected_generation: String,
+        request_id: String,
+    },
+    RecoveryRevoke {
+        token: String,
+        public_key: [u8; 32],
+        expected_generation: String,
+        request_id: String,
+    },
+    RecoveryKey {
+        token: String,
+        public_key: [u8; 32],
+    },
+    RecoveryRequest {
+        token: String,
+        request_id: String,
+    },
     Identity {},
     ForwardingStatus {
         token: String,
@@ -436,6 +457,44 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         return Err(invalid());
     }
     match &req.command {
+        AuthCommand::RecoveryGrant {
+            token,
+            max_trial_ms,
+            expected_generation,
+            request_id,
+            ..
+        } => {
+            if token.len() != 64
+                || !(1..=40000).contains(max_trial_ms)
+                || !canonical_generation(expected_generation)
+                || !canonical_uuid(request_id)
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::RecoveryRevoke {
+            token,
+            expected_generation,
+            request_id,
+            ..
+        } => {
+            if token.len() != 64
+                || !canonical_generation(expected_generation)
+                || !canonical_uuid(request_id)
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::RecoveryKey { token, .. } => {
+            if token.len() != 64 {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::RecoveryRequest { token, request_id } => {
+            if token.len() != 64 || !canonical_uuid(request_id) {
+                return Err(invalid());
+            }
+        }
         AuthCommand::SetForwardingEnabled {
             token,
             expected_generation,
@@ -1077,6 +1136,13 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         _ => {}
     }
     Ok(req)
+}
+
+fn canonical_generation(value: &str) -> bool {
+    value.len() <= 19
+        && value
+            .parse::<u64>()
+            .is_ok_and(|v| v < i64::MAX as u64 && v.to_string() == value)
 }
 fn canonical_uuid(value: &str) -> bool {
     value.len() == 36
