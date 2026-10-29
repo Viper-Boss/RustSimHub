@@ -3,7 +3,9 @@ use std::{fs, os::unix::fs::PermissionsExt};
 
 #[test]
 fn history_preflight_cli_uses_real_sqlite_and_outputs_redacted_rejections() {
-    let _guard = crate::OFFLINE_CLI_TEST_LOCK.lock().unwrap();
+    let _guard = crate::OFFLINE_CLI_TEST_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let root = tempfile::tempdir().unwrap();
     fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700)).unwrap();
     let source = root.path().join("snapshot.sqlite");

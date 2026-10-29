@@ -139,7 +139,9 @@ fn flags(r: &history::Report) {
 
 #[test]
 fn repeated_packages_keep_exact_ids_payloads_and_one_batch_marker() {
-    let _guard = crate::OFFLINE_CLI_TEST_LOCK.lock().unwrap();
+    let _guard = crate::OFFLINE_CLI_TEST_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let f = Fixture::new();
     let protected = f.protected();
     let first = history::import(&f.input, A, &f.archive).unwrap();
@@ -160,7 +162,9 @@ fn repeated_packages_keep_exact_ids_payloads_and_one_batch_marker() {
 
 #[test]
 fn late_conflict_rolls_back_earlier_new_ids_and_distinct_sources_stay_distinct() {
-    let _guard = crate::OFFLINE_CLI_TEST_LOCK.lock().unwrap();
+    let _guard = crate::OFFLINE_CLI_TEST_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let f = Fixture::new();
     history::import(&f.input, A, &f.archive).unwrap();
     let before = state(&f.archive);
@@ -197,7 +201,9 @@ fn late_conflict_rolls_back_earlier_new_ids_and_distinct_sources_stay_distinct()
 
 #[test]
 fn sqlite_abort_after_three_real_inserts_preserves_original_batch_and_can_rerun() {
-    let _guard = crate::OFFLINE_CLI_TEST_LOCK.lock().unwrap();
+    let _guard = crate::OFFLINE_CLI_TEST_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let f = Fixture::new();
     history::import(&f.input, A, &f.archive).unwrap();
     let db = Connection::open(f.archive.join("history.sqlite")).unwrap();
@@ -303,7 +309,9 @@ impl Drop for Worker {
 
 #[test]
 fn killed_import_with_real_journal_reopens_without_partial_records_and_reruns() {
-    let _guard = crate::OFFLINE_CLI_TEST_LOCK.lock().unwrap();
+    let _guard = crate::OFFLINE_CLI_TEST_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let f = Fixture::new();
     history::import(&f.input, A, &f.archive).unwrap();
     let before = state(&f.archive);
@@ -351,7 +359,9 @@ fn killed_import_with_real_journal_reopens_without_partial_records_and_reruns() 
 
 #[test]
 fn actual_file_size_write_failure_recovers_new_and_existing_archives() {
-    let _guard = crate::OFFLINE_CLI_TEST_LOCK.lock().unwrap();
+    let _guard = crate::OFFLINE_CLI_TEST_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     const LIMIT: u64 = 128 * 1024;
     for seeded in [false, true] {
         let f = Fixture::new();
@@ -394,7 +404,9 @@ fn actual_file_size_write_failure_recovers_new_and_existing_archives() {
 
 #[test]
 fn committed_import_with_lost_report_retries_without_reassigning_ids() {
-    let _guard = crate::OFFLINE_CLI_TEST_LOCK.lock().unwrap();
+    let _guard = crate::OFFLINE_CLI_TEST_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let f = Fixture::new();
     let protected = f.protected();
     let output = Worker::spawn(&f, None, true).finish();
@@ -413,7 +425,9 @@ fn committed_import_with_lost_report_retries_without_reassigning_ids() {
 
 #[test]
 fn realm_generation_and_archive_changes_never_reuse_old_authority_or_live_operations() {
-    let _guard = crate::OFFLINE_CLI_TEST_LOCK.lock().unwrap();
+    let _guard = crate::OFFLINE_CLI_TEST_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let f = Fixture::new();
     let db = Connection::open(&f.input).unwrap();
     db.execute_batch("UPDATE sms SET request_id='same-old-request',state='submitting' WHERE id=44; UPDATE call_history SET request_id='same-old-call',phase='dialing';").unwrap();
