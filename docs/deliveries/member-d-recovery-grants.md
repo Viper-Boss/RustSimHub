@@ -102,3 +102,12 @@ restore-final.log         208f436d980a5f7d4816853aead2c85c0baf1bb9a68f99385291e5
 OpenAI Codex辅助编写与实测；未虚报工时、重写RedamancyGTW或他人Git作者。
 没有生产数据/设备/NAS访问、真实短信/拨号/转发/公网业务、Root安装、签名或部署。
 远程CI状态在PR精确HEAD回读后另记，不能用本地733项替代。
+
+## 提交前主线接续
+
+已正常合入最新main `b6c73c6a47e00654bff51ae2b221fdcd7e9458e0`，
+合并HEAD `fa720318242ed96021c2c4fc46acec688afed999`；无冲突，保留成员B新配置器、诊断、
+测试中心和性能工具。逐路径比较确认此次主线增量没有Rust源码、Cargo.toml/锁文件变化，
+本批实现字节保持。补验所有23个`tools/test-web-*.mjs`脚本、
+`node tools/test-ble-configurator.mjs`及`python3 tools/site-build/test_build.py`的2项静态构建测试，
+全部退出0；不改B文件，也不将其UI模块自动连接到本批密钥库或宣称生产后端完成。
