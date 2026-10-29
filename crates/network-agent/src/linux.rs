@@ -120,11 +120,14 @@ fn nft(script: &str) -> Result<()> {
     Ok(())
 }
 fn counters() -> Result<(u64, u64)> {
-    let v: Value = serde_json::from_str(&command(
+    parse_counters(&command(
         "/usr/sbin/nft",
         &["-j", "list", "table", "inet", "rustsimhub_net"],
         None,
-    )?)?;
+    )?)
+}
+fn parse_counters(output: &str) -> Result<(u64, u64)> {
+    let v: Value = serde_json::from_str(output)?;
     let mut rx = None;
     let mut tx = None;
     for row in v["nftables"].as_array().ok_or("nft response")? {
@@ -711,3 +714,7 @@ pub fn run() -> Result<()> {
         thread::sleep(Duration::from_secs(2));
     }
 }
+
+#[cfg(test)]
+#[path = "linux_tests.rs"]
+mod tests;
