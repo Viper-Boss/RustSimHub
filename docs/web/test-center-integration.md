@@ -35,6 +35,7 @@ center.reset(); // 只清本组件显示/隔离迟到 UI；宿主仍负责停止
 ```
 
 - root 必须是带唯一 ID 的独立 DOM 挂载点；每个 reason 以其 ID 为前缀。debugElement 是宿主提供的已有调试节点，放入默认关闭的 details。
+- 样式复用日常页现有同源 style.css 中的 .test-center-component 规则；组件不插入内联 style。独立宿主也应加载该样式文件，沿用 Edge 的 style-src 'self' 策略。
 - 回调收到 `{isCurrent, update}` 显示作用域；异步通知应使用这个 update，reset 后会忽略旧通知。宿主主动刷新可调用 center.update，但必须保留自己的认证/业务代次检查。这个显示作用域不替代既有业务 fence。
 - actions 固定为 check/outgoing/incoming/sms/forwarding/stop/recover 的 Promise 回调。没有回调或 enabled=true 时默认禁用，原因始终可见且由 aria-describedby 关联。
 - update/render 不调用回调；只有用户点击/键盘激活（或宿主显式调用 run）执行对应回调一次。busy 阻止并发开始；停止回调单独防重，允许终止尚未返回的开始回调。
@@ -63,6 +64,8 @@ python3 tools/fixtures/test-center/browser.py --output /workspace/setup-logs/tes
 ```
 
 浏览器脚本需系统 Chromium（当前 /usr/bin/chromium）及 Python playwright。它仅在临时端口绑定 127.0.0.1，仅提供本夹具 HTML 和实际组件模块，拦截所有非该源请求；结束后关闭浏览器和服务器。样例只执行本地回调，不接设备/公网业务、不发短信/拨号/转发。截图输出目录由参数指定，不提交生成物。
+
+夹具脚本与样式均从显式同源资源加载，服务器直接读取 crates/edge/src/linux.rs 的实际默认 CSP header，断言无策略违规且 flex/最小按钮高度/键盘焦点样式真实生效；没有用宽松夹具策略替代生产约束。夹具额外提供现有 style.css 和独立 fixture.js，不改变生产路由。
 
 本地 Chromium 实测 1440/390/320：长中文消息与禁用原因无横向溢出，debug 默认收起，Tab 跳过禁用按钮，Enter 只触发一次 check，继续 Tab 到 recover/summary，Enter 展开调试。所有页面无 JS 异常。
 
