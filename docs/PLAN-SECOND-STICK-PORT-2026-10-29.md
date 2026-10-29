@@ -140,6 +140,20 @@
 
 私有目录 `.private/second-stick-firmware-bundle-20261029-first/`（BUNDLE.json 记录每个文件的来源）。35 个文件：27 个来自二手棒子自己的 modem 分区；5 个是与二手棒子 mdt 哈希表吻合的同版本字节；`WCNSS_qcom_wlan_nv.bin` 来自二手棒子 persist；两个配置文件来自二手棒子 system。modem、wcnss、mba 的全部哈希段校验通过，`sha256sum -c` 通过，文件名满足设备端 `rustsimhub-device-firmware` 的白名单规则。没有原设备的 NV、校准或 `local-volte`。这个包将放进二手棒子 NSHSTATE 镜像的 `.private-firmware/`（第 1 步其余部分）。
 
+## 写入工具交付与首批计划 dryrun（2026-10-29）
+
+UsbTool 会话按需求交付受限写入模式（UsbTool 提交 b4c0109，只在模拟 Firehose 目标上测试过，从未写过真实设备）：一次只执行命令行点名的一步，`--confirm` 必须给出该步骤摘要，每步有尝试标记、不重试、不重启；写后目标回读三遍、保护区逐扇区比较、重读 GPT。启动链目标在原设备布局上一律拒绝；sbl1/rpm/hyp/各备份分区和全部 NV/基带分区永远禁写。真实加载器对 `SkipWrite=0`、16 KiB 块和零长度包的行为还没有在硬件上验证。
+
+第 2–4 步的计划在私有目录 `.private/second-stick-write-plan-20261029-first/`（plan.json 和四个载荷）：
+
+| 步 | 目标 | 扇区 | 载荷 SHA 前缀 | 写入前 GPT | dryrun |
+|---|---|---|---|---|---|
+| 2 | tz | 270336 起 1024 | d3bc9ed2…（tzbak） | 原厂 a0a4c67d… | 通过 |
+| 3 | gpt | 0 起 34、7634911 起 33 | b07cad2e… / f7d162d5… | 原厂 a0a4c67d…，写后 d6483f3b… | 通过 |
+| 4 | aboot | 264192 起 2048 | a2aee677…（lk1st） | 新表 d6483f3b… | 通过 |
+
+`write-dryrun`（不开 USB）按顺序通过三步，含 GPT 变更后的串联核对；计划摘要 619231e6…，各步骤摘要在执行前随批准请求一起给出。boot、NSHSTATE、rootfs 的载荷还没有准备，暂不进计划。
+
 ## 当前状态
 
 - 已完成：方案、离线表决与哈希段分析、GPT 计划生成器及真实输入的离线计划、第 0b 步 lk1st 提取、第 0c 步只读读取、二手棒子固件包。
