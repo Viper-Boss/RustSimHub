@@ -9,6 +9,8 @@ mod history_recovery_tests;
 mod nas_adapter_tests;
 #[cfg(all(test, target_os = "linux"))]
 mod preflight_cli_tests;
+// Only serializes the tests (it guards no data): a panicking test, such as the Go fixture on a
+// machine without Go, must not cascade PoisonError failures into unrelated tests.
 #[cfg(all(test, target_os = "linux"))]
 static OFFLINE_CLI_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 

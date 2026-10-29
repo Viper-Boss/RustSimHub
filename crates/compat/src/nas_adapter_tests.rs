@@ -3,7 +3,9 @@
 //! compatibility tests on Linux. No gateway, NAS or device is contacted.
 #[test]
 fn go_nas_readonly_contract_and_synthetic_cli() {
-    let _guard = crate::OFFLINE_CLI_TEST_LOCK.lock().unwrap();
+    let _guard = crate::OFFLINE_CLI_TEST_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
