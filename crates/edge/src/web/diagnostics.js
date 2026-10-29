@@ -40,7 +40,7 @@ export class DiagnosticPanel {
  async query(){
   if(this.queryButton.disabled)return;
   const id=this.summary.operation.id,epoch=this.epoch;this.busy=true;this.controller=new AbortController();const controller=this.controller;this.render();
-  let timer;const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('deadline'));},3000);});
+  let timer;const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{reject(Error('deadline'));controller.abort();},3000);});
   try{
    const snapshot=await Promise.race([this.queryOperation(id,{signal:controller.signal}),timeout]);
    if(epoch!==this.epoch)return;
