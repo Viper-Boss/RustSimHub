@@ -98,7 +98,15 @@ pub(in crate::executor) fn cached(
     intent: &protocol::Intent,
 ) -> Result<Option<protocol::Status>> {
     if !worker.journal.rescan_consumed(intent)? {
-        return Ok(None);
+        // The exact parent close proof plus absence of any consumed scan intent proves
+        // non-execution, even when a Core crash prevented Root seeing the request in time.
+        if worker.journal.closed(&intent.binding)?.is_none() {
+            return Ok(None);
+        }
+        let mut s = status(intent.clone(), protocol::Phase::Unknown, None)?;
+        s.phase = protocol::Phase::Refused;
+        s.refusal = Some(protocol::Refusal::ParentClosed);
+        worker.journal.refuse_rescan(&s)?;
     }
     let mut saved = match worker.journal.rescan_result(intent)? {
         Some(s) => s,
@@ -160,6 +168,35 @@ fn refuse(
     publish_status(worker, &s)?;
     Ok(s)
 }
+/// Only read-only Busy probes may wait; identity denial never becomes an automatic retry.
+/// The deadline and payload are unchanged and no radio intent is consumed in this loop.
+pub(super) async fn admission_gate<R: Ready + Sync>(
+    gate: &LeaseGate<'_, R>,
+    r: &protocol::Request,
+    stopped: &watch::Receiver<bool>,
+) -> Result<()> {
+    let remaining = r
+        .deadline_uptime_ms
+        .checked_sub(channel::uptime_ms()?)
+        .ok_or(Error::Denied)?;
+    let end = Instant::now() + Duration::from_millis(remaining.min(2000));
+    let mut stopped = stopped.clone();
+    loop {
+        if *stopped.borrow() || stopped.has_changed().is_err() {
+            return Err(Error::Denied);
+        }
+        match tokio::time::timeout_at(end, gate.check()).await {
+            Ok(Ok(())) => return Ok(()),
+            Ok(Err(Error::Busy)) if Instant::now() < end => {}
+            Ok(Err(e)) => return Err(e),
+            _ => return Err(Error::Busy),
+        }
+        tokio::select! {
+            _=super::stop(&mut stopped)=>return Err(Error::Denied),
+            _=tokio::time::sleep_until(end.min(Instant::now()+Duration::from_millis(50)))=>{}
+        }
+    }
+}
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn handle<N: Network + RescanProvider, G: Guard + TrialGuard, R: Ready + Sync>(
     worker: &Worker,
@@ -179,7 +216,15 @@ pub(super) async fn handle<N: Network + RescanProvider, G: Guard + TrialGuard, R
     if let Some(s) = cached(worker, &intent)? {
         return Ok(Some(s));
     }
-    gate.check().await?;
+    // An already stale request can still get a non-execution decision. No radio action is
+    // considered until execute() has checked fresh readiness and re-read the original slot.
+    match gate.check().await {
+        Ok(()) => {}
+        Err(Error::Busy) if r.validate(&gate.binding, channel::uptime_ms()?).is_ok() => {
+            admission_gate(gate, &r, stopped).await?;
+        }
+        Err(e) => return Err(e),
+    }
     let now = channel::uptime_ms()?;
     // Missing terminal evidence from an accepted operation is not a mere refusal to a new
     // request. rescan_admission() fails closed and the caller retains the parent Unknown.
@@ -254,7 +299,27 @@ pub(super) async fn execute<N: Network + RescanProvider, G: Guard + TrialGuard, 
         return Err(Error::Denied);
     }
     let intent = request.intent()?;
-    gate.check().await?;
+    admission_gate(gate, &request, stopped).await?;
+    let now = channel::uptime_ms()?;
+    if request.validate(&gate.binding, now).is_err() {
+        let reason = if gate.binding.deadline_uptime_ms.saturating_sub(now) < 60_000 {
+            protocol::Refusal::WindowClosing
+        } else {
+            protocol::Refusal::Stale
+        };
+        return refuse(worker, intent, reason);
+    }
+    let current = self::request(worker, &gate.binding)?;
+    if !current.as_ref().is_some_and(|q| {
+        q.action == protocol::Action::Scan && q.intent().is_ok_and(|i| i == intent)
+    }) {
+        let reason = if current.as_ref().is_some_and(|q| q.cancels(&intent)) {
+            protocol::Refusal::Cancelled
+        } else {
+            protocol::Refusal::Superseded
+        };
+        return refuse(worker, intent, reason);
+    }
     worker.journal.consume_rescan(&intent)?;
     // Anything after durable admission can be uncertain; the caller keeps the parent guard
     // if this function fails or returns Unknown. No fallback to parent rollback here.

@@ -22,6 +22,7 @@ use std::{
 };
 use tokio::sync::OwnedRwLockWriteGuard;
 mod bootstrap;
+mod rescan;
 mod station;
 type Result<T> = rustsimhub_auth::Result<T>;
 static RUNTIME: OnceLock<Arc<Runtime>> = OnceLock::new();
@@ -95,6 +96,7 @@ struct Session {
     save_supported: bool,
     committed: bool,
     trial: Option<station::Trial>,
+    rescan: Option<rescan::Scan>,
     station_count: usize,
     /// Root's finite preflight refusal, kept only for display after a verified close.
     refusal: Option<rustsimhub_setup_ap::transaction::Refusal>,
@@ -195,6 +197,7 @@ impl Runtime {
             return Err(Error::Forbidden);
         }
         let trial = station::recover(&input, &journal, record.as_ref())?;
+        let rescan = rescan::recover(&input, &journal, record.as_ref())?;
         let session = record
             .map(|record| -> Result<Session> {
                 let permit = coordination.network().map_err(|_| Error::Busy)?;
@@ -211,6 +214,7 @@ impl Runtime {
                     save_supported: false,
                     committed: false,
                     trial,
+                    rescan,
                     station_count: 0,
                     refusal: None,
                     first_setup: false,
@@ -274,6 +278,15 @@ impl Runtime {
             "wifi_only":true,"cellular_activation":false,"credentials_returned":false,"completion_saved":s.committed,
             "refusal":s.refusal})
     }
+    fn session_view(&self, s: &Session) -> Value {
+        let mut v = Self::view(s);
+        v["scan"] = self.rescan_capability(s);
+        if self.rescan_blocks(s).unwrap_or(true) {
+            v["station_trial_api"] = false.into();
+            v["station_save_api"] = false.into();
+        }
+        v
+    }
     fn availability(&self, c: &Context) -> Result<Availability> {
         let bytes = denied(self.output.read(Slot::Availability))?.ok_or(Error::Forbidden)?;
         denied(Availability::parse(
@@ -291,15 +304,17 @@ impl Runtime {
             if s.record.owner != Owner::from(&c.principal) {
                 return Err(Error::Forbidden);
             }
-            let mut view = Self::view(s);
+            let mut view = self.session_view(s);
             view["station_trial_api"] = (s.station_supported
                 && !s.cancelled
                 && s.phase == State::Ready
+                && !self.rescan_blocks(s)?
                 && station::commit::pending(&self.journal)?.is_none())
             .into();
             view["station_save_api"] = (s.save_supported
                 && !s.cancelled
                 && s.phase == State::Ready
+                && !self.rescan_blocks(s)?
                 && station::commit::pending(&self.journal)?.is_none())
             .into();
             return Ok(view);
@@ -350,7 +365,7 @@ impl Runtime {
         }
         let active = self.session.try_lock().map_err(|_| Error::Busy)?;
         if let Some(s) = active.as_ref().filter(|s| s.record.key_sha256 == digest) {
-            let mut view = Self::view(s);
+            let mut view = self.session_view(s);
             view["known"] = true.into();
             view["historical"] = false.into();
             if station::commit::pending(&self.journal)?.is_some() {
@@ -393,7 +408,7 @@ impl Runtime {
                     if s.record.owner != Owner::from(&c.principal) {
                         return Err(Error::Forbidden);
                     }
-                    return Ok(Self::view(s));
+                    return Ok(self.session_view(s));
                 }
                 if s.phase != State::Closed {
                     return Err(Error::Busy);
@@ -425,6 +440,8 @@ impl Runtime {
             .is_some()
             || station::pending(&self.journal)?.is_some()
             || station::commit::pending(&self.journal)?.is_some()
+            || rescan::pending(&self.journal)?.is_some()
+            || denied(self.input.read(Slot::RescanRequest))?.is_some()
             || self
                 .input
                 .read(Slot::StationCommitRequest)
@@ -490,6 +507,7 @@ impl Runtime {
             save_supported: available.station_save_supported,
             committed: false,
             trial: None,
+            rescan: None,
             station_count: 0,
             refusal: None,
             first_setup: false,
@@ -504,7 +522,7 @@ impl Runtime {
             s.cancelled = true;
         }
         published?;
-        Ok(Self::view(s))
+        Ok(self.session_view(s))
     }
     async fn cancel(&self, auth: Arc<Mutex<Auth>>, token: String, id: String) -> Result<Value> {
         let c = owner(auth, token, true).await?;
@@ -521,13 +539,14 @@ impl Runtime {
             s.token = None;
             self.publish_cancel(s)?;
         }
-        Ok(Self::view(s))
+        Ok(self.session_view(s))
     }
     fn publish_cancel(&self, s: &mut Session) -> Result<()> {
+        let child_cancel = self.rescan_abort(s);
         s.phase = State::Closing;
         let time = now()?;
         if time >= s.record.binding.deadline_uptime_ms || s.record.binding.boot_id != boot()? {
-            return Ok(());
+            return child_cancel;
         }
         s.sequence = s.sequence.checked_add(1).ok_or(Error::InvalidInput)?;
         if s.sequence > 1024 {
@@ -544,10 +563,14 @@ impl Runtime {
                     (time + channel::HEARTBEAT_MS).min(s.record.binding.deadline_uptime_ms),
                 open: false,
             },
-        ))
+        ))?;
+        child_cancel
     }
     fn closed(&self, s: &mut Session, status: &Status, time: u64) -> Result<()> {
         denied(status.validate(&s.record.binding, time))?;
+        if !self.rescan_parent_closed(s)? {
+            return Ok(());
+        }
         let pending =
             Self::read_record(&self.journal.join("pending.json"))?.ok_or(Error::Forbidden)?;
         if pending.binding != s.record.binding
@@ -601,6 +624,7 @@ impl Runtime {
         {
             let mut active = self.session.try_lock().map_err(|_| Error::Busy)?;
             let s = active.as_mut().ok_or(Error::Busy)?;
+            self.rescan_tick(s, time)?;
             self.commit_tick(s, time)?;
             if s.phase == State::Closed {
                 return Ok(());
@@ -843,12 +867,15 @@ pub(crate) async fn authorized(
         AuthCommand::SetupApStatus { token }
         | AuthCommand::SetupApOperationStatus { token, .. }
         | AuthCommand::SetupApWifiStatus { token, .. }
+        | AuthCommand::SetupApScanStatus { token, .. }
         | AuthCommand::SetupApWifiCommitStatus { token, .. } => (token.clone(), false),
         AuthCommand::SetupApStart { token, .. }
         | AuthCommand::SetupApCancel { token, .. }
         | AuthCommand::SetupApWifiBegin { token, .. }
         | AuthCommand::SetupApWifiConfirm { token, .. }
         | AuthCommand::SetupApWifiCancel { token, .. } => (token.clone(), true),
+        AuthCommand::SetupApScanBegin { token, .. }
+        | AuthCommand::SetupApScanCancel { token, .. } => (token.clone(), true),
         _ => return Err(Error::InvalidInput),
     };
     owner(auth.clone(), token, recent).await?;
@@ -860,6 +887,33 @@ pub(crate) async fn authorized(
         };
     };
     match command {
+        AuthCommand::SetupApScanBegin {
+            token,
+            operation_id,
+            scan_id,
+        } => {
+            runtime
+                .rescan_begin(auth, token, operation_id, scan_id, &Calls(calls))
+                .await
+        }
+        AuthCommand::SetupApScanStatus {
+            token,
+            operation_id,
+            scan_id,
+        } => {
+            runtime
+                .rescan_status(auth, token, operation_id, scan_id)
+                .await
+        }
+        AuthCommand::SetupApScanCancel {
+            token,
+            operation_id,
+            scan_id,
+        } => {
+            runtime
+                .rescan_cancel(auth, token, operation_id, scan_id)
+                .await
+        }
         AuthCommand::SetupApWifiConfirm {
             token,
             operation_id,

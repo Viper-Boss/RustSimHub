@@ -208,8 +208,11 @@ impl Journal {
     }
     pub(crate) fn refuse_rescan(&self, status: &Status) -> Result<()> {
         status.validate(super::super::uptime_ms()?, &super::super::boot_id()?)?;
+        let closed = status.refusal == Some(Refusal::ParentClosed)
+            && self.closed(&status.intent.binding)?.is_some();
         if status.phase != Phase::Refused
-            || self.pending()?.as_ref() != Some(&status.intent.binding)
+            || !closed && self.pending()?.as_ref() != Some(&status.intent.binding)
+            || status.refusal == Some(Refusal::ParentClosed) && !closed
             || self.rescan_consumed(&status.intent)?
         {
             return Err(Error::Denied);

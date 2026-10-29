@@ -152,6 +152,8 @@ impl Runtime {
         }
         if station::pending(&self.journal)?.is_some()
             || station::commit::pending(&self.journal)?.is_some()
+            || super::super::rescan::pending(&self.journal)?.is_some()
+            || denied(self.input.read(Slot::RescanRequest))?.is_some()
             || denied(self.input.read(Slot::StationRequest))?.is_some()
             || denied(self.input.read(Slot::StationCommitRequest))?.is_some()
         {
@@ -230,11 +232,12 @@ impl Runtime {
             save_supported: true,
             committed: false,
             trial: None,
+            rescan: None,
             station_count: 0,
             refusal: None,
             first_setup: true,
             keepalive_ms: 0,
         });
-        Ok(Self::view(parent.as_ref().ok_or(Error::Forbidden)?))
+        Ok(self.session_view(parent.as_ref().ok_or(Error::Forbidden)?))
     }
 }

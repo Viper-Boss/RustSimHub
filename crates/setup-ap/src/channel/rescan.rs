@@ -135,6 +135,7 @@ pub enum Refusal {
     Superseded,
     Cancelled,
     Capacity,
+    ParentClosed,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -163,7 +164,9 @@ impl Status {
             || now.saturating_sub(self.sample_uptime_ms) > HEARTBEAT_MS
             || self.ap_https_verified != matches!(self.phase, Phase::Ready | Phase::Failed)
             || (self.phase == Phase::Refused) != self.refusal.is_some()
-            || self.phase == Phase::Refused && self.finished_uptime_ms.is_none()
+            || self.phase == Phase::Refused
+                && self.refusal != Some(Refusal::ParentClosed)
+                && self.finished_uptime_ms.is_none()
             || self.phase == Phase::Scanning && (!same_boot || self.finished_uptime_ms.is_some())
             || self.finished_uptime_ms.is_some_and(|t| {
                 t < self.intent.requested_uptime_ms || same_boot && t > self.sample_uptime_ms
