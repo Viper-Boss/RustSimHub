@@ -1,0 +1,146 @@
+diff --git a/crates/edge/src/linux.rs b/crates/edge/src/linux.rs
+--- a/crates/edge/src/linux.rs
++++ b/crates/edge/src/linux.rs
+@@ -614,6 +614,51 @@
+             }),
+         )
+         .route(
++            "/test-center.js",
++            get(|| async {
++                (
++                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
++                    include_str!("web/test-center.js"),
++                )
++            }),
++        )
++        .route(
++            "/operation-receipt.js",
++            get(|| async {
++                (
++                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
++                    include_str!("web/operation-receipt.js"),
++                )
++            }),
++        )
++        .route(
++            "/configuration-state.js",
++            get(|| async {
++                (
++                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
++                    include_str!("web/configuration-state.js"),
++                )
++            }),
++        )
++        .route(
++            "/diagnostics.js",
++            get(|| async {
++                (
++                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
++                    include_str!("web/diagnostics.js"),
++                )
++            }),
++        )
++        .route(
++            "/usage-stats.js",
++            get(|| async {
++                (
++                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
++                    include_str!("web/usage-stats.js"),
++                )
++            }),
++        )
++        .route(
+             "/style.css",
+             get(|| async {
+                 (
+diff --git a/crates/edge/src/linux/tests.rs b/crates/edge/src/linux/tests.rs
+--- a/crates/edge/src/linux/tests.rs
++++ b/crates/edge/src/linux/tests.rs
+@@ -487,3 +487,87 @@
+         assert_eq!(status.is_success(), ok, "{host} {origin} {status}");
+     }
+ }
++
++#[tokio::test]
++async fn member_b_assets_use_existing_static_boundary() {
++    let dir = tempfile::tempdir().unwrap();
++    let a = app(dir.path().join("absent.sock"));
++    let existing = router(a.clone())
++        .oneshot(
++            Request::builder()
++                .uri("/network.js")
++                .header(header::HOST, "localhost:8443")
++                .body(Body::empty())
++                .unwrap(),
++        )
++        .await
++        .unwrap();
++    let csp = existing.headers()["content-security-policy"].clone();
++    let permissions = existing.headers()["permissions-policy"].clone();
++    for (path, expected) in [
++        (
++            "/test-center.js",
++            include_bytes!("../web/test-center.js").as_slice(),
++        ),
++        (
++            "/operation-receipt.js",
++            include_bytes!("../web/operation-receipt.js").as_slice(),
++        ),
++        (
++            "/configuration-state.js",
++            include_bytes!("../web/configuration-state.js").as_slice(),
++        ),
++        (
++            "/diagnostics.js",
++            include_bytes!("../web/diagnostics.js").as_slice(),
++        ),
++        (
++            "/usage-stats.js",
++            include_bytes!("../web/usage-stats.js").as_slice(),
++        ),
++    ] {
++        for (method, host, status) in [
++            ("GET", "localhost:8443", StatusCode::OK),
++            ("GET", "invalid.example", StatusCode::FORBIDDEN),
++            ("POST", "localhost:8443", StatusCode::METHOD_NOT_ALLOWED),
++        ] {
++            let request = Request::builder()
++                .method(method)
++                .uri(path)
++                .header(header::HOST, host)
++                .body(Body::empty())
++                .unwrap();
++            let response = router(a.clone()).oneshot(request).await.unwrap();
++            assert_eq!(response.status(), status, "{method} {path} {host}");
++            assert_eq!(response.headers()["cache-control"], "no-store");
++            assert_eq!(response.headers()["x-content-type-options"], "nosniff");
++            assert_eq!(response.headers()["content-security-policy"], csp);
++            assert_eq!(response.headers()["permissions-policy"], permissions);
++            if status == StatusCode::OK {
++                assert_eq!(
++                    response.headers()[header::CONTENT_TYPE],
++                    "text/javascript; charset=utf-8"
++                );
++                let bytes = axum::body::to_bytes(response.into_body(), MAX_FRAME)
++                    .await
++                    .unwrap();
++                assert_eq!(&bytes[..], expected);
++            }
++        }
++    }
++    for path in [
++        "/web/test-center.js",
++        "/test-center.js/extra",
++        "/private.js",
++    ] {
++        let request = Request::builder()
++            .uri(path)
++            .header(header::HOST, "localhost:8443")
++            .body(Body::empty())
++            .unwrap();
++        assert_eq!(
++            router(a.clone()).oneshot(request).await.unwrap().status(),
++            StatusCode::NOT_FOUND
++        );
++    }
++}
