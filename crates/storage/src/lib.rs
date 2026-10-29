@@ -17,9 +17,13 @@ use uuid::Uuid;
 
 const APP_ID: i64 = 1381189698;
 const SCHEMA: i64 = 6;
-const RECOVERY_SCHEMA: i64 = 7;
+const RECOVERY_SCHEMA: i64 = 8;
 mod auth;
 mod recovery;
+pub use recovery::ledger::{
+    RecoveryExecutionPermit, RecoveryMutation, RecoveryReceipt, RecoveryReceiptState,
+    RecoveryReservation,
+};
 pub use recovery::{RecoveryAudit, RecoveryGrant, RecoveryKey, RecoveryLimits};
 mod calls;
 pub use calls::{
@@ -142,7 +146,7 @@ impl Store {
         Self::start(directory.as_ref().to_owned(), None, false)
     }
     /// Explicit offline migration only. The normal Core/schema-6 path never calls this.
-    /// Production activation still requires schema-7 update/rollback admission.
+    /// Production activation still requires recovery-schema update/rollback admission.
     pub fn open_recovery(directory: impl AsRef<Path>) -> Result<Self> {
         Self::start(directory.as_ref().to_owned(), None, true)
     }
@@ -157,7 +161,7 @@ impl Store {
             false,
         )
     }
-    /// Restore a schema-7 backup offline; all restored recovery grants are quarantined.
+    /// Restore a recovery backup offline; all restored recovery grants are quarantined.
     pub fn restore_recovery(
         backup_directory: impl AsRef<Path>,
         destination: impl AsRef<Path>,
@@ -526,7 +530,11 @@ impl Database {
         }
         if recovery && version < RECOVERY_SCHEMA {
             let tx = db.connection.transaction()?;
-            tx.execute_batch(include_str!("recovery.sql"))?;
+            if version < 7 {
+                tx.execute_batch(include_str!("recovery.sql"))?;
+            }
+            tx.execute_batch(include_str!("recovery-ledger.sql"))?;
+            recovery::validate(&tx)?;
             tx.commit()?;
         }
         if recovery {
@@ -676,6 +684,9 @@ impl Database {
             {
                 recovery::quarantine(&tx)?;
             }
+        }
+        if tx.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))? == RECOVERY_SCHEMA {
+            recovery::ledger::recover(&tx)?;
         }
         let pending: Vec<(String, i64)> = {
             let mut query = tx.prepare(

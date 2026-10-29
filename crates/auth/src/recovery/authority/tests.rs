@@ -69,6 +69,72 @@ impl RecoveryRequestVerifierV1 for Verifier {
     }
 }
 const SEALED: &[u8] = b"synthetic sealed request";
+#[test]
+fn capability_bound_ledger_reservation_claim_and_owner_reconciliation_use_real_store() {
+    use rustsimhub_storage::{RecoveryReceiptState, RecoveryReservation};
+    let (_dir, _identity, store, mut auth, _owner, token) = fixture(true);
+    let g = grant(&mut auth, &token);
+    auth.set_recovery_verifier(Some(Box::new(Verifier::new(1, RecoveryAction::BeginWifi))));
+    let connection = auth.open_recovery_connection().unwrap();
+    let r = auth
+        .authorize_recovery(&connection, g.clone(), SEALED)
+        .unwrap();
+    assert!(matches!(
+        auth.reserve_recovery_mutation(&r.capability, b"changed", None),
+        Err(Error::Forbidden)
+    ));
+    let receipt = match auth
+        .reserve_recovery_mutation(&r.capability, &r.body, None)
+        .unwrap()
+    {
+        RecoveryReservation::New(r) => r,
+        _ => panic!("new receipt required"),
+    };
+    assert_eq!(receipt.request_id, "01010101-0101-0101-0101-010101010101");
+    let mut forged = receipt.clone();
+    forged.body_digest = [0; 32];
+    assert!(matches!(
+        auth.claim_recovery_mutation(&r.capability, &r.body, forged),
+        Err(Error::Forbidden)
+    ));
+    let permit = auth
+        .claim_recovery_mutation(&r.capability, &r.body, receipt.clone())
+        .unwrap();
+    assert!(auth
+        .claim_recovery_mutation(&r.capability, &r.body, receipt.clone())
+        .is_err());
+    auth.revoke_wifi_recovery(token.expose(), g.id, 1).unwrap();
+    let finished = store
+        .handle()
+        .finish_recovery_request(permit, RecoveryReceiptState::Ready, Some("a".repeat(64)))
+        .unwrap();
+    assert!(auth
+        .reserve_recovery_mutation(&r.capability, &r.body, None)
+        .is_err());
+    assert_eq!(
+        auth.owner_recovery_receipt(token.expose(), receipt)
+            .unwrap(),
+        finished
+    );
+}
+#[test]
+fn read_only_capabilities_cannot_create_mutation_receipts() {
+    for action in [
+        RecoveryAction::ReadStatus,
+        RecoveryAction::QueryOperation,
+        RecoveryAction::Disconnect,
+    ] {
+        let (_dir, _identity, _store, mut auth, _owner, token) = fixture(true);
+        let g = grant(&mut auth, &token);
+        auth.set_recovery_verifier(Some(Box::new(Verifier::new(1, action))));
+        let connection = auth.open_recovery_connection().unwrap();
+        let r = auth.authorize_recovery(&connection, g, SEALED).unwrap();
+        assert!(matches!(
+            auth.reserve_recovery_mutation(&r.capability, &r.body, None),
+            Err(Error::Forbidden)
+        ));
+    }
+}
 fn grant(auth: &mut Auth, token: &crate::Token) -> RecoveryGrant {
     auth.grant_wifi_recovery(
         token.expose(),

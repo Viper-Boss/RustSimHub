@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Durable records, not cryptographic proofs or ordinary login principals.
+pub(crate) mod ledger;
 use super::*;
 use rustsimhub_policy::{allows, Kind, Principal, Scope};
 
@@ -273,6 +274,7 @@ pub(super) fn validate(conn: &Connection) -> Result<()> {
             }
         }
         audit_rows(conn)?;
+        ledger::validate(conn)?;
         realm(conn)?;
         let foreign = conn.prepare("PRAGMA foreign_key_check")?.exists([])?;
         if foreign {

@@ -176,6 +176,51 @@ fn digest(action: RecoveryAction, body: &[u8]) -> [u8; 32] {
     h.finalize().into()
 }
 impl Auth {
+    /// Reserve through the same checked capability used by the future Wi-Fi
+    /// gate. No wire caller can substitute an arbitrary digest/grant/request.
+    pub fn reserve_recovery_mutation(
+        &self,
+        capability: &RecoveryCapability,
+        body: &[u8],
+        trial_id: Option<String>,
+    ) -> Result<rustsimhub_storage::RecoveryReservation> {
+        self.check_recovery_capability(capability, capability.action, body)?;
+        let mutation = mutation(capability.action)?;
+        Ok(self.store.reserve_recovery_request(
+            capability.binding.grant.clone(),
+            request_uuid(capability.request_id),
+            mutation,
+            capability.digest,
+            trial_id,
+        )?)
+    }
+    pub fn claim_recovery_mutation(
+        &self,
+        capability: &RecoveryCapability,
+        body: &[u8],
+        receipt: rustsimhub_storage::RecoveryReceipt,
+    ) -> Result<rustsimhub_storage::RecoveryExecutionPermit> {
+        self.check_recovery_capability(capability, capability.action, body)?;
+        let grant = &capability.binding.grant;
+        if receipt.realm != grant.realm
+            || receipt.grant_id != grant.id
+            || receipt.generation != grant.generation
+            || receipt.request_id != request_uuid(capability.request_id)
+            || receipt.body_digest != capability.digest
+            || receipt.action != mutation(capability.action)?
+        {
+            return Err(Error::Forbidden);
+        }
+        Ok(self.store.claim_recovery_request(grant.clone(), receipt)?)
+    }
+    pub fn owner_recovery_receipt(
+        &mut self,
+        token: &str,
+        receipt: rustsimhub_storage::RecoveryReceipt,
+    ) -> Result<rustsimhub_storage::RecoveryReceipt> {
+        let owner = self.recovery_owner(token)?;
+        Ok(self.store.owner_recovery_request(owner, receipt)?)
+    }
     /// Trusted configuration, never HTTP/BLE payload. Any change invalidates the
     /// old connection/capabilities even if it installs the same adapter again.
     pub fn set_recovery_verifier(&mut self, verifier: Option<Box<dyn RecoveryRequestVerifierV1>>) {
@@ -358,6 +403,27 @@ impl Auth {
         }
         Ok(())
     }
+}
+
+fn mutation(action: RecoveryAction) -> Result<rustsimhub_storage::RecoveryMutation> {
+    use rustsimhub_storage::RecoveryMutation as M;
+    match action {
+        RecoveryAction::BeginWifi => Ok(M::BeginWifi),
+        RecoveryAction::ConfirmWifi => Ok(M::ConfirmWifi),
+        RecoveryAction::CancelWifi => Ok(M::CancelWifi),
+        _ => Err(Error::Forbidden),
+    }
+}
+fn request_uuid(id: [u8; 16]) -> String {
+    let hex = format!("{:032x}", u128::from_be_bytes(id));
+    format!(
+        "{}-{}-{}-{}-{}",
+        &hex[..8],
+        &hex[8..12],
+        &hex[12..16],
+        &hex[16..20],
+        &hex[20..]
+    )
 }
 
 #[cfg(test)]

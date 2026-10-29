@@ -25,7 +25,7 @@ impl Auth {
         Ok(owner)
     }
     /// Trusted Core management entry. Not currently exposed on HTTP/BLE/IPC.
-    /// Only the explicit schema-7 offline Store accepts the resulting write.
+    /// Only the explicit recovery-schema offline Store accepts the resulting write.
     pub fn grant_wifi_recovery(
         &mut self,
         token: &str,

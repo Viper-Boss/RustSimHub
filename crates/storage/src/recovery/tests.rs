@@ -31,7 +31,7 @@ fn fixture() -> (TempDir, Store, Principal) {
 }
 
 #[test]
-fn migration_is_explicit_and_the_normal_schema_six_reader_refuses_seven() {
+fn migration_is_explicit_and_the_normal_schema_six_reader_refuses_recovery_schema() {
     let dir = directory();
     let store = Store::open(dir.path()).unwrap();
     let h = store.handle();
@@ -324,7 +324,7 @@ fn corrupted_and_future_recovery_records_fail_closed_on_reopen() {
     store
         .handle()
         .call(|db| {
-            db.connection.execute_batch("PRAGMA user_version=8")?;
+            db.connection.execute_batch("PRAGMA user_version=9")?;
             Ok(())
         })
         .unwrap();
