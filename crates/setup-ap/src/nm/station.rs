@@ -167,6 +167,14 @@ fn saved_settings(c: &StationCredentials, enabled: bool) -> Result<Settings> {
 fn matches(s: &Settings, c: &StationCredentials) -> Result<bool> {
     matches_mode(s, c, false)
 }
+/// NM may elide connection.autoconnect at its documented TRUE default from
+/// GetSettings. Explicit false remains false; a present value of another type
+/// is still refused. Do not apply this default to unrelated boolean settings.
+fn autoconnect(connection: &Properties) -> Result<bool> {
+    connection.get("autoconnect").map_or(Ok(true), |value| {
+        bool::try_from(value).map_err(|_| Error::Io)
+    })
+}
 fn matches_mode(s: &Settings, c: &StationCredentials, saved: bool) -> Result<bool> {
     let conn = s.get("connection").ok_or(Error::Io)?;
     let wifi = s.get("802-11-wireless").ok_or(Error::Io)?;
@@ -192,7 +200,7 @@ fn matches_mode(s: &Settings, c: &StationCredentials, saved: bool) -> Result<boo
     Ok(text(conn, "uuid")? == c.uuid
         && text(conn, "type")? == "802-11-wireless"
         && text(conn, "interface-name")? == INTERFACE
-        && (!boolean(conn, "autoconnect")? || saved)
+        && (!autoconnect(conn)? || saved)
         && text(conn, "id")?
             == if saved {
                 "RustSimHub Wi-Fi"
@@ -601,7 +609,7 @@ impl CommitNetwork for Session<'_> {
         if boolean(&saved, "Unsaved")?
             || number(&saved, "Flags")? & 4 != 0
             || !matches_mode(&saved_profile, c, true)?
-            || !boolean(&saved_profile["connection"], "autoconnect")?
+            || !autoconnect(&saved_profile["connection"])?
         {
             return Err(Error::Changed);
         }
@@ -640,9 +648,7 @@ impl Session<'_> {
         }
         let p = trial.profile.as_ref().ok_or(Error::Denied)?;
         let settings = nm.get_settings(p).await?;
-        if !matches_mode(&settings, c, true)?
-            || boolean(&settings["connection"], "autoconnect")? != enabled
-        {
+        if !matches_mode(&settings, c, true)? || autoconnect(&settings["connection"])? != enabled {
             return Err(Error::Changed);
         }
         let properties = nm.properties(p.as_str(), SETTING).await?;
@@ -650,5 +656,25 @@ impl Session<'_> {
             return Err(Error::Changed);
         }
         nm.fence().await
+    }
+}
+
+#[cfg(test)]
+mod defaults_tests {
+    use super::*;
+
+    #[test]
+    fn only_missing_autoconnect_uses_true_and_explicit_false_and_bad_types_are_preserved() {
+        assert_eq!(autoconnect(&Properties::new()), Ok(true));
+        assert_eq!(
+            autoconnect(&HashMap::from([("autoconnect".into(), true.into())])),
+            Ok(true)
+        );
+        assert_eq!(
+            autoconnect(&HashMap::from([("autoconnect".into(), false.into())])),
+            Ok(false)
+        );
+        assert!(autoconnect(&HashMap::from([("autoconnect".into(), 1u32.into())])).is_err());
+        assert!(autoconnect(&HashMap::from([("autoconnect".into(), string("true"))])).is_err());
     }
 }
