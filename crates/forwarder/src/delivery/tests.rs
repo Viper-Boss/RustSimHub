@@ -309,6 +309,61 @@ async fn initial_cancel_and_loss_of_supervisor_cannot_open_an_egress_socket() {
         assert_eq!(egress.calls, 0);
     }
 }
+/// A connector stuck in name resolution (FWD-13 "DNS" close point). Dropping it
+/// must be observable: no detached resolver may outlive the attempt.
+struct StalledDns {
+    entered: Arc<Notify>,
+    dropped: Arc<AtomicBool>,
+}
+struct DropFlag(Arc<AtomicBool>);
+impl Drop for DropFlag {
+    fn drop(&mut self) {
+        self.0.store(true, Ordering::SeqCst);
+    }
+}
+impl Connector for StalledDns {
+    async fn connect(&mut self, _: &str, _: u16) -> Result<TcpStream> {
+        let _flag = DropFlag(self.dropped.clone());
+        self.entered.notify_one();
+        std::future::pending().await
+    }
+}
+#[tokio::test]
+async fn cancellation_during_dns_is_not_submitted_and_drops_the_resolver() {
+    let sender = HttpsSender::new(vec![generate_simple_self_signed(vec!["localhost".into()])
+        .unwrap()
+        .cert
+        .der()
+        .clone()])
+    .unwrap();
+    let mut egress = StalledDns {
+        entered: Arc::new(Notify::new()),
+        dropped: Arc::new(AtomicBool::new(false)),
+    };
+    let (entered, dropped) = (egress.entered.clone(), egress.dropped.clone());
+    let (stop, cancel) = watch::channel(false);
+    let cancelling = async {
+        entered.notified().await;
+        stop.send(true).unwrap();
+    };
+    let job = claim("https://forward.invalid/".into());
+    let mut live = check();
+    let (outcome, _) = tokio::join!(
+        timeout(
+            Duration::from_secs(3),
+            sender.deliver(&job, &mut egress, &mut live, cancel)
+        ),
+        cancelling
+    );
+    assert_eq!(
+        outcome.unwrap(),
+        DeliveryOutcome::NotSubmitted {
+            reason: Failure::Cancelled
+        }
+    );
+    assert!(dropped.load(Ordering::SeqCst));
+    assert_eq!(live.stages, vec![Stage::BeforeConnect]);
+}
 #[tokio::test]
 async fn cancellation_during_tls_closes_the_owned_socket_without_http() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
