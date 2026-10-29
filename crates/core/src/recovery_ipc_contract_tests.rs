@@ -186,3 +186,38 @@ fn general_auth_frame_budget_is_not_a_ble_recovery_envelope_budget() {
     assert!(normal.len() < rustsimhub_wire::MAX_FRAME);
     // Intentional current Auth behavior: the dedicated proposed BLE decoder must enforce 2048.
 }
+
+#[cfg(feature = "recovery-grants")]
+#[test]
+fn old_unmerged_schema7_is_rejected_without_reinterpreting_or_repairing_it() {
+    let d = dir();
+    let s = Store::open(d.path()).unwrap();
+    drop(s);
+    let path = d.path().join("store.sqlite3");
+    let db = rusqlite::Connection::open(&path).unwrap();
+    // Exact AGPL project SQL from PR61 bc9fb583, inherited from PR60.
+    db.execute_batch(include_str!("recovery-ipc-legacy-schema7.sql"))
+        .unwrap();
+    drop(db);
+    let before = fs::read(&path).unwrap();
+    assert!(matches!(
+        Store::open_recovery_grants(d.path()),
+        Err(rustsimhub_storage::Error::Corrupt)
+    ));
+    assert_eq!(fs::read(&path).unwrap(), before);
+    let db = rusqlite::Connection::open(&path).unwrap();
+    assert_eq!(
+        db.pragma_query_value::<i64, _>(None, "user_version", |r| r.get(0))
+            .unwrap(),
+        7
+    );
+    let sql: String = db
+        .query_row(
+            "SELECT sql FROM sqlite_schema WHERE name='recovery_grants'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert!(sql.contains("key_profile"));
+    assert!(!sql.contains("independent_public_key"));
+}

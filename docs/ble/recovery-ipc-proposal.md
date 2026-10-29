@@ -118,6 +118,8 @@ Tokio UnixStream、内核SO_PEERCRED及真实Python子进程运行，未创建�
 4. 配置匹配UID时公开Identity可读，但无Owner证明的恢复管理仍被拒绝；Store无新principal。
 5. 通用Auth合法Identity加JSON空白至2049字节仍可解析，说明通用64KiB预算不能当作BLE信封预算。
    这是既有通用协议的正确行为及新增解码器需求，不是宣称发现生产漏洞。
+6. 使用#61继承自#60的逐字schema7 SQL在临时真实6版库上生成旧7版；当前显式恢复入口明确
+   Corrupt拒绝，源数据库字节/版本/旧表保持，不自动解释为#84新7版。夹具只由cfg(test)引用。
 
 这些只证明**当前边界/接线需求**，不是D-22新端点、A会话互操作、合法BLE恢复或Root许可已通过。
 实现后仍须补：真实不同UID/Root角色拒绝、socket gid/mode/FD传递边界、全部帧拒绝/截断/超时、
