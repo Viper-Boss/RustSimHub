@@ -3,6 +3,9 @@
 2026-10-30，接续[IPC提案](recovery-ipc-proposal.md) / PR #88。
 用户继续推进后先交独立离线实现；随后已回读#88合并并正常接续最新main，未安装或启用生产端点。
 
+后续局部交付：[验证工作保留与迟到清理](recovery-verifier-lifecycle.md)提供独立线程执行器；
+以下是 #92 原交付截面，合法跨 UID 准入、A 会话和生产接线仍待完成。
+
 ## 实际代码与默认边界
 
 `crates/core`增加一个明确的库目标`src/lib.rs`，只在Linux且显式
