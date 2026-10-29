@@ -5,7 +5,9 @@
 - 仓库/分支：Viper-Boss/RustSimHub / `codex/gtw-recovery-peer-lifecycle-20261030`，PR 到 main。
 - 起始 main：`b7a5dfa8d0d8c762c2284164e9d4371fce3c373f`。
 - 前置 #92 合并：`d4d1673c58049f54c4de94b3f3adee6e41379bb2`。
-- 实现/受测代码及当前完整40位 HEAD：提交后在 PR 正文记录，后续报告提交只补证据。
+- 初始实现 HEAD：`c88e04e7d4b96123f0678dd24e4755109119bc99`。
+- 最终代码/回归夹具 HEAD：`c4a978a7a93ff83271faf5634c3abf89ea83e23f`。
+- 当前完整40位 HEAD 在 PR 正文记录，后续报告提交只补证据。
 - [实现与完整限制](../ble/recovery-verifier-lifecycle.md)。
 
 ## 修改和授权边界
@@ -24,7 +26,52 @@ Wi-Fi 派发。无新依赖、锁文件、迁移或 Root 安装材料。
 
 ## 实测
 
-待最终代码完成后补充实际命令/结果；此段不作为已通过证据。
+Linux x86_64 / 普通 UID1000 / Rust1.98，锁定离线依赖。新增10项工作所有权测试，
+加上原14项运输测试共24通过、0失败/忽略，Core all-targets/all-features 严格 Clippy通过。
+没有构造假的 PeerContext/PeerConnection。正例直接测试本生产模块 run_owned，以真实
+UnixStream/Slot/线程检验所有权；外部适配器仅合成返回/阻塞/panic，不能证明密码验证成功。
+
+迟到输出析构回归 `late_output_cleanup_finishes_before_the_connection_slot_is_released`
+在初始 tuple(resource,result) 顺序实际退出101：`late output cleanup released slot too early`。
+修正 Completed 字段顺序后通过；不放宽拒绝/保留断言。最后代码之后没有生产源码修改。
+
+实际执行命令：
+
+```sh
+source /workspace/toolchains/activate-rustsimhub.sh
+cargo test -p rustsimhub-core --lib --features recovery-transport --locked --offline
+cargo clippy -p rustsimhub-core --all-targets --all-features --locked --offline -- -D warnings
+cargo test --workspace --all-features --locked --offline
+cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings
+cargo check -p rustsimhub-core --lib --no-default-features --locked --offline
+cargo fmt --all -- --check
+git diff --check
+```
+
+在最终代码 HEAD 上整仓 **774通过、0失败、6项继承忽略**；整仓严格 Clippy、默认无
+feature 库编译、fmt/diff均退出0。源码相对该 HEAD 无后续变化，后续只补本人文档。
+六项 ignore 是 C06 worker、forwarder 私有 tmpfs 满盘、updater 两项 Root/capability、
+C14 worker 与私有 tmpfs 满盘，本批没有新增 ignore。既有 proc-macro-error2 future-incompat
+提示仍存在，不作为代码测试失败或已修复项。未重跑浏览器：本批没有 JS/网页改动。
+
+本地日志位于 work/recovery-peer-lifecycle，未提交生成物；摘要只供精确比对，不代替 CI：
+
+```text
+workspace-final.log        0270cdb3293097c6436ddd7d03b003cfc97ffdf5fd0fbebb814946a0ed90c358
+workspace-clippy-final.log 0de99f512f7a1afaa290185aea36050647a372b9a778d51cd5189769c4c39236
+library-final.log          13b9369c2cbf5aebcb536c7fee87e1d1afdb3226c96cf89a2c8bef8be9629097
+core-clippy-final.log      7ab339545404b5eed3343a13abc98ef1f765a7c8757fd4651b7af73756206da6
+default-check-final.log    a41051563a4cb5fc1b1bcdd9aa0ba28ca80f7736d629d90cc138218756e8e3a9
+cleanup-order-before.log  b48932168e1ed25722b67ff6f8011255140fa3ee95b43ec2c5d1e9973b772e73
+```
+
+新增测试覆盖：成功返回同一流；适配器错误；unwind panic；超时；已 poll 取消；未 poll
+丢弃；入口过期；实际耗尽 Tokio 单个阻塞池工作线程后仍可执行；等待者过期；迟到输出
+析构阻塞期间仍持有连接/占用。没有扩大产品五秒截止或依赖不受控无限等待。
+
+未运行合法跨 UID SourceGuard 准入/真实 nonce 路径、安装组继承/NSS/cgroup、ARM/Native、
+release panic 实测、A 互操作、真实 GATT/BlueZ/Wi-Fi/设备。release abort 行为按实际
+Cargo profile 明确保留；unwind 测试不表示生产 panic 隔离。
 
 ## 数量、未完成和交接
 
