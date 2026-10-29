@@ -39,11 +39,22 @@ async function login(){
 }
 function storage(){try{return globalThis.localStorage??null;}catch{return null;}}
 const KEY='rustsimhub-setup-ap-wifi-pending';
+let pendingKey=KEY;
+function selectPendingNamespace(created){
+ const s=storage(),scoped=KEY+':'+hex(device);
+ // A newly proved first Owner belongs to this device identity. Keep a legacy
+ // record intact rather than attaching an earlier device's operation to it.
+ // Existing Owners without a scoped slot still recover their legacy record.
+ pendingKey=!created&&s?.getItem(scoped)===null&&s?.getItem(KEY)!==null?KEY:scoped;
+ // Retain a null scoped slot after completion so later logins never fall back
+ // to an unrelated legacy record. Never replace an existing scoped operation.
+ if(s&&pendingKey===scoped&&s.getItem(scoped)===null)s.setItem(scoped,'null');
+}
 const pending={
- load:async()=>{const s=storage();const v=s?.getItem(KEY);return v?JSON.parse(v):null;},
- save:async(value,expected)=>{const s=storage();const old=pendingInput(s?.getItem(KEY)?JSON.parse(s.getItem(KEY)):null);
+ load:async()=>{const s=storage();const v=s?.getItem(pendingKey);return v?JSON.parse(v):null;},
+ save:async(value,expected)=>{const s=storage();const old=pendingInput(s?.getItem(pendingKey)?JSON.parse(s.getItem(pendingKey)):null);
   if((old?.id??null)!==(expected?.id??null)||(old?.revision??null)!==(expected?.revision??null))throw Error('配网记录已在另一页面更新，请重新查询');
-  if(s){if(value===null)s.removeItem(KEY);else s.setItem(KEY,JSON.stringify(value));}},
+  if(s){if(value===null&&pendingKey===KEY)s.removeItem(pendingKey);else s.setItem(pendingKey,JSON.stringify(value));}},
  archive:async()=>{},
 };
 const wifi=new ApConfigurator({document,env:globalThis,crypto:pageCrypto,request:command=>{if(!token)throw Error('请先设置管理员账号');return api({...command,token});},
@@ -85,9 +96,14 @@ async function account(create){
    await api({op:'setup_open_finish',challenge_id:c.id,signature:Array.from(sign(seed,transcript(c,'bootstrap')))});
   }
   await login();
+  selectPendingNamespace(create);
+  $('setup-notice').textContent='正在读取 Wi-Fi 缓存和已有配网进度…';
+  watchNetworks();await networks();
+  // Account authentication/list loading is finished. The shared controller
+  // must be allowed to read its pending operation before the Wi-Fi step opens.
+  busy=false;await wifi.open();
   $('setup-account').hidden=true;$('setup-wifi').hidden=false;
   $('setup-notice').textContent=create?'管理员已创建。请选择要连接的 Wi-Fi。':'已登录。请选择要连接的 Wi-Fi。';
-  watchNetworks();await networks();await wifi.open();
  }catch(e){seed=null;token=null;$('setup-notice').textContent=e.message||'操作失败，请重试';}
  finally{busy=false;$('setup-account-go').disabled=false;}
 }

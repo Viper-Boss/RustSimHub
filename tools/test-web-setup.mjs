@@ -10,10 +10,11 @@ function documentStub(){
   setAttribute(){},focus(){},append(c){this.children.push(c);},replaceChildren(...children){this.children=children;},onclick:null,onchange:null});
  return {els,getElementById:id=>{if(!els.has(id))els.set(id,make(id));return els.get(id);},createElement:()=>make('')};
 }
-async function run({password,ownerExists=false,catalogue=null}){
+async function run({password,ownerExists=false,catalogue=null,retainedRecord=null,scopedRecord=null,legacyRecord=null}){
  const device=await subtle.generateKey({name:'Ed25519'},true,['sign','verify']);
  const devicePk=new Uint8Array(await subtle.exportKey('raw',device.publicKey));
- let owner=ownerExists?'preset':null,pending=new Map(),log=[],parentHash=null,trialId=null,commitId=null;
+ const prior=scopedRecord||retainedRecord;
+ let owner=ownerExists?'preset':null,pending=new Map(),log=[],parentHash=prior?.request_key_sha256??null,trialId=prior?.trials.at(-1)??null,commitId=null;
  const operationId='11111111-1111-4111-8111-111111111111';
  const parent=()=>({known:true,available:true,state:'ready',operation_id:operationId,request_key_sha256:parentHash,station_trial_api:true,station_save_api:true,credentials_returned:false,cellular_activation:false});
  const trial=()=>({known:true,operation_id:operationId,trial_id:trialId,state:'ready',authoritative_result:true,ap_return_verified:true,requires_confirmation:true,settings_saved:false,credentials_returned:false,cellular_activation:false});
@@ -49,6 +50,9 @@ async function run({password,ownerExists=false,catalogue=null}){
  }
  const doc=documentStub();doc.getElementById('setup-networks').append({value:'',textContent:'手动输入'});
  globalThis.document=doc;globalThis.localStorage={m:new Map(),getItem(k){return this.m.get(k)??null;},setItem(k,v){this.m.set(k,v);},removeItem(k){this.m.delete(k);}};
+ if(retainedRecord)globalThis.localStorage.setItem('rustsimhub-setup-ap-wifi-pending',JSON.stringify(retainedRecord));
+ if(legacyRecord)globalThis.localStorage.setItem('rustsimhub-setup-ap-wifi-pending',legacyRecord);
+ if(scopedRecord)globalThis.localStorage.setItem('rustsimhub-setup-ap-wifi-pending:'+hex(devicePk),JSON.stringify(scopedRecord));
  globalThis.fetch=async(url,init)=>{assert.equal(url,'/api/v2');assert.equal(init.headers['X-RustSimHub-Request'],'2');const body=JSON.parse(init.body);
   const v=await handle(body.command);
   // Real Core envelope (errors inside result), so unwrapping bugs cannot hide.
@@ -58,12 +62,13 @@ async function run({password,ownerExists=false,catalogue=null}){
  const $=id=>doc.getElementById(id);
  $('setup-username').value=' Admin ';$('setup-password').value=password;$('setup-confirm').value=password;
  await $('setup-account-go').onclick();
- return {doc,$,log,owner};
+ return {doc,$,log,owner,devicePk};
 }
 // 1) Fresh device: create Owner (bootstrap signature verified), log in, list only selectable networks.
 let r=await run({password:'correct horse'});
 assert.deepEqual(r.log.slice(0,5),['identity','setup_open_challenge','setup_open_finish','challenge','authenticate']);
 assert.equal(r.$('setup-wifi').hidden,false);
+assert.doesNotMatch(r.$('ap-wifi-state').textContent,/其他测试|通话/,'completed account setup must release its own busy guard before opening the Wi-Fi controller');
 assert.equal(r.$('setup-networks').children.length,2);
 assert.match(r.$('setup-networks-note').textContent,/开启热点前/);
 // Refresh rebuilds the list instead of appending duplicates.
@@ -77,10 +82,45 @@ await r.$('ap-wifi-begin').onclick();
 assert.equal(r.log.filter(o=>o==='setup_ap_start').length,1);
 assert.equal(r.log.filter(o=>o==='setup_ap_wifi_begin').length,1);
 assert.equal(r.$('ap-wifi-state').dataset.phase,'trial_ready');
+const scopedKey='rustsimhub-setup-ap-wifi-pending:'+hex(r.devicePk);
+const retainedTrial=JSON.parse(globalThis.localStorage.getItem(scopedKey));
 await r.$('ap-wifi-confirm').onclick();
 assert.equal(r.log.filter(o=>o==='setup_ap_wifi_confirm').length,1);
 assert.equal(r.$('ap-wifi-state').dataset.phase,'saved');
-assert(!globalThis.localStorage.getItem('rustsimhub-setup-ap-wifi-pending').includes('wifi-password'));
+assert(![...globalThis.localStorage.m.values()].some(value=>value.includes('wifi-password')));
+
+// Logging back into a pending trial must query it after login, not let its own
+// account busy flag falsely report another test/call and leave the panel stuck.
+r=await run({password:'correct horse',ownerExists:true,retainedRecord:retainedTrial});
+assert.equal(r.$('ap-wifi-state').dataset.phase,'trial_ready');
+assert.doesNotMatch(r.$('ap-wifi-state').textContent,/其他测试|通话/);
+assert.equal(r.log.filter(op=>op==='setup_ap_wifi_status').length,1);
+assert(r.log.every(op=>!['setup_ap_start','setup_ap_wifi_begin','setup_ap_wifi_confirm'].includes(op)));
+
+// A fresh, signed Owner claim on a new device must keep an earlier unscoped
+// browser operation without letting it block or be replayed for the new device.
+const legacy=JSON.stringify(retainedTrial);
+r=await run({password:'correct horse',legacyRecord:legacy});
+assert.equal(globalThis.localStorage.getItem('rustsimhub-setup-ap-wifi-pending'),legacy);
+const newKey='rustsimhub-setup-ap-wifi-pending:'+hex(r.devicePk);
+assert.equal(globalThis.localStorage.getItem(newKey),'null');
+assert.equal(r.$('ap-wifi-state').dataset.phase,'idle');
+assert(!r.log.includes('setup_ap_wifi_status'));
+r.$('ap-wifi-ssid').value='Home';r.$('ap-wifi-passphrase').value='wifi-password';
+await r.$('ap-wifi-begin').onclick();
+assert.equal(r.$('ap-wifi-state').dataset.phase,'trial_ready');
+assert.equal(globalThis.localStorage.getItem('rustsimhub-setup-ap-wifi-pending'),legacy);
+assert.equal(JSON.parse(globalThis.localStorage.getItem(newKey)).trials.length,1);
+assert.equal(r.log.filter(op=>op==='setup_ap_wifi_begin').length,1);
+
+// A returning Owner's scoped record takes priority over an unrelated legacy
+// record. Automatic recovery remains read-only and keeps both stored records.
+const foreignLegacy=JSON.stringify({...retainedTrial,request_key_sha256:'c'.repeat(64),trials:['22222222-2222-4222-8222-222222222222']});
+r=await run({password:'correct horse',ownerExists:true,scopedRecord:retainedTrial,legacyRecord:foreignLegacy});
+assert.equal(r.$('ap-wifi-state').dataset.phase,'trial_ready');
+assert.equal(globalThis.localStorage.getItem('rustsimhub-setup-ap-wifi-pending'),foreignLegacy);
+assert.deepEqual(JSON.parse(globalThis.localStorage.getItem('rustsimhub-setup-ap-wifi-pending:'+hex(r.devicePk))),retainedTrial);
+assert.deepEqual(r.log.filter(op=>op.startsWith('setup_ap_')),['setup_ap_wifi_status']);
 
 // 2) Too-short password never reaches the device.
 r=await run({password:'short'});
