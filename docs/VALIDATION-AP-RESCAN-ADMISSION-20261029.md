@@ -37,6 +37,8 @@ cargo fmt --all -- --check
 2. Begin/Cancel复用真实Owner近期登录与NetworkManage，前后复核身份代次、realm、设备公钥和实例。Status仍需原Owner及原设备域，但不以查询延长近期登录。公共匿名首次认领路由不能扫描；先初始化Owner，再接管原AP，保持Binding/父截止/网络独占许可。
 3. 新`setup_ap_control/rescan.rs`持久化完整Owner/父intent/提交阶段，不存token或密码；先写不可覆盖intent与pending，再发布一次Scan。Core重启、丢回复、退出/撤权只发同一Cancel/Query，不重发Scan或另造编号。
 4. 在现有Session网络独占许可及锁内，与station pending、commit pending、活跃通话和其他测试互斥。新扫描必须看到精确父Ready及新鲜独立Capability；旧Root不支持时在提交前拒绝。正在重扫时，试连/保存也须检查同一pending，不能只做单向互斥。
+
+   现有station的`finished=true`不代表Root已放弃未保存的Ready试连：Root仍要求精确的原trial Cancel才允许重扫。网页如要“一键重新扫描并结束未保存试连”，应在同一次明确确认中说明这一点，由Core发布原trial的有限Cancel并只读核对，而不能清内存状态或让用户寻找手动调试。现有`station_cancel`对已finished记录不一定再发布Cancel，集成时须覆盖此分支并测试，不能假设现成函数已满足。
 5. `Session`增加重扫状态，覆盖Runtime恢复、首次Owner接管、tick、父关闭、取消和shutdown。已消费未知请求保留pending和协调许可；不能凭查询超时、slot暂时消失或父状态Starting推断未执行，也不能把进度查询实现为新Start。
 6. Status只接受完整intent/Owner代次/原父轮次及当前采样；原boot终态和当前采样时域分开。`Refused`投影`state=refused`、`authoritative_result=true`、`execution_started=false`、有限原因；`Ready`才允许更新新快照，空结果保持空。历史记录不声称当前AP已恢复。
 7. 配合Root终态清理当前槽，保留不可覆盖Core回执；查询/归档未知不能偷偷清pending或重复发送。涉及旧编号、错误Owner/nonce、跨设备、并发、撤权、重新登录、丢回复和重启的失败路径均须真实Auth/生产文件测试。
