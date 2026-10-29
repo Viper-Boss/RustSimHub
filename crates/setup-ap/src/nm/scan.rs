@@ -10,6 +10,11 @@ use tokio::time::{sleep, timeout};
 const ACCESS_POINT: &str = "org.freedesktop.NetworkManager.AccessPoint";
 const AP_PREFIX: &str = "/org/freedesktop/NetworkManager/AccessPoint/";
 pub const MAX_SCAN_SECONDS: u64 = 8;
+#[derive(Clone, Copy)]
+pub(super) enum Context {
+    BeforeAp,
+    PausedAp,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -195,6 +200,7 @@ impl NetworkManager {
             || self.activation_requested
             || self.profile.is_some()
             || self.station.is_some()
+            || self.refresh.is_some()
         {
             return Err(Error::Denied);
         }
@@ -205,7 +211,16 @@ impl NetworkManager {
             .map_err(|_| Error::Busy)?
     }
     async fn scan_inner(&self) -> Result<Snapshot> {
-        self.scan_context().await?;
+        self.collect_scan(Context::BeforeAp).await
+    }
+    async fn check_scan_context(&self, context: Context) -> Result<()> {
+        match context {
+            Context::BeforeAp => self.scan_context().await,
+            Context::PausedAp => self.refresh_scan_context().await,
+        }
+    }
+    pub(super) async fn collect_scan(&self, context: Context) -> Result<Snapshot> {
+        self.check_scan_context(context).await?;
         let path = self.wifi.as_ref().ok_or(Error::Denied)?.as_str();
         let wireless = self.properties(path, WIRELESS).await?;
         if !matches!(number(&wireless, "Mode")?, 0 | 2) {
@@ -236,7 +251,7 @@ impl NetworkManager {
             }
             sleep(Duration::from_millis(100)).await;
         };
-        self.scan_context().await?;
+        self.check_scan_context(context).await?;
         let paths: Vec<OwnedObjectPath> = self
             .proxy(path, WIRELESS)
             .await?
@@ -256,7 +271,7 @@ impl NetworkManager {
                 None => omitted += 1,
             }
         }
-        self.scan_context().await?;
+        self.check_scan_context(context).await?;
         let result = snapshot(rows, omitted, started, crate::channel::uptime_ms()?, last);
         if !result.valid() {
             return Err(Error::Invalid);
