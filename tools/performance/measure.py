@@ -161,6 +161,9 @@ def measure(profile, seconds=5, warmup=.5, interval=.1, cancel=None):
                     time.sleep(interval)
                 if proc.poll() not in (None, 0):
                     outcome = 'workload_failed'
+                measured_seconds = max(0, time.monotonic() - started - warmup)
+                if outcome == 'completed' and measured_seconds < seconds:
+                    outcome = 'window_incomplete'
             finally:
                 # Our session leader is still alive, or a sampled descendant proves ownership.
                 owned = proc.poll() is None and read_stat(proc.pid) is not None
@@ -202,12 +205,13 @@ def measure(profile, seconds=5, warmup=.5, interval=.1, cancel=None):
                 time.sleep(.05)
     cpu = [s['cpu_percent'] for s in samples if s['cpu_percent'] is not None]
     sha = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
-    return {'schema': 1, 'kind': 'synthetic-functional', 'scope': SCOPE,
+    return {'schema': 2, 'kind': 'synthetic-functional', 'scope': SCOPE,
             'profile': profile, 'source_sha': sha, 'source_dirty': bool(subprocess.check_output(['git', '-C', str(ROOT), 'status', '--porcelain'])),
             'runner_sha256': hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest(),
             'workload_sha256': hashlib.sha256((ROOT / PROFILES[profile]).read_bytes()).hexdigest(),
             'completed_iterations': completed, 'outcome': outcome,
             'cleanup_verified': cleanup, 'requested_seconds': seconds, 'warmup_seconds': warmup,
+            'sample_interval_seconds': interval, 'measured_seconds': measured_seconds,
             'environment': {'os': platform.system(), 'architecture': platform.machine(),
                             'python': platform.python_version(), 'node': subprocess.check_output(['node', '--version'], text=True).strip(), 'clock_ticks': os.sysconf('SC_CLK_TCK')},
             'samples': samples, 'sample_count': len(samples),

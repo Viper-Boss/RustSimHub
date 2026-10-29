@@ -3,6 +3,8 @@ import copy
 import json
 import os
 import pathlib
+import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -30,6 +32,9 @@ class MeasureTests(unittest.TestCase):
     def test_real_workload_finishes_and_cancel_cleans_only_own_children(self):
         result=measure.measure('sms',seconds=.5,warmup=0,interval=.05)
         self.assertEqual(result['outcome'],'completed')
+        self.assertEqual(result['schema'],2)
+        self.assertGreaterEqual(result['measured_seconds'],result['requested_seconds'])
+        self.assertEqual(result['sample_interval_seconds'],.05)
         self.assertTrue(result['cleanup_verified'])
         self.assertGreater(result['completed_iterations'],0)
         self.assertGreater(result['sample_count'],0)
@@ -50,12 +55,26 @@ class MeasureTests(unittest.TestCase):
             with self.assertRaises(FileExistsError): measure.write_report(alias,{})
             self.assertEqual(json.loads(report.read_text()),{'synthetic':True})
 
+    def test_successful_child_exit_before_requested_window_is_incomplete(self):
+        # Exercise the actual /proc observer with a bounded child that exits 0
+        # after one completed unit; exit success alone cannot prove a full window.
+        spawn=subprocess.Popen
+        child="import os,pathlib,time;pathlib.Path(os.environ['TMPDIR'],'progress.json').write_text('{\"completed_iterations\":1}');time.sleep(.15)"
+        def early_exit(_args,**kwargs):
+            return spawn([sys.executable,'-c',child] if '--_worker' in _args else _args,**kwargs)
+        with patch.object(measure.subprocess,'Popen',side_effect=early_exit):
+            result=measure.measure('sms',seconds=2,warmup=0,interval=.05)
+        self.assertEqual(result['outcome'],'window_incomplete')
+        self.assertEqual(result['completed_iterations'],1)
+        self.assertTrue(result['cleanup_verified'])
+
 class CompareTests(unittest.TestCase):
     def report(self):
-        return {'schema':1,'kind':'synthetic-functional','scope':measure.SCOPE,'profile':'sms',
+        return {'schema':2,'kind':'synthetic-functional','scope':measure.SCOPE,'profile':'sms',
                 'source_sha':'a'*40,'source_dirty':False,'runner_sha256':'b'*64,'workload_sha256':'c'*64,
                 'outcome':'completed','cleanup_verified':True,'device_performance_verified':False,'budget_approved':False,
                 'environment':{'architecture':'synthetic'},'completed_iterations':2,'sample_count':11,
+                'requested_seconds':5,'warmup_seconds':0,'sample_interval_seconds':.5,'measured_seconds':5,
                 'samples':[{'elapsed_s':n/2,'cpu_percent':10,'rss_bytes':2048,'processes':1} for n in range(11)],
                 'mean_cpu_percent':999,'peak_rss_bytes':999}
     def run_compare(self,a,b=None):
@@ -73,7 +92,7 @@ class CompareTests(unittest.TestCase):
         self.assertTrue(r['same_function_review_required'])
 
     def test_incomplete_old_sha_unknown_units_and_short_samples_are_rejected(self):
-        for key,value in [('schema',2),('source_sha','d'*40),('source_dirty',True),('outcome','cancelled'),
+        for key,value in [('schema',1),('source_sha','d'*40),('source_dirty',True),('outcome','cancelled'),
                           ('cleanup_verified',False),('sample_count',0),('completed_iterations',0),('scope','MiB instead of bytes')]:
             a=self.report();a[key]=value
             with self.subTest(key=key),self.assertRaises(ValueError):self.run_compare(a)
@@ -93,5 +112,25 @@ class CompareTests(unittest.TestCase):
             with self.assertRaises(OSError):compare.load(link,'a'*40)
             p.write_bytes(b' '* (measure.MAX_BYTES+1))
             with self.assertRaises(ValueError):compare.load(p,'a'*40)
+
+    def test_window_coverage_and_equal_measurement_settings_are_required(self):
+        for key,value in [('requested_seconds',12),('measured_seconds',4.9),
+                          ('sample_interval_seconds',0),('warmup_seconds',float('nan'))]:
+            a=self.report();a[key]=value
+            with self.subTest(key=key),self.assertRaises(ValueError):self.run_compare(a)
+        a=self.report();a['samples'][0]['elapsed_s']=.8;a['samples'][1]['elapsed_s']=.9
+        with self.assertRaises(ValueError):self.run_compare(a)
+        a=self.report();a['samples'][-1]['elapsed_s']=4.2
+        a['samples'][-2]['elapsed_s']=4.1
+        with self.assertRaises(ValueError):self.run_compare(a)
+        a=self.report()
+        for sample,elapsed in zip(a['samples'],[0,1.1,1.2,1.3,1.4,1.5,2,2.5,3,4,5]):sample['elapsed_s']=elapsed
+        with self.assertRaises(ValueError):self.run_compare(a)
+        for key,value in [('warmup_seconds',1),('sample_interval_seconds',1)]:
+            a=self.report();b=copy.deepcopy(a);b[key]=value
+            with self.subTest(key=key),self.assertRaises(ValueError):self.run_compare(a,b)
+        a=self.report();b=copy.deepcopy(a);b['requested_seconds']=b['measured_seconds']=6
+        for n,sample in enumerate(b['samples']):sample['elapsed_s']=n*.6
+        with self.assertRaises(ValueError):self.run_compare(a,b)
 
 if __name__=='__main__':unittest.main()
