@@ -3,6 +3,8 @@
 //! Serialized by core on a blocking worker. No remote-supplied clock or role.
 mod client;
 mod identity;
+#[cfg(feature = "recovery-grants")]
+mod recovery_grants;
 mod setup;
 pub use client::{ClientKey, ProofExpectation};
 use ed25519_dalek::{Signature, VerifyingKey};
@@ -253,6 +255,8 @@ impl Auth {
     }
     pub fn new(identity: Identity, store: Handle) -> Result<Self> {
         store.bind_identity(identity.public_key())?;
+        #[cfg(feature = "recovery-grants")]
+        store.check_recovery_key_material(|key| key_valid(key).is_ok())?;
         Ok(Self {
             identity,
             store,
