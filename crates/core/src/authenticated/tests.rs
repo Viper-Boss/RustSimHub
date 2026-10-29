@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
 use ed25519_dalek::{Signer, SigningKey};
+mod recovery_grants;
 
 #[tokio::test]
 async fn setup_ap_real_ipc_is_disabled_without_explicit_local_mode_even_for_owner() {

@@ -58,3 +58,11 @@ for(const v of vectors.wifi_inputs){let accepted=true;try{c.credentials(v.ssid,v
 assert.throws(()=>c.operation(vectors.mock_recovery_operation,vectors.mock_recovery_operation.request_id),'production controller rejects mock source');
 for(const v of vectors.gatt_frames){const bytes=Uint8Array.from(Buffer.from(v.hex,'hex'));assert.ok(bytes.length<=v.attribute_bytes);assert.equal(Buffer.from(bytes.slice(0,2)).toString(),'RB');assert.equal(bytes[2],1);assert.ok(bytes.length>12);}
 console.log('PASS: frozen Wi-Fi vectors, production mock-source rejection and frame-vector header budgets (not a GATT transport test)');
+// Match the actual existing AP validator for Unicode format characters and emoji.
+const apCode=await readFile(new URL('../../crates/edge/src/web/ap-wifi.js',import.meta.url));
+const {credentialsInput}=await import('data:text/javascript;base64,'+apCode.toString('base64'));
+for(const ssid of ['net\u200dwork','合成\ufeffSSID','网络🙂','bad\nnetwork']){
+ let expected;try{expected=credentialsInput(ssid,'abcdefgh');}catch{expected=null;}
+ if(expected)assert.deepEqual(c.credentials(ssid,'abcdefgh'),expected);else assert.throws(()=>c.credentials(ssid,'abcdefgh'));
+}
+console.log('PASS: configurator credentials match actual AP Unicode/control/UTF-8 boundaries');
