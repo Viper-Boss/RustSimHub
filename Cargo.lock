@@ -2085,6 +2085,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustsimhub-nkn-agent"
+version = "0.1.0"
+
+[[package]]
 name = "rustsimhub-policy"
 version = "0.1.0"
 dependencies = [
