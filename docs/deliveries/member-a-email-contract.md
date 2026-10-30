@@ -4,7 +4,9 @@
 
 交付范围为`docs/email/`、`crates/forwarder/tests/email_compatibility_proposal.rs`及本报告。未改forwarder生产类型/队列/worker、Core、Root、Cargo/lock或当前outbox3/worker4。提案描述建议值outbox4/worker5，不代表已批准或已实现。
 
-对照12份真实公开源文件，逐个以git show比对固定主线，再记录完整Git blob、SHA256和字节数。确认现有配置/准备请求只有HTTPS；协议4数值250在HTTP2xx范围内，不能证明SMTP完成。提出私有配置、显式transport请求/确认、完整claim摘要绑定、有限SMTP/TLS子集、DATA副作用边界与三方更新/回退兼容方案。配置/版本/迁移/依赖必须先由负责人审核，符合任务书要求。
+对照13份真实公开源文件，逐个以git show比对固定主线，再记录完整Git blob、SHA256和字节数。确认现有配置/准备请求只有HTTPS；协议4数值250在HTTP2xx范围内，不能证明SMTP完成。提出私有配置、显式transport请求/确认、完整claim摘要绑定、有限SMTP/TLS子集、DATA副作用边界与三方更新/回退兼容方案。配置/版本/迁移/依赖必须先由负责人审核，符合任务书要求。
+
+后续只读核对真实Core的Check/Finish分支，发现原提案的重复BeforeSubmit不可行：三步授权各仅一次，提交许可可能下达后NotSubmitted会被保守映射Unknown。已更正为协议5的四个SMTP专用中间阶段、一次最终BeforeSubmit及其ACK丢失规则；追加Core源文件摘要。不修改测试/生产代码，也不冒称这套新阶段已经实现。
 
 对应上述HEAD实际执行（激活工作区工具链）：
 

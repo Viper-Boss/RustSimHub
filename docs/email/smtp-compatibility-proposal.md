@@ -14,6 +14,7 @@
 | delivery.rs `HttpsSender::deliver` | 仅HTTPS，10秒总预算/8192B回复、live Fence及取消；无自动重试 | 不更名冒充通用邮件发送器；单独SMTP实现复用已审固定出口和真实授权 |
 | compatibility.rs `runtime_compatibility` | outbox=3，允许从1/2显式迁移，worker protocol=4 | 不能静默写新JSON后继续声称旧版本能读/回退 |
 | worker_ipc.rs `parse` / `claim_sha256` | protocol4；Confirmed.status仅检查200..299；摘要包括完整私有claim | 250目前只是HTTP范围内的数值，没有SMTP语义。新确认必须绑定真实claim的transport和协议阶段 |
+| core/src/forwarding/ipc.rs `Management::private`中的Check/Finish分支 | 真实Core只允许BeforeConnect→BeforeTls→BeforeSubmit各一次；第3步后NotSubmitted也保守记Unknown | 不能在AUTH/信封阶段反复调用BeforeSubmit；需要协议5的有限SMTP阶段，并保留提交许可ACK丢失的歧义 |
 | worker.rs `run` / `Settings` | 私有只读credential、实际低权、固定Route、单前台worker，始终实例化HttpsSender | SMTP派发/关停只能在主线审核后接入，不增加常驻邮件轮询器或隐藏默认路由 |
 
 相对路径均在`crates/`下。对应文件完整SHA256在`source-manifest.json`；清单记录源码截面，不证明运行时授权。
@@ -33,7 +34,7 @@ cargo test --offline --locked -p rustsimhub-forwarder --test email_compatibility
 1. **私有配置**：新增`Destination::Email`和`DestinationEdit::Email`，严格字段为`kind=email,smtp_host,port,tls,username,password,mail_from,rcpt_to`，未知/重复字段拒绝。只支持一个收件人、ASCII DNS主机、port=465、tls=implicit。所有账户/地址/凭据均使用Secret或同等零化类型；不实现Debug/Clone，不从URL、环境代理、公共JSON或浏览器存储读取账户。现有PolicyEdit仍由真实近期Owner检查，构造/读取/保存配置不启动worker或打开连接。
 2. **不可变准备结果**：将`Claim.request`升级为有显式`transport`标签的`PreparedDeliveryV1::{Https {request:PreparedRequest},Smtp {request:PreparedEmailV1}}`；拒绝混合字段。`PreparedEmailV1`包含固定主机/465、账户/凭据、唯一信封发件人/收件人、已经按Share选择并编码好的完整MIME DATA（Secret）；不能到发送时再拼当前短信、改正文、查新的收件人。`Claim`的id/attempt_id/generation/line不变；复用完整claim摘要、精确request相等检查与真实Core Fence。
 3. **回执**：保留`DeliveryOutcome::{NotSubmitted,Confirmed,Unknown}`三类。建议Confirmed携带`ConfirmationV1::{Http {status},Smtp {code}}`，Unknown中的已观察结果同样带transport且不含服务端原文。Core按真实claim验证：HTTPS只接受Http 2xx；SMTP只接受Smtp code=250且发送器已完成DATA阶段。不能通过把SMTP250当作HTTP2xx绕过新格式；worker结果本身也不是收件手机的确认。旧公共队列State/Receipt保留，界面文案应为“邮件服务器已接受”。
-4. **阶段/Fence**：保留`BeforeConnect/BeforeTls/BeforeSubmit`接口，新的SMTP sender在连接/TLS之前分别核验，并在每次AUTH、MAIL FROM、RCPT TO、DATA命令及第一段正文写入前重新调用BeforeSubmit。不能缓存“上一步允许”；真实Root单向取消通道覆盖整个等待/发送。失败则本地关闭，不再发QUIT/RSET等清理命令。重复阶段调用是否符合Core实际grant实现，由主线在接线前核对。
+4. **阶段/Fence**：复用Fence/Claim方法签名，但协议5需追加四个有限Stage：`BeforeSmtpAuth/BeforeSmtpMailFrom/BeforeSmtpRcptTo/BeforeSmtpData`，各自在对应命令前核验。SMTP唯一合法顺序为`BeforeConnect→BeforeTls→BeforeSmtpAuth→BeforeSmtpMailFrom→BeforeSmtpRcptTo→BeforeSmtpData→BeforeSubmit`；最后一步在收到354后、第一段正文写入前执行且仅一次。HTTPS保留原三步。真实Core必须按claim的transport分别选择固定顺序/终态，不开放任意重排、重复阶段或缓存“上一步允许”；这是Core负责人审批/实施范围，本包不修改。Root单向取消通道覆盖整个等待/发送；失败则本地关闭，不再发QUIT/RSET等清理命令。
 5. **出口/生命周期**：复用现有Connector及BoundConnector/Route；不提供ambient DNS/代理/蜂窝回退或自行打开socket的替代连接器。默认OFF不启动worker，不产生TLS/DNS/邮件连接；已有独立SMTP库的构造和解析也须无I/O。取消本地future不等于Root已杀进程，真实无PID退出仍需主线核验。
 
 ### 有限SMTP与内容子集
@@ -51,6 +52,7 @@ cargo test --offline --locked -p rustsimhub-forwarder --test email_compatibility
 |---|---|---|
 | 校验失败/关闭/撤销，或连接、TLS、AUTH、MAIL/RCPT拒绝，且未尝试写DATA正文 | NotSubmitted + 固定Failure | 没有提交正文；仍不自动重试/重发 |
 | DATA获得354，但还没进入正文write；此时取消/超时 | NotSubmitted | 不发送正文/终止符，不继续清理协议 |
+| Core已发出BeforeSubmit许可，或其ACK丢失；即便worker自报还没write | Unknown | 沿用真实Core的保守映射，不凭worker自报撤销可能已经使用的许可 |
 | **第一次正文write之前先设attempted=true**；其后部分写/断线/超时/取消/非法或4xx/5xx最终回复 | Unknown | 即便write报错也不能证明远端未收到；保守不重试，不把“关闭”改成未提交 |
 | 完整DATA终止后，在同一连接/尝试、期限与授权仍有效时收到严格最终250 | Confirmed(Smtp 250) | 只证明该邮件服务器接受；不证明最终邮箱/手机接收 |
 | 250仅出现在欢迎/EHLO/MAIL/RCPT或内容中，或迟到/旧claim回复 | 不构成确认 | 按真实阶段和attempted处理；不解析错误正文猜成功 |
@@ -79,6 +81,6 @@ SMTP命令/有限回复解析用Rust标准库及既有tokio/rustls/zeroize，不
 
 Date格式化若需启用现有time的formatting feature也须在实现PR列出精确Cargo/lock差异。不得以“已有传递依赖”省略新增直接使用的许可/来源检查，不批量升级锁文件。测试TLS继续使用现有rcgen/临时本地证书，不复用生产密钥。
 
-负责人需要在本具体提案上决定：SMTP子集/固定465、私有字段和Share/Date来源、tagged claim/确认、版本号与迁移/回退规则、新直接依赖及重复Fence语义。审核后才在`crates/forwarder/src/email/`实现独立SMTP/TLS库及真实loopback TLS服务，按上述每一阶段注入拒绝/超时/证书错误/撤销/关闭/掉线；后续最小生产派发与queue迁移另外精确审核。不发送真实邮件、不访问外网SMTP、不安装服务，不改Core/Root/queue/worker或全局完成率。
+负责人需要在本具体提案上决定：SMTP子集/固定465、私有字段和Share/Date来源、tagged claim/确认、版本号与迁移/回退规则、新直接依赖及有限SMTP Fence阶段。审核后才在`crates/forwarder/src/email/`实现独立SMTP/TLS库及真实loopback TLS服务，按上述每一阶段注入拒绝/超时/证书错误/撤销/关闭/掉线；后续最小生产派发与queue迁移另外精确审核。不发送真实邮件、不访问外网SMTP、不安装服务，不改Core/Root/queue/worker或全局完成率。
 
 沿用AGPL-3.0-only，无第三方源码复制；OpenAI Codex辅助提案及当前接口失败样例。

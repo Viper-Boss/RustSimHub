@@ -74,6 +74,12 @@
       "bytes": 79926,
       "sha256": "b5a7a73d50956a10710ad94c029169c8f3e70c0218008c4de96e78b6a2dee214",
       "git_blob": "153d71e78837706527e196424ddd62dd1d2e69b4"
+    },
+    {
+      "path": "crates/core/src/forwarding/ipc.rs",
+      "bytes": 13583,
+      "sha256": "4ce858a6c2bb9d498ab71213fc501701824a3ef28e917e578beb7473104c6da1",
+      "git_blob": "67debd53baf976de01f411db6d9a02c44400c421"
     }
   ]
 }
