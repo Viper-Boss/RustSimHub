@@ -614,6 +614,51 @@ fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/test-center.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/test-center.js"),
+                )
+            }),
+        )
+        .route(
+            "/operation-receipt.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/operation-receipt.js"),
+                )
+            }),
+        )
+        .route(
+            "/configuration-state.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/configuration-state.js"),
+                )
+            }),
+        )
+        .route(
+            "/diagnostics.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/diagnostics.js"),
+                )
+            }),
+        )
+        .route(
+            "/usage-stats.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/usage-stats.js"),
+                )
+            }),
+        )
+        .route(
             "/style.css",
             get(|| async {
                 (

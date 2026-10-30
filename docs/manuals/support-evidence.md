@@ -2,7 +2,7 @@
 
 [手册目录](README.md)
 
-资料基线为 `6f228fd3dcb9ce6da54d7910f4b044833e71a91a`，日期 2026-10-27。
+本轮资料基线为 `6b5de5f3ca5ff706adacd8f25ed7f638546739a9`，日期 2026-10-30。
 本页是 C-15 手册的证据索引，不替代负责人冻结的 REL-01 正式支持矩阵。
 “有限实机”只按链接记录的版本和场景成立；历史文档中更早的失败和待验段落仍须保留。
 本次没有重新操作设备或执行这些验收。
@@ -47,7 +47,9 @@
 [P2G 日常短信](../VALIDATION-DAILY-SMS-P2G.md)、[P3M 日常电话](../VALIDATION-DAILY-PHONE-P3M.md)及[P7A](../VALIDATION-TEST-CENTER-P7A.md)
 记录提交前持久标记、同 ID 核对、重复点击、存储失败、注销、迟到回复、Unknown 和收尾边界。
 这些结果支持“未知时不自动重发/重拨”的流程；不保证所有断电或运营商故障已完成实测。
-[C09～C12 PR #10](https://github.com/Viper-Boss/RustSimHub/pull/10)的恢复后操作矩阵仍待负责人 Linux 结果，不计作已通过证据。
+[C09～C12 PR #10](https://github.com/Viper-Boss/RustSimHub/pull/10)已合并；
+[成员报告](../deliveries/member-c-nas.md)的“主线接入与 WSL2 原生完整复测”一节记录真实模块的十五项恢复场景在 WSL2 通过，含原操作及 Unknown 保持。
+这属于合成数据的隔离验证，不是当前设备全量恢复或硬件掉电验收。
 
 <a id="s06"></a>
 ## S06 · 所有者回收站和最近登录
@@ -88,7 +90,10 @@
 **接口已存在；当前联合恢复范围未闭环。**
 [恢复语义](../recovery-clients.md)和[实际 Store 实现](../../crates/storage/src/lib.rs)区分身份、业务快照、恢复域及重新授权。
 早期说明按其历史版本阅读，不能将当年的“尚无 HTTPS”等文字当作当前状态；当前身份密文边界见 S09。
-[PR #10](https://github.com/Viper-Boss/RustSimHub/pull/10)新增十五项真实模块矩阵和跨域缺口提案，仍待 Linux 实测，不是成功验收。
+[PR #10](https://github.com/Viper-Boss/RustSimHub/pull/10)已于 2026-10-29 合并，
+测试代码提交为 `c9aed5f4ef3c84fec92b7ac4dd2f297fa70910a8`；十五项真实模块恢复矩阵在 WSL2 通过。
+旧 `bfaa8dc` 包的 11 通过/4 失败仍是历史结果，不能用来判断更新后的源码。
+[矩阵说明](../recovery/offline-matrix.md)和[一致性缺口](../recovery/consistency-gaps.md)仍区分单库恢复与跨域联合协议。
 Store、身份、outbox、部署配置等没有在本稿获准成为普通用户“一键全量恢复”；不提供设备写入或整机恢复步骤。
 
 <a id="s11"></a>
@@ -98,6 +103,10 @@ Store、身份、outbox、部署配置等没有在本稿获准成为普通用户
 [P6AF](../VALIDATION-INITIALIZED-APP-UPGRADE-P6AF.md)记录选中、健康核验、准确确认及原数据保持，明确同 schema 场景的限制。
 [schema 准入](../VALIDATION-SCHEMA-ADMISSION-P6AA.md)说明旧程序与新数据库的维护边界；
 [更新设计边界](../rtc-and-application-update.md)明确应用选择器不是整机 OTA。
+[UPD-01 实机记录](../VALIDATION-UPD01-FIELD-20261028.md)补充真实签名程序、Root 配置和持锁数据比较后的暂存/确认；
+[UPD-04 实机记录](../VALIDATION-UPD04-FIELD-20261028.md)证明该次候选 Core 异常退出后整组回退及新收记录保持。
+[C13 矩阵](../update/failure-matrix.md)和[C14 矩阵](../update/crash-matrix.md)补充合成签名、真实 IO、2 MiB tmpfs 写满及明确 API 边界的 SIGKILL 重开验证。
+这些隔离测试不证明内部 sync/rename 中断、eMMC 掉电持久性或所有版本可恢复；本次没有重新操作设备。
 当前范围不提供已验收的普通用户整机升级步骤；不让“上传成功”“版本兼容”或服务 active 替代升级验收。
 
 <a id="s12"></a>
@@ -139,7 +148,10 @@ Store、身份、outbox、部署配置等没有在本稿获准成为普通用户
 <a id="s16"></a>
 ## S16 · 升级版本比较与准入
 
-**版本比较工具有隔离 Linux/ARM 验证，完整维护准入仍待接线。**
+**版本比较及有限维护准入已有分阶段验证；维护发起授权另列。**
 [U3](../VALIDATION-UPGRADE-COMPARISON-U3.md)记录真实 CLI、数据观察、候选/回退比较及需要维护/拒绝的退出分类，
-同时明确还缺签名字节、实际 Root 盘点与数据锁约束的联合维护入口。
-比较结果不是部署授权，不改现有 stage/choose 行为；本稿不把其转换成普通用户升级命令。
+其中尚缺接线的结论属于 U3 当时的历史截面。
+后续[U6 实现](../VALIDATION-UPD01-ADMIT-STAGE.md)及[UPD-01 实机记录](../VALIDATION-UPD01-FIELD-20261028.md)
+记录有限准入命令对签名程序、实际生效 Root 配置、数据锁和候选/当前/回退的联合检查，UPD-01 已由主线记为完成。
+该记录的 `authorization_verified=false` 仍明确保留：谁有权发起维护属于 UPD-02，不由比较结果授予。
+本稿不把准入工具或 C14 的合成元数据比较转换成普通用户升级命令；当前源码以负责人交付版本为准。

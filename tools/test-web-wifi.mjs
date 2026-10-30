@@ -27,7 +27,7 @@ class Element{
 function fixture(respond=()=>clone(catalogue)){
  const elements=new Map(),sent=[];
  const $=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
- const context={ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,forwardingPendingInput,document:{hidden:false,getElementById:$,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(){}},crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},indexedDB:{open:()=>({})},
+ const context={OperationReceipt:class{update(){}reset(){}},DiagnosticPanel:class{update(){}reset(){}},ConfigurationState:class{reset(){}},UsageStatsPanel:class{reset(){}},TestCenter:class{update(){}reset(){}},ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,forwardingPendingInput,document:{hidden:false,getElementById:$,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(){}},crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},indexedDB:{open:()=>({})},
   AudioLink:class{constructor(){this.state='closed';}async stop(){}},ConfigurationIndicator:class{async set(){}},CallTest:class{async stop(){}},NetworkPanel:class{start(){}stop(){}},EventSync:class{reset(){}},SmsManager:class{reset(){}},DailyPhone:class{reset(){}},ClientsPanel:class{reset(){}},SessionKeeper:class{reset(){}},
   fetch:async(_url,options)=>{const body=JSON.parse(options.body),command=body.command;sent.push(command);const result=await respond(command,sent.length);return {ok:true,json:async()=>({protocol:2,id:body.id,result})};},
  };
