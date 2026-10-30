@@ -1,0 +1,196 @@
+{
+  "reference": "6b5de5f3ca5ff706adacd8f25ed7f638546739a9",
+  "method": "fixed tracked Git objects only",
+  "files": [
+    {
+      "path": "docs/KERNEL-PROVENANCE.md",
+      "bytes": 9788,
+      "sha256": "939f49732329bc548a7dc52f93924f7cfa0c84fe6f9795f1b1d6e07fd2093220",
+      "blob": "3e7cac0bbec173e5941a6a7a4726db6b85e68d37"
+    },
+    {
+      "path": "docs/VALIDATION-FULL-KERNEL-P6T.md",
+      "bytes": 8749,
+      "sha256": "4f8565a6798081bc0f464c359a8eb1f6d1736c89bf9f54093aa7102fcd95e673",
+      "blob": "e04cef37642f54f8accd01ca221be9a0120cfc69"
+    },
+    {
+      "path": "docs/kernel-audio-layer.md",
+      "bytes": 2898,
+      "sha256": "130d614ca0a976ee1f3a564a92dd9e699e12e5ce6bb7717121230904eded71c9",
+      "blob": "83863214730b89dd1bbd6e517be7bf3139aafd83"
+    },
+    {
+      "path": "docs/rebuild-base-kernel.md",
+      "bytes": 3589,
+      "sha256": "e846abe74831de6bde787b461294663dd35abcfc81830d3419cb4f3494531e04",
+      "blob": "a5bc82a6e2eca95fbd67cedcadfdaefcf73f11a6"
+    },
+    {
+      "path": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
+      "bytes": 62982,
+      "sha256": "96d8e5860a6297631106538fdc3ea827bfa1f1b463ec836a3c2025d2e499b88e",
+      "blob": "4b0e0ca6032b38c787fda693f4c651b3a3f268b7"
+    },
+    {
+      "path": "docs/team/MEMBER-C-NAS-COMPAT.md",
+      "bytes": 12271,
+      "sha256": "666336b66a76e3662c58c084a8a8689750518abdd01a88fb0c4820addf3002d3",
+      "blob": "e4901b292d15627e7743bd88541c926b64083961"
+    },
+    {
+      "path": "firmware/base-system.lock.json",
+      "bytes": 84604,
+      "sha256": "bb040be5491f6098b73c098110671c7bf2f89be46f9942bc342b5070b67e8190",
+      "blob": "4b88625fbd311ff3be0aedd9cc293f2cd01ce206"
+    },
+    {
+      "path": "firmware/board.toml",
+      "bytes": 1160,
+      "sha256": "e37545c61206f5f96045b3bb27ca9907907507aa00ce62a985ddf8864426e8b7",
+      "blob": "a3369efd317b0f42705d90c06a9cf5dd72eb848f"
+    },
+    {
+      "path": "firmware/kernel/audio/include/dt-bindings/sound/qcom,q6afe.h",
+      "bytes": 284,
+      "sha256": "40705e919123149802bae69a5fd39eaa074f27fda1b958529eb92df024774b22",
+      "blob": "9d5d89cfabcff570f22897e65f3770536f99d2e2"
+    },
+    {
+      "path": "firmware/kernel/audio/include/dt-bindings/sound/qcom,q6asm.h",
+      "bytes": 855,
+      "sha256": "349e52e66e23b07a17567d6e71aba184b23846e0a9fe835ff614a0310a24cdd8",
+      "blob": "f59d74f14395b72991ae8c1663591d5df60a49af"
+    },
+    {
+      "path": "firmware/kernel/audio/include/dt-bindings/sound/qcom,q6dsp-lpass-ports.h",
+      "bytes": 7512,
+      "sha256": "159122d7d0be8aa4703ece94c0fd26eb106ea4128d572a6061c342686d44c736",
+      "blob": "39f203256c4f6b96745f8200c0c806f5e22396c0"
+    },
+    {
+      "path": "firmware/kernel/audio/include/dt-bindings/sound/qcom,q6voice.h",
+      "bytes": 177,
+      "sha256": "e83c5d7eef2aa7458a60a191b5984de9994c67c279401aa8655683d763799268",
+      "blob": "fe5aa3a3fce49bc7c8ef1ebd8b7b623d462d0e3f"
+    },
+    {
+      "path": "firmware/kernel/audio/modules/Makefile.outoftree",
+      "bytes": 298,
+      "sha256": "a41f93f89dab6a86243315246d6777296b7b985124f980aa4ede0008c019fcd9",
+      "blob": "a105fdb2a36e53d6128ccec3536541a9adbe33b9"
+    },
+    {
+      "path": "firmware/kernel/audio/modules/nassimhub-incall-audio.patch",
+      "bytes": 33733,
+      "sha256": "cd4736021a27c198f2656cbbd76179952ead5a4af23444be7ed8ece7488eef40",
+      "blob": "0159f0b37c2f88daa431327d1dc65cd2125f16ba"
+    },
+    {
+      "path": "firmware/kernel/audio/modules/source.json",
+      "bytes": 35160,
+      "sha256": "785b93baeaa755e6017f39665955428f35e069261c4ff975076bb0e6eaa3977a",
+      "blob": "91763fa8fedd492930af0e4f4eca9b4e6780940b"
+    },
+    {
+      "path": "firmware/kernel/audio/source.json",
+      "bytes": 2070,
+      "sha256": "066c5293aac666b9dbaea8e661261a2305fca0e05247470f7940afccfb293e00",
+      "blob": "b071719f55a9598c6a7f8c3422ee1dd9d1e6819d"
+    },
+    {
+      "path": "firmware/kernel/audio/ufi003-audio.dtsi",
+      "bytes": 4477,
+      "sha256": "4255fc8acf149503d83e820f2c2b1513be68146a0d718e03ffadf5a61174e01c",
+      "blob": "fc8b54ed1346a6b176bbf55a77266b7335277af6"
+    },
+    {
+      "path": "firmware/kernel/base-build-profile.json",
+      "bytes": 1257,
+      "sha256": "bde8f7a392107828736ff6eef3e4cb713bb7e66ea3e2d5531714bea1a509325d",
+      "blob": "d13a09a112bf75bab026e1a2817db54d45a9c602"
+    },
+    {
+      "path": "firmware/kernel/upstream-source.lock.json",
+      "bytes": 3276,
+      "sha256": "a3fcc5d3b9a3ee134cf8e2f4c3df61bedd6ea2065df3031daa713324ba14b3eb",
+      "blob": "b1093840b93c3439e6a9d3135408533ad1a70c31"
+    },
+    {
+      "path": "firmware/system/overlay/usr/local/libexec/rustsimhub-device-firmware",
+      "bytes": 3050,
+      "sha256": "b58d029b52fba25fb8d28c0c52c6dbe5d2fb241543106d67624116d366fbc7e2",
+      "blob": "f327831edc8e39a47b6610ff5b5cc068cd6a9de9"
+    },
+    {
+      "path": "tools/audio_modules.py",
+      "bytes": 10329,
+      "sha256": "8f1bd12628176d7109c2229d8605b05a5aedb65ad20b9d3209b4b3637b51e49a",
+      "blob": "de9e13894649284931e6be71f453c7830d4078fa"
+    },
+    {
+      "path": "tools/rebuild-audio-dtb.py",
+      "bytes": 4421,
+      "sha256": "b6d4c3c2a7f0ff02c0876952dd2a16f55fb1ba51bcf7170772136ce494ab099d",
+      "blob": "c48265093cfe16a5d8e54a54a2dab4da3af1e3a4"
+    },
+    {
+      "path": "tools/rebuild-base-kernel.py",
+      "bytes": 17776,
+      "sha256": "6c90dd41378ec893c8b184c8b4df42ea85156e75fd7f8ef28a8670257bc37175",
+      "blob": "b3eb3cbdd4f6ef4fa14a985709351922c8d6ba83"
+    },
+    {
+      "path": "tools/rootfs/firmware/rootfs.lock.json",
+      "bytes": 3590,
+      "sha256": "4c202231b584e28c810ccd150b343ad5e476638b426d0bbec99b26f915e1b2f0",
+      "blob": "ac622b8e983244528e49eb1ddab75f3fcd054c8d"
+    },
+    {
+      "path": "tools/rootfs/firmware/upstream.lock.json",
+      "bytes": 854,
+      "sha256": "1ff9131296314c940bfdfe6274b67eea263edb9c975ae347f992bbae27386ce8",
+      "blob": "4d4796bcd7f8a8202d1300b1ab41b70ae110b921"
+    },
+    {
+      "path": "tools/rootfs/kernel/audio/replace-appended-dtb.py",
+      "bytes": 4597,
+      "sha256": "9d49ee9a3fec28bb7126fad5fa32cd59217b465cd5d02c6c42db0b51c9acfe12",
+      "blob": "2885349c8e0357f8cb39910a4af4fa7bb90072c7"
+    },
+    {
+      "path": "tools/system/test_audio_dtb_source.py",
+      "bytes": 2012,
+      "sha256": "195feac118b8f8eabd9f3246f1ae9a7d6ac4121c0982c67cee3ca5955429ee3a",
+      "blob": "73e9f18672689d1f0cc1a71956106fce79e1c0d1"
+    },
+    {
+      "path": "tools/system/test_audio_modules.py",
+      "bytes": 9583,
+      "sha256": "b610d253e230f58dd5f7d7f4b64a1ba91bb3908c04903645f66953cca6234a8a",
+      "blob": "69cc0fe67f0f476b7bc8b1ef77ab46a2fcee44db"
+    },
+    {
+      "path": "tools/system/test_kernel_source_tree.py",
+      "bytes": 4114,
+      "sha256": "2cf03366e1576dd955514fbe2d6953ad02e000df01a727005afb3bacf4ebea25",
+      "blob": "c4bd850b4008184bc2cc42f57431741d120775bd"
+    },
+    {
+      "path": "tools/verify-audio-boot-recipe.py",
+      "bytes": 4271,
+      "sha256": "227db0d3f0cfe7f393224f644b7841b2e51b784f9fffb99d388ab83d42bbf4be",
+      "blob": "7ccd6d40a751c07dc9b39bc1850ef8bbd73f856c"
+    },
+    {
+      "path": "tools/verify-kernel-source-tree.py",
+      "bytes": 6439,
+      "sha256": "839989d62b125ea2c5f20d3aaa0f63300edd9e56f28bb9ea5a3db73dfb9edb3f",
+      "blob": "1216cc0c628be5ca371e38614cfa090177c42d19"
+    }
+  ],
+  "downloaded_artifacts": false,
+  "private_inputs_read": false,
+  "schema": 1,
+  "scope": "C17 fixed public source inventory only; not a release or artifact manifest"
+}
