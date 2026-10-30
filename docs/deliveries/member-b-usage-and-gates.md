@@ -1,5 +1,7 @@
 # 成员 B：B-29 展示收口、兼容修正与全部32步交付边界
 
+2026-10-30接续：下文原测试数字/合并状态是 #83 提交时快照，不是当前全库复测。#100 已实际注册既定静态路由、装配五个展示组件，并在 `923c3827d3c49707a376c2fabc1ba0d3c3b05778` 接入具有本次请求证明的 forwarding_status 手动读取；当前证据和未验收项见 [装配交付](member-b-test-center-assembly.md)。旧文关于“静态路由缺失/完全缺配置新鲜度来源”的阻塞已由该待审源码处理，统计授权 provider 与其他成员生产恢复接口仍缺。#87/#89/#90/#91/#96/#102 为后续取消、时限、CSP和性能完整性补充，均不自行增加验收比例。
+
 账号 wnfhsj88（原 wnfhsj，稳定 ID member-b）。起始 main `b6c73c6a47e00654bff51ae2b221fdcd7e9458e0`；统计/初始化实现 HEAD `fed34de59e3f59b1db1b1e3ccbc12c577a4ee4d6`；配置器兼容修正 HEAD `a9919e290ffc4194e3c3eae30cf297f9cfbe38ad`；最终 PR HEAD 见正文。分支 codex/wnfhsj88-usage-display，Viper-Boss/RustSimHub。
 
 ## 本批实际改动与结果

@@ -1,33 +1,49 @@
-# 成员B：B-29/B-30实际网页装配与静态资源
+# 成员 B：实际首页装配、只读回执/诊断与转发状态
 
-账号wnfhsj88（原wnfhsj，member-b）；Viper-Boss/RustSimHub 分支 codex/wnfhsj88-test-center-assembly，PR #100 到main。
-最初main `b7a5dfa8d0d8c762c2284164e9d4371fce3c373f`，已正常合入 `6b5de5f3ca5ff706adacd8f25ed7f638546739a9`。
-实际实现/受测源码HEAD：`8ea3f4519e4dee13e1db08301c239e8366c041a3`；PR当前完整HEAD见正文，后续仅文档或明确说明的主线同步。
+账号 wnfhsj88（原 wnfhsj，member-b）；仓库 Viper-Boss/RustSimHub；分支 codex/wnfhsj88-test-center-assembly；PR #100，B-19/B-29/B-30。历史起始 main `b7a5dfa8d0d8c762c2284164e9d4371fce3c373f`，已正常合入最新 main `aac1ec246bba9d77c98d42350866d6eb06a414d6`。
 
-## 实际改动与范围
+实际源码/受测完整 HEAD：`923c3827d3c49707a376c2fabc1ba0d3c3b05778`，含原装配 `8ea3f4519e4dee13e1db08301c239e8366c041a3` 及本批真实转发读取；之后仅本人交付文档。最终 PR 完整 HEAD 见正文，不把旧审核套到新提交。
 
-本包已从文档候选落实为源码：按已合入 #93 的精确diff注册五个显式静态GET/include_str资源及对应Router回归，接T6允许的最小app/HTML装配。没有变更Rust鉴权、设备API、Core/wire、业务模块、角色或权限。
-TestCenter委托原七个onclick，隐藏保留原节点，只有一套可见任务入口；原结果复制/草稿/回执提示/手动功能保留。回执面板只读查询原call/SMS ID，复用原act/query并复核对象/ID/viewEpoch及实际完成；归档仍在原业务区。未知/不支持的本地state不生成saved证明。
-诊断只复制白名单投影；不输出地址、完整pin、凭据、正文或lease，不从本地token/pin推出认证/证书/服务状态。原ID查询在回执区，诊断查询未开放。配置/统计组件均已挂载，但read=null、读取禁止、状态/计数未知，不伪造新鲜度或启动引擎/订阅。
-显示观察器不触发业务，离页断开并重置、返回只投影当前状态；退出仍走原清理，晚回调不恢复旧视图。没有新提交队列或独立登录。
+## 实现与范围
 
-## 真实验证
+- 按已合入 #93 的精确45行 diff 注册五个静态 GET/include_str 模块及84行 Router 回归。T6 允许的 app/HTML 已装配真实五个组件，不再要求负责人手动 apply 文档补丁。
+- TestCenter 委托原七个 onclick，保留 act/认证/AP/电话/租约/代次/防重。只显示一套入口；保留原复制、草稿、恢复提示和手动功能。
+- 回执仅投影原 call/SMS 有限字段，原 act/query 核对同一对象、ID、viewEpoch 及实际完成。新面板不开放归档；未知本地 state 不生成 saved 证明。
+- 诊断只复制脱敏白名单，不输出完整地址/pin/凭据/正文/lease，不从本地 token/pin 推断认证、证书或业务。原 ID 查询留在回执区。
+- 配置面板已接现有 forwarding_status：利用实际 Core 请求开始后的报告核对，严格检查能力/成功/verified/状态/代次；保守计算完整 RTT、毫秒余量与 UI 等待年龄。3秒超时，累计5秒过期；没有有效证明保持未知，不确认保存、不启停/发送。
+- 配置读取校验 token/viewEpoch/Abort/可见性/原业务忙碌状态，旧 HTTP 结束前拒绝重叠查询；退出/离页/后台重置，返回不自动请求。保留原 HTTP/Core 时限，不把 UI Abort 冒充设备取消。
+- 统计已挂载但 read=null/禁读，等 A 授权 provider；不编计数、启引擎或订阅。其他配置来源不从转发证明外推。
 
-在当前实际源码运行，均退出0：
+没有新依赖、Core/wire/设备 API/认证/业务提交语义或数据迁移改动。来源论证、接口门禁、原型历史与回退见 [装配说明](../web/member-b-test-center-assembly.md)。
 
-- 全部25个tools/test-web-*.mjs，含加载真实App和五个实际组件的装配回归；配置器Node合同/防重/SSID/取消回归通过。
-- `cargo test -p rustsimhub-edge --all-features --locked --offline`：38通过、0失败/忽略。
-- Edge全targets/all-features严格Clippy和workspace fmt检查通过。
-- `python3 tools/fixtures/test-center/assembly-browser.py --output /workspace/setup-logs/full-web-assembly-browser`：实际首页Chromium 1440/390/320通过。
-- 实际路由与原 #93 补丁反向检查通过，保持精确45行资源表及同一回归；diff检查通过。
+## 本批实际验证
 
-App/组件验证原状态读取、SMS一次提交/草稿、Bark原处理器/共享IDB/归档、Unknown精确ID查询、AP/停止、退出/离页/返回隔离；新增回执验证重复/错ID/退出拒绝、未知state降级、档案不清除和脱敏复制。五个其他业务VM夹具仅stub显示依赖，原业务断言保留；实际装配测试不使用显示stub自证。
-浏览器使用实际HTML/App和CSP，静态表来自实际Rust清单，API为本地合成403；实际IDB保存合成未确认记录并reload，未登录查询禁止。检查单套可见任务、44px/键盘、初始化失败、原记录/复制/面板、原生观察器、配置/统计禁止读取、无溢出和CSP违规0。剪贴板为外部写端口夹具，不声称OS授权实测；请求仅identity/challenge，没有业务提交。
-开发中原候选等待字符串触发unsafe-eval，改函数等待；新AP状态夹具补齐原suspend接口后通过。没有放宽CSP、改业务守卫或删除断言。日志/截图仅setup-logs，不提交生成物。未跑实际HTTPS/真实声音、短信、Bark或双端。
+下列命令均退出0；源码即上述923c382完整HEAD：
 
-## 主线审核与未验收
+```sh
+source /workspace/toolchains/activate-rustsimhub.sh
+# 逐个运行全部25个 tools/test-web-*.mjs
+node tools/test-ble-configurator.mjs
+python3 tools/fixtures/test-center/assembly-browser.py --output /workspace/setup-logs/configuration-reader-browser
+cargo test -p rustsimhub-core --all-features --locked --offline forwarding::service::tests -- --test-threads=1
+cargo test -p rustsimhub-edge --all-features --locked --offline
+cargo clippy -p rustsimhub-edge --all-targets --all-features --locked --offline -- -D warnings
+cargo fmt --all -- --check
+git diff --check
+```
 
-源码已在PR分支应用，不再要求负责人手动apply文档补丁。原候选保留在c1ed002历史，当前以本PR实际源码/完整HEAD为准；说明见 [装配文档](../web/member-b-test-center-assembly.md)。回退采用正常源码回退，先撤新增import/装配再移除路由，无迁移或数据清理。
-本包未跑全workspace/ARM/实机，不借用旧结果填通过；远程CI单独回读。配置新鲜度/统计授权provider、完整恢复认证/GATT/Core后端、Pages路径及真实声音/短信/Bark/Android/第二端验收仍缺。不把默认不可用、合并或自测计为全32步/产品完成，不改全局台账。
+- 网页25脚本/配置器 Node 通过；配置读取测试在修改前因未接入按钮禁用失败，修改后通过。真实 App 加载五个实际组件；其他五个业务 VM 仅 stub 新展示依赖，原业务断言保留。
+- Edge38通过、0失败/忽略；静态源码/MIME、错误 Host403、POST405、未知404及 CSP/permissions/no-store/nosniff 保持。严格 Clippy/fmt 通过。
+- Core现有 service 测试7通过、167过滤、0忽略，覆盖真实 dispatch/verified、旧/未来报告、boot/代次/身份不符、Owner/并发拒绝、固定任务失败/超时等。实际使用私有 UnixStream D-Bus，不访问主机服务。未改 Core，未将既有合同测试算作新增后端。
+- Chromium 三尺寸1440/390/320：实际首页/CSP、实际 IDB 合成保留记录/403、脱敏复制、单套入口、键盘/44px/溢出/初始化失败和原观察器通过。随后真实 Ed25519 本地合成挑战经过实际 proof.js/浏览器 key 签名和夹具验签，沿原登录流程手动查询转发运行/关闭/未知；真实5秒陈旧、无自动查询、退出禁读，CSP零违规。没有注入 App token/放宽认证。
+- 配置 Node 另覆盖完整 RTT/排队年龄、毫秒余量、保存不推断、缺能力/证明、时钟回拨/非有限/3秒边界、退出/离页/后台迟到和旧传输不重叠。原 SMS/Bark/原 ID/草稿/AP/停止与取消断言继续通过。
 
-沿用AGPL-3.0-only，无新依赖/第三方源码复制；OpenAI Codex辅助实现/验证，没有工时估造、他人作者或分支改写。无设备/NAS/生产数据、真实通信/流量、签名/部署/发布。
+日志 member-b-configuration-reader-{web,edge,clippy,browser}.log 与 member-b-configuration-core-contract.log、截图均仅工作区；剪贴板为外部写端口夹具，不冒称 OS 权限。浏览器 API 完全本地合成，原登录/状态轮询及 configuration_indicator(false) 保留；新增状态入口没有配置/启停/通知/通信提交。
+
+## 未验收与接续
+
+未运行全 workspace/ARM/实际 HTTPS/设备/真实声音、短信、Bark/Android/第二端；不借旧结果填通过。统计授权读取、完整恢复认证/GATT/Core 后端、Pages 路径及实机/独立技术复核仍待 A/D/负责人。转发运行证明不代替 AP 保存证明或真实设备无 PID 验收。
+
+最终远程 Rust CI 按完整 PR HEAD 回读；此前 run41005330855 因 GitHub 账单/spending limit 未启动、steps为空，不能称 CI 通过。历史旧 HEAD 的流程批准明确未独立审核，不代表本次源码已通过技术审核或功能验收。所有源码仅提交个人 PR，未自行合并、部署、发布或更新全局进度。
+
+沿用 AGPL-3.0-only，无新依赖/第三方源码复制；OpenAI Codex 辅助实现/验证，无工时估造、他人作者/分支改写。无设备/NAS/生产数据、真实通信/流量或签名操作。
