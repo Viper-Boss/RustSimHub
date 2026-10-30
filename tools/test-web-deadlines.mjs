@@ -12,11 +12,12 @@ class Element{constructor(){this.style={};this.children=[];this.value='';}setAtt
 const document={createElement:()=>new Element()},id='11111111-1111-4111-8111-111111111111';
 const failures=[];
 async function scenario(name,test){
- const originalSet=globalThis.setTimeout,originalClear=globalThis.clearTimeout,tasks=new Map();let next=0,aborted=0,calls=0;
+ const originalSet=globalThis.setTimeout,originalClear=globalThis.clearTimeout,tasks=new Map();let next=0,aborted=0,calls=0,unarmed=false;
  globalThis.setTimeout=(fn,ms)=>{const key=++next;tasks.set(key,{fn,ms});return key;};globalThis.clearTimeout=key=>tasks.delete(key);
  const port=value=>({signal})=>{calls++;return new Promise(resolve=>signal.addEventListener('abort',()=>{aborted++;resolve(value);},{once:true}));};
+ const late=(value,advance)=>({signal})=>{calls++;unarmed=unarmed||tasks.size===0;signal.addEventListener('abort',()=>{aborted++;},{once:true});advance();return Promise.resolve(value);};
  const expire=async ms=>{for(let n=0;n<50&&!tasks.size;n++)await Promise.resolve();assert.equal(tasks.size,1,'one bounded deadline');const [key,task]=[...tasks][0];assert.equal(task.ms,ms);tasks.delete(key);task.fn();};
- try{await test({port,expire});assert.equal(calls,1,'no automatic retry');assert.equal(aborted,1,'port is still cancelled');assert.equal(tasks.size,0,'deadline cleared');console.log(`PASS: ${name}`);}catch(error){failures.push(`${name}: ${error.message}`);}finally{globalThis.setTimeout=originalSet;globalThis.clearTimeout=originalClear;}
+ try{await test({port,late,expire});assert.equal(unarmed,false,'deadline armed before invoking port');assert.equal(calls,1,'no automatic retry');assert.equal(aborted,1,'port is still cancelled');assert.equal(tasks.size,0,'deadline cleared');console.log(`PASS: ${name}`);}catch(error){failures.push(`${name}: ${error.message}`);}finally{globalThis.setTimeout=originalSet;globalThis.clearTimeout=originalClear;}
 }
 await scenario('usage deadline refuses success returned during Abort cleanup',async({port,expire})=>{
  const panel=new UsageStatsPanel({document,root:new Element(),read:port({status:'success',entry:{window:'24h',count:42,source:'read_only_transport',observed_at_secs:1793203200,succeeded_at_secs:1793203201,expires_at_secs:1793203801,freshness_revoked:false}})});
@@ -38,4 +39,27 @@ await scenario('recovery deadline retains write marker and rejects Abort-time re
  const pending=controller.write('begin_wifi',{ssid:'synthetic',passphrase:'abcdefgh'});const rejected=assert.rejects(pending,/unknown/);await expire(3000);await rejected;
  assert.deepEqual(record.requests,[{request_id:id,action:'begin_wifi',trial_id:null,submit_started:true}]);assert.equal(controller.operations.has(id),false);assert.equal(controller.busy,false);
 });
+// Timers deliberately do not run: model a suspended event loop while a normal
+// reply is already ready. The actual monotonic budget must still reject it.
+for(const movement of ['deadline','rollback','invalid']){
+ const end=budget=>movement==='deadline'?budget:movement==='rollback'?-1:NaN;
+ await scenario(`usage rejects ${movement} before its timer fires`,async({late})=>{
+  let now=0;const panel=new UsageStatsPanel({document,root:new Element(),clock:()=>now,read:late({status:'success',entry:{window:'24h',count:42,source:'read_only_transport',observed_at_secs:1793203200,succeeded_at_secs:1793203201,expires_at_secs:1793203801,freshness_revoked:false}},()=>{now=end(10000);})});
+  await panel.refresh();assert.match(panel.state.textContent,/未确认/);assert.equal(panel.button.disabled,false);
+ });
+ await scenario(`configuration rejects ${movement} before its timer fires`,async({late})=>{
+  let now=0;const panel=new ConfigurationState({document,root:new Element(),clock:()=>now,read:late({source:'forwarding',age_ms:0,data:{configuration_applied:true,process_state_verified:true,enabled:true,state:'running'}},()=>{now=end(3000);})});
+  await panel.refresh();assert.equal(panel.snapshot,null);assert.match(panel.output.textContent,/未确认/);assert.equal(panel.button.disabled,false);
+ });
+ await scenario(`diagnostic retains unknown on ${movement} before its timer fires`,async({late})=>{
+  let now=0;const read=late({operation:{id,type:'call',state:'submitted',submit_started:true}},()=>{now=end(3000);}),panel=new DiagnosticPanel({document,root:new Element(),clock:()=>now,queryOperation:(_,options)=>read(options)});panel.update({operation:{id,type:'call',state:'unknown',submit_started:true}});
+  await panel.query();assert.equal(panel.summary.operation.state,'unknown');assert.match(panel.message.textContent,/未确认/);assert.equal(panel.queryButton.disabled,false);
+ });
+ await scenario(`recovery retains original write on ${movement} before its timer fires`,async({late})=>{
+  let now=0,record=null;const store={load:async()=>structuredClone(record),save:async(next,revision)=>{assert.equal(record?.revision??null,revision);record=structuredClone(next);return true;}};
+  const begin=late({contract:1,source:'core',request_id:id,action:'begin_wifi',trial_id:'b'.repeat(64),state:'ready',authoritative:true,settings_saved:false,rollback_verified:false,expires_in_ms:40000},()=>{now=end(3000);});
+  const client={connectFromGesture:async()=>{},readStatus:async()=>({contract:1,source:'core',wifi:'disconnected',busy:false,recovery_available:true}),beginWifi:begin};const controller=new RecoveryController({client,store,clock:()=>now,hidden:()=>false,uuid:()=>id});await controller.connect('a'.repeat(64));
+  await assert.rejects(controller.write('begin_wifi',{ssid:'synthetic',passphrase:'abcdefgh'}),/unknown/);assert.deepEqual(record.requests,[{request_id:id,action:'begin_wifi',trial_id:null,submit_started:true}]);assert.equal(controller.operations.has(id),false);
+ });
+}
 assert.deepEqual(failures,[]);
