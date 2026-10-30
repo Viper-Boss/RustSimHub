@@ -50,7 +50,9 @@ class Inspection(unittest.TestCase):
         self.assertFalse(result['identity']['uid_reserved'])
         self.assertFalse(result['identity']['actual_nss_verified'])
         self.assertTrue(result['identity']['proposed_uid_available_in_supplied_inventory'])
-        self.assertIn('current_ap_nss_guard_update_review', result['requires'])
+        self.assertIn('dedicated_recovery_directory_review', result['requires'])
+        self.assertEqual(result['supplementary_groups'], [])
+        self.assertEqual(result['recovery_endpoint']['recovery_directory_mode'], '2750')
         self.assertNotIn('passwd', json.dumps(result))
         before = {p.name: p.read_bytes() for p in self.material.iterdir()}
         module.inspect(self.material)
@@ -80,7 +82,9 @@ class Inspection(unittest.TestCase):
             ('PrivateDevices=yes', 'PrivateDevices=no'), ('TimeoutStopSec=25', 'TimeoutStopSec=1'),
             ('RuntimeDirectoryMode=0700', 'RuntimeDirectoryMode=0777'),
             ('ConditionPathExists=/run/rustsimhub-ble/bridge-policy.json', 'ConditionPathExists=|/tmp/any'),
-            ('SupplementaryGroups=rustsimhub-ipc', 'SupplementaryGroups=rustsimhub-ipc audio'),
+            ('SupplementaryGroups=', 'SupplementaryGroups=rustsimhub-ipc'),
+            ('SupplementaryGroups=', 'SupplementaryGroups=bluetooth audio'),
+            ('/run/rustsimhub/core-recovery /run/dbus', '/run/rustsimhub/core /run/dbus'),
         ]
         for before, after in mutations:
             with self.subTest(before=before), self.assertRaises((ValueError, module.configparser.Error)):
@@ -106,6 +110,52 @@ class Inspection(unittest.TestCase):
         tree = copy.deepcopy(original); tree[0].set('user', 'root')
         with self.assertRaises(ValueError): module.validate_policy(ET.tostring(tree))
         with self.assertRaises(ValueError): module.validate_policy(b'<!ENTITY anything "bad"><busconfig/>')
+
+    def test_old_proposal_general_ipc_paths_and_membership_are_explicitly_refused(self):
+        # Minimal failure sample from #53, not a newly invented permissive mode.
+        unit = (self.material/module.FILES[1]).read_text()
+        for changed in [unit.replace('SupplementaryGroups=', 'SupplementaryGroups=rustsimhub-ipc'),
+                        unit.replace('/run/rustsimhub/core-recovery', '/run/rustsimhub/core')]:
+            with self.assertRaises(ValueError): module.validate_unit_conditions(changed)
+        sysusers = self.material/module.FILES[2]
+        sysusers.write_text(sysusers.read_text()+'m rustsimhub-ble rustsimhub-ipc\n')
+        with self.assertRaises(ValueError): module.inspect(self.material)
+
+    def test_dedicated_endpoint_contract_cannot_be_widened_or_renamed(self):
+        data = json.loads((self.material/module.FILES[0]).read_bytes())
+        for key, value in [('supplementary_groups', ['rustsimhub-ipc']),
+                           ('recovery_directory', '/run/rustsimhub/core'),
+                           ('recovery_directory_owner', 'rustsimhub-ble'),
+                           ('recovery_directory_group', 'rustsimhub-ipc'),
+                           ('recovery_directory_mode', '2770'),
+                           ('recovery_socket_mode', '0666')]:
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                module.validate_contract({**data, key: value})
+
+    def test_notification_fd_policy_refuses_global_value_and_unbounded_fds(self):
+        original = ET.fromstring((self.material/module.FILES[3]).read_bytes())
+        for attributes in [
+            {'send_interface': 'org.freedesktop.DBus.Properties',
+             'send_member': 'PropertiesChanged', 'send_type': 'signal'},
+            {'send_destination': 'org.bluez', 'send_type': 'method_return',
+             'send_requested_reply': 'true'},
+            {'receive_sender': 'org.bluez', 'receive_type': 'method_call',
+             'receive_member': 'AcquireNotify'},
+        ]:
+            tree = copy.deepcopy(original); ET.SubElement(tree[0], 'allow', attributes)
+            with self.subTest(attributes=attributes), self.assertRaises(ValueError):
+                module.validate_policy(ET.tostring(tree))
+        for limit in ['2', 'unlimited']:
+            tree = copy.deepcopy(original)
+            reply = next(n for n in tree[0] if n.attrib.get('send_type') == 'method_return')
+            reply.set('max_fds', limit)
+            with self.subTest(limit=limit), self.assertRaises(ValueError):
+                module.validate_policy(ET.tostring(tree))
+        rules = module.allowed_bus_rules()
+        acquired = [r for r in rules if r.get('receive_member') == 'AcquireNotify']
+        self.assertEqual([r['receive_path'] for r in acquired],
+                         [module.CHARACTERS[1], module.CHARACTERS[3]])
+        self.assertTrue(all(r['max_fds'] == '0' for r in acquired))
 
     def test_sysusers_cannot_create_root_or_add_other_roles(self):
         path = self.material/module.FILES[2]
@@ -153,14 +203,17 @@ class Inspection(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'changed during inspection'):
                 module.inspect(self.material)
 
-    def test_current_real_ap_nss_guard_rejects_the_new_ipc_member_until_reviewed(self):
+    def test_current_real_ap_nss_guard_accepts_isolated_role_but_rejects_general_ipc_membership(self):
         spec = importlib.util.spec_from_file_location('ble_test_real_ap_install', ROOT/'tools/system/setup_ap_install.py')
         actual = importlib.util.module_from_spec(spec); spec.loader.exec_module(actual)
         data = inventory()
         actual.identities(data['passwd'], data['group'])
         data['passwd'] += 'rustsimhub-ble:x:982:982::/nonexistent:/usr/sbin/nologin\n'
-        data['group'] = data['group'].replace('rustsimhub-forwarder\n', 'rustsimhub-forwarder,rustsimhub-ble\n')
         data['group'] += 'rustsimhub-ble:x:982:\n'
+        # Compatibility of this synthetic inventory is not an NSS reservation
+        # or installation approval. The actual Root validator is unchanged.
+        actual.identities(data['passwd'], data['group'])
+        data['group'] = data['group'].replace('rustsimhub-forwarder\n', 'rustsimhub-forwarder,rustsimhub-ble\n')
         with self.assertRaisesRegex(ValueError, 'foreign IPC group member'):
             actual.identities(data['passwd'], data['group'])
 
@@ -231,6 +284,7 @@ class PrivateBus(unittest.TestCase):
                     self.assertEqual(allowed.returncode, 0, allowed.stderr.decode('utf8', 'replace'))
                     for member, args in [
                         ('org.freedesktop.DBus.ListNames', []),
+                        ('org.freedesktop.DBus.GetNameOwnerWrong', ['string:org.bluez']),
                         ('org.freedesktop.DBus.RequestName', ['string:org.rustsimhub.Unrelated', 'uint32:0']),
                         ('org.freedesktop.DBus.Properties.Set', ['string:any', 'string:any', 'variant:boolean:true']),
                     ]:

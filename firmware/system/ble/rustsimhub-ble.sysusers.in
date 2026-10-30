@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # PROPOSED, NOT RESERVED/INSTALLED. Preflight must reject NSS/local aliases.
-# Existing setup_ap_install.py rejects the new IPC member until its contract
-# is explicitly revised; never apply this template directly to the stick.
+# The primary group alone accesses the proposed dedicated recovery socket.
+# Never add BLE to rustsimhub-ipc, bluetooth, audio or an existing role group.
 u rustsimhub-ble 982 "RustSimHub optional BLE transport" /nonexistent /usr/sbin/nologin
-m rustsimhub-ble rustsimhub-ipc

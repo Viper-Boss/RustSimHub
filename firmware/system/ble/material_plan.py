@@ -17,10 +17,14 @@ import xml.etree.ElementTree as ET
 MATERIAL = Path(__file__).resolve().parent
 MAX_FILE = 32768
 EXPECTED = {
-    'format': 1, 'stage': 'proposal', 'role': 'rustsimhub-ble',
+    'format': 2, 'stage': 'proposal', 'role': 'rustsimhub-ble',
     'proposed_uid': 982, 'proposed_gid': 982,
-    'supplementary_group': 'rustsimhub-ipc', 'core_uid': 986, 'ipc_gid': 987,
-    'gatt_contract': 't5-offline-adapters-v1',
+    'supplementary_groups': [], 'core_uid': 986,
+    'recovery_directory': '/run/rustsimhub/core-recovery',
+    'recovery_directory_owner': 'rustsimhub-core',
+    'recovery_directory_group': 'rustsimhub-ble',
+    'recovery_directory_mode': '2750', 'recovery_socket_mode': '0660',
+    'gatt_contract': 't5-fixed-gatt-with-optional-acquire-notify-proposal-v2',
     'unit_template': 'rustsimhub-ble.service.in',
     'sysusers_template': 'rustsimhub-ble.sysusers.in',
     'dbus_template': 'rustsimhub-ble.policy.in',
@@ -28,7 +32,12 @@ EXPECTED = {
 }
 FILES = ('contract.proposal.json', 'rustsimhub-ble.service.in',
          'rustsimhub-ble.sysusers.in', 'rustsimhub-ble.policy.in')
-DENIES = ({'own': '*'}, {'send_destination': '*'}, {'receive_sender': '*'})
+DENIES = ({'own': '*'}, {'send_destination': '*'},
+          {'send_type': 'signal'}, {'receive_sender': '*'})
+ROOT = '/org/rustsimhub/recovery/v1'
+SERVICE = ROOT + '/service0'
+ADVERTISEMENT = ROOT + '/advertisement0'
+CHARACTERS = [SERVICE + '/char' + str(i) for i in range(4)]
 BROKER = 'org.freedesktop.DBus'
 BLUEZ = 'org.bluez'
 
@@ -90,11 +99,11 @@ def validate_unit(text):
     service = dict(parser['Service'])
     expected = {
         'Type': 'exec', 'User': 'rustsimhub-ble', 'Group': 'rustsimhub-ble',
-        'SupplementaryGroups': 'rustsimhub-ipc',
+        'SupplementaryGroups': '',
         'ExecStart': '/opt/rustsimhub/selected/rustsimhub-ble --service',
         'LoadCredential': 'bridge-policy.json:/run/rustsimhub-ble/bridge-policy.json',
-        'BindReadOnlyPaths': '/run/rustsimhub-app/selected:/opt/rustsimhub/selected /run/rustsimhub/core /run/dbus',
-        'InaccessiblePaths': '/var/lib/rustsimhub /var/lib/rustsimhub-core /var/lib/rustsimhub-edge /var/lib/rustsimhub-media /var/lib/rustsimhub-forwarder /run/rustsimhub-ble',
+        'BindReadOnlyPaths': '/run/rustsimhub-app/selected:/opt/rustsimhub/selected /run/rustsimhub/core-recovery /run/dbus',
+        'InaccessiblePaths': '/var/lib/rustsimhub /var/lib/rustsimhub-core /var/lib/rustsimhub-edge /var/lib/rustsimhub-media /var/lib/rustsimhub-forwarder /run/rustsimhub-ble /run/rustsimhub/core',
         'RuntimeDirectory': 'rustsimhub-ble-worker', 'RuntimeDirectoryMode': '0700',
         'ProtectSystem': 'strict', 'ProtectHome': 'yes', 'PrivateTmp': 'yes',
         'PrivateIPC': 'yes', 'PrivateNetwork': 'yes', 'PrivateDevices': 'yes',
@@ -124,32 +133,62 @@ def validate_unit_conditions(text):
 
 
 def allowed_bus_rules():
+    # Paths and members form a proposal for the current fixed tree, never a
+    # dynamic allowlist supplied by the daemon or a D-Bus payload.
     rules = []
+    def send(destination, interface, member, path=None):
+        rule = {'send_destination': destination, 'send_interface': interface,
+                'send_member': member, 'send_type': 'method_call', 'max_fds': '0'}
+        if path is not None: rule['send_path'] = path
+        rules.append(rule)
     for member in ['Hello', 'GetNameOwner', 'GetId', 'AddMatch', 'RemoveMatch']:
-        rules.append({'send_destination': BROKER, 'send_interface': BROKER, 'send_member': member})
+        send(BROKER, BROKER, member, '/org/freedesktop/DBus')
     for interface, members in [
         ('org.bluez.GattManager1', ['RegisterApplication', 'UnregisterApplication']),
         ('org.bluez.LEAdvertisingManager1', ['RegisterAdvertisement', 'UnregisterAdvertisement']),
-        ('org.freedesktop.DBus.ObjectManager', ['GetManagedObjects']),
-        ('org.freedesktop.DBus.Properties', ['Get', 'GetAll']),
     ]:
+        for member in members: send(BLUEZ, interface, member, '/org/bluez/hci0')
+    # Device paths are chosen by BlueZ, and receive their full private owner /
+    # adapter / connected-peer proof in PeerLease, not in this static policy.
+    send(BLUEZ, 'org.freedesktop.DBus.Properties', 'GetAll')
+    for member in ['InterfacesAdded', 'InterfacesRemoved']:
+        rules.append({'send_interface': 'org.freedesktop.DBus.ObjectManager',
+                      'send_member': member, 'send_type': 'signal',
+                      'send_path': ROOT, 'max_fds': '0'})
+    # A normal successful AcquireNotify reply carries one FD. Application code
+    # restricts the actual method, peer and private owner before producing it.
+    for kind in ['method_return', 'error']:
+        rules.append({'send_destination': BLUEZ, 'send_type': kind,
+                      'send_requested_reply': 'true', 'max_fds': '1' if kind == 'method_return' else '0'})
+    def receive(path, interface, members):
         for member in members:
-            rules.append({'send_destination': BLUEZ, 'send_interface': interface, 'send_member': member})
-    rules.append({'send_destination': BLUEZ, 'send_interface': 'org.freedesktop.DBus.Properties',
-                  'send_member': 'PropertiesChanged', 'send_type': 'signal'})
+            rules.append({'receive_sender': BLUEZ, 'receive_type': 'method_call',
+                          'receive_path': path, 'receive_interface': interface,
+                          'receive_member': member, 'max_fds': '0'})
+    receive(ROOT, 'org.freedesktop.DBus.ObjectManager', ['GetManagedObjects'])
+    for path in [ROOT, SERVICE, ADVERTISEMENT] + CHARACTERS:
+        receive(path, 'org.freedesktop.DBus.Properties', ['Get', 'GetAll'])
+        receive(path, 'org.freedesktop.DBus.Introspectable', ['Introspect'])
+    receive(ADVERTISEMENT, 'org.bluez.LEAdvertisement1', ['Release'])
+    receive(CHARACTERS[0], 'org.bluez.GattCharacteristic1', ['ReadValue'])
+    receive(CHARACTERS[1], 'org.bluez.GattCharacteristic1',
+            ['WriteValue', 'AcquireNotify', 'StartNotify', 'StopNotify'])
+    receive(CHARACTERS[2], 'org.bluez.GattCharacteristic1', ['WriteValue'])
+    receive(CHARACTERS[3], 'org.bluez.GattCharacteristic1',
+            ['ReadValue', 'AcquireNotify', 'StartNotify', 'StopNotify'])
     for kind in ['method_return', 'error']:
-        rules.append({'send_destination': BLUEZ, 'send_type': kind, 'send_requested_reply': 'true'})
-    for kind in ['method_call', 'method_return', 'error']:
-        rule = {'receive_sender': BLUEZ, 'receive_type': kind}
-        if kind != 'method_call': rule['receive_requested_reply'] = 'true'
-        rules.append(rule)
-    for interface in ['org.freedesktop.DBus.Properties', 'org.freedesktop.DBus.ObjectManager']:
-        rules.append({'receive_sender': BLUEZ, 'receive_interface': interface, 'receive_type': 'signal'})
+        rules.append({'receive_sender': BLUEZ, 'receive_type': kind,
+                      'receive_requested_reply': 'true', 'max_fds': '0'})
+    for interface, member in [('org.freedesktop.DBus.Properties', 'PropertiesChanged'),
+                              ('org.freedesktop.DBus.ObjectManager', 'InterfacesRemoved')]:
+        rules.append({'receive_sender': BLUEZ, 'receive_interface': interface,
+                      'receive_member': member, 'receive_type': 'signal', 'max_fds': '0'})
     for kind in ['method_return', 'error']:
-        rules.append({'receive_sender': BROKER, 'receive_type': kind, 'receive_requested_reply': 'true'})
+        rules.append({'receive_sender': BROKER, 'receive_type': kind,
+                      'receive_requested_reply': 'true', 'max_fds': '0'})
     for member in ['NameOwnerChanged', 'NameAcquired', 'NameLost']:
         rules.append({'receive_sender': BROKER, 'receive_interface': BROKER,
-                      'receive_member': member, 'receive_type': 'signal'})
+                      'receive_member': member, 'receive_type': 'signal', 'max_fds': '0'})
     return rules
 
 
@@ -206,20 +245,25 @@ def inspect(directory=MATERIAL, inventory=None):
     sysusers = [line for line in files[FILES[2]].decode('utf8').splitlines() if line and not line.startswith('#')]
     require(sysusers == [
         'u rustsimhub-ble 982 "RustSimHub optional BLE transport" /nonexistent /usr/sbin/nologin',
-        'm rustsimhub-ble rustsimhub-ipc',
     ], 'fixed proposed sysusers only')
     validate_policy(files[FILES[3]])
     require(all(read_regular(directory/name) == data for name, data in files.items()),
             'material bundle changed during inspection')
     result = {
-        'format': 1, 'kind': 'ble-service-review-plan', 'production_ready': False,
+        'format': 2, 'kind': 'ble-service-review-plan', 'production_ready': False,
         'install_permitted': False, 'default_enabled': False, 'proposed_uid': 982,
         'files': [{'name': name, 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
                   for name, data in files.items()],
-        'requires': ['main_role_uid_review', 'current_ap_nss_guard_update_review',
+        'recovery_endpoint': {key: EXPECTED[key] for key in [
+            'recovery_directory', 'recovery_directory_owner',
+            'recovery_directory_group', 'recovery_directory_mode', 'recovery_socket_mode']},
+        'supplementary_groups': [],
+        'requires': ['main_role_uid_review', 'dedicated_recovery_directory_review',
                      'real_core_recovery_route', 'approved_secure_session',
                      'real_ble_service_binary', 'signed_root_material_admission',
-                     'actual_nss_and_bluez_service_validation'],
+                     'actual_nss_and_bluez_service_validation',
+                     'per_uid_bluez_policy_and_fd_validation',
+                     'actual_cgroup_budget_and_rf_cleanup_validation'],
     }
     if inventory is not None:
         require(type(inventory) is dict and set(inventory) == {'passwd', 'group'}, 'inventory allowlist')
