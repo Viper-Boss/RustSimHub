@@ -5,12 +5,13 @@
 
 - 仓库/分支：Viper-Boss/RustSimHub / `codex/gtw-recovery-execution-contract-20261030`，PR到main。
 - 起始main：`6b5de5f3ca5ff706adacd8f25ed7f638546739a9`。
-- 实现/受测及最终完整40位HEAD提交后写入PR正文。
+- 提案/夹具和整仓受测HEAD：`c5c9737fef11ca25e1caf0c0996dc6c4005ded77`。
+- 当前最终完整40位HEAD见PR正文，后续只补本人报告。
 - [完整候选接口](../ble/recovery-execution-proposal.md) · [不进入生产的SQL候选](../ble/recovery-execution-schema9.sql)。
 
 ## 实际范围
 
-仅Store recovery_grants测试模块及本人proposal/SQL/报告。生产代码只有cfg(test)模块声明，
+仅Store recovery_grants测试模块及本人proposal/SQL/报告；既有测试新增cfg(unix)子模块声明，生产代码未变。
 没有版本/迁移入口/feature/API/Root或Wi-Fi派发变化，不改其他成员文件或全局台账。
 从旧#63读取实际ledger源码，不复制其旧schema7/8。旧ledger SQL逐字夹具仅cfg(test)引用：
 
@@ -40,7 +41,19 @@ cargo fmt --all -- --check
 git diff --check
 ```
 
-最终整仓结果/原日志摘要结束后补充，不把执行中或仅提案写成实现。
+上述命令全部退出0：新增4项通过、原Wi-Fi 7项通过；整仓 **778通过、0失败、6项继承忽略**，
+整仓严格Clippy/fmt/diff通过，保留既有proc-macro-error2 future-incompat提示。
+本分支来自main，未包含待审#97/#101，因此总数对应main的774+本批4，而非另一分支798。
+没有新ignore；六项来自C06/forwarder/Root/C14。运行日志仅本地work/recovery-execution-contract：
+
+```text
+workspace.log        9cbf772dd3d9c5de32fc8c2971c0156a87f94b556c3ec7cb23584b35f3425a05
+workspace-clippy.log e0b0638720145f2206633f5fbd25e698d22ccda12873a174f58cd9a8a4d343fc
+contract-final.log   1f083a54f7abd82d58a77d4f1a4b0f7ff656021a008af6df13136ea9d82f7e79
+wifi.log             31bbfef69eb85fcd7f060543dddbc90f41a1fabf9ed22adb314019f1154661e1
+```
+
+SQL候选外键实际开启，在真实SQLite副本中检查；源7和grant DDL均保持，未启动迁移服务。
 未运行Root/A互操作/GATT/跨UID合法接线、NM/设备/真正Wi-Fi/ARM/Native、更新回退9兼容。
 没有生产秘密/设备/NAS或业务网络、短信/拨号/流量、Root安装、签名或部署。
 
