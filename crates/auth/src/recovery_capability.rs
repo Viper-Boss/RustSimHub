@@ -206,6 +206,14 @@ pub struct RecoveryCapability {
 }
 impl RecoveryCapability {
     #[cfg(feature = "recovery-execution")]
+    pub(crate) fn execution_deadline(&self) -> Instant {
+        self.deadline
+    }
+    #[cfg(feature = "recovery-execution")]
+    pub(crate) fn same_execution_session(&self, other: &Self) -> bool {
+        self.binding == other.binding && self.session == other.session
+    }
+    #[cfg(feature = "recovery-execution")]
     pub(crate) fn execution_binding(&self) -> &RecoveryProofBinding {
         &self.binding
     }

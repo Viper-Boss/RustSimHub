@@ -12,7 +12,7 @@ mod recovery_grants;
 #[cfg(feature = "recovery-execution")]
 pub use recovery_execution::{
     RecoveryExecutionAdmission, RecoveryExecutionClaim, RecoveryExecutionPending,
-    RecoveryExecutionRequest,
+    RecoveryExecutionRequest, RecoveryTrialAuthority, RecoveryTrialControl,
 };
 mod setup;
 pub use client::{ClientKey, ProofExpectation};
