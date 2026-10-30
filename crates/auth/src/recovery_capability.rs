@@ -220,6 +220,33 @@ impl RecoveryCapability {
         &self.request
     }
 }
+
+#[cfg(feature = "recovery-execution")]
+impl Auth {
+    /// Only after the ordinary same-Auth capability/body check. Writer receives
+    /// the existing live flag and original minimum deadline, never a closure
+    /// that could acquire this Auth lock or recursively call Storage.
+    pub(crate) fn recovery_execution_fence(
+        &self,
+        cap: &RecoveryCapability,
+    ) -> Result<rustsimhub_storage::RecoveryExecutionFence> {
+        let connection = self.recovery.connection.as_ref().ok_or(Error::Forbidden)?;
+        let session = connection.session.as_ref().ok_or(Error::Forbidden)?;
+        if cap.binding.instance != self.instance
+            || cap.binding != session.binding
+            || cap.session != session.id
+            || !connection.live.load(Ordering::Acquire)
+        {
+            return Err(Error::Forbidden);
+        }
+        Ok(
+            rustsimhub_storage::RecoveryExecutionFence::from_trusted_auth(
+                connection.live.clone(),
+                cap.deadline.min(session.deadline),
+            ),
+        )
+    }
+}
 pub struct AuthorizedRecoveryRequest {
     pub capability: RecoveryCapability,
     pub body: Zeroizing<Vec<u8>>,

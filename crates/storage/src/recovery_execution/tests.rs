@@ -4,13 +4,13 @@
 use super::*;
 use rustsimhub_policy::Principal;
 use tempfile::TempDir;
-fn directory() -> TempDir {
+pub(super) fn directory() -> TempDir {
     crate::tests::directory()
 }
-fn request(n: u32) -> String {
+pub(super) fn request(n: u32) -> String {
     format!("00000000-0000-4000-8000-{n:012x}")
 }
-fn seven() -> (TempDir, Store, Principal, RecoveryGrant) {
+pub(super) fn seven() -> (TempDir, Store, Principal, RecoveryGrant) {
     let d = directory();
     let b = directory();
     let s = Store::open(d.path()).unwrap();
@@ -32,7 +32,7 @@ fn seven() -> (TempDir, Store, Principal, RecoveryGrant) {
         .unwrap();
     (d, s, owner, g)
 }
-fn nine() -> (TempDir, Store, Principal, RecoveryGrant) {
+pub(super) fn nine() -> (TempDir, Store, Principal, RecoveryGrant) {
     let (d, s, owner, g) = seven();
     drop(s);
     let b = directory();
@@ -46,7 +46,14 @@ fn version(path: &Path) -> i64 {
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .unwrap()
 }
-fn seed(h: &Handle, g: &RecoveryGrant, id: u32, action: &str, state: &str, trial: Option<String>) {
+pub(super) fn seed(
+    h: &Handle,
+    g: &RecoveryGrant,
+    id: u32,
+    action: &str,
+    state: &str,
+    trial: Option<String>,
+) {
     let (g, action, state) = (g.clone(), action.to_owned(), state.to_owned());
     h.call(move |db| {
         let (saved, rollback) = match state.as_str() {
@@ -77,7 +84,7 @@ fn seed(h: &Handle, g: &RecoveryGrant, id: u32, action: &str, state: &str, trial
     })
     .unwrap();
 }
-fn rows(h: &Handle) -> Vec<(String, String, Option<String>)> {
+pub(super) fn rows(h: &Handle) -> Vec<(String, String, Option<String>)> {
     h.call(|db|{
     Ok(db.connection.prepare("SELECT request_id,state,trial_id FROM recovery_execution_receipts ORDER BY request_id")?
         .query_map([],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?.collect::<std::result::Result<Vec<_>,_>>()?)
