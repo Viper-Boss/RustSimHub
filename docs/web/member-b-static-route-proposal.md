@@ -1,5 +1,7 @@
 # B-29：五个候选模块的最小静态路由补丁
 
+此页保留 PR #93 提案时点的来源与验证。其精确diff现已落实到 PR #100 功能分支，当前实现与受测HEAD见 [实际装配交付](../deliveries/member-b-test-center-assembly.md)；不要在已应用的分支重复apply。
+
 此文件与 [member-b-static-routes.patch](member-b-static-routes.patch) 是供负责人接纳的具体 diff。生产 Rust 文件没有在本 PR 修改，主页面也没有增加会请求404资源的 import。
 
 基线 main：`81a822e3f916dd1324e2cac24145d3f426159807`。
