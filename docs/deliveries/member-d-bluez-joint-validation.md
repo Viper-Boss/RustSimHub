@@ -1,3 +1,33 @@
+# 最新联验：Core / 原生BlueZ Backend / schema9（2026-10-31）
+
+最新实际组合分支 `codex/gtw-recovery-execution-joint-20261031` 已推，完整受测HEAD **`33594198e5add9e2e0c8dc579500b4fdc133489e`**，tracked_dirty=false。由#131 `290bcc289e179cd36019d06731b34468f7f2efbc` 正常merge独立#135 `a963f038ed82ecf6c35bc8159778b4546267f89f`，无冲突/额外执行代码修改；包含下文全部旧组件和新增#130真实Rust跨UID集成、#131实际GattBackendV1、#135显式schema9存储准入。
+
+**整仓986通过、0失败、6继承忽略**；严格整仓Clippy、默认Auth/Storage87、fmt/diff通过。真实Core UID手动1项/13场景、原候选策略+实际Backend标准GATT跨UID手动1试验/3个libtest角色，以及材料16项全部通过，手动不计入986。精确source_head/角色0cap/镜像/输入hash等在对应手动result.json，均指向本组合335且tracked_dirty=false。
+
+命令同下文workspace/clippy/default/fmt/diff，追加 `python3 -B crates/core/tests/run_recovery_kernel_uids.py`、`python3 -B firmware/system/ble/run_policy_kernel_uids.py --rust-gatt --rust-backend`、`python3 -B firmware/system/ble/test_inspect.py -v`。两手动夹具/最后材料输出完整；工具会话连接重置后重新读取完整落盘日志/metadata并再次执行fmt/diff核对，没有把缺失输出当成功。
+
+D23 #103已有Owner流程批准并合并，记录明确未做独立技术审核；#135已实现显式7→9/open/restore/准入及Unknown恢复，不再把首次接口批准写成缺失。指纹/领取/唯一Wi-Fi actor尚未实现；A标准会话、生产Root角色/设备、TURN依赖与实测等继续保留。仍21/26离线包已提交、剩5步、固定P0–P7约80%、main19/169，不把局部阶段或合成端点计完整验收。
+
+真实标准正文/FD/Backend已在跨UID组合运行；外部BlueZ/安全verifier/host仍合成，无实际A密码/Core-Wi-Fi/HCI/RF/浏览器/生产NSS/ARM/48M服务预算验收，默认schema6/缺SecurePort拒绝仍保持。没有新Root安装/签名/部署、真实电话短信蜂窝或其他成员/全局台账改动。
+
+本地work/execution-joint证据：
+
+| 日志/metadata | SHA256 |
+|---|---|
+| workspace.log | 707437524913ea9516d5e89be95f699847ef9e81230851916b6913e6617158b9 |
+| clippy.log | edb105a216eefebd2a4a6bcf72a221f1bf22bd5832b93b25320b378b4c65b1f7 |
+| default.log | 441af72aababa3ae665d0f9e3c6aba12e6ffc36c998729b2c854c754fd475c0f |
+| core-uids.log | e10ff0329d7c294ebecb7e9e06951bac22a0f63f388e66e4ae09eb13b0f1a7f7 |
+| native-uids.log | 57831c2d1e04258a94dfdfb27f5179404ac23bf5530afb8012127f27fbb0859b |
+| material.log | 33c847e70ec823ec2df3c28ab51b6b7a1827476ed0cdf0cc46d89e9fc9dc0300 |
+| result.json | e1f3bef62ac9dddea9ed4bc5d505b2998868c83aa23bcc732fd95e92f1d68cea |
+
+远端CI仍按每个HEAD回读：各实现PR在runner启动前因账户付款/额度失败，不能计通过。组合335和本报告最新HEAD单独注解在PR正文。
+
+下文950截面仅保留为**2026-10-30历史记录**，不是本轮受测HEAD或当前缺口状态。
+
+---
+
 # D：Core、BlueZ、通知 FD 与角色材料的隔离联合验证
 
 2026-10-30。本报告 PR 只修改本人交付文档，不合并实现到 main、不部署/启用生产服务、不改全局进度。报告分支 `codex/gtw-d-bluez-joint-report-20261030`，main 基线 `80db24e9b101dd3fb4b8c951aa7f1e0e1858e65d`；最终报告 HEAD 见 PR。
