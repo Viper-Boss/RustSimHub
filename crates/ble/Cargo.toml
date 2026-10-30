@@ -9,6 +9,7 @@ license.workspace = true
 default = []
 bluez-control = ["dep:zbus", "dep:tokio", "dep:futures-lite"]
 bluez-advertisement = ["bluez-control"]
+bluez-gatt = ["bluez-advertisement", "tokio/time"]
 
 # Default framing/lifecycle stays runtime-free. Control is explicitly injected.
 [dependencies]
