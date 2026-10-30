@@ -19,6 +19,12 @@
 
 测试使用真实Router/中间件与临时不存在的Core socket，覆盖五个资源的精确源码/MIME、Host拒绝、POST拒绝、未知路径拒绝、CSP/permissions/no-store/nosniff保留。没有实际HTTPS服务器、Core/设备、真实生产路由部署或主页面挂载；不能用此结果替代生产集成/实机验收。日志仅在setup-logs，不提交生成物。
 
+## 最新主线同步
+
+提交期间 #91/#92 已合并。正常合入 main `d4d1673c58049f54c4de94b3f3adee6e41379bb2`，本分支合并HEAD `b0da58d044e78bb7889e21cdf20f1c1544fba1ba`，无冲突且补丁字节不变。
+另以该最新main生成临时副本、应用同一补丁，Edge 38项、严格Clippy及fmt再次退出0；当前仓库正向与临时副本反向应用检查也通过。最新日志 member-b-static-route-latest-tests.log / member-b-static-route-latest-clippy.log。这些结果仅验证补丁提案，不宣称生产路径已开放。
+#92增加显式feature下的Unix运输库，但Core二进制没有启用新端点，A验证器/可信宿主和页面生产恢复端口仍缺。已按其实际实现文档核对，不把运输tag当已认证业务能力。
+
 ## 接续、来源与许可
 
 主线按精确PR HEAD审查后，在自己的审核分支应用补丁再复验；仅合并本说明不会自动注册路由。无迁移，回退提案的实际应用只移除五个资源及回归，不清数据。路由接受后才能继续按原业务控制器装配；A统计授权provider、D完整恢复backend、Pages路径与设备验收仍需对应负责人提供。#91的CSP修复独立，不夹带。
