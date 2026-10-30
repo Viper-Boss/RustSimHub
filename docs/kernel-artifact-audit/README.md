@@ -4,6 +4,8 @@
 
 | 对象 | 已记录值 | 本轮结论及限制 |
 |---|---|---|
+| 目标板与compatible | `ufi003 / thwc,ufi003 / qcom,msm8916` | board.toml声明；本轮没有解析实际DTB的根compatible |
+| 架构标签 | `aarch64 / arm64` | board与base等原锁的兼容标签；本轮没有据此推定实际kernel/模块二进制架构 |
 | 基础内核release | `6.12.49-msm8916-g93a71ee9468d` | board/base/profile/audio/旧上游入口一致；并非读取运行内核 |
 | 内核来源commit | `93a71ee9468dd8d47a9e082e5d818608f08712e3` | 六处固定来源一致；不是本轮远端签名核验 |
 | 内核Git tree | `72d4e8e42649f763dd969a1de893051ed64387a1` | 四处声明一致；未读取245MB完整源码归档 |
@@ -64,7 +66,8 @@
 | `snd-soc-apq8016-sbc.ko` | `snd_soc_apq8016_sbc` | `snd-soc-qcom-common` |
 | `snd-soc-qcom-common.ko` | `snd_soc_qcom_common` | `(none)` |
 
-四项PRELOAD对应16项音频闭包；外部stock依赖 `apr` 未由这些22项实际核验。不能把该闭包说成681项原装模块完整匹配。
+四项PRELOAD为 `q6afe-dai`、`q6asm-dai`、`q6voice-dai`、`snd-soc-apq8016-sbc`，对应16项音频闭包；
+外部stock依赖 `apr` 未由这些22项实际核验。不能把该闭包说成681项原装模块完整匹配。
 
 ## 来源、阶段与复现
 

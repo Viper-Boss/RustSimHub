@@ -2,6 +2,59 @@
 
 本报告按日期追加交付；当前 C-07/C-08 见文末及 [PR #9](https://github.com/Viper-Boss/RustSimHub/pull/9)。第一批、C-05 和 C-06 各节保留提交时的历史快照；PR #3、#6、#7 后续已由负责人合并。当前批次的实现、测试和审核状态以本批节及对应完整 HEAD 为准。
 
+## 2026-10-30 · C17 来源清单、下一阶段接口与最小失败样例
+
+成员 yh1030 / member-c。同仓库分支 `codex/member-c-kernel-sources` → main。
+起始主线为 `6b5de5f3ca5ff706adacd8f25ed7f638546739a9`。
+C16 PR #98 的 HEAD `5cba7bd0a609ed44eed7f125f4275a1c3982aeec` 当前仍待审核；
+用户在知悉该状态后再次要求“继续开展推进”，本轮先独立提交 C17 来源/接口/最小样例供负责人审阅，
+不把 C16 计为已验收，不进入 C18～C20 检查器实现。
+本节放在报告前部以避免与 PR #98 在末尾新增的 C16 报告交叉覆盖，原历史记录保持。
+
+本包实际校验的内容提交为 `6a20e075a270cb3c627d71fbc9c5f5c4e3bccb26`，
+tree `1c501ee59fc73431b983f2f7fc6d55adc3a0db70`；随后仅补文档（本报告及README的板型/架构/PRELOAD说明），
+测试脚本和固定JSON输入与已测tree相同；最终完整 HEAD 在 PR 正文回读，不把后续文档字节称为已运行源码。
+
+### 文件与实际范围
+
+- `docs/kernel-artifact-audit/README.md`：固定内核 release/commit/tree、上游和板级 boot、Image/压缩内核、DTB、模块归档/清单各摘要；22 项模块身份/依赖与外部 APR 缺口；厂商固件实际摘要和再分发许可未知。
+- `source-index.json` 固定31个公开跟踪文件的长度/SHA256/Git blob；`source-checks.json` 记录19项来源交叉结果，其中7项为实际跟踪源文件字节匹配。声明相符与实际制品匹配严格区分，不生成另一套发布manifest。
+- `proposal.md` 提出原锁消费、默认只列计划、显式公开/合成输入、有限读取/路径/版本、缺证据输出与退出分类、FDT板型和模块依赖验证方式；列10类后续失败规格，均待负责人审核，不冒称已冻结或已测。
+- `minimal-failures.json` 是现有 `audio_modules.modinfo` 的1个合成ARM64 ET_REL正例及错架构/越界节表/截断3个最小失败字节样例，从不执行这些字节。
+- `tools/kernel-artifact-audit/test-source-examples.py` 默认只列计划；显式 `--run` 要求普通Linux UID，先核对31个固定来源的长度/SHA/blob，再调用现有真实解析器验证上述样例。它不是C18制品检查器，没有新生产逻辑、依赖、编译器、外部命令、设备或网络。
+
+### 实际验证
+
+| 命令/来源 | 实际结果 |
+|---|---|
+| `python tools/kernel-artifact-audit/test-source-examples.py`（Windows） | 退出0；execute=false，列5项计划；没有读取制品或执行Linux测试 |
+| 固定tree的Git归档 → WSL2 Ubuntu-24.04 普通UID1000、Linux原生目录：`python3 -B tools/kernel-artifact-audit/test-source-examples.py --run` | 退出0；5通过/0失败/0错误/0跳过，实际0.202秒；包括1项31文件来源校验、1个合成正例、3个真实解析器拒绝样例。Python3.12.3，kernel 6.18.54.1-microsoft-standard-WSL2 |
+| 归档/执行后字节检查 | 37个公开文件逐个与固定Git归档相等，执行后源码未改变；归档SHA256 `bc9bdf8b9ffb70c6ea5a0ea838c24fb84b0a806a2035fd24c771319ea32a4898` |
+| 文档/固定来源复核 | 两页11个本地或精确SHA/行号来源链接存在；31来源长度/SHA/blob与主线固定对象相等；重新计算19项交叉结果与交付JSON完全相同，7项实际源字节匹配；退出0 |
+| Python AST / 三份JSON / `git diff --cached --check` | 均通过；未修改受测生产源或隐藏失败断言 |
+
+既有13项内核/DTB/模块隔离测试的历史来源是2249762；31个受查输入与该截面逐文件相同，
+本次没有重跑这些测试或将旧运行标为当前HEAD的新增执行。新的5项只证明固定来源/现有解析器最小样例，
+不代表C19完整混版矩阵，19项来源交叉检查也不折算成19项新业务/验收任务。
+
+### 证据与主线交接
+
+仅日志/摘要包 `C17-source-validation-1c501ee.zip`，5,448字节、7条目，SHA256
+`5fd84276de2ff0e395e03103bdc75e77122e28e119c424fd6f4abcf8bad38eb1`；ZIP CRC及逐文件内容核对通过。
+含实际summary/逐项日志、37文件摘要、文档结果和来源交叉结果；无源码归档、ELF、固件、数据库、密钥、私人路径或设备资料。
+只在本机准备并向用户提供，未代发负责人。
+
+待审核：本来源提案精确HEAD、原锁消费/合成输入边界、缺证据退出语义、预算/FDT解析范围；审核后才进入C18～C20实现。
+未验证：完整源归档、实际boot/Image/DTB、681原装/22音频模块二进制、厂商固件摘要/许可、Root/ARM加载、冷启/恢复/掉电、生产签名及发行支持。
+板级锁中的历史rebuild=false不改写；主线历史重建报告保留其本来来源，不当本轮重建。
+本PR不修改其他成员文件、既有锁/固件/重建器/校验器、全局看板或审核台账，不自行合并或更新已验收步数。
+来源/许可：项目公开原锁及工具，GPL-2.0-only/原SPDX保留；合成ELF布局复用固定版本的 `tools/system/test_audio_modules.py`，新测试脚本AGPL-3.0-only。无新增依赖或第三方库代码复制。
+Codex辅助读取、整理、代码及命令验证；没有作者重写，成员自报实耗未填写。
+主线集成只审本包7个文件并按需合并；撤回只删除新增资料/测试脚本和本节，无设备或业务状态回退。
+原固定P0～P7整体仍约 **80%**；来源交付不等于真实制品、支持矩阵或硬件验收。
+
+## 2026-10-26 · 第一批历史截面
+
 日期：2026-10-26（Asia/Shanghai）。成员：yh1030 / member-c。
 任务：C-01～C-04，对应 NAS-01 的契约盘点和只读桥离线范围。
 
