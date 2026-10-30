@@ -1,5 +1,7 @@
 # 第一批契约、查询结果与持久边界
 
+后续A-05～08候选实现已新增`check_in`模块，实际行为和验证见文末。本节保留第一批原始边界的历史说明；新模块仍没有真实NKN SDK、Core授权或生产接线。
+
 这是 A-01～A-04 的实际离线组件边界。第一批没有 A-05 的运行状态机，没有签到执行器、NKN 提交/确认 transport、后台调度器或服务进程。`CheckInIntent` 是纯数据，不代表 Prepared、Pending 或 Confirmed。
 
 ## 默认 OFF 的调用顺序
@@ -55,3 +57,40 @@ Linux 后端逐级 `openat` 拒绝跟随链接，要求数据目录 0700、当�
 任务书的 `Disabled → Due → Prepared/Pending → Confirmed/Failed/Unknown` 属于 A-05；A-06 的取消代次、旧回复隔离和共享引擎资源所有权也未实现。本批没有“模拟成功”API 替代这些缺口。下一批必须证明先持久意图再允许提交；结果不明时保留原摘要，重开只查询原交易，不能生成新交易绕过防重。
 
 真实 SDK、链上确认、服务/IPC、Core 所有者鉴权、Root/ARM/设备验收全部保留给后续审核与主线接入。本批不声称 OFF 后设备无 PID，也不把删除本地状态当作撤回公开订阅；历史链上订阅可能在实际链上到期前继续可见。
+
+## A-05～08：实际有界状态机候选
+
+`CheckInMachine::new(store,transport,clock)`只持有显式提供的已有store/端口，不读取时钟/文件、不生成身份、不启动线程/任务。配置缺失默认OFF；`advance(window)`在OFF下为Disabled且没有存储/时钟/transport调用。真实Owner鉴权仍由宿主提供`EnabledPolicy`；组件不会自行生成同意，不接受URL、shell、密钥路径或Owner/SIM身份。
+
+```mermaid
+stateDiagram-v2
+    [*] --> Disabled
+    Disabled --> Due: 显式授权开启
+    Due --> Prepared: 纯准备后先原子保存摘要
+    Prepared --> Pending: 当前进程一次性ticket提交
+    Prepared --> Unknown: 退出/取消/到期/保存不明
+    Pending --> Unknown: 丢回复/超时/错误响应
+    Pending --> Confirmed: 精确原意图及摘要的确认查询
+    Unknown --> Confirmed: 查询原摘要确认
+    Pending --> Failed: 查询原摘要明确拒绝
+    Unknown --> Failed: 查询原摘要明确拒绝
+    Confirmed --> Due: 下一实际周期，不补发遗漏周期
+    Failed --> Due: 下一周期
+    Prepared --> Disabled: 撤销代次，保留摘要
+    Pending --> Disabled: 撤销代次，保留摘要
+    Unknown --> Disabled: 撤销代次，保留摘要
+```
+
+公开方法只有构造、有限预算、取取消句柄、set_policy及advance。每次advance至多执行一次prepare/submit/query，不自循环。第一次Due只让adapter纯准备真实交易并取得其摘要，写入实际FileStore v1已有的period/pending后返回Prepared；本进程再次显式advance才能消费一次性ticket提交。取走ticket发生在外部submit之前，提交Ok只得到Pending，任何提交错误均Unknown。没有真实adapter时不能伪造交易摘要/链上成功；测试摘要明确为合成值。这里未增加私钥导出或自造NKN签名格式。
+
+重启、重新开启、取消、旧ticket、跨周期或ticket到期均失去提交能力。只要pending存在，就只查询原摘要，绝不再次prepare/submit、改nonce生成新交易或因过期清掉防重记录。确认查询严格匹配完整公开意图（公钥/主题/窗口/周期/协议/订阅参数）及32B摘要；最大2048B、拒绝重复/额外字段/未知状态。匹配JSON仅证明本地校验，真实SDK/链上证据来源仍由实际adapter负责。
+
+v1格式及字段不变：pending+period保留不确定意图，last_success只在精确确认查询且保存成功后记录。明确拒绝清pending但保留已消费period，该周期不再尝试；成功后的后续周期最多准备当前周期，不补发遗漏的每日交易。旧缓存不受签到保存/禁用影响。任一保存错误（包括发布成功但目录同步报错）使当前句柄失败关闭，清ticket并释放自身引用；必须drop后重开核对原文件，不能假定肯定未保存并再次提交。原文件损坏/权限/身份错误保持原样，不生成新身份。
+
+每个步骤共享最多10秒单调截止，adapter须在I/O中遵守`AttemptBudget`；模块也在返回后核验实际经过时间及墙钟差/回拨。可显式缩短预算用于受限宿主/测试，不允许延长。新ticket仅在原prepare截止前且同一实际周期内有效。查询/准备失败按窗口至少退避300秒；三个窗口独立。未决超过24小时显示ExpiredUnresolved但仍保留摘要；这是本地等待标记，不是链上过期证明。退避计时在进程内，重开后至少遵守原prepared_at+300秒；没有跨进程持久查询次数配额，宿主须保持单实例且不得通过重启滥用只读查询。无自动调度/退避重试线程。
+
+`Cancellation::cancel`使当前代次失效，外部调用返回后不再采纳其确认；确认保存与取消用同一短临界区排序，不在transport调用期间持锁。取消线程不自行执行I/O，但可能等待已经开始的本地文件提交完成；它不是硬实时中断。驱动步骤或显式set_policy(disabled)随后保存disabled_generation+1、清ticket并释放自己的统计引用，保留全部pending。进程在同步代次前崩溃也不会重新提交，因为恢复总是query-only且默认OFF；不能把内存取消句柄说成已经持久化开关。
+
+只有组件能创建不可Clone的StatisticsLease。获取/部分获取失败、禁用、错误和Drop只释放本统计拥有者引用；端口没有关闭共享引擎/他人会话的通用stop。真实Root/cgroup/设备无PID仍未验证。释放端口必须是有限的本地引用清理；真实adapter负责执行其约定，库不能强制终止一个无视deadline的同步外部调用。
+
+真实测试调用这份生产模块与真实临时FileStore；fault wrapper只在文件提交前/后注入保存错误，不复制状态机。覆盖全部三窗口、保存后才submit、退出恢复、拒绝/失联、时钟/预算、额外/错意图/重复/超量回复、取消和旧代次、部分资源获取/其他拥有者保留、代次溢出、完整快照并发读取。尚无NKN公网上链或真实取消进程验证；不能把这些测试当成公开订阅已撤销或统计功能已上线。
