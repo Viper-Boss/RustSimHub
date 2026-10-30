@@ -5,6 +5,14 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+# Explicit isolated-container test only; never auto-run a UID-changing harness
+# in the ordinary suite. Still compiled as cfg(test), not a production example.
+[[test]]
+name = "recovery_kernel_uid"
+path = "tests/recovery_kernel_uid.rs"
+test = false
+required-features = ["recovery-transport", "recovery-grants"]
+
 [features]
 default = []
 dev-fixtures = ["dep:ed25519-dalek"]

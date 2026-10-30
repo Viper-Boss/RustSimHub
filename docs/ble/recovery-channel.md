@@ -47,10 +47,11 @@ Handshake 可作为有界运输帧读取/写入，但本桥没有 A 握手流程
 只替换外部 verifier，不伪造 SourceGuard 的合法 peer。初始 Drop 回归实际退出101后修正通过。
 既有 Auth/Store、运输24项和整仓回归继续核对，详见[报告](../deliveries/member-d-recovery-channel.md)。
 
-当前 UID1000，无 newuidmap/合法不同 UID 的可执行环境。因此 Core 正向 attach/read/write/
-prepare/verify/finish 的真实跨 UID 全链路**未运行**；本桥只经过编译/严格 Clippy及组件回归。
-没有构造假的 PeerContext/PeerConnection 来填补该正例。此限制阻止完整 D-22 验收，
-不以 Auth 的合成 transport nonce 测试冒充内核来源验收。
+最初#101交付时，宿主UID1000且没有newuidmap，跨UID正例未运行，未伪造PeerContext填补。
+后续已通过隔离Docker补上真实UID1001/1002的SourceGuard与本桥attach/read/write/
+prepare/verify/finish/Close/Drop路径：**1项手动测试、13组断言**，
+[执行边界与重现](recovery-kernel-uids.md)。内核凭据真实，外部请求验证器仍明确cfg(test)合成，
+不能把它冒充A实际密码认证、生产NSS/UID角色或设备验收；完整D22仍保留这些前置。
 A 真实安全协议/互操作、GATT/BlueZ、安装角色/权限、D-23执行及设备仍未完成。
 release panic=abort、普通 panic hook 和永久卡住线程需占用的边界保持，未宣称进程隔离。
 

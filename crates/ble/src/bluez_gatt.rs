@@ -23,6 +23,8 @@ use zbus::{
     zvariant::{OwnedObjectPath, OwnedValue, Type},
     Connection,
 };
+#[cfg(feature = "bluez-notify-fd")]
+mod notify_fd;
 
 pub enum CallbackOperation {
     Write { frame: OpaqueBytes, budget: Budget },
@@ -96,6 +98,8 @@ struct Publication {
     requests: mpsc::Sender<CallbackRequest>,
     slot: Arc<Semaphore>,
     peer_scope: OnceLock<PeerScope>,
+    #[cfg(feature = "bluez-notify-fd")]
+    notifications: notify_fd::Notifications,
 }
 impl Publication {
     async fn check(&self, sender: Option<&str>) -> Result<String, Error> {
@@ -108,6 +112,8 @@ impl Publication {
             .ok_or(Error::Unavailable)?
             .check_current()
             .await?;
+        #[cfg(feature = "bluez-notify-fd")]
+        self.notifications.health()?;
         if !self.live.load(Ordering::Acquire) {
             return Err(Error::StaleContext);
         }
@@ -115,6 +121,8 @@ impl Publication {
     }
     fn retire(&self) {
         self.live.store(false, Ordering::Release);
+        #[cfg(feature = "bluez-notify-fd")]
+        self.notifications.retire();
     }
     fn matches_peer(&self, peer: &Peer) -> bool {
         self.peer_scope
@@ -433,7 +441,8 @@ impl Options {
     }
 }
 
-/// Partial GATT edge only: no notification implementation or service activation.
+/// Partial GATT edge, without service activation. Explicit bluez-notify-fd adds
+/// per-peer local FD submission; it does not prove remote or business receipt.
 /// Drop fences callbacks but keeps fixed object tombstones until connection close.
 #[must_use = "retain until remote cleanup and all opaque callback work ends"]
 pub struct GattExport {
@@ -455,6 +464,8 @@ impl GattExport {
             requests,
             slot: Arc::new(Semaphore::new(1)),
             peer_scope: OnceLock::new(),
+            #[cfg(feature = "bluez-notify-fd")]
+            notifications: notify_fd::Notifications::new(),
         });
         let mut guard = PublishGuard {
             publication: publication.clone(),
@@ -478,18 +489,25 @@ impl GattExport {
             return Err(Error::Busy);
         }
         for kind in Characteristic::ALL {
-            if !connection
-                .object_server()
-                .at(
-                    kind.path(),
-                    CharacteristicObject {
-                        publication: publication.clone(),
-                        kind,
-                    },
-                )
-                .await
-                .map_err(|_| Error::Backend)?
-            {
+            let object = CharacteristicObject {
+                publication: publication.clone(),
+                kind,
+            };
+            #[cfg(feature = "bluez-notify-fd")]
+            let inserted = if notify_fd::supports(kind) {
+                connection
+                    .object_server()
+                    .at(
+                        kind.path(),
+                        notify_fd::NativeCharacteristic { base: object },
+                    )
+                    .await
+            } else {
+                connection.object_server().at(kind.path(), object).await
+            };
+            #[cfg(not(feature = "bluez-notify-fd"))]
+            let inserted = connection.object_server().at(kind.path(), object).await;
+            if !inserted.map_err(|_| Error::Backend)? {
                 return Err(Error::Busy);
             }
         }
@@ -564,10 +582,24 @@ impl GattExport {
             .ok_or(Error::Unavailable)?
             .check_current()
             .await;
+        #[cfg(feature = "bluez-notify-fd")]
+        let result = result.and_then(|()| self.publication.notifications.health());
         if result.is_err() {
             self.publication.retire();
         }
         result
+    }
+    /// Local per-peer FD submission only; never ATT/browser/business receipt.
+    /// Host must retain the owned future through actual completion/cleanup.
+    #[cfg(feature = "bluez-notify-fd")]
+    pub fn notify(
+        &self,
+        epoch: Epoch,
+        peer: Peer,
+        kind: Characteristic,
+        frame: OpaqueBytes,
+    ) -> crate::ports::Pending<()> {
+        notify_fd::notify(self.publication.clone(), epoch, peer, kind, frame)
     }
     pub async fn close_connection(&self) -> Result<(), Error> {
         self.retire_local();
