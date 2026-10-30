@@ -2,7 +2,7 @@
 
 PR #100 功能分支已实际提供五条静态模块路由并装配首页，不再只交提案。路由沿用 #93 已合入的精确GET/include_str diff；Host、中间件、CSP、缓存和所有设备API语义不变。合并/部署与真实设备验收仍由负责人完成。
 
-旧 [装配补丁](member-b-test-center-assembly.patch) 保留最初测试中心候选的审查来源；当前分支不应再次apply。最终实现还包括回执/诊断/配置/统计面板，以当前PR源码为准。
+最初的装配候选保留在 [c1ed002历史](https://github.com/Viper-Boss/RustSimHub/blob/c1ed002d101483459ca9d3ca6cfb0f3eff4b9111/docs/web/member-b-test-center-assembly.patch)，当前HEAD不再附带可重复apply的补丁。最终实现还包括回执/诊断/配置/统计面板，以当前PR源码为准。
 
 | 面板 | 当前接线 | 保留边界 |
 |---|---|---|
