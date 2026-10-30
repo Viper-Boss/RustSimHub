@@ -5,8 +5,19 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
-# Deliberately no D-Bus, cryptography, radio or runtime backend in this library.
+[features]
+default = []
+bluez-control = ["dep:zbus", "dep:tokio", "dep:futures-lite"]
+
+# Default framing/lifecycle stays runtime-free. Control is explicitly injected.
 [dependencies]
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { version = "5.19", optional = true, default-features = false, features = ["tokio"] }
+tokio = { version = "1", optional = true, features = ["sync"] }
+futures-lite = { version = "2", optional = true }
 
 [dev-dependencies]
 serde_json.workspace = true
+tempfile = "3"
+tokio = { version = "1", features = ["rt", "macros", "time", "sync"] }

@@ -6,6 +6,8 @@
 //! operations, access BlueZ, or start a service. Backend integration must supply
 //! those authorities. Framing identifiers are never security nonces or proofs.
 
+#[cfg(all(target_os = "linux", feature = "bluez-control"))]
+pub mod bluez_control;
 pub mod framing;
 pub mod lifecycle;
 pub mod manifest;
