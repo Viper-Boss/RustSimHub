@@ -29,6 +29,6 @@ git diff --check
 
 PID/临时地址随重跑变化，日志摘要可变。平台固定镜像、宿主公共库逐字hash；没有复制到仓库或新增生产依赖。AGPL-3.0-only/Codex辅助；#126历史原作者Viper-Boss继续保留，无工时虚报。
 
-[逐场景、命令与隔离/未验收项](../ble/service-policy-kernel-uids.md)。没有宿主NSS/system bus/生产资料、实际BlueZ/HCI/RF、标准正文/Rust跨UID集成、A密码、设备/ARM或Root角色/安装/预算验收，没有部署/签名/短信/拨号/流量。测试对平台Docker使用[cloud-environment-runtime](skill://plugin_connector_1p_c5b7d5df5d7081918f2c4be5a633ed5d/cloud-environment-runtime/SKILL.md)的本地daemon/网络/CA隔离指导；不改环境配置。
+[逐场景、命令与隔离/未验收项](../ble/service-policy-kernel-uids.md)。没有宿主NSS/system bus/生产资料、实际BlueZ/HCI/RF、标准正文/Rust跨UID集成、A密码、设备/ARM或Root角色/安装/预算验收，没有部署/签名/短信/拨号/流量。测试使用平台本地 Docker daemon，保留代理/认证/CA配置，离线容器无网络；不改环境配置。
 
 新增完整步骤0，仍 **21/26离线包已提交、剩D22–26五步，固定P0–P7约80%**；不把实验或待审角色计为验收。不修改主线全局进度、其他分支、生产Root格式。最终PR HEAD/CI按回读记录，账户限制不绕过。
