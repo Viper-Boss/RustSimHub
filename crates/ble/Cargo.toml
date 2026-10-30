@@ -11,6 +11,7 @@ bluez-control = ["dep:zbus", "dep:tokio", "dep:futures-lite"]
 bluez-advertisement = ["bluez-control"]
 bluez-gatt = ["bluez-peer", "tokio/time"]
 bluez-peer = ["bluez-advertisement", "tokio/time"]
+bluez-notify-fd = ["bluez-gatt", "dep:socket2", "dep:libc", "tokio/net"]
 
 # Default framing/lifecycle stays runtime-free. Control is explicitly injected.
 [dependencies]
@@ -19,6 +20,8 @@ bluez-peer = ["bluez-advertisement", "tokio/time"]
 zbus = { version = "5.19", optional = true, default-features = false, features = ["tokio"] }
 tokio = { version = "1", optional = true, features = ["sync"] }
 futures-lite = { version = "2", optional = true }
+socket2 = { version = "0.6.5", optional = true, features = ["all"] }
+libc = { version = "0.2", optional = true }
 
 [dev-dependencies]
 serde_json.workspace = true

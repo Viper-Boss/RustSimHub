@@ -1908,7 +1908,9 @@ name = "rustsimhub-ble"
 version = "0.1.0"
 dependencies = [
  "futures-lite",
+ "libc",
  "serde_json",
+ "socket2",
  "tempfile",
  "tokio",
  "zbus",

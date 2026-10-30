@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+#[cfg(feature = "bluez-notify-fd")]
+mod native_fd;
 mod notification_routing;
 use super::*;
 use crate::bluez_control::{
