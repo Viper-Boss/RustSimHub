@@ -43,6 +43,9 @@ fn version(path: &Path) -> i64 {
         .unwrap()
 }
 
+#[cfg(unix)]
+mod execution_contract;
+
 #[test]
 fn authorization_gate_checks_every_snapshot_field_without_writing_or_trusting_receipts() {
     let (_d, _b, s, owner) = fixture();
