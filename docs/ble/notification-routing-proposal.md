@@ -2,6 +2,7 @@
 
 2026-10-30。**本批仅接口/失败样例，没有生产 AcquireNotify、通知实现或启动接线。**
 当前固定特征/UUID/flags、应用分片格式和 GattBackendV1 不变；A 密码协议不在本批。
+后续独立feature候选见[通知FD](notification-fd.md)；不改变本提案PR只有测试/文档的范围。
 
 ## 需要解决的问题
 
