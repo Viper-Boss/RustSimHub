@@ -205,6 +205,14 @@ pub struct RecoveryCapability {
     deadline: Instant,
 }
 impl RecoveryCapability {
+    #[cfg(feature = "recovery-execution")]
+    pub(crate) fn execution_binding(&self) -> &RecoveryProofBinding {
+        &self.binding
+    }
+    #[cfg(all(test, feature = "recovery-execution"))]
+    pub(crate) fn expire_execution_test(&mut self) {
+        self.deadline = Instant::now();
+    }
     pub fn action(&self) -> RecoveryAction {
         self.action
     }

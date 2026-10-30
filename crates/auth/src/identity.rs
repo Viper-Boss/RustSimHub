@@ -66,6 +66,16 @@ impl Identity {
             key: Zeroizing::new(mac.finalize().into_bytes().into()),
         })
     }
+    /// Private local dedupe purpose; never the SIM observer/session key.
+    #[cfg(feature = "recovery-execution")]
+    pub(crate) fn recovery_execution_key(&self) -> Result<Zeroizing<[u8; 32]>> {
+        use hmac::{Hmac, Mac};
+        let seed = Zeroizing::new(self.signing.to_bytes());
+        let mut mac =
+            Hmac::<Sha256>::new_from_slice(seed.as_ref()).map_err(|_| Error::InvalidInput)?;
+        mac.update(b"RustSimHub.RecoveryExecution.Key.v2\0");
+        Ok(Zeroizing::new(mac.finalize().into_bytes().into()))
+    }
     pub(crate) fn sign(&self, message: &[u8]) -> Vec<u8> {
         self.signing.sign(message).to_bytes().to_vec()
     }
@@ -378,5 +388,26 @@ mod read_only_key_tests {
         fs::set_permissions(d.path(), fs::Permissions::from_mode(0o700)).unwrap();
         assert!(Identity::load(d.path()).is_err());
         assert_eq!(fs::read_dir(d.path()).unwrap().count(), 0);
+    }
+}
+
+#[cfg(all(test, feature = "recovery-execution"))]
+mod execution_key_vectors {
+    use super::*;
+    #[test]
+    fn fixed_seed_domain_key_matches_independent_reference_and_is_not_sim_key() {
+        let seed: [u8; 32] = std::array::from_fn(|i| i as u8);
+        let identity = Identity {
+            signing: SigningKey::from_bytes(&seed),
+        };
+        let key = identity.recovery_execution_key().unwrap();
+        let value: serde_json::Value =
+            serde_json::from_str(include_str!("recovery_execution/vectors.json")).unwrap();
+        let actual: String = key.iter().map(|b| format!("{b:02x}")).collect();
+        assert_eq!(actual, value["derived_key_hex"].as_str().unwrap());
+        assert_ne!(
+            key.as_ref(),
+            identity.sim_fingerprinter().unwrap().key.as_ref()
+        );
     }
 }
