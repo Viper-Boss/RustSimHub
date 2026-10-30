@@ -6,6 +6,7 @@ import fcntl
 import json
 from pathlib import Path
 import signal
+import select
 import struct
 import subprocess
 import time
@@ -68,7 +69,7 @@ def check(binary, output):
         p.stdin.write(b'\x00')
         p.stdin.flush()
         started = time.monotonic()
-        assert p.wait(timeout=4) == 2 and time.monotonic() - started < 3.5
+        assert p.wait(timeout=4) == 2 and 1.5 < time.monotonic() - started < 3.5
     finally:
         if p.poll() is None:
             p.kill()
@@ -76,11 +77,27 @@ def check(binary, output):
     evidence.append('actual_partial_pipe_read_deadline')
     p = subprocess.Popen([binary, '--stdio'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
+        # Read a real status reply first: proves handler/pipe setup completed,
+        # so a default SIGTERM race cannot masquerade as graceful cancellation.
+        p.stdin.write(frame(request))
+        p.stdin.flush()
+        import os
+        def exact(size):
+            data = b''
+            deadline = time.monotonic() + 3
+            while len(data) < size:
+                assert select.select([p.stdout], [], [], max(0, deadline - time.monotonic()))[0]
+                chunk = os.read(p.stdout.fileno(), size - len(data))
+                assert chunk
+                data += chunk
+            return data
+        size = struct.unpack('>I', exact(4))[0]
+        assert 0 < size <= 2048 and json.loads(exact(size))['id'] == ID
         p.stdin.write(b'\x00')
         p.stdin.flush()
         p.send_signal(signal.SIGTERM)
         code = p.wait(timeout=3)
-        assert code in (130, -signal.SIGTERM)  # signal may precede handler setup
+        assert code == 130
     finally:
         if p.poll() is None:
             p.kill()
@@ -91,7 +108,8 @@ def check(binary, output):
         fcntl.fcntl(p.stdout.fileno(), fcntl.F_SETPIPE_SZ, 4096)
         p.stdin.write(frame(request) * 32)
         p.stdin.flush()
-        assert p.wait(timeout=4) == 2
+        started = time.monotonic()
+        assert p.wait(timeout=4) == 2 and 1.5 < time.monotonic() - started < 3.5
     finally:
         if p.poll() is None:
             p.kill()

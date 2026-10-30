@@ -58,8 +58,14 @@ def build(out):
                GOTOOLCHAIN='local', CGO_ENABLED='0', GOOS='linux', GOAMD64='v1', GOARM64='v8.0',
                GOFLAGS='', GOMAXPROCS='4')
     version = run(['go', 'version'], env=env).decode().strip()
+    toolchain_root = Path(run(['go', 'env', 'GOROOT'], env=env).decode().strip())
+    license_data = (toolchain_root / 'LICENSE').read_bytes()
+    if len(license_data) > 65536 or b'Go Authors' not in license_data:
+        raise ValueError('toolchain_license_unknown')
+    (out / 'Go-LICENSE.txt').write_bytes(license_data)
     manifest = {'schema': 1, 'source_commit': commit, 'compiler': version, 'nkn_sdk_linked': False,
                 'runtime_network_verified': False, 'signed': False, 'installed': False,
+                'go_runtime_license': {'path': 'Go-LICENSE.txt', 'sha256': hashlib.sha256(license_data).hexdigest()},
                 'sources': [{'path': name, 'sha256': hashlib.sha256(data).hexdigest(), 'git_blob': blob}
                             for name, data, blob in sources], 'artifacts': []}
     with tempfile.TemporaryDirectory(prefix='rsh-nkn-build-') as scratch:
