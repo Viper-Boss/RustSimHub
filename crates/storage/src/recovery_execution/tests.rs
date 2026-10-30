@@ -233,6 +233,7 @@ fn explicit_nine_open_never_initializes_or_upgrades_seven() {
 fn source_mixed_legacy_ledger_or_execution_objects_is_rejected_before_backup() {
     for sql in [
         "CREATE TABLE recovery_receipts(x)",
+        "CREATE TABLE Recovery_receipts(x)",
         "CREATE TABLE recovery_execution_meta(x)",
         "CREATE VIEW recovery_unapproved AS SELECT 1",
     ] {
@@ -271,6 +272,7 @@ fn schema_tag_alone_and_added_indices_triggers_views_are_not_admitted() {
         "CREATE INDEX recovery_extra ON recovery_execution_receipts(state)",
         "CREATE TRIGGER recovery_extra AFTER INSERT ON recovery_execution_receipts BEGIN SELECT 1; END",
         "CREATE VIEW recovery_extra AS SELECT * FROM recovery_execution_receipts",
+        "CREATE VIEW Recovery_extra AS SELECT * FROM recovery_execution_receipts",
         "DROP TABLE recovery_execution_meta",
     ] {
         let (d,s,_o,_g)=nine();s.handle().call(move|db|{db.connection.execute_batch(sql)?;Ok(())}).unwrap();drop(s);

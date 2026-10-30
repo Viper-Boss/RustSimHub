@@ -10,7 +10,7 @@ fn uuid(value: &str) -> bool {
 }
 type CatalogEntry = (String, String, String, Option<String>);
 fn catalog(conn: &Connection) -> Result<Vec<CatalogEntry>> {
-    conn.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE tbl_name GLOB 'recovery_*' OR name GLOB 'recovery_*' ORDER BY type,name")?
+    conn.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE lower(tbl_name) GLOB 'recovery_*' OR lower(name) GLOB 'recovery_*' ORDER BY type,name")?
         .query_map([],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?)))?
         .collect::<std::result::Result<_,_>>().map_err(|_|Error::Corrupt)
 }
