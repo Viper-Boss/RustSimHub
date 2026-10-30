@@ -427,3 +427,20 @@ pub(crate) async fn reconnect_same_path(bluez: &Connection) {
     )
     .await;
 }
+#[cfg(feature = "bluez-gatt")]
+pub(crate) async fn set_connected(bluez: &Connection, connected: bool) {
+    let interface = bluez
+        .object_server()
+        .interface::<_, Device>(DEVICE)
+        .await
+        .unwrap();
+    let state = interface.get().await.0.clone();
+    state.connected.store(connected, Ordering::Release);
+    changed(
+        bluez,
+        DEVICE,
+        HashMap::from([("Connected".into(), OwnedValue::from(connected))]),
+        vec![],
+    )
+    .await;
+}

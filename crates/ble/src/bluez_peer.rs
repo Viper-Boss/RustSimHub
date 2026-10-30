@@ -110,7 +110,11 @@ impl PeerLease {
     }
     #[cfg(feature = "bluez-gatt")]
     pub(crate) fn matches_control(&self, control: &BluezControl) -> bool {
-        self.binding.scope.same_binding(&control.callback_scope())
+        self.matches_scope(&control.callback_scope())
+    }
+    #[cfg(feature = "bluez-gatt")]
+    pub(crate) fn matches_scope(&self, scope: &CallbackScope) -> bool {
+        self.binding.scope.same_binding(scope)
     }
     #[cfg(feature = "bluez-gatt")]
     pub(crate) fn scope(&self) -> PeerScope {

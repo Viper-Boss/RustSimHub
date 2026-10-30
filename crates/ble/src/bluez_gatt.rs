@@ -13,7 +13,7 @@ use std::{
     collections::HashMap,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, OnceLock,
     },
     time::Duration,
 };
@@ -95,7 +95,7 @@ struct Publication {
     epoch: Epoch,
     requests: mpsc::Sender<CallbackRequest>,
     slot: Arc<Semaphore>,
-    peer_scope: PeerScope,
+    peer_scope: OnceLock<PeerScope>,
 }
 impl Publication {
     async fn check(&self, sender: Option<&str>) -> Result<String, Error> {
@@ -103,7 +103,11 @@ impl Publication {
             return Err(Error::StaleContext);
         }
         let owner = self.scope.check_sender(sender).await?;
-        self.peer_scope.check_current().await?;
+        self.peer_scope
+            .get()
+            .ok_or(Error::Unavailable)?
+            .check_current()
+            .await?;
         if !self.live.load(Ordering::Acquire) {
             return Err(Error::StaleContext);
         }
@@ -112,13 +116,18 @@ impl Publication {
     fn retire(&self) {
         self.live.store(false, Ordering::Release);
     }
+    fn matches_peer(&self, peer: &Peer) -> bool {
+        self.peer_scope
+            .get()
+            .is_some_and(|scope| scope.matches_peer(peer))
+    }
     async fn dispatch(
         self: &Arc<Self>,
         peer: Peer,
         characteristic: Characteristic,
         operation: CallbackOperation,
     ) -> Result<Completion, Error> {
-        if !self.peer_scope.matches_peer(&peer) {
+        if !self.matches_peer(&peer) {
             return Err(Error::StaleContext);
         }
         let permit = self
@@ -223,7 +232,7 @@ impl CharacteristicObject {
         let options = Options::parse(options, false).map_err(|_| invalid())?;
         let peer =
             Peer::from_backend_callback(&owner, options.device.as_str()).map_err(|_| invalid())?;
-        if !self.publication.peer_scope.matches_peer(&peer) {
+        if !self.publication.matches_peer(&peer) {
             return Err(denied());
         }
         if self.kind == Characteristic::DeviceInfo {
@@ -288,7 +297,7 @@ impl CharacteristicObject {
         }
         let peer =
             Peer::from_backend_callback(&owner, options.device.as_str()).map_err(|_| invalid())?;
-        if !self.publication.peer_scope.matches_peer(&peer) {
+        if !self.publication.matches_peer(&peer) {
             return Err(denied());
         }
         let operation = CallbackOperation::Write {
@@ -395,19 +404,14 @@ impl Options {
 pub struct GattExport {
     connection: Connection,
     publication: Arc<Publication>,
-    lease: PeerLease,
+    lease: OnceLock<PeerLease>,
 }
 impl GattExport {
     pub async fn publish(
         control: &BluezControl,
-        lease: PeerLease,
+        epoch: Epoch,
     ) -> Result<(Self, mpsc::Receiver<CallbackRequest>), Error> {
         control.check_current().await?;
-        if !lease.matches_control(control) {
-            return Err(Error::StaleContext);
-        }
-        lease.check_current().await?;
-        let epoch = lease.epoch();
         let (requests, receiver) = mpsc::channel(1);
         let publication = Arc::new(Publication {
             live: AtomicBool::new(true),
@@ -415,7 +419,7 @@ impl GattExport {
             epoch,
             requests,
             slot: Arc::new(Semaphore::new(1)),
-            peer_scope: lease.scope(),
+            peer_scope: OnceLock::new(),
         });
         let mut guard = PublishGuard {
             publication: publication.clone(),
@@ -460,19 +464,71 @@ impl GattExport {
             Self {
                 connection,
                 publication,
-                lease,
+                lease: OnceLock::new(),
             },
             receiver,
         ))
     }
+    /// Convenience for an already connected peer. Normal startup exports static
+    /// metadata first, then binds once after the real Device1 connection event.
+    pub async fn publish_bound(
+        control: &BluezControl,
+        lease: PeerLease,
+    ) -> Result<(Self, mpsc::Receiver<CallbackRequest>), Error> {
+        if !lease.matches_control(control) {
+            return Err(Error::StaleContext);
+        }
+        lease.check_current().await?;
+        let (export, receiver) = Self::publish(control, lease.epoch()).await?;
+        export.bind_peer(lease).await?;
+        Ok((export, receiver))
+    }
+    /// At most one successful peer binding per exported tree. Before this
+    /// commits every method callback fails; readonly service metadata is public.
+    pub async fn bind_peer(&self, lease: PeerLease) -> Result<(), Error> {
+        if self.lease.get().is_some() {
+            return Err(Error::Busy);
+        }
+        if !self.publication.live.load(Ordering::Acquire)
+            || lease.epoch() != self.publication.epoch
+            || !lease.matches_scope(&self.publication.scope)
+        {
+            return Err(Error::StaleContext);
+        }
+        lease.check_current().await?;
+        if !self.publication.live.load(Ordering::Acquire) {
+            return Err(Error::StaleContext);
+        }
+        let scope = lease.scope();
+        self.lease.set(lease).map_err(|_| Error::Busy)?;
+        if self.publication.peer_scope.set(scope).is_err() {
+            self.retire_local();
+            return Err(Error::Unknown);
+        }
+        if !self.publication.live.load(Ordering::Acquire) {
+            self.retire_local();
+            return Err(Error::StaleContext);
+        }
+        Ok(())
+    }
     pub fn retire_local(&self) {
         self.publication.retire();
-        self.lease.retire();
+        if let Some(lease) = self.lease.get() {
+            lease.retire();
+        }
     }
     /// Host idle/pre/post-work check. On error the host must drive original
     /// lifecycle/security cleanup; this local fence cannot do that for it.
     pub async fn check_peer_current(&self) -> Result<(), Error> {
-        let result = self.lease.check_current().await;
+        if !self.publication.live.load(Ordering::Acquire) {
+            return Err(Error::StaleContext);
+        }
+        let result = self
+            .lease
+            .get()
+            .ok_or(Error::Unavailable)?
+            .check_current()
+            .await;
         if result.is_err() {
             self.publication.retire();
         }

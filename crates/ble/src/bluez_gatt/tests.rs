@@ -633,7 +633,7 @@ async fn publish(
     epoch: Epoch,
 ) -> Result<(GattExport, mpsc::Receiver<CallbackRequest>), Error> {
     let lease = PeerLease::bind(control, epoch, DEVICE).await?;
-    GattExport::publish(control, lease).await
+    GattExport::publish_bound(control, lease).await
 }
 
 #[tokio::test]
@@ -666,7 +666,7 @@ async fn disconnected_lease_is_rejected_before_object_export_and_fresh_epoch_can
     let lease = PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap();
     crate::bluez_peer::tests::reconnect_same_path(&bluez).await;
     assert!(matches!(
-        GattExport::publish(&control, lease).await,
+        GattExport::publish_bound(&control, lease).await,
         Err(Error::StaleContext)
     ));
     // Rejection happens before ObjectServer startup. Inspect object absence;
@@ -705,7 +705,7 @@ async fn lease_from_another_control_binding_cannot_be_relabelled_for_export() {
     .unwrap();
     let lease = PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap();
     assert!(matches!(
-        GattExport::publish(&other, lease).await,
+        GattExport::publish_bound(&other, lease).await,
         Err(Error::StaleContext)
     ));
     let (_export, _requests) = publish(&other, epoch(2)).await.unwrap();
@@ -727,5 +727,125 @@ async fn public_device_info_still_requires_the_bound_actual_device_context() {
             .await
             .is_err()
     );
+    assert!(requests.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn metadata_can_register_before_connection_but_callbacks_wait_for_real_lease() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (mut control, name) = setup(&bus, &bluez).await;
+    crate::bluez_peer::tests::set_connected(&bluez, false).await;
+    let (export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    bounded(control.register_application()).await.unwrap();
+    assert_eq!(export.check_peer_current().await, Err(Error::Unavailable));
+    assert!(bounded(writing(&bluez, &name)).await.unwrap().is_err());
+    assert!(requests.try_recv().is_err());
+    crate::bluez_peer::tests::set_connected(&bluez, true).await;
+    let lease = PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap();
+    bounded(export.bind_peer(lease)).await.unwrap();
+    let call = writing(&bluez, &name);
+    bounded(requests.recv())
+        .await
+        .unwrap()
+        .finish(Ok(CallbackReply::Accepted));
+    bounded(call).await.unwrap().unwrap();
+}
+
+#[tokio::test]
+async fn peer_binding_is_once_only_and_checks_epoch_before_exposing_callbacks() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (control, name) = setup(&bus, &bluez).await;
+    let (export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let wrong_epoch = PeerLease::bind(&control, epoch(2), DEVICE).await.unwrap();
+    assert_eq!(
+        export.bind_peer(wrong_epoch).await,
+        Err(Error::StaleContext)
+    );
+    assert!(bounded(writing(&bluez, &name)).await.unwrap().is_err());
+    export
+        .bind_peer(PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        export
+            .bind_peer(PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap())
+            .await,
+        Err(Error::Busy)
+    );
+    crate::bluez_peer::tests::reconnect_same_path(&bluez).await;
+    assert_eq!(export.check_peer_current().await, Err(Error::StaleContext));
+    assert_eq!(
+        export
+            .bind_peer(PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap())
+            .await,
+        Err(Error::Busy)
+    );
+    assert!(requests.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn cancelled_binding_exposes_no_peer_and_can_retry_only_with_fresh_lease() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (control, name) = setup(&bus, &bluez).await;
+    let (export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let lease = PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap();
+    let mut binding = Box::pin(export.bind_peer(lease));
+    assert!(futures_lite::future::poll_once(&mut binding)
+        .await
+        .is_none());
+    drop(binding);
+    assert!(bounded(writing(&bluez, &name)).await.unwrap().is_err());
+    assert!(requests.try_recv().is_err());
+    export
+        .bind_peer(PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap())
+        .await
+        .unwrap();
+    let call = writing(&bluez, &name);
+    bounded(requests.recv())
+        .await
+        .unwrap()
+        .finish(Ok(CallbackReply::Accepted));
+    bounded(call).await.unwrap().unwrap();
+}
+
+#[tokio::test]
+async fn concurrent_binding_commits_only_one_lease_without_revoking_the_winner() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (control, name) = setup(&bus, &bluez).await;
+    let (export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let first = PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap();
+    let second = PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap();
+    let (a, b) =
+        bounded(async { tokio::join!(export.bind_peer(first), export.bind_peer(second)) }).await;
+    assert!(matches!(
+        (a, b),
+        (Ok(()), Err(Error::Busy)) | (Err(Error::Busy), Ok(()))
+    ));
+    let call = writing(&bluez, &name);
+    bounded(requests.recv())
+        .await
+        .unwrap()
+        .finish(Ok(CallbackReply::Accepted));
+    bounded(call).await.unwrap().unwrap();
+}
+
+#[tokio::test]
+async fn retirement_while_binding_is_pending_cannot_publish_a_live_peer() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (control, name) = setup(&bus, &bluez).await;
+    let (export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let lease = PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap();
+    let mut binding = Box::pin(export.bind_peer(lease));
+    assert!(futures_lite::future::poll_once(&mut binding)
+        .await
+        .is_none());
+    export.retire_local();
+    assert_eq!(bounded(binding).await, Err(Error::StaleContext));
+    assert!(bounded(writing(&bluez, &name)).await.unwrap().is_err());
     assert!(requests.try_recv().is_err());
 }
