@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-29T19:22:19.830838+00:00",
+  "updated_at": "2026-10-30T07:25:54.773931+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -68,30 +68,30 @@
   },
   "focus": {
     "task_id": "AP-07",
-    "title": "设备首次热点与隔离实测",
+    "title": "首页装配已合并，保留草稿与验收边界",
     "state": "下一动作已选定；按前置和验收推进",
-    "description": "热点内重扫已接上Core认证、单次派发、持久进度/取消/重启收尾及首配HTTP入口；固定实现1909a0af，409项Rust与严格检查通过，草稿PR69。新网页一键入口、ARM构建、部署和手机验收仍待；本轮按用户要求暂停固件与任务书整理，仅更新发布看板。成员B现为wnfhsj88，32步分工、历史贡献和审核状态不变。"
+    "description": "按所有者明确决定，#100最新非草稿提交已直接批准合并；之前#97/#102～106已合并，本轮未做技术审核或独立功能测试。#101/#107仍为草稿，不合并。B-01～32已有离线交付材料，后端provider/配置器发布/实机仍待；D线报告21/26离线提交，D-22～26五步仍未闭环。原81.5%、20/169保持，不按PR数加验收分；未部署设备。"
   },
   "facts": [
     {
-      "label": "原计划",
-      "value": "80%",
-      "detail": "固定P0–P7验收口径"
+      "label": "原固件验收",
+      "value": "81.5%",
+      "detail": "固定P0–P7；本次合并不加验收分"
     },
     {
-      "label": "本轮交付",
-      "value": "D-05～12",
-      "detail": "本分支待PR合入；设备由CC维护，本轮未连接复核"
+      "label": "最新合并",
+      "value": "PR #100",
+      "detail": "按所有者决定直接通过，未技术审核"
     },
     {
-      "label": "本地业务",
-      "value": "SMS-05闭环",
-      "detail": "本分支17/169；main须待正常PR合入"
+      "label": "B线材料",
+      "value": "32步已有交付",
+      "detail": "统计provider、恢复后端、PWA发布和实机待接续"
     },
     {
-      "label": "离线回归",
-      "value": "228项",
-      "detail": "Core/Store及严格Clippy/fmt；不是整机/ARM验收"
+      "label": "D线剩余",
+      "value": "5个大步骤",
+      "detail": "交付报告21/26已提交；D-22～26仍需完成，不等于独立验收"
     }
   ],
   "constraints": [
@@ -5757,7 +5757,62 @@
             },
             {
               "pr": 62,
-              "head": "9dae7482a47c9071e980324cc871bdb0b5bb09af",
+              "head": "4cd8dc446417bac882395fc66a6e01b6551c94ca",
+              "state": "OPEN"
+            },
+            {
+              "pr": 63,
+              "head": "ad8b87a812317018994bcb5f6df4d00ce3a1842f",
+              "state": "OPEN"
+            },
+            {
+              "pr": 64,
+              "head": "a8acad955dc75c1883270e6957a80d0690b28759",
+              "state": "MERGED"
+            },
+            {
+              "pr": 65,
+              "head": "d09e76df1549ec69f167b23a9e887073f87c7784",
+              "state": "OPEN"
+            },
+            {
+              "pr": 66,
+              "head": "56d56c35f2cf58273a7f31cdc08fd539f7e8bafa",
+              "state": "OPEN"
+            },
+            {
+              "pr": 67,
+              "head": "0c3b9b2cc3cf3582b426685215fd695ced87f3eb",
+              "state": "MERGED"
+            },
+            {
+              "pr": 68,
+              "head": "70a62412541c3ac5e0eaf58a192f73c755ffeb04",
+              "state": "MERGED"
+            },
+            {
+              "pr": 69,
+              "head": "803501e2dca59dc388446426010ddaed3201dcd1",
+              "state": "OPEN"
+            },
+            {
+              "pr": 70,
+              "head": "300af3903d9d1c0e61222036b7153f3cb9fb21f3",
+              "state": "MERGED"
+            },
+            {
+              "pr": 71,
+              "head": "284861fd819caabc5a2f2d547462c8554d45f772",
+              "state": "MERGED"
+            },
+            {
+              "pr": 72,
+              "head": "4ce795b95e41147667de5327f71e2aa655fb274f",
+              "state": "MERGED"
+            },
+            {
+              "pr": 73,
+              "head": "c24164839b8e88297a8f21993095008e60dd9d08",
               "state": "OPEN"
             }
           ]
@@ -5950,7 +6005,153 @@
           "accepted_steps": 0,
           "self_reported_hours": null,
           "reviews": [],
-          "deliveries": []
+          "deliveries": [
+            {
+              "pr": 74,
+              "head": "f7d93e9341bf9614814e069430a0924ee580a421",
+              "state": "MERGED"
+            },
+            {
+              "pr": 75,
+              "head": "e6dc66b8ed8685d497ca6ff39ee225599d720711",
+              "state": "MERGED"
+            },
+            {
+              "pr": 76,
+              "head": "80e78818d15eb1bb2430e8911d50083a0b7d9281",
+              "state": "MERGED"
+            },
+            {
+              "pr": 77,
+              "head": "91d50e86f4443f3af0b55941659e2b6d582981eb",
+              "state": "MERGED"
+            },
+            {
+              "pr": 78,
+              "head": "609238d29826e37f3783d1968c013e7827e145a2",
+              "state": "MERGED"
+            },
+            {
+              "pr": 79,
+              "head": "9672932fe8b2133f99c24c5cba048d59cbae2e30",
+              "state": "MERGED"
+            },
+            {
+              "pr": 80,
+              "head": "9bcbc0d273891ce412f0599500841ffd8826492a",
+              "state": "MERGED"
+            },
+            {
+              "pr": 82,
+              "head": "92d079a35b91b5bbfc5785e444220853895521f6",
+              "state": "MERGED"
+            },
+            {
+              "pr": 83,
+              "head": "619ca27d563ccee4e5ef1d8b39de6d1563fa323a",
+              "state": "MERGED"
+            },
+            {
+              "pr": 84,
+              "head": "7c06cf7453cb0da5cbda6139111b86a007d22ff8",
+              "state": "MERGED"
+            },
+            {
+              "pr": 87,
+              "head": "2c6195f6ed169b8e606eb8ffdecac4ef8a66a7d7",
+              "state": "MERGED"
+            },
+            {
+              "pr": 88,
+              "head": "1e8bb695ebd0252826148d3776c6f92216886b7b",
+              "state": "MERGED"
+            },
+            {
+              "pr": 89,
+              "head": "08d5d26265d04b5c61746cb532f30eb9600d31ca",
+              "state": "MERGED"
+            },
+            {
+              "pr": 90,
+              "head": "6615324441fc3035f2bba6f90da904fa8d13413e",
+              "state": "MERGED"
+            },
+            {
+              "pr": 91,
+              "head": "4f7c88e4cf007eddfea8277e9e9769afa156981e",
+              "state": "MERGED"
+            },
+            {
+              "pr": 92,
+              "head": "779da393ab3e5328a8ce27847e201db12052f866",
+              "state": "MERGED"
+            },
+            {
+              "pr": 93,
+              "head": "4ef4186d953aa236cff9bbf6c4c120d656da1f61",
+              "state": "MERGED"
+            },
+            {
+              "pr": 94,
+              "head": "eb5ff80aa2c9949b614d3b41a4e22f8b77eb5186",
+              "state": "MERGED"
+            },
+            {
+              "pr": 95,
+              "head": "f02c7c645be650fba5b981260e2f9861e7965662",
+              "state": "MERGED"
+            },
+            {
+              "pr": 96,
+              "head": "ab81d36edb3f66e692f6391ac70d79bcf5635b71",
+              "state": "MERGED"
+            },
+            {
+              "pr": 97,
+              "head": "bfbfdaae25daf581689d885332a98f2b6d3d6f4b",
+              "state": "MERGED"
+            },
+            {
+              "pr": 100,
+              "head": "21e3e2ab87a4f2b62ce1dcacf0aea6e9566def23",
+              "state": "MERGED"
+            },
+            {
+              "pr": 101,
+              "head": "51043fefcd323d6fd81f592da945f199249f5034",
+              "state": "OPEN"
+            },
+            {
+              "pr": 102,
+              "head": "dfab807f8c28f4e8c187d09cd5f148093986b2df",
+              "state": "MERGED"
+            },
+            {
+              "pr": 103,
+              "head": "f59cf9efc6ce1f3eab1c37416ab4fe9a179621ab",
+              "state": "MERGED"
+            },
+            {
+              "pr": 104,
+              "head": "2c84766800562a8b27b9fe1ebda3afd8a88cf8a1",
+              "state": "MERGED"
+            },
+            {
+              "pr": 105,
+              "head": "22663d12f95a191b44188d60965d069def0d5606",
+              "state": "MERGED"
+            },
+            {
+              "pr": 106,
+              "head": "1fbd4c88c826b322ce4b8343ee9af14dd65d6eda",
+              "state": "MERGED"
+            },
+            {
+              "pr": 107,
+              "head": "241803809029dc7da20a611baef6b476cc3c901f",
+              "state": "OPEN"
+            }
+          ]
         }
       },
       {
@@ -6096,12 +6297,37 @@
             {
               "pr": 10,
               "head": "b66c0e1df606980524d94fb26585b4a73aa7f7e3",
-              "state": "OPEN"
+              "state": "MERGED"
             },
             {
               "pr": 13,
               "head": "e782f985dc5995a076e83e8482b73a693f687ea1",
               "state": "MERGED"
+            },
+            {
+              "pr": 81,
+              "head": "f8fd6c300548046bf5bfcb2dd263f103b71acf88",
+              "state": "MERGED"
+            },
+            {
+              "pr": 85,
+              "head": "3d37c86738d191f65fe82e2069a0f3ce303a6b38",
+              "state": "MERGED"
+            },
+            {
+              "pr": 86,
+              "head": "b625bc8dff65104dd3e147dfe622ea0fe17e4866",
+              "state": "MERGED"
+            },
+            {
+              "pr": 98,
+              "head": "5cba7bd0a609ed44eed7f125f4275a1c3982aeec",
+              "state": "OPEN"
+            },
+            {
+              "pr": 99,
+              "head": "086183aff03585e90fa92cf595392d4ee20ab499",
+              "state": "OPEN"
             }
           ]
         }
@@ -7716,7 +7942,7 @@
         }
       ]
     },
-    "pr_method": "按成员已收录PR编号去重，每个PR计1次；OPEN/MERGED/CLOSED均计入。数据尚未完成最新远程同步。",
-    "pr_snapshot_at": "2026-10-29T01:45:40.167754+00:00"
+    "pr_method": "本次已同步GitHub全部PR状态，按成员已收录PR编号去重，每个PR计1次；OPEN/MERGED/CLOSED均计入。先行批准与合并不等于技术审核、测试或设备验收。",
+    "pr_snapshot_at": "2026-10-30T07:25:54.773931+00:00"
   }
 }

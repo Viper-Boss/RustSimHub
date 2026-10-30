@@ -176,7 +176,7 @@ function initialize() {
     byId('footer-status').textContent=`${value.total}个当前动作 · ${data.modules.length}个模块 · 仓库快照，非设备实时遥测`;
     if(byId('team-grid')){
       renderPeople();
-      byId('team-source').textContent=data.team?`PR数据快照：${date(data.team.pr_snapshot_at||data.team.generated_at)} · 尚未完成最新远程同步；未收录不代表没有提交。`:'团队统计待生成';
+      byId('team-source').textContent=data.team?`PR数据快照：${date(data.team.pr_snapshot_at||data.team.generated_at)} · ${data.team.pr_method||'未收录不代表没有提交。'}`:'团队统计待生成';
       const summary=(data.team?.members||[]).map(prSummary).reduce((sum,p)=>({total:sum.total+p.total,open:sum.open+p.open,merged:sum.merged+p.merged,closed:sum.closed+p.closed}),{total:0,open:0,merged:0,closed:0});
       if(byId('team-summary'))byId('team-summary').textContent=`已收录 ${summary.total} 个 PR · 未合并 ${summary.open} · 已合并 ${summary.merged} · 关闭未合并 ${summary.closed} · 每个PR计1份提交工作量`;
     }
