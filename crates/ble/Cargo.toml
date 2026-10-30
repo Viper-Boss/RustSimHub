@@ -27,3 +27,10 @@ libc = { version = "0.2", optional = true }
 serde_json.workspace = true
 tempfile = "3"
 tokio = { version = "1", features = ["rt", "macros", "time", "sync"] }
+
+# Explicit isolated-container fixture; ordinary cargo test never changes UID.
+[[test]]
+name = "gatt_kernel_uid"
+path = "tests/gatt_kernel_uid.rs"
+test = false
+required-features = ["bluez-notify-fd"]
