@@ -12,6 +12,11 @@ import { ForwardingPanel, ForwardingQuickTest, ForwardingHistory, historyPending
 import { ApConfigurator, pendingInput as apPendingInput } from './ap-wifi.js';
 import { deriveSeed, importKeyPair, publicKey as seedPublicKey } from './password.js';
 import { ClientsPanel } from './clients.js';
+import { TestCenter } from './test-center.js';
+import { OperationReceipt } from './operation-receipt.js';
+import { DiagnosticPanel } from './diagnostics.js';
+import { ConfigurationState } from './configuration-state.js';
+import { UsageStatsPanel } from './usage-stats.js';
 const $=id=>document.getElementById(id);
 const scopes=['status.read','sms.read','calls.read'];
 let key, publicKey, token=null, busy=false, pending=null, lease=null;
@@ -30,6 +35,8 @@ let wifiTrial=null;
 let wifiCatalogueGeneration=0;
 let audioReady=false;
 let testWorking=false,testGeneration=0,testTask=null,testResult=null;
+let testCenterComponent=null,testCenterActive=true,supportPanels=null;
+let supportConfigurationToken=null,supportConfigurationReading=false;
 let configurationOpen=false;
 function configurationVisible(){return Array.from(document.querySelectorAll('details[data-configuration]')).some(panel=>panel.open);}
 const configurationIndicator=new ConfigurationIndicator(command=>{
@@ -348,6 +355,15 @@ function showTestControls(){
  $('test-recovery').hidden=!pending;
  $('test-pending-state').textContent=pending?'有一笔上次的操作需要核对。测试会先核对它；结果不明时会保留，不会重拨或重发。':'';
  $('test-copy').disabled=!testResult&&!pending;
+ if(testCenterComponent&&testCenterActive){
+  const apBlocked=apConfigurator?.working||apConfigurator?.managing,phoneBlocked=dailyPhone?.working||dailyPhone?.managing;
+  const actions=Object.fromEntries(testCenterBindings.map(([task,id])=>{
+   const reason=task!=='stop'&&apBlocked?'请先在 Wi-Fi 配置区查询或结束当前配置':task!=='stop'&&phoneBlocked?'请先在电话区结束当前操作或通话':task==='forwarding'&&lease?'请先结束当前通话或释放控制租约':$(id).disabled?(task==='outgoing'||task==='incoming')&&!audioReady?'此设备暂未开启浏览器音频':task==='recover'?'没有可核对的原操作':task==='stop'?'当前没有可停止的测试':'当前操作处理中':'';
+   return [task,{enabled:!reason,reason}];
+  }));
+  testCenterComponent.update({message:$('test-state').textContent,busy:locked,unresolved:!!pending?.submit_started&&!['submitted','cancelled'].includes(pending.state),actions});
+ }
+ publishSupportState();
 }
 function testMessage(text){testResult=text;$('test-state').textContent=text;showTestControls();}
 async function testLogin(check){
@@ -462,7 +478,7 @@ bind('wifi-login',login);bind('wifi-networks-refresh',loadWifiNetworks);bind('wi
 bind('more-inbox',()=>inboxPage());bind('more-calls',()=>callsPage());bind('prepare-sms',()=>prepare('sms','send'));for(const action of ['dial','accept','hangup','dtmf'])bind('prepare-'+action,()=>prepare('call',action));bind('submit',submit);bind('query',query);bind('clear',async()=>{if(!pending||!['submitted','cancelled'].includes(pending.state))throw Error('当前结果必须保留查询');pending=null;await save('pending',null);showPending();});
 bind('archive-ended-call',async()=>{const epoch=viewEpoch,old=pending;await archiveEndedOperation({pending:old,request:command=>auth(command),archivePending,setPending:async value=>{current(epoch);await save('pending',value);current(epoch);pending=value;},current:()=>{current(epoch);if(pending?.id!==old?.id&&pending!==null)throw Error('当前操作已变化');}});showPending();notice('已核对呼叫结束并保存不确定操作记录；未重拨，设备原记录保持');});
 setInterval(()=>{if(token&&lease&&!busy&&!callTest.running&&!dailyPhone.managing)act(async()=>{try{const r=await auth({op:'renew_call',lease});lease=r.lease;$('lease').textContent='控制租约已续期';showAudio();}catch(e){lease=null;void audioLink.stop();showAudio();$('lease').textContent='控制租约已失效；核心清理正在处理';throw e;}});},10000);
-initialize().catch(error=>{notice('初始化失败：'+error.message);$('test-state').textContent='初始化未确认，请核对连接和浏览器存储后重新登录；未自动开始测试。';});
+initialize().catch(error=>{notice('初始化失败：'+error.message);testMessage('初始化未确认，请核对连接和浏览器存储后重新登录；未自动开始测试。');});
 
 // Microphone permission may stay pending. It must not block hangup/logout.
 $('audio-start').onclick=()=>{if(!token||!lease){notice('请先取得当前通话的控制租约');return;}const epoch=viewEpoch,authToken=token;void audioLink.start({token,lease}).catch(error=>{if(epoch===viewEpoch&&token===authToken)notice(error.message||'声音连接失败');}).finally(showAudio);};
@@ -495,3 +511,64 @@ const clientsPanel=new ClientsPanel({document,request:command=>auth(command),con
 const clientsPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{clientsPanel.reset();clientsPreviousLogout();};
 const apPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{apConfigurator?.suspend();apPreviousLogout();};
 addEventListener('pagehide',()=>apConfigurator?.suspend());
+
+// Presentation delegates to the already-bound handlers, including their act/generation fences.
+const testCenterBindings=[['check','test-check'],['outgoing','test-start'],['incoming','test-incoming-start'],['sms','test-sms'],['forwarding','test-forwarding'],['stop','test-stop'],['recover','test-recover']];
+const testCenterHelp=document.createElement('p');testCenterHelp.textContent='手动电话、短信和设备管理仍保留在下方各区。';
+testCenterComponent=new TestCenter({document,root:$('test-component-host'),actions:Object.fromEntries(testCenterBindings.map(([task,id])=>[task,()=>$(id).onclick()])),debugElement:testCenterHelp});
+const testCenterObserver=globalThis.MutationObserver?new MutationObserver(()=>showTestControls()):null;
+const observeTestCenterSources=()=>{for(const id of ['ap-wifi-panel','phone-panel'])testCenterObserver?.observe($(id),{subtree:true,childList:true,attributes:true,characterData:true});};
+observeTestCenterSources();showTestControls();
+const testCenterPreviousLogout=$('logout').onclick;
+$('logout').onclick=()=>{testCenterComponent.reset();testCenterPreviousLogout();testMessage('已退出；可点击检查状态重新登录，原操作仍需核对。');};
+addEventListener('pagehide',()=>{testCenterActive=false;testCenterObserver?.disconnect();testCenterComponent.reset();});
+addEventListener('pageshow',()=>{testCenterActive=true;observeTestCenterSources();showTestControls();});
+
+function supportOperation(){
+ const value=pending;
+ if(!value||!['sms','call'].includes(value.type)||typeof value.id!=='string'||!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(value.id))return null;
+ return {id:value.id,type:value.type,state:['prepared','submitting','submitted','cancelled','unknown'].includes(value.state)?value.state:'unknown',submit_started:value.submit_started===true};
+}
+function publishSupportState(){
+ if(!supportPanels||!testCenterActive)return;const row=supportOperation();
+ const canQuery=!!row&&!!token&&!busy&&!testWorking&&!callTest.running&&!apConfigurator?.working&&!apConfigurator?.managing&&!dailyPhone?.working&&!dailyPhone?.managing;
+ supportPanels.receipt.update(row?{...row,canQuery,canArchive:false}:null);
+ supportPanels.diagnostics.update({origin:globalThis.location?.origin,device_pin:$('pin').value,operation:row});
+ const read=supportConfigurationAllowed()?readSupportConfiguration:null;
+ if(supportPanels.configuration.read!==read||supportConfigurationToken!==token){supportPanels.configuration.read=read;supportConfigurationToken=token;supportPanels.configuration.reset();}
+}
+function supportConfigurationAllowed(){return !!token&&testCenterActive&&!document.hidden&&!busy&&!testWorking&&!callTest.running&&!apConfigurator?.working&&!apConfigurator?.managing&&!dailyPhone?.working&&!dailyPhone?.managing;}
+async function readSupportConfiguration({signal}){
+ if(!supportConfigurationAllowed()||signal.aborted||supportConfigurationReading)throw Error('状态读取当前不可用');
+ const authToken=token,epoch=viewEpoch,started=performance.now(),wallStarted=Date.now();
+ if(!Number.isFinite(started)||!Number.isFinite(wallStarted))throw Error('无法核对证据年龄');
+ supportConfigurationReading=true;
+ try{
+  const value=await auth({op:'forwarding_status'}),elapsed=performance.now()-started,wallElapsed=Date.now()-wallStarted;
+  if(signal.aborted||!supportConfigurationAllowed()||authToken!==token||epoch!==viewEpoch||![elapsed,wallElapsed].every(v=>Number.isFinite(v)&&v>=0&&v<3000))throw Error('状态读取已过期');
+  // Core service::verified accepts only a matching report sampled AFTER this
+  // request began (within the Core clock's 1ms floor). Full round-trip time
+  // plus 1ms conservatively bounds its age; HTTP
+  // arrival alone is not evidence, and a status query cannot confirm a save.
+  if(value?.available!==true||value.configuration_api!==true||value.service_management_api!==true||value.service_action!=='completed'||value.process_state_verified!==true||!Number.isSafeInteger(value.generation)||value.generation<0||!(value.enabled===true&&value.state==='running'||value.enabled===false&&value.state==='disabled'))throw Error('没有可核验的新鲜进程证据');
+  return {source:'forwarding',age_ms:1+Math.ceil(Math.max(elapsed,wallElapsed)),data:{configuration_applied:false,process_state_verified:true,enabled:value.enabled,state:value.state}};
+ }finally{supportConfigurationReading=false;}
+}
+async function querySupportOperation(id){
+ const old=pending,epoch=viewEpoch;let completed=false;
+ if(!old||old.id!==id||!['sms','call'].includes(old.type))throw Error('原操作已变化，请重新核对');
+ await act(async()=>{if(pending!==old||viewEpoch!==epoch)throw Error('原操作已变化');await query();completed=true;});
+ if(!completed||pending!==old||viewEpoch!==epoch)throw Error('查询未确认，原记录保留');
+}
+supportPanels={
+ receipt:new OperationReceipt({document,root:$('support-receipt'),query:querySupportOperation}),
+ diagnostics:new DiagnosticPanel({document,root:$('support-diagnostics'),copy:text=>navigator.clipboard.writeText(text)}),
+ configuration:new ConfigurationState({document,root:$('support-configuration'),read:null,clock:()=>Date.now()}),
+ usage:new UsageStatsPanel({document,root:$('support-usage'),read:null})
+};
+publishSupportState();
+const supportPreviousLogout=$('logout').onclick;
+$('logout').onclick=()=>{for(const panel of Object.values(supportPanels))panel.reset();supportPreviousLogout();publishSupportState();};
+addEventListener('pagehide',()=>{supportPanels.configuration.read=null;supportConfigurationToken=null;for(const panel of Object.values(supportPanels))panel.reset();});
+addEventListener('pageshow',()=>publishSupportState());
+document.addEventListener('visibilitychange',()=>{if(document.hidden){supportPanels.configuration.read=null;supportPanels.configuration.reset();}else publishSupportState();});

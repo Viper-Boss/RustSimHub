@@ -11,43 +11,51 @@ const bytes=await readFile(new URL('../crates/edge/src/web/sms-management.js',im
 const {SmsManager,smsListText,smsDetailText}=await import('data:text/javascript;base64,'+bytes.toString('base64'));
 const archiveBytes=await readFile(new URL('../crates/edge/src/web/call-test.js',import.meta.url));
 const {archiveEndedOperation}=await import('data:text/javascript;base64,'+archiveBytes.toString('base64'));
+const centerBytes=await readFile(new URL('../crates/edge/src/web/test-center.js',import.meta.url));
+const {TestCenter}=await import('data:text/javascript;base64,'+centerBytes.toString('base64'));
+const supportLoad=async name=>import('data:text/javascript;base64,'+(await readFile(new URL('../crates/edge/src/web/'+name+'.js',import.meta.url))).toString('base64'));
+const {OperationReceipt}=await supportLoad('operation-receipt'),{DiagnosticPanel}=await supportLoad('diagnostics'),{ConfigurationState}=await supportLoad('configuration-state'),{UsageStatsPanel}=await supportLoad('usage-stats');
 const id='00000000-0000-4000-8000-000000000001',other='00000000-0000-4000-8000-000000000002';
 const turn=()=>new Promise(r=>setImmediate(r));
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};};
 class Element {
- constructor(){this.value='';this.textContent='';this.children=[];this.disabled=false;this.hidden=false;}
+ constructor(){this.value='';this.textContent='';this.children=[];this.disabled=false;this.hidden=false;this.style={};this.dataset={};this.classList={add(){}};this.attributes={};}
  set innerHTML(_){throw Error('Message data must never be parsed as HTML');}
  append(...values){this.children.push(...values);}replaceChildren(...values){this.children=values;this.textContent='';}addEventListener(){}
+ setAttribute(k,v){this.attributes[k]=v;}
  get options(){return this.children;}
 }
-function fixture({respond,onPut,consent=true,loggedIn=true}={}){
- const elements=new Map(),sent=[],saved=new Map(),confirmations=[],starts=[],copied=[];let logins=0;
- const $=name=>{if(!elements.has(name))elements.set(name,new Element());return elements.get(name);};
- const document={hidden:false,getElementById:$,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(){}};
+function fixture({respond,onPut,consent=true,loggedIn=true,callGate=null,clock={mono:100,wall:10000}}={}){
+ const listeners=new Map();const elements=new Map(),sent=[],saved=new Map(),confirmations=[],starts=[],copied=[];let logins=0;
+ const $=name=>{if(!elements.has(name)){const e=new Element();e.id=name;elements.set(name,e);}return elements.get(name);};
+ const visibilityListeners=[];
+ const document={hidden:false,getElementById:$,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(type,fn){if(type==='visibilitychange')visibilityListeners.push(fn);}};
  let state='submitted';
- const context={ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,forwardingPendingInput,document,crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},
+ const context={OperationReceipt,DiagnosticPanel,ConfigurationState,UsageStatsPanel,TestCenter,listeners,ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,forwardingPendingInput,document,crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener:(type,fn)=>{if(!listeners.has(type))listeners.set(type,[]);listeners.get(type).push(fn);},
   indexedDB:{open:()=>({})},SmsManager,smsListText,smsDetailText,DailyPhone:class{constructor(){this.managing=false;this.working=false;}reset(){}start(){}},ClientsPanel:class{reset(){}},SessionKeeper:class{start(){}reset(){}async ensure(){}},
   AudioLink:class{constructor(){this.state='closed';}async stop(){}},
-  ConfigurationIndicator:class{async set(){}},CallTest:class{constructor(options){this.options=options;this.running=false;}async start(mode){starts.push(mode);this.running=true;this.options.notify("synthetic running",true);this.running=false;this.options.notify("synthetic completed",false);}async stop(){this.running=false;}},archiveEndedOperation,navigator:{clipboard:{async writeText(text){copied.push(text);}}},NetworkPanel:class{start(){}stop(){}},EventSync:class{reset(){}},
-  confirm:text=>{confirmations.push(text);return consent;},
+  ConfigurationIndicator:class{async set(){}},CallTest:class{constructor(options){this.options=options;this.running=false;}async start(mode){starts.push(mode);this.running=true;this.options.notify("synthetic running",true);if(callGate)await callGate.promise;this.running=false;this.options.notify("synthetic completed",false);}async stop(){this.running=false;}},archiveEndedOperation,navigator:{clipboard:{async writeText(text){copied.push(text);}}},NetworkPanel:class{start(){}stop(){}},EventSync:class{reset(){}},
+  Date:class extends Date{static now(){return clock.wall;}},performance:{now:()=>clock.mono},confirm:text=>{confirmations.push(text);return consent;},
   fetch:async(_url,options)=>{const body=JSON.parse(options.body),c=body.command;sent.push(c);const result=respond?await respond(c):c.op==='line_status'?{status:'ready',line:7}:c.op==='prepare_sms'?{id,state:'prepared'}:{id,state};return {ok:true,json:async()=>({protocol:2,id:body.id,result})};},
  };
  context.loginCount=0;
- vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={setAp:value=>{apConfigurator=value;},forwarding:()=>forwardingPanel,runTestCenter,copyTestResult,reconcileTestPending,setAudio:value=>{audioReady=value;showPending();},clearLogin:()=>{token=null;},mockLogin:()=>{login=async()=>{globalThis.loginCount++;token="synthetic-session";};},dailySendSms,submit,query,closeSms,inboxPage,act,showPending,loginAs:()=>{token="synthetic-session";},setDb:value=>{db=value;},setPending:value=>{pending=value;showPending();},pending:()=>pending,logout:()=>$("logout").onclick()};',context);
+ vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={support:()=>supportPanels,querySupportOperation,center:()=>testCenterComponent,hide:()=>{for(const fn of listeners.get("pagehide")||[])fn();},show:()=>{for(const fn of listeners.get("pageshow")||[])fn();},setAp:value=>{apConfigurator=value;showTestControls();},forwarding:()=>forwardingPanel,runTestCenter,copyTestResult,reconcileTestPending,setAudio:value=>{audioReady=value;showPending();},clearLogin:()=>{token=null;showPending();},mockLogin:()=>{login=async()=>{globalThis.loginCount++;token="synthetic-session";};},dailySendSms,submit,query,closeSms,inboxPage,act,showPending,loginAs:()=>{token="synthetic-session";},setDb:value=>{db=value;},setPending:value=>{pending=value;showPending();},pending:()=>pending,logout:()=>$("logout").onclick()};',context);
  context.fixture.setDb({transaction(){
   const tx={abort(){this.onabort?.();}};tx.objectStore=()=>({get:key=>{const request={};queueMicrotask(()=>{request.result=saved.get(key);request.onsuccess?.();});return request;},put:(value,key)=>{
    const snapshot=structuredClone(value);const completion=onPut?.(key,snapshot);queueMicrotask(async()=>{try{await completion;saved.set(key,snapshot);tx.oncomplete?.();}catch{tx.onerror?.();}});
   }});return tx;
  }});
- if(loggedIn)context.fixture.loginAs();$('recipient').value='12025550123';$('text').value='合成测试 <img src=x> 🙂';
- return {...context.fixture,$,sent,saved,confirmations,starts,copied,loginCount:()=>context.loginCount,setState:value=>{state=value;}};
+ if(loggedIn){context.fixture.loginAs();context.fixture.setPending(null);}$('recipient').value='12025550123';$('text').value='合成测试 <img src=x> 🙂';
+ return {...context.fixture,$,sent,saved,confirmations,starts,copied,loginCount:()=>context.loginCount,setState:value=>{state=value;},visibility:hidden=>{document.hidden=hidden;for(const fn of visibilityListeners)fn();}};
 }
 // The actual HTML keeps the test center before any closed advanced panel.
 const html=await readFile(new URL('../crates/edge/src/web/index.html',import.meta.url),'utf8');
 const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]);
 assert.equal(new Set(ids).size,ids.length,'No duplicate IDs after moving existing controls');
 const center=html.slice(html.indexOf('<section id="test-center"'),html.indexOf('<details id="account-panel"'));
-assert.equal([...center.matchAll(/class="primary"/g)].length,5);
+assert.equal([...center.matchAll(/class="primary"/g)].length,5,'Keep legacy handler nodes, hidden behind one mounted component');
+assert.match(center,/id="test-component-host"/);
+for(const id of ['test-check','test-start','test-incoming-start','test-sms','test-forwarding','test-stop','test-recover'])assert.match(center,new RegExp('<button hidden id="'+id+'"'));
 for(const name of ['test-check','test-start','test-incoming-start','test-sms','test-forwarding','test-stop','test-copy','test-recover'])assert.match(center,new RegExp('id="'+name+'"'));
 for(const name of ['phone-panel','sms-panel','account-panel'])assert.match(html,new RegExp('<details id="'+name+'">'));
 assert.equal((html.match(/<details[^>]*\sopen(?:>|\s)/g)||[]).length,1,'Only the nested composer is open inside its closed SMS panel');
@@ -57,7 +65,7 @@ assert.equal((html.match(/<details[^>]*\sopen(?:>|\s)/g)||[]).length,1,'Only the
  assert.match(f.$('test-state').textContent,/SIM 已就绪/);assert.match(f.$('test-state').textContent,/蜂窝数据未连接/);assert.equal(f.$('test-stop').disabled,true);
 }
 {
- const f=fixture();await f.$('test-sms').onclick();assert.equal(f.confirmations.length,2,'Preserve the synthetic existing draft, then confirm the actual SMS');
+ const f=fixture();await f.center().run('sms');assert.equal(f.confirmations.length,2,'Preserve the synthetic existing draft, then confirm the actual SMS');
  assert.equal(f.saved.get('test-center-saved-draft').text,'合成测试 <img src=x> 🙂');
  const prepare=f.sent.find(c=>c.op==='prepare_sms');assert.equal(prepare.recipient,'10010');assert.equal(prepare.text,'CXYE');
  assert.equal(f.sent.filter(c=>c.op==='submit_sms').length,1);assert.equal(f.pending().state,'submitted');
@@ -132,7 +140,7 @@ for(const stage of ['line_status','prepare_sms','marker']){
  assert.equal(f.saved.get('forwarding-config-receipts').length,2);f.logout();assert.equal(panel.targets.length,0);assert.equal(panel.pending,null);
  assert.equal(f.sent.filter(c=>c.op==='submit_sms'||c.op==='submit_call').length,0);
 }
-console.log('PASS: visible five-task center, collapsed panels, automatic login, exact no-retry recovery, safe result copy, one SMS submit, draft preservation, forwarding real app/IndexedDB wiring and stop/logout/storage races; synthetic only.');
+console.log('PASS: preserved five-task handlers behind a single mounted center, collapsed panels, automatic login, exact no-retry recovery, safe result copy, one SMS submit, draft preservation, forwarding real app/IndexedDB wiring and stop/logout/storage races; synthetic only.');
 
 {
  const policy={enabled:true,generation:5,targets:[{id,kind:'webhook',credentials_redacted:true}],rules:[{id:other,targets:[id],sender_equals:null,body_contains:null,line:null,share:'notice'}]};
@@ -162,7 +170,7 @@ console.log('PASS: visible five-task center, collapsed panels, automatic login, 
   return {request_id:c.request_id,known:true,quick_active:false,automatic_stop_verified:true,
    receipt:{id:c.request_id,target_id:id,generation:1,synthetic:true,state:'confirmed'}};
  }});f.mockLogin();
- await f.$('test-forwarding').onclick();
+ await f.center().run('forwarding');
  assert.equal(f.loginCount(),1);assert.equal(f.sent.filter(c=>c.op==='forwarding_quick_test').length,1);
  assert.equal(f.saved.get('forwarding-pending'),null);
  const record=f.saved.get('forwarding-config-receipts').at(-1);
@@ -184,3 +192,75 @@ for(const state of [{working:true,managing:false},{working:false,managing:true}]
  let ran=false;await f.act(async()=>{ran=true;});assert.equal(ran,false);
  await f.runTestCenter('sms');assert.match(f.$('test-state').textContent,/Wi-Fi 配置区/);assert.equal(f.sent.length,0);
 }
+
+// The actual component delegates to the actual app handlers; IPC remains synthetic.
+{
+ const f=fixture({respond:async c=>c.op==='line_status'?{status:'ready',line:7}:c.op==='call_status'?{available:true,active_calls:0}:{devices:[]}});
+ await f.center().run('check');assert.deepEqual(f.sent.map(c=>c.op),['line_status','call_status','network_status']);assert.match(f.center().status.textContent,/检查完成/);
+}
+{
+ const f=fixture({respond:async()=>({id,state:'unknown'})});f.setPending({type:'sms',id,state:'unknown',submit_started:true});
+ await f.center().run('sms');assert.equal(f.sent.length,0);await f.center().run('recover');assert.deepEqual(f.sent.map(c=>c.op),['sms_operation']);assert.equal(f.pending().id,id);
+}
+{
+ const gate=deferred(),f=fixture({callGate:gate});f.setAudio(true);const running=f.center().run('outgoing');await turn();assert.equal(f.starts.length,1);assert.equal(f.center().buttons.get('stop').disabled,false);await f.center().run('stop');f.hide();gate.resolve();await running;
+ assert.match(f.center().status.textContent,/已退出/);assert.ok([...f.center().buttons.values()].every(b=>b.disabled));const count=f.sent.length;f.show();assert.equal(f.center().buttons.get('check').disabled,false);assert.equal(f.sent.length,count);
+}
+console.log('PASS: actual TestCenter mounted by actual app, original check handlers, unknown exact-ID recovery and late pagehide fencing');
+
+{
+ const f=fixture();f.setAp({working:true});assert.equal(f.center().buttons.get('sms').disabled,true);assert.match(f.center().reasons.get('sms').textContent,/Wi-Fi/);await f.center().run('sms');assert.equal(f.sent.length,0);
+}
+
+{
+ const gate=deferred(),f=fixture({respond:async c=>c.op==='line_status'?{status:'ready',line:7}:gate.promise});const running=f.center().run('check');await turn();f.logout();gate.resolve({available:true,active_calls:0});await running;assert.match(f.center().status.textContent,/已退出/);assert.doesNotMatch(f.center().status.textContent,/检查完成/);
+}
+
+// All five display modules are real; only the existing IPC/storage boundaries are synthetic.
+{
+ const f=fixture({respond:async()=>({id,state:'submitted'})});assert.ok(f.support().usage.button.disabled);assert.equal(f.sent.length,0);
+ f.$('pin').value='a'.repeat(64);f.setPending({type:'sms',id,state:'unknown',submit_started:true,recipient:'MUST-NOT-COPY',text:'MUST-NOT-COPY',token:'MUST-NOT-COPY'});
+ assert.equal(f.support().receipt.buttons.query.disabled,false);assert.equal(f.support().receipt.buttons.archive.disabled,true);assert.equal(f.support().diagnostics.queryButton.disabled,true);
+ await f.support().diagnostics.copyResult();assert.equal(f.copied.length,1);assert.doesNotMatch(f.copied[0],/MUST-NOT-COPY|aaaaaaaa|synthetic-session/);const diagnostic=JSON.parse(f.copied[0]);assert.equal(diagnostic.session,'unknown');assert.equal(diagnostic.certificate,'unknown');
+ await f.support().receipt.run('query');assert.deepEqual(f.sent.map(c=>c.op),['sms_operation']);assert.equal(f.sent[0].operation_id,id);assert.equal(f.support().receipt.view.state,'submitted');assert.equal(f.pending().id,id);
+ await assert.rejects(f.querySupportOperation(other));assert.equal(f.sent.length,1);
+ f.setPending({type:'sms',id,state:'saved',submit_started:true});assert.equal(f.support().receipt.view.state,'unknown');
+}
+{
+ const gate=deferred(),f=fixture({respond:()=>gate.promise});f.setPending({type:'call',id,state:'unknown',submit_started:true});const reading=f.support().receipt.run('query');await turn();assert.equal(f.sent.length,1);await f.support().receipt.run('query');assert.equal(f.sent.length,1);f.logout();gate.resolve({operation:{id,state:'submitted'}});await reading;assert.equal(f.support().receipt.view.state,'unknown');assert.ok(f.support().receipt.buttons.query.disabled);
+}
+{
+ const f=fixture();f.setPending({type:'sms',id,state:'unknown',submit_started:true});f.setAp({working:true,suspend(){}});assert.ok(f.support().receipt.buttons.query.disabled);await f.support().receipt.run('query');assert.equal(f.sent.length,0);
+ f.hide();assert.equal(f.support().receipt.view,null);f.show();assert.equal(f.sent.length,0);assert.ok(f.support().usage.button.disabled);
+}
+console.log('PASS: actual receipt exact-ID/duplicate/logout/AP guards, redacted copy without inferred authority, archive disabled and no unavailable-provider reads');
+
+// Use the existing Core forwarding_status read and its request-causal proof.
+const verifiedForwarding={available:true,configuration_api:true,service_management_api:true,service_action:'completed',process_state_verified:true,enabled:true,state:'running',generation:1,configuration_applied:true,token:'MUST-NOT-COPY'};
+for(const enabled of [true,false]){
+ const clock={mono:100,wall:10000},f=fixture({clock,respond:async c=>{assert.equal(c.op,'forwarding_status');clock.mono+=127;clock.wall+=139;return {...verifiedForwarding,enabled,state:enabled?'running':'disabled'};}}),panel=f.support().configuration;
+ assert.equal(f.sent.length,0);assert.equal(panel.button.disabled,false);await panel.refresh();assert.deepEqual(f.sent.map(c=>c.op),['forwarding_status']);
+ assert.match(panel.output.textContent,enabled?/服务运行已核对/:/服务关闭已核对/);assert.match(panel.output.textContent,/本次保存意图尚未确认/);assert.equal(panel.snapshot.age_ms,279);assert.equal(panel.snapshot.data.configuration_applied,false);assert.doesNotMatch(JSON.stringify(panel.snapshot),/MUST-NOT-COPY/);
+ clock.wall+=5001;panel.render();assert.match(panel.output.textContent,/陈旧或未知/);panel.reset();
+}
+for(const change of [{service_management_api:false},{service_action:'failed'},{service_action:'unconfirmed'},{process_state_verified:false},{enabled:false},{generation:-1},{state:'awaiting_service'},{available:false},{configuration_api:false}]){
+ const f=fixture({respond:async()=>({...verifiedForwarding,...change})}),panel=f.support().configuration;await panel.refresh();assert.doesNotMatch(panel.output.textContent,/服务运行已核对|服务关闭已核对/);assert.equal(panel.snapshot,null);assert.equal(f.sent.length,1);panel.reset();
+}
+for(const [mono,wall] of [[3000,100],[100,3000],[-1,100],[100,-1],[NaN,100],[100,NaN]]){
+ const clock={mono:100,wall:10000},f=fixture({clock,respond:async()=>{clock.mono+=mono;clock.wall+=wall;return verifiedForwarding;}}),panel=f.support().configuration;await panel.refresh();assert.equal(panel.snapshot,null);assert.doesNotMatch(panel.output.textContent,/服务运行已核对/);assert.equal(f.sent.length,1);panel.reset();
+}
+{
+ const f=fixture({loggedIn:false}),panel=f.support().configuration;assert.ok(panel.button.disabled);await panel.refresh();assert.equal(f.sent.length,0);
+}
+for(const end of ['logout','hide','visibility']){
+ const gate=deferred(),f=fixture({respond:()=>gate.promise}),panel=f.support().configuration;const reading=panel.refresh();await turn();await panel.refresh();assert.equal(f.sent.length,1);
+ if(end==='visibility')f.visibility(true);else f[end]();gate.resolve(verifiedForwarding);await reading;assert.equal(panel.snapshot,null);assert.doesNotMatch(panel.output.textContent,/服务运行已核对/);
+ if(end==='visibility')f.visibility(false);else if(end==='hide')f.show();assert.equal(f.sent.length,1);if(end==='logout')assert.ok(panel.button.disabled);panel.reset();
+}
+{
+ const gate=deferred(),f=fixture({respond:()=>gate.promise}),panel=f.support().configuration;const reading=panel.refresh();await turn();panel.reset();await panel.refresh();assert.equal(f.sent.length,1,'An aborted UI read must not overlap the still-pending HTTP read');gate.resolve(verifiedForwarding);await reading;assert.equal(panel.snapshot,null);panel.reset();
+}
+{
+ const gate=deferred(),f=fixture({respond:()=>gate.promise}),panel=f.support().configuration;const reading=panel.refresh();await turn();f.clearLogin();f.loginAs();f.setPending(null);gate.resolve(verifiedForwarding);await reading;assert.equal(panel.snapshot,null,'Even a replacement session with the same synthetic token must fence an old read');panel.reset();
+}
+console.log('PASS: actual configuration reader, request-causal proof, conservative RTT age, no save inference, malformed/late/clock failures, no overlapping reads or automatic requests and logout/page/visibility fences');
