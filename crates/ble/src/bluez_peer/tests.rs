@@ -387,6 +387,24 @@ async fn cancelling_started_check_retires_but_unpolled_check_has_no_effect() {
     );
 }
 
+#[tokio::test]
+async fn stalled_property_query_expires_and_late_snapshot_cannot_revive_lease() {
+    let bus = Bus::new().await;
+    let (_bluez, control, state) = setup(&bus).await;
+    let lease = PeerLease::bind(&control, epoch(), DEVICE).await.unwrap();
+    state.hold.store(true, Ordering::Release);
+    let result = tokio::time::timeout(Duration::from_secs(7), lease.check_current())
+        .await
+        .unwrap();
+    assert_eq!(result, Err(Error::Deadline));
+    state.hold.store(false, Ordering::Release);
+    state.release.notify_one();
+    assert_eq!(
+        bounded(lease.check_current()).await,
+        Err(Error::StaleContext)
+    );
+}
+
 #[cfg(feature = "bluez-gatt")]
 pub(crate) async fn install_connected_device(bluez: &Connection) -> Arc<DeviceState> {
     assert!(bluez
@@ -443,4 +461,17 @@ pub(crate) async fn set_connected(bluez: &Connection, connected: bool) {
         vec![],
     )
     .await;
+}
+#[cfg(feature = "bluez-gatt")]
+pub(crate) async fn hold_snapshot(bluez: &Connection, hold: bool) {
+    let interface = bluez
+        .object_server()
+        .interface::<_, Device>(DEVICE)
+        .await
+        .unwrap();
+    let state = interface.get().await.0.clone();
+    state.hold.store(hold, Ordering::Release);
+    if !hold {
+        state.release.notify_one();
+    }
 }

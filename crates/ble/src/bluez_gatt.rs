@@ -215,6 +215,49 @@ impl CharacteristicObject {
         options: HashMap<String, OwnedValue>,
         #[zbus(header)] header: Header<'_>,
     ) -> zbus::fdo::Result<Vec<u8>> {
+        tokio::time::timeout(
+            Duration::from_millis(DBUS_CALL_MS),
+            self.read_value_inner(options, header),
+        )
+        .await
+        .unwrap_or_else(|_| Err(unavailable()))
+    }
+    async fn write_value(
+        &self,
+        bytes: Vec<u8>,
+        options: HashMap<String, OwnedValue>,
+        #[zbus(header)] header: Header<'_>,
+    ) -> zbus::fdo::Result<()> {
+        tokio::time::timeout(
+            Duration::from_millis(DBUS_CALL_MS),
+            self.write_value_inner(bytes, options, header),
+        )
+        .await
+        .unwrap_or_else(|_| Err(unavailable()))
+    }
+    async fn start_notify(&self, #[zbus(header)] header: Header<'_>) -> zbus::fdo::Result<()> {
+        tokio::time::timeout(
+            Duration::from_millis(DBUS_CALL_MS),
+            self.unsupported_notify(header),
+        )
+        .await
+        .unwrap_or_else(|_| Err(unavailable()))
+    }
+    async fn stop_notify(&self, #[zbus(header)] header: Header<'_>) -> zbus::fdo::Result<()> {
+        tokio::time::timeout(
+            Duration::from_millis(DBUS_CALL_MS),
+            self.unsupported_notify(header),
+        )
+        .await
+        .unwrap_or_else(|_| Err(unavailable()))
+    }
+}
+impl CharacteristicObject {
+    async fn read_value_inner(
+        &self,
+        options: HashMap<String, OwnedValue>,
+        header: Header<'_>,
+    ) -> zbus::fdo::Result<Vec<u8>> {
         if header.signature().to_string() != "a{sv}" {
             return Err(invalid());
         }
@@ -268,11 +311,11 @@ impl CharacteristicObject {
             _ => Err(unavailable()),
         }
     }
-    async fn write_value(
+    async fn write_value_inner(
         &self,
         bytes: Vec<u8>,
         options: HashMap<String, OwnedValue>,
-        #[zbus(header)] header: Header<'_>,
+        header: Header<'_>,
     ) -> zbus::fdo::Result<()> {
         if header.signature() != <(Vec<u8>, HashMap<String, OwnedValue>) as Type>::SIGNATURE {
             return Err(invalid());
@@ -314,14 +357,6 @@ impl CharacteristicObject {
             _ => Err(unavailable()),
         }
     }
-    async fn start_notify(&self, #[zbus(header)] header: Header<'_>) -> zbus::fdo::Result<()> {
-        self.unsupported_notify(header).await
-    }
-    async fn stop_notify(&self, #[zbus(header)] header: Header<'_>) -> zbus::fdo::Result<()> {
-        self.unsupported_notify(header).await
-    }
-}
-impl CharacteristicObject {
     async fn unsupported_notify(&self, header: Header<'_>) -> zbus::fdo::Result<()> {
         if header.signature().to_string() != "" {
             return Err(invalid());

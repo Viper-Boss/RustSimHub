@@ -2,7 +2,7 @@
 //! One observed Device1 connection. No pairing, authorization or reconnection.
 use crate::{
     bluez_control::{BluezControl, CallbackScope},
-    ports::{Epoch, Peer},
+    ports::{Epoch, Peer, DBUS_CALL_MS},
     Error,
 };
 use futures_lite::StreamExt;
@@ -44,6 +44,14 @@ struct LeaseBinding {
 }
 impl PeerLease {
     pub async fn bind(control: &BluezControl, epoch: Epoch, device: &str) -> Result<Self, Error> {
+        tokio::time::timeout(
+            std::time::Duration::from_millis(DBUS_CALL_MS),
+            Self::bind_inner(control, epoch, device),
+        )
+        .await
+        .unwrap_or(Err(Error::Deadline))
+    }
+    async fn bind_inner(control: &BluezControl, epoch: Epoch, device: &str) -> Result<Self, Error> {
         validate_device(device)?;
         control.check_current().await?;
         let peer = Peer::from_backend_callback(control.owner(), device)?;
@@ -132,7 +140,12 @@ impl LeaseBinding {
             lease: self,
             complete: false,
         };
-        let result = self.check_inner().await;
+        let result = tokio::time::timeout(
+            std::time::Duration::from_millis(DBUS_CALL_MS),
+            self.check_inner(),
+        )
+        .await
+        .unwrap_or(Err(Error::Deadline));
         if result.is_err() {
             self.retire();
         }

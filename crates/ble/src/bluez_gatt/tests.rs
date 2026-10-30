@@ -849,3 +849,27 @@ async fn retirement_while_binding_is_pending_cannot_publish_a_live_peer() {
     assert!(bounded(writing(&bluez, &name)).await.unwrap().is_err());
     assert!(requests.try_recv().is_err());
 }
+
+#[tokio::test]
+async fn host_ack_before_deadline_does_not_allow_late_success_after_stalled_peer_recheck() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (control, name) = setup(&bus, &bluez).await;
+    let (export, mut requests) = publish(&control, epoch(1)).await.unwrap();
+    let call = writing(&bluez, &name);
+    let request = bounded(requests.recv()).await.unwrap();
+    crate::bluez_peer::tests::hold_snapshot(&bluez, true).await;
+    request.finish(Ok(CallbackReply::Accepted));
+    let result = tokio::time::timeout(Duration::from_secs(7), call)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(result.is_err());
+    crate::bluez_peer::tests::hold_snapshot(&bluez, false).await;
+    assert_eq!(
+        bounded(export.check_peer_current()).await,
+        Err(Error::StaleContext)
+    );
+    assert!(bounded(writing(&bluez, &name)).await.unwrap().is_err());
+    assert!(requests.try_recv().is_err());
+}
