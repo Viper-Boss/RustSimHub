@@ -12,6 +12,7 @@
 - PendingStore 只保存 `{contract,device_pin,revision,requests:[{request_id,action,trial_id,submit_started}]}`。每笔写先单事务 CAS 保存 submit_started，再调用端口；失败/冲突禁止写。每设备最多16笔，重开先加载原 ID，不自动发送；未知状态不能清除或归档，只有有效终态证据后人工 archive。请求 UUID 与 trial64hex 不混用。
 - `save(next,expectedRevision)` 明确返回 true 才算 CAS 成功；false/异常均拒绝发送。本元数据库名 rustsimhub-recovery-metadata-v1，不读写主线身份绑定库、CryptoKey 或凭据。主线若提供其他 Store，需要按此安全返回合同适配，不把 void 当成功。
 - 一次查询3秒、前台每秒最多1次、每次连接最多30次，无自动轮询。隐藏页拒绝查询，口令/SSID 输入清空；断开仅释放本地会话，不声明已取消/回滚。丢回复、Abort、过期、CAS 更新失败保持可能未知，不自动重试。
+- Core调用在进入端口前注册计时器，返回后以单调经过时间再次核验；暂停后迟到、时钟倒退或无效的回复不进入操作证明。见 [读取时限](../web/read-deadlines.md)，UI不能抢占同步端口或代替Core真实期限检查。
 - SSID/口令只在本次调用内存中，绝不存 IDB/URL/日志/缓存；清引用不能证明 JS 内存擦除。输出 view 只包含有限状态/请求元数据，无身份密钥或业务正文。
 
 ## B-25～26：PWA 与更新
