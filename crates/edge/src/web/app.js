@@ -36,6 +36,7 @@ let wifiCatalogueGeneration=0;
 let audioReady=false;
 let testWorking=false,testGeneration=0,testTask=null,testResult=null;
 let testCenterComponent=null,testCenterActive=true,supportPanels=null;
+let supportConfigurationToken=null,supportConfigurationReading=false;
 let configurationOpen=false;
 function configurationVisible(){return Array.from(document.querySelectorAll('details[data-configuration]')).some(panel=>panel.open);}
 const configurationIndicator=new ConfigurationIndicator(command=>{
@@ -533,6 +534,25 @@ function publishSupportState(){
  const canQuery=!!row&&!!token&&!busy&&!testWorking&&!callTest.running&&!apConfigurator?.working&&!apConfigurator?.managing&&!dailyPhone?.working&&!dailyPhone?.managing;
  supportPanels.receipt.update(row?{...row,canQuery,canArchive:false}:null);
  supportPanels.diagnostics.update({origin:globalThis.location?.origin,device_pin:$('pin').value,operation:row});
+ const read=supportConfigurationAllowed()?readSupportConfiguration:null;
+ if(supportPanels.configuration.read!==read||supportConfigurationToken!==token){supportPanels.configuration.read=read;supportConfigurationToken=token;supportPanels.configuration.reset();}
+}
+function supportConfigurationAllowed(){return !!token&&testCenterActive&&!document.hidden&&!busy&&!testWorking&&!callTest.running&&!apConfigurator?.working&&!apConfigurator?.managing&&!dailyPhone?.working&&!dailyPhone?.managing;}
+async function readSupportConfiguration({signal}){
+ if(!supportConfigurationAllowed()||signal.aborted||supportConfigurationReading)throw Error('状态读取当前不可用');
+ const authToken=token,epoch=viewEpoch,started=performance.now(),wallStarted=Date.now();
+ if(!Number.isFinite(started)||!Number.isFinite(wallStarted))throw Error('无法核对证据年龄');
+ supportConfigurationReading=true;
+ try{
+  const value=await auth({op:'forwarding_status'}),elapsed=performance.now()-started,wallElapsed=Date.now()-wallStarted;
+  if(signal.aborted||!supportConfigurationAllowed()||authToken!==token||epoch!==viewEpoch||![elapsed,wallElapsed].every(v=>Number.isFinite(v)&&v>=0&&v<3000))throw Error('状态读取已过期');
+  // Core service::verified accepts only a matching report sampled AFTER this
+  // request began (within the Core clock's 1ms floor). Full round-trip time
+  // plus 1ms conservatively bounds its age; HTTP
+  // arrival alone is not evidence, and a status query cannot confirm a save.
+  if(value?.available!==true||value.configuration_api!==true||value.service_management_api!==true||value.service_action!=='completed'||value.process_state_verified!==true||!Number.isSafeInteger(value.generation)||value.generation<0||!(value.enabled===true&&value.state==='running'||value.enabled===false&&value.state==='disabled'))throw Error('没有可核验的新鲜进程证据');
+  return {source:'forwarding',age_ms:1+Math.ceil(Math.max(elapsed,wallElapsed)),data:{configuration_applied:false,process_state_verified:true,enabled:value.enabled,state:value.state}};
+ }finally{supportConfigurationReading=false;}
 }
 async function querySupportOperation(id){
  const old=pending,epoch=viewEpoch;let completed=false;
@@ -543,11 +563,12 @@ async function querySupportOperation(id){
 supportPanels={
  receipt:new OperationReceipt({document,root:$('support-receipt'),query:querySupportOperation}),
  diagnostics:new DiagnosticPanel({document,root:$('support-diagnostics'),copy:text=>navigator.clipboard.writeText(text)}),
- configuration:new ConfigurationState({document,root:$('support-configuration'),read:null}),
+ configuration:new ConfigurationState({document,root:$('support-configuration'),read:null,clock:()=>Date.now()}),
  usage:new UsageStatsPanel({document,root:$('support-usage'),read:null})
 };
 publishSupportState();
 const supportPreviousLogout=$('logout').onclick;
 $('logout').onclick=()=>{for(const panel of Object.values(supportPanels))panel.reset();supportPreviousLogout();publishSupportState();};
-addEventListener('pagehide',()=>{for(const panel of Object.values(supportPanels))panel.reset();});
+addEventListener('pagehide',()=>{supportPanels.configuration.read=null;supportConfigurationToken=null;for(const panel of Object.values(supportPanels))panel.reset();});
 addEventListener('pageshow',()=>publishSupportState());
+document.addEventListener('visibilitychange',()=>{if(document.hidden){supportPanels.configuration.read=null;supportPanels.configuration.reset();}else publishSupportState();});

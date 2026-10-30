@@ -25,27 +25,28 @@ class Element {
  setAttribute(k,v){this.attributes[k]=v;}
  get options(){return this.children;}
 }
-function fixture({respond,onPut,consent=true,loggedIn=true,callGate=null}={}){
+function fixture({respond,onPut,consent=true,loggedIn=true,callGate=null,clock={mono:100,wall:10000}}={}){
  const listeners=new Map();const elements=new Map(),sent=[],saved=new Map(),confirmations=[],starts=[],copied=[];let logins=0;
  const $=name=>{if(!elements.has(name)){const e=new Element();e.id=name;elements.set(name,e);}return elements.get(name);};
- const document={hidden:false,getElementById:$,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(){}};
+ const visibilityListeners=[];
+ const document={hidden:false,getElementById:$,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(type,fn){if(type==='visibilitychange')visibilityListeners.push(fn);}};
  let state='submitted';
  const context={OperationReceipt,DiagnosticPanel,ConfigurationState,UsageStatsPanel,TestCenter,listeners,ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,forwardingPendingInput,document,crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener:(type,fn)=>{if(!listeners.has(type))listeners.set(type,[]);listeners.get(type).push(fn);},
   indexedDB:{open:()=>({})},SmsManager,smsListText,smsDetailText,DailyPhone:class{constructor(){this.managing=false;this.working=false;}reset(){}start(){}},ClientsPanel:class{reset(){}},SessionKeeper:class{start(){}reset(){}async ensure(){}},
   AudioLink:class{constructor(){this.state='closed';}async stop(){}},
   ConfigurationIndicator:class{async set(){}},CallTest:class{constructor(options){this.options=options;this.running=false;}async start(mode){starts.push(mode);this.running=true;this.options.notify("synthetic running",true);if(callGate)await callGate.promise;this.running=false;this.options.notify("synthetic completed",false);}async stop(){this.running=false;}},archiveEndedOperation,navigator:{clipboard:{async writeText(text){copied.push(text);}}},NetworkPanel:class{start(){}stop(){}},EventSync:class{reset(){}},
-  confirm:text=>{confirmations.push(text);return consent;},
+  Date:class extends Date{static now(){return clock.wall;}},performance:{now:()=>clock.mono},confirm:text=>{confirmations.push(text);return consent;},
   fetch:async(_url,options)=>{const body=JSON.parse(options.body),c=body.command;sent.push(c);const result=respond?await respond(c):c.op==='line_status'?{status:'ready',line:7}:c.op==='prepare_sms'?{id,state:'prepared'}:{id,state};return {ok:true,json:async()=>({protocol:2,id:body.id,result})};},
  };
  context.loginCount=0;
- vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={support:()=>supportPanels,querySupportOperation,center:()=>testCenterComponent,hide:()=>{for(const fn of listeners.get("pagehide")||[])fn();},show:()=>{for(const fn of listeners.get("pageshow")||[])fn();},setAp:value=>{apConfigurator=value;showTestControls();},forwarding:()=>forwardingPanel,runTestCenter,copyTestResult,reconcileTestPending,setAudio:value=>{audioReady=value;showPending();},clearLogin:()=>{token=null;},mockLogin:()=>{login=async()=>{globalThis.loginCount++;token="synthetic-session";};},dailySendSms,submit,query,closeSms,inboxPage,act,showPending,loginAs:()=>{token="synthetic-session";},setDb:value=>{db=value;},setPending:value=>{pending=value;showPending();},pending:()=>pending,logout:()=>$("logout").onclick()};',context);
+ vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={support:()=>supportPanels,querySupportOperation,center:()=>testCenterComponent,hide:()=>{for(const fn of listeners.get("pagehide")||[])fn();},show:()=>{for(const fn of listeners.get("pageshow")||[])fn();},setAp:value=>{apConfigurator=value;showTestControls();},forwarding:()=>forwardingPanel,runTestCenter,copyTestResult,reconcileTestPending,setAudio:value=>{audioReady=value;showPending();},clearLogin:()=>{token=null;showPending();},mockLogin:()=>{login=async()=>{globalThis.loginCount++;token="synthetic-session";};},dailySendSms,submit,query,closeSms,inboxPage,act,showPending,loginAs:()=>{token="synthetic-session";},setDb:value=>{db=value;},setPending:value=>{pending=value;showPending();},pending:()=>pending,logout:()=>$("logout").onclick()};',context);
  context.fixture.setDb({transaction(){
   const tx={abort(){this.onabort?.();}};tx.objectStore=()=>({get:key=>{const request={};queueMicrotask(()=>{request.result=saved.get(key);request.onsuccess?.();});return request;},put:(value,key)=>{
    const snapshot=structuredClone(value);const completion=onPut?.(key,snapshot);queueMicrotask(async()=>{try{await completion;saved.set(key,snapshot);tx.oncomplete?.();}catch{tx.onerror?.();}});
   }});return tx;
  }});
- if(loggedIn)context.fixture.loginAs();$('recipient').value='12025550123';$('text').value='合成测试 <img src=x> 🙂';
- return {...context.fixture,$,sent,saved,confirmations,starts,copied,loginCount:()=>context.loginCount,setState:value=>{state=value;}};
+ if(loggedIn){context.fixture.loginAs();context.fixture.setPending(null);}$('recipient').value='12025550123';$('text').value='合成测试 <img src=x> 🙂';
+ return {...context.fixture,$,sent,saved,confirmations,starts,copied,loginCount:()=>context.loginCount,setState:value=>{state=value;},visibility:hidden=>{document.hidden=hidden;for(const fn of visibilityListeners)fn();}};
 }
 // The actual HTML keeps the test center before any closed advanced panel.
 const html=await readFile(new URL('../crates/edge/src/web/index.html',import.meta.url),'utf8');
@@ -217,7 +218,7 @@ console.log('PASS: actual TestCenter mounted by actual app, original check handl
 
 // All five display modules are real; only the existing IPC/storage boundaries are synthetic.
 {
- const f=fixture({respond:async()=>({id,state:'submitted'})});assert.ok(f.support().usage.button.disabled);assert.ok(f.support().configuration.button.disabled);assert.equal(f.sent.length,0);
+ const f=fixture({respond:async()=>({id,state:'submitted'})});assert.ok(f.support().usage.button.disabled);assert.equal(f.sent.length,0);
  f.$('pin').value='a'.repeat(64);f.setPending({type:'sms',id,state:'unknown',submit_started:true,recipient:'MUST-NOT-COPY',text:'MUST-NOT-COPY',token:'MUST-NOT-COPY'});
  assert.equal(f.support().receipt.buttons.query.disabled,false);assert.equal(f.support().receipt.buttons.archive.disabled,true);assert.equal(f.support().diagnostics.queryButton.disabled,true);
  await f.support().diagnostics.copyResult();assert.equal(f.copied.length,1);assert.doesNotMatch(f.copied[0],/MUST-NOT-COPY|aaaaaaaa|synthetic-session/);const diagnostic=JSON.parse(f.copied[0]);assert.equal(diagnostic.session,'unknown');assert.equal(diagnostic.certificate,'unknown');
@@ -233,3 +234,33 @@ console.log('PASS: actual TestCenter mounted by actual app, original check handl
  f.hide();assert.equal(f.support().receipt.view,null);f.show();assert.equal(f.sent.length,0);assert.ok(f.support().usage.button.disabled);
 }
 console.log('PASS: actual receipt exact-ID/duplicate/logout/AP guards, redacted copy without inferred authority, archive disabled and no unavailable-provider reads');
+
+// Use the existing Core forwarding_status read and its request-causal proof.
+const verifiedForwarding={available:true,configuration_api:true,service_management_api:true,service_action:'completed',process_state_verified:true,enabled:true,state:'running',generation:1,configuration_applied:true,token:'MUST-NOT-COPY'};
+for(const enabled of [true,false]){
+ const clock={mono:100,wall:10000},f=fixture({clock,respond:async c=>{assert.equal(c.op,'forwarding_status');clock.mono+=127;clock.wall+=139;return {...verifiedForwarding,enabled,state:enabled?'running':'disabled'};}}),panel=f.support().configuration;
+ assert.equal(f.sent.length,0);assert.equal(panel.button.disabled,false);await panel.refresh();assert.deepEqual(f.sent.map(c=>c.op),['forwarding_status']);
+ assert.match(panel.output.textContent,enabled?/服务运行已核对/:/服务关闭已核对/);assert.match(panel.output.textContent,/本次保存意图尚未确认/);assert.equal(panel.snapshot.age_ms,279);assert.equal(panel.snapshot.data.configuration_applied,false);assert.doesNotMatch(JSON.stringify(panel.snapshot),/MUST-NOT-COPY/);
+ clock.wall+=5001;panel.render();assert.match(panel.output.textContent,/陈旧或未知/);panel.reset();
+}
+for(const change of [{service_management_api:false},{service_action:'failed'},{service_action:'unconfirmed'},{process_state_verified:false},{enabled:false},{generation:-1},{state:'awaiting_service'},{available:false},{configuration_api:false}]){
+ const f=fixture({respond:async()=>({...verifiedForwarding,...change})}),panel=f.support().configuration;await panel.refresh();assert.doesNotMatch(panel.output.textContent,/服务运行已核对|服务关闭已核对/);assert.equal(panel.snapshot,null);assert.equal(f.sent.length,1);panel.reset();
+}
+for(const [mono,wall] of [[3000,100],[100,3000],[-1,100],[100,-1],[NaN,100],[100,NaN]]){
+ const clock={mono:100,wall:10000},f=fixture({clock,respond:async()=>{clock.mono+=mono;clock.wall+=wall;return verifiedForwarding;}}),panel=f.support().configuration;await panel.refresh();assert.equal(panel.snapshot,null);assert.doesNotMatch(panel.output.textContent,/服务运行已核对/);assert.equal(f.sent.length,1);panel.reset();
+}
+{
+ const f=fixture({loggedIn:false}),panel=f.support().configuration;assert.ok(panel.button.disabled);await panel.refresh();assert.equal(f.sent.length,0);
+}
+for(const end of ['logout','hide','visibility']){
+ const gate=deferred(),f=fixture({respond:()=>gate.promise}),panel=f.support().configuration;const reading=panel.refresh();await turn();await panel.refresh();assert.equal(f.sent.length,1);
+ if(end==='visibility')f.visibility(true);else f[end]();gate.resolve(verifiedForwarding);await reading;assert.equal(panel.snapshot,null);assert.doesNotMatch(panel.output.textContent,/服务运行已核对/);
+ if(end==='visibility')f.visibility(false);else if(end==='hide')f.show();assert.equal(f.sent.length,1);if(end==='logout')assert.ok(panel.button.disabled);panel.reset();
+}
+{
+ const gate=deferred(),f=fixture({respond:()=>gate.promise}),panel=f.support().configuration;const reading=panel.refresh();await turn();panel.reset();await panel.refresh();assert.equal(f.sent.length,1,'An aborted UI read must not overlap the still-pending HTTP read');gate.resolve(verifiedForwarding);await reading;assert.equal(panel.snapshot,null);panel.reset();
+}
+{
+ const gate=deferred(),f=fixture({respond:()=>gate.promise}),panel=f.support().configuration;const reading=panel.refresh();await turn();f.clearLogin();f.loginAs();f.setPending(null);gate.resolve(verifiedForwarding);await reading;assert.equal(panel.snapshot,null,'Even a replacement session with the same synthetic token must fence an old read');panel.reset();
+}
+console.log('PASS: actual configuration reader, request-causal proof, conservative RTT age, no save inference, malformed/late/clock failures, no overlapping reads or automatic requests and logout/page/visibility fences');
