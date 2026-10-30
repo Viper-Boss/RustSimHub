@@ -8,6 +8,8 @@
 //! Default code is runtime-free. Explicit bluez-control uses an injected bus
 //! connection for fixed RPCs; it does not export GATT objects or connect a bus.
 
+#[cfg(all(target_os = "linux", feature = "bluez-advertisement"))]
+pub mod bluez_advertisement;
 #[cfg(all(target_os = "linux", feature = "bluez-control"))]
 pub mod bluez_control;
 pub mod framing;

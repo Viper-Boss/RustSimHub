@@ -3,6 +3,8 @@
 //! local GATT object export, notification, cryptography, or service is started here.
 use crate::{manifest, ports::Pending, Error};
 use futures_lite::StreamExt;
+#[cfg(feature = "bluez-advertisement")]
+use std::sync::Weak;
 use std::{
     collections::HashMap,
     sync::{
@@ -34,6 +36,9 @@ impl Adapter {
 /// This is the four-RPC control portion, not a complete GattBackendV1 or proof
 /// that the caller has exported the required fixed local object tree.
 pub struct BluezControl {
+    binding: Arc<Binding>,
+}
+struct Binding {
     connection: Connection,
     owner: OwnedUniqueName,
     adapter: Adapter,
@@ -68,7 +73,7 @@ impl BluezControl {
         let changes = zbus::MessageStream::for_match_rule(rule, &connection, Some(32))
             .await
             .map_err(|_| Error::Backend)?;
-        let bound = Self {
+        let binding = Arc::new(Binding {
             connection,
             owner,
             adapter,
@@ -76,14 +81,14 @@ impl BluezControl {
                 live: AtomicBool::new(true),
                 changes: Mutex::new(changes),
             }),
-        };
-        bound.check_owner().await?;
-        Ok(bound)
+        });
+        binding.check_owner().await?;
+        Ok(Self { binding })
     }
     /// Local monotonic fence, not a claim that remote cleanup finished. Ordinary
     /// cleanup must precede retirement; a replacement owner must never be cleaned.
     pub fn retire(&self) {
-        self.watch.live.store(false, Ordering::Release);
+        self.binding.retire();
     }
     pub fn register_application(&mut self) -> Pending<()> {
         self.operation(Operation::RegisterApplication)
@@ -98,12 +103,7 @@ impl BluezControl {
         self.operation(Operation::UnregisterAdvertisement)
     }
     fn operation(&self, operation: Operation) -> Pending<()> {
-        let bound = Self {
-            connection: self.connection.clone(),
-            owner: self.owner.clone(),
-            adapter: self.adapter,
-            watch: self.watch.clone(),
-        };
+        let bound = self.binding.clone();
         Box::pin(async move {
             bound.check_owner().await?;
             let (interface, method, path, register) = match operation {
@@ -153,6 +153,45 @@ impl BluezControl {
             bound.check_owner().await?;
             result.map_err(|_| Error::Backend)
         })
+    }
+    #[cfg(feature = "bluez-advertisement")]
+    pub(crate) fn connection(&self) -> Connection {
+        self.binding.connection.clone()
+    }
+    #[cfg(feature = "bluez-advertisement")]
+    pub(crate) fn callback_scope(&self) -> CallbackScope {
+        CallbackScope {
+            binding: Arc::downgrade(&self.binding),
+        }
+    }
+    #[cfg(feature = "bluez-advertisement")]
+    pub(crate) async fn check_current(&self) -> Result<(), Error> {
+        self.binding.check_owner().await
+    }
+}
+
+#[derive(Clone)]
+#[cfg(feature = "bluez-advertisement")]
+pub(crate) struct CallbackScope {
+    binding: Weak<Binding>,
+}
+#[cfg(feature = "bluez-advertisement")]
+impl CallbackScope {
+    pub(crate) async fn check_sender(
+        &self,
+        sender: Option<&str>,
+    ) -> Result<OwnedUniqueName, Error> {
+        let bound = self.binding.upgrade().ok_or(Error::Unavailable)?;
+        if sender != Some(bound.owner.as_str()) {
+            return Err(Error::StaleContext);
+        }
+        bound.check_owner().await?;
+        Ok(bound.owner.clone())
+    }
+}
+impl Binding {
+    fn retire(&self) {
+        self.watch.live.store(false, Ordering::Release);
     }
     async fn check_owner(&self) -> Result<(), Error> {
         self.check_changes().await?;
@@ -209,4 +248,4 @@ enum Operation {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

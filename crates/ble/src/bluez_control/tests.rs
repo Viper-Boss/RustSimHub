@@ -19,7 +19,7 @@ async fn bounded<T>(future: impl Future<Output = T>) -> T {
         .await
         .expect("private bus deadline")
 }
-struct Bus {
+pub(crate) struct Bus {
     child: Child,
     _directory: TempDir,
     address: String,
@@ -31,7 +31,7 @@ impl Drop for Bus {
     }
 }
 impl Bus {
-    async fn new() -> Self {
+    pub(crate) async fn new() -> Self {
         let directory = tempfile::tempdir().unwrap();
         let socket = directory.path().join("test-bus.sock");
         let address = format!("unix:path={}", socket.display());
@@ -60,7 +60,7 @@ impl Bus {
         .await;
         bus
     }
-    async fn connect(&self) -> Connection {
+    pub(crate) async fn connect(&self) -> Connection {
         bounded(
             zbus::connection::Builder::address(self.address.as_str())
                 .unwrap()
@@ -69,7 +69,7 @@ impl Bus {
         .await
         .unwrap()
     }
-    async fn bluez(&self, state: Arc<Calls>, advertisement: bool) -> Connection {
+    pub(crate) async fn bluez(&self, state: Arc<Calls>, advertisement: bool) -> Connection {
         let mut builder = zbus::connection::Builder::address(self.address.as_str())
             .unwrap()
             .name(BLUEZ)
@@ -85,7 +85,7 @@ impl Bus {
     }
 }
 #[derive(Default)]
-struct Calls {
+pub(crate) struct Calls {
     rows: Mutex<Vec<(&'static str, String, usize)>>,
     hold: AtomicBool,
     fail: AtomicBool,
