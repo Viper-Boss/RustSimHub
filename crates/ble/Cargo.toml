@@ -1,0 +1,12 @@
+[package]
+name = "rustsimhub-ble"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+# Deliberately no D-Bus, cryptography, radio or runtime backend in this library.
+[dependencies]
+
+[dev-dependencies]
+serde_json.workspace = true
