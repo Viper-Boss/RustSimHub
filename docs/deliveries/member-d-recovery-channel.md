@@ -5,7 +5,8 @@
 - 分支：Viper-Boss/RustSimHub / `codex/gtw-recovery-channel-20261030`，目标按真实前置状态提交PR。
 - 前置 #97 完整 HEAD：`bfbfdaae25daf581689d885332a98f2b6d3d6f4b`。
 - 开工时 main：`6b5de5f3ca5ff706adacd8f25ed7f638546739a9`，#97当时尚待审核。
-- 实现/集成/最终完整40位 HEAD 在提交后记录于 PR 正文。
+- 实现/整仓受测 HEAD：`4fb7205aa79495e9a19fc4a235cd77109f4e41b9`。
+- 当前完整40位 HEAD 见 PR 正文；源码实测后只补本人文档。
 - [API、执行/取消语义、来源与未运行范围](../ble/recovery-channel.md)。
 
 ## 实际实现
@@ -39,7 +40,20 @@ cargo fmt --all -- --check
 git diff --check
 ```
 
-整仓/默认结果和日志摘要完成后补充，不把执行中写通过。源码实测后只补本人文档。
+上述整仓 **798通过、0失败、6项继承忽略**，整仓严格Clippy/fmt/diff退出0；
+默认无feature Auth/Store共87通过、0失败/忽略，默认Core库编译通过。
+六项ignore继承C06/forwarder/Root/C14；本批无新ignore。保留既有proc-macro-error2
+future-incompat提示。本地日志位于work/recovery-channel，未提交生成物，摘要：
+
+```text
+workspace.log        c56bfbe60a80319dcc4783ba4dbbabcc6029b8004c7ecf9df30b229791a80732
+workspace-clippy.log 615625d6b2cf953941eb050cf1b98f38df1d5f1e4451c79981ba4db520ed3f46
+default.log          8f256c4292402dc6ac3caf2d12395da5ac5b99518401bd4e40f95fe9ce824199
+default-lib.log      cd8afdd142f9064d2b095f3db2250c15cb56308e561e2a9464f5278b00af9260
+token-before.log     662724e6dee8905ea2b85532b88a98c02ed99722abd7d1713e1c5c3bea3c325b
+```
+
+PR以#97为前置；未合并前保持草稿到main并明确包含前置，不把同一包重复计数。
 普通Linux UID1000、Rust1.98、锁定离线缓存；环境重启后已复核网络就绪和未提交改动保留。
 
 **未运行**：不同UID合法SourceGuard→Core桥全链路、NSS/组继承/cgroup、Root、A互操作/
