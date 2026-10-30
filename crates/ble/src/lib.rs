@@ -14,6 +14,8 @@ pub mod bluez_advertisement;
 pub mod bluez_control;
 #[cfg(all(target_os = "linux", feature = "bluez-gatt"))]
 pub mod bluez_gatt;
+#[cfg(all(target_os = "linux", feature = "bluez-peer"))]
+pub mod bluez_peer;
 pub mod framing;
 pub mod lifecycle;
 pub mod manifest;

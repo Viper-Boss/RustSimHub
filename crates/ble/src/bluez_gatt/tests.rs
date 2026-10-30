@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+mod notification_routing;
 use super::*;
 use crate::bluez_control::{
     tests::{Bus, Calls},
@@ -31,6 +32,7 @@ async fn bounded<T>(f: impl std::future::Future<Output = T>) -> T {
         .expect("private GATT deadline")
 }
 async fn setup(bus: &Bus, bluez: &Connection) -> (BluezControl, String) {
+    crate::bluez_peer::tests::install_connected_device(bluez).await;
     let connection = bus.connect().await;
     let name = connection.unique_name().unwrap().to_string();
     let control = bounded(BluezControl::bind(
@@ -84,9 +86,7 @@ async fn actual_object_manager_contains_only_the_fixed_service_and_four_characte
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
-    let (_export, _requests) = bounded(GattExport::publish(&control, epoch(1)))
-        .await
-        .unwrap();
+    let (_export, _requests) = bounded(publish(&control, epoch(1))).await.unwrap();
     let proxy = Proxy::new(
         &bluez,
         name.as_str(),
@@ -131,7 +131,7 @@ async fn device_info_supports_public_long_read_offsets_without_host_or_command_s
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
-    let (_export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let (_export, mut requests) = publish(&control, epoch(1)).await.unwrap();
     assert_eq!(
         bounded(read(
             &bluez,
@@ -166,7 +166,7 @@ async fn real_write_captures_header_owner_device_epoch_and_opaque_frame_before_h
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
-    let (_export, mut requests) = GattExport::publish(&control, epoch(4)).await.unwrap();
+    let (_export, mut requests) = publish(&control, epoch(4)).await.unwrap();
     let call = writing(&bluez, &name);
     let request = bounded(requests.recv()).await.unwrap();
     assert!(!call.is_finished());
@@ -197,7 +197,7 @@ async fn result_read_requires_host_value_and_checks_trusted_reply_size() {
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
-    let (_export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let (_export, mut requests) = publish(&control, epoch(1)).await.unwrap();
     for size in [15, 21] {
         let (sender, target) = (bluez.clone(), name.clone());
         let call = tokio::spawn(async move {
@@ -226,7 +226,7 @@ async fn foreign_actual_sender_is_denied_even_with_exact_valid_options() {
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
     let stranger = bus.connect().await;
-    let (_export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let (_export, mut requests) = publish(&control, epoch(1)).await.unwrap();
     assert!(bounded(write(
         &stranger,
         &name,
@@ -252,7 +252,7 @@ async fn malformed_options_offsets_modes_devices_and_frames_never_enter_host_que
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
-    let (_export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let (_export, mut requests) = publish(&control, epoch(1)).await.unwrap();
     let mut bad = Vec::new();
     for key in ["device", "type"] {
         let mut opts = options(true);
@@ -306,7 +306,7 @@ async fn unsupported_characteristic_methods_and_notifications_never_fake_success
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
-    let (_export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let (_export, mut requests) = publish(&control, epoch(1)).await.unwrap();
     for kind in [Characteristic::DeviceInfo, Characteristic::Result] {
         assert!(bounded(write(&bluez, &name, kind, frame(), options(true)))
             .await
@@ -338,7 +338,7 @@ async fn absent_or_abandoned_host_has_no_write_success_fallback() {
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
-    let (_export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let (_export, mut requests) = publish(&control, epoch(1)).await.unwrap();
     let call = writing(&bluez, &name);
     drop(bounded(requests.recv()).await.unwrap());
     assert!(bounded(call).await.unwrap().is_err());
@@ -351,7 +351,7 @@ async fn one_inflight_request_blocks_other_peer_until_real_host_completion() {
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
-    let (_export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let (_export, mut requests) = publish(&control, epoch(1)).await.unwrap();
     let call = writing(&bluez, &name);
     let request = bounded(requests.recv()).await.unwrap();
     let mut opts = options(true);
@@ -380,7 +380,7 @@ async fn real_five_second_timeout_retains_busy_until_late_host_work_finishes() {
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
-    let (_export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let (_export, mut requests) = publish(&control, epoch(1)).await.unwrap();
     let call = writing(&bluez, &name);
     let request = bounded(requests.recv()).await.unwrap();
     assert!(tokio::time::timeout(Duration::from_secs(7), call)
@@ -405,7 +405,7 @@ async fn retirement_fences_pending_reply_and_cannot_rebind_fixed_path() {
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
-    let (export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let (export, mut requests) = publish(&control, epoch(1)).await.unwrap();
     let call = writing(&bluez, &name);
     let request = bounded(requests.recv()).await.unwrap();
     export.retire_local();
@@ -413,7 +413,7 @@ async fn retirement_fences_pending_reply_and_cannot_rebind_fixed_path() {
     request.finish(Ok(CallbackReply::Accepted));
     assert!(bounded(call).await.unwrap().is_err());
     assert!(matches!(
-        GattExport::publish(&control, epoch(2)).await,
+        publish(&control, epoch(2)).await,
         Err(Error::Busy)
     ));
     assert!(bounded(read(
@@ -431,7 +431,7 @@ async fn same_owner_gap_fences_queued_request_and_late_host_reply() {
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
-    let (_export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let (_export, mut requests) = publish(&control, epoch(1)).await.unwrap();
     let call = writing(&bluez, &name);
     let request = bounded(requests.recv()).await.unwrap();
     assert!(bluez.release_name("org.bluez").await.unwrap());
@@ -447,7 +447,7 @@ async fn wrong_host_reply_class_cannot_ack_write_or_result_read() {
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
-    let (_export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let (_export, mut requests) = publish(&control, epoch(1)).await.unwrap();
     let call = writing(&bluez, &name);
     bounded(requests.recv())
         .await
@@ -471,7 +471,7 @@ async fn dropping_control_or_export_revokes_real_callbacks() {
         let bus = Bus::new().await;
         let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
         let (control, name) = setup(&bus, &bluez).await;
-        let (export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+        let (export, mut requests) = publish(&control, epoch(1)).await.unwrap();
         if drop_control {
             drop(control);
         } else {
@@ -487,7 +487,7 @@ async fn trusted_bluez_mtu_is_forwarded_as_budget_without_changing_opaque_frame(
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
-    let (_export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let (_export, mut requests) = publish(&control, epoch(1)).await.unwrap();
     let (sender, target) = (bluez.clone(), name.clone());
     let call = tokio::spawn(async move {
         let mut opts = options(true);
@@ -515,7 +515,7 @@ async fn extra_method_body_fields_are_denied_before_enqueue() {
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
-    let (_export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let (_export, mut requests) = publish(&control, epoch(1)).await.unwrap();
     let proxy = Proxy::new(
         &bluez,
         name.as_str(),
@@ -555,7 +555,7 @@ async fn caller_cancellation_does_not_release_the_host_owned_work_slot() {
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
-    let (_export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let (_export, mut requests) = publish(&control, epoch(1)).await.unwrap();
     let call = writing(&bluez, &name);
     let request = bounded(requests.recv()).await.unwrap();
     call.abort();
@@ -583,7 +583,7 @@ async fn control_drop_during_host_work_fences_late_reply() {
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
-    let (_export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let (_export, mut requests) = publish(&control, epoch(1)).await.unwrap();
     let call = writing(&bluez, &name);
     let request = bounded(requests.recv()).await.unwrap();
     drop(control);
@@ -598,7 +598,7 @@ async fn same_connection_contains_fixed_ad_and_gatt_objects_and_registration_cal
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (mut control, name) = setup(&bus, &bluez).await;
-    let (gatt, _requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let (gatt, _requests) = publish(&control, epoch(1)).await.unwrap();
     let (ad, _release) = AdvertisementExport::publish(&control, epoch(1))
         .await
         .unwrap();
@@ -620,11 +620,257 @@ async fn same_connection_contains_fixed_ad_and_gatt_objects_and_registration_cal
     bounded(control.register_application()).await.unwrap();
     bounded(control.register_advertisement()).await.unwrap();
     assert!(matches!(
-        GattExport::publish(&control, epoch(2)).await,
+        publish(&control, epoch(2)).await,
         Err(Error::Busy)
     ));
     bounded(control.unregister_advertisement()).await.unwrap();
     bounded(control.unregister_application()).await.unwrap();
     ad.retire_local();
     bounded(gatt.close_connection()).await.unwrap();
+}
+
+async fn publish(
+    control: &BluezControl,
+    epoch: Epoch,
+) -> Result<(GattExport, mpsc::Receiver<CallbackRequest>), Error> {
+    let lease = PeerLease::bind(control, epoch, DEVICE).await?;
+    GattExport::publish_bound(control, lease).await
+}
+
+#[tokio::test]
+async fn actual_device_gap_retires_queued_work_without_manual_export_retire() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (control, name) = setup(&bus, &bluez).await;
+    let (export, mut requests) = publish(&control, epoch(1)).await.unwrap();
+    let call = writing(&bluez, &name);
+    let request = bounded(requests.recv()).await.unwrap();
+    crate::bluez_peer::tests::reconnect_same_path(&bluez).await;
+    assert_eq!(
+        bounded(export.check_peer_current()).await,
+        Err(Error::StaleContext)
+    );
+    assert_eq!(
+        bounded(request.check_current()).await,
+        Err(Error::StaleContext)
+    );
+    request.finish(Ok(CallbackReply::Accepted));
+    assert!(bounded(call).await.unwrap().is_err());
+    assert!(bounded(writing(&bluez, &name)).await.unwrap().is_err());
+}
+
+#[tokio::test]
+async fn disconnected_lease_is_rejected_before_object_export_and_fresh_epoch_can_publish() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (control, name) = setup(&bus, &bluez).await;
+    let lease = PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap();
+    crate::bluez_peer::tests::reconnect_same_path(&bluez).await;
+    assert!(matches!(
+        GattExport::publish_bound(&control, lease).await,
+        Err(Error::StaleContext)
+    ));
+    // Rejection happens before ObjectServer startup. Inspect object absence;
+    // a remote call to a connection with no server has no immediate handler.
+    assert!(control
+        .connection()
+        .object_server()
+        .interface::<_, zbus::fdo::ObjectManager>(manifest::ROOT)
+        .await
+        .is_err());
+    let (_export, _requests) = publish(&control, epoch(2)).await.unwrap();
+    assert_eq!(
+        bounded(read(
+            &bluez,
+            &name,
+            Characteristic::DeviceInfo,
+            options(false)
+        ))
+        .await
+        .unwrap(),
+        manifest::DEVICE_INFO
+    );
+}
+
+#[tokio::test]
+async fn lease_from_another_control_binding_cannot_be_relabelled_for_export() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (control, _name) = setup(&bus, &bluez).await;
+    let other = BluezControl::bind(
+        bus.connect().await,
+        bluez.unique_name().unwrap().as_str(),
+        Adapter::Hci0,
+    )
+    .await
+    .unwrap();
+    let lease = PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap();
+    assert!(matches!(
+        GattExport::publish_bound(&other, lease).await,
+        Err(Error::StaleContext)
+    ));
+    let (_export, _requests) = publish(&other, epoch(2)).await.unwrap();
+}
+
+#[tokio::test]
+async fn public_device_info_still_requires_the_bound_actual_device_context() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (control, name) = setup(&bus, &bluez).await;
+    let (_export, mut requests) = publish(&control, epoch(1)).await.unwrap();
+    let mut opts = options(false);
+    opts.insert(
+        "device".into(),
+        object_value("/org/bluez/hci0/dev_11_22_33_44_55_66"),
+    );
+    assert!(
+        bounded(read(&bluez, &name, Characteristic::DeviceInfo, opts))
+            .await
+            .is_err()
+    );
+    assert!(requests.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn metadata_can_register_before_connection_but_callbacks_wait_for_real_lease() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (mut control, name) = setup(&bus, &bluez).await;
+    crate::bluez_peer::tests::set_connected(&bluez, false).await;
+    let (export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    bounded(control.register_application()).await.unwrap();
+    assert_eq!(export.check_peer_current().await, Err(Error::Unavailable));
+    assert!(bounded(writing(&bluez, &name)).await.unwrap().is_err());
+    assert!(requests.try_recv().is_err());
+    crate::bluez_peer::tests::set_connected(&bluez, true).await;
+    let lease = PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap();
+    bounded(export.bind_peer(lease)).await.unwrap();
+    let call = writing(&bluez, &name);
+    bounded(requests.recv())
+        .await
+        .unwrap()
+        .finish(Ok(CallbackReply::Accepted));
+    bounded(call).await.unwrap().unwrap();
+}
+
+#[tokio::test]
+async fn peer_binding_is_once_only_and_checks_epoch_before_exposing_callbacks() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (control, name) = setup(&bus, &bluez).await;
+    let (export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let wrong_epoch = PeerLease::bind(&control, epoch(2), DEVICE).await.unwrap();
+    assert_eq!(
+        export.bind_peer(wrong_epoch).await,
+        Err(Error::StaleContext)
+    );
+    assert!(bounded(writing(&bluez, &name)).await.unwrap().is_err());
+    export
+        .bind_peer(PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        export
+            .bind_peer(PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap())
+            .await,
+        Err(Error::Busy)
+    );
+    crate::bluez_peer::tests::reconnect_same_path(&bluez).await;
+    assert_eq!(export.check_peer_current().await, Err(Error::StaleContext));
+    assert_eq!(
+        export
+            .bind_peer(PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap())
+            .await,
+        Err(Error::Busy)
+    );
+    assert!(requests.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn cancelled_binding_exposes_no_peer_and_can_retry_only_with_fresh_lease() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (control, name) = setup(&bus, &bluez).await;
+    let (export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let lease = PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap();
+    let mut binding = Box::pin(export.bind_peer(lease));
+    assert!(futures_lite::future::poll_once(&mut binding)
+        .await
+        .is_none());
+    drop(binding);
+    assert!(bounded(writing(&bluez, &name)).await.unwrap().is_err());
+    assert!(requests.try_recv().is_err());
+    export
+        .bind_peer(PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap())
+        .await
+        .unwrap();
+    let call = writing(&bluez, &name);
+    bounded(requests.recv())
+        .await
+        .unwrap()
+        .finish(Ok(CallbackReply::Accepted));
+    bounded(call).await.unwrap().unwrap();
+}
+
+#[tokio::test]
+async fn concurrent_binding_commits_only_one_lease_without_revoking_the_winner() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (control, name) = setup(&bus, &bluez).await;
+    let (export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let first = PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap();
+    let second = PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap();
+    let (a, b) =
+        bounded(async { tokio::join!(export.bind_peer(first), export.bind_peer(second)) }).await;
+    assert!(matches!(
+        (a, b),
+        (Ok(()), Err(Error::Busy)) | (Err(Error::Busy), Ok(()))
+    ));
+    let call = writing(&bluez, &name);
+    bounded(requests.recv())
+        .await
+        .unwrap()
+        .finish(Ok(CallbackReply::Accepted));
+    bounded(call).await.unwrap().unwrap();
+}
+
+#[tokio::test]
+async fn retirement_while_binding_is_pending_cannot_publish_a_live_peer() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (control, name) = setup(&bus, &bluez).await;
+    let (export, mut requests) = GattExport::publish(&control, epoch(1)).await.unwrap();
+    let lease = PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap();
+    let mut binding = Box::pin(export.bind_peer(lease));
+    assert!(futures_lite::future::poll_once(&mut binding)
+        .await
+        .is_none());
+    export.retire_local();
+    assert_eq!(bounded(binding).await, Err(Error::StaleContext));
+    assert!(bounded(writing(&bluez, &name)).await.unwrap().is_err());
+    assert!(requests.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn host_ack_before_deadline_does_not_allow_late_success_after_stalled_peer_recheck() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (control, name) = setup(&bus, &bluez).await;
+    let (export, mut requests) = publish(&control, epoch(1)).await.unwrap();
+    let call = writing(&bluez, &name);
+    let request = bounded(requests.recv()).await.unwrap();
+    crate::bluez_peer::tests::hold_snapshot(&bluez, true).await;
+    request.finish(Ok(CallbackReply::Accepted));
+    let result = tokio::time::timeout(Duration::from_secs(7), call)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(result.is_err());
+    crate::bluez_peer::tests::hold_snapshot(&bluez, false).await;
+    assert_eq!(
+        bounded(export.check_peer_current()).await,
+        Err(Error::StaleContext)
+    );
+    assert!(bounded(writing(&bluez, &name)).await.unwrap().is_err());
+    assert!(requests.try_recv().is_err());
 }
