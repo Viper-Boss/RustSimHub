@@ -1,0 +1,123 @@
+{
+  "reference": "6b5de5f3ca5ff706adacd8f25ed7f638546739a9",
+  "checks": [
+    {
+      "id": "release-agreement",
+      "result": "pass",
+      "scope": "five recorded release declarations",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "source-commit-agreement",
+      "result": "pass",
+      "scope": "six recorded source commit declarations",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "source-tree-agreement",
+      "result": "pass",
+      "scope": "four recorded Git tree declarations",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "source-archive-digest-agreement",
+      "result": "pass",
+      "scope": "two archive digest declarations, archive bytes not read",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "board-boot-digest-agreement",
+      "result": "pass",
+      "scope": "two board boot digest declarations, not public upstream boot",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "architecture-compatible-labels",
+      "result": "pass",
+      "scope": "recorded architecture labels, not parsed ELF",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "audio-source-revision-agreement",
+      "result": "pass",
+      "scope": "two AirSimHub revision declarations",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "qcom-tree-agreement",
+      "result": "pass",
+      "scope": "two qcom subtree declarations",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "pinned-source:ufi003-audio.dtsi",
+      "result": "pass",
+      "scope": "actual tracked source bytes/length/Git blob against recorded source lock",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "pinned-source:include/dt-bindings/sound/qcom,q6afe.h",
+      "result": "pass",
+      "scope": "actual tracked source bytes/length/Git blob against recorded source lock",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "pinned-source:include/dt-bindings/sound/qcom,q6asm.h",
+      "result": "pass",
+      "scope": "actual tracked source bytes/length/Git blob against recorded source lock",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "pinned-source:include/dt-bindings/sound/qcom,q6voice.h",
+      "result": "pass",
+      "scope": "actual tracked source bytes/length/Git blob against recorded source lock",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "pinned-source:include/dt-bindings/sound/qcom,q6dsp-lpass-ports.h",
+      "result": "pass",
+      "scope": "actual tracked source bytes/length/Git blob against recorded source lock",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "pinned-source:nassimhub-incall-audio.patch",
+      "result": "pass",
+      "scope": "actual tracked source bytes/length/Git blob against recorded source lock",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "pinned-source:Makefile.outoftree",
+      "result": "pass",
+      "scope": "actual tracked source bytes/length/Git blob against recorded source lock",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "audio-module-count-and-identities",
+      "result": "pass",
+      "scope": "declared audio artifact rows only",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "audio-vermagic-release",
+      "result": "pass",
+      "scope": "22 declared vermagic values, not modinfo read from real modules",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "audio-output-digests",
+      "result": "pass",
+      "scope": "22 declared hashes and lengths, not artifact verification",
+      "product_artifacts_verified": false
+    },
+    {
+      "id": "recorded-preload-closure",
+      "result": "pass",
+      "scope": "graph of declared 22 audio modules from existing four preload constants; stock dependencies unresolved",
+      "product_artifacts_verified": false
+    }
+  ],
+  "source_byte_matches": 7,
+  "declared_preload_closure_size": 16,
+  "firmware_evidence": "not_available_in_inspected_public_inputs",
+  "current_real_artifacts_tested": false
+}

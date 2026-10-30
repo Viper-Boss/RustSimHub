@@ -48,6 +48,17 @@ pub struct Client {
     authority: RemoteAuthority,
     id: u64,
 }
+struct ExchangeGuard<'a> {
+    authority: &'a mut RemoteAuthority,
+    confirmed: bool,
+}
+impl Drop for ExchangeGuard<'_> {
+    fn drop(&mut self) {
+        if !self.confirmed {
+            self.authority.revoke();
+        }
+    }
+}
 impl Client {
     pub async fn redeem(
         socket: &Path,
@@ -92,41 +103,54 @@ impl Client {
         self.exchange(Command::Pulse {}).await
     }
     async fn exchange(&mut self, command: Command) -> Result<(), Error> {
-        self.id = self.id.checked_add(1).ok_or(Error::Expired)?;
-        let id = self.id;
+        let Some(id) = self.id.checked_add(1) else {
+            self.authority.revoke();
+            return Err(Error::Expired);
+        };
+        self.id = id;
         let request = serde_json::to_vec(&Request {
             protocol: protocol::PROTOCOL,
             id,
             command,
         })
         .map_err(|_| Error::Denied)?;
+        // This guard also runs if the caller drops an in-flight exchange future
+        // while retaining Client/Permit. Never wait for natural expiry after an
+        // observation is lost, or attempt to reuse the outstanding response.
+        let mut guard = ExchangeGuard {
+            authority: &mut self.authority,
+            confirmed: false,
+        };
+        let stream = &mut self.stream;
         let response = timeout(Duration::from_millis(500), async {
-            self.stream.write_u32(request.len() as u32).await?;
-            self.stream.write_all(&request).await?;
-            let length = self.stream.read_u32().await? as usize;
+            stream.write_u32(request.len() as u32).await?;
+            stream.write_all(&request).await?;
+            let length = stream.read_u32().await? as usize;
             if length == 0 || length > protocol::MAX_FRAME {
                 return Err(std::io::Error::other("invalid media frame"));
             }
             let mut bytes = vec![0; length];
-            self.stream.read_exact(&mut bytes).await?;
+            stream.read_exact(&mut bytes).await?;
             Ok(bytes)
         })
         .await;
         let result = match response {
             Ok(Ok(bytes)) => match serde_json::from_slice::<Reply>(&bytes) {
-                Ok(reply) if reply.protocol == protocol::PROTOCOL && reply.id == id => {
-                    self.authority.update(&reply.boot, reply.until_ms, now_ms())
-                }
+                Ok(reply) if reply.protocol == protocol::PROTOCOL && reply.id == id => guard
+                    .authority
+                    .update(&reply.boot, reply.until_ms, now_ms()),
                 _ => Err(Error::Denied),
             },
             _ => Err(Error::Denied),
         };
-        if result.is_err() {
-            self.authority.revoke();
-        }
+        guard.confirmed = result.is_ok();
         result
     }
 }
+
+#[cfg(test)]
+#[path = "local/boundary_tests.rs"]
+mod boundary_tests;
 
 #[cfg(test)]
 mod tests {

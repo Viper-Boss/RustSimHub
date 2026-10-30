@@ -43,6 +43,130 @@ fn version(path: &Path) -> i64 {
         .unwrap()
 }
 
+#[cfg(unix)]
+mod execution_contract;
+
+#[test]
+fn authorization_gate_checks_every_snapshot_field_without_writing_or_trusting_receipts() {
+    let (_d, _b, s, owner) = fixture();
+    let h = s.handle();
+    let g = grant(&h, &owner, 2, 0, 1).unwrap();
+    let before = h.call(|db| Ok(db.connection.total_changes())).unwrap();
+    assert_eq!(h.check_recovery_grant(g.clone()).unwrap(), g);
+    let mut changed = Vec::new();
+    let mut x = g.clone();
+    x.id = request(99);
+    changed.push(x);
+    let mut x = g.clone();
+    x.realm = request(99);
+    changed.push(x);
+    let mut x = g.clone();
+    x.owner_id = request(99);
+    changed.push(x);
+    let mut x = g.clone();
+    x.owner_generation += 1;
+    changed.push(x);
+    let mut x = g.clone();
+    x.generation += 1;
+    changed.push(x);
+    let mut x = g.clone();
+    x.max_trial_ms -= 1;
+    changed.push(x);
+    let mut x = g.clone();
+    x.independent_public_key = [3; 32];
+    changed.push(x);
+    let mut x = g.clone();
+    x.device_public_key = [3; 32];
+    changed.push(x);
+    let mut x = g.clone();
+    x.active = false;
+    changed.push(x);
+    for x in changed {
+        assert!(matches!(h.check_recovery_grant(x), Err(Error::Forbidden)));
+    }
+    assert_eq!(
+        h.call(|db| Ok(db.connection.total_changes())).unwrap(),
+        before
+    );
+    h.change_recovery_grant(
+        owner.clone(),
+        [2; 32],
+        1,
+        request(2),
+        RecoveryChange::Revoke,
+    )
+    .unwrap();
+    let historical = h
+        .recovery_grant_request(owner, request(1))
+        .unwrap()
+        .unwrap();
+    assert!(historical.active);
+    assert!(matches!(
+        h.check_recovery_grant(historical),
+        Err(Error::Forbidden)
+    ));
+}
+
+#[test]
+fn authorization_gate_rechecks_real_owner_generation_active_state_realm_and_device() {
+    // Each case mutates only synthetic authority metadata on the actual writer.
+    // No fake Principal or alternate authorization implementation is used.
+    for sql in [
+        "UPDATE principals SET generation=generation+1 WHERE kind='owner'",
+        "UPDATE principals SET active=0 WHERE kind='owner'",
+        "UPDATE meta SET db_epoch='00000000-0000-4000-8000-000000000099'",
+        "UPDATE device_identity SET public_key=zeroblob(32)",
+    ] {
+        let (_d, _b, s, owner) = fixture();
+        let h = s.handle();
+        let g = grant(&h, &owner, 2, 0, 1).unwrap();
+        h.call(move |db| {
+            db.connection.execute(sql, [])?;
+            Ok(())
+        })
+        .unwrap();
+        assert!(
+            matches!(h.check_recovery_grant(g), Err(Error::Forbidden)),
+            "{sql}"
+        );
+    }
+}
+
+#[test]
+fn authorization_gate_rejects_schema6_and_real_restore_without_rewriting_grants() {
+    let (_d, _b, s, owner) = fixture();
+    let h = s.handle();
+    let g = grant(&h, &owner, 2, 0, 1).unwrap();
+    let six = directory();
+    let six = Store::open(six.path()).unwrap();
+    assert!(matches!(
+        six.handle().check_recovery_grant(g.clone()),
+        Err(Error::InvalidTransition)
+    ));
+    let backup = directory();
+    let target = directory();
+    h.backup(backup.path()).unwrap();
+    let restored = Store::restore_recovery_grants(backup.path(), target.path()).unwrap();
+    let rh = restored.handle();
+    assert!(matches!(
+        rh.check_recovery_grant(g.clone()),
+        Err(Error::Forbidden)
+    ));
+    let prior = rh.principal(owner.public_key).unwrap().unwrap();
+    assert!(!prior.active);
+    let renewed = rh.recover_owner(prior).unwrap();
+    assert!(renewed.generation > owner.generation);
+    let stored = rh
+        .recovery_grant(renewed, g.independent_public_key)
+        .unwrap()
+        .unwrap();
+    assert_eq!(stored, g); // active historical row survived, and is still not authority.
+    assert!(matches!(
+        rh.check_recovery_grant(stored),
+        Err(Error::Forbidden)
+    ));
+}
+
 #[test]
 fn explicit_migration_has_a_schema6_backup_and_default_open_never_adopts_schema7() {
     let (d, backup, s, owner) = fixture();
