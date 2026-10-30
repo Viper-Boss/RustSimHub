@@ -43,6 +43,9 @@ fn version(path: &Path) -> i64 {
         .unwrap()
 }
 
+#[cfg(unix)]
+mod execution_contract;
+
 #[test]
 fn explicit_migration_has_a_schema6_backup_and_default_open_never_adopts_schema7() {
     let (d, backup, s, owner) = fixture();
