@@ -10,6 +10,8 @@
 
 #[cfg(all(target_os = "linux", feature = "bluez-advertisement"))]
 pub mod bluez_advertisement;
+#[cfg(all(target_os = "linux", feature = "bluez-backend"))]
+pub mod bluez_backend;
 #[cfg(all(target_os = "linux", feature = "bluez-control"))]
 pub mod bluez_control;
 #[cfg(all(target_os = "linux", feature = "bluez-gatt"))]

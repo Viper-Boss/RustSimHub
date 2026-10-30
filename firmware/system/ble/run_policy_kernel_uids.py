@@ -21,8 +21,11 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--pull',action='store_true',help='explicitly pull the pinned public image')
     parser.add_argument('--rust-gatt',action='store_true',help='build and run actual Rust GATT roles with standard D-Bus bodies')
+    parser.add_argument('--rust-backend',action='store_true',help='test the actual GattBackendV1 composition (requires --rust-gatt)')
     args=parser.parse_args()
-    work=PROJECT/('work/gatt-policy-integration' if args.rust_gatt else 'work/ble-policy-kernel-uids')
+    if args.rust_backend and not args.rust_gatt:parser.error('--rust-backend requires --rust-gatt')
+    work=PROJECT/('work/bluez-backend-integration' if args.rust_backend else
+                  'work/gatt-policy-integration' if args.rust_gatt else 'work/ble-policy-kernel-uids')
     # Linux x86_64 host libraries are used only as public fixture input. ldd
     # inspects this fixed trusted OS binary, never arbitrary user executables.
     daemon=Path('/usr/bin/dbus-daemon')
@@ -57,7 +60,7 @@ def main():
     if args.rust_gatt:
         with (work/'build.jsonl').open('w') as output, (work/'build.log').open('w') as errors:
             subprocess.run(['cargo','test','-p','rustsimhub-ble','--test','gatt_kernel_uid',
-                '--features','bluez-notify-fd','--no-run','--locked','--offline','--message-format=json'],
+                '--features','bluez-backend' if args.rust_backend else 'bluez-notify-fd','--no-run','--locked','--offline','--message-format=json'],
                 cwd=PROJECT,stdout=output,stderr=errors,check=True)
         rows=[json.loads(line) for line in (work/'build.jsonl').read_text().splitlines()]
         binary=next(row['executable'] for row in rows if row.get('reason')=='compiler-artifact'
@@ -90,10 +93,11 @@ def main():
         for marker in ['GATT_FOREIGN_DENIED','GATT_ACQUIRED','GATT_PACKETS','GATT_WRITE_ACK','GATT_FENCED','GATT_FDS_CLOSED']:
             assert log.count(marker)==1,marker
         assert log.count('1 passed; 0 failed')==3,'all three actual Rust role tests required'
+        if args.rust_backend:assert log.count('GATT_BACKEND_V1')==1,'actual BackendV1 execution required'
     else:
         for case in expected:assert log.count('POLICY_CASE '+case+'\n')==1,case
     result=json.loads(next(line for line in log.splitlines() if line.startswith('{"fixture":')))
-    result.update(image=IMAGE,input_sha256=inputs,
+    result.update(image=IMAGE,input_sha256=inputs,actual_backend=args.rust_backend,
         source_head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=PROJECT,text=True).strip(),
         tracked_dirty=bool(subprocess.check_output(['git','status','--porcelain','--untracked-files=no'],cwd=PROJECT,text=True).strip()),
         log_sha256=hashlib.sha256((work/'container.log').read_bytes()).hexdigest())
