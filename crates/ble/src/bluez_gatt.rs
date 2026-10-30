@@ -3,6 +3,7 @@
 //! supply the actual Transport/security lifecycle. No notification success stub.
 use crate::{
     bluez_control::{BluezControl, CallbackScope},
+    bluez_peer::{PeerLease, PeerScope},
     framing::{Budget, OpaqueBytes, HEADER_BYTES},
     manifest::{self, Characteristic},
     ports::{Epoch, Peer, DBUS_CALL_MS},
@@ -94,6 +95,7 @@ struct Publication {
     epoch: Epoch,
     requests: mpsc::Sender<CallbackRequest>,
     slot: Arc<Semaphore>,
+    peer_scope: PeerScope,
 }
 impl Publication {
     async fn check(&self, sender: Option<&str>) -> Result<String, Error> {
@@ -101,6 +103,7 @@ impl Publication {
             return Err(Error::StaleContext);
         }
         let owner = self.scope.check_sender(sender).await?;
+        self.peer_scope.check_current().await?;
         if !self.live.load(Ordering::Acquire) {
             return Err(Error::StaleContext);
         }
@@ -115,6 +118,9 @@ impl Publication {
         characteristic: Characteristic,
         operation: CallbackOperation,
     ) -> Result<Completion, Error> {
+        if !self.peer_scope.matches_peer(&peer) {
+            return Err(Error::StaleContext);
+        }
         let permit = self
             .slot
             .clone()
@@ -142,7 +148,12 @@ impl Publication {
             .await
             .map_err(|_| Error::Deadline)?
             .map_err(|_| Error::Unavailable)?;
-        self.check(Some(peer.owner())).await?;
+        tokio::time::timeout_at(deadline, self.check(Some(peer.owner())))
+            .await
+            .map_err(|_| Error::Deadline)??;
+        if tokio::time::Instant::now() >= deadline {
+            return Err(Error::Deadline);
+        }
         Ok(completion)
     }
 }
@@ -212,6 +223,9 @@ impl CharacteristicObject {
         let options = Options::parse(options, false).map_err(|_| invalid())?;
         let peer =
             Peer::from_backend_callback(&owner, options.device.as_str()).map_err(|_| invalid())?;
+        if !self.publication.peer_scope.matches_peer(&peer) {
+            return Err(denied());
+        }
         if self.kind == Characteristic::DeviceInfo {
             let bytes = manifest::DEVICE_INFO
                 .get(usize::from(options.offset)..)
@@ -274,6 +288,9 @@ impl CharacteristicObject {
         }
         let peer =
             Peer::from_backend_callback(&owner, options.device.as_str()).map_err(|_| invalid())?;
+        if !self.publication.peer_scope.matches_peer(&peer) {
+            return Err(denied());
+        }
         let operation = CallbackOperation::Write {
             frame: OpaqueBytes::new(bytes).map_err(|_| invalid())?,
             budget: options.budget,
@@ -378,13 +395,19 @@ impl Options {
 pub struct GattExport {
     connection: Connection,
     publication: Arc<Publication>,
+    lease: PeerLease,
 }
 impl GattExport {
     pub async fn publish(
         control: &BluezControl,
-        epoch: Epoch,
+        lease: PeerLease,
     ) -> Result<(Self, mpsc::Receiver<CallbackRequest>), Error> {
         control.check_current().await?;
+        if !lease.matches_control(control) {
+            return Err(Error::StaleContext);
+        }
+        lease.check_current().await?;
+        let epoch = lease.epoch();
         let (requests, receiver) = mpsc::channel(1);
         let publication = Arc::new(Publication {
             live: AtomicBool::new(true),
@@ -392,6 +415,7 @@ impl GattExport {
             epoch,
             requests,
             slot: Arc::new(Semaphore::new(1)),
+            peer_scope: lease.scope(),
         });
         let mut guard = PublishGuard {
             publication: publication.clone(),
@@ -436,12 +460,23 @@ impl GattExport {
             Self {
                 connection,
                 publication,
+                lease,
             },
             receiver,
         ))
     }
     pub fn retire_local(&self) {
         self.publication.retire();
+        self.lease.retire();
+    }
+    /// Host idle/pre/post-work check. On error the host must drive original
+    /// lifecycle/security cleanup; this local fence cannot do that for it.
+    pub async fn check_peer_current(&self) -> Result<(), Error> {
+        let result = self.lease.check_current().await;
+        if result.is_err() {
+            self.publication.retire();
+        }
+        result
     }
     pub async fn close_connection(&self) -> Result<(), Error> {
         self.retire_local();

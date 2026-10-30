@@ -96,6 +96,10 @@ impl BluezControl {
     pub fn retire(&self) {
         self.binding.retire();
     }
+    /// Captured broker unique name, not application authorization.
+    pub fn owner(&self) -> &str {
+        self.binding.owner.as_str()
+    }
     /// Poll alongside the host lifecycle, including while idle. This owns one
     /// bounded subscription receiver, never the RPC checker's stream lock.
     /// It never returns Ok: owner loss/stream failure/retire ends with a finite
@@ -234,6 +238,10 @@ pub(crate) struct CallbackScope {
 }
 #[cfg(feature = "bluez-advertisement")]
 impl CallbackScope {
+    #[cfg(feature = "bluez-gatt")]
+    pub(crate) fn same_binding(&self, other: &Self) -> bool {
+        self.binding.ptr_eq(&other.binding)
+    }
     pub(crate) async fn check_sender(
         &self,
         sender: Option<&str>,
