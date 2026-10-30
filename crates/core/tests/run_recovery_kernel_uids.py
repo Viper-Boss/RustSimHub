@@ -63,7 +63,7 @@ def main():
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
     output = (WORK/"container.log").read_text()
     for case in [f"denied_{uid}" for uid in (0,1001,1003,1004,1005,1006)]+[
-            "no_provider", "primary_authorized", "occupied_slot_denied", "drop_fenced", "reconnect_fresh_nonce"]:
+            "no_provider", "write_roundtrip", "primary_authorized", "occupied_slot_denied", "drop_fenced", "close_fenced", "reconnect_fresh_nonce"]:
         if "UID_CASE "+case not in output:
             raise RuntimeError("missing executed Core case: "+case)
     if "1 passed; 0 failed" not in output:

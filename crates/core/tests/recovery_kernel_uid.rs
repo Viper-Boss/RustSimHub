@@ -10,7 +10,7 @@ use rustsimhub_auth::{
 };
 use rustsimhub_core::{
     recovery_channel::RecoveryChannel,
-    recovery_transport::{Error as TransportError, Roles, SourceGuard},
+    recovery_transport::{Error as TransportError, Kind, Packet, Roles, SourceGuard},
 };
 use rustsimhub_storage::{RecoveryGrant, Store};
 use std::{
@@ -188,6 +188,9 @@ async fn isolated_real_uid_source_and_owned_auth_channel() {
         .unwrap();
     assert_eq!(calls.load(Ordering::Acquire), 1);
     assert_eq!(nonces.lock().unwrap()[0], first_nonce);
+    let ack = Packet::new(Kind::Handshake, b"fixture-ack".to_vec()).unwrap();
+    let channel = channel.write(&ack).await.unwrap();
+    println!("UID_CASE write_roundtrip");
     println!("UID_CASE primary_authorized");
     assert!(matches!(
         guard.accept(accept(&listener, 1002).await),
@@ -228,6 +231,13 @@ async fn isolated_real_uid_source_and_owned_auth_channel() {
         .is_err());
     assert_eq!(calls.load(Ordering::Acquire), 2);
     assert_eq!(nonces.lock().unwrap()[1], next_nonce);
+    let close = Packet::new(Kind::CloseTransport, Vec::new()).unwrap();
+    let channel = channel.write(&close).await.unwrap();
+    assert!(f
+        .auth
+        .check_recovery_capability(&next.capability, RecoveryAction::ReadStatus, &next.body)
+        .is_err());
+    println!("UID_CASE close_fenced");
     drop(channel);
     assert!(f
         .auth

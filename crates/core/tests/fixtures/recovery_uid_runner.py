@@ -26,14 +26,26 @@ def peer(marker):
     connection.connect(str(ROOT / "core.sock"))
     payload = bytes([marker]) if marker in (0x11, 0x12) else b'{"uid":1002,"verified":true,"channel":"ble"}'
     body = b"\x01\x02" + payload
+    received = bytearray()
     try:
         connection.sendall(len(body).to_bytes(4, "big") + body)
-        while connection.recv(128):
-            pass
+        while True:
+            data = connection.recv(128)
+            if not data:
+                break
+            received.extend(data)
     except (BrokenPipeError, ConnectionResetError):
         pass  # Exact rejection is asserted by the real Core test, not inferred here.
     finally:
         connection.close()
+    if marker == 0x11:
+        reply = b"\x01\x01fixture-ack"
+    elif marker == 0x12:
+        reply = b"\x01\x03"
+    else:
+        reply = b""
+    expected = len(reply).to_bytes(4, "big")+reply if reply else b""
+    assert received == expected, "exact real framed reply/terminal close required"
 
 
 def launch_peer(uid, marker):
