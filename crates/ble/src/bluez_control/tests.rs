@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Real private dbus-daemon and actual RPCs; only BlueZ manager endpoints are synthetic.
+mod owner_loss;
 use super::*;
 use std::{
     future::Future,
