@@ -26,8 +26,8 @@ export function diagnosticSummary(value={}){
 }
 export function diagnosticText(snapshot){return JSON.stringify(diagnosticSummary(snapshot),null,2);}
 export class DiagnosticPanel {
- constructor({document,root,queryOperation,copy}){
-  this.root=root;this.queryOperation=queryOperation;this.copy=copy;this.epoch=0;this.busy=false;
+ constructor({document,root,queryOperation,copy,clock=()=>performance.now()}){
+  this.clock=clock;this.root=root;this.queryOperation=queryOperation;this.copy=copy;this.epoch=0;this.busy=false;
   this.output=document.createElement('pre');this.output.style.whiteSpace='pre-wrap';this.output.style.overflowWrap='anywhere';
   this.message=document.createElement('p');this.message.setAttribute('role','status');
   this.queryButton=document.createElement('button');this.queryButton.type='button';this.queryButton.textContent='只查询原操作';this.queryButton.onclick=()=>this.query();
@@ -39,13 +39,13 @@ export class DiagnosticPanel {
  render(){this.queryButton.disabled=this.busy||!this.summary?.operation||typeof this.queryOperation!=='function';this.copyButton.disabled=!this.summary||typeof this.copy!=='function';}
  async query(){
   if(this.queryButton.disabled)return;
-  const id=this.summary.operation.id,epoch=this.epoch;this.busy=true;this.controller=new AbortController();const controller=this.controller;this.render();
-  let timer;const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{reject(Error('deadline'));controller.abort();},3000);});
+  const id=this.summary.operation.id,epoch=this.epoch;this.busy=true;this.controller=new AbortController();const controller=this.controller;this.render();let timer;
   try{
-   const snapshot=await Promise.race([this.queryOperation(id,{signal:controller.signal}),timeout]);
-   if(epoch!==this.epoch)return;
-   const result=diagnosticSummary(snapshot);
-   if(result.operation?.id!==id)throw Error('identity mismatch');
+   const started=this.clock();if(!Number.isFinite(started))throw Error('deadline');
+   const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{reject(Error('deadline'));controller.abort();},3000);});
+   const snapshot=await Promise.race([this.queryOperation(id,{signal:controller.signal}),timeout]);if(epoch!==this.epoch)return;
+   const elapsed=this.clock()-started;if(!Number.isFinite(elapsed)||elapsed<0||elapsed>=3000){controller.abort();throw Error('deadline');}
+   const result=diagnosticSummary(snapshot);if(result.operation?.id!==id)throw Error('identity mismatch');
    this.summary=result;this.output.textContent=JSON.stringify(result,null,2);this.message.textContent='已查询原操作；本页没有提交、归档或重试';
   }catch{if(epoch===this.epoch)this.message.textContent='原操作未确认，请保留原记录；没有自动提交或重试';}
   finally{clearTimeout(timer);if(epoch===this.epoch){this.busy=false;this.render();}}
