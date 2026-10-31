@@ -2,7 +2,7 @@
 
 最新分工已扩展到T5/T6，先读本文末尾入口及今天分工文档；只有对应章节明确列出的路径和阶段扩展原文件边界。
 
-执行成员：[fungi1220](https://github.com/fungi1220)。稳定成员ID `member-a`。建议分支 `codex/usage-stats-offline`。预计有效开发10～24小时，仅为计划，不是已发生工时。
+执行成员：[wnfhsj88](https://github.com/wnfhsj88)，稳定成员ID `member-b`；2026-10-30按用户要求接手原fungi1220的A-01～A-30。保留原A步骤ID便于追溯；历史PR #41与作者归属不改写，转交不算验收完成。建议分支 `codex/usage-stats-offline`。预计有效开发10～24小时，仅为计划，不是已发生工时。
 
 提交入口：接受本仓库Write邀请后，在 `Viper-Boss/RustSimHub` 直接创建上述功能分支并提交PR到main，由负责人审核。不要fork，不直接推送main；具体命令见[团队入口](README.md)。
 

@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "kind": "member_a_offline_handoff_candidate",
+  "baseline": "80db24e9b101dd3fb4b8c951aa7f1e0e1858e65d",
+  "joint_code_head": "63ec1d85869e0a6a31a4bc6d9b1b10b43d07a3dc",
+  "production_ready": false,
+  "crypto_wire_frozen": false,
+  "components": [
+    {
+      "pr": 108,
+      "repository": "Viper-Boss/RustSimHub",
+      "branch": "codex/wnfhsj88-static-update-guards",
+      "head": "f1428eec8462ab328eb849e6617c4881cc3ac691"
+    },
+    {
+      "pr": 123,
+      "repository": "Viper-Boss/RustSimHub",
+      "branch": "codex/wnfhsj88-stats-state-machine",
+      "head": "4db90796e6244bc9d7b6bdc45a4c4d3abef3267c"
+    },
+    {
+      "pr": 118,
+      "repository": "Viper-Boss/RustSimHub",
+      "branch": "codex/wnfhsj88-public-artifact-scan",
+      "head": "323e9d9a700867bd98937c73b3f66592c67748ad"
+    },
+    {
+      "pr": 119,
+      "repository": "Viper-Boss/RustSimHub",
+      "branch": "codex/wnfhsj88-nkn-status",
+      "head": "69af8d8037d6c89ea593ff4ae28cc1d7b32cb685"
+    },
+    {
+      "pr": 120,
+      "repository": "Viper-Boss/RustSimHub",
+      "branch": "codex/wnfhsj88-email-contract",
+      "head": "fd6d8f330daae11fa8a66a8cc61187425a96975a"
+    },
+    {
+      "pr": 121,
+      "repository": "Viper-Boss/RustSimHub",
+      "branch": "codex/wnfhsj88-security-matrix",
+      "head": "2df1ae335c025d4fc260c1de5e9fb5c02279bad7"
+    },
+    {
+      "pr": 124,
+      "repository": "Viper-Boss/RustSimHub",
+      "branch": "codex/wnfhsj88-smtp-sender",
+      "head": "c387db65d90426dc2aa15a758c4fcfdc90edf5d1"
+    },
+    {
+      "pr": 128,
+      "repository": "Viper-Boss/RustSimHub",
+      "branch": "codex/wnfhsj88-nkn-process",
+      "head": "974b6739ae2e4ef9d8b2cf8558cb986b789b82df"
+    },
+    {
+      "pr": 129,
+      "repository": "Viper-Boss/RustSimHub",
+      "branch": "codex/wnfhsj88-security-interfaces",
+      "head": "401d5288dc40fdf7f7fffbf578431aca507102be"
+    },
+    {
+      "pr": 133,
+      "repository": "Viper-Boss/RustSimHub",
+      "branch": "codex/wnfhsj88-nkn-supervisor",
+      "head": "ad32afc930c224cb0c69a04aebc73df82ac6f2a1"
+    }
+  ],
+  "third_party_packages_added": [],
+  "licenses": [
+    "AGPL-3.0-only (project)",
+    "BSD-3-Clause (Go runtime; see PR128 build manifest)"
+  ],
+  "unresolved": [
+    "Real NKN SDK, identity producer, approved dependency/source closure and fixed egress",
+    "Root policy/lease source, serialization, service account and real process/cgroup adapter",
+    "A-22 real SDK mapping and trusted context/freshness provider",
+    "A-26 membership signature domains, finite protocol/router and D-owned Core permission bridge",
+    "A-27 approved crypto dependency/protocol and actual Rust/browser interoperability",
+    "A-29 approved SMTP configuration/outbox/worker/Core compatibility integration",
+    "A-30 complete engine/session/Root material assembly and lead-owned signing/device acceptance"
+  ],
+  "native_binary": {
+    "source": "63ec1d85869e0a6a31a4bc6d9b1b10b43d07a3dc",
+    "name": "nkn-engine-linux-amd64",
+    "sha256": "9ba4e79e99c8e15dd606949cfc39670372925e3d2b7d45fbab5c672e14bdcff4",
+    "bytes": 4081530,
+    "sdk_linked": false,
+    "purpose": "local unavailable-stdio interop test only",
+    "signed": false
+  },
+  "frozen_boundary_sha256": "b1f2ba1bff009755339481c0b288bc92294d80c528abb390d042b0c93120089e",
+  "evidence_report": "docs/deliveries/member-a-joint-handoff.md"
+}

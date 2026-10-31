@@ -1,0 +1,147 @@
+{
+  "format": 1,
+  "kind": "turn-source-admission-review",
+  "stage": "proposal",
+  "candidate_approved": false,
+  "production_ready": false,
+  "install_permitted": false,
+  "upstream": {
+    "repository": "https://github.com/ystreet/turn-proto",
+    "commit": "d8d127ab1e37aef14f95a9f6b529073c31ee04a5",
+    "license_expression": "MIT OR Apache-2.0",
+    "sources": [
+      {
+        "path": "Cargo.toml",
+        "git_blob": "df3cbfb6f00fa0a0a74240992fe0302858944565",
+        "sha256": "3168312518a7d4649a257fb6663163186abbc0a6270aa67af2f06756b632cf1f",
+        "bytes": 1423,
+        "lines": 53
+      },
+      {
+        "path": "turn-client-rustls/Cargo.toml",
+        "git_blob": "d131f45a767af4b7663f035d581355f38040b152",
+        "sha256": "35d2ef85ac74ea05083ed8056c36129785693bae861d5ee565e85c1ed6c4c114",
+        "bytes": 974,
+        "lines": 33
+      },
+      {
+        "path": "turn-client-rustls/src/lib.rs",
+        "git_blob": "258bfc65d0445bf459456ad926639562959c6bbc",
+        "sha256": "1ddc4c408bdd1ce8cd9fbdb4aa6c886c2db8b514855c06cc0e542ea0c5b12f61",
+        "bytes": 18415,
+        "lines": 534
+      },
+      {
+        "path": "turn-client-proto/Cargo.toml",
+        "git_blob": "71ededcc2a39e7dc98dbc3f4360a4cfda1c1daee",
+        "sha256": "5d5a4c22181af307c6e03fd31df05c862562f0d03d9f5c393629060f4ee22f1e",
+        "bytes": 1108,
+        "lines": 43
+      },
+      {
+        "path": "turn-client-proto/src/api.rs",
+        "git_blob": "c08a5e5f9da843d0eed1ca18e02192983f88a991",
+        "sha256": "edf7e80ab210912c536af9bc2e051c9bdbb0482e940aa54ff8a9fa6befdcd0e0",
+        "bytes": 28222,
+        "lines": 774
+      },
+      {
+        "path": "turn-client-proto/src/client.rs",
+        "git_blob": "89105cf7cb7d41a24a8fc093a1b84f2ce4994af8",
+        "sha256": "62832d27466babafef18fd3e77166370d230af4059b8ef0a3381caa810c0f4cd",
+        "bytes": 8965,
+        "lines": 226
+      },
+      {
+        "path": "turn-client-proto/src/protocol.rs",
+        "git_blob": "e83b5e022e2c60aa593f3e7abdc432a24329dfd1",
+        "sha256": "6c0a5ca92ed751a76d57ae1da174fc710dd15f69b0dec403bf99aba21b76f0a0",
+        "bytes": 212886,
+        "lines": 5342
+      },
+      {
+        "path": "turn-client-proto/src/tcp.rs",
+        "git_blob": "5a9ad0e3998e1d2ecd047d48659f87d99a8b0fa2",
+        "sha256": "9090b0e82cced6ac2fa32d29233384c3b63c8e1da6cb51b73d6142547df0bc56",
+        "bytes": 20878,
+        "lines": 521
+      },
+      {
+        "path": "turn-client-rustls/tests/rustls.rs",
+        "git_blob": "0aecd988f5b35f088b98d515bb0d9f6fe1a25567",
+        "sha256": "b2455ec73b4071068d497687080ce5a598d8204103242bec1f38675b73405b2d",
+        "bytes": 19015,
+        "lines": 595
+      },
+      {
+        "path": "turn-types/src/lib.rs",
+        "git_blob": "0820f4767bfb287aff7a0ae00969976322eee46e",
+        "sha256": "a74d0b21919ba67466c8204d6d640678a778de1341fe19fc1a01d33e270f7bcb",
+        "bytes": 4426,
+        "lines": 134
+      },
+      {
+        "path": "LICENSES/MIT.txt",
+        "git_blob": "d817195dad53ec992418c28ffca5fbd1cd86502a",
+        "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5",
+        "bytes": 1078,
+        "lines": 18
+      },
+      {
+        "path": "LICENSES/Apache-2.0.txt",
+        "git_blob": "137069b823873b8bcf42979bcf8e9371052d26a2",
+        "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
+        "bytes": 10280,
+        "lines": 73
+      },
+      {
+        "path": "Cargo.lock",
+        "git_blob": "c1b71af036183d65d005357cccc3bd3532eff690",
+        "sha256": "5feaf080f4380620ffb00229e9a6e54990b99c9052f5e96ad043f0041f965069",
+        "bytes": 49001,
+        "lines": 1936
+      },
+      {
+        "path": "turn-client-proto/src/udp.rs",
+        "git_blob": "ecb4fecdd1d7ca3933b0a4ee2ef2fc1225b9204c",
+        "sha256": "ed78ef86997d4111e4ac94640a1cb299e24a703a76dfe51bcdb53f6c84aac255",
+        "bytes": 7515,
+        "lines": 235
+      }
+    ]
+  },
+  "observed_versions": {
+    "workspace": "0.7.3",
+    "turn-client-proto": "0.7.3",
+    "turn-client-rustls": "0.1.2",
+    "workspace_lock_rustls": "0.23.45",
+    "workspace_lock_stun-proto": "2.0.3",
+    "workspace_lock_stun-types": "2.0.3"
+  },
+  "lock_scope": {
+    "all_upstream_workspace_packages": 209,
+    "production_feature_graph_resolved": false,
+    "project_lock_changed": false,
+    "dependencies_installed": false
+  },
+  "executed_evidence": {
+    "git_blob_checks": 14,
+    "exact_credentials_declaration_std_excerpt": true,
+    "modified_source_rejected": true,
+    "real_turn_or_tls_interoperation": false,
+    "upstream_tests_executed": false,
+    "arm_or_resources_measured": false
+  },
+  "admission_requirements": [
+    "owner_interface_and_algorithm_review",
+    "locked_active_production_dependency_graph_and_licenses",
+    "vulnerability_and_crypto_provider_review",
+    "credential_debug_redaction_and_log_policy",
+    "io_backpressure_fragmentation_and_buffer_budgets",
+    "local_finite_handshake_and_cleanup_deadlines",
+    "authenticated_remote_delete_evidence_or_unknown",
+    "real_private_tls_turn_failure_matrix",
+    "str0m_selected_relay_dtls_permit_integration",
+    "arm_build_and_current_media_resource_budget"
+  ]
+}
