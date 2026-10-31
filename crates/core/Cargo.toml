@@ -17,6 +17,7 @@ required-features = ["recovery-transport", "recovery-grants"]
 default = []
 dev-fixtures = ["dep:ed25519-dalek"]
 recovery-grants = ["rustsimhub-auth/recovery-grants"]
+recovery-execution = ["recovery-grants", "rustsimhub-auth/recovery-execution", "dep:uuid"]
 recovery-transport = []
 
 [dependencies]
@@ -30,6 +31,7 @@ rustsimhub-compat = { path = "../compat" }
 rustsimhub-setup-ap = { path = "../setup-ap" }
 rustsimhub-forwarder = { path = "../forwarder" }
 ed25519-dalek = { version = "2.2", optional = true }
+uuid = { version = "1", optional = true }
 
 serde.workspace = true
 serde_json.workspace = true
