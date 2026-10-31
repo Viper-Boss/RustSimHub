@@ -7,6 +7,7 @@ license.workspace = true
 
 [features]
 recovery-grants = ["rustsimhub-storage/recovery-grants"]
+recovery-execution = ["recovery-grants", "rustsimhub-storage/recovery-execution", "dep:uuid"]
 
 [dependencies]
 rustsimhub-domain = { path = "../domain" }
@@ -17,6 +18,7 @@ getrandom = "0.4"
 zeroize = "1"
 sha2 = "0.10"
 hmac = "0.12"
+uuid = { version = "1", optional = true }
 fs2 = "0.4"
 serde.workspace = true
 serde_json.workspace = true

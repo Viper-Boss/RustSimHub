@@ -5,8 +5,12 @@ mod client;
 mod identity;
 #[cfg(feature = "recovery-grants")]
 pub mod recovery_capability;
+#[cfg(feature = "recovery-execution")]
+mod recovery_execution;
 #[cfg(feature = "recovery-grants")]
 mod recovery_grants;
+#[cfg(feature = "recovery-execution")]
+pub use recovery_execution::RecoveryExecutionRequest;
 mod setup;
 pub use client::{ClientKey, ProofExpectation};
 use ed25519_dalek::{Signature, VerifyingKey};

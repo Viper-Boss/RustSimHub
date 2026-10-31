@@ -254,3 +254,21 @@ impl Store {
 }
 #[cfg(test)]
 mod tests;
+
+impl Handle {
+    /// Format gate only, not permission to execute a request. Standard and old
+    /// grant stores cannot silently supply the new persistent fingerprint path.
+    pub fn check_recovery_execution_format(&self) -> Result<()> {
+        self.call(|db| {
+            if db.mode != OpenMode::Execution
+                || db
+                    .connection
+                    .pragma_query_value::<i64, _>(None, "user_version", |r| r.get(0))?
+                    != 9
+            {
+                return Err(Error::InvalidTransition);
+            }
+            Ok(())
+        })
+    }
+}
