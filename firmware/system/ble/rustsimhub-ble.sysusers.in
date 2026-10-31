@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# PROPOSED, NOT RESERVED/INSTALLED. Preflight must reject NSS/local aliases.
+# The primary group alone accesses the proposed dedicated recovery socket.
+# Never add BLE to rustsimhub-ipc, bluetooth, audio or an existing role group.
+u rustsimhub-ble 982 "RustSimHub optional BLE transport" /nonexistent /usr/sbin/nologin
