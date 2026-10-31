@@ -3,6 +3,7 @@
 //! supply the actual Transport/security lifecycle. No notification success stub.
 use crate::{
     bluez_control::{BluezControl, CallbackScope},
+    bluez_peer::{PeerLease, PeerScope},
     framing::{Budget, OpaqueBytes, HEADER_BYTES},
     manifest::{self, Characteristic},
     ports::{Epoch, Peer, DBUS_CALL_MS},
@@ -12,7 +13,7 @@ use std::{
     collections::HashMap,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, OnceLock,
     },
     time::Duration,
 };
@@ -94,6 +95,7 @@ struct Publication {
     epoch: Epoch,
     requests: mpsc::Sender<CallbackRequest>,
     slot: Arc<Semaphore>,
+    peer_scope: OnceLock<PeerScope>,
 }
 impl Publication {
     async fn check(&self, sender: Option<&str>) -> Result<String, Error> {
@@ -101,6 +103,11 @@ impl Publication {
             return Err(Error::StaleContext);
         }
         let owner = self.scope.check_sender(sender).await?;
+        self.peer_scope
+            .get()
+            .ok_or(Error::Unavailable)?
+            .check_current()
+            .await?;
         if !self.live.load(Ordering::Acquire) {
             return Err(Error::StaleContext);
         }
@@ -109,12 +116,20 @@ impl Publication {
     fn retire(&self) {
         self.live.store(false, Ordering::Release);
     }
+    fn matches_peer(&self, peer: &Peer) -> bool {
+        self.peer_scope
+            .get()
+            .is_some_and(|scope| scope.matches_peer(peer))
+    }
     async fn dispatch(
         self: &Arc<Self>,
         peer: Peer,
         characteristic: Characteristic,
         operation: CallbackOperation,
     ) -> Result<Completion, Error> {
+        if !self.matches_peer(&peer) {
+            return Err(Error::StaleContext);
+        }
         let permit = self
             .slot
             .clone()
@@ -142,7 +157,12 @@ impl Publication {
             .await
             .map_err(|_| Error::Deadline)?
             .map_err(|_| Error::Unavailable)?;
-        self.check(Some(peer.owner())).await?;
+        tokio::time::timeout_at(deadline, self.check(Some(peer.owner())))
+            .await
+            .map_err(|_| Error::Deadline)??;
+        if tokio::time::Instant::now() >= deadline {
+            return Err(Error::Deadline);
+        }
         Ok(completion)
     }
 }
@@ -195,6 +215,49 @@ impl CharacteristicObject {
         options: HashMap<String, OwnedValue>,
         #[zbus(header)] header: Header<'_>,
     ) -> zbus::fdo::Result<Vec<u8>> {
+        tokio::time::timeout(
+            Duration::from_millis(DBUS_CALL_MS),
+            self.read_value_inner(options, header),
+        )
+        .await
+        .unwrap_or_else(|_| Err(unavailable()))
+    }
+    async fn write_value(
+        &self,
+        bytes: Vec<u8>,
+        options: HashMap<String, OwnedValue>,
+        #[zbus(header)] header: Header<'_>,
+    ) -> zbus::fdo::Result<()> {
+        tokio::time::timeout(
+            Duration::from_millis(DBUS_CALL_MS),
+            self.write_value_inner(bytes, options, header),
+        )
+        .await
+        .unwrap_or_else(|_| Err(unavailable()))
+    }
+    async fn start_notify(&self, #[zbus(header)] header: Header<'_>) -> zbus::fdo::Result<()> {
+        tokio::time::timeout(
+            Duration::from_millis(DBUS_CALL_MS),
+            self.unsupported_notify(header),
+        )
+        .await
+        .unwrap_or_else(|_| Err(unavailable()))
+    }
+    async fn stop_notify(&self, #[zbus(header)] header: Header<'_>) -> zbus::fdo::Result<()> {
+        tokio::time::timeout(
+            Duration::from_millis(DBUS_CALL_MS),
+            self.unsupported_notify(header),
+        )
+        .await
+        .unwrap_or_else(|_| Err(unavailable()))
+    }
+}
+impl CharacteristicObject {
+    async fn read_value_inner(
+        &self,
+        options: HashMap<String, OwnedValue>,
+        header: Header<'_>,
+    ) -> zbus::fdo::Result<Vec<u8>> {
         if header.signature().to_string() != "a{sv}" {
             return Err(invalid());
         }
@@ -212,6 +275,9 @@ impl CharacteristicObject {
         let options = Options::parse(options, false).map_err(|_| invalid())?;
         let peer =
             Peer::from_backend_callback(&owner, options.device.as_str()).map_err(|_| invalid())?;
+        if !self.publication.matches_peer(&peer) {
+            return Err(denied());
+        }
         if self.kind == Characteristic::DeviceInfo {
             let bytes = manifest::DEVICE_INFO
                 .get(usize::from(options.offset)..)
@@ -245,11 +311,11 @@ impl CharacteristicObject {
             _ => Err(unavailable()),
         }
     }
-    async fn write_value(
+    async fn write_value_inner(
         &self,
         bytes: Vec<u8>,
         options: HashMap<String, OwnedValue>,
-        #[zbus(header)] header: Header<'_>,
+        header: Header<'_>,
     ) -> zbus::fdo::Result<()> {
         if header.signature() != <(Vec<u8>, HashMap<String, OwnedValue>) as Type>::SIGNATURE {
             return Err(invalid());
@@ -274,6 +340,9 @@ impl CharacteristicObject {
         }
         let peer =
             Peer::from_backend_callback(&owner, options.device.as_str()).map_err(|_| invalid())?;
+        if !self.publication.matches_peer(&peer) {
+            return Err(denied());
+        }
         let operation = CallbackOperation::Write {
             frame: OpaqueBytes::new(bytes).map_err(|_| invalid())?,
             budget: options.budget,
@@ -288,14 +357,6 @@ impl CharacteristicObject {
             _ => Err(unavailable()),
         }
     }
-    async fn start_notify(&self, #[zbus(header)] header: Header<'_>) -> zbus::fdo::Result<()> {
-        self.unsupported_notify(header).await
-    }
-    async fn stop_notify(&self, #[zbus(header)] header: Header<'_>) -> zbus::fdo::Result<()> {
-        self.unsupported_notify(header).await
-    }
-}
-impl CharacteristicObject {
     async fn unsupported_notify(&self, header: Header<'_>) -> zbus::fdo::Result<()> {
         if header.signature().to_string() != "" {
             return Err(invalid());
@@ -378,6 +439,7 @@ impl Options {
 pub struct GattExport {
     connection: Connection,
     publication: Arc<Publication>,
+    lease: OnceLock<PeerLease>,
 }
 impl GattExport {
     pub async fn publish(
@@ -392,6 +454,7 @@ impl GattExport {
             epoch,
             requests,
             slot: Arc::new(Semaphore::new(1)),
+            peer_scope: OnceLock::new(),
         });
         let mut guard = PublishGuard {
             publication: publication.clone(),
@@ -436,12 +499,75 @@ impl GattExport {
             Self {
                 connection,
                 publication,
+                lease: OnceLock::new(),
             },
             receiver,
         ))
     }
+    /// Convenience for an already connected peer. Normal startup exports static
+    /// metadata first, then binds once after the real Device1 connection event.
+    pub async fn publish_bound(
+        control: &BluezControl,
+        lease: PeerLease,
+    ) -> Result<(Self, mpsc::Receiver<CallbackRequest>), Error> {
+        if !lease.matches_control(control) {
+            return Err(Error::StaleContext);
+        }
+        lease.check_current().await?;
+        let (export, receiver) = Self::publish(control, lease.epoch()).await?;
+        export.bind_peer(lease).await?;
+        Ok((export, receiver))
+    }
+    /// At most one successful peer binding per exported tree. Before this
+    /// commits every method callback fails; readonly service metadata is public.
+    pub async fn bind_peer(&self, lease: PeerLease) -> Result<(), Error> {
+        if self.lease.get().is_some() {
+            return Err(Error::Busy);
+        }
+        if !self.publication.live.load(Ordering::Acquire)
+            || lease.epoch() != self.publication.epoch
+            || !lease.matches_scope(&self.publication.scope)
+        {
+            return Err(Error::StaleContext);
+        }
+        lease.check_current().await?;
+        if !self.publication.live.load(Ordering::Acquire) {
+            return Err(Error::StaleContext);
+        }
+        let scope = lease.scope();
+        self.lease.set(lease).map_err(|_| Error::Busy)?;
+        if self.publication.peer_scope.set(scope).is_err() {
+            self.retire_local();
+            return Err(Error::Unknown);
+        }
+        if !self.publication.live.load(Ordering::Acquire) {
+            self.retire_local();
+            return Err(Error::StaleContext);
+        }
+        Ok(())
+    }
     pub fn retire_local(&self) {
         self.publication.retire();
+        if let Some(lease) = self.lease.get() {
+            lease.retire();
+        }
+    }
+    /// Host idle/pre/post-work check. On error the host must drive original
+    /// lifecycle/security cleanup; this local fence cannot do that for it.
+    pub async fn check_peer_current(&self) -> Result<(), Error> {
+        if !self.publication.live.load(Ordering::Acquire) {
+            return Err(Error::StaleContext);
+        }
+        let result = self
+            .lease
+            .get()
+            .ok_or(Error::Unavailable)?
+            .check_current()
+            .await;
+        if result.is_err() {
+            self.publication.retire();
+        }
+        result
     }
     pub async fn close_connection(&self) -> Result<(), Error> {
         self.retire_local();

@@ -1,6 +1,6 @@
 # 固定 GATT 树与不透明回调边界
 
-2026-10-30，Linux 显式 `bluez-gatt` feature；复用 control/advertisement。
+2026-10-30，Linux 显式 `bluez-gatt` feature；依赖 bluez-peer 及 control/advertisement。
 这是本地对象和回调部分，尚不是可启动的恢复服务或完整 GattBackendV1。
 没有系统总线连接、密码实现、Core 业务授权、自动注册或通知成功替身。
 
@@ -14,13 +14,18 @@
 
 路径、UUID 和 Flags 均来自既有 manifest，不能从载荷扩展；属性只读。
 没有通过 Properties.Get/GetAll 暴露的 Value/结果密文缓存。
+导出只建立元数据树，方法回调先保持不可用。收到真实 Device1 连接后，宿主用
+`bind_peer(PeerLease)` 一次性消费同一控制绑定、同 epoch 的有效租约；
+`publish_bound(control, lease)` 仅供已经连接的场景。这样无需先有连接才能注册服务。
+[租约验证与启动阶段](bluez-peer-lease.md)包含实际快照/变化历史和取消门禁。
 单独 GATT 的 GetManagedObjects 实测恰有五个子对象；同连接广播对象存在时为
 六个固定子对象，额外的接口是既有 LEAdvertisement1，不是动态 GATT 服务。
 
 回调核对真实 header sender、捕获的 BlueZ unique owner 与连续 owner 历史。
 ReadValue/WriteValue 签名完整匹配，额外 body 字段失败。
 options 中 device 必须是实际类型 object-path，形状限于 Hci0 六字节设备路径；
-这只验证来自可信 BlueZ 的字段形状，不能证明设备已连接、配对或获批。
+还必须等于实际租约绑定设备。租约检查 Connected/Adapter 和变化历史，
+这仍不证明设备已配对、获得用户批准或具备 Core 业务能力。
 offset 必须为 u16；mtu 若存在必须为 u16 且至少23，上限由既有 Budget 封顶244；
 link 若存在仅 LE。未知选项/类型不符拒绝，不忽略。
 Write 只允许 AuthExchange/Command、type=request、offset=0、prepare-authorize=false，
@@ -39,7 +44,9 @@ Read Result 必须 offset=0，向宿主索取当前结果，不提供任何默�
 Accepted 仅可确认 Write，Value 仅可返回 Result 且长度受当前属性预算约束。
 这里 Accepted 只表示**可信注入宿主**接收的这一帧；它不是业务成功或安全认证。
 
-每个请求有固定 Tokio Instant 5秒截止，不延长、不重试。
+Read/Write/通知入口整次回调也有5秒逻辑截止，包含初始 owner/peer 读取；
+每个交给宿主的请求另外保留固定 Tokio Instant 5秒截止，不延长、不重试；
+完成后的 peer 复核也受同一截止约束。
 `check_current().await` 在检查 owner 前后均检查截止与私有请求 live fence。
 期限/回调任务退出使该检查失败；超时不丢弃宿主实际在途工作，也不释放其 permit。
 迟到 finish 可以排空资源，但不能返回迟到成功或通知。
@@ -49,13 +56,14 @@ Accepted 仅可确认 Write，Value 仅可返回 Result 且长度受当前属性
 
 ## 宿主尚须完成的门禁
 
-请求里的 peer/epoch 是传输元数据，**没有每次 BLE 连接的授权证明**。
-启用前须实现真实 Device1 连接/断开跟踪、原 Lifecycle::Connection 代次和
-Transport/SecurePortV1/Core 私有 capability 接线；不能收到队列消息后再将旧请求
-绑定到刚重连的同一设备。当前导出必须限制在单个物理 peer 生命周期，任何断开/
-连接状态不明先 retire_local，排空旧工作，远程清理并关闭专用连接后再用新连接/
-新 epoch 导出；不能复用本对象承接重连。当前尚无生产宿主执行这些动作。
-缺 A 安全端口时不得通过本低层导出 API 启动完整恢复服务。
+当前每个回调和完成路径都检查实际 Device1 租约；同路径断开/重连、移除/重建、
+Connected/Adapter invalidation、控制实例/epoch 不符不能复用旧上下文。
+一次成功 bind 后不能换 peer/epoch，失效后仍 Busy；从未成功绑定时回调全部失败。
+`check_peer_current()` 提供宿主空闲/pre/post 检查，尚无后台物理事件驱动。
+宿主必须 poll 它、驱动原 Lifecycle::Connection/Transport、安全会话和 Core
+私有 capability 的清理；不能以本租约替代这些授权。任何断开/不明先退休本导出，
+排空旧工作，远程清理并关闭专用连接后用新连接/新 epoch 导出。当前尚无生产
+宿主执行完整流程。缺 A 安全端口时不得由此低层 API 启动完整恢复服务。
 
 StartNotify/StopNotify 在核 sender 后明确 NotSupported，Flags 保持冻结接口，
 但未声称通知实现；没有 Value 信号发射、AcquireWrite/AcquireNotify 或缓存旁路。
@@ -65,12 +73,14 @@ Drop/retire 保留本连接固定路径的退休对象，重复导出 Busy；部
 
 ## 实测边界
 
-19 项新增真实私有 dbus-daemon/zbus 测试，只有外部 BlueZ manager 和可信宿主
+首批19项固定回调测试，以及随后22项Device1/租约/分阶段绑定/完整截止测试均使用真实
+私有 dbus-daemon/zbus。只有外部 BlueZ manager/Device1 和可信宿主
 回复为合成组件；不将 Accepted 测试回复冒充密码或 Core 业务成功。
 覆盖对象树、公开长读、合法写/结果读取、实际外来 sender、选项/模式/MTU/载荷、
 未知/不支持操作、丢宿主、单槽、真实5秒超时与迟到工作、取消调用、owner gap、
 退休/Drop、回复类别/长度、同连接固定广播与注册/清理调用。
 初版真实测试发现 UUID 属性大小写和多参数 signature 判定问题，保留原断言修正。
-没有主机系统总线/BlueZ/HCI/RF/实际 Device1 连接事件、角色 UID/Root/NSS、
+Device1 RPC/信号是私有总线上合成设备对象的实际交互；没有主机系统总线/
+BlueZ/HCI/RF/真实物理连接、角色 UID/Root/NSS、
 ARM/native、A 密码互操作、Core-Wi-Fi 端到端或部署验收。
 仅新增本地 feature 与 tokio/time feature 边，无新第三方包/版本/锁文件变化。
