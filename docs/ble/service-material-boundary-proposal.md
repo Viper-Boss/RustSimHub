@@ -27,7 +27,7 @@ Core 独占目录写权限，BLE 仅借主组搜索目录和连接 socket；Core
 - 输出 method_return 仅向 BlueZ 的所请求回复，至多 1 FD；error 为 0 FD。D-Bus 回复没有原方法路径可匹配，实际 AcquireNotify/单 peer/一次 FD 的验证仍靠 #122 Rust 实现，不把策略当作业务权限。
 - 仅 ObjectManager 的固定根路径 InterfacesAdded/InterfacesRemoved 元数据 signal 可输出；**无 PropertiesChanged/Value 输出许可，不走全局通知回退**。StartNotify/StopNotify 仅可到达并返回不支持；这不能证明真实 BlueZ 会拒绝 CCC，见 #117 的上游失败回退证据。
 
-真实私有 dbus-daemon 已解析整份候选规则（包括 max_fds），并验证真实 broker GetNameOwner 成功，ListNames/RequestName/Properties.Set/错 member 失败。测试仅把 user 名替换为当前低权测试 UID，未修改其他许可。**尚未用两个不同 UID 跑 BlueZ 实例/唯一 owner/AcquireNotify SCM_RIGHTS；单 UID broker 测试不能证明这些行为或组合系统策略的最终权限。** 生产已有 group/user/mandatory 策略顺序也须主线核对。
+真实私有 dbus-daemon 已解析整份候选规则（包括 max_fds），并验证真实 broker GetNameOwner 成功，ListNames/RequestName/Properties.Set/错 member 失败。测试仅把 user 名替换为当前低权测试 UID，未修改其他许可。**这份16项单UID检查不能证明跨UID/FD或组合系统策略的最终权限。** 后续[真实UID策略试验](service-policy-kernel-uids.md)已用未改动候选策略/合成BlueZ/libdbus验证unique owner及SCM_RIGHTS数量边界；它仍不是实际BlueZ或Rust GATT跨UID集成。 生产已有 group/user/mandatory 策略顺序也须主线核对。
 
 ## 服务边界和关闭
 
