@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "scope": "explicit public text inputs only",
+  "status": "findings",
+  "input_count": 2,
+  "out_of_scope_count": 0,
+  "scanned": [
+    {
+      "path": "synthetic.txt",
+      "bytes": 278,
+      "sha256": "178796242e7171c294f9a3c64ec3a99f0d560502e5f57b133a5892fd875114a2"
+    },
+    {
+      "path": "public.json",
+      "bytes": 186,
+      "sha256": "49d2d4924128bf2dc4c136b01dc1131ebe2d1c5e4820341a90c58f03e2c2d38c"
+    }
+  ],
+  "findings": [
+    {
+      "rule": "private_key",
+      "path": "synthetic.txt",
+      "line": 1
+    },
+    {
+      "rule": "access_token",
+      "path": "synthetic.txt",
+      "line": 2
+    },
+    {
+      "rule": "secret_literal",
+      "path": "synthetic.txt",
+      "line": 3
+    },
+    {
+      "rule": "wifi_psk",
+      "path": "synthetic.txt",
+      "line": 4
+    },
+    {
+      "rule": "personal_identifier",
+      "path": "synthetic.txt",
+      "line": 5
+    },
+    {
+      "rule": "communication_text",
+      "path": "synthetic.txt",
+      "line": 6
+    },
+    {
+      "rule": "bearer_token",
+      "path": "synthetic.txt",
+      "line": 7
+    }
+  ],
+  "issues": [],
+  "limits": {
+    "files": 1024,
+    "file_bytes": 524288,
+    "total_bytes": 8388608,
+    "seconds": 5,
+    "findings": 256,
+    "line_characters": 16384
+  },
+  "note": "Heuristic findings need review. No findings is not proof of secret-free artifacts; unselected files are not scanned.",
+  "bytes_read": 464,
+  "manifest_sha256": "380b610434589c94aaf6922fdd80b3e172371690eeb0a3dd042950f45e075a1d"
+}

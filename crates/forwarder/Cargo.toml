@@ -21,7 +21,8 @@ uuid = { version = "1", features = ["v4"] }
 zeroize = "1"
 http = "1"
 regex-lite = "=0.1.9"
-time = { version = "0.3.55", features = ["parsing"] }
+time = { version = "0.3.55", features = ["parsing", "formatting"] }
+base64 = "=0.23.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rusqlite = { version = "0.40.2", features = ["bundled", "hooks"] }
