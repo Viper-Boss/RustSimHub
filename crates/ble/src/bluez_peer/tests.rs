@@ -475,3 +475,13 @@ pub(crate) async fn hold_snapshot(bluez: &Connection, hold: bool) {
         state.release.notify_one();
     }
 }
+#[cfg(feature = "bluez-notify-fd")]
+pub(crate) async fn wait_held_snapshot(bluez: &Connection) {
+    let interface = bluez
+        .object_server()
+        .interface::<_, Device>(DEVICE)
+        .await
+        .unwrap();
+    let state = interface.get().await.0.clone();
+    bounded(state.started.notified()).await;
+}

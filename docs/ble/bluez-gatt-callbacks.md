@@ -3,6 +3,7 @@
 2026-10-30，Linux 显式 `bluez-gatt` feature；依赖 bluez-peer 及 control/advertisement。
 这是本地对象和回调部分，尚不是可启动的恢复服务或完整 GattBackendV1。
 没有系统总线连接、密码实现、Core 业务授权、自动注册或通知成功替身。
+额外显式 `bluez-notify-fd` 的真实按peer FD候选见[通知FD](notification-fd.md)，默认关闭。
 
 ## 固定对象和输入
 
@@ -65,8 +66,9 @@ Connected/Adapter invalidation、控制实例/epoch 不符不能复用旧上下�
 排空旧工作，远程清理并关闭专用连接后用新连接/新 epoch 导出。当前尚无生产
 宿主执行完整流程。缺 A 安全端口时不得由此低层 API 启动完整恢复服务。
 
-StartNotify/StopNotify 在核 sender 后明确 NotSupported，Flags 保持冻结接口，
-但未声称通知实现；没有 Value 信号发射、AcquireWrite/AcquireNotify 或缓存旁路。
+StartNotify/StopNotify 在核 sender 后明确 NotSupported。仅显式 bluez-notify-fd
+为AuthExchange/Result加入AcquireNotify/布尔状态属性，不采用共享通知。Flags保持冻结接口，
+无fd feature时仍没有通知实现；所有模式都没有Value信号发射、AcquireWrite或缓存旁路。
 Drop/retire 保留本连接固定路径的退休对象，重复导出 Busy；部分发布失败同样
 退休已建立的回调对象。所有本 epoch 对象与宿主工作结束、远程 unregister 后才
 能 close_connection。局部退休/连接关闭均不证明无线清理或 quiescent。
