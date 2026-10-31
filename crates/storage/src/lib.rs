@@ -22,7 +22,13 @@ enum OpenMode {
     Standard,
     #[cfg(feature = "recovery-grants")]
     Recovery,
+    #[cfg(feature = "recovery-execution")]
+    Execution,
+    #[cfg(feature = "recovery-execution")]
+    ExecutionSource,
 }
+#[cfg(feature = "recovery-execution")]
+mod recovery_execution;
 #[cfg(feature = "recovery-grants")]
 mod recovery_grants;
 #[cfg(feature = "recovery-grants")]
@@ -267,6 +273,8 @@ struct Database {
     // writer fence, including when an unrelated spawn retains an FD copy.
     connection: Connection,
     _lock: WriterLock,
+    #[cfg(feature = "recovery-grants")]
+    mode: OpenMode,
 }
 struct WriterLock(File);
 impl Drop for WriterLock {
@@ -456,7 +464,11 @@ impl Database {
         let supported = match mode {
             OpenMode::Standard => SCHEMA,
             #[cfg(feature = "recovery-grants")]
-            _ => 7,
+            OpenMode::Recovery => 7,
+            #[cfg(feature = "recovery-execution")]
+            OpenMode::Execution => 9,
+            #[cfg(feature = "recovery-execution")]
+            OpenMode::ExecutionSource => 7,
         };
         if version > supported {
             return Err(Error::NewerSchema);
@@ -466,6 +478,16 @@ impl Database {
         #[cfg(feature = "recovery-grants")]
         if mode == OpenMode::Recovery && version != 7 {
             return Err(Error::InvalidTransition);
+        }
+        #[cfg(feature = "recovery-execution")]
+        if (mode == OpenMode::Execution && version != 9)
+            || (mode == OpenMode::ExecutionSource && version != 7)
+        {
+            return Err(if version == 8 {
+                Error::NewerSchema
+            } else {
+                Error::InvalidTransition
+            });
         }
         if restore_marker.exists() && version == 0 {
             return Err(Error::Corrupt);
@@ -492,6 +514,8 @@ impl Database {
         let mut db = Self {
             connection,
             _lock: lock,
+            #[cfg(feature = "recovery-grants")]
+            mode,
         };
         if version == 0 {
             let tx = db.connection.transaction()?;
@@ -529,16 +553,32 @@ impl Database {
         }
 
         #[cfg(feature = "recovery-grants")]
-        if mode != OpenMode::Standard {
+        if mode == OpenMode::Recovery {
             recovery_grants::validate(&db.connection)?;
+        }
+        #[cfg(feature = "recovery-execution")]
+        match mode {
+            OpenMode::Execution => recovery_execution::validate(&db.connection)?,
+            OpenMode::ExecutionSource => recovery_execution::validate_source(&db.connection)?,
+            _ => (),
         }
 
         let restoring = restore_marker.exists();
-        db.recover(restoring)?;
-        db.connection.execute(
-            "UPDATE line_observation SET status='unavailable' WHERE singleton=1",
-            [],
-        )?;
+        #[cfg(feature = "recovery-execution")]
+        let recovery = mode != OpenMode::ExecutionSource;
+        #[cfg(not(feature = "recovery-execution"))]
+        let recovery = true;
+        if recovery {
+            db.recover(restoring)?;
+            #[cfg(feature = "recovery-execution")]
+            if mode == OpenMode::Execution {
+                recovery_execution::recover(&mut db.connection)?;
+            }
+            db.connection.execute(
+                "UPDATE line_observation SET status='unavailable' WHERE singleton=1",
+                [],
+            )?;
+        }
         if restoring {
             fs::remove_file(&restore_marker)?;
             #[cfg(unix)]

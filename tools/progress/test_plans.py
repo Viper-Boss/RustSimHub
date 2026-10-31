@@ -40,7 +40,7 @@ class Plans(unittest.TestCase):
     def test_source_drift_and_unapproved_acceptance_fail(self):
         value=copy.deepcopy(self.data['team']['task_plan']);value['sources'][0]['sha256']='0'*64
         with self.assertRaisesRegex(ValueError,'source changed'):plans.validate(value,self.members,team.ROOT)
-        value=copy.deepcopy(self.data['team']['task_plan']);value['members'][0]['steps'][0]['status']='accepted'
+        value=copy.deepcopy(self.data['team']['task_plan']);next(m for m in value['members'] if m['steps'])['steps'][0]['status']='accepted'
         with self.assertRaisesRegex(ValueError,'accepted'):plans.validate(value,self.members)
 
 

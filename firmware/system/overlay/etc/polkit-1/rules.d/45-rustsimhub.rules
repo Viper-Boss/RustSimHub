@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Hardware authority belongs to the locked Core; network requests remain typed in Rust.
 polkit.addRule(function(action, subject) {
-    var project = ["rustsimhub-core", "rustsimhub-edge", "rustsimhub-media"];
+    var project = ["rustsimhub-core", "rustsimhub-edge", "rustsimhub-media", "rustsimhub-forwarder"];
     if (project.indexOf(subject.user) < 0) { return; }
     var allowed = ["org.freedesktop.ModemManager1.Messaging",
                    "org.freedesktop.ModemManager1.Voice",

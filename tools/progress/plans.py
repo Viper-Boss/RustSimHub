@@ -55,7 +55,7 @@ def parse_document(text, source, wanted, allowed):
             continue
         # T5 specifies several concrete steps in one owner row; retain its
         # package-level acceptance and project scope rather than inventing it.
-        if not re.match(r'^(fungi1220|wnfhsj|yh1030|RedamancyGTW) / ', cells[0]):
+        if not re.match(r'^[A-Za-z0-9][A-Za-z0-9-]{0,38} / ', cells[0]):
             continue
         matches = list(re.finditer(r'([A-D]-\d{2})：', cells[1]))
         if not matches:

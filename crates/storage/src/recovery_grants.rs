@@ -98,8 +98,22 @@ fn lookup(conn: &Connection, key: [u8; 32]) -> Result<Option<RecoveryGrant>> {
     }
     Ok(value)
 }
+pub(super) fn require_database(db: &Database) -> Result<()> {
+    let version = db
+        .connection
+        .pragma_query_value::<i64, _>(None, "user_version", |r| r.get(0))?;
+    match (db.mode, version) {
+        (OpenMode::Recovery, 7) => Ok(()),
+        #[cfg(feature = "recovery-execution")]
+        (OpenMode::Execution, 9) => Ok(()),
+        _ => Err(Error::InvalidTransition),
+    }
+}
 pub(super) fn validate(conn: &Connection) -> Result<()> {
     require_schema(conn)?;
+    validate_catalog(conn)
+}
+pub(super) fn validate_catalog(conn: &Connection) -> Result<()> {
     // Compare actual constraints, STRICT flags, indices and foreign keys to the exact DDL.
     let expected = Connection::open_in_memory()?;
     expected.execute_batch(DDL)?;
@@ -223,7 +237,9 @@ impl Store {
         let backup = backup.as_ref().to_owned();
         store.handle.call(move |db| {
             db.backup(&backup)?;
-            migrate(&mut db.connection)
+            migrate(&mut db.connection)?;
+            db.mode = OpenMode::Recovery;
+            Ok(())
         })?;
         Ok(store)
     }
@@ -247,8 +263,8 @@ impl Handle {
     /// A historical grant-management receipt is never sufficient authority.
     pub fn check_recovery_grant(&self, expected: RecoveryGrant) -> Result<RecoveryGrant> {
         self.call(move |db| {
+            require_database(db)?;
             let tx = db.connection.transaction()?;
-            require_schema(&tx)?;
             let current = lookup(&tx, expected.independent_public_key)?
                 .ok_or(Error::Forbidden)?;
             let (realm, pin) = context(&tx)?;
@@ -277,7 +293,7 @@ impl Handle {
             {
                 return Ok(());
             }
-            require_schema(&db.connection)?;
+            require_database(db)?;
             let (.., pin) = context(&db.connection)?;
             let keys = db
                 .connection
@@ -296,7 +312,7 @@ impl Handle {
     }
     pub fn recovery_grant(&self, owner: Principal, key: [u8; 32]) -> Result<Option<RecoveryGrant>> {
         self.call(move |db| {
-            require_schema(&db.connection)?;
+            require_database(db)?;
             auth::checked_owner(&db.connection, &owner)?;
             lookup(&db.connection, key)
         })
@@ -310,7 +326,7 @@ impl Handle {
             return Err(Error::InvalidInput);
         }
         self.call(move |db| {
-            require_schema(&db.connection)?;
+            require_database(db)?;
             auth::checked_owner(&db.connection, &owner)?;
             let (realm, _) = context(&db.connection)?;
             let json: Option<String> = db.connection.query_row("SELECT result FROM recovery_grant_receipts WHERE realm=? AND owner_id=? AND request_id=?",
@@ -333,7 +349,7 @@ impl Handle {
             return Err(Error::InvalidInput);
         }
         self.call(move |db| {
-            require_schema(&db.connection)?;
+            require_database(db)?;
             let tx = db.connection.transaction()?;
             auth::checked_owner(&tx, &owner)?;
             let (realm, pin) = context(&tx)?;
