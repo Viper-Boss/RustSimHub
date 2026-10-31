@@ -2,3 +2,4 @@
 // Node entrypoint; the browser suite additionally tests actual IndexedDB/ServiceWorker.
 await import('../configurator/tests/controller.mjs');
 await import('../configurator/tests/cancel.mjs');
+await import('../configurator/tests/static-update.mjs');

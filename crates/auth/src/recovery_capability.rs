@@ -116,6 +116,21 @@ pub struct RecoveryConnection {
     instance: String,
     nonce: [u8; 32],
     transport: [u8; 32],
+    live: Arc<AtomicBool>,
+}
+impl RecoveryConnection {
+    /// Trusted host cancellation/disconnect fence. No Auth mutex or cleanup claim.
+    pub fn invalidate(&self) {
+        self.live.store(false, Ordering::Release);
+    }
+    pub fn is_live(&self) -> bool {
+        self.live.load(Ordering::Acquire)
+    }
+}
+impl Drop for RecoveryConnection {
+    fn drop(&mut self) {
+        self.invalidate();
+    }
 }
 struct Session {
     binding: RecoveryProofBinding,
@@ -128,6 +143,12 @@ struct Connection {
     transport: [u8; 32],
     session: Option<Session>,
     attempts: usize,
+    live: Arc<AtomicBool>,
+}
+impl Drop for Connection {
+    fn drop(&mut self) {
+        self.live.store(false, Ordering::Release);
+    }
 }
 #[derive(Default)]
 pub(crate) struct State {
@@ -233,7 +254,18 @@ impl Auth {
         if self.recovery.verifier.is_none() || transport == [0; 32] {
             return Err(Error::Forbidden);
         }
-        if self.recovery.busy.load(Ordering::Acquire) || self.recovery.connection.is_some() {
+        if self.recovery.busy.load(Ordering::Acquire) {
+            return Err(Error::Busy);
+        }
+        if self
+            .recovery
+            .connection
+            .as_ref()
+            .is_some_and(|c| !c.live.load(Ordering::Acquire))
+        {
+            self.recovery.connection = None;
+        }
+        if self.recovery.connection.is_some() {
             return Err(Error::Busy);
         }
         let mut nonce = [0; 32];
@@ -241,16 +273,19 @@ impl Auth {
         if nonce == [0; 32] {
             return Err(Error::Entropy);
         }
+        let live = Arc::new(AtomicBool::new(true));
         self.recovery.connection = Some(Connection {
             nonce,
             transport,
             session: None,
             attempts: 0,
+            live: live.clone(),
         });
         Ok(RecoveryConnection {
             instance: self.instance.clone(),
             nonce,
             transport,
+            live,
         })
     }
     fn recovery_connection(&self, token: &RecoveryConnection) -> Result<&Connection> {
@@ -260,7 +295,11 @@ impl Auth {
         self.recovery
             .connection
             .as_ref()
-            .filter(|c| c.nonce == token.nonce && c.transport == token.transport)
+            .filter(|c| {
+                c.nonce == token.nonce
+                    && c.transport == token.transport
+                    && c.live.load(Ordering::Acquire)
+            })
             .ok_or(Error::Forbidden)
     }
     pub fn close_recovery_connection(&mut self, token: &RecoveryConnection) -> Result<()> {
@@ -310,6 +349,7 @@ impl Auth {
                 return Err(Error::Busy);
             }
         }
+        self.recovery_connection(token)?;
         self.recovery
             .busy
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
@@ -353,6 +393,7 @@ impl Auth {
             return Err(Error::Forbidden);
         }
         self.store.check_recovery_grant(binding.grant.clone())?;
+        self.recovery_connection(token)?;
         let deadline = result.started + verified.valid_for;
         let now = Instant::now();
         if now >= deadline || now >= result.started + PROOF_TTL {
@@ -411,13 +452,17 @@ impl Auth {
         {
             return Err(Error::Forbidden);
         }
-        let session = self
+        let connection = self
             .recovery
             .connection
             .as_ref()
-            .filter(|c| c.nonce == cap.binding.connection && c.transport == cap.binding.transport)
-            .and_then(|c| c.session.as_ref())
+            .filter(|c| {
+                c.nonce == cap.binding.connection
+                    && c.transport == cap.binding.transport
+                    && c.live.load(Ordering::Acquire)
+            })
             .ok_or(Error::Forbidden)?;
+        let session = connection.session.as_ref().ok_or(Error::Forbidden)?;
         if session.binding != cap.binding
             || session.id != cap.session
             || !session.requests.contains(&cap.request)
@@ -428,6 +473,9 @@ impl Auth {
             return Err(Error::Expired);
         }
         self.store.check_recovery_grant(cap.binding.grant.clone())?;
+        if !connection.live.load(Ordering::Acquire) {
+            return Err(Error::Forbidden);
+        }
         if Instant::now() >= cap.deadline || Instant::now() >= session.deadline {
             return Err(Error::Expired);
         }

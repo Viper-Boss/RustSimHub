@@ -1907,7 +1907,13 @@ dependencies = [
 name = "rustsimhub-ble"
 version = "0.1.0"
 dependencies = [
+ "futures-lite",
+ "libc",
  "serde_json",
+ "socket2",
+ "tempfile",
+ "tokio",
+ "zbus",
 ]
 
 [[package]]
@@ -2020,6 +2026,7 @@ dependencies = [
 name = "rustsimhub-forwarder"
 version = "0.1.0"
 dependencies = [
+ "base64 0.23.1",
  "ed25519-dalek",
  "fs2",
  "getrandom 0.4.3",
@@ -2082,6 +2089,10 @@ dependencies = [
  "tempfile",
  "time",
 ]
+
+[[package]]
+name = "rustsimhub-nkn-agent"
+version = "0.1.0"
 
 [[package]]
 name = "rustsimhub-policy"
@@ -2161,6 +2172,21 @@ dependencies = [
  "rustsimhub-core-launcher",
  "rustsimhub-forwarder",
  "rustsimhub-storage",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "zeroize",
+]
+
+[[package]]
+name = "rustsimhub-usage-stats"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "fs2",
+ "getrandom 0.4.3",
+ "rustix",
  "serde",
  "serde_json",
  "sha2 0.10.9",

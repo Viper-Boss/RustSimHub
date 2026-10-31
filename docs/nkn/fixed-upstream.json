@@ -1,0 +1,146 @@
+{
+  "schema": 1,
+  "repository": "Viper-Boss/nknguard",
+  "commit": "c32952d7586676fec10f71a30b22969cb24881f3",
+  "files": [
+    {
+      "path": "LICENSE",
+      "git_blob": "0c97efd25b5974b974ed9a8a18207bc4f55bb338",
+      "sha256": "d8a6cc31abc16b6748c7a21f21611f5a1ec33f67d22ca23d7da1c19b95496bee",
+      "bytes": 34020
+    },
+    {
+      "path": "go.mod",
+      "git_blob": "b1fef47ca70c2d4a82afe6e59657f1c1478ceba1",
+      "sha256": "e7be6b0a3492429c523a5d10f14a7846e609042440b60745d123c70d11845ecb",
+      "bytes": 6804
+    },
+    {
+      "path": "go.sum",
+      "git_blob": "c27d9e284ba60e15357d5a863c17e19ca80d3a8c",
+      "sha256": "94356899e416b0bad0d1c5335736d2e1d18259105b2c3518818458891608d850",
+      "bytes": 36169
+    },
+    {
+      "path": "pkg/nknclient/client.go",
+      "git_blob": "90fec52178031f49b5d8479fda0b89520f4d9459",
+      "sha256": "2ad2d0223023b4ebd9078835c3ef6bdfecd594908c67a3b7968e8aef68ad9986",
+      "bytes": 5323
+    },
+    {
+      "path": "pkg/nknclient/status.go",
+      "git_blob": "f7a724b92cd3aeae648bc323bbc62c9a52599d62",
+      "sha256": "52ab5c0225cc2980bc984621e96e80e6cd2e986ff0bff2226b261094e8e723fd",
+      "bytes": 692
+    },
+    {
+      "path": "pkg/discovery/dht/dht.go",
+      "git_blob": "c503789f60c65fff7e571044d3b9092cf27a9c22",
+      "sha256": "8c8c4ba3509b72a39da822332b16ebc705fe5ef552d4fef0fd52ced4ef512fcc",
+      "bytes": 15384
+    },
+    {
+      "path": "pkg/discovery/dht/signaling.go",
+      "git_blob": "0549f87fefd764901dde158d11bd4faafabd2a5a",
+      "sha256": "074c19cb1efe714fc57be27a5fc9fa294edbde36e0eecf7a89dab915e53c7412",
+      "bytes": 3279
+    },
+    {
+      "path": "pkg/membership/membership.go",
+      "git_blob": "666d5693ac28e37a1119a35a38b1a666132af2f6",
+      "sha256": "5529a125df3b0400a187eb9570c127697a6215cd12ac6fa93fe439395356cfd9",
+      "bytes": 5484
+    },
+    {
+      "path": "pkg/identity/identity.go",
+      "git_blob": "280731b21bd9ef2f1d288af0071d232b354a27a3",
+      "sha256": "a990b7b711bf821f90a200b54f2e933843838d4e276bc3d52b5760867299a7c1",
+      "bytes": 7357
+    },
+    {
+      "path": "pkg/protocol/types.go",
+      "git_blob": "71b444e747aea7b0cc607a8f45d2a8e3156b913f",
+      "sha256": "6417cc0ca1f1c02ced0cc5a85edadb1d1416add1c5efc4faa5152d4e2a8749ee",
+      "bytes": 5418
+    },
+    {
+      "path": "pkg/protocol/envelope.go",
+      "git_blob": "91e2629dcc0a01c8974e6d13d27f4faf7734adec",
+      "sha256": "364a0c20403059f01b8656bc0476359a71de0c84e22449c267d3e204fe899b96",
+      "bytes": 6423
+    },
+    {
+      "path": "pkg/signaling/nknsignal/nknsignal.go",
+      "git_blob": "869a62ca5a6e75018ecda7a4cfbc875fdac5c40a",
+      "sha256": "1b0fe5454b1f18d636b067a24d5e18cf1400e0ba34a2e47694c7512b3ad3365a",
+      "bytes": 5075
+    },
+    {
+      "path": "pkg/wireguard/manager.go",
+      "git_blob": "4bf7f5eb62663fa9bf2573ceca94c8f04621b3b6",
+      "sha256": "13e49acd6bd04d7e53922365c5a5dc2062e8a6349e4d0af6093d457d50b2d05d",
+      "bytes": 5344
+    },
+    {
+      "path": "pkg/wireguard/userspace/userspace.go",
+      "git_blob": "d59919794ee713141aa89c973d48f86e73c56f61",
+      "sha256": "231c202dbedd7d0121eb91a1d39bc9d6f12acee7c2f8b2fe9aa7884cba267914",
+      "bytes": 12815
+    },
+    {
+      "path": "pkg/usagestats/usagestats.go",
+      "git_blob": "349727cc45d30e57bbba49ade7ddc3e0f2fe5cb7",
+      "sha256": "83caf764410e242e397c0883a257064db3c6ff8fc4690de04e463a0d9a6d58e8",
+      "bytes": 12355
+    },
+    {
+      "path": "pkg/usagestats/chain_nkn.go",
+      "git_blob": "4f22b8b5c39017c964b3018d6a38ff8bc42a235c",
+      "sha256": "aee561a98c5244d2088aaf91253746e177087a625a26919789583abc98ab688f",
+      "bytes": 2522
+    },
+    {
+      "path": "internal/app/backends_nkn.go",
+      "git_blob": "05c9096941041ff028cb927bd5bdf67adfbcd098",
+      "sha256": "ee6072fc783788cabe6195dba4f0a507f0368559f0716e3e7a2f2f94d7728d26",
+      "bytes": 1930
+    },
+    {
+      "path": "internal/app/backends_dht.go",
+      "git_blob": "7267d7ce8be43390c575d636c369bd51ee286f7c",
+      "sha256": "4b051ae03e880e8962a45c86298daf9239e9fa75f28a5d8b60afb697b86d4377",
+      "bytes": 1408
+    },
+    {
+      "path": "android/core/main.go",
+      "git_blob": "7b5d874ace4605ef08adf8d684cb88c439d48240",
+      "sha256": "5a827efab2c5ff173280967e00ec0170d5e3786f3072dc05841595417accc846",
+      "bytes": 3413
+    },
+    {
+      "path": "third_party/nkn-sdk-go/LICENSE",
+      "git_blob": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "bytes": 11357
+    },
+    {
+      "path": "third_party/nkn-sdk-go/go.mod",
+      "git_blob": "853bb97e6bbe5f9c33629288467fe0e503f79523",
+      "sha256": "403a5e350921c82528e0bb5fdc7da74e55dfd3f9ef03b0337c22a270d2b15a5d",
+      "bytes": 1924
+    },
+    {
+      "path": "third_party/ncp-go/LICENSE",
+      "git_blob": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "bytes": 11357
+    },
+    {
+      "path": "third_party/ncp-go/go.mod",
+      "git_blob": "ce38a84aa0e54c6e0ad0f7ef57aaa955ea6fa0ec",
+      "sha256": "2b0e9fb88d96d447a28aea08cff9e96328b70004e391391c7e17c9ccfa0a4458",
+      "bytes": 225
+    }
+  ],
+  "execution": "read-only; no upstream program or network backend executed"
+}
