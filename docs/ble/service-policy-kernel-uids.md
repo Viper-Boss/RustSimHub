@@ -40,3 +40,5 @@ setup 创建临时目录/配置后让给 daemon UID；退出用同 UID 的有限
 测试方法的正文故意使用合成字符串，元数据 signal 使用合成空体，隔离验证**消息头权限、身份和 FD 数量**。这不是实际 BlueZ、标准 AcquireNotify a{sv}/hq 正文、Rust GATT 服务、A 安全会话、设备/NSS/Root 安装或 RF/ARM/cgroup预算验收。真实 Rust 的 FD/peer 测试在 #122；不能把两组各自通过等同于它们已在两个 UID 间集成。生产组合系统策略、role/UID、实际 daemon/host 和缺硬件/停止清理仍待审核/集成。
 
 原来的单 UID broker 16项结果保持；本试验补掉其中“未跨 UID/未真实FD许可”的部分缺口，不修改原报告的历史命令或声称 D24 全部完成。仍21/26离线包已提交、剩5步，固定P0–P7约80%。
+
+后续[真实Rust GATT跨UID集成试验](gatt-policy-integration.md)已将原策略与产品GattExport/PeerLease/标准a{sv}→hq及实际收包/断连EOF放在同一容器运行；该试验仍无实际BlueZ/HCI/A密码/Core业务验收。本报告的历史头策略实验及限制保持。

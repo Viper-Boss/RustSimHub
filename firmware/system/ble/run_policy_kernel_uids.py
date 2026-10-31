@@ -14,13 +14,15 @@ import uuid
 IMAGE = 'python@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb'
 MATERIAL = Path(__file__).resolve().parent
 PROJECT = MATERIAL.parents[2]
-WORK = PROJECT/'work/ble-policy-kernel-uids'
+
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--pull',action='store_true',help='explicitly pull the pinned public image')
+    parser.add_argument('--rust-gatt',action='store_true',help='build and run actual Rust GATT roles with standard D-Bus bodies')
     args=parser.parse_args()
+    work=PROJECT/('work/gatt-policy-integration' if args.rust_gatt else 'work/ble-policy-kernel-uids')
     # Linux x86_64 host libraries are used only as public fixture input. ldd
     # inspects this fixed trusted OS binary, never arbitrary user executables.
     daemon=Path('/usr/bin/dbus-daemon')
@@ -33,8 +35,8 @@ def main():
     subprocess.run(docker+['info','--format','{{.ServerVersion}}'],env=environment,check=True)
     if args.pull:subprocess.run(docker+['pull',IMAGE],env=environment,check=True)
     subprocess.run(docker+['image','inspect',IMAGE,'--format','{{.Id}}'],env=environment,check=True)
-    WORK.mkdir(parents=True,exist_ok=True)
-    stage=WORK/('input-'+uuid.uuid4().hex[:12]);stage.mkdir(mode=0o755);stage.chmod(0o755)
+    work.mkdir(parents=True,exist_ok=True)
+    stage=work/('input-'+uuid.uuid4().hex[:12]);stage.mkdir(mode=0o755);stage.chmod(0o755)
     libs=stage/'lib';libs.mkdir(mode=0o755);libs.chmod(0o755)
     listing=subprocess.check_output(['ldd',str(daemon)],text=True)
     if 'not found' in listing:raise SystemExit('missing host fixture libraries')
@@ -52,6 +54,17 @@ def main():
     (stage/'passwd').write_text(''.join(f'{name}:x:{uid}:{uid}::/nonexistent:/usr/sbin/nologin\n' for name,uid in roles))
     (stage/'group').write_text(''.join(f'{name}:x:{uid}:\n' for name,uid in roles))
     for name in ['passwd','group']:(stage/name).chmod(0o644)
+    if args.rust_gatt:
+        with (work/'build.jsonl').open('w') as output, (work/'build.log').open('w') as errors:
+            subprocess.run(['cargo','test','-p','rustsimhub-ble','--test','gatt_kernel_uid',
+                '--features','bluez-notify-fd','--no-run','--locked','--offline','--message-format=json'],
+                cwd=PROJECT,stdout=output,stderr=errors,check=True)
+        rows=[json.loads(line) for line in (work/'build.jsonl').read_text().splitlines()]
+        binary=next(row['executable'] for row in rows if row.get('reason')=='compiler-artifact'
+                    and row.get('target',{}).get('name')=='gatt_kernel_uid')
+        shutil.copyfile(binary,stage/'gatt_kernel_uid');(stage/'gatt_kernel_uid').chmod(0o755)
+        shutil.copyfile(MATERIAL/'fixtures/rust_gatt_scenario.py',stage/'rust_scenario.py')
+        (stage/'rust_scenario.py').chmod(0o644)
     inputs={str(path.relative_to(stage)):hashlib.sha256(path.read_bytes()).hexdigest()
             for path in sorted(stage.rglob('*')) if path.is_file()}
     container='rustsimhub-policy-uids-'+uuid.uuid4().hex[:12]
@@ -64,22 +77,27 @@ def main():
         '--mount',f'type=bind,src={stage}/group,dst=/etc/group,readonly',
         '--env','LD_LIBRARY_PATH=/input/lib',IMAGE,'python3','-B','/input/fixture.py']
     try:
-        with (WORK/'container.log').open('w') as output:
+        with (work/'container.log').open('w') as output:
             subprocess.run(command,env=environment,stdout=output,stderr=subprocess.STDOUT,check=True,timeout=30)
     finally:
         subprocess.run(docker+['rm','-f',container],env=environment,stdout=subprocess.DEVNULL,
                        stderr=subprocess.DEVNULL,check=False)
-    log=(WORK/'container.log').read_text()
+    log=(work/'container.log').read_text()
     expected=['one_fd_unique_owner_allowed','two_fds_blocked','wrong_path_denied',
               'wrong_characteristic_denied','wrong_member_denied',
               'incoming_fd_denied','signal_value_denied','signal_metadata_allowed','foreign_uid_denied']
-    for case in expected:assert log.count('POLICY_CASE '+case+'\n')==1,case
+    if args.rust_gatt:
+        for marker in ['GATT_FOREIGN_DENIED','GATT_ACQUIRED','GATT_PACKETS','GATT_WRITE_ACK','GATT_FENCED','GATT_FDS_CLOSED']:
+            assert log.count(marker)==1,marker
+        assert log.count('1 passed; 0 failed')==3,'all three actual Rust role tests required'
+    else:
+        for case in expected:assert log.count('POLICY_CASE '+case+'\n')==1,case
     result=json.loads(next(line for line in log.splitlines() if line.startswith('{"fixture":')))
     result.update(image=IMAGE,input_sha256=inputs,
         source_head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=PROJECT,text=True).strip(),
         tracked_dirty=bool(subprocess.check_output(['git','status','--porcelain','--untracked-files=no'],cwd=PROJECT,text=True).strip()),
-        log_sha256=hashlib.sha256((WORK/'container.log').read_bytes()).hexdigest())
-    (WORK/'result.json').write_text(json.dumps(result,indent=2)+'\n')
+        log_sha256=hashlib.sha256((work/'container.log').read_bytes()).hexdigest())
+    (work/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(result,sort_keys=True))
 
 

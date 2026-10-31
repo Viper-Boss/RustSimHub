@@ -255,6 +255,9 @@ def main():
                     child=subprocess.Popen([sys.executable,'/input/fixture.py','role',mode,address,*args],
                         stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,preexec_fn=as_uid(uid))
                     processes.append((child,uid));return child
+                if Path('/input/gatt_kernel_uid').is_file():
+                    import rust_scenario
+                    return rust_scenario.run(address,processes,as_uid)
                 ble=launch('ble',1002)
                 ready,_,_=select.select([ble.stdout],[],[],3);assert ready,'BLE Hello deadline'
                 unique=ble.stdout.readline().strip();assert unique.startswith(':'),ble.stderr.read(4096)
@@ -275,6 +278,10 @@ def main():
                     if process.poll() is None: stop(process,uid,15)
                     try: process.wait(timeout=2)
                     except subprocess.TimeoutExpired: stop(process,uid,9);process.wait(timeout=2)
+                    if process.stderr and not process.stderr.closed:
+                        diagnostic=process.stderr.read(8192)
+                        if isinstance(diagnostic,bytes):diagnostic=diagnostic.decode('utf8','replace')
+                        if diagnostic:print(f'FIXTURE_UID_{uid}_STDERR\n'+diagnostic,flush=True)
                     for stream in [process.stdout,process.stderr]:
                         if stream:stream.close()
                 # Fixed fixture daemon diagnostics only, bounded/no production
