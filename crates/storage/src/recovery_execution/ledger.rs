@@ -6,6 +6,8 @@ use std::sync::{
     Arc,
 };
 use std::time::Instant;
+mod observations;
+pub use observations::{RecoveryExecutionCompletion, RecoveryExecutionProgress};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RecoveryExecutionAction {
@@ -362,6 +364,22 @@ impl Handle {
         input: TrustedRecoveryExecution,
         claim: &StorageRecoveryExecutionClaim,
     ) -> Result<()> {
+        self.check_execution_claim(input, claim, false)
+    }
+    /// Initial derivation only. A progressed claim cannot mint a fresh trial window.
+    pub fn check_recovery_execution_start_from_trusted_auth(
+        &self,
+        input: TrustedRecoveryExecution,
+        claim: &StorageRecoveryExecutionClaim,
+    ) -> Result<()> {
+        self.check_execution_claim(input, claim, true)
+    }
+    fn check_execution_claim(
+        &self,
+        input: TrustedRecoveryExecution,
+        claim: &StorageRecoveryExecutionClaim,
+        start: bool,
+    ) -> Result<()> {
         if !matches(&claim.receipt.0, &input) {
             return Err(Error::Forbidden);
         }
@@ -372,7 +390,14 @@ impl Handle {
             let tx = db.connection.transaction()?;
             recovery_grants::check_current(&tx, &input.grant)?;
             let receipt = lookup(&tx, &input.grant, &input.request)?.ok_or(Error::NotFound)?;
-            if !matches(&receipt, &input) || receipt.state != "claimed" || receipt.trial != trial {
+            if !matches(&receipt, &input)
+                || receipt.trial != trial
+                || if start {
+                    receipt.state != "claimed"
+                } else {
+                    !observations::active_claim(&receipt)
+                }
+            {
                 return Err(Error::Forbidden);
             }
             input.fence.check()?;

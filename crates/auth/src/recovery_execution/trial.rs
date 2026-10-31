@@ -10,6 +10,9 @@ pub struct RecoveryTrialAuthority {
     deadline: Instant,
 }
 impl RecoveryTrialAuthority {
+    pub(super) fn begin_claim(&self) -> &RecoveryExecutionClaim {
+        &self.begin
+    }
     pub fn trial_id(&self) -> &str {
         self.begin
             .receipt()
@@ -40,6 +43,18 @@ pub struct RecoveryTrialControl {
     begin_request: String,
 }
 impl RecoveryTrialControl {
+    pub(super) fn claim(&self) -> &RecoveryExecutionClaim {
+        &self.claim
+    }
+    pub(super) fn belongs_to(&self, trial: &RecoveryTrialAuthority) -> bool {
+        self.begin_request == trial.request_id()
+            && self.claim.request().target_trial() == Some(trial.trial_id())
+            && self
+                .claim
+                .request()
+                .capability()
+                .same_execution_session(trial.begin.request().capability())
+    }
     pub fn action(&self) -> RecoveryAction {
         self.claim.request().action()
     }
@@ -55,7 +70,7 @@ impl Auth {
         if begin.request().action() != RecoveryAction::BeginWifi {
             return Err(Error::InvalidInput);
         }
-        self.check_recovery_execution_claim(&begin)?;
+        self.check_recovery_execution_start(&begin)?;
         let limit =
             Duration::from_millis(u64::from(begin.request().grant().max_trial_ms)).min(MAX_TRIAL);
         let deadline =

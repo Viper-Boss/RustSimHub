@@ -13,6 +13,7 @@ mod ledger;
 pub use ledger::{RecoveryExecutionAdmission, RecoveryExecutionClaim, RecoveryExecutionPending};
 mod trial;
 pub use trial::{RecoveryTrialAuthority, RecoveryTrialControl};
+mod observations;
 /// Auth-minted preparation, not a durable execution permit. The verified body
 /// stays in the original Zeroizing allocation; no Debug/Clone/Serde constructor.
 pub struct RecoveryExecutionRequest {
