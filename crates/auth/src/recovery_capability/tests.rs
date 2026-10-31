@@ -595,3 +595,5 @@ fn verifier_error_drops_work_permit_without_minting_a_session() {
         )
         .unwrap();
 }
+
+mod lifecycle;
