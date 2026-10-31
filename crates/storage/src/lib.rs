@@ -31,6 +31,12 @@ enum OpenMode {
 mod recovery_execution;
 #[cfg(feature = "recovery-grants")]
 mod recovery_grants;
+#[cfg(feature = "recovery-execution")]
+pub use recovery_execution::ledger::{
+    RecoveryExecutionAction, RecoveryExecutionFence, RecoveryExecutionReceipt,
+    RecoveryExecutionReservation, RecoveryExecutionState, StorageRecoveryExecutionClaim,
+    StorageRecoveryExecutionReservation, TrustedRecoveryExecution,
+};
 #[cfg(feature = "recovery-grants")]
 pub use recovery_grants::{RecoveryChange, RecoveryGrant};
 mod auth;

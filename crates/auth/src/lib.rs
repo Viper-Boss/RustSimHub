@@ -10,7 +10,10 @@ mod recovery_execution;
 #[cfg(feature = "recovery-grants")]
 mod recovery_grants;
 #[cfg(feature = "recovery-execution")]
-pub use recovery_execution::RecoveryExecutionRequest;
+pub use recovery_execution::{
+    RecoveryExecutionAdmission, RecoveryExecutionClaim, RecoveryExecutionPending,
+    RecoveryExecutionRequest,
+};
 mod setup;
 pub use client::{ClientKey, ProofExpectation};
 use ed25519_dalek::{Signature, VerifyingKey};

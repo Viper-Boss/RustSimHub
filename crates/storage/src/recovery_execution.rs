@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-//! Explicit schema9 admission only. No request dispatch, claim, fingerprint key
-//! derivation or authorization port is supplied by this module.
+//! Explicit schema9 admission and trusted writer-side execution ledger.
+//! Network authentication and business effects remain outside Storage.
 use super::*;
+pub(super) mod ledger;
 const DDL: &str = include_str!("recovery-execution.sql");
 const GRANTS: &str = include_str!("recovery-grants.sql");
 const MAX_GENERATION: i64 = i64::MAX - 1;

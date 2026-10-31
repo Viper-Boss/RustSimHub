@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Local persistent dedupe commitment. No new secure-session primitive, wire
-//! API, request writer, claim, or permission to call the network backend.
+//! API or permission to call the network backend without its existing gates.
 use crate::{
     recovery_capability::{AuthorizedRecoveryRequest, RecoveryAction, RecoveryCapability},
     Auth, Error, Result,
@@ -9,6 +9,8 @@ use hmac::{Hmac, Mac};
 use rustsimhub_storage::RecoveryGrant;
 use sha2::Sha256;
 const REQUEST_DOMAIN: &[u8] = b"RustSimHub.RecoveryExecution.Request.v2\0";
+mod ledger;
+pub use ledger::{RecoveryExecutionAdmission, RecoveryExecutionClaim, RecoveryExecutionPending};
 /// Auth-minted preparation, not a durable execution permit. The verified body
 /// stays in the original Zeroizing allocation; no Debug/Clone/Serde constructor.
 pub struct RecoveryExecutionRequest {
