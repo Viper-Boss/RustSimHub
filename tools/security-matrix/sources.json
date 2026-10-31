@@ -1,0 +1,189 @@
+{
+  "schema": 1,
+  "files": [
+    {
+      "kind": "unit",
+      "path": "firmware/system/overlay/etc/systemd/system/rustsimhub-core.service",
+      "sha256": "b2693003d55cc863fbdd915d12faedfbc405e88fa29d2d3f8af3b9d6895c7533",
+      "profile": {
+        "identity": "rustsimhub-core",
+        "capabilities": [],
+        "families": [
+          "AF_UNIX"
+        ],
+        "credentials": []
+      }
+    },
+    {
+      "kind": "unit",
+      "path": "firmware/system/overlay/etc/systemd/system/rustsimhub-edge.service",
+      "sha256": "05bb91ab7938dde6bb36f301dea4a3bfc3df27e8130234a22e7d41eddf36dec0",
+      "profile": {
+        "identity": "rustsimhub-edge",
+        "capabilities": [],
+        "families": [
+          "AF_UNIX",
+          "AF_INET",
+          "AF_INET6"
+        ],
+        "credentials": []
+      }
+    },
+    {
+      "kind": "unit",
+      "path": "firmware/system/overlay/etc/systemd/system/rustsimhub-media.service",
+      "sha256": "315b5fec9137308f676b678682adda9efb62e81621210c43c1718751660b7ff2",
+      "profile": {
+        "identity": "rustsimhub-media",
+        "capabilities": [],
+        "families": [
+          "AF_UNIX",
+          "AF_INET"
+        ],
+        "credentials": []
+      }
+    },
+    {
+      "kind": "unit",
+      "path": "firmware/system/overlay/etc/systemd/system/rustsimhub-network-agent.service",
+      "sha256": "286d510d75db7201eab526d3b3f5b580ccde5891d6dae810b2fe9aa26bc7a58c",
+      "profile": {
+        "identity": "root",
+        "capabilities": [
+          "CAP_NET_ADMIN"
+        ],
+        "families": [
+          "AF_UNIX",
+          "AF_NETLINK"
+        ],
+        "credentials": []
+      }
+    },
+    {
+      "kind": "unit",
+      "path": "firmware/system/overlay/etc/systemd/system/rustsimhub-mdns.service",
+      "sha256": "96d9782a1b3de5bda70ba326f07835c4b9a97408c542ac6cafda61088f8fc292",
+      "profile": {
+        "identity": "dynamic",
+        "capabilities": [],
+        "families": [
+          "AF_INET"
+        ],
+        "credentials": []
+      }
+    },
+    {
+      "kind": "unit",
+      "path": "firmware/system/overlay/etc/systemd/system/rustsimhub-app-select.service",
+      "sha256": "110ac9a369174aa46d64aa9efbd03404e55ce8feb89308f097e4c938e5910c6b",
+      "profile": {
+        "identity": "default_root",
+        "capabilities": [
+          "CAP_DAC_READ_SEARCH"
+        ],
+        "families": null,
+        "credentials": []
+      }
+    },
+    {
+      "kind": "unit",
+      "path": "firmware/system/overlay/etc/systemd/system/rustsimhub-app-recover.service",
+      "sha256": "50bf3949bcabae3f5a9435bac7903a35a59b5e6d5b014e1946fae41badb96199",
+      "profile": {
+        "identity": "default_root",
+        "capabilities": [],
+        "families": null,
+        "credentials": []
+      }
+    },
+    {
+      "kind": "unit",
+      "path": "firmware/system/setup-ap/rustsimhub-setup-ap.service",
+      "sha256": "def5a311b4858993b6045c04c44d9545dbf0a99f51548ea823d4952548aa3373",
+      "profile": {
+        "identity": "root",
+        "capabilities": [
+          "CAP_NET_ADMIN"
+        ],
+        "families": [
+          "AF_UNIX",
+          "AF_INET",
+          "AF_NETLINK"
+        ],
+        "credentials": []
+      }
+    },
+    {
+      "kind": "unit",
+      "path": "firmware/system/setup-ap/rustsimhub-setup-edge.service",
+      "sha256": "26f557334c3b691ebe4948a31f45545dad83fd4151d3921961f0fcd59bcb6b4f",
+      "profile": {
+        "identity": "rustsimhub-edge",
+        "capabilities": [],
+        "families": [
+          "AF_UNIX",
+          "AF_INET"
+        ],
+        "credentials": []
+      }
+    },
+    {
+      "kind": "unit",
+      "path": "firmware/system/forwarding/rustsimhub-forwarder.service",
+      "sha256": "8740992e6f4d59db33c6d461ead793fc0032091072be4222756ae6ebba600f25",
+      "profile": {
+        "identity": "rustsimhub-forwarder",
+        "capabilities": [],
+        "families": [
+          "AF_UNIX",
+          "AF_INET",
+          "AF_INET6"
+        ],
+        "credentials": [
+          "forwarding.json:/run/rustsimhub-forwarding/settings.json"
+        ]
+      }
+    },
+    {
+      "kind": "unit",
+      "path": "firmware/system/forwarding/rustsimhub-forwarder-reconcile.service",
+      "sha256": "624539bdbdce3066c3d4da685ef0749267684af7320c6997c06dd509ce5d88f0",
+      "profile": {
+        "identity": "root",
+        "capabilities": [],
+        "families": [
+          "AF_UNIX"
+        ],
+        "credentials": []
+      }
+    },
+    {
+      "kind": "unit",
+      "path": "firmware/system/forwarding/rustsimhub-forwarder-status.service",
+      "sha256": "0db404d93569b39b8e91886cebcf577cdc88cfe4e0422ba5749eda01d9bb5e39",
+      "profile": {
+        "identity": "root",
+        "capabilities": [],
+        "families": [
+          "AF_UNIX"
+        ],
+        "credentials": []
+      }
+    },
+    {
+      "kind": "polkit",
+      "path": "firmware/system/overlay/etc/polkit-1/rules.d/45-rustsimhub.rules",
+      "sha256": "1712437963bf11875e63ffce7aa74c669841e53bd25d4422f4adec87d6875f04",
+      "baseline_sha256": "94a7c6b199117ba94d70aa2bb43b37a9ac77fdc89017eec4f18020e265768bbf"
+    },
+    {
+      "kind": "polkit",
+      "path": "firmware/system/forwarding/46-rustsimhub-forwarding.rules",
+      "sha256": "2b938272ad7deb8dc9b50fcf135be217560ab38495b548970323e17772787ac7"
+    }
+  ],
+  "base_commit": "80db24e9b101dd3fb4b8c951aa7f1e0e1858e65d",
+  "candidate_changed_files": [
+    "firmware/system/overlay/etc/polkit-1/rules.d/45-rustsimhub.rules"
+  ]
+}
