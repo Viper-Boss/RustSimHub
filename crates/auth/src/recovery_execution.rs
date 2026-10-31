@@ -11,6 +11,8 @@ use sha2::Sha256;
 const REQUEST_DOMAIN: &[u8] = b"RustSimHub.RecoveryExecution.Request.v2\0";
 mod ledger;
 pub use ledger::{RecoveryExecutionAdmission, RecoveryExecutionClaim, RecoveryExecutionPending};
+mod trial;
+pub use trial::{RecoveryTrialAuthority, RecoveryTrialControl};
 /// Auth-minted preparation, not a durable execution permit. The verified body
 /// stays in the original Zeroizing allocation; no Debug/Clone/Serde constructor.
 pub struct RecoveryExecutionRequest {
