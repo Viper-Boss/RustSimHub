@@ -58,3 +58,34 @@ steps=[]，不是Rust测试报错。合并冲突与CI红叉必须分别处理；
 无新增生产协议/权限/迁移设计、Root动作、签名、发行或Pages发布。
 新提交/报告由wnfhsj88署名，旧功能作者未重写；AGPL-3.0-only，OpenAI Codex辅助冲突排查及回归。
 本次属于维护，整体进度沿用最后实际公开核验的81.5%，不因消除冲突增加验收百分比。
+
+
+## 后续：main接收#125/#127后的依赖链同步
+
+用户随后提供#130三文件冲突截图。此时main已前进至
+`ee29941ad6cd6bc082b647d74fc67364dab151b8`，GitHub对#130重新报告dirty。
+原#130与新main存在两个共同祖先（原#125与原#127的HEAD），本地正常合并可完整保留两侧内容。
+因此先将新main正常合入#130，再顺序将已更新依赖合入#131→#136→#137→#138。
+没有将这五份PR分别孤立地合入同一个旧main，后续分支真实包含前一个更新后的PR提交。
+
+| PR | 更新前 | 新的受核验合并HEAD | 新增依赖父提交 |
+| --- | --- | --- | --- |
+| #130 | `6a21d7cc7c39f3674d85c9fa8e09f7840ed37780` | `1354a41d75215c915668fc4626c253f285b0379d` | `ee29941ad6cd6bc082b647d74fc67364dab151b8` |
+| #131 | `4b5afc1900e4eae3c0ccec2d9de2c032f64dd623` | `9f598f24ea33282deaea49cb707141e2495a0d46` | `1354a41d75215c915668fc4626c253f285b0379d` |
+| #136 | `db59f9ee9945900258b5cd425d15254bba391b6a` | `da698954886f06bf226d38c41a7f1362bc615cf6` | `9f598f24ea33282deaea49cb707141e2495a0d46` |
+| #137 | `14533c032587fe9f3a56775e23b0eca11978e93c` | `088f4b7d50640472561449be87e88b68bd3bba1d` | `da698954886f06bf226d38c41a7f1362bc615cf6` |
+| #138 | `b44c4011d367cba7ce0d3fc49cacf76e4300b1c1` | `e03e71dca2c03c843c2c6d05cf4ab206579fd16a` | `088f4b7d50640472561449be87e88b68bd3bba1d` |
+
+实际逐份核验：五份合并的完整Git树均与其更新前逐字相同；旧HEAD、新main、前一个已更新依赖均为新HEAD祖先；
+每份PR对新main的唯一共同祖先就是新main本身。
+截图中的以下三个文件在每份更新前后均零差异：
+
+- docs/ble/service-policy-kernel-uids.md
+- firmware/system/ble/fixtures/policy_uid_fixture.py
+- firmware/system/ble/run_policy_kernel_uids.py
+
+保留#130的--rust-gatt入口、真实Rust子进程夹具/诊断和后续集成说明。
+此轮修复提交依赖关系，不改变任何源码树；沿用上表各相同源码树的已通过编译/测试，
+没有重复跑Rust测试，也不把旧结果写成新跑。额外执行Python语法检查及启动器--help核验（不启动Docker）。
+本节随后仅作为文档提交加入#138，最终完整HEAD及GitHub最新mergeable回读写入各PR正文。
+若main今后加入新的代码，仍须针对届时的确切基线重新核验，不能将当前回读视为永久保证。
