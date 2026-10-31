@@ -88,7 +88,7 @@ class Team(unittest.TestCase):
         with self.assertRaises(ValueError):team.roster_valid(data)
 
     def test_changed_head_and_wrong_author_cannot_count_old_acceptance(self):
-        member=self.members[1]
+        member=copy.deepcopy(self.members[1]);member['step_ids']=['A-01','A-02']
         review={'member_id':'member-a','pr':2,'head':'a'*40,'decision':'offline_accepted','steps':['A-01','A-02'],'evidence':['docs/team/README.md'],'self_reported_hours':2}
         current={'number':2,'headRefOid':'a'*40,'state':'OPEN','author':{'login':'fungi1220'}}
         result=team.review_summary(member,[review],{2:current})
