@@ -30,6 +30,8 @@ pub use delivery::*;
 #[cfg(target_os = "linux")]
 pub mod egress;
 #[cfg(target_os = "linux")]
+pub mod email;
+#[cfg(target_os = "linux")]
 pub mod supervisor;
 #[cfg(target_os = "linux")]
 pub mod worker;
