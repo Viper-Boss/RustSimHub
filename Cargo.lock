@@ -1907,7 +1907,11 @@ dependencies = [
 name = "rustsimhub-ble"
 version = "0.1.0"
 dependencies = [
+ "futures-lite",
  "serde_json",
+ "tempfile",
+ "tokio",
+ "zbus",
 ]
 
 [[package]]
