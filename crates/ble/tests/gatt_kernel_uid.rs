@@ -2,15 +2,22 @@
 //! Explicit container fixture. Actual Rust GATT, broker policy and kernel FDs;
 //! only the BlueZ device/manager endpoint and opaque host completion are synthetic.
 #![cfg(all(test, target_os = "linux"))]
+#[cfg(feature = "bluez-backend")]
+use rustsimhub_ble::{
+    bluez_backend::BluezBackend,
+    manifest::{FixedAdvertisement, FixedManifest},
+    ports::GattBackendV1,
+};
 use rustsimhub_ble::{
     bluez_control::{Adapter, BluezControl},
-    bluez_gatt::{CallbackOperation, CallbackReply, GattExport},
-    bluez_peer::PeerLease,
+    bluez_gatt::{CallbackOperation, CallbackReply},
     framing::OpaqueBytes,
     manifest::{self, Characteristic},
     ports::Epoch,
     Error,
 };
+#[cfg(not(feature = "bluez-backend"))]
+use rustsimhub_ble::{bluez_gatt::GattExport, bluez_peer::PeerLease};
 use socket2::Socket;
 use std::{
     collections::HashMap,
@@ -106,7 +113,27 @@ impl Manager {
     }
     fn unregister_application(&self, path: OwnedObjectPath) {
         assert_eq!(path.as_str(), manifest::ROOT);
+        assert_eq!(
+            self.0.fetch_add(1, Ordering::AcqRel),
+            if cfg!(feature = "bluez-backend") {
+                3
+            } else {
+                1
+            }
+        );
+    }
+}
+struct Advertising(Arc<AtomicUsize>);
+#[zbus::interface(name = "org.bluez.LEAdvertisingManager1")]
+impl Advertising {
+    fn register_advertisement(&self, path: OwnedObjectPath, options: HashMap<String, OwnedValue>) {
+        assert_eq!(path.as_str(), manifest::ADVERTISEMENT_PATH);
+        assert!(options.is_empty());
         assert_eq!(self.0.fetch_add(1, Ordering::AcqRel), 1);
+    }
+    fn unregister_advertisement(&self, path: OwnedObjectPath) {
+        assert_eq!(path.as_str(), manifest::ADVERTISEMENT_PATH);
+        assert_eq!(self.0.fetch_add(1, Ordering::AcqRel), 2);
     }
 }
 async fn acquire(
@@ -144,6 +171,8 @@ async fn bluez(address: &str) {
         .unwrap()
         .serve_at("/org/bluez/hci0", Manager(calls.clone()))
         .unwrap()
+        .serve_at("/org/bluez/hci0", Advertising(calls.clone()))
+        .unwrap()
         .serve_at(DEVICE, Device(connected.clone()))
         .unwrap()
         .build()
@@ -156,8 +185,15 @@ async fn bluez(address: &str) {
         let (op, target) = line.split_once(' ').unwrap_or((&line, ""));
         match op {
             "ACQUIRE" => {
-                assert_eq!(calls.load(Ordering::Acquire), 1);
-                let objects: Objects = Proxy::new(
+                assert_eq!(
+                    calls.load(Ordering::Acquire),
+                    if cfg!(feature = "bluez-backend") {
+                        2
+                    } else {
+                        1
+                    }
+                );
+                let mut objects: Objects = Proxy::new(
                     &connection,
                     target,
                     manifest::ROOT,
@@ -168,6 +204,20 @@ async fn bluez(address: &str) {
                 .call("GetManagedObjects", &())
                 .await
                 .unwrap();
+                if cfg!(feature = "bluez-backend") {
+                    assert_eq!(objects.len(), 6);
+                    let advertisement = objects
+                        .remove(&OwnedObjectPath::try_from(manifest::ADVERTISEMENT_PATH).unwrap())
+                        .unwrap();
+                    assert_eq!(advertisement.len(), 1);
+                    let properties = &advertisement["org.bluez.LEAdvertisement1"];
+                    assert_eq!(<&str>::try_from(&properties["Type"]).unwrap(), "peripheral");
+                    assert_eq!(
+                        Vec::<String>::try_from(properties["ServiceUUIDs"].try_clone().unwrap())
+                            .unwrap(),
+                        vec![manifest::SERVICE_UUID]
+                    );
+                }
                 assert_eq!(objects.len(), 5);
                 // Valid broker headers still require the actual GATT body and
                 // minimum MTU. Rejection must not consume the one-shot FD slot.
@@ -268,7 +318,14 @@ async fn bluez(address: &str) {
                 println!("GATT_FDS_CLOSED");
             }
             "QUIT" => {
-                assert_eq!(calls.load(Ordering::Acquire), 2);
+                assert_eq!(
+                    calls.load(Ordering::Acquire),
+                    if cfg!(feature = "bluez-backend") {
+                        4
+                    } else {
+                        2
+                    }
+                );
                 break;
             }
             _ => panic!("unknown test command"),
@@ -278,18 +335,43 @@ async fn bluez(address: &str) {
 async fn ble(address: &str, owner: &str) {
     let connection = connect(address).await;
     let name = connection.unique_name().unwrap().to_string();
-    let mut control = BluezControl::bind(connection, owner, Adapter::Hci0)
+    let control = BluezControl::bind(connection, owner, Adapter::Hci0)
         .await
         .unwrap();
-    let lease = PeerLease::bind(&control, epoch(), DEVICE).await.unwrap();
-    let peer = lease.peer().clone();
-    let (export, mut requests) = GattExport::publish_bound(&control, lease).await.unwrap();
-    control.register_application().await.unwrap();
+    #[cfg(not(feature = "bluez-backend"))]
+    let (export, mut requests, peer, mut owner_loss, mut control) = {
+        let mut control = control;
+        let lease = PeerLease::bind(&control, epoch(), DEVICE).await.unwrap();
+        let peer = lease.peer().clone();
+        let (export, requests) = GattExport::publish_bound(&control, lease).await.unwrap();
+        control.register_application().await.unwrap();
+        let loss = control.wait_owner_loss();
+        (export, requests, peer, loss, control)
+    };
+    #[cfg(feature = "bluez-backend")]
+    let (mut backend, mut requests, peer, mut owner_loss, host, _release) = {
+        let (mut backend, mut host) = BluezBackend::new(control);
+        backend
+            .register_application(epoch(), FixedManifest)
+            .await
+            .unwrap();
+        backend
+            .register_advertisement(epoch(), FixedAdvertisement)
+            .await
+            .unwrap();
+        let requests = host.take_callbacks(epoch()).unwrap();
+        let peer = host.bind_peer(epoch(), DEVICE.into()).await.unwrap();
+        let loss = host.take_owner_loss().unwrap();
+        let release = host.take_release(epoch()).unwrap();
+        println!("GATT_BACKEND_V1");
+        (backend, requests, peer, loss, host, release)
+    };
     println!("GATT_READY {name}");
     let mut input = command();
     let mut writes = 0;
     loop {
         tokio::select! {
+            result=&mut owner_loss=>panic!("unexpected owner loss: {result:?}"),
             request=requests.recv()=>{
                 let request=request.unwrap();
                 assert_eq!(request.epoch(),epoch());assert_eq!(request.peer(),&peer);
@@ -305,19 +387,39 @@ async fn ble(address: &str, owner: &str) {
                 match line.unwrap().as_str() {
                     "NOTIFY"=>{
                         for kind in [Characteristic::AuthExchange,Characteristic::Result] {
+                            #[cfg(not(feature="bluez-backend"))]
                             export.notify(epoch(),peer.clone(),kind,OpaqueBytes::new(frame(kind)).unwrap()).await.unwrap();
+                            #[cfg(feature="bluez-backend")]
+                            backend.notify(epoch(),peer.clone(),kind,OpaqueBytes::new(frame(kind)).unwrap()).await.unwrap();
                         }
                         println!("GATT_NOTIFY_ACCEPTED");
                     }
                     "FENCE"=>{
                         assert_eq!(writes,1);
-                        assert_eq!(export.check_peer_current().await,Err(Error::StaleContext));
-                        assert_eq!(export.notify(epoch(),peer.clone(),Characteristic::Result,OpaqueBytes::new(frame(Characteristic::Result)).unwrap()).await,Err(Error::StaleContext));
+                        #[cfg(not(feature="bluez-backend"))]
+                        {
+                            assert_eq!(export.check_peer_current().await,Err(Error::StaleContext));
+                            assert_eq!(export.notify(epoch(),peer.clone(),Characteristic::Result,OpaqueBytes::new(frame(Characteristic::Result)).unwrap()).await,Err(Error::StaleContext));
+                        }
+                        #[cfg(feature="bluez-backend")]
+                        {
+                            assert_eq!(host.check_peer(epoch()).await,Err(Error::StaleContext));
+                            assert_eq!(backend.notify(epoch(),peer.clone(),Characteristic::Result,OpaqueBytes::new(frame(Characteristic::Result)).unwrap()).await,Err(Error::StaleContext));
+                        }
                         println!("GATT_FENCED");
                     }
                     "STOP"=>{
-                        control.unregister_application().await.unwrap();
-                        export.close_connection().await.unwrap();break;
+                        #[cfg(not(feature="bluez-backend"))]
+                        {
+                            control.unregister_application().await.unwrap();
+                            export.close_connection().await.unwrap();
+                        }
+                        #[cfg(feature="bluez-backend")]
+                        {
+                            backend.unregister_advertisement(epoch()).await.unwrap();
+                            backend.unregister_application(epoch()).await.unwrap();
+                        }
+                        break;
                     }
                     _=>panic!("unknown test command"),
                 }
