@@ -12,8 +12,6 @@
 
 ## 计入和排除
 
-2026-10-28口径补正：Core实际以cfg(test)接入的 `calls_checks.rs`、`observer/checks.rs` 及 `observer/checks/` 独立夹具明确单列为测试，避免把本轮peer/进程恢复测试算成产品代码。仅识别这些已核对路径，不把任意同名checks.rs都当测试。同一规则重算固定main历史，产品/测试栏变化包含分类修正，不是新增或删除工作量；作者、总行数和验收状态不据此改写。
-
 产品：`crates/`及 `native/audio-alsa/src/` 中的Rust/JS/HTML/CSS，以及实际交付的 `tools/nas-adapter/` Go客户端；其中独立tests文件/目录、`*_tests.rs` / `*_test.rs` 和 Go 的 `*_test.go` 单列测试。其余 `tools/` 中的Python/Shell/JS测试/工具单列，`firmware/system/`中的有限脚本/配置单列工程配置。不计vendor、文档、Cargo.lock、SVG/截图、生成HTML看板、二进制、依赖缓存和私有材料。产品行数不等于Rust行数，Go桥仍明确是Go实现。
 
 2026-10-27口径修正：PR#3合入后的核对发现旧分类漏掉了Go客户端，也把 `nas_adapter_tests.rs` 一类独立测试文件计入产品；账号已登记但使用非noreply邮箱时，精确匹配账号名的Git作者也被漏映射。四个PR提交均已由GitHub返回的关联作者账号独立核对为yh1030，原邮箱不公开；修正作者映射，使它与名册的显式账号别名保持一致。现已用真实临时Git提交/合并验证作者归属、测试分栏和非merge增删。对全部主线历史使用同一规则重算，因此与旧快照的差异包含分类修正，不能全算作本轮新增代码。动作权重与80%整体进度不变。

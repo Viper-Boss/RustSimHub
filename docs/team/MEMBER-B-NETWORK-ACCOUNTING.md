@@ -2,9 +2,9 @@
 
 最新分工已扩展到T5/T6，先读本文末尾入口及今天分工文档；只有对应章节明确列出的路径和阶段扩展原文件边界。
 
-执行成员：用户指定当前账号 [`wnfhsj88`](https://github.com/wnfhsj88)，稳定成员ID仍为 `member-b`。建议分支 `codex/network-accounting-offline`。预计有效开发6～16小时，仅为计划。主线有真实设备，你没有设备访问任务；B-01～B-32分工不变。
+执行成员：用户已再次确认账号 `wnfhsj`；主页 https://github.com/wnfhsj 当前公开查询返回404，原因未定，账号按用户确认保留；稳定成员ID仍为 `member-b`。建议分支 `codex/network-accounting-offline`。预计有效开发6～16小时，仅为计划。主线有真实设备，你没有设备访问任务；公开主页查询异常不妨碍先阅读和离线开发。
 
-提交入口：2026-10-30重新回读确认新账号Write生效。在 `Viper-Boss/RustSimHub` 直接创建上述分支并提交PR到main，由负责人审核。不要fork，不直接推送main；命令见[团队入口](README.md)。
+提交入口：2026-10-27 GitHub最终回读已确认本仓库Write生效。在 `Viper-Boss/RustSimHub` 直接创建上述分支并提交PR到main，由负责人审核。不要fork，不直接推送main；命令见[团队入口](README.md)。
 
 ## 直接给你的Codex
 

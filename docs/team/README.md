@@ -1,23 +1,18 @@
 # RustSimHub 五人协作入口
 
-**最新：D-17～20 GATT离线库再交lead，累计20步；RedamancyGTW只剩D-21～26共6步，98+20=118。** 密码/Core恢复授权、服务安装与设备前置不因纯库通过而完成；以下较早计数为历史，详情见[逐批交付](../deliveries/member-d-sms.md)。
-
-当前2026-10-28灯控批次：D-01～16离线包已交lead，RedamancyGTW保留D-17～26共10步；四位102+主线16=118。LED-07/SEC-06整项仍待，归属不等于审核或设备通过。[交付结算](../deliveries/member-d-sms.md)优先于下文历史数量。
-2026-10-28调整：用户授权主线接手尚未开工的成员D范围。累计 D-01～D-12 离线包转到 lead（D-11持久身份方案仍为待审提案），RedamancyGTW 保留14步；118个步骤总量不变，四位当前持有106步、主线接回12步。原26步估时为历史预算。交付/审核/实机与完整去重各自记录，详情见[同一交付台账](../deliveries/member-d-sms.md)。以下2026-10-27计数为历史分配。
-
-日期：2026-10-27。现为负责人加四位离线协作者；用户已要求改为本仓库直接分支协作。原A/B任务书从18349a8起登记，五人扩展从70313db起登记；实际开工从最新 `origin/main` 建立分支并记录起始SHA，不能退回旧提交覆盖新代码。原P0–P7整体80%；分配任务或发出邀请不增加验收比例。
+日期：2026-10-30。现为负责人加四位离线协作者；用户已要求改为本仓库直接分支协作。原A/B任务书从18349a8起登记，五人扩展从70313db起登记；实际开工从最新 `origin/main` 建立分支并记录起始SHA，不能退回旧提交覆盖新代码。原P0–P7整体80%；分配任务或发出邀请不增加验收比例。
 
 | 人员 | 责任 | 本轮任务 | 设备 |
 |---|---|---|---|
 | Viper-Boss / 项目负责人 | 总体设计、主线开发、设备集成、审核与合并 | UPD-01版本契约；维护主线CI、跨模块审核及设备/签名交付 | 由负责人操作 |
-| 成员A：[fungi1220](https://github.com/fungi1220) | NKN、密码会话、邮件及安全离线实现 | [A任务书](MEMBER-A-USAGE-STATS.md)，累计30步 | 无需设备 |
-| 成员B：wnfhsj88 | 网络、全部网页/PWA装配及测试/报告工具 | [B任务书](MEMBER-B-NETWORK-ACCOUNTING.md)，累计32步 | 无需设备 |
+| 历史成员A：[fungi1220](https://github.com/fungi1220) | 当前无分配；原提交与审核保留 | 原A-01～30已转交wnfhsj88 | 无设备任务 |
+| 成员B：[wnfhsj88](https://github.com/wnfhsj88)（原wnfhsj） | 网络/网页/PWA及接手的统计/NKN/安全/邮件离线实现 | [B任务书](MEMBER-B-NETWORK-ACCOUNTING.md)32步 + [A任务书](MEMBER-A-USAGE-STATS.md)30步，共62步 | 无需设备 |
 | 成员C：[yh1030](https://github.com/yh1030) | NAS、系统更新恢复及发行证据 | [C任务书](MEMBER-C-NAS-COMPAT.md)，累计30步，离线已审6步 | 无需设备 |
-| [RedamancyGTW](https://github.com/RedamancyGTW)，成员D | 灯控输入、Core BLE恢复及远程媒体 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，当前6步；20步离线包已接回主线 | 无需设备 |
+| [RedamancyGTW](https://github.com/RedamancyGTW)，成员D | 通信观测、Core BLE恢复及远程媒体 | [D任务书](MEMBER-D-SMS-RECOVERY.md)，累计26步 | 无需设备 |
 
-四名成员均使用自己的GitHub账号和Codex；不用共享负责人账号、Token、NAS地址或SSH材料。成员B当前账号为`wnfhsj88`，2026-10-30回读Write已生效；稳定ID、32步分工和历史贡献保持。其他成员状态及较早记录见[仓库访问状态](ACCESS.md)。旧Claude任务包仅供历史参考，本目录是本轮明确分工。
+四名成员均使用自己的GitHub账号和Codex；不用共享负责人账号、Token、NAS地址或SSH材料。旧Claude任务包仅供历史参考，本目录是本轮明确分工。yh1030与wnfhsj的Write最终回读已生效；fungi1220和RedamancyGTW的Write邀请已就绪，等待本人接受。此前wnfhsj与RedamancyGTW的公开主页有404现象，不能据此判断账号不存在或确定风控原因。权限明细见[仓库访问状态](ACCESS.md)。
 
-原A/B/C/D各8步保留；T3为60步、T4为76步、T5为96步，最新T6为30/32/30/26共118步。90个项目动作的离线部分有负责人，65项保留主线专属执行；所有155项仍按原验收闭环，169分母/估时权重/14项完成不变。C-01～06的6步离线审核保持。详细接口、步骤、文件权限和每项主线保留原因集中在[今天分工文档](ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation)，[逐动作映射](offline-ownership.json)可供程序核对。成员粗估不是实际/剩余工时，不与项目台账重复求和。
+原A/B/C/D各8步保留；T3为60步、T4为76步、T5为96步，最新T6为30/32/30/26共118步。2026-10-30用户明确要求接手fungi1220全部任务并移除其看板待办：当前分配为A 0/B 62/C 30/D 26，原A/B步骤ID、项目动作和验收标准不变。90个项目动作的离线部分有负责人，65项保留主线专属执行；所有155项仍按原验收闭环，169分母/估时权重/14项完成不变。C-01～06的6步离线审核保持。详细接口、步骤、文件权限和每项主线保留原因集中在[今天分工文档](ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation)，[逐动作映射](offline-ownership.json)可供程序核对。成员粗估不是实际/剩余工时，不与项目台账重复求和。
 
 ## 现在如何提交
 
