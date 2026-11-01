@@ -1,0 +1,192 @@
+{
+  "repository": "Viper-Boss/nknguard",
+  "commit": "c32952d7586676fec10f71a30b22969cb24881f3",
+  "files": [
+    {
+      "path": "third_party/ncp-go/LICENSE",
+      "sha": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+      "size": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "third_party/ncp-go/NKG-PATCH.md",
+      "sha": "94aa0d6fab33af41272571ed35ad06b78c300111",
+      "size": 946,
+      "sha256": "5092970609d56a350c7b4680825b9b1748b5a545e832fdac2a6719c217e0aff8"
+    },
+    {
+      "path": "third_party/ncp-go/config.go",
+      "sha": "b759958387d01d69a870cb0584eb699dad78f884",
+      "size": 1627,
+      "sha256": "a97c4a89fcbac9a92f5fb625e938687d572523904fd684c5395dc34cfbc78329"
+    },
+    {
+      "path": "third_party/ncp-go/connection.go",
+      "sha": "7cb9696890fdcbe8763853c2168e123afaf59377",
+      "size": 6860,
+      "sha256": "ccb69d86b2f77e18059321c97ba27689e155fc8de9887ad61fc5ca872fc2bc78"
+    },
+    {
+      "path": "third_party/ncp-go/errors.go",
+      "sha": "3b0af6ed9ca0c0099da3e8679ab1ffd6abef8e05",
+      "size": 1500,
+      "sha256": "88222cec50681a1e1693960e6bc382b8afb33e5c6380ca334d1b689c1dde1ace"
+    },
+    {
+      "path": "third_party/ncp-go/fullmesh_test.go",
+      "sha": "88dbf4689c99d5964d8a425594325ffb494e3307",
+      "size": 3372,
+      "sha256": "a3c77486970167523cba5c3aa6a31d0b0e61586ea394a9b3a9e778577f003bca"
+    },
+    {
+      "path": "third_party/ncp-go/go.mod",
+      "sha": "ce38a84aa0e54c6e0ad0f7ef57aaa955ea6fa0ec",
+      "size": 225,
+      "sha256": "2b0e9fb88d96d447a28aea08cff9e96328b70004e391391c7e17c9ccfa0a4458"
+    },
+    {
+      "path": "third_party/ncp-go/go.sum",
+      "sha": "4969901eef50d58e81aee8c44cb28535c14db263",
+      "size": 4208,
+      "sha256": "3c49e0bc956775bbc9a2af2516fea2ef95559c9a7282b3558d2a274b3d65f9a6"
+    },
+    {
+      "path": "third_party/ncp-go/pb/packet.pb.go",
+      "sha": "2c538a5688f76779adfb6c2b0264286761a8e18d",
+      "size": 5488,
+      "sha256": "09c658d53143e7e7767f2246130b2ab47807a24ceeb7d3a4d3497ece3278e008"
+    },
+    {
+      "path": "third_party/ncp-go/pb/packet.proto",
+      "sha": "7ff450f26d8ed2d0d30a9bd4a783dca3012d3985",
+      "size": 314,
+      "sha256": "f1e3986b6ba348561a636265f974ce9f619fbb82362ee52a14ef41de9dcfb241"
+    },
+    {
+      "path": "third_party/ncp-go/session.go",
+      "sha": "ccba404013e93bd9e48f1c404aa4cb8917ea4956",
+      "size": 22857,
+      "sha256": "a400e5b2eba2aebbc6bb0d826e84439ace9c8792d309e5e19babc3ba0721a06a"
+    },
+    {
+      "path": "third_party/ncp-go/util.go",
+      "sha": "facd99f188b0fc347a7f589e5fec4d56f332cec1",
+      "size": 1305,
+      "sha256": "83ce014b43bd6a8a87316ad8519f0d87ac6710e29e7e56eef6395b6bd9c70ce0"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/LICENSE",
+      "sha": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+      "size": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/README.nknguard.md",
+      "sha": "0e5f56015686af026d89c2f5b31ba0f8b776f9bf",
+      "size": 1150,
+      "sha256": "288dfbfb3ad4fbb435e521813559e6a266356c0436ff0f1f0022e084ec1770ce"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/asymmetric_test.go",
+      "sha": "be7b9ad5b2a110f30f66913e83f11d6ece2308ef",
+      "size": 3969,
+      "sha256": "03a8abd436e0929df579e4af43358db340b53978a02e58f67fa8b24432137420"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/client.go",
+      "sha": "2567442cb9db92dd6ec3dc50b4ab5e4dc0ab5d4e",
+      "size": 44428,
+      "sha256": "7630c338b5554c4cf46842c91f8e8c306eaca2d3a462ec63b7432c6e153c0105"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/config.go",
+      "sha": "de305622de36d6e0e76c8b782c01ae181f3a0600",
+      "size": 14690,
+      "sha256": "060a88493328c8271c1fa7d812a181ed12ed73d8c275e2334a447fd88ac29e9d"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/doc.go",
+      "sha": "da77be1b614f9d44ff087b4a4992e7fdc998d26d",
+      "size": 2537,
+      "sha256": "fd4d9c8d50c6be69d994b54bce18d1fb785cb69b7b67bd2ab08a322ca821e784"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/error.go",
+      "sha": "6047e22ab546f5140e2a1edf9d237f2ce5baf417",
+      "size": 2606,
+      "sha256": "1cd99a4b7f5d641097b40ccd65bb02fbdd65227873e9960ba70df9a146b8d54e"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/go.mod",
+      "sha": "853bb97e6bbe5f9c33629288467fe0e503f79523",
+      "size": 1924,
+      "sha256": "403a5e350921c82528e0bb5fdc7da74e55dfd3f9ef03b0337c22a270d2b15a5d"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/go.sum",
+      "sha": "006628e03ddcf69cf8fa8f8b7eb1b32ac4d0a592",
+      "size": 17067,
+      "sha256": "b0ea5d6aebf27ac525348e6efea5d3af65dfd2a6feac378ad7e33ab904b99905"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/message.go",
+      "sha": "e7e4260de20c719a7ae332c3d934ad9ec4624ce8",
+      "size": 3838,
+      "sha256": "3f27f8904e3ad6410b9e8dfe9c3ae322af29a745aa4bd3077d96dbbe99c15544"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/multiclient.go",
+      "sha": "c7119bf04b6c8ad438f916308b5be56e24529db8",
+      "size": 35365,
+      "sha256": "c2ad2f871c126816432c82f02179bd2a9328bec241bebfd488ec77abce1031f8"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/nanopay.go",
+      "sha": "e145efab89ea5c8b77d8175a37640e513e085965",
+      "size": 11180,
+      "sha256": "3281dbe91870fa3f3dea070dae01c89bd619b272f4b5c79286ad917aef4c5e59"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/payloads/payloads.pb.go",
+      "sha": "24230d4e01a1fe03b87b973f37549ddb29cb9bff",
+      "size": 8534,
+      "sha256": "1f831b9599bb26d48540e5e4b6b3ecb5480cc10fab85b4bd2f7b47e67c316f60"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/payloads/payloads.proto",
+      "sha": "9efa01ad5c54a459001ea0fd43a54435bf5d9fad",
+      "size": 396,
+      "sha256": "54d2d19d4b704603ceb291eec557800f775dbb54474c76a59e1dc1e599467368"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/resolver.go",
+      "sha": "ca1055d65a2f1640251314210b15544d11547c66",
+      "size": 1361,
+      "sha256": "4a9b807b4d2aa628517a722a189b99662e4d6a614d14fef54d328513ea6d1fd4"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/rpc.go",
+      "sha": "3cb7570e9dd8f276e7cc583655da5ea162a1201b",
+      "size": 27830,
+      "sha256": "9b22ad72daa5a9eb53d12518bedf92d303a8705650a88c9b8002b30895176e61"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/type.go",
+      "sha": "64e675a27e27f9a727b5dac2841fa1ebfbfbd6fe",
+      "size": 756,
+      "sha256": "e50086fd7a7ffedfa7bfa04c972d547fe8a5870b92ef46697588895b34b50065"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/util.go",
+      "sha": "9d1022b1c71f52e06b4e48cd2ea1d44eb3f85358",
+      "size": 10096,
+      "sha256": "bc58a55713f2bb9838f33e62a8bf3e0812b4b0028c2f6323a231c225975e4843"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/wallet.go",
+      "sha": "02c64df691c62e2cea46598c26a7312e322e86a6",
+      "size": 14633,
+      "sha256": "fa76a4d55d73982a710f499d3bd40be38db1003c4ff02ac6875763d73a9c08cb"
+    }
+  ]
+}
