@@ -343,3 +343,5 @@ async fn cancellation_after_finalization_started_does_not_drop_cleanup_or_guess_
         ["consumed", "begin", "persist", "finish", "release"]
     );
 }
+
+mod t5_matrix;
