@@ -1,0 +1,2 @@
+# Preserve the upstream Apache notice byte-for-byte, including its final blank.
+fixtures/snow-LICENSE-APACHE whitespace=-blank-at-eof
