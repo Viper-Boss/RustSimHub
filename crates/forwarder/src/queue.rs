@@ -90,12 +90,23 @@ pub struct Claim {
 /// Sole writer, intended to be owned by Core's blocking actor. A worker must
 /// claim through its separately authenticated bounded IPC, not open this DB.
 pub struct Queue {
+    // Declaration order is intentional: close SQLite before relinquishing
+    // sole-writer ownership. Do not move the lock ahead of the connection.
     conn: Connection,
-    _lock: File,
+    _lock: WriterLock,
     binding: Binding,
     probe: Option<Probe>,
     policy_cache: RefCell<Option<CachedPolicy>>,
     history_deadlines: std::collections::HashMap<String, Instant>,
+}
+struct WriterLock(File);
+impl Drop for WriterLock {
+    fn drop(&mut self) {
+        // close alone retains flock ownership while a dup/fork-inherited open
+        // description survives. This guard's owner has stopped all DB work.
+        // An independent successor's open description is not unlocked here.
+        let _ = fs2::FileExt::unlock(&self.0);
+    }
 }
 struct Probe {
     id: String,
@@ -190,6 +201,7 @@ impl Queue {
         }
         let lock = file(&directory.join(".writer.lock"))?;
         lock.try_lock_exclusive().map_err(|_| Error::Busy)?;
+        let lock = WriterLock(lock);
         for name in [
             "outbox.sqlite3-journal",
             "outbox.sqlite3-wal",
