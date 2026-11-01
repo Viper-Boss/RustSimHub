@@ -146,7 +146,7 @@ impl ApplicationReplySealerV1 for Sealer {
         }
         if let Some(h) = &self.hold {
             h.entered.notify_one();
-            h.release.lock().unwrap().recv().unwrap();
+            let _ = h.release.lock().unwrap().recv();
             h.after_release_denied
                 .store(r.scope().check_current().is_err(), Ordering::Release);
         }
@@ -254,57 +254,81 @@ fn isolated_real_uid_application_dispatch_and_reply_fences() {
             );
         }
         *f.plan.lock().unwrap() = BODY.to_vec();
-        let c = channel(&listener, &guard, &f).await;
-        // First actual frame establishes a private same-channel request scope;
-        // the fixture has already sent a second frame in the same write.
-        let (c, p) = c.read().await.unwrap();
-        assert_eq!(p.kind(), Kind::EncryptedRequest);
-        let pending = c
-            .prepare(&mut f.auth.lock().unwrap(), f.grant.clone(), p)
-            .unwrap();
-        let v = pending.verify().await.unwrap();
-        let (c, r) = v.finish(&mut f.auth.lock().unwrap()).unwrap();
-        let scope = f
-            .auth
-            .lock()
-            .unwrap()
-            .prepare_recovery_response(&r)
-            .unwrap();
-        scope.check_current().unwrap();
-        let (release, held) = mpsc::channel();
-        let entered = Arc::new(Notify::new());
-        let notify = entered.clone();
-        let blocker = tokio::task::spawn_blocking(move || {
-            notify.notify_one();
-            let _ = held.recv();
-        });
-        entered.notified().await;
-        let mut future = Box::pin(c.dispatch_application_v1(
-            f.auth.clone(),
-            f.grant.clone(),
-            Some(Arc::new(sealer(0x22))),
-        ));
-        for _ in 0..8 {
-            poll_fn(|cx| {
-                assert!(future.as_mut().poll(cx).is_pending());
-                Poll::Ready(())
-            })
-            .await;
-            tokio::task::yield_now().await;
+        for queue_timeout in [false, true] {
+            let c = channel(&listener, &guard, &f).await;
+            // First actual frame establishes a private same-channel request scope;
+            // the fixture has already sent a second frame in the same write.
+            let (c, p) = c.read().await.unwrap();
+            assert_eq!(p.kind(), Kind::EncryptedRequest);
+            let pending = c
+                .prepare(&mut f.auth.lock().unwrap(), f.grant.clone(), p)
+                .unwrap();
+            let v = pending.verify().await.unwrap();
+            let (c, r) = v.finish(&mut f.auth.lock().unwrap()).unwrap();
+            let scope = f
+                .auth
+                .lock()
+                .unwrap()
+                .prepare_recovery_response(&r)
+                .unwrap();
+            scope.check_current().unwrap();
+            let (release, held) = mpsc::channel();
+            let entered = Arc::new(Notify::new());
+            let notify = entered.clone();
+            let blocker = tokio::task::spawn_blocking(move || {
+                notify.notify_one();
+                let _ = held.recv();
+            });
+            entered.notified().await;
+            let mut future = Box::pin(c.dispatch_application_v1(
+                f.auth.clone(),
+                f.grant.clone(),
+                Some(Arc::new(sealer(if queue_timeout { 0x24 } else { 0x22 }))),
+            ));
+            for _ in 0..8 {
+                poll_fn(|cx| {
+                    assert!(future.as_mut().poll(cx).is_pending());
+                    Poll::Ready(())
+                })
+                .await;
+                tokio::task::yield_now().await;
+            }
+            if queue_timeout {
+                assert!(matches!(
+                    future.as_mut().await,
+                    Err(rustsimhub_core::recovery_channel::Error::Transport(
+                        rustsimhub_core::recovery_transport::Error::Deadline
+                    ))
+                ));
+            }
+            drop(future);
+            assert!(
+                scope.check_current().is_err(),
+                "waiter cancellation must immediately fence queued ownership"
+            );
+            assert!(guard.is_busy(), "queued worker retains actual source slot");
+            println!(
+                "{}",
+                if queue_timeout {
+                    "APP_QUEUED_TIMEOUT"
+                } else {
+                    "APP_QUEUED"
+                }
+            );
+            let (s, _) = listener.accept().await.unwrap();
+            assert!(guard.accept(s).is_err());
+            release.send(()).unwrap();
+            blocker.await.unwrap();
+            drained(&guard).await;
+            println!(
+                "UID_CASE {}",
+                if queue_timeout {
+                    "queued_timeout"
+                } else {
+                    "queued_cancel"
+                }
+            );
         }
-        drop(future);
-        assert!(
-            scope.check_current().is_err(),
-            "waiter cancellation must immediately fence queued ownership"
-        );
-        assert!(guard.is_busy(), "queued worker retains actual source slot");
-        println!("APP_QUEUED");
-        let (s, _) = listener.accept().await.unwrap();
-        assert!(guard.accept(s).is_err());
-        release.send(()).unwrap();
-        blocker.await.unwrap();
-        drained(&guard).await;
-        println!("UID_CASE queued_cancel");
         for (marker, timeout) in [(5, false), (6, true)] {
             let c = channel(&listener, &guard, &f).await;
             let (release, held) = mpsc::channel();
@@ -346,6 +370,33 @@ fn isolated_real_uid_application_dispatch_and_reply_fences() {
                 }
             );
         }
+        let c = channel(&listener, &guard, &f).await;
+        let (release, held) = mpsc::channel();
+        let hold = Arc::new(Hold {
+            entered: Notify::new(),
+            release: Mutex::new(held),
+            after_release_denied: AtomicBool::new(false),
+        });
+        let mut s = sealer(9);
+        s.hold = Some(hold.clone());
+        let a = f.auth.clone();
+        let grant = f.grant.clone();
+        let task =
+            tokio::spawn(
+                async move { c.dispatch_application_v1(a, grant, Some(Arc::new(s))).await },
+            );
+        hold.entered.notified().await;
+        println!("APP_PEER_SEAL_ENTERED");
+        assert!(tokio::time::timeout(Duration::from_secs(2), task)
+            .await
+            .expect("actual peer EOF must fence before the adapter deadline")
+            .unwrap()
+            .is_err());
+        assert!(guard.is_busy());
+        release.send(()).unwrap();
+        drained(&guard).await;
+        assert!(hold.after_release_denied.load(Ordering::Acquire));
+        println!("UID_CASE peer_disconnect");
         let c = channel(&listener, &guard, &f).await;
         assert!(matches!(
             c.dispatch_application_v1(f.auth.clone(), f.grant.clone(), Some(Arc::new(sealer(8))))

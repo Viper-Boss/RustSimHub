@@ -3,7 +3,10 @@
 //! A's handshake/session implementation is supplied separately, never defaulted.
 use super::*;
 use rustsimhub_auth::RecoveryResponseScope;
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 use zeroize::Zeroizing;
 
 /// One owned output for the trusted A adapter. No public constructor/Clone or
@@ -49,10 +52,16 @@ pub enum ApplicationStep {
 }
 
 async fn scoped_check(scope: Arc<RecoveryResponseScope>) -> Result<()> {
-    tokio::task::spawn_blocking(move || scope.check_current())
+    bounded_auth(tokio::task::spawn_blocking(move || scope.check_current())).await
+}
+async fn bounded_auth<T: Send + 'static, E: Into<Error> + Send + 'static>(
+    job: tokio::task::JoinHandle<std::result::Result<T, E>>,
+) -> Result<T> {
+    tokio::time::timeout(Duration::from_secs(5), job)
         .await
-        .map_err(|_| Error::Auth(rustsimhub_auth::Error::Busy))??;
-    Ok(())
+        .map_err(|_| transport::Error::Deadline)?
+        .map_err(|_| rustsimhub_auth::Error::Busy)?
+        .map_err(Into::into)
 }
 impl RecoveryChannel {
     /// One ENCRYPTED application request after A's handshake. Reads the actual
@@ -68,7 +77,29 @@ impl RecoveryChannel {
     ) -> Result<ApplicationStep> {
         // The caller retains this fence even while the actual channel has
         // moved into a queued Auth worker or the dedicated A adapter thread.
-        let cancellation = self.token.disconnect_guard();
+        let mut cancellation = Some(self.token.disconnect_guard());
+        let monitor = self.peer.disconnect_monitor()?;
+        let result = tokio::select! {
+            biased;
+            _=monitor.wait_closed()=>{
+                drop(cancellation.take());
+                Err(transport::Error::Closed.into())
+            }
+            result=self.dispatch_inner(auth,expected,sealer)=>result,
+        };
+        if result.is_ok() {
+            if let Some(guard) = cancellation.take() {
+                guard.disarm();
+            }
+        }
+        result
+    }
+    async fn dispatch_inner(
+        self,
+        auth: Arc<Mutex<Auth>>,
+        expected: RecoveryGrant,
+        sealer: Option<Arc<dyn ApplicationReplySealerV1>>,
+    ) -> Result<ApplicationStep> {
         let sealer = sealer.ok_or(Error::Auth(rustsimhub_auth::Error::Forbidden))?;
         let (channel, packet) = self.read().await?;
         if packet.kind() == Kind::CloseTransport {
@@ -79,25 +110,28 @@ impl RecoveryChannel {
             return Err(transport::Error::InvalidFrame.into());
         }
         let a = auth.clone();
-        let pending = tokio::task::spawn_blocking(move || {
+        let pending = bounded_auth(tokio::task::spawn_blocking(move || {
             let mut a = a.try_lock().map_err(|_| rustsimhub_auth::Error::Busy)?;
             channel.prepare(&mut a, expected, packet)
-        })
-        .await
-        .map_err(|_| rustsimhub_auth::Error::Busy)??;
+        }))
+        .await?;
         let verified = pending.verify().await?;
         let a = auth.clone();
-        let (channel, request, scope) = tokio::task::spawn_blocking(move || {
+        let (channel, request, scope) = bounded_auth(tokio::task::spawn_blocking(move || {
             let mut a = a.try_lock().map_err(|_| rustsimhub_auth::Error::Busy)?;
             let (channel, request) = verified.finish(&mut a)?;
             let scope = Arc::new(a.prepare_recovery_response(&request)?);
             Ok::<_, Error>((channel, request, scope))
-        })
-        .await
-        .map_err(|_| rustsimhub_auth::Error::Busy)??;
+        }))
+        .await?;
         // The channel stays owned by this future throughout the actual native
         // business operation; dropping it invalidates the original background gate.
-        let response = crate::network_trial::provision::recovery_v1(auth, request).await;
+        let response = tokio::time::timeout(
+            Duration::from_secs(5),
+            crate::network_trial::provision::recovery_v1(auth, request),
+        )
+        .await
+        .map_err(|_| transport::Error::Deadline)?;
         let json = match response {
             Ok(v) => serde_json::to_vec(&v),
             Err(e) => serde_json::to_vec(&e),
@@ -138,7 +172,6 @@ impl RecoveryChannel {
         let packet = Packet::new(Kind::EncryptedRequest, sealed.ciphertext.to_vec())?;
         let channel = channel.write(&packet).await?;
         scoped_check(scope).await?;
-        cancellation.disarm();
         Ok(ApplicationStep::Continue(channel))
     }
 }

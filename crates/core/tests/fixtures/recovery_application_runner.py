@@ -18,10 +18,13 @@ def frame(marker):
     return len(body).to_bytes(4,'big')+body
 def peer(marker):
     s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM);s.settimeout(12);s.connect(str(ROOT/'core.sock'))
-    data=frame(0x21)+frame(0x22) if marker==4 else frame(marker)
+    data=frame(0x21)+frame(0x22) if marker==4 else frame(0x23)+frame(0x24) if marker==10 else frame(9)+frame(0x0a) if marker==9 else frame(marker)
     received=bytearray()
     try:
         s.sendall(data)
+        if marker==9:
+            assert sys.stdin.buffer.read(1)==b'x'
+            return
         while True:
             data=s.recv(2048)
             if not data:break
@@ -47,17 +50,18 @@ def run(binary):
     children=[]
     child_uids={core.pid:1001}
     def launch(uid,marker):
-        p=subprocess.Popen([sys.executable,__file__,'peer',str(marker)],preexec_fn=lambda:drop_to(uid),stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.STDOUT);children.append(p);child_uids[p.pid]=uid;return p
+        p=subprocess.Popen([sys.executable,__file__,'peer',str(marker)],preexec_fn=lambda:drop_to(uid),stdin=subprocess.PIPE if marker==9 else subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.STDOUT);children.append(p);child_uids[p.pid]=uid;return p
     def wait(p):
         output=p.communicate(timeout=15)[0]
         if p.returncode:raise RuntimeError(output.decode('utf-8','replace'))
     try:
         line(core,'APP_READY')
         for uid in [0,1001,1003,1004,1005,1006]:wait(launch(uid,0x99))
-        for marker,name in [(1,'no_sealer'),(2,'sealed_lookup'),(3,'sealed_invalid_input'),(4,'queued_cancel'),(5,'sealer_cancel'),(6,'sealer_timeout'),(8,'close_only'),(7,'revoke_before_reply')]:
+        for marker,name in [(1,'no_sealer'),(2,'sealed_lookup'),(3,'sealed_invalid_input'),(4,'queued_cancel'),(10,'queued_timeout'),(5,'sealer_cancel'),(6,'sealer_timeout'),(9,'peer_disconnect'),(8,'close_only'),(7,'revoke_before_reply')]:
             p=launch(1002,marker)
-            if marker==4:line(core,'APP_QUEUED');wait(launch(1002,0x99))
+            if marker in (4,10):line(core,'APP_QUEUED_TIMEOUT' if marker==10 else 'APP_QUEUED');wait(launch(1002,0x99))
             if marker in (5,6):line(core,f'APP_SEAL_HELD_{marker}');wait(launch(1002,0x99))
+            if marker==9:line(core,'APP_PEER_SEAL_ENTERED');p.stdin.write(b'x');p.stdin.flush()
             line(core,'UID_CASE '+name);wait(p)
         output=core.communicate(timeout=5)[0];print(output.decode('utf-8','replace'),end='',flush=True)
         assert core.returncode==0,'actual Core test failed'
