@@ -11,7 +11,7 @@ case "$revision" in *[!0-9a-f]*|'') exit 10;; esac
 test "${#revision}" -eq 40
 case "$expected" in *[!0-9a-f]*|'') exit 10;; esac
 test "${#expected}" -eq 64
-mkdir -p "$repo/.private"
+mkdir -p "$repo/.private" "$repo/.local"
 exec >"$repo/.private/wsl-build-$revision.log" 2>&1
 trap 'code=$?; printf "%s\n" "$code" > "$repo/.private/wsl-build-$revision.exit"' EXIT
 test -f "$archive"; test ! -L "$archive"
