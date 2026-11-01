@@ -30,6 +30,11 @@ jobs:
         run: |
           sh -n tools/rootfs/scripts/build-rootfs.sh tools/recovery-fastboot-probe.sh
           python3 -m unittest discover -s tools/rootfs/scripts -p test_rootfs.py
+      - name: Committed ARM source and build manifest fixtures
+        run: |
+          sh -n tools/wsl-build-committed.sh
+          python3 tools/test-arm-build-manifest.py
+          python3 -O tools/test-arm-build-manifest.py
       - name: Board helper isolated fixtures
         run: sudo -n python3 -m unittest discover -s tools/system -p 'test_*.py'
       - name: Browser fixture runtime
