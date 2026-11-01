@@ -175,6 +175,16 @@ const receipt=(n=1,devicePin=pin)=>receiptInput({intent:{...intent(),id:`1111111
  assert.deepEqual(f.state.saved,receipt(3).intent);assert.equal(f.commands.length,0);assert.equal(f.$('nas-download').hidden,true);assert.equal(f.revoked.length,1);
  assert.match(f.$('nas-state').textContent,/已清理 1 条/);
 }
+// Full journals with maximum valid metadata still export and release all old slots.
+{
+ const f=fixture(),maximumIntent={...intent(),core_id:'a'.repeat(128),generation:Number.MAX_SAFE_INTEGER,public_key:Array(32).fill(255),action:'revoke',expected_binding_epoch:epoch};
+ for(let n=1;n<=64;n++)f.archives.push(receiptInput({intent:{...maximumIntent,id:receipt(n).intent.id},source:'current_state',observed:{known:true,binding:{...binding(),core_id:maximumIntent.core_id,generation:maximumIntent.generation,public_key:maximumIntent.public_key},principal_current:false}}));
+ f.state.saved={...maximumIntent,id:receipt(65).intent.id};
+ assert.equal(await f.panel.prepareExport(),true);assert.equal(f.downloads.length,1);assert.ok(f.downloads[0].size>128*1024);assert.ok(f.downloads[0].size<256*1024);
+ const exported=JSON.parse(await f.downloads[0].text());assert.equal(exported.receipts.length,64);assert.equal(exported.pending.id,receipt(65).intent.id);
+ f.$('nas-download').onclick({preventDefault(){assert.fail('full export blocked');}});assert.equal(await f.panel.clearExport(),true);
+ assert.equal(f.archives.length,0);assert.equal(f.state.saved.id,receipt(65).intent.id);assert.equal(f.commands.length,0);
+}
 // Changed/removed archives cannot be silently cleared using an old export.
 {
  const f=fixture();f.archives.push(receipt());await f.panel.prepareExport();f.$('nas-download').onclick({preventDefault(){}});

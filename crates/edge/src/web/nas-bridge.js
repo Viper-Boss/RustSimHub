@@ -145,7 +145,7 @@ export class NasBridgePanel {
  prepareExport(){return this.run(async g=>{
   this.clearDownload();const journal=await this.loadJournal(()=>this.current(g));this.current(g);const exported=exportJournal(journal,this.pin());
   if(!exported.receipts.length&&!exported.pending){this.state('当前设备没有可导出的本机NAS记录；其他设备的记录保持。');return;}
-  const blob=new this.Blob([JSON.stringify(exported,null,2)+'\n'],{type:'application/json'});if(blob.size>128*1024)throw Error('导出过大');
+  const blob=new this.Blob([JSON.stringify(exported,null,2)+'\n'],{type:'application/json'});if(blob.size>256*1024)throw Error('导出过大');
   this.exportUrl=this.url.createObjectURL(blob);this.exported=exported;const link=this.$('nas-download');link.href=this.exportUrl;link.download='rustsimhub-nas-records.json';link.hidden=false;
   this.state(`已准备 ${exported.receipts.length} 条回执${exported.pending?'及1条待确认操作':''}。请下载并保存JSON；记录含设备与NAS公开标识，不含私钥或登录令牌。尚未清理任何记录。`);
  });}
