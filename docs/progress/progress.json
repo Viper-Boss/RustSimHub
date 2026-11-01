@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-01T05:10:16.834036+00:00",
+  "updated_at": "2026-11-01T08:18:01.873809+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -70,7 +70,7 @@
     "task_id": "AP-07",
     "title": "首页装配已合并，保留草稿与验收边界",
     "state": "下一动作已选定；按前置和验收推进",
-    "description": "本轮已合并7个正式PR（#73/#143/#144/#146/#147/#148/#149），关闭14个已被主线或新看板替代的旧PR，分支保留。#148完成热点一键扫描与断线只读恢复；最终596项Rust、26组网页和严格检查通过，尚未ARM构建/部署/手机复测。整套CI发现旧策略摘要未同步，#149修正后36项镜像测试通过，完整CI运行中，未宣称全绿。剩余9个开放PR均为草稿，按用户要求不合并。D线新增#141/#142/#145仍归RedamancyGTW，实际提交者保留。原81.5%和20/169验收不变；代码量统计仍绑定单列的旧SHA，不冒充最新代码统计。"
+    "description": "主线继续收口：本轮累计合并9个正式PR（#73/#143/#144/#146/#147/#148/#149/#150/#151），关闭14个被替代旧PR并保留分支。热点单次扫描/断线只读恢复已整合；CI策略摘要及隔离安装环境修正已合并，真实chroot10项、最新热点180项通过。固定dc3aa493的12个ARM主程序和原生音频已构建，34项ARM音频QEMU测试通过，来源/架构/GLIBC核对通过；未签名、未打包或部署。最新主线完整CI已通过（run 41286902279）。剩余9个开放PR均为草稿，按要求不合并。五人真实代码量已重算到dc3aa493，D线交付归属不改作者。原81.5%及20/169验收保持，人工测试放最后。"
   },
   "facts": [
     {
@@ -5435,8 +5435,8 @@
   ],
   "team": {
     "schema": 1,
-    "source_revision": "ce9ccb8debb61db49860fe795c1f3e471b749f4c",
-    "generated_at": "2026-11-01T02:55:43.703723+00:00",
+    "source_revision": "dc3aa493d84190248d26587ca662a197414d2958",
+    "generated_at": "2026-11-01T08:10:18.526660+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5455,15 +5455,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 50089,
-            "tests": 35441,
-            "tooling": 9469,
+            "product": 53349,
+            "tests": 41446,
+            "tooling": 9685,
             "firmware": 1180
           },
-          "commits": 417,
-          "code_commits": 274,
-          "added": 101540,
-          "deleted": 2737
+          "commits": 456,
+          "code_commits": 299,
+          "added": 111460,
+          "deleted": 3039
         },
         "work": {
           "assigned_steps": 0,
@@ -5809,6 +5809,11 @@
             {
               "pr": 149,
               "head": "36478bdbd690bc158f59afc19be60a4297ca552e",
+              "state": "MERGED"
+            },
+            {
+              "pr": 151,
+              "head": "d570861edc011d72932491b329f4a2c1a80e91c6",
               "state": "MERGED"
             }
           ],
@@ -6218,6 +6223,12 @@
             {
               "pr": 149,
               "head": "36478bdbd690bc158f59afc19be60a4297ca552e",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 151,
+              "head": "d570861edc011d72932491b329f4a2c1a80e91c6",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
@@ -6399,14 +6410,14 @@
         ],
         "stats": {
           "current_lines": {
-            "product": 2352,
-            "tests": 4241,
+            "product": 2769,
+            "tests": 5021,
             "tooling": 1523,
             "firmware": 1
           },
-          "commits": 77,
-          "code_commits": 29,
-          "added": 8434,
+          "commits": 79,
+          "code_commits": 30,
+          "added": 9642,
           "deleted": 102
         },
         "work": {
@@ -7016,13 +7027,13 @@
         "stats": {
           "current_lines": {
             "product": 1164,
-            "tests": 3382,
-            "tooling": 293,
+            "tests": 4655,
+            "tooling": 945,
             "firmware": 0
           },
-          "commits": 32,
-          "code_commits": 13,
-          "added": 5076,
+          "commits": 41,
+          "code_commits": 16,
+          "added": 7115,
           "deleted": 186
         },
         "work": {
@@ -7126,6 +7137,11 @@
               "pr": 147,
               "head": "0eeb3dfe186722be695d8a3a8fdadff964bbbceb",
               "state": "MERGED"
+            },
+            {
+              "pr": 150,
+              "head": "f8e3b0eb5c92a23365795f75845630902439771b",
+              "state": "MERGED"
             }
           ],
           "task_deliveries": [
@@ -7204,6 +7220,12 @@
             {
               "pr": 147,
               "head": "0eeb3dfe186722be695d8a3a8fdadff964bbbceb",
+              "state": "MERGED",
+              "submitted_by": "yh1030"
+            },
+            {
+              "pr": 150,
+              "head": "f8e3b0eb5c92a23365795f75845630902439771b",
               "state": "MERGED",
               "submitted_by": "yh1030"
             }
@@ -7511,9 +7533,9 @@
       "deleted": 0
     },
     "totals": {
-      "product": 60199,
-      "tests": 53837,
-      "tooling": 11411,
+      "product": 63876,
+      "tests": 61895,
+      "tooling": 12279,
       "firmware": 1189
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。",
@@ -9046,7 +9068,7 @@
         }
       ]
     },
-    "pr_snapshot_at": "2026-11-01T05:10:16.834036+00:00",
-    "pr_method": "按所有者指定任务归属统计交付PR，每个PR只计一次；D线归RedamancyGTW，A/B线归当前负责人。详情保留实际提交账号；任务归属不改Git作者、技术审核或设备验收。"
+    "pr_snapshot_at": "2026-11-01T08:18:01.873809+00:00",
+    "pr_method": "按指定任务归属统计交付PR，每个PR只计一次；D线归RedamancyGTW，详情保留实际提交账号。任务归属不改Git作者、技术审核或设备验收。"
   }
 }
