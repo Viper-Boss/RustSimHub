@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-01T10:01:23.543610+00:00",
+  "updated_at": "2026-11-01T14:03:52.101765+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -70,7 +70,7 @@
     "task_id": "AP-07",
     "title": "首页装配已合并，保留草稿与验收边界",
     "state": "下一动作已选定；按前置和验收推进",
-    "description": "主线继续收口：本轮累计合并17个正式PR（#73/#143/#144/#146/#147/#148/#149/#150/#151/#152/#153/#155/#156/#157/#158/#159/#160），关闭14个被替代旧PR并保留分支。热点单次扫描/断线只读恢复、完整ARM清单已合并；新修复Queue/更新Store关闭后描述符副本占锁，确定性旧失败/新通过；BLE测试夹具显式shutdown不依赖FD清理时序，158项通过。完整工作区1351通过/6项原有专用测试忽略，另有私有2MiB满盘测试通过。固定5d655331正式构建器已完整执行，12个ARM主程序及同源原生音频构建通过，34项ARM音频QEMU通过；来源/架构/GLIBC核对通过，未生产签名或部署。固定构建基线完整CI运行中，尚未宣称通过（run 41294901148）。剩余10个开放PR均为草稿，按要求不合并。五人真实代码量重算到c64e52dc；D线含#154归RedamancyGTW，详情保留实际作者。后到#160已合入，但不冒用冻结5d的ARM/CI证据；下一轮构建单独绑定。#153/#157/#160所有者免独立审查合并不代表密码方案批准。原81.5%及20/169保持，人工测试最后。"
+    "description": "主线收口累计合并19个正式PR（#73/#143/#144/#146/#147/#148/#149/#150/#151/#152/#153/#155/#156/#157/#158/#159/#160/#161/#163），关闭14个被替代旧PR并保留分支。最新冻结825a5016正式构建1254文件核对、1353测试通过/6项原有专用隔离忽略，13个同源ARM程序与音频QEMU34通过；完整CI41296075720全绿，含#160后到修复，复用已核验缓存。应用70六文件与热点8目标维护包已使用现有设备信任的开发签名准备，真实ARM/OpenSSL验签及6个反例通过；未正式发行。真实只读检查设备仍运行69、服务正常、数据断开、转发PID0；8目标仅AP助手/launcher两个二进制需更新。尚未上传或安装，运行时观察不充当一致备份。剩余11个开放PR均为草稿，按要求不合并。五人代码统计到015be67b，D线含#154/#162归GTW，实际作者保留。密码/SDK/SMTP的交付合并不代替生产审批。下一步维护准入与一致备份后安装候选，人工最后；81.5%及20/169保持。"
   },
   "facts": [
     {
@@ -5435,8 +5435,8 @@
   ],
   "team": {
     "schema": 1,
-    "source_revision": "c64e52dc414ff02000a7628e118099b01fcbf7d7",
-    "generated_at": "2026-11-01T09:59:31.842662+00:00",
+    "source_revision": "015be67b5e24a609098614c8e33cf45800b8e524",
+    "generated_at": "2026-11-01T10:28:42.132438+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5460,7 +5460,7 @@
             "tooling": 9922,
             "firmware": 1180
           },
-          "commits": 461,
+          "commits": 462,
           "code_commits": 304,
           "added": 112107,
           "deleted": 3093
@@ -5840,6 +5840,11 @@
               "pr": 159,
               "head": "43e7108ea9f7b1b0db642c7b31da7ca4166345a6",
               "state": "MERGED"
+            },
+            {
+              "pr": 163,
+              "head": "653aaff16c609bb296266c846fe1149c2a54c284",
+              "state": "MERGED"
             }
           ],
           "task_deliveries": [
@@ -6286,6 +6291,12 @@
               "head": "43e7108ea9f7b1b0db642c7b31da7ca4166345a6",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 163,
+              "head": "653aaff16c609bb296266c846fe1149c2a54c284",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
             }
           ]
         }
@@ -6466,13 +6477,13 @@
         "stats": {
           "current_lines": {
             "product": 2772,
-            "tests": 5188,
-            "tooling": 2237,
+            "tests": 5229,
+            "tooling": 2404,
             "firmware": 1
           },
-          "commits": 88,
-          "code_commits": 33,
-          "added": 10615,
+          "commits": 90,
+          "code_commits": 34,
+          "added": 10845,
           "deleted": 106
         },
         "work": {
@@ -6830,6 +6841,16 @@
               "pr": 160,
               "head": "7c44bdc2204fa17ec8d89fcba35b86bf39e1cd02",
               "state": "MERGED"
+            },
+            {
+              "pr": 161,
+              "head": "1951e9a6387b7f88a87e1cb9b5b4a4b60354ca17",
+              "state": "MERGED"
+            },
+            {
+              "pr": 162,
+              "head": "90d45b6021ee99a1452f3e94aa51f3ff90d41fac",
+              "state": "OPEN"
             }
           ],
           "task_deliveries": [
@@ -7040,6 +7061,12 @@
             {
               "pr": 160,
               "head": "7c44bdc2204fa17ec8d89fcba35b86bf39e1cd02",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 161,
+              "head": "1951e9a6387b7f88a87e1cb9b5b4a4b60354ca17",
               "state": "MERGED",
               "submitted_by": "wnfhsj88"
             }
@@ -7614,6 +7641,12 @@
               "head": "7008728412d92db5934bc862bab29a7615528fda",
               "state": "OPEN",
               "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 162,
+              "head": "90d45b6021ee99a1452f3e94aa51f3ff90d41fac",
+              "state": "OPEN",
+              "submitted_by": "wnfhsj88"
             }
           ]
         }
@@ -7633,8 +7666,8 @@
     },
     "totals": {
       "product": 63920,
-      "tests": 62319,
-      "tooling": 13230,
+      "tests": 62360,
+      "tooling": 13397,
       "firmware": 1189
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。",
@@ -9167,6 +9200,6 @@
         }
       ]
     },
-    "pr_snapshot_at": "2026-11-01T10:01:23.543610+00:00"
+    "pr_snapshot_at": "2026-11-01T14:03:52.101765+00:00"
   }
 }
