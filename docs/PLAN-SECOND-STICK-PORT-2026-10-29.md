@@ -257,6 +257,10 @@ system 区一次成对读取中有 858 个读不稳的扇区（48 个 MiB 块）
 
 boot 写入计划 `.private/new-stick-write-plan-20261101-boot/`：载荷为原设备同款通用 boot（64 MiB，SHA d5790e07…，与 board.toml 记录一致），写到新 boot 分区 1116672 起 131072 扇区；UsbTool 4c0fe64 `write-dryrun` 通过，步骤摘要 fc7d484ac7f5d6f26122336baee46612689b905f2ac34f464a9be67db9c5b3bd。boot 单独写入后，内核会因为还没有 rootfs 停在 initramfs，不会运行 rmtfs，也不会碰 NV。NSHSTATE 与 rootfs 镜像尚未生成（NSHSTATE 需要新写一个“全新状态”生成器；rootfs 需从当前 main 组成并按 1,456,975,872 字节生成；应用打包按用户决定等 #62 合并）。
 
+## 新棒子第 3 步 boot：verified（2026-11-01 08:44，用户批准）
+
+重新进入 9008 后执行一次，报告在 UsbTool `dist/.local/writes/20261101-084416/`。64 MiB 载荷三次回读一致，保护区（含 aboot、devinfo）全部未变，GPT 仍为 5eadff18…。现在新棒子有 lk1st 和通用 boot；还缺 NSHSTATE 与 rootfs，上电会停在 initramfs。
+
 ## 当前状态
 
 - 已完成：方案、离线表决与哈希段分析、GPT 计划生成器及真实输入的离线计划、第 0b 步 lk1st 提取、第 0c 步只读读取、二手棒子固件包。
