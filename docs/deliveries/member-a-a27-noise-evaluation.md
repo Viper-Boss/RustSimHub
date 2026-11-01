@@ -97,3 +97,26 @@ OpenAI Codex辅助实现、复核与验证，无工时估造或历史作者改�
 没有生产设备/NAS/Root/真实NKN/RPC/交易/短信/电话/邮箱/蜂窝/产品签名安装部署。
 只是本地工具安装与隔离测试。由Viper-Boss按精确HEAD审核，不自行合并或部署。
 固定P0–P7按main仍约80%，A27评估不增加全局验收比例，剩余9步缺口继续保持。
+
+## 正常同步最新主线后的再验证
+
+主线后来合并PR144/146～152（其中149修复原Rootfs精确pin），本分支正常合并
+main `97f9c52fa832591a5e260d3dc4181847a8b3dfe3`，保留全部原作者/实现。
+只在本人剩余步骤索引产生冲突，合并保留A26九步入口并更新A27；没有丢掉主线代码。
+最新完整受测合并HEAD `582c9ff37efdeb586330dd017df2076202239acd`，
+新运行开始candidate_sources_dirty=false；同样实际11 Rust/4来源/17 Chromium检查
+及严格Clippy/fmt、native/WASM构建全部退出0，最小AES-only probe仍实际101。
+产物JS/WASM字节及摘要与前述精确结果相同；日志在 `work/a27/run-main-synced/`。
+
+另实际执行最新主线Rootfs36项，**36通过/0失败**，根fmt通过；不再把已修复的旧
+基线失败当当前阻塞。与最新origin/main比较，根依赖/生产代码/配置无本包diff；
+没有将正常合入的主线代码算本人新增，也不以主线旧制品冒充本包测试。
+主线最新HANDOFF/PROGRESS声明已验收81.5%保持，本轮离线评估不增加点数。
+
+| 最新运行日志 | SHA256 |
+| --- | --- |
+| report.json | `e44eedba90e0c96e8d208b293ebc8435424c17a1163376eb20039ec7f089ca51` |
+| native-tests.log | `eb4aedf7618beaaa5cee172f2cd977eed35921057cc7190075f44ec76210db39` |
+| clippy.log | `59639588a6f1826f129cbcd121edc07279dab94786f5fa5bde6b3439b2e845cc` |
+| source-check-tests.log | `da69e597899de3edaa5599286814c9f61db37f88830d5803f94c541d9b6eb4d8` |
+| minimal-feature-probe.log | `1ef4ab2d98ae702923e5d25cb859aed91972ba0b791bc57e1eb5b7fe3b542036` |
