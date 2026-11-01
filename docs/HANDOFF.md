@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-11-02 主线NAS回执留存：修正满64条长元数据导出边界，当前设备白名单JSON导出、下载后明确确认、同一IndexedDB事务精确清理已接通；待确认意图及关联回执、其他设备/新回执保持，退出/换pin与迟到回调受限。不发Core请求、不接管成员任务。固定来源与验证见[回执记录](VALIDATION-NAS-JOURNAL-20261102.md)。候选71已由独立冻结f598d792正式13 ARM/音频34测试、既有开发签名、实际ARM/OpenSSL验签及6反例完成准备；不含此后新增导出代码，未上传部署，见[候选71记录](VALIDATION-CANDIDATE71-READINESS-20261102.md)。人工/视觉/设备验收最后；主线代码约90%仅粗估，原81.5%及20/169不变。
+
 2026-11-02 NAS主线网页装配完成：新增默认折叠只读管理，条件绑定/撤销在同一Auth/Authority锁内比较epoch，保留近期Owner/NAS代次/只读权限；持久意图先于发送、跨设备pin与当前状态留存不冒充原回执。固定be007a5完整Rust1356通过/6项原有忽略、27组网页、严格Clippy及Core/Edge ARM通过。Chrome合成流程/三宽DOM检查已做，原生截图保存因URL无法可靠确认被工具终止，未继续UI，视觉批准仍待最后。未签名部署/操作设备。见[验证记录](VALIDATION-NAS-MANAGEMENT-PANEL-20261102.md)；81.5%/20 of169保持。
 
 2026-11-02 NAS绑定查询主线代码完成：新增近期Owner专属legacy_binding_status，经现有显式兼容provider查询原映射及当前principal代次；不重绑、不轮换epoch、不发会话。固定21f4bbb的362项相关测试/真实UnixStream与SQLite拒绝及撤销路径、完整工作区1355通过/6项原有专用忽略、全仓严格Clippy和ARM Core构建通过；云端因付款/消费上限未启动，不当作CI通过。未部署或增加依赖/schema/UI。见[验证记录](VALIDATION-NAS-BINDING-QUERY-20261102.md)。仍81.5%及20/169，人工最后。
