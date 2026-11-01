@@ -107,7 +107,15 @@ pub struct Store {
     key: [u8; 32],
     schema: u32,
     state: State,
-    _lock: File,
+    _lock: StoreLock,
+}
+struct StoreLock(File);
+impl Drop for StoreLock {
+    fn drop(&mut self) {
+        // A dup/fork-inherited description must not outlive the Store's
+        // exclusive ownership after its synchronous file operations finish.
+        let _ = FileExt::unlock(&self.0);
+    }
 }
 impl Store {
     pub fn open(root: &Path, key: [u8; 32], schema: u32) -> Result<Self, Error> {
@@ -126,6 +134,7 @@ impl Store {
             .map_err(|_| Error::Io)?;
         metadata(&lock)?;
         lock.try_lock_exclusive().map_err(|_| Error::Busy)?;
+        let lock = StoreLock(lock);
         let versions = root.join("versions");
         match fs::symlink_metadata(&versions) {
             Ok(_) => dir(&versions)?,
@@ -624,6 +633,26 @@ mod tests {
         let p = d.path().join("bad");
         std::os::unix::fs::symlink(d.path().join("state.json"), &p).unwrap();
         assert!(read_checked(&p, 8192).is_err());
+    }
+    #[test]
+    fn dropped_store_releases_duplicated_lock_without_unlocking_its_successor() {
+        let d = directory();
+        let mut first = Store::open(d.path(), key(), 5).unwrap();
+        let (b, g, p) = package(1);
+        let factory = first.install_factory(&b, &g, &p).unwrap();
+        let before = fs::read(d.path().join("state.json")).unwrap();
+        let inherited = first._lock.0.try_clone().unwrap();
+        assert!(matches!(Store::open(d.path(), key(), 5), Err(Error::Busy)));
+        drop(first);
+        let mut successor = Store::open(d.path(), key(), 5)
+            .expect("closed store must release its lock even with an inherited FD");
+        assert_eq!(successor.floor(), 1);
+        assert_eq!(successor.choose().unwrap(), factory);
+        assert_eq!(fs::read(d.path().join("state.json")).unwrap(), before);
+        drop(inherited);
+        assert!(matches!(Store::open(d.path(), key(), 5), Err(Error::Busy)));
+        drop(successor);
+        assert!(Store::open(d.path(), key(), 5).is_ok());
     }
     #[test]
     fn factory_install_is_idempotent_and_preserves_pending_update_and_floor() {
