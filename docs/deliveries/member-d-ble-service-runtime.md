@@ -22,7 +22,7 @@ CARGO_INCREMENTAL=0 cargo test -p rustsimhub-core --locked --offline
 cargo fmt --all -- --check
 ```
 
-整仓 **1433通过/0失败/6继承忽略**，BLE170项含本包新增12项（3绑定、2监测、7服务），不把合并main带来的其他成员新增测试计为本人新测试。严格整仓与两个manual target Clippy、默认Core（lib 2、binary 194）及fmt/diff通过。材料19项含本包新增3项。实际UID Core1001/BLE1002端口12场景全部通过，独立原GattBackendV1/固定D-Bus policy/真实FD的3角色试验全部通过；二者均精确70ed4be、tracked_dirty=false，无新增ignore。manual target不计入workspace1433。Python首次runner参数数量错误已修正，正式结果使用成功复跑而非初次失败。
+整仓 **1433通过/0失败/6继承忽略**，BLE170项含本包新增12项（3绑定、2监测、7服务），不把合并main带来的其他成员新增测试计为本人新测试。严格整仓与两个manual target Clippy、默认Core（lib 15、binary 194）及fmt/diff通过。材料19项含本包新增3项。实际UID Core1001/BLE1002端口12场景全部通过，独立原GattBackendV1/固定D-Bus policy/真实FD的3角色试验全部通过；二者均精确70ed4be、tracked_dirty=false，无新增ignore。manual target不计入workspace1433。Python首次runner参数数量错误已修正，正式结果使用成功复跑而非初次失败。
 
 | 正式证据 | SHA256 |
 |---|---|
