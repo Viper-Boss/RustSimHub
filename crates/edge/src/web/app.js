@@ -17,7 +17,7 @@ import { OperationReceipt } from './operation-receipt.js';
 import { DiagnosticPanel } from './diagnostics.js';
 import { ConfigurationState } from './configuration-state.js';
 import { UsageStatsPanel } from './usage-stats.js';
-import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput } from './nas-bridge.js';
+import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput, readJournal as readNasJournal, clearJournal as clearNasJournal } from './nas-bridge.js';
 const $=id=>document.getElementById(id);
 const scopes=['status.read','sms.read','calls.read'];
 let key, publicKey, token=null, busy=false, pending=null, lease=null;
@@ -521,8 +521,9 @@ nasBridgePanel=new NasBridgePanel({document,request:command=>auth(command),confi
   const epoch=viewEpoch,record=nasReceiptInput(entry);await atomicStored('nas-binding-receipts',saved=>{current(epoch);const rows=saved??[];
    if(!Array.isArray(rows)||rows.length>64)throw Error('NAS核对回执不可用');const receipts=rows.map(nasReceiptInput);
    const previous=receipts.find(r=>r.intent.id===record.intent.id);if(previous){if(JSON.stringify(previous)!==JSON.stringify(record))throw Error('NAS回执与原记录冲突');return receipts;}
-   if(receipts.length>=64)throw Error('NAS核对回执已满，请先通过维护入口留存');return [...receipts,record];});current(epoch);
- }});
+    if(receipts.length>=64)throw Error('NAS核对回执已满，请先导出并清理已留存回执');return [...receipts,record];});current(epoch);
+  },loadJournal:guard=>{const epoch=viewEpoch;return readNasJournal(db,()=>{current(epoch);guard();});},
+  clearJournal:(exported,guard)=>{const epoch=viewEpoch;return clearNasJournal(db,exported,authenticatedDevicePin,()=>{current(epoch);guard();});}});
 const nasPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{authenticatedDevicePin=null;nasBridgePanel.reset();nasPreviousLogout();};
 addEventListener('pagehide',()=>nasBridgePanel.reset());
 document.addEventListener('visibilitychange',()=>{if(document.hidden)nasBridgePanel.reset();});
