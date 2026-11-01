@@ -1,0 +1,35 @@
+{
+  "format": 1,
+  "seed": "rsh-d15-v1",
+  "max_cases": 64,
+  "sms": [
+    {"id":"empty-body","text":"","repeat":1,"data_len":0,"accepted":true},
+    {"id":"unicode-composed","text":"é中文","repeat":1,"data_len":0,"accepted":true},
+    {"id":"unicode-decomposed","text":"é中文","repeat":1,"data_len":0,"accepted":true},
+    {"id":"emoji-at-byte-limit","text":"🙂","repeat":1024,"data_len":0,"accepted":true},
+    {"id":"emoji-over-byte-limit","text":"🙂","repeat":1025,"data_len":0,"accepted":false},
+    {"id":"ascii-at-limit","text":"x","repeat":4096,"data_len":0,"accepted":true},
+    {"id":"ascii-over-limit","text":"x","repeat":4097,"data_len":0,"accepted":false},
+    {"id":"binary-at-limit","text":"","repeat":1,"data_len":4096,"accepted":true},
+    {"id":"binary-over-limit","text":"","repeat":1,"data_len":4097,"accepted":false},
+    {"id":"mixed-payload","text":"synthetic","repeat":1,"data_len":1,"accepted":false},
+    {"id":"empty-source","text":"synthetic","repeat":1,"data_len":0,"source_len":0,"accepted":false},
+    {"id":"source-at-limit","text":"synthetic","repeat":1,"data_len":0,"source_len":256,"accepted":true},
+    {"id":"source-over-limit","text":"synthetic","repeat":1,"data_len":0,"source_len":257,"accepted":false},
+    {"id":"sender-at-limit","text":"synthetic","repeat":1,"data_len":0,"sender_len":256,"accepted":true},
+    {"id":"sender-over-limit","text":"synthetic","repeat":1,"data_len":0,"sender_len":257,"accepted":false},
+    {"id":"timestamp-over-limit","text":"synthetic","repeat":1,"data_len":0,"timestamp_len":129,"accepted":false}
+  ],
+  "calls": [
+    {"id":"unknown","direction":0,"state":0,"reason":0,"accepted":true},
+    {"id":"incoming","direction":1,"state":3,"reason":0,"accepted":true},
+    {"id":"outgoing","direction":2,"state":2,"reason":0,"accepted":true},
+    {"id":"terminal-max-reason","direction":1,"state":7,"reason":255,"accepted":true},
+    {"id":"negative-direction","direction":-1,"state":3,"reason":0,"accepted":false},
+    {"id":"large-direction","direction":2147483647,"state":3,"reason":0,"accepted":false},
+    {"id":"negative-state","direction":1,"state":-1,"reason":0,"accepted":false},
+    {"id":"large-state","direction":1,"state":2147483647,"reason":0,"accepted":false},
+    {"id":"negative-reason","direction":1,"state":7,"reason":-1,"accepted":false},
+    {"id":"large-reason","direction":1,"state":7,"reason":256,"accepted":false}
+  ]
+}

@@ -14,6 +14,9 @@ use std::{
 };
 const INPUT: &str = "/run/rustsimhub-led-input";
 const LEDGER: &str = "/var/lib/rustsimhub-core/state/indicator-read.json";
+#[cfg(test)]
+#[path = "status_led_input_tests.rs"]
+mod input_boundary_tests;
 type Result<T> = std::result::Result<T, Error>;
 #[derive(Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -63,7 +66,8 @@ fn checked_read(path: &Path) -> Result<Vec<u8>> {
 fn checked_read_mode(path: &Path, modes: &[u32]) -> Result<Vec<u8>> {
     let f = OpenOptions::new()
         .read(true)
-        .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+        // A corrupt/non-regular ledger must not block Core before validation.
+        .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
         .open(path)
         .map_err(|_| Error::Io)?;
     let m = f.metadata().map_err(|_| Error::Io)?;
