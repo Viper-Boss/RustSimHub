@@ -30,14 +30,54 @@ export function receiptInput(value){
  const intent=pendingInput(value.intent);if(!intent)throw Error('NAS核对回执缺少原记录');
  return {intent,source:value.source,observed:statusInput(value.observed,intent.core_id)};
 }
+export function journalInput(value){
+ if(!fields(value,['pending','receipts'])||!Array.isArray(value.receipts)||value.receipts.length>64)throw Error('NAS本机记录无效');
+ const pending=pendingInput(value.pending),receipts=value.receipts.map(receiptInput);
+ if(new Set(receipts.map(row=>row.intent.id)).size!==receipts.length)throw Error('NAS本机回执编号重复');
+ return {pending,receipts};
+}
+export function exportInput(value){
+ if(!fields(value,['format','kind','device_pin','pending','receipts'])||value.format!==1||value.kind!=='rustsimhub.nas-binding-journal'||!validEpoch(value.device_pin))throw Error('NAS导出记录无效');
+ const journal=journalInput({pending:value.pending,receipts:value.receipts});
+ if(journal.pending&&journal.pending.device_pin!==value.device_pin||journal.receipts.some(row=>row.intent.device_pin!==value.device_pin))throw Error('NAS导出记录属于另一台设备');
+ return {format:1,kind:value.kind,device_pin:value.device_pin,...journal};
+}
+export function exportJournal(value,pin){
+ if(!validEpoch(pin))throw Error('请先核对设备身份');const journal=journalInput(value);
+ return exportInput({format:1,kind:'rustsimhub.nas-binding-journal',device_pin:pin,pending:journal.pending?.device_pin===pin?journal.pending:null,receipts:journal.receipts.filter(row=>row.intent.device_pin===pin)});
+}
+export function clearExported(value,exported,pin){
+ const journal=journalInput(value),saved=exportInput(exported);if(saved.device_pin!==pin)throw Error('设备身份已变化');
+ const current=new Map(journal.receipts.map(row=>[row.intent.id,row]));
+ for(const row of saved.receipts)if(JSON.stringify(current.get(row.intent.id))!==JSON.stringify(row))throw Error('回执已由其他页面更改，请重新导出');
+ const removable=new Set(saved.receipts.filter(row=>row.intent.id!==journal.pending?.id).map(row=>row.intent.id));
+ return {receipts:journal.receipts.filter(row=>!removable.has(row.intent.id)),removed:removable.size};
+}
+// Read both keys in one transaction; cleanup changes only exact exported receipts.
+// The pending key is never written, including when an archive exists before intent cleanup.
+function journalTransaction(db,mode,change,guard){
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction('state',mode),table=tx.objectStore('state'),values={};let failure,result,ready=0;
+  for(const [field,key] of [['pending','nas-binding-pending'],['receipts','nas-binding-receipts']]){
+   const reading=table.get(key);reading.onsuccess=()=>{values[field]=reading.result??(field==='receipts'?[]:null);if(++ready!==2)return;
+    try{guard();const journal=journalInput(values);result=change?change(journal):journal;if(change)table.put(result.receipts,'nas-binding-receipts');}catch(error){failure=error;tx.abort();}
+   };
+  }
+  tx.oncomplete=()=>resolve(result);tx.onerror=tx.onabort=()=>reject(failure||Error('浏览器存储不可用'));
+ });
+}
+export const readJournal=(db,guard)=>journalTransaction(db,'readonly',null,guard);
+export const clearJournal=(db,exported,pin,guard)=>journalTransaction(db,'readwrite',value=>clearExported(value,exported,pin),guard);
 export class NasBridgePanel {
- constructor({document,request,confirm,loadPending,savePending,archivePending,getDevicePin,crypto=globalThis.crypto}){
-  Object.assign(this,{doc:document,request,confirm,loadPending,savePending,archivePending,getDevicePin,crypto});this.$=id=>document.getElementById(id);this.epoch=0;
-  for(const [id,method] of [['nas-refresh','refresh'],['nas-query','query'],['nas-bind','bind'],['nas-revoke','revoke'],['nas-acknowledge','acknowledge']])this.$(id).onclick=()=>void this[method]();
+ constructor({document,request,confirm,loadPending,savePending,archivePending,loadJournal,clearJournal,getDevicePin,crypto=globalThis.crypto,url=globalThis.URL,Blob=globalThis.Blob}){
+  Object.assign(this,{doc:document,request,confirm,loadPending,savePending,archivePending,loadJournal,clearJournal,getDevicePin,crypto,url,Blob});this.$=id=>document.getElementById(id);this.epoch=0;
+  for(const [id,method] of [['nas-refresh','refresh'],['nas-query','query'],['nas-bind','bind'],['nas-revoke','revoke'],['nas-acknowledge','acknowledge'],['nas-export','prepareExport'],['nas-clear-exported','clearExport']])this.$(id).onclick=()=>void this[method]();
+  this.$('nas-download').onclick=event=>{try{if(this.busy||!this.exported||this.exported.device_pin!==this.pin())throw Error('导出已失效');this.downloadClicked=true;this.buttons();}catch{event.preventDefault();this.clearDownload();this.buttons();}};
   for(const id of ['nas-client','nas-alias'])this.$(id).oninput=()=>{this.snapshot=null;const row=this.rows.find(r=>r.hex===this.$('nas-client').value);this.$('nas-key').textContent=row?`所选NAS公钥：${row.hex}`:'';this.$('nas-binding').textContent='选择已变化，请先核对当前绑定。';this.state('选择或别名已变化；请先核对当前绑定。');this.buttons();};
   this.reset();
  }
- reset(){++this.epoch;this.busy=false;this.pending=null;this.snapshot=null;this.rows=[];this.$('nas-client').replaceChildren();this.$('nas-alias').value='';this.$('nas-key').textContent='';this.$('nas-binding').textContent='尚未读取';this.state('需要所有者最近5分钟内登录。先读取已批准的NAS，再核对和保存。');this.buttons();}
+ reset(){++this.epoch;this.clearDownload();this.busy=false;this.pending=null;this.snapshot=null;this.rows=[];this.$('nas-client').replaceChildren();this.$('nas-alias').value='';this.$('nas-key').textContent='';this.$('nas-binding').textContent='尚未读取';this.state('需要所有者最近5分钟内登录。先读取已批准的NAS，再核对和保存。');this.buttons();}
+ clearDownload(){if(this.exportUrl)this.url.revokeObjectURL(this.exportUrl);this.exportUrl=null;this.exported=null;this.downloadClicked=false;this.$('nas-download').hidden=true;this.$('nas-download').href='';}
  pin(){const pin=this.getDevicePin();if(typeof pin!=='string'||!EPOCH.test(pin))throw Error('请先登录并核对设备身份');return pin;}
  current(epoch){if(epoch!==this.epoch||this.operationPin!==this.pin())throw Error('NAS管理会话已结束');}
  state(text){this.$('nas-state').textContent=text;}
@@ -47,6 +87,7 @@ export class NasBridgePanel {
   this.$('nas-bind').disabled=this.busy||!!this.pending||!this.snapshot||!this.rows.length;
   this.$('nas-revoke').disabled=this.busy||!!this.pending||!this.snapshot?.known;
   this.$('nas-acknowledge').hidden=!this.pending;this.$('nas-acknowledge').disabled=this.busy||!this.pending||!this.snapshot;
+  this.$('nas-export').disabled=this.busy;this.$('nas-clear-exported').disabled=this.busy||!this.downloadClicked||!this.exported?.receipts.length;
  }
  async run(fn){if(this.busy)return false;const g=this.epoch;this.busy=true;this.buttons();
   try{this.operationPin=this.pin();await fn(g);return true;}
@@ -100,5 +141,17 @@ export class NasBridgePanel {
   const pending=await this.pendingAt(g);if(!pending||!this.snapshot||this.snapshot.coreId!==pending.core_id||this.snapshot.pendingId!==pending.id)throw Error('请先核对原别名的当前绑定');
   if(!this.confirm('确认已查看当前绑定？这里只保存本机核对记录，不重发原操作，也不把当前状态当作原写操作的历史回执。'))return;
   const observed=this.snapshot.known?{known:true,binding:this.snapshot.binding,principal_current:this.snapshot.principal_current}:{known:false};await this.finish(g,pending,'current_state',observed);this.state('当前绑定已核对，原操作和当前状态已留存；没有重发。');
+ });}
+ prepareExport(){return this.run(async g=>{
+  this.clearDownload();const journal=await this.loadJournal(()=>this.current(g));this.current(g);const exported=exportJournal(journal,this.pin());
+  if(!exported.receipts.length&&!exported.pending){this.state('当前设备没有可导出的本机NAS记录；其他设备的记录保持。');return;}
+  const blob=new this.Blob([JSON.stringify(exported,null,2)+'\n'],{type:'application/json'});if(blob.size>128*1024)throw Error('导出过大');
+  this.exportUrl=this.url.createObjectURL(blob);this.exported=exported;const link=this.$('nas-download');link.href=this.exportUrl;link.download='rustsimhub-nas-records.json';link.hidden=false;
+  this.state(`已准备 ${exported.receipts.length} 条回执${exported.pending?'及1条待确认操作':''}。请下载并保存JSON；记录含设备与NAS公开标识，不含私钥或登录令牌。尚未清理任何记录。`);
+ });}
+ clearExport(){return this.run(async g=>{
+  const exported=this.exported;if(!exported||!this.downloadClicked||!exported.receipts.length)throw Error('请先下载本次导出');
+  if(!this.confirm('请确认刚下载的JSON文件已保存。仅清理文件中仍完全相同的本机回执；待确认操作、其他设备和新回执保留。不修改棒子或重新发送操作。浏览器不能验证文件是否已保存。'))return;
+  const result=await this.clearJournal(exported,()=>this.current(g));this.current(g);this.clearDownload();this.state(`已清理 ${result.removed} 条已导出回执。待确认操作、关联回执和新增记录保留；没有向棒子发送请求。`);
  });}
 }
