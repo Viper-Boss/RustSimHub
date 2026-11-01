@@ -1,0 +1,18 @@
+{
+  "base_version": "v1.5.3",
+  "upstream_fix_commit": "d67f41855da42d7bccd9ef050c49f7e54e783b95",
+  "patch_sha256": "e6ff1a34fae896d1f1dc248d0bac5f8c54f48c753b94a416344f48eb76768bd8",
+  "files": [
+    {
+      "path": "conn.go",
+      "before_sha256": "43e43e797f891846fcf6cdb92de318ccc38f5b346a24d58f7076bd4fecc6341b",
+      "after_sha256": "5819d40c8615b067adeb884f9fad2decf35e1e57634df5bdac3e7280eb415d39"
+    },
+    {
+      "path": "prepared_test.go",
+      "before_sha256": "b42a41678da00ebbc5a8e9024b73b41ea6755c413eb51c901ca548c3a9d64f57",
+      "after_sha256": "49fafa9bd3aa3f1b579451930e21c8b3239d597c083798ed10f3860363548362"
+    }
+  ],
+  "production_approved": false
+}

@@ -1,0 +1,48 @@
+{
+  "module": "github.com/gorilla/websocket",
+  "advisory": "GO-2026-6278",
+  "advisory_nominal_fixed": "v1.5.3",
+  "actual_candidate_commit": "d67f41855da42d7bccd9ef050c49f7e54e783b95",
+  "production_approved": false,
+  "versions": [
+    {
+      "version": "v1.4.2",
+      "origin": null,
+      "conn_go_sha256": "3a147063a5848d9ce230b5ca39767d3fec136664981eb976889a3a9a3f5cff0b",
+      "license_sha256": "2be1b548b0387ca8948e1bb9434e709126904d15f622cc2d0d8e7f186e4d122d",
+      "go_mod_sha256": "09dc8a9227a54c1069ea065d610a5f2ca195f1f5fba6e7dbb2d7eb0fd6e01df6",
+      "archive_sha256": "d0d1728deaa06dac190bf4964c9c6395923403eae337cb3305d6dda18ef07337",
+      "module_sum": "h1:+/TMaTYc4QFitKJxsQ7Yye35DkWvkdLcvGKqM+x0Ufc=",
+      "go_mod_sum": "h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE="
+    },
+    {
+      "version": "v1.5.3",
+      "origin": {
+        "VCS": "git",
+        "URL": "https://github.com/gorilla/websocket",
+        "Hash": "ce903f6d1d961af3a8602f2842c8b1c3fca58c4d",
+        "Ref": "refs/tags/v1.5.3"
+      },
+      "conn_go_sha256": "43e43e797f891846fcf6cdb92de318ccc38f5b346a24d58f7076bd4fecc6341b",
+      "license_sha256": "2be1b548b0387ca8948e1bb9434e709126904d15f622cc2d0d8e7f186e4d122d",
+      "go_mod_sha256": "09dc8a9227a54c1069ea065d610a5f2ca195f1f5fba6e7dbb2d7eb0fd6e01df6",
+      "archive_sha256": "dbbd31dd0f08548c5dc43e4c2f12bbba66abff5252b224b1cd06afbb72783a76",
+      "module_sum": "h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=",
+      "go_mod_sum": "h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE="
+    },
+    {
+      "version": "v1.5.4-0.20240701034025-d67f41855da4",
+      "origin": {
+        "VCS": "git",
+        "URL": "https://github.com/gorilla/websocket",
+        "Hash": "d67f41855da42d7bccd9ef050c49f7e54e783b95"
+      },
+      "conn_go_sha256": "e7dfbcc500d9e16a2195f0c2219568f7409a6d647f43a8fbeee6b5991ac25254",
+      "license_sha256": "2be1b548b0387ca8948e1bb9434e709126904d15f622cc2d0d8e7f186e4d122d",
+      "go_mod_sha256": "ac9fb47d533c1e80480b5baa66ec6bd5e36e2d2a254470916a369fbb64c41cbf",
+      "archive_sha256": "29bd25f67365ad2ee7b050abc8cb067b9b9ff72f641c0d0c77fda9a492e71b43",
+      "module_sum": "h1:PYKzliEgITjLJoJqbV90S0YRaG8LNAsICH6fp6MApC0=",
+      "go_mod_sum": "h1:r4w70xmWCQKmi1ONH4KIaBptdivuRPyosB9RmPlGEwA="
+    }
+  ]
+}
