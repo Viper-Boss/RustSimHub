@@ -16,7 +16,7 @@
 | A-25 | PR133，真实Rust监督库、三引用/单次取消/10秒启动/5秒停止/有限重连及31项失败测试；PR129保留具体提案 | 固定Root策略/证明/序列化审查、真实引擎/Root提供者与主线低权/cgroup实测 |
 | A-26 | 已合并PR144的真实Rust有限路由策略，双服务白名单、完整不透明绑定比较、撤销/顺序/配额/原截止及业务后Unknown；默认提供者不可用，详见member-a-a26-routing.md | 普通NKN签名域/记录协议批准、真实成员/安全会话生产者、D的真正普通Core/媒体桥与主机接线；未完成端到端 |
 | A-27 | PR153候选锁定snow0.10.0及55包来源，实际标准Noise原生/WASM互通、11项Rust/17项Chromium检查、4项来源篡改检查；独立评估workspace，不接产品 | AES-only上游编译失败/额外特性审批；实际应用绑定、pin/签名域/grant/Core及产品互操作仍未实现，crypto_wire_frozen=false |
-| A-29 | PR124，真实SMTP/TLS独立库/私有有限配置/本机TLS16测试；包109通过/0失败/1忽略 | PR120兼容审批后的生产配置/queue/worker/Core Fence接线、获准邮箱实测 |
+| A-29 | PR124原SMTP库保持；本轮修正EHLO问候误判AUTH能力，18项真实TLS测试、包116通过/0失败/1忽略，详见member-a-email-ehlo-capabilities.md | PR120兼容审批后的生产配置/queue/worker/Core Fence接线、获准邮箱实测 |
 | A-30 | 已合并PR128前端可复现制品、PR134联合回归/来源/回选材料；本轮A26库提供真实新增回归和接线说明，不重做旧合并 | 含真实SDK/安全会话/Root策略的完整组合；C组装/主线签名部署与验收 |
 
 PR123实现SHA cd3369f7727fd6809b6576f213e862164ef2aeef，交付HEAD4db90796e6244bc9d7b6bdc45a4c4d3abef3267c；PR124实现SHA017164175759088c2e8167d56a850c5f663b52b2，交付HEADc387db65d90426dc2aa15a758c4fcfdc90edf5d1；PR128实现/构建SHA960d379a00b1f9c34ac044c10288bea62feec029，交付HEAD974b6739ae2e4ef9d8b2cf8558cb986b789b82df。各自详细结果/边界保留原报告，不将不同分支数字相加为本PR测试。
@@ -51,3 +51,7 @@ A27此前crates API403的前置本轮在同一官方端点恢复，已核验固�
 具体依赖/密钥/签名域/完整绑定批准后完成产品协议；A13～16/A22/A25仍需SDK/
 身份/固定出口/Root真实提供者；A29仍需生产兼容/Fence/队列接线。A30组合收口
 保持，不用离线测试重复扣步或改全局进度。
+
+2026-11-01 A29继续：从main `894888561d6a7a921fac95817e10a904812ebf13` 修正
+独立库EHLO首行问候被误当AUTH PLAIN能力的实际缺陷；先真实失败再修，未接生产
+配置/queue/worker/Core Fence或改变PR120版本/迁移提案。A29整步仍未完成。
