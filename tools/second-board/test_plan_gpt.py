@@ -71,9 +71,18 @@ class PlanGptTest(unittest.TestCase):
             self.assertEqual(new[name], old[name], name)
         self.assertLessEqual(by_name['rootfs']['first_sector'] + by_name['rootfs']['sectors'] - 1, N - 34)
 
+    def test_tz_stays_by_default(self):
+        primary, backup = stock()
+        new_primary, _backup, layout = plan.build(primary, backup)
+        old = {e['name']: e for e in plan.read_stock(primary, backup)[1]}
+        head = plan.parse_header(new_primary[512:1024])
+        new = {e['name']: e for e in plan.parse_entries(new_primary[1024:], head)}
+        self.assertEqual(new['tz']['raw'], old['tz']['raw'])
+        self.assertNotIn('tz', [t['name'] for t in layout['new_targets']])
+
     def test_tz_moves_but_keeps_its_identity(self):
         primary, backup = stock()
-        new_primary = plan.build(primary, backup)[0]
+        new_primary = plan.build(primary, backup, relocate_tz=True)[0]
         old = {e['name']: e for e in plan.read_stock(primary, backup)[1]}
         head = plan.parse_header(new_primary[512:1024])
         new = {e['name']: e for e in plan.parse_entries(new_primary[1024:], head)}
@@ -86,9 +95,13 @@ class PlanGptTest(unittest.TestCase):
     def test_unstable_sector_inside_a_target_is_refused(self):
         layout = plan.build(*stock())[2]
         plan.check_unstable(layout, {270826, 270827, 1116554})
-        for sector in (1116672, 1247744 + 5, 1513984, 7634903):
+        for sector in (1116672, 1247744 + 5, 7634903):
             with self.assertRaisesRegex(plan.PlanError, 'unstable'):
                 plan.check_unstable(layout, {sector})
+        plan.check_unstable(layout, {1513984})
+        moved = plan.build(*stock(), relocate_tz=True)[2]
+        with self.assertRaisesRegex(plan.PlanError, 'tz covers'):
+            plan.check_unstable(moved, {1513984})
 
     def test_unstable_list_parser(self):
         with tempfile.TemporaryDirectory() as tmp:

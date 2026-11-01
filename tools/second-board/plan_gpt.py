@@ -21,12 +21,12 @@ import zlib
 SECTOR = 512
 DISK_SECTORS = 7634944
 # NV/calibration and the boot chain: entries kept byte-identical (same LBAs).
-PROTECTED = ('modem', 'sbl1', 'sbl1bak', 'aboot', 'abootbak', 'rpm', 'rpmbak', 'tzbak', 'hyp', 'hypbak',
+PROTECTED = ('modem', 'sbl1', 'sbl1bak', 'aboot', 'abootbak', 'rpm', 'rpmbak', 'tz', 'tzbak', 'hyp', 'hypbak',
              'pad', 'modemst1', 'modemst2', 'misc', 'fsc', 'ssd', 'splash', 'DDR', 'fsg', 'sec', 'persist')
-# The stock tz range holds physically bad sectors (270826-270827). Keep the tz
-# entry's type/unique GUID, attributes and name; only move its LBAs into a range
-# the full-disk scan read stably. sbl1 finds tz by type GUID.
-MOVED = {'tz': (1513984, 1024)}
+# Only with --relocate-tz (the first second-hand stick, whose stock tz range holds
+# physically bad sectors 270826-270827): keep the tz entry's type/unique GUID,
+# attributes and name and move only its LBAs. sbl1 finds tz by type GUID.
+RELOCATE_TZ = {'tz': (1513984, 1024)}
 DROPPED = ('boot', 'system', 'cache', 'recovery', 'userdata')
 EXPECTED_STOCK = ('modem', 'sbl1', 'sbl1bak', 'aboot', 'abootbak', 'rpm', 'rpmbak', 'tz', 'tzbak', 'hyp', 'hypbak',
                   'pad', 'modemst1', 'modemst2', 'misc', 'fsc', 'ssd', 'splash', 'DDR', 'fsg', 'sec', 'boot',
@@ -122,13 +122,15 @@ def header_bytes(stock, current, backup, entries_lba, entries_crc):
     return bytes(header) + b'\0' * (SECTOR - 92)
 
 
-def build(primary, backup):
+def build(primary, backup, relocate_tz=False):
+    moved = RELOCATE_TZ if relocate_tz else {}
+    protected = tuple(n for n in PROTECTED if n not in moved)
     head, stock = read_stock(primary, backup)
     by_name = {e['name']: e for e in stock}
     rows = {}
-    for name in PROTECTED:
+    for name in protected:
         rows[name] = by_name[name]['raw']
-    for name, (first, sectors) in MOVED.items():
+    for name, (first, sectors) in moved.items():
         raw = by_name[name]['raw']
         rows[name] = raw[:32] + struct.pack('<QQ', first, first + sectors - 1) + raw[48:]
     boot_type = uuid.UUID(by_name['boot']['type'])
@@ -141,12 +143,13 @@ def build(primary, backup):
     padded = table + b'\0' * (32 * SECTOR - len(table))
     new_primary = primary[:SECTOR] + header_bytes(head, 1, DISK_SECTORS - 1, 2, crc) + padded
     new_backup = padded + header_bytes(head, DISK_SECTORS - 1, 1, DISK_SECTORS - 33, crc)
-    layout = check(new_primary, new_backup, stock)
+    layout = check(new_primary, new_backup, stock, moved)
     return new_primary, new_backup, layout
 
 
-def check(new_primary, new_backup, stock):
+def check(new_primary, new_backup, stock, moved):
     """Re-parse the generated tables and prove the safety properties."""
+    protected = tuple(n for n in PROTECTED if n not in moved)
     head = parse_header(new_primary[SECTOR:2 * SECTOR])
     entries = parse_entries(new_primary[2 * SECTOR:], head)
     tail = parse_header(new_backup[32 * SECTOR:])
@@ -157,26 +160,26 @@ def check(new_primary, new_backup, stock):
             'NSHSTATE must be partition 15 with 264159 sectors')
     old = {e['name']: e for e in stock}
     new = {e['name']: e for e in entries}
-    for name in PROTECTED:
+    for name in protected:
         require(new[name]['raw'] == old[name]['raw'], f'{name}: retained entry changed')
-    for name, (first, sectors) in MOVED.items():
-        moved, stock_entry = new[name]['raw'], old[name]['raw']
-        require(moved[:32] == stock_entry[:32] and moved[48:] == stock_entry[48:], f'{name}: moved entry changed beyond LBAs')
+    for name, (first, sectors) in moved.items():
+        entry, stock_entry = new[name]['raw'], old[name]['raw']
+        require(entry[:32] == stock_entry[:32] and entry[48:] == stock_entry[48:], f'{name}: moved entry changed beyond LBAs')
         require(sectors == old[name]['last'] - old[name]['first'] + 1, f'{name}: moved entry changed size')
     spans = sorted((e['first'], e['last'], e['name']) for e in entries)
     for (a_first, a_last, a_name), (b_first, _b_last, b_name) in zip(spans, spans[1:]):
         require(a_last < b_first, f'{a_name} overlaps {b_name}')
     require(spans[0][0] >= head['first'] and spans[-1][1] <= head['last'], 'Partition outside usable area')
     targets = []
-    for name in (*MOVED, *NEW):
+    for name in (*moved, *NEW):
         e = new[name]
-        for keep in PROTECTED:
+        for keep in protected:
             k = old[keep]
             require(e['last'] < k['first'] or e['first'] > k['last'], f'{name} would touch protected {keep}')
         targets.append(dict(name=name, index=e['index'], first_sector=e['first'],
                             sectors=e['last'] - e['first'] + 1, bytes=(e['last'] - e['first'] + 1) * SECTOR))
     protected = [dict(name=n, first_sector=old[n]['first'], sectors=old[n]['last'] - old[n]['first'] + 1)
-                 for n in PROTECTED]
+                 for n in protected]
     return dict(partitions=[dict(index=e['index'], name=e['name'], first_sector=e['first'],
                                  sectors=e['last'] - e['first'] + 1) for e in entries],
                 new_targets=targets, protected=protected)
@@ -207,10 +210,12 @@ def main():
     parser.add_argument('--out', type=pathlib.Path, required=True, help='new directory; must not exist')
     parser.add_argument('--unstable', type=pathlib.Path, action='append', default=[],
                         help='UsbTool mismatch list; targets must avoid every listed sector (repeatable)')
+    parser.add_argument('--relocate-tz', action='store_true',
+                        help='move the tz entry out of a damaged stock range (first second-hand stick only)')
     args = parser.parse_args()
     try:
         primary, backup = args.primary.read_bytes(), args.backup.read_bytes()
-        new_primary, new_backup, layout = build(primary, backup)
+        new_primary, new_backup, layout = build(primary, backup, args.relocate_tz)
         unstable = set()
         for path in args.unstable:
             unstable |= read_unstable(path)
@@ -224,7 +229,7 @@ def main():
                     primary=dict(first_sector=0, sectors=34, sha256=hashlib.sha256(new_primary).hexdigest()),
                     backup=dict(first_sector=DISK_SECTORS - 33, sectors=33,
                                 sha256=hashlib.sha256(new_backup).hexdigest()),
-                    unstable_sectors_checked=len(unstable), **layout)
+                    unstable_sectors_checked=len(unstable), tz_relocated=args.relocate_tz, **layout)
         (args.out / 'plan.json').write_text(json.dumps(plan, indent=1) + '\n')
     except (PlanError, OSError) as error:
         print(f'refused: {error}', file=sys.stderr)
