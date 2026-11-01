@@ -317,6 +317,8 @@ async fn t5_reconnection_cannot_extend_or_authorize_original_saving_actor() {
     p.commit_entered.notified().await;
     let before = query(&f, &c, 3, 2).await;
     assert_eq!(before["operation"]["state"], "saving");
+    assert_eq!(before["operation"]["settings_saved"], Value::Null);
+    assert_eq!(before["operation"]["rollback_verified"], Value::Null);
     c.invalidate();
     let fresh = connect(&f);
     let after = query(&f, &fresh, 4, 1).await;

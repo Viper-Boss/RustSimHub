@@ -23,6 +23,17 @@ for (const value of rows) {
     operation(value, value.request_id, value.action);
     counts.operation++;
   }
+  const op = value.operation ?? ('state' in value ? value : null);
+  if (op?.state === 'saving') {
+    assert.equal(op.settings_saved, null, 'in-flight persistence is unsettled');
+    assert.equal(op.rollback_verified, null);
+  }
+  if (op?.state === 'unknown') {
+    assert.equal(op.authoritative, false);
+    for (const key of ['settings_saved', 'rollback_verified', 'expires_in_ms']) {
+      assert.equal(op[key], null);
+    }
+  }
 }
 assert(rows.length >= 25, 'no complete Rust evidence set');
 assert(Object.values(counts).every(n => n > 0), 'missing operation, lookup or error evidence');

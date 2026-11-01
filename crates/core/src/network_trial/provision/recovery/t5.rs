@@ -276,7 +276,9 @@ pub(super) async fn from_receipt(
             if !remaining.is_zero() {
                 op.state = expected;
                 op.authoritative = true;
-                op.settings_saved = Some(false);
+                // A Saving actor may already be partway through persistence.
+                // Only its completed, durably recorded outcome settles this.
+                op.settings_saved = (expected != State::Saving).then_some(false);
                 op.expires_in_ms = Some(milliseconds(remaining));
             }
         }
