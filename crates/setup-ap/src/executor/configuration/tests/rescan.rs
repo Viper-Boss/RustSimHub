@@ -478,6 +478,7 @@ async fn stale_cancelled_or_closing_request_gets_a_durable_non_execution_receipt
 }
 #[tokio::test]
 async fn cooldown_and_exhausted_budget_are_authoritative_without_any_radio_work() {
+    let _clock = channel::aged_test_clock();
     for reason in [protocol::Refusal::Cooldown, protocol::Refusal::Limit] {
         let f = aged_fixture(300000);
         let m = Arc::new(StdMutex::new(Model::default()));

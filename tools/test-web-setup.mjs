@@ -16,7 +16,7 @@ async function run({password,ownerExists=false,catalogue=null,retainedRecord=nul
  const prior=scopedRecord||retainedRecord;
  let owner=ownerExists?'preset':null,pending=new Map(),log=[],parentHash=prior?.request_key_sha256??null,trialId=prior?.trials.at(-1)??null,commitId=null;
  const operationId='11111111-1111-4111-8111-111111111111';
- const parent=()=>({known:true,available:true,state:'ready',operation_id:operationId,request_key_sha256:parentHash,station_trial_api:true,station_save_api:true,credentials_returned:false,cellular_activation:false});
+ const parent=()=>({known:true,available:true,state:'ready',operation_id:operationId,request_key_sha256:parentHash,station_trial_api:true,station_save_api:true,credentials_returned:false,cellular_activation:false,scan:{supported:true,available:true,remaining:8}});
  const trial=()=>({known:true,operation_id:operationId,trial_id:trialId,state:'ready',authoritative_result:true,ap_return_verified:true,requires_confirmation:true,settings_saved:false,credentials_returned:false,cellular_activation:false});
  async function verify(c,signature){
   const p=pending.get(c);pending.delete(c);if(!p)return false;
@@ -45,6 +45,11 @@ async function run({password,ownerExists=false,catalogue=null,retainedRecord=nul
    case 'setup_ap_wifi_begin':assert.equal(cmd.operation_id,operationId);assert.equal(cmd.ssid,'Home');assert.equal(cmd.passphrase,'wifi-password');trialId=cmd.trial_id;return trial();
    case 'setup_ap_wifi_status':assert.equal(cmd.trial_id,trialId);return trial();
    case 'setup_ap_wifi_confirm':assert.equal(cmd.trial_id,trialId);commitId=cmd.commit_id;return {known:true,operation_id:operationId,trial_id:trialId,commit_id:commitId,state:'saved',settings_saved:true,authoritative_result:true,credentials_returned:false,cellular_activation:false,not_resubmitted:true};
+   case 'setup_ap_scan_begin':{
+    const saved=JSON.parse(globalThis.localStorage.getItem('rustsimhub-setup-ap-wifi-pending:scan:'+hex(devicePk)));
+    assert.equal(saved.scan_id,cmd.scan_id);assert.equal(saved.operation_id,cmd.operation_id);
+    return {known:true,operation_id:operationId,scan_id:cmd.scan_id,state:'ready',authoritative_result:true,ap_return_verified:true,historical:false,settings_saved:false,credentials_returned:false,cellular_activation:false,snapshot:{requested_uptime_ms:10,last_scan_uptime_ms:11,completed_uptime_ms:12,networks:[],omitted:0,truncated:false}};
+   }
    default:throw Error('Unexpected first-setup command '+cmd.op);
   }
  }
@@ -141,6 +146,14 @@ assert.match(r.$('setup-networks-note').textContent,/已完成一次主动扫描
 assert.match(r.$('setup-networks-note').textContent,/不会重新扫描/);
 assert.equal(r.$('setup-networks').children[1].value,'Fresh');
 assert.deepEqual(r.log.filter(op=>op.startsWith('setup_ap_')),[]);
+// The visible scan button is wired to the production mutation and an empty
+// authoritative snapshot really removes cached SSIDs from the setup select.
+globalThis.confirm=()=>true;
+assert.equal(r.$('setup-networks').children.length,2);
+await r.$('setup-networks-rescan').onclick();
+assert.equal(r.$('setup-networks').children.length,1);
+assert.equal(r.log.filter(op=>op==='setup_ap_scan_begin').length,1);
+assert.match(r.$('setup-networks-note').textContent,/扫描完成/);
 r=await run({password:'correct horse',catalogue:{source:'before_setup_ap_scan',snapshot_age_seconds:4,networks:[]}});
 assert.equal(r.$('setup-networks').children.length,1);
 assert.match(r.$('setup-networks-note').textContent,/没有可选的 WPA2/);

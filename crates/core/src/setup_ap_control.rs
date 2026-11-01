@@ -30,7 +30,10 @@ fn denied<T>(v: rustsimhub_setup_ap::Result<T>) -> Result<T> {
     v.map_err(|_| Error::Forbidden)
 }
 fn now() -> Result<u64> {
-    denied(channel::uptime_ms())
+    let value = denied(channel::uptime_ms())?;
+    #[cfg(test)]
+    let value = tests::CLOCK_ADVANCE.with(|offset| value.saturating_add(offset.get()));
+    Ok(value)
 }
 fn boot() -> Result<String> {
     denied(channel::boot_id())

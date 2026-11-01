@@ -80,6 +80,7 @@ fn missing_active_marker_still_blocks_parent_cleanup_and_allows_only_unknown_rec
 }
 #[test]
 fn known_results_allow_parent_cleanup_but_not_replay_and_enforce_cooldown_and_count() {
+    let _clock = crate::channel::aged_test_clock();
     let (_d, _dir, j, mut r) = setup();
     let t = r.requested_uptime_ms;
     // Old completed metadata uses the original boot clock; query sampling is current.

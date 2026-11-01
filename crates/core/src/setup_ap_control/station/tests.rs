@@ -239,6 +239,7 @@ async fn cancellation_of_a_finished_trial_cannot_replace_the_next_trial() {
 }
 #[tokio::test]
 async fn occupied_call_or_stale_parent_proof_cannot_admit_credentials() {
+    let _clock = super::super::tests::aged_test_clock();
     struct Busy;
     impl Idle for Busy {
         async fn check(&self, _: &str) -> Result<()> {
