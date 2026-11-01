@@ -950,3 +950,73 @@ watch sender关闭不是整个Future被drop/abort；finish开始后继续清理�
 项目公开AGPL-3.0-only源码/任务书来源保留，无新依赖或第三方实现复制；Codex辅助盘点/整理/静态核验，无作者改写，自报实耗未填。
 实际完成C21正式盘点与方案交付，尚待负责人审核；没有将C22/C23/C24计划或C21已分配状态计为完成。
 原固定P0～P7整体仍约 **80%**，全局台账及正式验收由主线维护。
+
+
+## 2026-11-01 · C22/C23真实AP事务失败矩阵与WSL2交付
+
+成员yh1030 / member-c；同仓库个人分支`codex/member-c-ap-failure-tests`，PR到main，不自行合并。
+C21第一阶段PR #147已由Viper-Boss于2026-11-01T05:06:13Z合并（merge `626bee713fe3a21ff0e31eec95aea065742a6937`），
+随后从最新main `086b2116ff09e4d62c8c034cf668ac8739fbbc04` 开始本修改包。
+测试内容完整HEAD `05b2a5e8f8f150ae986dead91a1cf343c815db3f`，实际WSL验证tree `21e4784d2304f3daf444be1c7f2a03452190ac97`；
+后续只补本报告/测试说明，PR正文与本地检查点登记最终40位HEAD。内容/最终报告/运行截面明确分开，不自指捏造SHA。
+
+### 实际完成与文件边界
+
+- C22：新增`crates/setup-ap/src/station_trial/tests/t5_matrix.rs`，9个测试定义，覆盖真实run正向、通用后端错误、DHCP截止、
+  开始前取消、begin/usable取消、sender关闭、restore阻塞时取消仍等待、restore错误/真实8秒超时/恢复后guard拒绝、逐位置撤权与恢复期间旧工作失权。
+- C23：新增`crates/setup-ap/src/station_commit/tests/t5_matrix.rs`，11个测试定义；包括真实consume和保存/最终清理/释放顺序、
+  已消费审计不能再驱动网络、预检拒绝/非法窗口、保存副作用后丢回执、部分保存后的恢复错误/超时/隔离不明、保存前后撤权、finish期间取消或caller消失、finalizer超时/释放失败。
+- 两个既有tests.rs逐字节对照基线，仅各追加空行和`mod t5_matrix;`，没有搬动/改写旧测试。
+  另更新`docs/testing/ap-failure-matrix.md`与本报告，共6文件；生产trait、执行器/NM/Core、Cargo/lock/期限、其他成员及全局台账均未改。
+- Fake只模拟外部能力，Outcome来自真实run；同一合成UUID约束begin/usable/persist/restore/finish。
+  记录每case/variant的Gate/Guard/Audit与网络计数、阶段和序号；无凭据输出、无第二状态机。
+
+### 真实验证、错误记录与证据
+
+WSL2 Ubuntu-24.04普通UID1000，kernel 6.18.54.1-microsoft-standard-WSL2，Rust/Cargo1.98.0；
+固定Git归档，source/target/TMPDIR均为Linux原生目录，locked/offline缓存，非Windows临时目录假作Linux测试。
+命令和退出码逐条见[正式矩阵](../testing/ap-failure-matrix.md#c22c23本轮实际结果)：
+
+| 实际命令/检查 | 结果 |
+|---|---|
+| Cargo `--list` | 退出0，列出180定义；新增trial9/commit11非零匹配，不宣称180项运行通过 |
+| station_trial::tests，含旧测试 | 退出0，15通过＝新增9＋原有6 |
+| station_commit::tests，含旧测试 | 退出0，18通过＝新增11＋原有7 |
+| channel::station::tests | 退出0，4通过，原owner/trial精确校验 |
+| channel::files::tests | 退出0，9通过，确认消费/不可覆盖终态/恢复后不重放 |
+| `cargo clippy -p rustsimhub-setup-ap --all-targets --locked --offline -- -D warnings` | 退出0 |
+| `cargo fmt --all -- --check` | 退出0 |
+| 私有证据核验及`git diff --cached --check` | 46个不同运行测试、50条trace逐项计数、10case层级、4文件规范Git字节/摘要及最小mod接入通过；Git空白检查退出0 |
+
+实际46个不同测试全部通过；20新增＋13旧直接事务＋13旧外层校验，不能把循环变体或列举名称重复计为独立测试数。
+初轮和最终源码测试均通过。证据初次解析因stdout/stderr交错拒绝不完整trace；
+私有执行器改为分流输出后，对同一最终tree重采，50条case/variant全部可解析、计数一致，未改产品或删除失败断言。
+生产常量、工作40秒上限、restore/finish8秒保持；取消后保持原run执行到收尾，不abort。
+
+最小失败样本：persist已记录本次保存副作用后返回Io，restore也Io，真实结果Unknown；
+consume/persist/restore各1，finish/release均0，原ID与部分保存状态保留。恢复超时也Unknown；恢复成功但guard拒绝仍Unknown。
+finish开始后的取消或sender关闭继续等待，可Saved；丢失finalizer回执或释放失败Unknown，绝不盲目restore/重存。
+wrong_password/ssid_missing只表示分别注入begin/usable的通用Io，不宣称真实WPA或扫描分类实测。
+
+证据包`C22-C23-WSL2-validation-21e4784.zip`：30,293字节/30条目，SHA256
+`3a674b26cce92785fa6342bc5929d6b402cf5f0094899e2e9057f3f2b839a73d`；ZIP CRC和每条目回读通过。
+含规范源码、固定tree/来源摘要、实际命令/结果和50条有序trace/10case层级；路径前缀脱敏，无真实凭据/设备数据。
+包保存在本机供用户转交，未代发给负责人。详细命令/逐case实际结果以包内summary/tests/coverage/traces及日志为准。
+
+### 主线接手、边界与下一步
+
+本轮完成C22/C23离线实现与自测，提供C24所需执行和最小失败证据，等待负责人按最终HEAD审查；不代填正式台账验收。
+stale_completion的底层Gate撤销控制和既有owner/trial/Journal校验实际通过；完整跨Core事务发布、Root/NM回执和设备仍待集成，
+没有在Mock里另写代次状态机自证全通过。未运行全包180项、全仓/rootfs、ARM、真实D-Bus/NM/WPA/SSID/DHCP/防火墙或物理网络恢复。
+整个Future直接drop/abort/掉电不在watch sender关闭的异步恢复保证内。真实AP-03/04前置继续由主线负责。
+
+进度板核对：本轮GitHub回读C09～12 PR #10、C13 #85、C14 #86、C15 #13、C16 #98、C17 #99、C18～20 #143均已由Viper-Boss合并。
+正式reviews.json仍对PR #10旧HEAD `45c54d4b32bc00a1093cf54d4faead9795cdbdc7`登记needs_changes，
+实际合并HEAD已是`b66c0e1df606980524d94fb26585b4a73aa7f7e3`；除C15外其余追加步骤未登记新离线验收。
+因此看板的“未审/未交付”不能代替实际提交/合并事实。请主线按精确最终HEAD复核并同步台账；成员不跨改reviews/进度/名册，也不将合并自动记为全范围验收。
+
+主线审核6文件范围、部分保存前置副作用、有限清理与Unknown、完整stale验收边界，再正常合并；需要外层新增接入先给最小范围提案。
+回退仅撤两个新测试模块、两行mod接入及本页/报告本节，无生产数据/业务接口/设备变化。
+来源为本仓库固定AGPL-3.0-only生产入口与既有测试、已审C21方案；SPDX保留，无新第三方代码/依赖。
+Codex辅助实现/核验/整理，Git作者由本人连接记录，不改写作者；实际有效工时未填，不以运行秒数当工程工时。
+原固定P0～P7整体仍约 **80%**；设备验收与全局公开看板由主线审核维护。

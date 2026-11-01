@@ -1,11 +1,82 @@
-# C21 · AP故障覆盖盘点与C22/C23测试接入方案
+# C21～C23 · AP故障覆盖与真实事务离线测试
 
-日期：2026-11-01。成员yh1030 / member-c；固定main `9c8d36b4b5959cd441f2bc181ff612c96cea5ac5`。
-前一UPD-07包PR #143已由负责人合并，本PR开始AP-04离线包的第一阶段。
-范围是C21来源、实际接口、10类case及最小失败样例规格；C22/C23代码和C24执行结果尚未交付。
+日期：2026-11-01；yh1030 / member-c，AP-04离线范围。
+C21方案PR #147已由Viper-Boss合并后，从最新main `086b2116ff09e4d62c8c034cf668ac8739fbbc04` 开始C22/C23。
+测试内容完整HEAD `05b2a5e8f8f150ae986dead91a1cf343c815db3f`；实际验证Git tree `21e4784d2304f3daf444be1c7f2a03452190ac97`。
+后续提交只更新本页与[本人报告](../deliveries/member-c-nas.md)，PR正文登记最终完整HEAD，不把报告提交冒充另一次代码测试。
 
-本页只静态检查现有代码。源码中存在测试、下列期望结果和命令方案均不能记作本轮执行通过。
-完整来源/测试目录和静态校验结果随本轮交付资料包提供，精确HEAD/命令/未运行项见[成员报告](../deliveries/member-c-nas.md)。
+## C22/C23本轮实际结果
+
+新增两个获分配的t5_matrix.rs：trial 9个、commit 11个测试定义；两个原tests.rs仅各追加空行和`mod t5_matrix;`。
+全部调用既有生产run，Fake只模拟外部Network/Guard/Gate/Audit；不新增结果状态机、生产trait、Cargo依赖或Root权限。
+所有网络阶段校验同一合成操作UUID，记录每次Gate/Guard/Audit和网络调用的计数与顺序；凭据不进入记录。
+用watch/Notify到达握手注入取消或丢失调用方；持有并await原Future，不abort任务。
+保持工作窗口不超过40秒、实际restore/finish的8秒预算；DHCP未就绪使用真实250毫秒窗口。
+
+WSL2 Ubuntu-24.04、普通UID 1000、Rust/Cargo 1.98.0，source/target/TMPDIR均在Linux原生文件系统。
+使用现有离线缓存、`--locked --offline`；未安装依赖、未连系统NM/D-Bus、真实AP或任何设备。
+最终证据运行UTC 2026-11-01 05:31:22～05:32:29（详尽起止以包内summary为准）。
+
+| 实际执行 | 退出码与结果 |
+|---|---|
+| `cargo test -p rustsimhub-setup-ap --lib --locked --offline -- --list` | 0；只列出180个定义，**不是180项运行通过**；新增trial9/commit11匹配非零 |
+| `cargo test -p rustsimhub-setup-ap --lib station_trial::tests --locked --offline -- --nocapture --test-threads=2` | 0；15通过＝新增9＋原有6 |
+| `cargo test -p rustsimhub-setup-ap --lib station_commit::tests --locked --offline -- --nocapture --test-threads=2` | 0；18通过＝新增11＋原有7 |
+| `cargo test -p rustsimhub-setup-ap --lib channel::station::tests --locked --offline -- --nocapture` | 0；原有4通过，含原owner/trial精确取消校验 |
+| `cargo test -p rustsimhub-setup-ap --lib channel::files::tests --locked --offline -- --nocapture` | 0；原有9通过，含确认消费、终态不可覆盖和中断回执不重放 |
+| `cargo clippy -p rustsimhub-setup-ap --all-targets --locked --offline -- -D warnings` | 0；严格检查通过 |
+| `cargo fmt --all -- --check` | 0 |
+
+实际执行46个不同测试全部通过，20新增＋13原有直接事务＋13原有外层验证；没有执行setup-ap全包180项或全仓测试。
+50条case/variant记录逐条核对计数等于trace中的实际调用次数，所有网络副作用均至多一次。
+以下10个ID严格沿用冻结清单；“离线通过”仅指下列列明的层级与注入，不等于整项或实机验收。
+
+| case ID | C22实际观察 | C23实际观察及保留边界 |
+|---|---|---|
+| wrong_password | begin返回通用Io后恢复一次，FailedAndRestored | consume一次，begin错误后RestoredAp，persist/finish/release均0；不是实际WPA认证失败识别 |
+| ssid_missing | usable返回通用Io后恢复一次，FailedAndRestored | consume后查询错误，恢复一次，无persist；不是实际扫描/SSID可见性验证 |
+| dhcp_deadline | 未就绪轮询直至真实250ms窗口截止，FailedAndRestored | RestoredAp，无persist/finish/release；只表示本地可用性，不声称互联网 |
+| cancel_before_start | 初值true或最后sender已关闭，Denied，零预检/网络调用 | 同样零消费/网络调用；另验证gate/guard/audit拒绝及0/41秒窗口无begin |
+| cancel_during_trial | begin、usable阻塞时取消恢复一次；restore阻塞时取消仍等待收尾 | persist已有副作用时取消，等待恢复；finish已开始则继续等待，成功可Saved |
+| caller_dropped | begin握手后关闭watch sender，仍await，FailedAndRestored | persist中关闭sender后RestoredAp；finish中关闭sender后成功Saved/失败Unknown，不盲目回退 |
+| partial_persist | trial接口没有persist，零保存，不另造保存器 | 后端先标记保存再Err(Io)，恢复成功RestoredAp；恢复错误/8秒超时/恢复后guard拒绝均Unknown，无finish/release或重试 |
+| restore_failed | restore返回Err、真实8秒超时、恢复后guard拒绝均Unknown | 相同三种路径Unknown；无保存时与部分保存时分别记录，不清空未证实的外部状态 |
+| revoke_before_commit | 初始/工作/恢复后Gate的5个位置拒绝，拒绝或FailedAndRestored | 初始拒绝无消费；消费后、保存前、保存后拒绝分别记录；精确恢复不依赖继续业务授权 |
+| stale_completion | 恢复阻塞时撤销Gate，旧run不能确认成功 | finalizer调用Gate时已撤权→Unknown，不释放隔离/盲目回退；实际owner/trial与Journal校验另有13项既有运行证据。完整Core跨事务发布/设备回执仍待主线集成验收 |
+
+### 最小失败样本和真实调用顺序
+
+`partial_persist / persist_error,restore=error`：已成功消费一次，begin和usable成功；
+persist先记录本次保存副作用再返回Io，restore也返回Io。真实run返回Unknown，外部部分保存标志仍保留，
+调用consume=1、persist=1、restore=1、finish=0、release=0，原UUID不变。
+顺序为`gate → guard → audit → gate → guard → begin → gate → guard → usable → gate → persist → partial_write → restore`。
+restore超时使用原8秒，结果同为Unknown；若实际恢复成功但之后guard拒绝，外部保存标志可以已清除，但结果仍Unknown。
+
+正向trial：`gate → guard → gate → guard → begin → gate → guard → usable → gate → restore → restored → guard → gate`；
+真实UsableAndRestored，仅DHCP/本地可用与AP恢复，没有保存/释放或互联网结论。
+正向commit：`gate → guard → audit → gate → guard → begin → gate → guard → usable → gate → persist → partial_write → gate → guard → finish → gate → release`；
+真实Saved；同一个已消费Audit再次调用只到预检/消费拒绝，零第二次网络工作。
+finish开始后的取消/调用方消失允许Saved；finalizer不明或release失败保留Unknown，不重放保存。
+
+### 证据、失败历史及未验收项
+
+`C22-C23-WSL2-validation-21e4784.zip`，30,293字节、30条目，SHA256
+`3a674b26cce92785fa6342bc5929d6b402cf5f0094899e2e9057f3f2b839a73d`。CRC与每个条目逐字节回读通过。
+含4个规范Git源码文件/摘要、实际命令/环境/退出码、20个新增名称及46个已运行名称、50条有序trace和10case层级表；
+只脱敏Linux私有目录前缀，保留实际命令与结果。证据包保存在本机供用户转交，没有代发负责人。
+
+初轮与最终源码运行均通过；首次组装机器证据时，标准输出/错误合并造成并行日志交错，核验器拒绝无法逐条解析的记录。
+私有执行器改为分流保存后，对**同一最终tree**重采全部命令，50条记录完整通过；没有修改产品或放宽测试断言。
+无全仓/rootfs/ARM/真实NM/D-Bus/真实WPA/SSID/DHCP/Root防火墙/物理切换或断电测试。
+整个Future被drop/abort时的异步清理不在这些watch取消测试保证内。
+完整stale_completion仍需真实外层Core事务归属和发布链集成；没有通过Fake自报代次证明完整通过，也未修改Core。
+C24所需测试/调用序列证据已提供，不自行代填正式验收；AP-03/04实机与项目固定P0～P7约80%保持。
+
+## C21历史盘点与实施方案
+
+下文保留C21阶段的静态来源和计划：固定main `9c8d36b4b5959cd441f2bc181ff612c96cea5ac5`，
+内容HEAD `abf321742839e3e5d5a40f9119d3d22e9803fa48`；当时只盘点26来源/62个定义，没有运行Rust测试。
+其中“后续/尚未执行”均指该历史阶段；本轮实际执行只按上文及独立日志计算。
 
 ## 接手规则与本轮范围
 
@@ -14,14 +85,14 @@
 只能在预定的两个t5_matrix.rs测试文件及既有tests.rs最小mod接入中实现后续测试，
 Core/NM/执行器/生产期限只读，外层确需新接入时先交最小提案。
 
-本PR请审核：
+C21阶段审核点（方案已随PR #147合并，以下保留原静态盘点）：
 
 1. 10个稳定case的覆盖层级及所列缺口；共用同一真实run与有限外部后端，不能靠case名称伪称密码/SSID实测。
 2. caller_dropped按watch关闭但run仍被持有并await执行收尾；完整任务abort和掉电不在此离线保证内。
 3. stale_completion以真实Gate/取消控制流与既有外层Intent/Journal/Core证据分别记录；不能只靠Mock代次状态自证跨代次拒绝。
 4. 后续只增加获分配的cfg(test)接入；无新依赖、不延长window/租约/清理预算、不删除失败断言。
 
-## 最小失败样例规格（本PR未执行）
+## C21历史最小失败样例规格（当时未执行；本轮结果见上文）
 
 以下是测试夹具输入/动作与断言，不是新产品HTTP/IPC DTO或伪造Outcome。
 所有凭据/状态均为合成；必须在C22/C23用真实run返回值与实际调用trace验证。
