@@ -103,5 +103,5 @@ python3 -B tools/kernel-artifact-audit/test_audit.py
 测试运行真实audit.main/inspect及原解析器，在新临时目录里构造匹配/错板、坏Image/ELF/FDT、依赖、
 缺证据、非法JSON/路径、symlink/hardlink/FIFO、预算和报告覆盖场景；无真实制品、Root或硬件操作。
 本次执行、精确提交/tree和未运行项见[成员报告](../deliveries/member-c-nas.md)。
-C18交付只读实现及必要验证；完整C19逐样本交付矩阵和C20后续集成验收另记，不凭测试数量宣布完成。
+C18交付只读实现及必要验证；C19固定样本及C20离线交接见[矩阵与补验清单](delivery.md)，不凭测试数量宣布硬件或发行验收完成。
 本轮没有核验真实完整内核归档、boot、681/22模块字节、厂商固件许可、实机启动/恢复或正式签名发行。
