@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-01T15:57:32.185697+00:00",
+  "updated_at": "2026-11-01T18:02:57.924153+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原固件81.5%按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "AP-07",
-    "title": "正式更新器锁修复已部署，应用70真实重选通过",
-    "state": "无需人工的更新器安装收尾完成；成员草稿和真人验收保留",
-    "description": "正式固定路径更新器已从dfd11e9升级到825a5016的Store显式unlock修复；维护命令原来已有，未新增或放宽授权。旧程序双份备份、当前/出厂组实际ARM验签、停组持锁一致备份、受限观察和70三角色兼容诊断通过；保留诊断authorization等false，不冒称admit授权。仅替换更新器并保留0555/原单元，真实正式app-select退出0重新选中70，七服务恢复；ledger/floor70、身份/原数据、可信HTTPS五资源、音频7/7保持，普通数据与转发OFF，NetworkManager/USB原PID保持，恢复预算未用且定时器停止。八组恢复隔离场景通过，包括已用预算不再启动；未做新候选、故障回退或设备冷启动。安装记录PR168已合并；11个开放PR仍全为草稿，五人真实统计固定a5df2c15，D线归GTW并保留实际作者。其他Root角色、成员包及最后手机验收分别继续，81.5%及20/169不变。"
+    "task_id": "NAS-02",
+    "title": "NAS原生只读桥已完成拒绝路径，继续正式授权接线",
+    "state": "主线集成继续；人工放最后",
+    "description": "固定a5df2c15组件在本机通过27项Go测试/vet并构建ARM64；实际NAS运行session和read，未批准身份与无效令牌均401/退出1/无stdout。使用已登记局域网HTTPS，TLS/Origin保持；九服务、boot、普通数据断开与转发OFF保持。未重置Owner或批准NAS，成功读取/撤销尚未验收。PR171已合并，PR169按所有者授权流程批准合并；其余草稿保留。代码开发约90%仅粗估，不能当验收比例，原81.5%及20/169不变。"
   },
   "facts": [
     {
@@ -79,9 +79,9 @@
       "detail": "固定P0–P7；本次合并不加验收分"
     },
     {
-      "label": "最新正式更新入口",
-      "value": "锁修复已部署 / PR168",
-      "detail": "正式选择器重选70成功；原数据保持，不计新候选/冷启动验收"
+      "label": "NAS原生集成",
+      "value": "两项401拒绝通过",
+      "detail": "27项Go测试与ARM构建通过；正式授权读取仍待验证"
     },
     {
       "label": "B线材料",
@@ -109,7 +109,8 @@
     "docs/team/README.md",
     "docs/VALIDATION-APP70-INSTALL-20261101.md",
     "docs/VALIDATION-ROOT-ROLE-PARITY-20261101.md",
-    "docs/VALIDATION-UPDATER-ROLE-DEPLOY-20261101.md"
+    "docs/VALIDATION-UPDATER-ROLE-DEPLOY-20261101.md",
+    "docs/VALIDATION-NAS-NATIVE-20261102.md"
   ],
   "modules": [
     {
@@ -5452,12 +5453,25 @@
       "type": "verified",
       "title": "正式更新器替换与实际选择器验证",
       "detail": "新更新器真实运行，正式app-select退出0、应用70及七服务正常；一致备份/原数据/HTTPS/音频保持，八组恢复隔离通过。PR168已合并，11草稿保留；权限诊断false原样保留，81.5%和20/169不变。"
+    },
+    {
+      "at": "2026-11-01T18:02:57.924153+00:00",
+      "type": "state",
+      "title": "NAS原生客户端构建与两条实际拒绝路径通过",
+      "detail": "固定a5df2c15组件在本机通过27项Go测试/vet并构建ARM64；实际NAS运行session和read，未批准身份与无效令牌均401/退出1/无stdout。使用已登记局域网HTTPS，TLS/Origin保持；九服务、boot、普通数据断开与转发OFF保持。未重置Owner或批准NAS，成功读取/撤销尚未验收。PR171已合并，PR169按所有者授权流程批准合并；其余草稿保留。代码开发约90%仅粗估，不能当验收比例，原81.5%及20/169不变。",
+      "task_ids": [
+        "NAS-02",
+        "NAS-07"
+      ],
+      "evidence": [
+        "docs/VALIDATION-NAS-NATIVE-20261102.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "a5df2c15eb377659d7b7a48d827eea6cbdeeae96",
-    "generated_at": "2026-11-01T15:55:13.680874+00:00",
+    "source_revision": "a5b89a042b5260fe157c7d1e2e7f4c802530451d",
+    "generated_at": "2026-11-01T18:02:57.924153+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5481,7 +5495,7 @@
             "tooling": 9922,
             "firmware": 1180
           },
-          "commits": 466,
+          "commits": 467,
           "code_commits": 304,
           "added": 112107,
           "deleted": 3093
@@ -5886,6 +5900,11 @@
               "pr": 168,
               "head": "4ddf296579e8b45a6a15f97a6ebb79c29f1129d6",
               "state": "MERGED"
+            },
+            {
+              "pr": 171,
+              "head": "7076a3435ead98f320524313e2030191189a0c8f",
+              "state": "MERGED"
             }
           ],
           "task_deliveries": [
@@ -6362,6 +6381,12 @@
               "head": "4ddf296579e8b45a6a15f97a6ebb79c29f1129d6",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 171,
+              "head": "7076a3435ead98f320524313e2030191189a0c8f",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
             }
           ]
         }
@@ -6543,12 +6568,12 @@
           "current_lines": {
             "product": 2772,
             "tests": 5229,
-            "tooling": 2648,
+            "tooling": 2818,
             "firmware": 1
           },
-          "commits": 92,
-          "code_commits": 35,
-          "added": 11104,
+          "commits": 95,
+          "code_commits": 36,
+          "added": 11287,
           "deleted": 106
         },
         "work": {
@@ -6921,6 +6946,16 @@
               "pr": 165,
               "head": "b215095425785b52e5bdb4917c5e9e0694c8c2ed",
               "state": "MERGED"
+            },
+            {
+              "pr": 169,
+              "head": "40b99f653198256e9471ecec1207809895e0e626",
+              "state": "MERGED"
+            },
+            {
+              "pr": 170,
+              "head": "3b1598f2e74fb63064b0f046b1111db2b4c06d1b",
+              "state": "OPEN"
             }
           ],
           "task_deliveries": [
@@ -7144,6 +7179,18 @@
               "pr": 165,
               "head": "b215095425785b52e5bdb4917c5e9e0694c8c2ed",
               "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 169,
+              "head": "40b99f653198256e9471ecec1207809895e0e626",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 170,
+              "head": "3b1598f2e74fb63064b0f046b1111db2b4c06d1b",
+              "state": "OPEN",
               "submitted_by": "wnfhsj88"
             }
           ]
@@ -7743,7 +7790,7 @@
     "totals": {
       "product": 63920,
       "tests": 62360,
-      "tooling": 13641,
+      "tooling": 13811,
       "firmware": 1189
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。",
@@ -9275,7 +9322,6 @@
           ]
         }
       ]
-    },
-    "pr_snapshot_at": "2026-11-01T15:57:32.185697+00:00"
+    }
   }
 }
