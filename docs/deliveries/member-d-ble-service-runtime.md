@@ -36,3 +36,8 @@ cargo fmt --all -- --check
 容器均network=none/read-only/NoNewPrivileges，临时UID只在容器，无host NSS/账户变更；保留既有32pids/256M/2CPU最小4caps的端口夹具，原GATT夹具保持16pids/128M/2CPU及原3caps，非目标完整48M/16tasks/10%CPU预算证明。真实production NSS/cgroup、Root/C发行组装、A安全会话/Core启动、ARM/HCI/RF/无线/NM/实机配网、两端听音未运行。不读生产数据/凭据，不拨号/短信/普通蜂窝，不签名或部署，不改主线台账/其他任务。原AGPL/来源作者保留，Codex辅助，实耗未知。
 
 D24**离线实现/材料提交**完成，完整步骤由21/26变为 **22/26已提交、剩4（D22/D23/D25/D26）**；不等于审核、主线集成或设备验收。D22/D23大量组件已有PR，但实际A装配和完整闭环未据此扣除；继续D25真实TLS/TURN/媒体，D26随新增实际路径补故障。固定P0–P7依PROGRESS-SCALE仍 **80%**；未修改分母/权重/全局表。远端CI按最终HEAD单独回读。
+
+
+后续CI夹具修正：90d45b6 的 run41295858896，native-audio124816460357通过；test124816460558的Rootfs通过，但BLE164通过/6服务测试失败，原因是runner有额外系统组，同UID生命周期夹具错误复用了生产禁止额外组检查。只在cfg(test)且Core UID=BLE UID（生产构造器始终拒绝此值）时隔离该组检查；生产分支和真实角色目标不增加例外。新增1项无broker socket探测测试，以容器实际UID1002+补充组1005复现修前Unavailable、修后真实socket连接/零报文EOF通过。早期夹具权限/缺dbus配置的失败不算该复现。修后源码8ec6179以实际完整HEAD见Git记录，BLE171及严格Clippy通过，独立生产库12个UID场景再次通过（额外组仍拒绝），均clean。原1433为70ed源码整仓截面；修正只增1测试，不冒充1434已经完整复跑。更新CI按修正后最终HEAD回读。
+
+组复现失败日志SHA256 5712a8ac4f0b34e1469827bbf2082139d2065d56858e4b426733493c4c402a6c；通过日志SHA256 f0ca7ba4fea79d184898460229e234f1b9720c741f2ae011fb5cd65e45340c99。

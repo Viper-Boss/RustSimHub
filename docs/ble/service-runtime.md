@@ -14,6 +14,6 @@ Core端口在任何BlueZ注册之前探测：实际有效UID/GID和无额外组�
 
 `firmware/system/ble/render_material.py --output <new-file.tar>` 输出0600可重复的审查归档，含现有固定材料、角色策略提案及精确hash；拒绝覆盖/符号链接，不提取、不执行、不创建账户、不安装。manifest持续 `install_permitted=false/production_ready=false/ids_reserved=false/default_enabled=false`。UID982/GID982/Core986仍是提案，由主线做真实NSS登记与安装。
 
-验证分开记录：常规真实私有broker/Unix I/O的服务测试使用同UID **cfg(test)专用构造器**，只验证运行/关闭，不冒充不同角色来源证明；独立 `core_port_uid`（test=false）在只读、network=none容器切换实际UID1001/1002，覆盖12场景，包括篡改文件属主后实际对端仍1003的拒绝。原3角色GATT/kernel FD/严格policy试验另外复跑。外部BlueZ/Core报文端点是合成，运行层、分帧、socket、UID和broker是真实模块。无生产密码stub或ALSA/系统BlueZ/NM/设备访问。
+验证分开记录：常规真实私有broker/Unix I/O的服务测试使用同UID **cfg(test)专用构造器**（仅该夹具允许runner继承组；生产构造始终拒绝同角色UID，实际额外组仍拒绝），只验证运行/关闭，不冒充不同角色来源证明；独立 `core_port_uid`（test=false）在只读、network=none容器切换实际UID1001/1002，覆盖12场景，包括篡改文件属主后实际对端仍1003的拒绝。原3角色GATT/kernel FD/严格policy试验另外复跑。外部BlueZ/Core报文端点是合成，运行层、分帧、socket、UID和broker是真实模块。无生产密码stub或ALSA/系统BlueZ/NM/设备访问。
 
 原48M/16tasks/10%CPU等unit限额没有放大，但这次容器试验不等于该完整systemd/cgroup预算下验收。实际NSS/Root装配/ARM、A安全provider与Core正式监听、系统BlueZ许可、HCI/广播/RF、设备恢复均保留主线验证。正常Core和媒体不依赖此可选BLE服务启动；正常USB/Auth/业务状态没有改变。
