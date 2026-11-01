@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput } from '../crates/edge/src/web/nas-bridge.js';
 // Execute the production app and formatter, with synthetic IPC/IndexedDB only.
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -32,7 +33,7 @@ function fixture({respond,onPut,consent=true,loggedIn=true,callGate=null,clock={
  const document={hidden:false,getElementById:$,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(type,fn){if(type==='visibilitychange')visibilityListeners.push(fn);}};
  let state='submitted';
  const context={OperationReceipt,DiagnosticPanel,ConfigurationState,UsageStatsPanel,TestCenter,listeners,ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,forwardingPendingInput,document,crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener:(type,fn)=>{if(!listeners.has(type))listeners.set(type,[]);listeners.get(type).push(fn);},
-  indexedDB:{open:()=>({})},SmsManager,smsListText,smsDetailText,DailyPhone:class{constructor(){this.managing=false;this.working=false;}reset(){}start(){}},ClientsPanel:class{reset(){}},SessionKeeper:class{start(){}reset(){}async ensure(){}},
+  indexedDB:{open:()=>({})},SmsManager,smsListText,smsDetailText,DailyPhone:class{constructor(){this.managing=false;this.working=false;}reset(){}start(){}},NasBridgePanel,nasPendingInput,nasReceiptInput,ClientsPanel:class{reset(){}},SessionKeeper:class{start(){}reset(){}async ensure(){}},
   AudioLink:class{constructor(){this.state='closed';}async stop(){}},
   ConfigurationIndicator:class{async set(){}},CallTest:class{constructor(options){this.options=options;this.running=false;}async start(mode){starts.push(mode);this.running=true;this.options.notify("synthetic running",true);if(callGate)await callGate.promise;this.running=false;this.options.notify("synthetic completed",false);}async stop(){this.running=false;}},archiveEndedOperation,navigator:{clipboard:{async writeText(text){copied.push(text);}}},NetworkPanel:class{start(){}stop(){}},EventSync:class{reset(){}},
   Date:class extends Date{static now(){return clock.wall;}},performance:{now:()=>clock.mono},confirm:text=>{confirmations.push(text);return consent;},

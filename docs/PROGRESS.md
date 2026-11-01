@@ -1,5 +1,7 @@
 # 最新开发进度：2026-10-23
 
+2026-11-02 NAS主线网页装配完成：新增默认折叠只读管理，条件绑定/撤销在同一Auth/Authority锁内比较epoch，保留近期Owner/NAS代次/只读权限；持久意图先于发送、跨设备pin与当前状态留存不冒充原回执。固定be007a5完整Rust1356通过/6项原有忽略、27组网页、严格Clippy及Core/Edge ARM通过。Chrome合成流程/三宽DOM检查已做，原生截图保存因URL无法可靠确认被工具终止，未继续UI，视觉批准仍待最后。未签名部署/操作设备。见[验证记录](VALIDATION-NAS-MANAGEMENT-PANEL-20261102.md)；81.5%/20 of169保持。
+
 2026-11-02 NAS绑定查询主线代码完成：新增近期Owner专属legacy_binding_status，经现有显式兼容provider查询原映射及当前principal代次；不重绑、不轮换epoch、不发会话。固定21f4bbb的362项相关测试/真实UnixStream与SQLite拒绝及撤销路径、完整工作区1355通过/6项原有专用忽略、全仓严格Clippy和ARM Core构建通过；云端因付款/消费上限未启动，不当作CI通过。未部署或增加依赖/schema/UI。见[验证记录](VALIDATION-NAS-BINDING-QUERY-20261102.md)。仍81.5%及20/169，人工最后。
 
 2026-11-02 NAS主线原生联调：固定a5df2c15组件、本机Go 27测试/vet和ARM64构建通过；NAS实际session与read两条未授权路径均401/退出1/无stdout。设备九单元、boot、数据断开和转发OFF保持。使用已登记局域网HTTPS，不放宽USB origin；Owner正式批准/真实只读数据及撤销验证仍待最后接续。详见[原生记录](VALIDATION-NAS-NATIVE-20261102.md)。81.5%及20/169不变，主线代码约90%仅粗估。

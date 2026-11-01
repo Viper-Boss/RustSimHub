@@ -3,7 +3,7 @@ use rustsimhub_auth::Auth;
 use rustsimhub_compat::session::{Authority, SignedSession};
 use rustsimhub_domain::NasEntity;
 use rustsimhub_policy::Scope;
-use rustsimhub_wire::AuthCommand;
+use rustsimhub_wire::{AuthCommand, LegacyBindingExpectation};
 use serde_json::{json, Value};
 type Result<T> = std::result::Result<T, rustsimhub_auth::Error>;
 pub(crate) fn dispatch(
@@ -15,6 +15,43 @@ pub(crate) fn dispatch(
         rustsimhub_auth::Error::Forbidden
     }
     Ok(match command {
+        AuthCommand::BindLegacyChecked {
+            token,
+            core_id,
+            public_key,
+            expected_generation,
+            scopes,
+            expected_binding,
+        } => {
+            let owner = auth.recent_owner(&token)?;
+            let p = auth.current_principal(public_key)?;
+            if p.generation != expected_generation {
+                return Err(denied(()));
+            }
+            check_binding(authority, &core_id, &expected_binding)?;
+            serde_json::to_value(
+                authority
+                    .bind(&owner, &p, &core_id, &scopes)
+                    .map_err(denied)?,
+            )
+            .map_err(denied)?
+        }
+        AuthCommand::RevokeLegacyChecked {
+            token,
+            core_id,
+            expected_binding_epoch,
+        } => {
+            let owner = auth.recent_owner(&token)?;
+            check_binding(
+                authority,
+                &core_id,
+                &LegacyBindingExpectation::Present {
+                    binding_epoch: expected_binding_epoch,
+                },
+            )?;
+            authority.revoke(&owner, &core_id).map_err(denied)?;
+            json!({"ok":true})
+        }
         AuthCommand::BindLegacy {
             token,
             core_id,
@@ -122,6 +159,27 @@ pub(crate) fn dispatch(
         }
         _ => return Err(rustsimhub_auth::Error::Forbidden),
     })
+}
+
+// The caller holds both the Auth and the single-writer Authority mutex for
+// this check and the following mutation; no await or external dispatch occurs.
+fn check_binding(
+    authority: &Authority,
+    core_id: &str,
+    expected: &LegacyBindingExpectation,
+) -> Result<()> {
+    match (expected, authority.binding(core_id)) {
+        (
+            LegacyBindingExpectation::Absent {},
+            Err(rustsimhub_compat::session::Error::Forbidden),
+        ) => Ok(()),
+        (LegacyBindingExpectation::Present { binding_epoch }, Ok(current))
+            if current.binding_epoch == *binding_epoch =>
+        {
+            Ok(())
+        }
+        _ => Err(rustsimhub_auth::Error::Forbidden),
+    }
 }
 
 #[cfg(test)]
@@ -247,6 +305,34 @@ mod tests {
         };
         let issued = dispatch(&mut auth, &mut gate, command).unwrap();
         let legacy = issued["token"].as_str().unwrap().to_owned();
+        assert!(dispatch(
+            &mut auth,
+            &mut gate,
+            AuthCommand::BindLegacyChecked {
+                token: ot.clone(),
+                core_id: "synthetic-nas".into(),
+                public_key: nas.verifying_key().to_bytes(),
+                expected_generation: current.generation,
+                scopes: scopes.clone(),
+                expected_binding: LegacyBindingExpectation::Absent {},
+            }
+        )
+        .is_err());
+        let stale_epoch = if epoch == "a".repeat(64) {
+            "b".repeat(64)
+        } else {
+            "a".repeat(64)
+        };
+        assert!(dispatch(
+            &mut auth,
+            &mut gate,
+            AuthCommand::RevokeLegacyChecked {
+                token: ot.clone(),
+                core_id: "synthetic-nas".into(),
+                expected_binding_epoch: stale_epoch,
+            }
+        )
+        .is_err());
         assert!(dispatch(&mut auth, &mut gate, query(legacy.clone())).is_err());
         // The read-back is not an issued session and does not revoke one.
         dispatch(&mut auth, &mut gate, query(ot.clone())).unwrap();

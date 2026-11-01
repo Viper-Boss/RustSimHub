@@ -64,6 +64,8 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | GrantHistory { .. }
         | RevokeHistory { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         BindLegacy { .. }
+        | BindLegacyChecked { .. }
+        | RevokeLegacyChecked { .. }
         | RevokeLegacy { .. }
         | LegacyBindingStatus { .. }
         | LegacySession { .. }
@@ -273,6 +275,8 @@ pub(crate) async fn handle(
     let result = if matches!(
         request.command,
         AuthCommand::BindLegacy { .. }
+            | AuthCommand::BindLegacyChecked { .. }
+            | AuthCommand::RevokeLegacyChecked { .. }
             | AuthCommand::RevokeLegacy { .. }
             | AuthCommand::LegacyBindingStatus { .. }
             | AuthCommand::LegacySession { .. }
