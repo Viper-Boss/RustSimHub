@@ -21,6 +21,84 @@ fn path() -> OwnedObjectPath {
         .unwrap()
 }
 struct FakeVoice(FakeState);
+
+#[tokio::test]
+async fn terminal_reobservation_ignores_unrelated_sms_notices_but_call_retirement_keeps_new_history(
+) {
+    let mut f = fixture(true).await;
+    f.data.state.store(7, Ordering::SeqCst);
+    f.worker.refresh().await.unwrap();
+    let old = f.worker.live.values().next().unwrap().summary.id.clone();
+    let events = f.worker.store.call_events(None, 32).unwrap().events.len();
+    for _ in 0..4 {
+        f.worker.refresh().await.unwrap();
+    }
+    assert_eq!(
+        f.worker.store.call_events(None, 32).unwrap().events.len(),
+        events
+    );
+    let revision = f.worker.binding().unwrap().revision();
+    let msg = zbus::Message::signal(
+        "/org/freedesktop/ModemManager1/Modem/0",
+        "org.freedesktop.ModemManager1.Modem.Messaging",
+        "Added",
+    )
+    .unwrap()
+    .sender(":1.20")
+    .unwrap()
+    .build(&(
+        OwnedObjectPath::try_from("/org/freedesktop/ModemManager1/SMS/1").unwrap(),
+        true,
+    ))
+    .unwrap();
+    f.server.send(&msg).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while f.worker.binding().unwrap().revision() == revision {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    f.worker.refresh().await.unwrap();
+    assert_eq!(f.worker.live.values().next().unwrap().summary.id, old);
+    assert_eq!(
+        f.worker.store.call_events(None, 32).unwrap().events.len(),
+        events
+    );
+    let revision = f.worker.binding().unwrap().revision();
+    let msg = zbus::Message::signal(
+        "/org/freedesktop/ModemManager1/Modem/0",
+        "org.freedesktop.ModemManager1.Modem.Voice",
+        "CallDeleted",
+    )
+    .unwrap()
+    .sender(":1.20")
+    .unwrap()
+    .build(&(path(),))
+    .unwrap();
+    f.server.send(&msg).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while f.worker.binding().unwrap().revision() == revision {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    f.worker.refresh().await.unwrap();
+    let current = f.worker.live.values().next().unwrap().summary.id.clone();
+    assert_ne!(current, old);
+    assert_eq!(f.worker.store.calls(None, 32).unwrap().calls.len(), 2);
+    for _ in 0..4 {
+        f.worker.refresh().await.unwrap();
+    }
+    assert_eq!(f.worker.live.values().next().unwrap().summary.id, current);
+    assert_eq!(f.worker.store.calls(None, 32).unwrap().calls.len(), 2);
+    assert_eq!(f.data.creates.load(Ordering::SeqCst), 0);
+    assert_eq!(f.data.starts.load(Ordering::SeqCst), 0);
+    assert_eq!(f.data.accepts.load(Ordering::SeqCst), 0);
+    assert_eq!(f.data.hangups.load(Ordering::SeqCst), 0);
+    f.server.close().await.unwrap();
+}
 #[tokio::test]
 async fn first_setup_idle_needs_a_real_device_window_and_fresh_voice_without_an_owner_token() {
     let mut f = fixture(false).await;

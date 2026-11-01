@@ -48,6 +48,59 @@ impl crate::transaction::Guard for Isolation {
     }
 }
 #[tokio::test]
+async fn saved_default_autoconnect_elision_finishes_and_lost_enable_still_retains_guard() {
+    for lost_enable in [false, true] {
+        let m = Arc::new(Mutex::new(Model {
+            omit_default_autoconnect: true,
+            lost_enable_reply: lost_enable,
+            ..Default::default()
+        }));
+        let (_server, mut nm, ap) = prepared(m.clone()).await;
+        let c = station_credentials();
+        let mut session = nm.commit_session(&ap).unwrap();
+        let (_tx, rx) = tokio::sync::watch::channel(false);
+        let outcome = crate::station_commit::run(
+            &mut session,
+            &mut Isolation(m.clone()),
+            &Allowed,
+            &Once(std::sync::atomic::AtomicBool::new(false)),
+            &c,
+            std::time::Duration::from_secs(2),
+            rx,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            outcome,
+            if lost_enable {
+                crate::station_commit::CommitOutcome::Unknown
+            } else {
+                crate::station_commit::CommitOutcome::Saved
+            }
+        );
+        let model = m.lock().unwrap();
+        assert_eq!(model.events.contains(&"release"), !lost_enable);
+        assert_eq!(model.events.contains(&"delete"), !lost_enable);
+        assert!(!model.events.contains(&"station-rollback"));
+        assert_eq!(
+            model
+                .events
+                .iter()
+                .filter(|e| **e == "station-save")
+                .count(),
+            1
+        );
+        assert_eq!(
+            model
+                .events
+                .iter()
+                .filter(|e| **e == "station-enable")
+                .count(),
+            1
+        );
+    }
+}
+#[tokio::test]
 async fn complete_engine_uses_real_dbus_backend_and_lost_enable_reply_never_releases_guard() {
     for lost_enable in [false, true] {
         let m = Arc::new(Mutex::new(Model {

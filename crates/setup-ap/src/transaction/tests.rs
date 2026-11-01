@@ -153,7 +153,7 @@ async fn authority_guard_and_network_order_remain_finite_and_never_retry_activat
 }
 #[tokio::test]
 async fn gate_rechecks_prevent_late_revocation_from_reaching_later_mutations() {
-    for fail_at in 1..6 {
+    for fail_at in 1..8 {
         let events = Arc::new(Mutex::new(Vec::new()));
         let (tx, rx) = watch::channel(false);
         let (status, _) = watch::channel(Phase::Preflight);
@@ -183,14 +183,14 @@ async fn gate_rechecks_prevent_late_revocation_from_reaching_later_mutations() {
         )
         .await;
         let log = events.lock().unwrap();
-        if fail_at == 1 {
+        if fail_at <= 3 {
             assert!(result.is_err());
             assert_eq!(*log, ["preflight"]);
         } else {
             assert_eq!(result.unwrap(), Outcome::RolledBack);
             assert!(guard.released);
         }
-        if fail_at <= 3 {
+        if fail_at <= 5 {
             assert!(!log.contains(&"activate"));
         }
     }

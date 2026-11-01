@@ -72,10 +72,7 @@ impl Binding {
         self.guard.borrow().revision
     }
     pub fn object_valid(&self, path: &str, revision: u64) -> bool {
-        let n = self.guard.borrow();
-        self.valid()
-            && n.reset_sources <= revision
-            && !n.retired.iter().any(|(r, p)| *r > revision && p == path)
+        self.valid() && watch::sms_valid(&self.guard, self.fence, revision, path)
     }
     pub fn call_valid(&self, path: &str, revision: u64) -> bool {
         let n = self.guard.borrow();
@@ -270,7 +267,7 @@ async fn reconcile(
     sources: &mut Sources,
     cached_modem: &mut Option<OwnedObjectPath>,
     guard: tokio::sync::watch::Receiver<watch::Notice>,
-    fence: u64,
+    (fence, revision): (u64, u64),
 ) -> Result<bool> {
     let owner = context.owner.as_str();
     let backend_prefix = context.prefix.as_str();
@@ -346,8 +343,11 @@ async fn reconcile(
         .await
         {
             Ok(Ok(Some(mut sms))) => {
+                if !watch::sms_valid(&guard, fence, revision, path.as_str()) {
+                    continue;
+                }
                 sources.bind(&mut sms)?;
-                batch.push(sms);
+                batch.push((path, sms));
             }
             Ok(Ok(None)) => sources.incomplete(path.as_str()),
             _ => metric(metrics, |s| {
@@ -385,13 +385,15 @@ async fn reconcile(
     }
     let failures = tokio::task::spawn_blocking(move || {
         let mut failures = 0u64;
-        for sms in batch {
+        for (path, sms) in batch {
             if !watch::valid(&guard, fence) {
                 break;
             }
             let receive_guard = guard.clone();
-            if h.receive_sms_if(sms, move || watch::valid(&receive_guard, fence))
-                .is_err()
+            if h.receive_sms_if(sms, move || {
+                watch::sms_valid(&receive_guard, fence, revision, path.as_str())
+            })
+            .is_err()
             {
                 failures += 1;
             }
@@ -479,7 +481,7 @@ async fn session(
             &mut sources,
             &mut cached_modem,
             guard,
-            fence,
+            (fence, consumed),
         );
         let result = tokio::time::timeout(
             Duration::from_secs(30),

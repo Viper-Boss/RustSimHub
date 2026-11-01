@@ -1,0 +1,351 @@
+{
+  "schema": 1,
+  "synthetic": true,
+  "kernel_release": "synthetic-release",
+  "board_compatible": [
+    "synthetic,board"
+  ],
+  "baseline": [
+    {
+      "id": "image",
+      "kind": "kernel_image",
+      "path": "Image",
+      "hex": "000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000041524d6400000000",
+      "metadata": {}
+    },
+    {
+      "id": "dtb",
+      "kind": "dtb",
+      "path": "board.dtb",
+      "hex": "d00dfeed0000006f0000003800000064000000280000001100000010000000000000000b0000002c00000000000000000000000000000000000000010000000000000003000000100000000073796e7468657469632c626f617264000000000200000009636f6d70617469626c6500",
+      "metadata": {}
+    },
+    {
+      "id": "module",
+      "kind": "module",
+      "path": "synthetic.ko",
+      "hex": "7f454c460201010000000000000000000100b7000000000000000000000000000000000000000000ab0000000000000000000000000000000000400003000100002e7368737472746162002e6d6f64696e666f006e616d653d73796e746865746963007665726d616769633d73796e7468657469632d72656c6561736500646570656e64733d0073726376657273696f6e3d4141414141414141414141414141414141414141414141410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000300000000000000000000000000000000000000400000000000000014000000000000000000000000000000010000000000000000000000000000000b000000010000000000000000000000000000000000000054000000000000005700000000000000000000000000000001000000000000000000000000000000",
+      "metadata": {
+        "name": "synthetic",
+        "vermagic": "synthetic-release",
+        "depends": [],
+        "srcversion": "AAAAAAAAAAAAAAAAAAAAAAAA"
+      }
+    },
+    {
+      "id": "firmware",
+      "kind": "firmware",
+      "path": "firmware.bin",
+      "hex": "73796e7468657469632d6669726d776172652d6f6e6c79",
+      "metadata": {
+        "license": "synthetic-test-only"
+      }
+    }
+  ],
+  "cases": [
+    {
+      "id": "matching",
+      "category": "control",
+      "mutation": {
+        "op": "none"
+      },
+      "expected": {
+        "exit_code": 0,
+        "all_observed": true
+      }
+    },
+    {
+      "id": "wrong-board",
+      "category": "F04",
+      "mutation": {
+        "op": "replace_bytes",
+        "entry": "dtb",
+        "hex": "d00dfeed0000006f0000003800000064000000280000001100000010000000000000000b0000002c00000000000000000000000000000000000000010000000000000003000000100000000073796e7468657469632c6f74686572000000000200000009636f6d70617469626c6500",
+        "rehash": true
+      },
+      "expected": {
+        "exit_code": 4,
+        "observation": {
+          "id": "dtb",
+          "reason": "board_compatible"
+        }
+      }
+    },
+    {
+      "id": "missing-module",
+      "category": "F08",
+      "mutation": {
+        "op": "remove_file",
+        "entry": "module"
+      },
+      "expected": {
+        "exit_code": 3,
+        "observation": {
+          "id": "module",
+          "reason": "missing_file"
+        }
+      }
+    },
+    {
+      "id": "missing-firmware",
+      "category": "F08",
+      "mutation": {
+        "op": "remove_file",
+        "entry": "firmware"
+      },
+      "expected": {
+        "exit_code": 3,
+        "observation": {
+          "id": "firmware",
+          "reason": "missing_file"
+        }
+      }
+    },
+    {
+      "id": "changed-digest",
+      "category": "F06",
+      "mutation": {
+        "op": "replace_bytes",
+        "entry": "firmware",
+        "hex": "6368616e676564",
+        "rehash": false
+      },
+      "expected": {
+        "exit_code": 4,
+        "observation": {
+          "id": "firmware",
+          "reason": "digest_or_size"
+        }
+      }
+    },
+    {
+      "id": "mixed-release",
+      "category": "F06",
+      "mutation": {
+        "op": "release",
+        "value": "other-release"
+      },
+      "expected": {
+        "exit_code": 4,
+        "observation": {
+          "id": "module",
+          "reason": "release"
+        }
+      }
+    },
+    {
+      "id": "mixed-vermagic",
+      "category": "F06",
+      "mutation": {
+        "op": "replace_bytes",
+        "entry": "module",
+        "hex": "7f454c460201010000000000000000000100b7000000000000000000000000000000000000000000a70000000000000000000000000000000000400003000100002e7368737472746162002e6d6f64696e666f006e616d653d73796e746865746963007665726d616769633d6f746865722d72656c6561736500646570656e64733d0073726376657273696f6e3d4141414141414141414141414141414141414141414141410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000300000000000000000000000000000000000000400000000000000014000000000000000000000000000000010000000000000000000000000000000b000000010000000000000000000000000000000000000054000000000000005300000000000000000000000000000001000000000000000000000000000000",
+        "rehash": true
+      },
+      "expected": {
+        "exit_code": 4,
+        "observation": {
+          "id": "module",
+          "reason": "module_metadata"
+        }
+      }
+    },
+    {
+      "id": "wrong-elf-arch",
+      "category": "F05",
+      "mutation": {
+        "op": "replace_bytes",
+        "entry": "module",
+        "hex": "7f454c4602010100000000000000000001003e000000000000000000000000000000000000000000ab0000000000000000000000000000000000400003000100002e7368737472746162002e6d6f64696e666f006e616d653d73796e746865746963007665726d616769633d73796e7468657469632d72656c6561736500646570656e64733d0073726376657273696f6e3d4141414141414141414141414141414141414141414141410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000300000000000000000000000000000000000000400000000000000014000000000000000000000000000000010000000000000000000000000000000b000000010000000000000000000000000000000000000054000000000000005700000000000000000000000000000001000000000000000000000000000000",
+        "rehash": true
+      },
+      "expected": {
+        "exit_code": 4,
+        "observation": {
+          "id": "module",
+          "reason": "binary_structure"
+        }
+      }
+    },
+    {
+      "id": "truncated-elf",
+      "category": "F05",
+      "mutation": {
+        "op": "replace_bytes",
+        "entry": "module",
+        "hex": "7f454c460201010000000000000000000100b7000000000000000000000000000000000000000000ab0000000000000000000000000000000000400003000100",
+        "rehash": true
+      },
+      "expected": {
+        "exit_code": 4,
+        "observation": {
+          "id": "module",
+          "reason": "binary_structure"
+        }
+      }
+    },
+    {
+      "id": "conflicting-metadata",
+      "category": "F05",
+      "mutation": {
+        "op": "srcversion",
+        "value": "BBBBBBBBBBBBBBBBBBBBBBBB"
+      },
+      "expected": {
+        "exit_code": 4,
+        "observation": {
+          "id": "module",
+          "reason": "module_metadata"
+        }
+      }
+    },
+    {
+      "id": "missing-manifest-kind",
+      "category": "F08",
+      "mutation": {
+        "op": "remove_entry",
+        "entry": "firmware"
+      },
+      "expected": {
+        "exit_code": 3,
+        "gap": "missing_kind:firmware"
+      }
+    },
+    {
+      "id": "unknown-license",
+      "category": "F08",
+      "mutation": {
+        "op": "license_null"
+      },
+      "expected": {
+        "exit_code": 3,
+        "observation": {
+          "id": "firmware",
+          "reason": "firmware_license_missing"
+        }
+      }
+    },
+    {
+      "id": "unresolved-dependency",
+      "category": "F07",
+      "mutation": {
+        "op": "dependencies",
+        "value": [
+          "missing"
+        ],
+        "hex": "7f454c460201010000000000000000000100b7000000000000000000000000000000000000000000b20000000000000000000000000000000000400003000100002e7368737472746162002e6d6f64696e666f006e616d653d73796e746865746963007665726d616769633d73796e7468657469632d72656c6561736500646570656e64733d6d697373696e670073726376657273696f6e3d4141414141414141414141414141414141414141414141410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000300000000000000000000000000000000000000400000000000000014000000000000000000000000000000010000000000000000000000000000000b000000010000000000000000000000000000000000000054000000000000005e00000000000000000000000000000001000000000000000000000000000000"
+      },
+      "expected": {
+        "exit_code": 3,
+        "unresolved": [
+          "missing"
+        ]
+      }
+    },
+    {
+      "id": "dependency-cycle",
+      "category": "F07",
+      "mutation": {
+        "op": "dependencies",
+        "value": [
+          "synthetic"
+        ],
+        "hex": "7f454c460201010000000000000000000100b7000000000000000000000000000000000000000000b40000000000000000000000000000000000400003000100002e7368737472746162002e6d6f64696e666f006e616d653d73796e746865746963007665726d616769633d73796e7468657469632d72656c6561736500646570656e64733d73796e7468657469630073726376657273696f6e3d4141414141414141414141414141414141414141414141410000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000300000000000000000000000000000000000000400000000000000014000000000000000000000000000000010000000000000000000000000000000b000000010000000000000000000000000000000000000054000000000000006000000000000000000000000000000001000000000000000000000000000000"
+      },
+      "expected": {
+        "exit_code": 4,
+        "cycle": true
+      }
+    },
+    {
+      "id": "duplicate-json-key",
+      "category": "F01",
+      "mutation": {
+        "op": "duplicate_schema"
+      },
+      "expected": {
+        "exit_code": 1,
+        "reason": "duplicate_key"
+      }
+    },
+    {
+      "id": "unknown-schema",
+      "category": "F01",
+      "mutation": {
+        "op": "schema",
+        "value": 99
+      },
+      "expected": {
+        "exit_code": 1,
+        "reason": "schema"
+      }
+    },
+    {
+      "id": "escape-path",
+      "category": "F02",
+      "mutation": {
+        "op": "path",
+        "value": "../outside"
+      },
+      "expected": {
+        "exit_code": 1,
+        "reason": "path"
+      }
+    },
+    {
+      "id": "symlink-input",
+      "category": "F02",
+      "mutation": {
+        "op": "symlink"
+      },
+      "expected": {
+        "exit_code": 1,
+        "reason": "unsafe_input"
+      }
+    },
+    {
+      "id": "duplicate-path",
+      "category": "F02",
+      "mutation": {
+        "op": "duplicate_path"
+      },
+      "expected": {
+        "exit_code": 1,
+        "reason": "duplicate_path"
+      }
+    },
+    {
+      "id": "preserve-existing-report",
+      "category": "F10",
+      "mutation": {
+        "op": "existing_report"
+      },
+      "expected": {
+        "exit_code": 1,
+        "reason": "report_exists"
+      }
+    },
+    {
+      "id": "declared-budget",
+      "category": "F03",
+      "mutation": {
+        "op": "oversize_declaration"
+      },
+      "expected": {
+        "exit_code": 1,
+        "reason": "bytes"
+      }
+    },
+    {
+      "id": "untrusted-passed",
+      "category": "F09",
+      "mutation": {
+        "op": "passed_assertion"
+      },
+      "expected": {
+        "exit_code": 1,
+        "reason": "fields"
+      }
+    }
+  ]
+}

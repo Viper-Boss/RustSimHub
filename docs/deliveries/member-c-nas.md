@@ -769,3 +769,254 @@ GitHub CI过去因账单/额度未启动；本批是否启动以新PR实际状�
 主线集成：先审六个范围内文档，再复核证据包/当前手册链接；撤回本PR仅影响文档，不改变任何设备状态。
 下一步：本PR审核后串行推进C17～C20的来源/输入接口第一阶段；未获该阶段审核前不实现其余检查器代码。
 原固定P0～P7整体仍约 **80%**；C16自测和合并不自行等同正式发行或全部实机验收。
+## 2026-11-01 · C18 有界只读制品检查器交付
+
+成员 yh1030 / member-c，分支 `codex/member-c-artifact-checker`，同仓库PR到main。
+C17提案PR #99已由负责人合并；本轮从最新主线
+`ce9ccb8debb61db49860fe795c1f3e471b749f4c` 开发。
+实际测试内容提交 `0608ae73b79d619342c8a68b24c6a89ec509f2be`，tree
+`e096a66df63dc28d56187fa5ab6209a2029c5ab6`。随后只补本报告，最终完整HEAD在PR正文回读。
+
+### 实现文件与行为
+
+本包只改六个范围内文件：新增 `tools/kernel-artifact-audit/audit.py`、`test_audit.py`，
+新增 `docs/kernel-artifact-audit/usage.md`、`pinned-input.json`，README补入口及本人报告本节。
+没有改既有锁/来源索引/固件/重建器/原校验器、生产Rust/Root、其他成员或全局台账。
+
+- 默认只输出execute=false计划，不读取用户清单/制品或写报告；实际检查要求普通Linux UID，使用WSL2原生隔离目录。
+- pinned模式只接受C17 RustSimHub来源截面及显式24对象路径映射；从7个经C17索引摘要核对的原锁/解析器字节推导Image、音频DTB及22模块期望，调用方不能替换hash/版本。不是另一套发布manifest。
+- synthetic模式严格版本/字段/类型，四类必需输入缺项仍为缺口；所有输入都标合成，不把自报passed/healthy当证据。
+- 实际读取并核对长度/hash、ARM64小端Image头、FDT v17根compatible、现有真实audio_modules.modinfo解析的ARM64 ET_REL/name/srcversion/vermagic/depends；模块名称规范化、依赖缺口和环分别记录。
+- 逐条输出observed/mismatch/not_verified；缺证据退出3，明确不匹配退出4，非法输入退出1；有限reason不回显主机路径/原始异常。执行完整的字节检查可以退出0，但永远不授予安装/confirm/发行资格。
+- 保留stock 681模块、APR等外部依赖、厂商固件摘要/许可缺口。即使固定24项全匹配，当前pinned模式也仍应退出3；synthetic的许可声明不升级成已验证许可。
+- Linux目录逐组件openat/O_NOFOLLOW，单链接普通文件、预算及读前/后稳定性检查；拒绝路径逃逸、链接/设备/FIFO、重复/别名冲突、未知版本和超限。不扫描维护材料或执行制品/脚本，不运行编译器、modprobe/depmod或网络/设备命令。
+- 清单1MiB/2048项，累计1GiB；Image文件及有效内存范围各128MiB、DTB128KiB、模块/固件各2MiB；FDT token8192/深度64。范围扩展需要另审，不默默放宽。
+- 可选报告仅在制品目录外新建0600/O_EXCL文件，目标必须不存在；不覆盖输入、清单、旧报告或其他证据。
+
+使用说明明确区分Image头的有效内存范围与文件长度、原始Image与boot/压缩归档、声明release与实际模块vermagic。
+格式依据在usage.md链接Linux ARM64头与DTSpec原始文档；仅有限静态结构观察，不等于完整ELF/FDT语义、真实启动或硬件兼容证明。
+
+### 实际验证命令与结果
+
+| 检查 | 实际结果 |
+|---|---|
+| Windows：`python tools/kernel-artifact-audit/audit.py` | 退出0，execute=false；没有输入读取/制品检查或报告创建 |
+| 最终固定Git tree归档 → WSL2 Ubuntu-24.04、普通UID1000、Linux原生副本：`python3 -B tools/kernel-artifact-audit/test_audit.py` | 退出0，21个测试通过/0失败/0错误/0跳过；真实audit.main/inspect和原modinfo解析器，纯合成文件；实际进程0.853秒 |
+| 源码/归档 | 41个公开文件逐个与Git归档字节一致，执行后未改变；归档SHA256 `d1aa6a7cfa53fde97213e89855330daf793f5d4375387ee0c50962556fe7ad81`；Python3.12.3，kernel 6.18.54.1-microsoft-standard-WSL2 |
+| Python AST / 文档链接 / Git检查 | 两个新增Python文件AST通过；19个文档链接已清点、本地目标存在，外部格式文档另已读取核对；`git diff --cached --check`通过。不是19个外网或设备验收 |
+
+21项覆盖合成完整匹配、空/缺文件、hash变化、hash自洽但错板DTB、坏Image/FDT/ELF、Image有效内存与文件长度区别、
+schema/额外字段/重复JSON/非法类型、路径/大小写别名、文件及父目录symlink/hardlink/FIFO、单文件/清单/条目及累计预算、
+真实模块元数据/release、依赖缺口/规范化正向链/环、固件许可缺口、报告新建与拒绝覆盖、pinned原锁派生及公开24映射示例。
+测试只调用现有生产解析器和真实新检查器，Fake仅构造输入，不以另一个检查器产生预期成功。
+
+早期16/19/20项迭代轮次也通过；复核修正Image内存范围语义、有限错误原因及边界后才执行上述最终21项，轮次不相加计数。
+一次Windows私有执行器生成命令因PowerShell引号解析失败，没有运行Linux测试；改为保存明确脚本后运行成功，未改产品断言掩盖失败。
+本轮没有改Rust，不为Python/文档交付重复运行Cargo/Clippy/Rustfmt或既有未变的13项内核测试；不将旧结果标成新HEAD实测。
+
+### 证据、未验收及集成
+
+仅日志/摘要包 `C18-WSL2-validation-e096a66.zip`：4,680字节、5条目，SHA256
+`e2076df65442b0d85b4af9d6af9aee56e6471b90a3e522b7be699168712cede8`；CRC及逐项内容核对通过。
+含实际summary/逐项日志、41文件摘要和命令说明；无源码归档、ELF/固件、数据库、私有路径、凭据或用户资料。
+本机准备向用户交付，未代发负责人。
+
+实际完成：C18只读实现、两种输入模式、显式缺口/拒绝与受限制品观察、必要隔离验证、用法/映射示例及本报告。
+未验收：负责人精确HEAD审核；真实完整内核源码归档/boot/681原装和22音频模块字节、厂商固件实际许可、Root/ARM加载、实机启动/恢复/掉电、签名发行。
+C19完整逐样本矩阵/C20后续交付与主线补验另记，不按本轮单测数量直接标完成。
+报告始终保留firmware_license/boot/recovery/release_support为not_verified及authorization_verified=false。
+
+来源/许可：项目原锁和现有GPL-2.0-only audio_modules解析器按固定摘要复用，未改原文件/SPDX；
+新Python脚本按项目AGPL-3.0-only，合成ELF布局沿用项目既有test_audio_modules方法；无新第三方依赖、许可推断或厂商二进制分发。
+Codex辅助实现/阅读/复核，未改作者，成员自报工时未填写。
+主线按本PR六文件和精确HEAD审阅；撤回只移除新增工具/说明及本节，不改变业务或设备状态。
+下一步按审核意见修正后再开展C19/C20；主线维护正式支持/全局验收。整体固定P0～P7仍约 **80%**。
+## 2026-11-01 · C19 固定样本与 C20 同包离线交付
+
+成员 yh1030 / member-c，继续同一 `codex/member-c-artifact-checker` / PR #143，不另开修改包。
+承接上一交付HEAD `4daa24541d51d2104f8368a8e43772f034bd328f`，原main基线仍为
+`ce9ccb8debb61db49860fe795c1f3e471b749f4c`。任务书C17～C20属于同一UPD-07包；
+C17接口提案已经合并，此处补齐同包测试/交付，不将每个编号自行增加为新审核前置。
+
+本轮实际验证内容提交 `6a0802709a7929929f0d8ad8df108d075d42742f`，tree
+`e172b72628109a28b85dc81377b39ebf72f35125`。随后仅补C20说明、README/usage入口及本报告，
+原C18实现和单测代码未改；最终完整HEAD在PR正文回读。新增执行代码/语料已被固定树实际执行。
+
+### C19 实际交付
+
+- 新增 `docs/kernel-artifact-audit/corpus.json`：1组明确合成的Image/FDT/模块/固件基线字节hex及22个稳定case ID。
+  包括匹配、错板、缺模块/固件、错hash、冲突release/vermagic、错误架构/截断ELF/元数据、清单缺类、许可未知、
+  缺依赖/依赖环、重复JSON/未知版本、路径逃逸/symlink/重复路径、保留旧报告、超预算声明和不可信passed字段。
+- 新增 `tools/kernel-artifact-audit/run_matrix.py`：默认计划不读取语料；普通Linux用户显式执行时，在新隔离目录生成固定输入，
+  为每case启动实际C18 CLI，直接核退出码、原因/缺口、观察状态、授权/来源边界、持久报告及输入前后快照。
+- 不用另一个checker重算“应当通过”；所有判定来自原真实audit.py及原modinfo解析器。变更板型、架构或vermagic的样本按场景更新hash，
+  避免仅因摘要不符提前失败而假装结构校验已覆盖。
+- --output必须新建，22case、4类基线、单样本hex≤4096字节、语料≤128KiB，checker子进程每次10秒截止；
+  固定argv、无shell/编译器/网络/设备或目标ELF执行。输入/报告摘要及有限相对名字可公开，不输出主机绝对路径。
+
+### C20 交付材料
+
+新增 `docs/kernel-artifact-audit/delivery.md`，由实际22case结果生成逐样本矩阵，列复跑命令、输入格式、预期失败含义、
+来源/许可与原锁区别、公开制品/stock模块/厂商许可/真实硬件及签名的主线接手清单。README和usage链接到同一交接入口。
+本PR累计9个范围内文件，未改原锁、C18 checker、Root生产或其他成员；本轮四个文档只补证据和交付语义。
+
+### 真实验证
+
+WSL2 Ubuntu-24.04，普通UID1000，Python3.12.3，kernel 6.18.54.1-microsoft-standard-WSL2，Linux原生固定Git归档：
+
+| 实际命令/检查 | 结果 |
+|---|---|
+| `python3 -B tools/kernel-artifact-audit/test_audit.py` | 退出0；21项C18单测通过，0失败/错误/跳过，进程0.348秒。原C18代码未变，此轮因新增真实CLI回放做针对性回归 |
+| `python3 -B tools/kernel-artifact-audit/run_matrix.py --run --output <NEW_SAMPLES>` | 退出0；22个固定case全部符合预期，进程1.161秒；实际1个退出0、8个退出1、5个退出3、8个退出4。退出1/3/4为预期阴性观察，不当作fixture崩溃 |
+| 相同保留输出再次运行 | 实际退出1，旧matrix-results.json字节保持；没有覆盖或删除旧输出来通过 |
+| 来源与输入 | 43个公开源码文件与归档逐个相等，执行后未改变；22个case输入快照未变，报告保持或与stdout实际结果一致 |
+| AST / 文档 / Git | 新回放器AST通过；26个文档链接已清点，本地目标存在；`git diff --check`通过；不是26项网络/设备验收 |
+
+归档SHA256 `fbb51e83dd19173ecaea44a2e2884f2ea2126502af230842906b95bf04561cb0`。
+实际corpus SHA256 `33cb950b697f5c04f4b2fa79f7218ea365cd22e884a9170b93173d6dd6614044`；
+受测checker SHA256 `cd9f1388069e0f4d476705a61b0fb0bf45d708d09d146949b6a6ff11766cb964`，与上一C18实现相同。
+21项单测与22case矩阵存在语义重叠，不累加成43个独立业务/验收动作。C17 F01～F10是失败分类，不因多个case拆分而改权重。
+
+### 包、限制与接手
+
+`C19-C20-WSL2-validation-e172b72.zip`：13,405字节、8条目，SHA256
+`1f0f980d28a5bcf2a14d31371f53093586fa04792053f2d2c8af61b08810dfc5`；CRC与逐项内容核对通过。
+包内corpus使用受测Git规范字节并与实际corpus_sha256相等核验，避免Windows工作副本换行与Linux规范字节混称同一摘要。
+含真实summary/逐case结果、原始已脱敏日志、固定hex语料、43文件摘要、命令说明及逐文件摘要；
+无生产源归档/真实ELF/固件、数据库、设备/用户资料、密钥或私人路径。仅本机准备供用户转交，未代发负责人。
+
+实际完成：C19匹配/混版固定合成样本及真实checker矩阵、C20输入/结果/来源许可/补验交接；同PR提交供负责人审阅。
+仍待：精确HEAD审核/合并、实际公开制品与681 stock/22音频模块字节、厂商固件摘要/许可、Root/ARM/实机启动恢复掉电及签名发行。
+所有结果继续保持synthetic_only、authorization_verified=false和boot/recovery/release_support/firmware_license未核验；
+合成正例不意味着真实boot/模块已匹配，C20离线交付不等于主线实机/发行验收。
+上一HEAD的CI native-audio两项通过，test两项因既有rootfs polkit精确字节校验失败，已在开发前ce9基线复现；相关文件没有改。
+新HEAD的CI结论另按实际回读更新PR，不沿用旧结论或放宽生产校验。
+
+来源/许可保留AGPL-3.0-only及原GPL解析器/SPDX；合成ELF/FDT生成沿用项目现有测试布局，无第三方依赖或真实二进制分发。
+Codex辅助实现/阅读/命令核验，无作者改写，成员自报工时未填。回退只撤本包工具/语料/说明/本人报告，不影响业务或设备。
+下一步按负责人审查修正；另包（如C21～24）继续依分工/串行流程开展，已有只读预研不冒充正式交付。
+原固定P0～P7整体仍约 **80%**，全局进度/审核台账及最终支持声明由主线维护。
+## 2026-11-01 · C21 正式覆盖盘点与测试方案交付
+
+成员 yh1030 / member-c；新分支 `codex/member-c-ap-failure-matrix`，同仓库PR到main。
+上一C18～C20包PR #143已由Viper-Boss合并（merge `186d4f38b82f6df62befc66a0afe5d8475441311`）。
+本包从最新main `9c8d36b4b5959cd441f2bc181ff612c96cea5ac5` 开始。
+C21内容提交 `abf321742839e3e5d5a40f9119d3d22e9803fa48`，静态校验tree
+`70d5d05a32934511bea6a4a7c29192c807025256`；随后仅补本报告，最终完整HEAD在PR正文回读。
+
+本PR只交两个文档：新增 `docs/testing/ap-failure-matrix.md` 及本人报告本节，
+没有修改Rust、测试接入、Cargo、生产trait/执行器/NM/Core、期限或其他成员/全局台账。
+这是AP-04包的C21来源/接口/覆盖和最小失败样例规格，C22/C23代码及C24执行交付仍未完成。
+
+### 本轮完成与来源
+
+- 刷新此前只读预研，26个固定公开Git文件逐个核对长度/SHA256/Git blob；与旧6b5de5f预研相比，
+  仅当日分工文档字节改变，受查配网实现及测试均未改。当前结论仍绑定本轮9c8d36b，不把旧来源冒称新执行。
+- 静态定位62个测试定义，直接trial6项/commit7项；其余为AP事务、协议/Journal、executor、NM假D-Bus和Core相关。
+  逐项映射正式10个case ID，保留静态直接覆盖/相关覆盖/外层证据的层级和缺口，不按函数数量宣称验收完成。
+- 写出真实StationNetwork/StationProvider/TrialGuard、CommitNetwork/CommitProvider/CommitAudit、Gate/Guard及两个run的调用顺序、
+  预检/工作/恢复/finalizer期限，区分父AP3600秒与station子窗口40秒，不调整任何产品期限。
+- 最小样例规格明确调用前取消、部分persist副作用后错误、sender消失但仍await、finish开始后的取消和旧代次回执边界；
+  给出后续C22/C23的有限注入/握手/trace、真实Outcome和C24验证命令计划。
+
+关键限制：通用begin错误不等同真实WPA/SSID验证；当前直接persist错误fixture没有先标记外部保存；
+watch sender关闭不是整个Future被drop/abort；finish开始后继续清理，成功可以Saved；Unknown不能被记作隔离已释放，
+调用次数应按恢复分支或finalizer分支分别断言。完整跨代次回执保证位于外层Intent/Journal/Core，
+不能在低层Fake里另写代次状态机自证，需要新外层接入时先交最小范围提案。
+
+### 实际核验与未运行项
+
+| 命令/检查 | 实际结果 |
+|---|---|
+| `git show <9c8d36b完整SHA>:<固定公开文件>`，逐文件长度/SHA/blob核对 | 26个来源一致；文件列表和摘要在文档及资料包，无设备/私人目录读取 |
+| 本机 `python verify-c21-formal.py` 静态核验 | 退出0；62个测试定义的函数/行号存在，10个case与冻结清单有序集合一致，59个本地/精确Git SHA行号引用通过，文档规范UTF-8字节与固定Git tree一致 |
+| `git diff --cached --check` | 退出0；无尾随空白或范围外文件 |
+| Rust/Cargo/Clippy/Rustfmt/设备测试 | 未运行。本轮仅文档与来源/结构检查，文中命令和期望Outcome都是后续方案，不计为实际测试结果 |
+
+第一次私有核验器完成内容检查后，在组装打包路径时发生Python Path与字符串相加错误；
+修正该表达式后上述静态检查和打包全部通过。没有Rust/产品失败被删除或改断言。
+
+### 文件、证据与主线接手
+
+`C21-formal-coverage-70d5d05.zip`：23,684字节、8条目，SHA256
+`93d79bd090c951b2337ca475652848738679032c4de6dfc31b0a4460f0aa1c79`；ZIP CRC与逐文件内容核对通过。
+含规范Git字节的正式文档、26来源索引、62测试目录、10case机器可读矩阵、冻结清单截面、真实静态核验输出和摘要说明；
+无生产数据库/备份、凭据、真实网络资料、硬件日志或私人路径。仅本机准备供用户转交，未代发负责人。
+
+主线请按精确HEAD审阅来源/既有覆盖、失败样例及C22/C23接入边界；后续仅在已分配的两个t5_matrix.rs及既有tests.rs追加mod，
+不得借此改生产权限/算法/期限、另造配网状态机或跨改Core/NM。期望错误或Unknown必须由真实run返回，Mock只模拟外部后端。
+真实WPA/SSID/DHCP、Root权限/防火墙/检查点、物理断连及恢复、AP-03/04设备前置和最终支持验收保留主线。
+本PR回退仅撤本页与报告本节，不影响代码、设备或用户数据。
+项目公开AGPL-3.0-only源码/任务书来源保留，无新依赖或第三方实现复制；Codex辅助盘点/整理/静态核验，无作者改写，自报实耗未填。
+实际完成C21正式盘点与方案交付，尚待负责人审核；没有将C22/C23/C24计划或C21已分配状态计为完成。
+原固定P0～P7整体仍约 **80%**，全局台账及正式验收由主线维护。
+
+
+## 2026-11-01 · C22/C23真实AP事务失败矩阵与WSL2交付
+
+成员yh1030 / member-c；同仓库个人分支`codex/member-c-ap-failure-tests`，PR到main，不自行合并。
+C21第一阶段PR #147已由Viper-Boss于2026-11-01T05:06:13Z合并（merge `626bee713fe3a21ff0e31eec95aea065742a6937`），
+随后从最新main `086b2116ff09e4d62c8c034cf668ac8739fbbc04` 开始本修改包。
+测试内容完整HEAD `05b2a5e8f8f150ae986dead91a1cf343c815db3f`，实际WSL验证tree `21e4784d2304f3daf444be1c7f2a03452190ac97`；
+后续只补本报告/测试说明，PR正文与本地检查点登记最终40位HEAD。内容/最终报告/运行截面明确分开，不自指捏造SHA。
+
+### 实际完成与文件边界
+
+- C22：新增`crates/setup-ap/src/station_trial/tests/t5_matrix.rs`，9个测试定义，覆盖真实run正向、通用后端错误、DHCP截止、
+  开始前取消、begin/usable取消、sender关闭、restore阻塞时取消仍等待、restore错误/真实8秒超时/恢复后guard拒绝、逐位置撤权与恢复期间旧工作失权。
+- C23：新增`crates/setup-ap/src/station_commit/tests/t5_matrix.rs`，11个测试定义；包括真实consume和保存/最终清理/释放顺序、
+  已消费审计不能再驱动网络、预检拒绝/非法窗口、保存副作用后丢回执、部分保存后的恢复错误/超时/隔离不明、保存前后撤权、finish期间取消或caller消失、finalizer超时/释放失败。
+- 两个既有tests.rs逐字节对照基线，仅各追加空行和`mod t5_matrix;`，没有搬动/改写旧测试。
+  另更新`docs/testing/ap-failure-matrix.md`与本报告，共6文件；生产trait、执行器/NM/Core、Cargo/lock/期限、其他成员及全局台账均未改。
+- Fake只模拟外部能力，Outcome来自真实run；同一合成UUID约束begin/usable/persist/restore/finish。
+  记录每case/variant的Gate/Guard/Audit与网络计数、阶段和序号；无凭据输出、无第二状态机。
+
+### 真实验证、错误记录与证据
+
+WSL2 Ubuntu-24.04普通UID1000，kernel 6.18.54.1-microsoft-standard-WSL2，Rust/Cargo1.98.0；
+固定Git归档，source/target/TMPDIR均为Linux原生目录，locked/offline缓存，非Windows临时目录假作Linux测试。
+命令和退出码逐条见[正式矩阵](../testing/ap-failure-matrix.md#c22c23本轮实际结果)：
+
+| 实际命令/检查 | 结果 |
+|---|---|
+| Cargo `--list` | 退出0，列出180定义；新增trial9/commit11非零匹配，不宣称180项运行通过 |
+| station_trial::tests，含旧测试 | 退出0，15通过＝新增9＋原有6 |
+| station_commit::tests，含旧测试 | 退出0，18通过＝新增11＋原有7 |
+| channel::station::tests | 退出0，4通过，原owner/trial精确校验 |
+| channel::files::tests | 退出0，9通过，确认消费/不可覆盖终态/恢复后不重放 |
+| `cargo clippy -p rustsimhub-setup-ap --all-targets --locked --offline -- -D warnings` | 退出0 |
+| `cargo fmt --all -- --check` | 退出0 |
+| 私有证据核验及`git diff --cached --check` | 46个不同运行测试、50条trace逐项计数、10case层级、4文件规范Git字节/摘要及最小mod接入通过；Git空白检查退出0 |
+
+实际46个不同测试全部通过；20新增＋13旧直接事务＋13旧外层校验，不能把循环变体或列举名称重复计为独立测试数。
+初轮和最终源码测试均通过。证据初次解析因stdout/stderr交错拒绝不完整trace；
+私有执行器改为分流输出后，对同一最终tree重采，50条case/variant全部可解析、计数一致，未改产品或删除失败断言。
+生产常量、工作40秒上限、restore/finish8秒保持；取消后保持原run执行到收尾，不abort。
+
+最小失败样本：persist已记录本次保存副作用后返回Io，restore也Io，真实结果Unknown；
+consume/persist/restore各1，finish/release均0，原ID与部分保存状态保留。恢复超时也Unknown；恢复成功但guard拒绝仍Unknown。
+finish开始后的取消或sender关闭继续等待，可Saved；丢失finalizer回执或释放失败Unknown，绝不盲目restore/重存。
+wrong_password/ssid_missing只表示分别注入begin/usable的通用Io，不宣称真实WPA或扫描分类实测。
+
+证据包`C22-C23-WSL2-validation-21e4784.zip`：30,293字节/30条目，SHA256
+`3a674b26cce92785fa6342bc5929d6b402cf5f0094899e2e9057f3f2b839a73d`；ZIP CRC和每条目回读通过。
+含规范源码、固定tree/来源摘要、实际命令/结果和50条有序trace/10case层级；路径前缀脱敏，无真实凭据/设备数据。
+包保存在本机供用户转交，未代发给负责人。详细命令/逐case实际结果以包内summary/tests/coverage/traces及日志为准。
+
+### 主线接手、边界与下一步
+
+本轮完成C22/C23离线实现与自测，提供C24所需执行和最小失败证据，等待负责人按最终HEAD审查；不代填正式台账验收。
+stale_completion的底层Gate撤销控制和既有owner/trial/Journal校验实际通过；完整跨Core事务发布、Root/NM回执和设备仍待集成，
+没有在Mock里另写代次状态机自证全通过。未运行全包180项、全仓/rootfs、ARM、真实D-Bus/NM/WPA/SSID/DHCP/防火墙或物理网络恢复。
+整个Future直接drop/abort/掉电不在watch sender关闭的异步恢复保证内。真实AP-03/04前置继续由主线负责。
+
+进度板核对：本轮GitHub回读C09～12 PR #10、C13 #85、C14 #86、C15 #13、C16 #98、C17 #99、C18～20 #143均已由Viper-Boss合并。
+正式reviews.json仍对PR #10旧HEAD `45c54d4b32bc00a1093cf54d4faead9795cdbdc7`登记needs_changes，
+实际合并HEAD已是`b66c0e1df606980524d94fb26585b4a73aa7f7e3`；除C15外其余追加步骤未登记新离线验收。
+因此看板的“未审/未交付”不能代替实际提交/合并事实。请主线按精确最终HEAD复核并同步台账；成员不跨改reviews/进度/名册，也不将合并自动记为全范围验收。
+
+主线审核6文件范围、部分保存前置副作用、有限清理与Unknown、完整stale验收边界，再正常合并；需要外层新增接入先给最小范围提案。
+回退仅撤两个新测试模块、两行mod接入及本页/报告本节，无生产数据/业务接口/设备变化。
+来源为本仓库固定AGPL-3.0-only生产入口与既有测试、已审C21方案；SPDX保留，无新第三方代码/依赖。
+Codex辅助实现/核验/整理，Git作者由本人连接记录，不改写作者；实际有效工时未填，不以运行秒数当工程工时。
+原固定P0～P7整体仍约 **80%**；设备验收与全局公开看板由主线审核维护。

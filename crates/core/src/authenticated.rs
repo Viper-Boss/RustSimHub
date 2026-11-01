@@ -77,6 +77,9 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | SetupApStatus { .. }
         | SetupApOperationStatus { .. }
         | SetupApCancel { .. }
+        | SetupApScanBegin { .. }
+        | SetupApScanStatus { .. }
+        | SetupApScanCancel { .. }
         | SetupApWifiBegin { .. }
         | SetupApWifiStatus { .. }
         | SetupApWifiCancel { .. }
@@ -381,6 +384,9 @@ pub(crate) async fn handle(
     } else if matches!(
         request.command,
         AuthCommand::SetupApStart { .. }
+            | AuthCommand::SetupApScanBegin { .. }
+            | AuthCommand::SetupApScanStatus { .. }
+            | AuthCommand::SetupApScanCancel { .. }
             | AuthCommand::SetupApStatus { .. }
             | AuthCommand::SetupApOperationStatus { .. }
             | AuthCommand::SetupApCancel { .. }
@@ -817,7 +823,12 @@ async fn serve_inner_media(
             let setup = setup_file
                 .map(|(device, path)| {
                     let gate = if device {
-                        rustsimhub_auth::LocalSetup::for_device(std::path::Path::new(&path), &auth)?
+                        let path = std::path::Path::new(&path);
+                        match rustsimhub_auth::LocalSetup::for_device(path, &auth)? {
+                            Some(gate) => Some(gate),
+                            // Owned device: first setup may still be needed until Wi-Fi is saved.
+                            None => rustsimhub_auth::LocalSetup::for_owned_device(path, &auth)?,
+                        }
                     } else {
                         let gate = rustsimhub_auth::LocalSetup::load(std::path::Path::new(&path))?;
                         gate.require_empty(&auth)?;

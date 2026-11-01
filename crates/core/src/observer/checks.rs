@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
 use sources::{BATCH, MAX_OBJECTS};
+mod content;
+mod lifecycle;
+mod sender_recovery;
 fn path(n: usize) -> OwnedObjectPath {
     format!("/org/freedesktop/ModemManager1/SMS/{n:04}")
         .try_into()

@@ -1,0 +1,103 @@
+{
+  "schema": 1,
+  "mode": "pinned",
+  "source_commit": "6b5de5f3ca5ff706adacd8f25ed7f638546739a9",
+  "mappings": [
+    {
+      "id": "kernel-image",
+      "path": "Image"
+    },
+    {
+      "id": "audio-dtb",
+      "path": "ufi003-audio.dtb"
+    },
+    {
+      "id": "audio-q6adm",
+      "path": "modules/q6adm.ko"
+    },
+    {
+      "id": "audio-q6afe-clocks",
+      "path": "modules/q6afe-clocks.ko"
+    },
+    {
+      "id": "audio-q6afe-dai",
+      "path": "modules/q6afe-dai.ko"
+    },
+    {
+      "id": "audio-q6afe",
+      "path": "modules/q6afe.ko"
+    },
+    {
+      "id": "audio-q6apm-dai",
+      "path": "modules/q6apm-dai.ko"
+    },
+    {
+      "id": "audio-q6apm-lpass-dais",
+      "path": "modules/q6apm-lpass-dais.ko"
+    },
+    {
+      "id": "audio-q6asm-dai",
+      "path": "modules/q6asm-dai.ko"
+    },
+    {
+      "id": "audio-q6asm",
+      "path": "modules/q6asm.ko"
+    },
+    {
+      "id": "audio-q6core",
+      "path": "modules/q6core.ko"
+    },
+    {
+      "id": "audio-q6cvp",
+      "path": "modules/q6cvp.ko"
+    },
+    {
+      "id": "audio-q6cvs",
+      "path": "modules/q6cvs.ko"
+    },
+    {
+      "id": "audio-q6mvm",
+      "path": "modules/q6mvm.ko"
+    },
+    {
+      "id": "audio-q6prm-clocks",
+      "path": "modules/q6prm-clocks.ko"
+    },
+    {
+      "id": "audio-q6prm",
+      "path": "modules/q6prm.ko"
+    },
+    {
+      "id": "audio-q6routing",
+      "path": "modules/q6routing.ko"
+    },
+    {
+      "id": "audio-q6voice-common",
+      "path": "modules/q6voice-common.ko"
+    },
+    {
+      "id": "audio-q6voice-dai",
+      "path": "modules/q6voice-dai.ko"
+    },
+    {
+      "id": "audio-q6voice",
+      "path": "modules/q6voice.ko"
+    },
+    {
+      "id": "audio-snd-q6apm",
+      "path": "modules/snd-q6apm.ko"
+    },
+    {
+      "id": "audio-snd-q6dsp-common",
+      "path": "modules/snd-q6dsp-common.ko"
+    },
+    {
+      "id": "audio-snd-soc-apq8016-sbc",
+      "path": "modules/snd-soc-apq8016-sbc.ko"
+    },
+    {
+      "id": "audio-snd-soc-qcom-common",
+      "path": "modules/snd-soc-qcom-common.ko"
+    }
+  ]
+}

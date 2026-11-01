@@ -1,5 +1,15 @@
 # RustSimHub 当前接手入口
 
+2026-11-01 主线构建/打包接线：固定dc3aa493的13个ARM程序及34项音频QEMU、完整CI已通过。正式WSL构建器由9程序补齐到12主程序，并从实际ARM元数据生成兼容build.json，完整核对归档而非仅比较已出现文件。11项工具测试在正常及-O模式通过；真实12程序清单成功供现有格式2打包器消费，三个临时密钥材料在隔离Root中经OpenSSL/ARM验签通过，篡改与错钥匙拒绝。见 docs/VALIDATION-COMMITTED-ARM-MANIFEST-20261101.md。本次工具代码尚待绑定新HEAD的CI；不将dc3aa493的二进制或CI冒充新提交产物。未生产签名/部署，C候选组装分工不动，人工测试最后，验收81.5%及20/169不变。
+
+2026-11-01 本机遗留收口：短信/通话/灯控旧修复已合并 #146；热点 #62/#65 与草稿 #69 后端已整合并补齐一次扫描/只读恢复页面，最终596项Rust、26组网页及严格检查通过。见 docs/VALIDATION-AP-CONSOLIDATION-20261101.md 与 docs/LOCAL-UNFINISHED-DISPOSITION-20261101.md。旧U5已被主线吸收；恢复原型留给当前D23，不重复合入。原脏目录和私有补丁保留。未部署/未ARM/未手机复测，验收81.5%不变。
+
+2026-11-01 [本机旧修复收敛](VALIDATION-LOCAL-ROLLUP-20261101.md)：从#34/#37/#50仅接回短信、通话来源隔离和FIFO产品/测试提交，保留当前main灯色、分工和新恢复接口。349项及严格检查通过；无全仓/设备/ARM，待正常PR合并后关闭旧堆叠PR，不加验收分。
+
+2026-11-01 新UFI003（PR#73）：17个关键分区两遍一致、启动链与基带哈希全过；用户批准后写入新GPT（boot 64MiB、NSHSTATE第15条、rootfs 1.39GiB，tz原位），三次回读全对、21个保护区不变，状态verified。下一步aboot(lk1st)待批准。整体约80%不变。
+2026-11-01 二手UFI003移植停止（PR#73）：UsbTool修好SkipWrite后真正允许写入，分区表写入时加载器写后校验失败(NAK)，只读复核GPT仍为原厂；此前的“ACK未写”源于SkipWrite=1。判断eMMC已进入只读/写保护，按约定停止写入，棒子全程未被改动。建议换一根eMMC正常的棒子，复用plan_gpt.py、固件包流程和UsbTool受限写入。整体约80%不变。
+2026-10-29 二手UFI003第2步tz写入（PR#73，用户批准，执行一次）：传输ACK完整，但回读不符；只读复核确认绝对扇区270826–270827为物理坏扇区（写前写后都读错），tz无法原位修复，设备状态与写前实际相同，GPT未变，读得稳的保护区未变。system区原计划boot/NSHSTATE位置有坏扇区，原GPT计划作废，待用户决定新布局。整体约80%不变。
+2026-10-29 二手UFI003移植方案（[计划](PLAN-SECOND-STICK-PORT-2026-10-29.md)，分支claude/second-stick-port-6b5bfa，仅计划）：对已有9008只读读取做三读逐位表决+MBN哈希段离线校验，未连设备、无写入。结论：未强制安全启动（四个镜像各链到不同测试根）；sbl1/aboot/rpm完好；tz主代码段三读表决后仍不过哈希（已损坏，需先读tzbak）；基带固件与原设备同一签名版本，5个坏文件可用通过二手棒子自己mdt哈希表的字节替换；Wi-Fi校准只用二手棒子persist那份。目标布局原位保留全部NV/启动链LBA，只重写GPT与安卓区：boot 64MiB、NSHSTATE第15条264159扇区、rootfs约2.62GiB（需小尺寸镜像）。eMMC静默位翻转，只适合短期测试机。待用户：每步写入批准、打包基线（等#62合并或叠在main上）。整体约80%不变。
 2026-10-29 USB工具改Wi-Fi的设备端授权（[验证记录](VALIDATION-USB-TOOL-WIFI-AUTH-2026-10-29.md)，分支claude/wifi-tool-auth-e30f13）：新增Auth::network_manager——主人仍须最近5分钟登录，已被主人批准、active、带network.manage的client也可调用wifi_networks和wifi_begin/status/confirm/cancel，NAS一律拒绝；试连接仍绑定开始它的完整principal，幂等规则不变；其他主人专属操作不变。网页“连接与配对设置”新增配对审批：允许配对5分钟、待批准列表（编号/公钥全文/权限名）、精确回传批准、已授权列表与撤销，结果不明不重发。日常Edge主网址为.local时额外跟随监听usb0固定地址10.55.0.2（不重新生成证书）。测试：fmt、严格clippy、core 166/auth 44/edge 37/wire 19、网页19个通过（新增test-web-clients）。未做：未部署、未连真实设备、未在真实浏览器打开审批页。
 2026-10-29 待办“换网后媒体绑定地址固定”代码修复（分支claude/media-follow-wlan0）：媒体进程原来只接受安装时写入的绑定地址，换Wi-Fi后日常Edge跟随wlan0新地址，但通话媒体被拒。现在媒体进程额外接受wlan0当前的私有地址（读/proc，不含usb0、热点192.168.100.1和公网地址）；地址读取移到共享的rustsimhub-media::addresses。测试：media 22、audio-alsa worker 8（新增1：新地址接受、其他地址及已失效地址拒绝）、fmt、严格clippy通过。未做：未部署、未实机换网通话；Edge仍保留自己的一份地址代码，待#62合并后再统一。首次配网已交接Codex（HANDOFF-FIRST-SETUP-TO-CODEX-2026-10-29.md，在#62分支）；FWD-13离线部分见PR#64。
 2026-10-28 [热点地址迁移到192.168.100.1与应用57安装](VALIDATION-AP192-MIGRATION-20261028.md)：用户批准。重启一次恢复自动恢复预算；admit-stage正确拒绝单独装57（root_mode_unavailable，Root契约需维护）；在一个停机窗口里替换契约、热点助手、Core启动器，挪走旧配网材料并用install.sh相同固定命令重新生成，stage应用57并试运行，Core以配网模式启动；健康确认后epoch 57已确认，之后再换更新器。新origin/监听/证书名均为192.168.100.1，旧材料备份在设备system/ap-address-backup-20261028-fourth。迁移窗口失败3次（锁文件检查过严、/run noexec→自动回滚成功、脚本注释错误），均保留记录。AP-07/08实测待用户在场。原P0–P7约80%；台账19/169。

@@ -14,6 +14,11 @@ pub enum Slot {
     Hint,
     Status,
     Availability,
+    ScanSnapshot,
+    RescanRequest,
+    RescanStatus,
+    RescanQuery,
+    RescanCapability,
     StationRequest,
     StationStatus,
     StationCommitRequest,
@@ -26,6 +31,11 @@ impl Slot {
             Self::Hint => "hint.json",
             Self::Status => "status.json",
             Self::Availability => "availability.json",
+            Self::ScanSnapshot => "scan-snapshot.json",
+            Self::RescanRequest => "rescan-request.json",
+            Self::RescanStatus => "rescan-status.json",
+            Self::RescanQuery => "rescan-query.json",
+            Self::RescanCapability => "rescan-capability.json",
             Self::StationRequest => "station-request.json",
             Self::StationStatus => "station-status.json",
             Self::StationCommitRequest => "station-commit-request.json",
@@ -331,6 +341,7 @@ impl Journal {
         if status.state != State::Closed {
             return Err(Error::Denied);
         }
+        self.ensure_rescans_closed(&binding)?;
         let key = binding.journal_key()?;
         if self.closed(&binding)?.is_none() {
             self.dir.write_name(
@@ -348,5 +359,6 @@ impl Journal {
 }
 
 mod commit;
+mod rescan;
 #[cfg(test)]
 mod tests;

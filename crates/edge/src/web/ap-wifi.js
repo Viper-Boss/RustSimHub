@@ -4,6 +4,10 @@
 const uuid=s=>typeof s==='string'&&/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(s);
 const digest=s=>typeof s==='string'&&/^[0-9a-f]{64}$/.test(s);
 const need=(ok,message='设备返回的配网状态无效，进度已保留，请查询')=>{if(!ok)throw Error(message);};
+// These failures happen locally before any network submission. Keep an already
+// proven trial usable instead of reporting its result as unknown.
+class WifiInputError extends Error {}
+const inputNeed=(ok,message)=>{if(!ok)throw new WifiInputError(message);};
 const clone=v=>structuredClone(v);
 export function pendingInput(value){
  if(value===null||value===undefined)return null;
@@ -18,8 +22,8 @@ export function pendingInput(value){
  return clone(value);
 }
 export function credentialsInput(ssid,passphrase){
- need(typeof ssid==='string'&&ssid.length>0&&new TextEncoder().encode(ssid).length<=32&&!/[\u0000-\u001f\u007f-\u009f]/u.test(ssid),'请填写有效的 Wi-Fi 名称（最多32字节）');
- need(typeof passphrase==='string'&&(/^[\x20-\x7e]{8,63}$/.test(passphrase)||/^[a-fA-F0-9]{64}$/.test(passphrase)),'请填写8–63位 WPA2 密码，或64位十六进制密钥');
+ inputNeed(typeof ssid==='string'&&ssid.length>0&&new TextEncoder().encode(ssid).length<=32&&!/[\u0000-\u001f\u007f-\u009f]/u.test(ssid),'请填写目标 Wi-Fi 名称（最多32字节）');
+ inputNeed(typeof passphrase==='string'&&(/^[\x20-\x7e]{8,63}$/.test(passphrase)||/^[a-fA-F0-9]{64}$/.test(passphrase)),'请填写目标 Wi-Fi 的8–63位 WPA2 密码，或64位十六进制密钥');
  return {ssid,passphrase};
 }
 // Root's finite preflight refusals (before any network change) and what the owner can do.
@@ -50,8 +54,9 @@ function commitInput(v,r,c){
 }
 const messages={idle:'输入 Wi-Fi 名称和密码，一次点击即可开始。',starting:'正在准备配置。切网可能使页面短暂断开，请勿重复点击。',parent_ready:'设备已准备好，可以开始试连。',testing:'正在试连，设备会自动返回配置热点。页面断开时请重新连接原热点，再查询进度。',trial_ready:'试连成功，尚未保存。确认后设备才会保存 Wi-Fi。',failed:'未能连接，设备已返回热点。请检查密码后重新试连。',saving:'已提交保存。页面可能断开，进度会保留，请勿重复保存。',saved:'设备已确认保存 Wi-Fi，配置完成。',restored_ap:'保存未完成，设备已返回配置热点。可重新填写相同名称和密码，再明确确认。',closing:'已请求结束本次配置，正在核对；不会重新提交。',closed:'设备已确认本次配置会话结束。',unknown:'操作结果未确认。记录已保留，只会查询，不会重新试连或保存。',unavailable:'设备暂未开放热点配网，可使用网络配置区的其他入口。'};
 export class ApConfigurator {
- constructor({document,env=globalThis,crypto=globalThis.crypto,request,login,getToken,loadPending,savePending,archivePending,blocked=()=>false}){
-  Object.assign(this,{doc:document,env,crypto,request,login,getToken,loadPending,savePending,archivePending,blocked});
+ constructor({document,env=globalThis,crypto=globalThis.crypto,request,login,getToken,loadPending,savePending,archivePending,blocked=()=>false,scan=null}){
+  Object.assign(this,{doc:document,env,crypto,request,login,getToken,loadPending,savePending,archivePending,blocked,scan});
+  this.scanRecord=null;
   this.$=id=>document.getElementById(id);this.epoch=0;this.record=null;this.working=false;this.opened=false;this.initialized=false;this.storageError=false;this.phase='idle';this.secret=null;this.trial=null;this.commit=null;this.parent=null;this.terminal=false;
   this.$('ap-wifi-begin').onclick=()=>this.action(()=>this.begin());
   this.$('ap-wifi-open').onclick=()=>this.action(()=>this.openAp());
@@ -60,17 +65,19 @@ export class ApConfigurator {
   this.$('ap-wifi-query').onclick=()=>this.action(()=>this.refresh());
   this.$('ap-wifi-finish').onclick=()=>this.action(()=>this.finish());
   this.$('ap-wifi-show').onchange=()=>{this.$('ap-wifi-passphrase').type=this.$('ap-wifi-show').checked?'text':'password';};
+  if(scan)scan.button.onclick=()=>this.action(()=>this.scanRecord?this.scanQuery():this.scanBegin());
   this.render();
  }
  get managing(){return !!this.record&&!this.terminal;}
  check(g){need(g===this.epoch&&this.opened,'本页配置已关闭，进度已保留');}
  wipe(){this.secret=null;this.$('ap-wifi-ssid').value='';this.$('ap-wifi-passphrase').value='';this.$('ap-wifi-passphrase').type='password';this.$('ap-wifi-show').checked=false;}
- async initialize(){try{this.record=pendingInput(await this.loadPending());this.phase=this.record?'unknown':'idle';}catch{this.storageError=true;this.phase='unknown';}this.initialized=true;this.render();}
- async open(){this.opened=true;if(!this.initialized)await this.initialize();this.render();if(this.record&&this.getToken())await this.action(()=>this.refresh());}
+ async initialize(){try{this.record=pendingInput(await this.loadPending());this.scanRecord=this.scan?scanPendingInput(await this.scan.load(),this.scan.domain()):null;this.phase=this.record||this.scanRecord?'unknown':'idle';}catch{this.storageError=true;this.phase='unknown';}this.initialized=true;this.render();}
+ async open(){this.opened=true;if(!this.initialized)await this.initialize();this.render();if((this.record||this.scanRecord)&&this.getToken())await this.action(()=>this.refresh());}
  suspend(){this.epoch++;this.opened=false;this.working=false;this.wipe();this.trial=null;this.commit=null;this.parent=null;this.terminal=false;this.phase=this.record?'unknown':'idle';this.render();}
  render(message=null){
   const state=this.phase,waiting=['starting','testing','saving','closing'].includes(state);
-  this.$('ap-wifi-state').textContent=this.storageError?'本机配网记录无法核对，已停止提交。请保留记录并通过维护入口处理。':message||state==='closed'&&this.refusal&&refusals[this.refusal]||messages[state]||messages.unknown;
+  const reenter=state==='trial_ready'&&!this.secret?'试连成功，尚未保存。请重新填写目标 Wi-Fi 名称和密码，再点击“确认保存并连接”。':null;
+  this.$('ap-wifi-state').textContent=this.storageError?'本机配网记录无法核对，已停止提交。请保留记录并通过维护入口处理。':message||reenter||state==='closed'&&this.refusal&&refusals[this.refusal]||messages[state]||messages.unknown;
   this.$('ap-wifi-state').dataset.phase=state;this.$('ap-wifi-progress').setAttribute('aria-busy',String(this.working&&waiting));
   for(const [i,id] of ['ap-wifi-step-input','ap-wifi-step-test','ap-wifi-step-save'].entries()){
    const n=state==='saved'?3:['saving','trial_ready','restored_ap'].includes(state)?2:state==='testing'?1:0;
@@ -89,12 +96,20 @@ export class ApConfigurator {
   this.$('ap-wifi-details').textContent=this.record?`配置 ${this.record.operation_id||'等待设备确认'}${this.record.trials.length?'\n试连 '+this.record.trials.at(-1):''}${this.record.commits.length?'\n保存 '+this.record.commits.at(-1).id:''}`:'';
   this.$('ap-wifi-reenter').hidden=!(confirm&&!this.secret);
   this.$('ap-wifi-fields').hidden=this.terminal;
+  if(this.scan){
+   this.scan.button.disabled=this.working||this.storageError;
+   this.scan.button.textContent=this.scanRecord?'查询扫描结果':'重新扫描附近 Wi-Fi';
+   if(this.scanRecord){
+    for(const id of ['ap-wifi-begin','ap-wifi-open','ap-wifi-confirm','ap-wifi-cancel','ap-wifi-finish'])this.$(id).disabled=true;
+    this.$('ap-wifi-details').textContent+=`\n扫描 ${this.scanRecord.scan_id}`;
+   }
+  }
  }
  async action(work){
   if(this.working)return;if(this.blocked()){this.render('请先完成其他测试或通话，再配置 Wi-Fi。');return;}
   this.opened=true;const g=this.epoch;this.working=true;this.render();
   try{if(!this.initialized)await this.initialize();this.check(g);need(!this.storageError,'配网记录不可用');await work(g);}
-  catch(error){if(g===this.epoch){this.terminal=false;this.phase=this.record?'unknown':'idle';this.render(this.record?'进度已保留，请查询。'+(error.message||'操作未确认'):(error.message||'暂不能配置'));}}
+  catch(error){if(g===this.epoch){if(error instanceof WifiInputError){this.render('尚未提交：'+error.message);}else{this.terminal=false;this.phase=this.record?'unknown':'idle';this.render(this.record?'进度已保留，请查询。'+(error.message||'操作未确认'):(error.message||'暂不能配置'));}}}
   finally{if(g===this.epoch){this.working=false;this.render(this.$('ap-wifi-state').textContent);}}
  }
  async currentRecord(g=this.epoch){
@@ -152,6 +167,7 @@ export class ApConfigurator {
   this.phase='parent_ready';this.render('配置热点已开启。在已连接热点的设备上打开 '+where+'，填写要连接的 Wi-Fi 后开始试连。');
  }
  async begin(){
+  need(!this.scanRecord,'请先查询原扫描结果，不会再次试连');
   const g=this.epoch,creds=credentialsInput(this.$('ap-wifi-ssid').value,this.$('ap-wifi-passphrase').value);
   if(!await this.prepareParent(g))return;
   if(this.record.trials.length){const v=trialInput(await this.call({op:'setup_ap_wifi_status',operation_id:this.record.operation_id,trial_id:this.record.trials.at(-1)},g),this.record);need(['failed','cancelled'].includes(v.state)&&v.ap_return_verified&&v.authoritative_result,'上次试连仍需核对，不会再次提交');}
@@ -165,6 +181,7 @@ export class ApConfigurator {
   if(this.phase==='failed')this.secret=null;this.render();
  }
  async confirm(){
+  need(!this.scanRecord,'请先查询原扫描结果，不会提交保存');
   const g=this.epoch;await this.currentRecord(g);need(this.record&&!this.record.cancel_sent,'请先试连');
   let creds=this.secret||credentialsInput(this.$('ap-wifi-ssid').value,this.$('ap-wifi-passphrase').value);
   await this.signed(true,g);
@@ -198,9 +215,11 @@ export class ApConfigurator {
   if(r.cancel_sent&&!this.terminal){this.phase='closing';this.render();}
  }
  async refresh(){
+  if(this.scanRecord)return this.scanQuery();
   const g=this.epoch;await this.currentRecord(g);need(this.record,'没有待查询的配置');await this.signed(false,g);await this.readResult(g);
  }
  async cancel(){
+  need(!this.scanRecord,'请先查询原扫描结果，不会结束父配置');
   const g=this.epoch;await this.currentRecord(g);need(this.record&&!this.record.cancel_sent,'请查询原来的结束请求');await this.signed(true,g);
   if(!this.record.operation_id){await this.parentStatus(g);need(this.record.operation_id,'尚未确定配置操作，只能继续查询');}
   await this.update({cancel_sent:true},g);this.wipe();this.phase='closing';this.render();
@@ -210,9 +229,76 @@ export class ApConfigurator {
   await this.readResult(g);
  }
  async finish(){
+  need(!this.scanRecord,'请先查询原扫描结果');
   const g=this.epoch;need(this.terminal&&this.record,'请先查询设备确认的结果');await this.currentRecord(g);
   const receipt={record:clone(this.record),state:this.phase};await this.archivePending(receipt);this.check(g);
   await this.savePending(null,{id:this.record.id,revision:this.record.revision});this.check(g);
   this.record=null;this.terminal=false;this.wipe();this.phase='idle';this.render('本次配置已完成，回执已保存在本浏览器。');
  }
+ async scanCurrent(g=this.epoch){
+  need(this.scan,'本页不支持重新扫描');
+  const current=scanPendingInput(await this.scan.load(),this.scan.domain());this.check(g);
+  need(JSON.stringify(current)===JSON.stringify(this.scanRecord),'扫描记录已在另一页面更新，请重新打开本页');
+ }
+ async scanBegin(){
+  const g=this.epoch;await this.scanCurrent(g);need(!this.scanRecord,'只会查询已有扫描');
+  if(!this.env.confirm('重新扫描会短暂断开配置热点，并结束尚未保存的试连。请稍后重新连接同一热点，页面会查询本次结果。继续吗？'))return;
+  if(!await this.prepareParent(g))return;
+  const cap=this.parent?.scan;
+  if(!cap||cap.supported!==true){this.scan.note.textContent='当前设备未提供主动扫描，可手动填写 Wi-Fi 名称。';return;}
+  if(cap.available!==true){
+   this.scan.note.textContent=cap.refusal==='cooldown'?`扫描冷却中，约 ${Math.ceil((cap.cooldown_remaining_ms||0)/1000)} 秒后可再试。`:cap.refusal==='limit'?'本轮扫描次数已用完，请先结束配置。':'当前正在处理其他配网操作，暂不能扫描。';return;
+  }
+  const r=scanPendingInput({format:1,device_key:this.scan.domain(),operation_id:this.record.operation_id,request_key_sha256:this.record.request_key_sha256,scan_id:this.crypto.randomUUID()},this.scan.domain());
+  // Persist the device/parent/scan binding before the sole mutation. Loss of its
+  // response can only lead to a query, including after reload or a new login.
+  await this.scan.save(r,null);this.check(g);this.scanRecord=r;
+  this.secret=null;this.trial=null;this.$('ap-wifi-passphrase').value='';
+  this.phase='unknown';this.scan.note.textContent='正在重新扫描。热点可能短暂断开，请重新连接原热点；不会重复扫描。';this.render();
+  try{const v=await this.call({op:'setup_ap_scan_begin',operation_id:r.operation_id,scan_id:r.scan_id},g);if(await this.scanAccept(v,g))return;}
+  catch{this.check(g);this.scan.note.textContent='扫描请求结果未确认，请重新连接原热点后查询；不会再次提交。';return;}
+  const clock=()=>this.env.performance?.now?.()??Date.now(),deadline=clock()+45000;
+  for(let i=0;i<40&&clock()<deadline;i++){
+   await this.pause(1000,g);
+   try{if(await this.scanRead(g))return;}catch{this.check(g);this.scan.note.textContent='热点暂时断开，请重新连接后点击“查询扫描结果”。';return;}
+  }
+  this.scan.note.textContent='尚未收到明确扫描结果，记录已保留，请查询。';
+ }
+ async scanQuery(){
+  const g=this.epoch;await this.scanCurrent(g);need(this.scanRecord,'没有待查询的扫描');await this.signed(false,g);await this.scanRead(g);
+ }
+ async scanRead(g){
+  const r=this.scanRecord;return this.scanAccept(await this.call({op:'setup_ap_scan_status',operation_id:r.operation_id,scan_id:r.scan_id},g),g);
+ }
+ async scanAccept(v,g){
+  const r=this.scanRecord;
+  need(v&&v.operation_id===r.operation_id&&v.scan_id===r.scan_id&&v.credentials_returned===false&&v.cellular_activation===false&&v.settings_saved===false);
+  need(v.known===true&&['submitting','scanning','ready','failed','refused','cancelled','unknown'].includes(v.state)&&typeof v.authoritative_result==='boolean');
+  if(!v.authoritative_result||!['ready','failed','refused','cancelled'].includes(v.state)){
+   this.scan.note.textContent='扫描结果尚未确认，保留原记录，只会继续查询。';return false;
+  }
+  if(v.state==='ready'){
+   need(typeof v.historical==='boolean'&&(v.historical||v.ap_return_verified===true));
+   const s=scanSnapshotInput(v.snapshot);
+   if(!v.historical)this.scan.snapshot(s);
+   this.scan.note.textContent=v.historical?'已核对历史扫描，未替换当前列表。':`扫描完成，找到 ${s.networks.filter(n=>n.security==='wpa2_personal').length} 个可选 WPA2 网络。`;
+  }else this.scan.note.textContent=v.state==='refused'?'设备未执行本次扫描，请稍后再试或手动输入 Wi-Fi。':'本次扫描未完成；已保留原 Wi-Fi 列表，可手动填写。';
+  await this.scanCurrent(g);await this.scan.save(null,r);this.check(g);this.scanRecord=null;this.phase='unknown';
+  // The old trial may have been ended by scanning. Read its real result rather
+  // than reviving a cached confirmation or ever persisting Wi-Fi credentials.
+  await this.readResult(g);return true;
+ }
+}
+export function scanPendingInput(v,domain){
+ if(v===null||v===undefined)return null;
+ const keys=['format','device_key','operation_id','request_key_sha256','scan_id'];
+ need(v&&Object.keys(v).length===keys.length&&Object.keys(v).every(k=>keys.includes(k))&&v.format===1&&digest(domain)&&v.device_key===domain&&digest(v.request_key_sha256)&&uuid(v.operation_id)&&uuid(v.scan_id),'扫描记录不匹配，已停止提交');
+ return clone(v);
+}
+export function scanSnapshotInput(s){
+ need(s&&Array.isArray(s.networks)&&s.networks.length<=32&&Number.isInteger(s.omitted)&&s.omitted>=0&&s.omitted<=128&&typeof s.truncated==='boolean');
+ for(const k of ['requested_uptime_ms','last_scan_uptime_ms','completed_uptime_ms'])need(Number.isSafeInteger(s[k])&&s[k]>=0);
+ need(s.requested_uptime_ms<=s.last_scan_uptime_ms&&s.last_scan_uptime_ms<=s.completed_uptime_ms&&s.completed_uptime_ms-s.requested_uptime_ms<=8000&&(!s.truncated||s.networks.length===32));
+ for(const n of s.networks)need(n&&typeof n.ssid==='string'&&n.ssid.length>0&&new TextEncoder().encode(n.ssid).length<=32&&!/[\u0000-\u001f\u007f-\u009f]/u.test(n.ssid)&&Number.isInteger(n.strength)&&n.strength>=0&&n.strength<=100&&Number.isInteger(n.frequency_mhz)&&n.frequency_mhz>=2000&&n.frequency_mhz<=8000&&['wpa2_personal','open','unsupported'].includes(n.security));
+ return clone(s);
 }

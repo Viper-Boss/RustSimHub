@@ -2,7 +2,7 @@
 // First-setup page on the open hotspot (plain http, no WebCrypto): create the Owner from a
 // username + password derived key, then reuse the AP Wi-Fi controller to try and save Wi-Fi.
 // The password and derived key stay in memory on this page only.
-import {ApConfigurator,pendingInput} from './ap-wifi.js';
+import {ApConfigurator,pendingInput,scanPendingInput} from './ap-wifi.js';
 import {deriveSeed,publicKey,sign,sha256,normalizeUsername,normalizePassword} from './password.js';
 const $=id=>document.getElementById(id);
 const hex=b=>Array.from(b,v=>v.toString(16).padStart(2,'0')).join('');
@@ -39,23 +39,61 @@ async function login(){
 }
 function storage(){try{return globalThis.localStorage??null;}catch{return null;}}
 const KEY='rustsimhub-setup-ap-wifi-pending';
+let pendingKey=KEY;
+function selectPendingNamespace(created){
+ const s=storage(),scoped=KEY+':'+hex(device);
+ // A newly proved first Owner belongs to this device identity. Keep a legacy
+ // record intact rather than attaching an earlier device's operation to it.
+ // Existing Owners without a scoped slot still recover their legacy record.
+ pendingKey=!created&&s?.getItem(scoped)===null&&s?.getItem(KEY)!==null?KEY:scoped;
+ // Retain a null scoped slot after completion so later logins never fall back
+ // to an unrelated legacy record. Never replace an existing scoped operation.
+ if(s&&pendingKey===scoped&&s.getItem(scoped)===null)s.setItem(scoped,'null');
+}
 const pending={
- load:async()=>{const s=storage();const v=s?.getItem(KEY);return v?JSON.parse(v):null;},
- save:async(value,expected)=>{const s=storage();const old=pendingInput(s?.getItem(KEY)?JSON.parse(s.getItem(KEY)):null);
+ load:async()=>{const s=storage();const v=s?.getItem(pendingKey);return v?JSON.parse(v):null;},
+ save:async(value,expected)=>{const s=storage();const old=pendingInput(s?.getItem(pendingKey)?JSON.parse(s.getItem(pendingKey)):null);
   if((old?.id??null)!==(expected?.id??null)||(old?.revision??null)!==(expected?.revision??null))throw Error('配网记录已在另一页面更新，请重新查询');
-  if(s){if(value===null)s.removeItem(KEY);else s.setItem(KEY,JSON.stringify(value));}},
+  if(s){if(value===null&&pendingKey===KEY)s.removeItem(pendingKey);else s.setItem(pendingKey,JSON.stringify(value));}},
  archive:async()=>{},
 };
+const scanKey=()=>KEY+':scan:'+hex(device);
+const scan={
+ domain:()=>hex(device),button:$('setup-networks-rescan'),note:$('setup-networks-note'),
+ load:async()=>{const s=storage();if(!s)throw Error('浏览器不允许保存扫描进度，请改用完整浏览器');return JSON.parse(s.getItem(scanKey())||'null');},
+ save:async(value,expected)=>{const s=storage();if(!s)throw Error('无法保留扫描进度');
+  const old=scanPendingInput(JSON.parse(s.getItem(scanKey())||'null'),hex(device));
+  if(JSON.stringify(old)!==JSON.stringify(expected))throw Error('扫描记录已在另一页面更新');
+  s.setItem(scanKey(),JSON.stringify(value));},
+ snapshot:value=>showNetworks(value.networks.map(n=>({...n,selectable:n.security==='wpa2_personal'}))),
+};
 const wifi=new ApConfigurator({document,env:globalThis,crypto:pageCrypto,request:command=>{if(!token)throw Error('请先设置管理员账号');return api({...command,token});},
- login,getToken:()=>token,blocked:()=>busy,loadPending:pending.load,savePending:pending.save,archivePending:pending.archive});
+ login,getToken:()=>token,blocked:()=>busy||listing,loadPending:pending.load,savePending:pending.save,archivePending:pending.archive,scan});
+let listing=false;
+function showNetworks(rows){
+ const list=$('setup-networks'),chosen=list.value,placeholder=list.children[0];
+ list.replaceChildren(placeholder);
+ const choices=rows.filter(n=>n.selectable).slice(0,64);
+ for(const n of choices){const o=document.createElement('option');o.value=n.ssid;o.textContent=`${n.ssid}（信号 ${n.strength}%）`;list.append(o);}
+ list.value=choices.some(n=>n.ssid===chosen)?chosen:'';
+ return choices;
+}
+// Cache read on login only; never periodically overwrite a newly completed scan.
 async function networks(){
  const list=$('setup-networks'),note=$('setup-networks-note');
+ if(listing||!token||wifi.working||wifi.scanRecord)return;listing=true;$('setup-networks-refresh').disabled=true;scan.button.disabled=true;
  try{
-  const v=await api({op:'wifi_networks',token});
-  for(const n of (v.networks||[]).filter(n=>n.selectable).slice(0,64)){const o=document.createElement('option');o.value=n.ssid;o.textContent=`${n.ssid}（信号 ${n.strength}%）`;list.append(o);}
-  note.textContent=v.source==='before_setup_ap'?'列表是开启热点前扫描到的；没有找到时请手动输入名称。':(v.networks||[]).length?'':'没有扫描到 Wi-Fi，请手动输入名称。';
+  const v=await api({op:'wifi_networks',token}),choices=showNetworks(v.networks||[]);
+  const when=new Date().toLocaleTimeString();
+  const age=Number.isFinite(v.snapshot_age_seconds)&&v.snapshot_age_seconds>=0?(v.source==='before_setup_ap_scan'?`，约${Math.floor(v.snapshot_age_seconds)}秒前完成`:`，约${Math.floor(v.snapshot_age_seconds/60)}分钟前的缓存`):'';
+  const origin=v.source==='before_setup_ap_scan'?'开启热点前已完成一次主动扫描'+age:v.source==='before_setup_ap'?'列表是开启热点前的缓存快照'+age:'列表来自设备扫描缓存';
+  note.textContent=origin+`，${when} 读取。热点开启期间只读取列表，不会重新扫描。`+(choices.length?'':'没有可选的 WPA2 网络，请手动输入名称。');
  }catch{note.textContent='暂时无法获取附近的 Wi-Fi，请手动输入名称。';}
- list.onchange=()=>{if(list.value){$('ap-wifi-ssid').value=list.value;$('ap-wifi-passphrase').focus();}};
+ finally{listing=false;$('setup-networks-refresh').disabled=false;wifi.render();}
+}
+function watchNetworks(){
+ $('setup-networks').onchange=()=>{const v=$('setup-networks').value;if(v){$('ap-wifi-ssid').value=v;$('ap-wifi-passphrase').focus();}};
+ $('setup-networks-refresh').onclick=()=>void networks();
 }
 async function account(create){
  if(busy)return;busy=true;$('setup-account-go').disabled=true;
@@ -71,9 +109,14 @@ async function account(create){
    await api({op:'setup_open_finish',challenge_id:c.id,signature:Array.from(sign(seed,transcript(c,'bootstrap')))});
   }
   await login();
+  selectPendingNamespace(create);
+  $('setup-notice').textContent='正在读取 Wi-Fi 缓存和已有配网进度…';
+  watchNetworks();await networks();
+  // Account authentication/list loading is finished. The shared controller
+  // must be allowed to read its pending operation before the Wi-Fi step opens.
+  busy=false;await wifi.open();
   $('setup-account').hidden=true;$('setup-wifi').hidden=false;
   $('setup-notice').textContent=create?'管理员已创建。请选择要连接的 Wi-Fi。':'已登录。请选择要连接的 Wi-Fi。';
-  await networks();await wifi.open();
  }catch(e){seed=null;token=null;$('setup-notice').textContent=e.message||'操作失败，请重试';}
  finally{busy=false;$('setup-account-go').disabled=false;}
 }

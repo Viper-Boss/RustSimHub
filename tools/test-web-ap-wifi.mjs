@@ -20,9 +20,11 @@ class Element{
  setAttribute(k,v){this.attributes[k]=v;}
  set innerHTML(_){throw Error('Never parse untrusted content as HTML');}
 }
-async function fixture({record=null,hook=null,loginHook=null,storageError=false,blocked=false,created=false,bootstrap=false,archiveError=false}={}){
+async function fixture({record=null,hook=null,loginHook=null,storageError=false,blocked=false,created=false,bootstrap=false,archiveError=false,scanning=false,retainedScan=null,scanCapability=null,scanWriteError=false,approveScan=true}={}){
  const elements=new Map(ids.map(id=>[id,new Element()])),calls=[],archives=[];let storage=clone(record),authenticated=false,now=0,phase='ready',failWrite=false;
- const parent=()=>({known:true,available:true,request_key_sha256:storage?.request_key_sha256||HASH,operation_id:OP,state:phase,credentials_returned:false,cellular_activation:false,completion_saved:false,station_trial_api:phase==='ready',station_save_api:phase==='ready'});
+ let scanStore=clone(retainedScan);const snapshots=[],scanButton=new Element(),scanNote=new Element();
+ const scanReply=(c,extra={})=>({known:true,operation_id:OP,scan_id:c.scan_id,state:'ready',authoritative_result:true,ap_return_verified:true,historical:false,credentials_returned:false,cellular_activation:false,settings_saved:false,snapshot:{requested_uptime_ms:100,last_scan_uptime_ms:101,completed_uptime_ms:102,networks:[],omitted:0,truncated:false},...extra});
+ const parent=()=>({known:true,available:true,request_key_sha256:storage?.request_key_sha256||HASH,operation_id:OP,state:phase,credentials_returned:false,cellular_activation:false,completion_saved:false,station_trial_api:phase==='ready',station_save_api:phase==='ready',...(scanning?{scan:scanCapability||{supported:true,available:true,remaining:8}}:{})});
  const trial=(c,state='ready',extra={})=>({known:true,operation_id:OP,trial_id:c.trial_id,state,authoritative_result:state!=='testing'&&state!=='unknown',ap_return_verified:['ready','failed','cancelled'].includes(state),requires_confirmation:state==='ready',settings_saved:false,credentials_returned:false,cellular_activation:false,...extra});
  const commit=(c,state='saved',extra={})=>({known:true,operation_id:OP,trial_id:storage.commits.find(v=>v.id===c.commit_id)?.trial_id,commit_id:c.commit_id,state,settings_saved:state==='saved',authoritative_result:['saved','restored_ap','unknown'].includes(state),credentials_returned:false,cellular_activation:false,not_resubmitted:true,...extra});
  const defaults=async c=>{
@@ -35,18 +37,21 @@ async function fixture({record=null,hook=null,loginHook=null,storageError=false,
    case 'setup_ap_wifi_confirm':assert.equal(storage.commits.at(-1).id,c.commit_id);return commit(c,'submitted');
    case 'setup_ap_wifi_commit_status':return commit(c);
    case 'setup_ap_cancel':assert(storage.cancel_sent);phase='closed';return parent();
+   case 'setup_ap_scan_begin':assert.equal(scanStore.scan_id,c.scan_id,'must be durable before mutation');return scanReply(c);
+   case 'setup_ap_scan_status':return scanReply(c);
    default:throw Error('unexpected command '+c.op);
   }
  };
  const panel=new ApConfigurator({document:{getElementById:id=>{assert(elements.has(id),id);return elements.get(id);}},crypto:webcrypto,
-  env:{performance:{now:()=>now},setTimeout:(f,ms)=>{now+=ms;queueMicrotask(f);}},
+  env:{confirm:()=>approveScan,performance:{now:()=>now},setTimeout:(f,ms)=>{now+=ms;queueMicrotask(f);}},
   request:async c=>{calls.push(clone(c));return hook?hook(c,{defaults,parent,trial,commit,storage:clone(storage),panel}):defaults(c);},
   login:async()=>{if(loginHook)await loginHook(panel);authenticated=true;},getToken:()=>authenticated?'synthetic-session':null,
   loadPending:async()=>{if(storageError)throw Error('storage unavailable');return clone(storage);},
   savePending:async(next,expected)=>{if(failWrite)throw Error('storage failed');assert.equal(storage?.id??null,expected?.id??null);assert.equal(storage?.revision??null,expected?.revision??null);pendingInput(next);assert(!JSON.stringify(next).includes(PASS)&&!JSON.stringify(next).includes(SSID));storage=clone(next);},
-  archivePending:async value=>{if(archiveError)throw Error("archive unavailable");archives.push(clone(value));},blocked:()=>blocked});
+  archivePending:async value=>{if(archiveError)throw Error("archive unavailable");archives.push(clone(value));},blocked:()=>blocked,
+  scan:scanning?{domain:()=>HASH,button:scanButton,note:scanNote,load:async()=>clone(scanStore),save:async(v,expected)=>{if(scanWriteError)throw Error('scan storage unavailable');assert.deepEqual(scanStore,expected);scanStore=clone(v);},snapshot:v=>snapshots.push(clone(v))}:null});
  await panel.initialize();await panel.open();
- return {panel,calls,archives,$:id=>elements.get(id),storage:()=>clone(storage),replace:v=>{storage=clone(v);},failWrites:()=>{failWrite=true;},defaults,parent,trial,commit,
+ return {panel,calls,archives,snapshots,scanButton,scanNote,scanStore:()=>clone(scanStore),scanReply,$:id=>elements.get(id),storage:()=>clone(storage),replace:v=>{storage=clone(v);},failWrites:()=>{failWrite=true;},defaults,parent,trial,commit,
   fill:()=>{elements.get('ap-wifi-ssid').value=SSID;elements.get('ap-wifi-passphrase').value=PASS;},click:id=>elements.get('ap-wifi-'+id).onclick(),reopen:async()=>{panel.suspend();await panel.open();}};
 }
 {
@@ -103,6 +108,19 @@ for(const extra of [{settings_saved:false},{authoritative_result:false},{commit_
  assert.throws(()=>credentialsInput('中'.repeat(11),PASS));assert.throws(()=>credentialsInput('ok','short'));assert.throws(()=>credentialsInput('bad\0name',PASS));assert.deepEqual(credentialsInput(SSID,PASS),{ssid:SSID,passphrase:PASS});
 }
 console.log('AP Wi-Fi: automatic finite trial, explicit confirmation, metadata CAS, read-only recovery, lost replies, permissions boundary and credential cleanup passed.');
+
+// A reopened page has no Wi-Fi secret. Input validation cannot make a known
+// successful trial "unknown": no save was submitted and the same trial remains usable.
+for(const bad of [{ssid:'',passphrase:PASS},{ssid:SSID,passphrase:''},{ssid:SSID,passphrase:'short'}]){
+ const f=await fixture();f.fill();await f.click('begin');await f.reopen();
+ assert.equal(f.panel.phase,'trial_ready');const before=f.storage(),calls=f.calls.length;
+ f.$('ap-wifi-ssid').value=bad.ssid;f.$('ap-wifi-passphrase').value=bad.passphrase;
+ await f.click('confirm');assert.equal(f.panel.phase,'trial_ready');assert.deepEqual(f.storage(),before);
+ assert.equal(f.calls.length,calls);assert(!f.$('ap-wifi-confirm').hidden);assert(!f.$('ap-wifi-passphrase').readOnly);
+ assert.match(f.$('ap-wifi-state').textContent,/尚未提交/);assert.doesNotMatch(f.$('ap-wifi-state').textContent,/进度已保留|结果未确认/);
+ f.fill();await f.click('confirm');assert.equal(f.panel.phase,'saved');
+ assert.equal(f.calls.filter(c=>c.op==='setup_ap_wifi_begin').length,1);assert.equal(f.calls.filter(c=>c.op==='setup_ap_wifi_confirm').length,1);
+}
 
 // A successful final bounded poll must not be overwritten with Unknown.
 {
@@ -200,3 +218,55 @@ for(const [code,text] of Object.entries(refusals))assert(typeof code==='string'&
  assert.equal(f.panel.phase,'closed');assert.equal(f.$('ap-wifi-state').textContent,refusals.station_saved);
 }
 console.log('refusal display and open-AP checks passed');
+// In-place rescan shares the production controller's single-flight lock. Empty
+// authoritative results replace old choices; reload/lost replies never replay Begin.
+{
+ const f=await fixture({scanning:true});await f.scanButton.onclick();
+ assert.equal(f.calls.filter(c=>c.op==='setup_ap_scan_begin').length,1);
+ assert.deepEqual(f.snapshots[0].networks,[]);assert.equal(f.scanStore(),null);
+ assert.match(f.scanNote.textContent,/扫描完成/);assert.equal(f.panel.phase,'parent_ready');
+ assert(!JSON.stringify(f.storage()).includes(PASS));
+}
+for(const options of [{approveScan:false},{scanCapability:{supported:false,available:false}},{scanCapability:{supported:true,available:false,refusal:'cooldown',cooldown_remaining_ms:1000}},{scanCapability:{supported:true,available:false,refusal:'limit'}}]){
+ const f=await fixture({scanning:true,...options});await f.scanButton.onclick();
+ assert(!f.calls.some(c=>c.op==='setup_ap_scan_begin'));assert.equal(f.scanStore(),null);
+}
+{
+ const f=await fixture({scanning:true,scanWriteError:true});await f.scanButton.onclick();
+ assert(!f.calls.some(c=>c.op==='setup_ap_scan_begin'));
+}
+{
+ const f=await fixture({scanning:true,hook:async(c,x)=>{if(c.op==='setup_ap_scan_begin')throw Error('lost');return x.defaults(c);}});
+ f.fill();await f.scanButton.onclick();const saved=f.scanStore();assert(saved?.scan_id);
+ assert(f.$('ap-wifi-begin').disabled&&f.$('ap-wifi-confirm').disabled&&f.$('ap-wifi-cancel').disabled);
+ await f.click('begin');assert(!f.calls.some(c=>c.op==='setup_ap_wifi_begin'));
+ await f.scanButton.onclick();assert.equal(f.calls.filter(c=>c.op==='setup_ap_scan_begin').length,1);
+ assert.equal(f.scanStore(),null);assert.equal(f.snapshots.length,1);
+ const recovered=await fixture({scanning:true,record:f.storage(),retainedScan:saved});
+ assert.equal(recovered.snapshots.length,0); // login has not happened yet
+ await recovered.scanButton.onclick();
+ assert(!recovered.calls.some(c=>c.op==='setup_ap_scan_begin'||c.op==='setup_ap_start'));
+ assert.equal(recovered.snapshots.length,1);assert.equal(recovered.scanStore(),null);
+ assert(!JSON.stringify(saved).includes(PASS));
+}
+for(const extra of [{authoritative_result:false},{operation_id:'22222222-2222-4222-8222-222222222222'},{scan_id:'22222222-2222-4222-8222-222222222222'},{credentials_returned:true},{ap_return_verified:false},{snapshot:{networks:[]}}]){
+ const f=await fixture({scanning:true,hook:async(c,x)=>c.op.startsWith('setup_ap_scan_')?{...await x.defaults(c),...extra}:x.defaults(c)});
+ await f.scanButton.onclick();assert(f.scanStore());assert.equal(f.snapshots.length,0);
+ assert.equal(f.calls.filter(c=>c.op==='setup_ap_scan_begin').length,1);
+}
+for(const state of ['failed','refused','cancelled']){
+ const f=await fixture({scanning:true,hook:async(c,x)=>c.op==='setup_ap_scan_begin'?{...await x.defaults(c),state,snapshot:null}:x.defaults(c)});
+ await f.scanButton.onclick();assert.equal(f.scanStore(),null);assert.equal(f.snapshots.length,0);
+}
+{
+ const f=await fixture({scanning:true,hook:async(c,x)=>c.op==='setup_ap_scan_begin'?{...await x.defaults(c),historical:true,ap_return_verified:false}:x.defaults(c)});
+ await f.scanButton.onclick();assert.equal(f.scanStore(),null);assert.equal(f.snapshots.length,0);assert.match(f.scanNote.textContent,/历史/);
+}
+{
+ let release;const gate=new Promise(r=>release=r);
+ const f=await fixture({scanning:true,hook:async(c,x)=>{if(c.op==='setup_ap_scan_begin')await gate;return x.defaults(c);}});
+ const running=f.scanButton.onclick();for(let i=0;i<30&&!f.calls.some(c=>c.op==='setup_ap_scan_begin');i++)await turn();
+ await f.click('begin');release();await running;
+ assert.equal(f.calls.filter(c=>c.op==='setup_ap_scan_begin').length,1);assert(!f.calls.some(c=>c.op==='setup_ap_wifi_begin'));
+}
+console.log('rescan single-flight, consent, durable-before-send, empty snapshot, reload/query-only, refusal and invalid-result checks passed');
