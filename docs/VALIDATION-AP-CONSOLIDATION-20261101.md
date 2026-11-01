@@ -32,7 +32,7 @@ cargo clippy -p rustsimhub-core -p rustsimhub-edge -p rustsimhub-setup-ap -p rus
 
 整合前半段 445 项 Rust 测试通过，0 失败、0 忽略；格式和严格 Clippy 通过。26 个 `tools/test-web-*.mjs` 全部通过，其中真实生产控制器覆盖单次提交、持久化失败、丢失回执、只读恢复、并发点击、冷却/次数拒绝、错误绑定、非权威结果、历史结果和空列表。首次设置页测试验证真实按钮和列表替换，非另写的示意控制器。
 
-后续 main 合入后的最终验证另补于本文，不把前一基线结果扩称为最终结果。
+正常合入 main `9c8d36b4b5959cd441f2bc181ff612c96cea5ac5` 后，代码树 `9894577` 再执行同命令，另加入 `rustsimhub-storage` 和 `rustsimhub-status-led`：596 项 Rust 测试通过（24+210+41+160+11+6+7+116+21），0 失败、0 忽略；六个包严格 Clippy 通过。26 组网页测试的生产网页代码与此树一致；后续仅增加本文和交接说明，不修改产品代码。
 
 ## 未验收和边界
 
