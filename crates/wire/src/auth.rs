@@ -3,6 +3,12 @@ use crate::MAX_FRAME;
 use rustsimhub_policy::{Kind, Scope};
 use serde::{Deserialize, Serialize};
 pub const AUTH_PROTOCOL: u16 = 2;
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum LegacyBindingExpectation {
+    Absent {},
+    Present { binding_epoch: String },
+}
 // Deliberately no Debug: requests may contain session tokens.
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -130,6 +136,19 @@ pub enum AuthCommand {
         public_key: [u8; 32],
         expected_generation: u64,
         scopes: Vec<Scope>,
+    },
+    BindLegacyChecked {
+        token: String,
+        core_id: String,
+        public_key: [u8; 32],
+        expected_generation: u64,
+        scopes: Vec<Scope>,
+        expected_binding: LegacyBindingExpectation,
+    },
+    RevokeLegacyChecked {
+        token: String,
+        core_id: String,
+        expected_binding_epoch: String,
     },
     RevokeLegacy {
         token: String,
@@ -674,6 +693,13 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
             expected_generation,
             scopes,
             ..
+        }
+        | AuthCommand::BindLegacyChecked {
+            token,
+            core_id,
+            expected_generation,
+            scopes,
+            ..
         } => {
             if token.len() != 64
                 || !legacy_id(core_id)
@@ -682,6 +708,24 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 || scopes.is_empty()
                 || scopes.len() > 3
             {
+                return Err(invalid());
+            }
+            if let AuthCommand::BindLegacyChecked {
+                expected_binding: LegacyBindingExpectation::Present { binding_epoch },
+                ..
+            } = &req.command
+            {
+                if !source_valid(binding_epoch) {
+                    return Err(invalid());
+                }
+            }
+        }
+        AuthCommand::RevokeLegacyChecked {
+            token,
+            core_id,
+            expected_binding_epoch,
+        } => {
+            if token.len() != 64 || !legacy_id(core_id) || !source_valid(expected_binding_epoch) {
                 return Err(invalid());
             }
         }
@@ -1260,6 +1304,41 @@ mod tests {
             let mut bad = valid.clone();
             bad["command"][key] = value;
             assert!(super::parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
+        }
+    }
+    #[test]
+    fn checked_legacy_management_requires_explicit_finite_binding_expectations() {
+        let valid = serde_json::json!({"protocol":2,"id":"nas-checked","command":{
+            "op":"bind_legacy_checked","token":"a".repeat(64),"core_id":"nas-1", "public_key":vec![2;32],
+            "expected_generation":1,"scopes":["status.read"],"expected_binding":{"state":"absent"}}});
+        assert!(parse_auth_request(&serde_json::to_vec(&valid).unwrap()).is_ok());
+        let mut present = valid.clone();
+        present["command"]["expected_binding"] =
+            serde_json::json!({"state":"present","binding_epoch":"b".repeat(64)});
+        assert!(parse_auth_request(&serde_json::to_vec(&present).unwrap()).is_ok());
+        for expected in [
+            serde_json::Value::Null,
+            serde_json::json!({"state":"any"}),
+            serde_json::json!({"state":"absent","binding_epoch":"b".repeat(64)}),
+            serde_json::json!({"state":"present","binding_epoch":"B".repeat(64)}),
+            serde_json::json!({"state":"present","binding_epoch":"short"}),
+        ] {
+            let mut bad = valid.clone();
+            bad["command"]["expected_binding"] = expected;
+            assert!(parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
+        }
+        let mut missing = valid;
+        missing["command"]
+            .as_object_mut()
+            .unwrap()
+            .remove("expected_binding");
+        assert!(parse_auth_request(&serde_json::to_vec(&missing).unwrap()).is_err());
+        for epoch in ["b".repeat(64), "bad".into(), "B".repeat(64)] {
+            let command = serde_json::json!({"protocol":2,"id":"revoke","command":{"op":"revoke_legacy_checked","token":"a".repeat(64),"core_id":"nas-1","expected_binding_epoch":epoch}});
+            assert_eq!(
+                parse_auth_request(&serde_json::to_vec(&command).unwrap()).is_ok(),
+                epoch == "b".repeat(64)
+            );
         }
     }
     #[test]

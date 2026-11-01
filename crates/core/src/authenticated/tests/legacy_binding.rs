@@ -110,7 +110,7 @@ async fn real_ipc_binding_readback_requires_compat_and_current_owner_without_mut
         "denied"
     );
     assert_eq!(
-        request(query(nas_token), auth.clone(), Some(compat.clone())).await["error"],
+        request(query(nas_token.clone()), auth.clone(), Some(compat.clone())).await["error"],
         "denied"
     );
     assert_eq!(
@@ -121,13 +121,40 @@ async fn real_ipc_binding_readback_requires_compat_and_current_owner_without_mut
         request(query(token.clone()), auth.clone(), Some(compat.clone())).await,
         json!({"known":false})
     );
+    for (actor, generation, requested) in [
+        (nas_token, approved.generation, scopes.clone()),
+        (token.clone(), approved.generation + 1, scopes.clone()),
+        (token.clone(), approved.generation, vec![Scope::SmsSend]),
+    ] {
+        assert_eq!(
+            request(
+                AuthCommand::BindLegacyChecked {
+                    token: actor,
+                    core_id: "nas-ipc".into(),
+                    public_key: approved.public_key,
+                    expected_generation: generation,
+                    scopes: requested,
+                    expected_binding: rustsimhub_wire::LegacyBindingExpectation::Absent {},
+                },
+                auth.clone(),
+                Some(compat.clone())
+            )
+            .await["error"],
+            "denied"
+        );
+        assert_eq!(
+            request(query(token.clone()), auth.clone(), Some(compat.clone())).await,
+            json!({"known":false})
+        );
+    }
     let binding = request(
-        AuthCommand::BindLegacy {
+        AuthCommand::BindLegacyChecked {
             token: token.clone(),
             core_id: "nas-ipc".into(),
             public_key: approved.public_key,
             expected_generation: approved.generation,
-            scopes,
+            scopes: scopes.clone(),
+            expected_binding: rustsimhub_wire::LegacyBindingExpectation::Absent {},
         },
         auth.clone(),
         Some(compat.clone()),
@@ -144,6 +171,55 @@ async fn real_ipc_binding_readback_requires_compat_and_current_owner_without_mut
     }
     assert_eq!(
         before,
+        std::fs::read(ledger.path().join("legacy.sqlite")).unwrap()
+    );
+    let checked = |expected_binding| AuthCommand::BindLegacyChecked {
+        token: token.clone(),
+        core_id: "nas-ipc".into(),
+        public_key: approved.public_key,
+        expected_generation: approved.generation,
+        scopes: scopes.clone(),
+        expected_binding,
+    };
+    assert_eq!(
+        request(
+            checked(rustsimhub_wire::LegacyBindingExpectation::Absent {}),
+            auth.clone(),
+            Some(compat.clone())
+        )
+        .await["error"],
+        "denied"
+    );
+    assert_eq!(
+        before,
+        std::fs::read(ledger.path().join("legacy.sqlite")).unwrap()
+    );
+    let new_binding = request(
+        checked(rustsimhub_wire::LegacyBindingExpectation::Present {
+            binding_epoch: binding["binding_epoch"].as_str().unwrap().into(),
+        }),
+        auth.clone(),
+        Some(compat.clone()),
+    )
+    .await;
+    assert!(new_binding["binding_epoch"].is_string());
+    assert_ne!(new_binding["binding_epoch"], binding["binding_epoch"]);
+    let latest = std::fs::read(ledger.path().join("legacy.sqlite")).unwrap();
+    assert_eq!(
+        request(
+            AuthCommand::RevokeLegacyChecked {
+                token: token.clone(),
+                core_id: "nas-ipc".into(),
+                expected_binding_epoch: binding["binding_epoch"].as_str().unwrap().into()
+            },
+            auth.clone(),
+            Some(compat.clone())
+        )
+        .await["error"],
+        "denied"
+    );
+    assert_eq!(
+        latest,
         std::fs::read(ledger.path().join("legacy.sqlite")).unwrap()
     );
     assert_eq!(
@@ -165,9 +241,10 @@ async fn real_ipc_binding_readback_requires_compat_and_current_owner_without_mut
     );
     assert_eq!(
         request(
-            AuthCommand::RevokeLegacy {
+            AuthCommand::RevokeLegacyChecked {
                 token: token.clone(),
-                core_id: "nas-ipc".into()
+                core_id: "nas-ipc".into(),
+                expected_binding_epoch: new_binding["binding_epoch"].as_str().unwrap().into(),
             },
             auth.clone(),
             Some(compat.clone())

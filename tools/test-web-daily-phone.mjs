@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput } from '../crates/edge/src/web/nas-bridge.js';
 // Production controller with synthetic IPC, durable writes, microphone and clock.
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -140,7 +141,7 @@ for(const stage of ['prepare_call','submit_call']){
 }
 {
  const f=fixture({skipMarkerCheck:true}),saved=new Map(),sent=[];
- const context={OperationReceipt:class{update(){}reset(){}},DiagnosticPanel:class{update(){}reset(){}},ConfigurationState:class{reset(){}},UsageStatsPanel:class{reset(){}},TestCenter:class{update(){}reset(){}},ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,forwardingPendingInput,document:f.document,crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval:()=>1,clearInterval(){},addEventListener(){},indexedDB:{open:()=>({})},DailyPhone,ClientsPanel:class{reset(){}},SessionKeeper:class{start(){}reset(){}async ensure(){}},
+ const context={OperationReceipt:class{update(){}reset(){}},DiagnosticPanel:class{update(){}reset(){}},ConfigurationState:class{reset(){}},UsageStatsPanel:class{reset(){}},TestCenter:class{update(){}reset(){}},ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,forwardingPendingInput,document:f.document,crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval:()=>1,clearInterval(){},addEventListener(){},indexedDB:{open:()=>({})},DailyPhone,NasBridgePanel,nasPendingInput,nasReceiptInput,ClientsPanel:class{reset(){}},SessionKeeper:class{start(){}reset(){}async ensure(){}},
   AudioLink:class{constructor(){return f.audio;}},ConfigurationIndicator:class{async set(){}},CallTest:class{async stop(){}},NetworkPanel:class{stop(){}start(){}},EventSync:class{reset(){}},SmsManager:class{reset(){}},
   fetch:async(_url,options)=>{const body=JSON.parse(options.body),c=body.command;sent.push(c);if(c.op==='submit_call')assert.equal(saved.get('pending').submit_started,true);return {ok:true,json:async()=>({protocol:2,id:body.id,result:await f.backend(c)})};},
  };
