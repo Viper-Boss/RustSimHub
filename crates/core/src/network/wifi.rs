@@ -25,6 +25,8 @@ struct Catalogue {
     scan_requested: bool,
     wifi_enabled: bool,
     scan_cache_known: bool,
+    /// Age of the pre-AP display snapshot, not a promise of a live scan.
+    snapshot_age_seconds: Option<u64>,
     networks: Vec<Network>,
     omitted: usize,
     truncated: bool,
@@ -64,20 +66,80 @@ pub(crate) async fn authorized(
     guarded(auth, token, || async {
         let c = zbus::Connection::system().await.map_err(|_| Error::Io)?;
         let live = probe(&c).await?;
-        Ok(before_setup_ap(
+        let live = before_setup_ap(live, crate::setup_ap_control::first_setup_catalogue());
+        Ok(with_root_scan(
             live,
-            crate::setup_ap_control::first_setup_ready(),
+            crate::setup_ap_control::setup_ap_scan_snapshot(),
+            rustsimhub_setup_ap::channel::uptime_ms().map_err(|_| Error::Io)?,
         ))
     })
     .await
+}
+/// Saved station (infrastructure) Wi-Fi profiles in NM; AP profiles do not count. Read-only and
+/// bounded; errors propagate so callers can fail closed.
+pub(crate) async fn saved_stations() -> rustsimhub_auth::Result<usize> {
+    timeout(Duration::from_secs(5), async {
+        let c = zbus::Connection::system().await.map_err(|_| Error::Io)?;
+        let settings = zbus::Proxy::new(
+            &c,
+            "org.freedesktop.NetworkManager",
+            "/org/freedesktop/NetworkManager/Settings",
+            "org.freedesktop.NetworkManager.Settings",
+        )
+        .await
+        .map_err(|_| Error::Io)?;
+        let paths: Vec<OwnedObjectPath> = settings
+            .call("ListConnections", &())
+            .await
+            .map_err(|_| Error::Io)?;
+        if paths.len() > 64 {
+            return Err(Error::Forbidden);
+        }
+        let mut count = 0;
+        for path in paths {
+            let p = zbus::Proxy::new(
+                &c,
+                "org.freedesktop.NetworkManager",
+                path.as_str(),
+                "org.freedesktop.NetworkManager.Settings.Connection",
+            )
+            .await
+            .map_err(|_| Error::Io)?;
+            let s: HashMap<String, HashMap<String, OwnedValue>> =
+                p.call("GetSettings", &()).await.map_err(|_| Error::Io)?;
+            if station(&s) {
+                count += 1;
+            }
+        }
+        Ok(count)
+    })
+    .await
+    .map_err(|_| Error::Busy)?
+}
+/// A Wi-Fi profile that is not an access point (an absent mode means infrastructure).
+fn station(s: &HashMap<String, HashMap<String, OwnedValue>>) -> bool {
+    let kind = s
+        .get("connection")
+        .and_then(|c| c.get("type"))
+        .and_then(|v| <&str>::try_from(v).ok());
+    let mode = s
+        .get("802-11-wireless")
+        .and_then(|w| w.get("mode"))
+        .and_then(|v| <&str>::try_from(v).ok());
+    kind == Some("802-11-wireless") && mode.is_none_or(|m| m == "infrastructure")
 }
 /// Last non-empty catalogue taken just before the first-setup AP started: the single radio
 /// usually cannot keep a station scan cache while it serves the AP.
 static BEFORE_AP: std::sync::Mutex<Option<(std::time::Instant, Catalogue)>> =
     std::sync::Mutex::new(None);
-const BEFORE_AP_MAX_AGE: Duration = Duration::from_secs(600);
+const BEFORE_AP_MAX_AGE: Duration =
+    Duration::from_secs(rustsimhub_setup_ap::MAX_WINDOW_SECONDS as u64);
 /// Best-effort, bounded and read-only (no scan request); failures leave the old snapshot.
 pub(crate) async fn capture_before_setup_ap() {
+    // New round: never inherit a previous round's display choices if this read fails.
+    if let Ok(mut slot) = BEFORE_AP.lock() {
+        *slot = None;
+    }
     let read = timeout(Duration::from_secs(3), async {
         let c = zbus::Connection::system().await.ok()?;
         probe(&c).await.ok()
@@ -88,20 +150,32 @@ pub(crate) async fn capture_before_setup_ap() {
     }
 }
 fn remember(catalogue: Catalogue, at: std::time::Instant) {
-    if !catalogue.networks.is_empty() {
+    if catalogue.networks.iter().any(|n| n.selectable) {
         if let Ok(mut slot) = BEFORE_AP.lock() {
             *slot = Some((at, catalogue));
         }
     }
 }
 fn before_setup_ap(live: Catalogue, first_setup: bool) -> Catalogue {
-    if !first_setup || !live.networks.is_empty() {
+    let snapshot = BEFORE_AP.lock().ok().and_then(|s| s.clone());
+    with_pre_ap_snapshot(live, first_setup, snapshot)
+}
+fn with_pre_ap_snapshot(
+    live: Catalogue,
+    first_setup: bool,
+    snapshot: Option<(std::time::Instant, Catalogue)>,
+) -> Catalogue {
+    // The radio may report only the open setup AP (not a selectable station).
+    // Such a nonempty cache must not hide useful pre-AP station choices.
+    if !first_setup || live.networks.iter().any(|n| n.selectable) {
         return live;
     }
-    let snapshot = BEFORE_AP.lock().ok().and_then(|s| s.clone());
     match snapshot {
-        Some((at, mut saved)) if at.elapsed() <= BEFORE_AP_MAX_AGE => {
+        Some((at, mut saved))
+            if at.elapsed() <= BEFORE_AP_MAX_AGE && saved.networks.iter().any(|n| n.selectable) =>
+        {
             saved.source = "before_setup_ap";
+            saved.snapshot_age_seconds = Some(at.elapsed().as_secs());
             for n in &mut saved.networks {
                 n.connected = false;
             }
@@ -117,10 +191,59 @@ fn empty(wifi_enabled: bool) -> Catalogue {
         scan_requested: false,
         wifi_enabled,
         scan_cache_known: false,
+        snapshot_age_seconds: None,
         networks: vec![],
         omitted: 0,
         truncated: false,
         hardware_mutations: false,
+    }
+}
+fn with_root_scan(
+    live: Catalogue,
+    snapshot: Option<rustsimhub_setup_ap::nm::scan::Snapshot>,
+    now: u64,
+) -> Catalogue {
+    use rustsimhub_setup_ap::nm::scan::Security;
+    let Some(snapshot) = snapshot
+        .filter(|s| {
+            s.valid()
+                && s.completed_uptime_ms <= now
+                && now.saturating_sub(s.completed_uptime_ms)
+                    <= u64::from(rustsimhub_setup_ap::MAX_WINDOW_SECONDS) * 1000
+        })
+        .filter(|_| live.wifi_enabled)
+    else {
+        return live;
+    };
+    Catalogue {
+        schema: 1,
+        source: "before_setup_ap_scan",
+        scan_requested: false,
+        hardware_mutations: false,
+        wifi_enabled: true,
+        scan_cache_known: true,
+        snapshot_age_seconds: Some(now.saturating_sub(snapshot.completed_uptime_ms) / 1000),
+        networks: snapshot
+            .networks
+            .into_iter()
+            .map(|n| {
+                let security = match n.security {
+                    Security::Wpa2Personal => "wpa2_personal",
+                    Security::Open => "open",
+                    Security::Unsupported => "unsupported",
+                };
+                Network {
+                    ssid: n.ssid,
+                    strength: n.strength,
+                    frequency_mhz: n.frequency_mhz,
+                    security,
+                    selectable: security == "wpa2_personal",
+                    connected: false,
+                }
+            })
+            .collect(),
+        omitted: snapshot.omitted,
+        truncated: snapshot.truncated,
     }
 }
 fn ap_paths_valid(paths: &[OwnedObjectPath]) -> bool {

@@ -40,6 +40,12 @@ pub enum Outcome {
 /// Returning Ok from an unauthenticated or static "always allow" gate is not a product integration.
 pub trait Gate {
     fn check(&self) -> impl Future<Output = Result<()>> + Send;
+    fn publish_scan(
+        &self,
+        _snapshot: crate::nm::scan::Snapshot,
+    ) -> impl Future<Output = Result<()>> + Send {
+        async { Err(Error::Denied) }
+    }
 }
 /// The guard exists BEFORE shared-mode activation and stays while rollback is uncertain.
 pub trait Guard {
@@ -49,6 +55,11 @@ pub trait Guard {
 }
 pub trait Network {
     fn preflight(&mut self) -> impl Future<Output = Result<()>> + Send;
+    fn scan_before_start(
+        &mut self,
+    ) -> impl Future<Output = Result<Option<crate::nm::scan::Snapshot>>> + Send {
+        async { Ok(None) }
+    }
     fn checkpoint(&mut self, seconds: u32) -> impl Future<Output = Result<()>> + Send;
     fn activate(&mut self, credentials: &Credentials) -> impl Future<Output = Result<()>> + Send;
     fn ready(&self, credentials: &Credentials) -> impl Future<Output = Result<bool>> + Send;
@@ -57,6 +68,27 @@ pub trait Network {
     fn refusal(&self) -> Option<Refusal> {
         None
     }
+}
+/// Collect the catalogue before any AP/checkpoint/forwarding action, within the original lease.
+pub(crate) async fn scan_before_start(network: &mut impl Network, gate: &impl Gate) -> Result<()> {
+    timeout(Duration::from_secs(5), gate.check())
+        .await
+        .map_err(|_| Error::Busy)??;
+    let report = timeout(
+        Duration::from_secs(crate::nm::scan::MAX_SCAN_SECONDS + 1),
+        network.scan_before_start(),
+    )
+    .await
+    .map_err(|_| Error::Busy)??;
+    timeout(Duration::from_secs(5), gate.check())
+        .await
+        .map_err(|_| Error::Busy)??;
+    if let Some(report) = report {
+        timeout(Duration::from_secs(2), gate.publish_scan(report))
+            .await
+            .map_err(|_| Error::Busy)??;
+    }
+    Ok(())
 }
 async fn stop(rx: &mut watch::Receiver<bool>) {
     loop {
@@ -94,6 +126,7 @@ pub async fn run<N: Network, G: Guard, A: Gate>(
     timeout(Duration::from_secs(5), network.preflight())
         .await
         .map_err(|_| Error::Busy)??;
+    scan_before_start(network, gate).await?;
     timeout(Duration::from_secs(5), gate.check())
         .await
         .map_err(|_| Error::Busy)??;

@@ -31,6 +31,10 @@ pub(super) fn followed(
     }
     v
 }
+/// The setup hotspot's own address belongs to the setup edge only. Field test 2026-10-29: the
+/// daily edge bound it first while the AP was up, the setup edge then exited and Root closed
+/// every first-setup round.
+const SETUP_AP: Ipv4Addr = Ipv4Addr::new(192, 168, 100, 1);
 
 pub(super) fn wlan0() -> Vec<Ipv4Addr> {
     match (
@@ -65,6 +69,7 @@ pub(super) fn current(trie: &str, routes: &str) -> Vec<Ipv4Addr> {
             if let Some(a) = last.take() {
                 let v = u32::from(a);
                 if a.is_private()
+                    && a != SETUP_AP
                     && subnets.iter().any(|(d, m)| v & m == d & m)
                     && !found.contains(&a)
                     && found.len() < MAX_ADDRESSES
@@ -123,6 +128,17 @@ usb0\t0000370A\t00000000\t0001\t0\t0\t100\tF8FFFFFF\n";
         assert_eq!(followed(&with_usb, 8443, true, &[]), with_usb);
     }
 
+    #[test]
+    fn the_setup_hotspot_address_is_never_followed() {
+        let routes = "Iface	Destination	Gateway	Flags	RefCnt	Use	Metric	Mask
+wlan0	0064A8C0	00000000	0001	0	0	0	00FFFFFF
+";
+        let trie = "Main:
+  |-- 192.168.100.1
+     /32 host LOCAL
+";
+        assert!(current(trie, routes).is_empty());
+    }
     #[test]
     fn a_new_wifi_subnet_is_picked_up_and_public_addresses_are_ignored() {
         let routes = "Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask\n\

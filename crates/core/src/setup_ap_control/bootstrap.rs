@@ -18,7 +18,14 @@ struct Active {
     cancelled: bool,
     gate: Option<Arc<Mutex<rustsimhub_auth::LocalSetup>>>,
     permit: Option<OwnedRwLockWriteGuard<()>>,
+    /// Uptime of the last published keep-alive.
+    keepalive_ms: u64,
+    /// Root's station trial/save support, read from the fresh availability at round start.
+    /// Root stops refreshing availability while a window runs (field test 2026-10-29), so later
+    /// status and adoption checks use this instead of the then-stale record.
+    supported: bool,
 }
+const KEEPALIVE_MS: u64 = 5_000;
 struct Context {
     window: rustsimhub_auth::DeviceSetupContext,
     instance: String,
@@ -60,11 +67,16 @@ pub(super) struct Bootstrap {
     coordination: Arc<crate::coordination::Coordination>,
     active: Mutex<Option<Active>>,
     stopped: AtomicBool,
+    /// Cached "no Wi-Fi saved" answer and when it was taken (uptime ms): at most one NM read
+    /// per UNCONFIGURED_TTL_MS.
+    unconfigured: AtomicBool,
+    unconfigured_ms: std::sync::atomic::AtomicU64,
     /// Uptime of the last automatic reopen: at most one per REOPEN_GAP_MS, so rounds that
     /// close at once (field test 2026-10-29) cannot spin.
     reopened_ms: std::sync::atomic::AtomicU64,
 }
 const REOPEN_GAP_MS: u64 = 30_000;
+const UNCONFIGURED_TTL_MS: u64 = 30_000;
 impl Bootstrap {
     fn path(&self) -> PathBuf {
         self.journal.join("first-setup.pending.json")
@@ -104,6 +116,8 @@ impl Bootstrap {
                     sequence: 1,
                     root_sequence: 0,
                     acknowledged: true,
+                    keepalive_ms: 0,
+                    supported: false,
                     cancelled: true,
                     gate: None,
                     permit: Some(coordination.network().map_err(|_| Error::Busy)?),
@@ -117,6 +131,8 @@ impl Bootstrap {
             coordination,
             active: Mutex::new(active),
             stopped: AtomicBool::new(false),
+            unconfigured: AtomicBool::new(false),
+            unconfigured_ms: std::sync::atomic::AtomicU64::new(0),
             reopened_ms: std::sync::atomic::AtomicU64::new(0),
         };
         {
@@ -140,10 +156,36 @@ impl Bootstrap {
             .filter(|s| s.phase != State::Closed)
             .map(Self::projection))
     }
+    /// Ready, not cancelled, and Root supported station trial and save at round start.
+    pub(super) fn supported(&self) -> Result<bool> {
+        let a = self.active.try_lock().map_err(|_| Error::Busy)?;
+        Ok(a.as_ref()
+            .is_some_and(|s| s.phase == State::Ready && !s.cancelled && s.supported))
+    }
+    /// True only when NM positively reports no saved station Wi-Fi; any error counts as
+    /// configured, so an owned device never opens the open AP by mistake.
+    async fn unconfigured(&self) -> bool {
+        let t = now().unwrap_or(0);
+        let at = self.unconfigured_ms.load(Ordering::SeqCst);
+        if at != 0 && t < at.saturating_add(UNCONFIGURED_TTL_MS) {
+            return self.unconfigured.load(Ordering::SeqCst);
+        }
+        let none = matches!(crate::network::wifi::saved_stations().await, Ok(0));
+        self.unconfigured.store(none, Ordering::SeqCst);
+        self.unconfigured_ms.store(t.max(1), Ordering::SeqCst);
+        none
+    }
     pub(super) fn ready(&self) -> Result<bool> {
         let a = self.active.try_lock().map_err(|_| Error::Busy)?;
         Ok(a.as_ref()
             .is_some_and(|s| s.phase == State::Ready && !s.cancelled))
+    }
+    pub(super) fn scan_snapshot(&self) -> Option<rustsimhub_setup_ap::nm::scan::Snapshot> {
+        let active = self.active.try_lock().ok()?;
+        let s = active
+            .as_ref()
+            .filter(|s| s.phase == State::Ready && !s.cancelled)?;
+        super::read_scan_snapshot(&self.output, &s.record.binding)
     }
     pub(super) fn cancel(&self, id: &str) -> Result<Option<Value>> {
         let mut a = self.active.try_lock().map_err(|_| Error::Busy)?;
@@ -215,7 +257,8 @@ impl Bootstrap {
         idle: &impl Idle,
     ) -> Result<()> {
         let c = context(auth.clone(), gate.clone()).await?;
-        if c.window.claimed.is_some() {
+        // An owned device gets first-setup rounds only while no Wi-Fi is saved.
+        if c.window.claimed.is_some() && !self.unconfigured().await {
             return Ok(());
         }
         self.available(&c)?;
@@ -227,7 +270,7 @@ impl Bootstrap {
         if self.stopped.load(Ordering::SeqCst) {
             return Err(Error::Forbidden);
         }
-        if after.window.claimed.is_some()
+        if after.window.claimed != c.window.claimed
             || c.window.window_id != after.window.window_id
             || c.window.realm != after.window.realm
             || c.window.device_public_key != after.window.device_public_key
@@ -294,6 +337,8 @@ impl Bootstrap {
             sequence: 1,
             root_sequence: 0,
             acknowledged: false,
+            keepalive_ms: 0,
+            supported: available.station_trial_supported && available.station_save_supported,
             cancelled: false,
             gate: Some(gate),
             permit: Some(permit),
@@ -347,7 +392,15 @@ impl Bootstrap {
         let Some(gate) = setup else { return Ok(()) };
         let t = now()?;
         let last = self.reopened_ms.load(Ordering::SeqCst);
-        if last != 0 && t < last.saturating_add(REOPEN_GAP_MS) {
+        // Only rounds that ended quickly wait out the gap; a round that ran its course
+        // reopens at once so the hotspot stays available.
+        let quick = self
+            .active
+            .try_lock()
+            .map_err(|_| Error::Busy)?
+            .as_ref()
+            .is_some_and(|s| t < s.record.binding.created_uptime_ms.saturating_add(60_000));
+        if quick && last != 0 && t < last.saturating_add(REOPEN_GAP_MS) {
             return Ok(());
         }
         let auth = auth.try_lock().map_err(|_| Error::Busy)?;
@@ -413,18 +466,22 @@ impl Bootstrap {
                 }
             }
         }
-        let allowed = if let Some(g) = gate.filter(|_| !cancelled) {
-            if context(auth.clone(), g.clone())
-                .await
-                .is_ok_and(|c| same(&c, &record))
-                && idle.device(g.clone()).await.is_ok()
-            {
-                context(auth, g).await.is_ok_and(|c| same(&c, &record))
-            } else {
-                false
-            }
-        } else {
-            false
+        // Field test 2026-10-29: one lock contention (the page creating the Owner or logging
+        // in) used to cancel the round for good. Only a real denial cancels now; a busy lock
+        // or a non-idle device skips this tick, and a lapse lets Root's heartbeat close it.
+        let allowed = match gate.filter(|_| !cancelled) {
+            None => Some(false),
+            Some(g) => match context(auth.clone(), g.clone()).await {
+                Err(Error::Busy) => None,
+                Err(_) => Some(false),
+                Ok(c) if !same(&c, &record) => Some(false),
+                Ok(_) if idle.device(g.clone()).await.is_err() => None,
+                Ok(_) => match context(auth, g).await {
+                    Err(Error::Busy) => None,
+                    Err(_) => Some(false),
+                    Ok(c) => Some(same(&c, &record)),
+                },
+            },
         };
         let t = now()?;
         let mut a = self.active.try_lock().map_err(|_| Error::Busy)?;
@@ -432,7 +489,7 @@ impl Bootstrap {
         if s.phase == State::Closed {
             return Ok(());
         }
-        if !allowed || s.cancelled || t >= record.binding.deadline_uptime_ms {
+        if allowed == Some(false) || s.cancelled || t >= record.binding.deadline_uptime_ms {
             if !s.cancelled {
                 s.cancelled = true;
                 s.gate = None;
@@ -448,6 +505,14 @@ impl Bootstrap {
             }
             return Ok(());
         }
+        // Keep-alives at most every KEEPALIVE_MS: an hour-long round stays far below the
+        // 1024-sequence cap (one per 1 s tick exhausted it after ~17 minutes).
+        // A busy check (None) still keeps the open first-setup AP alive; only a real denial
+        // (Some(false), handled above) ends the round (user decision 2026-10-29).
+        if t < s.keepalive_ms.saturating_add(KEEPALIVE_MS) {
+            return Ok(());
+        }
+        s.keepalive_ms = t;
         s.sequence = s
             .sequence
             .checked_add(1)

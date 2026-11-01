@@ -28,6 +28,8 @@ use material::Material;
 
 struct LeaseGate<'a, R> {
     input: &'a Directory,
+    output: &'a Directory,
+    binding: Binding,
     readiness: &'a R,
     lease: Mutex<RootLease>,
     sequence: AtomicU64,
@@ -39,6 +41,17 @@ trait Ready {
     fn ap_check(&self) -> impl std::future::Future<Output = Result<()>> + Send;
 }
 impl<R: Ready + Sync> Gate for LeaseGate<'_, R> {
+    async fn publish_scan(&self, snapshot: crate::nm::scan::Snapshot) -> Result<()> {
+        self.check().await?;
+        let proof = channel::scan::Proof {
+            format: 1,
+            binding: self.binding.clone(),
+            snapshot,
+        };
+        proof.validate(&self.binding, channel::uptime_ms()?)?;
+        self.output.publish(Slot::ScanSnapshot, &proof)?;
+        self.check().await
+    }
     async fn check(&self) -> Result<()> {
         let bytes = self.input.read(Slot::Hint)?.ok_or(Error::Denied)?;
         let hint = Hint::parse(&bytes, channel::uptime_ms()?, &self.boot)?;
@@ -118,6 +131,8 @@ async fn execute<N: Network, G: Guard, R: Ready + Sync>(
     )?;
     let gate = LeaseGate {
         input: &worker.input,
+        output: &worker.output,
+        binding: hint.binding.clone(),
         readiness,
         lease: Mutex::new(lease),
         sequence: AtomicU64::new(1),
@@ -153,6 +168,8 @@ async fn execute<N: Network, G: Guard, R: Ready + Sync>(
         let mut shutting_down = false;
         let mut heard_ready = false;
         let mut waiting_ap: Option<Instant> = None;
+        // Consecutive failed setup-page probes after Ready (see configuration.rs).
+        let mut misses = 0u8;
         loop {
             tokio::select! {
                 biased;
@@ -177,6 +194,9 @@ async fn execute<N: Network, G: Guard, R: Ready + Sync>(
                         let usable = timeout(Duration::from_secs(3), readiness.ap_check()).await.is_ok_and(|v| v.is_ok());
                         if usable {
                             heard_ready = true;
+                            misses = 0;
+                        } else if heard_ready && (credentials.is_open() || { misses += 1; misses < configuration::MAX_MISSES }) {
+                            state = State::Ready; // Tolerate a transiently busy setup page.
                         } else if heard_ready || waiting_ap.get_or_insert_with(Instant::now).elapsed() >= Duration::from_secs(10) {
                             shutting_down = true; cancel.send_replace(true); state = State::Closing;
                         } else {
@@ -192,7 +212,8 @@ async fn execute<N: Network, G: Guard, R: Ready + Sync>(
             }
         }
     };
-    // Err is possible only BEFORE guard.install in transaction::run; no side effect was attempted.
+    // Err is possible only BEFORE guard.install; a bounded scan may already have been requested,
+    // but no checkpoint, profile, connection switch or forwarding mutation was attempted.
     // Once guard installation is attempted all uncertain failures return Outcome::Unknown.
     let state = if matches!(outcome, Ok(Outcome::Unknown)) {
         State::Unknown
@@ -237,6 +258,17 @@ struct Worker {
     material: String,
 }
 impl Worker {
+    fn query_completed_rescan(&self) -> Result<bool> {
+        let Some(raw) = self.input.read(Slot::RescanQuery)? else {
+            return Ok(false);
+        };
+        let intent: channel::rescan::Intent =
+            serde_json::from_slice(&raw).map_err(|_| Error::Invalid)?;
+        if !intent.valid() {
+            return Err(Error::Denied);
+        }
+        Ok(configuration::rescan::cached(self, &intent)?.is_some())
+    }
     fn query_completed_commit(&self) -> Result<bool> {
         let Some(bytes) = self.input.read(Slot::StationCommitQuery)? else {
             return Ok(false);
@@ -448,6 +480,7 @@ async fn serve(
             return Ok(());
         }
         worker.query_completed_commit()?;
+        worker.query_completed_rescan()?;
         if worker.recover()? {
             worker.availability(false, configurable)?;
         } else {

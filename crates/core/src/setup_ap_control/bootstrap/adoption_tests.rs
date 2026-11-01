@@ -25,6 +25,86 @@ async fn adopt(f: &Fixture, token: &str) -> Result<Value> {
         )
         .await
 }
+#[tokio::test]
+async fn scan_snapshot_is_exact_read_only_and_survives_the_same_round_owner_adoption() {
+    use rustsimhub_setup_ap::{channel::scan::Proof, nm::scan::Snapshot};
+    let (f, token) = ready().await;
+    let h = hint(&f);
+    let t = now().unwrap();
+    let mut proof = Proof {
+        format: 1,
+        binding: h.binding.clone(),
+        snapshot: Snapshot {
+            requested_uptime_ms: t,
+            completed_uptime_ms: t,
+            last_scan_uptime_ms: t,
+            networks: vec![],
+            omitted: 0,
+            truncated: false,
+        },
+    };
+    f.runtime
+        .output
+        .publish(Slot::ScanSnapshot, &proof)
+        .unwrap();
+    assert!(f.runtime.scan_snapshot().is_some());
+    assert!(hint(&f) == h);
+    adopt(&f, &token).await.unwrap();
+    assert!(f.runtime.scan_snapshot().is_some());
+    proof.binding.nonce = "e".repeat(64);
+    f.runtime
+        .output
+        .publish(Slot::ScanSnapshot, &proof)
+        .unwrap();
+    assert!(f.runtime.scan_snapshot().is_none());
+    proof.binding = h.binding;
+    f.runtime
+        .output
+        .publish(Slot::ScanSnapshot, &proof)
+        .unwrap();
+    status(&f, State::Unknown, |_| {});
+    assert!(f.runtime.scan_snapshot().is_none());
+}
+
+#[tokio::test]
+async fn claimed_owner_can_rescan_the_adopted_round_without_new_start_or_deadline() {
+    use rustsimhub_setup_ap::channel::rescan as scan;
+    let (f, token) = ready().await;
+    let initial = hint(&f);
+    adopt(&f, &token).await.unwrap();
+    let c = scan::Capability {
+        format: 1,
+        binding: initial.binding.clone(),
+        sample_uptime_ms: now().unwrap(),
+        available: true,
+        max_per_parent: scan::MAX_PER_PARENT,
+        cooldown_ms: scan::COOLDOWN_MS,
+        remaining: 8,
+        refusal: None,
+        retry_after_uptime_ms: None,
+    };
+    f.runtime
+        .output
+        .publish(Slot::RescanCapability, &c)
+        .unwrap();
+    let v = f
+        .runtime
+        .rescan_begin(
+            f.auth.clone(),
+            token,
+            initial.binding.request_id.clone(),
+            "44444444-4444-4444-8444-444444444444".into(),
+            &idle(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(v["state"], "submitting");
+    let q: scan::Request =
+        serde_json::from_slice(&f.runtime.input.read(Slot::RescanRequest).unwrap().unwrap())
+            .unwrap();
+    assert!(q.binding == initial.binding);
+    assert!(hint(&f) == initial);
+}
 fn reload(f: Fixture) -> Fixture {
     let Fixture {
         runtime,
@@ -91,7 +171,10 @@ async fn device_claim_to_trial_confirmation_and_saved_proof_keeps_one_original_p
     use zeroize::Zeroizing;
     let (f, token) = ready().await;
     let before = hint(&f);
+    assert!(f.runtime.first_setup_catalogue());
     adopt(&f, &token).await.unwrap();
+    assert!(!f.runtime.bootstrap.ready().unwrap());
+    assert!(f.runtime.first_setup_catalogue());
     let trial = "22222222-2222-4222-8222-222222222222";
     let commit = "33333333-3333-4333-8333-333333333333";
     let ssid = "synthetic-adopted-wifi";
@@ -188,6 +271,7 @@ async fn device_claim_to_trial_confirmation_and_saved_proof_keeps_one_original_p
         "saved"
     );
     assert!(f.runtime.coordination.network().is_ok());
+    assert!(!f.runtime.first_setup_catalogue());
     assert!(f
         .runtime
         .input
@@ -507,4 +591,30 @@ async fn mismatched_transfer_or_pending_is_rejected_before_recovery_writes() {
         assert!(hint(&f) == hint_before);
         assert!(f.runtime.journal.join("first-setup.pending.json").exists());
     }
+}
+#[tokio::test]
+async fn adopted_first_setup_round_keeps_the_open_ap_alive_without_a_live_token() {
+    let (f, token) = ready().await;
+    adopt(&f, &token).await.unwrap();
+    // The administrator's session token is gone (page closed, 15-minute expiry): the open
+    // first-setup round is still kept alive, with open keep-alives at a bounded rate.
+    if let Some(s) = f.runtime.session.try_lock().unwrap().as_mut() {
+        s.token = None;
+    }
+    f.runtime.tick(f.auth.clone(), &idle()).await.unwrap();
+    let first = hint(&f);
+    assert!(first.action == Action::KeepAlive && first.open);
+    for _ in 0..5 {
+        f.runtime.tick(f.auth.clone(), &idle()).await.unwrap();
+    }
+    assert!(hint(&f) == first, "keep-alives are rate-limited");
+    assert!(
+        !f.runtime
+            .session
+            .try_lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .cancelled
+    );
 }

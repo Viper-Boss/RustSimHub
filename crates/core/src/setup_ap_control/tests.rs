@@ -5,6 +5,18 @@ use ed25519_dalek::{Signer, SigningKey};
 use rustsimhub_auth::Identity;
 use rustsimhub_storage::Store;
 use std::{os::unix::fs::PermissionsExt, sync::atomic::AtomicUsize};
+thread_local! {
+    pub(super) static CLOCK_ADVANCE: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+pub(super) fn aged_test_clock() -> impl Drop {
+    struct Reset(u64);
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            CLOCK_ADVANCE.with(|offset| offset.set(self.0));
+        }
+    }
+    Reset(CLOCK_ADVANCE.with(|offset| offset.replace(channel::HEARTBEAT_MS + 1)))
+}
 fn directory(mode: u32) -> tempfile::TempDir {
     let d = tempfile::tempdir().unwrap();
     fs::set_permissions(d.path(), fs::Permissions::from_mode(mode)).unwrap();
@@ -15,7 +27,7 @@ pub(super) struct Fixture {
     pub(super) auth: Arc<Mutex<Auth>>,
     pub(super) token: String,
     pub(super) dirs: Vec<tempfile::TempDir>,
-    _store: Store,
+    pub(super) _store: Store,
 }
 struct NoCalls {
     checks: AtomicUsize,

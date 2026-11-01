@@ -210,3 +210,5 @@ async fn authority_lost_during_ap_restore_invalidates_the_earlier_station_succes
     assert_eq!(result, TrialOutcome::FailedAndRestored);
     assert_eq!(m.lock().unwrap().events, ["begin", "restore"]);
 }
+
+mod t5_matrix;

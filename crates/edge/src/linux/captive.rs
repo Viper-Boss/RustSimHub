@@ -27,6 +27,10 @@ pub(super) fn allowed(command: &AuthCommand) -> bool {
             | AuthCommand::SessionChallenge { .. }
             | AuthCommand::RenewSession { .. }
             | AuthCommand::WifiNetworks { .. }
+            // The current Owner adopts the already-open first-setup round via
+            // this command before station trial. Core still checks the real
+            // Owner and exact live bootstrap binding; this does not claim one.
+            | AuthCommand::SetupApStart { .. }
             | AuthCommand::SetupApStatus { .. }
             | AuthCommand::SetupApOperationStatus { .. }
             | AuthCommand::SetupApCancel { .. }
@@ -35,6 +39,9 @@ pub(super) fn allowed(command: &AuthCommand) -> bool {
             | AuthCommand::SetupApWifiCancel { .. }
             | AuthCommand::SetupApWifiConfirm { .. }
             | AuthCommand::SetupApWifiCommitStatus { .. }
+            | AuthCommand::SetupApScanBegin { .. }
+            | AuthCommand::SetupApScanStatus { .. }
+            | AuthCommand::SetupApScanCancel { .. }
     )
 }
 fn redirect() -> Response {
@@ -158,6 +165,16 @@ pub(super) fn router(app: App) -> Router {
 }
 /// Serves until the process ends; the AP address exists only while the hotspot is up.
 pub(super) async fn serve(addr: SocketAddr, app: App) {
+    // Own rate and concurrency budget: the phone's page polling must never starve Root's
+    // readiness probe on the https listener (field test 2026-10-29).
+    let app = App {
+        rate: Arc::new(Mutex::new(Rate {
+            since: Instant::now(),
+            remaining: 120,
+        })),
+        limit: Arc::new(Semaphore::new(4)),
+        ..app
+    };
     loop {
         match tokio::net::TcpListener::bind(addr).await {
             Ok(listener) => {
@@ -185,6 +202,7 @@ mod tests {
             serde_json::json!({"op":"setup_open_challenge","public_key":vec![1;32]}),
             serde_json::json!({"op":"wifi_networks","token":t}),
             serde_json::json!({"op":"setup_ap_status","token":t}),
+            serde_json::json!({"op":"setup_ap_start","token":t,"idempotency_key":"once"}),
         ] {
             assert!(allowed(&parse(op.clone())), "{op}");
         }
@@ -200,6 +218,54 @@ mod tests {
             ) {
                 assert!(!allowed(&r.command), "{op}");
             }
+        }
+    }
+    #[tokio::test]
+    async fn owner_adoption_start_reaches_core_on_the_real_captive_router() {
+        let body=serde_json::json!({"protocol":2,"id":"adopt","command":{"op":"setup_ap_start","token":"a".repeat(64),"idempotency_key":"01010101-0101-4101-8101-010101010101"}}).to_string();
+        // No Core is installed in this test: a forwarded request must fail 503.
+        // 404 means the captive route blocked the UI's required adoption command.
+        let response = send(post("http://192.168.100.1", &body)).await;
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+    #[tokio::test]
+    async fn finite_rescan_commands_reach_core_but_keep_origin_and_body_boundaries() {
+        for op in [
+            "setup_ap_scan_begin",
+            "setup_ap_scan_status",
+            "setup_ap_scan_cancel",
+        ] {
+            let good = serde_json::json!({"protocol":2,"id":"scan","command":{"op":op,"token":"a".repeat(64),
+                "operation_id":"11111111-1111-4111-8111-111111111111","scan_id":"22222222-2222-4222-8222-222222222222"}});
+            // Absent Core -> 503 proves forwarding only, not successful authorization/execution.
+            assert_eq!(
+                send(post("http://192.168.100.1", &good.to_string()))
+                    .await
+                    .status(),
+                StatusCode::SERVICE_UNAVAILABLE
+            );
+            assert_eq!(
+                send(post("http://evil.example", &good.to_string()))
+                    .await
+                    .status(),
+                StatusCode::FORBIDDEN
+            );
+            let mut extra = good.clone();
+            extra["command"]["interface"] = "wlan0".into();
+            assert_eq!(
+                send(post("http://192.168.100.1", &extra.to_string()))
+                    .await
+                    .status(),
+                StatusCode::BAD_REQUEST
+            );
+            let mut unsigned = good;
+            unsigned["command"].as_object_mut().unwrap().remove("token");
+            assert_eq!(
+                send(post("http://192.168.100.1", &unsigned.to_string()))
+                    .await
+                    .status(),
+                StatusCode::BAD_REQUEST
+            );
         }
     }
     async fn send(req: axum::http::Request<axum::body::Body>) -> Response {
