@@ -524,7 +524,7 @@
   ],
   "advisories": {
     "status": "queried",
-    "queried_at_utc": "2026-11-01T09:26:29.570933+00:00",
+    "queried_at_utc": "2026-11-01T09:34:11.810002+00:00",
     "source": "https://api.osv.dev/v1/querybatch",
     "findings": [
       {
@@ -662,6 +662,10 @@
       }
     ],
     "production_approved": false
+  },
+  "go_runtime_license": {
+    "declaration": "Go BSD-style license",
+    "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
   },
   "inventory_scope": "actually compiled native test dependency closure; excludes unselected module graph",
   "production_ready": false,
