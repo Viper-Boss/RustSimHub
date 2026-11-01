@@ -1,0 +1,33 @@
+[package]
+name = "rustsimhub-noise-evaluation"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.98"
+license = "AGPL-3.0-only"
+publish = false
+description = "Isolated A27 dependency evaluation; no product protocol or authentication"
+
+# Deliberately outside the production workspace and its lockfile.
+[workspace]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Upstream 0.10.0 AES-only feature set fails: KeyInit is imported under
+# use-chacha20poly1305. Explicit evaluation workaround, NOT production approval.
+# No upstream source patch; the harness still accepts only the fixed AES suite.
+snow = { version = "=0.10.0", default-features = false, features = ["default-resolver", "use-curve25519", "use-aes-gcm", "use-sha2", "use-getrandom", "use-chacha20poly1305"] }
+serde_json = "=1.0.154"
+hex = "=0.4.3"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "=0.3.4", features = ["wasm_js"] }
+wasm-bindgen = "=0.2.130"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
