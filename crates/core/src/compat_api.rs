@@ -39,6 +39,28 @@ pub(crate) fn dispatch(
             authority.revoke(&owner, &core_id).map_err(denied)?;
             json!({"ok":true})
         }
+        AuthCommand::LegacyBindingStatus { token, core_id } => {
+            // Authenticate before even looking up the alias: ordinary clients,
+            // NAS bearers and missing/expired owners cannot probe mappings.
+            auth.recent_owner(&token)?;
+            match authority.binding(&core_id) {
+                Ok(binding) => {
+                    let principal_current = match auth.current_principal(binding.public_key) {
+                        Ok(p) => {
+                            p.kind == rustsimhub_policy::Kind::Nas
+                                && p.generation == binding.generation
+                                && binding.scopes & !p.scopes == 0
+                        }
+                        Err(rustsimhub_auth::Error::Forbidden) => false,
+                        Err(error) => return Err(error),
+                    };
+                    json!({"known":true,"binding":binding,"principal_current":principal_current})
+                }
+                Err(rustsimhub_compat::session::Error::Forbidden) => json!({"known":false}),
+                // A broken ledger must not look like a confirmed missing alias.
+                Err(error) => return Err(denied(error)),
+            }
+        }
         AuthCommand::LegacySession {
             core_id,
             device_id,
@@ -169,6 +191,17 @@ mod tests {
             expected_generation: generation,
             scopes: scopes.clone(),
         };
+        let query = |token: String| AuthCommand::LegacyBindingStatus {
+            token,
+            core_id: "synthetic-nas".into(),
+        };
+        for token in [nt.clone(), "a".repeat(64)] {
+            assert!(dispatch(&mut auth, &mut gate, query(token)).is_err());
+        }
+        assert_eq!(
+            dispatch(&mut auth, &mut gate, query(ot.clone())).unwrap(),
+            json!({"known":false})
+        );
         assert!(dispatch(&mut auth, &mut gate, bind(nt.clone(), current.generation)).is_err());
         assert!(dispatch(
             &mut auth,
@@ -177,6 +210,20 @@ mod tests {
         )
         .is_err());
         let binding = dispatch(&mut auth, &mut gate, bind(ot.clone(), current.generation)).unwrap();
+        // Lost bind replies are recoverable with reads; two queries must neither
+        // rotate the epoch nor change the current principal or mapping.
+        for _ in 0..2 {
+            let status = dispatch(&mut auth, &mut gate, query(ot.clone())).unwrap();
+            assert_eq!(status["known"], true);
+            assert_eq!(status["binding"], binding);
+            assert_eq!(status["principal_current"], true);
+        }
+        assert_eq!(
+            auth.current_principal(nas.verifying_key().to_bytes())
+                .unwrap(),
+            current
+        );
+        assert!(crate::authenticated::dispatch(&mut auth, query(ot.clone())).is_err());
         let stamp = time::OffsetDateTime::now_utc()
             .format(&time::format_description::well_known::Rfc3339)
             .unwrap();
@@ -200,6 +247,9 @@ mod tests {
         };
         let issued = dispatch(&mut auth, &mut gate, command).unwrap();
         let legacy = issued["token"].as_str().unwrap().to_owned();
+        assert!(dispatch(&mut auth, &mut gate, query(legacy.clone())).is_err());
+        // The read-back is not an issued session and does not revoke one.
+        dispatch(&mut auth, &mut gate, query(ot.clone())).unwrap();
         assert!(auth.authorize(&legacy, Scope::StatusRead).is_err());
         let read = |token: String| AuthCommand::LegacyRead {
             token,
@@ -216,5 +266,62 @@ mod tests {
         );
         auth.revoke(&ot, nas.verifying_key().to_bytes()).unwrap();
         assert!(dispatch(&mut auth, &mut gate, read(legacy)).is_err());
+        let revoked = dispatch(&mut auth, &mut gate, query(ot.clone())).unwrap();
+        assert_eq!(revoked["known"], true);
+        assert_eq!(revoked["binding"], binding);
+        assert_eq!(revoked["principal_current"], false);
+
+        // Reapproving the same key cannot silently attach the old mapping to
+        // the new NAS generation, even when it has the same requested scopes.
+        auth.open_pairing(&ot).unwrap();
+        let challenge = auth
+            .pairing_challenge(nas.verifying_key().to_bytes(), Kind::Nas, &scopes)
+            .unwrap();
+        let pending = auth
+            .pairing_finish(&challenge.id, &nas.sign(&challenge.transcript).to_bytes())
+            .unwrap();
+        let reapproved = auth
+            .approve(
+                &ot,
+                &pending,
+                nas.verifying_key().to_bytes(),
+                Kind::Nas,
+                &scopes,
+            )
+            .unwrap();
+        assert!(reapproved.generation > current.generation);
+        assert_eq!(
+            dispatch(&mut auth, &mut gate, query(ot.clone())).unwrap()["principal_current"],
+            false
+        );
+
+        dispatch(
+            &mut auth,
+            &mut gate,
+            AuthCommand::RevokeLegacy {
+                token: ot.clone(),
+                core_id: "synthetic-nas".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            dispatch(&mut auth, &mut gate, query(ot.clone())).unwrap(),
+            json!({"known":false})
+        );
+        dispatch(
+            &mut auth,
+            &mut gate,
+            bind(ot.clone(), reapproved.generation),
+        )
+        .unwrap();
+        // A damaged database is an error, never a confirmed absence.
+        rusqlite::Connection::open(ledger.path().join("legacy.sqlite"))
+            .unwrap()
+            .execute(
+                "UPDATE aliases SET scopes=0 WHERE core_id='synthetic-nas'",
+                [],
+            )
+            .unwrap();
+        assert!(dispatch(&mut auth, &mut gate, query(ot)).is_err());
     }
 }
