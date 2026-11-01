@@ -135,6 +135,12 @@ pub enum AuthCommand {
         token: String,
         core_id: String,
     },
+    /// Read back an existing alias after an unconfirmed management request.
+    /// This does not create a NAS principal, mapping or session.
+    LegacyBindingStatus {
+        token: String,
+        core_id: String,
+    },
     LegacySession {
         core_id: String,
         device_id: String,
@@ -679,7 +685,8 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 return Err(invalid());
             }
         }
-        AuthCommand::RevokeLegacy { token, core_id } => {
+        AuthCommand::RevokeLegacy { token, core_id }
+        | AuthCommand::LegacyBindingStatus { token, core_id } => {
             if token.len() != 64 || !legacy_id(core_id) {
                 return Err(invalid());
             }
@@ -1253,6 +1260,27 @@ mod tests {
             let mut bad = valid.clone();
             bad["command"][key] = value;
             assert!(super::parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
+        }
+    }
+    #[test]
+    fn legacy_binding_status_is_a_bounded_read_without_write_parameters() {
+        let valid = serde_json::json!({"protocol":2,"id":"binding-query","command":{
+            "op":"legacy_binding_status","token":"a".repeat(64),"core_id":"nas-approved_1"}});
+        assert!(parse_auth_request(&serde_json::to_vec(&valid).unwrap()).is_ok());
+        for (field, value) in [
+            ("token", serde_json::json!("short")),
+            ("core_id", serde_json::json!("")),
+            ("core_id", serde_json::json!("a".repeat(129))),
+            ("core_id", serde_json::json!("../aliases")),
+            ("core_id", serde_json::json!("nas\nother")),
+            ("public_key", serde_json::json!(vec![0; 32])),
+            ("scopes", serde_json::json!(["sms.send"])),
+            ("owner", serde_json::json!(true)),
+            ("bind_if_missing", serde_json::json!(true)),
+        ] {
+            let mut bad = valid.clone();
+            bad["command"][field] = value;
+            assert!(parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
         }
     }
     #[test]
