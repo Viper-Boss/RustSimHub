@@ -60,6 +60,30 @@ fn directory() -> TempDir {
     fs::set_permissions(d.path(), fs::Permissions::from_mode(0o700)).unwrap();
     d
 }
+
+#[test]
+fn closed_writer_releases_even_a_duplicated_description_without_unlocking_its_successor() {
+    let directory = directory();
+    let first = Queue::open(directory.path(), binding()).unwrap();
+    // dup and a fork-inherited FD share the flock open-file description. The
+    // queue's lifetime must end ownership even if such a description survives.
+    let inherited = first._lock.0.try_clone().unwrap();
+    assert!(matches!(
+        Queue::open(directory.path(), binding()),
+        Err(Error::Busy)
+    ));
+    drop(first);
+    let successor = Queue::open(directory.path(), binding())
+        .expect("a closed queue must not leave writer ownership in an inherited FD");
+    assert!(!successor.status().unwrap().enabled);
+    drop(inherited);
+    assert!(matches!(
+        Queue::open(directory.path(), binding()),
+        Err(Error::Busy)
+    ));
+    drop(successor);
+    assert!(Queue::open(directory.path(), binding()).is_ok());
+}
 fn queue() -> (TempDir, Queue) {
     let d = directory();
     let q = Queue::open(d.path(), binding()).unwrap();
