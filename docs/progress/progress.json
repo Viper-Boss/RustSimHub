@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-01T02:55:43.703723+00:00",
+  "updated_at": "2026-11-01T03:06:29.128885+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -70,7 +70,7 @@
     "task_id": "AP-07",
     "title": "首页装配已合并，保留草稿与验收边界",
     "state": "下一动作已选定；按前置和验收推进",
-    "description": "按所有者明确决定，#100最新非草稿提交已直接批准合并；之前#97/#102～106已合并，本轮未做技术审核或独立功能测试。#101/#107仍为草稿，不合并。B-01～32已有离线交付材料，后端provider/配置器发布/实机仍待；D线报告21/26离线提交，D-22～26五步仍未闭环。原81.5%、20/169保持，不按PR数加验收分；未部署设备。"
+    "description": "最新成员PR #139/#140仍是草稿，按既定要求保留不合并；截至#138的近期正式成员PR已合并，本轮没有新增待合并的正式成员PR，也未技术审核或部署。D线31笔交付PR按任务归属放到RedamancyGTW卡片，实际提交账号仍保留；A/B接手分工、代码统计及原81.5%/20项验收保持。"
   },
   "facts": [
     {
@@ -5796,6 +5796,398 @@
               "head": "d86635fa3d3ad2315a734689fe495709d704d59f",
               "state": "OPEN"
             }
+          ],
+          "task_deliveries": [
+            {
+              "pr": 1,
+              "head": "3f41a3fd581b2827a1b61700ab1455385ae951a2",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 4,
+              "head": "8a3e520c111771c13b6eb265d7920e2a22c00037",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 5,
+              "head": "7ecf8c93c1b21dca6874d1d9b8e7de1e4f5aeccb",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 8,
+              "head": "3eb42bca52768d2f08c81cd8eb860e4fef681d59",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 11,
+              "head": "cf9161ea98d623238a1f6ad6e950ce37508f6e0b",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 12,
+              "head": "529a54128bde0da3aa34818ff3615310a28dd56f",
+              "state": "CLOSED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 14,
+              "head": "f8bd02dd24c3db9587a0b52622ecfb77e77b00bc",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 15,
+              "head": "7d033de5654e32f6d65ca378df67336d1b8cbc31",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 16,
+              "head": "b3863bf87a1aad6a46e095fd0e0b8b285a5ba9e6",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 17,
+              "head": "bd03d9d9e8b0776b557b9534b9973a061132eabd",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 18,
+              "head": "089a4031358c872acc5832c1276ff8fad87e5f35",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 19,
+              "head": "f2ba7707e467214fac83f8e6486bb8ccea7c6f92",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 20,
+              "head": "d444b905f848af9bd09036d25bc8f712e694f5ba",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 21,
+              "head": "4d7c67175f5cd593c7952c151699f92a676ae42d",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 22,
+              "head": "6b1a028db851724770f8db9ee55d11f927a49f95",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 23,
+              "head": "3168f349e7501b0d31968d9c271e1e46cb41d340",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 24,
+              "head": "bbe9bc8360efbd548061e67a86fcdca4f3dd14a0",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 25,
+              "head": "daeba6ec4d09162f1dc83d4d2597695adf58e9c2",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 26,
+              "head": "af7fb0f79b0808b6aae86878ab927f0702ab824e",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 27,
+              "head": "4d86473415ddc410be33dbeaa4e5be5b2be4f642",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 28,
+              "head": "8d7a73b2a0886c9381826de8ea999dca02f0715f",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 29,
+              "head": "ac756ecbf7c50436da31a211e2ebf013264114d7",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 30,
+              "head": "9fead6682d7cd49e0c2891e96e42c7d6b6f4636b",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 31,
+              "head": "0a0f0b57f41770f9ecc8c8d691a14f03c7ce7955",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 32,
+              "head": "e44a19b2e0808e9db7d24589b66bf34e46760f9e",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 33,
+              "head": "1176c9db434d67b29becc3ffdf2a728ef1bacb6d",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 34,
+              "head": "8edb20334fa05e97e1d7efe33e1f87990fa5e7b2",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 35,
+              "head": "cca6261259f53b1ae69bf5eb424b108bad73488d",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 36,
+              "head": "ded090a120f7c240e40e5321cdd3bda234d51f5c",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 37,
+              "head": "69773e8c95197f988702a7dfbb811a88e66ac860",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 38,
+              "head": "d915b0e4b784504dd66f7eb2403773fc7f83659a",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 39,
+              "head": "97f86ae093a111d1ea71b313bd476f9bac0aa6b5",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 40,
+              "head": "c78dc8c3b4ef27e3701c41cb3356a71c8b796099",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 42,
+              "head": "0011fd8c8726bdf850d5ab0d0f891f18de1119d1",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 43,
+              "head": "6915e0f58e18d66d7a608fcd71499deaf49dc988",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 44,
+              "head": "d757818e2400fb4f7a2a3172499c407c58e343dc",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 45,
+              "head": "02f0214bf91e2521356c31c9acd6b1c6fc6f7e8c",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 46,
+              "head": "31c9f8e74d2ac8092ebe71685cc415e44ec852a9",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 47,
+              "head": "60307e8565e96ae00b07b2f4ce6b4f3739cba3ec",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 48,
+              "head": "5bfe8bece8b27067e46ba8216e52d3f58561227f",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 49,
+              "head": "587067384b44f0e05030a5dfce6bdec4db2b512a",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 50,
+              "head": "2b13b25f4ffad0fed04643fedadbdec60fed9f64",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 51,
+              "head": "9f4ff04373846bd1555b3f471bc92072eaf5c412",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 52,
+              "head": "ce478c70b15784f043a865299c74cac7300b97ff",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 53,
+              "head": "9a95b239ee5adf3eb5c7a7f9e87b72b1f1dc6efb",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 54,
+              "head": "028ca246efa87ef2840d5585cdc61ce1ff5cc393",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 55,
+              "head": "d9cb52d182b3e457b51efe0e88dda5753416b066",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 56,
+              "head": "31ec213840566c8715b741bcb318943169f8196a",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 57,
+              "head": "a785531af02a085c59410bb2698792d0647144c7",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 58,
+              "head": "bcefada0d3c04d7a8523a71859d8f2b3441b0d95",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 59,
+              "head": "71ded6b468f90aa1c02a939825ab92605b162dfd",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 60,
+              "head": "d3de1956fbc8fbbcd4bcc36bdda2c603cc1b06ed",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 61,
+              "head": "bc9fb583debcf58d3bdebed9665ab1b631525328",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 62,
+              "head": "4cd8dc446417bac882395fc66a6e01b6551c94ca",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 63,
+              "head": "ad8b87a812317018994bcb5f6df4d00ce3a1842f",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 64,
+              "head": "a8acad955dc75c1883270e6957a80d0690b28759",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 65,
+              "head": "d09e76df1549ec69f167b23a9e887073f87c7784",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 66,
+              "head": "e9414f459c1bab4ce2ff1399fa7f5a14b941ad92",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 67,
+              "head": "0c3b9b2cc3cf3582b426685215fd695ced87f3eb",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 68,
+              "head": "70a62412541c3ac5e0eaf58a192f73c755ffeb04",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 69,
+              "head": "803501e2dca59dc388446426010ddaed3201dcd1",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 70,
+              "head": "300af3903d9d1c0e61222036b7153f3cb9fb21f3",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 71,
+              "head": "284861fd819caabc5a2f2d547462c8554d45f772",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 72,
+              "head": "4ce795b95e41147667de5327f71e2aa655fb274f",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 73,
+              "head": "d86635fa3d3ad2315a734689fe495709d704d59f",
+              "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            }
           ]
         }
       },
@@ -5833,6 +6225,14 @@
               "pr": 41,
               "head": "295c47655af1d69d2eb0568eda09023c4599c16b",
               "state": "MERGED"
+            }
+          ],
+          "task_deliveries": [
+            {
+              "pr": 41,
+              "head": "295c47655af1d69d2eb0568eda09023c4599c16b",
+              "state": "MERGED",
+              "submitted_by": "fungi1220"
             }
           ]
         }
@@ -6292,6 +6692,194 @@
               "head": "c54e7b3e2d136deab6378961969bc493a1062632",
               "state": "OPEN"
             }
+          ],
+          "task_deliveries": [
+            {
+              "pr": 74,
+              "head": "f7d93e9341bf9614814e069430a0924ee580a421",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 75,
+              "head": "e6dc66b8ed8685d497ca6ff39ee225599d720711",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 76,
+              "head": "80e78818d15eb1bb2430e8911d50083a0b7d9281",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 77,
+              "head": "91d50e86f4443f3af0b55941659e2b6d582981eb",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 78,
+              "head": "609238d29826e37f3783d1968c013e7827e145a2",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 79,
+              "head": "9672932fe8b2133f99c24c5cba048d59cbae2e30",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 82,
+              "head": "92d079a35b91b5bbfc5785e444220853895521f6",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 83,
+              "head": "619ca27d563ccee4e5ef1d8b39de6d1563fa323a",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 87,
+              "head": "2c6195f6ed169b8e606eb8ffdecac4ef8a66a7d7",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 89,
+              "head": "08d5d26265d04b5c61746cb532f30eb9600d31ca",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 90,
+              "head": "6615324441fc3035f2bba6f90da904fa8d13413e",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 91,
+              "head": "4f7c88e4cf007eddfea8277e9e9769afa156981e",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 93,
+              "head": "4ef4186d953aa236cff9bbf6c4c120d656da1f61",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 94,
+              "head": "eb5ff80aa2c9949b614d3b41a4e22f8b77eb5186",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 96,
+              "head": "ab81d36edb3f66e692f6391ac70d79bcf5635b71",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 100,
+              "head": "21e3e2ab87a4f2b62ce1dcacf0aea6e9566def23",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 102,
+              "head": "dfab807f8c28f4e8c187d09cd5f148093986b2df",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 108,
+              "head": "f1428eec8462ab328eb849e6617c4881cc3ac691",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 111,
+              "head": "d3a381353ec665fff3aecebe2767306d1baec3b8",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 112,
+              "head": "0f94e9ed28efd43544dd4c893e517ce5668a2306",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 115,
+              "head": "e773a57a7e0c0a4d9f5c63850dae22f111f9edb2",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 118,
+              "head": "323e9d9a700867bd98937c73b3f66592c67748ad",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 119,
+              "head": "69af8d8037d6c89ea593ff4ae28cc1d7b32cb685",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 120,
+              "head": "fd6d8f330daae11fa8a66a8cc61187425a96975a",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 121,
+              "head": "2df1ae335c025d4fc260c1de5e9fb5c02279bad7",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 123,
+              "head": "4db90796e6244bc9d7b6bdc45a4c4d3abef3267c",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 124,
+              "head": "c387db65d90426dc2aa15a758c4fcfdc90edf5d1",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 128,
+              "head": "974b6739ae2e4ef9d8b2cf8558cb986b789b82df",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 129,
+              "head": "401d5288dc40fdf7f7fffbf578431aca507102be",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 133,
+              "head": "ad32afc930c224cb0c69a04aebc73df82ac6f2a1",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 134,
+              "head": "d3c7de903fb73a93a087e52e3afa0eab2493cb17",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            }
           ]
         }
       },
@@ -6470,6 +7058,74 @@
               "head": "086183aff03585e90fa92cf595392d4ee20ab499",
               "state": "MERGED"
             }
+          ],
+          "task_deliveries": [
+            {
+              "pr": 3,
+              "head": "751e4a964e14db0142b34b3dc4afa245971bb54c",
+              "state": "MERGED",
+              "submitted_by": "yh1030"
+            },
+            {
+              "pr": 6,
+              "head": "9c0802f30607f1badfb2666c3a46ba12a866a408",
+              "state": "MERGED",
+              "submitted_by": "yh1030"
+            },
+            {
+              "pr": 7,
+              "head": "b13bae7ea80a4c8f45396609b22bfe1f8cc42923",
+              "state": "MERGED",
+              "submitted_by": "yh1030"
+            },
+            {
+              "pr": 9,
+              "head": "c10c95ce35fb029678457069cc6354337e4121f3",
+              "state": "MERGED",
+              "submitted_by": "yh1030"
+            },
+            {
+              "pr": 10,
+              "head": "b66c0e1df606980524d94fb26585b4a73aa7f7e3",
+              "state": "MERGED",
+              "submitted_by": "yh1030"
+            },
+            {
+              "pr": 13,
+              "head": "e782f985dc5995a076e83e8482b73a693f687ea1",
+              "state": "MERGED",
+              "submitted_by": "yh1030"
+            },
+            {
+              "pr": 81,
+              "head": "f8fd6c300548046bf5bfcb2dd263f103b71acf88",
+              "state": "MERGED",
+              "submitted_by": "yh1030"
+            },
+            {
+              "pr": 85,
+              "head": "3d37c86738d191f65fe82e2069a0f3ce303a6b38",
+              "state": "MERGED",
+              "submitted_by": "yh1030"
+            },
+            {
+              "pr": 86,
+              "head": "b625bc8dff65104dd3e147dfe622ea0fe17e4866",
+              "state": "MERGED",
+              "submitted_by": "yh1030"
+            },
+            {
+              "pr": 98,
+              "head": "5cba7bd0a609ed44eed7f125f4275a1c3982aeec",
+              "state": "MERGED",
+              "submitted_by": "yh1030"
+            },
+            {
+              "pr": 99,
+              "head": "086183aff03585e90fa92cf595392d4ee20ab499",
+              "state": "MERGED",
+              "submitted_by": "yh1030"
+            }
           ]
         }
       },
@@ -6551,7 +7207,195 @@
           "accepted_steps": 0,
           "self_reported_hours": null,
           "reviews": [],
-          "deliveries": []
+          "deliveries": [],
+          "task_deliveries": [
+            {
+              "pr": 80,
+              "head": "9bcbc0d273891ce412f0599500841ffd8826492a",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 84,
+              "head": "7c06cf7453cb0da5cbda6139111b86a007d22ff8",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 88,
+              "head": "1e8bb695ebd0252826148d3776c6f92216886b7b",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 92,
+              "head": "779da393ab3e5328a8ce27847e201db12052f866",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 95,
+              "head": "f02c7c645be650fba5b981260e2f9861e7965662",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 97,
+              "head": "bfbfdaae25daf581689d885332a98f2b6d3d6f4b",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 101,
+              "head": "51043fefcd323d6fd81f592da945f199249f5034",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 103,
+              "head": "f59cf9efc6ce1f3eab1c37416ab4fe9a179621ab",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 104,
+              "head": "2c84766800562a8b27b9fe1ebda3afd8a88cf8a1",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 105,
+              "head": "22663d12f95a191b44188d60965d069def0d5606",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 106,
+              "head": "1fbd4c88c826b322ce4b8343ee9af14dd65d6eda",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 107,
+              "head": "241803809029dc7da20a611baef6b476cc3c901f",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 109,
+              "head": "2d4b0c6e4e130fd07ff1c523c144e6df3fe87475",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 110,
+              "head": "fce922512fb52bb0eb5d12de951f30707390f1a8",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 113,
+              "head": "32a2c3dace7e0bd25a117670adba22c8a979b1e2",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 114,
+              "head": "0f03b2724152e4f317576a032ba6102d49eee9d2",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 116,
+              "head": "bdf2de4a08bad08d6d70d588bb3bbae8ce3714ef",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 117,
+              "head": "a2732cc2a23693b16f209225b9463199192223cf",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 122,
+              "head": "663e138fcfce99a147d97ec2a59337d93f55f777",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 125,
+              "head": "1ab2e1ce2db3a24dd61aea4c03cc80ecff1ccde3",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 126,
+              "head": "2b69cf7594db318e181927c13e3e6dcb46491e33",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 127,
+              "head": "6e78c636ae595b3b624f67c7495abae295ff53ea",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 130,
+              "head": "1354a41d75215c915668fc4626c253f285b0379d",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 131,
+              "head": "9f598f24ea33282deaea49cb707141e2495a0d46",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 132,
+              "head": "5ddfd82f2127e7b546f33e1d936b0685d9866746",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 135,
+              "head": "a963f038ed82ecf6c35bc8159778b4546267f89f",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 136,
+              "head": "da698954886f06bf226d38c41a7f1362bc615cf6",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 137,
+              "head": "088f4b7d50640472561449be87e88b68bd3bba1d",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 138,
+              "head": "747c9cc5f715fe32fce0ac52be7e2c12179d9643",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 139,
+              "head": "2f29a919ab72aa4d425e3821f9bc78164bbf8039",
+              "state": "OPEN",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 140,
+              "head": "c54e7b3e2d136deab6378961969bc493a1062632",
+              "state": "OPEN",
+              "submitted_by": "wnfhsj88"
+            }
+          ]
         }
       }
     ],
@@ -8102,6 +8946,8 @@
           ]
         }
       ]
-    }
+    },
+    "pr_snapshot_at": "2026-11-01T03:06:29.128885+00:00",
+    "pr_method": "按所有者指定任务归属统计交付PR，每个PR只计一次；D线归RedamancyGTW，A/B线归当前负责人。详情保留实际提交账号；任务归属不改Git作者、技术审核或设备验收。"
   }
 }

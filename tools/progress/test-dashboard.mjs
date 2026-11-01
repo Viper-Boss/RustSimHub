@@ -43,14 +43,15 @@ for(const member of data.team.members){
   const count=prSummary(member).total;
   if(count&&totalPRs)assert.ok(visibleCards.includes(`<strong>${(count/totalPRs*100).toFixed(1)}</strong><span>%</span>`));
 }
-assert.ok(visibleCards.includes('已收录 PR 数量占比'));
-const noPRs=structuredClone(data.team);for(const member of noPRs.members)member.work.deliveries=[];
+assert.ok(visibleCards.includes('任务交付 PR 占比'));
+const noPRs=structuredClone(data.team);for(const member of noPRs.members){member.work.deliveries=[];member.work.task_deliveries=[];}
 assert.ok(!teamHTML(noPRs).includes('height:NaN'));
 assert.ok(!teamHTML(noPRs).includes('<strong>NaN</strong>'));
 assert.ok(teamHTML(noPRs).includes('此快照未收录PR'));
 const summary=prSummary({work:{deliveries:[{pr:1,state:'OPEN'},{pr:1,state:'MERGED'},{pr:2,state:'CLOSED'},{pr:3,state:'OPEN'},{pr:4,state:'UNRECOGNIZED'},{pr:-1,state:'MERGED'}]}});
 assert.deepEqual([summary.total,summary.open,summary.merged,summary.closed,summary.unknown],[4,1,1,1,1]);
 const stale=structuredClone(data.team);
+delete stale.members[0].work.task_deliveries;
 stale.members[0].work.deliveries=[{pr:999,head:'b'.repeat(40),state:'OPEN'}];
 stale.members[0].work.reviews=[{pr:999,head:'a'.repeat(40),state:'accepted'}];
 assert.ok(teamHTML(stale).includes('PR #999 · 未合并 · 当前HEAD未关联验收'));
@@ -58,12 +59,9 @@ const hostile=structuredClone(data.team);hostile.members[1].name='<img src=x one
 assert.ok(teamHTML(hostile).includes('&lt;img'));assert.ok(!teamHTML(hostile).includes('<img'));
 assert.ok(teamHTML(null).includes('尚未生成'));
 const people=personAssignments(data),lead=people.find(p=>p.member.id==='lead');
-assert.deepEqual(lead.steps.map(s=>s.id),Array.from({length:20},(_,n)=>`D-${String(n+1).padStart(2,'0')}`));
-assert.ok(personHandoffText(lead).includes('D-03'));
-assert.ok(!people.find(p=>p.member.id==='member-d').steps.some(s=>s.id==='D-03'));
-assert.ok(teamHTML(data.team,data,{query:'D-03'}).includes('data-person-id="lead"'));
-assert.ok(personHandoffText(lead).includes('D-20'));
-assert.equal(people.find(p=>p.member.id==='member-d').steps.length,6);
+assert.deepEqual(lead.steps.map(s=>s.id),[]);
+assert.deepEqual(people.find(p=>p.member.id==='member-d').steps.map(s=>s.id),Array.from({length:26},(_,n)=>`D-${String(n+1).padStart(2,'0')}`));
+assert.ok(teamHTML(data.team,data,{query:'D-03'}).includes('data-person-id="member-d"'));
 const allProjects=people.flatMap(p=>p.projects.map(row=>row.task.id));
 assert.equal(allProjects.length,stats.total);assert.equal(new Set(allProjects).size,stats.total);
 assert.equal(people.reduce((n,p)=>n+p.remaining,0),stats.remaining);
@@ -78,9 +76,16 @@ assert.equal((cards.match(/data-step-id=/g)||[]).length,data.team.members.reduce
 assert.ok(teamHTML(data.team,data,{query:'C-07'}).includes('person-member-c'));
 assert.ok(!teamHTML(data.team,data,{query:'C-07'}).includes('person-member-a'));
 assert.equal(teamHTML(data.team,data,{query:'nonexistent-person-task-qxyz'}),'');
-const a=people.find(p=>p.member.id==='member-a');assert.ok(personHandoffText(a).includes('A-30'));assert.ok(!personHandoffText(a).includes('B-29'));
-const malicious=structuredClone(data);malicious.team.task_plan.members[0].steps[0].work='<script>bad()</script>';
+const a=people.find(p=>p.member.id==='member-a');assert.equal(a.steps.length,0);
+const b=people.find(p=>p.member.id==='member-b');assert.ok(personHandoffText(b).includes('A-30'));assert.ok(personHandoffText(b).includes('B-29'));
+const malicious=structuredClone(data);malicious.team.task_plan.members.find(m=>m.steps.length).steps[0].work='<script>bad()</script>';
 assert.ok(teamHTML(malicious.team,malicious).includes('&lt;script&gt;'));assert.ok(!teamHTML(malicious.team,malicious).includes('<script>bad'));
-const duplicate=structuredClone(data);duplicate.team.members[2].task_ids.push(duplicate.team.members[1].task_ids[0]);assert.throws(()=>personAssignments(duplicate));
+const duplicate=structuredClone(data);duplicate.team.members[3].task_ids.push(duplicate.team.members[2].task_ids[0]);assert.throws(()=>personAssignments(duplicate));
 console.log('Team cards, independent work/code metrics, pending member and HTML escaping passed.');
 console.log('All personal steps, unique project ownership, lead integration boundary, search and private handoff checks passed.');
+const d=data.team.members.find(m=>m.id==='member-d'),actualB=data.team.members.find(m=>m.id==='member-b');
+assert.ok(prSummary(d).deliveries.some(p=>p.pr===139&&p.submitted_by==='wnfhsj88'));
+assert.ok(!prSummary(actualB).deliveries.some(p=>p.pr===139));
+assert.ok(actualB.work.deliveries.some(p=>p.pr===139));assert.equal(d.work.deliveries.length,0);
+assert.equal(data.team.members.reduce((n,m)=>n+prSummary(m).total,0),data.team.members.reduce((n,m)=>n+m.work.deliveries.length,0));
+assert.ok(cards.includes('提交账号：wnfhsj88'));

@@ -10,6 +10,31 @@ import team
 
 
 class Team(unittest.TestCase):
+    def test_task_projection_preserves_actual_author_and_rejects_invalid_routes(self):
+        members=[{'id':'member-b','login':'wnfhsj88','work':{'deliveries':[{'pr':139,'head':'a'*40,'state':'OPEN'}]}},
+                 {'id':'member-d','login':'RedamancyGTW','work':{'deliveries':[]}}]
+        prs={139:{'author':{'login':'wnfhsj88'}}}
+        original=copy.deepcopy(members)
+        routes={'schema':1,'routes':[{'pr':139,'member_id':'member-d'}]}
+        team.project_task_deliveries(members,routes,prs)
+        self.assertEqual(members[0]['work']['deliveries'],original[0]['work']['deliveries'])
+        self.assertEqual(members[0]['work']['task_deliveries'],[])
+        self.assertEqual(members[1]['work']['task_deliveries'][0]['submitted_by'],'wnfhsj88')
+        for bad in [[{'pr':999,'member_id':'member-d'}],routes['routes']*2,[{'pr':139,'member_id':'unknown'}]]:
+            with self.assertRaises(ValueError):team.project_task_deliveries(copy.deepcopy(original),{'schema':1,'routes':bad},prs)
+
+    def test_projection_cannot_duplicate_drop_or_rewrite_submission_evidence(self):
+        data=json.loads((team.ROOT/'docs/progress/progress.json').read_text(encoding='utf8'))
+        tasks={t['id'] for m in data['modules'] for t in m['tasks']}
+        for mutation in ['duplicate','drop','author','head']:
+            changed=copy.deepcopy(data['team'])
+            d=next(m for m in changed['members'] if m['id']=='member-d')['work']['task_deliveries']
+            if mutation=='duplicate':d.append(copy.deepcopy(d[0]))
+            elif mutation=='drop':d.pop()
+            elif mutation=='author':d[0]['submitted_by']='Viper-Boss'
+            else:d[0]['head']='f'*40
+            with self.assertRaises(ValueError):team.validate_snapshot(changed,tasks)
+
     def setUp(self):
         self.roster = json.loads((team.ROOT/'docs/team/roster.json').read_text(encoding='utf8'))
         self.members = team.roster_valid(self.roster)
@@ -110,7 +135,7 @@ class Team(unittest.TestCase):
             with self.assertRaises(ValueError):team.roster_valid(data)
 
     def test_changed_head_and_wrong_author_cannot_count_old_acceptance(self):
-        member=self.members[1]
+        member=copy.deepcopy(self.members[1]);member['step_ids']=['A-01','A-02']
         review={'member_id':'member-a','pr':2,'head':'a'*40,'decision':'offline_accepted','steps':['A-01','A-02'],'evidence':['docs/team/README.md'],'self_reported_hours':2}
         current={'number':2,'headRefOid':'a'*40,'state':'OPEN','author':{'login':'fungi1220'}}
         result=team.review_summary(member,[review],{2:current})

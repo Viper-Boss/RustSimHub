@@ -189,6 +189,28 @@ def review_summary(member, reviews, prs):
             'self_reported_hours': sum(reported) if reported else None, 'reviews': states, 'deliveries': delivered}
 
 
+def project_task_deliveries(members, assignments, prs):
+    """Project task ownership without modifying the actual submission inventory."""
+    require(assignments.get('schema') == 1, 'task PR ownership schema')
+    owners = {member['id']: member for member in members}
+    routes = assignments['routes']
+    require(isinstance(routes, list), 'task PR routes')
+    require(len({row['pr'] for row in routes}) == len(routes), 'duplicate task PR route')
+    inventory = {row['pr'] for member in members for row in member['work']['deliveries']}
+    for row in routes:
+        require(set(row) == {'pr','member_id'} and type(row['pr']) is int
+                and row['pr'] in inventory and row['member_id'] in owners, 'invalid task PR route')
+    routing = {row['pr']:row['member_id'] for row in routes}
+    for member in members:
+        member['work']['task_deliveries'] = []
+    for member in members:
+        for row in member['work']['deliveries']:
+            author = prs[row['pr']]['author']['login']
+            require(author.casefold() in logins(member), 'submission author binding')
+            target = owners[routing.get(row['pr'], member['id'])]
+            target['work']['task_deliveries'].append({**row, 'submitted_by':author})
+
+
 def snapshot(repo, revision, roster, reviews, prs):
     members = roster_valid(roster)
     require(reviews.get('schema') == 1, 'reviews schema')
@@ -203,6 +225,9 @@ def snapshot(repo, revision, roster, reviews, prs):
         item = {key: value for key, value in member.items() if key not in ('git_names','previous_logins')}
         item.update(stats=stats[member['id']], work=work[member['id']])
         public.append(item)
+    routing = ROOT/'docs/team/pr-task-owners.json'
+    if routing.is_file():
+        project_task_deliveries(public, json.loads(routing.read_text(encoding='utf8')), prs)
     return {'schema': 1, 'source_revision': revision,
             'generated_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
             'method': 'Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报',
@@ -237,6 +262,19 @@ def validate_snapshot(value, task_ids):
         require(work['self_reported_hours'] is None or type(work['self_reported_hours']) in (int,float) and 0 < work['self_reported_hours'] <= 1000, 'work hours boundary')
         for pr in work['deliveries']:
             require(type(pr['pr']) is int and pr['pr'] > 0 and re.fullmatch('[0-9a-f]{40}', pr['head']) and pr['state'] in ('OPEN','CLOSED','MERGED'), 'public delivery')
+    if any('task_deliveries' in member['work'] for member in value['members']):
+        actual = {pr['pr']:(pr,member) for member in value['members'] for pr in member['work']['deliveries']}
+        projected = []
+        for member in value['members']:
+            require('task_deliveries' in member['work'], 'incomplete task PR projection')
+            for pr in member['work']['task_deliveries']:
+                require(set(pr)=={'pr','head','state','submitted_by'} and type(pr['pr']) is int
+                        and isinstance(pr['submitted_by'],str) and pr['pr'] in actual, 'task PR fields')
+                original, submitter = actual[pr['pr']]
+                require(pr['head']==original['head'] and pr['state']==original['state']
+                        and pr['submitted_by'].casefold() in logins(submitter), 'task PR submission binding')
+                projected.append(pr['pr'])
+        require(len(projected)==len(set(projected)) and set(projected)==set(actual), 'task PR counted once')
     for row in [m['stats'] for m in value['members']] + [value['unmapped']]:
         require(set(row) == {'current_lines','commits','code_commits','added','deleted'} and set(row['current_lines']) == set(CATEGORIES), 'stats allowlist')
         require(all(type(n) is int and 0 <= n < 2**53 for n in [*row['current_lines'].values(),row['commits'],row['code_commits'],row['added'],row['deleted']]), 'stats count boundary')
