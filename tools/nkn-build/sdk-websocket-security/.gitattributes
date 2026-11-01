@@ -1,0 +1,2 @@
+# Preserve canonical unified-diff context bytes.
+upstream-mask-backport.patch whitespace=-space-before-tab,-blank-at-eol
