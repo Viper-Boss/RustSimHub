@@ -1,0 +1,186 @@
+--- a/third_party/nkn-sdk-go/client.go
++++ b/third_party/nkn-sdk-go/client.go
+@@ -85,6 +85,8 @@
+ 	addressID         []byte
+ 	sigChainBlockHash string
+ 	reconnectChan     chan *Node
++	lifecycle         context.Context
++	cancelLifecycle   context.CancelFunc
+ 	responseChannels  *cache.Cache
+ 	resolvers         []Resolver
+ 
+@@ -135,7 +137,12 @@
+ 	copy(sk[:], account.PrivKey())
+ 	curveSecretKey := ed25519.PrivateKeyToCurve25519PrivateKey(&sk)
+ 
+-	w, err := NewWallet(account, &WalletConfig{SeedRPCServerAddr: config.SeedRPCServerAddr})
++	w, err := NewWallet(account, &WalletConfig{
++		SeedRPCServerAddr: config.SeedRPCServerAddr,
++		RPCTimeout:        config.RPCTimeout,
++		RPCConcurrency:    config.RPCConcurrency,
++		HttpDialContext:   config.HttpDialContext,
++	})
+ 	if err != nil {
+ 		return nil, err
+ 	}
+@@ -150,7 +157,10 @@
+ 		resolvers = append(resolvers, r)
+ 	}
+ 
++	lifecycle, cancelLifecycle := context.WithCancel(context.Background())
+ 	c := Client{
++		lifecycle:            lifecycle,
++		cancelLifecycle:      cancelLifecycle,
+ 		config:               config,
+ 		account:              account,
+ 		publicKey:            pk,
+@@ -171,6 +181,7 @@
+ 
+ 	err = c.connect(int(c.config.ConnectRetries), nil)
+ 	if err != nil {
++		_ = c.Close()
+ 		return nil, err
+ 	}
+ 
+@@ -228,13 +239,18 @@
+ 	}
+ 
+ 	c.isClosed = true
++	if c.cancelLifecycle != nil {
++		c.cancelLifecycle()
++	}
+ 
+ 	c.OnConnect.close()
+ 	c.OnMessage.close()
+ 
+ 	close(c.reconnectChan)
+ 
+-	c.conn.Close()
++	if c.conn != nil {
++		c.conn.Close()
++	}
+ 
+ 	// client auth
+ 	close(c.chChallengeSignature)
+@@ -611,7 +627,7 @@
+ 	var wg sync.WaitGroup
+ 	if len(node.RPCAddr) > 0 {
+ 		wg.Add(1)
+-		ctx, cancel := context.WithCancel(context.Background())
++		ctx, cancel := context.WithCancel(c.lifecycle)
+ 		defer cancel()
+ 		go func() {
+ 			defer wg.Done()
+@@ -649,7 +665,7 @@
+ 		}
+ 		dialer.HandshakeTimeout = time.Duration(c.config.WsHandshakeTimeout) * time.Millisecond
+ 
+-		conn, _, err = dialer.Dial(wsAddr, nil)
++		conn, _, err = dialer.DialContext(c.lifecycle, wsAddr, nil)
+ 		if err != nil {
+ 			return err
+ 		}
+@@ -658,6 +674,11 @@
+ 	wg.Wait()
+ 
+ 	c.lock.Lock()
++	if c.isClosed {
++		c.lock.Unlock()
++		_ = conn.Close()
++		return ErrClosed
++	}
+ 	prevConn := c.conn
+ 	c.conn = conn
+ 	c.node = node
+@@ -762,9 +783,18 @@
+ func (c *Client) connect(maxRetries int, node *Node) error {
+ 	retryInterval := c.config.MinReconnectInterval
+ 	for retry := 1; maxRetries < 0 || retry <= maxRetries; retry++ {
++		if c.IsClosed() {
++			return ErrClosed
++		}
+ 		if retry > 1 {
+ 			log.Printf("Retry in %v ms...", retryInterval)
+-			time.Sleep(time.Duration(retryInterval) * time.Millisecond)
++			timer := time.NewTimer(time.Duration(retryInterval) * time.Millisecond)
++			select {
++			case <-timer.C:
++			case <-c.lifecycle.Done():
++				timer.Stop()
++				return ErrClosed
++			}
+ 			retryInterval *= 2
+ 			if retryInterval > c.config.MaxReconnectInterval {
+ 				retryInterval = c.config.MaxReconnectInterval
+@@ -786,7 +816,7 @@
+ 				}
+ 				select {
+ 				case offer := <-c.peer.OnSdp:
+-					node, err = GetPeerAddr(c.Address(), offer, c.config)
++					node, err = GetPeerAddrContext(c.lifecycle, c.Address(), offer, c.config)
+ 					if err != nil {
+ 						log.Println("GetPeerAddr error: ", err)
+ 						continue
+@@ -796,7 +826,7 @@
+ 					continue
+ 				}
+ 			} else {
+-				node, err = GetWsAddr(c.Address(), c.config)
++				node, err = GetWsAddrContext(c.lifecycle, c.Address(), c.config)
+ 				if err != nil {
+ 					log.Println(err)
+ 					continue
+@@ -819,7 +849,9 @@
+ 
+ // Reconnect forces the client to find node and connect again.
+ func (c *Client) Reconnect(node *Node) {
+-	if c.IsClosed() {
++	c.lock.RLock()
++	defer c.lock.RUnlock()
++	if c.isClosed {
+ 		return
+ 	}
+ 	select {
+@@ -835,7 +867,13 @@
+ 		}
+ 
+ 		log.Printf("Reconnect in %v ms...", c.config.MinReconnectInterval)
+-		time.Sleep(time.Duration(c.config.MinReconnectInterval) * time.Millisecond)
++		timer := time.NewTimer(time.Duration(c.config.MinReconnectInterval) * time.Millisecond)
++		select {
++		case <-timer.C:
++		case <-c.lifecycle.Done():
++			timer.Stop()
++			return
++		}
+ 
+ 		err := c.connect(-1, node)
+ 		if err != nil {
+--- a/third_party/nkn-sdk-go/rpc.go
++++ b/third_party/nkn-sdk-go/rpc.go
+@@ -166,7 +166,16 @@
+ 	if resp.StatusCode != http.StatusOK {
+ 		return nil, fmt.Errorf("rpc call failed with %d: %s", resp.StatusCode, http.StatusText(resp.StatusCode))
+ 	}
+-	return io.ReadAll(resp.Body)
++	// Candidate compatibility cap; fixed 1 MiB, never unbounded allocation.
++	const maxRPCResponseBytes = 1 << 20
++	body, err := io.ReadAll(io.LimitReader(resp.Body, maxRPCResponseBytes+1))
++	if err != nil {
++		return nil, err
++	}
++	if len(body) > maxRPCResponseBytes {
++		return nil, errors.New("RPC response exceeds fixed budget")
++	}
++	return body, nil
+ }
+ 
+ // RPCCall makes a RPC call and put results to result passed in.
+@@ -232,7 +241,6 @@
+ 				err = json.Unmarshal(body, &resp)
+ 				if err != nil {
+ 					log.Println("RPCCall json.Unmarshal(resp) error: ", err)
+-					log.Println("RPCCall resp body: ", string(body))
+ 					respLock.Unlock()
+ 					continue
+ 				}
