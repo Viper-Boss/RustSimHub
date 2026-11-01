@@ -39,12 +39,13 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def regular(path, limit=LIMIT):
+def regular(path, limit=LIMIT, *, single_link=True):
     import stat
     with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), 'rb') as stream:
         meta = os.fstat(stream.fileno())
-        require(stat.S_ISREG(meta.st_mode) and meta.st_nlink == 1 and 0 < meta.st_size <= limit,
-                'single bounded regular file required')
+        require(stat.S_ISREG(meta.st_mode) and meta.st_nlink > 0
+                and (not single_link or meta.st_nlink == 1) and 0 < meta.st_size <= limit,
+                'bounded regular file with permitted link count required')
         data = stream.read(limit + 1)
         require(len(data) == meta.st_size, 'input changed while reading')
         return data
@@ -210,7 +211,7 @@ def contracts(infos, source):
 
 
 def collect(binary_dir, output, revision, source, toolchain_manifest, runner,
-            info_reader=metadata, version_reader=versions):
+            info_reader=metadata, version_reader=versions, *, cargo_output=False):
     require(platform.system() == 'Linux' and platform.machine() == 'x86_64',
             'x86_64 Linux workstation required')
     require(re.fullmatch('[0-9a-f]{40}', revision) and re.fullmatch('[0-9a-f]{64}', source),
@@ -220,7 +221,10 @@ def collect(binary_dir, output, revision, source, toolchain_manifest, runner,
     toolchain_hash = sha(regular(toolchain_manifest, 1024**2))
     # Snapshot only the finite production program set; never copy old target
     # build.json, arbitrary Cargo files, local paths, logs or credentials.
-    blobs = {name: regular(binary_dir / name) for name in PROGRAMS}
+    # Cargo hardlinks its own release names to hashed deps artifacts. Only this
+    # explicit, operator-built input mode accepts them. Inspection still runs
+    # against bounded byte snapshots with independent single-link files below.
+    blobs = {name: regular(binary_dir / name, single_link=not cargo_output) for name in PROGRAMS}
     require(sum(map(len, blobs.values())) <= 128 * 1024**2, 'program group size exceeded')
     for data in blobs.values():
         elf(data)
@@ -270,13 +274,16 @@ def main():
     export = sub.add_parser('collect')
     for name in ('binary-dir', 'output', 'revision', 'source', 'toolchain-manifest', 'sysroot'):
         export.add_argument('--' + name, required=True)
+    export.add_argument('--cargo-output', action='store_true',
+                        help='snapshot operator-built Cargo hardlinks; exported files remain independent')
     args = parser.parse_args()
     if args.action == 'verify-source':
         count = verify_source(args.archive, args.repository, args.revision, args.source, args.extract_to)
         print(json.dumps({'git_exact_source_files': count}))
     else:
         value = collect(args.binary_dir, args.output, args.revision, args.source,
-                        args.toolchain_manifest, ['qemu-aarch64', '-L', args.sysroot])
+                        args.toolchain_manifest, ['qemu-aarch64', '-L', args.sysroot],
+                        cargo_output=args.cargo_output)
         print(json.dumps({'programs': len(value['artifact_sha256']), 'database_schema': value['database_schema'],
                           'source_archive_sha256': value['source_archive_sha256'], 'hardware_tested': False}))
 
