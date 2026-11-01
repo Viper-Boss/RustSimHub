@@ -879,8 +879,9 @@ WSL2 Ubuntu-24.04，普通UID1000，Python3.12.3，kernel 6.18.54.1-microsoft-st
 
 ### 包、限制与接手
 
-`C19-C20-WSL2-validation-e172b72.zip`：13,413字节、8条目，SHA256
-`c2a42b296d0c3809ec4706823d598c0d55f7da05e64c13b20a8fff8b9e5175e1`；CRC与逐项内容核对通过。
+`C19-C20-WSL2-validation-e172b72.zip`：13,405字节、8条目，SHA256
+`1f0f980d28a5bcf2a14d31371f53093586fa04792053f2d2c8af61b08810dfc5`；CRC与逐项内容核对通过。
+包内corpus使用受测Git规范字节并与实际corpus_sha256相等核验，避免Windows工作副本换行与Linux规范字节混称同一摘要。
 含真实summary/逐case结果、原始已脱敏日志、固定hex语料、43文件摘要、命令说明及逐文件摘要；
 无生产源归档/真实ELF/固件、数据库、设备/用户资料、密钥或私人路径。仅本机准备供用户转交，未代发负责人。
 
