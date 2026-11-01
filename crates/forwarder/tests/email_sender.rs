@@ -62,6 +62,10 @@ enum Mode {
     EarlyReplies,
     BareLf,
     NoPlain,
+    GreetingPlainOnly,
+    GreetingPlainThenLogin,
+    GreetingPlainThenSize,
+    PlainExtensionAfterGreeting,
 }
 #[derive(Default)]
 struct Seen {
@@ -137,6 +141,10 @@ async fn serve(
         Mode::MixedCode => b"250-first\r\n251 AUTH PLAIN\r\n".to_vec(),
         Mode::BareLf => b"250 AUTH PLAIN\n".to_vec(),
         Mode::NoPlain => b"250 AUTH LOGIN\r\n".to_vec(),
+        Mode::GreetingPlainOnly => b"250 AUTH PLAIN\r\n".to_vec(),
+        Mode::GreetingPlainThenLogin => b"250-AUTH PLAIN\r\n250 AUTH LOGIN\r\n".to_vec(),
+        Mode::GreetingPlainThenSize => b"250-AUTH PLAIN LOGIN\r\n250 SIZE 16384\r\n".to_vec(),
+        Mode::PlainExtensionAfterGreeting => b"250-auth PLAIN\r\n250 aUtH pLaIn LOGIN\r\n".to_vec(),
         Mode::AggregateAfterData => {
             (format!("250-{}\r\n", "X".repeat(440)).repeat(14) + "250 AUTH PLAIN\r\n").into_bytes()
         }
@@ -896,4 +904,54 @@ fn constructor_never_starts_service_and_budget_cannot_be_extended() {
         .unwrap()
         .with_budget(Duration::from_secs(11))
         .is_err());
+}
+
+#[tokio::test]
+async fn ehlo_greeting_is_not_an_auth_plain_extension() {
+    for mode in [
+        Mode::GreetingPlainOnly,
+        Mode::GreetingPlainThenLogin,
+        Mode::GreetingPlainThenSize,
+    ] {
+        let server = Server::start(mode, "localhost").await;
+        let request = claim(Share::Notice, "SYNTHETIC_BODY");
+        let (mut connector, mut fence, _tx, rx) = parts(&server, &request);
+        assert_eq!(
+            server
+                .sender()
+                .deliver(&request, &mut connector, &mut fence, rx)
+                .await,
+            EmailOutcome::NotSubmitted {
+                reason: Failure::Protocol
+            }
+        );
+        server.closed().await;
+        assert_eq!(
+            fence.stages,
+            [EmailStage::BeforeConnect, EmailStage::BeforeTls]
+        );
+        assert_eq!(connector.calls, 1);
+        let seen = server.seen.lock().unwrap();
+        assert_eq!(seen.commands, ["EHLO"]);
+        assert!(!seen.auth_matches && seen.data.is_empty() && !seen.complete);
+    }
+}
+
+#[tokio::test]
+async fn actual_auth_extension_after_greeting_remains_usable() {
+    let server = Server::start(Mode::PlainExtensionAfterGreeting, "localhost").await;
+    let request = claim(Share::Notice, "SYNTHETIC_BODY");
+    let (mut connector, mut fence, _tx, rx) = parts(&server, &request);
+    assert_eq!(
+        server
+            .sender()
+            .deliver(&request, &mut connector, &mut fence, rx)
+            .await,
+        EmailOutcome::Confirmed { smtp_code: 250 }
+    );
+    server.closed().await;
+    assert_eq!(fence.stages, PHASES);
+    let seen = server.seen.lock().unwrap();
+    assert!(seen.auth_matches && seen.complete);
+    assert_eq!(seen.commands, ["EHLO", "AUTH", "MAIL", "RCPT", "DATA"]);
 }

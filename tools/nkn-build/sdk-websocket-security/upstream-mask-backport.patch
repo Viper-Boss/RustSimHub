@@ -1,0 +1,66 @@
+--- a/conn.go
++++ b/conn.go
+@@ -6,11 +6,11 @@
+ 
+ import (
+ 	"bufio"
++	"crypto/rand"
+ 	"encoding/binary"
+ 	"errors"
+ 	"io"
+ 	"io/ioutil"
+-	"math/rand"
+ 	"net"
+ 	"strconv"
+ 	"strings"
+@@ -181,9 +181,16 @@
+ 	errInvalidControlFrame = errors.New("websocket: invalid control frame")
+ )
+ 
++// maskRand is an io.Reader for generating mask bytes. The reader is initialized
++// to crypto/rand Reader. Tests swap the reader to a math/rand reader for
++// reproducible results.
++var maskRand = rand.Reader
++
++// newMaskKey returns a new 32 bit value for masking client frames.
+ func newMaskKey() [4]byte {
+-	n := rand.Uint32()
+-	return [4]byte{byte(n), byte(n >> 8), byte(n >> 16), byte(n >> 24)}
++	var k [4]byte
++	_, _ = io.ReadFull(maskRand, k[:])
++	return k
+ }
+ 
+ func hideTempErr(err error) error {
+--- a/prepared_test.go
++++ b/prepared_test.go
+@@ -33,6 +33,11 @@
+ }
+ 
+ func TestPreparedMessage(t *testing.T) {
++	testRand := rand.New(rand.NewSource(99))
++	prevMaskRand := maskRand
++	maskRand = testRand
++	defer func() { maskRand = prevMaskRand }()
++
+ 	for _, tt := range preparedMessageTests {
+ 		var data = []byte("this is a test")
+ 		var buf bytes.Buffer
+@@ -43,7 +48,7 @@
+ 		c.SetCompressionLevel(tt.compressionLevel)
+ 
+ 		// Seed random number generator for consistent frame mask.
+-		rand.Seed(1234)
++		testRand.Seed(1234)
+ 
+ 		if err := c.WriteMessage(tt.messageType, data); err != nil {
+ 			t.Fatal(err)
+@@ -59,7 +64,7 @@
+ 		copy(data, "hello world")
+ 
+ 		// Seed random number generator for consistent frame mask.
+-		rand.Seed(1234)
++		testRand.Seed(1234)
+ 
+ 		buf.Reset()
+ 		if err := c.WritePreparedMessage(pm); err != nil {

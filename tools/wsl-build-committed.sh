@@ -11,7 +11,7 @@ case "$revision" in *[!0-9a-f]*|'') exit 10;; esac
 test "${#revision}" -eq 40
 case "$expected" in *[!0-9a-f]*|'') exit 10;; esac
 test "${#expected}" -eq 64
-mkdir -p "$repo/.private"
+mkdir -p "$repo/.private" "$repo/.local"
 exec >"$repo/.private/wsl-build-$revision.log" 2>&1
 trap 'code=$?; printf "%s\n" "$code" > "$repo/.private/wsl-build-$revision.exit"' EXIT
 test -f "$archive"; test ! -L "$archive"
@@ -51,6 +51,7 @@ printf 'ARM_BUILD_START=%s\n' "$(date -u +%FT%TZ)"
 cargo +1.98.0 build --release --workspace --no-default-features --locked --target aarch64-unknown-linux-gnu -j "$jobs"
 gnu_root=$(cat "$RUSTSIMHUB_CROSS_HOME/gnu-root.txt")
 python3 "$repo/tools/arm_build_manifest.py" collect \
+ --cargo-output \
  --binary-dir "$CARGO_TARGET_DIR/aarch64-unknown-linux-gnu/release" \
  --output "$work/artifacts" --revision "$revision" --source "$expected" \
  --toolchain-manifest "$RUSTSIMHUB_CROSS_HOME/downloads/gnu-packages.json" \

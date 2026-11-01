@@ -1,0 +1,18 @@
+{
+  "source_commit": "c32952d7586676fec10f71a30b22969cb24881f3",
+  "base_patch_sha256": "0c037a0dcb1f15447db9ab423ad6b5534446f5dc5a48b4c2035a7d7c9a66b8af",
+  "patch_sha256": "b5aa8703b0433bfd4adf476ae62cbbc596b4c3e05beb8b25941fe939fc270b35",
+  "files": [
+    {
+      "path": "third_party/nkn-sdk-go/client.go",
+      "before_sha256": "245c4a4a1cc6dc566b86f2cd5b8535c80e0374ad42ee0313838e5db1f2d45b42",
+      "after_sha256": "c28dcb05dbe5e96b926ffb8d52963b0ba1350b37bf84e1c07c912c75cb19fe46"
+    },
+    {
+      "path": "third_party/nkn-sdk-go/config.go",
+      "before_sha256": "060a88493328c8271c1fa7d812a181ed12ed73d8c275e2334a447fd88ac29e9d",
+      "after_sha256": "c0ec2c06e213d9a37999ab707c842e3c6d760f932fea4c2bce8bc1152e0ad414"
+    }
+  ],
+  "production_approved": false
+}

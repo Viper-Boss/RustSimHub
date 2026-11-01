@@ -481,7 +481,7 @@ async fn reply<S: tokio::io::AsyncRead + Unpin>(
     total: &mut usize,
 ) -> std::result::Result<bool, Failure> {
     let mut auth_plain = false;
-    for _ in 0..MAX_REPLY_LINES {
+    for index in 0..MAX_REPLY_LINES {
         let mut line = Zeroizing::new(Vec::with_capacity(MAX_LINE));
         loop {
             if line.len() == MAX_LINE || *total == MAX_REPLY {
@@ -518,9 +518,12 @@ async fn reply<S: tokio::io::AsyncRead + Unpin>(
             return Err(Failure::Protocol);
         }
         let mut words = text.split(|b| *b == b' ').filter(|p| !p.is_empty());
-        if words
-            .next()
-            .is_some_and(|s| s.eq_ignore_ascii_case(b"AUTH"))
+        // RFC 5321 EHLO's first line is the server identity/greeting, never
+        // an extension. Only subsequent lines can advertise RFC 4954 AUTH.
+        if index > 0
+            && words
+                .next()
+                .is_some_and(|s| s.eq_ignore_ascii_case(b"AUTH"))
             && words.any(|s| s.eq_ignore_ascii_case(b"PLAIN"))
         {
             auth_plain = true;

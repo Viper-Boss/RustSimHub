@@ -8,7 +8,7 @@
 
 拟使用项目原计划提到的Rust snow实现，Rust原生与浏览器WASM复用同一状态机，JS仅做受限胶水/字节传递与既有独立恢复CryptoKey签名；不另写一套JS Noise或自行拼nonce。snow没有正式审计的事实由原设计明确记录，不宣称已审计。浏览器WASM路径仍需构建/大小/实际运行验证，不能用“同一源码”代替跨端互操作结果。
 
-**依赖尚未选定可批准版本**：当前公开crates API请求403，环境无离线snow缓存；没有捏造版本/checksum/许可核验，也未从别处绕过该拒绝下载/加Cargo依赖。批准前需记录具体registry版本、crate checksum、源码/许可及传递依赖/通告审查、目标工具链/entropy支持。未核实前不得编造Cargo.lock或启用生产。备选成熟TLS方案也需设备pin验证/浏览器实现与源许可审查，不能通过自签名跳过验证解决。
+**版本仍供审批，已有可核验评估**：此前公开crates API403及无离线缓存的记录保留为历史限制；2026-11-01同一官方端点已实际返回200。本轮独立评估锁定snow0.10.0，crate SHA256 `599b506ccc4aff8cf7844bc42cf783009a434c1e26c964432560fb6d6ad02d82`，包声明Git `4bb43f50370bdb3e8b1b57814ac662864db2704f`、Apache-2.0 OR MIT。评估在`tools/dependencies/noise-evaluation/`独立workspace，不改生产Cargo/lock，不提供应用签名/授权协议。实际最小AES特性组合因上游缺KeyInit导入而编译失败；评估显式额外启用ChaCha特性，不改上游密码源码，额外依赖及失败样例需负责人审核。该版本/取舍并未获批或进入产品，production_ready/crypto_wire_frozen仍false。原生/WASM标准Noise互通与依赖/随机源/CSP证据详见`docs/dependencies/noise-snow-evaluation.md`；它们不等于下述应用绑定、pin/grant或Core互操作已完成。备选成熟TLS方案仍需独立来源/设备pin与跨端评估。
 
 ## 具体身份绑定候选（应用层新协议，须审查）
 
