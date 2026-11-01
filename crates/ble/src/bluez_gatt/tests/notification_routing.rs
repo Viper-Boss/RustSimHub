@@ -221,7 +221,7 @@ async fn peer_reconnect_fences_candidate_fd_before_any_packet_can_be_submitted()
 }
 
 #[tokio::test]
-async fn receiver_close_is_not_converted_to_send_success_or_broadcast_fallback() {
+async fn receiver_shutdown_is_not_converted_to_send_success_or_broadcast_fallback() {
     let bus = Bus::new().await;
     let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
     let (control, name) = setup(&bus, &bluez).await;
@@ -229,8 +229,16 @@ async fn receiver_close_is_not_converted_to_send_success_or_broadcast_fallback()
     install(&control, &export).await;
     let observer = bus.connect().await;
     let mut values = value_stream(&observer).await;
-    drop(bounded(acquire(&bluez, &name, DEVICE)).await.unwrap());
+    let receiver = bounded(acquire(&bluez, &name, DEVICE)).await.unwrap();
+    // A transferred descriptor can still have a transport-owned duplicate.
+    // Closing this copy alone does not establish a dead receiving endpoint.
+    // Explicit shutdown establishes that precondition even with a live dup;
+    // no sleeps/retries or successful notification are used to drain the bus.
+    let in_flight = receiver.try_clone().unwrap();
+    receiver.shutdown(std::net::Shutdown::Both).unwrap();
+    drop(receiver);
     assert_eq!(bounded(send(&control)).await, Err(Error::Backend));
+    drop(in_flight);
     assert!(futures_lite::future::poll_once(values.next())
         .await
         .is_none());
