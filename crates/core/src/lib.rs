@@ -11,3 +11,9 @@ pub mod recovery_body;
 pub mod recovery_channel;
 #[cfg(all(target_os = "linux", feature = "recovery-transport"))]
 pub mod recovery_transport;
+
+// One compiled authority shared by the binary and recovery library entry.
+#[cfg(target_os = "linux")]
+pub mod coordination;
+#[cfg(target_os = "linux")]
+pub mod network_trial;

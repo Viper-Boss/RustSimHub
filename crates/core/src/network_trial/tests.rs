@@ -1,5 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
+#[test]
+fn ordinary_snapshot_still_requires_the_usb_fence() {
+    assert!(matches!(
+        usb_fence(None, UsbPolicy::Required),
+        Err(Error::Forbidden)
+    ));
+    assert!(matches!(
+        usb_fence(Some("/usb".try_into().unwrap()), UsbPolicy::Required),
+        Ok(UsbFence::Required(_))
+    ));
+}
 use std::sync::atomic::{AtomicUsize, Ordering};
 struct Mock {
     effects: Mutex<Vec<&'static str>>,
@@ -11,7 +22,7 @@ fn snapshot() -> Snapshot {
         owner: ":1.2".into(),
         mm_owner: ":1.3".into(),
         wifi: "/wifi".try_into().unwrap(),
-        usb: "/usb".try_into().unwrap(),
+        usb: UsbFence::Required("/usb".try_into().unwrap()),
         profile: "/profile".try_into().unwrap(),
         wwan: true,
         profile_identity: [7; 32],

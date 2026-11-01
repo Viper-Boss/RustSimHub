@@ -63,6 +63,30 @@ impl RecoveryTrialControl {
     }
 }
 impl Auth {
+    /// Check the original session/target BEFORE reserving a control request.
+    /// A rejected new connection must not strand another durable control row.
+    pub fn check_recovery_trial_request(
+        &self,
+        trial: &RecoveryTrialAuthority,
+        request: &RecoveryExecutionRequest,
+    ) -> Result<()> {
+        if !matches!(
+            request.action(),
+            RecoveryAction::ConfirmWifi | RecoveryAction::CancelWifi
+        ) {
+            return Err(Error::InvalidInput);
+        }
+        self.check_recovery_trial(trial)?;
+        self.check_recovery_execution(request)?;
+        if request.target_trial() != Some(trial.trial_id())
+            || !request
+                .capability()
+                .same_execution_session(trial.begin.request().capability())
+        {
+            return Err(Error::Forbidden);
+        }
+        self.check_recovery_trial(trial)
+    }
     pub fn begin_recovery_trial(
         &self,
         begin: RecoveryExecutionClaim,
@@ -99,13 +123,7 @@ impl Auth {
         trial: &RecoveryTrialAuthority,
         claim: RecoveryExecutionClaim,
     ) -> Result<RecoveryTrialControl> {
-        if !matches!(
-            claim.request().action(),
-            RecoveryAction::ConfirmWifi | RecoveryAction::CancelWifi
-        ) {
-            return Err(Error::InvalidInput);
-        }
-        self.check_recovery_trial(trial)?;
+        self.check_recovery_trial_request(trial, claim.request())?;
         self.check_recovery_execution_claim(&claim)?;
         if claim.request().target_trial() != Some(trial.trial_id())
             || !claim

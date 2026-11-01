@@ -139,6 +139,9 @@ pub fn decode_v1(
     })))
 }
 impl CoreRecoveryWrite {
+    pub fn check_trial(&self, auth: &Auth, trial: &CoreRecoveryTrial) -> Result<()> {
+        auth.check_recovery_trial_request(&trial.authority, &self.request)
+    }
     pub fn action(&self) -> RecoveryAction {
         self.request.action()
     }
