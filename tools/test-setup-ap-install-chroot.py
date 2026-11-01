@@ -57,6 +57,7 @@ class Installer(unittest.TestCase):
     def setUpClass(cls):
         assert os.geteuid()==0,'Root required for disposable chroot/UID fixtures'
         cls.temporary=tempfile.TemporaryDirectory(prefix='rsh-ap-install-')
+        cls.addClassCleanup(cls.temporary.cleanup)
         cls.base=Path(cls.temporary.name);cls.template=cls.base/'template';cls.template.mkdir(mode=0o755)
         root=cls.template
         programs=['sh','id','stat','grep','wc','cut','sort','sha256sum','cat','awk','tr','find','dirname','flock','ps','head','tail','install','sync','mv','rm','timeout','getent','setpriv','unshare','mount','env']
@@ -67,6 +68,12 @@ class Installer(unittest.TestCase):
         inv=host.inventory({'source_sha256':'a'*64,'builds':{'core':{'sha256':'a'*64},'edge':{'sha256':'a'*64}}})
         put(root,'/etc/passwd',inv['local_passwd'],0o644);put(root,'/etc/group',inv['local_group'],0o644)
         put(root,'/etc/nsswitch.conf','passwd: files\ngroup: files\n',0o644)
+        # This public configuration ancestor exists in the normal rootfs. Keep
+        # it traversable before the installer (umask 077) creates private AP
+        # material. Edge's optional device-name lookup must get ENOENT for an
+        # old unnamed installation, not EACCES from a synthetic private parent.
+        (root/'etc/rustsimhub').mkdir(mode=0o755)
+        (root/'etc/rustsimhub').chmod(0o755)
         put(root,'/dev/null',b'',0o666)
         put(root,'/proc/sys/kernel/random/boot_id',inv['boot_id']+'\n',0o444)
         put(root,'/fixture/calls','ao 0\n');put(root,'/fixture/call-state','i 7\n');put(root,'/fixture/network','30 (disconnected)\n')
@@ -153,9 +160,6 @@ exec unshare --mount --propagation unchanged /bin/sh -c '
             (root/name).chmod(0o700)
 
     @classmethod
-    def tearDownClass(cls):cls.temporary.cleanup()
-
-    @classmethod
     def business(cls,root):
         connection=sqlite3.connect('file:'+str(root/cls.db)+'?mode=ro',uri=True)
         try:
@@ -164,7 +168,14 @@ exec unshare --mount --propagation unchanged /bin/sh -c '
         finally:connection.close()
 
     def setUp(self):
-        self.root=self.base/('case-'+self._testMethodName);shutil.copytree(self.template,self.root,symlinks=True)
+        # A case contains several real debug executables. Retaining every copy
+        # until tearDownClass exhausts small runner /tmp filesystems. Register
+        # cleanup before copying so failures in setUp release partial copies as
+        # well; every case still has independent files, never shared hardlinks.
+        case=tempfile.TemporaryDirectory(prefix='case-',dir=self.base)
+        self.addCleanup(case.cleanup)
+        self.root=Path(case.name)/'root'
+        shutil.copytree(self.template,self.root,symlinks=True)
         # copytree intentionally does not preserve ownership; restore fixture IDs.
         for directory,dirs,files in os.walk(self.template,followlinks=False):
             for name in [*dirs,*files]:
