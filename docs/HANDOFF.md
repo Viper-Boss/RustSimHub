@@ -1,6 +1,6 @@
 # RustSimHub 当前接手入口
 
-2026-11-02 NAS绑定查询主线代码完成：新增近期Owner专属legacy_binding_status，经现有显式兼容provider查询原映射及当前principal代次；不重绑、不轮换epoch、不发会话。固定21f4bbb的362项相关测试/真实UnixStream与SQLite拒绝及撤销路径、全仓严格Clippy和ARM Core构建通过，未部署或增加依赖/schema/UI。见[验证记录](VALIDATION-NAS-BINDING-QUERY-20261102.md)。仍81.5%及20/169，人工最后。
+2026-11-02 NAS绑定查询主线代码完成：新增近期Owner专属legacy_binding_status，经现有显式兼容provider查询原映射及当前principal代次；不重绑、不轮换epoch、不发会话。固定21f4bbb的362项相关测试/真实UnixStream与SQLite拒绝及撤销路径、完整工作区1355通过/6项原有专用忽略、全仓严格Clippy和ARM Core构建通过；云端因付款/消费上限未启动，不当作CI通过。未部署或增加依赖/schema/UI。见[验证记录](VALIDATION-NAS-BINDING-QUERY-20261102.md)。仍81.5%及20/169，人工最后。
 
 2026-11-02 NAS主线原生联调：固定a5df2c15组件、本机Go 27测试/vet和ARM64构建通过；NAS实际session与read两条未授权路径均401/退出1/无stdout。设备九单元、boot、数据断开和转发OFF保持。使用已登记局域网HTTPS，不放宽USB origin；Owner正式批准/真实只读数据及撤销验证仍待最后接续。详见[原生记录](VALIDATION-NAS-NATIVE-20261102.md)。81.5%及20/169不变，主线代码约90%仅粗估。
 

@@ -24,6 +24,12 @@
 
 权威私有验证记录 `nas-binding-query-validation-20261102-second.json` passed=true；源归档、日志和ARM产物只保存在私有目录。此前一次外层Shell退出码处理错误、一次WSL直接使用Windows worktree指针失败均保留；最终使用固定归档与无Shell状态拼接的执行器完成验证。
 
+## 完整工作区与云端状态
+
+同一固定归档另在独立仅loopback网络命名空间、降权为普通用户后执行 `cargo +1.98.0 test --workspace --all-features --locked -j 8`：1355通过、0失败、6项原有专用子进程默认忽略。未新增忽略或联网回退；实际Go夹具使用已核验SDK。私有记录 `nas-binding-workspace-20261102-first.json` passed=true，完整日志SHA-256 `fba0a11ce922afc19808f866b8f2991c0fd785870fa84899ec566f7b2e9d7fea`。
+
+PR172的云端run41335805918在正式head2da34831启动前即失败，两个job均无steps；GitHub注释为账户付款或消费上限问题。它不是代码测试失败，也不是CI通过；没有重跑、改门禁或用旧CI替代。主线只使用上述明确范围的本机证据。
+
 ## 边界
 
 没有部署、签名、设备执行、用户操作、新发短信/电话/数据或网页视觉验收。设备仍为此前应用70；成功NAS授权读取、完整旧NAS界面/控制/声音不因本接口计为通过。原P0–P7验收81.5%、行动20/169不变；主线代码约90%仍为粗估，后续继续集成。
