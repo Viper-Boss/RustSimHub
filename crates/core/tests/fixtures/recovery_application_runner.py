@@ -45,8 +45,9 @@ def run(binary):
     ROOT.mkdir(mode=0o700);os.chown(ROOT,1001,1002);os.setgroups([1002]);os.chmod(ROOT,0o2750);os.setgroups([])
     core=subprocess.Popen([binary,'--exact','isolated_real_uid_application_dispatch_and_reply_fences','--nocapture','--test-threads=1'],preexec_fn=lambda:drop_to(1001),env=dict(os.environ,RUSTSIMHUB_UID_FIXTURE_DIR=str(ROOT)),stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,bufsize=0)
     children=[]
+    child_uids={core.pid:1001}
     def launch(uid,marker):
-        p=subprocess.Popen([sys.executable,__file__,'peer',str(marker)],preexec_fn=lambda:drop_to(uid),stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.STDOUT);children.append(p);return p
+        p=subprocess.Popen([sys.executable,__file__,'peer',str(marker)],preexec_fn=lambda:drop_to(uid),stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.STDOUT);children.append(p);child_uids[p.pid]=uid;return p
     def wait(p):
         output=p.communicate(timeout=15)[0]
         if p.returncode:raise RuntimeError(output.decode('utf-8','replace'))
@@ -63,7 +64,12 @@ def run(binary):
         print(json.dumps({'fixture':'isolated-core-application-v1','core_uid':1001,'ble_uid':1002,'denied_uids':[0,1001,1003,1004,1005,1006],'tests_passed':1,'application_dispatch':True,'verifier_and_sealer':'cfg(test)-synthetic','production_roles_selected':False}))
     finally:
         for p in children+[core]:
-            if p.poll() is None:p.kill()
+            if p.poll() is None:
+                # The controller intentionally has no CAP_KILL. A helper drops
+                # to this exact owned child's UID before signalling it, without
+                # adding capabilities or changing accounts/NSS.
+                code='import os,signal,sys\ntry: os.kill(int(sys.argv[1]),signal.SIGKILL)\nexcept ProcessLookupError: pass\n'
+                subprocess.run([sys.executable,'-c',code,str(p.pid)],preexec_fn=lambda:drop_to(child_uids[p.pid]),check=True,timeout=2,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             p.wait(timeout=3)
 if __name__=='__main__':
     if len(sys.argv)==3 and sys.argv[1]=='peer':peer(int(sys.argv[2]))

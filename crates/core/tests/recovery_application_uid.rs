@@ -276,7 +276,7 @@ fn isolated_real_uid_application_dispatch_and_reply_fences() {
         let notify = entered.clone();
         let blocker = tokio::task::spawn_blocking(move || {
             notify.notify_one();
-            held.recv().unwrap();
+            let _ = held.recv();
         });
         entered.notified().await;
         let mut future = Box::pin(c.dispatch_application_v1(
