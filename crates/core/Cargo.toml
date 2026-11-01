@@ -13,6 +13,12 @@ path = "tests/recovery_kernel_uid.rs"
 test = false
 required-features = ["recovery-transport", "recovery-grants"]
 
+[[test]]
+name = "recovery_application_uid"
+path = "tests/recovery_application_uid.rs"
+test = false
+required-features = ["recovery-transport", "recovery-execution"]
+
 [features]
 default = []
 dev-fixtures = ["dep:ed25519-dalek"]

@@ -130,6 +130,11 @@ pub struct SourceGuard {
     active: Arc<AtomicBool>,
 }
 impl SourceGuard {
+    /// Local resource ownership only, not proof of key/session authorization or
+    /// successful cleanup on the radio. Includes retained blocking adapters.
+    pub fn is_busy(&self) -> bool {
+        self.active.load(Ordering::Acquire)
+    }
     pub fn new(roles: Roles) -> Result<Self> {
         roles.validate()?;
         Ok(Self {

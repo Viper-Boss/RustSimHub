@@ -10,6 +10,10 @@ use rustsimhub_auth::{
     Auth,
 };
 use rustsimhub_storage::RecoveryGrant;
+#[cfg(feature = "recovery-execution")]
+mod application;
+#[cfg(feature = "recovery-execution")]
+pub use application::{ApplicationReplySealerV1, ApplicationStep, SealedReply, SealingRequest};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error {
