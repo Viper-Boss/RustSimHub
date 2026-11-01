@@ -158,9 +158,9 @@ fn combined_notice_finishes_under_two_seconds_and_acknowledgement_resets_only_th
         ..online()
     };
     let palette = [
-        Color::Blue,
-        Color::Cyan,
-        Color::Green,
+        Color::Red,
+        Color::Yellow,
+        Color::Purple,
         Color::Red,
         Color::Yellow,
         Color::Purple,
@@ -174,8 +174,8 @@ fn combined_notice_finishes_under_two_seconds_and_acknowledgement_resets_only_th
     assert_eq!(p.frame(s, 30_999, None), Color::Blue);
     s.unread_sms = false;
     assert_eq!(p.frame(s, 31_000, None), Color::Red);
-    assert_eq!(p.frame(s, 31_300, None), Color::Yellow);
-    assert_eq!(p.frame(s, 31_600, None), Color::Purple);
+    assert_eq!(p.frame(s, 31_300, None), Color::Purple);
+    assert_eq!(p.frame(s, 31_600, None), Color::Red);
     s.missed_calls = false;
     assert_eq!(p.frame(s, 31_601, None), Color::Blue);
 }
