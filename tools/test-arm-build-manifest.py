@@ -57,12 +57,43 @@ class Export(unittest.TestCase):
         self.output = self.root / 'out'
         self.infos = infos()
 
-    def collect(self):
+    def collect(self, *, cargo_output=False):
         def read(path, runner):
             self.assertEqual(runner, ('synthetic-unit-reader',))
             return copy.deepcopy(self.infos[path.name.removeprefix('rustsimhub-')])
         return module.collect(self.programs, self.output, REVISION, SOURCE, self.toolchain,
-                              ('synthetic-unit-reader',), info_reader=read, version_reader=lambda _: ['2.41'])
+                              ('synthetic-unit-reader',), info_reader=read, version_reader=lambda _: ['2.41'],
+                              cargo_output=cargo_output)
+
+    def test_explicit_cargo_mode_snapshots_hardlinks_as_independent_files(self):
+        original = self.programs / module.PROGRAMS[0]
+        alias = self.programs / 'cargo-deps-copy'
+        os.link(original, alias)
+        with self.assertRaises(ValueError): self.collect()
+        self.assertFalse(self.output.exists())
+        value = self.collect(cargo_output=True)
+        for name in module.PROGRAMS:
+            self.assertEqual((self.output / name).stat().st_nlink, 1)
+        alias.write_bytes(b'changed after export')
+        exported = self.output / original.name
+        self.assertEqual(hashlib.sha256(exported.read_bytes()).hexdigest(), value['artifact_sha256'][original.name])
+        self.assertNotIn(alias.name, value['artifact_sha256'])
+
+    def test_cargo_mode_still_rejects_symlink_fifo_and_oversize(self):
+        path = self.programs / module.PROGRAMS[0]
+        outside = self.root / 'outside'
+        outside.write_bytes(path.read_bytes())
+        for kind in ('symlink', 'fifo', 'oversize'):
+            with self.subTest(kind=kind):
+                path.unlink()
+                if kind == 'symlink': path.symlink_to(outside)
+                elif kind == 'fifo': os.mkfifo(path)
+                else:
+                    with path.open('wb') as stream: stream.truncate(module.LIMIT + 1)
+                with self.assertRaises((ValueError, OSError)): self.collect(cargo_output=True)
+                self.assertFalse(self.output.exists())
+                path.unlink()
+                path.write_bytes(outside.read_bytes())
 
     def test_all_twelve_programs_flat_legacy_fields_and_no_path_leak(self):
         self.infos['core']['private_path'] = '/private/must-not-copy'

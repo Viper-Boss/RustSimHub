@@ -51,6 +51,7 @@ printf 'ARM_BUILD_START=%s\n' "$(date -u +%FT%TZ)"
 cargo +1.98.0 build --release --workspace --no-default-features --locked --target aarch64-unknown-linux-gnu -j "$jobs"
 gnu_root=$(cat "$RUSTSIMHUB_CROSS_HOME/gnu-root.txt")
 python3 "$repo/tools/arm_build_manifest.py" collect \
+ --cargo-output \
  --binary-dir "$CARGO_TARGET_DIR/aarch64-unknown-linux-gnu/release" \
  --output "$work/artifacts" --revision "$revision" --source "$expected" \
  --toolchain-manifest "$RUSTSIMHUB_CROSS_HOME/downloads/gnu-packages.json" \
