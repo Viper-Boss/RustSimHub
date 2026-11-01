@@ -130,6 +130,8 @@ impl Credentials {
 }
 
 #[cfg(target_os = "linux")]
+pub mod ap_rescan;
+#[cfg(target_os = "linux")]
 pub mod channel;
 #[cfg(target_os = "linux")]
 pub mod executor;

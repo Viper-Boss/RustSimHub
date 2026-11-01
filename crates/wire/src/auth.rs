@@ -222,6 +222,21 @@ pub enum AuthCommand {
         ssid: String,
         passphrase: String,
     },
+    SetupApScanBegin {
+        token: String,
+        operation_id: String,
+        scan_id: String,
+    },
+    SetupApScanStatus {
+        token: String,
+        operation_id: String,
+        scan_id: String,
+    },
+    SetupApScanCancel {
+        token: String,
+        operation_id: String,
+        scan_id: String,
+    },
     SetupApWifiStatus {
         token: String,
         operation_id: String,
@@ -910,6 +925,25 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 return Err(invalid());
             }
         }
+        AuthCommand::SetupApScanBegin {
+            token,
+            operation_id,
+            scan_id,
+        }
+        | AuthCommand::SetupApScanStatus {
+            token,
+            operation_id,
+            scan_id,
+        }
+        | AuthCommand::SetupApScanCancel {
+            token,
+            operation_id,
+            scan_id,
+        } => {
+            if token.len() != 64 || !canonical_uuid(operation_id) || !canonical_uuid(scan_id) {
+                return Err(invalid());
+            }
+        }
         AuthCommand::SetupApWifiStatus {
             token,
             operation_id,
@@ -1409,6 +1443,32 @@ mod tests {
             assert!(parse_auth_request(&serde_json::to_vec(&c).unwrap()).is_ok());
             c["command"]["trial_id"] = "../other".into();
             assert!(parse_auth_request(&serde_json::to_vec(&c).unwrap()).is_err());
+        }
+    }
+
+    #[test]
+    fn ap_rescan_commands_are_owner_token_and_canonical_ids_only() {
+        for op in [
+            "setup_ap_scan_begin",
+            "setup_ap_scan_status",
+            "setup_ap_scan_cancel",
+        ] {
+            let good = serde_json::json!({"protocol":2,"id":"scan","command":{"op":op,"token":"a".repeat(64),
+                "operation_id":"11111111-1111-4111-8111-111111111111","scan_id":"22222222-2222-4222-8222-222222222222"}});
+            assert!(parse_auth_request(&serde_json::to_vec(&good).unwrap()).is_ok());
+            for (key, value) in [
+                ("scan_id", serde_json::json!("../scan")),
+                ("operation_id", serde_json::json!("wrong")),
+                ("token", serde_json::json!("")),
+                ("binding", serde_json::json!({})),
+                ("interface", serde_json::json!("wlan0")),
+                ("ssid", serde_json::json!("synthetic")),
+                ("deadline_uptime_ms", serde_json::json!(1)),
+            ] {
+                let mut bad = good.clone();
+                bad["command"][key] = value;
+                assert!(parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
+            }
         }
     }
     #[test]

@@ -375,6 +375,7 @@ async fn unknown_and_legacy_closed_never_prove_cleanup_of_a_confirmation() {
 }
 #[tokio::test]
 async fn no_save_capability_bad_password_and_stale_parent_have_no_confirmation_intent() {
+    let _clock = super::super::super::tests::aged_test_clock();
     let f = fixture().await;
     assert!(confirm(&f, COMMIT, "changed-password").await.is_err());
     assert!(load(&f.runtime.journal, COMMIT).unwrap().is_none());

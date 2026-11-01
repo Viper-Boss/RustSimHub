@@ -12,7 +12,31 @@ pub fn uptime_ms() -> Result<u64> {
     let nano = u64::try_from(t.tv_nsec).map_err(|_| Error::Io)?;
     sec.checked_mul(1000)
         .and_then(|v| v.checked_add(nano / 1_000_000))
+        .and_then(test_clock_offset)
         .ok_or(Error::Io)
+}
+#[cfg(not(test))]
+fn test_clock_offset(value: u64) -> Option<u64> {
+    Some(value)
+}
+#[cfg(test)]
+thread_local! {
+    static CLOCK_OFFSET: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+#[cfg(test)]
+fn test_clock_offset(value: u64) -> Option<u64> {
+    CLOCK_OFFSET.with(|offset| value.checked_add(offset.get()))
+}
+/// Current-thread tests can model an older boot without depending on host uptime.
+#[cfg(test)]
+pub(crate) fn aged_test_clock() -> impl Drop {
+    struct Reset(u64);
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            CLOCK_OFFSET.with(|offset| offset.set(self.0));
+        }
+    }
+    Reset(CLOCK_OFFSET.with(|offset| offset.replace(300_000)))
 }
 pub fn boot_id() -> Result<String> {
     let value =
@@ -276,6 +300,8 @@ impl RootLease {
 
 pub mod commit;
 pub mod files;
+pub mod rescan;
+pub mod scan;
 pub mod station;
 #[cfg(test)]
 mod tests;

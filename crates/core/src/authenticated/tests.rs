@@ -29,6 +29,28 @@ async fn setup_ap_real_ipc_is_disabled_without_explicit_local_mode_even_for_owne
     .await;
     assert_eq!(disabled["available"], false);
     assert_eq!(disabled["state"], "disabled");
+    for command in [
+        AuthCommand::SetupApScanBegin {
+            token: token.clone(),
+            operation_id: "11111111-1111-4111-8111-111111111111".into(),
+            scan_id: "22222222-2222-4222-8222-222222222222".into(),
+        },
+        AuthCommand::SetupApScanStatus {
+            token: token.clone(),
+            operation_id: "11111111-1111-4111-8111-111111111111".into(),
+            scan_id: "22222222-2222-4222-8222-222222222222".into(),
+        },
+        AuthCommand::SetupApScanCancel {
+            token: token.clone(),
+            operation_id: "11111111-1111-4111-8111-111111111111".into(),
+            scan_id: "22222222-2222-4222-8222-222222222222".into(),
+        },
+    ] {
+        assert!(round_trip(command, auth.clone())
+            .await
+            .get("error")
+            .is_some());
+    }
     let denied = round_trip(
         AuthCommand::SetupApStart {
             token,
