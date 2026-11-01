@@ -769,3 +769,65 @@ GitHub CI过去因账单/额度未启动；本批是否启动以新PR实际状�
 主线集成：先审六个范围内文档，再复核证据包/当前手册链接；撤回本PR仅影响文档，不改变任何设备状态。
 下一步：本PR审核后串行推进C17～C20的来源/输入接口第一阶段；未获该阶段审核前不实现其余检查器代码。
 原固定P0～P7整体仍约 **80%**；C16自测和合并不自行等同正式发行或全部实机验收。
+## 2026-11-01 · C18 有界只读制品检查器交付
+
+成员 yh1030 / member-c，分支 `codex/member-c-artifact-checker`，同仓库PR到main。
+C17提案PR #99已由负责人合并；本轮从最新主线
+`ce9ccb8debb61db49860fe795c1f3e471b749f4c` 开发。
+实际测试内容提交 `0608ae73b79d619342c8a68b24c6a89ec509f2be`，tree
+`e096a66df63dc28d56187fa5ab6209a2029c5ab6`。随后只补本报告，最终完整HEAD在PR正文回读。
+
+### 实现文件与行为
+
+本包只改六个范围内文件：新增 `tools/kernel-artifact-audit/audit.py`、`test_audit.py`，
+新增 `docs/kernel-artifact-audit/usage.md`、`pinned-input.json`，README补入口及本人报告本节。
+没有改既有锁/来源索引/固件/重建器/原校验器、生产Rust/Root、其他成员或全局台账。
+
+- 默认只输出execute=false计划，不读取用户清单/制品或写报告；实际检查要求普通Linux UID，使用WSL2原生隔离目录。
+- pinned模式只接受C17 RustSimHub来源截面及显式24对象路径映射；从7个经C17索引摘要核对的原锁/解析器字节推导Image、音频DTB及22模块期望，调用方不能替换hash/版本。不是另一套发布manifest。
+- synthetic模式严格版本/字段/类型，四类必需输入缺项仍为缺口；所有输入都标合成，不把自报passed/healthy当证据。
+- 实际读取并核对长度/hash、ARM64小端Image头、FDT v17根compatible、现有真实audio_modules.modinfo解析的ARM64 ET_REL/name/srcversion/vermagic/depends；模块名称规范化、依赖缺口和环分别记录。
+- 逐条输出observed/mismatch/not_verified；缺证据退出3，明确不匹配退出4，非法输入退出1；有限reason不回显主机路径/原始异常。执行完整的字节检查可以退出0，但永远不授予安装/confirm/发行资格。
+- 保留stock 681模块、APR等外部依赖、厂商固件摘要/许可缺口。即使固定24项全匹配，当前pinned模式也仍应退出3；synthetic的许可声明不升级成已验证许可。
+- Linux目录逐组件openat/O_NOFOLLOW，单链接普通文件、预算及读前/后稳定性检查；拒绝路径逃逸、链接/设备/FIFO、重复/别名冲突、未知版本和超限。不扫描维护材料或执行制品/脚本，不运行编译器、modprobe/depmod或网络/设备命令。
+- 清单1MiB/2048项，累计1GiB；Image文件及有效内存范围各128MiB、DTB128KiB、模块/固件各2MiB；FDT token8192/深度64。范围扩展需要另审，不默默放宽。
+- 可选报告仅在制品目录外新建0600/O_EXCL文件，目标必须不存在；不覆盖输入、清单、旧报告或其他证据。
+
+使用说明明确区分Image头的有效内存范围与文件长度、原始Image与boot/压缩归档、声明release与实际模块vermagic。
+格式依据在usage.md链接Linux ARM64头与DTSpec原始文档；仅有限静态结构观察，不等于完整ELF/FDT语义、真实启动或硬件兼容证明。
+
+### 实际验证命令与结果
+
+| 检查 | 实际结果 |
+|---|---|
+| Windows：`python tools/kernel-artifact-audit/audit.py` | 退出0，execute=false；没有输入读取/制品检查或报告创建 |
+| 最终固定Git tree归档 → WSL2 Ubuntu-24.04、普通UID1000、Linux原生副本：`python3 -B tools/kernel-artifact-audit/test_audit.py` | 退出0，21个测试通过/0失败/0错误/0跳过；真实audit.main/inspect和原modinfo解析器，纯合成文件；实际进程0.853秒 |
+| 源码/归档 | 41个公开文件逐个与Git归档字节一致，执行后未改变；归档SHA256 `d1aa6a7cfa53fde97213e89855330daf793f5d4375387ee0c50962556fe7ad81`；Python3.12.3，kernel 6.18.54.1-microsoft-standard-WSL2 |
+| Python AST / 文档链接 / Git检查 | 两个新增Python文件AST通过；19个文档链接已清点、本地目标存在，外部格式文档另已读取核对；`git diff --cached --check`通过。不是19个外网或设备验收 |
+
+21项覆盖合成完整匹配、空/缺文件、hash变化、hash自洽但错板DTB、坏Image/FDT/ELF、Image有效内存与文件长度区别、
+schema/额外字段/重复JSON/非法类型、路径/大小写别名、文件及父目录symlink/hardlink/FIFO、单文件/清单/条目及累计预算、
+真实模块元数据/release、依赖缺口/规范化正向链/环、固件许可缺口、报告新建与拒绝覆盖、pinned原锁派生及公开24映射示例。
+测试只调用现有生产解析器和真实新检查器，Fake仅构造输入，不以另一个检查器产生预期成功。
+
+早期16/19/20项迭代轮次也通过；复核修正Image内存范围语义、有限错误原因及边界后才执行上述最终21项，轮次不相加计数。
+一次Windows私有执行器生成命令因PowerShell引号解析失败，没有运行Linux测试；改为保存明确脚本后运行成功，未改产品断言掩盖失败。
+本轮没有改Rust，不为Python/文档交付重复运行Cargo/Clippy/Rustfmt或既有未变的13项内核测试；不将旧结果标成新HEAD实测。
+
+### 证据、未验收及集成
+
+仅日志/摘要包 `C18-WSL2-validation-e096a66.zip`：4,680字节、5条目，SHA256
+`e2076df65442b0d85b4af9d6af9aee56e6471b90a3e522b7be699168712cede8`；CRC及逐项内容核对通过。
+含实际summary/逐项日志、41文件摘要和命令说明；无源码归档、ELF/固件、数据库、私有路径、凭据或用户资料。
+本机准备向用户交付，未代发负责人。
+
+实际完成：C18只读实现、两种输入模式、显式缺口/拒绝与受限制品观察、必要隔离验证、用法/映射示例及本报告。
+未验收：负责人精确HEAD审核；真实完整内核源码归档/boot/681原装和22音频模块字节、厂商固件实际许可、Root/ARM加载、实机启动/恢复/掉电、签名发行。
+C19完整逐样本矩阵/C20后续交付与主线补验另记，不按本轮单测数量直接标完成。
+报告始终保留firmware_license/boot/recovery/release_support为not_verified及authorization_verified=false。
+
+来源/许可：项目原锁和现有GPL-2.0-only audio_modules解析器按固定摘要复用，未改原文件/SPDX；
+新Python脚本按项目AGPL-3.0-only，合成ELF布局沿用项目既有test_audio_modules方法；无新第三方依赖、许可推断或厂商二进制分发。
+Codex辅助实现/阅读/复核，未改作者，成员自报工时未填写。
+主线按本PR六文件和精确HEAD审阅；撤回只移除新增工具/说明及本节，不改变业务或设备状态。
+下一步按审核意见修正后再开展C19/C20；主线维护正式支持/全局验收。整体固定P0～P7仍约 **80%**。
