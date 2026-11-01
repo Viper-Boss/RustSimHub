@@ -1909,7 +1909,10 @@ name = "rustsimhub-ble"
 version = "0.1.0"
 dependencies = [
  "futures-lite",
+ "getrandom 0.4.3",
  "libc",
+ "rustix",
+ "serde",
  "serde_json",
  "socket2",
  "tempfile",

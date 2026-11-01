@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# REVIEW CANDIDATE ONLY. No executable/service mode is delivered by D-17–20.
+# REVIEW CANDIDATE ONLY. D24 service feature is opt-in; actual A/Core is required.
 # Not installed, enabled or included in the rootfs overlay.
 [Unit]
 Description=RustSimHub optional BLE recovery transport

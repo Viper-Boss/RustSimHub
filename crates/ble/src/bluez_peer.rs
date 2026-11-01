@@ -15,7 +15,7 @@ use std::{
         Arc,
     },
 };
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, Notify};
 use zbus::{
     message::Message,
     zvariant::{OwnedObjectPath, OwnedValue, Type},
@@ -40,6 +40,7 @@ struct LeaseBinding {
     peer: Peer,
     epoch: Epoch,
     live: AtomicBool,
+    retired: Notify,
     changes: Mutex<Changes>,
 }
 impl PeerLease {
@@ -95,6 +96,7 @@ impl PeerLease {
                 peer,
                 epoch,
                 live: AtomicBool::new(true),
+                retired: Notify::new(),
                 changes: Mutex::new(Changes {
                     properties,
                     removed,
@@ -116,6 +118,27 @@ impl PeerLease {
     pub async fn check_current(&self) -> Result<(), Error> {
         self.binding.check_current().await
     }
+    /// Owned denial-only watcher over the subscriptions installed before the
+    /// original snapshot. No new D-Bus RPC or discovered peer is trusted here.
+    /// Signal queues are drained every 10ms even while a property RPC is held.
+    pub fn wait_lost(&self) -> crate::ports::Pending<()> {
+        let binding = self.binding.clone();
+        Box::pin(async move {
+            let mut tick = tokio::time::interval(std::time::Duration::from_millis(10));
+            tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop {
+                let retired = binding.retired.notified();
+                if binding.check_live().is_err() || binding.drain().await.is_err() {
+                    binding.retire();
+                    return Ok(());
+                }
+                tokio::select! {
+                    _ = retired => {},
+                    _ = tick.tick() => {},
+                }
+            }
+        })
+    }
     #[cfg(feature = "bluez-gatt")]
     pub(crate) fn matches_control(&self, control: &BluezControl) -> bool {
         self.matches_scope(&control.callback_scope())
@@ -134,6 +157,7 @@ impl PeerLease {
 impl LeaseBinding {
     fn retire(&self) {
         self.live.store(false, Ordering::Release);
+        self.retired.notify_one();
     }
     async fn check_current(&self) -> Result<(), Error> {
         let mut guard = CheckGuard {

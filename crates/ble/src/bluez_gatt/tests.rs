@@ -876,3 +876,73 @@ async fn host_ack_before_deadline_does_not_allow_late_success_after_stalled_peer
     assert!(bounded(writing(&bluez, &name)).await.unwrap().is_err());
     assert!(requests.try_recv().is_err());
 }
+
+#[tokio::test]
+async fn opt_in_first_callback_requires_actual_private_lease_before_opaque_write() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (control, name) = setup(&bus, &bluez).await;
+    let (export, mut requests) = GattExport::publish_with_peer_requests(&control, epoch(1))
+        .await
+        .unwrap();
+    let writing = writing(&bluez, &name);
+    let bind = bounded(requests.recv()).await.unwrap();
+    assert!(matches!(bind.operation(), CallbackOperation::BindPeer));
+    bounded(bind.check_current()).await.unwrap();
+    assert!(!writing.is_finished());
+    let lease = PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap();
+    export.bind_peer(lease).await.unwrap();
+    bind.check_current().await.unwrap();
+    bind.finish(Ok(CallbackReply::Accepted));
+    let write = bounded(requests.recv()).await.unwrap();
+    assert!(matches!(write.operation(), CallbackOperation::Write { .. }));
+    write.check_current().await.unwrap();
+    write.finish(Ok(CallbackReply::Accepted));
+    bounded(writing).await.unwrap().unwrap();
+}
+
+#[tokio::test]
+async fn opt_in_acceptance_without_a_lease_cannot_forward_or_bind_foreign_sender() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (control, name) = setup(&bus, &bluez).await;
+    let (_export, mut requests) = GattExport::publish_with_peer_requests(&control, epoch(1))
+        .await
+        .unwrap();
+    let stranger = bus.connect().await;
+    assert!(write(
+        &stranger,
+        &name,
+        Characteristic::AuthExchange,
+        frame(),
+        options(true)
+    )
+    .await
+    .is_err());
+    assert!(requests.try_recv().is_err());
+    let writing = writing(&bluez, &name);
+    let bind = bounded(requests.recv()).await.unwrap();
+    assert!(matches!(bind.operation(), CallbackOperation::BindPeer));
+    bind.finish(Ok(CallbackReply::Accepted));
+    assert!(bounded(writing).await.unwrap().is_err());
+    assert!(requests.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn opt_in_stale_binding_cannot_accept_the_waiting_callback() {
+    let bus = Bus::new().await;
+    let bluez = bus.bluez(Arc::new(Calls::default()), true).await;
+    let (control, name) = setup(&bus, &bluez).await;
+    let (export, mut requests) = GattExport::publish_with_peer_requests(&control, epoch(1))
+        .await
+        .unwrap();
+    let writing = writing(&bluez, &name);
+    let bind = bounded(requests.recv()).await.unwrap();
+    let lease = PeerLease::bind(&control, epoch(1), DEVICE).await.unwrap();
+    export.bind_peer(lease).await.unwrap();
+    export.retire_local();
+    assert_eq!(bind.check_current().await, Err(Error::StaleContext));
+    bind.finish(Ok(CallbackReply::Accepted));
+    assert!(bounded(writing).await.unwrap().is_err());
+    assert!(requests.try_recv().is_err());
+}

@@ -485,3 +485,54 @@ pub(crate) async fn wait_held_snapshot(bluez: &Connection) {
     let state = interface.get().await.0.clone();
     bounded(state.started.notified()).await;
 }
+
+#[tokio::test]
+async fn loss_watch_drains_original_history_while_a_snapshot_rpc_is_held() {
+    let bus = Bus::new().await;
+    let (bluez, control, state) = setup(&bus).await;
+    let lease = PeerLease::bind(&control, epoch(), DEVICE).await.unwrap();
+    let loss = lease.wait_lost();
+    state.hold.store(true, Ordering::Release);
+    let checking = lease.check_current();
+    let signal = async {
+        bounded(state.started.notified()).await;
+        changed(
+            &bluez,
+            DEVICE,
+            HashMap::from([("Connected".into(), OwnedValue::from(false))]),
+            vec![],
+        )
+        .await;
+        // Still no property response. Loss uses original subscriptions only.
+        tokio::time::timeout(Duration::from_millis(500), loss)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(!lease.binding.live.load(Ordering::Acquire));
+        state.hold.store(false, Ordering::Release);
+        state.release.notify_one();
+    };
+    let (result, ()) = bounded(async { tokio::join!(checking, signal) }).await;
+    assert_eq!(result, Err(Error::StaleContext));
+}
+
+#[tokio::test]
+async fn loss_watch_ignores_unrelated_properties_but_lease_drop_is_final() {
+    let bus = Bus::new().await;
+    let (bluez, control, _state) = setup(&bus).await;
+    let lease = PeerLease::bind(&control, epoch(), DEVICE).await.unwrap();
+    let mut loss = lease.wait_lost();
+    changed(
+        &bluez,
+        DEVICE,
+        HashMap::from([("RSSI".into(), OwnedValue::from(-40i16))]),
+        vec![],
+    )
+    .await;
+    assert!(tokio::time::timeout(Duration::from_millis(35), &mut loss)
+        .await
+        .is_err());
+    lease.check_current().await.unwrap();
+    drop(lease);
+    bounded(loss).await.unwrap();
+}

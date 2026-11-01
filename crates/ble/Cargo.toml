@@ -13,6 +13,8 @@ bluez-gatt = ["bluez-peer", "tokio/time"]
 bluez-peer = ["bluez-advertisement", "tokio/time"]
 bluez-backend = ["bluez-notify-fd"]
 bluez-notify-fd = ["bluez-gatt", "dep:socket2", "dep:libc", "tokio/net"]
+core-port = ["dep:tokio", "dep:socket2", "dep:rustix", "tokio/net", "tokio/time", "tokio/io-util"]
+service = ["bluez-backend", "core-port", "dep:serde", "dep:serde_json", "dep:getrandom", "tokio/rt", "tokio/macros", "tokio/signal"]
 
 # Default framing/lifecycle stays runtime-free. Control is explicitly injected.
 [dependencies]
@@ -23,11 +25,20 @@ tokio = { version = "1", optional = true, features = ["sync"] }
 futures-lite = { version = "2", optional = true }
 socket2 = { version = "0.6.5", optional = true, features = ["all"] }
 libc = { version = "0.2", optional = true }
+rustix = { version = "1", optional = true, features = ["process", "fs", "net"] }
+getrandom = { version = "0.4", optional = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde_json.workspace = true
 tempfile = "3"
 tokio = { version = "1", features = ["rt", "macros", "time", "sync"] }
+
+[[bin]]
+name = "rustsimhub-ble"
+path = "src/main.rs"
+required-features = ["service"]
 
 # Explicit isolated-container fixture; ordinary cargo test never changes UID.
 [[test]]
@@ -35,3 +46,9 @@ name = "gatt_kernel_uid"
 path = "tests/gatt_kernel_uid.rs"
 test = false
 required-features = ["bluez-notify-fd"]
+
+[[test]]
+name = "core_port_uid"
+path = "tests/core_port_uid.rs"
+test = false
+required-features = ["core-port"]
