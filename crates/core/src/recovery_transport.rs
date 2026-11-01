@@ -130,6 +130,11 @@ pub struct SourceGuard {
     active: Arc<AtomicBool>,
 }
 impl SourceGuard {
+    /// Local resource ownership only, not proof of key/session authorization or
+    /// successful cleanup on the radio. Includes retained blocking adapters.
+    pub fn is_busy(&self) -> bool {
+        self.active.load(Ordering::Acquire)
+    }
     pub fn new(roles: Roles) -> Result<Self> {
         roles.validate()?;
         Ok(Self {
@@ -282,6 +287,44 @@ pub struct PeerConnection {
     io: FramedIo,
     // Last field: close the owned stream before releasing its admission slot.
     _slot: Slot,
+}
+/// Watches only this actually accepted socket's close/error readiness. It does
+/// not read/consume bytes, expose a raw descriptor, or authorize an operation.
+pub struct PeerDisconnect {
+    stream: UnixStream,
+}
+impl PeerDisconnect {
+    pub async fn wait_closed(self) -> Result<()> {
+        loop {
+            let ready = self
+                .stream
+                .ready(tokio::io::Interest::READABLE)
+                .await
+                .map_err(|_| Error::Io)?;
+            if ready.is_read_closed() || ready.is_error() {
+                return Ok(());
+            }
+            // Ignore data readiness on this separate descriptor only. The
+            // original framer owns all reads. Linux RDHUP produces a new edge
+            // even with unread/pipelined bytes; no sleeping or peek/read loop.
+            let _ = self.stream.try_io(tokio::io::Interest::READABLE, || {
+                Err::<(), _>(std::io::Error::from(std::io::ErrorKind::WouldBlock))
+            });
+        }
+    }
+}
+impl PeerConnection {
+    pub fn disconnect_monitor(&self) -> Result<PeerDisconnect> {
+        if self.is_poisoned() {
+            return Err(Error::Closed);
+        }
+        let fd = rustix::io::dup(&self.io.stream).map_err(|_| Error::Io)?;
+        let stream = std::os::unix::net::UnixStream::from(fd);
+        stream.set_nonblocking(true).map_err(|_| Error::Io)?;
+        Ok(PeerDisconnect {
+            stream: UnixStream::from_std(stream).map_err(|_| Error::Io)?,
+        })
+    }
 }
 struct Slot(Arc<AtomicBool>);
 impl Drop for Slot {

@@ -3,6 +3,7 @@
 use super::*;
 use crate::{RecoveryExecutionAdmission, RecoveryExecutionClaim, RecoveryTrialAuthority};
 use std::collections::HashMap;
+mod observations;
 struct Script(HashMap<u8, (RecoveryAction, Vec<u8>)>, Duration);
 impl RecoveryRequestVerifierV1 for Script {
     fn verify_request(

@@ -2039,6 +2039,7 @@ dependencies = [
  "tempfile",
  "time",
  "tokio",
+ "uuid",
  "zbus",
  "zeroize",
 ]

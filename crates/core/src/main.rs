@@ -12,7 +12,7 @@ mod calls;
 #[cfg(target_os = "linux")]
 mod compat_api;
 #[cfg(target_os = "linux")]
-mod coordination;
+use rustsimhub_core::coordination;
 #[cfg(target_os = "linux")]
 mod forwarding;
 #[cfg(target_os = "linux")]
@@ -28,7 +28,7 @@ mod network;
 #[cfg(target_os = "linux")]
 mod network_diagnostics;
 #[cfg(target_os = "linux")]
-mod network_trial;
+use rustsimhub_core::network_trial;
 #[cfg(target_os = "linux")]
 mod observer;
 #[cfg(target_os = "linux")]

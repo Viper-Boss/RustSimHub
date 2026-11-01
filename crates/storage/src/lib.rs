@@ -33,9 +33,10 @@ mod recovery_execution;
 mod recovery_grants;
 #[cfg(feature = "recovery-execution")]
 pub use recovery_execution::ledger::{
-    RecoveryExecutionAction, RecoveryExecutionFence, RecoveryExecutionReceipt,
-    RecoveryExecutionReservation, RecoveryExecutionState, StorageRecoveryExecutionClaim,
-    StorageRecoveryExecutionReservation, TrustedRecoveryExecution,
+    RecoveryExecutionAction, RecoveryExecutionCompletion, RecoveryExecutionFence,
+    RecoveryExecutionProgress, RecoveryExecutionReceipt, RecoveryExecutionReservation,
+    RecoveryExecutionState, StorageRecoveryExecutionClaim, StorageRecoveryExecutionReservation,
+    TrustedRecoveryExecution,
 };
 #[cfg(feature = "recovery-grants")]
 pub use recovery_grants::{RecoveryChange, RecoveryGrant};
