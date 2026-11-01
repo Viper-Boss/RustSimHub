@@ -432,7 +432,7 @@ class FinalizeTests(unittest.TestCase):
             path=pathlib.Path(directory)/'rule';data=source.read_bytes();path.write_bytes(data);path.chmod(0o644)
             def findings():return policy.polkit_findings([(str(path),policy.RUST_CORE_RULE,path.lstat())],False)
             self.assertEqual(findings(),[])
-            for changed in (data.replace(b'checkpoint-rollback',b'enable-disable-wwan'),data.replace(b'rustsimhub-core',b'any-user'),data+b'\n'):
+            for changed in (data.replace(b'checkpoint-rollback',b'enable-disable-wwan'),data.replace(b'rustsimhub-core',b'any-user'),data.replace(b'rustsimhub-forwarder',b'other-user'),data+b'\n'):
                 path.write_bytes(changed)
                 self.assertEqual(findings(),['rust-core-policy-not-exact: '+policy.RUST_CORE_RULE])
             path.write_bytes(data);path.chmod(0o666)
