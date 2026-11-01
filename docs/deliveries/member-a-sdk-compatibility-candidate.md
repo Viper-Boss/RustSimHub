@@ -111,3 +111,25 @@ websocket/dtls/stun/x/crypto/x/net/x/sys，同模块多个GO/GHSA可能是同一
 其作者；本候选diff为独立待审修改，完整新工具/测试AGPL-3.0-only，OpenAI Codex
 辅助实现与验证，无工时估造。无生产设备/NAS/真实通信/链/邮箱/短信/电话/蜂窝/
 Root/产品签名安装部署；不自行合并。主线已验收81.5%保持，不由离线测试加点。
+
+## 同步最新main后的再验证
+
+本分支随后正常合并main `b94256930fe0ca14d587d7a54fcc9e80e1f5be6b`，保留
+已合并A27 PR153与主线Store/Queue及构建修复；只解决本人剩余索引冲突，生产
+源码没有人工冲突修改。最新完整受测合并HEAD `eb67becd30f23568e8642e72fe808075ff866c97`，
+开始/结束candidate_sources_dirty=false及执行输入摘要相同；完整原版5/补丁5、
+原作者前后4项race、6来源检查、vet、native/ARM编译和native制品实跑均再次通过。
+原版与补丁的条件/预算未变，未用旧结果冒充此合并HEAD。日志在
+`work/a13-eval/run-main-synced/`，产物字节/摘要与前述精确结果相同。
+
+与最新origin/main比较，仍仅本人SDK候选工具/文档，不包含A27重复实现或任何
+产品根依赖/SMTP/Core/Root配置变化。新最终HEAD/CI以PR正文回读为准。
+
+| 同步后实际运行日志 | SHA256 |
+| --- | --- |
+| report.json | `bd6d9e8efc527f132c9cc699fdaf918bdba095ec473ea65c5546b7d6f3014f24` |
+| sdk-tests.log | `7cd1cbe93ed89c11c0f1995d4ee7122761b3f13ae9721127eb5162a3e7d347be` |
+| patched-sdk-tests.log | `d0bf36ecdc7d5b5e07937462dbbb150383dd68e10b8bd5866d49f0504f3e20a7` |
+| source-tests.log | `66be9e08d5e238a479777374ac1c98bb5c640e0fbd9074b94c22cd9c492963bf` |
+| patched-upstream-tests.log | `336ac8bbdb75ca7a9b7efc0a5ae77abe718ff92923220a85ae9e5b55db235824` |
+| native-artifact-tests.log | `2de7dfb6b90bc1a4d95a69ab996b6e5199abaf9062f802eb7f5d13f4d3bfa7fd` |
