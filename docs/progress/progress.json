@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-01T15:29:45.265666+00:00",
+  "updated_at": "2026-11-01T15:57:32.185697+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -68,9 +68,9 @@
   },
   "focus": {
     "task_id": "AP-07",
-    "title": "网络计量与灯控修复已安装，继续主线整装",
-    "state": "PR165已流程批准并合并；11个草稿保持待交付",
-    "description": "应用70外的两个旧系统程序已更新到冻结825a5016正式ARM产物：网络计量拒绝样本前完整校验，灯控非法FIFO不再阻塞读取。旧程序双份备份、新旧hash与实际进程核对、固定0555权限替换、独立服务重启及健康确认完成；NetworkManager/Core/USB原PID、流量历史/策略保持，网络输出持续刷新、数据断开、转发OFF，恢复定时器已停。六组恢复隔离夹具通过，真实故障回退/灯效/流量边界/长测未冒称验收；其他Root角色仍另列。维护过程中同学新到正式PR165已按用户指示流程批准合并，未做独立技术/安全审核；安装及补记文档PR166/167已合并。既有11个开放PR均为草稿，不转ready、不合并。五人真实Git统计固定172d6659，D线归GTW、作者保留。应用70仍确认；SDK评估合并不等于生产接线。人工测试最后，81.5%及20/169保持。"
+    "title": "正式更新器锁修复已部署，应用70真实重选通过",
+    "state": "无需人工的更新器安装收尾完成；成员草稿和真人验收保留",
+    "description": "正式固定路径更新器已从dfd11e9升级到825a5016的Store显式unlock修复；维护命令原来已有，未新增或放宽授权。旧程序双份备份、当前/出厂组实际ARM验签、停组持锁一致备份、受限观察和70三角色兼容诊断通过；保留诊断authorization等false，不冒称admit授权。仅替换更新器并保留0555/原单元，真实正式app-select退出0重新选中70，七服务恢复；ledger/floor70、身份/原数据、可信HTTPS五资源、音频7/7保持，普通数据与转发OFF，NetworkManager/USB原PID保持，恢复预算未用且定时器停止。八组恢复隔离场景通过，包括已用预算不再启动；未做新候选、故障回退或设备冷启动。安装记录PR168已合并；11个开放PR仍全为草稿，五人真实统计固定a5df2c15，D线归GTW并保留实际作者。其他Root角色、成员包及最后手机验收分别继续，81.5%及20/169不变。"
   },
   "facts": [
     {
@@ -79,9 +79,9 @@
       "detail": "固定P0–P7；本次合并不加验收分"
     },
     {
-      "label": "最新主线收尾",
-      "value": "PR #165 / 系统程序",
-      "detail": "正式PR已批准合并；计量/灯控已安装，草稿保留，实测边界另列"
+      "label": "最新正式更新入口",
+      "value": "锁修复已部署 / PR168",
+      "detail": "正式选择器重选70成功；原数据保持，不计新候选/冷启动验收"
     },
     {
       "label": "B线材料",
@@ -108,7 +108,8 @@
     "docs/development-plan.md",
     "docs/team/README.md",
     "docs/VALIDATION-APP70-INSTALL-20261101.md",
-    "docs/VALIDATION-ROOT-ROLE-PARITY-20261101.md"
+    "docs/VALIDATION-ROOT-ROLE-PARITY-20261101.md",
+    "docs/VALIDATION-UPDATER-ROLE-DEPLOY-20261101.md"
   ],
   "modules": [
     {
@@ -5445,12 +5446,18 @@
       "type": "verified",
       "title": "计量/灯控实际部署与正式PR165合并",
       "detail": "两个系统进程已是825a构建；原连接/进程及计量保持，六个恢复隔离场景通过，不冒称故障回退。新非草稿165按用户指示批准合并；11草稿不动，81.5%和20/169不变。"
+    },
+    {
+      "at": "2026-11-01T15:57:32.185697+00:00",
+      "type": "verified",
+      "title": "正式更新器替换与实际选择器验证",
+      "detail": "新更新器真实运行，正式app-select退出0、应用70及七服务正常；一致备份/原数据/HTTPS/音频保持，八组恢复隔离通过。PR168已合并，11草稿保留；权限诊断false原样保留，81.5%和20/169不变。"
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "172d6659491c20674485ec800b3061cc8090bb9e",
-    "generated_at": "2026-11-01T15:29:10.196672+00:00",
+    "source_revision": "a5df2c15eb377659d7b7a48d827eea6cbdeeae96",
+    "generated_at": "2026-11-01T15:55:13.680874+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5474,7 +5481,7 @@
             "tooling": 9922,
             "firmware": 1180
           },
-          "commits": 465,
+          "commits": 466,
           "code_commits": 304,
           "added": 112107,
           "deleted": 3093
@@ -5873,6 +5880,11 @@
             {
               "pr": 167,
               "head": "f2e805f071a351eaca284716d378b1a34641e054",
+              "state": "MERGED"
+            },
+            {
+              "pr": 168,
+              "head": "4ddf296579e8b45a6a15f97a6ebb79c29f1129d6",
               "state": "MERGED"
             }
           ],
@@ -6342,6 +6354,12 @@
             {
               "pr": 167,
               "head": "f2e805f071a351eaca284716d378b1a34641e054",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 168,
+              "head": "4ddf296579e8b45a6a15f97a6ebb79c29f1129d6",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
@@ -9258,6 +9276,6 @@
         }
       ]
     },
-    "pr_snapshot_at": "2026-11-01T15:29:45.265666+00:00"
+    "pr_snapshot_at": "2026-11-01T15:57:32.185697+00:00"
   }
 }
