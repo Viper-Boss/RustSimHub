@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Package bridge implements an actual finite stdio frontend. No NKN SDK,
-// identity, Root port or network stack is linked; unsupported means unavailable.
+// Package bridge implements a finite stdio frontend. The default source is
+// unavailable; a host may attach an independently authorized read-only source.
 package bridge
 
 import (
@@ -10,6 +10,7 @@ import (
 	"errors"
 	"github.com/Viper-Boss/RustSimHub/tools/nkn-engine/protocol"
 	"io"
+	"strconv"
 )
 
 const MaxFrames = 32
@@ -34,11 +35,57 @@ type Status struct {
 	TX         *string `json:"tx_bytes"`
 	RTT        *uint32 `json:"rtt_ms"`
 	Peers      *uint32 `json:"peer_count"`
-	LastError  string  `json:"last_error"`
+	LastError  *string `json:"last_error"`
 }
 
 func unavailable(sequence uint32) Status {
-	return Status{Contract: 1, Source: "unavailable", Sequence: sequence, Enabled: "unknown", Service: "unknown", Path: "unknown", DHT: "unknown", LastError: "engine_unavailable"}
+	code := "engine_unavailable"
+	return Status{Contract: 1, Source: "unavailable", Sequence: sequence, Enabled: "unknown", Service: "unknown", Path: "unknown", DHT: "unknown", LastError: &code}
+}
+
+// StatusSource is an in-process, read-only host interface, not an authorization
+// proof or new IPC. Read must perform no network IO, startup or credential work.
+// The host owns its lifetime and must independently authorize each caller.
+type StatusSource interface {
+	Read(context.Context, uint32) (Status, error)
+	SDKLinked() bool
+}
+
+func oneOf(value string, allowed ...string) bool {
+	for _, item := range allowed {
+		if value == item {
+			return true
+		}
+	}
+	return false
+}
+
+func counter(value *string) bool {
+	if value == nil {
+		return true
+	}
+	n, err := strconv.ParseUint(*value, 10, 64)
+	return err == nil && strconv.FormatUint(n, 10) == *value
+}
+
+// Reject invalid/private provider text before serializing it. The bridge owns
+// the sequence; an unavailable source cannot advertise fabricated live fields.
+func validStatus(s Status, sequence uint32) bool {
+	if s.Contract != 1 || s.Sequence != sequence || !oneOf(s.Source, "engine", "unavailable") ||
+		!oneOf(s.Enabled, "on", "off", "unknown") ||
+		!oneOf(s.Service, "stopped", "starting", "running", "stopping", "failed", "unknown") ||
+		!oneOf(s.Path, "direct", "relay", "offline", "unknown") ||
+		!oneOf(s.DHT, "connected", "disconnected", "unknown") ||
+		!counter(s.RX) || !counter(s.TX) || s.RTT != nil && *s.RTT > 60000 ||
+		s.Peers != nil && *s.Peers > 100000 ||
+		s.LastError != nil && !oneOf(*s.LastError, "engine_unavailable", "deadline", "protocol_error", "stale", "permission_denied") {
+		return false
+	}
+	if s.Source == "unavailable" {
+		return s.AgeMS == nil && s.Enabled == "unknown" && s.Service == "unknown" &&
+			s.Path == "unknown" && s.DHT == "unknown" && s.RX == nil && s.TX == nil && s.RTT == nil && s.Peers == nil
+	}
+	return s.Generation != 0 && s.AgeMS != nil && *s.AgeMS <= 5000
 }
 
 type Result struct {
@@ -78,7 +125,16 @@ func write(output io.Writer, response Response, before func() error) error {
 // strict request JSON. Main provides one read/write deadline per frame and
 // closes its OWN stdin/stdout on cancellation. No IO goroutines escape Serve.
 func Serve(ctx context.Context, input io.Reader, output io.Writer, beforeRead, beforeWrite func() error) error {
+	return ServeWithSource(ctx, input, output, beforeRead, beforeWrite, nil)
+}
+
+// ServeWithSource preserves the existing status/stop wire. Stop still closes
+// only this bridge; it never stops an unrelated/shared SDK or Root service.
+func ServeWithSource(ctx context.Context, input io.Reader, output io.Writer, beforeRead, beforeWrite func() error, source StatusSource) error {
 	fail := func(code string) error { return write(output, Response{Protocol: 1, Error: code}, beforeWrite) }
+	// Static build metadata, not live readiness. It remains true in a closing
+	// response when this host actually attached an SDK-backed implementation.
+	linked := source != nil && source.SDKLinked()
 	for index := 0; index < MaxFrames; index++ {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -128,7 +184,23 @@ func Serve(ctx context.Context, input io.Reader, output io.Writer, beforeRead, b
 		if request.Op == protocol.Stop {
 			kind = "closing_this_bridge"
 		}
-		response := Response{Protocol: 1, ID: &request.ID, Result: &Result{Kind: kind, Status: unavailable(uint32(index + 1))}}
+		sequence := uint32(index + 1)
+		status := unavailable(sequence)
+		// Closing must not depend on a live Read callback or create a fresh sample.
+		if source != nil && request.Op == protocol.Status {
+			var sourceErr error
+			status, sourceErr = source.Read(ctx, sequence)
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if sourceErr != nil || !validStatus(status, sequence) {
+				if err = write(output, Response{Protocol: 1, ID: &request.ID, Error: "status_unavailable"}, beforeWrite); err != nil {
+					return err
+				}
+				continue
+			}
+		}
+		response := Response{Protocol: 1, ID: &request.ID, Result: &Result{Kind: kind, Status: status, SDKLinked: linked}}
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}

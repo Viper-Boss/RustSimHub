@@ -1,4 +1,4 @@
-# 接手A组：剩余9步与SDK掩码修复候选
+# 接手A组：剩余9步与实际SDK状态适配
 
 2026-11-01，本轮从最新main `ce9ccb8debb61db49860fe795c1f3e471b749f4c` 开始，账号wnfhsj88。GitHub已核实PR123/124/128/129/133/134均合并，本轮直接承接，不重交旧实现。原B-01～32离线交付保持。这是成员交付索引，不是负责人验收或全局进度更新。下表保留原14步；优先为A-26新增实际进程内有限路由策略库及失败测试。原9步仍有真实提供者/协议/整合缺口；不能将本地策略、前端、提案或联合回归写成端到端“全部完成”。
 
@@ -12,7 +12,7 @@
 | A-14 | PR128前端双架构构建保持；PR157含SDK测试probe的native/ARM64编译与ELF，native实跑 | probe不是完整引擎；真正SDK backend独立构建及ARM运行仍未验收 |
 | A-15 | PR128前端矩阵保持；PR157同一实际SDK原版/补丁五场景和原作者4路由测试race对照 | 完整SDK子进程/Root/cgroup、真正EOF/失联/全进程退出/设备失败矩阵 |
 | A-16 | PR128原交付保持；已合并PR157/161来源及裁剪；本包实际三版帧对照与66行上游mask回移、native16/ARM15模块/probe验证 | 6模块通告处置/可达性、补丁及发行兼容审批、完整引擎交付及接入审核 |
-| A-22 | PR128真实不可用DTO经PR119实际网页模块和T5字段检查 | 真实SDK状态采集/映射、可信代次/年龄/授权provider |
+| A-22 | 本包真实SDK只读适配→原stdio→生产JS T5解析；原默认仍unavailable，不虚造进程/Owner/路径/计数 | 真实SDK状态采集/映射、可信代次/年龄/授权provider |
 | A-25 | PR133，真实Rust监督库、三引用/单次取消/10秒启动/5秒停止/有限重连及31项失败测试；PR129保留具体提案 | 固定Root策略/证明/序列化审查、真实引擎/Root提供者与主线低权/cgroup实测 |
 | A-26 | 已合并PR144的真实Rust有限路由策略，双服务白名单、完整不透明绑定比较、撤销/顺序/配额/原截止及业务后Unknown；默认提供者不可用，详见member-a-a26-routing.md | 普通NKN签名域/记录协议批准、真实成员/安全会话生产者、D的真正普通Core/媒体桥与主机接线；未完成端到端 |
 | A-27 | 已合并PR153的独立评估锁定snow0.10.0及55包来源，实际标准Noise原生/WASM互通、11项Rust/17项Chromium检查、4项来源篡改检查；独立评估workspace，不接产品 | AES-only上游编译失败/额外特性审批；实际应用绑定、pin/签名域/grant/Core及产品互操作仍未实现，crypto_wire_frozen=false |
@@ -88,3 +88,13 @@ PR161已由负责人合并，实际裁剪不重复。GO-2026-6278声称v1.5.3修
 集合无新增/其他版本变化，保留x/crypto/x/sys告警范围，不靠扫描空结果判安全。
 详见 `member-a-sdk-websocket-mask-candidate.md`。只在work派生stage，需具体审核，
 产品前端仍unavailable及9步真实provider/Root/Core/协议/生产兼容缺口保持。
+
+## 2026-11-01 全部剩余任务请求后的实际推进
+
+PR165已由负责人流程批准合并，不推定生产安全/启用。新增实际SDK只读状态来源，
+4项真实SDK/race、实际bridge/protocol共10项和默认frontend9组进程检查通过；
+实际open/closed样本给原生产JS parser/text通过，Retire不关闭共享SDK，不造
+未知Owner/进程/路径/计数。完整SHA/证据与剩余9步逐项真实门禁见
+`member-a-sdk-status-and-remaining-gates.md`。T6明确未审Auth/密码/Root/迁移不得
+接生产，D Core桥/主线设备签名部署及最终签认仍按归属；不将要求全部完成误写
+成已全部完成，不重复旧交付或自行合并部署。
