@@ -7,6 +7,10 @@ license = "AGPL-3.0-only"
 
 [workspace]
 
+[features]
+default = []
+turn-relay = ["dep:turn-client-proto", "dep:tokio-rustls", "dep:stun-proto", "dep:stun-types"]
+
 [dependencies]
 alsa = "=0.12.1"
 libc = "0.2"
@@ -18,6 +22,11 @@ rustix = { version = "1", features = ["process", "fs", "net"] }
 opus = "=0.4.0"
 str0m = { version = "=0.24.1", default-features = false, features = ["rust-crypto"] }
 
+turn-client-proto = { git = "https://github.com/ystreet/turn-proto", rev = "d8d127ab1e37aef14f95a9f6b529073c31ee04a5", optional = true }
+stun-proto = { version = "=2.0.3", optional = true, default-features = false, features = ["std"] }
+stun-types = { version = "=2.0.3", optional = true, default-features = false, features = ["std"] }
+tokio-rustls = { version = "=0.26.6", optional = true, default-features = false, features = ["ring", "tls12"] }
+
 [dev-dependencies]
 tempfile = "3"
 
@@ -26,3 +35,10 @@ lto = "thin"
 codegen-units = 1
 panic = "abort"
 strip = "symbols"
+
+# Actual private TLS/Coturn fixture. Ordinary native cargo test never starts it.
+[[test]]
+name = "turn_private_tls"
+path = "tests/turn_private_tls.rs"
+test = false
+required-features = ["turn-relay"]

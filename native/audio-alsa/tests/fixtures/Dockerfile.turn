@@ -1,0 +1,10 @@
+# syntax=docker/dockerfile:1
+# Synthetic test server only, not a deployable TURN service or Root material.
+FROM python@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb
+RUN --mount=type=secret,id=proxy_ca,required=true \
+    apt-get -o Acquire::https::CaInfo=/run/secrets/proxy_ca update && \
+    apt-get -o Acquire::https::CaInfo=/run/secrets/proxy_ca install -y --no-install-recommends \
+      coturn=4.6.1-2 openssl=3.5.7-1~deb13u3 \
+      libasound2t64=1.2.14-1+deb13u1 libopus0=1.5.2-2 && \
+    dpkg-query -W coturn openssl libasound2t64 libopus0 > /fixture-package-versions.txt && \
+    rm -rf /var/lib/apt/lists/*

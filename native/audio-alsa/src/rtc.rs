@@ -35,7 +35,15 @@ fn local_ip(ip: IpAddr) -> bool {
 }
 /// Additional product limits, before calling the library parser. No DNS or TURN yet.
 fn validate_sdp(sdp: &str, peer_ip: IpAddr) -> Result<[u8; 32], Error> {
-    if !local_ip(peer_ip)
+    validate_sdp_path(sdp, peer_ip, "host", None)
+}
+fn validate_sdp_path(
+    sdp: &str,
+    peer_ip: IpAddr,
+    kind: &str,
+    exact: Option<SocketAddr>,
+) -> Result<[u8; 32], Error> {
+    if (kind == "host" && !local_ip(peer_ip))
         || sdp.is_empty()
         || sdp.len() > MAX_SDP
         || !sdp.is_ascii()
@@ -96,7 +104,8 @@ fn validate_sdp(sdp: &str, peer_ip: IpAddr) -> Result<[u8; 32], Error> {
                 || c[4].parse::<IpAddr>().ok() != Some(peer_ip)
                 || c[5].parse::<u16>().ok().filter(|p| *p >= 1024).is_none()
                 || c[6] != "typ"
-                || c[7] != "host"
+                || c[7] != kind
+                || exact.is_some_and(|address| c[5].parse::<u16>().ok() != Some(address.port()))
             {
                 return Err(Error::Sdp);
             }
@@ -107,13 +116,46 @@ fn validate_sdp(sdp: &str, peer_ip: IpAddr) -> Result<[u8; 32], Error> {
     }
     fingerprint.ok_or(Error::Identity)
 }
+#[cfg(feature = "turn-relay")]
+pub(crate) fn relay_signaling(sdp: &str, expected: [u8; 32]) -> Result<SocketAddr, Error> {
+    if expected == [0; 32] || sdp.len() > MAX_SDP {
+        return Err(Error::Identity);
+    }
+    let mut candidates = sdp
+        .lines()
+        .filter_map(|line| line.strip_prefix("a=candidate:"));
+    let candidate = candidates.next().ok_or(Error::Sdp)?;
+    if candidates.next().is_some() {
+        return Err(Error::Sdp);
+    }
+    let parts: Vec<_> = candidate.split_ascii_whitespace().collect();
+    if parts.len() < 8 {
+        return Err(Error::Sdp);
+    }
+    let address = SocketAddr::new(
+        parts[4].parse().map_err(|_| Error::Sdp)?,
+        parts[5].parse().map_err(|_| Error::Sdp)?,
+    );
+    if !address.is_ipv4()
+        || validate_sdp_path(sdp, address.ip(), "relay", Some(address))? != expected
+    {
+        return Err(Error::Identity);
+    }
+    Ok(address)
+}
 fn rtc(socket: &UdpSocket) -> Result<Rtc, Error> {
     let address = socket.local_addr().map_err(|_| Error::Transport)?;
     if !local_ip(address.ip()) || address.port() < 1024 {
         return Err(Error::Transport);
     }
     socket.set_nonblocking(true).map_err(|_| Error::Transport)?;
-    let mut rtc = Rtc::builder()
+    let mut rtc = configured_rtc(None);
+    rtc.add_local_candidate(Candidate::host(address, "udp").map_err(|_| Error::Transport)?)
+        .ok_or(Error::Transport)?;
+    Ok(rtc)
+}
+fn configured_rtc(stats: Option<Duration>) -> Rtc {
+    Rtc::builder()
         .set_crypto_provider(Arc::new(str0m::crypto::from_feature_flags()))
         .set_fingerprint_verification(true)
         .clear_codecs()
@@ -122,12 +164,9 @@ fn rtc(socket: &UdpSocket) -> Result<Rtc, Error> {
         .set_reordering_timeout_audio(Some(Duration::from_millis(40)))
         .set_send_buffer_audio(4)
         .set_sctp_max_buffered_amount(0)
-        .set_stats_interval(None)
+        .set_stats_interval(stats)
         .set_mtu(1100..=1200)
-        .build(Instant::now());
-    rtc.add_local_candidate(Candidate::host(address, "udp").map_err(|_| Error::Transport)?)
-        .ok_or(Error::Transport)?;
-    Ok(rtc)
+        .build(Instant::now())
 }
 // No Debug or access to the underlying Rtc: callers cannot disable fingerprint verification.
 pub struct Session {
@@ -148,6 +187,8 @@ pub struct Session {
     pub sent_frames: u64,
     pub received_frames: u64,
     pub dropped_frames: u64,
+    #[cfg(feature = "turn-relay")]
+    pub(crate) selected_pair: Option<(SocketAddr, SocketAddr)>,
 }
 impl Session {
     pub fn offer(
@@ -204,9 +245,22 @@ impl Session {
         peer_ip: IpAddr,
         expected_peer: [u8; 32],
     ) -> Result<Self, Error> {
-        Ok(Self {
+        Ok(Self::from_address(
             rtc,
-            address: socket.local_addr().map_err(|_| Error::Transport)?,
+            socket.local_addr().map_err(|_| Error::Transport)?,
+            peer_ip,
+            expected_peer,
+        ))
+    }
+    fn from_address(
+        rtc: Rtc,
+        address: SocketAddr,
+        peer_ip: IpAddr,
+        expected_peer: [u8; 32],
+    ) -> Self {
+        Self {
+            rtc,
+            address,
             peer_ip,
             expected_peer,
             connected: false,
@@ -222,7 +276,123 @@ impl Session {
             sent_frames: 0,
             received_frames: 0,
             dropped_frames: 0,
-        })
+            #[cfg(feature = "turn-relay")]
+            selected_pair: None,
+        }
+    }
+    #[cfg(feature = "turn-relay")]
+    fn relay_rtc(address: SocketAddr, base: SocketAddr) -> Result<Rtc, Error> {
+        let mut rtc = configured_rtc(Some(Duration::from_millis(100)));
+        rtc.add_local_candidate(
+            Candidate::relayed(address, base, "udp").map_err(|_| Error::Transport)?,
+        )
+        .ok_or(Error::Transport)?;
+        Ok(rtc)
+    }
+    #[cfg(feature = "turn-relay")]
+    pub(crate) fn relay_offer(
+        address: SocketAddr,
+        base: SocketAddr,
+    ) -> Result<(Self, String, str0m::change::SdpPendingOffer), Error> {
+        let mut rtc = Self::relay_rtc(address, base)?;
+        let mut changes = rtc.sdp_api();
+        let mid = changes.add_media(MediaKind::Audio, Direction::SendRecv, None, None, None);
+        let (offer, pending) = changes.apply().ok_or(Error::Sdp)?;
+        let mut session = Self::from_address(
+            rtc,
+            address,
+            IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED),
+            [0; 32],
+        );
+        session.mid = Some(mid);
+        Ok((session, offer.to_sdp_string(), pending))
+    }
+    #[cfg(feature = "turn-relay")]
+    pub(crate) fn relay_answer(
+        address: SocketAddr,
+        base: SocketAddr,
+        peer: SocketAddr,
+        expected: [u8; 32],
+        sdp: &str,
+    ) -> Result<(Self, String), Error> {
+        if relay_signaling(sdp, expected)? != peer {
+            return Err(Error::Identity);
+        }
+        let mut rtc = Self::relay_rtc(address, base)?;
+        let answer = rtc
+            .sdp_api()
+            .accept_offer(SdpOffer::from_sdp_string(sdp).map_err(|_| Error::Sdp)?)
+            .map_err(|_| Error::Sdp)?
+            .to_sdp_string();
+        Ok((
+            Self::from_address(rtc, address, peer.ip(), expected),
+            answer,
+        ))
+    }
+    #[cfg(feature = "turn-relay")]
+    pub(crate) fn relay_accept(
+        &mut self,
+        pending: str0m::change::SdpPendingOffer,
+        sdp: &str,
+        expected: [u8; 32],
+    ) -> Result<SocketAddr, Error> {
+        if self.closed || self.connected || self.expected_peer != [0; 32] {
+            return Err(Error::Closed);
+        }
+        let peer = relay_signaling(sdp, expected)?;
+        self.peer_ip = peer.ip();
+        self.expected_peer = expected;
+        self.rtc
+            .sdp_api()
+            .accept_answer(
+                pending,
+                str0m::change::SdpAnswer::from_sdp_string(sdp).map_err(|_| Error::Sdp)?,
+            )
+            .map_err(|_| Error::Sdp)?;
+        Ok(peer)
+    }
+    #[cfg(feature = "turn-relay")]
+    pub(crate) fn relay_input(&mut self, source: SocketAddr, bytes: &[u8]) -> Result<(), Error> {
+        self.gate(rustsimhub_media::local::now_ms())?;
+        if bytes.len() > MAX_DATAGRAM || source.ip() != self.peer_ip {
+            return Err(Error::Bounds);
+        }
+        let contents = bytes.try_into().map_err(|_| Error::Transport)?;
+        self.rtc
+            .handle_input(Input::Receive(
+                Instant::now(),
+                Receive {
+                    proto: Protocol::Udp,
+                    source,
+                    destination: self.address,
+                    contents,
+                },
+            ))
+            .map_err(|_| Error::Transport)
+    }
+    #[cfg(feature = "turn-relay")]
+    pub(crate) fn relay_tick(&mut self) -> Result<(), Error> {
+        self.gate(rustsimhub_media::local::now_ms())?;
+        if !self.connected && self.created.elapsed() > Duration::from_secs(15) {
+            self.close();
+            return Err(Error::Closed);
+        }
+        if self.codec.is_some()
+            && self
+                .last_media_receive
+                .or(self.authorized_at)
+                .is_some_and(|at| at.elapsed() >= Duration::from_secs(1))
+        {
+            self.close();
+            return Err(Error::Closed);
+        }
+        let now = Instant::now();
+        if now >= self.timeout {
+            self.rtc
+                .handle_input(Input::Timeout(now))
+                .map_err(|_| Error::Transport)?;
+        }
+        Ok(())
     }
     pub fn verified_peer(&self) -> Option<[u8; 32]> {
         (self.connected && !self.closed).then_some(self.expected_peer)
@@ -260,6 +430,18 @@ impl Session {
         Ok(())
     }
     fn drain(&mut self, socket: &UdpSocket, _instant: Instant, _now: u64) -> Result<(), Error> {
+        self.drain_to(
+            |_, destination, bytes| match socket.send_to(bytes, destination) {
+                Ok(n) if n == bytes.len() => Ok(()),
+                Err(e) if e.kind() == ErrorKind::WouldBlock => Ok(()),
+                _ => Err(Error::Transport),
+            },
+        )
+    }
+    pub(crate) fn drain_to(
+        &mut self,
+        mut transmit: impl FnMut(SocketAddr, SocketAddr, &[u8]) -> Result<(), Error>,
+    ) -> Result<(), Error> {
         // Every mutation is followed by a full drain to Timeout. Hard cap prevents hostile spin.
         for _ in 0..128 {
             let now = rustsimhub_media::local::now_ms();
@@ -279,13 +461,16 @@ impl Session {
                     }
                     self.gate(now)?;
                     // Pending ICE/DTLS may transmit before authorization; no writer can send speech.
-                    match socket.send_to(&t.contents, t.destination) {
-                        Ok(n) if n == t.contents.len() => {}
-                        Err(e) if e.kind() == ErrorKind::WouldBlock => {}
-                        _ => return Err(Error::Transport),
-                    }
+                    transmit(t.source, t.destination, &t.contents)?;
                 }
                 Output::Event(event) => match event {
+                    #[cfg(feature = "turn-relay")]
+                    Event::PeerStats(stats) => {
+                        self.selected_pair = stats.selected_candidate_pair.and_then(|pair| {
+                            (pair.protocol == Protocol::Udp)
+                                .then_some((pair.local.addr, pair.remote.addr))
+                        });
+                    }
                     Event::Connected => {
                         let actual = self
                             .rtc
@@ -438,6 +623,10 @@ impl Session {
         Ok(())
     }
     pub fn send(&mut self, socket: &UdpSocket, frame: &Frame, now: u64) -> Result<(), Error> {
+        self.enqueue_frame(frame, now)?;
+        self.drain(socket, Instant::now(), now)
+    }
+    pub(crate) fn enqueue_frame(&mut self, frame: &Frame, now: u64) -> Result<(), Error> {
         self.gate(now)?;
         if !self.connected {
             return Err(Error::Identity);
@@ -474,7 +663,7 @@ impl Session {
             )
             .map_err(|_| Error::Transport)?;
         self.sent_frames += 1;
-        self.drain(socket, instant, now)
+        Ok(())
     }
     pub fn receive(&mut self, _now: u64) -> Result<Option<Frame>, Error> {
         let now = rustsimhub_media::local::now_ms();
@@ -643,6 +832,57 @@ pub fn self_check() -> Result<serde_json::Value, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "turn-relay")]
+    fn relay_sdp() -> (String, [u8; 32]) {
+        // Parser fixture only, never an Allocation or verified peer.
+        let (_, sdp, _) = Session::relay_offer(
+            "127.0.0.1:41000".parse().unwrap(),
+            "127.0.0.1:42000".parse().unwrap(),
+        )
+        .unwrap();
+        let value = sdp
+            .lines()
+            .find_map(|line| line.strip_prefix("a=fingerprint:"))
+            .unwrap();
+        let fp: str0m::crypto::Fingerprint = value.parse().unwrap();
+        let key = fp.bytes.as_slice().try_into().unwrap();
+        (sdp, key)
+    }
+    #[cfg(feature = "turn-relay")]
+    #[test]
+    fn remote_sdp_requires_one_relay_and_an_independent_expected_fingerprint() {
+        let (sdp, key) = relay_sdp();
+        assert_eq!(
+            relay_signaling(&sdp, key).unwrap(),
+            "127.0.0.1:41000".parse().unwrap()
+        );
+        assert!(relay_signaling(&sdp, [0; 32]).is_err());
+        assert!(relay_signaling(&sdp, [7; 32]).is_err());
+        assert!(relay_signaling(&sdp.replace("typ relay", "typ host"), key).is_err());
+        let candidate = sdp
+            .lines()
+            .find(|line| line.starts_with("a=candidate:"))
+            .unwrap();
+        assert!(relay_signaling(&format!("{sdp}{candidate}\r\n"), key).is_err());
+        assert!(
+            validate_sdp(&sdp, "127.0.0.1".parse().unwrap()).is_err(),
+            "LAN policy must still reject relay SDP"
+        );
+    }
+    #[cfg(feature = "turn-relay")]
+    #[test]
+    fn remote_sdp_retains_original_audio_size_and_algorithm_limits() {
+        let (sdp, key) = relay_sdp();
+        for bad in [
+            sdp.replace("m=audio", "m=video"),
+            sdp.replace("sha-256", "sha-1"),
+            sdp.replace("a=rtcp-mux", "a=rtcp"),
+            format!("{sdp}m=application 9 UDP/DTLS/SCTP data\r\n"),
+            "x".repeat(MAX_SDP + 1),
+        ] {
+            assert!(relay_signaling(&bad, key).is_err());
+        }
+    }
     #[test]
     fn encrypted_loopback_roundtrip_and_ticket_identity_revocation() {
         self_check().unwrap();
