@@ -12,7 +12,9 @@ impl Auth {
     ) -> Result<RecoveryExecutionReceipt> {
         self.check_recovery_trial(trial)?;
         let begin = trial.begin_claim();
-        let input = self.trusted_execution(begin.request())?;
+        let input = self
+            .trusted_execution(begin.request())?
+            .with_deadline_limit(trial.deadline());
         let result = self.store.record_recovery_progress_from_trusted_core(
             input,
             begin.storage_claim(),
@@ -29,9 +31,11 @@ impl Auth {
         self.check_recovery_trial_control(trial, control, RecoveryAction::ConfirmWifi)?;
         let (b, c) = (trial.begin_claim(), control.claim());
         self.store.record_recovery_saving_from_trusted_core(
-            self.trusted_execution(b.request())?,
+            self.trusted_execution(b.request())?
+                .with_deadline_limit(trial.deadline()),
             b.storage_claim(),
-            self.trusted_execution(c.request())?,
+            self.trusted_execution(c.request())?
+                .with_deadline_limit(trial.deadline()),
             c.storage_claim(),
         )?;
         self.check_recovery_trial_control(trial, control, RecoveryAction::ConfirmWifi)
@@ -55,10 +59,6 @@ impl Auth {
         {
             return Err(Error::InvalidInput);
         }
-        Ok(self.store.finish_recovery_trial_from_trusted_core(
-            b.storage_claim(),
-            control.map(|c| c.claim().storage_claim()),
-            completion,
-        )?)
+        trial.finish_from_trusted_core(control, completion)
     }
 }

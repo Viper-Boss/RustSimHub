@@ -136,6 +136,12 @@ pub struct TrustedRecoveryExecution {
     fence: RecoveryExecutionFence,
 }
 impl TrustedRecoveryExecution {
+    /// Trusted actor may only shorten a writer fence to its ORIGINAL trial
+    /// deadline. This cannot extend the originating capability/session.
+    pub fn with_deadline_limit(mut self, deadline: Instant) -> Self {
+        self.fence.deadline = self.fence.deadline.min(deadline);
+        self
+    }
     pub fn from_trusted_auth(
         grant: RecoveryGrant,
         request: String,

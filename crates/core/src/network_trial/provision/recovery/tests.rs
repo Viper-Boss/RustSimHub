@@ -690,3 +690,29 @@ async fn public_entry_stays_disabled_and_the_usb_exception_is_a_private_recovery
         Ok(UsbFence::Recovery)
     ));
 }
+
+#[tokio::test]
+async fn busy_auth_mutex_cannot_hide_an_actual_backend_rollback() {
+    let _serial = SERIAL.lock().await;
+    let f = fixture(40000);
+    let c = connect(&f);
+    let p = Arc::new(Probe::new());
+    start(&f, &c, 1, p.clone()).await.unwrap();
+    drop(ready_state().await);
+    let auth = f.auth.clone();
+    let (entered_tx, entered_rx) = std::sync::mpsc::channel();
+    let (release_tx, release_rx) = std::sync::mpsc::channel();
+    let keeper = std::thread::spawn(move || {
+        let _guard = auth.lock().unwrap();
+        entered_tx.send(()).unwrap();
+        let _ = release_rx.recv();
+    });
+    entered_rx.recv().unwrap();
+    let terminal = drained().await;
+    let receipt = row(&f, 1);
+    release_tx.send(()).unwrap();
+    keeper.join().unwrap();
+    assert_eq!(terminal, State::RolledBack);
+    assert_eq!(receipt, Some(("rolled_back".into(), Some(0), Some(1))));
+    assert_eq!(&*p.effects.lock().unwrap(), &["temporary", "restore"]);
+}

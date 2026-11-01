@@ -290,11 +290,13 @@ impl TrialAudit for RecoveryContext {
             _ => None,
         };
         let t = self.trial.clone();
-        with_auth(self.auth.clone(), move |a| {
-            a.finish_recovery_trial_from_trusted_core(t.authority(), c.as_deref(), completion)
+        tokio::task::spawn_blocking(move || {
+            t.authority()
+                .finish_from_trusted_core(c.as_deref(), completion)
                 .map(|_| ())
         })
         .await
+        .map_err(|_| Error::Busy)?
     }
     async fn retain_unknown(&self) {
         let _ = self.finish_trial(State::Unknown, None).await;

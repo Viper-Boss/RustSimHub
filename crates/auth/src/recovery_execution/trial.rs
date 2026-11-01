@@ -8,8 +8,30 @@ const MAX_TRIAL: Duration = Duration::from_secs(40);
 pub struct RecoveryTrialAuthority {
     begin: RecoveryExecutionClaim,
     deadline: Instant,
+    recorder: rustsimhub_storage::Handle,
 }
 impl RecoveryTrialAuthority {
+    /// Accounting with the original Store and private claims, independent of
+    /// Auth mutex availability. Never grants authority or clears Unknown.
+    pub fn finish_from_trusted_core(
+        &self,
+        control: Option<&RecoveryTrialControl>,
+        completion: rustsimhub_storage::RecoveryExecutionCompletion,
+    ) -> Result<rustsimhub_storage::RecoveryExecutionReceipt> {
+        if control.is_some_and(|c| !c.belongs_to(self)) {
+            return Err(Error::Forbidden);
+        }
+        if completion == rustsimhub_storage::RecoveryExecutionCompletion::Saved
+            && control.is_none_or(|c| c.action() != RecoveryAction::ConfirmWifi)
+        {
+            return Err(Error::InvalidInput);
+        }
+        Ok(self.recorder.finish_recovery_trial_from_trusted_core(
+            self.begin.storage_claim(),
+            control.map(|c| c.claim.storage_claim()),
+            completion,
+        )?)
+    }
     pub(super) fn begin_claim(&self) -> &RecoveryExecutionClaim {
         &self.begin
     }
@@ -102,7 +124,11 @@ impl Auth {
         if Instant::now() >= deadline {
             return Err(Error::Expired);
         }
-        Ok(RecoveryTrialAuthority { begin, deadline })
+        Ok(RecoveryTrialAuthority {
+            begin,
+            deadline,
+            recorder: self.store.clone(),
+        })
     }
     /// Background gate for the original bounded trial, not a Confirm capability.
     pub fn check_recovery_trial(&self, trial: &RecoveryTrialAuthority) -> Result<()> {

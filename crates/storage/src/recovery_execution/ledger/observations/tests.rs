@@ -524,3 +524,32 @@ fn disconnect_blocks_saving_and_recording_progress_but_not_bounded_cleanup_accou
     )
     .unwrap();
 }
+
+#[test]
+fn actor_deadline_rejects_late_progress_and_never_extends_an_expired_capability() {
+    let (_d, s, _o, g) = nine();
+    let h = s.handle();
+    let b = claim(&h, &g, 2, RecoveryExecutionAction::BeginWifi, None);
+    let limited =
+        input(&g, 2, RecoveryExecutionAction::BeginWifi, None).with_deadline_limit(Instant::now());
+    assert!(matches!(
+        h.record_recovery_progress_from_trusted_core(
+            limited,
+            &b,
+            RecoveryExecutionProgress::Starting
+        ),
+        Err(Error::Forbidden)
+    ));
+    let mut expired = input(&g, 2, RecoveryExecutionAction::BeginWifi, None);
+    expired.fence.deadline = Instant::now();
+    let limited = expired.with_deadline_limit(Instant::now() + Duration::from_secs(60));
+    assert!(matches!(
+        h.record_recovery_progress_from_trusted_core(
+            limited,
+            &b,
+            RecoveryExecutionProgress::Starting
+        ),
+        Err(Error::Forbidden)
+    ));
+    assert_eq!(read(&h, &g, 2).state(), RecoveryExecutionState::Claimed);
+}
