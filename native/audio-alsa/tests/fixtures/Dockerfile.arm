@@ -1,0 +1,11 @@
+# syntax=docker/dockerfile:1
+# Private ARM cross/loopback test only. Run the native test Dockerfile first.
+FROM rustsimhub-private-turn-pinned:20261101
+RUN --mount=type=secret,id=proxy_ca,required=true \
+    dpkg --add-architecture arm64 && \
+    apt-get -o Acquire::https::CaInfo=/run/secrets/proxy_ca update && \
+    apt-get -o Acquire::https::CaInfo=/run/secrets/proxy_ca install -y --no-install-recommends \
+      gcc-aarch64-linux-gnu libc6-dev-arm64-cross \
+      libasound2-dev:arm64=1.2.14-1+deb13u1 libopus-dev:arm64=1.5.2-2 cmake ninja-build qemu-user && \
+    dpkg-query -W gcc-aarch64-linux-gnu libc6-dev-arm64-cross libasound2-dev:arm64 libopus-dev:arm64 cmake ninja-build qemu-user coturn > /arm-fixture-package-versions.txt && \
+    rm -rf /var/lib/apt/lists/*
