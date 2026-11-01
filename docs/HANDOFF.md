@@ -1,5 +1,6 @@
 # RustSimHub 当前接手入口
 
+2026-11-01 二手UFI003移植停止（PR#73）：UsbTool修好SkipWrite后真正允许写入，分区表写入时加载器写后校验失败(NAK)，只读复核GPT仍为原厂；此前的“ACK未写”源于SkipWrite=1。判断eMMC已进入只读/写保护，按约定停止写入，棒子全程未被改动。建议换一根eMMC正常的棒子，复用plan_gpt.py、固件包流程和UsbTool受限写入。整体约80%不变。
 2026-10-29 二手UFI003第2步tz写入（PR#73，用户批准，执行一次）：传输ACK完整，但回读不符；只读复核确认绝对扇区270826–270827为物理坏扇区（写前写后都读错），tz无法原位修复，设备状态与写前实际相同，GPT未变，读得稳的保护区未变。system区原计划boot/NSHSTATE位置有坏扇区，原GPT计划作废，待用户决定新布局。整体约80%不变。
 2026-10-29 二手UFI003移植方案（[计划](PLAN-SECOND-STICK-PORT-2026-10-29.md)，分支claude/second-stick-port-6b5bfa，仅计划）：对已有9008只读读取做三读逐位表决+MBN哈希段离线校验，未连设备、无写入。结论：未强制安全启动（四个镜像各链到不同测试根）；sbl1/aboot/rpm完好；tz主代码段三读表决后仍不过哈希（已损坏，需先读tzbak）；基带固件与原设备同一签名版本，5个坏文件可用通过二手棒子自己mdt哈希表的字节替换；Wi-Fi校准只用二手棒子persist那份。目标布局原位保留全部NV/启动链LBA，只重写GPT与安卓区：boot 64MiB、NSHSTATE第15条264159扇区、rootfs约2.62GiB（需小尺寸镜像）。eMMC静默位翻转，只适合短期测试机。待用户：每步写入批准、打包基线（等#62合并或叠在main上）。整体约80%不变。
 2026-10-29 USB工具改Wi-Fi的设备端授权（[验证记录](VALIDATION-USB-TOOL-WIFI-AUTH-2026-10-29.md)，分支claude/wifi-tool-auth-e30f13）：新增Auth::network_manager——主人仍须最近5分钟登录，已被主人批准、active、带network.manage的client也可调用wifi_networks和wifi_begin/status/confirm/cancel，NAS一律拒绝；试连接仍绑定开始它的完整principal，幂等规则不变；其他主人专属操作不变。网页“连接与配对设置”新增配对审批：允许配对5分钟、待批准列表（编号/公钥全文/权限名）、精确回传批准、已授权列表与撤销，结果不明不重发。日常Edge主网址为.local时额外跟随监听usb0固定地址10.55.0.2（不重新生成证书）。测试：fmt、严格clippy、core 166/auth 44/edge 37/wire 19、网页19个通过（新增test-web-clients）。未做：未部署、未连真实设备、未在真实浏览器打开审批页。
