@@ -9,6 +9,8 @@ use rustsimhub_storage::{
     RecoveryExecutionCompletion as Completion, RecoveryExecutionProgress as Progress,
     RecoveryExecutionReceipt, RecoveryExecutionState,
 };
+mod t5;
+pub use t5::{recovery_v1, RecoveryErrorV1, RecoveryResponseV1};
 
 /// Internal Core result, not the frozen T5 wire Operation DTO. No credentials.
 pub enum RecoveryReply {
@@ -47,18 +49,23 @@ pub async fn recovery(
     }
     let a = auth.clone();
     let decoded = with_auth(a, move |a| recovery_body::decode_v1(a, request)).await?;
+    dispatch(auth, decoded, |trial| NmProvision {
+        recovery: Some(trial),
+        ..NmProvision::default()
+    })
+    .await
+}
+async fn dispatch<B: ProvisionBackend + Send + 'static>(
+    auth: Arc<Mutex<Auth>>,
+    decoded: DecodedRecoveryRequest,
+    factory: impl FnOnce(Arc<CoreRecoveryTrial>) -> B,
+) -> Result<RecoveryReply> {
     match decoded {
         DecodedRecoveryRequest::Lookup(q) => {
             with_auth(auth, move |a| q.lookup(a).map(RecoveryReply::Lookup)).await
         }
         DecodedRecoveryRequest::Write(w) => match w.action() {
-            RecoveryAction::BeginWifi => {
-                begin_with(auth, w, |trial| NmProvision {
-                    recovery: Some(trial),
-                    ..NmProvision::default()
-                })
-                .await
-            }
+            RecoveryAction::BeginWifi => begin_with(auth, w, factory).await,
             RecoveryAction::ConfirmWifi | RecoveryAction::CancelWifi => {
                 control_recovery(auth, w).await
             }

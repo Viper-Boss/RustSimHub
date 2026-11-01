@@ -888,4 +888,4 @@ mod tests;
 #[cfg(feature = "recovery-execution")]
 mod recovery;
 #[cfg(feature = "recovery-execution")]
-pub use recovery::{recovery, RecoveryReply};
+pub use recovery::{recovery, recovery_v1, RecoveryErrorV1, RecoveryReply, RecoveryResponseV1};

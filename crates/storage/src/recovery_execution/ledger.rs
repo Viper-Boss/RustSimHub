@@ -58,6 +58,11 @@ impl RecoveryExecutionState {
 #[derive(Clone)]
 pub struct RecoveryExecutionReceipt(Receipt);
 impl RecoveryExecutionReceipt {
+    /// Read-only full binding comparison, never an execution permit. Includes
+    /// realm/device/owner/grant generations, not just a public trial string.
+    pub fn same_trial_as(&self, other: &Self) -> bool {
+        self.0.same_trial(&other.0)
+    }
     pub fn request_id(&self) -> &str {
         &self.0.request
     }

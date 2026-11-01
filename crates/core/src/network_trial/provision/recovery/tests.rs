@@ -22,6 +22,7 @@ use std::{
 };
 use tempfile::TempDir;
 use tokio::sync::Notify;
+mod t5_tests;
 
 static SERIAL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 const BODY: &[u8] = br#"{"ssid":"SYNTHETIC_NATIVE","passphrase":"SYNTHETIC_NATIVE_PASSWORD"}"#;

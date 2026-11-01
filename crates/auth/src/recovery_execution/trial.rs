@@ -11,6 +11,11 @@ pub struct RecoveryTrialAuthority {
     recorder: rustsimhub_storage::Handle,
 }
 impl RecoveryTrialAuthority {
+    /// Matches historical metadata only. Call check_recovery_trial separately
+    /// before treating an original actor's live progress as current.
+    pub fn matches_receipt(&self, receipt: &rustsimhub_storage::RecoveryExecutionReceipt) -> bool {
+        self.begin.receipt().same_trial_as(receipt)
+    }
     /// Accounting with the original Store and private claims, independent of
     /// Auth mutex availability. Never grants authority or clears Unknown.
     pub fn finish_from_trusted_core(
