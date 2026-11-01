@@ -4,6 +4,8 @@
 //! identity or privileged fallback is created here. Production adapters must
 //! implement a lead-approved fixed policy and real evidence producers. Such
 //! adapters are deliberately unavailable in this candidate library.
+pub mod routing;
+
 use std::{
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
