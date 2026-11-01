@@ -1,0 +1,2 @@
+# Canonical unified-diff context retains its Go tabs and blank context lines.
+websocket-only.patch whitespace=-space-before-tab,-blank-at-eol

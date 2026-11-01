@@ -1,0 +1,125 @@
+--- a/third_party/nkn-sdk-go/client.go
++++ b/third_party/nkn-sdk-go/client.go
+@@ -22,7 +22,6 @@
+ 	"github.com/gorilla/websocket"
+ 	"github.com/nknorg/nkn-sdk-go/payloads"
+ 	"github.com/nknorg/nkn/v2/api/common/errcode"
+-	"github.com/nknorg/nkn/v2/api/webrtc"
+ 	"github.com/nknorg/nkn/v2/config"
+ 	"github.com/nknorg/nkn/v2/crypto"
+ 	"github.com/nknorg/nkn/v2/crypto/ed25519"
+@@ -57,7 +56,7 @@
+ 	waitForChallengeTimeout = 5 * time.Second
+ )
+ 
+-// interface for websocket and webrtc connection
++// interface for websocket connection
+ type wsConn interface {
+ 	SetReadLimit(int64)
+ 	SetReadDeadline(t time.Time) error
+@@ -99,7 +98,6 @@
+ 
+ 	// client auth
+ 	chChallengeSignature chan *stSaltAndSignature
+-	peer                 *webrtc.Peer
+ }
+ 
+ // client auth
+@@ -649,26 +647,16 @@
+ 
+ 	var conn wsConn
+ 	var err error
+-	if c.config.WebRTC {
+-		c.peer.SetRemoteSdp(node.Sdp)
+-		select {
+-		case <-c.peer.OnOfferConnected:
+-			conn = c.peer
+-		case <-time.After(time.Duration(c.config.WebRTCConnectTimeout) * time.Millisecond):
+-			return ErrConnectFailed
+-		}
+-	} else {
+-		wsAddr := (&url.URL{Scheme: "ws", Host: node.Addr}).String()
+-		dialer := &websocket.Dialer{
+-			NetDialContext: c.config.WsDialContext,
+-			Proxy:          http.ProxyFromEnvironment,
+-		}
+-		dialer.HandshakeTimeout = time.Duration(c.config.WsHandshakeTimeout) * time.Millisecond
+-
+-		conn, _, err = dialer.DialContext(c.lifecycle, wsAddr, nil)
+-		if err != nil {
+-			return err
+-		}
++	wsAddr := (&url.URL{Scheme: "ws", Host: node.Addr}).String()
++	dialer := &websocket.Dialer{
++		NetDialContext: c.config.WsDialContext,
++		Proxy:          http.ProxyFromEnvironment,
++	}
++	dialer.HandshakeTimeout = time.Duration(c.config.WsHandshakeTimeout) * time.Millisecond
++
++	conn, _, err = dialer.DialContext(c.lifecycle, wsAddr, nil)
++	if err != nil {
++		return err
+ 	}
+ 
+ 	wg.Wait()
+@@ -803,34 +791,10 @@
+ 
+ 		var err error
+ 		if node == nil {
+-			if c.config.WebRTC {
+-				c.peer = webrtc.NewPeer(c.config.StunServerAddr.Elems())
+-				if c.peer == nil {
+-					log.Println("failed to create peer")
+-					continue
+-				}
+-				err = c.peer.Offer(c.address)
+-				if err != nil {
+-					log.Println("WebRTC offer error: ", err)
+-					continue
+-				}
+-				select {
+-				case offer := <-c.peer.OnSdp:
+-					node, err = GetPeerAddrContext(c.lifecycle, c.Address(), offer, c.config)
+-					if err != nil {
+-						log.Println("GetPeerAddr error: ", err)
+-						continue
+-					}
+-				case <-time.After(time.Duration(c.config.WebRTCConnectTimeout) * time.Millisecond):
+-					log.Println("WebRTC get offer timeout")
+-					continue
+-				}
+-			} else {
+-				node, err = GetWsAddrContext(c.lifecycle, c.Address(), c.config)
+-				if err != nil {
+-					log.Println(err)
+-					continue
+-				}
++			node, err = GetWsAddrContext(c.lifecycle, c.Address(), c.config)
++			if err != nil {
++				log.Println(err)
++				continue
+ 			}
+ 		}
+ 
+--- a/third_party/nkn-sdk-go/config.go
++++ b/third_party/nkn-sdk-go/config.go
+@@ -2,6 +2,7 @@
+ 
+ import (
+ 	"context"
++	"errors"
+ 	"math/rand"
+ 	"net"
+ 	"time"
+@@ -330,6 +331,11 @@
+ 			return nil, err
+ 		}
+ 	}
++	// This isolated candidate has no WebRTC implementation or STUN dial path.
++	// Reject both explicit and inherited defaults before allocating a client.
++	if merged.WebRTC {
++		return nil, errors.New("WebRTC is unavailable in the WebSocket-only SDK candidate")
++	}
+ 	if merged.SeedRPCServerAddr.Len() == 0 {
+ 		merged.SeedRPCServerAddr = nkngomobile.NewStringArray(DefaultSeedRPCServerAddr...)
+ 	}
