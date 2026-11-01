@@ -107,6 +107,28 @@ fn fingerprint(
     Ok(mac.finalize().into_bytes().into())
 }
 impl Auth {
+    /// Authenticated ReadStatus only; no claim, write permission or promise
+    /// that a later Begin will pass its independent current gates.
+    pub fn recovery_execution_available(
+        &self,
+        request: &AuthorizedRecoveryRequest,
+    ) -> Result<bool> {
+        self.check_recovery_capability(
+            &request.capability,
+            RecoveryAction::ReadStatus,
+            &request.body,
+        )?;
+        let available = self.store.recovery_execution_available_from_trusted_auth(
+            request.capability.execution_binding().grant().clone(),
+            self.recovery_execution_fence(&request.capability)?,
+        )?;
+        self.check_recovery_capability(
+            &request.capability,
+            RecoveryAction::ReadStatus,
+            &request.body,
+        )?;
+        Ok(available)
+    }
     /// Bind the actual capability/action/body and local dedupe context. Core
     /// supplies a validated semantic target from that same body; this method
     /// does not parse a protocol, dispatch Wi-Fi, or make a one-time claim.

@@ -3,6 +3,7 @@
 //! No encryption/session framing, listener, status probe or retry is installed.
 use super::*;
 use rustsimhub_storage::RecoveryExecutionAction;
+pub(super) mod status;
 
 const QUERY_DEADLINE: Duration = Duration::from_secs(3);
 
@@ -13,6 +14,7 @@ const QUERY_DEADLINE: Duration = Duration::from_secs(3);
 pub enum RecoveryResponseV1 {
     Operation(OperationV1),
     Lookup(LookupV1),
+    Status(status::StatusV1),
 }
 #[derive(Serialize)]
 pub struct OperationV1 {
@@ -137,10 +139,30 @@ pub(super) async fn execute<B: ProvisionBackend + Send + 'static>(
     request: AuthorizedRecoveryRequest,
     factory: impl FnOnce(Arc<CoreRecoveryTrial>) -> B,
 ) -> std::result::Result<RecoveryResponseV1, RecoveryErrorV1> {
+    execute_with_status(auth, request, factory, status::NetworkStatus::default()).await
+}
+pub(super) async fn execute_with_status<
+    B: ProvisionBackend + Send + 'static,
+    S: status::StatusBackend,
+>(
+    auth: Arc<Mutex<Auth>>,
+    request: AuthorizedRecoveryRequest,
+    factory: impl FnOnce(Arc<CoreRecoveryTrial>) -> B,
+    status_backend: S,
+) -> std::result::Result<RecoveryResponseV1, RecoveryErrorV1> {
     // Only this private, actually checked capability selects the read timeout.
     // A write timeout must never cancel dispatch and then replay a new write.
-    let query = request.capability.action() == RecoveryAction::QueryOperation;
+    let action = request.capability.action();
+    let query = matches!(
+        action,
+        RecoveryAction::QueryOperation | RecoveryAction::ReadStatus
+    );
     let work = async {
+        if action == RecoveryAction::ReadStatus {
+            return status::read(auth, request, status_backend)
+                .await
+                .map(RecoveryResponseV1::Status);
+        }
         let a = auth.clone();
         let decoded = with_auth(a, move |a| recovery_body::decode_v1(a, request)).await?;
         dispatch_v1(auth, decoded, factory).await

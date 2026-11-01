@@ -35,7 +35,17 @@ struct ControlBody {
 struct LookupBody {
     target_request_id: String,
 }
-fn parse<'a, T: Deserialize<'a>>(body: &'a [u8]) -> Result<T> {
+pub(crate) fn parse<'a, T: Deserialize<'a>>(body: &'a [u8]) -> Result<T> {
+    // serde structs also accept positional JSON arrays. The application
+    // contract permits OBJECTS only; preserve the original authenticated bytes.
+    if body
+        .iter()
+        .copied()
+        .find(|b| !matches!(b, b' ' | b'\r' | b'\n' | b'\t'))
+        != Some(b'{')
+    {
+        return Err(Error::InvalidInput);
+    }
     serde_json::from_slice(body).map_err(|_| Error::InvalidInput)
 }
 fn canonical_uuid(value: &str) -> bool {

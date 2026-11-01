@@ -336,6 +336,27 @@ fn claim_locked(
     })
 }
 impl Handle {
+    /// Read-only admission snapshot, not a reservation or execution authority.
+    pub fn recovery_execution_available_from_trusted_auth(
+        &self,
+        grant: RecoveryGrant,
+        fence: RecoveryExecutionFence,
+    ) -> Result<bool> {
+        self.call(move |db| {
+            require(db)?;
+            fence.check()?;
+            let tx = db.connection.transaction()?;
+            recovery_grants::check_current(&tx, &grant)?;
+            let available = tx.query_row(
+                "SELECT COUNT(*) < 256 AND COALESCE(SUM(CASE WHEN action != 'cancel_wifi' THEN 1 ELSE 0 END),0) < 255 AND NOT EXISTS(SELECT 1 FROM recovery_execution_receipts WHERE state='unknown' OR (action='begin_wifi' AND state IN ('reserved','claimed','starting','connecting','ready','saving'))) FROM recovery_execution_receipts",
+                [], |r| r.get::<_, bool>(0),
+            )?;
+            fence.check()?;
+            tx.commit()?;
+            fence.check()?;
+            Ok(available)
+        })
+    }
     pub fn reserve_recovery_execution_from_trusted_auth(
         &self,
         input: TrustedRecoveryExecution,

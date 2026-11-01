@@ -53,6 +53,82 @@ fn lookup(h: &Handle, g: &RecoveryGrant, n: u32) -> Option<RecoveryExecutionRece
         .unwrap()
 }
 #[test]
+fn availability_is_readonly_and_blocks_reserved_claimed_unknown_and_full_capacity() {
+    let (_d, s, _o, g) = nine();
+    let h = s.handle();
+    assert!(h
+        .recovery_execution_available_from_trusted_auth(g.clone(), fence())
+        .unwrap());
+    assert!(rows(&h).is_empty());
+    let r = reserve(
+        &h,
+        input(&g, 2, RecoveryExecutionAction::BeginWifi, 7, None),
+    );
+    let before = rows(&h);
+    assert!(!h
+        .recovery_execution_available_from_trusted_auth(g.clone(), fence())
+        .unwrap());
+    assert_eq!(rows(&h), before);
+    let c = h
+        .claim_recovery_execution_from_trusted_auth(r, Some("a".repeat(64)))
+        .unwrap();
+    assert!(!h
+        .recovery_execution_available_from_trusted_auth(g.clone(), fence())
+        .unwrap());
+    h.finish_recovery_trial_from_trusted_core(&c, None, RecoveryExecutionCompletion::Unknown)
+        .unwrap();
+    assert!(!h
+        .recovery_execution_available_from_trusted_auth(g.clone(), fence())
+        .unwrap());
+    let (_d, s, _o, g) = nine();
+    let h = s.handle();
+    for n in 1..255 {
+        seed(&h, &g, n, "begin_wifi", "rejected", None);
+    }
+    assert!(h
+        .recovery_execution_available_from_trusted_auth(g.clone(), fence())
+        .unwrap());
+    seed(&h, &g, 255, "begin_wifi", "rejected", None);
+    assert!(!h
+        .recovery_execution_available_from_trusted_auth(g, fence())
+        .unwrap());
+}
+#[test]
+fn availability_requires_current_grant_fence_and_explicit_schema9() {
+    let (_d, s, o, g) = nine();
+    let h = s.handle();
+    for f in [
+        RecoveryExecutionFence::from_trusted_auth(
+            Arc::new(AtomicBool::new(false)),
+            Instant::now() + Duration::from_secs(60),
+        ),
+        RecoveryExecutionFence::from_trusted_auth(Arc::new(AtomicBool::new(true)), Instant::now()),
+    ] {
+        assert!(matches!(
+            h.recovery_execution_available_from_trusted_auth(g.clone(), f),
+            Err(Error::Forbidden)
+        ));
+    }
+    h.change_recovery_grant(
+        o,
+        g.independent_public_key,
+        g.generation,
+        request(3),
+        RecoveryChange::Revoke,
+    )
+    .unwrap();
+    assert!(matches!(
+        h.recovery_execution_available_from_trusted_auth(g, fence()),
+        Err(Error::Forbidden)
+    ));
+    let (_d, s, _o, g) = super::super::tests::seven();
+    assert!(matches!(
+        s.handle()
+            .recovery_execution_available_from_trusted_auth(g, fence()),
+        Err(Error::InvalidTransition)
+    ));
+}
+#[test]
 fn reserve_is_idempotent_conflicts_are_closed_and_claim_is_never_requeued() {
     let (_d, s, _o, g) = nine();
     let h = s.handle();

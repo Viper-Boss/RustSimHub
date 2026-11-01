@@ -274,6 +274,34 @@ fn duplicate_unknown_role_and_normal_authcommand_fields_are_rejected() {
         .is_none());
 }
 #[test]
+fn positional_arrays_are_not_the_frozen_object_bodies() {
+    let mut f = fixture(true);
+    let c = connect(&mut f);
+    let accepted = [
+        (
+            RecoveryAction::BeginWifi,
+            br#"["SYNTHETIC_NET","SYNTHETIC_PASSWORD"]"#.to_vec(),
+        ),
+        (
+            RecoveryAction::ConfirmWifi,
+            format!("[\"{}\"]", "a".repeat(64)).into_bytes(),
+        ),
+        (
+            RecoveryAction::CancelWifi,
+            format!("[\"{}\"]", "a".repeat(64)).into_bytes(),
+        ),
+        (
+            RecoveryAction::QueryOperation,
+            format!("[\"{}\"]", id(1)).into_bytes(),
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(n, (action, body))| decode(&mut f, &c, n as u8 + 1, action, &body).is_ok())
+    .collect::<Vec<_>>();
+    assert_eq!(accepted, vec![false; 4]);
+}
+#[test]
 fn malformed_json_types_utf8_truncation_and_trailing_values_fail_closed() {
     let mut f = fixture(true);
     let c = connect(&mut f);

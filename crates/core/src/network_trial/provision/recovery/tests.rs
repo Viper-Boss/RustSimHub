@@ -22,6 +22,7 @@ use std::{
 };
 use tempfile::TempDir;
 use tokio::sync::Notify;
+mod status_tests;
 mod t5_tests;
 
 static SERIAL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
