@@ -18,6 +18,23 @@ observing模式读取实际SIM/收件箱/通话观察状态，同时在Core层�
 
 先通过现有v2配对将独立NAS公钥批准为kind=nas；设备身份钥匙不复制到NAS。5分钟内重新登录的owner调用 `bind_legacy`，明确 core_id、NAS public_key、expected_generation、scopes（status.read/sms.read/calls.read的非空子集）。返回 binding_epoch；每次绑定更新epoch并清理旧NAS会话。普通客户端与owner本人不能被当作NAS。`revoke_legacy` 撤销指定映射。
 
+### 绑定结果不明时的只读核对
+
+Owner 通过同一正式 v2 HTTPS/UDS 入口调用：
+
+```json
+{"protocol":2,"id":"binding-status","command":{"op":"legacy_binding_status","token":"RECENT_OWNER_SESSION","core_id":"approved-nas"}}
+```
+
+请求只含会话和原别名，不接受公钥、权限、路径或“缺失时绑定”参数。保持最近5分钟 Owner 登录要求；普通客户端、NAS 的 v2 会话及兼容 bearer 都不能查询。兼容后端未显式配置时拒绝，不自动打开服务。
+
+- `{"known":false}`：该别名当前没有映射。账本损坏、存储错误和权限失败返回错误，不能解释成已撤销。
+- `known:true`：返回 `binding`（原 core_id/public_key/generation/binding_epoch/scopes）和独立的 `principal_current`。后者仅在原 NAS principal 仍 active、kind=nas、代次一致、当前权限覆盖绑定权限时为 true。
+- principal 已撤销或同公钥重新批准后，原记录可以仍存在，但 `principal_current:false`。查询不会把它重新绑定到新代次。
+- 查询不创建或更新 principal、映射、nonce、会话，不轮换 epoch、不延长会话，也不作废已有会话。只有显式绑定/撤销才执行对应管理动作。
+
+回复是当前映射的快照，不是某笔写操作的历史回执；调用方须核对全部预期字段，不能据此自动重提、自动认定原请求成功或归档其他在途操作。其他 Owner 若修改了同一别名，应显示实际当前结果并保留不确定记录。此接口不新增网页按钮或生产后台进程。
+
 ## 签名与会话
 
 `POST /v1/session` 原始正文只含 `core_id`，原签名仍为 method/path/原timestamp/原nonce/Base64(SHA256(body))。头部为原 X-NSH-Core-Id、Timestamp、Nonce、Signature、Device-Id，另要求：
