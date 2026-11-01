@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-01T18:02:57.924153+00:00",
+  "updated_at": "2026-11-01T18:23:32.532102+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -68,9 +68,9 @@
   },
   "focus": {
     "task_id": "NAS-02",
-    "title": "NAS原生只读桥已完成拒绝路径，继续正式授权接线",
-    "state": "主线集成继续；人工放最后",
-    "description": "固定a5df2c15组件在本机通过27项Go测试/vet并构建ARM64；实际NAS运行session和read，未批准身份与无效令牌均401/退出1/无stdout。使用已登记局域网HTTPS，TLS/Origin保持；九服务、boot、普通数据断开与转发OFF保持。未重置Owner或批准NAS，成功读取/撤销尚未验收。PR171已合并，PR169按所有者授权流程批准合并；其余草稿保留。代码开发约90%仅粗估，不能当验收比例，原81.5%及20/169不变。"
+    "title": "NAS绑定只读核对代码已合并，继续正式服务集成",
+    "state": "主线代码推进；人工验收最后",
+    "description": "新legacy_binding_status只允许近期Owner，经显式兼容provider读取当前映射及principal_current；不重绑、不轮换epoch、不发会话。固定21f4bbb的362项相关测试、真实UnixStream/SQLite拒绝与撤销/同钥再批准隔离、全仓1355通过/6项原有专用忽略、严格Clippy和ARM Core编译通过。PR172已正常合并ca24351；GitHub因付款/消费上限未启动job，不当作CI通过，无门禁/工作流修改。未签名部署，设备仍应用70；NAS正式授权读取/撤销、成员模块接线和最终人工验收继续。主线代码约90%仅粗估，原81.5%和20/169保持。"
   },
   "facts": [
     {
@@ -79,9 +79,9 @@
       "detail": "固定P0–P7；本次合并不加验收分"
     },
     {
-      "label": "NAS原生集成",
-      "value": "两项401拒绝通过",
-      "detail": "27项Go测试与ARM构建通过；正式授权读取仍待验证"
+      "label": "NAS管理主线代码",
+      "value": "绑定只读核对已合并 / PR172",
+      "detail": "1355通过/6项原有忽略；ARM通过；云端未启动、未部署"
     },
     {
       "label": "B线材料",
@@ -110,7 +110,8 @@
     "docs/VALIDATION-APP70-INSTALL-20261101.md",
     "docs/VALIDATION-ROOT-ROLE-PARITY-20261101.md",
     "docs/VALIDATION-UPDATER-ROLE-DEPLOY-20261101.md",
-    "docs/VALIDATION-NAS-NATIVE-20261102.md"
+    "docs/VALIDATION-NAS-NATIVE-20261102.md",
+    "docs/VALIDATION-NAS-BINDING-QUERY-20261102.md"
   ],
   "modules": [
     {
@@ -5466,12 +5467,25 @@
       "evidence": [
         "docs/VALIDATION-NAS-NATIVE-20261102.md"
       ]
+    },
+    {
+      "at": "2026-11-01T18:23:32.532102+00:00",
+      "type": "state",
+      "title": "NAS绑定只读核对接口已合入主线",
+      "detail": "新legacy_binding_status只允许近期Owner，经显式兼容provider读取当前映射及principal_current；不重绑、不轮换epoch、不发会话。固定21f4bbb的362项相关测试、真实UnixStream/SQLite拒绝与撤销/同钥再批准隔离、全仓1355通过/6项原有专用忽略、严格Clippy和ARM Core编译通过。PR172已正常合并ca24351；GitHub因付款/消费上限未启动job，不当作CI通过，无门禁/工作流修改。未签名部署，设备仍应用70；NAS正式授权读取/撤销、成员模块接线和最终人工验收继续。主线代码约90%仅粗估，原81.5%和20/169保持。",
+      "task_ids": [
+        "NAS-02",
+        "NAS-07"
+      ],
+      "evidence": [
+        "docs/VALIDATION-NAS-BINDING-QUERY-20261102.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "a5b89a042b5260fe157c7d1e2e7f4c802530451d",
-    "generated_at": "2026-11-01T18:02:57.924153+00:00",
+    "source_revision": "ca24351f229d126cfe6d74ec69b699fb8eb7bc10",
+    "generated_at": "2026-11-01T18:23:32.532102+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5490,15 +5504,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 53390,
-            "tests": 41705,
+            "product": 53526,
+            "tests": 41886,
             "tooling": 9922,
             "firmware": 1180
           },
-          "commits": 467,
-          "code_commits": 304,
-          "added": 112107,
-          "deleted": 3093
+          "commits": 470,
+          "code_commits": 305,
+          "added": 112432,
+          "deleted": 3097
         },
         "work": {
           "assigned_steps": 0,
@@ -5904,6 +5918,11 @@
             {
               "pr": 171,
               "head": "7076a3435ead98f320524313e2030191189a0c8f",
+              "state": "MERGED"
+            },
+            {
+              "pr": 172,
+              "head": "f5dc34b68b956ce9ea0842812d58c525f5222374",
               "state": "MERGED"
             }
           ],
@@ -6385,6 +6404,12 @@
             {
               "pr": 171,
               "head": "7076a3435ead98f320524313e2030191189a0c8f",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 172,
+              "head": "f5dc34b68b956ce9ea0842812d58c525f5222374",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
@@ -7788,8 +7813,8 @@
       "deleted": 0
     },
     "totals": {
-      "product": 63920,
-      "tests": 62360,
+      "product": 64056,
+      "tests": 62541,
       "tooling": 13811,
       "firmware": 1189
     },
