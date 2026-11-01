@@ -43,7 +43,9 @@ NM = 'org.freedesktop.NetworkManager.'
 # checkpoint rollback, plus explicit denials for Edge/Media. Do not interpret
 # arbitrary JavaScript or loosen the legacy per-action parser for this rule.
 RUST_CORE_RULE = 'etc/polkit-1/rules.d/45-rustsimhub.rules'
-RUST_CORE_RULE_SHA256 = '94a7c6b199117ba94d70aa2bb43b37a9ac77fdc89017eec4f18020e265768bbf'
+# main 7a6da18 added the forwarding user to the explicit hardware denials.
+# Pin those exact shipped bytes too; do not weaken the rule parser or audit.
+RUST_CORE_RULE_SHA256 = '1712437963bf11875e63ffce7aa74c669841e53bd25d4422f4adec87d6875f04'
 
 # --- polkit -----------------------------------------------------------------
 

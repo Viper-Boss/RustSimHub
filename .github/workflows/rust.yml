@@ -49,7 +49,9 @@ jobs:
       - name: Web Wi-Fi catalogue and explicit selection
         run: node tools/test-web-wifi.mjs
       - name: Web finite AP Wi-Fi configuration and recovery
-        run: node tools/test-web-ap-wifi.mjs
+        run: |
+          node tools/test-web-ap-wifi.mjs
+          node tools/test-web-setup.mjs
       - name: Web event catch-up and retry lifecycle
         run: node tools/test-web-event-sync.mjs
       - name: Web SMS recycle bin and uncertain writes
