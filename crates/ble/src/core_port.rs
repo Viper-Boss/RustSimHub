@@ -364,3 +364,24 @@ impl SecurePortV1 for UnixSecurePort {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+    use tokio::{io::AsyncReadExt, net::UnixListener};
+    #[tokio::test]
+    async fn same_uid_lifecycle_fixture_probes_real_socket_without_role_claims() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o2750)).unwrap();
+        let path = dir.path().join("recovery.sock");
+        let listener = UnixListener::bind(&path).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o660)).unwrap();
+        CoreEndpoint::same_uid_fixture(path).probe().await.unwrap();
+        let (mut socket, _) = listener.accept().await.unwrap();
+        assert_eq!(
+            socket.read_u8().await.unwrap_err().kind(),
+            std::io::ErrorKind::UnexpectedEof
+        );
+    }
+}
