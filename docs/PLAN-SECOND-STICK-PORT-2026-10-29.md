@@ -216,6 +216,7 @@ system 区一次成对读取中有 858 个读不稳的扇区（48 个 MiB 块）
 - program 0+34 收到 rawmode ACK；发完数据后加载器回 **NAK**，日志 “Read back verify failed at sector 1703271967, num sectors 0”。状态 `write_failed`，备份 GPT 段没有发送，tz 没有执行。
 - 只读复核：主、备 GPT 仍与原厂逐字节相同。
 - 结论：之前“回 ACK 但没写”是 SkipWrite=1 生效所致；真正允许写入时，加载器自己的写后校验失败、内容不变，读取则一直正常。这与 eMMC 已进入只读/写保护（磨损到寿）相符。按事先约定**停止对这根棒子的所有写入**。整个过程没有改动过它的任何字节。
+- UsbTool 会话补充（2026-11-01）：这个 8916 加载器不支持 getstorageinfo；eMMC 的 EXT_CSD（寿命、写保护位）需要 CMD8，标准 Firehose 不提供，只能 peek/poke 寄存器，属于只读护栏禁止的操作，不做。唯一的只读办法是在能开机的系统里读 `/sys/class/mmc_host/mmc0/mmc0:*/life_time` 和 `pre_eol_info`，但原厂系统没有 ADB、tz 已损坏，能否开机未知。10-29 那次 tz 写入也是在只读配置的连接里，因此**这根棒子从未被写入过任何内容**。
 - 建议：这根二手棒子不适合作为 #68 测试机，换一根 eMMC 正常的棒子；本方案的工具（GPT 计划生成器、固件包流程、受限写入模式）可以直接复用。可选：若 UsbTool 能只读查询 eMMC 寿命/写保护信息，可作为最终确认。
 
 ## 当前状态
