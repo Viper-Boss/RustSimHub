@@ -115,3 +115,8 @@ Viper-Boss审核、不自行合并或部署。不能用默认允许或编造prov
 | run-final/bridge-protocol-tests.log | `67353c5cee61e998a4a0ccef37e6799c9e3843d6dab3b6021c54140b9b9f5aef` |
 | run-final/production-js-projection.log | `678a7ec94f2edab5391544c2a32a9eb519c5b2e655bb8fc400aaf17c39b2bd2e` |
 | run-final/native-source-tests.log | `6008a8b365c342bcd0a4f16a262cd055420c855ec7dc2edb55df13d48186cd64` |
+
+本分支提交前正常同步最新main `a5df2c15eb377659d7b7a48d827eea6cbdeeae96`，
+其新增仅主线交接/进度/既有更新器Root部署记录；无本包源码或接口重叠。相对受测
+SHA的tools/nkn-engine及tools/nkn-build/sdk-status diff为空，执行输入hash保持；
+不因无关文档同步重复累加测试。本人未执行该主线记录中的部署。
