@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-01T18:23:32.532102+00:00",
+  "updated_at": "2026-11-01T19:00:09.502888+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -68,9 +68,9 @@
   },
   "focus": {
     "task_id": "NAS-02",
-    "title": "NAS绑定只读核对代码已合并，继续正式服务集成",
-    "state": "主线代码推进；人工验收最后",
-    "description": "新legacy_binding_status只允许近期Owner，经显式兼容provider读取当前映射及principal_current；不重绑、不轮换epoch、不发会话。固定21f4bbb的362项相关测试、真实UnixStream/SQLite拒绝与撤销/同钥再批准隔离、全仓1355通过/6项原有专用忽略、严格Clippy和ARM Core编译通过。PR172已正常合并ca24351；GitHub因付款/消费上限未启动job，不当作CI通过，无门禁/工作流修改。未签名部署，设备仍应用70；NAS正式授权读取/撤销、成员模块接线和最终人工验收继续。主线代码约90%仅粗估，原81.5%和20/169保持。"
+    "title": "NAS管理网页与条件写入已接通，继续正式集成",
+    "state": "主线代码继续；人工与视觉验收最后",
+    "description": "PR173已正常合并6fc5b81，产品来源be007a5。新增默认折叠NAS只读管理，现有首页不加测试按钮；保存/撤销带原epoch或明确缺失，Core同锁比较并执行，拒绝旧页覆盖。浏览器持久意图先于发送、跨设备已验证pin、回复丢失只查询与显式当前状态留存，不冒充原写回执。固定归档1356 Rust通过/6项原有专用忽略、27组网页、全仓严格Clippy与Core/Edge ARM通过。Chrome本地合成流程及三宽DOM检查完成；原生截图保存被工具因无法可靠确认URL终止，未继续UI，用户视觉批准未取得。云端CI因付款/消费上限未启动，不当作通过。未签名部署或操作设备，最后应用70记录保持；真实NAS授权读取与视觉/真人验收继续。主线代码约90%仅粗估，原81.5%及20/169不变。"
   },
   "facts": [
     {
@@ -79,9 +79,9 @@
       "detail": "固定P0–P7；本次合并不加验收分"
     },
     {
-      "label": "NAS管理主线代码",
-      "value": "绑定只读核对已合并 / PR172",
-      "detail": "1355通过/6项原有忽略；ARM通过；云端未启动、未部署"
+      "label": "NAS网页管理主线",
+      "value": "条件保存/撤销与核对已合并 / PR173",
+      "detail": "1356 Rust/27组网页/ARM通过；未部署，视觉批准待最后"
     },
     {
       "label": "B线材料",
@@ -111,7 +111,8 @@
     "docs/VALIDATION-ROOT-ROLE-PARITY-20261101.md",
     "docs/VALIDATION-UPDATER-ROLE-DEPLOY-20261101.md",
     "docs/VALIDATION-NAS-NATIVE-20261102.md",
-    "docs/VALIDATION-NAS-BINDING-QUERY-20261102.md"
+    "docs/VALIDATION-NAS-BINDING-QUERY-20261102.md",
+    "docs/VALIDATION-NAS-MANAGEMENT-PANEL-20261102.md"
   ],
   "modules": [
     {
@@ -5480,12 +5481,25 @@
       "evidence": [
         "docs/VALIDATION-NAS-BINDING-QUERY-20261102.md"
       ]
+    },
+    {
+      "at": "2026-11-01T19:00:09.502888+00:00",
+      "type": "state",
+      "title": "NAS网页管理与带版本保存/撤销已合入主线",
+      "detail": "PR173已正常合并6fc5b81，产品来源be007a5。新增默认折叠NAS只读管理，现有首页不加测试按钮；保存/撤销带原epoch或明确缺失，Core同锁比较并执行，拒绝旧页覆盖。浏览器持久意图先于发送、跨设备已验证pin、回复丢失只查询与显式当前状态留存，不冒充原写回执。固定归档1356 Rust通过/6项原有专用忽略、27组网页、全仓严格Clippy与Core/Edge ARM通过。Chrome本地合成流程及三宽DOM检查完成；原生截图保存被工具因无法可靠确认URL终止，未继续UI，用户视觉批准未取得。云端CI因付款/消费上限未启动，不当作通过。未签名部署或操作设备，最后应用70记录保持；真实NAS授权读取与视觉/真人验收继续。主线代码约90%仅粗估，原81.5%及20/169不变。",
+      "task_ids": [
+        "NAS-02",
+        "NAS-07"
+      ],
+      "evidence": [
+        "docs/VALIDATION-NAS-MANAGEMENT-PANEL-20261102.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "ca24351f229d126cfe6d74ec69b699fb8eb7bc10",
-    "generated_at": "2026-11-01T18:23:32.532102+00:00",
+    "source_revision": "6fc5b81b2bf775fbaceaa894dad0cef933ee92a8",
+    "generated_at": "2026-11-01T19:00:09.502888+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5504,15 +5518,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 53526,
-            "tests": 41886,
-            "tooling": 9922,
+            "product": 53826,
+            "tests": 42107,
+            "tooling": 9997,
             "firmware": 1180
           },
-          "commits": 470,
-          "code_commits": 305,
-          "added": 112432,
-          "deleted": 3097
+          "commits": 472,
+          "code_commits": 306,
+          "added": 113051,
+          "deleted": 3111
         },
         "work": {
           "assigned_steps": 0,
@@ -5923,6 +5937,11 @@
             {
               "pr": 172,
               "head": "f5dc34b68b956ce9ea0842812d58c525f5222374",
+              "state": "MERGED"
+            },
+            {
+              "pr": 173,
+              "head": "40ba3955aed46bb1dcdab9b377b102a4f8b5e007",
               "state": "MERGED"
             }
           ],
@@ -6410,6 +6429,12 @@
             {
               "pr": 172,
               "head": "f5dc34b68b956ce9ea0842812d58c525f5222374",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 173,
+              "head": "40ba3955aed46bb1dcdab9b377b102a4f8b5e007",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
@@ -6592,7 +6617,7 @@
         "stats": {
           "current_lines": {
             "product": 2772,
-            "tests": 5229,
+            "tests": 5227,
             "tooling": 2818,
             "firmware": 1
           },
@@ -7813,9 +7838,9 @@
       "deleted": 0
     },
     "totals": {
-      "product": 64056,
-      "tests": 62541,
-      "tooling": 13811,
+      "product": 64356,
+      "tests": 62760,
+      "tooling": 13886,
       "firmware": 1189
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。",
