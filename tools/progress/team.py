@@ -34,8 +34,8 @@ def classify(name):
         return None
     suffix = path.suffix.lower()
     if name.startswith(('crates/', 'native/audio-alsa/src/')) and suffix in ('.rs', '.js', '.mjs', '.html', '.css'):
-        core_test_module = name in ('crates/core/src/calls_checks.rs', 'crates/core/src/observer/checks.rs') or name.startswith('crates/core/src/observer/checks/')
-        return 'tests' if core_test_module or '/tests/' in name or path.name in ('tests.rs', 'test.rs') or path.name.endswith(('_tests.rs', '_test.rs')) else 'product'
+        test_module = name in ('crates/core/src/calls_checks.rs', 'crates/core/src/observer/checks.rs', 'crates/update/examples/indicator-resource.rs') or name.startswith('crates/core/src/observer/checks/')
+        return 'tests' if test_module or '/tests/' in name or path.name in ('tests.rs', 'test.rs') or path.name.endswith(('_tests.rs', '_test.rs')) else 'product'
     # The NAS bridge is a shipped Go client, even though its source is under
     # tools/. Count its real implementation and fixtures, not vendor sources.
     if name.startswith('tools/nas-adapter/') and suffix == '.go' and 'vendor' not in path.parts:

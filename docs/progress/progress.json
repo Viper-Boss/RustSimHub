@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-02T17:07:58.597891+00:00",
+  "updated_at": "2026-11-02T17:45:31.059043+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -68,11 +68,26 @@
   },
   "focus": {
     "task_id": "UPD-02",
-    "title": "成员非草稿已合入，继续主线固件代码",
-    "state": "4笔合并完成 · 12个草稿保留 · 人工验收最后",
-    "description": "按所有者2026-11-03指示先行批准并正常合并四笔成员非草稿PR：wnfhsj88的#178安全会话/Core媒体候选、#184受管SDK/Root候选、#187邮件queue4/worker5候选，以及yh1030的#180热点离线证据文档。#184/#187按依赖顺序改投main；#184正常接收main的快进同步后合并，无强推。最终main为0a3766d6492f7baba458fea9d896680cf09fa15d。回读四笔均merged且base=main，开放非草稿为0；12个草稿保持。本次未技术审查、未声称云端CI通过、未启用候选功能或部署。D线仍按指定归RedamancyGTW，实际提交账号与Git作者保持。 PR185已按单独明确授权合入e59dd8d，首次配网页存储修复尚未部署。更新器灯效线程耗尽修复正在本机回归，不算交付或设备验收。原验收81.5%、20/169、加权10.6%保持；主线代码约90%仅未加权粗估。"
+    "title": "新主线 ARM 程序已准备",
+    "state": "13程序 · 1485 Rust · 音频34 QEMU · 未签名",
+    "description": "PR188固定ec01c47获仅本笔明确授权后正常合并e3762ec。以该产品提交/完整源码归档06cb909c运行正式构建：1485 Rust通过、0失败、9项专用忽略；12 ARM程序和同源原生音频34 QEMU通过。13程序及6应用载荷22900497字节逐一回读。明确未签名、无epoch、不可安装；本轮没有访问设备、外发或启用成员候选服务。仅文档PR189按单笔明确授权合并6965b62，受测产品仍绑定e3762ec，不改写为文档HEAD重建。下一步先新鲜只读核对现场版本/信任/空间/兼容再准备签名，人工验收最后。 原81.5%、20/169、加权10.6%与主线代码约90%粗估保持。"
   },
   "facts": [
+    {
+      "label": "新主线正式构建",
+      "value": "1485 Rust · 12 ARM 通过",
+      "detail": "固定e3762ec/06cb909c；9专项忽略不算运行通过"
+    },
+    {
+      "label": "同源音频",
+      "value": "34 QEMU 通过",
+      "detail": "第13份ARM程序；没有声卡硬件或真人听音验收"
+    },
+    {
+      "label": "未签名应用载荷",
+      "value": "6文件 · 约22.9 MB",
+      "detail": "13程序摘要已回读；无签名、无epoch、不可安装"
+    },
     {
       "label": "本轮成员合并",
       "value": "4 / 4 已合入 main",
@@ -5692,12 +5707,50 @@
         "https://github.com/Viper-Boss/RustSimHub/pull/184",
         "https://github.com/Viper-Boss/RustSimHub/pull/187"
       ]
+    },
+    {
+      "at": "2026-11-02T17:45:31.059043+00:00",
+      "type": "state",
+      "title": "PR188按单笔明确授权正常合并",
+      "detail": "固定ec01c4796781215012cb0df8dd763140375fc4f8正常合入e3762ec9d302a23077825a7db3cc591a2d5dce39，云端41490517874两项注释明确因付款/消费上限未启动，不当CI通过。默认63/全特性64、ARM及真实Root/systemd证据保留，修复未部署。",
+      "task_ids": [
+        "UPD-01",
+        "UPD-02"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/188",
+        "docs/VALIDATION-UPDATE-INDICATOR-RESOURCE-20261102.md"
+      ]
+    },
+    {
+      "at": "2026-11-02T17:45:31.059043+00:00",
+      "type": "state",
+      "title": "新主线13份ARM程序和六载荷已准备",
+      "detail": "PR188固定ec01c47获仅本笔明确授权后正常合并e3762ec。以该产品提交/完整源码归档06cb909c运行正式构建：1485 Rust通过、0失败、9项专用忽略；12 ARM程序和同源原生音频34 QEMU通过。13程序及6应用载荷22900497字节逐一回读。明确未签名、无epoch、不可安装；本轮没有访问设备、外发或启用成员候选服务。仅文档PR189按单笔明确授权合并6965b62，受测产品仍绑定e3762ec，不改写为文档HEAD重建。下一步先新鲜只读核对现场版本/信任/空间/兼容再准备签名，人工验收最后。",
+      "task_ids": [
+        "UPD-01",
+        "UPD-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-MAINLINE-ARM-20261103.md",
+        "https://github.com/Viper-Boss/RustSimHub/pull/189"
+      ]
+    },
+    {
+      "at": "2026-11-02T17:45:31.059043+00:00",
+      "type": "state",
+      "title": "网页版Codex无设备辅助任务书可转交",
+      "detail": "已在进度源分支准备主线无设备一键回归工具包，限新tools/mainline-checks及专用报告，不接管四位成员业务实现，不改五人归属/动作分母。尚未取得执行或交付证据，不能计入完成。",
+      "task_ids": [],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/0f375e7c9671014d6eb37f78a756e4a67849b03c/docs/team/WEB-CODEX-MAINLINE-INTEGRATION-20261103.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "0a3766d6492f7baba458fea9d896680cf09fa15d",
-    "generated_at": "2026-11-02T17:07:34.812619+00:00",
+    "source_revision": "6965b626821227e4a187d66e87411b1ce09f6c6a",
+    "generated_at": "2026-11-02T17:44:31.644335+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5716,15 +5769,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 54268,
-            "tests": 43095,
+            "product": 54280,
+            "tests": 43238,
             "tooling": 10118,
             "firmware": 1180
           },
-          "commits": 494,
-          "code_commits": 316,
-          "added": 114991,
-          "deleted": 3244
+          "commits": 500,
+          "code_commits": 318,
+          "added": 115201,
+          "deleted": 3292
         },
         "work": {
           "assigned_steps": 0,
@@ -6190,6 +6243,16 @@
             {
               "pr": 186,
               "head": "deeedd79669ee3069594b66247f5ac9afc5442d6",
+              "state": "MERGED"
+            },
+            {
+              "pr": 188,
+              "head": "ec01c4796781215012cb0df8dd763140375fc4f8",
+              "state": "MERGED"
+            },
+            {
+              "pr": 189,
+              "head": "128fd4b83d6767f170bcaaf8b0f23139afd1f7b9",
               "state": "MERGED"
             }
           ],
@@ -6743,6 +6806,18 @@
             {
               "pr": 186,
               "head": "deeedd79669ee3069594b66247f5ac9afc5442d6",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 188,
+              "head": "ec01c4796781215012cb0df8dd763140375fc4f8",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 189,
+              "head": "128fd4b83d6767f170bcaaf8b0f23139afd1f7b9",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
@@ -8190,8 +8265,8 @@
       "deleted": 0
     },
     "totals": {
-      "product": 73539,
-      "tests": 70049,
+      "product": 73551,
+      "tests": 70192,
       "tooling": 14789,
       "firmware": 1189
     },
