@@ -1,5 +1,7 @@
 # D26：实际新增输入与联合故障离线矩阵
 
+后续：[正常Core信令Host交付](../deliveries/member-d-normal-remote-host.md)已补齐D25离线实现，最新24/26、剩D22/D23；本文保留原来源与23/26历史截面。生产准入/设备验收和固定80%不变。
+
 本轮完成D26**测试包提交范围**，不是生产安全验收。累计23/26离线阶段已提交，剩D22/D23/D25；固定PROGRESS-SCALE的80%不变，不修改主线台账/其他成员分工。完整源码与公开脱敏机器证据见[证据清单](member-d-sec06-evidence.json)，新远程协议见[worker v2](worker-v2.md)。
 
 实际受测native/手动/Core来源源码为`40600e2b45d203c815fc9a34ac3e0c80dd2296b5`，clean；整仓1446/0/6及严格Clippy在`d5e5c14c359b9aa406ad3ddd060143c65ba4c44d`，两者Root crate/lock完全相同，40600e2只追加native测试观察/夹具修正。之后的复现脚本/文档不改变生产Rust。标准Native默认34/0/0、显式feature42/0/0（lib31/bin11）；Root Auth118、BLE171、Core库84/主程序196、media36、wire21均在整仓真实执行，不能把子集再加进1446。

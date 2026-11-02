@@ -22,4 +22,4 @@
 
 离线重跑入口为 `native/audio-alsa/tests/run_private_turn.py`（普通cargo test不启动该显式test=false目标），pinned Dockerfile在同目录fixtures。实际客户端、正常TLS、真实Coturn4.6.1-2、UDP转发、nonce/refresh与str0m/Opus都运行；测试CA/密钥/凭据与声音是合成且仅在隔离环境，loopback构造器/协议时间推进只有cfg(test)。nonce、TLS、凭据、Core与Frame时间仍用真实独立时钟，协议定时测试以小步推进避免跳过原刷新窗口。
 
-新增worker v2的实际SO_PEERCRED、原Core媒体协议/Client和跨UID撤权见[本轮矩阵](member-d-sec06-matrix-20261102.md)；Core业务Context/PCM仍是外部替代。完整正常身份/preflight/远程信令/Root与C消费端装配、真实PCM、运营商/外网TURN/两端听音、目标板完整cgroup负载与部署尚未验证。不得仅凭本SDK测试扣除完整D25、生产Crypto准入或设备验收。
+新增worker v2的实际SO_PEERCRED、原Core媒体协议/Client和跨UID撤权见[原矩阵](member-d-sec06-matrix-20261102.md)，其业务Context/PCM为外部替代。后续[正常信令Host](normal-signaling-host.md)及[实际原Core整链证据](member-d-normal-host-evidence.json)已完成正常身份/活动呼叫/原租约→Host→实际worker的离线实现与验证，因此D25离线包已提交。Root与C正式消费端安装、真实PCM、运营商/外网TURN/两端听音、目标板完整cgroup负载、生产密码准入及部署仍未验收，不能仅凭SDK或离线提交宣称完成。

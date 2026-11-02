@@ -1,6 +1,6 @@
 # 远程媒体 worker v2（显式离线适配）
 
-承接用户批准的 #56/#132 与 #170 TURN SDK。新入口只有 native `turn-relay` feature 下的 `--serve-remote-worker CONFIG`；默认 LAN/v1 和服务材料保持。不会创建账户、安装服务、开启外网端口或给现有网页加远程开关。生产准入仍受原 DTLS `crypto-bigint` 告警、正常信令/Root登记和设备验收约束。
+承接用户批准的 #56/#132 与 #170 TURN SDK。新入口只有 native `turn-relay` feature 下的 `--serve-remote-worker CONFIG`；默认 LAN/v1 和服务材料保持。不会创建账户、安装服务、开启外网端口或给现有网页加远程开关。后续[正常信令Host](normal-signaling-host.md)已将原Core身份/活动呼叫/原租约门禁接到实际worker并隔离验证；生产准入仍受原 DTLS `crypto-bigint` 告警、正式消费端/Root登记安装和设备验收约束。
 
 生产入口使用同一份原生服务身份检查：真实/有效 UID 必须984，Root拥有的真实 NSS 必须分别把 media/edge/core 解析成984/985/986、nologin。配置经现有 private reader 读取：当前媒体UID拥有、父目录0700、文件0600、单链接、拒绝symlink/超长。固定服务端点 `/run/rustsimhub/media/remote.sock`，固定正常 Core 授权端点 `/run/rustsimhub/core/media.sock`；重用原 socket lock/inode清理，服务端0660、受保护媒体目录、真实SO_PEERCRED/有效PID，只有Edge985可请求。实际安装及IPC/audio组由主线维护，不能据BLE独立账户方案禁止正常媒体原有组。
 

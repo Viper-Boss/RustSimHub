@@ -1,0 +1,472 @@
+{
+  "schema": 1,
+  "date": "2026-11-02",
+  "scope": "D25 normal Core identity and call lease to actual forced-relay worker, offline submission",
+  "production_admitted": false,
+  "device_tested": false,
+  "reviewed_or_deployed_claimed": false,
+  "progress": {
+    "offline_stages_submitted": 24,
+    "total_stages": 26,
+    "remaining": [
+      "D22",
+      "D23"
+    ],
+    "fixed_progress_scale_percent": 80,
+    "does_not_update_main_ledger": true
+  },
+  "source": {
+    "source_head": "fc33681c9ad43cbdfab0247dac94379299ff973d",
+    "source_archive_sha256": "d11623cdfe6ca7e66fe6b1bf87ec9a05221c5b1382564cbd151c62dd44eddd00",
+    "tracked_dirty": false,
+    "runtime_and_root_head": "198597740bb11b39e8563c4e02698c7a5de0d4f1",
+    "difference_to_runtime_head": "native test helper moved into fixtures and its path updated; docs only otherwise; production Rust/manifests/locks and Root tests unchanged"
+  },
+  "root_workspace": {
+    "source_head": "198597740bb11b39e8563c4e02698c7a5de0d4f1",
+    "command": "CARGO_INCREMENTAL=0 cargo test --workspace --all-features --locked --offline",
+    "passed": 1455,
+    "failed": 0,
+    "ignored": 7,
+    "suite_count": 61,
+    "test_log_sha256": "a65985276c264a6cb021fa68323096b4c683ea56024b02a84562345dae891dad",
+    "strict_clippy_command": "CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings",
+    "strict_clippy_log_sha256": "ee845468dff7b1fcdb3e02bf7db90d5bb20e69db18835221077520cfd81989fb",
+    "default_core_check_log_sha256": "2c09ac3af39a1cb57f2e8df0f298f4b6bd9d2a235e1d23fa49df1c7243c4c095",
+    "new_core_role_ignore_executed_separately": true,
+    "other_six_ignores_claimed_executed": false,
+    "new_unique_host_test_functions": 7,
+    "source_reuse_parser_test_executions_duplicated": 2
+  },
+  "native_standard": {
+    "head": "fc33681c9ad43cbdfab0247dac94379299ff973d",
+    "steps": [
+      {
+        "name": "native-default",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--locked",
+          "--offline"
+        ],
+        "exit_code": 0,
+        "seconds": 3.55,
+        "suites": [
+          [
+            "ok",
+            "23",
+            "0",
+            "0"
+          ],
+          [
+            "ok",
+            "11",
+            "0",
+            "0"
+          ],
+          [
+            "ok",
+            "0",
+            "0",
+            "0"
+          ]
+        ]
+      },
+      {
+        "name": "native-feature",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--features",
+          "turn-relay",
+          "--locked",
+          "--offline"
+        ],
+        "exit_code": 0,
+        "seconds": 6.17,
+        "suites": [
+          [
+            "ok",
+            "31",
+            "0",
+            "0"
+          ],
+          [
+            "ok",
+            "11",
+            "0",
+            "0"
+          ],
+          [
+            "ok",
+            "0",
+            "0",
+            "0"
+          ]
+        ]
+      },
+      {
+        "name": "native-clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--all-targets",
+          "--features",
+          "turn-relay",
+          "--locked",
+          "--offline",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "exit_code": 0,
+        "seconds": 3.01,
+        "suites": []
+      },
+      {
+        "name": "sdk-manual-clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--test",
+          "turn_private_tls",
+          "--features",
+          "turn-relay",
+          "--locked",
+          "--offline",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "exit_code": 0,
+        "seconds": 0.71,
+        "suites": []
+      },
+      {
+        "name": "worker-manual-clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--test",
+          "remote_worker_private",
+          "--features",
+          "turn-relay",
+          "--locked",
+          "--offline",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "exit_code": 0,
+        "seconds": 1.29,
+        "suites": []
+      },
+      {
+        "name": "root-fmt",
+        "command": [
+          "cargo",
+          "fmt",
+          "--all",
+          "--",
+          "--check"
+        ],
+        "exit_code": 0,
+        "seconds": 1.03,
+        "suites": []
+      },
+      {
+        "name": "native-fmt",
+        "command": [
+          "cargo",
+          "fmt",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--",
+          "--check"
+        ],
+        "exit_code": 0,
+        "seconds": 0.21,
+        "suites": []
+      },
+      {
+        "name": "diff",
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "exit_code": 0,
+        "seconds": 0.0,
+        "suites": []
+      }
+    ]
+  },
+  "x86_actual_runtime": {
+    "fixture": "actual-remote-worker-v2",
+    "source_head": "198597740bb11b39e8563c4e02698c7a5de0d4f1",
+    "tracked_dirty": false,
+    "image": "sha256:cc7086fb6a0e15d17b091decd3ee96e320055059ba77f85ebd8d6739aca8d7e2",
+    "built_parent_image": null,
+    "network": "none",
+    "read_only": true,
+    "memory_limit_bytes": 134217728,
+    "pids_limit": 16,
+    "cpus": 2,
+    "matrix_tests_passed": 38,
+    "matrix_tests_ignored": 2,
+    "ignored_reason": "actual UID role runs separately in disposable image",
+    "new_worker_integration_functions": 10,
+    "duplicate_sdk_and_source_unit_tests": 28,
+    "matrix_uid": 1000,
+    "matrix_capabilities": [],
+    "uid_fixture": {
+      "actors_capabilities": [],
+      "denied_uids": [
+        984,
+        986,
+        987
+      ],
+      "fixture": "actual-different-uids-remote-worker",
+      "full_core_business_daemon": false,
+      "production_cli": {
+        "actual_root_nss": true,
+        "denied_uids": [
+          984,
+          986,
+          987
+        ],
+        "edge_uid": 985,
+        "loopback_config_rejected": true,
+        "non_test_binary": true,
+        "pcm_opened": false,
+        "sigterm_socket_removed": true,
+        "uid": 984,
+        "unknown_handle_rejected_before_network": true
+      },
+      "proofs": {
+        "core": {
+          "actual_media_peer_uid": 984,
+          "normal_authority_revoked": true,
+          "pulses": 2,
+          "redeemed": 1,
+          "uid": 986
+        },
+        "edge": {
+          "actual_core_peer_uid": 986,
+          "forced_relay_opus_both_directions": true,
+          "media_closed": 1,
+          "uid": 985
+        },
+        "media": {
+          "closed": 1,
+          "mirror_revoked": true,
+          "opened": 1,
+          "uid": 984,
+          "writes": 13
+        }
+      },
+      "synthetic_nss_only": true
+    },
+    "normal_core_fixture": {
+      "actors_effective_capabilities": 0,
+      "core": {
+        "actual_media_peer_uid": 984,
+        "call_lease_renewed_by_host": false,
+        "fake_modem_creates": 1,
+        "fake_modem_starts": 1,
+        "normal_auth_and_calls_controller": true,
+        "normal_dispatcher": true,
+        "normal_media_lease_rejected": true,
+        "original_owner_revocation": true,
+        "uid": 986
+      },
+      "core_auth_controller_media_authority_mocked": false,
+      "core_controller_architecture": "x86_64",
+      "edge": {
+        "actual_core_peer_uid": 986,
+        "credentials_exposed_by_host": false,
+        "forced_relay_opus_both_directions": true,
+        "normal_auth_and_original_call_lease": true,
+        "normal_host_non_test_library": true,
+        "owner_revocation_stops_media": true,
+        "uid": 985
+      },
+      "fixture": "actual-normal-core-signaling-turn-three-uids",
+      "media": {
+        "closed": 1,
+        "mirror_revoked": true,
+        "opened": 1,
+        "uid": 984,
+        "writes": 13
+      },
+      "media_edge_aarch64": false,
+      "physical_device": false,
+      "synthetic_external_backends": [
+        "private ModemManager DBus",
+        "PCM",
+        "normal TLS TURN registration",
+        "remote audio peer"
+      ]
+    },
+    "uid_fixture_controller_capabilities": [
+      "SETUID",
+      "SETGID",
+      "CHOWN",
+      "FOWNER"
+    ],
+    "binary_sha256": "68e6bbe6889969bf5d23ead0f6dcce79f2697df76be58f12d1a640a9cb0991aa",
+    "non_test_binary_sha256": "3787b0b18b8f95167c88c88abfa03241983c6b63c364ac2a6182750347c83456",
+    "matrix_log_sha256": "48f4a8ccd3ef2005564a8181da1ac76403ddcaa6f77307768503f52e035d7b87",
+    "uids_log_sha256": "88e0ab199091181a64f6f593bdf66dd7c93bec74794ac04ff28a76ca90780723",
+    "normal_core_log_sha256": "5044c78691500542bbcf703d08405ee3407b08c17cf5b29223ff90c17aae1b68",
+    "core_binary_sha256": "2ef79bbfa6382d1ff839fdd082b464ce547344f4d527edf9a8391d01f3ef51a3"
+  },
+  "normal_host_cancellation_negative": {
+    "before_sha256": "5f5c80e5ade12c9b105d0fc2942c094116840e7f44c0aa6c2c01211cab06c67d",
+    "exit_code": 101,
+    "expected_failed_tests": 1,
+    "fault": "only omit outer worker-connection fence during normal Core poll await",
+    "injected_sha256": "aa1f4a2dfc640991d556e74275daa48da2eb43a4c248f2d52870d0601485d92c",
+    "log_sha256": "5ab4c4f3ad54d2f59cb5a25d5a35c12b08ddb77f50c419675d828f1d21f1f178",
+    "production_tree_modified": false,
+    "source_archive_sha256": "d11623cdfe6ca7e66fe6b1bf87ec9a05221c5b1382564cbd151c62dd44eddd00",
+    "source_head": "fc33681c9ad43cbdfab0247dac94379299ff973d",
+    "test_unchanged": true
+  },
+  "arm": {
+    "source_head": "fc33681c9ad43cbdfab0247dac94379299ff973d",
+    "source_archive_sha256": "d11623cdfe6ca7e66fe6b1bf87ec9a05221c5b1382564cbd151c62dd44eddd00",
+    "tracked_dirty": false,
+    "target": "aarch64-unknown-linux-gnu",
+    "profile": "release",
+    "cpu": "cortex-a53",
+    "builder_image": "sha256:cc60839b53c00b639c109dbfd1dcaa7855d8625203bc70149ba26f770a194599",
+    "binary_bytes": 9255720,
+    "binary_sha256": "c49fadd1484afc6ba830f223a6cf545e746a8385024edf0a27d9a06a8b45df0d",
+    "build_log_sha256": "f8ec68d4f5d2e6b6bfd66f715c960dce3d670a97309db06c6b97d8cc5fa546ab",
+    "worker_matrix": {
+      "image": "sha256:167dce679c9a29712c08138a32c4bd470963c388aac9aa18fc44c3e51d0e7389",
+      "memory_limit_bytes": 134217728,
+      "pids_limit": 16,
+      "cpus": 2,
+      "network": "none",
+      "read_only": true,
+      "uid": 1000,
+      "capabilities": [],
+      "passed": 38,
+      "failed": 0,
+      "ignored": 2,
+      "log_sha256": "31557bcde7cebb7992d0c5348fd9bfa3a9f2cb457d2872430ed2e0e051d3f2f5",
+      "not_a_load_acceptance": true
+    },
+    "normal_core_composite": {
+      "image": "sha256:6beff6a7af2623f851b6380260b56ed313bc7aca95061d829496baa95899b51b",
+      "memory_limit_bytes": 134217728,
+      "pids_limit": 24,
+      "cpus": 2,
+      "network": "none",
+      "read_only": true,
+      "actors_capabilities": [],
+      "controller_capabilities": [
+        "SETUID",
+        "SETGID",
+        "CHOWN",
+        "FOWNER"
+      ],
+      "media_and_edge_architecture": "aarch64 via QEMU",
+      "core_architecture": "x86_64",
+      "original_normal_core": true,
+      "proof": {
+        "actors_effective_capabilities": 0,
+        "core": {
+          "actual_media_peer_uid": 984,
+          "call_lease_renewed_by_host": false,
+          "fake_modem_creates": 1,
+          "fake_modem_starts": 1,
+          "normal_auth_and_calls_controller": true,
+          "normal_dispatcher": true,
+          "normal_media_lease_rejected": true,
+          "original_owner_revocation": true,
+          "uid": 986
+        },
+        "core_auth_controller_media_authority_mocked": false,
+        "core_controller_architecture": "x86_64",
+        "edge": {
+          "actual_core_peer_uid": 986,
+          "credentials_exposed_by_host": false,
+          "forced_relay_opus_both_directions": true,
+          "normal_auth_and_original_call_lease": true,
+          "normal_host_non_test_library": true,
+          "owner_revocation_stops_media": true,
+          "uid": 985
+        },
+        "fixture": "actual-normal-core-signaling-turn-three-uids",
+        "media": {
+          "closed": 1,
+          "mirror_revoked": true,
+          "opened": 1,
+          "uid": 984,
+          "writes": 13
+        },
+        "media_edge_aarch64": true,
+        "physical_device": false,
+        "synthetic_external_backends": [
+          "private ModemManager DBus",
+          "PCM",
+          "normal TLS TURN registration",
+          "remote audio peer"
+        ]
+      },
+      "log_sha256": "1a038f1bf3c901806db6c9fdb9a7d44ad6e047ff93fe7406715f239fbaddd82c",
+      "product_budget_changed": false,
+      "full_arm_core_or_board_claimed": false
+    },
+    "observed_failures": [
+      {
+        "case": "combined two QEMU actors, original x86 Core and Coturn under pids=16",
+        "exit_code": 1,
+        "log_sha256": "1508a57a46b33d94df60d1fb44558d99e33c100f9b642b5ccf3c8d1495183b7f",
+        "diagnostic_log_sha256": "50d35a1b6b1cb67451983599d587c8294a00ce50a16962ade7c7f3a0558bad3a",
+        "observed": "Coturn Cannot create cli thread: Resource temporarily unavailable; composite fixture requires 24 tasks",
+        "diagnostic": "external private wrapper retained synthetic Coturn startup log; compiled ELF unchanged"
+      },
+      {
+        "case": "worker matrix overlapped with another QEMU composite container",
+        "exit_code": 101,
+        "passed": 37,
+        "failed": 1,
+        "ignored": 2,
+        "log_sha256": "0cf53cd6e460116e1d0c4b7ce3dba3ead8b34e87095aaa760d0fae9cd492c520",
+        "observed": "existing encrypted_loopback_roundtrip_and_ticket_identity_revocation self_check returned Bounds",
+        "exact_bounds_branch_localized": false,
+        "resolution": "same ELF and 128MiB/16pids/2CPU isolated serial run passed 38/0/2; no deadline/assertion changed; not a scheduling/load stability acceptance"
+      }
+    ]
+  },
+  "limits": [
+    "A production BLE session/pin/signature domain/Verifier/Sealer remains absent; D22/D23 not complete",
+    "RUSTSEC-2026-0387 inherited DTLS crypto-bigint0.5.5 and crypto review unresolved; production_admitted=false",
+    "normal consumer HTTP/NKN routing and C/Root production registration/install remain separate",
+    "external ModemManager DBus, PCM, TURN registration/CA and remote audio peer synthetic; no real call/SMS/APN/external TURN/device/listening acceptance",
+    "root baseline current main 1e5cadd9c32c6576e77f10c9e65f0eab87076098 read only; no main push/self merge/global ledger changes"
+  ],
+  "observed_native_layout_failure": {
+    "source_head": "198597740bb11b39e8563c4e02698c7a5de0d4f1",
+    "log_sha256": "2eff4bdc4fee783800f042e5a2c248049fd5f8b1d5046137177f4a3b430159a4",
+    "cause": "Cargo automatic tests discovery compiled helper as independent integration target without its parent imports/feature",
+    "fix_head": "fc33681c9ad43cbdfab0247dac94379299ff973d",
+    "fix": "move helper into fixtures, update original target module path; production Rust/manifests/locks unchanged",
+    "default_feature_expanded": false,
+    "ignore_added_to_mask_failure": false
+  }
+}

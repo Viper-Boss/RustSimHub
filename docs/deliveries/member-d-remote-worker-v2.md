@@ -1,5 +1,7 @@
 # D25实际 worker 接线与 D26 故障包交付
 
+后续：本文数字绑定原40600e2等历史来源，不覆盖原失败/边界。[正常Core信令Host交付](member-d-normal-remote-host.md)现已补齐D25离线实现，最新累计24/26、剩D22/D23；生产准入与主线/设备验收独立保留，固定80%不变。
+
 2026-11-02。原 Core 媒体协议、真实Core Client/Authority/Permit已接新显式worker v2，强制中继/实际DTLS/Opus、来源断开撤权和唯一PCM线程排空均运行。**D26离线输入/联合故障包本轮提交完成，累计23/26离线阶段已提交，剩D22/D23/D25三项；固定PROGRESS-SCALE仍80%**。不等于生产安全准入、主线审核或设备验收，不改全局台账或分母。
 
 用户已批准#56/#132离线实施。起点#170 `3b1598f2e74fb63064b0f046b1111db2b4c06d1b`；产品实现提交`d5e5c14c359b9aa406ad3ddd060143c65ba4c44d`；实际受测native/ARM/手动来源完整源码 **`40600e2b45d203c815fc9a34ac3e0c80dd2296b5`**，tracked_dirty=false。之后只有本文、SEC证据/复跑说明和隔离负例脚本，无生产Rust/lock变化。为保持同一公共native入口只在一个PR，追加回原#170，不另开重叠入口PR；最终推送完整HEAD见PR正文。

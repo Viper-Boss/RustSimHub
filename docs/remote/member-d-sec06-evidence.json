@@ -478,5 +478,15 @@
     "real Core daemon business/call state to remote worker",
     "production Root install/roles/cgroup and actual BlueZ/NM",
     "physical PCM, external TURN, real device and human two-end audio"
-  ]
+  ],
+  "follow_up": {
+    "scope": "historical SEC-06 results above retain their original source heads",
+    "normal_core_host_evidence": "member-d-normal-host-evidence.json",
+    "latest_offline_stages_submitted": 24,
+    "latest_remaining": [
+      "D22",
+      "D23"
+    ],
+    "production_admitted": false
+  }
 }

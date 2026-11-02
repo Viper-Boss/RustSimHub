@@ -18,4 +18,4 @@ close消耗本Host、只Stop对应连接，返回Unknown，不调用CallAction/H
 
 测试分两层：Core普通测试直接运行原Auth、正常登录/Store、Calls Controller、authenticated::handle及media_ipc，恶意worker transport仅用来测试host边界（不是DTLS/PCM成功证明）。专用不同UID夹具再把非测试Host API、实际正常Core上述模块、原媒体Authority和真实native worker/TLS/Coturn/ICE/DTLS/Opus连在一起，只替代外部私有ModemManager/PCM/登记和远端音频对端。正常token与CallLease是真实原Core流程产生，媒体票据不预造/不写夹具文件；原Owner存储撤权使实际媒体停止。
 
-固定IPv4服务登记、正常TLS/证书、真实selected pair、无LAN回退由现有实际SDK/worker负责。源文件的cfg(test)端点和Root同UIDparser夹具不在普通binary中；实际不同UID测试不冒充生产账户/Root安装、真实蜂窝/PCM/真人两端听音。Root三角色夹具为128MiB/16pids整体容器，不将其说成单一服务或整板生产预算验收。
+固定IPv4服务登记、正常TLS/证书、真实selected pair、无LAN回退由现有实际SDK/worker负责。源文件的cfg(test)端点和Root同UIDparser夹具不在普通binary中；实际不同UID测试不冒充生产账户/Root安装、真实蜂窝/PCM/真人两端听音。x86三角色夹具为128MiB/16pids整体容器；ARM Media/Edge双QEMU接原x86 Core的组合需128MiB/24pids，原16pids启动失败如实保留。单ARM worker矩阵仍128MiB/16pids。不将这些说成单一服务或整板生产预算/并发负载验收。[逐来源正式结果、失败及边界](member-d-normal-host-evidence.json)。
