@@ -18,6 +18,8 @@ pub mod bluez_control;
 pub mod bluez_gatt;
 #[cfg(all(target_os = "linux", feature = "bluez-peer"))]
 pub mod bluez_peer;
+#[cfg(all(target_os = "linux", feature = "core-channel-candidate"))]
+pub mod core_channel;
 pub mod framing;
 pub mod lifecycle;
 pub mod manifest;

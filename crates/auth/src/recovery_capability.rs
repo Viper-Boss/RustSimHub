@@ -119,12 +119,49 @@ pub struct RecoveryConnection {
     live: Arc<AtomicBool>,
 }
 impl RecoveryConnection {
+    #[cfg(feature = "secure-session-candidate")]
+    pub(crate) fn secure_liveness(&self) -> Arc<AtomicBool> {
+        self.live.clone()
+    }
+    #[cfg(feature = "secure-session-candidate")]
+    pub(crate) fn matches_secure_binding(&self, binding: &RecoveryProofBinding) -> bool {
+        self.is_live()
+            && self.instance == binding.instance
+            && self.nonce == binding.connection
+            && self.transport == binding.transport
+    }
+    /// Keep this armed in the async caller while ownership moves into a
+    /// queued/blocked worker. Cancellation fences the original session at once.
+    pub fn disconnect_guard(&self) -> RecoveryDisconnectGuard {
+        RecoveryDisconnectGuard {
+            live: self.live.clone(),
+            armed: true,
+        }
+    }
     /// Trusted host cancellation/disconnect fence. No Auth mutex or cleanup claim.
     pub fn invalidate(&self) {
         self.live.store(false, Ordering::Release);
     }
     pub fn is_live(&self) -> bool {
         self.live.load(Ordering::Acquire)
+    }
+}
+/// Can only invalidate an existing connection, never make one live or grant
+/// authority. No public constructor/Clone/Serde. Disarm only after real drain.
+pub struct RecoveryDisconnectGuard {
+    live: Arc<AtomicBool>,
+    armed: bool,
+}
+impl RecoveryDisconnectGuard {
+    pub fn disarm(mut self) {
+        self.armed = false;
+    }
+}
+impl Drop for RecoveryDisconnectGuard {
+    fn drop(&mut self) {
+        if self.armed {
+            self.live.store(false, Ordering::Release);
+        }
     }
 }
 impl Drop for RecoveryConnection {
@@ -231,6 +268,24 @@ impl RecoveryCapability {
 
 #[cfg(feature = "recovery-execution")]
 impl Auth {
+    pub fn prepare_recovery_response(
+        &self,
+        request: &AuthorizedRecoveryRequest,
+    ) -> Result<crate::RecoveryResponseScope> {
+        let cap = &request.capability;
+        self.check_recovery_capability(cap, cap.action(), &request.body)?;
+        let connection = self.recovery.connection.as_ref().ok_or(Error::Forbidden)?;
+        let session = connection.session.as_ref().ok_or(Error::Forbidden)?;
+        crate::RecoveryResponseScope::from_verified_parts(
+            cap.binding.clone(),
+            cap.session.clone(),
+            *cap.request_id(),
+            cap.action(),
+            cap.deadline.min(session.deadline),
+            connection.live.clone(),
+            self.store.clone(),
+        )
+    }
     /// Only after the ordinary same-Auth capability/body check. Writer receives
     /// the existing live flag and original minimum deadline, never a closure
     /// that could acquire this Auth lock or recursively call Storage.
@@ -373,14 +428,7 @@ impl Auth {
             .as_ref()
             .ok_or(Error::Forbidden)?
             .clone();
-        let binding = RecoveryProofBinding {
-            instance: self.instance.clone(),
-            device: self.public_key(),
-            connection: token.nonce,
-            transport: token.transport,
-            verifier_generation: self.recovery.generation,
-            grant: self.store.check_recovery_grant(expected)?,
-        };
+        let binding = self.current_recovery_proof_binding(token, expected)?;
         if let Some(session) = &current.session {
             if session.binding != binding {
                 return Err(Error::Forbidden);
@@ -410,6 +458,31 @@ impl Auth {
             envelope: Zeroizing::new(envelope.to_vec()),
             _permit: permit,
         })
+    }
+    /// Real same-Auth context for the candidate handshake. This produces no
+    /// capability and accepts only an already privately admitted connection.
+    pub(crate) fn current_recovery_proof_binding(
+        &self,
+        token: &RecoveryConnection,
+        expected: RecoveryGrant,
+    ) -> Result<RecoveryProofBinding> {
+        self.recovery_connection(token)?;
+        if self.recovery.verifier.is_none() {
+            return Err(Error::Forbidden);
+        }
+        Ok(RecoveryProofBinding {
+            instance: self.instance.clone(),
+            device: self.public_key(),
+            connection: token.nonce,
+            transport: token.transport,
+            verifier_generation: self.recovery.generation,
+            grant: self.store.check_recovery_grant(expected)?,
+        })
+    }
+    #[cfg(feature = "secure-session-candidate")]
+    pub(crate) fn check_secure_recovery_source(&self, token: &RecoveryConnection) -> Result<()> {
+        self.recovery_connection(token)?;
+        Ok(())
     }
     /// Short-lock phase after external verification. Stale results cannot mint authority.
     pub fn finish_recovery_verification(

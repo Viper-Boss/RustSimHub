@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Real Auth/Store gates with a synthetic external verifier, not crypto vectors.
+#[cfg(feature = "secure-session-candidate")]
+mod secure;
 use super::*;
 use ed25519_dalek::{Signer, SigningKey};
 use rustsimhub_storage::{RecoveryChange, Store};

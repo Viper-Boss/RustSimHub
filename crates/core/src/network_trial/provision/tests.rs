@@ -44,6 +44,7 @@ struct Check {
     count: AtomicUsize,
     revoke: usize,
 }
+impl ProvisionGate for Check {}
 impl Gate for Check {
     async fn check(&self) -> Result<()> {
         if self.count.fetch_add(1, Ordering::SeqCst) >= self.revoke {
@@ -98,6 +99,7 @@ async fn no_confirmation_or_failed_auth_never_persists() {
         let (tx, mut rx) = mpsc::channel(1);
         let (reply, _) = oneshot::channel();
         tx.send(Control {
+            authority: ControlAuthority::Normal,
             confirm: false,
             reply,
         })
@@ -139,6 +141,7 @@ async fn ready_and_current_owner_confirmation_is_durable_before_persistence() {
     let (tx, mut rx) = mpsc::channel(1);
     let (reply, replied) = oneshot::channel();
     tx.send(Control {
+        authority: ControlAuthority::Normal,
         confirm: true,
         reply,
     })
@@ -176,6 +179,7 @@ async fn partial_save_rolls_back_and_unproved_recovery_reports_unknown() {
         let (tx, mut rx) = mpsc::channel(1);
         let (reply, _) = oneshot::channel();
         tx.send(Control {
+            authority: ControlAuthority::Normal,
             confirm: true,
             reply,
         })
@@ -226,6 +230,7 @@ async fn failed_connection_and_revocation_before_save_only_restore() {
         let (tx, mut rx) = mpsc::channel(1);
         let (reply, _) = oneshot::channel();
         tx.send(Control {
+            authority: ControlAuthority::Normal,
             confirm: true,
             reply,
         })
@@ -283,6 +288,7 @@ async fn unconfirmed_timeout_and_revocation_after_partial_commit_restore() {
         if confirm {
             let (reply, _) = oneshot::channel();
             tx.send(Control {
+                authority: ControlAuthority::Normal,
                 confirm: true,
                 reply,
             })
@@ -364,8 +370,10 @@ async fn approved_client_trials_stay_bound_to_their_principal_and_end_on_revoke(
     let session = Session {
         id: "a".repeat(64),
         key: "once".into(),
-        principal: tool_p.clone(),
-        fingerprint: credentials().fingerprint(),
+        owner: TrialOwner::Normal {
+            principal: tool_p.clone(),
+            fingerprint: credentials().fingerprint(),
+        },
         state: Arc::new(tokio::sync::Mutex::new(State::Ready)),
         control,
         deadline: Instant::now() + DEADLINE,

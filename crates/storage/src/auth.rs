@@ -2,6 +2,61 @@
 use super::*;
 use rustsimhub_policy::{Kind, Principal, ALL_SCOPES};
 
+/// Atomic read from the real single writer. No caller-created authorization.
+#[cfg(feature = "nkn-session-candidate")]
+#[derive(Clone, PartialEq, Eq)]
+pub struct NknAuthoritySnapshot {
+    pub principal: Principal,
+    pub owner: Principal,
+    pub realm: String,
+    pub line: u64,
+}
+#[cfg(feature = "nkn-session-candidate")]
+impl Handle {
+    pub fn nkn_authority_snapshot(&self, key: [u8; 32]) -> Result<NknAuthoritySnapshot> {
+        self.call(move |db| {
+            let tx = db.connection.transaction()?;
+            let registered = principal(&tx, &key)?
+                .filter(|p| {
+                    p.active
+                        && matches!(p.kind, Kind::Owner | Kind::Client)
+                        && p.scopes != 0
+                        && p.scopes & !ALL_SCOPES == 0
+                })
+                .ok_or(Error::Forbidden)?;
+            let owners: Vec<Vec<u8>> = tx
+                .prepare(
+                    "SELECT public_key FROM principals WHERE kind='owner' AND active=1 LIMIT 2",
+                )?
+                .query_map([], |r| r.get(0))?
+                .collect::<std::result::Result<_, _>>()?;
+            if owners.len() != 1 {
+                return Err(Error::Forbidden);
+            }
+            let owner_key: [u8; 32] = owners[0]
+                .as_slice()
+                .try_into()
+                .map_err(|_| Error::Corrupt)?;
+            let owner = principal(&tx, &owner_key)?.ok_or(Error::Corrupt)?;
+            let (realm, line): (String, i64) = tx.query_row(
+                "SELECT db_epoch,line_epoch FROM meta WHERE singleton=1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )?;
+            if realm.is_empty() || line < 1 {
+                return Err(Error::Corrupt);
+            }
+            tx.commit()?;
+            Ok(NknAuthoritySnapshot {
+                principal: registered,
+                owner,
+                realm,
+                line: line as u64,
+            })
+        })
+    }
+}
+
 fn kind_text(kind: Kind) -> &'static str {
     match kind {
         Kind::Owner => "owner",

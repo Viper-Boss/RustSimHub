@@ -64,12 +64,33 @@ struct Pending {
 struct State {
     live: AtomicBool,
     until: AtomicU64,
+    #[cfg(feature = "nkn-session-candidate")]
+    fence: std::sync::OnceLock<Arc<dyn RevocationFence>>,
+}
+/// Trusted local restriction only. Adding this fence can only restrict an
+/// already issued real Permit; it cannot issue a ticket or extend its lease.
+#[cfg(feature = "nkn-session-candidate")]
+pub trait RevocationFence: Send + Sync {
+    fn is_live(&self) -> bool;
+}
+impl State {
+    fn check_live(&self) -> bool {
+        if !self.live.load(Ordering::Acquire) {
+            return false;
+        }
+        #[cfg(feature = "nkn-session-candidate")]
+        if self.fence.get().is_some_and(|f| !f.is_live()) {
+            self.live.store(false, Ordering::Release);
+            return false;
+        }
+        true
+    }
 }
 #[derive(Clone)]
 pub struct Permit(Arc<State>);
 impl Permit {
     pub fn check(&self, now: u64) -> Result<(), Error> {
-        if !self.0.live.load(Ordering::Acquire) {
+        if !self.0.check_live() {
             return Err(Error::Denied);
         }
         if now >= self.0.until.load(Ordering::Acquire) {
@@ -80,6 +101,17 @@ impl Permit {
     pub fn deadline_ms(&self, now: u64) -> Result<u64, Error> {
         self.check(now)?;
         Ok(self.0.until.load(Ordering::Acquire))
+    }
+    #[cfg(feature = "nkn-session-candidate")]
+    pub fn bind_revocation_fence(&self, fence: Arc<dyn RevocationFence>) -> Result<(), Error> {
+        if !self.0.check_live() {
+            return Err(Error::Denied);
+        }
+        self.0.fence.set(fence).map_err(|_| Error::Denied)?;
+        if !self.0.check_live() {
+            return Err(Error::Denied);
+        }
+        Ok(())
     }
 }
 /// Only a verified local core connection may feed this mirror. It never extends a lease itself.
@@ -98,6 +130,8 @@ impl RemoteAuthority {
             state: Arc::new(State {
                 live: AtomicBool::new(false),
                 until: AtomicU64::new(0),
+                #[cfg(feature = "nkn-session-candidate")]
+                fence: std::sync::OnceLock::new(),
             }),
             initialized: false,
         })
@@ -195,6 +229,8 @@ impl Authority {
         let state = Arc::new(State {
             live: AtomicBool::new(true),
             until: AtomicU64::new(deadline(current, now)?),
+            #[cfg(feature = "nkn-session-candidate")]
+            fence: std::sync::OnceLock::new(),
         });
         self.session = Some((current.clone(), state.clone()));
         Ok(Permit(state))
@@ -209,7 +245,7 @@ impl Authority {
         };
         if !current.valid(now)
             || !bound.same_binding(current)
-            || !state.live.load(Ordering::Acquire)
+            || !state.check_live()
             || now >= state.until.load(Ordering::Acquire)
         {
             self.revoke();
@@ -272,6 +308,31 @@ pub(crate) mod tests {
         let t = a.issue(c.clone(), 0).unwrap();
         let p = a.consume(t, &c, &c.peer_key, 0).unwrap();
         (a, p)
+    }
+    #[cfg(feature = "nkn-session-candidate")]
+    #[test]
+    fn added_transport_fence_restricts_actual_shared_permit_and_never_resurrects() {
+        struct Fence(Arc<AtomicBool>);
+        impl RevocationFence for Fence {
+            fn is_live(&self) -> bool {
+                self.0.load(Ordering::Acquire)
+            }
+        }
+        let (mut authority, permit) = permit();
+        let other = permit.clone();
+        let live = Arc::new(AtomicBool::new(true));
+        permit
+            .bind_revocation_fence(Arc::new(Fence(live.clone())))
+            .unwrap();
+        permit.check(1).unwrap();
+        assert!(permit
+            .bind_revocation_fence(Arc::new(Fence(live.clone())))
+            .is_err());
+        live.store(false, Ordering::Release);
+        assert!(other.check(2).is_err());
+        live.store(true, Ordering::Release);
+        assert!(authority.refresh(Some(&context()), 3).is_err());
+        assert!(permit.check(3).is_err());
     }
     #[test]
     fn ticket_is_single_use_and_bound_to_peer() {

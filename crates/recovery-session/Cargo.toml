@@ -1,0 +1,35 @@
+[package]
+name = "rustsimhub-recovery-session"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[features]
+dev-fixtures = []
+
+[[example]]
+name = "session-interop"
+path = "examples/interop.rs"
+required-features = ["dev-fixtures"]
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+# The exact evaluated feature workaround is explicit. No suite negotiation or
+# upstream crypto source patch; production activation remains a review decision.
+snow = { version = "=0.10.0", default-features = false, features = ["default-resolver", "use-curve25519", "use-aes-gcm", "use-sha2", "use-getrandom", "use-chacha20poly1305"] }
+ed25519-dalek = { version = "2.2", features = ["zeroize"] }
+sha2 = "0.10"
+zeroize = "1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "=0.3.4", features = ["wasm_js"] }
+wasm-bindgen = "=0.2.129"
+
+[dev-dependencies]
+getrandom = "0.4"
+serde_json.workspace = true
+hex = "0.4.3"

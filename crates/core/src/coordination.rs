@@ -4,23 +4,23 @@ use rustsimhub_domain::CallAction;
 use std::sync::{Arc, OnceLock};
 use tokio::sync::{OwnedRwLockReadGuard, OwnedRwLockWriteGuard, RwLock};
 #[derive(Default)]
-pub(crate) struct Coordination {
+pub struct Coordination {
     gate: Arc<RwLock<()>>,
 }
 static GLOBAL: OnceLock<Arc<Coordination>> = OnceLock::new();
-pub(crate) fn global() -> Arc<Coordination> {
+pub fn global() -> Arc<Coordination> {
     GLOBAL
         .get_or_init(|| Arc::new(Coordination::default()))
         .clone()
 }
 impl Coordination {
-    pub(crate) fn network(&self) -> Result<OwnedRwLockWriteGuard<()>, &'static str> {
+    pub fn network(&self) -> Result<OwnedRwLockWriteGuard<()>, &'static str> {
         self.gate
             .clone()
             .try_write_owned()
             .map_err(|_| "voice_mutation_inflight")
     }
-    pub(crate) fn telephony(
+    pub fn telephony(
         &self,
         action: CallAction,
     ) -> Result<Option<OwnedRwLockReadGuard<()>>, &'static str> {
