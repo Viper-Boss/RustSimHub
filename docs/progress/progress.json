@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-02T12:00:40.318546+00:00",
+  "updated_at": "2026-11-02T12:42:32.368319+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,21 +67,21 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原固件81.5%按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "AP-03",
-    "title": "首次配网记录写入与完成回执已修复",
-    "state": "本机Chrome与ARM通过；PR185待集成，真实热点未验",
-    "description": "最终76dea86/冻结10510b03修复首次设置页的存储接线：存储消失或未写入时不再发送对应网络变更，完成归档实际保留每设备最近8份元数据回执，归档/清除失败保留当前记录且不重发，损坏JSON不回显原文。41项Edge、27组网页、严格检查和ARM通过；Windows Chrome真实DOM/localStorage＋合成后端确认同ID刷新只查询、完成后1份回执、存储失效后新增网络变更0。前期合成夹具兼容问题保留，临时标签及三个监听已清理。PR185已提交未合并，云端CI41440864752因付款/消费上限未启动（两个job均0步骤）；未将仅PR183的授权扩展到本PR。未连接或部署棒子，手机真实热点验收最后。 81.5%、20/169、加权10.6%与代码约90%粗估保持。"
+    "task_id": "UPD-02",
+    "title": "正式更新器只读账本入口已安装",
+    "state": "实际运行及独立复核通过；冷启动/故障演练待验",
+    "description": "复用已合并PR183的b37af31/冻结92607555/ARM81d6aaa4，经新鲜只读预检、当前/出厂应用验签、双份旧备份和17种真实Root/flock恢复隔离场景，在600秒独立恢复保护下只持更新锁原子替换正式更新器，保持0555。实际inspect-state、再次验签及独立只读复核通过：应用71账本/信任/原选择/原boot/12单元状态及PID保持，普通数据断开、转发PID0，全局恢复预算未用，timer/service停止。没有业务重启、choose/stage/confirm、数据回滚或新网络业务。安装文档PR186正常合并102f868；诊断授权/健康四项false仍保留，不代替C-26或无人值守Root升级。真实故障回退/冷启动和人工最后。 PR185仍未合并/部署；81.5%、20/169、加权10.6%及代码约90%粗估保持。"
   },
   "facts": [
+    {
+      "label": "正式更新器",
+      "value": "只读入口已安装 · 12单元保持",
+      "detail": "原子替换；未重启业务，应用71账本保持，独立恢复timer已停"
+    },
     {
       "label": "首次配网存储",
       "value": "修复已验证 · PR185待集成",
       "detail": "41 Edge、27网页、ARM及真实Chrome存储；未部署/未做手机热点验收"
-    },
-    {
-      "label": "主线更新器",
-      "value": "PR183已合并 · 未安装",
-      "detail": "用户明确授权固定8ba6594；正常合并74bcdce，不改保护或成员PR"
     },
     {
       "label": "原固件验收",
@@ -5645,15 +5645,29 @@
         "AP-03"
       ],
       "evidence": [
-        "docs/VALIDATION-SETUP-STORAGE-GUARD-20261102.md",
+        "https://github.com/Viper-Boss/RustSimHub/blob/cdd10f58db57c0519a2758531aab09ccb5f4f234/docs/VALIDATION-SETUP-STORAGE-GUARD-20261102.md",
         "https://github.com/Viper-Boss/RustSimHub/pull/185"
+      ]
+    },
+    {
+      "at": "2026-11-02T12:41:42.794849+00:00",
+      "type": "state",
+      "title": "正式更新器只读入口实际交付",
+      "detail": "复用已合并PR183的b37af31/冻结92607555/ARM81d6aaa4，经新鲜只读预检、当前/出厂应用验签、双份旧备份和17种真实Root/flock恢复隔离场景，在600秒独立恢复保护下只持更新锁原子替换正式更新器，保持0555。实际inspect-state、再次验签及独立只读复核通过：应用71账本/信任/原选择/原boot/12单元状态及PID保持，普通数据断开、转发PID0，全局恢复预算未用，timer/service停止。没有业务重启、choose/stage/confirm、数据回滚或新网络业务。安装文档PR186正常合并102f868；诊断授权/健康四项false仍保留，不代替C-26或无人值守Root升级。真实故障回退/冷启动和人工最后。",
+      "task_ids": [
+        "UPD-01",
+        "UPD-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-UPDATER-READONLY-INSTALL-20261102.md",
+        "https://github.com/Viper-Boss/RustSimHub/pull/186"
       ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "74bcdce2f4ab6f400809b16459adf51718de7b2b",
-    "generated_at": "2026-11-02T12:00:40.318546+00:00",
+    "source_revision": "102f86825707bd50785f33afc1ad1ba5d2c10c4b",
+    "generated_at": "2026-11-02T12:42:32.368319+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5677,7 +5691,7 @@
             "tooling": 10118,
             "firmware": 1180
           },
-          "commits": 490,
+          "commits": 491,
           "code_commits": 314,
           "added": 114876,
           "deleted": 3227
@@ -6142,6 +6156,11 @@
               "pr": 185,
               "head": "cdd10f58db57c0519a2758531aab09ccb5f4f234",
               "state": "OPEN"
+            },
+            {
+              "pr": 186,
+              "head": "deeedd79669ee3069594b66247f5ac9afc5442d6",
+              "state": "MERGED"
             }
           ],
           "task_deliveries": [
@@ -6689,6 +6708,12 @@
               "pr": 185,
               "head": "cdd10f58db57c0519a2758531aab09ccb5f4f234",
               "state": "OPEN",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 186,
+              "head": "deeedd79669ee3069594b66247f5ac9afc5442d6",
+              "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
           ]
