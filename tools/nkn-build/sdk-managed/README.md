@@ -19,8 +19,10 @@ python3 tools/nkn-build/sdk-managed/build.py \
 `prepare.py` first independently verifies the complete existing source and
 three-patch chain, applies only this new before/after hash-pinned patch, and
 copies the current engine source. Existing source stages are never modified.
-`build.py` makes four whole executable builds using four fresh caches and
-compares both architectures independently. ARM compilation is not ARM execution.
+`build.py` makes eight whole SDK/Root executable builds using four fresh caches
+and compares both architectures/programs independently. ARM compilation is not
+ARM execution. `notices.py` verifies the actual whole-program license files and
+collects notices without treating them as dependency/security approval.
 
 `managed_test.go` exercises the actual SDK parser, including an observed legacy
 missing-field panic, short authenticated ciphertext/nonce rejection, explicit

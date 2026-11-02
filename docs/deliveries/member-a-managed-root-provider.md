@@ -22,7 +22,18 @@ Unknown，未伪报释放。普通 suite 中专用 Root UID 入口明确 ignored
 
 证据是自有隔离 cgroup/netns 与真实内核，不是设备/systemd/NetworkManager 验收。
 合成地址只在 network=none 命名空间；无公网 NKN/交易/真实用户业务或消息。最终
-冻结 HEAD、全套验证、哈希和 PR 回读会补充；早期工作树结果不冒充最终制品。
+冻结运行源码 `a2f1acc885919012e3c071930c72135fa44e7af1`，构建源码
+`60d149423814c14fcd4bbab04be32f095d271876`。六组件683通过/0失败/3项普通套件
+忽略，Core/Auth 全 targets/features 严格 Clippy、fmt/diff 通过。Go 实际 SDK 与
+适配37项 race、默认模块全套 race/vet 和候选 vet 通过。新 Root UID 忽略入口
+已在同一内核夹具实际执行，连同另外四个 Root 场景全部通过；实际 SDK 子进程
+十二场景另外通过。源码 tracked clean，确切二进制/Source/许可证/通告边界见
+[公开清单](../dependencies/nkn-managed-programs-candidate.json)。
+
+SDK/Root 各两架构两次独立缓存，共八次完整构建、四组比较完全一致。Root native
+3567740B/SHA256 `4c7e40c1d713f444351153b3e0293505c8c2652bda12efc70ec326b8c74018ee`；
+Root ARM3407996B/`3dced8c418293e80e2d5a8a7f8f157341eebe05927d8e0167152e40adb6ae33c`。
+Root 程序仅链接本仓库 Go 模块与标准库，nft 为单独系统工具。ARM 没有执行。
 
 后续仍推进完整 candidate Core provider/网页装配、A22 Root 采集映射、A29
 queue4/worker5/七阶段 SMTP，以及 BlueZ/WASM/CSP/PWA 和 A30。具体 review/dependency

@@ -29,11 +29,27 @@ WebSocket EOF、启动期 EOF、前后畸形及超大 WebSocket、租约过期�
 身份复用、错 generation。全部实际回收，最多一次 WebSocket，无 SDK stderr；
 三种预检拒绝的网络调用为零。没有公网、链上、设备或真实 Core 业务执行。
 
-完整 native/ARM64 两轮独立缓存构建及最终源码 HEAD/制品哈希将在冻结后补充，
-不能把早期工作树的夹具程序冒充最终制品。ARM 编译不当作 ARM 运行。
+实际运行代码提交 `fcbd46520dcaca1e241abc41ebc448e161a86bd7`，Root/Auth/Core
+提交 `a2f1acc885919012e3c071930c72135fa44e7af1`；固定构建源码
+`60d149423814c14fcd4bbab04be32f095d271876`。SDK 与 Root 各自 native/ARM64
+两轮共八次完整程序构建、四次独立缓存比较逐字节一致。SDK native11346044B/
+`e3ecb38f4552dbc9d36d2a4ca91560f35ec6d19c965b79462d1f95ed432a0fdf`，
+ARM10616956B/`e742265c286942eeff8b1cf646ab5920fe15bf6bcb76483fd4378cca4247811e`。
+Root 两架构与全部八份哈希见
+[公开完整程序清单](../dependencies/nkn-managed-programs-candidate.json)。ARM 未执行。
 
-仍需继续：真实 Root 低权账户/cgroup/固定接口出口 provider 和监督接线，Root 原租约
-对 Core admission 的证明，A29 queue4/worker5/七阶段兼容，BlueZ 与 WASM/CSP/PWA
-产品装配和 A30 组合。Root 私有启动校验与应用 IP 过滤不能代替实际 Root 策略证明。
+固定源码37项 Go/实际 SDK/race 通过，默认模块全套 race/vet 及候选 vet 通过；
+六 Rust 组件683通过/0失败/3个普通套件专用忽略。实际 SDK UID 十二场景已重跑，
+Root/Rust Auth/三引用/生产 SDK/真实 cgroup/nft 五场景已重跑，源码 tracked clean。
+源码扫描23项模块通告的受影响包均不在该两架构完整程序实际闭包，未将其视为
+模块修复或审批。v1.9 binary 扫描报告了真实 pclntab/编译闭包中不存在的 SSH
+函数，单独保留工具限制，不将输出当可达证据。实际许可证逐文件哈希匹配，保留
+[完整 notices](../nkn/managed-programs-NOTICES.txt)，16个既有外部模块加本仓库
+模块，没有新增外部模块；依赖/生产审批仍未代签。
+
+真实 Root/独立低权/cgroup/nft/原租约对 Core admission 的证明已由接续包实现，
+见 [Root 交付](member-a-managed-root-provider.md)。继续 Core 公共候选控制 provider、
+A22 采集映射、A29 queue4/worker5/七阶段兼容、BlueZ 与 WASM/CSP/PWA 装配及
+A30 组合；没有将应用 IP 过滤当作 Root 策略证明。
 没有安装账户、服务、密钥、路由或程序，没有自行合并、部署或修改全局进度；
 整体实际验收仍为 81.5%、20/169。
