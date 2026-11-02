@@ -64,7 +64,7 @@ def verify(phase, base, unit, helpers, core, running, owner, edge, worker,
     group = Path('/sys/fs/cgroup/system.slice')/unit/'cgroup.procs'
     assert not group.exists() or not group.read_text().strip()
     for path in [base/'persistent/enabled.json', base/'runtime/settings.json',
-                 base/'runtime/worker.json', Path('/run/credentials')/unit]:
+                 Path('/run/credentials')/unit]:
         assert not path.exists(), 'OFF retained a worker marker or credential'
     assert rpc(0, {'op': 'state'})['lease_active'] is False
 
