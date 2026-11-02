@@ -138,6 +138,11 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y polkitd
           sudo -n unshare --net python3 tools/test-forwarding-supervisor.py --core target/debug/rustsimhub-core --worker target/debug/rustsimhub-forwarder --managed
+      - name: Real Owner OFF during DNS TLS HTTP and late acknowledgement
+        run: |
+          for phase in dns tls http late_ack; do
+            sudo -n unshare --net python3 tools/test-forwarding-supervisor.py --core target/debug/rustsimhub-core --worker target/debug/rustsimhub-forwarder --managed --close-at "$phase"
+          done
       - name: Check production feature set
         run: cargo check -p rustsimhub-core --no-default-features --locked
       - name: Lint

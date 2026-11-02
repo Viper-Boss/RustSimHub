@@ -102,8 +102,10 @@ def credential_guards(base):
     Path(path).unlink()
 
 
-def test(core_binary, worker_binary, managed=False):
+def test(core_binary, worker_binary, managed=False, close_at=None):
     global CORE
+    assert close_at in (None, 'dns', 'tls', 'http', 'late_ack')
+    assert close_at is None or managed, 'close races require the actual Owner/PID1 path'
     if managed:
         # Reuse a real, existing non-root NSS identity. Polkit resolves the
         # caller, while the worker still uses the distinct existing nobody.
@@ -164,8 +166,8 @@ def test(core_binary, worker_binary, managed=False):
         mp = multiprocessing.get_context('fork')
         dc, dchild = mp.Pipe()
         tc, tchild = mp.Pipe()
-        servers = [mp.Process(target=fixture.dns_server, args=(dns, dchild)),
-                   mp.Process(target=fixture.tls_server, args=(tcp, tchild, str(base/'server.pem'), str(base/'server.key'), False, 1 if managed else 0))]
+        servers = [mp.Process(target=fixture.dns_server, args=(dns, dchild, 'dns' if close_at == 'dns' else None)),
+                   mp.Process(target=fixture.tls_server, args=(tcp, tchild, str(base/'server.pem'), str(base/'server.key'), False, 0 if close_at else 1 if managed else 0, False, close_at if close_at != 'dns' else None))]
         sock = str(base/'ipc/core.sock')
         context = {'core_socket': sock, 'core_uid': CORE, 'worker_uid': WORKER,
             'worker_gid': IPC, 'worker_group': IPC, 'program': str(base/'forwarder'),
@@ -316,6 +318,13 @@ def test(core_binary, worker_binary, managed=False):
             assert report()['worker_pid'] == running['worker_pid'], 'startup reconcile restarted healthy worker'
             root('reconcile')
             assert report()['worker_pid'] == running['worker_pid'], 'exact retry restarted healthy worker'
+            if close_at:
+                close_spec = importlib.util.spec_from_file_location('forwarding_close_races', ROOT/'tools/fixtures/forwarding_close_races.py')
+                close = importlib.util.module_from_spec(close_spec)
+                close_spec.loader.exec_module(close)
+                return close.verify(close_at, base, name, helpers, core, running,
+                    owner, EDGE, WORKER, dc, tc, servers, rpc, ctl, report, network,
+                    fixture.wait_for)
             core.send_signal(signal.SIGUSR1)
             fixture.wait_for(lambda: event_count() == 2, 8)
             fixture.wait_for(lambda: sum(v['state'] == 'confirmed' for v in rpc(EDGE,
@@ -484,5 +493,8 @@ if __name__ == '__main__':
     parser.add_argument('--core', required=True, type=Path)
     parser.add_argument('--worker', required=True, type=Path)
     parser.add_argument('--managed', action='store_true', help='Also test actual Core -> fixed PID1 jobs with a temporary, unique-unit polkit rule; existing non-root artifact owner required')
+    parser.add_argument('--close-at', choices=['dns', 'tls', 'http', 'late_ack'], help='Hold a real transport stage, then verify Owner OFF, durable receipts and zero worker/credential; requires --managed')
     args = parser.parse_args()
-    test(args.core.resolve(strict=True), args.worker.resolve(strict=True), args.managed)
+    result = test(args.core.resolve(strict=True), args.worker.resolve(strict=True), args.managed, args.close_at)
+    if result is not None:
+        print(json.dumps(result))

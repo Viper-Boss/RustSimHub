@@ -43,9 +43,10 @@ def wait_for(check, seconds=5):
     raise AssertionError('bounded condition did not become true')
 
 
-def dns_server(listener, control):
+def dns_server(listener, control, close_at=None):
     # Deliberately tiny test fixture codec. Production uses Hickory, not this.
     count = 0
+    assert close_at in (None, 'dns')
     listener.settimeout(0.1)
     try:
         while not control.poll():
@@ -67,6 +68,9 @@ def dns_server(listener, control):
             reply = data[:2] + struct.pack('!5H', 0x8180, 1, 1, 0, 0)
             reply += data[12:end] + b'\xc0\x0c' + struct.pack('!2HIH', 1, 1, 0, 4)
             reply += socket.inet_aton('127.0.0.1')
+            if close_at == 'dns' and count == 0:
+                control.send({'event': 'dns_waiting'})
+                assert control.poll(12) and control.recv() == 'release'
             listener.sendto(reply, peer)
             count += 1
         assert control.recv() == 'stop'
@@ -75,8 +79,9 @@ def dns_server(listener, control):
         listener.close()
 
 
-def tls_server(listener, control, cert, key, hold, response_delay=0, hold_first=False):
+def tls_server(listener, control, cert, key, hold, response_delay=0, hold_first=False, close_at=None):
     assert 0 <= response_delay <= 2  # Test-only latency, never a timeout override.
+    assert close_at in (None, 'tls', 'http', 'late_ack')
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.load_cert_chain(cert, key)
     context.minimum_version = ssl.TLSVersion.TLSv1_2
@@ -89,9 +94,12 @@ def tls_server(listener, control, cert, key, hold, response_delay=0, hold_first=
             except socket.timeout:
                 continue
             stream.settimeout(6)
+            if close_at == 'tls':
+                control.send({'event': 'tls_waiting'})
+                assert control.poll(12) and control.recv() == 'release'
             try:
                 stream = context.wrap_socket(stream, server_side=True)
-            except ssl.SSLError:
+            except (ssl.SSLError, ConnectionResetError):
                 stream.close()
                 handshake_failures += 1
                 continue
@@ -127,6 +135,23 @@ def tls_server(listener, control, cert, key, hold, response_delay=0, hold_first=
                 assert str(uuid.UUID(delivery)) == delivery and delivery not in ids
                 ids.append(delivery)
                 control.send({'event': 'posted', 'count': len(ids)})
+                if close_at in ('http', 'late_ack'):
+                    # The parent releases only AFTER the actual Owner OFF
+                    # call has returned a verified whole-cgroup stop.
+                    assert control.poll(12) and control.recv() == 'release'
+                    if close_at == 'late_ack':
+                        try:
+                            stream.sendall(b'HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n')
+                        except (ssl.SSLError, ConnectionError):
+                            pass
+                        control.send({'event': 'late_ack_attempted'})
+                    else:
+                        try:
+                            assert stream.recv(1) == b''
+                        except ssl.SSLEOFError:
+                            pass
+                        control.send({'event': 'peer_closed'})
+                    continue
                 if hold and (not hold_first or len(ids) == 1):
                     # No HTTP response: the real worker must close its owned
                     # TLS transport on termination or a hard process kill.
