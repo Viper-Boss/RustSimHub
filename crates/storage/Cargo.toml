@@ -8,6 +8,7 @@ license.workspace = true
 [features]
 recovery-grants = []
 recovery-execution = ["recovery-grants"]
+nkn-session-candidate = []
 
 [dependencies]
 rustsimhub-domain = { path = "../domain" }

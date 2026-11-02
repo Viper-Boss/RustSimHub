@@ -9,6 +9,7 @@ license.workspace = true
 recovery-grants = ["rustsimhub-storage/recovery-grants"]
 recovery-execution = ["recovery-grants", "rustsimhub-storage/recovery-execution", "dep:uuid"]
 secure-session-candidate = ["recovery-execution", "dep:rustsimhub-recovery-session"]
+nkn-session-candidate = ["rustsimhub-storage/nkn-session-candidate", "dep:rustsimhub-recovery-session"]
 
 [dependencies]
 rustsimhub-domain = { path = "../domain" }

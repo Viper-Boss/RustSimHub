@@ -41,6 +41,8 @@ pub use recovery_execution::ledger::{
 #[cfg(feature = "recovery-grants")]
 pub use recovery_grants::{RecoveryChange, RecoveryGrant};
 mod auth;
+#[cfg(feature = "nkn-session-candidate")]
+pub use auth::NknAuthoritySnapshot;
 mod calls;
 pub use calls::{
     CallEvent, CallEvents, CallIntent, CallObservation, CallOperation, CallPage, CallRequest,

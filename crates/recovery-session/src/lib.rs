@@ -236,6 +236,28 @@ impl Session {
         })();
         self.guard(result)
     }
+    /// Public canonical transcript of the actually verified peer, available
+    /// only after the encrypted binding ACK. Used by the separate NKN root-key
+    /// membership proof; never accepts a caller-supplied transcript or hash.
+    pub fn verified_peer_binding_message(&mut self, now_ms: u64) -> Result<Vec<u8>> {
+        let result = (|| {
+            self.check_time(now_ms)?;
+            if self.phase != Phase::Bound {
+                return Err(Error::State);
+            }
+            let peer = if self.role == Role::Client {
+                Role::Device
+            } else {
+                Role::Client
+            };
+            Ok(self.context.signed(
+                peer,
+                self.binding.as_ref().ok_or(Error::Context)?,
+                &self.hash,
+            ))
+        })();
+        self.guard(result)
+    }
     pub fn seal_binding(&mut self, signature: &[u8], now_ms: u64) -> Result<Vec<u8>> {
         let result = (|| {
             self.check_time(now_ms)?;

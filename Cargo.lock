@@ -2031,6 +2031,7 @@ dependencies = [
  "rustsimhub-domain",
  "rustsimhub-forwarder",
  "rustsimhub-media",
+ "rustsimhub-nkn-agent",
  "rustsimhub-policy",
  "rustsimhub-recovery-session",
  "rustsimhub-setup-ap",

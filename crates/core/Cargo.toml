@@ -26,6 +26,7 @@ recovery-grants = ["rustsimhub-auth/recovery-grants"]
 recovery-execution = ["recovery-grants", "rustsimhub-auth/recovery-execution", "dep:uuid"]
 recovery-transport = []
 secure-session-candidate = ["recovery-transport", "recovery-execution", "rustsimhub-auth/secure-session-candidate", "dep:rustsimhub-recovery-session"]
+nkn-session-candidate = ["recovery-transport", "rustsimhub-auth/nkn-session-candidate", "rustsimhub-media/nkn-session-candidate", "dep:rustsimhub-recovery-session", "dep:rustsimhub-nkn-agent"]
 
 [[test]]
 name = "recovery_secure_uid"
@@ -39,6 +40,7 @@ rustsimhub-wire = { path = "../wire" }
 rustsimhub-storage = { path = "../storage" }
 rustsimhub-auth = { path = "../auth" }
 rustsimhub-recovery-session = { path = "../recovery-session", optional = true }
+rustsimhub-nkn-agent = { path = "../nkn-agent", optional = true }
 rustsimhub-policy = { path = "../policy" }
 rustsimhub-media = { path = "../media" }
 rustsimhub-compat = { path = "../compat" }

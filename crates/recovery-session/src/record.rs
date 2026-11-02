@@ -34,6 +34,8 @@ impl TryFrom<u8> for Action {
     }
 }
 pub struct Request {
+    /// Sequence authenticated in the encrypted record header.
+    pub sequence: u64,
     pub id: [u8; 16],
     pub action: Action,
     pub body: Zeroizing<Vec<u8>>,
@@ -155,6 +157,7 @@ impl Session {
             }
             self.pending = Some(id);
             Ok(Request {
+                sequence: self.rx.checked_sub(1).ok_or(Error::Record)?,
                 id,
                 action,
                 body: Zeroizing::new(plain[17..].to_vec()),

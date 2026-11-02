@@ -1,0 +1,11 @@
+{
+  "reference": "Viper-Boss/nknguard@c32952d7586676fec10f71a30b22969cb24881f3",
+  "membership_source_sha256": "5529a125df3b0400a187eb9570c127697a6215cd12ac6fa93fe439395356cfd9",
+  "generator": "tools/nkn-build/membership-reference.go",
+  "network_byte": 5,
+  "secret_byte": 7,
+  "root_public_key": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+  "device": "nkg_eh7ddx5bksrgcytl",
+  "network": "nkgnet_aucqkbifaucqkbifaucqkbifau",
+  "proof": "e465899e6abe42da71f74688328e552aba5ce897c6448566e625ce5e8c350f5c"
+}
