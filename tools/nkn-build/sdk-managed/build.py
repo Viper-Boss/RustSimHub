@@ -37,37 +37,42 @@ def run(stage,output):
             cache=output/f'clean-cache-{round}-{arch}'
             cache.mkdir(mode=0o700)
             build_env=dict(env,GOCACHE=str(cache),GOARCH=arch)
-            binary=output/f'nkn-sdk-engine-{round}-{arch}'
-            args=['go','build','-tags=nkn_sdk_candidate','-mod=readonly','-trimpath','-buildvcs=false',
-                  '-ldflags=-s -w -buildid= -X main.sourceCommit='+head,'-o',str(binary),MODULE+'/cmd/nkn-sdk-engine']
-            with (output/f'build-{round}-{arch}.log').open('wb') as log:
-                subprocess.run(args,cwd=stage,env=build_env,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=180)
-            header=binary.read_bytes()[:20]
-            assert header[:6]==bytes([127,69,76,70,2,1]) and struct.unpack('<H',header[18:20])[0]==machine
-            assert binary.stat().st_size<32*1024*1024
-            metadata=subprocess.check_output(['go','version','-m',str(binary)],cwd=stage,env=build_env,text=True)
-            assert 'nkn_sdk_fixture' not in metadata and 'nkn_sdk_candidate' in metadata
-            (output/f'build-info-{round}-{arch}.txt').write_text(metadata)
-            closure=subprocess.check_output(['go','list','-deps','-mod=readonly','-tags=nkn_sdk_candidate',
-                '-f','{{if .Module}}{{.Module.Path}}@{{.Module.Version}}{{end}}',MODULE+'/cmd/nkn-sdk-engine'],cwd=stage,env=build_env,text=True)
-            closure=sorted(set(closure.split())-set(['@']))
-            assert not any('pion/' in x or x.startswith('golang.org/x/net@') for x in closure)
-            (output/f'modules-{round}-{arch}.json').write_text(json.dumps(closure,indent=2)+'\n')
-            if arch=='amd64':
-                version=json.loads(subprocess.check_output([str(binary),'--version'],timeout=3))
-                assert version['nkn_sdk_linked'] and version['root_launch_required'] and not version['isolated_fixture_build'] and version['source_commit']==head
-            rows.append({'round':round,'architecture':arch,'bytes':binary.stat().st_size,'sha256':sha(binary),
-                         'elf_machine':machine,'modules':len(closure),'version_executed':arch=='amd64','network_executed':False})
+            for program in ['nkn-sdk-engine','nkn-root']:
+                binary=output/f'{program}-{round}-{arch}'
+                link='-s -w -buildid='
+                if program=='nkn-sdk-engine':link+=' -X main.sourceCommit='+head
+                args=['go','build','-tags=nkn_sdk_candidate','-mod=readonly','-trimpath','-buildvcs=false',
+                      '-ldflags='+link,'-o',str(binary),MODULE+'/cmd/'+program]
+                with (output/f'build-{program}-{round}-{arch}.log').open('wb') as log:
+                    subprocess.run(args,cwd=stage,env=build_env,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=180)
+                header=binary.read_bytes()[:20]
+                assert header[:6]==bytes([127,69,76,70,2,1]) and struct.unpack('<H',header[18:20])[0]==machine
+                assert binary.stat().st_size<32*1024*1024
+                metadata=subprocess.check_output(['go','version','-m',str(binary)],cwd=stage,env=build_env,text=True)
+                assert 'nkn_sdk_fixture' not in metadata and 'nkn_sdk_candidate' in metadata
+                (output/f'build-info-{program}-{round}-{arch}.txt').write_text(metadata)
+                closure=subprocess.check_output(['go','list','-deps','-mod=readonly','-tags=nkn_sdk_candidate',
+                    '-f','{{if .Module}}{{.Module.Path}}@{{.Module.Version}}{{end}}',MODULE+'/cmd/'+program],cwd=stage,env=build_env,text=True)
+                closure=sorted(set(closure.split())-set(['@']))
+                assert not any('pion/' in x or x.startswith('golang.org/x/net@') for x in closure)
+                (output/f'modules-{program}-{round}-{arch}.json').write_text(json.dumps(closure,indent=2)+'\n')
+                executed=arch=='amd64' and program=='nkn-sdk-engine'
+                if executed:
+                    version=json.loads(subprocess.check_output([str(binary),'--version'],timeout=3))
+                    assert version['nkn_sdk_linked'] and version['root_launch_required'] and not version['isolated_fixture_build'] and version['source_commit']==head
+                rows.append({'program':program,'round':round,'architecture':arch,'bytes':binary.stat().st_size,'sha256':sha(binary),
+                             'elf_machine':machine,'modules':len(closure),'version_executed':executed,'network_executed':False})
             # Remove only this builder's newly created regenerable cache, never
             # module sources, old proof logs, unrelated outputs or the stage.
             assert cache.parent==output and cache.name.startswith('clean-cache-')
             shutil.rmtree(cache)
-    for arch in ['amd64','arm64']:
-        pair=[r for r in rows if r['architecture']==arch]
-        assert pair[0]['sha256']==pair[1]['sha256'],arch+' independent build mismatch'
+    for program in ['nkn-sdk-engine','nkn-root']:
+        for arch in ['amd64','arm64']:
+            pair=[r for r in rows if r['architecture']==arch and r['program']==program]
+            assert pair[0]['sha256']==pair[1]['sha256'],program+arch+' independent build mismatch'
     assert inputs=={str(p.relative_to(stage)):sha(p) for p in stage.rglob('*') if p.is_file()}
     (output/'report.json').write_text(json.dumps({'format':1,'source_head':head,'stage_sha256':inputs,
-        'artifacts':rows,'independent_cache_comparisons':2,'arm_executed':False,'production_enabled':False},indent=2)+'\n')
+        'artifacts':rows,'independent_cache_comparisons':4,'arm_executed':False,'production_enabled':False},indent=2)+'\n')
     print(json.dumps(rows))
 
 
