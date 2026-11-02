@@ -3,6 +3,8 @@
 //! Audio primitives, with no network listener, filesystem recording or hardware discovery.
 pub mod addresses;
 mod authorization;
+#[cfg(feature = "nkn-session-candidate")]
+pub use authorization::RevocationFence;
 pub use authorization::{Authority, Context, Permit, RemoteAuthority, Ticket};
 #[cfg(target_os = "linux")]
 pub mod local;

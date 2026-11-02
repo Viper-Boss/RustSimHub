@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Executable failure samples for the A-29 proposal, NOT an SMTP sender.
 //! Exercises the current public production interfaces without network access.
-#![cfg(target_os = "linux")]
+#![cfg(all(target_os = "linux", not(feature = "smtp-production-candidate")))]
 
 use rustsimhub_domain::LineEpoch;
 use rustsimhub_forwarder::{

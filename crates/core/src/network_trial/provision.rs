@@ -12,10 +12,10 @@ use zeroize::Zeroizing;
 static ENABLED: OnceLock<bool> = OnceLock::new();
 static ACTIVE: tokio::sync::Mutex<Option<Session>> = tokio::sync::Mutex::const_new(None);
 const DEADLINE: Duration = Duration::from_secs(40);
-pub(crate) fn enabled() -> bool {
+pub fn enabled() -> bool {
     ENABLED.get() == Some(&true)
 }
-pub(crate) fn enable(path: &Path) -> Result<()> {
+pub fn enable(path: &Path) -> Result<()> {
     super::enable(path)?;
     ENABLED.set(true).map_err(|_| Error::Forbidden)
 }
@@ -51,11 +51,20 @@ impl Credentials {
         h.finalize().into()
     }
 }
+enum TrialOwner {
+    Normal {
+        principal: Principal,
+        fingerprint: [u8; 32],
+    },
+    #[cfg(feature = "recovery-execution")]
+    Recovery(Arc<crate::recovery_body::CoreRecoveryTrial>),
+    #[cfg(feature = "recovery-execution")]
+    RecoveryClosed,
+}
 struct Session {
     id: String,
     key: String,
-    principal: Principal,
-    fingerprint: [u8; 32],
+    owner: TrialOwner,
     state: Arc<tokio::sync::Mutex<State>>,
     control: mpsc::Sender<Control>,
     deadline: Instant,
@@ -64,20 +73,29 @@ impl Session {
     /// Only the exact principal (key, kind, scopes, generation) that began a trial may see or
     /// steer it; an owner and an approved client never reach each other's trial.
     fn owned_by(&self, id: &str, p: &Principal) -> Result<()> {
-        if self.id != id || self.principal != *p {
+        if self.id != id || !matches!(&self.owner,TrialOwner::Normal{principal,..} if principal==p)
+        {
             return Err(Error::Forbidden);
         }
         Ok(())
     }
     /// A reused idempotency key replays only for the same principal and the same input.
     fn replays(&self, p: &Principal, fingerprint: &[u8; 32]) -> Result<()> {
-        if self.principal != *p || self.fingerprint != *fingerprint {
+        if !matches!(&self.owner,TrialOwner::Normal{principal,fingerprint:original} if principal==p && original==fingerprint)
+        {
             return Err(Error::Forbidden);
         }
         Ok(())
     }
 }
+enum ControlAuthority {
+    Normal,
+    Shutdown,
+    #[cfg(feature = "recovery-execution")]
+    Recovery(Arc<rustsimhub_auth::RecoveryTrialControl>),
+}
 struct Control {
+    authority: ControlAuthority,
     confirm: bool,
     reply: oneshot::Sender<State>,
 }
@@ -169,24 +187,67 @@ trait ProvisionBackend {
     fn commit(&mut self, c: &Credentials) -> impl std::future::Future<Output = Result<()>> + Send;
     fn rollback(&mut self) -> impl std::future::Future<Output = Result<()>> + Send;
 }
+trait ProvisionGate: Gate {
+    async fn check_control(&self, authority: &ControlAuthority, confirm: bool) -> Result<()> {
+        match authority {
+            ControlAuthority::Normal => {
+                if confirm {
+                    self.check().await
+                } else {
+                    Ok(())
+                }
+            }
+            ControlAuthority::Shutdown if !confirm => Ok(()),
+            _ => Err(Error::Forbidden),
+        }
+    }
+}
+impl ProvisionGate for ManagerGate {}
+trait TrialAudit: Sync {
+    fn limit(&self) -> Duration;
+    fn deadline(&self) -> Instant {
+        Instant::now() + self.limit()
+    }
+    async fn progress(&self, _: State) -> Result<()> {
+        Ok(())
+    }
+    async fn confirm_control(&self, id: &str, authority: &ControlAuthority) -> Result<()>;
+    async fn finish_trial(&self, state: State, authority: Option<&ControlAuthority>) -> Result<()>;
+    async fn retain_unknown(&self) {}
+}
+impl TrialAudit for Audit {
+    fn limit(&self) -> Duration {
+        self.limit
+    }
+    async fn confirm_control(&self, id: &str, _: &ControlAuthority) -> Result<()> {
+        self.confirm(id)
+    }
+    async fn finish_trial(&self, state: State, _: Option<&ControlAuthority>) -> Result<()> {
+        self.finish(state)
+    }
+}
 async fn run_trial(
     b: &mut impl ProvisionBackend,
-    g: &impl Gate,
+    g: &impl ProvisionGate,
     c: Credentials,
     id: &str,
-    a: &Audit,
+    a: &impl TrialAudit,
     state: &tokio::sync::Mutex<State>,
     rx: &mut mpsc::Receiver<Control>,
 ) {
     let mut terminal = State::Unknown;
     let mut pending_reply = None;
-    let outcome = timeout(a.limit, async {
+    let mut pending_authority = None;
+    let outcome = tokio::time::timeout_at(tokio::time::Instant::from_std(a.deadline()), async {
         g.check().await?;
+        a.progress(State::Starting).await?;
         b.start(&c, id).await?;
+        a.progress(State::Connecting).await?;
         *state.lock().await = State::Connecting;
         loop {
             g.check().await?;
             let ready = b.ready().await?;
+            a.progress(if ready { State::Ready } else { State::Connecting }).await?;
             *state.lock().await = if ready {
                 State::Ready
             } else {
@@ -196,13 +257,15 @@ async fn run_trial(
                 message=rx.recv()=>{
                     let Some(control)=message else { return Ok(false); };
                     pending_reply=Some(control.reply);
-                    if !control.confirm { return Ok(false); }
+                    pending_authority=Some(control.authority);
+                    let authority=pending_authority.as_ref().ok_or(Error::Forbidden)?;
+                    if !control.confirm { g.check_control(authority,false).await?; return Ok(false); }
                     if !ready { return Err(Error::Forbidden); }
-                    g.check().await?;
-                    a.confirm(id)?;
+                    g.check_control(authority,true).await?;
+                    a.confirm_control(id,authority).await?;
                     *state.lock().await=State::Saving;
                     b.commit(&c).await?;
-                    g.check().await?;
+                    g.check_control(authority,true).await?;
                     return Ok(true);
                 }
                 _=tokio::time::sleep(Duration::from_millis(150))=>{}
@@ -221,15 +284,19 @@ async fn run_trial(
             }
         }
     }
-    if a.finish(terminal).is_err() {
+    if a.finish_trial(terminal, pending_authority.as_ref())
+        .await
+        .is_err()
+    {
         terminal = State::Unknown;
+        a.retain_unknown().await;
     }
     *state.lock().await = terminal;
     if let Some(reply) = pending_reply {
         let _ = reply.send(terminal);
     }
 }
-pub(crate) async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> Result<Value> {
+pub async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> Result<Value> {
     if !enabled() {
         return Err(Error::Forbidden);
     }
@@ -282,8 +349,10 @@ pub(crate) async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> 
             let session = Session {
                 id: id.clone(),
                 key: idempotency_key,
-                principal: p.clone(),
-                fingerprint: credentials.fingerprint(),
+                owner: TrialOwner::Normal {
+                    principal: p.clone(),
+                    fingerprint: credentials.fingerprint(),
+                },
                 state: state.clone(),
                 control: tx,
                 deadline,
@@ -349,18 +418,25 @@ async fn control(
         (s.control.clone(), s.deadline)
     };
     let (reply, rx) = oneshot::channel();
-    tx.try_send(Control { confirm, reply })
-        .map_err(|_| Error::Busy)?;
+    tx.try_send(Control {
+        authority: ControlAuthority::Normal,
+        confirm,
+        reply,
+    })
+    .map_err(|_| Error::Busy)?;
     let state = timeout(Duration::from_secs(8), rx)
         .await
         .map_err(|_| Error::Busy)?
         .map_err(|_| Error::Busy)?;
     Ok(view(&id, state, deadline))
 }
-pub(crate) async fn shutdown() {
+pub async fn shutdown() {
     if !enabled() {
         return;
     }
+    stop_active().await;
+}
+async fn stop_active() {
     let tx = {
         let active = ACTIVE.lock().await;
         active.as_ref().map(|s| s.control.clone())
@@ -368,6 +444,7 @@ pub(crate) async fn shutdown() {
     if let Some(tx) = tx {
         let (reply, rx) = oneshot::channel();
         let _ = tx.try_send(Control {
+            authority: ControlAuthority::Shutdown,
             confirm: false,
             reply,
         });
@@ -445,6 +522,8 @@ fn settings(c: &Credentials, id: &str, confirmed: bool) -> Result<Settings> {
 }
 #[derive(Default)]
 struct NmProvision {
+    #[cfg(feature = "recovery-execution")]
+    recovery: Option<Arc<crate::recovery_body::CoreRecoveryTrial>>,
     nm: Option<NetworkManager>,
     base: Option<Snapshot>,
     cp: Option<OwnedObjectPath>,
@@ -520,7 +599,15 @@ impl ProvisionBackend for NmProvision {
         self.id = id.into();
         self.ssid = c.ssid.as_bytes().to_vec();
         let nm = self.nm.as_ref().ok_or(Error::Io)?;
-        self.base = Some(nm.snapshot_inner(true).await?);
+        #[cfg(feature = "recovery-execution")]
+        let base = if let Some(trial) = &self.recovery {
+            nm.snapshot_recovery(trial).await?
+        } else {
+            nm.snapshot_inner(true).await?
+        };
+        #[cfg(not(feature = "recovery-execution"))]
+        let base = nm.snapshot_inner(true).await?;
+        self.base = Some(base);
         let b = self.base.as_ref().ok_or(Error::Io)?;
         nm.cellular_autoconnect_absent(&b.owner).await?;
         nm.fence(b).await?;
@@ -797,3 +884,8 @@ impl ProvisionBackend for NmProvision {
 }
 #[cfg(test)]
 mod tests;
+
+#[cfg(feature = "recovery-execution")]
+mod recovery;
+#[cfg(feature = "recovery-execution")]
+pub use recovery::{recovery, recovery_v1, RecoveryErrorV1, RecoveryReply, RecoveryResponseV1};

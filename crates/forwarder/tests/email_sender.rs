@@ -955,3 +955,233 @@ async fn actual_auth_extension_after_greeting_remains_usable() {
     assert!(seen.auth_matches && seen.complete);
     assert_eq!(seen.commands, ["EHLO", "AUTH", "MAIL", "RCPT", "DATA"]);
 }
+
+#[cfg(feature = "smtp-production-candidate")]
+mod product {
+    use super::*;
+    use rustsimhub_forwarder::{
+        smtp_candidate::{ConfirmationV1, DeliveryOutcomeV1, EmailTls, PreparedDeliveryV1, Sender},
+        worker_ipc, Claim, Destination, Fence, Policy, Queue, Rule, Stage, Target,
+    };
+    use std::os::unix::fs::PermissionsExt;
+    struct ProductFence {
+        digest: [u8; 32],
+        stages: Vec<Stage>,
+        deny: Option<Stage>,
+    }
+    impl Fence for ProductFence {
+        async fn check(&mut self, stage: Stage, claim: &Claim) -> rustsimhub_forwarder::Result<()> {
+            assert_eq!(worker_ipc::claim_sha256(claim).unwrap(), self.digest);
+            if claim.stages().get(self.stages.len()) != Some(&stage) {
+                return Err(Error::Forbidden);
+            }
+            self.stages.push(stage);
+            if self.deny == Some(stage) {
+                Err(Error::Forbidden)
+            } else {
+                Ok(())
+            }
+        }
+    }
+    fn queued() -> (tempfile::TempDir, Queue, Claim) {
+        let d = tempfile::tempdir().unwrap();
+        std::fs::set_permissions(d.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        let binding = Binding {
+            device_key: [1; 32],
+            owner_key: [2; 32],
+            owner_generation: 1,
+            realm: ID.into(),
+        };
+        let mut queue = Queue::open(d.path(), binding.clone()).unwrap();
+        let target = Target {
+            id: ATTEMPT.into(),
+            destination: Destination::Email {
+                smtp_host: Secret::new("localhost".into()),
+                port: 465,
+                tls: EmailTls::Implicit,
+                username: Secret::new("SYNTHETIC_USER".into()),
+                password: Secret::new("SYNTHETIC_PASSWORD".into()),
+                mail_from: Secret::new("sender@example.invalid".into()),
+                rcpt_to: Secret::new("recipient@example.invalid".into()),
+            },
+        };
+        let policy = Policy {
+            enabled: true,
+            targets: vec![target],
+            rules: vec![Rule {
+                id: ID.into(),
+                targets: vec![ATTEMPT.into()],
+                sender_equals: None,
+                body_contains: None,
+                line: None,
+                share: Share::Notice,
+                conditions: None,
+            }],
+        };
+        queue
+            .configure(
+                &binding,
+                0,
+                ID,
+                policy,
+                rustsimhub_domain::InboxCursor {
+                    db_epoch: ID.into(),
+                    seq: "0".into(),
+                },
+            )
+            .unwrap();
+        let mut sms = message("SYNTHETIC_PRIVATE_BODY 123456");
+        sms.timestamp = "SYNTHETIC_UNTRUSTED_SMS_TIME\r\nX-Header: ignored as header".into();
+        queue
+            .ingest(
+                &binding,
+                1,
+                rustsimhub_domain::InboxCursor {
+                    db_epoch: ID.into(),
+                    seq: "1".into(),
+                },
+                Some(&sms),
+            )
+            .unwrap();
+        let claim = queue.claim(&binding, 1, LineEpoch(2)).unwrap().unwrap();
+        (d, queue, claim)
+    }
+    #[tokio::test]
+    async fn actual_queue_claim_dispatches_original_smtp_sender_and_seven_real_claim_fences() {
+        for mode in [Mode::Success, Mode::DropAfterData, Mode::AuthReject] {
+            let server = Server::start(mode, "localhost").await;
+            let (_d, mut queue, claim) = queued();
+            let raw = zeroize::Zeroizing::new(serde_json::to_vec(&claim).unwrap());
+            let claim: Claim = serde_json::from_slice(&raw).unwrap();
+            assert!(matches!(claim.request, PreparedDeliveryV1::Smtp { .. }));
+            let mut fence = ProductFence {
+                digest: worker_ipc::claim_sha256(&claim).unwrap(),
+                stages: vec![],
+                deny: None,
+            };
+            let mut connector = LocalConnector {
+                address: server.address,
+                calls: 0,
+            };
+            let (_tx, rx) = watch::channel(false);
+            let outcome = Sender::new(vec![server.certificate.clone()])
+                .unwrap()
+                .deliver(&claim, &mut connector, &mut fence, rx)
+                .await;
+            outcome.validate_claim(&claim).unwrap();
+            assert_eq!(
+                outcome,
+                match mode {
+                    Mode::Success => DeliveryOutcomeV1::Confirmed {
+                        confirmation: ConfirmationV1::Smtp { code: 250 }
+                    },
+                    Mode::DropAfterData => DeliveryOutcomeV1::Unknown {
+                        observed: None,
+                        reason: Failure::Protocol
+                    },
+                    Mode::AuthReject => DeliveryOutcomeV1::NotSubmitted {
+                        reason: Failure::Unconfirmed
+                    },
+                    _ => unreachable!(),
+                }
+            );
+            queue
+                .finish(&claim.binding, &claim, outcome.queue_state())
+                .unwrap();
+            assert_eq!(connector.calls, 1);
+            assert_eq!(fence.stages, claim.stages()[..fence.stages.len()]);
+            if mode != Mode::AuthReject {
+                assert_eq!(fence.stages.len(), 7);
+            }
+            server.closed().await;
+            assert!(queue
+                .claim(&claim.binding, 1, LineEpoch(2))
+                .unwrap()
+                .is_none());
+            if mode == Mode::Success {
+                let seen = server.seen.lock().unwrap();
+                assert!(
+                    !String::from_utf8_lossy(&seen.data).contains("SYNTHETIC_UNTRUSTED_SMS_TIME")
+                );
+                assert_eq!(seen.commands, ["EHLO", "AUTH", "MAIL", "RCPT", "DATA"]);
+            }
+        }
+    }
+    #[tokio::test]
+    async fn each_product_fence_can_revoke_before_its_command_without_reconnect_or_body() {
+        let (_d, _q, claim) = queued();
+        for stage in claim.stages() {
+            let server = Server::start(Mode::Success, "localhost").await;
+            let mut fence = ProductFence {
+                digest: worker_ipc::claim_sha256(&claim).unwrap(),
+                stages: vec![],
+                deny: Some(*stage),
+            };
+            let mut connector = LocalConnector {
+                address: server.address,
+                calls: 0,
+            };
+            let (_tx, rx) = watch::channel(false);
+            let outcome = Sender::new(vec![server.certificate.clone()])
+                .unwrap()
+                .deliver(&claim, &mut connector, &mut fence, rx)
+                .await;
+            assert_eq!(
+                outcome,
+                if *stage == Stage::BeforeSubmit {
+                    DeliveryOutcomeV1::Unknown {
+                        observed: None,
+                        reason: Failure::Denied,
+                    }
+                } else {
+                    DeliveryOutcomeV1::NotSubmitted {
+                        reason: Failure::Denied,
+                    }
+                }
+            );
+            assert!(server.seen.lock().unwrap().data.is_empty());
+            assert!(connector.calls <= 1);
+            assert_eq!(fence.stages.last(), Some(stage));
+            let forbidden = match stage {
+                Stage::BeforeSmtpAuth => Some("AUTH"),
+                Stage::BeforeSmtpMailFrom => Some("MAIL"),
+                Stage::BeforeSmtpRcptTo => Some("RCPT"),
+                Stage::BeforeSmtpData => Some("DATA"),
+                _ => None,
+            };
+            if let Some(command) = forbidden {
+                assert!(!server
+                    .seen
+                    .lock()
+                    .unwrap()
+                    .commands
+                    .iter()
+                    .any(|c| c == command));
+            }
+        }
+    }
+    #[test]
+    fn tagged_confirmation_and_mixed_transport_cannot_be_promoted_or_downgraded() {
+        let (_d, _q, claim) = queued();
+        assert!(DeliveryOutcomeV1::Confirmed {
+            confirmation: ConfirmationV1::Http { status: 250 }
+        }
+        .validate_claim(&claim)
+        .is_err());
+        assert!(DeliveryOutcomeV1::Confirmed {
+            confirmation: ConfirmationV1::Smtp { code: 251 }
+        }
+        .validate_claim(&claim)
+        .is_err());
+        let raw = serde_json::json!({"protocol":4,"id":ID,"command":{"op":"state"}});
+        assert!(worker_ipc::parse(&serde_json::to_vec(&raw).unwrap()).is_err());
+        let mut value = serde_json::to_value(&claim).unwrap();
+        value["request"]["url"] = serde_json::json!("https://example.invalid");
+        assert!(serde_json::from_value::<Claim>(value).is_err());
+        let fingerprint = worker_ipc::claim_sha256(&claim).unwrap();
+        let mut value = serde_json::to_value(&claim).unwrap();
+        value["binding"]["owner_generation"] = serde_json::json!(2);
+        let changed: Claim = serde_json::from_value(value).unwrap();
+        assert_ne!(worker_ipc::claim_sha256(&changed).unwrap(), fingerprint);
+    }
+}

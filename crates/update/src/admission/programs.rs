@@ -333,3 +333,115 @@ fn capture(bytes: &[u8], uid: u32) -> Result<Vec<u8>> {
 
 #[cfg(test)]
 mod tests;
+
+/// Explicit format3 maintenance, separate from staging or normal startup.
+/// Installed trust and the locked confirmed slot produce all role facts; no
+/// caller-supplied runtime JSON or report is accepted as a migration proof.
+#[cfg(feature = "email-production-candidate")]
+pub fn migrate_email4(
+    store: &mut Store,
+    mut snapshot: MaintenanceSnapshot,
+    manifest: &[u8],
+    signature: &[u8],
+    payloads: &[Vec<u8>],
+) -> Result<()> {
+    use rustsimhub_forwarder::{
+        supervisor::{migrate_email4_blocking, Context},
+        RuntimeCompatibility,
+    };
+    use sha2::Digest;
+    if rustix::process::getuid().as_raw() != 0
+        || rustix::process::geteuid().as_raw() != 0
+        || snapshot.root_mode == rustsimhub_core_launcher::Mode::Device
+        || snapshot
+            .outbox
+            .as_ref()
+            .is_none_or(|d| d.version.application_id != 0x52534657 || d.version.format != 3)
+    {
+        return Err(Error::Denied);
+    }
+    snapshot.verify_effective_systemd()?;
+    let binding = snapshot
+        .outbox
+        .as_ref()
+        .ok_or(Error::Denied)?
+        .email_binding()?;
+    snapshot.business.check_email_binding(&binding)?;
+    let (key, schema) = store.trusted_key();
+    let key = *key;
+    let (old_manifest, old_signature, old_payloads) = store.admission_baseline()?;
+    let baseline =
+        SignedPrograms::inspect(&old_manifest, &old_signature, &key, &old_payloads, schema)?;
+    let candidate = SignedPrograms::inspect(manifest, signature, &key, payloads, schema)?;
+    #[derive(Deserialize)]
+    struct RuntimeEnvelope {
+        forwarding_runtime_contract: RuntimeCompatibility,
+    }
+    let contract = |p: &SignedPrograms| -> Result<RuntimeCompatibility> {
+        let core: RuntimeEnvelope = serde_json::from_str(&p.core).map_err(|_| Error::Invalid)?;
+        #[derive(Deserialize)]
+        struct WorkerEnvelope {
+            worker: bool,
+            protocol: u16,
+            source_archive_sha256: String,
+            development_fixtures: bool,
+            forwarding_runtime_contract: RuntimeCompatibility,
+        }
+        let worker: WorkerEnvelope =
+            serde_json::from_str(p.worker.as_deref().ok_or(Error::Denied)?)
+                .map_err(|_| Error::Invalid)?;
+        let expected = rustsimhub_forwarder::runtime_compatibility();
+        if core.forwarding_runtime_contract != expected
+            || worker.forwarding_runtime_contract != expected
+            || !worker.worker
+            || worker.protocol != 5
+            || worker.development_fixtures
+            || worker.source_archive_sha256 != p.source_sha256
+        {
+            return Err(Error::Denied);
+        }
+        Ok(core.forwarding_runtime_contract)
+    };
+    let programs = [
+        contract(&baseline)?,
+        contract(&candidate)?,
+        contract(&baseline)?,
+    ];
+    // Schema/Root/start-mode and every role are compared as well. Data3 may
+    // require maintenance; reject any unrelated rejection before changing it.
+    if snapshot
+        .compare_signed(&baseline, &candidate, &baseline)?
+        .exit_code()
+        == 4
+    {
+        return Err(Error::Denied);
+    }
+    let digest = sha2::Sha256::digest(old_payloads.get(4).ok_or(Error::Denied)?);
+    let digest: [u8; 32] = digest.into();
+    snapshot.verify_effective_systemd()?;
+    snapshot.revalidate()?;
+    // Relinquish ONLY outbox's read transaction/flock. The original business
+    // writer fence and installed Root observations remain held across child.
+    drop(snapshot.outbox.take());
+    migrate_email4_blocking(
+        Context::production().map_err(|_| Error::Denied)?,
+        programs,
+        digest,
+    )
+    .map_err(|_| Error::Denied)?;
+    // Reacquire the actual outbox fence, checking the resulting version. Only
+    // its expected directory journal churn is resampled, no other observation.
+    let directory = std::path::Path::new("/var/lib/rustsimhub/rustsimhub-v1/core/state/forwarding");
+    let db = super::Database::observe(directory, "outbox.sqlite3", 986, false, 32 * 1024 * 1024)?;
+    if db.version.application_id != 0x52534657 || db.version.format != 4 {
+        return Err(Error::Integrity);
+    }
+    snapshot.outbox = Some(db);
+    for observed in &mut snapshot.observations {
+        if observed.path == directory {
+            *observed = super::Observation::capture(directory)?;
+        }
+    }
+    snapshot.verify_effective_systemd()?;
+    Ok(())
+}

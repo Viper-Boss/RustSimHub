@@ -31,6 +31,9 @@ pub struct RecoveryExecutionClaim {
     durable: StorageRecoveryExecutionClaim,
 }
 impl RecoveryExecutionClaim {
+    pub(super) fn storage_claim(&self) -> &StorageRecoveryExecutionClaim {
+        &self.durable
+    }
     #[cfg(test)]
     pub(super) fn expire_for_test(&mut self) {
         self.request.authorized.capability.expire_execution_test();
@@ -43,7 +46,7 @@ impl RecoveryExecutionClaim {
     }
 }
 impl Auth {
-    fn trusted_execution(
+    pub(super) fn trusted_execution(
         &self,
         request: &RecoveryExecutionRequest,
     ) -> Result<TrustedRecoveryExecution> {
@@ -107,11 +110,20 @@ impl Auth {
         Ok(RecoveryExecutionClaim { request, durable })
     }
     /// Recheck at every future business await/save gate; no Auth mutex is
-    /// acquired by the writer. This stage only admits still-claimed records.
+    /// acquired by the writer. Terminal/Unknown records are never authority.
     pub fn check_recovery_execution_claim(&self, claim: &RecoveryExecutionClaim) -> Result<()> {
         let input = self.trusted_execution(&claim.request)?;
         self.store
             .check_recovery_execution_claim_from_trusted_auth(input, &claim.durable)?;
+        self.check_recovery_execution(&claim.request)
+    }
+    pub(super) fn check_recovery_execution_start(
+        &self,
+        claim: &RecoveryExecutionClaim,
+    ) -> Result<()> {
+        let input = self.trusted_execution(&claim.request)?;
+        self.store
+            .check_recovery_execution_start_from_trusted_auth(input, &claim.durable)?;
         self.check_recovery_execution(&claim.request)
     }
     /// Read-only Query capability. Core must derive the requested UUID from

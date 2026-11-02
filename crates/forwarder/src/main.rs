@@ -26,6 +26,10 @@ fn run() -> rustsimhub_forwarder::Result<()> {
             return Ok(());
         }
     }
+    #[cfg(feature = "smtp-production-candidate")]
+    if args == ["--migrate-email4-child"] {
+        return rustsimhub_forwarder::migrate_email4_child();
+    }
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;

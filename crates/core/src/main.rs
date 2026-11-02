@@ -12,7 +12,7 @@ mod calls;
 #[cfg(target_os = "linux")]
 mod compat_api;
 #[cfg(target_os = "linux")]
-mod coordination;
+use rustsimhub_core::coordination;
 #[cfg(target_os = "linux")]
 mod forwarding;
 #[cfg(target_os = "linux")]
@@ -27,8 +27,18 @@ mod media_ipc;
 mod network;
 #[cfg(target_os = "linux")]
 mod network_diagnostics;
+#[cfg(all(target_os = "linux", feature = "nkn-session-candidate"))]
+pub mod nkn_business;
+#[cfg(all(target_os = "linux", feature = "nkn-session-candidate"))]
+pub mod nkn_host;
+#[cfg(all(target_os = "linux", feature = "root-provider-candidate"))]
+pub mod nkn_listener;
+#[cfg(all(target_os = "linux", feature = "nkn-session-candidate"))]
+pub mod nkn_transport;
+#[cfg(all(test, target_os = "linux", feature = "nkn-session-candidate"))]
+mod nkn_uid_tests;
 #[cfg(target_os = "linux")]
-mod network_trial;
+use rustsimhub_core::network_trial;
 #[cfg(target_os = "linux")]
 mod observer;
 #[cfg(target_os = "linux")]

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Explicit saved-Wi-Fi trial. Finite NM checkpoint, no APN/WWAN/radio or settings writes.
-pub(crate) mod provision;
+pub mod provision;
 use rustsimhub_auth::{Auth, Error};
 use rustsimhub_policy::{Principal, Scope};
 use serde::{Deserialize, Serialize};
@@ -21,7 +21,7 @@ static DIRECTORY: OnceLock<PathBuf> = OnceLock::new();
 #[cfg(feature = "dev-fixtures")]
 static DEVELOPMENT_FAULT: OnceLock<bool> = OnceLock::new();
 #[cfg(feature = "dev-fixtures")]
-pub(crate) fn enable_fault(path: &Path) -> Result<()> {
+pub fn enable_fault(path: &Path) -> Result<()> {
     DEVELOPMENT_FAULT.set(true).map_err(|_| Error::Forbidden)?;
     enable(path)
 }
@@ -65,7 +65,7 @@ fn directory(path: &Path) -> Result<()> {
     }
     Ok(())
 }
-pub(crate) fn enabled() -> bool {
+pub fn enabled() -> bool {
     DIRECTORY.get().is_some()
 }
 pub fn enable(path: &Path) -> Result<()> {
@@ -141,11 +141,30 @@ impl Journal {
     }
 }
 #[derive(Clone, PartialEq, Eq)]
+enum UsbFence {
+    Required(OwnedObjectPath),
+    #[cfg(feature = "recovery-execution")]
+    Recovery,
+}
+#[derive(Clone, Copy)]
+enum UsbPolicy {
+    Required,
+    #[cfg(feature = "recovery-execution")]
+    Recovery,
+}
+fn usb_fence(path: Option<OwnedObjectPath>, policy: UsbPolicy) -> Result<UsbFence> {
+    match policy {
+        UsbPolicy::Required => path.map(UsbFence::Required).ok_or(Error::Forbidden),
+        #[cfg(feature = "recovery-execution")]
+        UsbPolicy::Recovery => Ok(UsbFence::Recovery),
+    }
+}
+#[derive(Clone, PartialEq, Eq)]
 struct Snapshot {
     owner: String,
     mm_owner: String,
     wifi: OwnedObjectPath,
-    usb: OwnedObjectPath,
+    usb: UsbFence,
     profile: OwnedObjectPath,
     wwan: bool,
     profile_identity: [u8; 32],
@@ -233,7 +252,7 @@ async fn execute(b: &impl Backend, g: &impl Gate, j: &mut Journal) -> Result<Sum
     j.finish(summary.clone())?;
     Ok(summary)
 }
-pub(crate) async fn authorized(
+pub async fn authorized(
     auth: Arc<Mutex<Auth>>,
     token: String,
     key: String,
@@ -267,7 +286,7 @@ pub(crate) async fn authorized(
 struct NetworkManager {
     c: zbus::Connection,
 }
-pub(crate) async fn no_pending_checkpoint() -> Result<()> {
+pub async fn no_pending_checkpoint() -> Result<()> {
     let c = zbus::Connection::system().await.map_err(|_| Error::Io)?;
     let nm = NetworkManager { c };
     let owner = nm.owner(NM).await?;
@@ -588,6 +607,17 @@ impl NetworkManager {
 }
 impl NetworkManager {
     async fn snapshot_inner(&self, first_setup: bool) -> Result<Snapshot> {
+        self.snapshot_with_usb(first_setup, UsbPolicy::Required)
+            .await
+    }
+    #[cfg(feature = "recovery-execution")]
+    async fn snapshot_recovery(
+        &self,
+        _trial: &crate::recovery_body::CoreRecoveryTrial,
+    ) -> Result<Snapshot> {
+        self.snapshot_with_usb(true, UsbPolicy::Recovery).await
+    }
+    async fn snapshot_with_usb(&self, first_setup: bool, policy: UsbPolicy) -> Result<Snapshot> {
         let owner = self.owner(NM).await?;
         let mm_owner = self.owner(MM).await?;
         let nm = self.proxy(&owner, ROOT, NM).await?;
@@ -642,7 +672,7 @@ impl NetworkManager {
                 return Err(Error::Forbidden);
             }
         }
-        let (wifi, usb) = (wifi.ok_or(Error::Forbidden)?, usb.ok_or(Error::Forbidden)?);
+        let (wifi, usb) = (wifi.ok_or(Error::Forbidden)?, usb_fence(usb, policy)?);
         let device = self
             .proxy(
                 &owner,
@@ -713,7 +743,13 @@ impl Backend for NetworkManager {
         {
             return Err(Error::Forbidden);
         }
-        self.active_profile(&b.owner, &b.usb).await?;
+        match &b.usb {
+            UsbFence::Required(usb) => {
+                self.active_profile(&b.owner, usb).await?;
+            }
+            #[cfg(feature = "recovery-execution")]
+            UsbFence::Recovery => {}
+        }
         let nm = self.proxy(&b.owner, ROOT, NM).await?;
         let wwan: bool = nm
             .get_property("WwanEnabled")

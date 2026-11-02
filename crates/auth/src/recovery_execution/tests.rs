@@ -11,6 +11,7 @@ use std::{fs, os::unix::fs::PermissionsExt, sync::Arc, time::Duration};
 use tempfile::TempDir;
 use zeroize::Zeroizing;
 mod ledger;
+mod response;
 mod trial;
 fn dir() -> TempDir {
     let d = tempfile::tempdir().unwrap();

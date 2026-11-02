@@ -202,7 +202,7 @@ fn c14_real_outbox_unknown_and_projected_fallback_rejection_preserve_receipts() 
     let before = snapshot(d.path());
     let observed = inspect_outbox(d.path()).unwrap();
     let version = observed.version();
-    assert_eq!(version.format, 3);
+    assert_eq!(version.format, rustsimhub_forwarder::OUTBOX_CURRENT_FORMAT);
     drop(observed);
     assert_eq!(snapshot(d.path()), before);
     // A real current outbox, then an actual old-format database; neither comparison migrates it.
@@ -259,6 +259,16 @@ fn c14_real_outbox_unknown_and_projected_fallback_rejection_preserve_receipts() 
         attempt
     );
     drop(db);
+    if rustsimhub_forwarder::email_revision().is_some() {
+        // Candidate4 deliberately refuses automatic legacy2 migration. The
+        // existing comparison remains read-only and every old receipt survives.
+        assert!(matches!(
+            Queue::open(d.path(), binding.clone()),
+            Err(rustsimhub_forwarder::Error::Forbidden)
+        ));
+        assert_eq!(snapshot(d.path()), before);
+        return;
+    }
     let mut reopened = Queue::open(d.path(), binding.clone()).unwrap();
     let db = rusqlite::Connection::open_with_flags(
         d.path().join("outbox.sqlite3"),

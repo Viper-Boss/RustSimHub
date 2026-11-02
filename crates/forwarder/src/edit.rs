@@ -8,9 +8,28 @@ use std::collections::HashMap;
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum DestinationEdit {
     Keep {},
-    Webhook { url: Secret, bearer: Option<Secret> },
-    Bark { server: String, key: Secret },
-    Telegram { bot_token: Secret, chat_id: Secret },
+    Webhook {
+        url: Secret,
+        bearer: Option<Secret>,
+    },
+    Bark {
+        server: String,
+        key: Secret,
+    },
+    Telegram {
+        bot_token: Secret,
+        chat_id: Secret,
+    },
+    #[cfg(feature = "smtp-production-candidate")]
+    Email {
+        smtp_host: Secret,
+        port: u16,
+        tls: crate::smtp_candidate::EmailTls,
+        username: Secret,
+        password: Secret,
+        mail_from: Secret,
+        rcpt_to: Secret,
+    },
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -55,6 +74,24 @@ impl PolicyEdit {
                 DestinationEdit::Telegram { bot_token, chat_id } => {
                     Destination::Telegram { bot_token, chat_id }
                 }
+                #[cfg(feature = "smtp-production-candidate")]
+                DestinationEdit::Email {
+                    smtp_host,
+                    port,
+                    tls,
+                    username,
+                    password,
+                    mail_from,
+                    rcpt_to,
+                } => Destination::Email {
+                    smtp_host,
+                    port,
+                    tls,
+                    username,
+                    password,
+                    mail_from,
+                    rcpt_to,
+                },
             };
             targets.push(Target {
                 id: target.id,

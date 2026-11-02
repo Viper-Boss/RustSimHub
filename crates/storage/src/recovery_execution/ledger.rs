@@ -6,6 +6,8 @@ use std::sync::{
     Arc,
 };
 use std::time::Instant;
+mod observations;
+pub use observations::{RecoveryExecutionCompletion, RecoveryExecutionProgress};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RecoveryExecutionAction {
@@ -56,6 +58,11 @@ impl RecoveryExecutionState {
 #[derive(Clone)]
 pub struct RecoveryExecutionReceipt(Receipt);
 impl RecoveryExecutionReceipt {
+    /// Read-only full binding comparison, never an execution permit. Includes
+    /// realm/device/owner/grant generations, not just a public trial string.
+    pub fn same_trial_as(&self, other: &Self) -> bool {
+        self.0.same_trial(&other.0)
+    }
     pub fn request_id(&self) -> &str {
         &self.0.request
     }
@@ -134,6 +141,12 @@ pub struct TrustedRecoveryExecution {
     fence: RecoveryExecutionFence,
 }
 impl TrustedRecoveryExecution {
+    /// Trusted actor may only shorten a writer fence to its ORIGINAL trial
+    /// deadline. This cannot extend the originating capability/session.
+    pub fn with_deadline_limit(mut self, deadline: Instant) -> Self {
+        self.fence.deadline = self.fence.deadline.min(deadline);
+        self
+    }
     pub fn from_trusted_auth(
         grant: RecoveryGrant,
         request: String,
@@ -323,6 +336,27 @@ fn claim_locked(
     })
 }
 impl Handle {
+    /// Read-only admission snapshot, not a reservation or execution authority.
+    pub fn recovery_execution_available_from_trusted_auth(
+        &self,
+        grant: RecoveryGrant,
+        fence: RecoveryExecutionFence,
+    ) -> Result<bool> {
+        self.call(move |db| {
+            require(db)?;
+            fence.check()?;
+            let tx = db.connection.transaction()?;
+            recovery_grants::check_current(&tx, &grant)?;
+            let available = tx.query_row(
+                "SELECT COUNT(*) < 256 AND COALESCE(SUM(CASE WHEN action != 'cancel_wifi' THEN 1 ELSE 0 END),0) < 255 AND NOT EXISTS(SELECT 1 FROM recovery_execution_receipts WHERE state='unknown' OR (action='begin_wifi' AND state IN ('reserved','claimed','starting','connecting','ready','saving'))) FROM recovery_execution_receipts",
+                [], |r| r.get::<_, bool>(0),
+            )?;
+            fence.check()?;
+            tx.commit()?;
+            fence.check()?;
+            Ok(available)
+        })
+    }
     pub fn reserve_recovery_execution_from_trusted_auth(
         &self,
         input: TrustedRecoveryExecution,
@@ -362,6 +396,22 @@ impl Handle {
         input: TrustedRecoveryExecution,
         claim: &StorageRecoveryExecutionClaim,
     ) -> Result<()> {
+        self.check_execution_claim(input, claim, false)
+    }
+    /// Initial derivation only. A progressed claim cannot mint a fresh trial window.
+    pub fn check_recovery_execution_start_from_trusted_auth(
+        &self,
+        input: TrustedRecoveryExecution,
+        claim: &StorageRecoveryExecutionClaim,
+    ) -> Result<()> {
+        self.check_execution_claim(input, claim, true)
+    }
+    fn check_execution_claim(
+        &self,
+        input: TrustedRecoveryExecution,
+        claim: &StorageRecoveryExecutionClaim,
+        start: bool,
+    ) -> Result<()> {
         if !matches(&claim.receipt.0, &input) {
             return Err(Error::Forbidden);
         }
@@ -372,7 +422,14 @@ impl Handle {
             let tx = db.connection.transaction()?;
             recovery_grants::check_current(&tx, &input.grant)?;
             let receipt = lookup(&tx, &input.grant, &input.request)?.ok_or(Error::NotFound)?;
-            if !matches(&receipt, &input) || receipt.state != "claimed" || receipt.trial != trial {
+            if !matches(&receipt, &input)
+                || receipt.trial != trial
+                || if start {
+                    receipt.state != "claimed"
+                } else {
+                    !observations::active_claim(&receipt)
+                }
+            {
                 return Err(Error::Forbidden);
             }
             input.fence.check()?;

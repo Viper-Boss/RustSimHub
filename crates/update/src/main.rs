@@ -191,9 +191,15 @@ fn run() -> Result<(), rustsimhub_update::Error> {
         if !matches!(
             (command.as_str(), args.len()),
             ("boot-select", 6)
-                | ("install-factory" | "stage" | "admit-stage" | "confirm", 4)
+                | (
+                    "install-factory" | "stage" | "admit-stage" | "migrate-email4" | "confirm",
+                    4
+                )
                 | ("choose" | "status", 3)
         ) {
+            return Err(Error::Invalid);
+        }
+        if command == "migrate-email4" && !cfg!(feature = "email-production-candidate") {
             return Err(Error::Invalid);
         }
         let root = Path::new(&args[1]);
@@ -237,6 +243,20 @@ fn run() -> Result<(), rustsimhub_update::Error> {
                     "{}",
                     serde_json::json!({"staged":true,"manifest_sha256":hash})
                 );
+                return Ok(());
+            }
+            #[cfg(feature = "email-production-candidate")]
+            ("migrate-email4", 4) => {
+                let directory = Path::new(&args[3]);
+                let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;
+                let signature = read_checked(&directory.join("manifest.sig"), 64)?;
+                let m = verify(&manifest, &signature, &key, SCHEMA, store.floor())?;
+                let payloads = load_payloads(directory, &m)?;
+                let snapshot = rustsimhub_update::admission::MaintenanceSnapshot::observe()?;
+                rustsimhub_update::admission::migrate_email4(
+                    &mut store, snapshot, &manifest, &signature, &payloads,
+                )?;
+                println!("explicit outbox migration completed; worker remains stopped");
                 return Ok(());
             }
             ("admit-stage", 4) => {
