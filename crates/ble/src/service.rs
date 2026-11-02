@@ -51,6 +51,11 @@ impl Drop for Watch {
         }
     }
 }
+enum DriverEvent {
+    Released(crate::bluez_advertisement::ReleaseEvent),
+    Callback(CallbackRequest),
+    Tick,
+}
 struct Driver {
     transport: Transport<BluezBackend, UnixSecurePort>,
     host: BluezHost,
@@ -161,8 +166,9 @@ impl Driver {
         req.check_current().await?;
         Ok(reply)
     }
-    async fn step(&mut self) -> Result<(), Error> {
-        let state = self.poll().await?;
+    fn poll_runtime(&mut self, cx: &mut std::task::Context<'_>) -> Result<State, Error> {
+        let now = self.now();
+        let state = self.transport.poll(cx, now)?;
         if matches!(state, State::Unknown | State::Disabled | State::Stopping) {
             return Err(self.transport.last_error().unwrap_or(Error::Unknown));
         }
@@ -181,25 +187,53 @@ impl Driver {
                 Err(e) => return Err(e),
             }
         }
-        tokio::select! {
-            biased;
-            event = async {
-                match self.release.as_mut() {
-                    Some(r) => r.await.map_err(|_| Error::Unavailable),
-                    None => std::future::pending().await,
+        Ok(state)
+    }
+    async fn step(&mut self) -> Result<(), Error> {
+        let tick = tokio::time::sleep(Duration::from_millis(10));
+        tokio::pin!(tick);
+        // Each I/O wake must repoll the retained Core/notification future.
+        // The tick remains an expiry fallback, not a per-D-Bus-RPC delay.
+        let event = std::future::poll_fn(|cx| {
+            let state = match self.poll_runtime(cx) {
+                Ok(state) => state,
+                Err(error) => return std::task::Poll::Ready(Err(error)),
+            };
+            if let Some(release) = self.release.as_mut() {
+                match std::pin::Pin::new(release).poll(cx) {
+                    std::task::Poll::Ready(Ok(event)) => {
+                        return std::task::Poll::Ready(Ok(DriverEvent::Released(event)))
+                    }
+                    std::task::Poll::Ready(Err(_)) => {
+                        return std::task::Poll::Ready(Err(Error::Unavailable))
+                    }
+                    std::task::Poll::Pending => {}
                 }
-            } => {
-                let event = event?;
-                self.transport.advertisement_released(event.epoch(), event.owner(), self.now())?;
+            }
+            if matches!(state, State::Advertising | State::Connected) {
+                if let Some(callbacks) = self.callbacks.as_mut() {
+                    match callbacks.poll_recv(cx) {
+                        std::task::Poll::Ready(Some(request)) => {
+                            return std::task::Poll::Ready(Ok(DriverEvent::Callback(request)))
+                        }
+                        std::task::Poll::Ready(None) => {
+                            return std::task::Poll::Ready(Err(Error::Unavailable))
+                        }
+                        std::task::Poll::Pending => {}
+                    }
+                }
+            }
+            tick.as_mut().poll(cx).map(|()| Ok(DriverEvent::Tick))
+        })
+        .await?;
+        match event {
+            DriverEvent::Released(event) => {
+                self.transport
+                    .advertisement_released(event.epoch(), event.owner(), self.now())?;
                 Err(Error::Unavailable)
-            },
-            request = async {
-                match self.callbacks.as_mut() {
-                    Some(r) => r.recv().await.ok_or(Error::Unavailable),
-                    None => std::future::pending().await,
-                }
-            }, if matches!(state, State::Advertising | State::Connected) => self.callback(request?).await,
-            _ = tokio::time::sleep(Duration::from_millis(10)) => Ok(()),
+            }
+            DriverEvent::Callback(request) => self.callback(request).await,
+            DriverEvent::Tick => Ok(()),
         }
     }
     async fn stop(&mut self) -> Result<(), Error> {
