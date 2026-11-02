@@ -75,9 +75,28 @@ impl<'de> Deserialize<'de> for Secret {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Destination {
-    Webhook { url: Secret, bearer: Option<Secret> },
-    Bark { server: String, key: Secret },
-    Telegram { bot_token: Secret, chat_id: Secret },
+    Webhook {
+        url: Secret,
+        bearer: Option<Secret>,
+    },
+    Bark {
+        server: String,
+        key: Secret,
+    },
+    Telegram {
+        bot_token: Secret,
+        chat_id: Secret,
+    },
+    #[cfg(feature = "smtp-production-candidate")]
+    Email {
+        smtp_host: Secret,
+        port: u16,
+        tls: crate::smtp_candidate::EmailTls,
+        username: Secret,
+        password: Secret,
+        mail_from: Secret,
+        rcpt_to: Secret,
+    },
 }
 pub(crate) fn endpoint(url: &str) -> Result<()> {
     if url.len() > 2048
@@ -114,6 +133,27 @@ pub(crate) fn endpoint(url: &str) -> Result<()> {
 impl Destination {
     pub fn validate(&self) -> Result<()> {
         match self {
+            #[cfg(feature = "smtp-production-candidate")]
+            Self::Email {
+                smtp_host,
+                port,
+                tls: _,
+                username,
+                password,
+                mail_from,
+                rcpt_to,
+            } => {
+                if *port != 465 {
+                    return Err(Error::Invalid);
+                }
+                crate::email::EmailConfig::new(
+                    Secret::new(smtp_host.expose().into()),
+                    Secret::new(username.expose().into()),
+                    Secret::new(password.expose().into()),
+                    Secret::new(mail_from.expose().into()),
+                    Secret::new(rcpt_to.expose().into()),
+                )?;
+            }
             Self::Webhook { url, bearer } => {
                 endpoint(url.expose())?;
                 if bearer.as_ref().is_some_and(|s| {
@@ -215,6 +255,8 @@ impl Policy {
                         Destination::Webhook { .. } => "webhook",
                         Destination::Bark { .. } => "bark",
                         Destination::Telegram { .. } => "telegram",
+                        #[cfg(feature = "smtp-production-candidate")]
+                        Destination::Email { .. } => "email",
                     },
                     credentials_redacted: true,
                 })
@@ -326,6 +368,24 @@ pub struct PreparedRequest {
     pub body: Secret,
     pub acknowledgement: Acknowledgement,
 }
+#[cfg(feature = "smtp-production-candidate")]
+pub type PreparedDelivery = crate::smtp_candidate::PreparedDeliveryV1;
+#[cfg(not(feature = "smtp-production-candidate"))]
+pub type PreparedDelivery = PreparedRequest;
+pub(crate) fn https_request(request: &PreparedDelivery) -> Option<&PreparedRequest> {
+    #[cfg(feature = "smtp-production-candidate")]
+    {
+        if let PreparedDelivery::Https { request } = request {
+            Some(request)
+        } else {
+            None
+        }
+    }
+    #[cfg(not(feature = "smtp-production-candidate"))]
+    {
+        Some(request)
+    }
+}
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Acknowledgement {
@@ -355,7 +415,29 @@ pub fn prepare(
     rule: &Rule,
     m: &Message,
     delivery_id: &str,
-) -> Result<PreparedRequest> {
+) -> Result<PreparedDelivery> {
+    #[cfg(feature = "smtp-production-candidate")]
+    {
+        prepare_with_date(
+            target,
+            rule,
+            m,
+            delivery_id,
+            time::OffsetDateTime::now_utc(),
+        )
+    }
+    #[cfg(not(feature = "smtp-production-candidate"))]
+    {
+        prepare_with_date(target, rule, m, delivery_id)
+    }
+}
+pub(crate) fn prepare_with_date(
+    target: &Target,
+    rule: &Rule,
+    m: &Message,
+    delivery_id: &str,
+    #[cfg(feature = "smtp-production-candidate")] header_date: time::OffsetDateTime,
+) -> Result<PreparedDelivery> {
     m.validate()?;
     target.destination.validate()?;
     if !uuid(delivery_id)
@@ -365,6 +447,16 @@ pub fn prepare(
         || !rule.targets.contains(&target.id)
     {
         return Err(Error::Invalid);
+    }
+    #[cfg(feature = "smtp-production-candidate")]
+    if matches!(target.destination, Destination::Email { .. }) {
+        return crate::smtp_candidate::prepare_email(
+            &target.destination,
+            m,
+            rule.share,
+            delivery_id,
+            header_date,
+        );
     }
     let safe_body = match rule.share {
         Share::FullText => m.body.clone(),
@@ -376,6 +468,8 @@ pub fn prepare(
         _ => safe_body.clone(),
     };
     let (url, bearer, body, ack) = match &target.destination {
+        #[cfg(feature = "smtp-production-candidate")]
+        Destination::Email { .. } => return Err(Error::Invalid),
         Destination::Webhook { url, bearer } => {
             let mut value = serde_json::json!({"format":1,"event":"sms_received","delivery_id":delivery_id,"message_id":m.id,"line":m.line,"notice":"new_sms"});
             if rule.share == Share::FullText {
@@ -419,12 +513,20 @@ pub fn prepare(
             )
         }
     };
-    Ok(PreparedRequest {
+    let request = PreparedRequest {
         url: Secret::new(url),
         bearer,
         body: Secret::new(serde_json::to_string(&body)?),
         acknowledgement: ack,
-    })
+    };
+    #[cfg(feature = "smtp-production-candidate")]
+    {
+        Ok(request.into())
+    }
+    #[cfg(not(feature = "smtp-production-candidate"))]
+    {
+        Ok(request)
+    }
 }
 
 pub const SYNTHETIC_NOTICE: &str =
@@ -432,7 +534,15 @@ pub const SYNTHETIC_NOTICE: &str =
 
 /// Uses the same validated destination and provider encoding, but never a
 /// business-store message or a caller-supplied body/address.
-pub fn prepare_test(target: &Target, request_id: &str, line: LineEpoch) -> Result<PreparedRequest> {
+pub fn prepare_test(
+    target: &Target,
+    request_id: &str,
+    line: LineEpoch,
+) -> Result<PreparedDelivery> {
+    target.destination.validate()?;
+    if !uuid(&target.id) || !uuid(request_id) {
+        return Err(Error::Invalid);
+    }
     let message = Message {
         id: request_id.into(),
         line,
@@ -451,7 +561,24 @@ pub fn prepare_test(target: &Target, request_id: &str, line: LineEpoch) -> Resul
         share: Share::FullText,
         conditions: None,
     };
-    let mut request = prepare(target, &rule, &message, request_id)?;
+    #[cfg(feature = "smtp-production-candidate")]
+    if matches!(target.destination, Destination::Email { .. }) {
+        return crate::smtp_candidate::prepare_email(
+            &target.destination,
+            &message,
+            Share::FullText,
+            request_id,
+            time::OffsetDateTime::now_utc(),
+        );
+    }
+    let mut delivery = prepare(target, &rule, &message, request_id)?;
+    #[cfg(feature = "smtp-production-candidate")]
+    let request = match &mut delivery {
+        PreparedDelivery::Https { request } => request,
+        _ => return Err(Error::Invalid),
+    };
+    #[cfg(not(feature = "smtp-production-candidate"))]
+    let request = &mut delivery;
     let mut value: serde_json::Value = serde_json::from_str(request.body.expose())?;
     match target.destination {
         Destination::Webhook { .. } => {
@@ -462,7 +589,28 @@ pub fn prepare_test(target: &Target, request_id: &str, line: LineEpoch) -> Resul
             value["body"] = SYNTHETIC_NOTICE.into();
         }
         Destination::Telegram { .. } => value["text"] = SYNTHETIC_NOTICE.into(),
+        #[cfg(feature = "smtp-production-candidate")]
+        Destination::Email { .. } => return Err(Error::Invalid),
     }
     request.body = Secret::new(serde_json::to_string(&value)?);
-    Ok(request)
+    Ok(delivery)
+}
+
+#[cfg(test)]
+pub(crate) fn test_https(request: &PreparedDelivery) -> &PreparedRequest {
+    https_request(request).expect("HTTPS fixture")
+}
+#[cfg(test)]
+pub(crate) fn test_https_mut(request: &mut PreparedDelivery) -> &mut PreparedRequest {
+    #[cfg(feature = "smtp-production-candidate")]
+    {
+        match request {
+            crate::smtp_candidate::PreparedDeliveryV1::Https { request } => request,
+            _ => panic!("HTTPS fixture"),
+        }
+    }
+    #[cfg(not(feature = "smtp-production-candidate"))]
+    {
+        request
+    }
 }

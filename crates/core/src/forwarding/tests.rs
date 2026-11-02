@@ -493,11 +493,17 @@ async fn owner_edits_keep_credentials_inside_core_and_use_exact_durable_receipts
     q.capture_current(&a, &f.store.handle(), 2).unwrap();
     let claim = q.claim_current(&a, &f.store.handle(), 2).unwrap().unwrap();
     assert_eq!(
-        claim.request.url.expose(),
+        claim.https_request().unwrap().url.expose(),
         "https://example.invalid/path-secret?secret=synthetic-query-secret"
     );
     assert_eq!(
-        claim.request.bearer.as_ref().unwrap().expose(),
+        claim
+            .https_request()
+            .unwrap()
+            .bearer
+            .as_ref()
+            .unwrap()
+            .expose(),
         "synthetic-bearer-secret"
     );
     q.finish(&b, &claim, rustsimhub_forwarder::State::Unknown)
@@ -722,7 +728,13 @@ async fn master_switch_preserves_secret_targets_and_only_captures_messages_after
     assert_eq!(q.capture_current(&a, &f.store.handle(), 3).unwrap(), 1);
     let claim = q.claim_current(&a, &f.store.handle(), 3).unwrap().unwrap();
     assert_eq!(
-        claim.request.bearer.unwrap().expose(),
+        claim
+            .https_request()
+            .unwrap()
+            .bearer
+            .as_ref()
+            .unwrap()
+            .expose(),
         "synthetic-bearer-secret"
     );
 }
@@ -881,7 +893,8 @@ async fn repeated_switches_and_queue_reopens_never_forward_disabled_backlogs_or_
             .claim_current(&auth, &f.store.handle(), generation)
             .unwrap()
             .unwrap();
-        let sent: Value = serde_json::from_str(claim.request.body.expose()).unwrap();
+        let sent: Value =
+            serde_json::from_str(claim.https_request().unwrap().body.expose()).unwrap();
         assert_eq!(sent["message_id"], expected);
         q.finish(&binding, &claim, rustsimhub_forwarder::State::Confirmed)
             .unwrap();
@@ -947,7 +960,8 @@ async fn synthetic_owner_test_uses_no_inbox_message_and_exact_receipt_never_resu
             .unwrap();
         q.check_current_claim(&auth, &f.store.handle(), &claim)
             .unwrap();
-        let body: Value = serde_json::from_str(claim.request.body.expose()).unwrap();
+        let body: Value =
+            serde_json::from_str(claim.https_request().unwrap().body.expose()).unwrap();
         assert_eq!(body["event"], "forwarding_test");
         q.finish(
             &q.current_binding(&auth).unwrap(),

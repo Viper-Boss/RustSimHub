@@ -3,7 +3,7 @@
 //! a finite worker capability; only the DISTINCT configured UID may use it.
 //! Neither that UID nor a browser may configure policy through this protocol.
 use super::*;
-use rustsimhub_forwarder::{worker_ipc as wire, Claim, DeliveryOutcome, Secret, Stage, State};
+use rustsimhub_forwarder::{worker_ipc as wire, Claim, Secret, State};
 use sha2::{Digest, Sha256};
 use std::time::{Duration, Instant};
 use tokio::{net::UnixStream, time::timeout};
@@ -80,7 +80,8 @@ pub(crate) async fn handle(
     controller: Controller,
     route: Route,
 ) -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let bytes = timeout(Duration::from_secs(5), wire::read_frame(stream)).await??;
+    let bytes =
+        zeroize::Zeroizing::new(timeout(Duration::from_secs(5), wire::read_frame(stream)).await??);
     let request = wire::parse(&bytes)?;
     let result = match controller
         .private_request(auth, route, request.command)
@@ -90,7 +91,7 @@ pub(crate) async fn handle(
         Err(Error::Busy) => json!({"error":"retry_later"}), // Rejected before admission/mutation.
         Err(_) => json!({"error":"denied"}),
     };
-    let bytes = serde_json::to_vec(&wire::Response {
+    let bytes = wire::encode_private_response(wire::Response {
         protocol: wire::PROTOCOL,
         id: request.id,
         result,
@@ -266,12 +267,10 @@ impl Management {
                 let result = (|| {
                     let s = self.worker.as_mut().ok_or(Error::Forbidden)?;
                     let c = s.claim.as_ref().ok_or(Error::Forbidden)?;
-                    let expected = match s.next_stage {
-                        0 => Stage::BeforeConnect,
-                        1 => Stage::BeforeTls,
-                        2 => Stage::BeforeSubmit,
-                        _ => return Err(Error::Forbidden),
-                    };
+                    let expected = *c
+                        .stages()
+                        .get(s.next_stage as usize)
+                        .ok_or(Error::Forbidden)?;
                     if attempt_id != c.attempt_id
                         || stage != expected
                         || denied(wire::claim_sha256(c))? != claim_sha256
@@ -306,12 +305,12 @@ impl Management {
                 if c.attempt_id != attempt_id {
                     return Err(Error::Forbidden);
                 }
-                if matches!(outcome, DeliveryOutcome::Confirmed { .. }) && s.next_stage != 3 {
+                denied(outcome.validate_claim(c))?;
+                let submitted = c.stages().len() as u8;
+                if outcome.is_confirmed() && s.next_stage != submitted {
                     return Err(Error::Forbidden);
                 }
-                let state = if s.next_stage == 3
-                    && matches!(outcome, DeliveryOutcome::NotSubmitted { .. })
-                {
+                let state = if s.next_stage == submitted && outcome.is_not_submitted() {
                     // Submit permission may have been delivered before an IPC
                     // ACK disappeared. No false safe-to-retry assertion.
                     State::Unknown

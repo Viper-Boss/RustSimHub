@@ -2,10 +2,14 @@
 //! Finite Root actions. No management daemon, forwarding watcher or listener.
 //! Only fixed production units/paths are exposed by the production CLI.
 mod files;
+#[cfg(feature = "smtp-production-candidate")]
+mod migration;
 mod network;
 mod system;
 use crate::{worker, worker_ipc as wire, Error, Result, Secret};
 use files::*;
+#[cfg(feature = "smtp-production-candidate")]
+pub use migration::{migrate_email4, migrate_email4_blocking};
 use serde::{Deserialize, Serialize};
 use std::{
     path::{Path, PathBuf},

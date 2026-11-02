@@ -19,6 +19,8 @@ const APP_ID: i64 = OUTBOX_APPLICATION_ID;
 const FORMAT: i64 = OUTBOX_CURRENT_FORMAT;
 type CachedPolicy = ([u8; 32], Arc<Policy>);
 mod history;
+#[cfg(feature = "smtp-production-candidate")]
+pub(crate) mod migration;
 pub use history::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -84,7 +86,37 @@ pub struct Claim {
     pub attempt_id: String,
     pub generation: u64,
     pub line: LineEpoch,
-    pub request: PreparedRequest,
+    pub request: PreparedDelivery,
+    #[cfg(feature = "smtp-production-candidate")]
+    pub binding: Binding,
+}
+impl Claim {
+    pub fn stages(&self) -> &'static [Stage] {
+        #[cfg(feature = "smtp-production-candidate")]
+        {
+            self.request.stages()
+        }
+        #[cfg(not(feature = "smtp-production-candidate"))]
+        {
+            &[Stage::BeforeConnect, Stage::BeforeTls, Stage::BeforeSubmit]
+        }
+    }
+    pub fn https_request_mut(&mut self) -> Option<&mut PreparedRequest> {
+        #[cfg(feature = "smtp-production-candidate")]
+        {
+            match &mut self.request {
+                crate::smtp_candidate::PreparedDeliveryV1::Https { request } => Some(request),
+                _ => None,
+            }
+        }
+        #[cfg(not(feature = "smtp-production-candidate"))]
+        {
+            Some(&mut self.request)
+        }
+    }
+    pub fn https_request(&self) -> Option<&PreparedRequest> {
+        crate::model::https_request(&self.request)
+    }
 }
 
 /// Sole writer, intended to be owned by Core's blocking actor. A worker must
@@ -159,10 +191,15 @@ impl Queue {
         claim: &Claim,
         line: LineEpoch,
     ) -> Result<()> {
+        #[cfg(feature = "smtp-production-candidate")]
+        if claim.binding != *binding || claim.binding != self.binding {
+            return Err(Error::Forbidden);
+        }
         if !self.fence(binding, claim.generation)?.enabled || claim.line != line {
             return Err(Error::Stale);
         }
-        let exact:bool=self.conn.query_row("SELECT EXISTS(SELECT 1 FROM jobs WHERE id=? AND attempt_id=? AND generation=? AND line=? AND state='in_flight' AND request=?)",params![claim.id,claim.attempt_id,claim.generation as i64,line.0 as i64,serde_json::to_string(&claim.request)?],|r|r.get(0))?;
+        let encoded = zeroize::Zeroizing::new(serde_json::to_string(&claim.request)?);
+        let exact:bool=self.conn.query_row("SELECT EXISTS(SELECT 1 FROM jobs WHERE id=? AND attempt_id=? AND generation=? AND line=? AND state='in_flight' AND request=?)",params![claim.id,claim.attempt_id,claim.generation as i64,line.0 as i64,encoded.as_str()],|r|r.get(0))?;
         if !exact {
             return Err(Error::Stale);
         }
@@ -219,6 +256,10 @@ impl Queue {
         )?;
         conn.busy_timeout(Duration::from_secs(3))?;
         let version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
+        #[cfg(feature = "smtp-production-candidate")]
+        if version != 0 && version != FORMAT {
+            return Err(Error::Forbidden);
+        }
         let app: i64 = conn.pragma_query_value(None, "application_id", |r| r.get(0))?;
         let objects: i64 = conn.query_row(
             "SELECT count(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'",
@@ -286,7 +327,9 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         }
         // Binding and integrity checks precede migration. Existing delivery
         // bodies/cursors are untouched; version 1 cannot interpret new tests.
-        if OUTBOX_MIGRATION_FORMATS.contains(&version) {
+        if !cfg!(feature = "smtp-production-candidate")
+            && OUTBOX_MIGRATION_FORMATS.contains(&version)
+        {
             let tx = conn.transaction()?;
             if version == 1 {
                 tx.execute_batch("ALTER TABLE jobs ADD COLUMN purpose TEXT NOT NULL DEFAULT 'sms' CHECK(purpose IN('sms','test'));")?;
@@ -461,12 +504,14 @@ CREATE INDEX pending ON jobs(state,seq);")?;
             return Err(Error::Forbidden);
         }
         let seq = cursor(&head, &binding.realm)?;
-        let encoded = serde_json::to_string(&policy)?;
+        let encoded = zeroize::Zeroizing::new(serde_json::to_string(&policy)?);
         // Only client intent identifies a retry. The live business head may
         // advance between an applied request and a lost-response retry; it
         // must not turn that same request into a conflicting new operation.
         // The FIRST committed request still samples/persists the actual head.
-        let digest = Sha256::digest(serde_json::to_vec(&(binding, expected, &encoded))?);
+        let intent =
+            zeroize::Zeroizing::new(serde_json::to_vec(&(binding, expected, encoded.as_str()))?);
+        let digest = Sha256::digest(&*intent);
         let old = self
             .conn
             .query_row(
@@ -506,7 +551,7 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         )?;
         tx.execute(
             "UPDATE meta SET generation=?,enabled=?,cursor=?,policy=? WHERE singleton=1",
-            params![next as i64, policy.enabled, seq, encoded],
+            params![next as i64, policy.enabled, seq, encoded.as_str()],
         )?;
         tx.execute(
             "INSERT INTO requests(id,digest,generation) VALUES(?,?,?)",
@@ -572,7 +617,9 @@ CREATE INDEX pending ON jobs(state,seq);")?;
                             .find(|t| &t.id == target_id)
                             .ok_or(Error::Storage)?;
                         let id = Uuid::new_v4().to_string();
-                        let request = serde_json::to_string(&prepare(target, rule, message, &id)?)?;
+                        let request = zeroize::Zeroizing::new(serde_json::to_string(&prepare(
+                            target, rule, message, &id,
+                        )?)?);
                         if request.len() > 65536 {
                             return Err(Error::Invalid);
                         }
@@ -599,7 +646,7 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         let tx = self.conn.transaction()?;
         for (id, target, rule, request) in jobs {
             let message = message.ok_or(Error::Storage)?;
-            tx.execute("INSERT INTO jobs(id,message_id,target_id,rule_id,generation,line,state,request) VALUES(?,?,?,?,?,?,'queued',?)",params![id,message.id,target,rule,m.generation,message.line.0 as i64,request])?;
+            tx.execute("INSERT INTO jobs(id,message_id,target_id,rule_id,generation,line,state,request) VALUES(?,?,?,?,?,?,'queued',?)",params![id,message.id,target,rule,m.generation,message.line.0 as i64,request.as_str()])?;
         }
         tx.execute("UPDATE meta SET cursor=? WHERE singleton=1", [seq])?;
         tx.commit()?;
@@ -735,7 +782,10 @@ CREATE INDEX pending ON jobs(state,seq);")?;
             if generation != m.generation || request.len() > 65536 {
                 return Err(Error::Stale);
             }
-            let request: PreparedRequest = serde_json::from_str(&request)?;
+            let request = zeroize::Zeroizing::new(request);
+            let request: PreparedDelivery = serde_json::from_str(&request)?;
+            #[cfg(feature = "smtp-production-candidate")]
+            request.validate()?;
             let attempt_id = Uuid::new_v4().to_string();
             tx.execute(
                 "UPDATE jobs SET state='in_flight',attempt_id=? WHERE id=? AND (state='queued' OR (state='in_flight' AND attempt_id IS NULL AND purpose='test'))",
@@ -747,6 +797,8 @@ CREATE INDEX pending ON jobs(state,seq);")?;
                 generation: generation as u64,
                 line: live_line,
                 request,
+                #[cfg(feature = "smtp-production-candidate")]
+                binding: self.binding.clone(),
             })
         } else {
             None
@@ -863,7 +915,9 @@ impl Queue {
             .iter()
             .find(|t| t.id == target_id)
             .ok_or(Error::Invalid)?;
-        let request = serde_json::to_string(&prepare_test(target, request_id, line)?)?;
+        let request = zeroize::Zeroizing::new(serde_json::to_string(&prepare_test(
+            target, request_id, line,
+        )?)?);
         let (pending, total, tests): (i64, i64, i64) = self.conn.query_row(
             "SELECT coalesce(sum(state IN('queued','in_flight','unknown')),0),count(*),coalesce(sum(purpose='test' AND generation=?),0) FROM jobs",
             [generation as i64], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
@@ -882,7 +936,7 @@ impl Queue {
             "queued"
         };
         self.conn.execute("INSERT INTO jobs(id,message_id,target_id,rule_id,generation,line,state,request,purpose) VALUES(?,?,?,?,?,?,?,?, 'test')",
-            params![request_id,message_id,target_id,request_id,generation as i64,line.0 as i64,state,request])?;
+            params![request_id,message_id,target_id,request_id,generation as i64,line.0 as i64,state,request.as_str()])?;
         self.test_receipt(binding, request_id)?
             .ok_or(Error::Storage)
     }

@@ -15,12 +15,12 @@ class Element {
  append(...items){this.children.push(...items);}replaceChildren(...items){this.children=items;this.textContent='';}get options(){return this.children;}
  set innerHTML(_){throw Error('Never parse provider/configuration data as HTML');}
 }
-function fixture({existing=false,managed=true,consent=true,onRequest,onSave,onLoad,testState='confirmed',onDelay,rulesRevision=2}={}){
+function fixture({existing=false,managed=true,consent=true,onRequest,onSave,onLoad,testState='confirmed',onDelay,rulesRevision=2,emailRevision=null}={}){
  const elements=new Map(),$=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
  const doc={getElementById:$,createElement:tag=>new Element(tag)};
  let token=true,pending=null,policy={enabled:false,targets:existing?[{id,destination:{kind:'webhook',url:endpoint,bearer:secret}}]:[],rules:existing?[{id:rule,targets:[id],sender_equals:'sender',body_contains:null,line:null,share:'notice'}]:[]};
  let current=existing?1:0;const calls=[],writes=[],archives=[],markers=[],requests=new Map(),tests=new Map(),confirmations=[];
- const status=()=>({rules_revision:rulesRevision,available:true,configured:current>0,generation:current,enabled:policy.enabled,configuration_api:true,retained_credentials_api:true,request_receipt_api:true,synthetic_test_api:true,delivery_api:policy.enabled,service_management_api:managed,process_state_verified:true,state:policy.enabled?'running':'disabled'});
+ const status=()=>({email_revision:emailRevision,rules_revision:rulesRevision,available:true,configured:current>0,generation:current,enabled:policy.enabled,configuration_api:true,retained_credentials_api:true,request_receipt_api:true,synthetic_test_api:true,delivery_api:policy.enabled,service_management_api:managed,process_state_verified:true,state:policy.enabled?'running':'disabled'});
  const view=()=>({enabled:policy.enabled,generation:current,targets:policy.targets.map(t=>({id:t.id,kind:t.destination.kind,credentials_redacted:true})),rules:clone(policy.rules)});
  const panel=new ForwardingPanel({document:doc,crypto:webcrypto,delay:async()=>{await onDelay?.();},getToken:()=>token,confirm:message=>{confirmations.push(message);return consent;},
   loadPending:async()=>{await onLoad?.();return clone(pending);},savePending:async value=>{await onSave?.(value);pending=clone(value);markers.push(clone(value));},archivePending:async value=>{archives.push(clone(value));},
@@ -245,3 +245,22 @@ console.log('PASS: one-click Bark admission, unchanged policy, metadata before s
  assert.equal(policyInput(targets,[{...base,regex:'(?=unsupported)'}],false,2).rules[0].conditions.body_regex,'(?=unsupported)');
 }
 console.log('Extended rule roundtrip, legacy-client guard, privacy mode and bounded form checks passed.');
+
+// Actual candidate mail fields are capability-gated, private and never durable
+// browser state. All values below are disposable synthetic test credentials.
+{
+ const target={id,kind:'email',smtp_host:'smtp.example.invalid',username:'SYNTHETIC_USER',password:'SYNTHETIC_MAIL_PASSWORD',mail_from:'sender@example.invalid',rcpt_to:'recipient@example.invalid'};
+ const r={id:rule,targets:[id],sender:'',contains:'',line:'',full:false};
+ assert.throws(()=>policyInput([target],[r],false,2),/尚未启用邮件/);
+ const p=policyInput([target],[r],false,2,1);assert.equal(p.targets[0].destination.port,465);assert.equal(p.targets[0].destination.tls,'implicit');
+ for(const changes of [{smtp_host:'smtp://host'},{smtp_host:'127.0.0.1'},{smtp_host:'smtp.invalid.'},{username:'a\r\nb'},{password:'secret\nAUTH'},{mail_from:'Name <sender@example.invalid>'},{rcpt_to:'first@example.invalid,second@example.invalid'},{rcpt_to:'a..b@example.invalid'},{rcpt_to:'用户@example.invalid'}])assert.throws(()=>policyInput([{...target,...changes}],[r],false,2,1));
+ const f=fixture({emailRevision:1});await f.read();const row=f.panel.targets[0];row.kind='email';f.panel.render();
+ for(const name of ['smtp_host','username','password','mail_from','rcpt_to']){row[name+'Input'].value=target[name];assert.equal(row[name+'Input'].type,'password');}
+ await f.panel.action(g=>f.panel.save(g));assert.equal(f.writes.length,1);assert.equal(f.writes[0].policy.targets[0].destination.kind,'email');
+ assert.ok(!JSON.stringify(f.markers).includes('SYNTHETIC_MAIL_PASSWORD'));assert.ok(!JSON.stringify(f.archives).includes('recipient@example.invalid'));
+ for(const input of f.panel.secretInputs)assert.equal(input.value,'');
+ assert.equal(f.panel.targets[0].keep,true);assert.ok(!allText(f).includes('recipient@example.invalid'));
+ f.panel.rules[0].contains='new filter';await f.panel.action(g=>f.panel.save(g));assert.deepEqual(f.writes[1].policy.targets[0].destination,{kind:'keep'});
+ const old=fixture({emailRevision:null});old.apply({enabled:false,targets:p.targets,rules:p.rules},1);await old.read();assert.equal(old.panel.ready,false);assert.equal(old.writes.length,0);
+ console.log('SMTP capability, private input/Keep, no browser persistence and malformed mailbox checks passed.');
+}

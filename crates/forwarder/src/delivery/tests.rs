@@ -180,6 +180,14 @@ fn claim(url: String) -> Claim {
             bearer: Some(Secret::new("synthetic-bearer".into())),
             body: Secret::new(r#"{"synthetic":"合成文本 <img> 123456"}"#.into()),
             acknowledgement: Acknowledgement::Http2xx,
+        }
+        .into(),
+        #[cfg(feature = "smtp-production-candidate")]
+        binding: Binding {
+            device_key: [1; 32],
+            owner_key: [2; 32],
+            owner_generation: 1,
+            realm: uuid::Uuid::new_v4().to_string(),
         },
     }
 }
@@ -222,7 +230,13 @@ async fn verified_https_sends_exactly_one_json_request_and_bound_receipt_id() {
     let rows = server.seen.lock().unwrap();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].line, "POST /synthetic?test=1 HTTP/1.1");
-    assert_eq!(rows[0].body, job.request.body.expose().as_bytes());
+    assert_eq!(
+        rows[0].body,
+        crate::model::test_https(&job.request)
+            .body
+            .expose()
+            .as_bytes()
+    );
     let headers = rows[0].headers.to_ascii_lowercase();
     assert!(
         headers.contains("authorization: bearer synthetic-bearer")
@@ -558,7 +572,7 @@ async fn provider_json_error_is_not_a_successful_delivery() {
         let mut server = Server::start(response("200 OK", br#"{"ok":false,"code":500}"#)).await;
         let sender = HttpsSender::new(vec![server.certificate.clone()]).unwrap();
         let mut job = claim(server.url());
-        job.request.acknowledgement = acknowledgement;
+        crate::model::test_https_mut(&mut job.request).acknowledgement = acknowledgement;
         let (_stop, cancel) = watch::channel(false);
         assert_eq!(
             sender
@@ -645,15 +659,32 @@ async fn invalid_http_inputs_are_rejected_before_fence_or_connection() {
     ] {
         let mut job = claim(server.url());
         match kind {
-            "http" => job.request.url = Secret::new("http://localhost/".into()),
-            "credentials" => {
-                job.request.url = Secret::new("https://user:password@localhost/".into())
+            "http" => {
+                crate::model::test_https_mut(&mut job.request).url =
+                    Secret::new("http://localhost/".into())
             }
-            "fragment" => job.request.url = Secret::new("https://localhost/#fragment".into()),
-            "bearer" => job.request.bearer = Some(Secret::new("synthetic\r\nHeader:value".into())),
-            "array" => job.request.body = Secret::new("[]".into()),
-            "large" => job.request.body = Secret::new("x".repeat(32769)),
-            "port" => job.request.url = Secret::new("https://localhost:65536/".into()),
+            "credentials" => {
+                crate::model::test_https_mut(&mut job.request).url =
+                    Secret::new("https://user:password@localhost/".into())
+            }
+            "fragment" => {
+                crate::model::test_https_mut(&mut job.request).url =
+                    Secret::new("https://localhost/#fragment".into())
+            }
+            "bearer" => {
+                crate::model::test_https_mut(&mut job.request).bearer =
+                    Some(Secret::new("synthetic\r\nHeader:value".into()))
+            }
+            "array" => {
+                crate::model::test_https_mut(&mut job.request).body = Secret::new("[]".into())
+            }
+            "large" => {
+                crate::model::test_https_mut(&mut job.request).body = Secret::new("x".repeat(32769))
+            }
+            "port" => {
+                crate::model::test_https_mut(&mut job.request).url =
+                    Secret::new("https://localhost:65536/".into())
+            }
             _ => unreachable!(),
         }
         let mut egress = route(&server);

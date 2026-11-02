@@ -145,6 +145,8 @@ impl Management {
         // Intent is deliberately separate from observed service/process state.
         value["available"] = true.into();
         value["configuration_api"] = true.into();
+        value["email_revision"] = serde_json::to_value(rustsimhub_forwarder::email_revision())
+            .map_err(|_| Error::Forbidden)?;
         value["rules_revision"] = rustsimhub_forwarder::RULES_REVISION.into();
         value["history_api"] = true.into();
         value["history_revision"] = 2.into();

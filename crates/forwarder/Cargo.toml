@@ -8,6 +8,7 @@ license.workspace = true
 [features]
 default = []
 dev-fixtures = []
+smtp-production-candidate = []
 
 [dependencies]
 rustsimhub-domain = { path = "../domain" }
@@ -27,7 +28,7 @@ base64 = "=0.23.1"
 [target.'cfg(target_os = "linux")'.dependencies]
 rusqlite = { version = "0.40.2", features = ["bundled", "hooks"] }
 fs2 = "0.4"
-rustix = { version = "1", features = ["process", "fs", "time"] }
+rustix = { version = "1", features = ["process", "fs", "time", "net", "thread"] }
 tokio = { version = "1", features = ["rt", "net", "io-util", "time", "sync", "macros", "signal", "process"] }
 socket2 = { version = "=0.6.5", features = ["all"] }
 hickory-proto = { version = "=0.26.3", default-features = false, features = ["std"] }

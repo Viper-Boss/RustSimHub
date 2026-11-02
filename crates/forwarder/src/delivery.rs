@@ -28,6 +28,14 @@ const MAX_RESPONSE: usize = 8192;
 pub enum Stage {
     BeforeConnect,
     BeforeTls,
+    #[cfg(feature = "smtp-production-candidate")]
+    BeforeSmtpAuth,
+    #[cfg(feature = "smtp-production-candidate")]
+    BeforeSmtpMailFrom,
+    #[cfg(feature = "smtp-production-candidate")]
+    BeforeSmtpRcptTo,
+    #[cfg(feature = "smtp-production-candidate")]
+    BeforeSmtpData,
     BeforeSubmit,
 }
 
@@ -74,6 +82,20 @@ pub enum DeliveryOutcome {
     },
 }
 impl DeliveryOutcome {
+    pub fn is_confirmed(&self) -> bool {
+        matches!(self, Self::Confirmed { .. })
+    }
+    pub fn is_not_submitted(&self) -> bool {
+        matches!(self, Self::NotSubmitted { .. })
+    }
+    pub fn validate_claim(&self, _claim: &Claim) -> Result<()> {
+        if let Self::Confirmed { status } = self {
+            if !(200..300).contains(status) {
+                return Err(Error::Invalid);
+            }
+        }
+        Ok(())
+    }
     pub fn queue_state(self) -> State {
         match self {
             Self::Confirmed { .. } => State::Confirmed,
@@ -130,7 +152,8 @@ impl HttpsSender {
             };
         }
         let work = async {
-            let request = &claim.request;
+            let request =
+                crate::model::https_request(&claim.request).ok_or(Failure::InvalidRequest)?;
             if !uuid(&claim.id)
                 || !uuid(&claim.attempt_id)
                 || claim.generation == 0

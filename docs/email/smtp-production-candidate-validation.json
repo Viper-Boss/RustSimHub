@@ -1,0 +1,166 @@
+{
+  "bounded_tmpfs": {
+    "capacity_bytes": 2097152,
+    "device_access": false,
+    "external_network": false,
+    "fixture": "private-tmpfs",
+    "host_storage_filled": false,
+    "no_new_privileges": true,
+    "passed": true,
+    "test_binary_sha256": "5223a961431ae33cf43c54d14efb58d46db52848e055dadbcd81217b81698530",
+    "uid": 65534
+  },
+  "code_commit": "1deb309fc3bdb62095287115a6a9ca7457b50686",
+  "default_feature_enabled": false,
+  "deployed": false,
+  "external_mail_sent": false,
+  "format": 1,
+  "kernel_migration": {
+    "cases": [
+      {
+        "case": "commit",
+        "child_reaped": true,
+        "data_uid": 986,
+        "pass": true,
+        "result_version": 4,
+        "source_writer": 3
+      },
+      {
+        "case": "sealed_exec",
+        "child_reaped": true,
+        "data_uid": 986,
+        "pass": true,
+        "result_version": 4,
+        "source_writer": 3
+      },
+      {
+        "case": "deny_commit",
+        "child_reaped": true,
+        "data_uid": 986,
+        "pass": true,
+        "result_version": 3,
+        "source_writer": 3
+      },
+      {
+        "case": "root_eof",
+        "child_reaped": true,
+        "data_uid": 986,
+        "pass": true,
+        "result_version": 3,
+        "source_writer": 3
+      },
+      {
+        "case": "wrong_source",
+        "child_reaped": true,
+        "data_uid": 986,
+        "pass": true,
+        "result_version": 3,
+        "source_writer": 3
+      },
+      {
+        "case": "busy_writer",
+        "child_reaped": true,
+        "data_uid": 986,
+        "pass": true,
+        "result_version": 3,
+        "source_writer": 3
+      },
+      {
+        "case": "wrong_peer",
+        "child_reaped": true,
+        "data_uid": 986,
+        "pass": true,
+        "result_version": 3,
+        "source_writer": 3
+      },
+      {
+        "case": "expired",
+        "child_reaped": true,
+        "data_uid": 986,
+        "pass": true,
+        "result_version": 3,
+        "source_writer": 3
+      },
+      {
+        "case": "late_commit",
+        "child_reaped": true,
+        "data_uid": 986,
+        "pass": true,
+        "result_version": 3,
+        "source_writer": 3
+      }
+    ],
+    "format": 1,
+    "network": "none",
+    "systemd_producer_tested": false
+  },
+  "latest_main_merged": "e59dd8df524a7be8bbeed4a51fd49c15891de1a7",
+  "production_data_migrated": false,
+  "release_approved": false,
+  "rust": {
+    "candidate_four_packages": {
+      "failed": 0,
+      "passed": 500,
+      "suite_ignored": 8
+    },
+    "default_core_binary": {
+      "failed": 0,
+      "passed": 195,
+      "suite_ignored": 0
+    },
+    "default_forwarder": {
+      "failed": 0,
+      "passed": 116,
+      "suite_ignored": 1
+    }
+  },
+  "test_artifacts": {
+    "candidate": {
+      "build_info": {
+        "development_fixtures": false,
+        "finite_root_actions": true,
+        "forwarding_runtime_contract": {
+          "format": 1,
+          "outbox": {
+            "application_id": 1381189207,
+            "migrate_from": [
+              3
+            ],
+            "read_format": 4,
+            "write_format": 4
+          },
+          "worker_protocol": 5
+        },
+        "protocol": 5,
+        "source_archive_sha256": null,
+        "worker": true
+      },
+      "bytes": 17908224,
+      "release_artifact": false,
+      "sha256": "a6e5a1f4b94743a6689cc7f1740e10a405f4ba49a90f0d44617d9cc6b56e4207"
+    },
+    "forwarder-tests": {
+      "bytes": 26602528,
+      "release_artifact": false,
+      "sha256": "5223a961431ae33cf43c54d14efb58d46db52848e055dadbcd81217b81698530"
+    },
+    "legacy": {
+      "bytes": 6437328,
+      "release_artifact": false,
+      "sha256": "e706e3bf1196b3bc083f34a3b5ea10f90346acb51b3b4c4ec98d7c0cfc78bb53"
+    }
+  },
+  "validation_log_sha256": {
+    "smtp-1deb309-candidate.log": "13a350a1bf27deebde748d68d432ada612bd6df9c94fc7dda61d8a7966f74a03",
+    "smtp-1deb309-clippy.log": "db49868359fb108d41cc4457dd39bb6a6e0aa04d5b2da832b945ef3d14485553",
+    "smtp-1deb309-default-clippy.log": "69a81026ef42df0acbd0cd1ce2834a02c1a3f09e994e4f4f1585e62bb8098c94",
+    "smtp-1deb309-default-core.log": "d37aa530a379ba249c788cd20d860946114d8bd824a0f5230a9aaed4a4fcb15b",
+    "smtp-1deb309-default-forwarder.log": "16c060b3a6af5a7bfaf7dce458d5fc38d0f9aeb3e046e073086e12215bd46611",
+    "smtp-1deb309-enospc.log": "6feca2d8983c693f23372736dec1082da669ddd2839e91e0893724b3bdcb4f0a",
+    "smtp-1deb309-fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "smtp-1deb309-migration-kernel.log": "df393b9605e545d9676107e8e8dd0deb9760af07e68ada1b21ec5aa41c1479a8",
+    "smtp-1deb309-web-history.log": "f82789025f472940a0e6d176549912db2d13977c6aaa371955082a8a3a6afc36",
+    "smtp-1deb309-web-setup.log": "c31f81c9f9a6594694e624ade6520e5f9174371e5a253b3e884696e2e8b0adbc",
+    "smtp-1deb309-web.log": "3d9d2a38de5a7371dfb754699819d2b129a6759aa89153d1a38bf8ef29838727"
+  }
+}
