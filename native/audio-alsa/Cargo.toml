@@ -42,3 +42,10 @@ name = "turn_private_tls"
 path = "tests/turn_private_tls.rs"
 test = false
 required-features = ["turn-relay"]
+
+# Actual v2 worker + original Core authorization protocol + independent Coturn.
+[[test]]
+name = "remote_worker_private"
+path = "tests/remote_worker_private.rs"
+test = false
+required-features = ["turn-relay"]

@@ -2,12 +2,12 @@
 #![forbid(unsafe_code)]
 // Compile the actual production source, no copied/reimplemented TURN driver.
 #[path = "../src/turn.rs"]
-mod turn;
+pub(crate) mod turn;
 pub use rustsimhub_audio_alsa::codec;
 #[path = "../src/remote.rs"]
-mod remote;
+pub(crate) mod remote;
 #[path = "../src/rtc.rs"]
-mod rtc;
+pub(crate) mod rtc;
 
 use std::{
     fs::File,
@@ -29,10 +29,10 @@ use tokio_rustls::{
     TlsAcceptor,
 };
 use turn::{Driver, Error, Registration};
-struct Server {
+pub(crate) struct Server {
     child: Child,
     directory: tempfile::TempDir,
-    address: SocketAddr,
+    pub(crate) address: SocketAddr,
 }
 impl Drop for Server {
     fn drop(&mut self) {
@@ -200,7 +200,7 @@ fn reg(address: SocketAddr, dir: &Path) -> Registration {
     .unwrap()
 }
 impl Server {
-    async fn start() -> Self {
+    pub(crate) async fn start() -> Self {
         assert_eq!(
             std::env::var("RUSTSIMHUB_PRIVATE_TURN_FIXTURE").as_deref(),
             Ok("1"),
@@ -281,8 +281,21 @@ impl Server {
         .unwrap();
         result
     }
-    fn registration(&self) -> Registration {
-        reg(self.address, self.directory.path())
+    pub(crate) fn ca_der(&self) -> Vec<u8> {
+        std::fs::read(self.directory.path().join("ca.der")).unwrap()
+    }
+    pub(crate) fn registration(&self) -> Registration {
+        let mut roots = rustls::RootCertStore::empty();
+        roots.add(CertificateDer::from(self.ca_der())).unwrap();
+        Registration::loopback(
+            self.address,
+            "turn.fixture.invalid",
+            roots,
+            "fixture".into(),
+            "synthetic-only".into(),
+            Instant::now() + Duration::from_secs(600),
+        )
+        .unwrap()
     }
 }
 async fn datagram(driver: &mut Driver) -> Result<Vec<u8>, Error> {
@@ -509,7 +522,7 @@ fn production_registration_never_accepts_test_loopback_private_or_arbitrary_name
     }
 }
 
-fn fingerprint(sdp: &str) -> [u8; 32] {
+pub(crate) fn fingerprint(sdp: &str) -> [u8; 32] {
     let value = sdp
         .lines()
         .find_map(|line| line.strip_prefix("a=fingerprint:"))
@@ -517,7 +530,7 @@ fn fingerprint(sdp: &str) -> [u8; 32] {
     let fp: str0m::crypto::Fingerprint = value.parse().unwrap();
     fp.bytes.as_slice().try_into().unwrap()
 }
-fn permit(
+pub(crate) fn permit(
     key: [u8; 32],
 ) -> (
     rustsimhub_media::Authority,

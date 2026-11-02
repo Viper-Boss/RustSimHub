@@ -4,8 +4,16 @@
 pub mod codec;
 #[cfg(feature = "turn-relay")]
 pub mod remote;
+#[cfg(feature = "turn-relay")]
+#[path = "control_socket.rs"]
+mod remote_control_socket;
+#[cfg(feature = "turn-relay")]
+pub mod remote_worker;
 mod routes;
 pub mod rtc;
+#[cfg(feature = "turn-relay")]
+#[path = "trusted.rs"]
+mod service_identity;
 #[cfg(feature = "turn-relay")]
 mod turn;
 use alsa::{

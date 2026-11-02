@@ -1,0 +1,13 @@
+# No network/build packages. This synthetic NSS exists only in the disposable
+# fixture image; it reserves/installs no account on the host or real device.
+ARG FIXTURE_BASE=rustsimhub-private-turn-pinned:20261101
+FROM ${FIXTURE_BASE}
+RUN python3 - <<'PY'
+from pathlib import Path
+users=Path('/etc/passwd');groups=Path('/etc/group')
+for name,uid in [('rustsimhub-media',984),('rustsimhub-edge',985),('rustsimhub-core',986)]:
+    assert not any(row.split(':')[0]==name or row.split(':')[2]==str(uid) for row in users.read_text().splitlines())
+    with users.open('a') as f:f.write(f'{name}:x:{uid}:{uid}::/nonexistent:/usr/sbin/nologin\n')
+    with groups.open('a') as f:f.write(f'{name}:x:{uid}:\n')
+with groups.open('a') as f:f.write('rustsimhub-ipc:x:983:rustsimhub-media,rustsimhub-edge,rustsimhub-core\n')
+PY

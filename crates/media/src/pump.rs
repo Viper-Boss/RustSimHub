@@ -103,6 +103,19 @@ impl<D: Pcm> Pump<D> {
     }
     /// One bounded read and write per step. Caller runs this on a media thread, not the core reactor.
     pub fn step(&mut self, now: u64) -> Result<(), Error> {
+        self.step_inner(now, None::<fn() -> u64>)
+    }
+    /// Remote workers re-observe time after external PCM I/O. The existing
+    /// deterministic `step(now)` API retains its original clock semantics.
+    pub fn step_with_clock(&mut self, mut clock: impl FnMut() -> u64) -> Result<(), Error> {
+        let now = clock();
+        self.step_inner(now, Some(clock))
+    }
+    fn step_inner(
+        &mut self,
+        mut now: u64,
+        mut clock: Option<impl FnMut() -> u64>,
+    ) -> Result<(), Error> {
         self.gate(now)?;
         if self.capture_offset > 0 && now - self.capture_at >= MAX_AGE_MS {
             self.capture_offset = 0;
@@ -137,6 +150,9 @@ impl<D: Pcm> Pump<D> {
             Ok(_) => return self.fail(Error::Device),
             Err(IoError::Again) => {}
             Err(e) => self.handle_io(e, Direction::Capture, now)?,
+        }
+        if let Some(clock) = &mut clock {
+            now = clock();
         }
         self.gate(now)?;
         if self
@@ -191,6 +207,9 @@ impl<D: Pcm> Pump<D> {
                 Err(IoError::Again) => {}
                 Err(e) => self.handle_io(e, Direction::Playback, now)?,
             }
+        }
+        if let Some(clock) = &mut clock {
+            self.gate(clock())?;
         }
         Ok(())
     }
@@ -257,6 +276,29 @@ mod tests {
     use super::*;
     use crate::authorization::tests::permit;
     use std::sync::{Arc, Mutex};
+    #[test]
+    fn live_clock_rechecks_expiry_and_frame_age_after_external_capture() {
+        let (_authority, mut p, record) = pump(SAMPLES, false, false, false);
+        p.enqueue(
+            Frame {
+                samples: [123; SAMPLES],
+                sequence: 1,
+                at_ms: 0,
+            },
+            0,
+        )
+        .unwrap();
+        let mut ticks = [0, 70, 70].into_iter();
+        p.step_with_clock(|| ticks.next().unwrap()).unwrap();
+        assert!(record.lock().unwrap().written.iter().all(|s| *s == 0));
+        assert!(p.capture(70).unwrap().is_none());
+        assert_eq!(p.stats().dropped_frames, 2);
+        let (_authority, mut p, record) = pump(SAMPLES, false, false, false);
+        let mut ticks = [0, 1000].into_iter();
+        assert!(p.step_with_clock(|| ticks.next().unwrap()).is_err());
+        assert!(record.lock().unwrap().written.is_empty());
+        assert_eq!(record.lock().unwrap().closed, 1);
+    }
     #[test]
     fn small_scheduler_jitter_does_not_accumulate_silence_underruns() {
         let (_authority, mut p, record) = pump(SAMPLES, false, false, false);

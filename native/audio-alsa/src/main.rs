@@ -18,6 +18,16 @@ fn main() {
         return;
     }
     if let [command, config] = args.as_slice() {
+        #[cfg(feature = "turn-relay")]
+        if command == "--serve-remote-worker" {
+            let result = rtc_lan::read(std::path::Path::new(config), 24_576)
+                .and_then(|bytes| rustsimhub_audio_alsa::remote_worker::run(&bytes));
+            if let Err(reason) = result {
+                eprintln!("remote media worker stopped: {reason}");
+                std::process::exit(1);
+            }
+            return;
+        }
         if command == "--serve-worker" {
             if let Err(reason) = worker::run(config) {
                 eprintln!("media worker stopped: {reason}");

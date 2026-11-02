@@ -8,6 +8,7 @@ pub use authorization::{Authority, Context, Permit, RemoteAuthority, Ticket};
 pub mod local;
 pub mod protocol;
 mod pump;
+pub mod remote_worker;
 pub mod worker;
 pub use pump::{Direction, IoError, Pcm, Pump, Stats};
 pub const RATE: u32 = 16_000;
