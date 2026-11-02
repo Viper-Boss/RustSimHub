@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-02T12:42:32.368319+00:00",
+  "updated_at": "2026-11-02T17:07:58.597891+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -68,11 +68,16 @@
   },
   "focus": {
     "task_id": "UPD-02",
-    "title": "正式更新器只读账本入口已安装",
-    "state": "实际运行及独立复核通过；冷启动/故障演练待验",
-    "description": "复用已合并PR183的b37af31/冻结92607555/ARM81d6aaa4，经新鲜只读预检、当前/出厂应用验签、双份旧备份和17种真实Root/flock恢复隔离场景，在600秒独立恢复保护下只持更新锁原子替换正式更新器，保持0555。实际inspect-state、再次验签及独立只读复核通过：应用71账本/信任/原选择/原boot/12单元状态及PID保持，普通数据断开、转发PID0，全局恢复预算未用，timer/service停止。没有业务重启、choose/stage/confirm、数据回滚或新网络业务。安装文档PR186正常合并102f868；诊断授权/健康四项false仍保留，不代替C-26或无人值守Root升级。真实故障回退/冷启动和人工最后。 PR185仍未合并/部署；81.5%、20/169、加权10.6%及代码约90%粗估保持。"
+    "title": "成员非草稿已合入，继续主线固件代码",
+    "state": "4笔合并完成 · 12个草稿保留 · 人工验收最后",
+    "description": "按所有者2026-11-03指示先行批准并正常合并四笔成员非草稿PR：wnfhsj88的#178安全会话/Core媒体候选、#184受管SDK/Root候选、#187邮件queue4/worker5候选，以及yh1030的#180热点离线证据文档。#184/#187按依赖顺序改投main；#184正常接收main的快进同步后合并，无强推。最终main为0a3766d6492f7baba458fea9d896680cf09fa15d。回读四笔均merged且base=main，开放非草稿为0；12个草稿保持。本次未技术审查、未声称云端CI通过、未启用候选功能或部署。D线仍按指定归RedamancyGTW，实际提交账号与Git作者保持。 PR185已按单独明确授权合入e59dd8d，首次配网页存储修复尚未部署。更新器灯效线程耗尽修复正在本机回归，不算交付或设备验收。原验收81.5%、20/169、加权10.6%保持；主线代码约90%仅未加权粗估。"
   },
   "facts": [
+    {
+      "label": "本轮成员合并",
+      "value": "4 / 4 已合入 main",
+      "detail": "178、180、184、187；12草稿保留。先行批准不等于技术验收"
+    },
     {
       "label": "正式更新器",
       "value": "只读入口已安装 · 12单元保持",
@@ -80,8 +85,8 @@
     },
     {
       "label": "首次配网存储",
-      "value": "修复已验证 · PR185待集成",
-      "detail": "41 Edge、27网页、ARM及真实Chrome存储；未部署/未做手机热点验收"
+      "value": "PR185已合并 · 未部署",
+      "detail": "41 Edge、27网页、ARM及Chrome证据保持原产品绑定；手机热点验收最后"
     },
     {
       "label": "原固件验收",
@@ -5662,12 +5667,37 @@
         "docs/VALIDATION-UPDATER-READONLY-INSTALL-20261102.md",
         "https://github.com/Viper-Boss/RustSimHub/pull/186"
       ]
+    },
+    {
+      "at": "2026-11-02T17:07:58.597891+00:00",
+      "type": "state",
+      "title": "PR185按本笔明确授权合并",
+      "detail": "固定a00976fd9b6b99bb40523ffc3438abce270ce0c0经用户明确接受云端CI未运行风险的仅本PR授权，通过正常入口合入e59dd8df524a7be8bbeed4a51fd49c15891de1a7。没有部署、手机热点验收或扩展本次例外授权。",
+      "task_ids": [
+        "AP-07"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/185"
+      ]
+    },
+    {
+      "at": "2026-11-02T17:07:58.597891+00:00",
+      "type": "state",
+      "title": "四笔成员非草稿已正常合入主线",
+      "detail": "按所有者2026-11-03指示先行批准并正常合并四笔成员非草稿PR：wnfhsj88的#178安全会话/Core媒体候选、#184受管SDK/Root候选、#187邮件queue4/worker5候选，以及yh1030的#180热点离线证据文档。#184/#187按依赖顺序改投main；#184正常接收main的快进同步后合并，无强推。最终main为0a3766d6492f7baba458fea9d896680cf09fa15d。回读四笔均merged且base=main，开放非草稿为0；12个草稿保持。本次未技术审查、未声称云端CI通过、未启用候选功能或部署。D线仍按指定归RedamancyGTW，实际提交账号与Git作者保持。",
+      "task_ids": [],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/178",
+        "https://github.com/Viper-Boss/RustSimHub/pull/180",
+        "https://github.com/Viper-Boss/RustSimHub/pull/184",
+        "https://github.com/Viper-Boss/RustSimHub/pull/187"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "102f86825707bd50785f33afc1ad1ba5d2c10c4b",
-    "generated_at": "2026-11-02T12:42:32.368319+00:00",
+    "source_revision": "0a3766d6492f7baba458fea9d896680cf09fa15d",
+    "generated_at": "2026-11-02T17:07:34.812619+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5686,15 +5716,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 54367,
-            "tests": 43074,
+            "product": 54268,
+            "tests": 43095,
             "tooling": 10118,
             "firmware": 1180
           },
-          "commits": 491,
-          "code_commits": 314,
-          "added": 114876,
-          "deleted": 3227
+          "commits": 494,
+          "code_commits": 316,
+          "added": 114991,
+          "deleted": 3244
         },
         "work": {
           "assigned_steps": 0,
@@ -6154,8 +6184,8 @@
             },
             {
               "pr": 185,
-              "head": "cdd10f58db57c0519a2758531aab09ccb5f4f234",
-              "state": "OPEN"
+              "head": "a00976fd9b6b99bb40523ffc3438abce270ce0c0",
+              "state": "MERGED"
             },
             {
               "pr": 186,
@@ -6706,8 +6736,8 @@
             },
             {
               "pr": 185,
-              "head": "cdd10f58db57c0519a2758531aab09ccb5f4f234",
-              "state": "OPEN",
+              "head": "a00976fd9b6b99bb40523ffc3438abce270ce0c0",
+              "state": "MERGED",
               "submitted_by": "Viper-Boss"
             },
             {
@@ -6894,15 +6924,15 @@
         ],
         "stats": {
           "current_lines": {
-            "product": 2772,
-            "tests": 5227,
-            "tooling": 2818,
+            "product": 9473,
+            "tests": 8014,
+            "tooling": 3600,
             "firmware": 1
           },
-          "commits": 95,
-          "code_commits": 36,
-          "added": 11287,
-          "deleted": 106
+          "commits": 109,
+          "code_commits": 47,
+          "added": 21738,
+          "deleted": 306
         },
         "work": {
           "assigned_steps": 62,
@@ -7213,22 +7243,22 @@
             {
               "pr": 139,
               "head": "2f29a919ab72aa4d425e3821f9bc78164bbf8039",
-              "state": "OPEN"
+              "state": "MERGED"
             },
             {
               "pr": 140,
               "head": "c54e7b3e2d136deab6378961969bc493a1062632",
-              "state": "OPEN"
+              "state": "MERGED"
             },
             {
               "pr": 141,
               "head": "b513f4c9130ff2a21d9638546127fb0b340e3e07",
-              "state": "OPEN"
+              "state": "MERGED"
             },
             {
               "pr": 142,
               "head": "f7743b6b5bcaf6afe8e940ca2772dddab45aed52",
-              "state": "OPEN"
+              "state": "MERGED"
             },
             {
               "pr": 144,
@@ -7238,7 +7268,7 @@
             {
               "pr": 145,
               "head": "5a4a2f716bae63ea365e0acc66ceb8e62d3828a9",
-              "state": "OPEN"
+              "state": "MERGED"
             },
             {
               "pr": 153,
@@ -7248,7 +7278,7 @@
             {
               "pr": 154,
               "head": "7008728412d92db5934bc862bab29a7615528fda",
-              "state": "OPEN"
+              "state": "MERGED"
             },
             {
               "pr": 157,
@@ -7282,18 +7312,23 @@
             },
             {
               "pr": 170,
-              "head": "d9f1cdeafc8faaf59f014f5438e915c6986af6c6",
+              "head": "3f377e48d006e2cf99caeb5c5dd33be0c8d7630f",
               "state": "OPEN"
             },
             {
               "pr": 178,
               "head": "25bcaa4671278f25720b5c2fb9c2ca720a1375ef",
-              "state": "OPEN"
+              "state": "MERGED"
             },
             {
               "pr": 184,
-              "head": "5509629534997f7dfc07986b9c257a1f0601875f",
-              "state": "OPEN"
+              "head": "a48cf4b3dbb318d90b5dd4c85cd5e5087e150d8e",
+              "state": "MERGED"
+            },
+            {
+              "pr": 187,
+              "head": "f3ac9b96e18d80040a179342436c20423523fb6b",
+              "state": "MERGED"
             }
           ],
           "task_deliveries": [
@@ -7527,20 +7562,26 @@
             },
             {
               "pr": 170,
-              "head": "d9f1cdeafc8faaf59f014f5438e915c6986af6c6",
+              "head": "3f377e48d006e2cf99caeb5c5dd33be0c8d7630f",
               "state": "OPEN",
               "submitted_by": "wnfhsj88"
             },
             {
               "pr": 178,
               "head": "25bcaa4671278f25720b5c2fb9c2ca720a1375ef",
-              "state": "OPEN",
+              "state": "MERGED",
               "submitted_by": "wnfhsj88"
             },
             {
               "pr": 184,
-              "head": "5509629534997f7dfc07986b9c257a1f0601875f",
-              "state": "OPEN",
+              "head": "a48cf4b3dbb318d90b5dd4c85cd5e5087e150d8e",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 187,
+              "head": "f3ac9b96e18d80040a179342436c20423523fb6b",
+              "state": "MERGED",
               "submitted_by": "wnfhsj88"
             }
           ]
@@ -7620,11 +7661,11 @@
         "stats": {
           "current_lines": {
             "product": 1164,
-            "tests": 4655,
+            "tests": 4654,
             "tooling": 945,
             "firmware": 0
           },
-          "commits": 41,
+          "commits": 43,
           "code_commits": 16,
           "added": 7115,
           "deleted": 186
@@ -7739,7 +7780,7 @@
             {
               "pr": 180,
               "head": "52b483c1a4b7565c6daa3453eaf4dc0e708d0d84",
-              "state": "OPEN"
+              "state": "MERGED"
             }
           ],
           "task_deliveries": [
@@ -7830,7 +7871,7 @@
             {
               "pr": 180,
               "head": "52b483c1a4b7565c6daa3453eaf4dc0e708d0d84",
-              "state": "OPEN",
+              "state": "MERGED",
               "submitted_by": "yh1030"
             }
           ]
@@ -7899,15 +7940,15 @@
         ],
         "stats": {
           "current_lines": {
-            "product": 5090,
-            "tests": 9474,
+            "product": 7130,
+            "tests": 12989,
             "tooling": 126,
             "firmware": 8
           },
-          "commits": 68,
-          "code_commits": 31,
-          "added": 15128,
-          "deleted": 192
+          "commits": 84,
+          "code_commits": 41,
+          "added": 20832,
+          "deleted": 335
         },
         "work": {
           "assigned_steps": 26,
@@ -8093,37 +8134,37 @@
             {
               "pr": 139,
               "head": "2f29a919ab72aa4d425e3821f9bc78164bbf8039",
-              "state": "OPEN",
+              "state": "MERGED",
               "submitted_by": "wnfhsj88"
             },
             {
               "pr": 140,
               "head": "c54e7b3e2d136deab6378961969bc493a1062632",
-              "state": "OPEN",
+              "state": "MERGED",
               "submitted_by": "wnfhsj88"
             },
             {
               "pr": 141,
               "head": "b513f4c9130ff2a21d9638546127fb0b340e3e07",
-              "state": "OPEN",
+              "state": "MERGED",
               "submitted_by": "wnfhsj88"
             },
             {
               "pr": 142,
               "head": "f7743b6b5bcaf6afe8e940ca2772dddab45aed52",
-              "state": "OPEN",
+              "state": "MERGED",
               "submitted_by": "wnfhsj88"
             },
             {
               "pr": 145,
               "head": "5a4a2f716bae63ea365e0acc66ceb8e62d3828a9",
-              "state": "OPEN",
+              "state": "MERGED",
               "submitted_by": "wnfhsj88"
             },
             {
               "pr": 154,
               "head": "7008728412d92db5934bc862bab29a7615528fda",
-              "state": "OPEN",
+              "state": "MERGED",
               "submitted_by": "wnfhsj88"
             },
             {
@@ -8149,9 +8190,9 @@
       "deleted": 0
     },
     "totals": {
-      "product": 64897,
-      "tests": 63727,
-      "tooling": 14007,
+      "product": 73539,
+      "tests": 70049,
+      "tooling": 14789,
       "firmware": 1189
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。",
