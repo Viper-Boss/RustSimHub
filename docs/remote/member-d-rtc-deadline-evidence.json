@@ -1,0 +1,55 @@
+{
+  "source_head": "99c186f0d0a3f77474f20ffe31e596bf04d66f96",
+  "source_archive_sha256": "e7d1b1d2cc402d23203653c1ef6aaa76f1b5b7e0beead1a2d867199e4e5f4b8c",
+  "original_rtc_sha256": "2bfa63e19f889efea03e8c47311cb0395fbb88c0d7b6e9169f69bb1be881b3b7",
+  "image": "sha256:fc854d016cf274c1d3cb211d7763bc77755683849fa4546df79f38f5d9817c53",
+  "original_test_unchanged": true,
+  "production_tree_modified": false,
+  "product_deadline_changed": false,
+  "injected_stall_ms": 75,
+  "network": "none",
+  "read_only": true,
+  "uid": 1000,
+  "capabilities": [],
+  "memory_limit_bytes": 134217728,
+  "pids_limit": 12,
+  "cpus": 2,
+  "variants": [
+    {
+      "variant": "original-gate-stalled",
+      "exit_code": 101,
+      "stall_age_ms": 76,
+      "sent_frames_before_gate": 0,
+      "source_sha256": "769f446220b3ab79613253940a2e8946e1db20ff6f60bb312e70b599dd88064c",
+      "binary_sha256": "f142212518c9203aee77b45fd30b80a485c6e865872b7038f9e0c27c43311fc6",
+      "build_log_sha256": "1c88d71a3d960c03d95846475e62fc0a53b106b40d171129e85aef5e10b082ce",
+      "log_sha256": "e04712d020982c85f429c96137f90f260cfa77b100cf1af6be1ffe09a9660966"
+    },
+    {
+      "variant": "omitted-gate-stalled",
+      "exit_code": 0,
+      "stall_age_ms": 75,
+      "sent_frames_before_gate": 0,
+      "source_sha256": "bb9c2e965db41aa4038382e38a411f7cb0000d7cf37ca781e52326602d497bd3",
+      "binary_sha256": "c6d9596cc79b11af028cd15326587e5b6293b21e143fd5f66cf201edea2cdda0",
+      "build_log_sha256": "a19425d96cab2ce1503598f0ffcf56d44f7a1527583729d097d0fb671ea54378",
+      "log_sha256": "8daf3dae58c85e4dc575a0cfa2e321ddf8b02d09b39e06fd89ed43056b06a367"
+    }
+  ],
+  "scope": "deliberate post-encode scheduling stall; not proof of the exact earlier ARM failure site",
+  "result_sha256": "a17e1b5c6ff8afd660128c8fbf705b56a432ebe06949b0a6474355a3d5f5a994",
+  "date": "2026-11-02",
+  "progress": {
+    "offline_stages_submitted": 24,
+    "total_stages": 26,
+    "remaining": [
+      "D22",
+      "D23"
+    ],
+    "fixed_progress_scale_percent": 80
+  },
+  "production_admitted": false,
+  "device_tested": false,
+  "new_standard_test_functions": 0,
+  "source_scope": "new explicit archive replay script only; production Rust/manifests/locks and original Rust tests unchanged"
+}

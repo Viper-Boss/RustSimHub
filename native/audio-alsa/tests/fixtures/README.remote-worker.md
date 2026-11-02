@@ -10,6 +10,7 @@ CARGO_INCREMENTAL=0 python3 native/audio-alsa/tests/run_private_remote_worker.py
 # 已有镜像则不加 --build-fixture；实际image ID及产物/日志hash写work/remote-worker-final/result.json。
 CARGO_INCREMENTAL=0 python3 native/audio-alsa/tests/replay_clock_negative.py
 CARGO_INCREMENTAL=0 python3 native/audio-alsa/tests/replay_normal_host_negative.py
+CARGO_INCREMENTAL=0 python3 native/audio-alsa/tests/replay_rtc_frame_deadline.py
 ```
 
 当前完整私有目标38通过/0失败/2显式ignored。38包含23个复用SDK函数、5个源码内unit、10个新worker目标用例，不把它与标准suite/另一架构相加算新测试。worker_actual_uid_role和normal_host::actual_uid_edge_normal_host由同一runner随后分别显式--ignored --exact执行。旧UID夹具按真实UID984/985/986执行正例，另外按984/986/987执行非法来源负例，非测试native CLI另实际运行。新增正常Core夹具以UID986运行原Auth/Store/Calls Controller/normal dispatcher/media_ipc，以UID985调用非测试Host API，以UID984运行真实worker；正常身份/原租约→真实TURN/双向Opus→原Owner撤权关闭媒体均验证，不预造媒体票据。
@@ -25,3 +26,5 @@ ARM使用README.turn.md的既有交叉镜像/工具链：干净tracked git archi
 ARM矩阵与另一QEMU容器并行时实际有过37/1/2（旧self_check返回Bounds，具体分支未定位）；同一ELF在原预算下独立串行重验38/0/2。失败日志/来源一并保留，未放宽媒体期限或断言，不把重跑当负载稳定性验收。[最新逐SHA/镜像/hash证据](../../../../docs/remote/member-d-normal-host-evidence.json)；[原SEC-06历史证据](../../../../docs/remote/member-d-sec06-evidence.json)保持对应旧来源。
 
 nonce定时夹具保持产品期限、真实438/Refresh success/后续UDP与601秒过期拒绝。实际控制请求未排空或重试尚受固定库50ms cadence约束时不能推进30s测试时钟；cfg(test)的真实请求/响应观察+100ms无I/O/无待响应证明只用于稳定这一前提，不接生产授权/解析或任意时间设置。
+
+`replay_rtc_frame_deadline.py`在两个私有git archive变体中，让真实Opus首次编码后暂停75ms，原loopback/DTLS/双向Opus/授权撤销测试不改。保留编码后帧龄检查时原测试预期exit101/Bounds，尚未写出RTP帧；仅移除该检查的故障变体才通过原自检。只在临时源码注入暂停和观察，正常产品/默认suite没有延迟开关或旁路，不把人为故障称旧生产漏洞，也不把该控制实验当原ARM失败的确切位置。运行UID1000/cap0/network none/read-only/128MiB/12pids/2CPU，实际镜像、来源和每个变体hash记录work/rtc-frame-deadline-*/result.json。
