@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 #![forbid(unsafe_code)]
+#![cfg(all(test, target_os = "linux"))]
 //! Explicit private broker/three actual UIDs. Real D service, A candidate and
 //! original Core Wi-Fi actor; only BlueZ/NM/MM and the radio peer are external.
 use ed25519_dalek::{Signer, SigningKey};
@@ -126,6 +127,61 @@ async fn core_role() {
     let f = fixture();
     let audit = private_dir();
     rustsimhub_core::network_trial::provision::enable(audit.path()).unwrap();
+    if case() == "normal_usb_denied" {
+        wait("backend/ready.json").await;
+        let command = |token: String| rustsimhub_wire::AuthCommand::WifiBegin {
+            token,
+            idempotency_key: "synthetic-normal-no-usb".into(),
+            ssid: "SYNTHETIC_NATIVE".into(),
+            passphrase: "SYNTHETIC_NATIVE_PASSWORD".into(),
+        };
+        assert!(rustsimhub_core::network_trial::provision::authorized(
+            f.auth.clone(),
+            command("synthetic-invalid-token".into())
+        )
+        .await
+        .is_err());
+        let normal = rustsimhub_core::network_trial::provision::authorized(
+            f.auth.clone(),
+            command(f.owner.expose().into()),
+        )
+        .await
+        .unwrap();
+        let id = normal["trial_id"].as_str().unwrap().to_owned();
+        tokio::time::timeout(Duration::from_secs(4), async {
+            loop {
+                let status = rustsimhub_core::network_trial::provision::authorized(
+                    f.auth.clone(),
+                    rustsimhub_wire::AuthCommand::WifiStatus {
+                        token: f.owner.expose().into(),
+                        trial_id: id.clone(),
+                    },
+                )
+                .await
+                .unwrap();
+                if status["state"] == "rolled_back" {
+                    break;
+                }
+                assert_eq!(status["state"], "starting");
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        write("core/normal_usb_denied", &serde_json::json!(true));
+    }
+    let network = if case() == "busy_network" {
+        Some(rustsimhub_core::coordination::global().network().unwrap())
+    } else {
+        None
+    };
+    let telephony = if case() == "call_busy" {
+        rustsimhub_core::coordination::global()
+            .telephony(rustsimhub_domain::CallAction::Dial)
+            .unwrap()
+    } else {
+        None
+    };
     let listener = UnixListener::bind(CORE_SOCKET).unwrap();
     fs::set_permissions(CORE_SOCKET, fs::Permissions::from_mode(0o660)).unwrap();
     write(
@@ -182,6 +238,32 @@ async fn core_role() {
     if let Err(error) = &secure {
         eprintln!("candidate_handshake_error={error}");
     }
+    let admission = if matches!(
+        case().as_str(),
+        "confirm" | "cancel" | "revoke_after_save" | "normal_usb_denied" | "rollback_unknown"
+    ) {
+        let auth = f.auth.clone();
+        let path = f._directories[0].path().join("store.sqlite3");
+        Some(tokio::spawn(async move {
+            wait("backend/ready_held").await;
+            let db = rusqlite::Connection::open_with_flags(
+                path,
+                rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+            )
+            .unwrap();
+            tokio::time::timeout(Duration::from_secs(4), async move {
+                loop {
+                    let claimed: bool = db.query_row("SELECT EXISTS(SELECT 1 FROM recovery_execution_receipts WHERE action IN ('confirm_wifi','cancel_wifi') AND state='claimed')", [], |r|r.get(0)).unwrap();
+                    let admitted = claimed && auth.try_lock().map(|guard| {drop(guard);true}).unwrap_or(false);
+                    if admitted { break; }
+                    tokio::time::sleep(Duration::from_millis(1)).await;
+                }
+            }).await.unwrap();
+            write("control/release_ready", &serde_json::json!(true));
+        }))
+    } else {
+        None
+    };
     while let Ok(channel) = secure {
         match channel.dispatch(f.auth.clone()).await {
             Ok(SecureApplicationStep::Continue(channel)) => {
@@ -195,9 +277,15 @@ async fn core_role() {
             }
         }
     }
+    assert_eq!(established, case() != "wrong_pin");
+    drop(network);
+    drop(telephony);
     if let Some(revoke) = revoke {
         revoke.abort();
         let _ = revoke.await;
+    }
+    if let Some(admission) = admission {
+        admission.await.unwrap();
     }
     tokio::time::timeout(Duration::from_secs(8), async {
         loop {
@@ -209,9 +297,47 @@ async fn core_role() {
     })
     .await
     .unwrap();
+    // Read-only observation of this synthetic private test DB, never authority.
+    let db = rusqlite::Connection::open_with_flags(
+        f._directories[0].path().join("store.sqlite3"),
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .unwrap();
+    let mut statement = db.prepare("SELECT action,state,settings_saved,rollback_verified FROM recovery_execution_receipts ORDER BY action").unwrap();
+    let journal = statement
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, Option<i64>>(2)?,
+                r.get::<_, Option<i64>>(3)?,
+            ))
+        })
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    if matches!(
+        case().as_str(),
+        "wrong_pin" | "tamper" | "busy_network" | "call_busy"
+    ) {
+        assert!(journal.is_empty());
+    } else {
+        assert!(journal.iter().any(|r| r.0 == "begin_wifi"));
+        assert!(
+            journal.iter().all(|r| r.1
+                == if matches!(case().as_str(), "confirm" | "normal_usb_denied") {
+                    "saved"
+                } else if case() == "rollback_unknown" {
+                    "unknown"
+                } else {
+                    "rolled_back"
+                }),
+            "private journal: {journal:?}"
+        );
+    }
     write(
         "core/done.json",
-        &serde_json::json!({"uid":1001,"case":case(),"actual_auth_and_secure_session":true,"established":established,"application_replies":steps,"original_network_lock_released":true}),
+        &serde_json::json!({"uid":1001,"case":case(),"actual_auth_and_secure_session":true,"established":established,"application_replies":steps,"original_network_lock_released":true,"normal_usb_gate_checked":case()=="normal_usb_denied","journal":journal}),
     );
 }
 #[tokio::test]

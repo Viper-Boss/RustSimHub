@@ -173,8 +173,11 @@ impl Manager {
         assert_eq!(checkpoint.as_str(), CHECKPOINT);
         let mut s = self.0.lock().unwrap();
         assert!(s.checkpoint);
-        s.active = false;
         s.rollbacks += 1;
+        if case() == "rollback_unknown" {
+            return HashMap::from([(WIFI.to_owned(), 1)]);
+        }
+        s.active = false;
         HashMap::from([(WIFI.to_owned(), 0)])
     }
 }
@@ -263,7 +266,13 @@ impl SettingsRoot {
 struct Profile(Shared);
 #[zbus::interface(name = "org.freedesktop.NetworkManager.Settings.Connection")]
 impl Profile {
-    fn get_settings(&self) -> Settings {
+    async fn get_settings(&self) -> Settings {
+        if root().join("control/hold_ready").exists()
+            && !root().join("control/release_ready").exists()
+        {
+            write("backend/ready_held", &serde_json::json!(true));
+            wait("control/release_ready").await;
+        }
         copy_settings(&self.0.lock().unwrap().settings)
     }
     #[zbus(property)]
@@ -387,12 +396,15 @@ pub async fn run() {
     peer.closed().await;
     wait("core/done.json").await;
     let s = state.lock().unwrap();
-    if matches!(case().as_str(), "wrong_pin" | "tamper") {
+    if matches!(
+        case().as_str(),
+        "wrong_pin" | "tamper" | "busy_network" | "call_busy"
+    ) {
         assert_eq!(s.creates, 0);
     } else {
         assert_eq!(s.creates, 1);
     }
-    if case() == "confirm" {
+    if matches!(case().as_str(), "confirm" | "normal_usb_denied") {
         assert_eq!(s.saves, 1);
         assert_eq!(s.rollbacks, 0);
         assert!(s.saved);
@@ -400,6 +412,11 @@ pub async fn run() {
         assert_eq!(s.saves, 1);
         assert_eq!(s.rollbacks, 1);
         assert!(!s.exists);
+    } else if case() == "rollback_unknown" {
+        assert_eq!(s.saves, 0);
+        assert_eq!(s.rollbacks, 1);
+        assert!(s.checkpoint);
+        assert!(s.exists);
     } else {
         assert_eq!(s.saves, 0);
         if s.creates == 1 {
@@ -407,7 +424,7 @@ pub async fn run() {
             assert!(!s.exists);
         }
     }
-    assert!(!s.checkpoint);
+    assert_eq!(s.checkpoint, case() == "rollback_unknown");
     assert_eq!(s.unregister_application, 1);
     assert_eq!(s.unregister_advertisement, 1);
     write(

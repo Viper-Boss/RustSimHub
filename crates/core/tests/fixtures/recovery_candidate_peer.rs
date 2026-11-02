@@ -264,6 +264,19 @@ pub async fn run(bus: &Connection) -> PeerHold<'_> {
         return PeerHold { gatt };
     }
     let reply = client.send_wire(&mut gatt, &begin).await.unwrap();
+    if matches!(case().as_str(), "busy_network" | "call_busy") {
+        assert_eq!(reply["code"], "busy");
+        let lookup = client
+            .send(
+                &mut gatt,
+                Action::QueryOperation,
+                &serde_json::json!({"target_request_id":uuid(10)}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(lookup["lookup"], "not_found");
+        return PeerHold { gatt };
+    }
     assert_eq!(reply["state"], "starting");
     assert_eq!(reply["settings_saved"], false);
     let trial = reply["trial_id"].as_str().unwrap().to_owned();
@@ -298,7 +311,16 @@ pub async fn run(bus: &Connection) -> PeerHold<'_> {
         write("control/revoke", &serde_json::json!(true));
         wait("core/revoked").await;
     }
-    let action = if case() == "cancel" {
+    if matches!(
+        case().as_str(),
+        "confirm" | "cancel" | "revoke_after_save" | "normal_usb_denied" | "rollback_unknown"
+    ) {
+        // Hold the outside backend's read-only readiness check, not Core work.
+        // The actual control claim is queued before this read is released.
+        write("control/hold_ready", &serde_json::json!(true));
+        wait("backend/ready_held").await;
+    }
+    let action = if matches!(case().as_str(), "cancel" | "rollback_unknown") {
         Action::CancelWifi
     } else {
         Action::ConfirmWifi
@@ -308,6 +330,28 @@ pub async fn run(bus: &Connection) -> PeerHold<'_> {
         .await;
     if case().starts_with("revoke_") {
         assert!(reply.is_err());
+    } else if case() == "rollback_unknown" {
+        let reply = reply.unwrap();
+        assert_eq!(reply["state"], "unknown");
+        assert_eq!(reply["authoritative"], false);
+        for key in ["settings_saved", "rollback_verified", "expires_in_ms"] {
+            assert!(reply[key].is_null());
+        }
+        let lookup = client
+            .send(
+                &mut gatt,
+                Action::QueryOperation,
+                &serde_json::json!({"target_request_id":uuid(10)}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(lookup["operation"]["state"], "unknown");
+        assert_eq!(lookup["operation"]["authoritative"], false);
+        let denied = client
+            .send(&mut gatt, Action::BeginWifi, &body)
+            .await
+            .unwrap();
+        assert_eq!(denied["code"], "unknown");
     } else {
         let reply = reply.unwrap();
         assert_eq!(
@@ -316,10 +360,14 @@ pub async fn run(bus: &Connection) -> PeerHold<'_> {
                 "rolled_back"
             } else {
                 "saved"
-            }
+            },
+            "private actual Core reply: {reply}"
         );
         assert_eq!(reply["authoritative"], true);
-        assert_eq!(reply["settings_saved"], case() == "confirm");
+        assert_eq!(
+            reply["settings_saved"],
+            matches!(case().as_str(), "confirm" | "normal_usb_denied")
+        );
     }
     // Retain this descriptor until Core has completed the post-write check.
     tokio::time::sleep(Duration::from_millis(100)).await;

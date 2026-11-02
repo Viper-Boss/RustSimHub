@@ -13,7 +13,7 @@ import uuid
 
 PROJECT = Path(__file__).resolve().parents[3]
 IMAGE = 'python@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb'
-CASES = ['confirm', 'cancel', 'disconnect', 'revoke_before_confirm', 'revoke_after_save', 'replay', 'wrong_pin', 'tamper']
+CASES = ['confirm', 'cancel', 'disconnect', 'revoke_before_confirm', 'revoke_after_save', 'replay', 'wrong_pin', 'tamper', 'busy_network', 'call_busy', 'normal_usb_denied', 'rollback_unknown']
 
 
 def main():
