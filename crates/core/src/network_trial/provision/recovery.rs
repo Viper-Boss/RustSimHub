@@ -49,8 +49,10 @@ pub async fn recovery(
     }
     let a = auth.clone();
     let decoded = with_auth(a, move |a| recovery_body::decode_v1(a, request)).await?;
-    dispatch(auth, decoded, |trial| NmProvision {
+    let backend_auth = auth.clone();
+    dispatch(auth, decoded, move |trial| NmProvision {
         recovery: Some(trial),
+        recovery_auth: Some(backend_auth),
         ..NmProvision::default()
     })
     .await
@@ -223,13 +225,15 @@ struct RecoveryContext {
     auth: Arc<Mutex<Auth>>,
     trial: Arc<CoreRecoveryTrial>,
 }
+pub(super) async fn check_native_trial(
+    auth: Arc<Mutex<Auth>>,
+    trial: Arc<CoreRecoveryTrial>,
+) -> Result<()> {
+    with_auth(auth, move |a| a.check_recovery_trial(trial.authority())).await
+}
 impl Gate for RecoveryContext {
     async fn check(&self) -> Result<()> {
-        let t = self.trial.clone();
-        with_auth(self.auth.clone(), move |a| {
-            a.check_recovery_trial(t.authority())
-        })
-        .await
+        check_native_trial(self.auth.clone(), self.trial.clone()).await
     }
 }
 impl ProvisionGate for RecoveryContext {

@@ -524,6 +524,8 @@ fn settings(c: &Credentials, id: &str, confirmed: bool) -> Result<Settings> {
 struct NmProvision {
     #[cfg(feature = "recovery-execution")]
     recovery: Option<Arc<crate::recovery_body::CoreRecoveryTrial>>,
+    #[cfg(feature = "recovery-execution")]
+    recovery_auth: Option<Arc<Mutex<Auth>>>,
     nm: Option<NetworkManager>,
     base: Option<Snapshot>,
     cp: Option<OwnedObjectPath>,
@@ -533,6 +535,17 @@ struct NmProvision {
     activation_uncertain: bool,
 }
 impl NmProvision {
+    async fn check_recovery(&self) -> Result<()> {
+        #[cfg(feature = "recovery-execution")]
+        match (&self.recovery, &self.recovery_auth) {
+            (Some(trial), Some(auth)) => {
+                recovery::check_native_trial(auth.clone(), trial.clone()).await?
+            }
+            (None, None) => {}
+            _ => return Err(Error::Forbidden),
+        }
+        Ok(())
+    }
     fn parts(&self) -> Result<(&NetworkManager, &Snapshot)> {
         Ok((
             self.nm.as_ref().ok_or(Error::Io)?,
@@ -611,6 +624,7 @@ impl ProvisionBackend for NmProvision {
         let b = self.base.as_ref().ok_or(Error::Io)?;
         nm.cellular_autoconnect_absent(&b.owner).await?;
         nm.fence(b).await?;
+        self.check_recovery().await?;
         let proxy = nm.proxy(&b.owner, ROOT, NM).await?;
         let cp: OwnedObjectPath = proxy
             .call("CheckpointCreate", &(vec![b.wifi.clone()], 45u32, 0u32))
@@ -631,6 +645,7 @@ impl ProvisionBackend for NmProvision {
             ("persist", string("volatile")),
             ("bind-activation", string("dbus-client")),
         ]);
+        self.check_recovery().await?;
         self.activation_uncertain = true;
         let (profile, active, _): (
             OwnedObjectPath,
@@ -756,6 +771,7 @@ impl ProvisionBackend for NmProvision {
                 "org.freedesktop.NetworkManager.Settings.Connection",
             )
             .await?;
+        self.check_recovery().await?;
         let _: HashMap<String, OwnedValue> = proxy
             .call(
                 "Update2",
@@ -767,6 +783,9 @@ impl ProvisionBackend for NmProvision {
             )
             .await
             .map_err(|_| Error::Io)?;
+        // A late save reply cannot authorize discarding our rollback handle.
+        // Compensation deliberately does NOT require a still-live grant.
+        self.check_recovery().await?;
         self.exact_profile().await?;
         if proxy
             .get_property::<bool>("Unsaved")
@@ -784,6 +803,7 @@ impl ProvisionBackend for NmProvision {
         if !self.ready().await? {
             return Err(Error::Forbidden);
         }
+        self.check_recovery().await?;
         let root = nm.proxy(&b.owner, ROOT, NM).await?;
         root.call::<_, _, ()>("CheckpointDestroy", &(self.cp.as_ref().ok_or(Error::Io)?,))
             .await
