@@ -139,6 +139,8 @@ impl Controller {
                 connection,
                 action,
                 reply,
+                #[cfg(feature = "nkn-session-candidate")]
+                nkn: None,
             })
             .map_err(|_| "media_busy")?;
         tokio::time::timeout(Duration::from_millis(450), rx)
@@ -148,6 +150,42 @@ impl Controller {
     }
     pub fn controls(&self) -> bool {
         self.controls
+    }
+    #[cfg(feature = "nkn-session-candidate")]
+    pub(crate) async fn nkn_media(
+        &self,
+        connection: u64,
+        action: crate::media_ipc::Action,
+        scope: rustsimhub_auth::nkn_session::NknScope,
+        deadline: std::time::Instant,
+    ) -> Result<Value> {
+        let (reply, rx) = oneshot::channel();
+        self.media_jobs
+            .try_send(crate::media_ipc::Job {
+                connection,
+                action,
+                reply,
+                nkn: Some(crate::media_ipc::NknMediaScope { scope, deadline }),
+            })
+            .map_err(|_| "media_busy")?;
+        tokio::time::timeout_at(
+            tokio::time::Instant::from_std(deadline)
+                .min(tokio::time::Instant::now() + Duration::from_millis(450)),
+            rx,
+        )
+        .await
+        .map_err(|_| "media_timeout")?
+        .map_err(|_| "media_closed")?
+    }
+    #[cfg(feature = "nkn-session-candidate")]
+    pub(crate) fn nkn_media_disconnected(&self, connection: u64) {
+        let (reply, _) = oneshot::channel();
+        let _ = self.media_jobs.try_send(crate::media_ipc::Job {
+            connection,
+            action: crate::media_ipc::Action::Disconnect,
+            reply,
+            nkn: None,
+        });
     }
     pub fn shutdown(&self) {
         self.stop.send_replace(true);
@@ -323,6 +361,14 @@ impl Worker {
     async fn handle_media(&mut self, j: crate::media_ipc::Job) {
         use crate::media_ipc::Action;
         self.media.expire(self.now());
+        #[cfg(feature = "nkn-session-candidate")]
+        if let Some(bound) = &j.nkn {
+            if self.nkn_media_scope(bound).await.is_err() {
+                self.media.disconnected(j.connection);
+                let _ = j.reply.send(Err("media_denied"));
+                return;
+            }
+        }
         let result = match j.action {
             Action::Disconnect => {
                 self.media.disconnected(j.connection);
@@ -335,11 +381,35 @@ impl Worker {
                 };
                 match context {
                     Ok(context) => {
+                        #[cfg(feature = "nkn-session-candidate")]
+                        if let Some(bound) = &j.nkn {
+                            if self.nkn_media_scope(bound).await.is_err() {
+                                self.media.disconnected(j.connection);
+                                let _ = j.reply.send(Err("media_denied"));
+                                return;
+                            }
+                        }
                         let now = self.now();
                         match action {
                             Action::Redeem { ticket, peer_key } => {
-                                self.media
-                                    .redeem(j.connection, ticket, peer_key, &context, now)
+                                let result = self.media.redeem(
+                                    j.connection,
+                                    ticket,
+                                    peer_key,
+                                    &context,
+                                    now,
+                                );
+                                #[cfg(feature = "nkn-session-candidate")]
+                                if result.is_ok() {
+                                    if let Some(bound) = &j.nkn {
+                                        if self.media.bind_nkn_scope(bound.scope.clone()).is_err() {
+                                            self.media.disconnected(j.connection);
+                                            let _ = j.reply.send(Err("media_denied"));
+                                            return;
+                                        }
+                                    }
+                                }
+                                result
                             }
                             Action::Pulse => self.media.pulse(j.connection, &context, now),
                             Action::Disconnect => unreachable!(),
@@ -354,6 +424,29 @@ impl Worker {
             }
         };
         let _ = j.reply.send(result);
+    }
+    #[cfg(feature = "nkn-session-candidate")]
+    async fn nkn_media_scope(&self, bound: &crate::media_ipc::NknMediaScope) -> Result<()> {
+        if std::time::Instant::now() >= bound.deadline
+            || !bound.scope.is_live()
+            || self.media.owner.as_ref() != Some(bound.scope.principal())
+        {
+            return Err("media_denied");
+        }
+        let auth = self.auth.clone();
+        let scope = bound.scope.clone();
+        tokio::task::spawn_blocking(move || {
+            auth.try_lock()
+                .map_err(|_| "auth_busy")?
+                .check_nkn_scope(&scope)
+                .map_err(|_| "media_denied")
+        })
+        .await
+        .map_err(|_| "auth_unavailable")??;
+        if std::time::Instant::now() >= bound.deadline || !bound.scope.is_live() {
+            return Err("media_denied");
+        }
+        Ok(())
     }
     pub async fn run(mut self) {
         let mut tick = tokio::time::interval(Duration::from_secs(5));

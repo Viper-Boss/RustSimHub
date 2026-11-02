@@ -3,12 +3,16 @@
 //! Serialized by core on a blocking worker. No remote-supplied clock or role.
 mod client;
 mod identity;
+#[cfg(feature = "nkn-session-candidate")]
+pub mod nkn_session;
 #[cfg(feature = "recovery-grants")]
 pub mod recovery_capability;
 #[cfg(feature = "recovery-execution")]
 mod recovery_execution;
 #[cfg(feature = "recovery-grants")]
 mod recovery_grants;
+#[cfg(feature = "secure-session-candidate")]
+pub mod secure_session;
 #[cfg(feature = "recovery-execution")]
 pub use recovery_execution::{
     RecoveryExecutionAdmission, RecoveryExecutionClaim, RecoveryExecutionPending,
@@ -116,6 +120,8 @@ struct Session {
     principal: Principal,
     deadline: Instant,
     authenticated: Instant,
+    #[cfg(feature = "nkn-session-candidate")]
+    nkn: Option<nkn_session::NknScope>,
 }
 /// Raw opaque token is returned once, and never Debug. Engine stores SHA-256 only.
 pub struct Token(Zeroizing<String>);
@@ -519,6 +525,11 @@ impl Auth {
                 c.active && c.generation == p.generation && c.kind == p.kind && c.scopes == p.scopes
             })
             .ok_or(Error::Forbidden)?;
+        self.issue_verified_session(current)
+    }
+    /// Shared allocator after a private possession-proof path checked the
+    /// exact durable Principal. Never called from a peer's authorization flag.
+    fn issue_verified_session(&mut self, current: Principal) -> Result<Token> {
         if self.sessions.len() >= 64 {
             return Err(Error::Busy);
         }
@@ -530,6 +541,8 @@ impl Auth {
                 principal: current,
                 deadline: now + SESSION_TTL,
                 authenticated: now,
+                #[cfg(feature = "nkn-session-candidate")]
+                nkn: None,
             },
         );
         Ok(token)
@@ -538,6 +551,10 @@ impl Auth {
         self.prune(Instant::now());
         let digest = token_digest(token)?;
         let session = self.sessions.get(&digest).ok_or(Error::Forbidden)?;
+        #[cfg(feature = "nkn-session-candidate")]
+        if let Some(scope) = &session.nkn {
+            self.check_nkn_scope(scope)?;
+        }
         let current = self
             .store
             .principal(session.principal.public_key)?
@@ -585,6 +602,13 @@ impl Auth {
             .get(&digest)
             .ok_or(Error::Forbidden)?
             .authenticated;
+        #[cfg(feature = "nkn-session-candidate")]
+        let nkn = self
+            .sessions
+            .get(&digest)
+            .ok_or(Error::Forbidden)?
+            .nkn
+            .clone();
         if self.sessions.len() >= 64 {
             return Err(Error::Busy);
         }
@@ -599,6 +623,8 @@ impl Auth {
                 principal: p,
                 deadline: Instant::now() + SESSION_TTL,
                 authenticated,
+                #[cfg(feature = "nkn-session-candidate")]
+                nkn,
             },
         );
         Ok(next)

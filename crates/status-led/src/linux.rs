@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use rustsimhub_status_led::{BusinessInput, Color, Inputs, Policy, UpdateInput};
+#[cfg(test)]
+use std::process::{Command, Stdio};
 use std::{
     fs::{self, OpenOptions},
     io::Read,
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::Path,
-    process::{Command, Stdio},
     sync::{Arc, Mutex},
     thread,
     time::{Duration, Instant},
 };
+mod bus;
+
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 #[cfg(test)]
 #[path = "linux_input_boundary_tests.rs"]
@@ -85,38 +88,6 @@ fn apply(color: Color) -> Result<()> {
     }
     Ok(())
 }
-fn command(program: &str, args: &[&str]) -> Result<String> {
-    let mut child = Command::new(program)
-        .args(args)
-        .env_clear()
-        .env("LC_ALL", "C")
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()?;
-    let end = Instant::now() + Duration::from_secs(3);
-    loop {
-        if let Some(status) = child.try_wait()? {
-            let mut bytes = Vec::new();
-            child
-                .stdout
-                .take()
-                .ok_or("missing output")?
-                .take(16_385)
-                .read_to_end(&mut bytes)?;
-            if !status.success() || bytes.len() > 16_384 {
-                return Err("status query failed".into());
-            }
-            return Ok(String::from_utf8(bytes)?);
-        }
-        if Instant::now() >= end {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Err("status query timed out".into());
-        }
-        thread::sleep(Duration::from_millis(20));
-    }
-}
 const BASE_UNITS: [&str; 8] = [
     "rustsimhub-firstboot.service",
     "rustsimhub-usb.service",
@@ -132,6 +103,7 @@ const BUSINESS_UNITS: [&str; 2] = ["rustsimhub-core.service", "rustsimhub-edge.s
 /// units. Paragraphs follow argument order (an alias would report another Id),
 /// so they are matched by position. Business units count only once
 /// installation is complete; activating ones never mean "configuring".
+#[cfg(test)]
 fn unit_states(text: &str, complete: bool) -> Result<(bool, bool)> {
     let states = text
         .split(
@@ -154,54 +126,15 @@ fn unit_states(text: &str, complete: bool) -> Result<(bool, bool)> {
     if states.len() != BASE_UNITS.len() + BUSINESS_UNITS.len() {
         return Err("incomplete unit status".into());
     }
-    let (base, business) = states.split_at(BASE_UNITS.len());
-    let failed = base.contains(&"failed") || (complete && business.contains(&"failed"));
-    Ok((failed, base.contains(&"activating")))
+    bus::unit_flags(
+        &states.into_iter().map(str::to_owned).collect::<Vec<_>>(),
+        complete,
+    )
 }
-fn refresh() -> Result<Inputs> {
+fn refresh(runtime: &tokio::runtime::Runtime) -> Result<Inputs> {
     let complete =
         Path::new("/var/lib/rustsimhub/rustsimhub-v1/system/installation.complete").is_file();
-    let mut args = vec!["show"];
-    args.extend(BASE_UNITS);
-    args.extend(BUSINESS_UNITS);
-    args.extend(["-p", "ActiveState"]);
-    let (failed, activating) = unit_states(&command("/usr/bin/systemctl", &args)?, complete)?;
-    let mut s = Inputs {
-        error: failed,
-        configuring: !complete || activating,
-        ..Inputs::default()
-    };
-    let devices = command(
-        "/usr/bin/nmcli",
-        &["-t", "-f", "DEVICE,TYPE,STATE", "device"],
-    )?;
-    for row in devices.lines() {
-        let fields: Vec<_> = row.split(':').collect();
-        if fields.len() != 3 {
-            continue;
-        }
-        if fields[1] == "gsm" && fields[2] == "connected" {
-            s.cellular_connected = true;
-        }
-        if fields[0] == "wlan0" && fields[1] == "wifi" && fields[2] == "connected" {
-            s.wifi_connected = true;
-        }
-    }
-    // Read cached per-device connectivity only. This program never sends a probe,
-    // enables an APN, changes routes, or asks NM to probe a cellular interface.
-    if s.wifi_connected {
-        let value = command(
-            "/usr/bin/nmcli",
-            &[
-                "-g",
-                "GENERAL.IP4-CONNECTIVITY,GENERAL.IP6-CONNECTIVITY",
-                "device",
-                "show",
-                "wlan0",
-            ],
-        )?;
-        s.internet = value.lines().any(|v| v.trim().starts_with("4 (full)"));
-    }
+    let mut s = runtime.block_on(bus::snapshot(complete))?;
     let root = Path::new("/var/lib/rustsimhub/rustsimhub-v1/system/app");
     if fs::symlink_metadata(root)
         .is_ok_and(|m| m.is_dir() && m.uid() == 0 && m.mode() & 0o777 == 0o700)
@@ -266,7 +199,16 @@ pub fn run() -> Result<()> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            serde_json::json!({"component":"status-led","source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"board":"thwc,ufi003","policy":1,"cellular_probes":false,"smooth_breathing":false})
+            serde_json::json!({"component":"status-led","source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"board":"thwc,ufi003","policy":1,"cellular_probes":false,"status_state_source":"system-bus-cached-readonly","status_snapshot_seconds":15,"status_snapshot_budget_ms":3000,"status_readonly_probe":true,"smooth_breathing":false})
+        );
+        return Ok(());
+    }
+    if args == ["--probe-readonly"] {
+        let runtime = bus::runtime()?;
+        let input = refresh(&runtime)?;
+        println!(
+            "{}",
+            serde_json::json!({"schema":1,"read_only":true,"scope":"service-network-snapshot","business_hint_included":false,"error":input.error,"configuring":input.configuring,"cellular_connected":input.cellular_connected,"wifi_connected":input.wifi_connected,"internet":input.internet})
         );
         return Ok(());
     }
@@ -289,6 +231,7 @@ pub fn run() -> Result<()> {
         b"off\n" | b"off" => true,
         _ => return Err("invalid mode".into()),
     };
+    let runtime = bus::runtime()?;
     let mut policy = Policy::default();
     let snapshot = Arc::new(Mutex::new(Inputs {
         configuring: true,
@@ -296,7 +239,7 @@ pub fn run() -> Result<()> {
     }));
     let sampler = snapshot.clone();
     thread::spawn(move || loop {
-        let value = refresh().unwrap_or(Inputs {
+        let value = refresh(&runtime).unwrap_or(Inputs {
             error: true,
             ..Inputs::default()
         });

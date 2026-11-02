@@ -74,7 +74,9 @@ jobs:
       - name: Web signed session continuation
         run: node tools/test-web-session.mjs
       - name: Web owner pairing approval and revocation
-        run: node tools/test-web-clients.mjs
+        run: |
+          node tools/test-web-clients.mjs
+          node tools/test-web-nas-bridge.mjs
       - name: PON diagnostic reference and error paths
         run: python3 tools/test-pon-dump-review.py
       - name: Read-only recovery helper fixtures

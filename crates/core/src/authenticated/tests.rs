@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
 use ed25519_dalek::{Signer, SigningKey};
+mod legacy_binding;
 mod recovery_grants;
 
 #[tokio::test]

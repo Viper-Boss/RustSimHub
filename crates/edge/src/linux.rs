@@ -659,6 +659,15 @@ fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/nas-bridge.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/nas-bridge.js"),
+                )
+            }),
+        )
+        .route(
             "/style.css",
             get(|| async {
                 (

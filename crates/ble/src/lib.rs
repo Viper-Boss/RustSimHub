@@ -20,6 +20,8 @@ pub mod bluez_gatt;
 pub mod bluez_peer;
 #[cfg(all(target_os = "linux", feature = "core-port"))]
 pub mod core_port;
+#[cfg(all(target_os = "linux", feature = "core-channel-candidate"))]
+pub mod core_channel;
 pub mod framing;
 pub mod lifecycle;
 pub mod manifest;

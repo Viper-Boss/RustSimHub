@@ -63,9 +63,13 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | HistoryDetail { .. }
         | GrantHistory { .. }
         | RevokeHistory { .. } => return Err(rustsimhub_auth::Error::Forbidden),
-        BindLegacy { .. } | RevokeLegacy { .. } | LegacySession { .. } | LegacyRead { .. } => {
-            return Err(rustsimhub_auth::Error::Forbidden)
-        }
+        BindLegacy { .. }
+        | BindLegacyChecked { .. }
+        | RevokeLegacyChecked { .. }
+        | RevokeLegacy { .. }
+        | LegacyBindingStatus { .. }
+        | LegacySession { .. }
+        | LegacyRead { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         WifiTrial { .. }
         | WifiBegin { .. }
         | WifiStatus { .. }
@@ -271,7 +275,10 @@ pub(crate) async fn handle(
     let result = if matches!(
         request.command,
         AuthCommand::BindLegacy { .. }
+            | AuthCommand::BindLegacyChecked { .. }
+            | AuthCommand::RevokeLegacyChecked { .. }
             | AuthCommand::RevokeLegacy { .. }
+            | AuthCommand::LegacyBindingStatus { .. }
             | AuthCommand::LegacySession { .. }
             | AuthCommand::LegacyRead { .. }
     ) {

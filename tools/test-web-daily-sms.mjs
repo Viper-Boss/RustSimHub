@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput } from '../crates/edge/src/web/nas-bridge.js';
 // Execute the production app and formatter, with synthetic IPC/IndexedDB only.
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -23,7 +24,7 @@ function fixture({respond,onPut,consent=true}={}){
  const document={hidden:false,getElementById:$,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(){}};
  let state='submitted';
  const context={OperationReceipt:class{update(){}reset(){}},DiagnosticPanel:class{update(){}reset(){}},ConfigurationState:class{reset(){}},UsageStatsPanel:class{reset(){}},TestCenter:class{update(){}reset(){}},ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,forwardingPendingInput,document,crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},
-  indexedDB:{open:()=>({})},SmsManager,smsListText,smsDetailText,DailyPhone:class{constructor(){this.managing=false;this.working=false;}reset(){}start(){}},ClientsPanel:class{reset(){}},SessionKeeper:class{start(){}reset(){}async ensure(){}},
+  indexedDB:{open:()=>({})},SmsManager,smsListText,smsDetailText,DailyPhone:class{constructor(){this.managing=false;this.working=false;}reset(){}start(){}},NasBridgePanel,nasPendingInput,nasReceiptInput,ClientsPanel:class{reset(){}},SessionKeeper:class{start(){}reset(){}async ensure(){}},
   AudioLink:class{constructor(){this.state='closed';}async stop(){}},
   ConfigurationIndicator:class{async set(){}},CallTest:class{async stop(){}},NetworkPanel:class{start(){}stop(){}},EventSync:class{reset(){}},
   confirm:text=>{confirmations.push(text);return consent;},

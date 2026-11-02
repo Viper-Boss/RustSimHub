@@ -18,6 +18,34 @@ observing模式读取实际SIM/收件箱/通话观察状态，同时在Core层�
 
 先通过现有v2配对将独立NAS公钥批准为kind=nas；设备身份钥匙不复制到NAS。5分钟内重新登录的owner调用 `bind_legacy`，明确 core_id、NAS public_key、expected_generation、scopes（status.read/sms.read/calls.read的非空子集）。返回 binding_epoch；每次绑定更新epoch并清理旧NAS会话。普通客户端与owner本人不能被当作NAS。`revoke_legacy` 撤销指定映射。
 
+### 绑定结果不明时的只读核对
+
+Owner 通过同一正式 v2 HTTPS/UDS 入口调用：
+
+```json
+{"protocol":2,"id":"binding-status","command":{"op":"legacy_binding_status","token":"RECENT_OWNER_SESSION","core_id":"approved-nas"}}
+```
+
+请求只含会话和原别名，不接受公钥、权限、路径或“缺失时绑定”参数。保持最近5分钟 Owner 登录要求；普通客户端、NAS 的 v2 会话及兼容 bearer 都不能查询。兼容后端未显式配置时拒绝，不自动打开服务。
+
+- `{"known":false}`：该别名当前没有映射。账本损坏、存储错误和权限失败返回错误，不能解释成已撤销。
+- `known:true`：返回 `binding`（原 core_id/public_key/generation/binding_epoch/scopes）和独立的 `principal_current`。后者仅在原 NAS principal 仍 active、kind=nas、代次一致、当前权限覆盖绑定权限时为 true。
+- principal 已撤销或同公钥重新批准后，原记录可以仍存在，但 `principal_current:false`。查询不会把它重新绑定到新代次。
+- 查询不创建或更新 principal、映射、nonce、会话，不轮换 epoch、不延长会话，也不作废已有会话。只有显式绑定/撤销才执行对应管理动作。
+
+回复是当前映射的快照，不是某笔写操作的历史回执；调用方须核对全部预期字段，不能据此自动重提、自动认定原请求成功或归档其他在途操作。其他 Owner 若修改了同一别名，应显示实际当前结果并保留不确定记录。此接口不新增网页按钮或生产后台进程。
+
+### 网页管理装配与带版本写入
+
+主线后续装配增加“连接与配对设置”内默认折叠的“NAS只读接入（可选）”。读取已批准的NAS后，可核对当前绑定，再明确保存或撤销。不能从此页创建NAS密钥、代替NAS提交持有证明、初始化Owner、启动引擎、发送短信或控制通话。完整接线边界见 [网页NAS管理](web/nas-bridge-integration.md)。上文“此接口不新增网页按钮”仅描述最初只读接口本身；网页装配为后续独立改动。
+
+网页不使用旧的无映射版本前置命令，而使用两个新增v2管理命令；旧命令继续保留兼容，权限不变。
+
+- `bind_legacy_checked`：原绑定参数外，必须提供 `expected_binding`。首次绑定为 `{"state":"absent"}`，重新绑定为 `{"state":"present","binding_epoch":"原64位小写hex"}`。缺失/未知/多余字段拒绝；不把null当成无条件写入。
+- `revoke_legacy_checked`：提供 `core_id` 和必须的 `expected_binding_epoch`，只撤销刚核对的版本；映射不存在或版本不同则拒绝，不解释成成功。
+- 两者都要求近期Owner，沿用现存 active NAS/generation/只读scope检查。Core在同一Auth/单写者Authority锁内比较并执行，没有等待或外部派发窗口；比较失败不轮换epoch、不删除映射或清理有效会话。
+- 版本前置不是幂等键。回复丢失时先用 `legacy_binding_status` 查询，不能自动重发同一写请求；当前状态也不能冒充原操作的历史回执。
+
 ## 签名与会话
 
 `POST /v1/session` 原始正文只含 `core_id`，原签名仍为 method/path/原timestamp/原nonce/Base64(SHA256(body))。头部为原 X-NSH-Core-Id、Timestamp、Nonce、Signature、Device-Id，另要求：

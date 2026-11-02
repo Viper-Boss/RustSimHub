@@ -24,6 +24,21 @@ pub(crate) struct Job {
     pub connection: u64,
     pub action: Action,
     pub reply: oneshot::Sender<Result<Value, &'static str>>,
+    #[cfg(feature = "nkn-session-candidate")]
+    pub nkn: Option<NknMediaScope>,
+}
+#[cfg(feature = "nkn-session-candidate")]
+pub(crate) struct NknMediaScope {
+    pub scope: rustsimhub_auth::nkn_session::NknScope,
+    pub deadline: std::time::Instant,
+}
+#[cfg(feature = "nkn-session-candidate")]
+struct ScopeFence(rustsimhub_auth::nkn_session::NknScope);
+#[cfg(feature = "nkn-session-candidate")]
+impl rustsimhub_media::RevocationFence for ScopeFence {
+    fn is_live(&self) -> bool {
+        self.0.is_live()
+    }
 }
 #[derive(Default)]
 pub(crate) struct State {
@@ -34,6 +49,21 @@ pub(crate) struct State {
     connection: Option<u64>,
 }
 impl State {
+    #[cfg(all(test, feature = "nkn-session-candidate"))]
+    pub(crate) fn fixture_permit(&self) -> Option<Permit> {
+        self.permit.clone()
+    }
+    #[cfg(feature = "nkn-session-candidate")]
+    pub fn bind_nkn_scope(
+        &self,
+        scope: rustsimhub_auth::nkn_session::NknScope,
+    ) -> Result<(), &'static str> {
+        self.permit
+            .as_ref()
+            .ok_or("media_denied")?
+            .bind_revocation_fence(std::sync::Arc::new(ScopeFence(scope)))
+            .map_err(|_| "media_denied")
+    }
     pub fn expire(&mut self, now: u64) {
         if self.permit.as_ref().is_some_and(|p| p.check(now).is_err()) {
             self.revoke();
@@ -130,7 +160,10 @@ pub(crate) async fn serve(
         if stream.peer_cred().map(|p| p.uid()).ok() != Some(uid) || tasks.len() >= 2 {
             continue;
         }
-        next = next.checked_add(1).ok_or("media_connections_exhausted")?;
+        next = next
+            .checked_add(1)
+            .filter(|n| *n < (1u64 << 63))
+            .ok_or("media_connections_exhausted")?;
         let c = controller.clone();
         let connection = next;
         tasks.spawn(async move {

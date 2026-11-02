@@ -8,6 +8,7 @@ license.workspace = true
 [features]
 default = []
 remote-signaling = ["dep:rustsimhub-domain", "dep:rustsimhub-wire", "dep:zeroize"]
+nkn-session-candidate = []
 
 [dependencies]
 getrandom = "0.4"

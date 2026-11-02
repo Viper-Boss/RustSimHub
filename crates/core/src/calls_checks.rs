@@ -22,6 +22,185 @@ fn path() -> OwnedObjectPath {
 }
 struct FakeVoice(FakeState);
 
+#[cfg(feature = "nkn-session-candidate")]
+fn nkn_scope(
+    auth: &Arc<Mutex<Auth>>,
+    seed: u8,
+) -> (
+    rustsimhub_auth::nkn_session::NknSession,
+    rustsimhub_auth::nkn_session::MembershipKey,
+    rustsimhub_auth::nkn_session::NknScope,
+    String,
+) {
+    use rustsimhub_auth::nkn_session::{MembershipKey, NknSession};
+    use rustsimhub_recovery_session::{Action, Context, Purpose, Session};
+    let random = || {
+        let mut n = [0; 32];
+        getrandom::fill(&mut n).unwrap();
+        n
+    };
+    let key = SigningKey::from_bytes(&[seed; 32]);
+    let public = key.verifying_key().to_bytes();
+    let nonce = random();
+    let (prepared, pin, generation) = {
+        let a = auth.lock().unwrap();
+        let generation = a.current_principal(public).unwrap().generation;
+        (
+            a.prepare_nkn_session(
+                random(),
+                public,
+                generation,
+                nonce,
+                std::time::Instant::now() + Duration::from_secs(120),
+            )
+            .unwrap(),
+            a.public_key(),
+            generation,
+        )
+    };
+    let mut device = NknSession::begin(prepared).unwrap();
+    let mut client = Session::client(
+        Context::new(Purpose::NknControl, pin, public, generation, nonce).unwrap(),
+        0,
+        120_000,
+    )
+    .unwrap();
+    device
+        .read_handshake(&client.write_handshake(1).unwrap())
+        .unwrap();
+    client
+        .read_handshake(&device.write_handshake().unwrap(), 2)
+        .unwrap();
+    device
+        .read_handshake(&client.write_handshake(3).unwrap())
+        .unwrap();
+    let work = device.device_binding_work().unwrap();
+    let signature = auth.lock().unwrap().sign_nkn_device_binding(&work).unwrap();
+    client
+        .open_binding(&device.seal_device_binding(work, &signature).unwrap(), 4)
+        .unwrap();
+    let signature = key.sign(&client.binding_message(5).unwrap()).to_bytes();
+    device
+        .read_client_binding(&client.seal_binding(&signature, 5).unwrap())
+        .unwrap();
+    client
+        .open_binding_ack(&device.write_binding_ack().unwrap(), 6)
+        .unwrap();
+    let member = MembershipKey::from_secret([5; 16], zeroize::Zeroizing::new([7; 32]), 1).unwrap();
+    let root = SigningKey::from_bytes(&[74; 32]);
+    let root_public = root.verifying_key().to_bytes();
+    let proof = member.proof(&root_public).unwrap();
+    let message = NknSession::membership_message(
+        &client.verified_peer_binding_message(7).unwrap(),
+        member.network_id(),
+        &root_public,
+        &proof,
+    )
+    .unwrap();
+    let mut body = vec![1];
+    body.extend_from_slice(&root_public);
+    body.extend_from_slice(&proof);
+    body.extend_from_slice(&root.sign(&message).to_bytes());
+    let wire = client
+        .seal_request([1; 16], Action::NormalCore, &body, 7)
+        .unwrap();
+    let admission = device.verify_membership(&member, &wire).unwrap();
+    let scope = device.scope().unwrap();
+    let token = auth.lock().unwrap().issue_nkn_token(&scope).unwrap();
+    client
+        .open_response(
+            &device.seal_membership_reply(admission, b"bound").unwrap(),
+            8,
+        )
+        .unwrap();
+    (device, member, scope, token.expose().to_owned())
+}
+
+#[cfg(feature = "nkn-session-candidate")]
+#[tokio::test]
+async fn nkn_media_uses_original_ticket_owner_and_actual_permit_with_immediate_source_fence() {
+    let mut f = fixture(false).await;
+    f.worker.media_enabled = true;
+    let (source, membership, scope, token) = nkn_scope(&f.worker.auth, 72);
+    let (foreign_source, foreign_membership, foreign, _) = nkn_scope(&f.worker.auth, 73);
+    let id = prepare(
+        &mut f.worker,
+        &token,
+        "nkn-media-fixture",
+        CallAction::Dial,
+        None,
+        "10010",
+    )
+    .await;
+    let value = submit(&mut f.worker, &token, &id, None).await.unwrap();
+    let lease: CallLease = serde_json::from_value(value["lease"].clone()).unwrap();
+    let value = f
+        .worker
+        .process(AuthCommand::IssueMedia {
+            token,
+            lease,
+            peer_key: [7; 32],
+        })
+        .await
+        .unwrap();
+    let credentials: rustsimhub_media::protocol::Credentials =
+        serde_json::from_value(value).unwrap();
+    let connection = 1u64 << 63;
+    let controller = f.controller.clone();
+    let wrong = controller.nkn_media(
+        connection,
+        crate::media_ipc::Action::Redeem {
+            ticket: credentials.ticket,
+            peer_key: credentials.peer_key,
+        },
+        foreign,
+        std::time::Instant::now() + Duration::from_secs(2),
+    );
+    let drive = async {
+        let job = f.worker.media_jobs.recv().await.unwrap();
+        f.worker.handle_media(job).await;
+    };
+    let (result, ()) = tokio::join!(wrong, drive);
+    assert!(result.is_err());
+    let valid = controller.nkn_media(
+        connection,
+        crate::media_ipc::Action::Redeem {
+            ticket: credentials.ticket,
+            peer_key: credentials.peer_key,
+        },
+        scope.clone(),
+        std::time::Instant::now() + Duration::from_secs(2),
+    );
+    let drive = async {
+        let job = f.worker.media_jobs.recv().await.unwrap();
+        f.worker.handle_media(job).await;
+    };
+    let (result, ()) = tokio::join!(valid, drive);
+    assert!(result.is_ok());
+    let permit = f.worker.media.fixture_permit().unwrap();
+    permit.check(f.worker.now()).unwrap();
+    // Retiring the real Noise session makes the very same media Permit fail
+    // immediately, without a new pulse or a refreshed media lease.
+    drop(source);
+    assert!(permit.check(f.worker.now()).is_err());
+    let late = controller.nkn_media(
+        connection,
+        crate::media_ipc::Action::Pulse,
+        scope,
+        std::time::Instant::now() + Duration::from_secs(2),
+    );
+    let drive = async {
+        let job = f.worker.media_jobs.recv().await.unwrap();
+        f.worker.handle_media(job).await;
+    };
+    let (result, ()) = tokio::join!(late, drive);
+    assert!(result.is_err());
+    drop((membership, foreign_source, foreign_membership));
+    assert_eq!(f.data.creates.load(Ordering::SeqCst), 1);
+    assert_eq!(f.data.starts.load(Ordering::SeqCst), 1);
+    f.server.close().await.unwrap();
+}
+
 #[tokio::test]
 async fn terminal_reobservation_ignores_unrelated_sms_notices_but_call_retirement_keeps_new_history(
 ) {

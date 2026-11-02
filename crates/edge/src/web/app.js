@@ -17,10 +17,12 @@ import { OperationReceipt } from './operation-receipt.js';
 import { DiagnosticPanel } from './diagnostics.js';
 import { ConfigurationState } from './configuration-state.js';
 import { UsageStatsPanel } from './usage-stats.js';
+import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput, readJournal as readNasJournal, clearJournal as clearNasJournal } from './nas-bridge.js';
 const $=id=>document.getElementById(id);
 const scopes=['status.read','sms.read','calls.read'];
 let key, publicKey, token=null, busy=false, pending=null, lease=null;
 let dailyPhone=null;
+let nasBridgePanel=null,authenticatedDevicePin=null;
 let apConfigurator=null;
 let inboxCursor=null, callsCursor=null,smsView=0,smsPreview=0,callsView=0,callsPreview=0;
 let historyCursor=null, historySources=[],historyView=0,historyPreview=0,historySourcesView=0;
@@ -200,11 +202,13 @@ async function pair(){
  notice('配对申请已提交。请由设备所有者核对浏览器公钥、权限和申请 ID 后批准：'+result.pairing_id);
 }
 async function login(){
+ nasBridgePanel?.reset();authenticatedDevicePin=null;
  forwardingPanel.reset();forwardingHistory.reset();
  clearWifiNetworks();
  sessionKeeper.reset();void audioLink.stop();const epoch=viewEpoch;token=null;lease=null;showAudio();const c=await api({op:'challenge',public_key:Array.from(publicKey)},epoch);const signature=await proof(c,'login',undefined,epoch);current(epoch);
+ const verifiedDevicePin=hex(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(new Uint8Array(c.transcript))).device_public_key);
  const r=await api({op:'authenticate',challenge_id:c.id,signature},epoch);current(epoch);if(!/^[a-f0-9]{64}$/.test(r.token))throw Error('登录响应无效');
- sessionKeeper.start(r.token,r.expires_in_seconds);token=r.token;configurationOpen=configurationVisible();void configurationIndicator.set(configurationOpen&&!document.hidden);networkPanel.start();dailyPhone.start();notice('已登录；会话15分钟，通话期间验证身份后续期');await refresh();
+ sessionKeeper.start(r.token,r.expires_in_seconds);token=r.token;authenticatedDevicePin=verifiedDevicePin;configurationOpen=configurationVisible();void configurationIndicator.set(configurationOpen&&!document.hidden);networkPanel.start();dailyPhone.start();notice('已登录；会话15分钟，通话期间验证身份后续期');await refresh();
 }
 function row(text,parent,onClick){const item=document.createElement('div');item.className='row';const label=document.createElement('span');label.textContent=text;item.append(label);if(onClick){const button=document.createElement('button');button.textContent='查看';button.onclick=()=>act(onClick);item.append(button);}parent.append(item);}
 async function inboxPage(reset=false){
@@ -510,6 +514,19 @@ addEventListener('pagehide',()=>sessionKeeper.reset());
 addEventListener('pagehide',()=>{forwardingPanel.reset();forwardingHistory.reset();});
 const clientsPanel=new ClientsPanel({document,request:command=>auth(command),confirm:message=>confirm(message)});
 const clientsPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{clientsPanel.reset();clientsPreviousLogout();};
+nasBridgePanel=new NasBridgePanel({document,request:command=>auth(command),confirm:message=>confirm(message),crypto,getDevicePin:()=>authenticatedDevicePin,
+ loadPending:()=>stored('nas-binding-pending'),savePending:(value,expected)=>atomicStored('nas-binding-pending',saved=>{
+  if(JSON.stringify(nasPendingInput(saved))!==JSON.stringify(nasPendingInput(expected)))throw Error('NAS记录已由另一页面更新');return nasPendingInput(value);
+ }),archivePending:async entry=>{
+  const epoch=viewEpoch,record=nasReceiptInput(entry);await atomicStored('nas-binding-receipts',saved=>{current(epoch);const rows=saved??[];
+   if(!Array.isArray(rows)||rows.length>64)throw Error('NAS核对回执不可用');const receipts=rows.map(nasReceiptInput);
+   const previous=receipts.find(r=>r.intent.id===record.intent.id);if(previous){if(JSON.stringify(previous)!==JSON.stringify(record))throw Error('NAS回执与原记录冲突');return receipts;}
+    if(receipts.length>=64)throw Error('NAS核对回执已满，请先导出并清理已留存回执');return [...receipts,record];});current(epoch);
+  },loadJournal:guard=>{const epoch=viewEpoch;return readNasJournal(db,()=>{current(epoch);guard();});},
+  clearJournal:(exported,guard)=>{const epoch=viewEpoch;return clearNasJournal(db,exported,authenticatedDevicePin,()=>{current(epoch);guard();});}});
+const nasPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{authenticatedDevicePin=null;nasBridgePanel.reset();nasPreviousLogout();};
+addEventListener('pagehide',()=>nasBridgePanel.reset());
+document.addEventListener('visibilitychange',()=>{if(document.hidden)nasBridgePanel.reset();});
 const apPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{apConfigurator?.suspend();apPreviousLogout();};
 addEventListener('pagehide',()=>apConfigurator?.suspend());
 

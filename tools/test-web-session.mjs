@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput } from '../crates/edge/src/web/nas-bridge.js';
 // Production renewal clock and real app/proof/phone wiring; synthetic IPC only.
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -44,7 +45,7 @@ async function appFixture({denied=false,wait=null,owner=false}={}){
  const c=clock(),elements=new Map(),sent=[];const $=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
  const document={getElementById:$,createElement:()=>new Element(),querySelectorAll:()=>[],addEventListener(){}};
  let transcript;const audio={state:'active',stops:0,starts:0,context:{token,lease},async stop(){this.stops++;this.state='closed';},async start(){this.starts++;},updateAuthentication(old,next){assert.equal(this.context.token,old);this.context={...this.context,token:next};},mute(){},async play(){}};
- const context={OperationReceipt:class{update(){}reset(){}},DiagnosticPanel:class{update(){}reset(){}},ConfigurationState:class{reset(){}},UsageStatsPanel:class{reset(){}},TestCenter:class{update(){}reset(){}},ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,forwardingPendingInput,document,crypto:webcrypto,TextEncoder,TextDecoder,AbortController,AbortSignal,setTimeout:c.setTimeout,clearTimeout:c.clearTimeout,setInterval:c.setInterval,clearInterval:c.clearInterval,performance:c.performance,addEventListener(){},indexedDB:{open:()=>({})},DailyPhone,ClientsPanel:class{reset(){}},SessionKeeper,prove,hex,unhex,
+ const context={OperationReceipt:class{update(){}reset(){}},DiagnosticPanel:class{update(){}reset(){}},ConfigurationState:class{reset(){}},UsageStatsPanel:class{reset(){}},TestCenter:class{update(){}reset(){}},ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,forwardingPendingInput,document,crypto:webcrypto,TextEncoder,TextDecoder,AbortController,AbortSignal,setTimeout:c.setTimeout,clearTimeout:c.clearTimeout,setInterval:c.setInterval,clearInterval:c.clearInterval,performance:c.performance,addEventListener(){},indexedDB:{open:()=>({})},DailyPhone,NasBridgePanel,nasPendingInput,nasReceiptInput,ClientsPanel:class{reset(){}},SessionKeeper,prove,hex,unhex,
   AudioLink:class{constructor(){return audio;}},ConfigurationIndicator:class{async set(){}},CallTest:class{async stop(){}},NetworkPanel:class{stop(){}start(){}},EventSync:class{reset(){}},SmsManager:class{reset(){}},
   fetch:async(_url,options)=>{
    const body=JSON.parse(options.body),command=body.command;sent.push(command);let result;

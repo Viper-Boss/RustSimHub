@@ -142,10 +142,14 @@ impl RecoveryChannel {
             scope: scope.clone(),
             plaintext: Zeroizing::new(json),
         };
-        let RecoveryChannel { token, peer } = channel;
+        let RecoveryChannel {
+            token,
+            session_lifetime,
+            peer,
+        } = channel;
         // Existing worker retains the REAL stream/slot until a timed-out or
         // cancelled A sealer actually drains. No additional unbounded pool.
-        let (peer, sealed) = peer
+        let (peer, sealed) = (*peer)
             .verify_blocking(
                 Packet::new(Kind::EncryptedRequest, vec![])?,
                 move |peer, _| {
@@ -163,7 +167,11 @@ impl RecoveryChannel {
                 },
             )
             .await?;
-        let channel = RecoveryChannel { token, peer };
+        let channel = RecoveryChannel {
+            token,
+            session_lifetime,
+            peer: Box::new(peer),
+        };
         channel.require_live()?;
         if !Arc::ptr_eq(&scope, &sealed.scope) {
             return Err(transport::Error::Denied.into());
