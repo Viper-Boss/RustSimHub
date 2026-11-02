@@ -1,0 +1,832 @@
+{
+  "schema": 1,
+  "runtime_source_commit": "a2f1acc885919012e3c071930c72135fa44e7af1",
+  "build_source_commit": "60d149423814c14fcd4bbab04be32f095d271876",
+  "sdk_source_commit": "fcbd46520dcaca1e241abc41ebc448e161a86bd7",
+  "root_source_commit": "a2f1acc885919012e3c071930c72135fa44e7af1",
+  "artifacts": [
+    {
+      "program": "nkn-sdk-engine",
+      "round": 1,
+      "architecture": "amd64",
+      "bytes": 11346044,
+      "sha256": "e3ecb38f4552dbc9d36d2a4ca91560f35ec6d19c965b79462d1f95ed432a0fdf",
+      "elf_machine": 62,
+      "modules": 17,
+      "version_executed": true,
+      "network_executed": false
+    },
+    {
+      "program": "nkn-root",
+      "round": 1,
+      "architecture": "amd64",
+      "bytes": 3567740,
+      "sha256": "4c7e40c1d713f444351153b3e0293505c8c2652bda12efc70ec326b8c74018ee",
+      "elf_machine": 62,
+      "modules": 1,
+      "version_executed": false,
+      "network_executed": false
+    },
+    {
+      "program": "nkn-sdk-engine",
+      "round": 1,
+      "architecture": "arm64",
+      "bytes": 10616956,
+      "sha256": "e742265c286942eeff8b1cf646ab5920fe15bf6bcb76483fd4378cca4247811e",
+      "elf_machine": 183,
+      "modules": 16,
+      "version_executed": false,
+      "network_executed": false
+    },
+    {
+      "program": "nkn-root",
+      "round": 1,
+      "architecture": "arm64",
+      "bytes": 3407996,
+      "sha256": "3dced8c418293e80e2d5a8a7f8f157341eebe05927d8e0167152e40adb6ae33c",
+      "elf_machine": 183,
+      "modules": 1,
+      "version_executed": false,
+      "network_executed": false
+    },
+    {
+      "program": "nkn-sdk-engine",
+      "round": 2,
+      "architecture": "amd64",
+      "bytes": 11346044,
+      "sha256": "e3ecb38f4552dbc9d36d2a4ca91560f35ec6d19c965b79462d1f95ed432a0fdf",
+      "elf_machine": 62,
+      "modules": 17,
+      "version_executed": true,
+      "network_executed": false
+    },
+    {
+      "program": "nkn-root",
+      "round": 2,
+      "architecture": "amd64",
+      "bytes": 3567740,
+      "sha256": "4c7e40c1d713f444351153b3e0293505c8c2652bda12efc70ec326b8c74018ee",
+      "elf_machine": 62,
+      "modules": 1,
+      "version_executed": false,
+      "network_executed": false
+    },
+    {
+      "program": "nkn-sdk-engine",
+      "round": 2,
+      "architecture": "arm64",
+      "bytes": 10616956,
+      "sha256": "e742265c286942eeff8b1cf646ab5920fe15bf6bcb76483fd4378cca4247811e",
+      "elf_machine": 183,
+      "modules": 16,
+      "version_executed": false,
+      "network_executed": false
+    },
+    {
+      "program": "nkn-root",
+      "round": 2,
+      "architecture": "arm64",
+      "bytes": 3407996,
+      "sha256": "3dced8c418293e80e2d5a8a7f8f157341eebe05927d8e0167152e40adb6ae33c",
+      "elf_machine": 183,
+      "modules": 1,
+      "version_executed": false,
+      "network_executed": false
+    }
+  ],
+  "independent_clean_cache_comparisons": 4,
+  "rust_candidate_tests": {
+    "passed": 683,
+    "failed": 0,
+    "ordinary_ignored": 3,
+    "components": {
+      "auth": 132,
+      "ble": 161,
+      "core_library": 87,
+      "core_binary": 198,
+      "media": 29,
+      "nkn_agent": 65,
+      "recovery_session": 11
+    }
+  },
+  "go_sdk_and_adapters_race_tests": {
+    "passed": 37,
+    "failed": 0
+  },
+  "actual_root_kernel_fixture": {
+    "actual_root_provider": true,
+    "actual_sdk": true,
+    "actual_kernel_cgroup_nft": true,
+    "public_network": false,
+    "physical_device": false,
+    "real_systemd_unit": false,
+    "results": [
+      {
+        "scenario": "actual-Rust-Auth-supervisor-three-references",
+        "actual_child_reaped": true,
+        "released": true
+      },
+      {
+        "scenario": "explicit-stop",
+        "actual_child_reaped": true,
+        "released": true
+      },
+      {
+        "scenario": "Core-owner-EOF",
+        "actual_child_reaped": true,
+        "released": true
+      },
+      {
+        "scenario": "original-lease-expiry",
+        "actual_child_reaped": true,
+        "released": true
+      },
+      {
+        "scenario": "altered-policy-unknown",
+        "actual_child_reaped": true,
+        "released": false
+      }
+    ],
+    "source_head": "60d149423814c14fcd4bbab04be32f095d271876",
+    "tracked_dirty": false,
+    "binary_sha256": {
+      "engine": "e3ecb38f4552dbc9d36d2a4ca91560f35ec6d19c965b79462d1f95ed432a0fdf",
+      "root": "4c7e40c1d713f444351153b3e0293505c8c2652bda12efc70ec326b8c74018ee",
+      "core-test": "8b954bfb64cef8500a6e084406b639e6142df28d23f0cac63307e4961438e839"
+    }
+  },
+  "modules": {
+    "format": 1,
+    "source_head": "60d149423814c14fcd4bbab04be32f095d271876",
+    "whole_program_modules": [
+      {
+        "path": "github.com/Viper-Boss/RustSimHub/tools/nkn-engine",
+        "version": "v0.0.0",
+        "source": "this repository, AGPL-3.0-only",
+        "license_files": [
+          {
+            "path": "LICENSE",
+            "sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+          }
+        ],
+        "selected_by_complete_programs": true
+      },
+      {
+        "path": "github.com/golang/protobuf",
+        "version": "v1.5.2",
+        "sum": "h1:ROPKBNFfQgOUMifHyP+KYbvpjbdoFNs+aK7DXlji0Tw=",
+        "go_mod_sum": "h1:XVQd3VNwM+JqD3oG2Ue2ip4fOMUkwXdXDdiuN0vRsmY=",
+        "source": "Go-module",
+        "license_files": [
+          {
+            "path": "LICENSE",
+            "sha256": "8778a9fc1eaffb03ab873caae251df2d224f6b5502be8777d3cd573a4dd43903"
+          }
+        ],
+        "selected_by_complete_programs": true
+      },
+      {
+        "path": "github.com/gorilla/websocket",
+        "version": "v1.5.3",
+        "sum": null,
+        "go_mod_sum": null,
+        "source": "checksum-pinned-local-fork",
+        "license_files": [
+          {
+            "path": "LICENSE",
+            "sha256": "2be1b548b0387ca8948e1bb9434e709126904d15f622cc2d0d8e7f186e4d122d"
+          }
+        ],
+        "selected_by_complete_programs": true
+      },
+      {
+        "path": "github.com/hashicorp/errwrap",
+        "version": "v1.0.0",
+        "sum": "h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=",
+        "go_mod_sum": "h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=",
+        "source": "Go-module",
+        "license_files": [
+          {
+            "path": "LICENSE",
+            "sha256": "bef1747eda88b9ed46e94830b0d978c3499dad5dfe38d364971760881901dadd"
+          }
+        ],
+        "selected_by_complete_programs": true
+      },
+      {
+        "path": "github.com/hashicorp/go-multierror",
+        "version": "v1.0.0",
+        "sum": "h1:iVjPR7a6H0tWELX5NxNe7bYopibicUzc7uPribsnS6o=",
+        "go_mod_sum": "h1:dHtQlpGsu+cZNNAkkCN/P3hoUDHhCYQXV3UM06sGGrk=",
+        "source": "Go-module",
+        "license_files": [
+          {
+            "path": "LICENSE",
+            "sha256": "a830016911a348a54e89bd54f2f8b0d8fffdeac20aecfba8e36ebbf38a03f5ff"
+          }
+        ],
+        "selected_by_complete_programs": true
+      },
+      {
+        "path": "github.com/imdario/mergo",
+        "version": "v0.3.13",
+        "sum": "h1:lFzP57bqS/wsqKssCGmtLAb8A0wKjLGrve2q3PPVcBk=",
+        "go_mod_sum": "h1:4lJ1jqUDcsbIECGy0RUJAXNIhg+6ocWgb1ALK2O4oXg=",
+        "source": "Go-module",
+        "license_files": [
+          {
+            "path": "LICENSE",
+            "sha256": "cb7684632b729955293cab8a0bbf4134d53d9532a30761c33c8a4878302a7bd3"
+          }
+        ],
+        "selected_by_complete_programs": true
+      },
+      {
+        "path": "github.com/itchyny/base58-go",
+        "version": "v0.0.5",
+        "sum": "h1:uv3ieMgCtuE9HtN0Gux375+GOApFnifLkyvSseHBaH0=",
+        "go_mod_sum": "h1:SrMWPE3DFuJJp1M/RUhu4fccp/y9AlB8AL3o3duPToU=",
+        "source": "Go-module",
+        "license_files": [
+          {
+            "path": "LICENSE",
+            "sha256": "4d4a41f636575473572520d5aea82e2185f7b6e0d74009d419e8710a90f53650"
+          }
+        ],
+        "selected_by_complete_programs": true
+      },
+      {
+        "path": "github.com/nknorg/ncp-go",
+        "version": "v1.0.5",
+        "sum": null,
+        "go_mod_sum": null,
+        "source": "checksum-pinned-local-fork",
+        "license_files": [
+          {
+            "path": "LICENSE",
+            "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+          }
+        ],
+        "selected_by_complete_programs": true
+      },
+      {
+        "path": "github.com/nknorg/nkn-sdk-go",
+        "version": "v1.4.8",
+        "sum": null,
+        "go_mod_sum": null,
+        "source": "checksum-pinned-local-fork",
+        "license_files": [
+          {
+            "path": "LICENSE",
+            "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+          }
+        ],
+        "selected_by_complete_programs": true
+      },
+      {
+        "path": "github.com/nknorg/nkn/v2",
+        "version": "v2.2.1-0.20240509224846-24ade56074a3",
+        "sum": "h1:HES8PokvbjW7xjcJK094C5nLfTe01WZpi48zLasM09o=",
+        "go_mod_sum": "h1:S0TtUvuE+hnihwOInhxNkS/c8ybTZUttsF4Vi9RYBwI=",
+        "source": "Go-module",
+        "license_files": [
+          {
+            "path": "LICENSE",
+            "sha256": "20707bee5430e2f5db0784438c1d5f697f3f91ec8b07eefc84a74ddb326a2353"
+          }
+        ],
+        "selected_by_complete_programs": true
+      },
+      {
+        "path": "github.com/nknorg/nkngomobile",
+        "version": "v0.0.0-20220615081414-671ad1afdfa9",
+        "sum": "h1:Gr37j7Ttvcn8g7TdC5fs6Y6IJKdmfqCvj03UbsrS77o=",
+        "go_mod_sum": "h1:zNY9NCyBcJCCDrXhwOjKarkW5cngPs/Z82xVNy/wvEA=",
+        "source": "Go-module",
+        "license_files": [
+          {
+            "path": "LICENSE",
+            "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+          }
+        ],
+        "selected_by_complete_programs": true
+      },
+      {
+        "path": "github.com/patrickmn/go-cache",
+        "version": "v2.1.0+incompatible",
+        "sum": "h1:HRMgzkcYKYpi3C8ajMPV8OFXaaRUnok+kx1WdO15EQc=",
+        "go_mod_sum": "h1:3Qf8kWWT7OJRJbdiICTKqZju1ZixQ/KpMGzzAfe6+WQ=",
+        "source": "Go-module",
+        "license_files": [
+          {
+            "path": "LICENSE",
+            "sha256": "0070a164e0fc28e82739a764c37b38c56de796f9a8d1862b4413eb6978cd4e04"
+          }
+        ],
+        "selected_by_complete_programs": true
+      },
+      {
+        "path": "github.com/pbnjay/memory",
+        "version": "v0.0.0-20190104145345-974d429e7ae4",
+        "sum": "h1:MfIUBZ1bz7TgvQLVa/yPJZOGeKEgs6eTKUjz3zB4B+U=",
+        "go_mod_sum": "h1:RMU2gJXhratVxBDTFeOdNhd540tG57lt9FIUV0YLvIQ=",
+        "source": "Go-module",
+        "license_files": [
+          {
+            "path": "LICENSE",
+            "sha256": "f0e4a9d181cbbbc742355f1723a4273fff79d999fd4d65caa2dc92fbcc5937be"
+          }
+        ],
+        "selected_by_complete_programs": true
+      },
+      {
+        "path": "golang.org/x/crypto",
+        "version": "v0.21.0",
+        "sum": "h1:X31++rzVUdKhX5sWmSOFZxx8UW/ldWx55cbf08iNAMA=",
+        "go_mod_sum": "h1:0BP7YvVV9gBbVKyeTG0Gyn+gZm94bibOW5BjDEYAOMs=",
+        "source": "Go-module",
+        "license_files": [
+          {
+            "path": "LICENSE",
+            "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+          }
+        ],
+        "selected_by_complete_programs": true
+      },
+      {
+        "path": "golang.org/x/mobile",
+        "version": "v0.0.0-20230301163155-e0f57694e12c",
+        "sum": "h1:Gk61ECugwEHL6IiyyNLXNzmu8XslmRP2dS0xjIYhbb4=",
+        "go_mod_sum": "h1:aAjjkJNdrh3PMckS4B10TGS2nag27cbKR1y2BpUxsiY=",
+        "source": "Go-module",
+        "license_files": [
+          {
+            "path": "LICENSE",
+            "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+          }
+        ],
+        "selected_by_complete_programs": true
+      },
+      {
+        "path": "golang.org/x/sys",
+        "version": "v0.18.0",
+        "sum": "h1:DBdB3niSjOA/O0blCZBqDefyWNYveAYMNF1Wum0DYQ4=",
+        "go_mod_sum": "h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=",
+        "source": "Go-module",
+        "license_files": [
+          {
+            "path": "LICENSE",
+            "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+          }
+        ],
+        "selected_by_complete_programs": true
+      },
+      {
+        "path": "google.golang.org/protobuf",
+        "version": "v1.33.0",
+        "sum": "h1:uNO2rsAINq/JlFpSdYEKIZ0uKD/R9cpdv0T+yoGwGmI=",
+        "go_mod_sum": "h1:c6P6GXX6sHbq/GpV6MGZEdwhWPcYBgnhAHhKbcUYpos=",
+        "source": "Go-module",
+        "license_files": [
+          {
+            "path": "LICENSE",
+            "sha256": "4835612df0098ca95f8e7d9e3bffcb02358d435dbb38057c844c99d7f725eb20"
+          }
+        ],
+        "selected_by_complete_programs": true
+      }
+    ],
+    "external_modules_unchanged_from_previous_candidate": true,
+    "compiled_golang_x_net_or_pion": false,
+    "new_external_modules": [],
+    "managed_patch_sha256": "6bea2a0448e475712834db1bb004260ea19a569eb0cea20172eec43b57899191",
+    "notices_sha256": "655533f3569189d93d21cab1980f6337d5cd02f50f40c5e040ff7440f07e9286",
+    "runtime_license": {
+      "go": "go1.27.3",
+      "path": "GOROOT/LICENSE",
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    "previous_advisory_disposition": "unchanged; x/crypto, x/sys and prior recorded advisories still need review",
+    "dependency_or_production_approval": false,
+    "system_tools": [
+      {
+        "name": "nftables",
+        "scope": "separate installed Root tool, not linked into SDK/Root Go programs; actual version/license must be checked at installation"
+      },
+      {
+        "name": "Linux cgroup v2/netfilter",
+        "scope": "kernel/runtime requirements; namespace tests do not prove device readiness"
+      }
+    ]
+  },
+  "arm_executed": false,
+  "public_network_exercised": false,
+  "production_enabled": false,
+  "merged_or_deployed": false,
+  "boundaries": [
+    "new Root/crypto/private wire/dependency choices await Viper-Boss review",
+    "no physical NetworkManager/systemd/ARM or device acceptance",
+    "Core public candidate provider/SDK status collection and full product activation wiring continue",
+    "SMTP queue4/worker5/seven stages and BlueZ/WASM/CSP/PWA/A30 still active",
+    "no new global acceptance credit"
+  ],
+  "advisory_scan": {
+    "scanner": {
+      "protocol_version": "v1.0.0",
+      "scanner_name": "govulncheck",
+      "scanner_version": "v1.9.0",
+      "db": "https://vuln.go.dev",
+      "db_last_modified": "2026-10-27T21:16:18Z",
+      "go_version": "go1.27.3",
+      "scan_level": "symbol",
+      "scan_mode": "source"
+    },
+    "source_findings": 23,
+    "source_package_or_symbol_findings": 0,
+    "module_dispositions": [
+      {
+        "id": "GO-2024-3321",
+        "summary": "Misuse of connection.serverAuthenticate may cause authorization bypass in golang.org/x/crypto",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2025-3487",
+        "summary": "Potential denial of service in golang.org/x/crypto",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2025-4116",
+        "summary": "Potential denial of service in golang.org/x/crypto/ssh/agent",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh/agent"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2025-4134",
+        "summary": "Unbounded memory consumption in golang.org/x/crypto/ssh",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2025-4135",
+        "summary": "Malformed constraint may cause denial of service in golang.org/x/crypto/ssh/agent",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh/agent"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-5005",
+        "summary": "Invoking key constraints not enforced in golang.org/x/crypto/ssh/agent",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh/agent"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-5006",
+        "summary": "Invoking agent constraints dropped when forwarding keys in golang.org/x/crypto/ssh/agent",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh/agent"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-5013",
+        "summary": "Invoking byte arithmetic causes underflow and panic in golang.org/x/crypto/ssh",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-5014",
+        "summary": "Invoking bypass of certificate restrictions in golang.org/x/crypto/ssh",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-5015",
+        "summary": "Invoking server panic during CheckHostKey/Authenticate in golang.org/x/crypto/ssh",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-5016",
+        "summary": "Invoking memory leak when rejecting channels can lead to DoS in golang.org/x/crypto/ssh",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-5017",
+        "summary": "Invoking client can cause server deadlock on unexpected responses in golang.org/x/crypto/ssh",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-5018",
+        "summary": "Invoking pathological RSA/DSA parameters may cause DoS in golang.org/x/crypto/ssh",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-5019",
+        "summary": "Invoking bypass of FIDO/U2F security keys physical interaction in golang.org/x/crypto/ssh",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-5020",
+        "summary": "Invoking infinite loop on large channel writes in golang.org/x/crypto/ssh",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-5021",
+        "summary": "Invoking auth bypass via unenforced @revoked status in golang.org/x/crypto/ssh/knownhosts",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh/knownhosts"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-5023",
+        "summary": "Invoking VerifiedPublicKeyCallback permissions skip enforcement in golang.org/x/crypto/ssh",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-5024",
+        "summary": "Invoking integer overflow in NewNTUnicodeString in golang.org/x/sys/windows",
+        "affected_packages": [
+          "golang.org/x/sys/windows"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-5033",
+        "summary": "Invoking pathological inputs can lead to client panic in golang.org/x/crypto/ssh/agent",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh/agent"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-5932",
+        "summary": "The golang.org/x/crypto/openpgp package is unmaintained, unsafe by design, and has known security issues",
+        "affected_packages": [
+          "golang.org/x/crypto/openpgp",
+          "golang.org/x/crypto/openpgp/packet",
+          "golang.org/x/crypto/openpgp/armor",
+          "golang.org/x/crypto/openpgp/clearsign",
+          "golang.org/x/crypto/openpgp/errors",
+          "golang.org/x/crypto/openpgp/elgamal",
+          "golang.org/x/crypto/openpgp/s2k"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-6303",
+        "summary": "Source-address critical option not enforced for non-public-key auth callbacks in golang.org/x/crypto/ssh",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-6354",
+        "summary": "Prevent DoS on deadlocked undecided channel in golang.org/x/crypto/ssh",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      },
+      {
+        "id": "GO-2026-6355",
+        "summary": "Prevent DoS on deadlocked established channel in golang.org/x/crypto/ssh",
+        "affected_packages": [
+          "golang.org/x/crypto/ssh"
+        ],
+        "in_actual_architecture_package_closure": {
+          "amd64": [],
+          "arm64": []
+        },
+        "scope": "these exact programs only; not module-wide remediation/approval"
+      }
+    ],
+    "binary_scan_limitation": {
+      "finding_records": 615,
+      "ssh_linked_in_actual_amd64_pclntab": false,
+      "actual_amd64_xcrypto_functions": 107,
+      "interpretation": "v1.9 binary mode reported SSH/agent functions absent from actual compiled package closure and Go pclntab; do not treat binary findings as established reachability or a green scan"
+    },
+    "approval": false,
+    "source_scan_sha256": "9dd866272575821e8f8e21996338e00607551bfc7aedc8af65e40b032295ad60"
+  },
+  "actual_sdk_child_fixture": {
+    "fixture": "actual SDK child, real low UID/kernel Root peer; owned loopback node",
+    "public_network": false,
+    "cgroup_or_egress_acceptance": false,
+    "results": [
+      {
+        "scenario": "stop",
+        "child_reaped": true,
+        "rpc_calls": 1,
+        "websocket_connections": 1,
+        "stderr_bytes": 0
+      },
+      {
+        "scenario": "parent-eof",
+        "child_reaped": true,
+        "rpc_calls": 1,
+        "websocket_connections": 1,
+        "stderr_bytes": 0
+      },
+      {
+        "scenario": "stdio-eof",
+        "child_reaped": true,
+        "rpc_calls": 1,
+        "websocket_connections": 1,
+        "stderr_bytes": 0
+      },
+      {
+        "scenario": "websocket-eof",
+        "child_reaped": true,
+        "rpc_calls": 1,
+        "websocket_connections": 1,
+        "stderr_bytes": 0
+      },
+      {
+        "scenario": "malformed-before-ready",
+        "child_reaped": true,
+        "rpc_calls": 1,
+        "websocket_connections": 1,
+        "stderr_bytes": 0
+      },
+      {
+        "scenario": "malformed-after-ready",
+        "child_reaped": true,
+        "rpc_calls": 1,
+        "websocket_connections": 1,
+        "stderr_bytes": 0
+      },
+      {
+        "scenario": "oversized-after-ready",
+        "child_reaped": true,
+        "rpc_calls": 1,
+        "websocket_connections": 1,
+        "stderr_bytes": 0
+      },
+      {
+        "scenario": "startup-eof",
+        "child_reaped": true,
+        "rpc_calls": 1,
+        "websocket_connections": 1,
+        "stderr_bytes": 0
+      },
+      {
+        "scenario": "expiry",
+        "child_reaped": true,
+        "rpc_calls": 1,
+        "websocket_connections": 1,
+        "stderr_bytes": 0
+      },
+      {
+        "scenario": "wrong-executable",
+        "child_reaped": true,
+        "rpc_calls": 0,
+        "websocket_connections": 0,
+        "stderr_bytes": 0
+      },
+      {
+        "scenario": "identity-reuse",
+        "child_reaped": true,
+        "rpc_calls": 0,
+        "websocket_connections": 0,
+        "stderr_bytes": 0
+      },
+      {
+        "scenario": "wrong-generation",
+        "child_reaped": true,
+        "rpc_calls": 0,
+        "websocket_connections": 0,
+        "stderr_bytes": 0
+      }
+    ],
+    "source_head": "60d149423814c14fcd4bbab04be32f095d271876",
+    "fixture_binary_sha256": "9100757027cf93b1b9d64f66801ee939636e9f747cf2f8a617a41442a06fe817"
+  }
+}

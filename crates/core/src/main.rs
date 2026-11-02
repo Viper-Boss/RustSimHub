@@ -31,6 +31,8 @@ mod network_diagnostics;
 pub mod nkn_business;
 #[cfg(all(target_os = "linux", feature = "nkn-session-candidate"))]
 pub mod nkn_host;
+#[cfg(all(target_os = "linux", feature = "root-provider-candidate"))]
+pub mod nkn_listener;
 #[cfg(all(target_os = "linux", feature = "nkn-session-candidate"))]
 pub mod nkn_transport;
 #[cfg(all(test, target_os = "linux", feature = "nkn-session-candidate"))]

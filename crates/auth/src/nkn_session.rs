@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, OnceLock,
     },
     time::{Duration, Instant},
 };
@@ -36,6 +36,72 @@ pub struct NknBinding {
     member: Member,
     session: [u8; 32],
 }
+
+/// A finite Root-launch authority issued by the original recent-Owner login.
+/// It cannot be built from JSON, a membership proof, a client or NAS token,
+/// or an existing remote NKN session. Its original authentication deadline
+/// survives every supervisor retry and may only be shortened.
+pub struct NknRootAuthority {
+    session: [u8; 32],
+    snapshot: NknAuthoritySnapshot,
+    deadline: Instant,
+    live: Arc<AtomicBool>,
+}
+impl NknRootAuthority {
+    pub fn deadline(&self) -> Instant {
+        self.deadline
+    }
+    pub fn invalidate(&self) {
+        self.live.store(false, Ordering::Release);
+    }
+}
+impl Auth {
+    pub fn nkn_root_authority(&mut self, token: &str) -> Result<NknRootAuthority> {
+        let owner = self.recent_owner(token)?;
+        let digest = token_digest(token)?;
+        let session = self.sessions.get(&digest).ok_or(Error::Forbidden)?;
+        if session.nkn.is_some() {
+            return Err(Error::Forbidden);
+        }
+        let snapshot = self.store.nkn_authority_snapshot(owner.public_key)?;
+        if snapshot.principal != owner || snapshot.owner != owner {
+            return Err(Error::Forbidden);
+        }
+        let deadline = session
+            .deadline
+            .min(session.authenticated + crate::REAUTH_TTL);
+        if Instant::now() >= deadline {
+            return Err(Error::Expired);
+        }
+        Ok(NknRootAuthority {
+            session: digest,
+            snapshot,
+            deadline,
+            live: Arc::new(AtomicBool::new(true)),
+        })
+    }
+    pub fn check_nkn_root_authority(&self, authority: &NknRootAuthority) -> Result<()> {
+        if !authority.live.load(Ordering::Acquire) || Instant::now() >= authority.deadline {
+            return Err(Error::Expired);
+        }
+        let session = self
+            .sessions
+            .get(&authority.session)
+            .ok_or(Error::Forbidden)?;
+        if session.nkn.is_some()
+            || Instant::now() >= session.deadline
+            || Instant::now() >= session.authenticated + crate::REAUTH_TTL
+            || session.principal != authority.snapshot.principal
+            || self
+                .store
+                .nkn_authority_snapshot(authority.snapshot.principal.public_key)?
+                != authority.snapshot
+        {
+            return Err(Error::Forbidden);
+        }
+        Ok(())
+    }
+}
 #[derive(Clone)]
 pub struct NknScope {
     binding: NknBinding,
@@ -43,7 +109,9 @@ pub struct NknScope {
     deadline: Instant,
     proved: Instant,
     issued: Arc<AtomicBool>,
+    parent: Arc<OnceLock<NknParentFence>>,
 }
+pub type NknParentFence = Arc<dyn Fn() -> bool + Send + Sync>;
 impl NknScope {
     pub fn binding(&self) -> &NknBinding {
         &self.binding
@@ -61,9 +129,24 @@ impl NknScope {
         self.live.store(false, Ordering::Release);
     }
     pub fn is_live(&self) -> bool {
-        self.live.load(Ordering::Acquire)
+        let live = self.live.load(Ordering::Acquire)
             && self.binding.member.live.load(Ordering::Acquire)
             && Instant::now() < self.deadline
+            && self.parent.get().is_none_or(|parent| parent());
+        if !live {
+            self.live.store(false, Ordering::Release);
+        }
+        live
+    }
+    /// A host can only restrict an already authenticated scope once. The
+    /// fence must perform no Auth lock or IO; every Core/media authorization
+    /// checks it, and false permanently retires the original scope.
+    pub fn restrict_parent(&self, parent: NknParentFence) -> Result<()> {
+        if !self.is_live() || !parent() {
+            self.invalidate();
+            return Err(Error::Forbidden);
+        }
+        self.parent.set(parent).map_err(|_| Error::Forbidden)
     }
 }
 pub struct NknPreparation {
@@ -372,6 +455,7 @@ impl NknSession {
                 deadline: s.deadline,
                 proved: s.origin,
                 issued: Arc::new(AtomicBool::new(false)),
+                parent: Arc::new(OnceLock::new()),
             });
             Ok(NknMembershipAdmission {
                 request: request.id,
