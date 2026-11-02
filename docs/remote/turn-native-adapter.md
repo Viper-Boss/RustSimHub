@@ -1,6 +1,6 @@
 # D25：固定 TURN/TLS 与强制中继 RTC 适配
 
-2026-11-01开始。用户批准 #56/#132 离线实施后，在既有 native audio crate 增加显式 `turn-relay` feature。已实现实际 TURN/TLS/ICE/DTLS/Opus SDK，并在私有服务运行；**尚未接正常 Core/Worker v2 与 Root 服务登记，不是生产准入或完整远程通话交付**。默认 LAN/worker v1、Core 唯一权限/票据/租约保持。
+2026-11-01开始。用户批准 #56/#132 离线实施后，在既有 native audio crate 增加显式 `turn-relay` feature。已实现实际 TURN/TLS/ICE/DTLS/Opus SDK，并追加[显式 worker v2 与原 Core 媒体协议接线](worker-v2.md)及私有跨UID验证；**完整正常身份/preflight/远程信令与 Root 服务登记仍未交付，不是生产准入或完整远程通话验收**。默认 LAN/worker v1、Core 唯一权限/票据/租约保持。
 
 `remote::Registration` 仅供已受信的安装登记层用 Rust 构造，没有 Deserialize、Debug、公开凭据字段或网络 URL。固定 IPv4 服务地址、正常 CA/主机名/有效期验证、有限凭据期限；拒绝私网、loopback、link-local、CGN、组播、文档/保留网段、已列出的元数据地址与任意名称格式。没有 DNS 重试、代理或忽略证书分支。最初版本只允许 peer 使用**本次实际已认证 Allocate 返回的相同 relay IP**，不把公网地址或 SDP `typ relay` 当登记证明；多 relay IP/provider 不自动扩展。回调没有业务权限。
 
@@ -18,8 +18,8 @@
 
 依赖与许可见 [实际闭包](turn-native-dependencies.json)：native lock189包、Linux x86_64 normal/build活跃149包，145个registry版本实际查OSV，全部有声明许可；它不是上游209包workspace。保留原版本，仅native Tokio1.53.2更新1.53.3修复RUSTSEC-2026-0386；新增26包。固定Git源码仍是MIT OR Apache-2.0/原作者Matthew Waters，按MIT选项保留版权与许可；ISC/BSD/Unicode等复合许可及分发NOTICE仍须由正式产物保留。
 
-**生产准入仍未完成**：原DTLS依赖链 crypto-bigint0.5.5 命中 RUSTSEC-2026-0387（秘密整数运算的时序问题）；修复>=0.7.6不能直接替换p256/p384/dimpl要求的^0.5接口。本包不私改密码实现或把换版本当已验证修复。新TLS使用ring，旧DTLS链风险仍明确保留；Git精确提交未被OSV索引不等于无漏洞。正式兼容升级/密码审查、Root登记/实际Core接线及设备验收是后续门槛。
+**生产准入仍未完成**：原DTLS依赖链 crypto-bigint0.5.5 命中 RUSTSEC-2026-0387（秘密整数运算的时序问题）；修复>=0.7.6不能直接替换p256/p384/dimpl要求的^0.5接口。本包不私改密码实现或把换版本当已验证修复。新TLS使用ring，旧DTLS链风险仍明确保留；Git精确提交未被OSV索引不等于无漏洞。正式兼容升级/密码审查、正常身份/preflight/远程信令到Core的完整装配、Root登记及设备验收是后续门槛。
 
 离线重跑入口为 `native/audio-alsa/tests/run_private_turn.py`（普通cargo test不启动该显式test=false目标），pinned Dockerfile在同目录fixtures。实际客户端、正常TLS、真实Coturn4.6.1-2、UDP转发、nonce/refresh与str0m/Opus都运行；测试CA/密钥/凭据与声音是合成且仅在隔离环境，loopback构造器/协议时间推进只有cfg(test)。nonce、TLS、凭据、Core与Frame时间仍用真实独立时钟，协议定时测试以小步推进避免跳过原刷新窗口。
 
-正常调用方的SO_PEERCRED/Worker v2、Root/C登记装配、真实Core业务状态到远程信令、真实PCM、运营商/外网TURN/两端听音、目标板完整cgroup负载与部署尚未验证。不得仅凭本SDK测试扣除完整D25、生产Crypto准入或设备验收。
+新增worker v2的实际SO_PEERCRED、原Core媒体协议/Client和跨UID撤权见[本轮矩阵](member-d-sec06-matrix-20261102.md)；Core业务Context/PCM仍是外部替代。完整正常身份/preflight/远程信令/Root与C消费端装配、真实PCM、运营商/外网TURN/两端听音、目标板完整cgroup负载与部署尚未验证。不得仅凭本SDK测试扣除完整D25、生产Crypto准入或设备验收。
