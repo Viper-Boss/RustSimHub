@@ -1,6 +1,6 @@
 # 更新账本只读入口：代码与冻结构建验证
 
-2026-11-02，主线UPD-01补充。产品提交为`b37af31d685ef9a843c5800fc59d1249cdc7fe22`；本记录不代表已经合并、安装或通过Root运行验收。接口见[契约](PROPOSAL-UPDATE-READONLY-STATE-20261102.md)。
+2026-11-02，主线UPD-01补充。产品提交为`b37af31d685ef9a843c5800fc59d1249cdc7fe22`；Root隔离检查及设备临时受限探针已通过，正式更新器尚未替换。接口见[契约](PROPOSAL-UPDATE-READONLY-STATE-20261102.md)。
 
 ## 实际改动
 
@@ -30,16 +30,26 @@ ARM程序为2,895,480字节，SHA-256：`81d6aaa4c0017a2923da0840fa06eb28abda5c7
 
 `tools/test-update-state-inspection.py`已通过Python AST语法检查。CI中新增了该脚本步骤，但本轮未运行云端CI，不称云端通过。
 
-## 尚未运行与阻塞
+## Root运行与兼容检查
 
-已编写14场景的真实Root/chroot命令行夹具，包括合法只读、缺失/损坏/待恢复账本、公钥异常、真实独占锁、非Root拒绝、9种错误分派，以及合法旧status恢复对照。该夹具、既有maintenance与签名格式兼容脚本本轮均未执行。
+已在私有网络命名空间、一次性chroot内运行同一冻结原生程序，以下三个检查均退出0，使用合成密钥和临时账本，不访问设备或修改宿主安装：
 
-尝试启动这一隔离Root检查时，自动审批服务返回额度不足，审批未完成，命令没有执行；这不是该操作被判定不安全。没有改用其他入口绕过审批，也没有Root测试进程或成功报告可供轮询。
+- `tools/test-update-state-inspection.py --updater ...`：14场景通过，包括合法只读、缺失/损坏/待恢复账本、公钥异常、真实独占锁、非Root拒绝、9种错误分派，以及合法旧status仍恢复state.next并创建versions的对照。拒绝与只读场景的完整夹具树保持。
+- `tools/test-maintenance-observation.py --updater ...`：18场景通过，覆盖实际数据UID、锁/SQLite旁文件/损坏/链接和非Root等既有有限维护路径；仍不声称有效systemd或写入准入已由此验证。
+- `tools/test-signed-application-formats.py --updater ...`：Rust与Python签名一致、格式1/2、六文件选择/五文件回退及损坏/未签worker拒绝通过；合成载荷未执行，不代表真实outbox回退。
 
-本轮仅做过既有设备文件元数据只读核对，确认实际信任模式为0444；没有上传或运行新程序、替换正式更新器、变更账本或业务服务。正式设备仍不能据本地新build-info宣称支持该入口。
+首次启动曾因自动审批服务额度不足而未执行。后续独立Git同步通过审批后，重新通过原审批路径获准启动上述检查并成功；没有换入口绕过审批。先前提交中的“未运行”保留为当时历史状态，以本节和实际报告为最新结果。
 
-下一步为审批可用后执行固定冻结程序的Root隔离夹具，再做受限的设备只读探针，核对账本/正式程序/服务和业务数据保持。通过后才考虑正式交付。人工测试仍放最后；不改成员范围、PMIC、分区或基带。
+## 设备临时只读探针
+
+先核对实际账本、公钥0444及服务基线，候选只上传到唯一维护目录、Root0700/程序0500，并回读SHA-256及build-info。临时systemd进程以Root运行，仅执行inspect-state；设置ProtectSystem=strict、ProtectHome、PrivateTmp/Devices/Network、NoNewPrivileges、空能力、AF_UNIX、32MiB、4任务与8秒上限，执行成功后回收。
+
+实际输出与设备既有应用71账本完全一致，公钥绑定为true，而授权/载荷完整性/运行选择/健康四项仍为false。前后账本目录清单及inode/权限/大小/mtime/ctime、公钥元数据和账本/公钥内容摘要相同；正式旧更新器摘要未变，九单元状态、八个常驻PID、一次性USB单元的active/exited状态、原boot保持。普通蜂窝数据断开、转发PID0、应用恢复预算未使用。没有读取或回滚业务数据库，没有停止业务、切网、外发、重启、分区或PMIC操作。
+
+首次设备预检错误地要求USB oneshot的MainPID大于1，在上传前退出；只读复核确认其为正常active/exited。第二份驱动仅对这个确切单元要求Type=oneshot、PID=0、SubState=exited，其余常驻单元仍要求running和非零PID。首次失败报告保留，未被覆盖成成功。
+
+这是临时程序的真实只读运行证明；正式更新器尚未替换、未增加可远程调用的Root接口，也不冒称健康确认或正式支持已交付。下一步按正常PR门禁交付代码，再决定正式更新器安装；人工测试放最后，成员及PMIC范围保持。
 
 原固件验收81.5%、本轮20/169及加权10.6%保持；主线代码约90%是未加权粗估，不因测试或构建数增加验收分。
 
-私有证据：`.private/update-readonly-source-20261102-first.json`、`.private/update-readonly-frozen-20261102-first.json`及五份对应日志。原始设备信息、程序和未执行的运行驱动保留在私有目录，不随本记录发布。
+私有证据：`.private/update-readonly-source-20261102-first.json`、`.private/update-readonly-frozen-20261102-first.json`及五份日志、`.private/update-readonly-root-cli-20261102-first.json`及三份日志、`.private/update-readonly-device-probe-20261102-first.json`（首次预检失败）和`second.json`（真实成功）。原始设备信息、程序和运行驱动只保留在私有目录。
