@@ -681,6 +681,29 @@ async fn relay_signaling_pin_and_host_fallback_are_rejected_before_an_allocation
     a.close().await;
 }
 
+// Advancing 30 protocol seconds with a real TLS request still in flight can
+// expire its original ~seconds request budget before the actual server replies.
+// Require actual request/response drain, including queued challenge retries;
+// never substitute server/TLS/credential/Core/PCM time or suppress an error.
+async fn settle_protocol_io(driver: &mut Driver) {
+    tokio::time::timeout(Duration::from_secs(1), async {
+        // The pinned library gates queued STUN requests by a 50ms cadence.
+        // Observe 100ms of no actual I/O AND no outstanding actual response;
+        // two short idle polls could leave a nonce retry queued but unsent.
+        let mut idle_since = tokio::time::Instant::now();
+        loop {
+            let before = driver.test_io;
+            driver.step(Duration::from_millis(5)).await.unwrap();
+            if before != driver.test_io || !driver.test_pending.is_empty() {
+                idle_since = tokio::time::Instant::now();
+            } else if idle_since.elapsed() >= Duration::from_millis(100) {
+                break;
+            }
+        }
+    })
+    .await
+    .expect("actual TURN transactions must drain before the test clock advances");
+}
 #[tokio::test]
 async fn actual_coturn_stale_nonce_and_refresh_survive_protocol_timer_advancement() {
     let server = Server::start().await;
@@ -689,13 +712,14 @@ async fn actual_coturn_stale_nonce_and_refresh_survive_protocol_timer_advancemen
     driver.bind_peer(peer.local_addr().unwrap()).await.unwrap();
     // Only the library's protocol timer advances. Actual TLS/nonce server,
     // credential deadline and Core heartbeat clocks are never substituted.
-    tokio::time::sleep(Duration::from_millis(2100)).await;
+    let nonce_until = tokio::time::Instant::now() + Duration::from_millis(2100);
+    while tokio::time::Instant::now() < nonce_until {
+        driver.step(Duration::from_millis(5)).await.unwrap();
+    }
+    settle_protocol_io(&mut driver).await;
     for _ in 0..35 {
         driver.origin = driver.origin.checked_sub(Duration::from_secs(30)).unwrap();
-        let end = tokio::time::Instant::now() + Duration::from_millis(60);
-        while tokio::time::Instant::now() < end {
-            driver.step(Duration::from_millis(5)).await.unwrap();
-        }
+        settle_protocol_io(&mut driver).await;
         driver.ready().unwrap();
     }
     driver.send(b"after actual refresh").await.unwrap();

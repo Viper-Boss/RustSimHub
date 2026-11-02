@@ -192,6 +192,12 @@ pub(crate) struct Driver {
     // clocks remain actual monotonic time; production has no clock setter.
     #[cfg(test)]
     pub(crate) origin: Instant,
+    // Explicit timer fixture may advance only after actual transactions drain.
+    // These opaque IDs never leave test memory and confer no protocol authority.
+    #[cfg(test)]
+    pub(crate) test_pending: std::collections::HashSet<[u8; 12]>,
+    #[cfg(test)]
+    pub(crate) test_io: u64,
     tls: TlsStream<TcpStream>,
     proto: TurnClientTcp,
     allocation: Allocation,
@@ -265,6 +271,10 @@ impl Driver {
         let proto = TurnClientTcp::allocate(local, reg.address, config);
         let mut driver = Self {
             origin: Instant::now(),
+            #[cfg(test)]
+            test_pending: std::collections::HashSet::new(),
+            #[cfg(test)]
+            test_io: 0,
             tls,
             proto,
             allocation: Allocation {
@@ -367,6 +377,18 @@ impl Driver {
         .await
         .map_err(|_| Error::Deadline)?
         .map_err(|_| Error::Transport)?;
+        #[cfg(test)]
+        {
+            let bytes = t.data.as_ref();
+            self.test_io += 1;
+            if bytes.len() >= 20
+                && bytes[0] >> 6 == 0
+                && u16::from_be_bytes([bytes[0], bytes[1]]) & 0x0110 == 0
+            {
+                self.test_pending
+                    .insert(bytes[8..20].try_into().map_err(|_| Error::Bounds)?);
+            }
+        }
         self.allocation.check()
     }
     fn events(&mut self) -> Result<(), Error> {
@@ -428,6 +450,14 @@ impl Driver {
                 .map_err(|_| Error::Transport)?;
             if first >> 6 == 0 && frame[4..8] != [0x21, 0x12, 0xa4, 0x42] {
                 return Err(Error::Protocol);
+            }
+            #[cfg(test)]
+            {
+                self.test_io += 1;
+                if first >> 6 == 0 && u16::from_be_bytes([frame[0], frame[1]]) & 0x0100 != 0 {
+                    let id: [u8; 12] = frame[8..20].try_into().map_err(|_| Error::Bounds)?;
+                    self.test_pending.remove(&id);
+                }
             }
             Ok(Some(frame))
         })
