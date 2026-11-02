@@ -219,7 +219,7 @@ for(const mode of ['pending-clear-fails','malformed-archive','bounded-archive'])
  r=await run({password:'correct horse'});inputWifi(r);await r.$('ap-wifi-begin').onclick();await r.$('ap-wifi-confirm').onclick();
  const s=globalThis.localStorage,key='rustsimhub-setup-ap-wifi-pending:'+hex(r.devicePk),archive='rustsimhub-setup-ap-wifi-pending:receipts:'+hex(r.devicePk),record=JSON.parse(s.getItem(key)),put=s.setItem;
  if(mode==='pending-clear-fails')s.setItem=function(k,v){if(k!==key)put.call(this,k,v);};
- if(mode==='malformed-archive')s.setItem(archive,'');
+ if(mode==='malformed-archive')s.setItem(archive,'SYNTHETIC-PRIVATE-ARCHIVE');
  const old=Array.from({length:8},(_,i)=>({record:{...record,id:`0000000${i}-aaaa-4aaa-8aaa-aaaaaaaaaaaa`},state:'saved'}));
  if(mode==='bounded-archive')s.setItem(archive,JSON.stringify(old));
  await r.$('ap-wifi-finish').onclick();
@@ -228,8 +228,9 @@ for(const mode of ['pending-clear-fails','malformed-archive','bounded-archive'])
   s.setItem=put;await r.$('ap-wifi-query').onclick();await r.$('ap-wifi-finish').onclick();
   assert.equal(s.getItem(key),'null');assert.deepEqual(JSON.parse(s.getItem(archive)),[{record,state:'saved'}]);
  }else if(mode==='malformed-archive'){
-  assert.deepEqual(JSON.parse(s.getItem(key)),record);assert.equal(s.getItem(archive),'');
+  assert.deepEqual(JSON.parse(s.getItem(key)),record);assert.equal(s.getItem(archive),'SYNTHETIC-PRIVATE-ARCHIVE');
   assert.doesNotMatch(r.$('ap-wifi-state').textContent,/回执已保存在/);
+  assert.doesNotMatch(r.$('ap-wifi-state').textContent,/SYNTHETIC|Unexpected|JSON/,'parse errors do not echo stored content');
  }else{
   assert.equal(s.getItem(key),'null');assert.deepEqual(JSON.parse(s.getItem(archive)),[...old.slice(1),{record,state:'saved'}]);
  }

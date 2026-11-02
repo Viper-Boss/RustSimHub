@@ -41,7 +41,10 @@ function storage(){
  try{const s=globalThis.localStorage;if(s)return s;}catch{}
  throw Error('浏览器存储不可用，无法保存配网进度，请改用完整浏览器');
 }
-function stored(s,key){const raw=s.getItem(key);return raw===null?null:JSON.parse(raw);}
+function stored(s,key){
+ try{const raw=s.getItem(key);return raw===null?null:JSON.parse(raw);}
+ catch{throw Error('本机配网记录无法读取，请保留原进度后查询');}
+}
 function writeStored(s,key,raw){
  if(raw===null)s.removeItem(key);else s.setItem(key,raw);
  if(s.getItem(key)!==raw)throw Error('配网记录未能保存，请先查询原进度，不会提交网络变更');
