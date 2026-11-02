@@ -1,6 +1,6 @@
 # RustSimHub 完整剩余行动台账
 
-快照：2026-11-02T05:58:59.762883+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
+快照：2026-11-02T06:18:42.751362+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
 
 原P0–P7：**81.5%**，剩余 **18.5** 个验收点。新增X1/X2/X3/BLE独立保留，不混入旧分母。
 
@@ -21,7 +21,7 @@ python tools/progress/build.py --check
 
 ## 当前关卡
 
-**LED-02 · 灯控过期快照保护代码已补齐**：代码已合并、ARM候选已准备；本轮未部署。PR181正常合并6b44897。产品d1d4b21/冻结2c6c7adb增加渲染端独立30秒有效期：采样停止后不能永久保留旧联网/配置/升级声明，新结果到达后恢复，原关闭/来电优先级保持。33项灯控、完整Rust1365通过/6项原有专用忽略、严格Clippy/fmt、ARM release及QEMU元数据通过。私有副本禁用年龄限制时四项新测试按预期失败，正向候选未改。无新增依赖、权限、协议或数据迁移；本轮未访问/部署设备。真实故障灯效和长测仍待最后。CI41396971809因付款/消费上限未启动、0步骤，未当作通过。LED-02只记进行中，81.5%、20/169和主线代码约90%未加权粗估保持。
+**LED-02 · 灯控快照修正版已部署并完成健康复核**：正式灯控已更新；真实故障红灯和人工长测待验。复用产品d1d4b21/冻结2c6c7adb/实际程序2f580cab；安装记录PR182已正常合并1e5cadd。新鲜只读基线、双份旧备份、候选上传回读、受限只读探针和六组恢复脚本隔离场景通过；只替换正式status-led并保持原0555/单元。13点120秒只读观测中服务单核CPU0.836%、已回收子进程0、RSS约3.07MiB。健康确认与独立只读复核通过：正式程序/运行exe、30秒有效期元数据、原boot和其他八服务PID一致，应用71账本/网络计量保持，普通数据断开、转发PID0，恢复timer停止且应用恢复预算未用。本轮没有业务重启、切网、真实外发、分区或PMIC操作。未制造实际采样故障/验证真实红灯或长测，LED-02仍进行中；81.5%、20/169和主线代码约90%未加权粗估保持。CI41398942147因付款/消费上限未启动，不称云端通过。
 
 ## FWD · 短信转发 · 独立服务
 
@@ -1053,7 +1053,7 @@ python tools/progress/build.py --check
 - 前置：无跨动作硬依赖
 - 配合/条件：用户配合
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
-- 证据：[VALIDATION-LED-SNAPSHOT-EXPIRY-20261102.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-LED-SNAPSHOT-EXPIRY-20261102.md)
+- 证据：[VALIDATION-LED-SNAPSHOT-EXPIRY-20261102.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-LED-SNAPSHOT-EXPIRY-20261102.md)、[VALIDATION-LED-SNAPSHOT-INSTALL-20261102.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-LED-SNAPSHOT-INSTALL-20261102.md)
 
 ### [ ] LED-03 · 青色读写与低频闪烁
 

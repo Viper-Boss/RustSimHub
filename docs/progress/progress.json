@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-02T05:58:59.762883+00:00",
+  "updated_at": "2026-11-02T06:18:42.751362+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -68,9 +68,9 @@
   },
   "focus": {
     "task_id": "LED-02",
-    "title": "灯控过期快照保护代码已补齐",
-    "state": "代码已合并、ARM候选已准备；本轮未部署",
-    "description": "PR181正常合并6b44897。产品d1d4b21/冻结2c6c7adb增加渲染端独立30秒有效期：采样停止后不能永久保留旧联网/配置/升级声明，新结果到达后恢复，原关闭/来电优先级保持。33项灯控、完整Rust1365通过/6项原有专用忽略、严格Clippy/fmt、ARM release及QEMU元数据通过。私有副本禁用年龄限制时四项新测试按预期失败，正向候选未改。无新增依赖、权限、协议或数据迁移；本轮未访问/部署设备。真实故障灯效和长测仍待最后。CI41396971809因付款/消费上限未启动、0步骤，未当作通过。LED-02只记进行中，81.5%、20/169和主线代码约90%未加权粗估保持。"
+    "title": "灯控快照修正版已部署并完成健康复核",
+    "state": "正式灯控已更新；真实故障红灯和人工长测待验",
+    "description": "复用产品d1d4b21/冻结2c6c7adb/实际程序2f580cab；安装记录PR182已正常合并1e5cadd。新鲜只读基线、双份旧备份、候选上传回读、受限只读探针和六组恢复脚本隔离场景通过；只替换正式status-led并保持原0555/单元。13点120秒只读观测中服务单核CPU0.836%、已回收子进程0、RSS约3.07MiB。健康确认与独立只读复核通过：正式程序/运行exe、30秒有效期元数据、原boot和其他八服务PID一致，应用71账本/网络计量保持，普通数据断开、转发PID0，恢复timer停止且应用恢复预算未用。本轮没有业务重启、切网、真实外发、分区或PMIC操作。未制造实际采样故障/验证真实红灯或长测，LED-02仍进行中；81.5%、20/169和主线代码约90%未加权粗估保持。CI41398942147因付款/消费上限未启动，不称云端通过。"
   },
   "facts": [
     {
@@ -79,14 +79,14 @@
       "detail": "固定P0–P7；新版本安装不重复增加既有验收点"
     },
     {
-      "label": "最近核验应用组",
-      "value": "71已确认 · 127条旧短信保持",
-      "detail": "应用来源d78dc2f3；仅Root灯控更新17d4707，其他服务保持；人工最后"
+      "label": "设备最近复核",
+      "value": "应用71 · 账本保持",
+      "detail": "其他八服务PID保持；普通数据断开、转发PID0，恢复保护已收尾"
     },
     {
-      "label": "灯控最新代码",
-      "value": "30秒失效保护 · 待部署",
-      "detail": "新源码d1d4b21；此前CPU短测属于已安装17d版本，不混作新版本证据"
+      "label": "正式灯控",
+      "value": "修正版已运行 · CPU约0.84%",
+      "detail": "30秒失效保护；120秒短测，真实故障灯效与长测待验"
     },
     {
       "label": "转发关闭运行验证",
@@ -2207,7 +2207,8 @@
           "offline_delegable": false,
           "passive_wait_hours": 0,
           "evidence": [
-            "docs/VALIDATION-LED-SNAPSHOT-EXPIRY-20261102.md"
+            "docs/VALIDATION-LED-SNAPSHOT-EXPIRY-20261102.md",
+            "docs/VALIDATION-LED-SNAPSHOT-INSTALL-20261102.md"
           ],
           "completed_at": null,
           "actual_hours": null
@@ -5585,12 +5586,24 @@
       "evidence": [
         "docs/VALIDATION-LED-SNAPSHOT-EXPIRY-20261102.md"
       ]
+    },
+    {
+      "at": "2026-11-02T06:20:12.956766+00:00",
+      "type": "verified",
+      "title": "灯控快照修正版实际安装及有限健康确认通过",
+      "detail": "复用固定ARM制品，备份/上传回读/受限探针与恢复隔离检查通过；只更新灯控。120秒CPU约0.84%，独立复核原业务、计量和恢复保护保持；不当作故障红灯/长测验收。",
+      "task_ids": [
+        "LED-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-LED-SNAPSHOT-INSTALL-20261102.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "6b44897f14d02c7a42c9bbdaa1189c6d92488f40",
-    "generated_at": "2026-11-02T05:58:59.762883+00:00",
+    "source_revision": "1e5cadd9c32c6576e77f10c9e65f0eab87076098",
+    "generated_at": "2026-11-02T06:18:42.751362+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5614,7 +5627,7 @@
             "tooling": 10118,
             "firmware": 1180
           },
-          "commits": 486,
+          "commits": 487,
           "code_commits": 313,
           "added": 114226,
           "deleted": 3226
@@ -6063,6 +6076,11 @@
             {
               "pr": 181,
               "head": "b14ef1ff22fe7965ca085edb34077253f0467bd7",
+              "state": "MERGED"
+            },
+            {
+              "pr": 182,
+              "head": "d7244ed0b8304366d124acb1512c27541e830512",
               "state": "MERGED"
             }
           ],
@@ -6592,6 +6610,12 @@
             {
               "pr": 181,
               "head": "b14ef1ff22fe7965ca085edb34077253f0467bd7",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 182,
+              "head": "d7244ed0b8304366d124acb1512c27541e830512",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
