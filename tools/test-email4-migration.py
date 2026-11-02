@@ -4,6 +4,7 @@
 Run INSIDE a disposable --network=none container as Root. No host paths/DBs.
 This exercises the authenticated child, not a substitute systemd producer.
 """
+import ctypes
 import argparse, hashlib, json, os, pathlib, shutil, socket, sqlite3, struct, subprocess, time
 
 DATA=pathlib.Path('/var/lib/rustsimhub/rustsimhub-v1/core/state/forwarding')
@@ -13,6 +14,7 @@ def snapshot():
 def main():
     p=argparse.ArgumentParser();p.add_argument('--legacy',required=True);p.add_argument('--candidate',required=True);a=p.parse_args()
     assert os.getuid()==0 and pathlib.Path('/.dockerenv').exists() and os.getpid()>1
+    assert ctypes.CDLL(None,use_errno=True).prctl(38,1,0,0,0)==0
     # Copy into this disposable filesystem; input workspace mounts stay readonly.
     pathlib.Path('/owned').mkdir();
     for name,src in [('legacy',a.legacy),('candidate',a.candidate)]:shutil.copyfile(src,'/owned/'+name);os.chmod('/owned/'+name,0o755)

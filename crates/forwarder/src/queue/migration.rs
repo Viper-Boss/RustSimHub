@@ -52,6 +52,26 @@ pub fn child() -> Result<()> {
     if peer.uid.as_raw() != 0 || peer.pid != parent || parent.as_raw_nonzero().get() <= 1 {
         return Err(Error::Forbidden);
     }
+    let status = std::fs::read_to_string("/proc/self/status")?;
+    let field = |key: &str| {
+        status
+            .lines()
+            .find_map(|s| s.strip_prefix(key))
+            .ok_or(Error::Forbidden)
+    };
+    for key in ["Uid:", "Gid:"] {
+        if field(key)?.split_whitespace().collect::<Vec<_>>() != ["986"; 4] {
+            return Err(Error::Forbidden);
+        }
+    }
+    if !field("Groups:")?.trim().is_empty() || field("NoNewPrivs:")?.trim() != "1" {
+        return Err(Error::Forbidden);
+    }
+    for key in ["CapInh:", "CapPrm:", "CapEff:", "CapAmb:"] {
+        if u64::from_str_radix(field(key)?.trim(), 16).ok() != Some(0) {
+            return Err(Error::Forbidden);
+        }
+    }
     // A duplicate of stdin keeps the SAME authenticated socket, not a path.
     let fd = rustix::io::dup(input.as_fd()).map_err(|_| Error::Storage)?;
     let mut channel = UnixStream::from(fd);

@@ -188,6 +188,7 @@ pub async fn migrate_email4(
     parent.set_nonblocking(true)?;
     let mut parent = tokio::net::UnixStream::from_std(parent)?;
     use std::os::unix::process::CommandExt;
+    rustix::thread::set_no_new_privs(true).map_err(|_| Error::Forbidden)?;
     let mut child = Reap(
         Command::new("/proc/self/fd/1")
             .arg0("rustsimhub-email-migration")
