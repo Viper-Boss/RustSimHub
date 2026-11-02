@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-02T06:18:42.751362+00:00",
+  "updated_at": "2026-11-02T11:16:52.405081+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,12 +67,17 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原固件81.5%按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "LED-02",
-    "title": "灯控快照修正版已部署并完成健康复核",
-    "state": "正式灯控已更新；真实故障红灯和人工长测待验",
-    "description": "复用产品d1d4b21/冻结2c6c7adb/实际程序2f580cab；安装记录PR182已正常合并1e5cadd。新鲜只读基线、双份旧备份、候选上传回读、受限只读探针和六组恢复脚本隔离场景通过；只替换正式status-led并保持原0555/单元。13点120秒只读观测中服务单核CPU0.836%、已回收子进程0、RSS约3.07MiB。健康确认与独立只读复核通过：正式程序/运行exe、30秒有效期元数据、原boot和其他八服务PID一致，应用71账本/网络计量保持，普通数据断开、转发PID0，恢复timer停止且应用恢复预算未用。本轮没有业务重启、切网、真实外发、分区或PMIC操作。未制造实际采样故障/验证真实红灯或长测，LED-02仍进行中；81.5%、20/169和主线代码约90%未加权粗估保持。CI41398942147因付款/消费上限未启动，不称云端通过。"
+    "task_id": "UPD-02",
+    "title": "更新账本只读入口已实现并完成运行检查",
+    "state": "PR183待合并门禁；正式更新器尚未替换",
+    "description": "固定b37af31/冻结92607555新增不触发Store恢复的inspect-state及错误参数前置校验。1374项Rust、严格Clippy、原生/ARM构建、14场景真实Root/chroot、18场景既有维护及签名格式兼容通过；棒子临时受限只读探针成功，应用71账本/信任/正式旧更新器/九单元和原boot保持，普通数据断开、转发PID0。首次USB oneshot预检失败保留。PR183已提交未合并：云端CI因付款/消费上限未启动，自动审批拒绝本轮合并；不绕过门禁。正式程序未替换，不替代C-26健康或维护授权。 81.5%、20/169、加权10.6%和主线代码约90%粗估保持；人工最后。"
   },
   "facts": [
+    {
+      "label": "主线更新器",
+      "value": "只读入口已验证 · PR183待合并",
+      "detail": "1374 Rust、Root隔离及真实受限探针通过；正式程序保持"
+    },
     {
       "label": "原固件验收",
       "value": "81.5%",
@@ -5598,12 +5603,26 @@
       "evidence": [
         "docs/VALIDATION-LED-SNAPSHOT-INSTALL-20261102.md"
       ]
+    },
+    {
+      "at": "2026-11-02T11:16:12.018315+00:00",
+      "type": "state",
+      "title": "主线更新账本只读检查通过；合并等待门禁",
+      "detail": "固定b37af31/冻结92607555新增不触发Store恢复的inspect-state及错误参数前置校验。1374项Rust、严格Clippy、原生/ARM构建、14场景真实Root/chroot、18场景既有维护及签名格式兼容通过；棒子临时受限只读探针成功，应用71账本/信任/正式旧更新器/九单元和原boot保持，普通数据断开、转发PID0。首次USB oneshot预检失败保留。PR183已提交未合并：云端CI因付款/消费上限未启动，自动审批拒绝本轮合并；不绕过门禁。正式程序未替换，不替代C-26健康或维护授权。",
+      "task_ids": [
+        "UPD-01",
+        "UPD-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-UPDATE-READONLY-STATE-20261102.md",
+        "https://github.com/Viper-Boss/RustSimHub/pull/183"
+      ]
     }
   ],
   "team": {
     "schema": 1,
     "source_revision": "1e5cadd9c32c6576e77f10c9e65f0eab87076098",
-    "generated_at": "2026-11-02T06:18:42.751362+00:00",
+    "generated_at": "2026-11-02T11:16:52.405081+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -6082,6 +6101,11 @@
               "pr": 182,
               "head": "d7244ed0b8304366d124acb1512c27541e830512",
               "state": "MERGED"
+            },
+            {
+              "pr": 183,
+              "head": "8ba659475ba01462bd2b6c2f883dcc863a5e1bab",
+              "state": "OPEN"
             }
           ],
           "task_deliveries": [
@@ -6617,6 +6641,12 @@
               "pr": 182,
               "head": "d7244ed0b8304366d124acb1512c27541e830512",
               "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 183,
+              "head": "8ba659475ba01462bd2b6c2f883dcc863a5e1bab",
+              "state": "OPEN",
               "submitted_by": "Viper-Boss"
             }
           ]
@@ -7185,7 +7215,7 @@
             },
             {
               "pr": 170,
-              "head": "a333a1841137e105348fa4c402de6ec122aa0691",
+              "head": "d9f1cdeafc8faaf59f014f5438e915c6986af6c6",
               "state": "OPEN"
             },
             {
@@ -7425,7 +7455,7 @@
             },
             {
               "pr": 170,
-              "head": "a333a1841137e105348fa4c402de6ec122aa0691",
+              "head": "d9f1cdeafc8faaf59f014f5438e915c6986af6c6",
               "state": "OPEN",
               "submitted_by": "wnfhsj88"
             },
