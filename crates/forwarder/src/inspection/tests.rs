@@ -86,7 +86,14 @@ fn actual_old_formats_require_migration_but_inspection_does_not_migrate() {
         let before = snapshot(d.path());
         let probe = inspect_outbox(d.path()).unwrap();
         assert_eq!(probe.version().format, version);
-        assert_eq!(probe.assessment().unwrap(), Assessment::MigrationRequired);
+        assert_eq!(
+            probe.assessment().unwrap(),
+            if crate::OUTBOX_MIGRATION_FORMATS.contains(&version) {
+                Assessment::MigrationRequired
+            } else {
+                Assessment::UnsupportedFormat
+            }
+        );
         drop(probe);
         assert_eq!(snapshot(d.path()), before);
     }
@@ -155,7 +162,7 @@ fn foreign_and_future_formats_are_reported_without_relabeling_the_database() {
         ),
         (
             crate::OUTBOX_APPLICATION_ID,
-            4,
+            crate::OUTBOX_CURRENT_FORMAT + 1,
             Assessment::UnsupportedFormat,
         ),
         (

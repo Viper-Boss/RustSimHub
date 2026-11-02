@@ -4,10 +4,27 @@
 use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 
+#[cfg(not(feature = "smtp-production-candidate"))]
 pub const FORWARDING_WORKER_PROTOCOL: u16 = 4;
+#[cfg(feature = "smtp-production-candidate")]
+pub const FORWARDING_WORKER_PROTOCOL: u16 = 5;
+/// Advertise only the actual compiled transport/queue/worker candidate.
+pub fn email_revision() -> Option<u16> {
+    if cfg!(feature = "smtp-production-candidate") {
+        Some(1)
+    } else {
+        None
+    }
+}
 pub const OUTBOX_APPLICATION_ID: i64 = 0x5253_4657;
+#[cfg(not(feature = "smtp-production-candidate"))]
 pub const OUTBOX_CURRENT_FORMAT: i64 = 3;
+#[cfg(feature = "smtp-production-candidate")]
+pub const OUTBOX_CURRENT_FORMAT: i64 = 4;
+#[cfg(not(feature = "smtp-production-candidate"))]
 pub const OUTBOX_MIGRATION_FORMATS: [i64; 2] = [1, 2];
+#[cfg(feature = "smtp-production-candidate")]
+pub const OUTBOX_MIGRATION_FORMATS: [i64; 1] = [3];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -15,7 +32,7 @@ pub struct OutboxCompatibility {
     pub application_id: i64,
     pub read_format: i64,
     pub write_format: i64,
-    pub migrate_from: [i64; 2],
+    pub migrate_from: Vec<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -72,7 +89,7 @@ pub fn runtime_compatibility() -> RuntimeCompatibility {
             application_id: OUTBOX_APPLICATION_ID,
             read_format: OUTBOX_CURRENT_FORMAT,
             write_format: OUTBOX_CURRENT_FORMAT,
-            migrate_from: OUTBOX_MIGRATION_FORMATS,
+            migrate_from: OUTBOX_MIGRATION_FORMATS.to_vec(),
         },
     }
 }
@@ -98,8 +115,7 @@ mod tests {
 
     #[test]
     fn current_contract_distinguishes_reading_from_required_migration() {
-        let expected = json!({"format":1,"worker_protocol":4,"outbox":{
-            "application_id":0x5253_4657_i64,"read_format":3,"write_format":3,"migrate_from":[1,2]}});
+        let expected = serde_json::to_value(runtime_compatibility()).unwrap();
         let parsed = parse_runtime_compatibility(&serde_json::to_vec(&expected).unwrap()).unwrap();
         assert_eq!(serde_json::to_value(parsed).unwrap(), expected);
     }
@@ -130,7 +146,7 @@ mod tests {
         for (field, value) in [
             ("format", json!(2)),
             ("format", json!(true)),
-            ("worker_protocol", json!(5)),
+            ("worker_protocol", json!(FORWARDING_WORKER_PROTOCOL + 1)),
             ("worker_protocol", json!(null)),
         ] {
             let mut v = expected.clone();
@@ -140,7 +156,7 @@ mod tests {
         for (field, value) in [
             ("application_id", json!(0)),
             ("read_format", json!(2)),
-            ("write_format", json!(4)),
+            ("write_format", json!(OUTBOX_CURRENT_FORMAT + 1)),
             ("migrate_from", json!([1, 2, 3])),
             ("migrate_from", json!([2, 1])),
             ("migrate_from", json!([-1, 2])),
@@ -153,7 +169,7 @@ mod tests {
         let raw = serde_json::to_string(&expected).unwrap();
         let duplicate = raw.replacen('{', "{\"format\":1,", 1);
         assert!(parse_runtime_compatibility(duplicate.as_bytes()).is_err());
-        let nested = raw.replacen("\"outbox\":{", "\"outbox\":{\"read_format\":3,", 1);
+        let nested = raw.replacen("\"outbox\":{", "\"outbox\":{\"read_format\":999,", 1);
         assert!(parse_runtime_compatibility(nested.as_bytes()).is_err());
         for bytes in [vec![], vec![b' '; 4097], b"null".to_vec(), b"{}".to_vec()] {
             assert!(parse_runtime_compatibility(&bytes).is_err());

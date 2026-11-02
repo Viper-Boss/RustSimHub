@@ -361,7 +361,8 @@ mod tests {
         let mut claim = q.claim_current(&auth, &h, 1).unwrap().unwrap();
         q.check_current_claim(&auth, &h, &claim).unwrap();
         let original = serde_json::to_string(&claim.request).unwrap();
-        claim.request.body = Secret::new("changed request".into());
+        crate::model::test_https_mut(&mut claim.request).body =
+            Secret::new("changed request".into());
         assert!(q.check_current_claim(&auth, &h, &claim).is_err());
         claim.request = serde_json::from_str(&original).unwrap();
         q.check_current_claim(&auth, &h, &claim).unwrap();

@@ -5,7 +5,7 @@ class FormError extends Error {}
 const uuid=s=>typeof s==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s);
 const generation=n=>Number.isSafeInteger(n)&&n>=0;
 const testKind=kind=>kind==='test'||kind==='quick_test';
-const kinds={webhook:'Webhook',bark:'Bark',telegram:'Telegram'};
+const kinds={webhook:'Webhook',bark:'Bark',telegram:'Telegram',email:'邮件（SMTP TLS）'};
 const states={queued:'排队中',in_flight:'递送中',confirmed:'已确认',failed:'失败',unknown:'结果不确定，不会自动重发',cancelled:'已取消'};
 function requireValue(ok,message='响应无效，请重新读取状态'){if(!ok)throw new FormError(message);}
 function text(s,max,empty=true){return typeof s==='string'&&(!empty?s.length>0:true)&&!s.includes('\0')&&new TextEncoder().encode(s).length<=max;}
@@ -30,13 +30,18 @@ function privacyText(rules){
  if(rules.some(r=>r.share==='masked_text'))return '部分规则转发正文并隐藏英文字母和数字；不转发原始发送方';
  return '现有规则仅发送新短信通知';
 }
-export function policyInput(targets,rules,enabled,rulesRevision=null){
+const emailFields=['smtp_host','username','password','mail_from','rcpt_to'];
+function dns(s){return text(s,253,false)&&s.split('.').every(p=>p.length<=63&&/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/.test(p))&&!/^[0-9.]+$/.test(s);}
+function mailbox(s){if(!text(s,254,false))return false;const parts=s.split('@');return parts.length===2&&parts[0].length<=64&&parts[0].split('.').every(p=>p.length>0&&/^[A-Za-z0-9!#$%&'*+\/=?^_`{|}~-]+$/.test(p))&&dns(parts[1]);}
+export function policyInput(targets,rules,enabled,rulesRevision=null,emailRevision=null){
+ requireValue(emailRevision===null||emailRevision===1,'邮件接口版本不支持，请更新页面');
  requireValue(rulesRevision===null||rulesRevision===2,'规则版本不支持，请更新页面');
  requireValue(typeof enabled==='boolean','开关状态无效');
  requireValue(Array.isArray(targets)&&targets.length<=8&&Array.isArray(rules)&&rules.length<=32,'最多8个目标、32条规则');
  const ids=new Set();
  const selected=targets.map(t=>{
   requireValue(uuid(t.id)&&!ids.has(t.id)&&Object.hasOwn(kinds,t.kind),'目标无效');ids.add(t.id);
+  requireValue(t.kind!=='email'||emailRevision===1,'设备尚未启用邮件发送，请保留原配置');
   let destination;
   if(t.keep){requireValue(t.existing===true,'新目标需要填写凭据');destination={kind:'keep'};}
   else if(t.kind==='webhook'){
@@ -45,6 +50,12 @@ export function policyInput(targets,rules,enabled,rulesRevision=null){
   }else if(t.kind==='bark'){
    requireValue(text(t.key,256,false),'请输入 Bark key（最多256字节）');
    destination={kind:'bark',server:https(t.endpoint,true),key:t.key};
+  }else if(t.kind==='email'){
+   requireValue(dns(t.smtp_host),'请输入 SMTP DNS 主机名');
+   requireValue(text(t.username,64,false)&&/^[\x21-\x7e]+$/.test(t.username),'邮件用户名须为1至64个可见 ASCII 字符');
+   requireValue(text(t.password,256,false)&&/^[\x20-\x7e]+$/.test(t.password),'邮件密码须为1至256个可打印 ASCII 字符');
+   requireValue(mailbox(t.mail_from)&&mailbox(t.rcpt_to),'发件人和唯一收件人须为单个 ASCII 邮箱地址');
+   destination={kind:'email',smtp_host:t.smtp_host,port:465,tls:'implicit',username:t.username,password:t.password,mail_from:t.mail_from,rcpt_to:t.rcpt_to};
   }else{
    requireValue(text(t.key,256,false)&&/^[0-9]+:[A-Za-z0-9_-]+$/.test(t.key),'请输入有效的 Telegram bot token');
    requireValue(text(t.chat,128,false),'请输入 Telegram chat ID（最多128字节）');
@@ -100,7 +111,7 @@ function viewInput(v,s){
   }
  }
  // Reuse production input limits without requesting any retained secret.
- policyInput(v.targets.map(t=>({id:t.id,kind:t.kind,existing:true,keep:true})),v.rules.map(ruleRow),v.enabled,s.rules_revision??null);
+ policyInput(v.targets.map(t=>({id:t.id,kind:t.kind,existing:true,keep:true})),v.rules.map(ruleRow),v.enabled,s.rules_revision??null,s.email_revision??null);
  for(const r of v.rules)requireValue(['notice','masked_text','full_text'].includes(r.share));
  return v;
 }
@@ -181,19 +192,24 @@ export class ForwardingPanel {
  capture(){
   for(const r of this.rules)if(r.select)r.targets=Array.from(r.select.options).filter(o=>o.selected).map(o=>o.value);
  }
- clearTarget(t){for(const name of ['endpoint','bearer','key','chat']){if(t[name+'Input'])t[name+'Input'].value='';delete t[name+'Input'];}}
+ clearTarget(t){for(const name of ['endpoint','bearer','key','chat',...emailFields]){if(t[name+'Input'])t[name+'Input'].value='';delete t[name+'Input'];}}
  render(){
   this.capture();const oldSecrets=this.secretInputs;this.secretInputs=new Set();const targets=[],rules=[];
   for(const [i,t] of this.targets.entries()){
    const card=this.element('fieldset');card.className='forwarding-card';card.append(this.element('legend',`目标 ${i+1} · ${t.id.slice(0,8)}`));
-   const kind=this.element('select');for(const [value,label] of Object.entries(kinds)){const option=this.element('option',label);option.value=value;option.selected=t.kind===value;kind.append(option);}kind.value=t.kind;kind.disabled=t.existing&&t.keep;
+   const kind=this.element('select');for(const [value,label] of Object.entries(kinds).filter(([value])=>value!=='email'||this.sample?.email_revision===1)){const option=this.element('option',label);option.value=value;option.selected=t.kind===value;kind.append(option);}kind.value=t.kind;kind.disabled=t.existing&&t.keep;
    kind.onchange=()=>{this.clearTarget(t);t.kind=kind.value;this.dirty=true;this.render();};card.append(this.label('发送器',kind));
    if(t.existing){const replace=this.element('input');replace.type='checkbox';replace.checked=!t.keep;replace.onchange=()=>{this.clearTarget(t);t.keep=!replace.checked;this.dirty=true;this.render();};card.append(this.label('替换此目标的地址和凭据（不勾选则保留原值）',replace));}
    if(!t.keep){
+    if(t.kind==='email'){
+     for(const [name,label,max] of [['smtp_host','SMTP 主机名',253],['username','邮件用户名',64],['password','邮件密码或应用专用密码',256],['mail_from','发件邮箱',254],['rcpt_to','唯一收件邮箱',254]])card.append(this.field(t,name,label+'（不回显）',{secret:true,max}));
+     card.append(this.element('p','使用端口465和 TLS。邮件服务器接受后显示已确认；这不表示最终邮箱已收到。'));
+    }else{
     if(t.kind!=='telegram')card.append(this.field(t,'endpoint',t.kind==='bark'?'Bark 服务地址（HTTPS 根地址）':'Webhook HTTPS 地址（不回显）',{secret:true,max:2048}));
     if(t.kind==='webhook')card.append(this.field(t,'bearer','Bearer（可选）',{secret:true,max:2048}));
     else card.append(this.field(t,'key',t.kind==='bark'?'Bark key':'Telegram bot token',{secret:true,max:256}));
     if(t.kind==='telegram')card.append(this.field(t,'chat','Telegram chat ID',{secret:true,max:128}));
+    }
    }
    const remove=this.element('button','移除此目标');remove.onclick=()=>{if(this.busy)return;this.capture();this.targets=this.targets.filter(x=>x!==t);this.rules.forEach(r=>{r.targets=r.targets.filter(id=>id!==t.id);r.select=null;});this.dirty=true;this.render();};card.append(remove);targets.push(card);
   }
@@ -221,7 +237,7 @@ export class ForwardingPanel {
   this.current(g);requireValue(this.ready&&this.sample&&!this.pending,'请先读取状态并核对上次保存');
   requireValue(this.sample.generation<Number.MAX_SAFE_INTEGER,'配置代次超出网页可编辑范围，请使用维护入口');
   const record={format:1,id:this.crypto.randomUUID(),kind,expected_generation:this.sample.generation};
-  this.clearSecrets();for(const t of this.targets)for(const name of ['endpoint','bearer','key','chat'])t[name]='';
+  this.clearSecrets();for(const t of this.targets)for(const name of ['endpoint','bearer','key','chat',...emailFields])t[name]='';
   try{await this.savePending(record,null);}catch{throw new FormError('本机回执未能保存或另一页面已有保存，请读取状态；本次未提交到设备');}this.current(g);this.pending=record;this.update();
   const result=await this.request({...fields,expected_generation:record.expected_generation,request_id:record.id});this.current(g);
   requireValue(result.configuration_applied===true&&result.request_id===record.id&&result.generation===record.expected_generation+1,'保存回执不匹配，请核对上次保存');
@@ -231,7 +247,7 @@ export class ForwardingPanel {
  }
  async save(g){
   this.current(g);requireValue(this.ready&&!this.pending,'请先读取状态并核对上次保存');
-  this.capture();const targets=this.targets.map(t=>({id:t.id,kind:t.kind,existing:t.existing,keep:t.keep,endpoint:t.endpointInput?.value||'',bearer:t.bearerInput?.value||'',key:t.keyInput?.value||'',chat:t.chatInput?.value||''}));const policy=policyInput(targets,this.rules,this.sample?.enabled===true,this.sample?.rules_revision??null);
+  this.capture();const targets=this.targets.map(t=>({id:t.id,kind:t.kind,existing:t.existing,keep:t.keep,endpoint:t.endpointInput?.value||'',bearer:t.bearerInput?.value||'',key:t.keyInput?.value||'',chat:t.chatInput?.value||'',...Object.fromEntries(emailFields.map(name=>[name,t[name+'Input']?.value||'']))}));const policy=policyInput(targets,this.rules,this.sample?.enabled===true,this.sample?.rules_revision??null,this.sample?.email_revision??null);
   if(!this.confirm('保存这些目标和规则？'+(policy.enabled?'转发已开启，新规则将立即生效。':'保存后仍保持关闭。')+(policy.rules.some(r=>r.share==='full_text')?'已选择转发完整短信正文。':privacyText(policy.rules)+'。')))return;
   await this.mutate(g,'configure',{op:'forwarding_configure',policy});
  }

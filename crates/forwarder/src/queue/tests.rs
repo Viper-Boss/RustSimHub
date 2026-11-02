@@ -122,7 +122,7 @@ fn extended_rules_persist_filter_and_enqueue_only_sanitized_immutable_payloads()
     let mut q = Queue::open(d.path(), binding()).unwrap();
     assert_eq!(q.policy_view().unwrap().rules[0].share, Share::MaskedText);
     let claim = q.claim(&binding(), 1, LineEpoch(2)).unwrap().unwrap();
-    let body = claim.request.body.expose();
+    let body = crate::model::test_https(&claim.request).body.expose();
     assert!(body.contains("******"));
     assert!(!body.contains("123456"));
     assert!(!body.contains("synthetic sender"));
@@ -414,7 +414,7 @@ fn capture_cursor_and_all_targets_commit_together_and_overlap_sends_once() {
     assert_eq!(q.ingest(&binding(), 1, head(6), Some(&m)).unwrap(), 0);
     assert_eq!(q.ingest(&binding(), 1, head(7), Some(&m)).unwrap(), 0);
     let c = q.claim(&binding(), 1, LineEpoch(2)).unwrap().unwrap();
-    let body = c.request.body.expose();
+    let body = crate::model::test_https(&c.request).body.expose();
     assert!(!body.contains(&m.sender) && !body.contains("123456"));
     assert!(matches!(
         q.claim(&binding(), 1, LineEpoch(2)),
@@ -741,7 +741,10 @@ fn real_filesystem_enospc_preserves_unknown_and_cursor_then_recovers_once() {
     assert_eq!(q.ingest(&binding(), 1, head(7), Some(&sms)).unwrap(), 1);
     assert_eq!(q.ingest(&binding(), 1, head(7), Some(&sms)).unwrap(), 0);
     let next = q.claim(&binding(), 1, LineEpoch(2)).unwrap().unwrap();
-    assert!(next.request.body.expose().contains(&sms.body));
+    assert!(crate::model::test_https(&next.request)
+        .body
+        .expose()
+        .contains(&sms.body));
     q.finish(&binding(), &next, State::Confirmed).unwrap();
     assert!(q.claim(&binding(), 1, LineEpoch(2)).unwrap().is_none());
     assert_eq!(q.status().unwrap().unknown, 1);
@@ -856,9 +859,10 @@ fn unknown_provider_acknowledgements_and_json_escaping_are_not_delivery_success(
     p.rules[0].share = Share::FullText;
     let m = message();
     let request = prepare(&p.targets[0], &p.rules[0], &m, &id()).unwrap();
-    assert!(request.acknowledged(204, b""));
-    assert!(!request.acknowledged(503, b""));
-    let value: serde_json::Value = serde_json::from_str(request.body.expose()).unwrap();
+    assert!(crate::model::test_https(&request).acknowledged(204, b""));
+    assert!(!crate::model::test_https(&request).acknowledged(503, b""));
+    let value: serde_json::Value =
+        serde_json::from_str(crate::model::test_https(&request).body.expose()).unwrap();
     assert_eq!(value["text"], m.body);
     for destination in [
         Destination::Bark {
@@ -875,9 +879,9 @@ fn unknown_provider_acknowledgements_and_json_escaping_are_not_delivery_success(
             destination,
         };
         let r = prepare(&target, &p.rules[0], &m, &id()).unwrap();
-        assert!(!r.acknowledged(200, br#"{"ok":false,"code":500}"#));
-        assert!(r.acknowledged(200, br#"{"ok":true,"code":200}"#));
-        assert!(!r.acknowledged(200, b"not json"));
+        assert!(!crate::model::test_https(&r).acknowledged(200, br#"{"ok":false,"code":500}"#));
+        assert!(crate::model::test_https(&r).acknowledged(200, br#"{"ok":true,"code":200}"#));
+        assert!(!crate::model::test_https(&r).acknowledged(200, b"not json"));
     }
 }
 #[test]
@@ -1021,7 +1025,16 @@ fn selectors_and_provider_notice_modes_do_not_leak_full_text_by_default() {
             &id(),
         )
         .unwrap();
-        assert!(!r.body.expose().contains("123456") && !r.body.expose().contains(&m.sender));
+        assert!(
+            !crate::model::test_https(&r)
+                .body
+                .expose()
+                .contains("123456")
+                && !crate::model::test_https(&r)
+                    .body
+                    .expose()
+                    .contains(&m.sender)
+        );
     }
 }
 
@@ -1039,7 +1052,8 @@ fn maximum_telegram_body_remains_complete_and_disables_link_previews() {
         },
     };
     let r = prepare(&target, &p.rules[0], &m, &id()).unwrap();
-    let v: serde_json::Value = serde_json::from_str(r.body.expose()).unwrap();
+    let v: serde_json::Value =
+        serde_json::from_str(crate::model::test_https(&r).body.expose()).unwrap();
     assert_eq!(v["text"], m.body);
     assert_eq!(v["link_preview_options"]["is_disabled"], true);
     assert!(v.get("parse_mode").is_none());
@@ -1102,7 +1116,8 @@ fn synthetic_test_is_single_target_idempotent_and_survives_pruning_and_restart()
     assert_eq!(q.receipts(0, 32).unwrap().len(), 1);
     assert_eq!(q.event_cursor().unwrap().seq, before.seq);
     let claim = q.claim(&binding(), 1, LineEpoch(2)).unwrap().unwrap();
-    let body: serde_json::Value = serde_json::from_str(claim.request.body.expose()).unwrap();
+    let body: serde_json::Value =
+        serde_json::from_str(crate::model::test_https(&claim.request).body.expose()).unwrap();
     assert_eq!(body["event"], "forwarding_test");
     assert_eq!(body["text"], SYNTHETIC_NOTICE);
     assert_eq!(body["test"], true);
@@ -1181,12 +1196,16 @@ fn synthetic_test_has_a_bounded_generation_history_and_keeps_unknown() {
     ));
 }
 
+#[cfg(not(feature = "smtp-production-candidate"))]
 #[test]
 fn format_one_migrates_only_after_binding_validation_preserving_sms_and_unknown() {
     let (d, mut q) = enabled();
     q.ingest(&binding(), 1, head(6), Some(&message())).unwrap();
     let claim = q.claim(&binding(), 1, LineEpoch(2)).unwrap().unwrap();
-    let payload = claim.request.body.expose().to_owned();
+    let payload = crate::model::test_https(&claim.request)
+        .body
+        .expose()
+        .to_owned();
     q.conn
         .execute_batch("ALTER TABLE jobs DROP COLUMN purpose; PRAGMA user_version=1;")
         .unwrap();
@@ -1222,6 +1241,7 @@ fn format_one_migrates_only_after_binding_validation_preserving_sms_and_unknown(
     assert!(payload.contains("sms_received"));
 }
 
+#[cfg(not(feature = "smtp-production-candidate"))]
 #[test]
 fn format_two_gains_history_metadata_only_after_owner_validation_and_preserves_old_claims() {
     let (d, mut q) = enabled();
@@ -1287,11 +1307,12 @@ fn synthetic_provider_messages_are_explicit_fixed_content() {
             LineEpoch(2),
         )
         .unwrap();
-        let value: serde_json::Value = serde_json::from_str(request.body.expose()).unwrap();
+        let value: serde_json::Value =
+            serde_json::from_str(crate::model::test_https(&request).body.expose()).unwrap();
         assert_eq!(
             value.get("text").or_else(|| value.get("body")).unwrap(),
             SYNTHETIC_NOTICE
         );
-        assert!(request.acknowledged(200, b"{\"code\":200,\"ok\":true}"));
+        assert!(crate::model::test_https(&request).acknowledged(200, b"{\"code\":200,\"ok\":true}"));
     }
 }

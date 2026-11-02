@@ -2270,6 +2270,7 @@ dependencies = [
  "rustix",
  "rustsimhub-core-launcher",
  "rustsimhub-forwarder",
+ "rustsimhub-policy",
  "rustsimhub-storage",
  "serde",
  "serde_json",

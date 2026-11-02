@@ -61,6 +61,10 @@ pub(super) fn fixture(mode: Mode, outbox: bool) -> TempDir {
             )
             .unwrap(),
         );
+        // This fixture models a retained legacy3 DB even when Cargo unifies
+        // the separately opt-in SMTP writer4 feature in the test graph.
+        let db = Connection::open(directory.join("outbox.sqlite3")).unwrap();
+        db.pragma_update(None, "user_version", 3).unwrap();
     }
     root
 }
@@ -330,4 +334,49 @@ fn live_version_check_rejects_an_old_reader_after_projecting_the_actual_older_ou
     drop(check);
     drop(observed);
     assert_eq!(tree(root.path()), before);
+}
+
+#[cfg(feature = "email-production-candidate")]
+#[test]
+fn email_migration_reads_the_actual_persisted_pin_realm_and_current_owner() {
+    use rustsimhub_forwarder::{Binding, Queue};
+    let root = fixture(Mode::Forwarding, false);
+    let state = root.path().join(STATE);
+    let store = rustsimhub_storage::Store::open(&state).unwrap();
+    let handle = store.handle();
+    handle.bind_identity([1; 32]).unwrap();
+    let owner = handle.bootstrap_owner([2; 32]).unwrap();
+    let b = Binding {
+        device_key: [1; 32],
+        owner_key: owner.public_key,
+        owner_generation: owner.generation,
+        realm: handle.inbox_event_head().unwrap().db_epoch,
+    };
+    drop(handle);
+    drop(store);
+    let directory = state.join("forwarding");
+    fs::create_dir(&directory).unwrap();
+    fs::set_permissions(&directory, fs::Permissions::from_mode(0o700)).unwrap();
+    drop(Queue::open(&directory, b.clone()).unwrap());
+    let check = snapshot(root.path());
+    let actual = check.outbox.as_ref().unwrap().email_binding().unwrap();
+    assert!(actual == b);
+    check.business.check_email_binding(&actual).unwrap();
+    for field in ["pin", "realm", "owner", "generation"] {
+        let mut changed = b.clone();
+        match field {
+            "pin" => changed.device_key = [3; 32],
+            "realm" => changed.realm = "00000000-0000-4000-8000-000000000009".into(),
+            "owner" => changed.owner_key = [3; 32],
+            _ => changed.owner_generation += 1,
+        };
+        assert!(check.business.check_email_binding(&changed).is_err());
+    }
+    drop(check);
+    let db = Connection::open(state.join("store.sqlite3")).unwrap();
+    db.execute("UPDATE principals SET active=0 WHERE kind='owner'", [])
+        .unwrap();
+    drop(db);
+    let check = snapshot(root.path());
+    assert!(check.business.check_email_binding(&b).is_err());
 }

@@ -31,6 +31,10 @@ pub use delivery::*;
 pub mod egress;
 #[cfg(target_os = "linux")]
 pub mod email;
+#[cfg(all(target_os = "linux", feature = "smtp-production-candidate"))]
+pub mod smtp_candidate;
+#[cfg(all(target_os = "linux", feature = "smtp-production-candidate"))]
+pub use queue::migration::child as migrate_email4_child;
 #[cfg(target_os = "linux")]
 pub mod supervisor;
 #[cfg(target_os = "linux")]

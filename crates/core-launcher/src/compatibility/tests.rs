@@ -242,3 +242,36 @@ fn input_bounds_types_duplicates_and_missing_data_observation_are_refused() {
         assert!(check_upgrade(&bytes).is_err());
     }
 }
+
+#[test]
+fn email4_contract_is_exact_and_rejects_legacy_fallback_before_any_admission() {
+    let mut input = request(3);
+    let email = json!({"format":1,"worker_protocol":5,"outbox":{"application_id":OUTBOX_APP,"read_format":4,"write_format":4,"migrate_from":[3]}});
+    for role in ["selected", "candidate", "fallback"] {
+        edit_program(&mut input, role, "core", |v| {
+            v["forwarding_runtime_contract"] = email.clone()
+        });
+        edit_program(&mut input, role, "worker", |v| {
+            v["protocol"] = json!(5);
+            v["forwarding_runtime_contract"] = email.clone();
+        });
+    }
+    let result = report(&input);
+    assert_eq!(result["decision"], "maintenance_required");
+    assert_eq!(result["projected_data"]["outbox"]["format"], 4);
+    input["fallback"] = programs(3);
+    let result = report(&input);
+    assert_eq!(result["decision"], "rejected");
+    assert_eq!(
+        result["fallback_after_candidate"]["reasons"],
+        json!(["unsupported_outbox"])
+    );
+    input["data"]["outbox"] = Value::Null;
+    assert_eq!(report(&input)["decision"], "rejected");
+    for bad in [json!([1, 2, 3]), json!([]), json!([2]), json!([3, 3])] {
+        edit_program(&mut input, "candidate", "core", |v| {
+            v["forwarding_runtime_contract"]["outbox"]["migrate_from"] = bad
+        });
+        assert_eq!(report(&input)["candidate"]["decision"], "rejected");
+    }
+}

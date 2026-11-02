@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Foreground, single-thread worker. Only a Root-granted capability can obtain
 //! a task. Root still owns unit/cgroup stop and must verify actual process exit.
+#[cfg(feature = "smtp-production-candidate")]
+use crate::smtp_candidate::Sender;
+#[cfg(not(feature = "smtp-production-candidate"))]
+use crate::HttpsSender as Sender;
 use crate::{
     egress::{BoundConnector, Route},
     worker_ipc::Client,
-    DeliveryOutcome, Error, HttpsSender, Result, Secret,
+    Error, Result, Secret,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -119,7 +123,7 @@ pub async fn run(settings: Settings, stop: impl std::future::Future<Output = ()>
     {
         return Err(Error::Invalid);
     }
-    let sender = HttpsSender::new(certificates(&settings.ca_bundle)?)?;
+    let sender = Sender::new(certificates(&settings.ca_bundle)?)?;
     let mut connector = BoundConnector::new(settings.route)?;
     connector.probe()?;
     let mut client = Client::new(settings.core_socket, settings.core_uid, settings.lease);
@@ -169,7 +173,7 @@ pub async fn run(settings: Settings, stop: impl std::future::Future<Output = ()>
         if stopped {
             return Ok(());
         }
-        if !matches!(outcome, DeliveryOutcome::Confirmed { .. }) {
+        if !outcome.is_confirmed() {
             // No loop over failed destinations or automatic repetition of an
             // ambiguous task. The durable Core receipt remains authoritative.
             return Err(Error::Forbidden);

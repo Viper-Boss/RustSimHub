@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
 use crate::forwarding::tests::{Fixture, CHANGE, REQUEST};
-use rustsimhub_forwarder::{Failure, Fence};
+use rustsimhub_forwarder::{DeliveryOutcome, Failure, Fence, Stage};
 use std::os::unix::fs::PermissionsExt;
 use tokio::net::UnixListener;
 
@@ -176,7 +176,7 @@ async fn real_auth_queue_grant_claim_staged_fence_and_receipt_are_single_use() {
         wire::Command::Finish {
             lease: token(&lease),
             attempt_id: claim.attempt_id.clone(),
-            outcome: DeliveryOutcome::Confirmed { status: 200 }
+            outcome: DeliveryOutcome::Confirmed { status: 200 }.into()
         }
     )
     .await
@@ -203,7 +203,7 @@ async fn real_auth_queue_grant_claim_staged_fence_and_receipt_are_single_use() {
             wire::Command::Finish {
                 lease: token(&lease),
                 attempt_id: claim.attempt_id.clone(),
-                outcome: DeliveryOutcome::Confirmed { status: 200 }
+                outcome: DeliveryOutcome::Confirmed { status: 200 }.into()
             }
         )
         .await
@@ -215,7 +215,7 @@ async fn real_auth_queue_grant_claim_staged_fence_and_receipt_are_single_use() {
         wire::Command::Finish {
             lease: token(&lease),
             attempt_id: claim.attempt_id.clone(),
-            outcome: DeliveryOutcome::Confirmed { status: 200 }
+            outcome: DeliveryOutcome::Confirmed { status: 200 }.into()
         }
     )
     .await
@@ -425,7 +425,8 @@ async fn lost_submit_permission_ack_is_unknown_even_if_worker_says_not_submitted
             attempt_id: claim.attempt_id,
             outcome: DeliveryOutcome::NotSubmitted {
                 reason: Failure::Denied,
-            },
+            }
+            .into(),
         },
     )
     .await
@@ -570,9 +571,17 @@ async fn actual_client_fence_hashes_the_payload_it_will_send_not_an_acquire_time
             wire::Client::new(path, rustix::process::geteuid().as_raw(), token(&lease));
         let mut claim = client.acquire().await.unwrap().unwrap();
         match field {
-            "url" => claim.request.url = Secret::new("https://changed.invalid/other-target".into()),
-            "body" => claim.request.body = Secret::new("{\"modified\":true}".into()),
-            "bearer" => claim.request.bearer = Some(Secret::new("modified-bearer".into())),
+            "url" => {
+                claim.https_request_mut().unwrap().url =
+                    Secret::new("https://changed.invalid/other-target".into())
+            }
+            "body" => {
+                claim.https_request_mut().unwrap().body = Secret::new("{\"modified\":true}".into())
+            }
+            "bearer" => {
+                claim.https_request_mut().unwrap().bearer =
+                    Some(Secret::new("modified-bearer".into()))
+            }
             "line" => claim.line.0 += 1,
             _ => claim.generation += 1,
         }
@@ -608,5 +617,136 @@ fn routing_and_worker_protocol_reject_confused_roles_unbounded_frames_and_fields
     assert!(Access::new(0, 65531).is_err());
     for bytes in [vec![],vec![0;wire::MAX_FRAME+1],br#"{"protocol":4,"id":"11111111-1111-4111-8111-111111111111","command":{"op":"grant","owner":true}}"#.to_vec()] {
         assert!(wire::parse(&bytes).is_err());
+    }
+}
+
+#[cfg(feature = "email-production-candidate")]
+#[tokio::test]
+async fn smtp_original_core_enforces_seven_stages_tagged_confirmation_and_ambiguity() {
+    use rustsimhub_forwarder::smtp_candidate::{
+        ConfirmationV1 as Confirm, DeliveryOutcomeV1 as Outcome,
+    };
+    for mode in [
+        "confirmed",
+        "http250",
+        "early250",
+        "acklost",
+        "reordered",
+        "duplicate",
+        "revoked",
+        "binding",
+        "recipient",
+    ] {
+        let f = Fixture::new();
+        let mut command = f.configure(0, REQUEST, true);
+        if let AuthCommand::ForwardingConfigure { policy, .. } = &mut command {
+            policy["targets"][0]["destination"] = json!({"kind":"email","smtp_host":"smtp.example.invalid","port":465,"tls":"implicit","username":"SYNTHETIC_USER","password":"SYNTHETIC_PASSWORD","mail_from":"sender@example.invalid","rcpt_to":"recipient@example.invalid"});
+        } else {
+            panic!("actual Owner configure");
+        }
+        assert_eq!(f.request(command).await["generation"], 1);
+        f.incoming(mode);
+        let lease = root(&f, wire::Command::Grant {}).await;
+        let mut claim: Claim = serde_json::from_value(
+            worker(
+                &f,
+                wire::Command::Acquire {
+                    lease: token(&lease),
+                },
+            )
+            .await
+            .unwrap()["claim"]
+                .take(),
+        )
+        .unwrap();
+        assert!(claim.request.is_smtp());
+        assert_eq!(claim.stages().len(), 7);
+        let check = |claim: &Claim, stage| wire::Command::Check {
+            lease: token(&lease),
+            attempt_id: claim.attempt_id.clone(),
+            claim_sha256: wire::claim_sha256(claim).unwrap(),
+            stage,
+        };
+        if mode == "early250" {
+            assert!(worker(
+                &f,
+                wire::Command::Finish {
+                    lease: token(&lease),
+                    attempt_id: claim.attempt_id.clone(),
+                    outcome: Outcome::Confirmed {
+                        confirmation: Confirm::Smtp { code: 250 }
+                    }
+                }
+            )
+            .await
+            .is_err());
+        } else if mode == "binding" || mode == "recipient" {
+            let mut raw = serde_json::to_value(&claim).unwrap();
+            if mode == "binding" {
+                raw["binding"]["owner_generation"] = json!(2);
+            } else {
+                raw["request"]["request"]["config"]["to"] = json!("other@example.invalid");
+            }
+            claim = serde_json::from_value(raw).unwrap();
+            assert!(worker(&f, check(&claim, Stage::BeforeConnect))
+                .await
+                .is_err());
+        } else if mode == "reordered" {
+            assert!(worker(&f, check(&claim, Stage::BeforeSmtpAuth))
+                .await
+                .is_err());
+        } else {
+            for stage in claim.stages() {
+                worker(&f, check(&claim, *stage)).await.unwrap();
+            }
+            if mode == "duplicate" {
+                assert!(worker(&f, check(&claim, Stage::BeforeSubmit))
+                    .await
+                    .is_err());
+            } else if mode == "revoked" {
+                root(&f, wire::Command::Revoke {}).await;
+            } else {
+                let outcome = match mode {
+                    "acklost" => Outcome::NotSubmitted {
+                        reason: Failure::Denied,
+                    },
+                    "http250" => Outcome::Confirmed {
+                        confirmation: Confirm::Http { status: 250 },
+                    },
+                    _ => Outcome::Confirmed {
+                        confirmation: Confirm::Smtp { code: 250 },
+                    },
+                };
+                let result = worker(
+                    &f,
+                    wire::Command::Finish {
+                        lease: token(&lease),
+                        attempt_id: claim.attempt_id.clone(),
+                        outcome,
+                    },
+                )
+                .await;
+                if mode == "http250" {
+                    assert!(result.is_err());
+                } else {
+                    assert_eq!(
+                        result.unwrap()["state"],
+                        if mode == "confirmed" {
+                            "confirmed"
+                        } else {
+                            "unknown"
+                        }
+                    );
+                }
+            }
+        }
+        root(&f, wire::Command::Revoke {}).await;
+        let status = root(&f, wire::Command::State {}).await;
+        assert_eq!(status["unknown"], if mode == "confirmed" { 0 } else { 1 });
+        let new = root(&f, wire::Command::Grant {}).await;
+        assert!(worker(&f, wire::Command::Acquire { lease: token(&new) })
+            .await
+            .unwrap()["claim"]
+            .is_null());
     }
 }

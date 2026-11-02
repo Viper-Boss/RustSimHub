@@ -143,3 +143,77 @@ impl Database {
         Ok(())
     }
 }
+
+#[cfg(feature = "email-production-candidate")]
+impl Database {
+    pub(super) fn email_binding(&self) -> Result<rustsimhub_forwarder::Binding> {
+        self.revalidate()?;
+        let raw: String = self
+            ._connection
+            .query_row("SELECT binding FROM meta WHERE singleton=1", [], |r| {
+                r.get(0)
+            })
+            .map_err(|_| Error::Integrity)?;
+        if raw.len() > 4096 {
+            return Err(Error::Integrity);
+        }
+        let binding: rustsimhub_forwarder::Binding =
+            serde_json::from_str(&raw).map_err(|_| Error::Integrity)?;
+        binding.validate().map_err(|_| Error::Integrity)?;
+        Ok(binding)
+    }
+    /// Same persisted pin/realm/current Owner and scopes as the original Auth
+    /// fence. Reads only the already locked main DB; never opens its writer or
+    /// private identity seed, or trusts an Owner supplied in maintenance JSON.
+    pub(super) fn check_email_binding(
+        &self,
+        binding: &rustsimhub_forwarder::Binding,
+    ) -> Result<()> {
+        use rustsimhub_policy::{allows, Scope, ALL_SCOPES};
+        self.revalidate()?;
+        binding.validate().map_err(|_| Error::Integrity)?;
+        let realm: String = self
+            ._connection
+            .query_row("SELECT db_epoch FROM meta WHERE singleton=1", [], |r| {
+                r.get(0)
+            })
+            .map_err(|_| Error::Integrity)?;
+        let pin: Vec<u8> = self
+            ._connection
+            .query_row(
+                "SELECT public_key FROM device_identity WHERE singleton=1",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(|_| Error::Integrity)?;
+        let (kind, generation, active, scopes): (String, i64, bool, u16) = self
+            ._connection
+            .query_row(
+                "SELECT kind,generation,active,scopes FROM principals WHERE public_key=?",
+                [binding.owner_key.as_slice()],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )
+            .map_err(|_| Error::Integrity)?;
+        let owners: i64 = self
+            ._connection
+            .query_row(
+                "SELECT count(*) FROM principals WHERE kind='owner'",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(|_| Error::Integrity)?;
+        if realm != binding.realm
+            || pin != binding.device_key
+            || kind != "owner"
+            || owners != 1
+            || !active
+            || u64::try_from(generation).ok() != Some(binding.owner_generation)
+            || scopes & !ALL_SCOPES != 0
+            || !allows(scopes, Scope::SystemManage)
+            || !allows(scopes, Scope::SmsRead)
+        {
+            return Err(Error::Denied);
+        }
+        Ok(())
+    }
+}

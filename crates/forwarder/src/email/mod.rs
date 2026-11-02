@@ -36,6 +36,11 @@ const MAX_LINE: usize = 512;
 const MAX_REPLY_LINES: usize = 32;
 const MAX_BUDGET: Duration = Duration::from_secs(10);
 
+#[cfg_attr(
+    feature = "smtp-production-candidate",
+    derive(serde::Serialize, serde::Deserialize)
+)]
+#[cfg_attr(feature = "smtp-production-candidate", serde(deny_unknown_fields))]
 pub struct EmailConfig {
     host: Secret,
     username: Secret,
@@ -110,11 +115,36 @@ impl EmailConfig {
         })
     }
 }
+#[cfg_attr(
+    feature = "smtp-production-candidate",
+    derive(serde::Serialize, serde::Deserialize)
+)]
+#[cfg_attr(feature = "smtp-production-candidate", serde(deny_unknown_fields))]
 pub struct EmailRequest {
     config: EmailConfig,
     delivery_id: String,
     line: rustsimhub_domain::LineEpoch,
+    #[cfg_attr(
+        feature = "smtp-production-candidate",
+        serde(
+            serialize_with = "serialize_data",
+            deserialize_with = "deserialize_data"
+        )
+    )]
     data: Zeroizing<String>,
+}
+#[cfg(feature = "smtp-production-candidate")]
+fn serialize_data<S: serde::Serializer>(
+    data: &Zeroizing<String>,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error> {
+    data.as_str().serialize(serializer)
+}
+#[cfg(feature = "smtp-production-candidate")]
+fn deserialize_data<'de, D: serde::Deserializer<'de>>(
+    decoder: D,
+) -> std::result::Result<Zeroizing<String>, D::Error> {
+    <String as serde::Deserialize>::deserialize(decoder).map(Zeroizing::new)
 }
 impl EmailRequest {
     /// No network, storage or background work. Header values never come from
@@ -126,13 +156,24 @@ impl EmailRequest {
         message: &Message,
         share: Share,
     ) -> Result<Self> {
+        let date =
+            OffsetDateTime::parse(&message.timestamp, &Rfc3339).map_err(|_| Error::Invalid)?;
+        Self::prepare_at(config, delivery_id, message, share, date)
+    }
+    /// Candidate Core preparation uses its own clock only for the Date header;
+    /// the original SMS timestamp remains body data under Share::FullText.
+    pub(crate) fn prepare_at(
+        config: EmailConfig,
+        delivery_id: &str,
+        message: &Message,
+        share: Share,
+        date: OffsetDateTime,
+    ) -> Result<Self> {
         message.validate()?;
         if !uuid(delivery_id) || !uuid(&message.id) || message.binary || message.duplicate_candidate
         {
             return Err(Error::Invalid);
         }
-        let date =
-            OffsetDateTime::parse(&message.timestamp, &Rfc3339).map_err(|_| Error::Invalid)?;
         let date = date.format(&Rfc2822).map_err(|_| Error::Invalid)?;
         let body = Zeroizing::new(match share {
             Share::Notice => "收到一条新短信，请在 RustSimHub 查看。".into(),
@@ -161,6 +202,65 @@ impl EmailRequest {
             line: message.line,
             data,
         })
+    }
+    #[cfg(feature = "smtp-production-candidate")]
+    pub(crate) fn validate_candidate(&self) -> Result<()> {
+        let c = &self.config;
+        EmailConfig::new(
+            Secret::new(c.host.expose().into()),
+            Secret::new(c.username.expose().into()),
+            Secret::new(c.password.expose().into()),
+            Secret::new(c.from.expose().into()),
+            Secret::new(c.to.expose().into()),
+        )?;
+        if !uuid(&self.delivery_id)
+            || self.line.0 == 0
+            || self.line.0 > i64::MAX as u64
+            || self.data.len() > MAX_DATA
+        {
+            return Err(Error::Invalid);
+        }
+        let (headers, body) = self.data.split_once("\r\n\r\n").ok_or(Error::Invalid)?;
+        let date = headers
+            .lines()
+            .next()
+            .and_then(|v| v.strip_prefix("Date: "))
+            .ok_or(Error::Invalid)?;
+        let parsed = OffsetDateTime::parse(date, &Rfc2822).map_err(|_| Error::Invalid)?;
+        if parsed.format(&Rfc2822).map_err(|_| Error::Invalid)? != date {
+            return Err(Error::Invalid);
+        }
+        let expected=Zeroizing::new(format!("Date: {date}\r\nFrom: {}\r\nTo: {}\r\nSubject: RustSimHub notification\r\nMessage-ID: <rsh-{}@rustsimhub.invalid>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: base64",c.from.expose(),c.to.expose(),self.delivery_id));
+        if headers != expected.as_str() {
+            return Err(Error::Invalid);
+        }
+        let encoded = Zeroizing::new(
+            body.strip_suffix("\r\n")
+                .ok_or(Error::Invalid)?
+                .split("\r\n")
+                .map(|line| {
+                    if line.is_empty() || line.len() > 76 {
+                        Err(Error::Invalid)
+                    } else {
+                        Ok(line)
+                    }
+                })
+                .collect::<Result<Vec<_>>>()?
+                .concat(),
+        );
+        let decoded = Zeroizing::new(
+            STANDARD
+                .decode(encoded.as_bytes())
+                .map_err(|_| Error::Invalid)?,
+        );
+        if std::str::from_utf8(&decoded).is_err() {
+            return Err(Error::Invalid);
+        }
+        Ok(())
+    }
+    #[cfg(feature = "smtp-production-candidate")]
+    pub(crate) fn identity(&self) -> (&str, rustsimhub_domain::LineEpoch) {
+        (&self.delivery_id, self.line)
     }
 }
 pub struct EmailClaim {
@@ -213,6 +313,8 @@ impl EmailClaim {
     /// Binds every immutable private field. This local candidate digest does
     /// not authorize a send or define a new production outbox/worker format.
     pub fn fingerprint(&self) -> Result<[u8; 32]> {
+        #[cfg(feature = "smtp-production-candidate")]
+        self.request.validate_candidate()?;
         #[derive(Serialize)]
         struct Fields<'a> {
             contract: u8,
