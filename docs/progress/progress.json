@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-01T19:34:05.318437+00:00",
+  "updated_at": "2026-11-02T00:35:19.737218+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,21 +67,21 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原固件81.5%按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "NAS-02",
-    "title": "NAS回执导出已合并，继续主线集成",
-    "state": "主线代码继续；人工与视觉验收最后",
-    "description": "PR174正常合并d78dc2f，产品9f12fca新增当前设备NAS回执JSON导出、下载后明确确认、同一IndexedDB事务精确清理；保留待确认意图及关联回执、其他设备/新记录，退出/换pin使旧上下文失效。满64条最长合法元数据边界已修正。固定来源1356 Rust通过/6项原有忽略、27组网页、全仓严格Clippy及Core/Edge ARM通过。独立冻结f598d792的候选71已完成13 ARM、同源音频34测试、既有开发签名及实际ARM/OpenSSL验签/6反例；不包含此后导出代码，不冒称最新部署。未访问或写入设备，最后只读记录应用70；真实NAS、原生下载/存储/视觉与真人验收最后。云端CI41342174524因付款/消费上限未启动，0步骤，不能当作通过。主线代码约90%仅未加权粗估，81.5%及20/169验收不变。"
+    "task_id": "UPD-01",
+    "title": "主线应用71已安装并确认，继续自动集成",
+    "state": "基本健康已复核；人工与视觉验收最后",
+    "description": "来源d78dc2f3/归档8fb960e0，最新NAS管理和回执导出已随应用71实际安装；记录PR175已正常合并。正式1285文件/1356 Rust通过、6项原有忽略、13 ARM/音频34及27组网页通过。上传回读、持锁业务备份、实际admit-stage、单次启动和健康后confirm成功；最后独立只读复核confirmed71/floor71、无候选/未尝试，6载荷/3运行exe匹配，127条旧短信/唯一Owner与操作记录保持，七服务active、音频7/7、可信HTTPS六资源匹配。Root三角色无功能/依赖差异故保留原字节；恢复timer/service停止、预算未用，普通数据断开/转发PID0。未重启设备、切网、外发或刷分区；没有实际故障回退/冷启动。authorization_verified=false保留；真实NAS、原生UI/下载/听音仍待最后。C等离线分工不接管。云端CI41367618005因付款/消费上限未启动。主线代码约90%仅未加权粗估，81.5%及20/169保持。"
   },
   "facts": [
     {
       "label": "原固件验收",
       "value": "81.5%",
-      "detail": "固定P0–P7；本次代码与离线候选不加验收分"
+      "detail": "固定P0–P7；新版本安装不重复增加既有验收点"
     },
     {
-      "label": "NAS主线留存",
-      "value": "导出及精确清理已合并 / PR174",
-      "detail": "1356 Rust/27组网页/ARM通过；候选71独立准备，最新导出未部署"
+      "label": "设备应用组",
+      "value": "71已确认 · 127条旧短信保持",
+      "detail": "来源d78dc2f3；6载荷/3运行exe复核，Root保持，人工最后"
     },
     {
       "label": "B线材料",
@@ -114,7 +114,8 @@
     "docs/VALIDATION-NAS-BINDING-QUERY-20261102.md",
     "docs/VALIDATION-NAS-MANAGEMENT-PANEL-20261102.md",
     "docs/VALIDATION-CANDIDATE71-READINESS-20261102.md",
-    "docs/VALIDATION-NAS-JOURNAL-20261102.md"
+    "docs/VALIDATION-NAS-JOURNAL-20261102.md",
+    "docs/VALIDATION-APP71-INSTALL-20261102.md"
   ],
   "modules": [
     {
@@ -5520,12 +5521,24 @@
       "evidence": [
         "docs/VALIDATION-CANDIDATE71-READINESS-20261102.md"
       ]
+    },
+    {
+      "at": "2026-11-02T00:35:19.737218+00:00",
+      "type": "deployment",
+      "title": "应用71实际安装及独立只读健康复核",
+      "detail": "PR175记录已合并；来源d78dc2f3/8fb960e0，正式1356 Rust/6原有忽略、13 ARM/音频34和27网页通过。实际持锁准入、单次启动及健康后confirm，confirmed71/floor71，6载荷和3运行exe匹配、127旧短信及身份/操作保持。Root原字节、数据断开/转发PID0、恢复timer停止/预算未用。12项guard夹具不代表实际故障回退，人工仍最后，81.5%/20 of169不变。",
+      "task_ids": [
+        "UPD-01"
+      ],
+      "evidence": [
+        "docs/VALIDATION-APP71-INSTALL-20261102.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "d78dc2f3b88bad78cf590d24baf897e3d8fc3744",
-    "generated_at": "2026-11-01T19:33:25.582135+00:00",
+    "source_revision": "9b24d43dcc74a7d8ff7f28e4aab005bec65c0ed3",
+    "generated_at": "2026-11-02T00:33:50.517584+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5549,7 +5562,7 @@
             "tooling": 9999,
             "firmware": 1180
           },
-          "commits": 476,
+          "commits": 477,
           "code_commits": 308,
           "added": 113218,
           "deleted": 3129
@@ -5973,6 +5986,11 @@
             {
               "pr": 174,
               "head": "477517b55f08da46cda9e34d3e991dfb4a4926dc",
+              "state": "MERGED"
+            },
+            {
+              "pr": 175,
+              "head": "142c2edc8666180b9103b30b7f2f852034e50b62",
               "state": "MERGED"
             }
           ],
@@ -6472,6 +6490,12 @@
             {
               "pr": 174,
               "head": "477517b55f08da46cda9e34d3e991dfb4a4926dc",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 175,
+              "head": "142c2edc8666180b9103b30b7f2f852034e50b62",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
