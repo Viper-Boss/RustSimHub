@@ -66,7 +66,9 @@ fn fixed_upstream_go_membership_vector_matches_rust_and_rejects_modified_root() 
     .unwrap();
     let decode = |s: &str| -> Vec<u8> {
         s.as_bytes()
-            .as_chunks::<2>().0.iter()
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|b| u8::from_str_radix(std::str::from_utf8(b).unwrap(), 16).unwrap())
             .collect()
     };
