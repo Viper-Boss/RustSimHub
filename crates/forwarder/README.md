@@ -1,5 +1,7 @@
 # rustsimhub-forwarder
 
+2026-11-02新增[真实关闭时序运行验证](../../docs/VALIDATION-FORWARDING-CLOSE-RUNTIME-20261102.md)：Owner通过实际PID1停止DNS/TLS/已提交HTTP/迟到ACK，进程、凭据和持久回执均核对；仅本机私有回环，棒子与完整冷启动仍待验收。下文保留历史阶段记录。
+
 Rust原生短信转发后端：规则、请求编码、有界持久outbox及真实Auth/Store适配。已有Core管理/执行IPC、固定出口HTTPS、独立worker及通过临时systemd验证的有限服务管理候选；Core显式有限协调也已通过本机真实链路；[所有者配置页](../../docs/VALIDATION-FORWARDING-OWNER-UI-X1H.md)源码与夹具验证通过；签名安装和真实浏览器/设备验收仍缺，未交付棒子。构造库不会启动进程/线程或网络访问。
 
 - `model.rs`：最多8个目标、32条规则；发送方/正文/线路匹配；通知或明确的完整正文；Webhook/Bark/Telegram请求编码与应答判定。不是实际HTTPS客户端。重叠规则对同一消息/目标按首条匹配规则只排一次。

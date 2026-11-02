@@ -12,6 +12,8 @@ use std::{
     time::{Duration, Instant},
 };
 mod bus;
+mod snapshot;
+use snapshot::Snapshot;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 #[cfg(test)]
@@ -199,7 +201,7 @@ pub fn run() -> Result<()> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            serde_json::json!({"component":"status-led","source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"board":"thwc,ufi003","policy":1,"cellular_probes":false,"status_state_source":"system-bus-cached-readonly","status_snapshot_seconds":15,"status_snapshot_budget_ms":3000,"status_readonly_probe":true,"smooth_breathing":false})
+            serde_json::json!({"component":"status-led","source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"board":"thwc,ufi003","policy":1,"cellular_probes":false,"status_state_source":"system-bus-cached-readonly","status_snapshot_seconds":15,"status_snapshot_budget_ms":3000,"status_snapshot_max_age_ms":snapshot::MAX_AGE_MS,"status_readonly_probe":true,"smooth_breathing":false})
         );
         return Ok(());
     }
@@ -233,18 +235,24 @@ pub fn run() -> Result<()> {
     };
     let runtime = bus::runtime()?;
     let mut policy = Policy::default();
-    let snapshot = Arc::new(Mutex::new(Inputs {
-        configuring: true,
-        ..Inputs::default()
-    }));
+    let snapshot = Arc::new(Mutex::new(Snapshot::new(
+        Inputs {
+            configuring: true,
+            ..Inputs::default()
+        },
+        Instant::now(),
+    )));
     let sampler = snapshot.clone();
     thread::spawn(move || loop {
+        // Include the query time in the age; publishing a slow result must
+        // not give old observations another full lifetime.
+        let observed_at = Instant::now();
         let value = refresh(&runtime).unwrap_or(Inputs {
             error: true,
             ..Inputs::default()
         });
         if let Ok(mut slot) = sampler.lock() {
-            *slot = value;
+            *slot = Snapshot::new(value, observed_at);
         }
         // Unit and NM state change rarely; every child process costs CPU.
         thread::sleep(Duration::from_secs(15));
@@ -258,7 +266,10 @@ pub fn run() -> Result<()> {
     let mut update_hint = None;
     loop {
         let now = boot.saturating_add(start.elapsed().as_millis() as u64);
-        let mut input = *snapshot.lock().map_err(|_| "snapshot lock")?;
+        let mut input = snapshot
+            .lock()
+            .map_err(|_| "snapshot lock")?
+            .current(Instant::now());
         input.disabled = disabled;
         if Instant::now() >= io_next {
             count = io_count();
