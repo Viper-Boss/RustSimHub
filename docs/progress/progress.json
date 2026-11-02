@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-02T05:41:10.803135+00:00",
+  "updated_at": "2026-11-02T05:58:59.762883+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原固件81.5%按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "FWD-13",
-    "title": "转发关闭与迟到响应运行闭环",
-    "state": "真实本机PID1/进程验证通过；棒子验收仍待做",
-    "description": "PR179正常合并9f3fee9。外部核验固定2839fb64、真实Core/worker固定89a98c15，Rust与单元字节一致；本机WSL实际Owner→Core→D-Bus/polkit→PID1/cgroup覆盖DNS、TLS、HTTP已提交及迟到204四时点，关闭确认0.186～0.199秒。worker/cgroup归零、设置和凭据移除，已取得任务Unknown、排队任务Cancelled；旧回执、相同OFF回执与关闭后启动拒绝均通过。原managed、多UID IPC、五类worker和unmanaged主管回归通过，临时单元/规则已移除。生产Rust未变，不访问设备或真实外发，不把结果当作棒子/物理冷启动。CI41395275078两个job因付款/消费上限未启动、0步骤。FWD-13只标进行中；原81.5%、20/169及主线代码约90%未加权粗估保持，人工最后。"
+    "task_id": "LED-02",
+    "title": "灯控过期快照保护代码已补齐",
+    "state": "代码已合并、ARM候选已准备；本轮未部署",
+    "description": "PR181正常合并6b44897。产品d1d4b21/冻结2c6c7adb增加渲染端独立30秒有效期：采样停止后不能永久保留旧联网/配置/升级声明，新结果到达后恢复，原关闭/来电优先级保持。33项灯控、完整Rust1365通过/6项原有专用忽略、严格Clippy/fmt、ARM release及QEMU元数据通过。私有副本禁用年龄限制时四项新测试按预期失败，正向候选未改。无新增依赖、权限、协议或数据迁移；本轮未访问/部署设备。真实故障灯效和长测仍待最后。CI41396971809因付款/消费上限未启动、0步骤，未当作通过。LED-02只记进行中，81.5%、20/169和主线代码约90%未加权粗估保持。"
   },
   "facts": [
     {
@@ -79,14 +79,14 @@
       "detail": "固定P0–P7；新版本安装不重复增加既有验收点"
     },
     {
-      "label": "设备应用组",
+      "label": "最近核验应用组",
       "value": "71已确认 · 127条旧短信保持",
       "detail": "应用来源d78dc2f3；仅Root灯控更新17d4707，其他服务保持；人工最后"
     },
     {
-      "label": "灯控CPU短测",
-      "value": "4.72% → 0.82%",
-      "detail": "单核/各约120秒窗口，RSS2.04→3.20MiB；非整机/功耗/长测验收"
+      "label": "灯控最新代码",
+      "value": "30秒失效保护 · 待部署",
+      "detail": "新源码d1d4b21；此前CPU短测属于已安装17d版本，不混作新版本证据"
     },
     {
       "label": "转发关闭运行验证",
@@ -2203,10 +2203,12 @@
             "user"
           ],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/VALIDATION-LED-SNAPSHOT-EXPIRY-20261102.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -5571,12 +5573,24 @@
       "evidence": [
         "docs/VALIDATION-FORWARDING-CLOSE-RUNTIME-20261102.md"
       ]
+    },
+    {
+      "at": "2026-11-02T06:00:17.435328+00:00",
+      "type": "verified",
+      "title": "灯控采样停更后错误保留联网状态的代码缺口已修复",
+      "detail": "渲染端30秒快照有效期；33项灯控与1365 Rust、ARM候选通过，取消年龄检查的负对照四项失败。代码合并且候选保存，未部署设备，不新增整项验收分。",
+      "task_ids": [
+        "LED-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-LED-SNAPSHOT-EXPIRY-20261102.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "9f3fee9ab3efbb1827761f8903f61280af414353",
-    "generated_at": "2026-11-02T05:41:10.803135+00:00",
+    "source_revision": "6b44897f14d02c7a42c9bbdaa1189c6d92488f40",
+    "generated_at": "2026-11-02T05:58:59.762883+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5595,15 +5609,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 54027,
+            "product": 54167,
             "tests": 42664,
             "tooling": 10118,
             "firmware": 1180
           },
-          "commits": 484,
-          "code_commits": 312,
-          "added": 114069,
-          "deleted": 3219
+          "commits": 486,
+          "code_commits": 313,
+          "added": 114226,
+          "deleted": 3226
         },
         "work": {
           "assigned_steps": 0,
@@ -6044,6 +6058,11 @@
             {
               "pr": 179,
               "head": "71caf45bb48c2127354f4bfa89d93863e987a768",
+              "state": "MERGED"
+            },
+            {
+              "pr": 181,
+              "head": "b14ef1ff22fe7965ca085edb34077253f0467bd7",
               "state": "MERGED"
             }
           ],
@@ -6567,6 +6586,12 @@
             {
               "pr": 179,
               "head": "71caf45bb48c2127354f4bfa89d93863e987a768",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 181,
+              "head": "b14ef1ff22fe7965ca085edb34077253f0467bd7",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
@@ -7578,6 +7603,11 @@
               "pr": 150,
               "head": "f8e3b0eb5c92a23365795f75845630902439771b",
               "state": "MERGED"
+            },
+            {
+              "pr": 180,
+              "head": "52b483c1a4b7565c6daa3453eaf4dc0e708d0d84",
+              "state": "OPEN"
             }
           ],
           "task_deliveries": [
@@ -7663,6 +7693,12 @@
               "pr": 150,
               "head": "f8e3b0eb5c92a23365795f75845630902439771b",
               "state": "MERGED",
+              "submitted_by": "yh1030"
+            },
+            {
+              "pr": 180,
+              "head": "52b483c1a4b7565c6daa3453eaf4dc0e708d0d84",
+              "state": "OPEN",
               "submitted_by": "yh1030"
             }
           ]
@@ -7981,7 +8017,7 @@
       "deleted": 0
     },
     "totals": {
-      "product": 64557,
+      "product": 64697,
       "tests": 63317,
       "tooling": 14007,
       "firmware": 1189
