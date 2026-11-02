@@ -56,12 +56,25 @@ fn run() -> Result<(), rustsimhub_update::Error> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            serde_json::json!({"source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"system_ota_supported":false,"boot_runtime_selection_supported":true,"forwarding_application_format_supported":true,"signed_application_formats":[1,2],"database_schema":SCHEMA,"maintenance_observation_protocol":1})
+            serde_json::json!({"source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"system_ota_supported":false,"boot_runtime_selection_supported":true,"forwarding_application_format_supported":true,"signed_application_formats":[1,2],"database_schema":SCHEMA,"maintenance_observation_protocol":1,"read_only_state_inspection_protocol":1})
         );
         return Ok(());
     }
     if rustix::process::geteuid().as_raw() != 0 {
         return Err(Error::Denied);
+    }
+    if args
+        .first()
+        .is_some_and(|command| command == "inspect-state")
+    {
+        // Reject extra arguments BEFORE the generic writable Store dispatch.
+        // There is no caller-supplied root/trust path or recovery operation.
+        if args.len() != 1 {
+            return Err(Error::Invalid);
+        }
+        let observation = rustsimhub_update::store::inspection::ReadOnlyState::observe()?;
+        println!("{}", observation.report()?);
+        return Ok(());
     }
     if args == ["inspect-maintenance"] {
         let snapshot = rustsimhub_update::admission::MaintenanceSnapshot::observe()?;
@@ -173,6 +186,16 @@ fn run() -> Result<(), rustsimhub_update::Error> {
     }
     if args.len() >= 3 {
         let command = &args[0];
+        // Store::open can recover state.next or create a lock/versions.
+        // A typo or wrong arity must be rejected before those side effects.
+        if !matches!(
+            (command.as_str(), args.len()),
+            ("boot-select", 6)
+                | ("install-factory" | "stage" | "admit-stage" | "confirm", 4)
+                | ("choose" | "status", 3)
+        ) {
+            return Err(Error::Invalid);
+        }
         let root = Path::new(&args[1]);
         let key: [u8; 32] = read_checked(Path::new(&args[2]), 32)?
             .as_slice()
