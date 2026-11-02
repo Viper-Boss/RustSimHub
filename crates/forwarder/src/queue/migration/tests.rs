@@ -196,6 +196,7 @@ fn malformed_or_mixed_request_and_unknown_schema_never_partially_migrate() {
     for mutation in [
         "UPDATE jobs SET request=json_set(request,'$.transport','smtp') WHERE seq=3",
         "CREATE TRIGGER injected AFTER UPDATE ON jobs BEGIN DELETE FROM requests;END",
+        "UPDATE jobs SET request=' '||request WHERE seq=3",
         "UPDATE meta SET policy=json_set(policy,'$.extra',true)",
     ] {
         let (_d, mut conn, _b) = fixture();

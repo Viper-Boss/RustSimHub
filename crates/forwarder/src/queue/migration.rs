@@ -238,6 +238,13 @@ fn convert(conn: &mut Connection, before_commit: impl FnOnce() -> Result<()>) ->
                         return Err(Error::Invalid);
                     }
                     let request: PreparedRequest = serde_json::from_str(&raw)?;
+                    // The original writer emits canonical objects. Reject
+                    // another representation before mutation: exact claim CAS
+                    // must still match after the transport tag is added.
+                    let canonical = Zeroizing::new(serde_json::to_string(&request)?);
+                    if *canonical != *raw {
+                        return Err(Error::Invalid);
+                    }
                     let tagged = crate::smtp_candidate::PreparedDeliveryV1::Https { request };
                     tagged.validate()?;
                     // Keep the ORIGINAL object bytes including payload/credentials.
