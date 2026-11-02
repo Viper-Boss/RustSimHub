@@ -23,11 +23,11 @@ python3 tools/mainline-checks/run.py --group runner --output .local/mainline-run
 
 | 组 | 内容 | 前置 |
 |---|---|---|
-| ordinary | fmt、全仓严格 Clippy、工作区 default/all-features 各一次、production check、CI 普通 Python/shell 语法、28 组网页、4 组 configurator、Go 默认离线测试、实际生产兼容 CLI | Linux、Git、Rust/Cargo 1.98.0 rustfmt/clippy、Node、Python、Go（环境为 1.27.3）、C/C++、OpenSSL、已有夹具的 cryptography |
+| ordinary | fmt、全仓严格 Clippy、工作区 default/all-features 各一次、production check、CI 普通 Python/shell 语法、27 组 Node 网页、4 组 configurator、Go 默认离线测试、实际生产兼容 CLI | Linux、Git、Rust/Cargo 1.98.0 rustfmt/clippy、Node、Python、Go（环境为 1.27.3）、C/C++、OpenSSL、已有夹具的 cryptography |
 | native-audio | 原独立 manifest 测试、严格 Clippy | ALSA/Opus 开发库与 pkg-config |
-| root | 原 Board helper、AP 单元解析、材料 CLI、启动器和 chroot | Root 或无交互 sudo；board 还需私有 mount namespace、ext4/loop/udev 等原夹具前置 |
-| root-netns | 原 tmpfs ENOSPC、更新状态、元数据进程、维护、签名格式、worker IPC/真实进程 | Root、真实 netns；ENOSPC 另需 mount namespace |
-| root-systemd | 原线程耗尽、转发主管/managed 与四个 OFF 时点 | Root、真实 PID1 systemd/cgroup、netns/mount、managed 另需 polkit |
+| root | 原 Board helper、AP 单元解析、材料 CLI、启动器和 chroot | 以真实 EUID 0 运行本运行器；board 还需私有 mount namespace、ext4/loop/udev 等原夹具前置 |
+| root-netns | 原 tmpfs ENOSPC、更新状态、元数据进程、维护、签名格式、worker IPC/真实进程 | 以真实 EUID 0 运行本运行器、真实 netns；ENOSPC 另需 mount namespace |
+| root-systemd | 原线程耗尽、转发主管/managed 与四个 OFF 时点 | 以真实 EUID 0 运行本运行器、真实 PID1 systemd/cgroup、netns/mount、managed 另需 polkit |
 | runner | 合成小进程和临时 Git 仓库单测 | 仅证明运行器，不计入产品通过数 |
 
 不自动安装依赖。先按仓库环境说明准备工具；本云环境每个 shell 先加载
@@ -39,9 +39,12 @@ python3 tools/mainline-checks/run.py --group runner --output .local/mainline-run
 Rust 默认和全部特性存在重复，分别计数，不能将两者之和当成独立测试数。
 Rust 既有 ignored 单独报告；Root 专用项通过自己的原驱动执行，普通组成功不代表它们成功。
 Python discovery 返回 0 项视为失败；有 skipped 的阶段为 `not_run`，不以退出 0 宣称全部通过。
-Go 要实际出现测试通过记录；Node 仅使用审阅过的固定、非空合成脚本，不使用可匹配 0 项的过滤器。
+Go 要实际出现测试通过记录；`tools/test-web-recovery-session.mjs` 是浏览器专用 ES 模块，
+既有入口为 `tools/run-web-recovery-session.py`，需准备 native peer/WASM 和真实 Chromium；
+它在 `--list` 与报告的 `excluded_inventory` 中显式为 `not_run`，不冒充 Node 检查或 GATT 验收。
+该排除项不计入普通组阶段数，也不自动启动浏览器驱动。Node 仅使用审阅过的固定、非空合成脚本，不使用可匹配 0 项的过滤器。
 
-CI 的 shell 拼接被拆成独立 argv 阶段；Cargo JSON 制品输出由运行器直接接 stdout，
+CI 的 shell 拼接被拆成独立 argv 阶段；`sh -n` 的多个脚本拆为逐文件检查（后续位置参数不会被 sh 自动解析）；Cargo JSON 制品输出由运行器直接接 stdout，
 不经 shell 重定向。`{run}` 与 `{user}` 仅为清单内固定占位符，分别替换本轮私有目录
 与实际 UID 对应用户名。以 Root 直接运行时仅省略 `sudo -n`，不改原夹具流程。
 生产兼容阶段只从 `git archive --format=tar HEAD` 计算固定来源摘要，传给原构建所需的
@@ -59,14 +62,18 @@ CI 的 shell 拼接被拆成独立 argv 阶段；Cargo JSON 制品输出由运�
 顶层同时显示 `passed / failed / not_run` 阶段数（不是测试总数）。必需检查缺失、
 依赖失败或夹具跳过均不能整体通过。运行退出码 0 仅代表所选组完整通过；1 为组失败
 或未运行，2 为参数/输出/运行器错误。不同组可以重复 `--group`，选择顺序始终为清单
-顺序。不选择某组不等于它已通过；跨组完整结论应同时选择或汇总所有所需组。
+顺序。中间报告也将尚未开始的已选阶段计入 `not_run`，不会提前报整组通过。不选择某组不等于它已通过；跨组完整结论应同时选择或汇总所有所需组。
 
 每个实际子进程用独立 session/process group、关闭 stdin、无 shell 启动。Linux
-subreaper 收养并回收原组的孤儿后代。超时或输出超限先 TERM（0.5 秒）再 KILL
-（最多 2 秒），等待原进程并回收后代；父进程提前退出但遗留子进程也判失败并清理。
+subreaper 收养孤儿后代，`/proc` 父子关系和启动时间配合 pidfd 追踪本阶段存活后代，
+包含原夹具自行创建的新 session。pidfd 防止误发信号给复用 PID；不收养本轮开始前
+已存在的子进程。超时或输出超限先 TERM（0.5 秒）再 KILL
+（最多 2 秒），等待原进程并逐 PID 回收后代；父进程提前退出但遗留子进程也判失败并清理。
 回收不完整时停止后续执行，不重启同一项。每阶段合并日志上限 2 MiB、摘要尾部
-16 KiB；超限即失败，不会默默丢弃后继续报绿。仅管理本轮启动的进程组，不清他人缓存。
-这不是恶意程序沙箱；被审阅的夹具不得自行 setsid 逃离组、访问真实设备或外部网络。
+16 KiB；超限即失败，不会默默丢弃后继续报绿。仅管理本轮启动的进程树，不清他人缓存。
+这不是恶意程序沙箱；被审阅夹具不得访问真实设备或外部网络。Python/内核需要 Linux pidfd 支持。
+Root 组须以 EUID 0 启动整个运行器（可由操作者使用既有 sudo），以保证对 Root 后代也能有界终止；
+仅检测到 sudo 可用不推定普通 UID 有权清理 Root 子进程。本环境无 sudo，保持未运行。
 
 CLI 不接受任意命令、shell、清单文件或环境赋值。正常继承预先准备的工具链/代理环境，
 不打印全环境或读凭据。不提供 NAS、SIM、GATT、NKN SDK 网络、真实浏览器、ARM 运行、

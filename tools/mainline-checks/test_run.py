@@ -62,6 +62,22 @@ while True: time.sleep(.02)
         with self.assertRaises(ProcessLookupError):
             os.kill(int(pidfile.read_text()), 0)
 
+    def test_timeout_reaps_descendant_in_a_new_session(self):
+        code = """import os,signal,time
+if os.fork()==0:
+    os.setsid()
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    open('escaped.pid','w').write(str(os.getpid()))
+while True: time.sleep(.02)
+"""
+        r = self.command(code, timeout=.25)
+        self.assertEqual(r['execution'], 'timeout')
+        self.assertTrue(r['cleanup_complete'])
+        escaped = int((self.root/'escaped.pid').read_text())
+        self.assertIn(escaped, [p['pid'] for p in r['processes']])
+        with self.assertRaises(ProcessLookupError):
+            os.kill(escaped, 0)
+
     def test_parent_exit_and_inherited_pipe_does_not_hang(self):
         r = self.command('import os,time\nif os.fork()==0: time.sleep(20)', timeout=.2)
         self.assertEqual(r['execution'], 'timeout')
@@ -87,6 +103,20 @@ while True: time.sleep(.02)
         self.assertLessEqual(len(r['summary'].encode()), run.TAIL_LIMIT)
         self.assertTrue(r['truncated'])
         self.assertTrue(r['cleanup_complete'])
+
+    def test_interrupt_reclaims_original_group(self):
+        import signal
+        import threading
+        timer = threading.Timer(.2, lambda: os.kill(os.getpid(), signal.SIGINT))
+        timer.start()
+        try:
+            r = self.command('import time; time.sleep(20)')
+        finally:
+            timer.cancel()
+            timer.join()
+        self.assertEqual(r['execution'], 'interrupted')
+        self.assertTrue(r['cleanup_complete'])
+        self.assertEqual(run.classify(r, 'command'), 'failed')
 
     def test_no_shell_interpretation(self):
         r = run.execute([sys.executable, '-c', 'import sys; print(sys.argv[1])', '$(touch injected);`touch injected`'],
@@ -164,6 +194,27 @@ class SourceAndOutput(unittest.TestCase):
         self.assertEqual(r['execution'], 'not_run')
         self.assertIsNone(r['exit_code'])
 
+    def test_midrun_source_mutation_fails_and_blocks_remaining(self):
+        checks = [Check('mutate', 'runner', (sys.executable, '-c', "open('product.rs','w').write('changed')")),
+                  Check('later', 'runner', (sys.executable, '-c', "open('should-not-exist','w').write('bad')"))]
+        with patch.object(run, 'CHECKS', checks), patch.object(run, 'environment', return_value={'capabilities':{}}):
+            self.assertEqual(run.run(['runner'], '.local/mutation/report.json', self.root), 1)
+        data = json.loads((self.root/'.local/mutation/report.json').read_text())
+        self.assertEqual(data['checks'][0]['status'], 'failed')
+        self.assertTrue(data['checks'][0]['source_after']['tested_code_changed'])
+        self.assertEqual(data['checks'][1]['status'], 'not_run')
+        self.assertFalse((self.root/'should-not-exist').exists())
+
+    def test_dirty_source_can_diagnose_but_never_passes_overall(self):
+        (self.root/'product.rs').write_text('dirty')
+        check = Check('ok', 'runner', (sys.executable, '-c', 'print("ok")'))
+        with patch.object(run, 'CHECKS', [check]), patch.object(run, 'environment', return_value={'capabilities':{}}):
+            self.assertEqual(run.run(['runner'], '.local/dirty/report.json', self.root), 1)
+        data = json.loads((self.root/'.local/dirty/report.json').read_text())
+        self.assertEqual(data['checks'][0]['status'], 'passed')
+        self.assertTrue(data['checks'][0]['source']['dirty'])
+        self.assertEqual(data['totals']['status'], 'not_run')
+
 
 class SelectionAndCounts(unittest.TestCase):
     def test_unknown_empty_and_zero_selection(self):
@@ -195,6 +246,8 @@ class SelectionAndCounts(unittest.TestCase):
         self.assertEqual(run.classify(r, 'rust'), 'passed')
         self.assertEqual(r['test_counts'], {'passed':7,'failed':0,'ignored':2})
         self.assertEqual(run.totals([])['status'], 'not_run')
+        self.assertEqual(run.totals([{'status':'passed'}], expected_count=4),
+                         {'status':'not_run','passed':1,'failed':0,'not_run':3})
         self.assertEqual(run.totals([{'status':'passed'},{'status':'not_run'}])['status'], 'not_run')
 
 

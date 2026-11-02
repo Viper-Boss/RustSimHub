@@ -25,13 +25,14 @@ def add(name, group, argv, **kw):
     CHECKS.append(Check(name, group, tuple(argv), **kw))
 
 
-add('fmt', 'ordinary', ['cargo', 'fmt', '--all', '--', '--check'])
-add('clippy', 'ordinary', ['cargo', 'clippy', '--workspace', '--all-targets', '--all-features', '--locked', '--', '-D', 'warnings'], timeout=1800, requires=('go',))
+add('fmt', 'ordinary', ['cargo', 'fmt', '--all', '--', '--check'], requires=('rustfmt',))
+add('clippy', 'ordinary', ['cargo', 'clippy', '--workspace', '--all-targets', '--all-features', '--locked', '--', '-D', 'warnings'], timeout=1800, requires=('go', 'clippy'))
 for suffix, features in [('default', []), ('all-features', ['--all-features'])]:
     add('workspace-' + suffix, 'ordinary', ['cargo', 'test', '--workspace', *features, '--locked'], timeout=1800, requires=('go',), kind='rust')
 add('production-check', 'ordinary', ['cargo', 'check', '-p', 'rustsimhub-core', '--no-default-features', '--locked'], timeout=1800)
 for name, files in [
-    ('rootfs-syntax', ['tools/rootfs/scripts/build-rootfs.sh', 'tools/recovery-fastboot-probe.sh']),
+    ('rootfs-syntax', ['tools/rootfs/scripts/build-rootfs.sh']),
+    ('recovery-probe-syntax', ['tools/recovery-fastboot-probe.sh']),
     ('committed-build-syntax', ['tools/wsl-build-committed.sh']),
     ('recovery-syntax', ['tools/recovery/watch-edl-capture.sh']),
     ('field-syntax', ['tools/field/rsh-readonly-snapshot.sh']),
@@ -48,15 +49,16 @@ for name, script, kind in [
     ('ap-package', 'tools/test-setup-ap-package.py', 'unittest'),
     ('ap-install', 'tools/test-setup-ap-install.py', 'unittest'),
 ]:
-    add(name, 'ordinary', ['python3', script], files=(script,), kind=kind)
+    requires = ('pycrypto', 'openssl') if name in ('development-packager', 'ap-package', 'ap-install') else ()
+    add(name, 'ordinary', ['python3', script], files=(script,), kind=kind, requires=requires)
 add('arm-manifest-optimized', 'ordinary', ['python3', '-O', 'tools/test-arm-build-manifest.py'], files=('tools/test-arm-build-manifest.py',), kind='unittest')
-# 28 explicit synthetic Node scripts, including ten existing entries outside CI.
+# 27 explicit synthetic Node scripts; browser-only recovery interop is deferred below.
 WEB = (
     'ap-wifi', 'call-test', 'clients', 'configuration-state', 'daily-phone',
     'daily-sms', 'deadlines', 'diagnostics', 'event-sync', 'forwarding-history',
     'forwarding', 'incoming-call-test', 'indicator', 'media', 'nas-bridge',
     'network', 'nkn-status', 'operation-receipt', 'password', 'proof',
-    'recovery-session', 'session', 'setup', 'sms-management',
+    'session', 'setup', 'sms-management',
     'test-center-component', 'test-center', 'usage-stats', 'wifi',
 )
 for name in WEB:
@@ -76,6 +78,7 @@ for name, action in [('native-test', 'test'), ('native-clippy', 'clippy')]:
     add(name, 'native-audio', argv, requires=('audio',), kind='rust' if action == 'test' else 'command', timeout=1800)
 add('compatibility-build', 'ordinary', ['cargo', 'build', '-p', 'rustsimhub-core', '-p', 'rustsimhub-forwarder', '-p', 'rustsimhub-core-launcher', '--no-default-features', '--locked'], committed_source=True, timeout=1800)
 add('upgrade-compatibility', 'ordinary', ['python3', 'tools/test-upgrade-compatibility.py', '--launcher', 'target/debug/rustsimhub-core-launcher', '--core', 'target/debug/rustsimhub-core', '--worker', 'target/debug/rustsimhub-forwarder'], depends=('compatibility-build',))
+add('worker-inspection', 'ordinary', ['python3', 'tools/test-forwarding-inspection.py', '--worker', 'target/debug/rustsimhub-forwarder'], depends=('compatibility-build',))
 add('runner-unit', 'runner', ['python3', '-m', 'unittest', 'discover', '-s', 'tools/mainline-checks', '-p', 'test_*.py'], kind='unittest')
 # Specialized groups are opt-in. Use the original fixtures and privilege prefixes.
 add('board-fixtures', 'root', ['sudo', '-n', 'python3', '-m', 'unittest', 'discover', '-s', 'tools/system', '-p', 'test_*.py'], requires=('root', 'mount'), kind='unittest', timeout=600)
@@ -104,7 +107,6 @@ add('ipc-core-build', 'root-netns', ['cargo', 'build', '-p', 'rustsimhub-core', 
 add('worker-build', 'root-netns', ['cargo', 'build', '-p', 'rustsimhub-forwarder', '--locked'], requires=('root', 'netns'), timeout=1800)
 WORKER = ('--core', 'target/debug/rustsimhub-core', '--worker', 'target/debug/rustsimhub-forwarder')
 add('worker-ipc', 'root-netns', ['sudo', '-n', 'python3', 'tools/test-forwarding-worker-ipc.py', '--core', 'target/debug/rustsimhub-core'], requires=('root', 'netns'), depends=('ipc-core-build',))
-add('worker-inspection', 'root-netns', ['python3', 'tools/test-forwarding-inspection.py', '--worker', 'target/debug/rustsimhub-forwarder'], requires=('root', 'netns'), depends=('worker-build',))
 add('worker-process', 'root-netns', ['sudo', '-n', 'unshare', '--net', 'python3', 'tools/test-forwarding-worker-process.py', *WORKER], requires=('root', 'netns'), depends=('ipc-core-build', 'worker-build'))
 add('indicator-build', 'root-systemd', ['cargo', 'build', '-p', 'rustsimhub-update', '--example', 'indicator-resource', '--locked'], requires=('root', 'systemd', 'mount'), timeout=1800)
 add('indicator-resource', 'root-systemd', ['sudo', '-n', 'python3', 'tools/test-update-indicator-resource.py', '--fixture', 'target/debug/examples/indicator-resource'], requires=('root', 'systemd', 'mount'), depends=('indicator-build',))
@@ -114,3 +116,8 @@ for name, args in [('unmanaged', []), ('managed', ['--managed']), *[(p, ['--mana
     add('supervisor-' + name, 'root-systemd', ['sudo', '-n', 'unshare', '--net', 'python3', 'tools/test-forwarding-supervisor.py', *WORKER, *args], requires=('root', 'systemd', 'netns', 'polkit') if name != 'unmanaged' else ('root', 'systemd', 'netns'), depends=('supervisor-core-build', 'supervisor-worker-build'), timeout=300)
 
 GROUPS = ('ordinary', 'native-audio', 'root', 'root-netns', 'root-systemd', 'runner')
+
+# This is an inventory boundary, never an executable substitute for real browser evidence.
+EXCLUSIONS = ({'name': 'web-recovery-session', 'status': 'not_run',
+               'entrypoint': 'tools/run-web-recovery-session.py',
+               'reason': 'browser-only WASM/WebCrypto/IndexedDB interop; needs prepared native peer/WASM and actual Chromium; not a Node script or real GATT acceptance'},)

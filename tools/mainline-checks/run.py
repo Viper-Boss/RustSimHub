@@ -17,7 +17,7 @@ import subprocess
 import sys
 import time
 
-from checklist import CHECKS, GROUPS
+from checklist import CHECKS, GROUPS, EXCLUSIONS
 
 ROOT = Path(__file__).resolve().parents[2]
 LOG_LIMIT = 2 * 1024 * 1024
@@ -84,45 +84,111 @@ def subreaper():
         raise OSError(ctypes.get_errno(), 'cannot enable child subreaper')
 
 
-def group_alive(pgid):
-    try:
-        os.killpg(pgid, 0)
-        return True
-    except ProcessLookupError:
-        return False
-
-
-def reap_group(pgid):
-    while True:
+def process_table():
+    rows = {}
+    for directory in Path('/proc').iterdir():
+        if not directory.name.isdigit():
+            continue
         try:
-            pid, _ = os.waitpid(-pgid, os.WNOHANG)
-            if pid == 0:
+            raw = (directory / 'stat').read_text()
+            fields = raw[raw.rfind(')') + 2:].split()
+            rows[int(directory.name)] = {'ppid': int(fields[1]), 'session': int(fields[3]),
+                                         'start': int(fields[19]), 'state': fields[0]}
+        except (FileNotFoundError, ProcessLookupError, PermissionError):
+            continue
+    return rows
+
+
+class ProcessTree:
+    """Track descendants across setsid with /proc identities and pidfds.
+
+    The CLI executes one stage at a time. New direct children of the subreaper
+    are descendants adopted after an intermediate parent exits. Children already
+    present before launch are excluded. pidfds prevent signalling a recycled PID.
+    """
+    def __init__(self):
+        if not hasattr(os, 'pidfd_open') or not hasattr(signal, 'pidfd_send_signal'):
+            raise ValueError('Linux pidfd support is required')
+        rows = process_table()
+        self.baseline = {(pid, row['start']) for pid, row in rows.items()
+                         if row['ppid'] == os.getpid()}
+        self.owned = {}
+        self.root = None
+        self.root_start = None
+        self.history = []
+
+    def refresh(self):
+        rows = process_table()
+        changed = True
+        while changed:
+            changed = False
+            valid = {pid for pid, row in self.owned.items()
+                     if pid in rows and row['start'] == rows[pid]['start']}
+            for pid, row in rows.items():
+                if pid in self.owned:
+                    if self.owned[pid]['start'] == row['start']:
+                        continue
+                    os.close(self.owned.pop(pid)['fd'])
+                adopted = row['ppid'] == os.getpid() and (pid, row['start']) not in self.baseline
+                root_matches = pid == self.root and (self.root_start is None or row['start'] == self.root_start)
+                if root_matches or row['ppid'] in valid or adopted:
+                    try:
+                        fd = os.pidfd_open(pid)
+                        current = process_table().get(pid)
+                        if current is None or current['start'] != row['start']:
+                            os.close(fd)
+                            continue
+                    except ProcessLookupError:
+                        continue
+                    self.owned[pid] = dict(row, fd=fd)
+                    self.history.append({'pid': pid, 'start_ticks': row['start'],
+                                         'parent_at_observation': row['ppid'], 'session': row['session']})
+                    if pid == self.root:
+                        self.root_start = row['start']
+                    changed = True
+        return rows
+
+    def alive(self):
+        rows = self.refresh()
+        return [pid for pid, row in self.owned.items()
+                if pid in rows and rows[pid]['start'] == row['start']]
+
+    def reap(self, proc):
+        proc.poll()
+        for pid in self.owned:
+            if pid == proc.pid:
+                continue
+            try:
+                os.waitpid(pid, os.WNOHANG)
+            except ChildProcessError:
+                pass
+
+    def stop(self, proc):
+        for sig, grace in ((signal.SIGTERM, .5), (signal.SIGKILL, 2)):
+            deadline = time.monotonic() + grace
+            while True:
+                self.refresh()
+                for row in self.owned.values():
+                    try:
+                        signal.pidfd_send_signal(row['fd'], sig)
+                    except ProcessLookupError:
+                        pass
+                self.reap(proc)
+                if not self.alive() or time.monotonic() >= deadline:
+                    break
+                time.sleep(.02)
+            if not self.alive():
                 break
-        except ChildProcessError:
-            break
+        proc.wait(timeout=2)
+        self.reap(proc)
+        return not self.alive()
 
+    def evidence(self):
+        return self.history
 
-def stop_group(proc):
-    """TERM, bounded grace, KILL, wait parent and reap adopted descendants."""
-    for sig, grace in ((signal.SIGTERM, .5), (signal.SIGKILL, 2)):
-        try:
-            os.killpg(proc.pid, sig)
-        except ProcessLookupError:
-            pass
-        deadline = time.monotonic() + grace
-        while time.monotonic() < deadline:
-            proc.poll()
-            if proc.returncode is not None:
-                reap_group(proc.pid)
-            if not group_alive(proc.pid):
-                break
-            time.sleep(.02)
-        if not group_alive(proc.pid):
-            break
-    proc.wait(timeout=2)
-    reap_group(proc.pid)
-    return not group_alive(proc.pid)
-
+    def close(self):
+        for row in self.owned.values():
+            os.close(row['fd'])
 
 def execute(argv, cwd, log, timeout, *, limit=LOG_LIMIT, artifact=None, env=None):
     """Internal primitive; CLI exposes neither argv nor environment overrides."""
@@ -135,6 +201,7 @@ def execute(argv, cwd, log, timeout, *, limit=LOG_LIMIT, artifact=None, env=None
               'cleanup_complete': True, 'pid': None}
     tail = b''
     proc = None
+    tree = ProcessTree()
     artifact_stream = None
     try:
         with log.open('xb') as output:
@@ -147,15 +214,18 @@ def execute(argv, cwd, log, timeout, *, limit=LOG_LIMIT, artifact=None, env=None
             except FileNotFoundError:
                 result['reason'] = 'missing executable: ' + argv[0]
                 return result
+            tree.root = proc.pid
+            tree.refresh()
             result.update(execution='executed', pid=proc.pid)
             with selectors.DefaultSelector() as selector:
                 for stream in (proc.stdout, proc.stderr):
                     os.set_blocking(stream.fileno(), False)
                     selector.register(stream, selectors.EVENT_READ)
                 while selector.get_map() or proc.poll() is None:
+                    tree.refresh()
                     if time.monotonic() - began >= timeout:
                         result['execution'] = 'timeout'
-                        result['reason'] = 'deadline exceeded; terminated the original process group'
+                        result['reason'] = 'deadline exceeded; terminated the original process tree'
                         break
                     for key, _ in selector.select(.05):
                         data = os.read(key.fd, 65536)
@@ -166,13 +236,14 @@ def execute(argv, cwd, log, timeout, *, limit=LOG_LIMIT, artifact=None, env=None
                         remaining = max(0, limit - result['bytes_saved'])
                         saved = data[:remaining]
                         output.write(saved)
+                        output.flush()
                         result['bytes_saved'] += len(saved)
                         tail = (tail + data)[-TAIL_LIMIT:]
                         if artifact_stream and key.fileobj is proc.stdout:
                             artifact_stream.write(data[:max(0, limit - artifact_stream.tell())])
                         if result['bytes_seen'] > limit:
                             result['truncated'] = True
-                            result['reason'] = 'log limit exceeded; terminated the original process group'
+                            result['reason'] = 'log limit exceeded; terminated the original process tree'
                             result['execution'] = 'output_limit'
                             break
                     if result['execution'] != 'executed':
@@ -180,17 +251,25 @@ def execute(argv, cwd, log, timeout, *, limit=LOG_LIMIT, artifact=None, env=None
             # Even a successful parent must not leave background children behind.
             parent_code = proc.poll()
             if parent_code is not None:
-                reap_group(proc.pid)
-            if parent_code is not None and group_alive(proc.pid) and result['execution'] == 'executed':
+                tree.reap(proc)
+            if parent_code is not None and tree.alive() and result['execution'] == 'executed':
                 result['reason'] = 'parent exited with live descendants'
                 result['execution'] = 'orphaned_children'
-            result['cleanup_complete'] = stop_group(proc)
+            result['cleanup_complete'] = tree.stop(proc)
+            result['exit_code'] = proc.returncode
+    except KeyboardInterrupt:
+        result['execution'] = 'interrupted'
+        result['reason'] = 'runner interrupted; original process tree terminated'
+        if proc is not None:
+            result['cleanup_complete'] = tree.stop(proc)
             result['exit_code'] = proc.returncode
     except BaseException:
         if proc is not None:
-            stop_group(proc)
+            tree.stop(proc)
         raise
     finally:
+        result['processes'] = tree.evidence()
+        tree.close()
         if artifact_stream:
             artifact_stream.close()
         if proc:
@@ -249,14 +328,19 @@ def environment():
     versions = {name: probe(argv) for name, argv in {
         'rustc': ['rustc', '--version'], 'cargo': ['cargo', '--version'],
         'node': ['node', '--version'], 'python': ['python3', '--version'],
-        'go': ['go', 'version'], 'audio': ['pkg-config', '--modversion', 'alsa', 'opus'],
+        'go': ['go', 'version'],
+        'rustfmt': ['rustfmt', '--version'], 'clippy': ['cargo', 'clippy', '--version'],
+        'pycrypto': ['python3', '-c', 'import cryptography; print(cryptography.__version__)'],
+        'openssl': ['openssl', 'version'], 'audio': ['pkg-config', '--modversion', 'alsa', 'opus'],
     }.items()}
     capabilities = {'go': versions['go']['exit_code'] == 0, 'audio': versions['audio']['exit_code'] == 0}
+    for name in ('pycrypto', 'openssl', 'rustfmt', 'clippy'):
+        capabilities[name] = versions[name]['exit_code'] == 0
     details = {}
     root = os.geteuid() == 0
     if not root:
         details['root'] = probe(['sudo', '-n', 'true'])
-        root = details['root']['exit_code'] == 0
+        details['root']['runner_requires_euid_zero_for_privileged_cleanup'] = True
     capabilities['root'] = root
     prefix = [] if os.geteuid() == 0 else ['sudo', '-n']
     for name, args in [('netns', ['unshare', '--net', 'true']),
@@ -282,8 +366,10 @@ def select_checks(groups):
     return selected
 
 
-def totals(rows, dirty=False):
+def totals(rows, dirty=False, expected_count=None):
     counts = {state: sum(r['status'] == state for r in rows) for state in ('passed', 'failed', 'not_run')}
+    pending = max(0, (expected_count or len(rows)) - len(rows))
+    counts['not_run'] += pending
     status = 'failed' if counts['failed'] else ('not_run' if counts['not_run'] or dirty or not rows else 'passed')
     return {'status': status, **counts}
 
@@ -294,12 +380,12 @@ def run(groups, output, root=ROOT):
     path = reserve_output(root, output)
     env = environment()
     report = {'schema': 1, 'purpose': 'development checks, not release approval',
-              'groups': groups, 'started': now(), 'source': original, 'environment': env,
+              'groups': groups, 'excluded_inventory': EXCLUSIONS, 'started': now(), 'source': original, 'environment': env,
               'checklist_sha256': hashlib.sha256(Path(__file__).with_name('checklist.py').read_bytes()).hexdigest(),
-              'checks': [], 'ended': None}
+              'checks': [], 'planned_checks': [c.name for c in checks], 'ended': None}
 
     def save():
-        report['totals'] = totals(report['checks'], original['dirty'])
+        report['totals'] = totals(report['checks'], original['dirty'], len(checks))
         temporary = path.with_suffix('.tmp')
         temporary.write_text(json.dumps(report, indent=2, ensure_ascii=False) + '\n')
         os.replace(temporary, path)
@@ -347,19 +433,24 @@ def run(groups, output, root=ROOT):
         report['checks'].append(base)
         save()
         print(c.name + ': ' + base['status'] + (' (' + base['reason'] + ')' if base.get('reason') else ''), flush=True)
+        if base.get('execution') == 'interrupted':
+            break
         if base.get('cleanup_complete') is False:
             # Do not start another command if the original tree was not reclaimed.
             break
     report['ended'] = now()
     if len(report['checks']) != len(checks):
         for c in checks[len(report['checks']):]:
-            report['checks'].append({'name': c.name, 'group': c.group, 'status': 'not_run', 'execution': 'not_run', 'command': list(c.argv), 'source': source(root), 'started': now(), 'ended': now(), 'exit_code': None, 'reason': 'previous process cleanup incomplete'})
+            report['checks'].append({'name': c.name, 'group': c.group, 'status': 'not_run', 'execution': 'not_run', 'command': list(c.argv), 'source': source(root), 'started': now(), 'ended': now(), 'exit_code': None, 'reason': 'execution stopped after interruption or incomplete cleanup'})
     save()
     print(json.dumps(report['totals']), flush=True)
     return 0 if report['totals']['status'] == 'passed' else 1
 
 
 def main():
+    def interrupted(signum, frame):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, interrupted)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--group', action='append', choices=GROUPS)
     parser.add_argument('--output', default='.local/mainline-checks/report.json')
@@ -368,6 +459,8 @@ def main():
     if args.list:
         for c in CHECKS:
             print(json.dumps({'name': c.name, 'group': c.group, 'command': c.argv, 'requires': c.requires, 'depends': c.depends, 'cwd': c.cwd, 'timeout_seconds': c.timeout}))
+        for entry in EXCLUSIONS:
+            print(json.dumps(dict(entry, type='excluded')))
         return 0
     try:
         return run(args.group or ['ordinary'], args.output)
