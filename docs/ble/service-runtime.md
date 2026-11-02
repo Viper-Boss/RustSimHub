@@ -1,5 +1,7 @@
 # D24：显式低权 BLE 运行层
 
+2026-11-03后续：[固定A候选的实际安全会话/Core Wi-Fi闭环](../deliveries/member-d-secure-recovery-integration-20261103.md)已通过D非测试service和UnixSecurePort验证。运行层在原回调期限内排空当前通知再接下一输入，并随I/O唤醒推进原持有future，10ms tick仅作到期兜底；没有扩大队列/期限或移除来源检查。协议冻结、正式Core监听/Root安装及设备验收保持独立。
+
 2026-11-01。用户批准 #53/#56/#132 的离线实施后新增 `rustsimhub-ble` 的 `service` feature 和 `--service` 入口。默认 feature 仍为空；Root/C 的模板未安装、启用或改变生产 UID。此运行层转交不透明字节，实际 A 安全会话和 Core 监听装配仍是独立前置。
 
 `bridge-policy.json` 是 systemd 只读 credential，格式为严格 JSON 对象 `{ "format": 1, "core_uid": ..., "ble_uid": ..., "ble_gid": ... }`，上限8192字节，重复/未知字段、数组、Root/同角色 UID 拒绝。CLI只读普通单链接0400文件，属主限Root/本进程；不接受 socket、URL、CA、角色或授权字段来自 GATT。实际路径固定 `/run/rustsimhub/core-recovery/recovery.sock`。

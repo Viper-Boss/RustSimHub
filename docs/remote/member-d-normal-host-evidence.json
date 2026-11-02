@@ -468,5 +468,14 @@
     "fix": "move helper into fixtures, update original target module path; production Rust/manifests/locks unchanged",
     "default_feature_expanded": false,
     "ignore_added_to_mask_failure": false
+  },
+  "final_offline_follow_up": {
+    "date": "2026-11-03",
+    "evidence": "../ble/member-d-secure-recovery-integration-evidence.json",
+    "offline_stages_submitted": 26,
+    "total_stages": 26,
+    "remaining_independent_offline_stages": [],
+    "production_admitted": false,
+    "historical_source_results_unchanged": true
   }
 }

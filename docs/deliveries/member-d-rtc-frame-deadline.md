@@ -1,5 +1,7 @@
 # D26补验：编码后迟到帧的实际RTC拒绝
 
+后续2026-11-03：[固定安全候选闭环交付](member-d-secure-recovery-integration-20261103.md)完成剩余D22/D23的离线实现提交，最新26/26；本文的24/26、ARM和负例数据仍按原来源保持，不升级为生产/设备验收。
+
 2026-11-02，继续本人PR #170，起点 `d9f1cdeafc8faaf59f014f5438e915c6986af6c6`。新增显式离线复跑脚本，完整受测源码 `99c186f0d0a3f77474f20ffe31e596bf04d66f96`。这次没有修改生产Rust、Cargo/lock、已有测试断言或产品期限；阶段计数仍 **24/26离线已提交，剩D22/D23，固定PROGRESS-SCALE 80%**，不改主线台账。
 
 运行：激活既有Rust1.98环境后，`CARGO_INCREMENTAL=0 python3 native/audio-alsa/tests/replay_rtc_frame_deadline.py`。只在git archive导出的私有源码首次真实Opus编码后暂停75ms；实际Session/Codec/UDP/ICE/DTLS以及原50帧双向loopback/撤权自检均复用，未另写期望业务状态机。两个变体使用同一原测试、同一源码快照与暂停位置：
