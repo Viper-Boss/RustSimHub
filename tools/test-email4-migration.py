@@ -19,7 +19,7 @@ def main():
     pathlib.Path('/owned').mkdir();
     for name,src in [('legacy',a.legacy),('candidate',a.candidate)]:shutil.copyfile(src,'/owned/'+name);os.chmod('/owned/'+name,0o755)
     results=[]
-    for mode in ['commit','deny_commit','root_eof','wrong_source','busy_writer','wrong_peer']:
+    for mode in ['commit','sealed_exec','deny_commit','root_eof','wrong_source','busy_writer','wrong_peer','expired','late_commit']:
         if DATA.exists():shutil.rmtree(DATA)
         DATA.mkdir(parents=True,mode=0o700);os.chown(DATA,986,986)
         subprocess.run(['/owned/legacy',str(DATA)],user=986,group=986,extra_groups=[],check=True,timeout=10)
@@ -27,6 +27,8 @@ def main():
         digest=list(hashlib.sha256(original).digest())
         permit={'format':1,'source_sha256':digest,'backup_sha256':digest,'deadline_ms':int(time.clock_gettime(time.CLOCK_BOOTTIME)*1000)+30000,'data_uid':986}
         if mode=='wrong_source':permit['source_sha256']=[9]*32;permit['backup_sha256']=[9]*32
+        if mode=='expired':permit['deadline_ms']-=31000
+        if mode=='late_commit':permit['deadline_ms']-=28500
         parent,child=socket.socketpair();parent.settimeout(6)
         lock=None
         if mode=='busy_writer':
@@ -39,14 +41,23 @@ def main():
             subprocess.run(['/usr/local/bin/python3','-c',script],user=986,group=986,extra_groups=[],check=True,timeout=8)
             status=1;parent.close();child.close()
         else:
-            proc=subprocess.Popen(['/owned/candidate','--migrate-email4-child'],stdin=child,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,user=986,group=986,extra_groups=[]);child.close()
+            executable='/owned/candidate';output=subprocess.DEVNULL;sealed=None
+            if mode=='sealed_exec':
+                import fcntl
+                sealed=os.memfd_create('email-migration-fixture',os.MFD_ALLOW_SEALING|os.MFD_CLOEXEC)
+                os.write(sealed,pathlib.Path(executable).read_bytes());os.fchmod(sealed,0o555)
+                fcntl.fcntl(sealed,fcntl.F_ADD_SEALS,fcntl.F_SEAL_GROW|fcntl.F_SEAL_SHRINK|fcntl.F_SEAL_WRITE|fcntl.F_SEAL_SEAL)
+                executable='/proc/self/fd/1';output=sealed
+            proc=subprocess.Popen([executable,'--migrate-email4-child'],stdin=child,stdout=output,stderr=subprocess.PIPE,user=986,group=986,extra_groups=[]);child.close()
+            if sealed is not None:os.close(sealed)
             try:
                 raw=json.dumps(permit,separators=(',',':')).encode();parent.sendall(struct.pack('>I',len(raw))+raw)
                 ready=parent.recv(1)
-                if mode in ['commit','deny_commit','root_eof']:assert ready==b'R'
+                if mode in ['commit','sealed_exec','deny_commit','root_eof','late_commit']:assert ready==b'R'
                 if mode=='root_eof':parent.close()
                 elif mode=='deny_commit':parent.sendall(b'N')
-                elif mode=='commit':parent.sendall(b'G');assert parent.recv(1)==b'D'
+                elif mode in ['commit','sealed_exec']:parent.sendall(b'G');assert parent.recv(1)==b'D'
+                elif mode=='late_commit':time.sleep(1.6);parent.sendall(b'G');assert parent.recv(1)==b''
                 else:assert ready==b''
                 status=proc.wait(timeout=5);assert len(proc.stderr.read(4096))<256
             finally:
@@ -54,7 +65,7 @@ def main():
                 if proc.poll() is None:proc.kill();proc.wait(timeout=3)
         if lock:lock.close()
         after=snapshot()
-        if mode=='commit':
+        if mode in ['commit','sealed_exec']:
             assert status==0 and after['version']==4 and after['meta']==before['meta'] and after['requests']==before['requests']
             for old,new in zip(before['jobs'],after['jobs']):
                 old=list(old);new=list(new)
