@@ -1,6 +1,6 @@
 # RustSimHub 完整剩余行动台账
 
-快照：2026-11-02T01:43:49.430899+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
+快照：2026-11-02T05:41:10.803135+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
 
 原P0–P7：**81.5%**，剩余 **18.5** 个验收点。新增X1/X2/X3/BLE独立保留，不混入旧分母。
 
@@ -21,7 +21,7 @@ python tools/progress/build.py --check
 
 ## 当前关卡
 
-**STAB-02 · 灯控性能优化已安装，继续主线代码收尾**：CPU/RSS短测完成；功耗、长测及人工验收待做。产品17d4707/冻结708be2d5经PR176正常合并；安装证据PR177合并f3b77c1。仅更新正式status-led，两个约120秒只读窗口中服务单核CPU4.723%→0.817%、已回收子进程4.108%→0；RSS约2.04→3.20MiB。健康确认和独立复核通过，新程序/实际exe/原单元匹配，应用71、其他八服务PID及网络计量保持，恢复timer停止且全局应用恢复预算未用；数据断开、转发PID0。网络监测性能线索保留给成员B，不接管成员实现。短测不当作整机功耗、长测、人工灯效或蜂窝验收；STAB-02只标进行中，原81.5%、20/169及主线代码约90%未加权粗估保持。
+**FWD-13 · 转发关闭与迟到响应运行闭环**：真实本机PID1/进程验证通过；棒子验收仍待做。PR179正常合并9f3fee9。外部核验固定2839fb64、真实Core/worker固定89a98c15，Rust与单元字节一致；本机WSL实际Owner→Core→D-Bus/polkit→PID1/cgroup覆盖DNS、TLS、HTTP已提交及迟到204四时点，关闭确认0.186～0.199秒。worker/cgroup归零、设置和凭据移除，已取得任务Unknown、排队任务Cancelled；旧回执、相同OFF回执与关闭后启动拒绝均通过。原managed、多UID IPC、五类worker和unmanaged主管回归通过，临时单元/规则已移除。生产Rust未变，不访问设备或真实外发，不把结果当作棒子/物理冷启动。CI41395275078两个job因付款/消费上限未启动、0步骤。FWD-13只标进行中；原81.5%、20/169及主线代码约90%未加权粗估保持，人工最后。
 
 ## FWD · 短信转发 · 独立服务
 
@@ -164,13 +164,14 @@ python tools/progress/build.py --check
 
 ### [ ] FWD-13 · 并发关闭与迟到响应
 
-- 状态：待做
+- 状态：进行中
 - 动作：在新消息、已Claim、DNS、TLS、HTTP已发出等时间点关闭总开关。
 - 验收：旧代次不开始新递送；已发请求保留准确结果/Unknown；关闭最终无PID。
 - 预计有效工时：1–3小时
 - 前置：FWD-04
 - 配合/条件：代理实机
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
+- 证据：[VALIDATION-FORWARDING-CLOSE-RUNTIME-20261102.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-FORWARDING-CLOSE-RUNTIME-20261102.md)
 
 ### [ ] FWD-14 · 断网与固定出口恢复
 

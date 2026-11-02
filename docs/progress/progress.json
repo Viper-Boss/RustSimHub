@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-02T01:43:49.430899+00:00",
+  "updated_at": "2026-11-02T05:41:10.803135+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原固件81.5%按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "STAB-02",
-    "title": "灯控性能优化已安装，继续主线代码收尾",
-    "state": "CPU/RSS短测完成；功耗、长测及人工验收待做",
-    "description": "产品17d4707/冻结708be2d5经PR176正常合并；安装证据PR177合并f3b77c1。仅更新正式status-led，两个约120秒只读窗口中服务单核CPU4.723%→0.817%、已回收子进程4.108%→0；RSS约2.04→3.20MiB。健康确认和独立复核通过，新程序/实际exe/原单元匹配，应用71、其他八服务PID及网络计量保持，恢复timer停止且全局应用恢复预算未用；数据断开、转发PID0。网络监测性能线索保留给成员B，不接管成员实现。短测不当作整机功耗、长测、人工灯效或蜂窝验收；STAB-02只标进行中，原81.5%、20/169及主线代码约90%未加权粗估保持。"
+    "task_id": "FWD-13",
+    "title": "转发关闭与迟到响应运行闭环",
+    "state": "真实本机PID1/进程验证通过；棒子验收仍待做",
+    "description": "PR179正常合并9f3fee9。外部核验固定2839fb64、真实Core/worker固定89a98c15，Rust与单元字节一致；本机WSL实际Owner→Core→D-Bus/polkit→PID1/cgroup覆盖DNS、TLS、HTTP已提交及迟到204四时点，关闭确认0.186～0.199秒。worker/cgroup归零、设置和凭据移除，已取得任务Unknown、排队任务Cancelled；旧回执、相同OFF回执与关闭后启动拒绝均通过。原managed、多UID IPC、五类worker和unmanaged主管回归通过，临时单元/规则已移除。生产Rust未变，不访问设备或真实外发，不把结果当作棒子/物理冷启动。CI41395275078两个job因付款/消费上限未启动、0步骤。FWD-13只标进行中；原81.5%、20/169及主线代码约90%未加权粗估保持，人工最后。"
   },
   "facts": [
     {
@@ -87,6 +87,11 @@
       "label": "灯控CPU短测",
       "value": "4.72% → 0.82%",
       "detail": "单核/各约120秒窗口，RSS2.04→3.20MiB；非整机/功耗/长测验收"
+    },
+    {
+      "label": "转发关闭运行验证",
+      "value": "四阶段通过 · 约0.2秒",
+      "detail": "本机真实PID1/进程；Unknown与取消回执保持，棒子与冷启动待验"
     },
     {
       "label": "B线材料",
@@ -418,10 +423,12 @@
           "dependencies": [
             "FWD-04"
           ],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/VALIDATION-FORWARDING-CLOSE-RUNTIME-20261102.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -5552,12 +5559,24 @@
       "evidence": [
         "docs/VALIDATION-LED-BUS-INSTALL-20261102.md"
       ]
+    },
+    {
+      "at": "2026-11-02T05:41:31.070892+00:00",
+      "type": "verified",
+      "title": "转发关闭的四个实际运行时点已核验",
+      "detail": "Owner通过Core/PID1关闭DNS/TLS/已提交HTTP/迟到ACK；进程/凭据清理与回执保持，原完整回归通过。只记本机执行部分，不增加整项验收点。",
+      "task_ids": [
+        "FWD-13"
+      ],
+      "evidence": [
+        "docs/VALIDATION-FORWARDING-CLOSE-RUNTIME-20261102.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "f3b77c1f9a1076ac6e9057abbd3ae070a34bd9f5",
-    "generated_at": "2026-11-02T01:43:49.430899+00:00",
+    "source_revision": "9f3fee9ab3efbb1827761f8903f61280af414353",
+    "generated_at": "2026-11-02T05:41:10.803135+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5577,14 +5596,14 @@
         "stats": {
           "current_lines": {
             "product": 54027,
-            "tests": 42627,
-            "tooling": 9999,
+            "tests": 42664,
+            "tooling": 10118,
             "firmware": 1180
           },
-          "commits": 480,
-          "code_commits": 309,
-          "added": 113888,
-          "deleted": 3209
+          "commits": 484,
+          "code_commits": 312,
+          "added": 114069,
+          "deleted": 3219
         },
         "work": {
           "assigned_steps": 0,
@@ -6020,6 +6039,11 @@
             {
               "pr": 177,
               "head": "4c74b0244ca685aec6504185c174fd08dee97d13",
+              "state": "MERGED"
+            },
+            {
+              "pr": 179,
+              "head": "71caf45bb48c2127354f4bfa89d93863e987a768",
               "state": "MERGED"
             }
           ],
@@ -6537,6 +6561,12 @@
             {
               "pr": 177,
               "head": "4c74b0244ca685aec6504185c174fd08dee97d13",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 179,
+              "head": "71caf45bb48c2127354f4bfa89d93863e987a768",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
@@ -7108,6 +7138,11 @@
               "pr": 170,
               "head": "a333a1841137e105348fa4c402de6ec122aa0691",
               "state": "OPEN"
+            },
+            {
+              "pr": 178,
+              "head": "25bcaa4671278f25720b5c2fb9c2ca720a1375ef",
+              "state": "OPEN"
             }
           ],
           "task_deliveries": [
@@ -7342,6 +7377,12 @@
             {
               "pr": 170,
               "head": "a333a1841137e105348fa4c402de6ec122aa0691",
+              "state": "OPEN",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 178,
+              "head": "25bcaa4671278f25720b5c2fb9c2ca720a1375ef",
               "state": "OPEN",
               "submitted_by": "wnfhsj88"
             }
@@ -7941,8 +7982,8 @@
     },
     "totals": {
       "product": 64557,
-      "tests": 63280,
-      "tooling": 13888,
+      "tests": 63317,
+      "tooling": 14007,
       "firmware": 1189
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。",
