@@ -119,3 +119,12 @@ SDK/Root native/ARM64 两轮独立缓存的八份程序一致，ARM未执行。�
 Core 公共候选 provider/Root 只读采集映射与完整产品控制装配继续；A29 queue4/
 worker5/七阶段 SMTP、BlueZ/WASM/CSP/PWA 产品装配及 A30 组合仍推进，不能把
 九步标成全部完成。仍由 Viper-Boss 审核；不自行合并、部署、迁移或外发。
+
+## 2026-11-03 A29 产品接线候选
+
+已授权的 SMTP 私有配置、tagged queue4/worker5、原 EmailSender 派发、Core 七阶段
+实际 Fence、可信 Date 的历史预览、能力门控页面及显式 Root/低权迁移代码已实现，
+默认关闭。旧默认3/4行为保留；实际迁移不重准备正文或复活 Unknown，旧 fallback
+被拒绝。具体实现、精确 HEAD/验证和未验收项见
+[本包交付](member-a-smtp-production-candidate.md)。未执行真实维护迁移、发信、
+签名或部署；仍由 Viper-Boss 审核，不将九步或设备验收标完成，81.5%、20/169保持。
