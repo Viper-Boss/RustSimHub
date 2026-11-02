@@ -81,6 +81,28 @@ impl Driver {
             Ok(())
         }
     }
+    async fn drain_notifications(&mut self, req: &CallbackRequest) -> Result<(), Error> {
+        // Receiving the last packet can precede its backend post-send fence.
+        // Retain the one existing callback until that actual notification has
+        // drained; do not queue or dispatch another Core request concurrently.
+        tokio::time::timeout_at(
+            req.deadline(),
+            std::future::poll_fn(|cx| {
+                let now = self.now();
+                match self.transport.poll(cx, now) {
+                    Ok(State::Connected) if !self.transport.has_pending_notifications() => {
+                        std::task::Poll::Ready(Ok(()))
+                    }
+                    Ok(State::Connected) => std::task::Poll::Pending,
+                    Ok(_) => std::task::Poll::Ready(Err(Error::StaleContext)),
+                    Err(error) => std::task::Poll::Ready(Err(error)),
+                }
+            }),
+        )
+        .await
+        .map_err(|_| Error::Deadline)??;
+        req.check_current().await
+    }
     async fn apply(&mut self, req: &CallbackRequest) -> Result<CallbackReply, Error> {
         req.check_current().await?;
         if req.epoch() != self.epoch {
@@ -112,14 +134,15 @@ impl Driver {
                 CallbackReply::Accepted
             }
             CallbackOperation::Write { frame, budget } => {
-                let connection = self.connection.as_ref().ok_or(Error::Unavailable)?;
+                let connection = self.connection.clone().ok_or(Error::Unavailable)?;
                 if connection.peer() != req.peer() {
                     return Err(Error::StaleContext);
                 }
+                self.drain_notifications(req).await?;
                 self.transport
-                    .negotiated_mtu(connection, (budget.attribute_bytes() + 3) as u16)?;
+                    .negotiated_mtu(&connection, (budget.attribute_bytes() + 3) as u16)?;
                 self.transport.write(
-                    connection,
+                    &connection,
                     req.characteristic(),
                     WriteOptions::REQUEST,
                     self.now(),

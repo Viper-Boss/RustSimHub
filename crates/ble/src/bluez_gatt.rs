@@ -55,6 +55,10 @@ pub struct CallbackRequest {
     deadline: tokio::time::Instant,
 }
 impl CallbackRequest {
+    #[cfg(feature = "service")]
+    pub(crate) fn deadline(&self) -> tokio::time::Instant {
+        self.deadline
+    }
     pub fn epoch(&self) -> Epoch {
         self.publication.epoch
     }
