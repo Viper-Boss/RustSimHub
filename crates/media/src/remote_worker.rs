@@ -179,6 +179,6 @@ pub fn parse_reply(bytes: &[u8], id: u64, session: &str) -> Result<Reply, Error>
 #[cfg(target_os = "linux")]
 mod transport;
 #[cfg(target_os = "linux")]
-pub use transport::Client;
+pub use transport::{CancellationGuard, Client};
 #[cfg(test)]
 mod tests;

@@ -827,7 +827,8 @@ fn worker_actual_uid_role() {
                 let mut roots=tokio_rustls::rustls::RootCertStore::empty();roots.add(tokio_rustls::rustls::pki_types::CertificateDer::from(ca)).unwrap();
                 let core=fixture_file("/fixture/core/ready.json").await;
                 let core_socket=PathBuf::from(core["socket"].as_str().unwrap());
-                let (listener,_guard)=remote_control_socket::bind(std::path::Path::new("/fixture/media/remote.sock")).unwrap();
+                let endpoint=if std::env::var("RUSTSIMHUB_NORMAL_CORE_FIXTURE").as_deref()==Ok("1") {"/run/rustsimhub/media/remote.sock"}else{"/fixture/media/remote.sock"};
+                let (listener,_guard)=remote_control_socket::bind(std::path::Path::new(endpoint)).unwrap();
                 publish("/fixture/media/ready.json",serde_json::json!({"uid":uid}));
                 let pcm=PcmState::new();let factory_pcm=pcm.clone();let observed=Arc::new(Mutex::new(None::<Permit>));let factory_observed=observed.clone();
                 let deadline=Instant::now()+Duration::from_secs(25);
@@ -1020,3 +1021,6 @@ async fn worker_shutdown_revokes_before_waiting_for_a_late_pcm_owner() {
     drop(client);
     peer.close().await;
 }
+
+#[path = "normal_remote_host.rs"]
+mod normal_host;

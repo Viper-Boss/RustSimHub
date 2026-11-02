@@ -2,7 +2,7 @@
   "format": 1,
   "phase": "approved-offline-implementation",
   "production_admitted": false,
-  "recorded_at": "2026-11-01T23:57:32.349313+08:00",
+  "recorded_at": "2026-11-02T14:04:29.514481+08:00",
   "target": "x86_64-unknown-linux-gnu",
   "features": [
     "turn-relay"
@@ -11,10 +11,10 @@
     "normal",
     "build"
   ],
-  "lock_sha256": "29b485d801fa10ae5372d8fc922bca0f3ff4529c97aaaab7f1fb276e000858a7",
+  "lock_sha256": "eded8a32e629f0b8e1fae7ab287390c1b2bb6823d7ef51c55067fe8297567a14",
   "upstream_git_revision": "d8d127ab1e37aef14f95a9f6b529073c31ee04a5",
-  "lock_package_count": 189,
-  "active_package_count": 149,
+  "lock_package_count": 192,
+  "active_package_count": 152,
   "registry_packages_queried": 145,
   "registry_alerts": [
     {
@@ -147,7 +147,7 @@
   ],
   "unresolved": [
     "RUSTSEC-2026-0387 in inherited DTLS RustCrypto chain; fixed >=0.7.6 cannot substitute ^0.5 API",
-    "actual normal Core/Worker v2 and Root registry assembly, ARM/device acceptance remain separate"
+    "Root production registry/install, normal consuming route/client deployment and real device/audio acceptance remain separate"
   ],
   "packages": [
     {
@@ -929,18 +929,42 @@
     {
       "name": "rustsimhub-audio-alsa",
       "version": "0.1.0",
-      "source": "local",
+      "source": null,
       "license": "AGPL-3.0-only",
       "repository": null,
       "new_package_version": false
     },
     {
+      "name": "rustsimhub-domain",
+      "version": "0.1.0",
+      "source": null,
+      "license": "AGPL-3.0-only",
+      "repository": null,
+      "new_package_version": true
+    },
+    {
       "name": "rustsimhub-media",
       "version": "0.1.0",
-      "source": "local",
+      "source": null,
       "license": "AGPL-3.0-only",
       "repository": null,
       "new_package_version": false
+    },
+    {
+      "name": "rustsimhub-policy",
+      "version": "0.1.0",
+      "source": null,
+      "license": "AGPL-3.0-only",
+      "repository": null,
+      "new_package_version": true
+    },
+    {
+      "name": "rustsimhub-wire",
+      "version": "0.1.0",
+      "source": null,
+      "license": "AGPL-3.0-only",
+      "repository": null,
+      "new_package_version": true
     },
     {
       "name": "sans-io-time",
@@ -1342,5 +1366,26 @@
       "repository": "https://github.com/dtolnay/zmij",
       "new_package_version": false
     }
-  ]
+  ],
+  "registry_query_recorded_at": "2026-11-01T23:57:32.349313+08:00",
+  "registry_versions_unchanged_since_snapshot": true,
+  "normal_host_delta": {
+    "base": "a333a1841137e105348fa4c402de6ec122aa0691",
+    "added_workspace_packages": [
+      {
+        "name": "rustsimhub-domain",
+        "version": "0.1.0"
+      },
+      {
+        "name": "rustsimhub-policy",
+        "version": "0.1.0"
+      },
+      {
+        "name": "rustsimhub-wire",
+        "version": "0.1.0"
+      }
+    ],
+    "removed_packages": [],
+    "registry_git_versions_or_crypto_provider_changed": false
+  }
 }

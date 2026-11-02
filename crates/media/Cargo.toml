@@ -5,11 +5,18 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+default = []
+remote-signaling = ["dep:rustsimhub-domain", "dep:rustsimhub-wire", "dep:zeroize"]
+
 [dependencies]
 getrandom = "0.4"
 sha2 = "0.10"
 serde.workspace = true
 serde_json.workspace = true
+rustsimhub-domain = { path = "../domain", optional = true }
+rustsimhub-wire = { path = "../wire", optional = true }
+zeroize = { version = "1", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rustix = { version = "1", features = ["time","process","fs","net"] }

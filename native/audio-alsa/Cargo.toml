@@ -9,7 +9,7 @@ license = "AGPL-3.0-only"
 
 [features]
 default = []
-turn-relay = ["dep:turn-client-proto", "dep:tokio-rustls", "dep:stun-proto", "dep:stun-types"]
+turn-relay = ["dep:turn-client-proto", "dep:tokio-rustls", "dep:stun-proto", "dep:stun-types", "rustsimhub-media/remote-signaling"]
 
 [dependencies]
 alsa = "=0.12.1"

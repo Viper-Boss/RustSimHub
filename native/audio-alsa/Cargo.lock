@@ -1138,15 +1138,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustsimhub-domain"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "rustsimhub-media"
 version = "0.1.0"
 dependencies = [
  "getrandom 0.4.3",
  "rustix",
+ "rustsimhub-domain",
+ "rustsimhub-wire",
  "serde",
  "serde_json",
  "sha2",
  "tokio",
+ "zeroize",
+]
+
+[[package]]
+name = "rustsimhub-policy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "rustsimhub-wire"
+version = "0.1.0"
+dependencies = [
+ "rustsimhub-domain",
+ "rustsimhub-policy",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

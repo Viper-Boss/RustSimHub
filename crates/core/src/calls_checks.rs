@@ -1269,3 +1269,7 @@ async fn simultaneous_answer_requests_and_normal_shutdown_have_one_owner_and_one
     assert_eq!(f.state.load(Ordering::SeqCst), 7);
     server.close().await.unwrap();
 }
+
+#[cfg(feature = "remote-media-tests")]
+#[path = "calls_remote_media_tests.rs"]
+mod remote_media;

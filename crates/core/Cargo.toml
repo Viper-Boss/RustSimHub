@@ -25,6 +25,7 @@ dev-fixtures = ["dep:ed25519-dalek"]
 recovery-grants = ["rustsimhub-auth/recovery-grants"]
 recovery-execution = ["recovery-grants", "rustsimhub-auth/recovery-execution", "dep:uuid"]
 recovery-transport = []
+remote-media-tests = ["rustsimhub-media/remote-signaling"]
 
 [dependencies]
 rustsimhub-domain = { path = "../domain" }

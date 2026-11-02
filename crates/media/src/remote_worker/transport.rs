@@ -35,6 +35,25 @@ struct InFlight {
     fence: Arc<Fence>,
     complete: bool,
 }
+/// Revoke this exact connection if an enclosing host operation is dropped or
+/// fails, including while it is awaiting normal Core authorization. No resume,
+/// reconnect or authority can be obtained from this guard.
+pub struct CancellationGuard {
+    fence: Arc<Fence>,
+    armed: bool,
+}
+impl CancellationGuard {
+    pub fn disarm(mut self) {
+        self.armed = false;
+    }
+}
+impl Drop for CancellationGuard {
+    fn drop(&mut self) {
+        if self.armed {
+            self.fence.close();
+        }
+    }
+}
 impl Drop for InFlight {
     fn drop(&mut self) {
         if !self.complete {
@@ -57,6 +76,12 @@ impl Drop for Client {
     }
 }
 impl Client {
+    pub fn cancellation_guard(&self) -> CancellationGuard {
+        CancellationGuard {
+            fence: self.fence.clone(),
+            armed: true,
+        }
+    }
     pub async fn connect(path: &Path, server_uid: u32, session: String) -> Result<Self, Error> {
         use std::{os::unix::ffi::OsStrExt, path::Component};
         if server_uid == 0
