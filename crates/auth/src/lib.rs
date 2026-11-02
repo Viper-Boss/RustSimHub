@@ -9,6 +9,8 @@ pub mod recovery_capability;
 mod recovery_execution;
 #[cfg(feature = "recovery-grants")]
 mod recovery_grants;
+#[cfg(feature = "secure-session-candidate")]
+pub mod secure_session;
 #[cfg(feature = "recovery-execution")]
 pub use recovery_execution::{
     RecoveryExecutionAdmission, RecoveryExecutionClaim, RecoveryExecutionPending,

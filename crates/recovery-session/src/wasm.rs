@@ -43,6 +43,9 @@ impl RecoverySessionClient {
     pub fn write_handshake(&mut self, now_ms: u64) -> std::result::Result<Vec<u8>, JsValue> {
         self.inner.write_handshake(now_ms).map_err(js)
     }
+    pub fn write_client_hello(&mut self, now_ms: u64) -> std::result::Result<Vec<u8>, JsValue> {
+        self.inner.write_client_hello(now_ms).map_err(js)
+    }
     pub fn read_handshake(&mut self, wire: &[u8], now_ms: u64) -> std::result::Result<(), JsValue> {
         self.inner.read_handshake(wire, now_ms).map_err(js)
     }
@@ -100,6 +103,13 @@ impl RecoverySessionClient {
     }
     pub fn is_bound(&self) -> bool {
         self.inner.is_bound()
+    }
+    pub fn open_binding_ack(
+        &mut self,
+        wire: &[u8],
+        now_ms: u64,
+    ) -> std::result::Result<(), JsValue> {
+        self.inner.open_binding_ack(wire, now_ms).map_err(js)
     }
     pub fn is_closed(&self) -> bool {
         self.inner.is_closed()

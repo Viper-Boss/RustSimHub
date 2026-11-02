@@ -47,11 +47,15 @@ struct Completed<R, T> {
     result: Result<T>,
     resource: R,
 }
-async fn run_owned<R, T, F>(resource: R, deadline: Instant, work: F) -> Result<(R, T)>
+pub(crate) async fn run_owned<R, T, F>(
+    mut resource: R,
+    deadline: Instant,
+    work: F,
+) -> Result<(R, T)>
 where
     R: Send + 'static,
     T: Send + 'static,
-    F: FnOnce(&R) -> Result<T> + Send + 'static,
+    F: FnOnce(&mut R) -> Result<T> + Send + 'static,
 {
     if Instant::now() >= deadline {
         return Err(Error::Deadline);
@@ -63,7 +67,7 @@ where
             let result = if Instant::now() >= deadline {
                 Err(Error::Deadline)
             } else {
-                work(&resource)
+                work(&mut resource)
             };
             // A dropped waiter cannot resurrect the connection or receive a late
             // result. Failed send owns and drops both resource and adapter output.

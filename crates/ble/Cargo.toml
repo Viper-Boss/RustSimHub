@@ -13,6 +13,7 @@ bluez-gatt = ["bluez-peer", "tokio/time"]
 bluez-peer = ["bluez-advertisement", "tokio/time"]
 bluez-backend = ["bluez-notify-fd"]
 bluez-notify-fd = ["bluez-gatt", "dep:socket2", "dep:libc", "tokio/net"]
+core-channel-candidate = ["dep:tokio", "tokio/net", "tokio/io-util", "tokio/time"]
 
 # Default framing/lifecycle stays runtime-free. Control is explicitly injected.
 [dependencies]

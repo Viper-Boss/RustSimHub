@@ -6,6 +6,14 @@ rust-version.workspace = true
 license.workspace = true
 publish = false
 
+[features]
+dev-fixtures = []
+
+[[example]]
+name = "session-interop"
+path = "examples/interop.rs"
+required-features = ["dev-fixtures"]
+
 [lib]
 crate-type = ["rlib", "cdylib"]
 
@@ -23,3 +31,5 @@ wasm-bindgen = "=0.2.129"
 
 [dev-dependencies]
 getrandom = "0.4"
+serde_json.workspace = true
+hex = "0.4.3"

@@ -14,6 +14,8 @@ use tokio::{
     net::UnixStream,
     time::{timeout_at, Instant},
 };
+#[cfg(feature = "secure-session-candidate")]
+pub(crate) use verification::run_owned;
 use zeroize::Zeroizing;
 
 pub const MAX_ENVELOPE: usize = 2048;

@@ -19,10 +19,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pull", action="store_true", help="explicitly pull the pinned public fixture image")
     parser.add_argument("--application", action="store_true", help="exercise actual application dispatch and reply fencing")
+    parser.add_argument("--secure", action="store_true", help="exercise actual Noise, Identity and original Core query across kernel UIDs")
     args = parser.parse_args()
+    if args.secure and args.application:
+        parser.error("choose exactly one fixture")
     target = "recovery_application_uid" if args.application else "recovery_kernel_uid"
     features = "recovery-transport,recovery-execution" if args.application else "recovery-transport,recovery-grants"
     output_work = WORK/"application" if args.application else WORK
+    if args.secure:
+        target, features, output_work = "recovery_secure_uid", "secure-session-candidate", WORK/"secure"
     output_work.mkdir(parents=True, exist_ok=True)
     docker_environment = dict(os.environ)
     for name in ("DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_TLS", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"):
@@ -46,7 +51,8 @@ def main():
     stage.mkdir(exist_ok=True)
     stage.chmod(0o755)  # public test code; UID1001 must traverse the read-only bind.
     shutil.copy2(binary, stage/"recovery_kernel_uid")
-    shutil.copy2(PROJECT/"crates/core/tests/fixtures"/("recovery_application_runner.py" if args.application else "recovery_uid_runner.py"), stage/"runner.py")
+    runner = "recovery_secure_runner.py" if args.secure else "recovery_application_runner.py" if args.application else "recovery_uid_runner.py"
+    shutil.copy2(PROJECT/"crates/core/tests/fixtures"/runner, stage/"runner.py")
     (stage/"recovery_kernel_uid").chmod(0o755)
     (stage/"runner.py").chmod(0o644)
     container = "rustsimhub-uid-fixture-"+uuid.uuid4().hex[:12]
@@ -68,6 +74,8 @@ def main():
     output = (output_work/"container.log").read_text()
     cases = [f"denied_{uid}" for uid in (0,1001,1003,1004,1005,1006)]
     cases += (["no_sealer", "sealed_lookup", "sealed_invalid_input", "queued_cancel", "queued_timeout", "sealer_cancel", "sealer_timeout", "peer_disconnect", "close_only", "revoke_before_reply"] if args.application else ["no_provider", "write_roundtrip", "primary_authorized", "occupied_slot_denied", "drop_fenced", "close_fenced", "reconnect_fresh_nonce"])
+    if args.secure:
+        cases = [f"denied_{uid}" for uid in (0,1001,1003,1004,1005,1006)] + ["query", "wrong_pin", "tamper", "old_cipher", "disconnect", "revoked"]
     for case in cases:
         if "UID_CASE "+case not in output:
             raise RuntimeError("missing executed Core case: "+case)

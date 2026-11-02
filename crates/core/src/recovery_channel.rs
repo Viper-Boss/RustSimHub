@@ -14,6 +14,10 @@ use rustsimhub_storage::RecoveryGrant;
 mod application;
 #[cfg(feature = "recovery-execution")]
 pub use application::{ApplicationReplySealerV1, ApplicationStep, SealedReply, SealingRequest};
+#[cfg(feature = "secure-session-candidate")]
+mod secure;
+#[cfg(feature = "secure-session-candidate")]
+pub use secure::{SecureApplicationStep, SecureRecoveryChannel};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error {
@@ -42,7 +46,8 @@ impl std::error::Error for Error {}
 /// before releasing the accepted peer's slot. It does not cancel Wi-Fi or revoke a grant.
 pub struct RecoveryChannel {
     token: RecoveryConnection,
-    peer: PeerConnection,
+    session_lifetime: Option<Box<dyn Send>>,
+    peer: Box<PeerConnection>,
 }
 impl RecoveryChannel {
     /// Short synchronous Auth phase, on the host's existing Auth worker/lock.
@@ -53,7 +58,11 @@ impl RecoveryChannel {
             .ok_or(transport::Error::Closed)?
             .connection_nonce();
         let token = auth.open_recovery_connection_from_trusted_transport(nonce)?;
-        Ok(Self { token, peer })
+        Ok(Self {
+            token,
+            session_lifetime: None,
+            peer: Box::new(peer),
+        })
     }
     /// Owned I/O: dropping even an unpolled future closes this channel.
     pub async fn read(mut self) -> Result<(Self, Packet)> {
@@ -114,8 +123,12 @@ impl PendingVerification {
             packet,
             work,
         } = self;
-        let RecoveryChannel { token, peer } = channel;
-        let (peer, result) = peer
+        let RecoveryChannel {
+            token,
+            session_lifetime,
+            peer,
+        } = channel;
+        let (peer, result) = (*peer)
             .verify_blocking(packet, move |_, _| Ok(work.verify()))
             .await?;
         if !token.is_live() {
@@ -123,7 +136,11 @@ impl PendingVerification {
         }
         Ok(VerifiedChannel {
             result: Some(result),
-            channel: Some(RecoveryChannel { token, peer }),
+            channel: Some(RecoveryChannel {
+                token,
+                session_lifetime,
+                peer: Box::new(peer),
+            }),
         })
     }
 }

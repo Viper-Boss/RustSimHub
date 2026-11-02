@@ -283,6 +283,26 @@ pub(super) fn check_current(conn: &Connection, expected: &RecoveryGrant) -> Resu
     Ok(current)
 }
 impl Handle {
+    /// Internal trusted-verifier lookup. A stored row is not a session proof;
+    /// the caller must first admit the actual transport in the same Auth. This
+    /// does not expose an unauthenticated management command or alter grants.
+    pub fn recovery_grant_for_trusted_verifier(
+        &self,
+        key: [u8; 32],
+        generation: u64,
+    ) -> Result<RecoveryGrant> {
+        self.call(move |db| {
+            require_database(db)?;
+            let tx = db.connection.transaction()?;
+            let grant = lookup(&tx, key)?.ok_or(Error::Forbidden)?;
+            if grant.generation != generation {
+                return Err(Error::Forbidden);
+            }
+            let current = check_current(&tx, &grant)?;
+            tx.commit()?;
+            Ok(current)
+        })
+    }
     /// Read-only authorization gate on the single writer, not a network proof.
     /// A historical grant-management receipt is never sufficient authority.
     pub fn check_recovery_grant(&self, expected: RecoveryGrant) -> Result<RecoveryGrant> {

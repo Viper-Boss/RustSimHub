@@ -8,7 +8,7 @@ mod context;
 mod record;
 #[cfg(target_arch = "wasm32")]
 mod wasm;
-pub use context::{Context, CoreBinding, Purpose, Role};
+pub use context::{ClientHello, Context, CoreBinding, Purpose, Role};
 pub use record::{Action, Request};
 use snow::{Builder, HandshakeState, TransportState};
 use std::collections::BTreeSet;
@@ -18,7 +18,7 @@ pub const SUITE: &str = "Noise_XX_25519_AESGCM_SHA256";
 pub const MAX_WIRE: usize = 2048;
 pub const MAX_BODY: usize = 1024;
 pub const MAX_REQUESTS: usize = 128;
-const MAX_RECORDS: u64 = MAX_REQUESTS as u64 + 1;
+const MAX_RECORDS: u64 = MAX_REQUESTS as u64 + 2;
 const HANDSHAKE_MS: u64 = 10_000;
 const SESSION_MS: u64 = 300_000;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -51,6 +51,7 @@ enum Phase {
     Handshake,
     DeviceBinding,
     ClientBinding,
+    BindingAck,
     Bound,
     Closed,
 }
@@ -179,6 +180,21 @@ impl Session {
         })();
         self.guard(result)
     }
+    pub fn write_client_hello(&mut self, now_ms: u64) -> Result<Vec<u8>> {
+        if self.role != Role::Client {
+            return self.guard(Err(Error::State));
+        }
+        let noise = self.write_handshake(now_ms)?;
+        if noise.len() != 32 {
+            return self.guard(Err(Error::State));
+        }
+        let mut wire = vec![1, self.context.purpose as u8];
+        wire.extend_from_slice(&self.context.client);
+        wire.extend_from_slice(&self.context.generation.to_be_bytes());
+        wire.extend_from_slice(&self.context.nonce);
+        wire.extend_from_slice(&noise);
+        Ok(wire)
+    }
     pub fn read_handshake(&mut self, wire: &[u8], now_ms: u64) -> Result<()> {
         let result = (|| {
             self.check_time(now_ms)?;
@@ -244,7 +260,7 @@ impl Session {
             self.phase = if self.role == Role::Device {
                 Phase::ClientBinding
             } else {
-                Phase::Bound
+                Phase::BindingAck
             };
             Ok(wire)
         })();
@@ -278,7 +294,7 @@ impl Session {
                     &self.hash,
                     &body,
                 )?;
-                self.phase = Phase::Bound;
+                self.phase = Phase::BindingAck;
             }
             Ok(())
         })();
@@ -287,6 +303,32 @@ impl Session {
     /// Cryptographic binding only. This method never asserts a Core grant/scope.
     pub fn is_bound(&self) -> bool {
         self.phase == Phase::Bound
+    }
+    pub fn seal_binding_ack(&mut self, now_ms: u64) -> Result<Vec<u8>> {
+        let result = (|| {
+            self.check_time(now_ms)?;
+            if self.role != Role::Device || self.phase != Phase::BindingAck {
+                return Err(Error::State);
+            }
+            let wire = self.write_record(5, &[])?;
+            self.phase = Phase::Bound;
+            Ok(wire)
+        })();
+        self.guard(result)
+    }
+    pub fn open_binding_ack(&mut self, wire: &[u8], now_ms: u64) -> Result<()> {
+        let result = (|| {
+            self.check_time(now_ms)?;
+            if self.role != Role::Client || self.phase != Phase::BindingAck {
+                return Err(Error::State);
+            }
+            if !self.read_record(5, wire)?.is_empty() {
+                return Err(Error::Record);
+            }
+            self.phase = Phase::Bound;
+            Ok(())
+        })();
+        self.guard(result)
     }
     pub fn is_closed(&self) -> bool {
         self.phase == Phase::Closed
@@ -300,6 +342,9 @@ impl Session {
     }
     pub fn context(&self) -> &Context {
         &self.context
+    }
+    pub fn local_role(&self) -> Role {
+        self.role
     }
     pub fn core_binding(&self) -> Option<&CoreBinding> {
         self.binding.as_ref()

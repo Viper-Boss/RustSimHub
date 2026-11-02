@@ -123,6 +123,46 @@ pub struct CoreBinding {
     connection_nonce: [u8; 32],
     transport_nonce: [u8; 32],
 }
+/// Public pre-handshake declaration. It selects an existing stored key only;
+/// neither this parser nor any caller-supplied generation grants permission.
+pub struct ClientHello {
+    pub purpose: Purpose,
+    pub client_key: [u8; 32],
+    pub generation: u64,
+    pub nonce: [u8; 32],
+    pub noise: [u8; 32],
+}
+impl ClientHello {
+    pub fn parse(wire: &[u8]) -> Result<Self> {
+        if wire.len() != 106 || wire[0] != 1 {
+            return Err(Error::Record);
+        }
+        let purpose = match wire[1] {
+            1 => Purpose::BleRecovery,
+            2 => Purpose::NknControl,
+            _ => return Err(Error::Context),
+        };
+        let client_key = wire[2..34].try_into().map_err(|_| Error::Record)?;
+        let generation = u64::from_be_bytes(wire[34..42].try_into().map_err(|_| Error::Record)?);
+        let nonce = wire[42..74].try_into().map_err(|_| Error::Record)?;
+        let noise = wire[74..].try_into().map_err(|_| Error::Record)?;
+        if generation == 0
+            || nonce == [0; 32]
+            || VerifyingKey::from_bytes(&client_key)
+                .map_err(|_| Error::Context)?
+                .is_weak()
+        {
+            return Err(Error::Context);
+        }
+        Ok(Self {
+            purpose,
+            client_key,
+            generation,
+            nonce,
+            noise,
+        })
+    }
+}
 impl CoreBinding {
     pub fn new(
         instance_hash: [u8; 32],

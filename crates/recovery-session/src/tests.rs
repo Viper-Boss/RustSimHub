@@ -47,6 +47,8 @@ fn pair(purpose: Purpose) -> (Session, Session) {
         .to_bytes();
     let wire = client.seal_binding(&sig, 8).unwrap();
     device.open_binding(&wire, 8).unwrap();
+    let ack = device.seal_binding_ack(9).unwrap();
+    client.open_binding_ack(&ack, 9).unwrap();
     assert!(client.is_bound() && device.is_bound());
     assert_eq!(client.session_id().unwrap(), device.session_id().unwrap());
     (client, device)
