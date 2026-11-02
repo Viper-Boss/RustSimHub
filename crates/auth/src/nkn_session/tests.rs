@@ -55,8 +55,72 @@ fn random() -> [u8; 32] {
     getrandom::fill(&mut n).unwrap();
     n
 }
+
+#[test]
+fn root_authority_uses_real_recent_owner_and_original_session_deadline() {
+    let mut f = fixture();
+    let digest = token_digest(f.owner.expose()).unwrap();
+    let original = f.a.sessions[&digest].authenticated + crate::REAUTH_TTL;
+    let authority = f.a.nkn_root_authority(f.owner.expose()).unwrap();
+    assert_eq!(authority.deadline(), original);
+    f.a.check_nkn_root_authority(&authority).unwrap();
+    authority.invalidate();
+    assert!(f.a.check_nkn_root_authority(&authority).is_err());
+    let authority = f.a.nkn_root_authority(f.owner.expose()).unwrap();
+    f.s.handle()
+        .change_line(rustsimhub_domain::LineEpoch(2))
+        .unwrap();
+    assert!(f.a.check_nkn_root_authority(&authority).is_err());
+}
+
+#[test]
+fn client_remote_and_expired_owner_cannot_create_or_extend_root_authority() {
+    let mut f = fixture();
+    let challenge =
+        f.a.login_challenge(f.client.verifying_key().to_bytes())
+            .unwrap();
+    let client =
+        f.a.login_finish(
+            &challenge.id,
+            &f.client.sign(&challenge.transcript).to_bytes(),
+        )
+        .unwrap();
+    assert!(f.a.nkn_root_authority(client.expose()).is_err());
+    f.client = SigningKey::from_bytes(&[71; 32]);
+    let membership = key();
+    let (_server, _peer, remote_owner) = ready(&mut f, &membership);
+    assert!(f
+        .a
+        .authorize(remote_owner.expose(), Scope::StatusRead)
+        .is_ok());
+    assert!(f.a.nkn_root_authority(remote_owner.expose()).is_err());
+    let digest = token_digest(f.owner.expose()).unwrap();
+    f.a.sessions.get_mut(&digest).unwrap().authenticated = Instant::now() - crate::REAUTH_TTL;
+    assert!(f.a.nkn_root_authority(f.owner.expose()).is_err());
+}
 fn key() -> MembershipKey {
     MembershipKey::from_secret([5; 16], Zeroizing::new([7; 32]), 1).unwrap()
+}
+
+#[test]
+fn real_scope_parent_fence_cannot_be_replaced_or_resurrected() {
+    let mut f = fixture();
+    let membership = key();
+    let (_server, _peer, token) = ready(&mut f, &membership);
+    let digest = token_digest(token.expose()).unwrap();
+    let scope = f.a.sessions[&digest].nkn.as_ref().unwrap().clone();
+    let parent = Arc::new(AtomicBool::new(true));
+    let copy = parent.clone();
+    scope
+        .restrict_parent(Arc::new(move || copy.load(Ordering::Acquire)))
+        .unwrap();
+    assert!(f.a.authorize(token.expose(), Scope::StatusRead).is_ok());
+    assert!(scope.restrict_parent(Arc::new(|| true)).is_err());
+    parent.store(false, Ordering::Release);
+    assert!(f.a.authorize(token.expose(), Scope::StatusRead).is_err());
+    parent.store(true, Ordering::Release);
+    assert!(!scope.is_live());
+    assert!(f.a.authorize(token.expose(), Scope::StatusRead).is_err());
 }
 #[test]
 fn fixed_upstream_go_membership_vector_matches_rust_and_rejects_modified_root() {
@@ -66,7 +130,9 @@ fn fixed_upstream_go_membership_vector_matches_rust_and_rejects_modified_root() 
     .unwrap();
     let decode = |s: &str| -> Vec<u8> {
         s.as_bytes()
-            .as_chunks::<2>().0.iter()
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|b| u8::from_str_radix(std::str::from_utf8(b).unwrap(), 16).unwrap())
             .collect()
     };

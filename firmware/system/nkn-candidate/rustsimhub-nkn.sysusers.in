@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# NOT INSTALLED, NO NUMERIC UID RESERVED. Reject existing name/UID/GID aliases
+# and supplementary membership; never repair another role or add NKN to IPC,
+# bluetooth, audio, Core, media, forwarding or BLE groups.
+u rustsimhub-nkn - "RustSimHub optional isolated NKN transport" /nonexistent /usr/sbin/nologin

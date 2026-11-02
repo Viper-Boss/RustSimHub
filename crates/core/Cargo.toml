@@ -27,6 +27,7 @@ recovery-execution = ["recovery-grants", "rustsimhub-auth/recovery-execution", "
 recovery-transport = []
 secure-session-candidate = ["recovery-transport", "recovery-execution", "rustsimhub-auth/secure-session-candidate", "dep:rustsimhub-recovery-session"]
 nkn-session-candidate = ["recovery-transport", "rustsimhub-auth/nkn-session-candidate", "rustsimhub-media/nkn-session-candidate", "dep:rustsimhub-recovery-session", "dep:rustsimhub-nkn-agent"]
+root-provider-candidate = ["nkn-session-candidate"]
 
 [[test]]
 name = "recovery_secure_uid"

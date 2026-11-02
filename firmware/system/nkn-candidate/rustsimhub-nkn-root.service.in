@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# ISOLATED CANDIDATE ONLY. No Install section, enablement or activation unit.
+# The main installer must separately verify all roles, fixed policy/selected
+# source, independent seed, nft tool, Core socket directory and cgroup v2.
+[Unit]
+Description=RustSimHub optional finite NKN Root process provider
+After=rustsimhub-app-select.service rustsimhub-network-agent.service
+Requires=rustsimhub-app-select.service rustsimhub-network-agent.service
+
+[Service]
+Type=exec
+User=root
+Group=rustsimhub-core
+ExecStart=/usr/libexec/rustsimhub/nkn-root --serve-fixed
+RuntimeDirectory=rustsimhub-nkn-root
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_SETUID CAP_SETGID
+AmbientCapabilities=
+Delegate=cpu memory pids
+ProtectControlGroups=no
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
+ReadWritePaths=/run/rustsimhub-nkn-root /var/lib/rustsimhub/nkn
+ReadWritePaths=/sys/fs/cgroup/system.slice/rustsimhub-nkn-root.service
+ReadOnlyPaths=/etc/rustsimhub/nkn-policy.json /run/rustsimhub-network/status.json
+KillMode=control-group
+Restart=no
+TimeoutStartSec=10
+TimeoutStopSec=5
+RuntimeMaxSec=330
+MemoryMax=192M
+TasksMax=64
+LimitCORE=0
+UMask=0077

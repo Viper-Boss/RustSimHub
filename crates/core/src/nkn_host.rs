@@ -17,7 +17,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::{net::UnixStream, runtime::Handle};
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Error {
     Transport(transport::Error),
     Authentication,
@@ -32,7 +32,7 @@ impl From<transport::Error> for Error {
     }
 }
 pub struct NknAccepted {
-    peer: PeerConnection,
+    pub(crate) peer: PeerConnection,
 }
 pub struct NknSources {
     guard: SourceGuard,
@@ -40,11 +40,11 @@ pub struct NknSources {
 impl NknSources {
     /// Actual trusted installation roles, not fields accepted from a client.
     /// The NKN account MUST be separate from BLE, network, forwarder and Edge.
-    pub fn new(edge: u32, forwarder: u32, network: u32, ble: u32, nkn: u32) -> Result<Self> {
+    pub fn new(edge: u32, forwarder: u32, media: u32, ble: u32, nkn: u32) -> Result<Self> {
         let ids = [
             edge,
             forwarder,
-            network,
+            media,
             ble,
             nkn,
             rustix::process::geteuid().as_raw(),
@@ -56,7 +56,7 @@ impl NknSources {
             return Err(Error::Authentication);
         }
         Ok(Self {
-            guard: SourceGuard::new(Roles::new(edge, forwarder, network, nkn)?)?,
+            guard: SourceGuard::new(Roles::new(edge, forwarder, media, nkn)?)?,
         })
     }
     pub fn accept(&self, stream: UnixStream) -> Result<NknAccepted> {
@@ -74,7 +74,11 @@ impl Drop for Fence {
         self.0.close();
     }
 }
-async fn stage<T, F>(peer: PeerConnection, packet: Packet, action: F) -> Result<(PeerConnection, T)>
+pub(crate) async fn stage<T, F>(
+    peer: PeerConnection,
+    packet: Packet,
+    action: F,
+) -> Result<(PeerConnection, T)>
 where
     T: Send + 'static,
     F: FnOnce(&PeerContext, &Packet) -> Result<T> + Send + 'static,
@@ -279,10 +283,55 @@ pub async fn serve_owned(
         return Err(Error::Deadline);
     }
     let gate = SourceGate::new(nonce, deadline);
+    serve_gate(peer, ports, membership, gate, deadline).await
+}
+
+async fn serve_gate(
+    peer: PeerConnection,
+    ports: CorePorts,
+    membership: Arc<MembershipKey>,
+    gate: SourceGate,
+    deadline: Instant,
+) -> Result<()> {
     let _fence = Fence(gate.clone());
     let monitor = peer.disconnect_monitor()?;
     tokio::select! {biased;
         _=monitor.wait_closed()=>Err(Error::Transport(transport::Error::Closed)),
         result=tokio::time::timeout_at(deadline.into(),run(peer,ports,membership,gate,deadline))=>result.map_err(|_|Error::Deadline)?,
     }
+}
+
+/// Product candidate entry requires the Root provider's opaque admission for
+/// this exact kernel PID, current owned child and fresh Core source nonce.
+/// The earlier deadline-only entry remains an isolated UID fixture interface.
+#[cfg(feature = "root-provider-candidate")]
+pub async fn serve_with_root(
+    accepted: NknAccepted,
+    ports: CorePorts,
+    membership: Arc<MembershipKey>,
+    admission: rustsimhub_core::nkn_root::Admission,
+) -> Result<()> {
+    let peer = accepted.peer;
+    let context = peer.context().ok_or(Error::Authentication)?;
+    if !admission.matches(context) {
+        return Err(Error::Authentication);
+    }
+    let nonce = *context.connection_nonce();
+    let admission = Arc::new(admission);
+    let gate = SourceGate::from_root(nonce, admission.clone());
+    let deadline = admission.deadline();
+    let parent = async move {
+        let mut tick = tokio::time::interval(Duration::from_millis(250));
+        loop {
+            tick.tick().await;
+            let original = admission.clone();
+            let valid = tokio::task::spawn_blocking(move || original.refresh())
+                .await
+                .unwrap_or(false);
+            if !valid {
+                return Err(Error::Authentication);
+            }
+        }
+    };
+    tokio::select! {biased;result=parent=>result,result=serve_gate(peer,ports,membership,gate,deadline)=>result}
 }
