@@ -11,6 +11,11 @@ serde_json.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rustix = { version = "1", features = ["fs"] }
+tokio = { version = "1", features = ["rt", "net", "time", "macros", "sync"] }
+zbus = { version = "5.19", default-features = false, features = ["tokio"] }
 
 [dev-dependencies]
 tempfile = "3"
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+zbus = { version = "5.19", default-features = false, features = ["tokio", "p2p", "bus-impl"] }
