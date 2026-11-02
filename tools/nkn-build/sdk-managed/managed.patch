@@ -1,0 +1,255 @@
+--- a/client.go
++++ b/client.go
+@@ -293,6 +293,10 @@
+ 	box.Precompute(sharedKey, curve25519PublicKey, c.curveSecretKey)
+ 
+ 	c.lock.Lock()
++	if c.config.ManagedMode && len(c.sharedKeys) >= 128 {
++		c.lock.Unlock()
++		return nil, errors.New("managed peer key limit")
++	}
+ 	c.sharedKeys[string(remotePublicKey)] = sharedKey
+ 	c.lock.Unlock()
+ 
+@@ -379,6 +383,18 @@
+ 
+ func (c *Client) decryptPayload(msg *payloads.Message, srcAddr string) ([]byte, error) {
+ 	rawPayload := msg.Payload
++	if c.config.ManagedMode {
++		nonceLen := nonceSize
++		if len(msg.EncryptedKey) > 0 {
++			nonceLen *= 2
++			if len(msg.EncryptedKey) != sharedKeySize+box.Overhead {
++				return nil, errors.New("invalid managed encrypted key")
++			}
++		}
++		if len(msg.Nonce) != nonceLen || len(rawPayload) < box.Overhead || len(rawPayload) > 3072 {
++			return nil, errors.New("invalid managed encrypted payload")
++		}
++	}
+ 	_, srcPubkey, _, err := address.ParseClientAddress(srcAddr)
+ 	if err != nil {
+ 		return nil, err
+@@ -436,6 +452,9 @@
+ 		if err := json.Unmarshal(data, &msg); err != nil {
+ 			return err
+ 		}
++		if c.config.ManagedMode && (msg["Action"] == nil || msg["Error"] == nil) {
++			return errors.New("missing managed control fields")
++		}
+ 		var action string
+ 		if err := json.Unmarshal(*msg["Action"], &action); err != nil {
+ 			return err
+@@ -443,6 +462,11 @@
+ 		var errCode errcode.ErrCode
+ 		if err := json.Unmarshal(*msg["Error"], &errCode); err != nil {
+ 			return err
++		}
++		if c.config.ManagedMode {
++			if (errCode == errcode.WRONG_NODE || action == setClientAction || action == "updateSigChainBlockHash") && msg["Result"] == nil || action == authChallengeAction && msg["Challenge"] == nil {
++				return errors.New("missing managed control result")
++			}
+ 		}
+ 		if errCode != errcode.SUCCESS {
+ 			if errCode == errcode.WRONG_NODE {
+@@ -467,7 +491,9 @@
+ 			if err := json.Unmarshal(*msg["Result"], &result); err != nil {
+ 				return err
+ 			}
++			c.lock.Lock()
+ 			c.sigChainBlockHash = result.SigChainBlockHash
++			c.lock.Unlock()
+ 
+ 			c.lock.RLock()
+ 			defer c.lock.RUnlock()
+@@ -475,14 +501,16 @@
+ 				return nil
+ 			}
+ 
+-			node := c.GetNode()
++			node := c.node // Already protected by the read lock; do not recursively RLock.
+ 			c.OnConnect.receive(node)
+ 		case "updateSigChainBlockHash":
+ 			var sigChainBlockHash string
+ 			if err := json.Unmarshal(*msg["Result"], &sigChainBlockHash); err != nil {
+ 				return err
+ 			}
++			c.lock.Lock()
+ 			c.sigChainBlockHash = sigChainBlockHash
++			c.lock.Unlock()
+ 
+ 		// client auth
+ 		case authChallengeAction:
+@@ -509,6 +537,11 @@
+ 			}
+ 
+ 			saltAndSig := &stSaltAndSignature{ClientSalt: clientSalt, Signature: signature}
++			c.lock.RLock()
++			defer c.lock.RUnlock()
++			if c.isClosed {
++				return ErrClosed
++			}
+ 			select {
+ 			case c.chChallengeSignature <- saltAndSig:
+ 			default:
+@@ -527,7 +560,15 @@
+ 				return err
+ 			}
+ 
+-			if len(inboundMsg.PrevHash) > 0 {
++			if c.config.ManagedMode && len(inboundMsg.PrevHash) > 0 {
++				if len(inboundMsg.PrevHash) != 32 {
++					return errors.New("invalid managed receipt hash")
++				}
++				// No goroutine per unauthenticated inbound message.
++				if err := c.sendReceipt(inboundMsg.PrevHash); err != nil {
++					return err
++				}
++			} else if len(inboundMsg.PrevHash) > 0 {
+ 				go func() {
+ 					if err := c.sendReceipt(inboundMsg.PrevHash); err != nil {
+ 						log.Println(err)
+@@ -652,6 +693,9 @@
+ 		NetDialContext: c.config.WsDialContext,
+ 		Proxy:          http.ProxyFromEnvironment,
+ 	}
++	if c.config.ManagedMode {
++		dialer.Proxy = nil
++	}
+ 	dialer.HandshakeTimeout = time.Duration(c.config.WsHandshakeTimeout) * time.Millisecond
+ 
+ 	conn, _, err = dialer.DialContext(c.lifecycle, wsAddr, nil)
+@@ -681,7 +725,11 @@
+ 		prevConn.Close()
+ 	}
+ 
+-	conn.SetReadLimit(config.MaxClientMessageSize)
++	if c.config.ManagedMode {
++		conn.SetReadLimit(4096)
++	} else {
++		conn.SetReadLimit(config.MaxClientMessageSize)
++	}
+ 	conn.SetReadDeadline(time.Now().Add(pongTimeout))
+ 	conn.SetPongHandler(func(string) error {
+ 		conn.SetReadDeadline(time.Now().Add(pongTimeout))
+@@ -697,7 +745,11 @@
+ 			select {
+ 			case <-ticker.C:
+ 				c.lock.Lock()
+-				conn.SetWriteDeadline(time.Now().Add(pingInterval))
++				budget := pingInterval
++				if c.config.ManagedMode {
++					budget = time.Duration(c.config.WsWriteTimeout) * time.Millisecond
++				}
++				conn.SetWriteDeadline(time.Now().Add(budget))
+ 				err = conn.WriteMessage(websocket.PingMessage, nil)
+ 				c.lock.Unlock()
+ 				if err != nil {
+@@ -714,11 +766,14 @@
+ 	go func() { // setClient Action function
+ 		// client auth
+ 		timer := time.NewTimer(waitForChallengeTimeout)
++		defer timer.Stop()
+ 
+ 		var saltAndSig *stSaltAndSignature
+ 		select { // time out or get challenge signature
+ 		case <-timer.C:
+ 		case saltAndSig = <-c.chChallengeSignature:
++		case <-c.lifecycle.Done():
++			return
+ 		}
+ 
+ 		req := make(map[string]interface{})
+@@ -732,6 +787,13 @@
+ 		}
+ 
+ 		c.lock.Lock()
++		if c.isClosed {
++			c.lock.Unlock()
++			return
++		}
++		if c.config.ManagedMode {
++			conn.SetWriteDeadline(time.Now().Add(time.Duration(c.config.WsWriteTimeout) * time.Millisecond))
++		}
+ 		err := conn.WriteJSON(req)
+ 		c.lock.Unlock()
+ 		if err != nil {
+@@ -760,6 +822,10 @@
+ 			err = c.handleMessage(msgType, data)
+ 			if err != nil {
+ 				log.Println(err)
++				if c.config.ManagedMode {
++					c.Close()
++					return
++				}
+ 				continue
+ 			}
+ 		}
+@@ -813,6 +879,10 @@
+ 
+ // Reconnect forces the client to find node and connect again.
+ func (c *Client) Reconnect(node *Node) {
++	if c.config.ManagedMode {
++		c.Close()
++		return
++	}
+ 	c.lock.RLock()
+ 	defer c.lock.RUnlock()
+ 	if c.isClosed {
+@@ -1045,7 +1115,14 @@
+ 		MaxHoldingSeconds: uint32(maxHoldingSeconds),
+ 	}
+ 
+-	nodePk, err := hex.DecodeString(c.node.PubKey)
++	c.lock.RLock()
++	if c.node == nil {
++		c.lock.RUnlock()
++		return nil, ErrClosed
++	}
++	nodeKey, blockHash := c.node.PubKey, c.sigChainBlockHash
++	c.lock.RUnlock()
++	nodePk, err := hex.DecodeString(nodeKey)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+@@ -1067,8 +1144,8 @@
+ 		Elems:     []*pb.SigChainElem{sigChainElem},
+ 	}
+ 
+-	if c.sigChainBlockHash != "" {
+-		sigChainBlockHash, err := hex.DecodeString(c.sigChainBlockHash)
++	if blockHash != "" {
++		sigChainBlockHash, err := hex.DecodeString(blockHash)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+--- a/config.go
++++ b/config.go
+@@ -37,6 +37,9 @@
+ 
+ // ClientConfig is the client configuration.
+ type ClientConfig struct {
++	// ManagedMode is an opt-in finite single-client host contract. It requires
++	// explicit host dialers and leaves reconnect to the outer supervisor.
++	ManagedMode bool
+ 	// RemoteSubClients enables bounded cross-subclient message and session
+ 	// handshake bootstrap. Zero retains upstream same-index behaviour.
+ 	RemoteSubClients        int32
+@@ -336,6 +339,17 @@
+ 	if merged.WebRTC {
+ 		return nil, errors.New("WebRTC is unavailable in the WebSocket-only SDK candidate")
+ 	}
++	if merged.ManagedMode {
++		if merged.HttpDialContext == nil || merged.WsDialContext == nil ||
++			merged.AllowUnencrypted || merged.MsgChanLen < 1 || merged.MsgChanLen > 4 ||
++			merged.ConnectRetries != 1 || merged.RPCConcurrency != 1 ||
++			merged.WsHandshakeTimeout < 1 || merged.WsHandshakeTimeout > 1000 ||
++			merged.WsWriteTimeout < 1 || merged.WsWriteTimeout > 1000 ||
++			merged.RPCTimeout < 1 || merged.RPCTimeout > 1000 ||
++			conf == nil || conf.SeedRPCServerAddr == nil || conf.SeedRPCServerAddr.Len() < 1 || conf.SeedRPCServerAddr.Len() > 3 {
++			return nil, errors.New("invalid finite managed SDK configuration")
++		}
++	}
+ 	if merged.SeedRPCServerAddr.Len() == 0 {
+ 		merged.SeedRPCServerAddr = nkngomobile.NewStringArray(DefaultSeedRPCServerAddr...)
+ 	}

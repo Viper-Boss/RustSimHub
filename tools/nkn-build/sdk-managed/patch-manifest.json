@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "base": "verified 186-line compatibility + 125-line websocket-only + 66-line official mask backport chain",
+  "patch_sha256": "e6b8efb761c3c9d73bdd73c9bfa00ffcc6ec14a719a680956968cad05180c72e",
+  "files": [
+    {
+      "path": "client.go",
+      "before_sha256": "c28dcb05dbe5e96b926ffb8d52963b0ba1350b37bf84e1c07c912c75cb19fe46",
+      "after_sha256": "ff69bc6a1e50e29e6ed3c02c445ca8116afa427acf59619f38a44f8f1462afda"
+    },
+    {
+      "path": "config.go",
+      "before_sha256": "c0ec2c06e213d9a37999ab707c842e3c6d760f932fea4c2bce8bc1152e0ad414",
+      "after_sha256": "e4400edc923e5b13e5587b420bd042f8e12c606893e7bba3dcf7d0497ef14aa8"
+    }
+  ]
+}
