@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-02T00:35:19.737218+00:00",
+  "updated_at": "2026-11-02T01:43:49.430899+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原固件81.5%按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "UPD-01",
-    "title": "主线应用71已安装并确认，继续自动集成",
-    "state": "基本健康已复核；人工与视觉验收最后",
-    "description": "来源d78dc2f3/归档8fb960e0，最新NAS管理和回执导出已随应用71实际安装；记录PR175已正常合并。正式1285文件/1356 Rust通过、6项原有忽略、13 ARM/音频34及27组网页通过。上传回读、持锁业务备份、实际admit-stage、单次启动和健康后confirm成功；最后独立只读复核confirmed71/floor71、无候选/未尝试，6载荷/3运行exe匹配，127条旧短信/唯一Owner与操作记录保持，七服务active、音频7/7、可信HTTPS六资源匹配。Root三角色无功能/依赖差异故保留原字节；恢复timer/service停止、预算未用，普通数据断开/转发PID0。未重启设备、切网、外发或刷分区；没有实际故障回退/冷启动。authorization_verified=false保留；真实NAS、原生UI/下载/听音仍待最后。C等离线分工不接管。云端CI41367618005因付款/消费上限未启动。主线代码约90%仅未加权粗估，81.5%及20/169保持。"
+    "task_id": "STAB-02",
+    "title": "灯控性能优化已安装，继续主线代码收尾",
+    "state": "CPU/RSS短测完成；功耗、长测及人工验收待做",
+    "description": "产品17d4707/冻结708be2d5经PR176正常合并；安装证据PR177合并f3b77c1。仅更新正式status-led，两个约120秒只读窗口中服务单核CPU4.723%→0.817%、已回收子进程4.108%→0；RSS约2.04→3.20MiB。健康确认和独立复核通过，新程序/实际exe/原单元匹配，应用71、其他八服务PID及网络计量保持，恢复timer停止且全局应用恢复预算未用；数据断开、转发PID0。网络监测性能线索保留给成员B，不接管成员实现。短测不当作整机功耗、长测、人工灯效或蜂窝验收；STAB-02只标进行中，原81.5%、20/169及主线代码约90%未加权粗估保持。"
   },
   "facts": [
     {
@@ -81,7 +81,12 @@
     {
       "label": "设备应用组",
       "value": "71已确认 · 127条旧短信保持",
-      "detail": "来源d78dc2f3；6载荷/3运行exe复核，Root保持，人工最后"
+      "detail": "应用来源d78dc2f3；仅Root灯控更新17d4707，其他服务保持；人工最后"
+    },
+    {
+      "label": "灯控CPU短测",
+      "value": "4.72% → 0.82%",
+      "detail": "单核/各约120秒窗口，RSS2.04→3.20MiB；非整机/功耗/长测验收"
     },
     {
       "label": "B线材料",
@@ -2501,10 +2506,12 @@
           "dependencies": [
             "STAB-01"
           ],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/VALIDATION-LED-BUS-INSTALL-20261102.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -5533,12 +5540,24 @@
       "evidence": [
         "docs/VALIDATION-APP71-INSTALL-20261102.md"
       ]
+    },
+    {
+      "at": "2026-11-02T01:44:08.770154+00:00",
+      "type": "verified",
+      "title": "主线灯控只读总线实现已安装并完成短测",
+      "detail": "移除外部命令采样；1361 Rust/6原有忽略、ARM、真实受限只读探针和健康复核通过。CPU短测下降约82.7%，内存增加约1.15MiB；应用71/网络/计量保持。STAB-02进行中，完整验收点不变。",
+      "task_ids": [
+        "STAB-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-LED-BUS-INSTALL-20261102.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "9b24d43dcc74a7d8ff7f28e4aab005bec65c0ed3",
-    "generated_at": "2026-11-02T00:33:50.517584+00:00",
+    "source_revision": "f3b77c1f9a1076ac6e9057abbd3ae070a34bd9f5",
+    "generated_at": "2026-11-02T01:43:49.430899+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5557,15 +5576,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 53880,
-            "tests": 42198,
+            "product": 54027,
+            "tests": 42627,
             "tooling": 9999,
             "firmware": 1180
           },
-          "commits": 477,
-          "code_commits": 308,
-          "added": 113218,
-          "deleted": 3129
+          "commits": 480,
+          "code_commits": 309,
+          "added": 113888,
+          "deleted": 3209
         },
         "work": {
           "assigned_steps": 0,
@@ -5991,6 +6010,16 @@
             {
               "pr": 175,
               "head": "142c2edc8666180b9103b30b7f2f852034e50b62",
+              "state": "MERGED"
+            },
+            {
+              "pr": 176,
+              "head": "0ee7dd4a012f9cdfc9e13f0b504061be7ab73d1b",
+              "state": "MERGED"
+            },
+            {
+              "pr": 177,
+              "head": "4c74b0244ca685aec6504185c174fd08dee97d13",
               "state": "MERGED"
             }
           ],
@@ -6496,6 +6525,18 @@
             {
               "pr": 175,
               "head": "142c2edc8666180b9103b30b7f2f852034e50b62",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 176,
+              "head": "0ee7dd4a012f9cdfc9e13f0b504061be7ab73d1b",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 177,
+              "head": "4c74b0244ca685aec6504185c174fd08dee97d13",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
@@ -7065,7 +7106,7 @@
             },
             {
               "pr": 170,
-              "head": "3b1598f2e74fb63064b0f046b1111db2b4c06d1b",
+              "head": "a333a1841137e105348fa4c402de6ec122aa0691",
               "state": "OPEN"
             }
           ],
@@ -7300,7 +7341,7 @@
             },
             {
               "pr": 170,
-              "head": "3b1598f2e74fb63064b0f046b1111db2b4c06d1b",
+              "head": "a333a1841137e105348fa4c402de6ec122aa0691",
               "state": "OPEN",
               "submitted_by": "wnfhsj88"
             }
@@ -7899,8 +7940,8 @@
       "deleted": 0
     },
     "totals": {
-      "product": 64410,
-      "tests": 62851,
+      "product": 64557,
+      "tests": 63280,
       "tooling": 13888,
       "firmware": 1189
     },
