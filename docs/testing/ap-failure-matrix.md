@@ -1,4 +1,89 @@
-# C21～C23 · AP故障覆盖与真实事务离线测试
+# C21～C24 · AP故障覆盖与离线证据交付
+
+## C24 · 2026-11-02 最新主线补验与主线接手清单
+
+成员yh1030 / member-c。C22/C23的PR #150已由Viper-Boss合并后，从最新main `f3b77c1f9a1076ac6e9057abbd3ae070a34bd9f5` 开始本轮。
+本轮只更新本页和本人交付报告；没有新增或修改Rust测试/生产接口/期限/Cargo、Core/NM/执行器或设备代码。
+实际测试完整HEAD `f3b77c1f9a1076ac6e9057abbd3ae070a34bd9f5`，Git tree `27ec814991b7c82db16cdc5132ed073a23a29af4`；文档提交完整HEAD由PR正文单列。
+
+### 实际执行与零匹配拒绝
+
+WSL2 Ubuntu-24.04、普通UID1000、kernel 6.18.54.1-microsoft-standard-WSL2、Rust/Cargo1.98.0；
+固定Git归档，source/target/TMPDIR全在Linux原生文件系统，使用已有locked/offline依赖，无安装/设备或真实通信。
+AP运行北京时间2026-11-02 13:30:14～13:33:08；更正后的Core运行13:34:42～13:35:50。
+两个运行的固定源码归档SHA256相同；验证器核对来源、实际选择器名称和数量、退出码，零匹配不接受。
+
+| 实际命令（均退出0） | 实际结果 |
+|---|---|
+| `cargo test -p rustsimhub-setup-ap --lib --locked --offline -- --list` | 只作定义/选择器盘点，不算运行通过数 |
+| `cargo test -p rustsimhub-setup-ap --lib station_trial::tests --locked --offline -- --nocapture --test-threads=2` | 15通过 |
+| `cargo test -p rustsimhub-setup-ap --lib station_commit::tests --locked --offline -- --nocapture --test-threads=2` | 18通过 |
+| `cargo test -p rustsimhub-setup-ap --lib channel::station::tests --locked --offline -- --nocapture` | 4通过 |
+| `cargo test -p rustsimhub-setup-ap --lib channel::files::tests --locked --offline -- --nocapture` | 9通过 |
+| `cargo test -p rustsimhub-core --bin rustsimhub-core setup_ap_control::station::commit::tests --locked --offline -- --list` | 实际非零匹配10项，与执行名称逐一相符 |
+| `cargo test -p rustsimhub-core --bin rustsimhub-core setup_ap_control::station::commit::tests --locked --offline -- --nocapture --test-threads=2` | 10通过 |
+| `cargo clippy -p rustsimhub-setup-ap --all-targets --locked --offline -- -D warnings` | 严格检查通过 |
+| `cargo fmt --all -- --check` | 格式检查通过 |
+
+实际 **56个不同测试通过，0失败、0忽略**；46项AP直接/外层加10项Core，均为既有测试，没有增加本人新增测试或贡献数量。
+AP两个生产run与4个测试文件逐字节等于C22/C23受测tree `21e4784d2304f3daf444be1c7f2a03452190ac97`；
+本轮补跑当前集成基线，不能把旧HEAD测试直接外推。50条AP变体trace只是实际调用记录，不额外算50项独立测试。
+
+首次Core命令错误地使用`--lib`，选择器匹配0且进程退出0；这不构成测试通过。
+数量核验发现后更正为`--bin rustsimhub-core`，在同一固定源码实际运行10项，0匹配日志仍完整保留在包内ap/11与ap/12。
+初次辅助核验仍按静态粗数8项拒绝了实际10项；对照真实清单和执行名称后修正统计，未修改测试/产品或放宽任何拒绝断言。
+
+### stale_completion从静态引用补为真实Core执行
+
+本轮实际运行`wrong_generation_missing_cleanup_or_foreign_observation_cannot_confirm_save`：
+分别将原Saved回执的owner_generation加1、guard_released改false、observation_boot_id换成外来合成值，
+真实Core查询均不得为saved，网络协调锁保持；只有原意图且完整有效的回执才可变saved。
+同组还实际覆盖未获Owner的控制客户端/错误token、忙通话先拒绝、唯一确认/不重提交、恢复只查询原intent、
+Unknown或旧Closed不证明清理、错误口令/旧父事务、非法channel、Root ack清除口令和完成证据写入先于网络解锁。
+
+这些测试调用真实Auth、持久Journal、受保护临时文件和Core控制逻辑；**Root回执明确为夹具模拟**。
+不是运行生产Core daemon、真实Root/NM回执链、物理切网或整板跨事务发布，不能把这层缺口写成已实机通过。
+固定10case仍沿用下面C22/C23矩阵，partial_persist在trial没有接口且不应另造保存器；
+wrong_password/ssid_missing仍是通用后端错误注入，不是实际WPA认证/扫描分类。
+
+### 最小失败样本与实际调用证据
+
+输入/注入规格（不是产品DTO）：合成原操作UUID不变、初始gate/guard允许、确认消费一次；
+后端persist先记录一次保存副作用，再返回Io；restore也返回Io。
+真实station_commit::run返回Unknown，保存副作用标志保留，不新建操作/重试。
+
+实际顺序：`gate → guard → audit → gate → guard → begin → gate → guard → usable → gate → persist → partial_write → restore`。
+计数：gate=4、guard=3、audit=1、begin=1、usable=1、persist=1、restore=1、finish=0、release=0。
+可核对包内traces.json中`case_id=partial_persist, variant=persist_error,restore=error`。
+恢复8秒超时同样Unknown；恢复成功但guard拒绝也仍Unknown，不把外部标志已清除当作隔离已验证。
+finish已开始后的取消或caller消失继续await，成功允许Saved；丢失finalizer回执或release失败Unknown，不能盲目回退或保存重放。
+
+### 交付包与逐项补验边界
+
+`C24-WSL2-handoff-f3b77c1.zip`：49,627字节、51条目，SHA256
+`2e7c9566ab23a982c7a997f4f044699835fc7950764b11d911a0acf304ad00c4`；ZIP CRC及全部条目与来源逐字节核对通过。
+含固定HEAD/tree、8个核心来源文件的Git blob/长度/SHA256、所有实际命令/环境/日志/退出码、56个已执行名称、
+冻结10case和50条有序调用记录、首次零匹配历史。只脱敏Linux私有目录前缀，不改命令/结果；无真实凭据/设备资料。
+包仅保存在本机供用户转交，未代发给负责人；下文旧证据包和旧日期保留为历史，不能与本轮重复相加。
+
+| 主线接手项 | 本轮证据与仍需补验 |
+|---|---|
+| 精确HEAD技术审查 | 本轮56项通过、50trace、固定10case及原拒绝断言齐备；PR150先行合并回复不冒充独立技术审核 |
+| 真实密码/SSID/DHCP及AP恢复 | 仅合成后端/局部窗口测试；真实WPA、扫描、DHCP/物理断连和Root检查点恢复待主线设备验证 |
+| 跨代次与迟到回执 | Core真实控制逻辑拒绝已执行；实际daemon→Root/NM及新事务发布链仍需主线集成/设备验证 |
+| 隔离与部分保存 | 模拟副作用/恢复失败时Unknown通过；真实防火墙、隔离保持、实际保存丢回执与恢复不以Fake代证 |
+| 权限与通信边界 | 本轮无Root设备操作、真实AP/NM/D-Bus、电话/短信或蜂窝/APN；设备和流量实测仍按已有授权/换卡门禁安排 |
+| 未运行范围 | 全仓/全包、Core整组、ARM、HCI/RF、长测、整个Future abort或掉电；不以进程退出测试替代掉电/fsync证明 |
+
+C24离线证据与补验交接已形成，正式审核/整项AP-04闭环和设备通过保持待主线记录，不更新名册、审核JSON或全局看板。
+来源为本仓库固定AGPL-3.0-only实现与既有测试，SPDX保留，无新依赖或第三方代码复制；Codex辅助核验/整理，工时未估造。
+下一修改包按任务书先交C25来源/接口/失败样例提案；本轮只有私有只读盘点，不含C25实现或生产材料组装。
+最新主线HANDOFF/PROGRESS报告81.5%，旧PROGRESS-SCALE仍80%，本轮不修订权重或代替主线同步。
+
+## C21～C23历史交付
+
+以下保留2026-11-01及更早的来源/执行/计划；最新结果以本页C24节为准。
+
 
 日期：2026-11-01；yh1030 / member-c，AP-04离线范围。
 C21方案PR #147已由Viper-Boss合并后，从最新main `086b2116ff09e4d62c8c034cf668ac8739fbbc04` 开始C22/C23。
