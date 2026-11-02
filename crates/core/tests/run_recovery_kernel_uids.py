@@ -55,7 +55,7 @@ def main():
     stage.chmod(0o755)  # public test code; UID1001 must traverse the read-only bind.
     # Emit only the stripped output, avoiding a temporary full debug copy in
     # the small workspace. The original Cargo artifact remains untouched.
-    subprocess.run(["strip","--strip-debug","--output",str(stage/"recovery_kernel_uid"),binary],check=True)
+    subprocess.run(["strip","--strip-debug","-o",str(stage/"recovery_kernel_uid"),binary],check=True)
     runner = "nkn_secure_runner.py" if args.nkn else "recovery_secure_runner.py" if args.secure else "recovery_application_runner.py" if args.application else "recovery_uid_runner.py"
     shutil.copy2(PROJECT/"crates/core/tests/fixtures"/runner, stage/"runner.py")
     (stage/"recovery_kernel_uid").chmod(0o755)
