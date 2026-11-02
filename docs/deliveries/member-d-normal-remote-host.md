@@ -11,3 +11,5 @@
 NSS仅临时镜像、实际演员capabilities空，Root控制器仅容器setuid/gid/chown/fowner、无CAP_KILL；network none/read-only，未改host账户或设备、未拨号/短信/APN/生产签名/部署。Fake ModemManager中的一次拨号/启动是私有D-Bus后端计数，不是10010或任何真实外呼。AGPL/原作者与上游许可保留，Codex辅助，未重写贡献作者。
 
 原23/26离线已提交、剩D22/D23/D25的口径先保持；正式D25隔离交付完成后才更新本人记录，不改主线台账/固定80%或把代码提交当设备验收。A生产安全会话/pin/签名域/Verifier/Sealer尚缺，D22/D23继续如实保留；原DTLS兼容修复/密码审查、正式消费端/Root安装及真实设备/外网/两端听音仍未验收。
+
+默认Native首轮在1985977遇到测试布局错误：辅助模块放在tests顶层被Cargo自动发现为独立integration target，产生super/feature未启用的编译错误。将它仅移入fixtures并更新原manual模块路径，保持默认feature关闭，不用额外feature/忽略掩盖。此前手动目标/真实三角色运行成功仍按其实际SHA记录，默认构建失败不当成功或生产漏洞；修后完整Native重验另绑。

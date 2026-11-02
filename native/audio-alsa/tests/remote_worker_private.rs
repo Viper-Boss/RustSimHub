@@ -1022,5 +1022,5 @@ async fn worker_shutdown_revokes_before_waiting_for_a_late_pcm_owner() {
     peer.close().await;
 }
 
-#[path = "normal_remote_host.rs"]
+#[path = "fixtures/normal_remote_host.rs"]
 mod normal_host;
