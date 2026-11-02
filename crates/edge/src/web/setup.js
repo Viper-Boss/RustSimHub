@@ -37,34 +37,50 @@ async function login(){
  const r=await api({op:'authenticate',challenge_id:c.id,signature:Array.from(sign(seed,transcript(c,'login')))});
  if(!/^[a-f0-9]{64}$/.test(r.token))throw Error('登录应答无效');token=r.token;
 }
-function storage(){try{return globalThis.localStorage??null;}catch{return null;}}
+function storage(){
+ try{const s=globalThis.localStorage;if(s)return s;}catch{}
+ throw Error('浏览器存储不可用，无法保存配网进度，请改用完整浏览器');
+}
+function stored(s,key){const raw=s.getItem(key);return raw===null?null:JSON.parse(raw);}
+function writeStored(s,key,raw){
+ if(raw===null)s.removeItem(key);else s.setItem(key,raw);
+ if(s.getItem(key)!==raw)throw Error('配网记录未能保存，请先查询原进度，不会提交网络变更');
+}
 const KEY='rustsimhub-setup-ap-wifi-pending';
+const receiptsKey=()=>KEY+':receipts:'+hex(device);
 let pendingKey=KEY;
 function selectPendingNamespace(created){
  const s=storage(),scoped=KEY+':'+hex(device);
  // A newly proved first Owner belongs to this device identity. Keep a legacy
  // record intact rather than attaching an earlier device's operation to it.
  // Existing Owners without a scoped slot still recover their legacy record.
- pendingKey=!created&&s?.getItem(scoped)===null&&s?.getItem(KEY)!==null?KEY:scoped;
+ pendingKey=!created&&s.getItem(scoped)===null&&s.getItem(KEY)!==null?KEY:scoped;
  // Retain a null scoped slot after completion so later logins never fall back
  // to an unrelated legacy record. Never replace an existing scoped operation.
- if(s&&pendingKey===scoped&&s.getItem(scoped)===null)s.setItem(scoped,'null');
+ if(pendingKey===scoped&&s.getItem(scoped)===null)writeStored(s,scoped,'null');
 }
 const pending={
- load:async()=>{const s=storage();const v=s?.getItem(pendingKey);return v?JSON.parse(v):null;},
- save:async(value,expected)=>{const s=storage();const old=pendingInput(s?.getItem(pendingKey)?JSON.parse(s.getItem(pendingKey)):null);
+ load:async()=>stored(storage(),pendingKey),
+ save:async(value,expected)=>{const s=storage();const old=pendingInput(stored(s,pendingKey));
   if((old?.id??null)!==(expected?.id??null)||(old?.revision??null)!==(expected?.revision??null))throw Error('配网记录已在另一页面更新，请重新查询');
-  if(s){if(value===null&&pendingKey===KEY)s.removeItem(pendingKey);else s.setItem(pendingKey,JSON.stringify(value));}},
- archive:async()=>{},
+  writeStored(s,pendingKey,value===null&&pendingKey===KEY?null:JSON.stringify(value));},
+ archive:async(value)=>{
+  const s=storage(),raw=stored(s,receiptsKey()),receipts=raw===null?[]:raw;
+  const valid=r=>r&&Object.keys(r).length===2&&Object.hasOwn(r,'record')&&Object.hasOwn(r,'state')&&['saved','closed'].includes(r.state)&&pendingInput(r.record)!==null;
+  if(!Array.isArray(receipts)||receipts.length>8||!receipts.every(valid)||new Set(receipts.map(r=>r.record.id)).size!==receipts.length||!valid(value))throw Error('配网回执无法核对，当前操作仍保留');
+  const previous=receipts.find(r=>r.record.id===value.record.id);
+  if(previous&&JSON.stringify(previous)!==JSON.stringify(value))throw Error('配网回执冲突，当前操作仍保留');
+  if(!previous)writeStored(s,receiptsKey(),JSON.stringify([...receipts,value].slice(-8)));
+ },
 };
 const scanKey=()=>KEY+':scan:'+hex(device);
 const scan={
  domain:()=>hex(device),button:$('setup-networks-rescan'),note:$('setup-networks-note'),
- load:async()=>{const s=storage();if(!s)throw Error('浏览器不允许保存扫描进度，请改用完整浏览器');return JSON.parse(s.getItem(scanKey())||'null');},
- save:async(value,expected)=>{const s=storage();if(!s)throw Error('无法保留扫描进度');
-  const old=scanPendingInput(JSON.parse(s.getItem(scanKey())||'null'),hex(device));
+ load:async()=>stored(storage(),scanKey()),
+ save:async(value,expected)=>{const s=storage();
+  const old=scanPendingInput(stored(s,scanKey()),hex(device));
   if(JSON.stringify(old)!==JSON.stringify(expected))throw Error('扫描记录已在另一页面更新');
-  s.setItem(scanKey(),JSON.stringify(value));},
+  writeStored(s,scanKey(),JSON.stringify(value));},
  snapshot:value=>showNetworks(value.networks.map(n=>({...n,selectable:n.security==='wpa2_personal'}))),
 };
 const wifi=new ApConfigurator({document,env:globalThis,crypto:pageCrypto,request:command=>{if(!token)throw Error('请先设置管理员账号');return api({...command,token});},
