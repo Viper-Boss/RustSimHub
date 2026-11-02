@@ -211,7 +211,11 @@ async fn eof(stream: &mut UnixStream) {
 #[ignore = "explicit network-disabled real-UID fixture; use runner --nkn"]
 fn isolated_nkn_client() {
     runtime().block_on(async {
-        assert_eq!(rustix::process::geteuid().as_raw(), 1002);
+        let sdk_combined = std::env::var_os("RSH_COMBINED_SDK_CLIENT").is_some();
+        assert_eq!(
+            rustix::process::geteuid().as_raw(),
+            if sdk_combined { 1007 } else { 1002 }
+        );
         let case = std::env::var("RUSTSIMHUB_NKN_CASE").unwrap();
         let mut stream = UnixStream::connect(root().join("core.sock")).await.unwrap();
         if case == "disconnect" {
@@ -353,4 +357,138 @@ fn isolated_nkn_client() {
             eof(&mut stream).await;
         }
     });
+}
+
+#[cfg(feature = "product-providers-candidate")]
+#[tokio::test]
+#[ignore = "explicit private cgroup/netns SDK product fixture only"]
+async fn isolated_product_core() {
+    use rustsimhub_wire::{AuthCommand, NknOwner};
+    assert_eq!(rustix::process::geteuid().as_raw(), 1001);
+    let f = fixture();
+    let controller = crate::nkn_product::Controller::new(f.auth.clone());
+    let instance = f.auth.lock().unwrap().observer_instance();
+    let pin = f.auth.lock().unwrap().public_key();
+    fs::write(
+        "/tmp/owned-core-public-pin",
+        pin.iter().map(|n| format!("{n:02x}")).collect::<String>(),
+    )
+    .unwrap();
+    fs::write(
+        "/tmp/sdk-counterpart/public.json",
+        serde_json::to_vec(&serde_json::json!({"pin":pin})).unwrap(),
+    )
+    .unwrap();
+    let change = |owner, enabled, revision: u64| AuthCommand::SetNknEnabled {
+        token: f.owner.expose().to_owned(),
+        owner,
+        enabled,
+        expected_revision: revision.to_string(),
+        expected_core_instance: instance.clone(),
+        request_id: format!("{revision:08x}-1111-4111-8111-111111111111"),
+    };
+    let wait = Instant::now() + Duration::from_secs(10);
+    while !std::path::Path::new("/run/rustsimhub-nkn-root/root.sock").exists() {
+        assert!(Instant::now() < wait);
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let ports = nkn_business::CorePorts {
+        auth: f.auth.clone(),
+        metrics: None,
+        sender: None,
+        calls: None,
+        providers: crate::authenticated::Providers {
+            nkn: Some(controller.clone()),
+            ..Default::default()
+        },
+    };
+    let driver = tokio::spawn(crate::nkn_product::run(
+        Some(controller.clone()),
+        ports.auth.clone(),
+        None,
+        None,
+        None,
+        ports.providers,
+    ));
+    for (revision, owner) in [
+        NknOwner::ManualEngine,
+        NknOwner::Statistics,
+        NknOwner::Remote,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let result = controller
+            .request(f.auth.clone(), change(owner, true, revision as u64))
+            .await
+            .unwrap();
+        assert_eq!(result["state"], "accepted");
+    }
+    let ready = Instant::now() + Duration::from_secs(10);
+    while !std::path::Path::new("/run/rustsimhub/nkn/core.sock").exists() {
+        assert!(Instant::now() < ready);
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let report = controller
+        .request(
+            f.auth.clone(),
+            AuthCommand::NknStatus {
+                token: f.owner.expose().to_owned(),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(report["provider"]["status"]["source"], "engine");
+    assert_eq!(report["provider"]["status"]["service"], "running");
+    assert_eq!(
+        report["provider"]["owners"],
+        serde_json::json!({"manual":true,"remote":true,"statistics":true})
+    );
+    fs::write(
+        "/tmp/product-status.json",
+        serde_json::to_vec(&report).unwrap(),
+    )
+    .unwrap();
+    fs::write("/tmp/product-ready", "1").unwrap();
+    let done = Instant::now() + Duration::from_secs(20);
+    while !std::path::Path::new("/tmp/product-client-done").exists() {
+        assert!(Instant::now() < done);
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let old = controller.root().source().unwrap();
+    assert_eq!(
+        controller
+            .request(f.auth.clone(), change(NknOwner::Remote, false, 3))
+            .await
+            .unwrap()["state"],
+        "accepted"
+    );
+    assert!(controller.root().source().is_err());
+    assert_eq!(controller.root().snapshot().unwrap().unwrap().references, 2);
+    let _ = old;
+    for (revision, owner) in [(4, NknOwner::Statistics), (5, NknOwner::ManualEngine)] {
+        assert_eq!(
+            controller
+                .request(f.auth.clone(), change(owner, false, revision))
+                .await
+                .unwrap()["state"],
+            "accepted"
+        );
+    }
+    let stopped = Instant::now() + Duration::from_secs(6);
+    loop {
+        if controller.root().snapshot().unwrap().unwrap().phase
+            == rustsimhub_nkn_agent::Phase::Disabled
+        {
+            break;
+        }
+        assert!(Instant::now() < stopped);
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    assert!(!std::path::Path::new(
+        "/sys/fs/cgroup/system.slice/rustsimhub-nkn-root.service/engine"
+    )
+    .exists());
+    driver.abort();
+    let _ = driver.await;
 }

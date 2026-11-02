@@ -9,7 +9,7 @@ import (
 )
 
 // Root, not a restarted Core or browser counter, assigns persistent SDK
-// generations. Allocation only happens during an explicit authorized prepare.
+// generations. Allocation only happens during an explicit authorized prepare/launch.
 // An interrupted pending write is preserved and requires reconciliation.
 func nextGeneration() (uint32, error) {
 	dir := filepath.Dir(seedPath)

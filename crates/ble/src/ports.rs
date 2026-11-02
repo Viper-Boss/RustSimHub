@@ -43,6 +43,9 @@ pub struct Peer {
 }
 
 impl Peer {
+    pub fn device(&self) -> &str {
+        &self.device
+    }
     pub fn from_backend_callback(owner: &str, device: &str) -> Result<Self, Error> {
         let Some(unique) = owner.strip_prefix(':') else {
             return Err(Error::InvalidInput);

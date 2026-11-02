@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Isolated fixture counterpart: the actual full SDK carries actual opaque
+// Noise records to the Root-owned production SDK. No public network is used.
+package main
+
+import (
+	"encoding/binary"
+	sdk "github.com/nknorg/nkn-sdk-go"
+	"github.com/nknorg/nkngomobile"
+	"io"
+	"net"
+	"os"
+	"time"
+)
+
+func main() {
+	if run() != nil {
+		os.Exit(1)
+	}
+}
+func run() error {
+	account, e := sdk.NewAccount(makeSeed())
+	if e != nil {
+		return e
+	}
+	client, e := sdk.NewClient(account, "", &sdk.ClientConfig{SeedRPCServerAddr: nkngomobile.NewStringArray("https://9.9.9.9:8443"), ConnectRetries: 1, RPCConcurrency: 1, RPCTimeout: 1000})
+	if e != nil {
+		return e
+	}
+	defer client.Close()
+	select {
+	case <-client.OnConnect.C:
+	case <-time.After(8 * time.Second):
+		return io.ErrUnexpectedEOF
+	}
+	dest, e := os.ReadFile("/tmp/owned-sdk-address")
+	if e != nil {
+		return e
+	}
+	listener, e := net.Listen("unix", "/tmp/sdk-counterpart/core.sock")
+	if e != nil {
+		return e
+	}
+	defer listener.Close()
+	c, e := listener.Accept()
+	if e != nil {
+		return e
+	}
+	defer c.Close()
+	_ = c.SetDeadline(time.Now().Add(20 * time.Second))
+	for n := uint64(1); n <= 16; n++ {
+		var size [4]byte
+		if _, e = io.ReadFull(c, size[:]); e == io.EOF {
+			return nil
+		}
+		if e != nil {
+			return e
+		}
+		length := binary.BigEndian.Uint32(size[:])
+		if length < 2 || length > 2050 {
+			return io.ErrUnexpectedEOF
+		}
+		data := make([]byte, length)
+		if _, e = io.ReadFull(c, data); e != nil {
+			return e
+		}
+		var id [8]byte
+		binary.BigEndian.PutUint64(id[:], n)
+		_, e = client.SendBinary(nkngomobile.NewStringArray(string(dest)), data, &sdk.MessageConfig{NoReply: true, MessageID: id[:], MaxHoldingSeconds: 0})
+		if e != nil {
+			return e
+		}
+		if data[1] == 3 {
+			return nil
+		}
+		select {
+		case message := <-client.OnMessage.C:
+			if message == nil || !message.Encrypted || message.Src != string(dest) || len(message.Data) < 2 || len(message.Data) > 2050 {
+				return io.ErrUnexpectedEOF
+			}
+			binary.BigEndian.PutUint32(size[:], uint32(len(message.Data)))
+			if _, e = c.Write(size[:]); e != nil {
+				return e
+			}
+			if _, e = c.Write(message.Data); e != nil {
+				return e
+			}
+		case <-time.After(5 * time.Second):
+			return io.ErrUnexpectedEOF
+		}
+	}
+	return nil
+}
+func makeSeed() []byte {
+	seed := make([]byte, 32)
+	for i := range seed {
+		seed[i] = 24
+	}
+	return seed
+}

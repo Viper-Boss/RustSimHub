@@ -650,6 +650,24 @@ fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/nkn-status.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/nkn-status.js"),
+                )
+            }),
+        )
+        .route(
+            "/nkn-product.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/nkn-product.js"),
+                )
+            }),
+        )
+        .route(
             "/usage-stats.js",
             get(|| async {
                 (

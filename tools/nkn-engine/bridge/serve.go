@@ -131,11 +131,21 @@ func Serve(ctx context.Context, input io.Reader, output io.Writer, beforeRead, b
 // ServeWithSource preserves the existing status/stop wire. Stop still closes
 // only this bridge; it never stops an unrelated/shared SDK or Root service.
 func ServeWithSource(ctx context.Context, input io.Reader, output io.Writer, beforeRead, beforeWrite func() error, source StatusSource) error {
+	return serveFrames(ctx, input, output, beforeRead, beforeWrite, source, MaxFrames)
+}
+
+// ServeOwnedWithSource is only for the SDK host AFTER its private Root FD and
+// original <=300s lease have been verified. The offline frontend keeps 32
+// frames; the owned host has a separate finite lifetime observation budget.
+func ServeOwnedWithSource(ctx context.Context, input io.Reader, output io.Writer, beforeRead, beforeWrite func() error, source StatusSource) error {
+	return serveFrames(ctx, input, output, beforeRead, beforeWrite, source, 4096)
+}
+func serveFrames(ctx context.Context, input io.Reader, output io.Writer, beforeRead, beforeWrite func() error, source StatusSource, limit int) error {
 	fail := func(code string) error { return write(output, Response{Protocol: 1, Error: code}, beforeWrite) }
 	// Static build metadata, not live readiness. It remains true in a closing
 	// response when this host actually attached an SDK-backed implementation.
 	linked := source != nil && source.SDKLinked()
-	for index := 0; index < MaxFrames; index++ {
+	for index := 0; index < limit; index++ {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -216,3 +226,7 @@ func ServeWithSource(ctx context.Context, input io.Reader, output io.Writer, bef
 	_ = fail("frame_limit")
 	return ErrLimit
 }
+
+// ValidStatus validates the existing public read-only shape, not origin or
+// permission. The host must bind its real generation/sequence and kernel peer.
+func ValidStatus(status Status, sequence uint32) bool { return validStatus(status, sequence) }

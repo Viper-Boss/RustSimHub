@@ -7,7 +7,7 @@ mod auth;
 mod recovery_grant_tests;
 pub use auth::{
     parse_auth_request, wifi_credentials_valid, AuthCommand, AuthRequest, LegacyBindingExpectation,
-    AUTH_PROTOCOL,
+    NknOwner, AUTH_PROTOCOL,
 };
 pub use rustsimhub_domain::{InboxCursor, NasEntity};
 

@@ -9,6 +9,13 @@ pub enum LegacyBindingExpectation {
     Absent {},
     Present { binding_epoch: String },
 }
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NknOwner {
+    ManualEngine,
+    Remote,
+    Statistics,
+}
 // Deliberately no Debug: requests may contain session tokens.
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -20,6 +27,22 @@ pub struct AuthRequest {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AuthCommand {
+    NknStatus {
+        token: String,
+    },
+    NknRequest {
+        token: String,
+        request_id: String,
+        expected_core_instance: String,
+    },
+    SetNknEnabled {
+        token: String,
+        owner: NknOwner,
+        enabled: bool,
+        expected_revision: String,
+        expected_core_instance: String,
+        request_id: String,
+    },
     RecoveryGrant {
         token: String,
         public_key: [u8; 32],
@@ -497,6 +520,34 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         return Err(invalid());
     }
     match &req.command {
+        AuthCommand::NknStatus { token } if !source_valid(token) => return Err(invalid()),
+        AuthCommand::NknRequest {
+            token,
+            request_id,
+            expected_core_instance,
+        } => {
+            if !source_valid(token)
+                || !canonical_uuid(request_id)
+                || !source_valid(expected_core_instance)
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::SetNknEnabled {
+            token,
+            expected_revision,
+            expected_core_instance,
+            request_id,
+            ..
+        } => {
+            if !source_valid(token)
+                || !canonical_generation(expected_revision)
+                || !source_valid(expected_core_instance)
+                || !canonical_uuid(request_id)
+            {
+                return Err(invalid());
+            }
+        }
         AuthCommand::RecoveryGrant {
             token,
             max_trial_ms,
@@ -1684,5 +1735,32 @@ mod tests {
             .unwrap()
             .remove("accept_full_text");
         assert!(parse_auth_request(&serde_json::to_vec(&archive).unwrap()).is_ok());
+    }
+}
+
+#[cfg(test)]
+mod nkn_candidate_tests {
+    use super::*;
+    use serde_json::json;
+    #[test]
+    fn nkn_control_has_finite_reference_and_exact_context_cas_without_root_claims() {
+        let value = json!({"protocol":2,"id":"nkn","command":{"op":"set_nkn_enabled","token":"a".repeat(64),"owner":"remote","enabled":true,"expected_revision":"0","expected_core_instance":"b".repeat(64),"request_id":"11111111-1111-4111-8111-111111111111"}});
+        assert!(parse_auth_request(&serde_json::to_vec(&value).unwrap()).is_ok());
+        for (key, v) in [
+            ("owner", json!("root")),
+            ("owner", json!("arbitrary_service")),
+            ("expected_revision", json!(0)),
+            ("expected_revision", json!("00")),
+            ("expected_revision", json!("18446744073709551616")),
+            ("expected_core_instance", json!("claimed-current-core")),
+            ("enabled", json!(1)),
+            ("request_id", json!("../chosen")),
+            ("root", json!(true)),
+            ("pid", json!(123)),
+        ] {
+            let mut changed = value.clone();
+            changed["command"][key] = v;
+            assert!(parse_auth_request(&serde_json::to_vec(&changed).unwrap()).is_err());
+        }
     }
 }

@@ -121,6 +121,79 @@ async fn setup() -> (Bus, Connection, BluezBackend, BluezHost, Arc<Calls>) {
     let (backend, host) = BluezBackend::new(control);
     (bus, bluez, backend, host, calls)
 }
+#[cfg(feature = "product-host-candidate")]
+#[tokio::test]
+async fn product_driver_owns_real_registration_and_compensates_explicit_stop() {
+    let (_bus, bluez, backend, host, calls) = setup().await;
+    bluez
+        .object_server()
+        .at("/", zbus::fdo::ObjectManager)
+        .await
+        .unwrap();
+    let (stop, stopped) = tokio::sync::oneshot::channel();
+    let owner = bluez.unique_name().unwrap().to_string();
+    let close_count = Arc::new(AtomicUsize::new(0));
+    let driver = crate::product_host::run_epoch(
+        backend,
+        host,
+        Security(close_count),
+        &owner,
+        [59; 16],
+        async {
+            let _ = stopped.await;
+        },
+    );
+    let cancel = async {
+        loop {
+            if calls.rows().contains(&"adv+") {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        stop.send(()).unwrap();
+    };
+    let (result, ()) = bounded(async { tokio::join!(driver, cancel) }).await;
+    result.unwrap();
+    assert_eq!(calls.rows(), ["app+", "adv+", "adv-", "app-"]);
+}
+#[cfg(feature = "product-host-candidate")]
+#[tokio::test]
+async fn product_driver_does_not_follow_replacement_bluez_owner() {
+    let (bus, bluez, backend, host, calls) = setup().await;
+    bluez
+        .object_server()
+        .at("/", zbus::fdo::ObjectManager)
+        .await
+        .unwrap();
+    let owner = bluez.unique_name().unwrap().to_string();
+    let replacement = bus.connect().await;
+    let driver = crate::product_host::run_epoch(
+        backend,
+        host,
+        Security(Arc::new(AtomicUsize::new(0))),
+        &owner,
+        [60; 16],
+        std::future::pending(),
+    );
+    let replace = async {
+        loop {
+            if calls.rows().contains(&"adv+") {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        bluez.release_name("org.bluez").await.unwrap();
+        replacement.request_name("org.bluez").await.unwrap();
+    };
+    let (result, ()) = tokio::time::timeout(Duration::from_secs(8), async {
+        tokio::join!(driver, replace)
+    })
+    .await
+    .unwrap();
+    assert!(result.is_err());
+    assert_eq!(calls.rows().iter().filter(|s| **s == "app+").count(), 1);
+}
 struct Security(Arc<AtomicUsize>);
 impl SecurePortV1 for Security {
     fn receive(&mut self, _: Epoch, _: Peer, _: InputKind, _: OpaqueBytes) -> Pending<SecureReply> {
