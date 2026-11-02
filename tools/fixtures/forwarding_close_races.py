@@ -33,7 +33,10 @@ def verify(phase, base, unit, helpers, core, running, owner, edge, worker,
 
     def event(kind):
         while control.poll():
-            events.append(control.recv())
+            try:
+                events.append(control.recv())
+            except (EOFError, ConnectionResetError):
+                break
         return any(row.get('event') == kind for row in events)
 
     wait_for(lambda: event(entered), 8)
@@ -107,7 +110,10 @@ def verify(phase, base, unit, helpers, core, running, owner, edge, worker,
 
     def final_count():
         while tls.poll():
-            tls_events.append(tls.recv())
+            try:
+                tls_events.append(tls.recv())
+            except (EOFError, ConnectionResetError):
+                break
         return next((row for row in tls_events if 'http_requests' in row), None)
 
     result = wait_for(final_count, 3)
