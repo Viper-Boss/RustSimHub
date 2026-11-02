@@ -38,35 +38,47 @@ def main():
                               check=True, timeout=5)
         assert json.loads(info.stdout) == {
             'development_fixtures': True, 'role': 'indicator-resource-fixture'}
-        hints = directory / 'hints'
-        hints.mkdir(mode=0o700)
-        unit = 'rsh-indicator-resource-' + uuid.uuid4().hex
-        properties = [
-            'User=root', 'Group=root', 'TasksMax=1', 'MemoryMax=96M',
-            'RuntimeMaxSec=10', 'TimeoutStopSec=2', 'KillMode=control-group',
-            'NoNewPrivileges=yes', 'CapabilityBoundingSet=', 'AmbientCapabilities=',
-            'PrivateNetwork=yes', 'PrivateDevices=yes', 'ProtectSystem=strict',
-            'ProtectHome=yes', 'TemporaryFileSystem=/run', 'LimitCORE=0',
-            'RestrictSUIDSGID=yes', 'UMask=0077',
-            f'BindPaths={hints}:/run/rustsimhub-led-update',
-            'ReadWritePaths=/run/rustsimhub-led-update',
-        ]
-        command = ['systemd-run', '--quiet', '--wait', '--pipe', '--collect',
-                   '--unit=' + unit]
-        for prop in properties:
-            command += ['--property=' + prop]
-        result = subprocess.run(command + [str(binary), '--check'],
-                                capture_output=True, timeout=20)
-        # Do not accept a sandbox/setup failure as an exercised resource failure.
-        assert result.returncode == 0, (result.returncode,
-                                        result.stdout.decode(), result.stderr.decode())
-        receipt = json.loads(result.stdout)
-        assert receipt == {'actual_thread_exhaustion': True,
-                           'operation_continued': True, 'upgrading': False}
-        state = json.loads((hints / 'state.json').read_text())
-        assert state['upgrading'] is False and state['available'] is False
-        assert [p.name for p in hints.iterdir()] == ['state.json']
-        print(json.dumps({'passed': True, 'tasks_max': 1, **receipt,
+        receipts = []
+        for mode, tasks, expected in [
+            ('check', 1, {'actual_thread_exhaustion': True,
+                          'operation_continued': True, 'upgrading': False}),
+            ('check-normal', 4, {'heartbeat_refreshed': True, 'upgrading': False}),
+            ('check-unsafe-directory', 1, {'unsafe_directory_untouched': True,
+                                          'operation_continued': True}),
+        ]:
+            hints = directory / mode
+            hints.mkdir(mode=0o755 if mode == 'check-unsafe-directory' else 0o700)
+            hints.chmod(0o755 if mode == 'check-unsafe-directory' else 0o700)
+            unit = 'rsh-indicator-resource-' + uuid.uuid4().hex
+            properties = [
+                'User=root', 'Group=root', f'TasksMax={tasks}', 'MemoryMax=96M',
+                'RuntimeMaxSec=10', 'TimeoutStopSec=2', 'KillMode=control-group',
+                'NoNewPrivileges=yes', 'CapabilityBoundingSet=', 'AmbientCapabilities=',
+                'PrivateNetwork=yes', 'PrivateDevices=yes', 'ProtectSystem=strict',
+                'ProtectHome=yes', 'TemporaryFileSystem=/run', 'LimitCORE=0',
+                'RestrictSUIDSGID=yes', 'UMask=0077',
+                f'BindPaths={hints}:/run/rustsimhub-led-update',
+                'ReadWritePaths=/run/rustsimhub-led-update',
+            ]
+            command = ['systemd-run', '--quiet', '--wait', '--pipe', '--collect',
+                       '--unit=' + unit]
+            for prop in properties:
+                command += ['--property=' + prop]
+            result = subprocess.run(command + [str(binary), '--' + mode],
+                                    capture_output=True, timeout=20)
+            # Do not accept a sandbox/setup failure as an exercised resource failure.
+            assert result.returncode == 0, (result.returncode,
+                                            result.stdout.decode(), result.stderr.decode())
+            receipt = json.loads(result.stdout)
+            assert receipt == expected
+            if mode == 'check-unsafe-directory':
+                assert not list(hints.iterdir())
+            else:
+                state = json.loads((hints / 'state.json').read_text())
+                assert state['upgrading'] is False and state['available'] is False
+                assert [p.name for p in hints.iterdir()] == ['state.json']
+            receipts.append({'case': mode, 'tasks_max': tasks, **receipt})
+        print(json.dumps({'passed': True, 'cases': receipts,
                           'fixture_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
                           'device_access': False, 'production_data_access': False}))
 

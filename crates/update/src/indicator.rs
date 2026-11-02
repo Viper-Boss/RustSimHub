@@ -57,15 +57,27 @@ impl Activity {
             };
         }
         let (send, receive) = mpsc::channel();
-        let worker = thread::spawn(move || {
-            while let Err(mpsc::RecvTimeoutError::Timeout) =
-                receive.recv_timeout(Duration::from_secs(3))
-            {
-                if write(true).is_err() {
-                    break;
+        let worker = thread::Builder::new()
+            .name("update-indicator".into())
+            .spawn(move || {
+                while let Err(mpsc::RecvTimeoutError::Timeout) =
+                    receive.recv_timeout(Duration::from_secs(3))
+                {
+                    if write(true).is_err() {
+                        break;
+                    }
                 }
-            }
-        });
+            });
+        let Ok(worker) = worker else {
+            // Indication is optional: a process/thread limit must not abort an
+            // already verified update. Undo the initial hint when possible;
+            // its short expiry still bounds it if this second write also fails.
+            let _ = write(false);
+            return Self {
+                stop: None,
+                thread: None,
+            };
+        };
         Self {
             stop: Some(send),
             thread: Some(worker),
