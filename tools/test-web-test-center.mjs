@@ -287,12 +287,14 @@ const nknReport=(sequence,revision='0',manual=false)=>({available:true,configura
  await panel.buttons.manual_on.onclick();assert.deepEqual(f.sent.map(c=>c.op),['nkn_status','set_nkn_enabled','nkn_status']);
  assert.equal(f.saved.get('nkn-control-pending'),null);const archive=f.saved.get('nkn-control-receipts');assert.equal(archive.length,1);assert.equal(archive[0].state,'accepted');assert.equal(archive[0].record.owner,'manual_engine');
  const epoch=panel.epoch;f.logout();assert(panel.epoch>epoch);assert.equal(panel.sample,null);assert(panel.buttons.remote_on.disabled);assert.equal(f.sent.length,3);
+ for(const [name,button] of Object.entries(panel.buttons))assert.equal(button.disabled,true,`NKN ${name} must be disabled after the actual app logout`);
 }
 for(const end of ['logout','hide','visibility']){
  const gate=deferred(),f=fixture({respond:async c=>{assert.equal(c.op,'nkn_status');return gate.promise;}}),panel=f.nkn();
  const reading=panel.buttons.read.onclick();await turn();assert.equal(f.sent.length,1);
  if(end==='visibility')f.visibility(true);else f[end]();gate.resolve(nknReport(1));await reading;
  assert.equal(panel.sample,null);assert(panel.buttons.remote_on.disabled);assert.doesNotMatch(panel.output.textContent,/服务：运行中/);assert.equal(f.sent.length,1);
+ if(end==='logout')for(const [name,button] of Object.entries(panel.buttons))assert.equal(button.disabled,true,`Late NKN reply cannot enable ${name} after logout`);
 }
 {
  const f=fixture({respond:async()=>{throw Error('Corrupt pending must fail before IPC');}}),panel=f.nkn();
@@ -300,3 +302,13 @@ for(const end of ['logout','hide','visibility']){
  await panel.buttons.read.onclick();assert.equal(f.sent.length,0);assert.equal(panel.sample,null);assert(panel.buttons.remote_on.disabled);assert.doesNotMatch(panel.state.textContent,/MUST-NOT-LEAK/);assert(f.saved.get('nkn-control-pending'));panel.reset();
 }
 console.log('PASS: real app/NKN construction, exact pending/archive aliases and IndexedDB readback, passive-read no Remote ON, explicit manual-only request, corrupt pending, logout/pagehide/visibility late-response reset.');
+
+{
+ const f=fixture({respond:async c=>{if(c.op==='nkn_status')return nknReport(1);throw Error('Synthetic re-login denial');}}),panel=f.nkn();
+ await panel.buttons.read.onclick();assert.equal(panel.buttons.read.disabled,false);
+ await panel.loginButton.onclick();
+ assert.equal(panel.sample,null);
+ for(const [name,button] of Object.entries(panel.buttons))assert.equal(button.disabled,true,`Failed re-login cannot leave NKN ${name} available`);
+ assert.equal(f.sent.filter(c=>c.op==='nkn_status').length,1,'Denied re-login cannot implicitly read NKN again');
+}
+console.log('PASS: NKN controls disabled after app logout, late response and denied re-login; management login remains available.');

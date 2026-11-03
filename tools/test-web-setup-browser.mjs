@@ -6,6 +6,7 @@ import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
 import {spawn} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 const {subtle}=webcrypto,hex=b=>Buffer.from(b).toString('hex');
 const key=await subtle.generateKey({name:'Ed25519'},true,['sign','verify']);
 const device=Array.from(new Uint8Array(await subtle.exportKey('raw',key.publicKey)));
@@ -82,6 +83,6 @@ const server=createServer(async(req,res)=>{
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const python=process.env.WEB3_AP_BROWSER_PYTHON||'python3';
 try{
- const child=spawn(python,[new URL('./test-web-setup-browser.py',import.meta.url).pathname,`http://127.0.0.1:${server.address().port}`],{stdio:'inherit',env:process.env});
+ const child=spawn(python,[fileURLToPath(new URL('./test-web-setup-browser.py',import.meta.url)),`http://127.0.0.1:${server.address().port}`],{stdio:'inherit',env:process.env});
  const code=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',resolve);});assert.equal(code,0,'real-browser regression failed');
 }finally{await new Promise(r=>server.close(r));}

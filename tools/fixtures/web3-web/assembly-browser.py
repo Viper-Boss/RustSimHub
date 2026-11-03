@@ -119,15 +119,12 @@ with sync_playwright() as p:
             fixture('ready')
             page.wait_for_timeout(100)
             assert '服务：运行中' not in panel.inner_text()
-            # Known production UI gap: app resets the panel before clearing token.
-            # Record it without changing production or claiming disabled styling.
+            # Logout invalidates the session before refreshing the actual controls.
             read_button = panel.get_by_role('button', name='只读核对引擎状态', exact=True)
-            if read_button.is_enabled():
-                print(f'KNOWN PRODUCT GAP {width}px: NKN readonly button remains enabled after logout; verifying that current-session checks prevent RPC.')
-                before_logout_read = count('nkn_status')
-                read_button.click()
-                page.wait_for_function("() => document.querySelector('#support-nkn').textContent.includes('操作或读取未获确认')")
-                assert count('nkn_status') == before_logout_read
+            assert read_button.is_disabled()
+            for button in panel.locator('button').all():
+                if button.inner_text() != '管理登录后读取':
+                    assert button.is_disabled()
             assert panel.get_by_role('button', name='请求开启远程功能', exact=True).is_disabled()
             assert count('set_nkn_enabled') == 0
             assert not fixture()['failures'], fixture()['failures']
