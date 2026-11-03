@@ -140,6 +140,18 @@ a{color:var(--tint);text-decoration:none}
 .speed .up em{font-style:normal;color:var(--orange);font-weight:600}
 .spark{display:block;width:100%;height:58px;margin-top:10px}
 
+/* 设备状态 */
+.stats{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+.stat{padding:14px 16px 16px;border-radius:20px}
+.stat-head{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--label-2)}
+.stat-head .sq{width:26px;height:26px;border-radius:8px}
+.stat b{display:block;font-size:26px;font-weight:700;margin-top:10px;line-height:1.1}
+.stat b small{font-size:14px;font-weight:500;color:var(--label-2);margin-left:3px}
+.stat .meter{height:6px;border-radius:999px;background:var(--fill);margin-top:10px;overflow:hidden}
+.stat .meter i{display:block;height:100%;border-radius:999px}
+.stat .hint{font-size:12px;color:var(--label-2);margin-top:6px}
+.cols > div > .section-title:first-child{margin-top:0}
+
 /* 手机 */
 nav.tabs{display:none}
 @media (max-width:760px){
@@ -149,6 +161,8 @@ nav.tabs{display:none}
   .carrier{font-size:30px}
   .qa .ic{width:56px;height:56px}
   .bar .chip{display:none}
+  .cols > div > .section-title:first-child{margin-top:26px}
+  .widgets,.stats{gap:12px}
   nav.tabs{display:flex;position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:5;justify-content:space-around;padding:8px 6px;border-radius:26px;
     background:var(--bar);backdrop-filter:saturate(180%) blur(22px);-webkit-backdrop-filter:saturate(180%) blur(22px);box-shadow:0 10px 30px -10px rgba(0,0,0,.3);border:.5px solid var(--sep)}
   nav.tabs a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:600;color:var(--gray);min-width:60px;padding:4px 0;border-radius:18px}
@@ -177,6 +191,10 @@ nav.tabs{display:none}
   <symbol id="i-out" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M7 17 17 7M9 7h8v8"/></symbol>
   <symbol id="i-ant" viewBox="0 0 24 24"><path fill="currentColor" d="M11 10.7a2 2 0 1 1 2 0V21h-2zM7.1 5.6l1.4 1.4a5 5 0 0 0 0 7l-1.4 1.4a7 7 0 0 1 0-9.8m9.8 0a7 7 0 0 1 0 9.8L15.5 14a5 5 0 0 0 0-7z"/></symbol>
   <symbol id="i-down" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M12 4v15m-6-6 6 6 6-6"/></symbol>
+  <symbol id="i-temp" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a3 3 0 0 1 3 3v8.3a5 5 0 1 1-6 0V5a3 3 0 0 1 3-3m0 2a1 1 0 0 0-1 1v9.4l-.5.3a3 3 0 1 0 3 0l-.5-.3V5a1 1 0 0 0-1-1m0 7a1 1 0 0 1 1 1v3.3a2 2 0 1 1-2 0V12a1 1 0 0 1 1-1"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><path fill="currentColor" d="M9 2h2v2h2V2h2v2h1a3 3 0 0 1 3 3v1h2v2h-2v2h2v2h-2v2h2v2h-2v1a3 3 0 0 1-3 3h-1v2h-2v-2h-2v2H9v-2H8a3 3 0 0 1-3-3v-1H3v-2h2v-2H3v-2h2V9H3V7h2a3 3 0 0 1 3-3h1zm0 6v8h6V8z"/></symbol>
+  <symbol id="i-mem" viewBox="0 0 24 24"><path fill="currentColor" d="M3 7h18a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-1v2h-2v-2h-3v2h-2v-2H8v2H6v-2H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1m3 3v4h2v-4zm5 0v4h2v-4zm5 0v4h2v-4z"/></symbol>
+  <symbol id="i-disk" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3c4.4 0 8 1.3 8 3v12c0 1.7-3.6 3-8 3s-8-1.3-8-3V6c0-1.7 3.6-3 8-3m6 6.3C16.5 10 14.4 10.4 12 10.4S7.5 10 6 9.3V12c0 .6 2.4 1.6 6 1.6s6-1 6-1.6zm0 6C16.5 16 14.4 16.4 12 16.4S7.5 16 6 15.3V18c0 .6 2.4 1.6 6 1.6s6-1 6-1.6z"/></symbol>
   <symbol id="i-chart" viewBox="0 0 24 24"><path fill="currentColor" d="M4 13h3v7H4zm6.5-5h3v12h-3zM17 4h3v16h-3z"/></symbol>
 </svg>
 
@@ -237,6 +255,35 @@ nav.tabs{display:none}
     </div>
 
     <div>
+      <h2 class="section-title">设备状态</h2>
+      <div class="stats num">
+        <div class="group stat">
+          <div class="stat-head"><span class="sq g-orange"><svg width="14" height="14"><use href="#i-temp"/></svg></span>CPU 温度</div>
+          <b>48<small>°C</small></b>
+          <div class="meter"><i style="width:48%;background:linear-gradient(90deg,#ffcc4d,#ff8a00)"></i></div>
+          <div class="hint">正常 · 上限 85 °C</div>
+        </div>
+        <div class="group stat">
+          <div class="stat-head"><span class="sq g-blue"><svg width="14" height="14"><use href="#i-cpu"/></svg></span>CPU 占用</div>
+          <b>23<small>%</small></b>
+          <div class="meter"><i style="width:23%;background:linear-gradient(90deg,#5ac8fa,#007aff)"></i></div>
+          <div class="hint">4 核 · 负载 0.42</div>
+        </div>
+        <div class="group stat">
+          <div class="stat-head"><span class="sq g-purple"><svg width="14" height="14"><use href="#i-mem"/></svg></span>内存</div>
+          <b>212<small>/ 384 MB</small></b>
+          <div class="meter"><i style="width:55%;background:linear-gradient(90deg,#c86dff,#7a4cf5)"></i></div>
+          <div class="hint">已用 55%</div>
+        </div>
+        <div class="group stat">
+          <div class="stat-head"><span class="sq g-teal"><svg width="14" height="14"><use href="#i-disk"/></svg></span>存储</div>
+          <b>1.6<small>/ 3.4 GB</small></b>
+          <div class="meter"><i style="width:47%;background:linear-gradient(90deg,#6ee7f2,#16a3c4)"></i></div>
+          <div class="hint">已用 47% · 数据分区</div>
+        </div>
+      </div>
+
+      <h2 class="section-title">流量与网速</h2>
       <div class="widgets">
         <div class="group widget">
           <div class="w-title"><svg width="14" height="14" style="color:var(--purple)"><use href="#i-chart"/></svg>本月流量</div>
