@@ -55,7 +55,8 @@ def main():
         finally:
             subprocess.run(docker+['rm','-f',container],env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
     run('matrix',['--user','1000:1000'],['/input/worker-test','--nocapture','--test-threads=1'],100)
-    matrix=(WORK/'matrix.log').read_text();assert 'test result: ok. 38 passed; 0 failed; 2 ignored;' in matrix
+    # Retain all five new shared RTC regressions in the exact matrix count.
+    matrix=(WORK/'matrix.log').read_text();assert 'test result: ok. 43 passed; 0 failed; 2 ignored;' in matrix
     run('uids',['--user','0:0','--group-add','983','--tmpfs','/fixture:rw,nosuid,nodev,size=64m','--tmpfs','/run:rw,nosuid,nodev,size=8m',
         '--cap-add=SETUID','--cap-add=SETGID','--cap-add=CHOWN','--cap-add=FOWNER','--env','RUSTSIMHUB_PRIVATE_UID_FIXTURE=1'],
         ['python3','/input/remote_worker_uids.py'],45)
@@ -69,8 +70,8 @@ def main():
     result={'fixture':'actual-remote-worker-v2','source_head':subprocess.check_output(['git','rev-parse','HEAD'],cwd=PROJECT,text=True).strip(),
         'tracked_dirty':bool(subprocess.check_output(['git','status','--porcelain','--untracked-files=no'],cwd=PROJECT,text=True).strip()),
         'image':image_id,'built_parent_image':base_id,'network':'none','read_only':True,'memory_limit_bytes':134217728,'pids_limit':16,'cpus':2,
-        'matrix_tests_passed':38,'matrix_tests_ignored':2,'ignored_reason':'actual UID role runs separately in disposable image',
-        'new_worker_integration_functions':10,'duplicate_sdk_and_source_unit_tests':28,
+        'matrix_tests_passed':43,'matrix_tests_ignored':2,'ignored_reason':'actual UID role runs separately in disposable image',
+        'new_worker_integration_functions':10,'duplicate_sdk_and_source_unit_tests':33,
         'matrix_uid':1000,'matrix_capabilities':[],'uid_fixture':proof,'normal_core_fixture':normal,'uid_fixture_controller_capabilities':['SETUID','SETGID','CHOWN','FOWNER'],
         'binary_sha256':sha(stage/'worker-test'),'non_test_binary_sha256':sha(stage/'native-worker'),'matrix_log_sha256':sha(WORK/'matrix.log'),'uids_log_sha256':sha(WORK/'uids.log'),'normal_core_log_sha256':sha(WORK/'normal-core.log'),'core_binary_sha256':sha(stage/'core-test')}
     (WORK/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,sort_keys=True))

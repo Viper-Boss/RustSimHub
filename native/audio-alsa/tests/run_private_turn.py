@@ -52,11 +52,12 @@ def run():
     finally:
         subprocess.run(docker+['rm','-f',container],env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=False)
     log=(WORK/'container.log').read_text()
-    if 'test result: ok. 23 passed; 0 failed; 0 ignored;' not in log:
+    # PR192 contributes five retained RTC regressions through the shared source module.
+    if 'test result: ok. 28 passed; 0 failed; 0 ignored;' not in log:
         raise RuntimeError('missing complete actual private test result')
     result={'fixture':'actual-private-turn-tls-rtc','source_head':subprocess.check_output(['git','rev-parse','HEAD'],cwd=PROJECT,text=True).strip(),
         'tracked_dirty':bool(subprocess.check_output(['git','status','--porcelain','--untracked-files=no'],cwd=PROJECT,text=True).strip()),
-        'tests_passed':23,'image':image_id,'network':'none','uid':1000,'capabilities':[],
+        'tests_passed':28,'image':image_id,'network':'none','uid':1000,'capabilities':[],
         'memory_limit_bytes':128*1024*1024,'pids_limit':12,'cpus':2,
         'binary_sha256':hashlib.sha256((stage/'turn_private_tls').read_bytes()).hexdigest(),
         'log_sha256':hashlib.sha256((WORK/'container.log').read_bytes()).hexdigest()}
