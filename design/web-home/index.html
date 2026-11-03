@@ -98,6 +98,7 @@ a{color:var(--tint);text-decoration:none}
 .g-purple{background:linear-gradient(160deg,#c86dff,#7a4cf5);--glow:#7a4cf5}
 .g-pink{background:linear-gradient(160deg,#ff7a93,#ff2d55);--glow:#ff2d55}
 .g-teal{background:linear-gradient(160deg,#6ee7f2,#16a3c4);--glow:#16a3c4}
+.g-indigo{background:linear-gradient(160deg,#7d7bff,#4b48d6);--glow:#4b48d6}
 .g-gray{background:linear-gradient(160deg,#b8b8c0,#7c7c85);--glow:#7c7c85}
 
 /* 行 */
@@ -195,6 +196,8 @@ nav.tabs{display:none}
   <symbol id="i-cpu" viewBox="0 0 24 24"><path fill="currentColor" d="M9 2h2v2h2V2h2v2h1a3 3 0 0 1 3 3v1h2v2h-2v2h2v2h-2v2h2v2h-2v1a3 3 0 0 1-3 3h-1v2h-2v-2h-2v2H9v-2H8a3 3 0 0 1-3-3v-1H3v-2h2v-2H3v-2h2V9H3V7h2a3 3 0 0 1 3-3h1zm0 6v8h6V8z"/></symbol>
   <symbol id="i-mem" viewBox="0 0 24 24"><path fill="currentColor" d="M3 7h18a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-1v2h-2v-2h-3v2h-2v-2H8v2H6v-2H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1m3 3v4h2v-4zm5 0v4h2v-4zm5 0v4h2v-4z"/></symbol>
   <symbol id="i-disk" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3c4.4 0 8 1.3 8 3v12c0 1.7-3.6 3-8 3s-8-1.3-8-3V6c0-1.7 3.6-3 8-3m6 6.3C16.5 10 14.4 10.4 12 10.4S7.5 10 6 9.3V12c0 .6 2.4 1.6 6 1.6s6-1 6-1.6zm0 6C16.5 16 14.4 16.4 12 16.4S7.5 16 6 15.3V18c0 .6 2.4 1.6 6 1.6s6-1 6-1.6z"/></symbol>
+  <symbol id="i-nas" viewBox="0 0 24 24"><path fill="currentColor" d="M5 3h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2m0 10h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2m2-7.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m0 10a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M11 6v2h6V6zm0 10v2h6v-2z"/></symbol>
+  <symbol id="i-mobile" viewBox="0 0 24 24"><path fill="currentColor" d="M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2m0 3v13h8V5zm4 14.2a1 1 0 1 0 0 2 1 1 0 0 0 0-2"/></symbol>
   <symbol id="i-chart" viewBox="0 0 24 24"><path fill="currentColor" d="M4 13h3v7H4zm6.5-5h3v12h-3zM17 4h3v16h-3z"/></symbol>
 </svg>
 
@@ -319,6 +322,8 @@ nav.tabs{display:none}
         <div class="row sm"><span class="sq g-blue"><svg width="16" height="16"><use href="#i-send"/></svg></span><div class="row-body"><div class="row-title"><b style="font-weight:500">短信转发</b></div><p>Bark · 2 条规则</p></div><button class="switch" role="switch" aria-checked="true" aria-label="短信转发"></button></div>
         <div class="row sm"><span class="sq g-purple"><svg width="17" height="17"><use href="#i-globe"/></svg></span><div class="row-body"><div class="row-title"><b style="font-weight:500">NKN 远程访问</b></div><p>默认关闭</p></div><button class="switch" role="switch" aria-checked="false" aria-label="NKN 远程访问"></button></div>
         <button class="row sm"><span class="sq g-teal"><svg width="17" height="17"><use href="#i-wifi"/></svg></span><div class="row-body"><div class="row-title"><b style="font-weight:500">Wi-Fi</b></div><p>家里的网络 · 已连接</p></div><span class="pill" style="background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green)">在线</span><svg class="chev" width="14" height="14"><use href="#i-chev"/></svg></button>
+        <button class="row sm"><span class="sq g-indigo"><svg width="17" height="17"><use href="#i-nas"/></svg></span><div class="row-body"><div class="row-title"><b style="font-weight:500">NasSimHub 连接</b></div><p>局域网 NAS · 经 USB 连接</p></div><span class="pill" style="background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green)">已连接</span><svg class="chev" width="14" height="14"><use href="#i-chev"/></svg></button>
+        <button class="row sm"><span class="sq g-pink"><svg width="17" height="17"><use href="#i-mobile"/></svg></span><div class="row-body"><div class="row-title"><b style="font-weight:500">AirSim 手机连接</b></div><p>已授权 2 台手机</p></div><span class="pill" style="background:color-mix(in srgb,var(--tint) 14%,transparent);color:var(--tint)">1 台在线</span><svg class="chev" width="14" height="14"><use href="#i-chev"/></svg></button>
         <button class="row sm"><span class="sq g-gray"><svg width="17" height="17"><use href="#i-gear"/></svg></span><div class="row-body"><div class="row-title"><b style="font-weight:500">设置与诊断</b></div></div><svg class="chev" width="14" height="14"><use href="#i-chev"/></svg></button>
       </div>
       <p class="foot">开关变更需要所有者最近 5 分钟内登录，并会等待设备确认。</p>
