@@ -59,13 +59,42 @@ impl Pair {
         after_ms: i64,
         revoke_after_decode: bool,
     ) -> (Result<(), Error>, usize) {
+        self.deliver_payload(sequence, before_ms, after_ms, revoke_after_decode, None)
+    }
+    fn deliver_payload(
+        &mut self,
+        sequence: u64,
+        before_ms: i64,
+        after_ms: i64,
+        revoke_after_decode: bool,
+        payload: Option<Vec<u8>>,
+    ) -> (Result<(), Error>, usize) {
         let now = rustsimhub_media::local::now_ms();
         let frame = Frame {
             samples: std::array::from_fn(|i| if i % 16 < 8 { 1024 } else { -1024 }),
             sequence,
             at_ms: now,
         };
-        self.sender.send(&self.a, &frame, now).unwrap();
+        if let Some(payload) = payload {
+            let mid = self.sender.mid.unwrap();
+            let writer = self.sender.rtc.writer(mid).unwrap();
+            let pt = writer
+                .payload_params()
+                .find(|p| p.spec().codec == str0m::format::Codec::Opus)
+                .unwrap()
+                .pt();
+            writer
+                .write(
+                    pt,
+                    Instant::now(),
+                    MediaTime::new(sequence * u64::from(RTP_STEP), Frequency::FORTY_EIGHT_KHZ),
+                    payload,
+                )
+                .unwrap();
+            self.sender.drain(&self.a, Instant::now(), now).unwrap();
+        } else {
+            self.sender.send(&self.a, &frame, now).unwrap();
+        }
         // The real RTP pacer releases the encoded SRTP packet on its timer.
         let tick = self.sender.timeout.max(Instant::now());
         self.sender.rtc.handle_input(Input::Timeout(tick)).unwrap();
@@ -249,4 +278,22 @@ fn future_network_time_and_clock_regression_remain_errors() {
         assert_eq!(pair.receiver.received_frames, 0);
         assert_eq!(pair.receiver.dropped_frames, 0);
     }
+}
+
+#[test]
+fn authenticated_wrong_opus_duration_is_an_error_not_a_stale_drop() {
+    let mut pair = Pair::new();
+    let mut encoder =
+        opus::Encoder::new(16_000, opus::Channels::Mono, opus::Application::Voip).unwrap();
+    let mut bytes = [0; MAX_PACKET];
+    let length = encoder.encode(&[0_i16; SAMPLES / 2], &mut bytes).unwrap();
+    let (result, reads) = pair.deliver_payload(0, 0, 60, false, Some(bytes[..length].to_vec()));
+    assert_eq!(result, Err(Error::Codec));
+    assert_eq!(
+        reads, 1,
+        "wrong 10ms shape must fail before post-decode stale handling"
+    );
+    assert!(pair.receiver.incoming.is_empty());
+    assert_eq!(pair.receiver.received_frames, 0);
+    assert_eq!(pair.receiver.dropped_frames, 0);
 }
