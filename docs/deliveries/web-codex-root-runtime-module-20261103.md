@@ -5,7 +5,7 @@
 `/workspace/RustSimHub-root-observation`，分支
 `codex/web-root-runtime-observation-20261103`。开工 fetch 成功，开放 PR 195 为第一窗口音频工作，无重叠运行态实现。
 接口检查点 `6ff0035b55dcfaf980dda55f312e269fcf3738e1`；正式受测实现 HEAD：
-`413f9cfe373dc879a170f2cab9138f3a95286370`。本报告提交仅文档，不改程序；最终 PR HEAD 由 PR 描述记录，不能把报告的后续提交冒充已测试新代码。
+`6736f1c772e4efae33b0ac1bdf6027de4e4e5d51`。本报告提交仅文档，不改程序；最终 PR HEAD 由 PR 描述记录，不能把报告的后续提交冒充已测试新代码。
 
 ## 已实现与边界
 
@@ -13,7 +13,7 @@
 
 只读上下文复用原账本守卫、签名 verify 和 verify_payload；最小新增只读访问器保留已安装公钥和状态推导。固定 schema6；已安装 epoch 按账本精确匹配，不能把已消耗的全局 floor 当成重新准入阈值。仅暂存的候选不能冒充运行槽；attempted 时严格要求相同候选，可能处于选槽中间态则拒绝。Root-owned/no-follow 源、manifest hash/签名/完整有序载荷集合、大小/24MiB总预算、selected/selected.next 和来源 inode/ctime 均绑定。真实载荷是 `/opt/rustsimhub/versions/<hash>`；账本 versions 的绑定只在 app-select 服务私有命名空间存在，外部观察不错误要求两个目录 inode 相同。
 
-四个固定系统单位映射 core/core/986、edge/edge/985、media/audio-alsa/984、forwarder/forwarder/983。维护组件仅新增固定只读 systemctl 运输接口，复用 Reap，未构造 MaintenanceSnapshot、停业务或取得数据写锁；旧准入判断未改。命令固定 `/usr/bin/systemctl --system show`、九个属性、空环境、根工作目录；每次250ms、4096字节、非阻塞管道，超时/异常/超量保持错误并回收本次进程。
+四个固定系统单位映射 core/core/986、edge/edge/985、media/audio-alsa/984、forwarder/forwarder/983。维护组件仅新增固定只读 systemctl 运输接口，复用 Reap，未构造 MaintenanceSnapshot、停业务或取得数据写锁；旧准入判断未改。命令固定 `/usr/bin/systemctl --system show --all`、九个属性、空环境、根工作目录；每次250ms、4096字节、非阻塞管道，超时/异常/超量保持错误并回收本次进程。
 
 生产路径读取真实 Linux boot UUID；Unit Id/User/InvocationID/状态/MainPID/ControlGroup，已有 health::probe_process 的 stat/status/exe，加 exe inode/完整摘要与槽位同一文件、UID四值、NNP、Inh/Prm/Eff/Amb/Bnd均零；核对 v1 systemd/v2 cgroup及有界子组成员。前后重查单位、进程、boot、账本、槽位。重复PID、外来成员、PID退出/exec/代次变化拒绝。8192个proc入口、单status64KiB、cgroup8KiB、32子组/128进程/每组256项为上限；进程读取有已有24MiB程序上限。完整源组合不可得即失败，不返回部分成功。
 
@@ -63,3 +63,5 @@ Root容器仅挂本轮复制且校验一致的测试可执行文件，tmpfs /tmp
 本PR完成第一段8项离线交付，第二段固定CLI/独立Root拒绝驱动及说明仍由后续堆叠PR交付。真实PID1/单位、原生ARM运行签名槽位与完整真实系统组合not_run；本机x86与签名ARM格式不同，不能伪称真实正例。设备/生产信任/签名安装/Root政策/业务data代次/最终健康和确认均未执行或接通。未改全局台账、第一窗口文件或既有health/Store写入规则。
 
 来源与许可：复用仓库AGPL-3.0-only实现与测试夹具；未复制第三方新源码，未加依赖。AI辅助实现、测试及审查，Git真实身份保持。整体81.5%、118成员步骤、169动作/20完成及既有权重不变；离线交付不等于审核/合并/设备验收。
+
+补充复核：固定show命令显式加入--all，以读取正常OFF单位的空ControlGroup/InvocationID；PID复用负例保持PID不变、只改变start_ticks。正式来源已更新为上述6736f1c完整SHA；默认84总通过/全部特性85总通过（各含1编译拒绝）、4原忽略、严格Clippy/默认check和Root14/14均对该来源重跑通过。第一次复制只读测试制品时权限拒绝已修正本轮副本权限，未改生产权限。此前413f9cfe结果仅为历史来源，不沿用冒充新HEAD。
