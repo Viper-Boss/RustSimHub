@@ -1,5 +1,11 @@
 # 窗口8 · WEB4-INTEGRATE：跨包生产接线与统一发行入口
 
+## 当前接手与阶段（2026-11-04）
+
+用户指定改由负责人Viper-Boss本机执行，窗口6/7由其他窗口继续，勿重复认领8。第一阶段[PR208](https://github.com/Viper-Boss/RustSimHub/pull/208)已正常合并，main为 `a2044edfef6aeeced3d2c2eb8743791b34e4ccdc`；固定受测代码71b268cb，后续仅历史/文档。已审查复核并合并202/203/204/205/207，新增有限来源检查；复现并修复207交出的NKN退出/重登录按钮状态，31 Node、Edge41/严格检查、输入12、Windows Chrome三宽主页及11配网场景通过。此前固定AP/恢复组合531 Rust通过/5原忽略单列，不与重复Edge累加。
+
+见[固定阶段报告](https://github.com/Viper-Boss/RustSimHub/blob/a2044edfef6aeeced3d2c2eb8743791b34e4ccdc/docs/deliveries/web4-production-integration-20261104.md)。**窗口8仍在进行，十四步未全部完成**；206仅健康第一阶段，最终确认/6安装/7数据及其他旧PR仍待审核接入。没有签名、部署或设备访问；81.5%、20/169、加权10.6%保持。以下原任务要求未取消或缩小。
+
 先读[总任务书](WEB4-DEVELOPMENT-DELEGATION-20261104.md)。建议分支 `codex/web4-production-integration-20261104`；报告 `docs/deliveries/web4-production-integration-20261104.md`。本包必须把已交付模块接成实际生产路径；不能仅汇总CI/跑测试或说“后续负责人接线”。真实生产密钥、签名、设备/服务器安装与main合并仍由负责人执行。
 
 ## 依赖和唯一职责
