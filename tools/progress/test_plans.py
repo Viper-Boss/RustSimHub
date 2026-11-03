@@ -31,6 +31,26 @@ class Plans(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'duplicate'):
             plans.parse_document('### A-01 / First\nDo first.\n### A-01 / Second\nDo second.','docs/team/example.md',{'A-01'},[])
 
+    def test_c25_c30_transfer_keeps_stable_ids_and_original_acceptance(self):
+        roster = json.loads((team.ROOT/'docs/team/roster.json').read_text(encoding='utf8'))
+        members = {m['id']: m for m in roster['members']}
+        transferred = {'C-%02d' % n for n in range(25, 31)}
+        self.assertEqual(len(members['member-b']['step_ids']), 68)
+        self.assertEqual(len(members['member-c']['step_ids']), 24)
+        self.assertTrue(transferred <= set(members['member-b']['step_ids']))
+        self.assertFalse(transferred & set(members['member-c']['step_ids']))
+        self.assertEqual(sum(len(m['step_ids']) for m in members.values()), 118)
+        records = {m['member_id']: m['steps'] for m in self.data['team']['task_plan']['members']}
+        self.assertTrue(all(s['status'] == 'not_accepted' for s in records['member-b'] if s['id'] in transferred))
+        self.assertEqual(sum(s['status'] != 'not_accepted' for s in records['member-c']), 9)
+        ownership = json.loads((team.ROOT/'docs/team/offline-ownership.json').read_text(encoding='utf8'))
+        moved = {'UPD-02','UPD-03','UPD-05','UPD-08','NAS-03','NAS-04','FWD-22','UPD-10','REC-05','REL-01','REL-04','BLE0-01','BLE0-02','BLE0-04','BLE6-04','REMOTE-02'}
+        self.assertEqual({a['id'] for a in ownership['actions'] if a['id'] in moved and a['offline_owner'] == 'member-b'}, moved)
+        self.assertTrue(moved <= set(members['member-b']['task_ids']))
+        self.assertFalse(moved & set(members['member-c']['task_ids']))
+        # The reassignment must not manufacture reviewer decisions or task IDs.
+        self.assertEqual(len({step for m in members.values() for step in m['step_ids']}), 118)
+
     def test_range_and_t5_package_references_keep_actual_scope(self):
         self.assertEqual(plans.project_ids('BLE1-01～04、NKN-05/06',['BLE1-01','BLE1-02','BLE1-03','BLE1-04','NKN-05','NKN-06']),['BLE1-01','BLE1-02','BLE1-03','BLE1-04','NKN-05','NKN-06'])
         rows=plans.parse_document('| wnfhsj / branch | B-21：first；B-22：second | package acceptance |','docs/team/example.md',{'B-21','B-22'},['BLE4-01','BLE4-02','BLE4-03','BLE4-04'])
@@ -62,7 +82,7 @@ class Plans(unittest.TestCase):
         roster=json.loads((team.ROOT/'docs/team/roster.json').read_text(encoding='utf8'))
         next(m for m in roster['members'] if m['id']=='lead')['step_ids'].append('D-01')
         with self.assertRaisesRegex(ValueError,'multiple owners'):team.roster_valid(roster)
-        self.assertEqual(len(other['step_ids']),62)
+        self.assertEqual(len(other['step_ids']),68)
         self.assertEqual(sum(len(m['step_ids']) for m in members),118)
 
 

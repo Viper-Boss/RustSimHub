@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-03T02:00:31.396765+00:00",
+  "updated_at": "2026-11-03T10:20:01.053817+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -68,11 +68,16 @@
   },
   "focus": {
     "task_id": "UPD-09",
-    "title": "PR192后完整同源交付材料已重建",
-    "state": "13程序同源构建通过 · 未签名 · 未部署",
-    "description": "固定主线7c33324/完整归档06f5c57e，正式1485 Rust通过、9项既有忽略、12 ARM程序与同源音频39 ARM/QEMU通过。实际音频release在私有loopback两侧各收发50帧，撤权/超时通过、未打开PCM。13程序与6应用载荷22901521字节回读；没有混旧06cb或dd10制品。只读现场仍confirmed71/无候选、七服务正常、数据断开/转发PID0。签名调用被自动审批拒绝并未执行，已请求仅本机现有信任签名/验签、不上传安装的单独授权；当前unsigned、无epoch、不可安装。Core恢复竞争仍待原D修复，不能以本次1485通过抹去已复现机制。 验收81.5%、20/169、加权10.6%和主线代码约90%粗估保持，人工最后。"
+    "title": "两笔非草稿PR已合并，应用72本机签名验签完成",
+    "state": "190/194已合并 · 4草稿保留 · 未部署",
+    "description": "PR190固定1d6c9bf、PR194固定10949e4按所有者本笔明确授权正常合并7286339/8f9cfef，接受云端CI因计费未运行的风险；未更改保护规则，4个草稿保持。194将C25-C30离线任务归属转到wnfhsj88，当前B68/C24，总118步不变，旧作者/9项既有C审核保持；离线交付不等于真实环境验收。代码统计与PR状态按合并后main重算。应用72仍严格来自另行授权的7c33324/06f5c57e，六应用载荷及八目标维护包实际ARM/OpenSSL和6反例通过，不含后续新增main，不上传安装。原验收81.5%、20/169、加权10.6%保持，人工最后。"
   },
   "facts": [
+    {
+      "label": "本轮PR合并",
+      "value": "190 / 194 · 已合并",
+      "detail": "7286339/8f9cfef回读成功；按本笔明确授权接受CI未运行风险；4草稿保持"
+    },
     {
       "label": "LAN音频过期帧",
       "value": "代码已合并 · 39 ARM测试通过",
@@ -90,13 +95,13 @@
     },
     {
       "label": "网页版辅助工具",
-      "value": "20自测通过 · PR190未合并",
-      "detail": "仅工具/报告；一处报告末尾空行待整理，不代替产品验收"
+      "value": "PR190已合并 · 20自测原证据",
+      "detail": "只合入开发检查工具/报告；原产品失败及未运行项保留，不冒称发布全绿"
     },
     {
-      "label": "新主线正式构建",
+      "label": "候选72来源构建",
       "value": "1485 Rust通过 · 12 ARM程序",
-      "detail": "7c33324/06f5c57e正式完整流程；0失败/9既有忽略，未部署"
+      "detail": "固定7c33324/06f5c57e：1485通过/9忽略；后续新增主线未按此结果验收"
     },
     {
       "label": "同源音频",
@@ -104,12 +109,12 @@
       "detail": "与12主程序同一06f5c57e归档；各50帧，撤权/超时通过，未打开PCM"
     },
     {
-      "label": "未签名应用载荷",
-      "value": "新6载荷 · 约22.9MB",
-      "detail": "22901521字节，13程序同源回读；无签名/epoch、不可安装，等待单独签名授权"
+      "label": "应用72签名候选",
+      "value": "已签名 · 6载荷 · 本机验签通过",
+      "detail": "固定7c33324/06f5c57e，ARM/OpenSSL和6反例通过；未上传安装，不是当前main全部新功能"
     },
     {
-      "label": "本轮成员合并",
+      "label": "先前四份成员合并",
       "value": "4 / 4 已合入 main",
       "detail": "178、180、184、187；12草稿保留。先行批准不等于技术验收"
     },
@@ -146,12 +151,27 @@
     {
       "label": "B线材料",
       "value": "32步已有交付",
-      "detail": "统计provider、恢复后端、PWA发布和实机待接续"
+      "detail": "原B32步保持；PR191补真实SDK/恢复listener/PWA装配候选，待审，真实发布与设备验收仍缺"
     },
     {
-      "label": "D线离线剩余",
-      "value": "4个大步骤",
-      "detail": "PR162自报22/26已提交，D22/D23/D25/D26仍有前置；草稿未合并，不等于验收"
+      "label": "D线离线交付",
+      "value": "26 / 26 已提交 · 待审核",
+      "detail": "PR170整合最新main与D24/25/26；162已关闭删分支，原提交保留。离线提交不等于生产准入或实机验收"
+    },
+    {
+      "label": "A组剩余九步",
+      "value": "代码候选已分批合并",
+      "detail": "178/184/187/191均由负责人合入；正式密码/依赖、安装与实机验收保留"
+    },
+    {
+      "label": "PR191最终三组",
+      "value": "A22 / A27 / A30 · 已合并",
+      "detail": "原29ba539/524项证据保持原来源；当前main已含该候选，仍未部署"
+    },
+    {
+      "label": "历史证据缺口",
+      "value": "SMS-05原报告未取得",
+      "detail": "保留负责人固定公开台账已完成记录；STAB-03是用户接受6.4小时，不冒称24小时"
     }
   ],
   "constraints": [
@@ -175,7 +195,10 @@
     "docs/VALIDATION-NAS-MANAGEMENT-PANEL-20261102.md",
     "docs/VALIDATION-CANDIDATE71-READINESS-20261102.md",
     "docs/VALIDATION-NAS-JOURNAL-20261102.md",
-    "docs/VALIDATION-APP71-INSTALL-20261102.md"
+    "docs/VALIDATION-APP71-INSTALL-20261102.md",
+    "docs/VALIDATION-DASHBOARD-REFRESH-20261103.md",
+    "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md",
+    "docs/deliveries/member-d-pr170-main-sync-20261103.md"
   ],
   "modules": [
     {
@@ -183,7 +206,7 @@
       "title": "短信转发 · 独立服务",
       "scope": "extension",
       "phase": "usable",
-      "summary": "原生Rust队列、HTTPS、配置页与六文件应用已交付；服务安装与默认OFF已验真；继续验收一键递送、故障和冷启动。",
+      "summary": "原生Rust队列与默认OFF已交付，Bark等既有闭环保持。邮件生产候选PR187已合并，关闭并发四阶段本机真实进程验证通过；获准邮箱/其他提供商、棒子关闭与冷启动仍待验收。",
       "paths": [
         "crates/forwarder",
         "crates/core/src/forwarding.rs",
@@ -387,10 +410,12 @@
             "provider"
           ],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-smtp-production-candidate.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -673,7 +698,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-smtp-production-candidate.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         }
@@ -684,7 +711,7 @@
       "title": "独立首次配网 · AP→STA",
       "scope": "original",
       "phase": "usable",
-      "summary": "同源应用50与联合Root配网服务已安装，真实权限和严格HTTPS健康检查通过；实际热点隔离、Wi-Fi保存冷启动和地址交接仍待验收。",
+      "summary": "首次认领与联合Root安装保持；最新设备记录为应用71。PR185修正浏览器存储门禁和完成归档，已合并未部署；真实热点隔离、切网、保存冷启动与无NAS首配继续验收。",
       "paths": [
         "crates/setup-ap",
         "crates/core/src/setup_ap_control",
@@ -751,7 +778,9 @@
           "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/VALIDATION-SETUP-STORAGE-GUARD-20261102.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -771,7 +800,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/VALIDATION-SETUP-STORAGE-GUARD-20261102.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -956,7 +987,7 @@
       "title": "短信 · 同步与故障收尾",
       "scope": "original",
       "phase": "usable",
-      "summary": "真实网页收发及回收站单端已验收；剩余是多端、一致性与故障矩阵，不重复发送已消费测试。",
+      "summary": "真实网页收发及单端回收站已验收。SMS-05沿用负责人公开完成记录，原报告在main缺失，复核说明保留来源缺口；多端一致性、真实分段及完整发送故障矩阵仍待验收。",
       "paths": [
         "crates/storage",
         "crates/core/src/observer.rs",
@@ -1054,7 +1085,7 @@
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [
-            "docs/VALIDATION-SMS05-CANDIDATES-20261028.md"
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/VALIDATION-DASHBOARD-REFRESH-20261103.md"
           ],
           "completed_at": "2026-10-28T08:08:28.398261+00:00",
           "actual_hours": null
@@ -1152,7 +1183,7 @@
       "title": "电话与双向音频",
       "scope": "original",
       "phase": "usable",
-      "summary": "局域网拨出、来电自动接听及真实双向讲话已通过，接音约0.4秒；继续控制边界与长期稳定。",
+      "summary": "局域网拨出、来电自动接听及双向讲话既有验收保持。PR192只丢过期音频帧，39项ARM/QEMU及发布回环通过但未部署；拒接/DTMF、竞争、远程与长期稳定仍缺。",
       "paths": [
         "crates/core/src/calls.rs",
         "crates/media",
@@ -1317,7 +1348,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-media-observation-main.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1340,7 +1373,9 @@
           "status": "todo",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/VALIDATION-AUDIO-STALE-FRAMES-20261103.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1378,7 +1413,7 @@
       "title": "网络诊断与月流量边界",
       "scope": "original",
       "phase": "usable",
-      "summary": "移动卡基础数据、月计量和限额阻断已有实测；当前原卡数据保持关闭，后续实测需换卡。",
+      "summary": "移动卡基础数据、月计量与限额阻断已有实测；当前原卡普通数据仍关闭。B线网络展示、诊断和性能材料已提交，不能替代换卡、漫游/计量与切网实测。",
       "paths": [
         "crates/network-agent",
         "crates/core/src/network_diagnostics.rs",
@@ -1400,7 +1435,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-network-display.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1418,7 +1455,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-network-display.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1514,7 +1553,7 @@
       "title": "远程HTTPS、信令与TURN",
       "scope": "original",
       "phase": "extensions",
-      "summary": "互联网入口和媒体各自验收，复用NKNGuard等传输能力，保留Core身份及媒体授权。",
+      "summary": "SDK/Root、普通Core/媒体授权桥及PR191候选已合并；D线真实TURN/TLS/中继worker集中PR170，已整合最新main待审核。公开网络、直连/中继及真实声音仍待外部环境和设备验收。",
       "paths": [
         "crates/edge",
         "crates/media",
@@ -1537,7 +1576,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-bound-sessions-and-core-routing.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1557,7 +1598,9 @@
           "status": "todo",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-bound-sessions-and-core-routing.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1578,7 +1621,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-turn-source-admission.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-pr170-main-sync-20261103.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1625,7 +1671,9 @@
           "status": "todo",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-pr170-main-sync-20261103.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1679,7 +1727,7 @@
       "title": "NasSimHub兼容与迁移",
       "scope": "original",
       "phase": "usable",
-      "summary": "只读会话桥与真实收件箱/详情已对照；继续原NAS页面的控制、声音及迁移收尾。",
+      "summary": "成员C的只读桥与主线绑定查询、管理面板和回执归档已有代码与离线验证；应用71安装记录保持。原NAS实际控制/声音、迁移和跨版本端到端仍须各自闭环。",
       "paths": [
         "crates/compat",
         "crates/core/src/compat_api.rs",
@@ -1702,7 +1750,8 @@
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [
-            "docs/team/REVIEW-PR-3-751e4a9.md"
+            "docs/team/REVIEW-PR-3-751e4a9.md",
+            "docs/deliveries/member-c-nas.md"
           ],
           "completed_at": null,
           "actual_hours": null
@@ -1725,7 +1774,9 @@
           "status": "todo",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/VALIDATION-NAS-MANAGEMENT-PANEL-20261102.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1829,7 +1880,9 @@
           "status": "todo",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/VALIDATION-NAS-MANAGEMENT-PANEL-20261102.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1865,7 +1918,7 @@
       "title": "签名应用、整机组合与更新",
       "scope": "original",
       "phase": "release",
-      "summary": "正常签名应用升级多次通过；剩余是Root组合契约、实际失败回退、掉电和最终整机一致性。",
+      "summary": "UPD-01准入和UPD-04失败候选回选已有负责人完成记录；正式只读更新器入口已安装。7c33324同源材料仍未签名/无epoch，不可安装；维护授权、组合契约、掉电与完整镜像仍缺。",
       "paths": [
         "crates/update",
         "crates/recovery",
@@ -2091,7 +2144,7 @@
       "title": "备份与完整恢复闭环",
       "scope": "original",
       "phase": "release",
-      "summary": "已有全盘备份、恢复入口和新系统安装证据；完整恢复能力仍需独立演练。",
+      "summary": "全盘备份与恢复入口既有证据保持；完整镜像回刷、故障演练、掉电后恢复和第二设备不因构建或候选安装材料记完成。",
       "paths": [
         "tools/recovery",
         "crates/recovery",
@@ -2211,7 +2264,7 @@
       "title": "状态灯真实事件联动",
       "scope": "original",
       "phase": "release",
-      "summary": "白色慢脉冲已目视确认；剩余颜色与业务优先级需实际事件验收。",
+      "summary": "正式快照失效修正版已安装，120秒样本CPU约0.84%，旧状态30秒后失效；不等于长测/功耗验收。业务灯效、故障红灯和优先级仍待实际事件与用户确认。",
       "paths": [
         "crates/status-led",
         "crates/core/src/status_led.rs",
@@ -2368,7 +2421,7 @@
       "title": "日常网页与一键测试收尾",
       "scope": "original",
       "phase": "usable",
-      "summary": "保留简洁首页与高级配置折叠；日常页面需要跨设备、权限及异常状态的完整验证。",
+      "summary": "B线32步材料及主线日常/测试、回执和NAS面板保持；PR191补实际NKN状态/控制与配置器装配。Chrome合成验证不替代真实手机、热点、多端与视觉终验。",
       "paths": [
         "crates/edge/src/web",
         "tools/test-web-*.mjs",
@@ -2387,10 +2440,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-test-center-assembly.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2405,10 +2460,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-operation-receipts.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2425,10 +2482,12 @@
             "user"
           ],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-configurator.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2463,10 +2522,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-test-center-assembly.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2483,10 +2544,12 @@
           "dependencies": [
             "FWD-04"
           ],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2524,7 +2587,7 @@
       "title": "性能与长期稳定",
       "scope": "original",
       "phase": "release",
-      "summary": "已有短样本和资源基线；完整质量需要可复现的等功能对照和长时间运行。",
+      "summary": "STAB-03按负责人后来记录沿用用户接受的6.4小时样本，不冒称24小时。灯控资源短测、B线性能工具与跨环境失败诊断分别保留；72小时、等功能对照及整机性能仍缺。",
       "paths": [
         "crates/core",
         "crates/media",
@@ -2544,10 +2607,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-performance-window.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2570,7 +2635,8 @@
           "offline_delegable": false,
           "passive_wait_hours": 0,
           "evidence": [
-            "docs/VALIDATION-LED-BUS-INSTALL-20261102.md"
+            "docs/VALIDATION-LED-BUS-INSTALL-20261102.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-performance-window.md"
           ],
           "completed_at": null,
           "actual_hours": null
@@ -2592,7 +2658,8 @@
           "offline_delegable": false,
           "passive_wait_hours": 24,
           "evidence": [
-            "docs/VALIDATION-STAB03-PARTIAL-20261028.md"
+            "docs/VALIDATION-STAB03-PARTIAL-20261028.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/VALIDATION-DASHBOARD-REFRESH-20261103.md"
           ],
           "completed_at": "2026-10-28T08:52:59.468585+00:00",
           "actual_hours": 1.0
@@ -2669,7 +2736,7 @@
       "title": "权限、接口与依赖审查",
       "scope": "original",
       "phase": "release",
-      "summary": "已有核心权限和隔离验证；正式发布前逐项审查新Root、远程及可选服务边界。",
+      "summary": "核心权限、隔离与失败矩阵已有代码证据；PR191新增候选入口仍默认关闭。完整攻击面、Root/密码协议/依赖审批与最终安全结论保持待审，不以隔离测试替代正式审计。",
       "paths": [
         "crates/auth",
         "crates/policy",
@@ -2690,10 +2757,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-security-matrix.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2713,7 +2782,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-security-matrix.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2750,10 +2821,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-public-artifact-scan.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2768,10 +2841,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-managed-sdk-engine.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2824,7 +2899,7 @@
       "title": "第二台与正式发布验收",
       "scope": "original",
       "phase": "release",
-      "summary": "开发系统可用不等于通用发行；最终需要新设备、完整矩阵与可交接资料。",
+      "summary": "main同源13程序和未签名6载荷只是交付材料；精确源码、许可、签名、正式安装、第二设备与完整验收矩阵继续保留，不能将开发系统或构建通过写成通用发行。",
       "paths": [
         "docs/development-plan.md",
         "docs/HANDOFF.md",
@@ -2977,7 +3052,7 @@
       "title": "NKNGuard原生远程接入",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "固定上游c32952d已定位；先复用成熟Go引擎与Rust有限适配，仍需ARM64、服务和真实外网验收。",
+      "summary": "实际Go SDK引擎和固定Root候选PR184、有限Core/媒体桥PR178已合并；PR191的真实状态/控制及隔离组合已由负责人合并。默认关闭，ARM交叉构建不等于ARM运行，公开网络与正式安装未验收。",
       "paths": [
         "docs/FEATURE-EXTENSIONS-2026-10-24.md",
         "crates/compat",
@@ -2996,10 +3071,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-managed-sdk-engine.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3019,7 +3096,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-managed-sdk-engine.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3034,10 +3113,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-managed-root-provider.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3058,7 +3139,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-managed-root-provider.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3078,7 +3162,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-bound-sessions-and-core-routing.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3099,7 +3186,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-bound-sessions-and-core-routing.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3119,7 +3209,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3185,7 +3277,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3218,7 +3312,7 @@
       "title": "NKN近期活跃安装统计",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "已有上游usagestats参考；单独授权、密钥与产品主题，默认关闭，不上传通信数据。",
+      "summary": "独立统计身份、持久单提交状态机和关闭引用管理已有交付；PR191补真实SDK/共享Root组合候选。默认关闭，公开主题/授权、链上实际提交/确认与真实关闭无PID仍须验收。",
       "paths": [
         "docs/FEATURE-EXTENSIONS-2026-10-24.md",
         "upstream:pkg/usagestats",
@@ -3237,10 +3331,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3255,10 +3351,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3279,7 +3377,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3299,7 +3400,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3314,10 +3417,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3339,7 +3444,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3359,7 +3467,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3414,7 +3524,7 @@
       "title": "BLE · 板级可行性",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "首先证实这根棒子的HCI、外设广播及GATT能力；家族规格不等于本板可用。",
+      "summary": "本板HCI、外设广播和GATT能力仍需独立硬件授权核验；已有软件候选和同家族规格均不代表本棒子可用。",
       "paths": [
         "docs/ble",
         "tools/rootfs/kernel",
@@ -3508,7 +3618,7 @@
       "title": "BLE · 加密GATT协议",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "有限状态与配网帧，不透传通用AuthCommand、shell、短信/电话或OTA。",
+      "summary": "有限帧、pin与安全绑定已有离线代码；PR191补实际Noise/WASM应用候选互操作。正式协议/密码审核和蓝牙真机仍缺，不开放通用命令、短信/电话或OTA。",
       "paths": [
         "docs/ble",
         "planned:crates/ble",
@@ -3569,7 +3679,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3600,7 +3712,7 @@
       "title": "BLE · Core恢复授权",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "必须预先由Owner授权独立恢复身份；合法BLE无USB可配网，匿名不能接管。",
+      "summary": "原恢复身份/撤销、schema9与Core有限事务保持；PR191新增同Auth/Store的恢复listener及真实UID查询。匿名不能接管；原D恢复actor准入竞争仍单独待修，真实无USB切网未验收。",
       "paths": [
         "crates/auth",
         "crates/policy",
@@ -3623,7 +3735,9 @@
           "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-core-recovery-t5-results.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3643,7 +3757,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-core-recovery-t5-results.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3664,7 +3781,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-core-recovery-t5-results.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-pr170-main-sync-20261103.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3684,7 +3804,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-core-recovery-t5-results.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-pr170-main-sync-20261103.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         }
@@ -3695,7 +3818,7 @@
       "title": "BLE · 低权限设备服务",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "独立Rust服务接BlueZ，不能读取业务库或设备身份seed，缺BLE不影响核心通信。",
+      "summary": "D线GATT/service、真实UID Core端口及安全恢复整合集中PR170；162已被其完整包含并关闭。既有PR191候选入口保留，各自固定路径及默认关闭；真实射频、正式Root装配和完整生产预算未验收。",
       "paths": [
         "planned:crates/ble",
         "firmware/system",
@@ -3719,7 +3842,11 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-bluez-gatt-callbacks.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-pr170-main-sync-20261103.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3739,7 +3866,11 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-bluez-gatt-callbacks.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-pr170-main-sync-20261103.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3760,7 +3891,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-pr170-main-sync-20261103.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3780,7 +3914,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-pr170-main-sync-20261103.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         }
@@ -3791,7 +3927,7 @@
       "title": "BLE · 网页与离线PWA",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "Windows/Android共用静态配置器；页面不把Wi-Fi口令或密钥交给GitHub。",
+      "summary": "静态配置器、确认/取消、缓存和布局已有B线材料；PR191补实际WASM/安全backend及限定CSP/PWA装配。Chromium隔离互操作通过，不代表Windows/Android真实蓝牙或Wi-Fi验收。",
       "paths": [
         "planned:configurator",
         "docs/ble"
@@ -3814,7 +3950,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-configurator.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3835,7 +3974,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-configurator.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3855,7 +3997,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3875,7 +4019,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         }
@@ -3886,7 +4032,7 @@
       "title": "BLE · 配置器公开发布",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "当前进度看板先占项目Pages根目录；后续配置器使用/configurator/，共用一个发布入口。",
+      "summary": "实际公开看板位于RustSimHub-progress仓库。配置器冻结的RustSimHub/configurator路径与发布组合仍须主线统一审核；PR191只有离线静态候选，本轮不发布或改变配置器基路径。",
       "paths": [
         "planned:configurator",
         ".github/workflows/progress-pages.yml",
@@ -3910,7 +4056,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3961,7 +4109,7 @@
       "title": "BLE · 真机互操作与恢复",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "真机部分需独立BLE授权，测试无USB且Wi-Fi断开时恢复；不动NV/分区或旧所有权。",
+      "summary": "真实BLE与无USB/Wi-Fi中断恢复仍待单独授权及目标板/手机矩阵；已有隔离组合不替代射频、现场恢复或人工验收，不改NV/分区/旧所有权。",
       "paths": [
         "docs/ble",
         "planned:crates/ble",
@@ -5739,7 +5887,7 @@
       ],
       "evidence": [
         "https://github.com/Viper-Boss/RustSimHub/pull/188",
-        "docs/VALIDATION-UPDATE-INDICATOR-RESOURCE-20261102.md"
+        "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/VALIDATION-UPDATE-INDICATOR-RESOURCE-20261102.md"
       ]
     },
     {
@@ -5752,7 +5900,7 @@
         "UPD-02"
       ],
       "evidence": [
-        "docs/VALIDATION-MAINLINE-ARM-20261103.md",
+        "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/VALIDATION-MAINLINE-ARM-20261103.md",
         "https://github.com/Viper-Boss/RustSimHub/pull/189"
       ]
     },
@@ -5790,7 +5938,7 @@
       ],
       "evidence": [
         "https://github.com/Viper-Boss/RustSimHub/pull/192",
-        "docs/VALIDATION-AUDIO-STALE-FRAMES-20261103.md"
+        "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/VALIDATION-AUDIO-STALE-FRAMES-20261103.md"
       ]
     },
     {
@@ -5802,7 +5950,7 @@
         "STAB-02"
       ],
       "evidence": [
-        "docs/CORE-RECOVERY-ADMISSION-CONTENTION-20261103.md"
+        "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/CORE-RECOVERY-ADMISSION-CONTENTION-20261103.md"
       ]
     },
     {
@@ -5816,12 +5964,90 @@
       "evidence": [
         "https://github.com/Viper-Boss/RustSimHub/blob/fe3ee704957f130736c532f376c769bfea28fed4/docs/VALIDATION-MAINLINE-COHORT-20261103.md"
       ]
+    },
+    {
+      "at": "2026-11-03T03:30:08.674333+00:00",
+      "type": "state",
+      "title": "全看板刷新：沿用负责人81.5%，补齐最新交付",
+      "detail": "对齐固定发布快照a47401c：20/169、加权10.6%，权重/依赖与审核记录不变。PR191三组代码候选补链；重新回读五人PR和main作者统计，新增识别NKN Go/配置器源码。SMS-05原报告缺口与STAB-03接受6.4小时的边界公开保留；本分支待审，未上线。",
+      "task_ids": [
+        "FWD-09",
+        "NKN-01",
+        "NKN-03",
+        "STAT-01",
+        "STAT-02",
+        "STAT-05",
+        "WEB-01",
+        "WEB-02",
+        "WEB-03",
+        "WEB-05",
+        "WEB-06",
+        "SEC-01",
+        "SEC-04",
+        "SEC-05",
+        "STAB-01"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/VALIDATION-DASHBOARD-REFRESH-20261103.md",
+        "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+      ]
+    },
+    {
+      "at": "2026-11-03T05:07:14.388748+00:00",
+      "type": "state",
+      "title": "D线候选集中PR170，关闭重复162",
+      "detail": "原162的完整历史已在170保留并关闭删分支；170正常合入main06964，1527 Rust、真实UID与私有TURN/worker验证通过，提交主线审核。更正D线为26/26离线交付；不新增动作验收或发布。",
+      "task_ids": [
+        "REMOTE-03",
+        "REMOTE-05",
+        "BLE3-01",
+        "BLE3-02",
+        "BLE3-03",
+        "BLE3-04"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-pr170-main-sync-20261103.md"
+      ]
+    },
+    {
+      "at": "2026-11-03T10:16:35.530100+00:00",
+      "type": "state",
+      "title": "PR190/194已提交批准，合并尚待确认",
+      "detail": "审核回执分别5750336058/5750336662，绑定1d6c9bf/10949e4。GitHub连接器提交审核遇传输错误且回读为空，改用现有CLI成功提交并回读APPROVED。190合并请求被自动审批拒绝，没有改用其他入口合并。194转交C25-C30的名册变更尚未合入，现行成员分工仍按main；不凭批准更新为功能验收。",
+      "task_ids": [],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/190#pullrequestreview-5750336058",
+        "https://github.com/Viper-Boss/RustSimHub/pull/194#pullrequestreview-5750336662"
+      ]
+    },
+    {
+      "at": "2026-11-03T10:16:35.530100+00:00",
+      "type": "state",
+      "title": "应用72按本笔授权完成本机签名及实际ARM验签",
+      "detail": "固定7c33324/06f5c57e，沿用既有开发信任，未生成新信任密钥。六载荷及固定八目标维护包本机验签通过；错钥匙、跨签名域、损坏worker、旧schema及维护包跨域/损坏助手六反例拒绝。没有上传、暂存、安装或变更设备。后续main新增范围不在本候选。",
+      "task_ids": [
+        "UPD-09"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/tree/codex/mainline-cohort72-20261103"
+      ]
+    },
+    {
+      "at": "2026-11-03T10:18:57.294760+00:00",
+      "type": "state",
+      "title": "PR190/194按本笔明确授权合并",
+      "detail": "两笔先行APPROVED并回读后，自动审批曾拒绝190合并。所有者随后明确仅授权190/194且接受云端CI未运行风险；正常API按固定完整HEAD合入7286339f715285b60f377363410bc9327ca909f2和8f9cfeff1a4b5a804b8b138e890f7386caf5a006，回读MERGED。没有改保护规则、强推或合并草稿。194的B68/C24转交仅归属/离线交付，功能验收和Git作者不改写。",
+      "task_ids": [],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/190",
+        "https://github.com/Viper-Boss/RustSimHub/pull/194"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "7c33324af5cd7cea67856d5f15d5653abcf8ed89",
-    "generated_at": "2026-11-03T01:37:00.215094+00:00",
+    "source_revision": "8f9cfeff1a4b5a804b8b138e890f7386caf5a006",
+    "generated_at": "2026-11-03T10:20:01.053817+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5840,9 +6066,9 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 54414,
+            "product": 54388,
             "tests": 43238,
-            "tooling": 10118,
+            "tooling": 10114,
             "firmware": 1180
           },
           "commits": 503,
@@ -6956,9 +7182,9 @@
         "id": "member-b",
         "name": "wnfhsj88",
         "login": "wnfhsj88",
-        "role": "网络/网页/PWA及接手的统计/NKN/安全/邮件离线实现",
+        "role": "网络/网页/PWA，接手A组及C25～C30离线实现",
         "access": "wnfhsj88同仓库Write已回读；本人功能分支 → 负责人PR审核",
-        "package": "B-01～32及从fungi1220转交的A-01～30；保留步骤ID和原验收边界",
+        "package": "B-01～32、A-01～30、C-25～30，共68步；原步骤ID/验收边界保持",
         "task_ids": [
           "NET-01",
           "NET-02",
@@ -7007,7 +7233,23 @@
           "SEC-02",
           "SEC-03",
           "SEC-07",
-          "FWD-09"
+          "FWD-09",
+          "UPD-02",
+          "UPD-03",
+          "UPD-05",
+          "UPD-08",
+          "NAS-03",
+          "NAS-04",
+          "FWD-22",
+          "UPD-10",
+          "REC-05",
+          "REL-01",
+          "REL-04",
+          "BLE0-01",
+          "BLE0-02",
+          "BLE0-04",
+          "BLE6-04",
+          "REMOTE-02"
         ],
         "step_ids": [
           "B-01",
@@ -7071,28 +7313,34 @@
           "A-27",
           "A-28",
           "A-29",
-          "A-30"
+          "A-30",
+          "C-25",
+          "C-26",
+          "C-27",
+          "C-28",
+          "C-29",
+          "C-30"
         ],
         "handoff": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-        "state": "in_progress",
+        "state": "submitted",
         "estimate_hours": [
-          67,
-          151
+          85,
+          191
         ],
         "stats": {
           "current_lines": {
-            "product": 9473,
-            "tests": 8014,
-            "tooling": 3600,
+            "product": 15978,
+            "tests": 10430,
+            "tooling": 4404,
             "firmware": 1
           },
-          "commits": 109,
-          "code_commits": 47,
-          "added": 21738,
-          "deleted": 306
+          "commits": 118,
+          "code_commits": 55,
+          "added": 31845,
+          "deleted": 437
         },
         "work": {
-          "assigned_steps": 62,
+          "assigned_steps": 68,
           "accepted_steps": 0,
           "self_reported_hours": null,
           "reviews": [],
@@ -7455,7 +7703,7 @@
             {
               "pr": 162,
               "head": "9bc7be8099840f9e5e41e176ff5bc6ee1afc8eb2",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 165,
@@ -7469,8 +7717,8 @@
             },
             {
               "pr": 170,
-              "head": "3f377e48d006e2cf99caeb5c5dd33be0c8d7630f",
-              "state": "OPEN"
+              "head": "d4476e9c3ff90603b822294a1902eaa7167f3118",
+              "state": "MERGED"
             },
             {
               "pr": 178,
@@ -7490,12 +7738,22 @@
             {
               "pr": 190,
               "head": "1d6c9bf258fbde3ea90c6d9436fcb1f6fe0a323c",
-              "state": "OPEN"
+              "state": "MERGED"
             },
             {
               "pr": 191,
               "head": "29ba539f0ea38418970526394372e80e4a5d38b1",
-              "state": "OPEN"
+              "state": "MERGED"
+            },
+            {
+              "pr": 193,
+              "head": "3adf8f000c0dfe4f80d44639fe5384679c698cef",
+              "state": "MERGED"
+            },
+            {
+              "pr": 194,
+              "head": "10949e41f885fd6679df1c7284cb337891bd4bbd",
+              "state": "MERGED"
             }
           ],
           "task_deliveries": [
@@ -7729,8 +7987,8 @@
             },
             {
               "pr": 170,
-              "head": "3f377e48d006e2cf99caeb5c5dd33be0c8d7630f",
-              "state": "OPEN",
+              "head": "d4476e9c3ff90603b822294a1902eaa7167f3118",
+              "state": "MERGED",
               "submitted_by": "wnfhsj88"
             },
             {
@@ -7754,13 +8012,25 @@
             {
               "pr": 190,
               "head": "1d6c9bf258fbde3ea90c6d9436fcb1f6fe0a323c",
-              "state": "OPEN",
+              "state": "MERGED",
               "submitted_by": "wnfhsj88"
             },
             {
               "pr": 191,
               "head": "29ba539f0ea38418970526394372e80e4a5d38b1",
-              "state": "OPEN",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 193,
+              "head": "3adf8f000c0dfe4f80d44639fe5384679c698cef",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 194,
+              "head": "10949e41f885fd6679df1c7284cb337891bd4bbd",
+              "state": "MERGED",
               "submitted_by": "wnfhsj88"
             }
           ]
@@ -7770,9 +8040,9 @@
         "id": "member-c",
         "name": "yh1030",
         "login": "yh1030",
-        "role": "NAS只读兼容 / 历史导入 · 离线适配",
+        "role": "C01～C24历史交付与复核",
         "access": "同仓库Write已生效；本人功能分支 → PR审核",
-        "package": "NAS/系统构建/更新恢复/发行材料与证据",
+        "package": "C-01～24保留；2026-11-03用户将C-25～30转交wnfhsj88",
         "task_ids": [
           "NAS-01",
           "NAS-05",
@@ -7781,23 +8051,7 @@
           "UPD-06",
           "REL-05",
           "UPD-07",
-          "AP-04",
-          "FWD-22",
-          "UPD-02",
-          "UPD-03",
-          "UPD-05",
-          "UPD-10",
-          "REC-05",
-          "REL-01",
-          "REL-04",
-          "BLE0-01",
-          "BLE0-02",
-          "BLE0-04",
-          "BLE6-04",
-          "REMOTE-02",
-          "NAS-03",
-          "NAS-04",
-          "UPD-08"
+          "AP-04"
         ],
         "step_ids": [
           "C-01",
@@ -7823,19 +8077,13 @@
           "C-21",
           "C-22",
           "C-23",
-          "C-24",
-          "C-25",
-          "C-26",
-          "C-27",
-          "C-28",
-          "C-29",
-          "C-30"
+          "C-24"
         ],
         "handoff": "docs/team/MEMBER-C-NAS-COMPAT.md",
-        "state": "in_progress",
+        "state": "submitted",
         "estimate_hours": [
-          35,
-          80
+          17,
+          40
         ],
         "stats": {
           "current_lines": {
@@ -7850,7 +8098,7 @@
           "deleted": 186
         },
         "work": {
-          "assigned_steps": 30,
+          "assigned_steps": 24,
           "accepted_steps": 9,
           "self_reported_hours": null,
           "reviews": [
@@ -8112,22 +8360,22 @@
           "D-26"
         ],
         "handoff": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-        "state": "assigned",
+        "state": "submitted",
         "estimate_hours": [
           33,
           75
         ],
         "stats": {
           "current_lines": {
-            "product": 7130,
-            "tests": 12989,
-            "tooling": 126,
+            "product": 11117,
+            "tests": 15695,
+            "tooling": 670,
             "firmware": 8
           },
-          "commits": 84,
-          "code_commits": 41,
-          "added": 20832,
-          "deleted": 335
+          "commits": 112,
+          "code_commits": 55,
+          "added": 28289,
+          "deleted": 466
         },
         "work": {
           "assigned_steps": 26,
@@ -8349,7 +8597,7 @@
             {
               "pr": 162,
               "head": "9bc7be8099840f9e5e41e176ff5bc6ee1afc8eb2",
-              "state": "OPEN",
+              "state": "CLOSED",
               "submitted_by": "wnfhsj88"
             }
           ]
@@ -8369,9 +8617,9 @@
       "deleted": 0
     },
     "totals": {
-      "product": 73685,
-      "tests": 70192,
-      "tooling": 14789,
+      "product": 84151,
+      "tests": 75314,
+      "tooling": 16133,
       "firmware": 1189
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。",
@@ -8384,11 +8632,11 @@
         },
         {
           "path": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-          "sha256": "ccd38720d654e3bb762274c917bc37f16bb2f6962a8476bd74181b80ac040e85"
+          "sha256": "6e1efb4497a69e3834a9dff66b13acad9f7d803e7afc297203dd1ff3ee5139c7"
         },
         {
           "path": "docs/team/MEMBER-C-NAS-COMPAT.md",
-          "sha256": "666336b66a76e3662c58c084a8a8689750518abdd01a88fb0c4820addf3002d3"
+          "sha256": "676dde2a12665aa5a932a55b782c5b0afa2e214a2d7bb832d23cb4c605b385ef"
         },
         {
           "path": "docs/team/MEMBER-D-SMS-RECOVERY.md",
@@ -8396,7 +8644,7 @@
         },
         {
           "path": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-          "sha256": "0764e05e99275ad82a8b711c384e76443c98a093d6b49f392b5949503741b0c6"
+          "sha256": "814593e8bb69e493a8e0cda69e07725992f4f8400c99a6998fb4d5b4707e73ec"
         }
       ],
       "members": [
@@ -8413,7 +8661,7 @@
               "work": "1. 逐个阅读 `Policy::valid`、`State::new/valid/sample`、月结窗口、限额判断和持久状态读写，画出实际数据流。\n2. 列出已有测试覆盖和确切缺口，不把功能已存在写成自己新增。\n3. 冻结时区、reset_day、边界时间、rx/tx单位及统计来源；字段不明确先在PR提问。\n4. 使用真实函数构造小型合成样例，记录输入/结果/期望，第一份提交应可复现。",
               "acceptance": "",
               "source": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-              "line": 28,
+              "line": 30,
               "batch": "第一批PR：计量和月结（B-01～B-04）",
               "task_ids": [],
               "status": "not_accepted"
@@ -8424,7 +8672,7 @@
               "work": "1. 月结日1/28/29/30/31，跨小月/闰年/跨年和结算瞬间各侧一秒。\n2. 同日回拨、跨日回拨、远期跳变、无效时间和重启后时钟未就绪。\n3. 需要保护时使用已有uncertain状态，不靠清空账本或免费重置额度兜底。\n4. 保留原有SIM隔离和账期规则；改变语义必须有具体反例、兼容说明及主线审核。",
               "acceptance": "",
               "source": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-              "line": 35,
+              "line": 37,
               "batch": "第一批PR：计量和月结（B-01～B-04）",
               "task_ids": [],
               "status": "not_accepted"
@@ -8435,7 +8683,7 @@
               "work": "1. 单调累计、rx/tx分开、恰好限额、单字节越界及u64溢出。\n2. boot ID变化、同boot计数器清零/变小、接口删除重建、计量源缺失/不可读和畸形输入。\n3. SIM切换前后分账；旧身份/旧计量源的迟到输入不能冲掉新状态。\n4. 不允许负差值、重复扣费或错误赠送新额度；错误状态不得显示“还有全部额度”。\n5. 用真实State执行多步序列和重开，不仅用一个静态JSON比较。",
               "acceptance": "",
               "source": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-              "line": 42,
+              "line": 44,
               "batch": "第一批PR：计量和月结（B-01～B-04）",
               "task_ids": [],
               "status": "not_accepted"
@@ -8446,7 +8694,7 @@
               "work": "1. 在临时目录验证正常保存/重开、截断、错误版本、超大文件、原子替换失败及权限/链接拒绝。\n2. 写入失败保持原有效账本并明确报错；不要覆盖损坏现场或悄悄用State::new放行。\n3. 验证禁用流量限制与关闭蜂窝数据是两个概念，不能为了测试额度而触发连接。\n4. 提交第一批PR：最小代码修正+测试；说明未运行真实nft/NetworkManager和未验真实卡计费。",
               "acceptance": "",
               "source": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-              "line": 50,
+              "line": 52,
               "batch": "第一批PR：计量和月结（B-01～B-04）",
               "task_ids": [
                 "NET-02"
@@ -8459,7 +8707,7 @@
               "work": "1. 合成检查IPv4/IPv6、DNS、APN、网络制式、频段/信道/上下行频率、带宽、小区ID/TAC、RSRP/RSRQ/SINR。\n2. 缺失、null、非法数值、未知枚举、陈旧快照和断线分别显示准确状态，不显示NaN/undefined或编造0。\n3. 信道推算频率继续注明“按信道计算”，设备未提供带宽继续未知；不从允许频段推断当前驻留。\n4. 所有设备文本按文本渲染；供应商字符串/异常信息不能进入可执行HTML。",
               "acceptance": "",
               "source": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-              "line": 59,
+              "line": 61,
               "batch": "第二批PR：显示与交接（B-05～B-08）",
               "task_ids": [],
               "status": "not_accepted"
@@ -8470,7 +8718,7 @@
               "work": "1. 明确B/s与bit/s、MB与MiB、总量与收/发量，避免重复乘8或1000/1024混淆。\n2. 间隔0、倒退、长暂停、计数器重建和样本缺失不能产生负速率/无限大。\n3. 页面隐藏/退出后不启动额外轮询；重新登录与迟到响应沿用现有会话边界。\n4. 状态刷新不跑测速、不访问公网，不把只读状态当成有可用互联网。",
               "acceptance": "",
               "source": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-              "line": 66,
+              "line": 68,
               "batch": "第二批PR：显示与交接（B-05～B-08）",
               "task_ids": [],
               "status": "not_accepted"
@@ -8481,7 +8729,7 @@
               "work": "1. 运行 `cargo test -p rustsimhub-network-agent --locked`、该包严格Clippy、`cargo fmt --all -- --check`。\n2. 运行 `node tools/test-web-network.mjs`；若动Linux保存路径，运行对应隔离Python测试并记录平台条件。\n3. 测试直接加载真实生产模块，禁止删除旧失败断言、拉长产品租约或放松策略来让测试变绿。\n4. 已存在的语音偏好、数据默认关闭、限额开关及只读状态语义不回归。",
               "acceptance": "",
               "source": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-              "line": 73,
+              "line": 75,
               "batch": "第二批PR：显示与交接（B-05～B-08）",
               "task_ids": [],
               "status": "not_accepted"
@@ -8492,7 +8740,7 @@
               "work": "1. 说明每个缺陷的触发输入、修改前后结果和修正理由；纯补测试项目明确写“已有行为复核”。\n2. 报告起始SHA、完整HEAD、测试命令/结果、未运行项、来源/许可及AI辅助。\n3. 给主线一份实机补验清单：计数器实际来源/误差、换卡/重启/限额及网页核对；不要要求你自己提供真实卡或SIM日志。\n4. 不改NET台账状态、整体80%或他人任务；主线审核后统一记录。",
               "acceptance": "",
               "source": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-              "line": 80,
+              "line": 82,
               "batch": "第二批PR：显示与交接（B-05～B-08）",
               "task_ids": [],
               "status": "not_accepted"
@@ -8503,7 +8751,7 @@
               "work": "盘点实际首页/测试中心/手动调试可见条件和既有一键测试器；列出用户高频入口与找不到按钮的状态",
               "acceptance": "给出最小入口与状态表，不另造拨号/短信状态机，不删除原功能",
               "source": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-              "line": 101,
+              "line": 103,
               "batch": "第三批PR：B-09～12 / WEB-01、WEB-05组件",
               "task_ids": [],
               "status": "not_accepted"
@@ -8514,7 +8762,7 @@
               "work": "新增独立测试中心组件，复用真实call-test/短信/转发测试接口，通过显式注入callbacks装配",
               "acceptance": "常用任务集中、调试默认收起；所有按钮有当前状态/禁止原因；不因渲染、刷新、登录或重试提示自动提交",
               "source": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-              "line": 102,
+              "line": 104,
               "batch": "第三批PR：B-09～12 / WEB-01、WEB-05组件",
               "task_ids": [],
               "status": "not_accepted"
@@ -8525,7 +8773,7 @@
               "work": "实际模块测试未登录、权限不足、未注册、麦克风拒绝、HTTP409、Unknown旧操作、失去确认、停止中与停止失败；区分拨号、提交、连接声音及结束",
               "acceptance": "Unknown保留原操作ID，仅查询；不自动重拨/重发；“已停止”不能掩盖挂断或进程未确认",
               "source": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-              "line": 103,
+              "line": 105,
               "batch": "第三批PR：B-09～12 / WEB-01、WEB-05组件",
               "task_ids": [],
               "status": "not_accepted"
@@ -8536,7 +8784,7 @@
               "work": "使用真实浏览器的本地合成页面检查1440/390/320、键盘/焦点、长提示、按钮禁用原因与无溢出；提交第三批PR",
               "acceptance": "不连接设备或拨号/发短信，不伪造真人声音确认；给主线明确装配diff和接线清单",
               "source": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-              "line": 104,
+              "line": 106,
               "batch": "第三批PR：B-09～12 / WEB-01、WEB-05组件",
               "task_ids": [],
               "status": "not_accepted"
@@ -8547,7 +8795,7 @@
               "work": "为实际空闲、收件、通话、转发和远程场景列出功能、输入规模、采样窗口、暖机、预算与停止条件",
               "acceptance": "拟议预算标“待主线确认”，不得用本机性能冒充棒子实测或把空桩视为同功能负载",
               "source": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-              "line": 110,
+              "line": 112,
               "batch": "第四批PR：B-13～16 / STAB-01离线工具",
               "task_ids": [],
               "status": "not_accepted"
@@ -8558,7 +8806,7 @@
               "work": "实现有界合成负载/结果解析工具；数据只到临时目录，网络仅显式本地模拟目标，不默认扫网/开启服务",
               "acceptance": "默认dry-run/计划输出；无任意shell/命令模板；进程和时间/文件量有上限，失败会回收自己创建的子进程",
               "source": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-              "line": 111,
+              "line": 113,
               "batch": "第四批PR：B-13～16 / STAB-01离线工具",
               "task_ids": [],
               "status": "not_accepted"
@@ -8569,7 +8817,7 @@
               "work": "在本机临时进程验证采样单位、PID退出/复用、缺样本、计数器重建、取消及报告脱敏",
               "acceptance": "报告附源码、环境、实际命令、样本和失败；不读取生产进程或自动发起通话/转发/NKN请求",
               "source": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-              "line": 112,
+              "line": 114,
               "batch": "第四批PR：B-13～16 / STAB-01离线工具",
               "task_ids": [],
               "status": "not_accepted"
@@ -8580,7 +8828,7 @@
               "work": "提交第四批PR，交付可重跑脚本、合成数据和设备测量清单",
               "acceptance": "实机预算冻结、长测、与旧系统同功能性能比较仍由主线验收",
               "source": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-              "line": 113,
+              "line": 115,
               "batch": "第四批PR：B-13～16 / STAB-01离线工具",
               "task_ids": [],
               "status": "not_accepted"
@@ -8591,7 +8839,7 @@
               "work": "对照phone、sms-management、forwarding、ap-wifi、session的真实结果，列出prepare/提交/确认/Unknown/归档矩阵；区分登录过期、权限拒绝与设备未确认",
               "acceptance": "保留原操作ID及提交标记；查询、刷新、渲染和登录均不会产生提交。现有IndexedDB防重语义保持",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 99,
+              "line": 101,
               "batch": "wnfhsj · B-17～20 · 回执与配置状态组件",
               "task_ids": [
                 "WEB-02"
@@ -8604,7 +8852,7 @@
               "work": "新增独立`operation-receipt.js`显示组件，输入为有限快照与显式callbacks；区分仅查询、已证实可归档、等待确认和操作完成",
               "acceptance": "组件只渲染文本/发送显式用户动作回调；无设备访问/网络轮询/私有存储。Unknown不能自动归档、重拨、重发或改幂等键；主线业务模块继续决定允许动作",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 100,
+              "line": 102,
               "batch": "wnfhsj · B-17～20 · 回执与配置状态组件",
               "task_ids": [
                 "WEB-02"
@@ -8617,7 +8865,7 @@
               "work": "新增独立`configuration-state.js`，展示保存意图、设备已保存、服务启动/停止确认与陈旧/未知状态；用真实组件覆盖超时、退出、旧代次迟到回复、乱序及重新登录",
               "acceptance": "“保存成功”不冒充进程运行；无有效新鲜证据保持未知。凭据不进入DOM/报告；与B-10共享的组件接线必须串行，不能各自覆盖测试中心",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 101,
+              "line": 103,
               "batch": "wnfhsj · B-17～20 · 回执与配置状态组件",
               "task_ids": [
                 "WEB-06"
@@ -8630,7 +8878,7 @@
               "work": "Node实际模块测试＋真实浏览器本地合成页1440/390/320、键盘和长错误提示；提交最小接线说明",
               "acceptance": "测试必须加载交付的组件；模拟仅限外部callbacks。主线装配app.js/HTML/静态路由并进行真实设备确认；WEB-02/06不由成员标完成",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 102,
+              "line": 104,
               "batch": "wnfhsj · B-17～20 · 回执与配置状态组件",
               "task_ids": [],
               "status": "not_accepted"
@@ -8641,7 +8889,7 @@
               "work": "实现注入式RecoveryClientV1控制器和点击选择",
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 229,
+              "line": 231,
               "batch": "T5 · wnfhsj接口离线包",
               "task_ids": [
                 "BLE4-01",
@@ -8657,7 +8905,7 @@
               "work": "pin/未预绑定/撤销/缺provider页面",
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 229,
+              "line": 231,
               "batch": "T5 · wnfhsj接口离线包",
               "task_ids": [
                 "BLE4-01",
@@ -8673,7 +8921,7 @@
               "work": "有限试连与明确保存/取消",
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 229,
+              "line": 231,
               "batch": "T5 · wnfhsj接口离线包",
               "task_ids": [
                 "BLE4-01",
@@ -8689,7 +8937,7 @@
               "work": "真实CAS记录、丢回复及刷新只查询",
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 229,
+              "line": 231,
               "batch": "T5 · wnfhsj接口离线包",
               "task_ids": [
                 "BLE4-01",
@@ -8705,7 +8953,7 @@
               "work": "静态PWA允许清单",
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 229,
+              "line": 231,
               "batch": "T5 · wnfhsj接口离线包",
               "task_ids": [
                 "BLE4-01",
@@ -8721,7 +8969,7 @@
               "work": "离线/缓存升级与未确认操作保护",
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 229,
+              "line": 231,
               "batch": "T5 · wnfhsj接口离线包",
               "task_ids": [
                 "BLE4-01",
@@ -8737,7 +8985,7 @@
               "work": "实际模块＋模拟端口/分片向量及1440/390/320/键盘测试",
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 229,
+              "line": 231,
               "batch": "T5 · wnfhsj接口离线包",
               "task_ids": [
                 "BLE4-01",
@@ -8753,7 +9001,7 @@
               "work": "交四项映射和生产接线缺口",
               "acceptance": "BLE4-01～04离线部分。等待B-17～20回执接口获审后接本包；使用主线注入端口，不实现密码协议或批准恢复身份。生产认证/IDB绑定主线提供；未提供时真实路径拒绝",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 229,
+              "line": 231,
               "batch": "T5 · wnfhsj接口离线包",
               "task_ids": [
                 "BLE4-01",
@@ -8769,7 +9017,7 @@
               "work": "WEB-03/07、STAT-09：接独立组件到现有日常网页，完成手机/长中文/回收站/键盘与无障碍；增加窗口/更新时间/未知/关闭语义的统计展示",
               "acceptance": "状态来自A的实际DTO/注入接口，按钮调用已授权现有业务控制器；不另造登录、Owner、提交队列或用渲染触发请求。真实Android/第二端及关闭无PID由主线验收",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 308,
+              "line": 310,
               "batch": "4. wnfhsj · B-29～32 · 网页装配、PWA材料和报告",
               "task_ids": [
                 "STAT-09",
@@ -8784,7 +9032,7 @@
               "work": "AP-12、REMOTE-07：为配网/远程整理可复制脱敏诊断、地址/pin/证书交付指引；接入明确的状态/禁止原因及只查询操作核对",
               "acceptance": "不把HTTPS浏览器提示等同业务离线，不返回任意跳转/控制命令；手册只引用已验证支持，生产事实由主线提供",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 309,
+              "line": 311,
               "batch": "4. wnfhsj · B-29～32 · 网页装配、PWA材料和报告",
               "task_ids": [
                 "AP-12",
@@ -8798,7 +9046,7 @@
               "work": "BLE5-01/03：实现/configurator/相对构建、严格静态产物清单、根看板共存及离线/更新说明；提交统一Pages流程的最小改动和合成产物泄露反例",
               "acceptance": "不新建覆盖根站点的第二发布流；不上传整个仓库/私有目录、Mock或密钥。主线审核合并后执行真实部署与HTTPS字节复核，BLE5-02仍主线",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 310,
+              "line": 312,
               "batch": "4. wnfhsj · B-29～32 · 网页装配、PWA材料和报告",
               "task_ids": [
                 "BLE5-01",
@@ -8812,7 +9060,7 @@
               "work": "STAB-06：将本人性能工具输出转换为有来源/样本/阈值提案的比较和发布报告；覆盖缺样本、异常、旧SHA、单位错误和短样本不外推",
               "acceptance": "真实棒子样本/旧新等功能测量由主线采集；未获批准预算和缺测量不填达标。提交实际浏览器/Node回归、接线差异及未验收项",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 311,
+              "line": 313,
               "batch": "4. wnfhsj · B-29～32 · 网页装配、PWA材料和报告",
               "task_ids": [
                 "STAB-06"
@@ -9001,7 +9249,7 @@
               "work": "按固定SHA只读盘点HTTP、IPC、媒体、文件写入及固定Root动作；逐入口记录源码位置、调用者、scope、身份/线路绑定、期限、输入上限和撤销路径",
               "acceptance": "已实现/计划/未知分开；每条结论有实际符号/位置。Core、Root、GATT授权设计只提出缺口，不修改",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 86,
+              "line": 88,
               "batch": "wnfhsj88（接手原成员A） · A-17～20 · 权限清单与公开产物扫描",
               "task_ids": [
                 "SEC-01"
@@ -9014,7 +9262,7 @@
               "work": "新增只读扫描工具，默认只输出计划；显式扫描Git已跟踪的公开文本白名单或隔离合成发行目录；限制文件/总量/时间，拒绝越界路径、链接及特殊文件",
               "acceptance": "使用有限规则识别私钥块、Wi-Fi口令字段、令牌和疑似个人通信字段；输出规则ID/相对位置/统计，不回显命中原文或值；无上传、联网、自动修复/删除",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 87,
+              "line": 89,
               "batch": "wnfhsj88（接手原成员A） · A-17～20 · 权限清单与公开产物扫描",
               "task_ids": [
                 "SEC-04"
@@ -9027,7 +9275,7 @@
               "work": "正例使用明显标记的合成秘密，反例覆盖公开公钥/摘要/示例字段；覆盖超限、无效编码、未知二进制、重复路径和读取失败",
               "acceptance": "错误/跳过不显示“全部干净”；退出状态区分通过/发现/未完成；支持按规则说明误报，不能直接全局忽略凭据类别。扫描通过不等于已证明制品无任何秘密",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 88,
+              "line": 90,
               "batch": "wnfhsj88（接手原成员A） · A-17～20 · 权限清单与公开产物扫描",
               "task_ids": [
                 "SEC-04"
@@ -9040,7 +9288,7 @@
               "work": "提交权限表、扫描脚本/测试、合成报告与CI接入建议；执行真实脚本和测试，附公开输入清单与输出脱敏证明",
               "acceptance": "不修改Actions或生产打包器；主线决定正式发行白名单、真实私有制品审查和修复。SEC-01/04全局仍待主线审核",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 89,
+              "line": 91,
               "batch": "wnfhsj88（接手原成员A） · A-17～20 · 权限清单与公开产物扫描",
               "task_ids": [],
               "status": "not_accepted"
@@ -9051,7 +9299,7 @@
               "work": "按III盘点真实引擎可提供字段",
               "acceptance": "NKN-07离线部分。等待A-13～16引擎接口获审后修改引擎输出；无法提供的字段不造值。主线负责Core读取鉴权、实际网络及控制开关",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 228,
+              "line": 230,
               "batch": "T5 · wnfhsj88接口离线包",
               "task_ids": [
                 "NKN-07"
@@ -9064,7 +9312,7 @@
               "work": "实现只读DTO/未知字段映射",
               "acceptance": "NKN-07离线部分。等待A-13～16引擎接口获审后修改引擎输出；无法提供的字段不造值。主线负责Core读取鉴权、实际网络及控制开关",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 228,
+              "line": 230,
               "batch": "T5 · wnfhsj88接口离线包",
               "task_ids": [
                 "NKN-07"
@@ -9077,7 +9325,7 @@
               "work": "独立状态展示组件及u64/陈旧/乱序/取消测试",
               "acceptance": "NKN-07离线部分。等待A-13～16引擎接口获审后修改引擎输出；无法提供的字段不造值。主线负责Core读取鉴权、实际网络及控制开关",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 228,
+              "line": 230,
               "batch": "T5 · wnfhsj88接口离线包",
               "task_ids": [
                 "NKN-07"
@@ -9090,7 +9338,7 @@
               "work": "交实际组件、本地浏览器与主线接线报告",
               "acceptance": "NKN-07离线部分。等待A-13～16引擎接口获审后修改引擎输出；无法提供的字段不造值。主线负责Core读取鉴权、实际网络及控制开关",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 228,
+              "line": 230,
               "batch": "T5 · wnfhsj88接口离线包",
               "task_ids": [
                 "NKN-07"
@@ -9103,7 +9351,7 @@
               "work": "NKN-03/04：基于已有最小引擎，完成固定Root策略端口、低权监督、开关/资源所有权及退出/重连预算库；注入Mock Root/引擎，覆盖部分启动、停止超时、旧epoch迟到、引用释放",
               "acceptance": "真正运行生产监督代码，不用mock状态机自证；真实路由/Root激活和实际cgroup由主线核验",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 295,
+              "line": 297,
               "batch": "3. wnfhsj88（接手原成员A） · A-25～30 · 引擎、安全会话与邮件",
               "task_ids": [
                 "NKN-03",
@@ -9117,7 +9365,7 @@
               "work": "NKN-05/06、REMOTE-01：明确发现/信令/媒体分层，复用成员证明，有限设备服务路由与撤销/重放/默认拒绝；先交字段/签名域/状态与允许服务的接口PR",
               "acceptance": "不产生第二Owner或任意LAN出口。Core权限桥由D实现；A交真实协议/路由策略库及模拟端口测试，主线批准后接线",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 296,
+              "line": 298,
               "batch": "3. wnfhsj88（接手原成员A） · A-25～30 · 引擎、安全会话与邮件",
               "task_ids": [
                 "NKN-05",
@@ -9132,7 +9380,7 @@
               "work": "BLE1-01～04：T5帧预算保持，提交标准安全会话/依赖/密钥域/设备pin及transcript提案；获审后实现Rust与浏览器加解密/互操作、错误pin/撤销/重放/旧会话向量",
               "acceptance": "明确安全套件尚未获审时不能写成已冻结；不用假签名、固定钥匙或自造加密算法。生产绑定由D在真实Core grant下使用，不是前端自报认证",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 297,
+              "line": 299,
               "batch": "3. wnfhsj88（接手原成员A） · A-25～30 · 引擎、安全会话与邮件",
               "task_ids": [
                 "BLE1-01",
@@ -9148,7 +9396,7 @@
               "work": "SEC-02/03/07：扩展既有权限清单至Auth/realm/SIM/重放/撤销失败矩阵及Root单元静态检查；复核实际UID/能力/地址族/路径/polkit/credential约束，给出逐SHA缺陷和最小复现",
               "acceptance": "可用真实Core开发夹具/临时IPC测试拒绝路径；主线负责受限Root实测及最终安全结论。生产缺陷按文件负责人修复，不跨包抢改",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 298,
+              "line": 300,
               "batch": "3. wnfhsj88（接手原成员A） · A-25～30 · 引擎、安全会话与邮件",
               "task_ids": [
                 "SEC-02",
@@ -9163,7 +9411,7 @@
               "work": "FWD-09：按EmailSenderV1实现SMTP/TLS、有限配置及真实本机TLS邮件服务夹具，覆盖拒绝、认证失败、DATA前/后断线、超时和关闭",
               "acceptance": "不发真实邮件、不放松Fence/固定出口/证书检查；配置/queue版本/新依赖的兼容PR先获审。发布支持仍等获准邮箱实测",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 299,
+              "line": 301,
               "batch": "3. wnfhsj88（接手原成员A） · A-25～30 · 引擎、安全会话与邮件",
               "task_ids": [
                 "FWD-09"
@@ -9176,307 +9424,11 @@
               "work": "NKN-10/11：提交可复现引擎/会话/Root策略材料、来源许可、有限开关/远程流程文档及故障回选接口说明，完成本包真实回归和交接",
               "acceptance": "C组装候选，主线持钥签名/安装/外网验收；不能另设无签名更新器或用Go代码冒充Rust",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 300,
+              "line": 302,
               "batch": "3. wnfhsj88（接手原成员A） · A-25～30 · 引擎、安全会话与邮件",
               "task_ids": [
                 "NKN-10",
                 "NKN-11"
-              ],
-              "status": "not_accepted"
-            }
-          ]
-        },
-        {
-          "member_id": "member-c",
-          "steps": [
-            {
-              "id": "C-01",
-              "title": "NAS-01：盘点实际支持",
-              "work": "1. 阅读 `docs/nas-online-bridge.md`、compat的lib/session/history/migrate、legacy黄金向量，以及Go桥入口。\n2. 建一张逐路径/动作矩阵：支持、需要NAS适配、不支持、尚未实机验证，分别列状态/短信列表/详情/通话/控制/媒体。\n3. 逐字段写来源、类型、缺值、稳定ID、线路代次及分页游标；不把旧“设备离线”直接解释成SIM无法注册。\n4. 没有固定旧NAS源码时明确缺口，不猜字段；先以现有正式读取契约交付，旧页面集成由主线提供固定版本后继续。",
-              "acceptance": "",
-              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
-              "line": 31,
-              "batch": "第一批：明确契约与只读桥（C-01～C-04）",
-              "task_ids": [
-                "NAS-01"
-              ],
-              "status": "offline_accepted"
-            },
-            {
-              "id": "C-02",
-              "title": "NAS-01：状态和错误模型",
-              "work": "1. 为正常、SIM缺失/锁定、观察中、后端不可用、兼容未开、版本不支持分别建有限模型。\n2. 区分网络/HTTP错误、401/403、501未实现和业务暂不可用；不能全部转换为“离线”或空列表。\n3. 只读返回不包含种子、兼容token、原始SIM/硬件标识；未知字段不猜造号码/时间。\n4. 错误和设备字符串作为文本/强类型数据处理，拒绝超大输入、错误类型和不明版本。",
-              "acceptance": "",
-              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
-              "line": 38,
-              "batch": "第一批：明确契约与只读桥（C-01～C-04）",
-              "task_ids": [
-                "NAS-01"
-              ],
-              "status": "offline_accepted"
-            },
-            {
-              "id": "C-03",
-              "title": "NAS-01：实际只读转换组件",
-              "work": "1. 在既有Go桥或compat中实现有限只读转换，明确输入/输出类型和允许的四类读取。\n2. 列表/详情保留同一记录ID和线路代次；分页失败不推进已确认游标，重复页不重复副作用。\n3. 复用现有TLS/设备pin/会话校验，不关闭证书校验，不跟随重定向，不把网络错误改成自动重试。\n4. 不将读取token升级成v2/Owner/写权限；不启动旧硬件控制器，不新增拨号或短信发送路径。",
-              "acceptance": "",
-              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
-              "line": 45,
-              "batch": "第一批：明确契约与只读桥（C-01～C-04）",
-              "task_ids": [
-                "NAS-01"
-              ],
-              "status": "offline_accepted"
-            },
-            {
-              "id": "C-04",
-              "title": "第一批交付",
-              "work": "1. 使用真实模块与本地合成响应，覆盖成功/未知/缺值、401/403/501、错误JSON、分页/详情对应和超限。\n2. 运行compat测试及必要的Go测试，给出实际命令/退出码；可执行的CLI也用临时合成配置验证，不接真实NAS。\n3. 报告支持矩阵、字段映射、完整HEAD、来源/许可和旧页面缺口；等待主线确认契约，不调整全局进度。",
-              "acceptance": "",
-              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
-              "line": 52,
-              "batch": "第一批：明确契约与只读桥（C-01～C-04）",
-              "task_ids": [],
-              "status": "offline_accepted"
-            },
-            {
-              "id": "C-05",
-              "title": "NAS-05：导入前差异报告",
-              "work": "1. 复用已有历史读取/迁移实现，先产出只读预检报告：来源格式/版本、记录类型/数量、缺失字段、冲突和拒绝原因。\n2. 只接合成旧短信/通话/联系人；未实现的记录类型标不支持，不能默默丢弃后声称完整迁移。\n3. 历史视图与当前SIM/当前记录隔离，保留来源和未知值；不得覆盖设备身份、Owner、当前线路或发送操作。\n4. 报告默认不包含正文/号码等内容；逐条调试只在合成夹具中展开。",
-              "acceptance": "",
-              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
-              "line": 60,
-              "batch": "第二批：历史差异与幂等（C-05～C-08）",
-              "task_ids": [
-                "NAS-05"
-              ],
-              "status": "offline_accepted"
-            },
-            {
-              "id": "C-06",
-              "title": "NAS-06：重复、部分导入及恢复",
-              "work": "1. 相同包重复导入幂等；相同旧ID但不同来源/内容不能盲目覆盖。\n2. 以真实临时数据库/文件后端测试中断、写入失败和恢复后重跑；不使用只在测试里存在的替代实现。\n3. realm/SIM代次改变、旧游标/映射重用不能使历史变成当前记录。\n4. 历史操作永远不能恢复为待发送短信/待执行通话，导入不能触发任何硬件副作用。",
-              "acceptance": "",
-              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
-              "line": 67,
-              "batch": "第二批：历史差异与幂等（C-05～C-08）",
-              "task_ids": [
-                "NAS-06"
-              ],
-              "status": "offline_accepted"
-            },
-            {
-              "id": "C-07",
-              "title": "NAS-05/06：权限和输入矩阵",
-              "work": "1. 覆盖拒绝越权历史读取、撤销/错误NAS身份、过期/错误版本与非法路径输入；不改变现有授权器语义。\n2. 覆盖大小限制、恶意名称、无效UTF-8/二进制边界、缺字段、时间缺失及重复记录。\n3. 验证失败保留原历史和当前库，不通过删除来源/清空库解决重复问题。",
-              "acceptance": "",
-              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
-              "line": 74,
-              "batch": "第二批：历史差异与幂等（C-05～C-08）",
-              "task_ids": [
-                "NAS-05",
-                "NAS-06"
-              ],
-              "status": "offline_accepted"
-            },
-            {
-              "id": "C-08",
-              "title": "第二批交付",
-              "work": "1. `cargo test -p rustsimhub-compat --locked`、该包严格Clippy、fmt及对应Go测试；真实命令以仓库当前模块布局为准。\n2. 给出导入前后差异、重复运行次数/结果、原数据保持证据及未运行项。\n3. 写主线集成说明和真实NAS补验清单；不将离线模型/回环测试写成真实NAS页面或双向声音验收。\n\n本成员不负责新版手机App，不接管NKN统计、月流量或短信核心状态机。需要跨模块变更时独立提出，交主线协调。",
-              "acceptance": "",
-              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
-              "line": 80,
-              "batch": "第二批：历史差异与幂等（C-05～C-08）",
-              "task_ids": [],
-              "status": "offline_accepted"
-            },
-            {
-              "id": "C-09",
-              "title": "对照现有Store::backup/restore、身份备份、outbox和配置清单，列出一致性范围、WAL和恢复realm语义",
-              "work": "对照现有Store::backup/restore、身份备份、outbox和配置清单，列出一致性范围、WAL和恢复realm语义",
-              "acceptance": "不复制在线SQLite主文件冒充一致性备份；不能把身份加密备份冒充全部业务备份",
-              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
-              "line": 98,
-              "batch": "第三批PR：C-09～12 / REC-04备份恢复矩阵",
-              "task_ids": [],
-              "status": "not_accepted"
-            },
-            {
-              "id": "C-10",
-              "title": "用真实模块和临时SQLite验证同批恢复、混批、截断、错误身份/Owner/realm、错误版本、缺文件、重复恢复和错误路径",
-              "work": "用真实模块和临时SQLite验证同批恢复、混批、截断、错误身份/Owner/realm、错误版本、缺文件、重复恢复和错误路径",
-              "acceptance": "明确拒绝或保留原数据；若现有格式不能证明跨库一致，记录生产缺口及最小提案，不能只在测试里增加校验器冒充产品已支持",
-              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
-              "line": 99,
-              "batch": "第三批PR：C-09～12 / REC-04备份恢复矩阵",
-              "task_ids": [],
-              "status": "not_accepted"
-            },
-            {
-              "id": "C-11",
-              "title": "构造真实prepared/submitting/Unknown/confirmed合成操作，备份/恢复/重开后核对原操作ID、回执、短信/通话及游标",
-              "work": "构造真实prepared/submitting/Unknown/confirmed合成操作，备份/恢复/重开后核对原操作ID、回执、短信/通话及游标",
-              "acceptance": "恢复不产生真实发送，模拟发送次数可断言；Unknown不能重建新操作或丢弃，历史与当前线路不混合",
-              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
-              "line": 100,
-              "batch": "第三批PR：C-09～12 / REC-04备份恢复矩阵",
-              "task_ids": [],
-              "status": "not_accepted"
-            },
-            {
-              "id": "C-12",
-              "title": "提交第三批PR，附矩阵、实际文件/数据库重开证据和主线缺口",
-              "work": "提交第三批PR，附矩阵、实际文件/数据库重开证据和主线缺口",
-              "acceptance": "只在临时目录操作，禁止运行EDL/分区恢复/设备备份脚本；真实设备一致性恢复留主线",
-              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
-              "line": 101,
-              "batch": "第三批PR：C-09～12 / REC-04备份恢复矩阵",
-              "task_ids": [],
-              "status": "not_accepted"
-            },
-            {
-              "id": "C-13",
-              "title": "对真实更新器的暂存/发布/choose/confirm建立失败注入矩阵，使用临时应用目录与合成签名密钥",
-              "work": "对真实更新器的暂存/发布/choose/confirm建立失败注入矩阵，使用临时应用目录与合成签名密钥",
-              "acceptance": "校验原子发布、唯一选定组、候选/floor/回退关系；不能用自建替代更新器",
-              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
-              "line": 107,
-              "batch": "第四批PR：C-13～16 / UPD-06与REL-05草稿",
-              "task_ids": [],
-              "status": "not_accepted"
-            },
-            {
-              "id": "C-14",
-              "title": "覆盖实际磁盘写失败、有界临时文件系统写满和子进程异常退出后重开",
-              "work": "覆盖实际磁盘写失败、有界临时文件系统写满和子进程异常退出后重开；核对签名/schema/outbox/回执边界",
-              "acceptance": "软件退出模拟不等于硬件掉电/fsync证明；不填满宿主磁盘、不延长产品截止；需要Root/命名空间的用例可写独立夹具并标本机未运行，交主线执行",
-              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
-              "line": 108,
-              "batch": "第四批PR：C-13～16 / UPD-06与REL-05草稿",
-              "task_ids": [],
-              "status": "not_accepted"
-            },
-            {
-              "id": "C-15",
-              "title": "编写普通用户入门、常见错误、一键测试、备份/恢复、升级限制和维护文档草稿",
-              "work": "编写普通用户入门、常见错误、一键测试、备份/恢复、升级限制和维护文档草稿",
-              "acceptance": "每项支持声明链接实际验收；未知明确标出；不公开私有脚本路径/凭据/设备资料，未获支持的整机升级不能写成可操作步骤",
-              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
-              "line": 109,
-              "batch": "第四批PR：C-13～16 / UPD-06与REL-05草稿",
-              "task_ids": [],
-              "status": "offline_accepted"
-            },
-            {
-              "id": "C-16",
-              "title": "提交第四批PR，给出真实命令、失败/未运行项、格式兼容提案和手册截图/本地链接校验",
-              "work": "提交第四批PR，给出真实命令、失败/未运行项、格式兼容提案和手册截图/本地链接校验",
-              "acceptance": "正式发行包、签名验证/设备恢复步骤和REL-01支持矩阵最终定稿由主线完成",
-              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
-              "line": 110,
-              "batch": "第四批PR：C-13～16 / UPD-06与REL-05草稿",
-              "task_ids": [],
-              "status": "not_accepted"
-            },
-            {
-              "id": "C-17",
-              "title": "UPD-07 · 对照`firmware/base-system.lock.json`、`board.toml`、内核公开锁定资料及既有verify-kernel-source-tree/verify-audio-boot-recipe脚本，建立版本和来源清单",
-              "work": "对照`firmware/base-system.lock.json`、`board.toml`、内核公开锁定资料及既有verify-kernel-source-tree/verify-audio-boot-recipe脚本，建立版本和来源清单",
-              "acceptance": "复用已有锁定事实，不另造相冲突的manifest；分别列kernel release/来源提交、DTB板型、模块vermagic/依赖、固件许可/摘要，缺失值不猜测",
-              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 112,
-              "batch": "yh1030 · C-17～20 · 内核/DTB/模块/固件一致性",
-              "task_ids": [
-                "UPD-07"
-              ],
-              "status": "not_accepted"
-            },
-            {
-              "id": "C-18",
-              "title": "UPD-07 · 新增离线只读一致性检查器，默认只列计划",
-              "work": "新增离线只读一致性检查器，默认只列计划；只读取显式传入的公开/合成manifest及隔离制品目录，不执行被检查的程序或脚本",
-              "acceptance": "摘要、架构、板型、release、必需文件和声明的模块依赖逐项核对；限量/路径/链接/重复条目/未知版本失败明确；报告仅含允许公开的制品事实",
-              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 113,
-              "batch": "yh1030 · C-17～20 · 内核/DTB/模块/固件一致性",
-              "task_ids": [
-                "UPD-07"
-              ],
-              "status": "not_accepted"
-            },
-            {
-              "id": "C-19",
-              "title": "UPD-07 · 合成匹配和混版样本，覆盖错板DTB、缺模块/固件、摘要变化、冲突release/vermagic、损坏ELF/元数据及清单不完整",
-              "work": "合成匹配和混版样本，覆盖错板DTB、缺模块/固件、摘要变化、冲突release/vermagic、损坏ELF/元数据及清单不完整；复用已有校验模块",
-              "acceptance": "断言真实检查器的通过/拒绝/未核验结果；不能只比较手写JSON，也不能用任意合成哈希声称681原装模块或真实boot已匹配",
-              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 114,
-              "batch": "yh1030 · C-17～20 · 内核/DTB/模块/固件一致性",
-              "task_ids": [
-                "UPD-07"
-              ],
-              "status": "not_accepted"
-            },
-            {
-              "id": "C-20",
-              "title": "交付 · 提交检查器、合成样本、输入格式、执行结果及主线补验清单，说明公开锁定事实与真实制品证据的区别",
-              "work": "提交检查器、合成样本、输入格式、执行结果及主线补验清单，说明公开锁定事实与真实制品证据的区别",
-              "acceptance": "不写镜像/分区、修改boot/DTB/驱动/NV，不加载模块、不签名；主线取得实际制品后再完成重建、签名及实机验收",
-              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 115,
-              "batch": "yh1030 · C-17～20 · 内核/DTB/模块/固件一致性",
-              "task_ids": [],
-              "status": "not_accepted"
-            },
-            {
-              "id": "C-21",
-              "title": "对照IV列已有覆盖和10类case",
-              "work": "对照IV列已有覆盖和10类case",
-              "acceptance": "AP-04离线部分。依赖实际公开trait已存在，可在当前历史PR获审后与恢复/制品包串行。Root实际失败/SSID/DHCP/物理回退仍归主线；原AP-03完整实机前置保持",
-              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 230,
-              "batch": "T5 · yh1030接口离线包",
-              "task_ids": [
-                "AP-04"
-              ],
-              "status": "not_accepted"
-            },
-            {
-              "id": "C-22",
-              "title": "真实station_trial::run错误/取消/restore矩阵",
-              "work": "真实station_trial::run错误/取消/restore矩阵",
-              "acceptance": "AP-04离线部分。依赖实际公开trait已存在，可在当前历史PR获审后与恢复/制品包串行。Root实际失败/SSID/DHCP/物理回退仍归主线；原AP-03完整实机前置保持",
-              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 230,
-              "batch": "T5 · yh1030接口离线包",
-              "task_ids": [
-                "AP-04"
-              ],
-              "status": "not_accepted"
-            },
-            {
-              "id": "C-23",
-              "title": "真实station_commit::run部分保存/audit/撤销/迟到结果矩阵",
-              "work": "真实station_commit::run部分保存/audit/撤销/迟到结果矩阵",
-              "acceptance": "AP-04离线部分。依赖实际公开trait已存在，可在当前历史PR获审后与恢复/制品包串行。Root实际失败/SSID/DHCP/物理回退仍归主线；原AP-03完整实机前置保持",
-              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 230,
-              "batch": "T5 · yh1030接口离线包",
-              "task_ids": [
-                "AP-04"
-              ],
-              "status": "not_accepted"
-            },
-            {
-              "id": "C-24",
-              "title": "实际测试、调用序列、失败最小样本和设备补验交付",
-              "work": "实际测试、调用序列、失败最小样本和设备补验交付",
-              "acceptance": "AP-04离线部分。依赖实际公开trait已存在，可在当前历史PR获审后与恢复/制品包串行。Root实际失败/SSID/DHCP/物理回退仍归主线；原AP-03完整实机前置保持",
-              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 230,
-              "batch": "T5 · yh1030接口离线包",
-              "task_ids": [
-                "AP-04"
               ],
               "status": "not_accepted"
             },
@@ -9484,10 +9436,10 @@
               "id": "C-25",
               "title": "UPD-02/03：消费主线已收口UPD-01契约，做固定Root材料计划/验证、干净rootfs组合与可复现产物检查",
               "work": "UPD-02/03：消费主线已收口UPD-01契约，做固定Root材料计划/验证、干净rootfs组合与可复现产物检查；合成密钥/隔离输出覆盖错误版本、任意路径、错hash/权限和中断",
-              "acceptance": "**UPD-01当前U4未提交区域禁止抢改**，等主线提交接口后才接该实现。不能用设备当前Owner/短信/Wi-Fi口令制镜像，不能生产签名/安装/choose",
+              "acceptance": "UPD-01已在起始main落地，消费既有接口，不改签名/nonce/floor/Store与维护授权。不能用设备当前Owner/短信/Wi-Fi口令制镜像，不能生产签名/安装/choose",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 319,
-              "batch": "5. yh1030 · C-25～30 · 系统材料、NAS与发行证据",
+              "line": 321,
+              "batch": "5. wnfhsj88 接手 · C-25～30 · 系统材料、NAS与发行证据",
               "task_ids": [
                 "UPD-02",
                 "UPD-03"
@@ -9500,8 +9452,8 @@
               "work": "UPD-05：在真实更新器基础上实现精确候选健康评估库/证据验证与接口接线提案，覆盖进程存活但Core/Root/data不匹配、旧来源、伪造/过期回执",
               "acceptance": "不把输入JSON自报healthy当确认授权；实际confirm调用和Root可信证据来源由主线接纳。保留fallback与数据兼容，不能靠清floor/预算通过",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 320,
-              "batch": "5. yh1030 · C-25～30 · 系统材料、NAS与发行证据",
+              "line": 322,
+              "batch": "5. wnfhsj88 接手 · C-25～30 · 系统材料、NAS与发行证据",
               "task_ids": [
                 "UPD-05"
               ],
@@ -9509,12 +9461,12 @@
             },
             {
               "id": "C-27",
-              "title": "UPD-08：基于本人UPD-07清单完善匹配的内核/DTB/模块/外部initramfs离线构建材料及重建/静态校验工具",
-              "work": "UPD-08：基于本人UPD-07清单完善匹配的内核/DTB/模块/外部initramfs离线构建材料及重建/静态校验工具",
+              "title": "UPD-08：复用C已交付UPD-07清单，完善匹配的内核/DTB/模块/外部initramfs离线构建材料及重建/静态校验工具",
+              "work": "UPD-08：复用C已交付UPD-07清单，完善匹配的内核/DTB/模块/外部initramfs离线构建材料及重建/静态校验工具",
               "acceptance": "无设备只交构建/格式/来源证据；不执行真实启动/分区写入。实际boot和恢复路径仍主线验证",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 321,
-              "batch": "5. yh1030 · C-25～30 · 系统材料、NAS与发行证据",
+              "line": 323,
+              "batch": "5. wnfhsj88 接手 · C-25～30 · 系统材料、NAS与发行证据",
               "task_ids": [
                 "UPD-08"
               ],
@@ -9526,8 +9478,8 @@
               "work": "NAS-03/04：用独立正常控制客户端会话实现NasControlClientV1和NasAudioPortV1，保留旧NAS只读桥；核对已知旧源码版本，模拟真实Core服务验证操作/租约与音频转换",
               "acceptance": "LegacyRead/Nas身份不得自动获得控制权限；不复制Owner私钥、不直接拨号或接PCM硬件。无法获得固定旧页面源码时明示缺口，不伪造兼容；真实NAS/两端听音由主线验收",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 322,
-              "batch": "5. yh1030 · C-25～30 · 系统材料、NAS与发行证据",
+              "line": 324,
+              "batch": "5. wnfhsj88 接手 · C-25～30 · 系统材料、NAS与发行证据",
               "task_ids": [
                 "NAS-03",
                 "NAS-04"
@@ -9540,8 +9492,8 @@
               "work": "FWD-22、UPD-10、REC-05、REL-01/04、BLE0-01/02/04、BLE6-04：给出固定来源/支持事实/缺口的证据索引与校验器、公开能力矩阵、只读硬件计划及安装/回退/使用文档",
               "acceptance": "复用已分配REL-05手册，不重复造文档。缺真实HCI/RF/恢复/OTA证据保持未知或不支持；校验器拒绝错SHA/漏项，不能代替负责人最终签认REL-06",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 323,
-              "batch": "5. yh1030 · C-25～30 · 系统材料、NAS与发行证据",
+              "line": 325,
+              "batch": "5. wnfhsj88 接手 · C-25～30 · 系统材料、NAS与发行证据",
               "task_ids": [
                 "BLE0-01",
                 "BLE0-02",
@@ -9561,10 +9513,306 @@
               "work": "REMOTE-02：提供测试中继/TURN/DNS/证书的有限私有模板、预算/停机/清理计划与离线校验；合并本包失败矩阵和来源许可",
               "acceptance": "不连接实际服务器，不在仓库放账号/证书私钥或自动开端口。真实资源由主线配置与验收，实际部署不算成员已做",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 324,
-              "batch": "5. yh1030 · C-25～30 · 系统材料、NAS与发行证据",
+              "line": 326,
+              "batch": "5. wnfhsj88 接手 · C-25～30 · 系统材料、NAS与发行证据",
               "task_ids": [
                 "REMOTE-02"
+              ],
+              "status": "not_accepted"
+            }
+          ]
+        },
+        {
+          "member_id": "member-c",
+          "steps": [
+            {
+              "id": "C-01",
+              "title": "NAS-01：盘点实际支持",
+              "work": "1. 阅读 `docs/nas-online-bridge.md`、compat的lib/session/history/migrate、legacy黄金向量，以及Go桥入口。\n2. 建一张逐路径/动作矩阵：支持、需要NAS适配、不支持、尚未实机验证，分别列状态/短信列表/详情/通话/控制/媒体。\n3. 逐字段写来源、类型、缺值、稳定ID、线路代次及分页游标；不把旧“设备离线”直接解释成SIM无法注册。\n4. 没有固定旧NAS源码时明确缺口，不猜字段；先以现有正式读取契约交付，旧页面集成由主线提供固定版本后继续。",
+              "acceptance": "",
+              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
+              "line": 33,
+              "batch": "第一批：明确契约与只读桥（C-01～C-04）",
+              "task_ids": [
+                "NAS-01"
+              ],
+              "status": "offline_accepted"
+            },
+            {
+              "id": "C-02",
+              "title": "NAS-01：状态和错误模型",
+              "work": "1. 为正常、SIM缺失/锁定、观察中、后端不可用、兼容未开、版本不支持分别建有限模型。\n2. 区分网络/HTTP错误、401/403、501未实现和业务暂不可用；不能全部转换为“离线”或空列表。\n3. 只读返回不包含种子、兼容token、原始SIM/硬件标识；未知字段不猜造号码/时间。\n4. 错误和设备字符串作为文本/强类型数据处理，拒绝超大输入、错误类型和不明版本。",
+              "acceptance": "",
+              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
+              "line": 40,
+              "batch": "第一批：明确契约与只读桥（C-01～C-04）",
+              "task_ids": [
+                "NAS-01"
+              ],
+              "status": "offline_accepted"
+            },
+            {
+              "id": "C-03",
+              "title": "NAS-01：实际只读转换组件",
+              "work": "1. 在既有Go桥或compat中实现有限只读转换，明确输入/输出类型和允许的四类读取。\n2. 列表/详情保留同一记录ID和线路代次；分页失败不推进已确认游标，重复页不重复副作用。\n3. 复用现有TLS/设备pin/会话校验，不关闭证书校验，不跟随重定向，不把网络错误改成自动重试。\n4. 不将读取token升级成v2/Owner/写权限；不启动旧硬件控制器，不新增拨号或短信发送路径。",
+              "acceptance": "",
+              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
+              "line": 47,
+              "batch": "第一批：明确契约与只读桥（C-01～C-04）",
+              "task_ids": [
+                "NAS-01"
+              ],
+              "status": "offline_accepted"
+            },
+            {
+              "id": "C-04",
+              "title": "第一批交付",
+              "work": "1. 使用真实模块与本地合成响应，覆盖成功/未知/缺值、401/403/501、错误JSON、分页/详情对应和超限。\n2. 运行compat测试及必要的Go测试，给出实际命令/退出码；可执行的CLI也用临时合成配置验证，不接真实NAS。\n3. 报告支持矩阵、字段映射、完整HEAD、来源/许可和旧页面缺口；等待主线确认契约，不调整全局进度。",
+              "acceptance": "",
+              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
+              "line": 54,
+              "batch": "第一批：明确契约与只读桥（C-01～C-04）",
+              "task_ids": [],
+              "status": "offline_accepted"
+            },
+            {
+              "id": "C-05",
+              "title": "NAS-05：导入前差异报告",
+              "work": "1. 复用已有历史读取/迁移实现，先产出只读预检报告：来源格式/版本、记录类型/数量、缺失字段、冲突和拒绝原因。\n2. 只接合成旧短信/通话/联系人；未实现的记录类型标不支持，不能默默丢弃后声称完整迁移。\n3. 历史视图与当前SIM/当前记录隔离，保留来源和未知值；不得覆盖设备身份、Owner、当前线路或发送操作。\n4. 报告默认不包含正文/号码等内容；逐条调试只在合成夹具中展开。",
+              "acceptance": "",
+              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
+              "line": 62,
+              "batch": "第二批：历史差异与幂等（C-05～C-08）",
+              "task_ids": [
+                "NAS-05"
+              ],
+              "status": "offline_accepted"
+            },
+            {
+              "id": "C-06",
+              "title": "NAS-06：重复、部分导入及恢复",
+              "work": "1. 相同包重复导入幂等；相同旧ID但不同来源/内容不能盲目覆盖。\n2. 以真实临时数据库/文件后端测试中断、写入失败和恢复后重跑；不使用只在测试里存在的替代实现。\n3. realm/SIM代次改变、旧游标/映射重用不能使历史变成当前记录。\n4. 历史操作永远不能恢复为待发送短信/待执行通话，导入不能触发任何硬件副作用。",
+              "acceptance": "",
+              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
+              "line": 69,
+              "batch": "第二批：历史差异与幂等（C-05～C-08）",
+              "task_ids": [
+                "NAS-06"
+              ],
+              "status": "offline_accepted"
+            },
+            {
+              "id": "C-07",
+              "title": "NAS-05/06：权限和输入矩阵",
+              "work": "1. 覆盖拒绝越权历史读取、撤销/错误NAS身份、过期/错误版本与非法路径输入；不改变现有授权器语义。\n2. 覆盖大小限制、恶意名称、无效UTF-8/二进制边界、缺字段、时间缺失及重复记录。\n3. 验证失败保留原历史和当前库，不通过删除来源/清空库解决重复问题。",
+              "acceptance": "",
+              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
+              "line": 76,
+              "batch": "第二批：历史差异与幂等（C-05～C-08）",
+              "task_ids": [
+                "NAS-05",
+                "NAS-06"
+              ],
+              "status": "offline_accepted"
+            },
+            {
+              "id": "C-08",
+              "title": "第二批交付",
+              "work": "1. `cargo test -p rustsimhub-compat --locked`、该包严格Clippy、fmt及对应Go测试；真实命令以仓库当前模块布局为准。\n2. 给出导入前后差异、重复运行次数/结果、原数据保持证据及未运行项。\n3. 写主线集成说明和真实NAS补验清单；不将离线模型/回环测试写成真实NAS页面或双向声音验收。\n\n本成员不负责新版手机App，不接管NKN统计、月流量或短信核心状态机。需要跨模块变更时独立提出，交主线协调。",
+              "acceptance": "",
+              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
+              "line": 82,
+              "batch": "第二批：历史差异与幂等（C-05～C-08）",
+              "task_ids": [],
+              "status": "offline_accepted"
+            },
+            {
+              "id": "C-09",
+              "title": "对照现有Store::backup/restore、身份备份、outbox和配置清单，列出一致性范围、WAL和恢复realm语义",
+              "work": "对照现有Store::backup/restore、身份备份、outbox和配置清单，列出一致性范围、WAL和恢复realm语义",
+              "acceptance": "不复制在线SQLite主文件冒充一致性备份；不能把身份加密备份冒充全部业务备份",
+              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
+              "line": 100,
+              "batch": "第三批PR：C-09～12 / REC-04备份恢复矩阵",
+              "task_ids": [],
+              "status": "not_accepted"
+            },
+            {
+              "id": "C-10",
+              "title": "用真实模块和临时SQLite验证同批恢复、混批、截断、错误身份/Owner/realm、错误版本、缺文件、重复恢复和错误路径",
+              "work": "用真实模块和临时SQLite验证同批恢复、混批、截断、错误身份/Owner/realm、错误版本、缺文件、重复恢复和错误路径",
+              "acceptance": "明确拒绝或保留原数据；若现有格式不能证明跨库一致，记录生产缺口及最小提案，不能只在测试里增加校验器冒充产品已支持",
+              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
+              "line": 101,
+              "batch": "第三批PR：C-09～12 / REC-04备份恢复矩阵",
+              "task_ids": [],
+              "status": "not_accepted"
+            },
+            {
+              "id": "C-11",
+              "title": "构造真实prepared/submitting/Unknown/confirmed合成操作，备份/恢复/重开后核对原操作ID、回执、短信/通话及游标",
+              "work": "构造真实prepared/submitting/Unknown/confirmed合成操作，备份/恢复/重开后核对原操作ID、回执、短信/通话及游标",
+              "acceptance": "恢复不产生真实发送，模拟发送次数可断言；Unknown不能重建新操作或丢弃，历史与当前线路不混合",
+              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
+              "line": 102,
+              "batch": "第三批PR：C-09～12 / REC-04备份恢复矩阵",
+              "task_ids": [],
+              "status": "not_accepted"
+            },
+            {
+              "id": "C-12",
+              "title": "提交第三批PR，附矩阵、实际文件/数据库重开证据和主线缺口",
+              "work": "提交第三批PR，附矩阵、实际文件/数据库重开证据和主线缺口",
+              "acceptance": "只在临时目录操作，禁止运行EDL/分区恢复/设备备份脚本；真实设备一致性恢复留主线",
+              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
+              "line": 103,
+              "batch": "第三批PR：C-09～12 / REC-04备份恢复矩阵",
+              "task_ids": [],
+              "status": "not_accepted"
+            },
+            {
+              "id": "C-13",
+              "title": "对真实更新器的暂存/发布/choose/confirm建立失败注入矩阵，使用临时应用目录与合成签名密钥",
+              "work": "对真实更新器的暂存/发布/choose/confirm建立失败注入矩阵，使用临时应用目录与合成签名密钥",
+              "acceptance": "校验原子发布、唯一选定组、候选/floor/回退关系；不能用自建替代更新器",
+              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
+              "line": 109,
+              "batch": "第四批PR：C-13～16 / UPD-06与REL-05草稿",
+              "task_ids": [],
+              "status": "not_accepted"
+            },
+            {
+              "id": "C-14",
+              "title": "覆盖实际磁盘写失败、有界临时文件系统写满和子进程异常退出后重开",
+              "work": "覆盖实际磁盘写失败、有界临时文件系统写满和子进程异常退出后重开；核对签名/schema/outbox/回执边界",
+              "acceptance": "软件退出模拟不等于硬件掉电/fsync证明；不填满宿主磁盘、不延长产品截止；需要Root/命名空间的用例可写独立夹具并标本机未运行，交主线执行",
+              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
+              "line": 110,
+              "batch": "第四批PR：C-13～16 / UPD-06与REL-05草稿",
+              "task_ids": [],
+              "status": "not_accepted"
+            },
+            {
+              "id": "C-15",
+              "title": "编写普通用户入门、常见错误、一键测试、备份/恢复、升级限制和维护文档草稿",
+              "work": "编写普通用户入门、常见错误、一键测试、备份/恢复、升级限制和维护文档草稿",
+              "acceptance": "每项支持声明链接实际验收；未知明确标出；不公开私有脚本路径/凭据/设备资料，未获支持的整机升级不能写成可操作步骤",
+              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
+              "line": 111,
+              "batch": "第四批PR：C-13～16 / UPD-06与REL-05草稿",
+              "task_ids": [],
+              "status": "offline_accepted"
+            },
+            {
+              "id": "C-16",
+              "title": "提交第四批PR，给出真实命令、失败/未运行项、格式兼容提案和手册截图/本地链接校验",
+              "work": "提交第四批PR，给出真实命令、失败/未运行项、格式兼容提案和手册截图/本地链接校验",
+              "acceptance": "正式发行包、签名验证/设备恢复步骤和REL-01支持矩阵最终定稿由主线完成",
+              "source": "docs/team/MEMBER-C-NAS-COMPAT.md",
+              "line": 112,
+              "batch": "第四批PR：C-13～16 / UPD-06与REL-05草稿",
+              "task_ids": [],
+              "status": "not_accepted"
+            },
+            {
+              "id": "C-17",
+              "title": "UPD-07 · 对照`firmware/base-system.lock.json`、`board.toml`、内核公开锁定资料及既有verify-kernel-source-tree/verify-audio-boot-recipe脚本，建立版本和来源清单",
+              "work": "对照`firmware/base-system.lock.json`、`board.toml`、内核公开锁定资料及既有verify-kernel-source-tree/verify-audio-boot-recipe脚本，建立版本和来源清单",
+              "acceptance": "复用已有锁定事实，不另造相冲突的manifest；分别列kernel release/来源提交、DTB板型、模块vermagic/依赖、固件许可/摘要，缺失值不猜测",
+              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
+              "line": 114,
+              "batch": "yh1030 · C-17～20 · 内核/DTB/模块/固件一致性",
+              "task_ids": [
+                "UPD-07"
+              ],
+              "status": "not_accepted"
+            },
+            {
+              "id": "C-18",
+              "title": "UPD-07 · 新增离线只读一致性检查器，默认只列计划",
+              "work": "新增离线只读一致性检查器，默认只列计划；只读取显式传入的公开/合成manifest及隔离制品目录，不执行被检查的程序或脚本",
+              "acceptance": "摘要、架构、板型、release、必需文件和声明的模块依赖逐项核对；限量/路径/链接/重复条目/未知版本失败明确；报告仅含允许公开的制品事实",
+              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
+              "line": 115,
+              "batch": "yh1030 · C-17～20 · 内核/DTB/模块/固件一致性",
+              "task_ids": [
+                "UPD-07"
+              ],
+              "status": "not_accepted"
+            },
+            {
+              "id": "C-19",
+              "title": "UPD-07 · 合成匹配和混版样本，覆盖错板DTB、缺模块/固件、摘要变化、冲突release/vermagic、损坏ELF/元数据及清单不完整",
+              "work": "合成匹配和混版样本，覆盖错板DTB、缺模块/固件、摘要变化、冲突release/vermagic、损坏ELF/元数据及清单不完整；复用已有校验模块",
+              "acceptance": "断言真实检查器的通过/拒绝/未核验结果；不能只比较手写JSON，也不能用任意合成哈希声称681原装模块或真实boot已匹配",
+              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
+              "line": 116,
+              "batch": "yh1030 · C-17～20 · 内核/DTB/模块/固件一致性",
+              "task_ids": [
+                "UPD-07"
+              ],
+              "status": "not_accepted"
+            },
+            {
+              "id": "C-20",
+              "title": "交付 · 提交检查器、合成样本、输入格式、执行结果及主线补验清单，说明公开锁定事实与真实制品证据的区别",
+              "work": "提交检查器、合成样本、输入格式、执行结果及主线补验清单，说明公开锁定事实与真实制品证据的区别",
+              "acceptance": "不写镜像/分区、修改boot/DTB/驱动/NV，不加载模块、不签名；主线取得实际制品后再完成重建、签名及实机验收",
+              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
+              "line": 117,
+              "batch": "yh1030 · C-17～20 · 内核/DTB/模块/固件一致性",
+              "task_ids": [],
+              "status": "not_accepted"
+            },
+            {
+              "id": "C-21",
+              "title": "对照IV列已有覆盖和10类case",
+              "work": "对照IV列已有覆盖和10类case",
+              "acceptance": "AP-04离线部分。依赖实际公开trait已存在，可在当前历史PR获审后与恢复/制品包串行。Root实际失败/SSID/DHCP/物理回退仍归主线；原AP-03完整实机前置保持",
+              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
+              "line": 232,
+              "batch": "T5 · yh1030接口离线包",
+              "task_ids": [
+                "AP-04"
+              ],
+              "status": "not_accepted"
+            },
+            {
+              "id": "C-22",
+              "title": "真实station_trial::run错误/取消/restore矩阵",
+              "work": "真实station_trial::run错误/取消/restore矩阵",
+              "acceptance": "AP-04离线部分。依赖实际公开trait已存在，可在当前历史PR获审后与恢复/制品包串行。Root实际失败/SSID/DHCP/物理回退仍归主线；原AP-03完整实机前置保持",
+              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
+              "line": 232,
+              "batch": "T5 · yh1030接口离线包",
+              "task_ids": [
+                "AP-04"
+              ],
+              "status": "not_accepted"
+            },
+            {
+              "id": "C-23",
+              "title": "真实station_commit::run部分保存/audit/撤销/迟到结果矩阵",
+              "work": "真实station_commit::run部分保存/audit/撤销/迟到结果矩阵",
+              "acceptance": "AP-04离线部分。依赖实际公开trait已存在，可在当前历史PR获审后与恢复/制品包串行。Root实际失败/SSID/DHCP/物理回退仍归主线；原AP-03完整实机前置保持",
+              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
+              "line": 232,
+              "batch": "T5 · yh1030接口离线包",
+              "task_ids": [
+                "AP-04"
+              ],
+              "status": "not_accepted"
+            },
+            {
+              "id": "C-24",
+              "title": "实际测试、调用序列、失败最小样本和设备补验交付",
+              "work": "实际测试、调用序列、失败最小样本和设备补验交付",
+              "acceptance": "AP-04离线部分。依赖实际公开trait已存在，可在当前历史PR获审后与恢复/制品包串行。Root实际失败/SSID/DHCP/物理回退仍归主线；原AP-03完整实机前置保持",
+              "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
+              "line": 232,
+              "batch": "T5 · yh1030接口离线包",
+              "task_ids": [
+                "AP-04"
               ],
               "status": "not_accepted"
             }
@@ -9723,7 +9971,7 @@
               "work": "对照真实status-led策略、Core状态输入、storage indicator映射和系统单元，列固定路径/UID/租约/标记生命周期及SIM隔离的源码证据",
               "acceptance": "不修改用户已确认的颜色、优先级、跑马灯次序与低频闪烁预算；实际sysfs/UID/硬件仍列主线待验",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 125,
+              "line": 127,
               "batch": "RedamancyGTW · D-13～16 · 灯控与通信输入失败矩阵",
               "task_ids": [
                 "LED-07"
@@ -9736,7 +9984,7 @@
               "work": "直接调用真实策略/已有Store接口，使用临时文件与可控时间测试旧代次、过期/超远期租约、损坏输入、切换配置/升级/未读状态；有现成文件适配器才复用假sysfs目录",
               "acceptance": "过期/旧SIM不能作为当前配置或新未读生效；不读取真实sysfs/设备节点，不另写一套灯控实现替代被测代码。不支持目录注入时交缺口，不开放任意sysfs路径",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 126,
+              "line": 128,
               "batch": "RedamancyGTW · D-13～16 · 灯控与通信输入失败矩阵",
               "task_ids": [
                 "LED-07"
@@ -9749,7 +9997,7 @@
               "work": "在真实公开解析/存储入口上运行有限、可重放的合成边界语料：UTF-8、空/超长/二进制字段、非法枚举/数字、截断及重复/乱序事件；固定种子、次数与资源预算",
               "acceptance": "无新依赖的确定性测试优先；不新增PDU解析器、生产HTTP/IPC入口或schema。拒绝不推进游标、不产生发送/拨号副作用。无法到达的内部入口先交最小测试接入提案",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 127,
+              "line": 129,
               "batch": "RedamancyGTW · D-13～16 · 灯控与通信输入失败矩阵",
               "task_ids": [],
               "status": "not_accepted"
@@ -9760,7 +10008,7 @@
               "work": "跑`cargo test -p rustsimhub-status-led --locked`、storage/受影响Core针对性测试、严格Clippy/fmt，记录最小失败输入、次数和环境；提交修复提案",
               "acceptance": "本T4只补测试/审计和最小cfg(test)接入，不改灯控策略、鉴权、限额、控制/媒体或生产解析语义。发现真实缺陷由主线另行修正；真实灯效和完整SEC-06仍未验收",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 128,
+              "line": 130,
               "batch": "RedamancyGTW · D-13～16 · 灯控与通信输入失败矩阵",
               "task_ids": [],
               "status": "not_accepted"
@@ -9771,7 +10019,7 @@
               "work": "按II建立固定对象/UUID、帧/预算类型与端口",
               "acceptance": "BLE3-01/04离线部分。先交当前D包；只实现可复用库与注入后端，缺安全端口默认拒绝。真实BlueZ绑定、Core IPC、密码协议、服务UID/Root安装与BLE3-02/03保持主线",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 231,
+              "line": 233,
               "batch": "T5 · RedamancyGTW接口离线包",
               "task_ids": [
                 "BLE3-01",
@@ -9785,7 +10033,7 @@
               "work": "实际注册/撤销/Release/epoch状态机",
               "acceptance": "BLE3-01/04离线部分。先交当前D包；只实现可复用库与注入后端，缺安全端口默认拒绝。真实BlueZ绑定、Core IPC、密码协议、服务UID/Root安装与BLE3-02/03保持主线",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 231,
+              "line": 233,
               "batch": "T5 · RedamancyGTW接口离线包",
               "task_ids": [
                 "BLE3-01",
@@ -9799,7 +10047,7 @@
               "work": "借助Mock BlueZ与测试SecurePort验证广播部分失败、第二peer、乱序/洪泛/断连/重启/晚到注册",
               "acceptance": "BLE3-01/04离线部分。先交当前D包；只实现可复用库与注入后端，缺安全端口默认拒绝。真实BlueZ绑定、Core IPC、密码协议、服务UID/Root安装与BLE3-02/03保持主线",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 231,
+              "line": 233,
               "batch": "T5 · RedamancyGTW接口离线包",
               "task_ids": [
                 "BLE3-01",
@@ -9813,7 +10061,7 @@
               "work": "真实库/帧向量/资源上限测试和主线接线交付",
               "acceptance": "BLE3-01/04离线部分。先交当前D包；只实现可复用库与注入后端，缺安全端口默认拒绝。真实BlueZ绑定、Core IPC、密码协议、服务UID/Root安装与BLE3-02/03保持主线",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 231,
+              "line": 233,
               "batch": "T5 · RedamancyGTW接口离线包",
               "task_ids": [
                 "BLE3-01",
@@ -9827,7 +10075,7 @@
               "work": "BLE2-01：按RecoveryAuthorizerV1提独立恢复能力/批准撤销/存储迁移提案，获审后在现有Auth/Core唯一权威实现；浏览器绑定非导出恢复密钥",
               "acceptance": "不使用匿名首次认领窗口、不制造Owner，不改旧scope bit含义。新版本/损坏/旧realm/grant撤销/重启迁移和无权限全部有真实模块测试",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 332,
+              "line": 334,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "BLE2-01"
@@ -9840,7 +10088,7 @@
               "work": "BLE2-02、BLE3-02：完成固定Unix IPC/真实SO_PEERCRED来源与会话绑定，接A安全会话和本人Gatt适配库，构造Core内部不可由payload伪造的可信能力",
               "acceptance": "测试真实临时socket/不同UID可执行部分，权限不足的Root用例标未运行。禁止前端channel=ble、固定假uid或Mock安全port进入生产路径",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 333,
+              "line": 335,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "BLE2-02",
@@ -9854,7 +10102,7 @@
               "work": "BLE2-03/04：把合法恢复上下文接现有Wi-Fi开始/查询/确认/取消；保留USB原门禁、唯一网络锁、电话协调、WWAN/IMS/默认APN边界",
               "acceptance": "无USB未认证拒绝、合法恢复通过、保存前后撤权/断连/重放/并发网页路径覆盖；Unknown保留，不新建共享业务库或第二网络事务",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 334,
+              "line": 336,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "BLE2-03",
@@ -9868,7 +10116,7 @@
               "work": "BLE3-03：交付有限低权服务/账户/目录/设备/地址族/预算模板和关闭清理；与Root安装器/C材料组装协调",
               "acceptance": "账户角色/实际UID和许可表先审，不自行占用既有UID。无BLE时Core仍运行，关闭清理广播/会话，无常驻任意Root；真实NSS/cgroup/BlueZ权限由主线安装复核",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 335,
+              "line": 337,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "BLE3-03"
@@ -9881,7 +10129,7 @@
               "work": "REMOTE-03/05：实现现有身份/媒体预授权在远程通道的绑定、撤销及受限TURN/ICE/DTLS/Opus适配，保留票据/peer/call/line/租约关系",
               "acceptance": "本地合成对端/私有测试TLS环境做强制中继与失败测试，不连接真实外网服务器。NAS/C仅消费已审核的正常接口，不允许NKN隧道绕过权限",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 336,
+              "line": 338,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [
                 "REMOTE-03",
@@ -9895,7 +10143,7 @@
               "work": "扩展本人SEC-06输入矩阵至实际新增Core/媒体/BLE解析及跨模块故障：并发控制、过期/撤销、退出、回调迟到、分片/队列/超时",
               "acceptance": "测试真实生产模块，模拟仅外部后端；不拉长产品租约/队列或删拒绝断言。提交最小复现/修正、真实命令及尚未运行的设备/TURN/两端听音清单",
               "source": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md",
-              "line": 337,
+              "line": 339,
               "batch": "6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体",
               "task_ids": [],
               "status": "not_accepted"

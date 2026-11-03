@@ -1,5 +1,7 @@
 # T3 / T4 / T5 / T6 · 四位成员追加离线任务与主线边界
 
+2026-11-03有效转交：C25～C30现由wnfhsj88承担，yh1030保留C01～C24；旧日期分配与原作者/审核保留，详见[转交记录](TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md)。本文件保留唯一稳定步骤定义，后续“C25～30包”指步骤来源而非当前账号。
+
 2026-10-30分配更新：用户要求wnfhsj88接手fungi1220的全部A-01～30。当前A无待办，B共62步；下文历史阶段与原粗估保留，实际当前归属以roster.json及offline-ownership.json为准，接口/审核/设备边界不变。
 
 日期：2026-10-27，最新为T5接口固定与T6最大化离线交付。用户明确授权“把能分出去的任务分出去”，并要求继续写在本文件。本文件是追加包的完整任务说明；个人任务书保留原包并链接本文件。可独立离线交付的实现、构建、测试与工具交给成员；真实设备/生产密钥签名、接口与权限方案审核、集成和最终验收归负责人。分配不是完成声明，本次不启动设备操作。
@@ -261,8 +263,8 @@ BlueZ对象树/注册、特征值方法及广播生命周期依据上游[GattMan
 | 人员 | 当前累计步骤 / 离线已审 | T6追加实现责任 | 全部分配粗估 |
 |---|---|---|---|
 | fungi1220（历史） | 当前0 / 0 | A-01～30已按用户要求转交wnfhsj88；历史证据保留 | 不填报 |
-| wnfhsj88 | B-01～32 + A-01～30 / 0 | 原B包及接手的统计/NKN/安全会话/审计/邮件 | 67～151工程小时 |
-| yh1030 | C-01～30 / 6 | 更新/干净系统/健康判定离线实现、内核构建材料、NAS控制/声音客户端、恢复/发布证据与测试中继模板 | 35～80工程小时 |
+| wnfhsj88 | B-01～32 + A-01～30 + C-25～30 / 0 | 原B/A包及接手C组材料/健康/构建/NAS/发行/中继六步 | 85～191工程小时 |
+| yh1030 | C-01～24 / 原审核保持 | C01～24历史交付/复核；C25～30已转交wnfhsj88 | 17～40工程小时 |
 | RedamancyGTW | D-01～26 / 0 | Core BLE恢复授权/IPC/Wi-Fi接线、有限服务模板、远程API与TURN媒体、跨模块失败测试 | 33～75工程小时 |
 
 T5先增加20步至96步，T6再增加22步至**118步**；C的6步审核原样保留，工时仅粗略计划，不是剩余工时/实际投入/交付承诺，也不重复累加到项目台账。新增T6粗估A 20～45、B 10～22、C 18～40、D 16～36小时；遇到新协议/依赖/格式提案时再按证据校准。
@@ -279,8 +281,8 @@ T5已有方法、DTO、错误、UUID和预算继续适用；本地记录按已�
 | `SecureSessionPortV1` / A | `startHandshake(context)`、`ingestHandshake(boundedBytes)`、`seal(direction,sequence,payload)`、`open(direction,sequence,ciphertext)`、`close()`；context绑定设备pin、独立恢复公钥/代次和会话上下文。只用经审核的标准协议/库和固定向量，不能自创密码原语。加密套件/握手转录/nonce域在接口PR审批前仍未冻结；T5分片头不是nonce。Rust与浏览器必须有真实互操作和失败向量，密码状态不进入日志/公开DTO |
 | `RecoveryAuthorizerV1` / D | `grant(recentOwner,publicKey,constraints)`、`revoke(recentOwner,key,generation)`、`authorize(peerProof,sessionProof,requestContext)`；返回Core内部不可由payload构造的能力上下文。不能以bool/channel字符串/蓝牙bonding代替；同Core、同唯一Owner，begin/confirm/save复核代次/撤销。现有policy只有10个scope，新增能力/位/存储迁移先审，禁止直接重编号、改ALL_SCOPES或给Client/Nas伪装Owner |
 | `RemoteCallMediaPortV1` / D、C消费 | 复用现有wire的`PrepareCall/SubmitCall/CallOperation/CancelPreparedCall/RenewCall/IssueMedia/CheckMediaLease`和domain的CallAction/CallLease；不新建呼叫库或幂等体系。远程/NKN/Origin/IP只是传输，不授予业务权限；每次调用核验正常Core身份、线路、操作ID和租约。TURN凭据短期且绑定实际会话，不能以通用代理代替受限媒体路径 |
-| `NasControlClientV1` / C | `prepare(action,lineEpoch,idempotencyKey,callId,payload)`、`submit(operationId,lease)`、`query(operationId)`、`renew(lease)`；由注入的正常已授权控制客户端会话调用上一端口。旧NAS只读LegacySession继续只读，不能把旧NAS签名/身份自动升级为控制权限，不能复制Owner私钥。结果不明只查原ID，不自动重拨/挂断/改变唯一控制租约 |
-| `NasAudioPortV1` / C、D提供授权 | `open(currentPermit)`、`pushFrame()`、`pullFrame()`、`close()`；复用实际media Authority/Context/Permit/Ticket以及protocol解析。当前PCM是16kHz、单样本i16、320样本/20ms、640字节/帧；年龄60ms、队列4帧沿用源码，不能用缓存/增租约掩盖断音。旧NAS不同格式必须显式转换/拒绝并有向量，不能静默按另一采样率播放；生产设备、音频路由和听音仍主线 |
+| `NasControlClientV1` / wnfhsj88（接手C28） | `prepare(action,lineEpoch,idempotencyKey,callId,payload)`、`submit(operationId,lease)`、`query(operationId)`、`renew(lease)`；由注入的正常已授权控制客户端会话调用上一端口。旧NAS只读LegacySession继续只读，不能把旧NAS签名/身份自动升级为控制权限，不能复制Owner私钥。结果不明只查原ID，不自动重拨/挂断/改变唯一控制租约 |
+| `NasAudioPortV1` / wnfhsj88（接手C28）、D提供授权 | `open(currentPermit)`、`pushFrame()`、`pullFrame()`、`close()`；复用实际media Authority/Context/Permit/Ticket以及protocol解析。当前PCM是16kHz、单样本i16、320样本/20ms、640字节/帧；年龄60ms、队列4帧沿用源码，不能用缓存/增租约掩盖断音。旧NAS不同格式必须显式转换/拒绝并有向量，不能静默按另一采样率播放；生产设备、音频路由和听音仍主线 |
 | `EmailSenderV1` / A | 复用forwarder的Connector/Fence/Claim阶段边界与`DeliveryOutcome::{NotSubmitted,Confirmed,Unknown}`，新增SMTP/TLS有限实现和独立私有配置。服务接受确认后的邮件结果只能表示服务器接受，不等于手机收到；DATA可能已发后掉线/超时保留Unknown，不重试。出口固定、证书检查、凭据/正文预算及OFF无进程语义不变；新通道的配置/数据格式/依赖先交兼容提案，不触发旧outbox自动迁移 |
 | `ReleaseMaterialPlanV1` / C | `inspect(readOnlyInputs)`、`validate(exactManifest,evidence)`、`plan(fixedTargets)`、`assemble(privateOutput)`；输出精确来源/架构/摘要/权限/Root契约/数据版本和缺口。写入表由主线签名材料约束，禁止任意路径/服务/命令。默认只读计划，实际组装仅指定隔离输出；候选健康评估与其精确source/version/Root/data证据绑定，无证据不能confirm。生产签名密钥和实际Root安装/choose/confirm始终由主线执行 |
 | `RelayTemplateV1` / C | `validate(explicitTemplate)`、`renderPrivate(outputDir)`、`redactedSummary()`；默认只列计划，模板里只用合成主机/占位凭据，正式证书/账号不进Git。端口/预算/凭据生命周期/停止与清理明确；不登录服务器、开端口、发公网请求或自动部署。主线提供并验证实际服务器/DNS/证书后才可实测 |
@@ -312,18 +314,18 @@ T5已有方法、DTO、错误、UUID和预算继续适用；本地记录按已�
 
 新增允许：`crates/edge/src/web/app.js`、`index.html`、`style.css`中最小组件装配/布局，以及独立`usage-stats.js`、诊断展示组件；本人既有JS测试/夹具、`tools/progress/`以外的`tools/site-build/`、`.github/workflows/progress-pages.yml`仅静态allowlist/构建接线、`docs/web/`/`docs/performance/`/`docs/ble/`中本人对应文档。禁止改session.js的认证、业务模块的提交/幂等/租约、Rust鉴权和设备API语义；需要改变业务行为时给D/主线最小复现。`configurator/src/crypto/`归A，`src/security/`及`production-backend.js`归D，B不越界。公开进度JSON/名册/审核/贡献计算仍主线维护，不允许发布私有证据。
 
-### 5. yh1030 · C-25～30 · 系统材料、NAS与发行证据
+### 5. wnfhsj88 接手 · C-25～30 · 系统材料、NAS与发行证据
 
 | 步骤 | 对应动作与具体工作 | 接手/验收 |
 |---|---|---|
-| C-25 | UPD-02/03：消费主线已收口UPD-01契约，做固定Root材料计划/验证、干净rootfs组合与可复现产物检查；合成密钥/隔离输出覆盖错误版本、任意路径、错hash/权限和中断 | **UPD-01当前U4未提交区域禁止抢改**，等主线提交接口后才接该实现。不能用设备当前Owner/短信/Wi-Fi口令制镜像，不能生产签名/安装/choose |
+| C-25 | UPD-02/03：消费主线已收口UPD-01契约，做固定Root材料计划/验证、干净rootfs组合与可复现产物检查；合成密钥/隔离输出覆盖错误版本、任意路径、错hash/权限和中断 | UPD-01已在起始main落地，消费既有接口，不改签名/nonce/floor/Store与维护授权。不能用设备当前Owner/短信/Wi-Fi口令制镜像，不能生产签名/安装/choose |
 | C-26 | UPD-05：在真实更新器基础上实现精确候选健康评估库/证据验证与接口接线提案，覆盖进程存活但Core/Root/data不匹配、旧来源、伪造/过期回执 | 不把输入JSON自报healthy当确认授权；实际confirm调用和Root可信证据来源由主线接纳。保留fallback与数据兼容，不能靠清floor/预算通过 |
-| C-27 | UPD-08：基于本人UPD-07清单完善匹配的内核/DTB/模块/外部initramfs离线构建材料及重建/静态校验工具 | 无设备只交构建/格式/来源证据；不执行真实启动/分区写入。实际boot和恢复路径仍主线验证 |
+| C-27 | UPD-08：复用C已交付UPD-07清单，完善匹配的内核/DTB/模块/外部initramfs离线构建材料及重建/静态校验工具 | 无设备只交构建/格式/来源证据；不执行真实启动/分区写入。实际boot和恢复路径仍主线验证 |
 | C-28 | NAS-03/04：用独立正常控制客户端会话实现NasControlClientV1和NasAudioPortV1，保留旧NAS只读桥；核对已知旧源码版本，模拟真实Core服务验证操作/租约与音频转换 | LegacyRead/Nas身份不得自动获得控制权限；不复制Owner私钥、不直接拨号或接PCM硬件。无法获得固定旧页面源码时明示缺口，不伪造兼容；真实NAS/两端听音由主线验收 |
 | C-29 | FWD-22、UPD-10、REC-05、REL-01/04、BLE0-01/02/04、BLE6-04：给出固定来源/支持事实/缺口的证据索引与校验器、公开能力矩阵、只读硬件计划及安装/回退/使用文档 | 复用已分配REL-05手册，不重复造文档。缺真实HCI/RF/恢复/OTA证据保持未知或不支持；校验器拒绝错SHA/漏项，不能代替负责人最终签认REL-06 |
 | C-30 | REMOTE-02：提供测试中继/TURN/DNS/证书的有限私有模板、预算/停机/清理计划与离线校验；合并本包失败矩阵和来源许可 | 不连接实际服务器，不在仓库放账号/证书私钥或自动开端口。真实资源由主线配置与验收，实际部署不算成员已做 |
 
-新增允许：`tools/release-materials/`、`tools/relay-template/`、`tools/release-evidence/`、`tools/rootfs/`中本人匹配构建子目录、`docs/release/`/`docs/remote/`；`crates/update/`中独立root材料/health评估模块及测试（UPD-01收口后，以接口PR列出的模块为准），新`tools/nas-adapter/control/`/`audio/`模块及测试和最小客户端接入。旧NAS只读实现的权限语义不动。不可改主线U4现场、更新器签名/nonce/floor/Store生产逻辑、真实刷写脚本或设备秘密；需要接入点必须小PR明确列出。A/D写Root材料，C只消费/校验/组装，互不改对方源文件。
+新增允许：`tools/offline_delivery/`统一的材料/内核组合/证据/中继有限工具，或`tools/release-materials/`、`tools/relay-template/`、`tools/release-evidence/`、`tools/rootfs/`中本人匹配构建子目录、`docs/release/`/`docs/remote/`；`crates/update/`中独立root材料/health评估模块及测试（UPD-01收口后，以接口PR列出的模块为准），新`tools/nas-adapter/control/`/`audio/`模块及测试和最小客户端接入。旧NAS只读实现的权限语义不动。不可改主线U4现场、更新器签名/nonce/floor/Store生产逻辑、真实刷写脚本或设备秘密；需要接入点必须小PR明确列出。A/D写Root材料，C只消费/校验/组装，互不改对方源文件。
 
 ### 6. RedamancyGTW · D-21～26 · Core恢复、远程权限与媒体
 

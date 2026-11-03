@@ -1,6 +1,6 @@
 # RustSimHub 完整剩余行动台账
 
-快照：2026-11-03T02:00:31.396765+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
+快照：2026-11-03T10:20:01.053817+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
 
 原P0–P7：**81.5%**，剩余 **18.5** 个验收点。新增X1/X2/X3/BLE独立保留，不混入旧分母。
 
@@ -21,13 +21,13 @@ python tools/progress/build.py --check
 
 ## 当前关卡
 
-**UPD-09 · PR192后完整同源交付材料已重建**：13程序同源构建通过 · 未签名 · 未部署。固定主线7c33324/完整归档06f5c57e，正式1485 Rust通过、9项既有忽略、12 ARM程序与同源音频39 ARM/QEMU通过。实际音频release在私有loopback两侧各收发50帧，撤权/超时通过、未打开PCM。13程序与6应用载荷22901521字节回读；没有混旧06cb或dd10制品。只读现场仍confirmed71/无候选、七服务正常、数据断开/转发PID0。签名调用被自动审批拒绝并未执行，已请求仅本机现有信任签名/验签、不上传安装的单独授权；当前unsigned、无epoch、不可安装。Core恢复竞争仍待原D修复，不能以本次1485通过抹去已复现机制。 验收81.5%、20/169、加权10.6%和主线代码约90%粗估保持，人工最后。
+**UPD-09 · 两笔非草稿PR已合并，应用72本机签名验签完成**：190/194已合并 · 4草稿保留 · 未部署。PR190固定1d6c9bf、PR194固定10949e4按所有者本笔明确授权正常合并7286339/8f9cfef，接受云端CI因计费未运行的风险；未更改保护规则，4个草稿保持。194将C25-C30离线任务归属转到wnfhsj88，当前B68/C24，总118步不变，旧作者/9项既有C审核保持；离线交付不等于真实环境验收。代码统计与PR状态按合并后main重算。应用72仍严格来自另行授权的7c33324/06f5c57e，六应用载荷及八目标维护包实际ARM/OpenSSL和6反例通过，不含后续新增main，不上传安装。原验收81.5%、20/169、加权10.6%保持，人工最后。
 
 ## FWD · 短信转发 · 独立服务
 
 新增扩展 · 22个动作 · 已完成10个
 
-原生Rust队列、HTTPS、配置页与六文件应用已交付；服务安装与默认OFF已验真；继续验收一键递送、故障和冷启动。
+原生Rust队列与默认OFF已交付，Bark等既有闭环保持。邮件生产候选PR187已合并，关闭并发四阶段本机真实进程验证通过；获准邮箱/其他提供商、棒子关闭与冷启动仍待验收。
 
 代码/资料：`crates/forwarder`、`crates/core/src/forwarding.rs`、`firmware/system/forwarding`、`crates/edge/src/web/forwarding.js`
 
@@ -121,13 +121,14 @@ python tools/progress/build.py --check
 
 ### [ ] FWD-09 · 补齐邮件发送器
 
-- 状态：待做
+- 状态：进行中
 - 动作：加入有限SMTP/TLS配置、凭据私有存储、证书检查、地址/正文大小限制及回执映射。
 - 验收：本机TLS邮件夹具与获准邮箱合成递送通过；关闭无邮件连接。
 - 预计有效工时：3–6小时
 - 前置：无跨动作硬依赖
 - 配合/条件：获准提供商目标
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
+- 证据：[member-a-smtp-production-candidate.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-smtp-production-candidate.md)
 
 ### [x] FWD-10 · 补齐规则与内容隐私策略
 
@@ -263,12 +264,13 @@ python tools/progress/build.py --check
 - 前置：FWD-09、FWD-18
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-smtp-production-candidate.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-smtp-production-candidate.md)
 
 ## AP · 独立首次配网 · AP→STA
 
 原计划收尾 · 12个动作 · 已完成4个
 
-同源应用50与联合Root配网服务已安装，真实权限和严格HTTPS健康检查通过；实际热点隔离、Wi-Fi保存冷启动和地址交接仍待验收。
+首次认领与联合Root安装保持；最新设备记录为应用71。PR185修正浏览器存储门禁和完成归档，已合并未部署；真实热点隔离、切网、保存冷启动与无NAS首配继续验收。
 
 代码/资料：`crates/setup-ap`、`crates/core/src/setup_ap_control`、`crates/edge/src/web/ap-wifi.js`、`firmware/system`
 
@@ -305,6 +307,7 @@ python tools/progress/build.py --check
 - 前置：AP-01
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[VALIDATION-SETUP-STORAGE-GUARD-20261102.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-SETUP-STORAGE-GUARD-20261102.md)
 
 ### [ ] AP-04 · 错误密码与回退矩阵
 
@@ -315,6 +318,7 @@ python tools/progress/build.py --check
 - 前置：AP-03
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[VALIDATION-SETUP-STORAGE-GUARD-20261102.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-SETUP-STORAGE-GUARD-20261102.md)
 
 ### [x] AP-05 · 首次认领与已认领设备边界
 
@@ -402,7 +406,7 @@ python tools/progress/build.py --check
 
 原计划收尾 · 9个动作 · 已完成1个
 
-真实网页收发及回收站单端已验收；剩余是多端、一致性与故障矩阵，不重复发送已消费测试。
+真实网页收发及单端回收站已验收。SMS-05沿用负责人公开完成记录，原报告在main缺失，复核说明保留来源缺口；多端一致性、真实分段及完整发送故障矩阵仍待验收。
 
 代码/资料：`crates/storage`、`crates/core/src/observer.rs`、`crates/core/src/sender.rs`、`crates/edge/src/web/sms-management.js`
 
@@ -457,7 +461,7 @@ python tools/progress/build.py --check
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
-- 证据：[VALIDATION-SMS05-CANDIDATES-20261028.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-SMS05-CANDIDATES-20261028.md)
+- 证据：[VALIDATION-DASHBOARD-REFRESH-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/VALIDATION-DASHBOARD-REFRESH-20261103.md)
 
 ### [ ] SMS-06 · 提交后断线/退出/磁盘满
 
@@ -503,7 +507,7 @@ python tools/progress/build.py --check
 
 原计划收尾 · 10个动作 · 已完成0个
 
-局域网拨出、来电自动接听及真实双向讲话已通过，接音约0.4秒；继续控制边界与长期稳定。
+局域网拨出、来电自动接听及双向讲话既有验收保持。PR192只丢过期音频帧，39项ARM/QEMU及发布回环通过但未部署；拒接/DTMF、竞争、远程与长期稳定仍缺。
 
 代码/资料：`crates/core/src/calls.rs`、`crates/media`、`native/audio-alsa`、`crates/edge/src/web/call-test.js`
 
@@ -588,6 +592,7 @@ python tools/progress/build.py --check
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-d-media-observation-main.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-media-observation-main.md)
 
 ### [ ] CALL-09 · 远程TURN与切网媒体验收
 
@@ -598,6 +603,7 @@ python tools/progress/build.py --check
 - 前置：REMOTE-05
 - 配合/条件：用户配合、外网对端
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
+- 证据：[VALIDATION-AUDIO-STALE-FRAMES-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/VALIDATION-AUDIO-STALE-FRAMES-20261103.md)
 
 ### [ ] CALL-10 · 最终电话一键回归与记录
 
@@ -613,7 +619,7 @@ python tools/progress/build.py --check
 
 原计划收尾 · 6个动作 · 已完成0个
 
-移动卡基础数据、月计量和限额阻断已有实测；当前原卡数据保持关闭，后续实测需换卡。
+移动卡基础数据、月计量与限额阻断已有实测；当前原卡普通数据仍关闭。B线网络展示、诊断和性能材料已提交，不能替代换卡、漫游/计量与切网实测。
 
 代码/资料：`crates/network-agent`、`crates/core/src/network_diagnostics.rs`、`crates/edge/src/web/network.js`
 
@@ -628,6 +634,7 @@ python tools/progress/build.py --check
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-b-network-display.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-network-display.md)
 
 ### [ ] NET-02 · 计量源失效与多接口切换
 
@@ -638,6 +645,7 @@ python tools/progress/build.py --check
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-b-network-display.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-network-display.md)
 
 ### [ ] NET-03 · 网络信息缺值与显示核对
 
@@ -683,7 +691,7 @@ python tools/progress/build.py --check
 
 原计划收尾 · 7个动作 · 已完成0个
 
-互联网入口和媒体各自验收，复用NKNGuard等传输能力，保留Core身份及媒体授权。
+SDK/Root、普通Core/媒体授权桥及PR191候选已合并；D线真实TURN/TLS/中继worker集中PR170，已整合最新main待审核。公开网络、直连/中继及真实声音仍待外部环境和设备验收。
 
 代码/资料：`crates/edge`、`crates/media`、`docs/development-plan.md`、`docs/FEATURE-EXTENSIONS-2026-10-24.md`
 
@@ -698,6 +706,7 @@ python tools/progress/build.py --check
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-bound-sessions-and-core-routing.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-bound-sessions-and-core-routing.md)
 
 ### [ ] REMOTE-02 · 盘点并配置测试中继
 
@@ -708,6 +717,7 @@ python tools/progress/build.py --check
 - 前置：无跨动作硬依赖
 - 配合/条件：测试服务器
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
+- 证据：[member-a-bound-sessions-and-core-routing.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-bound-sessions-and-core-routing.md)
 
 ### [ ] REMOTE-03 · 远程API权限与媒体预授权
 
@@ -718,6 +728,7 @@ python tools/progress/build.py --check
 - 前置：REMOTE-01、NKN-06
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-d-turn-source-admission.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-turn-source-admission.md)、[member-d-pr170-main-sync-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-pr170-main-sync-20261103.md)
 
 ### [ ] REMOTE-04 · NAT、IPv6和TLS-only矩阵
 
@@ -738,6 +749,7 @@ python tools/progress/build.py --check
 - 前置：REMOTE-02、REMOTE-03
 - 配合/条件：外网对端、测试服务器
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
+- 证据：[member-d-pr170-main-sync-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-pr170-main-sync-20261103.md)
 
 ### [ ] REMOTE-06 · 断线、重连与切网
 
@@ -763,7 +775,7 @@ python tools/progress/build.py --check
 
 原计划收尾 · 8个动作 · 已完成0个
 
-只读会话桥与真实收件箱/详情已对照；继续原NAS页面的控制、声音及迁移收尾。
+成员C的只读桥与主线绑定查询、管理面板和回执归档已有代码与离线验证；应用71安装记录保持。原NAS实际控制/声音、迁移和跨版本端到端仍须各自闭环。
 
 代码/资料：`crates/compat`、`crates/core/src/compat_api.rs`、`docs/nas-compat-contract.md`
 
@@ -778,7 +790,7 @@ python tools/progress/build.py --check
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
-- 证据：[REVIEW-PR-3-751e4a9.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/team/REVIEW-PR-3-751e4a9.md)
+- 证据：[REVIEW-PR-3-751e4a9.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/team/REVIEW-PR-3-751e4a9.md)、[member-c-nas.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-c-nas.md)
 
 ### [ ] NAS-02 · 原NAS页面真实只读回归
 
@@ -789,6 +801,7 @@ python tools/progress/build.py --check
 - 前置：NAS-01
 - 配合/条件：代理实机
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
+- 证据：[VALIDATION-NAS-MANAGEMENT-PANEL-20261102.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-NAS-MANAGEMENT-PANEL-20261102.md)
 
 ### [ ] NAS-03 · NAS电话控制适配
 
@@ -839,6 +852,7 @@ python tools/progress/build.py --check
 - 前置：NAS-03
 - 配合/条件：代理实机
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
+- 证据：[VALIDATION-NAS-MANAGEMENT-PANEL-20261102.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-NAS-MANAGEMENT-PANEL-20261102.md)
 
 ### [ ] NAS-08 · 兼容版本与端到端验收
 
@@ -854,7 +868,7 @@ python tools/progress/build.py --check
 
 原计划收尾 · 10个动作 · 已完成2个
 
-正常签名应用升级多次通过；剩余是Root组合契约、实际失败回退、掉电和最终整机一致性。
+UPD-01准入和UPD-04失败候选回选已有负责人完成记录；正式只读更新器入口已安装。7c33324同源材料仍未签名/无epoch，不可安装；维护授权、组合契约、掉电与完整镜像仍缺。
 
 代码/资料：`crates/update`、`crates/recovery`、`tools/compose-system-tree.py`、`tools/recovery`、`firmware/system`
 
@@ -966,7 +980,7 @@ python tools/progress/build.py --check
 
 原计划收尾 · 5个动作 · 已完成2个
 
-已有全盘备份、恢复入口和新系统安装证据；完整恢复能力仍需独立演练。
+全盘备份与恢复入口既有证据保持；完整镜像回刷、故障演练、掉电后恢复和第二设备不因构建或候选安装材料记完成。
 
 代码/资料：`tools/recovery`、`crates/recovery`、`crates/storage`、`docs/VALIDATION-RESTORE-PLAN-P6O.md`
 
@@ -1028,7 +1042,7 @@ python tools/progress/build.py --check
 
 原计划收尾 · 7个动作 · 已完成0个
 
-白色慢脉冲已目视确认；剩余颜色与业务优先级需实际事件验收。
+正式快照失效修正版已安装，120秒样本CPU约0.84%，旧状态30秒后失效；不等于长测/功耗验收。业务灯效、故障红灯和优先级仍待实际事件与用户确认。
 
 代码/资料：`crates/status-led`、`crates/core/src/status_led.rs`、`docs/status-led.md`
 
@@ -1109,7 +1123,7 @@ python tools/progress/build.py --check
 
 原计划收尾 · 7个动作 · 已完成0个
 
-保留简洁首页与高级配置折叠；日常页面需要跨设备、权限及异常状态的完整验证。
+B线32步材料及主线日常/测试、回执和NAS面板保持；PR191补实际NKN状态/控制与配置器装配。Chrome合成验证不替代真实手机、热点、多端与视觉终验。
 
 代码/资料：`crates/edge/src/web`、`tools/test-web-*.mjs`、`docs/frontend-vision.md`
 
@@ -1117,33 +1131,36 @@ python tools/progress/build.py --check
 
 ### [ ] WEB-01 · 统一日常/测试/调试入口
 
-- 状态：待做
+- 状态：进行中
 - 动作：梳理现有按钮和可见条件，首页只保留高频任务，复杂调试默认收起。
 - 验收：用户能找到短信、电话、网络和一键测试，不需遍历大量按钮。
 - 预计有效工时：1–3小时
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-b-test-center-assembly.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-test-center-assembly.md)
 
 ### [ ] WEB-02 · 统一操作回执与旧操作核对
 
-- 状态：待做
+- 状态：进行中
 - 动作：覆盖刷新、登录过期、Unknown、只读查询和精确归档，保留操作ID。
 - 验收：查询不被误当提交；未知结果不自动重拨/重发或清空记录。
 - 预计有效工时：1–2小时
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-b-operation-receipts.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-operation-receipts.md)
 
 ### [ ] WEB-03 · 手机窄屏与长中文布局
 
-- 状态：待做
+- 状态：进行中
 - 动作：验证短信详情双栏、回收站、网络表单、虚拟键盘及通话中挂断入口。
 - 验收：无横向溢出、正文可读、焦点和触控目标可用。
 - 预计有效工时：1–2小时
 - 前置：无跨动作硬依赖
 - 配合/条件：用户配合
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
+- 证据：[member-b-configurator.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-configurator.md)
 
 ### [ ] WEB-04 · 多端配对/撤销与证书交付
 
@@ -1157,23 +1174,25 @@ python tools/progress/build.py --check
 
 ### [ ] WEB-05 · 一键测试错误分支
 
-- 状态：待做
+- 状态：进行中
 - 动作：把未注册、权限不足、麦克风拒绝、旧操作未决和停止动作呈现在同处。
 - 验收：只有确需真人听音/输入时提示用户；停止最终状态准确。
 - 预计有效工时：1–2小时
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-b-test-center-assembly.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-test-center-assembly.md)
 
 ### [ ] WEB-06 · 配置保存与服务真实状态
 
-- 状态：待做
+- 状态：进行中
 - 动作：逐区核对网络/转发/扩展开关的保存、查询及超时状态。
 - 验收：不以保存意图冒充进程已运行/已停止；凭据不回显。
 - 预计有效工时：1–2小时
 - 前置：FWD-04
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
 
 ### [ ] WEB-07 · 网页回归与实际可访问性终验
 
@@ -1189,7 +1208,7 @@ python tools/progress/build.py --check
 
 原计划收尾 · 6个动作 · 已完成1个
 
-已有短样本和资源基线；完整质量需要可复现的等功能对照和长时间运行。
+STAB-03按负责人后来记录沿用用户接受的6.4小时样本，不冒称24小时。灯控资源短测、B线性能工具与跨环境失败诊断分别保留；72小时、等功能对照及整机性能仍缺。
 
 代码/资料：`crates/core`、`crates/media`、`native/audio-alsa`、`docs/development-plan.md`
 
@@ -1197,13 +1216,14 @@ python tools/progress/build.py --check
 
 ### [ ] STAB-01 · 冻结预算与可复现负载
 
-- 状态：待做
+- 状态：进行中
 - 动作：列出空闲、收件、通话、转发、远程连接各场景的测量方法与预算。
 - 验收：用实际同功能负载比较，记录版本、环境和采样窗口。
 - 预计有效工时：1–2小时
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-b-performance-window.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-performance-window.md)
 
 ### [ ] STAB-02 · 启动/RSS/CPU/延迟/功耗基线
 
@@ -1214,7 +1234,7 @@ python tools/progress/build.py --check
 - 前置：STAB-01
 - 配合/条件：代理实机
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
-- 证据：[VALIDATION-LED-BUS-INSTALL-20261102.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-LED-BUS-INSTALL-20261102.md)
+- 证据：[VALIDATION-LED-BUS-INSTALL-20261102.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-LED-BUS-INSTALL-20261102.md)、[member-b-performance-window.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-performance-window.md)
 
 ### [x] STAB-03 · 24小时初步稳定性
 
@@ -1225,7 +1245,7 @@ python tools/progress/build.py --check
 - 前置：无跨动作硬依赖
 - 配合/条件：代理实机
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
-- 证据：[VALIDATION-STAB03-PARTIAL-20261028.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-STAB03-PARTIAL-20261028.md)
+- 证据：[VALIDATION-STAB03-PARTIAL-20261028.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/VALIDATION-STAB03-PARTIAL-20261028.md)、[VALIDATION-DASHBOARD-REFRESH-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/VALIDATION-DASHBOARD-REFRESH-20261103.md)
 
 ### [ ] STAB-04 · 72小时组合稳定性
 
@@ -1261,7 +1281,7 @@ python tools/progress/build.py --check
 
 原计划收尾 · 7个动作 · 已完成0个
 
-已有核心权限和隔离验证；正式发布前逐项审查新Root、远程及可选服务边界。
+核心权限、隔离与失败矩阵已有代码证据；PR191新增候选入口仍默认关闭。完整攻击面、Root/密码协议/依赖审批与最终安全结论保持待审，不以隔离测试替代正式审计。
 
 代码/资料：`crates/auth`、`crates/policy`、`crates/wire`、`firmware/system`、`Cargo.lock`
 
@@ -1269,13 +1289,14 @@ python tools/progress/build.py --check
 
 ### [ ] SEC-01 · 整理完整攻击面与权限表
 
-- 状态：待做
+- 状态：进行中
 - 动作：列出HTTP/IPC/GATT、固定Root动作、身份/密钥、媒体和文件写入路径。
 - 验收：每个入口都有实际调用者、scope、资源上限及撤销路径。
 - 预计有效工时：1–2小时
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-security-matrix.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-security-matrix.md)
 
 ### [ ] SEC-02 · 鉴权/跨线路/重放矩阵
 
@@ -1286,6 +1307,7 @@ python tools/progress/build.py --check
 - 前置：SEC-01
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-security-matrix.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-security-matrix.md)
 
 ### [ ] SEC-03 · Root单元与最小权限复核
 
@@ -1299,23 +1321,25 @@ python tools/progress/build.py --check
 
 ### [ ] SEC-04 · 秘密与公开产物扫描
 
-- 状态：待做
+- 状态：进行中
 - 动作：审查日志、错误、UI、备份索引、Actions产物和发布包。
 - 验收：无私钥、Wi-Fi口令、SIM标识、号码或短信原文进入公开产物。
 - 预计有效工时：1–2小时
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-public-artifact-scan.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-public-artifact-scan.md)
 
 ### [ ] SEC-05 · 依赖、许可证与供应链
 
-- 状态：待做
+- 状态：进行中
 - 动作：核对锁定版本、通告、来源、AGPL义务、Go/NKN及Native第三方许可。
 - 验收：可追踪SBOM/许可证清单；不能声称依赖已全部Rust重写。
 - 预计有效工时：1–3小时
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-managed-sdk-engine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-managed-sdk-engine.md)
 
 ### [ ] SEC-06 · 有界输入和协议模糊测试
 
@@ -1341,7 +1365,7 @@ python tools/progress/build.py --check
 
 原计划收尾 · 6个动作 · 已完成0个
 
-开发系统可用不等于通用发行；最终需要新设备、完整矩阵与可交接资料。
+main同源13程序和未签名6载荷只是交付材料；精确源码、许可、签名、正式安装、第二设备与完整验收矩阵继续保留，不能将开发系统或构建通过写成通用发行。
 
 代码/资料：`docs/development-plan.md`、`docs/HANDOFF.md`、`tools/recovery`、`firmware/system`
 
@@ -1411,7 +1435,7 @@ python tools/progress/build.py --check
 
 新增扩展 · 11个动作 · 已完成0个
 
-固定上游c32952d已定位；先复用成熟Go引擎与Rust有限适配，仍需ARM64、服务和真实外网验收。
+实际Go SDK引擎和固定Root候选PR184、有限Core/媒体桥PR178已合并；PR191的真实状态/控制及隔离组合已由负责人合并。默认关闭，ARM交叉构建不等于ARM运行，公开网络与正式安装未验收。
 
 代码/资料：`docs/FEATURE-EXTENSIONS-2026-10-24.md`、`crates/compat`、`firmware/system`
 
@@ -1419,13 +1443,14 @@ python tools/progress/build.py --check
 
 ### [ ] NKN-01 · 冻结上游与最小接入契约
 
-- 状态：待做
+- 状态：进行中
 - 动作：核对c32952d源码/许可/配置，圈定需要的NKN、DHT、成员与WireGuard功能。
 - 验收：区分复用Go引擎与Rust实现；接口无任意shell/路由控制。
 - 预计有效工时：1–2小时
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-managed-sdk-engine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-managed-sdk-engine.md)
 
 ### [ ] NKN-02 · ARM64离线构建与依赖清单
 
@@ -1436,16 +1461,18 @@ python tools/progress/build.py --check
 - 前置：NKN-01
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-managed-sdk-engine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-managed-sdk-engine.md)
 
 ### [ ] NKN-03 · TUN/WireGuard与固定Root助手
 
-- 状态：待做
+- 状态：进行中
 - 动作：离线核对内核/用户态能力，设计固定接口、地址、路由和过滤动作。
 - 验收：普通信令进程无任意NET_ADMIN；默认不改默认路由或充当LAN出口。
 - 预计有效工时：2–5小时
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-managed-root-provider.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-managed-root-provider.md)
 
 ### [ ] NKN-04 · Rust监督与独立开关
 
@@ -1456,6 +1483,7 @@ python tools/progress/build.py --check
 - 前置：NKN-02、NKN-03
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-managed-root-provider.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-managed-root-provider.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
 
 ### [ ] NKN-05 · 成员证明、配对与撤销
 
@@ -1466,6 +1494,7 @@ python tools/progress/build.py --check
 - 前置：NKN-01
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-bound-sessions-and-core-routing.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-bound-sessions-and-core-routing.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
 
 ### [ ] NKN-06 · 仅路由获准设备服务
 
@@ -1476,6 +1505,7 @@ python tools/progress/build.py --check
 - 前置：NKN-03、NKN-05
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-bound-sessions-and-core-routing.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-bound-sessions-and-core-routing.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
 
 ### [ ] NKN-07 · 状态、延迟与一键诊断页
 
@@ -1486,6 +1516,7 @@ python tools/progress/build.py --check
 - 前置：NKN-04
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
 
 ### [ ] NKN-08 · 真实外网直连与中继
 
@@ -1516,6 +1547,7 @@ python tools/progress/build.py --check
 - 前置：NKN-04、UPD-02
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
 
 ### [ ] NKN-11 · 用户流程及终验
 
@@ -1531,7 +1563,7 @@ python tools/progress/build.py --check
 
 新增扩展 · 9个动作 · 已完成0个
 
-已有上游usagestats参考；单独授权、密钥与产品主题，默认关闭，不上传通信数据。
+独立统计身份、持久单提交状态机和关闭引用管理已有交付；PR191补真实SDK/共享Root组合候选。默认关闭，公开主题/授权、链上实际提交/确认与真实关闭无PID仍须验收。
 
 代码/资料：`docs/FEATURE-EXTENSIONS-2026-10-24.md`、`upstream:pkg/usagestats`、`upstream:internal/app/usage.go`
 
@@ -1539,23 +1571,25 @@ python tools/progress/build.py --check
 
 ### [ ] STAT-01 · 协议/主题/窗口冻结
 
-- 状态：待做
+- 状态：进行中
 - 动作：核对24小时/30天/90天窗口及真实链参数，定义RustSimHub独立主题。
 - 验收：不混用nknguard/NasSimHub主题；显示近期活跃安装估计，不称自然人数。
 - 预计有效工时：1–2小时
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-stats-state-machine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md)
 
 ### [ ] STAT-02 · 独立统计密钥与持久状态
 
-- 状态：待做
+- 状态：进行中
 - 动作：做域分离密钥和重启状态；与Owner/SIM/通信主密钥隔离。
 - 验收：不公开主身份；说明假名化关联性，恢复/重启不重复签到。
 - 预计有效工时：1–3小时
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-stats-state-machine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md)
 
 ### [ ] STAT-03 · 链上订阅与确认实现
 
@@ -1566,6 +1600,7 @@ python tools/progress/build.py --check
 - 前置：STAT-01、STAT-02
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-stats-state-machine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
 
 ### [ ] STAT-04 · 人数查询与缓存
 
@@ -1576,16 +1611,18 @@ python tools/progress/build.py --check
 - 前置：STAT-01
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-stats-state-machine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md)
 
 ### [ ] STAT-05 · 独立隐私开关与公开字段说明
 
-- 状态：待做
+- 状态：进行中
 - 动作：Owner开启前说明统计公钥/主题/时间及RPC出口可见性，默认关闭。
 - 验收：不上传短信、号码、联系人、SIM/硬件标识、SSID或个人流量。
 - 预计有效工时：1–3小时
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-stats-state-machine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md)
 
 ### [ ] STAT-06 · 关闭后的任务/共享引擎管理
 
@@ -1596,6 +1633,7 @@ python tools/progress/build.py --check
 - 前置：STAT-03、STAT-04、STAT-05
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-stats-state-machine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
 
 ### [ ] STAT-07 · 失败、到期和隔离测试
 
@@ -1606,6 +1644,7 @@ python tools/progress/build.py --check
 - 前置：STAT-06
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-stats-state-machine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md)
 
 ### [ ] STAT-08 · 获准后的真实NKN试验
 
@@ -1631,7 +1670,7 @@ python tools/progress/build.py --check
 
 新增扩展 · 4个动作 · 已完成0个
 
-首先证实这根棒子的HCI、外设广播及GATT能力；家族规格不等于本板可用。
+本板HCI、外设广播和GATT能力仍需独立硬件授权核验；已有软件候选和同家族规格均不代表本棒子可用。
 
 代码/资料：`docs/ble`、`tools/rootfs/kernel`、`firmware/system`
 
@@ -1681,7 +1720,7 @@ python tools/progress/build.py --check
 
 新增扩展 · 4个动作 · 已完成0个
 
-有限状态与配网帧，不透传通用AuthCommand、shell、短信/电话或OTA。
+有限帧、pin与安全绑定已有离线代码；PR191补实际Noise/WASM应用候选互操作。正式协议/密码审核和蓝牙真机仍缺，不开放通用命令、短信/电话或OTA。
 
 代码/资料：`docs/ble`、`planned:crates/ble`、`planned:configurator`
 
@@ -1716,6 +1755,7 @@ python tools/progress/build.py --check
 - 前置：BLE1-01、BLE1-02
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
 
 ### [ ] BLE1-04 · 协议审查与版本文档
 
@@ -1731,7 +1771,7 @@ python tools/progress/build.py --check
 
 新增扩展 · 4个动作 · 已完成0个
 
-必须预先由Owner授权独立恢复身份；合法BLE无USB可配网，匿名不能接管。
+原恢复身份/撤销、schema9与Core有限事务保持；PR191新增同Auth/Store的恢复listener及真实UID查询。匿名不能接管；原D恢复actor准入竞争仍单独待修，真实无USB切网未验收。
 
 代码/资料：`crates/auth`、`crates/policy`、`crates/wire`、`crates/core/src/network_trial`
 
@@ -1746,6 +1786,7 @@ python tools/progress/build.py --check
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-d-core-recovery-t5-results.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-core-recovery-t5-results.md)
 
 ### [ ] BLE2-02 · 强类型可信BLE通道
 
@@ -1756,6 +1797,7 @@ python tools/progress/build.py --check
 - 前置：BLE2-01
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-d-core-recovery-t5-results.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-core-recovery-t5-results.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
 
 ### [ ] BLE2-03 · 无USB Wi-Fi事务接线
 
@@ -1766,6 +1808,7 @@ python tools/progress/build.py --check
 - 前置：BLE2-02、AP-03
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-d-core-recovery-t5-results.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-core-recovery-t5-results.md)、[member-d-pr170-main-sync-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-pr170-main-sync-20261103.md)
 
 ### [ ] BLE2-04 · 恢复与并发失败矩阵
 
@@ -1776,12 +1819,13 @@ python tools/progress/build.py --check
 - 前置：BLE2-03
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-d-core-recovery-t5-results.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-core-recovery-t5-results.md)、[member-d-pr170-main-sync-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-pr170-main-sync-20261103.md)
 
 ## BLE3 · BLE · 低权限设备服务
 
 新增扩展 · 4个动作 · 已完成0个
 
-独立Rust服务接BlueZ，不能读取业务库或设备身份seed，缺BLE不影响核心通信。
+D线GATT/service、真实UID Core端口及安全恢复整合集中PR170；162已被其完整包含并关闭。既有PR191候选入口保留，各自固定路径及默认关闭；真实射频、正式Root装配和完整生产预算未验收。
 
 代码/资料：`planned:crates/ble`、`firmware/system`、`docs/ble`
 
@@ -1796,6 +1840,7 @@ python tools/progress/build.py --check
 - 前置：BLE1-04
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-d-bluez-gatt-callbacks.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-bluez-gatt-callbacks.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)、[member-d-pr170-main-sync-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-pr170-main-sync-20261103.md)
 
 ### [ ] BLE3-02 · 限权IPC与Core绑定
 
@@ -1806,6 +1851,7 @@ python tools/progress/build.py --check
 - 前置：BLE2-02
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-d-bluez-gatt-callbacks.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-bluez-gatt-callbacks.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)、[member-d-pr170-main-sync-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-pr170-main-sync-20261103.md)
 
 ### [ ] BLE3-03 · 服务单元与开关预算
 
@@ -1816,6 +1862,7 @@ python tools/progress/build.py --check
 - 前置：BLE3-01、BLE3-02
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)、[member-d-pr170-main-sync-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-pr170-main-sync-20261103.md)
 
 ### [ ] BLE3-04 · 恶意帧/断连/崩溃测试
 
@@ -1826,12 +1873,13 @@ python tools/progress/build.py --check
 - 前置：BLE3-03
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-d-pr170-main-sync-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-d-pr170-main-sync-20261103.md)
 
 ## BLE4 · BLE · 网页与离线PWA
 
 新增扩展 · 4个动作 · 已完成0个
 
-Windows/Android共用静态配置器；页面不把Wi-Fi口令或密钥交给GitHub。
+静态配置器、确认/取消、缓存和布局已有B线材料；PR191补实际WASM/安全backend及限定CSP/PWA装配。Chromium隔离互操作通过，不代表Windows/Android真实蓝牙或Wi-Fi验收。
 
 代码/资料：`planned:configurator`、`docs/ble`
 
@@ -1846,6 +1894,7 @@ Windows/Android共用静态配置器；页面不把Wi-Fi口令或密钥交给Git
 - 前置：BLE1-03
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-b-configurator.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-configurator.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
 
 ### [ ] BLE4-02 · 状态与Wi-Fi确认/取消
 
@@ -1856,6 +1905,7 @@ Windows/Android共用静态配置器；页面不把Wi-Fi口令或密钥交给Git
 - 前置：BLE4-01、BLE2-03
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-b-configurator.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-b-configurator.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
 
 ### [ ] BLE4-03 · PWA静态缓存与离线升级
 
@@ -1866,6 +1916,7 @@ Windows/Android共用静态配置器；页面不把Wi-Fi口令或密钥交给Git
 - 前置：BLE4-02
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
 
 ### [ ] BLE4-04 · Windows/Android模拟接线与布局
 
@@ -1876,12 +1927,13 @@ Windows/Android共用静态配置器；页面不把Wi-Fi口令或密钥交给Git
 - 前置：BLE4-03
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
 
 ## BLE5 · BLE · 配置器公开发布
 
 新增扩展 · 3个动作 · 已完成0个
 
-当前进度看板先占项目Pages根目录；后续配置器使用/configurator/，共用一个发布入口。
+实际公开看板位于RustSimHub-progress仓库。配置器冻结的RustSimHub/configurator路径与发布组合仍须主线统一审核；PR191只有离线静态候选，本轮不发布或改变配置器基路径。
 
 代码/资料：`planned:configurator`、`.github/workflows/progress-pages.yml`、`docs/ble`
 
@@ -1896,6 +1948,7 @@ Windows/Android共用静态配置器；页面不把Wi-Fi口令或密钥交给Git
 - 前置：BLE4-04
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
 
 ### [ ] BLE5-02 · 真实Pages配置器部署
 
@@ -1921,7 +1974,7 @@ Windows/Android共用静态配置器；页面不把Wi-Fi口令或密钥交给Git
 
 新增扩展 · 4个动作 · 已完成0个
 
-真机部分需独立BLE授权，测试无USB且Wi-Fi断开时恢复；不动NV/分区或旧所有权。
+真实BLE与无USB/Wi-Fi中断恢复仍待单独授权及目标板/手机矩阵；已有隔离组合不替代射频、现场恢复或人工验收，不改NV/分区/旧所有权。
 
 代码/资料：`docs/ble`、`planned:crates/ble`、`planned:configurator`
 

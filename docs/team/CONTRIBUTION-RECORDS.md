@@ -7,12 +7,14 @@
 1. **当前主线代码**：固定主线提交截面上的非空文本行，按Git blame的实际作者映射到账号；产品源码、独立测试、工程工具、固件配置分别统计。产品同文件内的测试/注释计入该文件，不做不可靠的语法猜测。
 2. **Git累计增删**：历史非merge提交中，上述范围的numstat增删行，含空行和反复修改，不等于当前规模或有效产出。合并提交不再重复加一份分支diff。
 3. **提交数**：可见主线非merge提交数，含文档；另列涉及上述代码范围的提交数。不能用拆碎提交提高验收率。
-4. **工作量**：任务分配、待审核交付和逐HEAD通过的动作/步骤数。既有80%是项目里程碑，不强行分摊成个人完成比例。
+4. **工作量**：任务分配、待审核交付和逐HEAD通过的动作/步骤数。P0–P7百分比是项目里程碑，不强行分摊成个人完成比例。
 5. **工时**：计划区间与成员在交付报告中自报的实际有效工时分别展示；没有填报就是“未填报”，不能按提交时间间隔、代码行数或Codex耗时猜工时。
 
 ## 计入和排除
 
-产品：`crates/`及 `native/audio-alsa/src/` 中的Rust/JS/HTML/CSS，以及实际交付的 `tools/nas-adapter/` Go客户端；其中独立tests文件/目录、`*_tests.rs` / `*_test.rs` 和 Go 的 `*_test.go` 单列测试。其余 `tools/` 中的Python/Shell/JS测试/工具单列，`firmware/system/`中的有限脚本/配置单列工程配置。不计vendor、文档、Cargo.lock、SVG/截图、生成HTML看板、二进制、依赖缓存和私有材料。产品行数不等于Rust行数，Go桥仍明确是Go实现。
+2026-11-03口径修正：旧分类漏掉NKN引擎/Root的Go源码和独立配置器，现按下列白名单对同一main截面重新统计，独立测试仍分栏。只计算仓库自身源码，不纳入vendor、生成WASM或静态构建产物；历史差额是分类修正，不是本轮新增功能或验收。另通过GitHub提交9bc7be8099840f9e5e41e176ff5bc6ee1afc8eb2的实际作者关联核实GTW对应RedamancyGTW，补登记名册别名，避免刷新时把负责人已公开归属D的代码误移入未映射。未合并PR191仍不进入主线代码量，不重写作者或审核结论。
+
+产品：`crates/`及 `native/audio-alsa/src/` 中的Rust/JS/HTML/CSS，以及 `tools/nas-adapter/` Go客户端、`tools/nkn-engine/` Go引擎/Root源码和 `configurator/src/`、`configurator/index.html`、`configurator/sw.js` 配置器源码；其中独立tests文件/目录、`*_tests.rs` / `*_test.rs` 和 Go 的 `*_test.go`、`configurator/tests/` 单列测试。其余 `tools/` 中的Python/Shell/JS测试/工具单列，`firmware/system/`中的有限脚本/配置单列工程配置。不计vendor、文档、Cargo.lock、SVG/截图、生成HTML看板、二进制、依赖缓存和私有材料。产品行数不等于Rust行数，Go桥仍明确是Go实现。
 
 2026-10-27口径修正：PR#3合入后的核对发现旧分类漏掉了Go客户端，也把 `nas_adapter_tests.rs` 一类独立测试文件计入产品；账号已登记但使用非noreply邮箱时，精确匹配账号名的Git作者也被漏映射。四个PR提交均已由GitHub返回的关联作者账号独立核对为yh1030，原邮箱不公开；修正作者映射，使它与名册的显式账号别名保持一致。现已用真实临时Git提交/合并验证作者归属、测试分栏和非merge增删。对全部主线历史使用同一规则重算，因此与旧快照的差异包含分类修正，不能全算作本轮新增代码。动作权重与80%整体进度不变。
 

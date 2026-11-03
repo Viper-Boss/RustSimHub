@@ -40,9 +40,9 @@
       "git_names": [
         "wnfhsj"
       ],
-      "role": "网络/网页/PWA及接手的统计/NKN/安全/邮件离线实现",
+      "role": "网络/网页/PWA，接手A组及C25～C30离线实现",
       "access": "wnfhsj88同仓库Write已回读；本人功能分支 → 负责人PR审核",
-      "package": "B-01～32及从fungi1220转交的A-01～30；保留步骤ID和原验收边界",
+      "package": "B-01～32、A-01～30、C-25～30，共68步；原步骤ID/验收边界保持",
       "task_ids": [
         "NET-01",
         "NET-02",
@@ -91,7 +91,23 @@
         "SEC-02",
         "SEC-03",
         "SEC-07",
-        "FWD-09"
+        "FWD-09",
+        "UPD-02",
+        "UPD-03",
+        "UPD-05",
+        "UPD-08",
+        "NAS-03",
+        "NAS-04",
+        "FWD-22",
+        "UPD-10",
+        "REC-05",
+        "REL-01",
+        "REL-04",
+        "BLE0-01",
+        "BLE0-02",
+        "BLE0-04",
+        "BLE6-04",
+        "REMOTE-02"
       ],
       "step_ids": [
         "B-01",
@@ -155,13 +171,19 @@
         "A-27",
         "A-28",
         "A-29",
-        "A-30"
+        "A-30",
+        "C-25",
+        "C-26",
+        "C-27",
+        "C-28",
+        "C-29",
+        "C-30"
       ],
       "handoff": "docs/team/MEMBER-B-NETWORK-ACCOUNTING.md",
-      "state": "in_progress",
+      "state": "submitted",
       "estimate_hours": [
-        67,
-        151
+        85,
+        191
       ]
     },
     {
@@ -169,9 +191,9 @@
       "name": "yh1030",
       "login": "yh1030",
       "git_names": [],
-      "role": "NAS只读兼容 / 历史导入 · 离线适配",
+      "role": "C01～C24历史交付与复核",
       "access": "同仓库Write已生效；本人功能分支 → PR审核",
-      "package": "NAS/系统构建/更新恢复/发行材料与证据",
+      "package": "C-01～24保留；2026-11-03用户将C-25～30转交wnfhsj88",
       "task_ids": [
         "NAS-01",
         "NAS-05",
@@ -180,23 +202,7 @@
         "UPD-06",
         "REL-05",
         "UPD-07",
-        "AP-04",
-        "FWD-22",
-        "UPD-02",
-        "UPD-03",
-        "UPD-05",
-        "UPD-10",
-        "REC-05",
-        "REL-01",
-        "REL-04",
-        "BLE0-01",
-        "BLE0-02",
-        "BLE0-04",
-        "BLE6-04",
-        "REMOTE-02",
-        "NAS-03",
-        "NAS-04",
-        "UPD-08"
+        "AP-04"
       ],
       "step_ids": [
         "C-01",
@@ -222,19 +228,13 @@
         "C-21",
         "C-22",
         "C-23",
-        "C-24",
-        "C-25",
-        "C-26",
-        "C-27",
-        "C-28",
-        "C-29",
-        "C-30"
+        "C-24"
       ],
       "handoff": "docs/team/MEMBER-C-NAS-COMPAT.md",
-      "state": "in_progress",
+      "state": "submitted",
       "estimate_hours": [
-        35,
-        80
+        17,
+        40
       ]
     },
     {
@@ -296,7 +296,7 @@
         "D-26"
       ],
       "handoff": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-      "state": "assigned",
+      "state": "submitted",
       "estimate_hours": [
         33,
         75

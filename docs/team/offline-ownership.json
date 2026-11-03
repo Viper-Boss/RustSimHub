@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "revision": "T6-member-a-takeover-2026-10-30",
+  "revision": "T6-c25-c30-transfer-2026-11-03",
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "source_revision": "6f228fd3dcb9ce6da54d7910f4b044833e71a91a",
+  "source_revision": "5c5fdbe0979304572ec87618e9ba3b8c8bb47fac",
   "remaining_actions": 155,
   "offline_owned_actions": 90,
   "main_only_actions": 65,
-  "note": "离线所有权不代表整项完成；90项仍有主线审核/集成/真实环境验收。实际功能状态仍以progress.json为准。",
+  "note": "离线所有权不代表整项完成；90项仍有主线审核/集成/真实环境验收。实际功能状态仍以progress.json为准。 2026-11-03用户明确转交C25～C30的16项离线子范围给member-b；155/90/65为所有权基线，当前动作状态仍以progress.json为准。",
   "actions": [
     {
       "id": "FWD-06",
@@ -121,11 +121,11 @@
     {
       "id": "FWD-22",
       "title": "功能说明与发行组合接线",
-      "offline_owner": "member-c",
+      "offline_owner": "member-b",
       "execution_owner": "lead",
       "scope": "offline_implementation",
       "deliverable": "更新配置指引、关闭语义、渠道支持表；把Root材料纳入可复现的正式组合流程。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "handoff": "docs/team/TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
@@ -471,11 +471,11 @@
     {
       "id": "REMOTE-02",
       "title": "盘点并配置测试中继",
-      "offline_owner": "member-c",
+      "offline_owner": "member-b",
       "execution_owner": "lead",
       "scope": "offline_implementation",
       "deliverable": "优先复用已有服务器；准备DNS/证书、TURN账号、端口、限额及清理方案。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "handoff": "docs/team/TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认；真实服务器"
     },
     {
@@ -551,21 +551,21 @@
     {
       "id": "NAS-03",
       "title": "NAS电话控制适配",
-      "offline_owner": "member-c",
+      "offline_owner": "member-b",
       "execution_owner": "lead",
       "scope": "offline_implementation",
       "deliverable": "将旧页面拨号/接听/拒接/挂断映射到Core唯一控制者和持久操作。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "handoff": "docs/team/TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认；真人操作/听音/观察"
     },
     {
       "id": "NAS-04",
       "title": "NAS PCM/声音适配",
-      "offline_owner": "member-c",
+      "offline_owner": "member-b",
       "execution_owner": "lead",
       "scope": "offline_implementation",
       "deliverable": "实现明确的格式、采样率、方向、鉴权与租约转换，复用已验证音频链。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "handoff": "docs/team/TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认；真人操作/听音/观察"
     },
     {
@@ -621,21 +621,21 @@
     {
       "id": "UPD-02",
       "title": "签名维护材料与固定写入表",
-      "offline_owner": "member-c",
+      "offline_owner": "member-b",
       "execution_owner": "lead",
       "scope": "offline_implementation",
       "deliverable": "将需要的Root单元/助手纳入受限可复现交付；拒绝任意路径和旧密钥包。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "handoff": "docs/team/TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
       "id": "UPD-03",
       "title": "最新完整系统组合",
-      "offline_owner": "member-c",
+      "offline_owner": "member-b",
       "execution_owner": "lead",
       "scope": "offline_implementation",
       "deliverable": "把已验收应用、Root网络/音频/灯控和可选扩展组合到干净rootfs。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "handoff": "docs/team/TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
@@ -651,11 +651,11 @@
     {
       "id": "UPD-05",
       "title": "自动健康确认",
-      "offline_owner": "member-c",
+      "offline_owner": "member-b",
       "execution_owner": "lead",
       "scope": "offline_implementation",
       "deliverable": "用有限、与实际应用绑定的健康证据确认候选；不能仅进程存活即确认。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "handoff": "docs/team/TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
@@ -681,11 +681,11 @@
     {
       "id": "UPD-08",
       "title": "外部initramfs与新构建启动验证",
-      "offline_owner": "member-c",
+      "offline_owner": "member-b",
       "execution_owner": "lead",
       "scope": "offline_implementation",
       "deliverable": "准备可审查候选与恢复路径，独立验证外部initramfs和匹配的新构建内核。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "handoff": "docs/team/TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认；真人操作/听音/观察"
     },
     {
@@ -701,11 +701,11 @@
     {
       "id": "UPD-10",
       "title": "整机升级支持声明与发布门槛",
-      "offline_owner": "member-c",
+      "offline_owner": "member-b",
       "execution_owner": "lead",
       "scope": "offline_implementation",
       "deliverable": "根据真实引导/恢复能力确定支持方式，提供签名校验、安装和回退手册。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "handoff": "docs/team/TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
@@ -751,11 +751,11 @@
     {
       "id": "REC-05",
       "title": "可复用恢复手册与终验",
-      "offline_owner": "member-c",
+      "offline_owner": "member-b",
       "execution_owner": "lead",
       "scope": "offline_implementation",
       "deliverable": "整理离线步骤、故障诊断、恢复失败分支和当前支持的设备范围。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "handoff": "docs/team/TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
@@ -1031,11 +1031,11 @@
     {
       "id": "REL-01",
       "title": "冻结支持矩阵与发行候选",
-      "offline_owner": "member-c",
+      "offline_owner": "member-b",
       "execution_owner": "lead",
       "scope": "offline_implementation",
       "deliverable": "明确板型、运营商、SIM、网络方式和已交付扩展，固定候选SHA。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "handoff": "docs/team/TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
@@ -1061,11 +1061,11 @@
     {
       "id": "REL-04",
       "title": "逐项最终验收与缺陷收口",
-      "offline_owner": "member-c",
+      "offline_owner": "member-b",
       "execution_owner": "lead",
       "scope": "offline_implementation",
       "deliverable": "对开发计划13.2/13.3、扩展清单和本台账逐项审计，不以全绿CI代替实机。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "handoff": "docs/team/TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
@@ -1291,21 +1291,21 @@
     {
       "id": "BLE0-01",
       "title": "离线能力矩阵",
-      "offline_owner": "member-c",
+      "offline_owner": "member-b",
       "execution_owner": "lead",
       "scope": "offline_implementation",
       "deliverable": "核对固定内核/DTB/固件/BlueZ来源及启动记录。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "handoff": "docs/team/TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
       "id": "BLE0-02",
       "title": "准备只读硬件检查清单",
-      "offline_owner": "member-c",
+      "offline_owner": "member-b",
       "execution_owner": "lead",
       "scope": "offline_implementation",
       "deliverable": "列清具体查询、授权边界、备份与失败退出，不加载驱动或修改NV。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "handoff": "docs/team/TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
@@ -1321,11 +1321,11 @@
     {
       "id": "BLE0-04",
       "title": "固定支持矩阵与降级入口",
-      "offline_owner": "member-c",
+      "offline_owner": "member-b",
       "execution_owner": "lead",
       "scope": "offline_implementation",
       "deliverable": "确定Windows/Android支持方式，记录不支持的平台和硬件前提。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "handoff": "docs/team/TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     },
     {
@@ -1551,11 +1551,11 @@
     {
       "id": "BLE6-04",
       "title": "BLE完整证据与交接",
-      "offline_owner": "member-c",
+      "offline_owner": "member-b",
       "execution_owner": "lead",
       "scope": "offline_implementation",
       "deliverable": "汇总HCI/RF、加密、权限、Windows/Android和PWA/Pages证据。；只接受对应任务书/T5/T6定义的离线子范围，真实执行/发布仍主线。",
-      "handoff": "docs/team/ADDITIONAL-OFFLINE-PACKAGES-2026-10-27.md#t6-maximum-offline-delegation",
+      "handoff": "docs/team/TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md",
       "lead_retained": "接口/精确HEAD审核、集成与正式支持签认"
     }
   ]
