@@ -188,6 +188,9 @@ trait ProvisionBackend {
     fn rollback(&mut self) -> impl std::future::Future<Output = Result<()>> + Send;
 }
 trait ProvisionGate: Gate {
+    async fn wait_control_tick(&self) {
+        tokio::time::sleep(Duration::from_millis(150)).await;
+    }
     async fn check_control(&self, authority: &ControlAuthority, confirm: bool) -> Result<()> {
         match authority {
             ControlAuthority::Normal => {
@@ -268,7 +271,7 @@ async fn run_trial(
                     g.check_control(authority,true).await?;
                     return Ok(true);
                 }
-                _=tokio::time::sleep(Duration::from_millis(150))=>{}
+                _=g.wait_control_tick()=>{}
             }
         }
     })

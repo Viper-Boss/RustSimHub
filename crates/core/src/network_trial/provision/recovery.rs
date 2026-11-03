@@ -159,6 +159,24 @@ async fn control_recovery(
     auth: Arc<Mutex<Auth>>,
     write: Box<CoreRecoveryWrite>,
 ) -> Result<RecoveryReply> {
+    control_recovery_inner(auth, write, AdmissionSchedule::default()).await
+}
+#[derive(Default)]
+struct AdmissionSchedule {
+    #[cfg(test)]
+    held: Option<Box<dyn FnOnce() + Send>>,
+}
+impl AdmissionSchedule {
+    fn held(self) {
+        #[cfg(test)]
+        if let Some(work) = self.held { work(); }
+    }
+}
+async fn control_recovery_inner(
+    auth: Arc<Mutex<Auth>>,
+    write: Box<CoreRecoveryWrite>,
+    schedule: AdmissionSchedule,
+) -> Result<RecoveryReply> {
     let action = write.action();
     let confirm = action == RecoveryAction::ConfirmWifi;
     let request_id = write.request_id().to_owned();
@@ -184,6 +202,7 @@ async fn control_recovery(
     // must not consume a private claim which cannot be dispatched to its actor.
     let slot = tx.try_reserve().map_err(|_| Error::Busy)?;
     let control = with_auth(auth.clone(), move |a| {
+        schedule.held();
         a.check_recovery_trial(trial.authority())?;
         // Bind the session before durable control admission, not only after.
         write.check_trial(a, &trial)?;
