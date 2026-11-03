@@ -165,6 +165,14 @@ pub(super) async fn execute_with_status<
                 .await
                 .map(RecoveryResponseV1::Status);
         }
+        if matches!(
+            action,
+            RecoveryAction::ConfirmWifi | RecoveryAction::CancelWifi
+        ) {
+            let request_id = uuid::Uuid::from_bytes(*request.capability.request_id()).to_string();
+            let reply = control_request(auth.clone(), request).await?;
+            return response_v1(auth, reply, request_id, action_name(action)?, None).await;
+        }
         let a = auth.clone();
         let decoded = with_auth(a, move |a| recovery_body::decode_v1(a, request)).await?;
         dispatch_v1(auth, decoded, factory).await
@@ -192,6 +200,15 @@ async fn dispatch_v1<B: ProvisionBackend + Send + 'static>(
         }
     };
     let reply = dispatch(auth.clone(), decoded, factory).await?;
+    response_v1(auth, reply, request_id, action, target).await
+}
+async fn response_v1(
+    auth: Arc<Mutex<Auth>>,
+    reply: RecoveryReply,
+    request_id: String,
+    action: &'static str,
+    target: Option<String>,
+) -> Result<RecoveryResponseV1> {
     let operation = match reply {
         RecoveryReply::Lookup(receipt) => {
             let target_request_id = target.ok_or(Error::InvalidInput)?;

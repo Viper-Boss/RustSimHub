@@ -93,6 +93,8 @@ enum ControlAuthority {
     Shutdown,
     #[cfg(feature = "recovery-execution")]
     Recovery(Arc<rustsimhub_auth::RecoveryTrialControl>),
+    #[cfg(feature = "recovery-execution")]
+    RecoveryPending(Box<recovery::PendingControl>),
 }
 struct Control {
     authority: ControlAuthority,
@@ -188,6 +190,16 @@ trait ProvisionBackend {
     fn rollback(&mut self) -> impl std::future::Future<Output = Result<()>> + Send;
 }
 trait ProvisionGate: Gate {
+    // Admission and consumption share this original actor's sequence. A
+    // rejected/unexecuted pending request is not authority for any effect.
+    async fn admit_control(
+        &self,
+        authority: ControlAuthority,
+        _: bool,
+        _: bool,
+    ) -> Result<Option<ControlAuthority>> {
+        Ok(Some(authority))
+    }
     async fn wait_control_tick(&self) {
         tokio::time::sleep(Duration::from_millis(150)).await;
     }
@@ -259,8 +271,9 @@ async fn run_trial(
             tokio::select! {
                 message=rx.recv()=>{
                     let Some(control)=message else { return Ok(false); };
+                    let Some(authority)=g.admit_control(control.authority,control.confirm,ready).await? else { continue; };
                     pending_reply=Some(control.reply);
-                    pending_authority=Some(control.authority);
+                    pending_authority=Some(authority);
                     let authority=pending_authority.as_ref().ok_or(Error::Forbidden)?;
                     if !control.confirm { g.check_control(authority,false).await?; return Ok(false); }
                     if !ready { return Err(Error::Forbidden); }
