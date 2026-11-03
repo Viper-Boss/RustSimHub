@@ -155,6 +155,28 @@ a{color:var(--tint);text-decoration:none}
 .stat .hint{font-size:12px;color:var(--label-2);margin-top:6px}
 .cols > div > .section-title:first-child{margin-top:0}
 
+/* 验证码 */
+.link{font-size:15px;font-weight:400;color:var(--tint)}
+.link.danger{color:var(--red)}
+.link:disabled{color:var(--label-3);cursor:default}
+.otp{padding:12px}
+.otp-list{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(150px,1fr);gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.otp-list::-webkit-scrollbar{display:none}
+.otp-item{scroll-snap-align:start;border-radius:16px;padding:12px;background:var(--fill)}
+.otp-item.fresh{background:linear-gradient(160deg,color-mix(in srgb,var(--pink) 16%,transparent),color-mix(in srgb,var(--purple) 12%,transparent));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--pink) 30%,transparent)}
+.otp-src{display:flex;align-items:center;gap:6px;font-size:13px;min-width:0}
+.otp-src .av{width:22px;height:22px;font-size:11px}
+.otp-src b{font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.otp-src time{font-size:12px;color:var(--label-2)}
+.otp-code{font-size:28px;font-weight:700;letter-spacing:4px;margin:10px 0 8px;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+.otp-item:not(.fresh) .otp-code{color:var(--label-2)}
+.otp-foot{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:12px;color:var(--label-2)}
+.otp-foot .ttl{color:var(--pink);font-weight:600}
+.copy{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--card-solid);color:var(--tint)}
+.otp-item.fresh .copy{background:var(--tint);color:#fff}
+.copy.done{background:var(--green)!important;color:#fff}
+.otp-empty{margin:8px;text-align:center;color:var(--label-2);font-size:14px}
+
 /* 二次确认弹窗 */
 .alert{width:min(300px,calc(100vw - 48px));padding:0;border:0;border-radius:16px;background:var(--alert);color:var(--label);
   backdrop-filter:saturate(180%) blur(30px);-webkit-backdrop-filter:saturate(180%) blur(30px);box-shadow:0 20px 60px -10px rgba(0,0,0,.45)}
@@ -181,6 +203,7 @@ nav.tabs{display:none}
   .bar .chip{display:none}
   .cols > div > .section-title:first-child{margin-top:26px}
   .widgets,.stats{gap:12px}
+  .otp-list{grid-auto-columns:60%}
   nav.tabs{display:flex;position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:5;justify-content:space-around;padding:8px 6px;border-radius:26px;
     background:var(--bar);backdrop-filter:saturate(180%) blur(22px);-webkit-backdrop-filter:saturate(180%) blur(22px);box-shadow:0 10px 30px -10px rgba(0,0,0,.3);border:.5px solid var(--sep)}
   nav.tabs a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:600;color:var(--gray);min-width:60px;padding:4px 0;border-radius:18px}
@@ -217,6 +240,8 @@ nav.tabs{display:none}
   <symbol id="i-mobile" viewBox="0 0 24 24"><path fill="currentColor" d="M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2m0 3v13h8V5zm4 14.2a1 1 0 1 0 0 2 1 1 0 0 0 0-2"/></symbol>
   <symbol id="i-bt" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="m6.5 7 11 10-5.5 5V2l5.5 5-11 10"/></symbol>
   <symbol id="i-loc" viewBox="0 0 24 24"><path fill="currentColor" d="M21 3 3 10.5l7.5 3 3 7.5z"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><path fill="currentColor" d="M7 14a5 5 0 1 1 4.6-7H22v4h-2v3h-4v-3h-4.4A5 5 0 0 1 7 14m0-3a2 2 0 1 0 0-4 2 2 0 0 0 0 4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20m-1 5v6l5 3 1-1.7-4-2.3V7z"/></symbol>
   <symbol id="i-chart" viewBox="0 0 24 24"><path fill="currentColor" d="M4 13h3v7H4zm6.5-5h3v12h-3zM17 4h3v16h-3z"/></symbol>
 </svg>
 
@@ -257,15 +282,38 @@ nav.tabs{display:none}
 
       <div class="group quick" style="margin-top:16px">
         <button class="qa"><span class="ic g-green"><svg width="26" height="26"><use href="#i-phone"/></svg></span>拨号</button>
-        <button class="qa"><span class="ic g-blue"><svg width="26" height="26"><use href="#i-msg"/></svg></span>短信</button>
-        <button class="qa"><span class="ic g-orange"><svg width="26" height="26"><use href="#i-test"/></svg></span>测试</button>
-        <button class="qa"><span class="ic g-purple"><svg width="26" height="26"><use href="#i-wifi"/></svg></span>Wi-Fi</button>
+        <button class="qa"><span class="ic g-blue"><svg width="26" height="26"><use href="#i-msg"/></svg></span>写短信</button>
+        <button class="qa"><span class="ic g-pink"><svg width="26" height="26"><use href="#i-key"/></svg></span>验证码</button>
+        <button class="qa"><span class="ic g-orange"><svg width="26" height="26"><use href="#i-clock"/></svg></span>通话记录</button>
       </div>
+
+      <h2 class="section-title">验证码<button class="link danger" id="otp-clear">清理全部</button></h2>
+      <div class="group otp" id="otp-box">
+        <div class="otp-list">
+          <div class="otp-item fresh">
+            <div class="otp-src"><span class="av g-pink">银</span><b>示例银行</b><time class="num">11:47</time></div>
+            <div class="otp-code num">482916</div>
+            <div class="otp-foot"><span class="ttl">剩 2 分钟</span><button class="copy" data-code="482916">复制</button></div>
+          </div>
+          <div class="otp-item">
+            <div class="otp-src"><span class="av g-orange">购</span><b>示例商城</b><time class="num">10:02</time></div>
+            <div class="otp-code num">7351</div>
+            <div class="otp-foot"><span>已过期</span><button class="copy" data-code="7351">复制</button></div>
+          </div>
+          <div class="otp-item">
+            <div class="otp-src"><span class="av g-teal">行</span><b>示例出行</b><time>昨天</time></div>
+            <div class="otp-code num">083627</div>
+            <div class="otp-foot"><span>已过期</span><button class="copy" data-code="083627">复制</button></div>
+          </div>
+        </div>
+        <p class="otp-empty" hidden>没有验证码短信</p>
+      </div>
+      <p class="foot">自动识别验证码短信，不在下方短信列表重复显示。清理会移到本地回收站，所有者可恢复。</p>
 
       <h2 class="section-title">短信<a href="#">全部</a></h2>
       <div class="group">
         <button class="row unread"><span class="av g-blue">联</span><div class="row-body"><div class="row-title"><b>10010</b><time class="num">14:08</time></div><p>【示例】您本月套餐内通话剩余 382 分钟，短信剩余 96 条。</p></div></button>
-        <button class="row unread"><span class="av g-pink">验</span><div class="row-body"><div class="row-title"><b>95XXX</b><time class="num">11:47</time></div><p>【示例】验证码 ****，5 分钟内有效，请勿泄露给他人。</p></div></button>
+        <button class="row unread"><span class="av g-purple">房</span><div class="row-body"><div class="row-title"><b>138 **** 0000</b><time class="num">12:30</time></div><p>【示例】周末一起吃饭吗？我订了七点的位置。</p></div></button>
         <button class="row"><span class="av g-orange">递</span><div class="row-body"><div class="row-title"><b>106XXXXXXX</b><time>昨天</time></div><p>【示例】您的包裹已到达驿站，请凭取件码领取。</p></div></button>
       </div>
 
@@ -356,7 +404,8 @@ nav.tabs{display:none}
         <div class="row sm"><span class="sq g-green"><svg width="16" height="16"><use href="#i-send"/></svg></span><div class="row-body"><div class="row-title"><b style="font-weight:500">短信转发</b></div><p>Bark · 2 条规则</p></div><button class="switch" role="switch" aria-checked="true" aria-label="短信转发"></button></div>
       </div>
       <div class="group" style="margin-top:16px">
-        <button class="row sm"><span class="sq g-gray"><svg width="17" height="17"><use href="#i-gear"/></svg></span><div class="row-body"><div class="row-title"><b style="font-weight:500">设置与诊断</b></div></div><svg class="chev" width="14" height="14"><use href="#i-chev"/></svg></button>
+        <button class="row sm"><span class="sq g-orange"><svg width="17" height="17"><use href="#i-test"/></svg></span><div class="row-body"><div class="row-title"><b style="font-weight:500">诊断</b></div><p>一键测试、回执与日志</p></div><svg class="chev" width="14" height="14"><use href="#i-chev"/></svg></button>
+        <button class="row sm"><span class="sq g-gray"><svg width="17" height="17"><use href="#i-gear"/></svg></span><div class="row-body"><div class="row-title"><b style="font-weight:500">设置</b></div><p>账户、配对审批、设备管理</p></div><svg class="chev" width="14" height="14"><use href="#i-chev"/></svg></button>
       </div>
       <p class="foot">开关变更需要所有者最近 5 分钟内登录，并会等待设备确认。</p>
 
@@ -380,6 +429,16 @@ nav.tabs{display:none}
       <p>开启后棒子会使用 SIM 卡流量上网，可能产生费用。本月已用 1.2 GB，限额 10 GB，到量自动断开。</p>
     </div>
     <div class="alert-actions"><button value="cancel" autofocus>取消</button><button value="on" class="strong">开启</button></div>
+  </form>
+</dialog>
+
+<dialog class="alert" id="otp-dialog" aria-labelledby="otp-dialog-title">
+  <form method="dialog">
+    <div class="alert-body">
+      <h3 id="otp-dialog-title">清理 3 条验证码短信？</h3>
+      <p>会移到本地回收站，所有者可以恢复。其他短信不受影响。</p>
+    </div>
+    <div class="alert-actions"><button value="cancel" autofocus>取消</button><button value="clear" class="strong" style="color:var(--red)">清理</button></div>
   </form>
 </dialog>
 
@@ -409,6 +468,19 @@ nav.tabs{display:none}
     if (on) dialog.showModal(); else setData(false);
   });
   dialog.addEventListener('close', () => { if (dialog.returnValue === 'on') setData(true); });
+  for (const b of document.querySelectorAll('.copy')) b.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(b.dataset.code); } catch {}
+    b.textContent = '已复制'; b.classList.add('done');
+    setTimeout(() => { b.textContent = '复制'; b.classList.remove('done'); }, 1500);
+  });
+  const otpDialog = document.getElementById('otp-dialog'), otpClear = document.getElementById('otp-clear');
+  otpClear.addEventListener('click', () => otpDialog.showModal());
+  otpDialog.addEventListener('close', () => {
+    if (otpDialog.returnValue !== 'clear') return;
+    document.querySelector('.otp-list').hidden = true;
+    document.querySelector('.otp-empty').hidden = false;
+    otpClear.disabled = true;
+  });
   const onScroll = () => bar.classList.toggle('scrolled', scrollY > 40);
   addEventListener('scroll', onScroll, {passive: true}); onScroll();
 })();
