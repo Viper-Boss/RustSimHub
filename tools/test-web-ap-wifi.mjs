@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
 const bytes=await readFile(new URL('../crates/edge/src/web/ap-wifi.js',import.meta.url));
-const {ApConfigurator,pendingInput,credentialsInput,refusals}=await import('data:text/javascript;base64,'+bytes.toString('base64'));
+const {ApConfigurator,pendingInput,credentialsInput,refusals,scanPendingInput}=await import('data:text/javascript;base64,'+bytes.toString('base64'));
 const html=await readFile(new URL('../crates/edge/src/web/index.html',import.meta.url),'utf8');
 const app=await readFile(new URL('../crates/edge/src/web/app.js',import.meta.url),'utf8');
 const routes=await readFile(new URL('../crates/edge/src/linux.rs',import.meta.url),'utf8');
@@ -14,6 +14,7 @@ assert(app.includes("import { ApConfigurator, pendingInput as apPendingInput } f
 assert(routes.includes('"/ap-wifi.js"')&&routes.includes('include_str!("web/ap-wifi.js")'));
 assert(app.includes("atomicStored('ap-wifi-pending'")&&app.includes('old?.revision')&&app.includes('apConfigurator?.suspend()'));
 const OP='11111111-1111-4111-8111-111111111111',HASH='a'.repeat(64),SSID='合成 <wifi>',PASS='synthetic-password';
+let fixtureCount=0;
 const clone=v=>structuredClone(v),turn=()=>new Promise(r=>setImmediate(r));
 class Element{
  constructor(){this.value='';this.textContent='';this.hidden=false;this.disabled=false;this.readOnly=false;this.dataset={};this.attributes={};this.checked=false;this.type='password';}
@@ -21,8 +22,9 @@ class Element{
  set innerHTML(_){throw Error('Never parse untrusted content as HTML');}
 }
 async function fixture({record=null,hook=null,loginHook=null,storageError=false,blocked=false,created=false,bootstrap=false,archiveError=false,scanning=false,retainedScan=null,scanCapability=null,scanWriteError=false,approveScan=true}={}){
+ fixtureCount++;let domain=HASH;
  const elements=new Map(ids.map(id=>[id,new Element()])),calls=[],archives=[];let storage=clone(record),authenticated=false,now=0,phase='ready',failWrite=false;
- let scanStore=clone(retainedScan);const snapshots=[],scanButton=new Element(),scanNote=new Element();
+ let scanStore=clone(retainedScan);const snapshots=[],scanButton=new Element(),scanNote=new Element(),scanFacts=new Element();
  const scanReply=(c,extra={})=>({known:true,operation_id:OP,scan_id:c.scan_id,state:'ready',authoritative_result:true,ap_return_verified:true,historical:false,credentials_returned:false,cellular_activation:false,settings_saved:false,snapshot:{requested_uptime_ms:100,last_scan_uptime_ms:101,completed_uptime_ms:102,networks:[],omitted:0,truncated:false},...extra});
  const parent=()=>({known:true,available:true,request_key_sha256:storage?.request_key_sha256||HASH,operation_id:OP,state:phase,credentials_returned:false,cellular_activation:false,completion_saved:false,station_trial_api:phase==='ready',station_save_api:phase==='ready',...(scanning?{scan:scanCapability||{supported:true,available:true,remaining:8}}:{})});
  const trial=(c,state='ready',extra={})=>({known:true,operation_id:OP,trial_id:c.trial_id,state,authoritative_result:state!=='testing'&&state!=='unknown',ap_return_verified:['ready','failed','cancelled'].includes(state),requires_confirmation:state==='ready',settings_saved:false,credentials_returned:false,cellular_activation:false,...extra});
@@ -39,6 +41,7 @@ async function fixture({record=null,hook=null,loginHook=null,storageError=false,
    case 'setup_ap_cancel':assert(storage.cancel_sent);phase='closed';return parent();
    case 'setup_ap_scan_begin':assert.equal(scanStore.scan_id,c.scan_id,'must be durable before mutation');return scanReply(c);
    case 'setup_ap_scan_status':return scanReply(c);
+   case 'setup_ap_scan_cancel':assert(scanStore.cancel_sent);return scanReply(c,{state:'cancelled',snapshot:null});
    default:throw Error('unexpected command '+c.op);
   }
  };
@@ -49,9 +52,9 @@ async function fixture({record=null,hook=null,loginHook=null,storageError=false,
   loadPending:async()=>{if(storageError)throw Error('storage unavailable');return clone(storage);},
   savePending:async(next,expected)=>{if(failWrite)throw Error('storage failed');assert.equal(storage?.id??null,expected?.id??null);assert.equal(storage?.revision??null,expected?.revision??null);pendingInput(next);assert(!JSON.stringify(next).includes(PASS)&&!JSON.stringify(next).includes(SSID));storage=clone(next);},
   archivePending:async value=>{if(archiveError)throw Error("archive unavailable");archives.push(clone(value));},blocked:()=>blocked,
-  scan:scanning?{domain:()=>HASH,button:scanButton,note:scanNote,load:async()=>clone(scanStore),save:async(v,expected)=>{if(scanWriteError)throw Error('scan storage unavailable');assert.deepEqual(scanStore,expected);scanStore=clone(v);},snapshot:v=>snapshots.push(clone(v))}:null});
+  scan:scanning?{domain:()=>domain,button:scanButton,note:scanNote,facts:scanFacts,load:async()=>clone(scanStore),save:async(v,expected)=>{if(scanWriteError)throw Error('scan storage unavailable');assert.deepEqual(scanPendingInput(scanStore,HASH),expected);scanStore=clone(v);},snapshot:v=>snapshots.push(clone(v))}:null});
  await panel.initialize();await panel.open();
- return {panel,calls,archives,snapshots,scanButton,scanNote,scanStore:()=>clone(scanStore),scanReply,$:id=>elements.get(id),storage:()=>clone(storage),replace:v=>{storage=clone(v);},failWrites:()=>{failWrite=true;},defaults,parent,trial,commit,
+ return {panel,calls,archives,snapshots,scanButton,scanNote,scanFacts,changeDevice:()=>{domain='b'.repeat(64);},replaceScan:v=>{scanStore=clone(v);},scanStore:()=>clone(scanStore),scanReply,$:id=>elements.get(id),storage:()=>clone(storage),replace:v=>{storage=clone(v);},failWrites:()=>{failWrite=true;},defaults,parent,trial,commit,
   fill:()=>{elements.get('ap-wifi-ssid').value=SSID;elements.get('ap-wifi-passphrase').value=PASS;},click:id=>elements.get('ap-wifi-'+id).onclick(),reopen:async()=>{panel.suspend();await panel.open();}};
 }
 {
@@ -238,7 +241,7 @@ for(const options of [{approveScan:false},{scanCapability:{supported:false,avail
 {
  const f=await fixture({scanning:true,hook:async(c,x)=>{if(c.op==='setup_ap_scan_begin')throw Error('lost');return x.defaults(c);}});
  f.fill();await f.scanButton.onclick();const saved=f.scanStore();assert(saved?.scan_id);
- assert(f.$('ap-wifi-begin').disabled&&f.$('ap-wifi-confirm').disabled&&f.$('ap-wifi-cancel').disabled);
+ assert(f.$('ap-wifi-begin').disabled&&f.$('ap-wifi-confirm').disabled&&!f.$('ap-wifi-cancel').disabled);
  await f.click('begin');assert(!f.calls.some(c=>c.op==='setup_ap_wifi_begin'));
  await f.scanButton.onclick();assert.equal(f.calls.filter(c=>c.op==='setup_ap_scan_begin').length,1);
  assert.equal(f.scanStore(),null);assert.equal(f.snapshots.length,1);
@@ -270,3 +273,59 @@ for(const state of ['failed','refused','cancelled']){
  assert.equal(f.calls.filter(c=>c.op==='setup_ap_scan_begin').length,1);assert(!f.calls.some(c=>c.op==='setup_ap_wifi_begin'));
 }
 console.log('rescan single-flight, consent, durable-before-send, empty snapshot, reload/query-only, refusal and invalid-result checks passed');
+// A competing tab changes the durable scan record while Begin is in flight.
+// No receipt may reach the list before the final storage/epoch fence succeeds.
+{
+ const f=await fixture({scanning:true,hook:async(c,x)=>{
+  const v=await x.defaults(c);
+  if(c.op==='setup_ap_scan_begin')await x.panel.scan.save(null,clone(x.panel.scanRecord));
+  return v;
+ }});
+ await f.scanButton.onclick();
+ assert.equal(f.snapshots.length,0,'a stale tab must not publish before checking durable scan ownership');
+}
+// Cancel is bound to the original scan, durably single-submit even if its reply is lost.
+for(const lost of [false,true]){
+ const f=await fixture({scanning:true,hook:async(c,x)=>{
+  if(c.op==='setup_ap_scan_begin')throw Error('lost begin');
+  if(c.op==='setup_ap_scan_cancel'&&lost)throw Error('lost cancel');
+  return x.defaults(c);
+ }});
+ await f.scanButton.onclick();const original=f.scanStore();await f.click('cancel');
+ assert.equal(f.calls.filter(c=>c.op==='setup_ap_scan_cancel').length,1);
+ assert.equal(f.calls.find(c=>c.op==='setup_ap_scan_cancel').scan_id,original.scan_id);
+ if(lost){assert(f.scanStore().cancel_sent);assert(f.$('ap-wifi-cancel').disabled);await f.click('cancel');assert.equal(f.calls.filter(c=>c.op==='setup_ap_scan_cancel').length,1);await f.reopen();}
+ assert.equal(f.scanStore(),null);assert.equal(f.calls.filter(c=>c.op==='setup_ap_scan_begin').length,1);
+}
+// Missing/Unknown/failed restoration is never a successful scan or a cleared receipt.
+for(const result of [
+ {known:false,not_found_is_not_proof:true},
+ {state:'unknown',authoritative_result:false,snapshot:null,ap_return_verified:false},
+ {state:'failed',snapshot:null,ap_return_verified:false},
+]){
+ const f=await fixture({scanning:true,hook:async(c,x)=>c.op.startsWith('setup_ap_scan_')?{...await x.defaults(c),...result}:x.defaults(c)});
+ await f.scanButton.onclick();assert(f.scanStore());assert.equal(f.snapshots.length,0);assert.match(f.scanNote.textContent,/未确认|未核验|尚未查到/);
+}
+// Owner revocation and service loss retain the same durable scan and allow only reads.
+for(const reason of ['forbidden','service stopped']){
+ const f=await fixture({scanning:true,hook:async(c,x)=>{if(c.op.startsWith('setup_ap_scan_'))throw Error(reason);return x.defaults(c);}});
+ await f.scanButton.onclick();const original=f.scanStore();await f.scanButton.onclick();
+ assert.deepEqual(f.scanStore(),original);assert.equal(f.calls.filter(c=>c.op==='setup_ap_scan_begin').length,1);assert.equal(f.snapshots.length,0);
+}
+// A late response cannot revive controls, choices or credentials after close/device change.
+for(const change of ['close','device']){
+ let release;const gate=new Promise(r=>release=r);
+ const f=await fixture({scanning:true,hook:async(c,x)=>{if(c.op==='setup_ap_scan_begin')await gate;return x.defaults(c);}});
+ const running=f.scanButton.onclick();while(!f.calls.some(c=>c.op==='setup_ap_scan_begin'))await turn();
+ if(change==='close')f.panel.suspend();else f.changeDevice();
+ release();await running;assert.equal(f.snapshots.length,0);assert.equal(f.panel.opened,false);assert(f.scanButton.disabled&&f.$('ap-wifi-begin').disabled);assert.equal(f.$('ap-wifi-passphrase').value,'');
+ const n=f.calls.length;await f.scanButton.onclick();await f.click('begin');assert.equal(f.calls.length,n);
+}
+// Legacy format-1 progress is recovered, never replayed; unknown extra fields fail closed.
+{
+ const seed=await fixture({scanning:true,hook:async(c,x)=>{if(c.op==='setup_ap_scan_begin')throw Error('lost');return x.defaults(c);}});await seed.scanButton.onclick();
+ const legacy=seed.scanStore();legacy.format=1;delete legacy.cancel_sent;
+ const f=await fixture({scanning:true,record:seed.storage(),retainedScan:legacy});await f.scanButton.onclick();assert.equal(f.scanStore(),null);assert(!f.calls.some(c=>c.op==='setup_ap_scan_begin'));
+ assert.throws(()=>scanPendingInput({...legacy,passphrase:PASS},HASH));
+}
+console.log(`WEB3-AP: ${fixtureCount} actual-controller fixtures completed; stale-tab publication, exact cancel, legacy recovery, restoration uncertainty, revocation and late-response fences passed.`);
