@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-02T17:45:31.059043+00:00",
+  "updated_at": "2026-11-03T00:47:34.280245+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,12 +67,22 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原固件81.5%按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "UPD-02",
-    "title": "新主线 ARM 程序已准备",
-    "state": "13程序 · 1485 Rust · 音频34 QEMU · 未签名",
-    "description": "PR188固定ec01c47获仅本笔明确授权后正常合并e3762ec。以该产品提交/完整源码归档06cb909c运行正式构建：1485 Rust通过、0失败、9项专用忽略；12 ARM程序和同源原生音频34 QEMU通过。13程序及6应用载荷22900497字节逐一回读。明确未签名、无epoch、不可安装；本轮没有访问设备、外发或启用成员候选服务。仅文档PR189按单笔明确授权合并6965b62，受测产品仍绑定e3762ec，不改写为文档HEAD重建。下一步先新鲜只读核对现场版本/信任/空间/兼容再准备签名，人工验收最后。 原81.5%、20/169、加权10.6%与主线代码约90%粗估保持。"
+    "task_id": "STAB-02",
+    "title": "主线回归出现跨环境差异，继续定位",
+    "state": "辅助工具已复核 · Core/音频问题未关闭",
+    "description": "网页版Codex交付PR190，固定1d6c9bf，实际受测7950051。范围为允许的五个工具/报告文件，产品代码与e3762ec相同；本机20项运行器自测、86项固定清单与1排除项核对通过。完整diff有一处报告末尾空行，暂未批准或合并。交付实际52阶段通过/3失败/31未运行：Core恢复Storage及后续Busy、原生音频Bounds、兼容构建ENOSPC；缺Root与构建依赖阻断不得填绿。主线限定诊断复用旧二进制，各一次Core单项1通过、库整组87通过/1忽略、ARM音频同名单项1通过，仍未复现和解释跨环境原因，不覆盖网页版失败或宣称已修复。 已有1485 Rust/13 ARM/音频34 QEMU和未签名载荷材料仍保留原来源，不冒称跨环境全面通过。原验收81.5%、20/169及代码约90%粗估保持，人工最后。"
   },
   "facts": [
+    {
+      "label": "跨环境回归",
+      "value": "3失败阶段 · 原因待定位",
+      "detail": "Core Storage/Busy、原生音频Bounds、构建ENOSPC；31项未运行不能填通过"
+    },
+    {
+      "label": "网页版辅助工具",
+      "value": "20自测通过 · PR190未合并",
+      "detail": "仅工具/报告；一处报告末尾空行待整理，不代替产品验收"
+    },
     {
       "label": "新主线正式构建",
       "value": "1485 Rust · 12 ARM 通过",
@@ -5745,12 +5755,26 @@
       "evidence": [
         "https://github.com/Viper-Boss/RustSimHub/blob/0f375e7c9671014d6eb37f78a756e4a67849b03c/docs/team/WEB-CODEX-MAINLINE-INTEGRATION-20261103.md"
       ]
+    },
+    {
+      "at": "2026-11-03T00:47:34.280245+00:00",
+      "type": "state",
+      "title": "PR190工具已复核，保留三个失败阶段",
+      "detail": "网页版Codex交付PR190，固定1d6c9bf，实际受测7950051。范围为允许的五个工具/报告文件，产品代码与e3762ec相同；本机20项运行器自测、86项固定清单与1排除项核对通过。完整diff有一处报告末尾空行，暂未批准或合并。交付实际52阶段通过/3失败/31未运行：Core恢复Storage及后续Busy、原生音频Bounds、兼容构建ENOSPC；缺Root与构建依赖阻断不得填绿。主线限定诊断复用旧二进制，各一次Core单项1通过、库整组87通过/1忽略、ARM音频同名单项1通过，仍未复现和解释跨环境原因，不覆盖网页版失败或宣称已修复。",
+      "task_ids": [
+        "STAB-02"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/190",
+        "https://github.com/Viper-Boss/RustSimHub/blob/1d6c9bf258fbde3ea90c6d9436fcb1f6fe0a323c/docs/testing/WEB-CODEX-MAINLINE-REGRESSION-20261103.md",
+        "https://github.com/Viper-Boss/RustSimHub/blob/95bf08f7bc5a91fb2eecc84845e49f56b807a24f/docs/VALIDATION-PR190-REVIEW-20261103.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
     "source_revision": "6965b626821227e4a187d66e87411b1ce09f6c6a",
-    "generated_at": "2026-11-02T17:44:31.644335+00:00",
+    "generated_at": "2026-11-03T00:45:03.146435+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -7404,6 +7428,11 @@
               "pr": 187,
               "head": "f3ac9b96e18d80040a179342436c20423523fb6b",
               "state": "MERGED"
+            },
+            {
+              "pr": 190,
+              "head": "1d6c9bf258fbde3ea90c6d9436fcb1f6fe0a323c",
+              "state": "OPEN"
             }
           ],
           "task_deliveries": [
@@ -7657,6 +7686,12 @@
               "pr": 187,
               "head": "f3ac9b96e18d80040a179342436c20423523fb6b",
               "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 190,
+              "head": "1d6c9bf258fbde3ea90c6d9436fcb1f6fe0a323c",
+              "state": "OPEN",
               "submitted_by": "wnfhsj88"
             }
           ]
