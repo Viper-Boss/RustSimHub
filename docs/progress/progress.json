@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-03T00:47:34.280245+00:00",
+  "updated_at": "2026-11-03T01:39:00.527979+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,12 +67,22 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原固件81.5%按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "STAB-02",
-    "title": "主线回归出现跨环境差异，继续定位",
-    "state": "辅助工具已复核 · Core/音频问题未关闭",
-    "description": "网页版Codex交付PR190，固定1d6c9bf，实际受测7950051。范围为允许的五个工具/报告文件，产品代码与e3762ec相同；本机20项运行器自测、86项固定清单与1排除项核对通过。完整diff有一处报告末尾空行，暂未批准或合并。交付实际52阶段通过/3失败/31未运行：Core恢复Storage及后续Busy、原生音频Bounds、兼容构建ENOSPC；缺Root与构建依赖阻断不得填绿。主线限定诊断复用旧二进制，各一次Core单项1通过、库整组87通过/1忽略、ARM音频同名单项1通过，仍未复现和解释跨环境原因，不覆盖网页版失败或宣称已修复。 已有1485 Rust/13 ARM/音频34 QEMU和未签名载荷材料仍保留原来源，不冒称跨环境全面通过。原验收81.5%、20/169及代码约90%粗估保持，人工最后。"
+    "task_id": "CALL-05",
+    "title": "LAN音频过期帧会话退出已修复并合并",
+    "state": "PR192已合并 · 39 ARM/QEMU通过 · 未部署",
+    "description": "PR192固定e05ca7e按仅本笔明确授权正常合并7c33324。主线只修已有LAN音频：编码前或编码期间超过60ms的帧丢弃，不写RTP、不增加实际发送数，也不结束仍授权会话；未来时间、缺失/撤销许可仍拒绝，队列/票据/DTLS/媒体超时保持。修复前夹具811/b80e两项确定失败；产品6cdd513/dd10f997的39 ARM/QEMU、严格Clippy/文件fmt与发布CLI真实加密回环通过，两侧各50帧，撤权/超时通过。没有签名部署或设备/外发；云端41560201531两项仍因计费/消费上限未启动，未计CI通过。 旧e376/06cb的13份材料不能混入新音频，须新来源重建；Core恢复Storage和原生x86 Bounds其他原因仍待，不冒称PR190全绿。原81.5%、20/169和代码约90%粗估保持，人工最后。"
   },
   "facts": [
+    {
+      "label": "LAN音频过期帧",
+      "value": "代码已合并 · 39 ARM测试通过",
+      "detail": "帧龄仍60ms；只丢过期帧，未来时间/缺失/撤权仍拒绝，未部署"
+    },
+    {
+      "label": "Core恢复诊断",
+      "value": "已受控复现一种Storage机制",
+      "detail": "250ms准入持锁→后台Busy→底层Forbidden映射Storage；原D维护者待修，不断言云端必然同因"
+    },
     {
       "label": "跨环境回归",
       "value": "3失败阶段 · 原因待定位",
@@ -84,19 +94,19 @@
       "detail": "仅工具/报告；一处报告末尾空行待整理，不代替产品验收"
     },
     {
-      "label": "新主线正式构建",
+      "label": "旧截面正式构建",
       "value": "1485 Rust · 12 ARM 通过",
-      "detail": "固定e3762ec/06cb909c；9专项忽略不算运行通过"
+      "detail": "e3762ec/06cb909c历史成功；不含本轮新音频，不能混用"
     },
     {
-      "label": "同源音频",
+      "label": "旧截面音频",
       "value": "34 QEMU 通过",
-      "detail": "第13份ARM程序；没有声卡硬件或真人听音验收"
+      "detail": "e3762ec历史34项，修复后39项单独记录；无人耳/声卡验收"
     },
     {
       "label": "未签名应用载荷",
-      "value": "6文件 · 约22.9 MB",
-      "detail": "13程序摘要已回读；无签名、无epoch、不可安装"
+      "value": "旧6载荷 · 待同源重建",
+      "detail": "约22.9MB为旧06cb截面；无签名/epoch，不能混入新音频"
     },
     {
       "label": "本轮成员合并",
@@ -5769,12 +5779,37 @@
         "https://github.com/Viper-Boss/RustSimHub/blob/1d6c9bf258fbde3ea90c6d9436fcb1f6fe0a323c/docs/testing/WEB-CODEX-MAINLINE-REGRESSION-20261103.md",
         "https://github.com/Viper-Boss/RustSimHub/blob/95bf08f7bc5a91fb2eecc84845e49f56b807a24f/docs/VALIDATION-PR190-REVIEW-20261103.md"
       ]
+    },
+    {
+      "at": "2026-11-03T01:39:00.527979+00:00",
+      "type": "state",
+      "title": "LAN过期帧修复已正常合并PR192",
+      "detail": "PR192固定e05ca7e按仅本笔明确授权正常合并7c33324。主线只修已有LAN音频：编码前或编码期间超过60ms的帧丢弃，不写RTP、不增加实际发送数，也不结束仍授权会话；未来时间、缺失/撤销许可仍拒绝，队列/票据/DTLS/媒体超时保持。修复前夹具811/b80e两项确定失败；产品6cdd513/dd10f997的39 ARM/QEMU、严格Clippy/文件fmt与发布CLI真实加密回环通过，两侧各50帧，撤权/超时通过。没有签名部署或设备/外发；云端41560201531两项仍因计费/消费上限未启动，未计CI通过。",
+      "task_ids": [
+        "CALL-05"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/192",
+        "docs/VALIDATION-AUDIO-STALE-FRAMES-20261103.md"
+      ]
+    },
+    {
+      "at": "2026-11-03T01:39:00.527979+00:00",
+      "type": "state",
+      "title": "Core恢复准入竞争机制已受控定位",
+      "detail": "私有同源合成夹具只加入250ms合法控制准入持锁和错误类别日志，单次触发auth_lock_busy、storage_error=Forbidden和原549行Storage失败。没有磁盘I/O错误，不把Storage一律归磁盘；尚无原云端时序证据，不宣称必然同因或Core已修复。Core/Auth/Storage生产代码未改，交接原D恢复维护者；保留原长期Auth占用必须有限回滚的测试。新PR191只读取范围以避免重复，未审核/合并；其修改列表不含本恢复actor或本LAN rtc文件。",
+      "task_ids": [
+        "STAB-02"
+      ],
+      "evidence": [
+        "docs/CORE-RECOVERY-ADMISSION-CONTENTION-20261103.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "6965b626821227e4a187d66e87411b1ce09f6c6a",
-    "generated_at": "2026-11-03T00:45:03.146435+00:00",
+    "source_revision": "7c33324af5cd7cea67856d5f15d5653abcf8ed89",
+    "generated_at": "2026-11-03T01:37:00.215094+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5793,15 +5828,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 54280,
+            "product": 54414,
             "tests": 43238,
             "tooling": 10118,
             "firmware": 1180
           },
-          "commits": 500,
-          "code_commits": 318,
-          "added": 115201,
-          "deleted": 3292
+          "commits": 503,
+          "code_commits": 320,
+          "added": 115340,
+          "deleted": 3297
         },
         "work": {
           "assigned_steps": 0,
@@ -6277,6 +6312,11 @@
             {
               "pr": 189,
               "head": "128fd4b83d6767f170bcaaf8b0f23139afd1f7b9",
+              "state": "MERGED"
+            },
+            {
+              "pr": 192,
+              "head": "e05ca7ec91df39c5a2d59df5c8853ce0a36411b7",
               "state": "MERGED"
             }
           ],
@@ -6842,6 +6882,12 @@
             {
               "pr": 189,
               "head": "128fd4b83d6767f170bcaaf8b0f23139afd1f7b9",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 192,
+              "head": "e05ca7ec91df39c5a2d59df5c8853ce0a36411b7",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
@@ -7433,6 +7479,11 @@
               "pr": 190,
               "head": "1d6c9bf258fbde3ea90c6d9436fcb1f6fe0a323c",
               "state": "OPEN"
+            },
+            {
+              "pr": 191,
+              "head": "29ba539f0ea38418970526394372e80e4a5d38b1",
+              "state": "OPEN"
             }
           ],
           "task_deliveries": [
@@ -7691,6 +7742,12 @@
             {
               "pr": 190,
               "head": "1d6c9bf258fbde3ea90c6d9436fcb1f6fe0a323c",
+              "state": "OPEN",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 191,
+              "head": "29ba539f0ea38418970526394372e80e4a5d38b1",
               "state": "OPEN",
               "submitted_by": "wnfhsj88"
             }
@@ -8300,7 +8357,7 @@
       "deleted": 0
     },
     "totals": {
-      "product": 73551,
+      "product": 73685,
       "tests": 70192,
       "tooling": 14789,
       "firmware": 1189
