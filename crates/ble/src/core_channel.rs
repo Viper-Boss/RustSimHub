@@ -44,6 +44,107 @@ impl State {
 pub struct CoreRecoveryPort {
     state: Arc<State>,
 }
+struct DeferredState {
+    uid: u32,
+    port: Arc<AsyncMutex<Option<CoreRecoveryPort>>>,
+    source: Mutex<Option<Arc<State>>>,
+    live: AtomicBool,
+}
+impl DeferredState {
+    fn close(&self) {
+        self.live.store(false, Ordering::Release);
+        if let Ok(source) = self.source.lock() {
+            if let Some(s) = source.as_ref() {
+                s.close();
+            }
+        }
+    }
+}
+/// No Core connection or handshake deadline is consumed while advertising or
+/// waiting for a browser gesture. Connect once, on the first actual Auth frame.
+/// Disconnect/cancellation permanently closes this epoch, including queued work.
+pub struct OnDemandCorePort {
+    state: Arc<DeferredState>,
+}
+impl OnDemandCorePort {
+    pub fn new(core_uid: u32) -> Result<Self, Error> {
+        if core_uid == 0 || core_uid == u32::MAX {
+            return Err(Error::InvalidInput);
+        }
+        Ok(Self {
+            state: Arc::new(DeferredState {
+                uid: core_uid,
+                port: Arc::new(AsyncMutex::new(None)),
+                source: Mutex::new(None),
+                live: AtomicBool::new(true),
+            }),
+        })
+    }
+}
+impl Drop for OnDemandCorePort {
+    fn drop(&mut self) {
+        self.state.close();
+    }
+}
+struct DeferredFence(Arc<DeferredState>, bool);
+impl Drop for DeferredFence {
+    fn drop(&mut self) {
+        if self.1 {
+            self.0.close()
+        }
+    }
+}
+impl SecurePortV1 for OnDemandCorePort {
+    fn receive(
+        &mut self,
+        epoch: Epoch,
+        peer: Peer,
+        kind: InputKind,
+        bytes: OpaqueBytes,
+    ) -> Pending<SecureReply> {
+        let state = self.state.clone();
+        let reserved = state.port.clone().try_lock_owned();
+        let mut cancel = reserved
+            .as_ref()
+            .ok()
+            .map(|_| DeferredFence(state.clone(), true));
+        Box::pin(async move {
+            let mut owned = reserved.map_err(|_| Error::Busy)?;
+            if !state.live.load(Ordering::Acquire) {
+                return Err(Error::StaleContext);
+            }
+            if owned.is_none() {
+                if kind != InputKind::Auth {
+                    return Err(Error::Protocol);
+                }
+                let port = CoreRecoveryPort::connect(state.uid).await?;
+                *state.source.lock().map_err(|_| Error::Unknown)? = Some(port.state.clone());
+                if !state.live.load(Ordering::Acquire) {
+                    return Err(Error::StaleContext);
+                }
+                *owned = Some(port);
+            }
+            let result = owned
+                .as_mut()
+                .ok_or(Error::Unavailable)?
+                .receive(epoch, peer, kind, bytes)
+                .await;
+            if !state.live.load(Ordering::Acquire) {
+                return Err(Error::StaleContext);
+            }
+            if result.is_ok() {
+                if let Some(c) = cancel.as_mut() {
+                    c.1 = false;
+                }
+            }
+            result
+        })
+    }
+    fn disconnected(&mut self, _: Epoch, _: Peer) -> Pending<()> {
+        self.state.close();
+        Box::pin(async { Ok(()) })
+    }
+}
 struct PendingFence(Arc<State>, bool);
 impl Drop for PendingFence {
     fn drop(&mut self) {
@@ -315,5 +416,37 @@ mod tests {
             .is_err());
         let mut byte = [0];
         assert_eq!(server.read(&mut byte).await.unwrap(), 0);
+    }
+}
+
+#[cfg(test)]
+mod deferred_tests {
+    use super::*;
+    fn context() -> (Epoch, Peer) {
+        (
+            Epoch::new([31; 16], 1).unwrap(),
+            Peer::from_backend_callback(":1.2", "/org/bluez/hci0/dev_00_11_22_33_44_55").unwrap(),
+        )
+    }
+    #[tokio::test]
+    async fn deferred_constructor_and_early_business_never_connect_or_reconnect() {
+        assert!(OnDemandCorePort::new(0).is_err());
+        let mut port = OnDemandCorePort::new(1001).unwrap();
+        assert!(port.state.source.lock().unwrap().is_none());
+        let (e, p) = context();
+        assert!(port
+            .receive(e, p, InputKind::Command, OpaqueBytes::new(vec![1]).unwrap())
+            .await
+            .is_err());
+        assert!(port.state.source.lock().unwrap().is_none());
+        assert!(!port.state.live.load(Ordering::Acquire));
+    }
+    #[test]
+    fn dropping_unpolled_first_auth_permanently_cancels_original_deferred_epoch() {
+        let mut port = OnDemandCorePort::new(1001).unwrap();
+        let (e, p) = context();
+        drop(port.receive(e, p, InputKind::Auth, OpaqueBytes::new(vec![1]).unwrap()));
+        assert!(!port.state.live.load(Ordering::Acquire));
+        assert!(port.state.source.lock().unwrap().is_none());
     }
 }

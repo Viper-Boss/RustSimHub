@@ -1,0 +1,221 @@
+{
+  "format": 1,
+  "date": "2026-11-03",
+  "account": "wnfhsj88",
+  "implementation_head": "5ad537d9dbf4c3fba61778d81f79746c02d0d793",
+  "base_main": "6965b626821227e4a187d66e87411b1ce09f6c6a",
+  "sdk_root_source_head": "7505a025f34f75beed9075cf343b71f38c106eed",
+  "rust": {
+    "core_library": {
+      "passed": 90,
+      "failed": 0,
+      "ignored": 1
+    },
+    "core_binary": {
+      "passed": 204,
+      "failed": 0,
+      "ignored": 3
+    },
+    "ble": {
+      "passed": 165,
+      "failed": 0,
+      "ignored": 0
+    },
+    "edge": {
+      "passed": 41,
+      "failed": 0,
+      "ignored": 0
+    },
+    "wire": {
+      "passed": 24,
+      "failed": 0,
+      "ignored": 0
+    },
+    "total_passed": 524,
+    "total_failed": 0,
+    "suite_ignored": 4
+  },
+  "checks": {
+    "production_features_without_development_fixtures": true,
+    "default_core_edge_ble": true,
+    "strict_clippy_four_packages_all_targets_all_features": true,
+    "fmt": true,
+    "diff_check": true,
+    "default_go_race": true,
+    "actual_sdk_and_engine_go_race": true,
+    "go_math_rand_probe_flag": "GODEBUG=randseednop=0 only for isolated mask-source test",
+    "web_control_and_backward_compatibility": true,
+    "static_builder_tests": 3,
+    "actual_sdk_root_core_sample_accepted_by_production_js": true,
+    "go_product_source_matches_independently_built_frozen_stage": true
+  },
+  "root_kernel": {
+    "source_head": "5ad537d9dbf4c3fba61778d81f79746c02d0d793",
+    "tracked_dirty": false,
+    "image": "python@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb",
+    "program_sha256": {
+      "engine": "27f049e939cdbe00462a0a2a8e9d01723bce083eb49ca15ce1ddb98c00dc40bb",
+      "root": "ab99b2e7991f1e5c7bc3a92b51d9c2e86c914755a3898914f22563fd5d02c621",
+      "core-test": "2f165896cd6f6b149f14f44c77c93c2f8a7fdc1d8fe257dd0a127b22ec3d709f"
+    },
+    "fixture_sha256": "c2ed93a7b3fe15e727a61d3d96def8e2508d3273156f74274b8d8c05faf2c8c6",
+    "scenarios": [
+      {
+        "scenario": "actual-Rust-Auth-supervisor-three-references",
+        "actual_child_reaped": true,
+        "released": true
+      },
+      {
+        "scenario": "explicit-stop",
+        "actual_child_reaped": true,
+        "released": true
+      },
+      {
+        "scenario": "Core-owner-EOF",
+        "actual_child_reaped": true,
+        "released": true
+      },
+      {
+        "scenario": "original-lease-expiry",
+        "actual_child_reaped": true,
+        "released": true
+      },
+      {
+        "scenario": "altered-policy-unknown",
+        "actual_child_reaped": true,
+        "released": false
+      }
+    ]
+  },
+  "combined_kernel": {
+    "source_head": "5ad537d9dbf4c3fba61778d81f79746c02d0d793",
+    "tracked_dirty": false,
+    "image": "python@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb",
+    "program_sha256": {
+      "engine": "27f049e939cdbe00462a0a2a8e9d01723bce083eb49ca15ce1ddb98c00dc40bb",
+      "root": "ab99b2e7991f1e5c7bc3a92b51d9c2e86c914755a3898914f22563fd5d02c621",
+      "core-test": "b43a88c0d36789a805e27774ff99bc34244268c56dd7a3df1278173dd6602ac5",
+      "sdk-client": "c5a3219f59a08618c8c8139fd94c7a76521848a50f5ccd09c087575b49587c6b",
+      "recovery-client": "52994a273edb4276a8e037e9eba80a054addf5b467ea2c858edf384b79618582"
+    },
+    "fixture_sha256": "c2ed93a7b3fe15e727a61d3d96def8e2508d3273156f74274b8d8c05faf2c8c6",
+    "evidence": {
+      "actual_sdk_both_ends": true,
+      "actual_auth_contention_queue": true,
+      "actual_root_cgroup_nft": true,
+      "actual_normal_noise_membership_auth_core_health": true,
+      "actual_ble_uid_noise_grant_store9_listener": true,
+      "three_owner_reference_release": true,
+      "original_process_exit_verified": true,
+      "public_network": false,
+      "physical_device": false,
+      "real_systemd_unit": false
+    },
+    "captured_status_contract": {
+      "contract": 1,
+      "source": "engine",
+      "generation": 2,
+      "sequence": 1,
+      "age_ms": 4,
+      "enabled": "on",
+      "service": "running",
+      "path": "unknown",
+      "dht": "unknown",
+      "rx_bytes": null,
+      "tx_bytes": null,
+      "rtt_ms": null,
+      "peer_count": null
+    },
+    "captured_sample_is_not_a_current_live_read": true
+  },
+  "browser": {
+    "built_candidate": true,
+    "csp_no_dynamic_javascript": true,
+    "wasm_loaded": true,
+    "static_only_offline_cache": true,
+    "gesture_before_await": true,
+    "automatic_device_selection": false,
+    "native_crypto": {
+      "passed": 18,
+      "cases": [
+        "actual WebCrypto nonexportable key; true native/WASM Unicode empty and maximum messages",
+        "ordinary NKN purpose stays separate and carries encrypted normal-control records",
+        "wrong pinned device fails before any application message",
+        "tampered encrypted device binding fails before client authority is adopted",
+        "wrong actual Ed25519 private key cannot sign client binding",
+        "request tamper is rejected by native peer with no retry",
+        "response tamper closes actual WASM cipher",
+        "old response replay fails expected nonce and request association",
+        "reflected outbound ciphertext cannot be a device response",
+        "foreign-session response rejected despite equal record positions",
+        "cancel after sending discards actual late ciphertext and never resubmits",
+        "local body limit performs no application IO",
+        "CSPRNG denial has no fallback or transport attempt",
+        "monotonic clock rollback retires established session before sending",
+        "real IndexedDB nonexportable binding signs through stored recovery adapter",
+        "production Web Bluetooth factory uses actual stored key and bounded T5 fragments with native crypto",
+        "production Bluetooth adapter rejects actual tampered native ciphertext and does not retry",
+        "late Bluetooth selection after disconnect never connects or creates a session"
+      ],
+      "scope": "actual application crypto and production browser adapter; synthetic Bluetooth/native peer, no Core business or real device acceptance"
+    },
+    "browser": "154.0.8037.57",
+    "physical_radio": false,
+    "published": false,
+    "cached_files": 16
+  },
+  "site": {
+    "source_head": "5ad537d9dbf4c3fba61778d81f79746c02d0d793",
+    "tracked_dirty": false,
+    "static_files": 20,
+    "configurator_source_digest": "b8be5a3078c7e663b1a5931efc32e6eb57b5653105a3b78de09114a1b742b006",
+    "wasm_bindgen": "wasm-bindgen 0.2.129",
+    "sha256": {
+      "configurator/manifest.webmanifest": "3b6d665a21df1d5d1c4e1514acda7f432f5e1404ef99b9b4510a9a77336345be",
+      "configurator/sw.js": "75205b077c601864572b7749e2f3c2cc1bf5aa3609afd94bb48340e395712020",
+      "configurator/index.html": "19fc38632b51188fffb31ef71f8dd01de5ae29d1b1910bd224fd6bfdef5a1466",
+      "configurator/assets/icon.svg": "46a705fa39284d59eae24cdea043b922825da4a22b7bb21b4b25f7524345c1ff",
+      "configurator/wasm/rustsimhub_recovery_session_bg.wasm": "e8e7feb8f8be1edab251e8d865324cfdbb5c4da7cd91a83b94e6b910128419dd",
+      "configurator/wasm/rustsimhub_recovery_session.js": "f3ffc2f66a5967f5743e280180f63ad1232891f61cd5d5b907558af07d6197e6",
+      "configurator/src/recovery-controller.js": "48318e7890c719b03d764d8837b07d0620e8846c208c0c59627b00d18b4525f1",
+      "configurator/src/app.js": "de68fc035d7d5de18ed4bb758d27931748bdebf8d1f417dccc734bdf182630b4",
+      "configurator/src/static-policy.js": "532c863d3a3094409b4e03a4473d334419c8f7ae67d99411aeba284905becc31",
+      "configurator/src/production-entry.js": "89e4185135e5b6af50e2b3c84f105bb7aafbd6699d318bbd62c258c80d43df62",
+      "configurator/src/pending-store.js": "0b6f9e83053f2330451434bed698e6cdf64871e9d63281ad4ab63dea5b55df76",
+      "configurator/src/production-backend.js": "892c8b72b00d91a2c27a26ad8d497adbc209e5093995c76e156b749d68c7c2c7",
+      "configurator/src/contracts.js": "0c3c736642d5e8405d536c4c2f631fc460c69108733244b6bd5327eda0f500de",
+      "configurator/src/gatt-framing.js": "93be0b26752b5cd8469a906274bd9dd1b2ef9e24940fb3e4b54dd4490cedaedf",
+      "configurator/src/crypto/secure-session.js": "5a38f0d6149f75ae4c3380199fb2f23a9d6c8b0ee9517762ed85a4f87dd7a61c",
+      "configurator/src/security/recovery-binding.js": "b9f4aa5316999c6d1f945bf5bb6aa3d2d2f0521fd9eb349f7b291d4672e72dde"
+    }
+  },
+  "logs": {
+    "product-5ad537d-core-tests.log": "a6935b5622edcf415d39a2c3d4e6448ea85d6dcaa1b6b185416c143ad20e56a4",
+    "product-ble-validated-tests.log": "76f17fd67b2c90b0cf85027b715f7b052a86ec22e5a7de253184c8b12379052f",
+    "product-5ad537d-edge-wire-tests.log": "9968b4ea4060ab6f2b64095b4a44ad1f5fd8a80fb338fc3b6b5d6912a563c332",
+    "product-5ad537d-production-check.log": "328a88aebf440dc274edf05c7893951b34246e38a9707b230c0013b64867cd1a",
+    "product-5ad537d-default-check.log": "f4403412cb20dc7d8a0a94c08c9c8853e4bac9b3e8489158834f30512311ed97",
+    "product-5ad537d-clippy.log": "96b7e8f1b3572b0f46029ff3d1a9bdfbfaae34ab8b5fff2c4ef793fc6a64a13b",
+    "product-go-final.log": "5236d1b0891a9b7c147aeefddb78a8e390f261f04ba994e192745e55445d82c4",
+    "product-sdk-race4.log": "998df10e72ed38bf23650b77ae5ce5d6f2aa18ce223442d81b43ec07726b3a58",
+    "product-5ad537d-web-forwarding.log": "3d9d2a38de5a7371dfb754699819d2b129a6759aa89153d1a38bf8ef29838727",
+    "product-5ad537d-web-t5.log": "8cfbd7d3194d034696ba5d4eb2f8f529f1aa5da3a8f48765453d62f90326e1e3",
+    "product-5ad537d-web-configurator.log": "e81484e65a7e72a0d82a7e515151e798a74424aa1f1e34f79a97febf0da29698",
+    "product-5ad537d-actual-web-contract.log": "b3ff85e1d96cc0a75c06c1e74fc4dbcd920532a25a2debbd21621afec0547c94"
+  },
+  "not_claimed": {
+    "physical_device": false,
+    "actual_radio": false,
+    "actual_systemd_service": false,
+    "physical_network_status_producer": false,
+    "arm_execution": false,
+    "public_nkn_network": false,
+    "real_email": false,
+    "production_signing": false,
+    "deployment": false,
+    "formal_crypto_audit": false,
+    "all_original_steps_accepted": false
+  },
+  "accepted_overall_percent": 81.5,
+  "accepted_actions": "20/169"
+}

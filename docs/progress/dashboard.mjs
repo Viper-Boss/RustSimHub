@@ -109,14 +109,14 @@ export function teamHTML(team, data=null, {query=''}={}) {
   if(!team?.members?.length)return '<p>团队统计尚未生成；不显示推测数值。</p>';
   const count=value=>Number.isSafeInteger(value)&&value>=0?value:0;
   const number=value=>count(value).toLocaleString('zh-CN');
-  const total=count(team.totals.product), labels={assigned:'已分配 · 待开工',in_progress:'任务进行中',submitted:'已提交 · 待审核'};
+  const total=count(team.totals.product), labels={assigned:'已分配',in_progress:'任务进行中',submitted:'已提交 · 待审核'};
   const people=personAssignments(data,team);
   return team.members.map((m,index)=>{
     const s=m.stats,w=m.work,product=count(s.current_lines.product),pct=total?product/total*100:0;
     const accepted=count(w.accepted_steps),assigned=count(w.assigned_steps);
     const github=m.login?`<a href="https://github.com/${encodeURIComponent(m.login)}" target="_blank" rel="noopener">${escapeHTML(m.name)} ↗</a>`:escapeHTML(m.name);
     const work=index===0?'历史主线 + 持续集成 / 设备 / 审核':`已审 ${accepted} / ${assigned} 个分配步骤`;
-    const prRows=w.deliveries.map(p=>{const review=w.reviews.find(r=>r.pr===p.pr),state=review?({needs_re_review:'HEAD变化 · 需复审',needs_changes:'需修改',offline_accepted:'离线范围通过',accepted:'范围已验收'}[review.state]||'待审核'):'未关联验收';return `<a href="https://github.com/Viper-Boss/RustSimHub/pull/${count(p.pr)}" target="_blank" rel="noopener">PR #${count(p.pr)} · ${escapeHTML(state)}</a>`;}).join('');
+    const prRows=[...w.deliveries].sort((a,b)=>b.pr-a.pr).map(p=>{const review=w.reviews.find(r=>r.pr===p.pr),state=review?({needs_re_review:'HEAD变化 · 需复审',needs_changes:'需修改',offline_accepted:'离线范围通过',accepted:'范围已验收'}[review.state]||'待审核'):'未关联验收',delivery={OPEN:'待合并',MERGED:'已合并',CLOSED:'已关闭'}[p.state]||'状态待核对';return `<a href="https://github.com/Viper-Boss/RustSimHub/pull/${count(p.pr)}" title="HEAD ${escapeHTML(p.head)}" target="_blank" rel="noopener">PR #${count(p.pr)} · ${escapeHTML(delivery)} · ${escapeHTML(state)}</a>`;}).join('');
     const tasks=personTasksHTML(people[index],data,query);if(tasks===null)return '';
     return `<article id="person-${escapeHTML(m.id)}" data-person-id="${escapeHTML(m.id)}" class="team-card team-tone-${index}"><div class="team-profile"><div class="team-person"><span class="team-avatar" aria-hidden="true">${escapeHTML(m.id==='lead'?'V':m.id.slice('member-'.length).toUpperCase())}</span><div><h3>${github}</h3><span>${escapeHTML(m.role)}</span></div></div><b class="team-state">${escapeHTML(labels[m.state]||'状态待核对')}</b><div class="team-work"><strong>${escapeHTML(work)}</strong><p>${escapeHTML(m.package)}</p><div class="team-work-track"><i style="width:${assigned?Math.min(100,accepted/assigned*100):0}%"></i></div><span>计划：${m.estimate_hours?m.estimate_hours.map(number).join('–')+'小时':m.id==='lead'?'主线持续推进':assigned?'未填报':'当前无分配'} · 实耗：${w.self_reported_hours===null?'未填报':escapeHTML(w.self_reported_hours)+'小时（自报）'}</span></div><a class="team-task" href="${escapeHTML(publicURL(m.handoff))}" target="_blank" rel="noopener">任务书与交付要求 ↗</a><details class="team-contribution"><summary>代码贡献与PR记录</summary><div class="team-code"><strong>${number(product)}</strong><span>主线产品非空行</span><small>当前产品代码归属 ${pct.toFixed(1)}%</small></div><div class="team-share" aria-label="当前产品代码归属比例"><i style="width:${pct.toFixed(3)}%"></i></div><dl class="team-numbers"><div><dt>独立测试行</dt><dd>${number(s.current_lines.tests)}</dd></div><div><dt>工具 / 配置行</dt><dd>${number(count(s.current_lines.tooling)+count(s.current_lines.firmware))}</dd></div><div><dt>主线提交（含文档）</dt><dd>${number(s.commits)}</dd></div><div><dt>累计增 / 删（含空行）</dt><dd>+${number(s.added)} / −${number(s.deleted)}</dd></div></dl><div class="team-prs">${prRows||'<span>尚无本仓库PR交付</span>'}</div><p class="team-access">${escapeHTML(m.access)}</p></details></div>${tasks}</article>`;
   }).join('');
@@ -148,6 +148,10 @@ function initialize() {
   function renderSummary() {
     const value=calculate(data);
     byId('overall-value').textContent=number(value.original);byId('overall-gauge').style.setProperty('--progress',value.original+'%');
+    byId('overall-visual').setAttribute('aria-label',`原计划进度${number(value.original)}%，目标100%`);
+    byId('original-caption').textContent=`已有${number(value.original)}点；新增扩展独立跟踪`;
+    byId('milestone-title').textContent=`${number(value.original)}%的来处，每一项都保留边界。`;
+    document.querySelector('meta[name="description"]').content=`RustSimHub公开开发进度：原计划${number(value.original)}%，完整剩余动作、验收证据、依赖和预计工时。`;
     byId('original-remaining').textContent=number(100-value.original);byId('original-bar').style.width=value.original+'%';
     byId('sprint-percent').textContent=value.weighted.toFixed(1);byId('sprint-bar').style.width=value.weighted+'%';
     byId('done-fraction').textContent=`${value.done} / ${value.total} 已完成`;byId('remaining-count').textContent=value.remaining;byId('parked-count').textContent=`另${value.parked}项搁置`;

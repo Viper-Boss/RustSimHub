@@ -62,7 +62,7 @@ impl NknBusinessPort {
     pub fn new(ports: CorePorts, scope: NknScope, runtime: Handle) -> Result<Self, &'static str> {
         ports
             .auth
-            .try_lock()
+            .lock()
             .map_err(|_| "auth_busy")?
             .check_nkn_scope(&scope)
             .map_err(|_| "denied")?;
@@ -80,7 +80,7 @@ impl NknBusinessPort {
     fn check(&self) -> Result<(), BusinessOutcome> {
         self.ports
             .auth
-            .try_lock()
+            .lock()
             .map_err(|_| BusinessOutcome::Unavailable)?
             .check_nkn_scope(&self.scope)
             .map_err(|_| BusinessOutcome::Denied)
@@ -100,7 +100,7 @@ impl NknBusinessPort {
                 let token = command["token"].as_str().ok_or(BusinessOutcome::Denied)?;
                 self.ports
                     .auth
-                    .try_lock()
+                    .lock()
                     .map_err(|_| BusinessOutcome::Unavailable)?
                     .check_nkn_token(&self.scope, token)
                     .map_err(|_| BusinessOutcome::Denied)?;

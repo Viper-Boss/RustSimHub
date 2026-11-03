@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Finite Root/worker protocol, separate from browser authentication. One
 //! request per Unix connection; the server MUST select roles using SO_PEERCRED.
-use crate::{model::uuid, Claim, DeliveryOutcome, Error, Fence, Result, Secret, Stage};
+#[cfg(feature = "smtp-production-candidate")]
+pub use crate::smtp_candidate::DeliveryOutcomeV1 as Outcome;
+#[cfg(not(feature = "smtp-production-candidate"))]
+pub use crate::DeliveryOutcome as Outcome;
+use crate::{model::uuid, Claim, Error, Fence, Result, Secret, Stage};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{path::PathBuf, time::Duration};
@@ -41,7 +45,7 @@ pub enum Command {
     Finish {
         lease: Secret,
         attempt_id: String,
-        outcome: DeliveryOutcome,
+        outcome: Outcome,
     },
 }
 impl Command {
@@ -87,13 +91,37 @@ pub fn parse(bytes: &[u8]) -> Result<Request> {
         {
             return Err(Error::Invalid)
         }
+        #[cfg(not(feature = "smtp-production-candidate"))]
         Command::Finish {
-            outcome: DeliveryOutcome::Confirmed { status },
+            outcome: Outcome::Confirmed { status },
             ..
         } if !(200..300).contains(status) => return Err(Error::Invalid),
+        #[cfg(feature = "smtp-production-candidate")]
+        Command::Finish { outcome, .. } => outcome.validate()?,
         _ => {}
     }
     Ok(request)
+}
+/// Serialize a private reply and clear its temporary JSON string copies on
+/// every return path. This is buffer hygiene, not a formal allocator guarantee.
+pub fn encode_private_response(response: Response) -> Result<zeroize::Zeroizing<Vec<u8>>> {
+    struct Private(Response);
+    impl Drop for Private {
+        fn drop(&mut self) {
+            fn clear(value: &mut Value) {
+                use zeroize::Zeroize;
+                match value {
+                    Value::String(s) => s.zeroize(),
+                    Value::Array(a) => a.iter_mut().for_each(clear),
+                    Value::Object(o) => o.values_mut().for_each(clear),
+                    _ => {}
+                }
+            }
+            clear(&mut self.0.result);
+        }
+    }
+    let response = Private(response);
+    Ok(zeroize::Zeroizing::new(serde_json::to_vec(&response.0)?))
 }
 pub async fn read_frame(stream: &mut UnixStream) -> Result<Vec<u8>> {
     let len = stream.read_u32().await? as usize;
@@ -121,14 +149,15 @@ pub async fn request(socket: &std::path::Path, core_uid: u32, command: Command) 
             return Err(Error::Forbidden);
         }
         let id = uuid::Uuid::new_v4().to_string();
-        let bytes = serde_json::to_vec(&Request {
+        let bytes = zeroize::Zeroizing::new(serde_json::to_vec(&Request {
             protocol: PROTOCOL,
             id: id.clone(),
             command,
-        })?;
+        })?);
         parse(&bytes)?;
         write_frame(&mut stream, &bytes).await?;
-        let response: Response = serde_json::from_slice(&read_frame(&mut stream).await?)?;
+        let incoming = zeroize::Zeroizing::new(read_frame(&mut stream).await?);
+        let response: Response = serde_json::from_slice(&incoming)?;
         if response.protocol != PROTOCOL || response.id != id {
             return Err(Error::Forbidden);
         }
@@ -170,7 +199,7 @@ impl Client {
         Secret::new(self.lease.expose().to_owned())
     }
     pub async fn acquire(&mut self) -> Result<Option<Claim>> {
-        let value = request(
+        let mut value = request(
             &self.socket,
             self.core_uid,
             Command::Acquire {
@@ -179,15 +208,16 @@ impl Client {
         )
         .await?;
         let claim: Option<Claim> =
-            serde_json::from_value(value.get("claim").ok_or(Error::Invalid)?.clone())?;
+            serde_json::from_value(value.get_mut("claim").ok_or(Error::Invalid)?.take())?;
         let digest: Option<[u8; 32]> =
-            serde_json::from_value(value.get("claim_sha256").ok_or(Error::Invalid)?.clone())?;
+            serde_json::from_value(value.get_mut("claim_sha256").ok_or(Error::Invalid)?.take())?;
         if claim.as_ref().map(claim_sha256).transpose()? != digest {
             return Err(Error::Invalid);
         }
         Ok(claim)
     }
-    pub async fn finish(&mut self, claim: &Claim, outcome: DeliveryOutcome) -> Result<()> {
+    pub async fn finish(&mut self, claim: &Claim, outcome: impl Into<Outcome>) -> Result<()> {
+        let outcome = outcome.into();
         let value = request(
             &self.socket,
             self.core_uid,

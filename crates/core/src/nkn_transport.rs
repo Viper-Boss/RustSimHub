@@ -21,6 +21,7 @@ struct GateState {
     scope: Mutex<Option<NknScope>>,
     nonce: [u8; 32],
     deadline: Instant,
+    parent: Option<Arc<dyn Fn() -> bool + Send + Sync>>,
 }
 #[derive(Clone)]
 pub struct SourceGate(Arc<GateState>);
@@ -31,6 +32,22 @@ impl SourceGate {
             scope: Mutex::new(None),
             nonce,
             deadline,
+            parent: None,
+        }))
+    }
+    #[cfg(feature = "root-provider-candidate")]
+    pub(crate) fn from_root(
+        nonce: [u8; 32],
+        admission: Arc<rustsimhub_core::nkn_root::Admission>,
+    ) -> Self {
+        let deadline = admission.deadline();
+        let parent = admission.parent_fence();
+        Self(Arc::new(GateState {
+            live: AtomicBool::new(true),
+            scope: Mutex::new(None),
+            nonce,
+            deadline,
+            parent: Some(parent),
         }))
     }
     pub fn close(&self) {
@@ -41,7 +58,10 @@ impl SourceGate {
         }
     }
     pub(crate) fn check(&self) -> Result<(), PortError> {
-        if !self.0.live.load(Ordering::Acquire) || Instant::now() >= self.0.deadline {
+        if !self.0.live.load(Ordering::Acquire)
+            || Instant::now() >= self.0.deadline
+            || self.0.parent.as_ref().is_some_and(|p| !p())
+        {
             return Err(PortError::Denied);
         }
         Ok(())
@@ -51,6 +71,11 @@ impl SourceGate {
         if scope.transport_nonce() != &self.0.nonce || saved.is_some() {
             scope.invalidate();
             return Err(PortError::Denied);
+        }
+        if let Some(parent) = &self.0.parent {
+            scope
+                .restrict_parent(parent.clone())
+                .map_err(|_| PortError::Denied)?;
         }
         *saved = Some(scope);
         if self.check().is_err() {
@@ -104,7 +129,7 @@ impl NknTransportPort {
             return Err(PortError::Denied);
         }
         self.auth
-            .try_lock()
+            .lock()
             .map_err(|_| PortError::Unavailable)?
             .check_nkn_scope(&scope)
             .map_err(|_| PortError::Denied)?;

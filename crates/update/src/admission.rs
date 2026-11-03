@@ -19,6 +19,9 @@ pub use programs::{
     admit_stage, Admission, SignedPrograms, SignedVersionCheck, SignedVersionReport,
 };
 
+#[cfg(feature = "email-production-candidate")]
+pub use programs::migrate_email4;
+
 type Result<T> = std::result::Result<T, Error>;
 const STATE: &str = "var/lib/rustsimhub/rustsimhub-v1/core/state";
 const BASE_PATH: &str = "etc/systemd/system/rustsimhub-core.service";

@@ -104,3 +104,42 @@ PR165已由负责人流程批准合并，不推定生产安全/启用。新增�
 用户明确转交 Core/媒体桥和主线保留依赖的隔离实现，不转交合并、部署或最终签认。本轮从实际最新 main 持续正常合入，不重做已合并 PR。实际会话、同 Auth/Store 恢复能力、原 Core 普通认证派发及媒体 Ticket/Permit 已有真实接线；源码提交 `9ccc005641269954afaa77f557f8927d22b28b7a`、`fac050053cffea5d82b8d21a30367327462a87c9`，D 原始提交作者保留。六组件全部特性 677 通过/0 失败，2 个普通 suite 忽略的 UID 入口另在隔离容器中手动执行；真实 NKN UID 编排 9 次、恢复 UID 编排 7 次，浏览器真实密码/候选后端 18 项。详见 [实际会话与 Core 路由交付](member-a-bound-sessions-and-core-routing.md)，最终 PR Head 和新证据以该包回读为准。
 
 A26 的真实成员/加密 producer、正常 Core/媒体桥和受限宿主已实现；仍需与 A13/A25 的真正 SDK/Root 组合。A27 原生/WASM、真实签名/grant/Core 与浏览器工厂已实现；BlueZ 生命周期装配、产品静态制品/CSP/PWA 接线及硬件仍待后续。A13～16/A22/A25 的全 SDK 进程/可信 Root/独立身份/出口/双架构构建，A29 的 queue4/worker5/七阶段兼容接线及 A30 收口继续推进；不因此宣布九步全部完成。默认候选功能关闭，未迁移、外发、签名、部署或自行合并，整体 81.5%、20/169 不变。
+
+## 2026-11-02 实际 SDK/Root 接续交付
+
+承接 PR178 已提交的真实会话/Core/media。本轮实际完整 SDK、独立低权进程、Root
+固定策略/凭据/cgroup/nft、真实 Root/Engine ports、三引用监督器和受限 Core
+监听候选已有代码与真实命名空间验证；默认关闭、未安装或部署。六组件683通过，
+37 Go/SDK/race、SDK 子进程十二场景及 Root/Rust/生产 SDK/真实内核五场景通过；
+SDK/Root native/ARM64 两轮独立缓存的八份程序一致，ARM未执行。详见
+[SDK交付](member-a-managed-sdk-engine.md)、[Root交付](member-a-managed-root-provider.md)
+及 [固定来源/哈希/许可/通告清单](../dependencies/nkn-managed-programs-candidate.json)。
+
+这推进 A13～16/A25 代码与离线真实提供者验证，不代表设备或负责人验收。A22 的
+Core 公共候选 provider/Root 只读采集映射与完整产品控制装配继续；A29 queue4/
+worker5/七阶段 SMTP、BlueZ/WASM/CSP/PWA 产品装配及 A30 组合仍推进，不能把
+九步标成全部完成。仍由 Viper-Boss 审核；不自行合并、部署、迁移或外发。
+
+## 2026-11-03 A29 产品接线候选
+
+已授权的 SMTP 私有配置、tagged queue4/worker5、原 EmailSender 派发、Core 七阶段
+实际 Fence、可信 Date 的历史预览、能力门控页面及显式 Root/低权迁移代码已实现，
+默认关闭。旧默认3/4行为保留；实际迁移不重准备正文或复活 Unknown，旧 fallback
+被拒绝。具体实现、精确 HEAD/验证和未验收项见
+[本包交付](member-a-smtp-production-candidate.md)。未执行真实维护迁移、发信、
+签名或部署；仍由 Viper-Boss 审核，不将九步或设备验收标完成，81.5%、20/169保持。
+
+## 2026-11-03 最后三组产品候选代码收尾
+
+负责人已合并 PR178/184/187，本包从最新 main 承接。A22 的实际 SDK/Root 只读
+provider、同 Core 控制和页面，A27 的 BlueZ 生命周期/按需 Core 会话与 WASM/CSP/
+PWA 制品，以及 A30 的实际 SDK 两端→Root→普通 Core、同 Core 恢复 grant/schema9
+查询和三引用退出组合，均已有隔离代码和实际验证。实现
+`5ad537d9dbf4c3fba61778d81f79746c02d0d793`，524 原生通过/0失败/4专用 suite忽略，
+另有真实内核五场景、完整组合、18项原生/WASM浏览器互操作及八份SDK/Root双轮
+制品四组一致。详见[三组收尾交付](member-a-product-providers-complete.md)。
+
+这完成本轮三组可独立实现和隔离验证的代码交付，不代表原九步全部实机验收。
+ARM运行、真实PID1/网络生产者、手机/RF、公开网络、获准邮箱、审计与主线签名
+装配/最终签认保持真实门禁。默认关闭，未自动迁移、外发、合并、部署或发布；
+由 Viper-Boss 审核，整体81.5%、20/169不变。

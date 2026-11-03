@@ -1020,3 +1020,69 @@ stale_completion的底层Gate撤销控制和既有owner/trial/Journal校验实�
 来源为本仓库固定AGPL-3.0-only生产入口与既有测试、已审C21方案；SPDX保留，无新第三方代码/依赖。
 Codex辅助实现/核验/整理，Git作者由本人连接记录，不改写作者；实际有效工时未填，不以运行秒数当工程工时。
 原固定P0～P7整体仍约 **80%**；设备验收与全局公开看板由主线审核维护。
+
+
+## 2026-11-02 · C24 最新主线AP失败证据与补验交付
+
+成员yh1030 / member-c，AP-04离线交付。C22/C23 PR #150由Viper-Boss于2026-11-01T07:58:42Z合并，
+其先行批准只核对PR/新增测试文档范围，不冒充独立技术审核/实机通过。本轮从最新main
+`f3b77c1f9a1076ac6e9057abbd3ae070a34bd9f5` 建立`codex/member-c-ap-evidence-handoff`，同仓库PR到main，不自行合并。
+实际测试完整HEAD `f3b77c1f9a1076ac6e9057abbd3ae070a34bd9f5`，Git tree `27ec814991b7c82db16cdc5132ed073a23a29af4`；
+文档内容完整HEAD `3d251e3820fb0cc6ddd375fbd5bcada1c04cfc96`（tree `7adba2be7910c85c06388deee442b274b88604ae`）。
+后续仅补本报告，PR正文登记最终完整40位HEAD，不伪造文档自指SHA或重复测试相同代码。
+
+### 实际完成
+
+- 把C24逐case执行结果、调用序列、最小失败样本和主线补验项集中写入`docs/testing/ap-failure-matrix.md`；本轮连同本人报告仅2文件。
+- 在最新固定主线实际复核原46项AP直接/外层测试、50条原case/variant调用记录，并补跑原Core主程序中的10项确认/回执测试。
+  这些Core测试此前在本成员材料中仅是静态引用，现有实际执行证据；没有新增测试或改写作者贡献。
+- 实际wrong_generation测试分别拒绝错误owner_generation、未释放隔离和外来observation_boot；有效原回执为正向控制。
+  同组覆盖持久确认、确认写入先于解锁、Root ack清除口令、错误token/口令/来源、忙通话、Unknown、旧Closed和重开只查原intent。
+- Core调用真实Auth/Journal/受保护临时文件，Root回执明确是模拟输入；不宣称真实daemon→Root/NM/设备发布链已通过。
+- AP两个run和4测试文件逐字节等于C22/C23原受测tree；测试本轮固定main而不是外推旧结果。
+  生产Rust、Core/NM/执行器、Cargo/lock、期限/权限、设备、其他成员和全局进度均未改。
+
+### 实际验证与失败历史
+
+WSL2 Ubuntu-24.04普通UID1000、kernel6.18.54.1-microsoft-standard-WSL2、Rust/Cargo1.98.0；
+完整Git归档，原生Linux source/target/TMPDIR，locked/offline已有缓存。
+AP运行北京时间11月2日13:30:14～13:33:08，更正Core入口后13:34:42～13:35:50，两个源码归档SHA256完全一致。
+完整命令与逐项结果见[正式矩阵C24节](../testing/ap-failure-matrix.md#c24--2026-11-02-最新主线补验与主线接手清单)及包内日志。
+
+| 实际命令/检查 | 实际结果 |
+|---|---|
+| `cargo test -p rustsimhub-setup-ap --lib station_trial::tests --locked --offline -- --nocapture --test-threads=2` | 退出0，15通过 |
+| `cargo test -p rustsimhub-setup-ap --lib station_commit::tests --locked --offline -- --nocapture --test-threads=2` | 退出0，18通过 |
+| `cargo test -p rustsimhub-setup-ap --lib channel::station::tests --locked --offline -- --nocapture` | 退出0，4通过 |
+| `cargo test -p rustsimhub-setup-ap --lib channel::files::tests --locked --offline -- --nocapture` | 退出0，9通过 |
+| `cargo test -p rustsimhub-core --bin rustsimhub-core setup_ap_control::station::commit::tests --locked --offline -- --nocapture --test-threads=2` | 退出0，10通过，执行名称与实际--list逐一相符 |
+| `cargo clippy -p rustsimhub-setup-ap --all-targets --locked --offline -- -D warnings` | 退出0 |
+| `cargo fmt --all -- --check` | 退出0 |
+| 固定来源/日志/名称/trace/ZIP回读核验 | 56个不同实际执行测试、50条APtrace计数/顺序、10个冻结case、8来源文件逐项通过；ZIP CRC及每条目字节通过 |
+
+最初Core误用`--lib`，实际选择器0项且退出0，数量核验拒绝将其算通过；更正`--bin rustsimhub-core`后实际10通过。
+首次辅助核验按静态粗数8拒绝实际10，回读真实--list/执行名称后修正为10，未改产品/测试或放宽失败断言。
+这些历史日志完整保留；56是46+10的不同测试数量，不累加重复运行、50trace或仅列举的定义数。
+
+最小失败样本：原合成UUID不变，audit一次，persist先产生保存副作用后Io、restore也Io，真实run返回Unknown；
+gate4/guard3/audit1/begin1/usable1/persist1/restore1/finish0/release0，部分保存标志保留，不新建操作重试。
+保存前失败不得persist；finalizer已开始时取消或sender关闭仍await，成功可Saved，结果不明Unknown，不能盲目恢复或重存。
+实际8秒恢复/finish截止和40秒工作上限保持。
+
+### 文件、补验、来源与下一步
+
+`C24-WSL2-handoff-f3b77c1.zip`：49,627字节/51条目，SHA256
+`2e7c9566ab23a982c7a997f4f044699835fc7950764b11d911a0acf304ad00c4`。含固定HEAD/tree及源码/摘要、实际命令/环境/退出码、56名称、50trace/10case及零匹配历史。
+只脱敏私有路径前缀，无凭据/设备资料；证据包在本机供用户转交，没有代发负责人。
+本轮实际形成C24离线证据和主线接手清单，待负责人按最终HEAD审核；不代填全范围验收。
+
+仍待主线：真实WPA/SSID/DHCP、AP/检查点/防火墙隔离和部分保存恢复，完整Core→Root/NM/设备事务链与物理切换。
+未运行全仓/全包/Core全部、ARM、HCI/RF、长测、整个Future abort或硬件掉电；软件故障/合成回执不代替这些验收。
+设备及蜂窝/流量等实测继续按原授权和换卡门禁安排；本轮无设备、真实NM/D-Bus、APN、电话/短信或Root动作。
+
+下一修改包为C25来源/接口/失败样例首PR：已在私有目录只读盘点本基线34个固定来源，确认update/admission已有提交接口，
+但MaintenanceSnapshot::observe是Root/固定生产路径，序列化报告不带写锁/授权；不能在离线计划中冒用。
+本轮不含C25实现、正式提案或生产组装；遵守一个修改包串行、方案先审，等待时只读预研，不重做已有UPD-01或改A/D材料。
+主线接收后按本PR完整HEAD复核，必要实测沿上述清单推进；回退只撤本页C24节及本报告本节，不改运行状态。
+来源本仓库AGPL-3.0-only固定实现/既有测试，SPDX/作者保留，无新第三方代码/依赖；Codex辅助核验和整理，实耗未估造。
+最新主线HANDOFF/PROGRESS报告 **81.5%**，旧PROGRESS-SCALE仍80%，两处差异保留给主线同步，本轮不改权重/审核台账。

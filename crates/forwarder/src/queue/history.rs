@@ -64,9 +64,12 @@ pub struct HistoryPreview {
 struct SavedPlan {
     preview: HistoryPreview,
     digests: Vec<[u8; 32]>,
+    #[cfg(feature = "smtp-production-candidate")]
+    prepared_unix_seconds: i64,
 }
 /// Early format-3 prototypes had no confirmation challenge. Preserve their
 /// receipts, expire their previews on open, and reject every old wire commit.
+#[cfg(not(feature = "smtp-production-candidate"))]
 pub(super) fn ensure_confirmation_ids(conn: &mut Connection) -> Result<()> {
     let mut rows = Vec::new();
     {
@@ -108,6 +111,30 @@ pub(super) fn ensure_confirmation_ids(conn: &mut Connection) -> Result<()> {
         }
     }
     tx.commit()?;
+    Ok(())
+}
+#[cfg(feature = "smtp-production-candidate")]
+pub(super) fn ensure_confirmation_ids(conn: &mut Connection) -> Result<()> {
+    let mut query = conn.prepare("SELECT id,plan FROM history_batches LIMIT 65")?;
+    let mut rows = query.query([])?;
+    let mut count = 0;
+    while let Some(row) = rows.next()? {
+        count += 1;
+        let id: String = row.get(0)?;
+        let raw = zeroize::Zeroizing::new(row.get::<_, String>(1)?);
+        if count > MAX_BATCHES || raw.len() > 65536 {
+            return Err(Error::Storage);
+        }
+        let plan: SavedPlan = serde_json::from_str(&raw)?;
+        if plan.preview.id != id
+            || !crate::model::uuid(&plan.preview.confirmation_id)
+            || plan.preview.deliveries.len() != plan.digests.len()
+            || plan.digests.len() > MAX_HISTORY_DELIVERIES
+            || time::OffsetDateTime::from_unix_timestamp(plan.prepared_unix_seconds).is_err()
+        {
+            return Err(Error::Storage);
+        }
+    }
     Ok(())
 }
 #[derive(Serialize)]
@@ -152,7 +179,7 @@ fn message(reader: &Handle, id: &str, line: LineEpoch) -> Result<Message> {
     value.validate()?;
     Ok(value)
 }
-fn fingerprint(sms: &Message, request: &PreparedRequest) -> Result<[u8; 32]> {
+fn fingerprint(sms: &Message, request: &PreparedDelivery) -> Result<[u8; 32]> {
     let bytes = zeroize::Zeroizing::new(serde_json::to_vec(&(
         &sms.id,
         sms.line,
@@ -321,6 +348,8 @@ impl Queue {
             deliveries: Vec::new(),
         };
         let mut digests = Vec::new();
+        #[cfg(feature = "smtp-production-candidate")]
+        let prepared_unix_seconds = time::OffsetDateTime::now_utc().unix_timestamp();
         for summary in page.messages {
             if summary.line != line || summary.binary || summary.duplicate_candidate.is_some() {
                 preview.skipped_messages += 1;
@@ -352,6 +381,16 @@ impl Queue {
                         .find(|t| &t.id == target_id)
                         .ok_or(Error::Storage)?;
                     let job_id = Uuid::new_v4().to_string();
+                    #[cfg(feature = "smtp-production-candidate")]
+                    let request = crate::model::prepare_with_date(
+                        target,
+                        rule,
+                        &sms,
+                        &job_id,
+                        time::OffsetDateTime::from_unix_timestamp(prepared_unix_seconds)
+                            .map_err(|_| Error::Invalid)?,
+                    )?;
+                    #[cfg(not(feature = "smtp-production-candidate"))]
                     let request = prepare(target, rule, &sms, &job_id)?;
                     digests.push(fingerprint(&sms, &request)?);
                     preview.deliveries.push(HistoryDelivery {
@@ -371,7 +410,12 @@ impl Queue {
         if Binding::from_recent_owner(auth, token)? != binding {
             return Err(Error::Forbidden);
         }
-        let plan = serde_json::to_string(&SavedPlan { preview, digests })?;
+        let plan = serde_json::to_string(&SavedPlan {
+            preview,
+            digests,
+            #[cfg(feature = "smtp-production-candidate")]
+            prepared_unix_seconds,
+        })?;
         if plan.len() > 65536 {
             return Err(Error::Full);
         }
@@ -479,6 +523,16 @@ impl Queue {
                 .iter()
                 .find(|t| t.id == delivery.target_id)
                 .ok_or(Error::Stale)?;
+            #[cfg(feature = "smtp-production-candidate")]
+            let prepared = crate::model::prepare_with_date(
+                target,
+                rule,
+                &sms,
+                &delivery.id,
+                time::OffsetDateTime::from_unix_timestamp(saved.prepared_unix_seconds)
+                    .map_err(|_| Error::Invalid)?,
+            )?;
+            #[cfg(not(feature = "smtp-production-candidate"))]
             let prepared = prepare(target, rule, &sms, &delivery.id)?;
             if fingerprint(&sms, &prepared)? != *digest {
                 return Err(Error::Stale);

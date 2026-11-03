@@ -142,6 +142,57 @@ impl Drop for BluezHost {
     }
 }
 impl BluezHost {
+    /// Select exactly one connected Device1 from the pinned BlueZ object tree.
+    /// No request payload may select a peer, and the subsequent lease performs
+    /// its original subscribe/snapshot/current-owner checks.
+    pub async fn bind_connected_peer(&self, epoch: Epoch) -> Result<Option<Peer>, Error> {
+        self.shared.app(epoch)?;
+        let control = self.shared.control.lock().await;
+        let proxy = zbus::Proxy::new(
+            &self.shared.connection,
+            control.owner(),
+            "/",
+            "org.freedesktop.DBus.ObjectManager",
+        )
+        .await
+        .map_err(|_| Error::Backend)?;
+        type Objects = std::collections::HashMap<
+            zbus::zvariant::OwnedObjectPath,
+            std::collections::HashMap<
+                String,
+                std::collections::HashMap<String, zbus::zvariant::OwnedValue>,
+            >,
+        >;
+        let objects: Objects = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            proxy.call("GetManagedObjects", &()),
+        )
+        .await
+        .map_err(|_| Error::Deadline)?
+        .map_err(|_| Error::Backend)?;
+        if objects.len() > 256 {
+            return Err(Error::Exhausted);
+        }
+        let mut selected = None;
+        for (path, interfaces) in objects {
+            if !path.as_str().starts_with("/org/bluez/hci0/dev_") {
+                continue;
+            }
+            if interfaces
+                .get("org.bluez.Device1")
+                .and_then(|p| p.get("Connected"))
+                .is_some_and(|v| bool::try_from(v).unwrap_or(false))
+                && selected.replace(path.to_string()).is_some()
+            {
+                return Err(Error::Busy);
+            }
+        }
+        drop(control);
+        match selected {
+            Some(path) => self.bind_peer(epoch, path).await.map(Some),
+            None => Ok(None),
+        }
+    }
     pub fn take_owner_loss(&mut self) -> Result<Pending<()>, Error> {
         self.owner_loss.take().ok_or(Error::Busy)
     }

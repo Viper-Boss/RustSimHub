@@ -71,17 +71,21 @@ impl Runtime {
         // Known Root IPC and format-1 semantics only. Future contracts need a
         // reviewed adapter; declaring an arbitrary number is not support.
         self.format == 1
-            && self.worker_protocol == 4
             && self.outbox.application_id == OUTBOX_APP
-            && (1..=3).contains(&self.outbox.read_format)
-            && self.outbox.read_format == self.outbox.write_format
-            && self.outbox.migrate_from.len() <= 2
-            && self
-                .outbox
-                .migrate_from
-                .iter()
-                .all(|v| (1..self.outbox.read_format).contains(v))
-            && self.outbox.migrate_from.windows(2).all(|w| w[0] < w[1])
+            && ((self.worker_protocol == 4
+                && (1..=3).contains(&self.outbox.read_format)
+                && self.outbox.read_format == self.outbox.write_format
+                && self.outbox.migrate_from.len() <= 2
+                && self
+                    .outbox
+                    .migrate_from
+                    .iter()
+                    .all(|v| (1..self.outbox.read_format).contains(v))
+                && self.outbox.migrate_from.windows(2).all(|w| w[0] < w[1]))
+                || (self.worker_protocol == 5
+                    && self.outbox.read_format == 4
+                    && self.outbox.write_format == 4
+                    && self.outbox.migrate_from == [3]))
     }
 }
 

@@ -7,6 +7,7 @@ license.workspace = true
 
 [features]
 default = []
+product-host-candidate = ["bluez-backend", "core-channel-candidate", "dep:getrandom", "dep:rustix", "tokio/rt", "tokio/macros", "tokio/signal"]
 bluez-control = ["dep:zbus", "dep:tokio", "dep:futures-lite"]
 bluez-advertisement = ["bluez-control"]
 bluez-gatt = ["bluez-peer", "tokio/time"]
@@ -53,3 +54,7 @@ name = "core_port_uid"
 path = "tests/core_port_uid.rs"
 test = false
 required-features = ["core-port"]
+[[bin]]
+name="rustsimhub-ble-recovery"
+path="src/bin/recovery.rs"
+required-features=["product-host-candidate"]

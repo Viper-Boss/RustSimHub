@@ -174,8 +174,9 @@ fn notice_masked_and_explicit_full_text_use_the_actual_three_provider_encoders()
         let m = message();
         for share in ["notice", "masked_text", "full_text"] {
             let request = prepare(&target, &rule(share), &m, ID).unwrap();
-            let body: Value = serde_json::from_str(request.body.expose()).unwrap();
-            let output = request.body.expose();
+            let body: Value =
+                serde_json::from_str(crate::model::test_https(&request).body.expose()).unwrap();
+            let output = crate::model::test_https(&request).body.expose();
             if share == "full_text" {
                 assert!(output.contains("ABC123"));
                 assert!(output.contains("10010"));
@@ -203,7 +204,10 @@ fn notice_masked_and_explicit_full_text_use_the_actual_three_provider_encoders()
         let mut large = message();
         large.body = "A1".repeat(2048);
         let masked = prepare(&target, &rule("masked_text"), &large, ID).unwrap();
-        assert!(!masked.body.expose().contains("A1"));
+        assert!(!crate::model::test_https(&masked)
+            .body
+            .expose()
+            .contains("A1"));
     }
 }
 

@@ -1,0 +1,132 @@
+--- a/client.go
++++ b/client.go
+@@ -295,0 +296,4 @@
++	if c.config.ManagedMode && len(c.sharedKeys) >= 128 {
++		c.lock.Unlock()
++		return nil, errors.New("managed peer key limit")
++	}
+@@ -381,0 +386,12 @@
++	if c.config.ManagedMode {
++		nonceLen := nonceSize
++		if len(msg.EncryptedKey) > 0 {
++			nonceLen *= 2
++			if len(msg.EncryptedKey) != sharedKeySize+box.Overhead {
++				return nil, errors.New("invalid managed encrypted key")
++			}
++		}
++		if len(msg.Nonce) != nonceLen || len(rawPayload) < box.Overhead || len(rawPayload) > 3072 {
++			return nil, errors.New("invalid managed encrypted payload")
++		}
++	}
+@@ -438,0 +455,3 @@
++		if c.config.ManagedMode && (msg["Action"] == nil || msg["Error"] == nil) {
++			return errors.New("missing managed control fields")
++		}
+@@ -445,0 +465,5 @@
++		}
++		if c.config.ManagedMode {
++			if (errCode == errcode.WRONG_NODE || action == setClientAction || action == "updateSigChainBlockHash") && msg["Result"] == nil || action == authChallengeAction && msg["Challenge"] == nil {
++				return errors.New("missing managed control result")
++			}
+@@ -469,0 +494 @@
++			c.lock.Lock()
+@@ -470,0 +496 @@
++			c.lock.Unlock()
+@@ -478 +504 @@
+-			node := c.GetNode()
++			node := c.node // Already protected by the read lock; do not recursively RLock.
+@@ -484,0 +511 @@
++			c.lock.Lock()
+@@ -485,0 +513 @@
++			c.lock.Unlock()
+@@ -511,0 +540,5 @@
++			c.lock.RLock()
++			defer c.lock.RUnlock()
++			if c.isClosed {
++				return ErrClosed
++			}
+@@ -530 +563,9 @@
+-			if len(inboundMsg.PrevHash) > 0 {
++			if c.config.ManagedMode && len(inboundMsg.PrevHash) > 0 {
++				if len(inboundMsg.PrevHash) != 32 {
++					return errors.New("invalid managed receipt hash")
++				}
++				// No goroutine per unauthenticated inbound message.
++				if err := c.sendReceipt(inboundMsg.PrevHash); err != nil {
++					return err
++				}
++			} else if len(inboundMsg.PrevHash) > 0 {
+@@ -654,0 +696,3 @@
++	if c.config.ManagedMode {
++		dialer.Proxy = nil
++	}
+@@ -684 +728,5 @@
+-	conn.SetReadLimit(config.MaxClientMessageSize)
++	if c.config.ManagedMode {
++		conn.SetReadLimit(4096)
++	} else {
++		conn.SetReadLimit(config.MaxClientMessageSize)
++	}
+@@ -700 +748,5 @@
+-				conn.SetWriteDeadline(time.Now().Add(pingInterval))
++				budget := pingInterval
++				if c.config.ManagedMode {
++					budget = time.Duration(c.config.WsWriteTimeout) * time.Millisecond
++				}
++				conn.SetWriteDeadline(time.Now().Add(budget))
+@@ -716,0 +769 @@
++		defer timer.Stop()
+@@ -721,0 +775,2 @@
++		case <-c.lifecycle.Done():
++			return
+@@ -734,0 +790,7 @@
++		if c.isClosed {
++			c.lock.Unlock()
++			return
++		}
++		if c.config.ManagedMode {
++			conn.SetWriteDeadline(time.Now().Add(time.Duration(c.config.WsWriteTimeout) * time.Millisecond))
++		}
+@@ -762,0 +825,4 @@
++				if c.config.ManagedMode {
++					c.Close()
++					return
++				}
+@@ -815,0 +882,4 @@
++	if c.config.ManagedMode {
++		c.Close()
++		return
++	}
+@@ -1048 +1118,8 @@
+-	nodePk, err := hex.DecodeString(c.node.PubKey)
++	c.lock.RLock()
++	if c.node == nil {
++		c.lock.RUnlock()
++		return nil, ErrClosed
++	}
++	nodeKey, blockHash := c.node.PubKey, c.sigChainBlockHash
++	c.lock.RUnlock()
++	nodePk, err := hex.DecodeString(nodeKey)
+@@ -1070,2 +1147,2 @@
+-	if c.sigChainBlockHash != "" {
+-		sigChainBlockHash, err := hex.DecodeString(c.sigChainBlockHash)
++	if blockHash != "" {
++		sigChainBlockHash, err := hex.DecodeString(blockHash)
+--- a/config.go
++++ b/config.go
+@@ -39,0 +40,3 @@
++	// ManagedMode is an opt-in finite single-client host contract. It requires
++	// explicit host dialers and leaves reconnect to the outer supervisor.
++	ManagedMode bool
+@@ -338,0 +342,11 @@
++	if merged.ManagedMode {
++		if merged.HttpDialContext == nil || merged.WsDialContext == nil ||
++			merged.AllowUnencrypted || merged.MsgChanLen < 1 || merged.MsgChanLen > 4 ||
++			merged.ConnectRetries != 1 || merged.RPCConcurrency != 1 ||
++			merged.WsHandshakeTimeout < 1 || merged.WsHandshakeTimeout > 1000 ||
++			merged.WsWriteTimeout < 1 || merged.WsWriteTimeout > 1000 ||
++			merged.RPCTimeout < 1 || merged.RPCTimeout > 1000 ||
++			conf == nil || conf.SeedRPCServerAddr == nil || conf.SeedRPCServerAddr.Len() < 1 || conf.SeedRPCServerAddr.Len() > 3 {
++			return nil, errors.New("invalid finite managed SDK configuration")
++		}
++	}

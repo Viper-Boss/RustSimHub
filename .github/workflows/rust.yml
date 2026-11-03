@@ -96,12 +96,17 @@ jobs:
       - name: Signed legacy and forwarding application groups
         run: |
           cargo build -p rustsimhub-update --locked
+          sudo -n unshare --net python3 tools/test-update-state-inspection.py --updater target/debug/rustsimhub-update
           cargo test -p rustsimhub-update --lib --all-features --locked --no-run --message-format=json > /tmp/rustsimhub-update-test-artifacts.json
           sudo -n unshare --net setpriv --no-new-privs python3 tools/test-metadata-process.py --cargo-artifacts /tmp/rustsimhub-update-test-artifacts.json
           sudo -n unshare --net setpriv --bounding-set=-kill --no-new-privs python3 tools/test-metadata-process.py --cargo-artifacts /tmp/rustsimhub-update-test-artifacts.json --missing-kill
           sudo -n unshare --net python3 tools/test-maintenance-observation.py --updater target/debug/rustsimhub-update
           sudo -n unshare --net python3 tools/test-signed-application-formats.py --updater target/debug/rustsimhub-update
           python3 tools/test-development-application-packager.py
+      - name: Optional updater indicator under actual thread exhaustion
+        run: |
+          cargo build -p rustsimhub-update --example indicator-resource --locked
+          sudo -n python3 tools/test-update-indicator-resource.py --fixture target/debug/examples/indicator-resource
       - name: Separate signed setup AP maintenance material
         run: |
           python3 tools/test-setup-ap-package.py

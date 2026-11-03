@@ -46,6 +46,15 @@ class LedgerTests(unittest.TestCase):
         data=copy.deepcopy(self.data);data['project']['title']='</script><script>bad</script>'
         result=build.outputs(data)['index.html']
         self.assertNotIn('</script><script>bad',result);self.assertIn('\\u003c/script>',result)
+    def test_generated_overview_and_accessible_text_use_current_percentage(self):
+        percent=build.metrics(self.data)['original_percent']
+        text=build.outputs(self.data)['index.html']
+        self.assertIn(f'id="overall-value">{percent:g}<',text)
+        self.assertIn(f'id="original-remaining">{100-percent:g}<',text)
+        self.assertIn(f'aria-label="原计划进度{percent:g}%，目标100%"',text)
+        self.assertIn(f'已有{percent:g}点；新增扩展独立跟踪',text)
+        self.assertIn(f'原计划{percent:g}%，完整剩余动作',text)
+        self.assertNotIn('{{ORIGINAL_',text)
     def test_one_completion_advances_only_remaining_ledger(self):
         before=build.metrics(self.fixture)
         result=update.transition(self.fixture,'FWD-03','complete','Synthetic update test; not actual completion.',['docs/VALIDATION-FORWARDING-INSTALLER-X1M.md'],1,now='2026-10-25T13:00:00+00:00')

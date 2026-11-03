@@ -16,6 +16,9 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth::Result<Value> {
     use AuthCommand::*;
     Ok(match command {
+        AuthCommand::NknStatus { .. }
+        | AuthCommand::NknRequest { .. }
+        | AuthCommand::SetNknEnabled { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         command @ (RecoveryGrant { .. }
         | RecoveryRevoke { .. }
         | RecoveryKey { .. }
@@ -221,6 +224,7 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
 }
 #[derive(Clone, Default)]
 pub(crate) struct Providers {
+    pub nkn: Option<crate::nkn_product::Controller>,
     pub forwarding: Option<crate::forwarding::Controller>,
     pub setup: Option<Arc<Mutex<rustsimhub_auth::LocalSetup>>>,
     pub history: Option<Arc<Mutex<rustsimhub_compat::history::HistoryService>>>,
@@ -235,6 +239,7 @@ pub(crate) async fn handle(
     providers: Providers,
 ) -> Result<()> {
     let Providers {
+        nkn,
         forwarding,
         setup,
         history,
@@ -249,6 +254,7 @@ pub(crate) async fn handle(
     let messaging_enabled = sender.is_some();
     let history_enabled = history.is_some();
     let compat_enabled = compat.is_some();
+    let nkn_api = nkn.is_some();
     let forwarding_config_api = forwarding.is_some();
     let forwarding_service_api = forwarding.as_ref().is_some_and(|c| c.service_management());
     let health = matches!(request.command, AuthCommand::Health { .. });
@@ -273,6 +279,16 @@ pub(crate) async fn handle(
             | AuthCommand::CheckMediaPreflight { .. }
     );
     let result = if matches!(
+        request.command,
+        AuthCommand::NknStatus { .. }
+            | AuthCommand::NknRequest { .. }
+            | AuthCommand::SetNknEnabled { .. }
+    ) {
+        match nkn {
+            Some(provider) => provider.request(auth.clone(), request.command).await,
+            None => Err(rustsimhub_auth::Error::Forbidden),
+        }
+    } else if matches!(
         request.command,
         AuthCommand::BindLegacy { .. }
             | AuthCommand::BindLegacyChecked { .. }
@@ -447,6 +463,8 @@ pub(crate) async fn handle(
                 let mut value = serde_json::to_value(p)?;
                 value["messaging_api"] = messaging_enabled.into();
                 value["call_control_api"] = calling_enabled.into();
+                value["nkn_status_api"] = nkn_api.into();
+                value["nkn_control_api"] = nkn_api.into();
                 value["forwarding_configuration_api"] = forwarding_config_api.into();
                 value["forwarding_delivery_api"] = false.into();
                 value["forwarding_service_management_api"] = forwarding_service_api.into();
@@ -825,6 +843,13 @@ async fn serve_inner_media(
     let compat_path = extras.compat.map(str::to_owned);
     let (store, auth, setup, history, compat) =
         tokio::task::spawn_blocking(move || -> rustsimhub_auth::Result<_> {
+            #[cfg(feature = "product-providers-candidate")]
+            let store = if crate::recovery_listener::active() {
+                Store::open_recovery_execution(state)?
+            } else {
+                Store::open(state)?
+            };
+            #[cfg(not(feature = "product-providers-candidate"))]
             let store = Store::open(state)?;
             let auth = Auth::open(identity, store.handle())?;
             let setup = setup_file
@@ -872,6 +897,7 @@ async fn serve_inner_media(
         })
         .await??;
     crate::status_led::initialize(store.handle()).await;
+    let nkn = crate::nkn_product::construct(auth.clone());
     // A passive Core-owned configuration handle, not a forwarding daemon.
     // No directory, worker, socket or periodic scan is created at startup.
     let forwarding = (observing && messaging && call_mode == 2).then(|| {
@@ -955,12 +981,33 @@ async fn serve_inner_media(
             None => std::future::pending::<()>().await,
         }
     });
+    let nkn_providers = Providers {
+        nkn: nkn.clone(),
+        forwarding: forwarding.clone(),
+        setup: setup.clone(),
+        history: history.clone(),
+        compat: compat.clone(),
+    };
+    let mut nkn_worker = Box::pin(crate::nkn_product::run(
+        nkn.clone(),
+        auth.clone(),
+        Some(metrics.clone()),
+        sender.clone(),
+        calls.clone(),
+        nkn_providers,
+    ));
+    #[cfg(feature = "product-providers-candidate")]
+    let mut recovery_worker = Box::pin(crate::recovery_listener::run(auth.clone()));
+    #[cfg(not(feature = "product-providers-candidate"))]
+    let mut recovery_worker = Box::pin(std::future::pending::<()>());
     let mut tasks = tokio::task::JoinSet::new();
     let mut indicator = Box::pin(crate::status_led::run(store.handle()));
     tokio::pin!(stop);
     let result: Result<()> = loop {
         let accepted = tokio::select! {
             biased;
+            _=&mut nkn_worker=>break Err("candidate provider host stopped".into()),
+            _=&mut recovery_worker=>break Err("candidate recovery host stopped".into()),
             _=&mut stop=>break Ok(()),
             _=&mut indicator=>break Err("indicator publisher stopped".into()),
             _=&mut observer=>break Err("observer stopped".into()),
@@ -998,6 +1045,7 @@ async fn serve_inner_media(
         let setup = setup.clone();
         let history = history.clone();
         let providers = Providers {
+            nkn: nkn.clone(),
             forwarding: forwarding.clone(),
             setup,
             history,
@@ -1020,7 +1068,10 @@ async fn serve_inner_media(
             drop(permit);
         });
     };
+    #[cfg(feature = "product-providers-candidate")]
+    drop(recovery_worker);
     drop(listener); // Stop admission before draining outstanding work.
+    drop(nkn_worker);
     crate::network_trial::provision::shutdown().await;
     crate::setup_ap_control::shutdown().await;
     drop(media_serving);

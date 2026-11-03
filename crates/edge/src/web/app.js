@@ -16,6 +16,7 @@ import { TestCenter } from './test-center.js';
 import { OperationReceipt } from './operation-receipt.js';
 import { DiagnosticPanel } from './diagnostics.js';
 import { ConfigurationState } from './configuration-state.js';
+import { NknProductPanel, pendingInput as nknPendingInput, archiveInput as nknArchiveInput } from './nkn-product.js';
 import { UsageStatsPanel } from './usage-stats.js';
 import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput, readJournal as readNasJournal, clearJournal as clearNasJournal } from './nas-bridge.js';
 const $=id=>document.getElementById(id);
@@ -202,7 +203,7 @@ async function pair(){
  notice('配对申请已提交。请由设备所有者核对浏览器公钥、权限和申请 ID 后批准：'+result.pairing_id);
 }
 async function login(){
- nasBridgePanel?.reset();authenticatedDevicePin=null;
+ nknProductPanel.reset();nasBridgePanel?.reset();authenticatedDevicePin=null;
  forwardingPanel.reset();forwardingHistory.reset();
  clearWifiNetworks();
  sessionKeeper.reset();void audioLink.stop();const epoch=viewEpoch;token=null;lease=null;showAudio();const c=await api({op:'challenge',public_key:Array.from(publicKey)},epoch);const signature=await proof(c,'login',undefined,epoch);current(epoch);
@@ -590,3 +591,19 @@ $('logout').onclick=()=>{for(const panel of Object.values(supportPanels))panel.r
 addEventListener('pagehide',()=>{supportPanels.configuration.read=null;supportConfigurationToken=null;for(const panel of Object.values(supportPanels))panel.reset();});
 addEventListener('pageshow',()=>publishSupportState());
 document.addEventListener('visibilitychange',()=>{if(document.hidden){supportPanels.configuration.read=null;supportPanels.configuration.reset();}else publishSupportState();});
+
+const nknProductPanel=new NknProductPanel({document,root:$('support-nkn'),request:command=>auth(command),getToken:()=>token,login:()=>login(),confirm:message=>confirm(message),crypto,
+ loadPending:()=>stored('nkn-control-pending'),
+ savePending:async(value,expected)=>{
+  const record=nknPendingInput(value);await atomicStored('nkn-control-pending',saved=>{const old=nknPendingInput(saved);if((old?.id??null)!==expected)throw Error('引擎操作记录已由另一页面更新，请先核对');return record;});
+  if(JSON.stringify(nknPendingInput(await stored('nkn-control-pending')))!==JSON.stringify(record))throw Error('引擎记录未能读回，本次不提交');
+ },
+ archivePending:async value=>{
+  const entry=nknArchiveInput(value),record=entry.record;
+  await atomicStored('nkn-control-receipts',saved=>{const raw=saved??[];if(!Array.isArray(raw)||raw.length>64)throw Error('引擎回执不可用');const rows=raw.map(nknArchiveInput);const old=rows.find(r=>r.record?.id===record.id);if(old?.state==='accepted'&&entry.state==='unknown')throw Error('已确认回执不能覆盖为不确定');const next=rows.filter(r=>r.record?.id!==record.id);if(next.length>=64){const index=next.findIndex(r=>r.state==='accepted');if(index<0)throw Error('不确定回执已满，请保留并通过维护入口导出');next.splice(index,1);}return [...next,entry];});
+  const rows=await stored('nkn-control-receipts');if(!Array.isArray(rows)||!rows.some(r=>JSON.stringify(r)===JSON.stringify(entry)))throw Error('引擎归档未能读回；原待核对记录保留');
+ }
+});
+const nknPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{nknProductPanel.reset();nknPreviousLogout();};
+addEventListener('pagehide',()=>nknProductPanel.reset());
+document.addEventListener('visibilitychange',()=>{if(document.hidden)nknProductPanel.reset();});

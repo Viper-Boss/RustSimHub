@@ -241,7 +241,9 @@
       "id": "member-d",
       "name": "RedamancyGTW",
       "login": "RedamancyGTW",
-      "git_names": [],
+      "git_names": [
+        "GTW"
+      ],
       "role": "短信同步 / 对象换代 / 故障恢复 · 离线回归",
       "access": "同仓库Write邀请已确认，待本人接受；本人功能分支 → PR审核",
       "package": "通信观测/Core恢复授权/BLE/远程媒体离线实现",

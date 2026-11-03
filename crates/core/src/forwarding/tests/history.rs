@@ -126,9 +126,14 @@ async fn history_owner_ipc_previews_without_queueing_and_commits_once_across_los
             .unwrap()
             .unwrap()
     };
-    assert!(claim.request.body.expose().contains("sms_received"));
+    assert!(claim
+        .https_request()
+        .unwrap()
+        .body
+        .expose()
+        .contains("sms_received"));
     let old_confirmation = confirmation(&f, CHANGE);
-    {
+    if rustsimhub_forwarder::email_revision().is_none() {
         let db =
             rusqlite::Connection::open(f.state.path().join("forwarding/outbox.sqlite3")).unwrap();
         let raw: String = db
@@ -153,10 +158,17 @@ async fn history_owner_ipc_previews_without_queueing_and_commits_once_across_los
     let recovered = f.request(query(&f, CHANGE)).await;
     assert_eq!(recovered["receipt"]["state"], "submitted");
     assert_eq!(recovered["receipt"]["receipts"][0]["state"], "unknown");
-    assert_ne!(
-        recovered["receipt"]["preview"]["confirmation_id"],
-        old_confirmation
-    );
+    if rustsimhub_forwarder::email_revision().is_none() {
+        assert_ne!(
+            recovered["receipt"]["preview"]["confirmation_id"],
+            old_confirmation
+        );
+    } else {
+        assert_eq!(
+            recovered["receipt"]["preview"]["confirmation_id"],
+            old_confirmation
+        );
+    }
     let status = f
         .request(AuthCommand::SetForwardingEnabled {
             token: f.token.clone(),
@@ -496,4 +508,32 @@ async fn archived_preview_challenges_fence_late_commit_and_cancel_even_if_the_cl
             .state,
         rustsimhub_forwarder::State::Confirmed
     );
+}
+
+#[cfg(feature = "email-production-candidate")]
+#[tokio::test]
+async fn smtp_history_preserves_trusted_date_across_seconds_and_original_owner_confirmation() {
+    let f = Fixture::new();
+    f.incoming("SMTP historical message");
+    let mut command = f.configure(0, REQUEST, true);
+    if let AuthCommand::ForwardingConfigure { policy, .. } = &mut command {
+        policy["targets"][0]["destination"] = json!({"kind":"email","smtp_host":"smtp.example.invalid","port":465,"tls":"implicit","username":"SYNTHETIC_USER","password":"SYNTHETIC_PASSWORD","mail_from":"sender@example.invalid","rcpt_to":"recipient@example.invalid"});
+    } else {
+        panic!("actual Owner configure");
+    }
+    assert_eq!(f.request(command).await["generation"], 1);
+    let preview = f.request(prepare(&f, CHANGE, 1)).await;
+    assert!(preview["preview"]["deliveries"].as_array().unwrap().len() == 1);
+    tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+    let response = f.request(commit(&f, CHANGE, 1, false)).await;
+    assert_eq!(response["state"], "submitted");
+    let mut s = f.control.0.lock().unwrap();
+    let q = s.queue.as_mut().unwrap();
+    let claim = q
+        .claim_current(&f.auth.lock().unwrap(), &f.store.handle(), 1)
+        .unwrap()
+        .unwrap();
+    assert!(claim.request.is_smtp());
+    q.check_current_claim(&f.auth.lock().unwrap(), &f.store.handle(), &claim)
+        .unwrap();
 }

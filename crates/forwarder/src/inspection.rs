@@ -32,6 +32,12 @@ pub struct OutboxInspection {
 }
 
 impl OutboxInspection {
+    #[cfg(feature = "smtp-production-candidate")]
+    pub(crate) fn finish_read(&self) -> Result<()> {
+        self._connection.execute_batch("ROLLBACK;")?;
+        Ok(())
+    }
+
     pub fn version(&self) -> OutboxVersion {
         self.version
     }

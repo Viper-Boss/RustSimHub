@@ -5,7 +5,13 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+default = []
+email-production-candidate = ["dep:rustsimhub-forwarder", "dep:rustsimhub-policy"]
+
 [dependencies]
+rustsimhub-policy = { path = "../policy", optional = true }
+rustsimhub-forwarder = { path = "../forwarder", optional = true, features = ["smtp-production-candidate"] }
 serde.workspace = true
 serde_json.workspace = true
 sha2 = "0.10"
