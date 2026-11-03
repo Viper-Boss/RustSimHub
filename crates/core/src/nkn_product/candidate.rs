@@ -73,7 +73,7 @@ impl Inner {
         }
     }
     fn caller(&self, token: &str, recent: bool) -> rustsimhub_auth::Result<Caller> {
-        let mut auth = self.auth.try_lock().map_err(|_| Error::Busy)?;
+        let mut auth = self.auth.lock().map_err(|_| Error::Forbidden)?;
         auth.authorize(token, Scope::SystemManage)?;
         let principal = if recent {
             auth.recent_owner(token)?
@@ -89,6 +89,16 @@ impl Inner {
             instance: auth.observer_instance(),
         })
     }
+    fn advance(&self) -> Result<Option<rustsimhub_nkn_agent::Snapshot>, PortError> {
+        if self.closed.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(PortError::Denied);
+        }
+        let _actions = self
+            .actions
+            .try_lock()
+            .map_err(|_| PortError::Unavailable)?;
+        self.root.drive()
+    }
     pub fn request(&self, command: AuthCommand) -> rustsimhub_auth::Result<Value> {
         if self.closed.load(std::sync::atomic::Ordering::Acquire) {
             return Err(Error::Forbidden);
@@ -96,7 +106,7 @@ impl Inner {
         match command {
             AuthCommand::NknStatus { token } => {
                 self.caller(&token, false)?;
-                let actions = self.actions.try_lock().map_err(|_| Error::Busy)?;
+                let actions = self.actions.lock().map_err(|_| Error::Forbidden)?;
                 let status = self.root.read_status(&token).map_err(error)?;
                 Ok(
                     json!({"available":true,"configuration_api":true,"remote_control_supported":true,"revision":actions.revision.to_string(),"provider":status}),
@@ -108,7 +118,7 @@ impl Inner {
                 expected_core_instance,
             } => {
                 let caller = self.caller(&token, false)?;
-                let actions = self.actions.try_lock().map_err(|_| Error::Busy)?;
+                let actions = self.actions.lock().map_err(|_| Error::Forbidden)?;
                 if expected_core_instance != caller.instance {
                     return Ok(
                         json!({"request_id":request_id,"known":false,"core_instance":caller.instance,"context_changed":true,"not_found_is_not_proof":true}),
@@ -151,7 +161,16 @@ impl Inner {
                 if expected.to_string() != expected_revision {
                     return Err(Error::InvalidInput);
                 }
-                let mut actions = self.actions.try_lock().map_err(|_| Error::Busy)?;
+                let mut actions = self.actions.lock().map_err(|_| Error::Forbidden)?;
+                // The original descriptor-owning worker may have queued behind
+                // one supervisor observation. Recheck the same caller after it.
+                let current_caller = self.caller(&token, true)?;
+                if current_caller.principal != caller.principal
+                    || current_caller.realm != caller.realm
+                    || current_caller.instance != caller.instance
+                {
+                    return Err(Error::Forbidden);
+                }
                 if let Some(old) = actions.receipts.iter().find(|r| r.id == request_id) {
                     if !old.same_owner(&caller)
                         || old.feature != owner
@@ -247,8 +266,8 @@ pub(super) async fn drive(controller: Controller, ports: crate::nkn_business::Co
     loop {
         controller.changed().await;
         loop {
-            let host = root.clone();
-            let snapshot = tokio::task::spawn_blocking(move || host.drive()).await;
+            let host = controller.inner.clone();
+            let snapshot = tokio::task::spawn_blocking(move || host.advance()).await;
             let phase = match snapshot {
                 Ok(Ok(Some(s))) => s.phase,
                 Ok(Err(PortError::Unavailable)) => {
@@ -286,7 +305,7 @@ pub(super) async fn drive(controller: Controller, ports: crate::nkn_business::Co
                     // Fail closed on credential replacement; no reconnect/reopen loop.
                     let mut tick = tokio::time::interval(std::time::Duration::from_millis(250));
                     loop {
-                        tokio::select! {biased;_=tick.tick()=>{let original=key.clone();if !tokio::task::spawn_blocking(move||original.current()).await.unwrap_or(false){break}},_=&mut listener=>break}
+                        tokio::select! {biased;_=tick.tick()=>{let original=key.clone();let host=controller.inner.clone();if !tokio::task::spawn_blocking(move||original.current()&&matches!(host.advance(),Ok(_)|Err(PortError::Unavailable))).await.unwrap_or(false){break}},_=&mut listener=>break}
                     }
                     // A failed original listener needs OFF then a new explicit ON.
                     suppressed = true;

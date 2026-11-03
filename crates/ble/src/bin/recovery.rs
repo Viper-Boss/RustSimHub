@@ -60,8 +60,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .build()?;
     runtime.block_on(async move {
         let connection = zbus::Connection::system().await?;
+        let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+        let mut interrupt =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
         let result = rustsimhub_ble::product_host::serve(connection, core, domain, async {
-            let _ = tokio::signal::ctrl_c().await;
+            tokio::select! {_=term.recv()=>{},_=interrupt.recv()=>{}}
         })
         .await;
         result.map_err(|_| "BLE recovery epoch ended".into())

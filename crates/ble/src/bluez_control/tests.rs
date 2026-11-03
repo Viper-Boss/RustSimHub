@@ -50,11 +50,20 @@ impl Bus {
             address,
         };
         bounded(async {
-            while !socket.exists() {
+            loop {
                 assert!(
                     bus.child.try_wait().unwrap().is_none(),
                     "private bus exited"
                 );
+                if socket.exists()
+                    && zbus::connection::Builder::address(bus.address.as_str())
+                        .unwrap()
+                        .build()
+                        .await
+                        .is_ok()
+                {
+                    break;
+                }
                 tokio::time::sleep(Duration::from_millis(5)).await;
             }
         })

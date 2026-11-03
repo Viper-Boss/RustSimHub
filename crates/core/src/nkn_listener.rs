@@ -90,19 +90,18 @@ pub async fn serve(
     loop {
         tokio::select! {biased;
             _=tick.tick()=>{
-                let host=controller.clone();
-                let state=tokio::task::spawn_blocking(move||host.drive()).await.map_err(|_|Error::Protocol)?;
+                let state=controller.snapshot();
                 match state {Ok(Some(s)) if s.phase==Phase::Disabled=>return Ok(()),Ok(_)|Err(PortError::Unavailable)=>{},Err(_)=>return Err(Error::Authentication)}
                 if matches!(controller.source(),Err(PortError::Denied)){return Ok(())}
             }
             _=workers.join_next(),if !workers.is_empty()=>{}
             accepted=listener.accept()=>{
                 let (stream,_)=accepted.map_err(|_|Error::Protocol)?;
-                let Ok(peer)=sources.accept(stream) else{continue};
+                let Ok(peer)=sources.accept(stream) else{#[cfg(test)] eprintln!("candidate fixture source UID rejected");continue};
                 let Ok(source)=controller.source() else{continue};
-                let Ok((peer,admission))=stage(peer.peer,Packet::new(Kind::Handshake,vec![]).map_err(Error::from)?,move|context,_|source.admit(context).map_err(|_|Error::Authentication)).await else{continue};
+                let Ok((peer,admission))=stage(peer.peer,Packet::new(Kind::Handshake,vec![]).map_err(Error::from)?,move|context,_|source.admit(context).map_err(|_error|{#[cfg(test)] eprintln!("candidate fixture Root admission failed: {_error:?}");Error::Authentication})).await else{continue};
                 let ports=ports.clone();let membership=membership.clone();
-                workers.spawn(nkn_host::serve_with_root(nkn_host::NknAccepted{peer},ports,membership,admission));
+                workers.spawn(async move{let result=nkn_host::serve_with_root(nkn_host::NknAccepted{peer},ports,membership,admission).await;#[cfg(test)]eprintln!("candidate fixture channel ended: {result:?}");result});
             }
         }
     }

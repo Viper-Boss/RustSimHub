@@ -435,7 +435,10 @@ impl Proof {
 }
 fn admit(shared: &Arc<Shared>, peer: &crate::recovery_transport::PeerContext) -> Result<Admission> {
     let deadline = (Instant::now() + Duration::from_secs(1)).min(shared.deadline);
-    let obs = shared.request(3, deadline, false)?;
+    // Admission is read-only and binds the kernel peer to the SAME original
+    // <=1s ready-PID observation. A concurrent status poll cannot silently
+    // consume/reject the first authenticated transport record.
+    let obs = shared.observation(3, deadline, false)?;
     if obs.root != 1 || obs.engine != 2 || peer.pid() <= 1 || obs.pid != peer.pid() as u32 {
         return Err(PortError::Denied);
     }

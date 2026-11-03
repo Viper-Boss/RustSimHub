@@ -35,7 +35,7 @@ pub async fn run(auth: Arc<Mutex<Auth>>) -> Result<(), Box<dyn std::error::Error
     let m = fs::symlink_metadata("/run/rustsimhub/recovery")?;
     if !m.is_dir()
         || m.uid() != roles.core
-        || m.gid() != roles.ble
+        || m.gid() != roles.ble_gid
         || m.mode() & 0o7777 != 0o2750
         || fs::symlink_metadata(SOCKET).is_ok()
     {

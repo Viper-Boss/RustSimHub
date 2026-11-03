@@ -138,6 +138,7 @@ def node():
                         with clients_lock:target=clients.get(dest.decode())
                         assert target is not None,'unknown owned SDK destination'
                         payload=payloads[0 if len(payloads)==1 else i]
+                        print('OWNED_SDK_ROUTE',len(payload),sorted(outbound.keys()),flush=True)
                         inbound=proto_bytes(1,address.encode())+proto_bytes(2,payload)
                         wire=b'\x08\x01'+proto_bytes(2,inbound);header=bytes([0x82,len(wire)]) if len(wire)<126 else b'\x82\x7e'+struct.pack('>H',len(wire))
                         with target[1]:target[0].sendall(header+wire)
@@ -177,6 +178,8 @@ def install_fixture():
         shutil.copyfile(src,pending);pending.replace(dest)  # Preserve mapped old inodes.
     for src,dest in [('/inputs/tools/pkg/usr/sbin/nft','/usr/sbin/nft'),('/inputs/tools/ip','/usr/sbin/ip'),('/inputs/root','/root-provider'),('/inputs/core-test','/core-test')]:
         shutil.copyfile(src,dest);os.chmod(dest,0o755)
+    for name in ['sdk-client','recovery-client']:
+        if Path('/inputs/'+name).exists():shutil.copyfile('/inputs/'+name,'/'+name);os.chmod('/'+name,0o755)
     for path in ['/opt/rustsimhub/selected','/etc/rustsimhub','/var/lib/rustsimhub/nkn','/run/rustsimhub-network','/run/rustsimhub-nkn-root']:
         Path(path).mkdir(parents=True,exist_ok=True);os.chmod(path,0o755)
     shutil.copyfile('/inputs/engine','/opt/rustsimhub/selected/nkn-sdk-engine');os.chmod('/opt/rustsimhub/selected/nkn-sdk-engine',0o555)
@@ -260,6 +263,8 @@ def main():
     if combined:
         Path('/tmp/sdk-counterpart').mkdir(mode=0o770);os.chown('/tmp/sdk-counterpart',1001,1007);os.chmod('/tmp/sdk-counterpart',0o2770)
         Path('/tmp/nkn-secure-peer').mkdir(mode=0o700);os.chown('/tmp/nkn-secure-peer',1007,1007)
+        Path('/run/rustsimhub/recovery').mkdir(parents=True,exist_ok=True);os.chown('/run/rustsimhub/recovery',1001,1006);os.chmod('/run/rustsimhub/recovery',0o2750)
+        Path('/tmp/recovery-secure-peer').mkdir(mode=0o700);os.chown('/tmp/recovery-secure-peer',1006,1006)
         Path('/run/rustsimhub/nkn').mkdir(parents=True,exist_ok=True);os.chown('/run/rustsimhub/nkn',1001,1002);os.chmod('/run/rustsimhub/nkn',0o2750)
     def network_status():
         snapshot={'schema':1,'available':True,'boot_id':Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'sample_unix_seconds':int(time.time()),
@@ -282,13 +287,25 @@ def main():
         os.execv('/root-provider',['/root-provider','--serve-fixed'])
     eventually(lambda:Path(ROOT_SOCKET).exists())
     if combined:
-        eventually(lambda:Path('/tmp/product-ready').exists(),12)
-        counterpart=subprocess.Popen(['/inputs/sdk-client'],user=1007,group=1007,extra_groups=[],stdout=open('/tmp/sdk-client.log','wb'),stderr=subprocess.STDOUT)
-        eventually(lambda:Path('/tmp/sdk-counterpart/core.sock').exists(),10)
+        def product_ready():
+            if core_test.poll() is not None:
+                print(Path('/tmp/core-test.log').read_text(),Path('/tmp/node.log').read_text(),flush=True);raise AssertionError('product Core exited before ready')
+            return Path('/tmp/product-ready').exists()
+        eventually(product_ready,12)
+        counterpart=subprocess.Popen(['/sdk-client'],user=1007,group=1007,extra_groups=[],stdout=open('/tmp/sdk-client.log','wb'),stderr=subprocess.STDOUT)
+        def counterpart_ready():
+            if counterpart.poll() is not None:
+                print(Path('/tmp/sdk-client.log').read_text(),Path('/tmp/node.log').read_text(),flush=True);raise AssertionError('owned SDK counterpart exited')
+            return Path('/tmp/sdk-counterpart/core.sock').exists()
+        eventually(counterpart_ready,10)
+        write('/tmp/product-hold-auth','1');eventually(lambda:Path('/tmp/product-auth-held').exists())
         client=subprocess.run(['/core-test','--ignored','--exact','nkn_uid_tests::isolated_nkn_client','--nocapture'],user=1007,group=1007,extra_groups=[],env=dict(os.environ,RSH_COMBINED_SDK_CLIENT='1',RUSTSIMHUB_NKN_CASE='query',RUSTSIMHUB_UID_FIXTURE_DIR='/tmp/sdk-counterpart'),stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=15)
-        if client.returncode:print(client.stdout.decode(),Path('/tmp/sdk-client.log').read_text(),Path('/tmp/node.log').read_text(),flush=True)
+        if client.returncode:print(client.stdout.decode(),Path('/tmp/sdk-client.log').read_text(),Path('/tmp/node.log').read_text(),Path('/tmp/core-test.log').read_text(),flush=True)
         assert client.returncode==0,'actual full-SDK/Noise/membership/Core query failed'
         assert counterpart.wait(timeout=6)==0
+        ble=subprocess.run(['/recovery-client','--exact','isolated_secure_client','--nocapture'],user=1006,group=1006,extra_groups=[],env=dict(os.environ,RSH_COMBINED_BLE_CLIENT='1',RUSTSIMHUB_SECURE_CASE='query',RUSTSIMHUB_UID_FIXTURE_DIR='/run/rustsimhub/recovery'),stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=15)
+        if ble.returncode:print(ble.stdout.decode(),Path('/tmp/core-test.log').read_text(),flush=True)
+        assert ble.returncode==0,'actual BLE UID/Core listener/Noise/grant/Store9 query failed'
         write('/tmp/product-client-done','1')
     code=core_test.wait(timeout=15)
     if code:print(Path('/tmp/core-test.log').read_text(),flush=True)
@@ -297,7 +314,7 @@ def main():
     if combined:
         report=json.loads(Path('/tmp/product-status.json').read_text())
         os.kill(root_pid,signal.SIGTERM);os.waitpid(root_pid,0);node_process.terminate();node_process.wait(timeout=2)
-        print(json.dumps({'actual_sdk_both_ends':True,'actual_root_cgroup_nft':True,'actual_normal_noise_membership_auth_core_health':True,'three_owner_reference_release':True,'original_process_exit_verified':True,'public_network':False,'physical_device':False,'real_systemd_unit':False,'status':report}),flush=True)
+        print(json.dumps({'actual_sdk_both_ends':True,'actual_auth_contention_queue':True,'actual_root_cgroup_nft':True,'actual_normal_noise_membership_auth_core_health':True,'actual_ble_uid_noise_grant_store9_listener':True,'three_owner_reference_release':True,'original_process_exit_verified':True,'public_network':False,'physical_device':False,'real_systemd_unit':False,'status':report}),flush=True)
         return 0
     results=[{'scenario':'actual-Rust-Auth-supervisor-three-references','actual_child_reaped':True,'released':True}]
     for generation,scenario in [(3,'explicit-stop'),(5,'Core-owner-EOF'),(7,'original-lease-expiry'),(9,'altered-policy-unknown')]:

@@ -129,7 +129,7 @@ impl NknTransportPort {
             return Err(PortError::Denied);
         }
         self.auth
-            .try_lock()
+            .lock()
             .map_err(|_| PortError::Unavailable)?
             .check_nkn_scope(&scope)
             .map_err(|_| PortError::Denied)?;

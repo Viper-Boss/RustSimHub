@@ -32,7 +32,7 @@ fn read() -> Result<Zeroizing<Vec<u8>>> {
     let m = f.metadata().map_err(|_| Error::Forbidden)?;
     if !m.is_file()
         || m.uid() != 0
-        || m.gid() != roles.core
+        || m.gid() != roles.core_gid
         || m.mode() & 0o7777 != 0o640
         || m.nlink() != 1
         || m.len() != SIZE as u64

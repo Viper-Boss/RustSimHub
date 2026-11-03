@@ -4,7 +4,9 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
+	"fmt"
 	sdk "github.com/nknorg/nkn-sdk-go"
 	"github.com/nknorg/nkngomobile"
 	"io"
@@ -14,7 +16,8 @@ import (
 )
 
 func main() {
-	if run() != nil {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
@@ -23,7 +26,13 @@ func run() error {
 	if e != nil {
 		return e
 	}
-	client, e := sdk.NewClient(account, "", &sdk.ClientConfig{SeedRPCServerAddr: nkngomobile.NewStringArray("https://9.9.9.9:8443"), ConnectRetries: 1, RPCConcurrency: 1, RPCTimeout: 1000})
+	dial := func(ctx context.Context, network, address string) (net.Conn, error) {
+		if network != "tcp" || address != "9.9.9.9:8443" && address != "9.9.9.9:8000" {
+			return nil, fmt.Errorf("owned counterpart target denied")
+		}
+		return (&net.Dialer{Timeout: time.Second}).DialContext(ctx, network, address)
+	}
+	client, e := sdk.NewClient(account, "", &sdk.ClientConfig{ManagedMode: true, HttpDialContext: dial, WsDialContext: dial, MsgChanLen: 4, WsHandshakeTimeout: 1000, WsWriteTimeout: 1000, SeedRPCServerAddr: nkngomobile.NewStringArray("https://9.9.9.9:8443"), ConnectRetries: 1, RPCConcurrency: 1, RPCTimeout: 1000})
 	if e != nil {
 		return e
 	}

@@ -5,7 +5,7 @@ use crate::{
     bluez_backend::{BluezBackend, BluezHost},
     bluez_control::{Adapter, BluezControl},
     bluez_gatt::{CallbackOperation, CallbackReply},
-    core_channel::CoreRecoveryPort,
+    core_channel::OnDemandCorePort,
     framing::WriteOptions,
     lifecycle::Connection,
     ports::{SecurePortV1, State},
@@ -41,7 +41,7 @@ pub async fn serve(
         .map_err(|_| Error::Unavailable)?
         .to_string();
     let control = BluezControl::bind(connection, &owner, Adapter::Hci0).await?;
-    let secure = CoreRecoveryPort::connect(core_uid).await?;
+    let secure = OnDemandCorePort::new(core_uid)?;
     let (backend, host) = BluezBackend::new(control);
     run_epoch(backend, host, secure, &owner, domain, stop).await
 }
