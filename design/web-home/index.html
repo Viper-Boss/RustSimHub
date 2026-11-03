@@ -51,18 +51,21 @@ a{color:var(--tint);text-decoration:none}
 .bar .wrap{display:flex;align-items:center;justify-content:space-between;height:52px}
 .bar .wrap{display:grid;grid-template-columns:1fr auto 1fr}
 .bar .wrap > :first-child{justify-self:start}.bar .wrap > :last-child{justify-self:end}
-.clock{font-size:26px;font-weight:600;letter-spacing:.5px;color:var(--label)}
 .chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;background:var(--card);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);font-size:13px;color:var(--label-2);box-shadow:var(--shadow)}
 .chip .d{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 25%,transparent)}
 .round{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--card);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);color:var(--tint);box-shadow:var(--shadow)}
-.large{padding:2px 0 10px}
-.large .date{font-size:13px;font-weight:600;color:var(--label-2);text-transform:none;letter-spacing:.2px}
-.large h1{margin:2px 0 0;font-size:34px;font-weight:700;letter-spacing:.2px;line-height:1.2}
+.large{padding:0 2px 14px}
+.hello{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.clock{display:flex;align-items:baseline;font-size:52px;font-weight:700;line-height:1;letter-spacing:-1px;
+  background:linear-gradient(120deg,var(--label) 30%,color-mix(in srgb,var(--indigo) 75%,var(--label)));-webkit-background-clip:text;background-clip:text;color:transparent}
+.clock .sec{font-size:26px;font-weight:600;margin-left:2px;letter-spacing:0;opacity:.55}
+.today{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:15px;font-weight:600;color:var(--label-2)}
+.today #greet{color:var(--label)}
+.today i{width:4px;height:4px;border-radius:50%;background:var(--label-3)}
+.meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px;padding-bottom:2px}
+.uptime{font-size:12px;color:var(--label-2);padding-right:4px}
 
-.title-row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px}
-.title-row .clock{justify-self:center}
-.title-row .ver{justify-self:end;white-space:nowrap}
-.ver{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:999px;font-size:13px;font-weight:600;color:var(--label);
+.ver{white-space:nowrap;display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:999px;font-size:13px;font-weight:600;color:var(--label);
   background:var(--card);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:var(--shadow)}
 .ver em{font-style:normal;font-weight:500;color:var(--label-2);font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:12px}
 .ver::before{content:"";width:8px;height:8px;border-radius:50%;background:linear-gradient(160deg,#5ac8fa,#5856d6)}
@@ -213,7 +216,9 @@ nav.tabs{display:none}
   .cols > div > .section-title:first-child{margin-top:26px}
   .widgets,.stats{gap:12px}
   .ver em{display:none}
-  .clock{font-size:22px}
+  .clock{font-size:44px}
+  .clock .sec{font-size:22px}
+  .today{font-size:14px}
   .otp-list{grid-auto-columns:60%}
   nav.tabs{display:flex;position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:5;justify-content:space-around;padding:8px 6px;border-radius:26px;
     background:var(--bar);backdrop-filter:saturate(180%) blur(22px);-webkit-backdrop-filter:saturate(180%) blur(22px);box-shadow:0 10px 30px -10px rgba(0,0,0,.3);border:.5px solid var(--sep)}
@@ -264,8 +269,16 @@ nav.tabs{display:none}
 
 <div class="wrap">
   <section class="large">
-    <div class="date"><span id="today">11月3日 星期一</span> · 运行 6 天 14 小时</div>
-    <div class="title-row"><h1 id="greet">你好</h1><time class="clock num" id="clock" aria-label="当前时间">--:--</time><span class="ver num" title="固件版本与构建">固件 v0.1.0<em>8f9cfef</em></span></div>
+    <div class="hello">
+      <div>
+        <time class="clock num" id="clock"><span id="hm">--:--</span><span class="sec" id="ss">:--</span></time>
+        <div class="today"><span id="greet">你好</span><i></i><span id="today" class="num">--</span></div>
+      </div>
+      <div class="meta">
+        <span class="ver num" title="固件版本与构建">固件 v0.1.0<em>8f9cfef</em></span>
+        <span class="uptime num">已运行 6 天 14 小时</span>
+      </div>
+    </div>
   </section>
 
   <div class="cols">
@@ -495,12 +508,13 @@ nav.tabs{display:none}
   const clock = document.getElementById('clock'), today = document.getElementById('today');
   const tick = () => {
     const d = new Date(), p = n => String(n).padStart(2, '0');
-    clock.textContent = `${p(d.getHours())}:${p(d.getMinutes())}`;
+    document.getElementById('hm').textContent = `${p(d.getHours())}:${p(d.getMinutes())}`;
+    document.getElementById('ss').textContent = `:${p(d.getSeconds())}`;
     clock.dateTime = d.toISOString();
     const h = d.getHours();
     document.getElementById('greet').textContent = h < 5 ? '夜深了' : h < 11 ? '早上好' : h < 13 ? '中午好' : h < 18 ? '下午好' : '晚上好';
     today.textContent = `${d.getMonth() + 1}月${d.getDate()}日 星期${'日一二三四五六'[d.getDay()]}`;
-    setTimeout(tick, 60000 - d.getSeconds() * 1000 - d.getMilliseconds() + 50);
+    setTimeout(tick, 1000 - d.getMilliseconds() + 20);
   };
   tick();
   const onScroll = () => bar.classList.toggle('scrolled', scrollY > 40);
