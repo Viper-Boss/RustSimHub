@@ -17,13 +17,15 @@ use std::{
     },
     sync::{
         atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
-        Arc, Mutex,
+        Arc, Mutex, OnceLock,
     },
     time::{Duration, Instant},
 };
 const SOCKET: &str = "/run/rustsimhub-nkn-root/root.sock";
 mod roles;
+mod status;
 pub use roles::InstalledRoles;
+pub use status::{Report as StatusReport, Status as ReadOnlyStatus};
 type Result<T> = std::result::Result<T, PortError>;
 fn boot_ms() -> Result<u64> {
     let t = rustix::time::clock_gettime(rustix::time::ClockId::Boottime);
@@ -33,7 +35,7 @@ fn boot_ms() -> Result<u64> {
         .and_then(|v| v.checked_add(nanos / 1_000_000 + 1))
         .ok_or(PortError::Protocol)
 }
-fn policy_hash(device: [u8; 32]) -> Result<[u8; 32]> {
+fn policy_details(device: [u8; 32]) -> Result<([u8; 32], bool)> {
     let mut file = OpenOptions::new()
         .read(true)
         .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
@@ -68,7 +70,10 @@ fn policy_hash(device: [u8; 32]) -> Result<[u8; 32]> {
     if policy["core_pin"].as_str() != Some(expected.as_str()) {
         return Err(PortError::Denied);
     }
-    Ok(Sha256::digest(&raw[start..=end]).into())
+    Ok((
+        Sha256::digest(&raw[start..=end]).into(),
+        policy["status_protocol"].as_u64() == Some(1),
+    ))
 }
 fn connect() -> Result<UnixStream> {
     use rustix::net::{AddressFamily, SocketAddrUnix, SocketFlags, SocketType};
@@ -114,6 +119,10 @@ struct Shared {
     observed_ready: AtomicBool,
     observed_pid: AtomicU32,
     observed_at: AtomicU64,
+    observed_root: AtomicU32,
+    observed_engine: AtomicU32,
+    sdk_status: bool,
+    host_closed: OnceLock<Arc<AtomicBool>>,
 }
 impl Drop for Shared {
     fn drop(&mut self) {
@@ -128,10 +137,22 @@ impl Drop for Shared {
 impl Shared {
     fn local_live(&self) -> bool {
         self.live.load(Ordering::Acquire)
+            && self
+                .host_closed
+                .get()
+                .is_none_or(|closed| !closed.load(Ordering::Acquire))
             && Instant::now() < self.deadline
             && boot_ms().is_ok_and(|now| now < self.boot_deadline)
     }
     fn authority(&self) -> Result<()> {
+        if self
+            .host_closed
+            .get()
+            .is_some_and(|closed| closed.load(Ordering::Acquire))
+        {
+            self.fence();
+            return Err(PortError::Denied);
+        }
         if !self.live.load(Ordering::Acquire)
             || Instant::now() >= self.deadline
             || boot_ms()? >= self.boot_deadline
@@ -249,6 +270,10 @@ impl Shared {
                 self.observed_ready.store(false, Ordering::Release);
             }
             self.observed_pid.store(obs.pid, Ordering::Release);
+            self.observed_root
+                .store(u32::from(obs.root), Ordering::Release);
+            self.observed_engine
+                .store(u32::from(obs.engine), Ordering::Release);
             self.observed_at.store(boot_ms()?, Ordering::Release);
             if obs.root == 1 && obs.engine == 2 {
                 self.observed_ready.store(true, Ordering::Release);
@@ -410,7 +435,10 @@ impl Proof {
 }
 fn admit(shared: &Arc<Shared>, peer: &crate::recovery_transport::PeerContext) -> Result<Admission> {
     let deadline = (Instant::now() + Duration::from_secs(1)).min(shared.deadline);
-    let obs = shared.request(3, deadline, false)?;
+    // Admission is read-only and binds the kernel peer to the SAME original
+    // <=1s ready-PID observation. A concurrent status poll cannot silently
+    // consume/reject the first authenticated transport record.
+    let obs = shared.observation(3, deadline, false)?;
     if obs.root != 1 || obs.engine != 2 || peer.pid() <= 1 || obs.pid != peer.pid() as u32 {
         return Err(PortError::Denied);
     }
@@ -442,7 +470,7 @@ pub fn authorized_ports(
     if nonce == [0; 32] {
         return Err(PortError::Denied);
     }
-    let policy = policy_hash(device)?;
+    let (policy, sdk_status) = policy_details(device)?;
     let remaining = deadline
         .saturating_duration_since(Instant::now())
         .as_millis();
@@ -466,6 +494,10 @@ pub fn authorized_ports(
         observed_ready: AtomicBool::new(false),
         observed_pid: AtomicU32::new(0),
         observed_at: AtomicU64::new(0),
+        observed_root: AtomicU32::new(0),
+        observed_engine: AtomicU32::new(0),
+        sdk_status,
+        host_closed: OnceLock::new(),
     });
     Ok((
         Root(shared.clone()),
@@ -565,6 +597,7 @@ impl EnginePort<Proof> for Engine {
 /// Core-owned assembly of the original three-reference supervisor and these
 /// actual Root/SDK ports. Status construction and reads never activate Root.
 pub struct Controller {
+    closed: Arc<AtomicBool>,
     auth: Arc<Mutex<Auth>>,
     run: Mutex<Option<Run>>,
 }
@@ -592,8 +625,19 @@ fn owner_index(owner: rustsimhub_nkn_agent::Owner) -> usize {
 impl Controller {
     pub fn new(auth: Arc<Mutex<Auth>>) -> Self {
         Self {
+            closed: Arc::new(AtomicBool::new(false)),
             auth,
             run: Mutex::new(None),
+        }
+    }
+    /// Irreversible host shutdown. Parent fences fail immediately; a busy
+    /// original worker retains its FD until the post-IO closed check drains.
+    pub fn shutdown(&self) {
+        self.closed.store(true, Ordering::Release);
+        if let Ok(state) = self.run.try_lock() {
+            if let Some(run) = state.as_ref() {
+                run.source.shared.fence();
+            }
         }
     }
     pub fn snapshot(&self) -> Result<Option<rustsimhub_nkn_agent::Snapshot>> {
@@ -612,11 +656,15 @@ impl Controller {
         token: &str,
         owner: rustsimhub_nkn_agent::Owner,
     ) -> Result<rustsimhub_nkn_agent::Snapshot> {
+        if self.closed.load(Ordering::Acquire) {
+            return Err(PortError::Denied);
+        }
         self.auth
             .try_lock()
             .map_err(|_| PortError::Unavailable)?
-            .recent_owner(token)
-            .map_err(|_| PortError::Denied)?;
+            .nkn_root_authority(token)
+            .map_err(|_| PortError::Denied)?
+            .invalidate();
         let mut state = self.run.try_lock().map_err(|_| PortError::Unavailable)?;
         if state.as_ref().is_some_and(|r| {
             r.supervisor.snapshot().phase == rustsimhub_nkn_agent::Phase::Disabled
@@ -626,6 +674,15 @@ impl Controller {
         }
         if state.is_none() {
             let (root, engine, policy, proof) = authorized_ports(self.auth.clone(), token)?;
+            proof
+                .0
+                .host_closed
+                .set(self.closed.clone())
+                .map_err(|_| PortError::Denied)?;
+            if self.closed.load(Ordering::Acquire) {
+                proof.invalidate();
+                return Err(PortError::Denied);
+            }
             let source = Arc::new(proof.source());
             let mut supervisor = rustsimhub_nkn_agent::Supervisor::new(
                 root,
@@ -653,6 +710,7 @@ impl Controller {
                 .map_err(|_| PortError::Protocol);
         }
         let run = state.as_mut().ok_or(PortError::Unavailable)?;
+        run.source.shared.authority()?; // adding a reference never replaces the original proof
         if !matches!(
             run.supervisor.snapshot().phase,
             rustsimhub_nkn_agent::Phase::Starting
@@ -844,6 +902,23 @@ mod tests {
             assert!(Instant::now() < deadline);
             std::thread::sleep(Duration::from_millis(50));
         }
+        let report = controller.read_status(owner.expose()).unwrap();
+        assert_eq!(report.status.source, "engine");
+        assert_eq!(report.status.generation, 2);
+        assert_eq!(report.status.sequence, 1);
+        assert_eq!(report.status.enabled, "on");
+        assert_eq!(report.status.service, "running");
+        assert_eq!(report.status.dht, "unknown");
+        assert_eq!(report.status.path, "unknown");
+        assert!(report.status.age_ms.is_some_and(|n| n <= 1000));
+        assert!(report.status.rx_bytes.is_none());
+        assert!(report.owners.manual && report.owners.remote && report.owners.statistics);
+        // The ephemeral observer closed after the read. The original owner FD,
+        // shared SDK and all three references must still be live.
+        let repeated = controller.read_status(owner.expose()).unwrap();
+        assert_eq!(repeated.status.source, "unavailable");
+        assert_eq!(repeated.status.last_error.as_deref(), Some("stale"));
+        assert_eq!(controller.drive().unwrap().unwrap().phase, Phase::Ready);
         let source = controller.source().unwrap();
         let pid = source.shared.observed_pid.load(Ordering::Acquire);
         assert!(pid > 1);

@@ -24,6 +24,8 @@ pub mod framing;
 pub mod lifecycle;
 pub mod manifest;
 pub mod ports;
+#[cfg(all(target_os = "linux", feature = "product-host-candidate"))]
+pub mod product_host;
 pub mod transport;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

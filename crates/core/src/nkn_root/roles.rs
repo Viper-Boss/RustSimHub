@@ -11,9 +11,11 @@ use std::{
 /// and this type cannot be deserialized from a client or policy request.
 pub struct InstalledRoles {
     pub core: u32,
+    pub core_gid: u32,
     pub edge: u32,
     pub forwarder: u32,
     pub ble: u32,
+    pub ble_gid: u32,
     pub media: u32,
     pub engine: u32,
     pub engine_gid: u32,
@@ -95,9 +97,11 @@ impl InstalledRoles {
         }
         Ok(Self {
             core: assigned[0].0,
+            core_gid: assigned[0].1,
             edge: assigned[1].0,
             forwarder: assigned[2].0,
             ble: assigned[3].0,
+            ble_gid: assigned[3].1,
             media: assigned[4].0,
             engine: assigned[5].0,
             engine_gid: assigned[5].1,

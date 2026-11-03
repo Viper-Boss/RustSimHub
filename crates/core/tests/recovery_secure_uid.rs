@@ -5,7 +5,7 @@
 use ed25519_dalek::{Signer, SigningKey};
 use rustsimhub_auth::{secure_session::SecureRecoverySessions, Auth, Token};
 use rustsimhub_ble::{
-    core_channel::CoreRecoveryPort,
+    core_channel::{CoreRecoveryPort, OnDemandCorePort},
     framing::{InputKind, OpaqueBytes},
     ports::{Epoch, Peer, SecurePortV1, SecureReply},
 };
@@ -27,6 +27,30 @@ use tokio::{
     net::{UnixListener, UnixStream},
 };
 
+enum FixturePort {
+    Owned(CoreRecoveryPort),
+    Deferred(OnDemandCorePort),
+}
+impl SecurePortV1 for FixturePort {
+    fn receive(
+        &mut self,
+        e: Epoch,
+        p: Peer,
+        k: InputKind,
+        b: OpaqueBytes,
+    ) -> rustsimhub_ble::ports::Pending<SecureReply> {
+        match self {
+            Self::Owned(s) => s.receive(e, p, k, b),
+            Self::Deferred(s) => s.receive(e, p, k, b),
+        }
+    }
+    fn disconnected(&mut self, e: Epoch, p: Peer) -> rustsimhub_ble::ports::Pending<()> {
+        match self {
+            Self::Owned(s) => s.disconnected(e, p),
+            Self::Deferred(s) => s.disconnected(e, p),
+        }
+    }
+}
 const BODY: &[u8] = br#"{"target_request_id":"00000000-0000-4000-8000-000000000099"}"#;
 struct Fixture {
     auth: Arc<Mutex<Auth>>,
@@ -148,7 +172,7 @@ fn isolated_secure_core() {
 }
 
 async fn exchange(
-    port: &mut CoreRecoveryPort,
+    port: &mut impl SecurePortV1,
     kind: InputKind,
     wire: Vec<u8>,
 ) -> rustsimhub_ble::ports::SecureReply {
@@ -185,16 +209,32 @@ async fn eof(s: &mut UnixStream) {
 #[test]
 fn isolated_secure_client() {
     runtime().block_on(async {
-        assert_eq!(rustix::process::geteuid().as_raw(), 1002);
+        let combined = std::env::var_os("RSH_COMBINED_BLE_CLIENT").is_some();
+        assert_eq!(
+            rustix::process::geteuid().as_raw(),
+            if combined { 1006 } else { 1002 }
+        );
         let case = std::env::var("RUSTSIMHUB_SECURE_CASE").unwrap();
-        let stream = UnixStream::connect(root().join("core.sock")).await.unwrap();
         if case == "disconnect" {
+            let _ = UnixStream::connect(root().join("core.sock")).await.unwrap();
             return;
         }
-        let native = stream.into_std().unwrap();
-        let mut monitor = UnixStream::from_std(native.try_clone().unwrap()).unwrap();
-        let mut port =
-            CoreRecoveryPort::attach(UnixStream::from_std(native).unwrap(), 1001).unwrap();
+        let (mut monitor, mut port) = if combined {
+            (
+                None,
+                FixturePort::Deferred(OnDemandCorePort::new(1001).unwrap()),
+            )
+        } else {
+            let stream = UnixStream::connect(root().join("core.sock")).await.unwrap();
+            let native = stream.into_std().unwrap();
+            let monitor = UnixStream::from_std(native.try_clone().unwrap()).unwrap();
+            (
+                Some(monitor),
+                FixturePort::Owned(
+                    CoreRecoveryPort::attach(UnixStream::from_std(native).unwrap(), 1001).unwrap(),
+                ),
+            )
+        };
         let public: serde_json::Value =
             serde_json::from_slice(&fs::read(root().join("public.json")).unwrap()).unwrap();
         let pin: [u8; 32] = serde_json::from_value(public["pin"].clone()).unwrap();
@@ -286,10 +326,14 @@ fn isolated_secure_client() {
             assert_eq!(value["operation"], serde_json::Value::Null);
             // Keep the source alive through Core's post-write scope check.
             // A client close races the EOF monitor and deliberately cancels it.
-            eof(&mut monitor).await;
+            if combined {
+                drop(port);
+                return;
+            }
+            eof(monitor.as_mut().unwrap()).await;
         } else {
             assert!(result.is_err());
-            eof(&mut monitor).await;
+            eof(monitor.as_mut().unwrap()).await;
         }
     });
 }

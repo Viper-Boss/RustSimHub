@@ -28,6 +28,7 @@ const (
 	status     = 3
 	stopEngine = 4
 	release    = 5
+	readOnly   = 6
 )
 
 type request struct {
@@ -38,7 +39,7 @@ type request struct {
 }
 
 func parseRequest(raw []byte) (request, error) {
-	if len(raw) != requestBytes || !bytes.Equal(raw[:5], []byte("RSCN\x01")) || raw[5] < prepare || raw[5] > release {
+	if len(raw) != requestBytes || !bytes.Equal(raw[:5], []byte("RSCN\x01")) || raw[5] < prepare || raw[5] > readOnly {
 		return request{}, ErrDenied
 	}
 	r := request{op: raw[5], generation: binary.BigEndian.Uint32(raw[6:10]), deadline: binary.BigEndian.Uint64(raw[10:18])}
@@ -167,6 +168,14 @@ func (m *manager) handle(r request, connection *net.UnixConn) ([]byte, error) {
 		return nil, ErrDenied
 	}
 	s := m.scope
+	if r.op == readOnly {
+		if m.policy.config.StatusProtocol != 1 || connection == nil {
+			return nil, ErrDenied
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+		defer cancel()
+		return s.readonly(ctx), nil
+	}
 	if s.released {
 		return s.snapshot(), nil
 	}

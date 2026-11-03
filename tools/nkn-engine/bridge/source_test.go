@@ -87,3 +87,31 @@ func TestCancelledAndInvalidRequestsNeverAdoptSourceEvidence(t *testing.T) {
 		t.Fatal("invalid request reached source")
 	}
 }
+
+// The Root-owned SDK can observe for its original finite lease without the
+// offline frontend's 32-frame budget terminating the shared process on query33.
+type orderedFixture struct{ calls int }
+
+func (*orderedFixture) SDKLinked() bool { return true }
+func (s *orderedFixture) Read(_ context.Context, seq uint32) (Status, error) {
+	s.calls++
+	v := freshStatus()
+	v.Sequence = seq
+	return v, nil
+}
+func TestOwnedBudgetIsSeparateFromDefaultAndStillFinite(t *testing.T) {
+	var input []byte
+	for i := 0; i < 33; i++ {
+		input = append(input, frame(request)...)
+	}
+	source := &orderedFixture{}
+	var out bytes.Buffer
+	if err := ServeOwnedWithSource(context.Background(), bytes.NewReader(input), &out, nil, nil, source); err != nil || source.calls != 33 {
+		t.Fatal("owned lease ended at offline frame limit")
+	}
+	source = &orderedFixture{}
+	out.Reset()
+	if err := ServeWithSource(context.Background(), bytes.NewReader(input), &out, nil, nil, source); err != ErrLimit || source.calls != MaxFrames {
+		t.Fatal("offline default budget changed")
+	}
+}

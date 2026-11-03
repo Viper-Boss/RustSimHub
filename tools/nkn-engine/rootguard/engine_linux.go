@@ -21,6 +21,11 @@ import (
 )
 
 type ownedEngine struct {
+	statusMu                  sync.Mutex
+	statusEpoch, statusFrames uint32
+	statusPoisoned            bool
+	lastStatus                time.Time
+
 	cmd            *exec.Cmd
 	control        *net.UnixConn
 	input, output  *os.File
@@ -239,6 +244,13 @@ func launchEngine(ctx context.Context, r *resources, generation uint32, nonce [3
 		return nil, ErrDenied
 	}
 	owned := &ownedEngine{control: control, done: make(chan struct{})}
+	if r.policy.config.StatusProtocol == 1 {
+		owned.statusEpoch, e = nextGeneration()
+		if e != nil {
+			control.Close()
+			return nil, e
+		}
+	}
 	failed := true
 	defer func() {
 		if failed {

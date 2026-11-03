@@ -21,6 +21,7 @@ required-features = ["recovery-transport", "recovery-execution"]
 
 [features]
 default = []
+product-providers-candidate = ["root-provider-candidate", "secure-session-candidate"]
 dev-fixtures = ["dep:ed25519-dalek"]
 recovery-grants = ["rustsimhub-auth/recovery-grants"]
 recovery-execution = ["recovery-grants", "rustsimhub-auth/recovery-execution", "dep:uuid"]

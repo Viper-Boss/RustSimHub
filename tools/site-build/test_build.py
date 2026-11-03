@@ -2,6 +2,15 @@
 import pathlib,tempfile,unittest,shutil
 import build
 class BuildTests(unittest.TestCase):
+    def test_candidate_has_exact_crypto_assets_scoped_csp_and_no_private_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=pathlib.Path(tmp);wasm=root/'wasm';wasm.mkdir();(wasm/'rustsimhub_recovery_session.js').write_text('export class RecoverySessionClient{}');(wasm/'rustsimhub_recovery_session_bg.wasm').write_bytes(b'\0asm\x01\0\0\0')
+            out=root/'site';r=build.assemble(out,recovery_wasm=wasm)
+            self.assertTrue(r['secure_recovery_candidate']);self.assertFalse(r['published'])
+            html=(out/'configurator/index.html').read_text();self.assertIn("'wasm-unsafe-eval'",html);self.assertNotIn("'unsafe-eval'",html);self.assertNotIn("'unsafe-inline'",html);self.assertIn('src/production-entry.js',html)
+            policy=(out/'configurator/src/static-policy.js').read_text();self.assertIn('wasm/rustsimhub_recovery_session_bg.wasm',policy);self.assertNotIn('private_key',policy);self.assertNotIn('tests/',policy)
+            (wasm/'rustsimhub_recovery_session_bg.wasm').write_bytes(b'broken')
+            with self.assertRaises(ValueError):build.assemble(root/'bad',recovery_wasm=wasm)
     def test_exact_files_and_version_without_test_mock_or_secrets(self):
         with tempfile.TemporaryDirectory() as tmp:
             out=pathlib.Path(tmp)/'site';report=build.assemble(out)

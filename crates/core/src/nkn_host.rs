@@ -88,6 +88,22 @@ where
         .await?;
     Ok((peer, result?))
 }
+/// Called only by the original descriptor-owning blocking worker. Queue behind
+/// short Auth observations; the original worker/handshake deadline and source
+/// cancellation remain authoritative while this same descriptor is retained.
+fn auth_lock(
+    auth: &std::sync::Mutex<rustsimhub_auth::Auth>,
+) -> Result<std::sync::MutexGuard<'_, rustsimhub_auth::Auth>> {
+    #[cfg(test)]
+    AUTH_WAITING.store(true, std::sync::atomic::Ordering::Release);
+    let guard = auth.lock().map_err(|_| Error::Authentication);
+    #[cfg(test)]
+    AUTH_WAITING.store(false, std::sync::atomic::Ordering::Release);
+    guard
+}
+#[cfg(test)]
+pub(crate) static AUTH_WAITING: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 fn auth_packet(packet: &Packet) -> Result<&[u8]> {
     if packet.kind() != Kind::Handshake {
         return Err(Error::Protocol);
@@ -110,9 +126,7 @@ async fn handshake(
         if hello.purpose != Purpose::NknControl {
             return Err(Error::Authentication);
         }
-        let preparation = auth
-            .try_lock()
-            .map_err(|_| Error::Authentication)?
+        let preparation = auth_lock(&auth)?
             .prepare_nkn_session(
                 *context.connection_nonce(),
                 hello.client_key,
@@ -144,9 +158,7 @@ async fn handshake(
         let work = session
             .device_binding_work()
             .map_err(|_| Error::Authentication)?;
-        let signature = auth
-            .try_lock()
-            .map_err(|_| Error::Authentication)?
+        let signature = auth_lock(&auth)?
             .sign_nkn_device_binding(&work)
             .map_err(|_| Error::Authentication)?;
         let binding = session
@@ -166,8 +178,7 @@ async fn handshake(
         session
             .read_client_binding(auth_packet(packet)?)
             .map_err(|_| Error::Authentication)?;
-        auth.try_lock()
-            .map_err(|_| Error::Authentication)?
+        auth_lock(&auth)?
             .check_nkn_session(&session)
             .map_err(|_| Error::Authentication)?;
         let ack = session
@@ -187,10 +198,10 @@ async fn handshake(
         let admission=session.verify_membership(&key,auth_packet(packet)?).map_err(|_|Error::Authentication)?;
         let scope=session.scope().map_err(|_|Error::Authentication)?;
         g.publish(scope.clone()).map_err(|_|Error::Authentication)?;
-        let token=auth.try_lock().map_err(|_|Error::Authentication)?.issue_nkn_token(&scope).map_err(|_|Error::Authentication)?;
+        let token=auth_lock(&auth)?.issue_nkn_token(&scope).map_err(|_|Error::Authentication)?;
         let body=zeroize::Zeroizing::new(serde_json::to_vec(&serde_json::json!({"contract":1,"auth_protocol":2,"token":token.expose(),"expires_in_ms":scope.deadline().saturating_duration_since(Instant::now()).as_millis()})).map_err(|_|Error::Protocol)?);
         let reply=session.seal_membership_reply(admission,&body).map_err(|_|Error::Authentication)?;
-        auth.try_lock().map_err(|_|Error::Authentication)?.check_nkn_scope(&scope).map_err(|_|Error::Authentication)?;
+        auth_lock(&auth)?.check_nkn_scope(&scope).map_err(|_|Error::Authentication)?;
         g.check().map_err(|_|Error::Authentication)?;Ok((session,reply))
     }).await?;
     session = next_session;

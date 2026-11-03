@@ -33,10 +33,14 @@ pub mod nkn_business;
 pub mod nkn_host;
 #[cfg(all(target_os = "linux", feature = "root-provider-candidate"))]
 pub mod nkn_listener;
+#[cfg(target_os = "linux")]
+mod nkn_product;
 #[cfg(all(target_os = "linux", feature = "nkn-session-candidate"))]
 pub mod nkn_transport;
 #[cfg(all(test, target_os = "linux", feature = "nkn-session-candidate"))]
 mod nkn_uid_tests;
+#[cfg(all(target_os = "linux", feature = "product-providers-candidate"))]
+mod recovery_listener;
 #[cfg(target_os = "linux")]
 use rustsimhub_core::network_trial;
 #[cfg(target_os = "linux")]
@@ -90,6 +94,38 @@ fn main() {
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    let args = if args
+        .first()
+        .is_some_and(|s| s == "--enable-product-providers-candidate")
+    {
+        #[cfg(feature = "product-providers-candidate")]
+        {
+            nkn_product::activate_explicit();
+            args.into_iter().skip(1).collect::<Vec<_>>()
+        }
+        #[cfg(not(feature = "product-providers-candidate"))]
+        {
+            return Err("product providers candidate is not compiled".into());
+        }
+    } else {
+        args
+    };
+    let args = if args
+        .first()
+        .is_some_and(|s| s == "--enable-secure-recovery-candidate")
+    {
+        #[cfg(feature = "product-providers-candidate")]
+        {
+            recovery_listener::activate();
+            args.into_iter().skip(1).collect::<Vec<_>>()
+        }
+        #[cfg(not(feature = "product-providers-candidate"))]
+        {
+            return Err("secure recovery candidate is not compiled".into());
+        }
+    } else {
+        args
+    };
     if args == ["--build-info"] {
         println!(
             "{}",

@@ -67,7 +67,7 @@ func Run(lease *Lease, input, output *os.File) error {
 	// Observe EOF/stop/malformed stdio while NewClient is still constructing.
 	stdioDone := make(chan error, 1)
 	go func() {
-		err := bridge.ServeWithSource(lease.Context(), input, output,
+		err := bridge.ServeOwnedWithSource(lease.Context(), input, output,
 			func() error { deadline, _ := lease.Context().Deadline(); return input.SetReadDeadline(deadline) },
 			func() error { return output.SetWriteDeadline(time.Now().Add(2 * time.Second)) }, source)
 		stdioDone <- err
