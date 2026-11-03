@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import {installAppImports,appVmSource,assertNknAssembly} from './fixtures/web3-web/app-imports.mjs';
 import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput } from '../crates/edge/src/web/nas-bridge.js';
 // Exercise the shipped catch-up module and app wiring; no network or hardware.
 import assert from 'node:assert/strict';
@@ -102,7 +103,9 @@ function browserFixture(respond){
   CallTest:class {async start(mode='outgoing'){testStarts.push(mode);}async stop(){}},NetworkPanel:class {start(){}stop(){}},
   fetch:async(_url,options)=>{const body=JSON.parse(options.body);sent.push(body.command);const result=await respond(body.command);return {ok:true,json:async()=>({protocol:2,id:body.id,result})};},
  };
- vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={sync,refresh,eventSync,inboxPage,callsPage,historyPage,loadHistory,clearHistory,loginAs:()=>{token="synthetic";},logout:()=>$("logout").onclick()};',context);
+ installAppImports(context);
+ vm.runInNewContext(appVmSource(app)+'\nglobalThis.fixture={sync,refresh,eventSync,inboxPage,callsPage,historyPage,loadHistory,clearHistory,loginAs:()=>{token="synthetic";},logout:()=>$("logout").onclick()};',context);
+ assertNknAssembly(context);
  context.fixture.loginAs();return {...context.fixture,elements,sent,testStarts};
 }
 {

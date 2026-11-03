@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import {installAppImports,appVmSource,assertNknAssembly} from './fixtures/web3-web/app-imports.mjs';
 import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput } from '../crates/edge/src/web/nas-bridge.js';
 // Production app catalogue and trial handling; synthetic IPC and DOM only.
 import assert from 'node:assert/strict';
@@ -32,7 +33,9 @@ function fixture(respond=()=>clone(catalogue)){
   AudioLink:class{constructor(){this.state='closed';}async stop(){}},ConfigurationIndicator:class{async set(){}},CallTest:class{async stop(){}},NetworkPanel:class{start(){}stop(){}},EventSync:class{reset(){}},SmsManager:class{reset(){}},DailyPhone:class{reset(){}},NasBridgePanel,nasPendingInput,nasReceiptInput,ClientsPanel:class{reset(){}},SessionKeeper:class{reset(){}},
   fetch:async(_url,options)=>{const body=JSON.parse(options.body),command=body.command;sent.push(command);const result=await respond(command,sent.length);return {ok:true,json:async()=>({protocol:2,id:body.id,result})};},
  };
- vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={loadWifiNetworks,clearWifiNetworks,showWifi,wifiAction,loginAs:()=>{token="a".repeat(64);},trial:()=>wifiTrial,logout:()=>$("logout").onclick()};',context);
+ installAppImports(context);
+ vm.runInNewContext(appVmSource(app)+'\nglobalThis.fixture={loadWifiNetworks,clearWifiNetworks,showWifi,wifiAction,loginAs:()=>{token="a".repeat(64);},trial:()=>wifiTrial,logout:()=>$("logout").onclick()};',context);
+ assertNknAssembly(context);
  context.fixture.loginAs();
  return {...context.fixture,$,sent};
 }

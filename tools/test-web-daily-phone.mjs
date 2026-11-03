@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import {installAppImports,appVmSource,assertNknAssembly} from './fixtures/web3-web/app-imports.mjs';
 import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput } from '../crates/edge/src/web/nas-bridge.js';
 // Production controller with synthetic IPC, durable writes, microphone and clock.
 import assert from 'node:assert/strict';
@@ -146,7 +147,9 @@ for(const stage of ['prepare_call','submit_call']){
   fetch:async(_url,options)=>{const body=JSON.parse(options.body),c=body.command;sent.push(c);if(c.op==='submit_call')assert.equal(saved.get('pending').submit_started,true);return {ok:true,json:async()=>({protocol:2,id:body.id,result:await f.backend(c)})};},
  };
  const app=await readFile(new URL('../crates/edge/src/web/app.js',import.meta.url),'utf8');
- vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={phone:()=>dailyPhone,loginAs:()=>{token="synthetic-session";audioReady=true;dailyPhone.enabled=true;},setDb:value=>{db=value;},logout:()=>$("logout").onclick()};',context);
+ installAppImports(context);
+ vm.runInNewContext(appVmSource(app)+'\nglobalThis.fixture={phone:()=>dailyPhone,loginAs:()=>{token="synthetic-session";audioReady=true;dailyPhone.enabled=true;},setDb:value=>{db=value;},logout:()=>$("logout").onclick()};',context);
+ assertNknAssembly(context);
  context.fixture.setDb({transaction(){const tx={};tx.objectStore=()=>({get:key=>{const request={};queueMicrotask(()=>{request.result=saved.get(key);request.onsuccess?.();});return request;},put:(value,key)=>{const copy=structuredClone(value);queueMicrotask(()=>{saved.set(key,copy);tx.oncomplete?.();});}});return tx;}});
  context.fixture.loginAs();await f.$('phone-dial').onclick();assert.equal(sent.filter(c=>c.op==='submit_call').length,1);assert(context.fixture.phone().managing);
  await f.$('prepare-sms').onclick();assert.equal(sent.filter(c=>c.op==='prepare_sms').length,0);assert.match(f.$('notice').textContent,/电话区/);
