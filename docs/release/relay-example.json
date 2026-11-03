@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "hostname": "relay.example.invalid",
+  "tls_port": 5349,
+  "relay_min": 50000,
+  "relay_max": 50015,
+  "max_allocations": 4,
+  "lifetime_seconds": 300
+}

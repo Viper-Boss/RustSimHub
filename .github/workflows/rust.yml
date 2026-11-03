@@ -30,6 +30,19 @@ jobs:
         run: |
           sh -n tools/rootfs/scripts/build-rootfs.sh tools/recovery-fastboot-probe.sh
           python3 -m unittest discover -s tools/rootfs/scripts -p test_rootfs.py
+      - name: Offline release materials and pinned kernel checker
+        run: |
+          python3 -m unittest tools.offline_delivery.test_delivery -v
+          python3 -m unittest discover -s tools/kernel-artifact-audit -p 'test*.py'
+      - name: Separate normal NAS control candidate
+        env:
+          GO111MODULE: 'off'
+          GOTOOLCHAIN: local
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          go test -race -count=1 -timeout=60s ./tools/nas-adapter/control ./tools/nas-adapter/cmd/control
+          go vet ./tools/nas-adapter/control ./tools/nas-adapter/cmd/control
       - name: Committed ARM source and build manifest fixtures
         run: |
           sh -n tools/wsl-build-committed.sh

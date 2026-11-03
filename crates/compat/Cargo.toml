@@ -5,6 +5,10 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+default = []
+normal-nas-candidate = ["dep:rustsimhub-media", "dep:rustsimhub-wire"]
+
 [dependencies]
 base64 = "=0.23.1"
 sha2 = "0.10"
@@ -15,6 +19,8 @@ rustsimhub-policy = { path = "../policy" }
 rustsimhub-domain = { path = "../domain" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+rustsimhub-media = { path = "../media", optional = true }
+rustsimhub-wire = { path = "../wire", optional = true }
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 fs2 = "0.4"
 rustix = { version = "1", features = ["fs", "process"] }
