@@ -15,7 +15,7 @@
     {"id":"release-profiles","kind":"product","pr":205,"head":"c3a67120cb91f8c6095579a89764466a101d9433","requires":[],"includes":[]},
     {"id":"health-core","kind":"product","pr":206,"head":"fe65bf3e1fd02375ed6fcd38a595271c33180caa","requires":["runtime-cli","probe-fixture"],"includes":["runtime-cli","probe-fixture"]},
     {"id":"health-confirm","kind":"product","pr":null,"head":null,"requires":["health-core"],"includes":[]},
-    {"id":"web-regression","kind":"product","pr":null,"head":null,"requires":["ap-ui"],"includes":[]},
+    {"id":"web-regression","kind":"product","pr":207,"head":"6099846b54e8853d2759fd49d9961ae440bf5e97","requires":["ap-ui"],"includes":[]},
     {"id":"product-install","kind":"product","pr":null,"head":null,"requires":["release-profiles"],"includes":[]},
     {"id":"product-data","kind":"product","pr":null,"head":null,"requires":["release-profiles"],"includes":[]}
   ]

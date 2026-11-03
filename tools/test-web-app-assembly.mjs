@@ -5,6 +5,7 @@ import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
 import {spawn} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 const web=new URL('../crates/edge/src/web/',import.meta.url);
 const linux=await readFile(new URL('../crates/edge/src/linux.rs',import.meta.url),'utf8');
 const csp=linux.match(/\("content-security-policy","([^"]+)"\)/)?.[1];assert(csp,'Actual default CSP required');
@@ -66,6 +67,6 @@ const server=createServer(async(req,res)=>{
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 try{
- const child=spawn(process.env.WEB3_WEB_BROWSER_PYTHON||'python3',[new URL('./fixtures/web3-web/assembly-browser.py',import.meta.url).pathname,`http://127.0.0.1:${server.address().port}`],{stdio:'inherit',env:process.env});
+ const child=spawn(process.env.WEB3_WEB_BROWSER_PYTHON||'python3',[fileURLToPath(new URL('./fixtures/web3-web/assembly-browser.py',import.meta.url)),`http://127.0.0.1:${server.address().port}`],{stdio:'inherit',env:process.env});
  const code=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',resolve);});assert.equal(code,0,'Real homepage assembly check failed');assert.deepEqual(failures,[]);
 }finally{if(held)held();await new Promise(resolve=>server.close(resolve));}
