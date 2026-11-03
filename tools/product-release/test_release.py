@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import os
+import xml.etree.ElementTree as ET
 
 spec = importlib.util.spec_from_file_location('product_release', Path(__file__).with_name('release.py'))
 release = importlib.util.module_from_spec(spec)
@@ -146,6 +148,30 @@ class ProductRelease(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 release.write_new(path, b'replaced')
             self.assertEqual(path.read_bytes(), b'original')
+
+    @unittest.skipUnless(os.name == 'posix', 'Linux source admission')
+    def test_verified_empty_go_sum_is_source_not_an_executable(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp)/'go.sum'
+            path.touch()
+            self.assertEqual(release.managed_stage.source_file(path), b'')
+            with self.assertRaises(ValueError):
+                release.arm.regular(path)
+            link = Path(temp)/'link'
+            link.symlink_to(path)
+            with self.assertRaises(OSError):
+                release.managed_stage.source_file(link)
+
+    def test_product_bus_policy_reuses_fixed_rules_and_only_adds_actual_backend_read(self):
+        material = release.ROOT/'firmware/system'
+        original = ET.fromstring((material/'ble/rustsimhub-ble.policy.in').read_bytes())
+        actual = ET.fromstring((material/'product-profiles/ble-product.policy').read_bytes())
+        before = [(v.tag, v.attrib) for v in original[0]]
+        after = [(v.tag, v.attrib) for v in actual[0]]
+        addition = ('allow', {'send_destination': 'org.bluez', 'send_interface': 'org.freedesktop.DBus.ObjectManager',
+            'send_member': 'GetManagedObjects', 'send_type': 'method_call', 'max_fds': '0', 'send_path': '/'})
+        self.assertEqual(actual[0].attrib, {'user': 'rustsimhub-ble'})
+        self.assertEqual(after, [*before[:4], addition, *before[4:]])
 
 
 if __name__ == '__main__':

@@ -1,16 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
-<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
- "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<!-- Explicit product profile. Fixed existing rules plus the actual backend snapshot read. -->
 <busconfig>
   <policy user="rustsimhub-ble">
-    <deny own="*"/>
-    <deny send_destination="org.bluez"/>
-    <allow send_destination="org.bluez" send_interface="org.freedesktop.DBus.ObjectManager" send_member="GetManagedObjects"/>
-    <allow send_destination="org.bluez" send_interface="org.freedesktop.DBus.Properties" send_member="GetAll"/>
-    <allow send_destination="org.bluez" send_interface="org.bluez.GattManager1" send_member="RegisterApplication"/>
-    <allow send_destination="org.bluez" send_interface="org.bluez.GattManager1" send_member="UnregisterApplication"/>
-    <allow send_destination="org.bluez" send_interface="org.bluez.LEAdvertisingManager1" send_member="RegisterAdvertisement"/>
-    <allow send_destination="org.bluez" send_interface="org.bluez.LEAdvertisingManager1" send_member="UnregisterAdvertisement"/>
-    <allow receive_sender="org.bluez"/>
+    <deny own="*" />
+    <deny send_destination="*" />
+    <deny send_type="signal" />
+    <deny receive_sender="*" />
+    <allow send_destination="org.bluez" send_interface="org.freedesktop.DBus.ObjectManager" send_member="GetManagedObjects" send_type="method_call" max_fds="0" send_path="/" />
+    <allow send_destination="org.freedesktop.DBus" send_interface="org.freedesktop.DBus" send_member="Hello" send_type="method_call" max_fds="0" send_path="/org/freedesktop/DBus" />
+    <allow send_destination="org.freedesktop.DBus" send_interface="org.freedesktop.DBus" send_member="GetNameOwner" send_type="method_call" max_fds="0" send_path="/org/freedesktop/DBus" />
+    <allow send_destination="org.freedesktop.DBus" send_interface="org.freedesktop.DBus" send_member="GetId" send_type="method_call" max_fds="0" send_path="/org/freedesktop/DBus" />
+    <allow send_destination="org.freedesktop.DBus" send_interface="org.freedesktop.DBus" send_member="AddMatch" send_type="method_call" max_fds="0" send_path="/org/freedesktop/DBus" />
+    <allow send_destination="org.freedesktop.DBus" send_interface="org.freedesktop.DBus" send_member="RemoveMatch" send_type="method_call" max_fds="0" send_path="/org/freedesktop/DBus" />
+    <allow send_destination="org.bluez" send_interface="org.bluez.GattManager1" send_member="RegisterApplication" send_type="method_call" max_fds="0" send_path="/org/bluez/hci0" />
+    <allow send_destination="org.bluez" send_interface="org.bluez.GattManager1" send_member="UnregisterApplication" send_type="method_call" max_fds="0" send_path="/org/bluez/hci0" />
+    <allow send_destination="org.bluez" send_interface="org.bluez.LEAdvertisingManager1" send_member="RegisterAdvertisement" send_type="method_call" max_fds="0" send_path="/org/bluez/hci0" />
+    <allow send_destination="org.bluez" send_interface="org.bluez.LEAdvertisingManager1" send_member="UnregisterAdvertisement" send_type="method_call" max_fds="0" send_path="/org/bluez/hci0" />
+    <allow send_destination="org.bluez" send_interface="org.freedesktop.DBus.Properties" send_member="GetAll" send_type="method_call" max_fds="0" />
+    <allow send_interface="org.freedesktop.DBus.ObjectManager" send_member="InterfacesAdded" send_type="signal" send_path="/org/rustsimhub/recovery/v1" max_fds="0" />
+    <allow send_interface="org.freedesktop.DBus.ObjectManager" send_member="InterfacesRemoved" send_type="signal" send_path="/org/rustsimhub/recovery/v1" max_fds="0" />
+    <allow send_destination="org.bluez" send_type="method_return" send_requested_reply="true" max_fds="1" />
+    <allow send_destination="org.bluez" send_type="error" send_requested_reply="true" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1" receive_interface="org.freedesktop.DBus.ObjectManager" receive_member="GetManagedObjects" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1" receive_interface="org.freedesktop.DBus.Properties" receive_member="Get" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1" receive_interface="org.freedesktop.DBus.Properties" receive_member="GetAll" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1" receive_interface="org.freedesktop.DBus.Introspectable" receive_member="Introspect" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0" receive_interface="org.freedesktop.DBus.Properties" receive_member="Get" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0" receive_interface="org.freedesktop.DBus.Properties" receive_member="GetAll" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0" receive_interface="org.freedesktop.DBus.Introspectable" receive_member="Introspect" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/advertisement0" receive_interface="org.freedesktop.DBus.Properties" receive_member="Get" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/advertisement0" receive_interface="org.freedesktop.DBus.Properties" receive_member="GetAll" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/advertisement0" receive_interface="org.freedesktop.DBus.Introspectable" receive_member="Introspect" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char0" receive_interface="org.freedesktop.DBus.Properties" receive_member="Get" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char0" receive_interface="org.freedesktop.DBus.Properties" receive_member="GetAll" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char0" receive_interface="org.freedesktop.DBus.Introspectable" receive_member="Introspect" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char1" receive_interface="org.freedesktop.DBus.Properties" receive_member="Get" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char1" receive_interface="org.freedesktop.DBus.Properties" receive_member="GetAll" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char1" receive_interface="org.freedesktop.DBus.Introspectable" receive_member="Introspect" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char2" receive_interface="org.freedesktop.DBus.Properties" receive_member="Get" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char2" receive_interface="org.freedesktop.DBus.Properties" receive_member="GetAll" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char2" receive_interface="org.freedesktop.DBus.Introspectable" receive_member="Introspect" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char3" receive_interface="org.freedesktop.DBus.Properties" receive_member="Get" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char3" receive_interface="org.freedesktop.DBus.Properties" receive_member="GetAll" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char3" receive_interface="org.freedesktop.DBus.Introspectable" receive_member="Introspect" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/advertisement0" receive_interface="org.bluez.LEAdvertisement1" receive_member="Release" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char0" receive_interface="org.bluez.GattCharacteristic1" receive_member="ReadValue" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char1" receive_interface="org.bluez.GattCharacteristic1" receive_member="WriteValue" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char1" receive_interface="org.bluez.GattCharacteristic1" receive_member="AcquireNotify" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char1" receive_interface="org.bluez.GattCharacteristic1" receive_member="StartNotify" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char1" receive_interface="org.bluez.GattCharacteristic1" receive_member="StopNotify" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char2" receive_interface="org.bluez.GattCharacteristic1" receive_member="WriteValue" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char3" receive_interface="org.bluez.GattCharacteristic1" receive_member="ReadValue" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char3" receive_interface="org.bluez.GattCharacteristic1" receive_member="AcquireNotify" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char3" receive_interface="org.bluez.GattCharacteristic1" receive_member="StartNotify" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_call" receive_path="/org/rustsimhub/recovery/v1/service0/char3" receive_interface="org.bluez.GattCharacteristic1" receive_member="StopNotify" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="method_return" receive_requested_reply="true" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_type="error" receive_requested_reply="true" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_interface="org.freedesktop.DBus.Properties" receive_member="PropertiesChanged" receive_type="signal" max_fds="0" />
+    <allow receive_sender="org.bluez" receive_interface="org.freedesktop.DBus.ObjectManager" receive_member="InterfacesRemoved" receive_type="signal" max_fds="0" />
+    <allow receive_sender="org.freedesktop.DBus" receive_type="method_return" receive_requested_reply="true" max_fds="0" />
+    <allow receive_sender="org.freedesktop.DBus" receive_type="error" receive_requested_reply="true" max_fds="0" />
+    <allow receive_sender="org.freedesktop.DBus" receive_interface="org.freedesktop.DBus" receive_member="NameOwnerChanged" receive_type="signal" max_fds="0" />
+    <allow receive_sender="org.freedesktop.DBus" receive_interface="org.freedesktop.DBus" receive_member="NameAcquired" receive_type="signal" max_fds="0" />
+    <allow receive_sender="org.freedesktop.DBus" receive_interface="org.freedesktop.DBus" receive_member="NameLost" receive_type="signal" max_fds="0" />
   </policy>
 </busconfig>

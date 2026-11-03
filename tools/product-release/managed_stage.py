@@ -6,6 +6,21 @@ import json
 import shutil
 import subprocess
 import sys
+import os
+import stat
+
+
+def source_file(path):
+    # SDK archives legitimately contain an empty go.sum. Executables still use
+    # the original nonempty arm.regular guard; only verified source permits 0.
+    with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), 'rb') as stream:
+        meta = os.fstat(stream.fileno())
+        if not stat.S_ISREG(meta.st_mode) or meta.st_nlink != 1 or meta.st_size > 2*1024**2:
+            raise ValueError('bounded SDK source required')
+        raw = stream.read(2*1024**2+1)
+        if len(raw) != meta.st_size:
+            raise ValueError('SDK source changed while reading')
+        return raw
 
 
 def load(path, name):
@@ -25,7 +40,7 @@ def prepare(repo, previous, output, env, revision):
     # Independent content/patch/module-sum verification from the existing code,
     # not acceptance of an arbitrary manifest supplied with the input stage.
     producer.status.verified_stage(previous, env, output)
-    before = {str(p.relative_to(previous)): arm.sha(arm.regular(p, 2*1024**2))
+    before = {str(p.relative_to(previous)): arm.sha(source_file(p))
               for p in previous.rglob('*') if p.is_file()}
     assert not any(p.is_symlink() for p in previous.rglob('*'))
     stage = output / 'stage'
@@ -57,10 +72,10 @@ def prepare(repo, previous, output, env, revision):
     with (stage/'go.mod').open('a') as stream:
         stream.write('\nrequire github.com/Viper-Boss/RustSimHub/tools/nkn-engine v0.0.0\n'
                      'replace github.com/Viper-Boss/RustSimHub/tools/nkn-engine => ./source/engine\n')
-    assert before == {str(p.relative_to(previous)): arm.sha(arm.regular(p, 2*1024**2))
+    assert before == {str(p.relative_to(previous)): arm.sha(source_file(p))
                       for p in previous.rglob('*') if p.is_file()}
     record = {'revision': revision, 'managed_patch_sha256': metadata['patch_sha256'],
-              'source_files': {str(p.relative_to(stage)): arm.sha(arm.regular(p, 2*1024**2))
+              'source_files': {str(p.relative_to(stage)): arm.sha(source_file(p))
                                for p in stage.rglob('*') if p.is_file()}}
     (output/'inputs.json').write_text(json.dumps(record, sort_keys=True, indent=2)+'\n')
     return stage, record
