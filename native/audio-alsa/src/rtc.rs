@@ -452,6 +452,17 @@ impl Session {
             return Err(Error::Identity);
         }
         let now = clock();
+        self.gate(now)?;
+        if self.permit.is_none() || self.codec.is_none() {
+            return Err(Error::Authorization);
+        }
+        if frame.at_ms > now {
+            return Err(Error::Bounds);
+        }
+        if now - frame.at_ms >= MAX_AGE_MS {
+            self.dropped_frames += 1;
+            return Ok(());
+        }
         let packet = self
             .codec
             .as_mut()
@@ -460,8 +471,14 @@ impl Session {
             .map_err(|_| Error::Codec)?;
         let actual_now = clock();
         self.gate(actual_now)?;
-        if frame.at_ms > actual_now || actual_now - frame.at_ms >= MAX_AGE_MS {
+        if frame.at_ms > actual_now {
             return Err(Error::Bounds);
+        }
+        // A scheduling/encoding delay expires this frame, not the authorized
+        // call. Never enqueue stale speech, and keep the actual sent count.
+        if actual_now - frame.at_ms >= MAX_AGE_MS {
+            self.dropped_frames += 1;
+            return Ok(());
         }
         let mid = self.mid.ok_or(Error::Sdp)?;
         let writer = self.rtc.writer(mid).ok_or(Error::Sdp)?;
@@ -741,6 +758,20 @@ mod tests {
             authority.update(&"r".repeat(64), now + 1000, now).unwrap();
             session.permit = Some(authority.permit());
             authority.revoke();
+            let stale = Frame {
+                samples: frame.samples,
+                sequence: frame.sequence,
+                at_ms: now - MAX_AGE_MS,
+            };
+            session.send(socket, &stale, now)
+        });
+        assert_eq!(result, Err(Error::Authorization));
+    }
+    #[test]
+    fn missing_authority_cannot_hide_behind_a_stale_capture_drop() {
+        let result = self_check_with(|session, socket, frame, now| {
+            session.permit = None;
+            session.codec = None;
             let stale = Frame {
                 samples: frame.samples,
                 sequence: frame.sequence,
