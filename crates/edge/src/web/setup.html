@@ -1,6 +1,12 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RustSimHub 首次设置</title><link rel="stylesheet" href="/style.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RustSimHub 首次设置</title><link rel="stylesheet" href="/style.css"><style>
+#setup-page section,#setup-page select{min-width:0;max-width:100%}
+#setup-page button{min-height:44px;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+#setup-page #setup-scan-facts{font-size:13px;color:#e5cc96;white-space:pre-line}
+#setup-page #ap-wifi-details{overflow-wrap:anywhere}
+@media(max-width:550px){#setup-page .actions{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}#setup-page .actions button{width:100%;margin:0}}
+</style></head>
 <body><main id="setup-page">
 <h1>RustSimHub 首次设置</h1>
 <p id="setup-notice" role="status" aria-live="polite">正在连接设备…</p>
@@ -15,8 +21,9 @@
 <section id="setup-wifi" hidden aria-labelledby="setup-networks-title">
  <h2 id="setup-networks-title">第二步：选择要连接的 Wi-Fi</h2>
  <label>附近的 Wi-Fi<select id="setup-networks"><option value="">（也可以在下面手动输入名称）</option></select></label>
- <div class="actions"><button id="setup-networks-rescan">重新扫描附近 Wi-Fi</button><span hidden><button id="setup-networks-refresh">读取缓存列表</button></span></div>
- <p id="setup-networks-note"></p>
+ <div class="actions"><button id="setup-networks-rescan" aria-describedby="setup-scan-facts">刷新附近 Wi-Fi</button></div>
+ <p id="setup-networks-note" role="status" aria-live="polite"></p>
+ <p id="setup-scan-facts"></p>
 <section class="ap-wifi-card" aria-labelledby="ap-wifi-title">
  <div class="ap-wifi-heading"><span class="ap-wifi-icon" aria-hidden="true">⌁</span><div><h2 id="ap-wifi-title">连接你的 Wi-Fi</h2><span class="ap-wifi-badge">先试连，再保存</span></div></div>
  <p>填一次名称和密码，我们会完成试连。成功后，由你确认保存。</p>
