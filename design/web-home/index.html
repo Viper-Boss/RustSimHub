@@ -55,15 +55,15 @@ a{color:var(--tint);text-decoration:none}
 .chip .d{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 25%,transparent)}
 .round{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--card);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);color:var(--tint);box-shadow:var(--shadow)}
 .large{padding:0 2px 14px}
-.hello{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
-.clock{display:flex;align-items:baseline;font-size:52px;font-weight:700;line-height:1;letter-spacing:-1px;
-  background:linear-gradient(120deg,var(--label) 30%,color-mix(in srgb,var(--indigo) 75%,var(--label)));-webkit-background-clip:text;background-clip:text;color:transparent}
-.clock .sec{font-size:26px;font-weight:600;margin-left:2px;letter-spacing:0;opacity:.55}
-.today{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:15px;font-weight:600;color:var(--label-2)}
-.today #greet{color:var(--label)}
-.today i{width:4px;height:4px;border-radius:50%;background:var(--label-3)}
-.meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px;padding-bottom:2px}
-.uptime{font-size:12px;color:var(--label-2);padding-right:4px}
+.hello{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.hello h1{margin:0;font-size:34px;font-weight:700;letter-spacing:.2px;line-height:1.2}
+.today{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;margin-top:6px;font-size:13px;font-weight:500;color:var(--label-2)}
+.today i{width:3px;height:3px;border-radius:50%;background:var(--label-3)}
+.today time{color:var(--label);font-weight:600}
+.sync{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:600}
+.sync::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.sync.ok{color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent)}
+.sync.warn{color:var(--orange);background:color-mix(in srgb,var(--orange) 16%,transparent)}
 
 .ver{white-space:nowrap;display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:999px;font-size:13px;font-weight:600;color:var(--label);
   background:var(--card);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:var(--shadow)}
@@ -216,9 +216,7 @@ nav.tabs{display:none}
   .cols > div > .section-title:first-child{margin-top:26px}
   .widgets,.stats{gap:12px}
   .ver em{display:none}
-  .clock{font-size:44px}
-  .clock .sec{font-size:22px}
-  .today{font-size:14px}
+  .hello h1{font-size:30px}
   .otp-list{grid-auto-columns:60%}
   nav.tabs{display:flex;position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:5;justify-content:space-around;padding:8px 6px;border-radius:26px;
     background:var(--bar);backdrop-filter:saturate(180%) blur(22px);-webkit-backdrop-filter:saturate(180%) blur(22px);box-shadow:0 10px 30px -10px rgba(0,0,0,.3);border:.5px solid var(--sep)}
@@ -270,14 +268,14 @@ nav.tabs{display:none}
 <div class="wrap">
   <section class="large">
     <div class="hello">
-      <div>
-        <time class="clock num" id="clock"><span id="hm">--:--</span><span class="sec" id="ss">:--</span></time>
-        <div class="today"><span id="greet">你好</span><i></i><span id="today" class="num">--</span></div>
-      </div>
-      <div class="meta">
-        <span class="ver num" title="固件版本与构建">固件 v0.1.0<em>8f9cfef</em></span>
-        <span class="uptime num">已运行 6 天 14 小时</span>
-      </div>
+      <h1 id="greet">你好</h1>
+      <span class="ver num" title="固件版本与构建">固件 v0.1.0<em>8f9cfef</em></span>
+    </div>
+    <div class="today num">
+      <span id="today">--</span><i></i>
+      <span>设备时间 <time id="clock">--:--:--</time></span>
+      <span class="sync ok" id="sync">已同步</span>
+      <span>已运行 6 天 14 小时</span>
     </div>
   </section>
 
@@ -505,12 +503,17 @@ nav.tabs{display:none}
     document.querySelector('.otp-empty').hidden = false;
     otpClear.disabled = true;
   });
-  const clock = document.getElementById('clock'), today = document.getElementById('today');
+  const clock = document.getElementById('clock'), today = document.getElementById('today'), sync = document.getElementById('sync');
+  let deviceOffsetMs = Number(new URLSearchParams(location.search).get('drift') || 0) * 1000;
   const tick = () => {
     const d = new Date(), p = n => String(n).padStart(2, '0');
-    document.getElementById('hm').textContent = `${p(d.getHours())}:${p(d.getMinutes())}`;
-    document.getElementById('ss').textContent = `:${p(d.getSeconds())}`;
-    clock.dateTime = d.toISOString();
+    // 原型：设备时间 = 浏览器时间 + 偏差；接入后由设备状态接口提供。
+    const dev = new Date(d.getTime() + deviceOffsetMs), drift = Math.abs(deviceOffsetMs) > 60000;
+    clock.textContent = `${p(dev.getHours())}:${p(dev.getMinutes())}:${p(dev.getSeconds())}`;
+    clock.dateTime = dev.toISOString();
+    sync.className = drift ? 'sync warn' : 'sync ok';
+    sync.textContent = drift ? '时间未同步' : '已同步';
+    sync.title = drift ? `与本机相差 ${Math.round(Math.abs(deviceOffsetMs) / 60000)} 分钟` : '与本机时间一致';
     const h = d.getHours();
     document.getElementById('greet').textContent = h < 5 ? '夜深了' : h < 11 ? '早上好' : h < 13 ? '中午好' : h < 18 ? '下午好' : '晚上好';
     today.textContent = `${d.getMonth() + 1}月${d.getDate()}日 星期${'日一二三四五六'[d.getDay()]}`;
