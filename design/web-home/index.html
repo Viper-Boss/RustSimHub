@@ -58,6 +58,12 @@ a{color:var(--tint);text-decoration:none}
 .large .date{font-size:13px;font-weight:600;color:var(--label-2);text-transform:none;letter-spacing:.2px}
 .large h1{margin:2px 0 0;font-size:34px;font-weight:700;letter-spacing:.2px;line-height:1.2}
 
+.title-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ver{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:999px;font-size:13px;font-weight:600;color:var(--label);
+  background:var(--card);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:var(--shadow)}
+.ver em{font-style:normal;font-weight:500;color:var(--label-2);font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:12px}
+.ver::before{content:"";width:8px;height:8px;border-radius:50%;background:linear-gradient(160deg,#5ac8fa,#5856d6)}
+
 /* 布局 */
 .cols{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:0 22px;align-items:start}
 .section-title{margin:26px 4px 10px;font-size:20px;font-weight:700;display:flex;justify-content:space-between;align-items:baseline}
@@ -254,7 +260,7 @@ nav.tabs{display:none}
 <div class="wrap">
   <section class="large">
     <div class="date">11月3日 星期一 · 运行 6 天 14 小时</div>
-    <h1>下午好</h1>
+    <div class="title-row"><h1>下午好</h1><span class="ver num" title="固件版本与构建">固件 v0.1.0<em>8f9cfef</em></span></div>
   </section>
 
   <div class="cols">
