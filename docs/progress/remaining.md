@@ -1,6 +1,6 @@
 # RustSimHub 完整剩余行动台账
 
-快照：2026-11-03T03:32:08.001373+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
+快照：2026-11-03T05:07:28.326929+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
 
 原P0–P7：**81.5%**，剩余 **18.5** 个验收点。新增X1/X2/X3/BLE独立保留，不混入旧分母。
 
@@ -691,7 +691,7 @@ python tools/progress/build.py --check
 
 原计划收尾 · 7个动作 · 已完成0个
 
-SDK/Root与普通Core/媒体有限路由已有合并候选，PR191补真实隔离SDK到Core组合；公开网络、直连/中继、TURN与真实声音仍待审核和外部环境验收。
+SDK/Root、普通Core/媒体授权桥及PR191候选已合并；D线真实TURN/TLS/中继worker集中PR170，已整合最新main待审核。公开网络、直连/中继及真实声音仍待外部环境和设备验收。
 
 代码/资料：`crates/edge`、`crates/media`、`docs/development-plan.md`、`docs/FEATURE-EXTENSIONS-2026-10-24.md`
 
@@ -728,7 +728,7 @@ SDK/Root与普通Core/媒体有限路由已有合并候选，PR191补真实隔�
 - 前置：REMOTE-01、NKN-06
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
-- 证据：[member-d-turn-source-admission.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-turn-source-admission.md)
+- 证据：[member-d-turn-source-admission.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-turn-source-admission.md)、[member-d-pr170-main-sync-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-pr170-main-sync-20261103.md)
 
 ### [ ] REMOTE-04 · NAT、IPv6和TLS-only矩阵
 
@@ -749,6 +749,7 @@ SDK/Root与普通Core/媒体有限路由已有合并候选，PR191补真实隔�
 - 前置：REMOTE-02、REMOTE-03
 - 配合/条件：外网对端、测试服务器
 - Claude离线接手：可协助代码审查；本动作完整验收含实机/外部条件
+- 证据：[member-d-pr170-main-sync-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-pr170-main-sync-20261103.md)
 
 ### [ ] REMOTE-06 · 断线、重连与切网
 
@@ -1434,7 +1435,7 @@ main同源13程序和未签名6载荷只是交付材料；精确源码、许可�
 
 新增扩展 · 11个动作 · 已完成0个
 
-实际Go SDK引擎和固定Root候选PR184、有限Core/媒体桥PR178已合并；PR191补真实状态/控制及隔离组合联调，待审。默认关闭，ARM交叉构建不等于ARM运行，公开网络与正式安装未验收。
+实际Go SDK引擎和固定Root候选PR184、有限Core/媒体桥PR178已合并；PR191的真实状态/控制及隔离组合已由负责人合并。默认关闭，ARM交叉构建不等于ARM运行，公开网络与正式安装未验收。
 
 代码/资料：`docs/FEATURE-EXTENSIONS-2026-10-24.md`、`crates/compat`、`firmware/system`
 
@@ -1807,7 +1808,7 @@ main同源13程序和未签名6载荷只是交付材料；精确源码、许可�
 - 前置：BLE2-02、AP-03
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
-- 证据：[member-d-core-recovery-t5-results.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-core-recovery-t5-results.md)
+- 证据：[member-d-core-recovery-t5-results.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-core-recovery-t5-results.md)、[member-d-pr170-main-sync-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-pr170-main-sync-20261103.md)
 
 ### [ ] BLE2-04 · 恢复与并发失败矩阵
 
@@ -1818,13 +1819,13 @@ main同源13程序和未签名6载荷只是交付材料；精确源码、许可�
 - 前置：BLE2-03
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
-- 证据：[member-d-core-recovery-t5-results.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-core-recovery-t5-results.md)
+- 证据：[member-d-core-recovery-t5-results.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-core-recovery-t5-results.md)、[member-d-pr170-main-sync-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-pr170-main-sync-20261103.md)
 
 ## BLE3 · BLE · 低权限设备服务
 
 新增扩展 · 4个动作 · 已完成0个
 
-D线BlueZ/GATT/生命周期和限权IPC已有交付；PR191补实际按需Core连接及候选装配。真实射频、正式单元安装、NetworkManager生产者与崩溃恢复仍缺，不读取业务库或身份seed。
+D线GATT/service、真实UID Core端口及安全恢复整合集中PR170；162已被其完整包含并关闭。既有PR191候选入口保留，各自固定路径及默认关闭；真实射频、正式Root装配和完整生产预算未验收。
 
 代码/资料：`planned:crates/ble`、`firmware/system`、`docs/ble`
 
@@ -1839,7 +1840,7 @@ D线BlueZ/GATT/生命周期和限权IPC已有交付；PR191补实际按需Core�
 - 前置：BLE1-04
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
-- 证据：[member-d-bluez-gatt-callbacks.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-bluez-gatt-callbacks.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
+- 证据：[member-d-bluez-gatt-callbacks.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-bluez-gatt-callbacks.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)、[member-d-pr170-main-sync-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-pr170-main-sync-20261103.md)
 
 ### [ ] BLE3-02 · 限权IPC与Core绑定
 
@@ -1850,7 +1851,7 @@ D线BlueZ/GATT/生命周期和限权IPC已有交付；PR191补实际按需Core�
 - 前置：BLE2-02
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
-- 证据：[member-d-bluez-gatt-callbacks.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-bluez-gatt-callbacks.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
+- 证据：[member-d-bluez-gatt-callbacks.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-bluez-gatt-callbacks.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)、[member-d-pr170-main-sync-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-pr170-main-sync-20261103.md)
 
 ### [ ] BLE3-03 · 服务单元与开关预算
 
@@ -1861,7 +1862,7 @@ D线BlueZ/GATT/生命周期和限权IPC已有交付；PR191补实际按需Core�
 - 前置：BLE3-01、BLE3-02
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
-- 证据：[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
+- 证据：[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)、[member-d-pr170-main-sync-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-pr170-main-sync-20261103.md)
 
 ### [ ] BLE3-04 · 恶意帧/断连/崩溃测试
 
@@ -1872,6 +1873,7 @@ D线BlueZ/GATT/生命周期和限权IPC已有交付；PR191补实际按需Core�
 - 前置：BLE3-03
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
+- 证据：[member-d-pr170-main-sync-20261103.md](https://github.com/Viper-Boss/RustSimHub/blob/main/docs/deliveries/member-d-pr170-main-sync-20261103.md)
 
 ## BLE4 · BLE · 网页与离线PWA
 
