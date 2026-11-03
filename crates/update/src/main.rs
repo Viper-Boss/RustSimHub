@@ -56,12 +56,34 @@ fn run() -> Result<(), rustsimhub_update::Error> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            serde_json::json!({"source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"system_ota_supported":false,"boot_runtime_selection_supported":true,"forwarding_application_format_supported":true,"signed_application_formats":[1,2],"database_schema":SCHEMA,"maintenance_observation_protocol":1,"read_only_state_inspection_protocol":1})
+            serde_json::json!({"source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"system_ota_supported":false,"boot_runtime_selection_supported":true,"forwarding_application_format_supported":true,"signed_application_formats":[1,2],"database_schema":SCHEMA,"maintenance_observation_protocol":1,"read_only_state_inspection_protocol":1,"read_only_runtime_inspection_protocol":1})
         );
         return Ok(());
     }
     if rustix::process::geteuid().as_raw() != 0 {
         return Err(Error::Denied);
+    }
+    if args
+        .first()
+        .is_some_and(|command| command == "inspect-runtime")
+    {
+        // This exact command never reaches the writable Store dispatch, even
+        // when additional arguments happen to be valid Store/trust paths.
+        if args.len() != 1 {
+            return Err(Error::Invalid);
+        }
+        let observation = rustsimhub_update::runtime_observation::RuntimeObservation::observe()?;
+        let report = observation.report()?;
+        let output = serde_json::to_vec(&report).map_err(|_| Error::Invalid)?;
+        if output.len() >= 4096 {
+            return Err(Error::Invalid);
+        }
+        // Retain the live guard until the entire bounded report is emitted.
+        println!(
+            "{}",
+            std::str::from_utf8(&output).map_err(|_| Error::Invalid)?
+        );
+        return Ok(());
     }
     if args
         .first()
