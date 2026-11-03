@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-10-30T09:06:44.477542+00:00",
+  "updated_at": "2026-11-03T03:32:08.001373+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -50,13 +50,13 @@
       "id": "P6",
       "label": "系统与更新",
       "weight": 12,
-      "done_points": 9
+      "done_points": 10
     },
     {
       "id": "P7",
       "label": "发布质量",
       "weight": 8,
-      "done_points": 4
+      "done_points": 4.5
     }
   ],
   "estimate": {
@@ -64,34 +64,109 @@
     "confidence": "首次粗估，完成更多动作后按实耗校准",
     "default_hours_per_day": 12,
     "calendar_note": "工时折合天数不含换卡、真人听音、第二设备、服务器及单独BLE授权等待；长测等待可以与其他开发重叠。",
-    "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原80%仍按固定P0–P7里程碑，不与新增范围混算。"
+    "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原固件81.5%按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "UPD-02",
-    "title": "签名维护材料与固定写入表",
-    "state": "前置已完成，按所列条件继续推进",
-    "description": "将需要的Root单元/助手纳入受限可复现交付；拒绝任意路径和旧密钥包。 验收：签名、来源、目标、权限和恢复材料均可验证。"
+    "task_id": "UPD-09",
+    "title": "PR192后完整同源交付材料已重建",
+    "state": "13程序同源构建通过 · 未签名 · 未部署",
+    "description": "固定主线7c33324/完整归档06f5c57e，正式1485 Rust通过、9项既有忽略、12 ARM程序与同源音频39 ARM/QEMU通过。实际音频release在私有loopback两侧各收发50帧，撤权/超时通过、未打开PCM。13程序与6应用载荷22901521字节回读；没有混旧06cb或dd10制品。只读现场仍confirmed71/无候选、七服务正常、数据断开/转发PID0。签名调用被自动审批拒绝并未执行，已请求仅本机现有信任签名/验签、不上传安装的单独授权；当前unsigned、无epoch、不可安装。Core恢复竞争仍待原D修复，不能以本次1485通过抹去已复现机制。 验收81.5%、20/169、加权10.6%和主线代码约90%粗估保持，人工最后。"
   },
   "facts": [
     {
-      "label": "原计划",
-      "value": "80%",
-      "detail": "固定P0–P7验收口径"
+      "label": "LAN音频过期帧",
+      "value": "代码已合并 · 39 ARM测试通过",
+      "detail": "帧龄仍60ms；只丢过期帧，未来时间/缺失/撤权仍拒绝，未部署"
     },
     {
-      "label": "运行应用",
-      "value": "epoch 50",
-      "detail": "最近已验收交付记录；本轮未连接设备复核"
+      "label": "Core恢复诊断",
+      "value": "已受控复现一种Storage机制",
+      "detail": "250ms准入持锁→后台Busy→底层Forbidden映射Storage；原D维护者待修，不断言云端必然同因"
     },
     {
-      "label": "安装器",
-      "value": "14项",
-      "detail": "含实际Windows字节测试"
+      "label": "跨环境回归",
+      "value": "3失败阶段 · 原因待定位",
+      "detail": "Core Storage/Busy、原生音频Bounds、构建ENOSPC；31项未运行不能填通过"
     },
     {
-      "label": "系统回归",
-      "value": "173项",
-      "detail": "1项原有跳过"
+      "label": "网页版辅助工具",
+      "value": "20自测通过 · PR190未合并",
+      "detail": "仅工具/报告；一处报告末尾空行待整理，不代替产品验收"
+    },
+    {
+      "label": "新主线正式构建",
+      "value": "1485 Rust通过 · 12 ARM程序",
+      "detail": "7c33324/06f5c57e正式完整流程；0失败/9既有忽略，未部署"
+    },
+    {
+      "label": "同源音频",
+      "value": "39 ARM/QEMU · release回环通过",
+      "detail": "与12主程序同一06f5c57e归档；各50帧，撤权/超时通过，未打开PCM"
+    },
+    {
+      "label": "未签名应用载荷",
+      "value": "新6载荷 · 约22.9MB",
+      "detail": "22901521字节，13程序同源回读；无签名/epoch、不可安装，等待单独签名授权"
+    },
+    {
+      "label": "本轮成员合并",
+      "value": "4 / 4 已合入 main",
+      "detail": "178、180、184、187；12草稿保留。先行批准不等于技术验收"
+    },
+    {
+      "label": "正式更新器",
+      "value": "只读入口已安装 · 12单元保持",
+      "detail": "原子替换；未重启业务，应用71账本保持，独立恢复timer已停"
+    },
+    {
+      "label": "首次配网存储",
+      "value": "PR185已合并 · 未部署",
+      "detail": "41 Edge、27网页、ARM及Chrome证据保持原产品绑定；手机热点验收最后"
+    },
+    {
+      "label": "原固件验收",
+      "value": "81.5%",
+      "detail": "固定P0–P7；新版本安装不重复增加既有验收点"
+    },
+    {
+      "label": "设备最近复核",
+      "value": "应用71 · 账本保持",
+      "detail": "其他八服务PID保持；普通数据断开、转发PID0，恢复保护已收尾"
+    },
+    {
+      "label": "正式灯控",
+      "value": "修正版已运行 · CPU约0.84%",
+      "detail": "30秒失效保护；120秒短测，真实故障灯效与长测待验"
+    },
+    {
+      "label": "转发关闭运行验证",
+      "value": "四阶段通过 · 约0.2秒",
+      "detail": "本机真实PID1/进程；Unknown与取消回执保持，棒子与冷启动待验"
+    },
+    {
+      "label": "B线材料",
+      "value": "32步已有交付",
+      "detail": "原B32步保持；PR191补真实SDK/恢复listener/PWA装配候选，待审，真实发布与设备验收仍缺"
+    },
+    {
+      "label": "D线离线剩余",
+      "value": "4个大步骤",
+      "detail": "PR162自报22/26已提交，D22/D23/D25/D26仍有前置；草稿未合并，不等于验收；PR191补部分集成候选，不替代原D恢复actor竞争修复"
+    },
+    {
+      "label": "A组剩余九步",
+      "value": "代码候选已分批交付",
+      "detail": "178/184/187已合并，191待审；正式密码/依赖、安装与实机验收保留"
+    },
+    {
+      "label": "PR191最终三组",
+      "value": "A22 / A27 / A30 · 待审",
+      "detail": "固定29ba539，既有524原生通过/4 suite忽略；隔离组合与浏览器证据，不是本轮重测"
+    },
+    {
+      "label": "历史证据缺口",
+      "value": "SMS-05原报告未取得",
+      "detail": "保留负责人固定公开台账已完成记录；STAB-03是用户接受6.4小时，不冒称24小时"
     }
   ],
   "constraints": [
@@ -106,7 +181,18 @@
     "docs/FEATURE-EXTENSIONS-2026-10-24.md",
     "docs/ble/README.md",
     "docs/development-plan.md",
-    "docs/team/README.md"
+    "docs/team/README.md",
+    "docs/VALIDATION-APP70-INSTALL-20261101.md",
+    "docs/VALIDATION-ROOT-ROLE-PARITY-20261101.md",
+    "docs/VALIDATION-UPDATER-ROLE-DEPLOY-20261101.md",
+    "docs/VALIDATION-NAS-NATIVE-20261102.md",
+    "docs/VALIDATION-NAS-BINDING-QUERY-20261102.md",
+    "docs/VALIDATION-NAS-MANAGEMENT-PANEL-20261102.md",
+    "docs/VALIDATION-CANDIDATE71-READINESS-20261102.md",
+    "docs/VALIDATION-NAS-JOURNAL-20261102.md",
+    "docs/VALIDATION-APP71-INSTALL-20261102.md",
+    "docs/VALIDATION-DASHBOARD-REFRESH-20261103.md",
+    "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
   ],
   "modules": [
     {
@@ -114,7 +200,7 @@
       "title": "短信转发 · 独立服务",
       "scope": "extension",
       "phase": "usable",
-      "summary": "原生Rust队列、HTTPS、配置页与六文件应用已交付；服务安装与默认OFF已验真；继续验收一键递送、故障和冷启动。",
+      "summary": "原生Rust队列与默认OFF已交付，Bark等既有闭环保持。邮件生产候选PR187已合并，关闭并发四阶段本机真实进程验证通过；获准邮箱/其他提供商、棒子关闭与冷启动仍待验收。",
       "paths": [
         "crates/forwarder",
         "crates/core/src/forwarding.rs",
@@ -318,10 +404,12 @@
             "provider"
           ],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-smtp-production-candidate.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -404,10 +492,12 @@
           "dependencies": [
             "FWD-04"
           ],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/VALIDATION-FORWARDING-CLOSE-RUNTIME-20261102.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -602,7 +692,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-smtp-production-candidate.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         }
@@ -613,7 +705,7 @@
       "title": "独立首次配网 · AP→STA",
       "scope": "original",
       "phase": "usable",
-      "summary": "同源应用50与联合Root配网服务已安装，真实权限和严格HTTPS健康检查通过；实际热点隔离、Wi-Fi保存冷启动和地址交接仍待验收。",
+      "summary": "首次认领与联合Root安装保持；最新设备记录为应用71。PR185修正浏览器存储门禁和完成归档，已合并未部署；真实热点隔离、切网、保存冷启动与无NAS首配继续验收。",
       "paths": [
         "crates/setup-ap",
         "crates/core/src/setup_ap_control",
@@ -680,7 +772,9 @@
           "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/VALIDATION-SETUP-STORAGE-GUARD-20261102.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -700,7 +794,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/VALIDATION-SETUP-STORAGE-GUARD-20261102.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -885,7 +981,7 @@
       "title": "短信 · 同步与故障收尾",
       "scope": "original",
       "phase": "usable",
-      "summary": "真实网页收发及回收站单端已验收；剩余是多端、一致性与故障矩阵，不重复发送已消费测试。",
+      "summary": "真实网页收发及单端回收站已验收。SMS-05沿用负责人公开完成记录，原报告在main缺失，复核说明保留来源缺口；多端一致性、真实分段及完整发送故障矩阵仍待验收。",
       "paths": [
         "crates/storage",
         "crates/core/src/observer.rs",
@@ -979,11 +1075,13 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "done",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
-          "completed_at": null,
+          "evidence": [
+            "docs/VALIDATION-DASHBOARD-REFRESH-20261103.md"
+          ],
+          "completed_at": "2026-10-28T08:08:28.398261+00:00",
           "actual_hours": null
         },
         {
@@ -1079,7 +1177,7 @@
       "title": "电话与双向音频",
       "scope": "original",
       "phase": "usable",
-      "summary": "局域网拨出、来电自动接听及真实双向讲话已通过，接音约0.4秒；继续控制边界与长期稳定。",
+      "summary": "局域网拨出、来电自动接听及双向讲话既有验收保持。PR192只丢过期音频帧，39项ARM/QEMU及发布回环通过但未部署；拒接/DTMF、竞争、远程与长期稳定仍缺。",
       "paths": [
         "crates/core/src/calls.rs",
         "crates/media",
@@ -1244,7 +1342,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-d-media-observation-main.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1267,7 +1367,9 @@
           "status": "todo",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/VALIDATION-AUDIO-STALE-FRAMES-20261103.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1305,7 +1407,7 @@
       "title": "网络诊断与月流量边界",
       "scope": "original",
       "phase": "usable",
-      "summary": "移动卡基础数据、月计量和限额阻断已有实测；当前原卡数据保持关闭，后续实测需换卡。",
+      "summary": "移动卡基础数据、月计量与限额阻断已有实测；当前原卡普通数据仍关闭。B线网络展示、诊断和性能材料已提交，不能替代换卡、漫游/计量与切网实测。",
       "paths": [
         "crates/network-agent",
         "crates/core/src/network_diagnostics.rs",
@@ -1327,7 +1429,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-b-network-display.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1345,7 +1449,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-b-network-display.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1441,7 +1547,7 @@
       "title": "远程HTTPS、信令与TURN",
       "scope": "original",
       "phase": "extensions",
-      "summary": "互联网入口和媒体各自验收，复用NKNGuard等传输能力，保留Core身份及媒体授权。",
+      "summary": "SDK/Root与普通Core/媒体有限路由已有合并候选，PR191补真实隔离SDK到Core组合；公开网络、直连/中继、TURN与真实声音仍待审核和外部环境验收。",
       "paths": [
         "crates/edge",
         "crates/media",
@@ -1464,7 +1570,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-bound-sessions-and-core-routing.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1484,7 +1592,9 @@
           "status": "todo",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-bound-sessions-and-core-routing.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1505,7 +1615,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-d-turn-source-admission.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1606,7 +1718,7 @@
       "title": "NasSimHub兼容与迁移",
       "scope": "original",
       "phase": "usable",
-      "summary": "只读会话桥与真实收件箱/详情已对照；继续原NAS页面的控制、声音及迁移收尾。",
+      "summary": "成员C的只读桥与主线绑定查询、管理面板和回执归档已有代码与离线验证；应用71安装记录保持。原NAS实际控制/声音、迁移和跨版本端到端仍须各自闭环。",
       "paths": [
         "crates/compat",
         "crates/core/src/compat_api.rs",
@@ -1629,7 +1741,8 @@
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [
-            "docs/team/REVIEW-PR-3-751e4a9.md"
+            "docs/team/REVIEW-PR-3-751e4a9.md",
+            "docs/deliveries/member-c-nas.md"
           ],
           "completed_at": null,
           "actual_hours": null
@@ -1652,7 +1765,9 @@
           "status": "todo",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/VALIDATION-NAS-MANAGEMENT-PANEL-20261102.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1756,7 +1871,9 @@
           "status": "todo",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/VALIDATION-NAS-MANAGEMENT-PANEL-20261102.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -1792,7 +1909,7 @@
       "title": "签名应用、整机组合与更新",
       "scope": "original",
       "phase": "release",
-      "summary": "正常签名应用升级多次通过；剩余是Root组合契约、实际失败回退、掉电和最终整机一致性。",
+      "summary": "UPD-01准入和UPD-04失败候选回选已有负责人完成记录；正式只读更新器入口已安装。7c33324同源材料仍未签名/无epoch，不可安装；维护授权、组合契约、掉电与完整镜像仍缺。",
       "paths": [
         "crates/update",
         "crates/recovery",
@@ -2018,7 +2135,7 @@
       "title": "备份与完整恢复闭环",
       "scope": "original",
       "phase": "release",
-      "summary": "已有全盘备份、恢复入口和新系统安装证据；完整恢复能力仍需独立演练。",
+      "summary": "全盘备份与恢复入口既有证据保持；完整镜像回刷、故障演练、掉电后恢复和第二设备不因构建或候选安装材料记完成。",
       "paths": [
         "tools/recovery",
         "crates/recovery",
@@ -2138,7 +2255,7 @@
       "title": "状态灯真实事件联动",
       "scope": "original",
       "phase": "release",
-      "summary": "白色慢脉冲已目视确认；剩余颜色与业务优先级需实际事件验收。",
+      "summary": "正式快照失效修正版已安装，120秒样本CPU约0.84%，旧状态30秒后失效；不等于长测/功耗验收。业务灯效、故障红灯和优先级仍待实际事件与用户确认。",
       "paths": [
         "crates/status-led",
         "crates/core/src/status_led.rs",
@@ -2180,10 +2297,13 @@
             "user"
           ],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/VALIDATION-LED-SNAPSHOT-EXPIRY-20261102.md",
+            "docs/VALIDATION-LED-SNAPSHOT-INSTALL-20261102.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2292,7 +2412,7 @@
       "title": "日常网页与一键测试收尾",
       "scope": "original",
       "phase": "usable",
-      "summary": "保留简洁首页与高级配置折叠；日常页面需要跨设备、权限及异常状态的完整验证。",
+      "summary": "B线32步材料及主线日常/测试、回执和NAS面板保持；PR191补实际NKN状态/控制与配置器装配。Chrome合成验证不替代真实手机、热点、多端与视觉终验。",
       "paths": [
         "crates/edge/src/web",
         "tools/test-web-*.mjs",
@@ -2311,10 +2431,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-b-test-center-assembly.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2329,10 +2451,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-b-operation-receipts.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2349,10 +2473,12 @@
             "user"
           ],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-b-configurator.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2387,10 +2513,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-b-test-center-assembly.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2407,10 +2535,12 @@
           "dependencies": [
             "FWD-04"
           ],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2448,7 +2578,7 @@
       "title": "性能与长期稳定",
       "scope": "original",
       "phase": "release",
-      "summary": "已有短样本和资源基线；完整质量需要可复现的等功能对照和长时间运行。",
+      "summary": "STAB-03按负责人后来记录沿用用户接受的6.4小时样本，不冒称24小时。灯控资源短测、B线性能工具与跨环境失败诊断分别保留；72小时、等功能对照及整机性能仍缺。",
       "paths": [
         "crates/core",
         "crates/media",
@@ -2468,10 +2598,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-b-performance-window.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2490,10 +2622,13 @@
           "dependencies": [
             "STAB-01"
           ],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/VALIDATION-LED-BUS-INSTALL-20261102.md",
+            "docs/deliveries/member-b-performance-window.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2514,7 +2649,8 @@
           "offline_delegable": false,
           "passive_wait_hours": 24,
           "evidence": [
-            "docs/VALIDATION-STAB03-PARTIAL-20261028.md"
+            "docs/VALIDATION-STAB03-PARTIAL-20261028.md",
+            "docs/VALIDATION-DASHBOARD-REFRESH-20261103.md"
           ],
           "completed_at": "2026-10-28T08:52:59.468585+00:00",
           "actual_hours": 1.0
@@ -2591,7 +2727,7 @@
       "title": "权限、接口与依赖审查",
       "scope": "original",
       "phase": "release",
-      "summary": "已有核心权限和隔离验证；正式发布前逐项审查新Root、远程及可选服务边界。",
+      "summary": "核心权限、隔离与失败矩阵已有代码证据；PR191新增候选入口仍默认关闭。完整攻击面、Root/密码协议/依赖审批与最终安全结论保持待审，不以隔离测试替代正式审计。",
       "paths": [
         "crates/auth",
         "crates/policy",
@@ -2612,10 +2748,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-security-matrix.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2635,7 +2773,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-security-matrix.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2672,10 +2812,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-public-artifact-scan.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2690,10 +2832,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-managed-sdk-engine.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2708,7 +2852,7 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -2746,7 +2890,7 @@
       "title": "第二台与正式发布验收",
       "scope": "original",
       "phase": "release",
-      "summary": "开发系统可用不等于通用发行；最终需要新设备、完整矩阵与可交接资料。",
+      "summary": "main同源13程序和未签名6载荷只是交付材料；精确源码、许可、签名、正式安装、第二设备与完整验收矩阵继续保留，不能将开发系统或构建通过写成通用发行。",
       "paths": [
         "docs/development-plan.md",
         "docs/HANDOFF.md",
@@ -2899,7 +3043,7 @@
       "title": "NKNGuard原生远程接入",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "固定上游c32952d已定位；先复用成熟Go引擎与Rust有限适配，仍需ARM64、服务和真实外网验收。",
+      "summary": "实际Go SDK引擎和固定Root候选PR184、有限Core/媒体桥PR178已合并；PR191补真实状态/控制及隔离组合联调，待审。默认关闭，ARM交叉构建不等于ARM运行，公开网络与正式安装未验收。",
       "paths": [
         "docs/FEATURE-EXTENSIONS-2026-10-24.md",
         "crates/compat",
@@ -2918,10 +3062,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-managed-sdk-engine.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2941,7 +3087,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-managed-sdk-engine.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2956,10 +3104,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-managed-root-provider.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -2980,7 +3130,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-managed-root-provider.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3000,7 +3153,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-bound-sessions-and-core-routing.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3021,7 +3177,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-bound-sessions-and-core-routing.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3041,7 +3200,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3107,7 +3268,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3140,7 +3303,7 @@
       "title": "NKN近期活跃安装统计",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "已有上游usagestats参考；单独授权、密钥与产品主题，默认关闭，不上传通信数据。",
+      "summary": "独立统计身份、持久单提交状态机和关闭引用管理已有交付；PR191补真实SDK/共享Root组合候选。默认关闭，公开主题/授权、链上实际提交/确认与真实关闭无PID仍须验收。",
       "paths": [
         "docs/FEATURE-EXTENSIONS-2026-10-24.md",
         "upstream:pkg/usagestats",
@@ -3159,10 +3322,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-stats-state-machine.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3177,10 +3342,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-stats-state-machine.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3201,7 +3368,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-stats-state-machine.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3221,7 +3391,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-stats-state-machine.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3236,10 +3408,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-stats-state-machine.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3261,7 +3435,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-stats-state-machine.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3281,7 +3458,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-a-stats-state-machine.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3336,7 +3515,7 @@
       "title": "BLE · 板级可行性",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "首先证实这根棒子的HCI、外设广播及GATT能力；家族规格不等于本板可用。",
+      "summary": "本板HCI、外设广播和GATT能力仍需独立硬件授权核验；已有软件候选和同家族规格均不代表本棒子可用。",
       "paths": [
         "docs/ble",
         "tools/rootfs/kernel",
@@ -3430,7 +3609,7 @@
       "title": "BLE · 加密GATT协议",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "有限状态与配网帧，不透传通用AuthCommand、shell、短信/电话或OTA。",
+      "summary": "有限帧、pin与安全绑定已有离线代码；PR191补实际Noise/WASM应用候选互操作。正式协议/密码审核和蓝牙真机仍缺，不开放通用命令、短信/电话或OTA。",
       "paths": [
         "docs/ble",
         "planned:crates/ble",
@@ -3491,7 +3670,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3522,7 +3703,7 @@
       "title": "BLE · Core恢复授权",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "必须预先由Owner授权独立恢复身份；合法BLE无USB可配网，匿名不能接管。",
+      "summary": "原恢复身份/撤销、schema9与Core有限事务保持；PR191新增同Auth/Store的恢复listener及真实UID查询。匿名不能接管；原D恢复actor准入竞争仍单独待修，真实无USB切网未验收。",
       "paths": [
         "crates/auth",
         "crates/policy",
@@ -3542,10 +3723,12 @@
           ],
           "needs": [],
           "dependencies": [],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-d-core-recovery-t5-results.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3565,7 +3748,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-d-core-recovery-t5-results.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3586,7 +3772,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-d-core-recovery-t5-results.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3606,7 +3794,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-d-core-recovery-t5-results.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         }
@@ -3617,7 +3807,7 @@
       "title": "BLE · 低权限设备服务",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "独立Rust服务接BlueZ，不能读取业务库或设备身份seed，缺BLE不影响核心通信。",
+      "summary": "D线BlueZ/GATT/生命周期和限权IPC已有交付；PR191补实际按需Core连接及候选装配。真实射频、正式单元安装、NetworkManager生产者与崩溃恢复仍缺，不读取业务库或身份seed。",
       "paths": [
         "planned:crates/ble",
         "firmware/system",
@@ -3641,7 +3831,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-d-bluez-gatt-callbacks.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3661,7 +3854,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-d-bluez-gatt-callbacks.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3682,7 +3878,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3713,7 +3911,7 @@
       "title": "BLE · 网页与离线PWA",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "Windows/Android共用静态配置器；页面不把Wi-Fi口令或密钥交给GitHub。",
+      "summary": "静态配置器、确认/取消、缓存和布局已有B线材料；PR191补实际WASM/安全backend及限定CSP/PWA装配。Chromium隔离互操作通过，不代表Windows/Android真实蓝牙或Wi-Fi验收。",
       "paths": [
         "planned:configurator",
         "docs/ble"
@@ -3736,7 +3934,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-b-configurator.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3757,7 +3958,10 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-b-configurator.md",
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3777,7 +3981,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3797,7 +4003,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         }
@@ -3808,7 +4016,7 @@
       "title": "BLE · 配置器公开发布",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "当前进度看板先占项目Pages根目录；后续配置器使用/configurator/，共用一个发布入口。",
+      "summary": "实际公开看板位于RustSimHub-progress仓库。配置器冻结的RustSimHub/configurator路径与发布组合仍须主线统一审核；PR191只有离线静态候选，本轮不发布或改变配置器基路径。",
       "paths": [
         "planned:configurator",
         ".github/workflows/progress-pages.yml",
@@ -3832,7 +4040,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3883,7 +4093,7 @@
       "title": "BLE · 真机互操作与恢复",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "真机部分需独立BLE授权，测试无USB且Wi-Fi断开时恢复；不动NV/分区或旧所有权。",
+      "summary": "真实BLE与无USB/Wi-Fi中断恢复仍待单独授权及目标板/手机矩阵；已有隔离组合不替代射频、现场恢复或人工验收，不改NV/分区/旧所有权。",
       "paths": [
         "docs/ble",
         "planned:crates/ble",
@@ -5083,6 +5293,18 @@
       ]
     },
     {
+      "at": "2026-10-28T07:24:41.907613+00:00",
+      "type": "state",
+      "title": "SMS-04 · 下一关卡：SIM满与MM对象换代",
+      "detail": "主线接回D-01～04：对象读取途中退休的旧回复已复现并修复，Core/Store 209项及严格检查通过；成员D保留22步，原验收与百分比保持。",
+      "task_ids": [
+        "SMS-04"
+      ],
+      "evidence": [
+        "docs/deliveries/member-d-sms.md"
+      ]
+    },
+    {
       "at": "2026-10-28T07:38:51.343230+00:00",
       "type": "state",
       "title": "LED-05 · 状态更新：短信/未接电话两组跑马灯",
@@ -5092,6 +5314,34 @@
       ],
       "evidence": [
         "docs/acceptance/session-led.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T07:58:21.984478+00:00",
+      "type": "state",
+      "title": "CALL-08 · 下一关卡：终止Call重观察去重",
+      "detail": "主线新增D-05～12离线包：内容/候选/持久发送与通话重观察，跨SIM通话来源碰撞已复现修复，228项及严格检查通过；累计接回12步，D余14。持久身份/完整跨启动去重仍为提案，功能与实机不计完成。",
+      "task_ids": [
+        "SMS-03",
+        "SMS-05",
+        "SMS-06",
+        "CALL-08"
+      ],
+      "evidence": [
+        "docs/deliveries/member-d-sms.md",
+        "docs/testing/call-reobserve-identity.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T08:08:28.398261+00:00",
+      "type": "completed",
+      "title": "SMS-05 · 已完成：疑似重复与跨启动易用性",
+      "detail": "真实Store重开/备份恢复、独立ID与候选边、删除恢复及跨卡隔离通过；当前网页候选核对/恢复/权限竞争测试通过。仅关闭SMS-05原判据，不声称设备部署、真实分段或完整通话去重。",
+      "task_ids": [
+        "SMS-05"
+      ],
+      "evidence": [
+        "docs/VALIDATION-SMS05-CANDIDATES-20261028.md"
       ]
     },
     {
@@ -5129,12 +5379,608 @@
       "evidence": [
         "docs/VALIDATION-STAB03-PARTIAL-20261028.md"
       ]
+    },
+    {
+      "at": "2026-10-28T16:55:27.912456+00:00",
+      "type": "state",
+      "title": "原固件主线进度复核：80% → 81.5%",
+      "detail": "回填已有实机证据：UPD-01维护准入+0.5、UPD-04候选失败回选+0.5、用户接受的STAB-03初步稳定性+0.5。权重不变；完整剩余行动台账与新增扩展单列，不计新动作完成。",
+      "task_ids": [
+        "UPD-01",
+        "UPD-04",
+        "STAB-03"
+      ],
+      "evidence": [
+        "docs/PROGRESS-AUDIT-20261029.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T17:08:36.814525+00:00",
+      "type": "state",
+      "title": "团队看板：五人并排竖条，任务点击详情再看",
+      "detail": "保留固定主线产品代码占比、实际作者与全部个人步骤；只调整展示。零分母不编造百分比，未合并PR仍在详情独立记录；不增加验收。",
+      "task_ids": [],
+      "evidence": [
+        "docs/progress/TEAM-VIEW-20261029.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T17:40:27.558133+00:00",
+      "type": "state",
+      "title": "独立公开看板已上线，固件仓库保持私有",
+      "detail": "用户确认后仅发布白名单页面与任务资料；Pages built/deploy成功，实际HTTPS与页面/JSON/清单摘要匹配。新入口为RustSimHub-progress，旧地址没有重定向。",
+      "task_ids": [],
+      "evidence": [
+        "docs/progress/PUBLICATION-20261029.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T17:40:27.837727+00:00",
+      "type": "state",
+      "title": "SEC-06 · 状态更新：有界输入和协议模糊测试",
+      "detail": "D-26局部修复99a7f16：实际蓝牙关闭失败后不再误报资源清理完成；先保留失败基线，新增4项25向量、BLE42+灯控24、严格检查和Python24通过。完整Core/BLE安全/TURN矩阵仍缺，D余6不扣步。",
+      "task_ids": [
+        "SEC-06"
+      ],
+      "evidence": [
+        "docs/testing/ble-cleanup-quiescence.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T17:40:28.245099+00:00",
+      "type": "state",
+      "title": "SEC-06 · 下一关卡：有界输入和协议模糊测试",
+      "detail": "继续D-26真实生产模块失败矩阵；已修复蓝牙清理责任误报，保持A安全会话和D-21/24/25接口方案待审边界。",
+      "task_ids": [
+        "SEC-06"
+      ],
+      "evidence": []
+    },
+    {
+      "at": "2026-10-28T18:24:20.097749+00:00",
+      "type": "state",
+      "title": "BLE2-01 · 状态更新：恢复公钥注册与撤销",
+      "detail": "D-21局部代码c5f9ea7：真实Store授权/CAS/候选迁移与近期Owner管理、291项离线通过；实际authorize/浏览器/A会话/IPC/Wi-Fi仍待，默认Core schema6，设备未动。不扣整步。",
+      "task_ids": [
+        "BLE2-01"
+      ],
+      "evidence": [
+        "docs/ble/recovery-owner-management.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T18:24:20.226299+00:00",
+      "type": "state",
+      "title": "BLE2-01 · 下一关卡：恢复公钥注册与撤销",
+      "detail": "D-21局部代码c5f9ea7：真实Store授权/CAS/候选迁移与近期Owner管理、291项离线通过；实际authorize/浏览器/A会话/IPC/Wi-Fi仍待，默认Core schema6，设备未动。不扣整步。",
+      "task_ids": [
+        "BLE2-01"
+      ],
+      "evidence": [
+        "docs/ble/recovery-owner-management.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T18:36:33.108976+00:00",
+      "type": "state",
+      "title": "BLE2-01 · 状态更新：恢复公钥注册与撤销",
+      "detail": "D-21继续：6c018ca已实现真实Auth请求能力与Store复核、连接/代次/动作正文/期限绑定，302项通过；缺A生产会话/浏览器/IPC/Wi-Fi/持久操作账本，不扣整步，设备未动。",
+      "task_ids": [
+        "BLE2-01"
+      ],
+      "evidence": [
+        "docs/ble/recovery-capability.md"
+      ]
+    },
+    {
+      "at": "2026-10-28T18:36:33.236617+00:00",
+      "type": "state",
+      "title": "BLE2-01 · 下一关卡：恢复公钥注册与撤销",
+      "detail": "D-21继续：6c018ca已实现真实Auth请求能力与Store复核、连接/代次/动作正文/期限绑定，302项通过；缺A生产会话/浏览器/IPC/Wi-Fi/持久操作账本，不扣整步，设备未动。",
+      "task_ids": [
+        "BLE2-01"
+      ],
+      "evidence": [
+        "docs/ble/recovery-capability.md"
+      ]
+    },
+    {
+      "at": "2026-10-29T01:47:50.834737+00:00",
+      "type": "state",
+      "title": "BLE2-01 · 下一关卡：恢复公钥注册与撤销",
+      "detail": "D-23局部a9f5f59：同Store持久回执、一次claim、重启Unknown与Auth能力绑定；候选schema8仅离线。同步main677ba57后324项通过，Wi-Fi/Root/IPC/A会话未接，不扣整步。",
+      "task_ids": [
+        "BLE2-01"
+      ],
+      "evidence": [
+        "docs/ble/recovery-ledger.md"
+      ]
+    },
+    {
+      "at": "2026-10-29T02:47:24.953393+00:00",
+      "type": "state",
+      "title": "AP-07 · 下一关卡：设备首次热点与隔离实测",
+      "detail": "Codex接手首次配网：已复现接管命令在HTTP入口被404拦截并修正；354项相关Rust、18组网页、12个ARM程序和33项音频QEMU通过，67版已验签。正在备份真实数据并推进安装，手机试连/保存尚未验收，原D任务暂停，不增加完成点。",
+      "task_ids": [
+        "AP-07"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/65"
+      ]
+    },
+    {
+      "at": "2026-10-29T02:58:40.006759+00:00",
+      "type": "state",
+      "title": "AP-07 · 下一关卡：设备首次热点与隔离实测",
+      "detail": "应用67已备份、严格admit-stage、启动并健康确认；真实Owner/身份、123条短信、音频7/7和7服务正常。修复接管命令404及网络缓存缺口，隔离手机测试已准备，等待在场验证试连和显式保存；尚未开启热点，不增加完成点，D任务仍暂停。",
+      "task_ids": [
+        "AP-07"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/65"
+      ]
+    },
+    {
+      "at": "2026-10-29T03:57:19.784839+00:00",
+      "type": "state",
+      "title": "AP-07 · 下一关卡：设备首次热点与隔离实测",
+      "detail": "应用67已完成手机临时Owner和真实Wi-Fi试连/返回热点；保存最后收尾因NM省略默认字段变unknown。已保存现场并恢复真实Owner、123短信、原Wi-Fi及7服务，隔离/定时器清除。0b4693f修复收尾和输入校验误报，356项Rust与18网页组通过；68候选构建中，尚未部署，主动扫描仍缺，不加完成点。",
+      "task_ids": [
+        "AP-07"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/65"
+      ]
+    },
+    {
+      "at": "2026-10-29T07:18:25.327484+00:00",
+      "type": "state",
+      "title": "AP-07 · 下一关卡：设备首次热点与隔离实测",
+      "detail": "68版及配网助手已备份、严格暂存、启动和健康确认；修复NM省略默认字段导致的保存收尾中断，以及网页本地校验误报unknown。356项相关Rust、18网页组、12ARM、33音频和正反验签通过，真实Owner/123短信保留。新临时Owner已创建，手机完整试连和保存仍在验收；主动扫描未交付，不加点，D任务暂停。",
+      "task_ids": [
+        "AP-07"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/65"
+      ]
+    },
+    {
+      "at": "2026-10-29T07:23:37.304318+00:00",
+      "type": "state",
+      "title": "AP-07 · 下一关卡：设备首次热点与隔离实测",
+      "detail": "68版及配网助手已健康确认，原Owner/123短信保留；356项Rust、18网页、12ARM、33音频和正反验签通过。隔离测试窗口已开；先前误把窗口标记当成Owner创建已纠正，Core真实回复仍待本轮首次Owner创建。等待手机继续，试连/保存未验收，主动扫描未交付，不加点，D任务暂停。",
+      "task_ids": [
+        "AP-07"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/65"
+      ]
+    },
+    {
+      "at": "2026-10-29T07:49:11.821319+00:00",
+      "type": "state",
+      "title": "AP-07 · 下一关卡：设备首次热点与隔离实测",
+      "detail": "用户本轮已创建临时Owner但卡第二页，冷库确认1 Owner且0试连/保存intent；已按要求结束测试，恢复真实Owner/身份/123短信与原回执、原Wi-Fi及服务，覆盖/隔离/timer清理。d543497离线修复账号busy自阻挡和设备记录命名空间，18网页组通过；未构建/部署/手机验收，设备仍确认68，不再开热点。主动扫描未交付，不加点。",
+      "task_ids": [
+        "AP-07"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/65"
+      ]
+    },
+    {
+      "at": "2026-10-29T08:14:03.696775+00:00",
+      "type": "state",
+      "title": "AP-07 · 下一关卡：设备首次热点与隔离实测",
+      "detail": "应用69已完成真实数据备份、严格暂存、单次启动与健康确认：第二页busy/设备记录修复已交付；38项Edge Rust、18组网页、12ARM和33音频QEMU通过。原Owner/身份/123短信及回执完整，7服务/音频正常，Wi-Fi连接、普通数据关闭。配网Root助手/系统更新器/信任未改；本轮不开热点、不试连/保存，不要求用户手机配合。完整手机首配与主动扫描仍待完成，AP-07/08不加点；D任务仍暂停。",
+      "task_ids": [
+        "AP-07"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/65"
+      ]
+    },
+    {
+      "at": "2026-10-29T09:04:09.520458+00:00",
+      "type": "state",
+      "title": "AP-07 · 下一关卡：设备首次热点与隔离实测",
+      "detail": "开热点前主动扫描链路已接入Root→保护快照→Core→网页，70离线候选已就绪：每轮一次扫描、8秒等待完成，校验原网络上下文和轮次，空扫描不回退旧SSID。331项相关Rust/严格检查、18网页组、12ARM、33音频QEMU及正反验签通过。70未上传/安装，设备保持69和真实数据、正常Wi-Fi/数据关闭，本轮不开热点。真实扫描/完整手机首配仍待验收，热点内显式重新扫描仍缺；AP-07/08不加点，D任务暂停。",
+      "task_ids": [
+        "AP-07"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/65"
+      ]
+    },
+    {
+      "at": "2026-10-29T09:44:09.590664+00:00",
+      "type": "state",
+      "title": "AP-07 · 下一关卡：设备首次热点与隔离实测",
+      "detail": "热点内重新扫描的底层暂停→一次扫描→精确恢复已实现，独立草稿PR #69，340项相关Rust及严格检查通过，含取消/撤权、丢回复不重写、只读恢复和8秒清理超时。Root持久请求/回执、Core认证命令、网页一键按钮仍待接入；没有新按钮、ARM候选或设备改动，应用70仍只含开热点前扫描、设备保持69，本轮不开热点。原进度及成员分工不变，D任务暂停；后续按交接文档接通整链路，AP-07/08不加点。",
+      "task_ids": [
+        "AP-07"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/69"
+      ]
+    },
+    {
+      "at": "2026-10-29T12:50:40.193300+00:00",
+      "type": "state",
+      "title": "AP-07 · 下一关卡：设备首次热点与隔离实测",
+      "detail": "热点内重扫Root持久通道初版已接源码：357项Rust及严格检查通过，旧查询不覆盖新快照，取消/恢复不明保留隔离。受理拒绝回执、实时能力、Core/一键网页仍待；PR69保持草稿。无新ARM或部署，设备先前确认69，70候选不含本批；手机需最终复测，现在无需操作。D任务暂停，贡献/81.5%/20项不变。",
+      "task_ids": [
+        "AP-07"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/69"
+      ]
+    },
+    {
+      "at": "2026-10-29T13:09:28.414547+00:00",
+      "type": "state",
+      "title": "AP-07 · 下一关卡：设备首次热点与隔离实测",
+      "detail": "热点内重扫Root受理边界已补齐源码验证：367项Rust/严格检查通过，Refused明确未执行，实时冷却/剩余次数/冲突/窗口原因已接入，丢回复同编号不扫描。Core认证/持久进度和一键网页仍待；PR69草稿，无新ARM/部署/设备操作。70候选来源及先前确认69保持，手机验收另约；D暂停，贡献/81.5%/20项不变。",
+      "task_ids": [
+        "AP-07"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/69"
+      ]
+    },
+    {
+      "at": "2026-10-31T05:13:00+00:00",
+      "type": "merged",
+      "title": "合并成员交付PR #113～#138",
+      "detail": "wnfhsj88/GTW交付的BLE GATT/BlueZ、恢复认领与试运行授权、schema9迁移、NKN、SMTP、统计等离线实现由所有者合并；合并不等于步骤验收，台账完成数不变。"
+    },
+    {
+      "at": "2026-11-01T06:00:00+00:00",
+      "type": "verified",
+      "title": "最新main全量回归",
+      "detail": "main ce9ccb8：fmt与默认/全部功能clippy通过；测试默认901、全部功能1156通过，仅6项已知环境失败（forwarder egress×5需root网络、compat Go无Go）；音频34、网页、进度测试通过。仅电脑侧，非设备验收。"
+    },
+    {
+      "at": "2026-11-01T15:02:08.114761+00:00",
+      "type": "verified",
+      "title": "应用70实际安装并健康确认",
+      "detail": "真实一致备份、有限Root刷新、实际维护准入、单次启动与confirm通过；七服务/音频7/7/可信HTTPS/原数据保持。PR164已合并，11个草稿不动；原81.5%和20/169不变。"
+    },
+    {
+      "at": "2026-11-01T15:29:45.265666+00:00",
+      "type": "verified",
+      "title": "计量/灯控实际部署与正式PR165合并",
+      "detail": "两个系统进程已是825a构建；原连接/进程及计量保持，六个恢复隔离场景通过，不冒称故障回退。新非草稿165按用户指示批准合并；11草稿不动，81.5%和20/169不变。"
+    },
+    {
+      "at": "2026-11-01T15:57:32.185697+00:00",
+      "type": "verified",
+      "title": "正式更新器替换与实际选择器验证",
+      "detail": "新更新器真实运行，正式app-select退出0、应用70及七服务正常；一致备份/原数据/HTTPS/音频保持，八组恢复隔离通过。PR168已合并，11草稿保留；权限诊断false原样保留，81.5%和20/169不变。"
+    },
+    {
+      "at": "2026-11-01T18:02:57.924153+00:00",
+      "type": "state",
+      "title": "NAS原生客户端构建与两条实际拒绝路径通过",
+      "detail": "固定a5df2c15组件在本机通过27项Go测试/vet并构建ARM64；实际NAS运行session和read，未批准身份与无效令牌均401/退出1/无stdout。使用已登记局域网HTTPS，TLS/Origin保持；九服务、boot、普通数据断开与转发OFF保持。未重置Owner或批准NAS，成功读取/撤销尚未验收。PR171已合并，PR169按所有者授权流程批准合并；其余草稿保留。代码开发约90%仅粗估，不能当验收比例，原81.5%及20/169不变。",
+      "task_ids": [
+        "NAS-02",
+        "NAS-07"
+      ],
+      "evidence": [
+        "docs/VALIDATION-NAS-NATIVE-20261102.md"
+      ]
+    },
+    {
+      "at": "2026-11-01T18:23:32.532102+00:00",
+      "type": "state",
+      "title": "NAS绑定只读核对接口已合入主线",
+      "detail": "新legacy_binding_status只允许近期Owner，经显式兼容provider读取当前映射及principal_current；不重绑、不轮换epoch、不发会话。固定21f4bbb的362项相关测试、真实UnixStream/SQLite拒绝与撤销/同钥再批准隔离、全仓1355通过/6项原有专用忽略、严格Clippy和ARM Core编译通过。PR172已正常合并ca24351；GitHub因付款/消费上限未启动job，不当作CI通过，无门禁/工作流修改。未签名部署，设备仍应用70；NAS正式授权读取/撤销、成员模块接线和最终人工验收继续。主线代码约90%仅粗估，原81.5%和20/169保持。",
+      "task_ids": [
+        "NAS-02",
+        "NAS-07"
+      ],
+      "evidence": [
+        "docs/VALIDATION-NAS-BINDING-QUERY-20261102.md"
+      ]
+    },
+    {
+      "at": "2026-11-01T19:00:09.502888+00:00",
+      "type": "state",
+      "title": "NAS网页管理与带版本保存/撤销已合入主线",
+      "detail": "PR173已正常合并6fc5b81，产品来源be007a5。新增默认折叠NAS只读管理，现有首页不加测试按钮；保存/撤销带原epoch或明确缺失，Core同锁比较并执行，拒绝旧页覆盖。浏览器持久意图先于发送、跨设备已验证pin、回复丢失只查询与显式当前状态留存，不冒充原写回执。固定归档1356 Rust通过/6项原有专用忽略、27组网页、全仓严格Clippy与Core/Edge ARM通过。Chrome本地合成流程及三宽DOM检查完成；原生截图保存被工具因无法可靠确认URL终止，未继续UI，用户视觉批准未取得。云端CI因付款/消费上限未启动，不当作通过。未签名部署或操作设备，最后应用70记录保持；真实NAS授权读取与视觉/真人验收继续。主线代码约90%仅粗估，原81.5%及20/169不变。",
+      "task_ids": [
+        "NAS-02",
+        "NAS-07"
+      ],
+      "evidence": [
+        "docs/VALIDATION-NAS-MANAGEMENT-PANEL-20261102.md"
+      ]
+    },
+    {
+      "at": "2026-11-01T19:34:05.318437+00:00",
+      "type": "development",
+      "title": "NAS本机回执可导出和有条件清理",
+      "detail": "PR174已合并d78dc2f；固定9f12fca的27组网页、1356 Rust/6原有忽略、严格Clippy和Core/Edge ARM通过。单事务清理保留待确认/关联、其他设备和并发新增回执，满64条最大元数据导出回归通过。云端检查因付款/消费上限未启动；原生浏览器与设备待验收，不增验收分。",
+      "task_ids": [
+        "NAS-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-NAS-JOURNAL-20261102.md"
+      ]
+    },
+    {
+      "at": "2026-11-01T19:34:05.318437+00:00",
+      "type": "development",
+      "title": "独立冻结候选71完成签名及离线验签",
+      "detail": "f598d792同源13 ARM/音频34、既有开发签名及实际ARM/OpenSSL验签/6反例通过；不包含此后NAS导出代码。预检不是安装准入或一致性备份，未上传安装，最后应用70观察保持。",
+      "task_ids": [
+        "UPD-01"
+      ],
+      "evidence": [
+        "docs/VALIDATION-CANDIDATE71-READINESS-20261102.md"
+      ]
+    },
+    {
+      "at": "2026-11-02T00:35:19.737218+00:00",
+      "type": "deployment",
+      "title": "应用71实际安装及独立只读健康复核",
+      "detail": "PR175记录已合并；来源d78dc2f3/8fb960e0，正式1356 Rust/6原有忽略、13 ARM/音频34和27网页通过。实际持锁准入、单次启动及健康后confirm，confirmed71/floor71，6载荷和3运行exe匹配、127旧短信及身份/操作保持。Root原字节、数据断开/转发PID0、恢复timer停止/预算未用。12项guard夹具不代表实际故障回退，人工仍最后，81.5%/20 of169不变。",
+      "task_ids": [
+        "UPD-01"
+      ],
+      "evidence": [
+        "docs/VALIDATION-APP71-INSTALL-20261102.md"
+      ]
+    },
+    {
+      "at": "2026-11-02T01:44:08.770154+00:00",
+      "type": "verified",
+      "title": "主线灯控只读总线实现已安装并完成短测",
+      "detail": "移除外部命令采样；1361 Rust/6原有忽略、ARM、真实受限只读探针和健康复核通过。CPU短测下降约82.7%，内存增加约1.15MiB；应用71/网络/计量保持。STAB-02进行中，完整验收点不变。",
+      "task_ids": [
+        "STAB-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-LED-BUS-INSTALL-20261102.md"
+      ]
+    },
+    {
+      "at": "2026-11-02T05:41:31.070892+00:00",
+      "type": "verified",
+      "title": "转发关闭的四个实际运行时点已核验",
+      "detail": "Owner通过Core/PID1关闭DNS/TLS/已提交HTTP/迟到ACK；进程/凭据清理与回执保持，原完整回归通过。只记本机执行部分，不增加整项验收点。",
+      "task_ids": [
+        "FWD-13"
+      ],
+      "evidence": [
+        "docs/VALIDATION-FORWARDING-CLOSE-RUNTIME-20261102.md"
+      ]
+    },
+    {
+      "at": "2026-11-02T06:00:17.435328+00:00",
+      "type": "verified",
+      "title": "灯控采样停更后错误保留联网状态的代码缺口已修复",
+      "detail": "渲染端30秒快照有效期；33项灯控与1365 Rust、ARM候选通过，取消年龄检查的负对照四项失败。代码合并且候选保存，未部署设备，不新增整项验收分。",
+      "task_ids": [
+        "LED-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-LED-SNAPSHOT-EXPIRY-20261102.md"
+      ]
+    },
+    {
+      "at": "2026-11-02T06:20:12.956766+00:00",
+      "type": "verified",
+      "title": "灯控快照修正版实际安装及有限健康确认通过",
+      "detail": "复用固定ARM制品，备份/上传回读/受限探针与恢复隔离检查通过；只更新灯控。120秒CPU约0.84%，独立复核原业务、计量和恢复保护保持；不当作故障红灯/长测验收。",
+      "task_ids": [
+        "LED-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-LED-SNAPSHOT-INSTALL-20261102.md"
+      ]
+    },
+    {
+      "at": "2026-11-02T11:16:12.018315+00:00",
+      "type": "state",
+      "title": "主线更新账本只读检查通过；合并等待门禁",
+      "detail": "固定b37af31/冻结92607555新增不触发Store恢复的inspect-state及错误参数前置校验。1374项Rust、严格Clippy、原生/ARM构建、14场景真实Root/chroot、18场景既有维护及签名格式兼容通过；棒子临时受限只读探针成功，应用71账本/信任/正式旧更新器/九单元和原boot保持，普通数据断开、转发PID0。首次USB oneshot预检失败保留。PR183已提交未合并：云端CI因付款/消费上限未启动，自动审批拒绝本轮合并；不绕过门禁。正式程序未替换，不替代C-26健康或维护授权。",
+      "task_ids": [
+        "UPD-01",
+        "UPD-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-UPDATE-READONLY-STATE-20261102.md",
+        "https://github.com/Viper-Boss/RustSimHub/pull/183"
+      ]
+    },
+    {
+      "at": "2026-11-02T11:59:59.462068+00:00",
+      "type": "state",
+      "title": "PR183按明确授权正常合并",
+      "detail": "用户明确接受此固定PR的云端CI未执行风险；正常API将8ba6594合并为74bcdce，未修改规则/使用管理员绕过或合并成员PR，正式旧更新器保持。",
+      "task_ids": [
+        "UPD-01"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/183",
+        "docs/VALIDATION-UPDATE-READONLY-STATE-20261102.md"
+      ]
+    },
+    {
+      "at": "2026-11-02T11:59:59.462068+00:00",
+      "type": "state",
+      "title": "首次配网存储失败拒绝与实际回执归档",
+      "detail": "最终76dea86/冻结10510b03修复首次设置页的存储接线：存储消失或未写入时不再发送对应网络变更，完成归档实际保留每设备最近8份元数据回执，归档/清除失败保留当前记录且不重发，损坏JSON不回显原文。41项Edge、27组网页、严格检查和ARM通过；Windows Chrome真实DOM/localStorage＋合成后端确认同ID刷新只查询、完成后1份回执、存储失效后新增网络变更0。前期合成夹具兼容问题保留，临时标签及三个监听已清理。PR185已提交未合并，云端CI41440864752因付款/消费上限未启动（两个job均0步骤）；未将仅PR183的授权扩展到本PR。未连接或部署棒子，手机真实热点验收最后。",
+      "task_ids": [
+        "AP-03"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/cdd10f58db57c0519a2758531aab09ccb5f4f234/docs/VALIDATION-SETUP-STORAGE-GUARD-20261102.md",
+        "https://github.com/Viper-Boss/RustSimHub/pull/185"
+      ]
+    },
+    {
+      "at": "2026-11-02T12:41:42.794849+00:00",
+      "type": "state",
+      "title": "正式更新器只读入口实际交付",
+      "detail": "复用已合并PR183的b37af31/冻结92607555/ARM81d6aaa4，经新鲜只读预检、当前/出厂应用验签、双份旧备份和17种真实Root/flock恢复隔离场景，在600秒独立恢复保护下只持更新锁原子替换正式更新器，保持0555。实际inspect-state、再次验签及独立只读复核通过：应用71账本/信任/原选择/原boot/12单元状态及PID保持，普通数据断开、转发PID0，全局恢复预算未用，timer/service停止。没有业务重启、choose/stage/confirm、数据回滚或新网络业务。安装文档PR186正常合并102f868；诊断授权/健康四项false仍保留，不代替C-26或无人值守Root升级。真实故障回退/冷启动和人工最后。",
+      "task_ids": [
+        "UPD-01",
+        "UPD-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-UPDATER-READONLY-INSTALL-20261102.md",
+        "https://github.com/Viper-Boss/RustSimHub/pull/186"
+      ]
+    },
+    {
+      "at": "2026-11-02T17:07:58.597891+00:00",
+      "type": "state",
+      "title": "PR185按本笔明确授权合并",
+      "detail": "固定a00976fd9b6b99bb40523ffc3438abce270ce0c0经用户明确接受云端CI未运行风险的仅本PR授权，通过正常入口合入e59dd8df524a7be8bbeed4a51fd49c15891de1a7。没有部署、手机热点验收或扩展本次例外授权。",
+      "task_ids": [
+        "AP-07"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/185"
+      ]
+    },
+    {
+      "at": "2026-11-02T17:07:58.597891+00:00",
+      "type": "state",
+      "title": "四笔成员非草稿已正常合入主线",
+      "detail": "按所有者2026-11-03指示先行批准并正常合并四笔成员非草稿PR：wnfhsj88的#178安全会话/Core媒体候选、#184受管SDK/Root候选、#187邮件queue4/worker5候选，以及yh1030的#180热点离线证据文档。#184/#187按依赖顺序改投main；#184正常接收main的快进同步后合并，无强推。最终main为0a3766d6492f7baba458fea9d896680cf09fa15d。回读四笔均merged且base=main，开放非草稿为0；12个草稿保持。本次未技术审查、未声称云端CI通过、未启用候选功能或部署。D线仍按指定归RedamancyGTW，实际提交账号与Git作者保持。",
+      "task_ids": [],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/178",
+        "https://github.com/Viper-Boss/RustSimHub/pull/180",
+        "https://github.com/Viper-Boss/RustSimHub/pull/184",
+        "https://github.com/Viper-Boss/RustSimHub/pull/187"
+      ]
+    },
+    {
+      "at": "2026-11-02T17:45:31.059043+00:00",
+      "type": "state",
+      "title": "PR188按单笔明确授权正常合并",
+      "detail": "固定ec01c4796781215012cb0df8dd763140375fc4f8正常合入e3762ec9d302a23077825a7db3cc591a2d5dce39，云端41490517874两项注释明确因付款/消费上限未启动，不当CI通过。默认63/全特性64、ARM及真实Root/systemd证据保留，修复未部署。",
+      "task_ids": [
+        "UPD-01",
+        "UPD-02"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/188",
+        "docs/VALIDATION-UPDATE-INDICATOR-RESOURCE-20261102.md"
+      ]
+    },
+    {
+      "at": "2026-11-02T17:45:31.059043+00:00",
+      "type": "state",
+      "title": "新主线13份ARM程序和六载荷已准备",
+      "detail": "PR188固定ec01c47获仅本笔明确授权后正常合并e3762ec。以该产品提交/完整源码归档06cb909c运行正式构建：1485 Rust通过、0失败、9项专用忽略；12 ARM程序和同源原生音频34 QEMU通过。13程序及6应用载荷22900497字节逐一回读。明确未签名、无epoch、不可安装；本轮没有访问设备、外发或启用成员候选服务。仅文档PR189按单笔明确授权合并6965b62，受测产品仍绑定e3762ec，不改写为文档HEAD重建。下一步先新鲜只读核对现场版本/信任/空间/兼容再准备签名，人工验收最后。",
+      "task_ids": [
+        "UPD-01",
+        "UPD-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-MAINLINE-ARM-20261103.md",
+        "https://github.com/Viper-Boss/RustSimHub/pull/189"
+      ]
+    },
+    {
+      "at": "2026-11-02T17:45:31.059043+00:00",
+      "type": "state",
+      "title": "网页版Codex无设备辅助任务书可转交",
+      "detail": "已在进度源分支准备主线无设备一键回归工具包，限新tools/mainline-checks及专用报告，不接管四位成员业务实现，不改五人归属/动作分母。尚未取得执行或交付证据，不能计入完成。",
+      "task_ids": [],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/0f375e7c9671014d6eb37f78a756e4a67849b03c/docs/team/WEB-CODEX-MAINLINE-INTEGRATION-20261103.md"
+      ]
+    },
+    {
+      "at": "2026-11-03T00:47:34.280245+00:00",
+      "type": "state",
+      "title": "PR190工具已复核，保留三个失败阶段",
+      "detail": "网页版Codex交付PR190，固定1d6c9bf，实际受测7950051。范围为允许的五个工具/报告文件，产品代码与e3762ec相同；本机20项运行器自测、86项固定清单与1排除项核对通过。完整diff有一处报告末尾空行，暂未批准或合并。交付实际52阶段通过/3失败/31未运行：Core恢复Storage及后续Busy、原生音频Bounds、兼容构建ENOSPC；缺Root与构建依赖阻断不得填绿。主线限定诊断复用旧二进制，各一次Core单项1通过、库整组87通过/1忽略、ARM音频同名单项1通过，仍未复现和解释跨环境原因，不覆盖网页版失败或宣称已修复。",
+      "task_ids": [
+        "STAB-02"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/190",
+        "https://github.com/Viper-Boss/RustSimHub/blob/1d6c9bf258fbde3ea90c6d9436fcb1f6fe0a323c/docs/testing/WEB-CODEX-MAINLINE-REGRESSION-20261103.md",
+        "https://github.com/Viper-Boss/RustSimHub/blob/95bf08f7bc5a91fb2eecc84845e49f56b807a24f/docs/VALIDATION-PR190-REVIEW-20261103.md"
+      ]
+    },
+    {
+      "at": "2026-11-03T01:39:00.527979+00:00",
+      "type": "state",
+      "title": "LAN过期帧修复已正常合并PR192",
+      "detail": "PR192固定e05ca7e按仅本笔明确授权正常合并7c33324。主线只修已有LAN音频：编码前或编码期间超过60ms的帧丢弃，不写RTP、不增加实际发送数，也不结束仍授权会话；未来时间、缺失/撤销许可仍拒绝，队列/票据/DTLS/媒体超时保持。修复前夹具811/b80e两项确定失败；产品6cdd513/dd10f997的39 ARM/QEMU、严格Clippy/文件fmt与发布CLI真实加密回环通过，两侧各50帧，撤权/超时通过。没有签名部署或设备/外发；云端41560201531两项仍因计费/消费上限未启动，未计CI通过。",
+      "task_ids": [
+        "CALL-05"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/192",
+        "docs/VALIDATION-AUDIO-STALE-FRAMES-20261103.md"
+      ]
+    },
+    {
+      "at": "2026-11-03T01:39:00.527979+00:00",
+      "type": "state",
+      "title": "Core恢复准入竞争机制已受控定位",
+      "detail": "私有同源合成夹具只加入250ms合法控制准入持锁和错误类别日志，单次触发auth_lock_busy、storage_error=Forbidden和原549行Storage失败。没有磁盘I/O错误，不把Storage一律归磁盘；尚无原云端时序证据，不宣称必然同因或Core已修复。Core/Auth/Storage生产代码未改，交接原D恢复维护者；保留原长期Auth占用必须有限回滚的测试。新PR191只读取范围以避免重复，未审核/合并；其修改列表不含本恢复actor或本LAN rtc文件。",
+      "task_ids": [
+        "STAB-02"
+      ],
+      "evidence": [
+        "docs/CORE-RECOVERY-ADMISSION-CONTENTION-20261103.md"
+      ]
+    },
+    {
+      "at": "2026-11-03T02:00:31.396765+00:00",
+      "type": "state",
+      "title": "PR192后完整同源交付材料已重建",
+      "detail": "固定主线7c33324/完整归档06f5c57e，正式1485 Rust通过、9项既有忽略、12 ARM程序与同源音频39 ARM/QEMU通过。实际音频release在私有loopback两侧各收发50帧，撤权/超时通过、未打开PCM。13程序与6应用载荷22901521字节回读；没有混旧06cb或dd10制品。只读现场仍confirmed71/无候选、七服务正常、数据断开/转发PID0。签名调用被自动审批拒绝并未执行，已请求仅本机现有信任签名/验签、不上传安装的单独授权；当前unsigned、无epoch、不可安装。Core恢复竞争仍待原D修复，不能以本次1485通过抹去已复现机制。",
+      "task_ids": [
+        "UPD-09"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/fe3ee704957f130736c532f376c769bfea28fed4/docs/VALIDATION-MAINLINE-COHORT-20261103.md"
+      ]
+    },
+    {
+      "at": "2026-11-03T03:30:08.674333+00:00",
+      "type": "state",
+      "title": "全看板刷新：沿用负责人81.5%，补齐最新交付",
+      "detail": "对齐固定发布快照a47401c：20/169、加权10.6%，权重/依赖与审核记录不变。PR191三组代码候选补链；重新回读五人PR和main作者统计，新增识别NKN Go/配置器源码。SMS-05原报告缺口与STAB-03接受6.4小时的边界公开保留；本分支待审，未上线。",
+      "task_ids": [
+        "FWD-09",
+        "NKN-01",
+        "NKN-03",
+        "STAT-01",
+        "STAT-02",
+        "STAT-05",
+        "WEB-01",
+        "WEB-02",
+        "WEB-03",
+        "WEB-05",
+        "WEB-06",
+        "SEC-01",
+        "SEC-04",
+        "SEC-05",
+        "STAB-01"
+      ],
+      "evidence": [
+        "docs/VALIDATION-DASHBOARD-REFRESH-20261103.md",
+        "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "80db24e9b101dd3fb4b8c951aa7f1e0e1858e65d",
-    "generated_at": "2026-10-30T09:06:44.477542+00:00",
+    "source_revision": "7c33324af5cd7cea67856d5f15d5653abcf8ed89",
+    "generated_at": "2026-11-03T03:32:08.001373+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5153,15 +5999,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 51993,
-            "tests": 33548,
-            "tooling": 9470,
-            "firmware": 1169
+            "product": 57125,
+            "tests": 40527,
+            "tooling": 10118,
+            "firmware": 1180
           },
-          "commits": 415,
-          "code_commits": 273,
-          "added": 101524,
-          "deleted": 2737
+          "commits": 503,
+          "code_commits": 320,
+          "added": 115340,
+          "deleted": 3297
         },
         "work": {
           "assigned_steps": 0,
@@ -5302,7 +6148,7 @@
             {
               "pr": 34,
               "head": "8edb20334fa05e97e1d7efe33e1f87990fa5e7b2",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 35,
@@ -5317,7 +6163,7 @@
             {
               "pr": 37,
               "head": "69773e8c95197f988702a7dfbb811a88e66ac860",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 38,
@@ -5377,12 +6223,12 @@
             {
               "pr": 50,
               "head": "2b13b25f4ffad0fed04643fedadbdec60fed9f64",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 51,
               "head": "9f4ff04373846bd1555b3f471bc92072eaf5c412",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 52,
@@ -5402,7 +6248,7 @@
             {
               "pr": 55,
               "head": "d9cb52d182b3e457b51efe0e88dda5753416b066",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 56,
@@ -5412,37 +6258,37 @@
             {
               "pr": 57,
               "head": "a785531af02a085c59410bb2698792d0647144c7",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 58,
               "head": "bcefada0d3c04d7a8523a71859d8f2b3441b0d95",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 59,
               "head": "71ded6b468f90aa1c02a939825ab92605b162dfd",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 60,
               "head": "d3de1956fbc8fbbcd4bcc36bdda2c603cc1b06ed",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 61,
               "head": "bc9fb583debcf58d3bdebed9665ab1b631525328",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 62,
               "head": "4cd8dc446417bac882395fc66a6e01b6551c94ca",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 63,
               "head": "ad8b87a812317018994bcb5f6df4d00ce3a1842f",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 64,
@@ -5452,12 +6298,12 @@
             {
               "pr": 65,
               "head": "d09e76df1549ec69f167b23a9e887073f87c7784",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 66,
               "head": "e9414f459c1bab4ce2ff1399fa7f5a14b941ad92",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 67,
@@ -5491,8 +6337,158 @@
             },
             {
               "pr": 73,
-              "head": "c24164839b8e88297a8f21993095008e60dd9d08",
-              "state": "OPEN"
+              "head": "d86635fa3d3ad2315a734689fe495709d704d59f",
+              "state": "MERGED"
+            },
+            {
+              "pr": 146,
+              "head": "3b00430f67e677a8f6068302ede06999b91b13cf",
+              "state": "MERGED"
+            },
+            {
+              "pr": 148,
+              "head": "e1ab5a3dcf5bd2da7390eda416351e64239e26cb",
+              "state": "MERGED"
+            },
+            {
+              "pr": 149,
+              "head": "36478bdbd690bc158f59afc19be60a4297ca552e",
+              "state": "MERGED"
+            },
+            {
+              "pr": 151,
+              "head": "d570861edc011d72932491b329f4a2c1a80e91c6",
+              "state": "MERGED"
+            },
+            {
+              "pr": 152,
+              "head": "c042211c67937db0755634182846f3e549d7b8c6",
+              "state": "MERGED"
+            },
+            {
+              "pr": 155,
+              "head": "3dd4901de3afa92353f8b05903404eae40818973",
+              "state": "MERGED"
+            },
+            {
+              "pr": 156,
+              "head": "ab4a5ab19c2a63faf481fb772f6b48bd81d0e97b",
+              "state": "MERGED"
+            },
+            {
+              "pr": 158,
+              "head": "bb083275ec1d8abb6c7bb4480ace0110af91c835",
+              "state": "MERGED"
+            },
+            {
+              "pr": 159,
+              "head": "43e7108ea9f7b1b0db642c7b31da7ca4166345a6",
+              "state": "MERGED"
+            },
+            {
+              "pr": 163,
+              "head": "653aaff16c609bb296266c846fe1149c2a54c284",
+              "state": "MERGED"
+            },
+            {
+              "pr": 164,
+              "head": "542a5a6dcefc42dea083f7130a45fffdb9cfdb24",
+              "state": "MERGED"
+            },
+            {
+              "pr": 166,
+              "head": "d72edc9b536f9d54ef18b41ab048c1fc0e983222",
+              "state": "MERGED"
+            },
+            {
+              "pr": 167,
+              "head": "f2e805f071a351eaca284716d378b1a34641e054",
+              "state": "MERGED"
+            },
+            {
+              "pr": 168,
+              "head": "4ddf296579e8b45a6a15f97a6ebb79c29f1129d6",
+              "state": "MERGED"
+            },
+            {
+              "pr": 171,
+              "head": "7076a3435ead98f320524313e2030191189a0c8f",
+              "state": "MERGED"
+            },
+            {
+              "pr": 172,
+              "head": "f5dc34b68b956ce9ea0842812d58c525f5222374",
+              "state": "MERGED"
+            },
+            {
+              "pr": 173,
+              "head": "40ba3955aed46bb1dcdab9b377b102a4f8b5e007",
+              "state": "MERGED"
+            },
+            {
+              "pr": 174,
+              "head": "477517b55f08da46cda9e34d3e991dfb4a4926dc",
+              "state": "MERGED"
+            },
+            {
+              "pr": 175,
+              "head": "142c2edc8666180b9103b30b7f2f852034e50b62",
+              "state": "MERGED"
+            },
+            {
+              "pr": 176,
+              "head": "0ee7dd4a012f9cdfc9e13f0b504061be7ab73d1b",
+              "state": "MERGED"
+            },
+            {
+              "pr": 177,
+              "head": "4c74b0244ca685aec6504185c174fd08dee97d13",
+              "state": "MERGED"
+            },
+            {
+              "pr": 179,
+              "head": "71caf45bb48c2127354f4bfa89d93863e987a768",
+              "state": "MERGED"
+            },
+            {
+              "pr": 181,
+              "head": "b14ef1ff22fe7965ca085edb34077253f0467bd7",
+              "state": "MERGED"
+            },
+            {
+              "pr": 182,
+              "head": "d7244ed0b8304366d124acb1512c27541e830512",
+              "state": "MERGED"
+            },
+            {
+              "pr": 183,
+              "head": "8ba659475ba01462bd2b6c2f883dcc863a5e1bab",
+              "state": "MERGED"
+            },
+            {
+              "pr": 185,
+              "head": "a00976fd9b6b99bb40523ffc3438abce270ce0c0",
+              "state": "MERGED"
+            },
+            {
+              "pr": 186,
+              "head": "deeedd79669ee3069594b66247f5ac9afc5442d6",
+              "state": "MERGED"
+            },
+            {
+              "pr": 188,
+              "head": "ec01c4796781215012cb0df8dd763140375fc4f8",
+              "state": "MERGED"
+            },
+            {
+              "pr": 189,
+              "head": "128fd4b83d6767f170bcaaf8b0f23139afd1f7b9",
+              "state": "MERGED"
+            },
+            {
+              "pr": 192,
+              "head": "e05ca7ec91df39c5a2d59df5c8853ce0a36411b7",
+              "state": "MERGED"
             }
           ]
         }
@@ -5530,7 +6526,7 @@
             {
               "pr": 41,
               "head": "295c47655af1d69d2eb0568eda09023c4599c16b",
-              "state": "OPEN"
+              "state": "MERGED"
             }
           ]
         }
@@ -5664,15 +6660,15 @@
         ],
         "stats": {
           "current_lines": {
-            "product": 366,
-            "tests": 990,
-            "tooling": 703,
-            "firmware": 0
+            "product": 13042,
+            "tests": 8736,
+            "tooling": 3600,
+            "firmware": 1
           },
-          "commits": 42,
-          "code_commits": 16,
-          "added": 2198,
-          "deleted": 90
+          "commits": 109,
+          "code_commits": 48,
+          "added": 26196,
+          "deleted": 338
         },
         "work": {
           "assigned_steps": 62,
@@ -5793,7 +6789,7 @@
             {
               "pr": 101,
               "head": "51043fefcd323d6fd81f592da945f199249f5034",
-              "state": "OPEN"
+              "state": "MERGED"
             },
             {
               "pr": 102,
@@ -5823,16 +6819,261 @@
             {
               "pr": 107,
               "head": "241803809029dc7da20a611baef6b476cc3c901f",
-              "state": "OPEN"
+              "state": "MERGED"
             },
             {
               "pr": 108,
               "head": "f1428eec8462ab328eb849e6617c4881cc3ac691",
-              "state": "OPEN"
+              "state": "MERGED"
             },
             {
               "pr": 109,
               "head": "2d4b0c6e4e130fd07ff1c523c144e6df3fe87475",
+              "state": "MERGED"
+            },
+            {
+              "pr": 110,
+              "head": "fce922512fb52bb0eb5d12de951f30707390f1a8",
+              "state": "MERGED"
+            },
+            {
+              "pr": 111,
+              "head": "d3a381353ec665fff3aecebe2767306d1baec3b8",
+              "state": "MERGED"
+            },
+            {
+              "pr": 112,
+              "head": "0f94e9ed28efd43544dd4c893e517ce5668a2306",
+              "state": "MERGED"
+            },
+            {
+              "pr": 113,
+              "head": "32a2c3dace7e0bd25a117670adba22c8a979b1e2",
+              "state": "MERGED"
+            },
+            {
+              "pr": 114,
+              "head": "0f03b2724152e4f317576a032ba6102d49eee9d2",
+              "state": "MERGED"
+            },
+            {
+              "pr": 115,
+              "head": "e773a57a7e0c0a4d9f5c63850dae22f111f9edb2",
+              "state": "MERGED"
+            },
+            {
+              "pr": 116,
+              "head": "bdf2de4a08bad08d6d70d588bb3bbae8ce3714ef",
+              "state": "MERGED"
+            },
+            {
+              "pr": 117,
+              "head": "a2732cc2a23693b16f209225b9463199192223cf",
+              "state": "MERGED"
+            },
+            {
+              "pr": 118,
+              "head": "323e9d9a700867bd98937c73b3f66592c67748ad",
+              "state": "MERGED"
+            },
+            {
+              "pr": 119,
+              "head": "69af8d8037d6c89ea593ff4ae28cc1d7b32cb685",
+              "state": "MERGED"
+            },
+            {
+              "pr": 120,
+              "head": "fd6d8f330daae11fa8a66a8cc61187425a96975a",
+              "state": "MERGED"
+            },
+            {
+              "pr": 121,
+              "head": "2df1ae335c025d4fc260c1de5e9fb5c02279bad7",
+              "state": "MERGED"
+            },
+            {
+              "pr": 122,
+              "head": "663e138fcfce99a147d97ec2a59337d93f55f777",
+              "state": "MERGED"
+            },
+            {
+              "pr": 123,
+              "head": "4db90796e6244bc9d7b6bdc45a4c4d3abef3267c",
+              "state": "MERGED"
+            },
+            {
+              "pr": 124,
+              "head": "c387db65d90426dc2aa15a758c4fcfdc90edf5d1",
+              "state": "MERGED"
+            },
+            {
+              "pr": 125,
+              "head": "1ab2e1ce2db3a24dd61aea4c03cc80ecff1ccde3",
+              "state": "MERGED"
+            },
+            {
+              "pr": 126,
+              "head": "2b69cf7594db318e181927c13e3e6dcb46491e33",
+              "state": "MERGED"
+            },
+            {
+              "pr": 127,
+              "head": "6e78c636ae595b3b624f67c7495abae295ff53ea",
+              "state": "MERGED"
+            },
+            {
+              "pr": 128,
+              "head": "974b6739ae2e4ef9d8b2cf8558cb986b789b82df",
+              "state": "MERGED"
+            },
+            {
+              "pr": 129,
+              "head": "401d5288dc40fdf7f7fffbf578431aca507102be",
+              "state": "MERGED"
+            },
+            {
+              "pr": 130,
+              "head": "1354a41d75215c915668fc4626c253f285b0379d",
+              "state": "MERGED"
+            },
+            {
+              "pr": 131,
+              "head": "9f598f24ea33282deaea49cb707141e2495a0d46",
+              "state": "MERGED"
+            },
+            {
+              "pr": 132,
+              "head": "5ddfd82f2127e7b546f33e1d936b0685d9866746",
+              "state": "MERGED"
+            },
+            {
+              "pr": 133,
+              "head": "ad32afc930c224cb0c69a04aebc73df82ac6f2a1",
+              "state": "MERGED"
+            },
+            {
+              "pr": 134,
+              "head": "d3c7de903fb73a93a087e52e3afa0eab2493cb17",
+              "state": "MERGED"
+            },
+            {
+              "pr": 135,
+              "head": "a963f038ed82ecf6c35bc8159778b4546267f89f",
+              "state": "MERGED"
+            },
+            {
+              "pr": 136,
+              "head": "da698954886f06bf226d38c41a7f1362bc615cf6",
+              "state": "MERGED"
+            },
+            {
+              "pr": 137,
+              "head": "088f4b7d50640472561449be87e88b68bd3bba1d",
+              "state": "MERGED"
+            },
+            {
+              "pr": 138,
+              "head": "747c9cc5f715fe32fce0ac52be7e2c12179d9643",
+              "state": "MERGED"
+            },
+            {
+              "pr": 139,
+              "head": "2f29a919ab72aa4d425e3821f9bc78164bbf8039",
+              "state": "MERGED"
+            },
+            {
+              "pr": 140,
+              "head": "c54e7b3e2d136deab6378961969bc493a1062632",
+              "state": "MERGED"
+            },
+            {
+              "pr": 141,
+              "head": "b513f4c9130ff2a21d9638546127fb0b340e3e07",
+              "state": "MERGED"
+            },
+            {
+              "pr": 142,
+              "head": "f7743b6b5bcaf6afe8e940ca2772dddab45aed52",
+              "state": "MERGED"
+            },
+            {
+              "pr": 144,
+              "head": "82963402627a4dcc251314cbf1e5e25d5789ddfd",
+              "state": "MERGED"
+            },
+            {
+              "pr": 145,
+              "head": "5a4a2f716bae63ea365e0acc66ceb8e62d3828a9",
+              "state": "MERGED"
+            },
+            {
+              "pr": 153,
+              "head": "fcd089158d3af40f363e581018650c13554a6694",
+              "state": "MERGED"
+            },
+            {
+              "pr": 154,
+              "head": "7008728412d92db5934bc862bab29a7615528fda",
+              "state": "MERGED"
+            },
+            {
+              "pr": 157,
+              "head": "d1a8f7dcb50f8d937fd74fa52d141d5b2cb4718c",
+              "state": "MERGED"
+            },
+            {
+              "pr": 160,
+              "head": "7c44bdc2204fa17ec8d89fcba35b86bf39e1cd02",
+              "state": "MERGED"
+            },
+            {
+              "pr": 161,
+              "head": "1951e9a6387b7f88a87e1cb9b5b4a4b60354ca17",
+              "state": "MERGED"
+            },
+            {
+              "pr": 162,
+              "head": "9bc7be8099840f9e5e41e176ff5bc6ee1afc8eb2",
+              "state": "OPEN"
+            },
+            {
+              "pr": 165,
+              "head": "b215095425785b52e5bdb4917c5e9e0694c8c2ed",
+              "state": "MERGED"
+            },
+            {
+              "pr": 169,
+              "head": "40b99f653198256e9471ecec1207809895e0e626",
+              "state": "MERGED"
+            },
+            {
+              "pr": 170,
+              "head": "3f377e48d006e2cf99caeb5c5dd33be0c8d7630f",
+              "state": "OPEN"
+            },
+            {
+              "pr": 178,
+              "head": "25bcaa4671278f25720b5c2fb9c2ca720a1375ef",
+              "state": "MERGED"
+            },
+            {
+              "pr": 184,
+              "head": "a48cf4b3dbb318d90b5dd4c85cd5e5087e150d8e",
+              "state": "MERGED"
+            },
+            {
+              "pr": 187,
+              "head": "f3ac9b96e18d80040a179342436c20423523fb6b",
+              "state": "MERGED"
+            },
+            {
+              "pr": 190,
+              "head": "1d6c9bf258fbde3ea90c6d9436fcb1f6fe0a323c",
+              "state": "OPEN"
+            },
+            {
+              "pr": 191,
+              "head": "29ba539f0ea38418970526394372e80e4a5d38b1",
               "state": "OPEN"
             }
           ]
@@ -5912,13 +7153,13 @@
         "stats": {
           "current_lines": {
             "product": 1164,
-            "tests": 3382,
-            "tooling": 293,
+            "tests": 4654,
+            "tooling": 945,
             "firmware": 0
           },
-          "commits": 32,
-          "code_commits": 13,
-          "added": 5076,
+          "commits": 43,
+          "code_commits": 16,
+          "added": 7115,
           "deleted": 186
         },
         "work": {
@@ -6012,6 +7253,26 @@
               "pr": 99,
               "head": "086183aff03585e90fa92cf595392d4ee20ab499",
               "state": "MERGED"
+            },
+            {
+              "pr": 143,
+              "head": "ffc2bfe4834d19949f72868d429eb85ffcdb4cb8",
+              "state": "MERGED"
+            },
+            {
+              "pr": 147,
+              "head": "0eeb3dfe186722be695d8a3a8fdadff964bbbceb",
+              "state": "MERGED"
+            },
+            {
+              "pr": 150,
+              "head": "f8e3b0eb5c92a23365795f75845630902439771b",
+              "state": "MERGED"
+            },
+            {
+              "pr": 180,
+              "head": "52b483c1a4b7565c6daa3453eaf4dc0e708d0d84",
+              "state": "MERGED"
             }
           ]
         }
@@ -6079,15 +7340,15 @@
         ],
         "stats": {
           "current_lines": {
-            "product": 0,
-            "tests": 0,
-            "tooling": 0,
-            "firmware": 0
+            "product": 7261,
+            "tests": 12989,
+            "tooling": 126,
+            "firmware": 8
           },
-          "commits": 0,
-          "code_commits": 0,
-          "added": 0,
-          "deleted": 0
+          "commits": 84,
+          "code_commits": 41,
+          "added": 20963,
+          "deleted": 335
         },
         "work": {
           "assigned_steps": 26,
@@ -6100,21 +7361,21 @@
     ],
     "unmapped": {
       "current_lines": {
-        "product": 1449,
-        "tests": 2584,
-        "tooling": 126,
+        "product": 1504,
+        "tests": 1297,
+        "tooling": 0,
         "firmware": 0
       },
-      "commits": 22,
-      "code_commits": 10,
-      "added": 4277,
-      "deleted": 25
+      "commits": 3,
+      "code_commits": 1,
+      "added": 3017,
+      "deleted": 0
     },
     "totals": {
-      "product": 54972,
-      "tests": 40504,
-      "tooling": 10592,
-      "firmware": 1169
+      "product": 80096,
+      "tests": 68203,
+      "tooling": 14789,
+      "firmware": 1189
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。",
     "task_plan": {

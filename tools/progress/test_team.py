@@ -19,6 +19,13 @@ class Team(unittest.TestCase):
                                ('crates/edge/src/web/network.js','product'),('tools/progress/team.py','tooling'),
                                ('tools/test-web-network.mjs','tests'),('firmware/system/a.service','firmware'),
                                ('tools/nas-adapter/readonly.go','product'),('tools/nas-adapter/http_test.go','tests'),
+                               ('tools/nkn-engine/managed/production.go','product'),
+                               ('tools/nkn-engine/rootguard/policy_linux_test.go','tests'),
+                               ('tools/nkn-engine/vendor/sdk/main.go',None),
+                               ('configurator/src/app.js','product'),('configurator/sw.js','product'),
+                               ('configurator/index.html','product'),('configurator/tests/browser.py','tests'),
+                               ('configurator/tests/controller.mjs','tests'),('configurator/assets/icon.svg',None),
+                               ('work/configurator/index.html',None),('configurator/generated.js',None),
                                ('crates/compat/src/nas_adapter_tests.rs','tests'),('tools/nas-adapter/vendor/x.go',None),
                                ('docs/progress/index.html',None),('Cargo.lock',None),('../crates/a.rs',None)]:
             self.assertEqual(team.classify(path),category)
@@ -84,6 +91,8 @@ class Team(unittest.TestCase):
         self.assertEqual(team.identity('another name','123+fungi1220@users.noreply.github.com',self.members),'member-a')
         self.assertEqual(team.identity('yh1030','private@example.invalid',self.members),'member-c')
         self.assertEqual(team.identity('YH1030','another@example.invalid',self.members),'member-c')
+        self.assertEqual(team.identity('GTW','private@example.invalid',self.members),'member-d')
+        self.assertEqual(team.identity('GTW-other','private@example.invalid',self.members),'unmapped')
         data=copy.deepcopy(self.roster);data['members'][2]['git_names']=['Viper-Boss']
         with self.assertRaises(ValueError):team.roster_valid(data)
 
