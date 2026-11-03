@@ -175,6 +175,21 @@ fn runtime_capture(mut command: Command, budget: Duration) -> Result<Vec<u8>> {
     }
 }
 
+/// Dedicated explicit candidate profile. Never widens maintenance semantics.
+pub(super) fn running_unit() -> Result<Vec<u8>> {
+    let mut command = Command::new("/usr/bin/systemctl");
+    command
+        .args(["--system", "show", "--all", "--no-pager"])
+        .args(PROPERTIES.iter().flat_map(|p| ["-p", p]))
+        .arg("rustsimhub-core.service")
+        .env_clear()
+        .current_dir("/")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    runtime_capture(command, Duration::from_millis(250))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -248,19 +263,4 @@ mod tests {
         }
         assert_eq!(effective(&[0xff], Mode::Device), Err(Error::Integrity));
     }
-}
-
-/// Dedicated explicit candidate profile. Never widens maintenance semantics.
-pub(super) fn running_unit() -> Result<Vec<u8>> {
-    let mut command = Command::new("/usr/bin/systemctl");
-    command
-        .args(["--system", "show", "--all", "--no-pager"])
-        .args(PROPERTIES.iter().flat_map(|p| ["-p", p]))
-        .arg("rustsimhub-core.service")
-        .env_clear()
-        .current_dir("/")
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null());
-    runtime_capture(command, Duration::from_millis(250))
 }
