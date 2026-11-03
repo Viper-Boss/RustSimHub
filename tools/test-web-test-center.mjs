@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import {installAppImports,appVmSource,assertNknAssembly} from './fixtures/web3-web/app-imports.mjs';
 import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput } from '../crates/edge/src/web/nas-bridge.js';
 // Execute the production app and formatter, with synthetic IPC/IndexedDB only.
 import assert from 'node:assert/strict';
@@ -40,7 +41,9 @@ function fixture({respond,onPut,consent=true,loggedIn=true,callGate=null,clock={
   fetch:async(_url,options)=>{const body=JSON.parse(options.body),c=body.command;sent.push(c);const result=respond?await respond(c):c.op==='line_status'?{status:'ready',line:7}:c.op==='prepare_sms'?{id,state:'prepared'}:{id,state};return {ok:true,json:async()=>({protocol:2,id:body.id,result})};},
  };
  context.loginCount=0;
- vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={support:()=>supportPanels,querySupportOperation,center:()=>testCenterComponent,hide:()=>{for(const fn of listeners.get("pagehide")||[])fn();},show:()=>{for(const fn of listeners.get("pageshow")||[])fn();},setAp:value=>{apConfigurator=value;showTestControls();},forwarding:()=>forwardingPanel,runTestCenter,copyTestResult,reconcileTestPending,setAudio:value=>{audioReady=value;showPending();},clearLogin:()=>{token=null;showPending();},mockLogin:()=>{login=async()=>{globalThis.loginCount++;token="synthetic-session";};},dailySendSms,submit,query,closeSms,inboxPage,act,showPending,loginAs:()=>{token="synthetic-session";},setDb:value=>{db=value;},setPending:value=>{pending=value;showPending();},pending:()=>pending,logout:()=>$("logout").onclick()};',context);
+ installAppImports(context);
+ vm.runInNewContext(appVmSource(app)+'\nglobalThis.fixture={nkn:()=>nknProductPanel,support:()=>supportPanels,querySupportOperation,center:()=>testCenterComponent,hide:()=>{for(const fn of listeners.get("pagehide")||[])fn();},show:()=>{for(const fn of listeners.get("pageshow")||[])fn();},setAp:value=>{apConfigurator=value;showTestControls();},forwarding:()=>forwardingPanel,runTestCenter,copyTestResult,reconcileTestPending,setAudio:value=>{audioReady=value;showPending();},clearLogin:()=>{token=null;showPending();},mockLogin:()=>{login=async()=>{globalThis.loginCount++;token="synthetic-session";};},dailySendSms,submit,query,closeSms,inboxPage,act,showPending,loginAs:()=>{token="synthetic-session";},setDb:value=>{db=value;},setPending:value=>{pending=value;showPending();},pending:()=>pending,logout:()=>$("logout").onclick()};',context);
+ assertNknAssembly(context);
  context.fixture.setDb({transaction(){
   const tx={abort(){this.onabort?.();}};tx.objectStore=()=>({get:key=>{const request={};queueMicrotask(()=>{request.result=saved.get(key);request.onsuccess?.();});return request;},put:(value,key)=>{
    const snapshot=structuredClone(value);const completion=onPut?.(key,snapshot);queueMicrotask(async()=>{try{await completion;saved.set(key,snapshot);tx.oncomplete?.();}catch{tx.onerror?.();}});
@@ -265,3 +268,47 @@ for(const end of ['logout','hide','visibility']){
  const gate=deferred(),f=fixture({respond:()=>gate.promise}),panel=f.support().configuration;const reading=panel.refresh();await turn();f.clearLogin();f.loginAs();f.setPending(null);gate.resolve(verifiedForwarding);await reading;assert.equal(panel.snapshot,null,'Even a replacement session with the same synthetic token must fence an old read');panel.reset();
 }
 console.log('PASS: actual configuration reader, request-causal proof, conservative RTT age, no save inference, malformed/late/clock failures, no overlapping reads or automatic requests and logout/page/visibility fences');
+
+// The actual app's NKN construction/storage/logout path, not a second state machine.
+const nknContext='a'.repeat(64),nknId='11111111-1111-4111-8111-111111111111';
+const nknReport=(sequence,revision='0',manual=false)=>({available:true,configuration_api:true,remote_control_supported:false,revision,provider:{contract:1,core_instance:nknContext,owners:{manual,remote:false,statistics:false},supervisor_state:'ready',root_generation:1,original_process_exit_verified:false,status:{contract:1,source:'engine',generation:1,sequence,age_ms:0,enabled:'on',service:'running',path:'unknown',dht:'unknown',rx_bytes:null,tx_bytes:null,rtt_ms:null,peer_count:null,last_error:null}}});
+{
+ let sequence=0,manual=false;
+ const f=fixture({respond:async c=>{
+  if(c.op==='nkn_status')return nknReport(++sequence,manual?'1':'0',manual);
+  if(c.op==='set_nkn_enabled'){
+   assert.equal(c.owner,'manual_engine');assert.equal(c.enabled,true);assert.equal(c.expected_revision,'0');assert.equal(c.expected_core_instance,nknContext);
+   const durable=f.saved.get('nkn-control-pending');assert.equal(durable.id,c.request_id,'actual app metadata must be durable before IPC');
+   manual=true;return {request_id:c.request_id,known:true,state:'accepted',core_instance:nknContext,owner:c.owner,enabled:c.enabled,expected_revision:'0',admitted_revision:'1',not_found_is_not_proof:true};
+  }
+  throw Error('Unexpected NKN assembly command '+c.op);
+ }}),panel=f.nkn();
+ assert.equal(f.sent.length,0);await panel.buttons.read.onclick();assert.deepEqual(f.sent.map(c=>c.op),['nkn_status']);assert(panel.buttons.remote_on.disabled);assert(!panel.buttons.manual_on.disabled);
+ await panel.buttons.manual_on.onclick();assert.deepEqual(f.sent.map(c=>c.op),['nkn_status','set_nkn_enabled','nkn_status']);
+ assert.equal(f.saved.get('nkn-control-pending'),null);const archive=f.saved.get('nkn-control-receipts');assert.equal(archive.length,1);assert.equal(archive[0].state,'accepted');assert.equal(archive[0].record.owner,'manual_engine');
+ const epoch=panel.epoch;f.logout();assert(panel.epoch>epoch);assert.equal(panel.sample,null);assert(panel.buttons.remote_on.disabled);assert.equal(f.sent.length,3);
+ for(const [name,button] of Object.entries(panel.buttons))assert.equal(button.disabled,true,`NKN ${name} must be disabled after the actual app logout`);
+}
+for(const end of ['logout','hide','visibility']){
+ const gate=deferred(),f=fixture({respond:async c=>{assert.equal(c.op,'nkn_status');return gate.promise;}}),panel=f.nkn();
+ const reading=panel.buttons.read.onclick();await turn();assert.equal(f.sent.length,1);
+ if(end==='visibility')f.visibility(true);else f[end]();gate.resolve(nknReport(1));await reading;
+ assert.equal(panel.sample,null);assert(panel.buttons.remote_on.disabled);assert.doesNotMatch(panel.output.textContent,/服务：运行中/);assert.equal(f.sent.length,1);
+ if(end==='logout')for(const [name,button] of Object.entries(panel.buttons))assert.equal(button.disabled,true,`Late NKN reply cannot enable ${name} after logout`);
+}
+{
+ const f=fixture({respond:async()=>{throw Error('Corrupt pending must fail before IPC');}}),panel=f.nkn();
+ f.saved.set('nkn-control-pending',{format:1,id:nknId,owner:'remote',enabled:true,expected_revision:'00',core_instance:nknContext,secret:'MUST-NOT-LEAK'});
+ await panel.buttons.read.onclick();assert.equal(f.sent.length,0);assert.equal(panel.sample,null);assert(panel.buttons.remote_on.disabled);assert.doesNotMatch(panel.state.textContent,/MUST-NOT-LEAK/);assert(f.saved.get('nkn-control-pending'));panel.reset();
+}
+console.log('PASS: real app/NKN construction, exact pending/archive aliases and IndexedDB readback, passive-read no Remote ON, explicit manual-only request, corrupt pending, logout/pagehide/visibility late-response reset.');
+
+{
+ const f=fixture({respond:async c=>{if(c.op==='nkn_status')return nknReport(1);throw Error('Synthetic re-login denial');}}),panel=f.nkn();
+ await panel.buttons.read.onclick();assert.equal(panel.buttons.read.disabled,false);
+ await panel.loginButton.onclick();
+ assert.equal(panel.sample,null);
+ for(const [name,button] of Object.entries(panel.buttons))assert.equal(button.disabled,true,`Failed re-login cannot leave NKN ${name} available`);
+ assert.equal(f.sent.filter(c=>c.op==='nkn_status').length,1,'Denied re-login cannot implicitly read NKN again');
+}
+console.log('PASS: NKN controls disabled after app logout, late response and denied re-login; management login remains available.');

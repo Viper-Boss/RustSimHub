@@ -79,10 +79,10 @@ assert.equal(r.$('setup-wifi').hidden,false);
 assert.doesNotMatch(r.$('ap-wifi-state').textContent,/其他测试|通话/,'completed account setup must release its own busy guard before opening the Wi-Fi controller');
 assert.equal(r.$('setup-networks').children.length,2);
 assert.match(r.$('setup-networks-note').textContent,/开启热点前/);
-// Refresh rebuilds the list instead of appending duplicates.
-await r.$('setup-networks-refresh').onclick();await new Promise(x=>setTimeout(x,20));
-assert.equal(r.$('setup-networks').children.length,2);
-assert.equal(r.log.filter(o=>o==='wifi_networks').length,2);
+// The initial cache read is read-only; no second cache refresh control.
+assert.equal(r.$('setup-networks-refresh').onclick,null);
+assert.equal(r.log.filter(o=>o==='wifi_networks').length,1);
+assert.equal(r.log.filter(o=>o==='setup_ap_scan_begin').length,0);
 assert.equal(r.$('setup-password').value,'');
 // Complete the real shared AP controller's adoption -> trial -> explicit save path.
 r.$('ap-wifi-ssid').value='Home';r.$('ap-wifi-passphrase').value='wifi-password';
@@ -146,7 +146,7 @@ r=await run({password:'correct horse',catalogue:{source:'before_setup_ap',snapsh
 assert.match(r.$('setup-networks-note').textContent,/12分钟前的缓存/);
 r=await run({password:'correct horse',catalogue:{source:'before_setup_ap_scan',snapshot_age_seconds:4,networks:[{ssid:'Fresh',strength:81,selectable:true}]}});
 assert.match(r.$('setup-networks-note').textContent,/已完成一次主动扫描，约4秒前完成/);
-assert.match(r.$('setup-networks-note').textContent,/不会重新扫描/);
+assert.match(r.$('setup-networks-note').textContent,/确认后才会主动扫描/);
 assert.equal(r.$('setup-networks').children[1].value,'Fresh');
 assert.deepEqual(r.log.filter(op=>op.startsWith('setup_ap_')),[]);
 // The visible scan button is wired to the production mutation and an empty

@@ -56,12 +56,12 @@ const messages={idle:'输入 Wi-Fi 名称和密码，一次点击即可开始。
 export class ApConfigurator {
  constructor({document,env=globalThis,crypto=globalThis.crypto,request,login,getToken,loadPending,savePending,archivePending,blocked=()=>false,scan=null}){
   Object.assign(this,{doc:document,env,crypto,request,login,getToken,loadPending,savePending,archivePending,blocked,scan});
-  this.scanRecord=null;
+  this.scanRecord=null;this.scanDomain=null;this.scanFacts=null;this.scanTimer=null;
   this.$=id=>document.getElementById(id);this.epoch=0;this.record=null;this.working=false;this.opened=false;this.initialized=false;this.storageError=false;this.phase='idle';this.secret=null;this.trial=null;this.commit=null;this.parent=null;this.terminal=false;
   this.$('ap-wifi-begin').onclick=()=>this.action(()=>this.begin());
   this.$('ap-wifi-open').onclick=()=>this.action(()=>this.openAp());
   this.$('ap-wifi-confirm').onclick=()=>this.action(()=>this.confirm());
-  this.$('ap-wifi-cancel').onclick=()=>this.action(()=>this.cancel());
+  this.$('ap-wifi-cancel').onclick=()=>this.action(()=>this.scanRecord?this.scanCancel():this.cancel());
   this.$('ap-wifi-query').onclick=()=>this.action(()=>this.refresh());
   this.$('ap-wifi-finish').onclick=()=>this.action(()=>this.finish());
   this.$('ap-wifi-show').onchange=()=>{this.$('ap-wifi-passphrase').type=this.$('ap-wifi-show').checked?'text':'password';};
@@ -69,11 +69,22 @@ export class ApConfigurator {
   this.render();
  }
  get managing(){return !!this.record&&!this.terminal;}
- check(g){need(g===this.epoch&&this.opened,'本页配置已关闭，进度已保留');}
+ check(g){
+  if(this.scanDomain!==null&&this.scan?.domain()!==this.scanDomain)this.suspend();
+  need(g===this.epoch&&this.opened,'本页配置已关闭或设备已更换，进度已保留');
+ }
  wipe(){this.secret=null;this.$('ap-wifi-ssid').value='';this.$('ap-wifi-passphrase').value='';this.$('ap-wifi-passphrase').type='password';this.$('ap-wifi-show').checked=false;}
- async initialize(){try{this.record=pendingInput(await this.loadPending());this.scanRecord=this.scan?scanPendingInput(await this.scan.load(),this.scan.domain()):null;this.phase=this.record||this.scanRecord?'unknown':'idle';}catch{this.storageError=true;this.phase='unknown';}this.initialized=true;this.render();}
- async open(){this.opened=true;if(!this.initialized)await this.initialize();this.render();if((this.record||this.scanRecord)&&this.getToken())await this.action(()=>this.refresh());}
- suspend(){this.epoch++;this.opened=false;this.working=false;this.wipe();this.trial=null;this.commit=null;this.parent=null;this.terminal=false;this.phase=this.record?'unknown':'idle';this.render();}
+ async initialize(){
+  const g=this.epoch,domain=this.scan?this.scan.domain():null;
+  try{
+   const record=pendingInput(await this.loadPending()),scanRecord=this.scan?scanPendingInput(await this.scan.load(),domain):null;
+   if(g!==this.epoch||this.scan&&this.scan.domain()!==domain)return;
+   this.scanDomain=domain;this.record=record;this.scanRecord=scanRecord;this.phase=record||scanRecord?'unknown':'idle';
+  }catch{if(g!==this.epoch)return;this.storageError=true;this.phase='unknown';}
+  if(g!==this.epoch)return;this.initialized=true;this.render();
+ }
+ async open(){const g=this.epoch;this.opened=true;if(!this.initialized)await this.initialize();if(g!==this.epoch||!this.opened)return;this.render();if((this.record||this.scanRecord)&&this.getToken())await this.action(()=>this.refresh());}
+ suspend(){this.epoch++;this.env.clearTimeout?.(this.scanTimer);this.scanTimer=null;this.scanFacts=null;this.opened=false;this.working=false;this.wipe();this.trial=null;this.commit=null;this.parent=null;this.terminal=false;this.phase=this.record?'unknown':'idle';this.initialized=false;this.scanRecord=null;this.record=null;this.render();}
  render(message=null){
   const state=this.phase,waiting=['starting','testing','saving','closing'].includes(state);
   const reenter=state==='trial_ready'&&!this.secret?'试连成功，尚未保存。请重新填写目标 Wi-Fi 名称和密码，再点击“确认保存并连接”。':null;
@@ -89,27 +100,36 @@ export class ApConfigurator {
   this.$('ap-wifi-begin').textContent=state==='failed'?'重新试连':'开始试连';
   this.$('ap-wifi-open').hidden=!!this.record;this.$('ap-wifi-open').disabled=this.working||this.storageError;
   this.$('ap-wifi-confirm').hidden=!confirm;this.$('ap-wifi-confirm').disabled=this.working;
-  this.$('ap-wifi-query').hidden=!this.record||this.terminal;this.$('ap-wifi-query').disabled=this.working;
+  this.$('ap-wifi-query').hidden=!this.record||this.terminal||!['unknown','starting','testing','saving','closing'].includes(state);this.$('ap-wifi-query').disabled=this.working;
   this.$('ap-wifi-cancel').hidden=!this.record||this.terminal;this.$('ap-wifi-cancel').disabled=this.working||this.record?.cancel_sent===true;
   this.$('ap-wifi-finish').hidden=!this.terminal;this.$('ap-wifi-finish').disabled=this.working;
-  for(const id of ['ap-wifi-ssid','ap-wifi-passphrase'])this.$(id).readOnly=this.working||state==='trial_ready'&&!!this.secret||!!this.record&&!['parent_ready','failed','trial_ready','restored_ap'].includes(state);
+  for(const id of ['ap-wifi-ssid','ap-wifi-passphrase'])this.$(id).readOnly=!this.opened||this.working||state==='trial_ready'&&!!this.secret||!!this.record&&!['parent_ready','failed','trial_ready','restored_ap'].includes(state);
   this.$('ap-wifi-details').textContent=this.record?`配置 ${this.record.operation_id||'等待设备确认'}${this.record.trials.length?'\n试连 '+this.record.trials.at(-1):''}${this.record.commits.length?'\n保存 '+this.record.commits.at(-1).id:''}`:'';
   this.$('ap-wifi-reenter').hidden=!(confirm&&!this.secret);
   this.$('ap-wifi-fields').hidden=this.terminal;
+  const blocked=!this.opened||this.opened&&this.blocked();
+  for(const id of ['ap-wifi-begin','ap-wifi-open','ap-wifi-confirm','ap-wifi-query','ap-wifi-cancel','ap-wifi-finish'])if(blocked)this.$(id).disabled=true;
   if(this.scan){
-   this.scan.button.disabled=this.working||this.storageError;
-   this.scan.button.textContent=this.scanRecord?'查询扫描结果':'重新扫描附近 Wi-Fi';
+   const cooling=this.scanFacts&&this.scanFacts.cooldownUntil>this.clock();
+   this.scan.button.disabled=blocked||this.working||this.storageError||!this.scanRecord&&!!cooling;
+   this.scan.button.textContent=this.scanRecord?'查询扫描结果':'刷新附近 Wi-Fi';
+   this.scan.button.title=blocked?'页面未打开或其他操作正在进行':this.working?'正在核对本次操作，请勿重复提交':cooling?'扫描冷却中；结束后仍需明确点击刷新':'';
    if(this.scanRecord){
-    for(const id of ['ap-wifi-begin','ap-wifi-open','ap-wifi-confirm','ap-wifi-cancel','ap-wifi-finish'])this.$(id).disabled=true;
+    for(const id of ['ap-wifi-begin','ap-wifi-open','ap-wifi-confirm','ap-wifi-finish'])this.$(id).disabled=true;
+    this.$('ap-wifi-query').hidden=true;
+    this.$('ap-wifi-cancel').hidden=false;
+    this.$('ap-wifi-cancel').textContent=this.scanRecord.cancel_sent?'已请求取消扫描':'取消本次扫描';
+    this.$('ap-wifi-cancel').disabled=blocked||this.working||this.storageError||this.scanRecord.cancel_sent;
     this.$('ap-wifi-details').textContent+=`\n扫描 ${this.scanRecord.scan_id}`;
-   }
+   }else this.$('ap-wifi-cancel').textContent='结束本次配置';
+   this.renderScanFacts();
   }
  }
  async action(work){
-  if(this.working)return;if(this.blocked()){this.render('请先完成其他测试或通话，再配置 Wi-Fi。');return;}
+  if(this.working||!this.opened)return;if(this.blocked()){this.render('请先完成其他测试或通话，再配置 Wi-Fi。');return;}
   this.opened=true;const g=this.epoch;this.working=true;this.render();
   try{if(!this.initialized)await this.initialize();this.check(g);need(!this.storageError,'配网记录不可用');await work(g);}
-  catch(error){if(g===this.epoch){if(error instanceof WifiInputError){this.render('尚未提交：'+error.message);}else{this.terminal=false;this.phase=this.record?'unknown':'idle';this.render(this.record?'进度已保留，请查询。'+(error.message||'操作未确认'):(error.message||'暂不能配置'));}}}
+  catch(error){if(g===this.epoch){if(error instanceof WifiInputError){this.render('尚未提交：'+error.message);}else{this.terminal=false;this.phase=this.record||this.scanRecord?'unknown':'idle';this.render(this.record||this.scanRecord?'进度已保留，请查询。'+(error.message||'操作未确认'):(error.message||'暂不能配置'));}}}
   finally{if(g===this.epoch){this.working=false;this.render(this.$('ap-wifi-state').textContent);}}
  }
  async currentRecord(g=this.epoch){
@@ -129,7 +149,7 @@ export class ApConfigurator {
   const r=this.record;const v=parentInput(await this.call({op:'setup_ap_operation_status',request_key_sha256:r.request_key_sha256},g),r);
   if(v.known!==true){this.phase='unknown';this.render();return null;}
   if(!r.operation_id)await this.update({operation_id:v.operation_id},g);
-  this.parent=v;
+  this.parent=v;this.setScanFacts(v.scan,v.expires_in_seconds);
   if(v.state==='closed'){this.terminal=true;this.phase='closed';this.refusal=v.refusal||null;this.wipe();this.render();}
   return v;
  }
@@ -235,6 +255,45 @@ export class ApConfigurator {
   await this.savePending(null,{id:this.record.id,revision:this.record.revision});this.check(g);
   this.record=null;this.terminal=false;this.wipe();this.phase='idle';this.render('本次配置已完成，回执已保存在本浏览器。');
  }
+ clock(){return this.env.performance?.now?.()??Date.now();}
+ scanRefusal(reason){return {cooldown:'扫描仍在冷却中',limit:'本轮扫描次数已用完，请结束配置',conflict:'另一个网络操作正在进行',stale:'扫描能力已过期，请重新核对',window_closing:'父配置窗口即将结束',superseded:'已有更新的扫描',cancelled:'扫描已取消',capacity:'设备暂不能保留更多扫描记录',parent_closed:'父配置窗口已关闭'}[reason]||'扫描暂不可用，请明确点击刷新重新核对';}
+ setScanFacts(cap,seconds){
+  if(!this.scan)return;
+  this.env.clearTimeout?.(this.scanTimer);this.scanTimer=null;
+  if(!cap){this.scanFacts=null;this.renderScanFacts();return;}
+  const ms=Number.isSafeInteger(cap.cooldown_remaining_ms)&&cap.cooldown_remaining_ms>0&&cap.cooldown_remaining_ms<=30000?cap.cooldown_remaining_ms:0;
+  this.scanFacts={cap:clone(cap),seconds,observed:this.clock(),cooldownUntil:this.clock()+ms};
+  if(ms){const g=this.epoch;this.scanTimer=this.env.setTimeout(()=>{if(g!==this.epoch||!this.opened||this.scan.domain()!==this.scanDomain)return;this.scanTimer=null;this.render();},ms);}
+  this.renderScanFacts();
+ }
+ renderScanFacts(){
+  if(!this.scan?.facts)return;
+  if(!this.opened){this.scan.facts.textContent='本页已关闭；重新打开后查询原进度。';return;}
+  if(this.working){this.scan.facts.textContent='正在处理本次配网操作，其他操作已暂停。';return;}
+  if(this.blocked()){this.scan.facts.textContent='正在处理其他操作，请稍后明确点击刷新。';return;}
+  const f=this.scanFacts;
+  if(!f){this.scan.facts.textContent='刷新会短暂断开热点；只在你确认后扫描。也可手动填写名称。';return;}
+  const c=f.cap,parts=[];
+  if(c.supported!==true)parts.push('当前没有可核验的主动扫描能力，可手动填写名称；点击刷新只会先核对条件');
+  else {
+   if(Number.isInteger(c.remaining)&&Number.isInteger(c.max_per_parent))parts.push(`上次核验本轮剩余 ${c.remaining}/${c.max_per_parent} 次`);
+   const remaining=Math.max(0,Math.ceil((f.cooldownUntil-this.clock())/1000));
+   if(remaining)parts.push(`扫描冷却约 ${remaining} 秒，结束后请明确点击刷新`);
+   else if(c.refusal==='cooldown')parts.push('本地冷却计时已结束，点击刷新重新核对设备条件');
+   else if(c.available!==true)parts.push(this.scanRefusal(c.refusal));
+  }
+  if(Number.isSafeInteger(f.seconds)&&f.seconds>=0)parts.push(`父配置窗口上次核验剩余 ${f.seconds} 秒`);
+  this.scan.facts.textContent=parts.join('；')+'。不会排队自动扫描。';
+ }
+ async scanCancel(){
+  const g=this.epoch;await this.scanCurrent(g);need(this.scanRecord&&!this.scanRecord.cancel_sent,'请查询原来的取消请求');
+  await this.signed(true,g);await this.scanCurrent(g);
+  const old=this.scanRecord,next={...old,cancel_sent:true};
+  await this.scan.save(next,old);this.check(g);this.scanRecord=next;this.wipe();this.render();
+  this.scan.note.textContent='已记录取消请求，正在核对设备恢复；不会重复取消或扫描。';
+  try{await this.scanAccept(await this.call({op:'setup_ap_scan_cancel',operation_id:next.operation_id,scan_id:next.scan_id},g),g);}
+  catch{this.check(g);this.scan.note.textContent='取消结果或热点恢复未确认，记录已保留，请查询原扫描。';}
+ }
  async scanCurrent(g=this.epoch){
   need(this.scan,'本页不支持重新扫描');
   const current=scanPendingInput(await this.scan.load(),this.scan.domain());this.check(g);
@@ -245,11 +304,11 @@ export class ApConfigurator {
   if(!this.env.confirm('重新扫描会短暂断开配置热点，并结束尚未保存的试连。请稍后重新连接同一热点，页面会查询本次结果。继续吗？'))return;
   if(!await this.prepareParent(g))return;
   const cap=this.parent?.scan;
-  if(!cap||cap.supported!==true){this.scan.note.textContent='当前设备未提供主动扫描，可手动填写 Wi-Fi 名称。';return;}
+  if(!cap||cap.supported!==true){this.scan.note.textContent='当前没有可核验的主动扫描能力（未启用或能力已过期），可手动填写 Wi-Fi 名称；稍后明确点击刷新重新核对。';return;}
   if(cap.available!==true){
-   this.scan.note.textContent=cap.refusal==='cooldown'?`扫描冷却中，约 ${Math.ceil((cap.cooldown_remaining_ms||0)/1000)} 秒后可再试。`:cap.refusal==='limit'?'本轮扫描次数已用完，请先结束配置。':'当前正在处理其他配网操作，暂不能扫描。';return;
+   this.scan.note.textContent=cap.refusal==='cooldown'?(Number.isSafeInteger(cap.cooldown_remaining_ms)&&cap.cooldown_remaining_ms>0?`扫描冷却中，约 ${Math.ceil(cap.cooldown_remaining_ms/1000)} 秒后可再试。`:'扫描冷却中，请稍后明确点击刷新重新核对。'):cap.refusal==='limit'?'本轮扫描次数已用完，请先结束配置。':'当前正在处理其他配网操作，暂不能扫描。';return;
   }
-  const r=scanPendingInput({format:1,device_key:this.scan.domain(),operation_id:this.record.operation_id,request_key_sha256:this.record.request_key_sha256,scan_id:this.crypto.randomUUID()},this.scan.domain());
+  const r=scanPendingInput({format:2,cancel_sent:false,device_key:this.scan.domain(),operation_id:this.record.operation_id,request_key_sha256:this.record.request_key_sha256,scan_id:this.crypto.randomUUID()},this.scan.domain());
   // Persist the device/parent/scan binding before the sole mutation. Loss of its
   // response can only lead to a query, including after reload or a new login.
   await this.scan.save(r,null);this.check(g);this.scanRecord=r;
@@ -262,7 +321,7 @@ export class ApConfigurator {
    await this.pause(1000,g);
    try{if(await this.scanRead(g))return;}catch{this.check(g);this.scan.note.textContent='热点暂时断开，请重新连接后点击“查询扫描结果”。';return;}
   }
-  this.scan.note.textContent='尚未收到明确扫描结果，记录已保留，请查询。';
+  this.scan.note.textContent='扫描结果及热点恢复尚未确认，记录已保留，请重新连接原热点后查询。';
  }
  async scanQuery(){
   const g=this.epoch;await this.scanCurrent(g);need(this.scanRecord,'没有待查询的扫描');await this.signed(false,g);await this.scanRead(g);
@@ -271,29 +330,40 @@ export class ApConfigurator {
   const r=this.scanRecord;return this.scanAccept(await this.call({op:'setup_ap_scan_status',operation_id:r.operation_id,scan_id:r.scan_id},g),g);
  }
  async scanAccept(v,g){
-  const r=this.scanRecord;
+  await this.scanCurrent(g);const r=this.scanRecord;
+  if(v?.known===false){need(v.not_found_is_not_proof===true);this.scan.note.textContent='尚未查到原扫描，不能证明未执行；记录已保留，只会查询。';return false;}
   need(v&&v.operation_id===r.operation_id&&v.scan_id===r.scan_id&&v.credentials_returned===false&&v.cellular_activation===false&&v.settings_saved===false);
   need(v.known===true&&['submitting','scanning','ready','failed','refused','cancelled','unknown'].includes(v.state)&&typeof v.authoritative_result==='boolean');
+  this.setScanFacts(v.scan,v.parent_expires_in_seconds);
   if(!v.authoritative_result||!['ready','failed','refused','cancelled'].includes(v.state)){
-   this.scan.note.textContent='扫描结果尚未确认，保留原记录，只会继续查询。';return false;
+   this.scan.note.textContent='扫描结果或热点恢复尚未确认，请重新连接原热点后查询。保留原记录，不会重复扫描。';return false;
   }
+  let snapshot=null,message;
   if(v.state==='ready'){
    need(typeof v.historical==='boolean'&&(v.historical||v.ap_return_verified===true));
    const s=scanSnapshotInput(v.snapshot);
-   if(!v.historical)this.scan.snapshot(s);
-   this.scan.note.textContent=v.historical?'已核对历史扫描，未替换当前列表。':`扫描完成，找到 ${s.networks.filter(n=>n.security==='wpa2_personal').length} 个可选 WPA2 网络。`;
-  }else this.scan.note.textContent=v.state==='refused'?'设备未执行本次扫描，请稍后再试或手动输入 Wi-Fi。':'本次扫描未完成；已保留原 Wi-Fi 列表，可手动填写。';
+   if(!v.historical)snapshot=s;
+   message=v.historical?'已核对历史扫描，未替换当前列表。':`扫描完成，找到 ${s.networks.filter(n=>n.security==='wpa2_personal').length} 个可选 WPA2 网络。`;
+  }else {
+   need(v.historical===true||v.ap_return_verified===true||v.state==='refused'&&v.execution_started===false,'热点恢复尚未核验，保留原扫描记录，请继续查询');
+   message=v.state==='refused'?`设备未执行本次扫描：${this.scanRefusal(v.refusal)} 可手动输入 Wi-Fi。`:v.historical?'已核对历史扫描，未替换当前列表。':`本次扫描${v.state==='cancelled'?'已取消':'失败'}，设备已核验返回热点；保留原列表，可手动填写。`;
+  }
   await this.scanCurrent(g);await this.scan.save(null,r);this.check(g);this.scanRecord=null;this.phase='unknown';
+  if(snapshot)this.scan.snapshot(snapshot);this.scan.note.textContent=message;
   // The old trial may have been ended by scanning. Read its real result rather
   // than reviving a cached confirmation or ever persisting Wi-Fi credentials.
-  await this.readResult(g);return true;
+  if(this.record){
+   try{await this.readResult(g);}
+   catch{this.check(g);this.phase='unknown';this.render('扫描回执已核对，父配置进度暂不可读，请查询原配置；尚未保存 Wi-Fi。');}
+  }else {this.phase='idle';this.render();}
+  return true;
  }
 }
 export function scanPendingInput(v,domain){
  if(v===null||v===undefined)return null;
- const keys=['format','device_key','operation_id','request_key_sha256','scan_id'];
- need(v&&Object.keys(v).length===keys.length&&Object.keys(v).every(k=>keys.includes(k))&&v.format===1&&digest(domain)&&v.device_key===domain&&digest(v.request_key_sha256)&&uuid(v.operation_id)&&uuid(v.scan_id),'扫描记录不匹配，已停止提交');
- return clone(v);
+ const keys=['format','device_key','operation_id','request_key_sha256','scan_id',...(v?.format===2?['cancel_sent']:[])];
+ need(v&&Object.keys(v).length===keys.length&&Object.keys(v).every(k=>keys.includes(k))&&(v.format===1||v.format===2&&typeof v.cancel_sent==='boolean')&&digest(domain)&&v.device_key===domain&&digest(v.request_key_sha256)&&uuid(v.operation_id)&&uuid(v.scan_id),'扫描记录不匹配，已停止提交');
+ return {...clone(v),format:2,cancel_sent:v.cancel_sent===true};
 }
 export function scanSnapshotInput(s){
  need(s&&Array.isArray(s.networks)&&s.networks.length<=32&&Number.isInteger(s.omitted)&&s.omitted>=0&&s.omitted<=128&&typeof s.truncated==='boolean');

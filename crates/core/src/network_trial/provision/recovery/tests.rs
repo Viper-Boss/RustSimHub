@@ -22,6 +22,7 @@ use std::{
 };
 use tempfile::TempDir;
 use tokio::sync::Notify;
+mod control_order;
 mod status_tests;
 mod t5_tests;
 

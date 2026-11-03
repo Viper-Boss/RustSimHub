@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import {installAppImports,appVmSource,assertNknAssembly} from './fixtures/web3-web/app-imports.mjs';
 import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput } from '../crates/edge/src/web/nas-bridge.js';
 // Production renewal clock and real app/proof/phone wiring; synthetic IPC only.
 import assert from 'node:assert/strict';
@@ -66,7 +67,9 @@ async function appFixture({denied=false,wait=null,owner=false}={}){
   },
  };
  const app=await readFile(new URL('../crates/edge/src/web/app.js',import.meta.url),'utf8');
- vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={inject:(t,k,p,l)=>{token=t;key=k;publicKey=p;lease=l;sessionKeeper.start(t,900);dailyPhone.enabled=true;dailyPhone.managing=true;dailyPhone.confirmedControl=true;dailyPhone.lease=l;dailyPhone.lastRenew=0;dailyPhone.audioAttempted=true;},phone:()=>dailyPhone,keeper:()=>sessionKeeper,token:()=>token,lease:()=>lease,logout:()=>$("logout").onclick()};',context);
+ installAppImports(context);
+ vm.runInNewContext(appVmSource(app)+'\nglobalThis.fixture={inject:(t,k,p,l)=>{token=t;key=k;publicKey=p;lease=l;sessionKeeper.start(t,900);dailyPhone.enabled=true;dailyPhone.managing=true;dailyPhone.confirmedControl=true;dailyPhone.lease=l;dailyPhone.lastRenew=0;dailyPhone.audioAttempted=true;},phone:()=>dailyPhone,keeper:()=>sessionKeeper,token:()=>token,lease:()=>lease,logout:()=>$("logout").onclick()};',context);
+ assertNknAssembly(context);
  $('pin').value=hex(pin);context.fixture.inject(token,client,pub,{...lease});
  return {...context.fixture,c,$,audio,sent};
 }
