@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "repository": "Viper-Boss/RustSimHub",
+  "baseline": "8f9cfeff1a4b5a804b8b138e890f7386caf5a006",
+  "inputs": [
+    {"id":"lan-age","kind":"product","pr":195,"head":"6787addaf4ca0e79f8b8455cbb3175372c9c318c","requires":[],"includes":[]},
+    {"id":"runner","kind":"product","pr":196,"head":"395a07eea72a074f3126466d03a2b899787ac9eb","requires":[],"includes":[]},
+    {"id":"runtime-library","kind":"product","pr":197,"head":"ecfb9fe7d8c4b7f940db82cd9ea52b1ebb71b810","requires":[],"includes":[]},
+    {"id":"probe-fixture","kind":"product","pr":198,"head":"32d340f9701cb73d36fbdc443bfcf6ef7c08ff6a","requires":[],"includes":[]},
+    {"id":"prior-combination-report","kind":"report","pr":199,"head":"fb77eaf63a7ef50a8da229664fe37129a9a0bd6f","requires":[],"includes":[]},
+    {"id":"runtime-cli","kind":"product","pr":200,"head":"a690213cec950b273632f595b96a0bea8f8e5e64","requires":["runtime-library"],"includes":["runtime-library"]},
+    {"id":"ap-core","kind":"product","pr":202,"head":"ff848793f79981b5bdd796002634f12db65e7d55","requires":[],"includes":[]},
+    {"id":"recovery-order","kind":"product","pr":203,"head":"56a1055d583c1f7f7d7d21f1b081f07a54dd3e85","requires":[],"includes":[]},
+    {"id":"ap-ui","kind":"product","pr":204,"head":"b671aaf1828583aa65a16329c31538e53096f229","requires":["ap-core"],"includes":["ap-core"]},
+    {"id":"release-profiles","kind":"product","pr":205,"head":"c3a67120cb91f8c6095579a89764466a101d9433","requires":[],"includes":[]},
+    {"id":"health-core","kind":"product","pr":206,"head":"fe65bf3e1fd02375ed6fcd38a595271c33180caa","requires":["runtime-cli","probe-fixture"],"includes":["runtime-cli","probe-fixture"]},
+    {"id":"health-confirm","kind":"product","pr":null,"head":null,"requires":["health-core"],"includes":[]},
+    {"id":"web-regression","kind":"product","pr":null,"head":null,"requires":["ap-ui"],"includes":[]},
+    {"id":"product-install","kind":"product","pr":null,"head":null,"requires":["release-profiles"],"includes":[]},
+    {"id":"product-data","kind":"product","pr":null,"head":null,"requires":["release-profiles"],"includes":[]}
+  ]
+}
