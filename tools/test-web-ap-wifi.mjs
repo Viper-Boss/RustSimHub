@@ -328,4 +328,22 @@ for(const change of ['close','device']){
  const f=await fixture({scanning:true,record:seed.storage(),retainedScan:legacy});await f.scanButton.onclick();assert.equal(f.scanStore(),null);assert(!f.calls.some(c=>c.op==='setup_ap_scan_begin'));
  assert.throws(()=>scanPendingInput({...legacy,passphrase:PASS},HASH));
 }
+// A confirmed Ready scan stays confirmed if the subsequent parent read is offline.
+{
+ let completed=false;
+ const f=await fixture({scanning:true,hook:async(c,x)=>{
+  if(c.op==='setup_ap_operation_status'&&completed)throw Error('parent service offline');
+  const v=await x.defaults(c);if(c.op==='setup_ap_scan_begin')completed=true;return v;
+ }});
+ await f.scanButton.onclick();assert.equal(f.scanStore(),null);assert.equal(f.snapshots.length,1);assert.match(f.scanNote.textContent,/扫描完成/);assert.equal(f.panel.phase,'unknown');assert.match(f.$('ap-wifi-state').textContent,/父配置进度暂不可读/);
+}
+// A terminal storage CAS failure must happen before snapshot publication too.
+{
+ const f=await fixture({scanning:true,hook:async(c,x)=>{
+  const v=await x.defaults(c);
+  if(c.op==='setup_ap_scan_begin')x.panel.scan.save=async()=>{throw Error('terminal storage write failed');};
+  return v;
+ }});
+ await f.scanButton.onclick();assert(f.scanStore());assert.equal(f.snapshots.length,0);
+}
 console.log(`WEB3-AP: ${fixtureCount} actual-controller fixtures completed; stale-tab publication, exact cancel, legacy recovery, restoration uncertainty, revocation and late-response fences passed.`);

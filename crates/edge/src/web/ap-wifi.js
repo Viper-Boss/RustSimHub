@@ -258,8 +258,9 @@ export class ApConfigurator {
  clock(){return this.env.performance?.now?.()??Date.now();}
  scanRefusal(reason){return {cooldown:'扫描仍在冷却中',limit:'本轮扫描次数已用完，请结束配置',conflict:'另一个网络操作正在进行',stale:'扫描能力已过期，请重新核对',window_closing:'父配置窗口即将结束',superseded:'已有更新的扫描',cancelled:'扫描已取消',capacity:'设备暂不能保留更多扫描记录',parent_closed:'父配置窗口已关闭'}[reason]||'扫描暂不可用，请明确点击刷新重新核对';}
  setScanFacts(cap,seconds){
-  if(!this.scan||!cap)return;
+  if(!this.scan)return;
   this.env.clearTimeout?.(this.scanTimer);this.scanTimer=null;
+  if(!cap){this.scanFacts=null;this.renderScanFacts();return;}
   const ms=Number.isSafeInteger(cap.cooldown_remaining_ms)&&cap.cooldown_remaining_ms>0&&cap.cooldown_remaining_ms<=30000?cap.cooldown_remaining_ms:0;
   this.scanFacts={cap:clone(cap),seconds,observed:this.clock(),cooldownUntil:this.clock()+ms};
   if(ms){const g=this.epoch;this.scanTimer=this.env.setTimeout(()=>{if(g!==this.epoch||!this.opened||this.scan.domain()!==this.scanDomain)return;this.scanTimer=null;this.render();},ms);}
@@ -303,9 +304,9 @@ export class ApConfigurator {
   if(!this.env.confirm('重新扫描会短暂断开配置热点，并结束尚未保存的试连。请稍后重新连接同一热点，页面会查询本次结果。继续吗？'))return;
   if(!await this.prepareParent(g))return;
   const cap=this.parent?.scan;
-  if(!cap||cap.supported!==true){this.scan.note.textContent='当前设备未提供主动扫描，可手动填写 Wi-Fi 名称。';return;}
+  if(!cap||cap.supported!==true){this.scan.note.textContent='当前没有可核验的主动扫描能力（未启用或能力已过期），可手动填写 Wi-Fi 名称；稍后明确点击刷新重新核对。';return;}
   if(cap.available!==true){
-   this.scan.note.textContent=cap.refusal==='cooldown'?`扫描冷却中，约 ${Math.ceil((cap.cooldown_remaining_ms||0)/1000)} 秒后可再试。`:cap.refusal==='limit'?'本轮扫描次数已用完，请先结束配置。':'当前正在处理其他配网操作，暂不能扫描。';return;
+   this.scan.note.textContent=cap.refusal==='cooldown'?(Number.isSafeInteger(cap.cooldown_remaining_ms)&&cap.cooldown_remaining_ms>0?`扫描冷却中，约 ${Math.ceil(cap.cooldown_remaining_ms/1000)} 秒后可再试。`:'扫描冷却中，请稍后明确点击刷新重新核对。'):cap.refusal==='limit'?'本轮扫描次数已用完，请先结束配置。':'当前正在处理其他配网操作，暂不能扫描。';return;
   }
   const r=scanPendingInput({format:2,cancel_sent:false,device_key:this.scan.domain(),operation_id:this.record.operation_id,request_key_sha256:this.record.request_key_sha256,scan_id:this.crypto.randomUUID()},this.scan.domain());
   // Persist the device/parent/scan binding before the sole mutation. Loss of its
@@ -351,7 +352,11 @@ export class ApConfigurator {
   if(snapshot)this.scan.snapshot(snapshot);this.scan.note.textContent=message;
   // The old trial may have been ended by scanning. Read its real result rather
   // than reviving a cached confirmation or ever persisting Wi-Fi credentials.
-  await this.readResult(g);return true;
+  if(this.record){
+   try{await this.readResult(g);}
+   catch{this.check(g);this.phase='unknown';this.render('扫描回执已核对，父配置进度暂不可读，请查询原配置；尚未保存 Wi-Fi。');}
+  }else {this.phase='idle';this.render();}
+  return true;
  }
 }
 export function scanPendingInput(v,domain){
