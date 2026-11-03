@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-use crate::{arguments, select, Error, CONTRACT, CORE};
+use crate::{profile_arguments, Error, CONTRACT, CORE, PRODUCT_PROFILE};
+use sha2::{Digest, Sha256};
 use std::{
     fs,
     io::Read,
@@ -94,7 +95,7 @@ pub fn launch() -> Result<(), Error> {
     if rustix::process::geteuid().as_raw() != 986 || rustix::process::getegid().as_raw() != 986 {
         return Err(Error);
     }
-    let core = owned_file(Path::new(CORE), 24 * 1024 * 1024)?;
+    let mut core = owned_file(Path::new(CORE), 24 * 1024 * 1024)?;
     if core.metadata().map_err(|_| Error)?.mode() & 0o111 == 0 {
         return Err(Error);
     }
@@ -108,9 +109,51 @@ pub fn launch() -> Result<(), Error> {
             file.by_ref().take(4097).read_to_end(&mut bytes).ok()?;
             (bytes.len() <= 4096).then_some(bytes)
         });
-    let mode = select(&info, contract.as_deref())?;
+    // A present invalid opt-in profile is an error, never silent promotion or fallback.
+    let profile = match fs::symlink_metadata(PRODUCT_PROFILE) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(_) => return Err(Error),
+        Ok(_) => {
+            let mut file = owned_file(Path::new(PRODUCT_PROFILE), 4096)?;
+            let mut bytes = Vec::new();
+            file.by_ref()
+                .take(4097)
+                .read_to_end(&mut bytes)
+                .map_err(|_| Error)?;
+            if bytes.len() > 4096 {
+                return Err(Error);
+            }
+            Some(bytes)
+        }
+    };
+    let digest = if profile.is_some() {
+        let mut bytes = Vec::new();
+        core.by_ref()
+            .take(24 * 1024 * 1024 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| Error)?;
+        if bytes.len() as u64 != core.metadata().map_err(|_| Error)?.len() {
+            return Err(Error);
+        }
+        format!("{:x}", Sha256::digest(&bytes))
+    } else {
+        String::new()
+    };
+    let args = profile_arguments(&info, contract.as_deref(), profile.as_deref(), &digest)?;
+    let end = args
+        .iter()
+        .position(|v| v.starts_with("--serve-"))
+        .ok_or(Error)?;
+    if end > 0 {
+        let mut probe = Command::new(CORE);
+        probe.args(&args[..end]).arg("--build-info");
+        // The actual binary must accept every selected prefix; metadata alone is insufficient.
+        if metadata_command(probe, Duration::from_secs(3))? != info {
+            return Err(Error);
+        }
+    }
     // Replace the launcher PID; no shell and no second long-lived process.
-    let _error = Command::new(CORE).args(arguments(mode)).exec();
+    let _error = Command::new(CORE).args(args).exec();
     Err(Error)
 }
 #[cfg(test)]

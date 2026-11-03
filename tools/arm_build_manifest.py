@@ -59,13 +59,24 @@ def unique(pairs):
     return result
 
 
-def bounded_run(arguments, timeout=15, limit=16384):
+def bounded_run(arguments, timeout=15, limit=16384, *, stdin_data=None, result_codes=(0,), with_status=False):
+    require(result_codes and all(type(v) is int and v in (0, 3, 4) for v in result_codes), 'fixed comparison exit codes')
+    if stdin_data is None:
+        return _bounded_run(arguments, timeout, limit, subprocess.DEVNULL, result_codes, with_status)
+    require(isinstance(stdin_data, bytes) and len(stdin_data) <= 128 * 1024, 'bounded stdin required')
+    with tempfile.TemporaryFile() as source:
+        source.write(stdin_data)
+        source.seek(0)
+        return _bounded_run(arguments, timeout, limit, source, result_codes, with_status)
+
+
+def _bounded_run(arguments, timeout, limit, stdin, result_codes, with_status):
     """Bound both pipes and the process group; never invoke a shell.
 
     waitid(WNOWAIT) pins the leader PID until group cleanup, preventing a
     successful early exit from turning cleanup into a reused-PID signal.
     """
-    process = subprocess.Popen(arguments, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+    process = subprocess.Popen(arguments, stdin=stdin, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE, start_new_session=True)
     streams = [process.stdout, process.stderr]
     values = [bytearray(), bytearray()]
@@ -95,8 +106,8 @@ def bounded_run(arguments, timeout=15, limit=16384):
             pass
         code = process.wait(timeout=2)
         reaped = True
-        require(code == 0 and not values[1], 'inspection command failed (exit ' + str(code) + ')')
-        return bytes(values[0])
+        require(code in result_codes and not values[1], 'inspection command failed (exit ' + str(code) + ')')
+        return (code, bytes(values[0])) if with_status else bytes(values[0])
     finally:
         if not reaped:
             try:
