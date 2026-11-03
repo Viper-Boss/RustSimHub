@@ -296,12 +296,23 @@ impl Runtime {
             .or_else(|| active.map(|s| s.phase))
             .unwrap_or(Phase::Unknown);
         let authoritative = root.is_some_and(known);
-        let live = s.is_some_and(|s| {
+        let live_parent = s.is_some_and(|s| {
             s.record.binding == r.intent.binding
                 && !s.cancelled
                 && s.phase == State::Ready
                 && r.intent.binding.boot_id == boot().unwrap_or_default()
                 && now().is_ok_and(|t| t < r.intent.binding.deadline_uptime_ms)
+        });
+        // A parent can host several rounds. Its binding alone cannot make an
+        // earlier immutable receipt the current round's network snapshot.
+        let live = live_parent && active.is_some();
+        let capability = s.filter(|_| live_parent).map(|s| self.rescan_capability(s));
+        let parent_expires = live_parent.then(|| {
+            r.intent
+                .binding
+                .deadline_uptime_ms
+                .saturating_sub(now().unwrap_or(u64::MAX))
+                / 1000
         });
         let cancelled = marker(&self.journal, r, "cancel")?;
         let state = match phase {
@@ -320,6 +331,7 @@ impl Runtime {
             "refusal":root.and_then(|s|s.refusal),"cancel_requested":cancelled,"historical":!live,
             "ap_return_verified":live&&authoritative&&root.is_some_and(|s|s.ap_https_verified),
             "snapshot":if authoritative&&phase==Phase::Ready {root.and_then(|s|s.snapshot.as_ref())}else{None},
+            "scan":capability,"parent_expires_in_seconds":parent_expires,
             "settings_saved":false,"credentials_returned":false,"cellular_activation":false}),
         )
     }
