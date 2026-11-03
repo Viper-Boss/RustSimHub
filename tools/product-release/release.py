@@ -12,6 +12,8 @@ import subprocess
 import sys
 import tarfile
 import io
+import signal
+import time
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -160,13 +162,33 @@ def render(output, name, source, hashes, roles):
         'actual business/outbox compatibility and rollback', 'private NKN policy/seed/member material']}
 
 
-def run_build(command, cwd, env, log):
+def run_build(command, cwd, env, log, *, timeout=1200, max_bytes=8*1024**2):
     # Tools and switches are defined by this source, not by profile JSON.
     with log.open('ab') as stream:
         stream.write((json.dumps(command) + '\n').encode())
-        result = subprocess.run(command, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
-                                stdout=stream, stderr=subprocess.STDOUT, timeout=1200)
-    require(result.returncode == 0, 'fixed build stage failed; preserve output and log')
+        stream.flush()
+        process = subprocess.Popen(command, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
+                                   stdout=stream, stderr=subprocess.STDOUT, start_new_session=True)
+        reaped = False
+        try:
+            deadline = time.monotonic() + timeout
+            while os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is None:
+                require(time.monotonic() < deadline, 'fixed build deadline exceeded')
+                require(os.fstat(stream.fileno()).st_size <= max_bytes, 'fixed build log exceeded budget')
+                time.sleep(.05)
+            require(os.fstat(stream.fileno()).st_size <= max_bytes, 'fixed build log exceeded budget')
+            # Keep the leader unreaped until cleanup, so a reused PID can never
+            # turn this signal into cleanup of another task's process group.
+            try: os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError: pass
+            code = process.wait(timeout=3)
+            reaped = True
+            require(code == 0, 'fixed build stage failed; preserve output and log')
+        finally:
+            if not reaped:
+                try: os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError: pass
+                process.wait(timeout=3)
 
 
 def build(args):

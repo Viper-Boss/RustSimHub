@@ -190,6 +190,24 @@ class ProductRelease(unittest.TestCase):
             with self.assertRaises(ValueError):
                 release.managed_stage.module_closure(actual, baseline, own)
 
+    @unittest.skipUnless(hasattr(os, 'waitid'), 'Linux owned build process groups')
+    def test_build_failure_timeout_and_output_cap_are_not_success(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            release.run_build(['/bin/sh', '-c', 'printf built'], root, os.environ.copy(), root/'ok.log')
+            with self.assertRaises(ValueError):
+                release.run_build(['/bin/sh', '-c', 'exit 7'], root, os.environ.copy(), root/'fail.log')
+            with self.assertRaises(ValueError):
+                release.run_build(['/bin/sh', '-c', 'sleep 20 & echo child=$!; wait'], root,
+                                  os.environ.copy(), root/'timeout.log', timeout=.15)
+            raw = (root/'timeout.log').read_text()
+            child = int(raw.split('child=')[-1].strip())
+            stat = Path('/proc')/str(child)/'stat'
+            self.assertTrue(not stat.exists() or stat.read_text().split(') ', 1)[1].startswith('Z'))
+            with self.assertRaises(ValueError):
+                release.run_build(['/bin/sh', '-c', 'printf %0200d 0'], root, os.environ.copy(),
+                                  root/'large.log', max_bytes=128)
+
 
 if __name__ == '__main__':
     unittest.main()
