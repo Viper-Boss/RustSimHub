@@ -66,6 +66,10 @@ impl Pair {
             at_ms: now,
         };
         self.sender.send(&self.a, &frame, now).unwrap();
+        // The real RTP pacer releases the encoded SRTP packet on its timer.
+        let tick = self.sender.timeout.max(Instant::now());
+        self.sender.rtc.handle_input(Input::Timeout(tick)).unwrap();
+        self.sender.drain(&self.a, tick, now).unwrap();
         self.network_at += Duration::from_millis(100);
         let network_at = self.network_at;
         let mut reads = 0;
