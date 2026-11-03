@@ -99,8 +99,16 @@ impl Peer {
         // Core cannot ptrace/dereference a Root peer's exe. Use kernel peer
         // credentials, current UIDs and start ticks; Root checks Core's exe on
         // its privileged side. A normal exec closes this CLOEXEC connection.
-        let status =
-            fs::read_to_string(format!("/proc/{pid}/status")).map_err(|_| Error::Denied)?;
+        let mut status_bytes = Vec::new();
+        fs::File::open(format!("/proc/{pid}/status"))
+            .map_err(|_| Error::Denied)?
+            .take(65537)
+            .read_to_end(&mut status_bytes)
+            .map_err(|_| Error::Denied)?;
+        if status_bytes.len() > 65536 {
+            return Err(Error::Denied);
+        }
+        let status = std::str::from_utf8(&status_bytes).map_err(|_| Error::Denied)?;
         let uids: Vec<u32> = status
             .lines()
             .find_map(|l| l.strip_prefix("Uid:"))

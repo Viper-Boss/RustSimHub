@@ -289,7 +289,7 @@ impl Outbox {
         Ok(())
     }
 }
-fn outbox(directory: &Path, queue_owned: bool, _identity: &(u64, u64)) -> Result<Outbox> {
+fn outbox(directory: &Path, queue_owned: bool) -> Result<Outbox> {
     let path = directory.join("forwarding");
     let m = match fs::symlink_metadata(&path) {
         Ok(m) => m,
