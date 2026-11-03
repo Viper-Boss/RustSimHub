@@ -611,7 +611,12 @@ mod tests {
             .unwrap();
         // An address that is neither configured nor on wlan0 now (e.g. usb0) is refused.
         assert!(matches!(
-            manager.prepare_on(id('b'), ip, offer.clone(), Some("127.0.0.4".parse().unwrap())),
+            manager.prepare_on(
+                id('b'),
+                ip,
+                offer.clone(),
+                Some("127.0.0.4".parse().unwrap())
+            ),
             Err(Failure::Denied)
         ));
         // Once the old address is gone from wlan0 it is no longer accepted.

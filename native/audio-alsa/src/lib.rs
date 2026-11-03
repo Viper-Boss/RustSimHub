@@ -2,14 +2,26 @@
 #![forbid(unsafe_code)]
 //! Fixed UFI003 profile. Only the media worker may own these handles.
 pub mod codec;
-pub mod rtc;
+#[cfg(feature = "turn-relay")]
+pub mod remote;
+#[cfg(feature = "turn-relay")]
+#[path = "control_socket.rs"]
+mod remote_control_socket;
+#[cfg(feature = "turn-relay")]
+pub mod remote_worker;
 mod routes;
-pub use routes::prepare_routes;
+pub mod rtc;
+#[cfg(feature = "turn-relay")]
+#[path = "trusted.rs"]
+mod service_identity;
+#[cfg(feature = "turn-relay")]
+mod turn;
 use alsa::{
     ctl::{ElemId, ElemIface, ElemType, ElemValue},
     pcm::{Access, Format, HwParams, PCM},
     Ctl, Direction, ValueOr,
 };
+pub use routes::prepare_routes;
 use rustsimhub_media::{Error, IoError, Pcm, Permit};
 use std::ffi::CString;
 const CARD: &str = "nassimhubufi003";

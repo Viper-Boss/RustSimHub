@@ -1,0 +1,1072 @@
+{
+  "schema": 1,
+  "date": "2026-11-03",
+  "scope": "D22/D23 offline integration submission using fixed A candidate; production and hardware approval separate",
+  "source_head": "7ec74d1bd82c5d0c71bb1168be5b21066b44b3e7",
+  "tracked_dirty": false,
+  "production_admitted": false,
+  "crypto_wire_frozen": false,
+  "device_tested": false,
+  "progress": {
+    "offline_stages_submitted": 26,
+    "total_stages": 26,
+    "remaining_independent_offline_stages": [],
+    "reviewed_or_deployed_claimed": false,
+    "fixed_progress_scale_percent": 80,
+    "global_ledger_modified": false
+  },
+  "dependencies": {
+    "A_candidate_pr": "https://github.com/Viper-Boss/RustSimHub/pull/178",
+    "A_candidate_head": "25bcaa4671278f25720b5c2fb9c2ca720a1375ef",
+    "normal_dependency_merge": "51bb679",
+    "main_integrated": "1e5cadd9c32c6576e77f10c9e65f0eab87076098",
+    "authors_preserved": true,
+    "A_crypto_primitives_modified": false,
+    "A_test_rustfmt_only": true,
+    "production_listener_install_or_enable_claimed": false,
+    "native_lock_sha256": "eded8a32e629f0b8e1fae7ab287390c1b2bb6823d7ef51c55067fe8297567a14",
+    "native_registry_versions_changed": false
+  },
+  "actual_recovery_runtime": {
+    "source_head": "7ec74d1bd82c5d0c71bb1168be5b21066b44b3e7",
+    "tracked_dirty": false,
+    "candidate_head": "25bcaa4671278f25720b5c2fb9c2ca720a1375ef",
+    "crypto_wire_frozen": false,
+    "production_admitted": false,
+    "image": "sha256:bdfc738a8a869292ec1b01f1b8e620db533e09d1fe68fe980a7118b22dae9cec",
+    "network": "none",
+    "read_only": true,
+    "memory_limit_bytes": 268435456,
+    "pids_limit": 32,
+    "cpus": 2,
+    "runtime_binary_sha256": "3afdb9dd0ca470a8c3b801548f27255b9389060957ede32fe2a9f975a87baea0",
+    "build_log_sha256": "dd26a9247df0495b1da3ab1e29e3bc6bba94cf4ae403fe076d94c4cd13b8a7bf",
+    "scenarios": [
+      {
+        "actors_capabilities": [],
+        "case": "confirm",
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "external_backends": [
+          "private BlueZ/HCI peer",
+          "NetworkManager",
+          "ModemManager"
+        ],
+        "fixture": "actual-d-gatt-a-candidate-core-wifi",
+        "production_roles_installed": false,
+        "proofs": {
+          "backend": {
+            "case": "confirm",
+            "creates": 1,
+            "deletes": 0,
+            "external_backends_only": true,
+            "gatt_and_advertisement_unregistered": true,
+            "rollbacks": 0,
+            "saves": 1,
+            "uid": 1003,
+            "wwan_or_gsm_mutation": false
+          },
+          "ble": {
+            "actual_fixed_core_port": true,
+            "actual_non_test_service": true,
+            "case": "confirm",
+            "clean_shutdown": false,
+            "closed": true,
+            "uid": 1002
+          },
+          "core": {
+            "actual_auth_and_secure_session": true,
+            "application_replies": 3,
+            "case": "confirm",
+            "established": true,
+            "journal": [
+              [
+                "begin_wifi",
+                "saved",
+                1,
+                null
+              ],
+              [
+                "confirm_wifi",
+                "saved",
+                1,
+                null
+              ]
+            ],
+            "normal_usb_gate_checked": false,
+            "original_network_lock_released": true,
+            "uid": 1001
+          }
+        },
+        "log_sha256": "cbb77ce83068ab2f0adee641d4014a1508fe731b602a7c51db8c1e5f36709533"
+      },
+      {
+        "actors_capabilities": [],
+        "case": "cancel",
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "external_backends": [
+          "private BlueZ/HCI peer",
+          "NetworkManager",
+          "ModemManager"
+        ],
+        "fixture": "actual-d-gatt-a-candidate-core-wifi",
+        "production_roles_installed": false,
+        "proofs": {
+          "backend": {
+            "case": "cancel",
+            "creates": 1,
+            "deletes": 1,
+            "external_backends_only": true,
+            "gatt_and_advertisement_unregistered": true,
+            "rollbacks": 1,
+            "saves": 0,
+            "uid": 1003,
+            "wwan_or_gsm_mutation": false
+          },
+          "ble": {
+            "actual_fixed_core_port": true,
+            "actual_non_test_service": true,
+            "case": "cancel",
+            "clean_shutdown": false,
+            "closed": true,
+            "uid": 1002
+          },
+          "core": {
+            "actual_auth_and_secure_session": true,
+            "application_replies": 3,
+            "case": "cancel",
+            "established": true,
+            "journal": [
+              [
+                "begin_wifi",
+                "rolled_back",
+                0,
+                1
+              ],
+              [
+                "cancel_wifi",
+                "rolled_back",
+                0,
+                1
+              ]
+            ],
+            "normal_usb_gate_checked": false,
+            "original_network_lock_released": true,
+            "uid": 1001
+          }
+        },
+        "log_sha256": "58dad7087ae660dcef2af7e510f7007725043a090e9804e9ba7d3a760284fa4e"
+      },
+      {
+        "actors_capabilities": [],
+        "case": "disconnect",
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "external_backends": [
+          "private BlueZ/HCI peer",
+          "NetworkManager",
+          "ModemManager"
+        ],
+        "fixture": "actual-d-gatt-a-candidate-core-wifi",
+        "production_roles_installed": false,
+        "proofs": {
+          "backend": {
+            "case": "disconnect",
+            "creates": 1,
+            "deletes": 1,
+            "external_backends_only": true,
+            "gatt_and_advertisement_unregistered": true,
+            "rollbacks": 1,
+            "saves": 0,
+            "uid": 1003,
+            "wwan_or_gsm_mutation": false
+          },
+          "ble": {
+            "actual_fixed_core_port": true,
+            "actual_non_test_service": true,
+            "case": "disconnect",
+            "clean_shutdown": false,
+            "closed": true,
+            "uid": 1002
+          },
+          "core": {
+            "actual_auth_and_secure_session": true,
+            "application_replies": 2,
+            "case": "disconnect",
+            "established": true,
+            "journal": [
+              [
+                "begin_wifi",
+                "rolled_back",
+                0,
+                1
+              ]
+            ],
+            "normal_usb_gate_checked": false,
+            "original_network_lock_released": true,
+            "uid": 1001
+          }
+        },
+        "log_sha256": "b680969ea4e3c8f0252b064bea979907844d1bcd875ea0d27363af46dae8daaf"
+      },
+      {
+        "actors_capabilities": [],
+        "case": "revoke_before_confirm",
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "external_backends": [
+          "private BlueZ/HCI peer",
+          "NetworkManager",
+          "ModemManager"
+        ],
+        "fixture": "actual-d-gatt-a-candidate-core-wifi",
+        "production_roles_installed": false,
+        "proofs": {
+          "backend": {
+            "case": "revoke_before_confirm",
+            "creates": 1,
+            "deletes": 1,
+            "external_backends_only": true,
+            "gatt_and_advertisement_unregistered": true,
+            "rollbacks": 1,
+            "saves": 0,
+            "uid": 1003,
+            "wwan_or_gsm_mutation": false
+          },
+          "ble": {
+            "actual_fixed_core_port": true,
+            "actual_non_test_service": true,
+            "case": "revoke_before_confirm",
+            "clean_shutdown": false,
+            "closed": true,
+            "uid": 1002
+          },
+          "core": {
+            "actual_auth_and_secure_session": true,
+            "application_replies": 2,
+            "case": "revoke_before_confirm",
+            "established": true,
+            "journal": [
+              [
+                "begin_wifi",
+                "rolled_back",
+                0,
+                1
+              ]
+            ],
+            "normal_usb_gate_checked": false,
+            "original_network_lock_released": true,
+            "uid": 1001
+          }
+        },
+        "log_sha256": "10acacab2b74ee3b3450c0e1387e43e51f3fadcbb234512b7a978ea868139e48"
+      },
+      {
+        "actors_capabilities": [],
+        "case": "revoke_after_save",
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "external_backends": [
+          "private BlueZ/HCI peer",
+          "NetworkManager",
+          "ModemManager"
+        ],
+        "fixture": "actual-d-gatt-a-candidate-core-wifi",
+        "production_roles_installed": false,
+        "proofs": {
+          "backend": {
+            "case": "revoke_after_save",
+            "creates": 1,
+            "deletes": 1,
+            "external_backends_only": true,
+            "gatt_and_advertisement_unregistered": true,
+            "rollbacks": 1,
+            "saves": 1,
+            "uid": 1003,
+            "wwan_or_gsm_mutation": false
+          },
+          "ble": {
+            "actual_fixed_core_port": true,
+            "actual_non_test_service": true,
+            "case": "revoke_after_save",
+            "clean_shutdown": false,
+            "closed": true,
+            "uid": 1002
+          },
+          "core": {
+            "actual_auth_and_secure_session": true,
+            "application_replies": 2,
+            "case": "revoke_after_save",
+            "established": true,
+            "journal": [
+              [
+                "begin_wifi",
+                "rolled_back",
+                0,
+                1
+              ],
+              [
+                "confirm_wifi",
+                "rolled_back",
+                0,
+                1
+              ]
+            ],
+            "normal_usb_gate_checked": false,
+            "original_network_lock_released": true,
+            "uid": 1001
+          }
+        },
+        "log_sha256": "4779b5ab1455780246bcb54c80d967eca09578f136f9fda785143dac7c9f7fb4"
+      },
+      {
+        "actors_capabilities": [],
+        "case": "replay",
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "external_backends": [
+          "private BlueZ/HCI peer",
+          "NetworkManager",
+          "ModemManager"
+        ],
+        "fixture": "actual-d-gatt-a-candidate-core-wifi",
+        "production_roles_installed": false,
+        "proofs": {
+          "backend": {
+            "case": "replay",
+            "creates": 1,
+            "deletes": 1,
+            "external_backends_only": true,
+            "gatt_and_advertisement_unregistered": true,
+            "rollbacks": 1,
+            "saves": 0,
+            "uid": 1003,
+            "wwan_or_gsm_mutation": false
+          },
+          "ble": {
+            "actual_fixed_core_port": true,
+            "actual_non_test_service": true,
+            "case": "replay",
+            "clean_shutdown": false,
+            "closed": true,
+            "uid": 1002
+          },
+          "core": {
+            "actual_auth_and_secure_session": true,
+            "application_replies": 2,
+            "case": "replay",
+            "established": true,
+            "journal": [
+              [
+                "begin_wifi",
+                "rolled_back",
+                0,
+                1
+              ]
+            ],
+            "normal_usb_gate_checked": false,
+            "original_network_lock_released": true,
+            "uid": 1001
+          }
+        },
+        "log_sha256": "60c0c03e869354887d270fd249b51a5ba6ddcbb42bb5f86dca065ed928e98107"
+      },
+      {
+        "actors_capabilities": [],
+        "case": "wrong_pin",
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "external_backends": [
+          "private BlueZ/HCI peer",
+          "NetworkManager",
+          "ModemManager"
+        ],
+        "fixture": "actual-d-gatt-a-candidate-core-wifi",
+        "production_roles_installed": false,
+        "proofs": {
+          "backend": {
+            "case": "wrong_pin",
+            "creates": 0,
+            "deletes": 0,
+            "external_backends_only": true,
+            "gatt_and_advertisement_unregistered": true,
+            "rollbacks": 0,
+            "saves": 0,
+            "uid": 1003,
+            "wwan_or_gsm_mutation": false
+          },
+          "ble": {
+            "actual_fixed_core_port": true,
+            "actual_non_test_service": true,
+            "case": "wrong_pin",
+            "clean_shutdown": false,
+            "closed": true,
+            "uid": 1002
+          },
+          "core": {
+            "actual_auth_and_secure_session": true,
+            "application_replies": 0,
+            "case": "wrong_pin",
+            "established": false,
+            "journal": [],
+            "normal_usb_gate_checked": false,
+            "original_network_lock_released": true,
+            "uid": 1001
+          }
+        },
+        "log_sha256": "dcb7a2a64342732957d8c46e7beb437b6bceb211d7a925481781a6aac71d6350"
+      },
+      {
+        "actors_capabilities": [],
+        "case": "tamper",
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "external_backends": [
+          "private BlueZ/HCI peer",
+          "NetworkManager",
+          "ModemManager"
+        ],
+        "fixture": "actual-d-gatt-a-candidate-core-wifi",
+        "production_roles_installed": false,
+        "proofs": {
+          "backend": {
+            "case": "tamper",
+            "creates": 0,
+            "deletes": 0,
+            "external_backends_only": true,
+            "gatt_and_advertisement_unregistered": true,
+            "rollbacks": 0,
+            "saves": 0,
+            "uid": 1003,
+            "wwan_or_gsm_mutation": false
+          },
+          "ble": {
+            "actual_fixed_core_port": true,
+            "actual_non_test_service": true,
+            "case": "tamper",
+            "clean_shutdown": false,
+            "closed": true,
+            "uid": 1002
+          },
+          "core": {
+            "actual_auth_and_secure_session": true,
+            "application_replies": 0,
+            "case": "tamper",
+            "established": true,
+            "journal": [],
+            "normal_usb_gate_checked": false,
+            "original_network_lock_released": true,
+            "uid": 1001
+          }
+        },
+        "log_sha256": "64d45a2c8055b0216bdd8bc4509825bafdd45b727e35700252d8445b8acce87d"
+      },
+      {
+        "actors_capabilities": [],
+        "case": "busy_network",
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "external_backends": [
+          "private BlueZ/HCI peer",
+          "NetworkManager",
+          "ModemManager"
+        ],
+        "fixture": "actual-d-gatt-a-candidate-core-wifi",
+        "production_roles_installed": false,
+        "proofs": {
+          "backend": {
+            "case": "busy_network",
+            "creates": 0,
+            "deletes": 0,
+            "external_backends_only": true,
+            "gatt_and_advertisement_unregistered": true,
+            "rollbacks": 0,
+            "saves": 0,
+            "uid": 1003,
+            "wwan_or_gsm_mutation": false
+          },
+          "ble": {
+            "actual_fixed_core_port": true,
+            "actual_non_test_service": true,
+            "case": "busy_network",
+            "clean_shutdown": false,
+            "closed": true,
+            "uid": 1002
+          },
+          "core": {
+            "actual_auth_and_secure_session": true,
+            "application_replies": 2,
+            "case": "busy_network",
+            "established": true,
+            "journal": [],
+            "normal_usb_gate_checked": false,
+            "original_network_lock_released": true,
+            "uid": 1001
+          }
+        },
+        "log_sha256": "c7ac9de8285b030043beeb0c44f72dcdcb49cb3a32c876486d2a68e911553743"
+      },
+      {
+        "actors_capabilities": [],
+        "case": "call_busy",
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "external_backends": [
+          "private BlueZ/HCI peer",
+          "NetworkManager",
+          "ModemManager"
+        ],
+        "fixture": "actual-d-gatt-a-candidate-core-wifi",
+        "production_roles_installed": false,
+        "proofs": {
+          "backend": {
+            "case": "call_busy",
+            "creates": 0,
+            "deletes": 0,
+            "external_backends_only": true,
+            "gatt_and_advertisement_unregistered": true,
+            "rollbacks": 0,
+            "saves": 0,
+            "uid": 1003,
+            "wwan_or_gsm_mutation": false
+          },
+          "ble": {
+            "actual_fixed_core_port": true,
+            "actual_non_test_service": true,
+            "case": "call_busy",
+            "clean_shutdown": false,
+            "closed": true,
+            "uid": 1002
+          },
+          "core": {
+            "actual_auth_and_secure_session": true,
+            "application_replies": 2,
+            "case": "call_busy",
+            "established": true,
+            "journal": [],
+            "normal_usb_gate_checked": false,
+            "original_network_lock_released": true,
+            "uid": 1001
+          }
+        },
+        "log_sha256": "fce8f6651f6b255cce3379732ea7bc9110325c42d1c7230f28e06bb166b3996a"
+      },
+      {
+        "actors_capabilities": [],
+        "case": "normal_usb_denied",
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "external_backends": [
+          "private BlueZ/HCI peer",
+          "NetworkManager",
+          "ModemManager"
+        ],
+        "fixture": "actual-d-gatt-a-candidate-core-wifi",
+        "production_roles_installed": false,
+        "proofs": {
+          "backend": {
+            "case": "normal_usb_denied",
+            "creates": 1,
+            "deletes": 0,
+            "external_backends_only": true,
+            "gatt_and_advertisement_unregistered": true,
+            "rollbacks": 0,
+            "saves": 1,
+            "uid": 1003,
+            "wwan_or_gsm_mutation": false
+          },
+          "ble": {
+            "actual_fixed_core_port": true,
+            "actual_non_test_service": true,
+            "case": "normal_usb_denied",
+            "clean_shutdown": false,
+            "closed": true,
+            "uid": 1002
+          },
+          "core": {
+            "actual_auth_and_secure_session": true,
+            "application_replies": 3,
+            "case": "normal_usb_denied",
+            "established": true,
+            "journal": [
+              [
+                "begin_wifi",
+                "saved",
+                1,
+                null
+              ],
+              [
+                "confirm_wifi",
+                "saved",
+                1,
+                null
+              ]
+            ],
+            "normal_usb_gate_checked": true,
+            "original_network_lock_released": true,
+            "uid": 1001
+          }
+        },
+        "log_sha256": "c10f17281bb4ad93434201f6bf7685df4436d5b712bbfc556d1225669f27c268"
+      },
+      {
+        "actors_capabilities": [],
+        "case": "rollback_unknown",
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "external_backends": [
+          "private BlueZ/HCI peer",
+          "NetworkManager",
+          "ModemManager"
+        ],
+        "fixture": "actual-d-gatt-a-candidate-core-wifi",
+        "production_roles_installed": false,
+        "proofs": {
+          "backend": {
+            "case": "rollback_unknown",
+            "creates": 1,
+            "deletes": 0,
+            "external_backends_only": true,
+            "gatt_and_advertisement_unregistered": true,
+            "rollbacks": 1,
+            "saves": 0,
+            "uid": 1003,
+            "wwan_or_gsm_mutation": false
+          },
+          "ble": {
+            "actual_fixed_core_port": true,
+            "actual_non_test_service": true,
+            "case": "rollback_unknown",
+            "clean_shutdown": false,
+            "closed": true,
+            "uid": 1002
+          },
+          "core": {
+            "actual_auth_and_secure_session": true,
+            "application_replies": 5,
+            "case": "rollback_unknown",
+            "established": true,
+            "journal": [
+              [
+                "begin_wifi",
+                "unknown",
+                null,
+                null
+              ],
+              [
+                "cancel_wifi",
+                "unknown",
+                null,
+                null
+              ]
+            ],
+            "normal_usb_gate_checked": false,
+            "original_network_lock_released": true,
+            "uid": 1001
+          }
+        },
+        "log_sha256": "038cc66b90e771f596afceb0ddd106e50aaf2d3314cad14e89973246508b97f6"
+      }
+    ],
+    "physical_bluetooth_or_network_tested": false
+  },
+  "controlled_interleaving": {
+    "outside_backend_only": "hold the private NM read-only GetSettings after Ready; release after actual Core control row is claimed and its Auth critical section has ended",
+    "core_auth_business_or_crypto_replaced": false,
+    "public_api_checks_bypassed": false,
+    "product_auth_busy_semantics_changed": false,
+    "product_deadlines_or_queues_changed": false,
+    "ordinary_auth_busy_outcome_retained": "initial unsynchronized run legitimately returned busy and retained begin rolled_back/control unknown; not reclassified as a product bug or silently retried"
+  },
+  "root_workspace": {
+    "source_head": "7ec74d1bd82c5d0c71bb1168be5b21066b44b3e7",
+    "command": "CARGO_INCREMENTAL=0 cargo test --workspace --all-features --locked --offline",
+    "passed": 1494,
+    "failed": 0,
+    "ignored": 9,
+    "suites": 63,
+    "log_sha256": "7099039bee49de33e0e7011bd9852c9ebdd0b7d4c8653359e24244f429b4de24",
+    "strict_clippy_command": "CARGO_INCREMENTAL=0 cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings",
+    "strict_clippy_log_sha256": "5f6bbf20c52d4297e6d1552b7a180dead5a98b78b281314aabf66d37aef0eb0d",
+    "explicit_candidate_clippy_log_sha256": "9b8b1168fbead19ea343758fc21f88c0c5897b17011890404cd85b893266d7a1",
+    "default_core_check_log_sha256": "5630fbc43b857d9dfee85bb05a0939bf1c3eef48b1ead8dbcabaffe6fce601cb",
+    "relevant_ordinary_ignored_roles_executed_separately": [
+      "normal_core_actual_uid_role",
+      "isolated_nkn_core",
+      "isolated_nkn_client"
+    ],
+    "all_other_ignored_cases_claimed_manually_executed": false
+  },
+  "existing_A_secure_uid": {
+    "fixture": "isolated-secure-core-v1",
+    "core_uid": 1001,
+    "ble_uid": 1002,
+    "denied_uids": [
+      0,
+      1001,
+      1003,
+      1004,
+      1005,
+      1006
+    ],
+    "tests_passed": 7,
+    "application_dispatch": "original-Core-QueryOperation",
+    "cryptography": "actual-Noise-Identity-Ed25519",
+    "production_roles_selected": false,
+    "source_head": "7ec74d1bd82c5d0c71bb1168be5b21066b44b3e7",
+    "tracked_dirty": false,
+    "image": "python@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb",
+    "binary_sha256": "237e54b09f63f00cc877c15666c69be26b73b52b63b7f05a7fab51b2bc853eda",
+    "runner_sha256": "f3ea8b43a29904fc1bf817c530d4d2cf8714274c522f650e5a8901ceaccfc7e4",
+    "log_sha256": "97390a8afc2316e1735642a9e832b5f55a5e79f0d6729e7d9c49e5c71a7de49b"
+  },
+  "existing_A_normal_nkn_uid": {
+    "fixture": "isolated-nkn-core-v1",
+    "core_uid": 1001,
+    "nkn_uid": 1002,
+    "ble_uid": 1006,
+    "denied_uids": [
+      0,
+      1001,
+      1003,
+      1004,
+      1005,
+      1006,
+      1007
+    ],
+    "tests_passed": 9,
+    "application_dispatch": "original-normal-Core-Health",
+    "cryptography": "actual-Noise-Identity-Ed25519-membership-HMAC-and-root-signature",
+    "production_roles_selected": false,
+    "source_head": "7ec74d1bd82c5d0c71bb1168be5b21066b44b3e7",
+    "tracked_dirty": false,
+    "image": "python@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb",
+    "binary_sha256": "4c1acdf82e89176cf3fdba76006f99127c93f9582f4934a0400b8aa649e0c61c",
+    "runner_sha256": "1d0283dc425e551dcd55bc5b65cfd2111a67fa4e6ddcff01ee7e02647a486f3c",
+    "log_sha256": "ed7358ba4b14c5cd2b9461249aaeb5c4c2dd9a88c6b0569b3b7b0981df34ee1a"
+  },
+  "native_standard": {
+    "head": "7ec74d1bd82c5d0c71bb1168be5b21066b44b3e7",
+    "steps": [
+      {
+        "name": "native-default",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--locked",
+          "--offline"
+        ],
+        "exit_code": 0,
+        "seconds": 14.3,
+        "suites": [
+          [
+            "ok",
+            "23",
+            "0",
+            "0"
+          ],
+          [
+            "ok",
+            "11",
+            "0",
+            "0"
+          ],
+          [
+            "ok",
+            "0",
+            "0",
+            "0"
+          ]
+        ]
+      },
+      {
+        "name": "native-feature",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--features",
+          "turn-relay",
+          "--locked",
+          "--offline"
+        ],
+        "exit_code": 0,
+        "seconds": 28.91,
+        "suites": [
+          [
+            "ok",
+            "31",
+            "0",
+            "0"
+          ],
+          [
+            "ok",
+            "11",
+            "0",
+            "0"
+          ],
+          [
+            "ok",
+            "0",
+            "0",
+            "0"
+          ]
+        ]
+      },
+      {
+        "name": "native-clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--all-targets",
+          "--features",
+          "turn-relay",
+          "--locked",
+          "--offline",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "exit_code": 0,
+        "seconds": 10.21,
+        "suites": []
+      },
+      {
+        "name": "sdk-manual-clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--test",
+          "turn_private_tls",
+          "--features",
+          "turn-relay",
+          "--locked",
+          "--offline",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "exit_code": 0,
+        "seconds": 3.18,
+        "suites": []
+      },
+      {
+        "name": "worker-manual-clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--test",
+          "remote_worker_private",
+          "--features",
+          "turn-relay",
+          "--locked",
+          "--offline",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "exit_code": 0,
+        "seconds": 4.76,
+        "suites": []
+      },
+      {
+        "name": "root-fmt",
+        "command": [
+          "cargo",
+          "fmt",
+          "--all",
+          "--",
+          "--check"
+        ],
+        "exit_code": 0,
+        "seconds": 2.14,
+        "suites": []
+      },
+      {
+        "name": "native-fmt",
+        "command": [
+          "cargo",
+          "fmt",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--",
+          "--check"
+        ],
+        "exit_code": 0,
+        "seconds": 0.3,
+        "suites": []
+      },
+      {
+        "name": "diff",
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "exit_code": 0,
+        "seconds": 0.01,
+        "suites": []
+      }
+    ]
+  },
+  "actual_remote_worker_and_normal_core": {
+    "fixture": "actual-remote-worker-v2",
+    "source_head": "7ec74d1bd82c5d0c71bb1168be5b21066b44b3e7",
+    "tracked_dirty": false,
+    "image": "sha256:cc7086fb6a0e15d17b091decd3ee96e320055059ba77f85ebd8d6739aca8d7e2",
+    "built_parent_image": null,
+    "network": "none",
+    "read_only": true,
+    "memory_limit_bytes": 134217728,
+    "pids_limit": 16,
+    "cpus": 2,
+    "matrix_tests_passed": 38,
+    "matrix_tests_ignored": 2,
+    "ignored_reason": "actual UID role runs separately in disposable image",
+    "new_worker_integration_functions": 10,
+    "duplicate_sdk_and_source_unit_tests": 28,
+    "matrix_uid": 1000,
+    "matrix_capabilities": [],
+    "uid_fixture": {
+      "actors_capabilities": [],
+      "denied_uids": [
+        984,
+        986,
+        987
+      ],
+      "fixture": "actual-different-uids-remote-worker",
+      "full_core_business_daemon": false,
+      "production_cli": {
+        "actual_root_nss": true,
+        "denied_uids": [
+          984,
+          986,
+          987
+        ],
+        "edge_uid": 985,
+        "loopback_config_rejected": true,
+        "non_test_binary": true,
+        "pcm_opened": false,
+        "sigterm_socket_removed": true,
+        "uid": 984,
+        "unknown_handle_rejected_before_network": true
+      },
+      "proofs": {
+        "core": {
+          "actual_media_peer_uid": 984,
+          "normal_authority_revoked": true,
+          "pulses": 2,
+          "redeemed": 1,
+          "uid": 986
+        },
+        "edge": {
+          "actual_core_peer_uid": 986,
+          "forced_relay_opus_both_directions": true,
+          "media_closed": 1,
+          "uid": 985
+        },
+        "media": {
+          "closed": 1,
+          "mirror_revoked": true,
+          "opened": 1,
+          "uid": 984,
+          "writes": 13
+        }
+      },
+      "synthetic_nss_only": true
+    },
+    "normal_core_fixture": {
+      "actors_effective_capabilities": 0,
+      "core": {
+        "actual_media_peer_uid": 984,
+        "call_lease_renewed_by_host": false,
+        "fake_modem_creates": 1,
+        "fake_modem_starts": 1,
+        "normal_auth_and_calls_controller": true,
+        "normal_dispatcher": true,
+        "normal_media_lease_rejected": true,
+        "original_owner_revocation": true,
+        "uid": 986
+      },
+      "core_auth_controller_media_authority_mocked": false,
+      "core_controller_architecture": "x86_64",
+      "edge": {
+        "actual_core_peer_uid": 986,
+        "credentials_exposed_by_host": false,
+        "forced_relay_opus_both_directions": true,
+        "normal_auth_and_original_call_lease": true,
+        "normal_host_non_test_library": true,
+        "owner_revocation_stops_media": true,
+        "uid": 985
+      },
+      "fixture": "actual-normal-core-signaling-turn-three-uids",
+      "media": {
+        "closed": 1,
+        "mirror_revoked": true,
+        "opened": 1,
+        "uid": 984,
+        "writes": 13
+      },
+      "media_edge_aarch64": false,
+      "physical_device": false,
+      "synthetic_external_backends": [
+        "private ModemManager DBus",
+        "PCM",
+        "normal TLS TURN registration",
+        "remote audio peer"
+      ]
+    },
+    "uid_fixture_controller_capabilities": [
+      "SETUID",
+      "SETGID",
+      "CHOWN",
+      "FOWNER"
+    ],
+    "binary_sha256": "edf8a976bab233ef47eaf1c22f704567a1341901b6b5f20579b864cd1b488192",
+    "non_test_binary_sha256": "48918bc1f1f4013d404c9b7670b1df1ec83f6830a529e504558cd8cbb7e38dcb",
+    "matrix_log_sha256": "57f0c65ed5e72720674eebff6bfb22a5860b572598d305ca40c7f7a9231d9161",
+    "uids_log_sha256": "88e0ab199091181a64f6f593bdf66dd7c93bec74794ac04ff28a76ca90780723",
+    "normal_core_log_sha256": "5044c78691500542bbcf703d08405ee3407b08c17cf5b29223ff90c17aae1b68",
+    "core_binary_sha256": "08c1902e6d5328c1e32e6da256e7bfed02d40e222e6750ceb3cf531c623d7e5e"
+  },
+  "product_failure_replays": [
+    {
+      "source_head": "2613a6a1bad3a5fb5915ad8258d21f8d2c3dfc71",
+      "tracked_dirty": false,
+      "case": "confirm",
+      "runner_exit_code": 1,
+      "original_failure": "second handshake message first fragment rejected after actual first notification; Core reports Transport(Closed)",
+      "log_sha256": "9a16d4f01fc2c95451b5e5be044c243df422a0a0a51579c7dd0103ad217ecfef",
+      "stage_count_unchanged": 24
+    },
+    {
+      "source_head": "e7a55cb2f596630e2e098ea0a7d7aa30e4d782f8",
+      "tracked_dirty": false,
+      "runner_exit_code": 1,
+      "case": "confirm",
+      "observed": "handshake and Begin work; original 4s query test bound expires while delivering fragmented reply; product 10ms tick only polls owned I/O once before waiting",
+      "log_sha256": "38c3320d958b4c97dc9a7323592f77bcfc8a1555e44e8fca84eebc2ada2b202a"
+    },
+    {
+      "source_head": "5fb9ca5d7f39466a898d3f2dd5496d55468d3612",
+      "tracked_dirty": false,
+      "case": "revoke_after_save",
+      "runner_exit_code": 1,
+      "log_sha256": "9040d25db0406362f528a3d0c453653127d28d90e0bb18419879131249ed8ca9",
+      "observed": "actual Update2 saved once; owner revoked before reply; original native commit destroyed checkpoint before rechecking recovery scope, checkpoint rollback counter zero; no saved reply was returned"
+    }
+  ],
+  "prototype_fixture_failures": {
+    "controller_result_group_permission_log_sha256": "03400ee568c222d4042ee363487f39b15830e3153619544731d0bad7b84e82c3",
+    "backend_public_metadata_permission_log_sha256": "1bfca66bc03ae5d265d795e06816053fdd038548f6eeba9b383a6c5f9f384a55",
+    "fixture_wrong_endpoint_log_sha256": "48532e89721d3fb71919c1227c531bf37416087d26fc841140052fd56aa1f602",
+    "first_readonly_observer_non_Send_build_fixed_without_unsafe": true,
+    "unsynchronized_auth_busy_log_sha256": "c0d8b2c38267267e4520f7e3e2838d51cfbf1137e4777d26b18ebb6bee656b63"
+  },
+  "limits": [
+    "Fixed A candidate crypto_wire_frozen=false; cryptographic/dependency/memory-erasure review not approved by this submission",
+    "Inherited TURN DTLS crypto-bigint0.5.5 RUSTSEC-2026-0387 remains; production_admitted=false",
+    "Core library modules and non-test BLE service assembled in isolated Core test process, not installed production daemon; Core listener startup/Root/NSS/cgroups/migrations/install/sign/release remain mainline",
+    "Actual BlueZ radio, browser Bluetooth, production Wi-Fi/WWAN/IMS/PCM/device and external TURN/listening not tested",
+    "New secure-recovery assembly not claimed ARM runtime/physical board/resource-budget acceptance; earlier ARM media evidence remains at its original source",
+    "No global progress/roster/other member branch/main push/selfmerge; offline count does not change fixed P0-P7 weight"
+  ]
+}

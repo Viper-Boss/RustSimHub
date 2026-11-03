@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-03T03:32:08.001373+00:00",
+  "updated_at": "2026-11-03T05:07:28.326929+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -109,7 +109,7 @@
       "detail": "22901521字节，13程序同源回读；无签名/epoch、不可安装，等待单独签名授权"
     },
     {
-      "label": "本轮成员合并",
+      "label": "先前四份成员合并",
       "value": "4 / 4 已合入 main",
       "detail": "178、180、184、187；12草稿保留。先行批准不等于技术验收"
     },
@@ -149,19 +149,19 @@
       "detail": "原B32步保持；PR191补真实SDK/恢复listener/PWA装配候选，待审，真实发布与设备验收仍缺"
     },
     {
-      "label": "D线离线剩余",
-      "value": "4个大步骤",
-      "detail": "PR162自报22/26已提交，D22/D23/D25/D26仍有前置；草稿未合并，不等于验收；PR191补部分集成候选，不替代原D恢复actor竞争修复"
+      "label": "D线离线交付",
+      "value": "26 / 26 已提交 · 待审核",
+      "detail": "PR170整合最新main与D24/25/26；162已关闭删分支，原提交保留。离线提交不等于生产准入或实机验收"
     },
     {
       "label": "A组剩余九步",
-      "value": "代码候选已分批交付",
-      "detail": "178/184/187已合并，191待审；正式密码/依赖、安装与实机验收保留"
+      "value": "代码候选已分批合并",
+      "detail": "178/184/187/191均由负责人合入；正式密码/依赖、安装与实机验收保留"
     },
     {
       "label": "PR191最终三组",
-      "value": "A22 / A27 / A30 · 待审",
-      "detail": "固定29ba539，既有524原生通过/4 suite忽略；隔离组合与浏览器证据，不是本轮重测"
+      "value": "A22 / A27 / A30 · 已合并",
+      "detail": "原29ba539/524项证据保持原来源；当前main已含该候选，仍未部署"
     },
     {
       "label": "历史证据缺口",
@@ -192,7 +192,8 @@
     "docs/VALIDATION-NAS-JOURNAL-20261102.md",
     "docs/VALIDATION-APP71-INSTALL-20261102.md",
     "docs/VALIDATION-DASHBOARD-REFRESH-20261103.md",
-    "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+    "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md",
+    "docs/deliveries/member-d-pr170-main-sync-20261103.md"
   ],
   "modules": [
     {
@@ -1547,7 +1548,7 @@
       "title": "远程HTTPS、信令与TURN",
       "scope": "original",
       "phase": "extensions",
-      "summary": "SDK/Root与普通Core/媒体有限路由已有合并候选，PR191补真实隔离SDK到Core组合；公开网络、直连/中继、TURN与真实声音仍待审核和外部环境验收。",
+      "summary": "SDK/Root、普通Core/媒体授权桥及PR191候选已合并；D线真实TURN/TLS/中继worker集中PR170，已整合最新main待审核。公开网络、直连/中继及真实声音仍待外部环境和设备验收。",
       "paths": [
         "crates/edge",
         "crates/media",
@@ -1616,7 +1617,8 @@
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [
-            "docs/deliveries/member-d-turn-source-admission.md"
+            "docs/deliveries/member-d-turn-source-admission.md",
+            "docs/deliveries/member-d-pr170-main-sync-20261103.md"
           ],
           "completed_at": null,
           "actual_hours": null
@@ -1664,7 +1666,9 @@
           "status": "todo",
           "offline_delegable": false,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-d-pr170-main-sync-20261103.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         },
@@ -3043,7 +3047,7 @@
       "title": "NKNGuard原生远程接入",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "实际Go SDK引擎和固定Root候选PR184、有限Core/媒体桥PR178已合并；PR191补真实状态/控制及隔离组合联调，待审。默认关闭，ARM交叉构建不等于ARM运行，公开网络与正式安装未验收。",
+      "summary": "实际Go SDK引擎和固定Root候选PR184、有限Core/媒体桥PR178已合并；PR191的真实状态/控制及隔离组合已由负责人合并。默认关闭，ARM交叉构建不等于ARM运行，公开网络与正式安装未验收。",
       "paths": [
         "docs/FEATURE-EXTENSIONS-2026-10-24.md",
         "crates/compat",
@@ -3773,7 +3777,8 @@
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [
-            "docs/deliveries/member-d-core-recovery-t5-results.md"
+            "docs/deliveries/member-d-core-recovery-t5-results.md",
+            "docs/deliveries/member-d-pr170-main-sync-20261103.md"
           ],
           "completed_at": null,
           "actual_hours": null
@@ -3795,7 +3800,8 @@
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [
-            "docs/deliveries/member-d-core-recovery-t5-results.md"
+            "docs/deliveries/member-d-core-recovery-t5-results.md",
+            "docs/deliveries/member-d-pr170-main-sync-20261103.md"
           ],
           "completed_at": null,
           "actual_hours": null
@@ -3807,7 +3813,7 @@
       "title": "BLE · 低权限设备服务",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "D线BlueZ/GATT/生命周期和限权IPC已有交付；PR191补实际按需Core连接及候选装配。真实射频、正式单元安装、NetworkManager生产者与崩溃恢复仍缺，不读取业务库或身份seed。",
+      "summary": "D线GATT/service、真实UID Core端口及安全恢复整合集中PR170；162已被其完整包含并关闭。既有PR191候选入口保留，各自固定路径及默认关闭；真实射频、正式Root装配和完整生产预算未验收。",
       "paths": [
         "planned:crates/ble",
         "firmware/system",
@@ -3833,7 +3839,8 @@
           "passive_wait_hours": 0,
           "evidence": [
             "docs/deliveries/member-d-bluez-gatt-callbacks.md",
-            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md",
+            "docs/deliveries/member-d-pr170-main-sync-20261103.md"
           ],
           "completed_at": null,
           "actual_hours": null
@@ -3856,7 +3863,8 @@
           "passive_wait_hours": 0,
           "evidence": [
             "docs/deliveries/member-d-bluez-gatt-callbacks.md",
-            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md",
+            "docs/deliveries/member-d-pr170-main-sync-20261103.md"
           ],
           "completed_at": null,
           "actual_hours": null
@@ -3879,7 +3887,8 @@
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [
-            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
+            "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md",
+            "docs/deliveries/member-d-pr170-main-sync-20261103.md"
           ],
           "completed_at": null,
           "actual_hours": null
@@ -3900,7 +3909,9 @@
           "status": "todo",
           "offline_delegable": true,
           "passive_wait_hours": 0,
-          "evidence": [],
+          "evidence": [
+            "docs/deliveries/member-d-pr170-main-sync-20261103.md"
+          ],
           "completed_at": null,
           "actual_hours": null
         }
@@ -5975,12 +5986,29 @@
         "docs/VALIDATION-DASHBOARD-REFRESH-20261103.md",
         "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md"
       ]
+    },
+    {
+      "at": "2026-11-03T05:07:14.388748+00:00",
+      "type": "state",
+      "title": "D线候选集中PR170，关闭重复162",
+      "detail": "原162的完整历史已在170保留并关闭删分支；170正常合入main06964，1527 Rust、真实UID与私有TURN/worker验证通过，提交主线审核。更正D线为26/26离线交付；不新增动作验收或发布。",
+      "task_ids": [
+        "REMOTE-03",
+        "REMOTE-05",
+        "BLE3-01",
+        "BLE3-02",
+        "BLE3-03",
+        "BLE3-04"
+      ],
+      "evidence": [
+        "docs/deliveries/member-d-pr170-main-sync-20261103.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "7c33324af5cd7cea67856d5f15d5653abcf8ed89",
-    "generated_at": "2026-11-03T03:32:08.001373+00:00",
+    "source_revision": "06964f3803cdf84fba424ae6be5d38aff9d2f542",
+    "generated_at": "2026-11-03T05:07:28.326929+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -5999,9 +6027,9 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 57125,
+            "product": 57123,
             "tests": 40527,
-            "tooling": 10118,
+            "tooling": 10114,
             "firmware": 1180
           },
           "commits": 503,
@@ -6660,15 +6688,15 @@
         ],
         "stats": {
           "current_lines": {
-            "product": 13042,
-            "tests": 8736,
-            "tooling": 3600,
+            "product": 15304,
+            "tests": 9364,
+            "tooling": 3847,
             "firmware": 1
           },
-          "commits": 109,
-          "code_commits": 48,
-          "added": 26196,
-          "deleted": 338
+          "commits": 113,
+          "code_commits": 52,
+          "added": 29447,
+          "deleted": 436
         },
         "work": {
           "assigned_steps": 62,
@@ -7034,7 +7062,7 @@
             {
               "pr": 162,
               "head": "9bc7be8099840f9e5e41e176ff5bc6ee1afc8eb2",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 165,
@@ -7048,7 +7076,7 @@
             },
             {
               "pr": 170,
-              "head": "3f377e48d006e2cf99caeb5c5dd33be0c8d7630f",
+              "head": "3665becef4e113a5ea3c8f5a3f97715e1cf8ca39",
               "state": "OPEN"
             },
             {
@@ -7074,7 +7102,12 @@
             {
               "pr": 191,
               "head": "29ba539f0ea38418970526394372e80e4a5d38b1",
-              "state": "OPEN"
+              "state": "MERGED"
+            },
+            {
+              "pr": 193,
+              "head": "3adf8f000c0dfe4f80d44639fe5384679c698cef",
+              "state": "MERGED"
             }
           ]
         }
@@ -7333,7 +7366,7 @@
           "D-26"
         ],
         "handoff": "docs/team/MEMBER-D-SMS-RECOVERY.md",
-        "state": "assigned",
+        "state": "submitted",
         "estimate_hours": [
           33,
           75
@@ -7341,7 +7374,7 @@
         "stats": {
           "current_lines": {
             "product": 7261,
-            "tests": 12989,
+            "tests": 12988,
             "tooling": 126,
             "firmware": 8
           },
@@ -7372,9 +7405,9 @@
       "deleted": 0
     },
     "totals": {
-      "product": 80096,
-      "tests": 68203,
-      "tooling": 14789,
+      "product": 82356,
+      "tests": 68830,
+      "tooling": 15032,
       "firmware": 1189
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。",

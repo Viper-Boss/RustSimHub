@@ -293,6 +293,8 @@ async fn acquire(
     }
     let sender = header.sender().ok_or(Error::StaleContext)?.as_str();
     let peer = Peer::from_backend_callback(sender, device.as_str())?;
+    publication.check_owner(Some(sender)).await?;
+    publication.ensure_peer(&peer, kind).await?;
     if !publication.live.load(Ordering::Acquire) || !publication.matches_peer(&peer) {
         return Err(Error::StaleContext);
     }

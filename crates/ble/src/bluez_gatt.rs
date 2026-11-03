@@ -27,8 +27,15 @@ use zbus::{
 mod notify_fd;
 
 pub enum CallbackOperation {
-    Write { frame: OpaqueBytes, budget: Budget },
-    ReadResult { budget: Budget },
+    /// Opt-in owning host must bind a real Device1 lease before acknowledging.
+    BindPeer,
+    Write {
+        frame: OpaqueBytes,
+        budget: Budget,
+    },
+    ReadResult {
+        budget: Budget,
+    },
 }
 pub enum CallbackReply {
     Accepted,
@@ -48,6 +55,10 @@ pub struct CallbackRequest {
     deadline: tokio::time::Instant,
 }
 impl CallbackRequest {
+    #[cfg(feature = "service")]
+    pub(crate) fn deadline(&self) -> tokio::time::Instant {
+        self.deadline
+    }
     pub fn epoch(&self) -> Epoch {
         self.publication.epoch
     }
@@ -66,7 +77,13 @@ impl CallbackRequest {
         if !self.work_live.load(Ordering::Acquire) || tokio::time::Instant::now() >= self.deadline {
             return Err(Error::StaleContext);
         }
-        self.publication.check(Some(self.peer.owner())).await?;
+        if matches!(self.operation, CallbackOperation::BindPeer) {
+            self.publication
+                .check_owner(Some(self.peer.owner()))
+                .await?;
+        } else {
+            self.publication.check(Some(self.peer.owner())).await?;
+        }
         if !self.work_live.load(Ordering::Acquire) || tokio::time::Instant::now() >= self.deadline {
             return Err(Error::StaleContext);
         }
@@ -92,6 +109,7 @@ impl Drop for RequestFence {
     }
 }
 struct Publication {
+    host_binding: AtomicBool,
     live: AtomicBool,
     scope: CallbackScope,
     epoch: Epoch,
@@ -102,6 +120,35 @@ struct Publication {
     notifications: notify_fd::Notifications,
 }
 impl Publication {
+    async fn check_owner(&self, sender: Option<&str>) -> Result<String, Error> {
+        if !self.live.load(Ordering::Acquire) {
+            return Err(Error::StaleContext);
+        }
+        let owner = self.scope.check_sender(sender).await?;
+        if !self.live.load(Ordering::Acquire) {
+            return Err(Error::StaleContext);
+        }
+        Ok(owner.to_string())
+    }
+    async fn ensure_peer(self: &Arc<Self>, peer: &Peer, kind: Characteristic) -> Result<(), Error> {
+        if self.peer_scope.get().is_none() {
+            if !self.host_binding.load(Ordering::Acquire) {
+                return Err(Error::Unavailable);
+            }
+            let completion = self
+                .dispatch(peer.clone(), kind, CallbackOperation::BindPeer)
+                .await?;
+            if !matches!(completion.result, Ok(CallbackReply::Accepted)) {
+                return Err(Error::Unavailable);
+            }
+            // Release the one-slot completion before enqueueing the actual RPC.
+        }
+        if !self.matches_peer(peer) {
+            return Err(Error::StaleContext);
+        }
+        self.check(Some(peer.owner())).await?;
+        Ok(())
+    }
     async fn check(&self, sender: Option<&str>) -> Result<String, Error> {
         if !self.live.load(Ordering::Acquire) {
             return Err(Error::StaleContext);
@@ -135,7 +182,11 @@ impl Publication {
         characteristic: Characteristic,
         operation: CallbackOperation,
     ) -> Result<Completion, Error> {
-        if !self.matches_peer(&peer) {
+        if !self.matches_peer(&peer)
+            && !(matches!(&operation, CallbackOperation::BindPeer)
+                && self.host_binding.load(Ordering::Acquire)
+                && self.peer_scope.get().is_none())
+        {
             return Err(Error::StaleContext);
         }
         let permit = self
@@ -271,7 +322,7 @@ impl CharacteristicObject {
         }
         let owner = self
             .publication
-            .check(header.sender().map(|s| s.as_str()))
+            .check_owner(header.sender().map(|s| s.as_str()))
             .await
             .map_err(|_| denied())?;
         if !matches!(
@@ -283,6 +334,10 @@ impl CharacteristicObject {
         let options = Options::parse(options, false).map_err(|_| invalid())?;
         let peer =
             Peer::from_backend_callback(&owner, options.device.as_str()).map_err(|_| invalid())?;
+        self.publication
+            .ensure_peer(&peer, self.kind)
+            .await
+            .map_err(|_| denied())?;
         if !self.publication.matches_peer(&peer) {
             return Err(denied());
         }
@@ -330,7 +385,7 @@ impl CharacteristicObject {
         }
         let owner = self
             .publication
-            .check(header.sender().map(|s| s.as_str()))
+            .check_owner(header.sender().map(|s| s.as_str()))
             .await
             .map_err(|_| denied())?;
         if !matches!(
@@ -348,6 +403,10 @@ impl CharacteristicObject {
         }
         let peer =
             Peer::from_backend_callback(&owner, options.device.as_str()).map_err(|_| invalid())?;
+        self.publication
+            .ensure_peer(&peer, self.kind)
+            .await
+            .map_err(|_| denied())?;
         if !self.publication.matches_peer(&peer) {
             return Err(denied());
         }
@@ -451,6 +510,17 @@ pub struct GattExport {
     lease: OnceLock<PeerLease>,
 }
 impl GattExport {
+    pub(crate) async fn publish_with_peer_requests(
+        control: &BluezControl,
+        epoch: Epoch,
+    ) -> Result<(Self, mpsc::Receiver<CallbackRequest>), Error> {
+        let (export, receiver) = Self::publish(control, epoch).await?;
+        export
+            .publication
+            .host_binding
+            .store(true, Ordering::Release);
+        Ok((export, receiver))
+    }
     pub async fn publish(
         control: &BluezControl,
         epoch: Epoch,
@@ -458,6 +528,7 @@ impl GattExport {
         control.check_current().await?;
         let (requests, receiver) = mpsc::channel(1);
         let publication = Arc::new(Publication {
+            host_binding: AtomicBool::new(false),
             live: AtomicBool::new(true),
             scope: control.callback_scope(),
             epoch,
@@ -588,6 +659,12 @@ impl GattExport {
             self.publication.retire();
         }
         result
+    }
+    pub(crate) fn wait_peer_lost(&self) -> crate::ports::Pending<()> {
+        match self.lease.get() {
+            Some(peer) => peer.wait_lost(),
+            None => Box::pin(async { Err(Error::Unavailable) }),
+        }
     }
     /// Local per-peer FD submission only; never ATT/browser/business receipt.
     /// Host must retain the owned future through actual completion/cleanup.

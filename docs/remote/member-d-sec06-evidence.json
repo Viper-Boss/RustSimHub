@@ -1,0 +1,501 @@
+{
+  "schema": 1,
+  "date": "2026-11-02",
+  "scope": "member-D SEC-06 offline input and cross-module failure submission",
+  "production_admitted": false,
+  "device_tested": false,
+  "progress": {
+    "offline_stages_submitted": 23,
+    "total_stages": 26,
+    "remaining": [
+      "D22",
+      "D23",
+      "D25"
+    ],
+    "fixed_progress_scale_percent": 80,
+    "reviewed_or_deployed_claimed": false
+  },
+  "root_workspace": {
+    "source_head": "d5e5c14c359b9aa406ad3ddd060143c65ba4c44d",
+    "root_source_unchanged_at": "40600e2b45d203c815fc9a34ac3e0c80dd2296b5",
+    "passed": 1446,
+    "failed": 0,
+    "ignored": 6,
+    "test_log_sha256": "0e75e68baa97523e433698e6a90514f82e645144ebbceda1b931a8f6b4c03207",
+    "strict_clippy_log_sha256": "5f644c69016632ef70002b29067488743c397ef05f7bc3b52365f01d41210f7b"
+  },
+  "native_standard": {
+    "head": "40600e2b45d203c815fc9a34ac3e0c80dd2296b5",
+    "steps": [
+      {
+        "name": "native-default",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--locked",
+          "--offline"
+        ],
+        "exit_code": 0,
+        "seconds": 8.19,
+        "suites": [
+          [
+            "ok",
+            "23",
+            "0",
+            "0"
+          ],
+          [
+            "ok",
+            "11",
+            "0",
+            "0"
+          ],
+          [
+            "ok",
+            "0",
+            "0",
+            "0"
+          ]
+        ]
+      },
+      {
+        "name": "native-feature",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--features",
+          "turn-relay",
+          "--locked",
+          "--offline"
+        ],
+        "exit_code": 0,
+        "seconds": 6.07,
+        "suites": [
+          [
+            "ok",
+            "31",
+            "0",
+            "0"
+          ],
+          [
+            "ok",
+            "11",
+            "0",
+            "0"
+          ],
+          [
+            "ok",
+            "0",
+            "0",
+            "0"
+          ]
+        ]
+      },
+      {
+        "name": "native-clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--all-targets",
+          "--features",
+          "turn-relay",
+          "--locked",
+          "--offline",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "exit_code": 0,
+        "seconds": 1.5,
+        "suites": []
+      },
+      {
+        "name": "sdk-manual-clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--test",
+          "turn_private_tls",
+          "--features",
+          "turn-relay",
+          "--locked",
+          "--offline",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "exit_code": 0,
+        "seconds": 0.67,
+        "suites": []
+      },
+      {
+        "name": "worker-manual-clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--test",
+          "remote_worker_private",
+          "--features",
+          "turn-relay",
+          "--locked",
+          "--offline",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "exit_code": 0,
+        "seconds": 1.27,
+        "suites": []
+      },
+      {
+        "name": "root-fmt",
+        "command": [
+          "cargo",
+          "fmt",
+          "--all",
+          "--",
+          "--check"
+        ],
+        "exit_code": 0,
+        "seconds": 1.13,
+        "suites": []
+      },
+      {
+        "name": "native-fmt",
+        "command": [
+          "cargo",
+          "fmt",
+          "--manifest-path",
+          "native/audio-alsa/Cargo.toml",
+          "--",
+          "--check"
+        ],
+        "exit_code": 0,
+        "seconds": 0.22,
+        "suites": []
+      },
+      {
+        "name": "diff",
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "exit_code": 0,
+        "seconds": 0.0,
+        "suites": []
+      }
+    ]
+  },
+  "remote_worker_host": {
+    "fixture": "actual-remote-worker-v2",
+    "source_head": "40600e2b45d203c815fc9a34ac3e0c80dd2296b5",
+    "tracked_dirty": false,
+    "image": "sha256:cc7086fb6a0e15d17b091decd3ee96e320055059ba77f85ebd8d6739aca8d7e2",
+    "built_parent_image": null,
+    "network": "none",
+    "read_only": true,
+    "memory_limit_bytes": 134217728,
+    "pids_limit": 16,
+    "cpus": 2,
+    "matrix_tests_passed": 38,
+    "matrix_tests_ignored": 1,
+    "ignored_reason": "actual UID role runs separately in disposable image",
+    "new_worker_integration_functions": 10,
+    "duplicate_sdk_and_source_unit_tests": 28,
+    "matrix_uid": 1000,
+    "matrix_capabilities": [],
+    "uid_fixture": {
+      "actors_capabilities": [],
+      "denied_uids": [
+        984,
+        986,
+        987
+      ],
+      "fixture": "actual-different-uids-remote-worker",
+      "full_core_business_daemon": false,
+      "production_cli": {
+        "actual_root_nss": true,
+        "denied_uids": [
+          984,
+          986,
+          987
+        ],
+        "edge_uid": 985,
+        "loopback_config_rejected": true,
+        "non_test_binary": true,
+        "pcm_opened": false,
+        "sigterm_socket_removed": true,
+        "uid": 984,
+        "unknown_handle_rejected_before_network": true
+      },
+      "proofs": {
+        "core": {
+          "actual_media_peer_uid": 984,
+          "normal_authority_revoked": true,
+          "pulses": 2,
+          "redeemed": 1,
+          "uid": 986
+        },
+        "edge": {
+          "actual_core_peer_uid": 986,
+          "forced_relay_opus_both_directions": true,
+          "media_closed": 1,
+          "uid": 985
+        },
+        "media": {
+          "closed": 1,
+          "mirror_revoked": true,
+          "opened": 1,
+          "uid": 984,
+          "writes": 13
+        }
+      },
+      "synthetic_nss_only": true
+    },
+    "uid_fixture_controller_capabilities": [
+      "SETUID",
+      "SETGID",
+      "CHOWN",
+      "FOWNER"
+    ],
+    "binary_sha256": "849a75826b27a10cf181e38ae32a2c4d7ae74f76946c71101806be5c8a8712a9",
+    "non_test_binary_sha256": "e39bd45988af8f9b81641bef1b9cedd8ff03cb9657da585f60d86024318e7882",
+    "matrix_log_sha256": "d93e17ee4100dab25ccc70c27f425f5b28d6420a9bf0129117c2e4f8516c40b2",
+    "uids_log_sha256": "88e0ab199091181a64f6f593bdf66dd7c93bec74794ac04ff28a76ca90780723"
+  },
+  "remote_worker_arm": {
+    "source_head": "40600e2b45d203c815fc9a34ac3e0c80dd2296b5",
+    "source_archive_sha256": "2405101c64b0ee307309a7645a49f699eabc51fd6ced1610ad13e0772280ad3e",
+    "tracked_dirty": false,
+    "target": "aarch64-unknown-linux-gnu",
+    "profile": "release",
+    "emulator_cpu": "cortex-a53",
+    "image": "sha256:167dce679c9a29712c08138a32c4bd470963c388aac9aa18fc44c3e51d0e7389",
+    "memory_limit_bytes": 134217728,
+    "pids_limit": 16,
+    "cpus": 2,
+    "network": "none",
+    "read_only": true,
+    "uid": 1000,
+    "capabilities": [],
+    "tests_passed": 38,
+    "tests_failed": 0,
+    "tests_ignored": 1,
+    "ignored": "actual different-UID role fixture executed separately on x86, not claimed on ARM",
+    "binary_bytes": 8534824,
+    "binary_sha256": "a96675a23113f1eb637c587e6ad7646a5f701bdeddf62abe25e7734e2d222b5c",
+    "log_sha256": "1e82148d91b95d947608f11505c31f32d29dc0d9fb841a5603d5f5b9bff018fd",
+    "build_log_sha256": "336f87852685f144f8e5cbd5e715a0d40b399cdbab6c405d938f95ef97948ef4",
+    "full_target_board_or_pcm": false
+  },
+  "recovery_cases": {
+    "core_source": {
+      "fixture": "isolated-real-kernel-uids-v1",
+      "core_uid": 1001,
+      "ble_uid": 1002,
+      "denied_uids": [
+        0,
+        1001,
+        1003,
+        1004,
+        1005,
+        1006
+      ],
+      "tests_passed": 1,
+      "verifier": "cfg(test)-synthetic",
+      "production_roles_selected": false,
+      "business_dispatch": false,
+      "source_head": "40600e2b45d203c815fc9a34ac3e0c80dd2296b5",
+      "tracked_dirty": false,
+      "image": "python@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb",
+      "binary_sha256": "8f90b7efc45d25584b70ef9c15ac2f13317018c9a7cb992eef5c2f84f313e3ef",
+      "runner_sha256": "9a9a432b5c67ea627e824d37672d8cc921da7359d71e652cfcdc41089caeb661",
+      "log_sha256": "bb3a604a5f987a55482d39fbf30d3d794f0351aee40dc38819bd18912b13715f"
+    },
+    "core_application": {
+      "fixture": "isolated-core-application-v1",
+      "core_uid": 1001,
+      "ble_uid": 1002,
+      "denied_uids": [
+        0,
+        1001,
+        1003,
+        1004,
+        1005,
+        1006
+      ],
+      "tests_passed": 1,
+      "application_dispatch": true,
+      "verifier_and_sealer": "cfg(test)-synthetic",
+      "production_roles_selected": false,
+      "source_head": "40600e2b45d203c815fc9a34ac3e0c80dd2296b5",
+      "tracked_dirty": false,
+      "image": "python@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb",
+      "binary_sha256": "c4e543c5d98c5dc74f5c19fcdd64ce8a21c3ad057dd4d4aae9e647e0cd4cd65a",
+      "runner_sha256": "72709d37cdb0a1d5a09fab097ce0572c510b5923dcc5075903abb301fe2fba1a",
+      "log_sha256": "5e69e90e4d3d6e10bcf6e5bcfdff357f7d31732724733a19acc39fcd4a4bdd8d"
+    },
+    "ble_core_port": {
+      "fixture": "ble-core-port-uid",
+      "cases_passed": 12,
+      "failed": 0,
+      "source_head": "40600e2b45d203c815fc9a34ac3e0c80dd2296b5",
+      "tracked_dirty": false,
+      "image": "python@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb",
+      "binary_sha256": "e7b63e7f0e97fba33235e80c568b49982bf6f4526ca9c45b04905f62b15901fa",
+      "runner_sha256": "59772df63d9299ea5881cc07c017ff38b2e47c0370d7115ae91d899bfd49f186",
+      "log_sha256": "6f7d902a6420097e47e6d693cdfec1ea7bac55e51702aef0ec0040ebc5df5a36"
+    }
+  },
+  "ble_policy": {
+    "actual_backend": true,
+    "actual_rust_gatt": true,
+    "ble_uid": 1002,
+    "bluez_uid": 1003,
+    "daemon_uid": 1001,
+    "fixture": "rust-gatt-policy-real-uids",
+    "foreign_uid": 1004,
+    "image": "python@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb",
+    "input_sha256": {
+      "dbus-daemon": "32c90f7766d01081f0f052ef8a2879214a69fb8355d5034a07a8ce54c8e8e320",
+      "fixture.py": "599d7c9ec3b2bdfca3bb00042c27c65cfeae921c5518d1657f385a405672c3a7",
+      "gatt_kernel_uid": "2545ae469459a3c84a579f31806156140dc113b4ba5f4d83bcf65fc376e25709",
+      "group": "c3b4bc66e5afa68ce986060e80c276f00f34949662b5cc8d0c9babe133c0d8b7",
+      "lib/ld-linux-x86-64.so.2": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307",
+      "lib/libapparmor.so.1": "41334e9dd17faab58a35332cea20ea6e9d117f6aafc84aed54f26ef13ee38e7e",
+      "lib/libaudit.so.1": "e0ed5f40854fcaf3feb9448dd032172908a0b1651330df9397abd5490ff85402",
+      "lib/libc.so.6": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+      "lib/libcap-ng.so.0": "6b5be42df1bed00b8ea1f52e9412dce5ed500c29a6dd22b31e72f5dab5a3a575",
+      "lib/libcap.so.2": "41217b0af128444f66dee8adda52b2ceaf19da00e5b0b155e2b87b857671286b",
+      "lib/libdbus-1.so.3": "f8c5475204730fa615547b10b642d7e27e5954ed1c12c47507743f2b486ba5a0",
+      "lib/libexpat.so.1": "0fd7d092bd0bf5dcc29f31daaba2bad993b0d18a1ab771fb844e0a6dfa8efe18",
+      "lib/libm.so.6": "6d567d53e895273ca14a1f9dc164fc6c8d39aed2f60aa46a733c2784228915f3",
+      "lib/libpcre2-8.so.0": "8dde125b341abfdf4a596d2974cd3048e350cbc8d2d77acd54ea044f7815ca77",
+      "lib/libselinux.so.1": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c",
+      "lib/libsystemd.so.0": "c59f9015342de9c2dcb2decccb3d83218849fe3e4388c723a6528254fd7606f0",
+      "passwd": "133b35337fa58394ac362cd07c248ad749293a076710d56d238763fea557bd1d",
+      "policy.in": "a878a9852c29b51928823e5b8f914feeb1e87d174c609be736b6e18b4bd7900b",
+      "rust_scenario.py": "32930d9ed9ddb8164565681c5db8575cbafc243b1686c6d82892869b53c0ac17"
+    },
+    "log_sha256": "49713d7f3de9a98043cf0b8cba4545c28b3f9abfd37b3b44a437adb62a71b5de",
+    "no_new_privileges": true,
+    "policy_modified": false,
+    "role_effective_capabilities": 0,
+    "role_tests": 3,
+    "source_head": "40600e2b45d203c815fc9a34ac3e0c80dd2296b5",
+    "standard_acquire_signature": "a{sv} -> hq",
+    "tracked_dirty": false
+  },
+  "manual_driver": {
+    "head": "40600e2b45d203c815fc9a34ac3e0c80dd2296b5",
+    "steps": [
+      {
+        "name": "core-kernel",
+        "command": [
+          "python3",
+          "crates/core/tests/run_recovery_kernel_uids.py"
+        ],
+        "exit_code": 0,
+        "seconds": 45.52,
+        "log_sha256": "24b810069f930758a0c65cfc6bec117abe1357f34ac711afe8441420509e320f"
+      },
+      {
+        "name": "core-application",
+        "command": [
+          "python3",
+          "crates/core/tests/run_recovery_kernel_uids.py",
+          "--application"
+        ],
+        "exit_code": 0,
+        "seconds": 59.94,
+        "log_sha256": "338bc4aa2a41f5ffb22ca3ba7e1e6987ca5d64269b1e75a13e039966d11568d2"
+      },
+      {
+        "name": "ble-port",
+        "command": [
+          "python3",
+          "crates/ble/tests/run_core_port_uids.py"
+        ],
+        "exit_code": 0,
+        "seconds": 11.32,
+        "log_sha256": "22f60cbc38a286d8178d09cb65765ef48af55419ae3fb097b0e1ee3ccb4d7689"
+      },
+      {
+        "name": "ble-policy",
+        "command": [
+          "python3",
+          "firmware/system/ble/run_policy_kernel_uids.py",
+          "--rust-gatt",
+          "--rust-backend"
+        ],
+        "exit_code": 0,
+        "seconds": 2.18,
+        "log_sha256": "d2b96e5a6fa29dd03bdd062ff9344992c5c58bb484e04e42ba757144d1d2b80e"
+      }
+    ]
+  },
+  "negative_fresh_clock": {
+    "exit_code": 101,
+    "expected_tests_failed": 1,
+    "fault_injection": "only lose post-I/O clock refresh in new live-clock entry",
+    "log_sha256": "24f88222c48de93d652fa4a09a0ecb3381024f736dea75965bdff8d313471d00",
+    "production_source_modified": false,
+    "pump_before_sha256": "7483ec9948f31f0192ff926bf178f8597d20fdfc76c435e366d12d17efeb7123",
+    "pump_injected_sha256": "6f320dc99697ba5e79834f7d5689210dbf8beb7db8ff69e832678d3d2476689a",
+    "source_archive_sha256": "2405101c64b0ee307309a7645a49f699eabc51fd6ced1610ad13e0772280ad3e",
+    "source_head": "40600e2b45d203c815fc9a34ac3e0c80dd2296b5",
+    "test_unchanged": true
+  },
+  "initial_matrix_failure": {
+    "source_head": "d5e5c14c359b9aa406ad3ddd060143c65ba4c44d",
+    "passed": 37,
+    "failed": 1,
+    "ignored": 1,
+    "log_sha256": "00e862934499fb21d99edf8c9b5939af37b4800ebf438287e27d27bc95cd7abb",
+    "cause": "test clock advanced while 50ms-cadenced nonce retry was queued; request timed out before actual send",
+    "product_timeouts_or_rejection_relaxed": false
+  },
+  "main_readback": {
+    "sha": "9b24d43dcc74a7d8ff7f28e4aab005bec65c0ed3",
+    "production_crypto_wire_frozen": false,
+    "source": "docs/deliveries/member-a-remaining-implementation.md"
+  },
+  "unrun": [
+    "A production BLE secure-session interoperability",
+    "normal remote identity/preflight/signaling complete host assembly",
+    "production crypto-bigint advisory compatibility fix/audit",
+    "real Core daemon business/call state to remote worker",
+    "production Root install/roles/cgroup and actual BlueZ/NM",
+    "physical PCM, external TURN, real device and human two-end audio"
+  ],
+  "follow_up": {
+    "scope": "historical SEC-06 results above retain their original source heads",
+    "normal_core_host_evidence": "member-d-normal-host-evidence.json",
+    "latest_offline_stages_submitted": 24,
+    "latest_remaining": [
+      "D22",
+      "D23"
+    ],
+    "production_admitted": false
+  },
+  "final_offline_follow_up": {
+    "date": "2026-11-03",
+    "evidence": "../ble/member-d-secure-recovery-integration-evidence.json",
+    "offline_stages_submitted": 26,
+    "total_stages": 26,
+    "remaining_independent_offline_stages": [],
+    "production_admitted": false,
+    "historical_source_results_unchanged": true
+  }
+}

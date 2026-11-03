@@ -128,8 +128,10 @@ pub async fn recovery_v1(
     if !enabled() {
         return Err(Error::Forbidden.into());
     }
-    execute(auth, request, |trial| NmProvision {
+    let backend_auth = auth.clone();
+    execute(auth, request, move |trial| NmProvision {
         recovery: Some(trial),
+        recovery_auth: Some(backend_auth),
         ..NmProvision::default()
     })
     .await

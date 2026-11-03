@@ -32,6 +32,7 @@ struct State {
     uncertain: bool,
 }
 struct Shared {
+    peer_requests: bool,
     control: AsyncMutex<BluezControl>,
     connection: zbus::Connection,
     state: Mutex<State>,
@@ -102,8 +103,17 @@ pub struct BluezHost {
 }
 impl BluezBackend {
     pub fn new(control: BluezControl) -> (Self, BluezHost) {
+        Self::with_peer_requests(control, false)
+    }
+    /// Owning runtime accepts a bounded source-only BindPeer callback, then
+    /// MUST attach a real Device1 lease before acknowledging it. No Auth grant.
+    pub fn new_with_peer_requests(control: BluezControl) -> (Self, BluezHost) {
+        Self::with_peer_requests(control, true)
+    }
+    fn with_peer_requests(control: BluezControl, peer_requests: bool) -> (Self, BluezHost) {
         let owner_loss = control.wait_owner_loss();
         let shared = Arc::new(Shared {
+            peer_requests,
             connection: control.connection(),
             control: AsyncMutex::new(control),
             state: Mutex::new(State::default()),
@@ -219,6 +229,14 @@ impl BluezHost {
             app.check_peer_current().await
         })
     }
+    /// Reuses the bound Device1 lease's original signal history. Completion is
+    /// a reason to stop/fence, never a positive authorization fact.
+    pub fn wait_peer_lost(&self, epoch: Epoch) -> Pending<()> {
+        match self.shared.app(epoch) {
+            Ok(app) => app.wait_peer_lost(),
+            Err(e) => Box::pin(async move { Err(e) }),
+        }
+    }
     /// Emergency local fence/close. This does not confirm remote unregister or
     /// RF cleanup and never makes a failed lifecycle report quiescence.
     pub fn close_connection(&self) -> Pending<()> {
@@ -256,7 +274,11 @@ impl GattBackendV1 for BluezBackend {
             let mut attempt = Incomplete(shared.clone(), false);
             let (app, callbacks) = {
                 let control = shared.control.lock().await;
-                GattExport::publish(&control, epoch).await?
+                if shared.peer_requests {
+                    GattExport::publish_with_peer_requests(&control, epoch).await?
+                } else {
+                    GattExport::publish(&control, epoch).await?
+                }
             };
             let app = Arc::new(app);
             {

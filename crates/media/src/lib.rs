@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 #![forbid(unsafe_code)]
 //! Audio primitives, with no network listener, filesystem recording or hardware discovery.
+extern crate self as rustsimhub_media;
 pub mod addresses;
 mod authorization;
 #[cfg(feature = "nkn-session-candidate")]
@@ -10,6 +11,9 @@ pub use authorization::{Authority, Context, Permit, RemoteAuthority, Ticket};
 pub mod local;
 pub mod protocol;
 mod pump;
+#[cfg(all(target_os = "linux", feature = "remote-signaling"))]
+pub mod remote_signaling;
+pub mod remote_worker;
 pub mod worker;
 pub use pump::{Direction, IoError, Pcm, Pump, Stats};
 pub const RATE: u32 = 16_000;

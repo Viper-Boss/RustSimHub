@@ -1,0 +1,315 @@
+{
+  "schema": 1,
+  "main_revision": "06964f3803cdf84fba424ae6be5d38aff9d2f542",
+  "prior_pr170_head": "3f377e48d006e2cf99caeb5c5dd33be0c8d7630f",
+  "superseded_pr162_head": "9bc7be8099840f9e5e41e176ff5bc6ee1afc8eb2",
+  "rust_code_revision": "da0927973f0aed0111d39aaa78195d30358b6088",
+  "private_runner_revision": "3665becef4e113a5ea3c8f5a3f97715e1cf8ca39",
+  "rust_bytes_equal_across_revisions": true,
+  "profiles": {
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0"
+  },
+  "workspace": {
+    "passed": 1527,
+    "failed": 0,
+    "suite_ignored": 11
+  },
+  "native_default": {
+    "passed": 39,
+    "failed": 0,
+    "suite_ignored": 0
+  },
+  "native_turn_relay": {
+    "passed": 47,
+    "failed": 0,
+    "suite_ignored": 0
+  },
+  "strict_lints": {
+    "workspace_all_targets_all_features": true,
+    "native_default_all_targets": true,
+    "native_all_features_all_targets": true
+  },
+  "checks": {
+    "core_default": true,
+    "core_product_and_email_without_dev_fixtures": true,
+    "root_and_native_fmt": true
+  },
+  "recovery_uid_fixture": {
+    "scenarios": [
+      {
+        "case": "confirm",
+        "actors_capabilities": [],
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "fd_closed": true,
+        "clean_shutdown": false,
+        "gatt_and_advertisement_unregistered": true,
+        "creates": 1,
+        "saves": 1,
+        "rollbacks": 0,
+        "log_sha256": "cbb77ce83068ab2f0adee641d4014a1508fe731b602a7c51db8c1e5f36709533"
+      },
+      {
+        "case": "cancel",
+        "actors_capabilities": [],
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "fd_closed": true,
+        "clean_shutdown": false,
+        "gatt_and_advertisement_unregistered": true,
+        "creates": 1,
+        "saves": 0,
+        "rollbacks": 1,
+        "log_sha256": "58dad7087ae660dcef2af7e510f7007725043a090e9804e9ba7d3a760284fa4e"
+      },
+      {
+        "case": "disconnect",
+        "actors_capabilities": [],
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "fd_closed": true,
+        "clean_shutdown": false,
+        "gatt_and_advertisement_unregistered": true,
+        "creates": 1,
+        "saves": 0,
+        "rollbacks": 1,
+        "log_sha256": "b680969ea4e3c8f0252b064bea979907844d1bcd875ea0d27363af46dae8daaf"
+      },
+      {
+        "case": "revoke_before_confirm",
+        "actors_capabilities": [],
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "fd_closed": true,
+        "clean_shutdown": false,
+        "gatt_and_advertisement_unregistered": true,
+        "creates": 1,
+        "saves": 0,
+        "rollbacks": 1,
+        "log_sha256": "10acacab2b74ee3b3450c0e1387e43e51f3fadcbb234512b7a978ea868139e48"
+      },
+      {
+        "case": "revoke_after_save",
+        "actors_capabilities": [],
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "fd_closed": true,
+        "clean_shutdown": false,
+        "gatt_and_advertisement_unregistered": true,
+        "creates": 1,
+        "saves": 1,
+        "rollbacks": 1,
+        "log_sha256": "4779b5ab1455780246bcb54c80d967eca09578f136f9fda785143dac7c9f7fb4"
+      },
+      {
+        "case": "replay",
+        "actors_capabilities": [],
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "fd_closed": true,
+        "clean_shutdown": false,
+        "gatt_and_advertisement_unregistered": true,
+        "creates": 1,
+        "saves": 0,
+        "rollbacks": 1,
+        "log_sha256": "60c0c03e869354887d270fd249b51a5ba6ddcbb42bb5f86dca065ed928e98107"
+      },
+      {
+        "case": "wrong_pin",
+        "actors_capabilities": [],
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "fd_closed": true,
+        "clean_shutdown": false,
+        "gatt_and_advertisement_unregistered": true,
+        "creates": 0,
+        "saves": 0,
+        "rollbacks": 0,
+        "log_sha256": "dcb7a2a64342732957d8c46e7beb437b6bceb211d7a925481781a6aac71d6350"
+      },
+      {
+        "case": "tamper",
+        "actors_capabilities": [],
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "fd_closed": true,
+        "clean_shutdown": false,
+        "gatt_and_advertisement_unregistered": true,
+        "creates": 0,
+        "saves": 0,
+        "rollbacks": 0,
+        "log_sha256": "64d45a2c8055b0216bdd8bc4509825bafdd45b727e35700252d8445b8acce87d"
+      },
+      {
+        "case": "busy_network",
+        "actors_capabilities": [],
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "fd_closed": true,
+        "clean_shutdown": false,
+        "gatt_and_advertisement_unregistered": true,
+        "creates": 0,
+        "saves": 0,
+        "rollbacks": 0,
+        "log_sha256": "c7ac9de8285b030043beeb0c44f72dcdcb49cb3a32c876486d2a68e911553743"
+      },
+      {
+        "case": "call_busy",
+        "actors_capabilities": [],
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "fd_closed": true,
+        "clean_shutdown": false,
+        "gatt_and_advertisement_unregistered": true,
+        "creates": 0,
+        "saves": 0,
+        "rollbacks": 0,
+        "log_sha256": "fce8f6651f6b255cce3379732ea7bc9110325c42d1c7230f28e06bb166b3996a"
+      },
+      {
+        "case": "normal_usb_denied",
+        "actors_capabilities": [],
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "fd_closed": true,
+        "clean_shutdown": false,
+        "gatt_and_advertisement_unregistered": true,
+        "creates": 1,
+        "saves": 1,
+        "rollbacks": 0,
+        "log_sha256": "c10f17281bb4ad93434201f6bf7685df4436d5b712bbfc556d1225669f27c268"
+      },
+      {
+        "case": "rollback_unknown",
+        "actors_capabilities": [],
+        "core_auth_wifi_actor_or_crypto_mocked": false,
+        "fd_closed": true,
+        "clean_shutdown": false,
+        "gatt_and_advertisement_unregistered": true,
+        "creates": 1,
+        "saves": 0,
+        "rollbacks": 1,
+        "log_sha256": "038cc66b90e771f596afceb0ddd106e50aaf2d3314cad14e89973246508b97f6"
+      }
+    ],
+    "source_head": "da0927973f0aed0111d39aaa78195d30358b6088",
+    "tracked_dirty": false,
+    "runtime_binary_sha256": "a164111ed98e7d7d1ebb1492a4c5c716be9d8fa8e78d2a34fec89d85aa3373a4",
+    "image": "sha256:bdfc738a8a869292ec1b01f1b8e620db533e09d1fe68fe980a7118b22dae9cec",
+    "production_roles_installed": false,
+    "physical_bluetooth_or_network_tested": false
+  },
+  "ble_core_port_fixture": {
+    "fixture": "ble-core-port-uid",
+    "cases_passed": 12,
+    "failed": 0,
+    "source_head": "da0927973f0aed0111d39aaa78195d30358b6088",
+    "tracked_dirty": false,
+    "image": "python@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb",
+    "binary_sha256": "8d7a7f0dc5e03b8eea6db313a7c8ecb474e82e25f4b2fdf6d68bf12028716102",
+    "runner_sha256": "59772df63d9299ea5881cc07c017ff38b2e47c0370d7115ae91d899bfd49f186",
+    "log_sha256": "6f7d902a6420097e47e6d693cdfec1ea7bac55e51702aef0ec0040ebc5df5a36"
+  },
+  "private_turn_fixture": {
+    "fixture": "actual-private-turn-tls-rtc",
+    "source_head": "3665becef4e113a5ea3c8f5a3f97715e1cf8ca39",
+    "tracked_dirty": false,
+    "tests_passed": 28,
+    "image": "sha256:4c80c5e138e4d6074d562105e965b44506e489d113a56ec12813a4f996853318",
+    "network": "none",
+    "uid": 1000,
+    "capabilities": [],
+    "memory_limit_bytes": 134217728,
+    "pids_limit": 12,
+    "cpus": 2,
+    "binary_sha256": "29a656ee7799b24da0024351316200c2f499e76386c1c1ecdda81c63957ad896",
+    "log_sha256": "5dd547a3f3a9998ebeda99b02e1d2135b258585f11a01d6f9a0bbd9692ffe67a"
+  },
+  "private_worker_fixture": {
+    "fixture": "actual-remote-worker-v2",
+    "source_head": "3665becef4e113a5ea3c8f5a3f97715e1cf8ca39",
+    "tracked_dirty": false,
+    "image": "sha256:06b2870be7950f52cd3dd928ccaf9c8e968a5366b6e6d16549521c096f7d957a",
+    "built_parent_image": "sha256:4c80c5e138e4d6074d562105e965b44506e489d113a56ec12813a4f996853318",
+    "network": "none",
+    "read_only": true,
+    "memory_limit_bytes": 134217728,
+    "pids_limit": 16,
+    "cpus": 2,
+    "matrix_tests_passed": 43,
+    "matrix_tests_ignored": 2,
+    "ignored_reason": "actual UID role runs separately in disposable image",
+    "new_worker_integration_functions": 10,
+    "duplicate_sdk_and_source_unit_tests": 33,
+    "matrix_uid": 1000,
+    "matrix_capabilities": [],
+    "uid_fixture_controller_capabilities": [
+      "SETUID",
+      "SETGID",
+      "CHOWN",
+      "FOWNER"
+    ],
+    "binary_sha256": "7260f0ff01ec896ce9c2b85ba068a1362cfad15f5ef9c2c37541ce4fa40e6f7c",
+    "non_test_binary_sha256": "ed4a06ed68deb45c591d3faa3c90ff1bfb8a785dfe7c338a77a890e955997bde",
+    "matrix_log_sha256": "fb5259ad6fe014f8153f8a8ab7271ee524eff3058db72bad42c9602074b7005d",
+    "uids_log_sha256": "88e0ab199091181a64f6f593bdf66dd7c93bec74794ac04ff28a76ca90780723",
+    "normal_core_log_sha256": "5044c78691500542bbcf703d08405ee3407b08c17cf5b29223ff90c17aae1b68",
+    "core_binary_sha256": "dd6a5eb1919618920a2d9be79b2e505e9c495cdb96d2379155e2f1172b45e69a"
+  },
+  "private_worker_roles": {
+    "actors_capabilities": [],
+    "production_cli": {
+      "actual_root_nss": true,
+      "denied_uids": [
+        984,
+        986,
+        987
+      ],
+      "edge_uid": 985,
+      "loopback_config_rejected": true,
+      "non_test_binary": true,
+      "pcm_opened": false,
+      "sigterm_socket_removed": true,
+      "uid": 984,
+      "unknown_handle_rejected_before_network": true
+    },
+    "full_core_business_daemon": false,
+    "synthetic_nss_only": true,
+    "core_auth_controller_media_authority_mocked": false
+  },
+  "native_lock_sha256": "eded8a32e629f0b8e1fae7ab287390c1b2bb6823d7ef51c55067fe8297567a14",
+  "logs_sha256": {
+    "workspace-tests-debug0.log": "0b8282b07419a2073d8f5ddd119809065d7b29219746f95b781096969d8cdbee",
+    "workspace-clippy.log": "2716522972d1e3f7775e417a4d54f1b0d8cb74d0858a1e1414b16cb0a9590f87",
+    "core-default-check.log": "4aa2060a56262f460e64bef62f45015afc4539ac6b2ad51b3628b61048e6cc20",
+    "core-production-check.log": "fac381a081a9ae84d06bf012bc1c32ab6a838b54d3ca4296b022a00cac47a80b",
+    "native-default-tests.log": "e88dc1a2648e2a841c8119b15552683bfe63a0f0cc40f842c4f05637817325e7",
+    "native-relay-tests.log": "8392509a5251b9d5be59789ec99cf3ed8dc68afc3871a650cd109c8e5ddb063e",
+    "native-default-clippy.log": "17702531f4075fb11587dd88bc19a19c456ef69e2bd1e4106855a61e797cf6a3",
+    "native-relay-clippy.log": "f36a084b658b8fc9686c2ac30f8eefe09e5e720ac6b6d9a51c92127acd7a3788",
+    "turn-test-list.log": "23dc03d26fe150a576a4aa04abd8db7f765040558e16e79c0fc41fabe538e2b2",
+    "worker-test-list.log": "e0fa6ee58c7bbf2484aaa74412cc137a7dfc357af2ce0102e6d4b8a067b986af",
+    "recovery-candidate.log": "ddbe9668005cadbd5787db26e9b19f2f1433eac56e7659260a8c9c2d1c702a14",
+    "ble-core-port.log": "fe48df27340e7f61e8e9e23a1ad6705e14dc61c53ecff40ff4202b761ae17fa0",
+    "private-turn.log": "fec0852b7553db064e28b39b3a509d8c6cdc4687b3745e669df83366cc020dd6",
+    "private-worker.log": "8c41a98283037d6a98cef38429dc45fd037b9f0b1f61bda9aae9d085237a9d22",
+    "ble-material-tests.log": "90d030edb6492a18421241a0aaa7b207a1c3025838c5afb14100af9cc4bd7f63"
+  },
+  "prior_failed_attempts": {
+    "merge_bind_peer_compile": "workspace-tests.log",
+    "debug_build_enospc": "workspace-tests-final.log",
+    "docker_image_enospc": "turn-image-build.log"
+  },
+  "boundaries": {
+    "crypto_wire_frozen": false,
+    "production_admitted": false,
+    "device_access": false,
+    "arm_execution": false,
+    "public_turn_or_nkn": false,
+    "signing": false,
+    "deployment": false,
+    "main_merge_by_this_actor": false
+  },
+  "baseline": {
+    "original_percent": 81.5,
+    "done": 20,
+    "active": 169,
+    "weighted_percent": 10.6,
+    "scope_or_weight_changed": false
+  },
+  "ble_material_renderer": {
+    "passed": 19,
+    "failed": 0
+  }
+}

@@ -84,6 +84,22 @@ impl<B: GattBackendV1, S: SecurePortV1> Transport<B, S> {
     pub fn is_quiescent(&self) -> bool {
         self.io.is_none() && self.link.is_none() && self.lifecycle.is_quiescent()
     }
+    /// Local work ownership only. False does not prove remote cleanup, RF
+    /// shutdown, quiescence or authorization; Unknown can remain after drain.
+    pub fn has_pending_work(&self) -> bool {
+        self.io.is_some() || self.lifecycle.has_pending_backend()
+    }
+    /// Local output ownership only, never proof of peer receipt/authorization.
+    #[cfg(feature = "service")]
+    pub(crate) fn has_pending_notifications(&self) -> bool {
+        self.io
+            .as_ref()
+            .is_some_and(|io| matches!(&io.work, Work::Notify { .. }))
+            || self
+                .link
+                .as_ref()
+                .is_some_and(|link| !link.outbox.is_empty())
+    }
     pub fn deadline_ms(&self) -> Option<u64> {
         [
             self.lifecycle.deadline_ms(),
