@@ -118,7 +118,7 @@ impl MaintenanceSnapshot {
         let unit = UNITS.get(index).ok_or(Error::Invalid)?;
         let mut command = Command::new("/usr/bin/systemctl");
         command
-            .args(["--system", "show", "--no-pager"])
+            .args(["--system", "show", "--all", "--no-pager"])
             .args(
                 crate::runtime_observation::units::PROPERTIES
                     .iter()
