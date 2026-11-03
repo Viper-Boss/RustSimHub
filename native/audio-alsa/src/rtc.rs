@@ -438,9 +438,30 @@ impl Session {
         Ok(())
     }
     pub fn send(&mut self, socket: &UdpSocket, frame: &Frame, now: u64) -> Result<(), Error> {
+        self.send_with_clock(socket, frame, now, rustsimhub_media::local::now_ms)
+    }
+    fn send_with_clock(
+        &mut self,
+        socket: &UdpSocket,
+        frame: &Frame,
+        now: u64,
+        mut clock: impl FnMut() -> u64,
+    ) -> Result<(), Error> {
         self.gate(now)?;
         if !self.connected {
             return Err(Error::Identity);
+        }
+        let now = clock();
+        self.gate(now)?;
+        if self.permit.is_none() || self.codec.is_none() {
+            return Err(Error::Authorization);
+        }
+        if frame.at_ms > now {
+            return Err(Error::Bounds);
+        }
+        if now - frame.at_ms >= MAX_AGE_MS {
+            self.dropped_frames += 1;
+            return Ok(());
         }
         let packet = self
             .codec
@@ -448,10 +469,16 @@ impl Session {
             .ok_or(Error::Authorization)?
             .encode(frame, now)
             .map_err(|_| Error::Codec)?;
-        let actual_now = rustsimhub_media::local::now_ms();
+        let actual_now = clock();
         self.gate(actual_now)?;
-        if frame.at_ms > actual_now || actual_now - frame.at_ms >= MAX_AGE_MS {
+        if frame.at_ms > actual_now {
             return Err(Error::Bounds);
+        }
+        // A scheduling/encoding delay expires this frame, not the authorized
+        // call. Never enqueue stale speech, and keep the actual sent count.
+        if actual_now - frame.at_ms >= MAX_AGE_MS {
+            self.dropped_frames += 1;
+            return Ok(());
         }
         let mid = self.mid.ok_or(Error::Sdp)?;
         let writer = self.rtc.writer(mid).ok_or(Error::Sdp)?;
@@ -507,6 +534,11 @@ impl Drop for Session {
 }
 /// Real loopback UDP, ICE, DTLS/SRTP and two Opus directions; synthetic frames only.
 pub fn self_check() -> Result<serde_json::Value, Error> {
+    self_check_with(|session, socket, frame, now| session.send(socket, frame, now))
+}
+fn self_check_with(
+    mut transmit: impl FnMut(&mut Session, &UdpSocket, &Frame, u64) -> Result<(), Error>,
+) -> Result<serde_json::Value, Error> {
     let a = UdpSocket::bind("127.0.0.1:0").map_err(|_| Error::Transport)?;
     let b = UdpSocket::bind("127.0.0.1:0").map_err(|_| Error::Transport)?;
     let mut sender = rtc(&a)?;
@@ -576,8 +608,8 @@ pub fn self_check() -> Result<serde_json::Value, Error> {
             sequence,
             at_ms: now,
         };
-        sender.send(&a, &frame, now)?;
-        receiver.send(&b, &frame, now)?;
+        transmit(&mut sender, &a, &frame, now)?;
+        transmit(&mut receiver, &b, &frame, now)?;
         for _ in 0..10 {
             sender.service(&a, 0)?;
             receiver.service(&b, 0)?;
@@ -637,7 +669,7 @@ pub fn self_check() -> Result<serde_json::Value, Error> {
         return Err(Error::Codec);
     }
     Ok(
-        serde_json::json!({"synthetic_only":true,"pcm_opened":false,"udp_loopback":true,"dtls_fingerprint_verified":true,"srtp":true,"sent_each":50,"received_a":received_a,"received_b":received_b,"decoded_peak_a":peak_a,"decoded_peak_b":peak_b,"wrong_grant_denied":true,"revocation_closed":true,"media_timeout_closed":media_timeout_closed,"elapsed_ms":started.elapsed().as_millis()}),
+        serde_json::json!({"synthetic_only":true,"pcm_opened":false,"udp_loopback":true,"dtls_fingerprint_verified":true,"srtp":true,"attempted_each":50,"sent_each":sender.sent_frames.min(receiver.sent_frames),"sent_a":sender.sent_frames,"sent_b":receiver.sent_frames,"dropped_a":sender.dropped_frames,"dropped_b":receiver.dropped_frames,"received_a":received_a,"received_b":received_b,"decoded_peak_a":peak_a,"decoded_peak_b":peak_b,"wrong_grant_denied":true,"revocation_closed":true,"media_timeout_closed":media_timeout_closed,"elapsed_ms":started.elapsed().as_millis()}),
     )
 }
 #[cfg(test)]
@@ -646,6 +678,108 @@ mod tests {
     #[test]
     fn encrypted_loopback_roundtrip_and_ticket_identity_revocation() {
         self_check().unwrap();
+    }
+    #[test]
+    fn stale_capture_is_discarded_without_ending_the_authorized_session() {
+        let mut injected = false;
+        let result = self_check_with(|session, socket, frame, now| {
+            if !injected {
+                injected = true;
+                let stale = Frame {
+                    samples: frame.samples,
+                    sequence: frame.sequence,
+                    at_ms: now - MAX_AGE_MS,
+                };
+                let sent = session.sent_frames;
+                let dropped = session.dropped_frames;
+                session.send(socket, &stale, now)?;
+                assert_eq!(session.sent_frames, sent);
+                assert_eq!(session.dropped_frames, dropped + 1);
+                assert!(!session.closed);
+            }
+            session.send(socket, frame, now)
+        })
+        .unwrap();
+        assert!(injected);
+        assert!(result["sent_a"].as_u64().unwrap() >= 45);
+        assert!(result["sent_b"].as_u64().unwrap() >= 45);
+    }
+    #[test]
+    fn capture_expiring_during_encoding_is_not_written_to_rtp() {
+        let mut injected = false;
+        let result = self_check_with(|session, socket, frame, now| {
+            if !injected {
+                injected = true;
+                let mut reads = 0;
+                let sent = session.sent_frames;
+                let dropped = session.dropped_frames;
+                session.send_with_clock(socket, frame, now, || {
+                    reads += 1;
+                    frame.at_ms + if reads == 1 { 0 } else { MAX_AGE_MS }
+                })?;
+                assert_eq!(reads, 2);
+                assert_eq!(session.sent_frames, sent);
+                assert_eq!(session.dropped_frames, dropped + 1);
+                assert!(!session.closed);
+            }
+            session.send(socket, frame, now)
+        })
+        .unwrap();
+        assert!(injected);
+        assert!(result["sent_a"].as_u64().unwrap() >= 45);
+        assert!(result["sent_b"].as_u64().unwrap() >= 45);
+    }
+    #[test]
+    fn future_capture_remains_an_error_and_is_not_silently_dropped() {
+        let mut injected = false;
+        self_check_with(|session, socket, frame, now| {
+            if !injected {
+                injected = true;
+                let future = Frame {
+                    samples: frame.samples,
+                    sequence: frame.sequence,
+                    at_ms: u64::MAX,
+                };
+                let sent = session.sent_frames;
+                let dropped = session.dropped_frames;
+                assert!(session.send(socket, &future, now).is_err());
+                assert_eq!(session.sent_frames, sent);
+                assert_eq!(session.dropped_frames, dropped);
+            }
+            session.send(socket, frame, now)
+        })
+        .unwrap();
+        assert!(injected);
+    }
+    #[test]
+    fn revoked_authority_cannot_hide_behind_a_stale_capture_drop() {
+        let result = self_check_with(|session, socket, frame, now| {
+            let mut authority = rustsimhub_media::RemoteAuthority::new("r".repeat(64)).unwrap();
+            authority.update(&"r".repeat(64), now + 1000, now).unwrap();
+            session.permit = Some(authority.permit());
+            authority.revoke();
+            let stale = Frame {
+                samples: frame.samples,
+                sequence: frame.sequence,
+                at_ms: now - MAX_AGE_MS,
+            };
+            session.send(socket, &stale, now)
+        });
+        assert_eq!(result, Err(Error::Authorization));
+    }
+    #[test]
+    fn missing_authority_cannot_hide_behind_a_stale_capture_drop() {
+        let result = self_check_with(|session, socket, frame, now| {
+            session.permit = None;
+            session.codec = None;
+            let stale = Frame {
+                samples: frame.samples,
+                sequence: frame.sequence,
+                at_ms: now - MAX_AGE_MS,
+            };
+            session.send(socket, &stale, now)
+        });
+        assert_eq!(result, Err(Error::Authorization));
     }
     #[test]
     fn substituted_sdp_certificate_cannot_complete_dtls_or_unlock_media() {
