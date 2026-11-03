@@ -104,6 +104,77 @@ fn show() -> Result<Vec<u8>> {
     Ok(output)
 }
 
+// Runtime observation does not instantiate MaintenanceSnapshot or acquire its
+// stopped-Core/data write guard. Only this fixed read-only process transport is
+// reused; maintenance admission semantics above remain unchanged.
+impl MaintenanceSnapshot {
+    pub(crate) fn runtime_unit(index: usize) -> Result<Vec<u8>> {
+        const UNITS: [&str; 4] = [
+            "rustsimhub-core.service",
+            "rustsimhub-edge.service",
+            "rustsimhub-media.service",
+            "rustsimhub-forwarder.service",
+        ];
+        let unit = UNITS.get(index).ok_or(Error::Invalid)?;
+        let mut command = Command::new("/usr/bin/systemctl");
+        command
+            .args(["--system", "show", "--no-pager"])
+            .args(
+                crate::runtime_observation::units::PROPERTIES
+                    .iter()
+                    .flat_map(|p| ["-p", p]),
+            )
+            .arg(unit)
+            .env_clear()
+            .current_dir("/")
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null());
+        runtime_capture(command, Duration::from_millis(250))
+    }
+    #[cfg(test)]
+    pub(crate) fn runtime_test_capture(command: Command, budget: Duration) -> Result<Vec<u8>> {
+        runtime_capture(command, budget)
+    }
+}
+
+fn runtime_capture(mut command: Command, budget: Duration) -> Result<Vec<u8>> {
+    let mut child = Reap(command.spawn().map_err(|_| Error::Denied)?);
+    let mut pipe = child.0.stdout.take().ok_or(Error::Io)?;
+    let flags = rustix::fs::fcntl_getfl(&pipe).map_err(|_| Error::Io)?;
+    rustix::fs::fcntl_setfl(&pipe, flags | rustix::fs::OFlags::NONBLOCK).map_err(|_| Error::Io)?;
+    let deadline = Instant::now() + budget;
+    let mut output = Vec::new();
+    let mut eof = false;
+    loop {
+        if Instant::now() >= deadline {
+            return Err(Error::Busy);
+        }
+        let mut chunk = [0; 1024];
+        match pipe.read(&mut chunk) {
+            Ok(0) => eof = true,
+            Ok(n) => {
+                if output.len() + n > 4096 {
+                    return Err(Error::Invalid);
+                }
+                output.extend_from_slice(&chunk[..n]);
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => (),
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(_) => return Err(Error::Io),
+        }
+        if let Some(status) = child.0.try_wait().map_err(|_| Error::Io)? {
+            if !status.success() {
+                return Err(Error::Integrity);
+            }
+            if eof {
+                return Ok(output);
+            }
+        }
+        std::thread::sleep(Duration::from_millis(1));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

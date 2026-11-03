@@ -105,6 +105,7 @@ fn read(path: &Path, modes: &[u32], limit: usize) -> Result<(Vec<u8>, Observed)>
 /// ledger observation, not a mutation capability or candidate-health verdict.
 pub struct ReadOnlyState {
     root: PathBuf,
+    key: [u8; 32],
     state: State,
     observed: Vec<Observed>,
     _lock: StoreLock,
@@ -143,6 +144,7 @@ impl ReadOnlyState {
         observed.extend([public_observed, state_observed]);
         let snapshot = Self {
             root: root.into(),
+            key: public.as_slice().try_into().map_err(|_| Error::Invalid)?,
             state,
             observed,
             _lock: lock,
@@ -181,6 +183,34 @@ impl ReadOnlyState {
             "health_verified": false,
             "state": &self.state,
         }))
+    }
+
+    /// The running selection may be the confirmed group while a candidate is
+    /// merely staged, or the already-attempted candidate. Never consume it.
+    pub(crate) fn runtime_version(&self) -> Result<(&str, u64, bool, bool)> {
+        self.revalidate()?;
+        let version = if self.state.attempted {
+            self.state.candidate.as_ref()
+        } else {
+            self.state.confirmed.as_ref()
+        }
+        .ok_or(Error::Denied)?;
+        Ok((
+            &version.hash,
+            version.epoch,
+            self.state.attempted,
+            self.state.candidate.is_some(),
+        ))
+    }
+
+    pub(crate) fn runtime_key(&self) -> Result<&[u8; 32]> {
+        self.revalidate()?;
+        Ok(&self.key)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn runtime_test_at(root: &Path, trust: &Path) -> Result<Self> {
+        Self::at(root, trust)
     }
 }
 
