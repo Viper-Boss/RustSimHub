@@ -97,6 +97,9 @@ pub async fn run_epoch<S: SecurePortV1>(
                     let current=link.as_ref().ok_or(Error::StaleContext)?;
                     if current.peer()!=request.peer(){return Err(Error::StaleContext)}
                     let reply=match request.operation(){
+                        // This host uses the original pre-bound peer path.
+                        // The service runtime owns opt-in BindPeer callbacks.
+                        CallbackOperation::BindPeer=>return Err(Error::Protocol),
                         CallbackOperation::Write{frame,..}=>{t.write(current,request.characteristic(),WriteOptions::REQUEST,now(start),frame.as_slice())?;CallbackReply::Accepted},
                         CallbackOperation::ReadResult{..}=>CallbackReply::Value(t.read_result(current,0)?),
                     };
