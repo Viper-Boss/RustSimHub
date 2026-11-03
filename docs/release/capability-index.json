@@ -1,0 +1,138 @@
+{
+  "schema": 1,
+  "source_commit": "73deb6d9fa05f9e7f874f6e63fda6d279970a012",
+  "capabilities": [
+    {
+      "id": "forwarding",
+      "level": "source",
+      "device_status": "unknown",
+      "sources": [
+        {
+          "path": "crates/forwarder/src/lib.rs",
+          "sha256": "cd76cb0b2eba18b98e5fbdcdb9349af6fb8e3d92045103a287e2ac005c7c61dd"
+        },
+        {
+          "path": "docs/manuals/support-evidence.md",
+          "sha256": "ceeced2d666559cd147c3a82e479214f338387fd2711b7d4bcae7a3e1a7e978d"
+        }
+      ]
+    },
+    {
+      "id": "update",
+      "level": "source",
+      "device_status": "unknown",
+      "sources": [
+        {
+          "path": "crates/update/src/health.rs",
+          "sha256": "65e509361320ffa9819fb0565dd42012c675b970402cabdfae9ac764aaf9fcaa"
+        },
+        {
+          "path": "tools/offline_delivery/rootfs.py",
+          "sha256": "b57415d568cf97d9f73055d9270be63a096f7fed9c6522e21eb6bdc1cf2a4b5c"
+        },
+        {
+          "path": "docs/release/health-candidate-v1.md",
+          "sha256": "ba2e8b8bc0dd973abf91b299f4cb43b3f160c2c6b5a79b339a33bd61803d51bf"
+        }
+      ]
+    },
+    {
+      "id": "recovery",
+      "level": "source",
+      "device_status": "unknown",
+      "sources": [
+        {
+          "path": "crates/recovery/src/lib.rs",
+          "sha256": "453994d20e0881aebe2ba57a1cd4361bab0b6562a14723ecf28f2ff7dbc1db5e"
+        },
+        {
+          "path": "docs/manuals/backup-and-maintenance.md",
+          "sha256": "c20fd06bc4f5a22341ecf66442faceb26566cbb0beda09ec7f8f41b191c2cc80"
+        }
+      ]
+    },
+    {
+      "id": "release",
+      "level": "source",
+      "device_status": "unknown",
+      "sources": [
+        {
+          "path": "tools/offline_delivery/evidence.py",
+          "sha256": "ea275efb6119644fa6bacf59bfc2ea52ca436ac92780aa0bcc532f360aa0faf4"
+        },
+        {
+          "path": "tools/offline_delivery/initramfs.py",
+          "sha256": "4e7b5fdcdac9546bdb288c5fb4e5c6a5f68e99cf6ba7418ac6652ad0d5239aef"
+        },
+        {
+          "path": "docs/rebuild-base-kernel.md",
+          "sha256": "e846abe74831de6bde787b461294663dd35abcfc81830d3419cb4f3494531e04"
+        }
+      ]
+    },
+    {
+      "id": "ble-control",
+      "level": "source",
+      "device_status": "unknown",
+      "sources": [
+        {
+          "path": "crates/ble/src/lib.rs",
+          "sha256": "68b562cbf6b0df14806beacd48558656e89cfddc384cf931e921371b02ce7550"
+        },
+        {
+          "path": "docs/manuals/support-evidence.md",
+          "sha256": "ceeced2d666559cd147c3a82e479214f338387fd2711b7d4bcae7a3e1a7e978d"
+        }
+      ]
+    },
+    {
+      "id": "ble-recovery",
+      "level": "source",
+      "device_status": "unknown",
+      "sources": [
+        {
+          "path": "crates/recovery-session/src/lib.rs",
+          "sha256": "5abf239098343014df0803eb2f1fba9635ff9862246b9dfed3bd874a47eb6f61"
+        },
+        {
+          "path": "docs/manuals/support-evidence.md",
+          "sha256": "ceeced2d666559cd147c3a82e479214f338387fd2711b7d4bcae7a3e1a7e978d"
+        }
+      ]
+    },
+    {
+      "id": "nas-control",
+      "level": "source",
+      "device_status": "unknown",
+      "sources": [
+        {
+          "path": "tools/nas-adapter/control/client.go",
+          "sha256": "1f83a29577acdfee89c0f452a5aafc4736866dba0ae35db02086e07e486b254a"
+        },
+        {
+          "path": "crates/compat/src/nas_audio.rs",
+          "sha256": "5297017ca0134a5061de001d4583bf372e4f17439a9fd7d5ccedad9cfad7dc9d"
+        },
+        {
+          "path": "tools/nas-adapter/control/request-vectors.json",
+          "sha256": "a90d203b27c451883a9375941d36769ad7827d7dcc56e7019197316898c3e06b"
+        }
+      ]
+    },
+    {
+      "id": "private-relay",
+      "level": "source",
+      "device_status": "unknown",
+      "sources": [
+        {
+          "path": "tools/offline_delivery/relay.py",
+          "sha256": "8187c4e461f2e40c54cda7ab57a7e9f22c26c56b0f4ceb44d23146816a30eba0"
+        },
+        {
+          "path": "docs/release/relay-example.json",
+          "sha256": "f3191421f91053dd4207a044da15f5e5165d68eddc64db875d280258ce6f0a8f"
+        }
+      ]
+    }
+  ]
+}

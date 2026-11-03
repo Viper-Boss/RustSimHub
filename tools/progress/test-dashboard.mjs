@@ -60,7 +60,7 @@ assert.equal((cards.match(/data-step-id=/g)||[]).length,data.team.members.reduce
 assert.ok(teamHTML(data.team,data,{query:'C-07'}).includes('person-member-c'));
 assert.ok(!teamHTML(data.team,data,{query:'C-07'}).includes('person-member-a'));
 assert.equal(teamHTML(data.team,data,{query:'nonexistent-person-task-qxyz'}),'');
-const a=people.find(p=>p.member.id==='member-a'),b=people.find(p=>p.member.id==='member-b');assert.equal(a.steps.length,0);assert.equal(a.projects.length,0);assert.ok(!personHandoffText(a).includes('A-30'));assert.ok(personHandoffText(b).includes('A-30'));assert.ok(personHandoffText(b).includes('B-29'));assert.equal(b.steps.length,62);
+const a=people.find(p=>p.member.id==='member-a'),b=people.find(p=>p.member.id==='member-b');assert.equal(a.steps.length,0);assert.equal(a.projects.length,0);assert.ok(!personHandoffText(a).includes('A-30'));assert.ok(personHandoffText(b).includes('A-30'));assert.ok(personHandoffText(b).includes('B-29'));assert.equal(b.steps.length,68);
 const malicious=structuredClone(data);malicious.team.task_plan.members.find(m=>m.steps.length).steps[0].work='<script>bad()</script>';
 assert.ok(teamHTML(malicious.team,malicious).includes('&lt;script&gt;'));assert.ok(!teamHTML(malicious.team,malicious).includes('<script>bad'));
 const duplicate=structuredClone(data);duplicate.team.members[2].task_ids.push(duplicate.team.members[3].task_ids[0]);assert.throws(()=>personAssignments(duplicate));

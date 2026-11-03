@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "author": "wnfhsj88",
+  "base_main": "5c5fdbe0979304572ec87618e9ba3b8c8bb47fac",
+  "implementation_head": "73deb6d9fa05f9e7f874f6e63fda6d279970a012",
+  "self_reported_offline_steps": [
+    "C-25",
+    "C-26",
+    "C-27",
+    "C-28",
+    "C-29",
+    "C-30"
+  ],
+  "review_accepted": false,
+  "deployed": false,
+  "checks": {
+    "rust_all_features": {
+      "passed": 1539,
+      "failed": 0,
+      "ignored": 11,
+      "suites": 64
+    },
+    "offline_tools": 24,
+    "existing_kernel_checker": 21,
+    "normal_nas_go": {
+      "top_level_tests": 10,
+      "race": true,
+      "vet": true,
+      "cli_package_has_no_separate_tests": true
+    },
+    "board_python": 24,
+    "board_node": true,
+    "strict_clippy": true,
+    "format": true,
+    "capability_index": {
+      "capabilities": 8,
+      "source_bytes_verified": true,
+      "device_verified": false
+    },
+    "default_production_check": true,
+    "relay_cli_template_roundtrip": true
+  },
+  "logs_sha256": {
+    "workspace-tests-final.log": "caa23957362269d74bfded058598764b8aab5077888cbc90621d48ae19e1b991",
+    "clippy-final.log": "4903a3b7641bb4703204dba79f154044f57ec3c2110d9359d31d779bd2e9c552",
+    "go-final.log": "9989eb655f0a5292cbb00c76a9df7cca1337d387e22a70d276f31b4b1d941209",
+    "go-vet-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "python-tests-final.log": "f67dc6e072791bf849c7c0093d7574b1a89e2529b661dc337c3cfd5461c141e4",
+    "kernel-checker-tests-final.log": "364fc0ae498b80b83819d585a133f90b9de4197c0452692b553d8b3cf58c2eb8",
+    "board-python.log": "a6100cbc9294bb4f98aad1f7764314cce360d8deadfd278afed9f08a01681686",
+    "board-node.log": "876acea74061a2ff0a21c8b9c480aa63f207ab4caac035cc073f0b9d3cee43f8",
+    "capability-check.json": "002965e4f382cc0a190d071bd64eefd2f7b917719ec538f261694f8944515b5d",
+    "board-python-final.log": "694ea6b9e47f41ae825957b31540f7622bbf144b30dec0b0aad6c8cb18a8d6ac",
+    "board-node-final.log": "876acea74061a2ff0a21c8b9c480aa63f207ab4caac035cc073f0b9d3cee43f8",
+    "board-consistency-final.log": "8c889c9de099eae1e838d08b809704e1ea8046c07fd61c792624ee321e8b8e87",
+    "production-check.log": "e70a000d9904f8e66af748a31898154db8adaa9eb25a0f8af945acff252a8cb1",
+    "relay-generate.json": "a2cffa357b5010198a20e59e5de625175243bb383d6c0580043a377d073e77ce",
+    "relay-check.json": "a2cffa357b5010198a20e59e5de625175243bb383d6c0580043a377d073e77ce"
+  },
+  "acceptance": {
+    "overall_percent": 81.5,
+    "active_actions": 169,
+    "done_actions": 20,
+    "weighted_percent": 10.6,
+    "c_original_accepted_steps": 9,
+    "new_accepted_points": 0
+  },
+  "limits": [
+    "Root trusted health producer and confirm wiring remain unaccepted",
+    "No real kernel rebuild, boot, hardware, NAS hearing, RF or OTA execution this round",
+    "No real relay resources, credentials, signing, install, merge or deployment",
+    "Go TLS server and Pcm are external fixtures; actual wire parser and media Permit/Pump are used"
+  ],
+  "scope": "Runtime/tooling checks target implementation_head; allocation/board checks target accompanying PR documentation tree."
+}

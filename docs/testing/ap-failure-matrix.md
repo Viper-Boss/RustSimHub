@@ -560,3 +560,5 @@ C24交逐case真实结果、调用序列、失败/未运行项、来源许可及
 | [crates/core/src/setup_ap_control/station/commit/tests.rs](https://github.com/Viper-Boss/RustSimHub/blob/9c8d36b4b5959cd441f2bc181ff612c96cea5ac5/crates/core/src/setup_ap_control/station/commit/tests.rs#L1) | 15042 | `91c2624d11b0f9185f2591ad5ddfc9e864ae860dee4bb0b1873abdbbc57c28a1` |
 
 代码/接口声明和文档链接的静态校验不证明62项测试已运行。正式执行需固定后续实现HEAD、实际测试名称/数量、退出码和未运行项；整体固定P0～P7仍约80%。
+
+2026-11-03分配更新：以上C25下一包计划为历史记录。用户已转交C25～C30给wnfhsj88，见[转交记录](../team/TRANSFER-C25-C30-TO-WNFHSJ88-20261103.md)；本文件C21～C24既有作者/测试保持。
