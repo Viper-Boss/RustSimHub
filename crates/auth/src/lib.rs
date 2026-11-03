@@ -13,6 +13,8 @@ mod recovery_execution;
 mod recovery_grants;
 #[cfg(feature = "secure-session-candidate")]
 pub mod secure_session;
+#[cfg(target_os = "linux")]
+pub mod update_health;
 #[cfg(feature = "recovery-execution")]
 pub use recovery_execution::{
     RecoveryExecutionAdmission, RecoveryExecutionClaim, RecoveryExecutionPending,
