@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "kind": "product-maintenance-installation-contract",
+  "package_kind": "product-maintenance",
+  "package_domain": "RustSimHub.ProductMaintenance.v1\u0000",
+  "production_inbox": "/var/lib/rustsimhub/rustsimhub-v1/system/product-inbox",
+  "journal_root": "/var/lib/rustsimhub/rustsimhub-v1/system/product-install",
+  "approved_roles": "/etc/rustsimhub/product-roles.json",
+  "roles_policy_installed_by_package": false,
+  "updater_self_replacement": false,
+  "executor_self_replacement": false,
+  "automatic_enable": false,
+  "automatic_database_restore": false,
+  "shared_cli_integrated": false
+}
