@@ -19,7 +19,7 @@ struct Version {
     hash: String,
     epoch: u64,
 }
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct State {
     format: u16,

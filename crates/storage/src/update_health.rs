@@ -94,6 +94,8 @@ impl Handle {
                     let paths = [
                         db.health_directory.join("store.sqlite3"),
                         db.health_directory.join("store.sqlite3-wal"),
+                        db.health_directory.join(".writer.lock"),
+                        db.health_directory.join(".restore-pending"),
                     ];
                     let before: Vec<_> = paths
                         .iter()
