@@ -185,11 +185,8 @@ impl Sources for Rc<Port> {
             .iter()
             .filter(|u| u.active)
             .map(|u| {
-                Process::synthetic(
-                    u.index,
-                    u.pid + u32::from(self.fault.get() == 4),
-                    &slot.directory.join(ROLES[u.index].1),
-                )
+                Process::synthetic(u.index, u.pid, &slot.directory.join(ROLES[u.index].1))
+                    .with_test_start(if self.fault.get() == 4 { 2 } else { 1 })
             })
             .collect();
         Ok((

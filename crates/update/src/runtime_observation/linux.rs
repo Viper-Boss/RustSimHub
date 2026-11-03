@@ -347,6 +347,10 @@ pub(super) fn check_security(status: &[u8], uid: u32) -> Result<()> {
 
 #[cfg(test)]
 impl Process {
+    pub(super) fn with_test_start(mut self, start: u64) -> Self {
+        self.start = start;
+        self
+    }
     pub(super) fn synthetic(index: usize, pid: u32, executable: &Path) -> Self {
         Self {
             index,
