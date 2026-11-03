@@ -343,6 +343,19 @@ fn kernel_real_core_confirm_once_and_failures() {
     assert!(value["state"]["candidate"].is_null());
     assert!(ledger.confirmation_plan().is_err());
     drop(ledger);
+    let first = Command::new("/fixture/updater")
+        .arg("inspect-state")
+        .output()
+        .unwrap();
+    let second = Command::new("/fixture/updater")
+        .arg("inspect-state")
+        .output()
+        .unwrap();
+    assert!(first.status.success() && second.status.success());
+    assert_eq!(first.stdout, second.stdout);
+    let queried: serde_json::Value = serde_json::from_slice(&first.stdout).unwrap();
+    assert_eq!(queried["state"]["confirmed"]["hash"], hash);
+    assert_eq!(queried["state"]["floor"], 2);
     stop(core);
     assert!(!Path::new(wire::SOCKET).exists());
     drop((edge, media));
@@ -488,8 +501,7 @@ fn kernel_real_core_confirm_once_and_failures() {
                     assert!(Instant::now() < until);
                     std::thread::sleep(Duration::from_millis(5));
                 }
-                core.0.kill().unwrap();
-                core.0.wait().unwrap();
+                assert!(core.0.try_wait().unwrap().is_none());
             }
             "peer" => {
                 assert!(Core::connect(&cap.runtime).is_err());
@@ -517,6 +529,10 @@ fn kernel_real_core_confirm_once_and_failures() {
         );
         assert!(!Path::new(APP).join("state.next").exists());
         if matches!(failure, "death" | "exec") {
+            if failure == "exec" {
+                core.0.kill().unwrap();
+                core.0.wait().unwrap();
+            }
             drop(core);
         } else {
             stop(core);
