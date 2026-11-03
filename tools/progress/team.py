@@ -30,10 +30,15 @@ def classify(name):
     suffix = path.suffix.lower()
     if name.startswith(('crates/', 'native/audio-alsa/src/')) and suffix in ('.rs', '.js', '.mjs', '.html', '.css'):
         return 'tests' if '/tests/' in name or path.name in ('tests.rs', 'test.rs') or path.name.endswith(('_tests.rs', '_test.rs')) else 'product'
-    # The NAS bridge is a shipped Go client, even though its source is under
-    # tools/. Count its real implementation and fixtures, not vendor sources.
-    if name.startswith('tools/nas-adapter/') and suffix == '.go' and 'vendor' not in path.parts:
+    # These are product Go programs under tools/, not build scripts. Never
+    # attribute vendored SDK/dependency sources to repository contributors.
+    if name.startswith(('tools/nas-adapter/', 'tools/nkn-engine/')) and suffix == '.go' and 'vendor' not in path.parts:
         return 'tests' if path.name.endswith('_test.go') else 'product'
+    if name.startswith('configurator/') and suffix in ('.js', '.mjs', '.html', '.css', '.py'):
+        if 'tests' in path.parts:
+            return 'tests'
+        if name.startswith('configurator/src/') or name in ('configurator/index.html', 'configurator/sw.js'):
+            return 'product'
     if name.startswith('tools/') and suffix in ('.py', '.sh', '.js', '.mjs'):
         return 'tests' if path.name.startswith(('test_', 'test-')) else 'tooling'
     if name.startswith('firmware/system/') and suffix in ('.sh', '.json', '.conf', '.service', '.target', '.rules'):

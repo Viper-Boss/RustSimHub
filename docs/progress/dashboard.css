@@ -9,3 +9,8 @@
 @media(prefers-reduced-motion:reduce){:root{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}}
 .task-title{font-size:13px}.task-row{font-size:12px}.path-box{white-space:pre-line}
 @media(max-width:560px){.hero h1{font-size:clamp(27px,8.2vw,32px)}.mission-visual{width:100%;max-width:390px;min-width:0}.visual-floor{width:300px}.label-one{left:0}.label-two{right:0}.task-title{font-size:13px}.task-row{font-size:12px}.task-index{font-size:9px}.task-status{font-size:10px}.module-card>p{font-size:12px}.module-foot button{font-size:12px}.task-extra .tag{font-size:9px}}
+
+/* Current evidence and handoff text can be longer than the original snapshot. */
+.current-row>*{min-width:0}.focus-content{min-width:0;overflow-wrap:anywhere}.focus-content .tag{white-space:normal;overflow-wrap:anywhere}.fact-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.fact{min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:2px}.fact strong{white-space:normal;overflow-wrap:anywhere;line-height:1.6}.fact span,.fact small{min-width:0;overflow-wrap:anywhere}
+@media(min-width:561px) and (max-width:800px){.fact-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.bottom-grid>*{min-width:0}.activity-item{overflow-wrap:anywhere}#baseline-label{max-width:100%;white-space:normal;overflow-wrap:anywhere}

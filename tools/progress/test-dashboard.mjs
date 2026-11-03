@@ -27,6 +27,17 @@ const revised=structuredClone(data),candidate=revised.modules.filter(m=>m.scope!
 if(candidate){candidate.status='done';assert.equal(calculate(revised).original,stats.original);assert.equal(calculate(revised).done,stats.done+1);assert.ok(calculate(revised).weighted>stats.weighted);}
 console.log('Dashboard calculation/filter/dependency/estimate/escaping/handoff checks passed.');
 const cards=teamHTML(data.team,data);
+const deliveryFixture=structuredClone(data.team),deliveryMember=deliveryFixture.members[2];
+deliveryMember.work.deliveries=[{pr:1,head:'a'.repeat(40),state:'MERGED'},{pr:3,head:'b'.repeat(40),state:'OPEN'},{pr:2,head:'c'.repeat(40),state:'CLOSED'}];
+deliveryMember.work.reviews=[];
+const deliveryCards=teamHTML(deliveryFixture,data).split(`id="person-${deliveryMember.id}"`)[1].split('</article>')[0];
+assert.ok(deliveryCards.includes('PR #1 · 已合并 · 未关联验收'));
+assert.ok(deliveryCards.includes('PR #3 · 待合并 · 未关联验收'));
+assert.ok(deliveryCards.includes('PR #2 · 已关闭 · 未关联验收'));
+assert.ok(deliveryCards.indexOf('PR #3 ·')<deliveryCards.indexOf('PR #2 ·'));
+assert.ok(deliveryCards.indexOf('PR #2 ·')<deliveryCards.indexOf('PR #1 ·'));
+assert.ok(deliveryCards.includes('title="HEAD '+ 'b'.repeat(40)+'"'));
+assert.equal(deliveryMember.work.accepted_steps,data.team.members[2].work.accepted_steps);
 assert.ok(cards.includes('fungi1220'));assert.ok(cards.includes('wnfhsj'));assert.ok(cards.includes('yh1030'));assert.ok(cards.includes('RedamancyGTW'));
 assert.ok(cards.includes('未填报'));
 for(const member of data.team.members.filter(m=>m.id!=='lead'))assert.ok(cards.includes(`${member.work.accepted_steps} / ${member.work.assigned_steps}`));
