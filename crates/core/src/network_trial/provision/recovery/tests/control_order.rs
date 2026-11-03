@@ -7,11 +7,16 @@ struct ScheduledGate {
     inner: RecoveryContext,
     tick: Notify,
     checks: AtomicUsize,
+    busy: AtomicUsize,
 }
 impl Gate for ScheduledGate {
     async fn check(&self) -> Result<()> {
         self.checks.fetch_add(1, Ordering::SeqCst);
-        self.inner.check().await
+        let result = self.inner.check().await;
+        if matches!(result, Err(Error::Busy)) {
+            self.busy.fetch_add(1, Ordering::SeqCst);
+        }
+        result
     }
 }
 impl ProvisionGate for ScheduledGate {
@@ -59,6 +64,7 @@ async fn legitimate_control_admission_cannot_race_its_own_actor_gate() {
             },
             tick: Notify::new(),
             checks: AtomicUsize::new(0),
+            busy: AtomicUsize::new(0),
         };
         let state = Arc::new(tokio::sync::Mutex::new(State::Starting));
         let (tx, mut rx) = mpsc::channel(1);
@@ -141,15 +147,46 @@ async fn legitimate_control_admission_cannot_race_its_own_actor_gate() {
         })
         .await;
         let during = gate.checks.load(Ordering::SeqCst);
+        // Keep Auth held until the original Gate's real blocking worker has
+        // actually returned Busy. The fixed actor never starts this extra Gate.
+        let actor_ended = if during != before {
+            timeout(
+                Duration::from_secs(5),
+                std::future::poll_fn(|cx| {
+                    let ended = actor.as_mut().poll(cx).is_ready();
+                    if gate.busy.load(Ordering::SeqCst) > 0 {
+                        Poll::Ready(ended)
+                    } else {
+                        assert!(!ended);
+                        Poll::Pending
+                    }
+                }),
+            )
+            .await
+            .unwrap()
+        } else {
+            false
+        };
         if scenario == "disconnect" {
             c.invalidate();
         }
         release.send(()).unwrap();
-        let (_, result) = timeout(Duration::from_secs(5), async {
-            tokio::join!(actor, control)
+        let result = timeout(Duration::from_secs(5), async {
+            if actor_ended {
+                control.await
+            } else {
+                tokio::join!(actor, control).1
+            }
         })
         .await
         .unwrap();
+        eprintln!(
+            "CONTROL_ORDER gate_busy={} control_error={:?} begin_row={:?} control_row={:?}",
+            gate.busy.load(Ordering::SeqCst),
+            result.as_ref().err(),
+            row(&f, 1),
+            row(&f, 2)
+        );
         *ACTIVE.lock().await = None;
         assert_eq!(
             during, before,
@@ -216,6 +253,7 @@ async fn manual(f: &Fixture, c: &RecoveryConnection) -> ManualActor {
         },
         tick: Notify::new(),
         checks: AtomicUsize::new(0),
+        busy: AtomicUsize::new(0),
     };
     let state = Arc::new(tokio::sync::Mutex::new(State::Starting));
     let (tx, rx) = mpsc::channel(1);
