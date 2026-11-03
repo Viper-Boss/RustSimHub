@@ -34,3 +34,5 @@ VerifiedProductMaterials持有实际目录和文件描述符、精确签名字�
 本阶段正式实现完整SHA、精确复验命令及结果将于紧接的证据提交/PR描述绑定。执行器阶段未完成的事实不隐藏：实际临时root写入/账户准备、维护锁/备份、持久journal、后写数据保护、有限回退、默认OFF、service控制和中断矩阵须后续真实执行后补报。共享入口由窗口8接通，不能将本模块/签名计划冒称生产安装。
 
 源码沿用仓库AGPL-3.0-only与既有Ed25519/工具链，无新增依赖/锁或旧签名格式改动；AI辅助，保留作者。无设备/NAS/生产密钥/宿主NSS/服务操作，不自行批准/合并、部署或改全局看板。整体81.5%、20/169、加权10.6%及原权重保持。
+
+阶段一正式受测代码HEAD：`b2a82d74906282d1464521eb02db58ff8564354e`。使用本窗口独立target、CARGO_INCREMENTAL=0、CARGO_PROFILE_DEV_DEBUG=0和私有TMPDIR：`cargo test -p rustsimhub-update --locked --offline --test product_materials_package` 退出0、13/13、无失败/忽略；`cargo clippy -p rustsimhub-update --locked --offline --test product_materials_package -- -D warnings` 退出0。两者在该提交后已重跑。验证为实际Ed25519/OpenSSL/文件IO与旧解析器拒绝，合成ELF/临时信任明确不能当真实ARM/生产密钥。阶段一证据补交仅文档，最终完整HEAD由PR回读记录。
