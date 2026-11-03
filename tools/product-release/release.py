@@ -170,6 +170,7 @@ def run_build(command, cwd, env, log):
 
 
 def build(args):
+    require(__debug__, 'existing SDK verifier must not run with Python optimization')
     require(sys.platform == 'linux' and os.geteuid() != 0, 'ordinary Linux workstation required')
     product, email, recovery = profile(args.profile)
     require(args.output.is_absolute() and not args.output.exists() and not args.output.is_symlink(), 'fresh absolute output')

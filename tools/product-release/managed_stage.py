@@ -31,6 +31,8 @@ def load(path, name):
 
 
 def prepare(repo, previous, output, env, revision):
+    if not __debug__:
+        raise ValueError('existing SDK assertion verifier requires ordinary Python')
     sys.path.insert(0, str(repo / 'tools'))
     import arm_build_manifest as arm
     producer = load(repo / 'tools/nkn-build/sdk-managed/prepare.py', 'existing_managed_prepare')
@@ -95,7 +97,7 @@ def notices(repo, stage, programs, output, env):
         modules.update(raw.decode().split())
     modules.discard('@')
     selected = dict(item.rsplit('@', 1) for item in sorted(modules))
-    require(set(selected) == set(known) | {own}, 'new SDK module closure requires separate review')
+    not_linked = module_closure(set(selected), set(known), own)
     text, records = [], []
     for name, version in sorted(selected.items()):
         raw = subprocess.check_output(['go', 'list', '-mod=readonly', '-m', '-json', name], cwd=stage, env=env, timeout=20)
@@ -122,7 +124,16 @@ def notices(repo, stage, programs, output, env):
     text.append('\n===== Go runtime '+version+' =====\n'+data.decode())
     output.mkdir(mode=0o700)
     (output/'THIRD-PARTY-NOTICES.txt').write_text(''.join(text))
-    result = {'modules': records, 'go': version, 'source_closure_unchanged': True,
+    result = {'modules': records, 'go': version, 'no_new_external_modules': True,
+              'baseline_modules_not_linked_on_this_target': not_linked,
               'runtime_license_sha256': sha(data), 'dependency_approval': False}
     (output/'modules.json').write_text(json.dumps(result, sort_keys=True, indent=2)+'\n')
     return result
+
+
+def module_closure(actual, baseline, own):
+    # Build tags/architecture can omit an old module (e.g. x/sys on pure-Go
+    # ARM). A missing linked module is not a new dependency or a source fix.
+    if own not in actual or not actual <= baseline | {own}:
+        raise ValueError('new SDK module closure requires separate review')
+    return sorted(baseline - actual)

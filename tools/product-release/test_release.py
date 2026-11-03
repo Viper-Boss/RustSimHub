@@ -7,6 +7,8 @@ import tempfile
 import unittest
 import os
 import xml.etree.ElementTree as ET
+import subprocess
+import sys
 
 spec = importlib.util.spec_from_file_location('product_release', Path(__file__).with_name('release.py'))
 release = importlib.util.module_from_spec(spec)
@@ -172,6 +174,21 @@ class ProductRelease(unittest.TestCase):
             'send_member': 'GetManagedObjects', 'send_type': 'method_call', 'max_fds': '0', 'send_path': '/'})
         self.assertEqual(actual[0].attrib, {'user': 'rustsimhub-ble'})
         self.assertEqual(after, [*before[:4], addition, *before[4:]])
+
+    def test_optimized_python_cannot_disable_inherited_sdk_verification(self):
+        script = "import release\ntry: release.build(None)\nexcept ValueError as e:\n if 'optimization' not in str(e): raise RuntimeError('wrong rejection')\nelse: raise RuntimeError('accepted optimized verification')"
+        result = subprocess.run([sys.executable, '-O', '-c', script], cwd=Path(__file__).parent,
+                                capture_output=True, timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr.decode())
+
+    def test_architecture_can_omit_old_module_but_cannot_add_unreviewed_module(self):
+        own = 'this-project'
+        baseline = {'crypto', 'sys'}
+        self.assertEqual(release.managed_stage.module_closure({own, 'crypto'}, baseline, own), ['sys'])
+        self.assertEqual(release.managed_stage.module_closure({own, 'crypto', 'sys'}, baseline, own), [])
+        for actual in [{own, 'crypto', 'unreviewed'}, {'crypto'}]:
+            with self.assertRaises(ValueError):
+                release.managed_stage.module_closure(actual, baseline, own)
 
 
 if __name__ == '__main__':
