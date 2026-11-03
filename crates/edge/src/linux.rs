@@ -686,6 +686,15 @@ fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/home.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/home.js"),
+                )
+            }),
+        )
+        .route(
             "/style.css",
             get(|| async {
                 (

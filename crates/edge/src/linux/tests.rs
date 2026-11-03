@@ -58,6 +58,7 @@ async fn sms_assets_are_served_with_the_existing_host_and_cache_boundary() {
             "/clients.js",
             include_bytes!("../web/clients.js").as_slice(),
         ),
+        ("/home.js", include_bytes!("../web/home.js").as_slice()),
     ] {
         for (host, status) in [
             ("localhost:8443", StatusCode::OK),

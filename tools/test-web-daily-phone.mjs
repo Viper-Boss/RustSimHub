@@ -142,7 +142,7 @@ for(const stage of ['prepare_call','submit_call']){
 {
  const f=fixture({skipMarkerCheck:true}),saved=new Map(),sent=[];
  const context={OperationReceipt:class{update(){}reset(){}},DiagnosticPanel:class{update(){}reset(){}},ConfigurationState:class{reset(){}},UsageStatsPanel:class{reset(){}},TestCenter:class{update(){}reset(){}},ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,forwardingPendingInput,document:f.document,crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval:()=>1,clearInterval(){},addEventListener(){},indexedDB:{open:()=>({})},DailyPhone,NasBridgePanel,nasPendingInput,nasReceiptInput,ClientsPanel:class{reset(){}},SessionKeeper:class{start(){}reset(){}async ensure(){}},
-  AudioLink:class{constructor(){return f.audio;}},ConfigurationIndicator:class{async set(){}},CallTest:class{async stop(){}},NetworkPanel:class{stop(){}start(){}},EventSync:class{reset(){}},SmsManager:class{reset(){}},
+  AudioLink:class{constructor(){return f.audio;}},ConfigurationIndicator:class{async set(){}},CallTest:class{async stop(){}},HomeDashboard:class{reset(){}async refresh(){}network(){}},NetworkPanel:class{stop(){}start(){}},EventSync:class{reset(){}},SmsManager:class{reset(){}},
   fetch:async(_url,options)=>{const body=JSON.parse(options.body),c=body.command;sent.push(c);if(c.op==='submit_call')assert.equal(saved.get('pending').submit_started,true);return {ok:true,json:async()=>({protocol:2,id:body.id,result:await f.backend(c)})};},
  };
  const app=await readFile(new URL('../crates/edge/src/web/app.js',import.meta.url),'utf8');
