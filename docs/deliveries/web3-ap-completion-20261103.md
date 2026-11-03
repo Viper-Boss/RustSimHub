@@ -26,7 +26,7 @@
 
 ## 阶段二：首配页面与恢复
 
-收尾验证日期为 2026-11-04（Asia/Shanghai）；任务 ID 与文件名保持 20261103。独立分支 `codex/web3-ap-ui-20261103` 从重新 fetch 的最新 main 建立；通过正常 merge `483eb878068548723099bed636dcf4e1dc957272` 消费阶段一固定 HEAD，没有重写或复制依赖实现。网页 PR 依赖 #202，目标同为 main，建议审核顺序为 Core → 网页。最新 main 回读仍为上述起点。
+收尾验证日期为 2026-11-04（Asia/Shanghai）；任务 ID 与文件名保持 20261103。独立分支 `codex/web3-ap-ui-20261103` 从重新 fetch 的最新 main 建立；通过正常 merge `483eb878068548723099bed636dcf4e1dc957272` 消费阶段一固定 HEAD，没有重写或复制依赖实现。网页 PR [#204](https://github.com/Viper-Boss/RustSimHub/pull/204) 依赖 #202，均为非草稿并请求 Viper-Boss 审核，目标同为 main，建议审核顺序为 Core → 网页。最新 main 回读仍为上述起点。
 
 最终受测产品/测试 SHA：`283f48da4339d1b6a3b89813d313e2397ff20cd9`。后续报告提交不改变产品或测试源码。代码提交均使用实际执行账号 wnfhsj88。
 
@@ -77,7 +77,7 @@
 
 ### 云端、未运行和负责人验收
 
-Core PR202 的 GitHub Actions run `41672128147` 为 failure，test/native-audio 均无执行步骤。实际回读 annotation：因最近账号付款失败或 spending limit 需提高，job 未启动。不能称云端 CI 通过；未改计费、额度或 workflow。网页 PR 的最终 head/检查由 PR 回读补充，不用 Core PR 的结论代替。
+Core PR202 的 GitHub Actions run `41672128147` 为 failure，test/native-audio 均无执行步骤。实际回读 annotation：因最近账号付款失败或 spending limit 需提高，job 未启动。不能称云端 CI 通过；未改计费、额度或 workflow。网页 PR204 在报告提交 `76c33d6896de089877ad9b518c2529d0c61839c3` 触发 run `41674818697`，首次回读 queued、无完成结论；最终 head/检查在 PR 正文回读补充，不用 Core PR 的结论代替。
 
 未运行：真实 Root 特权/PID1/system bus/NSS/firewall，物理 AP/RF/NM、手机离线重连、真实设备服务退出/恢复、签名安装与部署。当前普通 UID 环境不是 Root 实机验收。未触达 NAS/棒子、蜂窝数据、电话短信、真实通知、NKN/TURN 或 PMIC/关机。
 
