@@ -1,0 +1,103 @@
+{
+  "format": 1,
+  "product_source_head": "5ad537d9dbf4c3fba61778d81f79746c02d0d793",
+  "sdk_root_source_head": "7505a025f34f75beed9075cf343b71f38c106eed",
+  "base_main": "6965b626821227e4a187d66e87411b1ce09f6c6a",
+  "sdk_root_builds": [
+    {
+      "program": "nkn-sdk-engine",
+      "round": 1,
+      "architecture": "amd64",
+      "bytes": 11346044,
+      "sha256": "27f049e939cdbe00462a0a2a8e9d01723bce083eb49ca15ce1ddb98c00dc40bb",
+      "elf_machine": 62,
+      "modules": 17,
+      "version_executed": true,
+      "network_executed": false
+    },
+    {
+      "program": "nkn-root",
+      "round": 1,
+      "architecture": "amd64",
+      "bytes": 3604604,
+      "sha256": "ab99b2e7991f1e5c7bc3a92b51d9c2e86c914755a3898914f22563fd5d02c621",
+      "elf_machine": 62,
+      "modules": 1,
+      "version_executed": false,
+      "network_executed": false
+    },
+    {
+      "program": "nkn-sdk-engine",
+      "round": 1,
+      "architecture": "arm64",
+      "bytes": 10616956,
+      "sha256": "6b8fc0691bdf84a4340e680824091e8ce40730923669cb7850586bb2bed43ef5",
+      "elf_machine": 183,
+      "modules": 16,
+      "version_executed": false,
+      "network_executed": false
+    },
+    {
+      "program": "nkn-root",
+      "round": 1,
+      "architecture": "arm64",
+      "bytes": 3473532,
+      "sha256": "4ba5a02b4ba1b35c07d9bcc3596730056b728bea395706231fb4fc6133f0d303",
+      "elf_machine": 183,
+      "modules": 1,
+      "version_executed": false,
+      "network_executed": false
+    },
+    {
+      "program": "nkn-sdk-engine",
+      "round": 2,
+      "architecture": "amd64",
+      "bytes": 11346044,
+      "sha256": "27f049e939cdbe00462a0a2a8e9d01723bce083eb49ca15ce1ddb98c00dc40bb",
+      "elf_machine": 62,
+      "modules": 17,
+      "version_executed": true,
+      "network_executed": false
+    },
+    {
+      "program": "nkn-root",
+      "round": 2,
+      "architecture": "amd64",
+      "bytes": 3604604,
+      "sha256": "ab99b2e7991f1e5c7bc3a92b51d9c2e86c914755a3898914f22563fd5d02c621",
+      "elf_machine": 62,
+      "modules": 1,
+      "version_executed": false,
+      "network_executed": false
+    },
+    {
+      "program": "nkn-sdk-engine",
+      "round": 2,
+      "architecture": "arm64",
+      "bytes": 10616956,
+      "sha256": "6b8fc0691bdf84a4340e680824091e8ce40730923669cb7850586bb2bed43ef5",
+      "elf_machine": 183,
+      "modules": 16,
+      "version_executed": false,
+      "network_executed": false
+    },
+    {
+      "program": "nkn-root",
+      "round": 2,
+      "architecture": "arm64",
+      "bytes": 3473532,
+      "sha256": "4ba5a02b4ba1b35c07d9bcc3596730056b728bea395706231fb4fc6133f0d303",
+      "elf_machine": 183,
+      "modules": 1,
+      "version_executed": false,
+      "network_executed": false
+    }
+  ],
+  "independent_cache_comparisons": 4,
+  "arm_executed": false,
+  "new_third_party_versions": false,
+  "prior_provenance_and_notices": "nkn-managed-programs-candidate.json",
+  "default_enabled": false,
+  "published": false,
+  "signed_release": false
+}

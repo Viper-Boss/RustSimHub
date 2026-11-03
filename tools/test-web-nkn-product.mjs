@@ -45,3 +45,11 @@ assert.throws(()=>archiveInput({record:record(),state:'unknown',admitted_revisio
 {const v=report();v.provider.status.source='mock';assert.throws(()=>reportInput(v));}
 {const v=report();v.provider.original_process_exit_verified=true;assert.throws(()=>reportInput(v));}
 console.log('PASS: actual NKN product panel; durable CAS before mutation, exact receipts, Unknown/no resend, stale/sequence/epoch/logout fences, unavailable remote, no private errors or passive I/O');
+if(process.argv[2]){
+ const captured=JSON.parse(await readFile(process.argv[2],'utf8')).result.status;
+ const parsed=reportInput(captured);
+ assert.equal(parsed.provider.status.source,'engine');assert.equal(parsed.provider.status.service,'running');
+ assert.equal(parsed.provider.status.dht,'unknown');assert.equal(parsed.provider.status.path,'unknown');
+ assert.deepEqual(parsed.provider.owners,{manual:true,remote:true,statistics:true});
+ console.log('PASS: captured actual SDK/Root/Core report accepted by production JS contract; this serialization check does not refresh the captured sample');
+}

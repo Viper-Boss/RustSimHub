@@ -128,3 +128,18 @@ worker5/七阶段 SMTP、BlueZ/WASM/CSP/PWA 产品装配及 A30 组合仍推进�
 被拒绝。具体实现、精确 HEAD/验证和未验收项见
 [本包交付](member-a-smtp-production-candidate.md)。未执行真实维护迁移、发信、
 签名或部署；仍由 Viper-Boss 审核，不将九步或设备验收标完成，81.5%、20/169保持。
+
+## 2026-11-03 最后三组产品候选代码收尾
+
+负责人已合并 PR178/184/187，本包从最新 main 承接。A22 的实际 SDK/Root 只读
+provider、同 Core 控制和页面，A27 的 BlueZ 生命周期/按需 Core 会话与 WASM/CSP/
+PWA 制品，以及 A30 的实际 SDK 两端→Root→普通 Core、同 Core 恢复 grant/schema9
+查询和三引用退出组合，均已有隔离代码和实际验证。实现
+`5ad537d9dbf4c3fba61778d81f79746c02d0d793`，524 原生通过/0失败/4专用 suite忽略，
+另有真实内核五场景、完整组合、18项原生/WASM浏览器互操作及八份SDK/Root双轮
+制品四组一致。详见[三组收尾交付](member-a-product-providers-complete.md)。
+
+这完成本轮三组可独立实现和隔离验证的代码交付，不代表原九步全部实机验收。
+ARM运行、真实PID1/网络生产者、手机/RF、公开网络、获准邮箱、审计与主线签名
+装配/最终签认保持真实门禁。默认关闭，未自动迁移、外发、合并、部署或发布；
+由 Viper-Boss 审核，整体81.5%、20/169不变。
