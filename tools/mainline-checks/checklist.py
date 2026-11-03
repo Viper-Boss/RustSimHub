@@ -42,6 +42,31 @@ for name, directory, pattern in [('rootfs', 'tools/rootfs/scripts', 'test_rootfs
                                   ('recovery', 'tools/recovery', 'test_*.py'),
                                   ('field', 'tools/field', 'test_*.py')]:
     add(name, 'ordinary', ['python3', '-m', 'unittest', 'discover', '-s', directory, '-p', pattern], kind='unittest', files=(directory,))
+add('offline-delivery', 'ordinary', ['python3', '-m', 'unittest', 'tools.offline_delivery.test_delivery', '-v'], kind='unittest', files=('tools/offline_delivery/test_delivery.py',))
+add('kernel-artifact-audit', 'ordinary', ['python3', '-m', 'unittest', 'discover', '-s', 'tools/kernel-artifact-audit', '-p', 'test*.py'], kind='unittest', files=('tools/kernel-artifact-audit',))
+
+# Only these two reviewed stages receive fixed environment overrides. This is
+# not a generic environment field, CLI assignment, or external command manifest.
+NAS_PACKAGES = ('./tools/nas-adapter/control', './tools/nas-adapter/cmd/control')
+NAS_COMMANDS = {
+    'nas-control-test': ('go', 'test', '-race', '-count=1', '-timeout=60s', '-json', *NAS_PACKAGES),
+    'nas-control-vet': ('go', 'vet', *NAS_PACKAGES),
+}
+NAS_ENV = (('GO111MODULE', 'off'), ('GOTOOLCHAIN', 'local'), ('GOPROXY', 'off'), ('GOSUMDB', 'off'))
+
+
+def fixed_environment(check):
+    if check.name not in NAS_COMMANDS:
+        return {}
+    if check.argv != NAS_COMMANDS[check.name] or check.cwd != '.':
+        raise ValueError('fixed NAS environment requires its exact reviewed command')
+    return dict(NAS_ENV)
+
+
+for name, argv in NAS_COMMANDS.items():
+    add(name, 'ordinary', argv, kind='go-json' if name.endswith('test') else 'command',
+        requires=('go', 'go-race') if name.endswith('test') else ('go',),
+        files=('tools/nas-adapter/control', 'tools/nas-adapter/cmd/control'), timeout=240)
 for name, script, kind in [
     ('arm-manifest', 'tools/test-arm-build-manifest.py', 'unittest'),
     ('pon-review', 'tools/test-pon-dump-review.py', 'command'),
@@ -76,6 +101,9 @@ for name, action in [('native-test', 'test'), ('native-clippy', 'clippy')]:
     if action == 'clippy':
         argv += ['--', '-D', 'warnings']
     add(name, 'native-audio', argv, requires=('audio',), kind='rust' if action == 'test' else 'command', timeout=1800)
+    # Optional ordinary native tests, not the test=false private TURN drivers.
+    optional = [*argv[:2], '--features', 'turn-relay', *argv[2:]]
+    add(name + '-relay', 'native-audio', optional, requires=('audio',), kind='rust' if action == 'test' else 'command', timeout=1800)
 add('compatibility-build', 'ordinary', ['cargo', 'build', '-p', 'rustsimhub-core', '-p', 'rustsimhub-forwarder', '-p', 'rustsimhub-core-launcher', '--no-default-features', '--locked'], committed_source=True, timeout=1800)
 add('upgrade-compatibility', 'ordinary', ['python3', 'tools/test-upgrade-compatibility.py', '--launcher', 'target/debug/rustsimhub-core-launcher', '--core', 'target/debug/rustsimhub-core', '--worker', 'target/debug/rustsimhub-forwarder'], depends=('compatibility-build',))
 add('worker-inspection', 'ordinary', ['python3', 'tools/test-forwarding-inspection.py', '--worker', 'target/debug/rustsimhub-forwarder'], depends=('compatibility-build',))
