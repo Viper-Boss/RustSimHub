@@ -58,7 +58,7 @@ async function fixture({record=null,hook=null,loginHook=null,storageError=false,
   fill:()=>{elements.get('ap-wifi-ssid').value=SSID;elements.get('ap-wifi-passphrase').value=PASS;},click:id=>elements.get('ap-wifi-'+id).onclick(),reopen:async()=>{panel.suspend();await panel.open();}};
 }
 {
- const f=await fixture();f.fill();await f.click('begin');assert.equal(f.panel.phase,'trial_ready');
+ const f=await fixture();f.fill();await f.click('begin');assert.equal(f.panel.phase,'trial_ready');assert(f.$('ap-wifi-query').hidden,'a confirmed trial has one clear next action');
  assert.deepEqual(f.calls.map(c=>c.op),['setup_ap_status','setup_ap_operation_status','setup_ap_wifi_begin','setup_ap_wifi_status']);assert(f.$('ap-wifi-ssid').readOnly);
  assert(!JSON.stringify(f.storage()).includes(PASS));await f.click('confirm');assert.equal(f.panel.phase,'saved');assert.equal(f.$('ap-wifi-passphrase').value,'');assert.equal(f.$('ap-wifi-ssid').value,'');
  assert.equal(f.calls.filter(c=>c.op==='setup_ap_wifi_confirm').length,1);await f.click('finish');assert.equal(f.storage(),null);assert.equal(f.archives.length,1);assert(!JSON.stringify(f.archives).includes(PASS));
@@ -227,7 +227,7 @@ console.log('refusal display and open-AP checks passed');
  const f=await fixture({scanning:true});await f.scanButton.onclick();
  assert.equal(f.calls.filter(c=>c.op==='setup_ap_scan_begin').length,1);
  assert.deepEqual(f.snapshots[0].networks,[]);assert.equal(f.scanStore(),null);
- assert.match(f.scanNote.textContent,/扫描完成/);assert.equal(f.panel.phase,'parent_ready');
+ assert.match(f.scanNote.textContent,/扫描完成/);assert.equal(f.panel.phase,'parent_ready');assert(f.$('ap-wifi-query').hidden);
  assert(!JSON.stringify(f.storage()).includes(PASS));
 }
 for(const options of [{approveScan:false},{scanCapability:{supported:false,available:false}},{scanCapability:{supported:true,available:false,refusal:'cooldown',cooldown_remaining_ms:1000}},{scanCapability:{supported:true,available:false,refusal:'limit'}}]){

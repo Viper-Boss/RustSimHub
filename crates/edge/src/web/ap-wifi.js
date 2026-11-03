@@ -100,7 +100,7 @@ export class ApConfigurator {
   this.$('ap-wifi-begin').textContent=state==='failed'?'重新试连':'开始试连';
   this.$('ap-wifi-open').hidden=!!this.record;this.$('ap-wifi-open').disabled=this.working||this.storageError;
   this.$('ap-wifi-confirm').hidden=!confirm;this.$('ap-wifi-confirm').disabled=this.working;
-  this.$('ap-wifi-query').hidden=!this.record||this.terminal;this.$('ap-wifi-query').disabled=this.working;
+  this.$('ap-wifi-query').hidden=!this.record||this.terminal||!['unknown','starting','testing','saving','closing'].includes(state);this.$('ap-wifi-query').disabled=this.working;
   this.$('ap-wifi-cancel').hidden=!this.record||this.terminal;this.$('ap-wifi-cancel').disabled=this.working||this.record?.cancel_sent===true;
   this.$('ap-wifi-finish').hidden=!this.terminal;this.$('ap-wifi-finish').disabled=this.working;
   for(const id of ['ap-wifi-ssid','ap-wifi-passphrase'])this.$(id).readOnly=!this.opened||this.working||state==='trial_ready'&&!!this.secret||!!this.record&&!['parent_ready','failed','trial_ready','restored_ap'].includes(state);
