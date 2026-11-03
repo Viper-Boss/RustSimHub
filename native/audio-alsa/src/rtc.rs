@@ -510,6 +510,10 @@ impl Session {
                             continue;
                         }
                         self.gate(now)?;
+                        if self.permit.is_none() {
+                            self.close();
+                            return Err(Error::Authorization);
+                        }
                         if Some(m.mid) != self.mid
                             || m.rid.is_some()
                             || m.params.spec().codec != str0m::format::Codec::Opus
@@ -553,6 +557,21 @@ impl Session {
                         if self.gate(rustsimhub_media::local::now_ms()).is_err() {
                             frame.samples.fill(0);
                             return Err(Error::Authorization);
+                        }
+                        // Decoding/scheduling can consume the remaining frame
+                        // budget. Check authority first, then discard old speech
+                        // before touching queue, receive count or idle deadline.
+                        let Some(decoded_age) = decoded_at
+                            .checked_duration_since(before_decode)
+                            .and_then(|_| decoded_at.checked_duration_since(m.network_time))
+                        else {
+                            frame.samples.fill(0);
+                            return Err(Error::Bounds);
+                        };
+                        if decoded_age >= Duration::from_millis(MAX_AGE_MS) {
+                            frame.samples.fill(0);
+                            self.dropped_frames += 1;
+                            continue;
                         }
                         if self.incoming.len() == QUEUE_FRAMES {
                             self.incoming.pop_front();
