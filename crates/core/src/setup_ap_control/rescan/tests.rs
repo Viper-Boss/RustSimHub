@@ -558,3 +558,57 @@ async fn pending_confirmation_blocks_rescan_before_any_scan_intent_or_payload() 
     assert!(load(&f.runtime.journal, ID).unwrap().is_none());
     assert!(f.runtime.input.read(Slot::RescanRequest).unwrap().is_none());
 }
+
+#[tokio::test]
+async fn old_scan_receipt_is_historical_after_a_new_scan_on_the_same_parent() {
+    let f = fixture().await;
+    begin(&f, ID).await.unwrap();
+    root(&f, Phase::Ready, |_| {});
+    assert_eq!(query(&f, ID).await.unwrap()["historical"], false);
+    capability(&f, |c| c.remaining = 7);
+    begin(&f, OTHER).await.unwrap();
+    root(&f, Phase::Scanning, |_| {});
+    let old = query(&f, ID).await.unwrap();
+    assert_eq!(old["state"], "ready");
+    assert_eq!(old["authoritative_result"], true);
+    assert_eq!(
+        old["historical"], true,
+        "an old round must never publish as the current snapshot"
+    );
+    assert_eq!(old["ap_return_verified"], false);
+    assert_eq!(
+        pending(&f.runtime.journal).unwrap().unwrap().intent.scan_id,
+        OTHER
+    );
+    root(&f, Phase::Ready, |_| {});
+    assert_eq!(query(&f, OTHER).await.unwrap()["historical"], false);
+    assert_eq!(query(&f, ID).await.unwrap()["historical"], true);
+}
+
+#[tokio::test]
+async fn scan_status_projects_verified_budget_and_never_invents_missing_root_capability() {
+    let f = fixture().await;
+    begin(&f, ID).await.unwrap();
+    root(&f, Phase::Ready, |_| {});
+    capability(&f, |c| {
+        c.remaining = 7;
+        c.available = false;
+        c.refusal = Some(protocol::Refusal::Cooldown);
+        c.retry_after_uptime_ms = Some(now().unwrap() + protocol::COOLDOWN_MS);
+    });
+    let view = query(&f, ID).await.unwrap();
+    assert_eq!(view["scan"]["supported"], true);
+    assert_eq!(view["scan"]["remaining"], 7);
+    assert_eq!(view["scan"]["max_per_parent"], protocol::MAX_PER_PARENT);
+    assert_eq!(view["scan"]["refusal"], "cooldown");
+    let cooldown = view["scan"]["cooldown_remaining_ms"].as_u64().unwrap();
+    assert!(cooldown > 0 && cooldown <= protocol::COOLDOWN_MS);
+    assert!(view["parent_expires_in_seconds"].as_u64().unwrap() > 0);
+    f.runtime.output.clear(Slot::RescanCapability).unwrap();
+    let missing = query(&f, ID).await.unwrap();
+    assert_eq!(missing["scan"]["supported"], false);
+    assert_eq!(missing["scan"]["available"], false);
+    assert!(missing["scan"]["remaining"].is_null());
+    assert_eq!(protocol::MAX_PER_PARENT, 8);
+    assert_eq!(protocol::COOLDOWN_MS, 30_000);
+}
