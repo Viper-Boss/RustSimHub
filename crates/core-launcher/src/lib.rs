@@ -6,6 +6,8 @@ use serde::Deserialize;
 use serde_json::Value;
 mod compatibility;
 pub use compatibility::{check_upgrade, UpgradeReport};
+mod product;
+pub use product::{check_product_profile, profile_arguments, Profile, PRODUCT_PROFILE};
 
 #[cfg(target_os = "linux")]
 mod linux;

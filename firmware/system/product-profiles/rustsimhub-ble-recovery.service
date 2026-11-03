@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# A product-host candidate only, never the separate D service/policy contract.
+[Unit]
+Description=RustSimHub explicit BLE recovery product profile
+Requires=rustsimhub-core.service bluetooth.service
+After=rustsimhub-core.service bluetooth.service dbus.service
+BindsTo=rustsimhub-core.service bluetooth.service
+PartOf=rustsimhub-app.target
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/product/ble.enabled
+
+[Service]
+Type=exec
+User=rustsimhub-ble
+Group=rustsimhub-ble
+SupplementaryGroups=
+ExecStart=/usr/libexec/rustsimhub/product/rustsimhub-ble-recovery --serve-fixed-candidate
+ReadOnlyPaths=/run/dbus /run/rustsimhub/recovery
+InaccessiblePaths=/var/lib/rustsimhub /run/rustsimhub/core /run/rustsimhub/nkn
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+KillMode=control-group
+Restart=no
+TimeoutStopSec=8
+RuntimeMaxSec=600
+MemoryMax=48M
+TasksMax=16
+LimitCORE=0
+UMask=0077

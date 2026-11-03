@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# IDs are read from the operator's NSS snapshot, never allocated here.
+d /run/rustsimhub/nkn 2750 rustsimhub-core @NKN_GID@ -
+d /run/rustsimhub/recovery 2750 rustsimhub-core @BLE_GID@ -

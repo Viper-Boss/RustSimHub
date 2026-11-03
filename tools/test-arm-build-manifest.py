@@ -240,6 +240,19 @@ class Tools(unittest.TestCase):
                     module.bounded_run([sys.executable, '-c', code], timeout=.5, limit=100)
                 self.assertLess(time.monotonic() - start, 3)
 
+    def test_bounded_stdin_and_explicit_comparison_exit_codes(self):
+        self.assertEqual(module.bounded_run(['/bin/cat'], stdin_data=b'fixed input'), b'fixed input')
+        for code in [3, 4]:
+            result = module.bounded_run(['/bin/sh', '-c', 'cat; exit '+str(code)],
+                stdin_data=b'bounded', result_codes=(0, 3, 4), with_status=True)
+            self.assertEqual(result, (code, b'bounded'))
+            with self.assertRaises(ValueError):
+                module.bounded_run(['/bin/sh', '-c', 'exit '+str(code)])
+        with self.assertRaises(ValueError):
+            module.bounded_run(['/bin/cat'], stdin_data=b'x'*(128*1024+1))
+        with self.assertRaises(ValueError):
+            module.bounded_run(['/bin/cat'], result_codes=(7,))
+
     def test_metadata_duplicates_nonfinite_and_glibc_numeric_comparison(self):
         for raw in (b'{"a":1,"a":2}', b'{"a":NaN}', b'{} trailing'):
             with patch.object(module, 'bounded_run', return_value=raw):
