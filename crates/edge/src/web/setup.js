@@ -6,18 +6,20 @@ import {ApConfigurator,pendingInput,scanPendingInput} from './ap-wifi.js';
 import {deriveSeed,publicKey,sign,sha256,normalizeUsername,normalizePassword} from './password.js';
 const $=id=>document.getElementById(id);
 const hex=b=>Array.from(b,v=>v.toString(16).padStart(2,'0')).join('');
-let device=null,seed=null,token=null,busy=false;
+let device=null,seed=null,token=null,busy=false,pageEpoch=0,closed=false;
 function uuid(){const b=crypto.getRandomValues(new Uint8Array(16));b[6]=b[6]&15|64;b[8]=b[8]&63|128;const h=hex(b);return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;}
 // crypto.randomUUID/subtle are secure-context only; the controller needs just these two.
 const pageCrypto={randomUUID:uuid,subtle:{digest:async(_algorithm,data)=>sha256(new Uint8Array(data)).buffer}};
 async function api(command){
+ if(closed)throw Error('本页已关闭，请重新打开后查询原进度');
+ const epoch=pageEpoch;
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),18000);
  try{
   const id=uuid();
   const r=await fetch('/api/v2',{method:'POST',headers:{'Content-Type':'application/json','X-RustSimHub-Request':'2'},body:JSON.stringify({protocol:2,id,command}),signal:controller.signal,credentials:'omit',cache:'no-store',redirect:'error'});
   if(!r.ok)throw Error('请求被拒绝或服务暂不可用');
   // Same envelope as the https app: {protocol, id, result}; Core errors arrive inside result.
-  const v=await r.json();if(v?.protocol!==2||v.id!==id)throw Error('设备应答不匹配');
+  const v=await r.json();if(closed||epoch!==pageEpoch)throw Error('本页已关闭，进度已保留');if(v?.protocol!==2||v.id!==id)throw Error('设备应答不匹配');
   if(!v.result||typeof v.result!=='object'||'error' in v.result)throw Error('设备拒绝了请求');
   return v.result;
  }finally{clearTimeout(timer);}
@@ -78,7 +80,7 @@ const pending={
 };
 const scanKey=()=>KEY+':scan:'+hex(device);
 const scan={
- domain:()=>hex(device),button:$('setup-networks-rescan'),note:$('setup-networks-note'),
+ domain:()=>hex(device),button:$('setup-networks-rescan'),note:$('setup-networks-note'),facts:$('setup-scan-facts'),
  load:async()=>stored(storage(),scanKey()),
  save:async(value,expected)=>{const s=storage();
   const old=scanPendingInput(stored(s,scanKey()),hex(device));
@@ -99,28 +101,30 @@ function showNetworks(rows){
 }
 // Cache read on login only; never periodically overwrite a newly completed scan.
 async function networks(){
- const list=$('setup-networks'),note=$('setup-networks-note');
- if(listing||!token||wifi.working||wifi.scanRecord)return;listing=true;$('setup-networks-refresh').disabled=true;scan.button.disabled=true;
+ const note=$('setup-networks-note'),epoch=wifi.epoch,identity=hex(device);
+ if(listing||!token||wifi.working||wifi.scanRecord)return;listing=true;scan.button.disabled=true;
  try{
-  const v=await api({op:'wifi_networks',token}),choices=showNetworks(v.networks||[]);
+  const v=await api({op:'wifi_networks',token});
+  if(closed||!wifi.opened||epoch!==wifi.epoch||identity!==hex(device)||wifi.scanRecord)return;
+  const choices=showNetworks(v.networks||[]);
   const when=new Date().toLocaleTimeString();
   const age=Number.isFinite(v.snapshot_age_seconds)&&v.snapshot_age_seconds>=0?(v.source==='before_setup_ap_scan'?`，约${Math.floor(v.snapshot_age_seconds)}秒前完成`:`，约${Math.floor(v.snapshot_age_seconds/60)}分钟前的缓存`):'';
   const origin=v.source==='before_setup_ap_scan'?'开启热点前已完成一次主动扫描'+age:v.source==='before_setup_ap'?'列表是开启热点前的缓存快照'+age:'列表来自设备扫描缓存';
-  note.textContent=origin+`，${when} 读取。热点开启期间只读取列表，不会重新扫描。`+(choices.length?'':'没有可选的 WPA2 网络，请手动输入名称。');
- }catch{note.textContent='暂时无法获取附近的 Wi-Fi，请手动输入名称。';}
- finally{listing=false;$('setup-networks-refresh').disabled=false;wifi.render();}
+  note.textContent=origin+`，${when} 读取。本次只读取已有快照；点击“刷新附近 Wi-Fi”并确认后才会主动扫描。`+(choices.length?'':'没有可选的 WPA2 网络，请手动输入名称。');
+ }catch{if(!closed&&epoch===wifi.epoch)note.textContent='暂时无法获取附近的 Wi-Fi，请手动输入名称。';}
+ finally{listing=false;if(!closed&&epoch===wifi.epoch)wifi.render();}
 }
 function watchNetworks(){
  $('setup-networks').onchange=()=>{const v=$('setup-networks').value;if(v){$('ap-wifi-ssid').value=v;$('ap-wifi-passphrase').focus();}};
- $('setup-networks-refresh').onclick=()=>void networks();
 }
 async function account(create){
- if(busy)return;busy=true;$('setup-account-go').disabled=true;
+ if(busy||closed)return;const epoch=pageEpoch;busy=true;$('setup-account-go').disabled=true;
  try{
   const name=normalizeUsername($('setup-username').value),password=normalizePassword($('setup-password').value);
   if(create&&password!==$('setup-confirm').value.normalize('NFC'))throw Error('两次输入的密码不一致');
   $('setup-notice').textContent='正在生成管理员身份（手机上可能需要几秒）…';
   await new Promise(r=>setTimeout(r,30));
+  if(closed||epoch!==pageEpoch)return;
   seed=deriveSeed(device,name,password);
   $('setup-password').value='';$('setup-confirm').value='';
   if(create){
@@ -130,16 +134,20 @@ async function account(create){
   await login();
   selectPendingNamespace(create);
   $('setup-notice').textContent='正在读取 Wi-Fi 缓存和已有配网进度…';
-  watchNetworks();await networks();
+  watchNetworks();await wifi.initialize();
+  const recoveringScan=!!wifi.scanRecord;
   // Account authentication/list loading is finished. The shared controller
   // must be allowed to read its pending operation before the Wi-Fi step opens.
   busy=false;await wifi.open();
+  if(!recoveringScan)await networks();
+  if(closed||epoch!==pageEpoch)return;
   $('setup-account').hidden=true;$('setup-wifi').hidden=false;
   $('setup-notice').textContent=create?'管理员已创建。请选择要连接的 Wi-Fi。':'已登录。请选择要连接的 Wi-Fi。';
- }catch(e){seed=null;token=null;$('setup-notice').textContent=e.message||'操作失败，请重试';}
- finally{busy=false;$('setup-account-go').disabled=false;}
+ }catch(e){seed=null;token=null;if(!closed&&epoch===pageEpoch)$('setup-notice').textContent=e.message||'操作失败，请重试';}
+ finally{busy=false;if(!closed&&epoch===pageEpoch)$('setup-account-go').disabled=false;}
 }
 async function start(){
+ const epoch=pageEpoch;
  try{
   const v=await api({op:'identity'});device=bytes(v.public_key,32);
   const create=v.owner_setup_available===true;
@@ -149,6 +157,8 @@ async function start(){
   $('setup-account-go').onclick=()=>account(create);
   $('setup-account').hidden=false;
   $('setup-notice').textContent=create?'这台设备还没有管理员。':'这台设备已经有管理员，请用原来的用户名和密码登录。';
- }catch{$('setup-notice').textContent='无法连接设备，请确认已连上 RustSimHub 热点后刷新本页。';}
+ }catch{if(!closed&&epoch===pageEpoch)$('setup-notice').textContent='无法连接设备，请确认已连上 RustSimHub 热点后刷新本页。';}
 }
+globalThis.addEventListener?.('pagehide',()=>{closed=true;pageEpoch++;wifi.suspend();seed=null;token=null;$('setup-password').value='';$('setup-confirm').value='';$('setup-account-go').disabled=true;});
+globalThis.addEventListener?.('pageshow',event=>{if(event.persisted)globalThis.location.reload();});
 void start();
