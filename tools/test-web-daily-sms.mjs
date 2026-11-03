@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import {installAppImports,appVmSource,assertNknAssembly} from './fixtures/web3-web/app-imports.mjs';
 import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput } from '../crates/edge/src/web/nas-bridge.js';
 // Execute the production app and formatter, with synthetic IPC/IndexedDB only.
 import assert from 'node:assert/strict';
@@ -30,7 +31,9 @@ function fixture({respond,onPut,consent=true}={}){
   confirm:text=>{confirmations.push(text);return consent;},
   fetch:async(_url,options)=>{const body=JSON.parse(options.body),c=body.command;sent.push(c);const result=respond?await respond(c):c.op==='line_status'?{status:'ready',line:7}:c.op==='prepare_sms'?{id,state:'prepared'}:{id,state};return {ok:true,json:async()=>({protocol:2,id:body.id,result})};},
  };
- vm.runInNewContext(app.replace(/^import .*;\r?$/gm,'')+'\nglobalThis.fixture={dailySendSms,submit,query,closeSms,inboxPage,act,showPending,loginAs:()=>{token="synthetic-session";},setDb:value=>{db=value;},setPending:value=>{pending=value;showPending();},pending:()=>pending,logout:()=>$("logout").onclick()};',context);
+ installAppImports(context);
+ vm.runInNewContext(appVmSource(app)+'\nglobalThis.fixture={dailySendSms,submit,query,closeSms,inboxPage,act,showPending,loginAs:()=>{token="synthetic-session";},setDb:value=>{db=value;},setPending:value=>{pending=value;showPending();},pending:()=>pending,logout:()=>$("logout").onclick()};',context);
+ assertNknAssembly(context);
  context.fixture.setDb({transaction(){
   const tx={};tx.objectStore=()=>({get:key=>{const request={};queueMicrotask(()=>{request.result=saved.get(key);request.onsuccess?.();});return request;},put:(value,key)=>{
    const snapshot=structuredClone(value);const completion=onPut?.(key,snapshot);queueMicrotask(async()=>{try{await completion;saved.set(key,snapshot);tx.oncomplete?.();}catch{tx.onerror?.();}});

@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Actual HTML/ESM/static routes/CSP, with a finite loopback external API only.
+import assert from 'node:assert/strict';
+import {createServer} from 'node:http';
+import {readFile} from 'node:fs/promises';
+import {webcrypto} from 'node:crypto';
+import {spawn} from 'node:child_process';
+const web=new URL('../crates/edge/src/web/',import.meta.url);
+const linux=await readFile(new URL('../crates/edge/src/linux.rs',import.meta.url),'utf8');
+const csp=linux.match(/\("content-security-policy","([^"]+)"\)/)?.[1];assert(csp,'Actual default CSP required');
+const files=new Map([...linux.matchAll(/include_str!\("web\/([^"/]+)"\)/g)].map(m=>['/'+m[1],new URL(m[1],web)]));files.set('/',new URL('index.html',web));
+const {subtle}=webcrypto,pair=await subtle.generateKey('Ed25519',true,['sign','verify']);
+const device=Array.from(new Uint8Array(await subtle.exportKey('raw',pair.publicKey))),token='c'.repeat(64),instance='a'.repeat(64);
+let calls=[],assets=[],failures=[],challenges=new Map(),sequence=0,mode='ready',held=null;
+function report(){return {available:true,configuration_api:true,remote_control_supported:false,revision:'0',provider:{contract:1,core_instance:instance,owners:{manual:false,remote:false,statistics:false},supervisor_state:'ready',root_generation:1,original_process_exit_verified:false,status:{contract:1,source:'engine',generation:1,sequence:++sequence,age_ms:0,enabled:'on',service:'running',path:'unknown',dht:'unknown',rx_bytes:null,tx_bytes:null,rtt_ms:null,peer_count:null,last_error:null}}};}
+async function handle(c){
+ calls.push({op:c.op,...(c.request_id?{request_id:c.request_id}:{}),...(c.owner?{owner:c.owner,enabled:c.enabled}:{})});
+ if(!['identity','challenge','authenticate'].includes(c.op))assert.equal(c.token,token);
+ switch(c.op){
+ case 'identity':return {public_key:device,owner_setup_available:false};
+ case 'challenge':{
+  assert(Array.isArray(c.public_key)&&c.public_key.length===32);
+  const id=Buffer.from(webcrypto.getRandomValues(new Uint8Array(32))).toString('hex');
+  const transcript=new TextEncoder().encode(JSON.stringify({domain:'RustSimHub.Auth.v1',purpose:'login',instance,challenge_id:id,device_public_key:device,client_public_key:c.public_key,kind:'owner',scopes:1023,generation:1}));
+  challenges.set(id,{client:c.public_key,transcript});return {id,expires_in_seconds:60,transcript:Array.from(transcript),device_signature:Array.from(new Uint8Array(await subtle.sign('Ed25519',pair.privateKey,transcript)))};
+ }
+ case 'authenticate':{
+  const proof=challenges.get(c.challenge_id);assert(proof);challenges.delete(c.challenge_id);
+  const key=await subtle.importKey('raw',new Uint8Array(proof.client),'Ed25519',false,['verify']);assert(await subtle.verify('Ed25519',key,new Uint8Array(c.signature),proof.transcript));return {token,expires_in_seconds:900};
+ }
+ case 'nkn_status':return report();
+ case 'nkn_request':assert.equal(c.expected_core_instance,instance);return {request_id:c.request_id,known:false,core_instance:instance,not_found_is_not_proof:true};
+ case 'configuration_indicator':assert.equal(c.active,false);return {ok:true};
+ case 'line_status':return {status:'ready',line:7};
+ case 'call_status':return {available:true,active_calls:0,live_calls:[]};
+ case 'inbox':return {messages:[],cursor:null};
+ case 'calls':return {calls:[],cursor:null};
+ case 'health':return {history_read_api:false,wifi_provisioning_api:false};
+ case 'network_status':case 'network_diagnostics':case 'sms_management_status':return {available:false};
+ default:throw Error('Unexpected assembly fixture operation: '+c.op);
+ }
+}
+const json=(res,value)=>{res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
+const server=createServer(async(req,res)=>{
+ try{
+  const path=new URL(req.url,'http://127.0.0.1').pathname;
+  if(req.method==='GET'&&files.has(path)){
+   assets.push(path);res.writeHead(200,{'Content-Type':path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'text/html','Content-Security-Policy':csp,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(await readFile(files.get(path)));return;
+  }
+  if(req.method==='GET'&&path==='/api/media/capabilities'){json(res,{protocol:1,enabled:false});return;}
+  if(req.method==='GET'&&path==='/fixture'){json(res,{calls,assets,failures,csp,device,held:!!held});return;}
+  if(req.method!=='POST'){res.writeHead(404);res.end();return;}
+  let raw='';for await(const part of req){raw+=part;assert(raw.length<=65536);}
+  if(path==='/fixture'){
+   const value=JSON.parse(raw);mode=value.mode||'ready';
+   if(value.reset){calls=[];assets=[];failures=[];sequence=0;challenges=new Map();}
+   if(held){const release=held;held=null;release();}json(res,{ok:true});return;
+  }
+  assert.equal(path,'/api/v2');assert.equal(req.headers['x-rustsimhub-request'],'2');
+  const body=JSON.parse(raw);assert.equal(body.protocol,2);assert.equal(typeof body.id,'string');
+  const result=await handle(body.command);
+  if(body.command.op==='nkn_status'&&mode==='offline'){res.writeHead(503);res.end();return;}
+  if(body.command.op==='nkn_status'&&mode==='held')await new Promise(resolve=>{held=resolve;});
+  if(!res.destroyed)json(res,{protocol:2,id:body.id,result});
+ }catch(error){failures.push(error.message);res.writeHead(500);res.end();}
+});
+await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+try{
+ const child=spawn(process.env.WEB3_WEB_BROWSER_PYTHON||'python3',[new URL('./fixtures/web3-web/assembly-browser.py',import.meta.url).pathname,`http://127.0.0.1:${server.address().port}`],{stdio:'inherit',env:process.env});
+ const code=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',resolve);});assert.equal(code,0,'Real homepage assembly check failed');assert.deepEqual(failures,[]);
+}finally{if(held)held();await new Promise(resolve=>server.close(resolve));}
