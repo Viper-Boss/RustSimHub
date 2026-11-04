@@ -70,7 +70,7 @@ Rust1.98，独立target、`CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0`，自�
 
 Root runner固定现有Python3.13-slim-trixie镜像ID `sha256:bdfc738a8a869292ec1b01f1b8e620db533e09d1fe68fe980a7118b22dae9cec`（镜像repo digest `python@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb`），不pull。私有无网/NNP/只读rootfs/只读输入/新tmpfs，Root执行器仅加CHOWN/FOWNER/FSETID；只读专项独立加SYS_ADMIN并仅重挂匿名tmpfs，ENOSPC限定1MiB。实际主机NSS、设备、服务和生产DB从未挂入或写入；容器仅清理自己的唯一名称。
 
-早期失败如实保留：测试模块重复引用/未使用符号导致编译和Clippy失败，已按同源模块边界修正；容器fixture父目录缺失/源材料0700与Python绝对路径导致失败，改为只读复制公共模板、正确父路径和绝对测试解释器，没有增加DAC越权能力或放宽断言。工作区空间瞬时不足曾导致一次Io和一次目录创建ENOSPC；迁移自己可重建测试输入后最终固定HEAD顺序复验及Root专项全部通过。该环境故障与专用1MiB真实ENOSPC覆盖分开记录。
+早期失败如实保留：测试模块重复引用/未使用符号导致编译和Clippy失败，已按同源模块边界修正；容器fixture父目录缺失/源材料0700与Python绝对路径导致失败，改为只读复制公共模板、正确父路径和绝对测试解释器，没有增加DAC越权能力或放宽断言。另有一次中断恢复Io未捕获底层errno，不能确定其根因；也实际遇到一次工作区目录创建ENOSPC。迁移自己可重建测试输入后最终固定HEAD顺序复验及Root专项全部通过。该环境故障与专用1MiB真实ENOSPC覆盖分开记录。
 
 ## 十二动作与窗口8接续
 
