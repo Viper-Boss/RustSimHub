@@ -23,17 +23,22 @@ pub use package::{
 pub use targets::{MaterialPhase, Profile, RoleId, TargetId, TargetSpec};
 mod executor;
 #[cfg(not(test))]
-mod nss;
+pub(crate) mod nss;
 #[cfg(test)]
 pub mod nss;
 #[cfg(not(test))]
-mod rootio;
+pub(crate) mod rootio;
 #[cfg(test)]
 pub mod rootio;
-mod services;
+pub use rootio::{OwnedDirectoryVersion, OwnedNodeFact, Stamp as OwnedNodeStamp};
+pub(crate) mod services;
 pub use executor::{
     FencePhase, InstallReport, InstallState, LiveInstallationFence, OwnedRootChanges,
     ProductInstaller, RootTargetExpectation,
 };
 #[cfg(test)]
 pub use executor::{IsolatedServiceState, TestBoundary};
+
+pub(crate) const fn package_manifest_limit() -> usize {
+    package::MAX_MANIFEST
+}

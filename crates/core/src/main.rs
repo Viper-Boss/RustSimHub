@@ -153,7 +153,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .iter()
                 .skip(1)
                 .find(|a| !a.starts_with("--enable-"))
-                .is_none_or(|a| !a.starts_with("--serve-device"))
+                .is_none_or(|a| !a.starts_with("--serve-device") && a != "--build-info")
             {
                 return Err("update health requires a device business mode".into());
             }

@@ -160,7 +160,7 @@ impl RunningCandidate {
             return Err(Error::Denied);
         }
         let runtime = RuntimeObservation::observe()?;
-        let root = running::Root::observe()?;
+        let root = running::Root::observe_for(&runtime)?;
         let plan = runtime.ledger.confirmation_plan()?;
         let candidate = SignedPrograms::running_inspect(
             &runtime.slot.signed()?,
@@ -170,8 +170,20 @@ impl RunningCandidate {
             SignedPrograms::running_inspect(plan.baseline(), runtime.ledger.runtime_key()?)?;
         runtime.revalidate()?;
         let core = Core::connect(&runtime)?;
-        let data = running::Data::observe(&core.snapshot)?;
-        running::compatible(&core.snapshot, &candidate, &baseline)?;
+        let data = running::Data::observe_for(&core.snapshot, &root)?;
+        if root.product_health() {
+            let candidate_mode = crate::product_admission::SignedProductPrograms::running_health(
+                &runtime.slot.signed()?,
+                runtime.ledger.runtime_key()?,
+            )?;
+            let fallback_mode = crate::product_admission::SignedProductPrograms::running_health(
+                plan.baseline(),
+                runtime.ledger.runtime_key()?,
+            )?;
+            root.compatible_product(&core.snapshot, &candidate_mode, &fallback_mode)?;
+        } else {
+            running::compatible(&core.snapshot, &candidate, &baseline)?;
+        }
         let result = Self {
             runtime,
             root,

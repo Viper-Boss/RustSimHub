@@ -214,6 +214,44 @@ impl Store {
             .map_err(|_| Error::Io)?;
         sync_dir(&self.root)
     }
+    pub(crate) fn revalidate_product_lock(&self) -> Result<(), Error> {
+        let fd = self._lock.0.metadata().map_err(|_| Error::Io)?;
+        let named = fs::symlink_metadata(self.root.join(".update.lock")).map_err(|_| Error::Io)?;
+        if !named.is_file()
+            || fd.dev() != named.dev()
+            || fd.ino() != named.ino()
+            || named.nlink() != 1
+            || named.uid() != 0
+            || named.mode() & 0o7777 != 0o600
+        {
+            return Err(Error::Busy);
+        }
+        Ok(())
+    }
+    pub(crate) fn stage_product(
+        &mut self,
+        snapshot: &crate::admission::MaintenanceSnapshot,
+        manifest: &[u8],
+        signature: &[u8],
+        payloads: &[Vec<u8>],
+    ) -> Result<(), Error> {
+        snapshot.revalidate()?;
+        let schema = serde_json::to_value(snapshot.report()).map_err(|_| Error::Invalid)?
+            ["business_schema"]
+            .as_u64()
+            .and_then(|s| u32::try_from(s).ok())
+            .ok_or(Error::Schema)?;
+        if !matches!(schema, 6 | 7 | 9) {
+            return Err(Error::Schema);
+        }
+        let baseline = self.admission_baseline()?;
+        verify(&baseline.0, &baseline.1, &self.key, schema, 0)?;
+        let parsed = verify(manifest, signature, &self.key, schema, self.floor())?;
+        verify_payload(&parsed, payloads)?;
+        self.revalidate_product_lock()?;
+        self.schema = schema;
+        self.stage(manifest, signature, payloads).map(|_| ())
+    }
     pub fn floor(&self) -> u64 {
         self.state.floor
     }
@@ -227,6 +265,9 @@ impl Store {
         if self.state.candidate.is_some() {
             return Err(Error::Busy);
         }
+        self.product_baseline()
+    }
+    pub(crate) fn product_baseline(&self) -> Result<SignedGroup, Error> {
         let v = self.state.confirmed.as_ref().ok_or(Error::Denied)?;
         let path = self.verify_version(v)?;
         let manifest = read_checked(&path.join("manifest.json"), MAX_MANIFEST)?;
@@ -238,6 +279,18 @@ impl Store {
         let payloads = load_payloads(&path, &m)?;
         verify_payload(&m, &payloads)?;
         Ok((manifest, signature, payloads))
+    }
+    pub(crate) fn product_pending(&self) -> Option<&str> {
+        self.state.candidate.as_ref().map(|v| v.hash.as_str())
+    }
+    pub(crate) fn activate_product(&mut self, expected: &str) -> Result<PathBuf, Error> {
+        if self.state.attempted || self.product_pending() != Some(expected) {
+            return Err(Error::Denied);
+        }
+        self.select_runtime(
+            Path::new("/run/rustsimhub-app"),
+            Path::new("/opt/rustsimhub/versions"),
+        )
     }
     /// Select once for the whole boot group. The versions bind must name the
     /// same directory on the root filesystem; the ledger stays on persistent state.

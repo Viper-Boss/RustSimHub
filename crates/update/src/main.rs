@@ -65,6 +65,17 @@ fn run() -> Result<(), rustsimhub_update::Error> {
     }
     if args
         .first()
+        .is_some_and(|command| command.starts_with("product-"))
+    {
+        let report = rustsimhub_update::admission::product::dispatch(&args)?;
+        println!(
+            "{}",
+            serde_json::to_string(&report).map_err(|_| Error::Invalid)?
+        );
+        return Ok(());
+    }
+    if args
+        .first()
         .is_some_and(|command| command == "confirm-running-candidate")
     {
         if args.len() != 1 {

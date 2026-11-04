@@ -12,7 +12,10 @@ use std::{
     path::{Path, PathBuf},
 };
 mod database;
+pub mod product;
 mod programs;
+pub(crate) mod recovery;
+pub(crate) mod retained;
 pub(crate) mod running;
 mod systemd;
 use database::Database;
@@ -239,6 +242,7 @@ fn setup_ap() -> Vec<Material> {
 /// Typed guards must remain alive until admission/mutation has finished.
 /// A serialized report by itself cannot retain a writer fence.
 pub struct MaintenanceSnapshot {
+    product_qualified: bool,
     root_mode: Mode,
     contract: Option<String>,
     root_digests: Vec<RootDigest>,
@@ -316,6 +320,9 @@ impl MaintenanceSnapshot {
     }
 
     fn observe_at(root: &Path, root_uid: u32, data_uid: u32) -> Result<Self> {
+        Self::observe_qualified(root, root_uid, data_uid, false)
+    }
+    fn observe_qualified(root: &Path, root_uid: u32, data_uid: u32, product: bool) -> Result<Self> {
         let mut observations = vec![];
         let mut files = vec![];
         let mut digests = vec![];
@@ -369,7 +376,17 @@ impl MaintenanceSnapshot {
             .into_iter()
             .filter(|v| *v)
             .count();
-        let ap = setup_ap();
+        let mut ap = setup_ap();
+        if product {
+            for material in &mut ap {
+                if material.path == "usr/libexec/rustsimhub/rustsimhub-core-launcher"
+                    && fs::symlink_metadata(root.join(material.path))
+                        .is_ok_and(|m| m.mode() & 0o7777 == 0o555)
+                {
+                    material.mode = 0o555;
+                }
+            }
+        }
         let ap_count = ap
             .iter()
             .map(&mut material)
@@ -390,7 +407,7 @@ impl MaintenanceSnapshot {
         } else {
             Mode::Device
         };
-        check_core_overrides(root, root_uid, &mut observations)?;
+        check_core_overrides_qualified(root, root_uid, &mut observations, product)?;
         let contract = (ap_count > 0).then(|| {
             String::from_utf8(text(include_str!(
                 "../../../firmware/system/setup-ap/contract.json"
@@ -440,6 +457,7 @@ impl MaintenanceSnapshot {
         };
         observations.push(observed);
         let snapshot = Self {
+            product_qualified: product,
             root_mode,
             contract,
             root_digests: digests,
@@ -493,7 +511,12 @@ fn absent(path: &Path, observations: &mut Vec<Observation>) -> Result<()> {
     Ok(())
 }
 
-fn check_core_overrides(root: &Path, uid: u32, observations: &mut Vec<Observation>) -> Result<()> {
+fn check_core_overrides_qualified(
+    root: &Path,
+    uid: u32,
+    observations: &mut Vec<Observation>,
+    product: bool,
+) -> Result<()> {
     for (directory, allow_known) in [
         ("etc/systemd/system/rustsimhub-core.service.d", true),
         (
@@ -517,7 +540,11 @@ fn check_core_overrides(root: &Path, uid: u32, observations: &mut Vec<Observatio
                 let name = denied_io(entry)?.file_name();
                 let name = name.to_str().ok_or(Error::Integrity)?;
                 if name.ends_with(".conf")
-                    && (!allow_known || !["30-forwarding.conf", "50-setup-ap.conf"].contains(&name))
+                    && (!allow_known
+                        || (!["30-forwarding.conf", "50-setup-ap.conf"].contains(&name)
+                            && !(product
+                                && ["50-product-profile.conf", "55-product-health.conf"]
+                                    .contains(&name))))
                 {
                     return Err(Error::Integrity);
                 }

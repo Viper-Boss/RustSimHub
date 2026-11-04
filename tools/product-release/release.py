@@ -28,6 +28,7 @@ PROFILES = {
     'product-email-v1': (True, True, False),
     'product-recovery-v1': (True, False, True),
     'product-email-recovery-v1': (True, True, True),
+    'product-recovery-health-v1': (True, False, True),
 }
 EXTRA = ('nkn-root', 'nkn-sdk-engine', 'rustsimhub-ble-recovery')
 BASE_ROLES = {'core': 986, 'edge': 985, 'media': 984, 'forwarder': 983}
@@ -42,7 +43,7 @@ def profile(name):
 
 def prefixes(name):
     product, _, recovery = profile(name)
-    return (['--enable-product-providers-candidate'] if product else []) + (
+    return (['--enable-update-health-candidate'] if name == 'product-recovery-health-v1' else []) + (['--enable-product-providers-candidate'] if product else []) + (
         ['--enable-secure-recovery-candidate'] if recovery else [])
 
 
@@ -144,6 +145,13 @@ def render(output, name, source, hashes, roles):
         files += ['rustsimhub-nkn-root.service', 'product.tmpfiles.in']
     if recovery:
         files += ['rustsimhub-ble-recovery.service', 'ble-product.policy']
+    if name == 'product-recovery-health-v1':
+        files += ['55-product-health.conf']
+        health = ROOT / 'firmware/system/update-health'
+        for source_name, destination in [('tmpfiles.conf', 'health.tmpfiles'),
+                ('rustsimhub-update-health.service', 'rustsimhub-update-health.service'),
+                ('rustsimhub-update-health.timer', 'rustsimhub-update-health.timer')]:
+            write_new(output / destination, (health / source_name).read_bytes())
     values = {'@NKN_GID@': str(roles.get('nkn', {}).get('gid', 0)),
               '@BLE_GID@': str(roles.get('ble', {}).get('gid', 0)),
               '@CORE_MEMORY@': '192M' if product else '96M', '@CORE_TASKS@': '64' if product else '16'}
@@ -156,7 +164,7 @@ def render(output, name, source, hashes, roles):
     return installed, {'profile': name, 'compiled_provider': product, 'email_contract': email,
         'recovery_schema': 9 if recovery else None, 'automatic_migration': False,
         'forwarding_enabled': False, 'nkn_references': {'manual': False, 'remote': False, 'statistics': False},
-        'ble_enabled': False, 'health_confirmation': 'unsupported_until_window3_admission',
+        'ble_enabled': False, 'health_confirmation': 'fixed-running-candidate-v1' if name == 'product-recovery-health-v1' else 'unsupported_for_this_profile',
         'core_prefixes': prefixes(name), 'roles': roles, 'starts_services': False,
         'installation_permitted': False, 'requires': ['fresh device evidence', 'reviewed signed Root write set',
         'actual business/outbox compatibility and rollback', 'private NKN policy/seed/member material']}
@@ -216,6 +224,7 @@ def build(args):
     for item in ['tools/product-release/release.py', 'tools/product-release/managed_stage.py', 'tools/arm_build_manifest.py',
                  'tools/setup_ap_package.py', 'tools/system/setup_ap_install.py',
                  'firmware/system/setup-ap/contract.json',
+                 *['firmware/system/update-health/' + p.name for p in (ROOT/'firmware/system/update-health').iterdir() if p.is_file()],
                  *['firmware/system/product-profiles/' + p.name for p in (ROOT/'firmware/system/product-profiles').iterdir()]]:
         require((ROOT/item).read_bytes() == (source/item).read_bytes(), 'running tool differs from committed source')
     env = dict(os.environ, CARGO_TARGET_DIR=str(args.output / 'target'),
@@ -274,6 +283,15 @@ def build(args):
             'same-source production audio required')
     arm.contracts(infos, args.source)
     runtime = contract(infos['core'], worker, args.profile, args.source)
+    mode_info = inspect_program(programs / 'rustsimhub-core', runner,
+        ('--product-runtime-compatibility', args.profile))
+    require(mode_info.get('mode') == args.profile and mode_info.get('source_archive_sha256') == args.source
+        and mode_info.get('target_arch') == 'aarch64' and mode_info.get('prefixes') == prefixes(args.profile)
+        and mode_info.get('opens_database') is False and mode_info.get('starts_services') is False,
+        'actual fixed-mode production Core metadata required')
+    require(mode_info.get('business') == {'application_id': 1381189698, 'read': [9 if recovery else 6],
+        'write': 9 if recovery else 6, 'maintenance_from': [6, 7] if recovery else [], 'automatic_migration': False},
+        'actual fixed-mode database contract required')
     # Actual prefix parsing must succeed in the exact compiled Core.
     require(inspect_program(programs / 'rustsimhub-core', runner, (*prefixes(args.profile), '--build-info')) == infos['core'],
             'Core does not implement selected profile prefixes')
@@ -296,7 +314,7 @@ def build(args):
         'source_archive_sha256': args.source, 'profile': args.profile, 'target': 'aarch64-unknown-linux-gnu',
         'programs': {n: {'sha256': hashes[n], 'bytes': (programs/n).stat().st_size,
                        'glibc': arm.versions(programs/n)} for n in names}, 'build_info': infos,
-        'worker': worker, 'audio': audio, 'runtime_contract': runtime, 'sdk': sdk, 'sdk_provenance': sdk_provenance,
+        'worker': worker, 'audio': audio, 'mode_metadata': mode_info, 'runtime_contract': runtime, 'sdk': sdk, 'sdk_provenance': sdk_provenance,
         'sdk_licenses': license_report, 'launch_check': checked, 'plan': plan,
         'materials': {p.name: sha(p.read_bytes()) for p in materials.iterdir()},
         'signed': False, 'epoch_assigned': False, 'installable': False, 'bootable_rootfs': False,

@@ -123,6 +123,14 @@ impl Sources for LinuxSources {
     }
 }
 impl RuntimeObservation {
+    pub(crate) fn product_binding(&self) -> Result<(&crate::Manifest, &str, &[u8; 32])> {
+        self.revalidate()?;
+        Ok((
+            &self.slot.manifest,
+            &self.slot.hash,
+            self.ledger.runtime_key()?,
+        ))
+    }
     /// Root-only and entirely fixed-path. No Store::open, recovery or writes.
     pub fn observe() -> Result<Self> {
         if rustix::process::geteuid().as_raw() != 0 {

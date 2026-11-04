@@ -11,6 +11,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
+mod owned;
+pub use owned::{OwnedDirectoryVersion, OwnedNodeFact};
+
 const MAX_FILE: usize = 64 * 1024 * 1024;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -86,6 +89,7 @@ pub struct Root {
     owner: u32,
     group: u32,
     isolated: bool,
+    owned: owned::Recorder,
 }
 impl Root {
     pub fn production() -> Result<Self> {
@@ -128,6 +132,7 @@ impl Root {
                 0
             },
             isolated,
+            owned: owned::Recorder::default(),
         })
     }
     pub fn is_isolated(&self) -> bool {
@@ -248,6 +253,7 @@ impl Root {
                     made.set_permissions(std::fs::Permissions::from_mode(wanted))
                         .map_err(|_| Error::Unknown)?;
                     made.sync_all().map_err(|_| Error::Unknown)?;
+                    self.record_directory(&format!("{prefix}/{name}"), &made)?;
                     rustix::io::dup(&made).map_err(|_| Error::Io)?
                 }
                 Err(_) => return Err(Error::Denied),
@@ -411,12 +417,14 @@ impl Root {
         let staged = match preparation {
             Ok(s) => s,
             Err(e) => {
-                self.cleanup_created(&parent, &temporary, &stage)?;
+                self.cleanup_created(&parent, &temporary, &stage, &parent_path)?;
                 return Err(e);
             }
         };
+        let staged_path = format!("{}/{}", parent_path.trim_end_matches('/'), temporary);
+        self.record_file(&staged_path, None, &staged, true)?;
         if let Err(error) = record(&staged.stamp) {
-            self.cleanup_created(&parent, &temporary, &stage)?;
+            self.cleanup_created(&parent, &temporary, &stage, &parent_path)?;
             return Err(error);
         }
         // The durable intent callback may take time; never authorize a stale
@@ -425,7 +433,7 @@ impl Root {
             .parent_still(&parent_path, &parent)
             .and_then(|_| self.recheck(path, expected))
         {
-            self.cleanup_created(&parent, &temporary, &stage)?;
+            self.cleanup_created(&parent, &temporary, &stage, &parent_path)?;
             return Err(error);
         }
         let flags = if expected.is_some() {
@@ -434,7 +442,7 @@ impl Root {
             RenameFlags::NOREPLACE
         };
         if let Err(e) = rustix::fs::renameat_with(&parent, &temporary, &parent, &name, flags) {
-            self.cleanup_created(&parent, &temporary, &stage)?;
+            self.cleanup_created(&parent, &temporary, &stage, &parent_path)?;
             return Err(
                 if e == rustix::io::Errno::EXIST || e == rustix::io::Errno::NOENT {
                     Error::Conflict
@@ -473,7 +481,7 @@ impl Root {
                 )
                 .is_ok()
                 {
-                    self.cleanup_created(&parent, &temporary, &stage)?;
+                    self.cleanup_created(&parent, &temporary, &stage, &parent_path)?;
                     parent.sync_all().map_err(|_| Error::Unknown)?;
                     return Err(Error::Conflict);
                 }
@@ -495,9 +503,17 @@ impl Root {
         {
             return Err(Error::Unknown);
         }
+        self.record_removed(&staged_path, None, true)?;
+        self.record_file(path, expected.map(|f| &f.stamp), &installed, false)?;
         Ok(installed)
     }
-    fn cleanup_created(&self, parent: &File, name: &str, held: &File) -> Result<()> {
+    fn cleanup_created(
+        &self,
+        parent: &File,
+        name: &str,
+        held: &File,
+        parent_path: &str,
+    ) -> Result<()> {
         let expected: Stamp = held.metadata().map_err(|_| Error::Unknown)?.into();
         let current = self
             .read_at(parent, name, MAX_FILE)
@@ -509,7 +525,12 @@ impl Root {
             return Err(Error::Unknown);
         }
         rustix::fs::unlinkat(parent, name, AtFlags::empty()).map_err(|_| Error::Unknown)?;
-        parent.sync_all().map_err(|_| Error::Unknown)
+        parent.sync_all().map_err(|_| Error::Unknown)?;
+        self.record_removed(
+            &format!("{}/{}", parent_path.trim_end_matches('/'), name),
+            None,
+            true,
+        )
     }
     pub fn lock_fixed(&self, path: &str) -> Result<File> {
         let (parent, name, parent_path) = self.parent(path)?;
@@ -569,6 +590,9 @@ impl Root {
             return Err(Error::Conflict);
         }
         parent.sync_all().map_err(|_| Error::Io)?;
+        if created {
+            self.record_file(path, None, &fresh, false)?;
+        }
         Ok(file)
     }
     pub fn remove(&self, path: &str, expected: &FileSnapshot) -> Result<()> {
@@ -610,7 +634,8 @@ impl Root {
         rustix::fs::unlinkat(&parent, &temporary, AtFlags::empty()).map_err(|_| Error::Unknown)?;
         parent.sync_all().map_err(|_| Error::Unknown)?;
         self.parent_still(&parent_path, &parent)
-            .map_err(|_| Error::Unknown)
+            .map_err(|_| Error::Unknown)?;
+        self.record_removed(path, Some(&expected.stamp), false)
     }
 }
 impl Root {
@@ -620,14 +645,40 @@ impl Root {
         if matches!(approved_gid, 0 | 29 | 983..=987 | 65534 | u32::MAX) {
             return Err(Error::Denied);
         }
-        let parent_path = "/run/rustsimhub";
+        self.fixed_runtime_directory(
+            "/run/rustsimhub",
+            if recovery { "recovery" } else { "nkn" },
+            986,
+            approved_gid,
+            0o2750,
+            create,
+        )
+    }
+    /// Explicit health-profile additions, never a general tmpfiles executor.
+    pub(crate) fn health_directories(&self, create: bool) -> Result<()> {
+        self.fixed_runtime_directory("/run/rustsimhub", "update-health", 986, 986, 0o700, create)?;
+        self.fixed_runtime_directory(
+            "/var/lib/rustsimhub/rustsimhub-v1/system",
+            "update-health",
+            0,
+            0,
+            0o700,
+            create,
+        )
+    }
+    fn fixed_runtime_directory(
+        &self,
+        parent_path: &str,
+        name: &str,
+        uid: u32,
+        gid: u32,
+        mode: u32,
+        create: bool,
+    ) -> Result<()> {
         if create {
             self.ensure_dir(parent_path, 0o755)?;
         }
         let parent = self.open_dir(parent_path)?;
-        let name = if recovery { "recovery" } else { "nkn" };
-        let uid = 986;
-        let (uid, gid) = (uid, approved_gid);
         #[cfg(test)]
         let (uid, gid) = if self.isolated && self.owner != 0 {
             (self.owner, self.group)
@@ -640,7 +691,7 @@ impl Root {
                 if stat.st_mode & 0o170000 != 0o040000
                     || stat.st_uid != uid
                     || stat.st_gid != gid
-                    || stat.st_mode & 0o7777 != 0o2750
+                    || stat.st_mode & 0o7777 != mode
                 {
                     return Err(Error::Denied);
                 }
@@ -670,17 +721,18 @@ impl Root {
                     .map_err(|_| Error::Unknown)?;
                 }
                 directory
-                    .set_permissions(std::fs::Permissions::from_mode(0o2750))
+                    .set_permissions(std::fs::Permissions::from_mode(mode))
                     .map_err(|_| Error::Unknown)?;
                 directory.sync_all().map_err(|_| Error::Unknown)?;
                 parent.sync_all().map_err(|_| Error::Unknown)?;
+                self.record_directory(&format!("{parent_path}/{name}"), &directory)?;
             }
             Err(_) => return Err(Error::Denied),
         }
         let stat = rustix::fs::statat(&parent, name, AtFlags::SYMLINK_NOFOLLOW)
             .map_err(|_| Error::Unknown)?;
         if stat.st_mode & 0o170000 != 0o040000
-            || stat.st_mode & 0o7777 != 0o2750
+            || stat.st_mode & 0o7777 != mode
             || stat.st_uid != uid
             || stat.st_gid != gid
         {

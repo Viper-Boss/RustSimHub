@@ -371,7 +371,7 @@ impl VerifiedProductMaterials {
             .iter()
             .map(|source| (source.name, source.bytes.as_slice()))
     }
-    pub(super) fn payload(&self, id: TargetId) -> Result<&[u8]> {
+    pub(crate) fn payload(&self, id: TargetId) -> Result<&[u8]> {
         self.sources
             .iter()
             .find(|s| s.name == id.payload_name())
@@ -548,6 +548,27 @@ fn validate_payload(id: TargetId, bytes: &[u8], binding: &ExpectedBindings) -> R
         TargetId::BlePolicy => {
             bytes
                 == include_bytes!("../../../../firmware/system/product-profiles/ble-product.policy")
+        }
+        TargetId::HealthDropin => {
+            bytes
+                == include_bytes!(
+                    "../../../../firmware/system/product-profiles/55-product-health.conf"
+                )
+        }
+        TargetId::HealthTmpfiles => {
+            bytes == include_bytes!("../../../../firmware/system/update-health/tmpfiles.conf")
+        }
+        TargetId::HealthService => {
+            bytes
+                == include_bytes!(
+                    "../../../../firmware/system/update-health/rustsimhub-update-health.service"
+                )
+        }
+        TargetId::HealthTimer => {
+            bytes
+                == include_bytes!(
+                    "../../../../firmware/system/update-health/rustsimhub-update-health.timer"
+                )
         }
         TargetId::ProductTmpfiles => {
             tmpfile_gids(bytes)?;

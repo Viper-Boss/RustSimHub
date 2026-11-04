@@ -29,8 +29,8 @@ pub(super) struct Version {
 pub(super) struct Database {
     pub version: Version,
     // Close SQLite before releasing the cooperative writer fence.
-    _connection: Connection,
-    _writer: File,
+    _connection: Option<Connection>,
+    _writer: Option<File>,
     _database: File,
     observations: Vec<Observation>,
 }
@@ -128,8 +128,8 @@ impl Database {
                 application_id,
                 format,
             },
-            _connection: connection,
-            _writer: writer,
+            _connection: Some(connection),
+            _writer: Some(writer),
             _database: database,
             observations,
         };
@@ -137,6 +137,12 @@ impl Database {
         Ok(result)
     }
     pub fn revalidate(&self) -> Result<()> {
+        if self._writer.is_none() || self._connection.is_none() {
+            return Err(Error::Busy);
+        }
+        self.revalidate_source()
+    }
+    pub(super) fn revalidate_source(&self) -> Result<()> {
         for observed in &self.observations {
             observed.revalidate()?;
         }
@@ -150,6 +156,8 @@ impl Database {
         self.revalidate()?;
         let raw: String = self
             ._connection
+            .as_ref()
+            .ok_or(Error::Busy)?
             .query_row("SELECT binding FROM meta WHERE singleton=1", [], |r| {
                 r.get(0)
             })
@@ -174,12 +182,16 @@ impl Database {
         binding.validate().map_err(|_| Error::Integrity)?;
         let realm: String = self
             ._connection
+            .as_ref()
+            .ok_or(Error::Busy)?
             .query_row("SELECT db_epoch FROM meta WHERE singleton=1", [], |r| {
                 r.get(0)
             })
             .map_err(|_| Error::Integrity)?;
         let pin: Vec<u8> = self
             ._connection
+            .as_ref()
+            .ok_or(Error::Busy)?
             .query_row(
                 "SELECT public_key FROM device_identity WHERE singleton=1",
                 [],
@@ -188,6 +200,8 @@ impl Database {
             .map_err(|_| Error::Integrity)?;
         let (kind, generation, active, scopes): (String, i64, bool, u16) = self
             ._connection
+            .as_ref()
+            .ok_or(Error::Busy)?
             .query_row(
                 "SELECT kind,generation,active,scopes FROM principals WHERE public_key=?",
                 [binding.owner_key.as_slice()],
@@ -196,6 +210,8 @@ impl Database {
             .map_err(|_| Error::Integrity)?;
         let owners: i64 = self
             ._connection
+            .as_ref()
+            .ok_or(Error::Busy)?
             .query_row(
                 "SELECT count(*) FROM principals WHERE kind='owner'",
                 [],
@@ -214,6 +230,41 @@ impl Database {
         {
             return Err(Error::Denied);
         }
+        Ok(())
+    }
+}
+
+impl Database {
+    /// Release ONLY this database's reader/writer into the fixed original
+    /// migration actor. The original database fd and observations stay held.
+    pub(super) fn backup_source(&self) -> Result<File> {
+        use std::io::{Seek, SeekFrom};
+        self.revalidate()?;
+        let mut source = self._database.try_clone().map_err(|_| Error::Io)?;
+        source.seek(SeekFrom::Start(0)).map_err(|_| Error::Io)?;
+        Ok(source)
+    }
+    pub(super) fn pause_writer(&mut self) -> Result<()> {
+        self.revalidate()?;
+        self._connection.take();
+        self._writer.take();
+        Ok(())
+    }
+    pub(super) fn resume_recovery(&mut self, directory: &Path, uid: u32) -> Result<()> {
+        if self._writer.is_some() || self._connection.is_some() {
+            return Err(Error::Busy);
+        }
+        let original = self._database.metadata().map_err(|_| Error::Io)?;
+        let current =
+            fs::symlink_metadata(directory.join("store.sqlite3")).map_err(|_| Error::Io)?;
+        if original.dev() != current.dev() || original.ino() != current.ino() {
+            return Err(Error::Integrity);
+        }
+        let resumed = Self::observe(directory, "store.sqlite3", uid, true, 512 * 1024 * 1024)?;
+        if resumed.version.application_id != 1381189698 || resumed.version.format != 9 {
+            return Err(Error::Integrity);
+        }
+        *self = resumed;
         Ok(())
     }
 }

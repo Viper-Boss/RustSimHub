@@ -23,12 +23,26 @@ const LIMIT: u64 = 16384;
 
 impl MaintenanceSnapshot {
     pub fn verify_effective_systemd(&self) -> Result<()> {
+        if self.product_qualified {
+            return effective_product(self);
+        }
         effective(&show()?, self.root_mode)?;
         self.revalidate()
     }
 }
 
 fn effective(output: &[u8], mode: Mode) -> Result<()> {
+    effective_qualified(output, mode, false)
+}
+pub(super) fn effective_product(snapshot: &MaintenanceSnapshot) -> Result<()> {
+    let present = std::fs::symlink_metadata(
+        "/etc/systemd/system/rustsimhub-core.service.d/50-product-profile.conf",
+    )
+    .is_ok();
+    effective_qualified(&show()?, snapshot.root_mode, present)?;
+    snapshot.revalidate()
+}
+fn effective_qualified(output: &[u8], mode: Mode, product: bool) -> Result<()> {
     let text = std::str::from_utf8(output).map_err(|_| Error::Integrity)?;
     let mut values = BTreeMap::new();
     for line in text.lines() {
@@ -45,6 +59,18 @@ fn effective(output: &[u8], mode: Mode) -> Result<()> {
         Mode::Forwarding => &["30-forwarding.conf"],
         Mode::SetupAp => &["30-forwarding.conf", "50-setup-ap.conf"],
     };
+    let mut expected = expected.to_vec();
+    if product {
+        if std::fs::symlink_metadata(
+            "/etc/systemd/system/rustsimhub-core.service.d/55-product-health.conf",
+        )
+        .is_ok()
+        {
+            expected.push("55-product-health.conf");
+        }
+        expected.push("50-product-profile.conf");
+        expected.sort_unstable();
+    }
     let mut drop_ins = values["DropInPaths"].split(' ').collect::<Vec<_>>();
     drop_ins.retain(|p| !p.is_empty());
     drop_ins.sort_unstable();

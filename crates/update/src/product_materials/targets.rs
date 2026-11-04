@@ -14,6 +14,8 @@ pub enum Profile {
     Recovery,
     #[serde(rename = "product-email-recovery-v1")]
     EmailRecovery,
+    #[serde(rename = "product-recovery-health-v1")]
+    RecoveryHealth,
 }
 impl Profile {
     pub const fn as_str(self) -> &'static str {
@@ -23,19 +25,24 @@ impl Profile {
             Self::Email => "product-email-v1",
             Self::Recovery => "product-recovery-v1",
             Self::EmailRecovery => "product-email-recovery-v1",
+            Self::RecoveryHealth => "product-recovery-health-v1",
         }
     }
     pub const fn product(self) -> bool {
         !matches!(self, Self::Legacy)
     }
     pub const fn recovery(self) -> bool {
-        matches!(self, Self::Recovery | Self::EmailRecovery)
+        matches!(
+            self,
+            Self::Recovery | Self::EmailRecovery | Self::RecoveryHealth
+        )
     }
     pub fn targets(self) -> &'static [TargetSpec] {
         match self {
             Self::Legacy => &LEGACY,
             Self::Product | Self::Email => &PRODUCT,
             Self::Recovery | Self::EmailRecovery => &RECOVERY,
+            Self::RecoveryHealth => &RECOVERY_HEALTH,
         }
     }
     pub fn required_roles(self) -> &'static [RoleId] {
@@ -98,6 +105,10 @@ pub enum TargetId {
     BleHost,
     BleUnit,
     BlePolicy,
+    HealthDropin,
+    HealthTmpfiles,
+    HealthService,
+    HealthTimer,
 }
 impl TargetId {
     pub const fn as_str(self) -> &'static str {
@@ -112,6 +123,10 @@ impl TargetId {
             Self::BleHost => "ble_host",
             Self::BleUnit => "ble_unit",
             Self::BlePolicy => "ble_policy",
+            Self::HealthDropin => "health_dropin",
+            Self::HealthTmpfiles => "health_tmpfiles",
+            Self::HealthService => "health_service",
+            Self::HealthTimer => "health_timer",
         }
     }
     pub const fn payload_name(self) -> &'static str {
@@ -126,6 +141,10 @@ impl TargetId {
             Self::BleHost => "ble_host.payload",
             Self::BleUnit => "ble_unit.payload",
             Self::BlePolicy => "ble_policy.payload",
+            Self::HealthDropin => "health_dropin.payload",
+            Self::HealthTmpfiles => "health_tmpfiles.payload",
+            Self::HealthService => "health_service.payload",
+            Self::HealthTimer => "health_timer.payload",
         }
     }
     pub fn spec(self) -> &'static TargetSpec {
@@ -233,4 +252,48 @@ const PRODUCT: [TargetSpec; 7] = [PROFILE, DROPIN, LAUNCHER, ROOT, SDK, NKN_UNIT
 const RECOVERY: [TargetSpec; 10] = [
     PROFILE, DROPIN, LAUNCHER, ROOT, SDK, NKN_UNIT, TMP, BLE, BLE_UNIT, BUS,
 ];
-const ALL: [TargetSpec; 10] = RECOVERY;
+const HEALTH_DROP: TargetSpec = spec(
+    TargetId::HealthDropin,
+    "/etc/systemd/system/rustsimhub-core.service.d/55-product-health.conf",
+    0o644,
+    false,
+    MaterialPhase::StageFiles,
+);
+const HEALTH_TMP: TargetSpec = spec(
+    TargetId::HealthTmpfiles,
+    "/etc/tmpfiles.d/rustsimhub-update-health.conf",
+    0o644,
+    false,
+    MaterialPhase::StageFiles,
+);
+const HEALTH_SERVICE: TargetSpec = spec(
+    TargetId::HealthService,
+    "/etc/systemd/system/rustsimhub-update-health.service",
+    0o644,
+    false,
+    MaterialPhase::StageFiles,
+);
+const HEALTH_TIMER: TargetSpec = spec(
+    TargetId::HealthTimer,
+    "/etc/systemd/system/rustsimhub-update-health.timer",
+    0o644,
+    false,
+    MaterialPhase::StageFiles,
+);
+const RECOVERY_HEALTH: [TargetSpec; 14] = [
+    PROFILE,
+    DROPIN,
+    LAUNCHER,
+    ROOT,
+    SDK,
+    NKN_UNIT,
+    TMP,
+    BLE,
+    BLE_UNIT,
+    BUS,
+    HEALTH_DROP,
+    HEALTH_TMP,
+    HEALTH_SERVICE,
+    HEALTH_TIMER,
+];
+const ALL: [TargetSpec; 14] = RECOVERY_HEALTH;

@@ -245,6 +245,11 @@ pub struct RecoveryUpgradePlan<'a> {
     snapshot: MaintenanceSnapshot,
     permit: crate::product_recovery_child::Permit,
 }
+impl RecoveryUpgradePlan<'_> {
+    pub(crate) fn permit(&self) -> crate::product_recovery_child::Permit {
+        self.permit.clone()
+    }
+}
 /// Takes ownership of the original held snapshot. The opaque plan keeps that
 /// very guard alive continuously until the restricted writer handoff.
 pub fn prepare_recovery9<'a>(
@@ -262,11 +267,15 @@ pub fn prepare_recovery9<'a>(
     if projected["projected_data"]["business_schema"] != 9
         || !matches!(
             candidate.mode,
-            ProductRuntimeModeV1::Recovery | ProductRuntimeModeV1::EmailRecovery
+            ProductRuntimeModeV1::Recovery
+                | ProductRuntimeModeV1::EmailRecovery
+                | ProductRuntimeModeV1::RecoveryHealth
         )
         || !matches!(
             fallback.mode,
-            ProductRuntimeModeV1::Recovery | ProductRuntimeModeV1::EmailRecovery
+            ProductRuntimeModeV1::Recovery
+                | ProductRuntimeModeV1::EmailRecovery
+                | ProductRuntimeModeV1::RecoveryHealth
         )
     {
         return Err(Error::Denied);

@@ -19,10 +19,17 @@ pub enum ProductRuntimeModeV1 {
     Recovery,
     #[serde(rename = "product-email-recovery-v1")]
     EmailRecovery,
+    #[serde(rename = "product-recovery-health-v1")]
+    RecoveryHealth,
 }
 impl ProductRuntimeModeV1 {
     pub fn prefixes(self) -> &'static [&'static str] {
         match self {
+            Self::RecoveryHealth => &[
+                "--enable-update-health-candidate",
+                "--enable-product-providers-candidate",
+                "--enable-secure-recovery-candidate",
+            ],
             Self::Legacy => &[],
             Self::Product | Self::Email => &["--enable-product-providers-candidate"],
             Self::Recovery | Self::EmailRecovery => &[
@@ -32,7 +39,10 @@ impl ProductRuntimeModeV1 {
         }
     }
     fn recovery(self) -> bool {
-        matches!(self, Self::Recovery | Self::EmailRecovery)
+        matches!(
+            self,
+            Self::Recovery | Self::EmailRecovery | Self::RecoveryHealth
+        )
     }
     fn email(self) -> bool {
         matches!(self, Self::Email | Self::EmailRecovery)
