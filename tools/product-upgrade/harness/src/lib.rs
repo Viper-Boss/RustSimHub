@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 #![forbid(unsafe_code)]
+pub use rustsimhub_update::{
+    admission, hex_digest, manifest_hash, signing_bytes, store, verify, verify_payload, Error,
+    FORWARDING_FILES,
+};
 #[path = "../../../../crates/core/src/runtime_compatibility.rs"]
 pub mod core_runtime;
+#[path = "../../../../crates/update/src/product_admission/mod.rs"]
+pub mod product_admission;
 
 #[cfg(test)]
 mod tests {
@@ -34,3 +40,7 @@ mod tests {
         }
     }
 }
+
+#[path = "../../recovery_child.rs"]
+pub mod product_recovery_child;
+pub use product_recovery_child as recovery_child;
