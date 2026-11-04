@@ -34,3 +34,6 @@ tokio = { version = "1", features = ["rt", "time", "macros"] }
 tempfile = "3"
 rustsimhub-storage = { path = "../storage" }
 rustsimhub-forwarder = { path = "../forwarder" }
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+zbus = { version = "5.19", default-features = false, features = ["tokio"] }

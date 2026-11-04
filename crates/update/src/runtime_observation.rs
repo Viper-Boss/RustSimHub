@@ -15,6 +15,8 @@ use std::{
 pub mod confirmation;
 mod files;
 mod linux;
+#[cfg(test)]
+mod product_native;
 pub(crate) mod units;
 use files::Slot;
 use linux::Process;
@@ -140,7 +142,14 @@ impl RuntimeObservation {
         let boot = linux::boot()?;
         let ledger = ReadOnlyState::observe()?;
         let slot = Slot::observe(&ledger)?;
-        Self::capture(ledger, slot, boot, started, Box::new(LinuxSources))
+        let sources: Box<dyn Sources> = Box::new(LinuxSources);
+        #[cfg(test)]
+        let sources: Box<dyn Sources> = if crate::product_native_fixture::enabled() {
+            Box::new(product_native::NativePid1)
+        } else {
+            sources
+        };
+        Self::capture(ledger, slot, boot, started, sources)
     }
     fn capture(
         ledger: ReadOnlyState,

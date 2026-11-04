@@ -268,3 +268,46 @@ impl Database {
         Ok(())
     }
 }
+
+impl Database {
+    pub(super) fn runtime_identity(&self) -> Result<()> {
+        if self._writer.is_some() || self._connection.is_some() {
+            return Err(Error::Busy);
+        }
+        let directory = self.observations.first().ok_or(Error::Integrity)?;
+        let now = Observation::capture(&directory.path)?;
+        let before = directory.stamp.as_ref().ok_or(Error::Integrity)?;
+        let after = now.stamp.as_ref().ok_or(Error::Integrity)?;
+        if before.dev != after.dev
+            || before.ino != after.ino
+            || before.uid != after.uid
+            || before.gid != after.gid
+            || before.mode != after.mode
+        {
+            return Err(Error::Integrity);
+        }
+        // Only the original Core/Store writer may now change database bytes.
+        // Keep both named/held identities; the later live SQL lease validates
+        // schema/Auth/generation, not a cached maintenance report.
+        let data = self.observations.last().ok_or(Error::Integrity)?;
+        let named = fs::symlink_metadata(&data.path).map_err(|_| Error::Io)?;
+        let held = self._database.metadata().map_err(|_| Error::Io)?;
+        let before = data.stamp.as_ref().ok_or(Error::Integrity)?;
+        if before.dev != named.dev()
+            || before.ino != named.ino()
+            || named.dev() != held.dev()
+            || named.ino() != held.ino()
+            || before.uid != named.uid()
+            || before.gid != named.gid()
+            || before.mode != named.mode()
+            || named.nlink() != 1
+        {
+            return Err(Error::Integrity);
+        }
+        // The cooperative lock inode itself remains pinned.
+        self.observations
+            .get(1)
+            .ok_or(Error::Integrity)?
+            .revalidate()
+    }
+}

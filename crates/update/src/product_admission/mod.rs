@@ -340,5 +340,9 @@ pub mod coordinator;
 
 // Production ARM policy. Native isolation adapters are compiled only in tests.
 pub(crate) fn target_arch() -> &'static str {
+    #[cfg(test)]
+    if crate::product_native_fixture::enabled() {
+        return std::env::consts::ARCH;
+    }
     "aarch64"
 }

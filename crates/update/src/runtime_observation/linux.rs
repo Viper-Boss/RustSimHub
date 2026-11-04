@@ -261,7 +261,7 @@ pub(super) fn read_members(path: &Path, required: bool) -> Result<BTreeSet<u32>>
     }
     Ok(result)
 }
-fn uid_processes(uid: u32) -> Result<BTreeSet<u32>> {
+pub(super) fn uid_processes(uid: u32) -> Result<BTreeSet<u32>> {
     let mut result = BTreeSet::new();
     let mut count = 0;
     for entry in fs::read_dir("/proc").map_err(|_| Error::Io)? {

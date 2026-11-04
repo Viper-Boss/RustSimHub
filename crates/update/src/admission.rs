@@ -11,6 +11,7 @@ use std::{
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
+mod activation;
 mod database;
 pub mod product;
 mod programs;
@@ -387,13 +388,19 @@ impl MaintenanceSnapshot {
                 }
             }
         }
-        let ap_count = ap
-            .iter()
-            .map(&mut material)
-            .collect::<Result<Vec<_>>>()?
-            .into_iter()
-            .filter(|v| *v)
-            .count();
+        let ap_present = ap.iter().map(&mut material).collect::<Result<Vec<_>>>()?;
+        // Product profiles also own the launcher. Its presence alone cannot
+        // manufacture a partial AP installation or promote the base Root mode.
+        let launcher_only = product
+            && ap
+                .iter()
+                .zip(&ap_present)
+                .all(|(s, p)| !*p || s.path == "usr/libexec/rustsimhub/rustsimhub-core-launcher");
+        let ap_count = if launcher_only {
+            0
+        } else {
+            ap_present.into_iter().filter(|p| *p).count()
+        };
         if ![0, fw.len()].contains(&fw_count)
             || ![0, ap.len()].contains(&ap_count)
             || (ap_count > 0 && fw_count == 0)

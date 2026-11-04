@@ -2,6 +2,8 @@
 #![forbid(unsafe_code)]
 //! Signed application manifests; never writes boot/rootfs or arbitrary paths.
 pub mod health;
+#[cfg(all(test, target_os = "linux"))]
+pub(crate) mod product_native_fixture;
 #[cfg(target_os = "linux")]
 pub mod runtime_observation;
 use ed25519_dalek::{Signature, VerifyingKey};
@@ -135,6 +137,10 @@ pub fn verify(
     Ok(m)
 }
 pub fn verify_payload(m: &Manifest, payloads: &[Vec<u8>]) -> Result<(), Error> {
+    #[cfg(all(test, target_os = "linux"))]
+    if product_native_fixture::enabled() {
+        return verify_native_fixture(m, payloads);
+    }
     verify_payload_machine(m, payloads, 183)
 }
 // A native isolated fixture must still pass all signed sizes/digests/ELF

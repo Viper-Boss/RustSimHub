@@ -42,3 +42,15 @@ pub use executor::{IsolatedServiceState, TestBoundary};
 pub(crate) const fn package_manifest_limit() -> usize {
     package::MAX_MANIFEST
 }
+
+#[cfg(test)]
+pub(crate) mod native_policy {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static ACTIVE: AtomicBool = AtomicBool::new(false);
+    pub(crate) fn enabled() -> bool {
+        ACTIVE.load(Ordering::Acquire)
+    }
+    pub(crate) fn enable() {
+        ACTIVE.store(true, Ordering::Release);
+    }
+}

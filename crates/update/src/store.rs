@@ -214,6 +214,15 @@ impl Store {
             .map_err(|_| Error::Io)?;
         sync_dir(&self.root)
     }
+    pub(crate) fn revalidate_product_state(&self) -> Result<(), Error> {
+        self.revalidate_product_lock()?;
+        if read_checked(&self.root.join("state.json"), 8192)?
+            != serde_json::to_vec(&self.state).map_err(|_| Error::Invalid)?
+        {
+            return Err(Error::Integrity);
+        }
+        Ok(())
+    }
     pub(crate) fn revalidate_product_lock(&self) -> Result<(), Error> {
         let fd = self._lock.0.metadata().map_err(|_| Error::Io)?;
         let named = fs::symlink_metadata(self.root.join(".update.lock")).map_err(|_| Error::Io)?;

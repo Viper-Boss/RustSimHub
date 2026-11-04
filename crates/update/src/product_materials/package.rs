@@ -481,10 +481,17 @@ fn tmpfile_gids(bytes: &[u8]) -> Result<(u32, u32)> {
     Ok((nkn, ble))
 }
 fn elf(bytes: &[u8]) -> Result<()> {
+    let machine = 183;
+    #[cfg(test)]
+    let machine = if super::native_policy::enabled() && cfg!(target_arch = "x86_64") {
+        62
+    } else {
+        machine
+    };
     if bytes.len() < 64
         || &bytes[..7] != b"\x7fELF\x02\x01\x01"
         || !matches!(u16::from_le_bytes([bytes[16], bytes[17]]), 2 | 3)
-        || u16::from_le_bytes([bytes[18], bytes[19]]) != 183
+        || u16::from_le_bytes([bytes[18], bytes[19]]) != machine
         || u16::from_le_bytes([bytes[52], bytes[53]]) != 64
     {
         return Err(Error::Invalid);

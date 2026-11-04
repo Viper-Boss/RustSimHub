@@ -367,8 +367,23 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
             .activate_product(&crate::manifest_hash(&manifest))?;
         // Only the two database writer guards are consumed before Core starts.
         // The original updater lock, signed bytes, trust and Root fds stay held.
-        drop(snapshot);
+        let handoff = snapshot.handoff_runtime()?;
+        let selected_state = HeldFile::capture(&Path::new(APP).join("state.json"), 8192)?;
+        authority.store.borrow().revalidate_product_state()?;
         install(services::activate_business())?;
+        handoff.revalidate()?;
+        selected_state.check()?;
+        authority.store.borrow().revalidate_product_state()?;
+        for file in &authority.files {
+            if file.observation.path != Path::new(APP).join("state.json") {
+                file.check()?;
+            }
+        }
+        install(authority.nss.revalidate(&authority.root))?;
+        install(authority.package.revalidate())?;
+        if authority.started.elapsed() >= Duration::from_secs(300) {
+            return Err(Error::Busy);
+        }
         return Ok(
             serde_json::json!({"format":1,"command":command,"attempt_consumed":true,
             "started_fixed_business_units":true,"health_verified":false,"may_confirm":false}),
@@ -495,7 +510,7 @@ fn backup(
             continue;
         };
         let path = format!("{BACKUPS}/{transaction}/{name}");
-        if install(root.read(&path, 512 * 1024 * 1024))?.is_none() {
+        if install(root.read(&path, 64 * 1024 * 1024))?.is_none() {
             let mut source = database.backup_source()?;
             let mut output = OpenOptions::new()
                 .create_new(true)
@@ -523,7 +538,7 @@ fn backup(
         } else {
             crate::manifest_hash(&current)
         };
-        let retained = install(root.read(&path, 512 * 1024 * 1024))?.ok_or(Error::Integrity)?;
+        let retained = install(root.read(&path, 64 * 1024 * 1024))?.ok_or(Error::Integrity)?;
         if crate::manifest_hash(&retained.bytes) != expected_hash {
             return Err(Error::Integrity);
         }
@@ -532,3 +547,6 @@ fn backup(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

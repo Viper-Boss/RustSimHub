@@ -87,7 +87,7 @@ impl SignedPrograms {
                 || claims
                     .target_arch
                     .as_deref()
-                    .is_some_and(|a| a != "aarch64")
+                    .is_some_and(|a| a != crate::product_admission::target_arch())
                 || (worker && claims.worker != Some(true))
                 || (!worker
                     && (claims.worker.is_some()
