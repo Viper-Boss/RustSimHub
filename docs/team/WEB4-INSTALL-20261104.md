@@ -1,5 +1,7 @@
 # 窗口6 · WEB4-INSTALL：正式有限产品安装与中断恢复
 
+2026-11-04最新合并状态：健康206/211、安装209/213、数据210/212均已进入main `5304a96d28f2c76c14ab651938a217dbeae67fa3`；206文档冲突通过214正常解决，独立harness锁仅补一行现有依赖。固定5f1d65bc串行默认497/全特性749、严格检查和四模式同源测试通过；并行锁失败保留，未实机/新ARM/签名部署。窗口8直接从最新main续接，共享生产入口与连续守卫仍由网页补齐，不需重做已合依赖。见[合并与复核记录](../deliveries/web4-delivery-merges-20261104.md)。81.5%保持。
+
 2026-11-04交付状态：第一阶段PR209固定 `42dca70ff82b405b787616def708903bb126bad5`，第二阶段PR213固定 `28c38c0bcb5c802c1f223787fa27efc957410ebd` 已回读为open非草稿，未合并。作者已交有限签名包/执行器、Root/SIGKILL/只读/ENOSPC证据；本机尚未重新验收。状态为“模块交付，生产入口待集成”，由 [新版窗口8](WEB4-INTEGRATE-RESUME-20261104.md) 接 `LiveInstallationFence/OwnedRootChanges`、固定CLI和连续原业务守卫；不重复派本模块，不宣称生产安装完成。
 
 先读[本批总任务书](WEB4-DEVELOPMENT-DELEGATION-20261104.md)。分支建议 `codex/web4-product-install-20261104`；报告 `docs/deliveries/web4-product-install-20261104.md`。目标是把PR205材料变成**有签名/可信前置、固定目标、可实际执行和失败恢复的安装代码**，不是再交一份清单生成器。部署和真实密钥不在任务内。
