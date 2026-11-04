@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[Unit]
+Description=Finite explicit running-candidate confirmation
+After=rustsimhub-core.service rustsimhub-edge.service rustsimhub-media.service
+ConditionPathExists=/etc/systemd/system/rustsimhub-core.service.d/55-update-health.conf
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/libexec/rustsimhub/rustsimhub-update confirm-running-candidate
+TimeoutStartSec=6
+Restart=no
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_SYS_PTRACE CAP_KILL CAP_SETUID CAP_SETGID
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ReadWritePaths=/var/lib/rustsimhub/rustsimhub-v1/system/app /var/lib/rustsimhub/rustsimhub-v1/system/update-health
+RestrictAddressFamilies=AF_UNIX
+UMask=0077
+MemoryMax=128M
+TasksMax=8
+LimitCORE=0

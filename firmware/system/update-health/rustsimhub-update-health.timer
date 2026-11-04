@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Explicitly start once after candidate startup; no automatic enable/retry.
+[Unit]
+Description=One finite candidate health attempt
+[Timer]
+OnActiveSec=20s
+AccuracySec=1s
+Persistent=no
+Unit=rustsimhub-update-health.service

@@ -14,6 +14,8 @@ use std::{
 const ROOT: &str = "/var/lib/rustsimhub/rustsimhub-v1/system/app";
 const TRUST: &str = "/usr/share/rustsimhub/release.public";
 
+pub(crate) mod confirmation;
+
 type Result<T> = std::result::Result<T, Error>;
 
 #[derive(PartialEq, Eq)]

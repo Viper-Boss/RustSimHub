@@ -15,7 +15,7 @@ use std::{
 #[derive(Debug, PartialEq, Eq)]
 pub(super) struct Process {
     pub(super) index: usize,
-    pid: u32,
+    pub(super) pid: u32,
     start: u64,
     uid: u32,
     exe: Stamp,
