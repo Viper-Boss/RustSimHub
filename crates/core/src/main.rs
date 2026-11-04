@@ -96,6 +96,30 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let args = if args
         .first()
+        .is_some_and(|a| a == "--enable-update-health-candidate")
+    {
+        #[cfg(target_os = "linux")]
+        {
+            if args
+                .iter()
+                .skip(1)
+                .find(|a| !a.starts_with("--enable-"))
+                .is_none_or(|a| !a.starts_with("--serve-device"))
+            {
+                return Err("update health requires a device business mode".into());
+            }
+            authenticated::enable_update_health();
+            args.into_iter().skip(1).collect::<Vec<_>>()
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            return Err("update health requires Linux".into());
+        }
+    } else {
+        args
+    };
+    let args = if args
+        .first()
         .is_some_and(|s| s == "--enable-product-providers-candidate")
     {
         #[cfg(feature = "product-providers-candidate")]
@@ -129,7 +153,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            json!({"component":"core","target_arch":std::env::consts::ARCH,"source_archive_sha256":rustsimhub_wire::build_source_sha256(),"development_fixtures":cfg!(feature="dev-fixtures"),"database_schema":6,"setup_ap_installation_contract":rustsimhub_wire::setup_ap_installation_contract(),"service_launch":{"format":1,"modes":["device","forwarding_managed","setup_ap"]},"forwarding_runtime_contract":rustsimhub_forwarder::runtime_compatibility()})
+            json!({"component":"core","target_arch":std::env::consts::ARCH,"source_archive_sha256":rustsimhub_wire::build_source_sha256(),"development_fixtures":cfg!(feature="dev-fixtures"),"database_schema":6,"update_health_protocol":1,"update_health_default_enabled":false,"setup_ap_installation_contract":rustsimhub_wire::setup_ap_installation_contract(),"service_launch":{"format":1,"modes":["device","forwarding_managed","setup_ap"]},"forwarding_runtime_contract":rustsimhub_forwarder::runtime_compatibility()})
         );
         return Ok(());
     }

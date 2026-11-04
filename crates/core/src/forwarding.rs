@@ -17,6 +17,7 @@ type Result<T> = rustsimhub_auth::Result<T>;
 pub(crate) mod ipc;
 mod quick;
 mod service;
+mod update_health;
 fn denied<T>(result: rustsimhub_forwarder::Result<T>) -> Result<T> {
     result.map_err(|_| Error::Forbidden)
 }

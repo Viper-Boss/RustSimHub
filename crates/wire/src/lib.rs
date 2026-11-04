@@ -5,6 +5,7 @@ use std::io::{self, Read, Write};
 mod auth;
 #[cfg(test)]
 mod recovery_grant_tests;
+pub mod update_health;
 pub use auth::{
     parse_auth_request, wifi_credentials_valid, AuthCommand, AuthRequest, LegacyBindingExpectation,
     NknOwner, AUTH_PROTOCOL,

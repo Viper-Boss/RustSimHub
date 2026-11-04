@@ -41,6 +41,8 @@ pub use recovery_execution::ledger::{
 #[cfg(feature = "recovery-grants")]
 pub use recovery_grants::{RecoveryChange, RecoveryGrant};
 mod auth;
+#[cfg(target_os = "linux")]
+pub mod update_health;
 #[cfg(feature = "nkn-session-candidate")]
 pub use auth::NknAuthoritySnapshot;
 mod calls;
@@ -281,6 +283,11 @@ struct Database {
     // Fields drop in declaration order: close SQLite before releasing the
     // writer fence, including when an unrelated spawn retains an FD copy.
     connection: Connection,
+    // Exact file opened by this actor; health never reopens a business writer.
+    #[cfg(target_os = "linux")]
+    health_file: File,
+    #[cfg(target_os = "linux")]
+    health_directory: PathBuf,
     _lock: WriterLock,
     #[cfg(feature = "recovery-grants")]
     mode: OpenMode,
@@ -522,6 +529,10 @@ impl Database {
         }
         let mut db = Self {
             connection,
+            #[cfg(target_os = "linux")]
+            health_file: private_file(&path, false)?,
+            #[cfg(target_os = "linux")]
+            health_directory: fs::canonicalize(directory)?,
             _lock: lock,
             #[cfg(feature = "recovery-grants")]
             mode,

@@ -1000,12 +1000,27 @@ async fn serve_inner_media(
     let mut recovery_worker = Box::pin(crate::recovery_listener::run(auth.clone()));
     #[cfg(not(feature = "product-providers-candidate"))]
     let mut recovery_worker = Box::pin(std::future::pending::<()>());
+    let health_alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let health_sources = Arc::new(UpdateHealthSources {
+        metrics: metrics.clone(),
+        forwarding: forwarding.clone(),
+        initialized: observing && messaging && call_mode == 2 && extras.media.is_some(),
+        alive: health_alive.clone(),
+    });
+    let mut health = Box::pin(async {
+        if UPDATE_HEALTH.load(std::sync::atomic::Ordering::Acquire) {
+            rustsimhub_core::update_health::serve(auth.clone(), health_sources).await
+        } else {
+            std::future::pending().await
+        }
+    });
     let mut tasks = tokio::task::JoinSet::new();
     let mut indicator = Box::pin(crate::status_led::run(store.handle()));
     tokio::pin!(stop);
     let result: Result<()> = loop {
         let accepted = tokio::select! {
             biased;
+            _=&mut health=>break Err("candidate update health source stopped".into()),
             _=&mut nkn_worker=>break Err("candidate provider host stopped".into()),
             _=&mut recovery_worker=>break Err("candidate recovery host stopped".into()),
             _=&mut stop=>break Ok(()),
@@ -1070,6 +1085,8 @@ async fn serve_inner_media(
     };
     #[cfg(feature = "product-providers-candidate")]
     drop(recovery_worker);
+    health_alive.store(false, std::sync::atomic::Ordering::Release);
+    drop(health);
     drop(listener); // Stop admission before draining outstanding work.
     drop(nkn_worker);
     crate::network_trial::provision::shutdown().await;
@@ -1167,3 +1184,37 @@ pub async fn request(socket: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests;
+
+// This flag is set only by the explicit leading process prefix, never by IPC.
+static UPDATE_HEALTH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+pub(crate) fn enable_update_health() {
+    UPDATE_HEALTH.store(true, std::sync::atomic::Ordering::Release);
+}
+struct UpdateHealthSources {
+    metrics: crate::observer::Metrics,
+    forwarding: Option<crate::forwarding::Controller>,
+    initialized: bool,
+    alive: Arc<std::sync::atomic::AtomicBool>,
+}
+impl rustsimhub_core::update_health::RuntimeSources for UpdateHealthSources {
+    fn business_ready(&self) -> bool {
+        self.initialized
+            && self.alive.load(std::sync::atomic::Ordering::Acquire)
+            && self
+                .metrics
+                .try_lock()
+                .is_ok_and(|s| s.subscriptions && s.reconciliations > 0 && s.storage_errors == 0)
+    }
+    fn with_forwarder(
+        &self,
+        auth: &Auth,
+        work: &mut dyn FnMut(
+            rustsimhub_core::update_health::ForwarderLease,
+        ) -> rustsimhub_core::update_health::Result<()>,
+    ) -> rustsimhub_core::update_health::Result<()> {
+        self.forwarding
+            .as_ref()
+            .ok_or(rustsimhub_core::update_health::Error::Source)?
+            .health_locked(auth, work)
+    }
+}
