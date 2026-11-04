@@ -18,6 +18,22 @@ mod package;
 mod targets;
 pub use package::{
     material_sha256, product_signing_bytes, ExpectedBindings, MaterialEntry, ProductManifestV1,
-    VerifiedProductMaterials,
+    ProductMaterialPlanV1, VerifiedProductMaterials,
 };
 pub use targets::{MaterialPhase, Profile, RoleId, TargetId, TargetSpec};
+mod executor;
+#[cfg(not(test))]
+mod nss;
+#[cfg(test)]
+pub mod nss;
+#[cfg(not(test))]
+mod rootio;
+#[cfg(test)]
+pub mod rootio;
+mod services;
+pub use executor::{
+    FencePhase, InstallReport, InstallState, LiveInstallationFence, OwnedRootChanges,
+    ProductInstaller, RootTargetExpectation,
+};
+#[cfg(test)]
+pub use executor::{IsolatedServiceState, TestBoundary};
