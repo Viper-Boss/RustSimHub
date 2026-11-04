@@ -203,10 +203,11 @@ async function pair(){
  notice('配对申请已提交。请由设备所有者核对浏览器公钥、权限和申请 ID 后批准：'+result.pairing_id);
 }
 async function login(){
+ token=null;lease=null;
  nknProductPanel.reset();nasBridgePanel?.reset();authenticatedDevicePin=null;
  forwardingPanel.reset();forwardingHistory.reset();
  clearWifiNetworks();
- sessionKeeper.reset();void audioLink.stop();const epoch=viewEpoch;token=null;lease=null;showAudio();const c=await api({op:'challenge',public_key:Array.from(publicKey)},epoch);const signature=await proof(c,'login',undefined,epoch);current(epoch);
+ sessionKeeper.reset();void audioLink.stop();const epoch=viewEpoch;showAudio();const c=await api({op:'challenge',public_key:Array.from(publicKey)},epoch);const signature=await proof(c,'login',undefined,epoch);current(epoch);
  const verifiedDevicePin=hex(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(new Uint8Array(c.transcript))).device_public_key);
  const r=await api({op:'authenticate',challenge_id:c.id,signature},epoch);current(epoch);if(!/^[a-f0-9]{64}$/.test(r.token))throw Error('登录响应无效');
  sessionKeeper.start(r.token,r.expires_in_seconds);token=r.token;authenticatedDevicePin=verifiedDevicePin;configurationOpen=configurationVisible();void configurationIndicator.set(configurationOpen&&!document.hidden);networkPanel.start();dailyPhone.start();notice('已登录；会话15分钟，通话期间验证身份后续期');await refresh();
@@ -604,6 +605,6 @@ const nknProductPanel=new NknProductPanel({document,root:$('support-nkn'),reques
   const rows=await stored('nkn-control-receipts');if(!Array.isArray(rows)||!rows.some(r=>JSON.stringify(r)===JSON.stringify(entry)))throw Error('引擎归档未能读回；原待核对记录保留');
  }
 });
-const nknPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{nknProductPanel.reset();nknPreviousLogout();};
+const nknPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{nknPreviousLogout();nknProductPanel.reset();};
 addEventListener('pagehide',()=>nknProductPanel.reset());
 document.addEventListener('visibilitychange',()=>{if(document.hidden)nknProductPanel.reset();});

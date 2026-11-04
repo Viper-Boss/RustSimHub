@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Fixed existing Root provider; no socket activation or automatic enablement.
+[Unit]
+Description=RustSimHub explicit finite NKN Root provider
+After=rustsimhub-app-select.service rustsimhub-network-agent.service
+Requires=rustsimhub-app-select.service rustsimhub-network-agent.service
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/product/nkn.enabled
+
+[Service]
+Type=exec
+User=root
+Group=rustsimhub-core
+ExecStart=/usr/libexec/rustsimhub/product/nkn-root --serve-fixed
+# Existing application formats forbid adding SDK files to the signed app slot.
+# Only this unit sees the reviewed Root-material directory at the fixed SDK path.
+BindReadOnlyPaths=/usr/libexec/rustsimhub/product:/opt/rustsimhub/selected
+RuntimeDirectory=rustsimhub-nkn-root
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_SETUID CAP_SETGID
+AmbientCapabilities=
+Delegate=cpu memory pids
+ProtectControlGroups=no
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
+ReadWritePaths=/run/rustsimhub-nkn-root /var/lib/rustsimhub/nkn
+ReadWritePaths=/sys/fs/cgroup/system.slice/rustsimhub-nkn-root.service
+ReadOnlyPaths=/etc/rustsimhub/nkn-policy.json /run/rustsimhub-network/status.json
+KillMode=control-group
+Restart=no
+TimeoutStartSec=10
+TimeoutStopSec=5
+RuntimeMaxSec=330
+MemoryMax=192M
+TasksMax=64
+LimitCORE=0
+UMask=0077

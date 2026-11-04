@@ -7,6 +7,7 @@ exposed. The Core stand-in emits fixed build metadata and prints the argv/PID
 received after exec; this tests the actual launcher, not actual modem startup.
 """
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -185,6 +186,77 @@ printf 'arg=%s\\n' "$@"
         self.refused()
         self.assertLess(time.monotonic() - before, 5)
         self.core.write_text('#!/bin/sh\ni=0; while [ "$i" -lt 17000 ]; do printf x; i=$((i+1)); done\n')
+        self.refused()
+
+    def product(self, name='product-v1', email=False):
+        self.explicit()
+        self.metadata['forwarding_runtime_contract'] = {
+            'format': 1, 'worker_protocol': 5 if email else 4,
+            'outbox': {'application_id': 0x52534657, 'read_format': 4 if email else 3,
+                       'write_format': 4 if email else 3, 'migrate_from': [3] if email else [1, 2]}}
+        self.core.write_text('''#!/bin/sh
+case "$*" in *--build-info) exec /bin/cat /metadata.json;; esac
+printf 'pid=%s\\n' "$$"
+printf 'arg=%s\\n' "$@"
+''')
+        path = self.root/'etc/rustsimhub/product-profile.json'
+        path.write_text(json.dumps({'format': 1, 'profile': name, 'source_archive_sha256': 'a'*64,
+                                   'core_sha256': hashlib.sha256(self.core.read_bytes()).hexdigest()}))
+        path.chmod(0o644)
+        return path
+
+    def test_actual_product_profile_prefixes_preserve_exec_pid(self):
+        for name, email, count in [('product-v1', False, 1), ('product-email-v1', True, 1),
+                                   ('product-recovery-v1', False, 2), ('product-email-recovery-v1', True, 2)]:
+            self.product(name, email)
+            proc, out, err = self.invoke()
+            self.assertEqual(proc.returncode, 0, err)
+            self.assertEqual(out.splitlines()[0], 'pid='+str(proc.pid))
+            args = [row.removeprefix('arg=') for row in out.splitlines()[1:]]
+            self.assertEqual(args[0], '--enable-product-providers-candidate')
+            self.assertEqual(args[count], '--serve-device-forwarding-managed-setup-ap')
+            self.assertEqual(len(args), 16+count)
+            if count == 2:
+                self.assertEqual(args[1], '--enable-secure-recovery-candidate')
+
+    def test_present_invalid_product_profile_never_silently_falls_back(self):
+        path = self.product()
+        original = path.read_bytes()
+        for raw in [b'', b'{}', b' '*4097, original.replace(b'product-v1', b'unknown-v1'),
+                    original.replace(b'"format": 1', b'"format": 1, "format": 1')]:
+            path.write_bytes(raw)
+            self.refused()
+
+    def test_product_profile_wrong_owner_permissions_symlink_and_fifo_refused(self):
+        path = self.product()
+        path.chmod(0o666)
+        self.refused()
+        path.chmod(0o644)
+        os.chown(path, 986, 986)
+        self.refused()
+        os.chown(path, 0, 0)
+        backup = path.with_suffix('.original')
+        path.rename(backup)
+        path.symlink_to(backup.name)
+        self.refused()
+        path.unlink()
+        os.mkfifo(path, 0o644)
+        self.refused()
+
+    def test_real_core_byte_change_and_unsupported_prefix_refused_before_exec(self):
+        self.product()
+        self.core.write_text(self.core.read_text()+'\n# modified after profile binding\n')
+        self.refused()
+        # Rebind exactly this byte set, but make it reject new startup prefixes.
+        self.product()
+        self.core.write_text('''#!/bin/sh
+if [ "$1" = --build-info ]; then exec /bin/cat /metadata.json; fi
+exit 1
+''')
+        profile = self.root/'etc/rustsimhub/product-profile.json'
+        value = json.loads(profile.read_text())
+        value['core_sha256'] = hashlib.sha256(self.core.read_bytes()).hexdigest()
+        profile.write_text(json.dumps(value))
         self.refused()
 
     def test_exact_limit_valid_metadata_then_one_byte_larger(self):

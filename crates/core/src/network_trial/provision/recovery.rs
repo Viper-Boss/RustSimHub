@@ -47,6 +47,12 @@ pub async fn recovery(
     if !enabled() {
         return Err(Error::Forbidden);
     }
+    if matches!(
+        request.capability.action(),
+        RecoveryAction::ConfirmWifi | RecoveryAction::CancelWifi
+    ) {
+        return control_request(auth, request).await;
+    }
     let a = auth.clone();
     let decoded = with_auth(a, move |a| recovery_body::decode_v1(a, request)).await?;
     let backend_auth = auth.clone();
@@ -159,18 +165,88 @@ async fn control_recovery(
     auth: Arc<Mutex<Auth>>,
     write: Box<CoreRecoveryWrite>,
 ) -> Result<RecoveryReply> {
+    control_recovery_inner(auth, write, AdmissionSchedule::default()).await
+}
+#[derive(Default)]
+struct AdmissionSchedule {
+    #[cfg(test)]
+    held: Option<Box<dyn FnOnce() + Send + Sync>>,
+}
+impl AdmissionSchedule {
+    fn held(self) {
+        #[cfg(test)]
+        if let Some(work) = self.held {
+            work();
+        }
+    }
+}
+async fn control_recovery_inner(
+    auth: Arc<Mutex<Auth>>,
+    write: Box<CoreRecoveryWrite>,
+    schedule: AdmissionSchedule,
+) -> Result<RecoveryReply> {
     let action = write.action();
-    let confirm = action == RecoveryAction::ConfirmWifi;
     let request_id = write.request_id().to_owned();
-    let id = write.target_trial().ok_or(Error::InvalidInput)?.to_owned();
-    let (tx, trial) = {
+    let target = write.target_trial().map(str::to_owned);
+    enqueue_control(
+        auth,
+        PendingInput::Decoded(write),
+        action,
+        request_id,
+        target,
+        schedule,
+    )
+    .await
+}
+enum PendingInput {
+    Decoded(Box<CoreRecoveryWrite>),
+    Authorized(Box<AuthorizedRecoveryRequest>),
+}
+pub(super) struct PendingControl {
+    auth: Arc<Mutex<Auth>>,
+    input: PendingInput,
+    schedule: AdmissionSchedule,
+    decision: oneshot::Sender<Result<Option<Box<RecoveryExecutionReceipt>>>>,
+}
+async fn control_request(
+    auth: Arc<Mutex<Auth>>,
+    request: AuthorizedRecoveryRequest,
+) -> Result<RecoveryReply> {
+    let action = request.capability.action();
+    let request_id = uuid::Uuid::from_bytes(*request.capability.request_id()).to_string();
+    enqueue_control(
+        auth,
+        PendingInput::Authorized(Box::new(request)),
+        action,
+        request_id,
+        None,
+        AdmissionSchedule::default(),
+    )
+    .await
+}
+async fn enqueue_control(
+    auth: Arc<Mutex<Auth>>,
+    input: PendingInput,
+    action: RecoveryAction,
+    request_id: String,
+    target: Option<String>,
+    schedule: AdmissionSchedule,
+) -> Result<RecoveryReply> {
+    if !matches!(
+        action,
+        RecoveryAction::ConfirmWifi | RecoveryAction::CancelWifi
+    ) {
+        return Err(Error::Forbidden);
+    }
+    let confirm = action == RecoveryAction::ConfirmWifi;
+    let (tx, id) = {
         let active = ACTIVE.try_lock().map_err(|_| Error::Busy)?;
         let s = active.as_ref().ok_or(Error::Forbidden)?;
-        let TrialOwner::Recovery(trial) = &s.owner else {
+        if !matches!(&s.owner, TrialOwner::Recovery(_)) {
             return Err(Error::Forbidden);
-        };
+        }
         let state = *s.state.lock().await;
-        if s.id != id
+        if target.as_ref().is_some_and(|id| id != &s.id)
             || state.terminal()
             || state == State::Saving
             || Instant::now() >= s.deadline
@@ -178,32 +254,34 @@ async fn control_recovery(
         {
             return Err(Error::Forbidden);
         }
-        (s.control.clone(), trial.clone())
+        (s.control.clone(), s.id.clone())
     };
-    // Reserve the one existing control slot BEFORE claiming. A busy channel
-    // must not consume a private claim which cannot be dispatched to its actor.
+    // Capacity and actor ownership precede every control decode/reservation/
+    // claim. No Auth lock spans a not-yet-enqueued control or a background tick.
     let slot = tx.try_reserve().map_err(|_| Error::Busy)?;
-    let control = with_auth(auth.clone(), move |a| {
-        a.check_recovery_trial(trial.authority())?;
-        // Bind the session before durable control admission, not only after.
-        write.check_trial(a, &trial)?;
-        match write.reserve(a)? {
-            CoreRecoveryAdmission::Existing(r) => Ok(Err(r)),
-            CoreRecoveryAdmission::New(p) => Ok(Ok(p.claim(a, None)?.bind_control(a, &trial)?)),
-        }
-    })
-    .await?;
-    let control = match control {
-        Ok(c) => Arc::new(c),
-        Err(r) => return Ok(RecoveryReply::Existing(*r)),
-    };
+    let (decision, admitted) = oneshot::channel();
     let (reply, rx) = oneshot::channel();
     slot.send(Control {
-        authority: ControlAuthority::Recovery(control),
+        authority: ControlAuthority::RecoveryPending(Box::new(PendingControl {
+            auth,
+            input,
+            schedule,
+            decision,
+        })),
         confirm,
         reply,
     });
-    let state = timeout(Duration::from_secs(8), rx)
+    // This is a reply wait, not an operation deadline or a cancellation token.
+    // The actor retains ownership after enqueue, including caller disconnect.
+    let until = tokio::time::Instant::now() + Duration::from_secs(8);
+    if let Some(receipt) = tokio::time::timeout_at(until, admitted)
+        .await
+        .map_err(|_| Error::Busy)?
+        .map_err(|_| Error::Busy)??
+    {
+        return Ok(RecoveryReply::Existing(*receipt));
+    }
+    let state = tokio::time::timeout_at(until, rx)
         .await
         .map_err(|_| Error::Busy)?
         .map_err(|_| Error::Busy)?;
@@ -237,6 +315,70 @@ impl Gate for RecoveryContext {
     }
 }
 impl ProvisionGate for RecoveryContext {
+    async fn admit_control(
+        &self,
+        authority: ControlAuthority,
+        confirm: bool,
+        ready: bool,
+    ) -> Result<Option<ControlAuthority>> {
+        let ControlAuthority::RecoveryPending(pending) = authority else {
+            return Ok(Some(authority));
+        };
+        let PendingControl {
+            auth,
+            input,
+            schedule,
+            decision,
+        } = *pending;
+        if !Arc::ptr_eq(&auth, &self.auth) || confirm && !ready {
+            let _ = decision.send(Err(Error::Forbidden));
+            return Ok(None);
+        }
+        let trial = self.trial.clone();
+        let admitted = with_auth(self.auth.clone(), move |a| {
+            schedule.held();
+            a.check_recovery_trial(trial.authority())?;
+            let write = match input {
+                PendingInput::Decoded(w) => w,
+                PendingInput::Authorized(request) => match recovery_body::decode_v1(a, *request)? {
+                    DecodedRecoveryRequest::Write(w) => w,
+                    _ => return Err(Error::Forbidden),
+                },
+            };
+            if write.action()
+                != if confirm {
+                    RecoveryAction::ConfirmWifi
+                } else {
+                    RecoveryAction::CancelWifi
+                }
+            {
+                return Err(Error::Forbidden);
+            }
+            write.check_trial(a, &trial)?;
+            match write.reserve(a)? {
+                CoreRecoveryAdmission::Existing(receipt) => Ok(Err(receipt)),
+                CoreRecoveryAdmission::New(p) => {
+                    a.check_recovery_trial(trial.authority())?;
+                    Ok(Ok(p.claim(a, None)?.bind_control(a, &trial)?))
+                }
+            }
+        })
+        .await;
+        match admitted {
+            Ok(Ok(control)) => {
+                let _ = decision.send(Ok(None));
+                Ok(Some(ControlAuthority::Recovery(Arc::new(control))))
+            }
+            Ok(Err(receipt)) => {
+                let _ = decision.send(Ok(Some(receipt)));
+                Ok(None)
+            }
+            Err(error) => {
+                let _ = decision.send(Err(error));
+                Ok(None)
+            }
+        }
+    }
     async fn check_control(&self, proof: &ControlAuthority, confirm: bool) -> Result<()> {
         let c = match proof {
             ControlAuthority::Recovery(c) => c.clone(),
