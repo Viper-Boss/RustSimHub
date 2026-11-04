@@ -195,15 +195,68 @@ fn alive_wrong_uid_hash_caps_duplicate_pid_or_role_rejected() {
     }
 }
 #[cfg(target_os = "linux")]
+struct ProbeChild(std::process::Child);
+#[cfg(target_os = "linux")]
+impl ProbeChild {
+    fn start(executable: &std::path::Path) -> Self {
+        Self(
+            std::process::Command::new(executable)
+                .arg("30")
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .unwrap(),
+        )
+    }
+    fn pid(&self) -> u32 {
+        self.0.id()
+    }
+}
+#[cfg(target_os = "linux")]
+impl Drop for ProbeChild {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+#[cfg(target_os = "linux")]
 #[test]
 fn kernel_probe_reads_real_executable_and_refuses_missing_process() {
-    let observed = probe_process(std::process::id(), "rustsimhub-core").unwrap();
-    assert_eq!(
-        observed.exe_sha256,
-        hash_hex(&std::fs::read(std::env::current_exe().unwrap()).unwrap())
-    );
+    // The test harness may exceed the production 24 MiB application bound.
+    // Probe an actual small process, independent of Cargo debug information.
+    let executable = std::path::Path::new("/bin/sleep");
+    let expected = std::fs::read(executable).unwrap();
+    assert!(!expected.is_empty() && expected.len() as u64 <= crate::MAX_PAYLOAD);
+    let child = ProbeChild::start(executable);
+    let observed = probe_process(child.pid(), "rustsimhub-core").unwrap();
+    assert_eq!(observed.pid, child.pid());
+    assert_eq!(observed.exe_sha256, hash_hex(&expected));
     assert!(observed.start_ticks > 0);
     assert!(probe_process(0, "rustsimhub-core").is_err());
     assert!(probe_process(u32::MAX, "rustsimhub-core").is_err());
-    assert!(probe_process(std::process::id(), "../../etc/passwd").is_err());
+    assert!(probe_process(child.pid(), "../../etc/passwd").is_err());
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn kernel_probe_refuses_an_executable_above_the_application_bound() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let directory = tempfile::tempdir().unwrap();
+    let executable = directory.path().join("oversized-probe");
+    std::fs::copy("/bin/sleep", &executable).unwrap();
+    std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+    // Trailing bytes keep the real ELF executable while crossing the bound.
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&executable)
+        .unwrap()
+        .set_len(crate::MAX_PAYLOAD + 1)
+        .unwrap();
+    let child = ProbeChild::start(&executable);
+    assert!(matches!(
+        probe_process(child.pid(), "rustsimhub-core"),
+        Err(Error::Invalid)
+    ));
 }

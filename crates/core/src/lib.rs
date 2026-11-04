@@ -19,3 +19,6 @@ pub mod recovery_transport;
 pub mod coordination;
 #[cfg(target_os = "linux")]
 pub mod network_trial;
+
+#[cfg(target_os = "linux")]
+pub mod update_health;

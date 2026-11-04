@@ -2,6 +2,8 @@
 #![forbid(unsafe_code)]
 //! Signed application manifests; never writes boot/rootfs or arbitrary paths.
 pub mod health;
+#[cfg(target_os = "linux")]
+pub mod runtime_observation;
 use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

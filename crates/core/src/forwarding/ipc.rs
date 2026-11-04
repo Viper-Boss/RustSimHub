@@ -19,6 +19,15 @@ pub(super) struct Session {
     claim: Option<Claim>,
     next_stage: u8,
 }
+impl Session {
+    pub(super) fn health_binding(&self, auth: &Auth) -> Result<(u64, Instant)> {
+        if Instant::now() >= self.deadline {
+            return Err(Error::Forbidden);
+        }
+        denied(self.binding.check_current(auth))?;
+        Ok((self.generation, self.deadline))
+    }
+}
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Route {
     Browser,
