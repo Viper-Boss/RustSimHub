@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 #[path = "runtime_compatibility/mod.rs"]
 mod runtime_compatibility;
-pub use runtime_compatibility::ProductRuntimeModeV1;
 
 const MAX_REQUEST: usize = 128 * 1024;
 const OUTBOX_APP: i64 = 0x5253_4657;
