@@ -265,8 +265,20 @@ pub struct ProductMaterialPlanV1 {
     authorization_verified: bool,
     root_baseline_verified: bool,
     nss_baseline_verified: bool,
+    root_baseline_sha256: Option<String>,
+    nss_baseline_sha256: Option<String>,
     installed: bool,
     starts_services: bool,
+}
+impl ProductMaterialPlanV1 {
+    pub(super) fn observed_baselines(mut self, root: String, nss: String, installed: bool) -> Self {
+        self.root_baseline_sha256 = Some(root);
+        self.nss_baseline_sha256 = Some(nss);
+        self.root_baseline_verified = true;
+        self.nss_baseline_verified = true;
+        self.installed = installed;
+        self
+    }
 }
 #[derive(Serialize)]
 struct PlannedMaterial {
@@ -359,9 +371,6 @@ impl VerifiedProductMaterials {
             .iter()
             .map(|source| (source.name, source.bytes.as_slice()))
     }
-    pub(super) fn manifest(&self) -> &ProductManifestV1 {
-        &self.manifest
-    }
     pub(super) fn payload(&self, id: TargetId) -> Result<&[u8]> {
         self.sources
             .iter()
@@ -432,6 +441,8 @@ impl VerifiedProductMaterials {
             authorization_verified: false,
             root_baseline_verified: false,
             nss_baseline_verified: false,
+            root_baseline_sha256: None,
+            nss_baseline_sha256: None,
             installed: false,
             starts_services: false,
         })
