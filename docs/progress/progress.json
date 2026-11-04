@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-03T17:29:54.157804+00:00",
+  "updated_at": "2026-11-04T05:17:23.124946+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -69,8 +69,8 @@
   "focus": {
     "task_id": "REL-01",
     "title": "冻结支持矩阵与发行候选",
-    "state": "窗口8负责人持续集成；阶段一已合并，后续依赖继续交付",
-    "description": "用户指定窗口8由负责人执行，6/7由其他窗口继续。已核对并正常合并202/203/204/205/207及负责人阶段一208；新增有限来源图检查，复现并修复NKN退出/重登录按钮。固定AP/恢复组合531 Rust通过/5原忽略；最终31 Node、Edge41重测/严格检查、输入12和Windows Chrome三宽主页/11配网场景通过，重复组不累加。贡献按实际main a2044edf刷新，原Git作者不变；云端CI因付款/消费限制未启动，不称通过。206仅健康第一阶段，安装/数据/最终确认尚待交付，窗口8十四步未全部完成。未签名安装/访问设备，81.5%、20/169、加权10.6%和原状态/权重/依赖保持。"
+    "state": "窗口8网页续接：依赖已交，生产入口与连续守卫待完成",
+    "description": "按用户要求窗口8剩余离线生产开发交网页续接，本机暂停同范围改动。实时回读健康206/211、安装209/213、兼容210/212六笔均open非草稿、未合并；作者本地结果不等于本机重跑或正式验收。208阶段一已合成果复用，新版任务书固定完整HEAD、206冲突、连续DataFence/有限Root写集、schema6健康与product/recovery合同差异、正式入口/发行及隔离端到端18个执行细项，分三阶段提交。网页不操作设备、真实密钥或自行合main；本机保留最终审核/签名/部署。此次只更新交接与来源，不改原169动作、状态/权重/五人Git贡献或验收；81.5%、20/169、加权10.6%保持。"
   },
   "facts": [
     {
@@ -6130,6 +6130,18 @@
       "evidence": [
         "https://github.com/Viper-Boss/RustSimHub/pull/208",
         "https://github.com/Viper-Boss/RustSimHub/blob/a2044edfef6aeeced3d2c2eb8743791b34e4ccdc/docs/deliveries/web4-production-integration-20261104.md"
+      ]
+    },
+    {
+      "at": "2026-11-04T05:17:23.124946+00:00",
+      "type": "state",
+      "title": "REL-01 · 下一关卡：冻结支持矩阵与发行候选",
+      "detail": "按用户要求窗口8剩余离线生产开发交网页续接，本机暂停同范围改动。实时回读健康206/211、安装209/213、兼容210/212六笔均open非草稿、未合并；作者本地结果不等于本机重跑或正式验收。208阶段一已合成果复用，新版任务书固定完整HEAD、206冲突、连续DataFence/有限Root写集、schema6健康与product/recovery合同差异、正式入口/发行及隔离端到端18个执行细项，分三阶段提交。网页不操作设备、真实密钥或自行合main；本机保留最终审核/签名/部署。此次只更新交接与来源，不改原169动作、状态/权重/五人Git贡献或验收；81.5%、20/169、加权10.6%保持。",
+      "task_ids": [
+        "REL-01"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/team/WEB4-INTEGRATE-RESUME-20261104.md"
       ]
     }
   ],
