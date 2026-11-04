@@ -91,3 +91,5 @@ Root恢复16场景：真实6→7→9、sealed memfd执行、包含已撤销恢�
 **本包独立模块和隔离验证已提交，整体完成标准仍有窗口8接线前置，不能声称生产schema9已准入。** 现有原snapshot没有安全的公共writer extraction，Window8需要实现保留实际停机/Root/slot/outbox围栏的 `RecoveryMigrationHandoff`。安装写Root后旧完整快照必然失效，需保留DataFence并仅对已证实签名Root写集重采样；禁止丢旧锁重新observe或忽略无关Root变化。共享Core main/lib、updater main/lib/admission、workspace清单在本包均未改；正式CLI因此仍未接入。生产协调器与真正签名ARM/Core/worker同链未运行，ARM/QEMU条件不足记未运行。未触设备/NAS、真实key/宿主NSS服务或生产private；未安装、外发、改floor/attempted/预算或自行合并。
 
 PR210云端CI实际回读run `41769377208` 为failure，两个job `steps=[]`、runner_id0；check注释明确“job was not started because recent account payments have failed or your spending limit needs to be increased”。这是账号计费阻止启动，不能称云端测试通过，也不冒称代码测试已运行失败。本阶段CI在PR创建后另外回读。整体正式验收81.5%、20/169、加权10.6%保持。
+
+原邮件组合补充限制：原适配器会重取实际安装baseline，要求baseline/candidate/baseline均为SMTP5/outbox4合同；普通worker4 baseline组合仍拒绝，本包没有放宽。其原接口消费且不返回snapshot，连续双迁移须由8扩展原共享接口返回/保留真正DataFence，不能在返回后重新observe冒充持锁连续性。独立child矩阵通过不代表该生产组合已贯通。

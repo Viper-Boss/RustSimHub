@@ -38,6 +38,12 @@ Window8's actual signed-program, stopped-Core and retained-fence integration.
   consumes the original snapshot, uses the original signed child/backup/R-G-D
   handshake and does not create a new sender or outbox engine. Its existing
   base6 constraint means email migration precedes recovery when both apply.
+  The ORIGINAL adapter re-derives the actual installed baseline and requires
+  baseline/candidate/baseline to match SMTP5/outbox4 contracts; an ordinary
+  worker4 installed baseline remains refused, not silently upgraded by JSON.
+  It consumes and does not return the snapshot: Window8 must extend the shared
+  original API to return/retain the actual DataFence for a continuous combined
+  operation. Re-observing after dropping it is not a substitute.
 - `prepare_recovery9(snapshot BY VALUE, selected, candidate, fallback,
   request_id)` returns an opaque `RecoveryUpgradePlan` which **owns that very
   original guard continuously**; no replacement snapshot or serialized permit
