@@ -2,7 +2,7 @@
 
 这是标准库 Python 开发辅助入口，不是发行证据、健康评估或生产确认授权。
 来源：当前 `.github/workflows/rust.yml`（起始 main
-`e3762ec9d302a23077825a7db3cc591a2d5dce39`）、既有 `tools/test-web-*.mjs`、
+`8f9cfeff1a4b5a804b8b138e890f7386caf5a006`，WEB2-RUN同步）、既有 `tools/test-web-*.mjs`、
 `configurator/tests/*.mjs` 和 `tools/nkn-engine` 默认离线测试。
 新增代码遵循仓库 AGPL-3.0-only，AI 辅助实现，没有引入第三方 Python 依赖。
 
@@ -12,6 +12,8 @@ python3 tools/mainline-checks/run.py --group ordinary --output .local/mainline-c
 python3 tools/mainline-checks/run.py --group native-audio --output .local/mainline-audio/report.json
 python3 tools/mainline-checks/run.py --group root --group root-netns --group root-systemd --output .local/mainline-root/report.json
 python3 tools/mainline-checks/run.py --group runner --output .local/mainline-runner/report.json
+python3 tools/mainline-checks/workflow_coverage.py
+python3 tools/mainline-checks/run.py --group ordinary --check offline-delivery --check kernel-artifact-audit --check nas-control-test --check nas-control-vet --output .local/new-offline/report.json
 ```
 
 每次使用全新的输出目录；已有目录（即使只有其他文件）也会拒绝覆盖。仅允许仓库
@@ -24,7 +26,7 @@ python3 tools/mainline-checks/run.py --group runner --output .local/mainline-run
 | 组 | 内容 | 前置 |
 |---|---|---|
 | ordinary | fmt、全仓严格 Clippy、工作区 default/all-features 各一次、production check、CI 普通 Python/shell 语法、27 组 Node 网页、4 组 configurator、Go 默认离线测试、实际生产兼容 CLI | Linux、Git、Rust/Cargo 1.98.0 rustfmt/clippy、Node、Python、Go（环境为 1.27.3）、C/C++、OpenSSL、已有夹具的 cryptography |
-| native-audio | 原独立 manifest 测试、严格 Clippy | ALSA/Opus 开发库与 pkg-config |
+| native-audio | 原独立 manifest 默认/turn-relay测试及各自严格Clippy，分别记数 | ALSA/Opus 开发库与 pkg-config；不执行test=false的私有中继驱动 |
 | root | 原 Board helper、AP 单元解析、材料 CLI、启动器和 chroot | 以真实 EUID 0 运行本运行器；board 还需私有 mount namespace、ext4/loop/udev 等原夹具前置 |
 | root-netns | 原 tmpfs ENOSPC、更新状态、元数据进程、维护、签名格式、worker IPC/真实进程 | 以真实 EUID 0 运行本运行器、真实 netns；ENOSPC 另需 mount namespace |
 | root-systemd | 原线程耗尽、转发主管/managed 与四个 OFF 时点 | 以真实 EUID 0 运行本运行器、真实 PID1 systemd/cgroup、netns/mount、managed 另需 polkit |
@@ -39,10 +41,21 @@ python3 tools/mainline-checks/run.py --group runner --output .local/mainline-run
 Rust 默认和全部特性存在重复，分别计数，不能将两者之和当成独立测试数。
 Rust 既有 ignored 单独报告；Root 专用项通过自己的原驱动执行，普通组成功不代表它们成功。
 Python discovery 返回 0 项视为失败；有 skipped 的阶段为 `not_run`，不以退出 0 宣称全部通过。
+模块方式`python3 -m unittest tools.offline_delivery.test_delivery -v`同样核对实际Ran计数；Python对0项返回0或5都不算通过。
 Go 要实际出现测试通过记录；`tools/test-web-recovery-session.mjs` 是浏览器专用 ES 模块，
 既有入口为 `tools/run-web-recovery-session.py`，需准备 native peer/WASM 和真实 Chromium；
 它在 `--list` 与报告的 `excluded_inventory` 中显式为 `not_run`，不冒充 Node 检查或 GATT 验收。
 该排除项不计入普通组阶段数，也不自动启动浏览器驱动。Node 仅使用审阅过的固定、非空合成脚本，不使用可匹配 0 项的过滤器。
+
+## WEB2-RUN 同步与有限环境
+
+实际展开从原86项变为92项：加入离线发行材料、既有内核检查器、正常NAS Go race及vet四项；另把普通原生turn-relay测试/Clippy显式列入native-audio，供当前组合验证。阶段数来自CHECKS实际展开，不给全局169动作增加分母。`--check`只选择已提交的固定ID，必须属于所选组；省略依赖会保留not_run，不能传任意argv、外部清单或环境赋值，也不能把子集称全仓通过。
+
+仅`nas-control-test`和`nas-control-vet`使用固定白名单GO111MODULE=off、GOTOOLCHAIN=local、GOPROXY=off、GOSUMDB=off；只复制到各自子进程，父环境和后续NKN模块阶段不变。名称必须匹配审过的精确argv/cwd；没有通用environment字段或CLI覆盖。race另查真实CGO/CC和本运行器已支持的Linux amd64/arm64，未知/缺能力保留not_run，vet独立执行。该保守能力表不是Go全部平台支持声明。
+
+新Go test对workflow参数只增加`-json`用于真实测试计数：顶层通过、子测试通过、跳过和失败分别解析；0项、坏/未知JSON或重复结果失败，有测试被跳过为not_run。CLI包没有测试文件会明确记录，不冒充测试；vet仅按真实退出码报告，不生成测试通过数。旧NKN `-v`计数及模块命令保持。
+
+`workflow-inventory.json`是人工逐步核对的固定工作流对照：47个具名步骤，精确工作流字节SHA和92个展开身份（argv/cwd/env/组/超时/依赖等），每项映射到已审CHECKS或明确的runner-only/外部安装/版本探针。它**不解析任意YAML，也绝不执行其中的命令**；不能借此宣称通用YAML解析或整个云端CI通过。任何workflow字节变更（包括新语法）、阶段增删/改参/环境变化都会明确报错待人工同步。对照内容不得自动从新workflow补成执行命令；更新需一起人工复核工作流、对照和回归。CLI的list及执行前均核对，对照只供覆盖审计，执行来源始终只有CHECKS。
 
 CI 的 shell 拼接被拆成独立 argv 阶段；`sh -n` 的多个脚本拆为逐文件检查（后续位置参数不会被 sh 自动解析）；Cargo JSON 制品输出由运行器直接接 stdout，
 不经 shell 重定向。`{run}` 与 `{user}` 仅为清单内固定占位符，分别替换本轮私有目录
