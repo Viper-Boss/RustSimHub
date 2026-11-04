@@ -1,0 +1,18 @@
+[package]
+name = "rustsimhub-product-install-harness"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.98"
+license = "AGPL-3.0-only"
+
+[workspace]
+
+[dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+sha2 = "0.10"
+ed25519-dalek = { version = "2.2", features = ["zeroize"] }
+getrandom = "0.4"
+fs2 = "0.4"
+rustix = { version = "1", features = ["process", "fs", "thread"] }
+
