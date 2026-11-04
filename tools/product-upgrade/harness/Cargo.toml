@@ -1,0 +1,28 @@
+[package]
+name = "rustsimhub-product-upgrade-harness"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+[workspace]
+[features]
+default = []
+product-providers-candidate = ["recovery-execution"]
+recovery-execution = []
+email-production-candidate = ["rustsimhub-forwarder/smtp-production-candidate", "rustsimhub-update/email-production-candidate"]
+dev-fixtures = []
+[dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+sha2 = "0.10"
+fs2 = "0.4"
+rustix = { version = "1", features = ["fs", "process", "thread", "time", "net"] }
+rusqlite = { version = "0.40.2", features = ["bundled", "hooks"] }
+rustsimhub-wire = { path = "../../../crates/wire" }
+rustsimhub-core-launcher = { path = "../../../crates/core-launcher" }
+rustsimhub-forwarder = { path = "../../../crates/forwarder" }
+rustsimhub-storage = { path = "../../../crates/storage", features = ["recovery-grants", "recovery-execution"] }
+rustsimhub-auth = { path = "../../../crates/auth", features = ["recovery-grants", "recovery-execution"] }
+rustsimhub-update = { path = "../../../crates/update" }
+[dev-dependencies]
+ed25519-dalek = "2.2"
+tempfile = "3"

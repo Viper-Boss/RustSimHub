@@ -4,6 +4,9 @@
 use crate::{installation_contract, select_for_arch, Contract, Error, Metadata, Mode};
 use serde::{Deserialize, Serialize};
 
+#[path = "runtime_compatibility/mod.rs"]
+mod runtime_compatibility;
+
 const MAX_REQUEST: usize = 128 * 1024;
 const OUTBOX_APP: i64 = 0x5253_4657;
 
@@ -156,6 +159,8 @@ pub struct UpgradeReport {
     candidate: Assessment,
     fallback_after_candidate: Assessment,
     projected_data: DataVersions,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    product: Option<runtime_compatibility::ProductExtension>,
 }
 
 impl UpgradeReport {
@@ -256,6 +261,14 @@ pub fn check_upgrade(bytes: &[u8]) -> Result<UpgradeReport, Error> {
     if bytes.is_empty() || bytes.len() > MAX_REQUEST {
         return Err(Error);
     }
+    #[derive(Deserialize)]
+    struct Envelope {
+        format: u16,
+    }
+    let envelope: Envelope = serde_json::from_slice(bytes).map_err(|_| Error)?;
+    if envelope.format == 2 {
+        return runtime_compatibility::compare(bytes);
+    }
     let request: Request = serde_json::from_slice(bytes).map_err(|_| Error)?;
     if request.format != 1
         || !["aarch64", "x86_64"].contains(&request.target_arch.as_str())
@@ -301,6 +314,7 @@ pub fn check_upgrade(bytes: &[u8]) -> Result<UpgradeReport, Error> {
         candidate,
         fallback_after_candidate,
         projected_data,
+        product: None,
     })
 }
 
