@@ -10,6 +10,7 @@ default = []
 email-production-candidate = ["dep:rustsimhub-forwarder", "dep:rustsimhub-policy"]
 
 [dependencies]
+rustsimhub-wire = { path = "../wire" }
 rustsimhub-policy = { path = "../policy", optional = true }
 rustsimhub-forwarder = { path = "../forwarder", optional = true, features = ["smtp-production-candidate"] }
 serde.workspace = true
@@ -22,10 +23,13 @@ fs2 = "0.4"
 rustsimhub-core-launcher = { path = "../core-launcher" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-rustix = { version = "1", features = ["process", "fs", "thread"] }
+rustix = { version = "1", features = ["process", "fs", "thread", "net"] }
 rusqlite = { version = "0.40.2", features = ["bundled", "hooks"] }
 
 [dev-dependencies]
+rustsimhub-core = { path = "../core" }
+rustsimhub-auth = { path = "../auth" }
+tokio = { version = "1", features = ["rt", "time", "macros"] }
 tempfile = "3"
 rustsimhub-storage = { path = "../storage" }
 rustsimhub-forwarder = { path = "../forwarder" }

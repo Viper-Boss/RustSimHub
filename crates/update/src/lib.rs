@@ -135,6 +135,20 @@ pub fn verify(
     Ok(m)
 }
 pub fn verify_payload(m: &Manifest, payloads: &[Vec<u8>]) -> Result<(), Error> {
+    verify_payload_machine(m, payloads, 183)
+}
+// A native isolated fixture must still pass all signed sizes/digests/ELF
+// checks. This function/entrypoint does not exist in a production artifact.
+#[cfg(test)]
+pub(crate) fn verify_native_fixture(m: &Manifest, payloads: &[Vec<u8>]) -> Result<(), Error> {
+    let machine = match std::env::consts::ARCH {
+        "x86_64" => 62,
+        "aarch64" => 183,
+        _ => return Err(Error::Board),
+    };
+    verify_payload_machine(m, payloads, machine)
+}
+fn verify_payload_machine(m: &Manifest, payloads: &[Vec<u8>], machine: u16) -> Result<(), Error> {
     let names = application_files(m.format)?;
     if payloads.len() != names.len()
         || m.files.len() != names.len()
@@ -154,7 +168,7 @@ pub fn verify_payload(m: &Manifest, payloads: &[Vec<u8>]) -> Result<(), Error> {
                 || bytes[6] != 1
                 || !matches!(u16::from_le_bytes([bytes[16], bytes[17]]), 2 | 3)
                 || u16::from_le_bytes([bytes[52], bytes[53]]) != 64
-                || u16::from_le_bytes([bytes[18], bytes[19]]) != 183)
+                || u16::from_le_bytes([bytes[18], bytes[19]]) != machine)
         {
             return Err(Error::Board);
         }

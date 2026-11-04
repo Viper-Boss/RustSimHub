@@ -88,3 +88,25 @@ fn external_sqlite_generation_change_invalidates_original_live_lease() {
     drop(lease);
     assert!(h.cursor().is_ok());
 }
+#[test]
+fn writer_lock_replacement_and_pending_restore_invalidate_the_same_actor_lease() {
+    for pending in [false, true] {
+        let (d, s) = bound();
+        let h = s.handle();
+        let lease = h
+            .update_health_lease(Instant::now() + Duration::from_secs(2), false)
+            .unwrap();
+        if pending {
+            fs::write(d.path().join(".restore-pending"), b"restore").unwrap();
+        } else {
+            fs::rename(
+                d.path().join(".writer.lock"),
+                d.path().join(".old-writer.lock"),
+            )
+            .unwrap();
+            fs::write(d.path().join(".writer.lock"), b"").unwrap();
+        }
+        assert!(lease.revalidate().is_err());
+        drop(lease);
+    }
+}

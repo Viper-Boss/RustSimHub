@@ -12,6 +12,7 @@ use std::{
     cell::Cell,
     time::{Duration, Instant},
 };
+pub mod confirmation;
 mod files;
 mod linux;
 pub(crate) mod units;

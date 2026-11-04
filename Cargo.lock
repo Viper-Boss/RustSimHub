@@ -2277,14 +2277,18 @@ dependencies = [
  "getrandom 0.4.3",
  "rusqlite",
  "rustix",
+ "rustsimhub-auth",
+ "rustsimhub-core",
  "rustsimhub-core-launcher",
  "rustsimhub-forwarder",
  "rustsimhub-policy",
  "rustsimhub-storage",
+ "rustsimhub-wire",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "tempfile",
+ "tokio",
  "zeroize",
 ]
 
