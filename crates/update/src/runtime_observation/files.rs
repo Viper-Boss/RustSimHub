@@ -98,6 +98,15 @@ impl Slot {
         versions: &Path,
         ancestors: &[&Path],
     ) -> Result<Self> {
+        Self::at_using(ledger, selected, versions, ancestors, verify_payload)
+    }
+    fn at_using(
+        ledger: &ReadOnlyState,
+        selected: &Path,
+        versions: &Path,
+        ancestors: &[&Path],
+        check: fn(&Manifest, &[Vec<u8>]) -> Result<()>,
+    ) -> Result<Self> {
         let mut guards = Vec::new();
         for directory in ancestors
             .iter()
@@ -157,7 +166,7 @@ impl Slot {
             .iter()
             .map(|e| read(&target.join(&e.name), e.bytes as usize, &mut guards))
             .collect::<Result<Vec<_>>>()?;
-        verify_payload(&manifest, &payloads)?;
+        check(&manifest, &payloads)?;
         let slot = Self {
             manifest,
             hash: hash.into(),
@@ -188,6 +197,12 @@ impl Slot {
             return Err(Error::Integrity);
         }
         Ok(())
+    }
+    pub(super) fn signed(&self) -> Result<crate::store::SignedGroup> {
+        let bytes = read_checked(&self.directory.join("manifest.json"), MAX_MANIFEST)?;
+        let signature = read_checked(&self.directory.join("manifest.sig"), 64)?;
+        let payloads = crate::store::load_payloads(&self.directory, &self.manifest)?;
+        Ok((bytes, signature, payloads))
     }
     pub(super) fn executable(&self, role: &str) -> Result<(PathBuf, &str)> {
         let entry = self
@@ -222,4 +237,21 @@ fn read(path: &Path, max: usize, guards: &mut Vec<Guard>) -> Result<Vec<u8>> {
     guard.check()?;
     guards.push(guard);
     Ok(bytes)
+}
+
+#[cfg(test)]
+impl Slot {
+    pub(super) fn native_fixture(
+        ledger: &ReadOnlyState,
+        selected: &Path,
+        versions: &Path,
+    ) -> Result<Self> {
+        Self::at_using(
+            ledger,
+            selected,
+            versions,
+            &[],
+            crate::verify_native_fixture,
+        )
+    }
 }

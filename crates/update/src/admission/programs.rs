@@ -55,8 +55,27 @@ impl SignedPrograms {
         schema: u32,
         mut read_metadata: impl FnMut(&[u8]) -> Result<Vec<u8>>,
     ) -> Result<Self> {
+        Self::inspect_using(
+            manifest,
+            signature,
+            public_key,
+            payloads,
+            schema,
+            verify_payload,
+            &mut read_metadata,
+        )
+    }
+    fn inspect_using(
+        manifest: &[u8],
+        signature: &[u8],
+        public_key: &[u8; 32],
+        payloads: &[Vec<u8>],
+        schema: u32,
+        check: fn(&crate::Manifest, &[Vec<u8>]) -> Result<()>,
+        mut read_metadata: impl FnMut(&[u8]) -> Result<Vec<u8>>,
+    ) -> Result<Self> {
         let verified = verify(manifest, signature, public_key, schema, 0)?;
-        verify_payload(&verified, payloads)?;
+        check(&verified, payloads)?;
         let mut observe = |index: usize, worker: bool| -> Result<String> {
             let bytes = read_metadata(&payloads[index])?;
             if bytes.is_empty() || bytes.len() > LIMIT {
@@ -92,7 +111,7 @@ impl SignedPrograms {
         })
     }
 
-    fn metadata(&self) -> ProgramMetadata<'_> {
+    pub(crate) fn metadata(&self) -> ProgramMetadata<'_> {
         ProgramMetadata {
             core: &self.core,
             worker: self.worker.as_deref(),
@@ -260,6 +279,9 @@ impl Drop for Reap {
 }
 
 fn capture(bytes: &[u8], uid: u32) -> Result<Vec<u8>> {
+    capture_for(bytes, uid, Duration::from_secs(3))
+}
+fn capture_for(bytes: &[u8], uid: u32, budget: Duration) -> Result<Vec<u8>> {
     let change_identity =
         rustix::process::geteuid().as_raw() != uid || rustix::process::getegid().as_raw() != uid;
     if change_identity {
@@ -294,7 +316,7 @@ fn capture(bytes: &[u8], uid: u32) -> Result<Vec<u8>> {
     let flags = rustix::fs::fcntl_getfl(&output).map_err(|_| Error::Io)?;
     rustix::fs::fcntl_setfl(&output, flags | rustix::fs::OFlags::NONBLOCK)
         .map_err(|_| Error::Io)?;
-    let deadline = Instant::now() + Duration::from_secs(3);
+    let deadline = Instant::now() + budget;
     let mut result = Vec::new();
     loop {
         let mut part = [0; 4096];
@@ -444,4 +466,59 @@ pub fn migrate_email4(
     }
     snapshot.verify_effective_systemd()?;
     Ok(())
+}
+
+// Running confirmation reuses the ORIGINAL signed metadata comparison, with
+// a stricter bounded subprocess budget. No caller-provided metadata in product.
+impl SignedPrograms {
+    pub(crate) fn running_inspect(
+        group: &crate::store::SignedGroup,
+        key: &[u8; 32],
+    ) -> Result<Self> {
+        Self::inspect_with(&group.0, &group.1, key, &group.2, 6, |b| {
+            capture_for(b, 986, Duration::from_millis(250))
+        })
+    }
+    pub(crate) fn supports_running_health(&self) -> Result<()> {
+        #[derive(Deserialize)]
+        struct Health {
+            update_health_protocol: u16,
+            update_health_default_enabled: bool,
+        }
+        let health: Health = serde_json::from_str(&self.core).map_err(|_| Error::Denied)?;
+        if health.update_health_protocol != 1 || health.update_health_default_enabled {
+            return Err(Error::Denied);
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+impl SignedPrograms {
+    /// Only metadata subprocess output is synthetic in the native fixture.
+    /// Production still executes sealed signed ARM bytes, never this adapter.
+    pub(crate) fn native_fixture(
+        group: &crate::store::SignedGroup,
+        key: &[u8; 32],
+        core: Vec<u8>,
+        worker: Vec<u8>,
+    ) -> Result<Self> {
+        let mut index = 0;
+        Self::inspect_using(
+            &group.0,
+            &group.1,
+            key,
+            &group.2,
+            6,
+            crate::verify_native_fixture,
+            |_| {
+                index += 1;
+                Ok(if index == 1 {
+                    core.clone()
+                } else {
+                    worker.clone()
+                })
+            },
+        )
+    }
 }

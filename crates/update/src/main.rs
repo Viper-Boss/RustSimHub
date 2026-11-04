@@ -56,12 +56,27 @@ fn run() -> Result<(), rustsimhub_update::Error> {
     if args == ["--build-info"] {
         println!(
             "{}",
-            serde_json::json!({"source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"system_ota_supported":false,"boot_runtime_selection_supported":true,"forwarding_application_format_supported":true,"signed_application_formats":[1,2],"database_schema":SCHEMA,"maintenance_observation_protocol":1,"read_only_state_inspection_protocol":1,"read_only_runtime_inspection_protocol":1})
+            serde_json::json!({"source_archive_sha256":option_env!("RUSTSIMHUB_BUILD_SOURCE_SHA256"),"system_ota_supported":false,"boot_runtime_selection_supported":true,"forwarding_application_format_supported":true,"signed_application_formats":[1,2],"database_schema":SCHEMA,"maintenance_observation_protocol":1,"read_only_state_inspection_protocol":1,"read_only_runtime_inspection_protocol":1,"running_candidate_confirmation_protocol":1,"running_candidate_confirmation_default_enabled":false})
         );
         return Ok(());
     }
     if rustix::process::geteuid().as_raw() != 0 {
         return Err(Error::Denied);
+    }
+    if args
+        .first()
+        .is_some_and(|command| command == "confirm-running-candidate")
+    {
+        if args.len() != 1 {
+            return Err(Error::Invalid);
+        }
+        let confirmation =
+            rustsimhub_update::runtime_observation::confirmation::confirm_running_candidate()?;
+        println!(
+            "{}",
+            serde_json::to_string(&confirmation).map_err(|_| Error::Invalid)?
+        );
+        return Ok(());
     }
     if args
         .first()

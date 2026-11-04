@@ -13,6 +13,7 @@ use std::{
 };
 mod database;
 mod programs;
+pub(crate) mod running;
 mod systemd;
 use database::Database;
 pub use programs::{
