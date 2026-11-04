@@ -362,11 +362,25 @@ mod tests;
 #[cfg(feature = "email-production-candidate")]
 pub fn migrate_email4(
     store: &mut Store,
-    mut snapshot: MaintenanceSnapshot,
+    snapshot: MaintenanceSnapshot,
     manifest: &[u8],
     signature: &[u8],
     payloads: &[Vec<u8>],
 ) -> Result<()> {
+    migrate_email4_retained(store, snapshot, manifest, signature, payloads).map(|_| ())
+}
+
+/// The SAME held business/Root guard returns after the original outbox-only
+/// handshake. The legacy API above intentionally drops it on return; a combined
+/// product transaction must use this variant, never observe a replacement.
+#[cfg(feature = "email-production-candidate")]
+pub fn migrate_email4_retained(
+    store: &mut Store,
+    mut snapshot: MaintenanceSnapshot,
+    manifest: &[u8],
+    signature: &[u8],
+    payloads: &[Vec<u8>],
+) -> Result<MaintenanceSnapshot> {
     use rustsimhub_forwarder::{
         supervisor::{migrate_email4_blocking, Context},
         RuntimeCompatibility,
@@ -465,7 +479,7 @@ pub fn migrate_email4(
         }
     }
     snapshot.verify_effective_systemd()?;
-    Ok(())
+    Ok(snapshot)
 }
 
 // Running confirmation reuses the ORIGINAL signed metadata comparison, with

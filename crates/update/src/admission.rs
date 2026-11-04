@@ -21,7 +21,7 @@ pub use programs::{
 };
 
 #[cfg(feature = "email-production-candidate")]
-pub use programs::migrate_email4;
+pub use programs::{migrate_email4, migrate_email4_retained};
 
 type Result<T> = std::result::Result<T, Error>;
 const STATE: &str = "var/lib/rustsimhub/rustsimhub-v1/core/state";

@@ -7,12 +7,13 @@ license.workspace = true
 
 [features]
 default = []
-email-production-candidate = ["dep:rustsimhub-forwarder", "dep:rustsimhub-policy"]
+email-production-candidate = ["rustsimhub-forwarder/smtp-production-candidate", "dep:rustsimhub-policy"]
 
 [dependencies]
 rustsimhub-wire = { path = "../wire" }
 rustsimhub-policy = { path = "../policy", optional = true }
-rustsimhub-forwarder = { path = "../forwarder", optional = true, features = ["smtp-production-candidate"] }
+rustsimhub-forwarder = { path = "../forwarder" }
+rustsimhub-storage = { path = "../storage", features = ["recovery-grants", "recovery-execution"] }
 serde.workspace = true
 serde_json.workspace = true
 sha2 = "0.10"
@@ -23,7 +24,7 @@ fs2 = "0.4"
 rustsimhub-core-launcher = { path = "../core-launcher" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-rustix = { version = "1", features = ["process", "fs", "thread", "net"] }
+rustix = { version = "1", features = ["process", "fs", "thread", "net", "time"] }
 rusqlite = { version = "0.40.2", features = ["bundled", "hooks"] }
 
 [dev-dependencies]

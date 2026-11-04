@@ -94,6 +94,55 @@ fn main() {
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // These finite commands must precede ALL activation prefixes. Never infer
+    // a mode/schema/path from caller JSON, and never open the normal Store.
+    if args
+        .first()
+        .is_some_and(|s| s == "--product-runtime-compatibility")
+    {
+        if args.len() != 2 {
+            return Err("invalid product metadata arguments".into());
+        }
+        match rustsimhub_core::runtime_compatibility::metadata(&args[1]) {
+            Ok(value) => {
+                println!("{value}");
+                return Ok(());
+            }
+            Err(error) => {
+                eprintln!("rustsimhub-core: {error}");
+                std::process::exit(4);
+            }
+        }
+    }
+    if args.first().is_some_and(|s| {
+        s == "--migrate-product-recovery-child" || s == "--inspect-product-recovery-upgrade"
+    }) {
+        if args.len() != 1 {
+            return Err("invalid fixed product recovery command".into());
+        }
+        #[cfg(all(target_os = "linux", feature = "recovery-execution"))]
+        {
+            if args[0] == "--migrate-product-recovery-child" {
+                rustsimhub_core::product_recovery_child::child()
+                    .map_err(|_| "product recovery child denied")?;
+            } else {
+                if rustix::process::geteuid().as_raw() != 0 {
+                    return Err("product recovery inspection requires Root".into());
+                }
+                println!(
+                    "{}",
+                    rustsimhub_core::product_recovery_child::inspect()
+                        .map_err(|_| "product recovery inspection unavailable")?
+                );
+            }
+            return Ok(());
+        }
+        #[cfg(not(all(target_os = "linux", feature = "recovery-execution")))]
+        {
+            return Err("product recovery maintenance is not compiled".into());
+        }
+    }
+
     let args = if args
         .first()
         .is_some_and(|a| a == "--enable-update-health-candidate")

@@ -197,6 +197,20 @@ pub fn migrate_email4(
     fallback: &SignedProductPrograms,
     journal: &mut UpgradeJournal,
 ) -> Result<(), Error> {
+    migrate_email4_retained(store, snapshot, selected, candidate, fallback, journal).map(|_| ())
+}
+
+/// Combined transactions retain the original live guard after the same
+/// original adapter. No re-observation, alternate sender or relaxed baseline.
+#[cfg(feature = "email-production-candidate")]
+pub fn migrate_email4_retained(
+    store: &mut crate::store::Store,
+    snapshot: MaintenanceSnapshot,
+    selected: &SignedProductPrograms,
+    candidate: &SignedProductPrograms,
+    fallback: &SignedProductPrograms,
+    journal: &mut UpgradeJournal,
+) -> Result<MaintenanceSnapshot, Error> {
     let checked = ProductDataAdmission::compare(&snapshot, selected, candidate, fallback)?;
     if checked.exit_code() == 4 {
         return Err(Error::Denied);
@@ -205,7 +219,7 @@ pub fn migrate_email4(
     drop(checked);
     journal.begin("email4", [selected, candidate, fallback])?;
     journal.phase(Phase::Executing)?;
-    let result = crate::admission::migrate_email4(
+    let result = crate::admission::migrate_email4_retained(
         store,
         snapshot,
         &candidate._manifest,
@@ -213,7 +227,10 @@ pub fn migrate_email4(
         &candidate._payloads,
     );
     match result {
-        Ok(()) => journal.phase(Phase::Committed),
+        Ok(snapshot) => {
+            journal.phase(Phase::Committed)?;
+            Ok(snapshot)
+        }
         Err(error) => {
             journal.phase(Phase::Unknown)?;
             Err(error)
