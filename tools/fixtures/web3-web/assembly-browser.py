@@ -47,7 +47,7 @@ def retained(page):
 
 def show_legacy(page):
     # The console shell shows one page at a time; this fixture exercises every legacy panel.
-    page.evaluate("document.getElementById('c-legacy').hidden=false;for(const n of document.getElementById('c-legacy').children)n.classList.remove('page-off')")
+    page.evaluate("document.getElementById('c-legacy').hidden=false;document.getElementById('c-legacy').classList.add('debug');for(const n of document.getElementById('c-legacy').children)n.classList.remove('page-off')")
 
 def login(page, pin):
     show_legacy(page)
