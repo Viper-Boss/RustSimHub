@@ -36,6 +36,8 @@ async function handle(c){
  case 'system_status':return {schema:1,firmware_version:'0.1.0',model:null,kernel:null,os:null,cpu_cores:null,cpu_busy_ticks:null,cpu_total_ticks:null,load_1m:null,memory_total_bytes:null,memory_available_bytes:null,storage_total_bytes:null,storage_free_bytes:null,temperature_c:null,uptime_seconds:null};
  case 'call_status':return {available:true,active_calls:0,live_calls:[]};
  case 'inbox':return {messages:[],cursor:null};
+ case 'inbox_recent':return {messages:[],cursor:null,total:0};
+ case 'calls_recent':return {calls:[],cursor:null,total:0};
  case 'calls':return {calls:[],cursor:null};
  case 'health':return {history_read_api:false,wifi_provisioning_api:false};
  case 'network_status':case 'network_diagnostics':case 'sms_management_status':return {available:false};

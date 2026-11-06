@@ -127,3 +127,10 @@ export async function importKeyPair(seed,subtle=globalThis.crypto?.subtle){
  pkcs8.fill(0);
  return {privateKey,publicKey:publicKeyObject};
 }
+// A failed attempt must leave this browser's approved key in place: only a login
+// that actually signed in may replace what is stored.
+export async function tryIdentity({use,login,loggedIn,commit,rollback}){
+ use();
+ try{await login();}
+ finally{if(loggedIn())await commit();else rollback();}
+}

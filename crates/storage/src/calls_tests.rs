@@ -292,3 +292,43 @@ fn restart_and_sim_change_quarantine_operations_and_control_records() {
         SmsState::Cancelled
     );
 }
+#[test]
+fn recent_calls_are_newest_first_counted_and_never_carry_numbers() {
+    let (_d, s, _p, b) = fixture();
+    let h = s.handle();
+    let empty = h.calls_recent(None, 16).unwrap();
+    assert!(empty.calls.is_empty());
+    assert_eq!(empty.total, 0);
+    assert_eq!(empty.cursor.seq, "0");
+    let ids = (0..3)
+        .map(|n| {
+            h.observe_call(b.clone(), observation(&format!("call/{n}#1"), 7), || true)
+                .unwrap()
+                .id
+        })
+        .collect::<Vec<_>>();
+    let first = h.calls_recent(None, 2).unwrap();
+    assert_eq!(first.total, 3);
+    assert_eq!(
+        first.calls.iter().map(|c| &c.id).collect::<Vec<_>>(),
+        [&ids[2], &ids[1]]
+    );
+    let value = serde_json::to_value(&first).unwrap();
+    assert!(value["calls"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|c| c.get("number").is_none()));
+    let second = h.calls_recent(Some(first.cursor), 2).unwrap();
+    assert_eq!(
+        second.calls.iter().map(|c| &c.id).collect::<Vec<_>>(),
+        [&ids[0]]
+    );
+    assert!(matches!(h.calls_recent(None, 0), Err(Error::InvalidInput)));
+    let mut stale = second.cursor;
+    stale.db_epoch = "other".into();
+    assert!(matches!(
+        h.calls_recent(Some(stale), 1),
+        Err(Error::ResyncRequired)
+    ));
+}
