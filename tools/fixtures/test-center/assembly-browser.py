@@ -41,6 +41,8 @@ def authenticated_configuration(page,width,output):
             elif op=='system_status':result={'schema':1,'firmware_version':'0.1.0'}
             elif op=='call_status':result={'available':True,'live_calls':[],'active_calls':0}
             elif op=='inbox':result={'messages':[],'cursor':None}
+            elif op=='inbox_recent':result={'messages':[],'cursor':None,'total':0}
+            elif op=='calls_recent':result={'calls':[],'cursor':None,'total':0}
             elif op=='calls':result={'calls':[],'cursor':None}
             elif op=='health':result={'history_read_api':False,'wifi_provisioning_api':False}
             elif op in ['network_status','network_diagnostics','sms_management_status']:result={'available':False}

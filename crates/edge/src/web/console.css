@@ -577,3 +577,8 @@ body{margin:0;background:var(--bg)}
 
 .cs .m-back{display:none}
 @media (max-width:820px){.cs button.m-back:not([hidden]){display:grid}}
+.login-alt{margin-top:16px;padding-top:16px;border-top:1px solid var(--line,#e6e9ef)}
+.login-alt p{margin:0 0 10px}
+.login-alt button{width:100%}
+.cs .pg-btn.mc-more{display:block;width:100%;margin:0 0 16px}
+.cs .pg-btn.mc-more[hidden]{display:none}

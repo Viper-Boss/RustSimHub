@@ -134,6 +134,76 @@ mod tests {
         }
     }
     #[test]
+    fn recent_inbox_is_newest_first_counts_everything_and_skips_deleted() {
+        let (_directory, store, owner, oldest) = fixture();
+        let h = store.handle();
+        let line = h.line_epoch().unwrap();
+        let mut ids = vec![oldest];
+        for n in 0..4 {
+            let mut sms = message(line);
+            sms.source = format!("synthetic-source-{n}");
+            sms.text = format!("正文{n}");
+            ids.push(h.receive_sms(sms).unwrap().id);
+        }
+        let first = h.inbox_recent(None, 2).unwrap();
+        assert_eq!(first.total, 5);
+        assert_eq!(
+            first.messages.iter().map(|m| &m.id).collect::<Vec<_>>(),
+            [&ids[4], &ids[3]]
+        );
+        let second = h.inbox_recent(Some(first.cursor.clone()), 2).unwrap();
+        assert_eq!(
+            second.messages.iter().map(|m| &m.id).collect::<Vec<_>>(),
+            [&ids[2], &ids[1]]
+        );
+        // A row deleted while paging leaves both the page and the count.
+        h.set_sms_deleted(owner, ids[0].clone(), true).unwrap();
+        let last = h.inbox_recent(Some(second.cursor.clone()), 2).unwrap();
+        assert!(last.messages.is_empty());
+        assert_eq!(last.total, 4);
+        assert_eq!(
+            last.cursor.seq, second.cursor.seq,
+            "an empty page stays put"
+        );
+        assert!(h
+            .inbox_recent(Some(last.cursor), 2)
+            .unwrap()
+            .messages
+            .is_empty());
+        assert_eq!(h.inbox_recent(None, 32).unwrap().messages.len(), 4);
+    }
+    #[test]
+    fn recent_inbox_refuses_bad_limits_and_cursors_from_another_position() {
+        let (_directory, store, _owner, _id) = fixture();
+        let h = store.handle();
+        for limit in [0, 33] {
+            assert!(matches!(
+                h.inbox_recent(None, limit),
+                Err(Error::InvalidInput)
+            ));
+        }
+        let good = h.inbox_recent(None, 1).unwrap().cursor;
+        for bad in [
+            InboxCursor {
+                db_epoch: "other".into(),
+                seq: good.seq.clone(),
+            },
+            InboxCursor {
+                db_epoch: good.db_epoch.clone(),
+                seq: "999999".into(),
+            },
+            InboxCursor {
+                db_epoch: good.db_epoch.clone(),
+                seq: "-1".into(),
+            },
+        ] {
+            assert!(matches!(
+                h.inbox_recent(Some(bad), 1),
+                Err(Error::ResyncRequired)
+            ));
+        }
+    }
+    #[test]
     fn delete_restore_are_idempotent_persistent_and_observer_cannot_undo_them() {
         let (directory, store, owner, id) = fixture();
         let h = store.handle();
