@@ -51,12 +51,12 @@ def authenticated_configuration(page,width,output):
         route.fulfill(status=200,content_type='application/json',body=json.dumps({'protocol':2,'id':body['id'],'result':result}))
     page.route('**/api/v2',api)
     # The console shell shows one page at a time; this fixture exercises every legacy panel.
-    page.evaluate("document.getElementById('c-legacy').hidden=false;for(const n of document.getElementById('c-legacy').children)n.classList.remove('page-off')")
+    page.evaluate("document.getElementById('c-legacy').hidden=false;document.getElementById('c-legacy').classList.add('debug');for(const n of document.getElementById('c-legacy').children)n.classList.remove('page-off')")
     page.locator('#pin').evaluate("e=>{for(let p=e.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;}")
     page.locator('#pin').fill(bytes(device).hex())
     page.evaluate("document.querySelectorAll('details[data-configuration]').forEach(e=>e.open=false)")
     if not page.locator('#account-panel').evaluate('e=>e.open'):page.locator('#account-panel > summary').click()
-    page.locator('#daily-login').click();page.wait_for_function("() => !document.querySelector('#support-configuration button').disabled && document.getElementById('c-legacy').hidden");page.evaluate("document.getElementById('c-legacy').hidden=false;for(const n of document.getElementById('c-legacy').children)n.classList.remove('page-off')")
+    page.locator('#daily-login').click();page.wait_for_function("() => !document.querySelector('#support-configuration button').disabled && document.getElementById('c-legacy').hidden");page.evaluate("document.getElementById('c-legacy').hidden=false;document.getElementById('c-legacy').classList.add('debug');for(const n of document.getElementById('c-legacy').children)n.classList.remove('page-off')")
     assert commands.count('challenge')==1 and commands.count('authenticate')==1
     assert commands.count('forwarding_status')==0,'Login/render must not fetch configuration'
     for enabled in [True,False]:
