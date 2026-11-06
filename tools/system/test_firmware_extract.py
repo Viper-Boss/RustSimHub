@@ -106,6 +106,17 @@ def fat16(files, sectors=32768):
 
 @unittest.skipUnless(os.geteuid() == 0 and shutil.which('debugfs'), 'needs root, loop devices and debugfs')
 class FirmwareExtractTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        with tempfile.TemporaryDirectory() as temporary:
+            image = pathlib.Path(temporary)/'fat'
+            image.write_bytes(fat16({'probe.bin': b'x'}))
+            result = subprocess.run(['mount', '-t', 'vfat', '-o', 'loop,ro', str(image), temporary],
+                                    capture_output=True, text=True)
+            if result.returncode:
+                raise unittest.SkipTest('kernel cannot mount vfat loop images here: '+result.stderr.strip())
+            subprocess.run(['umount', temporary], check=True)
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = pathlib.Path(self.tmp.name)

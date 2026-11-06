@@ -261,6 +261,10 @@ boot 写入计划 `.private/new-stick-write-plan-20261101-boot/`：载荷为原�
 
 重新进入 9008 后执行一次，报告在 UsbTool `dist/.local/writes/20261101-084416/`。64 MiB 载荷三次回读一致，保护区（含 aboot、devinfo）全部未变，GPT 仍为 5eadff18…。现在新棒子有 lk1st 和通用 boot；还缺 NSHSTATE 与 rootfs，上电会停在 initramfs。
 
+## 通用刷机包（2026-11-07，离线）
+
+上文“每根棒子一份 NSHSTATE”的做法已由通用刷机包取代：镜像不带单台设备的数据，首次开机由设备自己提取固件并生成身份。设计见 [通用刷机包](generic-flash-pack.md)，结果见 [验证记录](VALIDATION-GENERIC-FLASH-PACK-20261107.md)。没有写设备，也没有真机启动；新棒子的 NSHSTATE 和 rootfs 仍未写入。PR #62 已由 #148 整合，打包基线条件满足。
+
 ## 当前状态
 
 - 已完成：方案、离线表决与哈希段分析、GPT 计划生成器及真实输入的离线计划、第 0b 步 lk1st 提取、第 0c 步只读读取、二手棒子固件包。
