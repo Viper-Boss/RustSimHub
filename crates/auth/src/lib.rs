@@ -187,6 +187,15 @@ impl Auth {
         self.authorize(token, Scope::CallsRead)?;
         Ok(self.store.calls(after, limit)?)
     }
+    pub fn calls_recent(
+        &mut self,
+        token: &str,
+        before: Option<rustsimhub_storage::InboxCursor>,
+        limit: usize,
+    ) -> Result<rustsimhub_storage::RecentCallPage> {
+        self.authorize(token, Scope::CallsRead)?;
+        Ok(self.store.calls_recent(before, limit)?)
+    }
     pub fn call_detail(
         &mut self,
         token: &str,
@@ -216,6 +225,15 @@ impl Auth {
     ) -> Result<rustsimhub_storage::InboxPage> {
         self.authorize(token, Scope::SmsRead)?;
         Ok(self.store.inbox(after, limit)?)
+    }
+    pub fn inbox_recent(
+        &mut self,
+        token: &str,
+        before: Option<rustsimhub_storage::InboxCursor>,
+        limit: usize,
+    ) -> Result<rustsimhub_storage::RecentInboxPage> {
+        self.authorize(token, Scope::SmsRead)?;
+        Ok(self.store.inbox_recent(before, limit)?)
     }
     pub fn sms_detail(&mut self, token: &str, id: String) -> Result<rustsimhub_storage::SmsDetail> {
         self.authorize(token, Scope::SmsRead)?;

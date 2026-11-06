@@ -2,7 +2,7 @@
 // Pure-JS password key derivation and Ed25519 against RFC vectors and Node's WebCrypto.
 import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
-import {sha256,sha512,pbkdf2,publicKey,sign,deriveSeed,importKeyPair,normalizeUsername,normalizePassword,ITERATIONS} from '../crates/edge/src/web/password.js';
+import {sha256,sha512,pbkdf2,publicKey,sign,deriveSeed,importKeyPair,normalizeUsername,normalizePassword,tryIdentity,ITERATIONS} from '../crates/edge/src/web/password.js';
 const subtle=webcrypto.subtle,enc=new TextEncoder();
 const hex=b=>Buffer.from(b).toString('hex'),bytes=h=>new Uint8Array(Buffer.from(h,'hex'));
 let passed=0;const ok=()=>passed++;
@@ -50,4 +50,13 @@ for(const bad of ['short', 'a'.repeat(65), 'abcdefg\n'])assert.throws(()=>normal
 await assert.rejects(importKeyPair(seed,null));
 assert.throws(()=>deriveSeed(new Uint8Array(31),'admin','correct horse'));
 ok();
-console.log(`password ${passed}/5 groups passed; derivation ${ms} ms`);
+// A failed password attempt must leave the approved browser key usable and stored.
+{const attempt=async({fails,token=null,throwsAfterToken=false})=>{const state={key:'approved',stored:'approved',token:null,archived:null};let error=null;
+  try{await tryIdentity({use:()=>{state.key='derived';},login:async()=>{assert.equal(state.key,'derived','login signs with the candidate');if(fails)throw Error('denied');state.token=token;if(throwsAfterToken)throw Error('refresh failed');},loggedIn:()=>!!state.token,commit:async()=>{state.archived=state.stored;state.stored=state.key;},rollback:()=>{state.key='approved';}});}catch(e){error=e;}
+  return {...state,error};};
+ const denied=await attempt({fails:true});assert.equal(denied.error?.message,'denied','the failure still reaches the page');assert.equal(denied.key,'approved');assert.equal(denied.stored,'approved');assert.equal(denied.archived,null);
+ const noToken=await attempt({fails:false});assert.equal(noToken.key,'approved','no session means no replacement');assert.equal(noToken.stored,'approved');
+ const good=await attempt({fails:false,token:'t'});assert.equal(good.error,null);assert.equal(good.stored,'derived');assert.equal(good.archived,'approved');
+ const late=await attempt({fails:false,token:'t',throwsAfterToken:true});assert.equal(late.error?.message,'refresh failed');assert.equal(late.stored,'derived','signed in, then a later read failed: keep the working key');}
+ok();
+console.log(`password ${passed}/6 groups passed; derivation ${ms} ms`);

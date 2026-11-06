@@ -217,6 +217,17 @@ async fn sms_trash_round_trip_preserves_identity_and_rejects_unsigned_mutation()
     .await;
     assert_eq!(result["sms_id"], id);
     assert_eq!(result["deleted"], true);
+    let recent = round_trip(
+        AuthCommand::InboxRecent {
+            token: token.clone(),
+            before: None,
+            limit: 16,
+        },
+        auth.clone(),
+    )
+    .await;
+    assert_eq!(recent["messages"], serde_json::json!([]));
+    assert_eq!(recent["total"], 0, "deleted rows leave the count");
     assert_eq!(
         round_trip(
             AuthCommand::Inbox {
@@ -514,6 +525,20 @@ async fn ipc_requires_proof_and_checks_revocation_even_from_same_uid() {
         .await["error"],
         "denied"
     );
+    for command in [
+        AuthCommand::InboxRecent {
+            token: "0".repeat(64),
+            before: None,
+            limit: 16,
+        },
+        AuthCommand::CallsRecent {
+            token: "0".repeat(64),
+            before: None,
+            limit: 16,
+        },
+    ] {
+        assert_eq!(round_trip(command, auth.clone()).await["error"], "denied");
+    }
     let c = round_trip(AuthCommand::Challenge { public_key: key }, auth.clone()).await;
     let transcript: Vec<u8> = serde_json::from_value(c["transcript"].clone()).unwrap();
     let id = c["id"].as_str().unwrap().to_owned();

@@ -86,6 +86,14 @@ pub struct InboxPage {
     pub messages: Vec<SmsSummary>,
     pub cursor: InboxCursor,
 }
+/// Newest-first page for dashboards. `cursor` continues towards older rows and
+/// `total` counts every readable message, not only this page.
+#[derive(Debug, Serialize)]
+pub struct RecentInboxPage {
+    pub messages: Vec<SmsSummary>,
+    pub cursor: InboxCursor,
+    pub total: u64,
+}
 #[derive(Debug, Serialize)]
 pub struct InboxEvent {
     pub seq: String,
@@ -215,6 +223,39 @@ impl Handle {
         let mut messages=Vec::new(); for row in rows {let (s,n)=row?; messages.push(s);seq=n;}
         Ok(InboxPage{messages,cursor:InboxCursor{db_epoch:epoch,seq:seq.to_string()}})
     })
+    }
+    pub fn inbox_recent(
+        &self,
+        before: Option<InboxCursor>,
+        limit: usize,
+    ) -> Result<RecentInboxPage> {
+        self.call(move |db| {
+            let (epoch, from) = position(&db.connection, before.as_ref(), "inbox", limit)?;
+            let upper = if before.is_some() { from } else { i64::MAX };
+            let total: i64 = db.connection.query_row(
+                "SELECT COUNT(*) FROM inbox WHERE NOT EXISTS(SELECT 1 FROM inbox_tombstones t WHERE t.sms_id=inbox.id)",
+                [],
+                |r| r.get(0),
+            )?;
+            let mut stmt = db.connection.prepare("SELECT id,line_epoch,length(data)>0,duplicate_candidate,seq,sender,timestamp,substr(body,1,96) FROM inbox WHERE seq<? AND NOT EXISTS(SELECT 1 FROM inbox_tombstones t WHERE t.sms_id=inbox.id) ORDER BY seq DESC LIMIT ?")?;
+            let rows = stmt.query_map(params![upper, limit as i64], |r| {
+                Ok((list_summary(r)?, r.get::<_, i64>(4)?))
+            })?;
+            let (mut messages, mut seq) = (Vec::new(), from);
+            for row in rows {
+                let (summary, next) = row?;
+                messages.push(summary);
+                seq = next;
+            }
+            Ok(RecentInboxPage {
+                messages,
+                cursor: InboxCursor {
+                    db_epoch: epoch,
+                    seq: seq.to_string(),
+                },
+                total: total as u64,
+            })
+        })
     }
     pub fn sms_detail(&self, id: String) -> Result<SmsDetail> {
         self.call(move |db| {

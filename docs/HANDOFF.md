@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-11-07 当前设备为应用74（confirmed74/floor74，清单77559ba0）。所有者只有浏览器钥匙，没有账号密码；钥匙在用户Chrome的`https://192.168.120.167:8443`下，不可导出且无备份，不要清这个站点的数据。记录见[VALIDATION-APP72-CONSOLE-INSTALL-20261107.md](VALIDATION-APP72-CONSOLE-INSTALL-20261107.md)。
+
 2026-11-07 应用73安装：固定c5b52558/归档ab99e45b，含各模块界面和手机版；1634 Rust/19专项忽略、音频39，上传、备份、admit、启动、健康后confirm成功，confirmed73/floor73。服务、音频、资源和128条短信复核通过。登录后实际显示待用户确认；数据不显示原因未确认。81.5%与20/169不变。
 
 2026-11-07 应用72控制台实际安装：固定fed77b6d/归档87227efd，1634 Rust通过/19专项忽略、音频39、既有开发签名；上传回读、持锁备份、admit-stage、单次启动、健康后confirm成功，confirmed72/floor72。七服务、转发PID0、数据断开、音频7/7、八资源逐字节一致、短信128保持。原USB维护路径因NAS接口无地址不可用，走局域网固定主机钥匙SSH。登录后页面和system_status真实调用待用户所有者账号确认。正式构建测试依赖Git的问题仍在main。81.5%与20/169不变。详见[安装记录](VALIDATION-APP72-CONSOLE-INSTALL-20261107.md)。

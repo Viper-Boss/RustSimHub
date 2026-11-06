@@ -28,6 +28,13 @@ pub struct CallPage {
     pub calls: Vec<CallSummary>,
     pub cursor: InboxCursor,
 }
+/// Newest-first page for dashboards; like `CallPage` it never carries numbers.
+#[derive(Serialize)]
+pub struct RecentCallPage {
+    pub calls: Vec<CallSummary>,
+    pub cursor: InboxCursor,
+    pub total: u64,
+}
 #[derive(Serialize)]
 pub struct CallEvent {
     pub seq: String,
@@ -158,6 +165,35 @@ impl Handle {
   let rows=stmt.query_map(params![seq,limit as i64],|r|Ok((read_summary(r)?,r.get::<_,i64>(6)?)))?;let mut calls=vec![];for row in rows{let(s,n)=row?;calls.push(s);seq=n;}
   Ok(CallPage{calls,cursor:InboxCursor{db_epoch:epoch,seq:seq.to_string()}})
  })
+    }
+    pub fn calls_recent(
+        &self,
+        before: Option<InboxCursor>,
+        limit: usize,
+    ) -> Result<RecentCallPage> {
+        self.call(move |db| {
+            let (epoch, from) = super::inbox::position(&db.connection, before.as_ref(), "calls", limit)?;
+            let upper = if before.is_some() { from } else { i64::MAX };
+            let total: i64 = db.connection.query_row("SELECT COUNT(*) FROM calls", [], |r| r.get(0))?;
+            let mut stmt = db.connection.prepare("SELECT id,line_epoch,direction,state,reason,availability,seq FROM calls WHERE seq<? ORDER BY seq DESC LIMIT ?")?;
+            let rows = stmt.query_map(params![upper, limit as i64], |r| {
+                Ok((read_summary(r)?, r.get::<_, i64>(6)?))
+            })?;
+            let (mut calls, mut seq) = (vec![], from);
+            for row in rows {
+                let (summary, next) = row?;
+                calls.push(summary);
+                seq = next;
+            }
+            Ok(RecentCallPage {
+                calls,
+                cursor: InboxCursor {
+                    db_epoch: epoch,
+                    seq: seq.to_string(),
+                },
+                total: total as u64,
+            })
+        })
     }
     pub fn call_detail(&self, id: String) -> Result<CallSummary> {
         self.call(move |db| {
