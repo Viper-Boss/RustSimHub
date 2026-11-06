@@ -38,6 +38,7 @@ def authenticated_configuration(page,width,output):
             assert c.get('token')=='c'*64,'Unexpected session in local fixture'
             if op=='forwarding_status':result={'available':True,'configuration_api':True,'service_management_api':True,'service_action':'completed','process_state_verified':state['verified'],'enabled':state['enabled'],'state':'running' if state['enabled'] else 'disabled','generation':1,'configuration_applied':True}
             elif op=='line_status':result={'status':'ready','line':7}
+            elif op=='system_status':result={'schema':1,'firmware_version':'0.1.0'}
             elif op=='call_status':result={'available':True,'live_calls':[],'active_calls':0}
             elif op=='inbox':result={'messages':[],'cursor':None}
             elif op=='calls':result={'calls':[],'cursor':None}
@@ -49,11 +50,13 @@ def authenticated_configuration(page,width,output):
             else:raise AssertionError(f'Unexpected operation: {op}')
         route.fulfill(status=200,content_type='application/json',body=json.dumps({'protocol':2,'id':body['id'],'result':result}))
     page.route('**/api/v2',api)
+    # The console shell shows one page at a time; this fixture exercises every legacy panel.
+    page.evaluate("document.getElementById('c-legacy').hidden=false;for(const n of document.getElementById('c-legacy').children)n.classList.remove('page-off')")
     page.locator('#pin').evaluate("e=>{for(let p=e.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;}")
     page.locator('#pin').fill(bytes(device).hex())
     page.evaluate("document.querySelectorAll('details[data-configuration]').forEach(e=>e.open=false)")
     if not page.locator('#account-panel').evaluate('e=>e.open'):page.locator('#account-panel > summary').click()
-    page.locator('#daily-login').click();page.wait_for_function("() => !document.querySelector('#support-configuration button').disabled")
+    page.locator('#daily-login').click();page.wait_for_function("() => !document.querySelector('#support-configuration button').disabled && document.getElementById('c-legacy').hidden");page.evaluate("document.getElementById('c-legacy').hidden=false;for(const n of document.getElementById('c-legacy').children)n.classList.remove('page-off')")
     assert commands.count('challenge')==1 and commands.count('authenticate')==1
     assert commands.count('forwarding_status')==0,'Login/render must not fetch configuration'
     for enabled in [True,False]:

@@ -242,6 +242,9 @@ pub enum AuthCommand {
     LineStatus {
         token: String,
     },
+    SystemStatus {
+        token: String,
+    },
     NetworkStatus {
         token: String,
     },
@@ -1230,6 +1233,7 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         AuthCommand::Health { token }
         | AuthCommand::Capabilities { token }
         | AuthCommand::LineStatus { token }
+        | AuthCommand::SystemStatus { token }
         | AuthCommand::NetworkStatus { token }
         | AuthCommand::WifiNetworks { token }
         | AuthCommand::SetupApStatus { token }

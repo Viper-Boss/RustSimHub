@@ -45,13 +45,19 @@ def retained(page):
         const value=await new Promise((resolve,reject)=>{reading.onsuccess=()=>resolve(reading.result);reading.onerror=reject;});db.close();return value;
     }''')
 
+def show_legacy(page):
+    # The console shell shows one page at a time; this fixture exercises every legacy panel.
+    page.evaluate("document.getElementById('c-legacy').hidden=false;for(const n of document.getElementById('c-legacy').children)n.classList.remove('page-off')")
+
 def login(page, pin):
+    show_legacy(page)
     page.locator('#pin').evaluate("e=>{for(let p=e.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;}")
     page.fill('#pin', pin)
     page.evaluate("document.querySelectorAll('details[data-configuration]').forEach(e=>e.open=false)")
     page.locator('#account-panel').evaluate('e=>e.open=true')
     page.click('#daily-login')
-    page.wait_for_function("() => document.querySelector('#notice').textContent.includes('已登录')")
+    page.wait_for_function("() => document.querySelector('#notice').textContent.includes('已登录') && document.getElementById('c-legacy').hidden")
+    show_legacy(page)
 
 with sync_playwright() as p:
     browser = p.chromium.launch(executable_path=os.getenv('WEB3_WEB_CHROMIUM', '/usr/bin/chromium'), headless=True, args=['--no-sandbox', '--disable-dev-shm-usage'])
