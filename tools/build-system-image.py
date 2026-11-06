@@ -17,6 +17,8 @@ sys.path.insert(0,str(ROOT/'tools/rootfs/scripts'))
 import rootfs_tools
 
 IMAGE_BYTES=3436183552
+# 2845656-sector rootfs of the generic flash layout, rounded down to UsbTool's 16 KiB write block.
+GENERIC_IMAGE_BYTES=2845656*512//16384*16384
 GATES=('flash_allowed','release_ready','recovery_verified','board_boot_verified','private_data_included')
 
 
@@ -69,7 +71,8 @@ finally:mount.rmdir()
 '''
 
 
-def build(source,out):
+def build(source,out,image_bytes=IMAGE_BYTES):
+    require(image_bytes in (IMAGE_BYTES,GENERIC_IMAGE_BYTES),'Only the two recorded rootfs sizes are allowed')
     candidate,tree,board,lock=check_source(source,out)
     spec=importlib.util.spec_from_file_location('generic_image_audit',ROOT/'tools/rootfs/scripts/audit-rootfs.py')
     audit=importlib.util.module_from_spec(spec);spec.loader.exec_module(audit)
@@ -89,7 +92,7 @@ def build(source,out):
             'tree_sha256':candidate['tree_sha256'],'tree_entries':candidate['tree_entries'],
             'builder_sha256':rootfs_tools.sha256_file(pathlib.Path(__file__)),
             'builder_revision':revision,'generic_audit_passed':True,
-            'bytes':IMAGE_BYTES,'source_date_epoch':epoch,'base_kernel_source_commit':lock['commit'],
+            'bytes':image_bytes,'source_date_epoch':epoch,'base_kernel_source_commit':lock['commit'],
             'base_kernel_source_tree':lock['commit_tree'],'base_kernel_source_attribution_recorded':True,
             'independent_kernel_rebuild_verified':False,'private_firmware_included':False,
             'device_state_initialized':False,'partition_writes':0}
@@ -99,7 +102,7 @@ def build(source,out):
             subprocess.run(args,stdout=handle,stderr=subprocess.STDOUT,check=True,timeout=240,**kwargs)
     try:
         with image.open('xb') as handle:
-            image.chmod(0o600);handle.truncate(IMAGE_BYTES)
+            image.chmod(0o600);handle.truncate(image_bytes)
         info=image.lstat()
         require(stat.S_ISREG(info.st_mode) and info.st_nlink==1,'Image output is not a new regular file')
         env=dict(os.environ,E2FSPROGS_FAKE_TIME=str(epoch))
@@ -127,9 +130,10 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source',type=pathlib.Path,required=True)
     parser.add_argument('--out',type=pathlib.Path,required=True)
+    parser.add_argument('--generic-flash-size',action='store_true',help='Small rootfs for the generic flash layout')
     args=parser.parse_args()
     if sys.platform!='linux' or os.geteuid()!=0:parser.error('Requires Linux root for numeric owners and isolated loop verification')
-    build(args.source.absolute(),args.out.absolute())
+    build(args.source.absolute(),args.out.absolute(),GENERIC_IMAGE_BYTES if args.generic_flash_size else IMAGE_BYTES)
     print('Internal ext4 image matches every candidate entry; state/firmware absent and flash gates remain false')
 
 

@@ -1,0 +1,16 @@
+[Unit]
+Description=Create this device's identity after a generic flash
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/generic-provision.request
+ConditionPathExists=!/var/lib/rustsimhub/rustsimhub-v1/system/installation.complete
+Requires=rustsimhub-firstboot.service
+After=rustsimhub-firstboot.service rustsimhub-ssh-prepare.service systemd-tmpfiles-setup.service
+Before=rustsimhub-app-select.service rustsimhub-core.service rustsimhub-media.service rustsimhub-edge.service rustsimhub-mdns.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/rustsimhub-generic-install
+RemainAfterExit=yes
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

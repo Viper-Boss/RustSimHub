@@ -1,0 +1,170 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-only
+# Generic flash first boot only: copy this device's own signed modem/WCNSS firmware
+# and its own Wi-Fi NV file into NSHSTATE. Both source partitions stay read-only:
+# modem through a read-only loop, persist through debugfs without a kernel mount, so
+# an unreplayed persist journal is never replayed. No NV/calibration partition is
+# opened for writing and no other partition is opened at all.
+set -eu
+umask 077
+LC_ALL=C
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export LC_ALL PATH
+test "$#" = 0
+test "$(id -u)" = 0
+/usr/local/libexec/rustsimhub-state-check
+state=/var/lib/rustsimhub
+request=$state/rustsimhub-v1/system/generic-provision.request
+base=$state/.private-firmware
+pending=$base.pending
+test ! -L "$request"
+test -f "$request"
+test "$(stat -c '%u:%g:%a:%h' "$request")" = 0:0:600:1
+test "$(cat "$request")" = RustSimHub.GenericProvision.v1
+# A published bundle is validated by rustsimhub-device-firmware; never replace it.
+if test -e "$base" || test -L "$base";then
+ echo 'firmware extract: bundle already present; nothing changed'
+ exit 0
+fi
+partition() {
+ found=
+ for row in /sys/class/block/mmcblk0p*;do
+  if grep -qx "PARTNAME=$1" "$row/uevent";then
+   test -z "$found"
+   found=${row##*/}
+  fi
+ done
+ test -n "$found"
+ echo "/dev/$found"
+}
+modem=$(partition modem)
+persist=$(partition persist)
+test -b "$modem" || test -f "$modem"
+test -b "$persist" || test -f "$persist"
+mount_dir=
+loop=
+cleanup() {
+ if test -n "$mount_dir";then
+  umount "$mount_dir" 2>/dev/null || true
+  rmdir "$mount_dir" 2>/dev/null || true
+ fi
+ if test -n "$loop";then losetup --detach "$loop" 2>/dev/null || true;fi
+ if test -d "$pending" && test ! -L "$pending";then rm -rf -- "$pending";fi
+}
+trap cleanup EXIT HUP INT TERM
+# Only this script creates pending; an interrupted attempt is safely redone
+# because every source is read-only. A link here is never followed.
+test ! -L "$pending"
+rm -rf -- "$pending"
+mkdir -m 0700 "$pending" "$pending/wlan" "$pending/wlan/prima"
+loop=$(losetup --find --show --read-only "$modem")
+test "$(losetup --noheadings --output RO "$loop" | tr -d ' ')" = 1
+mount_dir=$(mktemp -d /run/rustsimhub-firmware-extract.XXXXXXXX)
+mount -t vfat -o ro,nodev,nosuid,noexec,codepage=437,iocharset=iso8859-1,shortname=lower "$loop" "$mount_dir"
+test -d "$mount_dir/image"
+total=0
+for path in "$mount_dir"/image/*;do
+ name=${path##*/}
+ case "$name" in
+  modem.mdt|modem.b[0-9][0-9]|mba.mbn|wcnss.mdt|wcnss.b[0-9][0-9]) ;;
+  *) continue;;
+ esac
+ test -f "$path"
+ test ! -L "$path"
+ size=$(stat -c %s "$path")
+ total=$((total + size))
+ test "$total" -le 100663296
+ install -m 0600 "$path" "$pending/$name"
+done
+umount "$mount_dir"
+rmdir "$mount_dir"
+mount_dir=
+losetup --detach "$loop"
+loop=
+u16() { od -An -v -tu2 -j "$2" -N2 "$1" | tr -d ' \n'; }
+u32() { od -An -v -tu4 -j "$2" -N4 "$1" | tr -d ' \n'; }
+# Qualcomm MBN: exactly one ELF32 segment has the hash type in p_flags; it holds a
+# 40-byte header then one SHA-256 per program header. All-zero entries are unhashed.
+# modem/wcnss are split (NAME.mdt plus NAME.bNN); mba.mbn is one file.
+verify_mbn() {
+ name=$1
+ split=$2
+ elf=$pending/$name
+ test "$(od -An -v -tx1 -N6 "$elf" | tr -d ' \n')" = 7f454c460101
+ phoff=$(u32 "$elf" 28)
+ phentsize=$(u16 "$elf" 42)
+ phnum=$(u16 "$elf" 44)
+ test "$phentsize" = 32
+ test "$phnum" -ge 2
+ test "$phnum" -le 128
+ hash_index=
+ i=0
+ while test "$i" -lt "$phnum";do
+  flags=$(u32 "$elf" $((phoff + i * 32 + 24)))
+  if test $(((flags >> 24) & 7)) = 2;then
+   test -z "$hash_index"
+   hash_index=$i
+  fi
+  i=$((i + 1))
+ done
+ test -n "$hash_index"
+ hash_offset=$(u32 "$elf" $((phoff + hash_index * 32 + 4)))
+ if test "$split" = yes;then
+  hash_file=$pending/${name%.mdt}.b$(printf %02d "$hash_index")
+  hash_offset=0
+ else
+  hash_file=$elf
+ fi
+ hashed=0
+ i=0
+ while test "$i" -lt "$phnum";do
+  if test "$i" != "$hash_index";then
+   want=$(od -An -v -tx1 -j $((hash_offset + 40 + i * 32)) -N32 "$hash_file" | tr -d ' \n')
+   test "${#want}" = 64
+   case "$want" in
+    *[!0]*)
+     size=$(u32 "$elf" $((phoff + i * 32 + 16)))
+     if test "$split" = yes;then
+      part=$pending/${name%.mdt}.b$(printf %02d "$i")
+      test "$(stat -c %s "$part")" = "$size"
+      have=$(sha256sum "$part" | cut -d ' ' -f 1)
+     else
+      start=$(u32 "$elf" $((phoff + i * 32 + 4)))
+      have=$(tail -c +$((start + 1)) "$elf" | head -c "$size" | sha256sum | cut -d ' ' -f 1)
+     fi
+     test "$have" = "$want"
+     hashed=$((hashed + 1))
+     ;;
+   esac
+  fi
+  i=$((i + 1))
+ done
+ test "$hashed" -ge 1
+}
+verify_mbn modem.mdt yes
+verify_mbn wcnss.mdt yes
+verify_mbn mba.mbn no
+nv=$pending/wlan/prima/WCNSS_qcom_wlan_nv.bin
+debugfs -c -R "dump /WCNSS_qcom_wlan_nv.bin $nv" "$persist" >/dev/null 2>&1
+test -f "$nv"
+test ! -L "$nv"
+chmod 0600 "$nv"
+size=$(stat -c %s "$nv")
+test "$size" -ge 1
+test "$size" -le 1048576
+(
+ cd "$pending"
+ find . -type f ! -name SHA256SUMS | sed 's|^\./||' | sort | while read -r name;do
+  sha256sum "$name"
+ done > SHA256SUMS
+)
+chmod 0600 "$pending/SHA256SUMS"
+for file in "$pending"/* "$pending/wlan/prima"/*;do
+ if test -f "$file";then sync -f "$file";fi
+done
+sync -f "$pending"
+mv -nT -- "$pending" "$base"
+test ! -e "$pending"
+test -d "$base"
+sync -f "$state"
+echo 'firmware extract: own modem/WCNSS firmware and Wi-Fi NV copied; source partitions untouched'
