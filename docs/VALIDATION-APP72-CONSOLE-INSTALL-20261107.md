@@ -24,3 +24,10 @@ NAS 的 USB 接口当前没有 10.55.0.1，原 USB 维护路径不可用；这�
 - 真实故障回退、冷启动未测。
 - `tools/test-web-app-assembly.mjs`、`tools/test-web-setup-browser.mjs` 未运行（本机无 Playwright）。
 - 本次带上了 11-02 以来 main 的全部已合并改动，只验证了上述范围，不代表这些功能已逐项实机验收。
+
+## 同日追加：应用73（各模块界面和手机版）
+main `c5b52558297325da2f7e17fd58136c48dd80e937`（PR219），源码归档 SHA-256 `ab99e45b0951108d0a2eedeee64dff3343851b4b9108bba950f04151b3d2d0d9`，epoch73，清单 SHA-256 `10749bc407f4e2f650bf8857a4d84e3a8db01b2424bb73bcf0f62dbd13a7c819`。构建同样需要带 `GIT_DIR`：12个ARM程序、Rust 1634通过/0失败/19专项忽略，音频 QEMU 39，离线验签及6项负向、恢复夹具12场景通过。
+
+同一流程经局域网 SSH 安装：confirmed73/floor73、无候选。七服务及 network-agent、status-led active，Core、Edge 未重启，转发 PID 0，蜂窝数据断开，音频 7/7，八个资源逐字节一致，短信 128 条保持，Root 三角色字节保持。
+
+未验收：登录后的页面、`system_status` 真实调用、手机和电脑实际观感。用户反馈的“数据不显示”原因未确认。
