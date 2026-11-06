@@ -504,6 +504,16 @@ async fn ipc_requires_proof_and_checks_revocation_even_from_same_uid() {
         .await["error"],
         "denied"
     );
+    assert_eq!(
+        round_trip(
+            AuthCommand::SystemStatus {
+                token: "0".repeat(64)
+            },
+            auth.clone()
+        )
+        .await["error"],
+        "denied"
+    );
     let c = round_trip(AuthCommand::Challenge { public_key: key }, auth.clone()).await;
     let transcript: Vec<u8> = serde_json::from_value(c["transcript"].clone()).unwrap();
     let id = c["id"].as_str().unwrap().to_owned();

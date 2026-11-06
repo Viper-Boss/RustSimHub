@@ -155,6 +155,10 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         }
         LineStatus { token } => serde_json::to_value(auth.line_status(&token)?)
             .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        SystemStatus { token } => {
+            auth.authorize(&token, Scope::StatusRead)?;
+            crate::system_status::snapshot()
+        }
         Inbox {
             token,
             after,

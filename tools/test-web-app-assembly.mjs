@@ -33,6 +33,7 @@ async function handle(c){
  case 'nkn_request':assert.equal(c.expected_core_instance,instance);return {request_id:c.request_id,known:false,core_instance:instance,not_found_is_not_proof:true};
  case 'configuration_indicator':assert.equal(c.active,false);return {ok:true};
  case 'line_status':return {status:'ready',line:7};
+ case 'system_status':return {schema:1,firmware_version:'0.1.0',model:null,kernel:null,os:null,cpu_cores:null,cpu_busy_ticks:null,cpu_total_ticks:null,load_1m:null,memory_total_bytes:null,memory_available_bytes:null,storage_total_bytes:null,storage_free_bytes:null,temperature_c:null,uptime_seconds:null};
  case 'call_status':return {available:true,active_calls:0,live_calls:[]};
  case 'inbox':return {messages:[],cursor:null};
  case 'calls':return {calls:[],cursor:null};

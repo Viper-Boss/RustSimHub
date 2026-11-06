@@ -27,7 +27,7 @@ function fixture({respond,onPut,consent=true}={}){
  const context={OperationReceipt:class{update(){}reset(){}},DiagnosticPanel:class{update(){}reset(){}},ConfigurationState:class{reset(){}},UsageStatsPanel:class{reset(){}},TestCenter:class{update(){}reset(){}},ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,forwardingPendingInput,document,crypto:webcrypto,TextEncoder,AbortController,AbortSignal,setTimeout,clearTimeout,setInterval(){},addEventListener(){},
   indexedDB:{open:()=>({})},SmsManager,smsListText,smsDetailText,DailyPhone:class{constructor(){this.managing=false;this.working=false;}reset(){}start(){}},NasBridgePanel,nasPendingInput,nasReceiptInput,ClientsPanel:class{reset(){}},SessionKeeper:class{start(){}reset(){}async ensure(){}},
   AudioLink:class{constructor(){this.state='closed';}async stop(){}},
-  ConfigurationIndicator:class{async set(){}},CallTest:class{async stop(){}},NetworkPanel:class{start(){}stop(){}},EventSync:class{reset(){}},
+  ConfigurationIndicator:class{async set(){}},CallTest:class{async stop(){}},ConsoleDashboard:class{reset(){}go(){}async signedIn(){}network(){}},NetworkPanel:class{start(){}stop(){}},EventSync:class{reset(){}},
   confirm:text=>{confirmations.push(text);return consent;},
   fetch:async(_url,options)=>{const body=JSON.parse(options.body),c=body.command;sent.push(c);const result=respond?await respond(c):c.op==='line_status'?{status:'ready',line:7}:c.op==='prepare_sms'?{id,state:'prepared'}:{id,state};return {ok:true,json:async()=>({protocol:2,id:body.id,result})};},
  };

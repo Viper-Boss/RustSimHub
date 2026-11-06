@@ -686,6 +686,24 @@ fn router(app: App) -> Router {
             }),
         )
         .route(
+            "/console.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/console.js"),
+                )
+            }),
+        )
+        .route(
+            "/console.css",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
+                    include_str!("web/console.css"),
+                )
+            }),
+        )
+        .route(
             "/style.css",
             get(|| async {
                 (

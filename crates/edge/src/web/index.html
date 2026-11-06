@@ -1,6 +1,140 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RustSimHub</title><link rel="stylesheet" href="/style.css"><script type="module" src="/app.js"></script></head>
-<body><main><header><span class="tag">独立短信与电话</span><h1>RustSimHub</h1><p>选一项测试，跟着下面的提示操作即可。</p></header>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RustSimHub</title><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/console.css"><script type="module" src="/app.js"></script></head>
+<body><div class="cs app">
+<svg class="icons" aria-hidden="true">
+<symbol id="i-home" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M12 3 2.700 11H5.500v9.500h5v-6.300h3v6.300h5V11h2.800z"/></symbol>
+<symbol id="i-chip" viewBox="0 0 24 24"><rect x="6.500" y="6.500" width="11" height="11" rx="1.500"/><rect x="10" y="10" width="4" height="4" rx=".6"/><path d="M9.500 3v3.500M14.500 3v3.500M9.500 17.500V21M14.500 17.500V21M3 9.500h3.500M3 14.500h3.500M17.500 9.500H21M17.500 14.500H21"/></symbol>
+<symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2.500 9.300a13.700 13.700 0 0 1 19 0M5.700 12.700a9.200 9.200 0 0 1 12.600 0M9 16a4.600 4.600 0 0 1 6 0"/><circle cx="12" cy="19.300" r="1" fill="currentColor"/></symbol>
+<symbol id="i-sim" viewBox="0 0 24 24"><rect x="3.500" y="4.500" width="17" height="15" rx="2.500"/><path d="M7.500 15.500V9.300l3 3.200 3-3.200v6.200M16.500 9v6.500"/></symbol>
+<symbol id="i-phone" viewBox="0 0 24 24"><path d="M5 3.800h3.200l1.700 4.400-2.100 1.500a11.500 11.500 0 0 0 6.500 6.500l1.500-2.100 4.400 1.700V19a2 2 0 0 1-2.200 2A16.500 16.500 0 0 1 3 6a2 2 0 0 1 2-2.200z"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21.500s7.200-6.300 7.200-11.800a7.200 7.200 0 0 0-14.400 0c0 5.500 7.200 11.800 7.200 11.800z"/><circle cx="12" cy="9.700" r="2.600"/></symbol>
+<symbol id="i-bt" viewBox="0 0 24 24"><path d="m6.500 7.500 11 9-5.500 5V2.500l5.500 5-11 9"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.800 4.500 5.600v5.900c0 4.800 3.200 8 7.500 9.700 4.300-1.700 7.500-4.900 7.500-9.700V5.600z"/><path d="m8.700 11.800 2.400 2.400 4.200-4.400"/></symbol>
+<symbol id="i-log" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2.500"/><path d="M8.500 8h7M8.500 12h7M8.500 16h4"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m12 2.800 2 2.400 3.100-.3.900 3 2.700 1.500-1.200 2.800 1.200 2.800-2.700 1.500-.9 3-3.100-.3-2 2.400-2-2.400-3.100.3-.9-3-2.700-1.500 1.200-2.800-1.200-2.800L6 7.900l.9-3 3.100.3z"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="m8.500 5 7 7-7 7"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="m5 8.500 7 7 7-7"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6.800V12l3.500 2.200"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 10a6 6 0 0 1 12 0c0 5.500 2.300 7 2.300 7H3.700S6 15.500 6 10zM10 20.500a2.200 2.200 0 0 0 4 0"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.500 20.500c.8-4 3.800-6 7.500-6s6.700 2 7.500 6"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.500A8.500 8.500 0 0 1 9.500 4 8.500 8.500 0 1 0 20 14.500z"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.500v2.500M12 19v2.500M2.500 12H5M19 12h2.500M5.300 5.300 7 7M17 17l1.700 1.700M5.300 18.700 7 17M17 7l1.700-1.700"/></symbol>
+<symbol id="i-mem" viewBox="0 0 24 24"><rect x="2.500" y="7" width="19" height="10" rx="1.500"/><path d="M6.500 7v10M10.500 7v10M14.500 7v10M18 7v10M2.500 20h19"/></symbol>
+<symbol id="i-disk" viewBox="0 0 24 24"><path d="M4.500 6.500a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3.500h.5v7.500a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V10h.5zM4.500 10h15M8 14.500c1.500 1.500 6.500 1.500 8 0"/></symbol>
+<symbol id="i-res" viewBox="0 0 24 24"><path d="M2 12.500h4.500l2.500-6.500 4 12.500 2.700-6h6.300"/></symbol>
+<symbol id="i-temp" viewBox="0 0 24 24"><path d="M9.500 13.500V5a2.500 2.500 0 0 1 5 0v8.500a4.500 4.500 0 1 1-5 0zM12 9v7"/></symbol>
+<symbol id="i-ant" viewBox="0 0 24 24"><path d="M12 12.500 6.500 21M12 12.500l5.500 8.500M8 18h8M7.500 8a6 6 0 0 0 0 8.500M16.500 8a6 6 0 0 1 0 8.500M4.700 5.200a10 10 0 0 0 0 14M19.300 5.200a10 10 0 0 1 0 14"/><circle cx="12" cy="11" r="1.600"/></symbol>
+<symbol id="i-sig" viewBox="0 0 24 24"><path stroke-width="3" d="M4 20v-3M9.300 20v-8M14.600 20V8M20 20V4"/></symbol>
+<symbol id="i-msg" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.500"/><path d="m3.500 7 8.500 6 8.500-6"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 4.800-9 4.800-9-4.800zM3 12l9 4.800 9-4.800M3 16.200 12 21l9-4.800"/></symbol>
+<symbol id="i-nas" viewBox="0 0 24 24"><rect x="3.500" y="4" width="17" height="6.500" rx="1.500"/><rect x="3.500" y="13.500" width="17" height="6.500" rx="1.500"/><path d="M7 7.300h.01M7 16.800h.01M11 7.300h6M11 16.800h6"/></symbol>
+<symbol id="i-mob" viewBox="0 0 24 24"><rect x="6.500" y="2.500" width="11" height="19" rx="2.500"/><path d="M10.800 18.500h2.400"/></symbol>
+<symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.900 3 2.900 15 0 18M12 3c-2.900 3-2.900 15 0 18"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3 2.500 10.500l7.500 3.200L14 21zM10 13.700 15 8.500"/></symbol>
+<symbol id="i-sat" viewBox="0 0 24 24"><path d="m14.500 9.500-5 5M7.500 9.500l7 7M9.500 7.500l7 7M3.500 13.500l3-3 7 7-3 3zM13.500 3.500l-3 3 7 7 3-3zM5 19l-1.500 1.500"/></symbol>
+<symbol id="i-coord" viewBox="0 0 24 24"><path d="m10 14 4-4M8 11l-2 2a4 4 0 0 0 5.600 5.600l2-2M16 13l2-2a4 4 0 0 0-5.600-5.600l-2 2"/></symbol>
+<symbol id="i-mtn" viewBox="0 0 24 24"><path d="M2.500 19 9 8l4 6.500L15.500 11l6 8z"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path stroke-width="2.600" d="M9 6h12M9 12h12M9 18h12M3.500 6h.01M3.500 12h.01M3.500 18h.01"/></symbol>
+</svg>
+<aside class="side" aria-label="主导航">
+<div class="logo"><svg viewBox="0 0 36 36" aria-hidden="true"><defs><linearGradient id="c-lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3f9dff"/><stop offset="1" stop-color="#0c5bd8"/></linearGradient></defs><path fill="url(#c-lg)" d="M18 2 31.900 10v16L18 34 4.100 26V10z"/><path fill="none" stroke="#fff" stroke-width="2.200" stroke-linecap="round" d="M9 22.500c6-7.500 12.500-10 19-10.500M14 26c3.500-5.500 8-8 13-8.500"/><circle cx="18" cy="16" r="3.200" fill="#fff"/></svg><span>RustSimHub</span></div>
+<button type="button" class="nav" data-go="dashboard"><svg class="i"><use href="#i-home"/></svg><span>仪表盘</span></button>
+<button type="button" class="nav" data-go="hardware"><svg class="i"><use href="#i-chip"/></svg><span>硬件状态</span></button>
+<button type="button" class="nav" data-go="network"><svg class="i"><use href="#i-wifi"/></svg><span>网络管理</span></button>
+<button type="button" class="nav" data-go="sim"><svg class="i"><use href="#i-sim"/></svg><span>SIM与调制解调器</span></button>
+<button type="button" class="nav" data-go="comms"><svg class="i"><use href="#i-phone"/></svg><span>通话短信</span></button>
+<button type="button" class="nav" data-go="gnss"><svg class="i"><use href="#i-pin"/></svg><span>GNSS定位</span></button>
+<button type="button" class="nav" data-go="ble"><svg class="i"><use href="#i-bt"/></svg><span>蓝牙配网</span></button>
+<button type="button" class="nav" data-go="security"><svg class="i"><use href="#i-shield"/></svg><span>安全策略</span></button>
+<button type="button" class="nav" data-go="logs"><svg class="i"><use href="#i-log"/></svg><span>系统日志</span></button>
+<button type="button" class="nav" data-go="settings"><svg class="i"><use href="#i-gear"/></svg><span>设置</span></button>
+</aside>
+<div class="c-main">
+<header class="top">
+<h1 id="c-title">RustSimHub 控制台</h1><span class="subtitle" id="c-subtitle">设备管理平台</span><div class="grow"></div>
+<div class="online off" id="c-online"><i></i>未登录</div>
+<div class="clock num"><svg class="i"><use href="#i-clock"/></svg><span id="c-now">--</span><em id="c-sync" hidden>时间未同步</em></div>
+<button type="button" class="tbtn" id="c-theme" aria-label="切换深浅色"><svg class="i"><use id="c-theme-icon" href="#i-moon"/></svg></button>
+<button type="button" class="tbtn" id="c-bell" aria-label="查看最近事件"><svg class="i"><use href="#i-bell"/></svg></button>
+<button type="button" class="user" id="c-user"><svg class="i"><use href="#i-user"/></svg><span id="c-user-name">登录</span><svg class="i arr"><use href="#i-down"/></svg></button>
+</header>
+<div class="content num" id="c-dash">
+<section class="banner" aria-label="设备信息">
+<svg class="stick" viewBox="0 0 176 92" role="img" aria-label="USB 棒">
+<defs>
+<linearGradient id="c-pcb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b414a"/><stop offset="1" stop-color="#15181d"/></linearGradient>
+<linearGradient id="c-edge" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d0f13"/><stop offset="1" stop-color="#26292f"/></linearGradient>
+<linearGradient id="c-usb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7f8fa"/><stop offset=".5" stop-color="#c0c6cf"/><stop offset="1" stop-color="#8b929e"/></linearGradient>
+<linearGradient id="c-gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ecc25f"/><stop offset="1" stop-color="#a97a26"/></linearGradient>
+<filter id="c-blur" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="4"/></filter>
+</defs>
+<g transform="rotate(-17 88 46)">
+<ellipse cx="90" cy="70" rx="78" ry="6" fill="var(--stick-shadow)" filter="url(#c-blur)"/>
+<rect x="4" y="33" width="35" height="25" rx="2.500" fill="url(#c-usb)"/><rect x="4" y="54" width="35" height="5" rx="2" fill="#7f8692"/>
+<rect x="9" y="38" width="12" height="5" rx="1" fill="#39404b"/><rect x="9" y="48" width="12" height="5" rx="1" fill="#39404b"/>
+<rect x="36" y="31" width="126" height="34" rx="5" fill="url(#c-edge)"/>
+<rect x="36" y="26" width="126" height="34" rx="5" fill="url(#c-pcb)"/><rect x="38" y="27" width="122" height="1.500" rx=".7" fill="#646b77"/>
+<circle cx="47" cy="33" r="2" fill="#5ae087"/><circle cx="47" cy="42" r="2" fill="#4f97ff"/><circle cx="47" cy="51" r="2" fill="#6e747e"/>
+<rect x="56" y="32" width="28" height="22" rx="2" fill="#0c0e12" stroke="#4a505b"/><rect x="60" y="36" width="20" height="14" rx="1" fill="#1b1f25"/>
+<rect x="89" y="31" width="17" height="14" rx="1.500" fill="#c7ccd4"/><rect x="91" y="33" width="13" height="10" rx="1" fill="#a9afb9"/><rect x="89" y="48" width="17" height="7" rx="1" fill="#0c0e12" stroke="#4a505b"/>
+<rect x="112" y="30" width="27" height="26" rx="2" fill="url(#c-gold)"/><rect x="116" y="34" width="19" height="18" rx="1" fill="#8e6620"/><path d="M116 40h19M116 46h19M122 34v18M129 34v18" stroke="#c79a3d" stroke-width=".7"/>
+<path d="M144 31h12M144 36h12M144 41h12M144 46h12M144 51h12M144 55h12" stroke="#c79a3d" stroke-width="1.500"/>
+</g>
+</svg>
+<div class="bn-main"><div class="bn-title"><div class="model" id="c-model">—</div><span id="c-sim">—</span></div><div class="bn-sub"><span id="c-version">—</span><b id="c-os">—</b><b id="c-kernel">—</b></div></div>
+<div class="spec"><svg class="i"><use href="#i-chip"/></svg><div><b>处理器</b><strong id="c-cores">—</strong></div></div>
+<div class="spec"><svg class="i"><use href="#i-mem"/></svg><div><b>运行内存</b><strong id="c-mem-total">—</strong></div></div>
+<div class="spec"><svg class="i"><use href="#i-disk"/></svg><div><b>存储容量</b><strong id="c-disk-total">—</strong></div></div>
+</section>
+<section class="card res" aria-label="系统资源">
+<div><svg class="i"><use href="#i-res"/></svg>系统资源</div>
+<div><div class="res-t"><svg class="i"><use href="#i-chip"/></svg>CPU 占用</div><div class="res-v" id="c-cpu">—</div><div class="bar"><i id="c-cpu-bar"></i></div></div>
+<div><div class="res-t"><svg class="i"><use href="#i-mem"/></svg>内存占用</div><div class="res-v" id="c-mem">—</div><div class="bar"><i id="c-mem-bar"></i></div></div>
+<div><div class="res-t"><svg class="i"><use href="#i-log"/></svg>存储占用</div><div class="res-v" id="c-disk">—</div><div class="bar"><i id="c-disk-bar"></i></div></div>
+<div><div class="res-t"><svg class="i"><use href="#i-temp"/></svg>温度</div><div class="temp"><div class="res-v big" id="c-temp">—</div><svg viewBox="0 0 150 28" preserveAspectRatio="none" aria-hidden="true"><path id="c-temp-line"/></svg></div></div>
+<div><div class="res-t"><svg class="i"><use href="#i-clock"/></svg>运行时间</div><div class="res-v big" id="c-uptime">—</div></div>
+</section>
+<section class="card st st-wifi" aria-label="Wi-Fi 连接">
+<div class="st-h"><svg class="i"><use href="#i-wifi"/></svg>Wi-Fi 连接<button type="button" class="pill off" id="c-wifi-pill" data-go="network">未连接<svg class="i"><use href="#i-chev"/></svg></button><button type="button" class="more" data-go="network" aria-label="Wi-Fi 详情"><svg class="i"><use href="#i-chev"/></svg></button></div>
+<div class="st-b"><div class="vis"><svg id="c-wifi-icon" class="off" viewBox="0 0 76 50" aria-hidden="true"><defs><linearGradient id="c-wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4ade3e"/><stop offset="1" stop-color="#16a34a"/></linearGradient></defs><path fill="none" stroke="url(#c-wg)" stroke-width="6.500" stroke-linecap="round" d="M5 16a47 47 0 0 1 66 0M15.500 26.500a32 32 0 0 1 45 0M26 36.500a17 17 0 0 1 24 0"/><circle cx="38" cy="45" r="4.500" fill="url(#c-wg)"/></svg><span id="c-wifi-state">未连接</span></div>
+<dl class="kv"><dt>接口</dt><dd id="c-wifi-name">—</dd><dt>IP 地址</dt><dd id="c-wifi-ip">—</dd><dt>状态</dt><dd id="c-wifi-speed">—</dd></dl></div>
+</section>
+<section class="card st st-cell" aria-label="移动网络">
+<div class="st-h"><svg class="i"><use href="#i-ant"/></svg>移动网络<button type="button" class="pill off" id="c-data-pill" data-go="network">未连接<svg class="i"><use href="#i-chev"/></svg></button><button type="button" class="more" data-go="network" aria-label="移动网络详情"><svg class="i"><use href="#i-chev"/></svg></button></div>
+<div class="st-b"><div class="vis"><div class="cbars" id="c-cell-bars" role="img" aria-label="信号 0/4 格"><i></i><i></i><i></i><i></i></div><span id="c-cell-state">信号：未知</span></div>
+<dl class="kv"><dt>运营商</dt><dd id="c-cell-op">—</dd><dt>IP 地址</dt><dd id="c-cell-ip">—</dd><dt>流量统计</dt><dd id="c-cell-usage">—</dd></dl></div>
+</section>
+<section class="card st st-sig" aria-label="信号质量">
+<div class="st-h"><svg class="i"><use href="#i-sig"/></svg>信号质量<span class="pill off" id="c-quality">未知</span></div>
+<div class="sigs"><div class="dots" id="c-rsrp-dots"><i></i><i></i><i></i><i></i></div><b>RSRP</b><span id="c-rsrp">—</span><div class="dots" id="c-rsrq-dots"><i></i><i></i><i></i><i></i></div><b>RSRQ</b><span id="c-rsrq">—</span><div class="dots" id="c-sinr-dots"><i></i><i></i><i></i><i></i></div><b>SINR</b><span id="c-sinr">—</span></div>
+</section>
+<section class="card comm" aria-label="通信中心">
+<div class="comm-h"><svg class="i"><use href="#i-phone"/></svg><b>通信中心</b><span>预览短信、验证码与最近通话</span></div>
+<div class="subs">
+<div class="subc sms"><div class="sub-h"><svg class="i"><use href="#i-msg"/></svg>最近短信<button type="button" class="link" data-go="comms">查看更多<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-sms-list"></div><p class="none" id="c-sms-empty">登录后显示</p></div>
+<div class="subc otp"><div class="sub-h"><svg class="i"><use href="#i-shield"/></svg>最近验证码<button type="button" class="clear" id="c-otp-clear" disabled>清理</button><button type="button" class="link" data-go="comms">查看更多<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-otp-list"></div><p class="none" id="c-otp-empty">登录后显示</p><p class="otp-state" id="c-otp-state" role="status"></p></div>
+<div class="subc call"><div class="sub-h"><svg class="i"><use href="#i-phone"/></svg>最近通话<button type="button" class="link" data-go="comms">查看更多<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-call-list"></div><p class="none" id="c-call-empty">登录后显示</p></div>
+</div>
+</section>
+<section class="card svc" aria-label="扩展服务">
+<div class="svc-h"><svg class="i"><use href="#i-layers"/></svg>扩展服务</div>
+<button type="button" class="sv" data-go="nas"><svg class="i"><use href="#i-nas"/></svg>NasSimHub<em>查看绑定</em></button>
+<button type="button" class="sv" data-go="clients"><svg class="i"><use href="#i-mob"/></svg>AirSim 手机<em>查看授权</em></button>
+<button type="button" class="sv" data-go="nkn"><svg class="i"><use href="#i-globe"/></svg>NKN 远程<em>手动核对</em></button>
+<button type="button" class="sv" data-go="forwarding"><svg class="i"><use href="#i-send"/></svg>短信转发<em>手动核对</em></button>
+</section>
+<section class="card gnss" aria-label="GNSS 定位">
+<div><div class="g-h"><svg class="i"><use href="#i-pin"/></svg>GNSS 定位<span class="fix">未提供</span></div>
+<div class="g-kv"><svg class="i"><use href="#i-sat"/></svg><b>卫星数量</b><span>—</span><svg class="i"><use href="#i-coord"/></svg><b>坐标</b><span>—</span><svg class="i"><use href="#i-mtn"/></svg><b>海拔高度</b><span>—</span><svg class="i"><use href="#i-clock"/></svg><b>定位时间</b><span>—</span></div></div>
+<div class="map"><svg viewBox="0 0 392 144" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect class="map-bg" width="392" height="144"/><path class="map-park" d="M108 0h156v46H108zM292 60h100v84H292z"/><path class="map-water" d="M0 84c30-5 62 8 94 2v58H0z"/><path class="map-road" stroke-width="6" d="M0 52h392M100 0v144M272 0v144"/><path class="map-road2" stroke-width="5" d="M0 28h108M264 28h128M292 0v60"/></svg><p>设备暂未提供定位数据</p></div>
+</section>
+<section class="card ev" id="c-events" aria-label="最近事件">
+<div class="ev-h"><svg class="i"><use href="#i-list"/></svg>最近事件<small>本次打开页面以来</small></div>
+<ul id="c-event-list"></ul><p class="none" id="c-event-empty">登录后显示</p>
+</section>
+</div>
+<dialog class="alert" id="c-otp-dialog" aria-labelledby="c-otp-dialog-title"><form method="dialog"><h3 id="c-otp-dialog-title">清理验证码短信？</h3><p>会移到本地回收站，所有者可以恢复。其他短信不受影响。</p><div><button value="cancel" autofocus>取消</button> <button value="clear" class="danger">清理</button></div></form></dialog>
+<main class="legacy" id="c-legacy" hidden><p id="c-empty" class="c-empty page-off"></p>
 <section id="test-center" class="quick-test"><h2 hidden>一键测试</h2><div id="test-component-host"></div><p>拨出：10010，约30秒自动挂断；短信：10010 / CXYE，确认后发送一次；Bark只发合成通知。来电测试需另一部手机拨入。</p><p>自动登录、准备和查询结果。首次通话测试请允许麦克风。</p><div class="test-grid"><button hidden id="test-check" class="primary">检查状态<small>只读取，不拨号、不发短信</small></button><button hidden id="test-start" class="primary" disabled>测试拨出<small>10010 · 约30秒自动挂断</small></button><button hidden id="test-incoming-start" class="primary" disabled>测试来电<small>点击后用另一部手机拨入</small></button><button hidden id="test-sms" class="primary">测试短信<small>10010 / CXYE · 确认后发送一次</small></button><button hidden id="test-forwarding" class="primary">一键测试 Bark<small>自动准备 · 只发合成通知 · 自动关闭</small></button></div><p hidden id="test-state" role="status" aria-live="polite">正在检查设备…</p><div class="test-toolbar"><button hidden id="test-stop" class="danger" disabled>停止测试</button><button id="test-copy" disabled>复制测试结果</button></div><div id="test-recovery" hidden><p id="test-pending-state"></p><button hidden id="test-recover">核对上次操作</button></div><textarea id="test-report" readonly rows="6" hidden aria-label="测试结果，无法复制时可手动选取"></textarea></section>
 <details id="support-panel"><summary>回执、脱敏诊断与只读状态</summary>
 <section><h2>原操作回执</h2><p>本机保留的信息需要通过原ID核对。这里只查询；归档仍在原业务区完成。</p><div id="support-receipt"></div></section>
@@ -31,7 +165,7 @@
  <details><summary>操作编号与恢复</summary><p>重新打开本页后点“查询进度”。查询不会重新开启热点、试连或保存。</p><pre id="ap-wifi-details"></pre></details>
 </section></details>
 
-<details data-configuration><summary>网络状态、流量与配置</summary><section id="network-section"><h2>网络状态与测试</h2><div class="actions"><button id="network-login">登录查看网络</button><button id="network-refresh">刷新网络状态</button></div><p id="network-state" role="status">登录所有者或具有网络管理权限的浏览器后查看</p><div id="network-devices"></div><details><summary>无线参数与当前小区</summary><dl id="network-radio" class="network-grid"></dl></details><h3>实时蜂窝网速</h3><p id="network-rates">等待登录</p><canvas id="network-chart" width="720" height="120" aria-label="最近60次采样的下载与上传速率">下载为青色，上传为黄色</canvas><h3>本月流量与限额</h3><dl id="network-month" class="network-grid"></dl><p id="network-accounting-note"></p><label><input id="network-limit-enabled" type="checkbox">开启月限额，到量断开普通数据</label><div class="network-fields"><label>每月额度（GB，1 GB = 10⁹ B）<input id="network-limit-gb" type="number" min="0.000001" max="100000" step="any" inputmode="decimal"></label><label>每月重置日（短月份取最后一天）<input id="network-reset-day" type="number" min="1" max="31" step="1" value="1"></label></div><label id="network-ack-row" hidden><input id="network-ack-gap" type="checkbox">已了解计量中断，接受已保存的统计值并解除不确定状态</label><button id="network-policy-save" disabled>保存流量限制</button><p>需要所有者最近5分钟内登录。关闭限制不会自动打开数据；上网数据与电话、短信分别管理。</p><h3>主动网络测试</h3><label>测试链路<select id="network-interface"></select></label><label><input id="network-cellular-consent" type="checkbox">允许本次测试使用蜂窝流量</label><div class="actions"><button id="network-test-connectivity">测试 DNS / HTTPS</button><button id="network-test-download">下载测速 · 约 1 MB</button></div><p>只测试选中的已连接链路，最多15秒；每次手动开始，不自动重试或回退。</p><p id="network-test-result" role="status"></p></section><section id="wifi-section" hidden><h2>Wi-Fi 配置</h2><p>需要所有者最近5分钟内登录。先试连接，确认成功后才保存；40秒未确认会恢复原配置。切换可能使当前网页暂时断开，请先准备可用的备用维护连接。</p><div class="actions"><button id="wifi-login">重新登录配置 Wi-Fi</button><button id="wifi-networks-refresh">读取已发现的网络</button></div><p id="wifi-networks-state" role="status" aria-live="polite">点击读取设备已发现的网络，也可手输网络名。</p><div id="wifi-networks"></div><label>网络名称（隐藏网络可直接填写）<input id="wifi-ssid" autocomplete="off" maxlength="32"></label><label>WPA2 个人网络密码<input id="wifi-passphrase" type="password" autocomplete="off" maxlength="64"></label><button id="wifi-begin">试连接新配置</button><p id="wifi-state" role="status" aria-live="polite">没有试连接</p><div class="actions"><button id="wifi-status" disabled>查询连接结果</button><button id="wifi-confirm" disabled>确认保存</button><button id="wifi-cancel" disabled>取消并恢复</button></div></section></details>
+<details id="network-panel" data-configuration><summary>网络状态、流量与配置</summary><section id="network-section"><h2>网络状态与测试</h2><div class="actions"><button id="network-login">登录查看网络</button><button id="network-refresh">刷新网络状态</button></div><p id="network-state" role="status">登录所有者或具有网络管理权限的浏览器后查看</p><div id="network-devices"></div><details><summary>无线参数与当前小区</summary><dl id="network-radio" class="network-grid"></dl></details><h3>实时蜂窝网速</h3><p id="network-rates">等待登录</p><canvas id="network-chart" width="720" height="120" aria-label="最近60次采样的下载与上传速率">下载为青色，上传为黄色</canvas><h3>本月流量与限额</h3><dl id="network-month" class="network-grid"></dl><p id="network-accounting-note"></p><label><input id="network-limit-enabled" type="checkbox">开启月限额，到量断开普通数据</label><div class="network-fields"><label>每月额度（GB，1 GB = 10⁹ B）<input id="network-limit-gb" type="number" min="0.000001" max="100000" step="any" inputmode="decimal"></label><label>每月重置日（短月份取最后一天）<input id="network-reset-day" type="number" min="1" max="31" step="1" value="1"></label></div><label id="network-ack-row" hidden><input id="network-ack-gap" type="checkbox">已了解计量中断，接受已保存的统计值并解除不确定状态</label><button id="network-policy-save" disabled>保存流量限制</button><p>需要所有者最近5分钟内登录。关闭限制不会自动打开数据；上网数据与电话、短信分别管理。</p><h3>主动网络测试</h3><label>测试链路<select id="network-interface"></select></label><label><input id="network-cellular-consent" type="checkbox">允许本次测试使用蜂窝流量</label><div class="actions"><button id="network-test-connectivity">测试 DNS / HTTPS</button><button id="network-test-download">下载测速 · 约 1 MB</button></div><p>只测试选中的已连接链路，最多15秒；每次手动开始，不自动重试或回退。</p><p id="network-test-result" role="status"></p></section><section id="wifi-section" hidden><h2>Wi-Fi 配置</h2><p>需要所有者最近5分钟内登录。先试连接，确认成功后才保存；40秒未确认会恢复原配置。切换可能使当前网页暂时断开，请先准备可用的备用维护连接。</p><div class="actions"><button id="wifi-login">重新登录配置 Wi-Fi</button><button id="wifi-networks-refresh">读取已发现的网络</button></div><p id="wifi-networks-state" role="status" aria-live="polite">点击读取设备已发现的网络，也可手输网络名。</p><div id="wifi-networks"></div><label>网络名称（隐藏网络可直接填写）<input id="wifi-ssid" autocomplete="off" maxlength="32"></label><label>WPA2 个人网络密码<input id="wifi-passphrase" type="password" autocomplete="off" maxlength="64"></label><button id="wifi-begin">试连接新配置</button><p id="wifi-state" role="status" aria-live="polite">没有试连接</p><div class="actions"><button id="wifi-status" disabled>查询连接结果</button><button id="wifi-confirm" disabled>确认保存</button><button id="wifi-cancel" disabled>取消并恢复</button></div></section></details>
 <details id="forwarding-panel" data-configuration><summary>短信转发 · 开关与规则</summary><section id="forwarding-section"><h2>短信转发</h2><p>默认关闭；关闭后停止独立转发进程。自动转发只处理启用后的新短信；历史补发需要另外预览和确认。地址和密钥不回显，修改普通规则会保留旧凭据。</p><div class="actions"><button id="forwarding-login">管理登录并读取</button><button id="forwarding-refresh">读取状态</button><button id="forwarding-toggle" disabled>开启转发</button></div><p id="forwarding-state" role="status" aria-live="polite"></p><p id="forwarding-pending" class="mono"></p><div class="actions"><button id="forwarding-query" hidden>核对上次请求</button><button id="forwarding-archive" hidden>保留未确认记录并继续</button></div><h3>转发目标</h3><p>支持 Webhook、Bark 和 Telegram，最多8个。只在需要替换时重新填写地址和凭据；输入不会保存到浏览器草稿。</p><div id="forwarding-targets"></div><button id="forwarding-add-target" disabled>新增目标</button><h3>匹配规则</h3><p>最多32条，所有筛选条件须同时满足；同一目标按第一条匹配规则发送一次。默认仅通知；可明确选择隐藏英数字或完整正文。高级条件支持有限正则和按短信标注时间判断的固定时区窗口。</p><div id="forwarding-rules"></div><button id="forwarding-add-rule" disabled>新增规则</button><div class="actions"><button id="forwarding-save" disabled>保存目标和规则</button></div><p class="forwarding-warning">保存和开关修改需要所有者最近5分钟内登录。已发出的第三方请求不能保证撤回；结果不确定时不会自动重发。关闭此配置区会清空尚未提交的地址和密钥。</p><details id="forwarding-history-panel"><summary>历史短信补发 · 先预览再确认</summary><p>仅补发所选范围中符合现有规则的短信；每批最多32条、64个递送。预览不会发送或开启转发；总开关已开启时才能确认。旧在途、未确认和已确认记录会跳过。</p><button id="forwarding-history-login">管理登录并读取</button><label>本批从哪里开始<select id="forwarding-history-after"><option value="0">从最早保存的短信开始</option></select></label><label>本批最多查看条数<input id="forwarding-history-limit" type="number" min="1" max="32" value="16"></label><label>补发到（可多选）<select id="forwarding-history-targets" multiple size="3" disabled></select></label><button id="forwarding-history-prepare" disabled>预览这批短信</button><p id="forwarding-history-state" role="status" aria-live="polite"></p><div id="forwarding-history-preview"></div><details><summary>本机已保存的补发摘要</summary><div id="forwarding-history-saved"></div></details><label><input id="forwarding-history-full" type="checkbox" disabled>我同意本批预览中标明的完整正文和发送方外发</label><div class="actions"><button id="forwarding-history-commit" disabled>确认补发一次</button><button id="forwarding-history-cancel" disabled>取消未提交预览</button><button id="forwarding-history-query" disabled>核对本批回执</button><button id="forwarding-history-archive" disabled>保存回执并归档本批</button></div><p>五分钟或设备服务重启后，未确认预览会失效；刷新只核对，不会重新发送。存在在途或Unknown时不能归档，先保留并核对。归档只清理批次索引，递送回执仍在设备上；浏览器先保留本批摘要。</p></details><h3>一键测试转发</h3><p>转发服务确认运行后，向一个已保存目标发送固定合成通知，不使用真实短信。只提交一次，短时自动核对回执。</p><label>测试目标<select id="forwarding-test-target" disabled></select></label><button id="forwarding-test" disabled>发送一条合成测试</button><details><summary>递送回执</summary><button id="forwarding-receipts-refresh">读取递送回执</button><div id="forwarding-receipts"></div><button id="forwarding-receipts-more" disabled>更多回执</button></details></section></details>
 <details id="ap-identity-panel" data-configuration><summary>连接与配对设置</summary>
 <section><h2>连接与身份</h2><label>设备公钥（通过可信 USB / CLI 核对）<input id="pin" autocomplete="off" maxlength="64" placeholder="64 位十六进制公钥"></label><p id="client-key" class="mono"></p><label><input type="checkbox" id="write-scope">配对时申请短信发送、通话控制和音频权限</label><div class="actions"><button id="pair">申请配对</button><button id="login">登录已批准的浏览器</button><button id="logout">退出</button></div><h3>用户名密码登录</h3><p>首次设置时创建的管理员账号。密码只在本页用来生成身份，不会发给设备。</p><label>用户名<input id="owner-username" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="32"></label><label>密码<input id="owner-password" type="password" autocomplete="current-password" maxlength="64"></label><div class="actions"><button id="password-login">用户名密码登录</button></div></section>
@@ -39,7 +173,7 @@
 <details id="nas-bridge-panel"><summary>NAS 只读接入（可选）</summary><section><h2>连接 NAS</h2><p>棒子可独立运行。这里只给已批准的 NAS 绑定状态、短信和通话记录读取权限，不发送短信或控制电话。</p><p>需要所有者最近5分钟内登录。NAS须使用独立密钥，先在上方配对审批中核对并批准。</p><div class="actions"><button id="nas-refresh">读取 NAS 与绑定</button></div><label>已批准的 NAS<select id="nas-client" aria-describedby="nas-key"></select></label><p id="nas-key" class="mono"></p><label>NAS 别名<input id="nas-alias" maxlength="128" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="英文字母、数字、点、下划线或连字符"></label><div class="actions"><button id="nas-query">核对当前绑定</button><button id="nas-bind" class="primary" disabled>保存只读绑定</button><button id="nas-revoke" class="danger" disabled>撤销绑定</button></div><p id="nas-state" role="status" aria-live="polite"></p><button id="nas-acknowledge" hidden disabled>确认本次核对结果</button><details><summary>绑定参数与当前授权</summary><pre id="nas-binding" class="mono">尚未读取</pre><p>绑定版本用于NAS客户端配置，不是登录令牌。结果不明时先核对，不要重复保存或撤销。</p></details><details><summary>本机回执留存</summary><p>只导出当前设备的NAS操作记录，保留“原回复”和“仅核对当前状态”的区别。JSON含公开标识，请妥善保管；不含私钥、令牌或短信正文。</p><div class="actions"><button id="nas-export">准备导出本机记录</button><a id="nas-download" hidden download="rustsimhub-nas-records.json">下载 JSON 文件</a><button id="nas-clear-exported" disabled>已保存文件，清理已导出回执</button></div><p>下载不会自动删除记录。确认文件已保存后才能清理；待确认操作及其关联回执、其他设备和新增回执保留。</p></details></section></details>
 
 <section id="first-setup" hidden><h2>首次设置</h2><p>首次设置码通过可信维护入口领取。请核对设备公钥后，将此浏览器设为所有者。</p><label>临时设置码<input id="setup-code" type="password" autocomplete="off" maxlength="64"></label><button id="initialize-owner">初始化第一个所有者</button></section>
-</details><details data-configuration><summary>手动调试与设备管理</summary>
+</details><details id="debug-panel" data-configuration><summary>手动调试与设备管理</summary>
 <section><h2>设备状态</h2><div class="actions"><button id="refresh">刷新状态</button><button id="sync">补同步事件</button></div><pre id="status">等待登录</pre><p id="events"></p></section>
 <section><h2>电话</h2><p>呼叫接通后，可在支持音频的设备配置中连接浏览器声音。</p><div id="calls"></div><button id="more-calls">下一页</button><label>拨出号码<input id="number" inputmode="tel" maxlength="32"></label><button id="prepare-dial">准备拨号</button><label>选择呼叫<select id="call-id"></select></label><div class="actions"><button id="prepare-accept">准备接听</button><button id="prepare-hangup">准备挂断</button></div><label>DTMF 按键<input id="dtmf" maxlength="32" placeholder="0–9、*、#、A–D"></label><button id="prepare-dtmf">准备发送按键</button><p id="lease">没有控制租约</p></section>
 <section id="audio-section" hidden><h2>通话声音</h2><p>接通后点击连接并允许麦克风，需要受信任的 HTTPS、同一局域网和音频权限。停止声音会关闭麦克风；结束电话请使用挂断操作。</p><p id="audio-state" role="status">未连接声音</p><div class="actions"><button id="audio-start" disabled>连接声音</button><button id="audio-stop" disabled>停止声音</button><button id="audio-play">播放声音</button></div><label><input id="audio-muted" type="checkbox">麦克风静音</label><audio id="call-audio" controls playsinline></audio></section>
@@ -47,4 +181,4 @@
 <section id="history-section" hidden><h2>导入的历史记录</h2><p>历史记录仅供查看。每个来源由所有者单独授权，个人标记按被授权的旧用户显示。</p><label>历史来源<select id="history-source"></select></label><label>记录类型<select id="history-entity"></select></label><div class="actions"><button id="refresh-history">刷新历史</button><button id="more-history" disabled>下一页</button></div><div id="history-list"></div><pre id="history-detail"></pre></section>
 <section><h2>已查看的通话</h2><pre id="call-detail"></pre></section>
 </details>
-<footer>浏览器私钥保存在本机 IndexedDB，登录会话只存在内存。关闭页面后通话按核心租约自动清理。</footer></main></body></html>
+<footer>浏览器私钥保存在本机 IndexedDB，登录会话只存在内存。关闭页面后通话按核心租约自动清理。</footer></main></div></div></body></html>

@@ -38,6 +38,34 @@ pub(super) fn request(origin: &str, host: &str, body: Vec<u8>) -> Request {
         .unwrap()
 }
 #[tokio::test]
+async fn console_stylesheet_is_served_with_the_existing_host_and_cache_boundary() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = app(dir.path().join("absent.sock"));
+    for (host, status) in [
+        ("localhost:8443", StatusCode::OK),
+        ("invalid.example", StatusCode::FORBIDDEN),
+    ] {
+        let req = Request::builder()
+            .uri("/console.css")
+            .header(header::HOST, host)
+            .body(Body::empty())
+            .unwrap();
+        let response = router(a.clone()).oneshot(req).await.unwrap();
+        assert_eq!(response.status(), status);
+        assert_eq!(response.headers()["cache-control"], "no-store");
+        if status == StatusCode::OK {
+            assert_eq!(
+                response.headers()[header::CONTENT_TYPE],
+                "text/css; charset=utf-8"
+            );
+            let bytes = axum::body::to_bytes(response.into_body(), MAX_FRAME)
+                .await
+                .unwrap();
+            assert_eq!(&bytes[..], include_bytes!("../web/console.css").as_slice());
+        }
+    }
+}
+#[tokio::test]
 async fn sms_assets_are_served_with_the_existing_host_and_cache_boundary() {
     let dir = tempfile::tempdir().unwrap();
     let a = app(dir.path().join("absent.sock"));
@@ -57,6 +85,10 @@ async fn sms_assets_are_served_with_the_existing_host_and_cache_boundary() {
         (
             "/clients.js",
             include_bytes!("../web/clients.js").as_slice(),
+        ),
+        (
+            "/console.js",
+            include_bytes!("../web/console.js").as_slice(),
         ),
     ] {
         for (host, status) in [
