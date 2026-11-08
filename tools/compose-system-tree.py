@@ -260,7 +260,7 @@ def main():
         directory(state_mount, 0o700, exist_ok=True)
         assert not any(state_mount.iterdir())
         state_mount.chmod(0o700)
-        units = ['rustsimhub-firstboot.service', 'rustsimhub-usb.service',
+        units = ['rustsimhub-firstboot.service', 'rustsimhub-usb.service', 'rustsimhub-usb-dhcp.service',
                  'rustsimhub-firmware-extract.service',
                  'rustsimhub-device-firmware.service', 'rustsimhub-radio-resume.service']
         mdns_sha256 = build['artifact_sha256'].get('rustsimhub-mdns')

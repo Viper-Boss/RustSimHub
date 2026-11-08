@@ -42,6 +42,17 @@ class ContractTests(unittest.TestCase):
             self.assertIn(name, install.split('Before=')[1].splitlines()[0])
         self.assertIn('ConditionPathExists=!/var/lib/rustsimhub/rustsimhub-v1/system/installation.complete', install)
 
+    def test_usb_dhcp_offers_only_the_host_address_without_gateway_or_dns(self):
+        unit = (UNITS/'rustsimhub-usb-dhcp.service').read_text()
+        command = ' '.join(line.rstrip('\').strip() for line in unit.split('ExecStart=')[1].split('Restart=')[0].splitlines())
+        for option in ('--port=0', '--interface=usb0', '--conf-file=/dev/null', '--no-resolv', '--leasefile-ro',
+                       '--dhcp-range=10.55.0.1,10.55.0.1,255.255.255.248,12h', '--dhcp-option=option:router',
+                       '--dhcp-option=option:dns-server', '--user=nobody'):
+            self.assertIn(option, command.split())
+        self.assertNotIn('wlan0', command)
+        self.assertNotIn('wwan', command)
+        self.assertIn('rustsimhub-usb-dhcp.service', (ROOT/'tools/compose-system-tree.py').read_text())
+
 
 @unittest.skipUnless(os.geteuid() == 0 and shutil.which('mke2fs') and shutil.which('ssh-keygen'), 'needs root and e2fsprogs')
 class BuilderTests(unittest.TestCase):
