@@ -62,7 +62,7 @@ NSHSTATE 分区是 264159 扇区（135,249,408 字节）。文件系统取 16 Ki
 
 ## 刷完以后
 
-1. 在 Windows 的 USB 网卡上手动设置 `10.55.0.1/29`，不填网关。
+1. USB 网卡的地址：20261108 及以后的包由棒子自动分配 `10.55.0.1/29`（`rustsimhub-usb-dhcp.service`，只在 usb0 上，不给网关、DNS 和域名，不开 DNS 服务）。更早的包需要在 Windows 的 USB 网卡上手动设置 `10.55.0.1/29`，不填网关。
 2. 首次开机等待提取和初始化完成。
 3. 用维护私钥登录，读取设置码：`ssh root@10.55.0.2 cat /var/lib/rustsimhub/rustsimhub-v1/system/first-owner-handoff/setup-code.txt`
 4. 浏览器打开 `https://10.55.0.2:8443`（自签名证书，先核对 `cert.pem`），用设置码创建管理员。没有管理员时，这个窗口跨重启一直有效。

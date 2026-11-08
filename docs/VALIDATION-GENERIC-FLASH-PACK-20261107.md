@@ -62,3 +62,17 @@ rootfs 不超过 2845656 扇区（1,456,975,872 字节）。系统树 12394 项�
 ## 进度
 
 整体进度仍为 81.5%，行动台账 20/169，加权 10.6%。本次是离线生成刷机包，新棒子实际启动还没有发生，不增加验收点数。
+
+## 20261108 包：USB 自动分配地址（离线）
+
+新增 `rustsimhub-usb-dhcp.service`：只在 usb0 上运行的 dnsmasq，只做 DHCP（`--port=0`），只分配 `10.55.0.1/29` 一个地址，不给网关、DNS 和域名，租约不落盘。没有写设备，也没有真机启动。
+
+| 项目 | 结果 |
+|---|---|
+| 隔离测试 | 组合树里的 ARM 版 dnsmasq 在 qemu 下运行，命令取自单元文件，两个网络命名空间用 veth 连接，客户端为 dhcpcd。客户端拿到 `10.55.0.1/29`，没有默认路由；设备端只监听 usb0 的 UDP 67，没有 DNS。测试为了在 qemu 下运行，去掉了降权参数 `--user/--group` |
+| 系统树 | 组合 `9e884c773b226e7f9ff707ab6e2d25ac47f2a924`，应用仍为 main `55f97839`；12396 项，审计、只读挂载比对和 7 个 ARM64 程序运行都通过；`systemd-analyze verify` 没有报告这个单元的问题 |
+| rootfs | 1,456,963,584 字节，SHA-256 `b3c7d9359eca5521e81fc2582a4e925f462e4d6febdb7d2e6961c5c3fb9b5ba4` |
+| NSHSTATE | 沿用上一版，`e811ff4a…` |
+| 刷机包 | `.private/rustsimhub-generic-ufi003-20261108-first.rshpack`，1,660,356,059 字节，SHA-256 `1734263c4ef0e7402cae4e7336f315b284acf93cae546b8a9deab5d3667155e0`；`pack-create` 和 `pack-import` 通过 |
+
+UsbTool 配套改动在其仓库的 `claude/flash-two-boards` 分支，还没有合并：同一个包刷 UFI003 和 UFI001C；`tz` 与 `tzbak` 不同但都通过哈希校验时继续；自动加载刷机包；一键经 USB 读寿命；原厂棒子经 adb 读寿命（未在真机试过）。
