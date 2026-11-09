@@ -98,6 +98,9 @@ if formal:
  r=type('Result',(),{'returncode':0})()
 else:
  r=subprocess.run(['/fixture/update-tests','--exact','admission::product::tests::production_chain','--ignored','--nocapture','--test-threads=1'])
+if not formal and r.returncode==0:
+ assert Path('/fixture/production-chain-passed').read_bytes()==b'actual-core-launcher-auth-store-migration-health\n'
+ print('NATIVE_PRODUCTION_CHAIN_PASSED',flush=True)
 for relative in ['core/state/product-upgrade/state.json','system/product-upgrade/recovery9/state.json','system/product-install/active.json']:
  p=Path('/var/lib/rustsimhub/rustsimhub-v1')/relative
  if p.exists():print('PRIVATE JOURNAL',relative,p.read_text())

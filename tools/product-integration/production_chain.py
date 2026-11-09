@@ -87,6 +87,7 @@ def native(args,work):
     tag='rustsimhub-web4-chain-'+uuid.uuid4().hex
     volumes=['rsh-web4-'+uuid.uuid4().hex for _ in range(2)]
     image=None
+    container='rsh-web4-'+uuid.uuid4().hex
     try:
         run(docker+['build','--pull=false','--network=none','-t',tag,str(work/'context')],env=env,stdout=(work/'image-build.log').open('wb'),stderr=subprocess.STDOUT)
         image=subprocess.check_output(docker+['image','inspect','--format={{.Id}}',tag],env=env,text=True).strip();report['image']=image
@@ -95,11 +96,12 @@ def native(args,work):
         for volume,paths in [(volumes[0],['/var/lib/rustsimhub/rustsimhub-v1/system/app/versions','/opt/rustsimhub/versions']),
                              (volumes[1],['/var/lib/rustsimhub/rustsimhub-v1/core','/var/lib/rustsimhub-core'])]:
             for path in paths:mounts+=['--mount',f'type=volume,source={volume},target={path}']
-        command=docker+['run','--rm','--pull=never','--network=none','--memory=768m','--cpus=2','--pids-limit=128',
+        command=docker+['run','--rm','--name',container,'--pull=never','--network=none','--memory=768m','--cpus=2','--pids-limit=128',
             '--tmpfs=/tmp:rw,nosuid,nodev,size=64m,mode=1777',*mounts,image]
         result=subprocess.run(command,env=env,stdout=(work/'chain.log').open('wb'),stderr=subprocess.STDOUT,timeout=240)
-        report.update(exit=result.returncode,passed=result.returncode==0,native_architecture_adapter=True,synthetic_pid1_cgroup=True)
+        report.update(exit=result.returncode,passed=result.returncode==0 and 'NATIVE_PRODUCTION_CHAIN_PASSED' in (work/'chain.log').read_text(errors='replace'),native_architecture_adapter=True,synthetic_pid1_cgroup=True)
     finally:
+        subprocess.run(docker+['rm','--force',container],env=env,capture_output=True,timeout=15)
         for volume in volumes:subprocess.run(docker+['volume','rm',volume],env=env,capture_output=True,timeout=15)
         if image:subprocess.run(docker+['image','rm','--no-prune',tag],env=env,capture_output=True,timeout=15)
     return report
