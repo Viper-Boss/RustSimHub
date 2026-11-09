@@ -174,8 +174,8 @@ fn run() -> Result<(), rustsimhub_update::Error> {
         }
     }
     if let [command, key, source, epoch, input, output] = args.as_slice() {
-        if command == "make" || command == "make-forwarding" {
-            let format = if command == "make-forwarding" { 2 } else { 1 };
+        if command == "make" || command == "make-forwarding" || command == "make-product-recovery" {
+            let format = if command == "make" { 1 } else { 2 };
             let names = application_files(format)?;
             let seed = Zeroizing::new(read_checked(Path::new(key), 32)?);
             let seed: &[u8; 32] = seed.as_slice().try_into().map_err(|_| Error::Invalid)?;
@@ -194,7 +194,11 @@ fn run() -> Result<(), rustsimhub_update::Error> {
                 epoch: epoch.parse().map_err(|_| Error::Invalid)?,
                 // Schema 6 is a maintenance transition: v5 updaters must refuse it.
                 schema_min: SCHEMA,
-                schema_max: SCHEMA,
+                schema_max: if command == "make-product-recovery" {
+                    9
+                } else {
+                    SCHEMA
+                },
                 source_sha256: source.clone(),
                 development_fixtures: false,
                 files: names
@@ -217,6 +221,19 @@ fn run() -> Result<(), rustsimhub_update::Error> {
                 0,
             )?;
             verify_payload(&m, &payloads)?;
+            if command == "make-product-recovery" {
+                // Offline signer only; the future installer still validates
+                // installed trust, fallback and actual data. Reject a Core
+                // that cannot implement this exact finite profile BEFORE IO.
+                rustsimhub_update::product_admission::SignedProductPrograms::inspect(
+                    &bytes,
+                    &sig.to_bytes(),
+                    &signing.verifying_key().to_bytes(),
+                    &payloads,
+                    SCHEMA,
+                    rustsimhub_update::product_admission::ProductRuntimeModeV1::RecoveryHealth,
+                )?;
+            }
             write_new(&output.join("manifest.json"), &bytes, false)?;
             write_new(&output.join("manifest.sig"), &sig.to_bytes(), false)?;
             for (name, payload) in names.iter().zip(payloads) {

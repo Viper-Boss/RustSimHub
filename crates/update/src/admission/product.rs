@@ -81,7 +81,7 @@ impl HeldFile {
         }
         file.seek(SeekFrom::Start(0)).map_err(|_| Error::Io)?;
         let mut bytes = Vec::new();
-        file.by_ref()
+        std::io::Read::by_ref(&mut file)
             .take(crate::MAX_PAYLOAD + 1)
             .read_to_end(&mut bytes)
             .map_err(|_| Error::Io)?;
