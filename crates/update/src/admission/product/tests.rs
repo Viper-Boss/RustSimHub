@@ -152,11 +152,15 @@ fn install_base() {
             0o700,
         );
     }
-    symlink(
-        "/var/lib/rustsimhub/rustsimhub-v1/core",
-        "/var/lib/rustsimhub-core",
-    )
-    .unwrap();
+    let physical = fs::metadata("/var/lib/rustsimhub/rustsimhub-v1/core").unwrap();
+    let alias = fs::symlink_metadata("/var/lib/rustsimhub-core").unwrap();
+    assert!(alias.is_dir());
+    use std::os::unix::fs::MetadataExt;
+    assert_eq!(
+        (physical.dev(), physical.ino()),
+        (alias.dev(), alias.ino()),
+        "actual production state bind is required"
+    );
     symlink("/run/rustsimhub-app/selected", "/opt/rustsimhub/selected").unwrap();
     put(Path::new("/").join(BASE_PATH), BASE.as_bytes(), 0o644);
     for material in forwarding() {
@@ -237,8 +241,7 @@ fn package(key: &SigningKey, application: &[u8], payloads: &[Vec<u8>]) {
         TargetId::ProfileConfig=>serde_json::to_vec(&serde_json::json!({"format":1,"profile":"product-recovery-health-v1","source_archive_sha256":source,"core_sha256":expected.core_sha256})).unwrap(),
         TargetId::CoreDropin=>include_str!("../../../../../firmware/system/product-profiles/50-product-profile.conf").replace("@CORE_MEMORY@","192M").replace("@CORE_TASKS@","64").into_bytes(),
         TargetId::Launcher=>fs::read("/fixture/programs/rustsimhub-core-launcher").unwrap(),
-        // Optional provider daemons remain OFF. Their idle ELF transport is
-        // synthetic here; the release builder separately requires real SDK bytes.
+        // Actual production provider bytes are installed but remain OFF.
         TargetId::NknRoot|TargetId::NknSdk=>fs::read("/fixture/idle").unwrap(),
         TargetId::BleHost=>fs::read("/fixture/programs/rustsimhub-ble-recovery").unwrap(),
         TargetId::NknUnit=>include_bytes!("../../../../../firmware/system/product-profiles/rustsimhub-nkn-root.service").to_vec(),
