@@ -289,6 +289,9 @@ impl Store {
         verify_payload(&m, &payloads)?;
         Ok((manifest, signature, payloads))
     }
+    pub(crate) fn product_activation_pending(&self) -> bool {
+        self.state.candidate.is_some() && !self.state.attempted
+    }
     pub(crate) fn product_pending(&self) -> Option<&str> {
         self.state.candidate.as_ref().map(|v| v.hash.as_str())
     }

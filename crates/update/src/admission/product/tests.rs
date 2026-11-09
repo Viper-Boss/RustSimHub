@@ -312,6 +312,18 @@ fn production_chain() {
     assert_eq!(ledger["state"]["floor"], 2);
     assert_eq!(ledger["state"]["attempted"], false);
     assert!(ledger["state"]["candidate"].is_null());
+    assert!(Command::new("/usr/bin/systemctl")
+        .args([
+            "--system",
+            "stop",
+            "rustsimhub-core.service",
+            "rustsimhub-edge.service",
+            "rustsimhub-media.service"
+        ])
+        .status()
+        .unwrap()
+        .success());
+    std::thread::sleep(Duration::from_millis(200));
     assert_eq!(
         crate::product_recovery_child::inspect().unwrap()["actual_schema"],
         9

@@ -191,6 +191,10 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
     let mut files = vec![trust, state];
     let schema = actual_schema()?;
     let store = Store::open(Path::new(APP), key, schema)?;
+    // A duplicate activation must fail BEFORE stopping a live candidate.
+    if command == "product-activate" && !store.product_activation_pending() {
+        return Err(Error::Denied);
+    }
     let baseline = store.product_baseline()?;
     let baseline_manifest = verify(&baseline.0, &baseline.1, &key, schema, 0)?;
     let baseline_directory = Path::new(APP)
@@ -302,7 +306,11 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
             0o700,
         ))?;
     }
-    install(services::stop_business())?;
+    if command == "product-inspect" {
+        install(Systemd.revalidate_off())?;
+    } else {
+        install(services::stop_business())?;
+    }
     let snapshot = MaintenanceSnapshot::observe_qualified(Path::new("/"), 0, 986, true)?;
     systemd::effective_product(&snapshot)?;
     let admission = ProductDataAdmission::compare(&snapshot, &selected, &next, &fallback)?;
