@@ -256,10 +256,15 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
             crate::MAX_PAYLOAD,
         )?);
     }
-    let candidate_directory = store
-        .product_pending()
-        .map(|h| Path::new(APP).join("versions").join(h))
-        .unwrap_or_else(|| PathBuf::from(CANDIDATE));
+    let inspect_confirmed = command == "product-inspect" && store.product_pending().is_none();
+    let candidate_directory = if inspect_confirmed {
+        baseline_directory.clone()
+    } else {
+        store
+            .product_pending()
+            .map(|h| Path::new(APP).join("versions").join(h))
+            .unwrap_or_else(|| PathBuf::from(CANDIDATE))
+    };
     let candidate_path = candidate_directory.as_path();
     let manifest = store::read_checked(&candidate_path.join("manifest.json"), MAX_MANIFEST)?;
     let signature = store::read_checked(&candidate_path.join("manifest.sig"), 64)?;
@@ -268,7 +273,7 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
         &signature,
         &key,
         schema,
-        if store.product_pending().is_some() {
+        if store.product_pending().is_some() || inspect_confirmed {
             0
         } else {
             store.floor()
