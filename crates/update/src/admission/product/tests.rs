@@ -338,3 +338,39 @@ fn production_chain() {
         0o600,
     );
 }
+
+#[test]
+#[ignore = "private Root selection-generation guard with real file replacement"]
+fn selection_generation_rejects_later_equal_byte_inode() {
+    isolated(0);
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("rustsimhub-core");
+    let bytes = b"retained signed payload fixture";
+    put(&path, bytes, 0o755);
+    let held = HeldFile::capture(&path, 1024).unwrap();
+    let entry = Entry {
+        name: "rustsimhub-core".into(),
+        bytes: bytes.len() as u64,
+        sha256: manifest_hash(bytes),
+    };
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o555)).unwrap();
+    let selected = held.selected_generation(&entry).unwrap();
+    selected.check().unwrap();
+    let replacement = directory.path().join("next");
+    put(&replacement, bytes, 0o555);
+    fs::rename(replacement, &path).unwrap();
+    assert!(selected.check().is_err());
+    assert!(held.selected_generation(&entry).is_err());
+}
+
+#[test]
+#[ignore = "private Root factory input generation; subsequent actions use formal CLI"]
+fn prepare_packages() {
+    isolated(0);
+    crate::product_native_fixture::enable();
+    install_base();
+    let key = SigningKey::from_bytes(&[71; 32]);
+    put(TRUST, &key.verifying_key().to_bytes(), 0o444);
+    let (app, _, payloads) = applications(&key);
+    package(&key, &app, &payloads);
+}

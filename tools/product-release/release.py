@@ -228,7 +228,8 @@ def build(args):
                  *['firmware/system/product-profiles/' + p.name for p in (ROOT/'firmware/system/product-profiles').iterdir()]]:
         require((ROOT/item).read_bytes() == (source/item).read_bytes(), 'running tool differs from committed source')
     env = dict(os.environ, CARGO_TARGET_DIR=str(args.output / 'target'),
-               RUSTSIMHUB_BUILD_SOURCE_SHA256=args.source, CARGO_NET_OFFLINE='true')
+               RUSTSIMHUB_BUILD_SOURCE_SHA256=args.source, CARGO_NET_OFFLINE='true',
+               CARGO_PROFILE_RELEASE_OPT_LEVEL='z')
     # Explicit optional cache reuse is forbidden here: per-profile target prevents
     # a later feature build from silently overwriting an earlier exported program.
     log = args.output / 'build.log'
@@ -308,13 +309,28 @@ def build(args):
     materials.mkdir(mode=0o700)
     installed, plan = render(materials, args.profile, args.source, hashes, roles)
     checked = launcher_check(programs / 'rustsimhub-core-launcher', runner, infos['core'], installed, hashes['rustsimhub-core'])
+    # Publish the exact original application payload set without inventing a
+    # release epoch/signature. A later authorized signer supplies those inputs.
+    application = args.output / 'application-input'
+    application.mkdir(mode=0o700)
+    for name in ['rustsimhub-core','simhubctl','rustsimhub-edge','rustsimhub-audio-alsa','rustsimhub-forwarder']:
+        write_new(application / name, arm.regular(programs / name, 24*1024**2), 0o555)
+    opus = next(p for p in (source/'licenses').rglob('*') if p.is_file() and 'opus' in p.name.lower() and 'copying' in p.name.lower())
+    write_new(application / 'Opus-COPYING.txt', opus.read_bytes())
+    total = sum(p.stat().st_size for p in application.iterdir())
+    require(total <= 24*1024**2, 'original total application payload budget exceeded')
+    write_new(args.output/'application-input.json', encoded({'format':1,'kind':'unsigned-application-input',
+        'source_archive_sha256':args.source,'profile':args.profile,'schema_min':6,'schema_max':9 if recovery else 6,
+        'files':{p.name:{'sha256':sha(p.read_bytes()),'bytes':p.stat().st_size} for p in application.iterdir()},
+        'payload_bytes':total,'epoch_assigned':False,'signed':False,'installable':False}))
     # Origin/ALSA and the five existing payloads are unchanged by this tool;
     # explicitly not a bootable image or a signed application group.
     manifest = {'format': 1, 'kind': 'unsigned-product-profile', 'revision': args.revision,
         'source_archive_sha256': args.source, 'profile': args.profile, 'target': 'aarch64-unknown-linux-gnu',
         'programs': {n: {'sha256': hashes[n], 'bytes': (programs/n).stat().st_size,
                        'glibc': arm.versions(programs/n)} for n in names}, 'build_info': infos,
-        'worker': worker, 'audio': audio, 'mode_metadata': mode_info, 'runtime_contract': runtime, 'sdk': sdk, 'sdk_provenance': sdk_provenance,
+        'worker': worker, 'audio': audio, 'mode_metadata': mode_info,
+        'rust_profile': {'name': 'release', 'opt_level': 'z', 'lto': 'thin', 'strip': 'symbols'}, 'runtime_contract': runtime, 'sdk': sdk, 'sdk_provenance': sdk_provenance,
         'sdk_licenses': license_report, 'launch_check': checked, 'plan': plan,
         'materials': {p.name: sha(p.read_bytes()) for p in materials.iterdir()},
         'signed': False, 'epoch_assigned': False, 'installable': False, 'bootable_rootfs': False,
@@ -336,7 +352,27 @@ def build(args):
     return manifest
 
 
+def assemble_unsigned(argv):
+    """Reuse the existing verifier/packager over independently signed inputs."""
+    import importlib.util
+    parser=argparse.ArgumentParser(description='Assemble unsigned finite Root inputs from an actual same-source build and signed application.')
+    parser.add_argument('--assemble-unsigned',action='store_true',required=True)
+    for name in ['build-root','application','app-public','roles-policy','output']:
+        parser.add_argument('--'+name,type=Path,required=True)
+    args=parser.parse_args(argv)
+    spec=importlib.util.spec_from_file_location('original_product_packager',ROOT/'tools/product-install/package.py')
+    package=importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(package)
+    try:
+        result=package.create(args.build_root,args.application,args.app_public,args.roles_policy,None,args.output)
+    except (ValueError,OSError,subprocess.SubprocessError,AssertionError) as error:
+        parser.exit(1,'Unsigned assembly refused: '+str(error)+'\n')
+    print(json.dumps(result,sort_keys=True))
+
+
 def main():
+    if '--assemble-unsigned' in sys.argv[1:]:
+        return assemble_unsigned(sys.argv[1:])
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--profile', choices=tuple(PROFILES), required=True)
     for name in ('archive', 'repository', 'output', 'roles', 'sysroot', 'audio-sysroot'):

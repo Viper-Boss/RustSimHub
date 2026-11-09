@@ -166,18 +166,24 @@ def create(build_root, app, app_public, policy_path, seed_path, output):
     manifest={'format':1,'kind':'product-maintenance','board':'ufi003-v02','arch':'aarch64-linux',
               'bindings':bindings,'roles':BASE_ROLES+(['nkn','ble'] if profile!='legacy-v1' else []),'files':entries}
     raw=encode(manifest); need(len(raw)<=32768,'manifest budget')
-    seed=read(seed_path,32); need(len(seed)==32,'external Ed25519 seed length')
-    # RFC8410 PKCS8 for a raw Ed25519 seed. Reuse the system OpenSSL already
-    # required by the unchanged application verifier, not another dependency.
-    with tempfile.TemporaryDirectory(prefix='product-signature-') as temporary:
-        private=Path(temporary)
-        key=private/'seed.der'; key.write_bytes(bytes.fromhex('302e020100300506032b657004220420')+seed);key.chmod(0o600)
-        message=private/'message';message.write_bytes(DOMAIN+raw)
-        signature=private/'signature'
-        subprocess.run(['openssl','pkeyutl','-sign','-rawin','-keyform','DER','-inkey',str(key),'-in',str(message),'-out',str(signature)],
-                       stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True,timeout=5)
-        signed=read(signature,64);need(len(signed)==64,'signature length')
-    blobs.update({'manifest.json':raw,'manifest.sig':signed})
+    blobs['manifest.json']=raw
+    if seed_path is None:
+        # No signing or epoch allocation. The missing signature and extra
+        # marker make this directory inadmissible to the production verifier.
+        blobs['UNSIGNED']=b'Unsigned finite Root input; not an installation permission.\n'
+    else:
+        seed=read(seed_path,32); need(len(seed)==32,'external Ed25519 seed length')
+        # RFC8410 PKCS8 for a raw Ed25519 seed. Reuse the system OpenSSL already
+        # required by the unchanged application verifier, not another dependency.
+        with tempfile.TemporaryDirectory(prefix='product-signature-') as temporary:
+            private=Path(temporary)
+            key=private/'seed.der'; key.write_bytes(bytes.fromhex('302e020100300506032b657004220420')+seed);key.chmod(0o600)
+            message=private/'message';message.write_bytes(DOMAIN+raw)
+            signature=private/'signature'
+            subprocess.run(['openssl','pkeyutl','-sign','-rawin','-keyform','DER','-inkey',str(key),'-in',str(message),'-out',str(signature)],
+                           stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,check=True,timeout=5)
+            signed=read(signature,64);need(len(signed)==64,'signature length')
+        blobs['manifest.sig']=signed
     need(not output.exists() and not output.is_symlink() and output.parent.is_dir() and not output.parent.is_symlink(),'fresh output required')
     # A complete directory is published at once, on the output filesystem. No
     # partially signed directory is mistaken for a complete finite package.
@@ -189,14 +195,17 @@ def create(build_root, app, app_public, policy_path, seed_path, output):
         fd=os.open(stage,os.O_RDONLY|os.O_DIRECTORY);os.fsync(fd);os.close(fd)
         os.rename(stage,output)
         fd=os.open(output.parent,os.O_RDONLY|os.O_DIRECTORY);os.fsync(fd);os.close(fd)
-    return {'format':1,'kind':'product-maintenance-package','profile':profile,'manifest_sha256':digest(raw),
+    return {'format':1,'kind':'unsigned-product-maintenance-package' if seed_path is None else 'product-maintenance-package','signed':seed_path is not None,'profile':profile,'manifest_sha256':digest(raw),
             'files':len(ids),'authorization_verified':False,'installed':False,'starts_services':False}
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    for name in ['build-root','application','app-public','roles-policy','seed','output']:
+    for name in ['build-root','application','app-public','roles-policy','output']:
         parser.add_argument('--'+name,type=Path,required=True)
+    signing=parser.add_mutually_exclusive_group(required=True)
+    signing.add_argument('--seed',type=Path)
+    signing.add_argument('--unsigned',action='store_true')
     args=parser.parse_args()
     try:
         result=create(args.build_root,args.application,args.app_public,args.roles_policy,args.seed,args.output)

@@ -50,6 +50,48 @@ impl HeldFile {
             observation: observed,
         })
     }
+    fn selected_generation(&self, entry: &crate::Entry) -> Result<Self> {
+        use std::io::{Seek, SeekFrom};
+        let before = self.observation.stamp.as_ref().ok_or(Error::Integrity)?;
+        let observation = Observation::capture(&self.observation.path)?;
+        let now = observation.stamp.as_ref().ok_or(Error::Integrity)?;
+        let mode = if entry.name == "Opus-COPYING.txt" {
+            0o444
+        } else {
+            0o555
+        };
+        // Only the actual original selector's chmod is admitted. No inode,
+        // ownership, bytes, link count, size or mtime change is adopted.
+        if self.observation.path.file_name().and_then(|n| n.to_str()) != Some(entry.name.as_str())
+            || before.dev != now.dev
+            || before.ino != now.ino
+            || before.uid != now.uid
+            || before.gid != now.gid
+            || before.links != now.links
+            || before.size != now.size
+            || before.modified != now.modified
+            || now.mode & 0o7777 != mode
+            || now.size != entry.bytes
+        {
+            return Err(Error::Integrity);
+        }
+        let mut file = self.file.try_clone().map_err(|_| Error::Io)?;
+        if Some(now) != Some(&file.metadata().map_err(|_| Error::Io)?.into()) {
+            return Err(Error::Busy);
+        }
+        file.seek(SeekFrom::Start(0)).map_err(|_| Error::Io)?;
+        let mut bytes = Vec::new();
+        file.by_ref()
+            .take(crate::MAX_PAYLOAD + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| Error::Io)?;
+        if bytes.len() as u64 != entry.bytes || crate::manifest_hash(&bytes) != entry.sha256 {
+            return Err(Error::Integrity);
+        }
+        let result = Self { file, observation };
+        result.check()?;
+        Ok(result)
+    }
     fn check(&self) -> Result<()> {
         self.observation.revalidate()?;
         if self.observation.stamp.as_ref()
@@ -375,6 +417,26 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
             .activate_product(&crate::manifest_hash(&manifest))?;
         // Only the two database writer guards are consumed before Core starts.
         // The original updater lock, signed bytes, trust and Root fds stay held.
+        let selected_files = authority
+            .files
+            .iter()
+            .filter_map(|file| {
+                if file.observation.path.parent() != Some(candidate_path) {
+                    return None;
+                }
+                candidate
+                    .files
+                    .iter()
+                    .find(|entry| {
+                        file.observation.path.file_name().and_then(|n| n.to_str())
+                            == Some(entry.name.as_str())
+                    })
+                    .map(|entry| file.selected_generation(entry))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        if selected_files.len() != candidate.files.len() {
+            return Err(Error::Integrity);
+        }
         let handoff = snapshot.handoff_runtime()?;
         let selected_state = HeldFile::capture(&Path::new(APP).join("state.json"), 8192)?;
         authority.store.borrow().revalidate_product_state()?;
@@ -383,7 +445,15 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
         selected_state.check()?;
         authority.store.borrow().revalidate_product_state()?;
         for file in &authority.files {
-            if file.observation.path != Path::new(APP).join("state.json") {
+            if file.observation.path == Path::new(APP).join("state.json") {
+                continue;
+            }
+            if let Some(selected) = selected_files
+                .iter()
+                .find(|selected| selected.observation.path == file.observation.path)
+            {
+                selected.check()?;
+            } else {
                 file.check()?;
             }
         }
