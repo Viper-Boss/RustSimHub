@@ -242,7 +242,8 @@ fn package(key: &SigningKey, application: &[u8], payloads: &[Vec<u8>]) {
         TargetId::CoreDropin=>include_str!("../../../../../firmware/system/product-profiles/50-product-profile.conf").replace("@CORE_MEMORY@","192M").replace("@CORE_TASKS@","64").into_bytes(),
         TargetId::Launcher=>fs::read("/fixture/programs/rustsimhub-core-launcher").unwrap(),
         // Actual production provider bytes are installed but remain OFF.
-        TargetId::NknRoot|TargetId::NknSdk=>fs::read("/fixture/idle").unwrap(),
+        TargetId::NknRoot=>fs::read("/fixture/programs/nkn-root").unwrap(),
+        TargetId::NknSdk=>fs::read("/fixture/programs/nkn-sdk-engine").unwrap(),
         TargetId::BleHost=>fs::read("/fixture/programs/rustsimhub-ble-recovery").unwrap(),
         TargetId::NknUnit=>include_bytes!("../../../../../firmware/system/product-profiles/rustsimhub-nkn-root.service").to_vec(),
         TargetId::ProductTmpfiles=>include_str!("../../../../../firmware/system/product-profiles/product.tmpfiles.in").replace("@NKN_GID@","1201").replace("@BLE_GID@","1202").into_bytes(),
