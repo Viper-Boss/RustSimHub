@@ -48,7 +48,7 @@ pub use auth::NknAuthoritySnapshot;
 mod calls;
 pub use calls::{
     CallEvent, CallEvents, CallIntent, CallObservation, CallOperation, CallPage, CallRequest,
-    CallSummary,
+    CallSummary, RecentCallPage,
 };
 mod inbox;
 mod inbox_management;
@@ -58,7 +58,7 @@ pub use indicator::IndicatorSnapshot;
 mod outgoing;
 pub use inbox::{
     InboxCursor, InboxEvent, InboxEvents, InboxPage, IncomingSms, LineObservation, LineStatus,
-    LineView, SavedSource, SmsDetail, SmsSummary, SourceSnapshot,
+    LineView, RecentInboxPage, SavedSource, SmsDetail, SmsSummary, SourceSnapshot,
 };
 pub use outgoing::{SendAttempt, SendContext};
 type Result<T> = std::result::Result<T, Error>;

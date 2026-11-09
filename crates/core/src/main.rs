@@ -42,6 +42,8 @@ mod nkn_uid_tests;
 #[cfg(all(target_os = "linux", feature = "product-providers-candidate"))]
 mod recovery_listener;
 #[cfg(target_os = "linux")]
+mod system_status;
+#[cfg(target_os = "linux")]
 use rustsimhub_core::network_trial;
 #[cfg(target_os = "linux")]
 mod observer;

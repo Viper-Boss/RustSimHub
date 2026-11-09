@@ -242,6 +242,9 @@ pub enum AuthCommand {
     LineStatus {
         token: String,
     },
+    SystemStatus {
+        token: String,
+    },
     NetworkStatus {
         token: String,
     },
@@ -362,6 +365,11 @@ pub enum AuthCommand {
         after: Option<rustsimhub_domain::InboxCursor>,
         limit: usize,
     },
+    InboxRecent {
+        token: String,
+        before: Option<rustsimhub_domain::InboxCursor>,
+        limit: usize,
+    },
     SmsDetail {
         token: String,
         sms_id: String,
@@ -423,6 +431,11 @@ pub enum AuthCommand {
     Calls {
         token: String,
         after: Option<rustsimhub_domain::InboxCursor>,
+        limit: usize,
+    },
+    CallsRecent {
+        token: String,
+        before: Option<rustsimhub_domain::InboxCursor>,
         limit: usize,
     },
     CallDetail {
@@ -1094,7 +1107,9 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 return Err(invalid());
             }
         }
-        AuthCommand::Calls { token, limit, .. } | AuthCommand::CallEvents { token, limit, .. } => {
+        AuthCommand::Calls { token, limit, .. }
+        | AuthCommand::CallsRecent { token, limit, .. }
+        | AuthCommand::CallEvents { token, limit, .. } => {
             if token.len() != 64 || !(1..=32).contains(limit) {
                 return Err(invalid());
             }
@@ -1230,6 +1245,7 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         AuthCommand::Health { token }
         | AuthCommand::Capabilities { token }
         | AuthCommand::LineStatus { token }
+        | AuthCommand::SystemStatus { token }
         | AuthCommand::NetworkStatus { token }
         | AuthCommand::WifiNetworks { token }
         | AuthCommand::SetupApStatus { token }
@@ -1255,6 +1271,7 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         }
         AuthCommand::PairChallenge { scopes, .. } if scopes.len() > 10 => return Err(invalid()),
         AuthCommand::Inbox { token, limit, .. }
+        | AuthCommand::InboxRecent { token, limit, .. }
         | AuthCommand::InboxEvents { token, limit, .. }
         | AuthCommand::DeletedInbox { token, limit, .. } => {
             if token.len() != 64 || !(1..=32).contains(limit) {
@@ -1434,6 +1451,34 @@ mod tests {
             assert!(super::parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
         }
     }
+    #[test]
+    fn recent_lists_are_bounded_and_refuse_extra_controls() {
+        for op in ["inbox_recent", "calls_recent"] {
+            let good = serde_json::json!({"protocol":2,"id":"recent","command":{"op":op,"token":"a".repeat(64),"before":null,"limit":16}});
+            assert!(
+                super::parse_auth_request(&serde_json::to_vec(&good).unwrap()).is_ok(),
+                "{op}"
+            );
+            for limit in [0, 33] {
+                let bad = serde_json::json!({"protocol":2,"id":"recent","command":{"op":op,"token":"a".repeat(64),"before":null,"limit":limit}});
+                assert!(
+                    super::parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err(),
+                    "{op} {limit}"
+                );
+            }
+            for bad in [
+                serde_json::json!({"protocol":2,"id":"recent","command":{"op":op,"token":"short","before":null,"limit":16}}),
+                serde_json::json!({"protocol":2,"id":"recent","command":{"op":op,"token":"a".repeat(64),"before":null,"limit":16,"number":true}}),
+                serde_json::json!({"protocol":2,"id":"recent","command":{"op":op,"before":null,"limit":16}}),
+            ] {
+                assert!(
+                    super::parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err(),
+                    "{op} {bad}"
+                );
+            }
+        }
+    }
+
     #[test]
     fn indicator_commands_refuse_paths_extra_controls_and_missing_authority() {
         for command in [

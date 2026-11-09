@@ -115,6 +115,12 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
             limit,
         } => serde_json::to_value(auth.calls(&token, after, limit)?)
             .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        CallsRecent {
+            token,
+            before,
+            limit,
+        } => serde_json::to_value(auth.calls_recent(&token, before, limit)?)
+            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
         CallDetail { token, call_id } => serde_json::to_value(auth.call_detail(&token, call_id)?)
             .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
         CallEvents {
@@ -155,11 +161,21 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         }
         LineStatus { token } => serde_json::to_value(auth.line_status(&token)?)
             .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        SystemStatus { token } => {
+            auth.authorize(&token, Scope::StatusRead)?;
+            crate::system_status::snapshot()
+        }
         Inbox {
             token,
             after,
             limit,
         } => serde_json::to_value(auth.inbox(&token, after, limit)?)
+            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        InboxRecent {
+            token,
+            before,
+            limit,
+        } => serde_json::to_value(auth.inbox_recent(&token, before, limit)?)
             .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
         SmsDetail { token, sms_id } => serde_json::to_value(auth.sms_detail(&token, sms_id)?)
             .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,

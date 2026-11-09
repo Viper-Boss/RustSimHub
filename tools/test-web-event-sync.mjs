@@ -100,7 +100,7 @@ function browserFixture(respond){
   indexedDB:{open:()=>({})},EventSync,SmsManager,smsListText,smsDetailText,DailyPhone:class{constructor(){this.managing=false;this.working=false;}reset(){}start(){}},NasBridgePanel,nasPendingInput,nasReceiptInput,ClientsPanel:class{reset(){}},SessionKeeper:class{start(){}reset(){}async ensure(){}},
   AudioLink:class {constructor(){this.state='closed';}async stop(){}},
   ConfigurationIndicator:class {async set(){}},
-  CallTest:class {async start(mode='outgoing'){testStarts.push(mode);}async stop(){}},NetworkPanel:class {start(){}stop(){}},
+  CallTest:class {async start(mode='outgoing'){testStarts.push(mode);}async stop(){}},ConsoleDashboard:class{reset(){}go(){}async signedIn(){}network(){}},NetworkPanel:class {start(){}stop(){}},
   fetch:async(_url,options)=>{const body=JSON.parse(options.body);sent.push(body.command);const result=await respond(body.command);return {ok:true,json:async()=>({protocol:2,id:body.id,result})};},
  };
  installAppImports(context);
