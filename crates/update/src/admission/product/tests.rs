@@ -490,6 +490,7 @@ fn production_chain() {
         stopped["data_admission"]["comparison"]["actual_data"]["business_schema"],
         9
     );
+    schema9_backup();
     put(
         "/fixture/production-chain-passed",
         b"actual-core-launcher-auth-store-migration-health\n",
@@ -604,4 +605,25 @@ fn default_chain() {
         b"unchanged-core-auth-store-no-migration\n",
         0o600,
     );
+}
+
+#[test]
+#[ignore = "private stopped schema9 fixture; real consistent backup reused without a migration request"]
+fn schema9_backup() {
+    isolated(0);
+    let root = Root::production().unwrap();
+    let transaction = "f".repeat(64);
+    root.ensure_dir(&format!("{BACKUPS}/{transaction}"), 0o700)
+        .unwrap();
+    let snapshot = MaintenanceSnapshot::observe_qualified(Path::new("/"), 0, 986, true).unwrap();
+    assert_eq!(snapshot.business.version.format, 9);
+    let mut held = vec![];
+    backup(&snapshot, &root, &transaction, &mut held).unwrap();
+    // This fresh plan has no recovery-child request with this ID; its existing
+    // backup is the actual current9 snapshot, not a stale pre-migration file.
+    backup(&snapshot, &root, &transaction, &mut held).unwrap();
+    for file in held {
+        file.check().unwrap();
+    }
+    snapshot.revalidate().unwrap();
 }

@@ -149,6 +149,7 @@ elif formal:
  inspect=json.loads(stopped.stdout)
  assert inspect['data_admission']['comparison']['actual_data']['business_schema']==9
  print('FORMAL post-confirm passive product-inspect EXIT',stopped.returncode,flush=True)
+ subprocess.run(['/fixture/update-tests','--exact','admission::product::tests::schema9_backup','--ignored','--nocapture','--test-threads=1'],check=True,timeout=15)
  print('FORMAL_ARM_PRODUCTION_CHAIN_PASSED',flush=True)
  r=type('Result',(),{'returncode':0})()
 else:

@@ -630,14 +630,20 @@ fn backup(
         let mut source = database.backup_source()?;
         let mut current = Vec::new();
         source.read_to_end(&mut current).map_err(|_| Error::Io)?;
-        let expected_hash = if existing_backup.is_some()
+        let current_hash = crate::manifest_hash(&current);
+        // A new schema9 maintenance plan already backed up these exact current
+        // bytes. Only a retained pre-migration backup needs the old child
+        // provenance; never require a fresh transaction to impersonate that ID.
+        let expected_hash = if existing_backup
+            .as_ref()
+            .is_some_and(|b| crate::manifest_hash(&b.bytes) != current_hash)
             && name == "business.sqlite3"
             && database.version.format == 9
         {
             crate::product_recovery_child::backup_source_root(transaction)
                 .map_err(|_| Error::Denied)?
         } else {
-            crate::manifest_hash(&current)
+            current_hash
         };
         let retained = install(root.read(&path, 64 * 1024 * 1024))?.ok_or(Error::Integrity)?;
         if crate::manifest_hash(&retained.bytes) != expected_hash {

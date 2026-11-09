@@ -166,6 +166,30 @@ impl<'a> DataFence<'a> {
                     return Err(Error::Denied);
                 }
             }
+            if let Some(stamp) = &observed.stamp {
+                let file = private_file(
+                    &target,
+                    rustix::process::geteuid().as_raw(),
+                    stamp.mode & 0o7777,
+                    32 * 1024 * 1024,
+                )?;
+                if Stamp::from(file.metadata().map_err(|_| Error::Io)?) != *stamp {
+                    return Err(Error::Busy);
+                }
+                if !snapshot
+                    ._root_files
+                    .iter()
+                    .any(|f| f.observed.path == target)
+                {
+                    snapshot._root_files.push(RootFile {
+                        _file: file,
+                        observed: Observation {
+                            path: observed.path.clone(),
+                            stamp: observed.stamp.clone(),
+                        },
+                    });
+                }
+            }
             snapshot.observations.push(observed);
         }
         let mut original = BTreeMap::new();
@@ -407,8 +431,47 @@ impl<'a> DataFence<'a> {
                 file._file = actual;
                 file.observed.stamp = current(&file.observed.path)?;
             } else {
-                file.observed.revalidate()?;
+                file.revalidate()?;
             }
+        }
+        // Transfer actual descriptors for newly created fixed Root targets
+        // into the SAME original snapshot before the installer is dropped.
+        // Facts are still borrowed from this executor and have already passed
+        // its held-fd/full-generation proof; serialized names cannot add files.
+        for (path, fact) in &by_path {
+            if fact.directory
+                || fact.after.is_none()
+                || snapshot
+                    ._root_files
+                    .iter()
+                    .any(|f| &f.observed.path == path)
+                || !self
+                    .authority
+                    .profile()
+                    .targets()
+                    .iter()
+                    .any(|s| self.root.join(s.path.trim_start_matches('/')) == *path)
+            {
+                continue;
+            }
+            let observed = Observation::capture(path)?;
+            let stamp = observed.stamp.as_ref().ok_or(Error::Integrity)?;
+            if !matches_proof(stamp, fact.after.as_ref().ok_or(Error::Integrity)?, false) {
+                return Err(Error::Integrity);
+            }
+            let file = private_file(
+                path,
+                rustix::process::geteuid().as_raw(),
+                stamp.mode & 0o7777,
+                32 * 1024 * 1024,
+            )?;
+            if Stamp::from(file.metadata().map_err(|_| Error::Io)?) != *stamp {
+                return Err(Error::Busy);
+            }
+            snapshot._root_files.push(RootFile {
+                _file: file,
+                observed,
+            });
         }
         snapshot.revalidate()?;
         self.authority.revalidate(phase, changes)?;

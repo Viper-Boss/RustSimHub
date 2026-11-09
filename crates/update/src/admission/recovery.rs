@@ -71,7 +71,7 @@ impl RecoveryMigrationHandoff for RecoveryHandoff<'_> {
             }
         }
         for file in &snapshot._root_files {
-            file.observed.revalidate()?;
+            file.revalidate()?;
         }
         if let Some(outbox) = &snapshot.outbox {
             outbox.revalidate()?;
@@ -96,7 +96,7 @@ impl RecoveryMigrationHandoff for RecoveryHandoff<'_> {
             observed.revalidate()?;
         }
         for file in &snapshot._root_files {
-            file.observed.revalidate()?;
+            file.revalidate()?;
         }
         if let Some(outbox) = &snapshot.outbox {
             outbox.revalidate()?;

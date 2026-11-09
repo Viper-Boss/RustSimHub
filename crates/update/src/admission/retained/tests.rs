@@ -116,6 +116,22 @@ fn same_original_business_and_outbox_flocks_survive_real_signed_installation() {
     assert!(authority.calls.get() > 6);
     drop(installer);
     let same = fence.into_snapshot().unwrap();
+    // Descriptors outlive both the executor and DataFence. Migration/startup
+    // subsequently receive this very holder, including newly created targets.
+    for spec in Profile::Legacy.targets() {
+        let path = root.path().join(spec.path.trim_start_matches('/'));
+        let retained = same
+            ._root_files
+            .iter()
+            .find(|f| f.observed.path == path)
+            .expect("fixed Root descriptor retained");
+        retained.revalidate().unwrap();
+        use std::os::unix::fs::MetadataExt;
+        assert_eq!(
+            retained._file.metadata().unwrap().ino(),
+            fs::metadata(path).unwrap().ino()
+        );
+    }
     assert!(rustsimhub_storage::Store::open(&data).is_err());
     drop(same);
     assert!(rustsimhub_storage::Store::open(&data).is_ok());

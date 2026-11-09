@@ -152,6 +152,17 @@ struct RootFile {
     _file: File,
     observed: Observation,
 }
+impl RootFile {
+    fn revalidate(&self) -> Result<()> {
+        self.observed.revalidate()?;
+        if self.observed.stamp.as_ref()
+            != Some(&self._file.metadata().map_err(|_| Error::Io)?.into())
+        {
+            return Err(Error::Busy);
+        }
+        Ok(())
+    }
+}
 
 struct Material {
     path: &'static str,
@@ -482,7 +493,7 @@ impl MaintenanceSnapshot {
             observed.revalidate()?;
         }
         for file in &self._root_files {
-            file.observed.revalidate()?;
+            file.revalidate()?;
         }
         self.business.revalidate()?;
         if let Some(outbox) = &self.outbox {

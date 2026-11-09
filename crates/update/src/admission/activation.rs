@@ -38,7 +38,7 @@ impl RuntimeHandoff {
             }
         }
         for file in &self.snapshot._root_files {
-            file.observed.revalidate()?;
+            file.revalidate()?;
         }
         self.snapshot.business.runtime_identity()?;
         if let Some(outbox) = &self.snapshot.outbox {
