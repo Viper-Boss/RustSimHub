@@ -241,7 +241,7 @@ def build(args):
         sdk_stage, sdk_provenance = managed_stage.prepare(source, args.verified_sdk_stage,
             args.output/'sdk-source', go_env, args.revision)
     common = ['cargo', '+1.98.0', 'build', '--release', '--locked', '--offline', '--no-default-features',
-              '--target', 'aarch64-unknown-linux-gnu', '-j', '8']
+              '--target', 'aarch64-unknown-linux-gnu', '-j', '2']
     run_build([*common, '--workspace'], source, env, log)
     if product:
         features = 'rustsimhub-core/product-providers-candidate'
@@ -253,7 +253,7 @@ def build(args):
     audio_env = dict(env, PKG_CONFIG_ALLOW_CROSS='1', PKG_CONFIG_PATH='',
         PKG_CONFIG_SYSROOT_DIR=str(args.audio_sysroot), PKG_CONFIG_LIBDIR=str(audio_lib/'pkgconfig'))
     run_build(['cargo', '+1.98.0', 'build', '--release', '--manifest-path', 'native/audio-alsa/Cargo.toml',
-               '--locked', '--offline', '--target', 'aarch64-unknown-linux-gnu', '-j', '8'], source, audio_env, log)
+               '--locked', '--offline', '--target', 'aarch64-unknown-linux-gnu', '-j', '2'], source, audio_env, log)
     binary_dir = args.output / 'target/aarch64-unknown-linux-gnu/release'
     programs = args.output / 'programs'
     programs.mkdir(mode=0o700)
