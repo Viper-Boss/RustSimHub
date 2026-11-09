@@ -47,28 +47,39 @@ def inputs(args,stage):
     archive=subprocess.check_output(['git','archive','--format=tar',args.revision],cwd=ROOT,timeout=10)
     source=hashlib.sha256(archive).hexdigest()
     programs=stage/'fixture/programs'
-    for name in PROGRAMS:copy(args.programs/name,programs/name)
+    names=PROGRAMS if args.scenario=='product' else tuple(n for n in PROGRAMS if n not in ('nkn-root','nkn-sdk-engine','rustsimhub-ble-recovery'))
+    for name in names:copy(args.programs/name,programs/name)
     copy(ROOT/'licenses/Opus-COPYING.txt',programs/'Opus-COPYING.txt',0o444)
     copy(args.test_driver,stage/'fixture/update-tests')
     for name in ['systemctl.py','entry.py']:copy(FIXTURES/name,stage/('usr/bin/systemctl' if name=='systemctl.py' else 'fixture/entry.py'))
     marker=stage/'fixture/WEB4_ISOLATED';marker.write_bytes(b'private-production-wiring-only\n');marker.chmod(0o444)
     (stage/'fixture/source-commit').write_text(args.revision+'\n')
     (stage/'fixture/source-archive').write_text(source+'\n')
-    return {'revision':args.revision,'source_archive_sha256':source,
-            'programs':{name:{'bytes':(programs/name).stat().st_size,'sha256':sha(programs/name)} for name in PROGRAMS},
+    (stage/'fixture/scenario').write_text(args.scenario+'\n')
+    result={'revision':args.revision,'source_archive_sha256':source,
+            'programs':{name:{'bytes':(programs/name).stat().st_size,'sha256':sha(programs/name)} for name in names},
             'driver_sha256':sha(args.test_driver),'hardware_access':False,'production_keys':False,
             'production_epoch_assigned':False,'network':False}
+    (stage/'fixture/inputs.json').write_text(json.dumps(result,sort_keys=True,indent=2)+'\n')
+    return result
 
 
 def native(args,work):
     if not re.fullmatch('sha256:[0-9a-f]{64}',args.runtime_image or ''):raise ValueError('existing immutable Python runtime image required')
     stage=work/'context/rootfs';stage.mkdir(parents=True)
+    if shutil.disk_usage(ROOT).free < 1024**3:raise ValueError('at least 1GiB of free workspace required before isolated native staging')
     report=inputs(args,stage)
+    (work/'inputs.json').write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
     env=dict(os.environ)
     for name in ['DOCKER_HOST','DOCKER_CONTEXT','DOCKER_TLS','DOCKER_TLS_VERIFY','DOCKER_CERT_PATH']:env.pop(name,None)
     docker=['docker','--host=unix:///var/run/docker.sock']
+    base_tag='rsh-web4-runtime-'+uuid.uuid4().hex
     run(docker+['image','inspect',args.runtime_image],env=env,stdout=subprocess.DEVNULL)
-    sources=[args.programs/name for name in PROGRAMS if name not in ['nkn-root','nkn-sdk-engine']]
+    # BuildKit treats a bare sha256 image ID in FROM as a registry name. Give
+    # the already-present immutable image a private local tag; never pull.
+    run(docker+['image','tag',args.runtime_image,base_tag],env=env)
+    report['runtime_image']=args.runtime_image
+    sources=[args.programs/name for name in report['programs'] if name not in ['nkn-root','nkn-sdk-engine']]
     sources += [args.test_driver,Path('/usr/bin/setpriv'),Path('/usr/bin/getent'),Path('/usr/bin/dbus-daemon')]
     for source in sources:
         result=run(['ldd',str(source)],capture_output=True,text=True)
@@ -78,10 +89,11 @@ def native(args,work):
                 copy(Path(lib),stage/'usr/lib/x86_64-linux-gnu'/Path(lib).name)
     for source,destination in [('/usr/bin/setpriv','fixture/setpriv'),('/usr/bin/getent','usr/bin/getent'),('/usr/bin/dbus-daemon','usr/bin/dbus-daemon')]:copy(Path(source),stage/destination)
     python=stage/'usr/bin/python3';python.parent.mkdir(parents=True,exist_ok=True);python.symlink_to('/usr/local/bin/python3')
+    (stage/'usr/lib/x86_64-linux-gnu').mkdir(parents=True,exist_ok=True)
     for p in [stage,*stage.rglob('*')]:
         if p.is_dir():p.chmod(0o755)
     fix='import os; os.chmod("/usr/lib",0o755); os.chmod("/usr/lib/x86_64-linux-gnu",0o755)'
-    (work/'context/Dockerfile').write_text('\n'.join(['FROM '+args.runtime_image,'COPY --chmod=0755 rootfs/ /',
+    (work/'context/Dockerfile').write_text('\n'.join(['FROM '+base_tag,'COPY --chmod=0755 rootfs/ /',
         'RUN '+json.dumps(['/usr/local/bin/python3','-c',fix]),'ENV PATH=/usr/local/bin:/usr/bin:/bin',
         'ENV RSH_WEB4_PRIVATE_CONTAINER=yes','ENTRYPOINT '+json.dumps(['/usr/local/bin/python3','/fixture/entry.py'])])+'\n')
     tag='rustsimhub-web4-chain-'+uuid.uuid4().hex
@@ -96,14 +108,16 @@ def native(args,work):
         for volume,paths in [(volumes[0],['/var/lib/rustsimhub/rustsimhub-v1/system/app/versions','/opt/rustsimhub/versions']),
                              (volumes[1],['/var/lib/rustsimhub/rustsimhub-v1/core','/var/lib/rustsimhub-core'])]:
             for path in paths:mounts+=['--mount',f'type=volume,source={volume},target={path}']
-        command=docker+['run','--rm','--name',container,'--pull=never','--network=none','--memory=768m','--cpus=2','--pids-limit=128',
+        command=docker+['run','--rm','--name',container,'--pull=never','--network=none','--memory=768m','--cpus=2','--pids-limit=128','--cap-add=SYS_PTRACE',
             '--tmpfs=/tmp:rw,nosuid,nodev,size=64m,mode=1777',*mounts,image]
         result=subprocess.run(command,env=env,stdout=(work/'chain.log').open('wb'),stderr=subprocess.STDOUT,timeout=240)
-        report.update(exit=result.returncode,passed=result.returncode==0 and 'NATIVE_PRODUCTION_CHAIN_PASSED' in (work/'chain.log').read_text(errors='replace'),native_architecture_adapter=True,synthetic_pid1_cgroup=True)
+        report.update(exit=result.returncode,passed=result.returncode==0 and ('NATIVE_PRODUCTION_CHAIN_PASSED' if args.scenario=='product' else 'NATIVE_DEFAULT_CHAIN_PASSED') in (work/'chain.log').read_text(errors='replace'),native_architecture_adapter=True,synthetic_pid1_cgroup=True)
     finally:
         subprocess.run(docker+['rm','--force',container],env=env,capture_output=True,timeout=15)
         for volume in volumes:subprocess.run(docker+['volume','rm',volume],env=env,capture_output=True,timeout=15)
         if image:subprocess.run(docker+['image','rm','--no-prune',tag],env=env,capture_output=True,timeout=15)
+        tags=json.loads(subprocess.check_output(docker+['image','inspect','--format={{json .RepoTags}}',args.runtime_image],env=env,text=True)) or []
+        if len(tags)>1:subprocess.run(docker+['image','rm','--no-prune',base_tag],env=env,capture_output=True,timeout=15)
     return report
 
 
@@ -161,7 +175,7 @@ export PATH=/usr/bin:/bin:/usr/local/bin RSH_WEB4_PRIVATE_CONTAINER=yes RSH_WEB4
         '-append','console=ttyAMA0 rdinit=/init panic=-1 random.trust_cpu=on']
     result=subprocess.run(command,stdout=(work/'chain.log').open('wb'),stderr=subprocess.STDOUT,timeout=420)
     log=(work/'chain.log').read_text(errors='replace')
-    report.update(exit=result.returncode,passed=result.returncode==0 and 'FORMAL_ARM_PRODUCTION_CHAIN_PASSED' in log,
+    report.update(exit=result.returncode,passed=result.returncode==0 and ('FORMAL_ARM_PRODUCTION_CHAIN_PASSED' if args.scenario=='product' else 'FORMAL_ARM_DEFAULT_CHAIN_PASSED') in log,
         kernel_sha256=sha(args.kernel),initramfs_sha256=sha(image),native_architecture_adapter=False,
         generic_fixture_kernel=True,production_firmware_bootable=False,synthetic_pid1=True,actual_guest_cgroups=True)
     return report
@@ -171,12 +185,14 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--mode',choices=['native','arm-vm'],required=True)
     parser.add_argument('--programs',type=Path,required=True);parser.add_argument('--test-driver',type=Path,required=True)
+    parser.add_argument('--scenario',choices=['product','default'],default='product')
     parser.add_argument('--revision',required=True);parser.add_argument('--runtime-image')
     for name in ['guest-root','kernel','qemu']:parser.add_argument('--'+name,type=Path)
     args=parser.parse_args();work=ROOT/'.local'/'production-chain'/uuid.uuid4().hex;work.mkdir(parents=True,mode=0o700)
     try:report=native(args,work) if args.mode=='native' else arm_vm(args,work)
     except (ValueError,OSError,subprocess.SubprocessError) as error:
         report={'passed':False,'failure':type(error).__name__,'detail':str(error),'network':False,'hardware_access':False}
+    if args.mode=='native' and (work/'context/rootfs').exists():shutil.rmtree(work/'context/rootfs')
     (work/'result.json').write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
     print(json.dumps({'passed':report['passed'],'evidence':str(work.relative_to(ROOT))},sort_keys=True))
     raise SystemExit(0 if report['passed'] else 1)

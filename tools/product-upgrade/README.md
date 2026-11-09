@@ -1,5 +1,13 @@
 # Product data admission and original maintenance migrations
 
+> 窗口8续接：本分支已经接入正式Core/updater、同一个原Snapshot的保留API、
+> 仅writer交接、实际执行器Root操作证明和有限恢复健康profile。正式固定路径
+> 与runner见[生产集成入口](../product-integration/README.md)。下文“由8接线/
+> 尚未导出”描述原模块交付时的职责边界；本次实现与实测状态以新增
+> [续接报告](../../docs/deliveries/web4-production-wiring-20261104.md)为准，
+> 不将历史harness结果当作本轮正式CLI或设备验收。
+
+
 Window7 source modules are directly compiled by `harness/`; no shared Core or
 updater entrypoint is changed here. Root migration tests use disposable offline
 containers and synthetic keys/messages only. Do not run fixed-path fixture code

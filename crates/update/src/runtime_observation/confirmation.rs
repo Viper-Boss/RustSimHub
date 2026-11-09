@@ -8,6 +8,16 @@ use crate::{
 use rustsimhub_wire::update_health as wire;
 use std::os::unix::net::UnixStream;
 mod io;
+// Diagnostics stay in the private test driver, never in a production flag.
+fn observed<T>(label: &str, result: Result<T>) -> Result<T> {
+    #[cfg(test)]
+    if let Err(error) = &result {
+        eprintln!("running candidate {label}: {error:?}");
+    }
+    #[cfg(not(test))]
+    let _ = label;
+    result
+}
 
 struct Core {
     stream: UnixStream,
@@ -159,8 +169,8 @@ impl RunningCandidate {
         if rustix::process::geteuid().as_raw() != 0 {
             return Err(Error::Denied);
         }
-        let runtime = RuntimeObservation::observe()?;
-        let root = running::Root::observe_for(&runtime)?;
+        let runtime = observed("runtime", RuntimeObservation::observe())?;
+        let root = observed("Root", running::Root::observe_for(&runtime))?;
         let plan = runtime.ledger.confirmation_plan()?;
         let candidate = SignedPrograms::running_inspect(
             &runtime.slot.signed()?,
@@ -169,8 +179,8 @@ impl RunningCandidate {
         let baseline =
             SignedPrograms::running_inspect(plan.baseline(), runtime.ledger.runtime_key()?)?;
         runtime.revalidate()?;
-        let core = Core::connect(&runtime)?;
-        let data = running::Data::observe_for(&core.snapshot, &root)?;
+        let core = observed("Core connection", Core::connect(&runtime))?;
+        let data = observed("data", running::Data::observe_for(&core.snapshot, &root))?;
         if root.product_health() {
             let candidate_mode = crate::product_admission::SignedProductPrograms::running_health(
                 &runtime.slot.signed()?,

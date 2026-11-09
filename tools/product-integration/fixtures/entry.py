@@ -2,23 +2,29 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Disposable test data and synthetic MM/PID1 only. Production authority stays
 # in the original formal programs, signatures, inode guards, Auth and Store.
-import os,subprocess,json,time,platform,socket,struct,secrets,hashlib
+import os,subprocess,json,time,platform,socket,struct,secrets,hashlib,fcntl
 from pathlib import Path
 os.environ['RSH_WEB4_PRIVATE_CONTAINER']='yes'
 # Require the formal producer to name this frozen archive before data setup.
 source=Path('/fixture/source-archive').read_text().strip()
+default=Path('/fixture/scenario').read_text().strip()=='default'
 core='/fixture/programs/rustsimhub-core'
 worker='/fixture/programs/rustsimhub-forwarder'
 for program in [core,worker]:
  info=json.loads(subprocess.check_output([program,'--build-info'],timeout=5))
  assert info['source_archive_sha256']==source and info['development_fixtures'] is False
-mode=json.loads(subprocess.check_output([core,'--product-runtime-compatibility','product-recovery-health-v1'],timeout=5))
+mode=json.loads(subprocess.check_output([core,'--product-runtime-compatibility','legacy-v1' if default else 'product-recovery-health-v1'],timeout=5))
 assert mode['source_archive_sha256']==source and mode['opens_database'] is False and mode['starts_services'] is False
 
 def mkdir(p,uid=0,gid=0,mode=0o755):
  p=Path(p);p.mkdir(parents=True,exist_ok=True);p.chmod(mode);os.chown(p,uid,gid)
 def put(p,b,uid=0,gid=0,mode=0o600):
  p=Path(p);p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(b);p.chmod(mode);os.chown(p,uid,gid)
+# Match the normal system-bus alias used by the formal zbus system builder.
+var_run=Path('/var/run')
+var_run.parent.mkdir(parents=True,exist_ok=True)
+if not var_run.exists() and not var_run.is_symlink():var_run.symlink_to('/run')
+assert var_run.resolve()==Path('/run'), 'private system bus alias required'
 for p in ['/var/lib/rustsimhub/rustsimhub-v1/system/app','/opt/rustsimhub','/run/dbus','/etc/rustsimhub']:mkdir(p)
 for p,uid in [('/var/lib/rustsimhub-edge',985),('/var/lib/rustsimhub-media',984)]:mkdir(p,uid,uid,0o700)
 put('/var/lib/rustsimhub-edge/config.json',json.dumps({'listen':'127.0.0.1:8443','origin':'https://localhost:8443','core_socket':'/run/rustsimhub/core/core.sock','core_uid':986,'tls_directory':'/var/lib/rustsimhub-edge/tls','media_worker_socket':'/run/rustsimhub/media/control.sock'}).encode(),985,985)
@@ -43,11 +49,53 @@ for _ in range(500):
  time.sleep(.01)
 assert Path('/fixture/mm-ready').exists() and mm.poll() is None
 formal=os.environ.get('RSH_WEB4_FORMAL_CLI')=='yes'
-if formal:
+if formal and default:
+ assert platform.machine()=='aarch64'
+ assert subprocess.run(['/fixture/update-tests','--exact','admission::product::tests::prepare_default','--ignored','--nocapture','--test-threads=1']).returncode==0
+ app='/var/lib/rustsimhub/rustsimhub-v1/system/app'
+ state=json.loads(Path(app+'/state.json').read_bytes());digest=state['confirmed']['hash']
+ assert len(digest)==64 and all(c in '0123456789abcdef' for c in digest)
+ updater='/fixture/programs/rustsimhub-update'
+ subprocess.run([updater,'boot-select',app,'/usr/share/rustsimhub/release.public',app+'/versions/'+digest,'/run/rustsimhub-app','/opt/rustsimhub/versions'],check=True,timeout=30)
+ subprocess.run(['/usr/bin/systemctl','--system','start','rustsimhub-core.service','rustsimhub-edge.service','rustsimhub-media.service'],check=True,timeout=10)
+ subprocess.run(['/fixture/setpriv','--bounding-set=-all','--no-new-privs','--reuid=985','--regid=985','--groups=987','/fixture/update-tests','--exact','admission::product::tests::inspect_business_readiness','--ignored','--nocapture','--test-threads=1'],check=True,timeout=20)
+ assert not Path('/etc/rustsimhub/product-profile.json').exists() and not Path('/run/rustsimhub/update-health/core.sock').exists()
+ assert int.from_bytes(Path('/var/lib/rustsimhub-core/state/store.sqlite3').read_bytes()[60:64],'big')==6
+ state=json.loads(subprocess.check_output([updater,'inspect-state'],timeout=5))['state']
+ assert state['floor']==1 and state['candidate'] is None and state['attempted'] is False
+ print('FORMAL_ARM_DEFAULT_CHAIN_PASSED',flush=True)
+ r=type('Result',(),{'returncode':0})()
+elif formal:
  assert platform.machine()=='aarch64', 'formal ARM path has no native verification switch'
  generator=subprocess.run(['/fixture/update-tests','--exact','admission::product::tests::prepare_packages','--ignored','--nocapture','--test-threads=1'])
  assert generator.returncode==0
  updater='/fixture/programs/rustsimhub-update'
+ # Exercise real rejection before admitting a plan. Each attempt must leave
+ # actual business bytes and the original candidate ledger unchanged.
+ database=Path('/var/lib/rustsimhub/rustsimhub-v1/core/state/store.sqlite3')
+ state=Path('/var/lib/rustsimhub/rustsimhub-v1/system/app/state.json')
+ original_data=database.read_bytes();original_state=state.read_bytes()
+ def refused(name):
+  completed=subprocess.run([updater,'product-prepare'],capture_output=True,timeout=30)
+  assert completed.returncode!=0, name
+  assert database.read_bytes()==original_data and state.read_bytes()==original_state, name
+  print('FORMAL REJECTION',name,'EXIT',completed.returncode,flush=True)
+ for name,path in [('application-signature','/var/lib/rustsimhub/rustsimhub-v1/system/app-inbox/manifest.sig'),
+                   ('signed-program-bytes','/var/lib/rustsimhub/rustsimhub-v1/system/app-inbox/rustsimhub-core'),
+                   ('installed-trust','/usr/share/rustsimhub/release.public')]:
+  target=Path(path);original=target.read_bytes()
+  try:
+   changed=bytearray(original);changed[-1]^=1;target.write_bytes(changed);refused(name)
+  finally:target.write_bytes(original)
+ group=Path('/etc/group');original=group.read_bytes()
+ try:
+  group.write_bytes(original.replace(b'rustsimhub-nkn:x:1201:',b'rustsimhub-nkn:x:1201:root'))
+  refused('actual-NSS-supplementary-alias')
+ finally:group.write_bytes(original)
+ for name,path in [('competing-maintenance','/var/lib/rustsimhub/rustsimhub-v1/system/app/.update.lock'),
+                   ('competing-business-writer','/var/lib/rustsimhub/rustsimhub-v1/core/state/.writer.lock')]:
+  with open(path,'rb') as held:
+   fcntl.flock(held,fcntl.LOCK_EX|fcntl.LOCK_NB);refused(name)
  for command in ['product-prepare','product-apply','product-inspect','product-activate']:
   completed=subprocess.run([updater,command],capture_output=True,timeout=300)
   print('FORMAL',command,'EXIT',completed.returncode,flush=True)
@@ -94,13 +142,21 @@ if formal:
   except FileNotFoundError:continue
   line=next(row for row in status.splitlines() if row.startswith('Uid:'))
   assert not ({983,1201,1202}&set(map(int,line.split()[1:]))), 'an OFF worker is running' 
+ subprocess.run(['/usr/bin/systemctl','--system','stop','rustsimhub-core.service','rustsimhub-edge.service','rustsimhub-media.service'],check=True,timeout=5)
+ time.sleep(.2)
+ stopped=subprocess.run([updater,'product-inspect'],capture_output=True,timeout=30)
+ assert stopped.returncode==0, stopped.stderr.decode(errors='replace')
+ inspect=json.loads(stopped.stdout)
+ assert inspect['data_admission']['comparison']['actual_data']['business_schema']==9
+ print('FORMAL post-confirm passive product-inspect EXIT',stopped.returncode,flush=True)
  print('FORMAL_ARM_PRODUCTION_CHAIN_PASSED',flush=True)
  r=type('Result',(),{'returncode':0})()
 else:
- r=subprocess.run(['/fixture/update-tests','--exact','admission::product::tests::production_chain','--ignored','--nocapture','--test-threads=1'])
+ r=subprocess.run(['/fixture/update-tests','--exact','admission::product::tests::default_chain' if default else 'admission::product::tests::production_chain','--ignored','--nocapture','--test-threads=1'])
 if not formal and r.returncode==0:
- assert Path('/fixture/production-chain-passed').read_bytes()==b'actual-core-launcher-auth-store-migration-health\n'
- print('NATIVE_PRODUCTION_CHAIN_PASSED',flush=True)
+ marker='default-chain-passed' if default else 'production-chain-passed'
+ assert Path('/fixture/'+marker).exists()
+ print('NATIVE_DEFAULT_CHAIN_PASSED' if default else 'NATIVE_PRODUCTION_CHAIN_PASSED',flush=True)
 for relative in ['core/state/product-upgrade/state.json','system/product-upgrade/recovery9/state.json','system/product-install/active.json']:
  p=Path('/var/lib/rustsimhub/rustsimhub-v1')/relative
  if p.exists():print('PRIVATE JOURNAL',relative,p.read_text())

@@ -134,7 +134,7 @@ fn private_mm_bus() {
                     .await
                     .unwrap();
             put("/fixture/mm-ready", b"ready", 0o600);
-            tokio::time::sleep(Duration::from_secs(120)).await;
+            tokio::time::sleep(Duration::from_secs(300)).await;
         });
 }
 fn install_base() {
@@ -191,7 +191,11 @@ fn applications(key: &SigningKey) -> (Vec<u8>, Vec<u8>, Vec<Vec<u8>>) {
             arch: "aarch64-linux".into(),
             epoch,
             schema_min: 6,
-            schema_max: 9,
+            schema_max: if fs::read_to_string("/fixture/scenario").unwrap().trim() == "default" {
+                6
+            } else {
+                9
+            },
             source_sha256: source.into(),
             development_fixtures: false,
             files: crate::FORWARDING_FILES
@@ -283,6 +287,153 @@ fn package(key: &SigningKey, application: &[u8], payloads: &[Vec<u8>]) {
     put(Path::new(INBOX).join("manifest.sig"), &signature, 0o600);
 }
 #[test]
+#[ignore = "private UID985 Owner login to inspect actual synthetic-MM reconciliation"]
+fn inspect_business_readiness() {
+    isolated(985);
+    fn request(command: serde_json::Value) -> serde_json::Value {
+        use std::os::unix::net::UnixStream;
+        let mut stream = UnixStream::connect("/run/rustsimhub/core/core.sock").unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        let raw = serde_json::to_vec(
+            &serde_json::json!({"protocol":2,"id":"private-readiness","command":command}),
+        )
+        .unwrap();
+        stream.write_all(&(raw.len() as u32).to_be_bytes()).unwrap();
+        stream.write_all(&raw).unwrap();
+        let mut header = [0; 4];
+        stream.read_exact(&mut header).unwrap();
+        let size = u32::from_be_bytes(header) as usize;
+        assert!(size <= 65536);
+        let mut body = vec![0; size];
+        stream.read_exact(&mut body).unwrap();
+        let response: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert!(
+            response["result"].get("error").is_none(),
+            "actual fixture Owner request refused"
+        );
+        response["result"].clone()
+    }
+    let key = SigningKey::from_bytes(&[73; 32]);
+    let raw =
+        request(serde_json::json!({"op":"challenge","public_key":key.verifying_key().to_bytes()}));
+    let challenge: rustsimhub_auth::Challenge = serde_json::from_value(raw).unwrap();
+    let token = request(
+        serde_json::json!({"op":"authenticate","challenge_id":challenge.id,"signature":key.sign(&challenge.transcript).to_bytes().to_vec()}),
+    );
+    let until = Instant::now() + Duration::from_secs(15);
+    loop {
+        let line = request(serde_json::json!({"op":"line_status","token":token["token"]}));
+        let metrics = &line["observer"];
+        if metrics["subscriptions"] == true
+            && metrics["reconciliations"].as_u64().is_some_and(|n| n > 0)
+            && metrics["storage_errors"] == 0
+        {
+            eprintln!("actual private observer metrics: {metrics}");
+            break;
+        }
+        assert!(
+            Instant::now() < until,
+            "actual MM reconciliation unavailable: {metrics}"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+fn actual_core_ready() {
+    use std::os::unix::net::UnixStream;
+    let until = Instant::now() + Duration::from_secs(20);
+    loop {
+        let observed = (|| -> std::result::Result<bool, Box<dyn std::error::Error>> {
+            let mut stream = UnixStream::connect(rustsimhub_wire::update_health::SOCKET)?;
+            stream.set_read_timeout(Some(Duration::from_millis(250)))?;
+            stream.set_write_timeout(Some(Duration::from_millis(250)))?;
+            let mut nonce = [0u8; 32];
+            getrandom::fill(&mut nonce)?;
+            let request = serde_json::to_vec(&rustsimhub_wire::update_health::Request {
+                protocol: 1,
+                step: rustsimhub_wire::update_health::Step::Observe,
+                challenge: nonce.iter().map(|b| format!("{b:02x}")).collect(),
+                connection: None,
+            })?;
+            stream.write_all(&(request.len() as u32).to_be_bytes())?;
+            stream.write_all(&request)?;
+            let mut header = [0; 4];
+            stream.read_exact(&mut header)?;
+            let length = u32::from_be_bytes(header) as usize;
+            if length == 0 || length > rustsimhub_wire::update_health::MAX_FRAME {
+                return Ok(false);
+            }
+            let mut body = vec![0; length];
+            stream.read_exact(&mut body)?;
+            let snapshot = rustsimhub_wire::update_health::parse_snapshot(&body)?;
+            Ok(snapshot.business_ready)
+            // Closing releases this separate read lease. It is never a Root
+            // confirmation capability and never advances the candidate ledger.
+        })();
+        if matches!(observed, Ok(true)) {
+            std::thread::sleep(Duration::from_millis(100));
+            return;
+        }
+        assert!(
+            Instant::now() < until,
+            "actual Core did not produce readiness: {observed:?}"
+        );
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+fn preflight_refusals() {
+    let data = fs::read(Path::new(DATA).join("store.sqlite3")).unwrap();
+    let state = fs::read(Path::new(APP).join("state.json")).unwrap();
+    let refused = |name| {
+        assert!(dispatch(&["product-prepare".into()]).is_err(), "{name}");
+        assert_eq!(
+            fs::read(Path::new(DATA).join("store.sqlite3")).unwrap(),
+            data
+        );
+        assert_eq!(fs::read(Path::new(APP).join("state.json")).unwrap(), state);
+        eprintln!("actual production preflight rejection: {name}");
+    };
+    for (name, path) in [
+        ("signature", Path::new(CANDIDATE).join("manifest.sig")),
+        (
+            "program bytes",
+            Path::new(CANDIDATE).join("rustsimhub-core"),
+        ),
+        ("installed trust", Path::new(TRUST).to_path_buf()),
+    ] {
+        let bytes = fs::read(&path).unwrap();
+        let mut changed = bytes.clone();
+        *changed.last_mut().unwrap() ^= 1;
+        fs::write(&path, changed).unwrap();
+        refused(name);
+        fs::write(&path, bytes).unwrap();
+    }
+    let path = Path::new("/etc/group");
+    let bytes = fs::read_to_string(path).unwrap();
+    fs::write(
+        path,
+        bytes.replace("rustsimhub-nkn:x:1201:", "rustsimhub-nkn:x:1201:root"),
+    )
+    .unwrap();
+    refused("actual NSS supplementary alias");
+    fs::write(path, bytes).unwrap();
+    for (name, path) in [
+        (
+            "maintenance competitor",
+            Path::new(APP).join(".update.lock"),
+        ),
+        (
+            "business writer competitor",
+            Path::new(DATA).join(".writer.lock"),
+        ),
+    ] {
+        let held = File::open(path).unwrap();
+        fs2::FileExt::try_lock_exclusive(&held).unwrap();
+        refused(name);
+    }
+}
+#[test]
 #[ignore = "disposable Root-only production wiring E2E; native arch, MM/PID1/cgroup adapters"]
 fn production_chain() {
     isolated(0);
@@ -292,6 +443,7 @@ fn production_chain() {
     put(TRUST, &key.verifying_key().to_bytes(), 0o444);
     let (app, _, payloads) = applications(&key);
     package(&key, &app, &payloads);
+    preflight_refusals();
     for command in ["product-prepare", "product-apply", "product-inspect"] {
         let result = dispatch(&[command.into()]);
         eprintln!("{command}: {result:?}");
@@ -304,7 +456,8 @@ fn production_chain() {
     assert_ne!(fs::read(Path::new(APP).join("state.json")).unwrap(), before);
     assert!(dispatch(&["product-activate".into()]).is_err());
     // Actual Core performs MM reconciliation; no always-ready source adapter.
-    std::thread::sleep(Duration::from_secs(3));
+    inspect_actual_business();
+    actual_core_ready();
     let cap = crate::runtime_observation::confirmation::RunningCandidate::observe().unwrap();
     let result = cap.confirm().unwrap();
     eprintln!("confirmed: {}", serde_json::to_string(&result).unwrap());
@@ -330,6 +483,11 @@ fn production_chain() {
     std::thread::sleep(Duration::from_millis(200));
     assert_eq!(
         crate::product_recovery_child::inspect().unwrap()["actual_schema"],
+        9
+    );
+    let stopped = dispatch(&["product-inspect".into()]).unwrap();
+    assert_eq!(
+        stopped["data_admission"]["comparison"]["actual_data"]["business_schema"],
         9
     );
     put(
@@ -373,4 +531,77 @@ fn prepare_packages() {
     put(TRUST, &key.verifying_key().to_bytes(), 0o444);
     let (app, _, payloads) = applications(&key);
     package(&key, &app, &payloads);
+}
+
+fn inspect_actual_business() {
+    assert!(Command::new("/fixture/setpriv")
+        .args([
+            "--bounding-set=-all",
+            "--no-new-privs",
+            "--reuid=985",
+            "--regid=985",
+            "--groups=987"
+        ])
+        .arg(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "admission::product::tests::inspect_business_readiness",
+            "--ignored",
+            "--nocapture",
+            "--test-threads=1"
+        ])
+        .status()
+        .unwrap()
+        .success());
+}
+fn default_factory() {
+    isolated(0);
+    crate::product_native_fixture::enable();
+    install_base();
+    let key = SigningKey::from_bytes(&[71; 32]);
+    put(TRUST, &key.verifying_key().to_bytes(), 0o444);
+    applications(&key);
+    put(
+        "/usr/libexec/rustsimhub/rustsimhub-core-launcher",
+        &fs::read("/fixture/programs/rustsimhub-core-launcher").unwrap(),
+        0o555,
+    );
+}
+#[test]
+#[ignore = "private factory only for the unchanged formal ARM boot-select path"]
+fn prepare_default() {
+    default_factory();
+}
+#[test]
+#[ignore = "isolated default production Core/launcher/Auth/Store, no product activation"]
+fn default_chain() {
+    default_factory();
+    let key = SigningKey::from_bytes(&[71; 32]);
+    {
+        let mut store = Store::open(Path::new(APP), key.verifying_key().to_bytes(), 6).unwrap();
+        store
+            .select_runtime(
+                Path::new("/run/rustsimhub-app"),
+                Path::new("/opt/rustsimhub/versions"),
+            )
+            .unwrap();
+    }
+    assert!(services::activate_business().is_ok());
+    inspect_actual_business();
+    assert!(!Path::new("/etc/rustsimhub/product-profile.json").exists());
+    assert!(!Path::new(rustsimhub_wire::update_health::SOCKET).exists());
+    let bytes = fs::read(Path::new(DATA).join("store.sqlite3")).unwrap();
+    assert_eq!(u32::from_be_bytes(bytes[60..64].try_into().unwrap()), 6);
+    let ledger = crate::store::inspection::ReadOnlyState::observe()
+        .unwrap()
+        .report()
+        .unwrap();
+    assert_eq!(ledger["state"]["floor"], 1);
+    assert_eq!(ledger["state"]["attempted"], false);
+    assert!(ledger["state"]["candidate"].is_null());
+    put(
+        "/fixture/default-chain-passed",
+        b"unchanged-core-auth-store-no-migration\n",
+        0o600,
+    );
 }
