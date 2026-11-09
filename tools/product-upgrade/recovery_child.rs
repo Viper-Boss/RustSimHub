@@ -500,3 +500,28 @@ pub fn committed_source_root(request_id: &str) -> Result<String> {
     }
     Ok(j.source_sha256)
 }
+
+/// Only backup provenance after a previously acknowledged commit. The live
+/// Root owner must separately retain its completed original Root journal and
+/// fresh data/slot guards; this result never authorizes replay or restoration.
+pub fn backup_source_root(request_id: &str) -> Result<String> {
+    if rustix::process::geteuid().as_raw() != 0 || !hex(request_id) {
+        return Err(Error::Denied);
+    }
+    let directory = Path::new(DATA);
+    let (schema, _, binding) = observed(directory)?;
+    let j: Journal =
+        serde_json::from_slice(&read(&directory.join("product-upgrade/state.json"), 8192)?)
+            .map_err(|_| Error::Invalid)?;
+    if j.format != 1
+        || j.request_id != request_id
+        || !matches!(j.source_schema, 6 | 7)
+        || !hex(&j.source_sha256)
+        || schema != 9
+        || binding != j.binding_sha256
+        || j.phase != Phase::CommittedExecution
+    {
+        return Err(Error::Unknown);
+    }
+    Ok(j.source_sha256)
+}

@@ -111,6 +111,7 @@ struct Authority {
     expected: ExpectedBindings,
     transaction: String,
     started: Instant,
+    completed_recovery: Option<coordinator::CompletedUpgradeJournal>,
 }
 impl retained::RetainedAuthority for Authority {
     fn transaction(&self) -> &str {
@@ -153,6 +154,9 @@ impl Authority {
         }
         for file in &self.files {
             file.check()?;
+        }
+        if let Some(completed) = &self.completed_recovery {
+            completed.revalidate()?;
         }
         install(self.nss.revalidate(&self.root))?;
         install(self.package.revalidate())?;
@@ -335,10 +339,14 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
     let next =
         SignedProductPrograms::inspect(&manifest, &signature, &key, &payloads, schema, desired)?;
     let transaction = package.manifest_sha256().to_owned();
-    if expected.profile.recovery() && schema == 9 {
-        crate::product_recovery_child::committed_source_root(&transaction)
-            .map_err(|_| Error::Denied)?;
-    }
+    let completed_recovery = if expected.profile.recovery() && schema == 9 {
+        Some(
+            coordinator::UpgradeJournal::production(coordinator::UpgradeKind::Recovery9)?
+                .completed()?,
+        )
+    } else {
+        None
+    };
     // Provision only Root-owned fixed private bookkeeping parents before
     // capturing the original Root generation and data writer snapshot.
     install(root.ensure_dir(&format!("{BACKUPS}/{transaction}"), 0o700))?;
@@ -355,6 +363,11 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
     }
     let snapshot = MaintenanceSnapshot::observe_qualified(Path::new("/"), 0, 986, true)?;
     systemd::effective_product(&snapshot)?;
+    if expected.profile == Profile::RecoveryHealth
+        && snapshot.root_mode != rustsimhub_core_launcher::Mode::Forwarding
+    {
+        return Err(Error::Denied);
+    }
     let admission = ProductDataAdmission::compare(&snapshot, &selected, &next, &fallback)?;
     if admission.exit_code() == 4 {
         return Err(Error::Denied);
@@ -371,6 +384,7 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
         expected,
         transaction,
         started,
+        completed_recovery,
     };
     authority.check()?;
     let fence = retained::DataFence::new(snapshot, &authority)?;
@@ -588,7 +602,8 @@ fn backup(
             continue;
         };
         let path = format!("{BACKUPS}/{transaction}/{name}");
-        if install(root.read(&path, 64 * 1024 * 1024))?.is_none() {
+        let existing_backup = install(root.read(&path, 64 * 1024 * 1024))?;
+        if existing_backup.is_none() {
             let mut source = database.backup_source()?;
             let mut output = OpenOptions::new()
                 .create_new(true)
@@ -610,8 +625,11 @@ fn backup(
         let mut source = database.backup_source()?;
         let mut current = Vec::new();
         source.read_to_end(&mut current).map_err(|_| Error::Io)?;
-        let expected_hash = if name == "business.sqlite3" && database.version.format == 9 {
-            crate::product_recovery_child::committed_source_root(transaction)
+        let expected_hash = if existing_backup.is_some()
+            && name == "business.sqlite3"
+            && database.version.format == 9
+        {
+            crate::product_recovery_child::backup_source_root(transaction)
                 .map_err(|_| Error::Denied)?
         } else {
             crate::manifest_hash(&current)

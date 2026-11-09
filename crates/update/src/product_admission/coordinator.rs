@@ -25,7 +25,7 @@ enum Phase {
     Committed,
     Unknown,
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 struct Record {
     format: u16,
@@ -431,5 +431,118 @@ mod tests {
             UpgradeJournal::at(d.path(), "recovery9").unwrap().inspect()["state"],
             "committed"
         );
+    }
+}
+
+// A completed on-disk acknowledgement is retained only with its original
+// mutex, actual descriptors and exact generations. It never authorizes data
+// migration and cannot be reconstructed from inspect() JSON.
+type JournalStamp = (u64, u64, u32, u32, u32, u64, u64, i64, i64, i64, i64);
+fn journal_stamp(m: std::fs::Metadata) -> JournalStamp {
+    (
+        m.dev(),
+        m.ino(),
+        m.mode(),
+        m.uid(),
+        m.gid(),
+        m.nlink(),
+        m.len(),
+        m.mtime(),
+        m.mtime_nsec(),
+        m.ctime(),
+        m.ctime_nsec(),
+    )
+}
+pub(crate) struct CompletedUpgradeJournal {
+    journal: UpgradeJournal,
+    directory: File,
+    directory_stamp: JournalStamp,
+    state: File,
+    state_stamp: JournalStamp,
+    lock_stamp: JournalStamp,
+}
+impl UpgradeJournal {
+    pub(crate) fn completed(self) -> Result<CompletedUpgradeJournal, Error> {
+        if self.kind != "recovery9"
+            || self
+                .record
+                .as_ref()
+                .is_none_or(|r| r.phase != Phase::Committed)
+        {
+            return Err(Error::Denied);
+        }
+        let directory = OpenOptions::new()
+            .read(true)
+            .custom_flags(
+                (rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::DIRECTORY).bits() as i32,
+            )
+            .open(&self.directory)
+            .map_err(|_| Error::Io)?;
+        let directory_stamp = journal_stamp(directory.metadata().map_err(|_| Error::Io)?);
+        let mut state = OpenOptions::new()
+            .read(true)
+            .custom_flags(
+                (rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32,
+            )
+            .open(self.directory.join("state.json"))
+            .map_err(|_| Error::Io)?;
+        let meta = state.metadata().map_err(|_| Error::Io)?;
+        if !meta.is_file()
+            || meta.nlink() != 1
+            || meta.uid() != rustix::process::geteuid().as_raw()
+            || meta.mode() & 0o7777 != 0o600
+            || meta.len() > 8192
+        {
+            return Err(Error::Denied);
+        }
+        let state_stamp = journal_stamp(meta);
+        let mut raw = Vec::new();
+        std::io::Read::by_ref(&mut state)
+            .take(8193)
+            .read_to_end(&mut raw)
+            .map_err(|_| Error::Io)?;
+        let actual: Record = serde_json::from_slice(&raw).map_err(|_| Error::Invalid)?;
+        if self.record.as_ref() != Some(&actual) {
+            return Err(Error::Busy);
+        }
+        let lock_stamp = journal_stamp(self._lock.metadata().map_err(|_| Error::Io)?);
+        let result = CompletedUpgradeJournal {
+            journal: self,
+            directory,
+            directory_stamp,
+            state,
+            state_stamp,
+            lock_stamp,
+        };
+        result.revalidate()?;
+        Ok(result)
+    }
+}
+impl CompletedUpgradeJournal {
+    pub(crate) fn revalidate(&self) -> Result<(), Error> {
+        if journal_stamp(self.directory.metadata().map_err(|_| Error::Io)?) != self.directory_stamp
+            || journal_stamp(fs::symlink_metadata(&self.journal.directory).map_err(|_| Error::Io)?)
+                != self.directory_stamp
+            || journal_stamp(self.state.metadata().map_err(|_| Error::Io)?) != self.state_stamp
+            || journal_stamp(
+                fs::symlink_metadata(self.journal.directory.join("state.json"))
+                    .map_err(|_| Error::Io)?,
+            ) != self.state_stamp
+            || journal_stamp(self.journal._lock.metadata().map_err(|_| Error::Io)?)
+                != self.lock_stamp
+            || journal_stamp(
+                fs::symlink_metadata(self.journal.directory.join(".lock"))
+                    .map_err(|_| Error::Io)?,
+            ) != self.lock_stamp
+        {
+            return Err(Error::Busy);
+        }
+        for entry in fs::read_dir(&self.journal.directory).map_err(|_| Error::Io)? {
+            let name = entry.map_err(|_| Error::Io)?.file_name();
+            if name != ".lock" && name != "state.json" {
+                return Err(Error::Busy);
+            }
+        }
+        Ok(())
     }
 }
