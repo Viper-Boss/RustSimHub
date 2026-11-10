@@ -183,14 +183,14 @@ export PATH=/usr/bin:/bin:/usr/local/bin RSH_WEB4_PRIVATE_CONTAINER=yes RSH_WEB4
         if path.is_dir() and not path.is_symlink():path.chmod(0o755)
     (root/'tmp').chmod(0o1777)
     image=work/'fixture.cpio.gz';cpio(root,image)
-    command=[str(args.qemu),'-accel','tcg,thread=multi','-machine','virt,gic-version=3','-cpu','max','-smp','2','-m','1024M',
+    command=[str(args.qemu),'-accel','tcg,thread=multi','-machine','virt,gic-version=3','-cpu',args.qemu_cpu,'-smp','2','-m','1024M',
         '-nographic','-monitor','none','-serial','stdio','-nic','none','-kernel',str(args.kernel),'-initrd',str(image),
         '-append','console=ttyAMA0 rdinit=/init panic=-1 random.trust_cpu=on']
     result=subprocess.run(command,stdout=(work/'chain.log').open('wb'),stderr=subprocess.STDOUT,timeout=420)
     log=(work/'chain.log').read_text(errors='replace')
     report.update(exit=result.returncode,passed=result.returncode==0 and ('FORMAL_ARM_PRODUCTION_CHAIN_PASSED' if args.scenario=='product' else 'FORMAL_ARM_DEFAULT_CHAIN_PASSED') in log,
         kernel_sha256=sha(args.kernel),initramfs_sha256=sha(image),native_architecture_adapter=False,
-        generic_fixture_kernel=True,production_firmware_bootable=False,synthetic_pid1=True,actual_guest_cgroups=True)
+        generic_fixture_kernel=True,production_firmware_bootable=False,synthetic_pid1=True,actual_guest_cgroups=True,qemu_cpu=args.qemu_cpu)
     return report
 
 
@@ -198,6 +198,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--mode',choices=['native','arm-vm'],required=True)
     parser.add_argument('--legacy-driver',type=Path)
+    parser.add_argument('--qemu-cpu',choices=['max','cortex-a53'],default='max',help='finite disposable guest CPU model; production timing budgets unchanged')
     parser.add_argument('--programs',type=Path,required=True);parser.add_argument('--test-driver',type=Path,required=True)
     parser.add_argument('--scenario',choices=['product','default','email'],default='product')
     parser.add_argument('--revision',required=True);parser.add_argument('--runtime-image')
