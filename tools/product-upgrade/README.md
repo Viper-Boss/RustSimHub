@@ -8,11 +8,12 @@
 > 不将历史harness结果当作本轮正式CLI或设备验收。
 
 
-Window7 source modules are directly compiled by `harness/`; no shared Core or
-updater entrypoint is changed here. Root migration tests use disposable offline
+The historical Window7 harness now reuses the exported updater admission module;
+the original guard test is run from the updater LIB unit-test executable, keeping
+private health/slot APIs private. Root migration tests use disposable offline
 containers and synthetic keys/messages only. Do not run fixed-path fixture code
-against a host installation. All production entrypoints remain off pending
-Window8's actual signed-program, stopped-Core and retained-fence integration.
+against a host installation. Production routes and retained-fence integration
+are wired as linked above; candidate startup features remain explicit opt-ins.
 
 ## API and required shared wiring
 
@@ -112,10 +113,11 @@ release tree). Copy inputs under these exact names, set binaries0555 and text044
 
 1. Build harness `--features dev-fixtures --bin store6-fixture --bin recovery-child`.
    Copy those binaries as `store6-fixture` and `recovery-child`.
-2. `cargo test --manifest-path tools/product-upgrade/harness/Cargo.toml --lib
-   --features dev-fixtures --no-run --message-format=json --locked --offline`.
-   Copy the executable from the compiler-artifact for the harness lib test as
-   `product-admission-tests`. This runs the actual original guard test with
+2. `cargo test -p rustsimhub-update --lib --no-run --message-format=json
+   --locked --offline`. Copy the executable from the compiler-artifact for the
+   updater LIB test as `product-admission-tests`. The standalone harness no
+   longer recompiles crate-private production health internals. This runs the
+   SAME actual original guard test with
    `--ignored --exact`; only the signed metadata transport in that test is synthetic.
 3. Copy `firmware/system/overlay/etc/systemd/system/rustsimhub-core.service`
    as `core-base.service`. No host unit is installed or touched.
