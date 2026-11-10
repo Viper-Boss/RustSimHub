@@ -420,110 +420,7 @@ fn run_recovery_child(
         std::thread::sleep(Duration::from_millis(5));
     }
 }
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::os::unix::fs::PermissionsExt;
-    #[test]
-    fn completed_acknowledgement_retains_mutex_and_rejects_replaced_or_pending_files() {
-        for change in ["state", "lock", "pending", "directory"] {
-            let parent = tempfile::tempdir().unwrap();
-            let directory = parent.path().join("recovery9");
-            fs::create_dir(&directory).unwrap();
-            fs::set_permissions(&directory, fs::Permissions::from_mode(0o700)).unwrap();
-            let mut journal = UpgradeJournal::at(&directory, "recovery9").unwrap();
-            journal.record = Some(Record {
-                format: 1,
-                kind: "recovery9".into(),
-                manifest_sha256: ["a".repeat(64), "b".repeat(64), "c".repeat(64)],
-                phase: Phase::Committed,
-                email_source_sha256: None,
-            });
-            journal.save().unwrap();
-            let completed = journal.completed().unwrap();
-            completed.revalidate().unwrap();
-            assert!(matches!(
-                UpgradeJournal::at(&directory, "recovery9"),
-                Err(Error::Busy)
-            ));
-            match change {
-                "state" | "lock" => {
-                    let name = if change == "state" {
-                        "state.json"
-                    } else {
-                        ".lock"
-                    };
-                    let next = directory.join("replacement");
-                    fs::write(&next, fs::read(directory.join(name)).unwrap()).unwrap();
-                    fs::set_permissions(&next, fs::Permissions::from_mode(0o600)).unwrap();
-                    fs::rename(next, directory.join(name)).unwrap();
-                }
-                "pending" => fs::write(directory.join("state.next"), b"uncertain").unwrap(),
-                "directory" => {
-                    fs::rename(&directory, parent.path().join("previous")).unwrap();
-                    fs::create_dir(&directory).unwrap();
-                    fs::set_permissions(&directory, fs::Permissions::from_mode(0o700)).unwrap();
-                }
-                _ => unreachable!(),
-            }
-            assert!(completed.revalidate().is_err(), "{change}");
-        }
-    }
 
-    #[test]
-    fn email_backup_provenance_requires_the_explicit_committed_source_record() {
-        for modern in [false, true] {
-            let directory = tempfile::tempdir().unwrap();
-            fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o700)).unwrap();
-            let mut journal = UpgradeJournal::at(directory.path(), "email4").unwrap();
-            journal.record = Some(Record {
-                format: if modern { 2 } else { 1 },
-                kind: "email4".into(),
-                manifest_sha256: ["a".repeat(64), "b".repeat(64), "c".repeat(64)],
-                phase: Phase::Committed,
-                email_source_sha256: modern.then(|| "d".repeat(64)),
-            });
-            journal.save().unwrap();
-            drop(journal);
-            let result = UpgradeJournal::at(directory.path(), "email4")
-                .unwrap()
-                .completed_email();
-            if modern {
-                assert_eq!(result.unwrap().email_source().unwrap(), "d".repeat(64));
-            } else {
-                assert!(result.is_err());
-            }
-        }
-    }
-    #[test]
-    fn journal_reopen_keeps_executing_unknown_and_never_resubmits() {
-        let d = tempfile::tempdir().unwrap();
-        fs::set_permissions(d.path(), fs::Permissions::from_mode(0o700)).unwrap();
-        let mut j = UpgradeJournal::at(d.path(), "recovery9").unwrap();
-        j.record = Some(Record {
-            format: 1,
-            kind: "recovery9".into(),
-            manifest_sha256: ["a".repeat(64), "b".repeat(64), "c".repeat(64)],
-            phase: Phase::Executing,
-            email_source_sha256: None,
-        });
-        j.save().unwrap();
-        assert_eq!(j.inspect()["state"], "unknown");
-        drop(j);
-        let mut j = UpgradeJournal::at(d.path(), "recovery9").unwrap();
-        assert_eq!(j.inspect()["state"], "unknown");
-        j.phase(Phase::Committed).unwrap();
-        drop(j);
-        assert_eq!(
-            UpgradeJournal::at(d.path(), "recovery9").unwrap().inspect()["state"],
-            "committed"
-        );
-    }
-}
-
-// A completed on-disk acknowledgement is retained only with its original
-// mutex, actual descriptors and exact generations. It never authorizes data
-// migration and cannot be reconstructed from inspect() JSON.
 type JournalStamp = (u64, u64, u32, u32, u32, u64, u64, i64, i64, i64, i64);
 fn journal_stamp(m: std::fs::Metadata) -> JournalStamp {
     (
@@ -660,3 +557,108 @@ impl CompletedUpgradeJournal {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+    #[test]
+    fn completed_acknowledgement_retains_mutex_and_rejects_replaced_or_pending_files() {
+        for change in ["state", "lock", "pending", "directory"] {
+            let parent = tempfile::tempdir().unwrap();
+            let directory = parent.path().join("recovery9");
+            fs::create_dir(&directory).unwrap();
+            fs::set_permissions(&directory, fs::Permissions::from_mode(0o700)).unwrap();
+            let mut journal = UpgradeJournal::at(&directory, "recovery9").unwrap();
+            journal.record = Some(Record {
+                format: 1,
+                kind: "recovery9".into(),
+                manifest_sha256: ["a".repeat(64), "b".repeat(64), "c".repeat(64)],
+                phase: Phase::Committed,
+                email_source_sha256: None,
+            });
+            journal.save().unwrap();
+            let completed = journal.completed().unwrap();
+            completed.revalidate().unwrap();
+            assert!(matches!(
+                UpgradeJournal::at(&directory, "recovery9"),
+                Err(Error::Busy)
+            ));
+            match change {
+                "state" | "lock" => {
+                    let name = if change == "state" {
+                        "state.json"
+                    } else {
+                        ".lock"
+                    };
+                    let next = directory.join("replacement");
+                    fs::write(&next, fs::read(directory.join(name)).unwrap()).unwrap();
+                    fs::set_permissions(&next, fs::Permissions::from_mode(0o600)).unwrap();
+                    fs::rename(next, directory.join(name)).unwrap();
+                }
+                "pending" => fs::write(directory.join("state.next"), b"uncertain").unwrap(),
+                "directory" => {
+                    fs::rename(&directory, parent.path().join("previous")).unwrap();
+                    fs::create_dir(&directory).unwrap();
+                    fs::set_permissions(&directory, fs::Permissions::from_mode(0o700)).unwrap();
+                }
+                _ => unreachable!(),
+            }
+            assert!(completed.revalidate().is_err(), "{change}");
+        }
+    }
+
+    #[test]
+    fn email_backup_provenance_requires_the_explicit_committed_source_record() {
+        for modern in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o700)).unwrap();
+            let mut journal = UpgradeJournal::at(directory.path(), "email4").unwrap();
+            journal.record = Some(Record {
+                format: if modern { 2 } else { 1 },
+                kind: "email4".into(),
+                manifest_sha256: ["a".repeat(64), "b".repeat(64), "c".repeat(64)],
+                phase: Phase::Committed,
+                email_source_sha256: modern.then(|| "d".repeat(64)),
+            });
+            journal.save().unwrap();
+            drop(journal);
+            let result = UpgradeJournal::at(directory.path(), "email4")
+                .unwrap()
+                .completed_email();
+            if modern {
+                assert_eq!(result.unwrap().email_source().unwrap(), "d".repeat(64));
+            } else {
+                assert!(result.is_err());
+            }
+        }
+    }
+    #[test]
+    fn journal_reopen_keeps_executing_unknown_and_never_resubmits() {
+        let d = tempfile::tempdir().unwrap();
+        fs::set_permissions(d.path(), fs::Permissions::from_mode(0o700)).unwrap();
+        let mut j = UpgradeJournal::at(d.path(), "recovery9").unwrap();
+        j.record = Some(Record {
+            format: 1,
+            kind: "recovery9".into(),
+            manifest_sha256: ["a".repeat(64), "b".repeat(64), "c".repeat(64)],
+            phase: Phase::Executing,
+            email_source_sha256: None,
+        });
+        j.save().unwrap();
+        assert_eq!(j.inspect()["state"], "unknown");
+        drop(j);
+        let mut j = UpgradeJournal::at(d.path(), "recovery9").unwrap();
+        assert_eq!(j.inspect()["state"], "unknown");
+        j.phase(Phase::Committed).unwrap();
+        drop(j);
+        assert_eq!(
+            UpgradeJournal::at(d.path(), "recovery9").unwrap().inspect()["state"],
+            "committed"
+        );
+    }
+}
+
+// A completed on-disk acknowledgement is retained only with its original
+// mutex, actual descriptors and exact generations. It never authorizes data
+// migration and cannot be reconstructed from inspect() JSON.
