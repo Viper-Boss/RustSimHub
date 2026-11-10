@@ -93,20 +93,24 @@ impl SignedProductPrograms {
         )
     }
     pub(crate) fn running_health(
-        group: &crate::store::SignedGroup,
-        key: &[u8; 32],
+        application: &crate::verified_application::VerifiedApplication,
     ) -> Result<Self, Error> {
-        let base = SignedPrograms::running_inspect(group, key)?;
+        application.require_schema(9)?;
+        let group = application.group();
+        let base = SignedPrograms::running_verified(application)?;
         base.supports_running_health()?;
-        Self::finish(
+        // The immutable owning capability comes from the original signature
+        // and full payload verifier in the guarded slot/confirmation plan.
+        // Reuse those same bytes; caller JSON cannot construct this proof.
+        Self::finish_metadata(
             OriginalVerification::Checked { _original: base },
             SignedInput {
                 manifest: &group.0,
                 signature: &group.1,
-                key,
+                key: application.key(),
                 payloads: &group.2,
             },
-            9,
+            application.manifest().clone(),
             ProductRuntimeModeV1::RecoveryHealth,
             |bytes, args| capture_for(bytes, args, 986, Duration::from_millis(250)),
         )
@@ -116,16 +120,25 @@ impl SignedProductPrograms {
         input: SignedInput<'_>,
         schema: u32,
         mode: ProductRuntimeModeV1,
+        probe: impl FnMut(&[u8], &[&str]) -> Result<Vec<u8>, Error>,
+    ) -> Result<Self, Error> {
+        let parsed = verify(input.manifest, input.signature, input.key, schema, 0)?;
+        verify_payload(&parsed, input.payloads)?;
+        Self::finish_metadata(base, input, parsed, mode, probe)
+    }
+    fn finish_metadata(
+        base: OriginalVerification,
+        input: SignedInput<'_>,
+        parsed: crate::Manifest,
+        mode: ProductRuntimeModeV1,
         mut probe: impl FnMut(&[u8], &[&str]) -> Result<Vec<u8>, Error>,
     ) -> Result<Self, Error> {
         let SignedInput {
             manifest,
             signature,
-            key,
+            key: _,
             payloads,
         } = input;
-        let parsed = verify(manifest, signature, key, schema, 0)?;
-        verify_payload(&parsed, payloads)?;
         if parsed.format != 2 {
             return Err(Error::Denied);
         }
@@ -141,8 +154,8 @@ impl SignedProductPrograms {
             _base: base,
             manifest_sha256: manifest_hash(manifest),
             source_sha256: parsed.source_sha256,
-            core_sha256: manifest_hash(&payloads[0]),
-            worker_sha256: manifest_hash(&payloads[4]),
+            core_sha256: parsed.files[0].sha256.clone(),
+            worker_sha256: parsed.files[4].sha256.clone(),
             mode,
             core: String::from_utf8(core).map_err(|_| Error::Invalid)?,
             worker: String::from_utf8(worker).map_err(|_| Error::Invalid)?,

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::{ReadOnlyState, Result};
 use crate::{
-    application_files, manifest_hash, store::read_checked, verify, verify_payload, Error, Manifest,
-    MAX_MANIFEST,
+    application_files, manifest_hash, store::read_checked,
+    verified_application::VerifiedApplication, verify, Error, Manifest, MAX_MANIFEST,
 };
 use std::{
     fs::{self, File, Metadata, OpenOptions},
@@ -92,6 +92,7 @@ pub(super) struct Slot {
     pub(super) directory: PathBuf,
     selected: PathBuf,
     guards: Vec<Guard>,
+    verified: VerifiedApplication,
 }
 impl Slot {
     pub(super) fn observe(ledger: &ReadOnlyState) -> Result<Self> {
@@ -124,14 +125,20 @@ impl Slot {
         versions: &Path,
         ancestors: &[&Path],
     ) -> Result<Self> {
-        Self::at_using(ledger, selected, versions, ancestors, verify_payload)
+        Self::at_using(
+            ledger,
+            selected,
+            versions,
+            ancestors,
+            VerifiedApplication::verify,
+        )
     }
     fn at_using(
         ledger: &ReadOnlyState,
         selected: &Path,
         versions: &Path,
         ancestors: &[&Path],
-        check: fn(&Manifest, &[Vec<u8>]) -> Result<()>,
+        check: fn(crate::store::SignedGroup, &[u8; 32], u32) -> Result<VerifiedApplication>,
     ) -> Result<Self> {
         let mut guards = Vec::new();
         for directory in ancestors
@@ -192,7 +199,7 @@ impl Slot {
             .iter()
             .map(|e| read(&target.join(&e.name), e.bytes as usize, &mut guards))
             .collect::<Result<Vec<_>>>()?;
-        check(&manifest, &payloads)?;
+        let verified = check((bytes, signature, payloads), ledger.runtime_key()?, 6)?;
         let slot = Self {
             manifest,
             hash: hash.into(),
@@ -201,6 +208,7 @@ impl Slot {
             directory: target,
             selected: selected.into(),
             guards,
+            verified,
         };
         slot.revalidate(ledger)?;
         Ok(slot)
@@ -224,11 +232,12 @@ impl Slot {
         }
         Ok(())
     }
+    pub(super) fn verified(&self) -> &VerifiedApplication {
+        &self.verified
+    }
+    #[cfg(test)]
     pub(super) fn signed(&self) -> Result<crate::store::SignedGroup> {
-        let bytes = read_checked(&self.directory.join("manifest.json"), MAX_MANIFEST)?;
-        let signature = read_checked(&self.directory.join("manifest.sig"), 64)?;
-        let payloads = crate::store::load_payloads(&self.directory, &self.manifest)?;
-        Ok((bytes, signature, payloads))
+        Ok(self.verified.group().clone())
     }
     pub(super) fn executable(&self, role: &str) -> Result<(PathBuf, &str)> {
         let entry = self
@@ -299,7 +308,7 @@ impl Slot {
             selected,
             versions,
             &[],
-            crate::verify_native_fixture,
+            VerifiedApplication::verify_native,
         )
     }
 }

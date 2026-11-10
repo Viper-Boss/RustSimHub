@@ -76,6 +76,15 @@ impl SignedPrograms {
     ) -> Result<Self> {
         let verified = verify(manifest, signature, public_key, schema, 0)?;
         check(&verified, payloads)?;
+        Self::inspect_metadata(manifest, payloads, verified, &mut read_metadata)
+    }
+
+    fn inspect_metadata(
+        manifest: &[u8],
+        payloads: &[Vec<u8>],
+        verified: crate::Manifest,
+        mut read_metadata: impl FnMut(&[u8]) -> Result<Vec<u8>>,
+    ) -> Result<Self> {
         let mut observe = |index: usize, worker: bool| -> Result<String> {
             let bytes = read_metadata(&payloads[index])?;
             if bytes.is_empty() || bytes.len() > LIMIT {
@@ -496,11 +505,12 @@ pub fn migrate_email4_retained(
 // Running confirmation reuses the ORIGINAL signed metadata comparison, with
 // a stricter bounded subprocess budget. No caller-provided metadata in product.
 impl SignedPrograms {
-    pub(crate) fn running_inspect(
-        group: &crate::store::SignedGroup,
-        key: &[u8; 32],
+    pub(crate) fn running_verified(
+        application: &crate::verified_application::VerifiedApplication,
     ) -> Result<Self> {
-        Self::inspect_with(&group.0, &group.1, key, &group.2, 6, |b| {
+        application.require_schema(6)?;
+        let group = application.group();
+        Self::inspect_metadata(&group.0, &group.2, application.manifest().clone(), |b| {
             capture_for(b, 986, Duration::from_millis(250))
         })
     }

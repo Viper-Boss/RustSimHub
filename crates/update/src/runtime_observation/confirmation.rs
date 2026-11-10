@@ -182,22 +182,13 @@ impl RunningCandidate {
         // checks; repeating the unused legacy path only consumed freshness.
         let programs = if root.product_health() {
             Programs::Product(Box::new((
-                SignedProductPrograms::running_health(
-                    &runtime.slot.signed()?,
-                    runtime.ledger.runtime_key()?,
-                )?,
-                SignedProductPrograms::running_health(
-                    plan.baseline(),
-                    runtime.ledger.runtime_key()?,
-                )?,
+                SignedProductPrograms::running_health(runtime.slot.verified())?,
+                SignedProductPrograms::running_health(plan.verified_baseline())?,
             )))
         } else {
             Programs::Legacy(
-                SignedPrograms::running_inspect(
-                    &runtime.slot.signed()?,
-                    runtime.ledger.runtime_key()?,
-                )?,
-                SignedPrograms::running_inspect(plan.baseline(), runtime.ledger.runtime_key()?)?,
+                SignedPrograms::running_verified(runtime.slot.verified())?,
+                SignedPrograms::running_verified(plan.verified_baseline())?,
             )
         };
         runtime.revalidate()?;

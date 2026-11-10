@@ -3,19 +3,24 @@
 use super::*;
 use crate::{
     store::{load_payloads, sync_dir, write_new, Store},
-    verify, verify_payload, MAX_MANIFEST,
+    verified_application::VerifiedApplication,
+    verify, MAX_MANIFEST,
 };
 
 /// Retains the fallback's signed bytes and metadata through the live decision.
 pub(crate) struct Plan {
-    baseline: crate::store::SignedGroup,
+    baseline: VerifiedApplication,
     observed: Vec<Observed>,
     hash: String,
     epoch: u64,
     floor: u64,
 }
 impl Plan {
+    #[cfg(test)]
     pub(crate) fn baseline(&self) -> &crate::store::SignedGroup {
+        self.baseline.group()
+    }
+    pub(crate) fn verified_baseline(&self) -> &VerifiedApplication {
         &self.baseline
     }
     pub(crate) fn revalidate(&self, ledger: &ReadOnlyState) -> Result<()> {
@@ -37,9 +42,12 @@ impl Plan {
 }
 impl ReadOnlyState {
     pub(crate) fn confirmation_plan(&self) -> Result<Plan> {
-        self.plan_using(verify_payload)
+        self.plan_using(VerifiedApplication::verify)
     }
-    fn plan_using(&self, check: fn(&crate::Manifest, &[Vec<u8>]) -> Result<()>) -> Result<Plan> {
+    fn plan_using(
+        &self,
+        check: fn(crate::store::SignedGroup, &[u8; 32], u32) -> Result<VerifiedApplication>,
+    ) -> Result<Plan> {
         self.revalidate()?;
         let v = self.state.candidate.as_ref().ok_or(Error::Denied)?;
         let baseline = self.state.confirmed.as_ref().ok_or(Error::Denied)?;
@@ -75,7 +83,7 @@ impl ReadOnlyState {
             observed.push(Observed::capture(&path.join(&entry.name))?);
         }
         let payloads = load_payloads(&path, &manifest)?;
-        check(&manifest, &payloads)?;
+        let baseline = check((bytes, signature, payloads), &self.key, 6)?;
         let expected: std::collections::BTreeSet<_> = manifest
             .files
             .iter()
@@ -94,7 +102,7 @@ impl ReadOnlyState {
             return Err(Error::Integrity);
         }
         let plan = Plan {
-            baseline: (bytes, signature, payloads),
+            baseline,
             observed,
             hash: v.hash.clone(),
             epoch: v.epoch,
@@ -183,6 +191,6 @@ mod tests;
 #[cfg(test)]
 impl ReadOnlyState {
     pub(crate) fn native_fixture_plan(&self) -> Result<Plan> {
-        self.plan_using(crate::verify_native_fixture)
+        self.plan_using(VerifiedApplication::verify_native)
     }
 }

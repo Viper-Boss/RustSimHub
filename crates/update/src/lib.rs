@@ -352,3 +352,5 @@ pub mod product_materials;
 #[cfg(target_os = "linux")]
 #[path = "../../../tools/product-upgrade/recovery_child.rs"]
 pub mod product_recovery_child;
+#[cfg(target_os = "linux")]
+mod verified_application;
