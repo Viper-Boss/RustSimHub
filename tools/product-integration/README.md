@@ -41,7 +41,8 @@ rootfs。QEMU自身依赖由调用方通过其私有库路径提供。两条路�
 每次ARM场景使用新的自有依赖暂存树，不能覆盖前一次只读fixture marker。
 ARM init把通用kernel rootfs默认的01777根目录设为0755，否则正式Root守卫
 应当拒绝。固定只读`show`由BusyBox夹具读取原控制器的固定PID记录和实际`/proc`存活
-状态，输出与原Python控制器相同的事实，避免TCG下每次查询启动解释器。
+状态，输出与原Python控制器相同的事实；读取PID记录、stat和格式化均使用
+shell内建，避免TCG下每次查询启动解释器或额外sed/cat进程。
 启动/停止和其他动作仍调用原控制器；实际进程、来宾cgroup、数据/签名/
 授权和生产时限均不替换。只读ARM标记保证清空环境后仍登记真实cgroup。
 `--qemu-cpu max|cortex-a53`只选择来宾CPU模型（默认max），不改变生产
@@ -76,6 +77,13 @@ rustsimhub-update inspect-state
 信任/槽位/NSS/原数据库inode事实。重复activate在停服务前拒绝。
 随后另一次新鲜Root观察通过原Core端点、Auth/SQL lease、flock及最终
 Recheck推进原确认账本一次。任何计划/只读JSON均不能作为确认能力。
+
+运行确认保留原签名/ELF/载荷验证产生的内部不可变应用对象；后续元数据
+消费同一份候选/回退字节。签名验证、模式探测及完整程序验证不由JSON替代。
+程序fd由原槽位持有，逐次检查fd和路径的inode/权限/链接数/大小/mtime/ctime，
+并重验实际PID/start、UID/全部capabilities/NNP、cgroup及账本/信任代次。
+任何变化仍永久使本次观察失效，原5秒截止时间不刷新。产品健康元数据在
+取得Core的SQL/Auth租约前执行一次；最后Recheck和原flock转换保持。
 
 该profile仅支持forwarding Root模式、实际schema9与worker4/outbox3（或
 队列缺失）、NKN/BLE/转发OFF。候选和回退必须实际实现该模式/健康前缀，

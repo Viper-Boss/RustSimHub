@@ -1,6 +1,6 @@
 #!/bin/busybox sh
 # SPDX-License-Identifier: AGPL-3.0-only
-# ARM guest fixture only: same inactive PID1 facts without launching Python for
+# ARM guest fixture only: same fixed PID1 facts without launching Python for
 # every readonly show. Read tracked PIDs and actual /proc liveness; mutations
 # use the original controller, which creates real processes and guest cgroups.
 set -eu
@@ -23,18 +23,25 @@ pid=0
 if [ -f /fixture/pids.json ]; then
  # This private file is emitted only by the fixed Python controller. Read the
  # fixed unit's decimal PID; no supplied command or shell content is executed.
- found=$(/bin/busybox sed -n 's/.*"'"$unit"'": \([0-9][0-9]*\).*/\1/p' /fixture/pids.json)
- [ -z "$found" ] || pid=$found
+ record=
+ IFS= read -r record < /fixture/pids.json || true
+ needle="\"$unit\": "
+ case "$record" in
+  *"$needle"*)
+   rest=${record#*"$needle"}; pid=${rest%%,*}; pid=${pid%%\}*}
+   case "$pid" in ''|*[!0-9]*) exit 2;; esac;;
+ esac
 fi
 active=no
 if [ "$pid" != 0 ] && [ -r "/proc/$pid/stat" ]; then
- stat=$(/bin/busybox cat "/proc/$pid/stat")
+ stat=
+ IFS= read -r stat < "/proc/$pid/stat" || true
  state=${stat##*) }; state=${state%% *}
- [ "$state" = Z ] || active=yes
+ [ -z "$state" ] || [ "$state" = Z ] || active=yes
 fi
 if [ "$active" = yes ]; then
  activity=active; sub=running; group=/system.slice/$unit
- invocation=$(printf '%032x' "$pid")
+ invocation=
 else
  pid=0; activity=inactive; sub=dead; group=; invocation=
 fi
@@ -49,7 +56,10 @@ emit() {
   Id) value=$unit;; LoadState) value=loaded;; ActiveState) value=$activity;;
   SubState) value=$sub;; MainPID) value=$pid;; ControlPID|Job) value=0;;
   User) value=rustsimhub-$role;; NeedDaemonReload|Delegate|Restart) value=no;;
-  ControlGroup) value=$group;; InvocationID) value=$invocation;;
+  ControlGroup) value=$group;; InvocationID)
+   if [ "$active" = yes ]; then printf 'InvocationID=%032x\n' "$pid";
+   else printf 'InvocationID=\n'; fi
+   return;;
   TriggeredBy|Triggers) value=;;
   UnitFileState) value=static;; KillMode) value=control-group;;
   FragmentPath) value=/etc/systemd/system/$unit;; DropInPaths) value=$drops;;
