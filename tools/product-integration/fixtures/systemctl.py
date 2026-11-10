@@ -8,6 +8,7 @@ UNITS=['rustsimhub-core.service','rustsimhub-edge.service','rustsimhub-media.ser
 AUX=['rustsimhub-forwarder.socket','rustsimhub-forwarder.timer','rustsimhub-forwarder.path']
 PID=Path('/fixture/pids.json')
 a=sys.argv[1:]
+with Path('/fixture/systemctl-trace.jsonl').open('a') as trace:trace.write(json.dumps(a)+'\n')
 def pids():
  try:return json.loads(PID.read_text())
  except FileNotFoundError:return {}

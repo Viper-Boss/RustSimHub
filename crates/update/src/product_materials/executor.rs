@@ -102,8 +102,9 @@ impl<'a> OwnedRootChanges<'a> {
                 && (fact.path == "/run"
                     || fact.path == "/run/rustsimhub"
                     || fact.path == "/run/rustsimhub/nkn"
-                    || (journal.bindings.profile.recovery()
-                        && fact.path == "/run/rustsimhub/recovery")
+                    // Both role directories are in the signed product
+                    // tmpfiles template, including Product and Email modes.
+                    || fact.path == "/run/rustsimhub/recovery"
                     || (journal.bindings.profile == super::Profile::RecoveryHealth
                         && [
                             "/run/rustsimhub/update-health",

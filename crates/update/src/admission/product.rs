@@ -135,7 +135,9 @@ impl retained::RetainedAuthority for Authority {
             "/run/rustsimhub/nkn" if self.expected.profile.product() => {
                 Some((986, self.nss.nkn_uid(), 0o2750))
             }
-            "/run/rustsimhub/recovery" if self.expected.profile.recovery() => {
+            // Every product's signed fixed tmpfiles template contains both
+            // role directories, even when recovery is not its startup mode.
+            "/run/rustsimhub/recovery" if self.expected.profile.product() => {
                 Some((986, self.nss.ble_uid(), 0o2750))
             }
             _ => None,

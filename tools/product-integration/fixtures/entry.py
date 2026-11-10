@@ -160,7 +160,7 @@ if not formal and r.returncode==0:
  marker='default-chain-passed' if default else ('email-chain-passed' if scenario=='email' else 'production-chain-passed')
  assert Path('/fixture/'+marker).exists()
  print('NATIVE_DEFAULT_CHAIN_PASSED' if default else ('NATIVE_EMAIL_CHAIN_PASSED' if scenario=='email' else 'NATIVE_PRODUCTION_CHAIN_PASSED'),flush=True)
-for relative in ['core/state/product-upgrade/state.json','system/product-upgrade/recovery9/state.json','system/product-install/active.json']:
+for relative in ['core/state/product-upgrade/state.json','system/product-upgrade/recovery9/state.json','system/product-upgrade/email4/state.json','system/product-install/active.json']:
  p=Path('/var/lib/rustsimhub/rustsimhub-v1')/relative
  if p.exists():print('PRIVATE JOURNAL',relative,p.read_text())
 try:
@@ -168,6 +168,19 @@ try:
  print('PRIVATE ACTUAL SCHEMA',int.from_bytes(raw[60:64],'big'))
 except FileNotFoundError:pass
 if Path('/fixture/start-deltas.json').exists():print('PRIVATE START DELTAS',Path('/fixture/start-deltas.json').read_text())
+if Path('/fixture/systemctl-trace.jsonl').exists():print('PRIVATE PID1 CALLS',Path('/fixture/systemctl-trace.jsonl').read_text())
+if scenario=='email':
+ pointer=Path('/var/lib/rustsimhub/rustsimhub-v1/system/product-install/active.json')
+ if pointer.exists():
+  tx=json.loads(pointer.read_bytes())['transaction']
+  assert len(tx)==64 and all(c in '0123456789abcdef' for c in tx)
+  journal=pointer.parent/'transactions'/tx/'journal.json'
+  if journal.exists():print('PRIVATE ROOT INSTALL JOURNAL',journal.read_text())
+ for path in ['/run/rustsimhub-forwarding/control.lock','/var/lib/rustsimhub/rustsimhub-v1/system/forwarding/email-backups','/var/lib/rustsimhub/rustsimhub-v1/core/state/forwarding/outbox.sqlite3']:
+  p=Path(path)
+  if p.exists():
+   m=p.stat();print('PRIVATE EMAIL FACT',path,oct(m.st_mode),m.st_uid,m.st_gid,m.st_size)
+   if p.name=='outbox.sqlite3':print('PRIVATE OUTBOX FORMAT',int.from_bytes(p.read_bytes()[60:64],'big'))
 for name in ['core','edge','media','mm','dbus']:
  p=Path('/fixture/'+name+'.log')
  if p.exists():print(f'PRIVATE {name} LOG:\n'+p.read_text(errors='replace'))
