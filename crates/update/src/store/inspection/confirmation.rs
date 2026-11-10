@@ -3,8 +3,8 @@
 use super::*;
 use crate::{
     store::{load_payloads, sync_dir, write_new, Store},
-    verified_application::VerifiedApplication,
-    verify, MAX_MANIFEST,
+    verified_application::{VerifiedApplication, VerifiedManifest},
+    MAX_MANIFEST,
 };
 
 /// Retains the fallback's signed bytes and metadata through the live decision.
@@ -42,11 +42,11 @@ impl Plan {
 }
 impl ReadOnlyState {
     pub(crate) fn confirmation_plan(&self) -> Result<Plan> {
-        self.plan_using(VerifiedApplication::verify)
+        self.plan_using(VerifiedManifest::bind)
     }
     fn plan_using(
         &self,
-        check: fn(crate::store::SignedGroup, &[u8; 32], u32) -> Result<VerifiedApplication>,
+        check: fn(VerifiedManifest, Vec<Vec<u8>>) -> Result<VerifiedApplication>,
     ) -> Result<Plan> {
         self.revalidate()?;
         let v = self.state.candidate.as_ref().ok_or(Error::Denied)?;
@@ -74,7 +74,8 @@ impl ReadOnlyState {
         if manifest_hash(&bytes) != baseline.hash {
             return Err(Error::Integrity);
         }
-        let manifest = verify(&bytes, &signature, &self.key, 6, 0)?;
+        let signed_manifest = VerifiedManifest::verify(bytes, signature, &self.key, 6)?;
+        let manifest = signed_manifest.manifest().clone();
         if manifest.epoch != baseline.epoch {
             return Err(Error::Integrity);
         }
@@ -83,7 +84,7 @@ impl ReadOnlyState {
             observed.push(Observed::capture(&path.join(&entry.name))?);
         }
         let payloads = load_payloads(&path, &manifest)?;
-        let baseline = check((bytes, signature, payloads), &self.key, 6)?;
+        let baseline = check(signed_manifest, payloads)?;
         let expected: std::collections::BTreeSet<_> = manifest
             .files
             .iter()
@@ -191,6 +192,6 @@ mod tests;
 #[cfg(test)]
 impl ReadOnlyState {
     pub(crate) fn native_fixture_plan(&self) -> Result<Plan> {
-        self.plan_using(VerifiedApplication::verify_native)
+        self.plan_using(VerifiedManifest::bind_native)
     }
 }

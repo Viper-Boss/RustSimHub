@@ -174,6 +174,28 @@ pub fn payload(id: TargetId, bindings: &ExpectedBindings) -> Vec<u8> {
         TargetId::NknUnit => fs::read(material.join("rustsimhub-nkn-root.service")).unwrap(),
         TargetId::BleUnit => fs::read(material.join("rustsimhub-ble-recovery.service")).unwrap(),
         TargetId::BlePolicy => fs::read(material.join("ble-product.policy")).unwrap(),
+        TargetId::HealthDropin => fs::read(material.join("55-product-health.conf")).unwrap(),
+        TargetId::HealthTmpfiles => fs::read(
+            material
+                .parent()
+                .unwrap()
+                .join("update-health/tmpfiles.conf"),
+        )
+        .unwrap(),
+        TargetId::HealthService => fs::read(
+            material
+                .parent()
+                .unwrap()
+                .join("update-health/rustsimhub-update-health.service"),
+        )
+        .unwrap(),
+        TargetId::HealthTimer => fs::read(
+            material
+                .parent()
+                .unwrap()
+                .join("update-health/rustsimhub-update-health.timer"),
+        )
+        .unwrap(),
         TargetId::ProductTmpfiles => fs::read_to_string(material.join("product.tmpfiles.in"))
             .unwrap()
             .replace("@NKN_GID@", &NKN_GID.to_string())

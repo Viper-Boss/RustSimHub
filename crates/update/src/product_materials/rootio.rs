@@ -81,6 +81,31 @@ impl FileSnapshot {
     pub fn recheck(&self, root: &Root, path: &str) -> Result<()> {
         root.recheck(path, Some(self))
     }
+    /// Readonly running observation only: no mutation or renamed-generation
+    /// adoption. Initial bytes were checked against the signed material; the
+    /// original fd and named file must keep their complete, unchanged stamp.
+    pub(crate) fn recheck_unchanged(&self, root: &Root, path: &str) -> Result<()> {
+        let (parent, name, parent_path) = root.parent(path)?;
+        let named = File::from(
+            rustix::fs::openat(
+                &parent,
+                name.as_str(),
+                OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+                Mode::empty(),
+            )
+            .map_err(|_| Error::Conflict)?,
+        );
+        if Stamp::from(self.file.metadata().map_err(|_| Error::Io)?) != self.stamp
+            || Stamp::from(named.metadata().map_err(|_| Error::Io)?) != self.stamp
+        {
+            return Err(Error::Conflict);
+        }
+        root.parent_still(&parent_path, &parent)?;
+        if Stamp::from(self.file.metadata().map_err(|_| Error::Io)?) != self.stamp {
+            return Err(Error::Conflict);
+        }
+        Ok(())
+    }
 }
 pub struct Root {
     file: File,

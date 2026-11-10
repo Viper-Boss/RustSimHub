@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::{ReadOnlyState, Result};
 use crate::{
-    application_files, manifest_hash, store::read_checked,
-    verified_application::VerifiedApplication, verify, Error, Manifest, MAX_MANIFEST,
+    application_files, manifest_hash,
+    store::read_checked,
+    verified_application::{VerifiedApplication, VerifiedManifest},
+    Error, Manifest, MAX_MANIFEST,
 };
 use std::{
     fs::{self, File, Metadata, OpenOptions},
@@ -130,7 +132,7 @@ impl Slot {
             selected,
             versions,
             ancestors,
-            VerifiedApplication::verify,
+            VerifiedManifest::bind,
         )
     }
     fn at_using(
@@ -138,7 +140,7 @@ impl Slot {
         selected: &Path,
         versions: &Path,
         ancestors: &[&Path],
-        check: fn(crate::store::SignedGroup, &[u8; 32], u32) -> Result<VerifiedApplication>,
+        check: fn(VerifiedManifest, Vec<Vec<u8>>) -> Result<VerifiedApplication>,
     ) -> Result<Self> {
         let mut guards = Vec::new();
         for directory in ancestors
@@ -168,7 +170,8 @@ impl Slot {
         let signature = read(&target.join("manifest.sig"), 64, &mut guards)?;
         // The ledger has already consumed the floor on staging. This validates
         // the installed group's exact ledger epoch, NOT admission of a new one.
-        let manifest = verify(&bytes, &signature, ledger.runtime_key()?, 6, 0)?;
+        let signed_manifest = VerifiedManifest::verify(bytes, signature, ledger.runtime_key()?, 6)?;
+        let manifest = signed_manifest.manifest().clone();
         if manifest.epoch != epoch {
             return Err(Error::Integrity);
         }
@@ -199,7 +202,7 @@ impl Slot {
             .iter()
             .map(|e| read(&target.join(&e.name), e.bytes as usize, &mut guards))
             .collect::<Result<Vec<_>>>()?;
-        let verified = check((bytes, signature, payloads), ledger.runtime_key()?, 6)?;
+        let verified = check(signed_manifest, payloads)?;
         let slot = Self {
             manifest,
             hash: hash.into(),
@@ -308,7 +311,7 @@ impl Slot {
             selected,
             versions,
             &[],
-            VerifiedApplication::verify_native,
+            VerifiedManifest::bind_native,
         )
     }
 }

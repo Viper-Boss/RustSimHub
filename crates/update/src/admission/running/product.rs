@@ -7,7 +7,7 @@ use crate::{
         self as materials,
         nss::NssObservation,
         rootio::{FileSnapshot, Root as IoRoot},
-        ExpectedBindings, ProductManifestV1, Profile, VerifiedProductMaterials,
+        ExpectedBindings, ProductManifestV1, Profile, TargetSpec, VerifiedProductMaterials,
     },
     runtime_observation::RuntimeObservation,
 };
@@ -18,7 +18,7 @@ pub(super) struct ProductRoot {
     root: IoRoot,
     nss: NssObservation,
     package: VerifiedProductMaterials,
-    files: Vec<(&'static str, FileSnapshot)>,
+    files: Vec<(&'static TargetSpec, FileSnapshot)>,
     pointer: FileSnapshot,
 }
 impl ProductRoot {
@@ -60,7 +60,7 @@ impl ProductRoot {
             core_sha256: application.files[0].sha256.clone(),
             approved_role_policy_sha256: nss.policy_sha256().into(),
         };
-        let package = checked(VerifiedProductMaterials::open(
+        let package = checked(VerifiedProductMaterials::open_running(
             &checked(root.open_dir(source.to_str().ok_or(Error::Invalid)?))?,
             key,
             &expected,
@@ -74,7 +74,7 @@ impl ProductRoot {
             {
                 return Err(Error::Integrity);
             }
-            files.push((spec.path, current));
+            files.push((spec, current));
         }
         checked(root.runtime_directory(false, nss.nkn_uid(), false))?;
         checked(root.runtime_directory(true, nss.ble_uid(), false))?;
@@ -91,13 +91,17 @@ impl ProductRoot {
     }
     pub(super) fn revalidate(&self) -> Result<()> {
         checked(self.nss.revalidate(&self.root))?;
-        checked(self.package.revalidate())?;
+        checked(self.package.revalidate_running())?;
         checked(self.pointer.recheck(
             &self.root,
             "/var/lib/rustsimhub/rustsimhub-v1/system/product-install/active.json",
         ))?;
-        for (path, file) in &self.files {
-            checked(file.recheck(&self.root, path))?;
+        for (spec, file) in &self.files {
+            if spec.executable {
+                checked(file.recheck_unchanged(&self.root, spec.path))?;
+            } else {
+                checked(file.recheck(&self.root, spec.path))?;
+            }
         }
         checked(
             self.root
