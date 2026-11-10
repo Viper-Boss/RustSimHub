@@ -1,0 +1,18 @@
+[package]
+name = "rustsimhub-product-outbox3-fixture"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.98"
+license = "AGPL-3.0-only"
+[workspace]
+[dependencies]
+rustsimhub-storage = { path = "../../../crates/storage" }
+rustsimhub-auth = { path = "../../../crates/auth" }
+rustsimhub-forwarder = { path = "../../../crates/forwarder" }
+ed25519-dalek = "2.2"
+rustix = { version = "1", features = ["process"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

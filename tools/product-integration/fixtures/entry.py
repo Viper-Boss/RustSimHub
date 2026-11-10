@@ -7,13 +7,14 @@ from pathlib import Path
 os.environ['RSH_WEB4_PRIVATE_CONTAINER']='yes'
 # Require the formal producer to name this frozen archive before data setup.
 source=Path('/fixture/source-archive').read_text().strip()
-default=Path('/fixture/scenario').read_text().strip()=='default'
+scenario=Path('/fixture/scenario').read_text().strip()
+default=scenario=='default'
 core='/fixture/programs/rustsimhub-core'
 worker='/fixture/programs/rustsimhub-forwarder'
 for program in [core,worker]:
  info=json.loads(subprocess.check_output([program,'--build-info'],timeout=5))
  assert info['source_archive_sha256']==source and info['development_fixtures'] is False
-mode=json.loads(subprocess.check_output([core,'--product-runtime-compatibility','legacy-v1' if default else 'product-recovery-health-v1'],timeout=5))
+mode=json.loads(subprocess.check_output([core,'--product-runtime-compatibility','legacy-v1' if default else ('product-email-v1' if scenario=='email' else 'product-recovery-health-v1')],timeout=5))
 assert mode['source_archive_sha256']==source and mode['opens_database'] is False and mode['starts_services'] is False
 
 def mkdir(p,uid=0,gid=0,mode=0o755):
@@ -49,6 +50,7 @@ for _ in range(500):
  time.sleep(.01)
 assert Path('/fixture/mm-ready').exists() and mm.poll() is None
 formal=os.environ.get('RSH_WEB4_FORMAL_CLI')=='yes'
+assert not (formal and scenario=='email'), 'email API chain currently uses the native isolated driver'
 if formal and default:
  assert platform.machine()=='aarch64'
  assert subprocess.run(['/fixture/update-tests','--exact','admission::product::tests::prepare_default','--ignored','--nocapture','--test-threads=1']).returncode==0
@@ -153,11 +155,11 @@ elif formal:
  print('FORMAL_ARM_PRODUCTION_CHAIN_PASSED',flush=True)
  r=type('Result',(),{'returncode':0})()
 else:
- r=subprocess.run(['/fixture/update-tests','--exact','admission::product::tests::default_chain' if default else 'admission::product::tests::production_chain','--ignored','--nocapture','--test-threads=1'])
+ r=subprocess.run(['/fixture/update-tests','--exact','admission::product::tests::default_chain' if default else ('admission::product::tests::email_chain' if scenario=='email' else 'admission::product::tests::production_chain'),'--ignored','--nocapture','--test-threads=1'])
 if not formal and r.returncode==0:
- marker='default-chain-passed' if default else 'production-chain-passed'
+ marker='default-chain-passed' if default else ('email-chain-passed' if scenario=='email' else 'production-chain-passed')
  assert Path('/fixture/'+marker).exists()
- print('NATIVE_DEFAULT_CHAIN_PASSED' if default else 'NATIVE_PRODUCTION_CHAIN_PASSED',flush=True)
+ print('NATIVE_DEFAULT_CHAIN_PASSED' if default else ('NATIVE_EMAIL_CHAIN_PASSED' if scenario=='email' else 'NATIVE_PRODUCTION_CHAIN_PASSED'),flush=True)
 for relative in ['core/state/product-upgrade/state.json','system/product-upgrade/recovery9/state.json','system/product-install/active.json']:
  p=Path('/var/lib/rustsimhub/rustsimhub-v1')/relative
  if p.exists():print('PRIVATE JOURNAL',relative,p.read_text())

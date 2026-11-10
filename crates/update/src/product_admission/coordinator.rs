@@ -32,6 +32,8 @@ struct Record {
     kind: String,
     manifest_sha256: [String; 3],
     phase: Phase,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    email_source_sha256: Option<String>,
 }
 /// Caller-owned serialized records cannot construct this live lock holder.
 #[derive(Clone, Copy)]
@@ -111,7 +113,13 @@ impl UpgradeJournal {
                 let mut b = Vec::new();
                 f.take(8193).read_to_end(&mut b).map_err(|_| Error::Io)?;
                 let r: Record = serde_json::from_slice(&b).map_err(|_| Error::Invalid)?;
-                if r.format != 1
+                if !matches!(
+                    (r.format, r.kind.as_str(), r.email_source_sha256.as_deref()),
+                    (1, _, None) | (2, "email4", Some(_))
+                ) || r
+                    .email_source_sha256
+                    .as_deref()
+                    .is_some_and(|s| !crate::hex_digest(s))
                     || r.kind != kind
                     || r.manifest_sha256.iter().any(|s| !crate::hex_digest(s))
                 {
@@ -157,6 +165,7 @@ impl UpgradeJournal {
             kind: kind.into(),
             manifest_sha256: roles.map(|r| r.manifest_sha256.clone()),
             phase: Phase::Prepared,
+            email_source_sha256: None,
         });
         self.save()
     }
@@ -217,7 +226,13 @@ pub fn migrate_email4_retained(
     }
     checked.revalidate()?;
     drop(checked);
+    let source = snapshot.email_source_digest()?;
     journal.begin("email4", [selected, candidate, fallback])?;
+    // Same original Root journal, explicit format2: bind the actual source
+    // read under this snapshot's still-held outbox writer, before G/handoff.
+    let record = journal.record.as_mut().ok_or(Error::Invalid)?;
+    record.format = 2;
+    record.email_source_sha256 = Some(source);
     journal.phase(Phase::Executing)?;
     let result = crate::admission::migrate_email4_retained(
         store,
@@ -422,6 +437,7 @@ mod tests {
                 kind: "recovery9".into(),
                 manifest_sha256: ["a".repeat(64), "b".repeat(64), "c".repeat(64)],
                 phase: Phase::Committed,
+                email_source_sha256: None,
             });
             journal.save().unwrap();
             let completed = journal.completed().unwrap();
@@ -455,6 +471,31 @@ mod tests {
     }
 
     #[test]
+    fn email_backup_provenance_requires_the_explicit_committed_source_record() {
+        for modern in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o700)).unwrap();
+            let mut journal = UpgradeJournal::at(directory.path(), "email4").unwrap();
+            journal.record = Some(Record {
+                format: if modern { 2 } else { 1 },
+                kind: "email4".into(),
+                manifest_sha256: ["a".repeat(64), "b".repeat(64), "c".repeat(64)],
+                phase: Phase::Committed,
+                email_source_sha256: modern.then(|| "d".repeat(64)),
+            });
+            journal.save().unwrap();
+            drop(journal);
+            let result = UpgradeJournal::at(directory.path(), "email4")
+                .unwrap()
+                .completed_email();
+            if modern {
+                assert_eq!(result.unwrap().email_source().unwrap(), "d".repeat(64));
+            } else {
+                assert!(result.is_err());
+            }
+        }
+    }
+    #[test]
     fn journal_reopen_keeps_executing_unknown_and_never_resubmits() {
         let d = tempfile::tempdir().unwrap();
         fs::set_permissions(d.path(), fs::Permissions::from_mode(0o700)).unwrap();
@@ -464,6 +505,7 @@ mod tests {
             kind: "recovery9".into(),
             manifest_sha256: ["a".repeat(64), "b".repeat(64), "c".repeat(64)],
             phase: Phase::Executing,
+            email_source_sha256: None,
         });
         j.save().unwrap();
         assert_eq!(j.inspect()["state"], "unknown");
@@ -508,11 +550,27 @@ pub(crate) struct CompletedUpgradeJournal {
 }
 impl UpgradeJournal {
     pub(crate) fn completed(self) -> Result<CompletedUpgradeJournal, Error> {
-        if self.kind != "recovery9"
+        if self.kind != "recovery9" {
+            return Err(Error::Denied);
+        }
+        self.into_completed()
+    }
+    pub(crate) fn completed_email(self) -> Result<CompletedUpgradeJournal, Error> {
+        if self.kind != "email4"
             || self
                 .record
                 .as_ref()
-                .is_none_or(|r| r.phase != Phase::Committed)
+                .is_none_or(|r| r.format != 2 || r.email_source_sha256.is_none())
+        {
+            return Err(Error::Denied);
+        }
+        self.into_completed()
+    }
+    fn into_completed(self) -> Result<CompletedUpgradeJournal, Error> {
+        if self
+            .record
+            .as_ref()
+            .is_none_or(|r| r.phase != Phase::Committed)
         {
             return Err(Error::Denied);
         }
@@ -564,6 +622,17 @@ impl UpgradeJournal {
     }
 }
 impl CompletedUpgradeJournal {
+    pub(crate) fn email_source(&self) -> Result<&str, Error> {
+        self.revalidate()?;
+        if self.journal.kind != "email4" {
+            return Err(Error::Denied);
+        }
+        self.journal
+            .record
+            .as_ref()
+            .and_then(|r| r.email_source_sha256.as_deref())
+            .ok_or(Error::Denied)
+    }
     pub(crate) fn revalidate(&self) -> Result<(), Error> {
         if journal_stamp(self.directory.metadata().map_err(|_| Error::Io)?) != self.directory_stamp
             || journal_stamp(fs::symlink_metadata(&self.journal.directory).map_err(|_| Error::Io)?)

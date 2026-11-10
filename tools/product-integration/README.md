@@ -85,3 +85,12 @@ runner的`--scenario default`使用同源默认构建，验证原boot-select/lau
 attempted不变；默认`--scenario product`执行上面的恢复健康链。ARM两种场景
 均使用正式CLI，Native仅driver内有架构适配。容器开始暂存前要求至少1GiB
 可用工作区；ENOSPC专项只能用独立小tmpfs，不填充宿主文件系统。
+
+
+邮件专项用`--scenario email --legacy-driver ORIGINAL_FORMAT3_FIXTURE`，driver
+须编译updater的`email-production-candidate`，正式Core/worker须为真实SMTP5。
+`legacy-fixture/`为单独feature图，只在私有UID986内通过原Auth登录和原Queue
+写入format3，避免测试feature统一把旧队列初始化成format4。该专项执行实际
+`product-prepare/apply/inspect`和保留快照的3→4迁移；不声明邮件自动确认。
+Root邮件journal格式2记录实际持锁源摘要，仅为已完成迁移的旧备份来源证据；
+不授权迁移或数据恢复。旧格式1邮件记录缺摘要时拒绝此来源复用，保留人工核验。

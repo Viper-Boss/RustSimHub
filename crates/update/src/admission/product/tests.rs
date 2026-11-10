@@ -191,7 +191,10 @@ fn applications(key: &SigningKey) -> (Vec<u8>, Vec<u8>, Vec<Vec<u8>>) {
             arch: "aarch64-linux".into(),
             epoch,
             schema_min: 6,
-            schema_max: if fs::read_to_string("/fixture/scenario").unwrap().trim() == "default" {
+            schema_max: if matches!(
+                fs::read_to_string("/fixture/scenario").unwrap().trim(),
+                "default" | "email"
+            ) {
                 6
             } else {
                 9
@@ -228,7 +231,11 @@ fn package(key: &SigningKey, application: &[u8], payloads: &[Vec<u8>]) {
     use materials::{MaterialEntry, TargetId};
     let source = rustsimhub_wire::build_source_sha256().unwrap();
     let expected = ExpectedBindings {
-        profile: Profile::RecoveryHealth,
+        profile: if fs::read_to_string("/fixture/scenario").unwrap().trim() == "email" {
+            Profile::Email
+        } else {
+            Profile::RecoveryHealth
+        },
         source_commit: fs::read_to_string("/fixture/source-commit")
             .unwrap()
             .trim()
@@ -242,7 +249,7 @@ fn package(key: &SigningKey, application: &[u8], payloads: &[Vec<u8>]) {
     };
     let blob = |id: TargetId| -> Vec<u8> {
         match id {
-        TargetId::ProfileConfig=>serde_json::to_vec(&serde_json::json!({"format":1,"profile":"product-recovery-health-v1","source_archive_sha256":source,"core_sha256":expected.core_sha256})).unwrap(),
+        TargetId::ProfileConfig=>serde_json::to_vec(&serde_json::json!({"format":1,"profile":expected.profile.as_str(),"source_archive_sha256":source,"core_sha256":expected.core_sha256})).unwrap(),
         TargetId::CoreDropin=>include_str!("../../../../../firmware/system/product-profiles/50-product-profile.conf").replace("@CORE_MEMORY@","192M").replace("@CORE_TASKS@","64").into_bytes(),
         TargetId::Launcher=>fs::read("/fixture/programs/rustsimhub-core-launcher").unwrap(),
         // Actual production provider bytes are installed but remain OFF.
@@ -261,7 +268,7 @@ fn package(key: &SigningKey, application: &[u8], payloads: &[Vec<u8>]) {
     };
     mkdir(INBOX, 0, 0, 0o700);
     let mut entries = vec![];
-    for spec in Profile::RecoveryHealth.targets() {
+    for spec in expected.profile.targets() {
         let raw = blob(spec.id);
         entries.push(MaterialEntry {
             id: spec.id,
@@ -270,13 +277,14 @@ fn package(key: &SigningKey, application: &[u8], payloads: &[Vec<u8>]) {
         });
         put(Path::new(INBOX).join(spec.id.payload_name()), &raw, 0o600);
     }
+    let roles = expected.profile.required_roles().to_vec();
     let manifest = ProductManifestV1 {
         format: 1,
         kind: "product-maintenance".into(),
         board: BOARD.into(),
         arch: "aarch64-linux".into(),
         bindings: expected,
-        roles: Profile::RecoveryHealth.required_roles().to_vec(),
+        roles,
         files: entries,
     };
     let raw = manifest.encode().unwrap();
@@ -618,12 +626,78 @@ fn schema9_backup() {
     let snapshot = MaintenanceSnapshot::observe_qualified(Path::new("/"), 0, 986, true).unwrap();
     assert_eq!(snapshot.business.version.format, 9);
     let mut held = vec![];
-    backup(&snapshot, &root, &transaction, &mut held).unwrap();
+    backup(&snapshot, &root, &transaction, &mut held, &mut None).unwrap();
     // This fresh plan has no recovery-child request with this ID; its existing
     // backup is the actual current9 snapshot, not a stale pre-migration file.
-    backup(&snapshot, &root, &transaction, &mut held).unwrap();
+    backup(&snapshot, &root, &transaction, &mut held, &mut None).unwrap();
     for file in held {
         file.check().unwrap();
     }
     snapshot.revalidate().unwrap();
+}
+
+#[cfg(feature = "email-production-candidate")]
+#[test]
+#[ignore = "private real SMTP5/format3 original writer and retained migration chain"]
+fn email_chain() {
+    isolated(0);
+    crate::product_native_fixture::enable();
+    install_base();
+    mkdir("/run/rustsimhub-forwarding", 0, 0, 0o700);
+    mkdir(
+        "/var/lib/rustsimhub/rustsimhub-v1/system/forwarding",
+        0,
+        0,
+        0o700,
+    );
+    assert!(Command::new("/fixture/setpriv")
+        .args([
+            "--bounding-set=-all",
+            "--clear-groups",
+            "--no-new-privs",
+            "--reuid=986",
+            "--regid=986",
+            "/fixture/legacy-outbox"
+        ])
+        .status()
+        .unwrap()
+        .success());
+    let key = SigningKey::from_bytes(&[71; 32]);
+    put(TRUST, &key.verifying_key().to_bytes(), 0o444);
+    let (app, _, payloads) = applications(&key);
+    {
+        let mut store = Store::open(Path::new(APP), key.verifying_key().to_bytes(), 6).unwrap();
+        store
+            .select_runtime(
+                Path::new("/run/rustsimhub-app"),
+                Path::new("/opt/rustsimhub/versions"),
+            )
+            .unwrap();
+    }
+    package(&key, &app, &payloads);
+    for command in ["product-prepare", "product-apply", "product-inspect"] {
+        let report = dispatch(&[command.into()]);
+        eprintln!("email {command}: {report:?}");
+        assert!(report.is_ok());
+    }
+    let snapshot = MaintenanceSnapshot::observe_qualified(Path::new("/"), 0, 986, true).unwrap();
+    assert_eq!(snapshot.business.version.format, 6);
+    assert_eq!(snapshot.outbox.as_ref().unwrap().version.format, 4);
+    let before = fs::read(Path::new(DATA).join("store.sqlite3")).unwrap();
+    let backup = coordinator::UpgradeJournal::production(coordinator::UpgradeKind::Email4)
+        .unwrap()
+        .completed_email()
+        .unwrap();
+    backup.revalidate().unwrap();
+    drop(backup);
+    assert!(rustsimhub_storage::Store::open(DATA).is_err());
+    assert_eq!(
+        fs::read(Path::new(DATA).join("store.sqlite3")).unwrap(),
+        before
+    );
+    put(
+        "/fixture/email-chain-passed",
+        b"actual-retained-email4-and-reopen\n",
+        0o600,
+    );
 }

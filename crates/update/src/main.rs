@@ -174,7 +174,13 @@ fn run() -> Result<(), rustsimhub_update::Error> {
         }
     }
     if let [command, key, source, epoch, input, output] = args.as_slice() {
-        if command == "make" || command == "make-forwarding" || command == "make-product-recovery" {
+        if command == "make"
+            || command == "make-forwarding"
+            || matches!(
+                command.as_str(),
+                "make-product-recovery" | "make-product-email-recovery"
+            )
+        {
             let format = if command == "make" { 1 } else { 2 };
             let names = application_files(format)?;
             let seed = Zeroizing::new(read_checked(Path::new(key), 32)?);
@@ -194,7 +200,10 @@ fn run() -> Result<(), rustsimhub_update::Error> {
                 epoch: epoch.parse().map_err(|_| Error::Invalid)?,
                 // Schema 6 is a maintenance transition: v5 updaters must refuse it.
                 schema_min: SCHEMA,
-                schema_max: if command == "make-product-recovery" {
+                schema_max: if matches!(
+                    command.as_str(),
+                    "make-product-recovery" | "make-product-email-recovery"
+                ) {
                     9
                 } else {
                     SCHEMA
@@ -221,7 +230,10 @@ fn run() -> Result<(), rustsimhub_update::Error> {
                 0,
             )?;
             verify_payload(&m, &payloads)?;
-            if command == "make-product-recovery" {
+            if matches!(
+                command.as_str(),
+                "make-product-recovery" | "make-product-email-recovery"
+            ) {
                 // Offline signer only; the future installer still validates
                 // installed trust, fallback and actual data. Reject a Core
                 // that cannot implement this exact finite profile BEFORE IO.
@@ -231,7 +243,11 @@ fn run() -> Result<(), rustsimhub_update::Error> {
                     &signing.verifying_key().to_bytes(),
                     &payloads,
                     SCHEMA,
-                    rustsimhub_update::product_admission::ProductRuntimeModeV1::RecoveryHealth,
+                    if command == "make-product-email-recovery" {
+                        rustsimhub_update::product_admission::ProductRuntimeModeV1::EmailRecovery
+                    } else {
+                        rustsimhub_update::product_admission::ProductRuntimeModeV1::RecoveryHealth
+                    },
                 )?;
             }
             write_new(&output.join("manifest.json"), &bytes, false)?;

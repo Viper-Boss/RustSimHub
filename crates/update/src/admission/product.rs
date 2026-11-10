@@ -112,6 +112,7 @@ struct Authority {
     transaction: String,
     started: Instant,
     completed_recovery: Option<coordinator::CompletedUpgradeJournal>,
+    completed_email: Option<coordinator::CompletedUpgradeJournal>,
 }
 impl retained::RetainedAuthority for Authority {
     fn transaction(&self) -> &str {
@@ -157,6 +158,9 @@ impl Authority {
         }
         if let Some(completed) = &self.completed_recovery {
             completed.revalidate()?;
+        }
+        if let Some(email) = &self.completed_email {
+            email.revalidate()?;
         }
         install(self.nss.revalidate(&self.root))?;
         install(self.package.revalidate())?;
@@ -373,13 +377,31 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
     {
         return Err(Error::Denied);
     }
+    // A default updater cannot perform the explicit SMTP5 transition. Refuse
+    // before any signed Root target is installed, not after switching profile.
+    if matches!(expected.profile, Profile::Email | Profile::EmailRecovery)
+        && snapshot
+            .outbox
+            .as_ref()
+            .is_some_and(|d| d.version.format == 3)
+        && !cfg!(feature = "email-production-candidate")
+    {
+        return Err(Error::Denied);
+    }
     let admission = ProductDataAdmission::compare(&snapshot, &selected, &next, &fallback)?;
     if admission.exit_code() == 4 {
         return Err(Error::Denied);
     }
     let data_report = admission.report()?;
     drop(admission);
-    backup(&snapshot, &root, &transaction, &mut files)?;
+    let mut completed_email = None;
+    backup(
+        &snapshot,
+        &root,
+        &transaction,
+        &mut files,
+        &mut completed_email,
+    )?;
     let authority = Authority {
         store: RefCell::new(store),
         files,
@@ -390,6 +412,7 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
         transaction,
         started,
         completed_recovery,
+        completed_email,
     };
     authority.check()?;
     let fence = retained::DataFence::new(snapshot, &authority)?;
@@ -597,6 +620,7 @@ fn backup(
     root: &Root,
     transaction: &str,
     files: &mut Vec<HeldFile>,
+    completed_email: &mut Option<coordinator::CompletedUpgradeJournal>,
 ) -> Result<()> {
     snapshot.revalidate()?;
     for (name, database) in [
@@ -642,6 +666,23 @@ fn backup(
         {
             crate::product_recovery_child::backup_source_root(transaction)
                 .map_err(|_| Error::Denied)?
+        } else if existing_backup
+            .as_ref()
+            .is_some_and(|b| crate::manifest_hash(&b.bytes) != current_hash)
+            && name == "outbox.sqlite3"
+            && database.version.format == 4
+        {
+            if completed_email.is_none() {
+                *completed_email = Some(
+                    coordinator::UpgradeJournal::production(coordinator::UpgradeKind::Email4)?
+                        .completed_email()?,
+                );
+            }
+            completed_email
+                .as_ref()
+                .ok_or(Error::Denied)?
+                .email_source()?
+                .to_owned()
         } else {
             current_hash
         };

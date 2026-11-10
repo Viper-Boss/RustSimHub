@@ -502,6 +502,26 @@ impl MaintenanceSnapshot {
         Ok(())
     }
 
+    #[cfg(feature = "email-production-candidate")]
+    pub(crate) fn email_source_digest(&self) -> Result<String> {
+        self.revalidate()?;
+        let outbox = self.outbox.as_ref().ok_or(Error::Denied)?;
+        if outbox.version.application_id != 0x52534657 || outbox.version.format != 3 {
+            return Err(Error::Denied);
+        }
+        let mut bytes = Vec::new();
+        outbox
+            .backup_source()?
+            .take(32 * 1024 * 1024 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| Error::Io)?;
+        if bytes.len() > 32 * 1024 * 1024 {
+            return Err(Error::Invalid);
+        }
+        self.revalidate()?;
+        Ok(crate::manifest_hash(&bytes))
+    }
+
     pub fn root_contract(&self) -> Option<&str> {
         self.contract.as_deref()
     }

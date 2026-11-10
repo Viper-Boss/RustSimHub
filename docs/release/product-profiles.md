@@ -107,3 +107,9 @@ python3 tools/product-release/release.py --assemble-unsigned \
 必须验证实际归档、程序清单、应用签名及独立角色策略，输出保留UNSIGNED标记、
 缺manifest.sig。正式安装器拒绝该目录；组装成功不能视为安装/健康授权。
 原packager的`--seed`签名接口另行保留，两种模式互斥。
+
+邮件恢复的离线签名入口为有限`make-product-email-recovery SEED SOURCE EPOCH
+INPUT OUTPUT`，先验证正式Core的`product-email-recovery-v1`与实际SMTP5
+worker；它与`make-product-recovery`使用相同6..9应用范围。邮件profile同时
+构建具备原邮件迁移feature的updater；安装此执行器仍由独立维护流程负责，
+它不属于产品Root包写集。缺此feature且需3→4时，生产入口在安装目标前拒绝。

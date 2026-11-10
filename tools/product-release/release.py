@@ -246,8 +246,8 @@ def build(args):
     if product:
         features = 'rustsimhub-core/product-providers-candidate'
         if email:
-            features += ',rustsimhub-core/email-production-candidate,rustsimhub-forwarder/smtp-production-candidate'
-        run_build([*common, '-p', 'rustsimhub-core', '-p', 'rustsimhub-forwarder', '--features', features], source, env, log)
+            features += ',rustsimhub-core/email-production-candidate,rustsimhub-forwarder/smtp-production-candidate,rustsimhub-update/email-production-candidate'
+        run_build([*common, '-p', 'rustsimhub-core', '-p', 'rustsimhub-forwarder', '-p', 'rustsimhub-update', '--features', features], source, env, log)
         run_build([*common, '-p', 'rustsimhub-ble', '--bin', 'rustsimhub-ble-recovery', '--features', 'product-host-candidate'], source, env, log)
     audio_lib = args.audio_sysroot/'usr/lib/aarch64-linux-gnu'
     audio_env = dict(env, PKG_CONFIG_ALLOW_CROSS='1', PKG_CONFIG_PATH='',

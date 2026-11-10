@@ -5,6 +5,7 @@
 import sys,os,json,subprocess,time,signal
 from pathlib import Path
 UNITS=['rustsimhub-core.service','rustsimhub-edge.service','rustsimhub-media.service','rustsimhub-forwarder.service','rustsimhub-nkn-root.service','rustsimhub-ble-recovery.service']
+AUX=['rustsimhub-forwarder.socket','rustsimhub-forwarder.timer','rustsimhub-forwarder.path']
 PID=Path('/fixture/pids.json')
 a=sys.argv[1:]
 def pids():
@@ -28,24 +29,33 @@ def spawn(uid,exe,args,log):
 if 'daemon-reload' in a:raise SystemExit(0)
 if 'show' in a:
  unit=a[-1]
- if unit not in UNITS:raise SystemExit(2)
+ if unit not in UNITS+AUX:raise SystemExit(2)
  props=[a[i+1] for i,v in enumerate(a[:-1]) if v=='-p']
+ for v in a:
+  if v.startswith('--property='):props.extend(v.removeprefix('--property=').split(','))
  current=pids();pid=current.get(unit,0)
  active=bool(pid and running(pid));pid=pid if active else 0
  drop=Path('/etc/systemd/system/rustsimhub-core.service.d')
  drops=' '.join(str(p) for p in sorted(drop.glob('*.conf'))) if drop.exists() else ''
  role=unit.removeprefix('rustsimhub-').removesuffix('.service')
  values={'Id':unit,'LoadState':'loaded','ActiveState':'active' if active else 'inactive','SubState':'running' if active else 'dead','MainPID':str(pid),'User':'rustsimhub-'+role,'ControlGroup':'/system.slice/'+unit if active else '', 'NeedDaemonReload':'no','InvocationID':f'{pid:032x}' if active else '', 'FragmentPath':'/etc/systemd/system/'+unit,'DropInPaths':drops}
+ values.update({'ControlPID':'0','UnitFileState':'static','TriggeredBy':'','Triggers':'','KillMode':'control-group','Delegate':'no','Restart':'no','Job':'0'})
  for prop in props:
   if prop not in values:raise SystemExit(2)
   print(prop+'='+values[prop])
  raise SystemExit(0)
 if 'stop' in a:
- current=pids()
+ current=pids();stopping=[]
  for unit in a[a.index('stop')+1:]:
   if unit not in UNITS:raise SystemExit(2)
   pid=current.pop(unit,None)
-  if pid and running(pid):os.kill(pid,signal.SIGTERM)
+  if pid and running(pid):
+   try:os.kill(pid,signal.SIGTERM);stopping.append(pid)
+   except ProcessLookupError:pass
+ deadline=time.monotonic()+3
+ while any(running(pid) for pid in stopping):
+  if time.monotonic()>deadline:raise SystemExit(3)
+  time.sleep(.01)
  PID.write_text(json.dumps(current));raise SystemExit(0)
 if 'start' in a:
  if a!=['--system','start',*UNITS[:3]]:raise SystemExit(2)
