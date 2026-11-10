@@ -403,6 +403,8 @@ pub fn migrate_email4_retained(
         .ok_or(Error::Denied)?
         .email_binding()?;
     snapshot.business.check_email_binding(&binding)?;
+    #[cfg(test)]
+    eprintln!("email retained: original binding verified");
     let (key, schema) = store.trusted_key();
     let key = *key;
     let (old_manifest, old_signature, old_payloads) = store.admission_baseline()?;
@@ -443,6 +445,8 @@ pub fn migrate_email4_retained(
         contract(&candidate)?,
         contract(&baseline)?,
     ];
+    #[cfg(test)]
+    eprintln!("email retained: original signed SMTP5 contracts verified");
     // Schema/Root/start-mode and every role are compared as well. Data3 may
     // require maintenance; reject any unrelated rejection before changing it.
     if snapshot
@@ -452,6 +456,8 @@ pub fn migrate_email4_retained(
     {
         return Err(Error::Denied);
     }
+    #[cfg(test)]
+    eprintln!("email retained: original compatibility comparison accepted");
     let digest = sha2::Sha256::digest(old_payloads.get(4).ok_or(Error::Denied)?);
     let digest: [u8; 32] = digest.into();
     snapshot.verify_effective_systemd()?;
@@ -464,7 +470,12 @@ pub fn migrate_email4_retained(
         programs,
         digest,
     )
-    .map_err(|_| Error::Denied)?;
+    .map_err(|error| {
+        #[cfg(test)]
+        eprintln!("email retained: original migration refused: {error:?}");
+        let _ = error;
+        Error::Denied
+    })?;
     // Reacquire the actual outbox fence, checking the resulting version. Only
     // its expected directory journal churn is resampled, no other observation.
     let directory = std::path::Path::new("/var/lib/rustsimhub/rustsimhub-v1/core/state/forwarding");

@@ -310,7 +310,17 @@ impl MaintenanceSnapshot {
     ) -> Result<LiveVersionCheck<'a>> {
         self.revalidate()?;
         let schema = u32::try_from(self.business.version.format).map_err(|_| Error::Schema)?;
-        let request = serde_json::json!({"format":1,"target_arch":"aarch64", "root_mode":self.root_mode,
+        let target_arch = "aarch64";
+        // The private native production-chain fixture executes real native
+        // signed programs. Keep its architecture consistent in this ORIGINAL
+        // comparison too; the production ARM gate is unchanged.
+        #[cfg(test)]
+        let target_arch = if crate::product_native_fixture::enabled() {
+            std::env::consts::ARCH
+        } else {
+            target_arch
+        };
+        let request = serde_json::json!({"format":1,"target_arch":target_arch, "root_mode":self.root_mode,
             "root_contract":self.contract,"data":{"business_schema":schema,"outbox":self.outbox.as_ref().map(|v|v.version)},
             "selected":selected,"candidate":candidate,"fallback":fallback});
         let report = rustsimhub_core_launcher::check_upgrade(
