@@ -171,6 +171,11 @@ enum Programs {
 }
 impl RunningCandidate {
     pub fn observe() -> Result<Self> {
+        let candidate = Self::collect()?;
+        candidate.revalidate()?;
+        Ok(candidate)
+    }
+    fn collect() -> Result<Self> {
         if rustix::process::geteuid().as_raw() != 0 {
             return Err(Error::Denied);
         }
@@ -197,22 +202,20 @@ impl RunningCandidate {
         match programs {
             Programs::Product(programs) => {
                 let (candidate, baseline) = *programs;
-                root.compatible_product(&core.snapshot, &candidate, &baseline)?;
+                root.compare_product(&core.snapshot, &candidate, &baseline)?;
             }
             Programs::Legacy(candidate, baseline) => {
                 running::compatible(&core.snapshot, &candidate, &baseline)?;
             }
         }
-        let result = Self {
+        Ok(Self {
             runtime,
             root,
             data,
             core,
             plan,
             invalid: Cell::new(false),
-        };
-        result.revalidate()?;
-        Ok(result)
+        })
     }
     pub fn revalidate(&self) -> Result<()> {
         if self.invalid.get() {
@@ -269,7 +272,10 @@ impl RunningCandidate {
 }
 /// The exact CLI is root-gated before this call; no writable recovery dispatch.
 pub fn confirm_running_candidate() -> Result<Confirmation> {
-    RunningCandidate::observe()?.confirm()
+    // confirm starts with the same complete revalidation that public observe
+    // performs before returning. No caller-visible capability escapes here,
+    // so do it once at the action boundary, not twice in adjacent calls.
+    RunningCandidate::collect()?.confirm()
 }
 #[cfg(test)]
 mod tests;

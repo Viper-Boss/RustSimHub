@@ -245,7 +245,9 @@ impl Root {
     pub(crate) fn product_health(&self) -> bool {
         self.product.is_some()
     }
-    pub(crate) fn compatible_product(
+    /// Pure comparison. The caller revalidates the complete running candidate
+    /// before exposing the observation or performing any ledger operation.
+    pub(crate) fn compare_product(
         &self,
         snapshot: &Snapshot,
         candidate: &crate::product_admission::SignedProductPrograms,
@@ -254,7 +256,6 @@ impl Root {
         if self.product.is_none() {
             return Err(Error::Denied);
         }
-        self.revalidate()?;
         product::compatible(snapshot, candidate, baseline)
     }
     pub(crate) fn scratch(&self) -> &Path {

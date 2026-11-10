@@ -99,6 +99,14 @@ impl SignedProductPrograms {
         let group = application.group();
         let base = SignedPrograms::running_verified(application)?;
         base.supports_running_health()?;
+        // This exact sealed worker --build-info was already captured by the
+        // original verifier, from the same immutable owned application bytes.
+        let worker = base
+            .metadata()
+            .worker
+            .ok_or(Error::Denied)?
+            .as_bytes()
+            .to_vec();
         // The immutable owning capability comes from the original signature
         // and full payload verifier in the guarded slot/confirmation plan.
         // Reuse those same bytes; caller JSON cannot construct this proof.
@@ -112,7 +120,13 @@ impl SignedProductPrograms {
             },
             application.manifest().clone(),
             ProductRuntimeModeV1::RecoveryHealth,
-            |bytes, args| capture_for(bytes, args, 986, Duration::from_millis(250)),
+            |bytes, args| {
+                if args == ["--build-info"] {
+                    Ok(worker.clone())
+                } else {
+                    capture_for(bytes, args, 986, Duration::from_millis(250))
+                }
+            },
         )
     }
     fn finish(

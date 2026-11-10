@@ -79,15 +79,15 @@ impl ProductRoot {
         checked(root.runtime_directory(false, nss.nkn_uid(), false))?;
         checked(root.runtime_directory(true, nss.ble_uid(), false))?;
         checked(root.health_directories(false))?;
-        let result = Self {
+        // The sole caller embeds this in Root::at_product, which validates
+        // the complete Root (including this object) before returning it.
+        Ok(Some(Self {
             root,
             nss,
             package,
             files,
             pointer,
-        };
-        result.revalidate()?;
-        Ok(Some(result))
+        }))
     }
     pub(super) fn revalidate(&self) -> Result<()> {
         checked(self.nss.revalidate(&self.root))?;
