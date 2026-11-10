@@ -66,12 +66,17 @@ fn prepare(root: &Path, bundle: &support::Bundle) {
 }
 #[test]
 fn same_original_business_and_outbox_flocks_survive_real_signed_installation() {
+    for profile in [Profile::Legacy, Profile::Product, Profile::Email] {
+        original_flocks_survive_installation(profile);
+    }
+}
+fn original_flocks_survive_installation(profile: Profile) {
     let root = crate::admission::tests::fixture(Mode::Forwarding, true);
-    let bundle = support::Bundle::new(Profile::Legacy);
+    let bundle = support::Bundle::new(profile);
     prepare(root.path(), &bundle);
     let authority = Authority {
         tx: bundle.verify().unwrap().manifest_sha256().into(),
-        profile: Profile::Legacy,
+        profile,
         calls: Cell::new(0),
     };
     let snapshot = crate::admission::tests::snapshot(root.path());
@@ -118,7 +123,7 @@ fn same_original_business_and_outbox_flocks_survive_real_signed_installation() {
     let same = fence.into_snapshot().unwrap();
     // Descriptors outlive both the executor and DataFence. Migration/startup
     // subsequently receive this very holder, including newly created targets.
-    for spec in Profile::Legacy.targets() {
+    for spec in profile.targets() {
         let path = root.path().join(spec.path.trim_start_matches('/'));
         let retained = same
             ._root_files
