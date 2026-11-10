@@ -82,7 +82,8 @@ Recheck推进原确认账本一次。任何计划/只读JSON均不能作为确�
 消费同一份候选/回退字节。签名验证、模式探测及完整程序验证不由JSON替代。
 程序fd由原槽位持有，逐次检查fd和路径的inode/权限/链接数/大小/mtime/ctime，
 并重验实际PID/start、UID/全部capabilities/NNP、cgroup及账本/信任代次。
-任何变化仍永久使本次观察失效，原5秒截止时间不刷新。产品健康元数据在
+任何变化仍永久使本次观察失效，原5秒截止时间不刷新。主体发行仍opt=z/thin/abort；锁定的sha2 0.10.9包
+单独用opt=3，不换算法/依赖，不提高载荷或时限。产品健康元数据在
 取得Core的SQL/Auth租约前执行一次；最后Recheck和原flock转换保持。
 
 该profile仅支持forwarding Root模式、实际schema9与worker4/outbox3（或
