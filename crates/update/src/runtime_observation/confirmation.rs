@@ -179,7 +179,7 @@ impl RunningCandidate {
         if rustix::process::geteuid().as_raw() != 0 {
             return Err(Error::Denied);
         }
-        let runtime = observed("runtime", RuntimeObservation::observe())?;
+        let runtime = observed("runtime", RuntimeObservation::collect())?;
         let root = observed("Root", running::Root::observe_for(&runtime))?;
         let plan = runtime.ledger.confirmation_plan()?;
         // Exactly one metadata path, before taking the Core SQL/Auth lease.

@@ -51,7 +51,7 @@ impl ProductRoot {
         let manifest: ProductManifestV1 =
             serde_json::from_slice(&manifest.bytes).map_err(|_| Error::Invalid)?;
         let nss = checked(NssObservation::observe_for(&root, true))?;
-        let (application, hash, key) = runtime.product_binding()?;
+        let (application, hash, key) = runtime.signed_product_binding()?;
         let expected = ExpectedBindings {
             profile: Profile::RecoveryHealth,
             source_commit: manifest.bindings.source_commit,

@@ -821,3 +821,36 @@ fn profile_original_runtime_sources() {
         RuntimeObservation::observe,
     );
 }
+
+#[test]
+fn private_collection_keeps_original_deadline_and_cannot_validate_a_changed_runtime() {
+    for expired in [false, true] {
+        let f = Fixture::new(2);
+        let port = Rc::new(Port::default());
+        let ledger = f.ledger().unwrap();
+        let slot = f.slot(&ledger).unwrap();
+        let started = if expired {
+            Instant::now() - MAX_AGE
+        } else {
+            Instant::now()
+        };
+        let sample =
+            RuntimeObservation::sample(ledger, slot, BOOT.into(), started, Box::new(port.clone()))
+                .unwrap();
+        if !expired {
+            port.fault.set(2);
+        }
+        assert_eq!(
+            sample.revalidate(),
+            Err(if expired {
+                Error::Busy
+            } else {
+                Error::Integrity
+            })
+        );
+        port.fault.set(0);
+        // Failed observations cannot be repaired by another sample or deadline.
+        assert_eq!(sample.revalidate(), Err(Error::Busy));
+        assert!(sample.report().is_err());
+    }
+}
