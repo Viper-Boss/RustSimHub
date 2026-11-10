@@ -99,10 +99,33 @@ elif formal:
   with open(path,'rb') as held:
    fcntl.flock(held,fcntl.LOCK_EX|fcntl.LOCK_NB);refused(name)
  for command in ['product-prepare','product-apply','product-inspect','product-activate']:
-  completed=subprocess.run([updater,command],capture_output=True,timeout=300)
+  try:
+   completed=subprocess.run([updater,command],capture_output=True,timeout=300)
+  except subprocess.TimeoutExpired:
+   print('FORMAL',command,'TIMEOUT 300 seconds; no retry',flush=True)
+   pointer=Path('/var/lib/rustsimhub/rustsimhub-v1/system/product-install/active.json')
+   if pointer.exists():
+    tx=json.loads(pointer.read_bytes())['transaction']
+    assert len(tx)==64 and all(c in '0123456789abcdef' for c in tx)
+    journal=pointer.parent/'transactions'/tx/'journal.json'
+    if journal.exists():print('PRIVATE INTERRUPTED JOURNAL',journal.read_text(),flush=True)
+   raise
   print('FORMAL',command,'EXIT',completed.returncode,flush=True)
   if completed.returncode:
-   print(completed.stderr.decode(errors='replace'));raise SystemExit(completed.returncode)
+   print(completed.stderr.decode(errors='replace'))
+   # Fixed readonly fixture diagnostics. Never supply authority or retry an
+   # uncertain production action; keep failures distinguishable from a gate.
+   for database in ['passwd','group']:
+    started=time.monotonic()
+    observed=subprocess.run(['/usr/bin/getent',database],env={},capture_output=True,timeout=1)
+    print('PRIVATE NSS',database,'exit',observed.returncode,'elapsed',time.monotonic()-started,'same-local-bytes',observed.stdout==Path('/etc/'+database).read_bytes(),flush=True)
+   for fixed in ['/','/etc/rustsimhub/product-roles.json','/usr/share/rustsimhub/release.public','/var/lib/rustsimhub/rustsimhub-v1/system/app/state.json','/var/lib/rustsimhub/rustsimhub-v1/core/state/store.sqlite3','/var/lib/rustsimhub/rustsimhub-v1/system/product-install/active.json']:
+    p=Path(fixed)
+    if p.exists():
+     m=p.stat();print('PRIVATE FIXED STAT',fixed,oct(m.st_mode),m.st_uid,m.st_gid,m.st_nlink,m.st_size,flush=True)
+   trace=Path('/fixture/systemctl-trace.jsonl')
+   if trace.exists():print('PRIVATE PID1 LAST CALLS','\n'.join(trace.read_text().splitlines()[-30:]),flush=True)
+   raise SystemExit(completed.returncode)
   report=json.loads(completed.stdout)
   assert report.get('health_verified') is False and report.get('may_confirm') is False
  assert subprocess.run([updater,'product-activate'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode!=0
@@ -130,8 +153,21 @@ elif formal:
   if ready:break
   time.sleep(.1)
  assert ready, 'actual Core never became ready'
+ confirm_started=time.monotonic()
  confirmed=subprocess.run([updater,'confirm-running-candidate'],capture_output=True,timeout=10)
+ print('PRIVATE CONFIRM ELAPSED',time.monotonic()-confirm_started,flush=True)
  print('FORMAL confirm-running-candidate EXIT',confirmed.returncode,confirmed.stdout.decode(errors='replace'),confirmed.stderr.decode(errors='replace'),flush=True)
+ if confirmed.returncode:
+  # Readonly diagnostics after the sole failed confirmation. Do not invoke a
+  # second confirmation or change any ledger/attempt/maintenance deadline.
+  for command in [[updater,'inspect-runtime'],[updater,'inspect-state'],['/opt/rustsimhub/selected/rustsimhub-core','--build-info'],['/opt/rustsimhub/selected/rustsimhub-forwarder','--build-info']]:
+   started=time.monotonic()
+   observed=subprocess.run(command,env={},capture_output=True,timeout=15)
+   print('PRIVATE READONLY DIAGNOSTIC',command,'exit',observed.returncode,'elapsed',time.monotonic()-started,observed.stdout.decode(errors='replace'),observed.stderr.decode(errors='replace'),flush=True)
+ if confirmed.returncode and Path('/fixture/pids.json').exists():
+  for unit,pid in json.loads(Path('/fixture/pids.json').read_bytes()).items():
+   group=Path(f'/proc/{pid}/cgroup')
+   if group.exists():print('PRIVATE ACTUAL SERVICE CGROUP',unit,group.read_text(),flush=True)
  assert confirmed.returncode==0
  assert json.loads(confirmed.stdout)['result']=='confirmed'
  assert subprocess.run([updater,'confirm-running-candidate'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode!=0

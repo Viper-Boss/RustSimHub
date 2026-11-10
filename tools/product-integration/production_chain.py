@@ -52,6 +52,11 @@ def inputs(args,stage):
     copy(ROOT/'licenses/Opus-COPYING.txt',programs/'Opus-COPYING.txt',0o444)
     copy(args.test_driver,stage/'fixture/update-tests')
     for name in ['systemctl.py','entry.py']:copy(FIXTURES/name,stage/('usr/bin/systemctl' if name=='systemctl.py' else 'fixture/entry.py'))
+    if args.mode=='arm-vm':
+        copy(FIXTURES/'systemctl.py',stage/'fixture/systemctl-python.py')
+        copy(FIXTURES/'systemctl-fast.sh',stage/'usr/bin/systemctl')
+        (stage/'fixture/FORMAL_ARM_GUEST').write_bytes(b'private-arm-kernel-and-cgroup-fixture\n')
+        (stage/'fixture/FORMAL_ARM_GUEST').chmod(0o444)
     if args.scenario=='email':
         if args.legacy_driver is None:raise ValueError('separate original format3 fixture required')
         copy(args.legacy_driver,stage/'fixture/legacy-outbox')
@@ -158,6 +163,9 @@ def arm_vm(args,work):
     copy(root/'usr/bin/setpriv',root/'fixture/setpriv')
     init='''#!/bin/busybox sh
 set -eu
+# Kernel rootfs starts as 01777; the production Root fence correctly rejects
+# that writable ancestor. Establish the same secure baseline as the product.
+/bin/busybox chmod 0755 /
 /bin/busybox mount -t proc proc /proc
 /bin/busybox mount -t sysfs sysfs /sys
 /bin/busybox mount -t devtmpfs devtmpfs /dev

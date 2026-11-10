@@ -21,7 +21,9 @@ def spawn(uid,exe,args,log):
  command=['/fixture/setpriv','--bounding-set=-all','--no-new-privs',f'--reuid={uid}',f'--regid={uid}','--groups=987',exe,*args]
  stream=open('/fixture/'+log,'ab',buffering=0)
  process=subprocess.Popen(command,stdin=subprocess.DEVNULL,stdout=stream,stderr=stream,close_fds=True)
- if os.environ.get('RSH_WEB4_FORMAL_CLI')=='yes':
+ # Production service dispatch clears its environment. A readonly marker in
+ # this disposable guest survives that boundary; never invent cgroup facts.
+ if Path('/fixture/FORMAL_ARM_GUEST').is_file():
   unit={986:UNITS[0],985:UNITS[1],984:UNITS[2]}[uid]
   group=Path('/sys/fs/cgroup/system.slice')/unit
   group.mkdir(exist_ok=True)

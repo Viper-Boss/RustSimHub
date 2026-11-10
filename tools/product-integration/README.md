@@ -38,6 +38,14 @@ busybox、getent、setpriv、dbus-daemon、完整动态库与加载器；它们�
 rootfs。QEMU自身依赖由调用方通过其私有库路径提供。两条路径都不能证明
 设备/PID1验收或产品固件可启动。原始日志、数据库及临时信任留在`.local/`。
 
+每次ARM场景使用新的自有依赖暂存树，不能覆盖前一次只读fixture marker。
+ARM init把通用kernel rootfs默认的01777根目录设为0755，否则正式Root守卫
+应当拒绝。固定只读`show`由BusyBox夹具读取原控制器的固定PID记录和实际`/proc`存活
+状态，输出与原Python控制器相同的事实，避免TCG下每次查询启动解释器。
+启动/停止和其他动作仍调用原控制器；实际进程、来宾cgroup、数据/签名/
+授权和生产时限均不替换。只读ARM标记保证清空环境后仍登记真实cgroup。
+超时保留固定事务journal诊断，不自动重试原事务或提高维护/健康预算。
+
 ## 正式维护生产入口
 
 Linux Root updater只接受以下无附加参数的动作：
