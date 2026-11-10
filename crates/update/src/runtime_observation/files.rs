@@ -5,15 +5,15 @@ use crate::{
     MAX_MANIFEST,
 };
 use std::{
-    fs::{self, Metadata},
-    os::unix::fs::MetadataExt,
+    fs::{self, File, Metadata, OpenOptions},
+    os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
 
 const SELECTED: &str = "/run/rustsimhub-app/selected";
 const VERSIONS: &str = "/opt/rustsimhub/versions";
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Stamp {
     device: u64,
     inode: u64,
@@ -43,19 +43,45 @@ impl From<Metadata> for Stamp {
 struct Guard {
     path: PathBuf,
     stamp: Stamp,
+    file: Option<File>,
 }
 impl Guard {
     fn capture(path: &Path) -> Result<Self> {
         Ok(Self {
             path: path.into(),
             stamp: fs::symlink_metadata(path).map_err(|_| Error::Io)?.into(),
+            file: None,
         })
     }
     fn check(&self) -> Result<()> {
-        if Stamp::from(fs::symlink_metadata(&self.path).map_err(|_| Error::Io)?) != self.stamp {
+        if Stamp::from(fs::symlink_metadata(&self.path).map_err(|_| Error::Io)?) != self.stamp
+            || self.file.as_ref().is_some_and(|file| {
+                file.metadata()
+                    .map(Stamp::from)
+                    .map_or(true, |stamp| stamp != self.stamp)
+            })
+        {
             return Err(Error::Integrity);
         }
         Ok(())
+    }
+}
+/// Borrowed only from a signature/payload-verified live slot. The original fd
+/// pins its inode, and full mode/owner/link/size/mtime/ctime stamps bind both fd
+/// and path. This is never constructed from caller-supplied paths or digests.
+pub(super) struct Executable<'a> {
+    guard: &'a Guard,
+}
+impl Executable<'_> {
+    pub(super) fn check(&self, process_exe: &File) -> Result<()> {
+        self.guard.check()?;
+        if Stamp::from(process_exe.metadata().map_err(|_| Error::Io)?) != self.guard.stamp {
+            return Err(Error::Integrity);
+        }
+        Ok(())
+    }
+    pub(super) fn stamp(&self) -> Stamp {
+        self.guard.stamp.clone()
     }
 }
 pub(super) struct Slot {
@@ -213,6 +239,22 @@ impl Slot {
             .ok_or(Error::Integrity)?;
         Ok((self.directory.join(role), &entry.sha256))
     }
+    pub(super) fn bound_executable(&self, role: &str) -> Result<Executable<'_>> {
+        if !super::ROLES
+            .iter()
+            .any(|(_, executable, _, _)| *executable == role)
+        {
+            return Err(Error::Invalid);
+        }
+        let (path, _) = self.executable(role)?;
+        let guard = self
+            .guards
+            .iter()
+            .find(|guard| guard.path == path && guard.file.is_some())
+            .ok_or(Error::Integrity)?;
+        guard.check()?;
+        Ok(Executable { guard })
+    }
 }
 fn absent(path: &Path) -> Result<()> {
     match fs::symlink_metadata(path) {
@@ -232,8 +274,14 @@ fn directory_guard(path: &Path, guards: &mut Vec<Guard>) -> Result<()> {
     Ok(())
 }
 fn read(path: &Path, max: usize, guards: &mut Vec<Guard>) -> Result<Vec<u8>> {
-    let guard = Guard::capture(path)?;
+    let mut guard = Guard::capture(path)?;
     let bytes = read_checked(path, max)?;
+    let file = OpenOptions::new()
+        .read(true)
+        .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
+        .open(path)
+        .map_err(|_| Error::Io)?;
+    guard.file = Some(file);
     guard.check()?;
     guards.push(guard);
     Ok(bytes)

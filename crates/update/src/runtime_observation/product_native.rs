@@ -24,13 +24,11 @@ impl Sources for NativePid1 {
             if !unit.active {
                 return Err(Error::Denied);
             }
-            let (exe, digest) = slot.executable(ROLES[index].1)?;
-            result.push(linux::probe(
+            result.push(linux::probe_verified(
                 index,
                 unit.pid,
                 ROLES[index].3,
-                &exe,
-                digest,
+                slot,
                 cgroup,
             )?);
         }

@@ -87,10 +87,7 @@ impl Sources for KernelSources {
     }
     fn processes(&self, _units: &[Unit], slot: &Slot) -> Result<(Vec<Process>, WorkerState)> {
         let p = (0..3)
-            .map(|i| {
-                let (exe, digest) = slot.executable(ROLES[i].1)?;
-                linux::probe(i, self.pids[i], ROLES[i].3, &exe, digest, &self.cgroup)
-            })
+            .map(|i| linux::probe_verified(i, self.pids[i], ROLES[i].3, slot, &self.cgroup))
             .collect::<Result<Vec<_>>>()?;
         Ok((p, WorkerState::Off))
     }

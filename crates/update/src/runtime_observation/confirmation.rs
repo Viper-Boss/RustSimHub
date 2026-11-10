@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! A consumed, live Root capability, never a serialized health token.
 use super::*;
+use crate::product_admission::SignedProductPrograms;
 use crate::{
     admission::{running, SignedPrograms},
     store::inspection::confirmation::Plan,
@@ -164,6 +165,10 @@ pub struct Confirmation {
     epoch: u64,
     floor_epoch: u64,
 }
+enum Programs {
+    Legacy(SignedPrograms, SignedPrograms),
+    Product(Box<(SignedProductPrograms, SignedProductPrograms)>),
+}
 impl RunningCandidate {
     pub fn observe() -> Result<Self> {
         if rustix::process::geteuid().as_raw() != 0 {
@@ -172,27 +177,40 @@ impl RunningCandidate {
         let runtime = observed("runtime", RuntimeObservation::observe())?;
         let root = observed("Root", running::Root::observe_for(&runtime))?;
         let plan = runtime.ledger.confirmation_plan()?;
-        let candidate = SignedPrograms::running_inspect(
-            &runtime.slot.signed()?,
-            runtime.ledger.runtime_key()?,
-        )?;
-        let baseline =
-            SignedPrograms::running_inspect(plan.baseline(), runtime.ledger.runtime_key()?)?;
+        // Exactly one metadata path, before taking the Core SQL/Auth lease.
+        // Product verification already retains the original SignedPrograms
+        // checks; repeating the unused legacy path only consumed freshness.
+        let programs = if root.product_health() {
+            Programs::Product(Box::new((
+                SignedProductPrograms::running_health(
+                    &runtime.slot.signed()?,
+                    runtime.ledger.runtime_key()?,
+                )?,
+                SignedProductPrograms::running_health(
+                    plan.baseline(),
+                    runtime.ledger.runtime_key()?,
+                )?,
+            )))
+        } else {
+            Programs::Legacy(
+                SignedPrograms::running_inspect(
+                    &runtime.slot.signed()?,
+                    runtime.ledger.runtime_key()?,
+                )?,
+                SignedPrograms::running_inspect(plan.baseline(), runtime.ledger.runtime_key()?)?,
+            )
+        };
         runtime.revalidate()?;
         let core = observed("Core connection", Core::connect(&runtime))?;
         let data = observed("data", running::Data::observe_for(&core.snapshot, &root))?;
-        if root.product_health() {
-            let candidate_mode = crate::product_admission::SignedProductPrograms::running_health(
-                &runtime.slot.signed()?,
-                runtime.ledger.runtime_key()?,
-            )?;
-            let fallback_mode = crate::product_admission::SignedProductPrograms::running_health(
-                plan.baseline(),
-                runtime.ledger.runtime_key()?,
-            )?;
-            root.compatible_product(&core.snapshot, &candidate_mode, &fallback_mode)?;
-        } else {
-            running::compatible(&core.snapshot, &candidate, &baseline)?;
+        match programs {
+            Programs::Product(programs) => {
+                let (candidate, baseline) = *programs;
+                root.compatible_product(&core.snapshot, &candidate, &baseline)?;
+            }
+            Programs::Legacy(candidate, baseline) => {
+                running::compatible(&core.snapshot, &candidate, &baseline)?;
+            }
         }
         let result = Self {
             runtime,

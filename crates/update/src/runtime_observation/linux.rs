@@ -4,7 +4,9 @@ use super::{
     units::Unit,
     Result, WorkerState, ROLES,
 };
-use crate::{health::probe_process, Error};
+#[cfg(test)]
+use crate::health::probe_process;
+use crate::Error;
 use std::{
     collections::BTreeSet,
     fs::{self, File},
@@ -53,7 +55,13 @@ pub(super) fn parse_boot(bytes: &[u8]) -> Result<String> {
 }
 
 pub(super) fn collect(units: &[Unit], slot: &Slot) -> Result<(Vec<Process>, WorkerState)> {
-    collect_using(units, slot, members, probe, || uid_processes(983))
+    collect_using(
+        units,
+        slot,
+        members,
+        |index, pid, uid, _, _, cgroup| probe_verified(index, pid, uid, slot, cgroup),
+        || uid_processes(983),
+    )
 }
 pub(super) fn collect_using(
     units: &[Unit],
@@ -111,6 +119,10 @@ pub(super) fn collect_using(
     Ok((processes, state))
 }
 
+// Standalone probe retains its original byte-hashing behavior for the original
+// diagnostics/tests. Live runtime admission instead borrows the slot's opaque
+// fd proof, so every recheck need not rehash the same immutable executable.
+#[cfg(test)]
 pub(super) fn probe(
     index: usize,
     pid: u32,
@@ -162,6 +174,68 @@ pub(super) fn probe(
         exe: before,
         cgroups: cgroups.into(),
     })
+}
+
+pub(super) fn probe_verified(
+    index: usize,
+    pid: u32,
+    uid: u32,
+    slot: &Slot,
+    cgroup: &str,
+) -> Result<Process> {
+    if pid == 0 {
+        return Err(Error::Invalid);
+    }
+    let role = ROLES.get(index).ok_or(Error::Invalid)?.1;
+    let binding = slot.bound_executable(role)?;
+    let proc = PathBuf::from(format!("/proc/{pid}"));
+    let start = process_start(&proc)?;
+    let exe = File::open(proc.join("exe")).map_err(|_| Error::Io)?;
+    binding.check(&exe)?;
+    check_security(&bounded(&proc.join("status"), 65536)?, uid)?;
+    let bytes = bounded(&proc.join("cgroup"), 8192)?;
+    let cgroups = std::str::from_utf8(&bytes).map_err(|_| Error::Invalid)?;
+    check_cgroups(cgroups, cgroup)?;
+    // Keep both actual descriptors through this check. exec, unlink/replace,
+    // chmod, content writes (even restoring mtime), UID/caps/NNP or cgroup
+    // changes cannot be hidden by the previously verified payload digest.
+    let again = File::open(proc.join("exe")).map_err(|_| Error::Io)?;
+    binding.check(&again)?;
+    binding.check(&exe)?;
+    if process_start(&proc)? != start || bounded(&proc.join("cgroup"), 8192)? != bytes {
+        return Err(Error::Integrity);
+    }
+    check_security(&bounded(&proc.join("status"), 65536)?, uid)?;
+    Ok(Process {
+        index,
+        pid,
+        uid,
+        start,
+        exe: binding.stamp(),
+        cgroups: cgroups.into(),
+    })
+}
+
+fn process_start(proc: &Path) -> Result<u64> {
+    let bytes = bounded(&proc.join("stat"), 8192)?;
+    let text = std::str::from_utf8(&bytes).map_err(|_| Error::Invalid)?;
+    let after = text.rsplit_once(')').ok_or(Error::Invalid)?.1;
+    let fields = after.split_whitespace().collect::<Vec<_>>();
+    if fields
+        .first()
+        .is_none_or(|state| matches!(*state, "Z" | "X" | "x"))
+    {
+        return Err(Error::Denied);
+    }
+    let start = fields
+        .get(19)
+        .ok_or(Error::Invalid)?
+        .parse::<u64>()
+        .map_err(|_| Error::Invalid)?;
+    if start == 0 {
+        return Err(Error::Invalid);
+    }
+    Ok(start)
 }
 
 pub(super) fn check_cgroups(text: &str, expected: &str) -> Result<()> {
