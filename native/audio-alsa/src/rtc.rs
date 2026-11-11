@@ -440,7 +440,16 @@ impl Session {
     }
     pub(crate) fn drain_to(
         &mut self,
+        transmit: impl FnMut(SocketAddr, SocketAddr, &[u8]) -> Result<(), Error>,
+    ) -> Result<(), Error> {
+        self.drain_to_with_clock(transmit, Instant::now)
+    }
+    // Private clock seam shared by the real decrypted-media path and bounded
+    // deterministic tests. No caller of the public session can replace time.
+    fn drain_to_with_clock(
+        &mut self,
         mut transmit: impl FnMut(SocketAddr, SocketAddr, &[u8]) -> Result<(), Error>,
+        mut clock: impl FnMut() -> Instant,
     ) -> Result<(), Error> {
         // Every mutation is followed by a full drain to Timeout. Hard cap prevents hostile spin.
         for _ in 0..128 {
@@ -501,6 +510,10 @@ impl Session {
                             continue;
                         }
                         self.gate(now)?;
+                        if self.permit.is_none() {
+                            self.close();
+                            return Err(Error::Authorization);
+                        }
                         if Some(m.mid) != self.mid
                             || m.rid.is_some()
                             || m.params.spec().codec != str0m::format::Codec::Opus
@@ -510,7 +523,8 @@ impl Session {
                             eprintln!("rtc_codec_rejected reason=media_shape same_mid={} has_rid={} opus={} clock={} bytes={}",Some(m.mid)==self.mid,m.rid.is_some(),m.params.spec().codec==str0m::format::Codec::Opus,m.time.denom(),m.data.len());
                             return Err(Error::Codec);
                         }
-                        let age = Instant::now()
+                        let before_decode = clock();
+                        let age = before_decode
                             .checked_duration_since(m.network_time)
                             .ok_or(Error::Bounds)?
                             .as_millis();
@@ -539,16 +553,32 @@ impl Session {
                                 return Err(Error::Codec);
                             }
                         };
+                        let decoded_at = clock();
                         if self.gate(rustsimhub_media::local::now_ms()).is_err() {
                             frame.samples.fill(0);
                             return Err(Error::Authorization);
+                        }
+                        // Decoding/scheduling can consume the remaining frame
+                        // budget. Check authority first, then discard old speech
+                        // before touching queue, receive count or idle deadline.
+                        let Some(decoded_age) = decoded_at
+                            .checked_duration_since(before_decode)
+                            .and_then(|_| decoded_at.checked_duration_since(m.network_time))
+                        else {
+                            frame.samples.fill(0);
+                            return Err(Error::Bounds);
+                        };
+                        if decoded_age >= Duration::from_millis(MAX_AGE_MS) {
+                            frame.samples.fill(0);
+                            self.dropped_frames += 1;
+                            continue;
                         }
                         if self.incoming.len() == QUEUE_FRAMES {
                             self.incoming.pop_front();
                             self.dropped_frames += 1;
                         }
                         self.incoming.push_back(frame);
-                        self.last_media_receive = Some(Instant::now());
+                        self.last_media_receive = Some(decoded_at);
                         self.received_frames += 1;
                     }
                     Event::IceConnectionStateChange(IceConnectionState::Disconnected)
@@ -730,6 +760,9 @@ impl Session {
         self.rtc.disconnect();
     }
 }
+#[cfg(test)]
+#[path = "rtc_receive_age_tests.rs"]
+mod receive_age_tests;
 impl Drop for Session {
     fn drop(&mut self) {
         self.close();

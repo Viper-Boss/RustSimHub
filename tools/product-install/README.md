@@ -1,5 +1,13 @@
 # 有限产品维护包与执行器
 
+> 窗口8续接：本分支已经接入正式Core/updater、同一个原Snapshot的保留API、
+> 仅writer交接、实际执行器Root操作证明和有限恢复健康profile。正式固定路径
+> 与runner见[生产集成入口](../product-integration/README.md)。下文“由8接线/
+> 尚未导出”描述原模块交付时的职责边界；本次实现与实测状态以新增
+> [续接报告](../../docs/deliveries/web4-production-wiring-20261104.md)为准，
+> 不将历史harness结果当作本轮正式CLI或设备验收。
+
+
 本目录交付 WEB4-INSTALL 同源模块，状态为**模块交付，生产入口待集成**。
 共享 updater CLI、维护准入和业务锁适配由窗口8接通。本目录没有生产安装
 可执行入口，没有生产任意 root 参数。`package.py` 只做离线打包，

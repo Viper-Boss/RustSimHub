@@ -1,0 +1,572 @@
+{
+  "schema": 1,
+  "workflow": ".github/workflows/rust.yml",
+  "workflow_sha256": "9b746809729d5c60e65db8b72598fb9f1229109ee52c900396f4322739936e21",
+  "adaptations": [
+    "Reviewed shell multi-command steps split into existing fixed argv stages; cargo JSON stdout saved without a shell.",
+    "Normal NAS go test adds -json solely for actual test/subtest/skip counts; selection/race/count/timeout remain the workflow settings.",
+    "Privileged group copies retain existing gating and no automatic dependency installation."
+  ],
+  "workflow_steps": [
+    {
+      "job": "native-audio",
+      "step": "Native toolchain and libraries",
+      "checks": [],
+      "disposition": "external_setup",
+      "reason": "Runner does not install Rust/APT packages; preflight checks the prepared toolchain and audio libraries."
+    },
+    {
+      "job": "native-audio",
+      "step": "Native audio and fixed platform routes",
+      "checks": [
+        "native-test"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "native-audio",
+      "step": "Native lint",
+      "checks": [
+        "native-clippy"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Install pinned toolchain",
+      "checks": [],
+      "disposition": "external_setup",
+      "reason": "No toolchain installation in runner; exact prepared versions are recorded."
+    },
+    {
+      "job": "test",
+      "step": "Toolchain version",
+      "checks": [],
+      "disposition": "capability_probe",
+      "reason": "environment() records actual rustc/cargo version probes."
+    },
+    {
+      "job": "test",
+      "step": "Format",
+      "checks": [
+        "fmt"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Rootfs tooling fixtures",
+      "checks": [
+        "rootfs-syntax",
+        "recovery-probe-syntax",
+        "rootfs"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Offline release materials and pinned kernel checker",
+      "checks": [
+        "offline-delivery",
+        "kernel-artifact-audit"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Separate normal NAS control candidate",
+      "checks": [
+        "nas-control-test",
+        "nas-control-vet"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Committed ARM source and build manifest fixtures",
+      "checks": [
+        "committed-build-syntax",
+        "arm-manifest",
+        "arm-manifest-optimized"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Board helper isolated fixtures",
+      "checks": [
+        "board-fixtures"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Browser fixture runtime",
+      "checks": [],
+      "disposition": "capability_probe",
+      "reason": "environment() records Node; this is not a browser/GATT execution."
+    },
+    {
+      "job": "test",
+      "step": "Web identity and first-owner proof",
+      "checks": [
+        "web-proof"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Web audio lifecycle and authorization",
+      "checks": [
+        "web-media"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Web one-click call operation safety",
+      "checks": [
+        "web-call-test"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Web one-click incoming call safety",
+      "checks": [
+        "web-incoming-call-test"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Web configuration indicator ordering",
+      "checks": [
+        "web-indicator"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Web network diagnostics and monthly policy",
+      "checks": [
+        "web-network"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Web Wi-Fi catalogue and explicit selection",
+      "checks": [
+        "web-wifi"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Web finite AP Wi-Fi configuration and recovery",
+      "checks": [
+        "web-ap-wifi",
+        "web-setup"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Web event catch-up and retry lifecycle",
+      "checks": [
+        "web-event-sync"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Web SMS recycle bin and uncertain writes",
+      "checks": [
+        "web-sms-management"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Web daily SMS and durable submission",
+      "checks": [
+        "web-daily-sms"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Web simplified one-click test center",
+      "checks": [
+        "web-test-center"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Web Owner forwarding configuration and receipt recovery",
+      "checks": [
+        "web-forwarding",
+        "web-forwarding-history"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Web daily calls and bounded ownership",
+      "checks": [
+        "web-daily-phone"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Web signed session continuation",
+      "checks": [
+        "web-session"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Web owner pairing approval and revocation",
+      "checks": [
+        "web-clients",
+        "web-nas-bridge"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "PON diagnostic reference and error paths",
+      "checks": [
+        "pon-review"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Read-only recovery helper fixtures",
+      "checks": [
+        "recovery-syntax",
+        "recovery"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Read-only field snapshot",
+      "checks": [
+        "field-syntax",
+        "field"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Test",
+      "checks": [
+        "workspace-all-features"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Forwarding actual filesystem ENOSPC in a bounded private tmpfs",
+      "checks": [
+        "forwarder-artifacts",
+        "storage-full"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Signed legacy and forwarding application groups",
+      "checks": [
+        "update-build",
+        "update-state",
+        "update-artifacts",
+        "metadata",
+        "metadata-no-kill",
+        "maintenance",
+        "signed-formats",
+        "development-packager"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Optional updater indicator under actual thread exhaustion",
+      "checks": [
+        "indicator-build",
+        "indicator-resource"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Separate signed setup AP maintenance material",
+      "checks": [
+        "ap-package",
+        "ap-install",
+        "ap-units"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Isolated AP material preparation CLIs",
+      "checks": [
+        "ap-build",
+        "ap-material"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Finite Core launcher with real service UID and historical fallback",
+      "checks": [
+        "core-launcher"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Bounded AP first-install and rollback in disposable chroot",
+      "checks": [
+        "ap-chroot"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Production upgrade compatibility and readonly data observations",
+      "checks": [
+        "compatibility-build",
+        "upgrade-compatibility"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Isolated forwarding Root and worker IPC",
+      "checks": [
+        "ipc-core-build",
+        "supervisor-core-build",
+        "worker-ipc"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Real forwarding worker DNS TLS hard crash and bounded stop",
+      "checks": [
+        "worker-build",
+        "worker-inspection",
+        "worker-process"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Real forwarding systemd credentials and full cgroup stop",
+      "checks": [
+        "supervisor-worker-build",
+        "supervisor-unmanaged"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Real Owner forwarding service coordination",
+      "checks": [
+        "supervisor-managed"
+      ],
+      "disposition": "mixed_setup",
+      "reason": "APT/polkit provisioning remains external; managed original driver requires actual prepared polkit/root/systemd/netns."
+    },
+    {
+      "job": "test",
+      "step": "Real Owner OFF during DNS TLS HTTP and late acknowledgement",
+      "checks": [
+        "supervisor-dns",
+        "supervisor-tls",
+        "supervisor-http",
+        "supervisor-late_ack"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Check production feature set",
+      "checks": [
+        "production-check"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Lint",
+      "checks": [
+        "clippy"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    }
+  ],
+  "runner_only": [
+    "workspace-default",
+    "web-configuration-state",
+    "web-deadlines",
+    "web-diagnostics",
+    "web-nkn-status",
+    "web-operation-receipt",
+    "web-password",
+    "web-test-center-component",
+    "web-usage-stats",
+    "configurator-cancel",
+    "configurator-controller",
+    "configurator-gatt-framing",
+    "configurator-static-update",
+    "go-offline-tests",
+    "native-test-relay",
+    "native-clippy-relay",
+    "runner-unit"
+  ],
+  "check_identities": [
+    {"name":"fmt","group":"ordinary","argv":["cargo","fmt","--all","--","--check"],"timeout":180,"requires":["rustfmt"],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"clippy","group":"ordinary","argv":["cargo","clippy","--workspace","--all-targets","--all-features","--locked","--","-D","warnings"],"timeout":1800,"requires":["go","clippy"],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"workspace-default","group":"ordinary","argv":["cargo","test","--workspace","--locked"],"timeout":1800,"requires":["go"],"files":[],"kind":"rust","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"workspace-all-features","group":"ordinary","argv":["cargo","test","--workspace","--all-features","--locked"],"timeout":1800,"requires":["go"],"files":[],"kind":"rust","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"production-check","group":"ordinary","argv":["cargo","check","-p","rustsimhub-core","--no-default-features","--locked"],"timeout":1800,"requires":[],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"rootfs-syntax","group":"ordinary","argv":["sh","-n","tools/rootfs/scripts/build-rootfs.sh"],"timeout":180,"requires":[],"files":["tools/rootfs/scripts/build-rootfs.sh"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"recovery-probe-syntax","group":"ordinary","argv":["sh","-n","tools/recovery-fastboot-probe.sh"],"timeout":180,"requires":[],"files":["tools/recovery-fastboot-probe.sh"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"committed-build-syntax","group":"ordinary","argv":["sh","-n","tools/wsl-build-committed.sh"],"timeout":180,"requires":[],"files":["tools/wsl-build-committed.sh"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"recovery-syntax","group":"ordinary","argv":["sh","-n","tools/recovery/watch-edl-capture.sh"],"timeout":180,"requires":[],"files":["tools/recovery/watch-edl-capture.sh"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"field-syntax","group":"ordinary","argv":["sh","-n","tools/field/rsh-readonly-snapshot.sh"],"timeout":180,"requires":[],"files":["tools/field/rsh-readonly-snapshot.sh"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"rootfs","group":"ordinary","argv":["python3","-m","unittest","discover","-s","tools/rootfs/scripts","-p","test_rootfs.py"],"timeout":180,"requires":[],"files":["tools/rootfs/scripts"],"kind":"unittest","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"recovery","group":"ordinary","argv":["python3","-m","unittest","discover","-s","tools/recovery","-p","test_*.py"],"timeout":180,"requires":[],"files":["tools/recovery"],"kind":"unittest","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"field","group":"ordinary","argv":["python3","-m","unittest","discover","-s","tools/field","-p","test_*.py"],"timeout":180,"requires":[],"files":["tools/field"],"kind":"unittest","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"offline-delivery","group":"ordinary","argv":["python3","-m","unittest","tools.offline_delivery.test_delivery","-v"],"timeout":180,"requires":[],"files":["tools/offline_delivery/test_delivery.py"],"kind":"unittest","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"kernel-artifact-audit","group":"ordinary","argv":["python3","-m","unittest","discover","-s","tools/kernel-artifact-audit","-p","test*.py"],"timeout":180,"requires":[],"files":["tools/kernel-artifact-audit"],"kind":"unittest","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"nas-control-test","group":"ordinary","argv":["go","test","-race","-count=1","-timeout=60s","-json","./tools/nas-adapter/control","./tools/nas-adapter/cmd/control"],"timeout":240,"requires":["go","go-race"],"files":["tools/nas-adapter/control","tools/nas-adapter/cmd/control"],"kind":"go-json","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{"GO111MODULE":"off","GOTOOLCHAIN":"local","GOPROXY":"off","GOSUMDB":"off"}},
+    {"name":"nas-control-vet","group":"ordinary","argv":["go","vet","./tools/nas-adapter/control","./tools/nas-adapter/cmd/control"],"timeout":240,"requires":["go"],"files":["tools/nas-adapter/control","tools/nas-adapter/cmd/control"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{"GO111MODULE":"off","GOTOOLCHAIN":"local","GOPROXY":"off","GOSUMDB":"off"}},
+    {"name":"arm-manifest","group":"ordinary","argv":["python3","tools/test-arm-build-manifest.py"],"timeout":180,"requires":[],"files":["tools/test-arm-build-manifest.py"],"kind":"unittest","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"pon-review","group":"ordinary","argv":["python3","tools/test-pon-dump-review.py"],"timeout":180,"requires":[],"files":["tools/test-pon-dump-review.py"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"development-packager","group":"ordinary","argv":["python3","tools/test-development-application-packager.py"],"timeout":180,"requires":["pycrypto","openssl"],"files":["tools/test-development-application-packager.py"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"ap-package","group":"ordinary","argv":["python3","tools/test-setup-ap-package.py"],"timeout":180,"requires":["pycrypto","openssl"],"files":["tools/test-setup-ap-package.py"],"kind":"unittest","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"ap-install","group":"ordinary","argv":["python3","tools/test-setup-ap-install.py"],"timeout":180,"requires":["pycrypto","openssl"],"files":["tools/test-setup-ap-install.py"],"kind":"unittest","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"arm-manifest-optimized","group":"ordinary","argv":["python3","-O","tools/test-arm-build-manifest.py"],"timeout":180,"requires":[],"files":["tools/test-arm-build-manifest.py"],"kind":"unittest","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-ap-wifi","group":"ordinary","argv":["node","tools/test-web-ap-wifi.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-ap-wifi.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-call-test","group":"ordinary","argv":["node","tools/test-web-call-test.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-call-test.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-clients","group":"ordinary","argv":["node","tools/test-web-clients.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-clients.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-configuration-state","group":"ordinary","argv":["node","tools/test-web-configuration-state.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-configuration-state.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-daily-phone","group":"ordinary","argv":["node","tools/test-web-daily-phone.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-daily-phone.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-daily-sms","group":"ordinary","argv":["node","tools/test-web-daily-sms.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-daily-sms.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-deadlines","group":"ordinary","argv":["node","tools/test-web-deadlines.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-deadlines.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-diagnostics","group":"ordinary","argv":["node","tools/test-web-diagnostics.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-diagnostics.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-event-sync","group":"ordinary","argv":["node","tools/test-web-event-sync.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-event-sync.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-forwarding-history","group":"ordinary","argv":["node","tools/test-web-forwarding-history.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-forwarding-history.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-forwarding","group":"ordinary","argv":["node","tools/test-web-forwarding.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-forwarding.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-incoming-call-test","group":"ordinary","argv":["node","tools/test-web-incoming-call-test.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-incoming-call-test.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-indicator","group":"ordinary","argv":["node","tools/test-web-indicator.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-indicator.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-media","group":"ordinary","argv":["node","tools/test-web-media.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-media.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-nas-bridge","group":"ordinary","argv":["node","tools/test-web-nas-bridge.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-nas-bridge.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-network","group":"ordinary","argv":["node","tools/test-web-network.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-network.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-nkn-status","group":"ordinary","argv":["node","tools/test-web-nkn-status.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-nkn-status.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-operation-receipt","group":"ordinary","argv":["node","tools/test-web-operation-receipt.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-operation-receipt.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-password","group":"ordinary","argv":["node","tools/test-web-password.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-password.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-proof","group":"ordinary","argv":["node","tools/test-web-proof.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-proof.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-session","group":"ordinary","argv":["node","tools/test-web-session.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-session.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-setup","group":"ordinary","argv":["node","tools/test-web-setup.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-setup.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-sms-management","group":"ordinary","argv":["node","tools/test-web-sms-management.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-sms-management.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-test-center-component","group":"ordinary","argv":["node","tools/test-web-test-center-component.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-test-center-component.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-test-center","group":"ordinary","argv":["node","tools/test-web-test-center.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-test-center.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-usage-stats","group":"ordinary","argv":["node","tools/test-web-usage-stats.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-usage-stats.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-wifi","group":"ordinary","argv":["node","tools/test-web-wifi.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-wifi.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"configurator-cancel","group":"ordinary","argv":["node","configurator/tests/cancel.mjs"],"timeout":180,"requires":[],"files":["configurator/tests/cancel.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"configurator-controller","group":"ordinary","argv":["node","configurator/tests/controller.mjs"],"timeout":180,"requires":[],"files":["configurator/tests/controller.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"configurator-gatt-framing","group":"ordinary","argv":["node","configurator/tests/gatt-framing.mjs"],"timeout":180,"requires":[],"files":["configurator/tests/gatt-framing.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"configurator-static-update","group":"ordinary","argv":["node","configurator/tests/static-update.mjs"],"timeout":180,"requires":[],"files":["configurator/tests/static-update.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"go-offline-tests","group":"ordinary","argv":["go","test","-mod=readonly","-count=1","-timeout=120s","-v","./..."],"timeout":240,"requires":[],"files":[],"kind":"go","cwd":"tools/nkn-engine","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"native-test","group":"native-audio","argv":["cargo","test","--manifest-path","native/audio-alsa/Cargo.toml","--locked"],"timeout":1800,"requires":["audio"],"files":[],"kind":"rust","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"native-test-relay","group":"native-audio","argv":["cargo","test","--features","turn-relay","--manifest-path","native/audio-alsa/Cargo.toml","--locked"],"timeout":1800,"requires":["audio"],"files":[],"kind":"rust","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"native-clippy","group":"native-audio","argv":["cargo","clippy","--manifest-path","native/audio-alsa/Cargo.toml","--all-targets","--locked","--","-D","warnings"],"timeout":1800,"requires":["audio"],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"native-clippy-relay","group":"native-audio","argv":["cargo","clippy","--features","turn-relay","--manifest-path","native/audio-alsa/Cargo.toml","--all-targets","--locked","--","-D","warnings"],"timeout":1800,"requires":["audio"],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"compatibility-build","group":"ordinary","argv":["cargo","build","-p","rustsimhub-core","-p","rustsimhub-forwarder","-p","rustsimhub-core-launcher","--no-default-features","--locked"],"timeout":1800,"requires":[],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":true,"fixed_environment":{}},
+    {"name":"upgrade-compatibility","group":"ordinary","argv":["python3","tools/test-upgrade-compatibility.py","--launcher","target/debug/rustsimhub-core-launcher","--core","target/debug/rustsimhub-core","--worker","target/debug/rustsimhub-forwarder"],"timeout":180,"requires":[],"files":[],"kind":"command","cwd":".","depends":["compatibility-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"worker-inspection","group":"ordinary","argv":["python3","tools/test-forwarding-inspection.py","--worker","target/debug/rustsimhub-forwarder"],"timeout":180,"requires":[],"files":[],"kind":"command","cwd":".","depends":["compatibility-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"runner-unit","group":"runner","argv":["python3","-m","unittest","discover","-s","tools/mainline-checks","-p","test_*.py"],"timeout":180,"requires":[],"files":[],"kind":"unittest","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"board-fixtures","group":"root","argv":["sudo","-n","python3","-m","unittest","discover","-s","tools/system","-p","test_*.py"],"timeout":600,"requires":["root","mount"],"files":[],"kind":"unittest","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"ap-units","group":"root","argv":["sudo","-n","python3","tools/test-setup-ap-units.py"],"timeout":180,"requires":["root"],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"ap-build","group":"root","argv":["cargo","build","-p","rustsimhub-core","-p","rustsimhub-edge","-p","rustsimhub-setup-ap","-p","rustsimhub-core-launcher","--locked"],"timeout":1800,"requires":["root"],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"ap-material","group":"root","argv":["sudo","-n","python3","tools/test-setup-ap-material.py","--core","target/debug/rustsimhub-core","--edge","target/debug/rustsimhub-edge","--ap","target/debug/rustsimhub-setup-ap","--edge-user","{user}"],"timeout":180,"requires":["root"],"files":[],"kind":"command","cwd":".","depends":["ap-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"core-launcher","group":"root","argv":["sudo","-n","python3","tools/test-core-launcher.py","--launcher","target/debug/rustsimhub-core-launcher"],"timeout":180,"requires":["root"],"files":[],"kind":"command","cwd":".","depends":["ap-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"ap-chroot","group":"root","argv":["sudo","-n","python3","tools/test-setup-ap-install-chroot.py","--core","target/debug/rustsimhub-core","--edge","target/debug/rustsimhub-edge","--ap","target/debug/rustsimhub-setup-ap","--launcher","target/debug/rustsimhub-core-launcher"],"timeout":180,"requires":["root"],"files":[],"kind":"command","cwd":".","depends":["ap-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"forwarder-artifacts","group":"root-netns","argv":["cargo","test","-p","rustsimhub-forwarder","--lib","--all-features","--locked","--no-run","--message-format=json"],"timeout":1800,"requires":["root","netns","mount"],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"forwarder-artifacts.json","committed_source":false,"fixed_environment":{}},
+    {"name":"storage-full","group":"root-netns","argv":["sudo","-n","python3","tools/test-forwarding-storage-full.py","--cargo-artifacts","{run}/forwarder-artifacts.json"],"timeout":180,"requires":["root","netns","mount"],"files":[],"kind":"command","cwd":".","depends":["forwarder-artifacts"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"update-build","group":"root-netns","argv":["cargo","build","-p","rustsimhub-update","--locked"],"timeout":1800,"requires":["root","netns"],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"update-artifacts","group":"root-netns","argv":["cargo","test","-p","rustsimhub-update","--lib","--all-features","--locked","--no-run","--message-format=json"],"timeout":1800,"requires":["root","netns"],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"update-artifacts.json","committed_source":false,"fixed_environment":{}},
+    {"name":"update-state","group":"root-netns","argv":["sudo","-n","unshare","--net","python3","tools/test-update-state-inspection.py","--updater","target/debug/rustsimhub-update"],"timeout":180,"requires":["root","netns"],"files":[],"kind":"command","cwd":".","depends":["update-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"metadata","group":"root-netns","argv":["sudo","-n","unshare","--net","setpriv","--no-new-privs","python3","tools/test-metadata-process.py","--cargo-artifacts","{run}/update-artifacts.json"],"timeout":180,"requires":["root","netns"],"files":[],"kind":"command","cwd":".","depends":["update-artifacts"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"metadata-no-kill","group":"root-netns","argv":["sudo","-n","unshare","--net","setpriv","--bounding-set=-kill","--no-new-privs","python3","tools/test-metadata-process.py","--cargo-artifacts","{run}/update-artifacts.json","--missing-kill"],"timeout":180,"requires":["root","netns"],"files":[],"kind":"command","cwd":".","depends":["update-artifacts"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"maintenance","group":"root-netns","argv":["sudo","-n","unshare","--net","python3","tools/test-maintenance-observation.py","--updater","target/debug/rustsimhub-update"],"timeout":180,"requires":["root","netns"],"files":[],"kind":"command","cwd":".","depends":["update-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"signed-formats","group":"root-netns","argv":["sudo","-n","unshare","--net","python3","tools/test-signed-application-formats.py","--updater","target/debug/rustsimhub-update"],"timeout":180,"requires":["root","netns"],"files":[],"kind":"command","cwd":".","depends":["update-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"ipc-core-build","group":"root-netns","argv":["cargo","build","-p","rustsimhub-core","--features","dev-fixtures","--locked"],"timeout":1800,"requires":["root","netns"],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"worker-build","group":"root-netns","argv":["cargo","build","-p","rustsimhub-forwarder","--locked"],"timeout":1800,"requires":["root","netns"],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"worker-ipc","group":"root-netns","argv":["sudo","-n","python3","tools/test-forwarding-worker-ipc.py","--core","target/debug/rustsimhub-core"],"timeout":180,"requires":["root","netns"],"files":[],"kind":"command","cwd":".","depends":["ipc-core-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"worker-process","group":"root-netns","argv":["sudo","-n","unshare","--net","python3","tools/test-forwarding-worker-process.py","--core","target/debug/rustsimhub-core","--worker","target/debug/rustsimhub-forwarder"],"timeout":180,"requires":["root","netns"],"files":[],"kind":"command","cwd":".","depends":["ipc-core-build","worker-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"indicator-build","group":"root-systemd","argv":["cargo","build","-p","rustsimhub-update","--example","indicator-resource","--locked"],"timeout":1800,"requires":["root","systemd","mount"],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"indicator-resource","group":"root-systemd","argv":["sudo","-n","python3","tools/test-update-indicator-resource.py","--fixture","target/debug/examples/indicator-resource"],"timeout":180,"requires":["root","systemd","mount"],"files":[],"kind":"command","cwd":".","depends":["indicator-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"supervisor-core-build","group":"root-systemd","argv":["cargo","build","-p","rustsimhub-core","--features","dev-fixtures","--locked"],"timeout":1800,"requires":["root","systemd","netns"],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"supervisor-worker-build","group":"root-systemd","argv":["cargo","build","-p","rustsimhub-forwarder","--features","dev-fixtures","--locked"],"timeout":1800,"requires":["root","systemd","netns"],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"supervisor-unmanaged","group":"root-systemd","argv":["sudo","-n","unshare","--net","python3","tools/test-forwarding-supervisor.py","--core","target/debug/rustsimhub-core","--worker","target/debug/rustsimhub-forwarder"],"timeout":300,"requires":["root","systemd","netns"],"files":[],"kind":"command","cwd":".","depends":["supervisor-core-build","supervisor-worker-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"supervisor-managed","group":"root-systemd","argv":["sudo","-n","unshare","--net","python3","tools/test-forwarding-supervisor.py","--core","target/debug/rustsimhub-core","--worker","target/debug/rustsimhub-forwarder","--managed"],"timeout":300,"requires":["root","systemd","netns","polkit"],"files":[],"kind":"command","cwd":".","depends":["supervisor-core-build","supervisor-worker-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"supervisor-dns","group":"root-systemd","argv":["sudo","-n","unshare","--net","python3","tools/test-forwarding-supervisor.py","--core","target/debug/rustsimhub-core","--worker","target/debug/rustsimhub-forwarder","--managed","--close-at","dns"],"timeout":300,"requires":["root","systemd","netns","polkit"],"files":[],"kind":"command","cwd":".","depends":["supervisor-core-build","supervisor-worker-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"supervisor-tls","group":"root-systemd","argv":["sudo","-n","unshare","--net","python3","tools/test-forwarding-supervisor.py","--core","target/debug/rustsimhub-core","--worker","target/debug/rustsimhub-forwarder","--managed","--close-at","tls"],"timeout":300,"requires":["root","systemd","netns","polkit"],"files":[],"kind":"command","cwd":".","depends":["supervisor-core-build","supervisor-worker-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"supervisor-http","group":"root-systemd","argv":["sudo","-n","unshare","--net","python3","tools/test-forwarding-supervisor.py","--core","target/debug/rustsimhub-core","--worker","target/debug/rustsimhub-forwarder","--managed","--close-at","http"],"timeout":300,"requires":["root","systemd","netns","polkit"],"files":[],"kind":"command","cwd":".","depends":["supervisor-core-build","supervisor-worker-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"supervisor-late_ack","group":"root-systemd","argv":["sudo","-n","unshare","--net","python3","tools/test-forwarding-supervisor.py","--core","target/debug/rustsimhub-core","--worker","target/debug/rustsimhub-forwarder","--managed","--close-at","late_ack"],"timeout":300,"requires":["root","systemd","netns","polkit"],"files":[],"kind":"command","cwd":".","depends":["supervisor-core-build","supervisor-worker-build"],"artifact":"","committed_source":false,"fixed_environment":{}}
+  ]
+}

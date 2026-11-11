@@ -18,3 +18,9 @@ lto = "thin"
 codegen-units = 1
 panic = "abort"
 strip = "symbols"
+
+# Signed application and Root payloads must be checked within the unchanged
+# five-second runtime lease. Keep the locked, software-capable SHA-2 backend
+# fast even when release tools choose opt=z for the application as a whole.
+[profile.release.package."sha2:0.10.9"]
+opt-level = 3

@@ -1,0 +1,376 @@
+{
+  "schema": 1,
+  "purpose": "fixed-source development combination evidence; not release approval",
+  "tested_source": {
+    "kind": "pending_review_combination",
+    "main": "8f9cfeff1a4b5a804b8b138e890f7386caf5a006",
+    "commit": "72251acb78f73286ed143f7f46b9780d133174c0",
+    "tree": "d1f74cad823cfddecf89d012a9cfce765c1b66fa",
+    "archive_sha256": "4027cf19449c35db76306b8f03641516831eef05e8c8a35510f7334d768c92b9",
+    "source_branch": "codex/web2-pending-combination-20261103",
+    "parents": [
+      "a1b36e8b45e11b7a613f95168d56e17322362b0c",
+      "395a07eea72a074f3126466d03a2b899787ac9eb"
+    ],
+    "first_merge": {
+      "commit": "a1b36e8b45e11b7a613f95168d56e17322362b0c",
+      "parents": [
+        "8f9cfeff1a4b5a804b8b138e890f7386caf5a006",
+        "6787addaf4ca0e79f8b8455cbb3175372c9c318c"
+      ]
+    },
+    "inputs": [
+      {
+        "pr": 195,
+        "head": "6787addaf4ca0e79f8b8455cbb3175372c9c318c",
+        "product_test_head": "b0e4c23f8be65a85128df004e22c080325260830",
+        "state_at_freeze": "open"
+      },
+      {
+        "pr": 196,
+        "head": "395a07eea72a074f3126466d03a2b899787ac9eb",
+        "implementation_head": "a491e083d84b8a8fe901582bd020384f42225609",
+        "state_at_freeze": "open"
+      }
+    ],
+    "clean_before_after_every_stage": true
+  },
+  "environment": {
+    "os": "Debian Linux x86_64",
+    "uid": 1000,
+    "euid": 1000,
+    "versions": {
+      "rustc": "rustc 1.98.0 (88d9e12ae 2026-08-18)",
+      "cargo": "cargo 1.98.0 (797e8a9bc 2026-08-05)",
+      "node": "v24.19.0",
+      "python": "Python 3.12.14",
+      "go": "go version go1.27.3 linux/amd64",
+      "openssl": "OpenSSL 3.5.7 9 Jun 2026 (Library: OpenSSL 3.5.7 9 Jun 2026)",
+      "audio": {
+        "alsa": "1.2.14",
+        "opus": "1.5.2"
+      }
+    },
+    "capabilities": {
+      "go": true,
+      "audio": true,
+      "go-race": true,
+      "pycrypto": false,
+      "openssl": true,
+      "rustfmt": true,
+      "clippy": true,
+      "root": false,
+      "netns": false,
+      "mount": false,
+      "systemd": false,
+      "polkit": false
+    },
+    "pidfd_and_subreaper_exercised": true,
+    "memory_limit_bytes": 8589934592,
+    "observed_high_memory_bytes": 8340131840,
+    "initial_tmp_free_bytes": 2889482240,
+    "build_settings": {
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0"
+    },
+    "resource_note": "Only own completed WEB2-LAN static compilation cache reclaimed: 455 files/628095534 bytes. All executables, sources, logs retained; no foreign cache cleaned. No resource failure observed."
+  },
+  "primary": {
+    "exit_code": 1,
+    "totals": {
+      "status": "failed",
+      "passed": 54,
+      "failed": 6,
+      "not_run": 32
+    },
+    "stage_count": 92,
+    "groups": {
+      "native-audio": {
+        "passed": 4
+      },
+      "ordinary": {
+        "passed": 49,
+        "not_run": 3,
+        "failed": 6
+      },
+      "root": {
+        "not_run": 6
+      },
+      "root-netns": {
+        "not_run": 13
+      },
+      "root-systemd": {
+        "not_run": 10
+      },
+      "runner": {
+        "passed": 1
+      }
+    },
+    "report_sha256": "46d06f4572c10ecd702ba426be0e8fbe55e45ce136130e64ca665f346909f30d"
+  },
+  "supplemental": {
+    "scope": "Only three primary not_run Python-dependent checks, after primary completed; original records not changed",
+    "python": "3.13.5",
+    "cryptography": "43.0.0",
+    "interpreter": "/usr/bin/python3 (preinstalled Debian interpreter; no installation or lock changes)",
+    "exit_code": 0,
+    "totals": {
+      "status": "passed",
+      "passed": 3,
+      "failed": 0,
+      "not_run": 0
+    },
+    "report_sha256": "72c3aec826e9fa60daba4c3ed28f3a0f118b82787143e43a16ca4c00ddb1a69d",
+    "checks": [
+      {
+        "id": "development-packager",
+        "group": "ordinary",
+        "status": "passed",
+        "exit_code": 0,
+        "execution": "executed",
+        "command": [
+          "python3",
+          "tools/test-development-application-packager.py"
+        ],
+        "test_counts": null,
+        "reason": "",
+        "log_sha256": "743f125e604aea0208ebed6fdb5f3a1b88485de9c5150716b99b8ce0537d4bb8",
+        "cleanup_complete": true
+      },
+      {
+        "id": "ap-package",
+        "group": "ordinary",
+        "status": "passed",
+        "exit_code": 0,
+        "execution": "executed",
+        "command": [
+          "python3",
+          "tools/test-setup-ap-package.py"
+        ],
+        "test_counts": {
+          "total": 10,
+          "skipped": 0
+        },
+        "reason": "",
+        "log_sha256": "08e59812036c93699350ecd9aa0c66e82cec63bd5c59d7435573dfc19b755901",
+        "cleanup_complete": true
+      },
+      {
+        "id": "ap-install",
+        "group": "ordinary",
+        "status": "passed",
+        "exit_code": 0,
+        "execution": "executed",
+        "command": [
+          "python3",
+          "tools/test-setup-ap-install.py"
+        ],
+        "test_counts": {
+          "total": 10,
+          "skipped": 0
+        },
+        "reason": "",
+        "log_sha256": "95c5d09c826d2efa2a9d9c7d01b6e073bddda0dc36500d1560e0d7fb15e93d6f",
+        "cleanup_complete": true
+      }
+    ]
+  },
+  "distinct_stage_coverage": {
+    "note": "Derived union by fixed stage ID; does not rewrite primary totals or erase any failed stage",
+    "passed": 57,
+    "failed": 6,
+    "not_run": 29
+  },
+  "failures": [
+    {
+      "id": "web-daily-phone",
+      "category": "VM fixture/source integration gap",
+      "exception": "ReferenceError: NknProductPanel is not defined",
+      "product_site": "crates/edge/src/web/app.js:595",
+      "product_import": "crates/edge/src/web/app.js:19",
+      "fixture": "tools/test-web-daily-phone.mjs:149",
+      "business_assertions_reached": false,
+      "browser_product_failure_confirmed": false,
+      "no_rerun_or_cross_scope_fix": true
+    },
+    {
+      "id": "web-daily-sms",
+      "category": "VM fixture/source integration gap",
+      "exception": "ReferenceError: NknProductPanel is not defined",
+      "product_site": "crates/edge/src/web/app.js:595",
+      "product_import": "crates/edge/src/web/app.js:19",
+      "fixture": "tools/test-web-daily-sms.mjs:33",
+      "business_assertions_reached": false,
+      "browser_product_failure_confirmed": false,
+      "no_rerun_or_cross_scope_fix": true
+    },
+    {
+      "id": "web-event-sync",
+      "category": "VM fixture/source integration gap",
+      "exception": "ReferenceError: NknProductPanel is not defined",
+      "product_site": "crates/edge/src/web/app.js:595",
+      "product_import": "crates/edge/src/web/app.js:19",
+      "fixture": "tools/test-web-event-sync.mjs:105",
+      "business_assertions_reached": false,
+      "browser_product_failure_confirmed": false,
+      "no_rerun_or_cross_scope_fix": true
+    },
+    {
+      "id": "web-session",
+      "category": "VM fixture/source integration gap",
+      "exception": "ReferenceError: NknProductPanel is not defined",
+      "product_site": "crates/edge/src/web/app.js:595",
+      "product_import": "crates/edge/src/web/app.js:19",
+      "fixture": "tools/test-web-session.mjs:69",
+      "business_assertions_reached": false,
+      "browser_product_failure_confirmed": false,
+      "no_rerun_or_cross_scope_fix": true
+    },
+    {
+      "id": "web-test-center",
+      "category": "VM fixture/source integration gap",
+      "exception": "ReferenceError: NknProductPanel is not defined",
+      "product_site": "crates/edge/src/web/app.js:595",
+      "product_import": "crates/edge/src/web/app.js:19",
+      "fixture": "tools/test-web-test-center.mjs:43",
+      "business_assertions_reached": false,
+      "browser_product_failure_confirmed": false,
+      "no_rerun_or_cross_scope_fix": true
+    },
+    {
+      "id": "web-wifi",
+      "category": "VM fixture/source integration gap",
+      "exception": "ReferenceError: NknProductPanel is not defined",
+      "product_site": "crates/edge/src/web/app.js:595",
+      "product_import": "crates/edge/src/web/app.js:19",
+      "fixture": "tools/test-web-wifi.mjs:35",
+      "business_assertions_reached": false,
+      "browser_product_failure_confirmed": false,
+      "no_rerun_or_cross_scope_fix": true
+    }
+  ],
+  "outside_inventory_not_run": [
+    {
+      "id": "browser-recovery-session",
+      "reason": "original browser/WASM/WebCrypto/IndexedDB entry not a Node substitute; prepared current peer/WASM/browser execution not performed",
+      "included_in_92": false
+    },
+    {
+      "id": "private-turn-and-remote-worker-test-false",
+      "reason": "private native drivers not executed by ordinary/native cargo tests; no real TURN/resources provisioned",
+      "included_in_92": false
+    },
+    {
+      "id": "hardware-deployment-and-user-acceptance",
+      "reason": "no NAS/device/SIM/ALSA/hearing/RF/OTA/sign/install/production execution authorization",
+      "included_in_92": false
+    }
+  ],
+  "cleanup": {
+    "primary_executed_stages": 60,
+    "supplemental_executed_stages": 3,
+    "every_executed_stage_reported_complete_cleanup": true,
+    "reported_owned_processes_remaining": 0,
+    "foreign_processes_or_cache_touched": false
+  },
+  "raw_logs_published": false,
+  "production_authorization_verified": false,
+  "deployed": false,
+  "overall_percent": 81.5,
+  "stage_results": [
+    {"id":"fmt","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["cargo","fmt","--all","--","--check"],"test_counts":null,"reason":"","log_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","cleanup_complete":true},
+    {"id":"clippy","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["cargo","clippy","--workspace","--all-targets","--all-features","--locked","--","-D","warnings"],"test_counts":null,"reason":"","log_sha256":"9869193d60ffdde59549e04881f34551d8f1fa36538fd9ea90b09fd6b4261cc0","cleanup_complete":true},
+    {"id":"workspace-default","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["cargo","test","--workspace","--locked"],"test_counts":{"passed":1281,"failed":0,"ignored":6},"reason":"","log_sha256":"0b4b74cee8a934be6815c47d6fad59cd1da81cb584540b6e918eecd80a5f833f","cleanup_complete":true},
+    {"id":"workspace-all-features","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["cargo","test","--workspace","--all-features","--locked"],"test_counts":{"passed":1539,"failed":0,"ignored":11},"reason":"","log_sha256":"e2f9fde2b8a59607e3b9a194d6cb69c8893e104d5afa8186d7d46eb473947ad2","cleanup_complete":true},
+    {"id":"production-check","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["cargo","check","-p","rustsimhub-core","--no-default-features","--locked"],"test_counts":null,"reason":"","log_sha256":"0644e7f3152586d66aa352fa76beeda2ecfc788b4170bfd4b95d3e7e83da17c2","cleanup_complete":true},
+    {"id":"rootfs-syntax","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["sh","-n","tools/rootfs/scripts/build-rootfs.sh"],"test_counts":null,"reason":"","log_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","cleanup_complete":true},
+    {"id":"recovery-probe-syntax","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["sh","-n","tools/recovery-fastboot-probe.sh"],"test_counts":null,"reason":"","log_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","cleanup_complete":true},
+    {"id":"committed-build-syntax","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["sh","-n","tools/wsl-build-committed.sh"],"test_counts":null,"reason":"","log_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","cleanup_complete":true},
+    {"id":"recovery-syntax","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["sh","-n","tools/recovery/watch-edl-capture.sh"],"test_counts":null,"reason":"","log_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","cleanup_complete":true},
+    {"id":"field-syntax","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["sh","-n","tools/field/rsh-readonly-snapshot.sh"],"test_counts":null,"reason":"","log_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","cleanup_complete":true},
+    {"id":"rootfs","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["python3","-m","unittest","discover","-s","tools/rootfs/scripts","-p","test_rootfs.py"],"test_counts":{"total":36,"skipped":0},"reason":"","log_sha256":"4ab74e7fb8ae25e04a1337a937ccdf21464ce345fc084ed9ed3d6328d8634290","cleanup_complete":true},
+    {"id":"recovery","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["python3","-m","unittest","discover","-s","tools/recovery","-p","test_*.py"],"test_counts":{"total":7,"skipped":0},"reason":"","log_sha256":"21c7e48d0b1ec908feef784bbce1fa55f2c9a7acf76382fa7578754a78bd1ed8","cleanup_complete":true},
+    {"id":"field","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["python3","-m","unittest","discover","-s","tools/field","-p","test_*.py"],"test_counts":{"total":5,"skipped":0},"reason":"","log_sha256":"70ab9ccb2cd929554c227c89aa0e4f56a4abbe5d43237735ae4d1c47c966d0eb","cleanup_complete":true},
+    {"id":"offline-delivery","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["python3","-m","unittest","tools.offline_delivery.test_delivery","-v"],"test_counts":{"total":24,"skipped":0},"reason":"","log_sha256":"128df23f32360867861be7e60f349a1092e09537ad6a75f99704574e6994843b","cleanup_complete":true},
+    {"id":"kernel-artifact-audit","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["python3","-m","unittest","discover","-s","tools/kernel-artifact-audit","-p","test*.py"],"test_counts":{"total":21,"skipped":0},"reason":"","log_sha256":"33fc44d1ba68b1c544ffa1a71dc1773381319a941cef7362e9092b49ddfaaf71","cleanup_complete":true},
+    {"id":"nas-control-test","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["go","test","-race","-count=1","-timeout=60s","-json","./tools/nas-adapter/control","./tools/nas-adapter/cmd/control"],"test_counts":{"passed":10,"passed_subtests":10,"skipped":0,"failed":0,"packages_without_tests":["tools/nas-adapter/cmd/control"]},"reason":"","log_sha256":"5f85cd96bc93992dfe3cd3bf25e883b20401289a0872b06cd88914f2270e784d","cleanup_complete":true},
+    {"id":"nas-control-vet","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["go","vet","./tools/nas-adapter/control","./tools/nas-adapter/cmd/control"],"test_counts":null,"reason":"","log_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","cleanup_complete":true},
+    {"id":"arm-manifest","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["python3","tools/test-arm-build-manifest.py"],"test_counts":{"total":13,"skipped":0},"reason":"","log_sha256":"ab8e76bb92f2b3f9ce6e420b291076e46f6846bc1e2fede56f5aa669bdce10f9","cleanup_complete":true},
+    {"id":"pon-review","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["python3","tools/test-pon-dump-review.py"],"test_counts":null,"reason":"","log_sha256":"68b13f1b86fc11dd4309dfb3cfdfec2d509f582abfe94f60f037860efc21dadd","cleanup_complete":true},
+    {"id":"development-packager","group":"ordinary","status":"not_run","exit_code":null,"execution":"not_run","command":["python3","tools/test-development-application-packager.py"],"test_counts":null,"reason":"unavailable: pycrypto","log_sha256":null,"cleanup_complete":null},
+    {"id":"ap-package","group":"ordinary","status":"not_run","exit_code":null,"execution":"not_run","command":["python3","tools/test-setup-ap-package.py"],"test_counts":null,"reason":"unavailable: pycrypto","log_sha256":null,"cleanup_complete":null},
+    {"id":"ap-install","group":"ordinary","status":"not_run","exit_code":null,"execution":"not_run","command":["python3","tools/test-setup-ap-install.py"],"test_counts":null,"reason":"unavailable: pycrypto","log_sha256":null,"cleanup_complete":null},
+    {"id":"arm-manifest-optimized","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["python3","-O","tools/test-arm-build-manifest.py"],"test_counts":{"total":13,"skipped":0},"reason":"","log_sha256":"8c0075929740e803d88a31ef831b216e35aaf3091913a45c8bf3d578f8e4850c","cleanup_complete":true},
+    {"id":"web-ap-wifi","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-ap-wifi.mjs"],"test_counts":null,"reason":"","log_sha256":"714eb72d5a81bd3681ec4865adb272eb84add9ab38499baf73a5530fdb775367","cleanup_complete":true},
+    {"id":"web-call-test","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-call-test.mjs"],"test_counts":null,"reason":"","log_sha256":"c3818e5ddc3e6af6a11bef95a97ceb881e2c9f228174e08c0a7c3a9fca670183","cleanup_complete":true},
+    {"id":"web-clients","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-clients.mjs"],"test_counts":null,"reason":"","log_sha256":"03cfdfc99c03a7090239b0575952c363c5a786ac64201dc571d893796529e2cd","cleanup_complete":true},
+    {"id":"web-configuration-state","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-configuration-state.mjs"],"test_counts":null,"reason":"","log_sha256":"873a7a0a930e7f0fc654f0431f29b048192092b456422b6f91a96d5d65f2fb8f","cleanup_complete":true},
+    {"id":"web-daily-phone","group":"ordinary","status":"failed","exit_code":1,"execution":"executed","command":["node","tools/test-web-daily-phone.mjs"],"test_counts":null,"reason":"","log_sha256":"f0b2e9b303970b77293d2a0798a285b00efdbdca059f4930afa46c9f7823c00c","cleanup_complete":true},
+    {"id":"web-daily-sms","group":"ordinary","status":"failed","exit_code":1,"execution":"executed","command":["node","tools/test-web-daily-sms.mjs"],"test_counts":null,"reason":"","log_sha256":"750a0c943685c12364e5772834deb992257aa244a4b9e150165ce6323d3b6443","cleanup_complete":true},
+    {"id":"web-deadlines","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-deadlines.mjs"],"test_counts":null,"reason":"","log_sha256":"59d51c3b729730871d0b008beacf8aa847ab65918ea75aef959ff805560a6b0d","cleanup_complete":true},
+    {"id":"web-diagnostics","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-diagnostics.mjs"],"test_counts":null,"reason":"","log_sha256":"4293e71a815595777b1b5a3952dd4c091dab61ff980d684f7c5d6d82a25268c4","cleanup_complete":true},
+    {"id":"web-event-sync","group":"ordinary","status":"failed","exit_code":1,"execution":"executed","command":["node","tools/test-web-event-sync.mjs"],"test_counts":null,"reason":"","log_sha256":"00cdd057637a45d49ee078609f085f2d1c4f5c2897a25265298587f7404dd6c4","cleanup_complete":true},
+    {"id":"web-forwarding-history","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-forwarding-history.mjs"],"test_counts":null,"reason":"","log_sha256":"f82789025f472940a0e6d176549912db2d13977c6aaa371955082a8a3a6afc36","cleanup_complete":true},
+    {"id":"web-forwarding","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-forwarding.mjs"],"test_counts":null,"reason":"","log_sha256":"3d9d2a38de5a7371dfb754699819d2b129a6759aa89153d1a38bf8ef29838727","cleanup_complete":true},
+    {"id":"web-incoming-call-test","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-incoming-call-test.mjs"],"test_counts":null,"reason":"","log_sha256":"247f3fe9de51e947ad6c04be6d4e7f24efb84038486ebe762f09a533a50653eb","cleanup_complete":true},
+    {"id":"web-indicator","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-indicator.mjs"],"test_counts":null,"reason":"","log_sha256":"8f00247a10de25b1198d68fa865cee2b5b89b90e3150efcd08274a332b536b55","cleanup_complete":true},
+    {"id":"web-media","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-media.mjs"],"test_counts":null,"reason":"","log_sha256":"43c106ba6f5d83f311c27704f3f09a98f5b26b992e581da580fbf844772581b7","cleanup_complete":true},
+    {"id":"web-nas-bridge","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-nas-bridge.mjs"],"test_counts":null,"reason":"","log_sha256":"2f5ceb52e020e733537cca2c125f8882612ac9ceabe32cd04c8ea460d16b4ffa","cleanup_complete":true},
+    {"id":"web-network","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-network.mjs"],"test_counts":null,"reason":"","log_sha256":"b51e05476ee2133ca41b34a4bd602c593a2a2c024158bfdc2eeb4f229d7899d9","cleanup_complete":true},
+    {"id":"web-nkn-status","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-nkn-status.mjs"],"test_counts":null,"reason":"","log_sha256":"8cfbd7d3194d034696ba5d4eb2f8f529f1aa5da3a8f48765453d62f90326e1e3","cleanup_complete":true},
+    {"id":"web-operation-receipt","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-operation-receipt.mjs"],"test_counts":null,"reason":"","log_sha256":"0c0d4a1dd4f1ab29d4e25632a5fd5147d0a66614e60520cc203b2213aa5e2d94","cleanup_complete":true},
+    {"id":"web-password","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-password.mjs"],"test_counts":null,"reason":"","log_sha256":"c86f5d723fa20c328acfc45899fa1ea78e87019ca2db0237f1f3c735815d2e4b","cleanup_complete":true},
+    {"id":"web-proof","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-proof.mjs"],"test_counts":null,"reason":"","log_sha256":"f807af9cb20c7967f9ace0c5becb982897d2d8eb40d97b9e8bdf21bc62c8a52d","cleanup_complete":true},
+    {"id":"web-session","group":"ordinary","status":"failed","exit_code":1,"execution":"executed","command":["node","tools/test-web-session.mjs"],"test_counts":null,"reason":"","log_sha256":"ff372efaa88cbefff73c898944bed20777807308780a3b2610c6cf39b7a34f9c","cleanup_complete":true},
+    {"id":"web-setup","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-setup.mjs"],"test_counts":null,"reason":"","log_sha256":"c31f81c9f9a6594694e624ade6520e5f9174371e5a253b3e884696e2e8b0adbc","cleanup_complete":true},
+    {"id":"web-sms-management","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-sms-management.mjs"],"test_counts":null,"reason":"","log_sha256":"389ba623fb9fd4d03ced6444ef0fb996eff652afa29b71c1da3fe6252f67e1ca","cleanup_complete":true},
+    {"id":"web-test-center-component","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-test-center-component.mjs"],"test_counts":null,"reason":"","log_sha256":"3747526f4a8233f6ce3ad9d0c2f8250ceabb619a9b617c928fe25f2c205ce112","cleanup_complete":true},
+    {"id":"web-test-center","group":"ordinary","status":"failed","exit_code":1,"execution":"executed","command":["node","tools/test-web-test-center.mjs"],"test_counts":null,"reason":"","log_sha256":"3421c00476067b7083eed661b6ce38532c55f794b27675623aa7eb1f449a778f","cleanup_complete":true},
+    {"id":"web-usage-stats","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","tools/test-web-usage-stats.mjs"],"test_counts":null,"reason":"","log_sha256":"65f4432de76803105ac50e3af3d785acb57a49f01001b644671d949ca31b9bd4","cleanup_complete":true},
+    {"id":"web-wifi","group":"ordinary","status":"failed","exit_code":1,"execution":"executed","command":["node","tools/test-web-wifi.mjs"],"test_counts":null,"reason":"","log_sha256":"401421cd6e75ecc21a3cc8bb3dbf05d2c0d7b677bce650dbc6afa6a1eb6ffe4a","cleanup_complete":true},
+    {"id":"configurator-cancel","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","configurator/tests/cancel.mjs"],"test_counts":null,"reason":"","log_sha256":"f378156fc4f081e19bd4fa2a6d8dc66b3c3cead282b613ed66b030dfcfd69ff2","cleanup_complete":true},
+    {"id":"configurator-controller","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","configurator/tests/controller.mjs"],"test_counts":null,"reason":"","log_sha256":"d189e14ae5a0ca7d869140df6255eda8c892feb5718afd109c21984e7cfa588b","cleanup_complete":true},
+    {"id":"configurator-gatt-framing","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","configurator/tests/gatt-framing.mjs"],"test_counts":null,"reason":"","log_sha256":"3e6716413f2ad68f803f334766a351be4264bcbc058fe573bd467b75ee5ae303","cleanup_complete":true},
+    {"id":"configurator-static-update","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["node","configurator/tests/static-update.mjs"],"test_counts":null,"reason":"","log_sha256":"b094a5fb68d2797454dad824cf21bec9bdabd083618a81282c168ff204396f2c","cleanup_complete":true},
+    {"id":"go-offline-tests","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["go","test","-mod=readonly","-count=1","-timeout=120s","-v","./..."],"test_counts":{"passed":26},"reason":"","log_sha256":"d98aed0d282e6ca92b02f9f6830bd2b87d095eaf55fe31592d7924cb876a37aa","cleanup_complete":true},
+    {"id":"native-test","group":"native-audio","status":"passed","exit_code":0,"execution":"executed","command":["cargo","test","--manifest-path","native/audio-alsa/Cargo.toml","--locked"],"test_counts":{"passed":48,"failed":0,"ignored":0},"reason":"","log_sha256":"6b84c49b011b4bb8259e312c633f848f733ed2949226f8aa2229ed0754fa9e80","cleanup_complete":true},
+    {"id":"native-test-relay","group":"native-audio","status":"passed","exit_code":0,"execution":"executed","command":["cargo","test","--features","turn-relay","--manifest-path","native/audio-alsa/Cargo.toml","--locked"],"test_counts":{"passed":56,"failed":0,"ignored":0},"reason":"","log_sha256":"74d20d0c76b41aa8bc4aa76c2ccab160417dddfc9688e618e8732c0b974888df","cleanup_complete":true},
+    {"id":"native-clippy","group":"native-audio","status":"passed","exit_code":0,"execution":"executed","command":["cargo","clippy","--manifest-path","native/audio-alsa/Cargo.toml","--all-targets","--locked","--","-D","warnings"],"test_counts":null,"reason":"","log_sha256":"b389f3105c610e78e8abc28a72cec8c053411537e87cc022a5e3a28acc2cf3b8","cleanup_complete":true},
+    {"id":"native-clippy-relay","group":"native-audio","status":"passed","exit_code":0,"execution":"executed","command":["cargo","clippy","--features","turn-relay","--manifest-path","native/audio-alsa/Cargo.toml","--all-targets","--locked","--","-D","warnings"],"test_counts":null,"reason":"","log_sha256":"293899bfc2c89efd6e57a19166814e55cecc5182df4aa82676909d1e09ab7cc5","cleanup_complete":true},
+    {"id":"compatibility-build","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["cargo","build","-p","rustsimhub-core","-p","rustsimhub-forwarder","-p","rustsimhub-core-launcher","--no-default-features","--locked"],"test_counts":null,"reason":"","log_sha256":"a1d9c3a13c6b5f5b88fceaaf1fb037ddd2ea0650e5c7371fc7ef1ee509c4fadb","cleanup_complete":true},
+    {"id":"upgrade-compatibility","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["python3","tools/test-upgrade-compatibility.py","--launcher","target/debug/rustsimhub-core-launcher","--core","target/debug/rustsimhub-core","--worker","target/debug/rustsimhub-forwarder"],"test_counts":null,"reason":"","log_sha256":"18efbf21b65a584011d52a6a849f24025ceb410efe2ba36bc55520ca01597636","cleanup_complete":true},
+    {"id":"worker-inspection","group":"ordinary","status":"passed","exit_code":0,"execution":"executed","command":["python3","tools/test-forwarding-inspection.py","--worker","target/debug/rustsimhub-forwarder"],"test_counts":null,"reason":"","log_sha256":"90d6fa8ef430f64358cfbe5135b94f10b7d4b7078b4de41b7672a613e2ffd0dd","cleanup_complete":true},
+    {"id":"runner-unit","group":"runner","status":"passed","exit_code":0,"execution":"executed","command":["python3","-m","unittest","discover","-s","tools/mainline-checks","-p","test_*.py"],"test_counts":{"total":28,"skipped":0},"reason":"","log_sha256":"042c54cc3d60246cfcfbc2e7e0c7236103893a414c338e00cf790d920d817aac","cleanup_complete":true},
+    {"id":"board-fixtures","group":"root","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","python3","-m","unittest","discover","-s","tools/system","-p","test_*.py"],"test_counts":null,"reason":"unavailable: root, mount, sudo","log_sha256":null,"cleanup_complete":null},
+    {"id":"ap-units","group":"root","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","python3","tools/test-setup-ap-units.py"],"test_counts":null,"reason":"unavailable: root, sudo","log_sha256":null,"cleanup_complete":null},
+    {"id":"ap-build","group":"root","status":"not_run","exit_code":null,"execution":"not_run","command":["cargo","build","-p","rustsimhub-core","-p","rustsimhub-edge","-p","rustsimhub-setup-ap","-p","rustsimhub-core-launcher","--locked"],"test_counts":null,"reason":"unavailable: root","log_sha256":null,"cleanup_complete":null},
+    {"id":"ap-material","group":"root","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","python3","tools/test-setup-ap-material.py","--core","target/debug/rustsimhub-core","--edge","target/debug/rustsimhub-edge","--ap","target/debug/rustsimhub-setup-ap","--edge-user","{user}"],"test_counts":null,"reason":"unavailable: root, sudo, dependency: ap-build","log_sha256":null,"cleanup_complete":null},
+    {"id":"core-launcher","group":"root","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","python3","tools/test-core-launcher.py","--launcher","target/debug/rustsimhub-core-launcher"],"test_counts":null,"reason":"unavailable: root, sudo, dependency: ap-build","log_sha256":null,"cleanup_complete":null},
+    {"id":"ap-chroot","group":"root","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","python3","tools/test-setup-ap-install-chroot.py","--core","target/debug/rustsimhub-core","--edge","target/debug/rustsimhub-edge","--ap","target/debug/rustsimhub-setup-ap","--launcher","target/debug/rustsimhub-core-launcher"],"test_counts":null,"reason":"unavailable: root, sudo, dependency: ap-build","log_sha256":null,"cleanup_complete":null},
+    {"id":"forwarder-artifacts","group":"root-netns","status":"not_run","exit_code":null,"execution":"not_run","command":["cargo","test","-p","rustsimhub-forwarder","--lib","--all-features","--locked","--no-run","--message-format=json"],"test_counts":null,"reason":"unavailable: root, netns, mount","log_sha256":null,"cleanup_complete":null},
+    {"id":"storage-full","group":"root-netns","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","python3","tools/test-forwarding-storage-full.py","--cargo-artifacts","{run}/forwarder-artifacts.json"],"test_counts":null,"reason":"unavailable: root, netns, mount, sudo, dependency: forwarder-artifacts","log_sha256":null,"cleanup_complete":null},
+    {"id":"update-build","group":"root-netns","status":"not_run","exit_code":null,"execution":"not_run","command":["cargo","build","-p","rustsimhub-update","--locked"],"test_counts":null,"reason":"unavailable: root, netns","log_sha256":null,"cleanup_complete":null},
+    {"id":"update-artifacts","group":"root-netns","status":"not_run","exit_code":null,"execution":"not_run","command":["cargo","test","-p","rustsimhub-update","--lib","--all-features","--locked","--no-run","--message-format=json"],"test_counts":null,"reason":"unavailable: root, netns","log_sha256":null,"cleanup_complete":null},
+    {"id":"update-state","group":"root-netns","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","unshare","--net","python3","tools/test-update-state-inspection.py","--updater","target/debug/rustsimhub-update"],"test_counts":null,"reason":"unavailable: root, netns, sudo, dependency: update-build","log_sha256":null,"cleanup_complete":null},
+    {"id":"metadata","group":"root-netns","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","unshare","--net","setpriv","--no-new-privs","python3","tools/test-metadata-process.py","--cargo-artifacts","{run}/update-artifacts.json"],"test_counts":null,"reason":"unavailable: root, netns, sudo, dependency: update-artifacts","log_sha256":null,"cleanup_complete":null},
+    {"id":"metadata-no-kill","group":"root-netns","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","unshare","--net","setpriv","--bounding-set=-kill","--no-new-privs","python3","tools/test-metadata-process.py","--cargo-artifacts","{run}/update-artifacts.json","--missing-kill"],"test_counts":null,"reason":"unavailable: root, netns, sudo, dependency: update-artifacts","log_sha256":null,"cleanup_complete":null},
+    {"id":"maintenance","group":"root-netns","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","unshare","--net","python3","tools/test-maintenance-observation.py","--updater","target/debug/rustsimhub-update"],"test_counts":null,"reason":"unavailable: root, netns, sudo, dependency: update-build","log_sha256":null,"cleanup_complete":null},
+    {"id":"signed-formats","group":"root-netns","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","unshare","--net","python3","tools/test-signed-application-formats.py","--updater","target/debug/rustsimhub-update"],"test_counts":null,"reason":"unavailable: root, netns, sudo, dependency: update-build","log_sha256":null,"cleanup_complete":null},
+    {"id":"ipc-core-build","group":"root-netns","status":"not_run","exit_code":null,"execution":"not_run","command":["cargo","build","-p","rustsimhub-core","--features","dev-fixtures","--locked"],"test_counts":null,"reason":"unavailable: root, netns","log_sha256":null,"cleanup_complete":null},
+    {"id":"worker-build","group":"root-netns","status":"not_run","exit_code":null,"execution":"not_run","command":["cargo","build","-p","rustsimhub-forwarder","--locked"],"test_counts":null,"reason":"unavailable: root, netns","log_sha256":null,"cleanup_complete":null},
+    {"id":"worker-ipc","group":"root-netns","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","python3","tools/test-forwarding-worker-ipc.py","--core","target/debug/rustsimhub-core"],"test_counts":null,"reason":"unavailable: root, netns, sudo, dependency: ipc-core-build","log_sha256":null,"cleanup_complete":null},
+    {"id":"worker-process","group":"root-netns","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","unshare","--net","python3","tools/test-forwarding-worker-process.py","--core","target/debug/rustsimhub-core","--worker","target/debug/rustsimhub-forwarder"],"test_counts":null,"reason":"unavailable: root, netns, sudo, dependency: ipc-core-build, dependency: worker-build","log_sha256":null,"cleanup_complete":null},
+    {"id":"indicator-build","group":"root-systemd","status":"not_run","exit_code":null,"execution":"not_run","command":["cargo","build","-p","rustsimhub-update","--example","indicator-resource","--locked"],"test_counts":null,"reason":"unavailable: root, systemd, mount","log_sha256":null,"cleanup_complete":null},
+    {"id":"indicator-resource","group":"root-systemd","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","python3","tools/test-update-indicator-resource.py","--fixture","target/debug/examples/indicator-resource"],"test_counts":null,"reason":"unavailable: root, systemd, mount, sudo, dependency: indicator-build","log_sha256":null,"cleanup_complete":null},
+    {"id":"supervisor-core-build","group":"root-systemd","status":"not_run","exit_code":null,"execution":"not_run","command":["cargo","build","-p","rustsimhub-core","--features","dev-fixtures","--locked"],"test_counts":null,"reason":"unavailable: root, systemd, netns","log_sha256":null,"cleanup_complete":null},
+    {"id":"supervisor-worker-build","group":"root-systemd","status":"not_run","exit_code":null,"execution":"not_run","command":["cargo","build","-p","rustsimhub-forwarder","--features","dev-fixtures","--locked"],"test_counts":null,"reason":"unavailable: root, systemd, netns","log_sha256":null,"cleanup_complete":null},
+    {"id":"supervisor-unmanaged","group":"root-systemd","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","unshare","--net","python3","tools/test-forwarding-supervisor.py","--core","target/debug/rustsimhub-core","--worker","target/debug/rustsimhub-forwarder"],"test_counts":null,"reason":"unavailable: root, systemd, netns, sudo, dependency: supervisor-core-build, dependency: supervisor-worker-build","log_sha256":null,"cleanup_complete":null},
+    {"id":"supervisor-managed","group":"root-systemd","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","unshare","--net","python3","tools/test-forwarding-supervisor.py","--core","target/debug/rustsimhub-core","--worker","target/debug/rustsimhub-forwarder","--managed"],"test_counts":null,"reason":"unavailable: root, systemd, netns, polkit, sudo, dependency: supervisor-core-build, dependency: supervisor-worker-build","log_sha256":null,"cleanup_complete":null},
+    {"id":"supervisor-dns","group":"root-systemd","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","unshare","--net","python3","tools/test-forwarding-supervisor.py","--core","target/debug/rustsimhub-core","--worker","target/debug/rustsimhub-forwarder","--managed","--close-at","dns"],"test_counts":null,"reason":"unavailable: root, systemd, netns, polkit, sudo, dependency: supervisor-core-build, dependency: supervisor-worker-build","log_sha256":null,"cleanup_complete":null},
+    {"id":"supervisor-tls","group":"root-systemd","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","unshare","--net","python3","tools/test-forwarding-supervisor.py","--core","target/debug/rustsimhub-core","--worker","target/debug/rustsimhub-forwarder","--managed","--close-at","tls"],"test_counts":null,"reason":"unavailable: root, systemd, netns, polkit, sudo, dependency: supervisor-core-build, dependency: supervisor-worker-build","log_sha256":null,"cleanup_complete":null},
+    {"id":"supervisor-http","group":"root-systemd","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","unshare","--net","python3","tools/test-forwarding-supervisor.py","--core","target/debug/rustsimhub-core","--worker","target/debug/rustsimhub-forwarder","--managed","--close-at","http"],"test_counts":null,"reason":"unavailable: root, systemd, netns, polkit, sudo, dependency: supervisor-core-build, dependency: supervisor-worker-build","log_sha256":null,"cleanup_complete":null},
+    {"id":"supervisor-late_ack","group":"root-systemd","status":"not_run","exit_code":null,"execution":"not_run","command":["sudo","-n","unshare","--net","python3","tools/test-forwarding-supervisor.py","--core","target/debug/rustsimhub-core","--worker","target/debug/rustsimhub-forwarder","--managed","--close-at","late_ack"],"test_counts":null,"reason":"unavailable: root, systemd, netns, polkit, sudo, dependency: supervisor-core-build, dependency: supervisor-worker-build","log_sha256":null,"cleanup_complete":null}
+  ]
+}

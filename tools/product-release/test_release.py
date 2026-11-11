@@ -39,7 +39,7 @@ def infos(email=False):
 
 class ProductRelease(unittest.TestCase):
     def test_profiles_are_finite_and_health_interface_not_falsely_advertised(self):
-        self.assertEqual(len(release.PROFILES), 5)
+        self.assertEqual(len(release.PROFILES), 6)
         for value in ['', 'shell', 'd-recovery-v1', 'product-health-v1', True, {}]:
             with self.subTest(value=value), self.assertRaises(ValueError):
                 release.profile(value)
@@ -47,7 +47,8 @@ class ProductRelease(unittest.TestCase):
     def test_default_and_all_opt_in_prefixes(self):
         for name, (product, _, recovery) in release.PROFILES.items():
             value = release.prefixes(name)
-            self.assertEqual(len(value), int(product) + int(recovery))
+            self.assertEqual('--enable-update-health-candidate' in value, name=='product-recovery-health-v1')
+            self.assertEqual(len(value), int(product) + int(recovery) + int(name=='product-recovery-health-v1'))
             self.assertEqual('--enable-secure-recovery-candidate' in value, recovery)
         self.assertEqual(release.prefixes('legacy-v1'), [])
 

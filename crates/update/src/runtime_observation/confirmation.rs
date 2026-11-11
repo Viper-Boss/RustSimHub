@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! A consumed, live Root capability, never a serialized health token.
 use super::*;
+use crate::product_admission::SignedProductPrograms;
 use crate::{
     admission::{running, SignedPrograms},
     store::inspection::confirmation::Plan,
@@ -8,6 +9,16 @@ use crate::{
 use rustsimhub_wire::update_health as wire;
 use std::os::unix::net::UnixStream;
 mod io;
+// Diagnostics stay in the private test driver, never in a production flag.
+fn observed<T>(label: &str, result: Result<T>) -> Result<T> {
+    #[cfg(test)]
+    if let Err(error) = &result {
+        eprintln!("running candidate {label}: {error:?}");
+    }
+    #[cfg(not(test))]
+    let _ = label;
+    result
+}
 
 struct Core {
     stream: UnixStream,
@@ -154,34 +165,57 @@ pub struct Confirmation {
     epoch: u64,
     floor_epoch: u64,
 }
+enum Programs {
+    Legacy(SignedPrograms, SignedPrograms),
+    Product(Box<(SignedProductPrograms, SignedProductPrograms)>),
+}
 impl RunningCandidate {
     pub fn observe() -> Result<Self> {
+        let candidate = Self::collect()?;
+        candidate.revalidate()?;
+        Ok(candidate)
+    }
+    fn collect() -> Result<Self> {
         if rustix::process::geteuid().as_raw() != 0 {
             return Err(Error::Denied);
         }
-        let runtime = RuntimeObservation::observe()?;
-        let root = running::Root::observe()?;
+        let runtime = observed("runtime", RuntimeObservation::collect())?;
+        let root = observed("Root", running::Root::observe_for(&runtime))?;
         let plan = runtime.ledger.confirmation_plan()?;
-        let candidate = SignedPrograms::running_inspect(
-            &runtime.slot.signed()?,
-            runtime.ledger.runtime_key()?,
-        )?;
-        let baseline =
-            SignedPrograms::running_inspect(plan.baseline(), runtime.ledger.runtime_key()?)?;
+        // Exactly one metadata path, before taking the Core SQL/Auth lease.
+        // Product verification already retains the original SignedPrograms
+        // checks; repeating the unused legacy path only consumed freshness.
+        let programs = if root.product_health() {
+            Programs::Product(Box::new((
+                SignedProductPrograms::running_health(runtime.slot.verified())?,
+                SignedProductPrograms::running_health(plan.verified_baseline())?,
+            )))
+        } else {
+            Programs::Legacy(
+                SignedPrograms::running_verified(runtime.slot.verified())?,
+                SignedPrograms::running_verified(plan.verified_baseline())?,
+            )
+        };
         runtime.revalidate()?;
-        let core = Core::connect(&runtime)?;
-        let data = running::Data::observe(&core.snapshot)?;
-        running::compatible(&core.snapshot, &candidate, &baseline)?;
-        let result = Self {
+        let core = observed("Core connection", Core::connect(&runtime))?;
+        let data = observed("data", running::Data::observe_for(&core.snapshot, &root))?;
+        match programs {
+            Programs::Product(programs) => {
+                let (candidate, baseline) = *programs;
+                root.compare_product(&core.snapshot, &candidate, &baseline)?;
+            }
+            Programs::Legacy(candidate, baseline) => {
+                running::compatible(&core.snapshot, &candidate, &baseline)?;
+            }
+        }
+        Ok(Self {
             runtime,
             root,
             data,
             core,
             plan,
             invalid: Cell::new(false),
-        };
-        result.revalidate()?;
-        Ok(result)
+        })
     }
     pub fn revalidate(&self) -> Result<()> {
         if self.invalid.get() {
@@ -238,7 +272,10 @@ impl RunningCandidate {
 }
 /// The exact CLI is root-gated before this call; no writable recovery dispatch.
 pub fn confirm_running_candidate() -> Result<Confirmation> {
-    RunningCandidate::observe()?.confirm()
+    // confirm starts with the same complete revalidation that public observe
+    // performs before returning. No caller-visible capability escapes here,
+    // so do it once at the action boundary, not twice in adjacent calls.
+    RunningCandidate::collect()?.confirm()
 }
 #[cfg(test)]
 mod tests;

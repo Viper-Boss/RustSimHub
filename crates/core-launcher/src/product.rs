@@ -17,10 +17,17 @@ pub enum Profile {
     Recovery,
     #[serde(rename = "product-email-recovery-v1")]
     EmailRecovery,
+    #[serde(rename = "product-recovery-health-v1")]
+    RecoveryHealth,
 }
 impl Profile {
     pub fn prefixes(self) -> &'static [&'static str] {
         match self {
+            Self::RecoveryHealth => &[
+                "--enable-update-health-candidate",
+                "--enable-product-providers-candidate",
+                "--enable-secure-recovery-candidate",
+            ],
             Self::Legacy => &[],
             Self::Product | Self::Email => &["--enable-product-providers-candidate"],
             Self::Recovery | Self::EmailRecovery => &[
@@ -86,6 +93,13 @@ pub fn profile_arguments(
         || config.source_archive_sha256 != info.source_archive_sha256
     {
         return Err(Error);
+    }
+    if config.profile == Profile::RecoveryHealth {
+        let health: serde_json::Value = serde_json::from_slice(metadata).map_err(|_| Error)?;
+        if health["update_health_protocol"] != 1 || health["update_health_default_enabled"] != false
+        {
+            return Err(Error);
+        }
     }
     let runtime = info.forwarding_runtime_contract;
     let (protocol, format, migrations): (_, _, &[i64]) = if config.profile.email() {

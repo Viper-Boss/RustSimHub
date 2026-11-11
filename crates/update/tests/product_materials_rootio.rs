@@ -353,3 +353,50 @@ fn nss_query_transport_is_bounded_env_clear_and_reaps_failed_children() {
         assert!(start.elapsed() < Duration::from_secs(2));
     }
 }
+
+#[test]
+fn readonly_running_fd_guard_rejects_replacement_restored_metadata_and_parent_alias() {
+    for mutation in ["replace", "content", "mode", "link", "parent"] {
+        let f = Fixture::new();
+        let path = "/usr/libexec/product/program";
+        f.put(path, b"original executable bytes", 0o555);
+        let snapshot = f.root.read(path, 65536).unwrap().unwrap();
+        snapshot.recheck_unchanged(&f.root, path).unwrap();
+        let actual = f.actual(path);
+        let before = fs::metadata(&actual).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        match mutation {
+            "replace" => {
+                let replacement = actual.with_extension("replacement");
+                fs::copy(&actual, &replacement).unwrap();
+                fs::rename(&replacement, &actual).unwrap();
+            }
+            "content" => {
+                fs::set_permissions(&actual, fs::Permissions::from_mode(0o755)).unwrap();
+                fs::write(&actual, b"changed! executable bytes").unwrap();
+                fs::File::open(&actual)
+                    .unwrap()
+                    .set_times(fs::FileTimes::new().set_modified(before.modified().unwrap()))
+                    .unwrap();
+                fs::set_permissions(&actual, before.permissions()).unwrap();
+            }
+            "mode" => {
+                fs::set_permissions(&actual, fs::Permissions::from_mode(0o755)).unwrap();
+                fs::set_permissions(&actual, before.permissions()).unwrap();
+            }
+            "link" => fs::hard_link(&actual, actual.with_extension("alias")).unwrap(),
+            "parent" => {
+                let parent = actual.parent().unwrap();
+                let moved = parent.with_extension("old");
+                fs::rename(parent, &moved).unwrap();
+                symlink(&moved, parent).unwrap();
+            }
+            _ => unreachable!(),
+        }
+        assert!(
+            snapshot.recheck_unchanged(&f.root, path).is_err(),
+            "{mutation}"
+        );
+        assert!(snapshot.recheck(&f.root, path).is_err(), "{mutation}");
+    }
+}

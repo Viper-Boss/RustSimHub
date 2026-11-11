@@ -26,6 +26,8 @@ pub enum ProductRuntimeModeV1 {
     Recovery,
     #[serde(rename = "product-email-recovery-v1")]
     EmailRecovery,
+    #[serde(rename = "product-recovery-health-v1")]
+    RecoveryHealth,
 }
 impl ProductRuntimeModeV1 {
     pub fn as_str(self) -> &'static str {
@@ -35,6 +37,7 @@ impl ProductRuntimeModeV1 {
             Self::Email => "product-email-v1",
             Self::Recovery => "product-recovery-v1",
             Self::EmailRecovery => "product-email-recovery-v1",
+            Self::RecoveryHealth => "product-recovery-health-v1",
         }
     }
 }
@@ -89,21 +92,67 @@ impl SignedProductPrograms {
             |bytes, args| capture(bytes, args, 986),
         )
     }
+    pub(crate) fn running_health(
+        application: &crate::verified_application::VerifiedApplication,
+    ) -> Result<Self, Error> {
+        application.require_schema(9)?;
+        let group = application.group();
+        let base = SignedPrograms::running_verified(application)?;
+        base.supports_running_health()?;
+        // This exact sealed worker --build-info was already captured by the
+        // original verifier, from the same immutable owned application bytes.
+        let worker = base
+            .metadata()
+            .worker
+            .ok_or(Error::Denied)?
+            .as_bytes()
+            .to_vec();
+        // The immutable owning capability comes from the original signature
+        // and full payload verifier in the guarded slot/confirmation plan.
+        // Reuse those same bytes; caller JSON cannot construct this proof.
+        Self::finish_metadata(
+            OriginalVerification::Checked { _original: base },
+            SignedInput {
+                manifest: &group.0,
+                signature: &group.1,
+                key: application.key(),
+                payloads: &group.2,
+            },
+            application.manifest().clone(),
+            ProductRuntimeModeV1::RecoveryHealth,
+            |bytes, args| {
+                if args == ["--build-info"] {
+                    Ok(worker.clone())
+                } else {
+                    capture_for(bytes, args, 986, Duration::from_millis(250))
+                }
+            },
+        )
+    }
     fn finish(
         base: OriginalVerification,
         input: SignedInput<'_>,
         schema: u32,
+        mode: ProductRuntimeModeV1,
+        probe: impl FnMut(&[u8], &[&str]) -> Result<Vec<u8>, Error>,
+    ) -> Result<Self, Error> {
+        let parsed = verify(input.manifest, input.signature, input.key, schema, 0)?;
+        verify_payload(&parsed, input.payloads)?;
+        Self::finish_metadata(base, input, parsed, mode, probe)
+    }
+    fn finish_metadata(
+        base: OriginalVerification,
+        input: SignedInput<'_>,
+        parsed: crate::Manifest,
         mode: ProductRuntimeModeV1,
         mut probe: impl FnMut(&[u8], &[&str]) -> Result<Vec<u8>, Error>,
     ) -> Result<Self, Error> {
         let SignedInput {
             manifest,
             signature,
-            key,
+            key: _,
             payloads,
         } = input;
-        let parsed = verify(manifest, signature, key, schema, 0)?;
-        verify_payload(&parsed, payloads)?;
         if parsed.format != 2 {
             return Err(Error::Denied);
         }
@@ -119,8 +168,8 @@ impl SignedProductPrograms {
             _base: base,
             manifest_sha256: manifest_hash(manifest),
             source_sha256: parsed.source_sha256,
-            core_sha256: manifest_hash(&payloads[0]),
-            worker_sha256: manifest_hash(&payloads[4]),
+            core_sha256: parsed.files[0].sha256.clone(),
+            worker_sha256: parsed.files[4].sha256.clone(),
             mode,
             core: String::from_utf8(core).map_err(|_| Error::Invalid)?,
             worker: String::from_utf8(worker).map_err(|_| Error::Invalid)?,
@@ -141,11 +190,11 @@ impl SignedProductPrograms {
         }
         if core["source_archive_sha256"] != value.source_sha256
             || worker["source_archive_sha256"] != value.source_sha256
-            || core["target_arch"] != "aarch64"
+            || core["target_arch"] != target_arch()
         {
             return Err(Error::Integrity);
         }
-        let request = serde_json::json!({"format":2,"target_arch":"aarch64","root_mode":"setup_ap",
+        let request = serde_json::json!({"format":2,"target_arch":target_arch(),"root_mode":"setup_ap",
             "root_contract":rustsimhub_core_launcher::installation_contract().to_string(),
             "data":{"business_schema":core["business"]["write"],"outbox":null},
             "selected":value.role(),"candidate":value.role(),"fallback":value.role()});
@@ -160,7 +209,7 @@ impl SignedProductPrograms {
         }
         Ok(value)
     }
-    fn role(&self) -> serde_json::Value {
+    pub(crate) fn role(&self) -> serde_json::Value {
         serde_json::json!({"mode":self.mode,
         "core":self.core,"worker":self.worker,"core_sha256":self.core_sha256,"worker_sha256":self.worker_sha256})
     }
@@ -190,7 +239,7 @@ impl<'a> ProductDataAdmission<'a> {
         // This value is generated by the held original guard, not accepted
         // from the caller. Its DB application_id/quick_check are already real.
         let observed = serde_json::to_value(snapshot.report()).map_err(|_| Error::Invalid)?;
-        let request = serde_json::json!({"format":2,"target_arch":"aarch64",
+        let request = serde_json::json!({"format":2,"target_arch":target_arch(),
             "root_mode":observed["root_mode"],"root_contract":snapshot.root_contract(),
             "data":{"business_schema":observed["business_schema"],"outbox":observed["outbox"]},
             "selected":selected.role(),"candidate":candidate.role(),"fallback":fallback.role()});
@@ -233,6 +282,9 @@ impl Drop for Reap {
     }
 }
 fn capture(bytes: &[u8], args: &[&str], uid: u32) -> Result<Vec<u8>, Error> {
+    capture_for(bytes, args, uid, Duration::from_secs(3))
+}
+fn capture_for(bytes: &[u8], args: &[&str], uid: u32, budget: Duration) -> Result<Vec<u8>, Error> {
     use rustix::fs::{fchmod, fcntl_add_seals, memfd_create, MemfdFlags, Mode, SealFlags};
     let change =
         rustix::process::geteuid().as_raw() != uid || rustix::process::getegid().as_raw() != uid;
@@ -277,7 +329,7 @@ fn capture(bytes: &[u8], args: &[&str], uid: u32) -> Result<Vec<u8>, Error> {
     let mut pipe = child.0.stdout.take().ok_or(Error::Io)?;
     let flags = rustix::fs::fcntl_getfl(&pipe).map_err(|_| Error::Io)?;
     rustix::fs::fcntl_setfl(&pipe, flags | rustix::fs::OFlags::NONBLOCK).map_err(|_| Error::Io)?;
-    let until = Instant::now() + Duration::from_secs(3);
+    let until = Instant::now() + budget;
     let mut output = Vec::new();
     let mut eof = false;
     loop {
@@ -312,3 +364,12 @@ fn capture(bytes: &[u8], args: &[&str], uid: u32) -> Result<Vec<u8>, Error> {
 mod tests;
 
 pub mod coordinator;
+
+// Production ARM policy. Native isolation adapters are compiled only in tests.
+pub(crate) fn target_arch() -> &'static str {
+    #[cfg(test)]
+    if crate::product_native_fixture::enabled() {
+        return std::env::consts::ARCH;
+    }
+    "aarch64"
+}
