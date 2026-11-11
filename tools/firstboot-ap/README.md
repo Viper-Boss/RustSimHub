@@ -15,6 +15,13 @@ python3 tools/firstboot-ap/build.py --core CORE --edge EDGE --ap SETUP_AP \
  --output NEW_OUTPUT --qemu QEMU_AARCH64 --sysroot ARM_SYSROOT
 ```
 
+The separate verification entry requires an externally selected source and key:
+
+```sh
+python3 tools/firstboot-ap/verify.py --material NEW_OUTPUT \
+ --application SIGNED_FACTORY --public EXTERNAL_PUBLIC --source EXPECTED_SOURCE_SHA256
+```
+
 Pass that output explicitly as `--firstboot-ap-artifacts NEW_OUTPUT` to the existing
 `tools/compose-system-tree.py` invocation. No option means no AP change. The original
 image builder rechecks this layer before producing an internal image. Its existing
