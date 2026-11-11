@@ -18,10 +18,11 @@ python3 tools/product-integration/matrix/run.py --revision "$revision" wasm \
   --wasm-bindgen .local/web5-matrix/toolchain/wasm-bindgen --output work/matrix-wasm
 python3 tools/product-integration/matrix/run.py --revision "$revision" modes \
   --programs .local/web5-matrix/programs --output work/matrix-modes
+python3 tools/product-integration/matrix/run.py --revision "$revision" legacy --output work/matrix-legacy
 python3 tools/product-integration/matrix/run.py --revision "$revision" email-recovery \
   --programs .local/web5-matrix/programs --test-driver .local/web5-matrix/update-email-tests \
   --no-email-tests .local/web5-matrix/update-default-tests \
-  --worker4 .local/web5-matrix/worker4 --legacy-driver .local/web5-matrix/legacy-outbox \
+  --worker4 .local/web5-matrix/worker4 --legacy-driver work/matrix-legacy/legacy-outbox \
   --runtime-image sha256:5ee1ac74e6bbbedad27abe1574d94faac1e73a12eab292dce78e40e718906ca8 \
   --output work/matrix-email-recovery
 python3 -m unittest discover -s tools/product-integration/matrix -p 'test_*.py'
@@ -49,3 +50,10 @@ Keep build logs, raw fixture databases and generated temporary signing material
 in ignored local output. Publish only source/artifact hashes and sanitized
 machine-readable results. Record command failures and unexecuted combinations
 in the delivery report; never infer hardware acceptance from a container run.
+
+The `legacy` subcommand uses the existing locked separate format3 Cargo graph
+with this package's `legacy-outbox.rs`. Original recent-Owner configuration,
+claim/finish and Owner disable create confirmed/Unknown records with real
+attempt IDs; durable OFF prevents later worker transmission. The full combined
+chain checks these exact IDs/states/attempt IDs both after migration and after
+Core opens schema9. An empty historical fixture cannot satisfy those assertions.

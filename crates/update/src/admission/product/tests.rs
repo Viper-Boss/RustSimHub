@@ -717,6 +717,15 @@ fn email_chain_impl(recovery: bool) {
         .status()
         .unwrap()
         .success());
+    let receipts = recovery.then(matrix_outbox_receipts);
+    if let Some(receipts) = &receipts {
+        assert_eq!(receipts.len(), 3);
+        assert_eq!(
+            receipts.iter().map(|r| r.1.as_str()).collect::<Vec<_>>(),
+            ["confirmed", "unknown", "unknown"]
+        );
+        assert!(receipts.iter().all(|r| r.2.is_some()));
+    }
     let key = SigningKey::from_bytes(&[71; 32]);
     put(TRUST, &key.verifying_key().to_bytes(), 0o444);
     let (app, signature, payloads) = applications(&key);
@@ -779,6 +788,7 @@ fn email_chain_impl(recovery: bool) {
         );
     }
     if recovery {
+        assert_eq!(matrix_outbox_receipts(), *receipts.as_ref().unwrap());
         let committed =
             coordinator::UpgradeJournal::production(coordinator::UpgradeKind::Recovery9)
                 .unwrap()
@@ -801,6 +811,7 @@ fn email_chain_impl(recovery: bool) {
         drop(store);
         assert!(services::activate_business().is_ok());
         inspect_actual_business();
+        assert_eq!(matrix_outbox_receipts(), *receipts.as_ref().unwrap());
         assert!(!Path::new(rustsimhub_wire::update_health::SOCKET).exists());
         let before = fs::read(Path::new(APP).join("state.json")).unwrap();
         assert!(crate::runtime_observation::confirmation::RunningCandidate::observe().is_err());
@@ -976,4 +987,21 @@ fn interrupted_email_recovery() {
         outbox
     );
     assert!(dispatch(&["product-recover".into()]).is_ok());
+}
+
+#[cfg(feature = "email-production-candidate")]
+fn matrix_outbox_receipts() -> Vec<(String, String, Option<String>)> {
+    let db = rusqlite::Connection::open_with_flags(
+        "file:/var/lib/rustsimhub/rustsimhub-v1/core/state/forwarding/outbox.sqlite3?immutable=1",
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_URI,
+    )
+    .unwrap();
+    let mut query = db
+        .prepare("SELECT id,state,attempt_id FROM jobs ORDER BY seq")
+        .unwrap();
+    query
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .unwrap()
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .unwrap()
 }

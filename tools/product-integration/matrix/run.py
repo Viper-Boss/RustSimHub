@@ -143,6 +143,34 @@ def wasm(args, provenance):
     return report
 
 
+def legacy(args, provenance):
+    """Compile owned synthetic rows with the original locked format3 graph."""
+    output = fresh(args.output)
+    output.mkdir(parents=True, mode=0o700)
+    graph = output / 'graph'
+    (graph / 'src').mkdir(parents=True)
+    original = ROOT / 'tools/product-integration/legacy-fixture'
+    manifest = (original / 'Cargo.toml').read_text().replace('../../../crates/', str(ROOT / 'crates') + '/')
+    (graph / 'Cargo.toml').write_text(manifest)
+    shutil.copyfile(original / 'Cargo.lock', graph / 'Cargo.lock')
+    shutil.copyfile(Path(__file__).with_name('legacy-outbox.rs'), graph / 'src/main.rs')
+    env = dict(os.environ, CARGO_TARGET_DIR=str(ROOT / 'target'), CARGO_BUILD_JOBS='2',
+               CARGO_INCREMENTAL='0', RUSTSIMHUB_BUILD_SOURCE_SHA256=provenance['source_archive_sha256'],
+               CARGO_PROFILE_RELEASE_OPT_LEVEL='z', CARGO_PROFILE_RELEASE_PANIC='unwind')
+    with (output / 'cargo.log').open('wb') as log:
+        call(['cargo', 'build', '--release', '--locked', '--offline', '--manifest-path', graph / 'Cargo.toml'],
+             cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, timeout=600)
+    program = output / 'legacy-outbox'
+    shutil.copyfile(ROOT / 'target/release/rustsimhub-product-outbox3-fixture', program)
+    program.chmod(0o555)
+    report = {**provenance, 'kind': 'original-format3-queue-synthetic-terminal-attempts',
+              'sha256': sha(program), 'fixture_source_sha256': sha(graph / 'src/main.rs'),
+              'format3_original_feature_graph': True, 'fixture_only': True,
+              'network': False, 'messages_sent': False, 'report_not_authority': True}
+    save(output / 'matrix-result.json', report)
+    return report
+
+
 def chain(args, provenance):
     output = fresh(args.output)
     output.mkdir(parents=True, mode=0o700)
@@ -176,6 +204,7 @@ def main():
     sub = p.add_subparsers(dest='command', required=True)
     a = sub.add_parser('modes'); a.add_argument('--programs', type=Path, required=True); a.add_argument('--output', type=Path, required=True)
     a = sub.add_parser('wasm'); a.add_argument('--wasm-bindgen', type=Path, required=True); a.add_argument('--output', type=Path, required=True)
+    a = sub.add_parser('legacy'); a.add_argument('--output', type=Path, required=True)
     a = sub.add_parser('email-recovery')
     for name in ('programs', 'test-driver', 'legacy-driver', 'worker4', 'no-email-tests', 'output'):
         a.add_argument('--' + name, type=Path, required=True)
@@ -185,6 +214,7 @@ def main():
     try:
         provenance = identity(args.revision)
         if args.command == 'wasm': result = wasm(args, provenance)
+        elif args.command == 'legacy': result = legacy(args, provenance)
         elif args.command == 'email-recovery': result = chain(args, provenance)
         else:
             result = {**provenance, **modes(args.programs, provenance)}
