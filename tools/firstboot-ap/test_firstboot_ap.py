@@ -217,15 +217,15 @@ class RootBoardHook(unittest.TestCase):
         for origin,replacement in [('/usr/share/rustsimhub/system-candidate.json',f.marker),('/usr/local/libexec/rustsimhub-state-check','true'),('/usr/share/rustsimhub/network/usb.nmconnection',f.template),('/usr/share/rustsimhub/firstboot-ap/manifest.json',self.layer),('/run/rustsimhub-setup-ap-core',self.run/'core'),('/run/rustsimhub-setup-ap-root',self.run/'root')]:text=text.replace(origin,str(replacement))
         return subprocess.run(['sh','-c',text],env=f.env,capture_output=True,text=True,timeout=10)
     def test_new_generic_creates_only_private_empty_ap_directories_and_repeats(self):
-        self.assertEqual(self.execute().returncode,0)
+        result=self.execute();self.assertEqual(result.returncode,0,result.stderr)
         f=self.fixture
         for p,uid,gid,mode in [(f.root/'setup-edge',985,985,0o700),(f.root/'core/setup-ap-journal',986,986,0o700),(self.run/'core',986,0,0o2750),(self.run/'root',0,986,0o2750)]:
             m=p.stat();self.assertEqual((m.st_uid,m.st_gid,stat.S_IMODE(m.st_mode)),(uid,gid,mode));self.assertEqual(list(p.iterdir()),[])
-        self.assertEqual(self.execute().returncode,0)
+        result=self.execute();self.assertEqual(result.returncode,0,result.stderr)
         self.assertFalse((f.root/'system/firstboot-ap.request').exists())
     def test_old_complete_without_request_creates_no_ap_directories(self):
         (self.fixture.root/'system/installation.complete').write_bytes(runtime.COMPLETE)
-        self.assertEqual(self.execute().returncode,0)
+        result=self.execute();self.assertEqual(result.returncode,0,result.stderr)
         self.assertFalse((self.fixture.root/'setup-edge').exists());self.assertEqual(list(self.run.iterdir()),[])
     def test_unsafe_channel_link_refuses_without_following(self):
         untouched=self.fixture.base/'untouched';untouched.mkdir();(self.run/'core').symlink_to(untouched)
