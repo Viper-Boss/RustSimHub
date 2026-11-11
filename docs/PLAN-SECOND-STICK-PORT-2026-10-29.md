@@ -261,6 +261,18 @@ boot 写入计划 `.private/new-stick-write-plan-20261101-boot/`：载荷为原�
 
 重新进入 9008 后执行一次，报告在 UsbTool `dist/.local/writes/20261101-084416/`。64 MiB 载荷三次回读一致，保护区（含 aboot、devinfo）全部未变，GPT 仍为 5eadff18…。现在新棒子有 lk1st 和通用 boot；还缺 NSHSTATE 与 rootfs，上电会停在 initramfs。
 
+## 第一根棒子强制写入复试：write_failed，设备未改（2026-11-07 04:07，用户明确要求）
+
+用户先误把第一根棒子插入一键刷机，预检因 tz 扇区 270826、270827 读不一致而拒绝，没有写入。随后用户明确要求强制试写，并接受棒子损坏的后果。按用户要求，把 gpt 的旧尝试标记改名保留，用原计划（摘要 5fab0891…）只执行一次 gpt 步骤；NV、校准和基带分区不在写入范围内。
+
+- 加载器在 program 0+34 发完数据后回 NAK，日志与 11-01 相同：“Read back verify failed at sector 1703271967, num sectors 0”。状态 `write_failed`，备份 GPT 段没有发送，没有重试，tz 和 aboot 没有执行。报告在 UsbTool `dist/.local/writes/20261107-040711/`。
+- 只读复核：主、备 GPT 摘要仍为原厂 a0a4c67d…，内容没有变化。
+- 结论：两次在不同日期、SkipWrite=0 的写入都以同样的方式失败，这根棒子无法用这条路径写入。依据仍是现象，没有读到 EXT_CSD 写保护位。不再对它做写入。
+
+## 通用刷机包（2026-11-07，离线）
+
+上文“每根棒子一份 NSHSTATE”的做法已由通用刷机包取代：镜像不带单台设备的数据，首次开机由设备自己提取固件并生成身份。设计见 [通用刷机包](generic-flash-pack.md)，结果见 [验证记录](VALIDATION-GENERIC-FLASH-PACK-20261107.md)。没有写设备，也没有真机启动；新棒子的 NSHSTATE 和 rootfs 仍未写入。PR #62 已由 #148 整合，打包基线条件满足。
+
 ## 当前状态
 
 - 已完成：方案、离线表决与哈希段分析、GPT 计划生成器及真实输入的离线计划、第 0b 步 lk1st 提取、第 0c 步只读读取、二手棒子固件包。

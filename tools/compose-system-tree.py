@@ -260,11 +260,20 @@ def main():
         directory(state_mount, 0o700, exist_ok=True)
         assert not any(state_mount.iterdir())
         state_mount.chmod(0o700)
-        units = ['rustsimhub-firstboot.service', 'rustsimhub-usb.service',
+        units = ['rustsimhub-firstboot.service', 'rustsimhub-usb.service', 'rustsimhub-usb-dhcp.service',
+                 'rustsimhub-firmware-extract.service',
                  'rustsimhub-device-firmware.service', 'rustsimhub-radio-resume.service']
+        mdns_sha256 = build['artifact_sha256'].get('rustsimhub-mdns')
+        if mdns_sha256:
+            target = destination(tree, 'usr/libexec/rustsimhub/rustsimhub-mdns')
+            shutil.copyfile(artifacts/'rustsimhub-mdns', target)
+            os.chown(target, 0, 0)
+            target.chmod(0o555)
+            assert base_tools.sha256_file(target) == mdns_sha256
+            units += ['rustsimhub-mdns.service']
         if led_build: units+=['rustsimhub-status-led.service']
         if network_build: units+=['rustsimhub-network-agent.service','rustsimhub-carrier-voice.service']
-        if startup:units+=['rustsimhub-app.target']
+        if startup:units+=['rustsimhub-generic-install.service','rustsimhub-app.target']
         for unit in units:
             link = destination(tree, 'etc/systemd/system/multi-user.target.wants/'+unit)
             assert not link.exists()

@@ -1,0 +1,28 @@
+[Unit]
+Description=Give the computer on the USB cable its fixed address (no gateway, no DNS)
+Requires=rustsimhub-usb.service
+After=rustsimhub-usb.service NetworkManager.service
+
+[Service]
+Type=simple
+# DHCP only (port=0 disables DNS). One address, 10.55.0.1/29, for the single host on usb0.
+# No router and no DNS server are offered, so the computer never routes through the device.
+ExecStart=/usr/sbin/dnsmasq --keep-in-foreground --conf-file=/dev/null --port=0 --no-resolv --no-hosts \
+ --interface=usb0 --bind-dynamic --dhcp-authoritative --leasefile-ro --pid-file= --log-facility=- \
+ --dhcp-range=10.55.0.1,10.55.0.1,255.255.255.248,12h \
+ --dhcp-option=option:router --dhcp-option=option:dns-server --dhcp-option=option:domain-name \
+ --user=nobody --group=nogroup
+Restart=always
+RestartSec=5
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_NET_ADMIN CAP_SETUID CAP_SETGID
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_NETLINK AF_PACKET
+MemoryMax=16M
+TasksMax=4
+
+[Install]
+WantedBy=multi-user.target

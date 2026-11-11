@@ -1,0 +1,16 @@
+[Unit]
+Description=Copy this device's own firmware after a generic flash
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/generic-provision.request
+ConditionPathExists=!/var/lib/rustsimhub/.private-firmware
+Requires=rustsimhub-firstboot.service
+After=rustsimhub-firstboot.service
+Before=rustsimhub-device-firmware.service rmtfs.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/rustsimhub-firmware-extract
+RemainAfterExit=yes
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
