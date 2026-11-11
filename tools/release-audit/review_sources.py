@@ -6,10 +6,13 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
-from safeio import Refused,need,parse,read_file,hex_id
+from safeio import Refused,Tree,need,parse,read_file,hex_id
 
 PREFIXES={
- 'console':('configurator/','crates/storage/','tools/test-web-console','docs/deliveries/'),
+ 'console':('crates/edge/src/web/console.js','crates/edge/src/web/console.css',
+            'crates/storage/src/inbox.rs','crates/storage/src/inbox_management.rs',
+            'crates/storage/src/calls.rs','crates/storage/src/calls_tests.rs',
+            'tools/test-web-console','docs/deliveries/'),
  'firstboot':('tools/firstboot-ap/','firmware/system/firstboot-ap/','tools/compose-system-tree.py',
               'tools/build-system-image.py','firmware/system/overlay/usr/local/libexec/rustsimhub-firstboot',
               'firmware/system/overlay/usr/local/libexec/rustsimhub-generic-install','docs/deliveries/'),
@@ -18,6 +21,7 @@ PREFIXES={
            'crates/core/src/runtime_compatibility','crates/core/src/update_health','docs/deliveries/')}
 
 def review(repository,index):
+    with Tree(repository):pass
     need(type(index) is dict and set(index)==set(PREFIXES),'three_package_inventory')
     def git(*args):
         result=subprocess.run(['git','--no-replace-objects','-C',str(repository),*args],stdin=subprocess.DEVNULL,capture_output=True,timeout=20)
@@ -32,7 +36,7 @@ def review(repository,index):
         archive=git('archive','--format=tar',row['product'])
         need(hashlib.sha256(archive).hexdigest()==row['archive_sha256'],'package_archive_digest')
         changed=git('diff','--name-only','-z',row['base'],row['product']).decode().strip('\0').split('\0')
-        need(changed and all(p.startswith(PREFIXES[name]) for p in changed),'package_source_scope')
+        need(changed and all(any(p.startswith(prefix) if prefix.endswith('/') or prefix=='tools/test-web-console' else p==prefix for prefix in PREFIXES[name]) for p in changed),'package_source_scope')
         documents=git('diff','--name-only','-z',row['product'],row['head']).decode().strip('\0')
         need(not documents or all(p.startswith('docs/deliveries/') for p in documents.split('\0')),'package_final_head_not_docs_only')
         rows[name]={**row,'source_files_changed':len(changed),'final_head_docs_only':True,

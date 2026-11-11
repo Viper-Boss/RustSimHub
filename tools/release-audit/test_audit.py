@@ -203,6 +203,27 @@ class AuditTests(unittest.TestCase):
             index['public_files'].append('leak.json');path.write_text(json.dumps(index))
             with self.assertRaises(Refused) as error:audit.system_audit(args,component)
             self.assertEqual(str(error.exception),'private_json_field')
+    def test_source_review_real_ancestry_scope_archive_and_docs_only_heads(self):
+        import review_sources
+        repo=self.root/'source-review';repo.mkdir()
+        def git(*args):return subprocess.check_output(['git','-C',str(repo),*args],stderr=subprocess.DEVNULL)
+        git('init','-q');git('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','--allow-empty','-qm','owned base')
+        base=git('rev-parse','HEAD').decode().strip();index={}
+        for name,path in [('console','crates/edge/src/web/console.js'),('firstboot','firmware/system/firstboot-ap/runtime.py'),('matrix','tools/product-integration/matrix/run.py')]:
+            git('checkout','-qb',name,base)
+            target=repo/path;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(b'owned source fixture')
+            git('add',path);git('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-qm','owned product')
+            product=git('rev-parse','HEAD').decode().strip();archive=sha(git('archive','--format=tar',product))
+            doc=repo/'docs/deliveries'/('web5-'+name+'.md');doc.parent.mkdir(parents=True,exist_ok=True);doc.write_bytes(b'owned report')
+            git('add',str(doc));git('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-qm','owned report')
+            index[name]={'base':base,'product':product,'head':git('rev-parse','HEAD').decode().strip(),'archive_sha256':archive}
+        self.assertEqual(len(review_sources.review(repo,index)['packages']),3)
+        bad=copy.deepcopy(index);bad['console']['archive_sha256']='0'*64
+        with self.assertRaises(Refused):review_sources.review(repo,bad)
+        # A later code change cannot be presented as a docs-only final HEAD.
+        target=repo/'Auth.rs';target.write_bytes(b'out of scope');git('add','Auth.rs');git('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-qm','unexpected source change')
+        bad=copy.deepcopy(index);bad['matrix']['head']=git('rev-parse','HEAD').decode().strip()
+        with self.assertRaises(Refused):review_sources.review(repo,bad)
     def test_default_full_scope_missing_signed_input_has_no_green_conclusion(self):
         args=audit.parser().parse_args(['--repository',str(self.root),'--source','b'*40,'--archive',str(self.root/'source.tar'),'--build-root',str(self.root),'--profile','legacy-v1'])
         with mock.patch.object(audit,'profile_audit',return_value={'programs':{}}):

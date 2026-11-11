@@ -56,6 +56,7 @@ def kernel_contract(raw, expected):
 
 
 def git_blob(repo, revision, name):
+    with Tree(repo):pass
     relative(name)
     env = dict(os.environ, GIT_NO_REPLACE_OBJECTS='1', GIT_TERMINAL_PROMPT='0')
     result = subprocess.run(['git', '--no-replace-objects', '-C', str(repo), 'show', revision + ':' + name],
@@ -65,6 +66,7 @@ def git_blob(repo, revision, name):
 
 
 def source_archive(repo, archive, revision, expected):
+    with Tree(repo):pass
     need(__debug__, 'ordinary_python_required_for_original_verifier')
     need(hex_id(revision, 40) and hex_id(expected, 64), 'source_identifiers')
     raw = read_file(archive, LIMIT)
