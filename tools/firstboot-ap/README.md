@@ -84,3 +84,8 @@ fixture command stubs. The actual runner accepts `--programs`, `--qemu`,
 `--sysroot`, `--license`, `--work` (fresh empty owned directory). It executes
 original ARM CLIs, with PID1 status/reload explicitly adapted and no listener or
 network activation. An actual boot of this new ordering remains a separate check.
+
+The offline tree verifier also compares both installed board/generic hooks with
+the selected installer source. An old application-revision overlay plus a new AP
+layer is refused: such a tree could install the helper but never record its request.
+Use a newly built same-source application/overlay for full-system composition.

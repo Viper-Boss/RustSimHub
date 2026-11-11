@@ -38,7 +38,7 @@ def build(core,edge,program,launcher,application,public,out,runner=()):
         require(builds[name]['sha256']==sha(regular(Path(application)/('rustsimhub-'+name))),'factory differs from inspected program')
     for name,_,_ in ap.FILES:
         if name not in blobs:blobs[name]=(ap.MATERIAL/name).read_bytes().replace(b'\r\n',b'\n')
-    require(not subprocess.check_output(['git','-c','safe.directory='+str(ROOT),'-C',str(ROOT),'status','--porcelain','--','tools/firstboot-ap','firmware/system/firstboot-ap','firmware/system/setup-ap']).strip(),'commit firstboot/AP composition inputs first')
+    require(not subprocess.check_output(['git','-c','safe.directory='+str(ROOT),'-C',str(ROOT),'status','--porcelain','--','tools/firstboot-ap','firmware/system/firstboot-ap','firmware/system/setup-ap','firmware/system/overlay/usr/local/libexec/rustsimhub-firstboot','firmware/system/overlay/usr/local/libexec/rustsimhub-generic-install','tools/compose-system-tree.py','tools/build-system-image.py']).strip(),'commit firstboot/AP composition inputs first')
     revision=subprocess.check_output(['git','-c','safe.directory='+str(ROOT),'-C',str(ROOT),'rev-parse','HEAD'],text=True).strip()
     manifest={'format':1,'kind':'generic-firstboot-ap','source_sha256':source,'factory_manifest_sha256':sha(regular(Path(application)/'manifest.json')),'builds':builds,
       'files':[{'name':name,'target':target,'mode':mode,'bytes':len(blobs[name]),'sha256':sha(blobs[name])} for name,target,mode in ap.FILES],
@@ -106,5 +106,12 @@ def audit_tree(tree,layer):
         p=tree/target;require(regular(p)==(MATERIAL/name).read_bytes(),'firstboot helper/unit differs');info=p.lstat();require((info.st_uid,info.st_gid,info.st_mode&0o777)==(0,0,mode),'firstboot helper/unit ownership')
     for name,target in AUXILIARY:
         p=tree/target;require(regular(p)==(MATERIAL/name).read_bytes(),'firstboot activation material differs');info=p.lstat();require((info.st_uid,info.st_gid,info.st_mode&0o777)==(0,0,0o644),'firstboot activation ownership')
+    # The application revision chooses compose's overlay. Installing only this
+    # layer beside an older overlay would never create the on-device request.
+    # Refuse that real production wiring gap before an image can be accepted.
+    for name in ['rustsimhub-firstboot','rustsimhub-generic-install']:
+        target=Path('usr/local/libexec')/name;p=tree/target
+        require(regular(p)==(ROOT/'firmware/system/overlay'/target).read_bytes(),'firstboot overlay hook differs')
+        info=p.lstat();require((info.st_uid,info.st_gid,info.st_mode&0o777)==(0,0,0o755),'firstboot hook ownership/mode')
     require(not any((tree/'var/lib/rustsimhub').iterdir()),'device state must remain absent')
     return m

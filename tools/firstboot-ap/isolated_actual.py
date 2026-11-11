@@ -64,7 +64,18 @@ def fixture(root,bundle,application,public,programs,source,qemu,sysroot,info):
         target=factory/p.name;shutil.copyfile(p,target);target.chmod(0o444 if p.name in ['manifest.json','manifest.sig','Opus-COPYING.txt'] else 0o555)
     write(root,'/usr/share/rustsimhub/release.public',public.read_bytes(),mode=0o444)
     write(root,'/usr/libexec/rustsimhub/rustsimhub-update',(programs/'rustsimhub-update').read_bytes(),mode=0o555)
+    for p in ['/usr/local','/usr/local/libexec']:directory(root,p,mode=0o755)
+    for name in ['rustsimhub-firstboot','rustsimhub-generic-install']:
+        relative='usr/local/libexec/'+name
+        write(root,'/'+relative,(package.ROOT/'firmware/system/overlay'/relative).read_bytes(),mode=0o755)
     layer=package.install(root,bundle,source,package.sha((factory/'manifest.json').read_bytes()))
+    package.audit_tree(root,layer)
+    hook=root/'usr/local/libexec/rustsimhub-generic-install';original=hook.read_bytes()
+    hook.write_bytes(b'#!/bin/sh\n# synthetic older overlay has no AP request hook\n');hook.chmod(0o755)
+    try:package.audit_tree(root,layer)
+    except ValueError:pass
+    else:raise AssertionError('older unwired generic overlay unexpectedly accepted')
+    hook.write_bytes(original);hook.chmod(0o755)
     package.audit_tree(root,layer)
     # Original firstboot numeric layout, not any real account or mounted device.
     for p in [runtime.BASE,runtime.BASE+'/system']:directory(root,p)
