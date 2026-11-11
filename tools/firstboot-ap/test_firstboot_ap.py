@@ -117,6 +117,14 @@ class RootFilesystem(unittest.TestCase):
         self.assertTrue(all(p.read_bytes()==raw for p,raw in before.items()))
         self.assertEqual(self.c.events.count('core'),1);self.assertFalse(first['authorization_verified']);self.assertFalse(first['services_started'])
         self.assertEqual(runtime.inspect(self.root)['state'],'prepared')
+    def test_restrictive_service_umask_preserves_exact_publication_modes(self):
+        previous=os.umask(0o077)
+        try:
+            first=self.run_new();self.assertEqual(runtime.run(self.root,self.c),first)
+            for i in runtime.LATE:
+                _,target,mode=runtime.TARGETS[i]
+                self.assertEqual(stat.S_IMODE(self.x.f.path(target).stat().st_mode),mode)
+        finally:os.umask(previous)
     def test_old_device_without_request_ignores_even_bad_new_material(self):
         write(self.root,runtime.SOURCE+'/manifest.json',b'bad',mode=0o644)
         self.assertEqual(runtime.run(self.root,self.c)['state'],'not_requested');self.assertEqual(self.c.events,[])

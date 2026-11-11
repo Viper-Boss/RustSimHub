@@ -105,7 +105,8 @@ class Files:
         saved=self.read(pending,mode=mode,maximum=max(32768,len(raw)),absent=True)
         if saved is None:
             fd=os.open(self.path(pending),os.O_CREAT|os.O_EXCL|os.O_WRONLY|os.O_NOFOLLOW|os.O_CLOEXEC,mode)
-            with os.fdopen(fd,'wb') as f:f.write(raw);f.flush();os.fsync(f.fileno())
+            with os.fdopen(fd,'wb') as f:
+                os.fchmod(f.fileno(),mode);f.write(raw);f.flush();os.fsync(f.fileno())
         else:require(saved==raw,'pending target differs')
         # Hard-link publication is NOREPLACE; a racing later writer is never overwritten.
         os.link(self.path(pending),self.path(absolute),follow_symlinks=False);self.path(pending).unlink()
