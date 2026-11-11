@@ -100,6 +100,25 @@ def program_version(raw):
         return arm.versions(path)
 
 
+def linked_modules(raw):
+    """Use trusted Go buildinfo reader, never execute the candidate ELF."""
+    with tempfile.TemporaryDirectory(prefix='rsh-go-audit-') as directory:
+        file=Path(directory)/'program';file.write_bytes(raw);file.chmod(0o400)
+        env=dict(os.environ,GOTOOLCHAIN='local',GOPROXY='off',GOENV='off',GOWORK='off')
+        result=subprocess.run(['go','version','-m',str(file)],env=env,stdin=subprocess.DEVNULL,
+                              capture_output=True,check=True,timeout=10)
+        need(len(result.stdout)<=512*1024,'go_buildinfo_budget')
+        lines=result.stdout.decode('utf8').splitlines()
+        need(lines and lines[0].endswith(': go1.27.3'),'go_binary_runtime')
+        modules={}
+        for line in lines[1:]:
+            parts=line.strip().split('\t')
+            if parts[0] in ('mod','dep'):
+                need(len(parts) in (3,4) and parts[1] not in modules,'go_binary_module_record')
+                modules[parts[1]]=parts[2]
+        need(modules,'go_binary_modules_missing')
+        return modules
+
 def materials(tree, report, repo, revision, flags):
     product, _, recovery, health = flags
     expected = material_sources(product, recovery, health)
@@ -158,6 +177,12 @@ def licenses(tree, report, repo, revision, product):
     rows = modules.get('modules')
     need(type(rows) is list and 0 < len(rows) <= 100, 'sdk_modules')
     selected = {row['path']: row for row in rows}
+    linked={}
+    for program in ('nkn-root','nkn-sdk-engine'):
+        for name,version in linked_modules(tree.read('programs/'+program,32*1024*1024,mode=0o555)).items():
+            need(name not in linked or linked[name]==version,'go_binary_module_version_conflict')
+            linked[name]=version
+    need(linked=={name:row['version'] for name,row in selected.items()},'go_binary_license_closure')
     need(len(selected) == len(rows) and own in selected and set(selected) <= set(known) | {own},
          'sdk_module_closure')
     expected_sections = {}
@@ -198,7 +223,7 @@ def licenses(tree, report, repo, revision, product):
     patch = parse(git_blob(repo, revision, 'tools/nkn-build/sdk-managed/patch-manifest.json'))
     need(provenance.get('managed_patch_sha256') == patch['patch_sha256'], 'go_managed_patch')
     return {'source_licenses_checked': len(entries), 'go_modules': len(rows),
-            'dependency_approval': False, 'implementation': 'original Go, not Rust'}
+            'dependency_approval': False, 'implementation': 'original Go, not Rust', 'binary_module_inventory_checked':True}
 
 
 def profile_audit(args):

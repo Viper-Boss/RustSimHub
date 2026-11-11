@@ -1,6 +1,6 @@
 # Read-only WEB5 release preflight
 
-Run with ordinary Python (assertions enabled), Git, readelf and OpenSSL installed.
+Run with ordinary Python (assertions enabled), Git, readelf, OpenSSL and the pinned Go1.27.3 toolchain on PATH.
 No candidate executable, shell, device, system bus, service manager, signing key,
 installer, epoch or confirmation action is invoked. Inputs are read only; bounded
 private snapshots used by the original archive/ELF/signature helpers are deleted.
@@ -18,7 +18,9 @@ python3 tools/release-audit/audit.py \
 
 They read the actual original `profile-build.json`, source archive/Git blobs,
 AArch64 programs/readelf versions, exact application-input payloads, source-fixed
-Root templates, finite roles/default OFF, licenses and original Go module closure.
+Root templates, finite roles/default OFF, licenses and original Go module closure. The actual ELF Go buildinfo module
+union is independently read by `go version -m` (no candidate execution), and must
+match every licensed module/version; GOENV/GOTOOLCHAIN/GOPROXY prevent downloads.
 They cross-check byte inventories and source markers (BLE host has no embedded
 source marker), without claiming compiler/origin attestation or installed NSS.
 `release_input_complete` remains false for component scope.

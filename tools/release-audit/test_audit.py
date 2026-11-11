@@ -79,6 +79,13 @@ class AuditTests(unittest.TestCase):
             with self.subTest(key=key),self.assertRaises((Refused,AssertionError)):contracts.check_report(bad,*args)
         bad=copy.deepcopy(report);bad['programs'].pop('rustsimhub-core')
         with self.assertRaises((Refused,AssertionError)):contracts.check_report(bad,*args)
+    def test_go_reader_uses_binary_module_records_and_refuses_unknown_runtime(self):
+        good=b'/private-snapshot/program: go1.27.3\n\tmod\towned/fixture\tv0.0.0\n\tdep\tfixture/dependency\tv1.2.3\th1:fixture\n'
+        with mock.patch.object(audit.subprocess,'run',return_value=subprocess.CompletedProcess([],0,good,b'')):
+            self.assertEqual(audit.linked_modules(b'owned ELF bytes'),{'owned/fixture':'v0.0.0','fixture/dependency':'v1.2.3'})
+        for bad in [good.replace(b'go1.27.3',b'go1.28'),good+b'\tdep\tfixture/dependency\tv9.0.0\n']:
+            with mock.patch.object(audit.subprocess,'run',return_value=subprocess.CompletedProcess([],0,bad,b'')):
+                with self.assertRaises(Refused):audit.linked_modules(b'owned ELF bytes')
     def test_missing_license_and_tampered_bytes_are_refused(self):
         report=self.report()
         with Tree(self.root) as tree:
