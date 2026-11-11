@@ -15,6 +15,8 @@ import tomllib
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools/rootfs/scripts'))
 import rootfs_tools
+sys.path.insert(0,str(ROOT/'tools/firstboot-ap'))
+import firstboot_ap
 
 IMAGE_BYTES=3436183552
 # 2845656-sector rootfs of the generic flash layout, rounded down to UsbTool's 16 KiB write block.
@@ -40,6 +42,9 @@ def check_source(source,out):
     require(rootfs_tools.tree_hash(tree)==(candidate['tree_sha256'],candidate['tree_entries']),'Candidate tree changed')
     state=tree/'var/lib/rustsimhub'
     require(state.is_dir() and not state.is_symlink() and not any(state.iterdir()),'Device state must be absent')
+    require(bool(candidate.get('firstboot_ap_installed'))==(tree/'usr/share/rustsimhub/firstboot-ap/manifest.json').exists(),'Firstboot layer declaration differs')
+    if candidate.get('firstboot_ap_installed'):
+        firstboot_ap.audit_tree(tree,candidate['firstboot_ap_layer'])
     board=tomllib.loads((ROOT/'firmware/board.toml').read_text())
     lock=json.loads((ROOT/'firmware/kernel/upstream-source.lock.json').read_text())
     require(board['immutable_content']['kernel_source_commit']==lock['commit']==candidate['kernel_audio_layer']['kernel_source_commit'],'Kernel attribution differs')
@@ -80,7 +85,7 @@ def build(source,out,image_bytes=IMAGE_BYTES):
     require(not findings,'Candidate generic audit failed; no image created')
     git=['git','-c','safe.directory='+str(ROOT),'-C',str(ROOT)]
     dirty=subprocess.check_output([*git,'status','--porcelain','--','tools/build-system-image.py',
-                                   'tools/rootfs','firmware/board.toml','firmware/kernel/upstream-source.lock.json'])
+                                   'tools/rootfs','tools/firstboot-ap','firmware/system/firstboot-ap','firmware/board.toml','firmware/kernel/upstream-source.lock.json'])
     require(not dirty.strip(),'Commit image construction inputs first')
     revision=subprocess.check_output([*git,'rev-parse','HEAD'],text=True).strip()
     epoch=json.loads((ROOT/'firmware/base-system.lock.json').read_text())['source_date_epoch']
@@ -95,7 +100,8 @@ def build(source,out,image_bytes=IMAGE_BYTES):
             'bytes':image_bytes,'source_date_epoch':epoch,'base_kernel_source_commit':lock['commit'],
             'base_kernel_source_tree':lock['commit_tree'],'base_kernel_source_attribution_recorded':True,
             'independent_kernel_rebuild_verified':False,'private_firmware_included':False,
-            'device_state_initialized':False,'partition_writes':0}
+            'device_state_initialized':False,'partition_writes':0,
+            'firstboot_ap_installed':candidate.get('firstboot_ap_installed',False),'firstboot_ap_layer':candidate.get('firstboot_ap_layer')}
     image=out/'rootfs.img'
     def run(args,log,**kwargs):
         with (out/log).open('xb') as handle:
