@@ -37,8 +37,20 @@
 
 ## 三包复核状态与未运行
 
-已读取PR223 console产品 `77abd18d786fb329f1a6f4529391d0ec1e168462` / head `665f485f768d3d0fc71cd94dc6c3022f18b5336c`，以及PR224 firstboot产品 `ab874ea0fd3437fd9db63b8535a3e0124caeefca` / head `ab36b762bce521d58567931c6b575fbb3cc06c30`，固定归档/范围/报告head核对通过。矩阵包仍在修复真实EmailRecovery中断后重开拒绝；其最终source/head将在后续仅报告提交中复核，不把当前失败当完成。
+已实际运行本包 `review_sources.py`，只读核验三包最终完整源码、实际归档、Git祖先、分配范围和仅报告head，全部通过；原始工具结果直接交付为 `web5-release-source-review-20261111.json`：
+
+| 包 / PR | 固定产品源码 | 最终报告head |
+|---|---|---|
+| console / #223 | `77abd18d786fb329f1a6f4529391d0ec1e168462` | `665f485f768d3d0fc71cd94dc6c3022f18b5336c` |
+| firstboot / #224 | `ab874ea0fd3437fd9db63b8535a3e0124caeefca` | `ab36b762bce521d58567931c6b575fbb3cc06c30` |
+| matrix / #227 | `6c35352ac9b0e4980c8545a84c74a69078fd1e40` | `2e8023e858ac8b40184acf2217cb8e91b9421cbd` |
+
+console归档 `6e4415d101531e45171f3083a6b6c545d6a8f7ba246310a3290ef6b4abb6f183`，firstboot归档 `4d8477373f843dd17da0b140e073ba2bc21ad2b2674b44ee1513d99f7f1ebb6f`，matrix归档 `9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63`。matrix base为正常合入215后的04ac942，其余两包base为开工main7535535。三包生产差异分别11/16/11个文件，报告head只增加docs/deliveries。
+
+最后只读消费matrix机器证据：18项真实模式检查（8支持/10拒绝）、原邮件3→4后SIGKILL连续三锁和新进程显式恢复6→7→9完整链、实际Core启动与回执保持、同源WASM/Chromium两套18组、ARM updater有限QEMU metadata均已有通过记录。实际中断inspection选旧应用的缺陷已修；schema9显式Root回退因缺少已验证fallback启动profile在写前Denied，SMTP5/AP自动确认仍不支持。该消费不表示发行审计工具重跑业务、四包已合并构建或设备健康通过。firstboot的实际ARM合同依赖仍是旧847程序，未冒充ab874新Core重建。
+
+测试期间main更新到 `c5fd2d082e25d15535f249f11f5b7a4604427fea`；四包只读merge-tree检查无冲突。没有合入新main或把合并树当已测试产品。
 
 未运行：四包合并后的同源全系统构建、完整新发行Root签名包及全部boot/modules/DTB/rootfs输入、镜像内文件/秘密核验、真实PID1/实际NSS/固件提取/身份启动/设备/USB/AP/SIM/业务外发/生产签名/epoch/健康确认/刷写。完整scope当前正确拒绝；已存在生产构建器和本机副作用不由本包改写。Cloud CI计费执行不记通过。
 
-交主线非草稿PR审核，不自行合并。下一步为矩阵包收尾后只读复核其最终固定源码，再由主线接纳/完成同源隔离镜像和授权本机验收。
+三包最终源码只读复核已完成；本包交PR226、三包交PR223/224/227，均为非草稿，未自行合并。后续由主线接纳后完成四包同源系统组合、完整发行输入及授权设备验收；不把未运行项目写为通过。
