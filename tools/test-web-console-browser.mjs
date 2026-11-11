@@ -16,6 +16,6 @@ replace("case 'calls_recent':return {calls:[],cursor:null,total:0};","case 'call
 replace("const value=JSON.parse(raw);mode=value.mode||'ready';","const value=JSON.parse(raw);mode=value.mode||'ready';if(value.consoleData)Object.assign(consoleData,value.consoleData);");
 replace("const result=await handle(body.command);","if((body.command.op==='inbox_recent'&&mode==='denied')||(body.command.op==='challenge'&&mode==='deny-login')){res.writeHead(403);res.end();return;}\n  const result=await handle(body.command);");
 replace("if(body.command.op==='nkn_status'&&mode==='held')await new Promise(resolve=>{held=resolve;});","if(body.command.op==='inbox_recent'&&body.command.before&&mode==='held')await new Promise(resolve=>{held=resolve;});");
-replace("./fixtures/web3-web/assembly-browser.py","./fixtures/web5-console-browser.py");
+replace("./fixtures/web3-web/assembly-browser.py","./test-web-console-browser.py");
 const temporary=new URL('./test-web-console-fixture-'+process.pid+'.mjs',import.meta.url);
 try{await writeFile(temporary,fixture);const child=spawn(process.execPath,[temporary.pathname],{stdio:'inherit',env:process.env});assert.equal(await new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',resolve);}),0);}finally{await unlink(temporary).catch(()=>{});}
