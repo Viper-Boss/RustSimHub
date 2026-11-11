@@ -1,0 +1,959 @@
+{
+  "actual_failures": [
+    "Initial isolated native tool environment: missing shell, readonly source ownership, cc alternatives and CMake Python runtime; explicit original tools and scoped capability corrected the harness.",
+    "Initial WASM browser Python lacked Playwright; explicit preinstalled runtime used. A Docker browser attempt lacked Node mount; final one-command host WASM/browser runner passed.",
+    "Original staging free-space guard and Docker VFS ENOSPC observed; guard retained, own scratch and inventoried own cache/export retirement used. No global prune or other worktree deletion.",
+    "Interrupted product inspection selected old confirmed application before slot staging and denied retained binding; production dispatcher fixed and fresh chain passed.",
+    "Source30c6dda recovery returned Unknown and left schema6. Errno was not established; resource pressure is context, not a proven cause. That uncertain database was never retried or represented as committed.",
+    "Source6c first chain failed ENOSPC during legacy fixture setup before migration. Independent fresh second fixture passed the full chain.",
+    "Initial ARM cross archiver lacked host shared library search path; scoped cross-ar wrapper corrected it before final production build/QEMU metadata execution."
+  ],
+  "actual_refusal_cases": 10,
+  "arm": {
+    "actual_qemu_executed": true,
+    "build_info": {
+      "boot_runtime_selection_supported": true,
+      "database_schema": 6,
+      "forwarding_application_format_supported": true,
+      "maintenance_observation_protocol": 1,
+      "read_only_runtime_inspection_protocol": 1,
+      "read_only_state_inspection_protocol": 1,
+      "running_candidate_confirmation_default_enabled": false,
+      "running_candidate_confirmation_protocol": 1,
+      "signed_application_formats": [
+        1,
+        2
+      ],
+      "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+      "system_ota_supported": false
+    },
+    "bytes": 2405208,
+    "full_arm_chain_tested": false,
+    "glibc": [
+      "2.17",
+      "2.18",
+      "2.25",
+      "2.27",
+      "2.28",
+      "2.29",
+      "2.30",
+      "2.32",
+      "2.33",
+      "2.34",
+      "2.39"
+    ],
+    "hardware_access": false,
+    "installed": false,
+    "revision": "6c35352ac9b0e4980c8545a84c74a69078fd1e40",
+    "scope": "AArch64 production updater build-info only; not full ARM EmailRecovery chain",
+    "sha256": "9779a5d6eaf9dc1cb3c76ed0fc1fc8dd530afca0e4ab3ea33d8bc91c4c865bde",
+    "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63"
+  },
+  "boundaries": {
+    "fixture_revocation": "actual original Auth reads after synthetic SQL active=0/generation increment",
+    "health_max_age_ms": 5000,
+    "health_process_budget_ms": 250,
+    "real_owner_revocation_rpc_tested": false,
+    "same_core_bytes_required": true,
+    "schema9_explicit_root_rollback": "Denied before writes; no retained verified fallback launch profile in v1",
+    "setup_ap_automatic_health": false,
+    "smtp5_automatic_health": false,
+    "worker4_health_only": true
+  },
+  "branch_start_main": "7535535bc5a95c42ff1ea70743b97be561f2049a",
+  "cargo_fmt_all": true,
+  "dependency_merge": "04ac942eb89f49249d8f54bd632b143234467f19",
+  "dependency_pr215": "610d7fa63b1a0f129a3f146c0595171868f8e059",
+  "email_recovery": {
+    "automatic_health": "unsupported, real refusal asserted",
+    "chain_log_sha256": "363437dae7da453f1eac60c469dcef0c58aecb05bc6142f7724c4b0bc4881587",
+    "evidence": ".local/production-chain/09155ac77c7e4726805b58cb15aa51a4",
+    "hardware_tested": false,
+    "interruption": "original Snapshot both writers held after committed email4; SIGKILL, inspect and explicit fresh recovery",
+    "kind": "original-email4-then-recovery9",
+    "mode_matrix": {
+      "actual_program_metadata": {
+        "core": {
+          "component": "core",
+          "database_schema": 6,
+          "development_fixtures": false,
+          "forwarding_runtime_contract": {
+            "format": 1,
+            "outbox": {
+              "application_id": 1381189207,
+              "migrate_from": [
+                3
+              ],
+              "read_format": 4,
+              "write_format": 4
+            },
+            "worker_protocol": 5
+          },
+          "service_launch": {
+            "format": 1,
+            "modes": [
+              "device",
+              "forwarding_managed",
+              "setup_ap"
+            ]
+          },
+          "setup_ap_installation_contract": {
+            "application_format": 2,
+            "auth_protocol": 2,
+            "core_mode": "--serve-device-forwarding-managed-setup-ap",
+            "database_schema": 6,
+            "format": 1,
+            "material_format": 1,
+            "maximum_window_seconds": 3600,
+            "origin": "https://192.168.100.1:8443",
+            "owner_adoption": 1,
+            "parent_channel": 1,
+            "root_mode": "--serve-configurable",
+            "station_commit_channel": 1,
+            "station_trial_channel": 1
+          },
+          "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+          "target_arch": "x86_64",
+          "update_health_default_enabled": false,
+          "update_health_protocol": 1
+        },
+        "launcher": {
+          "component": "core-launcher",
+          "development_fixtures": false,
+          "launcher_protocol": 1,
+          "product_profile_protocol": 1,
+          "setup_ap_installation_contract": {
+            "application_format": 2,
+            "auth_protocol": 2,
+            "core_mode": "--serve-device-forwarding-managed-setup-ap",
+            "database_schema": 6,
+            "format": 1,
+            "material_format": 1,
+            "maximum_window_seconds": 3600,
+            "origin": "https://192.168.100.1:8443",
+            "owner_adoption": 1,
+            "parent_channel": 1,
+            "root_mode": "--serve-configurable",
+            "station_commit_channel": 1,
+            "station_trial_channel": 1
+          },
+          "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+          "target_arch": "x86_64",
+          "upgrade_check_protocol": 1
+        },
+        "worker": {
+          "development_fixtures": false,
+          "finite_root_actions": true,
+          "forwarding_runtime_contract": {
+            "format": 1,
+            "outbox": {
+              "application_id": 1381189207,
+              "migrate_from": [
+                3
+              ],
+              "read_format": 4,
+              "write_format": 4
+            },
+            "worker_protocol": 5
+          },
+          "protocol": 5,
+          "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+          "worker": true
+        }
+      },
+      "cases": [
+        {
+          "exit": 0,
+          "metadata": {
+            "authorization_verified": false,
+            "business": {
+              "application_id": 1381189698,
+              "automatic_migration": false,
+              "maintenance_from": [],
+              "read": [
+                6
+              ],
+              "write": 6
+            },
+            "component": "core",
+            "development_fixtures": false,
+            "features": {
+              "email": true,
+              "product_providers": true,
+              "recovery_execution": true
+            },
+            "format": 1,
+            "forwarding_runtime_contract": {
+              "format": 1,
+              "outbox": {
+                "application_id": 1381189207,
+                "migrate_from": [
+                  3
+                ],
+                "read_format": 4,
+                "write_format": 4
+              },
+              "worker_protocol": 5
+            },
+            "kind": "product-runtime-compatibility",
+            "mode": "legacy-v1",
+            "opens_database": false,
+            "prefixes": [],
+            "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+            "starts_services": false,
+            "target_arch": "x86_64"
+          },
+          "mode": "legacy-v1",
+          "supported": true
+        },
+        {
+          "exit": 4,
+          "metadata": null,
+          "mode": "product-v1",
+          "supported": false
+        },
+        {
+          "exit": 0,
+          "metadata": {
+            "authorization_verified": false,
+            "business": {
+              "application_id": 1381189698,
+              "automatic_migration": false,
+              "maintenance_from": [],
+              "read": [
+                6
+              ],
+              "write": 6
+            },
+            "component": "core",
+            "development_fixtures": false,
+            "features": {
+              "email": true,
+              "product_providers": true,
+              "recovery_execution": true
+            },
+            "format": 1,
+            "forwarding_runtime_contract": {
+              "format": 1,
+              "outbox": {
+                "application_id": 1381189207,
+                "migrate_from": [
+                  3
+                ],
+                "read_format": 4,
+                "write_format": 4
+              },
+              "worker_protocol": 5
+            },
+            "kind": "product-runtime-compatibility",
+            "mode": "product-email-v1",
+            "opens_database": false,
+            "prefixes": [
+              "--enable-product-providers-candidate"
+            ],
+            "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+            "starts_services": false,
+            "target_arch": "x86_64"
+          },
+          "mode": "product-email-v1",
+          "supported": true
+        },
+        {
+          "exit": 4,
+          "metadata": null,
+          "mode": "product-recovery-v1",
+          "supported": false
+        },
+        {
+          "exit": 0,
+          "metadata": {
+            "authorization_verified": false,
+            "business": {
+              "application_id": 1381189698,
+              "automatic_migration": false,
+              "maintenance_from": [
+                6,
+                7
+              ],
+              "read": [
+                9
+              ],
+              "write": 9
+            },
+            "component": "core",
+            "development_fixtures": false,
+            "features": {
+              "email": true,
+              "product_providers": true,
+              "recovery_execution": true
+            },
+            "format": 1,
+            "forwarding_runtime_contract": {
+              "format": 1,
+              "outbox": {
+                "application_id": 1381189207,
+                "migrate_from": [
+                  3
+                ],
+                "read_format": 4,
+                "write_format": 4
+              },
+              "worker_protocol": 5
+            },
+            "kind": "product-runtime-compatibility",
+            "mode": "product-email-recovery-v1",
+            "opens_database": false,
+            "prefixes": [
+              "--enable-product-providers-candidate",
+              "--enable-secure-recovery-candidate"
+            ],
+            "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+            "starts_services": false,
+            "target_arch": "x86_64"
+          },
+          "mode": "product-email-recovery-v1",
+          "supported": true
+        },
+        {
+          "exit": 4,
+          "metadata": null,
+          "mode": "product-recovery-health-v1",
+          "supported": false
+        }
+      ],
+      "program_sha256": {
+        "rustsimhub-core": "178df21ccb21cef9866b60d6829895c4da787a47d065b59e8f2592ad35cab52c",
+        "rustsimhub-core-launcher": "748508985adeb019857c5a55a13e2283e7540aeb36931043eece8aa8f504add7",
+        "rustsimhub-forwarder": "749a991bc021a6936aedc5da2a1e859e3f15b4389c3a781547ebb77ea8de4bdd"
+      },
+      "report_not_authority": true
+    },
+    "report_not_authority": true,
+    "result": {
+      "driver_sha256": "12656c6d322245813a937de440146465edb11d7c4de7209e61ff6aa7ca3fde00",
+      "exit": 0,
+      "hardware_access": false,
+      "image": "sha256:1966175f8796bfed32dab54145b92c4dfc06cb085f24a0d1ee26ebd3aa314920",
+      "legacy_driver_sha256": "5a7cc9f29d997491217d43dd0f7af6d29c3cfd689df1890e9b61b5f7af95149a",
+      "matrix_inputs": {
+        "interruption": "test-only SIGSTOP after original email commit, SIGKILL then explicit fresh product-recover",
+        "no_email_tests_sha256": "363aeec98215ec2cc16d86b878bd74463099960864a297e1aba3ae4d7143e2a7",
+        "worker4_sha256": "3cd566da710e8f5698a27f4e30fa8ba9845e0f743f463f5645100981ef64fc87"
+      },
+      "native_architecture_adapter": true,
+      "network": false,
+      "passed": true,
+      "production_epoch_assigned": false,
+      "production_keys": false,
+      "programs": {
+        "nkn-root": {
+          "bytes": 3604640,
+          "sha256": "d5ca7a3edcd61f18ce013146c1f94024233aaca1c0bfb229911ebeb791b0cabc"
+        },
+        "nkn-sdk-engine": {
+          "bytes": 11346080,
+          "sha256": "6eb3137ac98cb7bef7b651c5cef9046f4ba6a89e288f6e2688b6309b2f0b04eb"
+        },
+        "rustsimhub-audio-alsa": {
+          "bytes": 5000760,
+          "sha256": "884889d87f9f20be7082baf02d8576178edfb1b7e966749675bb5657c4cc2ce3"
+        },
+        "rustsimhub-ble-recovery": {
+          "bytes": 2341536,
+          "sha256": "3e25087c2f51e80f23533c59b5523830fb17b5217a513873653bccf8c8400a40"
+        },
+        "rustsimhub-core": {
+          "bytes": 9050608,
+          "sha256": "178df21ccb21cef9866b60d6829895c4da787a47d065b59e8f2592ad35cab52c"
+        },
+        "rustsimhub-core-launcher": {
+          "bytes": 693136,
+          "sha256": "748508985adeb019857c5a55a13e2283e7540aeb36931043eece8aa8f504add7"
+        },
+        "rustsimhub-edge": {
+          "bytes": 4281424,
+          "sha256": "f3e1cae0397f2a4ca856966c2f050091627349fdb6007bf8985ec2edb74f5842"
+        },
+        "rustsimhub-forwarder": {
+          "bytes": 4244176,
+          "sha256": "749a991bc021a6936aedc5da2a1e859e3f15b4389c3a781547ebb77ea8de4bdd"
+        },
+        "rustsimhub-migrate": {
+          "bytes": 1613584,
+          "sha256": "547cad55197e20f9e71737c88d74bb8d1e57ccc509b98540eac02bb83c91b74b"
+        },
+        "rustsimhub-update": {
+          "bytes": 3096496,
+          "sha256": "e8e29b7d959f09e12060a4b2c177cdedc2f52bab0d236bfeabbbb0834bd568fd"
+        },
+        "simhubctl": {
+          "bytes": 1139752,
+          "sha256": "96f22a97d12ad8d5677d4f76e58e10135ddcb7bb6c23ee83ec2a07cdf7eba0c4"
+        }
+      },
+      "revision": "6c35352ac9b0e4980c8545a84c74a69078fd1e40",
+      "runtime_image": "sha256:5ee1ac74e6bbbedad27abe1574d94faac1e73a12eab292dce78e40e718906ca8",
+      "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+      "synthetic_pid1_cgroup": true
+    },
+    "revision": "6c35352ac9b0e4980c8545a84c74a69078fd1e40",
+    "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63"
+  },
+  "format": 1,
+  "git_diff_check": true,
+  "global_progress": {
+    "accepted": 20,
+    "changed": false,
+    "denominator": 169,
+    "percent": 81.5,
+    "weighted_percent": 10.6
+  },
+  "hardware_acceptance": false,
+  "kind": "web5-matrix-delivery-evidence",
+  "legacy_fixture": {
+    "durable_enabled": false,
+    "nonempty_original_attempt_rows": 3,
+    "production_program_source": false,
+    "separate_original_locked_format3_graph": true,
+    "sha256": "5a7cc9f29d997491217d43dd0f7af6d29c3cfd689df1890e9b61b5f7af95149a",
+    "source": "1bfc722fab2f9c2f1639913746bbe457beddb734",
+    "states": [
+      "confirmed",
+      "unknown",
+      "unknown"
+    ]
+  },
+  "library_tests": {
+    "default": {
+      "failed": 0,
+      "ignored": 17,
+      "passed": 102,
+      "threads": 2
+    },
+    "email": {
+      "failed": 0,
+      "ignored": 19,
+      "passed": 103,
+      "threads": 2
+    }
+  },
+  "local_log_sha256": {
+    "arm-updater-second.log": "11281880d80141304a226a8b7426ce4d28fa5de29f2bb8ed8195ae14e7a4a630",
+    "chain-6c35352-second.log": "a7ac6073703ac4d9f009fe2bb1d34fb8007eb745011ff53ce09d0a8c0bffc471",
+    "clippy-final.log": "c7c3fa9a80674d702df3c0db75794d1b0cad926b9c06d31aab4afdbf11dad090",
+    "default-lib-final.log": "07737137c68f5a11c6f25001c9bf54329f11ad6a5c219c538795d0248f4511e0",
+    "email-lib-final.log": "2bd8f8023afffeaf00956b288d40f727628e9ec6239aa425ce9f122526a19a02",
+    "sdk-6c35352.log": "5347504221c4580512471a8054c17aac54be64f54e39806538bbb636b98d2298",
+    "wasm-combined-final.log": "acd8da7c29fa67df291403e269650dbb1fd53eb92d0c577bcd941be032d2d409"
+  },
+  "main_drift_review": {
+    "head": "c5fd2d082e25d15535f249f11f5b7a4604427fea",
+    "merge_tree_conflicts": false,
+    "merged_tree_tested": false
+  },
+  "merged": false,
+  "mode_build_variants": {
+    "default": {
+      "actual_program_metadata": {
+        "core": {
+          "component": "core",
+          "database_schema": 6,
+          "development_fixtures": false,
+          "forwarding_runtime_contract": {
+            "format": 1,
+            "outbox": {
+              "application_id": 1381189207,
+              "migrate_from": [
+                1,
+                2
+              ],
+              "read_format": 3,
+              "write_format": 3
+            },
+            "worker_protocol": 4
+          },
+          "service_launch": {
+            "format": 1,
+            "modes": [
+              "device",
+              "forwarding_managed",
+              "setup_ap"
+            ]
+          },
+          "setup_ap_installation_contract": {
+            "application_format": 2,
+            "auth_protocol": 2,
+            "core_mode": "--serve-device-forwarding-managed-setup-ap",
+            "database_schema": 6,
+            "format": 1,
+            "material_format": 1,
+            "maximum_window_seconds": 3600,
+            "origin": "https://192.168.100.1:8443",
+            "owner_adoption": 1,
+            "parent_channel": 1,
+            "root_mode": "--serve-configurable",
+            "station_commit_channel": 1,
+            "station_trial_channel": 1
+          },
+          "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+          "target_arch": "x86_64",
+          "update_health_default_enabled": false,
+          "update_health_protocol": 1
+        },
+        "launcher": {
+          "component": "core-launcher",
+          "development_fixtures": false,
+          "launcher_protocol": 1,
+          "product_profile_protocol": 1,
+          "setup_ap_installation_contract": {
+            "application_format": 2,
+            "auth_protocol": 2,
+            "core_mode": "--serve-device-forwarding-managed-setup-ap",
+            "database_schema": 6,
+            "format": 1,
+            "material_format": 1,
+            "maximum_window_seconds": 3600,
+            "origin": "https://192.168.100.1:8443",
+            "owner_adoption": 1,
+            "parent_channel": 1,
+            "root_mode": "--serve-configurable",
+            "station_commit_channel": 1,
+            "station_trial_channel": 1
+          },
+          "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+          "target_arch": "x86_64",
+          "upgrade_check_protocol": 1
+        },
+        "worker": {
+          "development_fixtures": false,
+          "finite_root_actions": true,
+          "forwarding_runtime_contract": {
+            "format": 1,
+            "outbox": {
+              "application_id": 1381189207,
+              "migrate_from": [
+                1,
+                2
+              ],
+              "read_format": 3,
+              "write_format": 3
+            },
+            "worker_protocol": 4
+          },
+          "protocol": 4,
+          "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+          "worker": true
+        }
+      },
+      "cases": [
+        {
+          "exit": 0,
+          "mode": "legacy-v1",
+          "supported": true
+        },
+        {
+          "exit": 4,
+          "mode": "product-v1",
+          "supported": false
+        },
+        {
+          "exit": 4,
+          "mode": "product-email-v1",
+          "supported": false
+        },
+        {
+          "exit": 4,
+          "mode": "product-recovery-v1",
+          "supported": false
+        },
+        {
+          "exit": 4,
+          "mode": "product-email-recovery-v1",
+          "supported": false
+        },
+        {
+          "exit": 4,
+          "mode": "product-recovery-health-v1",
+          "supported": false
+        }
+      ],
+      "program_sha256": {
+        "rustsimhub-core": "e2b5635ddf9f526db126c1ab38942d96587e220f8159526a29d80c33bf786b07",
+        "rustsimhub-core-launcher": "748508985adeb019857c5a55a13e2283e7540aeb36931043eece8aa8f504add7",
+        "rustsimhub-forwarder": "3cd566da710e8f5698a27f4e30fa8ba9845e0f743f463f5645100981ef64fc87"
+      }
+    },
+    "email": {
+      "actual_program_metadata": {
+        "core": {
+          "component": "core",
+          "database_schema": 6,
+          "development_fixtures": false,
+          "forwarding_runtime_contract": {
+            "format": 1,
+            "outbox": {
+              "application_id": 1381189207,
+              "migrate_from": [
+                3
+              ],
+              "read_format": 4,
+              "write_format": 4
+            },
+            "worker_protocol": 5
+          },
+          "service_launch": {
+            "format": 1,
+            "modes": [
+              "device",
+              "forwarding_managed",
+              "setup_ap"
+            ]
+          },
+          "setup_ap_installation_contract": {
+            "application_format": 2,
+            "auth_protocol": 2,
+            "core_mode": "--serve-device-forwarding-managed-setup-ap",
+            "database_schema": 6,
+            "format": 1,
+            "material_format": 1,
+            "maximum_window_seconds": 3600,
+            "origin": "https://192.168.100.1:8443",
+            "owner_adoption": 1,
+            "parent_channel": 1,
+            "root_mode": "--serve-configurable",
+            "station_commit_channel": 1,
+            "station_trial_channel": 1
+          },
+          "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+          "target_arch": "x86_64",
+          "update_health_default_enabled": false,
+          "update_health_protocol": 1
+        },
+        "launcher": {
+          "component": "core-launcher",
+          "development_fixtures": false,
+          "launcher_protocol": 1,
+          "product_profile_protocol": 1,
+          "setup_ap_installation_contract": {
+            "application_format": 2,
+            "auth_protocol": 2,
+            "core_mode": "--serve-device-forwarding-managed-setup-ap",
+            "database_schema": 6,
+            "format": 1,
+            "material_format": 1,
+            "maximum_window_seconds": 3600,
+            "origin": "https://192.168.100.1:8443",
+            "owner_adoption": 1,
+            "parent_channel": 1,
+            "root_mode": "--serve-configurable",
+            "station_commit_channel": 1,
+            "station_trial_channel": 1
+          },
+          "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+          "target_arch": "x86_64",
+          "upgrade_check_protocol": 1
+        },
+        "worker": {
+          "development_fixtures": false,
+          "finite_root_actions": true,
+          "forwarding_runtime_contract": {
+            "format": 1,
+            "outbox": {
+              "application_id": 1381189207,
+              "migrate_from": [
+                3
+              ],
+              "read_format": 4,
+              "write_format": 4
+            },
+            "worker_protocol": 5
+          },
+          "protocol": 5,
+          "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+          "worker": true
+        }
+      },
+      "cases": [
+        {
+          "exit": 0,
+          "mode": "legacy-v1",
+          "supported": true
+        },
+        {
+          "exit": 4,
+          "mode": "product-v1",
+          "supported": false
+        },
+        {
+          "exit": 0,
+          "mode": "product-email-v1",
+          "supported": true
+        },
+        {
+          "exit": 4,
+          "mode": "product-recovery-v1",
+          "supported": false
+        },
+        {
+          "exit": 0,
+          "mode": "product-email-recovery-v1",
+          "supported": true
+        },
+        {
+          "exit": 4,
+          "mode": "product-recovery-health-v1",
+          "supported": false
+        }
+      ],
+      "program_sha256": {
+        "rustsimhub-core": "178df21ccb21cef9866b60d6829895c4da787a47d065b59e8f2592ad35cab52c",
+        "rustsimhub-core-launcher": "748508985adeb019857c5a55a13e2283e7540aeb36931043eece8aa8f504add7",
+        "rustsimhub-forwarder": "749a991bc021a6936aedc5da2a1e859e3f15b4389c3a781547ebb77ea8de4bdd"
+      }
+    },
+    "product": {
+      "actual_program_metadata": {
+        "core": {
+          "component": "core",
+          "database_schema": 6,
+          "development_fixtures": false,
+          "forwarding_runtime_contract": {
+            "format": 1,
+            "outbox": {
+              "application_id": 1381189207,
+              "migrate_from": [
+                1,
+                2
+              ],
+              "read_format": 3,
+              "write_format": 3
+            },
+            "worker_protocol": 4
+          },
+          "service_launch": {
+            "format": 1,
+            "modes": [
+              "device",
+              "forwarding_managed",
+              "setup_ap"
+            ]
+          },
+          "setup_ap_installation_contract": {
+            "application_format": 2,
+            "auth_protocol": 2,
+            "core_mode": "--serve-device-forwarding-managed-setup-ap",
+            "database_schema": 6,
+            "format": 1,
+            "material_format": 1,
+            "maximum_window_seconds": 3600,
+            "origin": "https://192.168.100.1:8443",
+            "owner_adoption": 1,
+            "parent_channel": 1,
+            "root_mode": "--serve-configurable",
+            "station_commit_channel": 1,
+            "station_trial_channel": 1
+          },
+          "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+          "target_arch": "x86_64",
+          "update_health_default_enabled": false,
+          "update_health_protocol": 1
+        },
+        "launcher": {
+          "component": "core-launcher",
+          "development_fixtures": false,
+          "launcher_protocol": 1,
+          "product_profile_protocol": 1,
+          "setup_ap_installation_contract": {
+            "application_format": 2,
+            "auth_protocol": 2,
+            "core_mode": "--serve-device-forwarding-managed-setup-ap",
+            "database_schema": 6,
+            "format": 1,
+            "material_format": 1,
+            "maximum_window_seconds": 3600,
+            "origin": "https://192.168.100.1:8443",
+            "owner_adoption": 1,
+            "parent_channel": 1,
+            "root_mode": "--serve-configurable",
+            "station_commit_channel": 1,
+            "station_trial_channel": 1
+          },
+          "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+          "target_arch": "x86_64",
+          "upgrade_check_protocol": 1
+        },
+        "worker": {
+          "development_fixtures": false,
+          "finite_root_actions": true,
+          "forwarding_runtime_contract": {
+            "format": 1,
+            "outbox": {
+              "application_id": 1381189207,
+              "migrate_from": [
+                1,
+                2
+              ],
+              "read_format": 3,
+              "write_format": 3
+            },
+            "worker_protocol": 4
+          },
+          "protocol": 4,
+          "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+          "worker": true
+        }
+      },
+      "cases": [
+        {
+          "exit": 0,
+          "mode": "legacy-v1",
+          "supported": true
+        },
+        {
+          "exit": 0,
+          "mode": "product-v1",
+          "supported": true
+        },
+        {
+          "exit": 4,
+          "mode": "product-email-v1",
+          "supported": false
+        },
+        {
+          "exit": 0,
+          "mode": "product-recovery-v1",
+          "supported": true
+        },
+        {
+          "exit": 4,
+          "mode": "product-email-recovery-v1",
+          "supported": false
+        },
+        {
+          "exit": 0,
+          "mode": "product-recovery-health-v1",
+          "supported": true
+        }
+      ],
+      "program_sha256": {
+        "rustsimhub-core": "aaa7bedd6cbd1016f06917db49cbe75e9de9a609f0e8fa4a95bc598e108c1487",
+        "rustsimhub-core-launcher": "748508985adeb019857c5a55a13e2283e7540aeb36931043eece8aa8f504add7",
+        "rustsimhub-forwarder": "3cd566da710e8f5698a27f4e30fa8ba9845e0f743f463f5645100981ef64fc87"
+      }
+    }
+  },
+  "mode_case_count": 18,
+  "native_sdk": {
+    "go": "go1.27.3",
+    "license_modules": 17,
+    "no_new_external_modules": true,
+    "public_network_used": false
+  },
+  "not_run": [
+    "Separate full chain starting at business schema7 (schema7 was traversed by actual 6-to7-to9 chain).",
+    "Full same-source ARM EmailRecovery runtime, entire ARM workspace, combined four-package system image, full kernel boot and real PID1/cgroup/NSS.",
+    "Full workspace all-parallel stress and hardware stability. Two-thread updater libraries did not reproduce the previously reported intermittent lock failures; no claim that those failures were fixed.",
+    "Devices, radio, USB/AP, NAS/servers, real Owner/Auth revocation RPC or SIM/messages, external business sends, public NKN/TURN, production signatures/epoch, health confirmation or flashing.",
+    "Paid Cloud CI execution."
+  ],
+  "product_source": "6c35352ac9b0e4980c8545a84c74a69078fd1e40",
+  "production_signed": false,
+  "python_tests": {
+    "failed": 0,
+    "passed": 4
+  },
+  "release_ready": false,
+  "report_head_docs_only": true,
+  "report_not_authority": true,
+  "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+  "strict_clippy": {
+    "features": [
+      "email-production-candidate"
+    ],
+    "package": "rustsimhub-update",
+    "passed": true,
+    "profile": "release",
+    "target": "lib",
+    "warnings": "deny"
+  },
+  "supported_cases": 8,
+  "wasm_browser": {
+    "browser_executed": true,
+    "built": true,
+    "core_business_authorization_tested": false,
+    "interop": {
+      "browser": "154.0.8037.57",
+      "cases": [
+        "actual WebCrypto nonexportable key; true native/WASM Unicode empty and maximum messages",
+        "ordinary NKN purpose stays separate and carries encrypted normal-control records",
+        "wrong pinned device fails before any application message",
+        "tampered encrypted device binding fails before client authority is adopted",
+        "wrong actual Ed25519 private key cannot sign client binding",
+        "request tamper is rejected by native peer with no retry",
+        "response tamper closes actual WASM cipher",
+        "old response replay fails expected nonce and request association",
+        "reflected outbound ciphertext cannot be a device response",
+        "foreign-session response rejected despite equal record positions",
+        "cancel after sending discards actual late ciphertext and never resubmits",
+        "local body limit performs no application IO",
+        "CSPRNG denial has no fallback or transport attempt",
+        "monotonic clock rollback retires established session before sending",
+        "real IndexedDB nonexportable binding signs through stored recovery adapter",
+        "production Web Bluetooth factory uses actual stored key and bounded T5 fragments with native crypto",
+        "production Bluetooth adapter rejects actual tampered native ciphertext and does not retry",
+        "late Bluetooth selection after disconnect never connects or creates a session"
+      ],
+      "javascript_bytes": 17270,
+      "passed": 18,
+      "scope": "actual application crypto and production browser adapter; synthetic Bluetooth/native peer, no Core business or real device acceptance",
+      "wasm_bytes": 192244,
+      "wasm_sha256": "4b04f58c87a7f9c916deb4251204bfa6f6ec347f80a14a83ef1d887ded7cda94"
+    },
+    "kind": "actual-wasm-native-browser-matrix",
+    "native_peer_sha256": "f52a3ae759f9c7c90d4dc08d9f1cfdf0d942dd044ff1e05292b463e0f390bdb5",
+    "physical_radio": false,
+    "product": {
+      "automatic_device_selection": false,
+      "browser": "154.0.8037.57",
+      "built_candidate": true,
+      "cached_files": 16,
+      "csp_no_dynamic_javascript": true,
+      "gesture_before_await": true,
+      "native_crypto": {
+        "cases": [
+          "actual WebCrypto nonexportable key; true native/WASM Unicode empty and maximum messages",
+          "ordinary NKN purpose stays separate and carries encrypted normal-control records",
+          "wrong pinned device fails before any application message",
+          "tampered encrypted device binding fails before client authority is adopted",
+          "wrong actual Ed25519 private key cannot sign client binding",
+          "request tamper is rejected by native peer with no retry",
+          "response tamper closes actual WASM cipher",
+          "old response replay fails expected nonce and request association",
+          "reflected outbound ciphertext cannot be a device response",
+          "foreign-session response rejected despite equal record positions",
+          "cancel after sending discards actual late ciphertext and never resubmits",
+          "local body limit performs no application IO",
+          "CSPRNG denial has no fallback or transport attempt",
+          "monotonic clock rollback retires established session before sending",
+          "real IndexedDB nonexportable binding signs through stored recovery adapter",
+          "production Web Bluetooth factory uses actual stored key and bounded T5 fragments with native crypto",
+          "production Bluetooth adapter rejects actual tampered native ciphertext and does not retry",
+          "late Bluetooth selection after disconnect never connects or creates a session"
+        ],
+        "passed": 18,
+        "scope": "actual application crypto and production browser adapter; synthetic Bluetooth/native peer, no Core business or real device acceptance"
+      },
+      "physical_radio": false,
+      "published": false,
+      "static_only_offline_cache": true,
+      "wasm_loaded": true
+    },
+    "published": false,
+    "report_not_authority": true,
+    "revision": "6c35352ac9b0e4980c8545a84c74a69078fd1e40",
+    "source_archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+    "wasm_bindgen_version": "0.2.129",
+    "wasm_js_sha256": "f3ffc2f66a5967f5743e280180f63ad1232891f61cd5d5b907558af07d6197e6",
+    "wasm_sha256": "4b04f58c87a7f9c916deb4251204bfa6f6ec347f80a14a83ef1d887ded7cda94"
+  }
+}
