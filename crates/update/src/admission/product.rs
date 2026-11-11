@@ -262,7 +262,20 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
             crate::MAX_PAYLOAD,
         )?);
     }
-    let inspect_confirmed = command == "product-inspect" && store.product_pending().is_none();
+    let source = source_directory(reopen)?;
+    let bytes = store::read_checked(
+        &source.join("manifest.json"),
+        materials::package_manifest_limit(),
+    )?;
+    let preview: ProductManifestV1 = serde_json::from_slice(&bytes).map_err(|_| Error::Invalid)?;
+    // Root installation and data migration precede application staging. After
+    // interruption, no slot candidate exists yet, but the retained signed Root
+    // transaction still binds the inbox application, not the confirmed baseline.
+    // Preview only selects the fixed input path; full installed-key verification
+    // below independently binds that exact application and every Root payload.
+    let inspect_confirmed = command == "product-inspect"
+        && store.product_pending().is_none()
+        && preview.bindings.application_manifest_sha256 == crate::manifest_hash(&baseline.0);
     let candidate_directory = if inspect_confirmed {
         baseline_directory.clone()
     } else {
@@ -301,12 +314,6 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
             crate::MAX_PAYLOAD,
         )?);
     }
-    let source = source_directory(reopen)?;
-    let bytes = store::read_checked(
-        &source.join("manifest.json"),
-        materials::package_manifest_limit(),
-    )?;
-    let preview: ProductManifestV1 = serde_json::from_slice(&bytes).map_err(|_| Error::Invalid)?;
     let nss = install(NssObservation::observe_for(
         &root,
         preview.bindings.profile.product(),

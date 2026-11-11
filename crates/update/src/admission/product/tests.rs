@@ -975,9 +975,24 @@ fn interrupted_email_recovery() {
     let outbox = fs::read(Path::new(DATA).join("forwarding/outbox.sqlite3")).unwrap();
     assert_eq!(u32::from_be_bytes(business[60..64].try_into().unwrap()), 6);
     assert_eq!(u32::from_be_bytes(outbox[60..64].try_into().unwrap()), 4);
+    // Root is applied before the application slot is staged. The retained
+    // transaction binds epoch2 while the only confirmed slot still names epoch1.
+    let ledger_before = fs::read(Path::new(APP).join("state.json")).unwrap();
+    let ledger: serde_json::Value = serde_json::from_slice(&ledger_before).unwrap();
+    assert!(ledger["candidate"].is_null());
+    let retained: ProductManifestV1 = serde_json::from_slice(
+        &fs::read(source_directory(true).unwrap().join("manifest.json")).unwrap(),
+    )
+    .unwrap();
+    let confirmed = ledger["confirmed"]["hash"].as_str().unwrap();
+    assert_ne!(retained.bindings.application_manifest_sha256, confirmed);
     // Reopen is a NEW qualified maintenance operation over the original durable
     // journals. It is explicit, never a retry or a JSON-restored live capability.
     dispatch(&["product-inspect".into()]).expect("explicit interrupted inspect must reopen");
+    assert_eq!(
+        fs::read(Path::new(APP).join("state.json")).unwrap(),
+        ledger_before
+    );
     assert_eq!(
         fs::read(Path::new(DATA).join("store.sqlite3")).unwrap(),
         business
