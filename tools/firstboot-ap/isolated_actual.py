@@ -11,6 +11,8 @@ import json
 import os
 from pathlib import Path
 import shutil
+import select
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -83,6 +85,37 @@ def fixture(root,bundle,application,public,programs,source,qemu,sysroot,info):
     write(root,runtime.BASE+'/system/installation.complete',runtime.COMPLETE)
     return actual,layer
 
+def owned_revoked_fixture(c,signer,work):
+    """Real original offline signed Owner bootstrap; DB revocation is explicitly a fixture."""
+    public=work/'owner.der';message=work/'owner-message';signature=work/'owner-signature'
+    command(['/usr/bin/openssl','pkey','-in',str(signer),'-pubout','-outform','DER','-out',str(public)])
+    key=public.read_bytes()[-32:].hex()
+    alias=Path('/var/lib/rustsimhub-core');alias.mkdir(parents=True,exist_ok=True)
+    command(['/usr/bin/mount','--bind',str(c.path(runtime.BASE+'/core')),str(alias)])
+    process=None
+    try:
+        argv=['/usr/bin/setpriv','--reuid=986','--regid=986','--clear-groups','--no-new-privs',str(c.qemu),'-L',str(c.sysroot),str(c.path('/usr/share/rustsimhub/factory-app/rustsimhub-core')),'--provision-owner',str(alias/'state'),str(alias/'identity'),key]
+        process=subprocess.Popen(argv,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,env={},cwd='/')
+        assert select.select([process.stdout],[],[],10)[0],'bounded own Owner challenge unavailable'
+        line=process.stdout.readline(32769);assert len(line)<=32768
+        challenge=json.loads(line);message.write_bytes(bytes(challenge['transcript']))
+        command(['/usr/bin/openssl','pkeyutl','-sign','-inkey',str(signer),'-rawin','-in',str(message),'-out',str(signature)])
+        out,err=process.communicate(encoded(list(signature.read_bytes())),timeout=15)
+        assert process.returncode==0 and json.loads(out)['owner_initialized'] is True,'own offline proof failed'
+    finally:
+        if process is not None and process.poll() is None:process.kill();process.communicate()
+        command(['/usr/bin/umount',str(alias)])
+    f=runtime.Files(c.root);anchor=json.loads(f.read(runtime.BASE+'/system/device.identity.anchor'))
+    marker=b'RustSimHub.DeviceSetup.Window.v1\0'+bytes.fromhex(anchor['device_public_key_hex'])
+    write(c.root,runtime.BASE+'/core/setup/setup.used',marker,986)
+    path=f.path(runtime.BASE+'/core/state/store.sqlite3')
+    with sqlite3.connect('file:'+str(path)+'?mode=rw',uri=True) as db:
+        assert db.execute("SELECT count(*) FROM principals WHERE kind='owner' AND active=1").fetchone()==(1,)
+        # The original Auth revoke RPC is not exercised by this SQL fixture.
+        db.execute("UPDATE principals SET active=0,generation=generation+1 WHERE kind='owner'");db.commit()
+        principal=db.execute("SELECT id,public_key,kind,scopes,generation,active FROM principals").fetchall()
+    return marker,principal
+
 def execute(args):
     assert os.geteuid()==0,'isolated Root container required'
     assert args.work.is_dir() and not any(args.work.iterdir()),'fresh owned work directory required'
@@ -112,6 +145,7 @@ def execute(args):
         root=args.work/('device-'+str(number));c,layer=fixture(root,bundle,application,public,args.programs,source,args.qemu,args.sysroot,infos)
         f=runtime.Files(root)
         before={name:f.read(runtime.BASE+name,986,maximum=2*1024*1024) for name in ['/core/identity/identity.seed','/core/setup/setup.code','/core/state/store.sqlite3']}
+        revoked=owned_revoked_fixture(c,key,args.work) if number==2 else None
         if number==1:
             c.fail_ap=True
             try:runtime.run(root,c)
@@ -141,6 +175,11 @@ def execute(args):
         assert 'key.der' not in json.dumps(runtime.inspect(root))
         materials.append([f.read(runtime.BASE+'/core/identity/identity.seed',986),f.read(runtime.BASE+'/setup-edge/installation/tls/cert.der',985),f.read(runtime.BASE+'/setup-edge/installation/tls/key.der',985),f.read(runtime.BASE+'/system/setup-ap/installation/config.json')])
         checks.append('actual_generation_repeat_private_permissions_'+str(number))
+        if revoked:
+            assert f.read(runtime.BASE+'/core/setup/setup.used',986)==revoked[0]
+            with sqlite3.connect('file:'+str(f.path(runtime.BASE+'/core/state/store.sqlite3'))+'?mode=ro',uri=True) as db:
+                assert db.execute('SELECT id,public_key,kind,scopes,generation,active FROM principals').fetchall()==revoked[1]
+            checks.append('actual_offline_owner_proof_then_revoked_db_fixture_and_used_marker_preserved')
         # Existing installation plus historical generic marker cannot create a new request.
         request=f.path(runtime.BASE+'/system/firstboot-ap.request');saved=request.read_bytes();request.unlink()
         old=f.path(runtime.SOURCE+'/manifest.json');saved_manifest=old.read_bytes();old.chmod(0o644);old.write_bytes(b'bad materials on old device')
@@ -159,7 +198,7 @@ def execute(args):
         checks.append('old_device_unchanged_and_wrong_private_mode_refused_'+str(number))
     assert all(a!=b for a,b in zip(materials[0],materials[1])),'new devices reused identity/certificate/key/AP credentials'
     checks.append('two_new_devices_have_independent_random_identity_tls_ap_material')
-    return {'format':1,'passed':True,'checks':checks,'actual_program_source_sha256':source,'installer_revision':manifest['installer_revision'],'bundle_sha256':package.sha((bundle/'manifest.json').read_bytes()),'actual_arm_cli':True,'synthetic_pid1_service_status':True,'real_pid1_tested':False,'listeners_started':False,'network_actions':False,'owner_claim_tested':False,'public_installable':False}
+    return {'format':1,'passed':True,'checks':checks,'actual_program_source_sha256':source,'installer_revision':manifest['installer_revision'],'bundle_sha256':package.sha((bundle/'manifest.json').read_bytes()),'actual_arm_cli':True,'synthetic_pid1_service_status':True,'real_pid1_tested':False,'listeners_started':False,'network_actions':False,'offline_temporary_owner_proof_tested':True,'owner_revocation_rpc_tested':False,'owner_claim_tested':False,'public_installable':False}
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
