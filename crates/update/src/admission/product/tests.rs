@@ -795,6 +795,26 @@ fn email_chain_impl(recovery: bool) {
                 .completed()
                 .unwrap();
         committed.revalidate().unwrap();
+        let root_profile = fs::read("/etc/rustsimhub/product-profile.json").unwrap();
+        let ledger_before_rollback = fs::read(Path::new(APP).join("state.json")).unwrap();
+        let data_before_rollback = fs::read(Path::new(DATA).join("store.sqlite3")).unwrap();
+        assert!(
+            dispatch(&["product-rollback".into()]).is_err(),
+            "schema9 cannot revert Root to an unproven schema6 launch profile"
+        );
+        assert_eq!(
+            fs::read("/etc/rustsimhub/product-profile.json").unwrap(),
+            root_profile
+        );
+        assert_eq!(
+            fs::read(Path::new(APP).join("state.json")).unwrap(),
+            ledger_before_rollback
+        );
+        assert_eq!(
+            fs::read(Path::new(DATA).join("store.sqlite3")).unwrap(),
+            data_before_rollback
+        );
+        assert_eq!(matrix_outbox_receipts(), *receipts.as_ref().unwrap());
         assert!(
             dispatch(&["product-activate".into()]).is_err(),
             "SMTP5 automatic health activation remains unsupported"

@@ -403,6 +403,17 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
     }
     #[cfg(test)]
     eprintln!("product dispatch: {command} comparison");
+    // v1 binds candidate/fallback Core bytes but does not retain a verified
+    // fallback launch-profile capability. Reverting Root prefixes after a
+    // schema9 migration could start the same Core in its schema6 base mode.
+    // Application fallback keeps the installed recovery profile; explicit
+    // Root rollback must remain closed until such before-profile proof exists.
+    if command == "product-rollback"
+        && expected.profile.recovery()
+        && snapshot.business.version.format == 9
+    {
+        return Err(Error::Denied);
+    }
     let admission = ProductDataAdmission::compare(&snapshot, &selected, &next, &fallback)?;
     if admission.exit_code() == 4 {
         return Err(Error::Denied);

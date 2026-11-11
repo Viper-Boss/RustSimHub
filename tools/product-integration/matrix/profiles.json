@@ -2,13 +2,91 @@
   "format": 1,
   "report_not_authority": true,
   "profiles": [
-    {"mode":"legacy-v1","business_schema":6,"requires":[],"automatic_health":false,"full_chain":"default"},
-    {"mode":"product-v1","business_schema":6,"requires":["product_providers"],"excludes":["email"],"automatic_health":false},
-    {"mode":"product-email-v1","business_schema":6,"requires":["product_providers","email"],"automatic_health":false,"full_chain":"email"},
-    {"mode":"product-recovery-v1","business_schema":9,"requires":["product_providers","recovery_execution"],"excludes":["email"],"automatic_health":false},
-    {"mode":"product-email-recovery-v1","business_schema":9,"requires":["product_providers","email","recovery_execution"],"automatic_health":false,"full_chain":"email-recovery","migration_order":["email3-to4-at-base6","business6-or7-to9"],"runtime_selection":"explicit original boot selector; candidate remains unconfirmed"},
-    {"mode":"product-recovery-health-v1","business_schema":9,"requires":["product_providers","recovery_execution"],"excludes":["email"],"automatic_health":true,"full_chain":"product","constraints":{"root_mode":"forwarding","worker_protocol":4,"same_core_bytes":true,"max_age_ms":5000,"process_budget_ms":250}}
+    {
+      "mode": "legacy-v1",
+      "business_schema": 6,
+      "requires": [],
+      "automatic_health": false,
+      "full_chain": "default"
+    },
+    {
+      "mode": "product-v1",
+      "business_schema": 6,
+      "requires": [
+        "product_providers"
+      ],
+      "excludes": [
+        "email"
+      ],
+      "automatic_health": false
+    },
+    {
+      "mode": "product-email-v1",
+      "business_schema": 6,
+      "requires": [
+        "product_providers",
+        "email"
+      ],
+      "automatic_health": false,
+      "full_chain": "email"
+    },
+    {
+      "mode": "product-recovery-v1",
+      "business_schema": 9,
+      "requires": [
+        "product_providers",
+        "recovery_execution"
+      ],
+      "excludes": [
+        "email"
+      ],
+      "automatic_health": false,
+      "root_rollback_after_schema9": "refused; v1 has no retained fallback launch-profile capability"
+    },
+    {
+      "mode": "product-email-recovery-v1",
+      "business_schema": 9,
+      "requires": [
+        "product_providers",
+        "email",
+        "recovery_execution"
+      ],
+      "automatic_health": false,
+      "full_chain": "email-recovery",
+      "migration_order": [
+        "email3-to4-at-base6",
+        "business6-or7-to9"
+      ],
+      "runtime_selection": "explicit original boot selector; candidate remains unconfirmed",
+      "root_rollback_after_schema9": "refused; v1 has no retained fallback launch-profile capability"
+    },
+    {
+      "mode": "product-recovery-health-v1",
+      "business_schema": 9,
+      "requires": [
+        "product_providers",
+        "recovery_execution"
+      ],
+      "excludes": [
+        "email"
+      ],
+      "automatic_health": true,
+      "full_chain": "product",
+      "constraints": {
+        "root_mode": "forwarding",
+        "worker_protocol": 4,
+        "same_core_bytes": true,
+        "max_age_ms": 5000,
+        "process_budget_ms": 250
+      },
+      "root_rollback_after_schema9": "refused; v1 has no retained fallback launch-profile capability"
+    }
   ],
-  "not_supported_automatic_health":["setup-ap","SMTP5/email","email-recovery","different-Core-v1-baseline"],
-  "hardware_acceptance":false
+  "not_supported_automatic_health": [
+    "setup-ap",
+    "SMTP5/email",
+    "email-recovery",
+    "different-Core-v1-baseline"
+  ],
+  "hardware_acceptance": false
 }

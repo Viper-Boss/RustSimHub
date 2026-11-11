@@ -57,3 +57,10 @@ claim/finish and Owner disable create confirmed/Unknown records with real
 attempt IDs; durable OFF prevents later worker transmission. The full combined
 chain checks these exact IDs/states/attempt IDs both after migration and after
 Core opens schema9. An empty historical fixture cannot satisfy those assertions.
+
+Interrupted Root-applied/data-migrated operations may have no staged application
+slot yet. The dispatcher routes inspection by the retained transaction's application
+binding, then verifies its original installed-key signature and exact inbox bytes.
+A preview never supplies an installation capability. Schema9 explicit Root rollback
+is refused in v1: a same-byte fallback Core alone does not prove the old Root launch
+profile can read schema9. Application fallback keeps the installed recovery profile.
