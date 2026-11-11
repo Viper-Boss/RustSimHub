@@ -32,6 +32,7 @@ OFF 路径不创建统计密钥、持久文件、队列或定时任务，不读�
 | 查询失败且存在历史 | `Cached { entry, freshness, reason }`：缓存和原时间，附本次错误 |
 | 距同窗口上次查询开始不足 5 秒 | `Throttled` 原因；有历史则缓存，无历史则未知；不调用 transport |
 | 时间回拨 | `ClockRollback`；撤销所有已有条目的新鲜资格，不将旧缓存重新变新 |
+| 查询开始或 I/O 返回后时钟不可用 | `ClockUnavailable`；有历史则保留原条目，以 `ClockRollback` 保守分类表示无法证明新鲜度，无历史则未知；不使用旧高水位声称 `WithinTtl` |
 | OFF | `Disabled`；transport 和时钟调用数为 0 |
 
 这是显式刷新 API：超过最短间隔后，每次 `query_*` 都尝试 transport，未实现上游“TTL 内普通读取自动命中缓存、force 另行刷新”的接口。`cache().entry(window)` 允许只读检查历史；`CacheEntry::freshness(now)` 只分类历史，不产生新成功时间。`Freshness` 为 `WithinTtl`、`Expired` 或 `ClockRollback`；即使 TTL 内遇到网络失败，也必须保留失败原因，不能伪装成新的成功。已过期缓存仍可作为明确标旧的历史展示，不是有效当前计数。

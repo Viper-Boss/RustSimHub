@@ -336,9 +336,13 @@ impl<T: QueryTransport, C: Clock> QueryClient<T, C> {
                 self.cache.entries[window.index()] = Some(entry.clone());
                 QueryOutcome::Success { entry }
             }
-            Err(error) => self
-                .cache
-                .fallback(window, Some(self.cache.high_water_secs), error),
+            Err(error) => {
+                // A high-water mark records a previous observation, not current
+                // time. If the post-I/O clock read failed, it cannot prove TTL.
+                let now =
+                    (error != QueryError::ClockUnavailable).then_some(self.cache.high_water_secs);
+                self.cache.fallback(window, now, error)
+            }
         }
     }
     fn fetch(&mut self, window: Window, start: u64) -> Result<CacheEntry, QueryError> {

@@ -84,3 +84,36 @@
 2026-10-28 交付复核：发布报告时的控制台编码损坏已从保留的原始 UTF-8 提交恢复；修正仅涉及本报告，Rust 实现及测试内容未变。后续使用 ASCII 转义 JSON 传递文本并核对文件摘要，避免再次损坏。
 
 审核结论：**待负责人对 PR 完整 HEAD 审核**。全局原 P0–P7 仍 80%，扩展台账仍 14/169、加权 7.3%；本报告不更新这些台账。
+
+
+## 2026-11-04 · PR #41 审查 P2 的后续修复
+
+- 用户明确要求修复审查记录中的缓存新鲜度问题，本节只记录该修复，不接管已转交成员B的A-05～30或其签到/NKN实现。
+- 旧审查提交为 `295c47655af1d69d2eb0568eda09023c4599c16b`。PR #41 已于2026-10-31合并为 `4459a39259da0220f2cc5856e616656cce519147`；最新main仍存在原问题，因此另建小PR，不重开或修改已合并历史。
+- 本次起始main：`5304a96d28f2c76c14ab651938a217dbeae67fa3`；修复代码完整HEAD：`c4a6853245a22ad7a7c7626a3c39c1460dab1943`；分支 `codex/usage-stats-clock-fallback`，最终含本报告的完整HEAD在新PR正文记录。
+- 主线已同时保留mdns、ble、usage-stats及其他成员。本次不修改Cargo.toml或Cargo.lock，原workspace冲突不再存在；主线已加入的check_in模块、测试和文档全部保留。
+
+### 原因与行为
+
+transport返回后的时钟读取失败时，fetch报告ClockUnavailable，但query_window把旧high_water_secs作为当前时间传给fallback，仍可能把已经到期的旧值标为WithinTtl。修复仅对ClockUnavailable传None，复用与查询开始即失去时钟相同的保守路径；保留原缓存、原成功/到期时间和ClockUnavailable错误，不变成0或成功。沿用现有Freshness::ClockRollback分类表达无法证明新鲜度，不新增公共枚举或改变持久格式。
+
+新增3项实际QueryClient回归，覆盖三个窗口与transport成功/失败：已有count=42、成功1000、到期1015，查询从1010开始，I/O后时钟不可用；无缓存时保持Unknown；第二页时失去时钟不发布部分计数、不继续请求下一页。合计24种组合；原条目完整保留、计数/时间不重写。负对照在未修复代码上为1通过/2失败，两个失败均实际输出错误的WithinTtl；修复后三项全部通过。未读取审核者私有探针目录。
+
+### 本次实际验证与边界
+
+为避开本机Git CLI的网络/凭据限制，通过已连接GitHub读取固定main的**完整实际统计包**（包括其他成员新增check_in源码与测试），在工作区专用临时目录做单包隔离验证，只覆盖本次两个Rust文件。生产模块不是测试专用替代实现。隔离workspace的包元数据和共享依赖与main一致；裁剪后的56条锁记录逐项核对版本/校验和，全部存在于主线Cargo.lock，未改变仓库依赖。已核对发布文件的Git blob SHA与实际测试文件字节相同。
+
+| 命令（Rust 1.98.0，隔离统计包工作区，离线） | 实际结果 |
+| --- | --- |
+| cargo test -p rustsimhub-usage-stats --locked --offline | 退出0，Windows实际50项：持久化16、协议13、查询21；无失败/忽略 |
+| cargo fmt --all -- --check | 退出0，只验证该隔离包工作区，不冒充全仓格式回归 |
+| cargo clippy -p rustsimhub-usage-stats --all-targets --locked --offline -- -D warnings | 退出0，Windows目标 |
+| cargo clippy -p rustsimhub-usage-stats --target x86_64-unknown-linux-gnu --all-targets --locked --offline -- -D warnings | 退出0，Linux条件代码及全部测试的严格交叉检查 |
+| cargo check -p rustsimhub-usage-stats --target x86_64-unknown-linux-gnu --lib --no-default-features --locked --offline | 退出0，Linux生产库检查 |
+| git diff --check | 退出0 |
+
+首次宿主全测曾在默认临时路径的创建/权限检查处遇到PermissionDenied；将TEMP/TMP明确设为工作区内临时目录后通过，没有放宽FileStore检查。此前审查者提供的53项Linux通过属于旧HEAD，不能沿用为本次新HEAD通过。
+
+本机没有可用WSL；6项Linux权限/链接运行测试、Linux限定check_in测试、完整workspace/native audio/systemd/ARM及设备/真实NKN检查**未运行**。交叉检查不等于运行。云端CI以新PR对应HEAD的实际回读为准，未预先标为通过。
+
+无新增依赖或外部实现，无设备、NAS、真实NKN/RPC、交易或消息外发，未读取私有维护目录。未改Core/Edge/Root、身份、开机策略、其他成员实现或全局进度。由Codex完成定点修复和真实检查，等待负责人对新HEAD复审；整体验收沿用主线81.5%、20/169和加权10.6%，本修复不自行计入新验收。

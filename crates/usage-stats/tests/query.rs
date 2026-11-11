@@ -27,7 +27,7 @@ impl Clock for TestClock {
     fn now_secs(&self) -> Result<u64, ClockError> {
         self.reads.set(self.reads.get() + 1);
         if self.failed.get() {
-            Err(ClockError::BeforeEpoch)
+            Err(ClockError::Unavailable)
         } else {
             Ok(self.now.get())
         }
@@ -80,6 +80,141 @@ fn primed(clock: TestClock) -> QueryCache {
         .iter()
         .all(|o| matches!(o, QueryOutcome::Success { .. })));
     c.into_parts().2
+}
+
+fn short_lived_cache(clock: TestClock) -> QueryCache {
+    let mut c = client(
+        |r| {
+            let mut value = page(r, 42, 1);
+            value["expires_at_secs"] = json!(1015);
+            Ok(encode(value))
+        },
+        clock,
+        QueryCache::default(),
+    );
+    assert!(c
+        .query_all(&enabled())
+        .iter()
+        .all(|outcome| matches!(outcome, QueryOutcome::Success { .. })));
+    c.into_parts().2
+}
+
+#[test]
+fn clock_failure_during_io_cannot_prove_cached_freshness() {
+    for window in Window::ALL {
+        for transport_succeeds in [false, true] {
+            let clock = TestClock::new(1000);
+            let cache = short_lived_cache(clock.clone());
+            let original = cache.entry(window).unwrap().clone();
+            clock.now.set(1010);
+            let failing = clock.clone();
+            let mut c = client(
+                move |request| {
+                    // I/O can outlive the old cache, but current time cannot be read.
+                    failing.now.set(1020);
+                    failing.failed.set(true);
+                    if transport_succeeds {
+                        Ok(encode(page(request, 9, 1)))
+                    } else {
+                        Err(TransportError::Offline)
+                    }
+                },
+                clock,
+                cache,
+            );
+            assert_eq!(
+                c.query_window(&enabled(), window),
+                QueryOutcome::Cached {
+                    entry: original.clone(),
+                    freshness: Freshness::ClockRollback,
+                    reason: QueryError::ClockUnavailable,
+                }
+            );
+            assert_eq!(c.cache().entry(window), Some(&original));
+            assert_eq!(c.into_parts().0.calls.get(), 1);
+        }
+    }
+}
+
+#[test]
+fn clock_failure_during_io_without_cache_remains_unknown() {
+    for window in Window::ALL {
+        for transport_succeeds in [false, true] {
+            let clock = TestClock::new(1010);
+            let failing = clock.clone();
+            let mut c = client(
+                move |request| {
+                    failing.failed.set(true);
+                    if transport_succeeds {
+                        Ok(encode(page(request, 0, 1)))
+                    } else {
+                        Err(TransportError::Offline)
+                    }
+                },
+                clock,
+                QueryCache::default(),
+            );
+            unknown(
+                c.query_window(&enabled(), window),
+                QueryError::ClockUnavailable,
+            );
+            assert!(Window::ALL
+                .iter()
+                .all(|window| c.cache().entry(*window).is_none()));
+            assert_eq!(c.into_parts().0.calls.get(), 1);
+        }
+    }
+}
+
+#[test]
+fn clock_failure_during_later_page_preserves_only_previous_complete_cache() {
+    for window in Window::ALL {
+        for cached in [false, true] {
+            for transport_succeeds in [false, true] {
+                let clock = TestClock::new(1000);
+                let cache = if cached {
+                    short_lived_cache(clock.clone())
+                } else {
+                    QueryCache::default()
+                };
+                let original = cache.entry(window).cloned();
+                clock.now.set(1010);
+                let failing = clock.clone();
+                let mut c = client(
+                    move |request| {
+                        if request.page() == 0 {
+                            failing.now.set(1011);
+                            Ok(encode(page(request, 123, 3)))
+                        } else {
+                            assert_eq!(request.page(), 1);
+                            failing.now.set(1020);
+                            failing.failed.set(true);
+                            if transport_succeeds {
+                                Ok(encode(page(request, 456, 3)))
+                            } else {
+                                Err(TransportError::Offline)
+                            }
+                        }
+                    },
+                    clock,
+                    cache,
+                );
+                let expected = match &original {
+                    Some(entry) => QueryOutcome::Cached {
+                        entry: entry.clone(),
+                        freshness: Freshness::ClockRollback,
+                        reason: QueryError::ClockUnavailable,
+                    },
+                    None => QueryOutcome::Unknown {
+                        reason: QueryError::ClockUnavailable,
+                    },
+                };
+                assert_eq!(c.query_window(&enabled(), window), expected);
+                assert_eq!(c.cache().entry(window), original.as_ref());
+                assert_eq!(c.into_parts().0.calls.get(), 2);
+            }
+        }
+    }
 }
 
 #[test]
