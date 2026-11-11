@@ -743,7 +743,7 @@ fn email_chain_impl(recovery: bool) {
         preflight_refusals();
         email_recovery_signed_refusals(&key, &app, &signature, &payloads);
         let db = rusqlite::Connection::open(Path::new(DATA).join("store.sqlite3")).unwrap();
-        let owner: (i64, i64) = db
+        let owner: (String, i64) = db
             .query_row(
                 "SELECT id,generation FROM principals WHERE kind='owner'",
                 [],
@@ -753,7 +753,7 @@ fn email_chain_impl(recovery: bool) {
         // Explicit SQL revocation fixture, not an Auth RPC or real Owner.
         db.execute(
             "UPDATE principals SET active=0,generation=generation+1 WHERE id=?",
-            [owner.0],
+            [&owner.0],
         )
         .unwrap();
         drop(db);
@@ -766,7 +766,7 @@ fn email_chain_impl(recovery: bool) {
         let db = rusqlite::Connection::open(Path::new(DATA).join("store.sqlite3")).unwrap();
         db.execute(
             "UPDATE principals SET active=1,generation=? WHERE id=?",
-            [owner.1, owner.0],
+            rusqlite::params![owner.1, &owner.0],
         )
         .unwrap();
         drop(db);
