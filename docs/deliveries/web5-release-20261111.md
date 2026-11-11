@@ -6,8 +6,8 @@
 
 独立分支从真实 main `7535535bc5a95c42ff1ea70743b97be561f2049a` 开始；只新增 `tools/release-audit/`、`docs/release/web5-*` 和本交付报告，生产crate、已有构建器、其他包、workflow及全局看板未改。
 
-- 工具产品源码：`0a5c043c3b085f6584fbc0969a9ee1ad4d092d3b`。
-- `git archive --format=tar` SHA256：`adaa2cdd8cba1572a2f566868c417cce797791489e240f47738ae0d4c8394482`。
+- 工具产品源码：`d4dc4ecf024b7448ab6a4433a62033d163b21329`。
+- `git archive --format=tar` SHA256：`c0beeac47bf353cef9b7e65b508f2cd590a7b1ad9a27294589617eb12e1a4beb`。
 - 最后报告提交仅文档，不称报告 HEAD 有新应用构建。
 - 消费已交215 `610d7fa63b1a0f129a3f146c0595171868f8e059` 的合同；实际读取旧 ARM 制品 Source `8470608781b4ab772597cef0d767e012b594f257`、归档 `efebf0bf4619f48041c1e66a310b583d987cd7d97348d3bf9c81e79a5d848dc1`。**它们不是四包新源码的组合发行包。**
 - 221的固件提取/通用身份初装/USB默认合同与本包手册对应；74旧包不复用作新组合证明。
