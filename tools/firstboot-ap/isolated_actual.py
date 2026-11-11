@@ -58,7 +58,7 @@ def fixture(root,bundle,application,public,programs,source,qemu,sysroot,info):
     root.mkdir(mode=0o755);root.chmod(0o755)
     directory(root,'/var/lib/rustsimhub',mode=0o700)
     for p in ['/var','/var/lib','/usr','/usr/share','/usr/share/rustsimhub','/usr/libexec','/usr/libexec/rustsimhub','/etc','/etc/systemd','/etc/systemd/system','/etc/tmpfiles.d','/etc/rustsimhub','/run']:directory(root,p,mode=0o755)
-    factory=root/'usr/share/rustsimhub/factory-app';factory.mkdir(parents=True)
+    factory=root/'usr/share/rustsimhub/factory-app';factory.mkdir(parents=True,mode=0o755);factory.chmod(0o755)
     for p in application.iterdir():
         target=factory/p.name;shutil.copyfile(p,target);target.chmod(0o444 if p.name in ['manifest.json','manifest.sig','Opus-COPYING.txt'] else 0o555)
     write(root,'/usr/share/rustsimhub/release.public',public.read_bytes(),mode=0o444)
