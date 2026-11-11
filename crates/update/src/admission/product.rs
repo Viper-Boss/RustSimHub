@@ -331,6 +331,8 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
     }
     let desired = mode(expected.profile);
     let selected_mode = current_mode(&root)?;
+    #[cfg(test)]
+    eprintln!("product dispatch: {command} signed-programs");
     let selected = SignedProductPrograms::inspect(
         &baseline.0,
         &baseline.1,
@@ -372,6 +374,8 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
     } else {
         install(services::stop_business())?;
     }
+    #[cfg(test)]
+    eprintln!("product dispatch: {command} snapshot");
     let snapshot = MaintenanceSnapshot::observe_qualified(Path::new("/"), 0, 986, true)?;
     systemd::effective_product(&snapshot)?;
     if expected.profile == Profile::RecoveryHealth
@@ -390,6 +394,8 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
     {
         return Err(Error::Denied);
     }
+    #[cfg(test)]
+    eprintln!("product dispatch: {command} comparison");
     let admission = ProductDataAdmission::compare(&snapshot, &selected, &next, &fallback)?;
     if admission.exit_code() == 4 {
         return Err(Error::Denied);
@@ -397,6 +403,8 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
     let data_report = admission.report()?;
     drop(admission);
     let mut completed_email = None;
+    #[cfg(test)]
+    eprintln!("product dispatch: {command} backup");
     backup(
         &snapshot,
         &root,
@@ -416,8 +424,12 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
         completed_recovery,
         completed_email,
     };
+    #[cfg(test)]
+    eprintln!("product dispatch: {command} authority");
     authority.check()?;
     let fence = retained::DataFence::new(snapshot, &authority)?;
+    #[cfg(test)]
+    eprintln!("product dispatch: {command} root-reopen");
     let mut installer = install(if reopen {
         ProductInstaller::reopen(&key, &authority.expected, &fence)
     } else {

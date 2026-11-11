@@ -977,7 +977,7 @@ fn interrupted_email_recovery() {
     assert_eq!(u32::from_be_bytes(outbox[60..64].try_into().unwrap()), 4);
     // Reopen is a NEW qualified maintenance operation over the original durable
     // journals. It is explicit, never a retry or a JSON-restored live capability.
-    assert!(dispatch(&["product-inspect".into()]).is_ok());
+    dispatch(&["product-inspect".into()]).expect("explicit interrupted inspect must reopen");
     assert_eq!(
         fs::read(Path::new(DATA).join("store.sqlite3")).unwrap(),
         business
