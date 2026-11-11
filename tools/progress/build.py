@@ -126,6 +126,15 @@ def markdown(data):
         '## 使用和更新', '', '完成标准以每项验收为准；源码通过、设备交付、真人验收分开记录。每次完成后附公开脱敏证据，用维护脚本更新，再生成HTML/本清单并随提交发布。', '',
         '```sh', 'python tools/progress/update.py complete FWD-03 --evidence docs/验证记录.md --note "实际完成及验收结果" --actual-hours 1.0', 'python tools/progress/build.py --check', '```', '',
         '## 当前关卡', '', f"**{data['focus']['task_id']} · {data['focus']['title']}**：{data['focus']['state']}。{data['focus']['description']}", '']
+    if 'delivery_snapshot' in data:
+        snapshot = data['delivery_snapshot']
+        lines += ['## 最新交付与剩余收尾（'+snapshot['date']+'）', '', snapshot['summary'], '',
+                  f"代码开发完成率：未设可审计分母，不发布新的精确百分比。{value['remaining']}条是未完整验收动作，不是{value['remaining']}项未写代码。", '',
+                  '### 已交付与审核状态', '']
+        lines += ['- '+entry for entry in snapshot['delivered']]
+        lines += ['', '### 下一步收尾方向', '']
+        lines += [str(i)+'. '+entry for i,entry in enumerate(snapshot['remaining'],1)]
+        lines += ['', '历史工时覆盖完整收尾及验证，尚未按新交付逐项重估；不能当作纯编码剩余工时或承诺日期。', '']
     for m in data['modules']:
         done = sum(t['status']=='done' for t in m['tasks'])
         lines += [f"## {m['id']} · {m['title']}", '', f"{labels[m['scope']]} · {len(m['tasks'])}个动作 · 已完成{done}个", '', m['summary'], '',
