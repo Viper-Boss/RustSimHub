@@ -1054,7 +1054,7 @@ fn interrupted_email_recovery() {
         fs::read(Path::new(DATA).join("forwarding/outbox.sqlite3")).unwrap(),
         outbox
     );
-    assert!(dispatch(&["product-recover".into()]).is_ok());
+    dispatch(&["product-recover".into()]).expect("explicit interrupted recovery must complete");
 }
 
 #[cfg(feature = "email-production-candidate")]
