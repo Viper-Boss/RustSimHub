@@ -534,6 +534,8 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
                     &fallback,
                     &mut journal,
                 )?;
+                #[cfg(test)]
+                tests::after_email_boundary(&snapshot);
             }
             #[cfg(not(feature = "email-production-candidate"))]
             return Err(Error::Denied);
