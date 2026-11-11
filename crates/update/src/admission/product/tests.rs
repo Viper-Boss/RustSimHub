@@ -742,6 +742,37 @@ fn email_chain_impl(recovery: bool) {
     if recovery {
         preflight_refusals();
         email_recovery_signed_refusals(&key, &app, &signature, &payloads);
+        let db = rusqlite::Connection::open(Path::new(DATA).join("store.sqlite3")).unwrap();
+        let owner: (i64, i64) = db
+            .query_row(
+                "SELECT id,generation FROM principals WHERE kind='owner'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        // Explicit SQL revocation fixture, not an Auth RPC or real Owner.
+        db.execute(
+            "UPDATE principals SET active=0,generation=generation+1 WHERE id=?",
+            [owner.0],
+        )
+        .unwrap();
+        drop(db);
+        assert!(matches!(
+            dispatch(&["product-prepare".into()]),
+            Err(Error::Denied)
+        ));
+        assert!(!Path::new("/etc/rustsimhub/product-profile.json").exists());
+        assert!(!Path::new(INSTALL).join("active.json").exists());
+        let db = rusqlite::Connection::open(Path::new(DATA).join("store.sqlite3")).unwrap();
+        db.execute(
+            "UPDATE principals SET active=1,generation=? WHERE id=?",
+            [owner.1, owner.0],
+        )
+        .unwrap();
+        drop(db);
+        eprintln!(
+            "actual original binding refusal: revoked Owner SQL fixture before Root preparation"
+        );
         let before = fs::read(Path::new(APP).join("state.json")).unwrap();
         assert!(Command::new("/fixture/no-email-tests")
             .args([
@@ -795,11 +826,13 @@ fn email_chain_impl(recovery: bool) {
                 .completed()
                 .unwrap();
         committed.revalidate().unwrap();
+        // Do not let this diagnostic mutex mask an unsupported-mode refusal.
+        drop(committed);
         let root_profile = fs::read("/etc/rustsimhub/product-profile.json").unwrap();
         let ledger_before_rollback = fs::read(Path::new(APP).join("state.json")).unwrap();
         let data_before_rollback = fs::read(Path::new(DATA).join("store.sqlite3")).unwrap();
         assert!(
-            dispatch(&["product-rollback".into()]).is_err(),
+            matches!(dispatch(&["product-rollback".into()]), Err(Error::Denied)),
             "schema9 cannot revert Root to an unproven schema6 launch profile"
         );
         assert_eq!(
@@ -816,7 +849,7 @@ fn email_chain_impl(recovery: bool) {
         );
         assert_eq!(matrix_outbox_receipts(), *receipts.as_ref().unwrap());
         assert!(
-            dispatch(&["product-activate".into()]).is_err(),
+            matches!(dispatch(&["product-activate".into()]), Err(Error::Denied)),
             "SMTP5 automatic health activation remains unsupported"
         );
         // The existing explicit boot selector may run the supported mode, but

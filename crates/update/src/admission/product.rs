@@ -401,6 +401,17 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
     {
         return Err(Error::Denied);
     }
+    #[cfg(feature = "email-production-candidate")]
+    if matches!(expected.profile, Profile::Email | Profile::EmailRecovery) {
+        if let Some(outbox) = snapshot.outbox.as_ref().filter(|db| db.version.format == 3) {
+            // Check the ORIGINAL active Owner/generation/binding while both
+            // writers are still held, before preparing or writing Root targets.
+            // The original email child repeats this check at its handoff.
+            snapshot
+                .business
+                .check_email_binding(&outbox.email_binding()?)?;
+        }
+    }
     #[cfg(test)]
     eprintln!("product dispatch: {command} comparison");
     // v1 binds candidate/fallback Core bytes but does not retain a verified
