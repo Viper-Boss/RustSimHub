@@ -236,7 +236,7 @@ class AuditTests(unittest.TestCase):
         with mock.patch.object(audit,'profile_audit',return_value={'programs':{}}):
             result=audit.audit(args)
         self.assertFalse(result['audit_passed']);self.assertFalse(result['release_input_complete'])
-        for name in ('installable','may_sign','may_confirm','authorization_verified','health_verified','flash_allowed'):self.assertFalse(result[name])
+        for name in ('release_ready','installable','may_sign','may_confirm','authorization_verified','health_verified','flash_allowed'):self.assertFalse(result[name])
         self.assertEqual(result['findings'][0]['code'],'signed_application_external_inputs_required')
 
 if __name__=='__main__':unittest.main()

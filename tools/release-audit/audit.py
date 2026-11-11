@@ -442,7 +442,7 @@ def system_audit(args, component):
 
 def audit(args):
     report = {'format': 1, 'kind': 'web5-readonly-release-audit-v1', 'scope': args.scope,
-              'audit_passed': False, 'release_input_complete': False, 'read_only': True,
+              'audit_passed': False, 'release_input_complete': False, 'release_ready': False, 'read_only': True,
               'authorization_verified': False, 'installable': False, 'may_sign': False,
               'health_verified': False, 'may_confirm': False, 'device_access': False,
               'starts_services': False, 'flash_allowed': False, 'findings': []}
