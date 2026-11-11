@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Explicit schema6/forwarding candidate Root contract, no business writer.
 use super::*;
+mod product;
 use rustsimhub_wire::update_health::Snapshot;
 use std::os::unix::fs::FileTypeExt;
 pub(crate) const SCRATCH: &str = "/var/lib/rustsimhub/rustsimhub-v1/system/update-health";
@@ -47,11 +48,27 @@ pub(crate) struct Data {
     _files: Vec<File>,
 }
 impl Data {
+    #[cfg(test)]
     pub(crate) fn observe(snapshot: &Snapshot) -> Result<Self> {
-        Self::at(Path::new("/"), 0, 986, snapshot)
+        Self::at_schema(Path::new("/"), 0, 986, snapshot, 6)
     }
-    fn at(root: &Path, root_uid: u32, data_uid: u32, snapshot: &Snapshot) -> Result<Self> {
-        if snapshot.data_schema != 6 {
+    pub(crate) fn observe_for(snapshot: &Snapshot, root: &Root) -> Result<Self> {
+        Self::at_schema(
+            Path::new("/"),
+            0,
+            986,
+            snapshot,
+            if root.product.is_some() { 9 } else { 6 },
+        )
+    }
+    fn at_schema(
+        root: &Path,
+        root_uid: u32,
+        data_uid: u32,
+        snapshot: &Snapshot,
+        schema: u32,
+    ) -> Result<Self> {
+        if snapshot.data_schema != schema {
             return Err(Error::Schema);
         }
         let mut observations = vec![];
@@ -120,6 +137,7 @@ impl Data {
     }
 }
 pub(crate) struct Root {
+    product: Option<product::ProductRoot>,
     observations: Vec<Observation>,
     _files: Vec<File>,
     scratch: PathBuf,
@@ -128,13 +146,32 @@ pub(crate) struct Root {
     effective: Box<dyn Fn() -> Result<Vec<u8>>>,
 }
 impl Root {
-    pub(crate) fn observe() -> Result<Self> {
-        Self::at(Path::new("/"), 0, Box::new(systemd::running_unit))
+    pub(crate) fn observe_for(
+        runtime: &crate::runtime_observation::RuntimeObservation,
+    ) -> Result<Self> {
+        Self::at_product(
+            Path::new("/"),
+            0,
+            Box::new(systemd::running_unit),
+            product::ProductRoot::observe(runtime)?,
+        )
     }
+    #[cfg(test)]
     fn at(root: &Path, uid: u32, effective: Box<dyn Fn() -> Result<Vec<u8>>>) -> Result<Self> {
+        Self::at_product(root, uid, effective, None)
+    }
+    fn at_product(
+        root: &Path,
+        uid: u32,
+        effective: Box<dyn Fn() -> Result<Vec<u8>>>,
+        product: Option<product::ProductRoot>,
+    ) -> Result<Self> {
         let mut observations = vec![];
         let mut files = vec![];
-        for spec in materials() {
+        for spec in materials()
+            .into_iter()
+            .filter(|s| product.is_none() || s.path != DROP)
+        {
             if !parents(root, Path::new(spec.path), &[uid], &mut observations)? {
                 return Err(Error::Denied);
             }
@@ -161,13 +198,19 @@ impl Root {
             .map_err(|_| Error::Io)?
             .map(|e| e.map(|e| e.file_name()).map_err(|_| Error::Io))
             .collect::<Result<Vec<_>>>()?;
-        if entries.len() != 2
-            || entries.iter().any(|n| {
-                !matches!(
-                    n.to_str(),
-                    Some("30-forwarding.conf" | "55-update-health.conf")
-                )
-            })
+        let expected: &[&str] = if product.is_some() {
+            &[
+                "30-forwarding.conf",
+                "50-product-profile.conf",
+                "55-product-health.conf",
+            ]
+        } else {
+            &["30-forwarding.conf", "55-update-health.conf"]
+        };
+        if entries.len() != expected.len()
+            || entries
+                .iter()
+                .any(|n| !n.to_str().is_some_and(|n| expected.contains(&n)))
         {
             return Err(Error::Denied);
         }
@@ -188,6 +231,7 @@ impl Root {
         // Scratch directory timestamps necessarily change on preparation; keep
         // its original inode/owner/mode, never refresh the business guards.
         let result = Self {
+            product,
             observations,
             _files: files,
             scratch,
@@ -197,6 +241,22 @@ impl Root {
         };
         result.revalidate()?;
         Ok(result)
+    }
+    pub(crate) fn product_health(&self) -> bool {
+        self.product.is_some()
+    }
+    /// Pure comparison. The caller revalidates the complete running candidate
+    /// before exposing the observation or performing any ledger operation.
+    pub(crate) fn compare_product(
+        &self,
+        snapshot: &Snapshot,
+        candidate: &crate::product_admission::SignedProductPrograms,
+        baseline: &crate::product_admission::SignedProductPrograms,
+    ) -> Result<()> {
+        if self.product.is_none() {
+            return Err(Error::Denied);
+        }
+        product::compatible(snapshot, candidate, baseline)
     }
     pub(crate) fn scratch(&self) -> &Path {
         &self.scratch
@@ -213,10 +273,17 @@ impl Root {
         {
             return Err(Error::Integrity);
         }
-        effective(&((self.effective)()?))
+        if let Some(product) = &self.product {
+            product.revalidate()?;
+        }
+        effective_profile(&((self.effective)()?), self.product.is_some())
     }
 }
+#[cfg(test)]
 fn effective(bytes: &[u8]) -> Result<()> {
+    effective_profile(bytes, false)
+}
+fn effective_profile(bytes: &[u8], product: bool) -> Result<()> {
     let mut values = std::collections::BTreeMap::new();
     for line in std::str::from_utf8(bytes)
         .map_err(|_| Error::Invalid)?
@@ -235,7 +302,11 @@ fn effective(bytes: &[u8]) -> Result<()> {
             return Err(Error::Invalid);
         }
     }
-    let expected="/etc/systemd/system/rustsimhub-core.service.d/30-forwarding.conf /etc/systemd/system/rustsimhub-core.service.d/55-update-health.conf";
+    let expected = if product {
+        "/etc/systemd/system/rustsimhub-core.service.d/30-forwarding.conf /etc/systemd/system/rustsimhub-core.service.d/50-product-profile.conf /etc/systemd/system/rustsimhub-core.service.d/55-product-health.conf"
+    } else {
+        "/etc/systemd/system/rustsimhub-core.service.d/30-forwarding.conf /etc/systemd/system/rustsimhub-core.service.d/55-update-health.conf"
+    };
     if values.len() != 4
         || values["LoadState"] != "loaded"
         || values["FragmentPath"] != "/etc/systemd/system/rustsimhub-core.service"

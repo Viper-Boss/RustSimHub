@@ -300,6 +300,11 @@ pub struct VerifiedProductMaterials {
     manifest: ProductManifestV1,
     manifest_sha256: String,
 }
+#[derive(Clone, Copy)]
+enum ProgramRecheck {
+    FullBytes,
+    HeldDescriptors,
+}
 impl VerifiedProductMaterials {
     /// The caller opens its fixed inbox using its live Root directory guard and
     /// retains installed trust/application/data guards. This API takes no path,
@@ -308,6 +313,26 @@ impl VerifiedProductMaterials {
         directory: &File,
         trusted_key: &[u8; 32],
         expected: &ExpectedBindings,
+    ) -> Result<Self> {
+        Self::open_checked(directory, trusted_key, expected, ProgramRecheck::FullBytes)
+    }
+    pub(crate) fn open_running(
+        directory: &File,
+        trusted_key: &[u8; 32],
+        expected: &ExpectedBindings,
+    ) -> Result<Self> {
+        Self::open_checked(
+            directory,
+            trusted_key,
+            expected,
+            ProgramRecheck::HeldDescriptors,
+        )
+    }
+    fn open_checked(
+        directory: &File,
+        trusted_key: &[u8; 32],
+        expected: &ExpectedBindings,
+        recheck: ProgramRecheck,
     ) -> Result<Self> {
         let metadata = directory.metadata().map_err(|_| Error::Io)?;
         safe_metadata(&metadata, true)?;
@@ -341,10 +366,16 @@ impl VerifiedProductMaterials {
             manifest: parsed,
             manifest_sha256,
         };
-        verified.revalidate()?;
+        verified.revalidate_with(recheck)?;
         Ok(verified)
     }
     pub fn revalidate(&self) -> Result<()> {
+        self.revalidate_with(ProgramRecheck::FullBytes)
+    }
+    pub(crate) fn revalidate_running(&self) -> Result<()> {
+        self.revalidate_with(ProgramRecheck::HeldDescriptors)
+    }
+    fn revalidate_with(&self, recheck: ProgramRecheck) -> Result<()> {
         if Stamp::from(self.directory.metadata().map_err(|_| Error::Io)?) != self.directory_stamp {
             return Err(Error::Integrity);
         }
@@ -352,10 +383,19 @@ impl VerifiedProductMaterials {
         entries(&self.directory, &expected)?;
         for s in &self.sources {
             let named = opened(&self.directory, s.name)?;
+            let program = self
+                .manifest
+                .files
+                .iter()
+                .any(|entry| entry.id.spec().executable && entry.id.payload_name() == s.name);
             if Stamp::from(named.metadata().map_err(|_| Error::Io)?) != s.stamp
                 || Stamp::from(s.file.metadata().map_err(|_| Error::Io)?) != s.stamp
-                || read_file(&s.file, s.bytes.len())? != s.bytes
+                || ((matches!(recheck, ProgramRecheck::FullBytes) || !program)
+                    && read_file(&s.file, s.bytes.len())? != s.bytes)
             {
+                return Err(Error::Integrity);
+            }
+            if Stamp::from(s.file.metadata().map_err(|_| Error::Io)?) != s.stamp {
                 return Err(Error::Integrity);
             }
         }
@@ -371,7 +411,7 @@ impl VerifiedProductMaterials {
             .iter()
             .map(|source| (source.name, source.bytes.as_slice()))
     }
-    pub(super) fn payload(&self, id: TargetId) -> Result<&[u8]> {
+    pub(crate) fn payload(&self, id: TargetId) -> Result<&[u8]> {
         self.sources
             .iter()
             .find(|s| s.name == id.payload_name())
@@ -481,10 +521,17 @@ fn tmpfile_gids(bytes: &[u8]) -> Result<(u32, u32)> {
     Ok((nkn, ble))
 }
 fn elf(bytes: &[u8]) -> Result<()> {
+    let machine = 183;
+    #[cfg(test)]
+    let machine = if super::native_policy::enabled() && cfg!(target_arch = "x86_64") {
+        62
+    } else {
+        machine
+    };
     if bytes.len() < 64
         || &bytes[..7] != b"\x7fELF\x02\x01\x01"
         || !matches!(u16::from_le_bytes([bytes[16], bytes[17]]), 2 | 3)
-        || u16::from_le_bytes([bytes[18], bytes[19]]) != 183
+        || u16::from_le_bytes([bytes[18], bytes[19]]) != machine
         || u16::from_le_bytes([bytes[52], bytes[53]]) != 64
     {
         return Err(Error::Invalid);
@@ -548,6 +595,27 @@ fn validate_payload(id: TargetId, bytes: &[u8], binding: &ExpectedBindings) -> R
         TargetId::BlePolicy => {
             bytes
                 == include_bytes!("../../../../firmware/system/product-profiles/ble-product.policy")
+        }
+        TargetId::HealthDropin => {
+            bytes
+                == include_bytes!(
+                    "../../../../firmware/system/product-profiles/55-product-health.conf"
+                )
+        }
+        TargetId::HealthTmpfiles => {
+            bytes == include_bytes!("../../../../firmware/system/update-health/tmpfiles.conf")
+        }
+        TargetId::HealthService => {
+            bytes
+                == include_bytes!(
+                    "../../../../firmware/system/update-health/rustsimhub-update-health.service"
+                )
+        }
+        TargetId::HealthTimer => {
+            bytes
+                == include_bytes!(
+                    "../../../../firmware/system/update-health/rustsimhub-update-health.timer"
+                )
         }
         TargetId::ProductTmpfiles => {
             tmpfile_gids(bytes)?;

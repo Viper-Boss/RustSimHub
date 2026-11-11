@@ -11,6 +11,11 @@ pub fn metadata(mode: &str) -> Result<Value, &'static str> {
         "legacy-v1" => &[],
         "product-v1" if product && !email => &["--enable-product-providers-candidate"],
         "product-email-v1" if product && email => &["--enable-product-providers-candidate"],
+        "product-recovery-health-v1" if product && recovery && !email => &[
+            "--enable-update-health-candidate",
+            "--enable-product-providers-candidate",
+            "--enable-secure-recovery-candidate",
+        ],
         "product-recovery-v1" if product && recovery && !email => &[
             "--enable-product-providers-candidate",
             "--enable-secure-recovery-candidate",
@@ -21,7 +26,14 @@ pub fn metadata(mode: &str) -> Result<Value, &'static str> {
         ],
         _ => return Err("unsupported product runtime mode"),
     };
-    let schema = if mode.ends_with("recovery-v1") { 9 } else { 6 };
+    let schema = if matches!(
+        mode,
+        "product-recovery-v1" | "product-email-recovery-v1" | "product-recovery-health-v1"
+    ) {
+        9
+    } else {
+        6
+    };
     let source = rustsimhub_wire::build_source_sha256().ok_or("missing committed source stamp")?;
     if cfg!(feature = "dev-fixtures") {
         return Err("fixture Core is not production metadata");

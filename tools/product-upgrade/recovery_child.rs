@@ -28,7 +28,7 @@ pub enum Error {
     Unknown,
 }
 pub type Result<T> = std::result::Result<T, Error>;
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct Permit {
     pub format: u16,
@@ -445,4 +445,83 @@ pub fn prepare_root(request_id: &str) -> Result<Permit> {
     };
     p.live()?;
     Ok(p)
+}
+
+/// Root acknowledgement check over the actual fixed child journal and current
+/// database. Used only while the original stopped-Core/Root/slot guard lives.
+/// A deserialized permit alone never releases a writer or authorizes migration.
+pub fn verify_committed_root(permit: &Permit) -> Result<()> {
+    if rustix::process::geteuid().as_raw() != 0 {
+        return Err(Error::Denied);
+    }
+    permit.live()?;
+    let directory = Path::new(DATA);
+    let (schema, hash, binding) = observed(directory)?;
+    let journal: Journal =
+        serde_json::from_slice(&read(&directory.join("product-upgrade/state.json"), 8192)?)
+            .map_err(|_| Error::Invalid)?;
+    if schema != 9
+        || binding != permit.binding_sha256
+        || journal.format != 1
+        || journal.phase != Phase::CommittedExecution
+        || journal.request_id != permit.request_id
+        || journal.source_schema != permit.source_schema
+        || journal.source_sha256 != permit.source_sha256
+        || journal.binding_sha256 != permit.binding_sha256
+        || journal.after_sha256.as_deref() != Some(&hash)
+    {
+        return Err(Error::Unknown);
+    }
+    Ok(())
+}
+
+/// Fresh fixed-path inspection after restart. This proves only a committed
+/// child result for this exact request; caller still needs fresh Root/slot/data
+/// ownership. Unknown/executing states never authorize an automatic retry.
+pub fn committed_source_root(request_id: &str) -> Result<String> {
+    if rustix::process::geteuid().as_raw() != 0 || !hex(request_id) {
+        return Err(Error::Denied);
+    }
+    let directory = Path::new(DATA);
+    let (schema, hash, binding) = observed(directory)?;
+    let j: Journal =
+        serde_json::from_slice(&read(&directory.join("product-upgrade/state.json"), 8192)?)
+            .map_err(|_| Error::Invalid)?;
+    if j.format != 1
+        || j.request_id != request_id
+        || !matches!(j.source_schema, 6 | 7)
+        || !hex(&j.source_sha256)
+        || schema != 9
+        || binding != j.binding_sha256
+        || j.phase != Phase::CommittedExecution
+        || j.after_sha256.as_deref() != Some(&hash)
+    {
+        return Err(Error::Unknown);
+    }
+    Ok(j.source_sha256)
+}
+
+/// Only backup provenance after a previously acknowledged commit. The live
+/// Root owner must separately retain its completed original Root journal and
+/// fresh data/slot guards; this result never authorizes replay or restoration.
+pub fn backup_source_root(request_id: &str) -> Result<String> {
+    if rustix::process::geteuid().as_raw() != 0 || !hex(request_id) {
+        return Err(Error::Denied);
+    }
+    let directory = Path::new(DATA);
+    let (schema, _, binding) = observed(directory)?;
+    let j: Journal =
+        serde_json::from_slice(&read(&directory.join("product-upgrade/state.json"), 8192)?)
+            .map_err(|_| Error::Invalid)?;
+    if j.format != 1
+        || j.request_id != request_id
+        || !matches!(j.source_schema, 6 | 7)
+        || !hex(&j.source_sha256)
+        || schema != 9
+        || binding != j.binding_sha256
+        || j.phase != Phase::CommittedExecution
+    {
+        return Err(Error::Unknown);
+    }
+    Ok(j.source_sha256)
 }

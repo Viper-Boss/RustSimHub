@@ -73,6 +73,7 @@ with sync_playwright() as p:
             response = page.goto(origin)
             assert response.headers['content-security-policy'] == fixture()['csp']
             page.wait_for_function("() => document.querySelector('#test-state').textContent.includes('可以检查状态')")
+            show_legacy(page)
             page.locator('#support-panel').evaluate('e=>e.open=true')
             panel = page.locator('#support-nkn')
             assert panel.get_by_role('button').count() == 8, 'Real NKN constructor was not mounted'
@@ -85,6 +86,7 @@ with sync_playwright() as p:
             assert count('nkn_status') == count('set_nkn_enabled') == 0, 'Login must not turn on or read NKN automatically'
             panel.get_by_role('button', name='管理登录后读取', exact=True).click()
             page.wait_for_function("() => document.querySelector('#support-nkn').textContent.includes('已只读核对')")
+            show_legacy(page)
             assert count('nkn_status') == 1 and count('set_nkn_enabled') == 0
             assert panel.get_by_role('button', name='请求开启远程功能', exact=True).is_disabled()
             assert '服务：运行中' in panel.inner_text() and '链路：未知' in panel.inner_text()
@@ -98,6 +100,7 @@ with sync_playwright() as p:
             login(page, pin)
             panel.get_by_role('button', name='管理登录后读取', exact=True).click()
             page.wait_for_function("() => document.querySelector('#support-nkn').textContent.includes('上次请求待核对')")
+            show_legacy(page)
             panel.get_by_role('button', name='核对上次回执', exact=True).click()
             page.wait_for_function("() => document.querySelector('#support-nkn').textContent.includes('不证明未执行')")
             assert retained(page) == record and count('nkn_request') == 1 and count('set_nkn_enabled') == 0
@@ -122,6 +125,7 @@ with sync_playwright() as p:
             panel.get_by_role('button', name='只读核对引擎状态', exact=True).click()
             wait_fixture(page, lambda state: state['held'])
             page.click('#daily-logout')
+            show_legacy(page)
             fixture('ready')
             page.wait_for_timeout(100)
             assert '服务：运行中' not in panel.inner_text()

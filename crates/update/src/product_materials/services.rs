@@ -16,12 +16,12 @@ const UNITS: [&str; 6] = [
 ];
 const PROPS: [&str; 4] = ["LoadState", "ActiveState", "SubState", "MainPID"];
 
-pub(super) trait Services {
+pub(crate) trait Services {
     fn prepare_off(&self) -> Result<()>;
     fn revalidate_off(&self) -> Result<()>;
     fn reload(&self) -> Result<()>;
 }
-pub(super) struct Systemd;
+pub(crate) struct Systemd;
 impl Services for Systemd {
     fn prepare_off(&self) -> Result<()> {
         // Core/Edge/Media/forwarder must already be stopped by the retained
@@ -147,4 +147,37 @@ fn capture(arguments: &[&str], budget: Duration) -> Result<(i32, Vec<u8>)> {
         }
         std::thread::sleep(Duration::from_millis(1));
     }
+}
+
+/// Outer maintenance owner stops only the fixed four business units. No shell,
+/// caller-selected unit, start, or enable operation is exposed.
+pub(crate) fn stop_business() -> Result<()> {
+    for (index, unit) in UNITS.iter().enumerate().take(4) {
+        if !query(index)? {
+            let (code, _) = capture(&["--system", "stop", unit], Duration::from_secs(5))?;
+            if code != 0 || !query(index)? {
+                return Err(Error::Unknown);
+            }
+        }
+    }
+    Systemd.prepare_off()
+}
+
+/// Explicit activation only, after original selection consumed the attempt and
+/// writer handoff. A start failure keeps the consumed attempt as Unknown.
+pub(crate) fn activate_business() -> Result<()> {
+    let (code, _) = capture(
+        &[
+            "--system",
+            "start",
+            "rustsimhub-core.service",
+            "rustsimhub-edge.service",
+            "rustsimhub-media.service",
+        ],
+        Duration::from_secs(5),
+    )?;
+    if code != 0 {
+        return Err(Error::Unknown);
+    }
+    Ok(())
 }

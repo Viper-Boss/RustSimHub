@@ -11,6 +11,7 @@
 | `product-email-v1` | product providers | 4 / 5 | 不启用 |
 | `product-recovery-v1` | product providers、secure recovery | 3 / 4 | 显式候选，要求独立schema9准入 |
 | `product-email-recovery-v1` | product providers、secure recovery | 4 / 5 | 同上 |
+| `product-recovery-health-v1` | health、product providers、secure recovery | 3 / 4 | schema9，固定14目标与原确认协议 |
 
 不接受任意feature、命令、UID、接口名或服务列表。产品profile编译原有Core provider、SMTP（选中时）、Go受管SDK/Root和Rust BLE host，不重写这些业务。NKN仍含已有Go SDK，不称为全Rust引擎。原生音频采用默认LAN构建；此工具没有宣称TURN媒体已正式启用。
 
@@ -80,6 +81,35 @@ python3 tools/product-release/compare.py --launcher /private/programs/rustsimhub
 
 ## 自动确认、安装与恢复
 
-窗口3拥有固定健康端点及 `confirm-running-candidate`；本包不生成不存在的健康启动参数，不调用裸 `confirm HASH`。当前产物明确不支持自动健康确认。接口交付后需按完整新来源另出有限profile，不能仅改JSON宣称已接通。
+窗口8续接已导出窗口3的原固定健康端点和 `confirm-running-candidate`，新增显式 `product-recovery-health-v1`。只有该有限profile支持schema9/forwarding/worker4健康链，原五种profile不因此获得自动确认。AP健康明确拒绝；候选/回退需实际模式与健康支持，单Core profile v1要求其Core字节一致。launcher依次保留健康、产品、恢复前缀，新增55-product-health只提供权限，不覆盖50-product-profile的ExecStart。不得调用裸 `confirm HASH`。生产用法见[集成入口](../../tools/product-integration/README.md)。
 
 正式安装前仍须新鲜只读设备证据、匹配的业务/Root配置备份、明确恢复预算、全部签名字节、新角色与固定写入目标审查。这里没有修改旧八目标Root维护白名单；新增目标不受旧包授权。任何失败保留原组和数据，不自动刷分区或恢复旧数据库。真实systemd/cgroup、BlueZ/RF、实际NKN网络、邮件递送及设备冷启动由主线另行验收。
+
+
+## 窗口8续接：未签名应用输入与有限Root组装
+
+release构建固定采用Rust release/opt-level=z/thin LTO/strip，保持原24MiB
+应用总预算。`application-input/`包含原六份载荷，`application-input.json`
+记录6..9恢复合同（其他profile仍6..6）、实际字节与摘要，没有epoch或签名。
+
+独立授权签名者可用原updater的有限`make-product-recovery SEED SOURCE
+EPOCH INPUT OUTPUT`生成恢复健康应用；该新动作先核真实模式/程序，旧
+`make`/`make-forwarding`合同不变。本任务只允许隔离fixture密钥与测试epoch，
+不执行生产签名。最终Root输入可复用原packager进行未签名组装：
+
+```sh
+python3 tools/product-release/release.py --assemble-unsigned \
+  --build-root PRIVATE_COMPLETED_PROFILE --application PRIVATE_SIGNED_APPLICATION \
+  --app-public INDEPENDENT_APP_PUBLIC --roles-policy INDEPENDENT_APPROVED_POLICY \
+  --output NEW_PRIVATE_UNSIGNED_ROOT_INPUT
+```
+
+必须验证实际归档、程序清单、应用签名及独立角色策略，输出保留UNSIGNED标记、
+缺manifest.sig。正式安装器拒绝该目录；组装成功不能视为安装/健康授权。
+原packager的`--seed`签名接口另行保留，两种模式互斥。
+
+邮件恢复的离线签名入口为有限`make-product-email-recovery SEED SOURCE EPOCH
+INPUT OUTPUT`，先验证正式Core的`product-email-recovery-v1`与实际SMTP5
+worker；它与`make-product-recovery`使用相同6..9应用范围。邮件profile同时
+构建具备原邮件迁移feature的updater；安装此执行器仍由独立维护流程负责，
+它不属于产品Root包写集。缺此feature且需3→4时，生产入口在安装目标前拒绝。

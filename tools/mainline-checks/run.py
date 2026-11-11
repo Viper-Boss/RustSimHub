@@ -17,7 +17,7 @@ import subprocess
 import sys
 import time
 
-from checklist import CHECKS, GROUPS, EXCLUSIONS
+from checklist import CHECKS, GROUPS, EXCLUSIONS, fixed_environment
 
 ROOT = Path(__file__).resolve().parents[2]
 LOG_LIMIT = 2 * 1024 * 1024
@@ -312,6 +312,45 @@ def classify(result, kind):
         if not count:
             result['reason'] = 'Go selected zero tests or did not report a count'
             return 'failed'
+    elif kind == 'go-json':
+        passed, skipped, failed, packages = set(), set(), set(), set()
+        try:
+            for line in text.splitlines():
+                event = json.loads(line)
+                if not isinstance(event, dict) or event.get('Action') not in (
+                        'start', 'run', 'pause', 'cont', 'output', 'pass', 'bench',
+                        'skip', 'fail', 'build-output', 'build-fail'):
+                    raise ValueError('unknown Go JSON event')
+                action, test = event['Action'], event.get('Test')
+                if ((test is not None and not isinstance(test, str))
+                        or not isinstance(event.get('Package', ''), str)):
+                    raise ValueError('invalid Go event identity')
+                if action in ('fail', 'build-fail'):
+                    failed.add((event.get('Package'), test))
+                if action == 'skip' and not test:
+                    packages.add(event.get('Package'))
+                if test and action in ('pass', 'skip'):
+                    identity = (event.get('Package'), test)
+                    target = passed if action == 'pass' else skipped
+                    if identity in passed or identity in skipped:
+                        raise ValueError('duplicate Go result')
+                    target.add(identity)
+        except (ValueError, TypeError):
+            result['reason'] = 'invalid or unsupported Go JSON output'
+            return 'failed'
+        top = sum('/' not in name for _, name in passed)
+        result['test_counts'] = {'passed': top, 'passed_subtests': len(passed) - top,
+                                 'skipped': len(skipped), 'failed': len(failed),
+                                 'packages_without_tests': sorted(p for p in packages if p)}
+        if failed:
+            result['reason'] = 'Go reported failure'
+            return 'failed'
+        if skipped:
+            result['reason'] = 'Go skipped required tests; see log'
+            return 'not_run'
+        if not top:
+            result['reason'] = 'Go selected zero top-level tests'
+            return 'failed'
     return 'passed'
 
 
@@ -332,8 +371,20 @@ def environment():
         'rustfmt': ['rustfmt', '--version'], 'clippy': ['cargo', 'clippy', '--version'],
         'pycrypto': ['python3', '-c', 'import cryptography; print(cryptography.__version__)'],
         'openssl': ['openssl', 'version'], 'audio': ['pkg-config', '--modversion', 'alsa', 'opus'],
+        'cc': ['cc', '--version'],
+        'go-env': ['go', 'env', '-json', 'CGO_ENABLED', 'GOOS', 'GOARCH'],
     }.items()}
     capabilities = {'go': versions['go']['exit_code'] == 0, 'audio': versions['audio']['exit_code'] == 0}
+    try:
+        go_env = json.loads(versions['go-env']['summary'])
+    except (ValueError, TypeError):
+        go_env = {}
+    if not isinstance(go_env, dict):
+        go_env = {}
+    capabilities['go-race'] = (capabilities['go'] and versions['cc']['exit_code'] == 0
+                               and go_env.get('CGO_ENABLED') == '1'
+                               and go_env.get('GOOS') == 'linux'
+                               and go_env.get('GOARCH') in ('amd64', 'arm64'))
     for name in ('pycrypto', 'openssl', 'rustfmt', 'clippy'):
         capabilities[name] = versions[name]['exit_code'] == 0
     details = {}
@@ -357,10 +408,14 @@ def environment():
             'build_settings': {k: os.environ[k] for k in ('CARGO_BUILD_JOBS', 'CARGO_INCREMENTAL', 'CARGO_PROFILE_DEV_DEBUG', 'CARGO_PROFILE_TEST_DEBUG') if k in os.environ}}
 
 
-def select_checks(groups):
+def select_checks(groups, names=None):
     if not groups or any(g not in GROUPS for g in groups):
         raise ValueError('unknown or empty group selection')
     selected = [c for c in CHECKS if c.group in groups]
+    if names is not None:
+        if not names or not set(names) <= {c.name for c in selected}:
+            raise ValueError('check selection must be nonempty and belong to selected groups')
+        selected = [c for c in selected if c.name in names]
     if not selected:
         raise ValueError('selection contains zero checks')
     return selected
@@ -374,15 +429,16 @@ def totals(rows, dirty=False, expected_count=None):
     return {'status': status, **counts}
 
 
-def run(groups, output, root=ROOT):
-    checks = select_checks(groups)
+def run(groups, output, root=ROOT, names=None, workflow_coverage=None):
+    checks = select_checks(groups, names)
     original = source(root)
     path = reserve_output(root, output)
     env = environment()
     report = {'schema': 1, 'purpose': 'development checks, not release approval',
               'groups': groups, 'excluded_inventory': EXCLUSIONS, 'started': now(), 'source': original, 'environment': env,
               'checklist_sha256': hashlib.sha256(Path(__file__).with_name('checklist.py').read_bytes()).hexdigest(),
-              'checks': [], 'planned_checks': [c.name for c in checks], 'ended': None}
+              'checks': [], 'planned_checks': [c.name for c in checks], 'ended': None,
+              'workflow_coverage': workflow_coverage}
 
     def save():
         report['totals'] = totals(report['checks'], original['dirty'], len(checks))
@@ -409,11 +465,14 @@ def run(groups, output, root=ROOT):
             base.update(status='not_run', execution='not_run', reason='unavailable: ' + ', '.join(missing),
                         started=now(), ended=now(), exit_code=None, summary='')
         else:
-            command_env = None
+            fixed = fixed_environment(c)
+            command_env = dict(os.environ, **fixed) if fixed else None
+            if fixed:
+                base['fixed_environment'] = fixed
             if c.committed_source:
                 archive = subprocess.check_output(['git', 'archive', '--format=tar', 'HEAD'], cwd=root, timeout=30)
                 archive_sha = hashlib.sha256(archive).hexdigest()
-                command_env = dict(os.environ, RUSTSIMHUB_BUILD_SOURCE_SHA256=archive_sha)
+                command_env = dict(command_env or os.environ, RUSTSIMHUB_BUILD_SOURCE_SHA256=archive_sha)
                 base['fixed_environment'] = {'RUSTSIMHUB_BUILD_SOURCE_SHA256': archive_sha}
                 base['source_archive_command'] = ['git', 'archive', '--format=tar', 'HEAD']
             print('START ' + c.name, flush=True)
@@ -453,17 +512,21 @@ def main():
     signal.signal(signal.SIGTERM, interrupted)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--group', action='append', choices=GROUPS)
+    parser.add_argument('--check', action='append', choices=tuple(c.name for c in CHECKS), help='select fixed stage IDs in the selected groups; omitted dependencies stay not_run')
     parser.add_argument('--output', default='.local/mainline-checks/report.json')
     parser.add_argument('--list', action='store_true')
     args = parser.parse_args()
-    if args.list:
-        for c in CHECKS:
-            print(json.dumps({'name': c.name, 'group': c.group, 'command': c.argv, 'requires': c.requires, 'depends': c.depends, 'cwd': c.cwd, 'timeout_seconds': c.timeout}))
-        for entry in EXCLUSIONS:
-            print(json.dumps(dict(entry, type='excluded')))
-        return 0
     try:
-        return run(args.group or ['ordinary'], args.output)
+        from workflow_coverage import audit
+        coverage = audit(ROOT, CHECKS)
+        if args.list:
+            for c in CHECKS:
+                print(json.dumps({'name': c.name, 'group': c.group, 'command': c.argv, 'requires': c.requires, 'depends': c.depends, 'cwd': c.cwd, 'timeout_seconds': c.timeout, 'fixed_environment': fixed_environment(c)}))
+            for entry in EXCLUSIONS:
+                print(json.dumps(dict(entry, type='excluded')))
+            print(json.dumps(dict(coverage, type='workflow_coverage')))
+            return 0
+        return run(args.group or ['ordinary'], args.output, names=args.check, workflow_coverage=coverage)
     except (ValueError, OSError, subprocess.SubprocessError) as exc:
         print('mainline-checks: ' + str(exc), file=sys.stderr)
         return 2

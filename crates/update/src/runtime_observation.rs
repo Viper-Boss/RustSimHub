@@ -15,6 +15,8 @@ use std::{
 pub mod confirmation;
 mod files;
 mod linux;
+#[cfg(test)]
+mod product_native;
 pub(crate) mod units;
 use files::Slot;
 use linux::Process;
@@ -123,8 +125,27 @@ impl Sources for LinuxSources {
     }
 }
 impl RuntimeObservation {
+    /// Borrows immutable signed application claims, not a live runtime verdict.
+    /// The running-candidate collector retains this object and fully validates
+    /// it before connecting to Core and again before any ledger operation.
+    pub(crate) fn signed_product_binding(&self) -> Result<(&crate::Manifest, &str, &[u8; 32])> {
+        self.fresh()?;
+        Ok((
+            &self.slot.manifest,
+            &self.slot.hash,
+            self.ledger.runtime_key()?,
+        ))
+    }
     /// Root-only and entirely fixed-path. No Store::open, recovery or writes.
     pub fn observe() -> Result<Self> {
+        let observation = Self::collect()?;
+        observation.revalidate()?;
+        Ok(observation)
+    }
+    // Private collection never escapes directly. RunningCandidate performs the
+    // complete revalidation after its Root and signed metadata are gathered,
+    // before taking the Core lease. Public observation validates on return.
+    fn collect() -> Result<Self> {
         if rustix::process::geteuid().as_raw() != 0 {
             return Err(Error::Denied);
         }
@@ -132,9 +153,28 @@ impl RuntimeObservation {
         let boot = linux::boot()?;
         let ledger = ReadOnlyState::observe()?;
         let slot = Slot::observe(&ledger)?;
-        Self::capture(ledger, slot, boot, started, Box::new(LinuxSources))
+        let sources: Box<dyn Sources> = Box::new(LinuxSources);
+        #[cfg(test)]
+        let sources: Box<dyn Sources> = if crate::product_native_fixture::enabled() {
+            Box::new(product_native::NativePid1)
+        } else {
+            sources
+        };
+        Self::sample(ledger, slot, boot, started, sources)
     }
+    #[cfg(test)]
     fn capture(
+        ledger: ReadOnlyState,
+        slot: Slot,
+        boot: String,
+        started: Instant,
+        sources: Box<dyn Sources>,
+    ) -> Result<Self> {
+        let observation = Self::sample(ledger, slot, boot, started, sources)?;
+        observation.revalidate()?;
+        Ok(observation)
+    }
+    fn sample(
         ledger: ReadOnlyState,
         slot: Slot,
         boot: String,
@@ -143,7 +183,7 @@ impl RuntimeObservation {
     ) -> Result<Self> {
         let units = sources.units()?;
         let (processes, forwarder) = sources.processes(&units, &slot)?;
-        let observation = Self {
+        Ok(Self {
             ledger,
             slot,
             boot,
@@ -153,9 +193,7 @@ impl RuntimeObservation {
             started,
             invalid: Cell::new(false),
             sources,
-        };
-        observation.revalidate()?;
-        Ok(observation)
+        })
     }
 
     /// Any failed check permanently invalidates this object. Successful checks
