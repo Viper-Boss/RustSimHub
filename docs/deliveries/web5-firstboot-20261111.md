@@ -6,8 +6,8 @@
 
 从 main `7535535bc5a95c42ff1ea70743b97be561f2049a` 建独立分支，未合文档分支、未改原 AP 八目标/合同或 Core/Edge/updater。
 
-- 产品/装配源码：`1af481e9c08829c69076f0c8f404f754a0526e01`。
-- `git archive --format=tar` SHA256：`22451220eb3e1fc2df8b3a9ab7cff127497bf6cc362d0aa48b7bcbf15d060a88`。
+- 产品/装配源码：`ab874ea0fd3437fd9db63b8535a3e0124caeefca`。
+- `git archive --format=tar` SHA256：`4d8477373f843dd17da0b140e073ba2bc21ad2b2674b44ee1513d99f7f1ebb6f`。
 - 最后文档提交只增加本报告，不把报告 HEAD 冒充已编译应用。
 - 真实 CLI 验证复用任务8已有 ARM 程序源码 `8470608781b4ab772597cef0d767e012b594f257`、归档 `efebf0bf4619f48041c1e66a310b583d987cd7d97348d3bf9c81e79a5d848dc1`。它们用于验证现有准备/验签合同，**不是本包新源码编译的 Core**。
 
@@ -31,7 +31,7 @@
 - `python3 -m unittest discover -s tools/system -p test_firstboot.py -v`：隔离 Root **7/7**。
 - `... -p test_generic_state.py -v`：隔离 Root **7通过、5跳过**；缺 mke2fs/debugfs，原 NSHSTATE 实际 ext4 构建未运行。普通用户首次运行4通过8跳过，不替代 Root 结果。
 - `... -p test_system_image.py -v`：**3/3**；`git diff --check` 通过。
-- 最终实际 bundle SHA256 `9ed1e215a464da7543e8273cabb3a04b1fd82b36bffbd161881deea616ccfa57`；原始日志留本地 `.local/web5-firstboot/isolated-final.log`、`original-regression.log`。不提交合成私钥或原始 DB/材料。
+- 最终实际 bundle SHA256 `e0d1029c4ffbd745030fffb0e38683ceb56962efbccfeafd620d233b7e391f13`；原始日志留本地 `.local/web5-firstboot/isolated-ab874ea.log`、`original-regression.log`。不提交合成私钥或原始 DB/材料。
 
 ## 实际失败与修复
 
@@ -44,3 +44,5 @@
 完整调用图和参数见 `tools/firstboot-ap/README.md`。Root 测试只在自有离线容器运行；实际 runner 需 Python/OpenSSL/Git/setpriv/mount/umount、QEMU/sysroot及4个同源ARM程序和原应用输入。使用 CHOWN/FOWNER/FSETID/DAC_OVERRIDE；私有 bind namespace 另需 SYS_ADMIN/SETUID/SETGID，不接入宿主 bus。普通测试会明确 skip Root 项。
 
 本包**未构建/启动全部新源码的通用 rootfs/boot/modules/DTB/NSHSTATE 组合**，未真实 PID1 重载/启动 AP、NM/USB回退或真机认领/撤权，未生产签名/epoch、发布/刷写/网络发送。后续主线接纳后，应在同源全镜像隔离 boot 验证该 ordering，再做授权本机硬件验收；这属于验证边界，生产挂钩已提交。Cloud CI 计费执行未记通过。
+
+补充只读装配复核：实际证明旧generic overlay不创建AP request，单独装新layer会造成无法到达的新入口。现 tree verifier 逐字节/权限核对两条已安装board/generic hook，并将它们和compose/image脚本纳入build干净输入守卫。实际ARM fixture额外插入旧hook负例，明确拒绝后恢复本次源码hook并通过整套25项+8项验证；不把旧847应用/overlay直接拼成新通用发行镜像。
