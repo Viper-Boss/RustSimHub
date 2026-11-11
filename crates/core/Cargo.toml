@@ -24,7 +24,7 @@ default = []
 product-providers-candidate = ["root-provider-candidate", "secure-session-candidate"]
 dev-fixtures = ["dep:ed25519-dalek"]
 recovery-grants = ["rustsimhub-auth/recovery-grants"]
-recovery-execution = ["recovery-grants", "rustsimhub-auth/recovery-execution", "dep:uuid"]
+recovery-execution = ["recovery-grants", "rustsimhub-auth/recovery-execution", "dep:uuid", "dep:rusqlite"]
 recovery-transport = []
 remote-media-tests = ["rustsimhub-media/remote-signaling"]
 secure-session-candidate = ["recovery-transport", "recovery-execution", "rustsimhub-auth/secure-session-candidate", "dep:rustsimhub-recovery-session"]
@@ -63,12 +63,13 @@ serde.workspace = true
 serde_json.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
+rusqlite = { version = "0.40.2", optional = true, features = ["bundled", "hooks"] }
 futures-lite = "2"
 sha2 = "0.10"
 zbus = { version = "5.19", default-features = false, features = ["tokio"] }
 tokio = { version = "1", features = ["rt", "net", "time", "io-util", "macros", "sync", "signal"] }
 fs2 = "0.4"
-rustix = { version = "1", features = ["process","fs","net","time"] }
+rustix = { version = "1", features = ["process","fs","net","time","thread"] }
 getrandom = "0.4"
 zeroize = "1"
 

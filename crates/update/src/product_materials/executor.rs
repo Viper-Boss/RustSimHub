@@ -56,8 +56,96 @@ pub trait LiveInstallationFence {
 /// No public constructor/Deserialize; never a substitute for a data guard.
 pub struct OwnedRootChanges<'a> {
     journal: Option<&'a Journal>,
+    root: &'a Root,
 }
-impl OwnedRootChanges<'_> {
+impl<'a> OwnedRootChanges<'a> {
+    fn new(root: &'a Root, journal: Option<&'a Journal>) -> Self {
+        Self { root, journal }
+    }
+    /// Actual fd-backed operations, not names or permissions supplied by the
+    /// bundle. Caller still validates the finite transaction scope and data.
+    pub fn operation_facts(&self) -> Result<Vec<super::rootio::OwnedNodeFact>> {
+        self.root.owned_facts()
+    }
+    pub fn directory_versions(&self) -> Result<Vec<super::OwnedDirectoryVersion>> {
+        self.root.owned_parent_versions()
+    }
+
+    /// Fixed paths derived from THIS retained journal. This predicate alone
+    /// is no permission: operation_facts still verifies actual retained fds,
+    /// and the caller binds the transaction, original Root and data generation.
+    pub fn contains_operation(&self, fact: &super::OwnedNodeFact) -> bool {
+        let Some(journal) = self.journal else {
+            return false;
+        };
+        let tx = transaction_dir(&journal.transaction);
+        let mut files = vec![
+            format!("{BASE}/.install.lock"),
+            ACTIVE.into(),
+            journal_path(&journal.transaction),
+            format!("{tx}/materials/manifest.json"),
+            format!("{tx}/materials/manifest.sig"),
+        ];
+        for entry in &journal.entries {
+            files.push(entry.id.spec().path.into());
+            files.push(format!("{tx}/materials/{}", entry.id.payload_name()));
+            files.push(backup_path(&journal.transaction, entry.id));
+        }
+        if fact.directory {
+            if files
+                .iter()
+                .any(|p| p.starts_with(&(fact.path.clone() + "/")))
+            {
+                return true;
+            }
+            return journal.bindings.profile.product()
+                && (fact.path == "/run"
+                    || fact.path == "/run/rustsimhub"
+                    || fact.path == "/run/rustsimhub/nkn"
+                    // Both role directories are in the signed product
+                    // tmpfiles template, including Product and Email modes.
+                    || fact.path == "/run/rustsimhub/recovery"
+                    || (journal.bindings.profile == super::Profile::RecoveryHealth
+                        && [
+                            "/run/rustsimhub/update-health",
+                            "/var/lib/rustsimhub/rustsimhub-v1/system/update-health",
+                        ]
+                        .contains(&fact.path.as_str())));
+        }
+        if fact.temporary {
+            let Some((parent, name)) = fact.path.rsplit_once('/') else {
+                return false;
+            };
+            return name.starts_with(".product-stage-")
+                && files
+                    .iter()
+                    .any(|p| p.rsplit_once('/').is_some_and(|(dir, _)| dir == parent));
+        }
+        files.contains(&fact.path)
+    }
+    pub fn validates_target_fact(&self, fact: &super::OwnedNodeFact) -> bool {
+        let Some(expected) = self
+            .target_expectations()
+            .into_iter()
+            .find(|e| e.target.spec().path == fact.path)
+        else {
+            return true;
+        };
+        match &fact.after {
+            Some(after) => {
+                let id = (after.device, after.inode);
+                let written = expected.written_identity == Some(id)
+                    && fact.sha256.as_ref() == Some(&expected.new_sha256)
+                    && after.mode == expected.new_mode;
+                let restored = (expected.restoring || expected.restored)
+                    && expected.restored_identity == Some(id)
+                    && fact.sha256 == expected.before_sha256
+                    && Some(after.mode) == expected.before_mode;
+                written || restored
+            }
+            None => (expected.restoring || expected.restored) && expected.before_identity.is_none(),
+        }
+    }
     pub fn transaction(&self) -> Option<&str> {
         self.journal.map(|j| j.transaction.as_str())
     }
@@ -284,7 +372,7 @@ impl<'a> ProductInstaller<'a> {
             } else {
                 FencePhase::Prepare
             },
-            &OwnedRootChanges { journal: None },
+            &OwnedRootChanges::new(&root, None),
         )?;
         flags_off(&root)?;
         let nss = observe_nss(&root, expected.profile.product())?;
@@ -332,9 +420,7 @@ impl<'a> ProductInstaller<'a> {
                 services.revalidate_off()?;
                 fence.revalidate(
                     FencePhase::Prepare,
-                    &OwnedRootChanges {
-                        journal: Some(&journal),
-                    },
+                    &OwnedRootChanges::new(&root, Some(&journal)),
                 )?;
                 root.replace(
                     ACTIVE,
@@ -418,9 +504,7 @@ impl<'a> ProductInstaller<'a> {
             nss.revalidate(&root)?;
             fence.revalidate(
                 FencePhase::Prepare,
-                &OwnedRootChanges {
-                    journal: Some(&journal),
-                },
+                &OwnedRootChanges::new(&root, Some(&journal)),
             )?;
             let file = root.replace(&path, None, &encoded(&journal)?, 0o600)?;
             let pointer = root.read(ACTIVE, 2048)?;
@@ -551,9 +635,7 @@ impl<'a> ProductInstaller<'a> {
                     services.revalidate_off()?;
                     fence.revalidate(
                         FencePhase::BeforeWrite,
-                        &OwnedRootChanges {
-                            journal: Some(journal),
-                        },
+                        &OwnedRootChanges::new(root, Some(journal)),
                     )
                 })?;
             #[cfg(test)]
@@ -580,7 +662,8 @@ impl<'a> ProductInstaller<'a> {
         self.runtime_directories(false)?;
         self.journal.state = InstallState::Applied;
         self.journal.failure = None;
-        self.persist()
+        self.persist()?;
+        self.check(FencePhase::Finalize)
     }
     /// Recovery is explicit: resume validated writes or restore ONLY this
     /// transaction's proven targets. Neither operation touches later data.
@@ -614,7 +697,8 @@ impl<'a> ProductInstaller<'a> {
         self.services.reload()?;
         self.check(FencePhase::Finalize)?;
         self.journal.state = InstallState::RolledBack;
-        self.persist()
+        self.persist()?;
+        self.check(FencePhase::Finalize)
     }
     fn rollback_entry(&mut self, index: usize) -> Result<()> {
         self.check(FencePhase::Recover)?;
@@ -667,9 +751,7 @@ impl<'a> ProductInstaller<'a> {
                     services.revalidate_off()?;
                     fence.revalidate(
                         FencePhase::BeforeWrite,
-                        &OwnedRootChanges {
-                            journal: Some(journal),
-                        },
+                        &OwnedRootChanges::new(root, Some(journal)),
                     )
                 },
             )?;
@@ -726,6 +808,9 @@ impl<'a> ProductInstaller<'a> {
         Err(Error::Conflict)
     }
     fn runtime_directories(&self, create: bool) -> Result<()> {
+        if self.journal.bindings.profile == super::Profile::RecoveryHealth {
+            self.root.health_directories(create)?;
+        }
         if self.journal.bindings.profile.product() {
             self.root
                 .runtime_directory(false, self.nss.nkn_uid(), create)?;
@@ -781,9 +866,7 @@ impl<'a> ProductInstaller<'a> {
         }
         self.fence.revalidate(
             phase,
-            &OwnedRootChanges {
-                journal: Some(&self.journal),
-            },
+            &OwnedRootChanges::new(&self.root, Some(&self.journal)),
         )
     }
     fn report(&self) -> InstallReport {

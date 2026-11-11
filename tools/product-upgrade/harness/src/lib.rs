@@ -6,8 +6,9 @@ pub use rustsimhub_update::{
 };
 #[path = "../../../../crates/core/src/runtime_compatibility.rs"]
 pub mod core_runtime;
-#[path = "../../../../crates/update/src/product_admission/mod.rs"]
-pub mod product_admission;
+// Window8 exports the real module now. Reuse that crate's implementation so
+// its private health/slot capabilities do not need to become public for tests.
+pub use rustsimhub_update::product_admission;
 
 #[cfg(test)]
 mod tests {

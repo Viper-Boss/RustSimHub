@@ -11,8 +11,12 @@ use std::{
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
+mod activation;
 mod database;
+pub mod product;
 mod programs;
+pub(crate) mod recovery;
+pub(crate) mod retained;
 pub(crate) mod running;
 mod systemd;
 use database::Database;
@@ -21,7 +25,7 @@ pub use programs::{
 };
 
 #[cfg(feature = "email-production-candidate")]
-pub use programs::migrate_email4;
+pub use programs::{migrate_email4, migrate_email4_retained};
 
 type Result<T> = std::result::Result<T, Error>;
 const STATE: &str = "var/lib/rustsimhub/rustsimhub-v1/core/state";
@@ -148,6 +152,17 @@ struct RootFile {
     _file: File,
     observed: Observation,
 }
+impl RootFile {
+    fn revalidate(&self) -> Result<()> {
+        self.observed.revalidate()?;
+        if self.observed.stamp.as_ref()
+            != Some(&self._file.metadata().map_err(|_| Error::Io)?.into())
+        {
+            return Err(Error::Busy);
+        }
+        Ok(())
+    }
+}
 
 struct Material {
     path: &'static str,
@@ -239,6 +254,7 @@ fn setup_ap() -> Vec<Material> {
 /// Typed guards must remain alive until admission/mutation has finished.
 /// A serialized report by itself cannot retain a writer fence.
 pub struct MaintenanceSnapshot {
+    product_qualified: bool,
     root_mode: Mode,
     contract: Option<String>,
     root_digests: Vec<RootDigest>,
@@ -294,7 +310,17 @@ impl MaintenanceSnapshot {
     ) -> Result<LiveVersionCheck<'a>> {
         self.revalidate()?;
         let schema = u32::try_from(self.business.version.format).map_err(|_| Error::Schema)?;
-        let request = serde_json::json!({"format":1,"target_arch":"aarch64", "root_mode":self.root_mode,
+        let target_arch = "aarch64";
+        // The private native production-chain fixture executes real native
+        // signed programs. Keep its architecture consistent in this ORIGINAL
+        // comparison too; the production ARM gate is unchanged.
+        #[cfg(test)]
+        let target_arch = if crate::product_native_fixture::enabled() {
+            std::env::consts::ARCH
+        } else {
+            target_arch
+        };
+        let request = serde_json::json!({"format":1,"target_arch":target_arch, "root_mode":self.root_mode,
             "root_contract":self.contract,"data":{"business_schema":schema,"outbox":self.outbox.as_ref().map(|v|v.version)},
             "selected":selected,"candidate":candidate,"fallback":fallback});
         let report = rustsimhub_core_launcher::check_upgrade(
@@ -316,6 +342,9 @@ impl MaintenanceSnapshot {
     }
 
     fn observe_at(root: &Path, root_uid: u32, data_uid: u32) -> Result<Self> {
+        Self::observe_qualified(root, root_uid, data_uid, false)
+    }
+    fn observe_qualified(root: &Path, root_uid: u32, data_uid: u32, product: bool) -> Result<Self> {
         let mut observations = vec![];
         let mut files = vec![];
         let mut digests = vec![];
@@ -369,14 +398,30 @@ impl MaintenanceSnapshot {
             .into_iter()
             .filter(|v| *v)
             .count();
-        let ap = setup_ap();
-        let ap_count = ap
-            .iter()
-            .map(&mut material)
-            .collect::<Result<Vec<_>>>()?
-            .into_iter()
-            .filter(|v| *v)
-            .count();
+        let mut ap = setup_ap();
+        if product {
+            for material in &mut ap {
+                if material.path == "usr/libexec/rustsimhub/rustsimhub-core-launcher"
+                    && fs::symlink_metadata(root.join(material.path))
+                        .is_ok_and(|m| m.mode() & 0o7777 == 0o555)
+                {
+                    material.mode = 0o555;
+                }
+            }
+        }
+        let ap_present = ap.iter().map(&mut material).collect::<Result<Vec<_>>>()?;
+        // Product profiles also own the launcher. Its presence alone cannot
+        // manufacture a partial AP installation or promote the base Root mode.
+        let launcher_only = product
+            && ap
+                .iter()
+                .zip(&ap_present)
+                .all(|(s, p)| !*p || s.path == "usr/libexec/rustsimhub/rustsimhub-core-launcher");
+        let ap_count = if launcher_only {
+            0
+        } else {
+            ap_present.into_iter().filter(|p| *p).count()
+        };
         if ![0, fw.len()].contains(&fw_count)
             || ![0, ap.len()].contains(&ap_count)
             || (ap_count > 0 && fw_count == 0)
@@ -390,7 +435,7 @@ impl MaintenanceSnapshot {
         } else {
             Mode::Device
         };
-        check_core_overrides(root, root_uid, &mut observations)?;
+        check_core_overrides_qualified(root, root_uid, &mut observations, product)?;
         let contract = (ap_count > 0).then(|| {
             String::from_utf8(text(include_str!(
                 "../../../firmware/system/setup-ap/contract.json"
@@ -440,6 +485,7 @@ impl MaintenanceSnapshot {
         };
         observations.push(observed);
         let snapshot = Self {
+            product_qualified: product,
             root_mode,
             contract,
             root_digests: digests,
@@ -457,13 +503,33 @@ impl MaintenanceSnapshot {
             observed.revalidate()?;
         }
         for file in &self._root_files {
-            file.observed.revalidate()?;
+            file.revalidate()?;
         }
         self.business.revalidate()?;
         if let Some(outbox) = &self.outbox {
             outbox.revalidate()?;
         }
         Ok(())
+    }
+
+    #[cfg(feature = "email-production-candidate")]
+    pub(crate) fn email_source_digest(&self) -> Result<String> {
+        self.revalidate()?;
+        let outbox = self.outbox.as_ref().ok_or(Error::Denied)?;
+        if outbox.version.application_id != 0x52534657 || outbox.version.format != 3 {
+            return Err(Error::Denied);
+        }
+        let mut bytes = Vec::new();
+        outbox
+            .backup_source()?
+            .take(32 * 1024 * 1024 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| Error::Io)?;
+        if bytes.len() > 32 * 1024 * 1024 {
+            return Err(Error::Invalid);
+        }
+        self.revalidate()?;
+        Ok(crate::manifest_hash(&bytes))
     }
 
     pub fn root_contract(&self) -> Option<&str> {
@@ -493,7 +559,12 @@ fn absent(path: &Path, observations: &mut Vec<Observation>) -> Result<()> {
     Ok(())
 }
 
-fn check_core_overrides(root: &Path, uid: u32, observations: &mut Vec<Observation>) -> Result<()> {
+fn check_core_overrides_qualified(
+    root: &Path,
+    uid: u32,
+    observations: &mut Vec<Observation>,
+    product: bool,
+) -> Result<()> {
     for (directory, allow_known) in [
         ("etc/systemd/system/rustsimhub-core.service.d", true),
         (
@@ -517,7 +588,11 @@ fn check_core_overrides(root: &Path, uid: u32, observations: &mut Vec<Observatio
                 let name = denied_io(entry)?.file_name();
                 let name = name.to_str().ok_or(Error::Integrity)?;
                 if name.ends_with(".conf")
-                    && (!allow_known || !["30-forwarding.conf", "50-setup-ap.conf"].contains(&name))
+                    && (!allow_known
+                        || (!["30-forwarding.conf", "50-setup-ap.conf"].contains(&name)
+                            && !(product
+                                && ["50-product-profile.conf", "55-product-health.conf"]
+                                    .contains(&name))))
                 {
                     return Err(Error::Integrity);
                 }

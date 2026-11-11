@@ -720,3 +720,137 @@ fn real_exec_replaces_executable_and_old_binding_is_rejected() {
     )
     .is_err());
 }
+
+#[test]
+fn verified_executable_retains_original_fd_and_rejects_equal_byte_replacement() {
+    let f = Fixture::new(2);
+    let ledger = f.ledger().unwrap();
+    let slot = f.slot(&ledger).unwrap();
+    let path = slot.executable(ROLES[0].1).unwrap().0;
+    let original = fs::File::open(&path).unwrap();
+    let binding = slot.bound_executable(ROLES[0].1).unwrap();
+    binding.check(&original).unwrap();
+    let replacement = path.with_extension("replacement");
+    fs::copy(&path, &replacement).unwrap();
+    fs::rename(&replacement, &path).unwrap();
+    // A retained fd alone still points to old equal bytes; its path generation
+    // must also remain the original one. Neither fd is accepted after replace.
+    assert!(binding.check(&original).is_err());
+    assert!(binding.check(&fs::File::open(&path).unwrap()).is_err());
+    assert!(slot.bound_executable(ROLES[0].1).is_err());
+    assert!(slot.revalidate(&ledger).is_err());
+}
+
+#[test]
+fn verified_executable_rejects_mutation_with_restored_mtime_and_mode() {
+    for mutation in ["bytes", "mode", "link"] {
+        let f = Fixture::new(2);
+        let ledger = f.ledger().unwrap();
+        let slot = f.slot(&ledger).unwrap();
+        let path = slot.executable(ROLES[0].1).unwrap().0;
+        let original = fs::File::open(&path).unwrap();
+        let before = original.metadata().unwrap();
+        let binding = slot.bound_executable(ROLES[0].1).unwrap();
+        binding.check(&original).unwrap();
+        // Ensure a distinct kernel ctime even on coarser filesystems.
+        std::thread::sleep(Duration::from_millis(2));
+        match mutation {
+            "bytes" => {
+                let mut bytes = fs::read(&path).unwrap();
+                *bytes.last_mut().unwrap() ^= 1;
+                fs::write(&path, bytes).unwrap();
+                original
+                    .set_times(std::fs::FileTimes::new().set_modified(before.modified().unwrap()))
+                    .unwrap();
+                assert_eq!(
+                    original.metadata().unwrap().mtime_nsec(),
+                    before.mtime_nsec()
+                );
+            }
+            "mode" => {
+                fs::set_permissions(&path, fs::Permissions::from_mode(0o666)).unwrap();
+                fs::set_permissions(&path, before.permissions()).unwrap();
+            }
+            "link" => fs::hard_link(&path, path.with_extension("alias")).unwrap(),
+            _ => unreachable!(),
+        }
+        assert!(binding.check(&original).is_err(), "{mutation}");
+        assert!(slot.revalidate(&ledger).is_err(), "{mutation}");
+    }
+}
+
+#[test]
+fn verified_executable_never_accepts_another_process_image_or_unknown_role() {
+    let f = Fixture::new(2);
+    let ledger = f.ledger().unwrap();
+    let slot = f.slot(&ledger).unwrap();
+    let binding = slot.bound_executable(ROLES[0].1).unwrap();
+    let actual = fs::File::open("/proc/self/exe").unwrap();
+    assert!(binding.check(&actual).is_err());
+    assert!(slot.bound_executable("not-a-signed-executable").is_err());
+    assert!(slot.bound_executable("Opus-COPYING.txt").is_err());
+}
+
+#[test]
+#[ignore = "private disposable ARM guest readonly performance diagnostic; never confirms"]
+fn profile_original_runtime_sources() {
+    assert_eq!(
+        std::env::var("RSH_WEB4_PRIVATE_CONTAINER").as_deref(),
+        Ok("yes")
+    );
+    assert!(Path::new("/fixture/FORMAL_ARM_GUEST").is_file());
+    fn timed<T>(name: &str, work: impl FnOnce() -> Result<T>) -> Result<T> {
+        let start = Instant::now();
+        let result = work();
+        eprintln!(
+            "PRIVATE READONLY STAGE {name}: {:?} error={:?}",
+            start.elapsed(),
+            result.as_ref().err()
+        );
+        result
+    }
+    let ledger = timed("ledger", ReadOnlyState::observe).unwrap();
+    let slot = timed("signed slot", || Slot::observe(&ledger)).unwrap();
+    let units = timed("units", units::observe).unwrap();
+    timed("processes first", || linux::collect(&units, &slot)).unwrap();
+    timed("processes recheck", || linux::collect(&units, &slot)).unwrap();
+    drop(slot);
+    drop(ledger);
+    let _ = timed(
+        "original full runtime observation",
+        RuntimeObservation::observe,
+    );
+}
+
+#[test]
+fn private_collection_keeps_original_deadline_and_cannot_validate_a_changed_runtime() {
+    for expired in [false, true] {
+        let f = Fixture::new(2);
+        let port = Rc::new(Port::default());
+        let ledger = f.ledger().unwrap();
+        let slot = f.slot(&ledger).unwrap();
+        let started = if expired {
+            Instant::now() - MAX_AGE
+        } else {
+            Instant::now()
+        };
+        let sample =
+            RuntimeObservation::sample(ledger, slot, BOOT.into(), started, Box::new(port.clone()))
+                .unwrap();
+        if !expired {
+            port.fault.set(2);
+        }
+        assert_eq!(
+            sample.revalidate(),
+            Err(if expired {
+                Error::Busy
+            } else {
+                Error::Integrity
+            })
+        );
+        port.fault.set(0);
+        // Failed observations cannot be repaired by another sample or deadline.
+        assert_eq!(sample.revalidate(), Err(Error::Busy));
+        assert!(sample.report().is_err());
+    }
+}

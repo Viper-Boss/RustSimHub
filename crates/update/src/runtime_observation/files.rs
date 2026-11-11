@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::{ReadOnlyState, Result};
 use crate::{
-    application_files, manifest_hash, store::read_checked, verify, verify_payload, Error, Manifest,
-    MAX_MANIFEST,
+    application_files, manifest_hash,
+    store::read_checked,
+    verified_application::{VerifiedApplication, VerifiedManifest},
+    Error, Manifest, MAX_MANIFEST,
 };
 use std::{
-    fs::{self, Metadata},
-    os::unix::fs::MetadataExt,
+    fs::{self, File, Metadata, OpenOptions},
+    os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
 
 const SELECTED: &str = "/run/rustsimhub-app/selected";
 const VERSIONS: &str = "/opt/rustsimhub/versions";
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Stamp {
     device: u64,
     inode: u64,
@@ -43,19 +45,45 @@ impl From<Metadata> for Stamp {
 struct Guard {
     path: PathBuf,
     stamp: Stamp,
+    file: Option<File>,
 }
 impl Guard {
     fn capture(path: &Path) -> Result<Self> {
         Ok(Self {
             path: path.into(),
             stamp: fs::symlink_metadata(path).map_err(|_| Error::Io)?.into(),
+            file: None,
         })
     }
     fn check(&self) -> Result<()> {
-        if Stamp::from(fs::symlink_metadata(&self.path).map_err(|_| Error::Io)?) != self.stamp {
+        if Stamp::from(fs::symlink_metadata(&self.path).map_err(|_| Error::Io)?) != self.stamp
+            || self.file.as_ref().is_some_and(|file| {
+                file.metadata()
+                    .map(Stamp::from)
+                    .map_or(true, |stamp| stamp != self.stamp)
+            })
+        {
             return Err(Error::Integrity);
         }
         Ok(())
+    }
+}
+/// Borrowed only from a signature/payload-verified live slot. The original fd
+/// pins its inode, and full mode/owner/link/size/mtime/ctime stamps bind both fd
+/// and path. This is never constructed from caller-supplied paths or digests.
+pub(super) struct Executable<'a> {
+    guard: &'a Guard,
+}
+impl Executable<'_> {
+    pub(super) fn check(&self, process_exe: &File) -> Result<()> {
+        self.guard.check()?;
+        if Stamp::from(process_exe.metadata().map_err(|_| Error::Io)?) != self.guard.stamp {
+            return Err(Error::Integrity);
+        }
+        Ok(())
+    }
+    pub(super) fn stamp(&self) -> Stamp {
+        self.guard.stamp.clone()
     }
 }
 pub(super) struct Slot {
@@ -66,6 +94,7 @@ pub(super) struct Slot {
     pub(super) directory: PathBuf,
     selected: PathBuf,
     guards: Vec<Guard>,
+    verified: VerifiedApplication,
 }
 impl Slot {
     pub(super) fn observe(ledger: &ReadOnlyState) -> Result<Self> {
@@ -98,14 +127,20 @@ impl Slot {
         versions: &Path,
         ancestors: &[&Path],
     ) -> Result<Self> {
-        Self::at_using(ledger, selected, versions, ancestors, verify_payload)
+        Self::at_using(
+            ledger,
+            selected,
+            versions,
+            ancestors,
+            VerifiedManifest::bind,
+        )
     }
     fn at_using(
         ledger: &ReadOnlyState,
         selected: &Path,
         versions: &Path,
         ancestors: &[&Path],
-        check: fn(&Manifest, &[Vec<u8>]) -> Result<()>,
+        check: fn(VerifiedManifest, Vec<Vec<u8>>) -> Result<VerifiedApplication>,
     ) -> Result<Self> {
         let mut guards = Vec::new();
         for directory in ancestors
@@ -135,7 +170,8 @@ impl Slot {
         let signature = read(&target.join("manifest.sig"), 64, &mut guards)?;
         // The ledger has already consumed the floor on staging. This validates
         // the installed group's exact ledger epoch, NOT admission of a new one.
-        let manifest = verify(&bytes, &signature, ledger.runtime_key()?, 6, 0)?;
+        let signed_manifest = VerifiedManifest::verify(bytes, signature, ledger.runtime_key()?, 6)?;
+        let manifest = signed_manifest.manifest().clone();
         if manifest.epoch != epoch {
             return Err(Error::Integrity);
         }
@@ -166,7 +202,7 @@ impl Slot {
             .iter()
             .map(|e| read(&target.join(&e.name), e.bytes as usize, &mut guards))
             .collect::<Result<Vec<_>>>()?;
-        check(&manifest, &payloads)?;
+        let verified = check(signed_manifest, payloads)?;
         let slot = Self {
             manifest,
             hash: hash.into(),
@@ -175,6 +211,7 @@ impl Slot {
             directory: target,
             selected: selected.into(),
             guards,
+            verified,
         };
         slot.revalidate(ledger)?;
         Ok(slot)
@@ -198,11 +235,12 @@ impl Slot {
         }
         Ok(())
     }
+    pub(super) fn verified(&self) -> &VerifiedApplication {
+        &self.verified
+    }
+    #[cfg(test)]
     pub(super) fn signed(&self) -> Result<crate::store::SignedGroup> {
-        let bytes = read_checked(&self.directory.join("manifest.json"), MAX_MANIFEST)?;
-        let signature = read_checked(&self.directory.join("manifest.sig"), 64)?;
-        let payloads = crate::store::load_payloads(&self.directory, &self.manifest)?;
-        Ok((bytes, signature, payloads))
+        Ok(self.verified.group().clone())
     }
     pub(super) fn executable(&self, role: &str) -> Result<(PathBuf, &str)> {
         let entry = self
@@ -212,6 +250,22 @@ impl Slot {
             .find(|e| e.name == role)
             .ok_or(Error::Integrity)?;
         Ok((self.directory.join(role), &entry.sha256))
+    }
+    pub(super) fn bound_executable(&self, role: &str) -> Result<Executable<'_>> {
+        if !super::ROLES
+            .iter()
+            .any(|(_, executable, _, _)| *executable == role)
+        {
+            return Err(Error::Invalid);
+        }
+        let (path, _) = self.executable(role)?;
+        let guard = self
+            .guards
+            .iter()
+            .find(|guard| guard.path == path && guard.file.is_some())
+            .ok_or(Error::Integrity)?;
+        guard.check()?;
+        Ok(Executable { guard })
     }
 }
 fn absent(path: &Path) -> Result<()> {
@@ -232,8 +286,14 @@ fn directory_guard(path: &Path, guards: &mut Vec<Guard>) -> Result<()> {
     Ok(())
 }
 fn read(path: &Path, max: usize, guards: &mut Vec<Guard>) -> Result<Vec<u8>> {
-    let guard = Guard::capture(path)?;
+    let mut guard = Guard::capture(path)?;
     let bytes = read_checked(path, max)?;
+    let file = OpenOptions::new()
+        .read(true)
+        .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
+        .open(path)
+        .map_err(|_| Error::Io)?;
+    guard.file = Some(file);
     guard.check()?;
     guards.push(guard);
     Ok(bytes)
@@ -251,7 +311,7 @@ impl Slot {
             selected,
             versions,
             &[],
-            crate::verify_native_fixture,
+            VerifiedManifest::bind_native,
         )
     }
 }

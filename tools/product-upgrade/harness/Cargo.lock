@@ -1032,6 +1032,7 @@ dependencies = [
  "rustsimhub-core-launcher",
  "rustsimhub-forwarder",
  "rustsimhub-policy",
+ "rustsimhub-storage",
  "rustsimhub-wire",
  "serde",
  "serde_json",

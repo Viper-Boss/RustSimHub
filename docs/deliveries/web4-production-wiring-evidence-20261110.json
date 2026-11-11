@@ -1,0 +1,2076 @@
+{
+  "acceptance": {
+    "actions_completed": 20,
+    "actions_total": 169,
+    "global_ledger_changed": false,
+    "overall_percent": 81.5,
+    "weighted_action_percent": 10.6
+  },
+  "arm_max_cpu_diagnostic": {
+    "actual_service_cgroups_correct": true,
+    "confirmation_elapsed_seconds": 5.303904054000014,
+    "core_metadata_elapsed_seconds": 0.024443652999991627,
+    "device_timing_verified": false,
+    "ledger": {
+      "attempted": true,
+      "candidate_present": true,
+      "confirmed_epoch": 1,
+      "floor": 2
+    },
+    "passed": false,
+    "private_log_sha256": "44912b9b0c1e24cae35c81fe48b9a5df89efe8817ae3b4c0f1ce171e38d45667",
+    "readonly_runtime_elapsed_seconds": 5.77614076499998,
+    "runtime_budget_ms": 5000,
+    "worker_metadata_elapsed_seconds": 0.03149115100001154
+  },
+  "arm_test_driver": {
+    "archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+    "factory_mm_fixture_only": true,
+    "formal_production_programs_changed": false,
+    "lto": false,
+    "panic": "unwind",
+    "sha256": "f5b1aa535da0c10dfeaf8f0ec629eb43634fc618fa11deed9082268ce8b0a36f",
+    "source": "c771ad8825e64d52c7e7dc8418634f34fdd38a84",
+    "target": "aarch64-unknown-linux-gnu",
+    "test_only": true
+  },
+  "artifacts": {
+    "arm-legacy-v1": {
+      "application_input": {
+        "epoch_assigned": false,
+        "files": {
+          "Opus-COPYING.txt": {
+            "bytes": 1945,
+            "sha256": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551"
+          },
+          "rustsimhub-audio-alsa": {
+            "bytes": 3943920,
+            "sha256": "8604372338e2bad4ba4ed4866ef94c16be7fa1f4745f0dfc9dcc0c9c3ff9d3bc"
+          },
+          "rustsimhub-core": {
+            "bytes": 5593384,
+            "sha256": "2af29f1088a5ad6ff512d8dbca8f0c7fda273c97f802a59d20f51ced9e53e364"
+          },
+          "rustsimhub-edge": {
+            "bytes": 3281920,
+            "sha256": "d122dd522e0a943afded304f3455e9a507e0e5a731f1aaa044d77467aa032457"
+          },
+          "rustsimhub-forwarder": {
+            "bytes": 3363408,
+            "sha256": "ad5994be2b5f5b182f9c91326dd1feca0d429bc01acaa69f9ee519dde1d4b679"
+          },
+          "simhubctl": {
+            "bytes": 922576,
+            "sha256": "284aa8cf369f18d972936bf452edd230c8c7a6c31f53fb7a3beea416952a94c4"
+          }
+        },
+        "format": 1,
+        "installable": false,
+        "kind": "unsigned-application-input",
+        "payload_bytes": 17107153,
+        "profile": "legacy-v1",
+        "schema_max": 6,
+        "schema_min": 6,
+        "signed": false,
+        "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a"
+      },
+      "bootable_rootfs": false,
+      "installable": false,
+      "licenses": {
+        "licenses/GPL-2.0-only.txt": "edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6",
+        "licenses/Opus-COPYING.txt": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551",
+        "licenses/PROJECT-LICENSE": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+        "licenses/regex-lite-0.1.9-MIT.txt": "6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb"
+      },
+      "manifest_sha256": "79ab087fce898729413d15ac4319632a7fb163fc6b52626292edc667e81989fc",
+      "materials": {
+        "50-product-profile.conf": "1783528bf3c0b609b1fd6ac9580b7c28b60292f4f9e8fd218216317cd5201607",
+        "product-profile.json": "30e4223aef2ffc79d825aa4b6e0334e33d93acffb6bbacf15fd6d57dffcdbb98"
+      },
+      "mode_metadata": {
+        "authorization_verified": false,
+        "business": {
+          "application_id": 1381189698,
+          "automatic_migration": false,
+          "maintenance_from": [],
+          "read": [
+            6
+          ],
+          "write": 6
+        },
+        "component": "core",
+        "development_fixtures": false,
+        "features": {
+          "email": false,
+          "product_providers": false,
+          "recovery_execution": false
+        },
+        "format": 1,
+        "forwarding_runtime_contract": {
+          "format": 1,
+          "outbox": {
+            "application_id": 1381189207,
+            "migrate_from": [
+              1,
+              2
+            ],
+            "read_format": 3,
+            "write_format": 3
+          },
+          "worker_protocol": 4
+        },
+        "kind": "product-runtime-compatibility",
+        "mode": "legacy-v1",
+        "opens_database": false,
+        "prefixes": [],
+        "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+        "starts_services": false,
+        "target_arch": "aarch64"
+      },
+      "programs": {
+        "rustsimhub-audio-alsa": {
+          "bytes": 3943920,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34",
+            "2.38"
+          ],
+          "sha256": "8604372338e2bad4ba4ed4866ef94c16be7fa1f4745f0dfc9dcc0c9c3ff9d3bc"
+        },
+        "rustsimhub-core": {
+          "bytes": 5593384,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34",
+            "2.39"
+          ],
+          "sha256": "2af29f1088a5ad6ff512d8dbca8f0c7fda273c97f802a59d20f51ced9e53e364"
+        },
+        "rustsimhub-core-launcher": {
+          "bytes": 594752,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34",
+            "2.39"
+          ],
+          "sha256": "217fa226ab803cb53d069675eb848b8e3957d2b76c5fad917b524510dd62345d"
+        },
+        "rustsimhub-edge": {
+          "bytes": 3281920,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34"
+          ],
+          "sha256": "d122dd522e0a943afded304f3455e9a507e0e5a731f1aaa044d77467aa032457"
+        },
+        "rustsimhub-forwarder": {
+          "bytes": 3363408,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34",
+            "2.39"
+          ],
+          "sha256": "ad5994be2b5f5b182f9c91326dd1feca0d429bc01acaa69f9ee519dde1d4b679"
+        },
+        "rustsimhub-mdns": {
+          "bytes": 332552,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.28",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34"
+          ],
+          "sha256": "c8af6dac1bc2897f46d4bbb9903655273bfc7dd1bb083fe70d4ad66d6cb28481"
+        },
+        "rustsimhub-migrate": {
+          "bytes": 1592992,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34"
+          ],
+          "sha256": "9305409a8917aae272a147de0e7adc8486a2548880f601947880f208612d6f05"
+        },
+        "rustsimhub-network-agent": {
+          "bytes": 660256,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34",
+            "2.39"
+          ],
+          "sha256": "700a5ec1519df4912822ed82b56922925a5c823a8a849cc3e54a5b8dc1dd02c3"
+        },
+        "rustsimhub-recovery": {
+          "bytes": 856968,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34"
+          ],
+          "sha256": "e60c0f1cfa9a85b2c64fbb924aa5358eaccf70449e62f394cc6e9dfe03ef4a35"
+        },
+        "rustsimhub-setup-ap": {
+          "bytes": 2890384,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34",
+            "2.39"
+          ],
+          "sha256": "7beace882201f06cbd1ecc5fbfe8235d9b71497581aa11ddf218da4fc5834f00"
+        },
+        "rustsimhub-status-led": {
+          "bytes": 1514088,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34",
+            "2.39"
+          ],
+          "sha256": "c8d26b70eecb5997711818950fb1c277ca23d8d8662185842f72c9e1e5ccc796"
+        },
+        "rustsimhub-update": {
+          "bytes": 2444992,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.27",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34",
+            "2.39"
+          ],
+          "sha256": "4ea3cf4b3414593fd4d949bbd72bb406766e914ca83bce74005a4dc4aa38c90e"
+        },
+        "simhubctl": {
+          "bytes": 922576,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34"
+          ],
+          "sha256": "284aa8cf369f18d972936bf452edd230c8c7a6c31f53fb7a3beea416952a94c4"
+        }
+      },
+      "rust_profile": {
+        "lto": "thin",
+        "name": "release",
+        "opt_level": "z",
+        "panic": "abort",
+        "strip": "symbols"
+      },
+      "sdk": null,
+      "sdk_licenses": null,
+      "signed": false,
+      "six_payload_bytes": 17107153,
+      "target": "aarch64-unknown-linux-gnu",
+      "worker": {
+        "development_fixtures": false,
+        "finite_root_actions": true,
+        "forwarding_runtime_contract": {
+          "format": 1,
+          "outbox": {
+            "application_id": 1381189207,
+            "migrate_from": [
+              1,
+              2
+            ],
+            "read_format": 3,
+            "write_format": 3
+          },
+          "worker_protocol": 4
+        },
+        "protocol": 4,
+        "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+        "worker": true
+      }
+    },
+    "arm-product-recovery-health-v1": {
+      "application_input": {
+        "epoch_assigned": false,
+        "files": {
+          "Opus-COPYING.txt": {
+            "bytes": 1945,
+            "sha256": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551"
+          },
+          "rustsimhub-audio-alsa": {
+            "bytes": 3943920,
+            "sha256": "140e5c579a2e0dca796dcfcd9f56575867b5f33866910c643e614b7053f76596"
+          },
+          "rustsimhub-core": {
+            "bytes": 6183248,
+            "sha256": "1a44401d29e2d7750f4ac796feb246b8e8c4a6a30021b166e4dda28f7b6fe6eb"
+          },
+          "rustsimhub-edge": {
+            "bytes": 3281920,
+            "sha256": "d122dd522e0a943afded304f3455e9a507e0e5a731f1aaa044d77467aa032457"
+          },
+          "rustsimhub-forwarder": {
+            "bytes": 3363408,
+            "sha256": "6e05b441d858598d04537651cf0f147a14b92aee6a94881b72dd286fdaffb470"
+          },
+          "simhubctl": {
+            "bytes": 922576,
+            "sha256": "284aa8cf369f18d972936bf452edd230c8c7a6c31f53fb7a3beea416952a94c4"
+          }
+        },
+        "format": 1,
+        "installable": false,
+        "kind": "unsigned-application-input",
+        "payload_bytes": 17697017,
+        "profile": "product-recovery-health-v1",
+        "schema_max": 9,
+        "schema_min": 6,
+        "signed": false,
+        "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a"
+      },
+      "bootable_rootfs": false,
+      "installable": false,
+      "licenses": {
+        "licenses/GPL-2.0-only.txt": "edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6",
+        "licenses/Opus-COPYING.txt": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551",
+        "licenses/PROJECT-LICENSE": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+        "licenses/regex-lite-0.1.9-MIT.txt": "6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb",
+        "sdk-licenses/THIRD-PARTY-NOTICES.txt": "054bcce4deb7818e692151d5bf3d12d3aabee616ac3bc701ec461bf4d71bf7bf",
+        "sdk-licenses/modules.json": "59f217aeb97ab375149a262e983d7c1a4b239cf6e002d47a6b80cc62b9c46d8d"
+      },
+      "manifest_sha256": "cf90afe11b081c1c88c10a3fec1c01e0bd6f5263201ef6fb4acb6abd080b5d78",
+      "materials": {
+        "50-product-profile.conf": "a2cbae447056d270259e2cec3e34a00dcb2bb9a9668b08a3db0fd0a626351cab",
+        "55-product-health.conf": "5a3cfb4dd114bcab5d63dd28e1f660dd922f6216efc0756cd669a0502d0b8dd2",
+        "ble-product.policy": "065d997bcc5917eb584bf5cc54f7f32efce6928b2a39f04f0bfdc4983a944b7e",
+        "health.tmpfiles": "e7f4f07d570689500a14aa7e350c9738b1586cfb81e697629243d31f64b00410",
+        "product-profile.json": "28294363a6bc0bccdb07d3b47422e1a62779e6fbaa6b5a1b6d821d85d4832669",
+        "product.tmpfiles": "00d4533bd3c1ae2f500732de4ed1d1a1b87fda4a616074f8e1e02d9d605d7175",
+        "rustsimhub-ble-recovery.service": "9b393e1abdc8a46bf18a904ce24f76aa7799e6d0d5194a44502172c71f9ddf51",
+        "rustsimhub-nkn-root.service": "a42590dfebd008c45adc53b3f0d122fb1ba74fd9da15cea51883a88379b0620a",
+        "rustsimhub-update-health.service": "a7f3b0d50fb383ee3c4de5b67a23d8c31980ad7523c89ddd933b37e79a24a088",
+        "rustsimhub-update-health.timer": "d2cadaaed563db75866f2a6a75f895640815350f9ef45a6b646b49fe9238a059"
+      },
+      "mode_metadata": {
+        "authorization_verified": false,
+        "business": {
+          "application_id": 1381189698,
+          "automatic_migration": false,
+          "maintenance_from": [
+            6,
+            7
+          ],
+          "read": [
+            9
+          ],
+          "write": 9
+        },
+        "component": "core",
+        "development_fixtures": false,
+        "features": {
+          "email": false,
+          "product_providers": true,
+          "recovery_execution": true
+        },
+        "format": 1,
+        "forwarding_runtime_contract": {
+          "format": 1,
+          "outbox": {
+            "application_id": 1381189207,
+            "migrate_from": [
+              1,
+              2
+            ],
+            "read_format": 3,
+            "write_format": 3
+          },
+          "worker_protocol": 4
+        },
+        "kind": "product-runtime-compatibility",
+        "mode": "product-recovery-health-v1",
+        "opens_database": false,
+        "prefixes": [
+          "--enable-update-health-candidate",
+          "--enable-product-providers-candidate",
+          "--enable-secure-recovery-candidate"
+        ],
+        "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+        "starts_services": false,
+        "target_arch": "aarch64"
+      },
+      "programs": {
+        "nkn-root": {
+          "bytes": 3473568,
+          "glibc": [],
+          "sha256": "55b9bce2f716f4a2439ce8aeabe2527fd347c3beffed791cff306e95c384909c"
+        },
+        "nkn-sdk-engine": {
+          "bytes": 10616992,
+          "glibc": [],
+          "sha256": "3e6dc018c9590a2af83fde3bed57598aa745643364a9f2210dc4184bb009c6c4"
+        },
+        "rustsimhub-audio-alsa": {
+          "bytes": 3943920,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34",
+            "2.38"
+          ],
+          "sha256": "140e5c579a2e0dca796dcfcd9f56575867b5f33866910c643e614b7053f76596"
+        },
+        "rustsimhub-ble-recovery": {
+          "bytes": 1645168,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34",
+            "2.39"
+          ],
+          "sha256": "9d3f801cbf33645748e6eea990c6da3844ab45f2f5d4f9f98cd36f0886aec3df"
+        },
+        "rustsimhub-core": {
+          "bytes": 6183248,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34",
+            "2.39"
+          ],
+          "sha256": "1a44401d29e2d7750f4ac796feb246b8e8c4a6a30021b166e4dda28f7b6fe6eb"
+        },
+        "rustsimhub-core-launcher": {
+          "bytes": 594752,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34",
+            "2.39"
+          ],
+          "sha256": "217fa226ab803cb53d069675eb848b8e3957d2b76c5fad917b524510dd62345d"
+        },
+        "rustsimhub-edge": {
+          "bytes": 3281920,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34"
+          ],
+          "sha256": "d122dd522e0a943afded304f3455e9a507e0e5a731f1aaa044d77467aa032457"
+        },
+        "rustsimhub-forwarder": {
+          "bytes": 3363408,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34",
+            "2.39"
+          ],
+          "sha256": "6e05b441d858598d04537651cf0f147a14b92aee6a94881b72dd286fdaffb470"
+        },
+        "rustsimhub-mdns": {
+          "bytes": 332552,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.28",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34"
+          ],
+          "sha256": "c8af6dac1bc2897f46d4bbb9903655273bfc7dd1bb083fe70d4ad66d6cb28481"
+        },
+        "rustsimhub-migrate": {
+          "bytes": 1592992,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34"
+          ],
+          "sha256": "9305409a8917aae272a147de0e7adc8486a2548880f601947880f208612d6f05"
+        },
+        "rustsimhub-network-agent": {
+          "bytes": 660256,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34",
+            "2.39"
+          ],
+          "sha256": "700a5ec1519df4912822ed82b56922925a5c823a8a849cc3e54a5b8dc1dd02c3"
+        },
+        "rustsimhub-recovery": {
+          "bytes": 856968,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34"
+          ],
+          "sha256": "e60c0f1cfa9a85b2c64fbb924aa5358eaccf70449e62f394cc6e9dfe03ef4a35"
+        },
+        "rustsimhub-setup-ap": {
+          "bytes": 2890384,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34",
+            "2.39"
+          ],
+          "sha256": "7beace882201f06cbd1ecc5fbfe8235d9b71497581aa11ddf218da4fc5834f00"
+        },
+        "rustsimhub-status-led": {
+          "bytes": 1514088,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34",
+            "2.39"
+          ],
+          "sha256": "c8d26b70eecb5997711818950fb1c277ca23d8d8662185842f72c9e1e5ccc796"
+        },
+        "rustsimhub-update": {
+          "bytes": 2444992,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.27",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34",
+            "2.39"
+          ],
+          "sha256": "591f3266aa5056c97e3ef52037364f5ea9efac8911bf3d59b33755e9a439f1c1"
+        },
+        "simhubctl": {
+          "bytes": 922576,
+          "glibc": [
+            "2.17",
+            "2.18",
+            "2.25",
+            "2.28",
+            "2.29",
+            "2.30",
+            "2.32",
+            "2.33",
+            "2.34"
+          ],
+          "sha256": "284aa8cf369f18d972936bf452edd230c8c7a6c31f53fb7a3beea416952a94c4"
+        }
+      },
+      "rust_profile": {
+        "lto": "thin",
+        "name": "release",
+        "opt_level": "z",
+        "panic": "abort",
+        "strip": "symbols"
+      },
+      "sdk": {
+        "contract": 1,
+        "go": "go1.27.3",
+        "isolated_fixture_build": false,
+        "nkn_sdk_linked": true,
+        "root_launch_required": true,
+        "source_commit": "c771ad8825e64d52c7e7dc8418634f34fdd38a84"
+      },
+      "sdk_licenses": {
+        "baseline_modules_not_linked_on_this_target": [
+          "golang.org/x/sys"
+        ],
+        "dependency_approval": false,
+        "go": "go1.27.3",
+        "modules": [
+          {
+            "license_files": [
+              {
+                "path": "LICENSE",
+                "sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+              }
+            ],
+            "path": "github.com/Viper-Boss/RustSimHub/tools/nkn-engine",
+            "version": "v0.0.0"
+          },
+          {
+            "license_files": [
+              {
+                "path": "LICENSE",
+                "sha256": "8778a9fc1eaffb03ab873caae251df2d224f6b5502be8777d3cd573a4dd43903"
+              }
+            ],
+            "path": "github.com/golang/protobuf",
+            "version": "v1.5.2"
+          },
+          {
+            "license_files": [
+              {
+                "path": "LICENSE",
+                "sha256": "2be1b548b0387ca8948e1bb9434e709126904d15f622cc2d0d8e7f186e4d122d"
+              }
+            ],
+            "path": "github.com/gorilla/websocket",
+            "version": "v1.5.3"
+          },
+          {
+            "license_files": [
+              {
+                "path": "LICENSE",
+                "sha256": "bef1747eda88b9ed46e94830b0d978c3499dad5dfe38d364971760881901dadd"
+              }
+            ],
+            "path": "github.com/hashicorp/errwrap",
+            "version": "v1.0.0"
+          },
+          {
+            "license_files": [
+              {
+                "path": "LICENSE",
+                "sha256": "a830016911a348a54e89bd54f2f8b0d8fffdeac20aecfba8e36ebbf38a03f5ff"
+              }
+            ],
+            "path": "github.com/hashicorp/go-multierror",
+            "version": "v1.0.0"
+          },
+          {
+            "license_files": [
+              {
+                "path": "LICENSE",
+                "sha256": "cb7684632b729955293cab8a0bbf4134d53d9532a30761c33c8a4878302a7bd3"
+              }
+            ],
+            "path": "github.com/imdario/mergo",
+            "version": "v0.3.13"
+          },
+          {
+            "license_files": [
+              {
+                "path": "LICENSE",
+                "sha256": "4d4a41f636575473572520d5aea82e2185f7b6e0d74009d419e8710a90f53650"
+              }
+            ],
+            "path": "github.com/itchyny/base58-go",
+            "version": "v0.0.5"
+          },
+          {
+            "license_files": [
+              {
+                "path": "LICENSE",
+                "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+              }
+            ],
+            "path": "github.com/nknorg/ncp-go",
+            "version": "v1.0.5"
+          },
+          {
+            "license_files": [
+              {
+                "path": "LICENSE",
+                "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+              }
+            ],
+            "path": "github.com/nknorg/nkn-sdk-go",
+            "version": "v1.4.8"
+          },
+          {
+            "license_files": [
+              {
+                "path": "LICENSE",
+                "sha256": "20707bee5430e2f5db0784438c1d5f697f3f91ec8b07eefc84a74ddb326a2353"
+              }
+            ],
+            "path": "github.com/nknorg/nkn/v2",
+            "version": "v2.2.1-0.20240509224846-24ade56074a3"
+          },
+          {
+            "license_files": [
+              {
+                "path": "LICENSE",
+                "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+              }
+            ],
+            "path": "github.com/nknorg/nkngomobile",
+            "version": "v0.0.0-20220615081414-671ad1afdfa9"
+          },
+          {
+            "license_files": [
+              {
+                "path": "LICENSE",
+                "sha256": "0070a164e0fc28e82739a764c37b38c56de796f9a8d1862b4413eb6978cd4e04"
+              }
+            ],
+            "path": "github.com/patrickmn/go-cache",
+            "version": "v2.1.0+incompatible"
+          },
+          {
+            "license_files": [
+              {
+                "path": "LICENSE",
+                "sha256": "f0e4a9d181cbbbc742355f1723a4273fff79d999fd4d65caa2dc92fbcc5937be"
+              }
+            ],
+            "path": "github.com/pbnjay/memory",
+            "version": "v0.0.0-20190104145345-974d429e7ae4"
+          },
+          {
+            "license_files": [
+              {
+                "path": "LICENSE",
+                "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+              }
+            ],
+            "path": "golang.org/x/crypto",
+            "version": "v0.21.0"
+          },
+          {
+            "license_files": [
+              {
+                "path": "LICENSE",
+                "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+              }
+            ],
+            "path": "golang.org/x/mobile",
+            "version": "v0.0.0-20230301163155-e0f57694e12c"
+          },
+          {
+            "license_files": [
+              {
+                "path": "LICENSE",
+                "sha256": "4835612df0098ca95f8e7d9e3bffcb02358d435dbb38057c844c99d7f725eb20"
+              }
+            ],
+            "path": "google.golang.org/protobuf",
+            "version": "v1.33.0"
+          }
+        ],
+        "no_new_external_modules": true,
+        "runtime_license_sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+      },
+      "signed": false,
+      "six_payload_bytes": 17697017,
+      "target": "aarch64-unknown-linux-gnu",
+      "worker": {
+        "development_fixtures": false,
+        "finite_root_actions": true,
+        "forwarding_runtime_contract": {
+          "format": 1,
+          "outbox": {
+            "application_id": 1381189207,
+            "migrate_from": [
+              1,
+              2
+            ],
+            "read_format": 3,
+            "write_format": 3
+          },
+          "worker_protocol": 4
+        },
+        "protocol": 4,
+        "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+        "worker": true
+      }
+    },
+    "email-c771ad8": {
+      "metadata": {
+        "core": {
+          "component": "core",
+          "database_schema": 6,
+          "development_fixtures": false,
+          "forwarding_runtime_contract": {
+            "format": 1,
+            "outbox": {
+              "application_id": 1381189207,
+              "migrate_from": [
+                3
+              ],
+              "read_format": 4,
+              "write_format": 4
+            },
+            "worker_protocol": 5
+          },
+          "service_launch": {
+            "format": 1,
+            "modes": [
+              "device",
+              "forwarding_managed",
+              "setup_ap"
+            ]
+          },
+          "setup_ap_installation_contract": {
+            "application_format": 2,
+            "auth_protocol": 2,
+            "core_mode": "--serve-device-forwarding-managed-setup-ap",
+            "database_schema": 6,
+            "format": 1,
+            "material_format": 1,
+            "maximum_window_seconds": 3600,
+            "origin": "https://192.168.100.1:8443",
+            "owner_adoption": 1,
+            "parent_channel": 1,
+            "root_mode": "--serve-configurable",
+            "station_commit_channel": 1,
+            "station_trial_channel": 1
+          },
+          "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+          "target_arch": "x86_64",
+          "update_health_default_enabled": false,
+          "update_health_protocol": 1
+        },
+        "legacy_mode": {
+          "authorization_verified": false,
+          "business": {
+            "application_id": 1381189698,
+            "automatic_migration": false,
+            "maintenance_from": [],
+            "read": [
+              6
+            ],
+            "write": 6
+          },
+          "component": "core",
+          "development_fixtures": false,
+          "features": {
+            "email": true,
+            "product_providers": true,
+            "recovery_execution": true
+          },
+          "format": 1,
+          "forwarding_runtime_contract": {
+            "format": 1,
+            "outbox": {
+              "application_id": 1381189207,
+              "migrate_from": [
+                3
+              ],
+              "read_format": 4,
+              "write_format": 4
+            },
+            "worker_protocol": 5
+          },
+          "kind": "product-runtime-compatibility",
+          "mode": "legacy-v1",
+          "opens_database": false,
+          "prefixes": [],
+          "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+          "starts_services": false,
+          "target_arch": "x86_64"
+        },
+        "mode": {
+          "authorization_verified": false,
+          "business": {
+            "application_id": 1381189698,
+            "automatic_migration": false,
+            "maintenance_from": [],
+            "read": [
+              6
+            ],
+            "write": 6
+          },
+          "component": "core",
+          "development_fixtures": false,
+          "features": {
+            "email": true,
+            "product_providers": true,
+            "recovery_execution": true
+          },
+          "format": 1,
+          "forwarding_runtime_contract": {
+            "format": 1,
+            "outbox": {
+              "application_id": 1381189207,
+              "migrate_from": [
+                3
+              ],
+              "read_format": 4,
+              "write_format": 4
+            },
+            "worker_protocol": 5
+          },
+          "kind": "product-runtime-compatibility",
+          "mode": "product-email-v1",
+          "opens_database": false,
+          "prefixes": [
+            "--enable-product-providers-candidate"
+          ],
+          "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+          "starts_services": false,
+          "target_arch": "x86_64"
+        },
+        "sdk": {
+          "contract": 1,
+          "go": "go1.27.3",
+          "isolated_fixture_build": false,
+          "nkn_sdk_linked": true,
+          "root_launch_required": true,
+          "source_commit": "c771ad8825e64d52c7e7dc8418634f34fdd38a84"
+        },
+        "worker": {
+          "development_fixtures": false,
+          "finite_root_actions": true,
+          "forwarding_runtime_contract": {
+            "format": 1,
+            "outbox": {
+              "application_id": 1381189207,
+              "migrate_from": [
+                3
+              ],
+              "read_format": 4,
+              "write_format": 4
+            },
+            "worker_protocol": 5
+          },
+          "protocol": 5,
+          "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+          "worker": true
+        }
+      },
+      "programs": {
+        "nkn-root": {
+          "bytes": 3604640,
+          "sha256": "d15f085d1a4c542f5bbb83945a90270a2d2d10ca1b44ef59608d333072f75cbd"
+        },
+        "nkn-sdk-engine": {
+          "bytes": 11346080,
+          "sha256": "879384ed30c84487d90898cf67368b70effc34a59585a5420956d8f74b2e611b"
+        },
+        "rustsimhub-audio-alsa": {
+          "bytes": 5020928,
+          "sha256": "8c0838ebea862d037453add6085797853b96ee518231386776d42e4f43926e3f"
+        },
+        "rustsimhub-ble-recovery": {
+          "bytes": 2344400,
+          "sha256": "786d57e4e22c48f3ac2510e7f14da995ed497fb3628bafc818d1e83a61a8c8ec"
+        },
+        "rustsimhub-core": {
+          "bytes": 9056776,
+          "sha256": "2f482f09a4c7f23854c62c2c2daa5593aa4aac9538e4fd44ba2fdc47634fc3c3"
+        },
+        "rustsimhub-core-launcher": {
+          "bytes": 687960,
+          "sha256": "9709b6244f04c37c638b366be5724c4b0a58f9e37335b5feb162d5c6efc418f7"
+        },
+        "rustsimhub-edge": {
+          "bytes": 4296160,
+          "sha256": "e084733727105e57933f626c8d9fd7a5418ca195fd273602de7a010a4cf065f4"
+        },
+        "rustsimhub-forwarder": {
+          "bytes": 4254408,
+          "sha256": "dc70d6ecd1c1f91508c7ccea7a7e0bc9bdec0d1558868dd26652b1dc801333fc"
+        },
+        "rustsimhub-migrate": {
+          "bytes": 1606664,
+          "sha256": "38d3b30e5917d19672b849710ffa898030403a022d0b4272954108581170a22a"
+        },
+        "rustsimhub-update": {
+          "bytes": 3082024,
+          "sha256": "dd7544046d87b24af60d42f98b42656b007411f0822283f7f3de947a8620bd4f"
+        },
+        "simhubctl": {
+          "bytes": 1124392,
+          "sha256": "f314541927b8c96066b05a8e730f76978c8b53107c567c0f8f6cb54cadf9537d"
+        }
+      },
+      "rust_profile": {
+        "lto": "thin",
+        "name": "release",
+        "opt_level": "z",
+        "panic": "unwind",
+        "production_arm": false
+      },
+      "six_payload_bytes": 23754609,
+      "target": "x86_64"
+    },
+    "native-c771ad8": {
+      "metadata": {
+        "core": {
+          "component": "core",
+          "database_schema": 6,
+          "development_fixtures": false,
+          "forwarding_runtime_contract": {
+            "format": 1,
+            "outbox": {
+              "application_id": 1381189207,
+              "migrate_from": [
+                1,
+                2
+              ],
+              "read_format": 3,
+              "write_format": 3
+            },
+            "worker_protocol": 4
+          },
+          "service_launch": {
+            "format": 1,
+            "modes": [
+              "device",
+              "forwarding_managed",
+              "setup_ap"
+            ]
+          },
+          "setup_ap_installation_contract": {
+            "application_format": 2,
+            "auth_protocol": 2,
+            "core_mode": "--serve-device-forwarding-managed-setup-ap",
+            "database_schema": 6,
+            "format": 1,
+            "material_format": 1,
+            "maximum_window_seconds": 3600,
+            "origin": "https://192.168.100.1:8443",
+            "owner_adoption": 1,
+            "parent_channel": 1,
+            "root_mode": "--serve-configurable",
+            "station_commit_channel": 1,
+            "station_trial_channel": 1
+          },
+          "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+          "target_arch": "x86_64",
+          "update_health_default_enabled": false,
+          "update_health_protocol": 1
+        },
+        "legacy_mode": {
+          "authorization_verified": false,
+          "business": {
+            "application_id": 1381189698,
+            "automatic_migration": false,
+            "maintenance_from": [],
+            "read": [
+              6
+            ],
+            "write": 6
+          },
+          "component": "core",
+          "development_fixtures": false,
+          "features": {
+            "email": false,
+            "product_providers": true,
+            "recovery_execution": true
+          },
+          "format": 1,
+          "forwarding_runtime_contract": {
+            "format": 1,
+            "outbox": {
+              "application_id": 1381189207,
+              "migrate_from": [
+                1,
+                2
+              ],
+              "read_format": 3,
+              "write_format": 3
+            },
+            "worker_protocol": 4
+          },
+          "kind": "product-runtime-compatibility",
+          "mode": "legacy-v1",
+          "opens_database": false,
+          "prefixes": [],
+          "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+          "starts_services": false,
+          "target_arch": "x86_64"
+        },
+        "mode": {
+          "authorization_verified": false,
+          "business": {
+            "application_id": 1381189698,
+            "automatic_migration": false,
+            "maintenance_from": [
+              6,
+              7
+            ],
+            "read": [
+              9
+            ],
+            "write": 9
+          },
+          "component": "core",
+          "development_fixtures": false,
+          "features": {
+            "email": false,
+            "product_providers": true,
+            "recovery_execution": true
+          },
+          "format": 1,
+          "forwarding_runtime_contract": {
+            "format": 1,
+            "outbox": {
+              "application_id": 1381189207,
+              "migrate_from": [
+                1,
+                2
+              ],
+              "read_format": 3,
+              "write_format": 3
+            },
+            "worker_protocol": 4
+          },
+          "kind": "product-runtime-compatibility",
+          "mode": "product-recovery-health-v1",
+          "opens_database": false,
+          "prefixes": [
+            "--enable-update-health-candidate",
+            "--enable-product-providers-candidate",
+            "--enable-secure-recovery-candidate"
+          ],
+          "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+          "starts_services": false,
+          "target_arch": "x86_64"
+        },
+        "sdk": {
+          "contract": 1,
+          "go": "go1.27.3",
+          "isolated_fixture_build": false,
+          "nkn_sdk_linked": true,
+          "root_launch_required": true,
+          "source_commit": "c771ad8825e64d52c7e7dc8418634f34fdd38a84"
+        },
+        "worker": {
+          "development_fixtures": false,
+          "finite_root_actions": true,
+          "forwarding_runtime_contract": {
+            "format": 1,
+            "outbox": {
+              "application_id": 1381189207,
+              "migrate_from": [
+                1,
+                2
+              ],
+              "read_format": 3,
+              "write_format": 3
+            },
+            "worker_protocol": 4
+          },
+          "protocol": 4,
+          "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+          "worker": true
+        }
+      },
+      "programs": {
+        "nkn-root": {
+          "bytes": 3604640,
+          "sha256": "d15f085d1a4c542f5bbb83945a90270a2d2d10ca1b44ef59608d333072f75cbd"
+        },
+        "nkn-sdk-engine": {
+          "bytes": 11346080,
+          "sha256": "879384ed30c84487d90898cf67368b70effc34a59585a5420956d8f74b2e611b"
+        },
+        "rustsimhub-audio-alsa": {
+          "bytes": 5020928,
+          "sha256": "8c0838ebea862d037453add6085797853b96ee518231386776d42e4f43926e3f"
+        },
+        "rustsimhub-ble-recovery": {
+          "bytes": 2344400,
+          "sha256": "786d57e4e22c48f3ac2510e7f14da995ed497fb3628bafc818d1e83a61a8c8ec"
+        },
+        "rustsimhub-core": {
+          "bytes": 9028200,
+          "sha256": "4d201bcb23de7fc5d3fd1cc07aa74302b7a04fc8eb2a9f6f9c9385311dbbf43d"
+        },
+        "rustsimhub-core-launcher": {
+          "bytes": 687960,
+          "sha256": "9709b6244f04c37c638b366be5724c4b0a58f9e37335b5feb162d5c6efc418f7"
+        },
+        "rustsimhub-edge": {
+          "bytes": 4296160,
+          "sha256": "e084733727105e57933f626c8d9fd7a5418ca195fd273602de7a010a4cf065f4"
+        },
+        "rustsimhub-forwarder": {
+          "bytes": 3880904,
+          "sha256": "bd9c14be7ef4c2d3cc189dc52ebbddb92b5657eb9ce57f4d299a0b69785b709e"
+        },
+        "rustsimhub-migrate": {
+          "bytes": 1606664,
+          "sha256": "38d3b30e5917d19672b849710ffa898030403a022d0b4272954108581170a22a"
+        },
+        "rustsimhub-update": {
+          "bytes": 2781320,
+          "sha256": "723f940560af5af4fcc4e188178cbd125aec4892877699ae15dc20d46f1ac2ff"
+        },
+        "simhubctl": {
+          "bytes": 1124392,
+          "sha256": "f314541927b8c96066b05a8e730f76978c8b53107c567c0f8f6cb54cadf9537d"
+        }
+      },
+      "rust_profile": {
+        "lto": "thin",
+        "name": "release",
+        "opt_level": "z",
+        "panic": "unwind",
+        "production_arm": false
+      },
+      "six_payload_bytes": 23352529,
+      "target": "x86_64"
+    }
+  },
+  "bootable_firmware": false,
+  "budgets": {
+    "application_payload_bytes": 25165824,
+    "maintenance_ms": 300000,
+    "runtime_max_age_ms": 5000,
+    "runtime_subprocess_ms": 250
+  },
+  "chains": {
+    "arm_default": {
+      "actual_guest_cgroups": true,
+      "driver_sha256": "f5b1aa535da0c10dfeaf8f0ec629eb43634fc618fa11deed9082268ce8b0a36f",
+      "exit": 0,
+      "formal_exit_results": [],
+      "generic_fixture_kernel": true,
+      "hardware_access": false,
+      "initramfs_sha256": "4e31e29be01d84406fdb01132b97f463399ecc49d22276069b20aa1b057e777e",
+      "kernel_sha256": "9c37ace54ef7e1919411fd912e9f34d6982ddd7f4c8ef3c8aee56f4c4d70db67",
+      "native_architecture_adapter": false,
+      "network": false,
+      "passed": true,
+      "post_confirmation_checks": "passed",
+      "private_log_sha256": "5ff0bda3f5cec533ec1cf13710ff833733c92dadb685ae97f8c49871207ddf48",
+      "private_result_sha256": "09e788e20aa8f502b6c02fa565c6f6e787dd5f5c08a924063c891da02e517087",
+      "production_epoch_assigned": false,
+      "production_firmware_bootable": false,
+      "production_keys": false,
+      "programs": {
+        "rustsimhub-audio-alsa": {
+          "bytes": 3943920,
+          "sha256": "8604372338e2bad4ba4ed4866ef94c16be7fa1f4745f0dfc9dcc0c9c3ff9d3bc"
+        },
+        "rustsimhub-core": {
+          "bytes": 5593384,
+          "sha256": "2af29f1088a5ad6ff512d8dbca8f0c7fda273c97f802a59d20f51ced9e53e364"
+        },
+        "rustsimhub-core-launcher": {
+          "bytes": 594752,
+          "sha256": "217fa226ab803cb53d069675eb848b8e3957d2b76c5fad917b524510dd62345d"
+        },
+        "rustsimhub-edge": {
+          "bytes": 3281920,
+          "sha256": "d122dd522e0a943afded304f3455e9a507e0e5a731f1aaa044d77467aa032457"
+        },
+        "rustsimhub-forwarder": {
+          "bytes": 3363408,
+          "sha256": "ad5994be2b5f5b182f9c91326dd1feca0d429bc01acaa69f9ee519dde1d4b679"
+        },
+        "rustsimhub-migrate": {
+          "bytes": 1592992,
+          "sha256": "9305409a8917aae272a147de0e7adc8486a2548880f601947880f208612d6f05"
+        },
+        "rustsimhub-update": {
+          "bytes": 2444992,
+          "sha256": "4ea3cf4b3414593fd4d949bbd72bb406766e914ca83bce74005a4dc4aa38c90e"
+        },
+        "simhubctl": {
+          "bytes": 922576,
+          "sha256": "284aa8cf369f18d972936bf452edd230c8c7a6c31f53fb7a3beea416952a94c4"
+        }
+      },
+      "qemu_cpu": "cortex-a53",
+      "revision": "c771ad8825e64d52c7e7dc8418634f34fdd38a84",
+      "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+      "synthetic_pid1": true
+    },
+    "arm_recovery_health": {
+      "actual_guest_cgroups": true,
+      "confirmation_elapsed_seconds": 5.455276544000014,
+      "driver_sha256": "f5b1aa535da0c10dfeaf8f0ec629eb43634fc618fa11deed9082268ce8b0a36f",
+      "exit": 0,
+      "failure": "Busy under original five second runtime observation budget; not a successful ARM confirmation",
+      "formal_exit_results": [
+        {
+          "action": "product-prepare",
+          "exit": 0
+        },
+        {
+          "action": "product-apply",
+          "exit": 0
+        },
+        {
+          "action": "product-inspect",
+          "exit": 0
+        },
+        {
+          "action": "product-activate",
+          "exit": 0
+        },
+        {
+          "action": "confirm-running-candidate",
+          "exit": 1
+        }
+      ],
+      "generic_fixture_kernel": true,
+      "hardware_access": false,
+      "initramfs_sha256": "9e276a59f9ae75018c44b71d4b8430a503241a7aa7582375f97c1742911d4af1",
+      "kernel_sha256": "9c37ace54ef7e1919411fd912e9f34d6982ddd7f4c8ef3c8aee56f4c4d70db67",
+      "native_architecture_adapter": false,
+      "network": false,
+      "passed": false,
+      "post_confirmation_checks": "not_run: formal confirmation refused",
+      "private_log_sha256": "60cd9c48edc84c9cfc1714d5718ee1ec8894c3954f6f11a4e05b05efec7ec89d",
+      "private_result_sha256": "6e67b70fd5cdcaef07aee7910a15f30d1b9ca0f11b1fae29a9e4dd6e70e0d19f",
+      "production_epoch_assigned": false,
+      "production_firmware_bootable": false,
+      "production_keys": false,
+      "programs": {
+        "nkn-root": {
+          "bytes": 3473568,
+          "sha256": "55b9bce2f716f4a2439ce8aeabe2527fd347c3beffed791cff306e95c384909c"
+        },
+        "nkn-sdk-engine": {
+          "bytes": 10616992,
+          "sha256": "3e6dc018c9590a2af83fde3bed57598aa745643364a9f2210dc4184bb009c6c4"
+        },
+        "rustsimhub-audio-alsa": {
+          "bytes": 3943920,
+          "sha256": "140e5c579a2e0dca796dcfcd9f56575867b5f33866910c643e614b7053f76596"
+        },
+        "rustsimhub-ble-recovery": {
+          "bytes": 1645168,
+          "sha256": "9d3f801cbf33645748e6eea990c6da3844ab45f2f5d4f9f98cd36f0886aec3df"
+        },
+        "rustsimhub-core": {
+          "bytes": 6183248,
+          "sha256": "1a44401d29e2d7750f4ac796feb246b8e8c4a6a30021b166e4dda28f7b6fe6eb"
+        },
+        "rustsimhub-core-launcher": {
+          "bytes": 594752,
+          "sha256": "217fa226ab803cb53d069675eb848b8e3957d2b76c5fad917b524510dd62345d"
+        },
+        "rustsimhub-edge": {
+          "bytes": 3281920,
+          "sha256": "d122dd522e0a943afded304f3455e9a507e0e5a731f1aaa044d77467aa032457"
+        },
+        "rustsimhub-forwarder": {
+          "bytes": 3363408,
+          "sha256": "6e05b441d858598d04537651cf0f147a14b92aee6a94881b72dd286fdaffb470"
+        },
+        "rustsimhub-migrate": {
+          "bytes": 1592992,
+          "sha256": "9305409a8917aae272a147de0e7adc8486a2548880f601947880f208612d6f05"
+        },
+        "rustsimhub-update": {
+          "bytes": 2444992,
+          "sha256": "591f3266aa5056c97e3ef52037364f5ea9efac8911bf3d59b33755e9a439f1c1"
+        },
+        "simhubctl": {
+          "bytes": 922576,
+          "sha256": "284aa8cf369f18d972936bf452edd230c8c7a6c31f53fb7a3beea416952a94c4"
+        }
+      },
+      "qemu_cpu": "cortex-a53",
+      "revision": "c771ad8825e64d52c7e7dc8418634f34fdd38a84",
+      "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+      "synthetic_pid1": true
+    },
+    "native_default": {
+      "driver_sha256": "2f835eeb7986f69b637d71120bbd41a5cea2dcd9388a0f442e513bdde404cf6a",
+      "exit": 0,
+      "hardware_access": false,
+      "image": "sha256:66cba478219e48ecd34b0edfd44517821c640bd582aab008ac9f08ff7ff05107",
+      "native_architecture_adapter": true,
+      "network": false,
+      "passed": true,
+      "private_log_sha256": "444303c92505edae9f92abd312ec93579d19e68304dc2268995a49f8dea0951b",
+      "private_result_sha256": "420b31c63d3736800afcad41762f9c2d65151978cd3a8370335aa10ebe6a544b",
+      "production_epoch_assigned": false,
+      "production_keys": false,
+      "programs": {
+        "rustsimhub-audio-alsa": {
+          "bytes": 5020928,
+          "sha256": "8c0838ebea862d037453add6085797853b96ee518231386776d42e4f43926e3f"
+        },
+        "rustsimhub-core": {
+          "bytes": 9028200,
+          "sha256": "4d201bcb23de7fc5d3fd1cc07aa74302b7a04fc8eb2a9f6f9c9385311dbbf43d"
+        },
+        "rustsimhub-core-launcher": {
+          "bytes": 687960,
+          "sha256": "9709b6244f04c37c638b366be5724c4b0a58f9e37335b5feb162d5c6efc418f7"
+        },
+        "rustsimhub-edge": {
+          "bytes": 4296160,
+          "sha256": "e084733727105e57933f626c8d9fd7a5418ca195fd273602de7a010a4cf065f4"
+        },
+        "rustsimhub-forwarder": {
+          "bytes": 3880904,
+          "sha256": "bd9c14be7ef4c2d3cc189dc52ebbddb92b5657eb9ce57f4d299a0b69785b709e"
+        },
+        "rustsimhub-migrate": {
+          "bytes": 1606664,
+          "sha256": "38d3b30e5917d19672b849710ffa898030403a022d0b4272954108581170a22a"
+        },
+        "rustsimhub-update": {
+          "bytes": 2781320,
+          "sha256": "723f940560af5af4fcc4e188178cbd125aec4892877699ae15dc20d46f1ac2ff"
+        },
+        "simhubctl": {
+          "bytes": 1124392,
+          "sha256": "f314541927b8c96066b05a8e730f76978c8b53107c567c0f8f6cb54cadf9537d"
+        }
+      },
+      "revision": "c771ad8825e64d52c7e7dc8418634f34fdd38a84",
+      "runtime_image": "sha256:5ee1ac74e6bbbedad27abe1574d94faac1e73a12eab292dce78e40e718906ca8",
+      "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+      "synthetic_pid1_cgroup": true
+    },
+    "native_email": {
+      "driver_sha256": "32e223f663576a943da5c64662ce57a56295f6f6a082cb872bc42a2c17566d15",
+      "exit": 0,
+      "hardware_access": false,
+      "image": "sha256:ca115bfb9582dfe9c7b3b0f87adcd736deabcdfc8865a4a54f2856b606dd5349",
+      "legacy_driver_sha256": "2f047e9db3d0a2e35e20e20e15b2307520cd02a73950775c8dd2d29b08d48cf9",
+      "native_architecture_adapter": true,
+      "network": false,
+      "passed": true,
+      "private_log_sha256": "7eb500ba9d6f8170c65f703a219951459cd22725ea458ad3bb9d01185ee484e7",
+      "private_result_sha256": "7f77b2fc4e3b17dac911f73324133d7450442cc20ec90399115579f7735393db",
+      "production_epoch_assigned": false,
+      "production_keys": false,
+      "programs": {
+        "nkn-root": {
+          "bytes": 3604640,
+          "sha256": "d15f085d1a4c542f5bbb83945a90270a2d2d10ca1b44ef59608d333072f75cbd"
+        },
+        "nkn-sdk-engine": {
+          "bytes": 11346080,
+          "sha256": "879384ed30c84487d90898cf67368b70effc34a59585a5420956d8f74b2e611b"
+        },
+        "rustsimhub-audio-alsa": {
+          "bytes": 5020928,
+          "sha256": "8c0838ebea862d037453add6085797853b96ee518231386776d42e4f43926e3f"
+        },
+        "rustsimhub-ble-recovery": {
+          "bytes": 2344400,
+          "sha256": "786d57e4e22c48f3ac2510e7f14da995ed497fb3628bafc818d1e83a61a8c8ec"
+        },
+        "rustsimhub-core": {
+          "bytes": 9056776,
+          "sha256": "2f482f09a4c7f23854c62c2c2daa5593aa4aac9538e4fd44ba2fdc47634fc3c3"
+        },
+        "rustsimhub-core-launcher": {
+          "bytes": 687960,
+          "sha256": "9709b6244f04c37c638b366be5724c4b0a58f9e37335b5feb162d5c6efc418f7"
+        },
+        "rustsimhub-edge": {
+          "bytes": 4296160,
+          "sha256": "e084733727105e57933f626c8d9fd7a5418ca195fd273602de7a010a4cf065f4"
+        },
+        "rustsimhub-forwarder": {
+          "bytes": 4254408,
+          "sha256": "dc70d6ecd1c1f91508c7ccea7a7e0bc9bdec0d1558868dd26652b1dc801333fc"
+        },
+        "rustsimhub-migrate": {
+          "bytes": 1606664,
+          "sha256": "38d3b30e5917d19672b849710ffa898030403a022d0b4272954108581170a22a"
+        },
+        "rustsimhub-update": {
+          "bytes": 3082024,
+          "sha256": "dd7544046d87b24af60d42f98b42656b007411f0822283f7f3de947a8620bd4f"
+        },
+        "simhubctl": {
+          "bytes": 1124392,
+          "sha256": "f314541927b8c96066b05a8e730f76978c8b53107c567c0f8f6cb54cadf9537d"
+        }
+      },
+      "revision": "c771ad8825e64d52c7e7dc8418634f34fdd38a84",
+      "runtime_image": "sha256:5ee1ac74e6bbbedad27abe1574d94faac1e73a12eab292dce78e40e718906ca8",
+      "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+      "synthetic_pid1_cgroup": true
+    },
+    "native_recovery_health": {
+      "driver_sha256": "2f835eeb7986f69b637d71120bbd41a5cea2dcd9388a0f442e513bdde404cf6a",
+      "exit": 0,
+      "hardware_access": false,
+      "image": "sha256:10f2df2fd071a0f92a00eb74ec781cc30d41932eccd8620893621a188c0dc9a0",
+      "native_architecture_adapter": true,
+      "network": false,
+      "passed": true,
+      "private_log_sha256": "2113cc5959efd3e7430650607d789c0cb7681c4899f787b5349f795373c7660b",
+      "private_result_sha256": "fc3df15cc5dc723f335127edb47e35011e72be3c909de170a8abfd7c7e2f0dc1",
+      "production_epoch_assigned": false,
+      "production_keys": false,
+      "programs": {
+        "nkn-root": {
+          "bytes": 3604640,
+          "sha256": "d15f085d1a4c542f5bbb83945a90270a2d2d10ca1b44ef59608d333072f75cbd"
+        },
+        "nkn-sdk-engine": {
+          "bytes": 11346080,
+          "sha256": "879384ed30c84487d90898cf67368b70effc34a59585a5420956d8f74b2e611b"
+        },
+        "rustsimhub-audio-alsa": {
+          "bytes": 5020928,
+          "sha256": "8c0838ebea862d037453add6085797853b96ee518231386776d42e4f43926e3f"
+        },
+        "rustsimhub-ble-recovery": {
+          "bytes": 2344400,
+          "sha256": "786d57e4e22c48f3ac2510e7f14da995ed497fb3628bafc818d1e83a61a8c8ec"
+        },
+        "rustsimhub-core": {
+          "bytes": 9028200,
+          "sha256": "4d201bcb23de7fc5d3fd1cc07aa74302b7a04fc8eb2a9f6f9c9385311dbbf43d"
+        },
+        "rustsimhub-core-launcher": {
+          "bytes": 687960,
+          "sha256": "9709b6244f04c37c638b366be5724c4b0a58f9e37335b5feb162d5c6efc418f7"
+        },
+        "rustsimhub-edge": {
+          "bytes": 4296160,
+          "sha256": "e084733727105e57933f626c8d9fd7a5418ca195fd273602de7a010a4cf065f4"
+        },
+        "rustsimhub-forwarder": {
+          "bytes": 3880904,
+          "sha256": "bd9c14be7ef4c2d3cc189dc52ebbddb92b5657eb9ce57f4d299a0b69785b709e"
+        },
+        "rustsimhub-migrate": {
+          "bytes": 1606664,
+          "sha256": "38d3b30e5917d19672b849710ffa898030403a022d0b4272954108581170a22a"
+        },
+        "rustsimhub-update": {
+          "bytes": 2781320,
+          "sha256": "723f940560af5af4fcc4e188178cbd125aec4892877699ae15dc20d46f1ac2ff"
+        },
+        "simhubctl": {
+          "bytes": 1124392,
+          "sha256": "f314541927b8c96066b05a8e730f76978c8b53107c567c0f8f6cb54cadf9537d"
+        }
+      },
+      "revision": "c771ad8825e64d52c7e7dc8418634f34fdd38a84",
+      "runtime_image": "sha256:5ee1ac74e6bbbedad27abe1574d94faac1e73a12eab292dce78e40e718906ca8",
+      "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+      "synthetic_pid1_cgroup": true
+    }
+  },
+  "checks": {
+    "chromium_ap_11": {
+      "private_log_sha256": "1c1eeaa53e4ae9832d6d4b5c043bbd1f8c481360d5c225d78586d761289b8243",
+      "status": "passed"
+    },
+    "chromium_home_three_widths_and_missing_module_negative": {
+      "private_log_sha256": "912f7061f6c900ebe570c1ed14600c0db1f9583233ffcef912d4de4d882a9e42",
+      "status": "passed"
+    },
+    "finite_entry_seven_cases": {
+      "private_log_sha256": "2705c1058b00ea7812472b944849907cbb7d764635b53391bef474b826e4237c",
+      "status": "passed"
+    },
+    "fmt": {
+      "private_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "status": "passed"
+    },
+    "health_fault_fixture_15_mutations_and_exit91": {
+      "private_log_sha256": "099efcb41de07127e3aa8dc9fb1264ca1d24944ea15baded1b8f02a1ce47fa23",
+      "status": "passed"
+    },
+    "input_tools_12": {
+      "private_log_sha256": "a9f2a4d4248b12b913de215757186e97b10aaed005c1ff2667017a5a0c235800",
+      "status": "passed"
+    },
+    "node_32": {
+      "private_log_sha256": "69948fee34e9b50b1e7415128d8e1ac60d937695a353a55076983ee522d0cb4f",
+      "status": "passed"
+    },
+    "original_recovery_16_plus_real_guard_1_and_email_9": {
+      "private_log_sha256": "1cf0677301fbcead266b301293936721ae23d01e208b715780a95aa873f870e5",
+      "status": "passed"
+    },
+    "readonly_pid1_fixture_45_comparisons_19_properties": {
+      "private_log_sha256": "e3fc460573576917be3492d723f50120d1c2ecb59669c86cef16e063d3e40310",
+      "status": "passed"
+    },
+    "release_tools_18": {
+      "private_log_sha256": "ac6d8f9106f0aa30ea03e7f00743591fcdad567386efd18f414048eeb40a81eb",
+      "status": "passed"
+    },
+    "root_matrix_24_passed_3_ordinary_ignored": {
+      "private_log_sha256": "0c1cd376ea91bc12c4ab44cafc37d6d0459bdda809cc6c33b65efdd06c57c95a",
+      "status": "passed"
+    },
+    "source_assembly": {
+      "private_log_sha256": "0dd3b4000b957ca8239c0501da760bdcdc493892e9f74985c58f58a463055920",
+      "status": "passed"
+    },
+    "standalone_harness_5": {
+      "private_log_sha256": "accfd6365329411f92a77e009c07f2026b2872b2da303f726dfda01e35bfcafa",
+      "status": "passed"
+    },
+    "standalone_harness_strict_clippy": {
+      "private_log_sha256": "dd38f1bd3566c1074bb2189987fcbf69f7c30cb5efa58fd201fe01ad6b5b2c2f",
+      "status": "passed"
+    },
+    "strict_workspace_all_targets_all_features_clippy": {
+      "private_log_sha256": "eecf61f5f6f00a0ee369a6e9f42abd906053c21842451c34d048ad7b5754963f",
+      "status": "passed"
+    },
+    "unsigned_root_legacy_6_cases": {
+      "private_log_sha256": "9d61a276938253a40322825c67303725b0a590772fbeda31cad3fcaed8423263",
+      "status": "passed"
+    },
+    "unsigned_root_product_6_cases": {
+      "private_log_sha256": "8a7e3552f24fb975bc4c561c882116160e7ab962707beb86e2a0a77de3b09126",
+      "status": "passed"
+    },
+    "workspace_all_features": {
+      "failed": 0,
+      "ignored": 30,
+      "passed": 1661,
+      "private_log_sha256": "1bbf58060efb19c393035aa777ffa9aec99ce9f2660069f13880c21e72dc75c5",
+      "test_profile": {
+        "lto": false,
+        "opt_level": "z",
+        "panic": "unwind"
+      }
+    },
+    "workspace_default": {
+      "failed": 0,
+      "ignored": 24,
+      "passed": 1458,
+      "private_log_sha256": "900ed3606d998ad71435af8a5ec021f28e207efda2f544a003b7e62aefa67ab9",
+      "test_profile": {
+        "lto": false,
+        "opt_level": "z",
+        "panic": "unwind"
+      }
+    }
+  },
+  "ci": {
+    "billing_changed": false,
+    "counted_as_pass": false,
+    "private_annotations_sha256": "e5ed1ff33f9c4699df22f6a1304e5ffca8616074c6c2c3d15fbb4480420400fd",
+    "production_source_run": "https://github.com/Viper-Boss/RustSimHub/actions/runs/42775066418",
+    "result": "test and native-audio not started: account payment/spending gate"
+  },
+  "device_tested": false,
+  "diagnostic_hash_comparison": {
+    "aarch64_sha2_feature_detected": true,
+    "existing_locked_sha2_0111_ms": 3982.854608,
+    "input_bytes": 6183248,
+    "private_log_sha256": "434a2a4202e9a3360ab464c8652f680883aff3d35ba8b662e7693e537f6bfae2",
+    "production_dependency_changed": false,
+    "rounds": 24,
+    "same_digest": true,
+    "scope": "private standalone benchmark, not a production artifact or full confirmation",
+    "sha2_0109_ms": 4960.1315
+  },
+  "failed_attempts": [
+    {
+      "result": "94 passed, 1 failed, 6 ignored; expected Integrity, observed Busy; deadline unchanged",
+      "scope": "initial updater timing"
+    },
+    {
+      "result": "Cargo6313 rlib/cdylib output collision and E0463; test-only unwind fixed; production ARM abort unchanged",
+      "scope": "all-features panic abort test build"
+    },
+    {
+      "result": "build children SIGKILL 9; final tests rerun",
+      "scope": "environment switch"
+    },
+    {
+      "result": "libbfd missing; private library path corrected",
+      "scope": "cross ranlib"
+    },
+    {
+      "result": "Unknown after seven targets; corrected both fixed template directories; old transaction retained",
+      "scope": "email fixed Root change proof"
+    },
+    {
+      "result": "readonly marker reuse rejected before boot",
+      "scope": "ARM guest staging"
+    },
+    {
+      "result": "01777 rejected by real Root fence; disposable init establishes 0755",
+      "scope": "ARM root ancestor"
+    },
+    {
+      "result": "300 second timeout; retained journal/log, no budget increase",
+      "scope": "ARM TCG initial apply"
+    },
+    {
+      "result": "Busy; synthetic PID1 env_clear/cgroup and query adapters corrected; final max and Cortex-A53 runtime observation still refused near the original five-second budget; exact per-stage timing unresolved",
+      "scope": "ARM initial confirmation"
+    }
+  ],
+  "format": 1,
+  "input_lock": {
+    "baseline": "8f9cfeff1a4b5a804b8b138e890f7386caf5a006",
+    "format": 1,
+    "inputs": [
+      {
+        "head": "6787addaf4ca0e79f8b8455cbb3175372c9c318c",
+        "id": "lan-age",
+        "includes": [],
+        "kind": "product",
+        "pr": 195,
+        "requires": []
+      },
+      {
+        "head": "395a07eea72a074f3126466d03a2b899787ac9eb",
+        "id": "runner",
+        "includes": [],
+        "kind": "product",
+        "pr": 196,
+        "requires": []
+      },
+      {
+        "head": "ecfb9fe7d8c4b7f940db82cd9ea52b1ebb71b810",
+        "id": "runtime-library",
+        "includes": [],
+        "kind": "product",
+        "pr": 197,
+        "requires": []
+      },
+      {
+        "head": "32d340f9701cb73d36fbdc443bfcf6ef7c08ff6a",
+        "id": "probe-fixture",
+        "includes": [],
+        "kind": "product",
+        "pr": 198,
+        "requires": []
+      },
+      {
+        "head": "fb77eaf63a7ef50a8da229664fe37129a9a0bd6f",
+        "id": "prior-combination-report",
+        "includes": [],
+        "kind": "report",
+        "pr": 199,
+        "requires": []
+      },
+      {
+        "head": "a690213cec950b273632f595b96a0bea8f8e5e64",
+        "id": "runtime-cli",
+        "includes": [
+          "runtime-library"
+        ],
+        "kind": "product",
+        "pr": 200,
+        "requires": [
+          "runtime-library"
+        ]
+      },
+      {
+        "head": "ff848793f79981b5bdd796002634f12db65e7d55",
+        "id": "ap-core",
+        "includes": [],
+        "kind": "product",
+        "pr": 202,
+        "requires": []
+      },
+      {
+        "head": "56a1055d583c1f7f7d7d21f1b081f07a54dd3e85",
+        "id": "recovery-order",
+        "includes": [],
+        "kind": "product",
+        "pr": 203,
+        "requires": []
+      },
+      {
+        "head": "b671aaf1828583aa65a16329c31538e53096f229",
+        "id": "ap-ui",
+        "includes": [
+          "ap-core"
+        ],
+        "kind": "product",
+        "pr": 204,
+        "requires": [
+          "ap-core"
+        ]
+      },
+      {
+        "head": "c3a67120cb91f8c6095579a89764466a101d9433",
+        "id": "release-profiles",
+        "includes": [],
+        "kind": "product",
+        "pr": 205,
+        "requires": []
+      },
+      {
+        "head": "fe65bf3e1fd02375ed6fcd38a595271c33180caa",
+        "id": "health-core",
+        "includes": [
+          "runtime-cli",
+          "probe-fixture"
+        ],
+        "kind": "product",
+        "pr": 206,
+        "requires": [
+          "runtime-cli",
+          "probe-fixture"
+        ]
+      },
+      {
+        "head": "77b2baf88bc7409c72c31b5b08ea6b2aa8bf7ba9",
+        "id": "health-confirm",
+        "includes": [
+          "health-core"
+        ],
+        "kind": "product",
+        "pr": 211,
+        "requires": [
+          "health-core"
+        ]
+      },
+      {
+        "head": "6099846b54e8853d2759fd49d9961ae440bf5e97",
+        "id": "web-regression",
+        "includes": [],
+        "kind": "product",
+        "pr": 207,
+        "requires": [
+          "ap-ui"
+        ]
+      },
+      {
+        "head": "42dca70ff82b405b787616def708903bb126bad5",
+        "id": "product-install",
+        "includes": [],
+        "kind": "product",
+        "pr": 209,
+        "requires": [
+          "release-profiles"
+        ]
+      },
+      {
+        "head": "19f9844fd76ff1597b69a694b2e86dff3561989b",
+        "id": "product-data",
+        "includes": [],
+        "kind": "product",
+        "pr": 210,
+        "requires": [
+          "release-profiles"
+        ]
+      },
+      {
+        "head": "66b2cfff2a57566efc36a0ea894af7f04d4a91a3",
+        "id": "mainline-stage1",
+        "includes": [
+          "release-profiles",
+          "ap-ui",
+          "recovery-order",
+          "web-regression"
+        ],
+        "kind": "product",
+        "pr": 208,
+        "requires": [
+          "release-profiles",
+          "ap-ui",
+          "recovery-order",
+          "web-regression"
+        ]
+      },
+      {
+        "head": "28c38c0bcb5c802c1f223787fa27efc957410ebd",
+        "id": "product-install-executor",
+        "includes": [
+          "product-install"
+        ],
+        "kind": "product",
+        "pr": 213,
+        "requires": [
+          "product-install"
+        ]
+      },
+      {
+        "head": "a148e670f8b6a38c0d7acfe4f9636b32a7eeff8b",
+        "id": "product-data-coordinator",
+        "includes": [
+          "product-data"
+        ],
+        "kind": "product",
+        "pr": 212,
+        "requires": [
+          "product-data"
+        ]
+      }
+    ],
+    "repository": "Viper-Boss/RustSimHub"
+  },
+  "not_run": [
+    "locked product kernel boot/modules and complete bootable firmware",
+    "real systemd PID1 sandbox on target device",
+    "physical device/NAS/host NSS/host services",
+    "production signing, epoch allocation, deployment or manual acceptance",
+    "real NKN/BLE/forwarding ON or network/SMTP",
+    "full EmailRecovery combination",
+    "WASM browser artifact missing; not counted as Node pass",
+    "all fault cases as independent full formal ARM chains"
+  ],
+  "post_freeze_production_path_comparison": {
+    "changed_test_only_paths": [
+      "tools/product-integration/README.md",
+      "tools/product-integration/fixtures/entry.py",
+      "tools/product-integration/fixtures/systemctl-fast.sh",
+      "tools/product-integration/fixtures/systemctl.py",
+      "tools/product-integration/production_chain.py",
+      "tools/product-upgrade/README.md",
+      "tools/product-upgrade/harness/Cargo.lock",
+      "tools/product-upgrade/harness/src/lib.rs"
+    ],
+    "paths": [
+      "Cargo.toml",
+      "Cargo.lock",
+      "crates",
+      "firmware",
+      "native",
+      "tools/product-release",
+      "tools/product-install",
+      "tools/product-upgrade/recovery_child.rs"
+    ],
+    "unchanged": true
+  },
+  "production_epoch_assigned": false,
+  "production_signing": false,
+  "production_source": "c771ad8825e64d52c7e7dc8418634f34fdd38a84",
+  "recorded_date": "2026-11-10",
+  "scope": "offline production integration; not device acceptance or installation authority",
+  "source_archive_sha256": "80aabeca4884cc40a625af891017b78cdf35f89431673184ae519f7cdedbfc5a",
+  "stage_status": {
+    "arm_default": "passed",
+    "arm_recovery_health_confirmation": "failed: Busy under unchanged five second runtime observation budget",
+    "full_8D_acceptance": false,
+    "native_supported_full_chains": "passed",
+    "pr_remains_draft": true,
+    "production_entrypoints_and_retained_guards": "implemented"
+  },
+  "timezone": "Asia/Shanghai",
+  "verification_files": {
+    "tools/product-integration/README.md": "735a79588816539ae9b2b67b64cbf55f83b1a2040df1c6c07ca151b0bca83480",
+    "tools/product-integration/fixtures/entry.py": "495d110da48ab102759ceb05074b5ca3f21008f38aa5fe710c59f21ec78c5fc2",
+    "tools/product-integration/fixtures/systemctl-fast.sh": "658baa7b16239effe4d973bb826a14b0bf712d03e911e1eaa4bd331b7eefd8c9",
+    "tools/product-integration/fixtures/systemctl.py": "fc744bf688358387387370dffe19bf916a9dc7eda5b458d3294d46505cfa55d2",
+    "tools/product-integration/production_chain.py": "3603200dd180b81c471353e4e8011b16ac238bf420a6cf8be2a0f58380684797"
+  },
+  "verification_fixture_commit": "a101c01fd4b2ebfc05c37277ef8a963b33cc28c8",
+  "verification_only_harness_commit": "10beaf8373a4147126b343002f949d8dce73d7cc"
+}

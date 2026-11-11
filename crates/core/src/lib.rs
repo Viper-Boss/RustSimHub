@@ -22,3 +22,9 @@ pub mod network_trial;
 
 #[cfg(target_os = "linux")]
 pub mod update_health;
+
+// Pure mode metadata is available before any activation or database open.
+#[cfg(all(target_os = "linux", feature = "recovery-execution"))]
+#[path = "../../../tools/product-upgrade/recovery_child.rs"]
+pub mod product_recovery_child;
+pub mod runtime_compatibility;

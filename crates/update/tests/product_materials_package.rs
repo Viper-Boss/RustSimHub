@@ -26,6 +26,7 @@ fn every_profile_verifies_actual_signature_all_payloads_and_only_reports_a_plan(
         Profile::Email,
         Profile::Recovery,
         Profile::EmailRecovery,
+        Profile::RecoveryHealth,
     ] {
         let bundle = Bundle::new(profile);
         let verified = bundle.verify().unwrap();
@@ -524,4 +525,36 @@ fn actual_offline_encoder_binds_git_archive_and_signed_application_then_rust_ver
     let refused = base.join("refused-output");
     assert!(!invoke(&refused).status.success());
     assert!(!refused.exists());
+}
+
+#[test]
+fn running_material_proof_requires_signature_and_rejects_changed_program_or_contract() {
+    for id in [TargetId::NknSdk, TargetId::ProfileConfig] {
+        let bundle = Bundle::new(Profile::RecoveryHealth);
+        let key = bundle.key.verifying_key().to_bytes();
+        assert!(matches!(
+            VerifiedProductMaterials::open_running(&bundle.fd(), &[0; 32], &bundle.bindings),
+            Err(Error::Signature)
+        ));
+        let verified =
+            VerifiedProductMaterials::open_running(&bundle.fd(), &key, &bundle.bindings).unwrap();
+        verified.revalidate_running().unwrap();
+        let path = bundle.directory.path().join(id.payload_name());
+        let before = fs::metadata(&path).unwrap();
+        let mut bytes = fs::read(&path).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        *bytes.last_mut().unwrap() ^= 1;
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&path, bytes).unwrap();
+        File::open(&path)
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_modified(before.modified().unwrap()))
+            .unwrap();
+        fs::set_permissions(&path, before.permissions()).unwrap();
+        assert!(verified.revalidate_running().is_err(), "{id:?}");
+        assert!(verified.revalidate().is_err(), "{id:?}");
+        assert!(
+            VerifiedProductMaterials::open_running(&bundle.fd(), &key, &bundle.bindings).is_err()
+        );
+    }
 }
