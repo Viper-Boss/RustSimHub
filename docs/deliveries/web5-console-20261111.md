@@ -54,3 +54,5 @@
 本机后续只需在获批候选安装后核对：历史跨线路/回收站计数、收到顺序提示与实际时间、真实终态7历史显示及控制拒绝、原浏览器钥匙登录、三宽真实观感；127/128仍需只读证据确认。不要为让数字一致清库/恢复真实回收站或导出唯一钥匙。
 
 实现复用RustSimHub现有生产模块与测试夹具，原作者/AGPL-3.0-only标识保留；新代码为本包AI辅助变更，没有引入第三方业务实现。
+
+PR：[223](https://github.com/Viper-Boss/RustSimHub/pull/223)，非草稿、目标main、未合并。远端Rust run42992574622已回读：test/native-audio均`failure`且steps为空；test注释明确为近期付款失败或spending limit导致job未启动。因此GitHub CI记为**未运行（账单阻断）**，不算产品测试失败或CI通过。
