@@ -2,6 +2,7 @@
 """Bounded reads only. Candidate paths are never executed or followed through links."""
 import hashlib
 import json
+import math
 import os
 from pathlib import Path, PurePosixPath
 import re
@@ -27,8 +28,12 @@ def parse(raw, limit=1024 * 1024):
         return result
     def nonfinite(_):
         raise Refused('json_nonfinite')
+    def finite(value):
+        number=float(value);need(math.isfinite(number),'json_nonfinite');return number
     try:
-        return json.loads(raw, object_pairs_hook=unique, parse_constant=nonfinite)
+        return json.loads(raw, object_pairs_hook=unique, parse_constant=nonfinite,parse_float=finite)
+    except RecursionError as error:
+        raise Refused('json_depth_budget') from error
     except (UnicodeError, json.JSONDecodeError) as error:
         raise Refused('json_invalid') from error
 

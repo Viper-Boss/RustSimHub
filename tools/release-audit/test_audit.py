@@ -21,7 +21,7 @@ class AuditTests(unittest.TestCase):
     def write(self,name,data,mode=0o644):
         p=self.root/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(data);p.chmod(mode);return p
     def test_json_duplicate_nonfinite_and_bool_integer_rejected(self):
-        for raw in [b'{"x":1,"x":2}',b'{"x":NaN}',b'[] '*1000]:
+        for raw in [b'{"x":1,"x":2}',b'{"x":NaN}',b'{"x":1e999}',b'['*1001+b'0'+b']'*1001,b'[] '*1000]:
             with self.assertRaises(Refused):parse(raw,128)
         self.assertFalse(audit.same({'x':True},{'x':1}))
     def test_symlink_parent_hardlink_fifo_and_writable_refused(self):

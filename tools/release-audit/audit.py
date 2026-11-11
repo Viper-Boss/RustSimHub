@@ -440,7 +440,7 @@ def audit(args):
         report['audit_passed'] = True
     except Refused as error:
         report['findings'].append({'check': stage, 'code': str(error)})
-    except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError, AssertionError, tarfile.TarError):
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError, AssertionError, SyntaxError, RecursionError, tarfile.TarError):
         # Never echo paths, malformed candidate text, key bodies or subprocess stderr.
         report['findings'].append({'check': stage, 'code': 'input_or_tool_refused'})
     if args.scope == 'release' and not report['release_input_complete']:
