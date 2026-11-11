@@ -44,7 +44,12 @@ On a new generic installation only:
 5. Only then are the original AP tmpfiles and two activation drop-ins atomically published.
    The tmpfiles are deliberately delayed: early boot must not recursively create
    public parents inside the original private state layout. The
-   ordinary app target starts the original Core, setup Edge and AP consumer. The
+   manager is reloaded before the durable prepared marker is published, so the
+   queued Core job sees its original launcher drop-in. A fixed activation target
+   prequeues the original setup consumers, whose additional prepared-marker
+   conditions fail closed. Ordered inactive boot jobs are allowed; live processes
+   are refused. This also avoids relying on a late Wants drop-in to expand a
+   transaction PID1 has already queued. The ordinary app target starts Core. The
    consumer cannot activate a network without the original finite live Core lease,
    idle/USB/NM checks and journals. No firstboot helper issues `nmcli`, resets Owner,
    starts a service, activates an APN, deletes data, or loops on a failed network action.

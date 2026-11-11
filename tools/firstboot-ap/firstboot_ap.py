@@ -13,6 +13,7 @@ sys.path.insert(0,str(ROOT/'tools'))
 import setup_ap_package as ap
 from application_package import checked, unique_object, verify_package
 MATERIAL=ROOT/'firmware/system/firstboot-ap'
+AUXILIARY=(('rustsimhub-firstboot-ap-activation.target','etc/systemd/system/rustsimhub-firstboot-ap-activation.target'),('10-firstboot-prepared.conf','etc/systemd/system/rustsimhub-setup-edge.service.d/10-firstboot-prepared.conf'),('10-firstboot-prepared.conf','etc/systemd/system/rustsimhub-setup-ap.service.d/10-firstboot-prepared.conf'))
 
 def require(value,message):
     if not value:raise ValueError(message)
@@ -86,6 +87,7 @@ def install(tree,bundle,application_source,factory_digest):
     for name in ['manifest.json','generic-contract.json']:put('usr/share/rustsimhub/firstboot-ap/'+name,regular(Path(bundle)/name),0o644)
     put('usr/local/libexec/rustsimhub-firstboot-ap',(MATERIAL/'runtime.py').read_bytes(),0o555)
     put('etc/systemd/system/rustsimhub-firstboot-ap.service',(MATERIAL/'rustsimhub-firstboot-ap.service').read_bytes(),0o644)
+    for name,target in AUXILIARY:put(target,(MATERIAL/name).read_bytes(),0o644)
     # Mount destinations are empty public aliases; only firstboot creates private role directories.
     alias=tree/'var/lib/rustsimhub-setup-edge';alias.mkdir(mode=0o755);alias.chmod(0o755);os.chown(alias,0,0)
     return {'format':1,'source_sha256':application_source,'manifest_sha256':sha(regular(Path(bundle)/'manifest.json')),'installer_revision':m['installer_revision'],'runtime_sha256':sha((MATERIAL/'runtime.py').read_bytes()),'request_created_on_device':True,'identity_required':True,'credentials_included':False,'activation_dropins_preinstalled':False,'public_installable':False}
@@ -102,5 +104,7 @@ def audit_tree(tree,layer):
             info=p.lstat();require((info.st_uid,info.st_gid,info.st_mode&0o777)==(0,0,mode),'installed firstboot ownership/mode')
     for target,name,mode in [('usr/local/libexec/rustsimhub-firstboot-ap','runtime.py',0o555),('etc/systemd/system/rustsimhub-firstboot-ap.service','rustsimhub-firstboot-ap.service',0o644)]:
         p=tree/target;require(regular(p)==(MATERIAL/name).read_bytes(),'firstboot helper/unit differs');info=p.lstat();require((info.st_uid,info.st_gid,info.st_mode&0o777)==(0,0,mode),'firstboot helper/unit ownership')
+    for name,target in AUXILIARY:
+        p=tree/target;require(regular(p)==(MATERIAL/name).read_bytes(),'firstboot activation material differs');info=p.lstat();require((info.st_uid,info.st_gid,info.st_mode&0o777)==(0,0,0o644),'firstboot activation ownership')
     require(not any((tree/'var/lib/rustsimhub').iterdir()),'device state must remain absent')
     return m

@@ -11,5 +11,6 @@
   "owner_authority": "existing-core-device-window-and-ready-ap-only",
   "network_authority": "existing-core-lease-and-setup-ap-transaction-only",
   "maximum_window_seconds": 3600,
-  "public_installable": false
+  "public_installable": false,
+  "activation": "prequeued-original-consumers-after-prepared-marker-and-manager-reload"
 }

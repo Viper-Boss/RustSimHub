@@ -29,7 +29,7 @@ TARGETS = (
 LATE = {3,4,5}
 ACTIVATION = {4,5}
 AP_CONTRACT = {'format': 1, 'auth_protocol': 2, 'database_schema': 6, 'application_format': 2, 'parent_channel': 1, 'station_trial_channel': 1, 'station_commit_channel': 1, 'material_format': 1, 'owner_adoption': 1, 'core_mode': '--serve-device-forwarding-managed-setup-ap', 'root_mode': '--serve-configurable', 'origin': 'https://192.168.100.1:8443', 'maximum_window_seconds': 3600}
-GENERIC_CONTRACT = {'format': 1, 'kind': 'generic-firstboot-ap', 'request': 'RustSimHub.GenericFirstbootAp.v1', 'generic_request': 'RustSimHub.GenericProvision.v1', 'installation_marker': 'RustSimHub.InitialInstallation.v1', 'core_uid': 986, 'edge_uid': 985, 'database_schema': 6, 'application_format': 2, 'owner_authority': 'existing-core-device-window-and-ready-ap-only', 'network_authority': 'existing-core-lease-and-setup-ap-transaction-only', 'maximum_window_seconds': 3600, 'public_installable': False}
+GENERIC_CONTRACT = {'format': 1, 'kind': 'generic-firstboot-ap', 'request': 'RustSimHub.GenericFirstbootAp.v1', 'generic_request': 'RustSimHub.GenericProvision.v1', 'installation_marker': 'RustSimHub.InitialInstallation.v1', 'core_uid': 986, 'edge_uid': 985, 'database_schema': 6, 'application_format': 2, 'owner_authority': 'existing-core-device-window-and-ready-ap-only', 'network_authority': 'existing-core-lease-and-setup-ap-transaction-only', 'maximum_window_seconds': 3600, 'public_installable': False, 'activation': 'prequeued-original-consumers-after-prepared-marker-and-manager-reload'}
 
 class Refused(Exception):
     pass
@@ -132,8 +132,13 @@ class Commands:
         for unit in ['rustsimhub-app.target','rustsimhub-app-select.service','rustsimhub-core.service','rustsimhub-edge.service','rustsimhub-media.service','rustsimhub-setup-ap.service','rustsimhub-setup-edge.service']:
             raw=self.call(['/usr/bin/systemctl','show','--value','-p','ActiveState',unit],5).strip()
             require(raw in (b'inactive',b'failed'),'business or AP service already active')
-            for prop in ['MainPID','ControlPID','Job']:
+            # Start jobs for these explicitly ordered boot units are expected.
+            # Active processes remain forbidden; requiring Job=0 deadlocks first boot.
+            for prop in ['MainPID','ControlPID']:
                 require(self.call(['/usr/bin/systemctl','show','--value','-p',prop,unit],5).strip() in (b'',b'0'),'service job or process exists')
+
+    def reload(self):
+        self.call(['/usr/bin/systemctl','daemon-reload'],10)
 
 def manifest(files):
     raw=files.read(SOURCE+'/manifest.json',mode=0o644)
@@ -217,6 +222,7 @@ def prepare(f,c,m,raw):
     expected['generated']=generated(f)
     for i in sorted(LATE):
         name,target,mode=TARGETS[i];f.put(target,f.read(SOURCE+'/'+name,mode=0o644),mode)
+    c.reload() # PID1 must use the just-published Core ExecStart drop-in before queued boot jobs.
     f.put(state_path,json.dumps(expected,sort_keys=True,separators=(',',':')).encode()+b'\n')
     return expected
 

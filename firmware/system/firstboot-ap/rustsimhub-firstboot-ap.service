@@ -5,7 +5,7 @@ ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/firstboot-ap.reques
 Requires=rustsimhub-firstboot.service
 Wants=rustsimhub-generic-install.service
 After=rustsimhub-firstboot.service rustsimhub-generic-install.service systemd-tmpfiles-setup.service
-Before=rustsimhub-app-select.service rustsimhub-core.service rustsimhub-setup-edge.service rustsimhub-setup-ap.service
+Before=rustsimhub-app.target rustsimhub-app-select.service rustsimhub-edge.service rustsimhub-media.service rustsimhub-core.service rustsimhub-setup-edge.service rustsimhub-setup-ap.service
 # Optional AP failure never disables the existing USB maintenance path.
 
 [Service]

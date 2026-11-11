@@ -42,6 +42,7 @@ class ActualCommands:
             if self.fail_ap:raise runtime.Refused('injected before actual AP preparation')
             return self.real(self.path(args[0]),[args[1],*[self.path(p) for p in args[2:5]],*args[5:]])
         raise AssertionError('unexpected command boundary')
+    def reload(self):self.events.append('synthetic_pid1_reload_no_host_bus')
     def stopped(self):
         # Explicit synthetic PID1 boundary; no host/session bus is accessed.
         self.events.append('synthetic_pid1_inactive_no_jobs')

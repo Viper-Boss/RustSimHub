@@ -279,7 +279,7 @@ def main():
         if led_build: units+=['rustsimhub-status-led.service']
         if network_build: units+=['rustsimhub-network-agent.service','rustsimhub-carrier-voice.service']
         if startup:units+=['rustsimhub-generic-install.service','rustsimhub-app.target']
-        if firstboot_layer:units+=['rustsimhub-firstboot-ap.service']
+        if firstboot_layer:units+=['rustsimhub-firstboot-ap.service','rustsimhub-firstboot-ap-activation.target']
         for unit in units:
             link = destination(tree, 'etc/systemd/system/multi-user.target.wants/'+unit)
             assert not link.exists()

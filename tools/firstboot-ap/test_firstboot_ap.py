@@ -43,7 +43,7 @@ class Policies(unittest.TestCase):
         self.assertLess(source.index('rustsimhub-firstboot-ap --request'),source.index('exec /usr/local/libexec/rustsimhub-install-initialize'))
     def test_optional_unit_does_not_depend_on_ap_success(self):
         text=(package.MATERIAL/'rustsimhub-firstboot-ap.service').read_text()
-        self.assertIn('Before=rustsimhub-app-select.service',text)
+        self.assertIn('rustsimhub-app-select.service',text)
         self.assertNotIn('Requires=rustsimhub-app.target',text)
         self.assertIn('After=rustsimhub-firstboot.service rustsimhub-generic-install.service',text)
         self.assertNotIn('CAP_NET_ADMIN',text)
@@ -86,6 +86,7 @@ class SyntheticCommands:
     def stopped(self):
         self.events.append('stopped')
         if self.fail_at=='active':raise runtime.Refused('active fixture')
+    def reload(self):self.events.append('synthetic_manager_reload')
     def call(self,args,timeout=20):
         self.events.append(tuple(args));x=self.fixture
         if args[1:] and args[1]=='--build-info':return encoded(x.info[{'rustsimhub-core':'core','rustsimhub-edge':'edge','rustsimhub-setup-ap':'setup-ap','rustsimhub-core-launcher':'core-launcher'}[Path(args[0]).name]])
@@ -125,6 +126,12 @@ class RootFilesystem(unittest.TestCase):
                 _,target,mode=runtime.TARGETS[i]
                 self.assertEqual(stat.S_IMODE(self.x.f.path(target).stat().st_mode),mode)
         finally:os.umask(previous)
+    def test_reload_failure_leaves_prepared_marker_absent_and_can_resume(self):
+        self.x.request()
+        with mock.patch.object(self.c,'reload',side_effect=runtime.Refused('reload failed')):
+            with self.assertRaises(runtime.Refused):runtime.run(self.root,self.c)
+        self.assertTrue(self.x.f.absent(runtime.BASE+'/system/firstboot-ap/state.json'))
+        self.assertEqual(runtime.run(self.root,self.c)['state'],'prepared')
     def test_old_device_without_request_ignores_even_bad_new_material(self):
         write(self.root,runtime.SOURCE+'/manifest.json',b'bad',mode=0o644)
         self.assertEqual(runtime.run(self.root,self.c)['state'],'not_requested');self.assertEqual(self.c.events,[])
