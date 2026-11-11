@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-11T00:58:58.082715+00:00",
+  "updated_at": "2026-11-11T15:54:17.283223+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -69,24 +69,29 @@
   "focus": {
     "task_id": "REL-01",
     "title": "冻结支持矩阵与发行候选",
-    "state": "218/221已入主线；四份网页任务指令可领取",
-    "description": "按用户明确授权，218已正常合并，221经222保留两份文档冲突双方记录完整入main并被GitHub记merged；同账号不能自批不等于不能正常合并。未独立重跑/部署。新增四份网页指令共32包内步骤：控制台、通用首启热点、产品组合/WASM、发行审计；尚未宣称开跑或完成。215/216等仍仅批准。原81.5%、20/169、10.6%不变。"
+    "state": "任务8与统计已接纳；四个WEB5包交付后统一冻结发行来源",
+    "description": "主线整合完成：215/216已正常合并；195/196/199随215纳入，200旧历史早在main并按已吸收关闭。固定源6f4e14a7与最终main完整树一致；本轮Linux统计79项、workspace全特性1672项通过，严格检查/默认生产检查/系统与发行工具专项通过。前序失败保留：Go PATH、网络绑定权限及测试临时根目录权限；仅后者修正3行测试夹具，经PR225正常合入，未改生产限制。没有新ARM/QEMU/完整Native或浏览器链，不沿用作者旧源结果当本轮通过。四个WEB5窗口继续原分工，本机未改其产品文件。未签名/分配epoch/部署/访问设备；81.5%、20/169、10.6%保持。"
   },
   "facts": [
     {
       "label": "新网页指令",
-      "value": "4包 · 32个包内步骤",
-      "detail": "控制台/首次热点/产品矩阵WASM/发行审计；仅可领取，代码和实机尚不据此加分"
+      "value": "4包 · 用户告知均在运行",
+      "detail": "控制台/首次热点/产品矩阵WASM/发行审计；运行依据用户反馈，交付和验收仍按各自PR证据核对"
+    },
+    {
+      "label": "本轮主线回归",
+      "value": "1672 Rust全特性通过",
+      "detail": "另有31专项ignored；三轮前序失败保留，修正仅测试夹具；默认生产检查/严格检查与工具专项通过，不含新ARM/设备"
     },
     {
       "label": "任务8 · 生产代码",
-      "value": "离线闭环已交 · PR215已批准",
-      "detail": "作者固定报告：正式ARM确认4.494/4.732秒；未合入main，实机/PID1等未验收，本轮未重跑"
+      "value": "已合入main · 进入整机验证阶段",
+      "detail": "原ARM报告保留原来源；本轮新组合Rust/工具通过，暂无新ARM/设备结果"
     },
     {
       "label": "本轮PR处理",
-      "value": "6笔已批准 · 218/221已接纳",
-      "detail": "221经222解决文档冲突保留历史；未改保护/管理员绕过，未重跑产品/部署"
+      "value": "215/216/225已合并 · 旧包已去重",
+      "detail": "195/196/199随215纳入；200按已吸收关闭；正常合并、未修改保护规则或管理员绕过"
     },
     {
       "label": "完整剩余台账",
@@ -120,13 +125,13 @@
     },
     {
       "label": "当前main来源",
-      "value": "7535535 · 通用首启已接纳",
-      "detail": "main包含控制台与218/221（经222）；215候选与设备74仍分别记录，不以合并当刷机验收"
+      "value": "c5fd2d08 · 生产接线已接纳",
+      "detail": "源码完整树与本轮冻结受测源一致；WEB5四包继续独立开发"
     },
     {
       "label": "本轮环境与边界",
-      "value": "只更新批准和面板",
-      "detail": "未编译产品、未签名部署或访问设备；云端计费失败不能记CI通过"
+      "value": "主线整合与离线回归完成",
+      "detail": "1672 Rust全特性通过；云端两项因付款/消费上限未启动；未签名、部署或访问设备"
     },
     {
       "label": "历史验收边界",
@@ -158,7 +163,8 @@
     "docs/VALIDATION-APP71-INSTALL-20261102.md",
     "docs/VALIDATION-DASHBOARD-REFRESH-20261103.md",
     "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md",
-    "docs/deliveries/member-d-pr170-main-sync-20261103.md"
+    "docs/deliveries/member-d-pr170-main-sync-20261103.md",
+    "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/lead-mainline-integration-20261111.md"
   ],
   "modules": [
     {
@@ -6143,12 +6149,24 @@
         "https://github.com/Viper-Boss/RustSimHub/pull/222",
         "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/team/WEB5-DELEGATION-20261111.md"
       ]
+    },
+    {
+      "at": "2026-11-11T15:54:17.283223+00:00",
+      "type": "state",
+      "title": "REL-01 · 下一关卡：冻结支持矩阵与发行候选",
+      "detail": "主线整合完成：215/216已正常合并；195/196/199随215纳入，200旧历史早在main并按已吸收关闭。固定源6f4e14a7与最终main完整树一致；本轮Linux统计79项、workspace全特性1672项通过，严格检查/默认生产检查/系统与发行工具专项通过。前序失败保留：Go PATH、网络绑定权限及测试临时根目录权限；仅后者修正3行测试夹具，经PR225正常合入，未改生产限制。没有新ARM/QEMU/完整Native或浏览器链，不沿用作者旧源结果当本轮通过。四个WEB5窗口继续原分工，本机未改其产品文件。未签名/分配epoch/部署/访问设备；81.5%、20/169、10.6%保持。",
+      "task_ids": [
+        "REL-01"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/lead-mainline-integration-20261111.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "7535535bc5a95c42ff1ea70743b97be561f2049a",
-    "generated_at": "2026-11-11T00:58:58.082715+00:00",
+    "source_revision": "c5fd2d082e25d15535f249f11f5b7a4604427fea",
+    "generated_at": "2026-11-11T15:53:34.738698+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -6167,14 +6185,14 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 56189,
-            "tests": 44258,
-            "tooling": 10870,
+            "product": 56166,
+            "tests": 44259,
+            "tooling": 10862,
             "firmware": 1325
           },
-          "commits": 528,
-          "code_commits": 336,
-          "added": 119515,
+          "commits": 529,
+          "code_commits": 337,
+          "added": 119518,
           "deleted": 3452
         },
         "work": {
@@ -6712,6 +6730,11 @@
               "pr": 222,
               "head": "798f238f6e9464aa6521a8d4a063061db25791f5",
               "state": "MERGED"
+            },
+            {
+              "pr": 225,
+              "head": "b82b25f779ddab8399d514ce02d5ab4681c163cb",
+              "state": "MERGED"
             }
           ],
           "task_deliveries": [
@@ -7350,6 +7373,12 @@
               "head": "798f238f6e9464aa6521a8d4a063061db25791f5",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 225,
+              "head": "b82b25f779ddab8399d514ce02d5ab4681c163cb",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
             }
           ]
         }
@@ -7392,7 +7421,7 @@
             {
               "pr": 216,
               "head": "35375a5afbada0c947eaffb2cd1b9ea6a7127cf2",
-              "state": "OPEN"
+              "state": "MERGED"
             }
           ],
           "task_deliveries": [
@@ -7405,7 +7434,7 @@
             {
               "pr": 216,
               "head": "35375a5afbada0c947eaffb2cd1b9ea6a7127cf2",
-              "state": "OPEN",
+              "state": "MERGED",
               "submitted_by": "fungi1220"
             }
           ]
@@ -7562,15 +7591,15 @@
         ],
         "stats": {
           "current_lines": {
-            "product": 16122,
-            "tests": 11048,
-            "tooling": 4607,
+            "product": 16153,
+            "tests": 11476,
+            "tooling": 4774,
             "firmware": 1
           },
-          "commits": 128,
-          "code_commits": 61,
-          "added": 32852,
-          "deleted": 503
+          "commits": 136,
+          "code_commits": 66,
+          "added": 33522,
+          "deleted": 520
         },
         "work": {
           "assigned_steps": 68,
@@ -7991,12 +8020,12 @@
             {
               "pr": 195,
               "head": "6787addaf4ca0e79f8b8455cbb3175372c9c318c",
-              "state": "OPEN"
+              "state": "MERGED"
             },
             {
               "pr": 196,
               "head": "395a07eea72a074f3126466d03a2b899787ac9eb",
-              "state": "OPEN"
+              "state": "MERGED"
             },
             {
               "pr": 197,
@@ -8006,12 +8035,12 @@
             {
               "pr": 199,
               "head": "fb77eaf63a7ef50a8da229664fe37129a9a0bd6f",
-              "state": "OPEN"
+              "state": "MERGED"
             },
             {
               "pr": 200,
               "head": "a690213cec950b273632f595b96a0bea8f8e5e64",
-              "state": "OPEN"
+              "state": "CLOSED"
             },
             {
               "pr": 202,
@@ -8066,6 +8095,16 @@
             {
               "pr": 215,
               "head": "610d7fa63b1a0f129a3f146c0595171868f8e059",
+              "state": "MERGED"
+            },
+            {
+              "pr": 223,
+              "head": "665f485f768d3d0fc71cd94dc6c3022f18b5336c",
+              "state": "OPEN"
+            },
+            {
+              "pr": 224,
+              "head": "09cf3792eea208ab980e84e3a9ac23d3dc496ad4",
               "state": "OPEN"
             }
           ],
@@ -8349,13 +8388,13 @@
             {
               "pr": 195,
               "head": "6787addaf4ca0e79f8b8455cbb3175372c9c318c",
-              "state": "OPEN",
+              "state": "MERGED",
               "submitted_by": "wnfhsj88"
             },
             {
               "pr": 196,
               "head": "395a07eea72a074f3126466d03a2b899787ac9eb",
-              "state": "OPEN",
+              "state": "MERGED",
               "submitted_by": "wnfhsj88"
             },
             {
@@ -8367,13 +8406,13 @@
             {
               "pr": 199,
               "head": "fb77eaf63a7ef50a8da229664fe37129a9a0bd6f",
-              "state": "OPEN",
+              "state": "MERGED",
               "submitted_by": "wnfhsj88"
             },
             {
               "pr": 200,
               "head": "a690213cec950b273632f595b96a0bea8f8e5e64",
-              "state": "OPEN",
+              "state": "CLOSED",
               "submitted_by": "wnfhsj88"
             },
             {
@@ -8439,6 +8478,18 @@
             {
               "pr": 215,
               "head": "610d7fa63b1a0f129a3f146c0595171868f8e059",
+              "state": "MERGED",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 223,
+              "head": "665f485f768d3d0fc71cd94dc6c3022f18b5336c",
+              "state": "OPEN",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 224,
+              "head": "09cf3792eea208ab980e84e3a9ac23d3dc496ad4",
               "state": "OPEN",
               "submitted_by": "wnfhsj88"
             }
@@ -8776,15 +8827,15 @@
         ],
         "stats": {
           "current_lines": {
-            "product": 18815,
-            "tests": 21040,
-            "tooling": 969,
-            "firmware": 58
+            "product": 22162,
+            "tests": 22151,
+            "tooling": 1637,
+            "firmware": 62
           },
-          "commits": 143,
-          "code_commits": 74,
-          "added": 42099,
-          "deleted": 626
+          "commits": 176,
+          "code_commits": 102,
+          "added": 47753,
+          "deleted": 1104
         },
         "work": {
           "assigned_steps": 26,
@@ -9015,21 +9066,21 @@
     ],
     "unmapped": {
       "current_lines": {
-        "product": 1504,
-        "tests": 1297,
+        "product": 1508,
+        "tests": 1428,
         "tooling": 0,
         "firmware": 0
       },
-      "commits": 3,
-      "code_commits": 1,
-      "added": 3017,
-      "deleted": 0
+      "commits": 5,
+      "code_commits": 2,
+      "added": 3160,
+      "deleted": 4
     },
     "totals": {
-      "product": 93794,
-      "tests": 82297,
-      "tooling": 17391,
-      "firmware": 1384
+      "product": 97153,
+      "tests": 83968,
+      "tooling": 18218,
+      "firmware": 1388
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。",
     "task_plan": {
@@ -10564,19 +10615,19 @@
   },
   "delivery_snapshot": {
     "date": "2026-11-11",
-    "main": "7535535bc5a95c42ff1ea70743b97be561f2049a",
-    "summary": "任务8正式入口、连续守卫及已支持组合离线闭环已由PR215固定报告交付并按指示批准，尚未合入main；ARM/QEMU不等于棒子实测。218已直接合并，221经222保留文档冲突后完整入main；无需另找账号批准。原验收81.5%，还差18.5点；完整台账20/169、尚有149个收尾动作，不是149项待写代码。",
+    "main": "c5fd2d082e25d15535f249f11f5b7a4604427fea",
+    "summary": "主线已正常纳入215/216与旧195/196/199，200历史去重关闭；4个WEB5窗口继续。任务8生产接线进入main；四包交付接纳后统一冻结发行来源，再准备ARM候选/真实环境验收。原验收81.5%，20/169，剩149个完整收尾动作，非149项未开发。",
     "code_percent": null,
     "delivered": [
-      "PR215：任务8离线生产接线已交，最终代码8470608/完整HEAD610d7fa；作者报告workspace默认1466、全特性1669与正式ARM完整链通过，本轮未重跑。已按用户指令批准，未合并、未设备验收。",
-      "PR216：统计时钟回退修复已交，作者报告50项Windows测试；已直接批准，未合并。",
-      "旧195/196/199/200也已按指示批准；200的代码历史已随206进入main，PR本身仍指向旧组件base；不能按开放PR数当未开发功能。",
+      "PR215生产接线已进入mainc5fd2d08。原作者8470608的ARM/完整链报告保持旧源；本轮新组合已作Rust/工具回归，没有新ARM验收。",
+      "PR216统计时钟回退修复已合并；本轮Linux实际统计包79项通过（不同于原Windows50项报告）。",
+      "195/196/199历史随215正常纳入main；200代码早已随206在main，本轮按吸收关闭原PR，保留原base/作者/报告。",
       "PR221：通用刷机包/首启固件提取与身份生成离线交付；未真机刷写，首次配置只走USB，独立热点尚未装入该通用包。",
       "PR218：作者记录应用72→73→74安装，11-07真机浏览器登录/只读接口成功；非本轮设备探测，仍有短信排序/时间、通话核对中、127/128计数差待查。",
-      "当前main7535535已含217/219/220及218安装记录和221通用首启（经222）；215候选仍待接纳，通用74包不等于新产品组合。"
+      "当前mainc5fd2d08已含217/219/220、218安装记录、221通用首启（经222）、215生产接线与216统计修正；通用74包仍不等于新产品组合固件。"
     ],
     "remaining": [
-      "主线接纳与组合：215、216及旧195/196/199/200等当前仅批准；221/218已接纳（221经222），不用再等待协作者批准。接纳后必须按新的完整HEAD冻结，保留当前报告的支持边界。",
+      "主线接纳已收口：215/216及已包含旧包进入main，200历史去重关闭。保留WEB5四窗口独立代码边界，后续完成逐包接纳、最终源码冻结与发行组合。",
       "完整发行与第二设备：把任务8产品组合与通用镜像统一来源；核对匹配boot/DTB/modules/固件、锁定系统材料、真实PID1/沙箱，完成首次刷写/回读/冷启动/恢复。旧74镜像不等于新产品固件。",
       "首配与网页实际缺口：通用包首次热点集成仍需设计/接线；真实AP→STA/错密/返回热点/最终保存复验；控制台短信排序/时间解析、通话状态及计数差需定位和修复。",
       "产品支持矩阵：product-recovery-health-v1仅forwarding/schema9/worker4，v1还要求相同Core字节基线/候选/回退；AP/SMTP5自动确认明确不支持，EmailRecovery完整链和WASM未验证。扩展支持需要开发；若首版按有限矩阵发布，准确保留不支持声明。",
@@ -10602,12 +10653,27 @@
         69
       ],
       "merged_this_followup": [
-        218,
-        221,
-        222
+        195,
+        196,
+        199,
+        215,
+        216,
+        225
+      ],
+      "integrated_heads": [
+        195,
+        196,
+        199,
+        215,
+        216,
+        225
+      ],
+      "absorbed_closed": [
+        200
       ]
     },
     "evidence": [
+      "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/lead-mainline-integration-20261111.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/610d7fa63b1a0f129a3f146c0595171868f8e059/docs/deliveries/web4-production-wiring-20261104.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/ee379410ef81ba4102504db6e7425e4438e21d37/docs/VALIDATION-APP72-CONSOLE-INSTALL-20261107.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/1e3de57b6864aa44d1ba9fe1a0db342efe075663/docs/VALIDATION-GENERIC-FLASH-PACK-20261107.md"
