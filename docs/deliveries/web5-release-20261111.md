@@ -6,8 +6,8 @@
 
 独立分支从真实 main `7535535bc5a95c42ff1ea70743b97be561f2049a` 开始；只新增 `tools/release-audit/`、`docs/release/web5-*` 和本交付报告，生产crate、已有构建器、其他包、workflow及全局看板未改。
 
-- 工具产品源码：`d4dc4ecf024b7448ab6a4433a62033d163b21329`。
-- `git archive --format=tar` SHA256：`c0beeac47bf353cef9b7e65b508f2cd590a7b1ad9a27294589617eb12e1a4beb`。
+- 工具产品源码：`3c0879226f771bdb1bf3ff076a86c412975d441e`。
+- `git archive --format=tar` SHA256：`bf2de3767f1cae31b180c2ada7fb1a1bae5612eea34966858010edce94f46eda`。
 - 最后报告提交仅文档，不称报告 HEAD 有新应用构建。
 - 消费已交215 `610d7fa63b1a0f129a3f146c0595171868f8e059` 的合同；实际读取旧 ARM 制品 Source `8470608781b4ab772597cef0d767e012b594f257`、归档 `efebf0bf4619f48041c1e66a310b583d987cd7d97348d3bf9c81e79a5d848dc1`。**它们不是四包新源码的组合发行包。**
 - 221的固件提取/通用身份初装/USB默认合同与本包手册对应；74旧包不复用作新组合证明。
@@ -28,8 +28,8 @@
 
 ## 实际验证与失败
 
-- `python3 -m unittest discover -s tools/release-audit -p 'test_*.py' -v`：**17/17**。合成临时Git源归档、Ed25519应用/Root签名、同源/不同源、原profile/架构合同、漏许可证/篡改、symlink父/子/hardlink/FIFO、模式/JSON重复/布尔整数/预算/读取deadline、系统完整索引/漏项、维护信任公开拒绝、合成秘密拒绝；源码复核测试使用真实临时Git提交/祖先/归档/仅报告head。未访问真实私有目录。
-- 实际旧847 ARM legacy13程序：component **通过**；product-recovery-health16程序：component **通过**，原Go闭包 **16模块**、Go1.27.3及许可证字节通过；各自实际归档 **1660 Git blobs** 全核验。未执行候选ELF。
+- `python3 -m unittest discover -s tools/release-audit -p 'test_*.py' -v`：**18/18**。合成临时Git源归档、Ed25519应用/Root签名、同源/不同源、原profile/架构合同、漏许可证/篡改、symlink父/子/hardlink/FIFO、模式/JSON重复/布尔整数/预算/读取deadline、系统完整索引/漏项、维护信任公开拒绝、合成秘密拒绝；源码复核测试使用真实临时Git提交/祖先/归档/仅报告head。未访问真实私有目录。
+- 实际旧847 ARM legacy13程序：component **通过**；product-recovery-health16程序：component **通过**，原Go闭包 **16模块**、Go1.27.3及许可证字节通过，并通过可信 `go version -m` 读取实际两份ELF的模块并集逐项对照；各自实际归档 **1660 Git blobs** 全核验。未执行候选ELF。
 - 原847合成fixture应用+外部临时公钥的实际验签component **通过**；不使用/申请生产签名。
 - 默认完整scope、未提供Root材料：exit2 `root_materials_external_inputs_required`；提供原unsigned Root输入：exit2 `root_material_inventory`；错误profile：exit2 `profile_or_architecture`；错误外部manifest摘要：exit2 `external_manifest_digest`。都没有绿色完整发行结论。
 - 初次legacy实际检查因原生产者许可证保留0644/0600而被严格444假设拒绝；按原生产者合同允许这两种**无组/全局写**模式，未改生产者或放宽程序/模板模式。初次合成archive篡改测试实际抛原ValueError，修正测试接受原拒绝类别。初次源码复核工具误将console路径写为configurator，按实际crates/edge/src/web/console范围修正，并补真实Git回归。
@@ -37,7 +37,7 @@
 
 ## 三包复核状态与未运行
 
-已读取PR223 console产品 `77abd18d786fb329f1a6f4529391d0ec1e168462` / head `665f485f768d3d0fc71cd94dc6c3022f18b5336c`，以及PR224 firstboot产品 `1af481e9c08829c69076f0c8f404f754a0526e01` / head `09cf3792eea208ab980e84e3a9ac23d3dc496ad4`，固定归档/范围/报告head核对通过。矩阵包仍在修复真实EmailRecovery中断后重开拒绝；其最终source/head将在后续仅报告提交中复核，不把当前失败当完成。
+已读取PR223 console产品 `77abd18d786fb329f1a6f4529391d0ec1e168462` / head `665f485f768d3d0fc71cd94dc6c3022f18b5336c`，以及PR224 firstboot产品 `ab874ea0fd3437fd9db63b8535a3e0124caeefca` / head `ab36b762bce521d58567931c6b575fbb3cc06c30`，固定归档/范围/报告head核对通过。矩阵包仍在修复真实EmailRecovery中断后重开拒绝；其最终source/head将在后续仅报告提交中复核，不把当前失败当完成。
 
 未运行：四包合并后的同源全系统构建、完整新发行Root签名包及全部boot/modules/DTB/rootfs输入、镜像内文件/秘密核验、真实PID1/实际NSS/固件提取/身份启动/设备/USB/AP/SIM/业务外发/生产签名/epoch/健康确认/刷写。完整scope当前正确拒绝；已存在生产构建器和本机副作用不由本包改写。Cloud CI计费执行不记通过。
 
