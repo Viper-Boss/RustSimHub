@@ -40,6 +40,9 @@ fn put(root: &Path, path: &str, bytes: &[u8], mode: u32) {
     fs::set_permissions(path, fs::Permissions::from_mode(mode)).unwrap();
 }
 fn prepare(root: &Path, bundle: &support::Bundle) {
+    // Root::isolated requires a private directory. tempfile follows the caller's
+    // umask, so make this fixture independent of the runner's default permissions.
+    fs::set_permissions(root, fs::Permissions::from_mode(0o700)).unwrap();
     put(root,"/etc/passwd",b"root:x:0:0:root:/root:/bin/sh\nrustsimhub-core:x:986:986::/nonexistent:/usr/sbin/nologin\nrustsimhub-edge:x:985:985::/nonexistent:/usr/sbin/nologin\nrustsimhub-media:x:984:984::/nonexistent:/usr/sbin/nologin\nrustsimhub-forwarder:x:983:983::/nonexistent:/usr/sbin/nologin\n",0o644);
     put(root,"/etc/group",b"root:x:0:\nrustsimhub-core:x:986:\nrustsimhub-edge:x:985:\nrustsimhub-media:x:984:\nrustsimhub-forwarder:x:983:\naudio:x:29:rustsimhub-media\nrustsimhub-ipc:x:987:rustsimhub-core,rustsimhub-edge,rustsimhub-media,rustsimhub-forwarder\n",0o644);
     put(
