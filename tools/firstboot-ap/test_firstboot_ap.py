@@ -196,4 +196,39 @@ class RootFilesystem(unittest.TestCase):
         with self.assertRaises(runtime.Refused):runtime.run(self.root,self.c)
         self.assertEqual(stat.S_IMODE(p.stat().st_mode),0o777)
 
+
+@unittest.skipUnless(os.geteuid()==0,'Root hook checks require an isolated container')
+class RootBoardHook(unittest.TestCase):
+    def setUp(self):
+        spec=importlib.util.spec_from_file_location('original_firstboot_tests',package.ROOT/'tools/system/test_firstboot.py')
+        old=importlib.util.module_from_spec(spec);spec.loader.exec_module(old)
+        self.old=old;self.fixture=old.FirstbootTests('test_preparation_preserves_legacy_and_stable_serial_without_enrolment');self.fixture.setUp()
+        f=self.fixture
+        f.root.mkdir(mode=0o700);(f.root/'system').mkdir(mode=0o700)
+        (f.root/'system/generic-provision.request').write_bytes(runtime.GENERIC)
+        (f.root/'system/generic-provision.request').chmod(0o600)
+        self.layer=f.base/'firstboot-material';self.layer.write_bytes(b'fixed marker only; not an authorization')
+        self.run=f.base/'run';self.run.mkdir()
+    def tearDown(self):self.fixture.tearDown()
+    def execute(self):
+        import subprocess
+        f=self.fixture
+        text=self.old.SCRIPT.read_text().replace('/var/lib/rustsimhub',str(f.state))
+        for origin,replacement in [('/usr/share/rustsimhub/system-candidate.json',f.marker),('/usr/local/libexec/rustsimhub-state-check','true'),('/usr/share/rustsimhub/network/usb.nmconnection',f.template),('/usr/share/rustsimhub/firstboot-ap/manifest.json',self.layer),('/run/rustsimhub-setup-ap-core',self.run/'core'),('/run/rustsimhub-setup-ap-root',self.run/'root')]:text=text.replace(origin,str(replacement))
+        return subprocess.run(['sh','-c',text],env=f.env,capture_output=True,text=True,timeout=10)
+    def test_new_generic_creates_only_private_empty_ap_directories_and_repeats(self):
+        self.assertEqual(self.execute().returncode,0)
+        f=self.fixture
+        for p,uid,gid,mode in [(f.root/'setup-edge',985,985,0o700),(f.root/'core/setup-ap-journal',986,986,0o700),(self.run/'core',986,0,0o2750),(self.run/'root',0,986,0o2750)]:
+            m=p.stat();self.assertEqual((m.st_uid,m.st_gid,stat.S_IMODE(m.st_mode)),(uid,gid,mode));self.assertEqual(list(p.iterdir()),[])
+        self.assertEqual(self.execute().returncode,0)
+        self.assertFalse((f.root/'system/firstboot-ap.request').exists())
+    def test_old_complete_without_request_creates_no_ap_directories(self):
+        (self.fixture.root/'system/installation.complete').write_bytes(runtime.COMPLETE)
+        self.assertEqual(self.execute().returncode,0)
+        self.assertFalse((self.fixture.root/'setup-edge').exists());self.assertEqual(list(self.run.iterdir()),[])
+    def test_unsafe_channel_link_refuses_without_following(self):
+        untouched=self.fixture.base/'untouched';untouched.mkdir();(self.run/'core').symlink_to(untouched)
+        self.assertNotEqual(self.execute().returncode,0);self.assertEqual(list(untouched.iterdir()),[])
+
 if __name__=='__main__':unittest.main()
