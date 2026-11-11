@@ -332,3 +332,52 @@ fn recent_calls_are_newest_first_counted_and_never_carry_numbers() {
         Err(Error::ResyncRequired)
     ));
 }
+
+#[test]
+fn console_recent_preserves_recorded_terminal_history_without_restoring_control() {
+    let (_directory, store, owner, b) = fixture();
+    let h = store.handle();
+    let ended = h
+        .observe_call(b.clone(), observation("console-ended", 7), || true)
+        .unwrap();
+    let active = h
+        .observe_call(b.clone(), observation("console-active", 4), || true)
+        .unwrap();
+    assert!(h
+        .observe_call(b.clone(), observation("console-forged", 7), || false)
+        .is_err());
+    h.calls_unavailable(vec![ended.id.clone(), active.id.clone()])
+        .unwrap();
+    let recent = h.calls_recent(None, 32).unwrap();
+    let historical = recent.calls.iter().find(|r| r.id == ended.id).unwrap();
+    assert_eq!(historical.modem_state, 7);
+    assert_eq!(historical.state, rustsimhub_domain::CallState::Ended);
+    assert_eq!(historical.availability, "reconciling");
+    assert!(
+        historical.number.is_none(),
+        "recent read scope must not expose numbers"
+    );
+    assert_eq!(
+        recent
+            .calls
+            .iter()
+            .find(|r| r.id == active.id)
+            .unwrap()
+            .state,
+        rustsimhub_domain::CallState::Reconciling
+    );
+    assert_eq!(
+        h.call_detail(ended.id.clone()).unwrap().state,
+        rustsimhub_domain::CallState::Reconciling,
+        "existing detail/control semantics are unchanged"
+    );
+    let mut action = request(&b);
+    action.idempotency_key = "console-does-not-restore-control".into();
+    action.action = CallAction::Hangup;
+    action.call_id = Some(ended.id);
+    action.payload.clear();
+    assert!(matches!(
+        h.prepare_call(action, owner, b, || true),
+        Err(Error::StaleLine)
+    ));
+}

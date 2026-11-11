@@ -582,3 +582,6 @@ body{margin:0;background:var(--bg)}
 .login-alt button{width:100%}
 .cs .pg-btn.mc-more{display:block;width:100%;margin:0 0 16px}
 .cs .pg-btn.mc-more[hidden]{display:none}
+
+/* Display-only receipt ordering/count scope; long Chinese copy wraps at 320px. */
+.console-order-note { margin: .5rem .75rem; color: var(--ink-3); font-size: .75rem; line-height: 1.5; overflow-wrap: anywhere; }

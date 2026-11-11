@@ -369,4 +369,126 @@ mod tests {
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].seq, "101");
     }
+    #[test]
+    fn console_recent_receipt_order_covers_every_page_and_global_visible_count() {
+        let (_directory, store, owner, first) = fixture();
+        let h = store.handle();
+        let mut line = h.line_epoch().unwrap();
+        let mut ids = vec![first];
+        let times = [
+            "2026-11-07T11:00:00+08:00",
+            "2020-01-01T00:00:00Z",
+            "",
+            "bad",
+            "2026-11-07T11:00:00",
+            "2026-11-07T11:00:00+08:00",
+        ];
+        for n in 1..128 {
+            if n == 64 {
+                line = h
+                    .observe_line(LineObservation {
+                        backend: "fixture".into(),
+                        fingerprint: Some([2; 32]),
+                        status: LineStatus::Ready,
+                    })
+                    .unwrap()
+                    .line;
+            }
+            let mut sms = message(line);
+            sms.source = format!("console-receipt-{n}");
+            sms.timestamp = times[n % times.len()].into();
+            if n == 8 {
+                sms.text.clear();
+                sms.data = vec![1, 2, 3];
+            }
+            ids.push(h.receive_sms(sms).unwrap().id);
+        }
+        h.set_sms_deleted(owner.clone(), ids[5].clone(), true)
+            .unwrap();
+        let raw_count = h
+            .call(|db| {
+                Ok(db
+                    .connection
+                    .query_row("SELECT COUNT(*) FROM inbox", [], |r| r.get::<_, i64>(0))?)
+            })
+            .unwrap();
+        assert_eq!(raw_count, 128);
+        let mut cursor = None;
+        let mut actual = vec![];
+        let mut db_epoch = None;
+        for _ in 0..9 {
+            let page = h.inbox_recent(cursor, 16).unwrap();
+            assert_eq!(page.total, 127, "global visible scope includes historical lines and binary rows; excludes exactly one recycle row");
+            if let Some(epoch) = &db_epoch {
+                assert_eq!(epoch, &page.cursor.db_epoch);
+            }
+            db_epoch = Some(page.cursor.db_epoch.clone());
+            if page.messages.is_empty() {
+                break;
+            }
+            actual.extend(page.messages.into_iter().map(|m| m.id));
+            cursor = Some(page.cursor);
+        }
+        let expected: Vec<_> = ids
+            .iter()
+            .rev()
+            .filter(|id| *id != &ids[5])
+            .cloned()
+            .collect();
+        assert_eq!(
+            actual, expected,
+            "sender timestamps never reorder receipt cursors or locally sort a partial page"
+        );
+        assert_eq!(
+            actual
+                .iter()
+                .collect::<std::collections::HashSet<_>>()
+                .len(),
+            127
+        );
+        assert_eq!(h.deleted_inbox(owner, None, 32).unwrap().messages.len(), 1);
+        let detail = h.sms_detail(ids[127].clone()).unwrap();
+        assert_eq!(
+            detail.timestamp,
+            times[127 % times.len()],
+            "display never edits original sender time"
+        );
+    }
+
+    #[test]
+    fn recent_visibility_sequence_detects_delete_restore_with_equal_total_and_old_clients_ignore_it(
+    ) {
+        let (_directory, store, owner, id) = fixture();
+        let h = store.handle();
+        let first = h.inbox_recent(None, 1).unwrap();
+        let original_visibility = first.visibility_seq.clone();
+        h.set_sms_deleted(owner.clone(), id.clone(), true).unwrap();
+        let deleted = h.inbox_recent(None, 1).unwrap();
+        assert_eq!(deleted.total, 0);
+        assert!(deleted.messages.is_empty());
+        assert_ne!(deleted.visibility_seq, original_visibility);
+        h.set_sms_deleted(owner.clone(), id.clone(), false).unwrap();
+        let restored = h.inbox_recent(None, 1).unwrap();
+        assert_eq!(restored.total, first.total);
+        assert_eq!(restored.messages[0].id, first.messages[0].id);
+        assert_ne!(restored.visibility_seq, original_visibility);
+        let unchanged = restored.visibility_seq.clone();
+        h.set_sms_deleted(owner, id, false).unwrap();
+        assert_eq!(
+            h.inbox_recent(None, 1).unwrap().visibility_seq,
+            unchanged,
+            "idempotent restore and reads never invent a visibility revision"
+        );
+        #[derive(serde::Deserialize)]
+        struct OriginalRecentClient {
+            messages: Vec<serde_json::Value>,
+            cursor: InboxCursor,
+            total: u64,
+        }
+        let wire = serde_json::to_vec(&restored).unwrap();
+        let old: OriginalRecentClient = serde_json::from_slice(&wire).unwrap();
+        assert_eq!(old.messages.len(), 1);
+        assert_eq!(old.total, 1);
+        assert_eq!(old.cursor.seq, restored.cursor.seq);
+    }
 }
