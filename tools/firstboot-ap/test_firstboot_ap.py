@@ -31,6 +31,13 @@ class Policies(unittest.TestCase):
         self.assertEqual(runtime.AP_CONTRACT,package.ap.CONTRACT)
         self.assertEqual(runtime.GENERIC_CONTRACT,json.loads((package.MATERIAL/'contract.json').read_bytes()))
         self.assertEqual(runtime.LATE,{3,4,5})
+    def test_activation_is_finite_and_skipped_old_devices_queue_no_network_dependency(self):
+        text=(package.MATERIAL/'rustsimhub-firstboot-ap-activation.service').read_text()
+        self.assertIn('Requisite=rustsimhub-firstboot-ap.service',text)
+        self.assertIn('ConditionPathExists='+runtime.BASE+'/system/firstboot-ap.request',text)
+        self.assertIn('ConditionPathExists='+runtime.BASE+'/system/firstboot-ap/state.json',text)
+        self.assertIn('ExecStart=/usr/bin/systemctl --no-block start rustsimhub-setup-edge.service rustsimhub-setup-ap.service',text)
+        self.assertFalse(any(line.startswith(('Wants=','Requires=')) for line in text.splitlines()))
     def test_duplicate_fields_rejected(self):
         with self.assertRaises(runtime.Refused):runtime.decode(b'{"format":1,"format":1}')
     def test_production_cli_has_no_root_or_command_override(self):

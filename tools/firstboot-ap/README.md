@@ -45,9 +45,11 @@ On a new generic installation only:
    The tmpfiles are deliberately delayed: early boot must not recursively create
    public parents inside the original private state layout. The
    manager is reloaded before the durable prepared marker is published, so the
-   queued Core job sees its original launcher drop-in. A fixed activation target
-   prequeues the original setup consumers, whose additional prepared-marker
-   conditions fail closed. Ordered inactive boot jobs are allowed; live processes
+   queued Core job sees its original launcher drop-in. A separate fixed activation
+   oneshot waits for Core and app selection, then queues only the two original
+   consumers with a literal nonblocking systemctl invocation. Its request/prepared
+   conditions and Requisite guard prevent old devices or failed preparation from
+   queuing AP/NM jobs. Consumer drop-ins also require successful preparation. Ordered inactive boot jobs are allowed; live processes
    are refused. This also avoids relying on a late Wants drop-in to expand a
    transaction PID1 has already queued. The ordinary app target starts Core. The
    consumer cannot activate a network without the original finite live Core lease,
@@ -71,3 +73,14 @@ is preserved privately, with error class only; no credential or subprocess body 
 logged. Interrupted file publication resumes only from its exact owned pending inode
 and expected bytes. Unknown AP transaction state belongs to the original AP journal;
 never remove it or reset the budget merely to repeat firstboot.
+
+Validation uses `python3 -m unittest discover -s tools/firstboot-ap -p 'test_*.py'`.
+Root ownership tests must run in an owned offline container with CHOWN, FOWNER,
+FSETID, DAC_OVERRIDE; `isolated_actual.py` additionally needs private bind-mount
+namespaces (SYS_ADMIN, SETUID, SETGID), Python, OpenSSL, setpriv, mount/umount,
+Git and the explicit QEMU/sysroot/program/license inputs. Do not grant any access
+to host system buses, devices or credentials. `/tmp` needs exec only for synthetic
+fixture command stubs. The actual runner accepts `--programs`, `--qemu`,
+`--sysroot`, `--license`, `--work` (fresh empty owned directory). It executes
+original ARM CLIs, with PID1 status/reload explicitly adapted and no listener or
+network activation. An actual boot of this new ordering remains a separate check.

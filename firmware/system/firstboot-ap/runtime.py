@@ -29,7 +29,7 @@ TARGETS = (
 LATE = {3,4,5}
 ACTIVATION = {4,5}
 AP_CONTRACT = {'format': 1, 'auth_protocol': 2, 'database_schema': 6, 'application_format': 2, 'parent_channel': 1, 'station_trial_channel': 1, 'station_commit_channel': 1, 'material_format': 1, 'owner_adoption': 1, 'core_mode': '--serve-device-forwarding-managed-setup-ap', 'root_mode': '--serve-configurable', 'origin': 'https://192.168.100.1:8443', 'maximum_window_seconds': 3600}
-GENERIC_CONTRACT = {'format': 1, 'kind': 'generic-firstboot-ap', 'request': 'RustSimHub.GenericFirstbootAp.v1', 'generic_request': 'RustSimHub.GenericProvision.v1', 'installation_marker': 'RustSimHub.InitialInstallation.v1', 'core_uid': 986, 'edge_uid': 985, 'database_schema': 6, 'application_format': 2, 'owner_authority': 'existing-core-device-window-and-ready-ap-only', 'network_authority': 'existing-core-lease-and-setup-ap-transaction-only', 'maximum_window_seconds': 3600, 'public_installable': False, 'activation': 'prequeued-original-consumers-after-prepared-marker-and-manager-reload'}
+GENERIC_CONTRACT = {'format': 1, 'kind': 'generic-firstboot-ap', 'request': 'RustSimHub.GenericFirstbootAp.v1', 'generic_request': 'RustSimHub.GenericProvision.v1', 'installation_marker': 'RustSimHub.InitialInstallation.v1', 'core_uid': 986, 'edge_uid': 985, 'database_schema': 6, 'application_format': 2, 'owner_authority': 'existing-core-device-window-and-ready-ap-only', 'network_authority': 'existing-core-lease-and-setup-ap-transaction-only', 'maximum_window_seconds': 3600, 'public_installable': False, 'activation': 'fixed-consumers-after-prepared-marker-and-manager-reload'}
 
 class Refused(Exception):
     pass

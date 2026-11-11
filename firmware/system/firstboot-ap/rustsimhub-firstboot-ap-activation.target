@@ -1,8 +1,0 @@
-# SPDX-License-Identifier: AGPL-3.0-only
-[Unit]
-Description=Queue the original setup consumers behind generic firstboot preparation
-Wants=rustsimhub-setup-edge.service rustsimhub-setup-ap.service
-After=rustsimhub-firstboot-ap.service
-# Each consumer also requires the durable prepared marker. No network command here.
-[Install]
-WantedBy=multi-user.target

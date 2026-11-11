@@ -13,7 +13,7 @@ sys.path.insert(0,str(ROOT/'tools'))
 import setup_ap_package as ap
 from application_package import checked, unique_object, verify_package
 MATERIAL=ROOT/'firmware/system/firstboot-ap'
-AUXILIARY=(('rustsimhub-firstboot-ap-activation.target','etc/systemd/system/rustsimhub-firstboot-ap-activation.target'),('10-firstboot-prepared.conf','etc/systemd/system/rustsimhub-setup-edge.service.d/10-firstboot-prepared.conf'),('10-firstboot-prepared.conf','etc/systemd/system/rustsimhub-setup-ap.service.d/10-firstboot-prepared.conf'))
+AUXILIARY=(('rustsimhub-firstboot-ap-activation.service','etc/systemd/system/rustsimhub-firstboot-ap-activation.service'),('10-firstboot-prepared.conf','etc/systemd/system/rustsimhub-setup-edge.service.d/10-firstboot-prepared.conf'),('10-firstboot-prepared.conf','etc/systemd/system/rustsimhub-setup-ap.service.d/10-firstboot-prepared.conf'))
 
 def require(value,message):
     if not value:raise ValueError(message)

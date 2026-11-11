@@ -12,5 +12,5 @@
   "network_authority": "existing-core-lease-and-setup-ap-transaction-only",
   "maximum_window_seconds": 3600,
   "public_installable": false,
-  "activation": "prequeued-original-consumers-after-prepared-marker-and-manager-reload"
+  "activation": "fixed-consumers-after-prepared-marker-and-manager-reload"
 }
