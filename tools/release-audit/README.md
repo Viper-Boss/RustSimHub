@@ -89,3 +89,10 @@ python3 -m unittest discover -s tools/release-audit -p 'test_*.py' -v
 Tests generate only owned temporary Git archives, Ed25519 signers, ARM header
 fixtures and public inventories. The frozen legacy report fixture is public build
 metadata from task8 source847, not a new successful build or installation permit.
+
+`review_sources.py --repository REPOSITORY --index EXTERNAL_PINNED_PACKAGE_INDEX`
+reads the three other packages' full product/base/final-head commits and expected
+archive hashes. It checks ancestry, allocated file scope and docs-only final heads,
+without importing their code or treating separate package artifacts as a combined
+release. The index has exactly console/firstboot/matrix, each with base/product/head/
+archive_sha256. Matrix's base may be its recorded normal merge of fixed PR215.
