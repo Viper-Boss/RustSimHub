@@ -74,7 +74,9 @@ def modes(programs, provenance):
         if info.get('source_archive_sha256') != provenance['source_archive_sha256'] or info.get('development_fixtures') is not False:
             raise ValueError('mixed source or fixture program refused')
         infos[name] = info
-    if infos['core'].get('forwarding_runtime_contract') != infos['worker'].get('forwarding_runtime_contract') or infos['worker'].get('worker') is not True:
+    if (not isinstance(infos['core'].get('forwarding_runtime_contract'), dict) or
+            infos['core']['forwarding_runtime_contract'] != infos['worker'].get('forwarding_runtime_contract') or
+            infos['worker'].get('worker') is not True):
         raise ValueError('actual Core/worker protocol generations differ')
     base = json.loads(call([core, '--product-runtime-compatibility', 'legacy-v1'], capture_output=True, timeout=5).stdout)
     features = base['features']
@@ -88,7 +90,9 @@ def modes(programs, provenance):
             info = json.loads(result.stdout)
             if (info['mode'] != row['mode'] or info['source_archive_sha256'] != provenance['source_archive_sha256'] or
                     info['business']['write'] != row['business_schema'] or info['business']['automatic_migration'] or
-                    info['opens_database'] or info['starts_services'] or info['authorization_verified']):
+                    info['opens_database'] or info['starts_services'] or info['authorization_verified'] or
+                    info['forwarding_runtime_contract'] != infos['core']['forwarding_runtime_contract'] or
+                    info['business']['maintenance_from'] != ([6, 7] if row['business_schema'] == 9 else [])):
                 raise ValueError('actual mode contract mismatch')
         else:
             if result.returncode != 4 or b'unsupported product runtime mode' not in result.stderr:
@@ -177,6 +181,7 @@ def main():
         a.add_argument('--' + name, type=Path, required=True)
     a.add_argument('--runtime-image', required=True)
     args = p.parse_args()
+    provenance = {'revision': args.revision}
     try:
         provenance = identity(args.revision)
         if args.command == 'wasm': result = wasm(args, provenance)
@@ -185,6 +190,14 @@ def main():
             result = {**provenance, **modes(args.programs, provenance)}
             out = fresh(args.output); out.mkdir(parents=True, mode=0o700); save(out / 'matrix-result.json', result)
     except (ValueError, OSError, KeyError, subprocess.SubprocessError, json.JSONDecodeError) as error:
+        # Preserve an actual failure beside partial build logs, never a green
+        # report for a build-only or interrupted invocation. No authority/raw DB.
+        destination = args.output.absolute()
+        if (destination.is_relative_to(ROOT / 'work') and destination.is_dir() and
+                not any(d.is_symlink() for d in [destination, *destination.parents])):
+            save(destination / 'matrix-failure.json', {**provenance, 'passed': False,
+                 'command': args.command, 'failure': type(error).__name__,
+                 'detail': str(error), 'report_not_authority': True})
         p.exit(1, 'Matrix refused: ' + str(error) + '\n')
     print(json.dumps({'passed': True, 'command': args.command, 'revision': result['revision'],
                       'report_not_authority': True}, sort_keys=True))

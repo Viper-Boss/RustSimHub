@@ -24,7 +24,7 @@ class Contracts(unittest.TestCase):
 
     def test_source_requires_exact_frozen_head_and_clean_tracked_tree(self):
         with self.assertRaisesRegex(ValueError,'full frozen'):m.identity('HEAD')
-        with patch.object(m.subprocess,'check_output',side_effect=[b'1'*40+b'\n',b' M tracked']):
+        with patch.object(m.subprocess,'check_output',side_effect=['1'*40+'\n',b' M tracked']):
             with self.assertRaises(ValueError):m.identity('1'*40)
 
     def test_outputs_and_inputs_refuse_overwrite_symlink_and_external_roots(self):
