@@ -8,7 +8,7 @@ mod recovery_grant_tests;
 pub mod update_health;
 pub use auth::{
     parse_auth_request, wifi_credentials_valid, AuthCommand, AuthRequest, LegacyBindingExpectation,
-    NknOwner, AUTH_PROTOCOL,
+    NknOwner, AIRSIM_MAX_BODY, AUTH_PROTOCOL,
 };
 pub use rustsimhub_domain::{InboxCursor, NasEntity};
 
