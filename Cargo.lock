@@ -2046,6 +2046,7 @@ dependencies = [
  "getrandom 0.4.3",
  "rusqlite",
  "rustix",
+ "rustsimhub-airsim",
  "rustsimhub-auth",
  "rustsimhub-ble",
  "rustsimhub-compat",
@@ -2065,6 +2066,7 @@ dependencies = [
  "time",
  "tokio",
  "uuid",
+ "x25519-dalek",
  "zbus",
  "zeroize",
 ]

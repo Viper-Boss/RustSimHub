@@ -1,6 +1,6 @@
 # AirSIM iPhone App 直连（棒子冒充安卓网关）
 
-状态：**只完成协议层**（`crates/airsim`）。网关、音频、网页开关都还没有，设备上没有任何 AirSIM 功能。
+状态：协议层、网关引擎、Core 接入（状态、短信、配对存储、启停、采样率设置）已完成；**通话、Edge 监听端口、网页开关、音频都还没有**，设备上没有任何 AirSIM 功能。
 
 ## 定位
 
@@ -19,7 +19,9 @@ App 侧用“私网 IP 配对”：填棒子 IP、配对端口和网页上显示
 | 7592 | 带 HMAC 签名的控制请求（拨号、接听、挂断、短信、状态） |
 | 7593 | 通话音频，TCP 原始 PCM |
 
-- Edge 的数据目录只读，每台 iPhone 的密钥存在 Core，由 Core 授权和撤销。
+- Edge 的数据目录只读，每台 iPhone 的密钥存在 Core 私有目录的 `airsim.json`（0600），由 Core 授权和撤销。
+- 网关在 Core 里是一个普通客户端身份：所有者启用 AirSIM 时创建，种子不出 Core；停用 AirSIM 或在客户端列表撤销它，所有已配对 iPhone 立即失效。
+- Edge 只转发 App 的明文请求（`airsim_pairing`、`airsim_control`、`airsim_poll`），验签和业务都在 Core。
 - 音频：棒子内部是 16 kHz。App 现在只说 8 kHz，网关按配置重采样。**采样率做成后台可切换的设置（8 kHz / 16 kHz），默认 8 kHz**；App 将来支持 16 kHz 时切过去即可，不用改代码。`PcmRate` 已在协议层定义。
 - 只接受私有网络来源；这是 App 的本地协议，没有 TLS，不能映射到公网。
 

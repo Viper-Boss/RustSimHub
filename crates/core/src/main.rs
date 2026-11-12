@@ -46,6 +46,8 @@ mod system_status;
 #[cfg(target_os = "linux")]
 use rustsimhub_core::network_trial;
 #[cfg(target_os = "linux")]
+mod airsim;
+#[cfg(target_os = "linux")]
 mod observer;
 #[cfg(target_os = "linux")]
 mod recovery_authorization;
