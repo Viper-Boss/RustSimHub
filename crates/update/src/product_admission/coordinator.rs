@@ -332,6 +332,8 @@ pub fn migrate_recovery9(
     match result {
         Ok(()) => journal.phase(Phase::Committed),
         Err(e) => {
+            #[cfg(test)]
+            eprintln!("recovery handoff refused: {e:?}");
             journal.phase(Phase::Unknown)?;
             Err(e)
         }
@@ -374,6 +376,8 @@ fn run_recovery_child(
         .set_write_timeout(Some(Duration::from_secs(5)))
         .map_err(|_| Error::Io)?;
     rustix::thread::set_no_new_privs(true).map_err(|_| Error::Denied)?;
+    #[cfg(test)]
+    eprintln!("recovery parent: spawn");
     let mut child = Reap(
         Command::new("/proc/self/fd/1")
             .arg0("rustsimhub-product-migration")
@@ -395,12 +399,18 @@ fn run_recovery_child(
         .and_then(|_| channel.write_all(&raw))
         .map_err(|_| Error::Io)?;
     let mut ack = [0];
+    #[cfg(test)]
+    eprintln!("recovery parent: read-R");
     channel.read_exact(&mut ack).map_err(|_| Error::Io)?;
     if ack != *b"R" {
         return Err(Error::Denied);
     }
+    #[cfg(test)]
+    eprintln!("recovery parent: revalidate-R");
     revalidate()?;
     channel.write_all(b"G").map_err(|_| Error::Io)?;
+    #[cfg(test)]
+    eprintln!("recovery parent: read-D");
     channel.read_exact(&mut ack).map_err(|_| Error::Integrity)?;
     if ack != *b"D" {
         return Err(Error::Integrity);

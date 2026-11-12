@@ -262,7 +262,20 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
             crate::MAX_PAYLOAD,
         )?);
     }
-    let inspect_confirmed = command == "product-inspect" && store.product_pending().is_none();
+    let source = source_directory(reopen)?;
+    let bytes = store::read_checked(
+        &source.join("manifest.json"),
+        materials::package_manifest_limit(),
+    )?;
+    let preview: ProductManifestV1 = serde_json::from_slice(&bytes).map_err(|_| Error::Invalid)?;
+    // Root installation and data migration precede application staging. After
+    // interruption, no slot candidate exists yet, but the retained signed Root
+    // transaction still binds the inbox application, not the confirmed baseline.
+    // Preview only selects the fixed input path; full installed-key verification
+    // below independently binds that exact application and every Root payload.
+    let inspect_confirmed = command == "product-inspect"
+        && store.product_pending().is_none()
+        && preview.bindings.application_manifest_sha256 == crate::manifest_hash(&baseline.0);
     let candidate_directory = if inspect_confirmed {
         baseline_directory.clone()
     } else {
@@ -301,12 +314,6 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
             crate::MAX_PAYLOAD,
         )?);
     }
-    let source = source_directory(reopen)?;
-    let bytes = store::read_checked(
-        &source.join("manifest.json"),
-        materials::package_manifest_limit(),
-    )?;
-    let preview: ProductManifestV1 = serde_json::from_slice(&bytes).map_err(|_| Error::Invalid)?;
     let nss = install(NssObservation::observe_for(
         &root,
         preview.bindings.profile.product(),
@@ -331,6 +338,8 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
     }
     let desired = mode(expected.profile);
     let selected_mode = current_mode(&root)?;
+    #[cfg(test)]
+    eprintln!("product dispatch: {command} signed-programs");
     let selected = SignedProductPrograms::inspect(
         &baseline.0,
         &baseline.1,
@@ -372,6 +381,8 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
     } else {
         install(services::stop_business())?;
     }
+    #[cfg(test)]
+    eprintln!("product dispatch: {command} snapshot");
     let snapshot = MaintenanceSnapshot::observe_qualified(Path::new("/"), 0, 986, true)?;
     systemd::effective_product(&snapshot)?;
     if expected.profile == Profile::RecoveryHealth
@@ -390,6 +401,30 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
     {
         return Err(Error::Denied);
     }
+    #[cfg(feature = "email-production-candidate")]
+    if matches!(expected.profile, Profile::Email | Profile::EmailRecovery) {
+        if let Some(outbox) = snapshot.outbox.as_ref().filter(|db| db.version.format == 3) {
+            // Check the ORIGINAL active Owner/generation/binding while both
+            // writers are still held, before preparing or writing Root targets.
+            // The original email child repeats this check at its handoff.
+            snapshot
+                .business
+                .check_email_binding(&outbox.email_binding()?)?;
+        }
+    }
+    #[cfg(test)]
+    eprintln!("product dispatch: {command} comparison");
+    // v1 binds candidate/fallback Core bytes but does not retain a verified
+    // fallback launch-profile capability. Reverting Root prefixes after a
+    // schema9 migration could start the same Core in its schema6 base mode.
+    // Application fallback keeps the installed recovery profile; explicit
+    // Root rollback must remain closed until such before-profile proof exists.
+    if command == "product-rollback"
+        && expected.profile.recovery()
+        && snapshot.business.version.format == 9
+    {
+        return Err(Error::Denied);
+    }
     let admission = ProductDataAdmission::compare(&snapshot, &selected, &next, &fallback)?;
     if admission.exit_code() == 4 {
         return Err(Error::Denied);
@@ -397,6 +432,8 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
     let data_report = admission.report()?;
     drop(admission);
     let mut completed_email = None;
+    #[cfg(test)]
+    eprintln!("product dispatch: {command} backup");
     backup(
         &snapshot,
         &root,
@@ -416,8 +453,12 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
         completed_recovery,
         completed_email,
     };
+    #[cfg(test)]
+    eprintln!("product dispatch: {command} authority");
     authority.check()?;
     let fence = retained::DataFence::new(snapshot, &authority)?;
+    #[cfg(test)]
+    eprintln!("product dispatch: {command} root-reopen");
     let mut installer = install(if reopen {
         ProductInstaller::reopen(&key, &authority.expected, &fence)
     } else {
@@ -534,6 +575,8 @@ pub fn dispatch(args: &[String]) -> Result<serde_json::Value> {
                     &fallback,
                     &mut journal,
                 )?;
+                #[cfg(test)]
+                tests::after_email_boundary(&snapshot);
             }
             #[cfg(not(feature = "email-production-candidate"))]
             return Err(Error::Denied);
