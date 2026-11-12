@@ -120,7 +120,7 @@
 <section class="card svc" aria-label="扩展服务">
 <div class="svc-h"><svg class="i"><use href="#i-layers"/></svg>扩展服务</div>
 <button type="button" class="sv" data-debug="nas-bridge-panel"><svg class="i"><use href="#i-nas"/></svg>NasSimHub<em>查看绑定</em></button>
-<button type="button" class="sv" data-debug="clients-section"><svg class="i"><use href="#i-mob"/></svg>AirSim 手机<em>查看授权</em></button>
+<button type="button" class="sv" data-go="security"><svg class="i"><use href="#i-mob"/></svg>AirSIM 手机<em>配对管理</em></button>
 <button type="button" class="sv" data-debug="support-panel"><svg class="i"><use href="#i-globe"/></svg>NKN 远程<em>手动核对</em></button>
 <button type="button" class="sv" data-debug="forwarding-panel"><svg class="i"><use href="#i-send"/></svg>短信转发<em>手动核对</em></button>
 </section>
@@ -197,7 +197,8 @@
 <div class="pg" id="v-security" hidden>
 <div class="pg-grid num">
 <section class="card pg-card w5"><h2><svg class="i"><use href="#i-shield"/></svg>当前身份<span class="pill off" id="c-sc-state">未登录</span></h2><p class="pg-note" id="c-sc-note">所有者权限只对最近 5 分钟内登录的浏览器生效。</p><button type="button" class="pg-btn" data-debug="identity-section">连接与身份</button></section>
-<section class="card pg-card w7"><h2><svg class="i"><use href="#i-nas"/></svg>外部接入</h2><div class="sc-links"><button type="button" class="sv" data-debug="nas-bridge-panel"><svg class="i"><use href="#i-nas"/></svg>NasSimHub 只读接入<em>管理</em></button><button type="button" class="sv" data-debug="clients-section"><svg class="i"><use href="#i-mob"/></svg>AirSim 手机与配对审批<em>管理</em></button><button type="button" class="sv" data-debug="support-panel"><svg class="i"><use href="#i-globe"/></svg>NKN 远程连接<em>核对</em></button></div></section>
+<section class="card pg-card w7"><h2><svg class="i"><use href="#i-nas"/></svg>外部接入</h2><div class="sc-links"><button type="button" class="sv" data-debug="nas-bridge-panel"><svg class="i"><use href="#i-nas"/></svg>NasSimHub 只读接入<em>管理</em></button><button type="button" class="sv" data-debug="clients-section"><svg class="i"><use href="#i-mob"/></svg>浏览器与客户端配对审批<em>管理</em></button><button type="button" class="sv" data-debug="support-panel"><svg class="i"><use href="#i-globe"/></svg>NKN 远程连接<em>核对</em></button></div></section>
+<section class="card pg-card w12"><h2><svg class="i"><use href="#i-mob"/></svg>AirSIM 手机直连<span class="pill off" id="c-as-state">未读取</span><button type="button" class="pg-link right" id="c-as-load">读取状态</button></h2><p class="pg-note">没有 NAS 时，iPhone 上的 AirSIM 可以直接连这根棒子，只在 Wi-Fi、USB 等本地网络可用。目前支持设备状态和短信，通话尚未接入。</p><div class="as-row"><label class="as-rate">通话音质<select id="c-as-rate"><option value="8000">标准 8 kHz（当前 App 使用）</option><option value="16000">高清 16 kHz（App 支持后再选）</option></select></label><button type="button" class="pg-btn main" id="c-as-on">启用</button><button type="button" class="pg-btn" id="c-as-save" hidden>保存音质</button><button type="button" class="pg-btn" id="c-as-pair" hidden>开始配对</button><button type="button" class="pg-btn danger" id="c-as-off" hidden>停用</button></div><div class="as-code" id="c-as-code" hidden><b class="num" id="c-as-digits"></b><span id="c-as-hint"></span></div><div class="pg-table" id="c-as-list"></div><p class="none" id="c-as-empty">读取和修改需要所有者最近 5 分钟内登录</p><p class="pg-note" id="c-as-msg"></p></section>
 <section class="card pg-card w12"><h2><svg class="i"><use href="#i-mob"/></svg>已授权的设备<button type="button" class="pg-link right" id="c-sc-load">读取列表</button></h2><div class="pg-table" id="c-sc-list"></div><p class="none" id="c-sc-empty">读取需要所有者最近 5 分钟内登录</p></section>
 </div></div>
 <div class="pg" id="v-account" hidden>
@@ -226,7 +227,7 @@
 <h2 class="mh-h"><svg class="i"><use href="#i-layers"/></svg>扩展服务</h2>
 <div class="mh-svc">
 <button type="button" class="mh-sv" data-debug="nas-bridge-panel"><svg class="i"><use href="#i-nas"/></svg>NasSimHub<em>查看绑定</em><svg class="i ch"><use href="#i-chev"/></svg></button>
-<button type="button" class="mh-sv" data-debug="clients-section"><svg class="i"><use href="#i-mob"/></svg>AirSim 手机<em>查看授权</em><svg class="i ch"><use href="#i-chev"/></svg></button>
+<button type="button" class="mh-sv" data-go="security"><svg class="i"><use href="#i-mob"/></svg>AirSIM 手机<em>配对管理</em><svg class="i ch"><use href="#i-chev"/></svg></button>
 <button type="button" class="mh-sv" data-debug="support-panel"><svg class="i"><use href="#i-globe"/></svg>NKN 远程<em>手动核对</em><svg class="i ch"><use href="#i-chev"/></svg></button>
 <button type="button" class="mh-sv" data-debug="forwarding-panel"><svg class="i"><use href="#i-send"/></svg>短信转发<em>手动核对</em><svg class="i ch"><use href="#i-chev"/></svg></button>
 </div></div>

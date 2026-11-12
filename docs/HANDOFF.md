@@ -1,6 +1,6 @@
 # RustSimHub 当前接手入口
 
-2026-11-12 Claude按用户要求彻底接手收尾。当前设备为应用75（confirmed75/floor75，清单631a61d8，源de6a74cd）。目标按“真机跑通”排序：短信转发（代码已部署，待真实通道实测）→NasSimHub连接→NKN装机→iOS AirSIM网关（未开始）→界面收尾。实测清单在[testing/TAKEOVER-ACCEPTANCE.md](testing/TAKEOVER-ACCEPTANCE.md)。部署沿用已成功四次的应用升级流程（本机`.local/app75-*`脚本），未使用WEB5产品profile链。所有者钥匙仍只在用户Chrome的`https://192.168.120.167:8443`下。
+2026-11-12 Claude按用户要求彻底接手收尾。当前设备为应用77（confirmed77/floor77，清单d9295070，源1f1ec580；2026-11-13更新）。AirSIM直连已部署但未启用，见[airsim-gateway.md](airsim-gateway.md)；通话和音频未接。目标按“真机跑通”排序：短信转发（代码已部署，待真实通道实测）→NasSimHub连接→NKN装机→iOS AirSIM网关（未开始）→界面收尾。实测清单在[testing/TAKEOVER-ACCEPTANCE.md](testing/TAKEOVER-ACCEPTANCE.md)。部署沿用已成功四次的应用升级流程（本机`.local/app75-*`脚本），未使用WEB5产品profile链。所有者钥匙仍只在用户Chrome的`https://192.168.120.167:8443`下。
 
 2026-11-07 当前设备为应用74（confirmed74/floor74，清单77559ba0）。所有者只有浏览器钥匙，没有账号密码；钥匙在用户Chrome的`https://192.168.120.167:8443`下，不可导出且无备份，不要清这个站点的数据。记录见[VALIDATION-APP72-CONSOLE-INSTALL-20261107.md](VALIDATION-APP72-CONSOLE-INSTALL-20261107.md)。
 

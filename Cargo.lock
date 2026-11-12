@@ -1961,6 +1961,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustsimhub-airsim"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "base64 0.23.1",
+ "getrandom 0.4.3",
+ "hkdf",
+ "hmac",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "x25519-dalek",
+ "zeroize",
+]
+
+[[package]]
 name = "rustsimhub-auth"
 version = "0.1.0"
 dependencies = [
@@ -2030,6 +2046,7 @@ dependencies = [
  "getrandom 0.4.3",
  "rusqlite",
  "rustix",
+ "rustsimhub-airsim",
  "rustsimhub-auth",
  "rustsimhub-ble",
  "rustsimhub-compat",
@@ -2049,6 +2066,7 @@ dependencies = [
  "time",
  "tokio",
  "uuid",
+ "x25519-dalek",
  "zbus",
  "zeroize",
 ]

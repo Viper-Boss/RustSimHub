@@ -739,6 +739,48 @@ impl Auth {
             .store
             .approve_client_if(owner, key, kind, p.scopes, p.generation)?)
     }
+    /// The public key of a gateway whose Ed25519 seed never leaves Core.
+    pub fn gateway_public_key(seed: &[u8; 32]) -> [u8; 32] {
+        ed25519_dalek::SigningKey::from_bytes(seed)
+            .verifying_key()
+            .to_bytes()
+    }
+    /// A gateway that Core itself runs (AirSIM) acts as an ordinary Client:
+    /// only a recent owner may create it, it holds exactly the scopes named
+    /// here, and the owner revokes it like any other client.
+    pub fn approve_gateway_client(
+        &mut self,
+        owner_token: &str,
+        seed: &[u8; 32],
+        scopes: &[Scope],
+    ) -> Result<Principal> {
+        let owner = self.owner(owner_token)?;
+        let key = Self::gateway_public_key(seed);
+        let prior = self.store.principal(key)?;
+        if prior
+            .as_ref()
+            .is_some_and(|p| p.active || p.kind == Kind::Owner)
+        {
+            return Err(Error::Forbidden);
+        }
+        let scopes = mask(scopes).ok_or(Error::InvalidInput)?;
+        Ok(self.store.approve_client_if(
+            owner,
+            key,
+            Kind::Client,
+            scopes,
+            prior.map(|p| p.generation).unwrap_or(0),
+        )?)
+    }
+    /// The ordinary login exchange, signed with the gateway's own key. Fails
+    /// like any login once the owner has revoked the gateway client.
+    pub fn gateway_session(&mut self, seed: &[u8; 32]) -> Result<Token> {
+        use ed25519_dalek::Signer;
+        let signing = ed25519_dalek::SigningKey::from_bytes(seed);
+        let challenge = self.login_challenge(signing.verifying_key().to_bytes())?;
+        let signature = signing.sign(&challenge.transcript);
+        self.login_finish(&challenge.id, &signature.to_bytes())
+    }
     pub fn revoke(&mut self, token: &str, key: [u8; 32]) -> Result<()> {
         let owner = self.owner(token)?;
         self.store.revoke_client(owner, key)?;

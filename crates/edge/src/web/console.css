@@ -585,3 +585,12 @@ body{margin:0;background:var(--bg)}
 
 /* Display-only receipt ordering/count scope; long Chinese copy wraps at 320px. */
 .console-order-note { margin: .5rem .75rem; color: var(--ink-3); font-size: .75rem; line-height: 1.5; overflow-wrap: anywhere; }
+.as-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px}
+.as-row .pg-btn{margin-top:0}
+.as-rate{display:grid;gap:6px;font-size:13px;color:var(--ink-3)}
+.as-rate select{height:38px;min-width:230px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:14px}
+.as-code{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-top:16px;padding:14px 18px;border-radius:12px;background:var(--more)}
+.as-code[hidden]{display:none}
+.as-code b{font-size:34px;letter-spacing:.18em;font-weight:700;color:var(--blue)}
+.as-code span{font-size:13px;color:var(--ink-3);line-height:1.6}
+@media (max-width:820px){.as-rate,.as-rate select{width:100%;min-width:0}.as-row .pg-btn{flex:1}}
