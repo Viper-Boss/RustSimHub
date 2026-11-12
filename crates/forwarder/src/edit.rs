@@ -20,6 +20,27 @@ pub enum DestinationEdit {
         bot_token: Secret,
         chat_id: Secret,
     },
+    Dingtalk {
+        access_token: Secret,
+        secret: Option<Secret>,
+    },
+    Wecom {
+        key: Secret,
+    },
+    Feishu {
+        hook: Secret,
+        secret: Option<Secret>,
+    },
+    Serverchan {
+        send_key: Secret,
+    },
+    Pushplus {
+        token: Secret,
+    },
+    Gotify {
+        server: String,
+        token: Secret,
+    },
     #[cfg(feature = "smtp-production-candidate")]
     Email {
         smtp_host: Secret,
@@ -74,6 +95,18 @@ impl PolicyEdit {
                 DestinationEdit::Telegram { bot_token, chat_id } => {
                     Destination::Telegram { bot_token, chat_id }
                 }
+                DestinationEdit::Dingtalk {
+                    access_token,
+                    secret,
+                } => Destination::Dingtalk {
+                    access_token,
+                    secret,
+                },
+                DestinationEdit::Wecom { key } => Destination::Wecom { key },
+                DestinationEdit::Feishu { hook, secret } => Destination::Feishu { hook, secret },
+                DestinationEdit::Serverchan { send_key } => Destination::Serverchan { send_key },
+                DestinationEdit::Pushplus { token } => Destination::Pushplus { token },
+                DestinationEdit::Gotify { server, token } => Destination::Gotify { server, token },
                 #[cfg(feature = "smtp-production-candidate")]
                 DestinationEdit::Email {
                     smtp_host,
