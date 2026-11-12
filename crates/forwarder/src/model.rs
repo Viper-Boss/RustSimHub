@@ -87,6 +87,31 @@ pub enum Destination {
         bot_token: Secret,
         chat_id: Secret,
     },
+    /// 钉钉群机器人；`secret` 为加签密钥（可选）。
+    Dingtalk {
+        access_token: Secret,
+        secret: Option<Secret>,
+    },
+    /// 企业微信群机器人。
+    Wecom {
+        key: Secret,
+    },
+    /// 飞书群机器人；`secret` 为签名校验密钥（可选）。
+    Feishu {
+        hook: Secret,
+        secret: Option<Secret>,
+    },
+    /// Server酱（sctapi.ftqq.com）。
+    Serverchan {
+        send_key: Secret,
+    },
+    Pushplus {
+        token: Secret,
+    },
+    Gotify {
+        server: String,
+        token: Secret,
+    },
     #[cfg(feature = "smtp-production-candidate")]
     Email {
         smtp_host: Secret,
@@ -97,6 +122,55 @@ pub enum Destination {
         mail_from: Secret,
         rcpt_to: Secret,
     },
+}
+/// Provider tokens are placed in URLs, so only an unreserved, bounded alphabet is accepted.
+fn token(s: &str, maximum: usize) -> bool {
+    !s.is_empty()
+        && s.len() <= maximum
+        && s.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-' || b == b'.')
+}
+fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let mut block = [0u8; 64];
+    if key.len() > 64 {
+        block[..32].copy_from_slice(&Sha256::digest(key));
+    } else {
+        block[..key.len()].copy_from_slice(key);
+    }
+    let mut inner = Sha256::new();
+    inner.update(block.map(|b| b ^ 0x36));
+    inner.update(message);
+    let mut outer = Sha256::new();
+    outer.update(block.map(|b| b ^ 0x5c));
+    outer.update(inner.finalize());
+    outer.finalize().into()
+}
+fn base64(bytes: &[u8]) -> String {
+    use base64::Engine;
+    base64::engine::general_purpose::STANDARD.encode(bytes)
+}
+/// 钉钉加签：HMAC-SHA256(key=secret, "timestamp\nsecret")，Base64 后做 URL 编码。
+pub(crate) fn dingtalk_sign(secret: &str, timestamp_ms: u128) -> String {
+    base64(&hmac_sha256(
+        secret.as_bytes(),
+        format!("{timestamp_ms}\n{secret}").as_bytes(),
+    ))
+    .replace('+', "%2B")
+    .replace('/', "%2F")
+    .replace('=', "%3D")
+}
+/// 飞书签名：HMAC-SHA256(key="timestamp\nsecret", 空消息)，Base64。
+pub(crate) fn feishu_sign(secret: &str, timestamp_s: u64) -> String {
+    base64(&hmac_sha256(
+        format!("{timestamp_s}\n{secret}").as_bytes(),
+        b"",
+    ))
+}
+fn unix_now() -> std::time::Duration {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
 }
 pub(crate) fn endpoint(url: &str) -> Result<()> {
     if url.len() > 2048
@@ -172,6 +246,37 @@ impl Destination {
                     || key.expose().is_empty()
                     || !text(key.expose(), 256)
                 {
+                    return Err(Error::Invalid);
+                }
+            }
+            Self::Dingtalk {
+                access_token,
+                secret,
+            } => {
+                if !token(access_token.expose(), 128)
+                    || secret.as_ref().is_some_and(|s| !token(s.expose(), 128))
+                {
+                    return Err(Error::Invalid);
+                }
+            }
+            Self::Feishu { hook, secret } => {
+                if !token(hook.expose(), 128)
+                    || secret.as_ref().is_some_and(|s| !token(s.expose(), 128))
+                {
+                    return Err(Error::Invalid);
+                }
+            }
+            Self::Wecom { key: value }
+            | Self::Serverchan { send_key: value }
+            | Self::Pushplus { token: value } => {
+                if !token(value.expose(), 128) {
+                    return Err(Error::Invalid);
+                }
+            }
+            Self::Gotify { server, token: t } => {
+                endpoint(server)?;
+                let uri: http::Uri = server.parse().map_err(|_| Error::Invalid)?;
+                if uri.path() != "/" || uri.query().is_some() || !token(t.expose(), 128) {
                     return Err(Error::Invalid);
                 }
             }
@@ -255,6 +360,12 @@ impl Policy {
                         Destination::Webhook { .. } => "webhook",
                         Destination::Bark { .. } => "bark",
                         Destination::Telegram { .. } => "telegram",
+                        Destination::Dingtalk { .. } => "dingtalk",
+                        Destination::Wecom { .. } => "wecom",
+                        Destination::Feishu { .. } => "feishu",
+                        Destination::Serverchan { .. } => "serverchan",
+                        Destination::Pushplus { .. } => "pushplus",
+                        Destination::Gotify { .. } => "gotify",
                         #[cfg(feature = "smtp-production-candidate")]
                         Destination::Email { .. } => "email",
                     },
@@ -392,6 +503,10 @@ pub enum Acknowledgement {
     Http2xx,
     Bark,
     Telegram,
+    /// 钉钉、企业微信：`errcode == 0`。
+    ErrcodeZero,
+    /// 飞书（`code` 或旧 `StatusCode`）、Server酱：值为 0。
+    CodeZero,
 }
 impl PreparedRequest {
     /// Bounded provider acknowledgement. No retry follows any return value.
@@ -407,6 +522,12 @@ impl PreparedRequest {
             Acknowledgement::Telegram => {
                 serde_json::from_slice::<serde_json::Value>(response).is_ok_and(|v| v["ok"] == true)
             }
+            Acknowledgement::ErrcodeZero => serde_json::from_slice::<serde_json::Value>(response)
+                .is_ok_and(|v| v["errcode"].as_i64() == Some(0)),
+            Acknowledgement::CodeZero => serde_json::from_slice::<serde_json::Value>(response)
+                .is_ok_and(|v| {
+                    v["code"].as_i64() == Some(0) || v["StatusCode"].as_i64() == Some(0)
+                }),
         }
     }
 }
@@ -512,6 +633,77 @@ pub(crate) fn prepare_with_date(
                 Acknowledgement::Telegram,
             )
         }
+        Destination::Dingtalk {
+            access_token,
+            secret,
+        } => {
+            let mut url = format!(
+                "https://oapi.dingtalk.com/robot/send?access_token={}",
+                access_token.expose()
+            );
+            if let Some(secret) = secret {
+                let now = unix_now().as_millis();
+                url.push_str(&format!(
+                    "&timestamp={now}&sign={}",
+                    dingtalk_sign(secret.expose(), now)
+                ));
+            }
+            (
+                url,
+                None,
+                serde_json::json!({"msgtype":"text","text":{"content":format!("{TITLE}\n{content}")}}),
+                Acknowledgement::ErrcodeZero,
+            )
+        }
+        Destination::Wecom { key } => (
+            format!(
+                "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={}",
+                key.expose()
+            ),
+            None,
+            serde_json::json!({"msgtype":"text","text":{"content":format!("{TITLE}\n{content}")}}),
+            Acknowledgement::ErrcodeZero,
+        ),
+        Destination::Feishu { hook, secret } => {
+            let mut value = serde_json::json!({"msg_type":"text","content":{"text":format!("{TITLE}\n{content}")}});
+            if let Some(secret) = secret {
+                let now = unix_now().as_secs();
+                value["timestamp"] = now.to_string().into();
+                value["sign"] = feishu_sign(secret.expose(), now).into();
+            }
+            (
+                format!(
+                    "https://open.feishu.cn/open-apis/bot/v2/hook/{}",
+                    hook.expose()
+                ),
+                None,
+                value,
+                Acknowledgement::CodeZero,
+            )
+        }
+        Destination::Serverchan { send_key } => (
+            format!("https://sctapi.ftqq.com/{}.send", send_key.expose()),
+            None,
+            serde_json::json!({"title":TITLE,"desp":content}),
+            Acknowledgement::CodeZero,
+        ),
+        Destination::Pushplus { token } => (
+            "https://www.pushplus.plus/send".to_string(),
+            None,
+            serde_json::json!({"token":token.expose(),"title":TITLE,"content":content,"template":"txt"}),
+            // PushPlus 与 Bark 相同：JSON `code == 200`。
+            Acknowledgement::Bark,
+        ),
+        Destination::Gotify { server, token } => (
+            format!(
+                "{}/message?token={}",
+                server.trim_end_matches('/'),
+                token.expose()
+            ),
+            None,
+            serde_json::json!({"title":TITLE,"message":content,"priority":5}),
+            Acknowledgement::Http2xx,
+        ),
     };
     let request = PreparedRequest {
         url: Secret::new(url),
@@ -529,6 +721,7 @@ pub(crate) fn prepare_with_date(
     }
 }
 
+const TITLE: &str = "RustSimHub 新短信";
 pub const SYNTHETIC_NOTICE: &str =
     "[RustSimHub 合成测试] 转发通道测试，不包含真实短信、号码或验证码。";
 
@@ -589,6 +782,13 @@ pub fn prepare_test(
             value["body"] = SYNTHETIC_NOTICE.into();
         }
         Destination::Telegram { .. } => value["text"] = SYNTHETIC_NOTICE.into(),
+        // 这些通道的正文已由合成消息生成（发送方“RustSimHub 合成测试”加固定提示），无需改写。
+        Destination::Dingtalk { .. }
+        | Destination::Wecom { .. }
+        | Destination::Feishu { .. }
+        | Destination::Serverchan { .. }
+        | Destination::Pushplus { .. }
+        | Destination::Gotify { .. } => {}
         #[cfg(feature = "smtp-production-candidate")]
         Destination::Email { .. } => return Err(Error::Invalid),
     }
@@ -614,3 +814,6 @@ pub(crate) fn test_https_mut(request: &mut PreparedDelivery) -> &mut PreparedReq
         request
     }
 }
+
+#[cfg(test)]
+mod channel_tests;

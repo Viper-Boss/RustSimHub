@@ -5,7 +5,11 @@ class FormError extends Error {}
 const uuid=s=>typeof s==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s);
 const generation=n=>Number.isSafeInteger(n)&&n>=0;
 const testKind=kind=>kind==='test'||kind==='quick_test';
-const kinds={webhook:'Webhook',bark:'Bark',telegram:'Telegram',email:'邮件（SMTP TLS）'};
+const kinds={webhook:'Webhook',bark:'Bark',telegram:'Telegram',dingtalk:'钉钉群机器人',wecom:'企业微信群机器人',feishu:'飞书群机器人',serverchan:'Server酱',pushplus:'PushPlus',gotify:'Gotify',email:'邮件（SMTP TLS）'};
+// 聊天类通道：key 是主凭据，chat 复用为可选的加签密钥。可以直接粘贴完整的机器人地址，页面只取其中的凭据。
+const chatKinds={dingtalk:{key:'access_token（或粘贴完整 Webhook 地址）',secret:'加签密钥 SEC…（可选）',from:/[?&]access_token=([A-Za-z0-9._-]+)/},wecom:{key:'key（或粘贴完整 Webhook 地址）',from:/[?&]key=([A-Za-z0-9._-]+)/},feishu:{key:'Webhook 末尾的 hook 标识（或粘贴完整地址）',secret:'签名校验密钥（可选）',from:/\/hook\/([A-Za-z0-9._-]+)/},serverchan:{key:'SendKey',from:/\/([A-Za-z0-9._-]+)\.send/},pushplus:{key:'token'},gotify:{key:'应用 token',endpoint:'Gotify 服务地址（HTTPS 根地址）'}};
+const tokenText=s=>typeof s==='string'&&/^[A-Za-z0-9._-]{1,128}$/.test(s);
+export function chatToken(kind,value){const s=String(value??'').trim(),m=/^https:\/\//.test(s)?chatKinds[kind]?.from?.exec(s):null;return m?m[1]:s;}
 const states={queued:'排队中',in_flight:'递送中',confirmed:'已确认',failed:'失败',unknown:'结果不确定，不会自动重发',cancelled:'已取消'};
 function requireValue(ok,message='响应无效，请重新读取状态'){if(!ok)throw new FormError(message);}
 function text(s,max,empty=true){return typeof s==='string'&&(!empty?s.length>0:true)&&!s.includes('\0')&&new TextEncoder().encode(s).length<=max;}
@@ -56,6 +60,11 @@ export function policyInput(targets,rules,enabled,rulesRevision=null,emailRevisi
    requireValue(text(t.password,256,false)&&/^[\x20-\x7e]+$/.test(t.password),'邮件密码须为1至256个可打印 ASCII 字符');
    requireValue(mailbox(t.mail_from)&&mailbox(t.rcpt_to),'发件人和唯一收件人须为单个 ASCII 邮箱地址');
    destination={kind:'email',smtp_host:t.smtp_host,port:465,tls:'implicit',username:t.username,password:t.password,mail_from:t.mail_from,rcpt_to:t.rcpt_to};
+  }else if(Object.hasOwn(chatKinds,t.kind)){
+   const key=chatToken(t.kind,t.key),secret=String(t.chat??'').trim();
+   requireValue(tokenText(key),`请输入有效的${kinds[t.kind]}凭据（只含字母、数字、点、横线、下划线，最多128个字符）`);
+   requireValue(!secret||chatKinds[t.kind].secret&&tokenText(secret),'加签密钥格式无效');
+   destination=t.kind==='dingtalk'?{kind:'dingtalk',access_token:key,secret:secret||null}:t.kind==='wecom'?{kind:'wecom',key}:t.kind==='feishu'?{kind:'feishu',hook:key,secret:secret||null}:t.kind==='serverchan'?{kind:'serverchan',send_key:key}:t.kind==='pushplus'?{kind:'pushplus',token:key}:{kind:'gotify',server:https(t.endpoint,true),token:key};
   }else{
    requireValue(text(t.key,256,false)&&/^[0-9]+:[A-Za-z0-9_-]+$/.test(t.key),'请输入有效的 Telegram bot token');
    requireValue(text(t.chat,128,false),'请输入 Telegram chat ID（最多128字节）');
@@ -204,6 +213,11 @@ export class ForwardingPanel {
     if(t.kind==='email'){
      for(const [name,label,max] of [['smtp_host','SMTP 主机名',253],['username','邮件用户名',64],['password','邮件密码或应用专用密码',256],['mail_from','发件邮箱',254],['rcpt_to','唯一收件邮箱',254]])card.append(this.field(t,name,label+'（不回显）',{secret:true,max}));
      card.append(this.element('p','使用端口465和 TLS。邮件服务器接受后显示已确认；这不表示最终邮箱已收到。'));
+    }else if(Object.hasOwn(chatKinds,t.kind)){
+     const c=chatKinds[t.kind];if(c.endpoint)card.append(this.field(t,'endpoint',c.endpoint,{secret:true,max:2048}));
+     card.append(this.field(t,'key',`${kinds[t.kind]} ${c.key}（不回显）`,{secret:true,max:2048}));
+     if(c.secret)card.append(this.field(t,'chat',c.secret,{secret:true,max:128}));
+     card.append(this.element('p','对方返回成功才显示已确认。机器人如设置了关键词，请把“RustSimHub”加入关键词。'));
     }else{
     if(t.kind!=='telegram')card.append(this.field(t,'endpoint',t.kind==='bark'?'Bark 服务地址（HTTPS 根地址）':'Webhook HTTPS 地址（不回显）',{secret:true,max:2048}));
     if(t.kind==='webhook')card.append(this.field(t,'bearer','Bearer（可选）',{secret:true,max:2048}));

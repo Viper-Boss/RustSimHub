@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
 const source=await readFile(new URL('../crates/edge/src/web/forwarding.js',import.meta.url));
-const {ForwardingPanel,ForwardingQuickTest,policyInput,pendingInput,processText}=await import('data:text/javascript;base64,'+source.toString('base64'));
+const {ForwardingPanel,ForwardingQuickTest,policyInput,pendingInput,processText,chatToken}=await import('data:text/javascript;base64,'+source.toString('base64'));
 const id='11111111-1111-4111-8111-111111111111',rule='22222222-2222-4222-8222-222222222222';
 const other='33333333-3333-4333-8333-333333333333';
 const secret='synthetic-only-credential',endpoint='https://example.invalid/notify?key='+secret;
@@ -262,5 +262,18 @@ console.log('Extended rule roundtrip, legacy-client guard, privacy mode and boun
  assert.equal(f.panel.targets[0].keep,true);assert.ok(!allText(f).includes('recipient@example.invalid'));
  f.panel.rules[0].contains='new filter';await f.panel.action(g=>f.panel.save(g));assert.deepEqual(f.writes[1].policy.targets[0].destination,{kind:'keep'});
  const old=fixture({emailRevision:null});old.apply({enabled:false,targets:p.targets,rules:p.rules},1);await old.read();assert.equal(old.panel.ready,false);assert.equal(old.writes.length,0);
- console.log('SMTP capability, private input/Keep, no browser persistence and malformed mailbox checks passed.');
+ // 聊天类通道：凭据格式、完整地址粘贴、可选加签、拒绝会改写地址的字符
+{const id='11111111-1111-4111-8111-111111111111',base={id,existing:false,keep:false,endpoint:'',bearer:'',chat:''};const one=(kind,extra)=>policyInput([{...base,kind,...extra}],[],false).targets[0].destination;
+ assert.deepEqual(one('dingtalk',{key:'https://oapi.dingtalk.com/robot/send?access_token=abc123',chat:'SECxyz'}),{kind:'dingtalk',access_token:'abc123',secret:'SECxyz'});
+ assert.deepEqual(one('dingtalk',{key:'abc123'}),{kind:'dingtalk',access_token:'abc123',secret:null});
+ assert.deepEqual(one('wecom',{key:'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=aa-bb'}),{kind:'wecom',key:'aa-bb'});
+ assert.deepEqual(one('feishu',{key:'https://open.feishu.cn/open-apis/bot/v2/hook/hk-1',chat:''}),{kind:'feishu',hook:'hk-1',secret:null});
+ assert.deepEqual(one('serverchan',{key:'https://sctapi.ftqq.com/SCT1.send'}),{kind:'serverchan',send_key:'SCT1'});
+ assert.deepEqual(one('pushplus',{key:' tok '}),{kind:'pushplus',token:'tok'});
+ assert.deepEqual(one('gotify',{key:'A.b_c',endpoint:'https://gotify.example.invalid/'}),{kind:'gotify',server:'https://gotify.example.invalid/',token:'A.b_c'});
+ for(const bad of ['','a/b','a?b','a&b','a b','é','a'.repeat(129)])for(const kind of ['dingtalk','wecom','feishu','serverchan','pushplus'])assert.throws(()=>one(kind,{key:bad}),`${kind} ${bad}`);
+ assert.throws(()=>one('wecom',{key:'k',chat:'unexpected'}),'no secret where the provider has none');assert.throws(()=>one('dingtalk',{key:'k',chat:'a/b'}));
+ assert.throws(()=>one('gotify',{key:'k',endpoint:'http://gotify.example.invalid/'}));assert.throws(()=>one('gotify',{key:'k',endpoint:'https://gotify.example.invalid/x'}));
+ assert.equal(chatToken('dingtalk','http://oapi.dingtalk.com/robot/send?access_token=abc'),'http://oapi.dingtalk.com/robot/send?access_token=abc','only https addresses are unpacked');}
+console.log('SMTP capability, private input/Keep, no browser persistence and malformed mailbox checks passed.');
 }
