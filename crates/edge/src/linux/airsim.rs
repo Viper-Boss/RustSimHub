@@ -11,7 +11,7 @@ use rustsimhub_wire::{
 };
 use serde_json::Value;
 use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::{IpAddr, SocketAddr},
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
@@ -236,13 +236,50 @@ async fn handle(app: &App, mut stream: TcpStream, peer: IpAddr, control: bool) {
     let _ = stream.shutdown().await;
 }
 
-/// Serves both AirSIM ports. `local_allowed` names the stick's own addresses
-/// the app may reach it on (Wi-Fi, USB, loopback): a connection that arrived
-/// on any other interface, cellular above all, is dropped unanswered.
-pub(super) async fn serve(
-    app: App,
-    local_allowed: impl Fn(IpAddr) -> bool + Clone + Send + 'static,
-) {
+/// Listener addresses for both ports on the stick's own non-loopback
+/// addresses. An Edge instance that serves only loopback (the setup-only
+/// instance) therefore opens no AirSIM port and cannot take the ports away
+/// from the instance that faces the local network.
+pub(super) fn listen_addresses(local: &[IpAddr]) -> Vec<(SocketAddr, bool)> {
+    let mut wanted = Vec::new();
+    for ip in local {
+        if ip.is_loopback() || ip.is_unspecified() {
+            continue;
+        }
+        for (port, control) in [(CONTROL_PORT, true), (PAIRING_PORT, false)] {
+            let address = SocketAddr::new(*ip, port);
+            if !wanted.iter().any(|(a, _)| *a == address) {
+                wanted.push((address, control));
+            }
+        }
+    }
+    wanted
+}
+
+async fn accept_loop(app: App, listener: TcpListener, control: bool) {
+    loop {
+        let Ok((stream, peer)) = listener.accept().await else {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            continue;
+        };
+        let Ok(permit) = app.limit.clone().try_acquire_owned() else {
+            continue;
+        };
+        if !app.rate.lock().is_ok_and(|mut r| r.take()) {
+            continue;
+        }
+        let app = app.clone();
+        tokio::spawn(async move {
+            let _permit = permit;
+            handle(&app, stream, peer.ip(), control).await;
+        });
+    }
+}
+
+/// Serves both AirSIM ports on exactly the addresses the HTTPS page follows
+/// (`local` is re-read every few seconds, as for the page itself). Binding
+/// those addresses, never the wildcard, keeps the ports off cellular.
+pub(super) async fn serve(app: App, local: impl Fn() -> Vec<IpAddr> + Send + 'static) {
     // Own budgets: held long polls must not starve the HTTPS page.
     let app = App {
         rate: Arc::new(Mutex::new(Rate {
@@ -252,41 +289,21 @@ pub(super) async fn serve(
         limit: Arc::new(Semaphore::new(12)),
         ..app
     };
-    let mut tasks = tokio::task::JoinSet::new();
-    for (port, control) in [(CONTROL_PORT, true), (PAIRING_PORT, false)] {
-        let (app, local_allowed) = (app.clone(), local_allowed.clone());
-        tasks.spawn(async move {
-            let address = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port);
-            loop {
-                let Ok(listener) = TcpListener::bind(address).await else {
-                    tokio::time::sleep(Duration::from_secs(5)).await;
-                    continue;
-                };
-                loop {
-                    let Ok((stream, peer)) = listener.accept().await else {
-                        tokio::time::sleep(Duration::from_millis(50)).await;
-                        continue;
-                    };
-                    let local = stream.local_addr().map(|a| a.ip());
-                    if !local.is_ok_and(&local_allowed) {
-                        continue;
-                    }
-                    let Ok(permit) = app.limit.clone().try_acquire_owned() else {
-                        continue;
-                    };
-                    if !app.rate.lock().is_ok_and(|mut r| r.take()) {
-                        continue;
-                    }
-                    let app = app.clone();
-                    tokio::spawn(async move {
-                        let _permit = permit;
-                        handle(&app, stream, peer.ip(), control).await;
-                    });
-                }
+    let mut bound: Vec<SocketAddr> = Vec::new();
+    let mut retry = tokio::time::interval(Duration::from_secs(5));
+    retry.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    loop {
+        retry.tick().await;
+        for (address, control) in listen_addresses(&local()) {
+            if bound.contains(&address) || bound.len() >= 8 {
+                continue;
             }
-        });
+            if let Ok(listener) = TcpListener::bind(address).await {
+                bound.push(address);
+                tokio::spawn(accept_loop(app.clone(), listener, control));
+            }
+        }
     }
-    while tasks.join_next().await.is_some() {}
 }
 
 #[cfg(test)]
@@ -345,6 +362,34 @@ mod tests {
         .is_none());
         assert!(head("POST /x HTTP/1.1\r\nContent-Length: 16384").is_some());
         assert!(parse_head(b"GET /\xff HTTP/1.1").is_none());
+    }
+
+    #[test]
+    fn ports_are_bound_only_on_non_loopback_local_addresses() {
+        let ip = |text: &str| text.parse::<IpAddr>().unwrap();
+        assert!(
+            listen_addresses(&[ip("127.0.0.1"), ip("::1"), ip("0.0.0.0")]).is_empty(),
+            "a loopback-only instance opens nothing"
+        );
+        let wanted = listen_addresses(&[
+            ip("127.0.0.1"),
+            ip("192.168.120.167"),
+            ip("10.55.0.2"),
+            ip("192.168.120.167"),
+        ]);
+        let text: Vec<String> = wanted
+            .iter()
+            .map(|(a, control)| format!("{a} {control}"))
+            .collect();
+        assert_eq!(
+            text,
+            [
+                "192.168.120.167:7592 true",
+                "192.168.120.167:7594 false",
+                "10.55.0.2:7592 true",
+                "10.55.0.2:7594 false"
+            ]
+        );
     }
 
     #[test]

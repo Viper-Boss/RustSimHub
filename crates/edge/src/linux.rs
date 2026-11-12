@@ -965,10 +965,10 @@ pub fn run(args: Vec<String>) -> Result<()> {
         for address in &wanted(&configured_addresses) {match TcpListener::bind(address).await {Ok(listener)=>{acceptors.spawn(accept_one(listener));listening.push(*address);},Err(e) if e.kind()==std::io::ErrorKind::AddrNotAvailable=>{},Err(_) if !configured_addresses.contains(address)=>{},Err(_)=>return Err("listener unavailable"),}}
         if let Some(bridge)=&app.media {bridge.takeover().await?;}
         if let Some(addr)=captive_listen {tokio::spawn(captive::serve(addr,app.clone()));}
-        // AirSIM's local protocol is answered only on the addresses the HTTPS page itself
-        // follows (configured, wlan0, usb0) and loopback: never on a cellular interface.
+        // AirSIM's local protocol is bound only on the non-loopback addresses the HTTPS page
+        // itself follows (configured, wlan0, usb0): never the wildcard, so never cellular.
         {let configured=configured_addresses.clone();
-         tokio::spawn(airsim::serve(app.clone(),move |local:std::net::IpAddr| local.is_loopback()||wanted(&configured).iter().any(|a|a.ip()==local)));}
+         tokio::spawn(airsim::serve(app.clone(),move || wanted(&configured).iter().map(|a|a.ip()).collect()));}
         let mut retry_bind=tokio::time::interval(Duration::from_secs(5));retry_bind.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         let slots=Arc::new(Semaphore::new(24)); let mut tasks=JoinSet::new();
         let mut term=tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).map_err(|_|"signal unavailable")?;
