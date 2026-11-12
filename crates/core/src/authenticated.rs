@@ -72,7 +72,15 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | RevokeLegacy { .. }
         | LegacyBindingStatus { .. }
         | LegacySession { .. }
-        | LegacyRead { .. } => return Err(rustsimhub_auth::Error::Forbidden),
+        | LegacyRead { .. }
+        | AirsimStatus { .. }
+        | AirsimConfigure { .. }
+        | AirsimOpenPairing { .. }
+        | AirsimClosePairing { .. }
+        | AirsimRevoke { .. }
+        | AirsimPairing { .. }
+        | AirsimControl { .. }
+        | AirsimPoll { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         WifiTrial { .. }
         | WifiBegin { .. }
         | WifiStatus { .. }
@@ -245,6 +253,7 @@ pub(crate) struct Providers {
     pub setup: Option<Arc<Mutex<rustsimhub_auth::LocalSetup>>>,
     pub history: Option<Arc<Mutex<rustsimhub_compat::history::HistoryService>>>,
     pub compat: Option<Arc<Mutex<rustsimhub_compat::session::Authority>>>,
+    pub airsim: Option<crate::airsim::Controller>,
 }
 pub(crate) async fn handle(
     stream: &mut UnixStream,
@@ -260,6 +269,7 @@ pub(crate) async fn handle(
         setup,
         history,
         compat,
+        airsim,
     } = providers;
     let body = timeout(Duration::from_secs(5), read_frame(stream)).await??;
     let request = parse_auth_request(&body)?;
@@ -295,6 +305,21 @@ pub(crate) async fn handle(
             | AuthCommand::CheckMediaPreflight { .. }
     );
     let result = if matches!(
+        request.command,
+        AuthCommand::AirsimStatus { .. }
+            | AuthCommand::AirsimConfigure { .. }
+            | AuthCommand::AirsimOpenPairing { .. }
+            | AuthCommand::AirsimClosePairing { .. }
+            | AuthCommand::AirsimRevoke { .. }
+            | AuthCommand::AirsimPairing { .. }
+            | AuthCommand::AirsimControl { .. }
+            | AuthCommand::AirsimPoll { .. }
+    ) {
+        match airsim {
+            Some(provider) => provider.request(auth.clone(), request.command).await,
+            None => Err(rustsimhub_auth::Error::Forbidden),
+        }
+    } else if matches!(
         request.command,
         AuthCommand::NknStatus { .. }
             | AuthCommand::NknRequest { .. }
@@ -968,6 +993,15 @@ async fn serve_inner_media(
     });
     let (controller, worker) = crate::sender::channel(auth.clone(), store.handle(), bindings);
     let sender = messaging.then_some(controller);
+    // The AirSIM gateway stays disabled until a recent owner enables it. A
+    // damaged state file leaves it unavailable instead of being overwritten.
+    let airsim = match crate::airsim::Controller::open(&forwarding_state, sender.clone()) {
+        Ok(controller) => Some(controller),
+        Err(_) => {
+            eprintln!("airsim gateway unavailable: private state could not be loaded");
+            None
+        }
+    };
     let mut sending = Box::pin(async move {
         if messaging {
             worker.run().await
@@ -1003,6 +1037,7 @@ async fn serve_inner_media(
         setup: setup.clone(),
         history: history.clone(),
         compat: compat.clone(),
+        airsim: None,
     };
     let mut nkn_worker = Box::pin(crate::nkn_product::run(
         nkn.clone(),
@@ -1081,6 +1116,7 @@ async fn serve_inner_media(
             setup,
             history,
             compat: compat.clone(),
+            airsim: airsim.clone(),
         };
         tasks.spawn(async move {
             if route == crate::forwarding::ipc::Route::Browser {

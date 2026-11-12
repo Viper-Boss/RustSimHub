@@ -527,6 +527,11 @@ impl Gateway {
     pub fn take_dirty(&mut self) -> Option<&State> {
         std::mem::take(&mut self.dirty).then_some(&self.state)
     }
+    /// Forces the next [`Gateway::take_dirty`] to return the state, for a
+    /// caller that stores its own settings in the same file.
+    pub fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
     pub fn muted(&self, pairing_id: &str) -> bool {
         self.muted.get(pairing_id).copied().unwrap_or(false)
     }

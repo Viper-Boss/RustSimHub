@@ -491,6 +491,49 @@ pub enum AuthCommand {
     OpenPairing {
         token: String,
     },
+    /// AirSIM gateway management (owner).
+    AirsimStatus {
+        token: String,
+    },
+    AirsimConfigure {
+        token: String,
+        enabled: bool,
+        pcm_rate: u32,
+    },
+    AirsimOpenPairing {
+        token: String,
+    },
+    AirsimClosePairing {
+        token: String,
+    },
+    AirsimRevoke {
+        token: String,
+        pairing_id: String,
+    },
+    /// A plain request received by Edge on the AirSIM pairing port. It carries
+    /// no bearer: the app proves itself with the pairing code.
+    AirsimPairing {
+        method: String,
+        target: String,
+        body: String,
+        peer: String,
+    },
+    /// A request received on the AirSIM control port; Core verifies the
+    /// app's HMAC headers against its stored pairings.
+    AirsimControl {
+        method: String,
+        target: String,
+        version: Option<String>,
+        timestamp: Option<String>,
+        nonce: Option<String>,
+        signature: Option<String>,
+        body: String,
+        peer: String,
+    },
+    /// Continues a held AirSIM long poll.
+    AirsimPoll {
+        ticket: String,
+    },
     PendingPairings {
         token: String,
     },
@@ -517,6 +560,16 @@ pub enum AuthCommand {
         token: String,
         public_key: [u8; 32],
     },
+}
+/// Largest AirSIM request body Edge may forward; the frame limit is 64 KiB.
+pub const AIRSIM_MAX_BODY: usize = 16 * 1024;
+fn airsim_request_valid(method: &str, target: &str, body: &str, peer: &str) -> bool {
+    matches!(method, "GET" | "POST")
+        && target.starts_with('/')
+        && target.len() <= 512
+        && target.bytes().all(|b| b.is_ascii_graphic())
+        && body.len() <= AIRSIM_MAX_BODY
+        && peer.parse::<std::net::IpAddr>().is_ok()
 }
 pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
     let invalid = || {
@@ -1252,10 +1305,62 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         | AuthCommand::NetworkDiagnostics { token }
         | AuthCommand::SmsManagementStatus { token }
         | AuthCommand::OpenPairing { token }
+        | AuthCommand::AirsimStatus { token }
+        | AuthCommand::AirsimOpenPairing { token }
+        | AuthCommand::AirsimClosePairing { token }
         | AuthCommand::PendingPairings { token }
         | AuthCommand::Clients { token }
         | AuthCommand::Revoke { token, .. } => {
             if token.len() != 64 {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::AirsimConfigure {
+            token, pcm_rate, ..
+        } => {
+            if token.len() != 64 || !matches!(pcm_rate, 8_000 | 16_000) {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::AirsimRevoke { token, pairing_id } => {
+            if token.len() != 64
+                || pairing_id.len() != 24
+                || !pairing_id.bytes().all(|b| b.is_ascii_hexdigit())
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::AirsimPairing {
+            method,
+            target,
+            body,
+            peer,
+        } => {
+            if !airsim_request_valid(method, target, body, peer) {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::AirsimControl {
+            method,
+            target,
+            version,
+            timestamp,
+            nonce,
+            signature,
+            body,
+            peer,
+        } => {
+            if !airsim_request_valid(method, target, body, peer)
+                || [version, timestamp, nonce, signature]
+                    .into_iter()
+                    .flatten()
+                    .any(|h| h.len() > 256 || !h.bytes().all(|b| b.is_ascii_graphic()))
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::AirsimPoll { ticket } => {
+            if ticket.len() != 32 || !ticket.bytes().all(|b| b.is_ascii_hexdigit()) {
                 return Err(invalid());
             }
         }
@@ -1477,6 +1582,66 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn airsim_commands_are_bounded_and_owner_ones_need_a_token() {
+        let token = "a".repeat(64);
+        let wrap = |command: serde_json::Value| {
+            super::parse_auth_request(
+                &serde_json::to_vec(
+                    &serde_json::json!({"protocol":2,"id":"airsim","command":command}),
+                )
+                .unwrap(),
+            )
+        };
+        let control = |patch: &dyn Fn(&mut serde_json::Value)| {
+            let mut v = serde_json::json!({"op":"airsim_control","method":"GET","target":"/v1/health",
+                "version":"1","timestamp":"1793600000","nonce":"nonce-abc","signature":"sig","body":"","peer":"192.168.1.20"});
+            patch(&mut v);
+            wrap(v)
+        };
+        assert!(control(&|_| {}).is_ok());
+        assert!(control(&|v| v["version"] = serde_json::Value::Null).is_ok());
+        assert!(control(&|v| v["method"] = "DELETE".into()).is_err());
+        assert!(control(&|v| v["target"] = "v1/health".into()).is_err());
+        assert!(control(&|v| v["target"] = "/a b".into()).is_err());
+        assert!(control(&|v| v["target"] = format!("/{}", "a".repeat(512)).into()).is_err());
+        assert!(control(&|v| v["peer"] = "not-an-address".into()).is_err());
+        assert!(control(&|v| v["nonce"] = "a b".into()).is_err());
+        assert!(control(&|v| v["signature"] = "s".repeat(257).into()).is_err());
+        assert!(control(&|v| v["body"] = "x".repeat(super::AIRSIM_MAX_BODY + 1).into()).is_err());
+        assert!(control(&|v| v["token"] = "a".repeat(64).into()).is_err());
+        assert!(wrap(serde_json::json!({"op":"airsim_pairing","method":"POST","target":"/pair/v1/claim","body":"{}","peer":"fe80::1"})).is_ok());
+        assert!(wrap(serde_json::json!({"op":"airsim_poll","ticket":"0".repeat(32)})).is_ok());
+        assert!(wrap(serde_json::json!({"op":"airsim_poll","ticket":"zz"})).is_err());
+        for op in [
+            "airsim_status",
+            "airsim_open_pairing",
+            "airsim_close_pairing",
+        ] {
+            assert!(
+                wrap(serde_json::json!({"op":op,"token":token})).is_ok(),
+                "{op}"
+            );
+            assert!(
+                wrap(serde_json::json!({"op":op,"token":"short"})).is_err(),
+                "{op}"
+            );
+            assert!(wrap(serde_json::json!({"op":op})).is_err(), "{op}");
+        }
+        for rate in [8000, 16000] {
+            assert!(wrap(serde_json::json!({"op":"airsim_configure","token":token,"enabled":true,"pcm_rate":rate})).is_ok());
+        }
+        assert!(wrap(serde_json::json!({"op":"airsim_configure","token":token,"enabled":true,"pcm_rate":44100})).is_err());
+        assert!(wrap(
+            serde_json::json!({"op":"airsim_revoke","token":token,"pairing_id":"0".repeat(24)})
+        )
+        .is_ok());
+        assert!(
+            wrap(serde_json::json!({"op":"airsim_revoke","token":token,"pairing_id":"../x"}))
+                .is_err()
+        );
     }
 
     #[test]
