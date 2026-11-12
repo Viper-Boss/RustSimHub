@@ -1,0 +1,42 @@
+{
+  "authorization_verified": false,
+  "format": 1,
+  "health_verified": false,
+  "installed": false,
+  "kind": "web5-immutable-package-source-review",
+  "may_confirm": false,
+  "packages": {
+    "console": {
+      "archive_sha256": "6e4415d101531e45171f3083a6b6c545d6a8f7ba246310a3290ef6b4abb6f183",
+      "base": "7535535bc5a95c42ff1ea70743b97be561f2049a",
+      "combined_image_built": false,
+      "final_head_docs_only": true,
+      "head": "665f485f768d3d0fc71cd94dc6c3022f18b5336c",
+      "product": "77abd18d786fb329f1a6f4529391d0ec1e168462",
+      "runtime_reexecuted": false,
+      "source_files_changed": 11
+    },
+    "firstboot": {
+      "archive_sha256": "4d8477373f843dd17da0b140e073ba2bc21ad2b2674b44ee1513d99f7f1ebb6f",
+      "base": "7535535bc5a95c42ff1ea70743b97be561f2049a",
+      "combined_image_built": false,
+      "final_head_docs_only": true,
+      "head": "ab36b762bce521d58567931c6b575fbb3cc06c30",
+      "product": "ab874ea0fd3437fd9db63b8535a3e0124caeefca",
+      "runtime_reexecuted": false,
+      "source_files_changed": 16
+    },
+    "matrix": {
+      "archive_sha256": "9272dc2c9beec3ffc8a2761d2435147096d2ef46e1a107a70cab3579a79d3c63",
+      "base": "04ac942eb89f49249d8f54bd632b143234467f19",
+      "combined_image_built": false,
+      "final_head_docs_only": true,
+      "head": "2e8023e858ac8b40184acf2217cb8e91b9421cbd",
+      "product": "6c35352ac9b0e4980c8545a84c74a69078fd1e40",
+      "runtime_reexecuted": false,
+      "source_files_changed": 11
+    }
+  },
+  "read_only": true,
+  "release_ready": false
+}

@@ -1,0 +1,511 @@
+{
+  "audio": {
+    "local_media_worker_supported": true,
+    "platform_audio_routes_supported": true,
+    "source_archive_sha256": "efebf0bf4619f48041c1e66a310b583d987cd7d97348d3bf9c81e79a5d848dc1"
+  },
+  "bootable_rootfs": false,
+  "build_info": {
+    "core": {
+      "component": "core",
+      "database_schema": 6,
+      "development_fixtures": false,
+      "forwarding_runtime_contract": {
+        "format": 1,
+        "outbox": {
+          "application_id": 1381189207,
+          "migrate_from": [
+            1,
+            2
+          ],
+          "read_format": 3,
+          "write_format": 3
+        },
+        "worker_protocol": 4
+      },
+      "service_launch": {
+        "format": 1,
+        "modes": [
+          "device",
+          "forwarding_managed",
+          "setup_ap"
+        ]
+      },
+      "setup_ap_installation_contract": {
+        "application_format": 2,
+        "auth_protocol": 2,
+        "core_mode": "--serve-device-forwarding-managed-setup-ap",
+        "database_schema": 6,
+        "format": 1,
+        "material_format": 1,
+        "maximum_window_seconds": 3600,
+        "origin": "https://192.168.100.1:8443",
+        "owner_adoption": 1,
+        "parent_channel": 1,
+        "root_mode": "--serve-configurable",
+        "station_commit_channel": 1,
+        "station_trial_channel": 1
+      },
+      "source_archive_sha256": "efebf0bf4619f48041c1e66a310b583d987cd7d97348d3bf9c81e79a5d848dc1",
+      "target_arch": "aarch64",
+      "update_health_default_enabled": false,
+      "update_health_protocol": 1
+    },
+    "core-launcher": {
+      "component": "core-launcher",
+      "development_fixtures": false,
+      "launcher_protocol": 1,
+      "product_profile_protocol": 1,
+      "setup_ap_installation_contract": {
+        "application_format": 2,
+        "auth_protocol": 2,
+        "core_mode": "--serve-device-forwarding-managed-setup-ap",
+        "database_schema": 6,
+        "format": 1,
+        "material_format": 1,
+        "maximum_window_seconds": 3600,
+        "origin": "https://192.168.100.1:8443",
+        "owner_adoption": 1,
+        "parent_channel": 1,
+        "root_mode": "--serve-configurable",
+        "station_commit_channel": 1,
+        "station_trial_channel": 1
+      },
+      "source_archive_sha256": "efebf0bf4619f48041c1e66a310b583d987cd7d97348d3bf9c81e79a5d848dc1",
+      "target_arch": "aarch64",
+      "upgrade_check_protocol": 1
+    },
+    "edge": {
+      "component": "edge",
+      "development_fixtures": false,
+      "local_installation_preparation_supported": true,
+      "media_installation_preparation_supported": true,
+      "setup_ap_installation_contract": {
+        "application_format": 2,
+        "auth_protocol": 2,
+        "core_mode": "--serve-device-forwarding-managed-setup-ap",
+        "database_schema": 6,
+        "format": 1,
+        "material_format": 1,
+        "maximum_window_seconds": 3600,
+        "origin": "https://192.168.100.1:8443",
+        "owner_adoption": 1,
+        "parent_channel": 1,
+        "root_mode": "--serve-configurable",
+        "station_commit_channel": 1,
+        "station_trial_channel": 1
+      },
+      "source_archive_sha256": "efebf0bf4619f48041c1e66a310b583d987cd7d97348d3bf9c81e79a5d848dc1",
+      "target_arch": "aarch64"
+    },
+    "setup-ap": {
+      "component": "setup-ap",
+      "development_fixtures": false,
+      "setup_ap_installation_contract": {
+        "application_format": 2,
+        "auth_protocol": 2,
+        "core_mode": "--serve-device-forwarding-managed-setup-ap",
+        "database_schema": 6,
+        "format": 1,
+        "material_format": 1,
+        "maximum_window_seconds": 3600,
+        "origin": "https://192.168.100.1:8443",
+        "owner_adoption": 1,
+        "parent_channel": 1,
+        "root_mode": "--serve-configurable",
+        "station_commit_channel": 1,
+        "station_trial_channel": 1
+      },
+      "source_archive_sha256": "efebf0bf4619f48041c1e66a310b583d987cd7d97348d3bf9c81e79a5d848dc1",
+      "target_arch": "aarch64"
+    },
+    "update": {
+      "boot_runtime_selection_supported": true,
+      "database_schema": 6,
+      "forwarding_application_format_supported": true,
+      "maintenance_observation_protocol": 1,
+      "read_only_runtime_inspection_protocol": 1,
+      "read_only_state_inspection_protocol": 1,
+      "running_candidate_confirmation_default_enabled": false,
+      "running_candidate_confirmation_protocol": 1,
+      "signed_application_formats": [
+        1,
+        2
+      ],
+      "source_archive_sha256": "efebf0bf4619f48041c1e66a310b583d987cd7d97348d3bf9c81e79a5d848dc1",
+      "system_ota_supported": false
+    }
+  },
+  "epoch_assigned": false,
+  "format": 1,
+  "hardware_tested": false,
+  "health_authorized": false,
+  "installable": false,
+  "kind": "unsigned-product-profile",
+  "launch_check": {
+    "arguments": [
+      "--serve-device-forwarding-managed-setup-ap",
+      "/run/rustsimhub/core/core.sock",
+      "985",
+      "/var/lib/rustsimhub-core/state",
+      "/var/lib/rustsimhub-core/identity",
+      "/run/rustsimhub/core/media.sock",
+      "984",
+      "/var/lib/rustsimhub-core/archive",
+      "/var/lib/rustsimhub-core/access",
+      "/var/lib/rustsimhub-core/compat",
+      "/var/lib/rustsimhub-core/journal",
+      "/var/lib/rustsimhub-core/setup",
+      "983",
+      "/run/rustsimhub-setup-ap-core",
+      "/run/rustsimhub-setup-ap-root",
+      "/var/lib/rustsimhub-core/setup-ap-journal"
+    ],
+    "authorization_verified": false,
+    "format": 1,
+    "starts_services": false
+  },
+  "licenses": {
+    "licenses/GPL-2.0-only.txt": "edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6",
+    "licenses/Opus-COPYING.txt": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551",
+    "licenses/PROJECT-LICENSE": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+    "licenses/regex-lite-0.1.9-MIT.txt": "6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb"
+  },
+  "materials": {
+    "50-product-profile.conf": "1783528bf3c0b609b1fd6ac9580b7c28b60292f4f9e8fd218216317cd5201607",
+    "product-profile.json": "ca0378de2ed48bcffec41a6565c0d64b4bf4f184a48c9c23e83590b1dc915326"
+  },
+  "mode_metadata": {
+    "authorization_verified": false,
+    "business": {
+      "application_id": 1381189698,
+      "automatic_migration": false,
+      "maintenance_from": [],
+      "read": [
+        6
+      ],
+      "write": 6
+    },
+    "component": "core",
+    "development_fixtures": false,
+    "features": {
+      "email": false,
+      "product_providers": false,
+      "recovery_execution": false
+    },
+    "format": 1,
+    "forwarding_runtime_contract": {
+      "format": 1,
+      "outbox": {
+        "application_id": 1381189207,
+        "migrate_from": [
+          1,
+          2
+        ],
+        "read_format": 3,
+        "write_format": 3
+      },
+      "worker_protocol": 4
+    },
+    "kind": "product-runtime-compatibility",
+    "mode": "legacy-v1",
+    "opens_database": false,
+    "prefixes": [],
+    "source_archive_sha256": "efebf0bf4619f48041c1e66a310b583d987cd7d97348d3bf9c81e79a5d848dc1",
+    "starts_services": false,
+    "target_arch": "aarch64"
+  },
+  "plan": {
+    "automatic_migration": false,
+    "ble_enabled": false,
+    "compiled_provider": false,
+    "core_prefixes": [],
+    "email_contract": false,
+    "forwarding_enabled": false,
+    "health_confirmation": "unsupported_for_this_profile",
+    "installation_permitted": false,
+    "nkn_references": {
+      "manual": false,
+      "remote": false,
+      "statistics": false
+    },
+    "profile": "legacy-v1",
+    "recovery_schema": null,
+    "requires": [
+      "fresh device evidence",
+      "reviewed signed Root write set",
+      "actual business/outbox compatibility and rollback",
+      "private NKN policy/seed/member material"
+    ],
+    "roles": {
+      "core": {
+        "gid": 986,
+        "uid": 986
+      },
+      "edge": {
+        "gid": 985,
+        "uid": 985
+      },
+      "forwarder": {
+        "gid": 983,
+        "uid": 983
+      },
+      "media": {
+        "gid": 984,
+        "uid": 984
+      }
+    },
+    "starts_services": false
+  },
+  "profile": "legacy-v1",
+  "programs": {
+    "rustsimhub-audio-alsa": {
+      "bytes": 3943920,
+      "glibc": [
+        "2.17",
+        "2.18",
+        "2.25",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34",
+        "2.38"
+      ],
+      "sha256": "b3d1b39a0e8315a7740374249d2bfd41d16ab5b21ba18d8d1d9fb26b73bdd7f0"
+    },
+    "rustsimhub-core": {
+      "bytes": 5724456,
+      "glibc": [
+        "2.17",
+        "2.18",
+        "2.25",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34",
+        "2.39"
+      ],
+      "sha256": "a74cd45c66885c7fa540e0af5387a7e84bfb579cf8a32591cec7285410d4386e"
+    },
+    "rustsimhub-core-launcher": {
+      "bytes": 594752,
+      "glibc": [
+        "2.17",
+        "2.18",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34",
+        "2.39"
+      ],
+      "sha256": "431518e55b9eb0c2fc38531d2e579970e1a1d61caf8c364eb85f1babb9f5675e"
+    },
+    "rustsimhub-edge": {
+      "bytes": 3281920,
+      "glibc": [
+        "2.17",
+        "2.18",
+        "2.25",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34"
+      ],
+      "sha256": "ef99be6f6d5562fe6bae10e6a5a9113c70f6e485a5ecabe8d9026e4237ca6b31"
+    },
+    "rustsimhub-forwarder": {
+      "bytes": 3363408,
+      "glibc": [
+        "2.17",
+        "2.18",
+        "2.25",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34",
+        "2.39"
+      ],
+      "sha256": "1f4609a695d40a89f0096eedfe290831db455bc9755a90ca08dce940779d6e70"
+    },
+    "rustsimhub-mdns": {
+      "bytes": 332552,
+      "glibc": [
+        "2.17",
+        "2.18",
+        "2.28",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34"
+      ],
+      "sha256": "565e136a1cba059b7091b4dcfac505b2d30a89628eadb3af14295a2762d6412b"
+    },
+    "rustsimhub-migrate": {
+      "bytes": 1592992,
+      "glibc": [
+        "2.17",
+        "2.18",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34"
+      ],
+      "sha256": "797b5b6b6577915db3a4aabcb1222051af5f95ba2722825fd33c374f1a9fb6c7"
+    },
+    "rustsimhub-network-agent": {
+      "bytes": 660256,
+      "glibc": [
+        "2.17",
+        "2.18",
+        "2.25",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34",
+        "2.39"
+      ],
+      "sha256": "ddaf7884b1f5c959ead7e4ce9aa6c8cc04ba2abe1d40916e3dd10a87cb611af6"
+    },
+    "rustsimhub-recovery": {
+      "bytes": 856968,
+      "glibc": [
+        "2.17",
+        "2.18",
+        "2.25",
+        "2.28",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34"
+      ],
+      "sha256": "264904b2b0fe682aaa0cc8fbb3e343e95e1e5fbf43494e1b2ecf0363e83129f9"
+    },
+    "rustsimhub-setup-ap": {
+      "bytes": 2890384,
+      "glibc": [
+        "2.17",
+        "2.18",
+        "2.25",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34",
+        "2.39"
+      ],
+      "sha256": "9e3e781d499ad802d38a74d6922bceb5e6f87dbd004e23e558d220310280ed87"
+    },
+    "rustsimhub-status-led": {
+      "bytes": 1514088,
+      "glibc": [
+        "2.17",
+        "2.18",
+        "2.25",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34",
+        "2.39"
+      ],
+      "sha256": "042819ec753ad4fa70a5873b3ba8fb5d237fcc36d9bf28c7e2986161cfd9a1c8"
+    },
+    "rustsimhub-update": {
+      "bytes": 2444992,
+      "glibc": [
+        "2.17",
+        "2.18",
+        "2.25",
+        "2.27",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34",
+        "2.39"
+      ],
+      "sha256": "8fc5e969b7f3c5c416d9a2b556fc5ee2c910d1f82eed800b43edade78cfed6c3"
+    },
+    "simhubctl": {
+      "bytes": 922576,
+      "glibc": [
+        "2.17",
+        "2.18",
+        "2.25",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34"
+      ],
+      "sha256": "213b0a969c98be152a401b7a42d188b874c6fd15f8c2a5678cbe13f778090778"
+    }
+  },
+  "revision": "8470608781b4ab772597cef0d767e012b594f257",
+  "runtime_contract": {
+    "format": 1,
+    "outbox": {
+      "application_id": 1381189207,
+      "migrate_from": [
+        1,
+        2
+      ],
+      "read_format": 3,
+      "write_format": 3
+    },
+    "worker_protocol": 4
+  },
+  "rust_profile": {
+    "lto": "thin",
+    "name": "release",
+    "opt_level": "z",
+    "package_opt_levels": {
+      "sha2:0.10.9": 3
+    },
+    "strip": "symbols"
+  },
+  "sdk": null,
+  "sdk_licenses": null,
+  "sdk_provenance": null,
+  "signed": false,
+  "source_archive_sha256": "efebf0bf4619f48041c1e66a310b583d987cd7d97348d3bf9c81e79a5d848dc1",
+  "target": "aarch64-unknown-linux-gnu",
+  "worker": {
+    "development_fixtures": false,
+    "finite_root_actions": true,
+    "forwarding_runtime_contract": {
+      "format": 1,
+      "outbox": {
+        "application_id": 1381189207,
+        "migrate_from": [
+          1,
+          2
+        ],
+        "read_format": 3,
+        "write_format": 3
+      },
+      "worker_protocol": 4
+    },
+    "protocol": 4,
+    "source_archive_sha256": "efebf0bf4619f48041c1e66a310b583d987cd7d97348d3bf9c81e79a5d848dc1",
+    "worker": true
+  }
+}
