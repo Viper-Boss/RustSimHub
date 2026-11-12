@@ -124,10 +124,34 @@ impl Pair {
         };
         let mut bytes = [0; MAX_DATAGRAM + 1];
         let mut received = false;
+        // The pacer may need further timer ticks before it releases the packet
+        // (seen under emulation). Keep driving only the SENDER until the first
+        // datagram arrives; the receiver still sees the controlled clock alone.
+        let emitted_by = Instant::now() + Duration::from_secs(5);
         for _ in 0..16 {
             let (length, source) = match socket.recv_from(&mut bytes) {
                 Ok(v) => v,
-                Err(e) if e.kind() == ErrorKind::WouldBlock => break,
+                Err(e) if e.kind() == ErrorKind::WouldBlock => {
+                    if received || Instant::now() >= emitted_by {
+                        break;
+                    }
+                    loop {
+                        let tick = self.sender.timeout.max(Instant::now());
+                        self.sender.rtc.handle_input(Input::Timeout(tick)).unwrap();
+                        self.sender.drain(&self.a, tick, now).unwrap();
+                        match socket.peek_from(&mut bytes) {
+                            Ok(_) => break,
+                            Err(e) if e.kind() == ErrorKind::WouldBlock => {
+                                if Instant::now() >= emitted_by {
+                                    break;
+                                }
+                                std::thread::sleep(Duration::from_millis(1));
+                            }
+                            Err(e) => panic!("synthetic UDP receive: {e}"),
+                        }
+                    }
+                    continue;
+                }
                 Err(e) => panic!("synthetic UDP receive: {e}"),
             };
             received = true;
