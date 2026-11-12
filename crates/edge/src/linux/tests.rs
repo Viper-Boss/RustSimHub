@@ -217,6 +217,23 @@ async fn network_tests_keep_the_same_origin_marker_and_query_fences() {
     );
 }
 #[tokio::test]
+async fn airsim_relay_commands_are_never_accepted_from_the_browser_api() {
+    // No Core socket exists: a refusal must come from Edge itself, before any forwarding.
+    let dir = tempfile::tempdir().unwrap();
+    for command in [
+        r#"{"op":"airsim_poll","ticket":"00000000000000000000000000000000"}"#,
+        r#"{"op":"airsim_pairing","method":"GET","target":"/pair/v1/info","body":"","peer":"127.0.0.1"}"#,
+        r#"{"op":"airsim_control","method":"GET","target":"/v1/health","version":"1","timestamp":"1","nonce":"nonce-abc","signature":"s","body":"","peer":"127.0.0.1"}"#,
+    ] {
+        let body = format!(r#"{{"protocol":2,"id":"a","command":{command}}}"#).into_bytes();
+        let response = router(app(dir.path().join("absent.sock")))
+            .oneshot(request("https://localhost:8443", "localhost:8443", body))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::FORBIDDEN, "{command}");
+    }
+}
+#[tokio::test]
 async fn valid_core_response_is_forwarded_but_wrong_id_version_and_size_are_not() {
     for case in 0..4 {
         let dir = tempfile::tempdir().unwrap();
