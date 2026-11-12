@@ -10,7 +10,9 @@
 //! from the Android gateway code itself) are kept in `tests.rs`.
 #![forbid(unsafe_code)]
 
+mod gateway;
 mod pairing;
+pub use gateway::*;
 pub use pairing::*;
 
 use base64::Engine;
@@ -95,7 +97,7 @@ pub fn decode_base64url(value: &str) -> Result<Vec<u8>, Error> {
         .map_err(|_| Error::Invalid)
 }
 
-fn hex(bytes: &[u8]) -> String {
+pub(crate) fn hex(bytes: &[u8]) -> String {
     use std::fmt::Write;
     bytes.iter().fold(String::new(), |mut out, byte| {
         let _ = write!(out, "{byte:02x}");
