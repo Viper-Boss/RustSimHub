@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[Unit]
+Description=Queue only the prepared device's original bounded setup consumers
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/firstboot-ap.request
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/firstboot-ap/state.json
+Requisite=rustsimhub-firstboot-ap.service
+After=rustsimhub-firstboot-ap.service rustsimhub-app-select.service rustsimhub-core.service
+# No Wants/Requires on AP/NM here: skipped old devices must queue no such jobs.
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl --no-block start rustsimhub-setup-edge.service rustsimhub-setup-ap.service
+RemainAfterExit=yes
+TimeoutStartSec=10
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+[Install]
+WantedBy=multi-user.target

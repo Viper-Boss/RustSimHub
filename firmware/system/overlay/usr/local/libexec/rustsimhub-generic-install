@@ -44,6 +44,12 @@ else
 fi
 # usb0 is the only address known on every device before Wi-Fi exists. The first name is
 # .local, so Edge also follows wlan0; the media worker uses the same two sets of addresses.
+# Explicit immutable v1 opt-in only. The durable request precedes identity setup,
+# so a power cut after installation.complete cannot lose the AP preparation intent.
+# Old devices with installation.complete returned above; no new request is created.
+if test -e /usr/share/rustsimhub/firstboot-ap/manifest.json || test -L /usr/share/rustsimhub/firstboot-ap/manifest.json;then
+ /usr/local/libexec/rustsimhub-firstboot-ap --request
+fi
 exec /usr/local/libexec/rustsimhub-install-initialize \
  "$system/ssh-access/authorized_keys" 10.55.0.2:8443 "$name.local,10.55.0.2" \
  "$system/first-owner-handoff" --media-lan

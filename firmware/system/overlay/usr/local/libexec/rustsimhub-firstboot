@@ -95,4 +95,22 @@ else
  private_file "$serial"
 fi
 sync -f "$root/system"
+# Optional generic AP preparation directories only; no activation or identity changes.
+if test -e /usr/share/rustsimhub/firstboot-ap/manifest.json || test -L /usr/share/rustsimhub/firstboot-ap/manifest.json; then
+ if test -e "$root/system/firstboot-ap.request" || { test -e "$root/system/generic-provision.request" && test ! -e "$root/system/installation.complete"; }; then
+  private_dir "$root/setup-edge" 985 985
+  private_dir "$root/core/setup-ap-journal" 986 986
+  # Do not preinstall AP tmpfiles: its implicit parents would precede this private layout.
+  channel_dir() {
+   if test -e "$1" || test -L "$1"; then
+    test ! -L "$1"; test -d "$1"
+    test "$(stat -c '%u:%g:%a' "$1")" = "$2:$3:2750"
+   else
+    mkdir -m 2750 -- "$1"; chown "$2:$3" -- "$1"; chmod 2750 -- "$1"
+   fi
+  }
+  channel_dir /run/rustsimhub-setup-ap-core 986 0
+  channel_dir /run/rustsimhub-setup-ap-root 0 986
+ fi
+fi
 echo 'RustSimHub private runtime directories and stable USB identity prepared'

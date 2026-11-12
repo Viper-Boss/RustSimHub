@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[Unit]
+Description=Prepare this new device's bounded first-setup AP
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/firstboot-ap.request
+Requires=rustsimhub-firstboot.service
+Wants=rustsimhub-generic-install.service
+After=rustsimhub-firstboot.service rustsimhub-generic-install.service systemd-tmpfiles-setup.service
+Before=rustsimhub-app.target rustsimhub-app-select.service rustsimhub-edge.service rustsimhub-media.service rustsimhub-core.service rustsimhub-setup-edge.service rustsimhub-setup-ap.service
+# Optional AP failure never disables the existing USB maintenance path.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/rustsimhub-firstboot-ap
+RemainAfterExit=yes
+TimeoutStartSec=120
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ReadWritePaths=/var/lib/rustsimhub/rustsimhub-v1/system /var/lib/rustsimhub/rustsimhub-v1/core/setup /var/lib/rustsimhub/rustsimhub-v1/setup-edge /var/lib/rustsimhub/rustsimhub-v1/core/setup-ap-journal
+ReadWritePaths=/etc/systemd/system/rustsimhub-core.service.d /etc/systemd/system/rustsimhub-app.target.d
+ReadWritePaths=/run/rustsimhub-setup-ap-core /run/rustsimhub-setup-ap-root
+CapabilityBoundingSet=CAP_CHOWN CAP_FSETID CAP_DAC_OVERRIDE CAP_FOWNER CAP_SETUID CAP_SETGID
+RestrictAddressFamilies=AF_UNIX
+MemoryMax=128M
+TasksMax=12
+LimitCORE=0
+
+[Install]
+WantedBy=multi-user.target

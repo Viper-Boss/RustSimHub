@@ -17,6 +17,8 @@ sys.path.insert(0, str(ROOT / 'tools/rootfs/scripts'))
 import rootfs_tools as base_tools
 from application_package import verify_package, application_files, checked as application_checked
 import audio_modules
+sys.path.insert(0,str(ROOT/'tools/firstboot-ap'))
+import firstboot_ap
 
 NAMES = ('rustsimhub-core', 'simhubctl', 'rustsimhub-edge', 'rustsimhub-update',
          'rustsimhub-recovery', 'rustsimhub-migrate')
@@ -109,8 +111,10 @@ def main():
     parser.add_argument('--audio-modules', type=pathlib.Path, help='Exactly 22 source-locked UFI003 modules; required with Native')
     parser.add_argument('--status-led-artifacts', type=pathlib.Path, help='Separately source-locked ARM status indicator build')
     parser.add_argument('--network-agent-artifacts', type=pathlib.Path, help='Explicit source-locked network monitor and monthly guard build')
+    parser.add_argument('--firstboot-ap-artifacts',type=pathlib.Path,help='Explicit generic firstboot AP v1 layer; creates no identity/credentials in the image')
     args = parser.parse_args()
     startup = bool(args.signed_application)
+    assert not args.firstboot_ap_artifacts or startup,'Firstboot AP requires a verified factory application'
     assert not args.native_artifacts or startup
     assert bool(args.native_artifacts) == bool(args.audio_modules), 'Native and its pinned kernel audio layer must be supplied together'
     assert all((args.signed_application,args.release_public,args.updater_artifacts)) or not any((args.signed_application,args.release_public,args.updater_artifacts))
@@ -120,7 +124,7 @@ def main():
         parser.error('Output must be a new directory; failed output is retained')
     assert not git('status', '--porcelain', '--', 'firmware/system', 'firmware/base-system.lock.json',
                    'tools/compose-system-tree.py', 'tools/application_package.py', 'tools/audio_modules.py',
-                   'firmware/kernel/audio', 'tools/rootfs').strip(), 'Commit composition inputs first'
+                   'firmware/kernel/audio', 'tools/rootfs', 'tools/firstboot-ap').strip(), 'Commit composition inputs first'
     revision = git('rev-parse', 'HEAD').decode().strip()
     base = args.base.resolve(strict=True)
     manifest = json.loads((base / 'ROOTFS-MANIFEST.json').read_text())
@@ -256,6 +260,7 @@ def main():
             directory(destination(tree,'var/lib/rustsimhub-core'), 0o755)
             directory(destination(tree,'var/lib/rustsimhub-edge'), 0o755)
             directory(destination(tree,'var/lib/rustsimhub-media'), 0o755)
+        firstboot_layer = firstboot_ap.install(tree,args.firstboot_ap_artifacts.resolve(strict=True),build['source_archive_sha256'],base_tools.sha256_file(signed/'manifest.json')) if args.firstboot_ap_artifacts else None
         state_mount = destination(tree, 'var/lib/rustsimhub')
         directory(state_mount, 0o700, exist_ok=True)
         assert not any(state_mount.iterdir())
@@ -274,6 +279,7 @@ def main():
         if led_build: units+=['rustsimhub-status-led.service']
         if network_build: units+=['rustsimhub-network-agent.service','rustsimhub-carrier-voice.service']
         if startup:units+=['rustsimhub-generic-install.service','rustsimhub-app.target']
+        if firstboot_layer:units+=['rustsimhub-firstboot-ap.service','rustsimhub-firstboot-ap-activation.service']
         for unit in units:
             link = destination(tree, 'etc/systemd/system/multi-user.target.wants/'+unit)
             assert not link.exists()
@@ -290,6 +296,8 @@ def main():
                      'media_configuration_required': bool(args.native_artifacts),
                      'kernel_audio_modules_installed': bool(audio_layer),
                      'board_boot_verified': False, 'private_data_included': False}
+        candidate['firstboot_ap_layer'] = firstboot_layer
+        candidate['firstboot_ap_installed'] = bool(firstboot_layer)
         candidate['status_led_installed'] = bool(led_build)
         candidate['network_agent_installed'] = bool(network_build)
         if network_build: candidate['network_agent_build'] = network_build

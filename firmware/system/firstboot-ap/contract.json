@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "kind": "generic-firstboot-ap",
+  "request": "RustSimHub.GenericFirstbootAp.v1",
+  "generic_request": "RustSimHub.GenericProvision.v1",
+  "installation_marker": "RustSimHub.InitialInstallation.v1",
+  "core_uid": 986,
+  "edge_uid": 985,
+  "database_schema": 6,
+  "application_format": 2,
+  "owner_authority": "existing-core-device-window-and-ready-ap-only",
+  "network_authority": "existing-core-lease-and-setup-ap-transaction-only",
+  "maximum_window_seconds": 3600,
+  "public_installable": false,
+  "activation": "fixed-consumers-after-prepared-marker-and-manager-reload"
+}
