@@ -231,10 +231,10 @@ fn package(key: &SigningKey, application: &[u8], payloads: &[Vec<u8>]) {
     use materials::{MaterialEntry, TargetId};
     let source = rustsimhub_wire::build_source_sha256().unwrap();
     let expected = ExpectedBindings {
-        profile: if fs::read_to_string("/fixture/scenario").unwrap().trim() == "email" {
-            Profile::Email
-        } else {
-            Profile::RecoveryHealth
+        profile: match fs::read_to_string("/fixture/scenario").unwrap().trim() {
+            "email" => Profile::Email,
+            "email-recovery" => Profile::EmailRecovery,
+            _ => Profile::RecoveryHealth,
         },
         source_commit: fs::read_to_string("/fixture/source-commit")
             .unwrap()
@@ -640,6 +640,61 @@ fn schema9_backup() {
 #[test]
 #[ignore = "private real SMTP5/format3 original writer and retained migration chain"]
 fn email_chain() {
+    email_chain_impl(false);
+}
+
+#[cfg(feature = "email-production-candidate")]
+#[test]
+#[ignore = "private EmailRecovery real email4 then recovery9, interrupted retained writers and explicit recovery"]
+fn email_recovery_chain() {
+    email_chain_impl(true);
+}
+
+#[cfg(feature = "email-production-candidate")]
+pub(super) fn after_email_boundary(snapshot: &MaintenanceSnapshot) {
+    if !Path::new("/fixture/stop-after-email").exists() {
+        return;
+    }
+    isolated(0);
+    assert_eq!(
+        fs::read_to_string("/fixture/scenario").unwrap().trim(),
+        "email-recovery"
+    );
+    snapshot.revalidate().unwrap();
+    assert_eq!(snapshot.business.version.format, 6);
+    assert_eq!(snapshot.outbox.as_ref().unwrap().version.format, 4);
+    put(
+        "/fixture/email-boundary-held",
+        b"same-original-snapshot-writers-held",
+        0o600,
+    );
+    rustix::process::kill_process(rustix::process::getpid(), rustix::process::Signal::STOP)
+        .unwrap();
+}
+
+#[cfg(feature = "email-production-candidate")]
+#[test]
+#[ignore = "private deterministic interrupted product apply child; no new migration implementation"]
+fn email_recovery_apply_child() {
+    isolated(0);
+    crate::product_native_fixture::enable();
+    dispatch(&["product-apply".into()]).unwrap();
+}
+
+#[cfg(not(feature = "email-production-candidate"))]
+#[test]
+#[ignore = "private real default-updater feature refusal against signed SMTP5 EmailRecovery inputs"]
+fn email_feature_rejection() {
+    isolated(0);
+    crate::product_native_fixture::enable();
+    assert!(matches!(
+        dispatch(&["product-prepare".into()]),
+        Err(Error::Denied)
+    ));
+}
+
+#[cfg(feature = "email-production-candidate")]
+fn email_chain_impl(recovery: bool) {
     isolated(0);
     crate::product_native_fixture::enable();
     install_base();
@@ -662,9 +717,18 @@ fn email_chain() {
         .status()
         .unwrap()
         .success());
+    let receipts = recovery.then(matrix_outbox_receipts);
+    if let Some(receipts) = &receipts {
+        assert_eq!(receipts.len(), 3);
+        assert_eq!(
+            receipts.iter().map(|r| r.1.as_str()).collect::<Vec<_>>(),
+            ["confirmed", "unknown", "unknown"]
+        );
+        assert!(receipts.iter().all(|r| r.2.is_some()));
+    }
     let key = SigningKey::from_bytes(&[71; 32]);
     put(TRUST, &key.verifying_key().to_bytes(), 0o444);
-    let (app, _, payloads) = applications(&key);
+    let (app, signature, payloads) = applications(&key);
     {
         let mut store = Store::open(Path::new(APP), key.verifying_key().to_bytes(), 6).unwrap();
         store
@@ -675,29 +739,337 @@ fn email_chain() {
             .unwrap();
     }
     package(&key, &app, &payloads);
-    for command in ["product-prepare", "product-apply", "product-inspect"] {
-        let report = dispatch(&[command.into()]);
-        eprintln!("email {command}: {report:?}");
-        assert!(report.is_ok());
-    }
-    let snapshot = MaintenanceSnapshot::observe_qualified(Path::new("/"), 0, 986, true).unwrap();
-    assert_eq!(snapshot.business.version.format, 6);
-    assert_eq!(snapshot.outbox.as_ref().unwrap().version.format, 4);
-    let before = fs::read(Path::new(DATA).join("store.sqlite3")).unwrap();
-    let backup = coordinator::UpgradeJournal::production(coordinator::UpgradeKind::Email4)
-        .unwrap()
-        .completed_email()
+    if recovery {
+        preflight_refusals();
+        email_recovery_signed_refusals(&key, &app, &signature, &payloads);
+        let db = rusqlite::Connection::open(Path::new(DATA).join("store.sqlite3")).unwrap();
+        let owner: (String, i64) = db
+            .query_row(
+                "SELECT id,generation FROM principals WHERE kind='owner'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        // Explicit SQL revocation fixture, not an Auth RPC or real Owner.
+        db.execute(
+            "UPDATE principals SET active=0,generation=generation+1 WHERE id=?",
+            [&owner.0],
+        )
         .unwrap();
-    backup.revalidate().unwrap();
-    drop(backup);
-    assert!(rustsimhub_storage::Store::open(DATA).is_err());
+        drop(db);
+        assert!(matches!(
+            dispatch(&["product-prepare".into()]),
+            Err(Error::Denied)
+        ));
+        assert!(!Path::new("/etc/rustsimhub/product-profile.json").exists());
+        assert!(!Path::new(INSTALL).join("active.json").exists());
+        let db = rusqlite::Connection::open(Path::new(DATA).join("store.sqlite3")).unwrap();
+        db.execute(
+            "UPDATE principals SET active=1,generation=? WHERE id=?",
+            rusqlite::params![owner.1, &owner.0],
+        )
+        .unwrap();
+        drop(db);
+        eprintln!(
+            "actual original binding refusal: revoked Owner SQL fixture before Root preparation"
+        );
+        let before = fs::read(Path::new(APP).join("state.json")).unwrap();
+        assert!(Command::new("/fixture/no-email-tests")
+            .args([
+                "--exact",
+                "admission::product::tests::email_feature_rejection",
+                "--ignored",
+                "--nocapture",
+                "--test-threads=1"
+            ])
+            .status()
+            .unwrap()
+            .success());
+        assert_eq!(fs::read(Path::new(APP).join("state.json")).unwrap(), before);
+    }
+    assert!(dispatch(&["product-prepare".into()]).is_ok());
+    if recovery {
+        interrupted_email_recovery();
+    } else {
+        assert!(dispatch(&["product-apply".into()]).is_ok());
+    }
+    let report = dispatch(&["product-inspect".into()]).unwrap();
     assert_eq!(
-        fs::read(Path::new(DATA).join("store.sqlite3")).unwrap(),
-        before
+        report["data_admission"]["comparison"]["actual_data"]["business_schema"],
+        if recovery { 9 } else { 6 }
     );
+    {
+        let snapshot =
+            MaintenanceSnapshot::observe_qualified(Path::new("/"), 0, 986, true).unwrap();
+        assert_eq!(
+            snapshot.business.version.format,
+            if recovery { 9 } else { 6 }
+        );
+        assert_eq!(snapshot.outbox.as_ref().unwrap().version.format, 4);
+        let before = fs::read(Path::new(DATA).join("store.sqlite3")).unwrap();
+        let backup = coordinator::UpgradeJournal::production(coordinator::UpgradeKind::Email4)
+            .unwrap()
+            .completed_email()
+            .unwrap();
+        backup.revalidate().unwrap();
+        assert!(rustsimhub_storage::Store::open(DATA).is_err());
+        assert_eq!(
+            fs::read(Path::new(DATA).join("store.sqlite3")).unwrap(),
+            before
+        );
+    }
+    if recovery {
+        assert_eq!(matrix_outbox_receipts(), *receipts.as_ref().unwrap());
+        let committed =
+            coordinator::UpgradeJournal::production(coordinator::UpgradeKind::Recovery9)
+                .unwrap()
+                .completed()
+                .unwrap();
+        committed.revalidate().unwrap();
+        // Do not let this diagnostic mutex mask an unsupported-mode refusal.
+        drop(committed);
+        let root_profile = fs::read("/etc/rustsimhub/product-profile.json").unwrap();
+        let ledger_before_rollback = fs::read(Path::new(APP).join("state.json")).unwrap();
+        let data_before_rollback = fs::read(Path::new(DATA).join("store.sqlite3")).unwrap();
+        assert!(
+            matches!(dispatch(&["product-rollback".into()]), Err(Error::Denied)),
+            "schema9 cannot revert Root to an unproven schema6 launch profile"
+        );
+        assert_eq!(
+            fs::read("/etc/rustsimhub/product-profile.json").unwrap(),
+            root_profile
+        );
+        assert_eq!(
+            fs::read(Path::new(APP).join("state.json")).unwrap(),
+            ledger_before_rollback
+        );
+        assert_eq!(
+            fs::read(Path::new(DATA).join("store.sqlite3")).unwrap(),
+            data_before_rollback
+        );
+        assert_eq!(matrix_outbox_receipts(), *receipts.as_ref().unwrap());
+        assert!(
+            matches!(dispatch(&["product-activate".into()]), Err(Error::Denied)),
+            "SMTP5 automatic health activation remains unsupported"
+        );
+        // The existing explicit boot selector may run the supported mode, but
+        // it does not gain a confirmation receipt or an automatic-health prefix.
+        let mut store = Store::open(Path::new(APP), key.verifying_key().to_bytes(), 9).unwrap();
+        store
+            .select_runtime(
+                Path::new("/run/rustsimhub-app"),
+                Path::new("/opt/rustsimhub/versions"),
+            )
+            .unwrap();
+        drop(store);
+        assert!(services::activate_business().is_ok());
+        inspect_actual_business();
+        assert_eq!(matrix_outbox_receipts(), *receipts.as_ref().unwrap());
+        assert!(!Path::new(rustsimhub_wire::update_health::SOCKET).exists());
+        let before = fs::read(Path::new(APP).join("state.json")).unwrap();
+        assert!(crate::runtime_observation::confirmation::RunningCandidate::observe().is_err());
+        assert_eq!(fs::read(Path::new(APP).join("state.json")).unwrap(), before);
+        assert!(Command::new("/usr/bin/systemctl")
+            .args([
+                "--system",
+                "stop",
+                "rustsimhub-core.service",
+                "rustsimhub-edge.service",
+                "rustsimhub-media.service"
+            ])
+            .status()
+            .unwrap()
+            .success());
+        assert_eq!(
+            crate::product_recovery_child::inspect().unwrap()["actual_schema"],
+            9
+        );
+        let ledger = crate::store::inspection::ReadOnlyState::observe()
+            .unwrap()
+            .report()
+            .unwrap();
+        assert_eq!(ledger["state"]["floor"], 2);
+        assert_eq!(ledger["state"]["attempted"], true);
+        assert!(ledger["state"]["candidate"].is_object());
+        put(
+            "/fixture/email-recovery-chain-passed",
+            b"original-email4-then-recovery9-explicit-boot-without-auto-confirm",
+            0o600,
+        );
+    } else {
+        put(
+            "/fixture/email-chain-passed",
+            b"actual-retained-email4-and-reopen\n",
+            0o600,
+        );
+    }
+}
+
+#[cfg(feature = "email-production-candidate")]
+fn email_recovery_signed_refusals(
+    key: &SigningKey,
+    original: &[u8],
+    signature: &[u8],
+    payloads: &[Vec<u8>],
+) {
+    let database = fs::read(Path::new(DATA).join("store.sqlite3")).unwrap();
+    let outbox = fs::read(Path::new(DATA).join("forwarding/outbox.sqlite3")).unwrap();
+    let state = fs::read(Path::new(APP).join("state.json")).unwrap();
+    for index in [0, 4] {
+        let mut changed = payloads.to_vec();
+        if index == 0 {
+            changed[0].push(0);
+        } else {
+            changed[4] = fs::read("/fixture/worker4").unwrap();
+        }
+        let mut manifest: Manifest = serde_json::from_slice(original).unwrap();
+        manifest.files[index].bytes = changed[index].len() as u64;
+        manifest.files[index].sha256 = manifest_hash(&changed[index]);
+        let raw = serde_json::to_vec(&manifest).unwrap();
+        let signed = key.sign(&signing_bytes(&raw).unwrap()).to_bytes();
+        // These are genuinely valid signatures and executable payload groups;
+        // rejection must come from the actual compatibility/fallback contract.
+        crate::verify_payload(&manifest, &changed).unwrap();
+        put(Path::new(CANDIDATE).join("manifest.json"), &raw, 0o600);
+        put(Path::new(CANDIDATE).join("manifest.sig"), &signed, 0o600);
+        put(
+            Path::new(CANDIDATE).join(crate::FORWARDING_FILES[index]),
+            &changed[index],
+            0o600,
+        );
+        package(key, &raw, &changed);
+        assert!(dispatch(&["product-prepare".into()]).is_err());
+        assert_eq!(
+            fs::read(Path::new(DATA).join("store.sqlite3")).unwrap(),
+            database
+        );
+        assert_eq!(
+            fs::read(Path::new(DATA).join("forwarding/outbox.sqlite3")).unwrap(),
+            outbox
+        );
+        assert_eq!(fs::read(Path::new(APP).join("state.json")).unwrap(), state);
+        eprintln!(
+            "actual signed EmailRecovery refusal: {}",
+            if index == 0 {
+                "different fallback Core"
+            } else {
+                "worker4 with SMTP5 Core"
+            }
+        );
+        put(Path::new(CANDIDATE).join("manifest.json"), original, 0o600);
+        put(Path::new(CANDIDATE).join("manifest.sig"), signature, 0o600);
+        put(
+            Path::new(CANDIDATE).join(crate::FORWARDING_FILES[index]),
+            &payloads[index],
+            0o600,
+        );
+        package(key, original, payloads);
+    }
+}
+
+#[cfg(feature = "email-production-candidate")]
+fn interrupted_email_recovery() {
+    use fs2::FileExt;
     put(
-        "/fixture/email-chain-passed",
-        b"actual-retained-email4-and-reopen\n",
+        "/fixture/stop-after-email",
+        b"deterministic-test-boundary",
         0o600,
     );
+    let mut process = Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "admission::product::tests::email_recovery_apply_child",
+            "--ignored",
+            "--nocapture",
+            "--test-threads=1",
+        ])
+        .spawn()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        assert!(
+            process.try_wait().unwrap().is_none(),
+            "apply exited before deterministic boundary"
+        );
+        let stat = fs::read_to_string(format!("/proc/{}/stat", process.id())).unwrap();
+        if Path::new("/fixture/email-boundary-held").exists()
+            && stat.rsplit_once(") ").unwrap().1.starts_with('T')
+        {
+            break;
+        }
+        assert!(Instant::now() < deadline, "email boundary deadline");
+        std::thread::yield_now();
+    }
+    for path in [
+        Path::new(APP).join(".update.lock"),
+        Path::new(DATA).join(".writer.lock"),
+        Path::new(DATA).join("forwarding/.writer.lock"),
+    ] {
+        let file = File::open(path).unwrap();
+        assert!(
+            file.try_lock_exclusive().is_err(),
+            "original writer was released at combined boundary"
+        );
+    }
+    let email: serde_json::Value = serde_json::from_slice(
+        &fs::read("/var/lib/rustsimhub/rustsimhub-v1/system/product-upgrade/email4/state.json")
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(email["phase"], "committed");
+    assert!(!Path::new(
+        "/var/lib/rustsimhub/rustsimhub-v1/system/product-upgrade/recovery9/state.json"
+    )
+    .exists());
+    process.kill().unwrap();
+    assert!(!process.wait().unwrap().success());
+    fs::remove_file("/fixture/stop-after-email").unwrap();
+    let business = fs::read(Path::new(DATA).join("store.sqlite3")).unwrap();
+    let outbox = fs::read(Path::new(DATA).join("forwarding/outbox.sqlite3")).unwrap();
+    assert_eq!(u32::from_be_bytes(business[60..64].try_into().unwrap()), 6);
+    assert_eq!(u32::from_be_bytes(outbox[60..64].try_into().unwrap()), 4);
+    // Root is applied before the application slot is staged. The retained
+    // transaction binds epoch2 while the only confirmed slot still names epoch1.
+    let ledger_before = fs::read(Path::new(APP).join("state.json")).unwrap();
+    let ledger: serde_json::Value = serde_json::from_slice(&ledger_before).unwrap();
+    assert!(ledger["candidate"].is_null());
+    let retained: ProductManifestV1 = serde_json::from_slice(
+        &fs::read(source_directory(true).unwrap().join("manifest.json")).unwrap(),
+    )
+    .unwrap();
+    let confirmed = ledger["confirmed"]["hash"].as_str().unwrap();
+    assert_ne!(retained.bindings.application_manifest_sha256, confirmed);
+    // Reopen is a NEW qualified maintenance operation over the original durable
+    // journals. It is explicit, never a retry or a JSON-restored live capability.
+    dispatch(&["product-inspect".into()]).expect("explicit interrupted inspect must reopen");
+    assert_eq!(
+        fs::read(Path::new(APP).join("state.json")).unwrap(),
+        ledger_before
+    );
+    assert_eq!(
+        fs::read(Path::new(DATA).join("store.sqlite3")).unwrap(),
+        business
+    );
+    assert_eq!(
+        fs::read(Path::new(DATA).join("forwarding/outbox.sqlite3")).unwrap(),
+        outbox
+    );
+    dispatch(&["product-recover".into()]).expect("explicit interrupted recovery must complete");
+}
+
+#[cfg(feature = "email-production-candidate")]
+fn matrix_outbox_receipts() -> Vec<(String, String, Option<String>)> {
+    let db = rusqlite::Connection::open_with_flags(
+        "file:/var/lib/rustsimhub/rustsimhub-v1/core/state/forwarding/outbox.sqlite3?immutable=1",
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_URI,
+    )
+    .unwrap();
+    let mut query = db
+        .prepare("SELECT id,state,attempt_id FROM jobs ORDER BY seq")
+        .unwrap();
+    query
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .unwrap()
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .unwrap()
 }

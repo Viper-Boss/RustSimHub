@@ -47,7 +47,7 @@ def inputs(args,stage):
     archive=subprocess.check_output(['git','archive','--format=tar',args.revision],cwd=ROOT,timeout=10)
     source=hashlib.sha256(archive).hexdigest()
     programs=stage/'fixture/programs'
-    names=PROGRAMS if args.scenario in ('product','email') else tuple(n for n in PROGRAMS if n not in ('nkn-root','nkn-sdk-engine','rustsimhub-ble-recovery'))
+    names=PROGRAMS if args.scenario in ('product','email','email-recovery') else tuple(n for n in PROGRAMS if n not in ('nkn-root','nkn-sdk-engine','rustsimhub-ble-recovery'))
     for name in names:copy(args.programs/name,programs/name)
     copy(ROOT/'licenses/Opus-COPYING.txt',programs/'Opus-COPYING.txt',0o444)
     copy(args.test_driver,stage/'fixture/update-tests')
@@ -57,7 +57,11 @@ def inputs(args,stage):
         copy(FIXTURES/'systemctl-fast.sh',stage/'usr/bin/systemctl')
         (stage/'fixture/FORMAL_ARM_GUEST').write_bytes(b'private-arm-kernel-and-cgroup-fixture\n')
         (stage/'fixture/FORMAL_ARM_GUEST').chmod(0o444)
-    if args.scenario=='email':
+    if args.scenario=='email-recovery':
+        if args.matrix_worker4 is None or args.matrix_no_email_tests is None:raise ValueError('same-source worker4 and default test driver required')
+        copy(args.matrix_worker4,stage/'fixture/worker4')
+        copy(args.matrix_no_email_tests,stage/'fixture/no-email-tests')
+    if args.scenario in ('email','email-recovery'):
         if args.legacy_driver is None:raise ValueError('separate original format3 fixture required')
         copy(args.legacy_driver,stage/'fixture/legacy-outbox')
     marker=stage/'fixture/WEB4_ISOLATED';marker.write_bytes(b'private-production-wiring-only\n');marker.chmod(0o444)
@@ -68,7 +72,8 @@ def inputs(args,stage):
             'programs':{name:{'bytes':(programs/name).stat().st_size,'sha256':sha(programs/name)} for name in names},
             'driver_sha256':sha(args.test_driver),'hardware_access':False,'production_keys':False,
             'production_epoch_assigned':False,'network':False}
-    if args.scenario=='email':result['legacy_driver_sha256']=sha(args.legacy_driver)
+    if args.scenario in ('email','email-recovery'):result['legacy_driver_sha256']=sha(args.legacy_driver)
+    if args.scenario=='email-recovery':result['matrix_inputs']={'worker4_sha256':sha(args.matrix_worker4),'no_email_tests_sha256':sha(args.matrix_no_email_tests),'interruption':'test-only SIGSTOP after original email commit, SIGKILL then explicit fresh product-recover'}
     (stage/'fixture/inputs.json').write_text(json.dumps(result,sort_keys=True,indent=2)+'\n')
     return result
 
@@ -120,7 +125,7 @@ def native(args,work):
         command=docker+['run','--rm','--name',container,'--pull=never','--network=none','--memory=768m','--cpus=2','--pids-limit=128','--cap-add=SYS_PTRACE',
             '--tmpfs=/tmp:rw,nosuid,nodev,size=64m,mode=1777',*mounts,image]
         result=subprocess.run(command,env=env,stdout=(work/'chain.log').open('wb'),stderr=subprocess.STDOUT,timeout=240)
-        report.update(exit=result.returncode,passed=result.returncode==0 and {'product':'NATIVE_PRODUCTION_CHAIN_PASSED','default':'NATIVE_DEFAULT_CHAIN_PASSED','email':'NATIVE_EMAIL_CHAIN_PASSED'}[args.scenario] in (work/'chain.log').read_text(errors='replace'),native_architecture_adapter=True,synthetic_pid1_cgroup=True)
+        report.update(exit=result.returncode,passed=result.returncode==0 and {'product':'NATIVE_PRODUCTION_CHAIN_PASSED','default':'NATIVE_DEFAULT_CHAIN_PASSED','email':'NATIVE_EMAIL_CHAIN_PASSED','email-recovery':'NATIVE_EMAIL_RECOVERY_CHAIN_PASSED'}[args.scenario] in (work/'chain.log').read_text(errors='replace'),native_architecture_adapter=True,synthetic_pid1_cgroup=True)
     finally:
         subprocess.run(docker+['rm','--force',container],env=env,capture_output=True,timeout=15)
         for volume in volumes:subprocess.run(docker+['volume','rm',volume],env=env,capture_output=True,timeout=15)
@@ -198,13 +203,15 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--mode',choices=['native','arm-vm'],required=True)
     parser.add_argument('--legacy-driver',type=Path)
+    parser.add_argument('--matrix-worker4',type=Path)
+    parser.add_argument('--matrix-no-email-tests',type=Path)
     parser.add_argument('--qemu-cpu',choices=['max','cortex-a53'],default='max',help='finite disposable guest CPU model; production timing budgets unchanged')
     parser.add_argument('--programs',type=Path,required=True);parser.add_argument('--test-driver',type=Path,required=True)
-    parser.add_argument('--scenario',choices=['product','default','email'],default='product')
+    parser.add_argument('--scenario',choices=['product','default','email','email-recovery'],default='product')
     parser.add_argument('--revision',required=True);parser.add_argument('--runtime-image')
     for name in ['guest-root','kernel','qemu']:parser.add_argument('--'+name,type=Path)
     args=parser.parse_args()
-    if args.mode=='arm-vm' and args.scenario=='email':parser.error('email currently uses the isolated native API driver; ARM default/product use formal CLI')
+    if args.mode=='arm-vm' and args.scenario in ('email','email-recovery'):parser.error('email currently uses the isolated native API driver; ARM default/product use formal CLI')
     work=ROOT/'.local'/'production-chain'/uuid.uuid4().hex;work.mkdir(parents=True,mode=0o700)
     try:report=native(args,work) if args.mode=='native' else arm_vm(args,work)
     except (ValueError,OSError,subprocess.SubprocessError) as error:

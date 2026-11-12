@@ -40,16 +40,24 @@ impl RecoveryMigrationHandoff for RecoveryHandoff<'_> {
         snapshot.revalidate()?;
         (self.check)()?;
         let directory = Path::new("/").join(STATE);
+        #[cfg(test)]
+        eprintln!("recovery handoff: inventory");
         let before = inventory(&directory)?;
         if before.contains_key(std::ffi::OsStr::new("product-upgrade")) {
             return Err(Error::Busy);
         }
+        #[cfg(test)]
+        eprintln!("recovery handoff: pause-writer");
         snapshot.business.pause_writer()?;
         *self.snapshot.borrow_mut() = Some(snapshot);
         // The child obtains the original .writer.lock, sends R before it
         // touches DB/journal, and cannot proceed without our fresh G check.
+        #[cfg(test)]
+        eprintln!("recovery handoff: child-work");
         work(self)?;
         (self.check)()?;
+        #[cfg(test)]
+        eprintln!("recovery handoff: verify-committed");
         crate::product_recovery_child::verify_committed_root(&self.permit)
             .map_err(|_| Error::Integrity)?;
         let after = inventory(&directory)?;
@@ -76,6 +84,8 @@ impl RecoveryMigrationHandoff for RecoveryHandoff<'_> {
         if let Some(outbox) = &snapshot.outbox {
             outbox.revalidate()?;
         }
+        #[cfg(test)]
+        eprintln!("recovery handoff: resume-writer");
         snapshot.business.resume_recovery(&directory, 986)?;
         // Recheck proof under reacquired writer fence, closing D->lock races.
         crate::product_recovery_child::verify_committed_root(&self.permit)
@@ -103,6 +113,8 @@ impl RecoveryMigrationHandoff for RecoveryHandoff<'_> {
         }
         snapshot.business.revalidate_source()?;
         // Bind source schema/hash/pin/realm again at R, while child holds lock.
+        #[cfg(test)]
+        eprintln!("recovery handoff: revalidate-child-source");
         let actual = crate::product_recovery_child::prepare_root(&self.permit.request_id)
             .map_err(|_| Error::Denied)?;
         if actual.source_schema != self.permit.source_schema
