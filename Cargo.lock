@@ -1961,6 +1961,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustsimhub-airsim"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "base64 0.23.1",
+ "getrandom 0.4.3",
+ "hkdf",
+ "hmac",
+ "sha2 0.10.9",
+ "x25519-dalek",
+ "zeroize",
+]
+
+[[package]]
 name = "rustsimhub-auth"
 version = "0.1.0"
 dependencies = [
