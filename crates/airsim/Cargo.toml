@@ -1,0 +1,16 @@
+[package]
+name = "rustsimhub-airsim"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+sha2 = "0.10"
+hmac = "0.12"
+hkdf = "0.12"
+aes-gcm = { version = "0.10", default-features = false, features = ["aes", "alloc"] }
+x25519-dalek = { version = "2", default-features = false, features = ["static_secrets", "zeroize"] }
+base64 = "=0.23.1"
+zeroize = "1"
+getrandom = "0.4"
