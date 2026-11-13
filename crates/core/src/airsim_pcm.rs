@@ -5,6 +5,12 @@ use super::*;
 use std::time::Instant;
 
 const LIFETIME: Duration = Duration::from_secs(2);
+
+/// Fixed local diagnostics only; no phone/lease/key/preface content is logged.
+fn denied(stage: &'static str) -> Error {
+    eprintln!("airsim_pcm_denied stage={stage}");
+    Error::Forbidden
+}
 pub(super) struct State {
     ticket: String,
     pairing: String,
@@ -60,6 +66,7 @@ pub(super) fn process(
     match command {
         AuthCommand::AirsimPcmOpen { preface, peer } => {
             if inner.pcm.is_some() {
+                eprintln!("airsim_pcm_denied stage=occupied");
                 return Err(Error::Busy);
             }
             let pairing = inner
@@ -69,16 +76,17 @@ pub(super) fn process(
                     peer.parse().map_err(|_| Error::InvalidInput)?,
                     now_ms().div_euclid(1000),
                 )
-                .ok_or(Error::Forbidden)?;
+                .ok_or_else(|| denied("authentication"))?;
             let Some((owner, lease, _)) = inner.call_book.lease.clone() else {
-                return Err(Error::Forbidden);
+                return Err(denied("no_owned_call"));
             };
             if owner != pairing {
-                return Err(Error::Forbidden);
+                return Err(denied("foreign_owner"));
             }
             let mut core = context(controller, inner, auth, runtime);
-            let token = core.token().map_err(|_| Error::Forbidden)?;
-            observed_state(&mut core, &token, &lease.call_id)?;
+            let token = core.token().map_err(|_| denied("gateway_authority"))?;
+            observed_state(&mut core, &token, &lease.call_id)
+                .map_err(|_| denied("call_observation"))?;
             let ticket = hex(&random::<16>()?);
             let session = hex(&random::<16>()?);
             let rate = inner.pcm_rate;
@@ -99,7 +107,7 @@ pub(super) fn process(
                 .pcm
                 .as_ref()
                 .filter(|s| s.ticket == ticket)
-                .ok_or(Error::Forbidden)?;
+                .ok_or_else(|| denied("link_ticket"))?;
             if close {
                 inner.pcm = None;
                 return Ok(json!({"active": false}));
@@ -110,7 +118,7 @@ pub(super) fn process(
             let activate_until = state.activate_until;
             if !issued && Instant::now() >= activate_until {
                 inner.pcm = None;
-                return Err(Error::Forbidden);
+                return Err(denied("activation_deadline"));
             }
             let valid = inner.enabled
                 && inner.pcm_rate == state.rate
@@ -123,18 +131,19 @@ pub(super) fn process(
                 .map(|(_, l, _)| l.clone());
             if !valid || lease.is_none() {
                 inner.pcm = None;
-                return Err(Error::Forbidden);
+                return Err(denied("pairing_or_call_lost"));
             }
             let mut core = context(controller, inner, auth, runtime);
             // Audio traffic is proof of this phone's continued presence. Renew
             // only its own call, then re-run the active/media/scopes check.
             core.keep(&pairing, std::slice::from_ref(&call), now_ms());
-            let token = core.token().map_err(|_| Error::Forbidden)?;
-            let state = observed_state(&mut core, &token, &call)?;
+            let token = core.token().map_err(|_| denied("gateway_authority"))?;
+            let state =
+                observed_state(&mut core, &token, &call).map_err(|_| denied("call_observation"))?;
             if state != 4 {
                 if issued || Instant::now() >= activate_until {
                     inner.pcm = None;
-                    return Err(Error::Forbidden);
+                    return Err(denied("call_no_longer_active"));
                 }
                 inner.pcm.as_mut().ok_or(Error::Forbidden)?.until = Instant::now() + LIFETIME;
                 return Ok(json!({"active": false, "waiting": true}));
@@ -144,14 +153,14 @@ pub(super) fn process(
                 .lease
                 .as_ref()
                 .map(|(_, l, _)| l.clone())
-                .ok_or(Error::Forbidden)?;
+                .ok_or_else(|| denied("lease_lost"))?;
             let checked = core.call(AuthCommand::CheckMediaLease {
                 token: token.to_string(),
                 lease: lease.clone(),
             });
             if !checked.is_ok_and(|v| v["media_lease_valid"] == true) {
                 inner.pcm = None;
-                return Err(Error::Forbidden);
+                return Err(denied("media_lease"));
             }
             let credentials = if !issued {
                 let peer_key = random::<32>()?;
@@ -161,11 +170,11 @@ pub(super) fn process(
                         lease,
                         peer_key,
                     })
-                    .map_err(|_| Error::Forbidden)?;
+                    .map_err(|_| denied("media_grant"))?;
                 let credentials: rustsimhub_media::protocol::Credentials =
-                    serde_json::from_value(value).map_err(|_| Error::Forbidden)?;
+                    serde_json::from_value(value).map_err(|_| denied("credentials_shape"))?;
                 if credentials.peer_key != peer_key {
-                    return Err(Error::Forbidden);
+                    return Err(denied("peer_binding"));
                 }
                 Some(credentials)
             } else {
