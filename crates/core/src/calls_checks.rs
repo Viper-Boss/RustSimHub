@@ -896,6 +896,76 @@ async fn fixture(incoming: bool) -> Fixture {
         owner,
     }
 }
+
+fn hold_test_authority(
+    auth: Arc<Mutex<Auth>>,
+    before_release: impl FnOnce() + Send + 'static,
+) -> (std::sync::mpsc::Sender<()>, std::thread::JoinHandle<()>) {
+    let (ready, held) = std::sync::mpsc::channel();
+    let (release, wait) = std::sync::mpsc::channel();
+    let thread = std::thread::spawn(move || {
+        let _guard = auth.lock().unwrap();
+        ready.send(()).unwrap();
+        if wait.recv_timeout(Duration::from_secs(2)).is_ok() {
+            before_release();
+        }
+    });
+    held.recv_timeout(Duration::from_secs(2)).unwrap();
+    (release, thread)
+}
+
+#[tokio::test]
+async fn media_principal_survives_short_authority_contention_with_current_authorization() {
+    let f = fixture(false).await;
+    let expected = f.worker.principal(&f.first, Scope::MediaUse).await.unwrap();
+    let (release, holder) = hold_test_authority(f.worker.auth.clone(), || {});
+    let request = f.worker.principal(&f.first, Scope::MediaUse);
+    tokio::pin!(request);
+    tokio::select! {
+        result = &mut request => panic!("short contention ended current authorization: {result:?}"),
+        _ = tokio::time::sleep(Duration::from_millis(20)) => {},
+    }
+    release.send(()).unwrap();
+    assert_eq!(request.await.unwrap(), expected);
+    holder.join().unwrap();
+}
+
+#[tokio::test]
+async fn media_principal_rechecks_revocation_after_authority_contention() {
+    let f = fixture(false).await;
+    let principal = f.worker.principal(&f.first, Scope::MediaUse).await.unwrap();
+    let (store, owner) = (f.worker.store.clone(), f.owner.clone());
+    let (release, holder) = hold_test_authority(f.worker.auth.clone(), move || {
+        store.revoke_client(owner, principal.public_key).unwrap();
+    });
+    let request = f.worker.principal(&f.first, Scope::MediaUse);
+    tokio::pin!(request);
+    tokio::select! {
+        result = &mut request => panic!("contention must wait before checking current policy: {result:?}"),
+        _ = tokio::time::sleep(Duration::from_millis(20)) => {},
+    }
+    release.send(()).unwrap();
+    assert_eq!(request.await.unwrap_err(), "denied");
+    holder.join().unwrap();
+}
+
+#[tokio::test]
+async fn media_principal_contention_budget_is_finite_and_leaves_no_blocked_waiter() {
+    let f = fixture(false).await;
+    let (release, holder) = hold_test_authority(f.worker.auth.clone(), || {});
+    let started = std::time::Instant::now();
+    let result = tokio::time::timeout(
+        Duration::from_secs(1),
+        f.worker.principal(&f.first, Scope::MediaUse),
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.unwrap_err(), "auth_busy");
+    assert!(started.elapsed() >= Duration::from_millis(50));
+    release.send(()).unwrap();
+    holder.join().unwrap();
+    assert!(f.worker.principal(&f.first, Scope::MediaUse).await.is_ok());
+}
 async fn prepare(
     w: &mut Worker,
     token: &str,

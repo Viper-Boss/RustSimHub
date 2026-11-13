@@ -160,18 +160,47 @@ impl Queue {
         }
         true
     }
-    fn latest(&mut self, now: Instant) -> Option<Vec<u8>> {
-        let latest = self.frames.pop_back();
-        self.frames.clear();
-        latest
-            .filter(|(at, _)| {
-                now.checked_duration_since(*at)
-                    .is_some_and(|age| age < FRAME_AGE)
-            })
-            .map(|(_, b)| b)
+    fn next_fresh(&mut self, now: Instant) -> Option<Vec<u8>> {
+        // TCP can coalesce two legitimate consecutive frames. Pace both in
+        // order instead of deleting one at each tick. Capacity stays two and
+        // original first-byte timestamps are never rejuvenated.
+        while let Some((at, bytes)) = self.frames.pop_front() {
+            if now
+                .checked_duration_since(at)
+                .is_some_and(|age| age < FRAME_AGE)
+            {
+                return Some(bytes);
+            }
+        }
+        None
     }
 }
 
+#[derive(Default)]
+struct UplinkTrace {
+    input_bytes: u64,
+    selected: u64,
+    muted: u64,
+    sent: u64,
+    input_peak: u32,
+    output_peak: u32,
+}
+fn pcm_peak(bytes: &[u8]) -> u32 {
+    bytes
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|b| i16::from_le_bytes(*b).unsigned_abs() as u32)
+        .max()
+        .unwrap_or(0)
+}
+impl Drop for UplinkTrace {
+    fn drop(&mut self) {
+        // Aggregate levels only; never samples, speech, peers or credentials.
+        eprintln!("airsim_pcm_uplink input_bytes={} selected={} muted={} sent={} input_peak={} output_peak={}",
+            self.input_bytes, self.selected, self.muted, self.sent, self.input_peak, self.output_peak);
+    }
+}
 async fn uplink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
     mut phone: R,
     mut media: W,
@@ -180,19 +209,25 @@ async fn uplink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
 ) -> std::io::Result<()> {
     let mut bytes = [0; 4 * FRAME];
     let mut queue = Queue::new(rate);
+    let mut trace = UplinkTrace::default();
     let mut tick = tokio::time::interval(Duration::from_millis(20));
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
         tokio::select! {
             n=phone.read(&mut bytes) => {
                 let n=n?; if n==0 {return Ok(());}
+                trace.input_bytes = trace.input_bytes.saturating_add(n as u64);
                 if !queue.push(&bytes[..n],Instant::now()) {return Err(std::io::ErrorKind::InvalidData.into());}
             }
             _=tick.tick() => {
-                if let Some(bytes)=queue.latest(Instant::now()) {
+                if let Some(bytes)=queue.next_fresh(Instant::now()) {
                     let mut frame=convert(&bytes,rate,16_000).ok_or(std::io::ErrorKind::InvalidData)?;
-                    if muted.load(Ordering::Acquire) { frame.fill(0); }
+                    trace.selected = trace.selected.saturating_add(1);
+                    trace.input_peak = trace.input_peak.max(pcm_peak(&frame));
+                    if muted.load(Ordering::Acquire) { trace.muted = trace.muted.saturating_add(1); frame.fill(0); }
+                    trace.output_peak = trace.output_peak.max(pcm_peak(&frame));
                     timeout(IO_WAIT,media.write_all(&frame)).await.map_err(|_|std::io::ErrorKind::TimedOut)??;
+                    trace.sent = trace.sent.saturating_add(1);
                 }
             }
         }
@@ -587,20 +622,21 @@ mod tests {
         let mut q = Queue::new(8_000);
         let now = Instant::now();
         assert!(q.push(&[1], now));
-        assert!(q.latest(now).is_none());
+        assert!(q.next_fresh(now).is_none());
         assert!(q.push(&[2; 319], now + Duration::from_millis(1)));
-        assert_eq!(q.latest(now + Duration::from_millis(59)).unwrap()[0], 1);
+        assert_eq!(q.next_fresh(now + Duration::from_millis(59)).unwrap()[0], 1);
         for n in 0..12 {
             assert!(q.push(&[n; 320], now));
             assert!(q.frames.len() <= 2);
         }
-        assert_eq!(q.latest(now).unwrap(), vec![11; 320]);
+        assert_eq!(q.next_fresh(now).unwrap(), vec![10; 320]);
+        assert_eq!(q.next_fresh(now).unwrap(), vec![11; 320]);
         assert!(q.frames.is_empty());
         assert!(q.push(&[3; 320], now));
-        assert!(q.latest(now + FRAME_AGE).is_none());
+        assert!(q.next_fresh(now + FRAME_AGE).is_none());
         assert!(q.push(&[1], now));
         assert!(q.push(&[2; 319], now + FRAME_AGE));
-        assert!(q.latest(now + FRAME_AGE).is_none());
+        assert!(q.next_fresh(now + FRAME_AGE).is_none());
     }
     #[test]
     fn expired_partial_is_discarded_at_its_boundary_without_replaying_or_retiming_it() {
@@ -609,18 +645,18 @@ mod tests {
         assert!(q.push(&[1], at));
         assert!(q.push(&[2; 318], at + FRAME_AGE));
         assert_eq!(q.partial.len(), 319);
-        assert!(q.latest(at + FRAME_AGE).is_none());
+        assert!(q.next_fresh(at + FRAME_AGE).is_none());
         let fresh = at + Duration::from_millis(100);
         let mut bytes = vec![3]; // Complete and discard the stale frame.
         bytes.extend_from_slice(&[4; 320]);
         bytes.push(5); // Next partial retains this first-byte timestamp.
         assert!(q.push(&bytes, fresh));
-        assert_eq!(q.latest(fresh).unwrap(), vec![4; 320]);
+        assert_eq!(q.next_fresh(fresh).unwrap(), vec![4; 320]);
         assert_eq!(q.partial, vec![5]);
         assert_eq!(q.partial_at, Some(fresh));
         assert!(q.push(&[6; 319], fresh + Duration::from_millis(59)));
         assert!(
-            q.latest(fresh + FRAME_AGE).is_none(),
+            q.next_fresh(fresh + FRAME_AGE).is_none(),
             "completion cannot rejuvenate old bytes"
         );
         assert!(q.push(&[7], fresh + Duration::from_secs(1)));
@@ -670,6 +706,46 @@ mod tests {
                 .0
                 .iter()
                 .all(|b| *b == expected.to_le_bytes()));
+            drop(phone);
+            timeout(Duration::from_secs(1), task)
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn uplink_paces_both_coalesced_fresh_frames_without_deleting_the_first() {
+        for rate in [8_000, 16_000] {
+            let (mut phone, reader) = duplex(4096);
+            let (writer, mut media) = duplex(4096);
+            let task =
+                tokio::spawn(
+                    async move { uplink(reader, writer, rate, &AtomicBool::new(false)).await },
+                );
+            let input: Vec<_> = [1234i16, -2345i16]
+                .into_iter()
+                .flat_map(|sample| {
+                    std::iter::repeat_n(sample, (rate / 50) as usize).flat_map(i16::to_le_bytes)
+                })
+                .collect();
+            phone.write_all(&input).await.unwrap();
+            for sample in [1234i16, -2345i16] {
+                let mut output = [0; FRAME];
+                timeout(Duration::from_secs(1), media.read_exact(&mut output))
+                    .await
+                    .unwrap()
+                    .unwrap();
+                assert!(
+                    output
+                        .as_chunks::<2>()
+                        .0
+                        .iter()
+                        .all(|bytes| *bytes == sample.to_le_bytes()),
+                    "coalesced microphone frames must be played in order"
+                );
+            }
             drop(phone);
             timeout(Duration::from_secs(1), task)
                 .await

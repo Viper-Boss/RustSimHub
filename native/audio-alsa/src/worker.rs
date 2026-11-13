@@ -451,6 +451,9 @@ fn pcm_link_loop(
                     }
                     thread::sleep(Duration::from_millis(2));
                 })();
+                let stats = pump.stats();
+                eprintln!("pcm_link_levels capture_peak={} playback_peak={} silence_frames={}",
+                    stats.capture_peak, stats.playback_peak, stats.silence_frames);
                 pump.close();
                 result
             })

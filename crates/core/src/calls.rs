@@ -549,11 +549,26 @@ impl Worker {
     }
     async fn principal(&self, token: &str, scope: Scope) -> Result<Principal> {
         let (a, t) = (self.auth.clone(), token.to_owned());
-        tokio::task::spawn_blocking(move || {
-            a.try_lock()
-                .map_err(|_| "auth_busy")?
-                .authorize(&t, scope)
-                .map_err(|_| "denied")
+        // Brief contention is not revocation. The deadline includes time in
+        // the blocking queue; authorization itself still reads current state.
+        let deadline = std::time::Instant::now() + Duration::from_millis(75);
+        tokio::task::spawn_blocking(move || loop {
+            let remaining = deadline
+                .checked_duration_since(std::time::Instant::now())
+                .filter(|d| !d.is_zero())
+                .ok_or("auth_busy")?;
+            match a.try_lock() {
+                Ok(mut auth) => {
+                    // Preserve the existing authorization/storage budget;
+                    // only acquisition waits are bounded here. The caller's
+                    // original RPC deadline is unchanged.
+                    return auth.authorize(&t, scope).map_err(|_| "denied");
+                }
+                Err(std::sync::TryLockError::Poisoned(_)) => return Err("auth_unavailable"),
+                Err(std::sync::TryLockError::WouldBlock) => {
+                    std::thread::sleep(remaining.min(Duration::from_millis(2)));
+                }
+            }
         })
         .await
         .map_err(|_| "auth_unavailable")?
