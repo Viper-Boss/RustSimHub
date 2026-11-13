@@ -222,6 +222,8 @@ async fn airsim_relay_commands_are_never_accepted_from_the_browser_api() {
     let dir = tempfile::tempdir().unwrap();
     for command in [
         r#"{"op":"airsim_poll","ticket":"00000000000000000000000000000000"}"#,
+        r#"{"op":"airsim_pcm_pulse","ticket":"00000000000000000000000000000000","close":false}"#,
+        r#"{"op":"airsim_pcm_open","preface":"AIRSIMVWL1 1 nonce signature\n","peer":"127.0.0.1"}"#,
         r#"{"op":"airsim_pairing","method":"GET","target":"/pair/v1/info","body":"","peer":"127.0.0.1"}"#,
         r#"{"op":"airsim_control","method":"GET","target":"/v1/health","version":"1","timestamp":"1","nonce":"nonce-abc","signature":"s","body":"","peer":"127.0.0.1"}"#,
     ] {

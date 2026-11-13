@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 mod authorized;
 mod control_socket;
+mod pcm_link;
 mod rtc_lan;
 mod trusted;
 mod worker;

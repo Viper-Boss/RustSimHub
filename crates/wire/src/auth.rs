@@ -534,6 +534,16 @@ pub enum AuthCommand {
     AirsimPoll {
         ticket: String,
     },
+    /// Edge-only: Core authenticates the app's signed PCM preface.
+    AirsimPcmOpen {
+        preface: String,
+        peer: String,
+    },
+    /// Edge-only liveness/cleanup, using an opaque, non-persistent capability.
+    AirsimPcmPulse {
+        ticket: String,
+        close: bool,
+    },
     PendingPairings {
         token: String,
     },
@@ -1359,7 +1369,20 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 return Err(invalid());
             }
         }
-        AuthCommand::AirsimPoll { ticket } => {
+        AuthCommand::AirsimPcmOpen { preface, peer } => {
+            if preface.is_empty()
+                || preface.len() > 1024
+                || !preface.ends_with('\n')
+                || !preface[..preface.len() - 1]
+                    .bytes()
+                    .all(|b| b.is_ascii_graphic() || b == b' ')
+                || peer.len() > 45
+                || peer.parse::<std::net::IpAddr>().is_err()
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::AirsimPoll { ticket } | AuthCommand::AirsimPcmPulse { ticket, .. } => {
             if ticket.len() != 32 || !ticket.bytes().all(|b| b.is_ascii_hexdigit()) {
                 return Err(invalid());
             }

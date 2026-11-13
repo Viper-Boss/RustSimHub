@@ -253,6 +253,8 @@ async fn api(State(app): State<App>, body: Bytes) -> Response {
             | AuthCommand::AirsimPairing { .. }
             | AuthCommand::AirsimControl { .. }
             | AuthCommand::AirsimPoll { .. }
+            | AuthCommand::AirsimPcmOpen { .. }
+            | AuthCommand::AirsimPcmPulse { .. }
     ) {
         return denied(StatusCode::FORBIDDEN);
     }

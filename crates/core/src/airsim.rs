@@ -11,7 +11,7 @@
 //! prepares and submits each action, holds the call lease on the phone's
 //! behalf and renews it only while that phone keeps asking. When the phone
 //! goes away the lease expires and Core's own cleanup ends the call.
-//! Audio (the PCM port) is not wired yet.
+//! PCM credentials use the same active-call/media checks as browser audio.
 use rustsimhub_airsim::{
     BackendError, Call, CallAction, Gateway, Line, Message, Outcome, Phase, Poll, Request, State,
     EVENT_POLL_PERIOD_MS,
@@ -33,6 +33,8 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use zeroize::Zeroizing;
+#[path = "airsim_pcm.rs"]
+mod pcm;
 
 pub(crate) const CONTROL_PORT: u16 = 7592;
 pub(crate) const PCM_PORT: u16 = 7593;
@@ -110,6 +112,7 @@ struct CallBook {
 }
 
 struct Inner {
+    pcm: Option<pcm::State>,
     call_book: CallBook,
     gateway: Gateway,
     enabled: bool,
@@ -728,6 +731,7 @@ impl Controller {
         gateway.set_enabled(stored.enabled);
         Ok(Self {
             inner: Arc::new(Mutex::new(Inner {
+                pcm: None,
                 call_book: CallBook::default(),
                 gateway,
                 enabled: stored.enabled,
@@ -781,7 +785,7 @@ impl Controller {
             "pairing_port": PAIRING_PORT, "control_port": CONTROL_PORT, "pcm_port": PCM_PORT,
             "window_seconds": inner.gateway.window_remaining(now),
             "pairings": inner.gateway.pairings(),
-            "calls_supported": calls_supported, "audio_supported": false,
+            "calls_supported": calls_supported, "audio_supported": calls_supported,
         })
     }
 
@@ -805,6 +809,9 @@ impl Controller {
             }
         };
         match command {
+            command @ (AuthCommand::AirsimPcmOpen { .. } | AuthCommand::AirsimPcmPulse { .. }) => {
+                pcm::process(self, inner, auth, runtime, command)
+            }
             AuthCommand::AirsimStatus { token } => {
                 owner(&token, false)?;
                 Ok(Self::view(inner, self.calls.is_some()))
@@ -844,6 +851,7 @@ impl Controller {
                     }
                 }
                 inner.enabled = enabled;
+                inner.pcm = None;
                 inner.pcm_rate = pcm_rate;
                 inner.gateway.set_enabled(enabled);
                 self.save(inner, true)?;
