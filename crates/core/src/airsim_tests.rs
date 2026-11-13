@@ -11,6 +11,311 @@ use x25519_dalek::{PublicKey, StaticSecret};
 
 const PEER: &str = "192.168.1.20";
 
+#[tokio::test]
+async fn pcm_dialling_wait_is_finite_without_issuing_or_opening_media() {
+    let mut f = fixture();
+    f.pair().await;
+    f.control(
+        "POST",
+        "/api/calls/dial",
+        r#"{"number":"10010","operation_id":"pcm-wait"}"#,
+    )
+    .await;
+    let opened = f.pcm_open().await.unwrap();
+    f.controller
+        .inner
+        .lock()
+        .unwrap()
+        .pcm
+        .as_mut()
+        .unwrap()
+        .expire_activation_for_test();
+    f.calls.set("call-1", 4); // Becoming ACTIVE after the deadline cannot revive it.
+    assert!(f
+        .ask(AuthCommand::AirsimPcmPulse {
+            ticket: opened["ticket"].as_str().unwrap().into(),
+            close: false
+        })
+        .await
+        .is_err());
+    assert!(!f.calls.log().iter().any(|s| s == "issue_media"));
+}
+
+impl Fixture {
+    fn pcm_line(&mut self) -> String {
+        self.counter += 1;
+        let nonce = format!("pcm-nonce-{:06}", self.counter);
+        let at = now_ms().div_euclid(1000);
+        let signature = sign(&self.secret, &canonical("PCM", "/v1/pcm", b"", at, &nonce));
+        format!("AIRSIMVWL1 {at} {nonce} {signature}\n")
+    }
+    async fn pcm_open(&mut self) -> Result<Value, Error> {
+        let preface = self.pcm_line();
+        self.ask(AuthCommand::AirsimPcmOpen {
+            preface,
+            peer: PEER.into(),
+        })
+        .await
+    }
+    async fn active_pcm_call(&mut self) {
+        assert_eq!(self.pair().await["status"], 200);
+        assert_eq!(
+            self.control(
+                "POST",
+                "/api/calls/dial",
+                r#"{"number":"10010","operation_id":"pcm-op"}"#
+            )
+            .await["status"],
+            200
+        );
+        self.calls.set("call-1", 4);
+    }
+}
+
+#[tokio::test]
+async fn pcm_requires_a_signed_private_phone_and_its_own_active_call() {
+    let mut f = fixture();
+    assert_eq!(f.pair().await["status"], 200);
+    assert!(f.pcm_open().await.is_err(), "no owned call");
+    assert_eq!(
+        f.control(
+            "POST",
+            "/api/calls/dial",
+            r#"{"number":"10010","operation_id":"pcm-op"}"#
+        )
+        .await["status"],
+        200
+    );
+    let waiting = f.pcm_open().await.unwrap();
+    assert!(
+        waiting["credentials"].is_null(),
+        "dialling must not issue a media grant"
+    );
+    let ticket = waiting["ticket"].as_str().unwrap().to_owned();
+    assert_eq!(
+        f.ask(AuthCommand::AirsimPcmPulse {
+            ticket: ticket.clone(),
+            close: false
+        })
+        .await
+        .unwrap()["waiting"],
+        true
+    );
+    assert!(!f.calls.log().iter().any(|s| s == "issue_media"));
+    f.ask(AuthCommand::AirsimPcmPulse {
+        ticket,
+        close: true,
+    })
+    .await
+    .unwrap();
+    f.calls.set("call-1", 4);
+    let preface = f.pcm_line();
+    assert!(f
+        .ask(AuthCommand::AirsimPcmOpen {
+            preface: preface.clone(),
+            peer: "8.8.8.8".into()
+        })
+        .await
+        .is_err());
+    let opened = f
+        .ask(AuthCommand::AirsimPcmOpen {
+            preface: preface.clone(),
+            peer: PEER.into(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(opened["pcm_rate"], 8_000);
+    assert!(
+        opened["credentials"].is_null(),
+        "opening alone never issues the grant"
+    );
+    assert!(f.pcm_open().await.is_err(), "one slot, no replacement");
+    let ticket = opened["ticket"].as_str().unwrap().to_owned();
+    assert!(
+        f.ask(AuthCommand::AirsimPcmPulse {
+            ticket: "0".repeat(32),
+            close: true
+        })
+        .await
+        .is_err(),
+        "another capability cannot stop it"
+    );
+    let activated = f
+        .ask(AuthCommand::AirsimPcmPulse {
+            ticket: ticket.clone(),
+            close: false,
+        })
+        .await
+        .unwrap();
+    assert_eq!(activated["active"], true);
+    assert_eq!(
+        activated["credentials"]["ticket"].as_array().unwrap().len(),
+        32
+    );
+    assert!(
+        f.ask(AuthCommand::AirsimPcmPulse {
+            ticket: ticket.clone(),
+            close: false
+        })
+        .await
+        .unwrap()["credentials"]
+            .is_null(),
+        "grant is never re-issued on pulse/retry"
+    );
+    assert_eq!(
+        f.ask(AuthCommand::AirsimPcmPulse {
+            ticket: ticket.clone(),
+            close: true
+        })
+        .await
+        .unwrap()["active"],
+        false
+    );
+    assert!(
+        f.ask(AuthCommand::AirsimPcmOpen {
+            preface,
+            peer: PEER.into()
+        })
+        .await
+        .is_err(),
+        "consumed handshake cannot replay"
+    );
+    assert!(
+        f.pcm_open().await.is_ok(),
+        "a fresh signed handshake may reconnect explicitly"
+    );
+}
+
+#[tokio::test]
+async fn pcm_pulse_stops_on_call_loss_disable_pair_revocation_or_principal_revocation() {
+    for mode in 0..4 {
+        let mut f = fixture();
+        f.active_pcm_call().await;
+        let opened = f.pcm_open().await.unwrap();
+        let ticket = opened["ticket"].as_str().unwrap().to_owned();
+        match mode {
+            0 => f.calls.set("call-1", 7),
+            1 => {
+                f.configure(false, 8_000).await.unwrap();
+            }
+            2 => {
+                let id = f.controller.inner.lock().unwrap().gateway.pairings()[0]
+                    .id
+                    .clone();
+                f.ask(AuthCommand::AirsimRevoke {
+                    token: f.owner.clone(),
+                    pairing_id: id,
+                })
+                .await
+                .unwrap();
+            }
+            _ => {
+                let key = Auth::gateway_public_key(
+                    f.controller.inner.lock().unwrap().seed.as_ref().unwrap(),
+                );
+                f.auth.lock().unwrap().revoke(&f.owner, key).unwrap();
+            }
+        }
+        assert!(
+            f.ask(AuthCommand::AirsimPcmPulse {
+                ticket,
+                close: false
+            })
+            .await
+            .is_err(),
+            "mode {mode}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn pcm_rate_changes_and_expired_liveness_cannot_extend_an_old_audio_link() {
+    let mut f = fixture();
+    f.active_pcm_call().await;
+    f.configure(true, 16_000).await.unwrap();
+    let opened = f.pcm_open().await.unwrap();
+    assert_eq!(opened["pcm_rate"], 16_000);
+    let ticket = opened["ticket"].as_str().unwrap().to_owned();
+    f.configure(true, 8_000).await.unwrap();
+    assert!(f
+        .ask(AuthCommand::AirsimPcmPulse {
+            ticket,
+            close: false
+        })
+        .await
+        .is_err());
+    let opened = f.pcm_open().await.unwrap();
+    f.controller
+        .inner
+        .lock()
+        .unwrap()
+        .pcm
+        .as_mut()
+        .unwrap()
+        .expire_for_test();
+    assert!(f
+        .ask(AuthCommand::AirsimPcmPulse {
+            ticket: opened["ticket"].as_str().unwrap().into(),
+            close: false
+        })
+        .await
+        .is_err());
+}
+
+#[tokio::test]
+async fn pcm_respects_the_calling_phone_identity_and_its_mute_setting() {
+    let mut f = fixture();
+    f.active_pcm_call().await;
+    let real_owner = f
+        .controller
+        .inner
+        .lock()
+        .unwrap()
+        .call_book
+        .lease
+        .as_ref()
+        .unwrap()
+        .0
+        .clone();
+    f.controller
+        .inner
+        .lock()
+        .unwrap()
+        .call_book
+        .lease
+        .as_mut()
+        .unwrap()
+        .0 = "another-paired-phone".into();
+    assert!(
+        f.pcm_open().await.is_err(),
+        "a paired phone cannot use another phone's call"
+    );
+    f.controller
+        .inner
+        .lock()
+        .unwrap()
+        .call_book
+        .lease
+        .as_mut()
+        .unwrap()
+        .0 = real_owner;
+    let opened = f.pcm_open().await.unwrap();
+    assert_eq!(
+        f.control("POST", "/api/calls/audio/mute", r#"{"muted":true}"#)
+            .await["status"],
+        200
+    );
+    assert_eq!(
+        f.ask(AuthCommand::AirsimPcmPulse {
+            ticket: opened["ticket"].as_str().unwrap().into(),
+            close: false
+        })
+        .await
+        .unwrap()["muted"],
+        true
+    );
+}
+
 /// A scripted modem behind the call controller's interface. It enforces the
 /// same lease rules Core does, so the gateway cannot pass by skipping them.
 #[derive(Default)]
@@ -142,6 +447,21 @@ impl CallPort for FakeCalls {
                 }
                 m.renewals += 1;
                 Ok(json!({"lease": fake_lease(&lease.call_id, lease.generation)}))
+            }
+            AuthCommand::IssueMedia { lease, peer_key, .. } => {
+                if m.owned != Some((lease.call_id.clone(), lease.generation))
+                    || !m.live.iter().any(|c|c.0==lease.call_id && c.2==4) || m.unavailable {
+                    return Err("media_denied");
+                }
+                m.log.push("issue_media".into());
+                Ok(json!({"ticket":vec![7u8;32],"peer_key":peer_key,"boot":"synthetic-boot"}))
+            }
+            AuthCommand::CheckMediaLease { lease, .. } => {
+                if m.owned != Some((lease.call_id.clone(), lease.generation))
+                    || !m.live.iter().any(|c|c.0==lease.call_id && c.2==4) || m.unavailable {
+                    return Err("media_denied");
+                }
+                Ok(json!({"media_lease_valid":true}))
             }
             _ => Err("invalid_call_command"),
         })
@@ -321,7 +641,7 @@ async fn management_needs_the_owner_and_the_gateway_starts_disabled() {
     assert_eq!(status["pcm_rate"], 8000);
     assert_eq!(status["pairings"], json!([]));
     assert_eq!(status["calls_supported"], true);
-    assert_eq!(status["audio_supported"], false);
+    assert_eq!(status["audio_supported"], true);
     assert_eq!(f.clients(), 0);
     assert!(
         !f.state.join("airsim.json").exists(),

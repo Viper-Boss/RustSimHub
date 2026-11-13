@@ -61,6 +61,13 @@ pub(super) struct Bridge {
     rate: Mutex<Rate>,
 }
 impl Bridge {
+    #[cfg(test)]
+    pub(super) fn isolated_pcm(path: PathBuf, uid: u32) -> Self {
+        Self::with_uid(path, uid)
+    }
+    pub(super) fn pcm_endpoint(&self) -> Option<(PathBuf, u32)> {
+        Some((self.path.parent()?.join("pcm.sock"), self.uid))
+    }
     pub fn new(path: PathBuf) -> Self {
         Self::with_uid(path, 984)
     }

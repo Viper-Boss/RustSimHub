@@ -80,7 +80,9 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | AirsimRevoke { .. }
         | AirsimPairing { .. }
         | AirsimControl { .. }
-        | AirsimPoll { .. } => return Err(rustsimhub_auth::Error::Forbidden),
+        | AirsimPoll { .. }
+        | AirsimPcmOpen { .. }
+        | AirsimPcmPulse { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         WifiTrial { .. }
         | WifiBegin { .. }
         | WifiStatus { .. }
@@ -314,6 +316,8 @@ pub(crate) async fn handle(
             | AuthCommand::AirsimPairing { .. }
             | AuthCommand::AirsimControl { .. }
             | AuthCommand::AirsimPoll { .. }
+            | AuthCommand::AirsimPcmOpen { .. }
+            | AuthCommand::AirsimPcmPulse { .. }
     ) {
         match airsim {
             Some(provider) => provider.request(auth.clone(), request.command).await,

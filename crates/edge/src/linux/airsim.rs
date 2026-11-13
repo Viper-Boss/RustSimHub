@@ -21,9 +21,12 @@ use tokio::{
     sync::Semaphore,
     time::timeout,
 };
+#[path = "airsim_pcm.rs"]
+mod pcm;
 
 pub(super) const CONTROL_PORT: u16 = 7592;
 pub(super) const PAIRING_PORT: u16 = 7594;
+pub(super) const PCM_PORT: u16 = 7593;
 const MAX_HEAD: usize = 8 * 1024;
 const READ_WAIT: Duration = Duration::from_secs(10);
 /// A long poll is capped at 30 s by Core; allow the last answer to arrive.
@@ -236,7 +239,7 @@ async fn handle(app: &App, mut stream: TcpStream, peer: IpAddr, control: bool) {
     let _ = stream.shutdown().await;
 }
 
-/// Listener addresses for both ports on the stick's own non-loopback
+/// Listener addresses for all three ports on the stick's own non-loopback
 /// addresses. An Edge instance that serves only loopback (the setup-only
 /// instance) therefore opens no AirSIM port and cannot take the ports away
 /// from the instance that faces the local network.
@@ -246,7 +249,11 @@ pub(super) fn listen_addresses(local: &[IpAddr]) -> Vec<(SocketAddr, bool)> {
         if ip.is_loopback() || ip.is_unspecified() {
             continue;
         }
-        for (port, control) in [(CONTROL_PORT, true), (PAIRING_PORT, false)] {
+        for (port, control) in [
+            (CONTROL_PORT, true),
+            (PAIRING_PORT, false),
+            (PCM_PORT, false),
+        ] {
             let address = SocketAddr::new(*ip, port);
             if !wanted.iter().any(|(a, _)| *a == address) {
                 wanted.push((address, control));
@@ -256,9 +263,14 @@ pub(super) fn listen_addresses(local: &[IpAddr]) -> Vec<(SocketAddr, bool)> {
     wanted
 }
 
-async fn accept_loop(app: App, listener: TcpListener, control: bool) {
+async fn accept_loop(app: App, listener: TcpListener, control: bool, pcm: bool) {
+    let mut clients = tokio::task::JoinSet::new();
     loop {
-        let Ok((stream, peer)) = listener.accept().await else {
+        let accepted = tokio::select! {
+            result=listener.accept()=>result,
+            Some(_)=clients.join_next(), if !clients.is_empty()=>continue,
+        };
+        let Ok((stream, peer)) = accepted else {
             tokio::time::sleep(Duration::from_millis(50)).await;
             continue;
         };
@@ -269,14 +281,18 @@ async fn accept_loop(app: App, listener: TcpListener, control: bool) {
             continue;
         }
         let app = app.clone();
-        tokio::spawn(async move {
+        clients.spawn(async move {
             let _permit = permit;
-            handle(&app, stream, peer.ip(), control).await;
+            if pcm {
+                pcm::handle(&app, stream, peer.ip()).await;
+            } else {
+                handle(&app, stream, peer.ip(), control).await;
+            }
         });
     }
 }
 
-/// Serves both AirSIM ports on exactly the addresses the HTTPS page follows
+/// Serves all AirSIM ports on exactly the addresses the HTTPS page follows
 /// (`local` is re-read every few seconds, as for the page itself). Binding
 /// those addresses, never the wildcard, keeps the ports off cellular.
 pub(super) async fn serve(app: App, local: impl Fn() -> Vec<IpAddr> + Send + 'static) {
@@ -289,18 +305,34 @@ pub(super) async fn serve(app: App, local: impl Fn() -> Vec<IpAddr> + Send + 'st
         limit: Arc::new(Semaphore::new(12)),
         ..app
     };
-    let mut bound: Vec<SocketAddr> = Vec::new();
+    let mut bound = std::collections::HashMap::<SocketAddr, tokio::task::AbortHandle>::new();
+    let mut listeners = tokio::task::JoinSet::new();
     let mut retry = tokio::time::interval(Duration::from_secs(5));
     retry.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
         retry.tick().await;
-        for (address, control) in listen_addresses(&local()) {
-            if bound.contains(&address) || bound.len() >= 8 {
+        let wanted = listen_addresses(&local());
+        bound.retain(|address, task| {
+            if task.is_finished() || !wanted.iter().any(|(a, _)| a == address) {
+                task.abort();
+                false
+            } else {
+                true
+            }
+        });
+        while listeners.try_join_next().is_some() {}
+        for (address, control) in wanted {
+            if bound.contains_key(&address) || bound.len() >= 12 {
                 continue;
             }
             if let Ok(listener) = TcpListener::bind(address).await {
-                bound.push(address);
-                tokio::spawn(accept_loop(app.clone(), listener, control));
+                let task = listeners.spawn(accept_loop(
+                    app.clone(),
+                    listener,
+                    control,
+                    address.port() == PCM_PORT,
+                ));
+                bound.insert(address, task);
             }
         }
     }
@@ -386,8 +418,10 @@ mod tests {
             [
                 "192.168.120.167:7592 true",
                 "192.168.120.167:7594 false",
+                "192.168.120.167:7593 false",
                 "10.55.0.2:7592 true",
-                "10.55.0.2:7594 false"
+                "10.55.0.2:7594 false",
+                "10.55.0.2:7593 false"
             ]
         );
     }
@@ -413,7 +447,7 @@ mod tests {
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
     use tokio::net::UnixListener;
 
-    fn app(socket: std::path::PathBuf) -> App {
+    pub(super) fn app(socket: std::path::PathBuf) -> App {
         let rate = || {
             Arc::new(Mutex::new(Rate {
                 since: Instant::now(),

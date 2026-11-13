@@ -2,6 +2,8 @@
 #![forbid(unsafe_code)]
 use serde::{Deserialize, Serialize};
 use std::io::{self, Read, Write};
+#[cfg(test)]
+mod airsim_pcm_tests;
 mod auth;
 #[cfg(test)]
 mod recovery_grant_tests;
