@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-13T12:07:31.408955+00:00",
+  "updated_at": "2026-11-13T13:11:41.477955+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -69,8 +69,8 @@
   "focus": {
     "task_id": "REL-01",
     "title": "冻结支持矩阵与发行候选",
-    "state": "配对列表已验收；定位AirSIM声卡打开前退出",
-    "description": "用户已确认79网页自动出现配对记录；AirSIM真实10010接通后无声，已挂断。只读观测见ACTIVE及手机PCM连接，但ALSA未打开，根因尚未确定。PR241固定96b552d只补固定阶段/耗时诊断，不记密钥或音频，不放宽权限/租约/时限。1736 Rust、12 ARM、54原生音频QEMU、严格检查和8网页入口通过，33专项ignored；云端因计费零步骤。80诊断载荷已在本机制备为未签名且不可安装，未上传或更换当前79。整体验收81.5%、20/169、10.6%保持。"
+    "state": "80诊断版已确认；定位手机音频在声卡前退出",
+    "description": "用户已确认79网页自动显示配对；手机通话无声仍未验收。PR241固定96b552d经本笔明确CI例外授权正常合并45950fa，云端计费零步骤。1736 Rust/33专项ignored、12 ARM、54音频QEMU、严格检查及8网页入口通过。80仅加固定失败阶段/耗时诊断，已按本轮授权签名、验签6拒绝、新备份/回读/受限准入/唯一启动/健康确认安装。130短信、原手机配对/密钥/基线保留，路由7/7，Root助手/正式更新器/信任未变，恢复timer停止。带诊断手机通话观测已就绪，根因仍未确认；81.5%、20/169、10.6%保持。"
   },
   "facts": [
     {
@@ -90,8 +90,8 @@
     },
     {
       "label": "本轮PR处理",
-      "value": "241诊断待接纳",
-      "detail": "240已合并并装机79；241云端因计费零步骤，不记为CI通过"
+      "value": "241正常合并 · 80诊断已安装",
+      "detail": "用户本笔明确CI例外授权，云端因计费未运行；不是声音功能验收"
     },
     {
       "label": "完整剩余台账",
@@ -125,13 +125,13 @@
     },
     {
       "label": "当前main来源",
-      "value": "d0eddccf · 网页配对刷新",
-      "detail": "与固定受测6166822完整树一致；制品来源仍绑定6166822"
+      "value": "45950fa3 · 音频阶段诊断",
+      "detail": "完整树与受测96b552d一致；制品归档dae15387，来源不改标签"
     },
     {
       "label": "本轮环境与边界",
-      "value": "网页已通过 · 手机通话无声",
-      "detail": "79继续正常运行；诊断80仅未签名本机载荷，不上传、不安装、不录音"
+      "value": "80诊断就绪 · 声音待定位",
+      "detail": "Root/信任/正式更新器未变，路由7/7；流量断开/转发PID0，不录音"
     },
     {
       "label": "历史验收边界",
@@ -168,7 +168,8 @@
     "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/web5-mainline-merge-20261112.md",
     "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pcm-integration-20261113.md",
     "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pairing79-install-20261113.md",
-    "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pcm-diagnostics-followup-20261113.md"
+    "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pcm-diagnostics-followup-20261113.md",
+    "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-diagnostic80-install-20261113.md"
   ],
   "modules": [
     {
@@ -6213,12 +6214,24 @@
       "evidence": [
         "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pcm-diagnostics-followup-20261113.md"
       ]
+    },
+    {
+      "at": "2026-11-13T13:11:41.477955+00:00",
+      "type": "state",
+      "title": "REL-01 · 下一关卡：冻结支持矩阵与发行候选",
+      "detail": "用户已确认79网页自动显示配对；手机通话无声仍未验收。PR241固定96b552d经本笔明确CI例外授权正常合并45950fa，云端计费零步骤。1736 Rust/33专项ignored、12 ARM、54音频QEMU、严格检查及8网页入口通过。80仅加固定失败阶段/耗时诊断，已按本轮授权签名、验签6拒绝、新备份/回读/受限准入/唯一启动/健康确认安装。130短信、原手机配对/密钥/基线保留，路由7/7，Root助手/正式更新器/信任未变，恢复timer停止。带诊断手机通话观测已就绪，根因仍未确认；81.5%、20/169、10.6%保持。",
+      "task_ids": [
+        "REL-01"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-diagnostic80-install-20261113.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "d0eddccf932bd215ed81a9a47cd9c41fcaf8bfbc",
-    "generated_at": "2026-11-13T11:14:17.677711+00:00",
+    "source_revision": "45950fa362993cd8ff2399bad594a2351d285c57",
+    "generated_at": "2026-11-13T13:10:33.468207+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -6237,15 +6250,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 61112,
+            "product": 61175,
             "tests": 47163,
             "tooling": 10859,
             "firmware": 1325
           },
-          "commits": 542,
-          "code_commits": 348,
-          "added": 127813,
-          "deleted": 3578
+          "commits": 543,
+          "code_commits": 349,
+          "added": 127899,
+          "deleted": 3599
         },
         "work": {
           "assigned_steps": 0,
@@ -6851,6 +6864,11 @@
             {
               "pr": 240,
               "head": "6166822c63109d9bac31d568da822ba50d384e3c",
+              "state": "MERGED"
+            },
+            {
+              "pr": 241,
+              "head": "96b552d9a24d8d9fef22cfeba4e9871753068fd7",
               "state": "MERGED"
             }
           ],
@@ -7572,6 +7590,12 @@
             {
               "pr": 240,
               "head": "6166822c63109d9bac31d568da822ba50d384e3c",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 241,
+              "head": "96b552d9a24d8d9fef22cfeba4e9871753068fd7",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
@@ -9294,7 +9318,7 @@
       "deleted": 4
     },
     "totals": {
-      "product": 102452,
+      "product": 102515,
       "tests": 87981,
       "tooling": 19697,
       "firmware": 1457
@@ -10832,10 +10856,12 @@
   },
   "delivery_snapshot": {
     "date": "2026-11-13",
-    "main": "d0eddccf932bd215ed81a9a47cd9c41fcaf8bfbc",
-    "summary": "79网页配对列表已由用户确认；AirSIM手机通话接通后无声，问题缩小到声卡打开前。新阶段诊断已完成本机正式构建，尚未装机，不能算声音通过。",
+    "main": "45950fa362993cd8ff2399bad594a2351d285c57",
+    "summary": "79网页配对列表已实机通过；AirSIM通话无声仍在排查。80有界阶段诊断已确认装机，原配对和短信保留；准备一次受观测短通话，不能当作无声已修复。",
     "code_percent": null,
     "delivered": [
+      "PR241已正常合并并装机80：固定阶段/耗时诊断，不放宽权限、租约、时限，不录音；六载荷同源，原79回退保留。",
+      "80签名/ARM验签6拒绝、12恢复夹具与10配对保护夹具通过；新真实备份回读/有限准入/唯一启动/健康确认及独立只读复核通过，130短信和原配对保留。",
       "用户确认79网页自动显示配对记录。真实AirSIM/VoWLAN通话接通后无声，已结束；没有自动重拨或录音。",
       "PR241诊断源码96b552d/归档dae15387：1736 Rust、12 ARM、54音频QEMU、严格检查和8网页入口通过；只记固定失败阶段和耗时，不放宽现有边界。当前未签名、未上传、未部署。",
       "用户澄清手机配对已成功，设备也有配对记录和后续签名活动；撤回此前“手机配对超时”的未证实假设。",
@@ -10850,7 +10876,7 @@
       "完整发行与第二设备：把任务8产品组合与通用镜像统一来源；核对匹配boot/DTB/modules/固件、锁定系统材料、真实PID1/沙箱，完成首次刷写/回读/冷启动/恢复。旧74镜像不等于新产品固件。",
       "首配与网页转入整合验收：源码已有通用AP准备/激活、分页/时间/终态修复；仍需完整镜像中真实AP→STA、错密、返回热点、最终保存与原浏览器钥匙/计数核对。",
       "产品矩阵已有真实三变体18项模式检查、EmailRecovery隔离完整链和同源WASM/浏览器证据；四包新组合需完整复验。自动健康仍仅forwarding/schema9/worker4/同Core，AP/SMTP5拒绝不冒充已支持；明确有限首版范围。",
-      "AirSIM配对和79网页自动列表均由用户确认；真实手机通话接通后无声，尚未验收。先安装有界诊断候选并定位声卡前退出，再修复、做一次10010下行及第二手机双向声音/断网/撤权/争用。沿用现有配对，不反复重配。",
+      "AirSIM手机配对与网页自动列表均通过；接通后无声根因未确认。80诊断已安装，观测就绪后只做一次短通话定位；随后修复、10010下行及第二手机双向声音/断网/撤权/争用。不要以重新配对代替验收。",
       "转发/NKN/统计/蓝牙：真实递送及关闭冷启动、外网/中继/ON worker、获准统计网络和BLE HCI/RF/手机互操作；资源/账户/外部服务及独立授权到位后实测。",
       "更新/迁移/恢复故障：已交隔离安装、迁移和限时健康证据需落到实际设备；验证真实SIGKILL/写满/断电、回退兼容、保留后写数据及整机恢复，不能用合成PID1替代。",
       "发行终验：安全/依赖许可证与公开产物扫描、性能/功耗/组合长稳、第二棒子验收、用户及恢复手册、最终冻结与逐项签认。PMIC搁置，手机原生App不在首版。"
@@ -10872,7 +10898,7 @@
         69
       ],
       "merged_this_followup": [
-        240
+        241
       ],
       "integrated_heads": [
         195,
@@ -10892,9 +10918,11 @@
         227
       ],
       "ci_exception_239": "用户明确授权固定1935ed29，仅本笔；云端付款/消费限制导致零步骤，不记通过",
-      "ci_exception_240": "用户明确授权固定6166822，仅本笔；另明确允许epoch79签名、验证和有限安装"
+      "ci_exception_240": "用户明确授权固定6166822，仅本笔；另明确允许epoch79签名、验证和有限安装",
+      "ci_exception_241": "用户明确授权固定96b552d合并及同源epoch80签名/验签/有限安装；不改Root助手或信任"
     },
     "evidence": [
+      "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-diagnostic80-install-20261113.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pcm-diagnostics-followup-20261113.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pairing79-install-20261113.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pcm-integration-20261113.md",
