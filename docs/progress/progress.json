@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-13T07:15:33.585873+00:00",
+  "updated_at": "2026-11-13T11:24:21.931126+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -69,8 +69,8 @@
   "focus": {
     "task_id": "REL-01",
     "title": "冻结支持矩阵与发行候选",
-    "state": "应用78已安装；进入AirSIM真实iPhone验收",
-    "description": "Claude新增六个转发渠道、AirSIM协议/配对/短信/通话已核对；负责人补齐Core授权→Edge7593→媒体PCM及8k/16k转换。固定1935ed29同源1736 Rust通过/33专项忽略、12 ARM程序、音频54 QEMU、严格检查和7组网页入口通过。候选78验签/6拒绝、12恢复夹具、真实备份/回读/准入/单次启动/健康确认通过，应用78已确认，130条短信保持；普通流量断开、转发PID0。PR239按本笔明确授权正常合并，231/238随之接纳；云端计费导致零步骤未运行。真实iPhone配对/听音尚待验收，进度81.5%、20/169、加权10.6%保持。"
+    "state": "应用79已安装；复核配对列表，再验收手机声音",
+    "description": "用户确认手机已配对，未显示的是网页。负责人修复配对后列表不自动读取：有界只读刷新、超时/坏响应保留、离开/退出与迟到结果隔离；不重新配对或修改手机。PR240固定6166822经本笔明确CI例外授权正常合并，云端计费零步骤。11专项通过、旧源10负对照失败、三宽真实页面通过；同源1736 Rust/33专项忽略、12 ARM、54音频QEMU、严格检查和8网页入口通过。按本轮单独授权签名并安装79，原配对ID/密钥/基线保留，服务/路由/资源/短信健康确认通过。网页实机显示和通话声音仍待验收；81.5%、20/169、10.6%保持。"
   },
   "facts": [
     {
@@ -80,8 +80,8 @@
     },
     {
       "label": "本轮主线回归",
-      "value": "1736 Rust / 54音频通过",
-      "detail": "另33专项ignored；12 ARM、7组网页、全特性严格检查；实机听音待验收"
+      "value": "新源1736 Rust / 54音频通过",
+      "detail": "另33专项ignored；12 ARM、11新网页专项/10旧源负对照、三宽真实页面/严格检查通过"
     },
     {
       "label": "任务8 · 生产代码",
@@ -90,8 +90,8 @@
     },
     {
       "label": "本轮PR处理",
-      "value": "239已合并 · 231/238一并接纳",
-      "detail": "固定HEAD明确CI例外授权；正常merge，作者历史保留"
+      "value": "240正常合并 · 刷新配对列表",
+      "detail": "本笔明确CI例外授权；未更改保护规则，云端检查未运行"
     },
     {
       "label": "完整剩余台账",
@@ -125,13 +125,13 @@
     },
     {
       "label": "当前main来源",
-      "value": "53a68b95 · AirSIM声音接线",
-      "detail": "与固定受测1935ed29完整树一致；归档/制品来源仍绑定1935ed29"
+      "value": "d0eddccf · 网页配对刷新",
+      "detail": "与固定受测6166822完整树一致；制品来源仍绑定6166822"
     },
     {
       "label": "本轮环境与边界",
-      "value": "应用78已安装 · 听音待验收",
-      "detail": "默认流量断开、转发PID0；未刷分区/改PMIC；云端CI未运行"
+      "value": "手机已配对 · 网页/声音待验收",
+      "detail": "79已装；流量断开、转发PID0；未改Root/信任、未刷分区或操作关机"
     },
     {
       "label": "历史验收边界",
@@ -166,7 +166,8 @@
     "docs/deliveries/member-d-pr170-main-sync-20261103.md",
     "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/lead-mainline-integration-20261111.md",
     "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/web5-mainline-merge-20261112.md",
-    "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pcm-integration-20261113.md"
+    "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pcm-integration-20261113.md",
+    "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pairing79-install-20261113.md"
   ],
   "modules": [
     {
@@ -6187,12 +6188,24 @@
       "evidence": [
         "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pcm-integration-20261113.md"
       ]
+    },
+    {
+      "at": "2026-11-13T11:24:21.931126+00:00",
+      "type": "state",
+      "title": "REL-01 · 下一关卡：冻结支持矩阵与发行候选",
+      "detail": "用户确认手机已配对，未显示的是网页。负责人修复配对后列表不自动读取：有界只读刷新、超时/坏响应保留、离开/退出与迟到结果隔离；不重新配对或修改手机。PR240固定6166822经本笔明确CI例外授权正常合并，云端计费零步骤。11专项通过、旧源10负对照失败、三宽真实页面通过；同源1736 Rust/33专项忽略、12 ARM、54音频QEMU、严格检查和8网页入口通过。按本轮单独授权签名并安装79，原配对ID/密钥/基线保留，服务/路由/资源/短信健康确认通过。网页实机显示和通话声音仍待验收；81.5%、20/169、10.6%保持。",
+      "task_ids": [
+        "REL-01"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pairing79-install-20261113.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "53a68b95c7cfc56912db2c5ae79ea532da9536e6",
-    "generated_at": "2026-11-13T07:07:16.978490+00:00",
+    "source_revision": "d0eddccf932bd215ed81a9a47cd9c41fcaf8bfbc",
+    "generated_at": "2026-11-13T11:14:17.677711+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -6211,15 +6224,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 61110,
-            "tests": 47058,
+            "product": 61112,
+            "tests": 47163,
             "tooling": 10859,
             "firmware": 1325
           },
-          "commits": 541,
-          "code_commits": 347,
-          "added": 127691,
-          "deleted": 3560
+          "commits": 542,
+          "code_commits": 348,
+          "added": 127813,
+          "deleted": 3578
         },
         "work": {
           "assigned_steps": 0,
@@ -6820,6 +6833,11 @@
             {
               "pr": 239,
               "head": "1935ed29ab6d99619c42fffc59cab86c095f59d1",
+              "state": "MERGED"
+            },
+            {
+              "pr": 240,
+              "head": "6166822c63109d9bac31d568da822ba50d384e3c",
               "state": "MERGED"
             }
           ],
@@ -7535,6 +7553,12 @@
             {
               "pr": 239,
               "head": "1935ed29ab6d99619c42fffc59cab86c095f59d1",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 240,
+              "head": "6166822c63109d9bac31d568da822ba50d384e3c",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
@@ -9008,7 +9032,7 @@
         "stats": {
           "current_lines": {
             "product": 22517,
-            "tests": 23266,
+            "tests": 23262,
             "tooling": 3119,
             "firmware": 131
           },
@@ -9257,8 +9281,8 @@
       "deleted": 4
     },
     "totals": {
-      "product": 102450,
-      "tests": 87880,
+      "product": 102452,
+      "tests": 87981,
       "tooling": 19697,
       "firmware": 1457
     },
@@ -10795,23 +10819,23 @@
   },
   "delivery_snapshot": {
     "date": "2026-11-13",
-    "main": "53a68b95c7cfc56912db2c5ae79ea532da9536e6",
-    "summary": "主线已接纳Claude新转发渠道和AirSIM实现，负责人补齐手机PCM完整接线并安装确认应用78。代码交付、同源构建和实际安装已完成；当前进入真实手机与外部通道验收。整体验收仍81.5%，不是每个模块都已经实机通过。",
+    "main": "d0eddccf932bd215ed81a9a47cd9c41fcaf8bfbc",
+    "summary": "手机配对已由用户确认成功；网页列表刷新修复已合入主线并装机为应用79，原手机密钥和配对保留。真实网页显示与手机通话声音仍分别验收，整体验收81.5%保持。",
     "code_percent": null,
     "delivered": [
-      "AirSIM PR232～237已有协议、配对、短信和通话控制；PR238原生PCM由239正常整合，保留原作者/父链。",
-      "负责人239补齐手机签名PCM、私网7593、Core一次性媒体授权、拨号等待、Ready、8k/16k转换、同一会话槽和撤权/断链清理。",
-      "固定1935ed29/归档c5a70cd6：正式workspace1736通过、33专项ignored；12 ARM程序和同源音频54 QEMU通过；严格全特性Clippy、fmt与7组网页入口通过。",
-      "开发信任未更换：78候选的ARM真实验签、6拒绝路径和12恢复夹具通过；有界保护下真实备份/回读/准入/唯一启动/健康确认完成。",
-      "设备已确认应用78，130条短信/原所有者数据保持，音频路由7/7，普通数据断开，转发进程关闭；尚不计真实手机声音通过。",
-      "Claude六个新转发渠道已在主线，旧渠道保留；仍需各自接收目标实测。四个WEB5窗口此前4/4已接纳，不重复分配。"
+      "用户澄清手机配对已成功，设备也有配对记录和后续签名活动；撤回此前“手机配对超时”的未证实假设。",
+      "PR240已合并并装机79：网页短时自动读配对列表，读取失败保留记录、与设置结果未知区分；不会自动重新配对、启停或保存音质。",
+      "固定6166822/归档30d8b2f8：1736 Rust、12 ARM、54音频QEMU和严格检查通过；11新网页专项、旧源10失败对照、三宽实际HTML/ESM验证通过。",
+      "79安装有新备份/回读/受限准入/唯一启动/健康确认及原78回退；不可变配对ID/密钥/收件箱起点摘要一致，活动时间允许正常更新。",
+      "此前239已接纳完整Core→Edge→PCM声音链，231/238随之合入，原作者历史保留；本次不改手机协议、Core授权或声音代码。",
+      "六个新转发渠道和四个WEB5窗口已在主线；外部通道/真实系统与原任务边界继续保留。"
     ],
     "remaining": [
       "本轮同源默认应用构建/安装已完成；完整产品profile、系统镜像/独立发行材料仍需按各自真实链验证，不能用应用78替代完整新镜像。",
       "完整发行与第二设备：把任务8产品组合与通用镜像统一来源；核对匹配boot/DTB/modules/固件、锁定系统材料、真实PID1/沙箱，完成首次刷写/回读/冷启动/恢复。旧74镜像不等于新产品固件。",
       "首配与网页转入整合验收：源码已有通用AP准备/激活、分页/时间/终态修复；仍需完整镜像中真实AP→STA、错密、返回热点、最终保存与原浏览器钥匙/计数核对。",
       "产品矩阵已有真实三变体18项模式检查、EmailRecovery隔离完整链和同源WASM/浏览器证据；四包新组合需完整复验。自动健康仍仅forwarding/schema9/worker4/同Core，AP/SMTP5拒绝不冒充已支持；明确有限首版范围。",
-      "AirSIM当前优先验收真实iPhone配对、10010下行和第二手机双向声音，以及断网/撤权/争用；NAS、远程客户端、DTMF/转接和MM恢复按原分工继续。",
+      "AirSIM手机配对已由用户确认；下一步验证79网页自动显示，然后一次10010下行、第二手机双向声音和断网/撤权/争用。NAS/远程/DTMF/MM恢复按原分工继续，不用重复配对替代验收。",
       "转发/NKN/统计/蓝牙：真实递送及关闭冷启动、外网/中继/ON worker、获准统计网络和BLE HCI/RF/手机互操作；资源/账户/外部服务及独立授权到位后实测。",
       "更新/迁移/恢复故障：已交隔离安装、迁移和限时健康证据需落到实际设备；验证真实SIGKILL/写满/断电、回退兼容、保留后写数据及整机恢复，不能用合成PID1替代。",
       "发行终验：安全/依赖许可证与公开产物扫描、性能/功耗/组合长稳、第二棒子验收、用户及恢复手册、最终冻结与逐项签认。PMIC搁置，手机原生App不在首版。"
@@ -10833,9 +10857,7 @@
         69
       ],
       "merged_this_followup": [
-        231,
-        238,
-        239
+        240
       ],
       "integrated_heads": [
         195,
@@ -10854,9 +10876,11 @@
         226,
         227
       ],
-      "ci_exception_239": "用户明确授权固定1935ed29，仅本笔；云端付款/消费限制导致零步骤，不记通过"
+      "ci_exception_239": "用户明确授权固定1935ed29，仅本笔；云端付款/消费限制导致零步骤，不记通过",
+      "ci_exception_240": "用户明确授权固定6166822，仅本笔；另明确允许epoch79签名、验证和有限安装"
     },
     "evidence": [
+      "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pairing79-install-20261113.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pcm-integration-20261113.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/web5-mainline-merge-20261112.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/lead-mainline-integration-20261111.md",
