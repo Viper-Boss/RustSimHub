@@ -124,28 +124,38 @@ impl Queue {
         }
     }
     fn push(&mut self, bytes: &[u8], now: Instant) -> bool {
-        if self.partial_at.is_some_and(|at| {
-            now.checked_duration_since(at)
-                .is_none_or(|age| age >= FRAME_AGE)
-        }) {
-            return false; // Cannot discard part of a raw frame and stay aligned.
+        let mut bytes = bytes;
+        if let Some(at) = self.partial_at {
+            let Some(age) = now.checked_duration_since(at) else {
+                return false;
+            };
+            let take = bytes.len().min(self.size - self.partial.len());
+            self.partial.extend_from_slice(&bytes[..take]);
+            bytes = &bytes[take..];
+            if self.partial.len() != self.size {
+                return true;
+            }
+            // TCP may split one raw frame across microphone batches. Finish
+            // its byte boundary even when stale; discard that whole frame,
+            // never the remaining stream or the independent downlink.
+            if age < FRAME_AGE {
+                if self.frames.len() == 2 {
+                    self.frames.pop_front();
+                }
+                self.frames.push_back((at, self.partial.clone()));
+            }
+            self.partial.clear();
+            self.partial_at = None;
         }
-        if self.partial.is_empty() {
-            self.partial_at = Some(now);
-        }
-        // The only caller reads into a fixed four-frame array.
-        self.partial.extend_from_slice(bytes);
-        let whole = self.partial.len() / self.size;
-        for chunk in self.partial[..whole * self.size].chunks_exact(self.size) {
+        for chunk in bytes.chunks_exact(self.size) {
             if self.frames.len() == 2 {
                 self.frames.pop_front();
             }
             self.frames.push_back((now, chunk.to_vec()));
         }
-        self.partial.drain(..whole * self.size);
-        if self.partial.is_empty() {
-            self.partial_at = None;
-        } else if whole > 0 {
+        let remainder = bytes.chunks_exact(self.size).remainder();
+        if !remainder.is_empty() {
+            self.partial.extend_from_slice(remainder);
             self.partial_at = Some(now);
         }
         true
@@ -245,14 +255,11 @@ async fn activate(
     if !drained {
         return None;
     }
-    if consumed != 0 {
-        timeout(FRAME_AGE, phone.read_exact(&mut bytes[..size - consumed]))
-            .await
-            .ok()?
-            .ok()?;
-    }
     let mut result = opened;
     result["credentials"] = active["credentials"].clone();
+    // Do not wait for a microphone frame before redeeming the one-use grant
+    // and starting downlink. The uplink alone discards the partial remainder.
+    result["uplink_skip_bytes"] = serde_json::json!((size - consumed) % size);
     Some(result)
 }
 async fn downlink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
@@ -277,6 +284,9 @@ async fn relay(app: &App, phone: TcpStream, opened: &Value, trace: &mut Trace) -
     let rate = opened["pcm_rate"]
         .as_u64()
         .filter(|r| matches!(r, 8_000 | 16_000))? as u32;
+    let skip = opened["uplink_skip_bytes"]
+        .as_u64()
+        .filter(|n| *n < rate as u64 / 50 * 2)? as usize;
     let session = opened["session"].as_str()?;
     if !rustsimhub_media::worker::session_id(session) {
         return None;
@@ -342,12 +352,22 @@ async fn relay(app: &App, phone: TcpStream, opened: &Value, trace: &mut Trace) -
     };
     let (phone_read, phone_write) = phone.into_split();
     let (media_read, media_write) = media.into_split();
+    let up = async {
+        let mut phone_read = phone_read;
+        if skip != 0 {
+            // This bounded discard is not played and does not delay downlink.
+            // EOF or authority loss still closes both directions as before.
+            let mut discarded = [0; FRAME];
+            phone_read.read_exact(&mut discarded[..skip]).await?;
+        }
+        uplink(phone_read, media_write, rate, &muted).await
+    };
     // No detached pumps. Completion/cancellation drops both socket halves;
     // media EOF invalidates the worker's permit, without redial or reconnect.
     tokio::select! {
-        _=uplink(phone_read,media_write,rate,&muted)=>{},
-        _=downlink(media_read,phone_write,rate)=>{},
-        _=heartbeat=>{},
+        result=up=>{eprintln!("airsim_pcm_stream_closed leg=uplink error={:?}",result.err().map(|e|e.kind()));},
+        result=downlink(media_read,phone_write,rate)=>{eprintln!("airsim_pcm_stream_closed leg=downlink error={:?}",result.err().map(|e|e.kind()));},
+        _=heartbeat=>{eprintln!("airsim_pcm_stream_closed leg=authority");},
     }
     Some(())
 }
@@ -485,7 +505,35 @@ mod tests {
         assert!(q.push(&[3; 320], now));
         assert!(q.latest(now + FRAME_AGE).is_none());
         assert!(q.push(&[1], now));
-        assert!(!q.push(&[2; 319], now + FRAME_AGE));
+        assert!(q.push(&[2; 319], now + FRAME_AGE));
+        assert!(q.latest(now + FRAME_AGE).is_none());
+    }
+    #[test]
+    fn expired_partial_is_discarded_at_its_boundary_without_replaying_or_retiming_it() {
+        let mut q = Queue::new(8_000);
+        let at = Instant::now();
+        assert!(q.push(&[1], at));
+        assert!(q.push(&[2; 318], at + FRAME_AGE));
+        assert_eq!(q.partial.len(), 319);
+        assert!(q.latest(at + FRAME_AGE).is_none());
+        let fresh = at + Duration::from_millis(100);
+        let mut bytes = vec![3]; // Complete and discard the stale frame.
+        bytes.extend_from_slice(&[4; 320]);
+        bytes.push(5); // Next partial retains this first-byte timestamp.
+        assert!(q.push(&bytes, fresh));
+        assert_eq!(q.latest(fresh).unwrap(), vec![4; 320]);
+        assert_eq!(q.partial, vec![5]);
+        assert_eq!(q.partial_at, Some(fresh));
+        assert!(q.push(&[6; 319], fresh + Duration::from_millis(59)));
+        assert!(
+            q.latest(fresh + FRAME_AGE).is_none(),
+            "completion cannot rejuvenate old bytes"
+        );
+        assert!(q.push(&[7], fresh + Duration::from_secs(1)));
+        assert!(
+            !q.push(&[8], fresh),
+            "future partial timestamps remain invalid"
+        );
     }
     #[tokio::test]
     async fn preface_is_bounded_and_does_not_consume_coalesced_audio() {
@@ -546,9 +594,41 @@ mod tests {
             .unwrap();
         assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::TimedOut);
     }
+
+    #[tokio::test]
+    async fn a_delayed_microphone_fragment_does_not_end_the_actual_uplink_pump() {
+        let (mut phone, reader) = duplex(4096);
+        let (writer, mut media) = duplex(4096);
+        let task =
+            tokio::spawn(
+                async move { uplink(reader, writer, 8_000, &AtomicBool::new(false)).await },
+            );
+        phone.write_all(&[1]).await.unwrap();
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let mut batch = vec![2; 319];
+        batch.extend(std::iter::repeat_n(1234i16, 160).flat_map(i16::to_le_bytes));
+        phone.write_all(&batch).await.unwrap();
+        let mut frame = [0; 640];
+        timeout(Duration::from_secs(1), media.read_exact(&mut frame))
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(frame
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .all(|b| *b == 1234i16.to_le_bytes()));
+        assert!(!task.is_finished());
+        drop(phone);
+        timeout(Duration::from_secs(1), task)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+    }
     #[tokio::test]
     async fn socket_relay_keeps_credentials_local_and_closes_worker_on_revoke_or_disconnect() {
-        for revoked in [false, true] {
+        for (revoked, partial) in [(false, false), (true, false), (false, true), (true, true)] {
             let dir = tempfile::tempdir().unwrap();
             std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
             let core_path = dir.path().join("core.sock");
@@ -567,10 +647,25 @@ mod tests {
                 let mut issued = false;
                 loop {
                     let (mut s, _) = core_listener.accept().await.unwrap();
-                    let size = s.read_u32().await.unwrap() as usize;
-                    assert!(size < 4096);
-                    let mut b = vec![0; size];
-                    s.read_exact(&mut b).await.unwrap();
+                    let b = match async {
+                        let size = s.read_u32().await? as usize;
+                        assert!(size < 4096);
+                        let mut b = vec![0; size];
+                        s.read_exact(&mut b).await?;
+                        Ok::<_, std::io::Error>(b)
+                    }
+                    .await
+                    {
+                        Ok(bytes) => bytes,
+                        Err(error) => {
+                            assert!(matches!(
+                                error.kind(),
+                                std::io::ErrorKind::UnexpectedEof
+                                    | std::io::ErrorKind::ConnectionReset
+                            ));
+                            continue;
+                        }
+                    };
                     let r: Value = serde_json::from_slice(&b).unwrap();
                     let command = &r["command"];
                     let close = command["close"] == true;
@@ -592,13 +687,26 @@ mod tests {
                         &serde_json::json!({"protocol":2,"id":r["id"],"result":result}),
                     )
                     .unwrap();
-                    s.write_u32(reply.len() as u32).await.unwrap();
-                    s.write_all(&reply).await.unwrap();
+                    let written = async {
+                        s.write_u32(reply.len() as u32).await?;
+                        s.write_all(&reply).await
+                    }
+                    .await;
+                    if let Err(error) = written {
+                        // Closing the phone or revoking its authority cancels
+                        // an in-flight heartbeat response. Still require the
+                        // subsequent close command below, not a live client.
+                        assert!(matches!(
+                            error.kind(),
+                            std::io::ErrorKind::BrokenPipe | std::io::ErrorKind::ConnectionReset
+                        ));
+                    }
                     if close {
                         break seen;
                     }
                 }
             });
+            let (microphone_ready, mut microphone_checked) = tokio::sync::oneshot::channel::<()>();
             let media_task = tokio::spawn(async move {
                 let (mut s, _) = media_listener.accept().await.unwrap();
                 let size = s.read_u32().await.unwrap() as usize;
@@ -612,11 +720,35 @@ mod tests {
                 );
                 s.write_u8(1).await.unwrap();
                 s.write_all(&[7; 640]).await.unwrap();
-                let n = timeout(Duration::from_secs(2), s.read(&mut [0; 1]))
+                if partial {
+                    timeout(Duration::from_secs(1), async {
+                        loop {
+                            let mut frame = [0; 640];
+                            s.read_exact(&mut frame).await.unwrap();
+                            if frame == [0; 640] {
+                                continue;
+                            } // Muted until first authority pulse.
+                            assert!(frame
+                                .as_chunks::<2>()
+                                .0
+                                .iter()
+                                .all(|b| *b == 1234i16.to_le_bytes()));
+                            break;
+                        }
+                    })
+                    .await
+                    .unwrap();
+                }
+                let _ = microphone_ready.send(());
+                let mut tail = Vec::new();
+                timeout(Duration::from_secs(2), s.take(4097).read_to_end(&mut tail))
                     .await
                     .unwrap()
                     .unwrap();
-                assert_eq!(n, 0);
+                assert!(tail.len() <= 4096);
+                if !partial {
+                    assert!(tail.is_empty());
+                }
             });
             let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
             let mut phone = TcpStream::connect(listener.local_addr().unwrap())
@@ -624,10 +756,11 @@ mod tests {
                 .unwrap();
             let (s, p) = listener.accept().await.unwrap();
             let edge = tokio::spawn(async move { handle(&app, s, p.ip()).await });
-            phone
-                .write_all(b"AIRSIMVWL1 1 synthetic-nonce synthetic-signature\n")
-                .await
-                .unwrap();
+            let mut preface = b"AIRSIMVWL1 1 synthetic-nonce synthetic-signature\n".to_vec();
+            if partial {
+                preface.push(42);
+            }
+            phone.write_all(&preface).await.unwrap();
             let mut ready = [0; 11];
             phone.read_exact(&mut ready).await.unwrap();
             assert_eq!(&ready, b"AIRSIMREADY");
@@ -646,6 +779,27 @@ mod tests {
                 audio, [7; 320],
                 "phone receives only PCM, no local accept byte/credential JSON"
             );
+            if partial {
+                let mut microphone = vec![99; 319];
+                microphone.extend(std::iter::repeat_n(1234i16, 160).flat_map(i16::to_le_bytes));
+                phone.write_all(&microphone).await.unwrap();
+                // Wait for actual non-muted, correctly aligned data rather
+                // than racing the first authority response with a sleep.
+                let fresh: Vec<_> = std::iter::repeat_n(1234i16, 160)
+                    .flat_map(i16::to_le_bytes)
+                    .collect();
+                timeout(Duration::from_secs(1), async {
+                    let mut tick = tokio::time::interval(Duration::from_millis(20));
+                    loop {
+                        tokio::select! {
+                            result=&mut microphone_checked=>{result.unwrap();break;},
+                            _=tick.tick()=>{phone.write_all(&fresh).await.unwrap();},
+                        }
+                    }
+                })
+                .await
+                .unwrap();
+            }
             if revoked {
                 stop.store(true, Ordering::Release);
                 assert_eq!(
