@@ -52,6 +52,8 @@ jobs:
         run: sudo -n python3 -m unittest discover -s tools/system -p 'test_*.py'
       - name: Browser fixture runtime
         run: node --version
+      - name: Web AirSIM pairing status refresh and late-response safety
+        run: TZ=UTC node tools/test-web-airsim-status.mjs
       - name: Web identity and first-owner proof
         run: node tools/test-web-proof.mjs
       - name: Web audio lifecycle and authorization
