@@ -12,6 +12,58 @@ use x25519_dalek::{PublicKey, StaticSecret};
 const PEER: &str = "192.168.1.20";
 
 #[tokio::test]
+async fn pcm_active_pulses_check_selected_call_without_relisting_history() {
+    let mut f = fixture();
+    f.active_pcm_call().await;
+    let opened = f.pcm_open().await.unwrap();
+    let pulse = || AuthCommand::AirsimPcmPulse {
+        ticket: opened["ticket"].as_str().unwrap().into(),
+        close: false,
+    };
+    assert_eq!(f.ask(pulse()).await.unwrap()["active"], true);
+    let reads = f.calls.with(|m| m.status_reads);
+    for _ in 0..4 {
+        assert_eq!(f.ask(pulse()).await.unwrap()["active"], true);
+    }
+    assert_eq!(
+        f.calls.with(|m| m.status_reads),
+        reads,
+        "active media must not re-list historical calls on every pulse"
+    );
+    f.calls.set("call-1", 5);
+    assert!(
+        f.ask(pulse()).await.is_err(),
+        "selected MM state is still authoritative"
+    );
+}
+
+#[tokio::test]
+async fn pcm_issued_link_still_closes_on_selected_call_loss_or_source_revocation() {
+    for mode in 0..4 {
+        let mut f = fixture();
+        f.active_pcm_call().await;
+        let opened = f.pcm_open().await.unwrap();
+        let pulse = || AuthCommand::AirsimPcmPulse {
+            ticket: opened["ticket"].as_str().unwrap().into(),
+            close: false,
+        };
+        assert_eq!(f.ask(pulse()).await.unwrap()["active"], true);
+        match mode {
+            0 => f.calls.set("call-1", 7),
+            1 => f.calls.set("call-1", 5),
+            2 => f.calls.with(|m| m.unavailable = true),
+            _ => {
+                let key = Auth::gateway_public_key(
+                    f.controller.inner.lock().unwrap().seed.as_ref().unwrap(),
+                );
+                f.auth.lock().unwrap().revoke(&f.owner, key).unwrap();
+            }
+        }
+        assert!(f.ask(pulse()).await.is_err(), "issued mode {mode}");
+    }
+}
+
+#[tokio::test]
 async fn pcm_dialling_wait_is_finite_without_issuing_or_opening_media() {
     let mut f = fixture();
     f.pair().await;
@@ -334,6 +386,7 @@ struct Modem {
     )>,
     log: Vec<String>,
     renewals: u32,
+    status_reads: usize,
     submit_state: Option<&'static str>,
     fail: Option<&'static str>,
     refuse_renew: bool,
@@ -374,13 +427,13 @@ impl CallPort for FakeCalls {
     ) -> Result<Value, &'static str> {
         use rustsimhub_domain::CallAction as A;
         self.with(|m| match command {
-            AuthCommand::CallStatus { .. } => Ok(json!({
+            AuthCommand::CallStatus { .. } => { m.status_reads += 1; Ok(json!({
                 "available": !m.unavailable,
                 "live_calls": m.live.iter().map(|(id, direction, state)| json!({
                     "id": id, "line": 1, "direction": direction, "modem_state": state,
                     "availability": "observed", "state": "synthetic",
                 })).collect::<Vec<_>>(),
-            })),
+            })) },
             AuthCommand::PrepareCall { idempotency_key, action, call_id, payload, .. } => {
                 if let Some(code) = m.fail {
                     return Err(code);

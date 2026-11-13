@@ -138,15 +138,17 @@ pub(super) fn process(
             // only its own call, then re-run the active/media/scopes check.
             core.keep(&pairing, std::slice::from_ref(&call), now_ms());
             let token = core.token().map_err(|_| denied("gateway_authority"))?;
-            let state =
-                observed_state(&mut core, &token, &call).map_err(|_| denied("call_observation"))?;
-            if state != 4 {
-                if issued || Instant::now() >= activate_until {
-                    inner.pcm = None;
-                    return Err(denied("call_no_longer_active"));
+            if !issued {
+                let state = observed_state(&mut core, &token, &call)
+                    .map_err(|_| denied("call_observation"))?;
+                if state != 4 {
+                    if Instant::now() >= activate_until {
+                        inner.pcm = None;
+                        return Err(denied("activation_deadline"));
+                    }
+                    inner.pcm.as_mut().ok_or(Error::Forbidden)?.until = Instant::now() + LIFETIME;
+                    return Ok(json!({"active": false, "waiting": true}));
                 }
-                inner.pcm.as_mut().ok_or(Error::Forbidden)?.until = Instant::now() + LIFETIME;
-                return Ok(json!({"active": false, "waiting": true}));
             }
             let lease = core
                 .book
@@ -154,6 +156,9 @@ pub(super) fn process(
                 .as_ref()
                 .map(|(_, l, _)| l.clone())
                 .ok_or_else(|| denied("lease_lost"))?;
+            // Once activated, this admission reads the selected MM call and
+            // validates ACTIVE, owner, lease, binding and current scopes itself.
+            // A second CallStatus would rescan every historical call at 4 Hz.
             let checked = core.call(AuthCommand::CheckMediaLease {
                 token: token.to_string(),
                 lease: lease.clone(),
