@@ -263,8 +263,31 @@ pub(super) fn listen_addresses(local: &[IpAddr]) -> Vec<(SocketAddr, bool)> {
     wanted
 }
 
+fn log_admission_denied(
+    pcm: bool,
+    control: bool,
+    reason: &'static str,
+    last: &mut Option<Instant>,
+) {
+    let now = Instant::now();
+    if last.is_some_and(|at| now.duration_since(at) < Duration::from_secs(60)) {
+        return;
+    }
+    *last = Some(now);
+    let kind = if pcm {
+        "pcm"
+    } else if control {
+        "control"
+    } else {
+        "pairing"
+    };
+    eprintln!("airsim_listener_refused kind={kind} reason={reason}");
+}
+
 async fn accept_loop(app: App, listener: TcpListener, control: bool, pcm: bool) {
     let mut clients = tokio::task::JoinSet::new();
+    // At most one fixed, secret-free record per reason/listener/minute.
+    let (mut capacity_log, mut rate_log) = (None, None);
     loop {
         let accepted = tokio::select! {
             result=listener.accept()=>result,
@@ -275,9 +298,11 @@ async fn accept_loop(app: App, listener: TcpListener, control: bool, pcm: bool) 
             continue;
         };
         let Ok(permit) = app.limit.clone().try_acquire_owned() else {
+            log_admission_denied(pcm, control, "capacity", &mut capacity_log);
             continue;
         };
         if !app.rate.lock().is_ok_and(|mut r| r.take()) {
+            log_admission_denied(pcm, control, "rate_or_lock", &mut rate_log);
             continue;
         }
         let app = app.clone();
