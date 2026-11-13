@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-12T06:40:40.701023+00:00",
+  "updated_at": "2026-11-13T07:15:33.585873+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -69,8 +69,8 @@
   "focus": {
     "task_id": "REL-01",
     "title": "冻结支持矩阵与发行候选",
-    "state": "四包已接纳；进入统一组合构建与发行验证",
-    "description": "四窗口代码4/4已接纳：223控制台、224首次热点、226发行审计正常合并，227矩阵经228整合并自动标已合并，原作者/父链保留。最终main2ec294b9与受测85aa0395完整树一致；本轮storage/update库243通过、19专项ignored，严格检查、5个Node入口及首启/矩阵/发行工具短回归通过。前序Node日期失败按原交付TZ=UTC要求复验通过，未改生产代码。未重跑新完整workspace、ARM/浏览器/WASM、完整镜像或设备；作者固定源证据不移算为新组合。未签名/部署/设备访问；原验收81.5%、20/169、加权10.6%保持。"
+    "state": "应用78已安装；进入AirSIM真实iPhone验收",
+    "description": "Claude新增六个转发渠道、AirSIM协议/配对/短信/通话已核对；负责人补齐Core授权→Edge7593→媒体PCM及8k/16k转换。固定1935ed29同源1736 Rust通过/33专项忽略、12 ARM程序、音频54 QEMU、严格检查和7组网页入口通过。候选78验签/6拒绝、12恢复夹具、真实备份/回读/准入/单次启动/健康确认通过，应用78已确认，130条短信保持；普通流量断开、转发PID0。PR239按本笔明确授权正常合并，231/238随之接纳；云端计费导致零步骤未运行。真实iPhone配对/听音尚待验收，进度81.5%、20/169、加权10.6%保持。"
   },
   "facts": [
     {
@@ -80,8 +80,8 @@
     },
     {
       "label": "本轮主线回归",
-      "value": "243 Rust专项通过",
-      "detail": "storage140/update103，另19专项ignored；5个Node入口、首启6执行/19跳过、矩阵4/发行18工具单测通过；不等于全workspace"
+      "value": "1736 Rust / 54音频通过",
+      "detail": "另33专项ignored；12 ARM、7组网页、全特性严格检查；实机听音待验收"
     },
     {
       "label": "任务8 · 生产代码",
@@ -90,8 +90,8 @@
     },
     {
       "label": "本轮PR处理",
-      "value": "四包已合并 · 原作者历史保留",
-      "detail": "227服务器返回405冲突，本地正常合并无文件冲突，经228收口，原227自动标MERGED；草稿不动"
+      "value": "239已合并 · 231/238一并接纳",
+      "detail": "固定HEAD明确CI例外授权；正常merge，作者历史保留"
     },
     {
       "label": "完整剩余台账",
@@ -115,8 +115,8 @@
     },
     {
       "label": "仍需开发/适配",
-      "value": "完整发行装配与实测适配",
-      "detail": "四包已有生产代码/工具；完整同源构建、锁定系统材料、真实外部环境和验收中发现的问题仍待收尾"
+      "value": "真实手机与完整系统收尾",
+      "detail": "PCM生产接线已实现；设备组合和外部环境发现的问题继续修复"
     },
     {
       "label": "代码开发完成率",
@@ -125,13 +125,13 @@
     },
     {
       "label": "当前main来源",
-      "value": "2ec294b9 · 四包已整合",
-      "detail": "本轮受测85aa0395完整树一致；旧作者固定源与新组合证据分开"
+      "value": "53a68b95 · AirSIM声音接线",
+      "detail": "与固定受测1935ed29完整树一致；归档/制品来源仍绑定1935ed29"
     },
     {
       "label": "本轮环境与边界",
-      "value": "合并与短组合回归完成",
-      "detail": "新完整workspace/ARM/镜像/设备未运行；云端两项因付款/消费上限未启动；未签名或部署"
+      "value": "应用78已安装 · 听音待验收",
+      "detail": "默认流量断开、转发PID0；未刷分区/改PMIC；云端CI未运行"
     },
     {
       "label": "历史验收边界",
@@ -165,7 +165,8 @@
     "https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md",
     "docs/deliveries/member-d-pr170-main-sync-20261103.md",
     "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/lead-mainline-integration-20261111.md",
-    "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/web5-mainline-merge-20261112.md"
+    "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/web5-mainline-merge-20261112.md",
+    "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pcm-integration-20261113.md"
   ],
   "modules": [
     {
@@ -6174,12 +6175,24 @@
       "evidence": [
         "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/web5-mainline-merge-20261112.md"
       ]
+    },
+    {
+      "at": "2026-11-13T07:15:33.585873+00:00",
+      "type": "state",
+      "title": "REL-01 · 下一关卡：冻结支持矩阵与发行候选",
+      "detail": "Claude新增六个转发渠道、AirSIM协议/配对/短信/通话已核对；负责人补齐Core授权→Edge7593→媒体PCM及8k/16k转换。固定1935ed29同源1736 Rust通过/33专项忽略、12 ARM程序、音频54 QEMU、严格检查和7组网页入口通过。候选78验签/6拒绝、12恢复夹具、真实备份/回读/准入/单次启动/健康确认通过，应用78已确认，130条短信保持；普通流量断开、转发PID0。PR239按本笔明确授权正常合并，231/238随之接纳；云端计费导致零步骤未运行。真实iPhone配对/听音尚待验收，进度81.5%、20/169、加权10.6%保持。",
+      "task_ids": [
+        "REL-01"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pcm-integration-20261113.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "2ec294b969ef18bc19bc6bf3b8fb396136e43fa1",
-    "generated_at": "2026-11-12T06:38:16.922003+00:00",
+    "source_revision": "53a68b95c7cfc56912db2c5ae79ea532da9536e6",
+    "generated_at": "2026-11-13T07:07:16.978490+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -6198,15 +6211,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 56109,
-            "tests": 44246,
+            "product": 61110,
+            "tests": 47058,
             "tooling": 10859,
             "firmware": 1325
           },
-          "commits": 529,
-          "code_commits": 337,
-          "added": 119518,
-          "deleted": 3452
+          "commits": 541,
+          "code_commits": 347,
+          "added": 127691,
+          "deleted": 3560
         },
         "work": {
           "assigned_steps": 0,
@@ -6752,6 +6765,61 @@
             {
               "pr": 228,
               "head": "85aa039536c5ff373ea1b68f35bc5ecbc79f7ebe",
+              "state": "MERGED"
+            },
+            {
+              "pr": 229,
+              "head": "4ba13534ede693bf5c45b265ef33dcdaa9865dc8",
+              "state": "MERGED"
+            },
+            {
+              "pr": 230,
+              "head": "de6a74cd0c571953a2410f3143362501f5a9911e",
+              "state": "MERGED"
+            },
+            {
+              "pr": 231,
+              "head": "190c6b90dd42bf286e285e7eac3b7ccf35c6fb3a",
+              "state": "MERGED"
+            },
+            {
+              "pr": 232,
+              "head": "1018e1860b25ce148553d9c1de21081c97ddb75c",
+              "state": "MERGED"
+            },
+            {
+              "pr": 233,
+              "head": "de072aee61cb40d049ad54d55115d5c674dc8e82",
+              "state": "MERGED"
+            },
+            {
+              "pr": 234,
+              "head": "1f515d86f550a671b3d69d0df3fd92a323093aef",
+              "state": "MERGED"
+            },
+            {
+              "pr": 235,
+              "head": "23ea7c1d31c99b805d100a7b6654635f3c72f9f2",
+              "state": "MERGED"
+            },
+            {
+              "pr": 236,
+              "head": "1f1ec580de235f3a8b1378c45d28b470840b1b2d",
+              "state": "MERGED"
+            },
+            {
+              "pr": 237,
+              "head": "26477569b4b40206f0d4d3c6aa9f02cd0195a6bf",
+              "state": "MERGED"
+            },
+            {
+              "pr": 238,
+              "head": "5dcce7e7ec6fd4fe4ac8c930a017046f02b052b5",
+              "state": "MERGED"
+            },
+            {
+              "pr": 239,
+              "head": "1935ed29ab6d99619c42fffc59cab86c095f59d1",
               "state": "MERGED"
             }
           ],
@@ -7401,6 +7469,72 @@
             {
               "pr": 228,
               "head": "85aa039536c5ff373ea1b68f35bc5ecbc79f7ebe",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 229,
+              "head": "4ba13534ede693bf5c45b265ef33dcdaa9865dc8",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 230,
+              "head": "de6a74cd0c571953a2410f3143362501f5a9911e",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 231,
+              "head": "190c6b90dd42bf286e285e7eac3b7ccf35c6fb3a",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 232,
+              "head": "1018e1860b25ce148553d9c1de21081c97ddb75c",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 233,
+              "head": "de072aee61cb40d049ad54d55115d5c674dc8e82",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 234,
+              "head": "1f515d86f550a671b3d69d0df3fd92a323093aef",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 235,
+              "head": "23ea7c1d31c99b805d100a7b6654635f3c72f9f2",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 236,
+              "head": "1f1ec580de235f3a8b1378c45d28b470840b1b2d",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 237,
+              "head": "26477569b4b40206f0d4d3c6aa9f02cd0195a6bf",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 238,
+              "head": "5dcce7e7ec6fd4fe4ac8c930a017046f02b052b5",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 239,
+              "head": "1935ed29ab6d99619c42fffc59cab86c095f59d1",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
@@ -7615,8 +7749,8 @@
         ],
         "stats": {
           "current_lines": {
-            "product": 16153,
-            "tests": 11476,
+            "product": 16151,
+            "tests": 11474,
             "tooling": 4774,
             "firmware": 1
           },
@@ -8873,8 +9007,8 @@
         ],
         "stats": {
           "current_lines": {
-            "product": 22518,
-            "tests": 23267,
+            "product": 22517,
+            "tests": 23266,
             "tooling": 3119,
             "firmware": 131
           },
@@ -9123,8 +9257,8 @@
       "deleted": 4
     },
     "totals": {
-      "product": 97452,
-      "tests": 85071,
+      "product": 102450,
+      "tests": 87880,
       "tooling": 19697,
       "firmware": 1457
     },
@@ -10660,24 +10794,24 @@
     }
   },
   "delivery_snapshot": {
-    "date": "2026-11-12",
-    "main": "2ec294b969ef18bc19bc6bf3b8fb396136e43fa1",
-    "summary": "四窗口4/4生产代码和工具已合入main2ec294b9，任务8与通用首启在同一主线。新增开发交付不再列为未开发；当前转入完整同源发行构建和真实边界验收。本轮短组合243 Rust通过，不等于四包全workspace/新ARM/完整系统镜像已验收。原81.5%、20/169保持，149为完整收尾动作。",
+    "date": "2026-11-13",
+    "main": "53a68b95c7cfc56912db2c5ae79ea532da9536e6",
+    "summary": "主线已接纳Claude新转发渠道和AirSIM实现，负责人补齐手机PCM完整接线并安装确认应用78。代码交付、同源构建和实际安装已完成；当前进入真实手机与外部通道验收。整体验收仍81.5%，不是每个模块都已经实机通过。",
     "code_percent": null,
     "delivered": [
-      "控制台PR223已合并：收到seq顺序分页/刷新隔离、严格时间解析、历史真实终态与可见记录数一致性；真实127/128根因仍需设备只读核对。",
-      "首次热点PR224已合并：通用新设备首次AP准备、有限激活及失败USB独立路径已接线；真实PID1/AP/手机和完整新镜像尚未验收。",
-      "矩阵PR227已随228接纳：EmailRecovery中断后inspect/recover与撤权/回退拒绝修正；作者固定源有完整隔离链、WASM/浏览器和有限ARM证据，新四包组合尚未重跑这些完整链。",
-      "发行PR226已合并：只读输入审计、固定来源/许可证/签名域/默认OFF检查和有限操作手册；缺完整新发行输入时明确拒绝，工具没有签名/安装权限。",
-      "任务8PR215、统计PR216和测试夹具225已在主线；本轮243仅为受影响storage/update库，不与上轮旧组合1672或各作者测试叠加。",
-      "通用首启221与安装记录218已接纳。应用74为11-07作者历史安装；新主线2ec294b9尚未部署，旧74包不等于四包同源完整固件。"
+      "AirSIM PR232～237已有协议、配对、短信和通话控制；PR238原生PCM由239正常整合，保留原作者/父链。",
+      "负责人239补齐手机签名PCM、私网7593、Core一次性媒体授权、拨号等待、Ready、8k/16k转换、同一会话槽和撤权/断链清理。",
+      "固定1935ed29/归档c5a70cd6：正式workspace1736通过、33专项ignored；12 ARM程序和同源音频54 QEMU通过；严格全特性Clippy、fmt与7组网页入口通过。",
+      "开发信任未更换：78候选的ARM真实验签、6拒绝路径和12恢复夹具通过；有界保护下真实备份/回读/准入/唯一启动/健康确认完成。",
+      "设备已确认应用78，130条短信/原所有者数据保持，音频路由7/7，普通数据断开，转发进程关闭；尚不计真实手机声音通过。",
+      "Claude六个新转发渠道已在主线，旧渠道保留；仍需各自接收目标实测。四个WEB5窗口此前4/4已接纳，不重复分配。"
     ],
     "remaining": [
-      "四包接纳已完成；下一步冻结完整发行来源并重跑同源workspace/ARM、完整产品链与系统装配。保留作者旧冻结证据，不能只改来源标签复用旧制品。",
+      "本轮同源默认应用构建/安装已完成；完整产品profile、系统镜像/独立发行材料仍需按各自真实链验证，不能用应用78替代完整新镜像。",
       "完整发行与第二设备：把任务8产品组合与通用镜像统一来源；核对匹配boot/DTB/modules/固件、锁定系统材料、真实PID1/沙箱，完成首次刷写/回读/冷启动/恢复。旧74镜像不等于新产品固件。",
       "首配与网页转入整合验收：源码已有通用AP准备/激活、分页/时间/终态修复；仍需完整镜像中真实AP→STA、错密、返回热点、最终保存与原浏览器钥匙/计数核对。",
       "产品矩阵已有真实三变体18项模式检查、EmailRecovery隔离完整链和同源WASM/浏览器证据；四包新组合需完整复验。自动健康仍仅forwarding/schema9/worker4/同Core，AP/SMTP5拒绝不冒充已支持；明确有限首版范围。",
-      "电话/短信/网络/NAS：多客户端、撤权、长通话/DTMF、换卡/MM换代、真实流量限额、NAS授权控制及双向声音等剩余真实边界回归；不重新派发已完成模块。",
+      "AirSIM当前优先验收真实iPhone配对、10010下行和第二手机双向声音，以及断网/撤权/争用；NAS、远程客户端、DTMF/转接和MM恢复按原分工继续。",
       "转发/NKN/统计/蓝牙：真实递送及关闭冷启动、外网/中继/ON worker、获准统计网络和BLE HCI/RF/手机互操作；资源/账户/外部服务及独立授权到位后实测。",
       "更新/迁移/恢复故障：已交隔离安装、迁移和限时健康证据需落到实际设备；验证真实SIGKILL/写满/断电、回退兼容、保留后写数据及整机恢复，不能用合成PID1替代。",
       "发行终验：安全/依赖许可证与公开产物扫描、性能/功耗/组合长稳、第二棒子验收、用户及恢复手册、最终冻结与逐项签认。PMIC搁置，手机原生App不在首版。"
@@ -10699,11 +10833,9 @@
         69
       ],
       "merged_this_followup": [
-        223,
-        224,
-        226,
-        227,
-        228
+        231,
+        238,
+        239
       ],
       "integrated_heads": [
         195,
@@ -10721,9 +10853,11 @@
         224,
         226,
         227
-      ]
+      ],
+      "ci_exception_239": "用户明确授权固定1935ed29，仅本笔；云端付款/消费限制导致零步骤，不记通过"
     },
     "evidence": [
+      "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pcm-integration-20261113.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/web5-mainline-merge-20261112.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/lead-mainline-integration-20261111.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/610d7fa63b1a0f129a3f146c0595171868f8e059/docs/deliveries/web4-production-wiring-20261104.md",
