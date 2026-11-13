@@ -539,13 +539,16 @@ mod tests {
         .unwrap();
         server.abort();
         assert!(server.await.unwrap_err().is_cancelled());
-        assert_eq!(
-            timeout(Duration::from_secs(1), phone.read(&mut [0; 1]))
-                .await
-                .unwrap()
-                .unwrap(),
-            0
-        );
+        match timeout(Duration::from_secs(1), phone.read(&mut [0; 1]))
+            .await
+            .unwrap()
+        {
+            Ok(0) => {}
+            // Closing a socket with the unread preface may produce RST
+            // rather than FIN. Both prove closure, never a live client.
+            Err(error) if error.kind() == std::io::ErrorKind::ConnectionReset => {}
+            other => panic!("retired listener left a client open: {other:?}"),
+        }
         assert_eq!(
             limit.available_permits(),
             8,
