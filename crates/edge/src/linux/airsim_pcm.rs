@@ -264,18 +264,109 @@ async fn activate(
 }
 async fn downlink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
     mut media: R,
-    mut phone: W,
+    phone: W,
     rate: u32,
 ) -> std::io::Result<()> {
-    let mut frame = [0; FRAME];
+    let (latest, receiver) = tokio::sync::watch::channel(None);
+    let drops = DownlinkDrops::default();
+    // Drain the local worker while TCP is congested. Only the newest complete
+    // frame is retained; no detached task or accumulating audio queue.
+    let reader = async move {
+        let result: std::io::Result<()> = async {
+            loop {
+                let mut pcm = [0; FRAME];
+                timeout(Duration::from_secs(2), media.read_exact(&mut pcm))
+                    .await
+                    .map_err(|_| std::io::ErrorKind::TimedOut)??;
+                latest.send_replace(Some(DownlinkFrame {
+                    at: Instant::now(),
+                    pcm,
+                }));
+            }
+        }
+        .await;
+        drop(latest);
+        result
+    };
+    let writer = write_downlink(phone, receiver, rate, &drops);
+    tokio::pin!(reader, writer);
+    tokio::select! {
+        result = &mut writer => result,
+        result = &mut reader => {
+            // A complete last frame may precede EOF. Drain that one fresh
+            // value before reporting closure; writes remain time-bounded.
+            match writer.await {
+                Err(error) if error.kind() != std::io::ErrorKind::UnexpectedEof => Err(error),
+                _ => result,
+            }
+        }
+    }
+}
+
+#[derive(Clone)]
+struct DownlinkFrame {
+    at: Instant,
+    pcm: [u8; FRAME],
+}
+
+#[derive(Default)]
+struct DownlinkDrops {
+    no_progress: std::sync::atomic::AtomicU64,
+    stale: std::sync::atomic::AtomicU64,
+}
+impl Drop for DownlinkDrops {
+    fn drop(&mut self) {
+        eprintln!(
+            "airsim_pcm_downlink_drops no_progress={} stale={}",
+            self.no_progress.load(Ordering::Relaxed),
+            self.stale.load(Ordering::Relaxed)
+        );
+    }
+}
+
+async fn write_downlink<W: AsyncWrite + Unpin>(
+    mut phone: W,
+    mut frames: tokio::sync::watch::Receiver<Option<DownlinkFrame>>,
+    rate: u32,
+    drops: &DownlinkDrops,
+) -> std::io::Result<()> {
     loop {
-        timeout(Duration::from_secs(2), media.read_exact(&mut frame))
+        frames
+            .changed()
             .await
-            .map_err(|_| std::io::ErrorKind::TimedOut)??;
-        let output = convert(&frame, 16_000, rate).ok_or(std::io::ErrorKind::InvalidData)?;
-        timeout(IO_WAIT, phone.write_all(&output))
-            .await
-            .map_err(|_| std::io::ErrorKind::TimedOut)??;
+            .map_err(|_| std::io::ErrorKind::UnexpectedEof)?;
+        let Some(frame) = frames.borrow_and_update().clone() else {
+            continue;
+        };
+        let age = Instant::now()
+            .checked_duration_since(frame.at)
+            .ok_or(std::io::ErrorKind::InvalidData)?;
+        let Some(remaining) = FRAME_AGE.checked_sub(age).filter(|d| !d.is_zero()) else {
+            drops.stale.fetch_add(1, Ordering::Relaxed);
+            continue;
+        };
+        let output = convert(&frame.pcm, 16_000, rate).ok_or(std::io::ErrorKind::InvalidData)?;
+        let mut written = 0;
+        let result = timeout(IO_WAIT.min(remaining), async {
+            while written < output.len() {
+                let n = phone.write(&output[written..]).await?;
+                if n == 0 {
+                    return Err(std::io::ErrorKind::WriteZero.into());
+                }
+                written += n;
+            }
+            Ok::<_, std::io::Error>(())
+        })
+        .await;
+        match result {
+            Ok(result) => result?,
+            Err(_) if written == 0 => {
+                drops.no_progress.fetch_add(1, Ordering::Relaxed);
+            }
+            // A partially transmitted raw frame cannot be discarded without
+            // corrupting every following frame's sample boundary.
+            Err(_) => return Err(std::io::ErrorKind::TimedOut.into()),
+        }
     }
 }
 
@@ -448,13 +539,16 @@ mod tests {
         .unwrap();
         server.abort();
         assert!(server.await.unwrap_err().is_cancelled());
-        assert_eq!(
-            timeout(Duration::from_secs(1), phone.read(&mut [0; 1]))
-                .await
-                .unwrap()
-                .unwrap(),
-            0
-        );
+        match timeout(Duration::from_secs(1), phone.read(&mut [0; 1]))
+            .await
+            .unwrap()
+        {
+            Ok(0) => {}
+            // Closing a socket with the unread preface may produce RST
+            // rather than FIN. Both prove closure, never a live client.
+            Err(error) if error.kind() == std::io::ErrorKind::ConnectionReset => {}
+            other => panic!("retired listener left a client open: {other:?}"),
+        }
         assert_eq!(
             limit.available_permits(),
             8,
@@ -585,7 +679,7 @@ mod tests {
         }
     }
     #[tokio::test]
-    async fn slow_downlink_closes_instead_of_accumulating_speech() {
+    async fn partially_written_downlink_closes_instead_of_corrupting_the_next_frame() {
         let (mut source, reader) = duplex(1024);
         let (writer, _slow_phone) = duplex(1);
         source.write_all(&[7; 640]).await.unwrap();
@@ -593,6 +687,161 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::TimedOut);
+    }
+
+    #[tokio::test]
+    async fn unsent_downlink_timeout_drops_a_frame_without_ending_the_actual_pump() {
+        for rate in [8_000, 16_000] {
+            let frame_len = (rate / 50 * 2) as usize;
+            let (mut source, reader) = duplex(1);
+            let (mut writer, mut phone) = duplex(frame_len);
+            // No part of the first audio frame can fit until this unrelated
+            // prefix is consumed. A partial frame must still fail closed.
+            writer.write_all(&vec![9; frame_len]).await.unwrap();
+            let task = tokio::spawn(downlink(reader, writer, rate));
+            source.write_all(&[1; FRAME]).await.unwrap();
+            tokio::time::sleep(Duration::from_millis(80)).await;
+            assert!(!task.is_finished(), "an unsent frame must not close PCM");
+            let mut output = vec![0; frame_len];
+            phone.read_exact(&mut output).await.unwrap();
+            assert_eq!(output, vec![9; frame_len]);
+            source.write_all(&[2; FRAME]).await.unwrap();
+            timeout(Duration::from_secs(1), phone.read_exact(&mut output))
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(output, vec![2; frame_len], "old audio must not replay");
+            drop(source);
+            assert_eq!(
+                timeout(Duration::from_secs(1), task)
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .unwrap_err()
+                    .kind(),
+                std::io::ErrorKind::UnexpectedEof
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn downlink_drains_a_complete_final_frame_before_reporting_source_eof() {
+        for rate in [8_000, 16_000] {
+            let (mut source, reader) = duplex(FRAME);
+            let (writer, mut phone) = duplex(FRAME);
+            source.write_all(&[7; FRAME]).await.unwrap();
+            drop(source);
+            let task = tokio::spawn(downlink(reader, writer, rate));
+            let mut output = vec![0; (rate / 50 * 2) as usize];
+            timeout(Duration::from_secs(1), phone.read_exact(&mut output))
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(output, vec![7; output.len()]);
+            assert_eq!(
+                timeout(Duration::from_secs(1), task)
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .unwrap_err()
+                    .kind(),
+                std::io::ErrorKind::UnexpectedEof
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn congested_phone_does_not_block_the_worker_or_accumulate_old_audio() {
+        let (mut source, reader) = duplex(FRAME * 2);
+        let (mut writer, mut phone) = duplex(320);
+        writer.write_all(&[9; 320]).await.unwrap();
+        let task = tokio::spawn(downlink(reader, writer, 8_000));
+        // A sequential write-then-read pump needs 100 * 40 ms here. The
+        // bounded latest-frame pump must keep draining the worker instead.
+        timeout(Duration::from_millis(500), async {
+            for _ in 0..100 {
+                source.write_all(&[1; FRAME]).await.unwrap();
+            }
+        })
+        .await
+        .unwrap();
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert!(!task.is_finished());
+        let mut frame = [0; 320];
+        phone.read_exact(&mut frame).await.unwrap();
+        assert_eq!(frame, [9; 320]);
+        source.write_all(&[2; FRAME]).await.unwrap();
+        timeout(Duration::from_secs(1), phone.read_exact(&mut frame))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(frame, [2; 320], "expired burst must not replay");
+        drop(source);
+        assert_eq!(
+            timeout(Duration::from_secs(1), task)
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap_err()
+                .kind(),
+            std::io::ErrorKind::UnexpectedEof
+        );
+    }
+
+    #[tokio::test]
+    async fn downlink_discards_stale_frames_without_retiming_them() {
+        let (sender, receiver) = tokio::sync::watch::channel(None);
+        let (writer, mut phone) = duplex(FRAME);
+        let drops = Arc::new(DownlinkDrops::default());
+        let observed = drops.clone();
+        sender.send_replace(Some(DownlinkFrame {
+            at: Instant::now() - FRAME_AGE,
+            pcm: [1; FRAME],
+        }));
+        let task =
+            tokio::spawn(async move { write_downlink(writer, receiver, 8_000, &drops).await });
+        timeout(Duration::from_secs(1), async {
+            while observed.stale.load(Ordering::Relaxed) == 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        sender.send_replace(Some(DownlinkFrame {
+            at: Instant::now(),
+            pcm: [2; FRAME],
+        }));
+        drop(sender);
+        let mut output = [0; 320];
+        timeout(Duration::from_secs(1), phone.read_exact(&mut output))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(output, [2; 320]);
+        assert_eq!(observed.stale.load(Ordering::Relaxed), 1);
+        assert_eq!(observed.no_progress.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            timeout(Duration::from_secs(1), task)
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap_err()
+                .kind(),
+            std::io::ErrorKind::UnexpectedEof
+        );
+    }
+
+    #[tokio::test]
+    async fn downlink_rejects_future_frame_timestamps_before_writing() {
+        let (sender, receiver) = tokio::sync::watch::channel(None);
+        let (writer, mut phone) = duplex(FRAME);
+        sender.send_replace(Some(DownlinkFrame {
+            at: Instant::now() + Duration::from_secs(5),
+            pcm: [1; FRAME],
+        }));
+        let result = write_downlink(writer, receiver, 8_000, &DownlinkDrops::default()).await;
+        assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::InvalidData);
+        assert_eq!(phone.read(&mut [0; 1]).await.unwrap(), 0);
     }
 
     #[tokio::test]
