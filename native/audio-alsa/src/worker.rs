@@ -216,6 +216,68 @@ impl Manager {
         }
         result
     }
+    /// Starts a raw-PCM session for the local gateway. It takes the same single
+    /// session slot as a WebRTC session: whichever holds it, the other is Busy.
+    fn start_pcm(
+        &mut self,
+        id: String,
+        credentials: Credentials,
+        stream: std::os::unix::net::UnixStream,
+    ) -> Result<()> {
+        if let Some(active) = &self.active {
+            if !active.finished() {
+                return Err(Failure::Busy);
+            }
+        }
+        if self.used.contains(&id) {
+            return Err(Failure::Denied);
+        }
+        self.active = None; // joins a terminal thread before another can own the PCM.
+        let shared = Arc::new(Mutex::new(Shared {
+            phase: Phase::Authorizing,
+            peer: Some(credentials.peer_key),
+            pcm_opened: false,
+            failure: None,
+            counters: Counters::default(),
+        }));
+        let stop = Arc::new(AtomicBool::new(false));
+        let (authorization, _unused) = mpsc::sync_channel(1);
+        let (worker_shared, worker_stop) = (shared.clone(), stop.clone());
+        let core_socket = self.core_socket.clone();
+        let handle = thread::Builder::new()
+            .name("simhub-pcm-link".into())
+            .spawn(move || {
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    pcm_link_loop(stream, core_socket, credentials, &worker_stop, &worker_shared)
+                }));
+                if let Ok(mut s) = worker_shared.lock() {
+                    s.phase = Phase::Closed;
+                    s.failure = match result {
+                        Ok(Ok(())) => None,
+                        Ok(Err(e)) => Some(e),
+                        Err(_) => Some(Failure::Unavailable),
+                    };
+                    eprintln!("pcm_link_closed failure={:?} pcm_opened={} captured={} sent={} received={} played={} dropped={} xruns={}", s.failure, s.pcm_opened, s.counters.captured, s.counters.sent, s.counters.received, s.counters.played, s.counters.dropped, s.counters.xruns);
+                }
+            })
+            .map_err(|_| Failure::Unavailable)?;
+        self.active = Some(Active {
+            id: id.clone(),
+            peer_ip: IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
+            bind_ip: self.bind_ip,
+            offer: String::new(),
+            answer: String::new(),
+            shared,
+            stop,
+            authorization,
+            thread: Some(handle),
+        });
+        self.used.push_back(id);
+        if self.used.len() > 32 {
+            self.used.pop_front();
+        }
+        Ok(())
+    }
     fn active(&self, id: &str) -> Result<&Active> {
         self.active
             .as_ref()
@@ -303,6 +365,152 @@ fn rtc_failure(stage: &'static str, error: rustsimhub_audio_alsa::rtc::Error) ->
     eprintln!("worker_rtc_failure stage={stage} kind={error:?}");
     Failure::Closed
 }
+/// One raw-PCM session: Core redeems the credentials first, then the sound
+/// device opens, and the Core pulse keeps the permit alive exactly as for a
+/// WebRTC session. The link closing ends the session; nothing is retried.
+fn pcm_link_loop(
+    mut stream: std::os::unix::net::UnixStream,
+    core_socket: PathBuf,
+    credentials: Credentials,
+    stop: &Arc<AtomicBool>,
+    shared: &Arc<Mutex<Shared>>,
+) -> Result<()> {
+    use std::io::{ErrorKind, Read, Write};
+    stopped(stop)?;
+    stream
+        .set_nonblocking(true)
+        .map_err(|_| Failure::Unavailable)?;
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|_| Failure::Unavailable)?;
+    runtime.block_on(async {
+        let mut client = Client::redeem(&core_socket, CORE_UID, credentials)
+            .await
+            .map_err(|_| Failure::Denied)?;
+        stopped(stop)?;
+        let permit = client.permit();
+        let (audio_stop, audio_shared) = (stop.clone(), shared.clone());
+        let audio = thread::Builder::new()
+            .name("simhub-pcm".into())
+            .spawn(move || {
+                stopped(&audio_stop)?;
+                let device = rustsimhub_audio_alsa::UfiDuplex::open(&permit, local::now_ms)
+                    .map_err(|_| Failure::Unavailable)?;
+                let mut pump = Pump::new(device, permit, local::now_ms()).map_err(|_| Failure::Denied)?;
+                {
+                    let mut s = audio_shared.lock().map_err(|_| Failure::Unavailable)?;
+                    s.pcm_opened = true;
+                    if !audio_stop.load(Ordering::Acquire) {
+                        s.phase = Phase::Active;
+                    }
+                }
+                let mut framer = crate::pcm_link::Framer::default();
+                let (mut sent, mut received, mut unsent) = (0u64, 0u64, 0u64);
+                let mut next_stats = Instant::now();
+                let result = (|| loop {
+                    stopped(&audio_stop)?;
+                    pump.step(local::now_ms()).map_err(pcm_failure)?;
+                    while let Some(frame) = pump.capture(local::now_ms()).map_err(pcm_failure)? {
+                        match stream.write(&crate::pcm_link::encode(&frame)) {
+                            Ok(n) if n == rustsimhub_media::FRAME_BYTES => sent += 1,
+                            // A slow reader loses this frame; a partial write would
+                            // desynchronise the stream, so the link is closed instead.
+                            Ok(_) => return Err(Failure::Closed),
+                            Err(e) if e.kind() == ErrorKind::WouldBlock => unsent += 1,
+                            Err(_) => return Err(Failure::Closed),
+                        }
+                    }
+                    let mut bytes = [0u8; 4 * rustsimhub_media::FRAME_BYTES];
+                    loop {
+                        match stream.read(&mut bytes) {
+                            Ok(0) => return Err(Failure::Closed),
+                            Ok(n) => {
+                                for frame in framer.push(&bytes[..n], local::now_ms()) {
+                                    received += 1;
+                                    pump.enqueue(frame, local::now_ms()).map_err(pcm_failure)?;
+                                }
+                            }
+                            Err(e) if e.kind() == ErrorKind::WouldBlock => break,
+                            Err(_) => return Err(Failure::Closed),
+                        }
+                    }
+                    if Instant::now() >= next_stats {
+                        let stats = pump.stats();
+                        if let Ok(mut s) = audio_shared.lock() {
+                            s.counters = Counters {
+                                sent,
+                                received,
+                                captured: stats.captured_frames,
+                                played: stats.played_frames,
+                                dropped: stats.dropped_frames + framer.dropped + unsent,
+                                xruns: stats.xruns,
+                            };
+                        }
+                        next_stats = Instant::now() + Duration::from_millis(100);
+                    }
+                    thread::sleep(Duration::from_millis(2));
+                })();
+                pump.close();
+                result
+            })
+            .map_err(|_| Failure::Unavailable)?;
+        let mut pulse = tokio::time::interval(Duration::from_millis(250));
+        pulse.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let mut failure = None;
+        while !audio.is_finished() {
+            tokio::select! {
+                _ = tokio::time::sleep(Duration::from_millis(20)) => { if stop.load(Ordering::Acquire) { break; } },
+                _ = pulse.tick() => { if client.pulse().await.is_err() { failure = Some(Failure::Denied); break; } }
+            }
+        }
+        let requested_stop = stop.load(Ordering::Acquire);
+        drop(client); // invalidates the PCM permit before the join.
+        stop.store(true, Ordering::Release);
+        let result: Result<()> = audio.join().map_err(|_| Failure::Unavailable)?;
+        if let Some(f) = failure {
+            return Err(f);
+        }
+        match result {
+            // The gateway hanging up its side is how a PCM session normally ends.
+            Err(Failure::Closed) if !requested_stop => Ok(()),
+            other => finish_audio(other, requested_stop),
+        }
+    })
+}
+
+/// Accepts one PCM link from Edge: hello, exclusivity check, accept byte.
+async fn handle_pcm(mut stream: UnixStream, manager: Arc<Mutex<Manager>>) -> Result<()> {
+    let hello = timeout(Duration::from_secs(1), async {
+        let length = stream.read_u32().await.map_err(|_| Failure::Closed)? as usize;
+        if length == 0 || length > crate::pcm_link::MAX_HELLO {
+            return Err(Failure::BadRequest);
+        }
+        let mut body = vec![0; length];
+        stream
+            .read_exact(&mut body)
+            .await
+            .map_err(|_| Failure::Closed)?;
+        crate::pcm_link::parse_hello(&body).ok_or(Failure::BadRequest)
+    })
+    .await
+    .map_err(|_| Failure::Timeout)??;
+    // The accept byte is written before the session thread can write audio.
+    timeout(
+        Duration::from_secs(1),
+        stream.write_all(&[crate::pcm_link::ACCEPTED]),
+    )
+    .await
+    .map_err(|_| Failure::Timeout)?
+    .map_err(|_| Failure::Closed)?;
+    let stream = stream.into_std().map_err(|_| Failure::Unavailable)?;
+    manager.lock().map_err(|_| Failure::Unavailable)?.start_pcm(
+        hello.session,
+        hello.credentials,
+        stream,
+    )
+}
+
 fn session_loop(
     mut session: Session,
     socket: UdpSocket,
@@ -465,6 +673,7 @@ async fn handle(mut stream: UnixStream, manager: Arc<Mutex<Manager>>) -> Result<
 }
 async fn serve(
     listener: UnixListener,
+    pcm: Option<UnixListener>,
     manager: Arc<Mutex<Manager>>,
     allowed_uid: u32,
 ) -> Result<()> {
@@ -477,6 +686,15 @@ async fn serve(
         let accepted = tokio::select! {
             _=term.recv()=>break,_=interrupt.recv()=>break,
             _=tasks.join_next(),if !tasks.is_empty()=>continue,
+            link=async { pcm.as_ref().expect("guarded").accept().await },if pcm.is_some()=>{
+                if let Ok((stream, _)) = link {
+                    if stream.peer_cred().map(|c| c.uid()).ok() == Some(allowed_uid) && tasks.len() < 4 {
+                        let manager = manager.clone();
+                        tasks.spawn(async move { let _ = handle_pcm(stream, manager).await; });
+                    }
+                }
+                continue
+            },
             result=listener.accept()=>result,
         };
         let (stream, _) = accepted.map_err(|_| Failure::Unavailable)?;
@@ -532,6 +750,17 @@ pub fn run(path: &str) -> std::result::Result<(), &'static str> {
         .map_err(|_| "worker runtime unavailable")?;
     runtime.block_on(async {
         let (listener, _guard) = crate::control_socket::bind(&config.control_socket)?;
+        // The raw-PCM link for the local gateway sits beside the control socket, with the
+        // same owner, group and mode. Without it the worker still serves WebRTC.
+        let pcm = config
+            .control_socket
+            .parent()
+            .map(|dir| dir.join("pcm.sock"))
+            .and_then(|path| crate::control_socket::bind(&path).ok());
+        let (pcm, _pcm_guard) = match pcm {
+            Some((listener, guard)) => (Some(listener), Some(guard)),
+            None => (None, None),
+        };
         let mut manager = Manager::new(config.core_socket, config.bind_ip);
         for ip in config.additional_bind_ips {
             if manager.allowed_bind_ips.contains(&ip) {
@@ -540,7 +769,7 @@ pub fn run(path: &str) -> std::result::Result<(), &'static str> {
             manager.allowed_bind_ips.push(ip);
         }
         let manager = Arc::new(Mutex::new(manager));
-        let result = serve(listener, manager.clone(), EDGE_UID).await;
+        let result = serve(listener, pcm, manager.clone(), EDGE_UID).await;
         // Even an accept/runtime failure waits for all PCM/UDP owners to finish.
         if let Ok(mut m) = manager.lock() {
             m.active = None;
@@ -727,6 +956,100 @@ mod tests {
             manager.prepare(id('a'), ip, offer).unwrap().phase,
             Phase::Closed
         );
+    }
+    #[test]
+    fn a_pcm_link_without_core_authority_never_opens_the_sound_device() {
+        use std::io::Read;
+        let ip = "127.0.0.1".parse().unwrap();
+        let mut manager = Manager::new(PathBuf::from("/absent/core.sock"), ip);
+        let (edge, worker) = std::os::unix::net::UnixStream::pair().unwrap();
+        manager
+            .start_pcm(id('a'), credentials([3; 32]), worker)
+            .unwrap();
+        let closed = await_closed(&manager);
+        assert!(!closed.pcm_opened, "no Core redemption, no PCM");
+        assert_eq!(closed.failure, Some(Failure::Denied));
+        // The worker's end is gone: Edge sees the link close, with no audio ever written.
+        let mut edge = edge;
+        edge.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        let mut bytes = [0u8; 8];
+        assert_eq!(edge.read(&mut bytes).unwrap(), 0);
+        let (_, again) = std::os::unix::net::UnixStream::pair().unwrap();
+        assert!(
+            matches!(
+                manager.start_pcm(id('a'), credentials([3; 32]), again),
+                Err(Failure::Denied)
+            ),
+            "a session id is single use"
+        );
+    }
+    #[test]
+    fn a_pcm_link_and_a_webrtc_session_share_one_slot() {
+        let ip = "127.0.0.1".parse().unwrap();
+        let socket = UdpSocket::bind((ip, 0)).unwrap();
+        let (_, offer, _) = Session::offer(&socket, ip).unwrap();
+        let mut manager = Manager::new(PathBuf::from("/absent/core.sock"), ip);
+        manager.prepare(id('a'), ip, offer.clone()).unwrap();
+        let (_edge, worker) = std::os::unix::net::UnixStream::pair().unwrap();
+        assert!(
+            matches!(
+                manager.start_pcm(id('b'), credentials([3; 32]), worker),
+                Err(Failure::Busy)
+            ),
+            "a live WebRTC session keeps the slot"
+        );
+        manager.process(Command::Stop { session: id('a') }).unwrap();
+        await_closed(&manager);
+        let (_edge, worker) = std::os::unix::net::UnixStream::pair().unwrap();
+        manager
+            .start_pcm(id('b'), credentials([3; 32]), worker)
+            .unwrap();
+        // The PCM link holds the slot until it has finished.
+        let busy = manager.prepare(id('c'), ip, offer.clone());
+        let end = Instant::now() + Duration::from_secs(2);
+        while !manager.active.as_ref().unwrap().finished() {
+            assert!(Instant::now() < end);
+            thread::sleep(Duration::from_millis(2));
+        }
+        assert!(
+            matches!(busy, Err(Failure::Busy)) || busy.is_ok(),
+            "either it was still running or already done"
+        );
+        assert_eq!(
+            manager.prepare(id('d'), ip, offer).unwrap().phase,
+            Phase::Handshaking
+        );
+    }
+    #[tokio::test]
+    async fn a_malformed_pcm_hello_is_refused_before_any_session_exists() {
+        let ip = "127.0.0.1".parse().unwrap();
+        let manager = Arc::new(Mutex::new(Manager::new(
+            PathBuf::from("/absent/core.sock"),
+            ip,
+        )));
+        for body in [
+            &b"{}"[..],
+            br#"{"protocol":1,"session":"short","credentials":{}}"#,
+        ] {
+            let (mut edge, worker) = UnixStream::pair().unwrap();
+            edge.write_u32(body.len() as u32).await.unwrap();
+            edge.write_all(body).await.unwrap();
+            assert!(matches!(
+                handle_pcm(worker, manager.clone()).await,
+                Err(Failure::BadRequest)
+            ));
+            let mut byte = [0u8; 1];
+            assert_eq!(edge.read(&mut byte).await.unwrap(), 0, "no accept byte");
+        }
+        let (mut edge, worker) = UnixStream::pair().unwrap();
+        edge.write_u32(crate::pcm_link::MAX_HELLO as u32 + 1)
+            .await
+            .unwrap();
+        assert!(matches!(
+            handle_pcm(worker, manager.clone()).await,
+            Err(Failure::BadRequest)
+        ));
+        assert!(manager.lock().unwrap().active.is_none());
     }
     #[test]
     fn premature_authorization_cannot_open_pcm_or_reuse_a_session() {
