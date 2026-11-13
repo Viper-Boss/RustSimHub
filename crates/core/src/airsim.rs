@@ -7,14 +7,17 @@
 //! disabling AirSIM or from the client list, so paired iPhones get exactly the
 //! scopes below through the same sender and authorization as a browser.
 //!
-//! Calls are NOT wired yet: dialling and call control answer 503 and the call
-//! list is empty until the call-lease mapping and the PCM path land.
+//! Calls go through the ordinary call controller: the gateway principal
+//! prepares and submits each action, holds the call lease on the phone's
+//! behalf and renews it only while that phone keeps asking. When the phone
+//! goes away the lease expires and Core's own cleanup ends the call.
+//! Audio (the PCM port) is not wired yet.
 use rustsimhub_airsim::{
-    BackendError, Call, CallAction, Gateway, Line, Message, Outcome, Poll, Request, State,
+    BackendError, Call, CallAction, Gateway, Line, Message, Outcome, Phase, Poll, Request, State,
     EVENT_POLL_PERIOD_MS,
 };
 use rustsimhub_auth::{Auth, Error};
-use rustsimhub_domain::InboxCursor;
+use rustsimhub_domain::{CallLease, InboxCursor};
 use rustsimhub_policy::{Kind, Scope};
 use rustsimhub_storage::LineStatus;
 use rustsimhub_wire::AuthCommand;
@@ -61,7 +64,53 @@ struct Stored {
     baselines: HashMap<String, InboxCursor>,
 }
 
+/// The call controller as the gateway needs it; a trait so tests can script a modem.
+pub(crate) trait CallPort: Send + Sync {
+    fn request(
+        &self,
+        runtime: &tokio::runtime::Handle,
+        command: AuthCommand,
+    ) -> Result<Value, &'static str>;
+}
+impl CallPort for crate::calls::Controller {
+    fn request(
+        &self,
+        runtime: &tokio::runtime::Handle,
+        command: AuthCommand,
+    ) -> Result<Value, &'static str> {
+        runtime.block_on(crate::calls::Controller::request(self, command))
+    }
+}
+
+/// How often a present phone's lease is renewed, and how many calls are remembered.
+#[cfg(not(test))]
+const RENEW_EVERY_MS: i64 = 5_000;
+/// Tests renew on every observation instead of waiting.
+#[cfg(test)]
+const RENEW_EVERY_MS: i64 = 0;
+const MAX_SEEN_CALLS: usize = 32;
+
+/// A call the gateway itself observed. Core's call list carries no times, so
+/// the phone is shown only calls seen since this Core started, with real times.
+struct Seen {
+    id: String,
+    incoming: bool,
+    number: String,
+    phase: Phase,
+    created_ms: i64,
+    updated_ms: i64,
+    ended_ms: Option<i64>,
+    answered: bool,
+}
+#[derive(Default)]
+struct CallBook {
+    /// The pairing that controls the call, its lease, and when it was last renewed.
+    lease: Option<(String, CallLease, i64)>,
+    seen: Vec<Seen>,
+}
+
 struct Inner {
+    call_book: CallBook,
     gateway: Gateway,
     enabled: bool,
     pcm_rate: u32,
@@ -76,6 +125,7 @@ pub(crate) struct Controller {
     inner: Arc<Mutex<Inner>>,
     path: PathBuf,
     sender: Option<crate::sender::Controller>,
+    calls: Option<Arc<dyn CallPort>>,
 }
 
 fn now_ms() -> i64 {
@@ -183,9 +233,115 @@ struct Core<'a> {
     session: &'a mut Option<Zeroizing<String>>,
     baselines: &'a HashMap<String, InboxCursor>,
     sender: Option<&'a crate::sender::Controller>,
+    calls: Option<&'a dyn CallPort>,
+    book: &'a mut CallBook,
     runtime: &'a tokio::runtime::Handle,
 }
+fn call_error(code: &'static str) -> BackendError {
+    match code {
+        "call_owned" => BackendError::Message(409, "线路正由其他设备控制".into()),
+        "modem_busy" => BackendError::Message(409, "线路正忙".into()),
+        "line_unavailable" | "calls_read_only" | "call_controller_busy" | "controller_stopped" => {
+            BackendError::Unavailable
+        }
+        // Still pending in Core: the outcome is unknown, never "failed".
+        "pending_query_operation" => BackendError::Message(502, "结果未确认，请勿重复操作".into()),
+        other => BackendError::Message(502, other.into()),
+    }
+}
+/// Digits with an optional leading `+`, as Core requires; common separators are dropped.
+pub(crate) fn dial_number(text: &str) -> Option<String> {
+    let cleaned: String = text
+        .chars()
+        .filter(|c| !matches!(c, ' ' | '-' | '(' | ')'))
+        .collect();
+    let digits = cleaned.strip_prefix('+').unwrap_or(&cleaned);
+    ((3..=32).contains(&cleaned.len())
+        && !digits.is_empty()
+        && digits.bytes().all(|b| b.is_ascii_digit()))
+    .then_some(cleaned)
+}
 impl Core<'_> {
+    fn call(&mut self, command: AuthCommand) -> Result<Value, BackendError> {
+        let calls = self.calls.ok_or(BackendError::Unavailable)?;
+        calls.request(self.runtime, command).map_err(call_error)
+    }
+    /// Prepares and submits one call action as the gateway principal.
+    /// Returns the call id and the lease Core reports for it, if any.
+    fn act(
+        &mut self,
+        action: rustsimhub_domain::CallAction,
+        call_id: Option<String>,
+        payload: String,
+        lease: Option<CallLease>,
+        request_id: &str,
+    ) -> Result<(String, Option<CallLease>), BackendError> {
+        let token = self.token()?;
+        let line = lock_auth(self.auth)?.line_status(&token).map_err(storage)?;
+        let urgent = action == rustsimhub_domain::CallAction::Hangup;
+        let prepared = self.call(AuthCommand::PrepareCall {
+            token: token.to_string(),
+            line_epoch: line.line.0,
+            idempotency_key: request_id.to_owned(),
+            action,
+            call_id,
+            payload,
+        })?;
+        let operation_id = prepared["operation"]["id"]
+            .as_str()
+            .ok_or(BackendError::Other)?
+            .to_owned();
+        let submitted = self.call(AuthCommand::SubmitCall {
+            token: token.to_string(),
+            operation_id,
+            lease,
+            urgent,
+        })?;
+        match submitted["operation"]["state"].as_str() {
+            Some("submitted") => {}
+            // The modem may or may not have acted: say so, never repeat it here.
+            Some("unknown") | Some("submitting") => {
+                return Err(BackendError::Message(
+                    502,
+                    "结果未确认，请勿重复操作".into(),
+                ))
+            }
+            _ => return Err(BackendError::Message(502, "操作未执行".into())),
+        }
+        let id = submitted["operation"]["call_id"]
+            .as_str()
+            .ok_or(BackendError::Other)?
+            .to_owned();
+        let lease = serde_json::from_value::<CallLease>(submitted["lease"].clone())
+            .ok()
+            .filter(|l| l.call_id == id);
+        Ok((id, lease))
+    }
+    /// Renews the lease while its phone is present; forgets it once the call is gone.
+    fn keep(&mut self, pairing_id: &str, live: &[String], now: i64) {
+        let Some((owner, lease, renewed)) = self.book.lease.clone() else {
+            return;
+        };
+        if !live.contains(&lease.call_id) {
+            self.book.lease = None;
+            return;
+        }
+        if owner != pairing_id || now - renewed < RENEW_EVERY_MS {
+            return;
+        }
+        let Ok(token) = self.token() else { return };
+        match self.call(AuthCommand::RenewCall {
+            token: token.to_string(),
+            lease,
+        }) {
+            Ok(value) => match serde_json::from_value::<CallLease>(value["lease"].clone()) {
+                Ok(next) => self.book.lease = Some((owner, next, now)),
+                Err(_) => self.book.lease = None,
+            },
+            // Core no longer honours it: control is lost, and Core cleans the call up.
+            Err(_) => self.book.lease = None,
+        }
+    }
     /// The gateway principal's current bearer, logging in again when it expired.
     fn token(&mut self) -> Result<Zeroizing<String>, BackendError> {
         let mut auth = lock_auth(self.auth)?;
@@ -233,20 +389,219 @@ impl rustsimhub_airsim::Backend for Core<'_> {
             ..Line::default()
         })
     }
-    fn calls(&mut self, _: &str, _: usize) -> Result<(Vec<Call>, Vec<Call>), BackendError> {
-        Ok((Vec::new(), Vec::new()))
+    fn calls(
+        &mut self,
+        pairing_id: &str,
+        history: usize,
+    ) -> Result<(Vec<Call>, Vec<Call>), BackendError> {
+        if self.calls.is_none() {
+            return Ok((Vec::new(), Vec::new()));
+        }
+        let token = self.token()?;
+        let status = self.call(AuthCommand::CallStatus {
+            token: token.to_string(),
+        })?;
+        // An unconfirmed catalogue is unknown, not "no calls".
+        if status["available"] != true {
+            return Err(BackendError::Unavailable);
+        }
+        let now = now_ms();
+        let mut live_ids = Vec::new();
+        for summary in status["live_calls"]
+            .as_array()
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
+        {
+            let (Some(id), Some(state)) = (summary["id"].as_str(), summary["modem_state"].as_i64())
+            else {
+                continue;
+            };
+            if summary["availability"] != "observed" {
+                continue;
+            }
+            let incoming = summary["direction"] == 1;
+            let phase = match state {
+                0 | 1 => Phase::Dialing,
+                2 => Phase::Connecting,
+                3 | 6 => Phase::Ringing,
+                4 | 5 => Phase::Active,
+                _ => Phase::Ended,
+            };
+            if phase != Phase::Ended {
+                live_ids.push(id.to_owned());
+            }
+            match self.book.seen.iter_mut().find(|c| c.id == id) {
+                Some(seen) => {
+                    if seen.phase != phase {
+                        seen.phase = phase;
+                        seen.updated_ms = now;
+                    }
+                    seen.answered |= phase == Phase::Active;
+                    if phase == Phase::Ended && seen.ended_ms.is_none() {
+                        seen.ended_ms = Some(now);
+                    }
+                }
+                None if phase != Phase::Ended => {
+                    // The number lives only in the call's detail; read it once.
+                    let number = lock_auth(self.auth)?
+                        .call_detail(&token, id.to_owned())
+                        .ok()
+                        .and_then(|d| d.number)
+                        .unwrap_or_default();
+                    self.book.seen.push(Seen {
+                        id: id.to_owned(),
+                        incoming,
+                        number,
+                        phase,
+                        created_ms: now,
+                        updated_ms: now,
+                        ended_ms: None,
+                        answered: phase == Phase::Active,
+                    });
+                }
+                None => {}
+            }
+        }
+        // A call that left the live list has ended.
+        for seen in &mut self.book.seen {
+            if seen.ended_ms.is_none() && !live_ids.contains(&seen.id) {
+                seen.phase = Phase::Ended;
+                seen.updated_ms = now;
+                seen.ended_ms = Some(now);
+            }
+        }
+        if self.book.seen.len() > MAX_SEEN_CALLS {
+            let extra = self.book.seen.len() - MAX_SEEN_CALLS;
+            let mut dropped = 0;
+            self.book.seen.retain(|c| {
+                let drop = dropped < extra && c.ended_ms.is_some();
+                dropped += usize::from(drop);
+                !drop
+            });
+        }
+        self.keep(pairing_id, &live_ids, now);
+        let view = |c: &Seen| Call {
+            id: c.id.clone(),
+            incoming: c.incoming,
+            phase: c.phase,
+            number: c.number.clone(),
+            created_ms: c.created_ms,
+            updated_ms: c.updated_ms,
+            ended_ms: c.ended_ms,
+            missed: c.incoming && c.ended_ms.is_some() && !c.answered,
+        };
+        let live = self
+            .book
+            .seen
+            .iter()
+            .filter(|c| c.ended_ms.is_none())
+            .map(view)
+            .collect();
+        let ended = self
+            .book
+            .seen
+            .iter()
+            .rev()
+            .filter(|c| c.ended_ms.is_some())
+            .take(history)
+            .map(view)
+            .collect();
+        Ok((live, ended))
     }
-    fn dial(&mut self, _: &str, _: &str, _: &str) -> Result<Call, BackendError> {
-        Err(BackendError::Message(503, "通话功能尚未接入".into()))
+    fn dial(
+        &mut self,
+        pairing_id: &str,
+        number: &str,
+        request_id: &str,
+    ) -> Result<Call, BackendError> {
+        let number =
+            dial_number(number).ok_or(BackendError::Message(400, "number_required".into()))?;
+        let (id, lease) = self.act(
+            rustsimhub_domain::CallAction::Dial,
+            None,
+            number.clone(),
+            None,
+            request_id,
+        )?;
+        let now = now_ms();
+        // Without the lease the phone could not hang this call up: report it honestly.
+        let lease = lease.ok_or(BackendError::Message(
+            502,
+            "已拨出但控制权未确认，请在设备页面核对".into(),
+        ))?;
+        self.book.lease = Some((pairing_id.to_owned(), lease, now));
+        if !self.book.seen.iter().any(|c| c.id == id) {
+            self.book.seen.push(Seen {
+                id: id.clone(),
+                incoming: false,
+                number: number.clone(),
+                phase: Phase::Dialing,
+                created_ms: now,
+                updated_ms: now,
+                ended_ms: None,
+                answered: false,
+            });
+        }
+        Ok(Call {
+            id,
+            incoming: false,
+            phase: Phase::Dialing,
+            number,
+            created_ms: now,
+            updated_ms: now,
+            ended_ms: None,
+            missed: false,
+        })
     }
     fn call_action(
         &mut self,
-        _: &str,
-        _: &str,
-        _: CallAction,
-        _: &str,
+        pairing_id: &str,
+        call_id: &str,
+        action: CallAction,
+        request_id: &str,
     ) -> Result<(), BackendError> {
-        Err(BackendError::Message(503, "通话功能尚未接入".into()))
+        use rustsimhub_domain::CallAction as Core;
+        // Hanging up and tones need the lease this same phone holds for this call.
+        let held = || -> Result<CallLease, BackendError> {
+            match &self.book.lease {
+                Some((owner, lease, _)) if lease.call_id == call_id && owner == pairing_id => {
+                    Ok(lease.clone())
+                }
+                Some((_, lease, _)) if lease.call_id == call_id => {
+                    Err(BackendError::Message(409, "通话由另一台手机控制".into()))
+                }
+                _ => Err(BackendError::Message(409, "这通电话不由本机控制".into())),
+            }
+        };
+        let (core, payload, lease) = match action {
+            CallAction::Answer => (Core::Accept, String::new(), None),
+            // A ringing call nobody owns yet is refused without a lease.
+            CallAction::Reject => (Core::Hangup, String::new(), None),
+            CallAction::Hangup => (Core::Hangup, String::new(), Some(held()?)),
+            CallAction::Dtmf(digit) => (Core::Dtmf, digit.to_string(), Some(held()?)),
+        };
+        let (id, lease) = self.act(core, Some(call_id.to_owned()), payload, lease, request_id)?;
+        match action {
+            CallAction::Answer => {
+                let lease = lease.ok_or(BackendError::Message(
+                    502,
+                    "已接听但控制权未确认，请在设备页面核对".into(),
+                ))?;
+                self.book.lease = Some((pairing_id.to_owned(), lease, now_ms()));
+            }
+            CallAction::Hangup | CallAction::Reject => {
+                if self
+                    .book
+                    .lease
+                    .as_ref()
+                    .is_some_and(|(_, l, _)| l.call_id == id)
+                {
+                    self.book.lease = None;
+                }
+            }
+            CallAction::Dtmf(_) => {}
+        }
+        Ok(())
     }
     fn messages(
         &mut self,
@@ -333,6 +688,7 @@ impl Controller {
     pub(crate) fn open(
         state: &Path,
         sender: Option<crate::sender::Controller>,
+        calls: Option<Arc<dyn CallPort>>,
     ) -> Result<Self, Error> {
         let path = state.join(FILE);
         let stored = match std::fs::symlink_metadata(&path) {
@@ -372,6 +728,7 @@ impl Controller {
         gateway.set_enabled(stored.enabled);
         Ok(Self {
             inner: Arc::new(Mutex::new(Inner {
+                call_book: CallBook::default(),
                 gateway,
                 enabled: stored.enabled,
                 pcm_rate: stored.pcm_rate,
@@ -382,6 +739,7 @@ impl Controller {
             })),
             path,
             sender,
+            calls,
         })
     }
 
@@ -416,14 +774,14 @@ impl Controller {
         self.save(inner, false)
     }
 
-    fn view(inner: &mut Inner) -> Value {
+    fn view(inner: &mut Inner, calls_supported: bool) -> Value {
         let now = now_ms().div_euclid(1000);
         json!({
             "enabled": inner.enabled, "pcm_rate": inner.pcm_rate,
             "pairing_port": PAIRING_PORT, "control_port": CONTROL_PORT, "pcm_port": PCM_PORT,
             "window_seconds": inner.gateway.window_remaining(now),
             "pairings": inner.gateway.pairings(),
-            "calls_supported": false,
+            "calls_supported": calls_supported, "audio_supported": false,
         })
     }
 
@@ -449,7 +807,7 @@ impl Controller {
         match command {
             AuthCommand::AirsimStatus { token } => {
                 owner(&token, false)?;
-                Ok(Self::view(inner))
+                Ok(Self::view(inner, self.calls.is_some()))
             }
             AuthCommand::AirsimConfigure {
                 token,
@@ -489,7 +847,7 @@ impl Controller {
                 inner.pcm_rate = pcm_rate;
                 inner.gateway.set_enabled(enabled);
                 self.save(inner, true)?;
-                Ok(Self::view(inner))
+                Ok(Self::view(inner, self.calls.is_some()))
             }
             AuthCommand::AirsimOpenPairing { token } => {
                 owner(&token, true)?;
@@ -502,7 +860,7 @@ impl Controller {
             AuthCommand::AirsimClosePairing { token } => {
                 owner(&token, false)?;
                 inner.gateway.close_window();
-                Ok(Self::view(inner))
+                Ok(Self::view(inner, self.calls.is_some()))
             }
             AuthCommand::AirsimRevoke { token, pairing_id } => {
                 owner(&token, true)?;
@@ -552,6 +910,8 @@ impl Controller {
                         session: &mut inner.session,
                         baselines: &inner.baselines,
                         sender: None,
+                        calls: None,
+                        book: &mut inner.call_book,
                         runtime,
                     };
                     let cursor = core.token().ok().and_then(|token| {
@@ -593,6 +953,7 @@ impl Controller {
                     session,
                     baselines,
                     polls,
+                    call_book,
                     ..
                 } = inner;
                 let mut core = Core {
@@ -601,6 +962,8 @@ impl Controller {
                     session,
                     baselines,
                     sender: self.sender.as_ref(),
+                    calls: self.calls.as_deref(),
+                    book: call_book,
                     runtime,
                 };
                 let outcome = gateway.control(
@@ -644,6 +1007,7 @@ impl Controller {
                     session,
                     baselines,
                     polls,
+                    call_book,
                     ..
                 } = inner;
                 let Some((poll, deadline)) = polls.get(&ticket).cloned() else {
@@ -655,6 +1019,8 @@ impl Controller {
                     session,
                     baselines,
                     sender: None,
+                    calls: self.calls.as_deref(),
+                    book: call_book,
                     runtime,
                 };
                 let reply = match gateway.poll(&poll, now, &mut core, now >= deadline) {

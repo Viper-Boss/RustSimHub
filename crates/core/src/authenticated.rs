@@ -995,7 +995,13 @@ async fn serve_inner_media(
     let sender = messaging.then_some(controller);
     // The AirSIM gateway stays disabled until a recent owner enables it. A
     // damaged state file leaves it unavailable instead of being overwritten.
-    let airsim = match crate::airsim::Controller::open(&forwarding_state, sender.clone()) {
+    let airsim = match crate::airsim::Controller::open(
+        &forwarding_state,
+        sender.clone(),
+        calls
+            .clone()
+            .map(|c| std::sync::Arc::new(c) as std::sync::Arc<dyn crate::airsim::CallPort>),
+    ) {
         Ok(controller) => Some(controller),
         Err(_) => {
             eprintln!("airsim gateway unavailable: private state could not be loaded");
