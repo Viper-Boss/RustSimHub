@@ -18,8 +18,45 @@ const FRAME_AGE: Duration = Duration::from_millis(60);
 // AirSIM's public wire marker, identical to rustsimhub_airsim::PCM_READY.
 const READY: &[u8] = b"AIRSIMREADY";
 
+/// Fixed labels and elapsed time only: never peer addresses, prefaces,
+/// credentials, session identifiers or PCM. One bounded record per link.
+struct Trace {
+    phase: &'static str,
+    started: Instant,
+}
+impl Drop for Trace {
+    fn drop(&mut self) {
+        eprintln!(
+            "airsim_pcm_closed phase={} elapsed_ms={}",
+            self.phase,
+            self.started.elapsed().as_millis()
+        );
+    }
+}
+
 async fn core(app: &App, command: AuthCommand) -> Option<Value> {
-    timeout(CORE_WAIT, ask(app, command)).await.ok().flatten()
+    let operation = match &command {
+        AuthCommand::AirsimPcmOpen { .. } => "open",
+        AuthCommand::AirsimPcmPulse { close: true, .. } => "close",
+        AuthCommand::AirsimPcmPulse { .. } => "pulse",
+        _ => "invalid",
+    };
+    let started = Instant::now();
+    match timeout(CORE_WAIT, ask(app, command)).await {
+        Ok(Some(value)) => Some(value),
+        result => {
+            let outcome = if result.is_err() {
+                "timeout"
+            } else {
+                "unavailable_or_refused"
+            };
+            eprintln!(
+                "airsim_pcm_core operation={operation} outcome={outcome} elapsed_ms={}",
+                started.elapsed().as_millis()
+            );
+            None
+        }
+    }
 }
 
 /// Read exactly one bounded preface, leaving any coalesced PCM bytes on TCP.
@@ -154,13 +191,20 @@ async fn uplink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
 
 /// The app opens PCM while an owned call may still be dialling. Send its
 /// authenticated ready marker and silence, but never open ALSA before ACTIVE.
-async fn activate(app: &App, phone: &mut TcpStream, opened: Value) -> Option<Value> {
+async fn activate(
+    app: &App,
+    phone: &mut TcpStream,
+    opened: Value,
+    trace: &mut Trace,
+) -> Option<Value> {
     let rate = opened["pcm_rate"]
         .as_u64()
         .filter(|r| matches!(r, 8_000 | 16_000))?;
     let size = rate as usize / 50 * 2;
     let ticket = opened["ticket"].as_str()?;
+    trace.phase = "phone_ready";
     timeout(IO_WAIT, phone.write_all(READY)).await.ok()?.ok()?;
+    trace.phase = "waiting_active";
     let mut poll = tokio::time::interval(Duration::from_millis(250));
     let mut silence = tokio::time::interval(Duration::from_millis(20));
     poll.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -185,6 +229,7 @@ async fn activate(app: &App, phone: &mut TcpStream, opened: Value) -> Option<Val
     };
     // Discard pre-call microphone bytes, preserving raw-frame alignment. This
     // drain is bounded; a flooding sender is closed, not allowed to starve I/O.
+    trace.phase = "drain_pre_call";
     let mut drained = false;
     for _ in 0..16 {
         match phone.try_read(&mut bytes) {
@@ -227,7 +272,8 @@ async fn downlink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
     }
 }
 
-async fn relay(app: &App, phone: TcpStream, opened: &Value) -> Option<()> {
+async fn relay(app: &App, phone: TcpStream, opened: &Value, trace: &mut Trace) -> Option<()> {
+    trace.phase = "worker_endpoint";
     let rate = opened["pcm_rate"]
         .as_u64()
         .filter(|r| matches!(r, 8_000 | 16_000))? as u32;
@@ -239,6 +285,7 @@ async fn relay(app: &App, phone: TcpStream, opened: &Value) -> Option<()> {
         serde_json::from_value(opened["credentials"].clone()).ok()?;
     let (path, uid) = app.media.as_ref()?.pcm_endpoint()?;
     super::super::socket_safe(&path, uid).ok()?;
+    trace.phase = "worker_connect";
     let mut media = timeout(Duration::from_secs(1), UnixStream::connect(path))
         .await
         .ok()?
@@ -256,6 +303,7 @@ async fn relay(app: &App, phone: TcpStream, opened: &Value) -> Option<()> {
     if hello.len() > 2048 {
         return None;
     }
+    trace.phase = "worker_hello";
     timeout(Duration::from_secs(1), async {
         media.write_u32(hello.len() as u32).await?;
         media.write_all(&hello).await?;
@@ -267,6 +315,7 @@ async fn relay(app: &App, phone: TcpStream, opened: &Value) -> Option<()> {
     .await
     .ok()?
     .ok()?;
+    trace.phase = "streaming";
     let muted = AtomicBool::new(true);
     let ticket = opened["ticket"].as_str()?;
     let heartbeat = async {
@@ -304,12 +353,18 @@ async fn relay(app: &App, phone: TcpStream, opened: &Value) -> Option<()> {
 }
 
 pub(super) async fn handle(app: &App, mut phone: TcpStream, peer: IpAddr) {
+    let mut trace = Trace {
+        phase: "peer_or_media",
+        started: Instant::now(),
+    };
     if !rustsimhub_media::worker::local_ip(peer) || app.media.is_none() {
         return;
     }
+    trace.phase = "phone_preface";
     let Ok(Some(preface)) = timeout(Duration::from_secs(3), preface(&mut phone)).await else {
         return;
     };
+    trace.phase = "core_open";
     let Some(opened) = core(
         app,
         AuthCommand::AirsimPcmOpen {
@@ -324,13 +379,14 @@ pub(super) async fn handle(app: &App, mut phone: TcpStream, peer: IpAddr) {
     let Some(ticket) = opened["ticket"].as_str().map(str::to_owned) else {
         return;
     };
+    trace.phase = "phone_buffers";
     let socket = socket2::SockRef::from(&phone);
     let configured = phone.set_nodelay(true).is_ok()
         && socket.set_recv_buffer_size(4096).is_ok()
         && socket.set_send_buffer_size(4096).is_ok();
     if configured {
-        if let Some(active) = activate(app, &mut phone, opened).await {
-            let _ = relay(app, phone, &active).await;
+        if let Some(active) = activate(app, &mut phone, opened, &mut trace).await {
+            let _ = relay(app, phone, &active, &mut trace).await;
         }
     }
     let _ = core(
