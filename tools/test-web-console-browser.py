@@ -25,6 +25,21 @@ with sync_playwright() as p:
             page.route('**/*',lambda r:r.continue_() if r.request.url.startswith(origin+'/') else r.abort())
             page.goto(origin);page.wait_for_function("()=>document.querySelector('#test-state').textContent.includes('可以检查状态')")
             login(page,bytes(fixture()['device']).hex());wait_rows(page,16)
+            # Real owner page: a paired phone arrives outside this browser.
+            fixture('ready',airsimData=dict(enabled=True,pcm_rate=8000,pairings=[],window_seconds=None))
+            page.locator('[data-go=security]').first.evaluate('(e)=>e.click()')
+            page.wait_for_function("()=>document.querySelector('#c-as-msg').textContent.includes('0 条 iPhone 配对记录')")
+            page.locator('#c-as-rate').select_option('16000')
+            fixture('ready',airsimData=dict(pairings=[dict(id='0123456789abcdef01234567',device_hint='TEST',last_peer='192.168.1.20',last_seen_ms=1793600000000)]))
+            page.wait_for_function("()=>document.querySelectorAll('#c-as-list>div').length===1")
+            assert 'TEST' in page.locator('#c-as-list').text_content()
+            assert page.locator('#c-as-rate').input_value()=='16000','poll erased unsaved quality'
+            fixture('airsim-denied')
+            page.wait_for_function("()=>document.querySelector('#c-as-msg').textContent.includes('配对列表暂未更新')")
+            assert page.locator('#c-as-list>div').count()==1,'failed read erased saved phone'
+            assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),f'AirSIM overflow {width}'
+            assert all(c['op']=='airsim_status' for c in fixture()['calls'] if c['op'].startswith('airsim_'))
+            fixture('ready')
             page.locator('[data-go=comms]').first.evaluate('(e)=>e.click()')
             assert '收到顺序' in page.locator('.console-order-note').first.text_content();assert page.locator('.console-order-note').evaluate_all('(rows)=>rows.some(e=>e.getBoundingClientRect().height>0)')
             assert '通知40' in page.locator('#c-mail-list button').first.text_content(),'old SMS timestamp must not move newest receipt'

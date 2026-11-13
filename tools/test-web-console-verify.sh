@@ -11,6 +11,7 @@ cargo test --release -p rustsimhub-storage --lib --locked --offline -- --test-th
 cargo test --release -p rustsimhub-storage --lib --all-features --locked --offline -- --test-threads=1
 cargo clippy --release -p rustsimhub-storage --lib --tests --locked --offline -- -D warnings
 TZ=UTC node tools/test-web-console-fencing.mjs
+TZ=UTC node tools/test-web-airsim-status.mjs
 # Frozen old production, independent of current branch changes.
 git show 7535535bc5a95c42ff1ea70743b97be561f2049a:crates/edge/src/web/console.js > .local/web5-console/baseline-console.js
 TZ=UTC node tools/test-web-console-fencing.mjs .local/web5-console/baseline-console.js
