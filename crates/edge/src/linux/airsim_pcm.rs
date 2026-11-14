@@ -20,6 +20,8 @@ const FRAME_AGE: Duration = Duration::from_millis(60);
 // It also covers TCP fragments, measured from their original first byte.
 const UPLINK_JITTER_AGE: Duration = Duration::from_millis(120);
 const UPLINK_QUEUE_FRAMES: usize = 6;
+const UPLINK_BURST_FRAMES: usize = 3;
+const UPLINK_PREFILL_WAIT: Duration = Duration::from_millis(40);
 // AirSIM's public wire marker, identical to rustsimhub_airsim::PCM_READY.
 const READY: &[u8] = b"AIRSIMREADY";
 
@@ -238,6 +240,49 @@ impl UplinkTrace {
         self.queued_expired = queue.queued_expired;
     }
 }
+/// Elapsed-time credits survive skipped reactor wakeups. At most three
+/// frames can leave together, including after an arbitrarily long stall.
+/// The initial, bounded prefill gives the independent native playout clock
+/// a small cushion; it never extends an input frame's first-byte deadline.
+struct UplinkPacer {
+    credits: usize,
+    next_refill: Option<Instant>,
+}
+impl UplinkPacer {
+    fn new() -> Self {
+        Self {
+            credits: UPLINK_BURST_FRAMES,
+            next_refill: None,
+        }
+    }
+    fn ready(&self, queue: &Queue, now: Instant) -> bool {
+        self.next_refill.is_some()
+            || queue.frames.len() >= UPLINK_BURST_FRAMES
+            || queue.frames.front().is_some_and(|(at, _)| {
+                now.checked_duration_since(*at)
+                    .is_some_and(|age| age >= UPLINK_PREFILL_WAIT)
+            })
+    }
+    fn available(&mut self, now: Instant) -> bool {
+        let period = Duration::from_millis(20);
+        if let Some(next) = self.next_refill {
+            if let Some(elapsed) = now.checked_duration_since(next) {
+                let ticks = elapsed.as_nanos() / period.as_nanos() + 1;
+                self.credits = (self.credits + ticks.min(UPLINK_BURST_FRAMES as u128) as usize)
+                    .min(UPLINK_BURST_FRAMES);
+                let remainder =
+                    Duration::from_nanos((elapsed.as_nanos() % period.as_nanos()) as u64);
+                self.next_refill = Some(now + period - remainder);
+            }
+        }
+        self.credits > 0
+    }
+    fn sent(&mut self, now: Instant) {
+        self.credits -= 1;
+        self.next_refill
+            .get_or_insert(now + Duration::from_millis(20));
+    }
+}
 async fn uplink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
     mut phone: R,
     mut media: W,
@@ -247,6 +292,7 @@ async fn uplink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
     let mut bytes = [0; 4 * FRAME];
     let mut queue = Queue::new(rate);
     let mut trace = UplinkTrace::default();
+    let mut pacer = UplinkPacer::new();
     let mut tick = tokio::time::interval(Duration::from_millis(20));
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
@@ -259,19 +305,32 @@ async fn uplink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
                 if !queue.push(&bytes[..n],Instant::now()) {return Err(std::io::ErrorKind::InvalidData.into());}
                 trace.observe_queue(&queue);
             }
-            _=tick.tick() => {
-                let ready = queue.next_fresh(Instant::now());
-                trace.observe_queue(&queue);
-                if let Some(bytes)=ready {
-                    let mut frame=convert(&bytes,rate,16_000).ok_or(std::io::ErrorKind::InvalidData)?;
-                    trace.selected = trace.selected.saturating_add(1);
-                    trace.input_peak = trace.input_peak.max(pcm_peak(&frame));
-                    if muted.load(Ordering::Acquire) { trace.muted = trace.muted.saturating_add(1); frame.fill(0); }
-                    trace.output_peak = trace.output_peak.max(pcm_peak(&frame));
-                    timeout(IO_WAIT,media.write_all(&frame)).await.map_err(|_|std::io::ErrorKind::TimedOut)??;
-                    trace.sent = trace.sent.saturating_add(1);
-                }
+            _=tick.tick() => {}
+        }
+        if !pacer.ready(&queue, Instant::now()) {
+            continue;
+        }
+        for _ in 0..UPLINK_BURST_FRAMES {
+            let now = Instant::now();
+            if !pacer.available(now) {
+                break;
             }
+            let ready = queue.next_fresh(now);
+            trace.observe_queue(&queue);
+            let Some(bytes) = ready else { break };
+            let mut frame = convert(&bytes, rate, 16_000).ok_or(std::io::ErrorKind::InvalidData)?;
+            trace.selected = trace.selected.saturating_add(1);
+            trace.input_peak = trace.input_peak.max(pcm_peak(&frame));
+            if muted.load(Ordering::Acquire) {
+                trace.muted = trace.muted.saturating_add(1);
+                frame.fill(0);
+            }
+            trace.output_peak = trace.output_peak.max(pcm_peak(&frame));
+            pacer.sent(now);
+            timeout(IO_WAIT, media.write_all(&frame))
+                .await
+                .map_err(|_| std::io::ErrorKind::TimedOut)??;
+            trace.sent = trace.sent.saturating_add(1);
         }
     }
 }
@@ -788,6 +847,54 @@ mod tests {
         assert_eq!(trace.partial_expired, 1);
         assert_eq!(trace.overflow, 1);
         assert_eq!(trace.queued_expired, 6);
+    }
+
+    #[test]
+    fn pacing_credits_follow_elapsed_time_without_unbounded_catchup() {
+        let at = Instant::now();
+        let mut p = UplinkPacer::new();
+        for _ in 0..3 {
+            assert!(p.available(at));
+            p.sent(at);
+        }
+        assert!(!p.available(at));
+        assert!(!p.available(at + Duration::from_millis(19)));
+        assert!(p.available(at + Duration::from_millis(20)));
+        p.sent(at + Duration::from_millis(20));
+        let delayed = at + Duration::from_millis(75);
+        for _ in 0..2 {
+            assert!(p.available(delayed));
+            p.sent(delayed);
+        }
+        assert!(!p.available(delayed));
+        assert_eq!(p.next_refill, Some(at + Duration::from_millis(80)));
+        let much_later = at + Duration::from_secs(600);
+        for _ in 0..3 {
+            assert!(p.available(much_later));
+            p.sent(much_later);
+        }
+        assert!(
+            !p.available(much_later),
+            "a long stall never creates a replay burst"
+        );
+    }
+
+    #[test]
+    fn prefill_is_bounded_by_frames_or_time_without_retiming_speech() {
+        let at = Instant::now();
+        let p = UplinkPacer::new();
+        let mut q = Queue::new(8_000);
+        assert!(!p.ready(&q, at));
+        assert!(q.push(&[1; 320], at));
+        assert!(!p.ready(&q, at + Duration::from_millis(39)));
+        assert!(p.ready(&q, at + UPLINK_PREFILL_WAIT));
+        assert!(q.push(&[2; 640], at));
+        assert!(p.ready(&q, at));
+        assert!(q.next_fresh(at + UPLINK_JITTER_AGE).is_none());
+        assert_eq!(
+            q.queued_expired, 3,
+            "prefill never refreshes first-byte ages"
+        );
     }
     #[tokio::test]
     async fn preface_is_bounded_and_does_not_consume_coalesced_audio() {
