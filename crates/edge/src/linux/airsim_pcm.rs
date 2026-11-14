@@ -20,7 +20,7 @@ const FRAME_AGE: Duration = Duration::from_millis(60);
 // It also covers TCP fragments, measured from their original first byte.
 // An 88 ms batch split plus 40 ms input headroom must fit without retiming it.
 const UPLINK_JITTER_AGE: Duration = Duration::from_millis(160);
-const UPLINK_QUEUE_FRAMES: usize = 6;
+const UPLINK_QUEUE_FRAMES: usize = 8;
 const UPLINK_BURST_FRAMES: usize = 3;
 const UPLINK_INITIAL_CREDITS: usize = 2;
 const UPLINK_REFILL_CREDITS: usize = 2;
@@ -187,7 +187,7 @@ impl Queue {
     }
     fn next_fresh(&mut self, now: Instant) -> Option<Vec<u8>> {
         // TCP can coalesce two legitimate consecutive frames. Pace both in
-        // order instead of deleting one at each tick. The six-frame phone
+        // order instead of deleting one at each tick. The eight-frame phone
         // jitter budget is finite; first-byte timestamps are never rejuvenated.
         while let Some((at, bytes)) = self.frames.pop_front() {
             if now
@@ -730,9 +730,9 @@ mod tests {
         assert_eq!(q.next_fresh(now + Duration::from_millis(59)).unwrap()[0], 1);
         for n in 0..12 {
             assert!(q.push(&[n; 320], now));
-            assert!(q.frames.len() <= 6);
+            assert!(q.frames.len() <= UPLINK_QUEUE_FRAMES);
         }
-        for n in 6..12 {
+        for n in (12 - UPLINK_QUEUE_FRAMES as u8)..12 {
             assert_eq!(q.next_fresh(now).unwrap(), vec![n; 320]);
         }
         assert!(q.frames.is_empty());
@@ -835,21 +835,21 @@ mod tests {
     fn uplink_drop_reasons_account_for_expiry_and_bounded_overflow_separately() {
         let at = Instant::now();
         let mut q = Queue::new(8_000);
-        assert!(q.push(&[0; 7 * 320], at));
+        assert!(q.push(&[0; (UPLINK_QUEUE_FRAMES + 1) * 320], at));
         assert_eq!(q.frames.len(), UPLINK_QUEUE_FRAMES);
         assert_eq!(q.overflow, 1);
         assert!(q.next_fresh(at + UPLINK_JITTER_AGE).is_none());
-        assert_eq!(q.queued_expired, 6);
+        assert_eq!(q.queued_expired, UPLINK_QUEUE_FRAMES as u64);
         assert!(q.push(&[1], at));
         assert!(q.push(&[2; 319], at + UPLINK_JITTER_AGE));
         assert_eq!(q.partial_expired, 1);
         assert_eq!(q.dropped, q.partial_expired + q.overflow + q.queued_expired);
         let mut trace = UplinkTrace::default();
         trace.observe_queue(&q);
-        assert_eq!(trace.dropped, 8);
+        assert_eq!(trace.dropped, UPLINK_QUEUE_FRAMES as u64 + 2);
         assert_eq!(trace.partial_expired, 1);
         assert_eq!(trace.overflow, 1);
-        assert_eq!(trace.queued_expired, 6);
+        assert_eq!(trace.queued_expired, UPLINK_QUEUE_FRAMES as u64);
     }
 
     #[test]
