@@ -17,6 +17,7 @@ const CORE_WAIT: Duration = Duration::from_millis(700);
 const FRAME_AGE: Duration = Duration::from_millis(60);
 // The phone batches microphone frames before TCP delivery. This is a bounded
 // input jitter buffer, separate from the local worker/downlink's 60ms limit.
+// It also covers TCP fragments, measured from their original first byte.
 const UPLINK_JITTER_AGE: Duration = Duration::from_millis(120);
 const UPLINK_QUEUE_FRAMES: usize = 6;
 // AirSIM's public wire marker, identical to rustsimhub_airsim::PCM_READY.
@@ -118,6 +119,9 @@ struct Queue {
     frames: VecDeque<(Instant, Vec<u8>)>,
     size: usize,
     dropped: u64,
+    partial_expired: u64,
+    overflow: u64,
+    queued_expired: u64,
 }
 impl Queue {
     fn new(rate: u32) -> Self {
@@ -127,6 +131,9 @@ impl Queue {
             frames: VecDeque::with_capacity(UPLINK_QUEUE_FRAMES),
             size: rate as usize / 50 * 2,
             dropped: 0,
+            partial_expired: 0,
+            overflow: 0,
+            queued_expired: 0,
         }
     }
     fn push(&mut self, bytes: &[u8], now: Instant) -> bool {
@@ -144,14 +151,16 @@ impl Queue {
             // TCP may split one raw frame across microphone batches. Finish
             // its byte boundary even when stale; discard that whole frame,
             // never the remaining stream or the independent downlink.
-            if age < FRAME_AGE {
+            if age < UPLINK_JITTER_AGE {
                 if self.frames.len() == UPLINK_QUEUE_FRAMES {
                     self.frames.pop_front();
                     self.dropped = self.dropped.saturating_add(1);
+                    self.overflow = self.overflow.saturating_add(1);
                 }
                 self.frames.push_back((at, self.partial.clone()));
             } else {
                 self.dropped = self.dropped.saturating_add(1);
+                self.partial_expired = self.partial_expired.saturating_add(1);
             }
             self.partial.clear();
             self.partial_at = None;
@@ -160,6 +169,7 @@ impl Queue {
             if self.frames.len() == UPLINK_QUEUE_FRAMES {
                 self.frames.pop_front();
                 self.dropped = self.dropped.saturating_add(1);
+                self.overflow = self.overflow.saturating_add(1);
             }
             self.frames.push_back((now, chunk.to_vec()));
         }
@@ -182,6 +192,7 @@ impl Queue {
                 return Some(bytes);
             }
             self.dropped = self.dropped.saturating_add(1);
+            self.queued_expired = self.queued_expired.saturating_add(1);
         }
         None
     }
@@ -196,6 +207,9 @@ struct UplinkTrace {
     muted: u64,
     sent: u64,
     dropped: u64,
+    partial_expired: u64,
+    overflow: u64,
+    queued_expired: u64,
     input_peak: u32,
     output_peak: u32,
 }
@@ -211,9 +225,17 @@ fn pcm_peak(bytes: &[u8]) -> u32 {
 impl Drop for UplinkTrace {
     fn drop(&mut self) {
         // Aggregate levels only; never samples, speech, peers or credentials.
-        eprintln!("airsim_pcm_uplink input_bytes={} selected={} muted={} sent={} input_peak={} output_peak={} input_reads={} max_batch_bytes={} dropped={}",
+        eprintln!("airsim_pcm_uplink input_bytes={} selected={} muted={} sent={} input_peak={} output_peak={} input_reads={} max_batch_bytes={} dropped={} partial_expired={} overflow={} queued_expired={}",
             self.input_bytes, self.selected, self.muted, self.sent, self.input_peak, self.output_peak,
-            self.input_reads, self.max_batch_bytes, self.dropped);
+            self.input_reads, self.max_batch_bytes, self.dropped, self.partial_expired, self.overflow, self.queued_expired);
+    }
+}
+impl UplinkTrace {
+    fn observe_queue(&mut self, queue: &Queue) {
+        self.dropped = queue.dropped;
+        self.partial_expired = queue.partial_expired;
+        self.overflow = queue.overflow;
+        self.queued_expired = queue.queued_expired;
     }
 }
 async fn uplink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
@@ -235,11 +257,11 @@ async fn uplink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
                 trace.input_reads = trace.input_reads.saturating_add(1);
                 trace.max_batch_bytes = trace.max_batch_bytes.max(n as u64);
                 if !queue.push(&bytes[..n],Instant::now()) {return Err(std::io::ErrorKind::InvalidData.into());}
-                trace.dropped = queue.dropped;
+                trace.observe_queue(&queue);
             }
             _=tick.tick() => {
                 let ready = queue.next_fresh(Instant::now());
-                trace.dropped = queue.dropped;
+                trace.observe_queue(&queue);
                 if let Some(bytes)=ready {
                     let mut frame=convert(&bytes,rate,16_000).ok_or(std::io::ErrorKind::InvalidData)?;
                     trace.selected = trace.selected.saturating_add(1);
@@ -656,8 +678,8 @@ mod tests {
         assert!(q.push(&[3; 320], now));
         assert!(q.next_fresh(now + UPLINK_JITTER_AGE).is_none());
         assert!(q.push(&[1], now));
-        assert!(q.push(&[2; 319], now + FRAME_AGE));
-        assert!(q.next_fresh(now + FRAME_AGE).is_none());
+        assert!(q.push(&[2; 319], now + UPLINK_JITTER_AGE));
+        assert!(q.next_fresh(now + UPLINK_JITTER_AGE).is_none());
     }
     #[test]
     fn expired_partial_is_discarded_at_its_boundary_without_replaying_or_retiming_it() {
@@ -667,7 +689,7 @@ mod tests {
         assert!(q.push(&[2; 318], at + FRAME_AGE));
         assert_eq!(q.partial.len(), 319);
         assert!(q.next_fresh(at + FRAME_AGE).is_none());
-        let fresh = at + Duration::from_millis(100);
+        let fresh = at + Duration::from_millis(140);
         let mut bytes = vec![3]; // Complete and discard the stale frame.
         bytes.extend_from_slice(&[4; 320]);
         bytes.push(5); // Next partial retains this first-byte timestamp.
@@ -688,17 +710,18 @@ mod tests {
     }
 
     #[test]
-    fn phone_jitter_expiry_is_finite_and_does_not_extend_fragment_completion() {
+    fn phone_fragments_share_one_finite_first_byte_jitter_deadline() {
         let mut q = Queue::new(8_000);
         let at = Instant::now();
         assert!(q.push(&[1], at));
-        assert!(q.push(&[2; 319], at + Duration::from_millis(60)));
-        assert!(q.next_fresh(at + Duration::from_millis(60)).is_none());
+        assert!(q.push(&[2; 319], at + Duration::from_millis(120)));
+        assert!(q.next_fresh(at + Duration::from_millis(120)).is_none());
         assert_eq!(
             q.dropped, 1,
-            "incomplete raw frames retain the 60ms completion limit"
+            "incomplete phone frames expire at the same first-byte deadline"
         );
-        let fresh = at + Duration::from_millis(100);
+        assert_eq!(q.partial_expired, 1);
+        let fresh = at + Duration::from_millis(140);
         assert!(q.push(&[3; 320], fresh));
         assert_eq!(
             q.next_fresh(fresh + Duration::from_millis(119)).unwrap(),
@@ -710,6 +733,61 @@ mod tests {
             q.dropped, 2,
             "whole microphone frames expire at the new jitter boundary"
         );
+        assert_eq!(q.queued_expired, 1);
+    }
+
+    #[test]
+    fn split_microphone_batches_preserve_speech_and_original_age_at_both_rates() {
+        for rate in [8_000, 16_000] {
+            let size = rate as usize / 50 * 2;
+            for gap_ms in [60u64, 80, 100] {
+                for split in [1, size / 2, size - 1] {
+                    let at = Instant::now();
+                    let input: Vec<_> = (1..=4).flat_map(|n| vec![n; size]).collect();
+                    let mut q = Queue::new(rate);
+                    assert!(q.push(&input[..split], at));
+                    let completed = at + Duration::from_millis(gap_ms);
+                    assert!(q.push(&input[split..], completed));
+                    for n in 1..=4 {
+                        let tick = completed + Duration::from_millis(20 * (n as u64 - 1));
+                        assert_eq!(
+                            q.next_fresh(tick),
+                            Some(vec![n; size]),
+                            "a split microphone batch must not lose its first 20ms of speech"
+                        );
+                    }
+                    assert_eq!(q.dropped, 0);
+                    assert!(q.frames.is_empty());
+                    // Completion cannot restart the first-byte expiry clock.
+                    let mut q = Queue::new(rate);
+                    assert!(q.push(&input[..split], at));
+                    assert!(q.push(&input[split..size], completed));
+                    assert!(q.next_fresh(at + UPLINK_JITTER_AGE).is_none());
+                    assert_eq!(q.dropped, 1);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn uplink_drop_reasons_account_for_expiry_and_bounded_overflow_separately() {
+        let at = Instant::now();
+        let mut q = Queue::new(8_000);
+        assert!(q.push(&[0; 7 * 320], at));
+        assert_eq!(q.frames.len(), UPLINK_QUEUE_FRAMES);
+        assert_eq!(q.overflow, 1);
+        assert!(q.next_fresh(at + UPLINK_JITTER_AGE).is_none());
+        assert_eq!(q.queued_expired, 6);
+        assert!(q.push(&[1], at));
+        assert!(q.push(&[2; 319], at + UPLINK_JITTER_AGE));
+        assert_eq!(q.partial_expired, 1);
+        assert_eq!(q.dropped, q.partial_expired + q.overflow + q.queued_expired);
+        let mut trace = UplinkTrace::default();
+        trace.observe_queue(&q);
+        assert_eq!(trace.dropped, 8);
+        assert_eq!(trace.partial_expired, 1);
+        assert_eq!(trace.overflow, 1);
+        assert_eq!(trace.queued_expired, 6);
     }
     #[tokio::test]
     async fn preface_is_bounded_and_does_not_consume_coalesced_audio() {
