@@ -1201,7 +1201,9 @@ mod tests {
                 async move { uplink(reader, writer, 8_000, &AtomicBool::new(false)).await },
             );
         phone.write_all(&[1]).await.unwrap();
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        // Expiry is measured from the first byte using the phone's120ms
+        // input budget, independently of when the next pacing wake runs.
+        tokio::time::sleep(UPLINK_JITTER_AGE + Duration::from_millis(20)).await;
         let mut batch = vec![2; 319];
         batch.extend(std::iter::repeat_n(1234i16, 160).flat_map(i16::to_le_bytes));
         phone.write_all(&batch).await.unwrap();
