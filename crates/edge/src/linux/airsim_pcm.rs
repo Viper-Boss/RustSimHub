@@ -21,6 +21,7 @@ const FRAME_AGE: Duration = Duration::from_millis(60);
 const UPLINK_JITTER_AGE: Duration = Duration::from_millis(120);
 const UPLINK_QUEUE_FRAMES: usize = 6;
 const UPLINK_BURST_FRAMES: usize = 3;
+const UPLINK_REFILL_CREDITS: usize = 2;
 const UPLINK_PREFILL_WAIT: Duration = Duration::from_millis(40);
 // AirSIM's public wire marker, identical to rustsimhub_airsim::PCM_READY.
 const READY: &[u8] = b"AIRSIMREADY";
@@ -241,7 +242,7 @@ impl UplinkTrace {
     }
 }
 /// Elapsed-time credits survive skipped reactor wakeups. At most three
-/// frames can leave together, including after an arbitrarily long stall.
+/// frames seed playout initially, then at most two credits accumulate.
 /// The initial, bounded prefill gives the independent native playout clock
 /// a small cushion; it never extends an input frame's first-byte deadline.
 struct UplinkPacer {
@@ -268,8 +269,8 @@ impl UplinkPacer {
         if let Some(next) = self.next_refill {
             if let Some(elapsed) = now.checked_duration_since(next) {
                 let ticks = elapsed.as_nanos() / period.as_nanos() + 1;
-                self.credits = (self.credits + ticks.min(UPLINK_BURST_FRAMES as u128) as usize)
-                    .min(UPLINK_BURST_FRAMES);
+                self.credits = (self.credits + ticks.min(UPLINK_REFILL_CREDITS as u128) as usize)
+                    .min(UPLINK_REFILL_CREDITS);
                 let remainder =
                     Duration::from_nanos((elapsed.as_nanos() % period.as_nanos()) as u64);
                 self.next_refill = Some(now + period - remainder);
@@ -869,7 +870,7 @@ mod tests {
         assert!(!p.available(delayed));
         assert_eq!(p.next_refill, Some(at + Duration::from_millis(80)));
         let much_later = at + Duration::from_secs(600);
-        for _ in 0..3 {
+        for _ in 0..UPLINK_REFILL_CREDITS {
             assert!(p.available(much_later));
             p.sent(much_later);
         }
