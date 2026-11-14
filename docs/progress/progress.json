@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-13T16:03:11.976900+00:00",
+  "updated_at": "2026-11-14T14:24:56.896797+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -69,8 +69,8 @@
   "focus": {
     "task_id": "REL-01",
     "title": "冻结支持矩阵与发行候选",
-    "state": "81已装机；本次听音正常，开头接音与换链继续收尾",
-    "description": "PR242半帧修复已正常合并8fbe8f5；固定bb4fb0b/归档15cb6bd6通过1738 Rust/33专项忽略、12 ARM、54音频QEMU、严格检查/8网页入口及3旧源行为失败对照。81已签名、真实ARM验签/6拒绝、新备份/回读/受限准入/唯一启动/健康确认并独立复核；原配对、130短信、Root助手/正式更新器/信任保持，80回退保留，流量断开/转发PID0。用户本次听音正常连续，开头不足1秒不完整；已挂断。日志仍见内部短换链和一次媒体退出，首次接音、双向与长稳继续收尾，不能称零重连或全部验收通过。81.5%、20/169、10.6%保持。"
+    "state": "84手机输入抖动缓冲已装机；真实双向连续待复验",
+    "description": "PR245正常合并a3d1a74；83实测手机输入1285帧只送646帧、619/1258时隙补静音，造成上行卡顿。84将手机输入单独设120ms/6帧有界FIFO，原60ms分片完成、下行/声卡帧龄和全部授权时限保持，增加匿名批次/丢帧计数。固定0d3dd86通过1751 Rust/33专项忽略、12 ARM、54音频、strict/8网页、旧83真实行为失败和27项20轮540验证。84已签名/ARM验签6拒绝、新83备份回读/SQLite/准入/唯一启动/健康确认/独立复核；保留83回退、130短信、原配对/Root/信任。84真实双向连续仍待验收；保留83上行有声卡顿的失败证据，不以电平/测试数当成功。81.5%、20/169、10.6%保持。"
   },
   "facts": [
     {
@@ -90,8 +90,8 @@
     },
     {
       "label": "本轮PR处理",
-      "value": "242正常合并 · 81修复已安装",
-      "detail": "GitHub502/处理中后正常合并8fbe8f5；不是合成b82c，云端CI未运行"
+      "value": "243/244/245正常合并 · 84已安装",
+      "detail": "同源1751 Rust/12 ARM/54音频和540重复通过；云端计费零步骤"
     },
     {
       "label": "完整剩余台账",
@@ -125,13 +125,13 @@
     },
     {
       "label": "当前main来源",
-      "value": "8fbe8f5f · PCM半帧修复",
-      "detail": "完整树与受测bb4fb0b一致，制品来源归档15cb6bd6保持"
+      "value": "a3d1a743 · 手机输入抖动缓冲",
+      "detail": "固定0d3dd86/归档26547c3c；五人Git贡献已刷新"
     },
     {
       "label": "本轮环境与边界",
-      "value": "本次听音正常 · 首音/长稳待收尾",
-      "detail": "开头不足1秒不完整、内部换链仍待定位；Root/信任未变、流量断开，不录音"
+      "value": "84双向待复验 · 83卡顿证据保留",
+      "detail": "手机输入120ms/6帧；分片/下行/声卡60ms和权限保持，仅匿名计数、不录音"
     },
     {
       "label": "历史验收边界",
@@ -176,7 +176,10 @@
     "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pcm-diagnostics-followup-20261113.md",
     "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-diagnostic80-install-20261113.md",
     "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pcm-framing-followup-20261113.md",
-    "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-framing81-install-20261114.md"
+    "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-framing81-install-20261114.md",
+    "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-downlink82-install-20261114.md",
+    "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-uplink83-install-20261114.md",
+    "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-phone-jitter84-install-20261114.md"
   ],
   "modules": [
     {
@@ -6257,12 +6260,72 @@
       "evidence": [
         "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-framing81-install-20261114.md"
       ]
+    },
+    {
+      "at": "2026-11-13T17:01:30.528342+00:00",
+      "type": "state",
+      "title": "REL-01 · 下一关卡：冻结支持矩阵与发行候选",
+      "detail": "PR243已正常合并6cd0d37；下行整帧零字节发送超时改为丢帧并保持PCM，半帧超时仍关闭，40ms/60ms及授权保护不变。固定fab91e1通过1743 Rust/33专项忽略、12 ARM、54音频QEMU、严格检查/8网页入口、旧源同例实际失败及14项20轮280项通过。82已签名/实际ARM验签6拒绝、新备份回读/SQLite、有限准入/唯一启动/健康确认，保留81回退及原手机配对/短信/Root助手和信任，流量断开/转发PID0。首句完整性、内部换链/约30秒Denied及双向长稳仍需实测；不把NasSimHub历史现象等同根因。81.5%、20/169、加权10.6%保持。",
+      "task_ids": [
+        "REL-01"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-downlink82-install-20261114.md"
+      ]
+    },
+    {
+      "at": "2026-11-13T17:07:49.818183+00:00",
+      "type": "state",
+      "title": "REL-01 · 下一关卡：冻结支持矩阵与发行候选",
+      "detail": "82用户本次确认“基本正常”“已挂断，开头完整”，新通话已结束，服务无重启；仅记录本次下行首句通过。日志仍有两个约30秒的内部PCM段，其中一次在租约尚余约29秒时被auth_busy拒绝并重连；无本轮下行TimedOut或丢帧记录，不能据主观正常宣称零重连长稳。10010提示不能验证对方收到讲话，真实双向另做两部手机验收。81.5%、20/169、10.6%保持。",
+      "task_ids": [
+        "REL-01"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-downlink82-install-20261114.md"
+      ]
+    },
+    {
+      "at": "2026-11-13T17:29:29.157318+00:00",
+      "type": "state",
+      "title": "REL-01 · 下一关卡：冻结支持矩阵与发行候选",
+      "detail": "82追加两部手机实际双向未通过：用户上行一直无声、下行起初有声随后中断，新通话已结束、服务无重启。日志约11.4秒心跳700ms超时后重连，上行收到帧偏少；不能沿用10010首句完整当双向成功。新分支修正上行合并帧丢失、活跃PCM重复扫描与短授权锁争用，并加入匿名电平诊断；尚未部署，设备保持82。81.5%、20/169、10.6%不变。",
+      "task_ids": [
+        "REL-01"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-downlink82-install-20261114.md"
+      ]
+    },
+    {
+      "at": "2026-11-14T11:14:22.362076+00:00",
+      "type": "state",
+      "title": "REL-01 · 下一关卡：冻结支持矩阵与发行候选",
+      "detail": "PR244正常合并42558c3；83修复上行合法合并帧丢失、活跃PCM重复历史扫描及短Auth锁争用，保留原两帧/60ms、真实选中通话和当前授权、原RPC期限；匿名电平仅输出数字。固定4d6c8cb通过1749 Rust/33专项忽略、12 ARM、54音频QEMU、strict/8网页、3旧源实际行为失败、25项20轮500项通过。83已签名/实际ARM验签6拒绝、新82备份回读/SQLite/受限准入/唯一启动/健康确认及独立复核；保留82回退、130短信、原配对和Root/信任。82真实双向失败证据保留，83双向/长稳等待本次真实复验，不冒称上行已修好。81.5%、20/169、10.6%保持。",
+      "task_ids": [
+        "REL-01"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-uplink83-install-20261114.md"
+      ]
+    },
+    {
+      "at": "2026-11-14T14:24:56.896797+00:00",
+      "type": "state",
+      "title": "REL-01 · 下一关卡：冻结支持矩阵与发行候选",
+      "detail": "PR245正常合并a3d1a74；83实测手机输入1285帧只送646帧、619/1258时隙补静音，造成上行卡顿。84将手机输入单独设120ms/6帧有界FIFO，原60ms分片完成、下行/声卡帧龄和全部授权时限保持，增加匿名批次/丢帧计数。固定0d3dd86通过1751 Rust/33专项忽略、12 ARM、54音频、strict/8网页、旧83真实行为失败和27项20轮540验证。84已签名/ARM验签6拒绝、新83备份回读/SQLite/准入/唯一启动/健康确认/独立复核；保留83回退、130短信、原配对/Root/信任。84真实双向连续仍待验收；保留83上行有声卡顿的失败证据，不以电平/测试数当成功。81.5%、20/169、10.6%保持。",
+      "task_ids": [
+        "REL-01"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-phone-jitter84-install-20261114.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "8fbe8f5f4fdb0f2c4788cdf69da964bb98e13825",
-    "generated_at": "2026-11-13T15:48:09.133057+00:00",
+    "source_revision": "a3d1a743a7f13cd6973991e3175e3dc138cd4817",
+    "generated_at": "2026-11-14T11:50:56.123675+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -6281,15 +6344,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 61352,
-            "tests": 47163,
+            "product": 61776,
+            "tests": 47280,
             "tooling": 10859,
             "firmware": 1325
           },
-          "commits": 544,
-          "code_commits": 350,
-          "added": 128117,
-          "deleted": 3638
+          "commits": 548,
+          "code_commits": 354,
+          "added": 128738,
+          "deleted": 3701
         },
         "work": {
           "assigned_steps": 0,
@@ -6905,6 +6968,21 @@
             {
               "pr": 242,
               "head": "bb4fb0b5d84789b6750817c5c250493df2dc23fa",
+              "state": "MERGED"
+            },
+            {
+              "pr": 243,
+              "head": "fab91e1d495f3a5ef48190dbc457484d05cf77af",
+              "state": "MERGED"
+            },
+            {
+              "pr": 244,
+              "head": "4d6c8cb01afcbb0853655aef4c68f0143e779c42",
+              "state": "MERGED"
+            },
+            {
+              "pr": 245,
+              "head": "0d3dd86a54288fe076c7b1c6a0b839dcdea6d407",
               "state": "MERGED"
             }
           ],
@@ -7638,6 +7716,24 @@
             {
               "pr": 242,
               "head": "bb4fb0b5d84789b6750817c5c250493df2dc23fa",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 243,
+              "head": "fab91e1d495f3a5ef48190dbc457484d05cf77af",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 244,
+              "head": "4d6c8cb01afcbb0853655aef4c68f0143e779c42",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 245,
+              "head": "0d3dd86a54288fe076c7b1c6a0b839dcdea6d407",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
@@ -9360,8 +9456,8 @@
       "deleted": 4
     },
     "totals": {
-      "product": 102692,
-      "tests": 87981,
+      "product": 103116,
+      "tests": 88098,
       "tooling": 19697,
       "firmware": 1457
     },
@@ -10898,10 +10994,14 @@
   },
   "delivery_snapshot": {
     "date": "2026-11-14",
-    "main": "8fbe8f5f4fdb0f2c4788cdf69da964bb98e13825",
-    "summary": "主线功能主体已交，当前调试收尾。81半帧修复已装机，用户确认本次通话声音正常连续；开头不足1秒缺失、内部连接切换和长稳仍待优化与验收。",
+    "main": "a3d1a743a7f13cd6973991e3175e3dc138cd4817",
+    "summary": "84已安装，针对实测一半麦克风帧被短缓冲丢弃的上行卡顿，单独设置120ms手机输入队列。84真实双向连续仍待验收；保留83上行有声卡顿的失败证据，不以电平/测试数当成功。",
     "code_percent": null,
     "delivered": [
+      "PR245正常合并、84手机输入有界抖动缓冲已装机；1751 Rust/12 ARM/54音频、旧83失败对照和540重复通过，原数据/配对/83回退保留。",
+      "PR244正常合并；83上行两帧顺序发送、活跃PCM查选中通话、当前授权有限等待和匿名电平诊断已装机，完整同源构建/3反例/500重复验证通过。",
+      "82本次真实10010：用户确认开头完整、基本正常并已挂断；服务无重启。仍有约30秒授权忙重连，不冒称零换链长稳。",
+      "PR243正常合并；82整帧零进度超时丢帧保链修复已安装，完整同源构建、负对照与20轮PCM测试通过，原配对和短信保留。",
       "PR242正常合并、81签名/验签/新备份/有限维护/唯一启动/健康确认完成，130短信和原手机配对保留，80回退与Root信任保持。",
       "81本次真实电话：用户听音正常连续，开头不足1秒不完整；新Call6已结束，36个ACTIVE样本/62个RUNNING状态，服务无重启。仍有内部换链，不记长稳或双向全部通过。",
       "80用户第一通有声但断续、挂断正常；第二通明确为用户手动拨出，出现VoWLAN连接重置。已查明服务没有重启，原采样窗口不覆盖真实呼叫；后续采用实际阶段/声卡计数。",
@@ -10918,11 +11018,11 @@
       "六个新转发渠道和四个WEB5窗口已在主线；外部通道/真实系统与原任务边界继续保留。"
     ],
     "remaining": [
-      "当前应用81已确认装机，半帧修复已实际使用；完整产品profile、系统镜像/独立发行材料仍按原组合整合和实机验证，应用升级不替代整机发行验收。",
+      "当前应用84已确认装机；完整产品profile、整机镜像和独立发行材料继续按原组合验证，应用更新不代替整机发行。",
       "完整发行与第二设备：把任务8产品组合与通用镜像统一来源；核对匹配boot/DTB/modules/固件、锁定系统材料、真实PID1/沙箱，完成首次刷写/回读/冷启动/恢复。旧74镜像不等于新产品固件。",
       "首配与网页转入整合验收：源码已有通用AP准备/激活、分页/时间/终态修复；仍需完整镜像中真实AP→STA、错密、返回热点、最终保存与原浏览器钥匙/计数核对。",
       "产品矩阵已有真实三变体18项模式检查、EmailRecovery隔离完整链和同源WASM/浏览器证据；四包新组合需完整复验。自动健康仍仅forwarding/schema9/worker4/同Core，AP/SMTP5拒绝不冒充已支持；明确有限首版范围。",
-      "AirSIM配对/网页列表通过；81本次用户听音正常连续，开头不足1秒缺失。继续定位首次下行短超时及内部媒体退出/连接切换，保持原授权和帧龄；随后双人双向、较长通话、断网/撤权/争用复核。80历史控制响应重置根因未确认，本次未见接入拒绝不等于彻底关闭该项。",
+      "AirSIM84：84真实双向连续仍待验收；保留83上行有声卡顿的失败证据，不以电平/测试数当成功。继续较长通话、断网/撤权/争用及不同网络复核；83上行卡顿与82双向失败历史保留。",
       "转发/NKN/统计/蓝牙：真实递送及关闭冷启动、外网/中继/ON worker、获准统计网络和BLE HCI/RF/手机互操作；资源/账户/外部服务及独立授权到位后实测。",
       "更新/迁移/恢复故障：已交隔离安装、迁移和限时健康证据需落到实际设备；验证真实SIGKILL/写满/断电、回退兼容、保留后写数据及整机恢复，不能用合成PID1替代。",
       "发行终验：安全/依赖许可证与公开产物扫描、性能/功耗/组合长稳、第二棒子验收、用户及恢复手册、最终冻结与逐项签认。PMIC搁置，手机原生App不在首版。"
@@ -10944,7 +11044,9 @@
         69
       ],
       "merged_this_followup": [
-        242
+        243,
+        244,
+        245
       ],
       "integrated_heads": [
         195,
@@ -10966,9 +11068,15 @@
       "ci_exception_239": "用户明确授权固定1935ed29，仅本笔；云端付款/消费限制导致零步骤，不记通过",
       "ci_exception_240": "用户明确授权固定6166822，仅本笔；另明确允许epoch79签名、验证和有限安装",
       "ci_exception_241": "用户明确授权固定96b552d合并及同源epoch80签名/验签/有限安装；不改Root助手或信任",
-      "merge_242": "按用户持续推进当前修复指示正常合并；云端计费零步骤已披露，不改保护规则或管理员绕过"
+      "merge_242": "按用户持续推进当前修复指示正常合并；云端计费零步骤已披露，不改保护规则或管理员绕过",
+      "merge_243": "按用户持续固件修复指示正常固定HEAD合并；云端付款/消费限制零步骤已披露，不改保护规则或管理员绕过",
+      "merge_244": "按用户持续修复固件指示正常固定HEAD合并；云端计费零步骤披露，不改保护规则或管理员绕过",
+      "merge_245": "正常固定HEAD合并，1751本机验证和云端计费零步骤分别披露，不改保护规则或管理员绕过"
     },
     "evidence": [
+      "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-phone-jitter84-install-20261114.md",
+      "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-uplink83-install-20261114.md",
+      "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-downlink82-install-20261114.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-framing81-install-20261114.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-pcm-framing-followup-20261113.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-diagnostic80-install-20261113.md",
