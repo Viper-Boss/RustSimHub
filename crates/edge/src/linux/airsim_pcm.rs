@@ -18,9 +18,11 @@ const FRAME_AGE: Duration = Duration::from_millis(60);
 // The phone batches microphone frames before TCP delivery. This is a bounded
 // input jitter buffer, separate from the local worker/downlink's 60ms limit.
 // It also covers TCP fragments, measured from their original first byte.
-const UPLINK_JITTER_AGE: Duration = Duration::from_millis(120);
+// An 88 ms batch split plus 40 ms input headroom must fit without retiming it.
+const UPLINK_JITTER_AGE: Duration = Duration::from_millis(160);
 const UPLINK_QUEUE_FRAMES: usize = 6;
 const UPLINK_BURST_FRAMES: usize = 3;
+const UPLINK_INITIAL_CREDITS: usize = 2;
 const UPLINK_REFILL_CREDITS: usize = 2;
 const UPLINK_PREFILL_WAIT: Duration = Duration::from_millis(40);
 // AirSIM's public wire marker, identical to rustsimhub_airsim::PCM_READY.
@@ -241,8 +243,8 @@ impl UplinkTrace {
         self.queued_expired = queue.queued_expired;
     }
 }
-/// Elapsed-time credits survive skipped reactor wakeups. At most three
-/// frames seed playout initially, then at most two credits accumulate.
+/// Elapsed-time credits survive skipped reactor wakeups. At most two
+/// credits accumulate; each wake is additionally bounded to three writes.
 /// The initial, bounded prefill gives the independent native playout clock
 /// a small cushion; it never extends an input frame's first-byte deadline.
 struct UplinkPacer {
@@ -252,13 +254,12 @@ struct UplinkPacer {
 impl UplinkPacer {
     fn new() -> Self {
         Self {
-            credits: UPLINK_BURST_FRAMES,
+            credits: UPLINK_INITIAL_CREDITS,
             next_refill: None,
         }
     }
     fn ready(&self, queue: &Queue, now: Instant) -> bool {
         self.next_refill.is_some()
-            || queue.frames.len() >= UPLINK_BURST_FRAMES
             || queue.frames.front().is_some_and(|(at, _)| {
                 now.checked_duration_since(*at)
                     .is_some_and(|age| age >= UPLINK_PREFILL_WAIT)
@@ -749,7 +750,7 @@ mod tests {
         assert!(q.push(&[2; 318], at + FRAME_AGE));
         assert_eq!(q.partial.len(), 319);
         assert!(q.next_fresh(at + FRAME_AGE).is_none());
-        let fresh = at + Duration::from_millis(140);
+        let fresh = at + UPLINK_JITTER_AGE + Duration::from_millis(20);
         let mut bytes = vec![3]; // Complete and discard the stale frame.
         bytes.extend_from_slice(&[4; 320]);
         bytes.push(5); // Next partial retains this first-byte timestamp.
@@ -774,21 +775,22 @@ mod tests {
         let mut q = Queue::new(8_000);
         let at = Instant::now();
         assert!(q.push(&[1], at));
-        assert!(q.push(&[2; 319], at + Duration::from_millis(120)));
-        assert!(q.next_fresh(at + Duration::from_millis(120)).is_none());
+        assert!(q.push(&[2; 319], at + UPLINK_JITTER_AGE));
+        assert!(q.next_fresh(at + UPLINK_JITTER_AGE).is_none());
         assert_eq!(
             q.dropped, 1,
             "incomplete phone frames expire at the same first-byte deadline"
         );
         assert_eq!(q.partial_expired, 1);
-        let fresh = at + Duration::from_millis(140);
+        let fresh = at + UPLINK_JITTER_AGE + Duration::from_millis(20);
         assert!(q.push(&[3; 320], fresh));
         assert_eq!(
-            q.next_fresh(fresh + Duration::from_millis(119)).unwrap(),
+            q.next_fresh(fresh + UPLINK_JITTER_AGE - Duration::from_millis(1))
+                .unwrap(),
             vec![3; 320]
         );
         assert!(q.push(&[4; 320], fresh));
-        assert!(q.next_fresh(fresh + Duration::from_millis(120)).is_none());
+        assert!(q.next_fresh(fresh + UPLINK_JITTER_AGE).is_none());
         assert_eq!(
             q.dropped, 2,
             "whole microphone frames expire at the new jitter boundary"
@@ -800,7 +802,7 @@ mod tests {
     fn split_microphone_batches_preserve_speech_and_original_age_at_both_rates() {
         for rate in [8_000, 16_000] {
             let size = rate as usize / 50 * 2;
-            for gap_ms in [60u64, 80, 100] {
+            for gap_ms in [60u64, 80, 100, 140] {
                 for split in [1, size / 2, size - 1] {
                     let at = Instant::now();
                     let input: Vec<_> = (1..=4).flat_map(|n| vec![n; size]).collect();
@@ -854,7 +856,7 @@ mod tests {
     fn pacing_credits_follow_elapsed_time_without_unbounded_catchup() {
         let at = Instant::now();
         let mut p = UplinkPacer::new();
-        for _ in 0..3 {
+        for _ in 0..UPLINK_INITIAL_CREDITS {
             assert!(p.available(at));
             p.sent(at);
         }
@@ -890,7 +892,11 @@ mod tests {
         assert!(!p.ready(&q, at + Duration::from_millis(39)));
         assert!(p.ready(&q, at + UPLINK_PREFILL_WAIT));
         assert!(q.push(&[2; 640], at));
-        assert!(p.ready(&q, at));
+        assert!(
+            !p.ready(&q, at),
+            "a batch still needs input jitter headroom"
+        );
+        assert!(p.ready(&q, at + UPLINK_PREFILL_WAIT));
         assert!(q.next_fresh(at + UPLINK_JITTER_AGE).is_none());
         assert_eq!(
             q.queued_expired, 3,
@@ -1202,7 +1208,7 @@ mod tests {
                 async move { uplink(reader, writer, 8_000, &AtomicBool::new(false)).await },
             );
         phone.write_all(&[1]).await.unwrap();
-        // Expiry is measured from the first byte using the phone's120ms
+        // Expiry is measured from the first byte using the phone input
         // input budget, independently of when the next pacing wake runs.
         tokio::time::sleep(UPLINK_JITTER_AGE + Duration::from_millis(20)).await;
         let mut batch = vec![2; 319];
