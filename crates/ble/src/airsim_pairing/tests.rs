@@ -42,6 +42,8 @@ use rustsimhub_airsim::base64url;
 use serde_json::{json, Value as Json};
 use zbus::zvariant::{OwnedObjectPath, Value};
 
+const ATT_MTU: u16 = 185;
+
 fn options(device: &str) -> Options {
     HashMap::from([
         (
@@ -51,7 +53,7 @@ fn options(device: &str) -> Options {
                 .unwrap(),
         ),
         ("link".into(), Value::from("LE").try_into().unwrap()),
-        ("mtu".into(), OwnedValue::from(23u16)),
+        ("mtu".into(), OwnedValue::from(ATT_MTU)),
     ])
 }
 
@@ -172,7 +174,14 @@ async fn private_bus_runs_ios_wire_flow_and_rejects_another_sender_and_peer() {
             .is_err());
         let (remote, mtu): (OwnedFd, u16) =
             pairing.call(acquire, &(options(device),)).await.unwrap();
-        assert_eq!(mtu, 23);
+        assert_eq!(mtu, ATT_MTU);
+        assert!(pairing
+            .call::<_, _, ()>(
+                "WriteValue",
+                &(vec![0u8; MAX_GATT_VALUE + 1], options(device)),
+            )
+            .await
+            .is_err());
         assert!(pairing
             .call::<_, _, (OwnedFd, u16)>(acquire, &(options(other),))
             .await
@@ -275,7 +284,13 @@ async fn exchange(
     payload: Json,
 ) -> Json {
     let bytes = serde_json::to_vec(&payload).unwrap();
-    for frame in voble::fragment(&bytes, id, 20).unwrap() {
+    let frames = voble::fragment(&bytes, id, MAX_GATT_VALUE).unwrap();
+    if payload["op"] == "prepare" {
+        // CoreBluetooth hands BlueZ a long write when this frame exceeds ATT_MTU - 3.
+        assert_eq!(frames.len(), 1);
+        assert!(frames[0].len() > usize::from(ATT_MTU - 3));
+    }
+    for frame in frames {
         proxy
             .call::<_, _, ()>("WriteValue", &(frame, options(device)))
             .await
@@ -285,7 +300,7 @@ async fn exchange(
     let receive = async {
         let mut fragments = Fragments::default();
         loop {
-            let mut value = [0; 20];
+            let mut value = [0; (ATT_MTU - 3) as usize];
             let len = phone
                 .async_io(tokio::io::Interest::READABLE, |mut fd| fd.read(&mut value))
                 .await

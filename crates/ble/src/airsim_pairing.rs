@@ -37,6 +37,7 @@ const SERVICE: &str = "/org/rustsimhub/airsim/service";
 const ADVERTISEMENT: &str = "/org/rustsimhub/airsim_advert";
 const SERVICE_UUID: &str = "7e57a000-7a17-4d9f-9a3c-41a17b1e0001";
 const PAIRING_UUID: &str = "7e57a002-7a17-4d9f-9a3c-41a17b1e0001";
+const MAX_GATT_VALUE: usize = 512;
 const BUS_TIMEOUT: Duration = Duration::from_secs(3);
 const REPLY_TIMEOUT: Duration = Duration::from_secs(2);
 
@@ -172,9 +173,12 @@ impl PairingCharacteristic {
     ) -> Result<(), GattError> {
         verify(&self.0.scope, &header).await?;
         let device = device(&options)?;
-        if options
-            .get("offset")
-            .is_some_and(|v| u16::try_from(v) != Ok(0))
+        // BlueZ reassembles an ATT long write before delivering WriteValue.
+        // The negotiated packet size limits outgoing indications only.
+        if value.len() > MAX_GATT_VALUE
+            || options
+                .get("offset")
+                .is_some_and(|v| u16::try_from(v) != Ok(0))
             || options.contains_key("prepare-authorize")
             || options
                 .get("type")
@@ -191,11 +195,7 @@ impl PairingCharacteristic {
             .as_mut()
             .filter(|peer| peer.device == device)
             .ok_or_else(rejected)?;
-        let link = peer
-            .link(Channel::Pairing)
-            .cloned()
-            .filter(|link| value.len() <= link.packet)
-            .ok_or_else(rejected)?;
+        let link = peer.link(Channel::Pairing).cloned().ok_or_else(rejected)?;
         let now = Instant::now();
         let Some(data) = peer.frames.push(&value, now).map_err(|_| rejected())? else {
             return Ok(());
@@ -350,7 +350,7 @@ impl Characteristic {
             "write-without-response" => "command",
             _ => return Err(rejected()),
         };
-        if value.len() > 512
+        if value.len() > MAX_GATT_VALUE
             || options.contains_key("prepare-authorize")
             || options
                 .get("offset")
@@ -563,7 +563,7 @@ impl Context {
         local.set_nonblocking(true).map_err(|_| rejected())?;
         let stream = Arc::new(AsyncFd::new(local).map_err(|_| rejected())?);
         peer.links[channel as usize] = Some(Link {
-            packet: usize::from(mtu - 3).min(512),
+            packet: usize::from(mtu - 3).min(MAX_GATT_VALUE),
             stream,
         });
         self.changed.notify_one();
