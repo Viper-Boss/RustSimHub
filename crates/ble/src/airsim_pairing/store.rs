@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
+use super::backend::Secret;
 use rustsimhub_airsim::{
     base64url, decode_base64url,
     voble::{Credential, Error, Store},
@@ -11,6 +12,7 @@ use std::{
     os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
+use zeroize::Zeroizing;
 
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -18,6 +20,8 @@ struct Record {
     identity: String,
     current: Option<String>,
     previous: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    bridge: Option<String>,
 }
 
 pub(super) struct Disk {
@@ -26,6 +30,7 @@ pub(super) struct Disk {
     lock: File,
     identity: String,
     credential: Option<Credential>,
+    bridge: Option<Secret>,
 }
 
 impl Disk {
@@ -94,6 +99,7 @@ impl Disk {
                     identity: format!("rustsimhub-{}", base64url(&id)),
                     current: None,
                     previous: None,
+                    bridge: None,
                 }
             }
         };
@@ -120,6 +126,12 @@ impl Disk {
             lock,
             identity: record.identity,
             credential: current.map(|key| Credential::from_bytes(key, previous)),
+            bridge: record
+                .bridge
+                .as_deref()
+                .map(decode)
+                .transpose()?
+                .map(Zeroizing::new),
         };
         if new {
             state.persist(None)?;
@@ -137,11 +149,25 @@ impl Disk {
         Ok(())
     }
 
+    pub(super) fn bridge(&self) -> Option<Secret> {
+        self.bridge.clone()
+    }
+
+    pub(super) fn link(&mut self, secret: Secret) -> io::Result<()> {
+        let previous = self.bridge.replace(secret);
+        if let Err(error) = self.persist(self.credential.as_ref()) {
+            self.bridge = previous;
+            return Err(error);
+        }
+        Ok(())
+    }
+
     fn persist(&self, credential: Option<&Credential>) -> io::Result<()> {
         let keys = credential.map(Credential::keys);
         let record = Record {
             identity: self.identity.clone(),
             current: keys.map(|(current, _)| base64url(current)),
+            bridge: self.bridge.as_ref().map(|key| base64url(&key[..])),
             previous: keys.and_then(|(_, previous)| previous.map(|key| base64url(key))),
         };
         let pending = self.path.join("state.new");

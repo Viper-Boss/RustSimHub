@@ -2011,7 +2011,9 @@ dependencies = [
  "socket2",
  "tempfile",
  "tokio",
+ "x25519-dalek",
  "zbus",
+ "zeroize",
 ]
 
 [[package]]
@@ -2115,6 +2117,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "rcgen",
+ "rustsimhub-airsim",
  "rustsimhub-auth",
  "rustsimhub-domain",
  "rustsimhub-media",

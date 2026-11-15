@@ -1273,3 +1273,28 @@ fn dialled_numbers_are_normalised_or_refused() {
         assert_eq!(dial_number(bad), None, "{bad:?}");
     }
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn voble_idle_observation_does_not_renew_the_previous_connection_call() {
+    let mut f = fixture();
+    assert_eq!(f.pair().await["status"], 200);
+    assert_eq!(
+        f.control("POST", "/api/calls/dial", r#"{"number":"10010"}"#)
+            .await["status"],
+        200
+    );
+    let before = f.calls.with(|m| m.renewals);
+    for route in [
+        "/api/calls/status?observe=1",
+        "/api/calls/status?observe=1&own=other-call",
+    ] {
+        let observed = f.control("GET", route, "").await;
+        assert_eq!(observed["body"]["active"]["id"], "call-1");
+        assert_eq!(f.calls.with(|m| m.renewals), before);
+    }
+    let owned = f
+        .control("GET", "/api/calls/status?observe=1&own=call-1", "")
+        .await;
+    assert_eq!(owned["status"], 200);
+    assert_eq!(f.calls.with(|m| m.renewals), before + 1);
+}

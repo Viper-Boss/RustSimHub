@@ -1,30 +1,30 @@
-# AirSIM VoBLE 蓝牙配对
+# AirSIM VoBLE 蓝牙配对与通话
 
-RustSimHub 可作为 AirSIM iPhone App 的 VoBLE v1 配对端。候选程序通过 BlueZ 在 hci0 上注册 AirSIM 的服务和广播，设备端与 iPhone 分别确认六位校验码。设备仅在确认完成后保存一台手机的配对凭据。凭据独立于现有 VoWLAN、设备所有者和 BLE 应急配网记录。
+RustSimHub 可以作为 iPhone 版 AirSIM 的 VoBLE v1 外设。iPhone 通过 BLE GATT 发现、配对、拨号、接听和双向传声。语音帧采用 AirSIM 原有的 G.711 μ-law、8 kHz 单声道、20 ms 帧和 AES-GCM 保护。棒子内部通过 Unix socket 连接 Edge 和声卡服务，手机通话期间无需连接棒子的 Wi-Fi 或 USB 网络。
 
-协议依据为 [AirSIM 1855e43 的 iOS 配对实现](https://github.com/kai-wu-cortex/AirSIM/blob/1855e435aa1e207e6939c525c3feea4bba09ee2b/iOS/AirSIM/VoBLEPairing.swift)、[iOS GATT 客户端](https://github.com/kai-wu-cortex/AirSIM/blob/1855e435aa1e207e6939c525c3feea4bba09ee2b/iOS/AirSIM/VoBLECentralController.swift)和[分片格式](https://github.com/kai-wu-cortex/AirSIM/blob/1855e435aa1e207e6939c525c3feea4bba09ee2b/iOS/AirSIM/VoBLEProtocol.swift)。Rust 代码按上述线格式独立实现，定值向量由 OpenSSL 和 Python 生成。
+协议依据为 AirSIM 源码 `1855e43` 的 [iOS 配对](https://github.com/kai-wu-cortex/AirSIM/blob/1855e435aa1e207e6939c525c3feea4bba09ee2b/iOS/AirSIM/VoBLEPairing.swift)、[控制与 GATT](https://github.com/kai-wu-cortex/AirSIM/blob/1855e435aa1e207e6939c525c3feea4bba09ee2b/iOS/AirSIM/VoBLECentralController.swift)和[媒体链路](https://github.com/kai-wu-cortex/AirSIM/blob/1855e435aa1e207e6939c525c3feea4bba09ee2b/iOS/AirSIM/VoBLEMediaTransport.swift)。Rust 代码根据线格式独立实现，定值向量使用 OpenSSL 和 Python 生成。
 
-## 设备联调
+## 运行条件
 
-需要支持 LE Peripheral 和 Advertising 的 hci0，以及具备按连接路由 indication 和通过描述符回传确认的 BlueZ 5.82 或更新版本。候选检查实际占有系统总线 `org.bluez` 的版本。行政终端启动，使用应用自有的 0700 状态目录。该二进制通过 Cargo feature 单独构建，默认构建和设备启动流程不加载它。
+- 支持 LE Peripheral 和 Advertising 的 hci0，以及支持按连接路由 indication 的 BlueZ 5.82 或更新版本。语音最低协商 ATT MTU 为 100。
+- 同源 Core、主 Edge 和蓝牙侧车。主 Edge 使用原有私有配置和运行身份 UID 985，将启动参数由 `--serve PRIVATE_CONFIG` 切换为 `--serve-voble PRIVATE_CONFIG`。该模式要求现有媒体 worker，使用三个本机抽象 Unix socket 并只接受 UID 0 的客户端。
+- 配对密钥存放于侧车专用的 0700 目录。设备所有者在网页开启一次 AirSIM 配对窗口，终端用该窗口创建名为 `RustSimHub-VoBLE` 的本机桥接凭据。它受现有 Core 网关开关、配对撤销、通话租约和媒体授权约束。
+
+## 构建与连接
 
 ```sh
-cargo build --release --locked -p rustsimhub-ble --features airsim-pairing --bin rustsimhub-airsim-pairing
-sudo ./target/release/rustsimhub-airsim-pairing pair /var/lib/rustsimhub-airsim-ble
+cargo build --release --locked -p rustsimhub-core -p rustsimhub-edge -p rustsimhub-ble \
+  --features rustsimhub-ble/airsim-pairing \
+  --bin rustsimhub-core --bin rustsimhub-edge --bin rustsimhub-airsim-pairing
 ```
 
-1. 在 120 秒窗口内，从 iPhone 版 AirSIM 的「蓝牙 Agent」选择 `RustSIM`。
-2. 核对终端与 iPhone 的六位数字。在终端输入相同数字，再点 iPhone 的「数字一致，完成配对」。
-3. 终端收到最后一个 ATT indication 确认后提示已确认。检查 iPhone 的配对状态。让窗口结束或用 Ctrl-C 退出后，可用相同目录和 `serve` 子命令验证已配对手机的认证重连。
-4. 停止正在运行的程序后，可用 `status` 查询凭据状态，或用 `revoke` 同时删除当前凭据和重连保留的上一份凭据。要重配同一台 iPhone，先清除 AirSIM 的本机旧凭据。
+1. 用候选程序启动主 Edge 的 VoBLE 模式。在设备网页为本机桥开启 AirSIM 配对窗口，运行 `sudo rustsimhub-airsim-pairing link /var/lib/rustsimhub-airsim-ble`，按提示输入该窗口的六位码。
+2. 运行 `sudo rustsimhub-airsim-pairing pair /var/lib/rustsimhub-airsim-ble`。在 120 秒内，从 iPhone 版 AirSIM 的「蓝牙 Agent」选择 `RustSIM`。终端和 iPhone 分别确认相同的六位代码。
+3. 完成后可退出配对窗口，用相同路径和 `serve` 持续提供服务。手机选择蓝牙通话模式。现有 AirSIM 配对过的手机可以直接从 `serve` 认证重连。
+4. 验收时关闭 iPhone 的 Wi-Fi，保持蓝牙。至少分别验证拨出、来电接听、双方连续说话、拒接、挂断、按键和断开蓝牙。断连后再次连接只认证设备，通话清理由现有 Core 租约执行。可在设备网页撤销本机桥，也可在 AirSIM 取消手机配对。终端的 `revoke` 删除手机的本地凭据。
 
-## 当前交付范围
+## 代码验证与现场状态
 
-配对窗口由设备终端控制，网页入口、设备安装和真实 iPhone 验收仍待完成。iPhone 在开始配对前要求控制和媒体特征存在，因此候选按 App 要求声明这些特征，业务写入返回不支持，音频特征无数据。iPhone 配对后可能显示「蓝牙通话已就绪」，本次验收应检查配对和认证重连。目标棒子的 HCI、实际 BlueZ 版本和射频状态待现场核对。
-
-## 验证记录
-
-- 在主分支 `8b54b4142505e23fc063c6c22a737f22e4b8926a` 的源码上开发。BlueZ 测试使用独立的 dbus-daemon、实际 D-Bus 方法调用与 Unix SEQPACKET，模拟 iOS 的分片请求和 ATT 确认。
-- 实测待办包括发现和选中广告、两端校验码一致、手机保存凭据、停启后重连、拒绝第二个中心设备、撤销后旧凭据失效。
-- 整体验收仍为 81.5%，本次没有设备验收加分。
-- Rust 1.98.0 使用锁定依赖验证，AirSIM 24 项、BLE 80 项测试通过，相关 crate 的格式检查和严格 Clippy 通过。使用 Debian AArch64 交叉 GCC 生成了单独的配对程序，未在 ARM 设备执行。
+- 验证包括 iPhone 线格式、篡改与重放拒绝、BlueZ 发送者和设备隔离、双向 PCM 与加密 BLE 帧、Core 租约、Unix 和现有 TCP 音频身份验证与断连清理。
+- 目标棒子的实际蓝牙控制器、协商 MTU、音频连续性和真实 iPhone 待现场验证。候选未签名装机。综合实机验收仍为 81.5%。
+- Rust 1.98.0 锁定依赖下，共 198 项通过，包括 AirSIM 27、BLE 81、Edge 71 和 Core AirSIM 19。三个 ARM64 程序交叉构建通过。相关 crate 格式检查、AirSIM/BLE/Edge 全目标严格 Clippy 和 Core 生产程序严格 Clippy 通过。Core 全目标额外检查在原转发测试出现四处 `useless_conversion` 警告，该文件与基线逐字节相同。

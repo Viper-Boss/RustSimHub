@@ -16,7 +16,7 @@ async fn main() -> std::process::ExitCode {
             };
         }
     }
-    eprintln!("usage: rustsimhub-airsim-pairing <pair|serve|status|revoke> STATE_DIR");
+    eprintln!("usage: rustsimhub-airsim-pairing <pair|serve|status|revoke|link> STATE_DIR");
     ExitCode::FAILURE
 }
 

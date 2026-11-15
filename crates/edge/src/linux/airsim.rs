@@ -16,7 +16,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     net::{TcpListener, TcpStream},
     sync::Semaphore,
     time::timeout,
@@ -128,7 +128,7 @@ fn error(status: u16, code: &str) -> Vec<u8> {
     response(status, &serde_json::json!({ "error": code }))
 }
 
-async fn read_request(stream: &mut TcpStream) -> Option<(Parsed, Vec<u8>)> {
+async fn read_request(stream: &mut (impl AsyncRead + Unpin)) -> Option<(Parsed, Vec<u8>)> {
     let mut buffer = Vec::with_capacity(1024);
     let end = loop {
         if let Some(at) = buffer.windows(4).position(|w| w == b"\r\n\r\n") {
@@ -180,7 +180,12 @@ async fn ask(app: &App, command: AuthCommand) -> Option<Value> {
 }
 
 /// One connection: one request, one response, then close.
-async fn handle(app: &App, mut stream: TcpStream, peer: IpAddr, control: bool) {
+async fn handle(
+    app: &App,
+    mut stream: impl AsyncRead + AsyncWrite + Unpin,
+    peer: IpAddr,
+    control: bool,
+) {
     let Ok(Some((head, body))) = timeout(READ_WAIT, read_request(&mut stream)).await else {
         let _ = stream.write_all(&error(400, "bad_request")).await;
         return;
@@ -361,6 +366,66 @@ pub(super) async fn serve(app: App, local: impl Fn() -> Vec<IpAddr> + Send + 'st
             }
         }
     }
+}
+
+// Linux-local endpoint for the optional Bluetooth sidecar. Abstract sockets
+// stay available with Wi-Fi down; the accepted UID is verified before any RPC.
+pub(super) fn serve_voble(app: &App) -> Result<(), &'static str> {
+    use rustsimhub_airsim::voble::{LOCAL_CONTROL, LOCAL_PAIRING, LOCAL_PCM};
+    use std::os::linux::net::SocketAddrExt;
+    use std::os::unix::net::{SocketAddr, UnixListener};
+
+    let mut listeners = Vec::new();
+    for (name, control, pcm) in [
+        (LOCAL_CONTROL, true, false),
+        (LOCAL_PAIRING, false, false),
+        (LOCAL_PCM, false, true),
+    ] {
+        let address = SocketAddr::from_abstract_name(name).map_err(|_| "invalid VoBLE listener")?;
+        let listener =
+            UnixListener::bind_addr(&address).map_err(|_| "VoBLE listener unavailable")?;
+        listener
+            .set_nonblocking(true)
+            .map_err(|_| "VoBLE listener unavailable")?;
+        let listener = tokio::net::UnixListener::from_std(listener)
+            .map_err(|_| "VoBLE listener unavailable")?;
+        listeners.push((listener, control, pcm));
+    }
+    let limit = Arc::new(Semaphore::new(4));
+    for (listener, control, pcm) in listeners {
+        let app = app.clone();
+        let limit = limit.clone();
+        tokio::spawn(async move {
+            let mut tasks = tokio::task::JoinSet::new();
+            let peer = IpAddr::V4(std::net::Ipv4Addr::LOCALHOST);
+            loop {
+                let next = tokio::select! {
+                    next = listener.accept() => next,
+                    Some(_) = tasks.join_next(), if !tasks.is_empty() => continue,
+                };
+                let Ok((stream, _)) = next else {
+                    tokio::time::sleep(Duration::from_millis(50)).await;
+                    continue;
+                };
+                if !stream.peer_cred().is_ok_and(|cred| cred.uid() == 0) {
+                    continue;
+                }
+                let Ok(permit) = limit.clone().try_acquire_owned() else {
+                    continue;
+                };
+                let app = app.clone();
+                tasks.spawn(async move {
+                    let _permit = permit;
+                    if pcm {
+                        pcm::handle_local(&app, stream, peer).await;
+                    } else {
+                        handle(&app, stream, peer, control).await;
+                    }
+                });
+            }
+        });
+    }
+    Ok(())
 }
 
 #[cfg(test)]

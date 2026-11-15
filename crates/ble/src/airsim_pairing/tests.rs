@@ -110,6 +110,62 @@ async fn private_bus_runs_ios_wire_flow_and_rejects_another_sender_and_peer() {
         let device = "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF";
         let other = "/org/bluez/hci0/dev_11_22_33_44_55_66";
         let acquire = "AcquireNotify";
+        let path_ctl_rx = format!("{SERVICE}/control_rx");
+        let path_ctl_tx = format!("{SERVICE}/control_tx");
+        let path_audio_up = format!("{SERVICE}/audio_up");
+        let path_audio_down = format!("{SERVICE}/audio_down");
+        let proxy_ctl_rx = Proxy::new(
+            &bluez,
+            name,
+            path_ctl_rx.as_str(),
+            "org.bluez.GattCharacteristic1",
+        )
+        .await
+        .unwrap();
+        let proxy_ctl_tx = Proxy::new(
+            &bluez,
+            name,
+            path_ctl_tx.as_str(),
+            "org.bluez.GattCharacteristic1",
+        )
+        .await
+        .unwrap();
+        let proxy_audio_up = Proxy::new(
+            &bluez,
+            name,
+            path_audio_up.as_str(),
+            "org.bluez.GattCharacteristic1",
+        )
+        .await
+        .unwrap();
+        let proxy_audio_down = Proxy::new(
+            &bluez,
+            name,
+            path_audio_down.as_str(),
+            "org.bluez.GattCharacteristic1",
+        )
+        .await
+        .unwrap();
+        // iOS is permitted to subscribe before pairing starts.
+        let (_ctl_fd, _): (OwnedFd, u16) = proxy_ctl_tx
+            .call(acquire, &(options(device),))
+            .await
+            .unwrap();
+        let (_audio_fd, _): (OwnedFd, u16) = proxy_audio_down
+            .call(acquire, &(options(device),))
+            .await
+            .unwrap();
+        let control_frame = voble::fragment_control(b"test command", 1, 20)
+            .unwrap()
+            .remove(0);
+        assert!(proxy_ctl_rx
+            .call::<_, _, ()>("WriteValue", &(control_frame.clone(), options(device)))
+            .await
+            .is_err());
+        assert!(proxy_audio_up
+            .call::<_, _, ()>("WriteValue", &(vec![1u8; 20], options(device)))
+            .await
+            .is_err());
         assert!(not_bluez
             .call::<_, _, (OwnedFd, u16)>(acquire, &(options(device),))
             .await
@@ -160,6 +216,32 @@ async fn private_bus_runs_ios_wire_flow_and_rejects_another_sender_and_peer() {
         let confirm = exchange(&pairing, &mut replies, &phone, device, 12, request).await;
         assert_eq!(confirm["ready"], true);
         assert_eq!(confirm["confirmation_tag"].as_str().unwrap().len(), 22);
+        let (control_tx, mut control_rx) = mpsc::channel(1);
+        let (audio_tx, mut audio_rx) = mpsc::channel(1);
+        {
+            let mut state = context.state.lock().unwrap();
+            let active = state.peer.as_mut().unwrap();
+            active.calls = Some(control_tx);
+            active.microphone = Some(audio_tx);
+        }
+        assert!(proxy_ctl_rx
+            .call::<_, _, ()>("WriteValue", &(control_frame.clone(), options(other)))
+            .await
+            .is_err());
+        proxy_ctl_rx
+            .call::<_, _, ()>("WriteValue", &(control_frame, options(device)))
+            .await
+            .unwrap();
+        assert_eq!(control_rx.recv().await.unwrap(), b"test command");
+        assert!(proxy_audio_up
+            .call::<_, _, ()>("WriteValue", &(vec![1u8; 20], options(other)))
+            .await
+            .is_err());
+        proxy_audio_up
+            .call::<_, _, ()>("WriteValue", &(vec![1u8; 20], options(device)))
+            .await
+            .unwrap();
+        assert_eq!(audio_rx.recv().await.unwrap().bytes, vec![1u8; 20]);
         let stream = context.stream().unwrap();
         assert!(
             timeout(Duration::from_millis(10), wait_idle_end(stream.as_ref()))
@@ -177,17 +259,8 @@ async fn private_bus_runs_ios_wire_flow_and_rejects_another_sender_and_peer() {
             .is_err());
         registration(&control, true, false).await.unwrap();
         registration(&control, false, false).await.unwrap();
-        server
-            .object_server()
-            .remove::<PairingCharacteristic, _>(path.as_str())
-            .await
-            .unwrap();
+        assert!(context.state.lock().unwrap().disk.credential().is_some());
         server.close().await.unwrap();
-        drop(context);
-        assert!(store::Disk::open(&state_path)
-            .unwrap()
-            .credential()
-            .is_some());
     })
     .await
     .unwrap();

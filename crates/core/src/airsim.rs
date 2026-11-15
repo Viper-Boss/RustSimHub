@@ -373,29 +373,12 @@ fn storage(error: Error) -> BackendError {
         _ => BackendError::Unavailable,
     }
 }
-impl rustsimhub_airsim::Backend for Core<'_> {
-    fn authorize(&mut self, _: &str) -> Result<(), BackendError> {
-        self.token().map(|_| ())
-    }
-    fn line(&mut self, _: &str) -> Result<Line, BackendError> {
-        let token = self.token()?;
-        let view = lock_auth(self.auth)?.line_status(&token).map_err(storage)?;
-        let system = crate::system_status::snapshot();
-        let text = |name: &str| system[name].as_str().unwrap_or("").to_owned();
-        Ok(Line {
-            device_name: "RustSimHub".into(),
-            manufacturer: "RustSimHub".into(),
-            model: text("model"),
-            firmware: text("firmware_version"),
-            registered: view.status == LineStatus::Ready,
-            searching: view.status == LineStatus::Observing,
-            ..Line::default()
-        })
-    }
-    fn calls(
+impl Core<'_> {
+    fn calls_for(
         &mut self,
         pairing_id: &str,
         history: usize,
+        keep: impl Fn(&CallLease) -> bool,
     ) -> Result<(Vec<Call>, Vec<Call>), BackendError> {
         if self.calls.is_none() {
             return Ok((Vec::new(), Vec::new()));
@@ -482,7 +465,14 @@ impl rustsimhub_airsim::Backend for Core<'_> {
                 !drop
             });
         }
-        self.keep(pairing_id, &live_ids, now);
+        if self
+            .book
+            .lease
+            .as_ref()
+            .is_some_and(|(_, lease, _)| keep(lease))
+        {
+            self.keep(pairing_id, &live_ids, now);
+        }
         let view = |c: &Seen| Call {
             id: c.id.clone(),
             incoming: c.incoming,
@@ -510,6 +500,43 @@ impl rustsimhub_airsim::Backend for Core<'_> {
             .map(view)
             .collect();
         Ok((live, ended))
+    }
+}
+impl rustsimhub_airsim::Backend for Core<'_> {
+    fn authorize(&mut self, _: &str) -> Result<(), BackendError> {
+        self.token().map(|_| ())
+    }
+    fn line(&mut self, _: &str) -> Result<Line, BackendError> {
+        let token = self.token()?;
+        let view = lock_auth(self.auth)?.line_status(&token).map_err(storage)?;
+        let system = crate::system_status::snapshot();
+        let text = |name: &str| system[name].as_str().unwrap_or("").to_owned();
+        Ok(Line {
+            device_name: "RustSimHub".into(),
+            manufacturer: "RustSimHub".into(),
+            model: text("model"),
+            firmware: text("firmware_version"),
+            registered: view.status == LineStatus::Ready,
+            searching: view.status == LineStatus::Observing,
+            ..Line::default()
+        })
+    }
+    fn calls(
+        &mut self,
+        pairing_id: &str,
+        history: usize,
+    ) -> Result<(Vec<Call>, Vec<Call>), BackendError> {
+        self.calls_for(pairing_id, history, |_| true)
+    }
+    fn observe_calls(
+        &mut self,
+        pairing_id: &str,
+        owned_call: Option<&str>,
+    ) -> Result<Vec<Call>, BackendError> {
+        self.calls_for(pairing_id, 0, |lease| {
+            owned_call == Some(lease.call_id.as_str())
+        })
+        .map(|(live, _)| live)
     }
     fn dial(
         &mut self,

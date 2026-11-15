@@ -11,6 +11,13 @@ use std::time::{Duration, Instant};
 use x25519_dalek::{PublicKey, StaticSecret};
 use zeroize::Zeroizing;
 
+pub mod call;
+
+pub const LOCAL_CONTROL: &[u8] = b"rustsimhub-voble-control-v1";
+pub const LOCAL_PAIRING: &[u8] = b"rustsimhub-voble-pairing-v1";
+pub const LOCAL_PCM: &[u8] = b"rustsimhub-voble-pcm-v1";
+pub const EDGE_UID: u32 = 985;
+
 pub const PAIRING_WINDOW: Duration = Duration::from_secs(120);
 const FRAGMENT_LIFETIME: Duration = Duration::from_secs(2);
 const HEADER: usize = 8;
@@ -50,8 +57,19 @@ impl Error {
 
 /// VoBLE uses a different fragment envelope from RustSimHub recovery GATT.
 /// iOS writes each fragment with response and serializes its write batches.
-#[derive(Default)]
-pub struct Fragments(Option<Partial>);
+pub struct Fragments {
+    pending: Option<Partial>,
+    kind: u8,
+}
+
+impl Default for Fragments {
+    fn default() -> Self {
+        Self {
+            pending: None,
+            kind: 1,
+        }
+    }
+}
 
 struct Partial {
     id: u16,
@@ -62,9 +80,16 @@ struct Partial {
 }
 
 impl Fragments {
+    pub fn control() -> Self {
+        Self {
+            pending: None,
+            kind: 2,
+        }
+    }
+
     pub fn push(&mut self, frame: &[u8], now: Instant) -> Result<Option<Vec<u8>>, Error> {
-        let mut pending = self.0.take();
-        if frame.len() <= HEADER || !frame.starts_with(&PREFIX) {
+        let mut pending = self.pending.take();
+        if frame.len() <= HEADER || frame[..3] != PREFIX[..3] || frame[3] != self.kind {
             return Err(Error::Invalid);
         }
         let id = u16::from_be_bytes([frame[4], frame[5]]);
@@ -94,12 +119,29 @@ impl Fragments {
         if partial.next == count {
             return Ok(Some(partial.data));
         }
-        self.0 = Some(partial);
+        self.pending = Some(partial);
         Ok(None)
     }
 }
 
 pub fn fragment(payload: &[u8], id: u16, att_payload: usize) -> Result<Vec<Vec<u8>>, Error> {
+    fragment_kind(payload, id, att_payload, 1)
+}
+
+pub fn fragment_control(
+    payload: &[u8],
+    id: u16,
+    att_payload: usize,
+) -> Result<Vec<Vec<u8>>, Error> {
+    fragment_kind(payload, id, att_payload, 2)
+}
+
+fn fragment_kind(
+    payload: &[u8],
+    id: u16,
+    att_payload: usize,
+    kind: u8,
+) -> Result<Vec<Vec<u8>>, Error> {
     let capacity = att_payload
         .checked_sub(HEADER)
         .filter(|n| *n > 0)
@@ -113,7 +155,8 @@ pub fn fragment(payload: &[u8], id: u16, att_payload: usize) -> Result<Vec<Vec<u
         .enumerate()
         .map(|(index, data)| {
             let mut frame = Vec::with_capacity(HEADER + data.len());
-            frame.extend_from_slice(&PREFIX);
+            frame.extend_from_slice(&PREFIX[..3]);
+            frame.push(kind);
             frame.extend_from_slice(&id.to_be_bytes());
             frame.extend_from_slice(&[index as u8, count as u8]);
             frame.extend_from_slice(data);
@@ -232,6 +275,10 @@ impl Pairing {
             challenge: None,
             paired: false,
         }
+    }
+
+    pub fn authenticated(&self) -> bool {
+        self.paired
     }
 
     pub fn code(&self) -> Option<&str> {

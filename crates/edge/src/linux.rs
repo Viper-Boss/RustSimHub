@@ -885,9 +885,10 @@ pub fn run(args: Vec<String>) -> Result<()> {
         }
     }
     let [command, path] = args.as_slice() else {
-        return Err("usage: --init-tls NEW_DIR DNS_NAME | --serve PRIVATE_CONFIG");
+        return Err("usage: --init-tls NEW_DIR DNS_NAME | --serve PRIVATE_CONFIG | --serve-voble PRIVATE_CONFIG");
     };
-    if command != "--serve" {
+    let voble = command == "--serve-voble";
+    if command != "--serve" && !voble {
         return Err("invalid mode");
     }
     let config: Config = serde_json::from_slice(
@@ -966,6 +967,12 @@ pub fn run(args: Vec<String>) -> Result<()> {
         let mut acceptors=JoinSet::new();let mut listening=Vec::new();
         for address in &wanted(&configured_addresses) {match TcpListener::bind(address).await {Ok(listener)=>{acceptors.spawn(accept_one(listener));listening.push(*address);},Err(e) if e.kind()==std::io::ErrorKind::AddrNotAvailable=>{},Err(_) if !configured_addresses.contains(address)=>{},Err(_)=>return Err("listener unavailable"),}}
         if let Some(bridge)=&app.media {bridge.takeover().await?;}
+        if voble {
+            if app.media.is_none() || captive_listen.is_some() {
+                return Err("VoBLE requires the main media Edge instance");
+            }
+            airsim::serve_voble(&app)?;
+        }
         if let Some(addr)=captive_listen {tokio::spawn(captive::serve(addr,app.clone()));}
         // AirSIM's local protocol is bound only on the non-loopback addresses the HTTPS page
         // itself follows (configured, wlan0, usb0): never the wildcard, so never cellular.

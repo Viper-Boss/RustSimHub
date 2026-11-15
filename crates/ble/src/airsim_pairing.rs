@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
+mod backend;
+mod control;
 mod store;
 
 use crate::bluez_control::{Adapter, BluezControl, CallbackScope};
@@ -70,11 +72,50 @@ struct State {
 
 struct Peer {
     device: String,
-    packet: usize,
-    stream: Arc<AsyncFd<Socket>>,
+    links: [Option<Link>; 3],
     frames: Fragments,
+    call_frames: Fragments,
+    calls: Option<mpsc::Sender<Vec<u8>>>,
+    microphone: Option<mpsc::Sender<control::Microphone>>,
+    worker: Option<tokio::task::JoinHandle<()>>,
     pairing: Pairing,
     reply_id: u16,
+}
+
+impl Drop for Peer {
+    fn drop(&mut self) {
+        if let Some(worker) = &self.worker {
+            worker.abort();
+        }
+    }
+}
+
+#[derive(Clone)]
+struct Link {
+    packet: usize,
+    stream: Arc<AsyncFd<Socket>>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Channel {
+    Pairing = 0,
+    Control = 1,
+    Audio = 2,
+}
+
+impl Peer {
+    fn link(&self, channel: Channel) -> Option<&Link> {
+        self.links[channel as usize].as_ref()
+    }
+
+    fn primary(&self) -> Option<&Link> {
+        self.links.iter().flatten().next()
+    }
+
+    fn matches(&self, link: &Link) -> bool {
+        self.link(Channel::Pairing)
+            .is_some_and(|current| Arc::ptr_eq(&current.stream, &link.stream))
+    }
 }
 
 struct Reply {
@@ -111,7 +152,7 @@ impl PairingCharacteristic {
 
     #[zbus(property(emits_changed_signal = "false"))]
     fn notify_acquired(&self) -> bool {
-        self.0.state.lock().is_ok_and(|state| state.peer.is_some())
+        self.0.acquired(Channel::Pairing)
     }
 
     async fn acquire_notify(
@@ -120,30 +161,7 @@ impl PairingCharacteristic {
         #[zbus(header)] header: Header<'_>,
     ) -> Result<(OwnedFd, u16), GattError> {
         verify(&self.0.scope, &header).await?;
-        let device = device(&options)?;
-        let mtu = options
-            .get("mtu")
-            .and_then(|value| u16::try_from(value).ok())
-            .filter(|mtu| (23..=517).contains(mtu))
-            .ok_or_else(rejected)?;
-        let mut state = self.0.state.lock().map_err(|_| rejected())?;
-        if !state.accepting || state.peer.is_some() {
-            return Err(rejected());
-        }
-        let (local, remote) =
-            Socket::pair(Domain::UNIX, Type::SEQPACKET, None).map_err(|_| rejected())?;
-        local.set_nonblocking(true).map_err(|_| rejected())?;
-        let stream = Arc::new(AsyncFd::new(local).map_err(|_| rejected())?);
-        state.peer = Some(Peer {
-            device: device.to_owned(),
-            packet: usize::from(mtu - 3).min(512),
-            stream,
-            frames: Fragments::default(),
-            pairing: Pairing::new(state.disk.identity().to_owned(), state.deadline),
-            reply_id: 0,
-        });
-        self.0.changed.notify_one();
-        Ok((OwnedFd::from(std::os::fd::OwnedFd::from(remote)), mtu))
+        self.0.acquire(&options, Channel::Pairing)
     }
 
     async fn write_value(
@@ -171,7 +189,12 @@ impl PairingCharacteristic {
         let State { peer, disk, .. } = &mut *guard;
         let peer = peer
             .as_mut()
-            .filter(|peer| peer.device == device && value.len() <= peer.packet)
+            .filter(|peer| peer.device == device)
+            .ok_or_else(rejected)?;
+        let link = peer
+            .link(Channel::Pairing)
+            .cloned()
+            .filter(|link| value.len() <= link.packet)
             .ok_or_else(rejected)?;
         let now = Instant::now();
         let Some(data) = peer.frames.push(&value, now).map_err(|_| rejected())? else {
@@ -193,12 +216,24 @@ impl PairingCharacteristic {
         peer.reply_id = peer.reply_id.wrapping_add(1);
         let ready = response["ready"] == true;
         let bytes = serde_json::to_vec(&response).map_err(|_| rejected())?;
-        let frames = voble::fragment(&bytes, peer.reply_id, peer.packet).map_err(|_| rejected())?;
+        let frames = voble::fragment(&bytes, peer.reply_id, link.packet).map_err(|_| rejected())?;
         permit.send(Reply {
-            stream: Arc::clone(&peer.stream),
+            stream: link.stream.clone(),
             frames,
             ready,
         });
+        if let (true, Some(credential), Some(secret)) = (ready, disk.credential(), disk.bridge()) {
+            let (tx, rx) = mpsc::channel(4);
+            peer.calls = Some(tx);
+            peer.worker = Some(tokio::spawn(control::run(
+                Arc::downgrade(&self.0),
+                link,
+                backend::Backend(secret),
+                zeroize::Zeroizing::new(*credential.keys().0),
+                disk.identity().to_owned(),
+                rx,
+            )));
+        }
         Ok(())
     }
 }
@@ -244,13 +279,12 @@ impl Service {
 }
 
 struct Characteristic {
-    scope: CallbackScope,
+    context: Arc<Context>,
     uuid: &'static str,
     flag: &'static str,
 }
 
-// Current iOS requires these characteristic declarations before it sends begin.
-// Control and media are disabled in this pairing service.
+// iOS subscribes to the control and audio outputs before it authenticates.
 #[zbus::interface(name = "org.bluez.GattCharacteristic1")]
 impl Characteristic {
     #[zbus(property, name = "UUID")]
@@ -273,7 +307,7 @@ impl Characteristic {
         options: Options,
         #[zbus(header)] header: Header<'_>,
     ) -> Result<Vec<u8>, GattError> {
-        verify(&self.scope, &header).await?;
+        verify(&self.context.scope, &header).await?;
         if self.flag != "read" {
             return Err(GattError::NotSupported("pairing only".into()));
         }
@@ -281,28 +315,84 @@ impl Characteristic {
             Some(value) => usize::from(u16::try_from(value).map_err(|_| rejected())?),
             None => 0,
         };
-        b"VoBLE/1;pairing-only"
+        b"VoBLE/1;g711;control-auth-required"
             .get(offset..)
             .map(<[u8]>::to_vec)
             .ok_or_else(rejected)
     }
 
+    #[zbus(property(emits_changed_signal = "false"))]
+    fn notify_acquired(&self) -> bool {
+        self.channel()
+            .is_some_and(|channel| self.context.acquired(channel))
+    }
+
+    async fn acquire_notify(
+        &self,
+        options: Options,
+        #[zbus(header)] header: Header<'_>,
+    ) -> Result<(OwnedFd, u16), GattError> {
+        verify(&self.context.scope, &header).await?;
+        self.context
+            .acquire(&options, self.channel().ok_or_else(rejected)?)
+    }
+
     async fn write_value(
         &self,
-        _value: Vec<u8>,
-        _options: Options,
+        value: Vec<u8>,
+        options: Options,
         #[zbus(header)] header: Header<'_>,
     ) -> Result<(), GattError> {
-        verify(&self.scope, &header).await?;
-        Err(GattError::NotSupported("pairing only".into()))
+        verify(&self.context.scope, &header).await?;
+        let device = device(&options)?;
+        let kind = match self.flag {
+            "write" => "request",
+            "write-without-response" => "command",
+            _ => return Err(rejected()),
+        };
+        if value.len() > 512
+            || options.contains_key("prepare-authorize")
+            || options
+                .get("offset")
+                .is_some_and(|v| u16::try_from(v) != Ok(0))
+            || options
+                .get("type")
+                .is_some_and(|v| <&str>::try_from(v) != Ok(kind))
+        {
+            return Err(rejected());
+        }
+        let mut state = self.context.state.lock().map_err(|_| rejected())?;
+        let peer = state
+            .peer
+            .as_mut()
+            .filter(|peer| peer.device == device && peer.pairing.authenticated())
+            .ok_or_else(rejected)?;
+        let now = Instant::now();
+        if kind == "command" {
+            if let Some(microphone) = &peer.microphone {
+                // A stalled radio/PCM consumer loses a frame rather than buffering speech.
+                let _ = microphone.try_send(control::Microphone {
+                    bytes: value,
+                    received: now,
+                });
+            }
+            return Ok(());
+        }
+        let calls = peer.calls.as_ref().ok_or_else(rejected)?;
+        if let Some(data) = peer.call_frames.push(&value, now).map_err(|_| rejected())? {
+            calls.try_send(data).map_err(|_| rejected())?;
+        }
+        Ok(())
     }
+}
 
-    async fn start_notify(&self, #[zbus(header)] header: Header<'_>) -> Result<(), GattError> {
-        verify(&self.scope, &header).await
-    }
-
-    async fn stop_notify(&self, #[zbus(header)] header: Header<'_>) -> Result<(), GattError> {
-        verify(&self.scope, &header).await
+impl Characteristic {
+    fn channel(&self) -> Option<Channel> {
+        match self.flag {
+            "notify" => Some(Channel::Audio),
+            "indicate" => Some(Channel::Control),
+            _ => None,
+        }
     }
 }
 
@@ -376,7 +466,7 @@ async fn export(
             .at(
                 format!("{SERVICE}/{name}"),
                 Characteristic {
-                    scope: context.scope.clone(),
+                    context: context.clone(),
                     uuid,
                     flag,
                 },
@@ -424,6 +514,90 @@ async fn send(reply: &Reply) -> io::Result<()> {
 }
 
 impl Context {
+    fn acquired(&self, channel: Channel) -> bool {
+        self.state.lock().is_ok_and(|state| {
+            state
+                .peer
+                .as_ref()
+                .and_then(|peer| peer.link(channel))
+                .is_some()
+        })
+    }
+
+    fn acquire(&self, options: &Options, channel: Channel) -> Result<(OwnedFd, u16), GattError> {
+        let device = device(options)?;
+        let mtu = options
+            .get("mtu")
+            .and_then(|value| u16::try_from(value).ok())
+            .filter(|mtu| (23..=517).contains(mtu))
+            .ok_or_else(rejected)?;
+        let mut state = self.state.lock().map_err(|_| rejected())?;
+        if !state.accepting {
+            return Err(rejected());
+        }
+        let State {
+            peer,
+            disk,
+            deadline,
+            ..
+        } = &mut *state;
+        let peer = peer.get_or_insert_with(|| Peer {
+            device: device.to_owned(),
+            links: std::array::from_fn(|_| None),
+            frames: Fragments::default(),
+            call_frames: Fragments::control(),
+            pairing: Pairing::new(disk.identity().to_owned(), *deadline),
+            reply_id: 0,
+            calls: None,
+            microphone: None,
+            worker: None,
+        });
+        if peer.device != device || peer.link(channel).is_some() {
+            return Err(rejected());
+        }
+        let (local, remote) =
+            Socket::pair(Domain::UNIX, Type::SEQPACKET, None).map_err(|_| rejected())?;
+        if channel == Channel::Audio {
+            local.set_send_buffer_size(2048).map_err(|_| rejected())?;
+        }
+        local.set_nonblocking(true).map_err(|_| rejected())?;
+        let stream = Arc::new(AsyncFd::new(local).map_err(|_| rejected())?);
+        peer.links[channel as usize] = Some(Link {
+            packet: usize::from(mtu - 3).min(512),
+            stream,
+        });
+        self.changed.notify_one();
+        Ok((OwnedFd::from(std::os::fd::OwnedFd::from(remote)), mtu))
+    }
+
+    fn output(&self, origin: &Link, channel: Channel) -> Option<Link> {
+        let state = self.state.lock().ok()?;
+        let peer = state.peer.as_ref().filter(|peer| peer.matches(origin))?;
+        peer.link(channel).cloned()
+    }
+
+    fn microphone(
+        &self,
+        origin: &Link,
+        value: Option<mpsc::Sender<control::Microphone>>,
+    ) -> Option<()> {
+        let mut state = self.state.lock().ok()?;
+        let peer = state.peer.as_mut().filter(|peer| peer.matches(origin))?;
+        peer.microphone = value;
+        Some(())
+    }
+
+    fn revoke(&self, origin: &Link) -> io::Result<()> {
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| io::Error::other("VoBLE state unavailable"))?;
+        if !state.peer.as_ref().is_some_and(|peer| peer.matches(origin)) {
+            return Err(io::ErrorKind::NotConnected.into());
+        }
+        state.disk.revoke()
+    }
+
     fn close(&self) {
         if let Ok(mut state) = self.state.lock() {
             state.accepting = false;
@@ -433,11 +607,12 @@ impl Context {
 
     fn remove(&self, stream: &Arc<AsyncFd<Socket>>) {
         if let Ok(mut state) = self.state.lock() {
-            if state
-                .peer
-                .as_ref()
-                .is_some_and(|peer| Arc::ptr_eq(&peer.stream, stream))
-            {
+            if state.peer.as_ref().is_some_and(|peer| {
+                peer.links
+                    .iter()
+                    .flatten()
+                    .any(|link| Arc::ptr_eq(&link.stream, stream))
+            }) {
                 state.peer = None;
             }
         }
@@ -448,7 +623,11 @@ impl Context {
             .state
             .lock()
             .map_err(|_| io::Error::other("VoBLE state unavailable"))?;
-        Ok(state.peer.as_ref().map(|peer| peer.stream.clone()))
+        Ok(state
+            .peer
+            .as_ref()
+            .and_then(Peer::primary)
+            .map(|link| link.stream.clone()))
     }
 
     fn approve(&self, code: &str) {
@@ -594,13 +773,38 @@ async fn compatible_bluez(bus: &zbus::fdo::DBusProxy<'_>, owner: &str) -> Result
 }
 
 pub async fn run(command: &str, path: &Path) -> Result<(), DynError> {
-    if !matches!(command, "pair" | "serve" | "status" | "revoke") {
-        return Err(io::Error::other("expected pair, serve, status or revoke").into());
+    if !matches!(command, "pair" | "serve" | "status" | "revoke" | "link") {
+        return Err(io::Error::other("expected pair, serve, status, revoke or link").into());
     }
     if command == "pair" && !(io::stdin().is_terminal() && io::stderr().is_terminal()) {
         return Err(io::Error::other("pair requires an interactive terminal").into());
     }
     let mut disk = store::Disk::open(path)?;
+    if command == "link" {
+        if !io::stdin().is_terminal() {
+            return Err(io::Error::other("link requires an interactive terminal").into());
+        }
+        if disk.bridge().is_some() {
+            // The previous bridge may already have been revoked in the Owner UI.
+            if !matches!(
+                backend::Backend(disk.bridge().unwrap())
+                    .call("GET", "/api/health", serde_json::Value::Null)
+                    .await,
+                Err(backend::Status::Revoked)
+            ) {
+                return Err(io::Error::other(
+                    "revoke the old VoBLE bridge in the AirSIM web panel first",
+                )
+                .into());
+            }
+        }
+        eprintln!("Open a pairing window in the RustSimHub AirSIM web panel, then enter its six-digit code:");
+        let mut code = zeroize::Zeroizing::new(String::new());
+        io::stdin().read_line(&mut code)?;
+        disk.link(backend::enroll(code.trim()).await?)?;
+        println!("VoBLE bridge linked to this device.");
+        return Ok(());
+    }
     let paired = disk.credential().is_some();
     if command == "status" {
         println!("{}", if paired { "paired" } else { "unpaired" });

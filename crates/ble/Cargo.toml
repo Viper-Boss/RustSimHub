@@ -7,7 +7,7 @@ license.workspace = true
 
 [features]
 default = []
-airsim-pairing = ["bluez-advertisement", "dep:rustsimhub-airsim", "dep:getrandom", "dep:libc", "dep:rustix", "dep:serde", "dep:serde_json", "dep:socket2", "tokio/macros", "tokio/net", "tokio/rt", "tokio/signal", "tokio/time"]
+airsim-pairing = ["bluez-advertisement", "dep:rustsimhub-airsim", "dep:x25519-dalek", "dep:zeroize", "dep:getrandom", "dep:libc", "dep:rustix", "dep:serde", "dep:serde_json", "dep:socket2", "tokio/io-util", "tokio/macros", "tokio/net", "tokio/rt", "tokio/signal", "tokio/time"]
 product-host-candidate = ["bluez-backend", "core-channel-candidate", "dep:getrandom", "dep:rustix", "tokio/rt", "tokio/macros", "tokio/signal"]
 bluez-control = ["dep:zbus", "dep:tokio", "dep:futures-lite"]
 bluez-advertisement = ["bluez-control"]
@@ -24,6 +24,8 @@ core-channel-candidate = ["dep:tokio", "tokio/net", "tokio/io-util", "tokio/time
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rustsimhub-airsim = { path = "../airsim", optional = true }
+x25519-dalek = { version = "2", default-features = false, features = ["static_secrets", "zeroize"], optional = true }
+zeroize = { version = "1", optional = true }
 zbus = { version = "5.19", optional = true, default-features = false, features = ["tokio"] }
 tokio = { version = "1", optional = true, features = ["sync"] }
 futures-lite = { version = "2", optional = true }
