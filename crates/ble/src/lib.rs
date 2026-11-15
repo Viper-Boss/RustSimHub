@@ -27,6 +27,8 @@ pub mod core_port;
 pub mod framing;
 pub mod lifecycle;
 pub mod manifest;
+#[cfg(all(target_os = "linux", feature = "nas-bluetooth"))]
+pub mod nas_bluetooth;
 pub mod ports;
 #[cfg(all(target_os = "linux", feature = "product-host-candidate"))]
 pub mod product_host;

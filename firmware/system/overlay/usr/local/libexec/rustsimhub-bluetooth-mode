@@ -1,0 +1,210 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: AGPL-3.0-only
+"""Privileged mode broker. Only Core may change the fixed Bluetooth units."""
+
+import json
+import os
+from pathlib import Path
+import pwd
+import re
+import socket
+import struct
+import subprocess
+import tempfile
+import threading
+
+UNITS = {
+    "airsim": "rustsimhub-airsim-voble.service",
+    "nassimhub": "rustsimhub-nas-bluetooth.service",
+}
+STATE = Path("/var/lib/rustsimhub/rustsimhub-v1/system/bluetooth-mode")
+ADDRESS = "\0rustsimhub-bluetooth-mode-v1"
+WORK = threading.Lock()
+PENDING = None
+LAST_ERROR = None
+
+
+def run(*args, timeout=10):
+    try:
+        return subprocess.run(args, capture_output=True, text=True, errors="replace",
+                              timeout=timeout, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def selected():
+    try:
+        with STATE.open("r", encoding="ascii") as stream:
+            mode = stream.read(24).strip()
+    except FileNotFoundError:
+        return "airsim"
+    if mode not in UNITS:
+        raise ValueError("bad mode state")
+    return mode
+
+
+def save(mode):
+    with tempfile.NamedTemporaryFile(mode="w", encoding="ascii", dir=STATE.parent,
+                                     delete=False) as out:
+        name = Path(out.name)
+        try:
+            out.write(mode + "\n")
+            out.flush()
+            os.fsync(out.fileno())
+            name.replace(STATE)
+            fd = os.open(STATE.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+        finally:
+            name.unlink(missing_ok=True)
+
+
+def active(mode):
+    result = run("/usr/bin/systemctl", "is-active", UNITS[mode], timeout=2)
+    if result is None:
+        raise RuntimeError("service state unknown")
+    status = result.stdout.strip()
+    if status in {"inactive", "failed", "unknown"}:
+        return False
+    if result.returncode == 0 and status == "active":
+        return True
+    raise RuntimeError("service state unknown")
+
+
+def units_for(mode, other):
+    return active(mode) and not active(other)
+
+
+def execute(action, mode):
+    result = run("/usr/bin/systemctl", action, UNITS[mode], timeout=18)
+    return result is not None and result.returncode == 0
+
+
+def quiescent():
+    listed = run("/usr/bin/mmcli", "-L", timeout=2)
+    if listed is None or listed.returncode != 0:
+        return False
+    modems = set(re.findall(r"/org/freedesktop/ModemManager1/Modem/([0-9]+)", listed.stdout))
+    if len(modems) != 1:
+        return False
+    result = run("/usr/bin/mmcli", "-m", modems.pop(), "--voice-list-calls", timeout=2)
+    if result is None or result.returncode != 0 or not result.stdout.strip():
+        return False
+    if result.stdout.strip() == "No calls were found":
+        return True
+    return all(re.fullmatch(r"\s*/org/freedesktop/ModemManager1/Call/[0-9]+\s+(?:incoming|outgoing)\s+\(terminated\)\s*", line)
+               for line in result.stdout.splitlines() if line.strip())
+
+
+def status():
+    mode = selected()
+    running = [key for key in UNITS if active(key)]
+    effective = running[0] if len(running) == 1 else None
+    return {"mode": mode, "effective": effective, "available": True,
+            "healthy": effective == mode,
+            "can_switch": len(running) <= 1 and effective in {None, mode}}
+
+
+def switch(expected, target):
+    state = status()
+    previous = state["mode"]
+    if previous != expected:
+        return {"error": "bluetooth_mode_stale"}
+    if target == previous and state["healthy"]:
+        return state
+    if not state["can_switch"]:
+        return {"error": "bluetooth_mode_unavailable"}
+    if not quiescent():
+        return {"error": "bluetooth_call_busy"}
+    try:
+        if state["healthy"] and (not execute("stop", previous) or active(previous)):
+            raise RuntimeError("previous still active")
+        if not quiescent():
+            raise RuntimeError("call appeared")
+        if not execute("start", target) or not units_for(target, previous):
+            raise RuntimeError("target failed")
+        save(target)
+        return status()
+    except (OSError, RuntimeError):
+        execute("stop", target)
+        # Do not restore a role if the other role cannot be proven stopped.
+        try:
+            if not active(target):
+                if state["healthy"] and not execute("start", previous):
+                    return {"error": "bluetooth_recovery_required"}
+                if selected() != previous:
+                    save(previous)
+        except (OSError, RuntimeError, ValueError):
+            return {"error": "bluetooth_recovery_required"}
+        return {"error": "bluetooth_switch_failed"}
+
+
+def handle(payload):
+    global PENDING, LAST_ERROR
+    fields = payload.decode("ascii").strip().split()
+    with WORK:
+        if fields == ["S"]:
+            if PENDING is not None:
+                return {"mode": selected(), "effective": None, "pending": PENDING}
+            return {**status(), "last_error": LAST_ERROR}
+        if len(fields) != 3 or fields[0] != "C" or any(field not in UNITS for field in fields[1:]):
+            return {"error": "bluetooth_invalid_request"}
+        if PENDING is not None:
+            return {"error": "bluetooth_switch_busy"}
+        if selected() != fields[1]:
+            return {"error": "bluetooth_mode_stale"}
+        LAST_ERROR = None
+        PENDING = fields[2]
+        threading.Thread(target=complete, args=tuple(fields[1:]), daemon=True).start()
+        return {"mode": fields[1], "effective": None, "pending": fields[2]}
+
+
+def complete(expected, target):
+    global PENDING, LAST_ERROR
+    error = "bluetooth_recovery_required"
+    try:
+        error = switch(expected, target).get("error")
+    except (OSError, RuntimeError, ValueError):
+        pass
+    finally:
+        with WORK:
+            LAST_ERROR = error
+            PENDING = None
+
+
+def main():
+    core = pwd.getpwnam("rustsimhub-core").pw_uid
+    mode = selected()
+    other = next(key for key in UNITS if key != mode)
+    if active(other):
+        if not quiescent() or not execute("stop", other) or active(other):
+            raise RuntimeError("unexpected service could not be safely stopped")
+    if not active(mode):
+        execute("start", mode)
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server:
+        server.bind(ADDRESS)
+        server.listen(8)
+        while True:
+            conn, _ = server.accept()
+            with conn:
+                conn.settimeout(2)
+                _, uid, _ = struct.unpack("3i", conn.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
+                if uid != core:
+                    continue
+                try:
+                    with conn.makefile("rb") as stream:
+                        payload = stream.readline(97)
+                    reply = handle(payload) if len(payload) <= 96 else {"error": "bluetooth_invalid_request"}
+                except (ValueError, RuntimeError, OSError):
+                    reply = {"error": "bluetooth_mode_unavailable"}
+                try:
+                    conn.sendall(json.dumps(reply, separators=(",", ":")).encode("ascii"))
+                except OSError:
+                    # The reply can be lost after a durable switch. Read back the installed mode.
+                    pass
+
+
+if __name__ == "__main__":
+    main()

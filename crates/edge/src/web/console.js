@@ -76,7 +76,7 @@ export const PAGES={
  sim:{title:'SIM与调制解调器',desc:'SIM 状态、信号质量和当前小区',tabs:[{label:'概览',view:'v-sim'}]},
  comms:{title:'通信中心',desc:'短信、验证码、写短信和电话',tabs:[{label:'收件箱',view:'v-sms',phone:'v-mcomm'},{label:'写短信',view:'v-compose'},{label:'电话',view:'v-phone'}]},
  gnss:{title:'GNSS定位',desc:'卫星定位状态',tabs:[{label:'定位',view:'v-gnss'}]},
- ble:{title:'蓝牙配网',desc:'用手机通过蓝牙完成配网',tabs:[{label:'配网',view:'v-ble'}]},
+ ble:{title:'蓝牙',desc:'通信模式与 Wi-Fi 配网',tabs:[{label:'蓝牙',view:'v-ble'}]},
  security:{title:'安全策略',desc:'当前身份、已授权设备和外部接入',tabs:[{label:'概览',view:'v-security'}]},
  logs:{title:'系统日志',desc:'本次打开页面以来的事件',tabs:[{label:'最近事件',view:'v-events'}]},
  settings:{title:'设置',desc:'账户、外观和设备调试',tabs:[{label:'账户',view:'v-account'},{label:'外观',view:'v-appearance'},{label:'关于',view:'v-about'},{label:'设备调试',debug:true}]},

@@ -538,6 +538,13 @@ impl rustsimhub_airsim::Backend for Core<'_> {
         })
         .map(|(live, _)| live)
     }
+    fn observe_history(
+        &mut self,
+        pairing_id: &str,
+        history: usize,
+    ) -> Result<(Vec<Call>, Vec<Call>), BackendError> {
+        self.calls_for(pairing_id, history, |_| false)
+    }
     fn dial(
         &mut self,
         pairing_id: &str,

@@ -159,7 +159,14 @@
 </div></div>
 <div class="pg" id="v-ble" hidden>
 <div class="pg-grid">
-<section class="card ble-hero w12"><div class="ble-mark"><svg class="i" aria-hidden="true"><use href="#i-bt"/></svg></div><div><h2>蓝牙配网</h2><p>用手机配置工具通过蓝牙连接棒子，完成 Wi-Fi 配网。网页暂时看不到蓝牙状态，也没有蓝牙开关。</p></div></section>
+<section class="card ble-hero w12"><div class="ble-mark"><svg class="i" aria-hidden="true"><use href="#i-bt"/></svg></div><div><h2>蓝牙</h2><p>选择一个通信模式，或用手机配置工具完成 Wi-Fi 配网。</p></div></section>
+<section class="card pg-card w12"><h2>业务蓝牙用途</h2>
+<p id="bt-mode-status" role="status">请先读取设备模式。</p>
+<label for="bt-mode-target">切换到</label>
+<select id="bt-mode-target" disabled><option value="airsim">AirSIM 手机蓝牙</option><option value="nassimhub">NasSimHub 蓝牙</option></select>
+<button type="button" id="bt-mode-read">管理登录并读取</button>
+<button type="button" id="bt-mode-apply" disabled>切换</button>
+</section>
 <section class="card pg-card step w4"><em>1</em><h3>打开配置工具</h3><p>在手机上打开配置工具，并允许蓝牙权限。</p></section>
 <section class="card pg-card step w4"><em>2</em><h3>靠近棒子</h3><p>让手机靠近棒子，在工具中选择要配置的设备。</p></section>
 <section class="card pg-card step w4"><em>3</em><h3>填写 Wi-Fi</h3><p>按提示填写网络，试连成功后再保存。也可以在“网络管理”里配置。</p><button type="button" class="pg-link" data-go="network">前往网络管理</button></section>

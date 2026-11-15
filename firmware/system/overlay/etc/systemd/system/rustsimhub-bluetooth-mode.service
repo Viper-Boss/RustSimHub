@@ -1,0 +1,18 @@
+[Unit]
+Description=RustSimHub Bluetooth mode controller
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/installation.complete
+After=bluetooth.service rustsimhub-edge.service
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/python3 /usr/local/libexec/rustsimhub-bluetooth-mode
+Restart=on-failure
+RestartSec=5
+ProtectHome=yes
+NoNewPrivileges=yes
+PrivateTmp=yes
+UMask=0077
+LimitCORE=0
+
+[Install]
+WantedBy=multi-user.target
