@@ -29,5 +29,6 @@ cargo build --release --locked -p rustsimhub-core -p rustsimhub-edge -p rustsimh
 - UFI003 实机确认运行签名应用 88。BlueZ 5.82、VoBLE 本机 socket、维护 HTTPS 和 7 条音频路由通过检查。已备份应用 87 的数据并核对原有 AirSIM 绑定。
 - 真机协商 ATT MTU 185。iPhone 的 197 字节配对帧由 BlueZ 重组后交给应用，修复后收到了 iPhone 对配对成功 indication 的确认，棒子已保存该配对。相同长度范围的写入已加入 D-Bus 回归测试，BLE crate 81 项通过。
 - 已用设备所有者开启的一次性窗口注册本机桥。蓝牙服务在棒子上运行，iPhone 重新连接后已确认配对响应。当前由 systemd 临时服务运行，配对凭据保存在设备。
-- 关闭 iPhone Wi-Fi 后的双向通话仍待完成实测。整体实机验收仍为 81.5%。
+- 实机记录到 iPhone 经 BLE 拉取设备信息、拨出并接通电话，双向都有加密语音帧。30 ms 蓝牙连接中，下行平均约 20 个完整帧/秒，低于 20 ms 音频所需的 50 帧/秒。iPhone 端听到慢放和卡顿，音质未通过验收。
+- 同一设备已实测能将活动连接临时调到 15 ms，待重拨测量帧率和实际听感。未更改设备的默认蓝牙连接参数。整体实机验收仍为 81.5%。
 - Rust 1.98.0 锁定依赖下，共 198 项通过，包括 AirSIM 27、BLE 81、Edge 71 和 Core AirSIM 19。三个 ARM64 程序交叉构建通过。相关 crate 格式检查、AirSIM/BLE/Edge 全目标严格 Clippy 和 Core 生产程序严格 Clippy 通过。Core 全目标额外检查在原转发测试出现四处 `useless_conversion` 警告，该文件与基线逐字节相同。
