@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-14T15:00:21.288393+00:00",
+  "updated_at": "2026-11-15T06:02:35.483768+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -69,8 +69,8 @@
   "focus": {
     "task_id": "REL-01",
     "title": "冻结支持矩阵与发行候选",
-    "state": "84明显改善；轻微上行卡顿仍在，PR246离线修复完成",
-    "description": "84两手机实测：用户确认下行正常，上行基本不卡但仍偶发轻微卡顿。37.970秒PCM段输入1885帧/送1790、丢89，Native补静音65/1849（约3.5%，83为约49.2%），通话已结束、服务重启0；改善不当作连续性完全通过。PR246正常合并a826a97，修复已复现的分片60ms与整帧120ms不一致，共用首字节120ms/6帧边界，增加三类丢帧计数，原下行/声卡60ms及权限保持；1753 Rust/12 ARM/54音频、strict/8网页及旧84同测试真实失败通过。它尚未签名安装，当前设备保持84。89帧具体成因仍待分项实测，81.5%、20/169、10.6%不变。"
+    "state": "86已装机 · 纯音缺口消除 · 待真实双向复验",
+    "description": "PR247正常合并052b2e1，固定3b3c051/归档448a13b2。纯音复现85跳过式定时器在批量输入与调度停顿下的缺口；86以经过时间累计有限信用、10ms最小间距和30ms首次补充相位恢复节奏，手机输入明确改为200ms/10帧、60ms起步缓冲，原首字节/Native60ms/写40ms及权限保持。61组棒子/57组本机合成测试保留全部旧失败；最新55秒三条件各2750帧连续且样本差值0，85压力对照110/2720静音。1755 Rust/33原忽略、12 ARM/54音频/strict/8网页通过；云端计费零步骤。86验签6拒绝、新85备份回读、受限准入/唯一启动/健康确认/独立复核通过，原短信/配对/Root信任与85回退保留。真实手机连续性仍待复验；合成假声卡不等于iPhone/ALSA/RF验收。81.5%、20/169与10.6%保持。"
   },
   "facts": [
     {
@@ -90,8 +90,8 @@
     },
     {
       "label": "本轮PR处理",
-      "value": "PR246正常合并 · 设备保持84",
-      "detail": "1753 Rust/12 ARM/54音频；云端计费零步骤，未签名/安装本修复"
+      "value": "PR247正常合并 · 86已装机",
+      "detail": "1755 Rust/12 ARM/54音频；云端计费零步骤；新85备份/健康通过"
     },
     {
       "label": "完整剩余台账",
@@ -130,8 +130,8 @@
     },
     {
       "label": "本轮环境与边界",
-      "value": "84下行正常 · 上行轻微卡顿仍未闭环",
-      "detail": "PR246首字节120ms分片修复离线通过；当前设备仍84，不录音"
+      "value": "86已装机 · 纯音通过 · 实机待验",
+      "detail": "假声卡合成三条件55秒无缺口；未录真实通话；真实手机待复验"
     },
     {
       "label": "历史验收边界",
@@ -180,7 +180,10 @@
     "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-downlink82-install-20261114.md",
     "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-uplink83-install-20261114.md",
     "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-phone-jitter84-install-20261114.md",
-    "https://github.com/Viper-Boss/RustSimHub/pull/246"
+    "https://github.com/Viper-Boss/RustSimHub/pull/246",
+    "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-fragment85-install-20261114.md",
+    "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-clock86-install-20261115.md",
+    "https://github.com/Viper-Boss/RustSimHub/pull/247"
   ],
   "modules": [
     {
@@ -6334,12 +6337,36 @@
         "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-phone-jitter84-install-20261114.md",
         "https://github.com/Viper-Boss/RustSimHub/pull/246"
       ]
+    },
+    {
+      "at": "2026-11-15T01:39:38.093297+00:00",
+      "type": "state",
+      "title": "REL-01 · 下一关卡：冻结支持矩阵与发行候选",
+      "detail": "85已装机：PR246正常合并a826a97，固定ea8ab36/归档e8848737。修复手机分片60ms与整帧120ms不一致，共用原首字节120ms/6帧输入边界，新增分片过期/溢出/排队过期计数；下行/声卡60ms及权限不变。1753 Rust/33原忽略、12 ARM/54音频/strict/8网页和旧84实际行为反例通过。85同源签名/ARM验签6拒绝、新84备份回读与SQLite、受限准入/唯一启动/健康确认及独立复核通过；原短信/手机配对/Root信任和84回退保留。85复验仍有轻微上行卡顿；已转合成纯音自动定位，暂不再要求用户拨号。81.5%、20/169、10.6%不按修Bug虚增。",
+      "task_ids": [
+        "REL-01"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-fragment85-install-20261114.md"
+      ]
+    },
+    {
+      "at": "2026-11-15T06:02:35.483768+00:00",
+      "type": "state",
+      "title": "REL-01 · 下一关卡：冻结支持矩阵与发行候选",
+      "detail": "PR247正常合并052b2e1，固定3b3c051/归档448a13b2。纯音复现85跳过式定时器在批量输入与调度停顿下的缺口；86以经过时间累计有限信用、10ms最小间距和30ms首次补充相位恢复节奏，手机输入明确改为200ms/10帧、60ms起步缓冲，原首字节/Native60ms/写40ms及权限保持。61组棒子/57组本机合成测试保留全部旧失败；最新55秒三条件各2750帧连续且样本差值0，85压力对照110/2720静音。1755 Rust/33原忽略、12 ARM/54音频/strict/8网页通过；云端计费零步骤。86验签6拒绝、新85备份回读、受限准入/唯一启动/健康确认/独立复核通过，原短信/配对/Root信任与85回退保留。真实手机连续性仍待复验；合成假声卡不等于iPhone/ALSA/RF验收。81.5%、20/169与10.6%保持。",
+      "task_ids": [
+        "REL-01"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-clock86-install-20261115.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "a826a97108978df0a32d2be6c471a88cea487111",
-    "generated_at": "2026-11-14T15:00:11.319146+00:00",
+    "source_revision": "052b2e14801d931560ef6b28f6b0411cd56d663f",
+    "generated_at": "2026-11-15T05:57:18.475723+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -6358,15 +6385,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 61852,
+            "product": 61979,
             "tests": 47280,
             "tooling": 10859,
             "firmware": 1325
           },
-          "commits": 549,
-          "code_commits": 355,
-          "added": 128829,
-          "deleted": 3714
+          "commits": 559,
+          "code_commits": 365,
+          "added": 129032,
+          "deleted": 3788
         },
         "work": {
           "assigned_steps": 0,
@@ -7002,6 +7029,11 @@
             {
               "pr": 246,
               "head": "ea8ab36f544bb5aa8b27f3a30fe27a35889484fc",
+              "state": "MERGED"
+            },
+            {
+              "pr": 247,
+              "head": "3b3c051f4913613edce7933aa3a1956081768b67",
               "state": "MERGED"
             }
           ],
@@ -7759,6 +7791,12 @@
             {
               "pr": 246,
               "head": "ea8ab36f544bb5aa8b27f3a30fe27a35889484fc",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 247,
+              "head": "3b3c051f4913613edce7933aa3a1956081768b67",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
@@ -9481,7 +9519,7 @@
       "deleted": 4
     },
     "totals": {
-      "product": 103192,
+      "product": 103319,
       "tests": 88098,
       "tooling": 19697,
       "firmware": 1457
@@ -11018,11 +11056,13 @@
     }
   },
   "delivery_snapshot": {
-    "date": "2026-11-14",
-    "main": "a826a97108978df0a32d2be6c471a88cea487111",
-    "summary": "84实测下行正常、上行偶发轻微卡顿；PR246已正常合并并完成离线验证，尚未签名安装。",
+    "date": "2026-11-15",
+    "main": "052b2e14801d931560ef6b28f6b0411cd56d663f",
+    "summary": "86时钟补偿修复已同源安装并健康确认；55秒纯音三条件完整，真实双向连续待复验。",
     "code_percent": null,
     "delivered": [
+      "86签名/实际ARM验签6拒绝、新85备份回读及健康确认完成；1755 Rust/12 ARM/54音频，55秒合成压力三条件无中途缺口。",
+      "85同源签名安装/新84备份回读/健康确认与独立复核完成，原短信/配对与84回退保留。85复验仍有轻微上行卡顿；已转合成纯音自动定位，暂不再要求用户拨号。",
       "84实测从明显断续改善至偶发轻微上行卡顿；PR246手机分片修复通过1753 Rust/12 ARM/54音频和旧84行为失败对照，未部署。",
       "PR245正常合并、84手机输入有界抖动缓冲已装机；1751 Rust/12 ARM/54音频、旧83失败对照和540重复通过，原数据/配对/83回退保留。",
       "PR244正常合并；83上行两帧顺序发送、活跃PCM查选中通话、当前授权有限等待和匿名电平诊断已装机，完整同源构建/3反例/500重复验证通过。",
@@ -11044,11 +11084,11 @@
       "六个新转发渠道和四个WEB5窗口已在主线；外部通道/真实系统与原任务边界继续保留。"
     ],
     "remaining": [
-      "当前应用84已确认装机；完整产品profile、整机镜像和独立发行材料继续按原组合验证，应用更新不代替整机发行。",
+      "当前确认应用86；最新完整系统镜像/产品profile/第二设备和独立发行继续验收，应用更新不代替整机发行。",
       "完整发行与第二设备：把任务8产品组合与通用镜像统一来源；核对匹配boot/DTB/modules/固件、锁定系统材料、真实PID1/沙箱，完成首次刷写/回读/冷启动/恢复。旧74镜像不等于新产品固件。",
       "首配与网页转入整合验收：源码已有通用AP准备/激活、分页/时间/终态修复；仍需完整镜像中真实AP→STA、错密、返回热点、最终保存与原浏览器钥匙/计数核对。",
       "产品矩阵已有真实三变体18项模式检查、EmailRecovery隔离完整链和同源WASM/浏览器证据；四包新组合需完整复验。自动健康仍仅forwarding/schema9/worker4/同Core，AP/SMTP5拒绝不冒充已支持；明确有限首版范围。",
-      "AirSIM：84下行正常，上行仍偶发轻微卡顿；PR246已合并，待签名安装/新双向复验。离线修复不代替实机，仍需长稳、断网/撤权/争用及不同网络复核。",
+      "AirSIM86：合成55秒三条件各2750帧完整，真实两手机双向/长通话/多通、断网/撤权/争用仍待验；85实际微卡与全部失败实验保留。",
       "转发/NKN/统计/蓝牙：真实递送及关闭冷启动、外网/中继/ON worker、获准统计网络和BLE HCI/RF/手机互操作；资源/账户/外部服务及独立授权到位后实测。",
       "更新/迁移/恢复故障：已交隔离安装、迁移和限时健康证据需落到实际设备；验证真实SIGKILL/写满/断电、回退兼容、保留后写数据及整机恢复，不能用合成PID1替代。",
       "发行终验：安全/依赖许可证与公开产物扫描、性能/功耗/组合长稳、第二棒子验收、用户及恢复手册、最终冻结与逐项签认。PMIC搁置，手机原生App不在首版。"
@@ -11073,7 +11113,8 @@
         243,
         244,
         245,
-        246
+        246,
+        247
       ],
       "integrated_heads": [
         195,
@@ -11099,9 +11140,13 @@
       "merge_243": "按用户持续固件修复指示正常固定HEAD合并；云端付款/消费限制零步骤已披露，不改保护规则或管理员绕过",
       "merge_244": "按用户持续修复固件指示正常固定HEAD合并；云端计费零步骤披露，不改保护规则或管理员绕过",
       "merge_245": "正常固定HEAD合并，1751本机验证和云端计费零步骤分别披露，不改保护规则或管理员绕过",
-      "merge_246": "正常固定HEAD合并；1753本机验证、云端计费零步骤分别披露，不改保护或管理员绕过"
+      "merge_246": "正常固定HEAD合并；1753本机验证、云端计费零步骤分别披露，不改保护或管理员绕过",
+      "merge_247": "正常固定HEAD合并，1755本机验证与云端计费零步骤分别披露；未改保护规则或管理员绕过"
     },
     "evidence": [
+      "https://github.com/Viper-Boss/RustSimHub/pull/247",
+      "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-clock86-install-20261115.md",
+      "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-fragment85-install-20261114.md",
       "https://github.com/Viper-Boss/RustSimHub/pull/246",
       "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-phone-jitter84-install-20261114.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/airsim-uplink83-install-20261114.md",
