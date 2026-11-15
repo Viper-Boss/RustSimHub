@@ -373,6 +373,8 @@ mod tests {
             holders: Vec::new(),
             playback_last_success: None,
             playback_max_gap_ms: 0,
+            playback_signal: rustsimhub_media::SignalMeter::new(0),
+            playback_signal_start: std::time::Instant::now(),
         };
         prime_playback(device.playback.as_ref().unwrap()).unwrap();
         assert_eq!(
