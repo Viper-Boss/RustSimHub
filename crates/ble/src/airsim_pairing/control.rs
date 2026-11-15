@@ -2,7 +2,9 @@
 
 use super::{
     backend::{Backend, Status},
-    send, Channel, Context, Link, Reply,
+    send,
+    tx_monitor::TxMonitor,
+    Channel, Context, Link, Reply,
 };
 use rustsimhub_airsim::voble::{
     call::{self, Command, Media, Target, PCM_BYTES},
@@ -18,7 +20,7 @@ use std::{
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::UnixStream,
-    sync::mpsc,
+    sync::{mpsc, watch},
     task::JoinHandle,
     time::timeout,
 };
@@ -26,6 +28,7 @@ use zeroize::Zeroizing;
 
 const POLL: Duration = Duration::from_millis(900);
 const AUDIO_AGE: Duration = Duration::from_millis(60);
+const SUBMISSION_TIMEOUT: Duration = Duration::from_millis(500);
 
 pub(super) struct Microphone {
     pub bytes: Vec<u8>,
@@ -382,6 +385,16 @@ impl Controller {
             .auth
             .media(target)
             .map_err(|_| "media_authentication_failed")?;
+        let monitor = if std::env::var("RUSTSIMHUB_VOBLE_TX_PACING").as_deref() == Ok("1") {
+            Some(
+                timeout(SUBMISSION_TIMEOUT, TxMonitor::open())
+                    .await
+                    .map_err(|_| "bluetooth_tx_monitor_unavailable")?
+                    .map_err(|_| "bluetooth_tx_monitor_unavailable")?,
+            )
+        } else {
+            None
+        };
         let (stream, size) = self.backend.media().await.map_err(|_| "pcm_unavailable")?;
         // Phone streaming restarts its sequence at zero. A single key/context
         // may start once only to avoid reusing the AES-GCM nonce on the air.
@@ -392,7 +405,10 @@ impl Controller {
             .and_then(|ctx| ctx.microphone(&self.pairing, Some(tx)))
             .ok_or("bluetooth_disconnected")?;
         self.media = Some(MediaTask(tokio::spawn(async move {
-            let _ = audio_bridge(stream, size, audio, encoder, decoder, rx).await;
+            if let Err(err) = audio_bridge(stream, size, audio, encoder, decoder, rx, monitor).await
+            {
+                eprintln!("AirSIM PCM ended: {err}");
+            }
         })));
         Ok("media_ready".into())
     }
@@ -427,32 +443,78 @@ async fn audio_bridge(
     mut encoder: Media,
     mut decoder: Media,
     mut microphone: mpsc::Receiver<Microphone>,
+    mut monitor: Option<TxMonitor>,
 ) -> io::Result<()> {
     let (mut reader, mut writer) = stream.into_split();
-    let down = async {
+    let (latest, mut pending) = watch::channel(None);
+    let read_pcm = async {
         let mut pcm = [0; PCM_BYTES * 2];
+        let mut frame = 0u64;
         loop {
             timeout(Duration::from_secs(2), reader.read_exact(&mut pcm[..size])).await??;
-            let frames = encoder
-                .downlink(&narrow(&pcm[..size]), output.packet)
+            frame += 1;
+            latest.send_replace(Some((frame, Instant::now(), narrow(&pcm[..size]))));
+        }
+    };
+    let down = async {
+        let mut pacing = TxPacing::default();
+        let mut last_encoded = 0;
+        loop {
+            pending
+                .changed()
+                .await
+                .map_err(|_| io::ErrorKind::UnexpectedEof)?;
+            let Some((frame, captured, pcm)) = *pending.borrow_and_update() else {
+                continue;
+            };
+            if captured.elapsed() >= AUDIO_AGE {
+                continue;
+            }
+            let skipped = frame - last_encoded - 1;
+            encoder
+                .skip_downlink(skipped)
                 .map_err(|_| io::ErrorKind::InvalidData)?;
-            // Bound notification latency as a whole. The radio can always drop
-            // a delayed frame and recover on the next sequence number.
+            last_encoded = frame;
+            let frames = encoder
+                .downlink(&pcm, output.packet)
+                .map_err(|_| io::ErrorKind::InvalidData)?;
             let sent = timeout(Duration::from_millis(20), async {
-                for frame in frames {
+                for part in &frames {
                     let n = output
                         .stream
-                        .async_io(tokio::io::Interest::WRITABLE, |mut fd| fd.write(&frame))
+                        .async_io(tokio::io::Interest::WRITABLE, |mut fd| fd.write(part))
                         .await?;
-                    if n != frame.len() {
+                    if n != part.len() {
                         return Err(io::ErrorKind::WriteZero.into());
                     }
                 }
                 Ok::<_, io::Error>(())
             })
             .await;
-            if let Ok(result) = sent {
-                result?;
+            match sent {
+                Ok(result) => result?,
+                Err(_) if monitor.is_none() => continue,
+                Err(_) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        "VoBLE notification socket stalled",
+                    ))
+                }
+            }
+            if let Some(monitor) = &mut monitor {
+                // The fd write only hands data to BlueZ. Wait for the last
+                // fragment to reach hci0 before giving BlueZ more speech.
+                let last = frames.last().ok_or(io::ErrorKind::InvalidData)?;
+                timeout(SUBMISSION_TIMEOUT, monitor.submitted(last))
+                    .await
+                    .map_err(|_| {
+                        io::Error::new(
+                            io::ErrorKind::TimedOut,
+                            "VoBLE controller submission stalled",
+                        )
+                    })??;
+                pacing.submitted += 1;
+                pacing.skipped += skipped;
             }
         }
     };
@@ -475,7 +537,28 @@ async fn audio_bridge(
         }
         Ok(())
     };
-    tokio::select! { result = down => result, result = up => result }
+    tokio::select! {
+        result = read_pcm => result,
+        result = down => result,
+        result = up => result,
+    }
+}
+
+#[derive(Default)]
+struct TxPacing {
+    submitted: u64,
+    skipped: u64,
+}
+
+impl Drop for TxPacing {
+    fn drop(&mut self) {
+        if self.submitted > 0 {
+            eprintln!(
+                "VoBLE downlink pacing: submitted={} skipped={}",
+                self.submitted, self.skipped,
+            );
+        }
+    }
 }
 
 fn narrow(pcm: &[u8]) -> [u8; PCM_BYTES] {
@@ -545,7 +628,7 @@ mod tests {
         let phone = AsyncFd::new(remote).unwrap();
         let (mut worker, relay) = UnixStream::pair().unwrap();
         let (mic, rx) = mpsc::channel(2);
-        let bridge = tokio::spawn(audio_bridge(relay, 640, output, encoder, decoder, rx));
+        let bridge = tokio::spawn(audio_bridge(relay, 640, output, encoder, decoder, rx, None));
         timeout(Duration::from_secs(1), async {
             let voice: Vec<u8> = std::iter::repeat_n(988i16, 320)
                 .flat_map(i16::to_le_bytes)

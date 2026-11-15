@@ -7,7 +7,7 @@ license.workspace = true
 
 [features]
 default = []
-airsim-pairing = ["bluez-advertisement", "dep:rustsimhub-airsim", "dep:x25519-dalek", "dep:zeroize", "dep:getrandom", "dep:libc", "dep:rustix", "dep:serde", "dep:serde_json", "dep:socket2", "tokio/io-util", "tokio/macros", "tokio/net", "tokio/rt", "tokio/signal", "tokio/time"]
+airsim-pairing = ["bluez-advertisement", "dep:rustsimhub-airsim", "dep:x25519-dalek", "dep:zeroize", "dep:getrandom", "dep:libc", "dep:rustix", "dep:serde", "dep:serde_json", "dep:socket2", "tokio/io-util", "tokio/macros", "tokio/net", "tokio/process", "tokio/rt", "tokio/signal", "tokio/time"]
 product-host-candidate = ["bluez-backend", "core-channel-candidate", "dep:getrandom", "dep:rustix", "tokio/rt", "tokio/macros", "tokio/signal"]
 bluez-control = ["dep:zbus", "dep:tokio", "dep:futures-lite"]
 bluez-advertisement = ["bluez-control"]

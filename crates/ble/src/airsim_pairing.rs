@@ -3,6 +3,7 @@
 mod backend;
 mod control;
 mod store;
+mod tx_monitor;
 
 use crate::bluez_control::{Adapter, BluezControl, CallbackScope};
 use rustsimhub_airsim::voble::{self, Fragments, Pairing, Store};

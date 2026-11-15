@@ -296,6 +296,12 @@ impl Media {
         Ok(Some(pcm))
     }
 
+    pub fn skip_downlink(&mut self, frames: u64) -> Result<(), Error> {
+        let frames = u32::try_from(frames).map_err(|_| Error::Closed)?;
+        self.sequence = self.sequence.checked_add(frames).ok_or(Error::Closed)?;
+        Ok(())
+    }
+
     pub fn downlink(
         &mut self,
         pcm: &[u8; PCM_BYTES],
