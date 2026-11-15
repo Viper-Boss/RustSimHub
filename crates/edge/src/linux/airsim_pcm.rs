@@ -23,10 +23,12 @@ const FRAME_AGE: Duration = Duration::from_millis(60);
 const UPLINK_JITTER_AGE: Duration = Duration::from_millis(200);
 const UPLINK_QUEUE_FRAMES: usize = 10;
 const UPLINK_BURST_FRAMES: usize = 3;
-const UPLINK_INITIAL_CREDITS: usize = 2;
+const UPLINK_INITIAL_CREDITS: usize = 3;
 const UPLINK_REFILL_CREDITS: usize = 3;
 const UPLINK_PREFILL_WAIT: Duration = Duration::from_millis(60);
 const UPLINK_MIN_SPACING: Duration = Duration::from_millis(10);
+const UPLINK_FIRST_REFILL: Duration = Duration::from_millis(30);
+const UPLINK_POLL_PERIOD: Duration = Duration::from_millis(5);
 // AirSIM's public wire marker, identical to rustsimhub_airsim::PCM_READY.
 const READY: &[u8] = b"AIRSIMREADY";
 
@@ -291,7 +293,7 @@ impl UplinkPacer {
         self.credits -= 1;
         self.last_sent = Some(now);
         self.next_refill
-            .get_or_insert(now + Duration::from_millis(20));
+            .get_or_insert(now + UPLINK_FIRST_REFILL);
     }
 }
 async fn uplink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
@@ -304,7 +306,7 @@ async fn uplink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
     let mut queue = Queue::new(rate);
     let mut trace = UplinkTrace::default();
     let mut pacer = UplinkPacer::new();
-    let mut tick = tokio::time::interval(UPLINK_MIN_SPACING);
+    let mut tick = tokio::time::interval(UPLINK_POLL_PERIOD);
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
         tokio::select! {
@@ -875,10 +877,10 @@ mod tests {
         p.sent(at + Duration::from_millis(20));
         let delayed = at + Duration::from_millis(75);
         assert!(p.available(delayed));
-        assert_eq!(p.credits, 2, "only credits at 40 ms and 60 ms have elapsed");
+        assert_eq!(p.credits, 3, "credits at 30 ms, 50 ms and 70 ms elapsed");
         p.sent(delayed);
         assert!(!p.available(delayed));
-        assert_eq!(p.next_refill, Some(at + Duration::from_millis(80)));
+        assert_eq!(p.next_refill, Some(at + Duration::from_millis(90)));
         let much_later = at + Duration::from_secs(600);
         assert!(p.available(much_later));
         assert_eq!(p.credits, UPLINK_REFILL_CREDITS);
