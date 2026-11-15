@@ -26,6 +26,9 @@ const UPLINK_BURST_FRAMES: usize = 3;
 const UPLINK_INITIAL_CREDITS: usize = 3;
 const UPLINK_REFILL_CREDITS: usize = 3;
 const UPLINK_PREFILL_WAIT: Duration = Duration::from_millis(60);
+// Recover a delayed sender at no more than twice realtime. The initial three
+// credits refill after 30ms, keeping startup ahead of playout without filling
+// the native 60ms age window. Polling does not grant additional credits.
 const UPLINK_MIN_SPACING: Duration = Duration::from_millis(10);
 const UPLINK_FIRST_REFILL: Duration = Duration::from_millis(30);
 const UPLINK_POLL_PERIOD: Duration = Duration::from_millis(5);
@@ -292,8 +295,7 @@ impl UplinkPacer {
     fn sent(&mut self, now: Instant) {
         self.credits -= 1;
         self.last_sent = Some(now);
-        self.next_refill
-            .get_or_insert(now + UPLINK_FIRST_REFILL);
+        self.next_refill.get_or_insert(now + UPLINK_FIRST_REFILL);
     }
 }
 async fn uplink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
