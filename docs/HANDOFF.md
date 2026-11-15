@@ -1,5 +1,7 @@
 # RustSimHub 当前接手入口
 
+2026-11-15 主线独立统计参与授权已接线并通过本机验证，见[交付](deliveries/LEAD-NKN-USAGE-CONSENT-20261115.md)。Core原私有状态下注入固定目录，当前Owner/realm/CAS/精确回执绑定；默认不参与，网页明确只保存许可、尚未连接上报端口。461相关Rust、全仓严格检查、Core/Edge ARM64和真实Chrome三宽通过，不触碰蓝牙/AirSIM/音频或设备。不能调用SDK的Subscribe便捷函数代替纯交易准备；真实签名、提交/恢复确认、长期权限与实机仍待完成，整体81.5%保持。
+
 2026-11-15 主线统计查询接线已完成本机验证，见 [交付记录](deliveries/LEAD-NKN-USAGE-QUERY-20261115.md) 和 [生产接口/剩余项](nkn/usage-query-integration.md)。它仅提供受限引擎上的显式汇总查询，不能当作本机已参加安装统计；签名/链上提交及独立参与同意仍待接线。Core/Edge 和 SDK/Root 的 ARM 构建、相关 Rust/Go/真实 Chrome 通过，未部署、不改变设备 87 或蓝牙窗口工作；现有最长 300 秒权限不放宽。
 
 2026-11-12 Claude按用户要求彻底接手收尾。当前设备为应用77（confirmed77/floor77，清单d9295070，源1f1ec580；2026-11-13更新）。AirSIM直连已部署但未启用，见[airsim-gateway.md](airsim-gateway.md)；通话和音频未接。目标按“真机跑通”排序：短信转发（代码已部署，待真实通道实测）→NasSimHub连接→NKN装机→iOS AirSIM网关（未开始）→界面收尾。实测清单在[testing/TAKEOVER-ACCEPTANCE.md](testing/TAKEOVER-ACCEPTANCE.md)。部署沿用已成功四次的应用升级流程（本机`.local/app75-*`脚本），未使用WEB5产品profile链。所有者钥匙仍只在用户Chrome的`https://192.168.120.167:8443`下。

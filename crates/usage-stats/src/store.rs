@@ -15,6 +15,7 @@ pub const STORE_FORMAT_VERSION: u32 = 1;
 pub const MAX_STORE_BYTES: u64 = 128 * 1024;
 const DATA_FILE: &str = "state.json";
 const LOCK_FILE: &str = "writer.lock";
+pub mod participation;
 
 /// Reserved persistence fields for a later, separately reviewed confirmation
 /// state machine. Recording a digest here does not submit a transaction.

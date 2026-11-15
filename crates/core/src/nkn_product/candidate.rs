@@ -14,6 +14,7 @@ pub(super) struct Inner {
     pub wake: tokio::sync::Notify,
     pub closed: std::sync::atomic::AtomicBool,
     usage_cache: Mutex<(String, rustsimhub_usage_stats::query::QueryCache)>,
+    participation: super::participation::Service,
 }
 struct Actions {
     revision: u64,
@@ -155,7 +156,11 @@ impl Receipt {
     }
 }
 impl Inner {
+    #[cfg(test)]
     pub fn new(auth: Arc<Mutex<Auth>>) -> Self {
+        Self::with_usage_state(auth, None)
+    }
+    pub fn with_usage_state(auth: Arc<Mutex<Auth>>, state: Option<&std::path::Path>) -> Self {
         Self {
             root: Arc::new(rustsimhub_core::nkn_root::Controller::new(auth.clone())),
             auth,
@@ -167,6 +172,7 @@ impl Inner {
             wake: tokio::sync::Notify::new(),
             closed: std::sync::atomic::AtomicBool::new(false),
             usage_cache: Mutex::new((String::new(), Default::default())),
+            participation: super::participation::Service::new(state),
         }
     }
     fn caller(&self, token: &str, recent: bool) -> rustsimhub_auth::Result<Caller> {
@@ -201,6 +207,12 @@ impl Inner {
             return Err(Error::Forbidden);
         }
         match command {
+            command @ (AuthCommand::UsageParticipationStatus { .. }
+            | AuthCommand::UsageParticipationSet { .. }
+            | AuthCommand::UsageParticipationRequest { .. }) => {
+                let _actions = self.actions.try_lock().map_err(|_| Error::Busy)?;
+                self.participation.request(&self.auth, command)
+            }
             AuthCommand::UsageStatsQuery { token, window } => self.query_usage(&token, &window),
             AuthCommand::NknStatus { token } => {
                 self.caller(&token, false)?;

@@ -13,6 +13,8 @@ const files=new Map([...linux.matchAll(/include_str!\("web\/([^"/]+)"\)/g)].map(
 const {subtle}=webcrypto,pair=await subtle.generateKey('Ed25519',true,['sign','verify']);
 const device=Array.from(new Uint8Array(await subtle.exportKey('raw',pair.publicKey))),token='c'.repeat(64),instance='a'.repeat(64);
 let calls=[],assets=[],failures=[],challenges=new Map(),sequence=0,mode='ready',held=null;
+let permissionGeneration=0,permissionEnabled=false,permissionDisabled=0,permissionReceipts=new Map();
+function permissionStatus(){return {format:1,available:true,core_instance:instance,generation:String(permissionGeneration),enabled:permissionEnabled,disclosure_version:permissionEnabled?1:null,disabled_generation:String(permissionDisabled),owner_current:permissionEnabled,record_exists:permissionGeneration>0,reporting_available:false,runtime:permissionEnabled?'authorized_not_connected':'disabled'};}
 function report(){return {available:true,configuration_api:true,remote_control_supported:false,revision:'0',provider:{contract:1,core_instance:instance,owners:{manual:false,remote:false,statistics:false},supervisor_state:'ready',root_generation:1,original_process_exit_verified:false,status:{contract:1,source:'engine',generation:1,sequence:++sequence,age_ms:0,enabled:'on',service:'running',path:'unknown',dht:'unknown',rx_bytes:null,tx_bytes:null,rtt_ms:null,peer_count:null,last_error:null}}};}
 async function handle(c){
  calls.push({op:c.op,...(c.request_id?{request_id:c.request_id}:{}),...(c.owner?{owner:c.owner,enabled:c.enabled}:{})});
@@ -30,6 +32,13 @@ async function handle(c){
   const key=await subtle.importKey('raw',new Uint8Array(proof.client),'Ed25519',false,['verify']);assert(await subtle.verify('Ed25519',key,new Uint8Array(c.signature),proof.transcript));return {token,expires_in_seconds:900};
  }
  case 'nkn_status':return report();
+ case 'usage_participation_status':return permissionStatus();
+ case 'usage_participation_set':{
+  assert.equal(c.expected_core_instance,instance);assert.equal(c.expected_generation,String(permissionGeneration));assert.equal(c.disclosure_version,c.enabled?1:null);
+  permissionGeneration++;permissionEnabled=c.enabled;if(!c.enabled)permissionDisabled++;
+  const result={request_id:c.request_id,known:true,state:'saved',core_instance:instance,current_core_instance:instance,enabled:c.enabled,disclosure_version:c.disclosure_version,expected_generation:c.expected_generation,generation:String(permissionGeneration),not_found_is_not_proof:true,reporting_available:false};permissionReceipts.set(c.request_id,result);return result;
+ }
+ case 'usage_participation_request':return permissionReceipts.get(c.request_id)||{request_id:c.request_id,known:false,current_core_instance:instance,not_found_is_not_proof:true,reporting_available:false};
  case 'usage_stats_query':assert(['24h','30d','90d'].includes(c.window));{const now=Math.floor(Date.now()/1000);return {status:'success',entry:{window:c.window,count:42,source:'read_only_transport',observed_at_secs:now,succeeded_at_secs:now,expires_at_secs:now+600,freshness_revoked:false}};}
  case 'nkn_request':assert.equal(c.expected_core_instance,instance);return {request_id:c.request_id,known:false,core_instance:instance,not_found_is_not_proof:true};
  case 'configuration_indicator':assert.equal(c.active,false);return {ok:true};
@@ -58,7 +67,7 @@ const server=createServer(async(req,res)=>{
   let raw='';for await(const part of req){raw+=part;assert(raw.length<=65536);}
   if(path==='/fixture'){
    const value=JSON.parse(raw);mode=value.mode||'ready';
-   if(value.reset){calls=[];assets=[];failures=[];sequence=0;challenges=new Map();}
+   if(value.reset){calls=[];assets=[];failures=[];sequence=0;challenges=new Map();permissionGeneration=0;permissionEnabled=false;permissionDisabled=0;permissionReceipts=new Map();}
    if(held){const release=held;held=null;release();}json(res,{ok:true});return;
   }
   assert.equal(path,'/api/v2');assert.equal(req.headers['x-rustsimhub-request'],'2');
