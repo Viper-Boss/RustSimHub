@@ -71,7 +71,7 @@ export class UsageParticipationPanel {
   const button=(key,text,fn)=>{const b=document.createElement('button');b.type='button';b.textContent=text;b.onclick=fn;this.buttons[key]=b;return b;};
   root.replaceChildren(heading,label,button('read','登录并读取上报授权',()=>this.loginRead()),button('save','保存参与授权（暂不上报）',()=>this.save()),button('query','核对上次授权保存',()=>this.action(g=>this.query(g))),button('archive','保留不确定记录并解除阻止',()=>this.action(g=>this.archive(g))),this.state,this.output);this.reset();
  }
- reset(){this.epoch++;this.busy=false;this.starting=false;this.pending=null;this.sample=null;this.consent.checked=false;this.state.textContent='默认不参与。此处只保存独立授权，签名与发送接口尚未接通。';this.output.textContent='当前授权未知；读取不会开启引擎或上报。';this.update();}
+ reset(){this.epoch++;this.busy=false;this.starting=false;this.pending=null;this.sample=null;this.consent.checked=false;this.state.textContent='尚未读取设备授权；新设备默认不参与。此处只保存独立授权，签名与发送接口尚未接通。';this.output.textContent='当前授权未知；退出不会修改设备已保存的授权。读取不会开启引擎或上报。';this.update();}
  update(){const working=this.busy||this.starting,blocked=working||!this.getToken();this.consent.disabled=working;this.buttons.read.disabled=working;this.buttons.save.disabled=working||(!this.getToken()&&!this.login);this.buttons.query.disabled=blocked||!this.pending;this.buttons.archive.disabled=blocked||!this.pending;}
  current(g){permissionRequire(g===this.epoch&&!!this.getToken());}
  async action(fn){if(this.busy)return;const g=this.epoch;this.busy=true;this.update();try{await fn(g);}catch{if(g===this.epoch)this.state.textContent=this.pending?'授权保存结果未确认，原记录保留；请核对，不会自动重发。':'授权或读取未确认；没有上报、启停引擎或自动重试。';}finally{if(g===this.epoch){this.busy=false;this.update();}}}
