@@ -29,6 +29,12 @@ const sent=f=>f.calls.filter(c=>c.op==='usage_participation_set');
 for(const mode of ['cancel','storage']){
  const f=fixture();f.panel.consent.checked=true;if(mode==='cancel')f.confirm=false;else f.failWrite=true;await f.panel.save();assert.equal(sent(f).length,0);assert.equal(f.pending,null);assert.doesNotMatch(f.panel.state.textContent,/PRIVATE/);
 }
+for(const initiallyEnabled of [true,false]){
+ const f=fixture();f.unknown=true;f.panel.consent.checked=initiallyEnabled;await f.panel.save();assert(f.pending);
+ f.setServer(2,!initiallyEnabled);await f.panel.action(g=>f.panel.query(g));
+ assert.equal(sent(f).length,1);assert.equal(f.pending,null);assert.equal(f.panel.consent.checked,!initiallyEnabled);
+ assert.match(f.panel.state.textContent,/后续变更/);assert.equal(f.archives[0].generation,'1');
+}
 {
  const f=fixture();f.unknown=true;f.panel.consent.checked=true;await f.panel.save();assert.equal(sent(f).length,1);assert(f.pending);assert.match(f.panel.state.textContent,/未确认/);await f.panel.save();assert.equal(sent(f).length,1);
  f.instance(next);await f.panel.action(g=>f.panel.query(g));assert.equal(sent(f).length,1);assert.equal(f.pending,null);assert.equal(f.archives[0].record.core_instance,ctx,'Cross-restart lookup binds the original instance');

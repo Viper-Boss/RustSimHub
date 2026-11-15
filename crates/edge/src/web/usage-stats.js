@@ -97,7 +97,7 @@ export class UsageParticipationPanel {
  async accept(g,record,value){
   const receipt=participationReceipt(value,record);await this.archivePending({record,...receipt});this.current(g);
   await this.savePending(null,record.id);this.current(g);permissionRequire(participationPending(await this.loadPending())===null);this.pending=null;await this.read(g);
-  this.state.textContent=record.enabled?'参与授权已保存；签名与上报接口尚未接通，未开始上报。':'不参与的授权已保存；没有启动上报任务。';
+  this.state.textContent=this.sample.generation!==receipt.generation||this.sample.enabled!==record.enabled||this.sample.enabled&&!this.sample.owner_current?'原请求已保存；当前授权已有后续变更，请以最新读取为准。没有重新应用旧请求。':record.enabled?'参与授权已保存；签名与上报接口尚未接通，未开始上报。':'不参与的授权已保存；没有启动上报任务。';
  }
  async query(g){
   this.current(g);const record=participationPending(await this.loadPending());this.current(g);permissionRequire(record);this.pending=record;
