@@ -1,0 +1,1098 @@
+{
+  "base": "b15ea3f561bf9e2a1268f8df5b6f0973cc83bbbd",
+  "scope": "initial candidates, not completed semantic audit or passing actions",
+  "actions": [
+    {
+      "id": "FWD-06",
+      "action": "Webhook真实递送闭环",
+      "scope": "复验真实HTTP编码、认证及有界本机Webhook对端",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/forwarder/src/worker.rs",
+      "candidate_tests": "crates/forwarder/src/delivery/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-smtp-sender.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "FWD-08",
+      "action": "Telegram真实递送闭环",
+      "scope": "复验Telegram适配与本机响应/限流错误分支",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/forwarder/src/worker.rs",
+      "candidate_tests": "crates/forwarder/src/delivery/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-smtp-sender.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "FWD-09",
+      "action": "补齐邮件发送器",
+      "scope": "检查SMTP生产接线，补缺口及本机TLS/认证/恢复矩阵",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/forwarder/src/worker.rs",
+      "candidate_tests": "crates/forwarder/src/delivery/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-smtp-sender.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "FWD-13",
+      "action": "并发关闭与迟到响应",
+      "scope": "修并发关闭、取消代次和迟到响应，保留原回执",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/forwarder/src/worker.rs",
+      "candidate_tests": "crates/forwarder/src/delivery/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-smtp-sender.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "FWD-14",
+      "action": "断网与固定出口恢复",
+      "scope": "有限固定出口/断网恢复；禁止普通蜂窝和任意URL回退",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/forwarder/src/worker.rs",
+      "candidate_tests": "crates/forwarder/src/delivery/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-smtp-sender.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "FWD-16",
+      "action": "凭据更新与撤权",
+      "scope": "凭据代次、撤权与旧请求归属；不泄漏旧秘密",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/forwarder/src/worker.rs",
+      "candidate_tests": "crates/forwarder/src/delivery/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-smtp-sender.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "FWD-17",
+      "action": "换卡与疑似重复隔离",
+      "scope": "换卡/重复候选隔离模型，不修改真实SIM",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/forwarder/src/worker.rs",
+      "candidate_tests": "crates/forwarder/src/delivery/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-smtp-sender.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "FWD-18",
+      "action": "关闭状态冷启动",
+      "scope": "默认关闭及启动配置的纯模型/对端验证",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/forwarder/src/worker.rs",
+      "candidate_tests": "crates/forwarder/src/delivery/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-smtp-sender.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "FWD-19",
+      "action": "开启状态冷启动与延迟联网",
+      "scope": "已授权启动/延迟联网的有限调度与拒绝路径",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/forwarder/src/worker.rs",
+      "candidate_tests": "crates/forwarder/src/delivery/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-smtp-sender.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "FWD-20",
+      "action": "应用/Root配置/outbox兼容回退",
+      "scope": "补应用/Root配置/outbox格式兼容API，交B故障组合",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/forwarder/src/worker.rs",
+      "candidate_tests": "crates/forwarder/src/delivery/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-smtp-sender.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "FWD-21",
+      "action": "资源与业务并发",
+      "scope": "补有界队列/并发/预算，输出给B可重复负载",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/forwarder/src/worker.rs",
+      "candidate_tests": "crates/forwarder/src/delivery/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-smtp-sender.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "FWD-22",
+      "action": "功能说明与发行组合接线",
+      "scope": "补现有功能入口与公开状态，模式元数据交B",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/forwarder/src/worker.rs",
+      "candidate_tests": "crates/forwarder/src/delivery/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-smtp-sender.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "AP-03",
+      "action": "实现最终保存与回执",
+      "scope": "核已有保存/回执终态，修真实缺口而非重写",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/setup-ap/src/station_commit.rs",
+      "candidate_tests": "crates/setup-ap/src/station_commit/tests/t5_matrix.rs",
+      "historical_reference": "docs/deliveries/member-c-nas.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "AP-04",
+      "action": "错误密码与回退矩阵",
+      "scope": "复验错密、回退、重复提交与恢复状态机",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/setup-ap/src/station_commit.rs",
+      "candidate_tests": "crates/setup-ap/src/station_commit/tests/t5_matrix.rs",
+      "historical_reference": "docs/deliveries/member-c-nas.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "AP-07",
+      "action": "设备首次热点与隔离实测",
+      "scope": "只准备只读诊断字段和故障解释，不启热点",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/setup-ap/src/station_commit.rs",
+      "candidate_tests": "crates/setup-ap/src/station_commit/tests/t5_matrix.rs",
+      "historical_reference": "docs/deliveries/member-c-nas.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "AP-08",
+      "action": "真实AP→路由器→网页",
+      "scope": "本机AP/STA断开-返回-确认流程与真实网页契约",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/setup-ap/src/station_commit.rs",
+      "candidate_tests": "crates/setup-ap/src/station_commit/tests/t5_matrix.rs",
+      "historical_reference": "docs/deliveries/member-c-nas.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "AP-09",
+      "action": "USB仅供电与无NAS启动",
+      "scope": "核无NAS依赖的业务前置，启动材料由B补",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/setup-ap/src/station_commit.rs",
+      "candidate_tests": "crates/setup-ap/src/station_commit/tests/t5_matrix.rs",
+      "historical_reference": "docs/deliveries/member-c-nas.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "AP-10",
+      "action": "其他SSID与网络重命名",
+      "scope": "隐藏/其他SSID和重命名的有限输入/状态处理",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/setup-ap/src/station_commit.rs",
+      "candidate_tests": "crates/setup-ap/src/station_commit/tests/t5_matrix.rs",
+      "historical_reference": "docs/deliveries/member-c-nas.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "AP-11",
+      "action": "配置后冷启动和失败恢复",
+      "scope": "保存后恢复/重启模型，实机断电留主线",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/setup-ap/src/station_commit.rs",
+      "candidate_tests": "crates/setup-ap/src/station_commit/tests/t5_matrix.rs",
+      "historical_reference": "docs/deliveries/member-c-nas.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "AP-12",
+      "action": "独立配网手册与一键检查",
+      "scope": "一键诊断数据和可复制结果；B写实机手册",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/setup-ap/src/station_commit.rs",
+      "candidate_tests": "crates/setup-ap/src/station_commit/tests/t5_matrix.rs",
+      "historical_reference": "docs/deliveries/member-c-nas.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "SMS-01",
+      "action": "独立第二客户端同步",
+      "scope": "原Core的双客户端游标与视图补缺",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/storage/src/inbox.rs",
+      "candidate_tests": "crates/storage/src/inbox_recovery_tests.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "SMS-02",
+      "action": "旧游标、离线追赶与乱序",
+      "scope": "旧游标/乱序/离线追赶的有限同步",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/storage/src/inbox.rs",
+      "candidate_tests": "crates/storage/src/inbox_recovery_tests.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "SMS-03",
+      "action": "中文/emoji/长短信/二进制",
+      "scope": "中文/emoji/长/二进制真实编解码与边界",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/storage/src/inbox.rs",
+      "candidate_tests": "crates/storage/src/inbox_recovery_tests.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "SMS-04",
+      "action": "SIM满与MM对象换代",
+      "scope": "模拟MM对象/存储代次及满额失败，禁止SIM写试验",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/storage/src/inbox.rs",
+      "candidate_tests": "crates/storage/src/inbox_recovery_tests.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "SMS-06",
+      "action": "提交后断线/退出/磁盘满",
+      "scope": "原ID持久化、断连/退出/写满下的Unknown语义",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/storage/src/inbox.rs",
+      "candidate_tests": "crates/storage/src/inbox_recovery_tests.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "SMS-07",
+      "action": "真实发送故障与结果对账",
+      "scope": "补真实状态对账接口；仅本机模拟失败",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/storage/src/inbox.rs",
+      "candidate_tests": "crates/storage/src/inbox_recovery_tests.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "SMS-08",
+      "action": "恢复、换卡与委派视图",
+      "scope": "恢复/换卡/委派视图的授权和身份隔离",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/storage/src/inbox.rs",
+      "candidate_tests": "crates/storage/src/inbox_recovery_tests.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "SMS-09",
+      "action": "签名候选与双端终验",
+      "scope": "给B固定代码/接口和一键结果；不签名或真发送",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/storage/src/inbox.rs",
+      "candidate_tests": "crates/storage/src/inbox_recovery_tests.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "CALL-01",
+      "action": "来电拒接与双方先挂断",
+      "scope": "复验拒接/双方先挂断的控制状态模型",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/calls.rs",
+      "candidate_tests": "crates/core/src/calls_checks.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "CALL-02",
+      "action": "DTMF菜单实测",
+      "scope": "DTMF控制接口及有限输入/失败；不打运营商菜单",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/calls.rs",
+      "candidate_tests": "crates/core/src/calls_checks.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "CALL-03",
+      "action": "多浏览器与NAS控制竞争",
+      "scope": "多客户端/NAS控制权与原租约竞争",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/calls.rs",
+      "candidate_tests": "crates/core/src/calls_checks.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "CALL-04",
+      "action": "撤权、页面关闭与后台挂起",
+      "scope": "撤权/关页/后台挂起的控制取消，不改声音路径",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/calls.rs",
+      "candidate_tests": "crates/core/src/calls_checks.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "CALL-05",
+      "action": "Core/Media退出与欠载恢复",
+      "scope": "Core/Media退出控制边界和Unknown清理模型",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/calls.rs",
+      "candidate_tests": "crates/core/src/calls_checks.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "CALL-06",
+      "action": "跨15分钟会话轮换听音",
+      "scope": "会话轮换的授权契约；实际听音由主线",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/calls.rs",
+      "candidate_tests": "crates/core/src/calls_checks.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "CALL-07",
+      "action": "长通话与质量采样",
+      "scope": "给B有限质量/负载采样接口；不做真长通话",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/calls.rs",
+      "candidate_tests": "crates/core/src/calls_checks.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "CALL-08",
+      "action": "终止Call重观察去重",
+      "scope": "终止呼叫重观察/去重，不自动新建或拨号",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/calls.rs",
+      "candidate_tests": "crates/core/src/calls_checks.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "CALL-09",
+      "action": "远程TURN与切网媒体验收",
+      "scope": "只补远程控制/预授权契约；受保护媒体源码交主线",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/calls.rs",
+      "candidate_tests": "crates/core/src/calls_checks.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "CALL-10",
+      "action": "最终电话一键回归与记录",
+      "scope": "统一电话一键入口和结果；真实拨打仍需现场",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/calls.rs",
+      "candidate_tests": "crates/core/src/calls_checks.rs",
+      "historical_reference": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NET-01",
+      "action": "月结日、时间回拨与重启",
+      "scope": "月结、回拨和重启的计量持久状态",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/network-agent/src/lib.rs",
+      "candidate_tests": "crates/network-agent/src/accounting_tests.rs",
+      "historical_reference": "docs/deliveries/member-b-network-display.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NET-02",
+      "action": "计量源失效与多接口切换",
+      "scope": "多接口/计量源消失的准确未知与隔离",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/network-agent/src/lib.rs",
+      "candidate_tests": "crates/network-agent/src/accounting_tests.rs",
+      "historical_reference": "docs/deliveries/member-b-network-display.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NET-03",
+      "action": "网络信息缺值与显示核对",
+      "scope": "缺值/频段/速率等有来源显示，不编造设备读数",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/network-agent/src/lib.rs",
+      "candidate_tests": "crates/network-agent/src/accounting_tests.rs",
+      "historical_reference": "docs/deliveries/member-b-network-display.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NET-04",
+      "action": "漫游与真实限额边界复验",
+      "scope": "漫游/限额授权与拒绝路径，本机模拟",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/network-agent/src/lib.rs",
+      "candidate_tests": "crates/network-agent/src/accounting_tests.rs",
+      "historical_reference": "docs/deliveries/member-b-network-display.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NET-05",
+      "action": "真实速率/流量/切换和掉电",
+      "scope": "接口切换/掉电事件的模型和只读结果接口",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/network-agent/src/lib.rs",
+      "candidate_tests": "crates/network-agent/src/accounting_tests.rs",
+      "historical_reference": "docs/deliveries/member-b-network-display.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NET-06",
+      "action": "测试后关闭普通数据并恢复原卡",
+      "scope": "无新增离线功能：核测试清理提示；原卡/数据恢复只归主线",
+      "initial_classification": "仅现场动作（清理提示待核）",
+      "candidate_source": "crates/network-agent/src/lib.rs",
+      "candidate_tests": "crates/network-agent/src/accounting_tests.rs",
+      "historical_reference": "docs/deliveries/member-b-network-display.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "REMOTE-01",
+      "action": "固定远程入口与发现契约",
+      "scope": "核原入口/发现/身份契约与有限首版范围",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/nkn-agent/src/routing.rs",
+      "candidate_tests": "crates/nkn-agent/src/routing/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-nkn-contracts.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "REMOTE-02",
+      "action": "盘点并配置测试中继",
+      "scope": "只定义中继输入与预检结构；不配置真实服务",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/nkn-agent/src/routing.rs",
+      "candidate_tests": "crates/nkn-agent/src/routing/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-nkn-contracts.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "REMOTE-03",
+      "action": "远程API权限与媒体预授权",
+      "scope": "原Auth/媒体预授权/撤权边界，不能新增宽权限",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/nkn-agent/src/routing.rs",
+      "candidate_tests": "crates/nkn-agent/src/routing/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-nkn-contracts.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "REMOTE-04",
+      "action": "NAT、IPv6和TLS-only矩阵",
+      "scope": "本机IPv6/TLS和端点矩阵，不当公网NAT成功",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/nkn-agent/src/routing.rs",
+      "candidate_tests": "crates/nkn-agent/src/routing/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-nkn-contracts.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "REMOTE-05",
+      "action": "强制TURN媒体与资源预算",
+      "scope": "资源预算/强制TURN适配契约，受保护声音实现不改",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/nkn-agent/src/routing.rs",
+      "candidate_tests": "crates/nkn-agent/src/routing/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-nkn-contracts.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "REMOTE-06",
+      "action": "断线、重连与切网",
+      "scope": "断线/重连/切网的原会话清理与有限重试",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/nkn-agent/src/routing.rs",
+      "candidate_tests": "crates/nkn-agent/src/routing/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-nkn-contracts.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "REMOTE-07",
+      "action": "远程一键诊断与支持说明",
+      "scope": "一键诊断状态及脱敏结果，不探测真实公网",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/nkn-agent/src/routing.rs",
+      "candidate_tests": "crates/nkn-agent/src/routing/tests.rs",
+      "historical_reference": "docs/deliveries/member-a-nkn-contracts.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NAS-01",
+      "action": "冻结兼容API与状态含义",
+      "scope": "核现有兼容协议、错误/状态语义和版本限制",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "tools/nas-adapter/control/client.go",
+      "candidate_tests": "tools/nas-adapter/control/client_test.go",
+      "historical_reference": "docs/deliveries/member-b-c25-c30-20261103.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NAS-02",
+      "action": "原NAS页面真实只读回归",
+      "scope": "本机模拟NAS与原页面只读接口验证",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "tools/nas-adapter/control/client.go",
+      "candidate_tests": "tools/nas-adapter/control/client_test.go",
+      "historical_reference": "docs/deliveries/member-b-c25-c30-20261103.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NAS-03",
+      "action": "NAS电话控制适配",
+      "scope": "通过同一Core的有限电话控制，不能并行直控modem",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "tools/nas-adapter/control/client.go",
+      "candidate_tests": "tools/nas-adapter/control/client_test.go",
+      "historical_reference": "docs/deliveries/member-b-c25-c30-20261103.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NAS-04",
+      "action": "NAS PCM/声音适配",
+      "scope": "原PCM协议的合成适配/契约；不改native/AirSIM",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "tools/nas-adapter/control/client.go",
+      "candidate_tests": "tools/nas-adapter/control/client_test.go",
+      "historical_reference": "docs/deliveries/member-b-c25-c30-20261103.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NAS-05",
+      "action": "旧数据导入差异报告",
+      "scope": "实际样本格式的合成历史导入差异报告",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "tools/nas-adapter/control/client.go",
+      "candidate_tests": "tools/nas-adapter/control/client_test.go",
+      "historical_reference": "docs/deliveries/member-b-c25-c30-20261103.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NAS-06",
+      "action": "重复导入与恢复防重",
+      "scope": "重复导入/恢复幂等及来源绑定",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "tools/nas-adapter/control/client.go",
+      "candidate_tests": "tools/nas-adapter/control/client_test.go",
+      "historical_reference": "docs/deliveries/member-b-c25-c30-20261103.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NAS-07",
+      "action": "授权撤销与NAS重启",
+      "scope": "撤权/NAS重启后原请求核对，不自动重发",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "tools/nas-adapter/control/client.go",
+      "candidate_tests": "tools/nas-adapter/control/client_test.go",
+      "historical_reference": "docs/deliveries/member-b-c25-c30-20261103.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NAS-08",
+      "action": "兼容版本与端到端验收",
+      "scope": "输出有限支持矩阵及本机端到端证据给B",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "tools/nas-adapter/control/client.go",
+      "candidate_tests": "tools/nas-adapter/control/client_test.go",
+      "historical_reference": "docs/deliveries/member-b-c25-c30-20261103.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "LED-01",
+      "action": "联网原色与断网两种情况",
+      "scope": "联网/断网事件到原状态模型，不驱动实际GPIO",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/status-led/src/lib.rs",
+      "candidate_tests": "crates/status-led/src/linux_input_boundary_tests.rs",
+      "historical_reference": "docs/VALIDATION-LED-BUS-INSTALL-20261102.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "LED-02",
+      "action": "故障红色与优先级",
+      "scope": "故障与优先级模型，未知状态不冒称正常",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/status-led/src/lib.rs",
+      "candidate_tests": "crates/status-led/src/linux_input_boundary_tests.rs",
+      "historical_reference": "docs/VALIDATION-LED-BUS-INSTALL-20261102.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "LED-03",
+      "action": "青色读写与低频闪烁",
+      "scope": "读写事件限频/预算及状态一致",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/status-led/src/lib.rs",
+      "candidate_tests": "crates/status-led/src/linux_input_boundary_tests.rs",
+      "historical_reference": "docs/VALIDATION-LED-BUS-INSTALL-20261102.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "LED-04",
+      "action": "配置白色租约及退出",
+      "scope": "配置提示原租约/退出，不能无限续期",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/status-led/src/lib.rs",
+      "candidate_tests": "crates/status-led/src/linux_input_boundary_tests.rs",
+      "historical_reference": "docs/VALIDATION-LED-BUS-INSTALL-20261102.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "LED-05",
+      "action": "短信/未接电话两组跑马灯",
+      "scope": "短信/未接电话持久事件与已读清理模型",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/status-led/src/lib.rs",
+      "candidate_tests": "crates/status-led/src/linux_input_boundary_tests.rs",
+      "historical_reference": "docs/VALIDATION-LED-BUS-INSTALL-20261102.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "LED-06",
+      "action": "已验证更新与升级紫色",
+      "scope": "仅可信更新事件驱动，不由客户端自报成功",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/status-led/src/lib.rs",
+      "candidate_tests": "crates/status-led/src/linux_input_boundary_tests.rs",
+      "historical_reference": "docs/VALIDATION-LED-BUS-INSTALL-20261102.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "LED-07",
+      "action": "灯控权限与持久标记复验",
+      "scope": "权限/持久标记与负对照，不改设备灯驱动",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/status-led/src/lib.rs",
+      "candidate_tests": "crates/status-led/src/linux_input_boundary_tests.rs",
+      "historical_reference": "docs/VALIDATION-LED-BUS-INSTALL-20261102.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "WEB-01",
+      "action": "统一日常/测试/调试入口",
+      "scope": "日常/测试/调试入口收敛，保留一键动作",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/edge/src/web/test-center.js",
+      "candidate_tests": "tools/test-web-test-center.mjs",
+      "historical_reference": "docs/deliveries/web4-production-wiring-20261104.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "WEB-02",
+      "action": "统一操作回执与旧操作核对",
+      "scope": "原ID回执/历史结果与最新状态的区别",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/edge/src/web/test-center.js",
+      "candidate_tests": "tools/test-web-test-center.mjs",
+      "historical_reference": "docs/deliveries/web4-production-wiring-20261104.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "WEB-03",
+      "action": "手机窄屏与长中文布局",
+      "scope": "真实组件、长中文与窄屏；不改蓝牙页面",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/edge/src/web/test-center.js",
+      "candidate_tests": "tools/test-web-test-center.mjs",
+      "historical_reference": "docs/deliveries/web4-production-wiring-20261104.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "WEB-04",
+      "action": "多端配对/撤销与证书交付",
+      "scope": "原配对/撤销/证书交付接口，不读取用户钥匙",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/edge/src/web/test-center.js",
+      "candidate_tests": "tools/test-web-test-center.mjs",
+      "historical_reference": "docs/deliveries/web4-production-wiring-20261104.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "WEB-05",
+      "action": "一键测试错误分支",
+      "scope": "一键错误分支、取消/迟到/不重试与复制结果",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/edge/src/web/test-center.js",
+      "candidate_tests": "tools/test-web-test-center.mjs",
+      "historical_reference": "docs/deliveries/web4-production-wiring-20261104.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "WEB-06",
+      "action": "配置保存与服务真实状态",
+      "scope": "配置已保存与实际服务已运行分别核验",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/edge/src/web/test-center.js",
+      "candidate_tests": "tools/test-web-test-center.mjs",
+      "historical_reference": "docs/deliveries/web4-production-wiring-20261104.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "WEB-07",
+      "action": "网页回归与实际可访问性终验",
+      "scope": "真实主页和缺依赖负对照，外部手机验收留主线",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/edge/src/web/test-center.js",
+      "candidate_tests": "tools/test-web-test-center.mjs",
+      "historical_reference": "docs/deliveries/web4-production-wiring-20261104.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NKN-01",
+      "action": "冻结上游与最小接入契约",
+      "scope": "核固定上游、现有最小业务通道与支持声明",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/nkn_product.rs",
+      "candidate_tests": "tools/nkn-engine/managed/usage_linux_test.go",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-QUERY-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NKN-02",
+      "action": "ARM64离线构建与依赖清单",
+      "scope": "固定SDK源/patch/依赖构建接线；B做制品核验",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/nkn_product.rs",
+      "candidate_tests": "tools/nkn-engine/managed/usage_linux_test.go",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-QUERY-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NKN-03",
+      "action": "TUN/WireGuard与固定Root助手",
+      "scope": "仅现有限权Root/出口补缺；不新增TUN/全LAN路由",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/nkn_product.rs",
+      "candidate_tests": "tools/nkn-engine/managed/usage_linux_test.go",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-QUERY-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NKN-04",
+      "action": "Rust监督与独立开关",
+      "scope": "原三引用监督和独立开关，默认不启动",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/nkn_product.rs",
+      "candidate_tests": "tools/nkn-engine/managed/usage_linux_test.go",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-QUERY-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NKN-05",
+      "action": "成员证明、配对与撤销",
+      "scope": "成员证明/原Auth/配对撤销；不动蓝牙配对",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/nkn_product.rs",
+      "candidate_tests": "tools/nkn-engine/managed/usage_linux_test.go",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-QUERY-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NKN-06",
+      "action": "仅路由获准设备服务",
+      "scope": "仅获准Core服务，不透传任意端口或URL",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/nkn_product.rs",
+      "candidate_tests": "tools/nkn-engine/managed/usage_linux_test.go",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-QUERY-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NKN-07",
+      "action": "状态、延迟与一键诊断页",
+      "scope": "已有状态/延迟/一键页补缺，未知不等于0",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/nkn_product.rs",
+      "candidate_tests": "tools/nkn-engine/managed/usage_linux_test.go",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-QUERY-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NKN-08",
+      "action": "真实外网直连与中继",
+      "scope": "仅本机有限对端和协议；公网直连/中继由主线",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/nkn_product.rs",
+      "candidate_tests": "tools/nkn-engine/managed/usage_linux_test.go",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-QUERY-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NKN-09",
+      "action": "弱设备并发与断线恢复",
+      "scope": "有限并发/断连/到期的可复现模型与适配",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/nkn_product.rs",
+      "candidate_tests": "tools/nkn-engine/managed/usage_linux_test.go",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-QUERY-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NKN-10",
+      "action": "签名交付与故障回选",
+      "scope": "给B固定源码与兼容/回退契约，不生产签名",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/nkn_product.rs",
+      "candidate_tests": "tools/nkn-engine/managed/usage_linux_test.go",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-QUERY-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "NKN-11",
+      "action": "用户流程及终验",
+      "scope": "现有用户入口和诊断接线，B写发行说明",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/core/src/nkn_product.rs",
+      "candidate_tests": "tools/nkn-engine/managed/usage_linux_test.go",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-QUERY-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "STAT-01",
+      "action": "协议/主题/窗口冻结",
+      "scope": "保留专属主题/窗口，核真实链参数与语义",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/usage-stats/src/check_in.rs",
+      "candidate_tests": "crates/usage-stats/tests/check_in.rs",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-CONSENT-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "STAT-02",
+      "action": "独立统计密钥与持久状态",
+      "scope": "独立身份到受限签名器；OFF/未授权不生成身份",
+      "initial_classification": "需补代码",
+      "candidate_source": "crates/usage-stats/src/check_in.rs",
+      "candidate_tests": "crates/usage-stats/tests/check_in.rs",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-CONSENT-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "STAT-03",
+      "action": "链上订阅与确认实现",
+      "scope": "真实纯准备、持久摘要、单次submit和原交易确认",
+      "initial_classification": "需补代码",
+      "candidate_source": "crates/usage-stats/src/check_in.rs",
+      "candidate_tests": "crates/usage-stats/tests/check_in.rs",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-CONSENT-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "STAT-04",
+      "action": "近期活跃安装估计查询与缓存",
+      "scope": "复用PR251查询/缓存，仅补生产缺口，不另造计数",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/usage-stats/src/check_in.rs",
+      "candidate_tests": "crates/usage-stats/tests/check_in.rs",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-CONSENT-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "STAT-05",
+      "action": "独立隐私开关与公开字段说明",
+      "scope": "复用PR252/253独立同意/回执，不自动升级永久权限",
+      "initial_classification": "已有实现可复验（本轮待核）",
+      "candidate_source": "crates/usage-stats/src/check_in.rs",
+      "candidate_tests": "crates/usage-stats/tests/check_in.rs",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-CONSENT-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "STAT-06",
+      "action": "关闭后的任务/共享引擎管理",
+      "scope": "在途关闭/取消代次/统计引用释放，保留Pending",
+      "initial_classification": "需补代码",
+      "candidate_source": "crates/usage-stats/src/check_in.rs",
+      "candidate_tests": "crates/usage-stats/tests/check_in.rs",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-CONSENT-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "STAT-07",
+      "action": "失败、到期和隔离测试",
+      "scope": "实际编码/本机RPC、错主题/密钥/时钟/重启负对照",
+      "initial_classification": "需补代码",
+      "candidate_source": "crates/usage-stats/src/check_in.rs",
+      "candidate_tests": "crates/usage-stats/tests/check_in.rs",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-CONSENT-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "STAT-08",
+      "action": "获准后的真实NKN试验",
+      "scope": "无公网提交：只交预检/数据公开说明/待测步骤",
+      "initial_classification": "需外部输入及离线预检",
+      "candidate_source": "crates/usage-stats/src/check_in.rs",
+      "candidate_tests": "crates/usage-stats/tests/check_in.rs",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-CONSENT-20261115.md",
+      "per_action_verification": "pending"
+    },
+    {
+      "id": "STAT-09",
+      "action": "统计页面、关闭验收与文档",
+      "scope": "接真实上报可用性与一键结果，未接通不能显示已运行",
+      "initial_classification": "需补代码",
+      "candidate_source": "crates/usage-stats/src/check_in.rs",
+      "candidate_tests": "crates/usage-stats/tests/check_in.rs",
+      "historical_reference": "docs/deliveries/LEAD-NKN-USAGE-CONSENT-20261115.md",
+      "per_action_verification": "pending"
+    }
+  ],
+  "sources": [
+    {
+      "path": "crates/core/src/calls.rs",
+      "bytes": 54693,
+      "sha256": "8ee1bbe9e3f6da9300384601627e631e8f0b7ab899565831399f28578497e1e8"
+    },
+    {
+      "path": "crates/core/src/calls_checks.rs",
+      "bytes": 51575,
+      "sha256": "d40a492413d43e04343bfafd60374f1c5a931ece537d1f910fbd144415f94235"
+    },
+    {
+      "path": "crates/core/src/nkn_product.rs",
+      "bytes": 18199,
+      "sha256": "35d951a67c6d89695917acbdf3105f2407c2a369be47f89669e3caa42080fe54"
+    },
+    {
+      "path": "crates/edge/src/web/test-center.js",
+      "bytes": 4936,
+      "sha256": "630824fe004cbffe4da8121bb83c10c36316f4ed635bee71191136fd5695a378"
+    },
+    {
+      "path": "crates/forwarder/src/delivery/tests.rs",
+      "bytes": 33780,
+      "sha256": "8b530e4a86423792a642f6f4ad42486ddf58edd40992fb86874f98258800b6e7"
+    },
+    {
+      "path": "crates/forwarder/src/worker.rs",
+      "bytes": 6498,
+      "sha256": "9ed95389a96fe29123b7187fb94b7c6170b73ab21fcd1cd0cc1b2982d07aed84"
+    },
+    {
+      "path": "crates/network-agent/src/accounting_tests.rs",
+      "bytes": 7977,
+      "sha256": "5d10281825b6b5d53ff839067c68ab713b376d2e2d88ebc777d34f075d41f9e8"
+    },
+    {
+      "path": "crates/network-agent/src/lib.rs",
+      "bytes": 14722,
+      "sha256": "26fe657ed85a58a81f47455a3c5d5b7ceb7123f64658115b81afeadfca0ae051"
+    },
+    {
+      "path": "crates/nkn-agent/src/routing.rs",
+      "bytes": 14977,
+      "sha256": "16fc13ce36a73251b258de4cd6aa25c89d145047da0572493daa9c27b7e50978"
+    },
+    {
+      "path": "crates/nkn-agent/src/routing/tests.rs",
+      "bytes": 24532,
+      "sha256": "d419aa59da5f34633ee9c8a5207a061ce079b4f4d00e2190921de14da661737c"
+    },
+    {
+      "path": "crates/setup-ap/src/station_commit.rs",
+      "bytes": 4659,
+      "sha256": "f426ee5c127f3ff580f36fa7a7133b03bdc03863671eb498ea021c201ad1c33c"
+    },
+    {
+      "path": "crates/setup-ap/src/station_commit/tests/t5_matrix.rs",
+      "bytes": 19397,
+      "sha256": "96c3dd1baf942b63a39bc3cd02aa6d6a82ed01a867d801e34ec1625727874b53"
+    },
+    {
+      "path": "crates/status-led/src/lib.rs",
+      "bytes": 13446,
+      "sha256": "bf23d69cf8c66c40409628eb5f1ea2f3d6bc393e9c64bcfe25f5bb34bf4cc29b"
+    },
+    {
+      "path": "crates/status-led/src/linux_input_boundary_tests.rs",
+      "bytes": 3273,
+      "sha256": "e5d605fc204dffdbe5359d65905e68fb1d5242dd57cbd5b00bbd91825d771247"
+    },
+    {
+      "path": "crates/storage/src/inbox.rs",
+      "bytes": 17232,
+      "sha256": "80f43e2d2e45141be2d3470d088c472c67e5a30e90599cff470e6fc5be702f71"
+    },
+    {
+      "path": "crates/storage/src/inbox_recovery_tests.rs",
+      "bytes": 7857,
+      "sha256": "8318d398e7c10025c00a7952dabdbaef93bc235eddaae7104a9550d96beeb2c8"
+    },
+    {
+      "path": "crates/usage-stats/src/check_in.rs",
+      "bytes": 23604,
+      "sha256": "917425039ddadb7c75857b15137819ed51f756c500da55130e7fed913a8adc0d"
+    },
+    {
+      "path": "crates/usage-stats/tests/check_in.rs",
+      "bytes": 28961,
+      "sha256": "4e2f2f19e2c723d538bb17bd4b3dfec718c4cfc9c95b9eed62aeeff3343b9349"
+    },
+    {
+      "path": "docs/VALIDATION-LED-BUS-INSTALL-20261102.md",
+      "bytes": 3433,
+      "sha256": "cfdb2145093f9d8f471bca232efef403093f721be48e12bd8633f65590fbc4c9"
+    },
+    {
+      "path": "docs/VALIDATION-LOCAL-ROLLUP-20261101.md",
+      "bytes": 1275,
+      "sha256": "70d4a172e12ef3283f77491773d25ff0699e64af30eb227792fe1cf10a58f6aa"
+    },
+    {
+      "path": "docs/deliveries/LEAD-NKN-USAGE-CONSENT-20261115.md",
+      "bytes": 2542,
+      "sha256": "23f86b0df9d82818c3e02d2d447d20ace9ee00120108646dc63713014278de5c"
+    },
+    {
+      "path": "docs/deliveries/LEAD-NKN-USAGE-QUERY-20261115.md",
+      "bytes": 2406,
+      "sha256": "246502ecc04ae909741189f0dd352fe3f8d32d677daf4bada995cf231f4599e3"
+    },
+    {
+      "path": "docs/deliveries/member-a-nkn-contracts.md",
+      "bytes": 4225,
+      "sha256": "810e58d5ba31836bf296aeb2c8e668d1ba0cd517cc1958e008133cb21758a58d"
+    },
+    {
+      "path": "docs/deliveries/member-a-smtp-sender.md",
+      "bytes": 3836,
+      "sha256": "f4efecaf6f181cfa36fc03a31344ad82eb407bff649b37cf3f1ce77df6270abe"
+    },
+    {
+      "path": "docs/deliveries/member-b-c25-c30-20261103.md",
+      "bytes": 7955,
+      "sha256": "8f62e06cead009947d6e0fb6c98f9e3628ed7606f90d9ae5baaeaa652ae9be4b"
+    },
+    {
+      "path": "docs/deliveries/member-b-network-display.md",
+      "bytes": 5580,
+      "sha256": "ebc0bf7dacb55a0cd2e4ad8db0eb82219a5024540cc32adb2177191b956160bc"
+    },
+    {
+      "path": "docs/deliveries/member-c-nas.md",
+      "bytes": 121379,
+      "sha256": "f86da999970675184b8f15f040208ada9c33292c4776c8366a315fa2ab57039c"
+    },
+    {
+      "path": "docs/deliveries/web4-production-wiring-20261104.md",
+      "bytes": 26910,
+      "sha256": "82e6ae93ab26b4b4ed5939c4d08f5854381568bec8ef3b719db69827f7ef6e96"
+    },
+    {
+      "path": "tools/nas-adapter/control/client.go",
+      "bytes": 9479,
+      "sha256": "1f83a29577acdfee89c0f452a5aafc4736866dba0ae35db02086e07e486b254a"
+    },
+    {
+      "path": "tools/nas-adapter/control/client_test.go",
+      "bytes": 10679,
+      "sha256": "ab48dcbc52f47269d92c4882652c672b7c495c366c5f695b0f20f7c862978544"
+    },
+    {
+      "path": "tools/nkn-engine/managed/usage_linux_test.go",
+      "bytes": 3528,
+      "sha256": "edd5331113165e106463cb0efef6a1c7227343a1602f8b748048a8d160383006"
+    },
+    {
+      "path": "tools/test-web-test-center.mjs",
+      "bytes": 34717,
+      "sha256": "952cf42aa8030d11b6a1d8a9338ba6956a14ff494036ac4690a7e4fb31420c6f"
+    }
+  ]
+}
