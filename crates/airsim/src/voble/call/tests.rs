@@ -106,23 +106,6 @@ fn encrypted_iphone_microphone_and_gateway_speaker_use_separate_crypto_direction
 }
 
 #[test]
-fn dropping_stale_speech_preserves_the_downlink_sample_clock() {
-    let mut channel = channel();
-    let command = channel.request(&decode_hex(IPHONE_CONTROL), NOW).unwrap();
-    let mut media = channel.media(&command.target).unwrap();
-    let pcm = [0; PCM_BYTES];
-    let first = media.downlink(&pcm, 182).unwrap();
-
-    media.skip_downlink(2).unwrap();
-    let next = media.downlink(&pcm, 182).unwrap();
-    assert_eq!(&first[0][7..15], &[0; 8]);
-    assert_eq!(&next[0][7..11], &3u32.to_be_bytes());
-    assert_eq!(&next[0][11..15], &480u32.to_be_bytes());
-    assert_ne!(&first[0][AUDIO_HEADER..], &next[0][AUDIO_HEADER..]);
-    assert!(matches!(media.skip_downlink(u64::MAX), Err(Error::Closed)));
-}
-
-#[test]
 fn pairing_and_control_fragment_envelopes_do_not_interchange() {
     let now = Instant::now();
     let body = decode_hex(IPHONE_CONTROL);

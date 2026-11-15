@@ -84,6 +84,7 @@ async fn private_bus_runs_ios_wire_flow_and_rejects_another_sender_and_peer() {
                 peer: None,
             }),
             changed: Notify::new(),
+            revoked: Notify::new(),
             replies: sender,
         });
         export(&server, &context, Arc::new(Notify::new()))
@@ -251,6 +252,19 @@ async fn private_bus_runs_ios_wire_flow_and_rejects_another_sender_and_peer() {
             .await
             .unwrap();
         assert_eq!(audio_rx.recv().await.unwrap().bytes, vec![1u8; 20]);
+        let pairing_link = context
+            .state
+            .lock()
+            .unwrap()
+            .peer
+            .as_ref()
+            .unwrap()
+            .link(Channel::Pairing)
+            .unwrap()
+            .clone();
+        let other_link = context.output(&pairing_link, Channel::Control).unwrap();
+        assert!(context.revoke(&other_link).is_err());
+        assert!(context.state.lock().unwrap().disk.credential().is_some());
         let stream = context.stream().unwrap();
         assert!(
             timeout(Duration::from_millis(10), wait_idle_end(stream.as_ref()))
@@ -261,6 +275,26 @@ async fn private_bus_runs_ios_wire_flow_and_rejects_another_sender_and_peer() {
         wait_idle_end(stream.as_ref()).await;
         context.remove(stream.as_ref().unwrap());
         assert!(context.stream().unwrap().is_none());
+        assert!(context.revoke(&pairing_link).is_err());
+        let (_new_fd, _): (OwnedFd, u16) =
+            pairing.call(acquire, &(options(device),)).await.unwrap();
+        let new_origin = context
+            .state
+            .lock()
+            .unwrap()
+            .peer
+            .as_ref()
+            .unwrap()
+            .link(Channel::Pairing)
+            .unwrap()
+            .clone();
+        assert!(context.revoke(&pairing_link).is_err());
+        context.revoke(&new_origin).unwrap();
+        assert!(context.state.lock().unwrap().disk.credential().is_none());
+        let record: Json =
+            serde_json::from_slice(&std::fs::read(state_path.join("state.json")).unwrap()).unwrap();
+        assert_eq!(record.get("current"), Some(&Json::Null));
+        assert_eq!(record.get("previous"), Some(&Json::Null));
         context.close();
         assert!(pairing
             .call::<_, _, (OwnedFd, u16)>(acquire, &(options(device),))
@@ -268,7 +302,6 @@ async fn private_bus_runs_ios_wire_flow_and_rejects_another_sender_and_peer() {
             .is_err());
         registration(&control, true, false).await.unwrap();
         registration(&control, false, false).await.unwrap();
-        assert!(context.state.lock().unwrap().disk.credential().is_some());
         server.close().await.unwrap();
     })
     .await

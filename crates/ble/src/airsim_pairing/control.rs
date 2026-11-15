@@ -2,9 +2,7 @@
 
 use super::{
     backend::{Backend, Status},
-    send,
-    tx_monitor::TxMonitor,
-    Channel, Context, Link, Reply,
+    send, Channel, Context, Link, Reply,
 };
 use rustsimhub_airsim::voble::{
     call::{self, Command, Media, Target, PCM_BYTES},
@@ -20,7 +18,7 @@ use std::{
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::UnixStream,
-    sync::{mpsc, watch},
+    sync::mpsc,
     task::JoinHandle,
     time::timeout,
 };
@@ -28,7 +26,6 @@ use zeroize::Zeroizing;
 
 const POLL: Duration = Duration::from_millis(900);
 const AUDIO_AGE: Duration = Duration::from_millis(60);
-const SUBMISSION_TIMEOUT: Duration = Duration::from_millis(500);
 
 pub(super) struct Microphone {
     pub bytes: Vec<u8>,
@@ -37,11 +34,22 @@ pub(super) struct Microphone {
 
 struct Call {
     target: Target,
+    provisional_id: Option<String>,
     direction: String,
     state: String,
     number: String,
     owned: bool,
     media_used: bool,
+}
+
+impl Call {
+    fn matches_command(&self, command: &Command) -> bool {
+        self.target == command.target
+            || (self.owned
+                && matches!(command.name.as_str(), "end" | "hangup")
+                && self.target.generation == command.target.generation
+                && self.provisional_id.as_deref() == Some(command.target.call.as_str()))
+    }
 }
 
 struct MediaTask(JoinHandle<()>);
@@ -160,16 +168,22 @@ impl Controller {
                 },
             ),
         };
-        self.out(
-            "response",
-            &command.target,
-            json!({"request_id":id,"ok":ok,"code":code,"detail":detail}),
-        )
-        .await?;
+        let sent = self
+            .out(
+                "response",
+                &command.target,
+                json!({"request_id":id,"ok":ok,"code":code,"detail":detail}),
+            )
+            .await;
         if ok && command.name == "unpair" {
+            // Give the phone a chance to acknowledge the revocation. Even
+            // when it disconnects first, stop advertising the withdrawn peer.
+            if let Some(service) = self.service.upgrade() {
+                service.revoked.notify_one();
+            }
             return Err(io::ErrorKind::ConnectionAborted.into());
         }
-        Ok(())
+        sent
     }
 
     async fn execute(&mut self, command: &Command, id: &str) -> CommandResult {
@@ -208,7 +222,7 @@ impl Controller {
         let call = self
             .active
             .as_ref()
-            .filter(|call| call.target == command.target)
+            .filter(|call| call.matches_command(command))
             .ok_or("call_mismatch")?;
         let action = match command.name.as_str() {
             "answer" if call.state == "incoming" && !call.owned => "answer",
@@ -274,6 +288,7 @@ impl Controller {
                 call: id.to_owned(),
                 generation: command.target.generation,
             },
+            provisional_id: Some(command.target.call.clone()),
             direction: "outgoing".into(),
             state: String::new(),
             number: number.into(),
@@ -341,6 +356,7 @@ impl Controller {
                     call: id.to_owned(),
                     generation: self.latest_generation,
                 },
+                provisional_id: None,
                 direction: "incoming".into(),
                 number: observed["number"]
                     .as_str()
@@ -385,16 +401,6 @@ impl Controller {
             .auth
             .media(target)
             .map_err(|_| "media_authentication_failed")?;
-        let monitor = if std::env::var("RUSTSIMHUB_VOBLE_TX_PACING").as_deref() == Ok("1") {
-            Some(
-                timeout(SUBMISSION_TIMEOUT, TxMonitor::open())
-                    .await
-                    .map_err(|_| "bluetooth_tx_monitor_unavailable")?
-                    .map_err(|_| "bluetooth_tx_monitor_unavailable")?,
-            )
-        } else {
-            None
-        };
         let (stream, size) = self.backend.media().await.map_err(|_| "pcm_unavailable")?;
         // Phone streaming restarts its sequence at zero. A single key/context
         // may start once only to avoid reusing the AES-GCM nonce on the air.
@@ -405,10 +411,7 @@ impl Controller {
             .and_then(|ctx| ctx.microphone(&self.pairing, Some(tx)))
             .ok_or("bluetooth_disconnected")?;
         self.media = Some(MediaTask(tokio::spawn(async move {
-            if let Err(err) = audio_bridge(stream, size, audio, encoder, decoder, rx, monitor).await
-            {
-                eprintln!("AirSIM PCM ended: {err}");
-            }
+            let _ = audio_bridge(stream, size, audio, encoder, decoder, rx).await;
         })));
         Ok("media_ready".into())
     }
@@ -443,78 +446,32 @@ async fn audio_bridge(
     mut encoder: Media,
     mut decoder: Media,
     mut microphone: mpsc::Receiver<Microphone>,
-    mut monitor: Option<TxMonitor>,
 ) -> io::Result<()> {
     let (mut reader, mut writer) = stream.into_split();
-    let (latest, mut pending) = watch::channel(None);
-    let read_pcm = async {
+    let down = async {
         let mut pcm = [0; PCM_BYTES * 2];
-        let mut frame = 0u64;
         loop {
             timeout(Duration::from_secs(2), reader.read_exact(&mut pcm[..size])).await??;
-            frame += 1;
-            latest.send_replace(Some((frame, Instant::now(), narrow(&pcm[..size]))));
-        }
-    };
-    let down = async {
-        let mut pacing = TxPacing::default();
-        let mut last_encoded = 0;
-        loop {
-            pending
-                .changed()
-                .await
-                .map_err(|_| io::ErrorKind::UnexpectedEof)?;
-            let Some((frame, captured, pcm)) = *pending.borrow_and_update() else {
-                continue;
-            };
-            if captured.elapsed() >= AUDIO_AGE {
-                continue;
-            }
-            let skipped = frame - last_encoded - 1;
-            encoder
-                .skip_downlink(skipped)
-                .map_err(|_| io::ErrorKind::InvalidData)?;
-            last_encoded = frame;
             let frames = encoder
-                .downlink(&pcm, output.packet)
+                .downlink(&narrow(&pcm[..size]), output.packet)
                 .map_err(|_| io::ErrorKind::InvalidData)?;
+            // Bound notification latency as a whole. The radio can always drop
+            // a delayed frame and recover on the next sequence number.
             let sent = timeout(Duration::from_millis(20), async {
-                for part in &frames {
+                for frame in frames {
                     let n = output
                         .stream
-                        .async_io(tokio::io::Interest::WRITABLE, |mut fd| fd.write(part))
+                        .async_io(tokio::io::Interest::WRITABLE, |mut fd| fd.write(&frame))
                         .await?;
-                    if n != part.len() {
+                    if n != frame.len() {
                         return Err(io::ErrorKind::WriteZero.into());
                     }
                 }
                 Ok::<_, io::Error>(())
             })
             .await;
-            match sent {
-                Ok(result) => result?,
-                Err(_) if monitor.is_none() => continue,
-                Err(_) => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::TimedOut,
-                        "VoBLE notification socket stalled",
-                    ))
-                }
-            }
-            if let Some(monitor) = &mut monitor {
-                // The fd write only hands data to BlueZ. Wait for the last
-                // fragment to reach hci0 before giving BlueZ more speech.
-                let last = frames.last().ok_or(io::ErrorKind::InvalidData)?;
-                timeout(SUBMISSION_TIMEOUT, monitor.submitted(last))
-                    .await
-                    .map_err(|_| {
-                        io::Error::new(
-                            io::ErrorKind::TimedOut,
-                            "VoBLE controller submission stalled",
-                        )
-                    })??;
-                pacing.submitted += 1;
-                pacing.skipped += skipped;
+            if let Ok(result) = sent {
+                result?;
             }
         }
     };
@@ -537,28 +494,7 @@ async fn audio_bridge(
         }
         Ok(())
     };
-    tokio::select! {
-        result = read_pcm => result,
-        result = down => result,
-        result = up => result,
-    }
-}
-
-#[derive(Default)]
-struct TxPacing {
-    submitted: u64,
-    skipped: u64,
-}
-
-impl Drop for TxPacing {
-    fn drop(&mut self) {
-        if self.submitted > 0 {
-            eprintln!(
-                "VoBLE downlink pacing: submitted={} skipped={}",
-                self.submitted, self.skipped,
-            );
-        }
-    }
+    tokio::select! { result = down => result, result = up => result }
 }
 
 fn narrow(pcm: &[u8]) -> [u8; PCM_BYTES] {
@@ -603,6 +539,39 @@ mod tests {
     use std::{io::Read, sync::Arc};
     use tokio::io::{unix::AsyncFd, Interest};
 
+    #[test]
+    fn early_hangup_matches_only_this_outgoing_attempt() {
+        let mut call = Call {
+            target: Target {
+                call: "modem-call".into(),
+                generation: 17,
+            },
+            provisional_id: Some("phone-attempt".into()),
+            direction: "outgoing".into(),
+            state: "dialing".into(),
+            number: "10010".into(),
+            owned: true,
+            media_used: false,
+        };
+        let command = |name: &str, id: &str, generation| Command {
+            name: name.into(),
+            target: Target {
+                call: id.into(),
+                generation,
+            },
+            body: Value::Null,
+        };
+
+        assert!(call.matches_command(&command("end", "phone-attempt", 17)));
+        assert!(call.matches_command(&command("hangup", "modem-call", 17)));
+        assert!(!call.matches_command(&command("end", "phone-attempt", 16)));
+        assert!(!call.matches_command(&command("end", "other-attempt", 17)));
+        assert!(!call.matches_command(&command("dtmf", "phone-attempt", 17)));
+        assert!(!call.matches_command(&command("start_media", "phone-attempt", 17)));
+        call.owned = false;
+        assert!(!call.matches_command(&command("end", "phone-attempt", 17)));
+    }
+
     fn fixture(data: &str) -> Vec<u8> {
         let data = data.trim();
         (0..data.len())
@@ -628,7 +597,7 @@ mod tests {
         let phone = AsyncFd::new(remote).unwrap();
         let (mut worker, relay) = UnixStream::pair().unwrap();
         let (mic, rx) = mpsc::channel(2);
-        let bridge = tokio::spawn(audio_bridge(relay, 640, output, encoder, decoder, rx, None));
+        let bridge = tokio::spawn(audio_bridge(relay, 640, output, encoder, decoder, rx));
         timeout(Duration::from_secs(1), async {
             let voice: Vec<u8> = std::iter::repeat_n(988i16, 320)
                 .flat_map(i16::to_le_bytes)

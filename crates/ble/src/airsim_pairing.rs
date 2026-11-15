@@ -3,7 +3,6 @@
 mod backend;
 mod control;
 mod store;
-mod tx_monitor;
 
 use crate::bluez_control::{Adapter, BluezControl, CallbackScope};
 use rustsimhub_airsim::voble::{self, Fragments, Pairing, Store};
@@ -130,6 +129,7 @@ struct Context {
     scope: CallbackScope,
     state: Mutex<State>,
     changed: Notify,
+    revoked: Notify,
     replies: mpsc::Sender<Reply>,
 }
 
@@ -676,6 +676,7 @@ async fn pairs(
             biased;
             _ = &mut loss => return Err(io::Error::other("BlueZ owner changed").into()),
             _ = released.notified() => return Err(io::Error::other("BlueZ withdrew the advertisement").into()),
+            _ = context.revoked.notified() => return Ok(()),
             result = &mut interrupt => { result?; return Ok(()); }
             _ = sigterm.recv() => return Ok(()),
             _ = async {
@@ -849,6 +850,7 @@ pub async fn run(command: &str, path: &Path) -> Result<(), DynError> {
             peer: None,
         }),
         changed: Notify::new(),
+        revoked: Notify::new(),
         replies: sender,
     });
     let released = Arc::new(Notify::new());
