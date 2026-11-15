@@ -30,6 +30,7 @@ async function handle(c){
   const key=await subtle.importKey('raw',new Uint8Array(proof.client),'Ed25519',false,['verify']);assert(await subtle.verify('Ed25519',key,new Uint8Array(c.signature),proof.transcript));return {token,expires_in_seconds:900};
  }
  case 'nkn_status':return report();
+ case 'usage_stats_query':assert(['24h','30d','90d'].includes(c.window));{const now=Math.floor(Date.now()/1000);return {status:'success',entry:{window:c.window,count:42,source:'read_only_transport',observed_at_secs:now,succeeded_at_secs:now,expires_at_secs:now+600,freshness_revoked:false}};}
  case 'nkn_request':assert.equal(c.expected_core_instance,instance);return {request_id:c.request_id,known:false,core_instance:instance,not_found_is_not_proof:true};
  case 'configuration_indicator':assert.equal(c.active,false);return {ok:true};
  case 'line_status':return {status:'ready',line:7};

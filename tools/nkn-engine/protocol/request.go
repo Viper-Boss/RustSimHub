@@ -20,8 +20,11 @@ var (
 type Operation string
 
 const (
-	Status Operation = "status"
-	Stop   Operation = "stop"
+	Status   Operation = "status"
+	Stop     Operation = "stop"
+	Usage24h Operation = "usage_24h"
+	Usage30d Operation = "usage_30d"
+	Usage90d Operation = "usage_90d"
 )
 
 type Request struct {
@@ -72,10 +75,24 @@ func Parse(data []byte) (Request, error) {
 	if decoder.Decode(&extra) != io.EOF || len(seen) != 3 || !validID(result.ID) {
 		return Request{}, ErrMalformed
 	}
-	if result.Protocol != 1 || result.Op != Status && result.Op != Stop {
+	if result.Protocol != 1 || result.Op != Status && result.Op != Stop && !IsUsage(result.Op) {
 		return Request{}, ErrUnsupported
 	}
 	return result, nil
+}
+
+// The caller chooses one of three product-owned windows, never a topic/URL.
+func IsUsage(op Operation) bool { return op == Usage24h || op == Usage30d || op == Usage90d }
+func UsageWindow(op Operation) string {
+	switch op {
+	case Usage24h:
+		return "24h"
+	case Usage30d:
+		return "30d"
+	case Usage90d:
+		return "90d"
+	}
+	return ""
 }
 
 func validID(id string) bool {

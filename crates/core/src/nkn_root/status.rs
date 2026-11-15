@@ -170,7 +170,7 @@ fn query(shared: &Shared, deadline: Instant) -> Result<(Observation, Sample)> {
     shared.authority()?;
     Ok((observation, sample))
 }
-fn read_exact(stream: &mut UnixStream, out: &mut [u8], deadline: Instant) -> Result<()> {
+pub(super) fn read_exact(stream: &mut UnixStream, out: &mut [u8], deadline: Instant) -> Result<()> {
     let mut offset = 0;
     while offset < out.len() {
         let now = Instant::now();

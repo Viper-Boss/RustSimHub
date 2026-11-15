@@ -76,7 +76,7 @@ func sdkReply(raw []byte, id string, generation, sequence uint32) (bridge.Status
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	var reply bridge.Response
-	if dec.Decode(&reply) != nil || reply.Protocol != 1 || reply.ID == nil || *reply.ID != id || reply.Error != "" || reply.Result == nil || reply.Result.Kind != "status" || !reply.Result.SDKLinked {
+	if dec.Decode(&reply) != nil || reply.Protocol != 1 || reply.ID == nil || *reply.ID != id || reply.Error != "" || reply.Usage != nil || reply.Result == nil || reply.Result.Kind != "status" || !reply.Result.SDKLinked {
 		return bridge.Status{}, ErrDenied
 	}
 	var envelope map[string]json.RawMessage

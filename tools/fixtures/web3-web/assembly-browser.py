@@ -76,13 +76,19 @@ with sync_playwright() as p:
             show_legacy(page)
             page.locator('#support-panel').evaluate('e=>e.open=true')
             panel = page.locator('#support-nkn')
-            assert panel.get_by_role('button').count() == 8, 'Real NKN constructor was not mounted'
+            assert panel.get_by_role('button').count() == 10, 'Real NKN constructor was not mounted'
+            usage = page.locator('#support-usage')
+            assert usage.get_by_role('button', name='只读刷新统计').is_disabled()
             assert panel.get_by_role('button', name='请求开启远程功能', exact=True).is_disabled()
             assert count('nkn_status') == count('set_nkn_enabled') == 0
             assert all(c['op'] == 'identity' for c in fixture()['calls'])
             assert '/nkn-product.js' in fixture()['assets'] and '/nkn-status.js' in fixture()['assets']
             pin = bytes(fixture()['device']).hex()
             login(page, pin)
+            assert count('usage_stats_query') == 0, 'Login must not query or report usage'
+            usage.get_by_role('button', name='只读刷新统计').click()
+            page.wait_for_function("() => document.querySelector('#support-usage').textContent.includes('本次只读查询已结束')")
+            assert '42' in usage.inner_text() and count('usage_stats_query') == 1
             assert count('nkn_status') == count('set_nkn_enabled') == 0, 'Login must not turn on or read NKN automatically'
             panel.get_by_role('button', name='管理登录后读取', exact=True).click()
             page.wait_for_function("() => document.querySelector('#support-nkn').textContent.includes('已只读核对')")
@@ -132,6 +138,8 @@ with sync_playwright() as p:
             # Logout invalidates the session before refreshing the actual controls.
             read_button = panel.get_by_role('button', name='只读核对引擎状态', exact=True)
             assert read_button.is_disabled()
+            assert usage.get_by_role('button', name='只读刷新统计').is_disabled()
+            assert '42' not in usage.inner_text(), 'Logout must remove the old statistics result'
             for button in panel.locator('button').all():
                 if button.inner_text() != '管理登录后读取':
                     assert button.is_disabled()
@@ -154,7 +162,7 @@ with sync_playwright() as p:
         page.wait_for_timeout(200)
         failed = False
         try:
-            assert page.locator('#support-nkn button').count() == 8, 'Real NKN constructor was not mounted'
+            assert page.locator('#support-nkn button').count() == 10, 'Real NKN constructor was not mounted'
         except AssertionError:
             failed = True
         assert failed and fixture()['calls'] == []

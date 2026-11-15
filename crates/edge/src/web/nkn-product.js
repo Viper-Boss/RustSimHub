@@ -36,7 +36,7 @@ export class NknProductPanel {
   Object.assign(this,{doc:document,request,getToken,login,confirm,loadPending,savePending,archivePending,crypto,clock,wallClock});this.epoch=0;
   this.state=document.createElement('p');this.state.setAttribute('role','status');this.state.style.whiteSpace='pre-wrap';this.output=document.createElement('p');this.output.style.whiteSpace='pre-wrap';
   this.buttons={};const action=(key,text,fn)=>{const b=document.createElement('button');b.type='button';b.textContent=text;b.onclick=()=>this.action(fn);this.buttons[key]=b;return b;};
-  root.replaceChildren(this.state,action('read','只读核对引擎状态',g=>this.read(g)),action('manual_on','请求运行引擎',g=>this.set(g,'manual_engine',true)),action('manual_off','释放手动运行请求',g=>this.set(g,'manual_engine',false)),action('remote_on','请求开启远程功能',g=>this.set(g,'remote',true)),action('remote_off','关闭远程功能请求',g=>this.set(g,'remote',false)),action('query','核对上次回执',g=>this.query(g)),action('archive','保留不确定记录并解除本页阻止',g=>this.archive(g)),this.output);
+  root.replaceChildren(this.state,action('read','只读核对引擎状态',g=>this.read(g)),action('manual_on','请求运行引擎',g=>this.set(g,'manual_engine',true)),action('manual_off','释放手动运行请求',g=>this.set(g,'manual_engine',false)),action('remote_on','请求开启远程功能',g=>this.set(g,'remote',true)),action('remote_off','关闭远程功能请求',g=>this.set(g,'remote',false)),action('statistics_on','启用统计只读查询',g=>this.set(g,'statistics',true)),action('statistics_off','关闭统计查询请求',g=>this.set(g,'statistics',false)),action('query','核对上次回执',g=>this.query(g)),action('archive','保留不确定记录并解除本页阻止',g=>this.archive(g)),this.output);
   if(login){this.loginButton=document.createElement('button');this.loginButton.type='button';this.loginButton.textContent='管理登录后读取';this.loginButton.onclick=async()=>{if(this.busy)return;try{await login();await this.action(g=>this.read(g));}catch{this.state.textContent='登录或读取未确认；原回执保留。';}};root.append(this.loginButton);}
   this.reset();
  }
@@ -49,6 +49,7 @@ export class NknProductPanel {
   this.buttons.read.disabled=blocked;this.buttons.query.disabled=blocked||!this.pending;this.buttons.archive.disabled=blocked||!this.pending;
   this.buttons.manual_on.disabled=!ready||p.owners.manual||p.supervisor_state==='unknown';this.buttons.manual_off.disabled=!ready||!p.owners.manual;
   this.buttons.remote_on.disabled=!ready||!this.sample.data.remote_control_supported||p.owners.remote||p.supervisor_state==='unknown';this.buttons.remote_off.disabled=!ready||!p.owners.remote;
+  this.buttons.statistics_on.disabled=!ready||p.owners.statistics||p.supervisor_state==='unknown';this.buttons.statistics_off.disabled=!ready||!p.owners.statistics;
   if(this.loginButton)this.loginButton.disabled=this.busy;
  }
  render(){
@@ -71,8 +72,8 @@ export class NknProductPanel {
  }
  async set(g,owner,enabled){
   this.current(g);requireValue(this.fresh()&&!this.pending,'请先读取状态并核对上次回执');
-  requireValue(owner==='manual_engine'||owner==='remote'&&this.sample.data.remote_control_supported||owner==='remote'&&!enabled,'此功能入口尚不可用');
-  if(!this.confirm(enabled?'请求启用此项引擎使用？授权有效期有限，不会自动续期。':'释放此项运行请求？其他功能仍可能使用共享引擎。'))return;this.current(g);
+  requireValue(owner==='statistics'||owner==='manual_engine'||owner==='remote'&&this.sample.data.remote_control_supported||owner==='remote'&&!enabled,'此功能入口尚不可用');
+  if(!this.confirm(enabled?(owner==='statistics'?'允许统计只读查询使用共享 NKN 引擎及已配置的 Wi-Fi/USB 网络？授权有时限；不会参与安装上报、生成统计身份或发送链上订阅。':'请求启用此项引擎使用？授权有效期有限，不会自动续期。'):'释放此项运行请求？其他功能仍可能使用共享引擎。'))return;this.current(g);
   const record=pendingInput({format:1,id:this.crypto.randomUUID(),owner,enabled,expected_revision:this.sample.data.revision,core_instance:this.sample.data.provider.core_instance});
   await this.savePending(record,null);this.current(g);
   requireValue(JSON.stringify(pendingInput(await this.loadPending()))===JSON.stringify(record),'本机回执未能读回；没有向设备提交');this.current(g);this.pending=record;this.update();

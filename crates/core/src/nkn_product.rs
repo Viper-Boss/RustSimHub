@@ -223,6 +223,43 @@ mod tests {
         }
     }
     #[tokio::test]
+    async fn usage_query_is_owner_only_and_off_does_not_acquire_root_or_identity() {
+        let f = Fixture::new();
+        for window in ["24h", "30d", "90d"] {
+            let value = f
+                .request(AuthCommand::UsageStatsQuery {
+                    token: f.token.clone(),
+                    window: window.into(),
+                })
+                .await;
+            assert_eq!(value, serde_json::json!({"status":"disabled"}));
+        }
+        assert!(f.controller.root().snapshot().unwrap().is_none());
+        for token in [f.client.clone(), "a".repeat(64)] {
+            assert_eq!(
+                f.request(AuthCommand::UsageStatsQuery {
+                    token,
+                    window: "24h".into()
+                })
+                .await["error"],
+                "denied"
+            );
+        }
+        f.controller
+            .inner
+            .closed
+            .store(true, std::sync::atomic::Ordering::Release);
+        assert_eq!(
+            f.request(AuthCommand::UsageStatsQuery {
+                token: f.token.clone(),
+                window: "24h".into()
+            })
+            .await["error"],
+            "denied"
+        );
+        assert!(f.controller.root().snapshot().unwrap().is_none());
+    }
+    #[tokio::test]
     async fn original_owner_rpc_reads_off_without_io_and_rejects_delegated_or_missing_tokens() {
         let f = Fixture::new();
         let value = f

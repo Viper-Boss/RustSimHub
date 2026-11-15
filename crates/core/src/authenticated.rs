@@ -16,7 +16,8 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth::Result<Value> {
     use AuthCommand::*;
     Ok(match command {
-        AuthCommand::NknStatus { .. }
+        AuthCommand::UsageStatsQuery { .. }
+        | AuthCommand::NknStatus { .. }
         | AuthCommand::NknRequest { .. }
         | AuthCommand::SetNknEnabled { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         command @ (RecoveryGrant { .. }
@@ -325,7 +326,8 @@ pub(crate) async fn handle(
         }
     } else if matches!(
         request.command,
-        AuthCommand::NknStatus { .. }
+        AuthCommand::UsageStatsQuery { .. }
+            | AuthCommand::NknStatus { .. }
             | AuthCommand::NknRequest { .. }
             | AuthCommand::SetNknEnabled { .. }
     ) {
