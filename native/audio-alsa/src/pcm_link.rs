@@ -36,7 +36,12 @@ pub fn parse_hello(bytes: &[u8]) -> Option<Hello> {
 
 pub fn encode(frame: &Frame) -> [u8; FRAME_BYTES] {
     let mut bytes = [0u8; FRAME_BYTES];
-    for (chunk, sample) in bytes.chunks_exact_mut(2).zip(frame.samples.iter()) {
+    for (chunk, sample) in bytes
+        .as_chunks_mut::<2>()
+        .0
+        .iter_mut()
+        .zip(frame.samples.iter())
+    {
         chunk.copy_from_slice(&sample.to_le_bytes());
     }
     bytes
@@ -65,7 +70,7 @@ impl Framer {
             let mut samples = [0i16; SAMPLES];
             for (sample, chunk) in samples
                 .iter_mut()
-                .zip(self.pending[at..at + FRAME_BYTES].chunks_exact(2))
+                .zip(self.pending[at..at + FRAME_BYTES].as_chunks::<2>().0)
             {
                 *sample = i16::from_le_bytes([chunk[0], chunk[1]]);
             }
