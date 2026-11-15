@@ -17,7 +17,7 @@ import { OperationReceipt } from './operation-receipt.js';
 import { DiagnosticPanel } from './diagnostics.js';
 import { ConfigurationState } from './configuration-state.js';
 import { NknProductPanel, pendingInput as nknPendingInput, archiveInput as nknArchiveInput } from './nkn-product.js';
-import { UsageStatsPanel } from './usage-stats.js';
+import { UsageStatsPanel, UsageParticipationPanel, participationPending, participationArchive } from './usage-stats.js';
 import { ConsoleDashboard } from './console.js';
 import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput, readJournal as readNasJournal, clearJournal as clearNasJournal } from './nas-bridge.js';
 const $=id=>document.getElementById(id);
@@ -601,6 +601,20 @@ supportPanels={
  configuration:new ConfigurationState({document,root:$('support-configuration'),read:null,clock:()=>Date.now()}),
  usage:new UsageStatsPanel({document,root:$('support-usage'),read:null})
 };
+supportPanels.participation=new UsageParticipationPanel({document,root:$('support-usage-participation'),request:command=>auth(command),getToken:()=>token,login:()=>login(),confirm:message=>confirm(message),crypto,
+ loadPending:()=>stored('usage-participation-pending'),
+ savePending:async(value,expected)=>{
+  const record=participationPending(value);await atomicStored('usage-participation-pending',saved=>{const old=participationPending(saved);if((old?.id??null)!==expected)throw Error('授权记录已由另一页面更新，请先核对');return record;});
+  if(JSON.stringify(participationPending(await stored('usage-participation-pending')))!==JSON.stringify(record))throw Error('授权回执未能读回，不继续提交');
+ },
+ archivePending:async value=>{
+  const entry=participationArchive(value);
+  await atomicStored('usage-participation-receipts',saved=>{const raw=saved??[];if(!Array.isArray(raw)||raw.length>64)throw Error('授权回执不可用');const rows=raw.map(participationArchive),old=rows.find(r=>r.record.id===entry.record.id);
+   if(old&&(JSON.stringify(old.record)!==JSON.stringify(entry.record)||old.state==='saved'&&entry.state!=='saved'))throw Error('原授权回执不能被覆盖');
+   const next=rows.filter(r=>r.record.id!==entry.record.id);if(next.length>=64){const index=next.findIndex(r=>r.state==='saved');if(index<0)throw Error('不确定授权回执已满，请先通过维护入口保留');next.splice(index,1);}return [...next,entry];});
+  const rows=await stored('usage-participation-receipts');if(!Array.isArray(rows)||!rows.some(r=>JSON.stringify(r)===JSON.stringify(entry)))throw Error('授权归档未能读回，原记录保留');
+ }
+});
 publishSupportState();
 const supportPreviousLogout=$('logout').onclick;
 $('logout').onclick=()=>{for(const panel of Object.values(supportPanels))panel.reset();supportPreviousLogout();publishSupportState();};

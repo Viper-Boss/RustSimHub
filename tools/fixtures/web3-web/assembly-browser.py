@@ -89,6 +89,20 @@ with sync_playwright() as p:
             usage.get_by_role('button', name='只读刷新统计').click()
             page.wait_for_function("() => document.querySelector('#support-usage').textContent.includes('本次只读查询已结束')")
             assert '42' in usage.inner_text() and count('usage_stats_query') == 1
+            permission = page.locator('#support-usage-participation')
+            assert count('usage_participation_status') == count('usage_participation_set') == 0
+            permission.get_by_role('checkbox').check()
+            page.once('dialog', lambda dialog: dialog.accept())
+            permission.get_by_role('button', name='保存参与授权（暂不上报）', exact=True).click()
+            page.wait_for_function("() => document.querySelector('#support-usage-participation').textContent.includes('参与授权已保存')")
+            assert count('usage_participation_set') == 1 and count('set_nkn_enabled') == 0
+            show_legacy(page)
+            permission.get_by_role('checkbox').uncheck()
+            page.once('dialog', lambda dialog: dialog.accept())
+            permission.get_by_role('button', name='保存参与授权（暂不上报）', exact=True).click()
+            page.wait_for_function("() => document.querySelector('#support-usage-participation').textContent.includes('不参与的授权已保存')")
+            assert count('usage_participation_set') == 2 and count('set_nkn_enabled') == 0
+            show_legacy(page)
             assert count('nkn_status') == count('set_nkn_enabled') == 0, 'Login must not turn on or read NKN automatically'
             panel.get_by_role('button', name='管理登录后读取', exact=True).click()
             page.wait_for_function("() => document.querySelector('#support-nkn').textContent.includes('已只读核对')")
@@ -140,6 +154,8 @@ with sync_playwright() as p:
             assert read_button.is_disabled()
             assert usage.get_by_role('button', name='只读刷新统计').is_disabled()
             assert '42' not in usage.inner_text(), 'Logout must remove the old statistics result'
+            assert not permission.get_by_role('checkbox').is_checked()
+            assert '未开始上报' not in permission.inner_text(), 'Logout clears the old success text'
             for button in panel.locator('button').all():
                 if button.inner_text() != '管理登录后读取':
                     assert button.is_disabled()

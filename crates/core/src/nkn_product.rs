@@ -9,16 +9,24 @@ use std::sync::{Arc, Mutex};
 mod candidate;
 #[cfg(feature = "root-provider-candidate")]
 mod membership;
+#[cfg(feature = "root-provider-candidate")]
+mod participation;
 #[derive(Clone)]
 pub(crate) struct Controller {
     #[cfg(feature = "root-provider-candidate")]
     inner: Arc<candidate::Inner>,
 }
 impl Controller {
-    #[cfg(feature = "root-provider-candidate")]
+    #[cfg(all(test, feature = "root-provider-candidate"))]
     pub fn new(auth: Arc<Mutex<Auth>>) -> Self {
         Self {
             inner: Arc::new(candidate::Inner::new(auth)),
+        }
+    }
+    #[cfg(feature = "root-provider-candidate")]
+    pub fn with_usage_state(auth: Arc<Mutex<Auth>>, state: &std::path::Path) -> Self {
+        Self {
+            inner: Arc::new(candidate::Inner::with_usage_state(auth, Some(state))),
         }
     }
     pub async fn request(
@@ -58,18 +66,18 @@ static ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::ne
 pub fn activate_explicit() {
     ACTIVE.store(true, std::sync::atomic::Ordering::Release);
 }
-pub fn construct(auth: Arc<Mutex<Auth>>) -> Option<Controller> {
+pub fn construct(auth: Arc<Mutex<Auth>>, state: &std::path::Path) -> Option<Controller> {
     #[cfg(feature = "root-provider-candidate")]
     {
         if ACTIVE.load(std::sync::atomic::Ordering::Acquire) {
-            Some(Controller::new(auth))
+            Some(Controller::with_usage_state(auth, state))
         } else {
             None
         }
     }
     #[cfg(not(feature = "root-provider-candidate"))]
     {
-        let _ = auth;
+        let _ = (auth, state);
         None
     }
 }
@@ -163,7 +171,7 @@ mod tests {
             let client = login(&mut auth, &client);
             let instance = auth.observer_instance();
             let auth = Arc::new(Mutex::new(auth));
-            let controller = Controller::new(auth.clone());
+            let controller = Controller::with_usage_state(auth.clone(), state.path());
             Self {
                 _state: state,
                 _identity: identity,
@@ -221,6 +229,145 @@ mod tests {
             task.await.unwrap();
             response.result
         }
+    }
+    #[tokio::test]
+    async fn participation_original_rpc_is_passive_owner_only_and_durable_with_exact_receipts() {
+        let mut f = Fixture::new();
+        let path = f._state.path().join("usage-participation");
+        let status = f
+            .request(AuthCommand::UsageParticipationStatus {
+                token: f.token.clone(),
+            })
+            .await;
+        assert_eq!(status["generation"], "0");
+        assert_eq!(status["enabled"], false);
+        assert_eq!(status["reporting_available"], false);
+        assert!(!path.exists());
+        for token in [f.client.clone(), "a".repeat(64)] {
+            assert_eq!(
+                f.request(AuthCommand::UsageParticipationStatus {
+                    token: token.clone()
+                })
+                .await["error"],
+                "denied"
+            );
+            let request = AuthCommand::UsageParticipationSet {
+                token,
+                enabled: true,
+                disclosure_version: Some(1),
+                expected_generation: "0".into(),
+                expected_core_instance: f.instance.clone(),
+                request_id: id(501),
+            };
+            assert_eq!(f.request(request).await["error"], "denied");
+        }
+        assert!(!path.exists());
+        let edit = |f: &Fixture, n, enabled, expected: &str| AuthCommand::UsageParticipationSet {
+            token: f.token.clone(),
+            enabled,
+            disclosure_version: enabled.then_some(1),
+            expected_generation: expected.into(),
+            expected_core_instance: f.instance.clone(),
+            request_id: id(n),
+        };
+        let receipt = f.request(edit(&f, 501, true, "0")).await;
+        assert_eq!(receipt["state"], "saved");
+        assert_eq!(receipt["generation"], "1");
+        assert_eq!(f.request(edit(&f, 501, true, "0")).await, receipt);
+        assert!(f.controller.root().snapshot().unwrap().is_none());
+        assert_eq!(
+            f.request(AuthCommand::UsageParticipationStatus {
+                token: f.token.clone()
+            })
+            .await["runtime"],
+            "authorized_not_connected"
+        );
+        assert_eq!(
+            f.request(edit(&f, 502, false, "1")).await["generation"],
+            "2"
+        );
+        assert_eq!(f.request(edit(&f, 503, true, "0")).await["error"], "denied");
+        assert_eq!(
+            f.request(edit(&f, 501, true, "0")).await,
+            receipt,
+            "old saved response must not reapply ON"
+        );
+        let off = f
+            .request(AuthCommand::UsageParticipationStatus {
+                token: f.token.clone(),
+            })
+            .await;
+        assert_eq!(off["enabled"], false);
+        assert_eq!(off["disabled_generation"], "1");
+        let old_instance = f.instance.clone();
+        let mut auth = Auth::open(f._identity.path(), f._store.handle()).unwrap();
+        let key = SigningKey::from_bytes(&[91; 32]);
+        let c = auth
+            .login_challenge(key.verifying_key().to_bytes())
+            .unwrap();
+        f.token = auth
+            .login_finish(&c.id, &key.sign(&c.transcript).to_bytes())
+            .unwrap()
+            .expose()
+            .to_owned();
+        f.instance = auth.observer_instance();
+        f.auth = Arc::new(Mutex::new(auth));
+        f.controller = Controller::with_usage_state(f.auth.clone(), f._state.path());
+        let saved = f
+            .request(AuthCommand::UsageParticipationRequest {
+                token: f.token.clone(),
+                request_id: id(501),
+            })
+            .await;
+        assert_eq!(saved["state"], "saved");
+        assert_eq!(saved["core_instance"], old_instance);
+        assert_eq!(saved["current_core_instance"], f.instance);
+        let latest = f
+            .request(AuthCommand::UsageParticipationStatus {
+                token: f.token.clone(),
+            })
+            .await;
+        assert_eq!(latest["enabled"], false);
+        assert_eq!(latest["generation"], "2");
+        assert!(!std::fs::read_to_string(path.join("state.json"))
+            .unwrap()
+            .contains("seed"));
+    }
+    #[tokio::test]
+    async fn participation_context_mismatch_and_corruption_are_not_overwritten() {
+        let f = Fixture::new();
+        let path = f._state.path().join("usage-participation");
+        let edit = |instance: String, request_id: String| AuthCommand::UsageParticipationSet {
+            token: f.token.clone(),
+            enabled: true,
+            disclosure_version: Some(1),
+            expected_generation: "0".into(),
+            expected_core_instance: instance,
+            request_id,
+        };
+        assert_eq!(
+            f.request(edit("c".repeat(64), id(601))).await["error"],
+            "denied"
+        );
+        assert!(!path.exists());
+        assert_eq!(
+            f.request(edit(f.instance.clone(), id(601))).await["state"],
+            "saved"
+        );
+        std::fs::write(path.join("state.json"), b"{broken").unwrap();
+        assert_eq!(
+            f.request(AuthCommand::UsageParticipationStatus {
+                token: f.token.clone()
+            })
+            .await["error"],
+            "denied"
+        );
+        assert_eq!(
+            f.request(edit(f.instance.clone(), id(602))).await["error"],
+            "denied"
+        );
+        assert_eq!(std::fs::read(path.join("state.json")).unwrap(), b"{broken");
+        assert!(f.controller.root().snapshot().unwrap().is_none());
     }
     #[tokio::test]
     async fn usage_query_is_owner_only_and_off_does_not_acquire_root_or_identity() {

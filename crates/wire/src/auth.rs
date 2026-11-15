@@ -27,6 +27,21 @@ pub struct AuthRequest {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AuthCommand {
+    UsageParticipationStatus {
+        token: String,
+    },
+    UsageParticipationSet {
+        token: String,
+        enabled: bool,
+        disclosure_version: Option<u16>,
+        expected_generation: String,
+        expected_core_instance: String,
+        request_id: String,
+    },
+    UsageParticipationRequest {
+        token: String,
+        request_id: String,
+    },
     UsageStatsQuery {
         token: String,
         window: String,
@@ -600,6 +615,32 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         return Err(invalid());
     }
     match &req.command {
+        AuthCommand::UsageParticipationStatus { token } if !source_valid(token) => {
+            return Err(invalid())
+        }
+        AuthCommand::UsageParticipationSet {
+            token,
+            enabled,
+            disclosure_version,
+            expected_generation,
+            expected_core_instance,
+            request_id,
+        } => {
+            if !source_valid(token)
+                || !canonical_generation(expected_generation)
+                || !source_valid(expected_core_instance)
+                || !canonical_uuid(request_id)
+                || (*enabled && *disclosure_version != Some(1))
+                || (!*enabled && disclosure_version.is_some())
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::UsageParticipationRequest { token, request_id } => {
+            if !source_valid(token) || !canonical_uuid(request_id) {
+                return Err(invalid());
+            }
+        }
         AuthCommand::UsageStatsQuery { token, window } => {
             if !source_valid(token) || !matches!(window.as_str(), "24h" | "30d" | "90d") {
                 return Err(invalid());
@@ -1984,6 +2025,30 @@ mod tests {
 mod nkn_candidate_tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn participation_requires_disclosure_and_exact_context_without_paths_or_keys() {
+        let original = json!({"protocol":2,"id":"consent","command":{"op":"usage_participation_set","token":"a".repeat(64),"enabled":true,"disclosure_version":1,"expected_generation":"0","expected_core_instance":"b".repeat(64),"request_id":"11111111-1111-4111-8111-111111111111"}});
+        assert!(parse_auth_request(&serde_json::to_vec(&original).unwrap()).is_ok());
+        for (key, value) in [
+            ("disclosure_version", json!(null)),
+            ("disclosure_version", json!(2)),
+            ("enabled", json!(false)),
+            ("expected_generation", json!(0)),
+            ("expected_generation", json!("00")),
+            ("expected_core_instance", json!("other")),
+            ("seed", json!("private")),
+            ("directory", json!("/tmp/other")),
+            ("request_id", json!("not-an-id")),
+        ] {
+            let mut changed = original.clone();
+            changed["command"][key] = value;
+            assert!(parse_auth_request(&serde_json::to_vec(&changed).unwrap()).is_err());
+        }
+        let mut off = original;
+        off["command"]["enabled"] = false.into();
+        off["command"]["disclosure_version"] = serde_json::Value::Null;
+        assert!(parse_auth_request(&serde_json::to_vec(&off).unwrap()).is_ok());
+    }
     #[test]
     fn usage_query_accepts_only_fixed_windows_without_endpoint_or_key_fields() {
         let original = json!({"protocol":2,"id":"usage","command":{"op":"usage_stats_query","token":"a".repeat(64),"window":"24h"}});
