@@ -9,7 +9,11 @@ use crate::{
 use http_body_util::{BodyExt, Full};
 use hyper::body::Bytes;
 use hyper_util::rt::TokioIo;
-use std::{cell::Cell, sync::Arc, time::Duration};
+use std::{
+    cell::Cell,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tokio::{net::TcpStream, sync::watch, time::timeout};
 use tokio_rustls::{
     rustls::{
@@ -146,12 +150,26 @@ impl HttpsSender {
     ) -> DeliveryOutcome {
         let attempted = Cell::new(false);
         let observed_status = Cell::new(None);
-        if *cancel.borrow() {
+        if *cancel.borrow() || cancel.has_changed().is_err() {
             return DeliveryOutcome::NotSubmitted {
                 reason: Failure::Cancelled,
             };
         }
+        let started = Instant::now();
+        let cancellation = cancel.clone();
+        // A ready connector/fence may revoke authority or block the executor
+        // without yielding. select!/timeout cannot preempt that single poll.
+        let alive = || {
+            if *cancellation.borrow() || cancellation.has_changed().is_err() {
+                Err(Failure::Cancelled)
+            } else if started.elapsed() >= self.budget {
+                Err(Failure::Deadline)
+            } else {
+                Ok(())
+            }
+        };
         let work = async {
+            alive()?;
             let request =
                 crate::model::https_request(&claim.request).ok_or(Failure::InvalidRequest)?;
             if !uuid(&claim.id)
@@ -206,31 +224,38 @@ impl HttpsSender {
                 .check(Stage::BeforeConnect, claim)
                 .await
                 .map_err(|_| Failure::Denied)?;
+            alive()?;
             let tcp = connector
                 .connect(host, uri.port_u16().unwrap_or(443))
                 .await
                 .map_err(|_| Failure::Connect)?;
+            alive()?;
             fence
                 .check(Stage::BeforeTls, claim)
                 .await
                 .map_err(|_| Failure::Denied)?;
+            alive()?;
             let tls = TlsConnector::from(self.tls.clone())
                 .connect(name, tcp)
                 .await
                 .map_err(|_| Failure::Tls)?;
+            alive()?;
             let (mut sender, connection) = hyper::client::conn::http1::Builder::new()
                 .max_headers(32)
                 .max_buf_size(8192)
                 .handshake::<_, Full<Bytes>>(TokioIo::new(tls))
                 .await
                 .map_err(|_| Failure::Protocol)?;
+            alive()?;
             fence
                 .check(Stage::BeforeSubmit, claim)
                 .await
                 .map_err(|_| Failure::Denied)?;
+            alive()?;
             // Commit-to-attempt occurs BEFORE polling send_request. A lost reply
             // or failure from here on is conservatively Unknown, never retried.
             let exchange = async {
+                alive()?;
                 attempted.set(true);
                 let mut response = sender
                     .send_request(body)
@@ -238,6 +263,7 @@ impl HttpsSender {
                     .map_err(|_| Failure::Protocol)?;
                 let status = response.status().as_u16();
                 observed_status.set(Some(status));
+                alive()?;
                 if response
                     .headers()
                     .get("Content-Encoding")
@@ -255,6 +281,7 @@ impl HttpsSender {
                 }
                 let mut bytes = Vec::new();
                 while let Some(frame) = response.body_mut().frame().await {
+                    alive()?;
                     let frame = frame.map_err(|_| Failure::Protocol)?;
                     if let Some(data) = frame.data_ref() {
                         if data.len() > MAX_RESPONSE - bytes.len() {
@@ -266,6 +293,7 @@ impl HttpsSender {
                 if !request.acknowledged(status, &bytes) {
                     return Err(Failure::Unconfirmed);
                 }
+                alive()?;
                 Ok(status)
             };
             // Both futures remain owned HERE. Dropping/cancelling this attempt
@@ -277,10 +305,15 @@ impl HttpsSender {
                 result=&mut connection=>{result.map_err(|_|Failure::Protocol)?;exchange.await}
             }
         };
-        let result = tokio::select! {biased;
+        let mut result = tokio::select! {biased;
             _=cancel.changed()=>Err(Failure::Cancelled),
             result=timeout(self.budget,work)=>result.unwrap_or(Err(Failure::Deadline)),
         };
+        // A late ready return is never timely confirmation. Preserve the
+        // original attempted/status evidence for conservative Unknown below.
+        if let Err(reason) = alive() {
+            result = Err(reason);
+        }
         match result {
             Ok(status) => DeliveryOutcome::Confirmed { status },
             Err(reason) if attempted.get() => DeliveryOutcome::Unknown {

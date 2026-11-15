@@ -323,6 +323,105 @@ async fn initial_cancel_and_loss_of_supervisor_cannot_open_an_egress_socket() {
         assert_eq!(egress.calls, 0);
     }
 }
+
+#[tokio::test]
+async fn ready_fence_cancellation_prevents_the_next_connection_or_http_submit() {
+    struct Revoke {
+        at: Stage,
+        supervisor: Option<watch::Sender<bool>>,
+        lose: bool,
+        stages: Vec<Stage>,
+    }
+    impl Fence for Revoke {
+        async fn check(&mut self, stage: Stage, _: &Claim) -> Result<()> {
+            self.stages.push(stage);
+            if stage == self.at {
+                let supervisor = self.supervisor.take().unwrap();
+                if !self.lose {
+                    supervisor.send(true).unwrap();
+                    self.supervisor = Some(supervisor);
+                }
+            }
+            Ok(())
+        }
+    }
+    for stage in [Stage::BeforeConnect, Stage::BeforeTls, Stage::BeforeSubmit] {
+        for lose in [false, true] {
+            let mut server = Server::start(response("200 OK", b"{}")).await;
+            let sender = HttpsSender::new(vec![server.certificate.clone()]).unwrap();
+            let mut egress = route(&server);
+            let (supervisor, cancel) = watch::channel(false);
+            let mut fence = Revoke {
+                at: stage,
+                supervisor: Some(supervisor),
+                lose,
+                stages: vec![],
+            };
+            assert_eq!(
+                sender
+                    .deliver(&claim(server.url()), &mut egress, &mut fence, cancel)
+                    .await,
+                DeliveryOutcome::NotSubmitted {
+                    reason: Failure::Cancelled
+                },
+                "an immediately ready permission callback cannot hide cancellation"
+            );
+            assert_eq!(fence.stages.last(), Some(&stage));
+            assert_eq!(egress.calls, usize::from(stage != Stage::BeforeConnect));
+            if stage == Stage::BeforeSubmit {
+                server.joined().await;
+                assert!(server.closed.load(Ordering::SeqCst));
+            }
+            assert!(server.seen.lock().unwrap().is_empty());
+        }
+    }
+}
+
+#[tokio::test]
+async fn ready_fence_exhausting_absolute_budget_cannot_begin_the_next_io_stage() {
+    struct Blocking {
+        at: Stage,
+        stages: Vec<Stage>,
+    }
+    impl Fence for Blocking {
+        async fn check(&mut self, stage: Stage, _: &Claim) -> Result<()> {
+            self.stages.push(stage);
+            if stage == self.at {
+                // Deliberately blocks one poll. Tokio's timeout cannot preempt
+                // this ready callback; the sender must check its absolute age.
+                std::thread::sleep(Duration::from_millis(450));
+            }
+            Ok(())
+        }
+    }
+    for stage in [Stage::BeforeConnect, Stage::BeforeTls, Stage::BeforeSubmit] {
+        let mut server = Server::start(response("200 OK", b"{}")).await;
+        let mut sender = HttpsSender::new(vec![server.certificate.clone()]).unwrap();
+        sender.budget = Duration::from_millis(400);
+        let mut egress = route(&server);
+        let (_supervisor, cancel) = watch::channel(false);
+        let mut fence = Blocking {
+            at: stage,
+            stages: vec![],
+        };
+        assert_eq!(
+            sender
+                .deliver(&claim(server.url()), &mut egress, &mut fence, cancel)
+                .await,
+            DeliveryOutcome::NotSubmitted {
+                reason: Failure::Deadline
+            },
+            "a ready callback must not advance after the total deadline"
+        );
+        assert_eq!(fence.stages.last(), Some(&stage));
+        assert_eq!(egress.calls, usize::from(stage != Stage::BeforeConnect));
+        if stage == Stage::BeforeSubmit {
+            server.joined().await;
+            assert!(server.closed.load(Ordering::SeqCst));
+        }
+        assert!(server.seen.lock().unwrap().is_empty());
+    }
+}
 /// A connector stuck in name resolution (FWD-13 "DNS" close point). Dropping it
 /// must be observable: no detached resolver may outlive the attempt.
 struct StalledDns {
