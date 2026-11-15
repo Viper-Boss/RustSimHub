@@ -43,7 +43,7 @@ export class NknProductPanel {
  reset(){this.epoch++;clearTimeout(this.timer);this.busy=false;this.sample=null;this.order=null;this.pending=null;this.state.textContent='默认不自动启停。请先使用所有者登录，再手动读取状态。';this.output.textContent='引擎状态未知；关闭运行请求不表示进程已经退出。';this.update();}
  current(g){requireValue(g===this.epoch&&!!this.getToken(),'会话已变化，请重新读取；原操作回执保留');}
  age(){if(!this.sample)return NaN;const a=this.clock()-this.sample.received,b=this.wallClock()-this.sample.wallReceived;return [a,b].every(n=>Number.isFinite(n)&&n>=0)?this.sample.elapsed+Math.max(a,b):NaN;}
- fresh(){const age=this.age();return Number.isFinite(age)&&age<=5000;}
+ fresh(){const age=this.age(),observed=this.sample?.data.provider.status.age_ms??0;return Number.isFinite(age)&&age+observed<=5000;}
  update(){
   const blocked=this.busy||!this.getToken(),ready=!blocked&&!this.pending&&this.fresh(),p=this.sample?.data.provider;
   this.buttons.read.disabled=blocked;this.buttons.query.disabled=blocked||!this.pending;this.buttons.archive.disabled=blocked||!this.pending;
@@ -67,7 +67,7 @@ export class NknProductPanel {
   const s=data.provider.status,old=this.order;
   if(old){requireValue(old.instance===data.provider.core_instance,'运行上下文已变化，请重新登录核对');if(s.source==='engine')requireValue(s.generation>old.generation||s.generation===old.generation&&s.sequence>old.sequence);}
   if(s.source==='engine')this.order={instance:data.provider.core_instance,generation:s.generation,sequence:s.sequence};
-  this.sample={data,received,wallReceived,elapsed:Math.max(a,b)};clearTimeout(this.timer);this.timer=setTimeout(()=>this.render(),5001-this.sample.elapsed);
+  this.sample={data,received,wallReceived,elapsed:Math.max(a,b)};clearTimeout(this.timer);this.timer=setTimeout(()=>this.render(),Math.max(0,5001-this.sample.elapsed-(s.age_ms??0)));
   this.state.textContent=this.pending?'上次请求待核对：'+this.pending.id+'。不会自动重做。':'已只读核对；运行请求和实际进程状态分别显示。';this.render();
  }
  async set(g,owner,enabled){
