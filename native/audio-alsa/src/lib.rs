@@ -106,6 +106,8 @@ pub struct UfiDuplex {
     holders: Vec<PCM>,
     playback_last_success: Option<std::time::Instant>,
     playback_max_gap_ms: u64,
+    playback_signal: rustsimhub_media::SignalMeter,
+    playback_signal_start: std::time::Instant,
 }
 impl UfiDuplex {
     /// Routes must already be configured by the platform. No arbitrary ALSA endpoint.
@@ -126,6 +128,8 @@ impl UfiDuplex {
             holders: Vec::with_capacity(2),
             playback_last_success: None,
             playback_max_gap_ms: 0,
+            playback_signal: rustsimhub_media::SignalMeter::new(0),
+            playback_signal_start: std::time::Instant::now(),
         };
         for direction in [Direction::Playback, Direction::Capture] {
             permit.check(now())?;
@@ -299,6 +303,21 @@ impl Pcm for UfiDuplex {
             });
         if result.as_ref().is_ok_and(|n| *n > 0) {
             self.playback_last_success = Some(now);
+            if let Ok(n) = &result {
+                if let Some(written) = samples.get(..*n) {
+                    let elapsed_ms = self
+                        .playback_signal_start
+                        .elapsed()
+                        .as_millis()
+                        .min(u64::MAX as u128) as u64;
+                    if let Some(summary) = self
+                        .playback_signal
+                        .observe(written.iter().copied(), elapsed_ms)
+                    {
+                        eprintln!("pcm_signal stage=alsa_written {summary}");
+                    }
+                }
+            }
         }
         result
     }

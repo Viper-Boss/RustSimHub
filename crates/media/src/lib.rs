@@ -11,6 +11,8 @@ pub use authorization::{Authority, Context, Permit, RemoteAuthority, Ticket};
 pub mod local;
 pub mod protocol;
 mod pump;
+mod signal;
+pub use signal::{SignalMeter, SignalSummary};
 #[cfg(all(target_os = "linux", feature = "remote-signaling"))]
 pub mod remote_signaling;
 pub mod remote_worker;

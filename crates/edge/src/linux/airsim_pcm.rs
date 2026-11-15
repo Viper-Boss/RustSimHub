@@ -307,6 +307,9 @@ async fn uplink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
     let mut bytes = [0; 4 * FRAME];
     let mut queue = Queue::new(rate);
     let mut trace = UplinkTrace::default();
+    let signal_start = Instant::now();
+    let mut input_signal = rustsimhub_media::SignalMeter::new(0);
+    let mut output_signal = rustsimhub_media::SignalMeter::new(0);
     let mut pacer = UplinkPacer::new();
     let mut tick = tokio::time::interval(UPLINK_POLL_PERIOD);
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -336,11 +339,28 @@ async fn uplink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
             let mut frame = convert(&bytes, rate, 16_000).ok_or(std::io::ErrorKind::InvalidData)?;
             trace.selected = trace.selected.saturating_add(1);
             trace.input_peak = trace.input_peak.max(pcm_peak(&frame));
+            let elapsed_ms = signal_start.elapsed().as_millis().min(u64::MAX as u128) as u64;
+            let samples = frame
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|b| i16::from_le_bytes(*b));
+            if let Some(summary) = input_signal.observe(samples, elapsed_ms) {
+                eprintln!("airsim_pcm_signal stage=input {summary}");
+            }
             if muted.load(Ordering::Acquire) {
                 trace.muted = trace.muted.saturating_add(1);
                 frame.fill(0);
             }
             trace.output_peak = trace.output_peak.max(pcm_peak(&frame));
+            let samples = frame
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|b| i16::from_le_bytes(*b));
+            if let Some(summary) = output_signal.observe(samples, elapsed_ms) {
+                eprintln!("airsim_pcm_signal stage=selected {summary}");
+            }
             pacer.sent(now);
             timeout(IO_WAIT, media.write_all(&frame))
                 .await
