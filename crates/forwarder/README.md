@@ -1,5 +1,19 @@
 # rustsimhub-forwarder
 
+当前源码另有显式邮件生产候选：`rustsimhub-forwarder/smtp-production-candidate`，
+Core对应 `rustsimhub-core/email-production-candidate`。复用 `email::EmailSender`，
+经 `smtp_candidate::Sender`、原队列与worker IPC派发，不是空发送器。该组合使用outbox4/worker5，
+默认组合仍是outbox3/worker4；不兼容组合必须拒绝，不能就地自动降级。
+Core只在支持时公布 `email_revision:1`，原配置页据此显示SMTP字段。
+仅支持固定465端口的隐式TLS、AUTH PLAIN、单个ASCII收件人；证书和主机名实际验证，
+邮件服务器返回250只表示服务器接受，不保证最终邮箱送达。所有功能默认关闭，
+不因编译feature或保存配置而获得Owner/Root权限；发行/升级组合仍由B和负责人验证。
+
+HTTPS与SMTP均只持有一次尝试的IO和总预算。HTTPS在每个权限/连接检查返回后重新检查撤权及单调截止，
+避免“立即就绪”的回调遮蔽取消或阻塞过期；提交后丢失确认仍保持原ID的Unknown，不能自动重发。
+本机TLS、原队列与错误路径复验见[A包转发交付](../../docs/deliveries/OFFLINE-A-FORWARDER-20261116.md)。
+下文保留早期版本说明，不能据其旧格式或安装状态覆盖当前源码和主线记录。
+
 2026-11-02新增[真实关闭时序运行验证](../../docs/VALIDATION-FORWARDING-CLOSE-RUNTIME-20261102.md)：Owner通过实际PID1停止DNS/TLS/已提交HTTP/迟到ACK，进程、凭据和持久回执均核对；仅本机私有回环，棒子与完整冷启动仍待验收。下文保留历史阶段记录。
 
 Rust原生短信转发后端：规则、请求编码、有界持久outbox及真实Auth/Store适配。已有Core管理/执行IPC、固定出口HTTPS、独立worker及通过临时systemd验证的有限服务管理候选；Core显式有限协调也已通过本机真实链路；[所有者配置页](../../docs/VALIDATION-FORWARDING-OWNER-UI-X1H.md)源码与夹具验证通过；签名安装和真实浏览器/设备验收仍缺，未交付棒子。构造库不会启动进程/线程或网络访问。
