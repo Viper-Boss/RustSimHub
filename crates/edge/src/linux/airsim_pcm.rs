@@ -18,13 +18,14 @@ const FRAME_AGE: Duration = Duration::from_millis(60);
 // The phone batches microphone frames before TCP delivery. This is a bounded
 // input jitter buffer, separate from the local worker/downlink's 60ms limit.
 // It also covers TCP fragments, measured from their original first byte.
-// An 88 ms batch split plus 40 ms input headroom must fit without retiming it.
-const UPLINK_JITTER_AGE: Duration = Duration::from_millis(160);
-const UPLINK_QUEUE_FRAMES: usize = 8;
+// An 88 ms split batch, 60 ms headroom and a 35 ms reactor stall must fit
+// without retiming the first byte. The native playout age remains 60 ms.
+const UPLINK_JITTER_AGE: Duration = Duration::from_millis(200);
+const UPLINK_QUEUE_FRAMES: usize = 10;
 const UPLINK_BURST_FRAMES: usize = 3;
 const UPLINK_INITIAL_CREDITS: usize = 2;
 const UPLINK_REFILL_CREDITS: usize = 3;
-const UPLINK_PREFILL_WAIT: Duration = Duration::from_millis(40);
+const UPLINK_PREFILL_WAIT: Duration = Duration::from_millis(60);
 const UPLINK_MIN_SPACING: Duration = Duration::from_millis(10);
 // AirSIM's public wire marker, identical to rustsimhub_airsim::PCM_READY.
 const READY: &[u8] = b"AIRSIMREADY";
@@ -188,7 +189,7 @@ impl Queue {
     }
     fn next_fresh(&mut self, now: Instant) -> Option<Vec<u8>> {
         // TCP can coalesce two legitimate consecutive frames. Pace both in
-        // order instead of deleting one at each tick. The eight-frame phone
+        // order instead of deleting one at each tick. The ten-frame phone
         // jitter budget is finite; first-byte timestamps are never rejuvenated.
         while let Some((at, bytes)) = self.frames.pop_front() {
             if now
@@ -810,7 +811,7 @@ mod tests {
     fn split_microphone_batches_preserve_speech_and_original_age_at_both_rates() {
         for rate in [8_000, 16_000] {
             let size = rate as usize / 50 * 2;
-            for gap_ms in [60u64, 80, 100, 140] {
+            for gap_ms in [60u64, 80, 100, 140, 180] {
                 for split in [1, size / 2, size - 1] {
                     let at = Instant::now();
                     let input: Vec<_> = (1..=4).flat_map(|n| vec![n; size]).collect();
