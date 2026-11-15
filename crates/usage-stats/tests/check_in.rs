@@ -399,17 +399,80 @@ fn three_windows_are_independent_and_confirmed_renewal_skips_catchup_transaction
     for w in Window::ALL {
         assert!(matches!(m.advance(w).unwrap(), Outcome::Prepared { .. }));
         assert!(matches!(m.advance(w).unwrap(), Outcome::Pending { .. }));
+        h.later();
+        h.adapter.lock().unwrap().response = "confirmed".into();
+        assert_eq!(m.advance(w).unwrap(), Outcome::Confirmed { period: 100 });
     }
-    h.later();
-    h.adapter.lock().unwrap().response = "confirmed".into();
-    m.advance(W).unwrap();
-    assert!(stored(&h.path).windows[1].pending.is_some());
+    assert!(stored(&h.path)
+        .windows
+        .iter()
+        .all(|w| w.pending.is_none() && w.last_success.as_ref().unwrap().period == 100));
     h.clock
         .value
         .fetch_add(5 * RENEW_INTERVAL_SECS, Ordering::SeqCst);
     assert!(matches!(m.advance(W).unwrap(), Outcome::Prepared { .. }));
     assert_eq!(stored(&h.path).windows[0].period, Some(105));
     assert_eq!(h.adapter.lock().unwrap().prepares, 4);
+}
+
+#[test]
+fn unresolved_transaction_serializes_other_windows_before_any_prepare() {
+    for owner in Window::ALL {
+        for restart in [false, true] {
+            let h = Harness::new();
+            let mut m = h.enabled();
+            assert!(matches!(
+                m.advance(owner).unwrap(),
+                Outcome::Prepared { .. }
+            ));
+            h.adapter.lock().unwrap().fail_submit = true;
+            assert!(matches!(m.advance(owner).unwrap(), Outcome::Unknown { .. }));
+            if restart {
+                drop(m);
+                m = h.enabled();
+            }
+            // Expiry of a local renewal period is not proof that the original
+            // chain nonce is free. Preserve the durable digest until reconciled.
+            h.clock
+                .value
+                .fetch_add(2 * RENEW_INTERVAL_SECS, Ordering::SeqCst);
+            let original = fs::read(h.path.join("state.json")).unwrap();
+            for other in Window::ALL.into_iter().filter(|w| *w != owner) {
+                assert!(matches!(m.advance(other).unwrap(), Outcome::Due { .. }));
+            }
+            assert_eq!(fs::read(h.path.join("state.json")).unwrap(), original);
+            {
+                let a = h.adapter.lock().unwrap();
+                assert_eq!((a.prepares, a.submits, a.queries), (1, 1, 0));
+            }
+            h.adapter.lock().unwrap().response = "confirmed".into();
+            assert_eq!(
+                m.advance(owner).unwrap(),
+                Outcome::Confirmed { period: 100 }
+            );
+            let next = Window::ALL.into_iter().find(|w| *w != owner).unwrap();
+            assert!(matches!(m.advance(next).unwrap(), Outcome::Prepared { .. }));
+            assert_eq!(h.adapter.lock().unwrap().prepares, 2);
+        }
+    }
+}
+
+#[test]
+fn prepared_but_unsubmitted_digest_also_blocks_other_window_preparation() {
+    let h = Harness::new();
+    let mut m = h.enabled();
+    assert!(matches!(m.advance(W).unwrap(), Outcome::Prepared { .. }));
+    let original = fs::read(h.path.join("state.json")).unwrap();
+    assert!(matches!(
+        m.advance(Window::Last30Days).unwrap(),
+        Outcome::Due { .. }
+    ));
+    assert_eq!(fs::read(h.path.join("state.json")).unwrap(), original);
+    assert_eq!(h.adapter.lock().unwrap().prepares, 1);
+    assert_eq!(h.adapter.lock().unwrap().submits, 0);
+    // The original in-process ticket can still be submitted exactly once.
+    assert!(matches!(m.advance(W).unwrap(), Outcome::Pending { .. }));
+    assert_eq!(h.adapter.lock().unwrap().submits, 1);
 }
 #[test]
 fn malicious_mismatched_duplicate_and_oversized_replies_never_erase_pending_or_confirm() {
