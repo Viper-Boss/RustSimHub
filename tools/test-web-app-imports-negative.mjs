@@ -25,7 +25,10 @@ try{
   assert.equal(positive.status,0,`Positive temporary copy failed: ${name}`);
   const observed=[...new Set(positive.stdout.split('\n').filter(s=>s.startsWith('VM_IMPORTS:')).map(s=>s.slice(11)))];
   assert.equal(observed.length,1,'A fixture must have a stable import injection set');inventory.push({script,missing:JSON.parse(observed[0])});
-  await writeFile(path,source.replace('installAppImports(context);','// Negative control: import injection deliberately removed only in this copy.'));
+  // Load every current production binding, then remove only the dependency
+  // under test. Removing the whole loader can fail first on an unrelated new
+  // import and never exercise the original NKN assembly assertion.
+  await writeFile(path,source.replace('installAppImports(context);','installAppImports(context);delete context.NknProductPanel;'));
   const negative=spawnSync(process.execPath,[path],{cwd:directory,encoding:'utf8',timeout:30000});
   await writeFile(join(logs,`copy-negative-${name}.log`),(negative.stdout||'')+(negative.stderr||''));
   assert.equal(negative.status,1,`Missing dependency must fail: ${name}`);
@@ -38,4 +41,4 @@ try{
  await assert.rejects(access(directory),{code:'ENOENT'});
  await writeFile(join(logs,'negative-cleanup.json'),JSON.stringify({temporary_copy_removed:true,source_tree_unchanged:true})+'\n');
 }
-console.log('PASS: all six temporary positive copies execute original assertions; removing the real-import connection fails all six with NknProductPanel ReferenceError; temporary copy removed, original logs retained.');
+console.log('PASS: all six temporary positive copies execute original assertions; removing only the real NknProductPanel binding fails all six with its ReferenceError; temporary copy removed, original logs retained.');

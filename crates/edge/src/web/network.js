@@ -14,25 +14,28 @@ export function radioRows(cellular={}){
  return [['运营商',text(cellular.operator)],['注册状态',({home:'本地注册',roaming:'漫游',searching:'搜索网络',denied:'注册被拒绝'})[cellular.registration]||text(cellular.registration)],['接入制式',join(cellular.access_technologies)],['信号质量',Number.isFinite(cellular.signal_percent)&&cellular.signal_percent>=0&&cellular.signal_percent<=100?`${cellular.signal_percent}%`:null],['当前驻留频段',Number.isInteger(f.band)&&f.band>0?`LTE B${f.band}`:null],['下行频率',frequency(f.downlink_mhz)],['上行频率',frequency(f.uplink_mhz)],['当前带宽',measurement(c.bandwidth_mhz,'MHz',true)||'设备暂未提供'],['小区 ID',typeof c.cell_id==='string'&&/^[0-9a-f]+$/i.test(c.cell_id)?`0x${c.cell_id}`:null],['物理小区 ID',text(c.physical_cell_id)],['TAC',typeof c.tracking_area_code==='string'&&/^[0-9a-f]+$/i.test(c.tracking_area_code)?`0x${c.tracking_area_code}`:null],['EARFCN 信道',Number.isInteger(c.earfcn)&&c.earfcn>=0?c.earfcn:null],['RSRP',measurement(c.rsrp,'dBm')],['RSRQ',measurement(c.rsrq,'dB')],['SINR',measurement(c.sinr,'dB')],['允许使用的频段（不是当前驻留）',join(cellular.configured_bands)]];
 }
 export class NetworkPanel {
- constructor({document,request,getToken,runTest,onSample=()=>{}}){this.doc=document;this.request=request;this.getToken=getToken;this.runTest=runTest;this.onSample=onSample;this.epoch=0;this.running=false;this.timer=null;this.sample=null;this.editing=false;this.history=[];this.pending=null;this.testing=false;
+ constructor({document,request,getToken,runTest,onSample=()=>{}}){this.doc=document;this.request=request;this.getToken=getToken;this.runTest=runTest;this.onSample=onSample;this.epoch=0;this.running=false;this.timer=null;this.sample=null;this.editing=false;this.history=[];this.pending=null;this.testing=false;this.loading=false;
   this.$=id=>document.getElementById(id);
   this.$('network-refresh').onclick=()=>this.refresh();
   this.$('network-policy-save').onclick=()=>this.savePolicy();
   this.$('network-test-connectivity').onclick=()=>this.test('connectivity');
   this.$('network-test-download').onclick=()=>this.test('download');
   for(const id of ['network-limit-enabled','network-limit-gb','network-reset-day','network-ack-gap'])this.$(id).addEventListener('input',()=>{this.editing=true;});
+  this.testControls();
  }
+ testControls(){for(const id of ['network-test-connectivity','network-test-download'])this.$(id).disabled=!this.running||!this.sample||!this.getToken()||this.testing;}
  start(){if(this.running)return;this.running=true;this.epoch++;void this.refresh();}
- stop(){this.running=false;this.epoch++;clearTimeout(this.timer);this.timer=null;this.pending=null;this.sample=null;this.onSample(null);this.history=[];this.editing=false;
+ stop(){this.running=false;this.epoch++;clearTimeout(this.timer);this.timer=null;this.pending=null;this.sample=null;this.onSample(null);this.history=[];this.editing=false;this.loading=false;this.testing=false;this.testControls();
   for(const id of ['network-devices','network-radio','network-month','network-test-result'])this.$(id).replaceChildren();this.$('network-interface').replaceChildren();this.$('network-state').textContent='登录所有者或具有网络管理权限的浏览器后查看';this.$('network-rates').textContent='等待登录';this.draw();
   this.$('network-policy-save').disabled=true;this.$('network-limit-gb').value='';this.$('network-limit-enabled').checked=false;this.$('network-ack-gap').checked=false;
+  this.$('network-cellular-consent').checked=false;
  }
  rows(parent,rows){parent.replaceChildren();for(const [label,value] of rows){const a=this.doc.createElement('dt'),b=this.doc.createElement('dd');a.textContent=label;b.textContent=text(value);parent.append(a,b);}}
  async refresh(){clearTimeout(this.timer);if(!this.running||!this.getToken()||this.doc.hidden){this.schedule();return;}if(this.loading){this.schedule();return;}this.loading=true;const epoch=this.epoch;
   try{const s=await this.request({op:'network_diagnostics'});if(epoch!==this.epoch)return;if(s.available!==true)throw Error(s.reason||'网络监测尚未就绪');this.sample=s;this.render(s);this.onSample(s);this.$('network-state').textContent=this.pending?'正在等待设备应用限额设置…':`已更新 · ${new Date(s.sample_unix_seconds*1000).toLocaleTimeString()} · 仅查看状态不消耗测试流量`;
    if(this.pending&&s.last_request_id===this.pending){this.pending=null;this.editing=false;this.$('network-state').textContent='限额设置已生效；没有自动启用蜂窝数据';this.render(s);}
   }catch(error){if(epoch!==this.epoch)return;this.sample=null;this.onSample(null);this.$('network-state').textContent=error.message||'网络状态暂不可用';this.$('network-policy-save').disabled=true;this.$('network-devices').replaceChildren();this.$('network-radio').replaceChildren();this.$('network-month').replaceChildren();this.$('network-rates').textContent='数据已过期，等待重新连接';this.$('network-interface').replaceChildren();this.history=[];this.draw();}
-  finally{this.loading=false;this.schedule();}
+  finally{if(epoch===this.epoch){this.loading=false;this.testControls();this.schedule();}}
  }
  schedule(){if(this.running)this.timer=setTimeout(()=>void this.refresh(),2500);}
  render(s){
@@ -48,15 +51,16 @@ export class NetworkPanel {
   this.$('network-policy-save').disabled=!!this.pending;
   this.$('network-rates').textContent=`蜂窝下载 ${rate(s.rx_bytes_per_second)}　上传 ${rate(s.tx_bytes_per_second)}`;
   this.history.push([chartRate(s.rx_bytes_per_second),chartRate(s.tx_bytes_per_second)]);this.history=this.history.slice(-60);this.draw();
+  this.testControls();
  }
  draw(){const canvas=this.$('network-chart'),c=canvas.getContext?.('2d');if(!c)return;c.clearRect(0,0,canvas.width,canvas.height);const max=Math.max(1,...this.history.flat().filter(Number.isFinite));for(const [column,color] of [[0,'#5bd3bd'],[1,'#eac36f']]){c.strokeStyle=color;c.lineWidth=2;c.beginPath();let connected=false;this.history.forEach((p,i)=>{if(p[column]===null){connected=false;return;}const x=i/59*canvas.width,y=canvas.height-8-p[column]/max*(canvas.height-16);if(connected)c.lineTo(x,y);else c.moveTo(x,y);connected=true;});c.stroke();}}
  async savePolicy(){if(!this.sample||this.pending)return;const epoch=this.epoch;try{const policy=policyInput(this.$('network-limit-enabled').checked,this.$('network-limit-gb').value,this.$('network-reset-day').value);const id=crypto.randomUUID();this.pending=id;this.$('network-policy-save').disabled=true;
    const r=await this.request({op:'set_network_policy',request_id:id,...policy,acknowledge_meter_gap:this.$('network-ack-gap').checked});if(epoch!==this.epoch)return;if(r.request_id!==id||r.state!=='pending')throw Error('设备尚未确认收到设置');await this.refresh();
   }catch(error){if(epoch!==this.epoch)return;this.pending=null;this.$('network-policy-save').disabled=false;this.$('network-state').textContent=`设置未确认：${error.message||'请求失败'}；需要所有者在最近5分钟内登录，请刷新核对实际设置后再操作`;}
  }
- async test(profile){if(this.testing||!this.sample)return;const iface=this.$('network-interface').value;if(!iface){this.$('network-test-result').textContent='没有已联网且具备 IPv4/DNS 的接口；请先连接网络';return;}const epoch=this.epoch;this.testing=true;this.$('network-test-result').textContent='正在测试所选链路，最多15秒…';for(const id of ['network-test-connectivity','network-test-download'])this.$(id).disabled=true;
+ async test(profile){if(this.testing||!this.sample||!this.running||!this.getToken())return;const iface=this.$('network-interface').value;if(!iface){this.$('network-test-result').textContent='没有已联网且具备 IPv4/DNS 的接口；请先连接网络';return;}const epoch=this.epoch;this.testing=true;this.$('network-test-result').textContent='正在测试所选链路，最多15秒…';this.testControls();
   try{const result=await this.runTest({interface:iface,profile,allow_cellular:this.$('network-cellular-consent').checked});if(epoch!==this.epoch)return;this.$('network-test-result').textContent=result.ok?`通过 · ${result.target} · DNS ${result.dns_ms} ms / TCP ${result.tcp_ms} ms / TLS ${result.tls_ms} ms / 首字节 ${result.first_byte_ms} ms · 接收 ${bytes(result.received_bytes)} · 本次样本 ${result.sample_download_mbps.toFixed(2)} Mbps（不代表最大带宽）`:`未通过：${result.reason||'请求失败'}；未自动重试或切换链路`;}
   catch(error){if(epoch===this.epoch)this.$('network-test-result').textContent=`测试未完成：${error.message||'连接中断'}；未自动重试`;}
-  finally{this.testing=false;for(const id of ['network-test-connectivity','network-test-download'])this.$(id).disabled=false;if(epoch===this.epoch)void this.refresh();}
+  finally{if(epoch===this.epoch){this.testing=false;this.testControls();void this.refresh();}}
  }
 }

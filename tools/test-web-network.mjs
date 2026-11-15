@@ -90,3 +90,39 @@ const displaySample=()=>({available:true,sample_unix_seconds:100,boot_id:'synthe
  assert.match(doc.getElementById('network-rates').textContent,/过期/);assert.equal(doc.getElementById('network-policy-save').disabled,true);panel.stop();
 }
 console.log('PASS: B-05/B-06 malformed/zero radio fields, finite rates, text-only DTO rendering, unknown quotas, chart gaps and stale-state cleanup');
+
+{
+ // A completed old test must not re-enable controls after logout.
+ const {panel,doc}=setup(async()=>displaySample());let finish;
+ panel.running=true;panel.sample=displaySample();doc.getElementById('network-interface').value='wlan0';
+ panel.runTest=()=>new Promise(resolve=>finish=resolve);
+ const old=panel.test('connectivity');assert.equal(doc.getElementById('network-test-connectivity').disabled,true);
+ doc.getElementById('network-cellular-consent').checked=true;
+ panel.stop();finish({ok:false,reason:'SYNTHETIC_OLD_TEST'});await old;
+ assert.equal(doc.getElementById('network-test-connectivity').disabled,true,'late test completion must not enable logged-out controls');
+ assert.equal(doc.getElementById('network-test-download').disabled,true);assert.equal(doc.getElementById('network-test-result').textContent,'');
+ assert.equal(doc.getElementById('network-cellular-consent').checked,false,'logout clears the old session cellular-test consent');
+}
+{
+ // Stop/start opens a new read slot. The old finally must not release it.
+ const requests=[],{panel}=setup(()=>new Promise(resolve=>requests.push(resolve)));
+ panel.running=true;const old=panel.refresh();assert.equal(requests.length,1);
+ panel.stop();panel.start();assert.equal(requests.length,2,'new session must not wait for an old in-flight read');
+ requests[0]({...displaySample(),boot_id:'old'});await old;
+ assert.equal(panel.loading,true,'old read must not release the new session read slot');assert.equal(panel.sample,null);
+ requests[1]({...displaySample(),boot_id:'new'});await turn();assert.equal(panel.sample.boot_id,'new');panel.stop();
+}
+{
+ // An old network-test result must not release a newer test's busy state.
+ const {panel,doc}=setup(async()=>displaySample()),tests=[];
+ panel.runTest=()=>new Promise(resolve=>tests.push(resolve));
+ panel.running=true;panel.sample=displaySample();doc.getElementById('network-interface').value='wlan0';const old=panel.test('connectivity');
+ panel.stop();panel.start();await turn();doc.getElementById('network-interface').value='wlan0';
+ const next=panel.test('connectivity');assert.equal(tests.length,2,'new session may start its own explicit test');
+ tests[0]({ok:false,reason:'SYNTHETIC_OLD_TEST'});await old;
+ assert.equal(panel.testing,true,'old completion must not release the new test');assert.equal(doc.getElementById('network-test-connectivity').disabled,true);
+ assert.doesNotMatch(doc.getElementById('network-test-result').textContent,/SYNTHETIC_OLD_TEST/);
+ tests[1]({ok:false,reason:'SYNTHETIC_CURRENT_TEST'});await next;
+ assert.equal(panel.testing,false);assert.match(doc.getElementById('network-test-result').textContent,/SYNTHETIC_CURRENT_TEST/);panel.stop();
+}
+console.log('PASS: network logout/read/test epoch fences preserve disabled controls and new-session busy slots');

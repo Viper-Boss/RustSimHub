@@ -50,7 +50,8 @@ async function handle(c){
  case 'calls_recent':return {calls:[],cursor:null,total:0};
  case 'calls':return {calls:[],cursor:null};
  case 'health':return {history_read_api:false,wifi_provisioning_api:false};
- case 'network_status':case 'network_diagnostics':case 'sms_management_status':return {available:false};
+ case 'network_diagnostics':return {available:true,sample_unix_seconds:Math.floor(Date.now()/1000),boot_id:'synthetic-boot',devices:[{kind:'wifi',interface:'wlan0',state:'100 connected',ipv4:['192.0.2.2'],dns_ipv4:['192.0.2.53']}],cellular:{},policy:{enabled:false,limit_bytes:1e9,reset_day:1},usage:{uncertain:false,rx_bytes:0,tx_bytes:0,total_bytes:0,remaining_bytes:1e9,limit_reached:false},last_request_id:''};
+ case 'network_status':case 'sms_management_status':return {available:false};
  default:throw Error('Unexpected assembly fixture operation: '+c.op);
  }
 }
@@ -70,8 +71,16 @@ const server=createServer(async(req,res)=>{
    if(value.reset){calls=[];assets=[];failures=[];sequence=0;challenges=new Map();permissionGeneration=0;permissionEnabled=false;permissionDisabled=0;permissionReceipts=new Map();}
    if(held){const release=held;held=null;release();}json(res,{ok:true});return;
   }
+  if(path==='/api/network/v1/test'){
+   assert.equal(req.headers['x-rustsimhub-request'],'2');const c=JSON.parse(raw);assert.equal(c.token,token);
+   assert.equal(c.interface,'wlan0');assert.equal(c.profile,'connectivity');assert.equal(c.allow_cellular,false);
+   calls.push({op:'network_test',interface:c.interface,profile:c.profile,allow_cellular:c.allow_cellular});
+   if(mode==='network-test-held')await new Promise(resolve=>{held=resolve;});
+   json(res,{ok:false,reason:'synthetic-network-test-result'});return;
+  }
   assert.equal(path,'/api/v2');assert.equal(req.headers['x-rustsimhub-request'],'2');
   const body=JSON.parse(raw);assert.equal(body.protocol,2);assert.equal(typeof body.id,'string');
+  if(body.command.op==='network_diagnostics'&&mode==='network-denied'){calls.push({op:'network_diagnostics',denied:true});res.writeHead(403);res.end();return;}
   const result=await handle(body.command);
   if(body.command.op==='nkn_status'&&mode==='offline'){res.writeHead(503);res.end();return;}
   if(body.command.op==='nkn_status'&&mode==='held')await new Promise(resolve=>{held=resolve;});

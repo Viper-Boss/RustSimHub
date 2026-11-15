@@ -85,6 +85,32 @@ with sync_playwright() as p:
             assert '/nkn-product.js' in fixture()['assets'] and '/nkn-status.js' in fixture()['assets']
             pin = bytes(fixture()['device']).hex()
             login(page, pin)
+            # Actual network component and Auth fetch: only this local fixture
+            # answers the explicit test; it never probes a real interface.
+            page.wait_for_function("()=>document.querySelectorAll('#network-interface option').length===1")
+            fixture('network-denied')
+            page.locator('#network-refresh').evaluate('(e)=>e.click()')
+            page.wait_for_function("()=>document.querySelector('#network-policy-save').disabled&&document.querySelectorAll('#network-interface option').length===0")
+            assert page.locator('#network-test-connectivity').is_disabled(), 'Denied network read enabled test controls'
+            assert page.locator('#network-test-download').is_disabled(), 'Denied network read enabled test controls'
+            assert count('network_test') == 0
+            fixture('ready')
+            page.locator('#network-refresh').evaluate('(e)=>e.click()')
+            page.wait_for_function("()=>document.querySelectorAll('#network-interface option').length===1")
+            fixture('network-test-held')
+            page.locator('#network-interface').evaluate("(e)=>{e.value='wlan0';e.dispatchEvent(new Event('change',{bubbles:true}));}")
+            page.locator('#network-test-connectivity').evaluate('(e)=>e.click()')
+            wait_fixture(page, lambda state: state['held'])
+            assert count('network_test') == 1
+            page.locator('#network-cellular-consent').evaluate('(e)=>e.checked=true')
+            page.click('#daily-logout')
+            fixture('ready')
+            page.wait_for_timeout(100)
+            assert page.locator('#network-test-connectivity').is_disabled(), 'Late network finally enabled logged-out controls'
+            assert page.locator('#network-test-download').is_disabled()
+            assert not page.locator('#network-cellular-consent').is_checked()
+            assert page.locator('#network-test-result').inner_text() == ''
+            login(page, pin)
             assert count('usage_stats_query') == 0, 'Login must not query or report usage'
             usage.get_by_role('button', name='只读刷新统计').click()
             page.wait_for_function("() => document.querySelector('#support-usage').textContent.includes('本次只读查询已结束')")
