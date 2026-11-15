@@ -99,17 +99,18 @@ const forwardingHistory=new ForwardingHistory({document,request:command=>auth(co
    if(rows.length>=64){const index=rows.findIndex(r=>r.uncertain===false);if(index<0)throw Error('未决摘要已满，请保留并通过维护入口导出');rows.splice(index,1);}
    return [...rows,{record,state:entry.state,uncertain:entry.uncertain}];});current(epoch);
  }});
-async function api(command,epoch=viewEpoch){
+async function api(command,epoch=viewEpoch,signal=null){
  current(epoch);
  const id=crypto.randomUUID();const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),18000);requests.add(controller);
+ const cancel=()=>controller.abort();if(signal?.aborted)cancel();else signal?.addEventListener('abort',cancel,{once:true});
  try{const r=await fetch('/api/v2',{method:'POST',headers:{'Content-Type':'application/json','X-RustSimHub-Request':'2'},body:JSON.stringify({protocol:2,id,command}),signal:controller.signal,credentials:'omit',cache:'no-store',redirect:'error'});
   if(!r.ok)throw Error('请求被拒绝或服务暂不可用');
   const value=await r.json();current(epoch);if(value.protocol!==2||value.id!==id)throw Error('响应不匹配');
   if(value.result?.error)throw Error('核心拒绝操作；请检查登录、权限和设备状态');
   return value.result;
- }finally{clearTimeout(timer);requests.delete(controller);}
+ }finally{clearTimeout(timer);signal?.removeEventListener('abort',cancel);requests.delete(controller);}
 }
-function auth(command){if(!token)throw Error('请先登录');return api({...command,token});}
+function auth(command,signal=null){if(!token)throw Error('请先登录');return api({...command,token},viewEpoch,signal);}
 const eventSync=new EventSync({request:command=>auth(command),reload:{sms:()=>inboxPage(true),calls:()=>callsPage(true)}});
 const smsManager=new SmsManager({document,request:command=>auth(command),reloadInbox:()=>inboxPage(true),confirm:message=>confirm(message)});
 const notice=text=>{$('notice').textContent=text;};
@@ -565,9 +566,12 @@ function publishSupportState(){
  const canQuery=!!row&&!!token&&!busy&&!testWorking&&!callTest.running&&!apConfigurator?.working&&!apConfigurator?.managing&&!dailyPhone?.working&&!dailyPhone?.managing;
  supportPanels.receipt.update(row?{...row,canQuery,canArchive:false}:null);
  supportPanels.diagnostics.update({origin:globalThis.location?.origin,device_pin:$('pin').value,operation:row});
+ const usageRead=token&&!busy&&!testWorking&&!callTest.running&&!apConfigurator?.working&&!apConfigurator?.managing?readSupportUsage:null;
+ if(supportPanels.usage.read!==usageRead){supportPanels.usage.read=usageRead;supportPanels.usage.reset();}
  const read=supportConfigurationAllowed()?readSupportConfiguration:null;
  if(supportPanels.configuration.read!==read||supportConfigurationToken!==token){supportPanels.configuration.read=read;supportConfigurationToken=token;supportPanels.configuration.reset();}
 }
+function readSupportUsage({window,signal}){return auth({op:'usage_stats_query',window},signal);}
 function supportConfigurationAllowed(){return !!token&&testCenterActive&&!document.hidden&&!busy&&!testWorking&&!callTest.running&&!apConfigurator?.working&&!apConfigurator?.managing&&!dailyPhone?.working&&!dailyPhone?.managing;}
 async function readSupportConfiguration({signal}){
  if(!supportConfigurationAllowed()||signal.aborted||supportConfigurationReading)throw Error('状态读取当前不可用');
@@ -600,9 +604,9 @@ supportPanels={
 publishSupportState();
 const supportPreviousLogout=$('logout').onclick;
 $('logout').onclick=()=>{for(const panel of Object.values(supportPanels))panel.reset();supportPreviousLogout();publishSupportState();};
-addEventListener('pagehide',()=>{supportPanels.configuration.read=null;supportConfigurationToken=null;for(const panel of Object.values(supportPanels))panel.reset();});
+addEventListener('pagehide',()=>{supportPanels.configuration.read=null;supportPanels.usage.read=null;supportConfigurationToken=null;for(const panel of Object.values(supportPanels))panel.reset();});
 addEventListener('pageshow',()=>publishSupportState());
-document.addEventListener('visibilitychange',()=>{if(document.hidden){supportPanels.configuration.read=null;supportPanels.configuration.reset();}else publishSupportState();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){supportPanels.configuration.read=null;supportPanels.configuration.reset();supportPanels.usage.read=null;supportPanels.usage.reset();}else publishSupportState();});
 
 const nknProductPanel=new NknProductPanel({document,root:$('support-nkn'),request:command=>auth(command),getToken:()=>token,login:()=>login(),confirm:message=>confirm(message),crypto,
  loadPending:()=>stored('nkn-control-pending'),

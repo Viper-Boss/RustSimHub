@@ -5,20 +5,37 @@ package managed
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/Viper-Boss/RustSimHub/tools/nkn-engine/bridge"
+	"github.com/Viper-Boss/RustSimHub/tools/nkn-engine/protocol"
 	"github.com/Viper-Boss/RustSimHub/tools/nkn-engine/sdkstatus"
 	sdk "github.com/nknorg/nkn-sdk-go"
 	"github.com/nknorg/nkngomobile"
 )
 
 type ownedSource struct {
-	mu     sync.Mutex
-	source *sdkstatus.Source
-	lease  *Lease
+	mu        sync.Mutex
+	source    *sdkstatus.Source
+	lease     *Lease
+	usageHTTP *http.Client
+}
+
+func (s *ownedSource) Usage(ctx context.Context, op protocol.Operation) (bridge.UsageCount, error) {
+	s.mu.Lock()
+	ready := s.source != nil && s.lease.Check() == nil
+	s.mu.Unlock()
+	if !ready {
+		return bridge.UsageCount{}, ErrLaunch
+	}
+	value, err := usageCount(ctx, op, s.usageHTTP, s.lease.launch.seeds[0])
+	if s.lease.Check() != nil {
+		return bridge.UsageCount{}, ErrLaunch
+	}
+	return value, err
 }
 
 func (*ownedSource) SDKLinked() bool { return true }
@@ -42,7 +59,7 @@ func Run(lease *Lease, input, output *os.File) error {
 	defer func() { lease.Close(); input.Close(); output.Close() }()
 	dial := &scopedDialer{lease: lease, startDeadline: time.Now().Add(10 * time.Second), connections: make(map[*scopedConn]struct{})}
 	port := &relay{lease: lease}
-	source := &ownedSource{lease: lease}
+	source := &ownedSource{lease: lease, usageHTTP: newUsageHTTP(dial)}
 	defer func() {
 		port.close()
 		dial.close()

@@ -29,6 +29,9 @@ const (
 	stopEngine = 4
 	release    = 5
 	readOnly   = 6
+	usage24h   = 7
+	usage30d   = 8
+	usage90d   = 9
 )
 
 type request struct {
@@ -39,7 +42,7 @@ type request struct {
 }
 
 func parseRequest(raw []byte) (request, error) {
-	if len(raw) != requestBytes || !bytes.Equal(raw[:5], []byte("RSCN\x01")) || raw[5] < prepare || raw[5] > readOnly {
+	if len(raw) != requestBytes || !bytes.Equal(raw[:5], []byte("RSCN\x01")) || raw[5] < prepare || raw[5] > usage90d {
 		return request{}, ErrDenied
 	}
 	r := request{op: raw[5], generation: binary.BigEndian.Uint32(raw[6:10]), deadline: binary.BigEndian.Uint64(raw[10:18])}
@@ -168,6 +171,14 @@ func (m *manager) handle(r request, connection *net.UnixConn) ([]byte, error) {
 		return nil, ErrDenied
 	}
 	s := m.scope
+	if r.op >= usage24h && r.op <= usage90d {
+		if m.policy.config.UsageQueryProtocol != 1 || connection == nil {
+			return nil, ErrDenied
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 1750*time.Millisecond)
+		defer cancel()
+		return s.usage(ctx, r.op), nil
+	}
 	if r.op == readOnly {
 		if m.policy.config.StatusProtocol != 1 || connection == nil {
 			return nil, ErrDenied

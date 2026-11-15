@@ -11,6 +11,7 @@ import (
 	"github.com/Viper-Boss/RustSimHub/tools/nkn-engine/protocol"
 	"io"
 	"strconv"
+	"time"
 )
 
 const MaxFrames = 32
@@ -94,10 +95,22 @@ type Result struct {
 	SDKLinked bool   `json:"nkn_sdk_linked"`
 }
 type Response struct {
-	Protocol uint8   `json:"protocol"`
-	ID       *string `json:"id"`
-	Result   *Result `json:"result,omitempty"`
-	Error    string  `json:"error,omitempty"`
+	Protocol uint8       `json:"protocol"`
+	ID       *string     `json:"id"`
+	Result   *Result     `json:"result,omitempty"`
+	Error    string      `json:"error,omitempty"`
+	Usage    *UsageCount `json:"usage,omitempty"`
+}
+
+type UsageCount struct {
+	Window string `json:"window"`
+	Count  uint64 `json:"count"`
+}
+
+// Separate from StatusSource: only an explicitly owned host can attach network
+// queries. Status polling itself remains free of network IO.
+type UsageSource interface {
+	Usage(context.Context, protocol.Operation) (UsageCount, error)
 }
 
 func write(output io.Writer, response Response, before func() error) error {
@@ -191,6 +204,31 @@ func serveFrames(ctx context.Context, input io.Reader, output io.Writer, beforeR
 			continue
 		}
 		kind := "status"
+		if protocol.IsUsage(request.Op) {
+			port, ok := source.(UsageSource)
+			var value UsageCount
+			var queryErr error = ErrFrame
+			if ok && linked {
+				queryCtx, cancel := context.WithTimeout(ctx, time.Second)
+				value, queryErr = port.Usage(queryCtx, request.Op)
+				if queryCtx.Err() != nil {
+					queryErr = ErrFrame
+				}
+				cancel()
+			}
+			response := Response{Protocol: 1, ID: &request.ID, Error: "usage_unavailable"}
+			if queryErr == nil && value.Window == protocol.UsageWindow(request.Op) && value.Count <= 1000000000 {
+				response.Error = ""
+				response.Usage = &value
+			}
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if err = write(output, response, beforeWrite); err != nil {
+				return err
+			}
+			continue
+		}
 		if request.Op == protocol.Stop {
 			kind = "closing_this_bridge"
 		}

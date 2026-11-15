@@ -19,6 +19,14 @@ const run=(f,fn)=>f.panel.action(fn);
 const read=f=>run(f,g=>f.panel.read(g));
 const set=f=>run(f,g=>f.panel.set(g,'manual_engine',true));
 {
+ const f=fixture();let seq=0;
+ f.panel.request=async c=>{f.calls.push(c);if(c.op==='nkn_status')return report(++seq);return {request_id:id,known:true,state:'accepted',core_instance:ctx,owner:c.owner,enabled:c.enabled,expected_revision:'0',admitted_revision:'1',not_found_is_not_proof:true};};
+ await read(f);assert.equal(f.panel.buttons.statistics_on.disabled,false);assert.equal(f.panel.buttons.statistics_off.disabled,true);
+ await run(f,g=>f.panel.set(g,'statistics',true));
+ const requests=f.calls.filter(c=>c.op==='set_nkn_enabled');assert.equal(requests.length,1);assert.equal(requests[0].owner,'statistics');
+ assert.equal(f.archives[0].record.owner,'statistics');assert.equal(f.pending,null);assert.equal(f.calls.some(c=>/subscribe|check_in/.test(c.op)),false);f.panel.reset();
+}
+{
  const f=fixture();assert.equal(f.calls.length,0);await read(f);assert.equal(f.calls.length,1);assert.equal(f.panel.buttons.remote_on.disabled,true);f.clock.wall+=5001;f.panel.render();assert.match(f.panel.output.textContent,/陈旧/);assert.equal(f.calls.length,1);f.panel.reset();
 }
 {

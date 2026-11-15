@@ -13,7 +13,7 @@ export function usageRows(value,expectedWindow=null){
  const cached=value.status==='cached',freshness={within_ttl:'缓存仍在原期限内',expired:'缓存已过期',clock_rollback:'时钟回拨，缓存不能当作新鲜数据'};
  if(cached&&!Object.hasOwn(freshness,value.freshness))return unavailable('缓存新鲜度未知');
  const count=Number.isSafeInteger(e.count)&&e.count>=0?String(e.count):'未知（原始 u64 超出前端精确数值范围或格式无效）';
- return [['统计状态',cached?`缓存估计：${freshness[value.freshness]}`:'原统计模块返回查询成功'],['统计窗口',windows[e.window]],['近期活跃安装估计',count],['原始观察时间',stamp(e.observed_at_secs)],['上次成功读取',stamp(e.succeeded_at_secs)],['缓存到期',stamp(e.expires_at_secs)],['说明','仅统计独立授权的近期活跃安装估计；不是人数、在线用户数或连接节点数。此页面不启用引擎、续订、转发或数据流量。']];
+ return [['统计状态',cached?`缓存估计：${freshness[value.freshness]}`:'原统计模块返回查询成功'],['统计窗口',windows[e.window]],['近期活跃安装估计',count],['原始观察时间',stamp(e.observed_at_secs)],['上次成功读取',stamp(e.succeeded_at_secs)],['缓存到期',stamp(e.expires_at_secs)],['说明','仅统计独立授权的近期活跃安装估计；不是人数、在线用户数或连接节点数。仅在单独授权的引擎已运行时查询汇总计数；不参与安装上报，不续订、不启用转发或蜂窝数据。']];
 }
 export class UsageStatsPanel {
  constructor({document,root,read=null,clock=()=>performance.now()}){this.doc=document;this.read=read;this.clock=clock;this.epoch=0;this.lastRead=-Infinity;this.busy=false;this.select=document.createElement('select');this.select.setAttribute('aria-label','统计窗口');for(const [value,label] of Object.entries(windows)){const o=document.createElement('option');o.value=value;o.textContent=label;this.select.append(o);}this.select.value='24h';this.button=document.createElement('button');this.button.type='button';this.button.textContent='只读刷新统计';this.button.onclick=()=>this.refresh();this.state=document.createElement('p');this.state.setAttribute('role','status');this.rows=document.createElement('dl');this.rows.style.overflowWrap='anywhere';root.replaceChildren(this.select,this.button,this.state,this.rows);this.reset();}
@@ -28,7 +28,7 @@ export class UsageStatsPanel {
    const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{reject(Error('deadline'));controller.abort();},10000);});
    const value=await Promise.race([this.read({window,signal:controller.signal}),timeout]);if(epoch!==this.epoch)return;
    const elapsed=this.clock()-started;if(!Number.isFinite(elapsed)||elapsed<0||elapsed>=10000){controller.abort();throw Error('deadline');}
-   this.display(usageRows(value,window));this.state.textContent='已读取展示结果；没有启动统计、网络或续订任务';
+   this.display(usageRows(value,window));this.state.textContent=value?.status==='disabled'?'统计查询已关闭；可在 NKN 区单独请求启用。参与安装上报尚未开放。':'本次只读查询已结束；没有上报、续订或自动重试。参与安装上报尚未开放。';
   }catch{if(epoch===this.epoch){this.display(usageRows(null));this.state.textContent='读取未确认，当前计数未知；没有自动重试';}}
   finally{clearTimeout(timer);if(epoch===this.epoch){this.busy=false;this.button.disabled=false;}}
  }

@@ -32,14 +32,15 @@ const seedPath = "/var/lib/rustsimhub/nkn/transport-seed"
 const networkPath = "/run/rustsimhub-network/status.json"
 
 type configuration struct {
-	Format         uint8    `json:"format"`
-	Source         string   `json:"source_commit"`
-	Executable     string   `json:"engine_sha256"`
-	CorePin        string   `json:"core_pin"`
-	StatisticsKey  string   `json:"statistics_public_key"`
-	Interface      string   `json:"interface"`
-	Seeds          []string `json:"seed_rpc"`
-	StatusProtocol uint8    `json:"status_protocol,omitempty"`
+	Format             uint8    `json:"format"`
+	Source             string   `json:"source_commit"`
+	Executable         string   `json:"engine_sha256"`
+	CorePin            string   `json:"core_pin"`
+	StatisticsKey      string   `json:"statistics_public_key"`
+	Interface          string   `json:"interface"`
+	Seeds              []string `json:"seed_rpc"`
+	StatusProtocol     uint8    `json:"status_protocol,omitempty"`
+	UsageQueryProtocol uint8    `json:"usage_query_protocol,omitempty"`
 }
 type roles struct {
 	core, coreGID, engine, engineGID uint32
@@ -109,7 +110,7 @@ func hex32(text string) ([32]byte, error) {
 	return b, nil
 }
 func configurationValid(c configuration) bool {
-	if c.StatusProtocol > 1 || c.Format != 1 || len(c.Source) != 40 || strings.ToLower(c.Source) != c.Source || c.Interface != "wlan0" && c.Interface != "usb0" || len(c.Seeds) < 1 || len(c.Seeds) > 3 {
+	if c.UsageQueryProtocol > 1 || c.StatusProtocol > 1 || c.Format != 1 || len(c.Source) != 40 || strings.ToLower(c.Source) != c.Source || c.Interface != "wlan0" && c.Interface != "usb0" || len(c.Seeds) < 1 || len(c.Seeds) > 3 {
 		return false
 	}
 	if _, e := hex.DecodeString(c.Source); e != nil {

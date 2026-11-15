@@ -25,6 +25,7 @@ type ownedEngine struct {
 	statusEpoch, statusFrames uint32
 	statusPoisoned            bool
 	lastStatus                time.Time
+	lastUsage                 [3]time.Time
 
 	cmd            *exec.Cmd
 	control        *net.UnixConn

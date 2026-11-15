@@ -24,6 +24,7 @@ use std::{
 const SOCKET: &str = "/run/rustsimhub-nkn-root/root.sock";
 mod roles;
 mod status;
+mod usage;
 pub use roles::InstalledRoles;
 pub use status::{Report as StatusReport, Status as ReadOnlyStatus};
 type Result<T> = std::result::Result<T, PortError>;
@@ -35,7 +36,7 @@ fn boot_ms() -> Result<u64> {
         .and_then(|v| v.checked_add(nanos / 1_000_000 + 1))
         .ok_or(PortError::Protocol)
 }
-fn policy_details(device: [u8; 32]) -> Result<([u8; 32], bool)> {
+fn policy_details(device: [u8; 32]) -> Result<([u8; 32], bool, bool)> {
     let mut file = OpenOptions::new()
         .read(true)
         .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
@@ -73,6 +74,7 @@ fn policy_details(device: [u8; 32]) -> Result<([u8; 32], bool)> {
     Ok((
         Sha256::digest(&raw[start..=end]).into(),
         policy["status_protocol"].as_u64() == Some(1),
+        policy["usage_query_protocol"].as_u64() == Some(1),
     ))
 }
 fn connect() -> Result<UnixStream> {
@@ -122,6 +124,7 @@ struct Shared {
     observed_root: AtomicU32,
     observed_engine: AtomicU32,
     sdk_status: bool,
+    sdk_usage: bool,
     host_closed: OnceLock<Arc<AtomicBool>>,
 }
 impl Drop for Shared {
@@ -470,7 +473,7 @@ pub fn authorized_ports(
     if nonce == [0; 32] {
         return Err(PortError::Denied);
     }
-    let (policy, sdk_status) = policy_details(device)?;
+    let (policy, sdk_status, sdk_usage) = policy_details(device)?;
     let remaining = deadline
         .saturating_duration_since(Instant::now())
         .as_millis();
@@ -497,6 +500,7 @@ pub fn authorized_ports(
         observed_root: AtomicU32::new(0),
         observed_engine: AtomicU32::new(0),
         sdk_status,
+        sdk_usage,
         host_closed: OnceLock::new(),
     });
     Ok((

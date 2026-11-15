@@ -27,6 +27,10 @@ pub struct AuthRequest {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AuthCommand {
+    UsageStatsQuery {
+        token: String,
+        window: String,
+    },
     NknStatus {
         token: String,
     },
@@ -596,6 +600,11 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         return Err(invalid());
     }
     match &req.command {
+        AuthCommand::UsageStatsQuery { token, window } => {
+            if !source_valid(token) || !matches!(window.as_str(), "24h" | "30d" | "90d") {
+                return Err(invalid());
+            }
+        }
         AuthCommand::NknStatus { token } if !source_valid(token) => return Err(invalid()),
         AuthCommand::NknRequest {
             token,
@@ -1975,6 +1984,28 @@ mod tests {
 mod nkn_candidate_tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn usage_query_accepts_only_fixed_windows_without_endpoint_or_key_fields() {
+        let original = json!({"protocol":2,"id":"usage","command":{"op":"usage_stats_query","token":"a".repeat(64),"window":"24h"}});
+        for window in ["24h", "30d", "90d"] {
+            let mut value = original.clone();
+            value["command"]["window"] = json!(window);
+            assert!(parse_auth_request(&serde_json::to_vec(&value).unwrap()).is_ok());
+        }
+        for (key, value) in [
+            ("window", json!("1h")),
+            ("window", json!(24)),
+            ("token", json!("missing")),
+            ("url", json!("https://example.com")),
+            ("topic", json!("other-app")),
+            ("seed", json!([1, 2, 3])),
+            ("enabled", json!(true)),
+        ] {
+            let mut changed = original.clone();
+            changed["command"][key] = value;
+            assert!(parse_auth_request(&serde_json::to_vec(&changed).unwrap()).is_err());
+        }
+    }
     #[test]
     fn nkn_control_has_finite_reference_and_exact_context_cas_without_root_claims() {
         let value = json!({"protocol":2,"id":"nkn","command":{"op":"set_nkn_enabled","token":"a".repeat(64),"owner":"remote","enabled":true,"expected_revision":"0","expected_core_instance":"b".repeat(64),"request_id":"11111111-1111-4111-8111-111111111111"}});
