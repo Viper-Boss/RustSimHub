@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-15T14:28:13.677626+00:00",
+  "updated_at": "2026-11-15T15:13:12.177307+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -67,10 +67,10 @@
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原固件81.5%按固定P0–P7里程碑，不与新增范围混算。"
   },
   "focus": {
-    "task_id": "STAT-04",
+    "task_id": "STAT-05",
     "title": "NKN与活跃安装统计整合",
-    "state": "查询已合并 · 安装上报待接线",
-    "description": "PR251 已正常合并5de6a1d（固定ed4c8d7，主线产品树一致），受限NKN汇总查询已接原Auth/Core/Root/SDK和网页。449相关Rust/全仓严格检查、Core/Edge与SDK/Root ARM构建、Go1.27.3并发测试、Chrome三宽与缺模块负对照通过；CI计费零步骤。未签名/部署/链上提交。独立参与同意、实际签名订阅/确认与长期授权政策仍待接线；另一窗口AirSIM蓝牙保持原样，81.5%、20/169、10.6%保持。"
+    "state": "独立授权及回执已合并 · 签名/提交待接线",
+    "description": "PR252/253正常合并至2ae840f：独立参与授权、持久关闭代次/精确回执与原本地Owner/realm/CAS已接；核对旧ON/OFF回执保留最新授权，不重做旧请求。461相关Rust、严格检查、Core/Edge ARM64、真实Chrome三宽通过；追加UI两向回归与旧源失败对照通过，未冒称重跑全部Rust。CI计费零步骤。未写设备、未改蓝牙/AirSIM/音频，不生成统计身份或上报。实际签名/交易准备、提交/确认、在途关闭与长期权限仍缺，81.5%、20/169、10.6%保持。"
   },
   "facts": [
     {
@@ -6437,12 +6437,37 @@
       "evidence": [
         "https://github.com/Viper-Boss/RustSimHub/pull/251"
       ]
+    },
+    {
+      "at": "2026-11-15T15:05:53.597837+00:00",
+      "type": "state",
+      "title": "STAT-05 · 下一关卡：独立隐私开关与公开字段说明",
+      "detail": "PR252 已正常合并6f80fda（固定03c27e4）：独立参与许可、关闭代次、64条精确回执与原最近本地Owner/Core/数据库UUID绑定已接线；网页保存前CAS/回读，Unknown只查原ID，重启可恢复核对。461相关Rust、全仓严格检查、Core/Edge ARM64、实际Chrome三宽与缺模块负对照通过。CI计费零步骤；未写设备、未改蓝牙/AirSIM/音频，无签名或上报。真正交易准备/签名、提交/确认、在途关闭及长期权限仍缺；81.5%、20/169、10.6%保持。",
+      "task_ids": [
+        "STAT-05"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/252"
+      ]
+    },
+    {
+      "at": "2026-11-15T15:11:51.331870+00:00",
+      "type": "state",
+      "title": "STAT-05 · 下一关卡：独立隐私开关与公开字段说明",
+      "detail": "PR252/253正常合并至2ae840f：独立参与授权、持久关闭代次/精确回执与原本地Owner/realm/CAS已接；核对旧ON/OFF回执保留最新授权，不重做旧请求。461相关Rust、严格检查、Core/Edge ARM64、真实Chrome三宽通过；追加UI两向回归与旧源失败对照通过，未冒称重跑全部Rust。CI计费零步骤。未写设备、未改蓝牙/AirSIM/音频，不生成统计身份或上报。实际签名/交易准备、提交/确认、在途关闭与长期权限仍缺，81.5%、20/169、10.6%保持。",
+      "task_ids": [
+        "STAT-05"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/252",
+        "https://github.com/Viper-Boss/RustSimHub/pull/253"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "5de6a1d27f55e956ac7520fadbb3b1ed8215262c",
-    "generated_at": "2026-11-15T14:28:13.677626+00:00",
+    "source_revision": "2ae840fbffff04691ccf8cedd49d554093dd4032",
+    "generated_at": "2026-11-15T15:13:12.177307+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -6461,15 +6486,15 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 62817,
-            "tests": 47534,
-            "tooling": 10869,
+            "product": 63659,
+            "tests": 47868,
+            "tooling": 10885,
             "firmware": 1325
           },
-          "commits": 563,
-          "code_commits": 369,
-          "added": 130171,
-          "deleted": 3830
+          "commits": 566,
+          "code_commits": 372,
+          "added": 131387,
+          "deleted": 3843
         },
         "work": {
           "assigned_steps": 0,
@@ -7125,6 +7150,16 @@
             {
               "pr": 251,
               "head": "ed4c8d7e9d0b0720480e42a5fc32bd1396c353ec",
+              "state": "MERGED"
+            },
+            {
+              "pr": 252,
+              "head": "03c27e4d7b8049bac642ef5af006bbf4efa26b34",
+              "state": "MERGED"
+            },
+            {
+              "pr": 253,
+              "head": "044272dca10a9542b48aca590adb235dcc39a5f3",
               "state": "MERGED"
             }
           ],
@@ -7906,6 +7941,18 @@
             {
               "pr": 251,
               "head": "ed4c8d7e9d0b0720480e42a5fc32bd1396c353ec",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 252,
+              "head": "03c27e4d7b8049bac642ef5af006bbf4efa26b34",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 253,
+              "head": "044272dca10a9542b48aca590adb235dcc39a5f3",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
             }
@@ -8120,8 +8167,8 @@
         ],
         "stats": {
           "current_lines": {
-            "product": 16117,
-            "tests": 11473,
+            "product": 16109,
+            "tests": 11472,
             "tooling": 4772,
             "firmware": 1
           },
@@ -9639,9 +9686,9 @@
       "deleted": 4
     },
     "totals": {
-      "product": 104123,
-      "tests": 88351,
-      "tooling": 19705,
+      "product": 104957,
+      "tests": 88684,
+      "tooling": 19721,
       "firmware": 1457
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。",
@@ -11177,10 +11224,11 @@
   },
   "delivery_snapshot": {
     "date": "2026-11-15",
-    "main": "5de6a1d27f55e956ac7520fadbb3b1ed8215262c",
-    "summary": "PR251 已正常合并5de6a1d（固定ed4c8d7，主线产品树一致），受限NKN汇总查询已接原Auth/Core/Root/SDK和网页。449相关Rust/全仓严格检查、Core/Edge与SDK/Root ARM构建、Go1.27.3并发测试、Chrome三宽与缺模块负对照通过；CI计费零步骤。未签名/部署/链上提交。独立参与同意、实际签名订阅/确认与长期授权政策仍待接线；另一窗口AirSIM蓝牙保持原样，81.5%、20/169、10.6%保持。",
+    "main": "2ae840fbffff04691ccf8cedd49d554093dd4032",
+    "summary": "PR252/253正常合并至2ae840f：独立参与授权、持久关闭代次/精确回执与原本地Owner/realm/CAS已接；核对旧ON/OFF回执保留最新授权，不重做旧请求。461相关Rust、严格检查、Core/Edge ARM64、真实Chrome三宽通过；追加UI两向回归与旧源失败对照通过，未冒称重跑全部Rust。CI计费零步骤。未写设备、未改蓝牙/AirSIM/音频，不生成统计身份或上报。实际签名/交易准备、提交/确认、在途关闭与长期权限仍缺，81.5%、20/169、10.6%保持。",
     "code_percent": null,
     "delivered": [
+      "PR252/253正常合并至2ae840f：独立参与授权与旧回执/最新状态隔离；461相关Rust、最终ARM/Chrome与旧代码失败对照通过。未部署，不触碰蓝牙/AirSIM/音频。",
       "PR251 已正常合并5de6a1d；受限NKN汇总查询和网页生产入口通过本机验证。未签名/部署，不是安装签到或链上确认完成。",
       "PR249正常合并6dd0c3c；固定e854353仅将Native分帧两处固定2字节迭代改为as_chunks，不改协议/字节序/队列/权限或蓝牙文件。54项音频ARM/QEMU、AArch64发布构建/元数据及Native全target严格Clippy通过，两处旧警告已清理，未加allow；云端CI计费零步骤。本笔只做Native定向回归，未冒称全仓1760/12应用ARM重新验证。设备只读仍确认87、无candidate/attempted、通话空闲且三个服务重启0；未签名/分配新epoch/安装。87本次约97秒用户报告正常与47组电平证据保留，86循环静音根因和长稳仍未闭环。另一窗口可信AirSIM蓝牙文件按原分工保留；81.5%、20/169、10.6%保持。",
       "87本次按安排通话，用户报告“目前正常了”，已挂断；一个已建立PCM段96.818秒，服务重启0。47组手机输入/处理后数值完全一致，ALSA对应47组，无整窗口全零；低输入窗口在声卡侧一致，可能是正常停顿，不能据此证明86循环静音根因。Native补静音9/4794、丢2、欠载1；输入队列丢23。87只新增观测，没有改声音策略，保留86失败，继续多通/长稳、耳机/扬声器和双端同时说话对照。81.5%、20/169、10.6%保持。",
@@ -11209,7 +11257,7 @@
       "六个新转发渠道和四个WEB5窗口已在主线；外部通道/真实系统与原任务边界继续保留。"
     ],
     "remaining": [
-      "统计整合：独立参与同意、统计身份/真实签名、订阅提交与按摘要恢复确认、长期运行权限政策，以及完整产品安装和公网验收尚缺。",
+      "统计整合：独立授权已接；统计身份到真实签名器、交易准备/摘要、单次提交与恢复确认、在途关闭/长期授权，以及完整产品包和公网/实机验收尚缺。",
       "设备只读确认87（数值诊断），最新主线含249静态清理但本笔未安装；完整系统镜像/产品profile/第二设备与独立发行继续组合验收。",
       "完整发行与第二设备：把任务8产品组合与通用镜像统一来源；核对匹配boot/DTB/modules/固件、锁定系统材料、真实PID1/沙箱，完成首次刷写/回读/冷启动/恢复。旧74镜像不等于新产品固件。",
       "首配与网页转入整合验收：源码已有通用AP准备/激活、分页/时间/终态修复；仍需完整镜像中真实AP→STA、错密、返回热点、最终保存与原浏览器钥匙/计数核对。",
@@ -11274,6 +11322,8 @@
       "merge_249": "正常固定HEAD合并；Native54/ARM/全target严格通过，云端计费未执行已披露；不改保护规则、不部署、不改蓝牙文件"
     },
     "evidence": [
+      "https://github.com/Viper-Boss/RustSimHub/pull/253",
+      "https://github.com/Viper-Boss/RustSimHub/pull/252",
       "https://github.com/Viper-Boss/RustSimHub/pull/251",
       "https://github.com/Viper-Boss/RustSimHub/pull/249",
       "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-product-delegation-20261103/docs/deliveries/native-framer-clippy-20261115.md",
