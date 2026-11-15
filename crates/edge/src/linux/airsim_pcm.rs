@@ -22,7 +22,7 @@ const FRAME_AGE: Duration = Duration::from_millis(60);
 const UPLINK_JITTER_AGE: Duration = Duration::from_millis(160);
 const UPLINK_QUEUE_FRAMES: usize = 8;
 const UPLINK_BURST_FRAMES: usize = 3;
-const UPLINK_INITIAL_CREDITS: usize = 3;
+const UPLINK_INITIAL_CREDITS: usize = 2;
 const UPLINK_REFILL_CREDITS: usize = 3;
 const UPLINK_PREFILL_WAIT: Duration = Duration::from_millis(40);
 const UPLINK_MIN_SPACING: Duration = Duration::from_millis(10);
@@ -874,7 +874,7 @@ mod tests {
         p.sent(at + Duration::from_millis(20));
         let delayed = at + Duration::from_millis(75);
         assert!(p.available(delayed));
-        assert_eq!(p.credits, UPLINK_REFILL_CREDITS);
+        assert_eq!(p.credits, 2, "only credits at 40 ms and 60 ms have elapsed");
         p.sent(delayed);
         assert!(!p.available(delayed));
         assert_eq!(p.next_refill, Some(at + Duration::from_millis(80)));
