@@ -885,10 +885,9 @@ pub fn run(args: Vec<String>) -> Result<()> {
         }
     }
     let [command, path] = args.as_slice() else {
-        return Err("usage: --init-tls NEW_DIR DNS_NAME | --serve PRIVATE_CONFIG | --serve-voble PRIVATE_CONFIG");
+        return Err("usage: --init-tls NEW_DIR DNS_NAME | --serve PRIVATE_CONFIG");
     };
-    let voble = command == "--serve-voble";
-    if command != "--serve" && !voble {
+    if command != "--serve" {
         return Err("invalid mode");
     }
     let config: Config = serde_json::from_slice(
@@ -967,11 +966,12 @@ pub fn run(args: Vec<String>) -> Result<()> {
         let mut acceptors=JoinSet::new();let mut listening=Vec::new();
         for address in &wanted(&configured_addresses) {match TcpListener::bind(address).await {Ok(listener)=>{acceptors.spawn(accept_one(listener));listening.push(*address);},Err(e) if e.kind()==std::io::ErrorKind::AddrNotAvailable=>{},Err(_) if !configured_addresses.contains(address)=>{},Err(_)=>return Err("listener unavailable"),}}
         if let Some(bridge)=&app.media {bridge.takeover().await?;}
-        if voble {
-            if app.media.is_none() || captive_listen.is_some() {
-                return Err("VoBLE requires the main media Edge instance");
+        // The signed Edge variant adds a root-only local transport while
+        // keeping the existing unit/config usable by both active and fallback groups.
+        if cfg!(feature = "airsim-voble") && app.media.is_some() && captive_listen.is_none() {
+            if let Err(error) = airsim::serve_voble(&app) {
+                eprintln!("{error}");
             }
-            airsim::serve_voble(&app)?;
         }
         if let Some(addr)=captive_listen {tokio::spawn(captive::serve(addr,app.clone()));}
         // AirSIM's local protocol is bound only on the non-loopback addresses the HTTPS page

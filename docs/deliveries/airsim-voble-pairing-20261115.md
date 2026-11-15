@@ -7,18 +7,18 @@ RustSimHub 可以作为 iPhone 版 AirSIM 的 VoBLE v1 外设。iPhone 通过 BL
 ## 运行条件
 
 - 支持 LE Peripheral 和 Advertising 的 hci0，以及支持按连接路由 indication 的 BlueZ 5.82 或更新版本。语音最低协商 ATT MTU 为 100。
-- 同源 Core、主 Edge 和蓝牙侧车。主 Edge 使用原有私有配置和运行身份 UID 985，将启动参数由 `--serve PRIVATE_CONFIG` 切换为 `--serve-voble PRIVATE_CONFIG`。该模式要求现有媒体 worker，使用三个本机抽象 Unix socket 并只接受 UID 0 的客户端。
+- 同源 Core、主 Edge 和蓝牙侧车。主 Edge 使用原有私有配置、`--serve` 启动方式和运行身份 UID 985。签名候选用 `rustsimhub-edge/airsim-voble` 编译主 Edge；该版本要求现有媒体 worker，提供三个本机抽象 Unix socket 并只接受 UID 0 的客户端。系统服务和配置文件可由前一版本继续使用。
 - 配对密钥存放于侧车专用的 0700 目录。设备所有者在网页开启一次 AirSIM 配对窗口，终端用该窗口创建名为 `RustSimHub-VoBLE` 的本机桥接凭据。它受现有 Core 网关开关、配对撤销、通话租约和媒体授权约束。
 
 ## 构建与连接
 
 ```sh
 cargo build --release --locked -p rustsimhub-core -p rustsimhub-edge -p rustsimhub-ble \
-  --features rustsimhub-ble/airsim-pairing \
+  --features rustsimhub-ble/airsim-pairing,rustsimhub-edge/airsim-voble \
   --bin rustsimhub-core --bin rustsimhub-edge --bin rustsimhub-airsim-pairing
 ```
 
-1. 用候选程序启动主 Edge 的 VoBLE 模式。在设备网页为本机桥开启 AirSIM 配对窗口，运行 `sudo rustsimhub-airsim-pairing link /var/lib/rustsimhub-airsim-ble`，按提示输入该窗口的六位码。
+1. 按现有签名更新流程启动包含 VoBLE 的主 Edge。在设备网页为本机桥开启 AirSIM 配对窗口，运行 `sudo rustsimhub-airsim-pairing link /var/lib/rustsimhub-airsim-ble`，按提示输入该窗口的六位码。
 2. 运行 `sudo rustsimhub-airsim-pairing pair /var/lib/rustsimhub-airsim-ble`。在 120 秒内，从 iPhone 版 AirSIM 的「蓝牙 Agent」选择 `RustSIM`。终端和 iPhone 分别确认相同的六位代码。
 3. 完成后可退出配对窗口，用相同路径和 `serve` 持续提供服务。手机选择蓝牙通话模式。现有 AirSIM 配对过的手机可以直接从 `serve` 认证重连。
 4. 验收时关闭 iPhone 的 Wi-Fi，保持蓝牙。至少分别验证拨出、来电接听、双方连续说话、拒接、挂断、按键和断开蓝牙。断连后再次连接只认证设备，通话清理由现有 Core 租约执行。可在设备网页撤销本机桥，也可在 AirSIM 取消手机配对。终端的 `revoke` 删除手机的本地凭据。

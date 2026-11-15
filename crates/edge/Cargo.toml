@@ -5,6 +5,9 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+airsim-voble = []
+
 [target.'cfg(target_os = "linux")'.dependencies]
 rustsimhub-wire = { path = "../wire" }
 rustsimhub-airsim = { path = "../airsim" }
