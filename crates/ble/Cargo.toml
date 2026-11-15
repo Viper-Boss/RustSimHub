@@ -7,6 +7,7 @@ license.workspace = true
 
 [features]
 default = []
+airsim-pairing = ["bluez-advertisement", "dep:rustsimhub-airsim", "dep:getrandom", "dep:libc", "dep:rustix", "dep:serde", "dep:serde_json", "dep:socket2", "tokio/macros", "tokio/net", "tokio/rt", "tokio/signal", "tokio/time"]
 product-host-candidate = ["bluez-backend", "core-channel-candidate", "dep:getrandom", "dep:rustix", "tokio/rt", "tokio/macros", "tokio/signal"]
 bluez-control = ["dep:zbus", "dep:tokio", "dep:futures-lite"]
 bluez-advertisement = ["bluez-control"]
@@ -22,6 +23,7 @@ core-channel-candidate = ["dep:tokio", "tokio/net", "tokio/io-util", "tokio/time
 [dependencies]
 
 [target.'cfg(target_os = "linux")'.dependencies]
+rustsimhub-airsim = { path = "../airsim", optional = true }
 zbus = { version = "5.19", optional = true, default-features = false, features = ["tokio"] }
 tokio = { version = "1", optional = true, features = ["sync"] }
 futures-lite = { version = "2", optional = true }
@@ -58,3 +60,8 @@ required-features = ["core-port"]
 name="rustsimhub-ble-recovery"
 path="src/bin/recovery.rs"
 required-features=["product-host-candidate"]
+
+[[bin]]
+name = "rustsimhub-airsim-pairing"
+path = "src/bin/airsim_pairing.rs"
+required-features = ["airsim-pairing"]
