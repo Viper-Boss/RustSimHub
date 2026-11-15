@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-15T15:45:36.632415+00:00",
+  "updated_at": "2026-11-15T18:31:47.579452+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -61,7 +61,7 @@
   ],
   "estimate": {
     "unit": "有效开发小时",
-    "confidence": "历史整项收尾工时，包含验证/故障/发行，不是纯编码剩余；新交付尚未逐项重估，不能承诺日期。",
+    "confidence": "历史整项收尾工时，包含验证/故障/发行及暂缓热点，不是纯编码剩余或当前USB优先交付排期；新交付尚未逐项重估，不能承诺日期。",
     "default_hours_per_day": 12,
     "calendar_note": "工时折合天数不含换卡、真人听音、第二设备、服务器及单独BLE授权等待；长测等待可以与其他开发重叠。",
     "method": "每动作最少/最多有效工时相加；台账加权率按冻结的工时中值计算，完成才计入。原固件81.5%按固定P0–P7里程碑，不与新增范围混算。"
@@ -70,7 +70,7 @@
     "task_id": "REL-01",
     "title": "冻结支持矩阵与发行候选",
     "state": "下一动作已选定；按前置和验收推进",
-    "description": "两个离线Codex执行包已由PR254正常合并：A生产代码/业务接线，B离线集成/未签名打包/故障与发行材料。149个未验收动作精确映射A93、B29、原蓝牙窗口27；不是149个未开发功能。互斥文件与冻结接口已定义，设备/公网/生产签名仍由负责人验收，未假定学妹账号、不改作者或权限。仅文档，完成比例不变。"
+    "description": "热点暂缓、USB电脑工具优先已由PR260同步A/B任务书与开发约定，原热点缺口不删不计完成。主线已独立复验/合并255～258：Pending串行、NKN年龄、转发ready取消/预算、固定SDK离线向量。90统计/65NKN/127转发（SMTP129）/严格检查/四网页与旧代码反例通过；15向量/30篡改/4错误编码通过。真实统计上报/长期权限、ARM/完整发行/设备仍待，蓝牙草稿不动。"
   },
   "facts": [
     {
@@ -148,7 +148,8 @@
     "原卡普通数据保持关闭；需要蜂窝实测时先换卡。",
     "短信发送授权已消费，新增真实发送需另获号码、内容和次数。",
     "真人听音、拔插、第二设备及BLE单独授权按对应任务通知。",
-    "关机/PMIC/SMD继续搁置；手机原生App不在首版范围。"
+    "关机/PMIC/SMD继续搁置；手机原生App不在首版范围。",
+    "2026-11-16用户决定：热点配网专用开发/手机验收暂缓，主要用USB电脑工具；保留原缺口/失败/权重，USB当前实机状态不冒称通过。"
   ],
   "sources": [
     "docs/PROGRESS-SCALE.md",
@@ -195,7 +196,7 @@
       "title": "短信转发 · 独立服务",
       "scope": "extension",
       "phase": "usable",
-      "summary": "原生Rust队列与默认OFF已交付，Bark等既有闭环保持。邮件生产候选PR187已合并，关闭并发四阶段本机真实进程验证通过；获准邮箱/其他提供商、棒子关闭与冷启动仍待验收。",
+      "summary": "原默认OFF/Bark闭环保持；PR258修复ready回调撤权/耗尽预算后继续IO，主线隔离复验默认127/SMTP129和旧代码负对照通过。真实递送、关闭冷启动和设备长稳未重验。",
       "paths": [
         "crates/forwarder",
         "crates/core/src/forwarding.rs",
@@ -700,7 +701,7 @@
       "title": "独立首次配网 · AP→STA",
       "scope": "original",
       "phase": "usable",
-      "summary": "首次认领与联合Root安装保持；最新设备记录为应用71。PR185修正浏览器存储门禁和完成归档，已合并未部署；真实热点隔离、切网、保存冷启动与无NAS首配继续验收。",
+      "summary": "2026-11-16用户安排：热点配网新增开发和手机验收延期，主要用USB电脑工具。保留既有认领/事务/归档实现和历史失败，USB共享Wi-Fi事务继续；不把热点延期或历史USB隔离测试当当前设备端到端通过。原AP任务、分母/权重与未验收状态保留。",
       "paths": [
         "crates/setup-ap",
         "crates/core/src/setup_ap_control",
@@ -754,7 +755,7 @@
         {
           "id": "AP-03",
           "title": "实现最终保存与回执",
-          "work": "把已验证STA配置提交到持久连接，绑定本次checkpoint与Owner代次。",
+          "work": "【热点专用部分暂缓，USB共享Wi-Fi事务继续】把已验证STA配置提交到持久连接，绑定本次checkpoint与Owner代次。",
           "acceptance": "确认成功后重启仍可连接；保存失去确认能按操作ID核对。",
           "estimate_hours": [
             2,
@@ -776,7 +777,7 @@
         {
           "id": "AP-04",
           "title": "错误密码与回退矩阵",
-          "work": "覆盖错密码、SSID消失、DHCP超时、取消、浏览器关闭和Root执行中断。",
+          "work": "【热点专用部分暂缓，USB共享Wi-Fi事务继续】覆盖错密码、SSID消失、DHCP超时、取消、浏览器关闭和Root执行中断。",
           "acceptance": "限定时间返回原AP及隔离规则；不破坏原Wi-Fi档案或启用数据。",
           "estimate_hours": [
             1,
@@ -841,7 +842,7 @@
         {
           "id": "AP-07",
           "title": "设备首次热点与隔离实测",
-          "work": "在批准的隔离新状态或第二设备上验证AP、DHCP、DNS、HTTPS及窄网段访问。",
+          "work": "【2026-11-16用户暂缓热点专用工作；后续再安排，不计完成】在批准的隔离新状态或第二设备上验证AP、DHCP、DNS、HTTPS及窄网段访问。",
           "acceptance": "无NAS也能打开可信配置页；无转发/广域网出口或任意服务暴露。",
           "estimate_hours": [
             1,
@@ -864,7 +865,7 @@
         {
           "id": "AP-08",
           "title": "真实AP→路由器→网页",
-          "work": "从AP输入测试SSID，完成STA试连、Owner确认和配置页地址交接。",
+          "work": "【2026-11-16用户暂缓热点专用工作；后续再安排，不计完成】从AP输入测试SSID，完成STA试连、Owner确认和配置页地址交接。",
           "acceptance": "保存后可从目标Wi-Fi管理；未确认会回退，证书/身份保持。",
           "estimate_hours": [
             1,
@@ -908,7 +909,7 @@
         {
           "id": "AP-10",
           "title": "其他SSID与网络重命名",
-          "work": "验证另一测试路由器、SSID变化、密码改变及重新配置。",
+          "work": "【热点专用部分暂缓，USB共享Wi-Fi事务继续】验证另一测试路由器、SSID变化、密码改变及重新配置。",
           "acceptance": "原连接集合可恢复；不会因失网清身份或偷偷使用蜂窝数据。",
           "estimate_hours": [
             1,
@@ -930,7 +931,7 @@
         {
           "id": "AP-11",
           "title": "配置后冷启动和失败恢复",
-          "work": "覆盖首次配置后重启、未确认重启、租约到期及网络服务启动稍晚。",
+          "work": "【热点专用部分暂缓，USB共享Wi-Fi事务继续】覆盖首次配置后重启、未确认重启、租约到期及网络服务启动稍晚。",
           "acceptance": "只恢复已确认配置；失败回执清晰，电话与旧数据保持。",
           "estimate_hours": [
             1,
@@ -952,7 +953,7 @@
         {
           "id": "AP-12",
           "title": "独立配网手册与一键检查",
-          "work": "整理设备pin/证书交付、识别地址、失败恢复步骤和测试结果复制。",
+          "work": "【热点专用部分暂缓，USB共享Wi-Fi事务继续】整理设备pin/证书交付、识别地址、失败恢复步骤和测试结果复制。",
           "acceptance": "用户只做必要步骤；文档能在无NAS场景独立操作。",
           "estimate_hours": [
             0.5,
@@ -3041,7 +3042,7 @@
       "title": "NKNGuard原生远程接入",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "实际Go SDK引擎和固定Root候选PR184、有限Core/媒体桥PR178已合并；PR191的真实状态/控制及隔离组合已由负责人合并。默认关闭，ARM交叉构建不等于ARM运行，公开网络与正式安装未验收。",
+      "summary": "受限SDK/Root及汇总查询保持；PR257按钮和定时器统一计入后端样本年龄，主线65项NKN/网页及旧代码负对照通过。实际公网/中继、完整产品和设备仍待验收，不自动启用或延长300秒权限。",
       "paths": [
         "docs/FEATURE-EXTENSIONS-2026-10-24.md",
         "crates/compat",
@@ -3301,7 +3302,7 @@
       "title": "NKN近期活跃安装统计",
       "scope": "extension",
       "phase": "extensions",
-      "summary": "独立统计身份、持久单提交状态机和关闭引用管理已有交付；PR191补真实SDK/共享Root组合候选。默认关闭，公开主题/授权、链上实际提交/确认与真实关闭无PID仍须验收。",
+      "summary": "查询/独立参与许可保持；PR255单身份Pending串行与PR256固定SDK15组真实向量已入主线并独立复验。真实签名/提交/确认和长期权限尚未接通，Root接口仍属待决候选，生产上报不可用；公网/设备待验。",
       "paths": [
         "docs/FEATURE-EXTENSIONS-2026-10-24.md",
         "upstream:pkg/usagestats",
@@ -6476,12 +6477,30 @@
         "https://github.com/Viper-Boss/RustSimHub/blob/main/docs/team/OFFLINE-B-INTEGRATION-20261115.md",
         "https://github.com/Viper-Boss/RustSimHub/pull/254"
       ]
+    },
+    {
+      "at": "2026-11-15T18:30:42.720570+00:00",
+      "type": "state",
+      "title": "REL-01 · 下一关卡：冻结支持矩阵与发行候选",
+      "detail": "热点暂缓、USB电脑工具优先已由PR260同步A/B任务书与开发约定，原热点缺口不删不计完成。主线已独立复验/合并255～258：Pending串行、NKN年龄、转发ready取消/预算、固定SDK离线向量。90统计/65NKN/127转发（SMTP129）/严格检查/四网页与旧代码反例通过；15向量/30篡改/4错误编码通过。真实统计上报/长期权限、ARM/完整发行/设备仍待，蓝牙草稿不动。",
+      "task_ids": [
+        "REL-01"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/pull/260",
+        "https://github.com/Viper-Boss/RustSimHub/pull/255",
+        "https://github.com/Viper-Boss/RustSimHub/pull/256",
+        "https://github.com/Viper-Boss/RustSimHub/pull/257",
+        "https://github.com/Viper-Boss/RustSimHub/pull/258",
+        "https://github.com/Viper-Boss/RustSimHub/pull/261",
+        "https://github.com/Viper-Boss/RustSimHub/blob/6e1cd19bc9dd05fd150157c422590c1a801cc0b0/docs/deliveries/LEAD-USB-FIRST-OFFLINE-INTEGRATION-20261116.md"
+      ]
     }
   ],
   "team": {
     "schema": 1,
-    "source_revision": "b15ea3f561bf9e2a1268f8df5b6f0973cc83bbbd",
-    "generated_at": "2026-11-15T15:45:36.632415+00:00",
+    "source_revision": "6e1cd19bc9dd05fd150157c422590c1a801cc0b0",
+    "generated_at": "2026-11-15T18:31:47.579452+00:00",
     "method": "Git blame非空行；主线非merge增删/提交；明确HEAD审核的步骤；工时仅成员自报",
     "members": [
       {
@@ -6500,12 +6519,12 @@
         "estimate_hours": null,
         "stats": {
           "current_lines": {
-            "product": 63659,
+            "product": 63656,
             "tests": 47868,
             "tooling": 10885,
             "firmware": 1325
           },
-          "commits": 567,
+          "commits": 569,
           "code_commits": 372,
           "added": 131387,
           "deleted": 3843
@@ -7180,6 +7199,16 @@
               "pr": 254,
               "head": "21746c6e6edd4e915d1e14bf779ee14544da406f",
               "state": "MERGED"
+            },
+            {
+              "pr": 260,
+              "head": "977c91d85a9ecfa910a4c47386d21cd373ecddca",
+              "state": "MERGED"
+            },
+            {
+              "pr": 261,
+              "head": "f41db288e66c9903afe38e50f14a389891dafe6c",
+              "state": "MERGED"
             }
           ],
           "task_deliveries": [
@@ -7980,6 +8009,18 @@
               "head": "21746c6e6edd4e915d1e14bf779ee14544da406f",
               "state": "MERGED",
               "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 260,
+              "head": "977c91d85a9ecfa910a4c47386d21cd373ecddca",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
+            },
+            {
+              "pr": 261,
+              "head": "f41db288e66c9903afe38e50f14a389891dafe6c",
+              "state": "MERGED",
+              "submitted_by": "Viper-Boss"
             }
           ]
         }
@@ -8192,8 +8233,8 @@
         ],
         "stats": {
           "current_lines": {
-            "product": 16109,
-            "tests": 11472,
+            "product": 16107,
+            "tests": 11468,
             "tooling": 4772,
             "firmware": 1
           },
@@ -8720,7 +8761,12 @@
             },
             {
               "pr": 250,
-              "head": "fad596de9bc77eda27d141ece8354e3829a04e67",
+              "head": "d576a0fd2c53a353174569cb3450a32ecf529b76",
+              "state": "OPEN"
+            },
+            {
+              "pr": 259,
+              "head": "a3538f73bae9686f7d7bbd4fa1bb1ae11bbed887",
               "state": "OPEN"
             }
           ],
@@ -9123,7 +9169,13 @@
             },
             {
               "pr": 250,
-              "head": "fad596de9bc77eda27d141ece8354e3829a04e67",
+              "head": "d576a0fd2c53a353174569cb3450a32ecf529b76",
+              "state": "OPEN",
+              "submitted_by": "wnfhsj88"
+            },
+            {
+              "pr": 259,
+              "head": "a3538f73bae9686f7d7bbd4fa1bb1ae11bbed887",
               "state": "OPEN",
               "submitted_by": "wnfhsj88"
             }
@@ -9181,15 +9233,15 @@
         ],
         "stats": {
           "current_lines": {
-            "product": 1164,
-            "tests": 4654,
-            "tooling": 945,
+            "product": 1211,
+            "tests": 4844,
+            "tooling": 1071,
             "firmware": 0
           },
-          "commits": 43,
-          "code_commits": 16,
-          "added": 7115,
-          "deleted": 186
+          "commits": 51,
+          "code_commits": 20,
+          "added": 7493,
+          "deleted": 195
         },
         "work": {
           "assigned_steps": 24,
@@ -9224,6 +9276,26 @@
             {
               "pr": 13,
               "head": "e782f985dc5995a076e83e8482b73a693f687ea1",
+              "state": "offline_accepted"
+            },
+            {
+              "pr": 255,
+              "head": "fc5493d0b912db259c4770b1ab406a502889e20e",
+              "state": "offline_accepted"
+            },
+            {
+              "pr": 256,
+              "head": "0bb53817478e390b8407e2a31780edfe47fa3d21",
+              "state": "offline_accepted"
+            },
+            {
+              "pr": 257,
+              "head": "58b0b18da56b50d0e83fc5def1bfb3aea40b1713",
+              "state": "offline_accepted"
+            },
+            {
+              "pr": 258,
+              "head": "ce09ff8430776d00ffbb8ce2abdf7910b9b023a2",
               "state": "offline_accepted"
             }
           ],
@@ -9301,6 +9373,26 @@
             {
               "pr": 180,
               "head": "52b483c1a4b7565c6daa3453eaf4dc0e708d0d84",
+              "state": "MERGED"
+            },
+            {
+              "pr": 255,
+              "head": "fc5493d0b912db259c4770b1ab406a502889e20e",
+              "state": "MERGED"
+            },
+            {
+              "pr": 256,
+              "head": "0bb53817478e390b8407e2a31780edfe47fa3d21",
+              "state": "MERGED"
+            },
+            {
+              "pr": 257,
+              "head": "58b0b18da56b50d0e83fc5def1bfb3aea40b1713",
+              "state": "MERGED"
+            },
+            {
+              "pr": 258,
+              "head": "ce09ff8430776d00ffbb8ce2abdf7910b9b023a2",
               "state": "MERGED"
             }
           ],
@@ -9392,6 +9484,30 @@
             {
               "pr": 180,
               "head": "52b483c1a4b7565c6daa3453eaf4dc0e708d0d84",
+              "state": "MERGED",
+              "submitted_by": "yh1030"
+            },
+            {
+              "pr": 255,
+              "head": "fc5493d0b912db259c4770b1ab406a502889e20e",
+              "state": "MERGED",
+              "submitted_by": "yh1030"
+            },
+            {
+              "pr": 256,
+              "head": "0bb53817478e390b8407e2a31780edfe47fa3d21",
+              "state": "MERGED",
+              "submitted_by": "yh1030"
+            },
+            {
+              "pr": 257,
+              "head": "58b0b18da56b50d0e83fc5def1bfb3aea40b1713",
+              "state": "MERGED",
+              "submitted_by": "yh1030"
+            },
+            {
+              "pr": 258,
+              "head": "ce09ff8430776d00ffbb8ce2abdf7910b9b023a2",
               "state": "MERGED",
               "submitted_by": "yh1030"
             }
@@ -9711,9 +9827,9 @@
       "deleted": 4
     },
     "totals": {
-      "product": 104957,
-      "tests": 88684,
-      "tooling": 19721,
+      "product": 104999,
+      "tests": 88870,
+      "tooling": 19847,
       "firmware": 1457
     },
     "historical_note": "团队加入前主线历史保留；分配、CI、合并均不自动构成完整功能验收。",
@@ -11248,11 +11364,12 @@
     }
   },
   "delivery_snapshot": {
-    "date": "2026-11-15",
-    "main": "b15ea3f561bf9e2a1268f8df5b6f0973cc83bbbd",
-    "summary": "两个离线Codex执行包已由PR254正常合并：A生产代码/业务接线，B离线集成/未签名打包/故障与发行材料。149个未验收动作精确映射A93、B29、原蓝牙窗口27；不是149个未开发功能。互斥文件与冻结接口已定义，设备/公网/生产签名仍由负责人验收，未假定学妹账号、不改作者或权限。仅文档，完成比例不变。 原统计许可和查询实现保留；真实交易签名/提交/确认及长期权限仍缺。81.5%、20/169、10.6%保持。",
+    "date": "2026-11-16",
+    "main": "6e1cd19bc9dd05fd150157c422590c1a801cc0b0",
+    "summary": "热点暂缓、USB电脑工具优先已由PR260同步A/B任务书与开发约定，原热点缺口不删不计完成。主线已独立复验/合并255～258：Pending串行、NKN年龄、转发ready取消/预算、固定SDK离线向量。90统计/65NKN/127转发（SMTP129）/严格检查/四网页与旧代码反例通过；15向量/30篡改/4错误编码通过。真实统计上报/长期权限、ARM/完整发行/设备仍待，蓝牙草稿不动。 云端计费零步骤，原环境失败保留；81.5%、20/169、10.6%保持。",
     "code_percent": null,
     "delivered": [
+      "PR260/261记录热点暂缓、USB优先及主线独立审核；255～258全部正常合并，统计/NKN/转发组合与固定SDK向量通过本机复验。无产品权限扩张、蓝牙或设备改动；未冒称实机验收。",
       "PR254：已发布恰好两份可复制的离线任务书，覆盖全部149未验收动作的归属/保留边界；A93/B29/蓝牙27，已核ID无重复遗漏、链接和Markdown差异检查。没有产品代码或设备改动。",
       "PR252/253正常合并至2ae840f：独立参与授权与旧回执/最新状态隔离；461相关Rust、最终ARM/Chrome与旧代码失败对照通过。未部署，不触碰蓝牙/AirSIM/音频。",
       "PR251 已正常合并5de6a1d；受限NKN汇总查询和网页生产入口通过本机验证。未签名/部署，不是安装签到或链上确认完成。",
@@ -11283,11 +11400,11 @@
       "六个新转发渠道和四个WEB5窗口已在主线；外部通道/真实系统与原任务边界继续保留。"
     ],
     "remaining": [
+      "配网安排：热点新增开发/手机实测由用户明确暂缓，保留原未验收动作和历史失败；主要使用USB电脑工具。USB共享事务及其他业务继续，当前工具/设备端到端需获准后独立复验。",
       "离线任务执行：学妹可在两个独立Codex窗口分别跑A生产代码包与B集成发行包，先盘点已有实现再补缺；按各自文件范围交PR，主线统一审核整合。蓝牙继续原窗口，真实硬件/公网/生产签名仍需负责人。",
-      "统计整合：独立授权已接；统计身份到真实签名器、交易准备/摘要、单次提交与恢复确认、在途关闭/长期授权，以及完整产品包和公网/实机验收尚缺。",
+      "统计整合：独立许可/查询、Pending跨窗口串行、固定SDK向量已接纳；真实签名/交易准备、单次提交/原交易确认、在途关闭与长期权限、完整产品/公网/设备仍缺。",
       "设备只读确认87（数值诊断），最新主线含249静态清理但本笔未安装；完整系统镜像/产品profile/第二设备与独立发行继续组合验收。",
       "完整发行与第二设备：把任务8产品组合与通用镜像统一来源；核对匹配boot/DTB/modules/固件、锁定系统材料、真实PID1/沙箱，完成首次刷写/回读/冷启动/恢复。旧74镜像不等于新产品固件。",
-      "首配与网页转入整合验收：源码已有通用AP准备/激活、分页/时间/终态修复；仍需完整镜像中真实AP→STA、错密、返回热点、最终保存与原浏览器钥匙/计数核对。",
       "产品矩阵已有真实三变体18项模式检查、EmailRecovery隔离完整链和同源WASM/浏览器证据；四包新组合需完整复验。自动健康仍仅forwarding/schema9/worker4/同Core，AP/SMTP5拒绝不冒充已支持；明确有限首版范围。",
       "AirSIM87本次上行用户报告正常，47组输入/处理后/ALSA电平可对照；86失败保留。继续长稳/多通、耳机/扬声器及双端同时讲话对照，断网/撤权/争用仍待验。",
       "转发/NKN/统计/蓝牙：真实递送及关闭冷启动、外网/中继/ON worker、获准统计网络和BLE HCI/RF/手机互操作；资源/账户/外部服务及独立授权到位后实测。",
@@ -11309,7 +11426,8 @@
         53,
         56,
         69,
-        250
+        250,
+        259
       ],
       "merged_this_followup": [
         243,
@@ -11348,9 +11466,18 @@
       "merge_247": "正常固定HEAD合并，1755本机验证与云端计费零步骤分别披露；未改保护规则或管理员绕过",
       "merge_248": "正常固定HEAD合并；完整本机验证、两处已有Native bin风格警告及云端计费零步骤分别披露，无保护规则更改",
       "merge_249": "正常固定HEAD合并；Native54/ARM/全target严格通过，云端计费未执行已披露；不改保护规则、不部署、不改蓝牙文件",
-      "merge_254": "正常固定HEAD合并纯Markdown；云端计费零步骤已核实，未改保护规则、作者或权限"
+      "merge_254": "正常固定HEAD合并纯Markdown；云端计费零步骤已核实，未改保护规则、作者或权限",
+      "merge_255_258": "主线独立审查/复验后正常固定HEAD合并；接口提案不批准新生产能力；云端计费未运行，不改保护规则",
+      "merge_260_261": "用户热点暂缓/USB优先安排及主线交付/审核纯记录正常合并，不写设备或改权重"
     },
     "evidence": [
+      "https://github.com/Viper-Boss/RustSimHub/pull/260",
+      "https://github.com/Viper-Boss/RustSimHub/pull/255",
+      "https://github.com/Viper-Boss/RustSimHub/pull/256",
+      "https://github.com/Viper-Boss/RustSimHub/pull/257",
+      "https://github.com/Viper-Boss/RustSimHub/pull/258",
+      "https://github.com/Viper-Boss/RustSimHub/pull/261",
+      "https://github.com/Viper-Boss/RustSimHub/blob/6e1cd19bc9dd05fd150157c422590c1a801cc0b0/docs/deliveries/LEAD-USB-FIRST-OFFLINE-INTEGRATION-20261116.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/main/docs/team/OFFLINE-A-PRODUCTION-20261115.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/main/docs/team/OFFLINE-B-INTEGRATION-20261115.md",
       "https://github.com/Viper-Boss/RustSimHub/pull/254",
