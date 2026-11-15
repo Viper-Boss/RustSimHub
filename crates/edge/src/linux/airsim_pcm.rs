@@ -22,9 +22,10 @@ const FRAME_AGE: Duration = Duration::from_millis(60);
 const UPLINK_JITTER_AGE: Duration = Duration::from_millis(160);
 const UPLINK_QUEUE_FRAMES: usize = 8;
 const UPLINK_BURST_FRAMES: usize = 3;
-const UPLINK_INITIAL_CREDITS: usize = 2;
-const UPLINK_REFILL_CREDITS: usize = 2;
+const UPLINK_INITIAL_CREDITS: usize = 3;
+const UPLINK_REFILL_CREDITS: usize = 3;
 const UPLINK_PREFILL_WAIT: Duration = Duration::from_millis(40);
+const UPLINK_MIN_SPACING: Duration = Duration::from_millis(10);
 // AirSIM's public wire marker, identical to rustsimhub_airsim::PCM_READY.
 const READY: &[u8] = b"AIRSIMREADY";
 
@@ -243,19 +244,21 @@ impl UplinkTrace {
         self.queued_expired = queue.queued_expired;
     }
 }
-/// Elapsed-time credits survive skipped reactor wakeups. At most two
-/// credits accumulate; each wake is additionally bounded to three writes.
+/// Elapsed-time credits survive skipped reactor wakeups. Three credits
+/// accumulate, with a minimum gap between writes to protect native playout.
 /// The initial, bounded prefill gives the independent native playout clock
 /// a small cushion; it never extends an input frame's first-byte deadline.
 struct UplinkPacer {
     credits: usize,
     next_refill: Option<Instant>,
+    last_sent: Option<Instant>,
 }
 impl UplinkPacer {
     fn new() -> Self {
         Self {
             credits: UPLINK_INITIAL_CREDITS,
             next_refill: None,
+            last_sent: None,
         }
     }
     fn ready(&self, queue: &Queue, now: Instant) -> bool {
@@ -278,9 +281,14 @@ impl UplinkPacer {
             }
         }
         self.credits > 0
+            && self.last_sent.is_none_or(|at| {
+                now.checked_duration_since(at)
+                    .is_some_and(|age| age >= UPLINK_MIN_SPACING)
+            })
     }
     fn sent(&mut self, now: Instant) {
         self.credits -= 1;
+        self.last_sent = Some(now);
         self.next_refill
             .get_or_insert(now + Duration::from_millis(20));
     }
@@ -295,7 +303,7 @@ async fn uplink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
     let mut queue = Queue::new(rate);
     let mut trace = UplinkTrace::default();
     let mut pacer = UplinkPacer::new();
-    let mut tick = tokio::time::interval(Duration::from_millis(20));
+    let mut tick = tokio::time::interval(UPLINK_MIN_SPACING);
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
         tokio::select! {
@@ -856,30 +864,30 @@ mod tests {
     fn pacing_credits_follow_elapsed_time_without_unbounded_catchup() {
         let at = Instant::now();
         let mut p = UplinkPacer::new();
-        for _ in 0..UPLINK_INITIAL_CREDITS {
-            assert!(p.available(at));
-            p.sent(at);
-        }
+        assert!(p.available(at));
+        p.sent(at);
         assert!(!p.available(at));
-        assert!(!p.available(at + Duration::from_millis(19)));
+        assert!(!p.available(at + Duration::from_millis(9)));
+        assert!(p.available(at + Duration::from_millis(10)));
+        p.sent(at + Duration::from_millis(10));
         assert!(p.available(at + Duration::from_millis(20)));
         p.sent(at + Duration::from_millis(20));
         let delayed = at + Duration::from_millis(75);
-        for _ in 0..2 {
-            assert!(p.available(delayed));
-            p.sent(delayed);
-        }
+        assert!(p.available(delayed));
+        assert_eq!(p.credits, UPLINK_REFILL_CREDITS);
+        p.sent(delayed);
         assert!(!p.available(delayed));
         assert_eq!(p.next_refill, Some(at + Duration::from_millis(80)));
         let much_later = at + Duration::from_secs(600);
-        for _ in 0..UPLINK_REFILL_CREDITS {
-            assert!(p.available(much_later));
-            p.sent(much_later);
-        }
+        assert!(p.available(much_later));
+        assert_eq!(p.credits, UPLINK_REFILL_CREDITS);
+        p.sent(much_later);
         assert!(
             !p.available(much_later),
-            "a long stall never creates a replay burst"
+            "a long stall never permits an unspaced replay burst"
         );
+        assert!(!p.available(much_later + Duration::from_millis(9)));
+        assert!(p.available(much_later + UPLINK_MIN_SPACING));
     }
 
     #[test]
