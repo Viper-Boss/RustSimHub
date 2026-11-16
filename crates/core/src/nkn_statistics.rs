@@ -56,6 +56,92 @@ impl Drop for SubscriptionSigner {
     }
 }
 impl SubscriptionSigner {
+    /// The Root observer uses this ONLY around a nonblocking local socket
+    /// write. No external RPC, waiting read, service start or callback supplied
+    /// by a wire caller may run here. A completed OFF/logout cannot pass the
+    /// last check and race a later local transaction dispatch.
+    #[cfg(feature = "usage-root-transport-candidate")]
+    pub(crate) fn with_current_action<T>(
+        &self,
+        store: &FileStore,
+        budget: &AttemptBudget,
+        action: impl FnOnce(&Auth) -> T,
+    ) -> Result<T> {
+        self.budget(budget)?;
+        let mut auth = self.auth.try_lock().map_err(|_| Error::Busy)?;
+        self.check_auth(&auth)?;
+        if auth.recent_owner(&self.token).map_err(|_| Error::Denied)? != self.principal
+            || auth
+                .authorize(&self.token, Scope::SystemManage)
+                .map_err(|_| Error::Denied)?
+                != self.principal
+        {
+            return Err(Error::Denied);
+        }
+        let ledger = Ledger::open_if_present(&self.permission, self.binding.clone())
+            .map_err(|_| Error::Store)?
+            .ok_or(Error::Denied)?;
+        if ledger.snapshot().map_err(|_| Error::Store)? != self.consent
+            || !ledger
+                .authorized_for(&Actor {
+                    public_key: self.principal.public_key,
+                    generation: self.principal.generation,
+                })
+                .map_err(|_| Error::Store)?
+        {
+            return Err(Error::Denied);
+        }
+        store.load().map_err(|_| Error::Store)?;
+        self.budget(budget)?;
+        let result = action(&auth);
+        self.budget(budget)?;
+        self.check_auth(&auth)?;
+        Ok(result)
+    }
+
+    #[cfg(feature = "usage-root-transport-candidate")]
+    pub(crate) fn shares_auth(&self, auth: &Arc<Mutex<Auth>>) -> bool {
+        Arc::ptr_eq(&self.auth, auth)
+    }
+
+    /// Recheck current permission at each bounded IO boundary. Unlike prepare,
+    /// no Auth or participation file lock escapes this call or spans network IO.
+    #[cfg(feature = "usage-root-transport-candidate")]
+    pub(crate) fn check_current(&self, store: &FileStore, budget: &AttemptBudget) -> Result<u64> {
+        self.budget(budget)?;
+        {
+            let mut auth = self.auth.try_lock().map_err(|_| Error::Busy)?;
+            self.check_auth(&auth)?;
+            if auth.recent_owner(&self.token).map_err(|_| Error::Denied)? != self.principal
+                || auth
+                    .authorize(&self.token, Scope::SystemManage)
+                    .map_err(|_| Error::Denied)?
+                    != self.principal
+            {
+                return Err(Error::Denied);
+            }
+        }
+        let ledger = Ledger::open_if_present(&self.permission, self.binding.clone())
+            .map_err(|_| Error::Store)?
+            .ok_or(Error::Denied)?;
+        if ledger.snapshot().map_err(|_| Error::Store)? != self.consent
+            || !ledger
+                .authorized_for(&Actor {
+                    public_key: self.principal.public_key,
+                    generation: self.principal.generation,
+                })
+                .map_err(|_| Error::Store)?
+        {
+            return Err(Error::Denied);
+        }
+        drop(ledger);
+        store.load().map_err(|_| Error::Store)?;
+        self.budget(budget)?;
+        let auth = self.auth.try_lock().map_err(|_| Error::Busy)?;
+        self.check_auth(&auth)?;
+        Ok(self.consent.generation)
+    }
+
     /// permission is the Core-owned participation directory, never a wire path.
     /// Absence/OFF/wrong binding fails without creating or opening any identity.
     pub fn from_current_owner(
@@ -187,4 +273,4 @@ impl SubscriptionSigner {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

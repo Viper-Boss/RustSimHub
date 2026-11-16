@@ -17,11 +17,11 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
     time::Duration,
 };
-struct Fixture {
+pub(crate) struct Fixture {
     state: tempfile::TempDir,
     _identity: tempfile::TempDir,
     store: rustsimhub_storage::Store,
-    auth: Arc<Mutex<Auth>>,
+    pub(crate) auth: Arc<Mutex<Auth>>,
     token: String,
     owner: Principal,
     binding: Binding,
@@ -36,7 +36,7 @@ fn login(auth: &mut Auth, key: &SigningKey) -> String {
         .to_owned()
 }
 impl Fixture {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let state = tempfile::tempdir().unwrap();
         let identity = tempfile::tempdir().unwrap();
         for d in [state.path(), identity.path()] {
@@ -70,16 +70,16 @@ impl Fixture {
             binding,
         }
     }
-    fn permission(&self) -> PathBuf {
+    pub(crate) fn permission(&self) -> PathBuf {
         self.state.path().join("usage-participation")
     }
-    fn actor(&self) -> Actor {
+    pub(crate) fn actor(&self) -> Actor {
         Actor {
             public_key: self.owner.public_key,
             generation: self.owner.generation,
         }
     }
-    fn consent(&self, enabled: bool) {
+    pub(crate) fn consent(&self, enabled: bool) {
         drop(
             Ledger::create(
                 &self.permission(),
@@ -90,11 +90,11 @@ impl Fixture {
             .unwrap(),
         );
     }
-    fn signer(&self) -> SubscriptionSigner {
+    pub(crate) fn signer(&self) -> SubscriptionSigner {
         SubscriptionSigner::from_current_owner(self.auth.clone(), &self.token, &self.permission())
             .unwrap()
     }
-    fn statistics(&self) -> Arc<FileStore> {
+    pub(crate) fn statistics(&self) -> Arc<FileStore> {
         Arc::new(
             FileStore::create(
                 self.state.path().join("statistics"),
@@ -113,7 +113,7 @@ fn change(n: u32, expected: u64, enabled: bool) -> Change {
         disclosure_version: enabled.then_some(1),
     }
 }
-fn enabled() -> EnabledPolicy {
+pub(crate) fn enabled() -> EnabledPolicy {
     EnabledPolicy::from_owner_consent(OwnerConsent::Granted, DisclosureAcknowledgement::Current)
         .unwrap()
 }
