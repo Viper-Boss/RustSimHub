@@ -1,14 +1,15 @@
 # 独立统计有限RPC内部候选
 
-这是A1.6的内部实现前置，基于主线`6e1cd19bc9dd05fd150157c422590c1a801cc0b0`。
-没有开放新Root操作、修改原协议解析器、接入`managed.Run`或启用生产统计上报。
-它应在原Root注册、Core参与许可与单一`CheckInMachine`之间接线，不能单独视为生产能力。
+这是A1.6的默认关闭候选，基于主线`6e1cd19bc9dd05fd150157c422590c1a801cc0b0`。
+2026-11-16已接原Root注册、私有owned bridge及`managed.Run`，详见[接线复验](../deliveries/OFFLINE-A-ROOT-SDK-TRANSACTIONS-20261116.md)。
+原public解析器继续拒绝交易；Root策略缺省0，需显式策略、编译和原私有launch均为1。
+Core参与许可/签名/单一`CheckInMachine`实际接线与可信链确认尚缺，不能视为生产统计上报能力。
 
 ## 已实现
 
 `tools/nkn-engine/usagetx`只含请求校验和公钥验签，无签名、种子或网络：
 
-- 三个操作编号10/11/12仅是内部候选常量，不代表Root已接受这些编号。
+- 三个操作编号10/11/12仍为候选契约；仅显式开启新能力且原注册完全匹配的独立Core观察连接可进入Root交易路径。
 - 预检字段严格为version、operation_id、participation_generation、public_key；
   提交增加原intent、digest、transaction；查询增加原intent和digest，禁止夹带交易。
 - 请求最多2048字节，原六字段意图最多512字节，签名交易最多768字节。
@@ -44,12 +45,14 @@ HTTP200、严格RPC id/版本/结果及JSON边界都必须满足；无代理、�
 2. prepare保持本地纯编码/签名；不在prepare内部调用预检RPC。签名来自PR265固定用途候选，不把seed交给SDK。
 3. Core原Auth/recent local Owner、realm、身份、公钥、参与许可完整代次和原总预算必须在每个边界重核。
    当前组件只核原Lease、绑定公钥和调用方操作代次，尚未替Core证明当前参与许可有效。
-4. 新Root帧、原82字节注册绑定、能力协商、严格owned bridge解析与同一引擎IO锁尚未实现。
-   原public status/stop协议、Root允许的操作、300秒上限和生产开关保持原样。
-5. SDK地址辅助函数单独通过固定SDK账号测试；未完成受管SDK完整补丁链构建，不能把该探针叫完整SDK通过。
+4. 新Root帧、原82字节注册绑定、能力协商、严格owned bridge解析与同一引擎IO锁已接线。
+   新策略还要求原status_protocol=1，共享1024帧预算及每操作5秒冷却。原public status/stop协议不扩大，Root策略默认拒绝新能力，300秒上限不变。
+   交易必须用独立观察连接，不复用原owner控制连接，也不能在读回复前half-close写端；EOF只取消该观察操作。
+5. 完整受管SDK四段补丁链已按原manifest及真实prepare复验；默认SDK和显式交易SDK两组race/vet/本机程序构建通过，SDK/Root ARM64只完成交叉构建。
+   编译开启需`nkn_sdk_candidate,nkn_usage_transaction_candidate`，仅`nkn_sdk_candidate`不声明新能力；编译开关不是参与许可。
 6. 原摘要/意图/实际交易与可信区块的关系、确认深度、重组处理及消耗槽释放仍待明确/实现。
    节点接受、交易池存在、订阅已存在或任意height/confirmations字段都不能视为确认。
-7. 没有调用共享SDK停止/引用释放接口。真正只释放Statistics引用、Remote/Manual保留的运行验证仍需完成。
+7. 没有调用共享SDK停止/引用释放接口。原管道锁、取消后毒化、不关闭共享管道，以及观察连接EOF不关闭owner已测试；真正Core只释放Statistics引用、Remote/Manual保留的组合验证仍需完成。
 8. 长期参与权限/更新/撤销仍需单独审核；不延长300秒换通过。reporting_available仍false。
 
 ## 给B的验证入口
@@ -71,7 +74,16 @@ gofmt -l usagetx managed/usage_transaction_linux.go managed/usage_transaction_li
 不能删除同源`tools/nkn-build/usage-vectors/vectors.json`：新测试直接读取这15组已固定SDK核对的公开合成向量。
 gofmt输出必须为空，不能只看退出0。测试统计须区分顶层用例与子用例。
 本机TLS夹具用原Lease.Check、真实scoped dialer和合成CA，只在测试私有launch中允许回环；不改变生产LAN拒绝。
-完整SDK/Root ARM构建及CI接入归后续组合验证，本包没有改B的入口/工作流。
+已做SDK/Root ARM交叉构建；完整发行复现、CI接入和部署归B/主线，本包没有改B的入口/工作流。
+实际prepare会把原向量JSON按测试相对路径复制到新stage，并记入原inputs哈希，不重新生成测试期望。
+在完整校验后的生成stage中，另执行两套互不累加的验证：
+
+```sh
+go test -race -mod=readonly -tags=nkn_sdk_candidate -count=1 -timeout=90s -json \
+  github.com/Viper-Boss/RustSimHub/tools/nkn-engine/...
+go test -race -mod=readonly -tags=nkn_sdk_candidate,nkn_usage_transaction_candidate \
+  -count=1 -timeout=90s -json github.com/Viper-Boss/RustSimHub/tools/nkn-engine/...
+```
 
 来源：固定SDK/nknguard `c32952d7586676fec10f71a30b22969cb24881f3`的rpc.go、wallet.go，
 NKN core `v2.2.1-0.20240509224846-24ade56074a3`的api/common/interfaces.go、common/{common,uint160}.go。
