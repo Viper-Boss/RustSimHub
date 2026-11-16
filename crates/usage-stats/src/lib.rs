@@ -8,3 +8,5 @@ pub mod identity;
 pub mod protocol;
 pub mod query;
 pub mod store;
+#[cfg(feature = "transaction-candidate")]
+pub mod transaction;
