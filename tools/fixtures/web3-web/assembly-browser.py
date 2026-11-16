@@ -49,6 +49,14 @@ def show_legacy(page):
     # The console shell shows one page at a time; this fixture exercises every legacy panel.
     page.evaluate("document.getElementById('c-legacy').hidden=false;document.getElementById('c-legacy').classList.add('debug');for(const n of document.getElementById('c-legacy').children)n.classList.remove('page-off')")
 
+def policy_journal(page, pin):
+    return page.evaluate('''async pin=>{
+        const opening=indexedDB.open('rustsimhub-client-v1',1);
+        const db=await new Promise((resolve,reject)=>{opening.onsuccess=()=>resolve(opening.result);opening.onerror=reject;});
+        const reading=db.transaction('state').objectStore('state').get('network-policy-journal:'+pin);
+        const value=await new Promise((resolve,reject)=>{reading.onsuccess=()=>resolve(reading.result);reading.onerror=reject;});db.close();return value;
+    }''', pin)
+
 def login(page, pin):
     show_legacy(page)
     page.locator('#pin').evaluate("e=>{for(let p=e.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;}")
@@ -88,6 +96,49 @@ with sync_playwright() as p:
             # Actual network component and Auth fetch: only this local fixture
             # answers the explicit test; it never probes a real interface.
             page.wait_for_function("()=>document.querySelectorAll('#network-interface option').length===1")
+            assert page.locator('#network-policy-save').is_enabled()
+            fixture('network-policy-lost')
+            page.locator('#network-limit-enabled').evaluate("e=>{e.checked=true;e.dispatchEvent(new Event('input',{bubbles:true}));}")
+            page.locator('#network-limit-gb').evaluate("e=>{e.value='2';e.dispatchEvent(new Event('input',{bubbles:true}));}")
+            page.locator('#network-reset-day').evaluate("e=>{e.value='15';e.dispatchEvent(new Event('input',{bubbles:true}));}")
+            page.locator('#network-policy-save').evaluate('(e)=>e.click()')
+            try:
+                wait_fixture(page, lambda state: sum(c['op'] == 'set_network_policy' for c in state['calls']) == 1)
+            except AssertionError:
+                print(json.dumps({'policy_debug': page.evaluate("()=>({state:document.querySelector('#network-policy-state').textContent,network:document.querySelector('#network-state').textContent,disabled:document.querySelector('#network-policy-save').disabled,enabled:document.querySelector('#network-limit-enabled').checked,limit:document.querySelector('#network-limit-gb').value,day:document.querySelector('#network-reset-day').value})"), 'journal': policy_journal(page, pin), 'fixture': fixture()}, ensure_ascii=True), flush=True)
+                raise
+            journal = policy_journal(page, pin)
+            assert journal is not None and journal['pending'], 'Original policy ID must be durable before a lost-ack POST'
+            page.wait_for_function("()=>document.querySelector('#network-policy-state').textContent.includes('结果未确认')")
+            original_policy_id = journal['pending']['id']
+            assert journal['pending']['limit_bytes'] == 2000000000
+            assert journal['pending']['device_pin'] == pin and journal['receipts'] == []
+            assert page.locator('#network-policy-save').is_disabled()
+            fixture('ready')
+            page.reload()
+            page.wait_for_function("()=>document.querySelector('#test-state').textContent.includes('可以检查状态')")
+            login(page, pin)
+            page.locator('#support-panel').evaluate('e=>e.open=true')
+            page.wait_for_function("()=>document.querySelector('#network-policy-state').textContent.includes('结果未确认')")
+            assert policy_journal(page, pin)['pending']['id'] == original_policy_id
+            assert count('set_network_policy') == 1, 'Reload/login must only query the original policy ID'
+            for wrong in ['network-policy-wrong', 'network-policy-unapplied']:
+                fixture(wrong)
+                before = count('network_diagnostics')
+                page.locator('#network-refresh').evaluate('(e)=>e.click()')
+                wait_fixture(page, lambda state: sum(c['op'] == 'network_diagnostics' for c in state['calls']) > before)
+                page.wait_for_timeout(50)
+                assert policy_journal(page, pin)['pending']['id'] == original_policy_id
+                assert page.locator('#network-policy-save').is_disabled()
+            fixture('network-policy-applied')
+            page.locator('#network-refresh').evaluate('(e)=>e.click()')
+            page.wait_for_function("()=>document.querySelector('#network-policy-state').textContent.includes('策略与应用标记已核对')")
+            journal = policy_journal(page, pin)
+            assert journal['pending'] is None and len(journal['receipts']) == 1
+            assert journal['receipts'][0]['record']['id'] == original_policy_id
+            assert journal['receipts'][0]['state'] == 'observed'
+            assert count('set_network_policy') == 1
+            fixture('ready')
             fixture('network-denied')
             page.locator('#network-refresh').evaluate('(e)=>e.click()')
             page.wait_for_function("()=>document.querySelector('#network-policy-save').disabled&&document.querySelectorAll('#network-interface option').length===0")

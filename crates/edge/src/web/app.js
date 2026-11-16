@@ -3,7 +3,7 @@ import { prove, unhex, hex } from './proof.js';
 import { AudioLink } from './media.js';
 import { CallTest, archiveEndedOperation } from './call-test.js';
 import { ConfigurationIndicator } from './indicator.js';
-import { NetworkPanel } from './network.js';
+import { NetworkPanel, policyJournalInput } from './network.js';
 import { EventSync } from './event-sync.js';
 import { SmsManager, smsListText, smsDetailText } from './sms-management.js';
 import { DailyPhone } from './phone.js';
@@ -121,7 +121,8 @@ const sessionKeeper=new SessionKeeper({env:globalThis,token:()=>token,apply:(old
 }});
 dailyPhone=new DailyPhone({document,env:globalThis,ensureSession:()=>sessionKeeper.ensure(),audio:audioLink,audioReady:()=>audioReady,context:value=>({token,lease:value}),request:command=>auth(command),getPending:()=>pending,setPending:async value=>{const epoch=viewEpoch;pending=value;await save('pending',value);current(epoch);showPending();},archivePending,archiveKnown:async value=>{const epoch=viewEpoch,receipts=await stored('phone-operation-receipts')||[];current(epoch);if(!Array.isArray(receipts))throw Error('电话回执不可用');await save('phone-operation-receipts',[...receipts.filter(x=>x.id!==value.id),value].slice(-64));current(epoch);},setLease:value=>{lease=value;showAudio();},blocked:()=>busy||apConfigurator?.working||apConfigurator?.managing||callTest.running||!!lease&&!dailyPhone?.managing});
 const dashboard=new ConsoleDashboard({document,request:command=>auth(command),detailText:value=>smsDetailText(value),confirm:message=>confirm(message),copy:value=>navigator.clipboard.writeText(value),storage:globalThis.localStorage,matchDark:()=>globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches===true,onLeave:()=>{for(const panel of document.querySelectorAll('details[data-configuration]'))panel.open=false;}});
-const networkPanel=new NetworkPanel({document,request:command=>auth(command),getToken:()=>token,onSample:sample=>dashboard.network(sample),runTest:async command=>{
+const networkPanel=new NetworkPanel({document,request:command=>auth(command),getToken:()=>token,onSample:sample=>dashboard.network(sample),getDevicePin:()=>authenticatedDevicePin,
+ loadPolicyJournal:pin=>stored('network-policy-journal:'+pin),savePolicyJournal:(value,expected,pin,guard)=>atomicStored('network-policy-journal:'+pin,saved=>{guard();if(JSON.stringify(policyJournalInput(saved,pin))!==JSON.stringify(expected))throw Error('限额回执已由另一页面更新');return policyJournalInput(value,pin);}),confirm:message=>confirm(message),runTest:async command=>{
  const epoch=viewEpoch,authToken=token;if(!authToken)throw Error('请先登录');
  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),35000);requests.add(controller);
  try{const r=await fetch('/api/network/v1/test',{method:'POST',headers:{'Content-Type':'application/json','X-RustSimHub-Request':'2'},body:JSON.stringify({...command,token:authToken}),signal:controller.signal,credentials:'omit',cache:'no-store',redirect:'error'});current(epoch);if(!r.ok)throw Error(r.status===429?'测试正在运行或需间隔15秒':'请检查网络权限和设备状态');const result=await r.json();current(epoch);return result;}
@@ -215,6 +216,7 @@ async function pair(){
  notice('配对申请已提交。请由设备所有者核对浏览器公钥、权限和申请 ID 后批准：'+result.pairing_id);
 }
 async function login(){
+ networkPanel.stop();
  token=null;lease=null;
  nknProductPanel.reset();nasBridgePanel?.reset();authenticatedDevicePin=null;
  forwardingPanel.reset();forwardingHistory.reset();
