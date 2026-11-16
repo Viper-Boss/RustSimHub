@@ -325,11 +325,43 @@ fn statistics_transport_kernel_sdk() {
     let roles = InstalledRoles::read().unwrap();
     assert_eq!(rustix::process::geteuid().as_raw(), roles.core);
     let scenario = std::env::var("RSH_STATS_SCENARIO").unwrap();
-    assert!(["startup", "shared", "lost_ack", "off", "cancel"].contains(&scenario.as_str()));
-    let shared_run = scenario != "startup";
+    assert!([
+        "startup",
+        "shared",
+        "lost_ack",
+        "off",
+        "cancel",
+        "off_before",
+        "cancel_before",
+        "expired_prepare",
+        "late_reply",
+        "root_revoke",
+        "save_failure",
+        "save_full",
+        "start_failure",
+        "bootstrap_failure",
+    ]
+    .contains(&scenario.as_str()));
+    let shared_run = ![
+        "startup",
+        "root_revoke",
+        "start_failure",
+        "bootstrap_failure",
+    ]
+    .contains(&scenario.as_str());
     let f = Fixture::new();
     f.consent(true);
-    let store = f.statistics();
+    let store = if scenario == "save_full" {
+        Arc::new(
+            FileStore::create(
+                "/tmp/statistics-disk/statistics",
+                rustsimhub_usage_stats::identity::StatisticsIdentity::from_seed([41; 32]),
+            )
+            .unwrap(),
+        )
+    } else {
+        f.statistics()
+    };
     let owner = f.signer().owner_token().to_owned();
     let public = serde_json::json!({"core_pin":f.auth.lock().unwrap().public_key().iter().map(|b|format!("{b:02x}")).collect::<String>(),"statistics_public_key":store.identity().public_key()});
     let mut file = fs::OpenOptions::new()
@@ -368,10 +400,101 @@ fn statistics_transport_kernel_sdk() {
     let transport = StatisticsTransport::new(root.clone(), f.signer(), store.clone()).unwrap();
     let mut machine =
         CheckInMachine::new(SharedStatisticsStore(store.clone()), transport, UsageClock);
+    if ["expired_prepare", "late_reply"].contains(&scenario.as_str()) {
+        machine = machine.with_budget(Duration::from_secs(3)).unwrap();
+    }
     machine
         .set_policy(crate::nkn_statistics::tests::enabled())
         .unwrap();
-    let prepared = machine.advance(Window::Last24Hours).unwrap();
+    let before_prepare = serde_json::to_value(store.load().unwrap()).unwrap();
+    if ["save_failure", "save_full"].contains(&scenario.as_str()) {
+        fs::write("/tmp/statistics-write-limit-request", b"1").unwrap();
+        wait("/tmp/statistics-write-limit-active", 3);
+    }
+    let preparing = machine.advance(Window::Last24Hours);
+    if ["save_failure", "save_full"].contains(&scenario.as_str()) {
+        // Unlink requires no file write under RLIMIT_FSIZE=0. The fixture then
+        // restores only this test process's original soft/hard limit.
+        fs::remove_file("/tmp/statistics-write-limit-request").unwrap();
+        wait("/tmp/statistics-write-limit-restored", 3);
+        assert!(
+            matches!(
+                preparing,
+                Err(rustsimhub_usage_stats::check_in::Error::Store(
+                    StoreError::Io(_)
+                ))
+            ),
+            "{preparing:?}"
+        );
+    }
+    if [
+        "save_failure",
+        "save_full",
+        "start_failure",
+        "bootstrap_failure",
+    ]
+    .contains(&scenario.as_str())
+    {
+        if ["start_failure", "bootstrap_failure"].contains(&scenario.as_str()) {
+            assert!(
+                matches!(
+                    preparing,
+                    Ok(Outcome::Failed {
+                        reason: Failure::Prepare | Failure::Deadline
+                    })
+                ),
+                "{preparing:?}"
+            );
+        }
+        drop(machine);
+        assert_eq!(
+            serde_json::to_value(store.load().unwrap()).unwrap(),
+            before_prepare
+        );
+        let rows = fs::read_to_string("/tmp/statistics-rpc.jsonl").unwrap_or_default();
+        assert_eq!(
+            rows.lines()
+                .filter(|x| x.contains("sendrawtransaction"))
+                .count(),
+            0
+        );
+        assert_eq!(
+            rows.lines()
+                .filter(|x| x.contains("getnoncebyaddr"))
+                .count(),
+            usize::from(["save_failure", "save_full"].contains(&scenario.as_str()))
+        );
+        if shared_run {
+            assert_eq!(root.snapshot().unwrap().unwrap().references, 3);
+            assert_eq!(
+                root.drive().unwrap().unwrap().phase,
+                rustsimhub_nkn_agent::Phase::Ready
+            );
+            root.disable(&owner, Owner::Statistics).unwrap();
+            root.disable(&owner, Owner::Remote).unwrap();
+            root.disable(&owner, Owner::ManualEngine).unwrap();
+        }
+        let deadline = Instant::now() + Duration::from_secs(7);
+        while root
+            .drive()
+            .unwrap()
+            .is_some_and(|s| s.phase != rustsimhub_nkn_agent::Phase::Disabled)
+        {
+            assert!(
+                Instant::now() < deadline,
+                "failed attempt scope did not clean up"
+            );
+            thread::sleep(Duration::from_millis(20));
+        }
+        let result = serde_json::json!({"scenario":scenario,"prepare_result":format!("{preparing:?}"),"prepare_failed":true,"pending_preserved":true,"pending_existed":false,"durable_state_unchanged":true,"original_scope_cleaned":true,"shared_reference_checks":shared_run});
+        fs::write(
+            "/tmp/statistics-result.json",
+            serde_json::to_vec(&result).unwrap(),
+        )
+        .unwrap();
+        return;
+    }
+    let prepared = preparing.unwrap();
     let Outcome::Prepared { digest } = prepared else {
         panic!("real prepare failed: {prepared:?}")
     };
@@ -444,14 +567,31 @@ fn statistics_transport_kernel_sdk() {
             .is_err());
     }
     let cancellation = machine.cancellation();
+    if scenario == "off_before" {
+        off(&f);
+    } else if scenario == "cancel_before" {
+        cancellation.cancel();
+    } else if scenario == "expired_prepare" {
+        thread::sleep(Duration::from_millis(3100));
+    }
     let submitted = thread::scope(|scope| {
-        let interrupter = if scenario == "off" || scenario == "cancel" {
+        let interrupter = if ["off", "cancel", "root_revoke"].contains(&scenario.as_str()) {
             Some(scope.spawn(|| {
                 wait("/tmp/statistics-submit-entered", 5);
                 if scenario == "off" {
                     off(&f);
-                } else {
+                } else if scenario == "cancel" {
                     cancellation.cancel();
+                } else {
+                    root.run
+                        .lock()
+                        .unwrap()
+                        .as_ref()
+                        .unwrap()
+                        .source
+                        .shared
+                        .authority
+                        .invalidate();
                 }
                 fs::write("/tmp/statistics-interruption-complete", b"1").unwrap();
             }))
@@ -469,11 +609,12 @@ fn statistics_transport_kernel_sdk() {
             matches!(submitted,Outcome::Pending{digest:d} if d==digest),
             "{submitted:?}"
         ),
-        "lost_ack" | "off" => assert!(
+        "lost_ack" | "off" | "off_before" | "root_revoke" | "late_reply" => assert!(
             matches!(submitted,Outcome::Unknown{digest:d,..} if d==digest),
             "{submitted:?}"
         ),
-        "cancel" => assert_eq!(submitted, Outcome::Disabled),
+        "cancel" | "cancel_before" => assert_eq!(submitted, Outcome::Disabled),
+        "expired_prepare" => assert!(matches!(submitted, Outcome::Due { .. }), "{submitted:?}"),
         _ => unreachable!(),
     }
     drop(machine);
@@ -564,23 +705,28 @@ fn statistics_transport_kernel_sdk() {
             .count(),
         1
     );
+    let expected_submits = usize::from(
+        !["off_before", "cancel_before", "expired_prepare"].contains(&scenario.as_str()),
+    );
     assert_eq!(
         rows.iter()
             .filter(|r| r["method"] == "sendrawtransaction")
             .count(),
-        1
+        expected_submits
     );
-    let send = rows
-        .iter()
-        .find(|r| r["method"] == "sendrawtransaction")
-        .unwrap();
-    assert_eq!(
-        send["digest"],
-        digest
+    if expected_submits != 0 {
+        let send = rows
             .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect::<String>()
-    );
+            .find(|r| r["method"] == "sendrawtransaction")
+            .unwrap();
+        assert_eq!(
+            send["digest"],
+            digest
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect::<String>()
+        );
+    }
     if shared_run {
         if scenario != "shared" {
             root.disable(&owner, Owner::Statistics).unwrap();
@@ -602,7 +748,7 @@ fn statistics_transport_kernel_sdk() {
         !std::path::Path::new(&format!("/proc/{pid}")).exists(),
         "original SDK was not reaped"
     );
-    let result = serde_json::json!({"scenario":scenario,"prepared_digest":digest,"submit_outcome":submitted,"pending_preserved":true,"original_sdk_reaped":true,"shared_reference_checks":shared_run,"restart_query":scenario=="shared"||scenario=="lost_ack","query_clock":"test-only logical cooldown; Auth/Root/budget Instant clocks unchanged"});
+    let result = serde_json::json!({"scenario":scenario,"prepared_digest":digest,"submit_outcome":submitted,"observed_submits":expected_submits,"pending_preserved":true,"original_sdk_reaped":true,"original_scope_cleaned":true,"shared_reference_checks":shared_run,"restart_query":scenario=="shared"||scenario=="lost_ack","query_clock":"test-only logical cooldown; Auth/Root/budget Instant clocks unchanged"});
     fs::write(
         "/tmp/statistics-result.json",
         serde_json::to_vec(&result).unwrap(),

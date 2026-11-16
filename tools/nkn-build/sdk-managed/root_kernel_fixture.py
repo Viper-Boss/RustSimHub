@@ -78,7 +78,7 @@ def proto_parse(raw):
         fields.setdefault(key>>3,[]).append(value)
     return fields
 
-def node(transaction_rpc=None):
+def node(transaction_rpc=None,fail_bootstrap=False):
     os.unshare(os.CLONE_NEWNET)
     write('/tmp/node-ready',os.getpid())
     eventually(lambda:Path('/tmp/node-configure').exists())
@@ -95,7 +95,11 @@ def node(transaction_rpc=None):
             n=int(self.headers.get('Content-Length','0'));assert 0<n<4096
             request=json.loads(self.rfile.read(n))
             if request['method']=='getwsaddr':
-                result={'result':{'addr':'9.9.9.9:8000','pubkey':'11'*32,'id':'22'*32}}
+                if fail_bootstrap:
+                    write('/tmp/statistics-bootstrap-refused','1')
+                    time.sleep(.2)  # Let the owned fixture observe the real SDK PID before failure.
+                    result={'error':{'code':-32000,'message':'owned offline bootstrap failure'}}
+                else:result={'result':{'addr':'9.9.9.9:8000','pubkey':'11'*32,'id':'22'*32}}
             else:
                 assert transaction_rpc is not None,'transaction RPC fixture not explicitly enabled'
                 result=transaction_rpc(request)

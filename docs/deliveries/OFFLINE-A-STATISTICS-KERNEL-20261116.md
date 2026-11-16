@@ -38,8 +38,11 @@ network=none、私有mnt/net/pid/cgroup，容器内仅合成本机TLS节点；�
 | startup | 退出0；真实启动及准备后先持久化摘要，随后一次提交；Pending保留，退出回收原SDK |
 | shared | 退出0；查询/签到/Remote/Manual共享原SDK；独立关闭不抢占其他引用；重启后查询原摘要，未再次预检或提交 |
 | lost_ack | 退出0；节点已接收但不返回提交回执，Machine为Unknown；原Pending保留；恢复只查询原摘要，提交总数仍为1 |
-| off | 退出0；准备后关闭独立参与，原Pending保留；未发生提交；其余显式引用按原监督管理 |
-| cancel | 退出0；准备后取消原预算，结果Disabled、Pending保留；未发生提交，原SDK最终回收 |
+| off | 退出0；节点收到一次提交后关闭独立参与，原Pending保留；迟到回执不记成功，其余显式引用按原监督管理 |
+| cancel | 退出0；节点收到一次提交后取消原预算，结果Disabled、Pending保留；原SDK最终回收 |
+
+勘误：原版此表把off/cancel写成“未发生提交”，与节点原始记录和测试断言不符；
+这两个场景都是已发送后的在途围栏。提交前关闭/取消的零发送证据须由后续独立场景提供，不能用此表代替。
 
 恢复查询用测试逻辑时钟前移来达到原Machine冷却，Auth/Root/AttemptBudget的真实Instant不变。
 夹具最多驱动两次原查询步骤并遵守真实Root冷却，最终必须看到节点收到原摘要，不能仅以Unknown判通过。
