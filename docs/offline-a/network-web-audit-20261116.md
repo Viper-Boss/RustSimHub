@@ -37,7 +37,7 @@
 | LED-06 | staged记录畸形/无证明不能宣称更新可用或运行；原可信状态入口 | 不接管B更新器，不执行升级/硬件紫灯 |
 | LED-07 | `linux_input_boundary_tests.rs`仅临时文件/FIFO/权限；私有P2P bus及快照有效期 | 未运行生产灯循环或安装服务 |
 | WEB-01 | 原一键test-center/console/session等Node套件与实际主页装配 | 默认日常页与测试显式展开debug截图区分；手机外部验收保留 |
-| WEB-02 | 原operation-receipt/event-sync/configuration-state；新增网络旧会话finally不能影响新槽位 | 网络限额回执仍是原API，没有新增跨重启journal；其Unknown持久核对仍需专项审核 |
+| WEB-02 | 原operation-receipt/event-sync/configuration-state；网络旧会话finally隔离；后续原ID先落盘/读回、真实IndexedDB刷新、CAS/Unknown原记录已补，见[限额报告](../deliveries/OFFLINE-A-NETWORK-POLICY-20261116.md) | 原API只有最后请求ID，历史被覆盖且无匹配证据时保留Unknown；不同浏览器不宣称服务端CAS，实机/掉电仍未验收 |
 | WEB-03 | Edge真实渲染320/390/1280，长中文控制台/短信列表、overflow断言和截图 | 不是用户手机/全功能视觉验收 |
 | WEB-04 | 真实IndexedDB钥匙、原Ed25519签名登录/重用及注销；原clients/NAS Node用例 | 全部合成身份，不读取用户钥匙或安装设备证书 |
 | WEB-05 | 实际403、注销/迟到、旧读请求/测试忙槽；25项Node suite及原一键错误反例 | 没有实际拨号/发短信/互联网探测 |
