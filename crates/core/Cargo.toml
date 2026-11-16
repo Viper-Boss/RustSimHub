@@ -32,6 +32,7 @@ nkn-session-candidate = ["recovery-transport", "rustsimhub-auth/nkn-session-cand
 root-provider-candidate = ["nkn-session-candidate"]
 email-production-candidate = ["rustsimhub-forwarder/smtp-production-candidate"]
 usage-transaction-candidate = ["product-providers-candidate", "rustsimhub-usage-stats/transaction-candidate"]
+usage-root-transport-candidate = ["usage-transaction-candidate"]
 
 [[test]]
 name = "recovery_secure_uid"

@@ -24,9 +24,13 @@ use std::{
 const SOCKET: &str = "/run/rustsimhub-nkn-root/root.sock";
 mod roles;
 mod status;
+#[cfg(feature = "usage-root-transport-candidate")]
+mod transactions;
 mod usage;
 pub use roles::InstalledRoles;
 pub use status::{Report as StatusReport, Status as ReadOnlyStatus};
+#[cfg(feature = "usage-root-transport-candidate")]
+pub use transactions::{TransactionCall, TransactionConclusion};
 type Result<T> = std::result::Result<T, PortError>;
 fn boot_ms() -> Result<u64> {
     let t = rustix::time::clock_gettime(rustix::time::ClockId::Boottime);
@@ -36,7 +40,14 @@ fn boot_ms() -> Result<u64> {
         .and_then(|v| v.checked_add(nanos / 1_000_000 + 1))
         .ok_or(PortError::Protocol)
 }
-fn policy_details(device: [u8; 32]) -> Result<([u8; 32], bool, bool)> {
+struct PolicyDetails {
+    hash: [u8; 32],
+    status: bool,
+    usage: bool,
+    #[cfg(feature = "usage-root-transport-candidate")]
+    transactions: Option<rustsimhub_usage_stats::protocol::StatsPublicKey>,
+}
+fn policy_details(device: [u8; 32]) -> Result<PolicyDetails> {
     let mut file = OpenOptions::new()
         .read(true)
         .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
@@ -71,11 +82,13 @@ fn policy_details(device: [u8; 32]) -> Result<([u8; 32], bool, bool)> {
     if policy["core_pin"].as_str() != Some(expected.as_str()) {
         return Err(PortError::Denied);
     }
-    Ok((
-        Sha256::digest(&raw[start..=end]).into(),
-        policy["status_protocol"].as_u64() == Some(1),
-        policy["usage_query_protocol"].as_u64() == Some(1),
-    ))
+    Ok(PolicyDetails {
+        hash: Sha256::digest(&raw[start..=end]).into(),
+        status: policy["status_protocol"].as_u64() == Some(1),
+        usage: policy["usage_query_protocol"].as_u64() == Some(1),
+        #[cfg(feature = "usage-root-transport-candidate")]
+        transactions: transactions::policy_key(&raw[start..=end], device)?,
+    })
 }
 fn connect() -> Result<UnixStream> {
     use rustix::net::{AddressFamily, SocketAddrUnix, SocketFlags, SocketType};
@@ -125,6 +138,8 @@ struct Shared {
     observed_engine: AtomicU32,
     sdk_status: bool,
     sdk_usage: bool,
+    #[cfg(feature = "usage-root-transport-candidate")]
+    transaction_key: Option<rustsimhub_usage_stats::protocol::StatsPublicKey>,
     host_closed: OnceLock<Arc<AtomicBool>>,
 }
 impl Drop for Shared {
@@ -473,7 +488,8 @@ pub fn authorized_ports(
     if nonce == [0; 32] {
         return Err(PortError::Denied);
     }
-    let (policy, sdk_status, sdk_usage) = policy_details(device)?;
+    let details = policy_details(device)?;
+    let policy = details.hash;
     let remaining = deadline
         .saturating_duration_since(Instant::now())
         .as_millis();
@@ -499,8 +515,10 @@ pub fn authorized_ports(
         observed_at: AtomicU64::new(0),
         observed_root: AtomicU32::new(0),
         observed_engine: AtomicU32::new(0),
-        sdk_status,
-        sdk_usage,
+        sdk_status: details.status,
+        sdk_usage: details.usage,
+        #[cfg(feature = "usage-root-transport-candidate")]
+        transaction_key: details.transactions,
         host_closed: OnceLock::new(),
     });
     Ok((
@@ -610,6 +628,8 @@ struct Run {
     source: Arc<Source>,
     references: [Option<rustsimhub_nkn_agent::Reference>; 3],
     remote: Option<Arc<AtomicBool>>,
+    #[cfg(feature = "usage-root-transport-candidate")]
+    statistics_epoch: u64,
 }
 impl Drop for Run {
     fn drop(&mut self) {
@@ -705,6 +725,8 @@ impl Controller {
                 source,
                 references,
                 remote,
+                #[cfg(feature = "usage-root-transport-candidate")]
+                statistics_epoch: u64::from(owner == rustsimhub_nkn_agent::Owner::Statistics),
             });
             return state
                 .as_mut()
@@ -727,6 +749,14 @@ impl Controller {
             .supervisor
             .acquire(owner)
             .map_err(|_| PortError::Denied)?;
+        #[cfg(feature = "usage-root-transport-candidate")]
+        if owner == rustsimhub_nkn_agent::Owner::Statistics {
+            let Some(next) = run.statistics_epoch.checked_add(1) else {
+                let _ = run.supervisor.release(reference);
+                return Err(PortError::Denied);
+            };
+            run.statistics_epoch = next;
+        }
         run.references[owner_index(owner)] = Some(reference);
         if owner == rustsimhub_nkn_agent::Owner::Remote {
             run.remote = Some(Arc::new(AtomicBool::new(true)));
@@ -748,6 +778,10 @@ impl Controller {
         let reference = run.references[owner_index(owner)]
             .take()
             .ok_or(PortError::Denied)?;
+        #[cfg(feature = "usage-root-transport-candidate")]
+        if owner == rustsimhub_nkn_agent::Owner::Statistics {
+            run.statistics_epoch = run.statistics_epoch.saturating_add(1);
+        }
         if owner == rustsimhub_nkn_agent::Owner::Remote {
             if let Some(remote) = run.remote.take() {
                 remote.store(false, Ordering::Release);
