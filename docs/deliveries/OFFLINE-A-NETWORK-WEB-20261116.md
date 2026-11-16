@@ -17,7 +17,7 @@
 - `node tools/test-web-<name>.mjs`共27组全部退出0：network、wifi、nkn-product、nkn-status、usage-stats、forwarding、forwarding-history、configuration-state、event-sync、daily-sms、sms-management、daily-phone、call-test、incoming-call-test、operation-receipt、deadlines、indicator、clients、nas-bridge、diagnostics、test-center、test-center-component、console、console-fencing、session、app-imports、app-imports-negative。
 - `cargo test -p rustsimhub-edge --locked --offline -- --nocapture`退出0，71通过/0失败/0忽略。
 - `cargo clippy -p rustsimhub-edge --all-targets --locked --offline -- -D warnings`及`cargo fmt --all -- --check`均退出0。
-- Windows现有Edge Chromium157.0.4341.46、Playwright1.65.2、独立临时profile：`node tools/test-web-app-assembly.mjs`、`node tools/test-web-console-browser.mjs`均退出0。真实主页/控制台320、390、1280宽、原ESM/CSP/IndexedDB/合成签名Owner、权限拒绝/注销迟到和真实NKN模块404负对照通过。对端只在本机回环，不探测真实接口或公网。
+- Windows现有Edge Chromium157.0.4341.60、Playwright1.65.2、独立临时profile：`node tools/test-web-app-assembly.mjs`、`node tools/test-web-console-browser.mjs`均退出0。真实主页/控制台320、390、1280宽、原ESM/CSP/IndexedDB/合成签名Owner、权限拒绝/注销迟到和真实NKN模块404负对照通过。对端只在本机回环，不探测真实接口或公网。
 - 依照最新任务书，本次未运行setup/ap-wifi/ap-scan-fence专项Node、setup浏览器或AP Rust专项；编译既有依赖不等于重新验收热点。下文AP结果仅为历史记录。
 
 首次浏览器组合尝试没有完成页面断言：启动未返回，私有runner的300秒超时清理被Windows用户名/密码权限拒绝。
