@@ -75,4 +75,17 @@ impl StatisticsIdentity {
     pub(crate) fn private_seed(&self) -> &[u8; 32] {
         &self.seed
     }
+
+    // Only the fixed subscription encoder calls this. No public arbitrary
+    // message signer or private-key export is introduced.
+    #[cfg(feature = "transaction-candidate")]
+    pub(crate) fn subscription_signature(&self, hash: &[u8; 32]) -> [u8; 64] {
+        use ed25519_dalek::Signer;
+        let mut derivation = Sha256::new();
+        derivation.update(IDENTITY_DOMAIN.as_bytes());
+        derivation.update([0]);
+        derivation.update(self.seed.as_ref());
+        let derived = Zeroizing::new(<[u8; 32]>::from(derivation.finalize()));
+        SigningKey::from_bytes(&derived).sign(hash).to_bytes()
+    }
 }

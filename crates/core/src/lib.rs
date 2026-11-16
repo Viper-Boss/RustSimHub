@@ -3,6 +3,8 @@
 //! Core-owned recovery transport and typed admission. No daemon startup.
 #[cfg(all(target_os = "linux", feature = "root-provider-candidate"))]
 pub mod nkn_root;
+#[cfg(all(target_os = "linux", feature = "usage-transaction-candidate"))]
+pub mod nkn_statistics;
 #[cfg(all(target_os = "linux", feature = "recovery-execution"))]
 pub mod recovery_body;
 #[cfg(all(
