@@ -13,15 +13,36 @@ import (
 	"github.com/Viper-Boss/RustSimHub/tools/nkn-engine/bridge"
 	"github.com/Viper-Boss/RustSimHub/tools/nkn-engine/protocol"
 	"github.com/Viper-Boss/RustSimHub/tools/nkn-engine/sdkstatus"
+	"github.com/Viper-Boss/RustSimHub/tools/nkn-engine/usagetx"
 	sdk "github.com/nknorg/nkn-sdk-go"
 	"github.com/nknorg/nkngomobile"
 )
 
 type ownedSource struct {
-	mu        sync.Mutex
-	source    *sdkstatus.Source
-	lease     *Lease
-	usageHTTP *http.Client
+	mu           sync.Mutex
+	source       *sdkstatus.Source
+	lease        *Lease
+	usageHTTP    *http.Client
+	transactions *usageTransactions
+}
+
+func (s *ownedSource) Transaction(ctx context.Context, op usagetx.Operation, r usagetx.Request) (usagetx.Reply, error) {
+	s.mu.Lock()
+	ready := s.source != nil && s.lease.Check() == nil && s.lease.launch.transactions == 1 && UsageTransactionProtocol() == 1
+	port := s.transactions
+	s.mu.Unlock()
+	if !ready || port == nil {
+		return usagetx.Reply{}, ErrLaunch
+	}
+	v, e := port.execute(ctx, op, r)
+	if e != nil || s.lease.Check() != nil {
+		return usagetx.Reply{}, ErrLaunch
+	}
+	state := v.State
+	if op == usagetx.Preflight {
+		state = "ready"
+	}
+	return usagetx.NewReply(op, r, state, v.Nonce)
 }
 
 func (s *ownedSource) Usage(ctx context.Context, op protocol.Operation) (bridge.UsageCount, error) {
@@ -60,6 +81,16 @@ func Run(lease *Lease, input, output *os.File) error {
 	dial := &scopedDialer{lease: lease, startDeadline: time.Now().Add(10 * time.Second), connections: make(map[*scopedConn]struct{})}
 	port := &relay{lease: lease}
 	source := &ownedSource{lease: lease, usageHTTP: newUsageHTTP(dial)}
+	if lease.launch.transactions == 1 {
+		if UsageTransactionProtocol() != 1 {
+			return ErrLaunch
+		}
+		port, e := newUsageTransactions(lease, dial)
+		if e != nil {
+			return ErrLaunch
+		}
+		source.transactions = port
+	}
 	defer func() {
 		port.close()
 		dial.close()
@@ -84,7 +115,11 @@ func Run(lease *Lease, input, output *os.File) error {
 	// Observe EOF/stop/malformed stdio while NewClient is still constructing.
 	stdioDone := make(chan error, 1)
 	go func() {
-		err := bridge.ServeOwnedWithSource(lease.Context(), input, output,
+		serve := bridge.ServeOwnedWithSource
+		if lease.launch.transactions == 1 && UsageTransactionProtocol() == 1 {
+			serve = bridge.ServeOwnedTransactions
+		}
+		err := serve(lease.Context(), input, output,
 			func() error { deadline, _ := lease.Context().Deadline(); return input.SetReadDeadline(deadline) },
 			func() error { return output.SetWriteDeadline(time.Now().Add(2 * time.Second)) }, source)
 		stdioDone <- err

@@ -29,10 +29,17 @@ func usageReply(raw []byte, id string, op protocol.Operation) (*bridge.UsageCoun
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	var r bridge.Response
-	if dec.Decode(&r) != nil || r.Protocol != 1 || r.ID == nil || *r.ID != id || r.Result != nil {
+	if dec.Decode(&r) != nil || r.Protocol != 1 || r.ID == nil || *r.ID != id || r.Result != nil || r.Transaction != nil {
 		return nil, ErrDenied
 	}
 	if r.Error == "usage_unavailable" && r.Usage == nil {
+		var f map[string]json.RawMessage
+		if json.Unmarshal(raw, &f) != nil {
+			return nil, ErrDenied
+		}
+		if _, exists := f["transaction"]; exists {
+			return nil, ErrDenied
+		}
 		return nil, nil
 	}
 	if r.Error != "" || r.Usage == nil || r.Usage.Window != protocol.UsageWindow(op) || r.Usage.Count > 1000000000 {
@@ -42,6 +49,9 @@ func usageReply(raw []byte, id string, op protocol.Operation) (*bridge.UsageCoun
 	var envelope map[string]json.RawMessage
 	var count map[string]json.RawMessage
 	if json.Unmarshal(raw, &envelope) != nil || json.Unmarshal(envelope["usage"], &count) != nil || len(count) != 2 || bytes.Equal(count["count"], []byte("null")) || count["count"] == nil {
+		return nil, ErrDenied
+	}
+	if _, exists := envelope["transaction"]; exists {
 		return nil, ErrDenied
 	}
 	return r.Usage, nil

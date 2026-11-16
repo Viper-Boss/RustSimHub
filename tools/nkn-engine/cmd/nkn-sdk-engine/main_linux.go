@@ -41,7 +41,11 @@ func run() int {
 	watchdog := time.AfterFunc(315*time.Second, func() { os.Exit(124) })
 	defer watchdog.Stop()
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
-		json.NewEncoder(os.Stdout).Encode(map[string]any{"contract": 1, "source_commit": sourceCommit, "go": runtime.Version(), "nkn_sdk_linked": true, "root_launch_required": true, "isolated_fixture_build": managed.FixtureBuild()})
+		version := map[string]any{"contract": 1, "source_commit": sourceCommit, "go": runtime.Version(), "nkn_sdk_linked": true, "root_launch_required": true, "isolated_fixture_build": managed.FixtureBuild()}
+		if capability := managed.UsageTransactionProtocol(); capability != 0 {
+			version["usage_transaction_protocol"] = capability
+		}
+		json.NewEncoder(os.Stdout).Encode(version)
 		return 0
 	}
 	if len(os.Args) != 2 || os.Args[1] != "--root-stdio" {
