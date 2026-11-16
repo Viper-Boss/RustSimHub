@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/Viper-Boss/RustSimHub/tools/nkn-engine/usagetx"
 	"io"
 )
 
@@ -28,9 +29,10 @@ const (
 )
 
 type Request struct {
-	Protocol uint8     `json:"protocol"`
-	ID       string    `json:"id"`
-	Op       Operation `json:"op"`
+	Protocol    uint8            `json:"protocol"`
+	ID          string           `json:"id"`
+	Op          Operation        `json:"op"`
+	Transaction *usagetx.Request `json:"transaction,omitempty"`
 }
 
 // Parse accepts exactly one flat JSON object. Duplicate/unknown keys, extra

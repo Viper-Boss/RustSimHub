@@ -53,6 +53,17 @@ def prepare(source, output):
         dest = engine / path.relative_to(REPO / 'tools/nkn-engine')
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(path.read_bytes())
+    # The engine's real transaction tests read the single fixed-SDK vector
+    # source. Preserve that relative layout in generated stages; do not replace
+    # it with freshly generated/self-comparing test expectations.
+    vectors = REPO / 'tools/nkn-build/usage-vectors/vectors.json'
+    assert not vectors.is_symlink() and vectors.is_file() and vectors.stat().st_size < 64 * 1024
+    vector_data = vectors.read_bytes()
+    vector_bundle = json.loads(vector_data)
+    assert vector_bundle['format'] == 1 and len(vector_bundle['vectors']) == 15
+    fixture = stage / 'source/nkn-build/usage-vectors/vectors.json'
+    fixture.parent.mkdir(parents=True)
+    fixture.write_bytes(vector_data)
     with (stage / 'go.mod').open('a') as file:
         file.write('\nrequire github.com/Viper-Boss/RustSimHub/tools/nkn-engine v0.0.0\nreplace github.com/Viper-Boss/RustSimHub/tools/nkn-engine => ./source/engine\n')
     (output / 'inputs.json').write_text(json.dumps({

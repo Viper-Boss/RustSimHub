@@ -14,6 +14,43 @@ func field(tag byte, data []byte) []byte {
 	return append(binary.AppendUvarint([]byte{tag}, uint64(len(data))), data...)
 }
 
+// VerifyCanonicalSubmission lets Root reject arbitrary payloads before handing
+// them to the pinned SDK host. The host must ALSO compare the decoded nonce to
+// its original preflight ticket; this function does not allocate a nonce.
+func VerifyCanonicalSubmission(r Request) ([]byte, error) {
+	if r.Validate(Submit) != nil {
+		return nil, ErrInvalid
+	}
+	raw, _ := hex.DecodeString(r.Transaction)
+	if len(raw) < 3 || raw[0] != 0x0a {
+		return nil, ErrInvalid
+	}
+	size, used := binary.Uvarint(raw[1:])
+	if used <= 0 || size > uint64(len(raw)-1-used) {
+		return nil, ErrInvalid
+	}
+	unsigned := raw[1+used : 1+used+int(size)]
+	if len(unsigned) < 2 || unsigned[0] != 0x0a {
+		return nil, ErrInvalid
+	}
+	payload, n := binary.Uvarint(unsigned[1:])
+	if n <= 0 || payload > uint64(len(unsigned)-1-n) {
+		return nil, ErrInvalid
+	}
+	tail := unsigned[1+n+int(payload):]
+	var nonce uint64
+	if len(tail) != 0 {
+		if tail[0] != 0x10 {
+			return nil, ErrInvalid
+		}
+		nonce, n = binary.Uvarint(tail[1:])
+		if n <= 0 || n+1 != len(tail) {
+			return nil, ErrInvalid
+		}
+	}
+	return VerifySubmission(r, nonce)
+}
+
 // VerifySubmission accepts only the canonical zero-fee/empty-attributes fixed
 // subscription signed by this public key, at the preflight's original nonce.
 // It neither generates a signature nor accepts an arbitrary transaction type.

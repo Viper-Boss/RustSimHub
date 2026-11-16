@@ -42,7 +42,7 @@ type request struct {
 }
 
 func parseRequest(raw []byte) (request, error) {
-	if len(raw) != requestBytes || !bytes.Equal(raw[:5], []byte("RSCN\x01")) || raw[5] < prepare || raw[5] > usage90d {
+	if len(raw) != requestBytes || !bytes.Equal(raw[:5], []byte("RSCN\x01")) || raw[5] < prepare || raw[5] > 12 {
 		return request{}, ErrDenied
 	}
 	r := request{op: raw[5], generation: binary.BigEndian.Uint32(raw[6:10]), deadline: binary.BigEndian.Uint64(raw[10:18])}
@@ -127,6 +127,10 @@ type manager struct {
 }
 
 func (m *manager) handle(r request, connection *net.UnixConn) ([]byte, error) {
+	// Transaction operations require their own strict RSTX body path.
+	if transactionOperation(r.op) != 0 {
+		return nil, ErrDenied
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if r.policy != m.policy.hash {
@@ -285,7 +289,19 @@ func serveConnection(c *net.UnixConn, m *manager) {
 		if e != nil {
 			return
 		}
-		reply, e := m.handle(r, c)
+		var reply []byte
+		if op := transactionOperation(r.op); op != 0 {
+			if !m.transactionAllowed(r, c) {
+				return
+			}
+			tx, err := readTransaction(c, op)
+			if err != nil {
+				return
+			}
+			reply, e = m.handleTransaction(context.Background(), r, c, tx)
+		} else {
+			reply, e = m.handle(r, c)
+		}
 		if e != nil {
 			return
 		}
