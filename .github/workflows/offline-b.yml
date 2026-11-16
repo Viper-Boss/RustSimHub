@@ -1,0 +1,24 @@
+name: Offline B runner self-tests
+on:
+  push:
+    paths: ['tools/offline-b/**', '.github/workflows/offline-b.yml']
+  pull_request:
+    paths: ['tools/offline-b/**', '.github/workflows/offline-b.yml']
+permissions:
+  contents: read
+jobs:
+  runner:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Existing runtimes (no dependency installation)
+        run: |
+          python --version
+          node --version
+      - name: Bounded runner classification and actual owned process cleanup
+        run: python -m unittest discover -s tools/offline-b -p 'test_*.py' -v
