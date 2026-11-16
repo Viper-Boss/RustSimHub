@@ -57,6 +57,10 @@ impl Cancellation {
     }
 }
 
+// A clone retains the EXACT deadline and original cancellation/context. It
+// cannot mint, extend or re-enable an attempt. Production ports may retain this
+// read-only fence while the original Machine owns the attempt and lease.
+#[derive(Clone)]
 pub struct AttemptBudget {
     deadline: Instant,
     cancellation: Cancellation,

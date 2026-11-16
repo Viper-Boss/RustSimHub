@@ -299,6 +299,7 @@ struct ReferenceContext<'a> {
     shared: &'a Arc<Shared>,
     epoch: u64,
     registration: Registration,
+    lease: [u8; 16],
 }
 fn write_now(stream: &mut UnixStream, raw: &[u8]) -> std::io::Result<usize> {
     // This dedicated observer has no cloned/shared file description. Never
@@ -345,6 +346,7 @@ impl IoBudget<'_> {
                     if reference.controller.closed.load(Ordering::Acquire)
                         || run.statistics_epoch != reference.epoch
                         || run.references[2].is_none()
+                        || run.check_in.as_ref() != Some(&reference.lease)
                         || !Arc::ptr_eq(&run.source.shared, reference.shared)
                         || run.supervisor.snapshot().phase != rustsimhub_nkn_agent::Phase::Ready
                         || !reference.shared.local_live()
@@ -486,6 +488,7 @@ impl Controller {
             let run = state.as_ref().ok_or(PortError::Unavailable)?;
             if self.closed.load(Ordering::Acquire)
                 || run.references[2].is_none()
+                || run.check_in.as_ref() != Some(lease.id())
                 || run.statistics_epoch == 0
                 || run.supervisor.snapshot().phase != rustsimhub_nkn_agent::Phase::Ready
                 || run.source.shared.transaction_key != Some(key)
@@ -521,6 +524,7 @@ impl Controller {
                 if self.closed.load(Ordering::Acquire)
                     || run.statistics_epoch != epoch
                     || run.references[2].is_none()
+                    || run.check_in.as_ref() != Some(lease.id())
                     || !Arc::ptr_eq(&run.source.shared, &shared)
                     || run.supervisor.snapshot().phase != rustsimhub_nkn_agent::Phase::Ready
                 {
@@ -557,6 +561,7 @@ impl Controller {
                     shared: &shared,
                     epoch,
                     registration,
+                    lease: *lease.id(),
                 }),
             },
         );
@@ -566,4 +571,4 @@ impl Controller {
 }
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;
