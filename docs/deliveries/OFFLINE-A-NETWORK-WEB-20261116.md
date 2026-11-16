@@ -2,7 +2,32 @@
 
 交付后回读的新main为`6e1cd19bc9dd05fd150157c422590c1a801cc0b0`，已含负责人整合的PR255～258，并更新任务书为热点暂缓、USB电脑工具优先。
 本文AP测试保留为旧截面的实际历史记录；已停止新增热点专用开发/验收，不以延期标完成，后续只推进共享Wi-Fi事务、USB授权与其他日常功能。
-下列测试仍精确绑定原受测tree，不冒称已经验证与新main的全部组合；PR263当前可合并，组合复验另做。
+历史测试仍精确绑定原受测tree。现已正常合入上述main并完成下述定向组合复验；不冒称全仓、发行或实机全部通过。
+
+## 最新main组合复验（USB优先）
+
+正常双亲合并提交`6b942bf44c4187cb8dbbfcb19bd2f6cc22dc145f`，父提交为本PR原HEAD
+`812129f0b1af3d5f60d9811c44494ff02e08d0b3`和main
+`6e1cd19bc9dd05fd150157c422590c1a801cc0b0`；受测tree
+`8e353f3fb412874a03e2808779b75b2140515a49`，完整Git归档SHA256
+`6729d68a9402233ad02defa96c8a02dfa5b3856c0f92136c6ba2f5f0a3d6ff4b`。
+与main比较仍为原七文件；没有修改其他人的实现或全局台账。报告补充提交只改本报告与差距表，产品/测试字节保持。
+
+- WSL2 Ubuntu24.04、UID1000、原生Linux源码/target/TMPDIR，Rust1.98.0、Node24.22.1、原lock/offline。
+- `node tools/test-web-<name>.mjs`共27组全部退出0：network、wifi、nkn-product、nkn-status、usage-stats、forwarding、forwarding-history、configuration-state、event-sync、daily-sms、sms-management、daily-phone、call-test、incoming-call-test、operation-receipt、deadlines、indicator、clients、nas-bridge、diagnostics、test-center、test-center-component、console、console-fencing、session、app-imports、app-imports-negative。
+- `cargo test -p rustsimhub-edge --locked --offline -- --nocapture`退出0，71通过/0失败/0忽略。
+- `cargo clippy -p rustsimhub-edge --all-targets --locked --offline -- -D warnings`及`cargo fmt --all -- --check`均退出0。
+- Windows现有Edge Chromium157.0.4341.46、Playwright1.65.2、独立临时profile：`node tools/test-web-app-assembly.mjs`、`node tools/test-web-console-browser.mjs`均退出0。真实主页/控制台320、390、1280宽、原ESM/CSP/IndexedDB/合成签名Owner、权限拒绝/注销迟到和真实NKN模块404负对照通过。对端只在本机回环，不探测真实接口或公网。
+- 依照最新任务书，本次未运行setup/ap-wifi/ap-scan-fence专项Node、setup浏览器或AP Rust专项；编译既有依赖不等于重新验收热点。下文AP结果仅为历史记录。
+
+首次浏览器组合尝试没有完成页面断言：启动未返回，私有runner的300秒超时清理被Windows用户名/密码权限拒绝。
+只读回读确认本任务helper PID26980及子进程3052/30040后，仅清理该树；保留原日志和启动失败摘要。
+同源码/同断言在正常进程权限下重跑，上述两套实际通过；没有修改产品、删断言或访问用户浏览器profile。
+首次结果不计通过；本机组合不是云端CI或B包发行验证，仍未签名/安装/访问设备。
+本机原始结果分别在本任务忽略目录的`a4-units-positive-main-integration/result.json`、
+`a4-web-main-integration-permitted/result.json`，首次失败在`a4-web-main-integration/startup-failure.json`。
+本轮私有日志/截图归档42项、1,164,990字节，ZIP CRC逐项核验通过，SHA256
+`55a68c128dbe026e108403258762d37e4c644fcd8e247babfda34e5e164590f3`；不上传用户数据或二进制。
 
 - 账号yh1030；同仓库`codex/offline-a-network-web-20261116` → main，不自合并。
 - 起始main `b15ea3f561bf9e2a1268f8df5b6f0973cc83bbbd`，含任务书产品基线`2ae840fbffff04691ccf8cedd49d554093dd4032`。
