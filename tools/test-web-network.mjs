@@ -10,14 +10,14 @@ assert.deepEqual(policyInput(true,'1.5','31'),{enabled:true,limit_bytes:15000000
 for(const values of [['',1],['NaN',1],['Infinity',1],[1,0],[1,32],[1,1.5],[100001,1]])assert.throws(()=>policyInput(true,...values));
 const rows=radioRows({configured_bands:['eutran-1','eutran-3'],serving_cell:{}});assert.equal(rows.find(r=>r[0]==='当前驻留频段')[1],null);assert.equal(rows.find(r=>r[0]==='当前带宽')[1],'设备暂未提供');
 class Element {constructor(){this.value='';this.checked=false;this.children=[];this.textContent='';}addEventListener(){}replaceChildren(...v){this.children=v;this.textContent='';}append(...v){this.children.push(...v);}get options(){return this.children;}getContext(){return null;}}
-function setup(request){const map=new Map();const doc={hidden:false,getElementById:id=>{if(!map.has(id))map.set(id,new Element());return map.get(id);},createElement:()=>new Element()};return {panel:new NetworkPanel({document:doc,request,getToken:()=>true,runTest:()=>{throw Error('must not run automatically');}}),doc,map};}
+function setup(request){const map=new Map(),journals=new Map();const doc={hidden:false,getElementById:id=>{if(!map.has(id))map.set(id,new Element());return map.get(id);},createElement:()=>new Element()};return {panel:new NetworkPanel({document:doc,request,getToken:()=>true,getDevicePin:()=>'a'.repeat(64),loadPolicyJournal:async pin=>journals.get(pin)??null,savePolicyJournal:async(value,expected,pin,guard)=>{guard();assert.deepEqual(journals.get(pin)??{format:1,pending:null,receipts:[]},expected);journals.set(pin,structuredClone(value));},runTest:()=>{throw Error('must not run automatically');}}),doc,map};}
 const turn=()=>new Promise(r=>setImmediate(r));
 {
  let finish;const {panel,map}=setup(()=>new Promise(r=>{finish=r;}));panel.start();await turn();panel.stop();finish({available:true,devices:[{interface:'private-address'}]});await turn();assert.equal(map.get('network-devices').children.length,0);assert.equal(panel.sample,null);assert.equal(panel.running,false);
 }
 {
  const seen=[];let ack='';const sample={available:true,sample_unix_seconds:1,devices:[],policy:{enabled:false,limit_bytes:1e9,reset_day:1},usage:{},last_request_id:''};
- const {panel,doc}=setup(async c=>{seen.push(c);if(c.op==='set_network_policy')return {request_id:c.request_id,state:'pending'};return {...sample,last_request_id:ack};});panel.running=true;panel.sample=sample;
+ const {panel,doc}=setup(async c=>{seen.push(c);if(c.op==='set_network_policy')return {request_id:c.request_id,state:'pending',apn_activated:false};return {...sample,last_request_id:ack,policy_applied:true,boot_id:'11111111-1111-4111-8111-111111111111',...(ack?{policy:{enabled:true,limit_bytes:2e9,reset_day:15}}:{})};});panel.running=true;panel.sample=sample;
  doc.getElementById('network-limit-enabled').checked=true;doc.getElementById('network-limit-gb').value='2';doc.getElementById('network-reset-day').value='15';
  await panel.savePolicy();const id=panel.pending;assert.ok(id);await panel.savePolicy();assert.equal(seen.filter(c=>c.op==='set_network_policy').length,1);ack=id;await panel.refresh();assert.equal(panel.pending,null);panel.stop();
 }
@@ -90,3 +90,39 @@ const displaySample=()=>({available:true,sample_unix_seconds:100,boot_id:'synthe
  assert.match(doc.getElementById('network-rates').textContent,/过期/);assert.equal(doc.getElementById('network-policy-save').disabled,true);panel.stop();
 }
 console.log('PASS: B-05/B-06 malformed/zero radio fields, finite rates, text-only DTO rendering, unknown quotas, chart gaps and stale-state cleanup');
+
+{
+ // A completed old test must not re-enable controls after logout.
+ const {panel,doc}=setup(async()=>displaySample());let finish;
+ panel.running=true;panel.sample=displaySample();doc.getElementById('network-interface').value='wlan0';
+ panel.runTest=()=>new Promise(resolve=>finish=resolve);
+ const old=panel.test('connectivity');assert.equal(doc.getElementById('network-test-connectivity').disabled,true);
+ doc.getElementById('network-cellular-consent').checked=true;
+ panel.stop();finish({ok:false,reason:'SYNTHETIC_OLD_TEST'});await old;
+ assert.equal(doc.getElementById('network-test-connectivity').disabled,true,'late test completion must not enable logged-out controls');
+ assert.equal(doc.getElementById('network-test-download').disabled,true);assert.equal(doc.getElementById('network-test-result').textContent,'');
+ assert.equal(doc.getElementById('network-cellular-consent').checked,false,'logout clears the old session cellular-test consent');
+}
+{
+ // Stop/start opens a new read slot. The old finally must not release it.
+ const requests=[],{panel}=setup(()=>new Promise(resolve=>requests.push(resolve)));
+ panel.running=true;const old=panel.refresh();assert.equal(requests.length,1);
+ panel.stop();panel.start();assert.equal(requests.length,2,'new session must not wait for an old in-flight read');
+ requests[0]({...displaySample(),boot_id:'old'});await old;
+ assert.equal(panel.loading,true,'old read must not release the new session read slot');assert.equal(panel.sample,null);
+ requests[1]({...displaySample(),boot_id:'new'});await turn();assert.equal(panel.sample.boot_id,'new');panel.stop();
+}
+{
+ // An old network-test result must not release a newer test's busy state.
+ const {panel,doc}=setup(async()=>displaySample()),tests=[];
+ panel.runTest=()=>new Promise(resolve=>tests.push(resolve));
+ panel.running=true;panel.sample=displaySample();doc.getElementById('network-interface').value='wlan0';const old=panel.test('connectivity');
+ panel.stop();panel.start();await turn();doc.getElementById('network-interface').value='wlan0';
+ const next=panel.test('connectivity');assert.equal(tests.length,2,'new session may start its own explicit test');
+ tests[0]({ok:false,reason:'SYNTHETIC_OLD_TEST'});await old;
+ assert.equal(panel.testing,true,'old completion must not release the new test');assert.equal(doc.getElementById('network-test-connectivity').disabled,true);
+ assert.doesNotMatch(doc.getElementById('network-test-result').textContent,/SYNTHETIC_OLD_TEST/);
+ tests[1]({ok:false,reason:'SYNTHETIC_CURRENT_TEST'});await next;
+ assert.equal(panel.testing,false);assert.match(doc.getElementById('network-test-result').textContent,/SYNTHETIC_CURRENT_TEST/);panel.stop();
+}
+console.log('PASS: network logout/read/test epoch fences preserve disabled controls and new-session busy slots');

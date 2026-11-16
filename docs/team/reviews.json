@@ -129,6 +129,61 @@
         "docs/deliveries/LEAD-USB-FIRST-OFFLINE-INTEGRATION-20261116.md"
       ],
       "self_reported_hours": null
+    },
+    {
+      "member_id": "member-c",
+      "pr": 263,
+      "head": "9d3aed7cc3ae658a17c8841b93132b49151d488f",
+      "decision": "offline_accepted",
+      "steps": [],
+      "evidence": [
+        "docs/deliveries/LEAD-STATISTICS-CANDIDATES-20261116.md"
+      ],
+      "self_reported_hours": null
+    },
+    {
+      "member_id": "member-c",
+      "pr": 264,
+      "head": "e12ea2fba2255f75dd311ab70c756e8b670059f3",
+      "decision": "offline_accepted",
+      "steps": [],
+      "evidence": [
+        "docs/deliveries/LEAD-STATISTICS-CANDIDATES-20261116.md"
+      ],
+      "self_reported_hours": null
+    },
+    {
+      "member_id": "member-c",
+      "pr": 265,
+      "head": "89a4b5c95958bc25a64d8ee61fa55eb8ad584939",
+      "decision": "offline_accepted",
+      "steps": [],
+      "evidence": [
+        "docs/deliveries/LEAD-STATISTICS-CANDIDATES-20261116.md"
+      ],
+      "self_reported_hours": null
+    },
+    {
+      "member_id": "member-c",
+      "pr": 266,
+      "head": "83ab91a557f1fe8bfd7827f527436ae54c724137",
+      "decision": "offline_accepted",
+      "steps": [],
+      "evidence": [
+        "docs/deliveries/LEAD-STATISTICS-CANDIDATES-20261116.md"
+      ],
+      "self_reported_hours": null
+    },
+    {
+      "member_id": "member-c",
+      "pr": 267,
+      "head": "5a79e6119925f63323dab6ee7a2a72ec9064af62",
+      "decision": "offline_accepted",
+      "steps": [],
+      "evidence": [
+        "docs/deliveries/LEAD-STATISTICS-CANDIDATES-20261116.md"
+      ],
+      "self_reported_hours": null
     }
   ]
 }
