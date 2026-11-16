@@ -631,3 +631,103 @@ fn pending_nonce_and_original_digest_are_required_before_dispatch() {
         Err(PortError::Denied)
     );
 }
+
+#[test]
+fn submit_and_query_codec_use_exact_signed_and_persisted_intent() {
+    let f = Fixture::new();
+    f.consent(true);
+    let store = f.statistics();
+    let signer = f.signer();
+    let key = store.identity().public_key();
+    with_budget(store.clone(), |lease, budget, _| {
+        let generation = signer.check_current(&store, budget).unwrap();
+        let id = uuid::Uuid::from_bytes(*lease.id()).to_string();
+        let intent = enabled()
+            .check_in_intent(Window::Last24Hours, key, &SystemClock)
+            .unwrap()
+            .unwrap();
+        let prepared = signer.prepare(&store, intent, 0, budget).unwrap();
+        assert_eq!(
+            check_persisted(&store, &TransactionCall::Submit(&prepared)),
+            Err(PortError::Denied)
+        );
+        let mut state = store.load().unwrap();
+        state.windows[0].period = Some(intent.renewal_period());
+        state.windows[0].pending = Some(rustsimhub_usage_stats::store::PendingTransaction {
+            digest: prepared.digest(),
+            prepared_at: rustsimhub_usage_stats::protocol::Clock::now_secs(&SystemClock).unwrap(),
+        });
+        store.save(&state).unwrap();
+        for call in [
+            TransactionCall::Submit(&prepared),
+            TransactionCall::Query {
+                intent,
+                digest: prepared.digest(),
+            },
+        ] {
+            let raw = call.request(id.clone(), generation, key).unwrap();
+            let reg = registration();
+            let is_submit = matches!(call, TransactionCall::Submit(_));
+            let expected_transaction = hex(prepared.transaction_bytes());
+            let expected_digest = hex(&prepared.digest());
+            let (mut client, mut server) = UnixStream::pair().unwrap();
+            let child = thread::spawn(move || {
+                let request = request_from(&mut server);
+                assert_eq!(request["digest"], expected_digest);
+                assert_eq!(request["intent"], serde_json::to_value(intent).unwrap());
+                if is_submit {
+                    assert_eq!(request.as_object().unwrap().len(), 7);
+                    assert_eq!(request["transaction"], expected_transaction);
+                } else {
+                    assert_eq!(request.as_object().unwrap().len(), 6);
+                    assert!(request.get("transaction").is_none());
+                }
+                let body=serde_json::to_vec(&serde_json::json!({"version":1,"operation_id":request["operation_id"],"participation_generation":request["participation_generation"],"public_key":request["public_key"],"status":if is_submit{"accepted"}else{"unknown"},"intent":request["intent"],"digest":request["digest"]})).unwrap();
+                server.write_all(&reply(reg, &body)).unwrap();
+            });
+            let fence = || {
+                signer
+                    .check_current(&store, budget)
+                    .map(|_| ())
+                    .map_err(signer_error)
+            };
+            let result = exchange(
+                &mut client,
+                Wire {
+                    registration: reg,
+                    call: &call,
+                    raw: &raw,
+                    id: &id,
+                    generation,
+                    key,
+                },
+                IoBudget {
+                    budget,
+                    deadline: budget.deadline(),
+                    fence: &fence,
+                    signer: &signer,
+                    store: &store,
+                    reference: None,
+                },
+            )
+            .unwrap();
+            assert_eq!(
+                result,
+                if is_submit {
+                    TransactionConclusion::Accepted
+                } else {
+                    TransactionConclusion::Unknown
+                }
+            );
+            child.join().unwrap();
+        }
+        assert_eq!(
+            store.load().unwrap().windows[0]
+                .pending
+                .as_ref()
+                .unwrap()
+                .digest,
+            prepared.digest()
+        );
+    });
+}
