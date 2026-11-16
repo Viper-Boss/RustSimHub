@@ -78,8 +78,18 @@ func TestUsageCancellationAndNoRedirect(t *testing.T) {
 	}
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Millisecond)
 	defer cancel()
-	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { <-r.Context().Done() }))
+	// A handler blocked without reading/writing HTTP/1 may not observe client
+	// cancellation. Bound fixture cleanup independently; keep the actual client
+	// cancellation/error and elapsed-time assertions below unchanged.
+	release := make(chan struct{})
+	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-release:
+		}
+	}))
 	defer slow.Close()
+	defer close(release)
 	start := time.Now()
 	if _, err := usageCount(ctx, protocol.Usage24h, slow.Client(), slow.URL); err == nil || time.Since(start) > time.Second {
 		t.Fatal("deadline not enforced")
