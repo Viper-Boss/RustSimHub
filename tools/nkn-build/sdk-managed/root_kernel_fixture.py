@@ -78,7 +78,7 @@ def proto_parse(raw):
         fields.setdefault(key>>3,[]).append(value)
     return fields
 
-def node():
+def node(transaction_rpc=None):
     os.unshare(os.CLONE_NEWNET)
     write('/tmp/node-ready',os.getpid())
     eventually(lambda:Path('/tmp/node-configure').exists())
@@ -93,8 +93,15 @@ def node():
         def log_message(self,*args):pass
         def do_POST(self):
             n=int(self.headers.get('Content-Length','0'));assert 0<n<4096
-            request=json.loads(self.rfile.read(n));assert request['method']=='getwsaddr'
-            body=json.dumps({'result':{'addr':'9.9.9.9:8000','pubkey':'11'*32,'id':'22'*32}}).encode()
+            request=json.loads(self.rfile.read(n))
+            if request['method']=='getwsaddr':
+                result={'result':{'addr':'9.9.9.9:8000','pubkey':'11'*32,'id':'22'*32}}
+            else:
+                assert transaction_rpc is not None,'transaction RPC fixture not explicitly enabled'
+                result=transaction_rpc(request)
+                if result is None:
+                    self.connection.shutdown(socket.SHUT_RDWR);return
+            body=json.dumps(result).encode()
             self.send_response(200);self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
         def do_GET(self):
             key=self.headers['Sec-WebSocket-Key'];accept=base64.b64encode(hashlib.sha1((key+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode()).digest()).decode()
@@ -163,8 +170,13 @@ def node():
     signal.pause()
 
 
-def install_fixture():
-    assert os.geteuid()==0 and Path('/.dockerenv').exists()
+def install_fixture(usage_transactions=False,node_entry=None):
+    assert os.geteuid()==0
+    if not Path('/.dockerenv').exists():
+        assert Path('/run/.containerenv').is_file(),'real disposable container required'
+        for kind in ['mnt','net','pid','cgroup']:
+            parent=os.environ['RSH_FIXTURE_PARENT_'+kind.upper()+'_NS']
+            assert os.readlink('/proc/self/ns/'+kind)!=parent,'host namespace must not be used'
     assert Path('/proc/self/cgroup').read_text().strip()=='0::/'
     # Namespace-owned cgroup root is the Docker container scope. Never bind
     # the host cgroup filesystem into this test.
@@ -175,12 +187,12 @@ def install_fixture():
     for src in Path('/inputs/tools/lib').iterdir():
         dest=Path('/usr/lib/x86_64-linux-gnu')/src.name
         pending=dest.with_name(dest.name+'.owned-fixture-pending')
-        shutil.copyfile(src,pending);pending.replace(dest)  # Preserve mapped old inodes.
+        shutil.copyfile(src,pending);shutil.copymode(src,pending);pending.replace(dest)  # Preserve mapped old inodes and executable loader mode.
     for src,dest in [('/inputs/tools/pkg/usr/sbin/nft','/usr/sbin/nft'),('/inputs/tools/ip','/usr/sbin/ip'),('/inputs/root','/root-provider'),('/inputs/core-test','/core-test')]:
         shutil.copyfile(src,dest);os.chmod(dest,0o755)
     for name in ['sdk-client','recovery-client']:
         if Path('/inputs/'+name).exists():shutil.copyfile('/inputs/'+name,'/'+name);os.chmod('/'+name,0o755)
-    for path in ['/opt/rustsimhub/selected','/etc/rustsimhub','/var/lib/rustsimhub/nkn','/run/rustsimhub-network','/run/rustsimhub-nkn-root']:
+    for path in ['/opt/rustsimhub/selected','/etc/rustsimhub','/etc/ssl/certs','/var/lib/rustsimhub/nkn','/run/rustsimhub-network','/run/rustsimhub-nkn-root']:
         Path(path).mkdir(parents=True,exist_ok=True);os.chmod(path,0o755)
     shutil.copyfile('/inputs/engine','/opt/rustsimhub/selected/nkn-sdk-engine');os.chmod('/opt/rustsimhub/selected/nkn-sdk-engine',0o555)
     shutil.copyfile('/inputs/tls.crt','/etc/ssl/certs/ca-certificates.crt')
@@ -193,9 +205,13 @@ def install_fixture():
     assert version['nkn_sdk_linked'] and not version['isolated_fixture_build']
     policy={'format':1,'source_commit':version['source_commit'],'engine_sha256':hashlib.sha256(Path('/inputs/engine').read_bytes()).hexdigest(),
             'core_pin':'12'*32,'statistics_public_key':'34'*32,'interface':'wlan0','seed_rpc':['https://9.9.9.9:8443'],'status_protocol':1}
+    if usage_transactions:
+        assert version.get('usage_transaction_protocol')==1,'actual candidate SDK capability required'
+        policy['usage_query_protocol']=1
+        policy['usage_transaction_protocol']=1
     raw=json.dumps(policy,separators=(',',':')).encode();Path('/etc/rustsimhub/nkn-policy.json').write_bytes(raw)
     policy_hash=hashlib.sha256(raw).digest()
-    node_process=subprocess.Popen([sys.executable,__file__,'--node'],stdout=subprocess.DEVNULL,stderr=open('/tmp/node.log','wb'))
+    node_process=subprocess.Popen([sys.executable,str(node_entry or __file__),'--node'],stdout=subprocess.DEVNULL,stderr=open('/tmp/node.log','wb'))
     eventually(lambda:Path('/tmp/node-ready').exists())
     for interface,peer,ip in [('wlan0','peer','9.9.9.8/24'),('usb0','otherpeer','9.9.8.8/24')]:
         command('/usr/sbin/ip','link','add',interface,'type','veth','peer','name',peer)

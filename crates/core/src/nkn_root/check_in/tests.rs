@@ -315,3 +315,297 @@ fn restart_pending_is_preserved_when_installed_root_is_unavailable() {
     );
     assert!(root.snapshot().unwrap().is_none());
 }
+
+#[test]
+#[ignore = "explicit disposable private-cgroup/UID fixture with actual fixed SDK only"]
+fn statistics_transport_kernel_sdk() {
+    use rustsimhub_usage_stats::check_in::CheckInMachine;
+    use std::{fs, os::unix::fs::OpenOptionsExt};
+    assert_eq!(std::env::var("RSH_STATS_KERNEL_FIXTURE").unwrap(), "1");
+    let roles = InstalledRoles::read().unwrap();
+    assert_eq!(rustix::process::geteuid().as_raw(), roles.core);
+    let scenario = std::env::var("RSH_STATS_SCENARIO").unwrap();
+    assert!(["startup", "shared", "lost_ack", "off", "cancel"].contains(&scenario.as_str()));
+    let shared_run = scenario != "startup";
+    let f = Fixture::new();
+    f.consent(true);
+    let store = f.statistics();
+    let owner = f.signer().owner_token().to_owned();
+    let public = serde_json::json!({"core_pin":f.auth.lock().unwrap().public_key().iter().map(|b|format!("{b:02x}")).collect::<String>(),"statistics_public_key":store.identity().public_key()});
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open("/tmp/statistics-public.json")
+        .unwrap();
+    file.write_all(&serde_json::to_vec(&public).unwrap())
+        .unwrap();
+    file.sync_all().unwrap();
+    drop(file);
+    let wait = |path: &str, seconds: u64| {
+        let deadline = Instant::now() + Duration::from_secs(seconds);
+        while !std::path::Path::new(path).exists() {
+            assert!(
+                Instant::now() < deadline,
+                "fixture handshake timeout: {path}"
+            );
+            thread::sleep(Duration::from_millis(5));
+        }
+    };
+    wait("/tmp/statistics-fixture-ready", 10);
+    let root = Arc::new(Controller::new(f.auth.clone()));
+    if shared_run {
+        root.enable(&owner, Owner::ManualEngine).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while root.drive().unwrap().unwrap().phase != rustsimhub_nkn_agent::Phase::Ready {
+            assert!(Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(20));
+        }
+        root.enable(&owner, Owner::Remote).unwrap();
+        root.enable(&owner, Owner::Statistics).unwrap();
+        assert_eq!(root.snapshot().unwrap().unwrap().references, 3);
+    }
+    let transport = StatisticsTransport::new(root.clone(), f.signer(), store.clone()).unwrap();
+    let mut machine =
+        CheckInMachine::new(SharedStatisticsStore(store.clone()), transport, UsageClock);
+    machine
+        .set_policy(crate::nkn_statistics::tests::enabled())
+        .unwrap();
+    let prepared = machine.advance(Window::Last24Hours).unwrap();
+    let Outcome::Prepared { digest } = prepared else {
+        panic!("real prepare failed: {prepared:?}")
+    };
+    let pending = store.load().unwrap().windows[0].pending.clone().unwrap();
+    assert_eq!(pending.digest, digest);
+    if !shared_run {
+        assert!(
+            !root.owners().unwrap().statistics,
+            "reporting lease must not pretend to enable aggregate query"
+        );
+        assert!(
+            !root.read_status(&owner).unwrap().owners.statistics,
+            "status report must describe the explicit query owner"
+        );
+    }
+    fn records() -> Vec<serde_json::Value> {
+        std::fs::read_to_string("/tmp/statistics-rpc.jsonl")
+            .unwrap()
+            .lines()
+            .map(|x| serde_json::from_str(x).unwrap())
+            .collect()
+    }
+    assert_eq!(
+        records()
+            .iter()
+            .filter(|r| r["method"] == "getnoncebyaddr")
+            .count(),
+        1
+    );
+    assert_eq!(
+        records()
+            .iter()
+            .filter(|r| r["method"] == "sendrawtransaction")
+            .count(),
+        0,
+        "prepare emitted a network submission"
+    );
+    let pid = root
+        .run
+        .lock()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .source
+        .shared
+        .observed_pid
+        .load(Ordering::Acquire);
+    assert!(pid > 1);
+    assert!(std::path::Path::new(&format!("/proc/{pid}")).exists());
+    if scenario == "shared" {
+        root.disable(&owner, Owner::Statistics).unwrap();
+        assert!(
+            !root.owners().unwrap().statistics,
+            "query OFF must be visible while reporter remains live"
+        );
+        root.enable(&owner, Owner::Statistics).unwrap();
+        assert!(root.owners().unwrap().statistics);
+        root.disable(&owner, Owner::Statistics).unwrap();
+        assert_eq!(
+            root.snapshot().unwrap().unwrap().references,
+            3,
+            "query OFF stole reporting reference"
+        );
+        assert!(root
+            .read_usage_count(
+                &owner,
+                Window::Last24Hours,
+                Instant::now() + Duration::from_secs(1)
+            )
+            .is_err());
+    }
+    let cancellation = machine.cancellation();
+    let submitted = thread::scope(|scope| {
+        let interrupter = if scenario == "off" || scenario == "cancel" {
+            Some(scope.spawn(|| {
+                wait("/tmp/statistics-submit-entered", 5);
+                if scenario == "off" {
+                    off(&f);
+                } else {
+                    cancellation.cancel();
+                }
+                fs::write("/tmp/statistics-interruption-complete", b"1").unwrap();
+            }))
+        } else {
+            None
+        };
+        let result = machine.advance(Window::Last24Hours).unwrap();
+        if let Some(child) = interrupter {
+            child.join().unwrap();
+        }
+        result
+    });
+    match scenario.as_str() {
+        "startup" | "shared" => assert!(
+            matches!(submitted,Outcome::Pending{digest:d} if d==digest),
+            "{submitted:?}"
+        ),
+        "lost_ack" | "off" => assert!(
+            matches!(submitted,Outcome::Unknown{digest:d,..} if d==digest),
+            "{submitted:?}"
+        ),
+        "cancel" => assert_eq!(submitted, Outcome::Disabled),
+        _ => unreachable!(),
+    }
+    drop(machine);
+    assert_eq!(
+        store.load().unwrap().windows[0]
+            .pending
+            .as_ref()
+            .unwrap()
+            .digest,
+        digest
+    );
+    if shared_run {
+        assert_eq!(
+            root.snapshot().unwrap().unwrap().references,
+            if scenario == "shared" { 2 } else { 3 }
+        );
+        assert_eq!(
+            root.drive().unwrap().unwrap().phase,
+            rustsimhub_nkn_agent::Phase::Ready
+        );
+        assert!(
+            std::path::Path::new(&format!("/proc/{pid}")).exists(),
+            "reporter stopped shared SDK"
+        );
+    }
+    if scenario == "shared" || scenario == "lost_ack" {
+        // Test-only logical wall-clock advance reaches the original 300s query
+        // cooldown without changing Auth/Root/AttemptBudget's real Instant TTL.
+        struct QueryClock(Arc<AtomicU64>);
+        impl Clock for QueryClock {
+            fn now_secs(
+                &self,
+            ) -> std::result::Result<u64, rustsimhub_usage_stats::protocol::ClockError>
+            {
+                Ok(self.0.load(Ordering::Acquire))
+            }
+        }
+        let before = serde_json::to_value(store.load().unwrap()).unwrap();
+        let transport = StatisticsTransport::new(root.clone(), f.signer(), store.clone()).unwrap();
+        let logical_clock = Arc::new(AtomicU64::new(pending.prepared_at + RETRY_AFTER_SECS + 1));
+        let mut restarted = CheckInMachine::new(
+            SharedStatisticsStore(store.clone()),
+            transport,
+            QueryClock(logical_clock.clone()),
+        );
+        restarted
+            .set_policy(crate::nkn_statistics::tests::enabled())
+            .unwrap();
+        for attempt in 0..2 {
+            let result = restarted.advance(Window::Last24Hours).unwrap();
+            assert!(matches!(result,Outcome::Unknown{digest:d,..} if d==digest));
+            let requests = records()
+                .iter()
+                .filter(|r| r["method"] == "gettransaction")
+                .count();
+            eprintln!(
+                "original query attempt {}: {:?}, observed node requests {}",
+                attempt + 1,
+                result,
+                requests
+            );
+            if requests > 0 {
+                break;
+            }
+            if attempt == 0 {
+                // Unavailable may occur before Root/SDK dispatch. Exercise the
+                // ORIGINAL Machine's later read-only query, with the SAME digest,
+                // original cancellation and real Auth/Root clocks. No submit or
+                // preflight retry is added. Respect Root's actual 5s cooldown.
+                logical_clock.fetch_add(RETRY_AFTER_SECS + 1, Ordering::AcqRel);
+                thread::sleep(Duration::from_millis(5100));
+            }
+        }
+        drop(restarted);
+        assert_eq!(serde_json::to_value(store.load().unwrap()).unwrap(), before);
+        assert_eq!(
+            records()
+                .iter()
+                .filter(|r| r["method"] == "gettransaction")
+                .count(),
+            1
+        );
+    }
+    let rows = records();
+    assert_eq!(
+        rows.iter()
+            .filter(|r| r["method"] == "getnoncebyaddr")
+            .count(),
+        1
+    );
+    assert_eq!(
+        rows.iter()
+            .filter(|r| r["method"] == "sendrawtransaction")
+            .count(),
+        1
+    );
+    let send = rows
+        .iter()
+        .find(|r| r["method"] == "sendrawtransaction")
+        .unwrap();
+    assert_eq!(
+        send["digest"],
+        digest
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>()
+    );
+    if shared_run {
+        if scenario != "shared" {
+            root.disable(&owner, Owner::Statistics).unwrap();
+        }
+        assert_eq!(root.snapshot().unwrap().unwrap().references, 2);
+        let remote = root.source().unwrap();
+        root.disable(&owner, Owner::Remote).unwrap();
+        assert!(!remote.reference.as_ref().unwrap().load(Ordering::Acquire));
+        assert_eq!(root.drive().unwrap().unwrap().references, 1);
+        assert!(std::path::Path::new(&format!("/proc/{pid}")).exists());
+        root.disable(&owner, Owner::ManualEngine).unwrap();
+    }
+    let deadline = Instant::now() + Duration::from_secs(7);
+    while root.drive().unwrap().unwrap().phase != rustsimhub_nkn_agent::Phase::Disabled {
+        assert!(Instant::now() < deadline, "original scope cleanup failed");
+        thread::sleep(Duration::from_millis(20));
+    }
+    assert!(
+        !std::path::Path::new(&format!("/proc/{pid}")).exists(),
+        "original SDK was not reaped"
+    );
+    let result = serde_json::json!({"scenario":scenario,"prepared_digest":digest,"submit_outcome":submitted,"pending_preserved":true,"original_sdk_reaped":true,"shared_reference_checks":shared_run,"restart_query":scenario=="shared"||scenario=="lost_ack","query_clock":"test-only logical cooldown; Auth/Root/budget Instant clocks unchanged"});
+    fs::write(
+        "/tmp/statistics-result.json",
+        serde_json::to_vec(&result).unwrap(),
+    )
+    .unwrap();
+}
