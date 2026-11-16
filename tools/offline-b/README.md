@@ -48,7 +48,9 @@ leftover children. Ctrl-C/errors close the parent handle and kill that owned job
 Windows job isolation is not Linux UID/cgroup/nft/PID1 evidence.
 
 Automatic Git maintenance is disabled only in the child test environment, so
-fixture repository removal cannot race background Git maintenance. User config,
+fixture runs do not request background Git maintenance. The original integration
+test fixture separately waits at most 0.5s for Windows sharing violations; a
+persistent sharing violation or any other cleanup error still fails. User config,
 authors and production policies are not changed. UTC is a fixture setting, not
 a product clock/format change.
 

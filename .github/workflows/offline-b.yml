@@ -22,3 +22,5 @@ jobs:
           node --version
       - name: Bounded runner classification and actual owned process cleanup
         run: python -m unittest discover -s tools/offline-b -p 'test_*.py' -v
+      - name: Original Git source-verifier and owned directory cleanup
+        run: python -m unittest discover -s tools/product-integration -p 'test_verify.py' -v

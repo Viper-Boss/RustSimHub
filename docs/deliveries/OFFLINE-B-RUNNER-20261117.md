@@ -3,7 +3,7 @@
 Base: `de663743bd726e77f7c560139d0f91ea78e8fe57`.
 Implementation/current full HEAD is bound in the PR body; this report does not
 invent a self-referential final hash. Scope: `tools/offline-b/`, this report,
-initial B inventory and the narrowly selected CI self-tests. No A business source,
+initial B inventory, original integration test fixture cleanup and the narrowly selected CI self-tests. No A business source,
 BLE/AirSIM/native audio, workspace dependencies, author or global ledger changed.
 
 ## Behavior
@@ -34,7 +34,7 @@ python tools/offline-b/run.py --output OUTSIDE_CHECKOUT_FRESH_DIR --budget-secon
   Source HEAD/tree and worktree byte digest match at both boundaries.
 ```
 
-The passing groups are 12 source-verifier unit tests and 16 Node fixture programs
+The passing groups are 15 source-verifier/owned-cleanup unit tests and 16 Node fixture programs
 (their assertions cover many cases, not counted as individual unit tests).
 The profile suite executes 18 cases: 16 pass, 2 Linux cases skipped, therefore its
 group is `not_run`. These figures overlap internal runner smoke checks and must
@@ -54,9 +54,14 @@ Preserved negative/earlier evidence:
   changed to hide them. Existing bundled Node24 was used. Node<22 is now a missing
   prerequisite, tested explicitly.
 - Original Git fixture temporary-directory cleanup failed with Windows sharing
-  errors in earlier runs. Finite child-only `gc.auto=0`/`maintenance.auto=false`
-  overrides avoid detached maintenance; the final source suite executes all 12.
-  No user/global/repository configuration or assertion is loosened.
+  errors. Disabling background Git maintenance alone did not fix it: the first
+  published HEAD b926af9e755e51b4bc0cdf6cd0821122b7359b0a reproduced one cleanup
+  failure (16 passed groups/14 not_run/1 failed, exit2). That failure is retained.
+  The original source-test fixture now waits at most 0.5s for WinError32 only;
+  all other errors or a persistent lock still fail. Three regressions include an
+  actual Windows directory handle released late, a held-error budget and immediate
+  permission-error rejection. The source suite now executes all 15. This changes
+  only owned fixture cleanup, not the verifier or any product assertion/config.
 - Existing Node fixtures have both `PASS:` and prose `passed` completion messages;
   classification now recognizes those real markers and still refuses empty output.
 - The dependency suite initially ran 5/6 with a missing Windows symlink privilege.
@@ -71,6 +76,11 @@ requirements, not implied by Node, cross-compilation or a successful parent exit
 Cloud CI has no result until read back at the submitted HEAD.
 
 This PR completes the independent runner/inventory subpackage, not all of B1–B5.
+CI at first published HEAD b926af9e755e51b4bc0cdf6cd0821122b7359b0a: original
+test/native-audio and both new runner jobs were all blocked before starting by
+GitHub payment/spending limits (runs 43931478658 / 43931478554). No rerun/billing or
+workflow bypass was attempted. Later HEADs need separate check readback.
+
 Next: refresh source inputs using exact latest A PR heads and actual ancestry;
 then execute qualified Linux/build/profile and recovery subpackages with their
 real inputs, preserving refused modes and missing inputs. Mainline signing,
