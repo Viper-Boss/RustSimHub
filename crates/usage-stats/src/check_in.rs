@@ -604,6 +604,15 @@ impl<S: CheckInStore, T: CheckInTransport, C: Clock> CheckInMachine<S, T, C> {
                     not_before: self.next_action[index],
                 });
             }
+            // All windows share one signing identity and its chain nonce.
+            // A prepared or ambiguously submitted transaction must be resolved
+            // by its original digest before any window prepares another write.
+            // Period expiry, disable/re-enable and restart do not free a nonce.
+            if state.windows.iter().any(|window| window.pending.is_some()) {
+                return Ok(Outcome::Due {
+                    not_before: now.saturating_add(RETRY_AFTER_SECS),
+                });
+            }
             self.next_action[index] = now.saturating_add(RETRY_AFTER_SECS);
             let intent = self
                 .policy

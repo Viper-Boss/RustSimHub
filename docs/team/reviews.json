@@ -85,6 +85,50 @@
         "docs/team/REVIEW-PR-13-e782f98.md"
       ],
       "self_reported_hours": null
+    },
+    {
+      "member_id": "member-c",
+      "pr": 255,
+      "head": "fc5493d0b912db259c4770b1ab406a502889e20e",
+      "decision": "offline_accepted",
+      "steps": [],
+      "evidence": [
+        "docs/deliveries/LEAD-USB-FIRST-OFFLINE-INTEGRATION-20261116.md"
+      ],
+      "self_reported_hours": null
+    },
+    {
+      "member_id": "member-c",
+      "pr": 256,
+      "head": "0bb53817478e390b8407e2a31780edfe47fa3d21",
+      "decision": "offline_accepted",
+      "steps": [],
+      "evidence": [
+        "docs/deliveries/LEAD-USB-FIRST-OFFLINE-INTEGRATION-20261116.md"
+      ],
+      "self_reported_hours": null
+    },
+    {
+      "member_id": "member-c",
+      "pr": 257,
+      "head": "58b0b18da56b50d0e83fc5def1bfb3aea40b1713",
+      "decision": "offline_accepted",
+      "steps": [],
+      "evidence": [
+        "docs/deliveries/LEAD-USB-FIRST-OFFLINE-INTEGRATION-20261116.md"
+      ],
+      "self_reported_hours": null
+    },
+    {
+      "member_id": "member-c",
+      "pr": 258,
+      "head": "ce09ff8430776d00ffbb8ce2abdf7910b9b023a2",
+      "decision": "offline_accepted",
+      "steps": [],
+      "evidence": [
+        "docs/deliveries/LEAD-USB-FIRST-OFFLINE-INTEGRATION-20261116.md"
+      ],
+      "self_reported_hours": null
     }
   ]
 }
