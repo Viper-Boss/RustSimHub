@@ -1,6 +1,6 @@
 # RustSimHub 完整剩余行动台账
 
-快照：2026-11-15T18:31:47.579452+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
+快照：2026-11-16T10:26:39.453559+00:00 · 基线：remaining-v1.1-2026-10-26-dependency
 
 原P0–P7：**81.5%**，剩余 **18.5** 个验收点。新增X1/X2/X3/BLE独立保留，不混入旧分母。
 
@@ -21,16 +21,17 @@ python tools/progress/build.py --check
 
 ## 当前关卡
 
-**REL-01 · 冻结支持矩阵与发行候选**：下一动作已选定；按前置和验收推进。热点暂缓、USB电脑工具优先已由PR260同步A/B任务书与开发约定，原热点缺口不删不计完成。主线已独立复验/合并255～258：Pending串行、NKN年龄、转发ready取消/预算、固定SDK离线向量。90统计/65NKN/127转发（SMTP129）/严格检查/四网页与旧代码反例通过；15向量/30篡改/4错误编码通过。真实统计上报/长期权限、ARM/完整发行/设备仍待，蓝牙草稿不动。
+**STAT-03 · 链上订阅与确认实现**：下一动作已选定；按前置和验收推进。263～266正常合并，267经负责人269三方集成保留作者且产品无改；原267已实际MERGED。网络原ID持久回执、固定用途签名、有限Root/SDK/Core观察候选完成主线复验：Core lib122/bin237、统计92、Edge71，SDK双模式各55顶层race/vet与真实Chrome/IDB三宽通过。SDK/Root Go ARM已构建；Core ARM缺目标标准库失败。完整transport草稿268、链确认/长期权限尚缺，生产上报仍关闭；未部署，热点暂缓/USB优先。
 
 ## 最新交付与剩余收尾（2026-11-16）
 
-热点暂缓、USB电脑工具优先已由PR260同步A/B任务书与开发约定，原热点缺口不删不计完成。主线已独立复验/合并255～258：Pending串行、NKN年龄、转发ready取消/预算、固定SDK离线向量。90统计/65NKN/127转发（SMTP129）/严格检查/四网页与旧代码反例通过；15向量/30篡改/4错误编码通过。真实统计上报/长期权限、ARM/完整发行/设备仍待，蓝牙草稿不动。 云端计费零步骤，原环境失败保留；81.5%、20/169、10.6%保持。
+263～266正常合并，267经负责人269三方集成保留作者且产品无改；原267已实际MERGED。网络原ID持久回执、固定用途签名、有限Root/SDK/Core观察候选完成主线复验：Core lib122/bin237、统计92、Edge71，SDK双模式各55顶层race/vet与真实Chrome/IDB三宽通过。SDK/Root Go ARM已构建；Core ARM缺目标标准库失败。完整transport草稿268、链确认/长期权限尚缺，生产上报仍关闭；未部署，热点暂缓/USB优先。 云端CI计费未启动，原失败保留；81.5%、20/169和10.6%保持。
 
 代码开发完成率：未设可审计分母，不发布新的精确百分比。149条是未完整验收动作，不是149项未写代码。
 
 ### 已交付与审核状态
 
+- PR263～267及负责人269已真正合并：网络限额持久回执/会话隔离、短信电话18项缺口审计、固定用途签名、有限Root/SDK及Core观察候选。主线独立Rust/Go/Chrome复验及无产品改动三方集成通过；不是生产签到/设备验收。
 - PR260/261记录热点暂缓、USB优先及主线独立审核；255～258全部正常合并，统计/NKN/转发组合与固定SDK向量通过本机复验。无产品权限扩张、蓝牙或设备改动；未冒称实机验收。
 - PR254：已发布恰好两份可复制的离线任务书，覆盖全部149未验收动作的归属/保留边界；A93/B29/蓝牙27，已核ID无重复遗漏、链接和Markdown差异检查。没有产品代码或设备改动。
 - PR252/253正常合并至2ae840f：独立参与授权与旧回执/最新状态隔离；461相关Rust、最终ARM/Chrome与旧代码失败对照通过。未部署，不触碰蓝牙/AirSIM/音频。
@@ -63,16 +64,17 @@ python tools/progress/build.py --check
 
 ### 下一步收尾方向
 
-1. 配网安排：热点新增开发/手机实测由用户明确暂缓，保留原未验收动作和历史失败；主要使用USB电脑工具。USB共享事务及其他业务继续，当前工具/设备端到端需获准后独立复验。
-2. 离线任务执行：学妹可在两个独立Codex窗口分别跑A生产代码包与B集成发行包，先盘点已有实现再补缺；按各自文件范围交PR，主线统一审核整合。蓝牙继续原窗口，真实硬件/公网/生产签名仍需负责人。
-3. 统计整合：独立许可/查询、Pending跨窗口串行、固定SDK向量已接纳；真实签名/交易准备、单次提交/原交易确认、在途关闭与长期权限、完整产品/公网/设备仍缺。
-4. 设备只读确认87（数值诊断），最新主线含249静态清理但本笔未安装；完整系统镜像/产品profile/第二设备与独立发行继续组合验收。
-5. 完整发行与第二设备：把任务8产品组合与通用镜像统一来源；核对匹配boot/DTB/modules/固件、锁定系统材料、真实PID1/沙箱，完成首次刷写/回读/冷启动/恢复。旧74镜像不等于新产品固件。
-6. 产品矩阵已有真实三变体18项模式检查、EmailRecovery隔离完整链和同源WASM/浏览器证据；四包新组合需完整复验。自动健康仍仅forwarding/schema9/worker4/同Core，AP/SMTP5拒绝不冒充已支持；明确有限首版范围。
-7. AirSIM87本次上行用户报告正常，47组输入/处理后/ALSA电平可对照；86失败保留。继续长稳/多通、耳机/扬声器及双端同时讲话对照，断网/撤权/争用仍待验。
-8. 转发/NKN/统计/蓝牙：真实递送及关闭冷启动、外网/中继/ON worker、获准统计网络和BLE HCI/RF/手机互操作；资源/账户/外部服务及独立授权到位后实测。
-9. 更新/迁移/恢复故障：已交隔离安装、迁移和限时健康证据需落到实际设备；验证真实SIGKILL/写满/断电、回退兼容、保留后写数据及整机恢复，不能用合成PID1替代。
-10. 发行终验：安全/依赖许可证与公开产物扫描、性能/功耗/组合长稳、第二棒子验收、用户及恢复手册、最终冻结与逐项签认。PMIC搁置，手机原生App不在首版。
+1. 本机构建前置：Core候选ARM check因固定工具链缺aarch64标准库未通过；成员原检查和本机Go ARM构建证据分列，B仍需同源完整ARM程序/发行组合，不将check或候选当安装包。
+2. 配网安排：热点新增开发/手机实测由用户明确暂缓，保留原未验收动作和历史失败；主要使用USB电脑工具。USB共享事务及其他业务继续，当前工具/设备端到端需获准后独立复验。
+3. 离线任务执行：学妹可在两个独立Codex窗口分别跑A生产代码包与B集成发行包，先盘点已有实现再补缺；按各自文件范围交PR，主线统一审核整合。蓝牙继续原窗口，真实硬件/公网/生产签名仍需负责人。
+4. 统计整合：签名和有界Root/SDK/Core观察候选已入main，生产仍关闭；完整CheckInTransport/精确引用/入口由草稿268继续，query仍unknown，可信链确认/深度、长期权限及完整产品/公网/设备未完成。
+5. 设备只读确认87（数值诊断），最新主线含249静态清理但本笔未安装；完整系统镜像/产品profile/第二设备与独立发行继续组合验收。
+6. 完整发行与第二设备：把任务8产品组合与通用镜像统一来源；核对匹配boot/DTB/modules/固件、锁定系统材料、真实PID1/沙箱，完成首次刷写/回读/冷启动/恢复。旧74镜像不等于新产品固件。
+7. 产品矩阵已有真实三变体18项模式检查、EmailRecovery隔离完整链和同源WASM/浏览器证据；四包新组合需完整复验。自动健康仍仅forwarding/schema9/worker4/同Core，AP/SMTP5拒绝不冒充已支持；明确有限首版范围。
+8. AirSIM87本次上行用户报告正常，47组输入/处理后/ALSA电平可对照；86失败保留。继续长稳/多通、耳机/扬声器及双端同时讲话对照，断网/撤权/争用仍待验。
+9. 转发/NKN/统计/蓝牙：真实递送及关闭冷启动、外网/中继/ON worker、获准统计网络和BLE HCI/RF/手机互操作；资源/账户/外部服务及独立授权到位后实测。
+10. 更新/迁移/恢复故障：已交隔离安装、迁移和限时健康证据需落到实际设备；验证真实SIGKILL/写满/断电、回退兼容、保留后写数据及整机恢复，不能用合成PID1替代。
+11. 发行终验：安全/依赖许可证与公开产物扫描、性能/功耗/组合长稳、第二棒子验收、用户及恢复手册、最终冻结与逐项签认。PMIC搁置，手机原生App不在首版。
 
 历史工时覆盖完整收尾及验证，尚未按新交付逐项重估；不能当作纯编码剩余工时或承诺日期。
 
@@ -672,7 +674,7 @@ python tools/progress/build.py --check
 
 原计划收尾 · 6个动作 · 已完成0个
 
-移动卡基础数据、月计量与限额阻断已有实测；当前原卡普通数据仍关闭。B线网络展示、诊断和性能材料已提交，不能替代换卡、漫游/计量与切网实测。
+移动卡基础数据、月计量与限额阻断已有实测；当前原卡普通数据仍关闭。B线网络展示、诊断和性能材料已提交，不能替代换卡、漫游/计量与切网实测。 2026-11-16 PR263补网络策略原ID先持久化、丢回复重开只查询及会话/同意隔离，真实Chrome/IDB三宽和旧代码负对照通过；设备未更新。
 
 代码/资料：`crates/network-agent`、`crates/core/src/network_diagnostics.rs`、`crates/edge/src/web/network.js`
 
@@ -1176,7 +1178,7 @@ UPD-01准入和UPD-04失败候选回选已有负责人完成记录；正式只�
 
 原计划收尾 · 7个动作 · 已完成0个
 
-B线32步材料及主线日常/测试、回执和NAS面板保持；PR191补实际NKN状态/控制与配置器装配。Chrome合成验证不替代真实手机、热点、多端与视觉终验。
+B线32步材料及主线日常/测试、回执和NAS面板保持；PR191补实际NKN状态/控制与配置器装配。Chrome合成验证不替代真实手机、热点、多端与视觉终验。 2026-11-16原主页/CSP/IndexedDB三宽通过，网络限额原ID持久恢复已入主线；不替代真实设备/USB验收。
 
 代码/资料：`crates/edge/src/web`、`tools/test-web-*.mjs`、`docs/frontend-vision.md`
 
@@ -1616,7 +1618,7 @@ main同源13程序和未签名6载荷只是交付材料；精确源码、许可�
 
 新增扩展 · 9个动作 · 已完成0个
 
-查询/独立参与许可保持；PR255单身份Pending串行与PR256固定SDK15组真实向量已入主线并独立复验。真实签名/提交/确认和长期权限尚未接通，Root接口仍属待决候选，生产上报不可用；公网/设备待验。
+PR263～267/269已接纳网络回执、固定用途签名及默认关闭的Root/SDK/Core观察候选；92统计/359Core和固定SDK/真实浏览器通过。尚非完整CheckInTransport，草稿268保留；query仍unknown，链确认/长期权限/生产入口与实机未完成，reporting_available=false。
 
 代码/资料：`docs/FEATURE-EXTENSIONS-2026-10-24.md`、`upstream:pkg/usagestats`、`upstream:internal/app/usage.go`
 
@@ -1631,7 +1633,7 @@ main同源13程序和未签名6载荷只是交付材料；精确源码、许可�
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
-- 证据：[member-a-stats-state-machine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md)
+- 证据：[member-a-stats-state-machine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md)、[LEAD-STATISTICS-CANDIDATES-20261116.md](https://github.com/Viper-Boss/RustSimHub/blob/de663743bd726e77f7c560139d0f91ea78e8fe57/docs/deliveries/LEAD-STATISTICS-CANDIDATES-20261116.md)
 
 ### [ ] STAT-02 · 独立统计密钥与持久状态
 
@@ -1642,7 +1644,7 @@ main同源13程序和未签名6载荷只是交付材料；精确源码、许可�
 - 前置：无跨动作硬依赖
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
-- 证据：[member-a-stats-state-machine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md)
+- 证据：[member-a-stats-state-machine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md)、[LEAD-STATISTICS-CANDIDATES-20261116.md](https://github.com/Viper-Boss/RustSimHub/blob/de663743bd726e77f7c560139d0f91ea78e8fe57/docs/deliveries/LEAD-STATISTICS-CANDIDATES-20261116.md)
 
 ### [ ] STAT-03 · 链上订阅与确认实现
 
@@ -1653,7 +1655,7 @@ main同源13程序和未签名6载荷只是交付材料；精确源码、许可�
 - 前置：STAT-01、STAT-02
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
-- 证据：[member-a-stats-state-machine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
+- 证据：[member-a-stats-state-machine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)、[LEAD-STATISTICS-CANDIDATES-20261116.md](https://github.com/Viper-Boss/RustSimHub/blob/de663743bd726e77f7c560139d0f91ea78e8fe57/docs/deliveries/LEAD-STATISTICS-CANDIDATES-20261116.md)
 
 ### [ ] STAT-04 · 近期活跃安装估计查询与缓存
 
@@ -1686,7 +1688,7 @@ main同源13程序和未签名6载荷只是交付材料；精确源码、许可�
 - 前置：STAT-03、STAT-04、STAT-05
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
-- 证据：[member-a-stats-state-machine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)
+- 证据：[member-a-stats-state-machine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md)、[member-a-product-providers-complete.md](https://github.com/Viper-Boss/RustSimHub/blob/29ba539f0ea38418970526394372e80e4a5d38b1/docs/deliveries/member-a-product-providers-complete.md)、[LEAD-STATISTICS-CANDIDATES-20261116.md](https://github.com/Viper-Boss/RustSimHub/blob/de663743bd726e77f7c560139d0f91ea78e8fe57/docs/deliveries/LEAD-STATISTICS-CANDIDATES-20261116.md)
 
 ### [ ] STAT-07 · 失败、到期和隔离测试
 
@@ -1697,7 +1699,7 @@ main同源13程序和未签名6载荷只是交付材料；精确源码、许可�
 - 前置：STAT-06
 - 配合/条件：可由代理继续离线推进
 - Claude离线接手：可以；仍须提供SHA与本地验证报告
-- 证据：[member-a-stats-state-machine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md)
+- 证据：[member-a-stats-state-machine.md](https://github.com/Viper-Boss/RustSimHub/blob/8f9cfeff1a4b5a804b8b138e890f7386caf5a006/docs/deliveries/member-a-stats-state-machine.md)、[LEAD-STATISTICS-CANDIDATES-20261116.md](https://github.com/Viper-Boss/RustSimHub/blob/de663743bd726e77f7c560139d0f91ea78e8fe57/docs/deliveries/LEAD-STATISTICS-CANDIDATES-20261116.md)
 
 ### [ ] STAT-08 · 获准后的真实NKN试验
 
