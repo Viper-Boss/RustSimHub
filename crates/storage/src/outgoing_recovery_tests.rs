@@ -2,6 +2,8 @@
 //! Durable authorized send boundaries. No modem or actual message delivery.
 use super::*;
 use rustsimhub_policy::Principal;
+#[path = "outgoing_recovery_tests/enospc.rs"]
+mod enospc;
 
 fn binding(h: &Handle) -> SendContext {
     let line = h

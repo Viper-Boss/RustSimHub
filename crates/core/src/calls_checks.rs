@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
 use ed25519_dalek::{Signer, SigningKey};
+#[path = "calls_nas_a3_tests.rs"]
+mod nas_a3;
 use std::sync::atomic::{AtomicI32, AtomicU8, AtomicUsize, Ordering};
 #[derive(Clone)]
 struct FakeState {

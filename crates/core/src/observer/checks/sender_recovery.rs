@@ -6,7 +6,7 @@ use rustsimhub_policy::Principal;
 use rustsimhub_wire::AuthCommand;
 use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 
-fn login(
+pub(super) fn login(
     h: &Handle,
     identity: &std::path::Path,
     first: bool,
