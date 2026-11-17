@@ -89,7 +89,9 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | AirsimPcmPulse { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         WifiTrial { .. }
         | WifiBegin { .. }
+        | WifiBeginHidden { .. }
         | WifiStatus { .. }
+        | WifiRequest { .. }
         | WifiConfirm { .. }
         | WifiCancel { .. }
         | NetworkStatus { .. }
@@ -482,7 +484,9 @@ pub(crate) async fn handle(
     } else if matches!(
         request.command,
         AuthCommand::WifiBegin { .. }
+            | AuthCommand::WifiBeginHidden { .. }
             | AuthCommand::WifiStatus { .. }
+            | AuthCommand::WifiRequest { .. }
             | AuthCommand::WifiConfirm { .. }
             | AuthCommand::WifiCancel { .. }
     ) {
@@ -524,6 +528,9 @@ pub(crate) async fn handle(
                 value["call_observer"] = calls_observed.into();
                 value["saved_wifi_trial_api"] = crate::network_trial::enabled().into();
                 value["wifi_provisioning_api"] = crate::network_trial::provision::enabled().into();
+                value["wifi_request_api"] = crate::network_trial::provision::enabled().into();
+                value["wifi_hidden_provisioning_api"] =
+                    crate::network_trial::provision::enabled().into();
                 value
             }
             Err(_) => json!({"ok":false,"error":"modem_unavailable"}),
@@ -552,6 +559,9 @@ pub(crate) async fn handle(
                 value["call_control_api"] = calling_enabled.into();
                 value["saved_wifi_trial_api"] = crate::network_trial::enabled().into();
                 value["wifi_provisioning_api"] = crate::network_trial::provision::enabled().into();
+                value["wifi_request_api"] = crate::network_trial::provision::enabled().into();
+                value["wifi_hidden_provisioning_api"] =
+                    crate::network_trial::provision::enabled().into();
                 value["history_read_api"] = history_enabled.into();
                 value["legacy_read_api"] = compat_enabled.into();
                 value["forwarding_configuration_api"] = forwarding_config_api.into();

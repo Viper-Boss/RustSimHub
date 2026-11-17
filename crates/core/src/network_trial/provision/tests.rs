@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
+mod a4_usb_nm;
+mod restart_receipt;
 use std::{
     os::unix::fs::PermissionsExt,
     sync::atomic::{AtomicUsize, Ordering},
