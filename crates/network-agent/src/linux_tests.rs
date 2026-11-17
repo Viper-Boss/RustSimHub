@@ -1,5 +1,35 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
+#[test]
+fn zero_is_a_real_counter_baseline_and_idle_speed_is_known_zero() {
+    assert_eq!(
+        counter_rates(None, (0, 0), Duration::from_secs(2)),
+        (None, None)
+    );
+    assert_eq!(
+        counter_rates(Some((0, 0)), (32, 16), Duration::from_secs(2)),
+        (Some(16.0), Some(8.0))
+    );
+    assert_eq!(
+        counter_rates(Some((0, 0)), (0, 0), Duration::from_secs(2)),
+        (Some(0.0), Some(0.0))
+    );
+}
+#[test]
+fn counter_rates_preserve_reset_unknown_and_reject_an_empty_interval() {
+    assert_eq!(
+        counter_rates(Some((40, 10)), (2, 14), Duration::from_secs(2)),
+        (None, Some(2.0))
+    );
+    assert_eq!(
+        counter_rates(Some((0, 0)), (1, 1), Duration::ZERO),
+        (None, None)
+    );
+    assert_eq!(
+        counter_rates(Some((20, 10)), (20, 10), Duration::ZERO),
+        (None, None)
+    );
+}
 use std::os::unix::fs::symlink;
 
 #[test]

@@ -107,7 +107,10 @@ fn view(id: &str, state: State, deadline: Instant) -> Value {
 }
 async fn manager(auth: Arc<Mutex<Auth>>, token: String) -> Result<Principal> {
     tokio::task::spawn_blocking(move || {
-        let mut a = auth.try_lock().map_err(|_| Error::Busy)?;
+        // Authorization queries from another client are not a revocation.
+        // This runs on the blocking pool; inspect the current grant after the
+        // in-flight Auth operation releases its lock.
+        let mut a = auth.lock().map_err(|_| Error::Busy)?;
         a.network_manager(&token)
     })
     .await

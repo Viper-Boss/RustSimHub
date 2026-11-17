@@ -144,6 +144,23 @@ fn parse_counters(output: &str) -> Result<(u64, u64)> {
     }
     Ok((rx.ok_or("missing rx")?, tx.ok_or("missing tx")?))
 }
+fn counter_rates(
+    previous: Option<(u64, u64)>,
+    current: (u64, u64),
+    elapsed: Duration,
+) -> (Option<f64>, Option<f64>) {
+    let Some((rx, tx)) = previous else {
+        return (None, None);
+    };
+    if elapsed.is_zero() {
+        return (None, None);
+    }
+    let seconds = elapsed.as_secs_f64();
+    (
+        current.0.checked_sub(rx).map(|n| n as f64 / seconds),
+        current.1.checked_sub(tx).map(|n| n as f64 / seconds),
+    )
+}
 fn quota_exhausted() -> Result<bool> {
     let v: Value = serde_json::from_str(&command(
         "/usr/sbin/nft",
@@ -616,7 +633,7 @@ pub fn run() -> Result<()> {
     state.was_running = true;
     publish(BASE, "meter.json", &state, 0o600)?;
     let mut previous = Instant::now();
-    let mut last_counter = (0u64, 0u64);
+    let mut last_counter = None;
     let mut last_radio = Instant::now() - Duration::from_secs(30);
     let mut radio = json!({"available":false});
     let mut sim = String::new();
@@ -700,17 +717,15 @@ pub fn run() -> Result<()> {
                 );
             }
         }
-        let elapsed = previous.elapsed().as_secs_f64().max(0.001);
-        let rate_rx = rx.checked_sub(last_counter.0).map(|n| n as f64 / elapsed);
-        let rate_tx = tx.checked_sub(last_counter.1).map(|n| n as f64 / elapsed);
-        let status = json!({"schema":1,"available":true,"sample_unix_seconds":timestamp,"boot_id":boot,"devices":devices,"cellular":radio,"policy":state.policy,"usage":usage,"rx_bytes":rx,"tx_bytes":tx,"rx_bytes_per_second":if last_counter==(0,0){None}else{rate_rx},"tx_bytes_per_second":if last_counter==(0,0){None}else{rate_tx},"counter_source":"nftables-ip-packets","limit_enforcement":"shared-kernel-quota-and-NM-disconnect","accounting_note":"按当前SIM分开，Asia/Shanghai自然月；本机IP层估算，运营商账单为准；异常掉电可能缺最后5秒，限额开启时计量不确定会阻断普通数据","last_request_id":state.last_request,"policy_applied":applied.is_some(),"hardware_mutations":state.policy.enabled,"apn_autoactivation":false});
+        let (rate_rx, rate_tx) = counter_rates(last_counter, (rx, tx), previous.elapsed());
+        let status = json!({"schema":1,"available":true,"sample_unix_seconds":timestamp,"boot_id":boot,"devices":devices,"cellular":radio,"policy":state.policy,"usage":usage,"rx_bytes":rx,"tx_bytes":tx,"rx_bytes_per_second":rate_rx,"tx_bytes_per_second":rate_tx,"counter_source":"nftables-ip-packets","limit_enforcement":"shared-kernel-quota-and-NM-disconnect","accounting_note":"按当前SIM分开，Asia/Shanghai自然月；本机IP层估算，运营商账单为准；异常掉电可能缺最后5秒，限额开启时计量不确定会阻断普通数据","last_request_id":state.last_request,"policy_applied":applied.is_some(),"hardware_mutations":state.policy.enabled,"apn_autoactivation":false});
         publish(OUTPUT, "status.json", &status, 0o640)?;
         if last_save.elapsed() >= Duration::from_secs(5) {
             publish(BASE, "meter.json", &state, 0o600)?;
             last_save = Instant::now();
         }
         previous = tick;
-        last_counter = (rx, tx);
+        last_counter = Some((rx, tx));
         thread::sleep(Duration::from_secs(2));
     }
 }
