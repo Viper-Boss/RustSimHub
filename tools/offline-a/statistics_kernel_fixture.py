@@ -45,7 +45,7 @@ def rpc(request):
     if method=='sendrawtransaction':
         base.write('/tmp/statistics-submit-entered','1')
         scenario=os.environ['RSH_STATS_SCENARIO']
-        if scenario in ['off','cancel','root_revoke']:
+        if scenario in ['off','cancel','root_revoke','owner_inactive_after','owner_restore_after']:
             base.eventually(lambda:Path('/tmp/statistics-interruption-complete').exists(),.7)
             time.sleep(.08)
         if scenario=='late_reply':time.sleep(2.3)
@@ -54,7 +54,7 @@ def rpc(request):
 
 def main():
     if len(sys.argv)>1 and sys.argv[1]=='--node':base.node(rpc,fail_bootstrap=os.environ['RSH_STATS_SCENARIO']=='bootstrap_failure');return 0
-    scenario=os.environ['RSH_STATS_SCENARIO'];assert scenario in ['startup','shared','lost_ack','off','cancel','off_before','cancel_before','expired_prepare','late_reply','root_revoke','save_failure','save_full','start_failure','bootstrap_failure']
+    scenario=os.environ['RSH_STATS_SCENARIO'];assert scenario in ['startup','shared','lost_ack','off','cancel','off_before','cancel_before','expired_prepare','late_reply','root_revoke','save_failure','save_full','start_failure','bootstrap_failure','owner_inactive_before','owner_restore_before','owner_inactive_after','owner_restore_after']
     _,node=base.install_fixture(usage_transactions=True,node_entry=Path(__file__).resolve())
     if scenario=='start_failure':Path('/opt/rustsimhub/selected/nkn-sdk-engine').chmod(0o444)
     if scenario=='save_full':
@@ -122,7 +122,7 @@ def main():
             records_path=Path('/tmp/statistics-rpc.jsonl')
             records=[json.loads(x) for x in records_path.read_text().splitlines()] if records_path.exists() else []
             assert sum(x['method']=='getnoncebyaddr' for x in records)==(0 if scenario in ['start_failure','bootstrap_failure'] else 1)
-            expected_submits=0 if scenario in ['off_before','cancel_before','expired_prepare','save_failure','save_full','start_failure','bootstrap_failure'] else 1
+            expected_submits=0 if scenario in ['off_before','cancel_before','expired_prepare','save_failure','save_full','start_failure','bootstrap_failure','owner_inactive_before','owner_restore_before'] else 1
             assert sum(x['method']=='sendrawtransaction' for x in records)==expected_submits
             assert sum(x['method']=='gettransaction' for x in records)==(1 if scenario in ['shared','lost_ack'] else 0)
             summary=json.loads(Path('/tmp/statistics-result.json').read_text())

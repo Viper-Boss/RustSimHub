@@ -162,6 +162,79 @@ fn completed_off_interrupts_startup_read_without_waiting_for_root_reply() {
     startup_wait(true)
 }
 
+#[test]
+fn owner_inactive_and_restored_generation_interrupt_original_startup_wait() {
+    for restore in [false, true] {
+        let f = Fixture::new();
+        f.consent(true);
+        let store = f.statistics();
+        let signer = Arc::new(f.signer());
+        with_budget(store.clone(), |_, budget, _| {
+            let core = shared(&f, &signer, &store);
+            *core.startup.lock().unwrap() = Some(Arc::new(Startup {
+                signer: signer.clone(),
+                store: store.clone(),
+                budget: budget.clone(),
+            }));
+            let (ours, mut server) = UnixStream::pair().unwrap();
+            *core.connection.lock().unwrap() = Connection {
+                stream: Some(ours),
+                poisoned: false,
+            };
+            thread::scope(|s| {
+                let waiting = s
+                    .spawn(|| core.port_request(1, Instant::now() + Duration::from_secs(3), false));
+                server
+                    .set_read_timeout(Some(Duration::from_secs(1)))
+                    .unwrap();
+                let mut request = [0; 82];
+                server.read_exact(&mut request).unwrap();
+                let at = Instant::now();
+                f.owner_loss_for_test(restore);
+                assert!(waiting.join().unwrap().is_err());
+                assert!(at.elapsed() < Duration::from_millis(250));
+            });
+            assert!(!core.live.load(Ordering::Acquire));
+            assert!(core.connection.lock().unwrap().poisoned);
+        });
+    }
+}
+
+#[test]
+fn elapsed_local_deadline_and_boottime_fences_do_not_write_a_root_request() {
+    for boottime in [false, true] {
+        let f = Fixture::new();
+        f.consent(true);
+        let store = f.statistics();
+        let signer = f.signer();
+        let mut core = shared(&f, &signer, &store);
+        let original = core.authority.deadline();
+        let inner = Arc::get_mut(&mut core).unwrap();
+        if boottime {
+            inner.boot_deadline = boot_ms().unwrap().saturating_sub(1);
+        } else {
+            inner.deadline = Instant::now() - Duration::from_millis(1);
+        }
+        let (ours, mut server) = UnixStream::pair().unwrap();
+        server.set_nonblocking(true).unwrap();
+        *core.connection.lock().unwrap() = Connection {
+            stream: Some(ours),
+            poisoned: false,
+        };
+        assert!(core
+            .port_request(1, Instant::now() + Duration::from_secs(1), false)
+            .is_err());
+        let mut byte = [0];
+        match server.read(&mut byte) {
+            Ok(0) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+            other => panic!("expired fence emitted a Root request: {other:?}"),
+        }
+        assert_eq!(core.authority.deadline(), original);
+        // These are shortened Core-side fences, not an installed 300s expiry test.
+    }
+}
+
 // These tests make NO Ready assertion and do not start a fake Root or SDK.
 // They exercise exact ownership changes on the actual Supervisor/Controller.
 fn reference_fixture(
@@ -340,6 +413,10 @@ fn statistics_transport_kernel_sdk() {
         "save_full",
         "start_failure",
         "bootstrap_failure",
+        "owner_inactive_before",
+        "owner_restore_before",
+        "owner_inactive_after",
+        "owner_restore_after",
     ]
     .contains(&scenario.as_str()));
     let shared_run = ![
@@ -347,6 +424,10 @@ fn statistics_transport_kernel_sdk() {
         "root_revoke",
         "start_failure",
         "bootstrap_failure",
+        "owner_inactive_before",
+        "owner_restore_before",
+        "owner_inactive_after",
+        "owner_restore_after",
     ]
     .contains(&scenario.as_str());
     let f = Fixture::new();
@@ -573,15 +654,29 @@ fn statistics_transport_kernel_sdk() {
         cancellation.cancel();
     } else if scenario == "expired_prepare" {
         thread::sleep(Duration::from_millis(3100));
+    } else if ["owner_inactive_before", "owner_restore_before"].contains(&scenario.as_str()) {
+        f.owner_loss_for_test(scenario == "owner_restore_before");
     }
     let submitted = thread::scope(|scope| {
-        let interrupter = if ["off", "cancel", "root_revoke"].contains(&scenario.as_str()) {
+        let interrupter = if [
+            "off",
+            "cancel",
+            "root_revoke",
+            "owner_inactive_after",
+            "owner_restore_after",
+        ]
+        .contains(&scenario.as_str())
+        {
             Some(scope.spawn(|| {
                 wait("/tmp/statistics-submit-entered", 5);
                 if scenario == "off" {
                     off(&f);
                 } else if scenario == "cancel" {
                     cancellation.cancel();
+                } else if ["owner_inactive_after", "owner_restore_after"]
+                    .contains(&scenario.as_str())
+                {
+                    f.owner_loss_for_test(scenario == "owner_restore_after");
                 } else {
                     root.run
                         .lock()
@@ -609,7 +704,15 @@ fn statistics_transport_kernel_sdk() {
             matches!(submitted,Outcome::Pending{digest:d} if d==digest),
             "{submitted:?}"
         ),
-        "lost_ack" | "off" | "off_before" | "root_revoke" | "late_reply" => assert!(
+        "lost_ack"
+        | "off"
+        | "off_before"
+        | "root_revoke"
+        | "late_reply"
+        | "owner_inactive_before"
+        | "owner_restore_before"
+        | "owner_inactive_after"
+        | "owner_restore_after" => assert!(
             matches!(submitted,Outcome::Unknown{digest:d,..} if d==digest),
             "{submitted:?}"
         ),
@@ -706,7 +809,14 @@ fn statistics_transport_kernel_sdk() {
         1
     );
     let expected_submits = usize::from(
-        !["off_before", "cancel_before", "expired_prepare"].contains(&scenario.as_str()),
+        ![
+            "off_before",
+            "cancel_before",
+            "expired_prepare",
+            "owner_inactive_before",
+            "owner_restore_before",
+        ]
+        .contains(&scenario.as_str()),
     );
     assert_eq!(
         rows.iter()

@@ -103,6 +103,31 @@ impl Fixture {
             .unwrap(),
         )
     }
+    // A private test database models trusted offline revocation; this is NOT
+    // a new Owner-revoke API. Recovery uses the original Store generation fence.
+    pub(crate) fn owner_loss_for_test(&self, restore: bool) {
+        let db = rusqlite::Connection::open(self.state.path().join("store.sqlite3")).unwrap();
+        assert_eq!(
+            db.execute(
+                "UPDATE principals SET active=0,generation=generation+1 WHERE kind='owner'",
+                []
+            )
+            .unwrap(),
+            1
+        );
+        drop(db);
+        let inactive = self
+            .store
+            .handle()
+            .principal(self.owner.public_key)
+            .unwrap()
+            .unwrap();
+        assert!(!inactive.active && inactive.generation > self.owner.generation);
+        if restore {
+            let recovered = self.store.handle().recover_owner(inactive.clone()).unwrap();
+            assert!(recovered.active && recovered.generation > inactive.generation);
+        }
+    }
 }
 fn change(n: u32, expected: u64, enabled: bool) -> Change {
     Change {
