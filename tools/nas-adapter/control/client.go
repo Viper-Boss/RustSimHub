@@ -161,6 +161,8 @@ func (c *Client) exchange(ctx context.Context, id string, command map[string]any
 	}
 	req.ContentLength = int64(len(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", c.origin)
+	req.Header.Set("X-RustSimHub-Request", "2")
 	response, err := c.http.Do(req)
 	if err != nil {
 		return &Failure{"transport_failed", mutation, recovery}

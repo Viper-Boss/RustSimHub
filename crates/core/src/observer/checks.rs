@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 use super::*;
 use sources::{BATCH, MAX_OBJECTS};
+mod a3_sms;
 mod content;
 mod lifecycle;
 mod sender_recovery;

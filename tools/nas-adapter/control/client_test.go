@@ -52,7 +52,7 @@ func reply(w http.ResponseWriter, r *http.Request, result any) {
 func TestFiniteCommandsMatchCommittedActualWireVectors(t *testing.T) {
 	var captured []json.RawMessage
 	c, _ := fixture(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" || r.URL.Path != "/api/v2" || r.Header.Get("Idempotency-Key") != "" {
+		if r.Method != "POST" || r.URL.Path != "/api/v2" || r.Header.Get("Idempotency-Key") != "" || r.Header.Get("Origin") != "https://"+r.Host || r.Header.Get("X-RustSimHub-Request") != "2" {
 			t.Error("unexpected transport")
 		}
 		var req struct {
