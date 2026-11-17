@@ -1,0 +1,2199 @@
+{
+  "kind": "offline-test-observations-not-release-manifest",
+  "date": "2026-11-17",
+  "paths_normalized": true,
+  "not_combined_pr_integration": true,
+  "observations": [
+    {
+      "observation": "a5-main",
+      "source": {
+        "head": "de663743bd726e77f7c560139d0f91ea78e8fe57",
+        "tree": "897b7b485ce8b3108d359d859dd2384efba78df1"
+      },
+      "passed": true,
+      "steps": [
+        {
+          "name": "clone",
+          "command": [
+            "git",
+            "clone",
+            "--shared",
+            "--no-checkout",
+            "${REPOSITORY}",
+            "${PROFILE_WORK}/repo"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "db0522fddeaefce969b612d344ad8ca9f0326f4571286862c91430b296cfe016"
+        },
+        {
+          "name": "checkout",
+          "command": [
+            "git",
+            "checkout",
+            "--detach",
+            "de663743bd726e77f7c560139d0f91ea78e8fe57"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "b9be3b4e16cfad7613cd0a00ba6d185fa4fad39f2db1934547757b9bccd3eab0"
+        },
+        {
+          "name": "rustc",
+          "command": [
+            "rustc",
+            "--version"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "785f1364c0d5bf077f7bfb885fd4bde99899dfd80ce0fb6226a4527d9b27724c"
+        },
+        {
+          "name": "node",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "--version"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "249baf635bb43877fcb9422efa1a4904b702d0ddf14d3949b7cd0950d5229c81"
+        },
+        {
+          "name": "business-default",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-usage-stats",
+            "-p",
+            "rustsimhub-nkn-agent",
+            "-p",
+            "rustsimhub-forwarder",
+            "--locked",
+            "--offline",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "105",
+              "0",
+              "1"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ],
+            [
+              "4",
+              "0",
+              "0"
+            ],
+            [
+              "18",
+              "0",
+              "0"
+            ],
+            [
+              "65",
+              "0",
+              "0"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ],
+            [
+              "25",
+              "0",
+              "0"
+            ],
+            [
+              "9",
+              "0",
+              "0"
+            ],
+            [
+              "22",
+              "0",
+              "0"
+            ],
+            [
+              "13",
+              "0",
+              "0"
+            ],
+            [
+              "21",
+              "0",
+              "0"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "332951e1657ae1742b0963e1aa0936ce2332cf843cd6ead8b78180c0b99ba30b"
+        },
+        {
+          "name": "business-production",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-usage-stats",
+            "-p",
+            "rustsimhub-nkn-agent",
+            "-p",
+            "rustsimhub-forwarder",
+            "--features",
+            "rustsimhub-usage-stats/transaction-candidate,rustsimhub-forwarder/smtp-production-candidate",
+            "--locked",
+            "--offline",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "108",
+              "0",
+              "1"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ],
+            [
+              "21",
+              "0",
+              "0"
+            ],
+            [
+              "65",
+              "0",
+              "0"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ],
+            [
+              "25",
+              "0",
+              "0"
+            ],
+            [
+              "9",
+              "0",
+              "0"
+            ],
+            [
+              "22",
+              "0",
+              "0"
+            ],
+            [
+              "13",
+              "0",
+              "0"
+            ],
+            [
+              "21",
+              "0",
+              "0"
+            ],
+            [
+              "2",
+              "0",
+              "0"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "1cf37f3384d2ea62f3bed50b6bb08c9b4b97a01b11d3b84b3bdbdc9c6ca76242"
+        },
+        {
+          "name": "statistics-original-signer",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--features",
+            "usage-root-transport-candidate,email-production-candidate",
+            "--lib",
+            "--locked",
+            "--offline",
+            "nkn_statistics::tests::",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "5",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "2b8b8e56ebe5e0f69eaa6b272863872d39385d02447f1f3deb5471addec5664c"
+        },
+        {
+          "name": "root-transport",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--features",
+            "usage-root-transport-candidate,email-production-candidate",
+            "--lib",
+            "--locked",
+            "--offline",
+            "nkn_root::",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "16",
+              "0",
+              "1"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "02b34f32cc8a3749c400dcdf6836b0a657ecb638b00022697742d887f5bb929f"
+        },
+        {
+          "name": "auth-network",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-auth",
+            "--lib",
+            "--locked",
+            "--offline",
+            "network_manager_is_recent_owner_or_live_approved_client_only",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "1",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "1fe5dc70cd7e722caded447d9e7fc5dfabdff6e19d64d7e0aa4b3bc1132907ee"
+        },
+        {
+          "name": "format",
+          "command": [
+            "cargo",
+            "fmt",
+            "--all",
+            "--",
+            "--check"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "strict",
+          "command": [
+            "cargo",
+            "clippy",
+            "-p",
+            "rustsimhub-usage-stats",
+            "-p",
+            "rustsimhub-nkn-agent",
+            "-p",
+            "rustsimhub-forwarder",
+            "--all-targets",
+            "--all-features",
+            "--locked",
+            "--offline",
+            "--",
+            "-D",
+            "warnings"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "ecf5ad3ca8a4fbaaa799c12aa11414fcc43dd7c9feb5acfd6fd806afc33e7c0e"
+        },
+        {
+          "name": "node-forwarding",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-forwarding.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "3d9d2a38de5a7371dfb754699819d2b129a6759aa89153d1a38bf8ef29838727"
+        },
+        {
+          "name": "node-forwarding-history",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-forwarding-history.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "f82789025f472940a0e6d176549912db2d13977c6aaa371955082a8a3a6afc36"
+        },
+        {
+          "name": "node-usage-stats",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-usage-stats.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "65f4432de76803105ac50e3af3d785acb57a49f01001b644671d949ca31b9bd4"
+        },
+        {
+          "name": "arm-compile-only",
+          "command": [
+            "cargo",
+            "check",
+            "-p",
+            "rustsimhub-core",
+            "--lib",
+            "--bin",
+            "rustsimhub-core",
+            "--features",
+            "usage-root-transport-candidate,email-production-candidate",
+            "--target",
+            "aarch64-unknown-linux-gnu",
+            "--locked",
+            "--offline"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "e7a704bf0aeb42195498c30155ec440b3fcea900413c5ae47aaa698f099a514b"
+        }
+      ],
+      "raw_result_sha256": "d458bb448dd04bf7b1eb84bb0f2fa8b56c58ddaddf96ff1a5b1e9dc34f5ff154",
+      "locks": {
+        "Cargo.lock": "c54fc883b17ce1f80b002a07059edc5100e908c1ae764efe9f925540aa959443",
+        "rust-toolchain.toml": "f2c82031ae793bfe2c19b2f9828259fbb6eb79081849cca5294706ab46ff2d32"
+      },
+      "locks_unchanged": true,
+      "security": {
+        "Uid": "1000\t1000\t1000\t1000",
+        "CapEff": "0000000000000000",
+        "CapBnd": "0000000000000000",
+        "NoNewPrivs": "1"
+      }
+    },
+    {
+      "observation": "a5-sdk",
+      "source": {
+        "head": "fd3358ef1cee1bc2305ca96d13f55ff1ac3fc4ae",
+        "tree": "3b6aeaa15a692d6400fa998f10ab8ac7f085d4bf"
+      },
+      "passed": true,
+      "steps": [
+        {
+          "name": "clone",
+          "command": [
+            "git",
+            "clone",
+            "--shared",
+            "--no-checkout",
+            "${REPOSITORY}",
+            "${PROFILE_WORK}/repo"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "336d95bcbcde3f3d1704970b15a438b6976fb563bba01447cd278e1a94daa2e0"
+        },
+        {
+          "name": "checkout",
+          "command": [
+            "git",
+            "checkout",
+            "--detach",
+            "fd3358ef1cee1bc2305ca96d13f55ff1ac3fc4ae"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "12bd6390bf0331f464350b42c855f7e03a90cb1e2644249089807f56308f039f"
+        },
+        {
+          "name": "rustc",
+          "command": [
+            "rustc",
+            "--version"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "785f1364c0d5bf077f7bfb885fd4bde99899dfd80ce0fb6226a4527d9b27724c"
+        },
+        {
+          "name": "node",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "--version"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "249baf635bb43877fcb9422efa1a4904b702d0ddf14d3949b7cd0950d5229c81"
+        },
+        {
+          "name": "go-version",
+          "command": [
+            "${A5_CACHE}/toolchains/go1.27.3/go/bin/go",
+            "version"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "5707bf75dd54b4fdd5ac209444d48c9c4179ebf8510f80e2f7293dfbedc1012b"
+        },
+        {
+          "name": "managed-prepare",
+          "command": [
+            "python3",
+            "${PROFILE_WORK}/repo/tools/nkn-build/sdk-managed/prepare.py",
+            "--verified-sdk-stage",
+            "${PROFILE_WORK}/repo/work/verified-base",
+            "--output",
+            "${PROFILE_WORK}/repo/work/managed"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "997fbea335e6f5a8dc5ae8fe1fd3bca305f9a790d6feff5a24bb57358d515ef8"
+        },
+        {
+          "name": "modules-verify",
+          "command": [
+            "${A5_CACHE}/toolchains/go1.27.3/go/bin/go",
+            "mod",
+            "verify"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "b4537ed75f533f993f371954de47e42a793b8e5b0587577de7e27fb3e50696bd"
+        },
+        {
+          "name": "managed-regressions",
+          "command": [
+            "${A5_CACHE}/toolchains/go1.27.3/go/bin/go",
+            "test",
+            "-race",
+            "-mod=readonly",
+            "-count=1",
+            "-timeout=45s",
+            "-v",
+            "-run",
+            "^TestManaged",
+            "github.com/nknorg/nkn-sdk-go"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "740ab1325f8b8fb2442c75f9ea62b91e82e6f6db20dc8ca1d0ee6ebcf768ca0a"
+        },
+        {
+          "name": "default-race",
+          "command": [
+            "${A5_CACHE}/toolchains/go1.27.3/go/bin/go",
+            "test",
+            "-race",
+            "-mod=readonly",
+            "-tags=nkn_sdk_candidate",
+            "-count=1",
+            "-timeout=90s",
+            "-json",
+            "github.com/Viper-Boss/RustSimHub/tools/nkn-engine/..."
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "d14c1b6488b3e23efeee80bd7f9db1962f1b0a33c517b1cd3e37e2c986c77b54"
+        },
+        {
+          "name": "default-vet",
+          "command": [
+            "${A5_CACHE}/toolchains/go1.27.3/go/bin/go",
+            "vet",
+            "-mod=readonly",
+            "-tags=nkn_sdk_candidate",
+            "github.com/Viper-Boss/RustSimHub/tools/nkn-engine/..."
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "transaction-race",
+          "command": [
+            "${A5_CACHE}/toolchains/go1.27.3/go/bin/go",
+            "test",
+            "-race",
+            "-mod=readonly",
+            "-tags=nkn_sdk_candidate,nkn_usage_transaction_candidate",
+            "-count=1",
+            "-timeout=90s",
+            "-json",
+            "github.com/Viper-Boss/RustSimHub/tools/nkn-engine/..."
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "cc278ff0f1b118650d2ab5c3e07598af70b9a48417eb0fe33e9f5726d4f6a4a8"
+        },
+        {
+          "name": "transaction-vet",
+          "command": [
+            "${A5_CACHE}/toolchains/go1.27.3/go/bin/go",
+            "vet",
+            "-mod=readonly",
+            "-tags=nkn_sdk_candidate,nkn_usage_transaction_candidate",
+            "github.com/Viper-Boss/RustSimHub/tools/nkn-engine/..."
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "sdk-arm64",
+          "command": [
+            "${A5_CACHE}/toolchains/go1.27.3/go/bin/go",
+            "build",
+            "-mod=readonly",
+            "-trimpath",
+            "-tags=nkn_sdk_candidate,nkn_usage_transaction_candidate",
+            "-o",
+            "${PROFILE_WORK}/sdk-arm64",
+            "github.com/Viper-Boss/RustSimHub/tools/nkn-engine/cmd/nkn-sdk-engine"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "root-arm64",
+          "command": [
+            "${A5_CACHE}/toolchains/go1.27.3/go/bin/go",
+            "build",
+            "-mod=readonly",
+            "-trimpath",
+            "-o",
+            "${PROFILE_WORK}/root-arm64",
+            "github.com/Viper-Boss/RustSimHub/tools/nkn-engine/cmd/nkn-root"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "raw_result_sha256": "c5a39574470d0741b0f1b3aa60b633a7e92bd86e4a22a0f709f9b575c584a030",
+      "locks": {
+        "Cargo.lock": "c54fc883b17ce1f80b002a07059edc5100e908c1ae764efe9f925540aa959443",
+        "rust-toolchain.toml": "f2c82031ae793bfe2c19b2f9828259fbb6eb79081849cca5294706ab46ff2d32"
+      },
+      "locks_unchanged": true,
+      "security": {
+        "Uid": "1000\t1000\t1000\t1000",
+        "CapEff": "0000000000000000",
+        "CapBnd": "0000000000000000",
+        "NoNewPrivs": "1"
+      },
+      "fixed_chain": {
+        "source_files": 31,
+        "compatibility_patch": "0c037a0dcb1f15447db9ab423ad6b5534446f5dc5a48b4c2035a7d7c9a66b8af",
+        "minimal_patch": "b5aa8703b0433bfd4adf476ae62cbbc596b4c3e05beb8b25941fe939fc270b35",
+        "mask_patch": "e6ff1a34fae896d1f1dc248d0bac5f8c54f48c753b94a416344f48eb76768bd8",
+        "managed_patch": "6bea2a0448e475712834db1bb004260ea19a569eb0cea20172eec43b57899191",
+        "vectors_exact": true
+      },
+      "arm_compile_only": [
+        {
+          "name": "sdk",
+          "sha256": "a1be436505d84875b9c015409e8dbde767dbe26ea3af0840d74fbfb3fcc1a31a",
+          "executed": false
+        },
+        {
+          "name": "root",
+          "sha256": "7d92f77ad9b189f887d439ca784db4dfc2533f7521d63fb3b12f6cc9b1b80ca2",
+          "executed": false
+        }
+      ],
+      "go_counts": {
+        "default": {
+          "top_level_passed": 58,
+          "pass_events_including_subtests": 200,
+          "skip_events": 0
+        },
+        "transaction": {
+          "top_level_passed": 58,
+          "pass_events_including_subtests": 200,
+          "skip_events": 0
+        }
+      }
+    },
+    {
+      "observation": "a5-a2-corrected",
+      "source": {
+        "head": "fd3358ef1cee1bc2305ca96d13f55ff1ac3fc4ae",
+        "tree": "3b6aeaa15a692d6400fa998f10ab8ac7f085d4bf"
+      },
+      "passed": true,
+      "steps": [
+        {
+          "name": "clone",
+          "command": [
+            "git",
+            "clone",
+            "--shared",
+            "--no-checkout",
+            "${REPOSITORY}",
+            "${PROFILE_WORK}/repo"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "b7442d79212755d6b23ac5cb00bf8e36ebe63e97dcafc88fe67d4b53b21b9bb8"
+        },
+        {
+          "name": "checkout",
+          "command": [
+            "git",
+            "checkout",
+            "--detach",
+            "fd3358ef1cee1bc2305ca96d13f55ff1ac3fc4ae"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "12bd6390bf0331f464350b42c855f7e03a90cb1e2644249089807f56308f039f"
+        },
+        {
+          "name": "rustc",
+          "command": [
+            "rustc",
+            "--version"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "785f1364c0d5bf077f7bfb885fd4bde99899dfd80ce0fb6226a4527d9b27724c"
+        },
+        {
+          "name": "node",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "--version"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "249baf635bb43877fcb9422efa1a4904b702d0ddf14d3949b7cd0950d5229c81"
+        },
+        {
+          "name": "agent-default",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-nkn-agent",
+            "--locked",
+            "--offline",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "65",
+              "0",
+              "0"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "9ec79d798f83b536b84fa80ff42213a964195bec24aec6db8e2eefae7866e5f7"
+        },
+        {
+          "name": "auth-nkn",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-auth",
+            "--features",
+            "nkn-session-candidate",
+            "--lib",
+            "--locked",
+            "--offline",
+            "nkn_session::tests::",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "9",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "61f72bf832dffa7e6538472786aa5e978a015aa33d6f2e79cc3719c275983202"
+        },
+        {
+          "name": "core-default",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--bin",
+            "rustsimhub-core",
+            "--locked",
+            "--offline",
+            "signed_session_continuation_round_trip_rotates_with_existing_overlap",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "1",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "927c22cc5f7e31190c564c52500f99776b6c13a3f87da41e23246ef35a5d43d7"
+        },
+        {
+          "name": "core-production",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--features",
+            "usage-root-transport-candidate,email-production-candidate",
+            "--bin",
+            "rustsimhub-core",
+            "--locked",
+            "--offline",
+            "nkn_",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "9",
+              "0",
+              "4"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "4fa23e08c786673ec6e040f8f0313bd9727fa6cd6a0d5b8ebb51142b2cf78929"
+        },
+        {
+          "name": "root-production",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--features",
+            "usage-root-transport-candidate,email-production-candidate",
+            "--lib",
+            "--locked",
+            "--offline",
+            "nkn_root::",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "16",
+              "0",
+              "1"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "dbc0d52849e5f3f2a296f6c7f897dace3b4ea43d585f14ae193d0592cb9cd2f6"
+        },
+        {
+          "name": "build-core",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--bin",
+            "rustsimhub-core",
+            "--locked",
+            "--offline",
+            "--no-run",
+            "--message-format=json",
+            "--features",
+            "usage-root-transport-candidate,email-production-candidate"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "36d24efa10518f4220e4bad52d0d8cec9235acd4d3fd950cd57f1c4dad4fd335"
+        },
+        {
+          "name": "format",
+          "command": [
+            "cargo",
+            "fmt",
+            "--all",
+            "--",
+            "--check"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "strict",
+          "command": [
+            "cargo",
+            "clippy",
+            "-p",
+            "rustsimhub-core",
+            "-p",
+            "rustsimhub-edge",
+            "-p",
+            "rustsimhub-nkn-agent",
+            "-p",
+            "rustsimhub-auth",
+            "--all-targets",
+            "--all-features",
+            "--locked",
+            "--offline",
+            "--",
+            "-D",
+            "warnings"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "6159942ced677ff1f7a41306abd4e5739e5b614a770ac099ed5bc00a10621091"
+        },
+        {
+          "name": "node-nkn-product",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-nkn-product.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "65fca2d64b7626323d120a9b080e252efa63440283ec59d8eda0f1af4f835079"
+        },
+        {
+          "name": "node-nkn-status",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-nkn-status.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "8cfbd7d3194d034696ba5d4eb2f8f529f1aa5da3a8f48765453d62f90326e1e3"
+        },
+        {
+          "name": "node-session",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-session.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "906d8d61c5b7fcc47ccff15b159ebbe5fb8084326cbb2275a4ece014b5266a91"
+        },
+        {
+          "name": "node-operation-receipt",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-operation-receipt.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "0c0d4a1dd4f1ab29d4e25632a5fd5147d0a66614e60520cc203b2213aa5e2d94"
+        },
+        {
+          "name": "node-console-fencing",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-console-fencing.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "4a67e8301740b8992343d555d74a7fe2e34e3185a1a330ba45a9b65ec73159f9"
+        },
+        {
+          "name": "arm-compile-only",
+          "command": [
+            "cargo",
+            "check",
+            "-p",
+            "rustsimhub-core",
+            "--lib",
+            "--bin",
+            "rustsimhub-core",
+            "--features",
+            "usage-root-transport-candidate,email-production-candidate",
+            "--target",
+            "aarch64-unknown-linux-gnu",
+            "--locked",
+            "--offline"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "2293e662a57d8073c3e332fa1de3cce8fa8779c70ee586ad9e5fa97996163fa3"
+        }
+      ],
+      "raw_result_sha256": "d9beec5a1f27c974b7a3c9d125e4eaeed2b7bad486ebbfb89faf930c006eff18",
+      "locks": {
+        "Cargo.lock": "c54fc883b17ce1f80b002a07059edc5100e908c1ae764efe9f925540aa959443",
+        "rust-toolchain.toml": "f2c82031ae793bfe2c19b2f9828259fbb6eb79081849cca5294706ab46ff2d32"
+      },
+      "locks_unchanged": true,
+      "security": {
+        "Uid": "1000\t1000\t1000\t1000",
+        "CapEff": "0000000000000000",
+        "CapBnd": "0000000000000000",
+        "NoNewPrivs": "1"
+      }
+    },
+    {
+      "observation": "a5-a3",
+      "source": {
+        "head": "c2a60903edb30a4bf4f3efb4dffa244da58d1cef",
+        "tree": "561fc29e8b36f8fe485adaf37cba5e968fa60549"
+      },
+      "passed": true,
+      "steps": [
+        {
+          "name": "clone",
+          "command": [
+            "git",
+            "clone",
+            "--shared",
+            "--no-checkout",
+            "${REPOSITORY}",
+            "${PROFILE_WORK}/repo"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "ccd4033cb45fec23b149b00bd3665587f0be8473f72f54b45aac889aa83c0ae0"
+        },
+        {
+          "name": "checkout",
+          "command": [
+            "git",
+            "checkout",
+            "--detach",
+            "c2a60903edb30a4bf4f3efb4dffa244da58d1cef"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "27472c03f13f1eefdc016fbd07f76d7ab0b7e68fe4796c7d2dcd76eb02623f03"
+        },
+        {
+          "name": "rustc",
+          "command": [
+            "rustc",
+            "--version"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "785f1364c0d5bf077f7bfb885fd4bde99899dfd80ce0fb6226a4527d9b27724c"
+        },
+        {
+          "name": "node",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "--version"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "249baf635bb43877fcb9422efa1a4904b702d0ddf14d3949b7cd0950d5229c81"
+        },
+        {
+          "name": "storage",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-storage",
+            "--locked",
+            "--offline",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "74",
+              "0",
+              "1"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "fd92b335ab26a4199de6a1baa3f7e14ddf3f448b97d9f139412b0f30ca1064d6"
+        },
+        {
+          "name": "observer-default",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--bin",
+            "rustsimhub-core",
+            "--locked",
+            "--offline",
+            "observer::",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "18",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "64501cfb364f66d4322f175627376506a7875243e30f1f4e842efe924269d19a"
+        },
+        {
+          "name": "calls-default",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--bin",
+            "rustsimhub-core",
+            "--locked",
+            "--offline",
+            "calls::checks::",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "23",
+              "0",
+              "1"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "72d049f36c431881c8f73c5253093e2031bed203fa3a05a6dfb696608cc6cd48"
+        },
+        {
+          "name": "observer-production",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--features",
+            "usage-root-transport-candidate,email-production-candidate",
+            "--bin",
+            "rustsimhub-core",
+            "--locked",
+            "--offline",
+            "observer::",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "18",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "6584202284626043711a91f26213a51e3369caf38eb0db20a44836f06294a552"
+        },
+        {
+          "name": "calls-production",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--features",
+            "usage-root-transport-candidate,email-production-candidate",
+            "--bin",
+            "rustsimhub-core",
+            "--locked",
+            "--offline",
+            "calls::checks::",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "24",
+              "0",
+              "1"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "fa83d611efb23b01cc01653ff5a4b6f3219512b3fbb8aa7bc3d66fcd448c0f25"
+        },
+        {
+          "name": "forwarder-default",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-forwarder",
+            "--locked",
+            "--offline",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "105",
+              "0",
+              "1"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ],
+            [
+              "4",
+              "0",
+              "0"
+            ],
+            [
+              "18",
+              "0",
+              "0"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "87d194f497fa39dc6c7ee393276820db708dc8b6fba36f3f3174ed5bbc6f8220"
+        },
+        {
+          "name": "forwarder-production",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-forwarder",
+            "--features",
+            "smtp-production-candidate",
+            "--locked",
+            "--offline",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "108",
+              "0",
+              "1"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ],
+            [
+              "21",
+              "0",
+              "0"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "7473effabe227086d70f8571e4957d3db1e9109971f6ffb28a87cf6b3c7ec072"
+        },
+        {
+          "name": "build-core",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--bin",
+            "rustsimhub-core",
+            "--locked",
+            "--offline",
+            "--no-run",
+            "--message-format=json",
+            "--features",
+            "usage-root-transport-candidate,email-production-candidate"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "fc1d343055aca6f0ae7ccb4a44b8a8e469bb098b6b1e8185c5a503524ff286fb"
+        },
+        {
+          "name": "build-edge",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-edge",
+            "--bin",
+            "rustsimhub-edge",
+            "--locked",
+            "--offline",
+            "--no-run",
+            "--message-format=json"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "a6619e086ebe415aeaac3a22ff2de68b71c02ab00936899c8b2558bdd351e76b"
+        },
+        {
+          "name": "build-storage",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-storage",
+            "--lib",
+            "--locked",
+            "--offline",
+            "--no-run",
+            "--message-format=json"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "5070f13d21fc547ea04330055559b7efbcf1a89df45e3df9d5003eb50fb53268"
+        },
+        {
+          "name": "format",
+          "command": [
+            "cargo",
+            "fmt",
+            "--all",
+            "--",
+            "--check"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "strict",
+          "command": [
+            "cargo",
+            "clippy",
+            "-p",
+            "rustsimhub-core",
+            "-p",
+            "rustsimhub-edge",
+            "-p",
+            "rustsimhub-storage",
+            "-p",
+            "rustsimhub-compat",
+            "-p",
+            "rustsimhub-forwarder",
+            "--all-targets",
+            "--all-features",
+            "--locked",
+            "--offline",
+            "--",
+            "-D",
+            "warnings"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "8873195cc51ddf39142d4bccfca10f583b01e6374a85f5948001691cdff43c74"
+        },
+        {
+          "name": "node-daily-sms",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-daily-sms.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "ffbac9b2050f64808b87ed0f713fac2b2cd0a8fe38bf07118dbce6694d182659"
+        },
+        {
+          "name": "node-sms-management",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-sms-management.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "389ba623fb9fd4d03ced6444ef0fb996eff652afa29b71c1da3fe6252f67e1ca"
+        },
+        {
+          "name": "node-daily-phone",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-daily-phone.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "5993bb6e8262571fd7d809d5cc38501b6df7b2e03942576053a25b0a94a4c13c"
+        },
+        {
+          "name": "node-call-test",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-call-test.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "c3818e5ddc3e6af6a11bef95a97ceb881e2c9f228174e08c0a7c3a9fca670183"
+        },
+        {
+          "name": "node-operation-receipt",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-operation-receipt.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "0c0d4a1dd4f1ab29d4e25632a5fd5147d0a66614e60520cc203b2213aa5e2d94"
+        },
+        {
+          "name": "node-console",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-console.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "be9cbfc858b3073d9aa82544e1b57aaedeaf89ed7ecb78ff0f5ba19ce823d108"
+        },
+        {
+          "name": "arm-compile-only",
+          "command": [
+            "cargo",
+            "check",
+            "-p",
+            "rustsimhub-core",
+            "--lib",
+            "--bin",
+            "rustsimhub-core",
+            "--features",
+            "usage-root-transport-candidate,email-production-candidate",
+            "--target",
+            "aarch64-unknown-linux-gnu",
+            "--locked",
+            "--offline"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "1ff6a5c3ae54372528261ef861c7d1ec0eb361328d2913b34a72379a79352549"
+        }
+      ],
+      "raw_result_sha256": "3546e9e6bf495f9cb3522dbfb510efeac28fc4d6f5200d6b4194b1d7812b94f7",
+      "locks": {
+        "Cargo.lock": "c54fc883b17ce1f80b002a07059edc5100e908c1ae764efe9f925540aa959443",
+        "rust-toolchain.toml": "f2c82031ae793bfe2c19b2f9828259fbb6eb79081849cca5294706ab46ff2d32"
+      },
+      "locks_unchanged": true,
+      "security": {
+        "Uid": "1000\t1000\t1000\t1000",
+        "CapEff": "0000000000000000",
+        "CapBnd": "0000000000000000",
+        "NoNewPrivs": "1"
+      }
+    },
+    {
+      "observation": "a5-a4",
+      "source": {
+        "head": "774d4a05a1ff5191297f5dfa0ca4e0d0a0f89b6b",
+        "tree": "8fc8aef7d0428f973c83c094d0be4fc9abf18ad7"
+      },
+      "passed": true,
+      "steps": [
+        {
+          "name": "clone",
+          "command": [
+            "git",
+            "clone",
+            "--shared",
+            "--no-checkout",
+            "${REPOSITORY}",
+            "${PROFILE_WORK}/repo"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "a31682b6a21335ceb208d90417b9b4b7cd20a2daca6b1d50619bd4fc795b11c3"
+        },
+        {
+          "name": "checkout",
+          "command": [
+            "git",
+            "checkout",
+            "--detach",
+            "774d4a05a1ff5191297f5dfa0ca4e0d0a0f89b6b"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "7788032f20ccd035567dd6f83b9145c5d40efb9a5aaad34de63ea971cbdc457d"
+        },
+        {
+          "name": "rustc",
+          "command": [
+            "rustc",
+            "--version"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "785f1364c0d5bf077f7bfb885fd4bde99899dfd80ce0fb6226a4527d9b27724c"
+        },
+        {
+          "name": "node",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "--version"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "249baf635bb43877fcb9422efa1a4904b702d0ddf14d3949b7cd0950d5229c81"
+        },
+        {
+          "name": "wire-hidden",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-wire",
+            "--lib",
+            "--locked",
+            "--offline",
+            "hidden_wifi_is_explicit_bounded_and_does_not_change_legacy_commands",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "1",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "24ea03ef3fc1ba0068061d5bbcc316fe5ec008e68b22a71e867bb3caec7679e1"
+        },
+        {
+          "name": "ordinary-default",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--lib",
+            "--locked",
+            "--offline",
+            "network_trial::provision::tests::",
+            "--",
+            "--nocapture",
+            "--skip",
+            "recovery",
+            "--skip",
+            "a4_usb_nm"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "6",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "e6629da68135b1846a4e02d647036d8a965bc8391e87690c7e0ef340c6aff0b3"
+        },
+        {
+          "name": "saved-default",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--lib",
+            "--locked",
+            "--offline",
+            "network_trial::tests::",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "7",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "9ff9f4d607ffd50c9b1696ddd309f75328885a76602dac1ff6010e82db785637"
+        },
+        {
+          "name": "ipc-disabled",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--bin",
+            "rustsimhub-core",
+            "--locked",
+            "--offline",
+            "hidden_usb_wifi_real_ipc_advertises_disabled_and_never_bypasses_the_mode_gate",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "1",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "8b972b4b3dee52d68edc0326225886726482a5eef50054a974a9228e77728ded"
+        },
+        {
+          "name": "catalogue-auth",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--features",
+            "usage-root-transport-candidate,email-production-candidate",
+            "--bin",
+            "rustsimhub-core",
+            "--locked",
+            "--offline",
+            "catalogue_needs_owner_or_approved_network_client_and_rechecks_after_read",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "1",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "104ac723f8e64fd0d1a12e6c42a5f8ef989b8aeb3356ed86b1faf2dba35ba047"
+        },
+        {
+          "name": "network-led",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-network-agent",
+            "-p",
+            "rustsimhub-status-led",
+            "--locked",
+            "--offline",
+            "--",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "16",
+              "0",
+              "0"
+            ],
+            [
+              "14",
+              "0",
+              "0"
+            ],
+            [
+              "11",
+              "0",
+              "0"
+            ],
+            [
+              "15",
+              "0",
+              "0"
+            ],
+            [
+              "7",
+              "0",
+              "0"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ],
+            [
+              "0",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "982eb6f1a3cade1f0da45f0177fffaeaa856beb1ef3ab977d1ab36565c56b8be"
+        },
+        {
+          "name": "build-default_core",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--lib",
+            "--locked",
+            "--offline",
+            "--no-run",
+            "--message-format=json"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "8b6ded686d3b9f3f7b16bc7479a394dd297dd4e4fe0968f132c1ed09c477cf83"
+        },
+        {
+          "name": "build-core",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--lib",
+            "--locked",
+            "--offline",
+            "--no-run",
+            "--message-format=json",
+            "--features",
+            "usage-root-transport-candidate,email-production-candidate"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "312c9b6c43b074ec71e7e6d7717464bc570df5277804fe1ab4ac79acd6163891"
+        },
+        {
+          "name": "build-endpoint",
+          "command": [
+            "cargo",
+            "test",
+            "-p",
+            "rustsimhub-core",
+            "--bin",
+            "rustsimhub-core",
+            "--locked",
+            "--offline",
+            "--no-run",
+            "--message-format=json",
+            "--features",
+            "usage-root-transport-candidate,email-production-candidate"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "cbd5bb4947a841727fe7f0b5b0fbde28c4e3e556501419a0e80f1521bb92ab87"
+        },
+        {
+          "name": "format",
+          "command": [
+            "cargo",
+            "fmt",
+            "--all",
+            "--",
+            "--check"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "strict",
+          "command": [
+            "cargo",
+            "clippy",
+            "-p",
+            "rustsimhub-core",
+            "-p",
+            "rustsimhub-wire",
+            "-p",
+            "rustsimhub-network-agent",
+            "-p",
+            "rustsimhub-status-led",
+            "-p",
+            "rustsimhub-auth",
+            "--all-targets",
+            "--all-features",
+            "--locked",
+            "--offline",
+            "--",
+            "-D",
+            "warnings"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "a9a157659788fbf685ba525dd242e6aec106729e1b1cc5f30665e9cc5202e970"
+        },
+        {
+          "name": "node-network",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-network.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "a0b99e15a5fc956c282d7c1a4ca7fde46af6503fffceae0331418e37cb107120"
+        },
+        {
+          "name": "node-network-policy",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-network-policy.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "54764360b1b55a484407283883165270cd71dfc331f84d9a0d6468a9e51eadda"
+        },
+        {
+          "name": "node-wifi",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-wifi.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "a2372f206e37561177650e32281516b987f1590a1c1e053061acd87c3861704d"
+        },
+        {
+          "name": "node-configuration-state",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-configuration-state.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "873a7a0a930e7f0fc654f0431f29b048192092b456422b6f91a96d5d65f2fb8f"
+        },
+        {
+          "name": "node-event-sync",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-event-sync.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "59cbe9891c7b250a3fbbc0f4d221f8314bf603ec1ab1528b825cdb1db6873769"
+        },
+        {
+          "name": "node-clients",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-clients.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "03cfdfc99c03a7090239b0575952c363c5a786ac64201dc571d893796529e2cd"
+        },
+        {
+          "name": "node-session",
+          "command": [
+            "${A5_CACHE}/toolchains/node-v24.22.1-linux-x64/bin/node",
+            "tools/test-web-session.mjs"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "906d8d61c5b7fcc47ccff15b159ebbe5fb8084326cbb2275a4ece014b5266a91"
+        },
+        {
+          "name": "arm-compile-only",
+          "command": [
+            "cargo",
+            "check",
+            "-p",
+            "rustsimhub-core",
+            "--lib",
+            "--bin",
+            "rustsimhub-core",
+            "--features",
+            "usage-root-transport-candidate,email-production-candidate",
+            "--target",
+            "aarch64-unknown-linux-gnu",
+            "--locked",
+            "--offline"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "0b53209db424367e80c52cd8cde8b75e37af110438a0efde777104a1463956de"
+        }
+      ],
+      "raw_result_sha256": "e6dd6aa51570f1e9170278dd0248ab5fbda5de847110e0fd90d71747849519af",
+      "locks": {
+        "Cargo.lock": "c54fc883b17ce1f80b002a07059edc5100e908c1ae764efe9f925540aa959443",
+        "rust-toolchain.toml": "f2c82031ae793bfe2c19b2f9828259fbb6eb79081849cca5294706ab46ff2d32"
+      },
+      "locks_unchanged": true,
+      "security": {
+        "Uid": "1000\t1000\t1000\t1000",
+        "CapEff": "0000000000000000",
+        "CapBnd": "0000000000000000",
+        "NoNewPrivs": "1"
+      }
+    },
+    {
+      "observation": "a5-runtime-sms",
+      "source": {
+        "head": "c2a60903edb30a4bf4f3efb4dffa244da58d1cef",
+        "tree": "561fc29e8b36f8fe485adaf37cba5e968fa60549"
+      },
+      "passed": true,
+      "steps": [
+        {
+          "name": "two-clients-restart-revoke",
+          "command": [
+            "${A5_CACHE}/a5-a3-rdekx8wk/core-test",
+            "authenticated::tests::a3_sms_views::",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "1",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "605b76fb0cedc3cfbefde1e91286594673d7dd313b34d316c4ebf1d090fe3db4"
+        }
+      ],
+      "raw_result_sha256": "7ed8fe4c46a36f51ff121862b03723d1819149697b8ad6e89c3d6d6e68b7cb2f",
+      "security": {
+        "Uid": "1000\t1000\t1000\t1000",
+        "CapEff": "0000000000000000",
+        "CapBnd": "0000000000000000",
+        "NoNewPrivs": "1"
+      },
+      "owned_children_stopped": true
+    },
+    {
+      "observation": "a5-runtime-enospc",
+      "source": {
+        "head": "c2a60903edb30a4bf4f3efb4dffa244da58d1cef",
+        "tree": "561fc29e8b36f8fe485adaf37cba5e968fa60549"
+      },
+      "passed": true,
+      "steps": [
+        {
+          "name": "five-real-enospc-boundaries",
+          "command": [
+            "${A5_CACHE}/a5-a3-rdekx8wk/storage-test",
+            "--ignored",
+            "--exact",
+            "outgoing_recovery_tests::enospc::actual_enospc_at_five_send_boundaries_preserves_original_id_and_permits",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "1",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "629a458e241fdc13a2f174c4f9382bbe81c90aac3c48266bd2b7a005b7e34897"
+        }
+      ],
+      "raw_result_sha256": "f71a055f8913d6557e9259c828965630179fb6c8b41094c36490984b0c48122b",
+      "security": {
+        "Uid": "1000\t1000\t1000\t1000",
+        "CapEff": "0000000000000000",
+        "CapBnd": "0000000000000000",
+        "NoNewPrivs": "1"
+      },
+      "owned_children_stopped": true
+    },
+    {
+      "observation": "a5-runtime-nas",
+      "source": {
+        "head": "c2a60903edb30a4bf4f3efb4dffa244da58d1cef",
+        "tree": "561fc29e8b36f8fe485adaf37cba5e968fa60549"
+      },
+      "passed": true,
+      "steps": [
+        {
+          "name": "nas-go-client",
+          "command": [
+            "${A5_CACHE}/toolchains/go1.27.3/go/bin/go",
+            "test",
+            "-race",
+            "-count=1",
+            "-timeout=45s",
+            "-v",
+            "-run",
+            "^TestA3ActualEdgeCoreAuthControlRevocationAndOriginalOperation$",
+            "./tools/nas-adapter/control"
+          ],
+          "exit_code": 0,
+          "test_counts": [],
+          "nonempty": true,
+          "log_sha256": "066e9d00ff8b9800b279a30534c150e1436a2c8ea6fff2cec536bdc252840da1"
+        }
+      ],
+      "raw_result_sha256": "6a6d860d3fc7cddb46624f0ab09574f7a042801d3f946d600c5bdc78c8a06cf1",
+      "security": {
+        "Uid": "1000\t1000\t1000\t1000",
+        "CapEff": "0000000000000000",
+        "CapBnd": "0000000000000000",
+        "NoNewPrivs": "1"
+      },
+      "actual": {
+        "actual_core_auth_dispatcher_actor": true,
+        "creates": 1,
+        "hangups": 1,
+        "physical_modem": false,
+        "requests": 9,
+        "starts": 1,
+        "tones": 0
+      },
+      "core_forward_count": 9,
+      "owned_children_stopped": true
+    },
+    {
+      "observation": "a5-runtime-usb",
+      "source": {
+        "head": "774d4a05a1ff5191297f5dfa0ca4e0d0a0f89b6b",
+        "tree": "8fc8aef7d0428f973c83c094d0be4fc9abf18ad7"
+      },
+      "passed": true,
+      "steps": [
+        {
+          "name": "usb-default_core",
+          "command": [
+            "${A5_CACHE}/a5-a4-5ug3o3x_/default_core-test",
+            "--ignored",
+            "--exact",
+            "network_trial::provision::tests::a4_usb_nm::actual_usb_api_and_nm_adapter_preserve_original_principal_and_owned_rollback",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "1",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "41ce8c4b1fa1bd236d6dae1b9f124ada3cf46fbf12f6288984d3556c478c7649"
+        },
+        {
+          "name": "usb-core",
+          "command": [
+            "${A5_CACHE}/a5-a4-5ug3o3x_/core-test",
+            "--ignored",
+            "--exact",
+            "network_trial::provision::tests::a4_usb_nm::actual_usb_api_and_nm_adapter_preserve_original_principal_and_owned_rollback",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "test_counts": [
+            [
+              "1",
+              "0",
+              "0"
+            ]
+          ],
+          "nonempty": true,
+          "log_sha256": "0e19e6e65af74b75c28fe0d9dcd7397da632f1b1bc7e303967b2f07fff5af8fd"
+        }
+      ],
+      "raw_result_sha256": "c4464258ae05d5dbbb89e1871ba80bc7a1e6f3f9c9904f17566049cea5f96de7",
+      "security": {
+        "Uid": "1000\t1000\t1000\t1000",
+        "CapEff": "0000000000000000",
+        "CapBnd": "0000000000000000",
+        "NoNewPrivs": "1"
+      },
+      "case_count_per_feature_combination": 17,
+      "owned_children_stopped": true
+    }
+  ],
+  "retained_failure": {
+    "observation": "a5-a2",
+    "source": {
+      "head": "fd3358ef1cee1bc2305ca96d13f55ff1ac3fc4ae",
+      "tree": "3b6aeaa15a692d6400fa998f10ab8ac7f085d4bf"
+    },
+    "command": [
+      "cargo",
+      "test",
+      "-p",
+      "rustsimhub-core",
+      "--bin",
+      "rustsimhub-core",
+      "--locked",
+      "--offline",
+      "nkn_product::",
+      "--",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "nonempty": false,
+    "cause": "Wrong default feature test selection; zero selected tests rejected; corrected selection rerun in fresh output. Original log unchanged."
+  },
+  "approval_service_failure": "An earlier USB invocation was not executed because automatic approval review quota was exhausted; resumed through approval and passed. Not a product test failure."
+}
