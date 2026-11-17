@@ -3,6 +3,7 @@ Description=RustSimHub AirSIM Bluetooth agent
 ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/installation.complete
 ConditionFileIsExecutable=/usr/local/libexec/rustsimhub-airsim-pairing
 ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/voble/state.json
+Conflicts=rustsimhub-nas-bluetooth.service
 Wants=bluetooth.service
 After=bluetooth.service rustsimhub-edge.service
 PartOf=bluetooth.service

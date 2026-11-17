@@ -175,6 +175,14 @@ pub trait Backend {
     ) -> Result<Vec<Call>, BackendError> {
         self.calls(pairing_id, 0).map(|(live, _)| live)
     }
+    /// Read history without extending a remote call lease.
+    fn observe_history(
+        &mut self,
+        pairing_id: &str,
+        history: usize,
+    ) -> Result<(Vec<Call>, Vec<Call>), BackendError> {
+        self.calls(pairing_id, history)
+    }
     fn dial(
         &mut self,
         pairing_id: &str,
@@ -863,6 +871,19 @@ impl Gateway {
                 }
             }
             "/api/calls/status" if request.query("observe") == Some("1") => {
+                if request.query("history") == Some("1") {
+                    let (live, history) = backend!(backend.observe_history(&id, HISTORY_LIMIT));
+                    let active = live
+                        .iter()
+                        .find(|call| call.phase.live())
+                        .map(|call| record(call, 1));
+                    let history: Vec<_> = history
+                        .iter()
+                        .enumerate()
+                        .map(|(i, call)| record(call, i + 1))
+                        .collect();
+                    return done(reply(200, json!({"active":active,"history":history})));
+                }
                 let own = request.query("own").filter(|id| !id.is_empty());
                 let live = backend!(backend.observe_calls(&id, own));
                 let active = live

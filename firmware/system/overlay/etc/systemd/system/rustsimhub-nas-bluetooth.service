@@ -1,0 +1,28 @@
+[Unit]
+Description=RustSimHub NasSimHub Classic Bluetooth agent
+Wants=bluetooth.service
+After=bluetooth.service rustsimhub-edge.service
+Conflicts=rustsimhub-airsim-voble.service
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/installation.complete
+ConditionFileIsExecutable=/usr/local/libexec/rustsimhub-nas-bluetooth
+ConditionPathExists=/etc/rustsimhub/nas-bluetooth.conf
+StartLimitIntervalSec=60
+StartLimitBurst=8
+
+[Service]
+Type=notify
+EnvironmentFile=/etc/rustsimhub/nas-bluetooth.conf
+ExecStart=/usr/local/libexec/rustsimhub-nas-bluetooth ${NAS_BLUETOOTH_PEER}
+Restart=on-failure
+RestartSec=4
+TimeoutStartSec=15
+TimeoutStopSec=10
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+RestrictAddressFamilies=AF_UNIX
+CapabilityBoundingSet=
+UMask=0077
+LimitCORE=0

@@ -8,6 +8,8 @@ mod auth_check;
 #[cfg(target_os = "linux")]
 mod authenticated;
 #[cfg(target_os = "linux")]
+mod bluetooth_mode;
+#[cfg(target_os = "linux")]
 mod calls;
 #[cfg(target_os = "linux")]
 mod compat_api;

@@ -492,6 +492,14 @@ pub enum AuthCommand {
         token: String,
     },
     /// AirSIM gateway management (owner).
+    BluetoothModeStatus {
+        token: String,
+    },
+    BluetoothModeSet {
+        token: String,
+        expected: String,
+        mode: String,
+    },
     AirsimStatus {
         token: String,
     },
@@ -1315,6 +1323,7 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         | AuthCommand::NetworkDiagnostics { token }
         | AuthCommand::SmsManagementStatus { token }
         | AuthCommand::OpenPairing { token }
+        | AuthCommand::BluetoothModeStatus { token }
         | AuthCommand::AirsimStatus { token }
         | AuthCommand::AirsimOpenPairing { token }
         | AuthCommand::AirsimClosePairing { token }
@@ -1322,6 +1331,18 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         | AuthCommand::Clients { token }
         | AuthCommand::Revoke { token, .. } => {
             if token.len() != 64 {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::BluetoothModeSet {
+            token,
+            expected,
+            mode,
+        } => {
+            if token.len() != 64
+                || !matches!(expected.as_str(), "airsim" | "nassimhub")
+                || !matches!(mode.as_str(), "airsim" | "nassimhub")
+            {
                 return Err(invalid());
             }
         }

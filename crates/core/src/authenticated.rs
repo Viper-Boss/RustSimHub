@@ -23,6 +23,19 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | RecoveryRevoke { .. }
         | RecoveryKey { .. }
         | RecoveryRequest { .. }) => crate::recovery_authorization::dispatch(auth, command)?,
+        BluetoothModeStatus { token } => {
+            auth.recent_owner(&token)?;
+            crate::bluetooth_mode::request(b"S\n")?
+        }
+        BluetoothModeSet {
+            token,
+            expected,
+            mode,
+        } => {
+            auth.recent_owner(&token)?;
+            let body = format!("C {expected} {mode}\n");
+            crate::bluetooth_mode::request(body.as_bytes())?
+        }
         ConfigurationIndicator {
             token,
             view_id,
