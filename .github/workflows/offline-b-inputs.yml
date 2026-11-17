@@ -1,0 +1,22 @@
+name: Offline B fixed source inputs
+on:
+  push:
+    paths: ['tools/product-integration/**', 'tools/mainline-checks/**', '.github/workflows/offline-b-inputs.yml']
+  pull_request:
+    paths: ['tools/product-integration/**', 'tools/mainline-checks/**', '.github/workflows/offline-b-inputs.yml']
+permissions:
+  contents: read
+jobs:
+  source-inputs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Original graph tests and bounded lock regressions
+        run: python3 -m unittest discover -s tools/product-integration -p 'test_*.py' -v
+      - name: Exact mainline check identities
+        run: |
+          python3 -m unittest discover -s tools/mainline-checks -p 'test_coverage_contract.py' -v
+          python3 tools/mainline-checks/workflow_coverage.py
