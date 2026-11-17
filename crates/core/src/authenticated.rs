@@ -91,6 +91,7 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | WifiBegin { .. }
         | WifiBeginHidden { .. }
         | WifiStatus { .. }
+        | WifiRequest { .. }
         | WifiConfirm { .. }
         | WifiCancel { .. }
         | NetworkStatus { .. }
@@ -485,6 +486,7 @@ pub(crate) async fn handle(
         AuthCommand::WifiBegin { .. }
             | AuthCommand::WifiBeginHidden { .. }
             | AuthCommand::WifiStatus { .. }
+            | AuthCommand::WifiRequest { .. }
             | AuthCommand::WifiConfirm { .. }
             | AuthCommand::WifiCancel { .. }
     ) {
@@ -526,6 +528,7 @@ pub(crate) async fn handle(
                 value["call_observer"] = calls_observed.into();
                 value["saved_wifi_trial_api"] = crate::network_trial::enabled().into();
                 value["wifi_provisioning_api"] = crate::network_trial::provision::enabled().into();
+                value["wifi_request_api"] = crate::network_trial::provision::enabled().into();
                 value["wifi_hidden_provisioning_api"] =
                     crate::network_trial::provision::enabled().into();
                 value
@@ -556,6 +559,7 @@ pub(crate) async fn handle(
                 value["call_control_api"] = calling_enabled.into();
                 value["saved_wifi_trial_api"] = crate::network_trial::enabled().into();
                 value["wifi_provisioning_api"] = crate::network_trial::provision::enabled().into();
+                value["wifi_request_api"] = crate::network_trial::provision::enabled().into();
                 value["wifi_hidden_provisioning_api"] =
                     crate::network_trial::provision::enabled().into();
                 value["history_read_api"] = history_enabled.into();

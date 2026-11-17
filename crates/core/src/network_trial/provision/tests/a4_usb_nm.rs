@@ -726,6 +726,38 @@ async fn actual_usb_api_and_nm_adapter_preserve_original_principal_and_owned_rol
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
         assert_eq!(TRIALS.available_permits(), 1);
+        ACTIVE.lock().await.take(); // Drop the volatile actor; durable query cannot depend on it.
+        let query = |token: String| AuthCommand::WifiRequest {
+            token,
+            idempotency_key: name.into(),
+        };
+        if mode == Mode::Revoked {
+            assert!(authorized(auth.clone(), query(tokens[0].clone()))
+                .await
+                .is_err());
+        } else {
+            let receipt = authorized(auth.clone(), query(tokens[0].clone()))
+                .await
+                .unwrap();
+            assert_eq!(receipt["trial_id"], id);
+            assert_eq!(receipt["state"], expected);
+            assert_eq!(receipt["current_network_verified"], false);
+            assert_eq!(receipt["requires_confirmation"], false);
+            for token in [&tokens[1], &owner_token] {
+                assert!(authorized(auth.clone(), query(token.clone()))
+                    .await
+                    .is_err());
+            }
+            assert!(authorized(
+                auth.clone(),
+                AuthCommand::WifiConfirm {
+                    token: tokens[0].clone(),
+                    trial_id: id.clone()
+                }
+            )
+            .await
+            .is_err());
+        }
         if mode == Mode::Revoked {
             assert!(manager(auth.clone(), tokens[0].clone()).await.is_err());
         }

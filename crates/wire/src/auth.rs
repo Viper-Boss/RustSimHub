@@ -363,6 +363,10 @@ pub enum AuthCommand {
         token: String,
         trial_id: String,
     },
+    WifiRequest {
+        token: String,
+        idempotency_key: String,
+    },
     WifiConfirm {
         token: String,
         trial_id: String,
@@ -1224,6 +1228,10 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         AuthCommand::WifiTrial {
             token,
             idempotency_key,
+        }
+        | AuthCommand::WifiRequest {
+            token,
+            idempotency_key,
         } => {
             if token.len() != 64
                 || idempotency_key.is_empty()
@@ -1752,6 +1760,23 @@ mod tests {
         assert!(super::parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
     }
     use super::*;
+    #[test]
+    fn wifi_request_is_bounded_read_only_and_has_no_replay_credentials() {
+        let valid = serde_json::json!({"protocol":2,"id":"receipt","command":{"op":"wifi_request","token":"a".repeat(64),"idempotency_key":"once"}});
+        assert!(parse_auth_request(&serde_json::to_vec(&valid).unwrap()).is_ok());
+        for (k, v) in [
+            ("idempotency_key", serde_json::json!("")),
+            ("idempotency_key", serde_json::json!("x".repeat(129))),
+            ("token", serde_json::json!("short")),
+            ("ssid", serde_json::json!("secret")),
+            ("confirm", serde_json::json!(true)),
+            ("path", serde_json::json!("/tmp/other")),
+        ] {
+            let mut bad = valid.clone();
+            bad["command"][k] = v;
+            assert!(parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
+        }
+    }
     #[test]
     fn hidden_wifi_is_explicit_bounded_and_does_not_change_legacy_commands() {
         for op in ["wifi_begin", "wifi_begin_hidden"] {

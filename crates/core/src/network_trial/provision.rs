@@ -8,6 +8,7 @@ use serde_json::{json, Value};
 use std::time::Instant;
 use tokio::sync::{mpsc, oneshot};
 use zeroize::Zeroizing;
+mod receipt;
 
 static ENABLED: OnceLock<bool> = OnceLock::new();
 static ACTIVE: tokio::sync::Mutex<Option<Session>> = tokio::sync::Mutex::const_new(None);
@@ -344,7 +345,7 @@ pub async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> Result<
             {
                 return Err(Error::InvalidInput);
             }
-            let p = manager(auth.clone(), token.clone()).await?;
+            let (p, binding) = receipt::authority(auth.clone(), token.clone()).await?;
             let fingerprint = if hidden {
                 let mut h = Sha256::new();
                 h.update(b"RustSimHub.USB.HiddenWifi.v1\0");
@@ -368,15 +369,16 @@ pub async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> Result<
             let network = crate::coordination::global()
                 .network()
                 .map_err(|_| Error::Busy)?;
-            let audit = Audit::new(
+            let mut audit = Audit::new(
                 DIRECTORY.get().ok_or(Error::Forbidden)?,
                 &idempotency_key,
                 &p,
             )?;
-            audit.begin()?;
             let mut bytes = [0u8; 32];
             getrandom::fill(&mut bytes).map_err(|_| Error::Entropy)?;
             let id = bytes.iter().map(|b| format!("{b:02x}")).collect::<String>();
+            audit.record = json!({"schema":2,"principal":p.id,"generation":p.generation,"binding":binding,"trial_id":id});
+            audit.begin()?;
             let state = Arc::new(tokio::sync::Mutex::new(State::Starting));
             let (tx, mut rx) = mpsc::channel(1);
             let deadline = Instant::now() + DEADLINE;
@@ -420,6 +422,23 @@ pub async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> Result<
                 State::Starting,
                 deadline,
             ))
+        }
+        AuthCommand::WifiRequest {
+            token,
+            idempotency_key,
+        } => {
+            let (p, binding) = receipt::authority(auth.clone(), token.clone()).await?;
+            let dir = DIRECTORY.get().ok_or(Error::Forbidden)?.clone();
+            let expected = binding.clone();
+            let value = tokio::task::spawn_blocking(move || {
+                receipt::read(&dir, &idempotency_key, &p, &binding)
+            })
+            .await
+            .map_err(|_| Error::Io)??;
+            if receipt::authority(auth, token).await?.1 != expected {
+                return Err(Error::Forbidden);
+            }
+            Ok(value)
         }
         AuthCommand::WifiStatus { token, trial_id } => {
             let p = manager(auth, token).await?;
