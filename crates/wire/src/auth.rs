@@ -352,6 +352,13 @@ pub enum AuthCommand {
         ssid: String,
         passphrase: String,
     },
+    // Explicit opt-in: hidden infrastructure networks can require directed probes.
+    WifiBeginHidden {
+        token: String,
+        idempotency_key: String,
+        ssid: String,
+        passphrase: String,
+    },
     WifiStatus {
         token: String,
         trial_id: String,
@@ -1191,6 +1198,12 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
             idempotency_key,
             ssid,
             passphrase,
+        }
+        | AuthCommand::WifiBeginHidden {
+            token,
+            idempotency_key,
+            ssid,
+            passphrase,
         } => {
             if token.len() != 64
                 || !wifi_credentials_valid(ssid, passphrase)
@@ -1739,6 +1752,40 @@ mod tests {
         assert!(super::parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err());
     }
     use super::*;
+    #[test]
+    fn hidden_wifi_is_explicit_bounded_and_does_not_change_legacy_commands() {
+        for op in ["wifi_begin", "wifi_begin_hidden"] {
+            let valid = serde_json::json!({"protocol":2,"id":"usb-hidden","command":{"op":op,"token":"a".repeat(64),"idempotency_key":"once","ssid":"合成USB网络","passphrase":"synthetic-pass"}});
+            let parsed = parse_auth_request(&serde_json::to_vec(&valid).unwrap()).unwrap();
+            assert_eq!(
+                matches!(parsed.command, AuthCommand::WifiBeginHidden { .. }),
+                op == "wifi_begin_hidden"
+            );
+            let encoded = serde_json::to_value(&parsed).unwrap();
+            assert_eq!(encoded["command"]["op"], op);
+            assert!(encoded["command"].get("hidden").is_none());
+            for (field, value) in [
+                ("ssid", serde_json::json!("")),
+                ("ssid", serde_json::json!("中".repeat(11))),
+                ("ssid", serde_json::json!("bad\u{0}ssid")),
+                ("passphrase", serde_json::json!("short")),
+                ("idempotency_key", serde_json::json!("bad\nkey")),
+                ("token", serde_json::json!("short")),
+                ("hidden", serde_json::json!(true)),
+                ("interface", serde_json::json!("wwan0")),
+                ("mode", serde_json::json!("ap")),
+                ("path", serde_json::json!("/tmp/arbitrary")),
+                ("timeout", serde_json::json!(3600)),
+            ] {
+                let mut bad = valid.clone();
+                bad["command"][field] = value;
+                assert!(
+                    parse_auth_request(&serde_json::to_vec(&bad).unwrap()).is_err(),
+                    "{op}: {field}"
+                );
+            }
+        }
+    }
     #[test]
     fn wifi_provisioning_bounds_credentials_and_rejects_network_overrides() {
         let valid = serde_json::json!({"protocol":2,"id":"wifi","command":{"op":"wifi_begin","token":"a".repeat(64),"idempotency_key":"once","ssid":"synthetic","passphrase":"synthetic-pass"}});

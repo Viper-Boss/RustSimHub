@@ -32,9 +32,11 @@ enum Mode {
     NoUsb,
     NoIp,
     LostActivationReply,
+    HiddenFlagLost,
 }
 struct Data {
     mode: Mode,
+    hidden: bool,
     cp: bool,
     active: bool,
     profile: Option<Settings>,
@@ -145,6 +147,10 @@ impl Manager {
         assert!(!settings.contains_key("gsm") && !settings.contains_key("cdma"));
         let mut s = self.0.lock().unwrap();
         s.effects.push("activate");
+        assert_eq!(
+            bool::try_from(&settings["802-11-wireless"]["hidden"]).unwrap(),
+            s.hidden
+        );
         s.profile = Some(settings);
         s.active = true;
         s.unsaved = true;
@@ -281,7 +287,12 @@ struct Profile {
 impl Profile {
     fn get_settings(&self) -> Settings {
         if self.role == 3 {
-            return cloned(self.data.lock().unwrap().profile.as_ref().unwrap());
+            let s = self.data.lock().unwrap();
+            let mut profile = cloned(s.profile.as_ref().unwrap());
+            if !s.hidden || s.mode == Mode::HiddenFlagLost {
+                profile.get_mut("802-11-wireless").unwrap().remove("hidden");
+            }
+            return profile;
         }
         HashMap::from([
             (
@@ -340,6 +351,10 @@ impl Profile {
         assert!(bool::try_from(&settings["connection"]["autoconnect"]).unwrap());
         let (mode, revoke) = {
             let mut s = self.data.lock().unwrap();
+            assert_eq!(
+                bool::try_from(&settings["802-11-wireless"]["hidden"]).unwrap(),
+                s.hidden
+            );
             s.profile = Some(settings);
             s.unsaved = false;
             s.effects.push("save");
@@ -461,16 +476,25 @@ async fn actual_usb_api_and_nm_adapter_preserve_original_principal_and_owned_rol
     let audit = directory();
     enable(audit.path()).unwrap();
     let cases = [
-        ("save", Mode::Save),
-        ("cancel", Mode::Cancel),
-        ("renamed", Mode::Renamed),
-        ("lost-save", Mode::LostSaveReply),
-        ("revoked", Mode::Revoked),
-        ("no-usb", Mode::NoUsb),
-        ("no-ip", Mode::NoIp),
-        ("lost-activation", Mode::LostActivationReply),
+        ("save", Mode::Save, false),
+        ("cancel", Mode::Cancel, false),
+        ("renamed", Mode::Renamed, false),
+        ("lost-save", Mode::LostSaveReply, false),
+        ("revoked", Mode::Revoked, false),
+        ("no-usb", Mode::NoUsb, false),
+        ("no-ip", Mode::NoIp, false),
+        ("lost-activation", Mode::LostActivationReply, false),
+        ("hidden-save", Mode::Save, true),
+        ("hidden-cancel", Mode::Cancel, true),
+        ("hidden-renamed", Mode::Renamed, true),
+        ("hidden-lost-save", Mode::LostSaveReply, true),
+        ("hidden-revoked", Mode::Revoked, true),
+        ("hidden-no-usb", Mode::NoUsb, true),
+        ("hidden-no-ip", Mode::NoIp, true),
+        ("hidden-lost-activation", Mode::LostActivationReply, true),
+        ("hidden-profile-lost-flag", Mode::HiddenFlagLost, true),
     ];
-    for (name, mode) in cases {
+    for (name, mode, hidden) in cases {
         let d = directory();
         let i = directory();
         let store = rustsimhub_storage::Store::open(d.path()).unwrap();
@@ -521,6 +545,7 @@ async fn actual_usb_api_and_nm_adapter_preserve_original_principal_and_owned_rol
         let auth = Arc::new(Mutex::new(a));
         let data = Arc::new(Mutex::new(Data {
             mode,
+            hidden,
             cp: false,
             active: false,
             profile: None,
@@ -551,11 +576,22 @@ async fn actual_usb_api_and_nm_adapter_preserve_original_principal_and_owned_rol
                 .await
                 .expect("private NM cellular guard");
         }
-        let begin = |token: String, key: String, ssid: String| AuthCommand::WifiBegin {
-            token,
-            idempotency_key: key,
-            ssid,
-            passphrase: "synthetic-only-passphrase".into(),
+        let begin = |token: String, key: String, ssid: String| {
+            if hidden {
+                AuthCommand::WifiBeginHidden {
+                    token,
+                    idempotency_key: key,
+                    ssid,
+                    passphrase: "synthetic-only-passphrase".into(),
+                }
+            } else {
+                AuthCommand::WifiBegin {
+                    token,
+                    idempotency_key: key,
+                    ssid,
+                    passphrase: "synthetic-only-passphrase".into(),
+                }
+            }
         };
         for denied in [&tokens[2], &tokens[3]] {
             assert!(authorized(
@@ -584,6 +620,22 @@ async fn actual_usb_api_and_nm_adapter_preserve_original_principal_and_owned_rol
         .await
         .unwrap();
         assert_eq!(repeat["trial_id"], id);
+        let changed_mode = if hidden {
+            AuthCommand::WifiBegin {
+                token: tokens[0].clone(),
+                idempotency_key: name.into(),
+                ssid: "合成USB网络".into(),
+                passphrase: "synthetic-only-passphrase".into(),
+            }
+        } else {
+            AuthCommand::WifiBeginHidden {
+                token: tokens[0].clone(),
+                idempotency_key: name.into(),
+                ssid: "合成USB网络".into(),
+                passphrase: "synthetic-only-passphrase".into(),
+            }
+        };
+        assert!(authorized(auth.clone(), changed_mode).await.is_err());
         assert!(authorized(
             auth.clone(),
             begin(tokens[0].clone(), name.into(), "changed-network".into())
@@ -656,7 +708,7 @@ async fn actual_usb_api_and_nm_adapter_preserve_original_principal_and_owned_rol
         };
         let expected = if mode == Mode::Save {
             "saved"
-        } else if mode == Mode::LostActivationReply {
+        } else if matches!(mode, Mode::LostActivationReply | Mode::HiddenFlagLost) {
             "unknown"
         } else {
             "rolled_back"
@@ -688,13 +740,18 @@ async fn actual_usb_api_and_nm_adapter_preserve_original_principal_and_owned_rol
                 assert!(s.active && !s.unsaved && s.profile.is_some());
             } else {
                 assert!(!s.active);
-                if mode != Mode::LostActivationReply {
+                if !matches!(mode, Mode::LostActivationReply | Mode::HiddenFlagLost) {
                     assert!(s.profile.is_none());
                 }
             }
             if matches!(
                 mode,
-                Mode::NoUsb | Mode::Renamed | Mode::Cancel | Mode::NoIp | Mode::LostActivationReply
+                Mode::NoUsb
+                    | Mode::Renamed
+                    | Mode::Cancel
+                    | Mode::NoIp
+                    | Mode::LostActivationReply
+                    | Mode::HiddenFlagLost
             ) {
                 assert!(!s.effects.contains(&"save"));
             }

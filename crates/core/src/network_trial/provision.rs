@@ -319,8 +319,15 @@ pub async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> Result<
     if !enabled() {
         return Err(Error::Forbidden);
     }
+    let hidden = matches!(&command, AuthCommand::WifiBeginHidden { .. });
     match command {
         AuthCommand::WifiBegin {
+            token,
+            idempotency_key,
+            ssid,
+            passphrase,
+        }
+        | AuthCommand::WifiBeginHidden {
             token,
             idempotency_key,
             ssid,
@@ -338,11 +345,19 @@ pub async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> Result<
                 return Err(Error::InvalidInput);
             }
             let p = manager(auth.clone(), token.clone()).await?;
+            let fingerprint = if hidden {
+                let mut h = Sha256::new();
+                h.update(b"RustSimHub.USB.HiddenWifi.v1\0");
+                h.update(credentials.fingerprint());
+                h.finalize().into()
+            } else {
+                credentials.fingerprint()
+            };
             let mut active = ACTIVE.try_lock().map_err(|_| Error::Busy)?;
             if let Some(old) = active.as_ref() {
                 let old_state = *old.state.lock().await;
                 if old.key == idempotency_key {
-                    old.replays(&p, &credentials.fingerprint())?;
+                    old.replays(&p, &fingerprint)?;
                     return Ok(view(&old.id, old_state, old.deadline));
                 }
                 if !old_state.terminal() {
@@ -370,7 +385,7 @@ pub async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> Result<
                 key: idempotency_key,
                 owner: TrialOwner::Normal {
                     principal: p.clone(),
-                    fingerprint: credentials.fingerprint(),
+                    fingerprint,
                 },
                 state: state.clone(),
                 control: tx,
@@ -383,7 +398,10 @@ pub async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> Result<
                     token,
                     expected: p,
                 };
-                let mut backend = NmProvision::default();
+                let mut backend = NmProvision {
+                    hidden,
+                    ..Default::default()
+                };
                 run_trial(
                     &mut backend,
                     &gate,
@@ -485,7 +503,11 @@ fn uuid(id: &str) -> String {
         &id[18..30]
     )
 }
+#[cfg(test)]
 fn settings(c: &Credentials, id: &str, confirmed: bool) -> Result<Settings> {
+    settings_mode(c, id, confirmed, false)
+}
+fn settings_mode(c: &Credentials, id: &str, confirmed: bool, hidden: bool) -> Result<Settings> {
     Ok(HashMap::from([
         (
             "connection".into(),
@@ -507,7 +529,7 @@ fn settings(c: &Credentials, id: &str, confirmed: bool) -> Result<Settings> {
                         .map_err(|_| Error::InvalidInput)?,
                 ),
                 ("mode".into(), string("infrastructure")),
-                ("hidden".into(), OwnedValue::from(false)),
+                ("hidden".into(), OwnedValue::from(hidden)),
             ]),
         ),
         (
@@ -541,6 +563,7 @@ fn settings(c: &Credentials, id: &str, confirmed: bool) -> Result<Settings> {
 }
 #[derive(Default)]
 struct NmProvision {
+    hidden: bool,
     #[cfg(feature = "recovery-execution")]
     recovery: Option<Arc<crate::recovery_body::CoreRecoveryTrial>>,
     #[cfg(feature = "recovery-execution")]
@@ -607,6 +630,12 @@ impl NmProvision {
                 .and_then(|v| <&str>::try_from(v).ok())
                 != Some("wlan0")
             || ssid != self.ssid
+            || s.get("802-11-wireless")
+                .and_then(|w| match w.get("hidden") {
+                    Some(v) => bool::try_from(v).ok(),
+                    None => Some(false), // NetworkManager's default; it may omit false.
+                })
+                != Some(self.hidden)
         {
             return Err(Error::Forbidden);
         }
@@ -674,7 +703,7 @@ impl ProvisionBackend for NmProvision {
             .call(
                 "AddAndActivateConnection2",
                 &(
-                    settings(c, id, false)?,
+                    settings_mode(c, id, false, self.hidden)?,
                     &b.wifi,
                     OwnedObjectPath::try_from("/").map_err(|_| Error::Io)?,
                     options,
@@ -795,7 +824,7 @@ impl ProvisionBackend for NmProvision {
             .call(
                 "Update2",
                 &(
-                    settings(c, &self.id, true)?,
+                    settings_mode(c, &self.id, true, self.hidden)?,
                     1u32,
                     HashMap::<String, OwnedValue>::new(),
                 ),

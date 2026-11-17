@@ -73,6 +73,51 @@ async fn setup_ap_real_ipc_is_disabled_without_explicit_local_mode_even_for_owne
 }
 
 #[tokio::test]
+async fn hidden_usb_wifi_real_ipc_advertises_disabled_and_never_bypasses_the_mode_gate() {
+    let d = directory();
+    let i = directory();
+    let store = Store::open(d.path()).unwrap();
+    let mut auth = Auth::new(Identity::open(i.path()).unwrap(), store.handle()).unwrap();
+    let key = SigningKey::from_bytes(&[196; 32]);
+    let c = auth
+        .bootstrap_challenge(key.verifying_key().to_bytes())
+        .unwrap();
+    auth.bootstrap_finish(&c.id, &key.sign(&c.transcript).to_bytes())
+        .unwrap();
+    let c = auth
+        .login_challenge(key.verifying_key().to_bytes())
+        .unwrap();
+    let token = auth
+        .login_finish(&c.id, &key.sign(&c.transcript).to_bytes())
+        .unwrap()
+        .expose()
+        .to_owned();
+    let auth = Arc::new(Mutex::new(auth));
+    let health = round_trip(
+        AuthCommand::Health {
+            token: token.clone(),
+        },
+        auth.clone(),
+    )
+    .await;
+    assert_eq!(health["wifi_provisioning_api"], false);
+    assert_eq!(health["wifi_hidden_provisioning_api"], false);
+    for token in [token, "0".repeat(64)] {
+        let r = round_trip(
+            AuthCommand::WifiBeginHidden {
+                token,
+                idempotency_key: "usb-hidden-disabled".into(),
+                ssid: "synthetic".into(),
+                passphrase: "synthetic-pass".into(),
+            },
+            auth.clone(),
+        )
+        .await;
+        assert_eq!(r["error"], "denied");
+        assert!(r.get("trial_id").is_none());
+    }
+}
+#[tokio::test]
 async fn wifi_catalogue_rejects_unsigned_session_through_real_ipc_before_bus_access() {
     let d = directory();
     let i = directory();
