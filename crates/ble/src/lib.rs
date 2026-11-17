@@ -10,6 +10,8 @@
 
 #[cfg(all(target_os = "linux", feature = "airsim-pairing"))]
 pub mod airsim_pairing;
+#[cfg(all(target_os = "linux", feature = "nas-bluetooth"))]
+pub mod bluetooth_mode;
 #[cfg(all(target_os = "linux", feature = "bluez-advertisement"))]
 pub mod bluez_advertisement;
 #[cfg(all(target_os = "linux", feature = "bluez-backend"))]

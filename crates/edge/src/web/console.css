@@ -594,3 +594,18 @@ body{margin:0;background:var(--bg)}
 .as-code b{font-size:34px;letter-spacing:.18em;font-weight:700;color:var(--blue)}
 .as-code span{font-size:13px;color:var(--ink-3);line-height:1.6}
 @media (max-width:820px){.as-rate,.as-rate select{width:100%;min-width:0}.as-row .pg-btn{flex:1}}
+
+/* Bluetooth communication and network setup are distinct actions. */
+.cs .bt-panel{display:grid;gap:16px}
+.cs .bt-panel-head,.cs .bt-panel-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.cs .bt-panel-head h2,.cs .bt-panel-foot p{margin:0}
+.cs .bt-panel-head p{margin:6px 0 0;color:var(--ink-2)}
+.cs .bt-mode-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.cs .bt-mode-card{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:12px;text-align:left;min-height:80px;margin:0;padding:14px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:12px}
+.cs .bt-mode-card[aria-pressed="true"]{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 11%,transparent)}
+.cs .bt-mode-card:disabled{cursor:default;opacity:.68}
+.cs .bt-mode-card strong,.cs .bt-mode-card small{display:block;overflow-wrap:anywhere}
+.cs .bt-mode-card small{margin-top:4px;color:var(--ink-2);line-height:1.5}
+.cs .bt-mode-badge{font-size:12px;white-space:nowrap;color:var(--ink-2)}
+.cs .bt-wifi-heading h2{margin:6px 0 0;font-size:17px}
+@media(max-width:700px){.cs .bt-mode-grid{grid-template-columns:1fr}}

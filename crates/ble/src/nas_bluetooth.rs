@@ -114,7 +114,7 @@ impl Profile {
     }
 }
 
-fn peer_path(address: &str) -> Option<String> {
+pub(crate) fn peer_path(address: &str) -> Option<String> {
     let bytes = address.split(':').collect::<Vec<_>>();
     if bytes.len() != 6
         || bytes
@@ -381,7 +381,9 @@ mod tests {
             nas.write_all(request.as_bytes()).await.unwrap();
             assert!(read_request_line(&mut stick, false).await.is_err());
         }
-        nas.write_all(b"POST /pair/v1/claim HTTP/1.1\r\n").await.unwrap();
+        nas.write_all(b"POST /pair/v1/claim HTTP/1.1\r\n")
+            .await
+            .unwrap();
         assert!(read_request_line(&mut stick, true).await.is_ok());
     }
 

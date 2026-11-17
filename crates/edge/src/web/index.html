@@ -160,13 +160,16 @@
 <div class="pg" id="v-ble" hidden>
 <div class="pg-grid">
 <section class="card ble-hero w12"><div class="ble-mark"><svg class="i" aria-hidden="true"><use href="#i-bt"/></svg></div><div><h2>蓝牙</h2><p>选择一个通信模式，或用手机配置工具完成 Wi-Fi 配网。</p></div></section>
-<section class="card pg-card w12"><h2>业务蓝牙用途</h2>
-<p id="bt-mode-status" role="status">请先读取设备模式。</p>
-<label for="bt-mode-target">切换到</label>
-<select id="bt-mode-target" disabled><option value="airsim">AirSIM 手机蓝牙</option><option value="nassimhub">NasSimHub 蓝牙</option></select>
-<button type="button" id="bt-mode-read">管理登录并读取</button>
-<button type="button" id="bt-mode-apply" disabled>切换</button>
+<section class="card pg-card w12 bt-panel" aria-labelledby="bt-mode-heading">
+<div class="bt-panel-head"><div><h2 id="bt-mode-heading">业务蓝牙模式</h2><p>一次启用一种。切换会断开当前蓝牙连接，已保存的配对会保留。</p></div><button type="button" id="bt-mode-read" class="pg-link">读取状态</button></div>
+<div class="bt-mode-grid" role="group" aria-label="选择蓝牙模式">
+<button type="button" id="bt-mode-airsim" class="bt-mode-card" aria-pressed="false" disabled><svg class="i" aria-hidden="true"><use href="#i-phone"/></svg><span><strong>AirSIM 手机蓝牙</strong><small>用手机上的 AirSIM 直接连接棒子通话</small></span><span id="bt-airsim-state" class="bt-mode-badge">待查询</span></button>
+<button type="button" id="bt-mode-nassimhub" class="bt-mode-card" aria-pressed="false" disabled><svg class="i" aria-hidden="true"><use href="#i-chip"/></svg><span><strong>NasSimHub 蓝牙</strong><small>向 N1 传输短信、通话记录和实时语音</small></span><span id="bt-nas-state" class="bt-mode-badge">待查询</span></button>
+</div>
+<div class="bt-panel-foot"><p id="bt-mode-status" role="status">登录后读取设备状态。</p><button type="button" id="bt-mode-apply" disabled>切换模式</button></div>
+<p class="pg-note">NasSimHub 蓝牙不共享蜂窝网络或其他上网流量。</p>
 </section>
+<div class="w12 bt-wifi-heading"><h2>Wi-Fi 首次配网</h2></div>
 <section class="card pg-card step w4"><em>1</em><h3>打开配置工具</h3><p>在手机上打开配置工具，并允许蓝牙权限。</p></section>
 <section class="card pg-card step w4"><em>2</em><h3>靠近棒子</h3><p>让手机靠近棒子，在工具中选择要配置的设备。</p></section>
 <section class="card pg-card step w4"><em>3</em><h3>填写 Wi-Fi</h3><p>按提示填写网络，试连成功后再保存。也可以在“网络管理”里配置。</p><button type="button" class="pg-link" data-go="network">前往网络管理</button></section>

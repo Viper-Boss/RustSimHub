@@ -3,9 +3,11 @@ Description=RustSimHub Bluetooth mode controller
 ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/installation.complete
 After=bluetooth.service rustsimhub-edge.service
 
+ConditionFileIsExecutable=/usr/local/libexec/rustsimhub-nas-bluetooth
+
 [Service]
 Type=exec
-ExecStart=/usr/bin/python3 /usr/local/libexec/rustsimhub-bluetooth-mode
+ExecStart=/usr/local/libexec/rustsimhub-nas-bluetooth mode-controller
 Restart=on-failure
 RestartSec=5
 ProtectHome=yes

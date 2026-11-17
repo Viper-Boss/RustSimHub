@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [features]
-nas-bluetooth = ["bluez-advertisement", "dep:rustsimhub-airsim", "tokio/io-util", "tokio/macros", "tokio/net", "tokio/rt", "tokio/signal", "tokio/time"]
+nas-bluetooth = ["bluez-advertisement", "dep:rustsimhub-airsim", "dep:serde_json", "tokio/io-util", "tokio/macros", "tokio/net", "tokio/rt", "tokio/signal", "tokio/time"]
 default = []
 airsim-pairing = ["bluez-advertisement", "dep:rustsimhub-airsim", "dep:x25519-dalek", "dep:zeroize", "dep:getrandom", "dep:libc", "dep:rustix", "dep:serde", "dep:serde_json", "dep:socket2", "tokio/io-util", "tokio/macros", "tokio/net", "tokio/rt", "tokio/signal", "tokio/time"]
 product-host-candidate = ["bluez-backend", "core-channel-candidate", "dep:getrandom", "dep:rustix", "tokio/rt", "tokio/macros", "tokio/signal"]

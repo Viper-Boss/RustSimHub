@@ -479,35 +479,53 @@ function smsLength(){$('sms-length').textContent=`正文 ${new TextEncoder().enc
 async function act(fn){if(busy)return;if(apConfigurator?.working||apConfigurator?.managing){notice('请先在 Wi-Fi 配置区查询或结束当前配置');return;}if(dailyPhone?.working||dailyPhone?.managing){notice('请先在电话区结束当前操作或通话');return;}const generation=++actionGeneration,epoch=viewEpoch;busy=true;showPending();try{await fn();}catch(error){if(epoch===viewEpoch&&generation===actionGeneration)notice(error.message||'操作失败');}finally{if(generation===actionGeneration){busy=false;showPending();}}}
 function bind(id,fn){$(id).onclick=()=>act(fn);}
 const bluetoothLabels={airsim:'AirSIM 手机蓝牙',nassimhub:'NasSimHub 蓝牙'};
-const bluetoothErrors={bluetooth_call_busy:'有通话进行中，挂断后再切换。',bluetooth_switch_failed:'切换失败，请核对当前模式。',bluetooth_recovery_required:'蓝牙服务需要维护恢复。'};
-let bluetoothChoice=null,bluetoothEpoch=-1,bluetoothHealthy=false;
+const bluetoothErrors={bluetooth_call_busy:'有通话进行中，挂断后再切换。',bluetooth_switch_failed:'切换失败，请核对当前模式。',bluetooth_recovery_required:'蓝牙服务需要维护恢复。',bluetooth_nas_not_ready:'先在维护端配置 N1 蓝牙设备。'};
+let bluetoothState=null,bluetoothTarget=null,bluetoothEpoch=-1;
+function drawBluetoothMode(){
+ const state=bluetoothEpoch===viewEpoch?bluetoothState:null;
+ const locked=!state||state.pending||!state.can_switch;
+ for(const name of Object.keys(bluetoothLabels)){
+  const button=$('bt-mode-'+name);
+  button.disabled=!!locked||(name==='nassimhub'&&!state.nas_configured);
+  button.setAttribute('aria-pressed',String(!!state&&bluetoothTarget===name));
+ }
+ $('bt-airsim-state').textContent=!state?'待查询':state.effective==='airsim'?'使用中':'未启用';
+ $('bt-nas-state').textContent=!state?'待查询':state.effective==='nassimhub'?'使用中':state.nas_configured?'已配置':'未配置 N1';
+ $('bt-mode-apply').disabled=!!locked||!bluetoothTarget||
+  (bluetoothTarget==='nassimhub'&&!state.nas_configured)||(state.healthy&&bluetoothTarget===state.mode);
+ $('bt-mode-apply').textContent=bluetoothTarget&&Object.hasOwn(bluetoothLabels,bluetoothTarget)&&!$('bt-mode-apply').disabled?
+  '切换到 '+bluetoothLabels[bluetoothTarget]:'切换模式';
+ if(!state)return;
+ const failure=state.last_error;
+ $('bt-mode-status').textContent=state.pending?'正在切换到 '+bluetoothLabels[state.pending]+'…':
+  (state.effective?'当前使用 '+bluetoothLabels[state.effective]:'蓝牙服务未运行')+
+  (failure?'。'+(bluetoothErrors[failure]||'切换未确认，请读取状态。'):!state.nas_configured?'。配置 N1 后可选择 NasSimHub。':'。');
+}
 function showBluetoothMode(info){
- const {mode,effective,pending,last_error:failure}=info;
- if(!Object.hasOwn(bluetoothLabels,mode))throw Error('蓝牙模式查询失败');
- bluetoothChoice=pending||!info.can_switch?null:mode;
- bluetoothHealthy=info.healthy===true;
- bluetoothEpoch=viewEpoch;
- $('bt-mode-target').value=pending||mode;
- $('bt-mode-target').disabled=!bluetoothChoice;
- $('bt-mode-apply').disabled=!bluetoothChoice;
- $('bt-mode-status').textContent=pending?'正在切换到'+bluetoothLabels[pending]+'…':
-  (effective?'当前：'+bluetoothLabels[effective]:'当前蓝牙服务未就绪')+(failure?'。'+(bluetoothErrors[failure]||'切换未确认。'):'');
+ if(!Object.hasOwn(bluetoothLabels,info.mode))throw Error('蓝牙模式查询失败');
+ bluetoothState=info;bluetoothTarget=info.pending||info.mode;bluetoothEpoch=viewEpoch;
+ drawBluetoothMode();
 }
 async function readBluetoothMode(){
- bluetoothChoice=null;
- $('bt-mode-target').disabled=true;$('bt-mode-apply').disabled=true;
- await login();
- showBluetoothMode(await auth({op:'bluetooth_mode_status'}));
+ bluetoothState=null;drawBluetoothMode();
+ $('bt-mode-status').textContent='正在读取设备状态…';
+ try{
+  await login();
+  showBluetoothMode(await auth({op:'bluetooth_mode_status'}));
+ }catch(error){
+  $('bt-mode-status').textContent='无法读取蓝牙模式。请确认已用所有者身份登录。';
+  throw error;
+ }
 }
 async function applyBluetoothMode(){
- const expected=bluetoothChoice,mode=$('bt-mode-target').value,epoch=viewEpoch;
- if(bluetoothEpoch!==epoch||!expected||!Object.hasOwn(bluetoothLabels,mode)||(mode===expected&&bluetoothHealthy))return;
- if(!confirm('切换到'+bluetoothLabels[mode]+'？'))return;
- bluetoothChoice=null;$('bt-mode-target').disabled=true;$('bt-mode-apply').disabled=true;
+ const expected=bluetoothState?.mode,mode=bluetoothTarget,epoch=viewEpoch;
+ if(bluetoothEpoch!==epoch||$('bt-mode-apply').disabled||!expected||!Object.hasOwn(bluetoothLabels,mode))return;
+ if(!confirm('切换到 '+bluetoothLabels[mode]+'？当前蓝牙连接将断开。'))return;
+ bluetoothState=null;drawBluetoothMode();
  try{
   showBluetoothMode(await auth({op:'bluetooth_mode_set',expected,mode}));
-  for(let i=0;i<40;i++){
-   await new Promise(resolve=>setTimeout(resolve,1000));current(epoch);
+  for(let i=0;i<50;i++){
+   await new Promise(resolve=>setTimeout(resolve,800));current(epoch);
    const state=await auth({op:'bluetooth_mode_status'});showBluetoothMode(state);
    if(!state.pending)return;
   }
@@ -516,6 +534,9 @@ async function applyBluetoothMode(){
   throw error;
  }
  $('bt-mode-status').textContent='切换仍在进行，请重新读取确认。';
+}
+for(const name of Object.keys(bluetoothLabels)){
+ $('bt-mode-'+name).onclick=()=>{bluetoothTarget=name;drawBluetoothMode();};
 }
 bind('bt-mode-read',readBluetoothMode);bind('bt-mode-apply',applyBluetoothMode);
 bind('initialize-owner',initializeOwner);bind('password-login',passwordLogin);bind('browser-login',browserLogin);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;dashboard.reset();for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
