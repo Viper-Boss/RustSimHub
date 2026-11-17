@@ -131,6 +131,9 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | ForwardingHistoryCancel { .. }
         | ForwardingHistoryArchive { .. }
         | ForwardingHistoryRequest { .. }
+        | DataRoamingStatus { .. }
+        | PrepareDataRoaming { .. }
+        | SetDataRoaming { .. }
         | SetNetworkPolicy { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         Calls {
             token,
@@ -212,6 +215,23 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         RestoreSms { token, sms_id } => {
             serde_json::to_value(auth.set_sms_deleted(&token, sms_id, false)?)
                 .map_err(|_| rustsimhub_auth::Error::InvalidInput)?
+        }
+        SetSmsDeletedBatch {
+            token,
+            sms_ids,
+            deleted,
+        } => {
+            json!({"changed":auth.set_sms_deleted_batch(&token, sms_ids, deleted)?})
+        }
+        SmsFolderStatus { token } => serde_json::to_value(auth.sms_folder_status(&token)?)
+            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        ApplySmsFolder {
+            token,
+            version,
+            head_seq,
+            purge,
+        } => {
+            json!({"changed":auth.apply_sms_folder(&token, version, head_seq, purge)?})
         }
         DeletedInbox {
             token,
@@ -455,7 +475,11 @@ pub(crate) async fn handle(
         .await?
     } else if matches!(
         request.command,
-        AuthCommand::NetworkDiagnostics { .. } | AuthCommand::SetNetworkPolicy { .. }
+        AuthCommand::NetworkDiagnostics { .. }
+            | AuthCommand::SetNetworkPolicy { .. }
+            | AuthCommand::DataRoamingStatus { .. }
+            | AuthCommand::PrepareDataRoaming { .. }
+            | AuthCommand::SetDataRoaming { .. }
     ) {
         crate::network_diagnostics::authorized(auth.clone(), request.command).await
     } else if let AuthCommand::NetworkStatus { token } = request.command {

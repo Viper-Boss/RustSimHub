@@ -277,7 +277,7 @@ body{margin:0;background:var(--bg)}
 .ring-l svg{display:block;width:100%;height:100%;transform:rotate(-90deg)}
 .ring-l circle{fill:none;stroke-width:10}
 .ring-l .tr{stroke:var(--track)}
-.ring-l .va{stroke:var(--c);stroke-linecap:round;stroke-dasharray:326.7;stroke-dashoffset:326.7;transition:stroke-dashoffset .6s}
+.ring-l .va{stroke:var(--c);stroke-linecap:round;stroke-dasharray:326.7;transition:stroke-dashoffset .6s}
 .t-amber{--c:#f59e0b}
 .ring-l b{position:absolute;inset:0;display:grid;place-items:center;font-size:25px;font-weight:700}
 .hw-gauge h3{font-size:16px;font-weight:700}
@@ -609,3 +609,27 @@ body{margin:0;background:var(--bg)}
 .cs .bt-mode-badge{font-size:12px;white-space:nowrap;color:var(--ink-2)}
 .cs .bt-wifi-heading h2{margin:6px 0 0;font-size:17px}
 @media(max-width:700px){.cs .bt-mode-grid{grid-template-columns:1fr}}
+
+.mail-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.cs .mail-actions .pg-btn { margin:0; }
+.mail-batch { padding:8px 18px; }
+.mail-message { padding:0 18px; }
+.mail-message:empty { display:none; }
+.mail-choice { display:grid; grid-template-columns:36px minmax(0,1fr); align-items:center; }
+.mail-choice input[type=checkbox] { justify-self:center; width:18px; height:18px; accent-color:var(--blue-2); }
+.mail-it .mail-code { color:var(--blue-2); font-weight:700; margin-inline-end:8px; }
+.mail-actions [hidden], .mail-batch[hidden] { display:none; }
+@media (max-width:767px) {
+ [data-page="comms"][data-tab="3"] #v-sms:not([hidden]),
+ [data-page="comms"][data-tab="4"] #v-sms:not([hidden]),
+ [data-mail-manage="1"] #v-sms:not([hidden]) { display:block; }
+ [data-mail-manage="1"] #v-mcomm,
+ [data-reading="1"] #v-sms .mail-list { display:none!important; }
+ [data-page="comms"][data-tab="3"] #v-sms .mail-list,
+ [data-page="comms"][data-tab="4"] #v-sms .mail-list,
+ [data-mail-manage="1"] #v-sms .mail-list { display:block; border-right:0; }
+ [data-mail-manage="1"][data-page="comms"][data-tab="0"] .pg-tabs { display:flex; flex-wrap:wrap; }
+ [data-page="comms"] .pg-tabs { flex-wrap:wrap; }
+ [data-page="comms"]:not([data-reading="1"]) #v-sms .mail-read { display:none; }
+ .mail-batch { padding:8px 12px; }
+}

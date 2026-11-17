@@ -43,6 +43,7 @@
 <button type="button" class="nav" data-go="network"><svg class="i"><use href="#i-wifi"/></svg><span>网络管理</span></button>
 <button type="button" class="nav" data-go="sim"><svg class="i"><use href="#i-sim"/></svg><span>SIM与调制解调器</span></button>
 <button type="button" class="nav" data-go="comms"><svg class="i"><use href="#i-phone"/></svg><span>通话短信</span></button>
+<button type="button" class="nav" data-go="forwarding"><svg class="i"><use href="#i-send"/></svg><span>短信转发</span></button>
 <button type="button" class="nav" data-go="gnss"><svg class="i"><use href="#i-pin"/></svg><span>GNSS定位</span></button>
 <button type="button" class="nav" data-go="ble"><svg class="i"><use href="#i-bt"/></svg><span>蓝牙配网</span></button>
 <button type="button" class="nav" data-go="security"><svg class="i"><use href="#i-shield"/></svg><span>安全策略</span></button>
@@ -113,7 +114,7 @@
 <div class="comm-h"><svg class="i"><use href="#i-phone"/></svg><b>通信中心</b><span>预览短信、验证码与最近通话</span></div>
 <div class="subs">
 <div class="subc sms"><div class="sub-h"><svg class="i"><use href="#i-msg"/></svg>最近短信<button type="button" class="link" data-go="comms">查看更多<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-sms-list"></div><p class="none" id="c-sms-empty">登录后显示</p></div>
-<div class="subc otp"><div class="sub-h"><svg class="i"><use href="#i-shield"/></svg>最近验证码<button type="button" class="clear" id="c-otp-clear" disabled>清理</button><button type="button" class="link" data-go="comms">查看更多<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-otp-list"></div><p class="none" id="c-otp-empty">登录后显示</p><p class="otp-state" id="c-otp-state" role="status"></p></div>
+<div class="subc otp"><div class="sub-h"><svg class="i"><use href="#i-shield"/></svg>最近验证码<button type="button" class="clear" id="c-otp-clear" disabled>清理</button><button type="button" class="link" data-tab="3">查看更多<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-otp-list"></div><p class="none" id="c-otp-empty">登录后显示</p><p class="otp-state" id="c-otp-state" role="status"></p></div>
 <div class="subc call"><div class="sub-h"><svg class="i"><use href="#i-phone"/></svg>最近通话<button type="button" class="link" data-go="comms">查看更多<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-call-list"></div><p class="none" id="c-call-empty">登录后显示</p></div>
 </div>
 </section>
@@ -122,7 +123,7 @@
 <button type="button" class="sv" data-debug="nas-bridge-panel"><svg class="i"><use href="#i-nas"/></svg>NasSimHub<em>查看绑定</em></button>
 <button type="button" class="sv" data-go="security"><svg class="i"><use href="#i-mob"/></svg>AirSIM 手机<em>配对管理</em></button>
 <button type="button" class="sv" data-debug="support-panel"><svg class="i"><use href="#i-globe"/></svg>NKN 远程<em>手动核对</em></button>
-<button type="button" class="sv" data-debug="forwarding-panel"><svg class="i"><use href="#i-send"/></svg>短信转发<em>手动核对</em></button>
+<button type="button" class="sv" data-go="forwarding"><svg class="i"><use href="#i-send"/></svg>短信转发<em>手动核对</em></button>
 </section>
 <section class="card gnss" aria-label="GNSS 定位">
 <div><div class="g-h"><svg class="i"><use href="#i-pin"/></svg>GNSS 定位<span class="fix">未提供</span></div>
@@ -138,10 +139,10 @@
 <nav class="pg-tabs" id="c-tabs" aria-label="页面分区" hidden></nav>
 <div class="pg" id="v-hardware" hidden>
 <div class="pg-grid num">
-<section class="card hw-gauge"><div class="ring-l t-blue"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-cpu-ring" cx="60" cy="60" r="52"/></svg><b id="c-hw-cpu">—</b></div><h3>CPU 占用</h3><p id="c-hw-load">—</p></section>
-<section class="card hw-gauge"><div class="ring-l t-purple"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-mem-ring" cx="60" cy="60" r="52"/></svg><b id="c-hw-mem">—</b></div><h3>内存</h3><p id="c-hw-mem-d">—</p></section>
-<section class="card hw-gauge"><div class="ring-l t-teal"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-disk-ring" cx="60" cy="60" r="52"/></svg><b id="c-hw-disk">—</b></div><h3>存储</h3><p id="c-hw-disk-d">—</p></section>
-<section class="card hw-gauge"><div class="ring-l t-amber"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-temp-ring" cx="60" cy="60" r="52"/></svg><b id="c-hw-temp">—</b></div><h3>CPU 温度</h3><p id="c-hw-temp-d">上限 85 °C</p></section>
+<section class="card hw-gauge"><div class="ring-l t-blue"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-cpu-ring" stroke-dashoffset="326.7" cx="60" cy="60" r="52"/></svg><b id="c-hw-cpu">—</b></div><h3>CPU 占用</h3><p id="c-hw-load">—</p></section>
+<section class="card hw-gauge"><div class="ring-l t-purple"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-mem-ring" stroke-dashoffset="326.7" cx="60" cy="60" r="52"/></svg><b id="c-hw-mem">—</b></div><h3>内存</h3><p id="c-hw-mem-d">—</p></section>
+<section class="card hw-gauge"><div class="ring-l t-teal"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-disk-ring" stroke-dashoffset="326.7" cx="60" cy="60" r="52"/></svg><b id="c-hw-disk">—</b></div><h3>存储</h3><p id="c-hw-disk-d">—</p></section>
+<section class="card hw-gauge"><div class="ring-l t-amber"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-temp-ring" stroke-dashoffset="326.7" cx="60" cy="60" r="52"/></svg><b id="c-hw-temp">—</b></div><h3>CPU 温度</h3><p id="c-hw-temp-d">上限 85 °C</p></section>
 <section class="card pg-card w7"><h2><svg class="i"><use href="#i-temp"/></svg>温度趋势<small>本次打开页面以来</small></h2><svg class="trend" viewBox="0 0 150 28" preserveAspectRatio="none" aria-label="温度趋势"><path id="c-hw-trend"/></svg></section>
 <section class="card pg-card w5"><h2><svg class="i"><use href="#i-chip"/></svg>设备信息</h2><dl class="pg-kv"><dt>型号</dt><dd id="c-hw-model">—</dd><dt>处理器</dt><dd id="c-hw-cores">—</dd><dt>操作系统</dt><dd id="c-hw-os">—</dd><dt>内核</dt><dd id="c-hw-kernel">—</dd><dt>固件版本</dt><dd id="c-hw-version">—</dd><dt>运行时间</dt><dd id="c-hw-uptime">—</dd></dl></section>
 </div></div>
@@ -151,6 +152,19 @@
 <section class="card pg-card w7"><h2><svg class="i"><use href="#i-sig"/></svg>信号质量<span class="pill off" id="c-sm-quality">未知</span></h2><div class="meter3"><div><span>RSRP 信号强度</span><b id="c-sm-rsrp">—</b><div class="scale"><i id="c-sm-rsrp-m"></i></div></div><div><span>RSRQ 信号质量</span><b id="c-sm-rsrq">—</b><div class="scale"><i id="c-sm-rsrq-m"></i></div></div><div><span>SINR 信噪比</span><b id="c-sm-sinr">—</b><div class="scale"><i id="c-sm-sinr-m"></i></div></div></div></section>
 <section class="card pg-card w6"><h2><svg class="i"><use href="#i-ant"/></svg>当前小区</h2><dl class="pg-kv"><dt>频段</dt><dd id="c-sm-band">—</dd><dt>EARFCN</dt><dd id="c-sm-earfcn">—</dd><dt>物理小区 ID</dt><dd id="c-sm-pci">—</dd><dt>小区 ID</dt><dd id="c-sm-cell">—</dd><dt>TAC</dt><dd id="c-sm-tac">—</dd></dl></section>
 <section class="card pg-card w6"><h2><svg class="i"><use href="#i-sim"/></svg>调制解调器</h2><dl class="pg-kv"><dt>状态</dt><dd id="c-sm-modem">—</dd><dt>运营商代码</dt><dd id="c-sm-plmn">—</dd><dt>信号百分比</dt><dd id="c-sm-pct">—</dd><dt>允许频段</dt><dd id="c-sm-bands">—</dd><dt>移动数据</dt><dd id="c-sm-data">—</dd></dl></section>
+<section class="card pg-card w12" aria-labelledby="roaming-heading">
+<h2 id="roaming-heading">国际数据漫游</h2>
+<p class="pg-note">只控制蜂窝数据。漫游通话和短信仍按运营商规则计费。</p>
+<div class="mail-actions"><button type="button" class="pg-btn" id="data-roaming-read">读取状态</button>
+<button type="button" class="pg-btn" id="data-roaming-toggle" disabled>开启数据漫游</button></div>
+<p class="pg-note" id="data-roaming-state" role="status">读取设备状态后可操作。</p>
+</section>
+<dialog class="alert" id="data-roaming-dialog" aria-labelledby="data-roaming-confirm-title">
+<form method="dialog"><h3 id="data-roaming-confirm-title">再次确认开启国际数据漫游</h3>
+<p>国外或跨境使用蜂窝数据可能产生高额费用，费用以运营商账单为准。</p>
+<label><input type="checkbox" id="data-roaming-ack">我已了解可能产生高额费用</label>
+<div><button type="submit" value="cancel" autofocus>取消</button>
+<button type="submit" value="enable" class="danger" id="data-roaming-submit" disabled>确认开启</button></div></form></dialog>
 </div></div>
 <div class="pg" id="v-gnss" hidden>
 <div class="pg-grid">
@@ -193,7 +207,10 @@
 </div></div>
 <div class="pg" id="v-sms" hidden>
 <section class="card mail">
-<div class="mail-list"><div class="mail-h"><b>收件箱</b><button type="button" class="pg-link" id="c-mail-refresh">刷新</button></div><div id="c-mail-list" role="list"></div><p class="none" id="c-mail-empty">登录后显示</p><button type="button" class="pg-link mail-more" id="c-mail-more" hidden>加载更多</button></div>
+<div class="mail-list"><div class="mail-h"><b id="c-mail-title">收件箱</b><div class="mail-actions"><button type="button" class="pg-link" id="c-mail-select">选择</button><button type="button" class="pg-link" id="c-mail-refresh">刷新</button></div></div>
+<div class="mail-actions mail-batch" id="c-mail-batch" hidden><button type="button" class="pg-btn" id="c-mail-select-all">全选已加载</button><button type="button" class="pg-btn" id="c-mail-apply-selection">移到回收站</button><span id="c-mail-selection-count"></span></div>
+<div class="mail-actions mail-batch" id="c-mail-folder-actions"><button type="button" class="pg-btn danger" id="c-mail-apply-folder">清空收件箱</button></div>
+<p id="c-mail-operation" class="pg-note mail-message" role="status"></p><div id="c-mail-list" role="list"></div><p class="none" id="c-mail-empty">登录后显示</p><button type="button" class="pg-link mail-more" id="c-mail-more" hidden>加载更多</button></div>
 <div class="mail-read"><div id="c-mail-blank" class="none">选择一条短信查看</div><article id="c-mail-open" hidden><header><span class="brand t-blue" id="c-mail-av">信</span><div><b id="c-mail-from">—</b><time id="c-mail-time"></time></div></header><pre id="c-mail-body"></pre><div class="mail-acts"><button type="button" class="pg-btn main" id="c-mail-reply">回复</button><button type="button" class="pg-btn" id="c-mail-copy" hidden>复制验证码</button><button type="button" class="pg-btn danger" id="c-mail-del">移到回收站</button></div><p class="pg-note" id="c-mail-state" role="status"></p></article></div>
 </section></div>
 <div class="pg" id="v-compose" hidden>
@@ -239,7 +256,7 @@
 <button type="button" class="mh-sv" data-debug="nas-bridge-panel"><svg class="i"><use href="#i-nas"/></svg>NasSimHub<em>查看绑定</em><svg class="i ch"><use href="#i-chev"/></svg></button>
 <button type="button" class="mh-sv" data-go="security"><svg class="i"><use href="#i-mob"/></svg>AirSIM 手机<em>配对管理</em><svg class="i ch"><use href="#i-chev"/></svg></button>
 <button type="button" class="mh-sv" data-debug="support-panel"><svg class="i"><use href="#i-globe"/></svg>NKN 远程<em>手动核对</em><svg class="i ch"><use href="#i-chev"/></svg></button>
-<button type="button" class="mh-sv" data-debug="forwarding-panel"><svg class="i"><use href="#i-send"/></svg>短信转发<em>手动核对</em><svg class="i ch"><use href="#i-chev"/></svg></button>
+<button type="button" class="mh-sv" data-go="forwarding"><svg class="i"><use href="#i-send"/></svg>短信转发<em>手动核对</em><svg class="i ch"><use href="#i-chev"/></svg></button>
 </div></div>
 <div class="pg phone-only" id="v-mcomm" hidden>
 <div class="mc-tabs" role="group" aria-label="通信分类"><button type="button" data-mc="sms" aria-pressed="true"><svg class="i"><use href="#i-msg"/></svg>短信</button><button type="button" data-mc="otp" aria-pressed="false"><svg class="i"><use href="#i-shield"/></svg>验证码</button><button type="button" data-mc="call" aria-pressed="false"><svg class="i"><use href="#i-phone"/></svg>通话</button></div>
@@ -247,7 +264,7 @@
 <section class="mc-g" id="c-mc-g-sms"><div class="mc-h"><span class="mc-av"><svg class="i"><use href="#i-msg"/></svg></span><b>普通短信</b><button type="button" class="mc-all" data-all="sms">查看全部（<span id="c-mc-n-sms">0</span>）<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-mc-sms"></div><p class="none" id="c-mc-e-sms">登录后显示</p></section>
 <section class="mc-g" id="c-mc-g-otp"><div class="mc-h"><span class="mc-av"><svg class="i"><use href="#i-shield"/></svg></span><b>验证码</b><button type="button" class="mc-all" data-all="otp">查看全部（<span id="c-mc-n-otp">0</span>）<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-mc-otp"></div><p class="none" id="c-mc-e-otp">登录后显示</p></section>
 <section class="mc-g" id="c-mc-g-call"><div class="mc-h"><span class="mc-av r"><svg class="i"><use href="#i-phone"/></svg></span><b>最近通话</b><button type="button" class="mc-all" data-all="call">查看全部（<span id="c-mc-n-call">0</span>）<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-mc-call"></div><p class="none" id="c-mc-e-call">登录后显示</p></section>
-<button type="button" class="pg-btn mc-more" id="c-mc-more" hidden>加载更早的记录</button><div class="mc-acts"><button type="button" class="pg-btn main" data-tab="1">写短信</button><button type="button" class="pg-btn" data-tab="2">拨号</button></div>
+<button type="button" class="pg-btn mc-more" id="c-mc-more" hidden>加载更早的记录</button><div class="mc-acts"><button type="button" class="pg-btn" id="c-mc-manage">管理短信</button><button type="button" class="pg-btn" data-tab="4">回收站</button></div><div class="mc-acts"><button type="button" class="pg-btn main" data-tab="1">写短信</button><button type="button" class="pg-btn" data-tab="2">拨号</button></div>
 </div>
 <div class="pg phone-only" id="v-more" hidden>
 <div class="mh-svc">

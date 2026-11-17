@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// 控制台外壳与仪表盘。仪表盘只读：唯一的写操作是用户确认后的“清理验证码”，逐条调用原有的移到回收站接口，
+// 控制台外壳与仪表盘。短信管理写操作均由用户确认，
 // Core 仍要求所有者最近登录。开关和配置都跳到原业务区，保留那里的最近登录、确认和回执。
 // 转发和 NKN 状态不在这里自动读取：forwarding_status 可能触发核对，这两项按原约定只由用户手动读取。
 const record=v=>v!==null&&typeof v==='object'&&!Array.isArray(v)?v:{};
@@ -74,7 +74,8 @@ export const PAGES={
  hardware:{title:'硬件状态',desc:'处理器、内存、存储和温度',tabs:[{label:'概览',view:'v-hardware'}]},
  network:{title:'网络管理',desc:'联网状态、流量和网络接口',tabs:[{label:'概览',view:'v-network'}]},
  sim:{title:'SIM与调制解调器',desc:'SIM 状态、信号质量和当前小区',tabs:[{label:'概览',view:'v-sim'}]},
- comms:{title:'通信中心',desc:'短信、验证码、写短信和电话',tabs:[{label:'收件箱',view:'v-sms',phone:'v-mcomm'},{label:'写短信',view:'v-compose'},{label:'电话',view:'v-phone'}]},
+ comms:{title:'通信中心',desc:'短信、验证码、写短信和电话',tabs:[{label:'收件箱',view:'v-sms',phone:'v-mcomm'},{label:'写短信',view:'v-compose'},{label:'电话',view:'v-phone'},{label:'验证码',view:'v-sms'},{label:'回收站',view:'v-sms'}]},
+ forwarding:{title:'短信转发',desc:'转发开关、规则和历史回执',tabs:[{label:'短信转发',show:['forwarding-panel','forwarding-history-panel']}]},
  gnss:{title:'GNSS定位',desc:'卫星定位状态',tabs:[{label:'定位',view:'v-gnss'}]},
  ble:{title:'蓝牙',desc:'通信模式与 Wi-Fi 配网',tabs:[{label:'蓝牙',view:'v-ble'}]},
  security:{title:'安全策略',desc:'当前身份、已授权设备和外部接入',tabs:[{label:'概览',view:'v-security'}]},
@@ -96,7 +97,7 @@ const uniqueRows=rows=>{const seen=new Set();return rows.filter(row=>{if(!row.id
 const VIEW_FIELDS=['c-mh-cpu','c-mh-mem','c-mh-disk','c-mh-temp','c-hw-model','c-hw-os','c-hw-kernel','c-hw-version','c-hw-cores','c-hw-uptime','c-hw-cpu','c-hw-load','c-hw-mem','c-hw-mem-d','c-hw-disk','c-hw-disk-d','c-hw-temp','c-ab-version','c-ab-model','c-ab-os','c-ab-kernel','c-sm-line','c-sm-op','c-sm-tech','c-sm-reg'];
 export class ConsoleDashboard{
  constructor({document,request,copy,detailText=v=>String(v?.text??''),confirm=()=>false,storage=null,clock=()=>Date.now(),matchDark=()=>false,onLeave=()=>{}}){this.doc=document;this.request=request;this.copy=copy;this.storage=storage;this.clock=clock;this.onLeave=onLeave;this.matchDark=matchDark;this.epoch=0;this.active=false;this.sample=null;this.receivedAt=0;this.system=null;this.systemAt=0;this.temps=[];this.otps=[];this.events=[];this.seen=new Set();this.lastLine=null;this.page='dashboard';this.tab=0;this.timers=[];
-  this.$=id=>document.getElementById(id);this.detailText=detailText;this.confirm=confirm;this.mail=[];this.recentMail=[];this.older=[];this.mailTotal=0;this.callRows=[];this.recentCalls=[];this.olderCalls=[];this.callTotal=0;this.expanded=new Set();
+  this.$=id=>document.getElementById(id);this.detailText=detailText;this.confirm=confirm;this.mail=[];this.recentMail=[];this.older=[];this.mailTotal=0;this.callRows=[];this.recentCalls=[];this.olderCalls=[];this.callTotal=0;this.expanded=new Set();this.selectedMail=new Set();this.trash=[];
   let theme=null;try{theme=storage?.getItem('rustsimhub-theme');}catch{}
   const saved=theme==='dark'||theme==='light';this.setTheme(saved?theme:matchDark()?'dark':'light');this.mode=saved?theme:'system';for(const b of document.querySelectorAll('[data-mode]')){b.setAttribute('aria-pressed',String(b.dataset.mode===this.mode));b.addEventListener('click',()=>this.setMode(b.dataset.mode));}
   this.$('c-theme').addEventListener('click',()=>{this.setMode(this.doc.documentElement.dataset.theme==='dark'?'light':'dark');});
@@ -106,10 +107,18 @@ export class ConsoleDashboard{
   for(const b of document.querySelectorAll('[data-mc]'))b.addEventListener('click',()=>this.commSection(b.dataset.mc));
   for(const b of document.querySelectorAll('[data-all]'))b.addEventListener('click',()=>{const k=b.dataset.all;if(this.expanded.has(k))this.expanded.delete(k);else this.expanded.add(k);this.renderComm();});
   for(const b of document.querySelectorAll('[data-tab]'))b.addEventListener('click',()=>this.go('comms',Number(b.dataset.tab)));
-  this.$('c-back').addEventListener('click',()=>{if(this.doc.documentElement.dataset.reading){delete this.doc.documentElement.dataset.reading;return;}this.go('dashboard');});
+  this.$('c-back').addEventListener('click',()=>{const root=this.doc.documentElement;if(root.dataset.reading){this.clearMailDetail();return;}if(root.dataset.mailManage||this.page==='comms'&&(this.tab===3||this.tab===4)){this.go('comms');return;}this.go('dashboard');});
   this.$('c-mh-user').addEventListener('click',()=>this.go(this.active?'settings':'login'));
   this.$('c-mc-q').addEventListener('input',()=>this.renderComm());this.$('c-mc-f').addEventListener('change',()=>this.renderComm());
-  this.$('c-mail-refresh').addEventListener('click',()=>void this.readLists(true));this.$('c-mc-more').addEventListener('click',()=>void this.moreComm());this.$('c-mail-more').addEventListener('click',()=>void this.moreMail());this.$('c-mail-del').addEventListener('click',()=>void this.deleteMail());
+  this.$('c-mail-refresh').addEventListener('click',()=>void this.refreshSmsFolder());
+  this.$('c-mc-more').addEventListener('click',()=>void this.moreComm());
+  this.$('c-mail-more').addEventListener('click',()=>void (this.smsFolder()==='trash'?this.loadTrash():this.moreMail()));
+  this.$('c-mail-del').addEventListener('click',()=>void this.deleteMail());
+  this.$('c-mail-select').addEventListener('click',()=>{this.mailSelecting=!this.mailSelecting;this.selectedMail.clear();this.renderMail();});
+  this.$('c-mail-select-all').addEventListener('click',()=>{const rows=this.folderRows(),all=rows.every(row=>this.selectedMail.has(row.id));this.selectedMail=new Set(all?[]:rows.map(row=>row.id));this.renderMail();});
+  this.$('c-mail-apply-selection').addEventListener('click',()=>void this.applySelection());
+  this.$('c-mail-apply-folder').addEventListener('click',()=>void this.applyFolder());
+  this.$('c-mc-manage').addEventListener('click',()=>{this.go('comms');this.doc.documentElement.dataset.mailManage='1';});
   this.$('c-mail-reply').addEventListener('click',()=>{if(!this.opened)return;this.$('c-cp-to').value=this.opened.raw||'';this.go('comms',1);});
   this.$('c-mail-copy').addEventListener('click',()=>{if(this.opened?.code)void this.copy(this.opened.code);});
   this.$('c-cp-text').addEventListener('input',()=>{this.$('c-cp-count').textContent=`${new TextEncoder().encode(this.$('c-cp-text').value).length} / 4096 字节`;});
@@ -130,11 +139,12 @@ export class ConsoleDashboard{
   this.$('c-bell').addEventListener('click',()=>this.go('logs',0));
   const dialog=this.$('c-otp-dialog');this.$('c-otp-clear').addEventListener('click',()=>{if(!this.otps.length||this.clearing)return;this.$('c-otp-dialog-title').textContent=`清理 ${this.otps.length} 条验证码短信？`;dialog.showModal();});
   dialog.addEventListener('close',()=>{const clear=dialog.returnValue==='clear';dialog.returnValue='';if(clear)void this.clearOtps();});
-  for(const list of [this.$('c-mail-list'),this.$('c-mc-g-sms')])if(list.parentElement){const note=this.doc.createElement('p');note.className='console-order-note';note.textContent='按设备收到顺序（新→旧），不是短信自带时间排序。时间按浏览器本地时区显示；无时区会明确标注。计数为设备本地记录，含历史线路、不含短信回收站。';list.parentElement.insertBefore(note,list);}
+  for(const list of [this.$('c-mail-list'),this.$('c-mc-g-sms')])if(list.parentElement){const note=this.doc.createElement('p');note.className='console-order-note';if(list.id==='c-mail-list')this.mailOrderNote=note;note.textContent='按设备收到顺序（新→旧），不是短信自带时间排序。时间按浏览器本地时区显示；无时区会明确标注。计数为设备本地记录，含历史线路、不含短信回收站。';list.parentElement.insertBefore(note,list);}
   this.go('dashboard');this.reset();this.tick();}
  setTheme(theme){this.doc.documentElement.dataset.theme=theme;this.$('c-theme-icon').setAttribute('href',theme==='dark'?'#i-sun':'#i-moon');}
- go(target,tab=0,openId=null){const page=PAGES[target];if(!page)return;const tabs=page.tabs||[];const index=tabs[tab]?tab:0;if(target!==this.page||index!==this.tab)this.onLeave();if(this.page==='security'&&target!=='security')this.hideAirsimCode();this.page=target;this.tab=index;this.watchAirsim();
-  const root=this.doc.documentElement;root.dataset.page=target;root.dataset.tab=String(index);delete root.dataset.reading;
+ go(target,tab=0,openId=null){const page=PAGES[target];if(!page)return;const tabs=page.tabs||[];const index=tabs[tab]?tab:0;const changed=target!==this.page||index!==this.tab;if(changed)this.onLeave();if(this.page==='security'&&target!=='security')this.hideAirsimCode();this.page=target;this.tab=index;this.watchAirsim();
+  const root=this.doc.documentElement;root.dataset.page=target;root.dataset.tab=String(index);delete root.dataset.reading;delete root.dataset.mailManage;
+  if(changed){this.mailSelecting=false;this.selectedMail.clear();this.clearMailDetail();this.$('c-mail-operation').textContent='';this.renderMail();if(target==='comms'&&index===4&&this.active)void this.loadTrash(true);}
   const navTarget=page.nav||target;for(const b of this.doc.querySelectorAll('.nav[data-go]'))if(b.dataset.go===navTarget)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
   const mobile={dashboard:'dashboard',comms:'comms',hardware:'hardware',network:'network'}[navTarget]||'more';for(const b of this.doc.querySelectorAll('[data-mnav]'))if(b.dataset.mnav===mobile)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
   this.$('c-title').textContent=page.title;const sub=this.$('c-subtitle');sub.textContent=page.desc||'';sub.hidden=!page.desc;const dashboard=target==='dashboard';this.$('c-dash').hidden=!dashboard;this.$('c-back').hidden=dashboard;
@@ -151,7 +161,7 @@ export class ConsoleDashboard{
  press(id,stateId,reason){const button=this.$(id);if(button.disabled){this.$(stateId).textContent=this.active?reason:'请先登录';return false;}button.click();return true;}
  sendSms(){const to=this.$('recipient'),body=this.$('text');to.value=this.$('c-cp-to').value.trim();body.value=this.$('c-cp-text').value;body.dispatchEvent(new Event('input',{bubbles:true}));this.press('send-sms','c-cp-state','现在不能发送：有未完成的操作，请到“设备调试”查询');}
  dial(){const input=this.$('phone-number');input.value=this.$('c-ph-num').value.trim();input.dispatchEvent(new Event('input',{bubbles:true}));this.press('phone-dial','c-ph-state','现在不能拨号');}
- commSection(kind){this.go('comms',0);for(const b of this.doc.querySelectorAll('[data-mc]'))b.setAttribute('aria-pressed',String(b.dataset.mc===kind));this.$(`c-mc-g-${kind}`)?.scrollIntoView?.({behavior:'smooth',block:'start'});}
+ commSection(kind){this.go('comms',kind==='otp'?3:0);for(const b of this.doc.querySelectorAll('[data-mc]'))b.setAttribute('aria-pressed',String(b.dataset.mc===kind));this.$(`c-mc-g-${kind}`)?.scrollIntoView?.({behavior:'smooth',block:'start'});}
  commMatch(value){const q=this.$('c-mc-q').value.trim();return !q||String(value).includes(q);}
  renderComm(){const filter=this.$('c-mc-f').value;for(const k of ['sms','otp','call'])this.$(`c-mc-g-${k}`).hidden=filter!=='all'&&filter!==k;
   const moreMail=this.canMoreMail(),moreCalls=this.canMoreCalls(),searching=!!this.$('c-mc-q').value.trim();
@@ -165,11 +175,158 @@ export class ConsoleDashboard{
   fill('call',this.callRows.filter(c=>this.commMatch(c.number)),c=>shell(c.number,c.label,'',null,c.kind==='in'?'↙':c.kind==='out'?'↗':'?'));}
  // 短信和通话的总数来自设备；验证码由页面从预览识别，没读完时只说已读范围内的数量。
  renderMobileCounts(){const otp=this.mail.filter(m=>m.code).length;this.$('c-mh-q-sms').textContent=this.active?countText(this.mailTotal,this.mail.length):'—';this.$('c-mh-q-otp').textContent=this.active?(this.canMoreMail()?`${otp}+`:String(otp)):'—';this.$('c-mh-q-call').textContent=this.active?countText(this.callTotal,this.callRows.length):'—';}
- renderMail(){const box=this.$('c-mail-list');box.replaceChildren();this.$('c-mail-empty').hidden=this.mail.length>0;this.$('c-mail-empty').textContent='没有短信';
-  for(const m of this.mail){const b=this.doc.createElement('button');b.type='button';b.className='mail-it';const a=this.doc.createElement('span');a.className='brand t-blue';a.textContent=[...m.sender].find(ch=>/[^\d\s*+]/.test(ch))||'信';const t=this.doc.createElement('b');t.textContent=m.sender;const w=this.doc.createElement('time');w.textContent=m.time||'';const p=this.doc.createElement('span');p.className='p';p.textContent=m.preview;b.append(a,t,w,p);if(this.opened?.id===m.id)b.setAttribute('aria-current','true');b.addEventListener('click',()=>void this.openMail(m));box.append(b);}}
- async openMail(m,phone=false){const epoch=this.epoch;this.opened=m;if(phone)this.doc.documentElement.dataset.reading='1';this.$('c-mail-blank').hidden=true;this.$('c-mail-open').hidden=false;this.$('c-mail-from').textContent=m.sender;this.$('c-mail-time').textContent=m.fullTime||m.time||'';this.$('c-mail-av').textContent=[...m.sender].find(ch=>/[^\d\s*+]/.test(ch))||'信';this.$('c-mail-body').textContent=m.preview;this.$('c-mail-copy').hidden=!m.code;this.$('c-mail-state').textContent='';this.renderMail();
-  try{const detail=await this.request({op:'sms_detail',sms_id:m.id});if(epoch!==this.epoch||this.opened!==m)return;this.$('c-mail-time').textContent=smsTime(record(detail).timestamp??m.rawTimestamp,new Date(this.clock())).full;const full=String(this.detailText(detail)),parts=full.split('\n\n');this.$('c-mail-body').textContent=parts.length>1?parts.slice(1).join('\n\n'):full;}catch{if(epoch===this.epoch&&this.opened===m)this.$('c-mail-state').textContent='完整正文暂时读不到，上面是列表预览';return;}
-  void this.optional({op:'notification_read',entity:'sms',record_id:m.id});}
+ smsFolder(){return this.page==='comms'?(this.tab===4?'trash':this.tab===3?'otp':'inbox'):'inbox';}
+ folderRows(){
+  const folder=this.smsFolder();
+  return folder==='trash'?this.trash:folder==='otp'?this.mail.filter(mail=>mail.code):this.mail;
+ }
+ clearMailDetail(){
+  this.opened=null;delete this.doc.documentElement.dataset.reading;
+  this.$('c-mail-open').hidden=true;this.$('c-mail-blank').hidden=false;
+  this.$('c-mail-body').textContent='';this.$('c-mail-state').textContent='';
+ }
+ mailButtons(){
+  const folder=this.smsFolder(),trash=folder==='trash',rows=this.folderRows(),busy=!!this.mailAction;
+  this.$('c-mail-title').textContent=trash?'回收站':folder==='otp'?'验证码':'收件箱';
+  this.$('c-mail-select').textContent=this.mailSelecting?'取消选择':'选择';
+  this.$('c-mail-select').disabled=!this.active||!rows.length||busy;
+  this.$('c-mail-batch').hidden=!this.mailSelecting;
+  this.$('c-mail-selection-count').textContent=`已选 ${this.selectedMail.size} 条`;
+  this.$('c-mail-select-all').textContent=rows.length&&rows.every(row=>this.selectedMail.has(row.id))?'取消全选':'全选已加载';
+  this.$('c-mail-select-all').disabled=!rows.length||busy;
+  this.$('c-mail-apply-selection').textContent=trash?'恢复所选':'移到回收站';
+  this.$('c-mail-apply-selection').disabled=busy||!this.selectedMail.size;
+  this.$('c-mail-folder-actions').hidden=folder==='otp'||!this.active;
+  this.$('c-mail-apply-folder').textContent=trash?'清空回收站':'全选整箱并移到回收站';
+  this.$('c-mail-apply-folder').disabled=busy||!(trash?this.trash.length:this.mail.length);
+  this.$('c-mail-del').disabled=busy;
+  this.$('c-mail-refresh').disabled=busy;
+  if(this.mailOrderNote)this.mailOrderNote.hidden=trash;
+  this.$('c-mail-more').hidden=trash?!this.trashMore:!this.canMoreMail();
+  this.$('c-mail-more').disabled=busy;
+ }
+ renderMail(){
+  const folder=this.smsFolder(),rows=this.folderRows(),box=this.$('c-mail-list'),ids=new Set(rows.map(m=>m.id));
+  for(const id of this.selectedMail)if(!ids.has(id))this.selectedMail.delete(id);
+  box.replaceChildren();
+  const empty=this.$('c-mail-empty');
+  empty.hidden=rows.length>0;
+  empty.textContent=!this.active?'登录后显示':folder==='trash'?'回收站为空或尚未读取':folder==='otp'?
+   (this.canMoreMail()?'已加载的短信里没有验证码，可继续加载':'没有验证码短信'):'没有短信';
+  for(const m of rows){
+   const b=this.doc.createElement('button');b.type='button';b.className='mail-it';
+   const a=this.doc.createElement('span');a.className='brand t-blue';a.textContent=[...m.sender].find(ch=>/[^\d\s*+]/.test(ch))||'信';
+   const t=this.doc.createElement('b');t.textContent=m.sender;
+   const w=this.doc.createElement('time');w.textContent=m.time||'';
+   const p=this.doc.createElement('span');p.className='p';
+   if(folder==='otp'){
+    const code=this.doc.createElement('strong');code.className='mail-code';code.textContent=m.code;p.append(code);
+   }
+   p.append(m.preview);b.append(a,t,w,p);
+   if(this.opened?.id===m.id)b.setAttribute('aria-current','true');
+   b.addEventListener('click',()=>void this.openMail(m,this.doc.defaultView?.matchMedia?.('(max-width: 767px)').matches));
+   if(this.mailSelecting){
+    const row=this.doc.createElement('div'),check=this.doc.createElement('input');
+    row.className='mail-choice';check.type='checkbox';check.checked=this.selectedMail.has(m.id);
+    check.setAttribute('aria-label',`选择来自 ${m.sender} 的短信`);check.disabled=!!this.mailAction;
+    check.addEventListener('change',()=>{if(check.checked)this.selectedMail.add(m.id);else this.selectedMail.delete(m.id);this.mailButtons();});
+    row.append(check,b);box.append(row);
+   }else box.append(b);
+  }
+  this.mailButtons();
+ }
+ async openMail(m,phone=false){
+  const epoch=this.epoch,trash=this.smsFolder()==='trash';
+  this.opened=m;if(phone)this.doc.documentElement.dataset.reading='1';
+  this.$('c-mail-blank').hidden=true;this.$('c-mail-open').hidden=false;this.$('c-mail-from').textContent=m.sender;
+  this.$('c-mail-time').textContent=m.fullTime||m.time||'';this.$('c-mail-av').textContent=[...m.sender].find(ch=>/[^\d\s*+]/.test(ch))||'信';
+  this.$('c-mail-body').textContent=m.preview;this.$('c-mail-copy').hidden=trash||!m.code;this.$('c-mail-reply').hidden=trash;
+  this.$('c-mail-del').textContent=trash?'恢复到收件箱':'移到回收站';this.$('c-mail-state').textContent='';this.renderMail();
+  try{
+   const detail=await this.request({op:trash?'deleted_sms_detail':'sms_detail',sms_id:m.id});
+   if(epoch!==this.epoch||this.opened!==m)return;
+   this.$('c-mail-time').textContent=smsTime(record(detail).timestamp??m.rawTimestamp,new Date(this.clock())).full;
+   const full=String(this.detailText(detail)),parts=full.split('\n\n');
+   this.$('c-mail-body').textContent=parts.length>1?parts.slice(1).join('\n\n'):full;
+  }catch{
+   if(epoch===this.epoch&&this.opened===m)this.$('c-mail-state').textContent='完整正文暂时读不到，上面是列表预览';
+   return;
+  }
+  if(!trash)void this.optional({op:'notification_read',entity:'sms',record_id:m.id});
+ }
+ async refreshSmsFolder(){
+  if(this.smsFolder()==='trash')await this.loadTrash(true);
+  else await this.readLists(true);
+ }
+ async loadTrash(reset=false){
+  if(!this.active||this.trashLoad)return;
+  const before=reset?null:this.trashCursor,flight={};this.trashLoad=flight;
+  const epoch=this.epoch;
+  try{
+   const page=record(await this.request({op:'deleted_inbox',after:before,limit:16}));
+   if(epoch!==this.epoch)return;
+   const next=cursorOf(page.cursor),rows=page.messages;
+   if(!next||!Array.isArray(rows)||rows.length>16||rows.some(row=>typeof row?.id!=='string')||
+      before&&(before.db_epoch!==next.db_epoch||rows.length&&BigInt(next.seq)<=BigInt(before.seq)))throw Error('回收站列表已变化');
+   const messages=rows.map(row=>this.mailView(row));
+   this.trash=reset?messages:uniqueRows([...this.trash,...messages]);
+   this.trashCursor=next;this.trashMore=rows.length===16;
+   if(this.smsFolder()==='trash')this.renderMail();
+  }catch{
+   if(epoch===this.epoch&&this.smsFolder()==='trash'){
+    if(reset){this.trash=[];this.trashCursor=null;this.trashMore=false;this.renderMail();}
+    this.$('c-mail-operation').textContent='读取回收站失败，请用所有者身份重新登录后刷新。';
+   }
+  }finally{if(this.trashLoad===flight)this.trashLoad=null;}
+ }
+ async performSmsAction(action){
+  if(!this.active||this.mailAction)return;
+  const epoch=this.epoch,folder=this.smsFolder(),marker={},state=this.$('c-mail-operation');
+  this.mailAction=marker;this.renderMail();
+  const current=()=>{if(epoch!==this.epoch||this.page!=='comms'||this.smsFolder()!==folder)throw Error('会话或短信页面已变化');};
+  try{
+   const result=await action(current);
+   current();if(result===null)return;
+   const {changed,label}=result;
+   this.selectedMail.clear();this.mailSelecting=false;this.clearMailDetail();
+   await this.refreshSmsFolder();current();
+   if(this.smsFolder()==='trash')void this.readLists(true);
+   state.textContent=`已${label} ${changed} 条短信`;
+  }catch{
+   if(epoch===this.epoch&&this.page==='comms')state.textContent='操作未全部确认，请刷新核对后再试。';
+  }finally{if(this.mailAction===marker){this.mailAction=null;this.renderMail();}}
+ }
+ async applySelection(){
+  const ids=[...this.selectedMail],trash=this.smsFolder()==='trash',label=trash?'恢复':'移到回收站';
+  if(!ids.length||!this.confirm(`将所选 ${ids.length} 条短信${trash?'恢复到收件箱':'移到本地回收站'}？`))return;
+  await this.performSmsAction(async current=>{
+   let changed=0;
+   for(let i=0;i<ids.length;i+=32){
+    current();const sms_ids=ids.slice(i,i+32);
+    const result=record(await this.request({op:'set_sms_deleted_batch',sms_ids,deleted:!trash}));
+    if(count(result.changed)===null||result.changed>sms_ids.length)throw Error('回执无效');
+    changed+=result.changed;
+   }
+   return {changed,label};
+  });
+ }
+ async applyFolder(){
+  const folder=this.smsFolder(),purge=folder==='trash';
+  if(folder==='otp')return;
+  await this.performSmsAction(async current=>{
+   const info=record(await this.request({op:'sms_folder_status'}));current();
+   if(this.smsFolder()!==folder)return null;
+   const total=count(purge?info.trash:info.inbox),version=cursorOf(info.version),head_seq=visibilityOf(info.head_seq);
+   if(total===null||!version||!head_seq)throw Error('文件夹状态无效');
+   if(!total){this.$('c-mail-operation').textContent=purge?'回收站已空。':'收件箱已空。';return null;}
+   if(!this.confirm(purge?`永久删除回收站中的 ${total} 条短信？清空后无法从回收站恢复。`:
+     `把收件箱的全部 ${total} 条短信移到回收站？包括未加载的短信和验证码。`))return null;
+   current();
+   const result=record(await this.request({op:'apply_sms_folder',version,head_seq,purge}));
+   if(result.changed!==total)throw Error('回执无效');
+   return {changed:total,label:purge?'永久删除':'移到回收站'};
+  });
+ }
  canMoreMail(){return !!this.mailCursor&&!this.mailExhausted&&(this.mailTotal===null||this.mail.length<this.mailTotal);}
  canMoreCalls(){return !!this.callCursor&&!this.callExhausted&&(this.callTotal===null||this.callRows.length<this.callTotal);}
  async moreMail(){
@@ -200,7 +357,16 @@ export class ConsoleDashboard{
   }finally{if(this.callLoading===flight)this.callLoading=null;}
  }
  async moreComm(){if(this.canMoreMail()&&(this.expanded.has('sms')||this.expanded.has('otp')))await this.moreMail();if(this.canMoreCalls()&&this.expanded.has('call'))await this.moreCalls();}
- async deleteMail(){const m=this.opened;if(!m||!this.confirm(`把这条短信移到本地回收站？\n\n来自：${m.sender}`))return;const epoch=this.epoch,state=this.$('c-mail-state');try{const r=await this.request({op:'delete_sms',sms_id:m.id});if(epoch!==this.epoch)return;if(record(r).sms_id!==m.id||record(r).deleted!==true)throw Error('设备响应不匹配');this.opened=null;this.$('c-mail-open').hidden=true;this.$('c-mail-blank').hidden=false;delete this.doc.documentElement.dataset.reading;await this.readLists(true);}catch(error){if(epoch===this.epoch)state.textContent=`未确认删除：${error?.message||'需要所有者最近5分钟内登录'}；未自动重试`;}}
+ async deleteMail(){
+  const m=this.opened,trash=this.smsFolder()==='trash';
+  if(!m||!this.confirm(trash?'恢复这条短信到收件箱？':'把这条短信移到本地回收站？'))return;
+  await this.performSmsAction(async current=>{
+   const result=record(await this.request({op:trash?'restore_sms':'delete_sms',sms_id:m.id}));
+   current();
+   if(result.sms_id!==m.id||result.deleted!==!trash)throw Error('回执无效');
+   return {changed:1,label:trash?'恢复':'移到回收站'};
+  });
+ }
  renderPhoneCalls(){const box=this.$('c-ph-calls');box.replaceChildren();this.$('c-ph-calls-empty').hidden=this.callRows.length>0;this.$('c-ph-calls-empty').textContent='没有通话记录';for(const c of this.callRows.slice(0,8))this.item(box,{tone:c.live?'green':c.kind==='in'?'blue':'gray',title:c.number,body:c.label});}
  // AirSIM 直连：页面不保存任何状态，全部以设备返回为准；配对码只在本页显示。
  hideAirsimCode(){clearInterval(this.asTimer);this.asTimer=null;this.$('c-as-code').hidden=true;this.$('c-as-digits').textContent='';this.$('c-as-hint').textContent='';}
@@ -232,11 +398,11 @@ export class ConsoleDashboard{
  dots(id,n){[...this.$(id).children].forEach((d,i)=>d.classList.toggle('on',i<n));}
  bar(id,percent){this.$(id).style.width=`${percent===null?0:Math.max(0,Math.min(100,percent))}%`;}
  status(online){const o=this.$('c-online');o.classList.toggle('off',!online);o.lastChild.textContent=online?'设备在线':this.active?'暂时读不到设备':'未登录';this.$('c-user-name').textContent=this.active?'所有者':'登录';this.$('c-signin').hidden=this.active;this.$('c-mh-signin').hidden=this.active;this.$('login-section').hidden=this.active;this.$('c-ac-login').hidden=this.active;this.$('c-ac-out').hidden=!this.active;for(const id of ['c-sc-state','c-ac-state']){const p=this.$(id);p.textContent=this.active?'所有者':'未登录';p.classList.toggle('off',!this.active);}const m=this.$('c-mh-online');m.textContent=online?'在线':'离线';m.classList.toggle('off',!online);}
- reset(){this.epoch++;this.resetAirsim();this.active=false;this.listRun=(this.listRun||0)+1;this.listLoading=null;this.mailLoading=null;this.callLoading=null;this.lineEpoch=null;this.haveInbox=false;this.haveCalls=false;this.mailVisibility=null;this.mailExhausted=true;this.callExhausted=true;for(const t of this.timers)clearInterval(t);this.timers=[];this.sample=null;this.system=null;this.prevTicks=null;this.temps=[];this.otps=[];this.events=[];this.history=[];this.seen=new Set();this.lastLine=null;
+ reset(){this.epoch++;this.resetAirsim();this.mailAction=null;this.mailSelecting=false;this.selectedMail.clear();this.trash=[];this.trashCursor=null;this.trashMore=false;this.trashLoad=null;this.clearMailDetail();this.$('c-mail-operation').textContent='';this.active=false;this.listRun=(this.listRun||0)+1;this.listLoading=null;this.mailLoading=null;this.callLoading=null;this.lineEpoch=null;this.haveInbox=false;this.haveCalls=false;this.mailVisibility=null;this.mailExhausted=true;this.callExhausted=true;for(const t of this.timers)clearInterval(t);this.timers=[];this.sample=null;this.system=null;this.prevTicks=null;this.temps=[];this.otps=[];this.events=[];this.history=[];this.seen=new Set();this.lastLine=null;
   this.status(false);for(const id of ['c-sms-list','c-call-list','c-otp-list','c-event-list','c-mail-list','c-ph-calls','c-nw-devices','c-sc-list','c-mc-sms','c-mc-otp','c-mc-call'])this.$(id).replaceChildren();this.mail=[];this.recentMail=[];this.older=[];this.mailTotal=0;this.callRows=[];this.recentCalls=[];this.olderCalls=[];this.callTotal=0;this.opened=null;this.mailCursor=null;this.callCursor=null;this.$('c-mc-more').hidden=true;this.$('c-mail-open').hidden=true;this.$('c-mail-blank').hidden=false;this.$('c-mail-more').hidden=true;for(const id of ['c-mail-empty','c-ph-calls-empty','c-nw-devices-empty','c-mc-e-sms','c-mc-e-otp','c-mc-e-call']){this.$(id).hidden=false;this.$(id).textContent='登录后显示';}this.renderMobileCounts();for(const id of ['c-sms-empty','c-call-empty','c-otp-empty','c-event-empty']){this.$(id).hidden=false;this.$(id).textContent='登录后显示';}
   for(const id of ['c-cpu','c-mem','c-disk','c-temp','c-uptime','c-kernel','c-os','c-version','c-cores','c-mem-total','c-disk-total','c-wifi-name','c-wifi-ip','c-wifi-speed','c-cell-op','c-cell-ip','c-cell-usage','c-rsrp','c-rsrq','c-sinr',...VIEW_FIELDS])this.$(id).textContent='—';for(const id of ['c-hw-cpu-ring','c-hw-mem-ring','c-hw-disk-ring','c-hw-temp-ring'])this.ring(id,0);this.$('c-hw-trend').setAttribute('d','');this.$('c-ev-all').replaceChildren();this.$('c-ev-all-empty').hidden=false;this.$('c-model').textContent='未登录';this.$('c-mh-model').textContent='未登录';this.$('c-mh-sub').textContent='登录后显示设备信息';this.$('c-sim').textContent='登录后显示设备信息';
-  this.$('c-otp-state').textContent='';for(const id of ['c-cpu-bar','c-mem-bar','c-disk-bar','c-mh-cpu-b','c-mh-mem-b','c-mh-disk-b'])this.bar(id,0);this.$('c-mh-trend').setAttribute('d','');this.$('c-temp-line').setAttribute('d','');this.network(null);this.tick();}
- async signedIn(){this.active=true;this.status(true);this.log('登录成功','g');await this.refresh();const epoch=this.epoch;
+  this.$('c-otp-state').textContent='';for(const id of ['c-cpu-bar','c-mem-bar','c-disk-bar','c-mh-cpu-b','c-mh-mem-b','c-mh-disk-b'])this.bar(id,0);this.$('c-mh-trend').setAttribute('d','');this.$('c-temp-line').setAttribute('d','');this.network(null);this.mailButtons();this.tick();}
+ async signedIn(){this.active=true;this.status(true);this.log('登录成功','g');await this.refresh();if(this.smsFolder()==='trash')await this.loadTrash(true);const epoch=this.epoch;
   this.timers.push(setInterval(()=>{if(epoch===this.epoch&&!this.doc.hidden)void this.readSystem();},POLL_SYSTEM),setInterval(()=>{if(epoch===this.epoch&&!this.doc.hidden)void this.readLists();},POLL_LISTS));}
  async optional(command){try{return await this.request(command);}catch{return null;}}
  async refresh(){await this.readSystem();await this.readLists();}

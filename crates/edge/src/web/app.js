@@ -538,8 +538,65 @@ async function applyBluetoothMode(){
 for(const name of Object.keys(bluetoothLabels)){
  $('bt-mode-'+name).onclick=()=>{bluetoothTarget=name;drawBluetoothMode();};
 }
+let dataRoaming=null,roamingEpoch=-1,roamingConfirmation=null;
+const roamingDialog=$('data-roaming-dialog'),roamingAck=$('data-roaming-ack');
+const roamingSubmit=$('data-roaming-submit'),roamingToggle=$('data-roaming-toggle'),roamingStatus=$('data-roaming-state');
+function showDataRoaming(info){
+ const available=info?.available===true&&typeof info.enabled==='boolean';
+ dataRoaming=available?info:null;roamingEpoch=viewEpoch;
+ roamingToggle.disabled=!available;
+ roamingToggle.textContent=available&&info.enabled?'关闭数据漫游':'开启数据漫游';
+ roamingStatus.textContent=available?(info.enabled?'国际数据漫游已开启。':'国际数据漫游已关闭。'):
+  (typeof info?.reason==='string'?info.reason:'国际数据漫游状态暂不可用。');
+}
+async function readDataRoaming(){
+ const epoch=viewEpoch;
+ roamingToggle.disabled=true;roamingStatus.textContent='正在读取设备状态…';
+ try{
+  await login();current(epoch);
+  const info=await auth({op:'data_roaming_status'});current(epoch);
+  showDataRoaming(info);
+ }catch(error){if(epoch===viewEpoch)showDataRoaming(null);throw error;}
+}
+async function setDataRoaming(enabled,confirmation=null){
+ const epoch=viewEpoch;
+ roamingToggle.disabled=true;roamingStatus.textContent='正在等待设备确认…';
+ try{
+  const result=await auth({op:'set_data_roaming',enabled,confirmation});current(epoch);
+  if(result?.state!=='pending'||typeof result.request_id!=='string')throw Error('设备没有确认接收请求');
+  for(let index=0;index<12;index++){
+   await new Promise(resolve=>setTimeout(resolve,1250));current(epoch);
+   const status=await auth({op:'data_roaming_status'});current(epoch);
+   if(status?.last_request_id!==result.request_id)continue;
+   showDataRoaming(status);
+   if(status.applied!==true||status.enabled!==enabled)throw Error('设备未应用漫游设置');
+   return;
+  }
+  throw Error('设备尚未回复');
+ }catch(error){if(epoch===viewEpoch){
+  roamingToggle.disabled=true;roamingStatus.textContent='操作结果未确认，请重新读取状态。';
+ }throw error;}
+}
+async function toggleDataRoaming(){
+ if(roamingEpoch!==viewEpoch||!dataRoaming||roamingToggle.disabled)return;
+ if(dataRoaming.enabled){await setDataRoaming(false);return;}
+ if(!confirm('开启国际数据漫游可能产生高额费用。是否继续查看确认？'))return;
+ const epoch=viewEpoch;
+ const prepared=await auth({op:'prepare_data_roaming'});current(epoch);
+ if(typeof prepared?.confirmation!=='string'||!/^[0-9a-f]{32}$/.test(prepared.confirmation))throw Error('设备未给出有效确认');
+ roamingConfirmation={epoch,code:prepared.confirmation};
+ roamingAck.checked=false;roamingSubmit.disabled=true;roamingDialog.returnValue='';roamingDialog.showModal();
+}
+roamingAck.onchange=()=>{roamingSubmit.disabled=!roamingAck.checked;};
+roamingDialog.addEventListener('close',()=>{
+ const prepared=roamingConfirmation,allowed=roamingDialog.returnValue==='enable'&&roamingAck.checked;
+ roamingConfirmation=null;roamingAck.checked=false;roamingSubmit.disabled=true;
+ if(allowed&&prepared?.epoch===viewEpoch)void act(()=>setDataRoaming(true,prepared.code));
+});
+bind('data-roaming-read',readDataRoaming);
+bind('data-roaming-toggle',toggleDataRoaming);
 bind('bt-mode-read',readBluetoothMode);bind('bt-mode-apply',applyBluetoothMode);
-bind('initialize-owner',initializeOwner);bind('password-login',passwordLogin);bind('browser-login',browserLogin);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;dashboard.reset();for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
+bind('initialize-owner',initializeOwner);bind('password-login',passwordLogin);bind('browser-login',browserLogin);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;dashboard.reset();roamingConfirmation=null;if(roamingDialog.open)roamingDialog.close();showDataRoaming(null);for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
 bind('sms-login',async()=>{await login();$('sms-management-state').textContent=smsManager.available?'已重新登录，请重新选择短信后管理。':'当前浏览器没有所有者管理权限，请使用已认领的所有者浏览器。';});
 bind('daily-login',login);$('daily-logout').onclick=()=>$('logout').onclick();bind('sms-refresh',()=>inboxPage(true));bind('send-sms',dailySendSms);bind('sms-query',query);bind('sms-close',closeSms);
 bind('forwarding-login',async()=>{await login();await forwardingPanel.action(g=>forwardingPanel.read(g));});

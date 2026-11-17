@@ -4,13 +4,14 @@ use rustsimhub_auth::{Auth, Error};
 use rustsimhub_policy::Scope;
 use rustsimhub_wire::AuthCommand;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::{
     fs::{self, OpenOptions},
     io::{Read, Write},
     os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
     path::Path,
     sync::{Arc, Mutex},
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 const INPUT: &str = "/run/rustsimhub-network-input";
 const STATUS: &str = "/run/rustsimhub-network/status.json";
@@ -71,6 +72,27 @@ fn publish(
     {
         return Err(Error::InvalidInput);
     }
+    let _guard = WRITER.try_lock().map_err(|_| Error::Busy)?;
+    let status = snapshot()?;
+    if status["last_request_id"] == request_id {
+        return Ok(());
+    }
+    let uptime = uptime_ms()?;
+    let value = json!({"schema":1,"request_id":request_id,"boot_id":status["boot_id"],"expires_uptime_ms":uptime+15000,"policy":{"enabled":enabled,"limit_bytes":limit_bytes,"reset_day":reset_day},"acknowledge_meter_gap":acknowledge_meter_gap});
+    write_input("policy.json", request_id, &value)
+}
+fn uptime_ms() -> Result<u64> {
+    fs::read_to_string("/proc/uptime")
+        .map_err(|_| Error::Io)?
+        .split('.')
+        .next()
+        .ok_or(Error::Io)?
+        .parse::<u64>()
+        .ok()
+        .and_then(|v| v.checked_mul(1000))
+        .ok_or(Error::Io)
+}
+fn write_input(file: &str, request_id: &str, value: &Value) -> Result<()> {
     let dir = Path::new(INPUT);
     let m = fs::symlink_metadata(dir).map_err(|_| Error::Io)?;
     if !m.is_dir()
@@ -80,21 +102,7 @@ fn publish(
     {
         return Err(Error::Forbidden);
     }
-    let _guard = WRITER.try_lock().map_err(|_| Error::Busy)?;
-    let status = snapshot()?;
-    if status["last_request_id"] == request_id {
-        return Ok(());
-    }
-    let uptime = fs::read_to_string("/proc/uptime")
-        .map_err(|_| Error::Io)?
-        .split('.')
-        .next()
-        .ok_or(Error::Io)?
-        .parse::<u64>()
-        .map_err(|_| Error::Io)?
-        * 1000;
-    let value = json!({"schema":1,"request_id":request_id,"boot_id":status["boot_id"],"expires_uptime_ms":uptime+15000,"policy":{"enabled":enabled,"limit_bytes":limit_bytes,"reset_day":reset_day},"acknowledge_meter_gap":acknowledge_meter_gap});
-    let tmp = dir.join(format!(".policy-{request_id}.pending"));
+    let tmp = dir.join(format!(".{file}-{request_id}.pending"));
     let mut f = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -107,9 +115,99 @@ fn publish(
         .map_err(|_| Error::Io)?;
     f.sync_all().map_err(|_| Error::Io)?;
     drop(f);
-    fs::rename(tmp, dir.join("policy.json")).map_err(|_| Error::Io)?;
+    fs::rename(tmp, dir.join(file)).map_err(|_| Error::Io)?;
     Ok(())
 }
+struct RoamingConfirmation {
+    session: [u8; 32],
+    code: String,
+    version: String,
+    deadline: Instant,
+}
+impl RoamingConfirmation {
+    fn matches(
+        &self,
+        token: &str,
+        version: &str,
+        confirmation: Option<&str>,
+        now: Instant,
+    ) -> bool {
+        let digest: [u8; 32] = Sha256::digest(token.as_bytes()).into();
+        Some(self.code.as_str()) == confirmation
+            && self.session == digest
+            && self.version == version
+            && now < self.deadline
+    }
+}
+static ROAMING_CONFIRMATION: Mutex<Option<RoamingConfirmation>> = Mutex::new(None);
+
+fn random_hex() -> Result<String> {
+    let mut bytes = [0u8; 16];
+    getrandom::fill(&mut bytes).map_err(|_| Error::Io)?;
+    Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
+}
+fn roaming_state() -> Value {
+    snapshot()
+        .ok()
+        .and_then(|v| v.get("data_roaming").cloned())
+        .filter(Value::is_object)
+        .unwrap_or_else(
+            || json!({"available":false,"reason":"设备网络服务暂未提供国际数据漫游控制"}),
+        )
+}
+fn prepare_roaming(token: String) -> Result<Value> {
+    let state = roaming_state();
+    let version = state["version"]
+        .as_str()
+        .filter(|v| v.len() == 64)
+        .ok_or(Error::InvalidInput)?;
+    if state["available"] != true || state["enabled"] != false {
+        return Err(Error::InvalidInput);
+    }
+    let code = random_hex()?;
+    *ROAMING_CONFIRMATION.try_lock().map_err(|_| Error::Busy)? = Some(RoamingConfirmation {
+        session: Sha256::digest(token.as_bytes()).into(),
+        code: code.clone(),
+        version: version.into(),
+        deadline: Instant::now() + Duration::from_secs(60),
+    });
+    Ok(json!({"confirmation":code,"expires_in_seconds":60}))
+}
+fn set_roaming(token: &str, enabled: bool, confirmation: Option<&str>) -> Result<Value> {
+    let _writer = WRITER.try_lock().map_err(|_| Error::Busy)?;
+    let state = snapshot()?;
+    let roaming = &state["data_roaming"];
+    let version = roaming["version"]
+        .as_str()
+        .filter(|v| v.len() == 64)
+        .ok_or(Error::InvalidInput)?;
+    if roaming["available"] != true {
+        return Err(Error::InvalidInput);
+    }
+    let mut confirmed = ROAMING_CONFIRMATION.try_lock().map_err(|_| Error::Busy)?;
+    if enabled {
+        let valid = confirmed
+            .as_ref()
+            .is_some_and(|pending| pending.matches(token, version, confirmation, Instant::now()));
+        if !valid {
+            return Err(Error::Forbidden);
+        }
+    }
+    *confirmed = None;
+    let raw = random_hex()?;
+    let id = format!(
+        "{}-{}-{}-{}-{}",
+        &raw[..8],
+        &raw[8..12],
+        &raw[12..16],
+        &raw[16..20],
+        &raw[20..]
+    );
+    let value = json!({"request_id":id,"boot_id":state["boot_id"],"expires_uptime_ms":uptime_ms()?+15000,"version":version,"enabled":enabled});
+    write_input("roaming.json", &id, &value)?;
+    Ok(json!({"request_id":id,"state":"pending"}))
+}
+
 pub(crate) async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> Result<Value> {
     tokio::task::spawn_blocking(move || {
         let mut a=auth.try_lock().map_err(|_|Error::Busy)?;
@@ -124,6 +222,18 @@ pub(crate) async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> 
                 publish(&request_id,enabled,limit_bytes,reset_day,acknowledge_meter_gap)?;
                 Ok(json!({"request_id":request_id,"state":"pending","apn_activated":false}))
             },
+            AuthCommand::DataRoamingStatus{token}=>{
+                a.recent_owner(&token)?;
+                Ok(roaming_state())
+            },
+            AuthCommand::PrepareDataRoaming{token}=>{
+                a.recent_owner(&token)?;
+                prepare_roaming(token)
+            },
+            AuthCommand::SetDataRoaming{token,enabled,confirmation}=>{
+                a.recent_owner(&token)?;
+                set_roaming(&token,enabled,confirmation.as_deref())
+            },
             _=>Err(Error::InvalidInput)
         }
     }).await.map_err(|_|Error::Busy)?
@@ -132,6 +242,26 @@ pub(crate) async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> 
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
+    #[test]
+    fn roaming_confirmation_is_required_current_and_session_bound() {
+        let now = Instant::now();
+        let pending = RoamingConfirmation {
+            session: Sha256::digest(b"owner-session").into(),
+            code: "proof".into(),
+            version: "sim-profile".into(),
+            deadline: now + Duration::from_secs(60),
+        };
+        assert!(pending.matches("owner-session", "sim-profile", Some("proof"), now));
+        assert!(!pending.matches("owner-session", "sim-profile", None, now));
+        assert!(!pending.matches("other-session", "sim-profile", Some("proof"), now));
+        assert!(!pending.matches("owner-session", "new-sim-profile", Some("proof"), now));
+        assert!(!pending.matches(
+            "owner-session",
+            "sim-profile",
+            Some("proof"),
+            pending.deadline
+        ));
+    }
     #[test]
     fn status_rejects_links_permissions_oversize_and_invalid_json() {
         let d = tempfile::tempdir().unwrap();

@@ -262,6 +262,37 @@ impl Auth {
         self.authorize(token, Scope::SmsRead)?;
         Ok(self.store.set_sms_deleted(owner, id, deleted)?)
     }
+    pub fn set_sms_deleted_batch(
+        &mut self,
+        token: &str,
+        ids: Vec<String>,
+        deleted: bool,
+    ) -> Result<usize> {
+        let owner = self.owner(token)?;
+        self.authorize(token, Scope::SmsRead)?;
+        Ok(self.store.set_sms_deleted_batch(owner, ids, deleted)?)
+    }
+    pub fn sms_folder_status(
+        &mut self,
+        token: &str,
+    ) -> Result<rustsimhub_storage::SmsFolderStatus> {
+        let owner = self.owner(token)?;
+        self.authorize(token, Scope::SmsRead)?;
+        Ok(self.store.sms_folder_status(owner)?)
+    }
+    pub fn apply_sms_folder(
+        &mut self,
+        token: &str,
+        version: rustsimhub_storage::InboxCursor,
+        head_seq: String,
+        purge: bool,
+    ) -> Result<u64> {
+        let owner = self.owner(token)?;
+        self.authorize(token, Scope::SmsRead)?;
+        Ok(self
+            .store
+            .apply_sms_folder(owner, version, head_seq, purge)?)
+    }
     pub fn deleted_inbox(
         &mut self,
         token: &str,

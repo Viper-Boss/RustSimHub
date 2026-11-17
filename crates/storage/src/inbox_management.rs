@@ -9,6 +9,83 @@ pub struct SmsVisibility {
     pub deleted: bool,
 }
 
+#[derive(Serialize)]
+pub struct SmsFolderStatus {
+    pub version: InboxCursor,
+    pub head_seq: String,
+    pub inbox: u64,
+    pub trash: u64,
+}
+
+pub(crate) const PURGED_INBOX: &str = "
+CREATE TABLE IF NOT EXISTS inbox_purged (
+    sms_id TEXT PRIMARY KEY REFERENCES inbox(id)
+) STRICT;
+CREATE TRIGGER IF NOT EXISTS inbox_purged_cannot_restore
+BEFORE DELETE ON inbox_tombstones
+WHEN EXISTS(SELECT 1 FROM inbox_purged WHERE sms_id=OLD.sms_id)
+BEGIN
+    SELECT RAISE(ABORT,'removed SMS cannot be restored');
+END;";
+
+fn folder_status(connection: &Connection) -> Result<SmsFolderStatus> {
+    let (db_epoch, visibility): (String, i64) = connection.query_row(
+        "SELECT db_epoch,(SELECT COALESCE(MAX(seq),0) FROM inbox_events WHERE kind IN ('sms_deleted','sms_restored')) FROM meta WHERE singleton=1",
+        [], |r| Ok((r.get(0)?,r.get(1)?)),
+    )?;
+    let (head, total): (i64, i64) =
+        connection.query_row("SELECT COALESCE(MAX(seq),0),COUNT(*) FROM inbox", [], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })?;
+    let deleted: i64 =
+        connection.query_row("SELECT COUNT(*) FROM inbox_tombstones", [], |r| r.get(0))?;
+    let purged: i64 =
+        connection.query_row("SELECT COUNT(*) FROM inbox_purged", [], |r| r.get(0))?;
+    Ok(SmsFolderStatus {
+        version: InboxCursor {
+            db_epoch,
+            seq: visibility.to_string(),
+        },
+        head_seq: head.to_string(),
+        inbox: u64::try_from(total - deleted).map_err(|_| Error::Corrupt)?,
+        trash: u64::try_from(deleted - purged).map_err(|_| Error::Corrupt)?,
+    })
+}
+
+fn change_sms(
+    tx: &rusqlite::Transaction<'_>,
+    principal: &Principal,
+    id: &str,
+    deleted: bool,
+) -> Result<usize> {
+    let line: i64 = tx
+        .query_row("SELECT line_epoch FROM inbox WHERE id=? AND NOT EXISTS(SELECT 1 FROM inbox_purged WHERE sms_id=inbox.id)", [id], |r| r.get(0))
+        .optional()?.ok_or(Error::NotFound)?;
+    let changed = if deleted {
+        tx.execute(
+            "INSERT OR IGNORE INTO inbox_tombstones(sms_id,deleted_by) VALUES(?,?)",
+            params![id, principal.id],
+        )?
+    } else {
+        tx.execute("DELETE FROM inbox_tombstones WHERE sms_id=?", [id])?
+    };
+    if changed != 0 {
+        tx.execute(
+            "INSERT INTO inbox_events(sms_id,line_epoch,kind) VALUES(?,?,?)",
+            params![
+                id,
+                line,
+                if deleted {
+                    "sms_deleted"
+                } else {
+                    "sms_restored"
+                }
+            ],
+        )?;
+    }
+    Ok(changed)
+}
+
 fn owner(connection: &Connection, principal: &Principal) -> Result<()> {
     super::auth::checked_owner(connection, principal)?;
     if !allows(principal.scopes, Scope::SmsRead) {
@@ -30,39 +107,78 @@ impl Handle {
             }
             let tx = db.connection.transaction()?;
             owner(&tx, &principal)?;
-            let line: i64 = tx
-                .query_row("SELECT line_epoch FROM inbox WHERE id=?", [&id], |r| {
-                    r.get(0)
-                })
-                .optional()?
-                .ok_or(Error::NotFound)?;
-            let changed = if deleted {
-                tx.execute(
-                    "INSERT OR IGNORE INTO inbox_tombstones(sms_id,deleted_by) VALUES(?,?)",
-                    params![id, principal.id],
-                )?
-            } else {
-                tx.execute("DELETE FROM inbox_tombstones WHERE sms_id=?", [&id])?
-            };
-            if changed != 0 {
-                tx.execute(
-                    "INSERT INTO inbox_events(sms_id,line_epoch,kind) VALUES(?,?,?)",
-                    params![
-                        id,
-                        line,
-                        if deleted {
-                            "sms_deleted"
-                        } else {
-                            "sms_restored"
-                        }
-                    ],
-                )?;
-            }
+            change_sms(&tx, &principal, &id, deleted)?;
             tx.commit()?;
             Ok(SmsVisibility {
                 sms_id: id,
                 deleted,
             })
+        })
+    }
+
+    pub fn set_sms_deleted_batch(
+        &self,
+        principal: Principal,
+        ids: Vec<String>,
+        deleted: bool,
+    ) -> Result<usize> {
+        self.call(move |db| {
+            let mut unique = std::collections::HashSet::new();
+            if ids.is_empty()
+                || ids.len() > 32
+                || ids
+                    .iter()
+                    .any(|id| Uuid::parse_str(id).is_err() || !unique.insert(id))
+            {
+                return Err(Error::InvalidInput);
+            }
+            let tx = db.connection.transaction()?;
+            owner(&tx, &principal)?;
+            let mut changed = 0;
+            for id in &ids {
+                changed += change_sms(&tx, &principal, id, deleted)?;
+            }
+            tx.commit()?;
+            Ok(changed)
+        })
+    }
+
+    pub fn sms_folder_status(&self, principal: Principal) -> Result<SmsFolderStatus> {
+        self.call(move |db| {
+            owner(&db.connection, &principal)?;
+            folder_status(&db.connection)
+        })
+    }
+
+    pub fn apply_sms_folder(
+        &self,
+        principal: Principal,
+        expected: InboxCursor,
+        head_seq: String,
+        purge: bool,
+    ) -> Result<u64> {
+        self.call(move |db| {
+            let tx = db.connection.transaction()?;
+            owner(&tx, &principal)?;
+            let live = folder_status(&tx)?;
+            if live.version.db_epoch != expected.db_epoch || live.version.seq != expected.seq || (!purge && live.head_seq != head_seq) {
+                return Err(Error::ResyncRequired);
+            }
+            if purge {
+                // Keep the original source/hash and tombstone for modem deduplication.
+                // Older application versions cannot reopen a cleared record.
+                tx.execute("INSERT INTO inbox_purged(sms_id) SELECT t.sms_id FROM inbox_tombstones t WHERE NOT EXISTS(SELECT 1 FROM inbox_purged p WHERE p.sms_id=t.sms_id)", [])?;
+                tx.execute("UPDATE inbox SET sender='',timestamp='',body='',data=X'',duplicate_candidate=NULL WHERE id IN (SELECT sms_id FROM inbox_purged) AND (sender<>'' OR timestamp<>'' OR body<>'' OR length(data)>0 OR duplicate_candidate IS NOT NULL)", [])?;
+                tx.execute("UPDATE inbox SET duplicate_candidate=NULL WHERE duplicate_candidate IN (SELECT sms_id FROM inbox_purged)", [])?;
+                if live.trash > 0 {
+                    tx.execute("INSERT INTO inbox_events(sms_id,line_epoch,kind) SELECT i.id,i.line_epoch,'sms_deleted' FROM inbox i JOIN inbox_purged p ON p.sms_id=i.id ORDER BY i.seq DESC LIMIT 1", [])?;
+                }
+            } else {
+                tx.execute("INSERT INTO inbox_events(sms_id,line_epoch,kind) SELECT id,line_epoch,'sms_deleted' FROM inbox i WHERE NOT EXISTS(SELECT 1 FROM inbox_tombstones t WHERE t.sms_id=i.id)", [])?;
+                tx.execute("INSERT INTO inbox_tombstones(sms_id,deleted_by) SELECT id,? FROM inbox i WHERE NOT EXISTS(SELECT 1 FROM inbox_tombstones t WHERE t.sms_id=i.id)", [principal.id])?;
+            }
+            tx.commit()?;
+            Ok(if purge { live.trash } else { live.inbox })
         })
     }
 
@@ -76,7 +192,7 @@ impl Handle {
             owner(&db.connection, &principal)?;
             let (epoch, mut seq) = super::inbox::position(&db.connection, after.as_ref(), "inbox", limit)?;
             let mut statement = db.connection.prepare(
-                "SELECT id,line_epoch,length(data)>0,duplicate_candidate,i.seq,sender,timestamp,substr(body,1,96) FROM inbox i JOIN inbox_tombstones t ON t.sms_id=i.id WHERE i.seq>? ORDER BY i.seq LIMIT ?",
+                "SELECT id,line_epoch,length(data)>0,duplicate_candidate,i.seq,sender,timestamp,substr(body,1,96) FROM inbox i JOIN inbox_tombstones t ON t.sms_id=i.id WHERE i.seq>? AND NOT EXISTS(SELECT 1 FROM inbox_purged p WHERE p.sms_id=i.id) ORDER BY i.seq LIMIT ?",
             )?;
             let rows = statement.query_map(params![seq, limit as i64], |r| {
                 Ok((super::inbox::list_summary(r)?, r.get::<_, i64>(4)?))
@@ -96,7 +212,7 @@ impl Handle {
             owner(&db.connection, &principal)?;
             if Uuid::parse_str(&id).is_err() { return Err(Error::InvalidInput); }
             db.connection.query_row(
-                "SELECT id,line_epoch,length(data)>0,duplicate_candidate,sender,timestamp,body,data FROM inbox i JOIN inbox_tombstones t ON t.sms_id=i.id WHERE i.id=?",
+                "SELECT id,line_epoch,length(data)>0,duplicate_candidate,sender,timestamp,body,data FROM inbox i JOIN inbox_tombstones t ON t.sms_id=i.id WHERE i.id=? AND NOT EXISTS(SELECT 1 FROM inbox_purged p WHERE p.sms_id=i.id)",
                 [id],
                 |r| Ok(SmsDetail { summary: super::inbox::summary(r)?, sender: r.get(4)?, timestamp: r.get(5)?, text: r.get(6)?, data: r.get(7)? }),
             ).optional()?.ok_or(Error::NotFound)
@@ -132,6 +248,75 @@ mod tests {
             text: "测试🙂".into(),
             data: vec![],
         }
+    }
+    #[test]
+    fn clearing_trash_preserves_inbox_and_dedup_but_erases_payload() {
+        let (directory, store, owner, id) = fixture();
+        let h = store.handle();
+        let line = h.line_epoch().unwrap();
+        let mut another = message(line);
+        another.source = "fresh".into();
+        let visible = h.receive_sms(another).unwrap().id;
+        h.set_sms_deleted(owner.clone(), id.clone(), true).unwrap();
+        let previous = h.sms_folder_status(owner.clone()).unwrap();
+        assert_eq!((previous.inbox, previous.trash), (1, 1));
+        assert_eq!(
+            h.apply_sms_folder(owner.clone(), previous.version, previous.head_seq, true)
+                .unwrap(),
+            1
+        );
+        assert!(h
+            .deleted_inbox(owner.clone(), None, 16)
+            .unwrap()
+            .messages
+            .is_empty());
+        assert!(matches!(
+            h.set_sms_deleted(owner.clone(), id.clone(), false),
+            Err(Error::NotFound)
+        ));
+        assert_eq!(h.sms_detail(visible).unwrap().text, "测试🙂");
+        assert_eq!(h.receive_sms(message(line)).unwrap().id, id);
+        let db = Connection::open(directory.path().join("store.sqlite3")).unwrap();
+        let erased:i64=db.query_row("SELECT length(sender)+length(timestamp)+length(body)+length(data) FROM inbox WHERE id=?",[&id],|r|r.get(0)).unwrap();
+        assert_eq!(erased, 0);
+        assert!(db
+            .execute("DELETE FROM inbox_tombstones WHERE sms_id=?", [id])
+            .is_err());
+    }
+    #[test]
+    fn batch_is_atomic_and_folder_confirmation_refuses_stale_counts() {
+        let (_directory, store, owner, id) = fixture();
+        let h = store.handle();
+        assert!(matches!(
+            h.set_sms_deleted_batch(
+                owner.clone(),
+                vec![id.clone(), Uuid::new_v4().to_string()],
+                true
+            ),
+            Err(Error::NotFound)
+        ));
+        assert!(h.sms_detail(id.clone()).is_ok());
+        let before = h.sms_folder_status(owner.clone()).unwrap();
+        let mut newer = message(h.line_epoch().unwrap());
+        newer.source = "newer".into();
+        h.receive_sms(newer).unwrap();
+        assert!(matches!(
+            h.apply_sms_folder(owner.clone(), before.version, before.head_seq, false),
+            Err(Error::ResyncRequired)
+        ));
+        let fresh = h.sms_folder_status(owner.clone()).unwrap();
+        assert_eq!(
+            h.apply_sms_folder(owner.clone(), fresh.version, fresh.head_seq, false)
+                .unwrap(),
+            2
+        );
+        assert_eq!(
+            h.set_sms_deleted_batch(owner.clone(), vec![id], false)
+                .unwrap(),
+            1
+        );
+        let after = h.sms_folder_status(owner).unwrap();
+        assert_eq!((after.inbox, after.trash), (1, 1));
     }
     #[test]
     fn recent_inbox_is_newest_first_counts_everything_and_skips_deleted() {

@@ -108,7 +108,7 @@ async fn sms_assets_are_served_with_the_existing_host_and_cache_boundary() {
                     response.headers()[header::CONTENT_TYPE],
                     "text/javascript; charset=utf-8"
                 );
-                let bytes = axum::body::to_bytes(response.into_body(), MAX_FRAME)
+                let bytes = axum::body::to_bytes(response.into_body(), expected.len())
                     .await
                     .unwrap();
                 assert_eq!(&bytes[..], expected);

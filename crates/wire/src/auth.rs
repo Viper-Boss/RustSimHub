@@ -314,6 +314,17 @@ pub enum AuthCommand {
     NetworkDiagnostics {
         token: String,
     },
+    DataRoamingStatus {
+        token: String,
+    },
+    PrepareDataRoaming {
+        token: String,
+    },
+    SetDataRoaming {
+        token: String,
+        enabled: bool,
+        confirmation: Option<String>,
+    },
     SetNetworkPolicy {
         token: String,
         request_id: String,
@@ -384,6 +395,20 @@ pub enum AuthCommand {
     RestoreSms {
         token: String,
         sms_id: String,
+    },
+    SetSmsDeletedBatch {
+        token: String,
+        sms_ids: Vec<String>,
+        deleted: bool,
+    },
+    SmsFolderStatus {
+        token: String,
+    },
+    ApplySmsFolder {
+        token: String,
+        version: rustsimhub_domain::InboxCursor,
+        head_seq: String,
+        purge: bool,
     },
     DeletedInbox {
         token: String,
@@ -1317,11 +1342,14 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         | AuthCommand::Capabilities { token }
         | AuthCommand::LineStatus { token }
         | AuthCommand::SystemStatus { token }
+        | AuthCommand::DataRoamingStatus { token }
+        | AuthCommand::PrepareDataRoaming { token }
         | AuthCommand::NetworkStatus { token }
         | AuthCommand::WifiNetworks { token }
         | AuthCommand::SetupApStatus { token }
         | AuthCommand::NetworkDiagnostics { token }
         | AuthCommand::SmsManagementStatus { token }
+        | AuthCommand::SmsFolderStatus { token }
         | AuthCommand::OpenPairing { token }
         | AuthCommand::BluetoothModeStatus { token }
         | AuthCommand::AirsimStatus { token }
@@ -1424,6 +1452,42 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         | AuthCommand::InboxEvents { token, limit, .. }
         | AuthCommand::DeletedInbox { token, limit, .. } => {
             if token.len() != 64 || !(1..=32).contains(limit) {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::SetDataRoaming {
+            token,
+            enabled,
+            confirmation,
+        } => {
+            if token.len() != 64
+                || *enabled != confirmation.is_some()
+                || confirmation
+                    .as_ref()
+                    .is_some_and(|v| v.len() != 32 || !v.bytes().all(|b| b.is_ascii_hexdigit()))
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::SetSmsDeletedBatch { token, sms_ids, .. } => {
+            if token.len() != 64
+                || !(1..=32).contains(&sms_ids.len())
+                || !sms_ids.iter().all(|id| canonical_uuid(id))
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ApplySmsFolder {
+            token,
+            version,
+            head_seq,
+            ..
+        } => {
+            if token.len() != 64
+                || !canonical_uuid(&version.db_epoch)
+                || !canonical_generation(&version.seq)
+                || !canonical_generation(head_seq)
+            {
                 return Err(invalid());
             }
         }
