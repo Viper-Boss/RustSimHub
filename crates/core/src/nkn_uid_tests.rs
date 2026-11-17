@@ -228,7 +228,7 @@ async fn eof(stream: &mut UnixStream) {
 }
 #[test]
 #[ignore = "explicit network-disabled real-UID fixture; use runner --nkn"]
-fn isolated_nkn_client() {
+pub(crate) fn isolated_nkn_client() {
     runtime().block_on(async {
         let sdk_combined = std::env::var_os("RSH_COMBINED_SDK_CLIENT").is_some();
         assert_eq!(
@@ -371,7 +371,7 @@ fn isolated_nkn_client() {
             assert_eq!(response["result"]["ok"], true);
             assert_eq!(
                 response["result"]["mode"],
-                if sdk_combined {
+                if sdk_combined && std::env::var_os("RSH_A2_ONLY").is_none() {
                     "authenticated_saved_wifi_trial"
                 } else {
                     "authenticated_read_only"
