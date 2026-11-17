@@ -372,7 +372,7 @@ pub(super) async fn drive(controller: Controller, ports: crate::nkn_business::Co
     }
     let _close = Close(controller.inner.clone());
     let root = controller.root();
-    let mut suppressed = false;
+    let mut suppressed: Option<std::sync::Weak<super::membership::InstalledMembership>> = None;
     loop {
         controller.changed().await;
         loop {
@@ -397,9 +397,9 @@ pub(super) async fn drive(controller: Controller, ports: crate::nkn_business::Co
             }
             let remote = root.owners().is_ok_and(|o| o.remote);
             if !remote {
-                suppressed = false;
+                suppressed = None;
             }
-            if !suppressed && phase == rustsimhub_nkn_agent::Phase::Ready && remote {
+            if phase == rustsimhub_nkn_agent::Phase::Ready && remote {
                 let key = controller
                     .inner
                     .membership
@@ -407,6 +407,14 @@ pub(super) async fn drive(controller: Controller, ports: crate::nkn_business::Co
                     .ok()
                     .and_then(|k| k.clone());
                 if let Some(key) = key {
+                    let generation = Arc::downgrade(&key);
+                    if suppressed
+                        .as_ref()
+                        .is_some_and(|old| old.ptr_eq(&generation))
+                    {
+                        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                        continue;
+                    }
                     let mut listener = Box::pin(crate::nkn_listener::serve(
                         root.clone(),
                         ports.clone(),
@@ -418,7 +426,10 @@ pub(super) async fn drive(controller: Controller, ports: crate::nkn_business::Co
                         tokio::select! {biased;_=tick.tick()=>{let original=key.clone();let host=controller.inner.clone();if !tokio::task::spawn_blocking(move||original.current()&&matches!(host.advance(),Ok(_)|Err(PortError::Unavailable))).await.unwrap_or(false){break}},_=&mut listener=>break}
                     }
                     // A failed original listener needs OFF then a new explicit ON.
-                    suppressed = true;
+                    // OFF and ON can both complete between driver polls. Suppress
+                    // this installed generation only; a new explicit ON installs
+                    // another one. Weak keeps no failed credential alive.
+                    suppressed = Some(generation);
                 }
             }
             tokio::time::sleep(std::time::Duration::from_millis(250)).await;

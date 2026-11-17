@@ -81,6 +81,18 @@ for(const {age,transit,after} of [
  await read(f);assert.equal(f.panel.fresh(),true);assert.equal(f.panel.buttons.manual_on.disabled,false);assert.match(f.panel.output.textContent,/服务：未知/);f.panel.reset();
 }
 console.log('PASS: actual NKN product panel; durable CAS before mutation, exact receipts, Unknown/no resend, stale/sequence/epoch/logout fences, unavailable remote, no private errors or passive I/O');
+{
+ const f=fixture(),copies=[];f.panel.copy=async text=>copies.push(JSON.parse(text));
+ await run(f,g=>f.panel.diagnose(g));
+ assert.deepEqual(f.calls.map(c=>c.op),['nkn_status']);assert.equal(copies.length,1);
+ const v=copies[0];assert.equal(v.status.rtt_ms,null);assert.equal(v.status.peer_count,null);assert.equal(v.status.path,'unknown');assert.equal(v.public_connectivity_verified,false);
+ assert.equal(v.peer_count_meaning,'connected_nodes_not_users_or_installations');
+ assert.doesNotMatch(JSON.stringify(v),/core_instance|token|membership|aaaaaaaa|current/);
+ f.panel.request=async()=>{throw Error('private');};await run(f,g=>f.panel.diagnose(g));assert.equal(copies.length,1);
+ let resolve;f.panel.request=()=>new Promise(r=>resolve=r);const pending=run(f,g=>f.panel.diagnose(g));await new Promise(r=>setImmediate(r));f.panel.reset();resolve(report(9));await pending;assert.equal(copies.length,1);
+ f.panel.request=async()=>{const v=report();v.provider.status.age_ms=5001;return v;};await run(f,g=>f.panel.diagnose(g));assert.equal(copies.length,1);f.panel.reset();
+ console.log('PASS: one-click NKN diagnostics uses one passive status request, excludes identity/secrets, preserves unknown values, and refuses stale/failed/logout-late copies');
+}
 if(process.argv[2]){
  const captured=JSON.parse(await readFile(process.argv[2],'utf8')).result.status;
  const parsed=reportInput(captured);

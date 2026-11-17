@@ -32,11 +32,12 @@ export function archiveInput(v){
 }
 const phase={off:'没有本轮运行请求',starting:'正在启动',ready:'已收到就绪快照',waiting_retry:'等待有限重连',stopping:'正在关闭',unknown:'运行结果未确认'};
 export class NknProductPanel {
- constructor({document,root,request,getToken,login=null,confirm,loadPending,savePending,archivePending,crypto=globalThis.crypto,clock=()=>performance.now(),wallClock=()=>Date.now()}){
-  Object.assign(this,{doc:document,request,getToken,login,confirm,loadPending,savePending,archivePending,crypto,clock,wallClock});this.epoch=0;
+ constructor({document,root,request,getToken,login=null,confirm,loadPending,savePending,archivePending,copy=null,crypto=globalThis.crypto,clock=()=>performance.now(),wallClock=()=>Date.now()}){
+  Object.assign(this,{doc:document,request,getToken,login,confirm,loadPending,savePending,archivePending,copy,crypto,clock,wallClock});this.epoch=0;
   this.state=document.createElement('p');this.state.setAttribute('role','status');this.state.style.whiteSpace='pre-wrap';this.output=document.createElement('p');this.output.style.whiteSpace='pre-wrap';
   this.buttons={};const action=(key,text,fn)=>{const b=document.createElement('button');b.type='button';b.textContent=text;b.onclick=()=>this.action(fn);this.buttons[key]=b;return b;};
   root.replaceChildren(this.state,action('read','只读核对引擎状态',g=>this.read(g)),action('manual_on','请求运行引擎',g=>this.set(g,'manual_engine',true)),action('manual_off','释放手动运行请求',g=>this.set(g,'manual_engine',false)),action('remote_on','请求开启远程功能',g=>this.set(g,'remote',true)),action('remote_off','关闭远程功能请求',g=>this.set(g,'remote',false)),action('statistics_on','启用统计只读查询',g=>this.set(g,'statistics',true)),action('statistics_off','关闭统计查询请求',g=>this.set(g,'statistics',false)),action('query','核对上次回执',g=>this.query(g)),action('archive','保留不确定记录并解除本页阻止',g=>this.archive(g)),this.output);
+  if(copy)root.append(action('diagnose','只读核对并复制远程诊断',g=>this.diagnose(g)));
   if(login){this.loginButton=document.createElement('button');this.loginButton.type='button';this.loginButton.textContent='管理登录后读取';this.loginButton.onclick=async()=>{if(this.busy)return;try{await login();await this.action(g=>this.read(g));}catch{this.state.textContent='登录或读取未确认；原回执保留。';}};root.append(this.loginButton);}
   this.reset();
  }
@@ -47,6 +48,7 @@ export class NknProductPanel {
  update(){
   const blocked=this.busy||!this.getToken(),ready=!blocked&&!this.pending&&this.fresh(),p=this.sample?.data.provider;
   this.buttons.read.disabled=blocked;this.buttons.query.disabled=blocked||!this.pending;this.buttons.archive.disabled=blocked||!this.pending;
+  if(this.buttons.diagnose)this.buttons.diagnose.disabled=blocked;
   this.buttons.manual_on.disabled=!ready||p.owners.manual||p.supervisor_state==='unknown';this.buttons.manual_off.disabled=!ready||!p.owners.manual;
   this.buttons.remote_on.disabled=!ready||!this.sample.data.remote_control_supported||p.owners.remote||p.supervisor_state==='unknown';this.buttons.remote_off.disabled=!ready||!p.owners.remote;
   this.buttons.statistics_on.disabled=!ready||p.owners.statistics||p.supervisor_state==='unknown';this.buttons.statistics_off.disabled=!ready||!p.owners.statistics;
@@ -69,6 +71,14 @@ export class NknProductPanel {
   if(s.source==='engine')this.order={instance:data.provider.core_instance,generation:s.generation,sequence:s.sequence};
   this.sample={data,received,wallReceived,elapsed:Math.max(a,b)};clearTimeout(this.timer);this.timer=setTimeout(()=>this.render(),Math.max(0,5001-this.sample.elapsed-(s.age_ms??0)));
   this.state.textContent=this.pending?'上次请求待核对：'+this.pending.id+'。不会自动重做。':'已只读核对；运行请求和实际进程状态分别显示。';this.render();
+ }
+ async diagnose(g){
+  await this.read(g);this.current(g);requireValue(this.fresh(),'诊断证据已过期，请重新核对');
+  const p=this.sample.data.provider,s=p.status,age=s.age_ms===null?null:Math.ceil(s.age_ms+this.age());
+  // Explicit allowlist: no token, host, device pin, membership or context ID.
+  const status=Object.fromEntries(['source','enabled','service','path','dht','rx_bytes','tx_bytes','rtt_ms','peer_count','last_error'].map(k=>[k,s[k]]));
+  await this.copy(JSON.stringify({format:1,kind:'nkn_remote',supervisor_state:p.supervisor_state,owners:p.owners,status:{...status,age_ms:age},peer_count_meaning:'connected_nodes_not_users_or_installations',public_connectivity_verified:false},null,2));
+  this.current(g);this.state.textContent='已复制脱敏远程诊断；仅查询状态，没有启停引擎或探测公网。';
  }
  async set(g,owner,enabled){
   this.current(g);requireValue(this.fresh()&&!this.pending,'请先读取状态并核对上次回执');

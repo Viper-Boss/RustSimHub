@@ -5,6 +5,8 @@ use rustsimhub_auth::{Auth, Error};
 use rustsimhub_wire::AuthCommand;
 use serde_json::Value;
 use std::sync::{Arc, Mutex};
+#[cfg(all(test, feature = "root-provider-candidate"))]
+mod a2_tests;
 #[cfg(feature = "root-provider-candidate")]
 mod candidate;
 #[cfg(feature = "root-provider-candidate")]

@@ -84,7 +84,7 @@ with sync_playwright() as p:
             show_legacy(page)
             page.locator('#support-panel').evaluate('e=>e.open=true')
             panel = page.locator('#support-nkn')
-            assert panel.get_by_role('button').count() == 10, 'Real NKN constructor was not mounted'
+            assert panel.get_by_role('button').count() == 11, 'Real NKN constructor was not mounted'
             usage = page.locator('#support-usage')
             assert usage.get_by_role('button', name='只读刷新统计').is_disabled()
             assert panel.get_by_role('button', name='请求开启远程功能', exact=True).is_disabled()
@@ -187,6 +187,14 @@ with sync_playwright() as p:
             assert count('nkn_status') == 1 and count('set_nkn_enabled') == 0
             assert panel.get_by_role('button', name='请求开启远程功能', exact=True).is_disabled()
             assert '服务：运行中' in panel.inner_text() and '链路：未知' in panel.inner_text()
+            page.evaluate("window.a2Copies=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.a2Copies.push(text)}})")
+            panel.get_by_role('button', name='只读核对并复制远程诊断', exact=True).click()
+            page.wait_for_function("() => window.a2Copies.length===1")
+            diagnostic = json.loads(page.evaluate('a2Copies[0]'))
+            assert diagnostic['status']['peer_count'] is None and diagnostic['status']['path'] == 'unknown'
+            assert diagnostic['public_connectivity_verified'] is False
+            assert 'core_instance' not in json.dumps(diagnostic) and pin not in json.dumps(diagnostic)
+            assert count('nkn_status') == 2 and count('set_nkn_enabled') == 0
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), f'Overflow at {width}'
             # Real IDB reload restores the same Unknown record and never replays a mutation.
             record = {'format': 1, 'id': '11111111-1111-4111-8111-111111111111', 'owner': 'remote', 'enabled': True, 'expected_revision': '0', 'core_instance': 'a' * 64}
@@ -255,7 +263,7 @@ with sync_playwright() as p:
         page.wait_for_timeout(200)
         failed = False
         try:
-            assert page.locator('#support-nkn button').count() == 10, 'Real NKN constructor was not mounted'
+            assert page.locator('#support-nkn button').count() == 11, 'Real NKN constructor was not mounted'
         except AssertionError:
             failed = True
         assert failed and fixture()['calls'] == []

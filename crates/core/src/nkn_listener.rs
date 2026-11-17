@@ -19,6 +19,12 @@ use std::{
 use tokio::{net::UnixListener, task::JoinSet};
 const SOCKET: &str = "/run/rustsimhub/nkn/core.sock";
 static SOURCES: OnceLock<Result<Arc<NknSources>, Error>> = OnceLock::new();
+#[cfg(test)]
+pub(crate) fn source_busy() -> bool {
+    SOURCES
+        .get()
+        .is_some_and(|s| s.as_ref().is_ok_and(|s| s.is_busy()))
+}
 fn registry() -> Result<Arc<NknSources>, Error> {
     SOURCES
         .get_or_init(|| {

@@ -164,7 +164,12 @@ def node():
 
 
 def install_fixture():
-    assert os.geteuid()==0 and Path('/.dockerenv').exists()
+    assert os.geteuid()==0
+    if not Path('/.dockerenv').exists():
+        assert Path('/run/.containerenv').is_file(),'real disposable container required'
+        for kind in ['mnt','net','pid','cgroup']:
+            parent=os.environ['RSH_FIXTURE_PARENT_'+kind.upper()+'_NS']
+            assert os.readlink('/proc/self/ns/'+kind)!=parent,'host namespace must not be used'
     assert Path('/proc/self/cgroup').read_text().strip()=='0::/'
     # Namespace-owned cgroup root is the Docker container scope. Never bind
     # the host cgroup filesystem into this test.
@@ -175,12 +180,12 @@ def install_fixture():
     for src in Path('/inputs/tools/lib').iterdir():
         dest=Path('/usr/lib/x86_64-linux-gnu')/src.name
         pending=dest.with_name(dest.name+'.owned-fixture-pending')
-        shutil.copyfile(src,pending);pending.replace(dest)  # Preserve mapped old inodes.
+        shutil.copyfile(src,pending);shutil.copymode(src,pending);pending.replace(dest)  # Preserve mapped old inodes and executable loader mode.
     for src,dest in [('/inputs/tools/pkg/usr/sbin/nft','/usr/sbin/nft'),('/inputs/tools/ip','/usr/sbin/ip'),('/inputs/root','/root-provider'),('/inputs/core-test','/core-test')]:
         shutil.copyfile(src,dest);os.chmod(dest,0o755)
     for name in ['sdk-client','recovery-client']:
         if Path('/inputs/'+name).exists():shutil.copyfile('/inputs/'+name,'/'+name);os.chmod('/'+name,0o755)
-    for path in ['/opt/rustsimhub/selected','/etc/rustsimhub','/var/lib/rustsimhub/nkn','/run/rustsimhub-network','/run/rustsimhub-nkn-root']:
+    for path in ['/opt/rustsimhub/selected','/etc/rustsimhub','/etc/ssl/certs','/var/lib/rustsimhub/nkn','/run/rustsimhub-network','/run/rustsimhub-nkn-root']:
         Path(path).mkdir(parents=True,exist_ok=True);os.chmod(path,0o755)
     shutil.copyfile('/inputs/engine','/opt/rustsimhub/selected/nkn-sdk-engine');os.chmod('/opt/rustsimhub/selected/nkn-sdk-engine',0o555)
     shutil.copyfile('/inputs/tls.crt','/etc/ssl/certs/ca-certificates.crt')

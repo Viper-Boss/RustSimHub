@@ -624,7 +624,7 @@ addEventListener('pagehide',()=>{supportPanels.configuration.read=null;supportPa
 addEventListener('pageshow',()=>publishSupportState());
 document.addEventListener('visibilitychange',()=>{if(document.hidden){supportPanels.configuration.read=null;supportPanels.configuration.reset();supportPanels.usage.read=null;supportPanels.usage.reset();}else publishSupportState();});
 
-const nknProductPanel=new NknProductPanel({document,root:$('support-nkn'),request:command=>auth(command),getToken:()=>token,login:()=>login(),confirm:message=>confirm(message),crypto,
+const nknProductPanel=new NknProductPanel({document,root:$('support-nkn'),request:command=>auth(command),getToken:()=>token,login:()=>login(),confirm:message=>confirm(message),copy:text=>navigator.clipboard.writeText(text),crypto,
  loadPending:()=>stored('nkn-control-pending'),
  savePending:async(value,expected)=>{
   const record=nknPendingInput(value);await atomicStored('nkn-control-pending',saved=>{const old=nknPendingInput(saved);if((old?.id??null)!==expected)throw Error('引擎操作记录已由另一页面更新，请先核对');return record;});
