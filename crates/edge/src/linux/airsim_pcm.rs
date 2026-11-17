@@ -370,13 +370,56 @@ async fn uplink<R: AsyncRead + Unpin, W: AsyncWrite + Unpin>(
     }
 }
 
+trait PhoneStream: AsyncRead + AsyncWrite + Unpin + std::os::fd::AsFd + Send {
+    fn try_read(&self, buffer: &mut [u8]) -> std::io::Result<usize>;
+    fn set_low_latency(&self) -> std::io::Result<()> {
+        Ok(())
+    }
+    fn parts(
+        self,
+    ) -> (
+        impl AsyncRead + Unpin + Send,
+        impl AsyncWrite + Unpin + Send,
+    );
+}
+impl PhoneStream for TcpStream {
+    fn set_low_latency(&self) -> std::io::Result<()> {
+        self.set_nodelay(true)
+    }
+    fn try_read(&self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        self.try_read(buffer)
+    }
+    fn parts(
+        self,
+    ) -> (
+        impl AsyncRead + Unpin + Send,
+        impl AsyncWrite + Unpin + Send,
+    ) {
+        self.into_split()
+    }
+}
+impl PhoneStream for UnixStream {
+    fn try_read(&self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        self.try_read(buffer)
+    }
+    fn parts(
+        self,
+    ) -> (
+        impl AsyncRead + Unpin + Send,
+        impl AsyncWrite + Unpin + Send,
+    ) {
+        self.into_split()
+    }
+}
+
 /// The app opens PCM while an owned call may still be dialling. Send its
 /// authenticated ready marker and silence, but never open ALSA before ACTIVE.
 async fn activate(
     app: &App,
-    phone: &mut TcpStream,
+    phone: &mut impl PhoneStream,
     opened: Value,
     trace: &mut Trace,
+    local: bool,
 ) -> Option<Value> {
     let rate = opened["pcm_rate"]
         .as_u64()
@@ -384,7 +427,9 @@ async fn activate(
     let size = rate as usize / 50 * 2;
     let ticket = opened["ticket"].as_str()?;
     trace.phase = "phone_ready";
-    timeout(IO_WAIT, phone.write_all(READY)).await.ok()?.ok()?;
+    if !local {
+        timeout(IO_WAIT, phone.write_all(READY)).await.ok()?.ok()?;
+    }
     trace.phase = "waiting_active";
     let mut poll = tokio::time::interval(Duration::from_millis(250));
     let mut silence = tokio::time::interval(Duration::from_millis(20));
@@ -400,7 +445,7 @@ async fn activate(
         }
         tokio::select! {
             n=phone.read(&mut bytes)=>{let n=n.ok()?;if n==0{return None;} consumed=(consumed+n)%size;},
-            _=silence.tick()=>{timeout(IO_WAIT,phone.write_all(&zeros[..size])).await.ok()?.ok()?;},
+            _=silence.tick(), if !local=>{timeout(IO_WAIT,phone.write_all(&zeros[..size])).await.ok()?.ok()?;},
             _=poll.tick()=>{
                 let value=core(app,AuthCommand::AirsimPcmPulse{ticket:ticket.into(),close:false}).await?;
                 if value["active"]==true {if value["credentials"].is_null(){return None;}break value;}
@@ -541,7 +586,13 @@ async fn write_downlink<W: AsyncWrite + Unpin>(
     }
 }
 
-async fn relay(app: &App, phone: TcpStream, opened: &Value, trace: &mut Trace) -> Option<()> {
+async fn relay(
+    app: &App,
+    mut phone: impl PhoneStream,
+    opened: &Value,
+    trace: &mut Trace,
+    local: bool,
+) -> Option<()> {
     trace.phase = "worker_endpoint";
     let rate = opened["pcm_rate"]
         .as_u64()
@@ -587,6 +638,10 @@ async fn relay(app: &App, phone: TcpStream, opened: &Value, trace: &mut Trace) -
     .await
     .ok()?
     .ok()?;
+    if local {
+        // The sidecar reports ready to iOS only after the real media worker accepted.
+        timeout(IO_WAIT, phone.write_all(READY)).await.ok()?.ok()?;
+    }
     trace.phase = "streaming";
     let muted = AtomicBool::new(true);
     let ticket = opened["ticket"].as_str()?;
@@ -612,7 +667,7 @@ async fn relay(app: &App, phone: TcpStream, opened: &Value, trace: &mut Trace) -
             muted.store(v["muted"].as_bool().unwrap_or(true), Ordering::Release);
         }
     };
-    let (phone_read, phone_write) = phone.into_split();
+    let (phone_read, phone_write) = phone.parts();
     let (media_read, media_write) = media.into_split();
     let up = async {
         let mut phone_read = phone_read;
@@ -634,7 +689,15 @@ async fn relay(app: &App, phone: TcpStream, opened: &Value, trace: &mut Trace) -
     Some(())
 }
 
-pub(super) async fn handle(app: &App, mut phone: TcpStream, peer: IpAddr) {
+pub(super) async fn handle(app: &App, phone: TcpStream, peer: IpAddr) {
+    handle_stream(app, phone, peer, false).await;
+}
+
+pub(super) async fn handle_local(app: &App, phone: UnixStream, peer: IpAddr) {
+    handle_stream(app, phone, peer, true).await;
+}
+
+async fn handle_stream(app: &App, mut phone: impl PhoneStream, peer: IpAddr, local: bool) {
     let mut trace = Trace {
         phase: "peer_or_media",
         started: Instant::now(),
@@ -663,12 +726,22 @@ pub(super) async fn handle(app: &App, mut phone: TcpStream, peer: IpAddr) {
     };
     trace.phase = "phone_buffers";
     let socket = socket2::SockRef::from(&phone);
-    let configured = phone.set_nodelay(true).is_ok()
+    let configured = phone.set_low_latency().is_ok()
         && socket.set_recv_buffer_size(4096).is_ok()
         && socket.set_send_buffer_size(4096).is_ok();
-    if configured {
-        if let Some(active) = activate(app, &mut phone, opened, &mut trace).await {
-            let _ = relay(app, phone, &active, &mut trace).await;
+    // Only the local VoBLE sidecar receives the Core-selected frame rate.
+    let rate_sent = if local && configured {
+        let rate = opened["pcm_rate"].as_u64().unwrap_or_default() as u32;
+        matches!(rate, 8_000 | 16_000)
+            && timeout(IO_WAIT, phone.write_u32(rate))
+                .await
+                .is_ok_and(|value| value.is_ok())
+    } else {
+        !local
+    };
+    if configured && rate_sent {
+        if let Some(active) = activate(app, &mut phone, opened, &mut trace, local).await {
+            let _ = relay(app, phone, &active, &mut trace, local).await;
         }
     }
     let _ = core(
@@ -1268,202 +1341,227 @@ mod tests {
     #[tokio::test]
     async fn socket_relay_keeps_credentials_local_and_closes_worker_on_revoke_or_disconnect() {
         for (revoked, partial) in [(false, false), (true, false), (false, true), (true, true)] {
-            let dir = tempfile::tempdir().unwrap();
-            std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
-            let core_path = dir.path().join("core.sock");
-            let core_listener = UnixListener::bind(&core_path).unwrap();
-            let media_path = dir.path().join("pcm.sock");
-            let media_listener = UnixListener::bind(&media_path).unwrap();
-            let mut app = super::super::tests::app(core_path);
-            app.media = Some(Arc::new(super::super::super::media::Bridge::isolated_pcm(
-                dir.path().join("worker.sock"),
-                std::fs::metadata(dir.path()).unwrap().uid(),
-            )));
-            let stop = Arc::new(AtomicBool::new(false));
-            let core_stop = stop.clone();
-            let core_task = tokio::spawn(async move {
-                let mut seen = Vec::new();
-                let mut issued = false;
-                loop {
-                    let (mut s, _) = core_listener.accept().await.unwrap();
-                    let b = match async {
-                        let size = s.read_u32().await? as usize;
-                        assert!(size < 4096);
-                        let mut b = vec![0; size];
-                        s.read_exact(&mut b).await?;
-                        Ok::<_, std::io::Error>(b)
-                    }
-                    .await
-                    {
-                        Ok(bytes) => bytes,
-                        Err(error) => {
-                            assert!(matches!(
-                                error.kind(),
-                                std::io::ErrorKind::UnexpectedEof
-                                    | std::io::ErrorKind::ConnectionReset
-                            ));
-                            continue;
-                        }
-                    };
-                    let r: Value = serde_json::from_slice(&b).unwrap();
-                    let command = &r["command"];
-                    let close = command["close"] == true;
-                    let result = if command["op"] == "airsim_pcm_open" {
-                        assert_eq!(command["peer"], "127.0.0.1");
-                        serde_json::json!({"ticket":"a".repeat(32),"session":"b".repeat(32),"pcm_rate":8_000,"waiting":true})
-                    } else {
-                        assert_eq!(command["ticket"], "a".repeat(32));
-                        let credentials = if !issued {
-                            issued = true;
-                            serde_json::json!({"ticket":vec![9;32],"peer_key":vec![8;32],"boot":"synthetic"})
-                        } else {
-                            Value::Null
-                        };
-                        serde_json::json!({"active":!close&&!core_stop.load(Ordering::Acquire),"muted":false,"credentials":credentials})
-                    };
-                    seen.push(command.clone());
-                    let reply = serde_json::to_vec(
-                        &serde_json::json!({"protocol":2,"id":r["id"],"result":result}),
-                    )
-                    .unwrap();
-                    let written = async {
-                        s.write_u32(reply.len() as u32).await?;
-                        s.write_all(&reply).await
-                    }
-                    .await;
-                    if let Err(error) = written {
-                        // Closing the phone or revoking its authority cancels
-                        // an in-flight heartbeat response. Still require the
-                        // subsequent close command below, not a live client.
+            for local in [false, true] {
+                pcm_transport_fixture(revoked, partial, local).await;
+            }
+        }
+    }
+
+    async fn pcm_transport_fixture(revoked: bool, partial: bool, local: bool) {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        let core_path = dir.path().join("core.sock");
+        let core_listener = UnixListener::bind(&core_path).unwrap();
+        let media_path = dir.path().join("pcm.sock");
+        let media_listener = UnixListener::bind(&media_path).unwrap();
+        let mut app = super::super::tests::app(core_path);
+        app.media = Some(Arc::new(super::super::super::media::Bridge::isolated_pcm(
+            dir.path().join("worker.sock"),
+            std::fs::metadata(dir.path()).unwrap().uid(),
+        )));
+        let stop = Arc::new(AtomicBool::new(false));
+        let core_stop = stop.clone();
+        let core_task = tokio::spawn(async move {
+            let mut seen = Vec::new();
+            let mut issued = false;
+            loop {
+                let (mut s, _) = core_listener.accept().await.unwrap();
+                let b = match async {
+                    let size = s.read_u32().await? as usize;
+                    assert!(size < 4096);
+                    let mut b = vec![0; size];
+                    s.read_exact(&mut b).await?;
+                    Ok::<_, std::io::Error>(b)
+                }
+                .await
+                {
+                    Ok(bytes) => bytes,
+                    Err(error) => {
                         assert!(matches!(
                             error.kind(),
-                            std::io::ErrorKind::BrokenPipe | std::io::ErrorKind::ConnectionReset
+                            std::io::ErrorKind::UnexpectedEof | std::io::ErrorKind::ConnectionReset
                         ));
+                        continue;
                     }
-                    if close {
-                        break seen;
-                    }
-                }
-            });
-            let (microphone_ready, mut microphone_checked) = tokio::sync::oneshot::channel::<()>();
-            let media_task = tokio::spawn(async move {
-                let (mut s, _) = media_listener.accept().await.unwrap();
-                let size = s.read_u32().await.unwrap() as usize;
-                assert!(size < 2048);
-                let mut b = vec![0; size];
-                s.read_exact(&mut b).await.unwrap();
-                let hello: Value = serde_json::from_slice(&b).unwrap();
-                assert_eq!(
-                    hello["credentials"]["ticket"],
-                    serde_json::json!(vec![9; 32])
-                );
-                s.write_u8(1).await.unwrap();
-                s.write_all(&[7; 640]).await.unwrap();
-                if partial {
-                    timeout(Duration::from_secs(1), async {
-                        loop {
-                            let mut frame = [0; 640];
-                            s.read_exact(&mut frame).await.unwrap();
-                            if frame == [0; 640] {
-                                continue;
-                            } // Muted until first authority pulse.
-                            assert!(frame
-                                .as_chunks::<2>()
-                                .0
-                                .iter()
-                                .all(|b| *b == 1234i16.to_le_bytes()));
-                            break;
-                        }
-                    })
-                    .await
-                    .unwrap();
-                }
-                let _ = microphone_ready.send(());
-                let mut tail = Vec::new();
-                timeout(Duration::from_secs(2), s.take(4097).read_to_end(&mut tail))
-                    .await
-                    .unwrap()
-                    .unwrap();
-                assert!(tail.len() <= 4096);
-                if !partial {
-                    assert!(tail.is_empty());
-                }
-            });
-            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-            let mut phone = TcpStream::connect(listener.local_addr().unwrap())
-                .await
+                };
+                let r: Value = serde_json::from_slice(&b).unwrap();
+                let command = &r["command"];
+                let close = command["close"] == true;
+                let result = if command["op"] == "airsim_pcm_open" {
+                    assert_eq!(command["peer"], "127.0.0.1");
+                    serde_json::json!({"ticket":"a".repeat(32),"session":"b".repeat(32),"pcm_rate":8_000,"waiting":true})
+                } else {
+                    assert_eq!(command["ticket"], "a".repeat(32));
+                    let credentials = if !issued {
+                        issued = true;
+                        serde_json::json!({"ticket":vec![9;32],"peer_key":vec![8;32],"boot":"synthetic"})
+                    } else {
+                        Value::Null
+                    };
+                    serde_json::json!({"active":!close&&!core_stop.load(Ordering::Acquire),"muted":false,"credentials":credentials})
+                };
+                seen.push(command.clone());
+                let reply = serde_json::to_vec(
+                    &serde_json::json!({"protocol":2,"id":r["id"],"result":result}),
+                )
                 .unwrap();
-            let (s, p) = listener.accept().await.unwrap();
-            let edge = tokio::spawn(async move { handle(&app, s, p.ip()).await });
-            let mut preface = b"AIRSIMVWL1 1 synthetic-nonce synthetic-signature\n".to_vec();
-            if partial {
-                preface.push(42);
-            }
-            phone.write_all(&preface).await.unwrap();
-            let mut ready = [0; 11];
-            phone.read_exact(&mut ready).await.unwrap();
-            assert_eq!(&ready, b"AIRSIMREADY");
-            let mut audio = [0; 320];
-            timeout(Duration::from_secs(1), async {
-                loop {
-                    phone.read_exact(&mut audio).await.unwrap();
-                    if audio != [0; 320] {
-                        break;
-                    }
+                let written = async {
+                    s.write_u32(reply.len() as u32).await?;
+                    s.write_all(&reply).await
                 }
-            })
-            .await
-            .unwrap();
+                .await;
+                if let Err(error) = written {
+                    // Closing the phone or revoking its authority cancels
+                    // an in-flight heartbeat response. Still require the
+                    // subsequent close command below, not a live client.
+                    assert!(matches!(
+                        error.kind(),
+                        std::io::ErrorKind::BrokenPipe | std::io::ErrorKind::ConnectionReset
+                    ));
+                }
+                if close {
+                    break seen;
+                }
+            }
+        });
+        let (microphone_ready, mut microphone_checked) = tokio::sync::oneshot::channel::<()>();
+        let media_task = tokio::spawn(async move {
+            let (mut s, _) = media_listener.accept().await.unwrap();
+            let size = s.read_u32().await.unwrap() as usize;
+            assert!(size < 2048);
+            let mut b = vec![0; size];
+            s.read_exact(&mut b).await.unwrap();
+            let hello: Value = serde_json::from_slice(&b).unwrap();
             assert_eq!(
-                audio, [7; 320],
-                "phone receives only PCM, no local accept byte/credential JSON"
+                hello["credentials"]["ticket"],
+                serde_json::json!(vec![9; 32])
             );
+            s.write_u8(1).await.unwrap();
+            s.write_all(&[7; 640]).await.unwrap();
             if partial {
-                let mut microphone = vec![99; 319];
-                microphone.extend(std::iter::repeat_n(1234i16, 160).flat_map(i16::to_le_bytes));
-                phone.write_all(&microphone).await.unwrap();
-                // Wait for actual non-muted, correctly aligned data rather
-                // than racing the first authority response with a sleep.
-                let fresh: Vec<_> = std::iter::repeat_n(1234i16, 160)
-                    .flat_map(i16::to_le_bytes)
-                    .collect();
                 timeout(Duration::from_secs(1), async {
-                    let mut tick = tokio::time::interval(Duration::from_millis(20));
                     loop {
-                        tokio::select! {
-                            result=&mut microphone_checked=>{result.unwrap();break;},
-                            _=tick.tick()=>{phone.write_all(&fresh).await.unwrap();},
-                        }
+                        let mut frame = [0; 640];
+                        s.read_exact(&mut frame).await.unwrap();
+                        if frame == [0; 640] {
+                            continue;
+                        } // Muted until first authority pulse.
+                        assert!(frame
+                            .as_chunks::<2>()
+                            .0
+                            .iter()
+                            .all(|b| *b == 1234i16.to_le_bytes()));
+                        break;
                     }
                 })
                 .await
                 .unwrap();
             }
-            if revoked {
-                stop.store(true, Ordering::Release);
-                assert_eq!(
-                    timeout(Duration::from_secs(1), phone.read_u8())
-                        .await
-                        .unwrap()
-                        .unwrap_err()
-                        .kind(),
-                    std::io::ErrorKind::UnexpectedEof
-                );
+            let _ = microphone_ready.send(());
+            let mut tail = Vec::new();
+            timeout(Duration::from_secs(2), s.take(4097).read_to_end(&mut tail))
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(tail.len() <= 4096);
+            if !partial {
+                assert!(tail.is_empty());
             }
-            drop(phone);
-            timeout(Duration::from_secs(2), edge)
+        });
+        trait TestPhone: AsyncRead + AsyncWrite + Unpin {}
+        impl<T: AsyncRead + AsyncWrite + Unpin> TestPhone for T {}
+        let (mut phone, edge): (Box<dyn TestPhone>, _) = if local {
+            let (client, server) = UnixStream::pair().unwrap();
+            (
+                Box::new(client),
+                tokio::spawn(async move {
+                    handle_local(&app, server, "127.0.0.1".parse().unwrap()).await;
+                }),
+            )
+        } else {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let client = TcpStream::connect(listener.local_addr().unwrap())
                 .await
-                .unwrap()
                 .unwrap();
-            timeout(Duration::from_secs(2), media_task)
-                .await
-                .unwrap()
-                .unwrap();
-            let seen = timeout(Duration::from_secs(2), core_task)
-                .await
-                .unwrap()
-                .unwrap();
-            assert_eq!(seen.last().unwrap()["close"], true);
+            let (server, peer) = listener.accept().await.unwrap();
+            (
+                Box::new(client),
+                tokio::spawn(async move {
+                    handle(&app, server, peer.ip()).await;
+                }),
+            )
+        };
+        let mut preface = b"AIRSIMVWL1 1 synthetic-nonce synthetic-signature\n".to_vec();
+        if partial {
+            preface.push(42);
         }
+        phone.write_all(&preface).await.unwrap();
+        if local {
+            assert_eq!(phone.read_u32().await.unwrap(), 8_000);
+        }
+        let mut ready = [0; 11];
+        phone.read_exact(&mut ready).await.unwrap();
+        assert_eq!(&ready, b"AIRSIMREADY");
+        let mut audio = [0; 320];
+        timeout(Duration::from_secs(1), async {
+            loop {
+                phone.read_exact(&mut audio).await.unwrap();
+                if audio != [0; 320] {
+                    break;
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(
+            audio, [7; 320],
+            "phone receives only PCM, no local accept byte/credential JSON"
+        );
+        if partial {
+            let mut microphone = vec![99; 319];
+            microphone.extend(std::iter::repeat_n(1234i16, 160).flat_map(i16::to_le_bytes));
+            phone.write_all(&microphone).await.unwrap();
+            // Wait for actual non-muted, correctly aligned data rather
+            // than racing the first authority response with a sleep.
+            let fresh: Vec<_> = std::iter::repeat_n(1234i16, 160)
+                .flat_map(i16::to_le_bytes)
+                .collect();
+            timeout(Duration::from_secs(1), async {
+                let mut tick = tokio::time::interval(Duration::from_millis(20));
+                loop {
+                    tokio::select! {
+                        result=&mut microphone_checked=>{result.unwrap();break;},
+                        _=tick.tick()=>{phone.write_all(&fresh).await.unwrap();},
+                    }
+                }
+            })
+            .await
+            .unwrap();
+        }
+        if revoked {
+            stop.store(true, Ordering::Release);
+            assert_eq!(
+                timeout(Duration::from_secs(1), phone.read_u8())
+                    .await
+                    .unwrap()
+                    .unwrap_err()
+                    .kind(),
+                std::io::ErrorKind::UnexpectedEof
+            );
+        }
+        drop(phone);
+        timeout(Duration::from_secs(2), edge)
+            .await
+            .unwrap()
+            .unwrap();
+        timeout(Duration::from_secs(2), media_task)
+            .await
+            .unwrap()
+            .unwrap();
+        let seen = timeout(Duration::from_secs(2), core_task)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(seen.last().unwrap()["close"], true);
     }
 }

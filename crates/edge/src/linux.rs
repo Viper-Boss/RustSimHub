@@ -966,6 +966,13 @@ pub fn run(args: Vec<String>) -> Result<()> {
         let mut acceptors=JoinSet::new();let mut listening=Vec::new();
         for address in &wanted(&configured_addresses) {match TcpListener::bind(address).await {Ok(listener)=>{acceptors.spawn(accept_one(listener));listening.push(*address);},Err(e) if e.kind()==std::io::ErrorKind::AddrNotAvailable=>{},Err(_) if !configured_addresses.contains(address)=>{},Err(_)=>return Err("listener unavailable"),}}
         if let Some(bridge)=&app.media {bridge.takeover().await?;}
+        // The signed Edge variant adds a root-only local transport while
+        // keeping the existing unit/config usable by both active and fallback groups.
+        if cfg!(feature = "airsim-voble") && app.media.is_some() && captive_listen.is_none() {
+            if let Err(error) = airsim::serve_voble(&app) {
+                eprintln!("{error}");
+            }
+        }
         if let Some(addr)=captive_listen {tokio::spawn(captive::serve(addr,app.clone()));}
         // AirSIM's local protocol is bound only on the non-loopback addresses the HTTPS page
         // itself follows (configured, wlan0, usb0): never the wildcard, so never cellular.

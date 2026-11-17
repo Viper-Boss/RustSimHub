@@ -12,6 +12,7 @@
 
 mod gateway;
 mod pairing;
+pub mod voble;
 pub use gateway::*;
 pub use pairing::*;
 

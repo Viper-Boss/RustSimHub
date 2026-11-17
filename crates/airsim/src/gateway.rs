@@ -166,6 +166,15 @@ pub trait Backend {
         pairing_id: &str,
         history: usize,
     ) -> Result<(Vec<Call>, Vec<Call>), BackendError>;
+    /// Observe without extending an unattended call. Only the exact call
+    /// renewed by this connection's owner may be named.
+    fn observe_calls(
+        &mut self,
+        pairing_id: &str,
+        _owned_call: Option<&str>,
+    ) -> Result<Vec<Call>, BackendError> {
+        self.calls(pairing_id, 0).map(|(live, _)| live)
+    }
     fn dial(
         &mut self,
         pairing_id: &str,
@@ -852,6 +861,15 @@ impl Gateway {
                     Some(response) => done(response),
                     None => Outcome::Wait(poll),
                 }
+            }
+            "/api/calls/status" if request.query("observe") == Some("1") => {
+                let own = request.query("own").filter(|id| !id.is_empty());
+                let live = backend!(backend.observe_calls(&id, own));
+                let active = live
+                    .iter()
+                    .find(|call| call.phase.live())
+                    .map(|call| record(call, 1));
+                done(reply(200, json!({"active": active})))
             }
             "/api/calls/status" => {
                 let status = backend!(self.snapshot(&id, now_ms, backend));
