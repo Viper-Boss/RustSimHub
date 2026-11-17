@@ -65,12 +65,16 @@ for name, manifest, actions in (
     CHECKS.append(Check(name, 'process', ('cargo', 'test', '--manifest-path', manifest,
         '--locked', '--offline'), 'rust', tuple(actions.split()), ('linux', 'cargo'), 600))
 
+CHECKS.append(Check('web-app-assembly-node', 'browser',
+    ('node', 'tools/offline-b/browser.mjs'), 'node', ('SEC-02', 'SEC-06', 'REL-01'),
+    ('node', 'node-playwright', 'edge'), 120, 'real-browser-subset'))
+
 EXCLUDED = {
     'ap': 'Dedicated hotspot/firstboot-ap work deferred by 2026-11-16 instruction; USB/shared Wi-Fi only.',
     'ble': 'BLE/AirSIM/VoBLE/configurator/native audio belong to other windows.',
     'device': 'No device, NAS, carrier, public RPC/chain, production signing or service access authorized.',
     'build': 'Actual ARM profiles need pinned sysroots, SDK stage, approved roles and QEMU; see handoff.',
-    'browser': 'Node synthetic DOM tests are not actual Chrome/IndexedDB/CSP/three-width acceptance.',
+    'browser': 'B Edge subset is separate from the original Python browser matrix and device/mobile acceptance.',
     'pid1': 'Unit/harness results do not prove PID1/cgroup/nft or physical power-failure behavior.',
     'stability': 'Short local runs do not prove 72-hour device stability or power consumption.',
 }

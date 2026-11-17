@@ -56,9 +56,56 @@ a product clock/format change.
 
 Dedicated AP/firstboot-ap work is deferred. Shared network policy tests remain.
 BLE, AirSIM, VoBLE, native audio and configurator work are excluded. A passing
-Node fixture is not Chrome/IndexedDB/CSP/three-width acceptance. Actual browser
-assembly, Linux recovery/fault matrices, ARM/QEMU, full profiles and signed
+synthetic Node fixture is not Chrome/IndexedDB/CSP/three-width acceptance. Actual browser
+assembly has a separate group below. Linux recovery/fault matrices, ARM/QEMU, full profiles and signed
 maintenance inputs each retain their own prerequisites and evidence.
 
 See [initial inventory](../../docs/deliveries/OFFLINE-B-INVENTORY-20261115.md)
 and [delivery evidence](../../docs/deliveries/OFFLINE-B-RUNNER-20261117.md).
+
+## Windows host measurements
+
+```sh
+python tools/offline-b/measure.py --profile statistics --iterations 8 --seconds 10 --output OUTSIDE_CHECKOUT_FRESH_DIR
+```
+
+Profiles are exactly `statistics`, `network`, `forwarding`, `sms`, selecting existing
+synthetic web fixtures. Work is limited to 1..16 iterations / 1..20 seconds plus
+the bounded provenance/cleanup phases. Only processes returned by our own Job
+Object are sampled. An opened PID handle must still belong to that job before
+querying working-set counters; recycled/unreadable processes create gaps.
+No other host process is enumerated and no process memory contents are read.
+
+CPU is cumulative job-member CPU time. RSS is the peak **observed sum** of member
+working sets, sampled on the output/deadline poll; it is neither the OS peak-RSS
+counter nor physical whole-system memory. Job peak committed memory is a separate
+field. Fixture timing includes bootstrap/cleanup and is not API/network latency.
+Missing samples/gaps are incomplete (exit3), fixture/source/cleanup failures exit2.
+Exit0 means the selected synthetic host measurement completed, not a performance
+threshold, board, power, 72-hour, old-system comparison or release acceptance.
+See [actual host evidence](../../docs/offline-b/HOST-MEASUREMENTS-20261117.md).
+
+## Existing Edge / Node Playwright browser subset
+
+```sh
+python tools/offline-b/run.py --group browser --budget-seconds 140 --output OUTSIDE_CHECKOUT_FRESH_DIR
+```
+
+Requires existing Windows Edge, Node22+ and the installed `playwright` Node module
+(standard module resolution / `NODE_PATH`). Nothing is installed or downloaded.
+Missing prerequisites are `not_run`/exit3. Browser launch/assertion/cleanup failures
+are exit2. The original Python Playwright matrix remains a separate check.
+
+`browser.mjs` pins the unchanged original finite loopback backend by Git blob SHA
+before starting a server. Only its exact Python-driver spawn is adapted to the B
+Node driver; A's backend and production HTML/ESM/CSP are neither copied nor patched.
+A backend change requires review of this pin, never an automatic acceptance.
+
+The browser uses its own temporary profile with sandbox enabled, no original
+Owner/browser data or certificate overrides. Requests outside the exact loopback
+origin are aborted; background HTTP/CONNECT traffic goes to an owned denying
+proxy, with external host resolution disabled. This is not OS network-namespace
+proof. The enclosing Job bounds children/memory/time and verifies final cleanup.
+Screenshots and evidence stay in a fresh task-owned temp directory printed in the
+log; screenshots capture the synthetic logged-out page. They are not device proof.
+See [scope, failures and actual outcomes](../../docs/offline-b/BROWSER-20261117.md).

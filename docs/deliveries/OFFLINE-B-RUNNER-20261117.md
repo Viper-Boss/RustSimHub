@@ -8,7 +8,7 @@ BLE/AirSIM/native audio, workspace dependencies, author or global ledger changed
 
 ## Behavior
 
-31 fixed checks reuse original profile, integration, recovery, security,
+32 fixed checks reuse original profile, integration, recovery, security,
 dependency, performance and web validators. Missing capabilities/cases remain
 `not_run`; failure, output/time limits, children remaining or changed source fail.
 The CLI exposes groups, fresh output and a finite budget, not arbitrary commands.
@@ -28,7 +28,7 @@ download; prior download review was refused, then user chose existing runtimes.
 
 ```text
 python -m unittest discover -s tools/offline-b -p test_*.py -v
-  exit 0; 17 passed, 0 skipped; actual parent/child Job termination tested.
+  exit 0; 19 passed, 0 skipped; actual parent/child Job termination and CPU/RSS counters tested.
 python tools/offline-b/run.py --output OUTSIDE_CHECKOUT_FRESH_DIR --budget-seconds 300
   report exit 3; 31 groups = 17 passed / 14 not_run / 0 failed.
   Source HEAD/tree and worktree byte digest match at both boundaries.
@@ -39,6 +39,14 @@ The passing groups are 15 source-verifier/owned-cleanup unit tests and 16 Node f
 The profile suite executes 18 cases: 16 pass, 2 Linux cases skipped, therefore its
 group is `not_run`. These figures overlap internal runner smoke checks and must
 not be summed into a new project acceptance/test total.
+
+The later host-sampler extension in this same bounded-runner package adds two
+regressions and four finite workload profiles. Actual Windows CPU, sampled RSS
+and fixture wall time were measured for 8 iterations each; all four exited0,
+had zero measurement gaps/errors and stable source byte digests. This is host
+fixture evidence only, not Core/board speed or a Linux/PID1/72-hour result.
+See `docs/offline-b/HOST-MEASUREMENTS-20261117.md`. Published HEAD/clean reruns
+are bound in the PR body rather than manufacturing this report's own commit hash.
 
 Raw runs are retained in the task-owned `.task-tools/offline-b-run-20261117-*`
 directories outside the checkout. Public reports omit user paths and raw logs.
@@ -69,8 +77,15 @@ Preserved negative/earlier evidence:
 
 ## Not run / next subpackages
 
+The added B browser subset actually ran existing Windows Edge at 320/390/1280px,
+real production ESM/CSP/IndexedDB, permission refusal, pending preservation,
+logout/late reply and missing-module negative control. See
+`docs/offline-b/BROWSER-20261117.md`; original Python browser matrix remains unrun.
+The earlier 31-check result above predates this addition; current 32-check clean
+HEAD results are bound in the PR body.
+
 No Linux runtime, PID1/cgroup/nft, root migration/ENOSPC/SIGKILL matrices, ARM/QEMU,
-actual Chrome assembly, same-source full profile build, SDK stage, signed sample
+same-source full profile build, SDK stage, signed sample
 installation or device/public-network tests ran here. These are independent
 requirements, not implied by Node, cross-compilation or a successful parent exit.
 Cloud CI has no result until read back at the submitted HEAD.
@@ -88,6 +103,7 @@ epoch/Root approval, backup, install/readback/unique startup/current-Core health
 rollback, physical recovery and final acceptance remain separately authorized.
 
 Project/source reuse is AGPL-3.0-only, including the imported existing Linux
-backend. New code uses Python/Windows standard APIs; no new third-party dependency
-or copied external implementation. Codex implemented and checked this subpackage;
+backend. Resource code uses Python/Windows standard APIs; optional browser tests
+use existing Playwright Apache-2.0 without downloads or copied external implementation.
+Codex implemented and checked this subpackage;
 no personal effective hours are fabricated. Overall acceptance remains 81.5%.

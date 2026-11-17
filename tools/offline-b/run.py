@@ -87,6 +87,16 @@ def capability(name):
         return sys.platform == 'linux'
     if name == 'browser':
         return importlib.util.find_spec('playwright') is not None
+    if name == 'edge':
+        return os.name == 'nt' and any((Path(os.environ.get(key, '')) /
+            'Microsoft/Edge/Application/msedge.exe').is_file()
+            for key in ('ProgramFiles', 'ProgramFiles(x86)'))
+    if name == 'node-playwright':
+        try:
+            return subprocess.run(['node', '-e', "require('playwright').chromium || process.exit(1)"],
+                capture_output=True, timeout=5).returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            return False
     if name == 'symlink':
         try:
             with tempfile.TemporaryDirectory(prefix='offline-b-link-probe-') as temp:
@@ -119,7 +129,7 @@ def environment():
     return env
 
 
-def windows_execute(check, root, log, seconds):
+def windows_execute(check, root, log, seconds, *, measure=False):
     from windows_job import Job
     result = {'execution': 'not_run', 'exit_code': None, 'reason': '', 'cleanup_complete': True,
               'bytes_seen': 0, 'summary': '', 'command': list(check.argv)}
@@ -135,6 +145,9 @@ def windows_execute(check, root, log, seconds):
     began = time.monotonic()
     tail = b''
     saved = 0
+    resources = {'samples': 0, 'rss_samples': 0, 'rss_gaps': 0, 'measurement_errors': 0,
+                 'peak_observed_rss_bytes': None}
+    next_sample = 0
     try:
         with log.open('xb') as output:
             process = subprocess.Popen([sys.executable, '-I', '-S', str(Path(__file__).with_name('worker.py')),
@@ -166,6 +179,18 @@ def windows_execute(check, root, log, seconds):
             reader.start()
             eof = False
             while not eof or process.poll() is None:
+                if measure and time.monotonic() >= next_sample:
+                    try:
+                        sample = job.resources()
+                        resources['samples'] += 1
+                        resources['rss_gaps'] += sample['rss_gaps']
+                        if sample['rss_bytes'] is not None:
+                            resources['rss_samples'] += 1
+                            resources['peak_observed_rss_bytes'] = max(
+                                resources['peak_observed_rss_bytes'] or 0, sample['rss_bytes'])
+                    except OSError:
+                        resources['measurement_errors'] += 1
+                    next_sample = time.monotonic() + .02
                 if time.monotonic() - began >= seconds:
                     result.update(execution='timeout', reason='check deadline exceeded')
                     break
@@ -193,6 +218,14 @@ def windows_execute(check, root, log, seconds):
             while job.active() and time.monotonic() < until:
                 time.sleep(.02)
             result.update(exit_code=process.returncode, cleanup_complete=job.active() == 0)
+            if measure:
+                try:
+                    final = job.resources()
+                    resources.update(cpu_seconds=final['cpu_seconds'],
+                                     peak_job_committed_bytes=final['peak_job_committed_bytes'])
+                except OSError:
+                    resources['measurement_errors'] += 1
+                result['resources'] = resources
     finally:
         # Closing the sole parent handle is a final kill-on-close guard, even on
         # Ctrl-C, log write error or an unexpected exception above.
@@ -305,7 +338,7 @@ def run(checks, output, *, root=ROOT, budget=600):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--list', action='store_true')
-    parser.add_argument('--group', choices=('all', 'materials', 'business', 'process'), default='all')
+    parser.add_argument('--group', choices=('all', 'materials', 'business', 'process', 'browser'), default='all')
     parser.add_argument('--output', type=Path)
     parser.add_argument('--budget-seconds', type=int, default=600)
     args = parser.parse_args()
