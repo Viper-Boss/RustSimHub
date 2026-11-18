@@ -106,6 +106,10 @@ Owner/browser data or certificate overrides. Requests outside the exact loopback
 origin are aborted; background HTTP/CONNECT traffic goes to an owned denying
 proxy, with external host resolution disabled. This is not OS network-namespace
 proof. The enclosing Job bounds children/memory/time and verifies final cleanup.
+This group also runs a finite TCP reset regression against the denying proxy;
+HTTP/CONNECT are always 403. Expected client reset/broken-pipe errors are counted,
+unexpected socket/server errors remain failures. The same real regression runs
+inside the existing CI backend smoke test; no browser dependency is needed for it.
 Screenshots and evidence stay in a fresh task-owned temp directory printed in the
 log; screenshots capture the synthetic logged-out page. They are not device proof.
 See [scope, failures and actual outcomes](../../docs/offline-b/BROWSER-20261117.md).

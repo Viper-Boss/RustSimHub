@@ -139,11 +139,12 @@ class ActualProcesses(unittest.TestCase):
     def test_actual_reviewed_fixture_runs_to_completion_through_backend(self):
         if not run.capability('node'):
             self.fail('Node is required for this nonempty actual-backend regression')
-        check = next(c for c in CHECKS if c.name == 'web-usage-stats')
-        with tempfile.TemporaryDirectory() as temp:
-            result = run.execute(check, run.ROOT, Path(temp)/'real-module.log', 15)
-            self.assertEqual(run.classify(result, check.kind), 'passed', result)
-            self.assertTrue(result['cleanup_complete'])
+        for name in ('web-usage-stats', 'browser-proxy'):
+            check = next(c for c in CHECKS if c.name == name)
+            with tempfile.TemporaryDirectory() as temp:
+                result = run.execute(check, run.ROOT, Path(temp)/'real-module.log', 15)
+                self.assertEqual(run.classify(result, check.kind), 'passed', result)
+                self.assertTrue(result['cleanup_complete'])
 
     def test_owned_descendants_are_killed_on_this_platform(self):
         if os.name == 'nt':

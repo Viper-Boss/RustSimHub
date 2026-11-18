@@ -68,6 +68,8 @@ for name, manifest, actions in (
 CHECKS.append(Check('web-app-assembly-node', 'browser',
     ('node', 'tools/offline-b/browser.mjs'), 'node', ('SEC-02', 'SEC-06', 'REL-01'),
     ('node', 'node-playwright', 'edge'), 120, 'real-browser-subset'))
+CHECKS.append(Check('browser-proxy', 'browser',
+    ('node', '--test', 'tools/offline-b/test-proxy.mjs'), 'node', ('SEC-06',), ('node',), 20))
 
 EXCLUDED = {
     'ap': 'Dedicated hotspot/firstboot-ap work deferred by 2026-11-16 instruction; USB/shared Wi-Fi only.',

@@ -8,7 +8,7 @@ BLE/AirSIM/native audio, workspace dependencies, author or global ledger changed
 
 ## Behavior
 
-32 fixed checks reuse original profile, integration, recovery, security,
+33 fixed checks reuse original profile, integration, recovery, security,
 dependency, performance and web validators. Missing capabilities/cases remain
 `not_run`; failure, output/time limits, children remaining or changed source fail.
 The CLI exposes groups, fresh output and a finite budget, not arbitrary commands.
@@ -81,8 +81,16 @@ The added B browser subset actually ran existing Windows Edge at 320/390/1280px,
 real production ESM/CSP/IndexedDB, permission refusal, pending preservation,
 logout/late reply and missing-module negative control. See
 `docs/offline-b/BROWSER-20261117.md`; original Python browser matrix remains unrun.
-The earlier 31-check result above predates this addition; current 32-check clean
+The earlier 31-check result above predates this addition; current 33-check clean
 HEAD results are bound in the PR body.
+
+2026-11-18 combination testing caught an unhandled ECONNRESET in B's denying
+CONNECT proxy (17 passed/14 not_run/1 failed, exit2). The fix handles expected
+refused-client resets, retains unexpected errors as failures and closes owned
+sockets. A real 18-request loopback regression exercises TCP RST, verifies 403
+for HTTP/CONNECT, and fails nonzero with ECONNRESET if the old missing-handler
+behavior is restored. The finite browser group and existing CI process smoke
+test now execute it; no A/backend/product assertion or isolation limit changed.
 
 No Linux runtime, PID1/cgroup/nft, root migration/ENOSPC/SIGKILL matrices, ARM/QEMU,
 same-source full profile build, SDK stage, signed sample
