@@ -329,6 +329,23 @@ impl Management {
                 denied(b.check_current(auth))?;
                 json!({"receipts":page})
             }
+            AuthCommand::ForwardingRecentReceipts {
+                token,
+                before,
+                limit,
+            } => {
+                let b = denied(Binding::from_owner(auth, &token))?;
+                let before = before.as_deref().map(sequence).transpose()?;
+                if before == Some(0) || !(1..=32).contains(&limit) {
+                    return Err(Error::InvalidInput);
+                }
+                let page = match self.existing(b.clone())? {
+                    Some(q) => denied(q.recent_receipts(before, limit))?,
+                    None => vec![],
+                };
+                denied(b.check_current(auth))?;
+                json!({"receipts":page})
+            }
             AuthCommand::ForwardingPrune {
                 token,
                 generation,

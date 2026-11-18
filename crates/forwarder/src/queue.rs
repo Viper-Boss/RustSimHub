@@ -826,8 +826,27 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         if after < 0 || !(1..=32).contains(&limit) {
             return Err(Error::Invalid);
         }
-        let mut statement=self.conn.prepare("SELECT seq,id,message_id,target_id,rule_id,generation,state,purpose='test' FROM jobs WHERE seq>? ORDER BY seq LIMIT ?")?;
-        let rows = statement.query_map(params![after, limit as i64], |r| {
+        self.read_receipts(
+            "SELECT seq,id,message_id,target_id,rule_id,generation,state,purpose='test' FROM jobs WHERE seq>? ORDER BY seq LIMIT ?",
+            after,
+            limit,
+        )
+    }
+
+    pub fn recent_receipts(&self, before: Option<i64>, limit: usize) -> Result<Vec<Receipt>> {
+        if before.is_some_and(|seq| seq <= 0) || !(1..=32).contains(&limit) {
+            return Err(Error::Invalid);
+        }
+        self.read_receipts(
+            "SELECT seq,id,message_id,target_id,rule_id,generation,state,purpose='test' FROM jobs WHERE seq<=? ORDER BY seq DESC LIMIT ?",
+            before.map_or(i64::MAX, |seq| seq - 1),
+            limit,
+        )
+    }
+
+    fn read_receipts(&self, query: &str, bound: i64, limit: usize) -> Result<Vec<Receipt>> {
+        let mut statement = self.conn.prepare(query)?;
+        let rows = statement.query_map(params![bound, limit as i64], |r| {
             Ok((
                 r.get::<_, i64>(0)?,
                 r.get::<_, String>(1)?,

@@ -180,6 +180,26 @@ fn cached_policy_is_reused_but_never_hides_changed_or_corrupt_database_bytes() {
     assert!(q.ingest(&binding(), 2, head(6), Some(&message())).is_err());
 }
 
+#[test]
+fn recent_receipts_use_an_exclusive_descending_cursor_without_changing_legacy_order() {
+    let (_dir, mut queue) = enabled();
+    for _ in 0..3 {
+        queue
+            .enqueue_test(&binding(), 1, &id(), TARGET, LineEpoch(2))
+            .unwrap();
+    }
+    let sequences = |rows: Vec<Receipt>| rows.into_iter().map(|row| row.seq).collect::<Vec<_>>();
+    assert_eq!(
+        sequences(queue.recent_receipts(None, 2).unwrap()),
+        ["3", "2"]
+    );
+    assert_eq!(sequences(queue.recent_receipts(Some(2), 2).unwrap()), ["1"]);
+    assert!(queue.recent_receipts(Some(1), 2).unwrap().is_empty());
+    assert!(queue.recent_receipts(Some(0), 2).is_err());
+    assert!(queue.recent_receipts(None, 33).is_err());
+    assert_eq!(sequences(queue.receipts(0, 3).unwrap()), ["1", "2", "3"]);
+}
+
 fn probe() -> (TempDir, Queue, String) {
     let (d, mut q) = queue();
     let mut p = policy();

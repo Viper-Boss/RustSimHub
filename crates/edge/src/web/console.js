@@ -75,7 +75,7 @@ export const PAGES={
  network:{title:'网络管理',desc:'联网状态、流量和网络接口',tabs:[{label:'概览',view:'v-network'}]},
  sim:{title:'SIM与调制解调器',desc:'SIM 状态、信号质量和当前小区',tabs:[{label:'概览',view:'v-sim'}]},
  comms:{title:'通信中心',desc:'短信、验证码、写短信和电话',tabs:[{label:'收件箱',view:'v-sms',phone:'v-mcomm'},{label:'写短信',view:'v-compose'},{label:'电话',view:'v-phone'},{label:'验证码',view:'v-sms'},{label:'回收站',view:'v-sms'}]},
- forwarding:{title:'短信转发',desc:'转发开关、规则和历史回执',tabs:[{label:'短信转发',show:['forwarding-panel','forwarding-history-panel']}]},
+ forwarding:{title:'短信转发',desc:'',tabs:[{label:'短信转发',show:['forwarding-panel']}]},
  gnss:{title:'GNSS定位',desc:'卫星定位状态',tabs:[{label:'定位',view:'v-gnss'}]},
  ble:{title:'蓝牙',desc:'通信模式与 Wi-Fi 配网',tabs:[{label:'蓝牙',view:'v-ble'}]},
  security:{title:'安全策略',desc:'当前身份、已授权设备和外部接入',tabs:[{label:'概览',view:'v-security'}]},

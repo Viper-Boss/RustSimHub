@@ -110,6 +110,11 @@ pub enum AuthCommand {
         after: String,
         limit: usize,
     },
+    ForwardingRecentReceipts {
+        token: String,
+        before: Option<String>,
+        limit: usize,
+    },
     ForwardingPrune {
         token: String,
         generation: u64,
@@ -808,6 +813,20 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
             limit,
         } => {
             if token.len() != 64 || !decimal_sequence(after) || !(1..=32).contains(limit) {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ForwardingRecentReceipts {
+            token,
+            before,
+            limit,
+        } => {
+            if token.len() != 64
+                || before
+                    .as_ref()
+                    .is_some_and(|seq| seq == "0" || !decimal_sequence(seq))
+                || !(1..=32).contains(limit)
+            {
                 return Err(invalid());
             }
         }

@@ -29,11 +29,6 @@ function ruleRow(r){
  const w=r?.conditions?.time_window;
  return {id:r?.id,targets:r?.targets,sender:r?.sender_equals||'',contains:r?.body_contains||'',line:r?.line??'',full:r?.share==='full_text',masked:r?.share==='masked_text',regex:r?.conditions?.body_regex??'',window:!!w,start:w?clock(w.start_minute):'09:00',end:w?clock(w.end_minute):'18:00',offset:String(w?.utc_offset_minutes??480)};
 }
-function privacyText(rules){
- if(rules.some(r=>r.share==='full_text'))return '现有规则包含完整正文转发';
- if(rules.some(r=>r.share==='masked_text'))return '部分规则转发正文并隐藏英文字母和数字；不转发原始发送方';
- return '现有规则仅发送新短信通知';
-}
 const emailFields=['smtp_host','username','password','mail_from','rcpt_to'];
 function dns(s){return text(s,253,false)&&s.split('.').every(p=>p.length<=63&&/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/.test(p))&&!/^[0-9.]+$/.test(s);}
 function mailbox(s){if(!text(s,254,false))return false;const parts=s.split('@');return parts.length===2&&parts[0].length<=64&&parts[0].split('.').every(p=>p.length>0&&/^[A-Za-z0-9!#$%&'*+\/=?^_`{|}~-]+$/.test(p))&&dns(parts[1]);}
@@ -126,162 +121,319 @@ function viewInput(v,s){
 }
 export class ForwardingPanel {
  constructor({document,request,getToken,confirm,loadPending,savePending,archivePending,crypto=globalThis.crypto,delay=()=>new Promise(resolve=>setTimeout(resolve,1000))}){
-  Object.assign(this,{doc:document,request,getToken,confirm,loadPending,savePending,archivePending,crypto,delay});this.epoch=0;this.secretInputs=new Set();
-  for(const [id,fn] of [['forwarding-refresh',g=>this.read(g)],['forwarding-toggle',g=>this.toggle(g)],['forwarding-save',g=>this.save(g)],['forwarding-query',g=>this.query(g)],['forwarding-archive',g=>this.archiveUnknown(g)],['forwarding-receipts-refresh',g=>this.receipts(g,true)],['forwarding-receipts-more',g=>this.receipts(g,false)]])this.$(id).onclick=()=>this.action(fn);
-  this.$('forwarding-add-target').onclick=()=>{if(this.busy||!this.ready||this.pending||this.targets.length>=8)return;this.targets.push(this.target());this.dirty=true;this.render();};
-  this.$('forwarding-add-rule').onclick=()=>{if(this.busy||!this.ready||this.pending||this.rules.length>=32)return;this.rules.push(this.rule());this.dirty=true;this.render();};
-  this.$('forwarding-test').onclick=()=>this.action(g=>this.test(g));
+  Object.assign(this,{doc:document,request,getToken,confirm,loadPending,savePending,archivePending,crypto,delay});
+  this.epoch=0;
+  this.secretInputs=new Set();
+  for(const [id,fn] of [
+   ['forwarding-refresh',g=>this.read(g)],['forwarding-toggle',g=>this.toggle(g)],
+   ['forwarding-query',g=>this.query(g)],['forwarding-archive',g=>this.archiveUnknown(g)],
+   ['forwarding-receipts-refresh',g=>this.refreshRecords(g)],['forwarding-receipts-more',g=>this.receipts(g,false)],
+  ])this.$(id).onclick=()=>this.action(fn);
+  this.pages=['records','channels','rules','settings'];
+  for(const page of this.pages)this.$('fw-nav-'+page).onclick=()=>this.select(page);
+  this.$('fw-record-filter').onchange=()=>this.renderReceipts();
+  this.$('forwarding-add-target').onclick=()=>this.edit('channel');
+  this.$('forwarding-add-rule').onclick=()=>this.edit('rule');
+  this.$('fw-rule-channel').onclick=()=>this.select('channels');
+  this.$('fw-next').onclick=()=>this.select(this.nextPage);
+  this.$('fw-dialog-form').onsubmit=event=>{event.preventDefault();return this.action(g=>this.save(g));};
+  this.$('fw-dialog-remove').onclick=()=>this.action(g=>this.remove(g));
+  this.$('fw-dialog-close').onclick=this.$('fw-dialog-cancel').onclick=()=>this.closeEditor();
+  this.$('fw-dialog').oncancel=event=>{event.preventDefault();if(!this.busy)this.closeEditor();};
   this.reset();
  }
  $(id){return this.doc.getElementById(id);}
  current(g){if(g!==this.epoch||!this.getToken())throw new FormError('会话已变化，请重新读取');}
  clearSecrets(){for(const input of this.secretInputs)input.value='';}
- suspend(){this.epoch++;this.clearSecrets();this.busy=false;this.ready=false;this.sample=null;this.update();}
+ suspend(){this.reset();}
  reset(){
-  this.epoch++;this.clearSecrets();this.secretInputs.clear();this.busy=false;this.ready=false;this.sample=null;this.view=null;this.pending=null;this.targets=[];this.rules=[];this.cards=[];this.dirty=false;this.cursor='0';this.more=false;
-  this.$('forwarding-test-target').replaceChildren();this.$('forwarding-targets').replaceChildren();this.$('forwarding-rules').replaceChildren();this.$('forwarding-receipts').replaceChildren();this.$('forwarding-receipts-empty').hidden=false;this.$('forwarding-receipts-empty').textContent='尚未读取回执。';this.$('forwarding-pending').textContent='';this.message('所有者登录后，点击“读取状态”。此区域不会自动轮询。');this.update();
+  this.epoch++;this.busy=false;this.ready=false;this.sample=null;this.view=null;this.pending=null;
+  this.cursor=null;this.more=false;this.receiptsLoaded=false;this.receiptRows=[];
+  this.$('fw-record-filter').value='all';
+  this.closeEditor(false);this.message('');this.select('records',false);
+  this.render();
  }
  message(text){this.$('forwarding-state').textContent=text;}
- update(){
-  const blocked=this.busy||!this.ready||!!this.pending||this.sample?.quick_test_active===true;
-  for(const card of this.cards)card.disabled=blocked;
-  for(const id of ['forwarding-save','forwarding-toggle','forwarding-add-target','forwarding-add-rule'])this.$(id).disabled=blocked;
-  this.$('forwarding-add-target').disabled=blocked||this.targets.length>=8;this.$('forwarding-add-rule').disabled=blocked||this.rules.length>=32;
-  for(const id of ['forwarding-refresh','forwarding-receipts-refresh'])this.$(id).disabled=this.busy;
-  this.$('forwarding-toggle').textContent=this.sample?.enabled?'关闭转发':'开启转发';
-  const badge=this.$('forwarding-status-badge');
-  const running=this.sample?.state==='running'&&this.sample?.enabled===true&&this.sample?.process_state_verified===true;
-  badge.textContent=!this.sample?'待读取':running?'正在转发':this.sample.enabled?'已开启 · 待核验':'关闭';
-  badge.className=running?'pill':'pill off';
-  for(const [group,values] of [['target',this.targets],['rule',this.rules]]){
-   this.$(`forwarding-${group}-count`).textContent=this.view?`${this.view[group==='target'?'targets':'rules'].length} 已保存`:'';
-   const empty=this.$(`forwarding-${group}-empty`);
-   empty.hidden=values.length>0;
-   empty.textContent=this.view?(group==='target'?'还没有接收目标。':'还没有匹配规则。'):
-    (group==='target'?'读取状态后可管理接收目标。':'读取状态后可管理匹配规则。');
+ get blocked(){return this.busy||!this.ready||!!this.pending||this.sample?.quick_test_active===true;}
+ get quickTestReady(){
+  return this.sample?.quick_test_api===true&&this.sample.enabled===false&&this.sample.process_state_verified===true&&this.sample.state==='disabled';
+ }
+ get testReady(){
+  return this.quickTestReady||this.sample?.synthetic_test_api===true&&this.sample.enabled===true&&
+   this.sample.process_state_verified===true&&this.sample.state==='running'&&this.sample.delivery_api===true;
+ }
+ select(page,load=true){
+  this.page=page;
+  for(const key of this.pages){
+   this.$('fw-page-'+key).hidden=page!==key;
+   const nav=this.$('fw-nav-'+key);
+   if(page===key)nav.setAttribute('aria-current','page');
+   else nav.removeAttribute('aria-current');
   }
-
-  this.$('forwarding-query').hidden=!this.pending;this.$('forwarding-query').disabled=this.busy||!this.pending;
-  this.$('forwarding-archive').hidden=!this.pending;this.$('forwarding-archive').disabled=this.busy||!this.pending;
+  if(load&&page==='records'&&this.ready&&!this.receiptsLoaded)void this.action(g=>this.receipts(g,true));
+ }
+ enter(){
+  if(this.getToken()&&!this.view)return this.action(g=>this.read(g));
+ }
+ update(){
+  const blocked=this.blocked,targets=this.view?.targets?.length??0,rules=this.view?.rules?.length??0;
+  this.$('forwarding-login').hidden=this.ready&&!this.pending;
+  this.$('forwarding-toggle').disabled=blocked||(!this.sample?.enabled&&(!targets||!rules));
+  this.$('forwarding-toggle').textContent=this.sample?.enabled?'关闭转发':'开启转发';
+  this.$('fw-toggle-hint').textContent=!this.view?'登录后可管理总开关。':!targets||!rules?'添加发送通道和转发规则后可开启。':'开启后按规则处理新收到的短信。';
+  const badge=this.$('forwarding-status-badge');
+  const running=this.sample?.state==='running'&&this.sample.enabled===true&&this.sample.process_state_verified===true;
+  badge.textContent=!this.sample?'未读取':this.sample.quick_test_active?'正在测试':running?'转发已开启':this.sample.process_state_verified&&this.sample.state==='disabled'?'转发已关闭':'状态待核对';
+  badge.className='fw-status'+(running?' is-on':'');
+  this.$('forwarding-add-target').disabled=blocked||targets>=8;
+  this.$('forwarding-add-rule').disabled=blocked||!targets||rules>=32;
+  this.$('fw-rule-channel').hidden=targets>0||!this.ready;
+  this.$('fw-rule-hint').textContent=!targets?'先添加发送通道，再为它设置转发规则。':'选择哪些短信需要转发，以及发送到哪些通道。';
+  this.$('fw-recovery').hidden=!this.pending;
+  this.$('forwarding-query').disabled=this.busy||!this.pending;
+  this.$('forwarding-archive').disabled=this.busy||!this.pending;
+  this.$('forwarding-pending').textContent=this.pending?'上次请求结果待核对。查询回执不会重复提交。':'';
+  for(const id of ['forwarding-refresh','forwarding-receipts-refresh'])this.$(id).disabled=this.busy||!this.getToken();
   this.$('forwarding-receipts-more').disabled=this.busy||!this.more;
-  this.$('forwarding-test').disabled=blocked||!this.sample?.synthetic_test_api||this.sample?.enabled!==true||this.sample?.process_state_verified!==true||this.sample?.state!=='running'||this.sample?.delivery_api!==true||!this.view?.targets.length;
-  this.$('forwarding-test-target').disabled=blocked;
-  this.$('forwarding-pending').textContent=this.pending?'上次'+(this.pending.kind==='test'?'合成测试':'保存')+'待核对：'+this.pending.id+'。不会自动重新提交。':'';
+  this.$('forwarding-receipts-more').hidden=!this.more;
+  this.$('forwarding-save').disabled=blocked||!this.draft;
+  this.$('fw-dialog-remove').disabled=blocked;
+  for(const id of ['fw-dialog-close','fw-dialog-cancel'])this.$(id).disabled=this.busy;
+  for(const {button,test} of this.rowActions??[])button.disabled=blocked||(test&&!this.testReady);
+  this.renderReceiptEmpty();
  }
  async action(fn){
-  if(this.busy)return;const g=this.epoch;this.busy=true;this.update();
-  try{await fn(g);}catch(error){if(g===this.epoch)this.message(error instanceof FormError?error.message:'操作未获确认。请核对保存回执、登录与设备状态；不会自动重新提交。');}
-  finally{if(g===this.epoch){this.busy=false;this.update();}}
+  if(this.busy)return;
+  const g=this.epoch;this.busy=true;this.update();
+  try{await fn(g);}
+  catch(error){
+   if(g===this.epoch){
+    if(this.pending)this.closeEditor();
+    const message=error instanceof FormError?error.message:'操作未获确认。请核对登录、设备状态或上次请求回执。';
+    if(this.draft){const issue=this.$('fw-dialog-error');issue.textContent=message;issue.hidden=false;}
+    else this.message(message);
+   }
+  }finally{if(g===this.epoch){this.busy=false;this.update();}}
  }
  status(s){requireValue(s&&s.available===true&&s.configuration_api===true&&generation(s.generation)&&typeof s.enabled==='boolean'&&typeof s.process_state_verified==='boolean');return s;}
  manageable(s){return s.service_management_api===true&&s.retained_credentials_api===true&&s.request_receipt_api===true;}
  async load(g){
   requireValue(!!this.getToken(),'请先使用所有者浏览器登录');
-  this.ready=false;this.sample=null;this.view=null;
+  this.ready=false;this.sample=null;this.view=null;this.render();
   const s=this.status(await this.request({op:'forwarding_status'}));this.current(g);
   const v=viewInput(await this.request({op:'forwarding_rules'}),s);this.current(g);
-  this.sample=s;this.view=v;this.ready=this.manageable(s);
-  this.loadView(v);return s;
+  this.sample=s;this.view=v;this.ready=this.manageable(s);this.render();
+  return s;
  }
  async read(g){
   this.current(g);
-  if(this.dirty&&!this.confirm('重新读取会清空未保存的目标和规则输入，继续？'))return;
-  this.clearSecrets();this.ready=false;this.sample=null;
   const pending=pendingInput(await this.loadPending());this.current(g);this.pending=pending;
-  const s=await this.load(g);this.message(processText(s)+(this.ready?'。'+privacyText(this.view.rules)+'；凭据不回显。':'。当前安装尚未启用完整转发服务管理。'));
+  await this.load(g);
+  this.message(this.ready?'':'当前设备尚未启用完整的转发管理。');
+  if(this.page==='records')await this.receipts(g,true);
  }
- target(t=null){
-  const row={id:t?.id||this.crypto.randomUUID(),existing:!!t,kind:t?.kind||'webhook',keep:!!t,endpoint:'',bearer:'',key:'',chat:''};return row;
- }
- rule(r=null){return {...ruleRow(r),id:r?.id||this.crypto.randomUUID(),targets:r?.targets.slice()||this.targets.slice(0,1).map(t=>t.id)};}
- loadView(v){
-  this.clearSecrets();this.secretInputs.clear();this.targets=v.targets.map(t=>this.target(t));this.rules=v.rules.map(r=>this.rule(r));
-  if(!this.targets.length&&!this.rules.length){this.targets=[this.target()];this.rules=[this.rule()];}
-  this.dirty=false;this.render();
-  const select=this.$('forwarding-test-target');select.replaceChildren();
-  for(const [i,t] of v.targets.entries()){const option=this.element('option',`目标 ${i+1} · ${kinds[t.kind]} · ${t.id.slice(0,8)}`);option.value=t.id;select.append(option);}
-  select.value=v.targets[0]?.id||'';
+ async refreshRecords(g){
+  if(!this.view){await this.read(g);return;}
+  await this.receipts(g,true);
  }
  element(tag,text){const e=this.doc.createElement(tag);if(text!==undefined)e.textContent=text;return e;}
- label(text,input){const label=this.element('label',text);label.append(input);return label;}
- field(row,name,label,{secret=false,max=256}={}){
-  const input=secret&&row[name+'Input']||this.element('input');input.type=secret?'password':'text';input.autocomplete='off';input.maxLength=max;
-  if(secret){this.secretInputs.add(input);input.oninput=()=>{this.dirty=true;};}else {input.value=row[name]??'';input.oninput=()=>{row[name]=input.value;this.dirty=true;};}
-  if(secret)row[name+'Input']=input;
+ label(text,input,cls=''){const label=this.element('label',text);if(cls)label.className=cls;label.append(input);return label;}
+ button(text,fn,cls=''){
+  const button=this.element('button',text);button.type='button';button.className=cls;button.onclick=fn;return button;
+ }
+ options(entries,value){
+  const select=this.element('select');
+  for(const [key,label] of entries){const option=this.element('option',label);option.value=key;select.append(option);}
+  select.value=value;
+  return select;
+ }
+ channelName(id){
+  const channel=this.view?.targets.find(t=>t.id===id);
+  if(!channel)return '通道 '+id.slice(-8);
+  const count=this.view.targets.filter(t=>t.kind===channel.kind).length;
+  return kinds[channel.kind]+(count>1?' · '+id.slice(-8):'');
+ }
+ target(t=null){
+  return {id:t?.id||this.crypto.randomUUID(),existing:!!t,kind:t?.kind||'webhook',keep:!!t};
+ }
+ rule(r=null){return {...ruleRow(r),id:r?.id||this.crypto.randomUUID(),targets:r?.targets.slice()||(this.view.targets.length===1?[this.view.targets[0].id]:[])};}
+ shareLabel(r){return {notice:'仅发送通知',masked_text:'发送脱敏正文',full_text:'发送完整正文'}[r.share];}
+ ruleTitle(r){
+  const conditions=[];
+  if(r.sender_equals)conditions.push('发送方等于 '+r.sender_equals);
+  if(r.body_contains)conditions.push('正文包含 '+r.body_contains);
+  if(r.conditions?.body_regex)conditions.push('正文匹配正则');
+  if(r.line)conditions.push('SIM 代次 '+r.line);
+  if(r.conditions?.time_window)conditions.push('指定时间段');
+  return conditions.join(' · ')||'所有新短信';
+ }
+ listRow(mark,title,subtitle){
+  const row=this.element('li');row.className='fw-row';
+  const icon=this.element('span',mark);icon.className='fw-row-icon';icon.setAttribute('aria-hidden','true');
+  const body=this.element('div');body.className='fw-row-body';body.append(this.element('strong',title),this.element('small',subtitle));
+  const actions=this.element('div');actions.className='fw-actions';
+  row.append(icon,body,actions);return {row,actions};
+ }
+ render(){
+  const channels=this.view?.targets??[],rules=this.view?.rules??[];
+  this.rowActions=[];
+  const pressed=(text,fn,test=false)=>{
+   const button=this.button(text,fn);this.rowActions.push({button,test});return button;
+  };
+  this.$('forwarding-targets').replaceChildren(...channels.map(t=>{
+   const count=rules.filter(r=>r.targets.includes(t.id)).length;
+   const {row,actions}=this.listRow(kinds[t.kind].slice(0,1),this.channelName(t.id),count?`关联 ${count} 条规则`:'尚未关联规则');
+   const test=pressed('测试',()=>this.action(g=>this.test(g,t.id)),true);
+   test.title=this.testReady?'发送一条合成测试通知':'请先刷新服务状态。当前转发服务无法进行测试。';
+   actions.append(test,pressed('编辑',event=>this.edit('channel',t,event.currentTarget)));return row;
+  }));
+  this.$('forwarding-rules').replaceChildren(...rules.map(r=>{
+   const {row,actions}=this.listRow('规',this.ruleTitle(r),r.targets.map(id=>this.channelName(id)).join('、')+' · '+this.shareLabel(r));
+   actions.append(pressed('编辑',event=>this.edit('rule',r,event.currentTarget)));return row;
+  }));
+  for(const [key,rows] of [['target',channels],['rule',rules]]){
+   this.$('forwarding-'+key+'-count').textContent=this.view?String(rows.length):'';
+   this.$('forwarding-'+key+'-empty').hidden=rows.length>0;
+  }
+  this.renderReceipts();this.update();
+ }
+ edit(kind,item=null,trigger=null){
+  if(this.blocked||(!item&&this.$(kind==='channel'?'forwarding-add-target':'forwarding-add-rule').disabled))return;
+  this.draft={kind,row:kind==='channel'?this.target(item):this.rule(item),existing:!!item};
+  this.lastTrigger=trigger??this.$(kind==='channel'?'forwarding-add-target':'forwarding-add-rule');
+  this.$('fw-dialog-title').textContent=(item?'编辑':'添加')+(kind==='channel'?'发送通道':'转发规则');
+  this.$('fw-dialog-error').hidden=true;
+  this.$('fw-dialog-remove').hidden=!item;
+  this.$('forwarding-save').hidden=false;this.$('fw-dialog-cancel').textContent='取消';
+  if(kind==='channel')this.channelFields();else this.ruleFields();
+  this.update();this.$('fw-dialog').showModal();
+ }
+ closeEditor(restore=true){
+  const trigger=this.lastTrigger;this.lastTrigger=null;
+  this.clearSecrets();this.secretInputs.clear();this.draft=null;
+  this.$('fw-dialog-body').replaceChildren();
+  const issue=this.$('fw-dialog-error');issue.textContent='';issue.hidden=true;
+  if(this.$('fw-dialog').open)this.$('fw-dialog').close();
+  if(restore)trigger?.focus?.();
+ }
+ field(row,name,label,{secret=false,max=256,placeholder='',mode=''}={}){
+  const input=this.element('input');input.type=secret?'password':'text';input.autocomplete=secret?'new-password':'off';
+  input.maxLength=max;input.placeholder=placeholder;if(mode)input.inputMode=mode;
+  if(secret){this.secretInputs.add(input);row[name+'Input']=input;}
+  else{input.value=row[name]??'';input.oninput=()=>{row[name]=input.value;};}
   return this.label(label,input);
  }
- capture(){
-  for(const r of this.rules)if(r.select)r.targets=Array.from(r.select.options).filter(o=>o.selected).map(o=>o.value);
+ channelFields(){
+  const t=this.draft.row;
+  this.clearSecrets();this.secretInputs.clear();
+  for(const name of ['endpoint','bearer','key','chat',...emailFields])delete t[name+'Input'];
+  const body=this.$('fw-dialog-body');body.replaceChildren();
+  const kind=this.options(Object.entries(kinds).filter(([key])=>key!=='email'||this.sample.email_revision===1),t.kind);
+  kind.disabled=t.keep;
+  kind.onchange=()=>{t.kind=kind.value;this.channelFields();body.firstElementChild?.querySelector('select')?.focus();};
+  body.append(this.label('通道类型',kind));
+  if(t.existing){
+   const replace=this.element('input');replace.type='checkbox';replace.checked=!t.keep;
+   replace.onchange=()=>{t.keep=!replace.checked;this.channelFields();body.querySelector('input[type=checkbox]')?.focus();};
+   const label=this.label('更换地址或凭据',replace,'fw-check');label.prepend(replace);body.append(label);
+  }
+  if(t.keep){body.append(this.element('p','设备已保存此通道的凭据。'));return;}
+  const secret=(name,label,max=256,placeholder='')=>this.field(t,name,label,{secret:true,max,placeholder});
+  if(t.kind==='email'){
+   for(const [name,label,max] of [['smtp_host','SMTP 服务器',253],['username','用户名',64],['password','密码或应用专用密码',256],['mail_from','发件地址',254],['rcpt_to','收件地址',254]])body.append(secret(name,label,max));
+   body.append(this.element('p','使用 TLS，端口 465。记录中的“已确认”表示邮件服务器已接受。'));
+  }else if(Object.hasOwn(chatKinds,t.kind)){
+   const c=chatKinds[t.kind];if(c.endpoint)body.append(secret('endpoint',c.endpoint,2048));
+   body.append(secret('key',c.key,2048));if(c.secret)body.append(secret('chat',c.secret,128));
+   if(['dingtalk','wecom','feishu'].includes(t.kind))body.append(this.element('p','如果机器人设有关键词，请添加 RustSimHub。'));
+  }else if(t.kind==='webhook'){
+   body.append(secret('endpoint','Webhook HTTPS 地址',2048,'https://'),secret('bearer','Bearer 令牌（选填）',2048));
+  }else if(t.kind==='bark'){
+   body.append(secret('endpoint','Bark 服务地址',2048,'https://api.day.app/'),secret('key','设备 Key'));
+  }else{
+   body.append(secret('key','机器人 Token'),secret('chat','接收方 Chat ID',128));
+  }
  }
- clearTarget(t){for(const name of ['endpoint','bearer','key','chat',...emailFields]){if(t[name+'Input'])t[name+'Input'].value='';delete t[name+'Input'];}}
- render(){
-  this.capture();const oldSecrets=this.secretInputs;this.secretInputs=new Set();const targets=[],rules=[];
-  for(const [i,t] of this.targets.entries()){
-   const card=this.element('fieldset');card.className='forwarding-card';card.append(this.element('legend',`目标 ${i+1} · ${t.id.slice(0,8)}`));
-   const kind=this.element('select');for(const [value,label] of Object.entries(kinds).filter(([value])=>value!=='email'||this.sample?.email_revision===1)){const option=this.element('option',label);option.value=value;option.selected=t.kind===value;kind.append(option);}kind.value=t.kind;kind.disabled=t.existing&&t.keep;
-   kind.onchange=()=>{this.clearTarget(t);t.kind=kind.value;this.dirty=true;this.render();};card.append(this.label('发送器',kind));
-   if(t.existing){const replace=this.element('input');replace.type='checkbox';replace.checked=!t.keep;replace.onchange=()=>{this.clearTarget(t);t.keep=!replace.checked;this.dirty=true;this.render();};card.append(this.label('替换此目标的地址和凭据（不勾选则保留原值）',replace));}
-   if(!t.keep){
-    if(t.kind==='email'){
-     for(const [name,label,max] of [['smtp_host','SMTP 主机名',253],['username','邮件用户名',64],['password','邮件密码或应用专用密码',256],['mail_from','发件邮箱',254],['rcpt_to','唯一收件邮箱',254]])card.append(this.field(t,name,label+'（不回显）',{secret:true,max}));
-     card.append(this.element('p','使用端口465和 TLS。邮件服务器接受后显示已确认；这不表示最终邮箱已收到。'));
-    }else if(Object.hasOwn(chatKinds,t.kind)){
-     const c=chatKinds[t.kind];if(c.endpoint)card.append(this.field(t,'endpoint',c.endpoint,{secret:true,max:2048}));
-     card.append(this.field(t,'key',`${kinds[t.kind]} ${c.key}（不回显）`,{secret:true,max:2048}));
-     if(c.secret)card.append(this.field(t,'chat',c.secret,{secret:true,max:128}));
-     card.append(this.element('p','对方返回成功才显示已确认。机器人如设置了关键词，请把“RustSimHub”加入关键词。'));
-    }else{
-    if(t.kind!=='telegram')card.append(this.field(t,'endpoint',t.kind==='bark'?'Bark 服务地址（HTTPS 根地址）':'Webhook HTTPS 地址（不回显）',{secret:true,max:2048}));
-    if(t.kind==='webhook')card.append(this.field(t,'bearer','Bearer（可选）',{secret:true,max:2048}));
-    else card.append(this.field(t,'key',t.kind==='bark'?'Bark key':'Telegram bot token',{secret:true,max:256}));
-    if(t.kind==='telegram')card.append(this.field(t,'chat','Telegram chat ID',{secret:true,max:128}));
-    }
-   }
-   const remove=this.element('button','移除此目标');remove.onclick=()=>{if(this.busy)return;this.capture();this.targets=this.targets.filter(x=>x!==t);this.rules.forEach(r=>{r.targets=r.targets.filter(id=>id!==t.id);r.select=null;});this.dirty=true;this.render();};card.append(remove);targets.push(card);
+ ruleFields(){
+  const r=this.draft.row,body=this.$('fw-dialog-body');
+  const group=this.element('fieldset');group.className='fw-channel-choices';group.append(this.element('legend','发送通道'));
+  for(const t of this.view.targets){
+   const box=this.element('input');box.type='checkbox';box.checked=r.targets.includes(t.id);
+   box.onchange=()=>{r.targets=box.checked?[...r.targets,t.id]:r.targets.filter(id=>id!==t.id);};
+   const label=this.label(this.channelName(t.id),box,'fw-check');label.prepend(box);group.append(label);
   }
-  for(const [i,r] of this.rules.entries()){
-   const card=this.element('fieldset');card.className='forwarding-card';card.append(this.element('legend',`规则 ${i+1}`));
-   const select=this.element('select');select.multiple=true;select.size=Math.max(1,Math.min(4,this.targets.length));
-   for(const [j,t] of this.targets.entries()){const option=this.element('option',`目标 ${j+1} · ${kinds[t.kind]} · ${t.id.slice(0,8)}`);option.value=t.id;option.selected=r.targets.includes(t.id);select.append(option);}r.select=select;select.onchange=()=>{r.targets=Array.from(select.options).filter(o=>o.selected).map(o=>o.value);this.dirty=true;};card.append(this.label('发送到（可多选）',select));
-   card.append(this.field(r,'sender','发送方完全等于（留空不限）'),this.field(r,'contains','正文包含（留空不限）'),this.field(r,'line','SIM 代次（留空不限）',{max:16}));
-   const share=this.element('select');share.ariaLabel='内容隐私';for(const [value,label] of [['notice','仅通知（默认，不发送正文）'],['masked_text','正文隐藏英数字（不发送原始发送方）'],['full_text','明确允许发送完整正文和发送方']]){const o=this.element('option',label);o.value=value;share.append(o);}share.value=r.full?'full_text':r.masked?'masked_text':'notice';share.onchange=()=>{r.full=share.value==='full_text';r.masked=share.value==='masked_text';this.dirty=true;};card.append(this.label('内容隐私',share));
-   const advanced=this.element('details');advanced.append(this.element('summary','高级筛选 · 正则与时间段'));advanced.append(this.field(r,'regex','正文正则（留空不限，最多256字节）'));
-   const window=this.element('input');window.type='checkbox';window.checked=r.window;window.onchange=()=>{r.window=window.checked;this.dirty=true;};advanced.append(this.label('按短信标注时间筛选；无有效时间的短信不匹配',window));
-   advanced.append(this.field(r,'start','开始 HH:MM（含）',{max:5}),this.field(r,'end','结束 HH:MM（不含，可跨午夜）',{max:5}),this.field(r,'offset','固定 UTC 偏移分钟（中国480，无自动夏令时）',{max:4}));
-   advanced.append(this.element('p','小型Rust正则不支持环视、反向引用或Unicode属性。隐藏英数字不识别所有敏感内容；敏感短信请用“仅通知”。'));card.append(advanced);
-   const remove=this.element('button','移除此规则');remove.onclick=()=>{if(this.busy)return;this.capture();this.rules=this.rules.filter(x=>x!==r);this.dirty=true;this.render();};card.append(remove);rules.push(card);
+  const extended=this.sample.rules_revision===2;
+  const share=this.options([['notice','仅发送通知'],...(extended?[['masked_text','发送脱敏正文']]:[]),['full_text','发送完整正文和发送方']],r.full?'full_text':r.masked?'masked_text':'notice');
+  share.onchange=()=>{r.full=share.value==='full_text';r.masked=share.value==='masked_text';};
+  const match=this.element('div');match.className='fw-match';
+  match.append(this.field(r,'sender','发送方等于',{placeholder:'不限发送方'}),this.field(r,'contains','短信正文包含',{placeholder:'不限关键词'}));
+  const advanced=this.element('details');advanced.open=!!(r.regex||r.window||r.line);
+  advanced.append(this.element('summary','高级筛选'),this.field(r,'line','SIM 代次',{max:16,placeholder:'不限 SIM 代次',mode:'numeric'}));
+  if(extended){
+   const timed=this.element('input');timed.type='checkbox';timed.checked=r.window;
+   const times=this.element('div');times.className='fw-times';times.hidden=!r.window;
+   timed.onchange=()=>{r.window=timed.checked;times.hidden=!r.window;};
+   const label=this.label('限定短信时间段',timed,'fw-check');label.prepend(timed);
+   times.append(this.field(r,'start','开始 HH:MM',{max:5}),this.field(r,'end','结束 HH:MM',{max:5}),this.field(r,'offset','UTC 偏移分钟',{max:4}));
+   advanced.append(this.field(r,'regex','正文正则',{placeholder:'可留空'}),label,times);
   }
-  for(const input of oldSecrets)if(!this.secretInputs.has(input))input.value='';
-  this.cards=[...targets,...rules];this.$('forwarding-targets').replaceChildren(...targets);this.$('forwarding-rules').replaceChildren(...rules);this.update();
+  body.replaceChildren(group,this.label('转发内容',share),match,this.element('p','填写的条件需同时满足。条件全部留空时匹配所有新短信。'),advanced);
+ }
+ payload(t){
+  return {...t,...Object.fromEntries(['endpoint','bearer','key','chat',...emailFields].map(name=>[name,t[name+'Input']?.value??'']))};
+ }
+ async save(g){
+  this.current(g);
+  requireValue(this.ready&&!this.pending&&this.draft,'请先读取配置并核对上次请求');
+  const {row,kind,existing}=this.draft;
+  if(kind==='channel'&&row.keep){this.closeEditor();return;}
+  const targets=this.view.targets.map(t=>t.id===row.id&&kind==='channel'?this.payload(row):this.target(t));
+  const rules=this.view.rules.map(r=>r.id===row.id&&kind==='rule'?row:this.rule(r));
+  if(!existing){if(kind==='channel')targets.push(this.payload(row));else rules.push(row);}
+  const policy=this.policy(targets,rules);
+  if(kind==='rule'&&row.full&&!this.confirm('允许这条规则向所选通道发送完整短信正文和发送方？'))return;
+  if(kind==='channel'&&existing&&!row.keep&&policy.enabled&&!this.confirm('替换发送通道？新收到且符合规则的短信将发往新地址。'))return;
+  await this.mutate(g,'configure',{op:'forwarding_configure',policy},kind==='channel'?'通道已保存。':'规则已保存。');
+ }
+ async remove(g){
+  this.current(g);requireValue(this.ready&&!this.pending&&this.draft?.existing,'请先读取配置并核对上次请求');
+  const {kind,row}=this.draft;const channel=kind==='channel';
+  const uses=this.view.rules.filter(r=>r.targets.includes(row.id)).length;
+  requireValue(!channel||uses===0,`此通道关联 ${uses} 条规则。请先编辑这些规则，取消关联。`);
+  const targets=this.view.targets.filter(t=>!channel||t.id!==row.id).map(t=>this.target(t));
+  const rules=this.view.rules.filter(r=>channel||r.id!==row.id).map(r=>this.rule(r));
+  requireValue(!this.sample.enabled||rules.length>0,'请先关闭转发，再删除最后一条规则。');
+  if(!this.confirm(channel?'删除这个发送通道？':'删除这条转发规则？'))return;
+  await this.mutate(g,'configure',{op:'forwarding_configure',policy:this.policy(targets,rules)},channel?'通道已删除。':'规则已删除。');
+ }
+ policy(targets,rules){
+  return policyInput(targets,rules,this.sample.enabled,this.sample.rules_revision??null,this.sample.email_revision??null);
  }
  async archive(record,applied,g){
   await this.archivePending({...record,applied_generation:applied,uncertain:applied===null});this.current(g);
   requireValue(this.pending?.id===record.id,'保存记录已变化，请重新读取');
   await this.savePending(null,record.id);this.current(g);this.pending=null;
  }
- async mutate(g,kind,fields){
+ async mutate(g,kind,fields,description){
   this.current(g);requireValue(this.ready&&this.sample&&!this.pending,'请先读取状态并核对上次保存');
   requireValue(this.sample.generation<Number.MAX_SAFE_INTEGER,'配置代次超出网页可编辑范围，请使用维护入口');
   const record={format:1,id:this.crypto.randomUUID(),kind,expected_generation:this.sample.generation};
-  this.clearSecrets();for(const t of this.targets)for(const name of ['endpoint','bearer','key','chat',...emailFields])t[name]='';
-  try{await this.savePending(record,null);}catch{throw new FormError('本机回执未能保存或另一页面已有保存，请读取状态；本次未提交到设备');}this.current(g);this.pending=record;this.update();
+  this.clearSecrets();
+  try{await this.savePending(record,null);}catch{throw new FormError('无法保存本机回执，本次未提交。请刷新配置并重新填写凭据。');}this.current(g);this.pending=record;this.update();
   const result=await this.request({...fields,expected_generation:record.expected_generation,request_id:record.id});this.current(g);
   requireValue(result.configuration_applied===true&&result.request_id===record.id&&result.generation===record.expected_generation+1,'保存回执不匹配，请核对上次保存');
   this.status(result);await this.archive(record,result.generation,g);
-  this.ready=false;this.sample=result;this.view=null;const view=viewInput(await this.request({op:'forwarding_rules'}),result);this.current(g);this.view=view;this.ready=this.manageable(result);this.loadView(view);
-  this.message('开关和规则意图已保存；'+processText(result)+'。');
- }
- async save(g){
-  this.current(g);requireValue(this.ready&&!this.pending,'请先读取状态并核对上次保存');
-  this.capture();const targets=this.targets.map(t=>({id:t.id,kind:t.kind,existing:t.existing,keep:t.keep,endpoint:t.endpointInput?.value||'',bearer:t.bearerInput?.value||'',key:t.keyInput?.value||'',chat:t.chatInput?.value||'',...Object.fromEntries(emailFields.map(name=>[name,t[name+'Input']?.value||'']))}));const policy=policyInput(targets,this.rules,this.sample?.enabled===true,this.sample?.rules_revision??null,this.sample?.email_revision??null);
-  if(!this.confirm('保存这些目标和规则？'+(policy.enabled?'转发已开启，新规则将立即生效。':'保存后仍保持关闭。')+(policy.rules.some(r=>r.share==='full_text')?'已选择转发完整短信正文。':privacyText(policy.rules)+'。')))return;
-  await this.mutate(g,'configure',{op:'forwarding_configure',policy});
+  this.closeEditor();
+  this.ready=false;this.sample=result;this.view=null;this.render();
+  const view=viewInput(await this.request({op:'forwarding_rules'}),result);this.current(g);
+  this.view=view;this.ready=this.manageable(result);this.render();
+  this.message(description??processText(result)+'。');
  }
  async toggle(g){
   this.current(g);requireValue(this.ready&&!this.pending,'请先读取状态并核对上次保存');
   requireValue(this.sample&&this.view,'请先读取状态');const enabled=!this.sample.enabled;
   requireValue(!enabled||this.view.targets.length>0&&this.view.rules.length>0,'请先保存至少一个目标和一条规则');
-  if(!this.confirm((enabled?'开启短信转发？默认只处理之后的新短信。':'关闭短信转发并停止转发进程？')+(enabled&&this.view.rules.some(r=>r.share==='full_text')?'现有规则会向目标发送完整短信正文。':'')+(this.dirty?'未保存的表单输入将清空，不会提交。':'')))return;
+  if(!this.confirm((enabled?'开启短信转发？默认只处理之后的新短信。':'关闭短信转发并停止转发进程？')+(enabled&&this.view.rules.some(r=>r.share==='full_text')?'现有规则会向目标发送完整短信正文。':'')))return;
   await this.mutate(g,enabled?'enable':'disable',{op:'set_forwarding_enabled',enabled});
  }
  async query(g){
@@ -292,29 +444,36 @@ export class ForwardingPanel {
   requireValue(result.request_id===record.id&&typeof result.known==='boolean'&&result.not_found_is_not_proof===true&&generation(result.current_generation));
   if(!result.known){this.message('没有找到这笔保存回执；记录可能未受理、已清理或来自恢复前。不会重提，记录继续保留。');return;}
   requireValue(generation(result.applied_generation)&&result.applied_generation===record.expected_generation+1&&result.applied_generation<=result.current_generation);
-  await this.archive(record,result.applied_generation,g);const sample=await this.load(g);this.message('已核对保存并归档回执；'+processText(sample)+'。');
+  await this.archive(record,result.applied_generation,g);const sample=await this.load(g);this.message('已核对并保存回执。'+processText(sample)+'。');
  }
  async inspectTest(g,record,result){
   this.current(g);requireValue(result.request_id===record.id&&(result.accepted===true||typeof result.known==='boolean'));
   if(result.known===false){requireValue(result.not_found_is_not_proof===true);this.message('没有找到这笔合成测试回执；不代表从未外发，不会重新提交。');return true;}
   const r=result.receipt;requireValue(r&&r.id===record.id&&r.target_id===record.target_id&&r.generation===record.expected_generation&&r.synthetic===true&&Object.hasOwn(states,r.state));
+  if(record.kind==='quick_test'&&result.automatic_stop_verified!==true){
+   if(result.quick_active===true||result.accepted===true){this.message('正在核对测试回执和服务停止状态…');return false;}
+   this.message('测试已停止，转发进程关闭尚待核对。');return true;
+  }
   if(['confirmed','failed','cancelled'].includes(r.state)){
-   await this.archive(record,r.generation,g);await this.load(g);this.message(r.state==='confirmed'?'合成测试已获目标确认；没有读取或发送真实短信。':'合成测试'+states[r.state]+'；不会自动重发。');return true;
+   await this.archive(record,r.generation,g);this.receiptsLoaded=false;await this.load(g);
+   const outcome=r.state==='confirmed'?'合成测试已获目标确认。':'合成测试'+states[r.state]+'。';
+   this.message(outcome+(record.kind==='quick_test'?'已确认转发服务回到关闭状态。':''));return true;
   }
   if(r.state==='unknown'){this.message('合成测试结果不确定，回执已保留；不会自动重发。');return true;}
   this.message('合成测试'+states[r.state]+'，正在核对回执；只提交一次。');return false;
  }
- async test(g){
-  this.current(g);requireValue(this.ready&&!this.pending&&this.sample?.synthetic_test_api&&this.sample.enabled&&this.sample.process_state_verified&&this.sample.state==='running'&&this.sample.delivery_api,'请先保存目标、开启转发并读取确认运行状态');
-  const target=this.$('forwarding-test-target').value;requireValue(this.view.targets.some(t=>t.id===target),'请选择已保存的测试目标');
-  if(!this.confirm('向所选已保存目标发送一条固定合成通知？不读取真实短信。'+(this.dirty?'未保存的输入会清空，不会提交。':'')))return;
-  const record={format:1,id:this.crypto.randomUUID(),kind:'test',expected_generation:this.sample.generation,target_id:target};
+ async test(g,target){
+  this.current(g);requireValue(this.ready&&!this.pending&&this.testReady,'请先刷新服务状态');
+  requireValue(this.view.targets.some(t=>t.id===target),'请选择已保存的测试通道');
+  const quick=this.quickTestReady;
+  if(!this.confirm('向 '+this.channelName(target)+' 发送一条合成测试通知？'+(quick?'短信转发总开关保持关闭。':'')))return;
+  const record={format:1,id:this.crypto.randomUUID(),kind:quick?'quick_test':'test',expected_generation:this.sample.generation,target_id:target};
   this.clearSecrets();
   try{await this.savePending(record,null);}catch{throw new FormError('本机回执未能保存或另一页面已有请求；本次未提交测试');}this.current(g);this.pending=record;this.update();
-  const deadline=Date.now()+15000;
-  const result=await this.request({op:'forwarding_test',expected_generation:record.expected_generation,request_id:record.id,target_id:target});
+  const deadline=Date.now()+(quick?36000:15000);
+  const result=await this.request({op:quick?'forwarding_quick_test':'forwarding_test',expected_generation:record.expected_generation,request_id:record.id,target_id:target});
   if(await this.inspectTest(g,record,result))return;
-  for(let i=0;i<10&&Date.now()<deadline;i++){
+  for(let i=0;i<(quick?35:10)&&Date.now()<deadline;i++){
    await this.delay();this.current(g);if(Date.now()>=deadline)break;
    if(await this.inspectTest(g,record,await this.request({op:'forwarding_test_request',request_id:record.id})))return;
   }
@@ -326,15 +485,74 @@ export class ForwardingPanel {
   if(!this.confirm('将这笔未确认保存保留在本机回执中，再读取当前配置？这不会撤回、重发或证明旧请求未执行。'))return;
   await this.archive(this.pending,null,g);const s=await this.load(g);this.message('未确认记录已保留；'+processText(s)+'。后续改动使用当前配置代次。');
  }
- async receipts(g,reset){
-  requireValue(!!this.getToken(),'请先使用所有者浏览器登录');
-  const result=await this.request({op:'forwarding_receipts',after:reset?'0':this.cursor,limit:16});this.current(g);
-  requireValue(Array.isArray(result.receipts)&&result.receipts.length<=16);const rows=[];let cursor=reset?'0':this.cursor;
-  for(const r of result.receipts){requireValue(typeof r.seq==='string'&&/^(0|[1-9][0-9]{0,18})$/.test(r.seq)&&BigInt(r.seq)<=9223372036854775807n&&BigInt(r.seq)>BigInt(cursor)&&uuid(r.id)&&uuid(r.message_id)&&uuid(r.target_id)&&Object.hasOwn(states,r.state));cursor=r.seq;rows.push(this.element('p',`${r.synthetic===true?'合成测试':'短信'} ${r.message_id.slice(0,8)} → 目标 ${r.target_id.slice(0,8)} · ${states[r.state]}`));}
-  if(reset){this.$('forwarding-receipts').replaceChildren();this.$('forwarding-receipts-empty').hidden=rows.length>0;this.$('forwarding-receipts-empty').textContent='暂无递送回执。';}
-  if(rows.length)this.$('forwarding-receipts-empty').hidden=true;
-  this.$('forwarding-receipts').append(...rows);this.cursor=cursor;this.more=result.receipts.length===16;this.message(rows.length?'已读取递送回执；不包含短信正文或目标凭据。':'暂时没有新的递送回执。');
+ receiptMatches(r){
+  const filter=this.$('fw-record-filter').value;
+  return filter==='all'||(filter==='pending'?['queued','in_flight','unknown'].includes(r.state):r.state===filter);
  }
+ renderReceiptEmpty(){
+  const empty=this.$('fw-record-empty'),next=this.$('fw-next'),hint=this.$('fw-record-hint');
+  empty.hidden=this.receiptRows.some(r=>this.receiptMatches(r));
+  next.hidden=true;hint.textContent='';this.nextPage='channels';
+  const title=this.$('forwarding-receipts-empty');
+  if(!this.receiptsLoaded){
+   title.textContent=this.busy?'正在读取…':'还未读取转发记录';
+   hint.textContent=this.getToken()?'点“刷新记录”重试。':'用所有者浏览器登录后查看。';
+  }else if(this.$('fw-record-filter').value!=='all'){
+   title.textContent='已加载的记录中没有匹配结果';
+   hint.textContent=this.more?'可以继续加载更早的记录。':'';
+  }else{
+   title.textContent='还没有转发记录';
+   if(!this.ready)return;
+   if(!this.view.targets.length){
+    hint.textContent='先添加一个接收短信通知的发送通道。';next.textContent='去添加通道';
+   }else if(!this.view.rules.length){
+    hint.textContent='为已保存的通道添加一条短信匹配规则。';next.textContent='去添加规则';this.nextPage='rules';
+   }else if(!this.sample.enabled){
+    hint.textContent='通道和规则已就绪，可以在设置中开启转发。';next.textContent='去转发设置';this.nextPage='settings';
+   }else{
+    hint.textContent='符合规则的新短信或已提交的测试会出现在这里。';return;
+   }
+   next.hidden=false;
+  }
+ }
+ renderReceipts(){
+  this.$('forwarding-receipts').replaceChildren(...this.receiptRows.filter(r=>this.receiptMatches(r)).map(r=>{
+   const {row,actions}=this.listRow(r.synthetic?'测':'信',r.synthetic?'合成测试':'短信转发',this.channelName(r.target_id)+' · 记录 #'+r.seq);
+   const badge=this.element('span',r.state==='unknown'?'待核对':states[r.state]);badge.className='fw-receipt-status fw-'+r.state;
+   actions.append(badge,this.button('详情',event=>this.receiptDetails(r,event.currentTarget)));
+   return row;
+  }));
+  this.renderReceiptEmpty();
+ }
+ receiptDetails(r,trigger){
+  this.lastTrigger=trigger;
+  this.$('fw-dialog-title').textContent=r.synthetic?'合成测试详情':'转发详情';
+  this.$('fw-dialog-remove').hidden=true;this.$('forwarding-save').hidden=true;this.$('fw-dialog-cancel').textContent='完成';
+  const fields=this.element('dl');fields.className='fw-details';
+  for(const [label,value] of [
+   ['状态',states[r.state]],['发送通道',this.channelName(r.target_id)],['记录编号',r.seq],['回执 ID',r.id],
+  ])fields.append(this.element('dt',label),this.element('dd',value));
+  this.$('fw-dialog-body').replaceChildren(fields);
+  this.$('fw-dialog').showModal();
+ }
+ async receipts(g,reset){
+  this.current(g);
+  const before=reset?null:this.cursor;
+  const result=await this.request({op:'forwarding_recent_receipts',before,limit:16});this.current(g);
+  requireValue(Array.isArray(result.receipts)&&result.receipts.length<=16);
+  let cursor=before;
+  const rows=result.receipts.map(r=>{
+   requireValue(typeof r.seq==='string'&&/^[1-9][0-9]{0,18}$/.test(r.seq)&&BigInt(r.seq)<=9223372036854775807n&&
+    (cursor===null||BigInt(r.seq)<BigInt(cursor))&&uuid(r.id)&&uuid(r.message_id)&&uuid(r.target_id)&&Object.hasOwn(states,r.state));
+   cursor=r.seq;
+   return {seq:r.seq,id:r.id,target_id:r.target_id,state:r.state,synthetic:r.synthetic===true};
+  });
+  this.receiptRows=reset?rows:this.receiptRows.concat(rows);
+  this.cursor=cursor;this.more=rows.length===16&&cursor!=='1';this.receiptsLoaded=true;
+  this.renderReceipts();
+  if(!reset&&!rows.length)this.message('没有更早的转发记录。');
+ }
+
 }
 
 // A single explicit button owns only the browser receipt. Core owns the finite
