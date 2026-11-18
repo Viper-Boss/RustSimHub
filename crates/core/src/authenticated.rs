@@ -340,6 +340,13 @@ pub(crate) async fn handle(
             | AuthCommand::SubmitSms { .. }
             | AuthCommand::SmsOperation { .. }
     );
+    let list_read = matches!(
+        request.command,
+        AuthCommand::LineStatus { .. }
+            | AuthCommand::InboxRecent { .. }
+            | AuthCommand::DeletedInbox { .. }
+            | AuthCommand::CallsRecent { .. }
+    );
     let calling = matches!(
         request.command,
         AuthCommand::CallStatus { .. }
@@ -610,6 +617,7 @@ pub(crate) async fn handle(
             }
             value
         }
+        Err(rustsimhub_auth::Error::Busy) if list_read => json!({"ok":false,"error":"busy"}),
         Err(_) => json!({"ok":false,"error":"denied"}),
     };
     let response = serde_json::to_vec(&Response {

@@ -19,6 +19,48 @@ async function continuation(h,state){
  assert(release);
  return {reading,release};
 }
+await test('rapid SMS tab switching shares one in-flight read',async()=>{
+ let locked=false,release,hold=true,collisions=0;
+ const page={messages:[row(4)],total:1,visibility_seq:'0',cursor:{db_epoch:'e',seq:'4'}};
+ const {h}=harness(c=>{
+  if(locked){collisions++;throw Error('device busy');}
+  if(c.op==='inbox_recent'&&c.limit===32&&hold){
+   hold=false;locked=true;
+   return new Promise(resolve=>{release=()=>{locked=false;resolve(page);};});
+  }
+  if(c.op==='inbox_recent')return page;
+  if(c.op==='calls_recent')return {calls:[],cursor:{db_epoch:'e',seq:'0'},total:0};
+  return {line:7,status:'ready'};
+ },{Dashboard});
+ await h.signedIn();
+ h.go('comms');
+ for(let i=0;i<10&&!release;i++)await Promise.resolve();
+ assert(release);
+ for(let i=0;i<8;i++){h.go('comms',3);h.go('comms',0);}
+ await Promise.resolve();release();await h.readLists();
+ assert.equal(collisions,0);
+ assert.deepEqual(h.mail.map(m=>m.id),['4']);
+});
+await test('temporary list errors retry without dropping SMS, denied access clears them',async()=>{
+ let errors=[],attempts=0;
+ const page={messages:[row(3)],total:1,visibility_seq:'0',cursor:{db_epoch:'e',seq:'3'}};
+ const {h,$}=harness(c=>{
+  if(c.op!=='inbox_recent')return {};
+  attempts++;
+  if(errors.length)throw errors.shift();
+  return page;
+ },{Dashboard,readDelay:async()=>{}});
+ await h.signedIn();h.go('comms');await h.readLists();
+ const busy=()=>Object.assign(Error('busy'),{coreCode:'busy'});
+ attempts=0;errors=[busy(),Object.assign(Error('edge'),{httpStatus:503})];
+ await h.readLists(true);assert.equal(attempts,3);assert.equal(h.mail.length,1);
+ attempts=0;errors=Array.from({length:4},busy);
+ await h.readLists(true);assert.equal(attempts,4);assert.equal(h.mail.length,1);
+ assert.match($('c-mail-operation').textContent,/暂忙/);
+ attempts=0;errors=[Object.assign(Error('revoked'),{coreCode:'denied'})];
+ await h.readLists(true);assert.equal(attempts,1);assert.equal(h.mail.length,0);
+ assert.match($('c-mail-empty').textContent,/登录或权限/);
+});
 await test('same-total visibility changes reject a partial history',async()=>{
  const {h,state}=fixture();await h.signedIn();let reads=0;
  state.hold(result=>{reads++;return {...result,visibility_seq:'2'};});
@@ -33,13 +75,13 @@ await test('automatic history after arrivals or deletion has no hidden gap',asyn
 });
 await test('late continuation cannot reattach after explicit refresh',async()=>{
  const {h,state}=fixture();await h.signedIn();const old=await continuation(h,state);
- state.hold(null);state.setIds([9,8,7]);await h.readLists(true);old.release();await old.reading;
+ state.hold(null);state.setIds([9,8,7]);const latest=h.readLists(true);old.release();await Promise.all([old.reading,latest]);
  assert.deepEqual(h.mail.map(m=>m.id),['9','8','7']);
 });
 await test('missing visibility fails closed for old servers',async()=>{
  const {h,state}=fixture();state.setVisibility(undefined);await h.signedIn();h.go('comms');await h.readLists();assert.equal(h.mail.length,0);
 });
-await test('newer explicit head refresh wins a late older refresh',async()=>{let release,block=false;const page=n=>({messages:[row(n)],total:1,visibility_seq:'0',cursor:{db_epoch:'e',seq:String(n)}});const {h}=harness(c=>{if(c.op==='inbox_recent'&&block){block=false;return new Promise(resolve=>release=()=>resolve(page(1)));}if(c.op==='inbox_recent')return page(2);if(c.op==='calls_recent')return {calls:[],total:0,cursor:{db_epoch:'e',seq:'0'}};return {line:7,status:'ready'};},{Dashboard});await h.signedIn();block=true;const older=h.readLists(true);for(let i=0;i<10&&!release;i++)await Promise.resolve();assert(release);await h.readLists(true);release();await older;assert.deepEqual(h.mail.map(m=>m.id),['2']);});
+await test('newer explicit head refresh wins a late older refresh',async()=>{let release,block=false;const page=n=>({messages:[row(n)],total:1,visibility_seq:'0',cursor:{db_epoch:'e',seq:String(n)}});const {h}=harness(c=>{if(c.op==='inbox_recent'&&block){block=false;return new Promise(resolve=>release=()=>resolve(page(1)));}if(c.op==='inbox_recent')return page(2);if(c.op==='calls_recent')return {calls:[],total:0,cursor:{db_epoch:'e',seq:'0'}};return {line:7,status:'ready'};},{Dashboard});await h.signedIn();block=true;const older=h.readLists(true);for(let i=0;i<10&&!release;i++)await Promise.resolve();assert(release);const latest=h.readLists(true);release();await Promise.all([older,latest]);assert.deepEqual(h.mail.map(m=>m.id),['2']);});
 await test('logout ignores late continuation and resets login counts',async()=>{
  const {h,state,$}=fixture();await h.signedIn();const old=await continuation(h,state);
  h.reset();old.release();await old.reading;assert.equal(h.mail.length,0);assert.equal($('c-mh-q-sms').textContent,'—');

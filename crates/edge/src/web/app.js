@@ -103,9 +103,9 @@ async function api(command,epoch=viewEpoch){
  current(epoch);
  const id=crypto.randomUUID();const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),18000);requests.add(controller);
  try{const r=await fetch('/api/v2',{method:'POST',headers:{'Content-Type':'application/json','X-RustSimHub-Request':'2'},body:JSON.stringify({protocol:2,id,command}),signal:controller.signal,credentials:'omit',cache:'no-store',redirect:'error'});
-  if(!r.ok)throw Error('请求被拒绝或服务暂不可用');
+  if(!r.ok)throw Object.assign(Error('请求被拒绝或服务暂不可用'),{httpStatus:r.status});
   const value=await r.json();current(epoch);if(value.protocol!==2||value.id!==id)throw Error('响应不匹配');
-  if(value.result?.error)throw Error('核心拒绝操作；请检查登录、权限和设备状态');
+  if(value.result?.error)throw Object.assign(Error('核心拒绝操作；请检查登录、权限和设备状态'),{coreCode:value.result.error});
   return value.result;
  }finally{clearTimeout(timer);requests.delete(controller);}
 }
