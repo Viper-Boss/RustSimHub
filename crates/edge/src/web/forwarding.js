@@ -139,7 +139,7 @@ export class ForwardingPanel {
  suspend(){this.epoch++;this.clearSecrets();this.busy=false;this.ready=false;this.sample=null;this.update();}
  reset(){
   this.epoch++;this.clearSecrets();this.secretInputs.clear();this.busy=false;this.ready=false;this.sample=null;this.view=null;this.pending=null;this.targets=[];this.rules=[];this.cards=[];this.dirty=false;this.cursor='0';this.more=false;
-  this.$('forwarding-test-target').replaceChildren();this.$('forwarding-targets').replaceChildren();this.$('forwarding-rules').replaceChildren();this.$('forwarding-receipts').replaceChildren();this.$('forwarding-pending').textContent='';this.message('所有者登录后，点击“读取状态”。此区域不会自动轮询。');this.update();
+  this.$('forwarding-test-target').replaceChildren();this.$('forwarding-targets').replaceChildren();this.$('forwarding-rules').replaceChildren();this.$('forwarding-receipts').replaceChildren();this.$('forwarding-receipts-empty').hidden=false;this.$('forwarding-receipts-empty').textContent='尚未读取回执。';this.$('forwarding-pending').textContent='';this.message('所有者登录后，点击“读取状态”。此区域不会自动轮询。');this.update();
  }
  message(text){this.$('forwarding-state').textContent=text;}
  update(){
@@ -149,6 +149,18 @@ export class ForwardingPanel {
   this.$('forwarding-add-target').disabled=blocked||this.targets.length>=8;this.$('forwarding-add-rule').disabled=blocked||this.rules.length>=32;
   for(const id of ['forwarding-refresh','forwarding-receipts-refresh'])this.$(id).disabled=this.busy;
   this.$('forwarding-toggle').textContent=this.sample?.enabled?'关闭转发':'开启转发';
+  const badge=this.$('forwarding-status-badge');
+  const running=this.sample?.state==='running'&&this.sample?.enabled===true&&this.sample?.process_state_verified===true;
+  badge.textContent=!this.sample?'待读取':running?'正在转发':this.sample.enabled?'已开启 · 待核验':'关闭';
+  badge.className=running?'pill':'pill off';
+  for(const [group,values] of [['target',this.targets],['rule',this.rules]]){
+   this.$(`forwarding-${group}-count`).textContent=this.view?`${this.view[group==='target'?'targets':'rules'].length} 已保存`:'';
+   const empty=this.$(`forwarding-${group}-empty`);
+   empty.hidden=values.length>0;
+   empty.textContent=this.view?(group==='target'?'还没有接收目标。':'还没有匹配规则。'):
+    (group==='target'?'读取状态后可管理接收目标。':'读取状态后可管理匹配规则。');
+  }
+
   this.$('forwarding-query').hidden=!this.pending;this.$('forwarding-query').disabled=this.busy||!this.pending;
   this.$('forwarding-archive').hidden=!this.pending;this.$('forwarding-archive').disabled=this.busy||!this.pending;
   this.$('forwarding-receipts-more').disabled=this.busy||!this.more;
@@ -319,7 +331,9 @@ export class ForwardingPanel {
   const result=await this.request({op:'forwarding_receipts',after:reset?'0':this.cursor,limit:16});this.current(g);
   requireValue(Array.isArray(result.receipts)&&result.receipts.length<=16);const rows=[];let cursor=reset?'0':this.cursor;
   for(const r of result.receipts){requireValue(typeof r.seq==='string'&&/^(0|[1-9][0-9]{0,18})$/.test(r.seq)&&BigInt(r.seq)<=9223372036854775807n&&BigInt(r.seq)>BigInt(cursor)&&uuid(r.id)&&uuid(r.message_id)&&uuid(r.target_id)&&Object.hasOwn(states,r.state));cursor=r.seq;rows.push(this.element('p',`${r.synthetic===true?'合成测试':'短信'} ${r.message_id.slice(0,8)} → 目标 ${r.target_id.slice(0,8)} · ${states[r.state]}`));}
-  if(reset)this.$('forwarding-receipts').replaceChildren();this.$('forwarding-receipts').append(...rows);this.cursor=cursor;this.more=result.receipts.length===16;this.message(rows.length?'已读取递送回执；不包含短信正文或目标凭据。':'暂时没有新的递送回执。');
+  if(reset){this.$('forwarding-receipts').replaceChildren();this.$('forwarding-receipts-empty').hidden=rows.length>0;this.$('forwarding-receipts-empty').textContent='暂无递送回执。';}
+  if(rows.length)this.$('forwarding-receipts-empty').hidden=true;
+  this.$('forwarding-receipts').append(...rows);this.cursor=cursor;this.more=result.receipts.length===16;this.message(rows.length?'已读取递送回执；不包含短信正文或目标凭据。':'暂时没有新的递送回执。');
  }
 }
 
