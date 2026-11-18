@@ -196,6 +196,29 @@ impl Auth {
         self.authorize(token, Scope::CallsRead)?;
         Ok(self.store.calls_recent(before, limit)?)
     }
+    pub fn call_history_status(
+        &mut self,
+        token: &str,
+    ) -> Result<rustsimhub_storage::CallHistoryStatus> {
+        let owner = self.owner(token)?;
+        self.authorize(token, Scope::CallsRead)?;
+        Ok(self.store.call_history_status(owner)?)
+    }
+    pub fn hide_calls(&mut self, token: &str, ids: Vec<String>) -> Result<usize> {
+        let owner = self.owner(token)?;
+        self.authorize(token, Scope::CallsRead)?;
+        Ok(self.store.hide_calls(owner, ids)?)
+    }
+    pub fn clear_call_history(
+        &mut self,
+        token: &str,
+        through: rustsimhub_storage::InboxCursor,
+        expected: usize,
+    ) -> Result<usize> {
+        let owner = self.owner(token)?;
+        self.authorize(token, Scope::CallsRead)?;
+        Ok(self.store.clear_call_history(owner, through, expected)?)
+    }
     pub fn call_detail(
         &mut self,
         token: &str,

@@ -115,6 +115,18 @@ pub enum AuthCommand {
         before: Option<String>,
         limit: usize,
     },
+    ForwardingLogPage {
+        token: String,
+        before: Option<String>,
+        limit: usize,
+        filter: serde_json::Value,
+    },
+    ForwardingLogClear {
+        token: String,
+        through: String,
+        only: Option<String>,
+        filter: serde_json::Value,
+    },
     ForwardingPrune {
         token: String,
         generation: u64,
@@ -467,6 +479,18 @@ pub enum AuthCommand {
         token: String,
         before: Option<rustsimhub_domain::InboxCursor>,
         limit: usize,
+    },
+    CallHistoryStatus {
+        token: String,
+    },
+    DeleteCallHistory {
+        token: String,
+        call_ids: Vec<String>,
+    },
+    ClearCallHistory {
+        token: String,
+        through: rustsimhub_domain::InboxCursor,
+        expected: usize,
     },
     CallDetail {
         token: String,
@@ -826,6 +850,41 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                     .as_ref()
                     .is_some_and(|seq| seq == "0" || !decimal_sequence(seq))
                 || !(1..=32).contains(limit)
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ForwardingLogPage {
+            token,
+            before,
+            limit,
+            filter,
+        } => {
+            if token.len() != 64
+                || before
+                    .as_ref()
+                    .is_some_and(|seq| seq == "0" || !decimal_sequence(seq))
+                || !(1..=32).contains(limit)
+                || !filter.is_object()
+                || filter.to_string().len() > 256
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ForwardingLogClear {
+            token,
+            through,
+            only,
+            filter,
+        } => {
+            if token.len() != 64
+                || !decimal_sequence(through)
+                || through == "0"
+                || only
+                    .as_ref()
+                    .is_some_and(|seq| seq == "0" || !decimal_sequence(seq))
+                || !filter.is_object()
+                || filter.to_string().len() > 256
             {
                 return Err(invalid());
             }
@@ -1226,6 +1285,32 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         | AuthCommand::CallsRecent { token, limit, .. }
         | AuthCommand::CallEvents { token, limit, .. } => {
             if token.len() != 64 || !(1..=32).contains(limit) {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::CallHistoryStatus { token } => {
+            if token.len() != 64 {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::DeleteCallHistory { token, call_ids } => {
+            if token.len() != 64
+                || !(1..=32).contains(&call_ids.len())
+                || !call_ids.iter().all(|id| canonical_uuid(id))
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ClearCallHistory {
+            token,
+            through,
+            expected,
+        } => {
+            if token.len() != 64
+                || *expected == 0
+                || !canonical_uuid(&through.db_epoch)
+                || !decimal_sequence(&through.seq)
+            {
                 return Err(invalid());
             }
         }

@@ -42,7 +42,8 @@ export function policyInput(targets,rules,enabled,rulesRevision=null,emailRevisi
   requireValue(uuid(t.id)&&!ids.has(t.id)&&Object.hasOwn(kinds,t.kind),'目标无效');ids.add(t.id);
   requireValue(t.kind!=='email'||emailRevision===1,'设备尚未启用邮件发送，请保留原配置');
   let destination;
-  if(t.keep){requireValue(t.existing===true,'新目标需要填写凭据');destination={kind:'keep'};}
+  if(t.copyFrom){requireValue(!t.existing&&uuid(t.copyFrom)&&t.copyFrom!==t.id,'复制来源无效');destination={kind:'copy',source_id:t.copyFrom};}
+  else if(t.keep){requireValue(t.existing===true,'新目标需要填写凭据');destination={kind:'keep'};}
   else if(t.kind==='webhook'){
    requireValue(!t.bearer||text(t.bearer,2048,false)&&/^[\x21-\x7e]+$/.test(t.bearer),'Webhook Bearer 格式无效');
    destination={kind:'webhook',url:https(t.endpoint),bearer:t.bearer||null};
@@ -131,13 +132,16 @@ export class ForwardingPanel {
   ])this.$(id).onclick=()=>this.action(fn);
   this.pages=['records','channels','rules','settings'];
   for(const page of this.pages)this.$('fw-nav-'+page).onclick=()=>this.select(page);
-  this.$('fw-record-filter').onchange=()=>this.renderReceipts();
+  for(const id of ['fw-record-filter','fw-log-kind','fw-log-target'])this.$(id).onchange=()=>this.action(g=>this.receipts(g,true));
+  this.$('fw-log-reset').onclick=()=>{this.resetLogFilter();return this.action(g=>this.receipts(g,true));};
+  this.$('fw-log-clear').onclick=()=>this.action(g=>this.clearLog(g));
+
   this.$('forwarding-add-target').onclick=()=>this.edit('channel');
   this.$('forwarding-add-rule').onclick=()=>this.edit('rule');
   this.$('fw-rule-channel').onclick=()=>this.select('channels');
   this.$('fw-next').onclick=()=>this.select(this.nextPage);
   this.$('fw-dialog-form').onsubmit=event=>{event.preventDefault();return this.action(g=>this.save(g));};
-  this.$('fw-dialog-remove').onclick=()=>this.action(g=>this.remove(g));
+  this.$('fw-dialog-remove').onclick=()=>this.action(g=>this.openReceipt?this.clearLog(g,this.openReceipt):this.remove(g));
   this.$('fw-dialog-close').onclick=this.$('fw-dialog-cancel').onclick=()=>this.closeEditor();
   this.$('fw-dialog').oncancel=event=>{event.preventDefault();if(!this.busy)this.closeEditor();};
   this.reset();
@@ -149,7 +153,7 @@ export class ForwardingPanel {
  reset(){
   this.epoch++;this.busy=false;this.ready=false;this.sample=null;this.view=null;this.pending=null;
   this.cursor=null;this.more=false;this.receiptsLoaded=false;this.receiptRows=[];
-  this.$('fw-record-filter').value='all';
+  this.resetLogFilter();this.logSnapshot=null;
   this.closeEditor(false);this.message('');this.select('records',false);
   this.render();
  }
@@ -198,6 +202,11 @@ export class ForwardingPanel {
   this.$('forwarding-receipts-more').hidden=!this.more;
   this.$('forwarding-save').disabled=blocked||!this.draft;
   this.$('fw-dialog-remove').disabled=blocked;
+  const filtered=Object.keys(this.logFilter()).length>0;
+  this.$('fw-log-clear').textContent=filtered?'清空筛选结果':'清空记录';
+  this.$('fw-log-clear').disabled=blocked||!this.logSnapshot?.removable;
+  this.$('fw-log-reset').hidden=!filtered;
+  for(const id of ['fw-record-filter','fw-log-kind','fw-log-target','fw-log-reset'])this.$(id).disabled=this.busy||!this.getToken();
   for(const id of ['fw-dialog-close','fw-dialog-cancel'])this.$(id).disabled=this.busy;
   for(const {button,test} of this.rowActions??[])button.disabled=blocked||(test&&!this.testReady);
   this.renderReceiptEmpty();
@@ -276,6 +285,12 @@ export class ForwardingPanel {
  }
  render(){
   const channels=this.view?.targets??[],rules=this.view?.rules??[];
+  if(this.view){
+   const select=this.$('fw-log-target'),previous=select.value;
+   const options=[['all','全部通道'],...channels.map(target=>[target.id,this.channelName(target.id)])];
+   select.replaceChildren(...options.map(([value,label])=>{const option=this.element('option',label);option.value=value;return option;}));
+   select.value=options.some(([value])=>value===previous)?previous:'all';
+  }
   this.rowActions=[];
   const pressed=(text,fn,test=false)=>{
    const button=this.button(text,fn);this.rowActions.push({button,test});return button;
@@ -285,11 +300,13 @@ export class ForwardingPanel {
    const {row,actions}=this.listRow(kinds[t.kind].slice(0,1),this.channelName(t.id),count?`关联 ${count} 条规则`:'尚未关联规则');
    const test=pressed('测试',()=>this.action(g=>this.test(g,t.id)),true);
    test.title=this.testReady?'发送一条合成测试通知':'请先刷新服务状态。当前转发服务无法进行测试。';
-   actions.append(test,pressed('编辑',event=>this.edit('channel',t,event.currentTarget)));return row;
+   actions.append(test,pressed('编辑',event=>this.edit('channel',t,event.currentTarget)),
+    pressed('复制',event=>this.edit('channel',t,event.currentTarget,true)));return row;
   }));
   this.$('forwarding-rules').replaceChildren(...rules.map(r=>{
    const {row,actions}=this.listRow('规',this.ruleTitle(r),r.targets.map(id=>this.channelName(id)).join('、')+' · '+this.shareLabel(r));
-   actions.append(pressed('编辑',event=>this.edit('rule',r,event.currentTarget)));return row;
+   actions.append(pressed('编辑',event=>this.edit('rule',r,event.currentTarget)),
+    pressed('复制',event=>this.edit('rule',r,event.currentTarget,true)));return row;
   }));
   for(const [key,rows] of [['target',channels],['rule',rules]]){
    this.$('forwarding-'+key+'-count').textContent=this.view?String(rows.length):'';
@@ -297,20 +314,26 @@ export class ForwardingPanel {
   }
   this.renderReceipts();this.update();
  }
- edit(kind,item=null,trigger=null){
-  if(this.blocked||(!item&&this.$(kind==='channel'?'forwarding-add-target':'forwarding-add-rule').disabled))return;
-  this.draft={kind,row:kind==='channel'?this.target(item):this.rule(item),existing:!!item};
+ edit(kind,item=null,trigger=null,copy=false){
+  if(this.blocked||((!item||copy)&&this.$(kind==='channel'?'forwarding-add-target':'forwarding-add-rule').disabled))return;
+  const row=kind==='channel'?this.target(copy?null:item):this.rule(item);
+  if(copy){
+   row.id=this.crypto.randomUUID();
+   if(kind==='channel'){row.kind=item.kind;row.copyFrom=item.id;}
+  }
+  this.draft={kind,row,existing:!!item&&!copy};
   this.lastTrigger=trigger??this.$(kind==='channel'?'forwarding-add-target':'forwarding-add-rule');
-  this.$('fw-dialog-title').textContent=(item?'编辑':'添加')+(kind==='channel'?'发送通道':'转发规则');
+  this.$('fw-dialog-title').textContent=(copy?'复制':item?'编辑':'添加')+(kind==='channel'?'发送通道':'转发规则');
   this.$('fw-dialog-error').hidden=true;
-  this.$('fw-dialog-remove').hidden=!item;
+  this.$('fw-dialog-remove').hidden=!item||copy;
+  this.$('fw-dialog-remove').textContent='删除';
   this.$('forwarding-save').hidden=false;this.$('fw-dialog-cancel').textContent='取消';
   if(kind==='channel')this.channelFields();else this.ruleFields();
   this.update();this.$('fw-dialog').showModal();
  }
  closeEditor(restore=true){
   const trigger=this.lastTrigger;this.lastTrigger=null;
-  this.clearSecrets();this.secretInputs.clear();this.draft=null;
+  this.clearSecrets();this.secretInputs.clear();this.draft=null;this.openReceipt=null;
   this.$('fw-dialog-body').replaceChildren();
   const issue=this.$('fw-dialog-error');issue.textContent='';issue.hidden=true;
   if(this.$('fw-dialog').open)this.$('fw-dialog').close();
@@ -329,13 +352,18 @@ export class ForwardingPanel {
   for(const name of ['endpoint','bearer','key','chat',...emailFields])delete t[name+'Input'];
   const body=this.$('fw-dialog-body');body.replaceChildren();
   const kind=this.options(Object.entries(kinds).filter(([key])=>key!=='email'||this.sample.email_revision===1),t.kind);
-  kind.disabled=t.keep;
+  kind.disabled=t.keep||!!t.copyFrom;
   kind.onchange=()=>{t.kind=kind.value;this.channelFields();body.firstElementChild?.querySelector('select')?.focus();};
   body.append(this.label('通道类型',kind));
   if(t.existing){
    const replace=this.element('input');replace.type='checkbox';replace.checked=!t.keep;
    replace.onchange=()=>{t.keep=!replace.checked;this.channelFields();body.querySelector('input[type=checkbox]')?.focus();};
    const label=this.label('更换地址或凭据',replace,'fw-check');label.prepend(replace);body.append(label);
+  }
+  if(t.copyFrom){
+   body.append(this.element('p','将沿用 '+this.channelName(t.copyFrom)+' 的地址和凭据。'));
+   body.append(this.button('填写新的地址和凭据',()=>{t.copyFrom=null;this.channelFields();}));
+   return;
   }
   if(t.keep){body.append(this.element('p','设备已保存此通道的凭据。'));return;}
   const secret=(name,label,max=256,placeholder='')=>this.field(t,name,label,{secret:true,max,placeholder});
@@ -485,20 +513,41 @@ export class ForwardingPanel {
   if(!this.confirm('将这笔未确认保存保留在本机回执中，再读取当前配置？这不会撤回、重发或证明旧请求未执行。'))return;
   await this.archive(this.pending,null,g);const s=await this.load(g);this.message('未确认记录已保留；'+processText(s)+'。后续改动使用当前配置代次。');
  }
- receiptMatches(r){
-  const filter=this.$('fw-record-filter').value;
-  return filter==='all'||(filter==='pending'?['queued','in_flight','unknown'].includes(r.state):r.state===filter);
+ resetLogFilter(){
+  for(const id of ['fw-record-filter','fw-log-kind','fw-log-target'])this.$(id).value='all';
+ }
+ logFilter(){
+  const filter={};
+  for(const [id,key] of [['fw-record-filter','state'],['fw-log-kind','kind'],['fw-log-target','target']]){
+   const value=this.$(id).value;
+   if(value&&value!=='all')filter[key]=value;
+  }
+  return filter;
+ }
+ terminalReceipt(r){return ['confirmed','failed','cancelled'].includes(r.state);}
+ async clearLog(g,receipt=null){
+  this.current(g);
+  const {through,removable}=this.logSnapshot??{};
+  requireValue(this.ready&&!this.pending&&removable>0&&(!receipt||this.terminalReceipt(receipt)),'没有可删除的记录，请先刷新');
+  const scope=receipt?'这条转发记录':Object.keys(this.logFilter()).length?'符合筛选的已结束记录':'全部已结束的转发记录';
+  if(!this.confirm('删除'+scope+'？正在发送和待核对的记录会保留。'))return;
+  const result=await this.request({op:'forwarding_log_clear',through,only:receipt?.seq??null,filter:this.logFilter()});
+  this.current(g);
+  requireValue(Number.isSafeInteger(result.changed)&&result.changed>=0,'删除结果待核对，请刷新记录');
+  this.closeEditor();
+  await this.receipts(g,true);
+  this.message('已删除 '+result.changed+' 条转发记录。');
  }
  renderReceiptEmpty(){
   const empty=this.$('fw-record-empty'),next=this.$('fw-next'),hint=this.$('fw-record-hint');
-  empty.hidden=this.receiptRows.some(r=>this.receiptMatches(r));
+  empty.hidden=this.receiptRows.length>0;
   next.hidden=true;hint.textContent='';this.nextPage='channels';
   const title=this.$('forwarding-receipts-empty');
   if(!this.receiptsLoaded){
    title.textContent=this.busy?'正在读取…':'还未读取转发记录';
    hint.textContent=this.getToken()?'点“刷新记录”重试。':'用所有者浏览器登录后查看。';
-  }else if(this.$('fw-record-filter').value!=='all'){
-   title.textContent='已加载的记录中没有匹配结果';
+  }else if(Object.keys(this.logFilter()).length>0){
+   title.textContent='没有匹配的转发记录';
    hint.textContent=this.more?'可以继续加载更早的记录。':'';
   }else{
    title.textContent='还没有转发记录';
@@ -516,8 +565,8 @@ export class ForwardingPanel {
   }
  }
  renderReceipts(){
-  this.$('forwarding-receipts').replaceChildren(...this.receiptRows.filter(r=>this.receiptMatches(r)).map(r=>{
-   const {row,actions}=this.listRow(r.synthetic?'测':'信',r.synthetic?'合成测试':'短信转发',this.channelName(r.target_id)+' · 记录 #'+r.seq);
+  this.$('forwarding-receipts').replaceChildren(...this.receiptRows.map(r=>{
+   const {row,actions}=this.listRow(r.synthetic?'测':'信',r.synthetic?'合成测试':'短信转发',this.channelName(r.target_id)+' · '+(r.recorded_at===null?'记录 #'+r.seq:new Date(r.recorded_at*1000).toLocaleString()));
    const badge=this.element('span',r.state==='unknown'?'待核对':states[r.state]);badge.className='fw-receipt-status fw-'+r.state;
    actions.append(badge,this.button('详情',event=>this.receiptDetails(r,event.currentTarget)));
    return row;
@@ -525,12 +574,12 @@ export class ForwardingPanel {
   this.renderReceiptEmpty();
  }
  receiptDetails(r,trigger){
-  this.lastTrigger=trigger;
+  this.lastTrigger=trigger;this.openReceipt=r;
   this.$('fw-dialog-title').textContent=r.synthetic?'合成测试详情':'转发详情';
-  this.$('fw-dialog-remove').hidden=true;this.$('forwarding-save').hidden=true;this.$('fw-dialog-cancel').textContent='完成';
+  this.$('fw-dialog-remove').hidden=!this.terminalReceipt(r);this.$('fw-dialog-remove').textContent='删除记录';this.$('forwarding-save').hidden=true;this.$('fw-dialog-cancel').textContent='完成';
   const fields=this.element('dl');fields.className='fw-details';
   for(const [label,value] of [
-   ['状态',states[r.state]],['发送通道',this.channelName(r.target_id)],['记录编号',r.seq],['回执 ID',r.id],
+   ['状态',states[r.state]],['发送通道',this.channelName(r.target_id)],['记录时间',r.recorded_at===null?'未记录':new Date(r.recorded_at*1000).toLocaleString()],['SIM 代次',String(r.line)],['记录编号',r.seq],['回执 ID',r.id],
   ])fields.append(this.element('dt',label),this.element('dd',value));
   this.$('fw-dialog-body').replaceChildren(fields);
   this.$('fw-dialog').showModal();
@@ -538,14 +587,16 @@ export class ForwardingPanel {
  async receipts(g,reset){
   this.current(g);
   const before=reset?null:this.cursor;
-  const result=await this.request({op:'forwarding_recent_receipts',before,limit:16});this.current(g);
-  requireValue(Array.isArray(result.receipts)&&result.receipts.length<=16);
+  if(reset){this.logSnapshot=null;this.receiptsLoaded=false;this.receiptRows=[];this.cursor=null;this.more=false;this.renderReceipts();}
+  const result=await this.request({op:'forwarding_log_page',before,limit:16,filter:this.logFilter()});this.current(g);
+  requireValue(Array.isArray(result.records)&&result.records.length<=16&&sequence(result.through)&&Number.isSafeInteger(result.removable)&&result.removable>=0);
+  if(reset)this.logSnapshot={through:result.through,removable:result.removable};
   let cursor=before;
-  const rows=result.receipts.map(r=>{
+  const rows=result.records.map(r=>{
    requireValue(typeof r.seq==='string'&&/^[1-9][0-9]{0,18}$/.test(r.seq)&&BigInt(r.seq)<=9223372036854775807n&&
     (cursor===null||BigInt(r.seq)<BigInt(cursor))&&uuid(r.id)&&uuid(r.message_id)&&uuid(r.target_id)&&Object.hasOwn(states,r.state));
    cursor=r.seq;
-   return {seq:r.seq,id:r.id,target_id:r.target_id,state:r.state,synthetic:r.synthetic===true};
+   return {seq:r.seq,id:r.id,target_id:r.target_id,state:r.state,synthetic:r.synthetic===true,line:generation(r.line)?r.line:'—',recorded_at:generation(r.recorded_at)?r.recorded_at:null};
   });
   this.receiptRows=reset?rows:this.receiptRows.concat(rows);
   this.cursor=cursor;this.more=rows.length===16&&cursor!=='1';this.receiptsLoaded=true;

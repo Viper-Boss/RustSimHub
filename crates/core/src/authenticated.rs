@@ -126,6 +126,8 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | ForwardingTestRequest { .. }
         | ForwardingReceipts { .. }
         | ForwardingRecentReceipts { .. }
+        | ForwardingLogPage { .. }
+        | ForwardingLogClear { .. }
         | ForwardingPrune { .. }
         | ForwardingHistoryPrepare { .. }
         | ForwardingHistoryCommit { .. }
@@ -148,6 +150,16 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
             limit,
         } => serde_json::to_value(auth.calls_recent(&token, before, limit)?)
             .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        CallHistoryStatus { token } => serde_json::to_value(auth.call_history_status(&token)?)
+            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        DeleteCallHistory { token, call_ids } => {
+            json!({"changed":auth.hide_calls(&token,call_ids)?})
+        }
+        ClearCallHistory {
+            token,
+            through,
+            expected,
+        } => json!({"changed":auth.clear_call_history(&token,through,expected)?}),
         CallDetail { token, call_id } => serde_json::to_value(auth.call_detail(&token, call_id)?)
             .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
         CallEvents {
@@ -398,6 +410,8 @@ pub(crate) async fn handle(
             | AuthCommand::ForwardingTestRequest { .. }
             | AuthCommand::ForwardingReceipts { .. }
             | AuthCommand::ForwardingRecentReceipts { .. }
+            | AuthCommand::ForwardingLogPage { .. }
+            | AuthCommand::ForwardingLogClear { .. }
             | AuthCommand::ForwardingPrune { .. }
             | AuthCommand::ForwardingHistoryPrepare { .. }
             | AuthCommand::ForwardingHistoryCommit { .. }

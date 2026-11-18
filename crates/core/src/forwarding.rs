@@ -346,6 +346,40 @@ impl Management {
                 denied(b.check_current(auth))?;
                 json!({"receipts":page})
             }
+            AuthCommand::ForwardingLogPage {
+                token,
+                before,
+                limit,
+                filter,
+            } => {
+                let binding = denied(Binding::from_owner(auth, &token))?;
+                let filter = serde_json::from_value(filter).map_err(|_| Error::InvalidInput)?;
+                let before = before.as_deref().map(sequence).transpose()?;
+                let value = match self.existing(binding.clone())? {
+                    Some(queue) => {
+                        serde_json::to_value(denied(queue.log_page(filter, before, limit))?)
+                            .map_err(|_| Error::InvalidInput)?
+                    }
+                    None => json!({"records":[],"through":"0","removable":0}),
+                };
+                denied(binding.check_current(auth))?;
+                value
+            }
+            AuthCommand::ForwardingLogClear {
+                token,
+                through,
+                only,
+                filter,
+            } => {
+                let binding = denied(Binding::from_recent_owner(auth, &token))?;
+                let filter = serde_json::from_value(filter).map_err(|_| Error::InvalidInput)?;
+                let through = sequence(&through)?;
+                let only = only.as_deref().map(sequence).transpose()?;
+                let queue = self.existing(binding.clone())?.ok_or(Error::Forbidden)?;
+                let changed = denied(queue.clear_log(&binding, filter, through, only))?;
+                denied(binding.check_current(auth))?;
+                json!({"changed":changed})
+            }
             AuthCommand::ForwardingPrune {
                 token,
                 generation,

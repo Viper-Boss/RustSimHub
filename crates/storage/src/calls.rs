@@ -36,6 +36,17 @@ pub struct RecentCallPage {
     pub total: u64,
 }
 #[derive(Serialize)]
+pub struct CallHistoryStatus {
+    pub through: InboxCursor,
+    pub ended: usize,
+}
+
+pub(crate) const HISTORY_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS call_history_hidden (
+ id TEXT PRIMARY KEY REFERENCES calls(id)
+) STRICT;";
+
+#[derive(Serialize)]
 pub struct CallEvent {
     pub seq: String,
     pub call_id: String,
@@ -172,7 +183,7 @@ impl Handle {
     pub fn calls(&self, after: Option<InboxCursor>, limit: usize) -> Result<CallPage> {
         self.call(move|db|{
   let(epoch,mut seq)=super::inbox::position(&db.connection,after.as_ref(),"calls",limit)?;
-  let mut stmt=db.connection.prepare("SELECT id,line_epoch,direction,state,reason,availability,seq FROM calls WHERE seq>? ORDER BY seq LIMIT ?")?;
+  let mut stmt=db.connection.prepare("SELECT id,line_epoch,direction,state,reason,availability,seq FROM calls WHERE seq>? AND NOT EXISTS(SELECT 1 FROM call_history_hidden h WHERE h.id=calls.id) ORDER BY seq LIMIT ?")?;
   let rows=stmt.query_map(params![seq,limit as i64],|r|Ok((read_summary(r)?,r.get::<_,i64>(6)?)))?;let mut calls=vec![];for row in rows{let(s,n)=row?;calls.push(s);seq=n;}
   Ok(CallPage{calls,cursor:InboxCursor{db_epoch:epoch,seq:seq.to_string()}})
  })
@@ -186,9 +197,9 @@ impl Handle {
             let tx = db.connection.transaction()?;
             let (epoch, from) = super::inbox::position(&tx, before.as_ref(), "calls", limit)?;
             let upper = if before.is_some() { from } else { i64::MAX };
-            let total: i64 = tx.query_row("SELECT COUNT(*) FROM calls", [], |r| r.get(0))?;
+            let total: i64 = tx.query_row("SELECT COUNT(*) FROM calls WHERE NOT EXISTS(SELECT 1 FROM call_history_hidden h WHERE h.id=calls.id)", [], |r| r.get(0))?;
             let (calls, seq) = {
-                let mut stmt = tx.prepare("SELECT id,line_epoch,direction,state,reason,availability,seq FROM calls WHERE seq<? ORDER BY seq DESC LIMIT ?")?;
+                let mut stmt = tx.prepare("SELECT id,line_epoch,direction,state,reason,availability,seq FROM calls WHERE seq<? AND NOT EXISTS(SELECT 1 FROM call_history_hidden h WHERE h.id=calls.id) ORDER BY seq DESC LIMIT ?")?;
                 let rows = stmt.query_map(params![upper, limit as i64], |r| {
                     Ok((read_recent_summary(r)?, r.get::<_, i64>(6)?))
                 })?;
@@ -208,11 +219,81 @@ impl Handle {
             })
         })
     }
+    pub fn call_history_status(&self, owner: Principal) -> Result<CallHistoryStatus> {
+        self.call(move |db| {
+            let connection = &db.connection;
+            super::auth::checked_owner(connection, &owner)?;
+            let (epoch, _) = super::inbox::position(connection, None, "calls", 1)?;
+            let (seq, ended): (i64, u32) = connection.query_row(
+                "SELECT COALESCE(MAX(seq),0), COUNT(*) FILTER (WHERE state=7) FROM calls
+                 WHERE NOT EXISTS(SELECT 1 FROM call_history_hidden h WHERE h.id=calls.id)",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+            Ok(CallHistoryStatus {
+                through: InboxCursor {
+                    db_epoch: epoch,
+                    seq: seq.to_string(),
+                },
+                ended: ended as usize,
+            })
+        })
+    }
+
+    pub fn hide_calls(&self, owner: Principal, ids: Vec<String>) -> Result<usize> {
+        self.call(move |db| {
+            if !(1..=32).contains(&ids.len()) || ids.iter().any(|id| Uuid::parse_str(id).is_err()) {
+                return Err(Error::InvalidInput);
+            }
+            let tx = db.connection.transaction()?;
+            super::auth::checked_owner(&tx, &owner)?;
+            let mut changed = 0;
+            for id in ids {
+                let ended: bool = tx.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM calls WHERE id=? AND state=7)",
+                    [&id],
+                    |row| row.get(0),
+                )?;
+                if !ended {
+                    return Err(Error::Conflict);
+                }
+                changed += tx.execute(
+                    "INSERT OR IGNORE INTO call_history_hidden(id) VALUES(?)",
+                    [id],
+                )?;
+            }
+            tx.commit()?;
+            Ok(changed)
+        })
+    }
+
+    pub fn clear_call_history(
+        &self,
+        owner: Principal,
+        through: InboxCursor,
+        expected: usize,
+    ) -> Result<usize> {
+        self.call(move |db| {
+            let tx = db.connection.transaction()?;
+            super::auth::checked_owner(&tx, &owner)?;
+            let (_, seq) = super::inbox::position(&tx, Some(&through), "calls", 1)?;
+            let changed = tx.execute(
+                "INSERT OR IGNORE INTO call_history_hidden(id) SELECT id FROM calls WHERE state=7 AND seq<=?",
+                [seq]
+            )?;
+            if changed != expected {
+                return Err(Error::Conflict);
+            }
+            tx.commit()?;
+            Ok(changed)
+        })
+    }
+
     pub fn call_detail(&self, id: String) -> Result<CallSummary> {
         self.call(move |db| {
             let mut detail = call_summary(&db.connection, &id)?;
             detail.number = Some(db.connection.query_row(
-                "SELECT number FROM calls WHERE id=?",
+                "SELECT number FROM calls WHERE id=? AND NOT EXISTS(SELECT 1 FROM call_history_hidden h WHERE h.id=calls.id)",
                 [id],
                 |row| row.get(0),
             )?);

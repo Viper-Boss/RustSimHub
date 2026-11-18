@@ -32,7 +32,7 @@ function fixture({existing=false,managed=true,consent=true,onRequest,onSave,onLo
    if(c.op==='forwarding_status')return status();
    if(c.op==='forwarding_rules')return view();
    if(c.op==='forwarding_request'){const gen=requests.get(c.request_id);return {request_id:c.request_id,known:!!gen,applied_generation:gen??null,current_generation:current,not_found_is_not_proof:true};}
-   if(c.op==='forwarding_recent_receipts')return {receipts:[]};
+   if(c.op==='forwarding_log_page')return {records:[],through:'0',removable:0};
    if(c.op==='forwarding_test'||c.op==='forwarding_quick_test'){
     assert.equal(policy.enabled,c.op==='forwarding_test');assert.deepEqual(pending,{format:1,id:c.request_id,kind:c.op==='forwarding_test'?'test':'quick_test',expected_generation:current,target_id:c.target_id});
     const receipt={id:c.request_id,target_id:c.target_id,generation:current,synthetic:true,state:'queued'};tests.set(c.request_id,receipt);return {request_id:c.request_id,accepted:true,synthetic:true,receipt:clone(receipt)};
@@ -45,7 +45,7 @@ function fixture({existing=false,managed=true,consent=true,onRequest,onSave,onLo
     writes.push(clone(c));
     if(c.op==='forwarding_configure'){
      const old=new Map(policy.targets.map(t=>[t.id,t.destination]));
-     policy={...clone(c.policy),targets:c.policy.targets.map(t=>({id:t.id,destination:clone(t.destination.kind==='keep'?old.get(t.id):t.destination)}))};
+     policy={...clone(c.policy),targets:c.policy.targets.map(t=>({id:t.id,destination:clone(t.destination.kind==='keep'?old.get(t.id):t.destination.kind==='copy'?old.get(t.destination.source_id):t.destination)}))};
     }else policy.enabled=c.enabled;
     current++;requests.set(c.request_id,current);
     return {...status(),configuration_applied:true,request_id:c.request_id};
@@ -123,7 +123,7 @@ for(const point of ['before_marker','after_dispatch']){
  await f.read();await f.panel.action(g=>f.panel.query(g));assert.equal(f.pending(),null);assert.equal(f.archives[0].applied_generation,2);assert.equal(f.writes.length,0);
 }
 {
- const f=fixture({existing:true,onRequest:async c=>c.op==='forwarding_recent_receipts'?{receipts:[{seq:'1',id:other,message_id:id,target_id:rule,state:'unknown',text:secret}]}:undefined});await f.panel.action(g=>f.panel.receipts(g,true));
+ const f=fixture({existing:true,onRequest:async c=>c.op==='forwarding_log_page'?{records:[{seq:'1',id:other,message_id:id,target_id:rule,state:'unknown',text:secret}],through:'1',removable:0}:undefined});await f.panel.action(g=>f.panel.receipts(g,true));
  assert.match(allText(f),/待核对/);assert.ok(!allText(f).includes(secret));assert.equal(f.writes.length,0);
 }
 {
@@ -198,16 +198,24 @@ console.log('PASS: explicit synthetic target, durable no-repeat marker, bounded 
 }
 {
  const record=n=>({seq:String(n),id:other,message_id:id,target_id:id,state:n===20?'failed':'confirmed',synthetic:false,text:secret});
- const f=fixture({existing:true,onRequest:async c=>c.op==='forwarding_recent_receipts'?
-  {receipts:c.before===null?Array.from({length:16},(_,i)=>record(20-i)):[record(4),record(1)]}:undefined});
+ const f=fixture({existing:true,onRequest:async c=>c.op==='forwarding_log_page'?
+  {through:'20',removable:20,records:c.filter.state==='failed'?[record(20)]:c.before===null?Array.from({length:16},(_,i)=>record(20-i)):[record(4),record(1)]}:undefined});
  await f.read();assert.equal(f.panel.receiptRows[0].seq,'20');assert.equal(f.panel.more,true);
  await f.panel.action(g=>f.panel.receipts(g,false));
  assert.equal(f.calls.at(-1).before,'5');assert.equal(f.panel.receiptRows.at(-1).seq,'1');
- f.$('fw-record-filter').value='failed';f.$('fw-record-filter').onchange();
+ f.$('fw-record-filter').value='failed';await f.$('fw-record-filter').onchange();
  assert.equal(f.$('forwarding-receipts').children.length,1);assert.ok(!allText(f).includes(secret));
 }
 console.log('PASS: isolated channel wizard, saved rules, newest-first records and finite channel test before enabling forwarding.');
 
+{
+ const f=fixture({existing:true});await f.read();
+ f.panel.edit('channel',f.view().targets[0],null,true);
+ await save(f);
+ assert.equal(f.view().targets.length,2);
+ assert.deepEqual(f.writes[0].policy.targets[1].destination,{kind:'copy',source_id:id});
+ assert.ok(!JSON.stringify(f.writes).includes(secret));
+}
 function quickFixture({state='confirmed',active=false,lost=false,saveFails=false,enabled=false,stop=true,readFails=false,initialPending=null,configurationKnown=true}={}){
  let pending=clone(initialPending),accepted=false,logins=0;const calls=[],messages=[],archives=[],gate=deferred();
  const status=()=>({quick_test_api:true,service_management_api:true,enabled,process_state_verified:true,state:enabled?'running':'disabled',quick_test_active:false,generation:1});

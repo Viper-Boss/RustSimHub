@@ -19,6 +19,8 @@ const APP_ID: i64 = OUTBOX_APPLICATION_ID;
 const FORMAT: i64 = OUTBOX_CURRENT_FORMAT;
 type CachedPolicy = ([u8; 32], Arc<Policy>);
 mod history;
+mod log;
+pub use log::{LogFilter, LogPage};
 #[cfg(feature = "smtp-production-candidate")]
 pub(crate) mod migration;
 pub use history::*;
@@ -340,6 +342,7 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         }
         // A lost worker/Core reply is never queued for automatic delivery again.
         history::ensure_confirmation_ids(&mut conn)?;
+        log::ensure(&conn)?;
         conn.execute(
             "UPDATE jobs SET state='unknown' WHERE state='in_flight'",
             [],

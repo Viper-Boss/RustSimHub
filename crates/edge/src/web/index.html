@@ -143,7 +143,10 @@
 <section class="card hw-gauge"><div class="ring-l t-purple"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-mem-ring" stroke-dashoffset="326.7" cx="60" cy="60" r="52"/></svg><b id="c-hw-mem">—</b></div><h3>内存</h3><p id="c-hw-mem-d">—</p></section>
 <section class="card hw-gauge"><div class="ring-l t-teal"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-disk-ring" stroke-dashoffset="326.7" cx="60" cy="60" r="52"/></svg><b id="c-hw-disk">—</b></div><h3>存储</h3><p id="c-hw-disk-d">—</p></section>
 <section class="card hw-gauge"><div class="ring-l t-amber"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-temp-ring" stroke-dashoffset="326.7" cx="60" cy="60" r="52"/></svg><b id="c-hw-temp">—</b></div><h3>CPU 温度</h3><p id="c-hw-temp-d">上限 85 °C</p></section>
-<section class="card pg-card w7"><h2><svg class="i"><use href="#i-temp"/></svg>温度趋势<small>本次打开页面以来</small></h2><svg class="trend" viewBox="0 0 150 28" preserveAspectRatio="none" aria-label="温度趋势"><path id="c-hw-trend"/></svg></section>
+<section class="card pg-card w7"><h2><svg class="i"><use href="#i-temp"/></svg>温度趋势<small>当前 <strong id="c-hw-temp-current">—</strong></small></h2>
+<div class="temp-chart"><div class="temp-axis" aria-hidden="true"><span id="c-hw-temp-high"></span><span id="c-hw-temp-mid"></span><span id="c-hw-temp-low"></span></div>
+<svg class="trend" viewBox="0 0 150 28" preserveAspectRatio="none" aria-label="温度趋势（摄氏度）"><path id="c-hw-trend"/><line id="c-hw-temp-marker" y1="2" y2="26" visibility="hidden"/></svg></div>
+<div class="temp-sample" id="c-hw-temp-sample" hidden><label for="c-hw-temp-point">查看采样</label><input id="c-hw-temp-point" type="range" min="0" max="0" value="0"><output id="c-hw-temp-reading" for="c-hw-temp-point"></output></div></section>
 <section class="card pg-card w5"><h2><svg class="i"><use href="#i-chip"/></svg>设备信息</h2><dl class="pg-kv"><dt>型号</dt><dd id="c-hw-model">—</dd><dt>处理器</dt><dd id="c-hw-cores">—</dd><dt>操作系统</dt><dd id="c-hw-os">—</dd><dt>内核</dt><dd id="c-hw-kernel">—</dd><dt>固件版本</dt><dd id="c-hw-version">—</dd><dt>运行时间</dt><dd id="c-hw-uptime">—</dd></dl></section>
 </div></div>
 <div class="pg" id="v-sim" hidden>
@@ -189,7 +192,8 @@
 <section class="card pg-card step w4"><em>3</em><h3>填写 Wi-Fi</h3><p>按提示填写网络，试连成功后再保存。也可以在“网络管理”里配置。</p><button type="button" class="pg-link" data-go="network">前往网络管理</button></section>
 </div></div>
 <div class="pg" id="v-events" hidden>
-<section class="card ev pg-events"><div class="ev-h"><svg class="i"><use href="#i-list"/></svg>最近事件<small>本次打开页面以来</small></div><ul id="c-ev-all"></ul><p class="none" id="c-ev-all-empty">登录后显示</p></section>
+<section class="card ev pg-events"><div class="ev-h"><svg class="i"><use href="#i-list"/></svg>最近事件<small>本次打开页面以来</small></div><div class="journal-tools"><label>容量上限（条） <input id="c-log-capacity" type="number" min="1" max="500" value="50" inputmode="numeric"></label><button class="pg-btn" type="button" id="c-log-save">保存上限</button><button class="pg-btn" type="button" id="c-log-clear">清空日志</button></div>
+<p id="c-log-state" role="status" class="pg-note"></p><ul id="c-ev-all"></ul><p class="none" id="c-ev-all-empty">登录后显示</p></section>
 </div>
 <div class="pg" id="v-appearance" hidden>
 <section class="card pg-card pg-narrow"><h2><svg class="i"><use href="#i-sun"/></svg>外观</h2><p class="pg-note">选择界面深浅色。这项设置只保存在当前浏览器。</p><div class="seg" role="group" aria-label="深浅色"><button type="button" data-mode="light">浅色</button><button type="button" data-mode="dark">深色</button><button type="button" data-mode="system">跟随系统</button></div></section>
@@ -208,9 +212,9 @@
 <div class="pg" id="v-sms" hidden>
 <section class="card mail">
 <div class="mail-list"><div class="mail-h"><b id="c-mail-title">收件箱</b><div class="mail-actions"><button type="button" class="pg-link" id="c-mail-select">选择</button><button type="button" class="pg-link" id="c-mail-refresh">刷新</button></div></div>
-<div class="mail-actions mail-batch" id="c-mail-batch" hidden><button type="button" class="pg-btn" id="c-mail-select-all">全选已加载</button><button type="button" class="pg-btn" id="c-mail-apply-selection">移到回收站</button><span id="c-mail-selection-count"></span></div>
+<div class="mail-actions mail-batch" id="c-mail-batch" hidden><button type="button" class="pg-btn" id="c-mail-select-all">全选</button><button type="button" class="pg-btn" id="c-mail-apply-selection">移到回收站</button><span id="c-mail-selection-count"></span></div>
 <div class="mail-actions mail-batch" id="c-mail-folder-actions"><button type="button" class="pg-btn danger" id="c-mail-apply-folder">清空收件箱</button></div>
-<p id="c-mail-operation" class="pg-note mail-message" role="status"></p><div id="c-mail-list" role="list"></div><p class="none" id="c-mail-empty">登录后显示</p><button type="button" class="pg-link mail-more" id="c-mail-more" hidden>加载更多</button></div>
+<p id="c-mail-operation" class="pg-note mail-message" role="status"></p><div id="c-mail-list" role="list"></div><p class="none" id="c-mail-empty">登录后显示</p></div>
 <div class="mail-read"><div id="c-mail-blank" class="none">选择一条短信查看</div><article id="c-mail-open" hidden><header><span class="brand t-blue" id="c-mail-av">信</span><div><b id="c-mail-from">—</b><time id="c-mail-time"></time></div></header><pre id="c-mail-body"></pre><div class="mail-acts"><button type="button" class="pg-btn main" id="c-mail-reply">回复</button><button type="button" class="pg-btn" id="c-mail-copy" hidden>复制验证码</button><button type="button" class="pg-btn danger" id="c-mail-del">移到回收站</button></div><p class="pg-note" id="c-mail-state" role="status"></p></article></div>
 </section></div>
 <div class="pg" id="v-compose" hidden>
@@ -219,7 +223,9 @@
 <div class="pg" id="v-phone" hidden>
 <div class="pg-grid num">
 <section class="card pg-card w5"><h2><svg class="i"><use href="#i-phone"/></svg>拨号</h2><input class="ph-num" id="c-ph-num" type="tel" inputmode="tel" maxlength="32" autocomplete="off" aria-label="拨出号码" placeholder="输入号码"><div class="keys" id="c-ph-keys" role="group" aria-label="拨号键盘"><button type="button" data-key="1">1</button><button type="button" data-key="2">2</button><button type="button" data-key="3">3</button><button type="button" data-key="4">4</button><button type="button" data-key="5">5</button><button type="button" data-key="6">6</button><button type="button" data-key="7">7</button><button type="button" data-key="8">8</button><button type="button" data-key="9">9</button><button type="button" data-key="*">*</button><button type="button" data-key="0">0</button><button type="button" data-key="#">#</button></div><div class="ph-acts"><button type="button" class="pg-btn main" id="c-ph-dial">拨号</button><button type="button" class="pg-btn danger" id="c-ph-hang">挂断</button><button type="button" class="pg-btn" id="c-ph-back" aria-label="删除一位">删除</button></div></section>
-<div class="w7 ph-col"><section class="card pg-card"><h2><svg class="i"><use href="#i-clock"/></svg>当前通话</h2><p class="ph-state" id="c-ph-state" role="status">登录后在这里接听和拨号。</p><div id="c-ph-live"></div></section><section class="card pg-card"><h2><svg class="i"><use href="#i-list"/></svg>最近通话</h2><div id="c-ph-calls"></div><p class="none" id="c-ph-calls-empty">登录后显示</p></section></div>
+<div class="w7 ph-col"><section class="card pg-card"><h2><svg class="i"><use href="#i-clock"/></svg>当前通话</h2><p class="ph-state" id="c-ph-state" role="status">登录后在这里接听和拨号。</p><div id="c-ph-live"></div></section><section class="card pg-card"><h2><svg class="i"><use href="#i-list"/></svg>通话记录</h2>
+<div class="call-history-tools"><button type="button" class="pg-btn" id="c-call-select">选择</button><button type="button" class="pg-btn" id="c-call-select-all" hidden>全选</button><button type="button" class="pg-btn" id="c-call-delete" hidden>删除所选</button><button type="button" class="pg-btn" id="c-call-clear">全选删除</button></div>
+<p class="pg-note" id="c-call-operation" role="status"></p><div id="c-ph-calls"></div><p class="none" id="c-ph-calls-empty">登录后显示</p></section></div>
 </div></div>
 <div class="pg" id="v-security" hidden>
 <div class="pg-grid num">
@@ -261,8 +267,8 @@
 <div class="pg phone-only" id="v-mcomm" hidden>
 <div class="mc-tabs" role="group" aria-label="通信分类"><button type="button" data-mc="sms" aria-pressed="true"><svg class="i"><use href="#i-msg"/></svg>短信</button><button type="button" data-mc="otp" aria-pressed="false"><svg class="i"><use href="#i-shield"/></svg>验证码</button><button type="button" data-mc="call" aria-pressed="false"><svg class="i"><use href="#i-phone"/></svg>通话</button></div>
 <div class="mc-search"><label><svg class="i"><use href="#i-search"/></svg><input id="c-mc-q" type="search" placeholder="搜索短信、验证码或号码" aria-label="搜索"></label><select id="c-mc-f" aria-label="筛选"><option value="all">筛选</option><option value="sms">只看短信</option><option value="otp">只看验证码</option><option value="call">只看通话</option></select></div>
-<section class="mc-g" id="c-mc-g-sms"><div class="mc-h"><span class="mc-av"><svg class="i"><use href="#i-msg"/></svg></span><b>普通短信</b><button type="button" class="mc-all" data-all="sms">查看全部（<span id="c-mc-n-sms">0</span>）<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-mc-sms"></div><p class="none" id="c-mc-e-sms">登录后显示</p></section>
-<section class="mc-g" id="c-mc-g-otp"><div class="mc-h"><span class="mc-av"><svg class="i"><use href="#i-shield"/></svg></span><b>验证码</b><button type="button" class="mc-all" data-all="otp">查看全部（<span id="c-mc-n-otp">0</span>）<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-mc-otp"></div><p class="none" id="c-mc-e-otp">登录后显示</p></section>
+<section class="mc-g" id="c-mc-g-sms"><div class="mc-h"><span class="mc-av"><svg class="i"><use href="#i-msg"/></svg></span><b>普通短信</b><span id="c-mc-n-sms">0</span></div><div id="c-mc-sms"></div><p class="none" id="c-mc-e-sms">登录后显示</p></section>
+<section class="mc-g" id="c-mc-g-otp"><div class="mc-h"><span class="mc-av"><svg class="i"><use href="#i-shield"/></svg></span><b>验证码</b><span id="c-mc-n-otp">0</span></div><div id="c-mc-otp"></div><p class="none" id="c-mc-e-otp">登录后显示</p></section>
 <section class="mc-g" id="c-mc-g-call"><div class="mc-h"><span class="mc-av r"><svg class="i"><use href="#i-phone"/></svg></span><b>最近通话</b><button type="button" class="mc-all" data-all="call">查看全部（<span id="c-mc-n-call">0</span>）<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-mc-call"></div><p class="none" id="c-mc-e-call">登录后显示</p></section>
 <button type="button" class="pg-btn mc-more" id="c-mc-more" hidden>加载更早的记录</button><div class="mc-acts"><button type="button" class="pg-btn" id="c-mc-manage">管理短信</button><button type="button" class="pg-btn" data-tab="4">回收站</button></div><div class="mc-acts"><button type="button" class="pg-btn main" data-tab="1">写短信</button><button type="button" class="pg-btn" data-tab="2">拨号</button></div>
 </div>
@@ -325,9 +331,15 @@
 </div>
 <div class="fw-page" id="fw-page-records" aria-labelledby="fw-records-title">
  <div class="fw-page-head"><h2 id="fw-records-title">转发记录</h2><div class="fw-actions">
-  <label class="fw-filter"><span class="fw-sr-only">筛选记录状态</span><select id="fw-record-filter"><option value="all">全部状态</option><option value="confirmed">已确认</option><option value="failed">失败</option><option value="pending">待核对</option><option value="cancelled">已取消</option></select></label>
+  <button type="button" class="fw-remove" id="fw-log-clear">清空记录</button>
   <button type="button" id="forwarding-receipts-refresh">刷新记录</button>
  </div></div>
+ <div class="fw-log-filters">
+  <label class="fw-filter"><span class="fw-sr-only">筛选记录状态</span><select id="fw-record-filter"><option value="all">全部状态</option><option value="confirmed">已确认</option><option value="failed">失败</option><option value="pending">待核对</option><option value="cancelled">已取消</option></select></label>
+  <label class="fw-filter"><span class="fw-sr-only">筛选记录类型</span><select id="fw-log-kind"><option value="all">全部类型</option><option value="sms">短信转发</option><option value="test">合成测试</option></select></label>
+  <label class="fw-filter"><span class="fw-sr-only">筛选发送通道</span><select id="fw-log-target"><option value="all">全部通道</option></select></label>
+  <button type="button" id="fw-log-reset" hidden>重置筛选</button>
+ </div>
  <div id="fw-record-empty" class="fw-empty"><span class="fw-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-log"/></svg></span><strong id="forwarding-receipts-empty">还未读取转发记录</strong><p id="fw-record-hint"></p><button type="button" class="fw-primary" id="fw-next" hidden></button></div>
  <ul class="fw-list" id="forwarding-receipts"></ul>
  <div class="fw-page-foot"><button type="button" id="forwarding-receipts-more" hidden>加载更早记录</button></div>

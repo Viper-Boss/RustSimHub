@@ -47,8 +47,8 @@ pub mod update_health;
 pub use auth::NknAuthoritySnapshot;
 mod calls;
 pub use calls::{
-    CallEvent, CallEvents, CallIntent, CallObservation, CallOperation, CallPage, CallRequest,
-    CallSummary, RecentCallPage,
+    CallEvent, CallEvents, CallHistoryStatus, CallIntent, CallObservation, CallOperation, CallPage,
+    CallRequest, CallSummary, RecentCallPage,
 };
 mod inbox;
 mod inbox_management;
@@ -576,6 +576,7 @@ impl Database {
         // and the trigger prevents a legacy restore from restoring erased data.
         db.connection
             .execute_batch(inbox_management::PURGED_INBOX)?;
+        db.connection.execute_batch(calls::HISTORY_SCHEMA)?;
 
         #[cfg(feature = "recovery-grants")]
         if mode == OpenMode::Recovery {
