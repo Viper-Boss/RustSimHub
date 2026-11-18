@@ -31,15 +31,15 @@ async function login(page,pin){
   await page.waitForFunction(()=>document.querySelector('#notice').textContent.includes('已登录')&&document.getElementById('c-legacy').hidden);
   await show(page);
 }
-async function idb(page,value,write=false){
-  return page.evaluate(async({value,write})=>{
+async function idb(page,value,write=false,key='nkn-control-pending'){
+  return page.evaluate(async({value,write,key})=>{
     const opening=indexedDB.open('rustsimhub-client-v1',1);
     const db=await new Promise((r,j)=>{opening.onsuccess=()=>r(opening.result);opening.onerror=()=>j(opening.error);});
     try{
-      if(write){const tx=db.transaction('state','readwrite');tx.objectStore('state').put(value,'nkn-control-pending');await new Promise((r,j)=>{tx.oncomplete=r;tx.onabort=tx.onerror=()=>j(tx.error);});return;}
-      const req=db.transaction('state').objectStore('state').get('nkn-control-pending');return await new Promise((r,j)=>{req.onsuccess=()=>r(req.result);req.onerror=()=>j(req.error);});
+      if(write){const tx=db.transaction('state','readwrite');tx.objectStore('state').put(value,key);await new Promise((r,j)=>{tx.oncomplete=r;tx.onabort=tx.onerror=()=>j(tx.error);});return;}
+      const req=db.transaction('state').objectStore('state').get(key);return await new Promise((r,j)=>{req.onsuccess=()=>r(req.result);req.onerror=()=>j(req.error);});
     }finally{db.close();}
-  },{value,write});
+  },{value,write,key});
 }
 const browser=await chromium.launch({channel:'msedge',headless:true,chromiumSandbox:true,
   proxy:{server:proxy,bypass:'127.0.0.1'},
@@ -47,6 +47,7 @@ const browser=await chromium.launch({channel:'msedge',headless:true,chromiumSand
     '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1']});
 const evidence={format:1,kind:'offline-b-browser-subset',playwright:version,browser:browser.version(),
   widths:[],missing_module_negative:false,device_backend:'unchanged finite loopback fixture',
+  additional_cases_per_width:['participation-grant-revoke-reload','corrupt-pending-no-request','offline-read-clears-old-status'],
   original_python_matrix_run:false,hardware_tested:false,public_network_tested:false,
   os_network_namespace_proven:false,installable:false};
 try{
@@ -78,6 +79,34 @@ try{
       await usage.getByRole('button',{name:'只读刷新统计'}).click();
       await page.waitForFunction(()=>document.querySelector('#support-usage').textContent.includes('本次只读查询已结束'));
       assert((await usage.innerText()).includes('42'));
+      const permission=page.locator('#support-usage-participation');
+      assert.equal(await count('usage_participation_status'),0);
+      assert.equal(await count('usage_participation_set'),0);
+      for(const enabled of [true,false]){
+        await show(page);await permission.getByRole('checkbox').setChecked(enabled);
+        page.once('dialog',dialog=>dialog.accept()); // synthetic consent, never a production permission
+        await permission.getByRole('button',{name:'保存参与授权（暂不上报）',exact:true}).click();
+        await page.waitForFunction(enabled=>document.querySelector('#support-usage-participation')
+          .textContent.includes(enabled?'参与授权已保存':'不参与的授权已保存'),enabled);
+        assert.equal(await count('usage_participation_set'),enabled?1:2);
+        assert.equal(await count('set_nkn_enabled'),0);
+      }
+      const receipts=await idb(page,undefined,false,'usage-participation-receipts');
+      assert.equal(receipts.length,2);
+      assert.deepEqual(receipts.map(r=>[r.state,r.record.enabled,r.generation]),[['saved',true,'1'],['saved',false,'2']]);
+      assert.notEqual(receipts[0].record.id,receipts[1].record.id);
+      assert.equal(await idb(page,undefined,false,'usage-participation-pending'),null);
+      await page.reload();
+      await page.waitForFunction(()=>document.querySelector('#test-state').textContent.includes('可以检查状态'));
+      await login(page,pin);
+      assert.equal(await count('usage_participation_set'),2,'Reload/login must not replay a consent write');
+      await permission.getByRole('button',{name:'登录并读取上报授权',exact:true}).click();
+      await page.waitForFunction(()=>document.querySelector('#support-usage-participation').textContent.includes('当前不参与安装上报'));
+      await show(page);
+      assert(!(await permission.getByRole('checkbox').isChecked()));
+      assert.deepEqual(await idb(page,undefined,false,'usage-participation-receipts'),receipts);
+      assert.equal(await count('usage_participation_set'),2);
+      assert.equal(await count('nkn_status'),0);assert.equal(await count('set_nkn_enabled'),0);
       await panel.getByRole('button',{name:'管理登录后读取',exact:true}).click();
       await page.waitForFunction(()=>document.querySelector('#support-nkn').textContent.includes('已只读核对'));
       const record={format:1,id:'11111111-1111-4111-8111-111111111111',owner:'remote',enabled:true,expected_revision:'0',core_instance:'a'.repeat(64)};
@@ -90,18 +119,34 @@ try{
       await panel.getByRole('button',{name:'核对上次回执',exact:true}).click();
       await page.waitForFunction(()=>document.querySelector('#support-nkn').textContent.includes('不证明未执行'));
       assert.deepEqual(await idb(page),record);assert.equal(await count('set_nkn_enabled'),0);
-      await idb(page,null,true);await fixture('held');
+      const bad={...record,expected_revision:'00',secret:'SYNTHETIC_OFFLINE_B_MUST_NOT_LEAK'};
+      await idb(page,bad,true);const beforeBad=await count('nkn_status');
+      await panel.getByRole('button',{name:'只读核对引擎状态',exact:true}).click();
+      await page.waitForFunction(()=>document.querySelector('#support-nkn').textContent.includes('操作或读取未获确认'));
+      assert.equal(await count('nkn_status'),beforeBad);assert.deepEqual(await idb(page),bad);
+      assert(!(await panel.innerText()).includes(bad.secret));
+      assert(!(await panel.innerText()).includes('服务：运行中'));
+      assert(await panel.getByRole('button',{name:'请求开启远程功能',exact:true}).isDisabled());
+      await idb(page,null,true);await fixture('offline');const beforeOffline=await count('nkn_status');
+      await panel.getByRole('button',{name:'只读核对引擎状态',exact:true}).click();
+      await until(s=>s.calls.filter(c=>c.op==='nkn_status').length===beforeOffline+1);
+      await page.waitForFunction(()=>document.querySelector('#support-nkn').textContent.includes('操作或读取未获确认')
+        &&!Array.from(document.querySelectorAll('#support-nkn button')).find(b=>b.textContent==='只读核对引擎状态').disabled);
+      assert(!(await panel.innerText()).includes('服务：运行中'));assert.equal(await count('set_nkn_enabled'),0);
+      await fixture('held');
       await panel.getByRole('button',{name:'只读核对引擎状态',exact:true}).click();await until(s=>s.held);
       await page.click('#daily-logout');await show(page);await fixture('ready');await page.waitForTimeout(100);
       assert(!(await panel.innerText()).includes('服务：运行中'));
       assert(await panel.getByRole('button',{name:'只读核对引擎状态',exact:true}).isDisabled());
       assert(await usage.getByRole('button',{name:'只读刷新统计'}).isDisabled());
       assert(!(await usage.innerText()).includes('42'));
+      assert(!(await permission.getByRole('checkbox').isChecked()));
+      assert(!(await permission.innerText()).includes('未开始上报'));
       assert.equal(await count('set_nkn_enabled'),0);assert.deepEqual((await fixture()).failures,[]);
       assert.deepEqual(errors,[]);assert.deepEqual(await page.evaluate(()=>offlineBCsp),[]);
       assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
       await page.screenshot({path:join(output,`homepage-${width}.png`)});
-      evidence.widths.push(width);console.log(`PASS: B actual Edge ${width}px; ESM/CSP/IDB, synthetic signed login, permission refusal, original pending ID and logout/late reply`);
+      evidence.widths.push(width);console.log(`PASS: B actual Edge ${width}px; ESM/CSP/IDB, synthetic signed login, permission refusal, participation grant/revoke/reload, corrupt pending, offline read, original ID and logout/late reply`);
     }finally{await context.close();}
   }
   await fixture('ready',true);
