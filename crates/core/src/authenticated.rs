@@ -23,10 +23,7 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | RecoveryRevoke { .. }
         | RecoveryKey { .. }
         | RecoveryRequest { .. }) => crate::recovery_authorization::dispatch(auth, command)?,
-        BluetoothModeStatus { token } => {
-            auth.recent_owner(&token)?;
-            crate::bluetooth_mode::request(b"S\n")?
-        }
+        BluetoothModeStatus { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         BluetoothModeSet {
             token,
             expected,
@@ -359,7 +356,13 @@ pub(crate) async fn handle(
             | AuthCommand::CheckMediaLease { .. }
             | AuthCommand::CheckMediaPreflight { .. }
     );
-    let result = if matches!(
+    let bluetooth_mode = matches!(
+        request.command,
+        AuthCommand::BluetoothModeStatus { .. } | AuthCommand::BluetoothModeSet { .. }
+    );
+    let result = if let AuthCommand::BluetoothModeStatus { token } = request.command {
+        tokio::task::spawn_blocking(move || crate::bluetooth_mode::status(&auth, &token)).await?
+    } else if matches!(
         request.command,
         AuthCommand::AirsimStatus { .. }
             | AuthCommand::AirsimConfigure { .. }
@@ -617,7 +620,12 @@ pub(crate) async fn handle(
             }
             value
         }
-        Err(rustsimhub_auth::Error::Busy) if list_read => json!({"ok":false,"error":"busy"}),
+        Err(rustsimhub_auth::Error::Busy) if list_read || bluetooth_mode => {
+            json!({"ok":false,"error":"busy"})
+        }
+        Err(rustsimhub_auth::Error::Expired) if bluetooth_mode => {
+            json!({"ok":false,"error":"owner_reauthentication_required"})
+        }
         Err(_) => json!({"ok":false,"error":"denied"}),
     };
     let response = serde_json::to_vec(&Response {

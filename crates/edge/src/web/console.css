@@ -786,3 +786,4 @@ body{margin:0;background:var(--bg)}
 .call-history-row { display:flex;align-items:center;gap:10px; }
 .call-history-row > .it { flex:1;min-width:0; }
 .call-history-row > input { flex:none;accent-color:var(--blue); }
+.bt-panel-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}

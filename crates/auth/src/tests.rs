@@ -32,6 +32,8 @@ fn session_continuation_requires_exact_live_bearer_key_and_preserves_owner_fresh
     assert!(a.sessions[&next_digest].deadline > deadline);
     assert_eq!(a.sessions[&next_digest].authenticated, original);
     assert!(a.authorize(token.expose(), Scope::CallsControl).is_ok());
+    assert!(a.owner_session(token.expose()).is_ok());
+    assert!(a.owner_session(continued.expose()).is_ok());
     assert!(a.recent_owner(token.expose()).is_err());
     assert!(a.recent_owner(continued.expose()).is_err());
     assert!(a.renew_session(token.expose(), &c.id, &signature).is_err());

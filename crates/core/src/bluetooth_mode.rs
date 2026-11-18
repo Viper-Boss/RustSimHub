@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-use rustsimhub_auth::Error;
+use rustsimhub_auth::{Auth, Error};
 use serde_json::Value;
 use std::{
     io::{Read, Write},
@@ -8,8 +8,26 @@ use std::{
         linux::net::SocketAddrExt,
         unix::net::{SocketAddr, UnixStream},
     },
+    sync::Mutex,
     time::Duration,
 };
+
+pub(crate) fn status(auth: &Mutex<Auth>, token: &str) -> rustsimhub_auth::Result<Value> {
+    let owner = auth
+        .try_lock()
+        .map_err(|_| Error::Busy)?
+        .owner_session(token)?;
+    let state = request(b"S\n")?;
+    if auth
+        .try_lock()
+        .map_err(|_| Error::Busy)?
+        .owner_session(token)?
+        != owner
+    {
+        return Err(Error::Forbidden);
+    }
+    Ok(state)
+}
 
 pub(crate) fn request(input: &[u8]) -> rustsimhub_auth::Result<Value> {
     let unavailable = |_| Error::Busy;

@@ -413,6 +413,13 @@ impl Auth {
         }
         Ok(value)
     }
+    pub fn owner_session(&mut self, token: &str) -> Result<Principal> {
+        let principal = self.authorize(token, Scope::ClientsManage)?;
+        if principal.kind != Kind::Owner {
+            return Err(Error::Forbidden);
+        }
+        Ok(principal)
+    }
     pub fn recent_owner(&mut self, token: &str) -> Result<Principal> {
         self.owner(token)
     }
@@ -704,10 +711,7 @@ impl Auth {
         Ok(next)
     }
     fn owner(&mut self, token: &str) -> Result<Principal> {
-        let p = self.authorize(token, Scope::ClientsManage)?;
-        if p.kind != Kind::Owner {
-            return Err(Error::Forbidden);
-        }
+        let p = self.owner_session(token)?;
         let s = self
             .sessions
             .get(&token_digest(token)?)

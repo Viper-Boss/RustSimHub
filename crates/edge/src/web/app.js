@@ -119,7 +119,7 @@ const sessionKeeper=new SessionKeeper({env:globalThis,token:()=>token,apply:(old
  const result=await api({op:'renew_session',token:old,challenge_id:c.id,signature},epoch);current(epoch);active();return result;
 }});
 dailyPhone=new DailyPhone({document,env:globalThis,ensureSession:()=>sessionKeeper.ensure(),audio:audioLink,audioReady:()=>audioReady,context:value=>({token,lease:value}),request:command=>auth(command),getPending:()=>pending,setPending:async value=>{const epoch=viewEpoch;pending=value;await save('pending',value);current(epoch);showPending();},archivePending,archiveKnown:async value=>{const epoch=viewEpoch,receipts=await stored('phone-operation-receipts')||[];current(epoch);if(!Array.isArray(receipts))throw Error('电话回执不可用');await save('phone-operation-receipts',[...receipts.filter(x=>x.id!==value.id),value].slice(-64));current(epoch);},setLease:value=>{lease=value;showAudio();},blocked:()=>busy||apConfigurator?.working||apConfigurator?.managing||callTest.running||!!lease&&!dailyPhone?.managing});
-const dashboard=new ConsoleDashboard({document,request:command=>auth(command),detailText:value=>smsDetailText(value),confirm:message=>confirm(message),copy:value=>navigator.clipboard.writeText(value),storage:globalThis.localStorage,matchDark:()=>globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches===true,onLeave:()=>{for(const panel of document.querySelectorAll('details[data-configuration]'))panel.open=false;}});
+const dashboard=new ConsoleDashboard({document,request:command=>auth(command),detailText:value=>smsDetailText(value),confirm:message=>confirm(message),copy:value=>navigator.clipboard.writeText(value),storage:globalThis.localStorage,matchDark:()=>globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches===true,onEnter:page=>{if(page==='ble')void readBluetoothMode();},onLeave:()=>{for(const panel of document.querySelectorAll('details[data-configuration]'))panel.open=false;}});
 const networkPanel=new NetworkPanel({document,request:command=>auth(command),getToken:()=>token,onSample:sample=>dashboard.network(sample),runTest:async command=>{
  const epoch=viewEpoch,authToken=token;if(!authToken)throw Error('请先登录');
  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),35000);requests.add(controller);
@@ -213,15 +213,15 @@ async function pair(){
  const result=await api({op:'pair_proof',challenge_id:c.id,signature},epoch);
  notice('配对申请已提交。请由设备所有者核对浏览器公钥、权限和申请 ID 后批准：'+result.pairing_id);
 }
-async function login(){
- token=null;lease=null;
+async function login({destination='dashboard'}={}){
+ token=null;lease=null;resetBluetoothMode();
  nknProductPanel.reset();nasBridgePanel?.reset();authenticatedDevicePin=null;
  forwardingPanel.reset();forwardingHistory.reset();
  clearWifiNetworks();
  sessionKeeper.reset();void audioLink.stop();const epoch=viewEpoch;showAudio();const c=await api({op:'challenge',public_key:Array.from(publicKey)},epoch);const signature=await proof(c,'login',undefined,epoch);current(epoch);
  const verifiedDevicePin=hex(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(new Uint8Array(c.transcript))).device_public_key);
  const r=await api({op:'authenticate',challenge_id:c.id,signature},epoch);current(epoch);if(!/^[a-f0-9]{64}$/.test(r.token))throw Error('登录响应无效');
- sessionKeeper.start(r.token,r.expires_in_seconds);token=r.token;authenticatedDevicePin=verifiedDevicePin;configurationOpen=configurationVisible();void configurationIndicator.set(configurationOpen&&!document.hidden);networkPanel.start();dailyPhone.start();notice('已登录；会话15分钟，通话期间验证身份后续期');await refresh();if(token){dashboard.go('dashboard');void dashboard.signedIn();}
+ sessionKeeper.start(r.token,r.expires_in_seconds);token=r.token;authenticatedDevicePin=verifiedDevicePin;configurationOpen=configurationVisible();void configurationIndicator.set(configurationOpen&&!document.hidden);networkPanel.start();dailyPhone.start();notice('已登录；会话15分钟，通话期间验证身份后续期');await refresh();if(token){dashboard.go(destination);void dashboard.signedIn();}
 }
 function row(text,parent,onClick){const item=document.createElement('div');item.className='row';const label=document.createElement('span');label.textContent=text;item.append(label);if(onClick){const button=document.createElement('button');button.textContent='查看';button.onclick=()=>act(onClick);item.append(button);}parent.append(item);}
 async function inboxPage(reset=false){
@@ -479,64 +479,125 @@ function smsLength(){$('sms-length').textContent=`正文 ${new TextEncoder().enc
 async function act(fn){if(busy)return;if(apConfigurator?.working||apConfigurator?.managing){notice('请先在 Wi-Fi 配置区查询或结束当前配置');return;}if(dailyPhone?.working||dailyPhone?.managing){notice('请先在电话区结束当前操作或通话');return;}const generation=++actionGeneration,epoch=viewEpoch;busy=true;showPending();try{await fn();}catch(error){if(epoch===viewEpoch&&generation===actionGeneration)notice(error.message||'操作失败');}finally{if(generation===actionGeneration){busy=false;showPending();}}}
 function bind(id,fn){$(id).onclick=()=>act(fn);}
 const bluetoothLabels={airsim:'AirSIM 手机蓝牙',nassimhub:'NasSimHub 蓝牙'};
-const bluetoothErrors={bluetooth_call_busy:'有通话进行中，挂断后再切换。',bluetooth_switch_failed:'切换失败，请核对当前模式。',bluetooth_recovery_required:'蓝牙服务需要维护恢复。',bluetooth_nas_not_ready:'先在维护端配置 N1 蓝牙设备。'};
-let bluetoothState=null,bluetoothTarget=null,bluetoothEpoch=-1;
+const bluetoothErrors={
+ bluetooth_call_busy:'有通话进行中，挂断后再切换。',
+ bluetooth_switch_failed:'切换失败，请刷新状态核对。',
+ bluetooth_recovery_required:'蓝牙服务需要维护恢复。',
+ bluetooth_nas_not_ready:'请先在维护端配置 N1 蓝牙配对。',
+ bluetooth_mode_stale:'设备模式已变化，请刷新状态。',
+ bluetooth_mode_unavailable:'蓝牙模式服务暂不可用，请稍后刷新。'
+};
+let bluetoothState=null,bluetoothTarget=null,bluetoothMessage='';
+let bluetoothRead=null,bluetoothChange=null,bluetoothNeedsLogin=false,bluetoothVerified=false;
+function resetBluetoothMode(){
+ bluetoothState=null;bluetoothTarget=null;bluetoothMessage='';
+ bluetoothRead=null;bluetoothChange=null;bluetoothNeedsLogin=false;bluetoothVerified=false;
+ drawBluetoothMode();
+}
 function drawBluetoothMode(){
- const state=bluetoothEpoch===viewEpoch?bluetoothState:null;
- const locked=!state||state.pending||!state.can_switch;
+ const state=bluetoothState;
+ const waiting=!!(bluetoothRead||bluetoothChange||state?.pending);
+ const locked=!token||!bluetoothVerified||waiting||bluetoothNeedsLogin||state?.can_switch!==true;
  for(const name of Object.keys(bluetoothLabels)){
   const button=$('bt-mode-'+name);
-  button.disabled=!!locked||(name==='nassimhub'&&!state.nas_configured);
+  button.disabled=locked||(name==='nassimhub'&&!state.nas_configured);
   button.setAttribute('aria-pressed',String(!!state&&bluetoothTarget===name));
  }
  $('bt-airsim-state').textContent=!state?'待查询':state.effective==='airsim'?'使用中':'未启用';
  $('bt-nas-state').textContent=!state?'待查询':state.effective==='nassimhub'?'使用中':state.nas_configured?'已配置':'未配置 N1';
- $('bt-mode-apply').disabled=!!locked||!bluetoothTarget||
-  (bluetoothTarget==='nassimhub'&&!state.nas_configured)||(state.healthy&&bluetoothTarget===state.mode);
- $('bt-mode-apply').textContent=bluetoothTarget&&Object.hasOwn(bluetoothLabels,bluetoothTarget)&&!$('bt-mode-apply').disabled?
-  '切换到 '+bluetoothLabels[bluetoothTarget]:'切换模式';
- if(!state)return;
- const failure=state.last_error;
- $('bt-mode-status').textContent=state.pending?'正在切换到 '+bluetoothLabels[state.pending]+'…':
-  (state.effective?'当前使用 '+bluetoothLabels[state.effective]:'蓝牙服务未运行')+
-  (failure?'。'+(bluetoothErrors[failure]||'切换未确认，请读取状态。'):!state.nas_configured?'。配置 N1 后可选择 NasSimHub。':'。');
+ $('bt-mode-read').disabled=!token||!!(bluetoothRead||bluetoothChange);
+ const loginButton=$('bt-mode-login');
+ loginButton.hidden=!!token&&!bluetoothNeedsLogin;
+ loginButton.disabled=!!(bluetoothRead||bluetoothChange);
+ loginButton.textContent=token?'重新验证所有者':'所有者登录';
+ const apply=$('bt-mode-apply');
+ apply.disabled=locked||!bluetoothTarget||(bluetoothTarget==='nassimhub'&&!state.nas_configured)||
+  (state.healthy&&bluetoothTarget===state.mode);
+ apply.textContent=apply.disabled?'切换模式':'切换到 '+bluetoothLabels[bluetoothTarget];
+ $('bt-mode-status').textContent=bluetoothMessage||
+  (!token?'请先用所有者身份登录。':!state?'正在读取设备状态…':
+   state.pending?'正在切换到 '+bluetoothLabels[state.pending]+'…':
+   (state.effective?'当前使用 '+bluetoothLabels[state.effective]:'蓝牙服务未运行')+
+   (state.last_error?'。'+(bluetoothErrors[state.last_error]||'切换未确认，请刷新状态。'):
+    state.nas_configured?'。':'。NasSimHub 需要先配置 N1 配对。'));
 }
-function showBluetoothMode(info){
- if(!Object.hasOwn(bluetoothLabels,info.mode))throw Error('蓝牙模式查询失败');
- bluetoothState=info;bluetoothTarget=info.pending||info.mode;bluetoothEpoch=viewEpoch;
- drawBluetoothMode();
+function showBluetoothMode(info,keepSelection=false){
+ if(!info||!Object.hasOwn(bluetoothLabels,info.mode)||typeof info.nas_configured!=='boolean'||
+  (info.pending!=null&&!Object.hasOwn(bluetoothLabels,info.pending)))throw Error('蓝牙模式响应无效');
+ const kept=keepSelection&&bluetoothState?.mode===info.mode&&bluetoothTarget;
+ bluetoothState=info;bluetoothVerified=true;
+ bluetoothTarget=info.pending||(kept&&(kept!=='nassimhub'||info.nas_configured)?kept:info.mode);
+}
+function bluetoothReadTemporary(error){
+ return error?.coreCode==='busy'||[429,502,503,504].includes(error?.httpStatus)||
+  error?.name==='AbortError'||error instanceof TypeError;
+}
+async function fetchBluetoothMode(valid){
+ for(const delay of [0,180,550,1100]){
+  if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
+  if(!valid())return null;
+  try{return await auth({op:'bluetooth_mode_status'});}
+  catch(error){if(!bluetoothReadTemporary(error)||delay===1100)throw error;}
+ }
+}
+function explainBluetoothError(error,fallback){
+ const code=error?.coreCode;
+ if(code==='denied'||code==='owner_reauthentication_required'){
+  bluetoothNeedsLogin=true;
+  return code==='denied'?'当前会话无法管理蓝牙，请用所有者身份登录。':'请重新验证所有者身份。';
+ }
+ return bluetoothErrors[code]||fallback;
 }
 async function readBluetoothMode(){
- bluetoothState=null;drawBluetoothMode();
- $('bt-mode-status').textContent='正在读取设备状态…';
+ if(!token){drawBluetoothMode();return;}
+ if(bluetoothRead||bluetoothChange)return;
+ const epoch=viewEpoch,job={};
+ const valid=()=>bluetoothRead===job&&epoch===viewEpoch&&!!token;
+ bluetoothRead=job;bluetoothMessage='正在读取设备状态…';drawBluetoothMode();
  try{
-  await login();
-  showBluetoothMode(await auth({op:'bluetooth_mode_status'}));
+  const state=await fetchBluetoothMode(valid);
+  if(!valid())return;
+  showBluetoothMode(state,true);bluetoothNeedsLogin=false;bluetoothMessage='';
  }catch(error){
-  $('bt-mode-status').textContent='无法读取蓝牙模式。请确认已用所有者身份登录。';
-  throw error;
+  if(!valid())return;
+  bluetoothVerified=false;
+  bluetoothMessage=explainBluetoothError(error,'暂时读不到蓝牙状态，请稍后刷新。');
+  if(bluetoothNeedsLogin){bluetoothState=null;bluetoothTarget=null;}
+ }finally{
+  if(bluetoothRead===job){bluetoothRead=null;drawBluetoothMode();}
  }
 }
 async function applyBluetoothMode(){
  const expected=bluetoothState?.mode,mode=bluetoothTarget,epoch=viewEpoch;
- if(bluetoothEpoch!==epoch||$('bt-mode-apply').disabled||!expected||!Object.hasOwn(bluetoothLabels,mode))return;
+ if($('bt-mode-apply').disabled||!expected||!Object.hasOwn(bluetoothLabels,mode))return;
  if(!confirm('切换到 '+bluetoothLabels[mode]+'？当前蓝牙连接将断开。'))return;
- bluetoothState=null;drawBluetoothMode();
+ const job={},valid=()=>bluetoothChange===job&&epoch===viewEpoch&&!!token;
+ bluetoothChange=job;bluetoothMessage='正在提交切换…';drawBluetoothMode();
  try{
-  showBluetoothMode(await auth({op:'bluetooth_mode_set',expected,mode}));
+  const initial=await auth({op:'bluetooth_mode_set',expected,mode});
+  if(!valid())return;
+  showBluetoothMode(initial);bluetoothMessage='';drawBluetoothMode();
+  if(!initial.pending)return;
   for(let i=0;i<50;i++){
-   await new Promise(resolve=>setTimeout(resolve,800));current(epoch);
-   const state=await auth({op:'bluetooth_mode_status'});showBluetoothMode(state);
+   await new Promise(resolve=>setTimeout(resolve,800));
+   if(!valid())return;
+   const state=await fetchBluetoothMode(valid);
+   if(!valid())return;
+   showBluetoothMode(state);drawBluetoothMode();
    if(!state.pending)return;
   }
+  bluetoothMessage='切换仍在进行，请刷新状态确认。';
  }catch(error){
-  if(viewEpoch===epoch)$('bt-mode-status').textContent='切换结果未确认，请重新读取。';
-  throw error;
+  if(!valid())return;
+  bluetoothVerified=false;
+  bluetoothMessage=explainBluetoothError(error,'切换结果未确认，请刷新状态。');
+ }finally{
+  if(bluetoothChange===job){bluetoothChange=null;drawBluetoothMode();}
  }
- $('bt-mode-status').textContent='切换仍在进行，请重新读取确认。';
 }
 for(const name of Object.keys(bluetoothLabels)){
- $('bt-mode-'+name).onclick=()=>{bluetoothTarget=name;drawBluetoothMode();};
+ const button=$('bt-mode-'+name);
+ button.onclick=()=>{if(!button.disabled){bluetoothTarget=name;drawBluetoothMode();}};
 }
 let dataRoaming=null,roamingEpoch=-1,roamingConfirmation=null;
 const roamingDialog=$('data-roaming-dialog'),roamingAck=$('data-roaming-ack');
@@ -595,8 +656,15 @@ roamingDialog.addEventListener('close',()=>{
 });
 bind('data-roaming-read',readDataRoaming);
 bind('data-roaming-toggle',toggleDataRoaming);
-bind('bt-mode-read',readBluetoothMode);bind('bt-mode-apply',applyBluetoothMode);
-bind('initialize-owner',initializeOwner);bind('password-login',passwordLogin);bind('browser-login',browserLogin);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;dashboard.reset();roamingConfirmation=null;if(roamingDialog.open)roamingDialog.close();showDataRoaming(null);for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
+$('bt-mode-read').onclick=()=>void readBluetoothMode();
+bind('bt-mode-login',async()=>{
+ if(!token){dashboard.go('login');return;}
+ try{await login({destination:'ble'});await readBluetoothMode();}
+ catch(error){drawBluetoothMode();throw error;}
+});
+bind('bt-mode-apply',applyBluetoothMode);
+drawBluetoothMode();
+bind('initialize-owner',initializeOwner);bind('password-login',passwordLogin);bind('browser-login',browserLogin);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;dashboard.reset();roamingConfirmation=null;if(roamingDialog.open)roamingDialog.close();showDataRoaming(null);for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;resetBluetoothMode();clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
 bind('sms-login',async()=>{await login();$('sms-management-state').textContent=smsManager.available?'已重新登录，请重新选择短信后管理。':'当前浏览器没有所有者管理权限，请使用已认领的所有者浏览器。';});
 bind('daily-login',login);$('daily-logout').onclick=()=>$('logout').onclick();bind('sms-refresh',()=>inboxPage(true));bind('send-sms',dailySendSms);bind('sms-query',query);bind('sms-close',closeSms);
 bind('forwarding-login',async()=>{await login();dashboard.go('forwarding');await forwardingPanel.enter();});
