@@ -43,6 +43,20 @@ function harness(handler,opts={}){const {doc,els,get}=dom(),seen=[];const nav=ne
  h.network({sample_unix_seconds:now-600});assert.equal($('c-sync').hidden,false,'drift warns');h.network(null);assert.equal($('c-cell-op').textContent,'—');assert.equal($('c-sync').hidden,true);
  inbox.messages.unshift({id:'z',display:{sender:'10086',preview:'新消息'}});await h.readLists();inbox.messages.shift();assert.ok(h.events.some(e=>e.message.includes('新短信')),'new mail is logged');
  h.reset();assert.equal($('c-cpu').textContent,'—');assert.equal($('c-otp-list').children.length,0);assert.equal($('c-sms-empty').textContent,'登录后显示');}
+{
+ const {h,$}=harness(()=>({}));
+ for(const sample of [{sms_storage:{used_slots:50,total_slots:50}},{sms_storage:{used_slots:48,total_slots:50}}]){
+  h.network(sample);
+  assert.equal($('c-sm-sms-storage').textContent,sample.sms_storage.used_slots+' / 50 个槽位');
+  assert.equal($('c-mail-sim-full').hidden,false);
+  assert.equal($('c-mc-sim-full').textContent,$('c-mail-sim-full').textContent);
+ }
+ assert.match($('c-mail-sim-full').textContent,/仅剩 2 个槽位/);
+ for(const sample of [{sms_storage:{used_slots:5,total_slots:50}},{sms_storage:{used_slots:51,total_slots:50}},null]){
+  h.network(sample);assert.equal($('c-mail-sim-full').hidden,true);
+ }
+ assert.equal($('c-sm-sms-storage').textContent,'—');
+}
 // 读失败：显示“暂不可用”而非空；旧接口不能区分撤权/临时错误，保守清除私有缓存
 {let now=10000;const {h,$}=harness(()=>{throw Error('busy');},{clock:()=>now});await h.signedIn();assert.match($('c-sms-empty').textContent,/短信暂不可用/);assert.match($('c-call-empty').textContent,/通话记录暂不可用/);assert.equal($('c-cpu').textContent,'—');
  assert.equal($('c-online').lastChild.textContent,'设备在线','a successful login is recent contact');

@@ -277,7 +277,10 @@ def main():
             assert base_tools.sha256_file(target) == mdns_sha256
             units += ['rustsimhub-mdns.service']
         if led_build: units+=['rustsimhub-status-led.service']
-        if network_build: units+=['rustsimhub-network-agent.service','rustsimhub-carrier-voice.service']
+        if network_build:
+            units += ['rustsimhub-network-agent.service',
+                      'rustsimhub-carrier-voice.service',
+                      'rustsimhub-sim-sms-storage.timer']
         if startup:units+=['rustsimhub-generic-install.service','rustsimhub-app.target']
         if firstboot_layer:units+=['rustsimhub-firstboot-ap.service','rustsimhub-firstboot-ap-activation.service']
         for unit in units:

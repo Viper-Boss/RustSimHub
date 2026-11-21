@@ -633,6 +633,8 @@ body{margin:0;background:var(--bg)}
 .mail-batch { padding:8px 18px; }
 .mail-message { padding:0 18px; }
 .mail-message:empty { display:none; }
+.sms-storage-warning{margin:0 14px 8px;padding:9px 11px;border-left:3px solid var(--amber);background:var(--sub);color:var(--ink);font-size:13px;line-height:1.5}
+.sms-storage-warning[hidden]{display:none}
 .mail-choice { display:grid; grid-template-columns:36px minmax(0,1fr); align-items:center; }
 .mail-choice input[type=checkbox] { justify-self:center; width:18px; height:18px; accent-color:var(--blue-2); }
 .mail-it .mail-code { color:var(--blue-2); font-weight:700; margin-inline-end:8px; }

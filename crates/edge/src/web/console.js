@@ -339,7 +339,7 @@ export class ConsoleDashboard{
    const total=count(purge?info.trash:info.inbox),version=cursorOf(info.version),head_seq=visibilityOf(info.head_seq);
    if(total===null||!version||!head_seq)throw Error('文件夹状态无效');
    if(!total){this.$('c-mail-operation').textContent=purge?'回收站已空。':'收件箱已空。';return null;}
-   if(!this.confirm(purge?`永久删除回收站中的 ${total} 条短信？清空后无法从回收站恢复。`:
+   if(!this.confirm(purge?`永久删除本机回收站中的 ${total} 条短信？清空后无法从回收站恢复。SIM 上的原件仍会保留。`:
      `把收件箱的全部 ${total} 条短信移到回收站？验证码也会移入回收站。`))return null;
    current();
    const result=record(await this.request({op:'apply_sms_folder',version,head_seq,purge}));
@@ -577,6 +577,7 @@ export class ConsoleDashboard{
   const q=this.$('c-quality');q.textContent=v.signal.label;q.classList.toggle('off',v.signal.tone==='off');
   this.$('c-rsrp').textContent=v.rsrp===null?'—':`${String(v.rsrp).replace('-','−')} dBm`;this.$('c-rsrq').textContent=v.rsrq===null?'—':`${String(v.rsrq).replace('-','−')} dB`;this.$('c-sinr').textContent=v.sinr===null?'—':`${String(v.sinr).replace('-','−')} dB`;
   this.dots('c-rsrp-dots',rsrpLevel(v.rsrp));this.dots('c-rsrq-dots',rsrqLevel(v.rsrq));this.dots('c-sinr-dots',sinrLevel(v.sinr));
+  this.renderSmsStorage(sample?.sms_storage);
   const c=record(sample?.cellular),cell=record(c.serving_cell),unit=(n,u)=>n===null?'—':`${String(n).replace('-','−')} ${u}`,list=Array.isArray(c.configured_bands)?c.configured_bands.filter(b=>typeof b==='string').slice(0,8).join(', '):'';
   for(const [id,value] of [['c-sm-op',v.operator||'—'],['c-sm-tech',v.tech||'—'],['c-sm-reg',v.registration||'—'],['c-sm-rsrp',unit(v.rsrp,'dBm')],['c-sm-rsrq',unit(v.rsrq,'dB')],['c-sm-sinr',unit(v.sinr,'dB')],['c-sm-band',v.band||'—'],['c-sm-earfcn',Number.isInteger(cell.earfcn)&&cell.earfcn>=0?String(cell.earfcn):'—'],['c-sm-pci',cell.physical_cell_id==null?'—':text(String(cell.physical_cell_id),16)||'—'],['c-sm-cell',/^[0-9a-f]+$/i.test(String(cell.cell_id??''))?`0x${cell.cell_id}`:'—'],['c-sm-tac',/^[0-9a-f]+$/i.test(String(cell.tracking_area_code??''))?`0x${cell.tracking_area_code}`:'—'],['c-sm-modem',text(c.state,24)||'—'],['c-sm-plmn',text(c.operator_code,8)||'—'],['c-sm-pct',finite(c.signal_percent)===null?'—':`${c.signal_percent}%`],['c-sm-bands',list||'—'],['c-sm-data',sample?(v.data.online?'已连接':'未连接'):'—']])this.$(id).textContent=value;
   const on=(id,yes,y,n)=>{const p=this.$(id);p.textContent=yes?y:n;p.classList.toggle('off',!yes);};on('c-nw-wifi',v.wifi.online,'已连接','未连接');on('c-nw-data',v.data.online,'已连接','未连接');on('c-mh-wifi-p',v.wifi.online,'已连接','未连接');on('c-mh-sim-p',!!sample&&!!v.operator,'已连接','未就绪');
@@ -587,6 +588,19 @@ export class ConsoleDashboard{
   for(const d of devices){const row=this.doc.createElement('div');for(const cell of [({cellular:'蜂窝数据',wifi:'Wi-Fi',ethernet:'有线 / USB',loopback:'本机'})[d.kind]||text(d.kind,16)||'未知',text(d.interface||d.device,24)||'—',text(String(d.state??''),32)||'—',firstAddress(d)||'—']){const c=this.doc.createElement('span');c.textContent=cell;row.append(c);}table.append(row);}
   const sq=this.$('c-sm-quality');sq.textContent=v.signal.label;sq.classList.toggle('off',v.signal.tone==='off');
   for(const [id,value] of [['c-sm-rsrp-m',scalePercent(v.rsrp,-120,-70)],['c-sm-rsrq-m',scalePercent(v.rsrq,-20,-5)],['c-sm-sinr-m',scalePercent(v.sinr,0,25)]]){const m=this.$(id);m.classList.toggle('unset',value===null);m.style.left=`${value??0}%`;}}
+ renderSmsStorage(storage){
+  const used=storage?.used_slots,total=storage?.total_slots;
+  const valid=Number.isInteger(used)&&Number.isInteger(total)&&total>0&&total<=254&&used>=0&&used<=total;
+  this.$('c-sm-sms-storage').textContent=valid?`${used} / ${total} 个槽位`:'—';
+  let warning='';
+  if(valid&&used===total)warning='SIM 短信存储已满，新短信可能无法接收。网页回收站只清理本机记录。';
+  else if(valid&&total-used<=3)warning=`SIM 短信存储仅剩 ${total-used} 个槽位，长短信可能需要多个槽位。`;
+  for(const id of ['c-mail-sim-full','c-mc-sim-full']){
+   const banner=this.$(id);
+   if(banner.textContent!==warning)banner.textContent=warning;
+   banner.hidden=!warning;
+  }
+ }
  async readStatusPage(command,valid){
   for(const delay of [0,180,500,1200]){
    if(delay)await this.readDelay(delay);

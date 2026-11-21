@@ -1,0 +1,27 @@
+[Unit]
+Description=Read SIM SMS slot usage through the modem proxy
+After=rustsimhub-network-agent.service ModemManager.service
+ConditionPathExists=/dev/wwan0qmi0
+
+[Service]
+Type=oneshot
+User=root
+SupplementaryGroups=rustsimhub-core
+ExecStart=/usr/libexec/rustsimhub/rustsimhub-network-agent --sample-sim-sms-storage
+TimeoutStartSec=50s
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+PrivateTmp=yes
+PrivateDevices=yes
+BindReadOnlyPaths=/dev/wwan0qmi0
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX
+ReadWritePaths=/run/rustsimhub-network
+UMask=0077
+MemoryMax=32M
+TasksMax=10
+LimitCORE=0

@@ -1,0 +1,10 @@
+[Unit]
+Description=Sample SIM SMS storage periodically
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=3min
+AccuracySec=15s
+
+[Install]
+WantedBy=multi-user.target

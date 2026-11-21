@@ -161,7 +161,7 @@
 <section class="simcard w5"><div class="sim-chip" aria-hidden="true"></div><div class="sim-op" id="c-sm-op">—</div><div class="sim-state" id="c-sm-line">—</div><div class="sim-foot"><span id="c-sm-tech">—</span><span id="c-sm-reg">—</span></div></section>
 <section class="card pg-card w7"><h2><svg class="i"><use href="#i-sig"/></svg>信号质量<span class="pill off" id="c-sm-quality">未知</span></h2><div class="meter3"><div><span>RSRP 信号强度</span><b id="c-sm-rsrp">—</b><div class="scale"><i id="c-sm-rsrp-m"></i></div></div><div><span>RSRQ 信号质量</span><b id="c-sm-rsrq">—</b><div class="scale"><i id="c-sm-rsrq-m"></i></div></div><div><span>SINR 信噪比</span><b id="c-sm-sinr">—</b><div class="scale"><i id="c-sm-sinr-m"></i></div></div></div></section>
 <section class="card pg-card w6"><h2><svg class="i"><use href="#i-ant"/></svg>当前小区</h2><dl class="pg-kv"><dt>频段</dt><dd id="c-sm-band">—</dd><dt>EARFCN</dt><dd id="c-sm-earfcn">—</dd><dt>物理小区 ID</dt><dd id="c-sm-pci">—</dd><dt>小区 ID</dt><dd id="c-sm-cell">—</dd><dt>TAC</dt><dd id="c-sm-tac">—</dd></dl></section>
-<section class="card pg-card w6"><h2><svg class="i"><use href="#i-sim"/></svg>调制解调器</h2><dl class="pg-kv"><dt>状态</dt><dd id="c-sm-modem">—</dd><dt>运营商代码</dt><dd id="c-sm-plmn">—</dd><dt>信号百分比</dt><dd id="c-sm-pct">—</dd><dt>允许频段</dt><dd id="c-sm-bands">—</dd><dt>移动数据</dt><dd id="c-sm-data">—</dd></dl></section>
+<section class="card pg-card w6"><h2><svg class="i"><use href="#i-sim"/></svg>调制解调器</h2><dl class="pg-kv"><dt>状态</dt><dd id="c-sm-modem">—</dd><dt>运营商代码</dt><dd id="c-sm-plmn">—</dd><dt>信号百分比</dt><dd id="c-sm-pct">—</dd><dt>允许频段</dt><dd id="c-sm-bands">—</dd><dt>移动数据</dt><dd id="c-sm-data">—</dd><dt>SIM 短信存储</dt><dd id="c-sm-sms-storage">—</dd></dl></section>
 <section class="card pg-card w12" aria-labelledby="roaming-heading">
 <div class="roaming-row">
 <div><h2 id="roaming-heading">国际数据漫游</h2>
@@ -224,7 +224,7 @@
 <div class="mail-list"><div class="mail-h"><b id="c-mail-title">收件箱</b><div class="mail-actions"><button type="button" class="pg-link" id="c-mail-select">选择</button><button type="button" class="pg-link" id="c-mail-refresh">刷新</button></div></div>
 <div class="mail-actions mail-batch" id="c-mail-batch" hidden><button type="button" class="pg-btn" id="c-mail-select-all">全选</button><button type="button" class="pg-btn" id="c-mail-apply-selection">移到回收站</button><span id="c-mail-selection-count"></span></div>
 <div class="mail-actions mail-batch" id="c-mail-folder-actions"><button type="button" class="pg-btn danger" id="c-mail-apply-folder">清空收件箱</button></div>
-<p id="c-mail-operation" class="pg-note mail-message" role="status"></p><div id="c-mail-list" role="list"></div><p class="none" id="c-mail-empty">登录后显示</p></div>
+<p id="c-mail-operation" class="pg-note mail-message" role="status"></p><p class="sms-storage-warning" id="c-mail-sim-full" role="status" hidden></p><div id="c-mail-list" role="list"></div><p class="none" id="c-mail-empty">登录后显示</p></div>
 <div class="mail-read"><div id="c-mail-blank" class="none">选择一条短信查看</div><article id="c-mail-open" hidden><header><span class="brand t-blue" id="c-mail-av">信</span><div><b id="c-mail-from">—</b><time id="c-mail-time"></time></div></header><pre id="c-mail-body"></pre><div class="mail-acts"><button type="button" class="pg-btn main" id="c-mail-reply">回复</button><button type="button" class="pg-btn" id="c-mail-copy" hidden>复制验证码</button><button type="button" class="pg-btn danger" id="c-mail-del">移到回收站</button></div><p class="pg-note" id="c-mail-state" role="status"></p></article></div>
 </section></div>
 <div class="pg" id="v-compose" hidden>
@@ -275,6 +275,7 @@
 <button type="button" class="mh-sv" data-go="forwarding"><svg class="i"><use href="#i-send"/></svg>短信转发<svg class="i ch"><use href="#i-chev"/></svg></button>
 </div></div>
 <div class="pg phone-only" id="v-mcomm" hidden>
+<p class="sms-storage-warning" id="c-mc-sim-full" role="status" hidden></p>
 <div class="mc-tabs" role="group" aria-label="通信分类"><button type="button" data-mc="sms" aria-pressed="true"><svg class="i"><use href="#i-msg"/></svg>短信</button><button type="button" data-mc="otp" aria-pressed="false"><svg class="i"><use href="#i-shield"/></svg>验证码</button><button type="button" data-mc="call" aria-pressed="false"><svg class="i"><use href="#i-phone"/></svg>通话</button></div>
 <div class="mc-search"><label><svg class="i"><use href="#i-search"/></svg><input id="c-mc-q" type="search" placeholder="搜索短信、验证码或号码" aria-label="搜索"></label><select id="c-mc-f" aria-label="筛选"><option value="all">筛选</option><option value="sms">只看短信</option><option value="otp">只看验证码</option><option value="call">只看通话</option></select></div>
 <section class="mc-g" id="c-mc-g-sms"><div class="mc-h"><span class="mc-av"><svg class="i"><use href="#i-msg"/></svg></span><b>普通短信</b><span id="c-mc-n-sms">0</span></div><div id="c-mc-sms"></div><p class="none" id="c-mc-e-sms">登录后显示</p></section>

@@ -15,6 +15,9 @@ use std::{
     thread,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
+#[path = "sms_storage.rs"]
+mod sms_storage;
+
 pub(crate) type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub(crate) const BASE: &str = "/var/lib/rustsimhub/rustsimhub-v1/system/network";
 const OUTPUT: &str = "/run/rustsimhub-network";
@@ -78,6 +81,9 @@ pub(crate) fn command(program: &str, args: &[&str], input: Option<&str>) -> Resu
     if !["/usr/bin/nmcli", "/usr/bin/mmcli", "/usr/sbin/nft"].contains(&program) {
         return Err("unknown network tool".into());
     }
+    bounded_command(program, args, input)
+}
+fn bounded_command(program: &str, args: &[&str], input: Option<&str>) -> Result<String> {
     let mut child = Command::new(program)
         .args(args)
         .env_clear()
@@ -263,7 +269,7 @@ fn numeric(v: &Value, path: &str) -> Option<f64> {
     let n = v.pointer(path)?.as_str()?.parse::<f64>().ok()?;
     n.is_finite().then_some(n)
 }
-fn collect_radio(salt: &str) -> Result<(Value, String)> {
+fn collect_modem() -> Result<(String, Value)> {
     let list = command("/usr/bin/mmcli", &["-L"], None)?;
     let paths: Vec<_> = list
         .split_whitespace()
@@ -280,8 +286,11 @@ fn collect_radio(salt: &str) -> Result<(Value, String)> {
         return Err("one modem required".into());
     }
     let p = paths[0];
-    let all: Value = serde_json::from_str(&command("/usr/bin/mmcli", &["-m", p, "-J"], None)?)?;
-    let sim = text(&all, "/modem/generic/sim", 100).ok_or("SIM unavailable")?;
+    let all = serde_json::from_str(&command("/usr/bin/mmcli", &["-m", p, "-J"], None)?)?;
+    Ok((p.to_owned(), all))
+}
+fn sim_key(all: &Value, salt: &str) -> Result<String> {
+    let sim = text(all, "/modem/generic/sim", 100).ok_or("SIM unavailable")?;
     if !sim.starts_with("/org/freedesktop/ModemManager1/SIM/")
         || !sim
             .rsplit('/')
@@ -298,11 +307,15 @@ fn collect_radio(salt: &str) -> Result<(Value, String)> {
         &text(&simdata, "/sim/properties/iccid", 32).ok_or("SIM unavailable")?,
     )
     .ok_or("invalid SIM")?;
-    let key = format!(
+    Ok(format!(
         "{:x}",
         Sha256::digest(format!("RustSimHub.NetworkMeter.v1\0{salt}\0{iccid}"))
-    );
-    let cells = command("/usr/bin/mmcli", &["-m", p, "--get-cell-info", "-J"], None)
+    ))
+}
+fn collect_radio(salt: &str) -> Result<(Value, String)> {
+    let (p, all) = collect_modem()?;
+    let key = sim_key(&all, salt)?;
+    let cells = command("/usr/bin/mmcli", &["-m", &p, "--get-cell-info", "-J"], None)
         .ok()
         .and_then(|s| serde_json::from_str::<Value>(&s).ok());
     let mut cell = json!({"available":false,"bandwidth_mhz":null,"bandwidth_note":"ModemManager未提供当前带宽"});
@@ -573,6 +586,9 @@ pub fn run() -> Result<()> {
     if args == ["--checkpoint-stop"] {
         return lifecycle(true);
     }
+    if args == ["--sample-sim-sms-storage"] {
+        return sms_storage::collect();
+    }
     if !args.is_empty() {
         return Err("unknown operation".into());
     }
@@ -711,7 +727,8 @@ pub fn run() -> Result<()> {
         let rate_rx = rx.checked_sub(last_counter.0).map(|n| n as f64 / elapsed);
         let rate_tx = tx.checked_sub(last_counter.1).map(|n| n as f64 / elapsed);
         let data_roaming = roaming.tick(&sim, roam_request);
-        let status = json!({"schema":1,"data_roaming":data_roaming,"available":true,"sample_unix_seconds":timestamp,"boot_id":boot,"devices":devices,"cellular":radio,"policy":state.policy,"usage":usage,"rx_bytes":rx,"tx_bytes":tx,"rx_bytes_per_second":if last_counter==(0,0){None}else{rate_rx},"tx_bytes_per_second":if last_counter==(0,0){None}else{rate_tx},"counter_source":"nftables-ip-packets","limit_enforcement":"shared-kernel-quota-and-NM-disconnect","accounting_note":"按当前SIM分开，Asia/Shanghai自然月；本机IP层估算，运营商账单为准；异常掉电可能缺最后5秒，限额开启时计量不确定会阻断普通数据","last_request_id":state.last_request,"policy_applied":applied.is_some(),"hardware_mutations":state.policy.enabled,"apn_autoactivation":false});
+        let sms_storage = sms_storage::current(&boot, &sim);
+        let status = json!({"schema":1,"sms_storage":sms_storage,"data_roaming":data_roaming,"available":true,"sample_unix_seconds":timestamp,"boot_id":boot,"devices":devices,"cellular":radio,"policy":state.policy,"usage":usage,"rx_bytes":rx,"tx_bytes":tx,"rx_bytes_per_second":if last_counter==(0,0){None}else{rate_rx},"tx_bytes_per_second":if last_counter==(0,0){None}else{rate_tx},"counter_source":"nftables-ip-packets","limit_enforcement":"shared-kernel-quota-and-NM-disconnect","accounting_note":"按当前SIM分开，Asia/Shanghai自然月；本机IP层估算，运营商账单为准；异常掉电可能缺最后5秒，限额开启时计量不确定会阻断普通数据","last_request_id":state.last_request,"policy_applied":applied.is_some(),"hardware_mutations":state.policy.enabled,"apn_autoactivation":false});
         publish(OUTPUT, "status.json", &status, 0o640)?;
         if last_save.elapsed() >= Duration::from_secs(5) {
             publish(BASE, "meter.json", &state, 0o600)?;
