@@ -171,7 +171,7 @@ fn prepare_roaming(token: String) -> Result<Value> {
         version: version.into(),
         deadline: Instant::now() + Duration::from_secs(60),
     });
-    Ok(json!({"confirmation":code,"expires_in_seconds":60}))
+    Ok(json!({"confirmation":code,"version":version,"expires_in_seconds":60}))
 }
 fn set_roaming(token: &str, enabled: bool, confirmation: Option<&str>) -> Result<Value> {
     let _writer = WRITER.try_lock().map_err(|_| Error::Busy)?;
@@ -223,8 +223,13 @@ pub(crate) async fn authorized(auth: Arc<Mutex<Auth>>, command: AuthCommand) -> 
                 Ok(json!({"request_id":request_id,"state":"pending","apn_activated":false}))
             },
             AuthCommand::DataRoamingStatus{token}=>{
-                a.recent_owner(&token)?;
-                Ok(roaming_state())
+                let owner = a.owner_session(&token)?;
+                drop(a);
+                let state = roaming_state();
+                if auth.try_lock().map_err(|_| Error::Busy)?.owner_session(&token)? != owner {
+                    return Err(Error::Forbidden);
+                }
+                Ok(state)
             },
             AuthCommand::PrepareDataRoaming{token}=>{
                 a.recent_owner(&token)?;

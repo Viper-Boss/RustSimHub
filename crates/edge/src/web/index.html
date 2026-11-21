@@ -54,6 +54,7 @@
 <header class="top">
 <button type="button" class="m-back" id="c-back" aria-label="返回" hidden><svg class="i"><use href="#i-chev"/></svg></button><h1 id="c-title">RustSimHub 控制台</h1><span class="subtitle" id="c-subtitle">设备管理平台</span><div class="grow"></div>
 <div class="online off" id="c-online"><i></i>未登录</div>
+<span class="mh-on off top-online-short" id="c-online-short">未登录</span>
 <div class="clock num"><svg class="i"><use href="#i-clock"/></svg><span id="c-now">--</span><em id="c-sync" hidden>时间未同步</em></div>
 <button type="button" class="tbtn" id="c-theme" aria-label="切换深浅色"><svg class="i"><use id="c-theme-icon" href="#i-moon"/></svg></button>
 <button type="button" class="tbtn" id="c-bell" aria-label="查看最近事件"><svg class="i"><use href="#i-bell"/></svg></button>
@@ -156,11 +157,14 @@
 <section class="card pg-card w6"><h2><svg class="i"><use href="#i-ant"/></svg>当前小区</h2><dl class="pg-kv"><dt>频段</dt><dd id="c-sm-band">—</dd><dt>EARFCN</dt><dd id="c-sm-earfcn">—</dd><dt>物理小区 ID</dt><dd id="c-sm-pci">—</dd><dt>小区 ID</dt><dd id="c-sm-cell">—</dd><dt>TAC</dt><dd id="c-sm-tac">—</dd></dl></section>
 <section class="card pg-card w6"><h2><svg class="i"><use href="#i-sim"/></svg>调制解调器</h2><dl class="pg-kv"><dt>状态</dt><dd id="c-sm-modem">—</dd><dt>运营商代码</dt><dd id="c-sm-plmn">—</dd><dt>信号百分比</dt><dd id="c-sm-pct">—</dd><dt>允许频段</dt><dd id="c-sm-bands">—</dd><dt>移动数据</dt><dd id="c-sm-data">—</dd></dl></section>
 <section class="card pg-card w12" aria-labelledby="roaming-heading">
-<h2 id="roaming-heading">国际数据漫游</h2>
-<p class="pg-note">只控制蜂窝数据。漫游通话和短信仍按运营商规则计费。</p>
-<div class="mail-actions"><button type="button" class="pg-btn" id="data-roaming-read">读取状态</button>
-<button type="button" class="pg-btn" id="data-roaming-toggle" disabled>开启数据漫游</button></div>
-<p class="pg-note" id="data-roaming-state" role="status">读取设备状态后可操作。</p>
+<div class="roaming-row">
+<div><h2 id="roaming-heading">国际数据漫游</h2>
+<p class="pg-note">只控制蜂窝数据。漫游通话和短信仍按运营商规则计费。</p></div>
+<button type="button" id="data-roaming-toggle" class="roaming-switch" role="switch" aria-labelledby="roaming-heading" aria-describedby="data-roaming-state" aria-checked="false" disabled>
+<span id="data-roaming-label" aria-hidden="true">关闭</span><span class="roaming-track" aria-hidden="true"></span></button>
+</div>
+<p class="pg-note" id="data-roaming-state" role="status">请用所有者身份登录。</p>
+<button type="button" class="pg-link" id="data-roaming-login" hidden>验证所有者身份</button>
 </section>
 <dialog class="alert" id="data-roaming-dialog" aria-labelledby="data-roaming-confirm-title">
 <form method="dialog"><h3 id="data-roaming-confirm-title">再次确认开启国际数据漫游</h3>

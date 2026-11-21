@@ -44,7 +44,18 @@ function harness(handler,opts={}){const {doc,els,get}=dom(),seen=[];const nav=ne
  inbox.messages.unshift({id:'z',display:{sender:'10086',preview:'新消息'}});await h.readLists();inbox.messages.shift();assert.ok(h.events.some(e=>e.message.includes('新短信')),'new mail is logged');
  h.reset();assert.equal($('c-cpu').textContent,'—');assert.equal($('c-otp-list').children.length,0);assert.equal($('c-sms-empty').textContent,'登录后显示');}
 // 读失败：显示“暂不可用”而非空；旧接口不能区分撤权/临时错误，保守清除私有缓存
-{const {h,$}=harness(()=>{throw Error('busy');});await h.signedIn();assert.match($('c-sms-empty').textContent,/短信暂不可用/);assert.match($('c-call-empty').textContent,/通话记录暂不可用/);assert.equal($('c-cpu').textContent,'—');assert.equal($('c-online').lastChild.textContent,'暂时读不到设备');}
+{let now=10000;const {h,$}=harness(()=>{throw Error('busy');},{clock:()=>now});await h.signedIn();assert.match($('c-sms-empty').textContent,/短信暂不可用/);assert.match($('c-call-empty').textContent,/通话记录暂不可用/);assert.equal($('c-cpu').textContent,'—');
+ assert.equal($('c-online').lastChild.textContent,'设备在线','a successful login is recent contact');
+ now+=31000;h.tick();assert.equal($('c-online').lastChild.textContent,'暂时读不到设备');assert.equal($('c-online-short').textContent,'状态待同步');
+ h.network({sample_unix_seconds:31,cellular:{signal_percent:70}});assert.equal($('c-online').lastChild.textContent,'设备在线');assert.equal($('c-online-short').textContent,'在线');
+ h.network(null);assert.equal($('c-online-short').textContent,'在线','a transient loss of network status does not imply the device is unreachable');}
+{let reads=0;const {h,$}=harness(c=>{
+ if(c.op==='system_status'&&++reads===1)throw Object.assign(Error('busy'),{coreCode:'busy'});
+ return c.op==='system_status'?sys():{};
+ },{readDelay:()=>Promise.resolve()});
+ await h.signedIn();assert.equal(reads,2);assert.equal($('c-model').textContent,'UFI003','temporary core contention is retried');
+ h.reset();assert.equal($('c-online-short').textContent,'未登录');}
+
 {let fail=false;const {h,$}=harness(c=>{if(fail)throw Error('busy');return c.op==='inbox_recent'?inbox:{};});await h.signedIn();assert.equal($('c-otp-list').children.length,2);fail=true;await h.readLists();assert.equal($('c-otp-list').children.length,0,'unavailable or revoked reads clear old private display data');}
 // 异常字段：不抛错，显示未知
 {const {h,$}=harness(c=>c.op==='system_status'?{cpu_busy_ticks:'x',memory_total_bytes:-1,storage_total_bytes:{},temperature_c:'hot',uptime_seconds:1.5,model:7}:c.op==='inbox_recent'?{messages:'bad'}:c.op==='calls_recent'?{calls:[null]}:null);await h.signedIn();assert.equal($('c-temp').textContent,'—');assert.equal($('c-mem').textContent,'—');assert.equal($('c-model').textContent,'型号未知');assert.equal($('c-uptime').textContent,'—');assert.equal($('c-call-list').children.length,1);}

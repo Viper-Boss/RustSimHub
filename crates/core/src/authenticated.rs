@@ -356,6 +356,17 @@ pub(crate) async fn handle(
             | AuthCommand::CheckMediaLease { .. }
             | AuthCommand::CheckMediaPreflight { .. }
     );
+    let status_read = matches!(
+        &request.command,
+        AuthCommand::SystemStatus { .. }
+            | AuthCommand::LineStatus { .. }
+            | AuthCommand::NetworkDiagnostics { .. }
+            | AuthCommand::DataRoamingStatus { .. }
+    );
+    let roaming_change = matches!(
+        &request.command,
+        AuthCommand::PrepareDataRoaming { .. } | AuthCommand::SetDataRoaming { .. }
+    );
     let bluetooth_mode = matches!(
         request.command,
         AuthCommand::BluetoothModeStatus { .. } | AuthCommand::BluetoothModeSet { .. }
@@ -620,10 +631,10 @@ pub(crate) async fn handle(
             }
             value
         }
-        Err(rustsimhub_auth::Error::Busy) if list_read || bluetooth_mode => {
+        Err(rustsimhub_auth::Error::Busy) if list_read || bluetooth_mode || status_read || roaming_change => {
             json!({"ok":false,"error":"busy"})
         }
-        Err(rustsimhub_auth::Error::Expired) if bluetooth_mode => {
+        Err(rustsimhub_auth::Error::Expired) if bluetooth_mode || roaming_change => {
             json!({"ok":false,"error":"owner_reauthentication_required"})
         }
         Err(_) => json!({"ok":false,"error":"denied"}),
