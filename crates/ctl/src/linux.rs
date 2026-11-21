@@ -391,6 +391,10 @@ pub async fn run(args: &[String]) -> Result<()> {
                 .filter(|v| v.len() == 64)
                 .ok_or("invalid session")?
                 .to_owned();
+            let expires_in_seconds = issued["expires_in_seconds"]
+                .as_u64()
+                .filter(|&seconds| seconds != 0 && seconds <= rustsimhub_auth::SESSION_TTL.as_secs())
+                .ok_or("invalid session expiry")?;
             if socket_owner(socket)? != server_uid {
                 return Err("server UID changed".into());
             }
@@ -404,7 +408,7 @@ pub async fn run(args: &[String]) -> Result<()> {
             session.write(Path::new(path))?;
             println!(
                 "{}",
-                json!({"ok":true,"session_saved":true,"expires_in_seconds":900})
+                json!({"ok":true,"session_saved":true,"expires_in_seconds":expires_in_seconds})
             );
             return Ok(());
         }

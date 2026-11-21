@@ -65,7 +65,8 @@ impl From<rustsimhub_storage::Error> for Error {
 
 const CHALLENGE_TTL: Duration = Duration::from_secs(60);
 const PAIR_TTL: Duration = Duration::from_secs(300);
-const SESSION_TTL: Duration = Duration::from_secs(900);
+/// Validity of a normal authenticated Core session or signed continuation.
+pub const SESSION_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 const REAUTH_TTL: Duration = Duration::from_secs(300);
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

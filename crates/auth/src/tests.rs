@@ -16,6 +16,7 @@ fn session_continuation_requires_exact_live_bearer_key_and_preserves_owner_fresh
     let digest = token_digest(token.expose()).unwrap();
     let original = Instant::now() - REAUTH_TTL;
     let session = a.sessions.get_mut(&digest).unwrap();
+    assert_eq!(session.deadline - session.authenticated, Duration::from_secs(86_400));
     session.authenticated = original;
     session.deadline = Instant::now() + Duration::from_secs(5);
     let deadline = session.deadline;
@@ -29,7 +30,7 @@ fn session_continuation_requires_exact_live_bearer_key_and_preserves_owner_fresh
     assert_ne!(digest, next_digest);
     assert_eq!(a.sessions.len(), 2);
     assert_eq!(a.sessions[&digest].deadline, deadline);
-    assert!(a.sessions[&next_digest].deadline > deadline);
+    assert!(a.sessions[&next_digest].deadline > deadline + Duration::from_secs(86_390));
     assert_eq!(a.sessions[&next_digest].authenticated, original);
     assert!(a.authorize(token.expose(), Scope::CallsControl).is_ok());
     assert!(a.owner_session(token.expose()).is_ok());

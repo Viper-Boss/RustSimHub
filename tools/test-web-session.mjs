@@ -22,6 +22,16 @@ function clock(){let now=0,next=1;const timers=new Map();return {performance:{no
  assert.equal(requests.length,4);assert.equal(c.timers.size,0);assert.equal(k.sessionToken,current);assert.notEqual(current,token);assert.equal(new Set(requests).size,4);
 }
 {
+ const c=clock();let requests=0,current=token;
+ const k=new SessionKeeper({env:c,token:()=>current,apply:(_,next)=>{current=next;},
+  renew:async()=>{requests++;return {...ok,expires_in_seconds:86400};}});
+ k.start(token,86400);
+ c.advance(900001);await k.ensure();assert.equal(requests,0);
+ c.advance(86400000-900001-120000);await k.ensure();assert.equal(requests,1);
+ assert.equal(k.deadline,c.performance.now()+86400000);
+ c.advance(86400000);await assert.rejects(k.ensure(),/过期/);assert.equal(requests,1);
+}
+{
  const c=clock(),gate=deferred();let requests=0,current=token;const k=new SessionKeeper({env:c,token:()=>current,apply:(_,next)=>{current=next;},renew:async()=>{requests++;return gate.promise;}});k.start(token,900);c.advance(720001);
  const first=k.ensure(),second=k.ensure();assert.equal(requests,1);gate.resolve(ok);await Promise.all([first,second]);assert.equal(requests,1);
 }

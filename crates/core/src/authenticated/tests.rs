@@ -15,12 +15,17 @@ async fn setup_ap_real_ipc_is_disabled_without_explicit_local_mode_even_for_owne
     a.bootstrap_finish(&c.id, &k.sign(&c.transcript).to_bytes())
         .unwrap();
     let c = a.login_challenge(k.verifying_key().to_bytes()).unwrap();
-    let token = a
-        .login_finish(&c.id, &k.sign(&c.transcript).to_bytes())
-        .unwrap()
-        .expose()
-        .to_owned();
     let auth = Arc::new(Mutex::new(a));
+    let login = round_trip(
+        AuthCommand::Authenticate {
+            challenge_id: c.id,
+            signature: k.sign(&c.transcript).to_bytes().to_vec(),
+        },
+        auth.clone(),
+    )
+    .await;
+    assert_eq!(login["expires_in_seconds"], 86_400);
+    let token = login["token"].as_str().unwrap().to_owned();
     let disabled = round_trip(
         AuthCommand::SetupApStatus {
             token: token.clone(),
@@ -124,7 +129,7 @@ async fn signed_session_continuation_round_trip_rotates_with_existing_overlap() 
     };
     let reply = round_trip(request(), auth.clone()).await;
     assert_eq!(reply["renewed"], true);
-    assert_eq!(reply["expires_in_seconds"], 900);
+    assert_eq!(reply["expires_in_seconds"], 86_400);
     assert_eq!(reply["recent_owner_login_refreshed"], false);
     let continued = reply["token"].as_str().unwrap().to_owned();
     assert_ne!(continued, token);
