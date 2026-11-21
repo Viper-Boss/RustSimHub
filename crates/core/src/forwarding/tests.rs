@@ -212,6 +212,11 @@ async fn actual_owner_default_off_reads_do_not_create_files_or_claim_process_sto
             after: "0".into(),
             limit: 32,
         },
+        AuthCommand::ForwardingRecentReceipts {
+            token: f.token.clone(),
+            before: None,
+            limit: 16,
+        },
     ] {
         let result = f.request(command).await;
         assert!(result.get("error").is_none());

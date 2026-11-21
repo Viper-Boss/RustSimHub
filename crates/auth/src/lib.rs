@@ -196,6 +196,29 @@ impl Auth {
         self.authorize(token, Scope::CallsRead)?;
         Ok(self.store.calls_recent(before, limit)?)
     }
+    pub fn call_history_status(
+        &mut self,
+        token: &str,
+    ) -> Result<rustsimhub_storage::CallHistoryStatus> {
+        let owner = self.owner(token)?;
+        self.authorize(token, Scope::CallsRead)?;
+        Ok(self.store.call_history_status(owner)?)
+    }
+    pub fn hide_calls(&mut self, token: &str, ids: Vec<String>) -> Result<usize> {
+        let owner = self.owner(token)?;
+        self.authorize(token, Scope::CallsRead)?;
+        Ok(self.store.hide_calls(owner, ids)?)
+    }
+    pub fn clear_call_history(
+        &mut self,
+        token: &str,
+        through: rustsimhub_storage::InboxCursor,
+        expected: usize,
+    ) -> Result<usize> {
+        let owner = self.owner(token)?;
+        self.authorize(token, Scope::CallsRead)?;
+        Ok(self.store.clear_call_history(owner, through, expected)?)
+    }
     pub fn call_detail(
         &mut self,
         token: &str,
@@ -261,6 +284,37 @@ impl Auth {
         let owner = self.owner(token)?;
         self.authorize(token, Scope::SmsRead)?;
         Ok(self.store.set_sms_deleted(owner, id, deleted)?)
+    }
+    pub fn set_sms_deleted_batch(
+        &mut self,
+        token: &str,
+        ids: Vec<String>,
+        deleted: bool,
+    ) -> Result<usize> {
+        let owner = self.owner(token)?;
+        self.authorize(token, Scope::SmsRead)?;
+        Ok(self.store.set_sms_deleted_batch(owner, ids, deleted)?)
+    }
+    pub fn sms_folder_status(
+        &mut self,
+        token: &str,
+    ) -> Result<rustsimhub_storage::SmsFolderStatus> {
+        let owner = self.owner(token)?;
+        self.authorize(token, Scope::SmsRead)?;
+        Ok(self.store.sms_folder_status(owner)?)
+    }
+    pub fn apply_sms_folder(
+        &mut self,
+        token: &str,
+        version: rustsimhub_storage::InboxCursor,
+        head_seq: String,
+        purge: bool,
+    ) -> Result<u64> {
+        let owner = self.owner(token)?;
+        self.authorize(token, Scope::SmsRead)?;
+        Ok(self
+            .store
+            .apply_sms_folder(owner, version, head_seq, purge)?)
     }
     pub fn deleted_inbox(
         &mut self,
@@ -358,6 +412,13 @@ impl Auth {
             return Err(Error::Forbidden);
         }
         Ok(value)
+    }
+    pub fn owner_session(&mut self, token: &str) -> Result<Principal> {
+        let principal = self.authorize(token, Scope::ClientsManage)?;
+        if principal.kind != Kind::Owner {
+            return Err(Error::Forbidden);
+        }
+        Ok(principal)
     }
     pub fn recent_owner(&mut self, token: &str) -> Result<Principal> {
         self.owner(token)
@@ -650,10 +711,7 @@ impl Auth {
         Ok(next)
     }
     fn owner(&mut self, token: &str) -> Result<Principal> {
-        let p = self.authorize(token, Scope::ClientsManage)?;
-        if p.kind != Kind::Owner {
-            return Err(Error::Forbidden);
-        }
+        let p = self.owner_session(token)?;
         let s = self
             .sessions
             .get(&token_digest(token)?)

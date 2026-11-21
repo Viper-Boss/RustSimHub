@@ -8,6 +8,9 @@ use std::collections::HashMap;
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum DestinationEdit {
     Keep {},
+    Copy {
+        source_id: String,
+    },
     Webhook {
         url: Secret,
         bearer: Option<Secret>,
@@ -67,7 +70,7 @@ pub struct PolicyEdit {
     pub rules: Vec<Rule>,
 }
 impl PolicyEdit {
-    /// Existing destinations are moved, never returned to the browser. The
+    /// Existing destinations stay inside Core. The
     /// subsequent configure transaction still enforces generation/request ID.
     pub fn resolve(self, previous: Policy) -> Result<Policy> {
         previous.validate()?;
@@ -81,15 +84,26 @@ impl PolicyEdit {
         if self.targets.len() > MAX_TARGETS || self.rules.len() > MAX_RULES {
             return Err(Error::Invalid);
         }
-        let mut old: HashMap<_, _> = previous
+        let old: HashMap<_, _> = previous
             .targets
             .into_iter()
             .map(|t| (t.id, t.destination))
             .collect();
+        let duplicate = |source: &str| -> Result<Destination> {
+            let saved = old.get(source).ok_or(Error::Invalid)?;
+            let bytes = zeroize::Zeroizing::new(serde_json::to_vec(saved)?);
+            Ok(serde_json::from_slice(&bytes)?)
+        };
         let mut targets = Vec::new();
         for target in self.targets {
             let destination = match target.destination {
-                DestinationEdit::Keep {} => old.remove(&target.id).ok_or(Error::Invalid)?,
+                DestinationEdit::Keep {} => duplicate(&target.id)?,
+                DestinationEdit::Copy { source_id } => {
+                    if old.contains_key(&target.id) || !model::uuid(&source_id) {
+                        return Err(Error::Invalid);
+                    }
+                    duplicate(&source_id)?
+                }
                 DestinationEdit::Webhook { url, bearer } => Destination::Webhook { url, bearer },
                 DestinationEdit::Bark { server, key } => Destination::Bark { server, key },
                 DestinationEdit::Telegram { bot_token, chat_id } => {

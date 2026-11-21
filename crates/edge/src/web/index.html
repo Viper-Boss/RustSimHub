@@ -43,6 +43,7 @@
 <button type="button" class="nav" data-go="network"><svg class="i"><use href="#i-wifi"/></svg><span>网络管理</span></button>
 <button type="button" class="nav" data-go="sim"><svg class="i"><use href="#i-sim"/></svg><span>SIM与调制解调器</span></button>
 <button type="button" class="nav" data-go="comms"><svg class="i"><use href="#i-phone"/></svg><span>通话短信</span></button>
+<button type="button" class="nav" data-go="forwarding"><svg class="i"><use href="#i-send"/></svg><span>短信转发</span></button>
 <button type="button" class="nav" data-go="gnss"><svg class="i"><use href="#i-pin"/></svg><span>GNSS定位</span></button>
 <button type="button" class="nav" data-go="ble"><svg class="i"><use href="#i-bt"/></svg><span>蓝牙配网</span></button>
 <button type="button" class="nav" data-go="security"><svg class="i"><use href="#i-shield"/></svg><span>安全策略</span></button>
@@ -53,6 +54,7 @@
 <header class="top">
 <button type="button" class="m-back" id="c-back" aria-label="返回" hidden><svg class="i"><use href="#i-chev"/></svg></button><h1 id="c-title">RustSimHub 控制台</h1><span class="subtitle" id="c-subtitle">设备管理平台</span><div class="grow"></div>
 <div class="online off" id="c-online"><i></i>未登录</div>
+<span class="mh-on off top-online-short" id="c-online-short">未登录</span>
 <div class="clock num"><svg class="i"><use href="#i-clock"/></svg><span id="c-now">--</span><em id="c-sync" hidden>时间未同步</em></div>
 <button type="button" class="tbtn" id="c-theme" aria-label="切换深浅色"><svg class="i"><use id="c-theme-icon" href="#i-moon"/></svg></button>
 <button type="button" class="tbtn" id="c-bell" aria-label="查看最近事件"><svg class="i"><use href="#i-bell"/></svg></button>
@@ -113,7 +115,7 @@
 <div class="comm-h"><svg class="i"><use href="#i-phone"/></svg><b>通信中心</b><span>预览短信、验证码与最近通话</span></div>
 <div class="subs">
 <div class="subc sms"><div class="sub-h"><svg class="i"><use href="#i-msg"/></svg>最近短信<button type="button" class="link" data-go="comms">查看更多<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-sms-list"></div><p class="none" id="c-sms-empty">登录后显示</p></div>
-<div class="subc otp"><div class="sub-h"><svg class="i"><use href="#i-shield"/></svg>最近验证码<button type="button" class="clear" id="c-otp-clear" disabled>清理</button><button type="button" class="link" data-go="comms">查看更多<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-otp-list"></div><p class="none" id="c-otp-empty">登录后显示</p><p class="otp-state" id="c-otp-state" role="status"></p></div>
+<div class="subc otp"><div class="sub-h"><svg class="i"><use href="#i-shield"/></svg>最近验证码<button type="button" class="clear" id="c-otp-clear" disabled>清理</button><button type="button" class="link" data-tab="3">查看更多<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-otp-list"></div><p class="none" id="c-otp-empty">登录后显示</p><p class="otp-state" id="c-otp-state" role="status"></p></div>
 <div class="subc call"><div class="sub-h"><svg class="i"><use href="#i-phone"/></svg>最近通话<button type="button" class="link" data-go="comms">查看更多<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-call-list"></div><p class="none" id="c-call-empty">登录后显示</p></div>
 </div>
 </section>
@@ -122,7 +124,7 @@
 <button type="button" class="sv" data-debug="nas-bridge-panel"><svg class="i"><use href="#i-nas"/></svg>NasSimHub<em>查看绑定</em></button>
 <button type="button" class="sv" data-go="security"><svg class="i"><use href="#i-mob"/></svg>AirSIM 手机<em>配对管理</em></button>
 <button type="button" class="sv" data-debug="support-panel"><svg class="i"><use href="#i-globe"/></svg>NKN 远程<em>手动核对</em></button>
-<button type="button" class="sv" data-debug="forwarding-panel"><svg class="i"><use href="#i-send"/></svg>短信转发<em>手动核对</em></button>
+<button type="button" class="sv" data-go="forwarding"><svg class="i"><use href="#i-send"/></svg>短信转发</button>
 </section>
 <section class="card gnss" aria-label="GNSS 定位">
 <div><div class="g-h"><svg class="i"><use href="#i-pin"/></svg>GNSS 定位<span class="fix">未提供</span></div>
@@ -138,11 +140,14 @@
 <nav class="pg-tabs" id="c-tabs" aria-label="页面分区" hidden></nav>
 <div class="pg" id="v-hardware" hidden>
 <div class="pg-grid num">
-<section class="card hw-gauge"><div class="ring-l t-blue"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-cpu-ring" cx="60" cy="60" r="52"/></svg><b id="c-hw-cpu">—</b></div><h3>CPU 占用</h3><p id="c-hw-load">—</p></section>
-<section class="card hw-gauge"><div class="ring-l t-purple"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-mem-ring" cx="60" cy="60" r="52"/></svg><b id="c-hw-mem">—</b></div><h3>内存</h3><p id="c-hw-mem-d">—</p></section>
-<section class="card hw-gauge"><div class="ring-l t-teal"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-disk-ring" cx="60" cy="60" r="52"/></svg><b id="c-hw-disk">—</b></div><h3>存储</h3><p id="c-hw-disk-d">—</p></section>
-<section class="card hw-gauge"><div class="ring-l t-amber"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-temp-ring" cx="60" cy="60" r="52"/></svg><b id="c-hw-temp">—</b></div><h3>CPU 温度</h3><p id="c-hw-temp-d">上限 85 °C</p></section>
-<section class="card pg-card w7"><h2><svg class="i"><use href="#i-temp"/></svg>温度趋势<small>本次打开页面以来</small></h2><svg class="trend" viewBox="0 0 150 28" preserveAspectRatio="none" aria-label="温度趋势"><path id="c-hw-trend"/></svg></section>
+<section class="card hw-gauge"><div class="ring-l t-blue"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-cpu-ring" stroke-dashoffset="326.7" cx="60" cy="60" r="52"/></svg><b id="c-hw-cpu">—</b></div><h3>CPU 占用</h3><p id="c-hw-load">—</p></section>
+<section class="card hw-gauge"><div class="ring-l t-purple"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-mem-ring" stroke-dashoffset="326.7" cx="60" cy="60" r="52"/></svg><b id="c-hw-mem">—</b></div><h3>内存</h3><p id="c-hw-mem-d">—</p></section>
+<section class="card hw-gauge"><div class="ring-l t-teal"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-disk-ring" stroke-dashoffset="326.7" cx="60" cy="60" r="52"/></svg><b id="c-hw-disk">—</b></div><h3>存储</h3><p id="c-hw-disk-d">—</p></section>
+<section class="card hw-gauge"><div class="ring-l t-amber"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-temp-ring" stroke-dashoffset="326.7" cx="60" cy="60" r="52"/></svg><b id="c-hw-temp">—</b></div><h3>CPU 温度</h3><p id="c-hw-temp-d">上限 85 °C</p></section>
+<section class="card pg-card w7"><h2><svg class="i"><use href="#i-temp"/></svg>温度趋势<small>当前 <strong id="c-hw-temp-current">—</strong></small></h2>
+<div class="temp-chart"><div class="temp-axis" aria-hidden="true"><span id="c-hw-temp-high"></span><span id="c-hw-temp-mid"></span><span id="c-hw-temp-low"></span></div>
+<svg class="trend" viewBox="0 0 150 28" preserveAspectRatio="none" aria-label="温度趋势（摄氏度）"><path id="c-hw-trend"/><line id="c-hw-temp-marker" y1="2" y2="26" visibility="hidden"/></svg></div>
+<div class="temp-sample" id="c-hw-temp-sample" hidden><label for="c-hw-temp-point">查看采样</label><input id="c-hw-temp-point" type="range" min="0" max="0" value="0"><output id="c-hw-temp-reading" for="c-hw-temp-point"></output></div></section>
 <section class="card pg-card w5"><h2><svg class="i"><use href="#i-chip"/></svg>设备信息</h2><dl class="pg-kv"><dt>型号</dt><dd id="c-hw-model">—</dd><dt>处理器</dt><dd id="c-hw-cores">—</dd><dt>操作系统</dt><dd id="c-hw-os">—</dd><dt>内核</dt><dd id="c-hw-kernel">—</dd><dt>固件版本</dt><dd id="c-hw-version">—</dd><dt>运行时间</dt><dd id="c-hw-uptime">—</dd></dl></section>
 </div></div>
 <div class="pg" id="v-sim" hidden>
@@ -151,6 +156,22 @@
 <section class="card pg-card w7"><h2><svg class="i"><use href="#i-sig"/></svg>信号质量<span class="pill off" id="c-sm-quality">未知</span></h2><div class="meter3"><div><span>RSRP 信号强度</span><b id="c-sm-rsrp">—</b><div class="scale"><i id="c-sm-rsrp-m"></i></div></div><div><span>RSRQ 信号质量</span><b id="c-sm-rsrq">—</b><div class="scale"><i id="c-sm-rsrq-m"></i></div></div><div><span>SINR 信噪比</span><b id="c-sm-sinr">—</b><div class="scale"><i id="c-sm-sinr-m"></i></div></div></div></section>
 <section class="card pg-card w6"><h2><svg class="i"><use href="#i-ant"/></svg>当前小区</h2><dl class="pg-kv"><dt>频段</dt><dd id="c-sm-band">—</dd><dt>EARFCN</dt><dd id="c-sm-earfcn">—</dd><dt>物理小区 ID</dt><dd id="c-sm-pci">—</dd><dt>小区 ID</dt><dd id="c-sm-cell">—</dd><dt>TAC</dt><dd id="c-sm-tac">—</dd></dl></section>
 <section class="card pg-card w6"><h2><svg class="i"><use href="#i-sim"/></svg>调制解调器</h2><dl class="pg-kv"><dt>状态</dt><dd id="c-sm-modem">—</dd><dt>运营商代码</dt><dd id="c-sm-plmn">—</dd><dt>信号百分比</dt><dd id="c-sm-pct">—</dd><dt>允许频段</dt><dd id="c-sm-bands">—</dd><dt>移动数据</dt><dd id="c-sm-data">—</dd></dl></section>
+<section class="card pg-card w12" aria-labelledby="roaming-heading">
+<div class="roaming-row">
+<div><h2 id="roaming-heading">国际数据漫游</h2>
+<p class="pg-note">只控制蜂窝数据。漫游通话和短信仍按运营商规则计费。</p></div>
+<button type="button" id="data-roaming-toggle" class="roaming-switch" role="switch" aria-labelledby="roaming-heading" aria-describedby="data-roaming-state" aria-checked="false" disabled>
+<span id="data-roaming-label" aria-hidden="true">关闭</span><span class="roaming-track" aria-hidden="true"></span></button>
+</div>
+<p class="pg-note" id="data-roaming-state" role="status">请用所有者身份登录。</p>
+<button type="button" class="pg-link" id="data-roaming-login" hidden>验证所有者身份</button>
+</section>
+<dialog class="alert" id="data-roaming-dialog" aria-labelledby="data-roaming-confirm-title">
+<form method="dialog"><h3 id="data-roaming-confirm-title">再次确认开启国际数据漫游</h3>
+<p>国外或跨境使用蜂窝数据可能产生高额费用，费用以运营商账单为准。</p>
+<label><input type="checkbox" id="data-roaming-ack">我已了解可能产生高额费用</label>
+<div><button type="submit" value="cancel" autofocus>取消</button>
+<button type="submit" value="enable" class="danger" id="data-roaming-submit" disabled>确认开启</button></div></form></dialog>
 </div></div>
 <div class="pg" id="v-gnss" hidden>
 <div class="pg-grid">
@@ -161,12 +182,12 @@
 <div class="pg-grid">
 <section class="card ble-hero w12"><div class="ble-mark"><svg class="i" aria-hidden="true"><use href="#i-bt"/></svg></div><div><h2>蓝牙</h2><p>选择一个通信模式，或用手机配置工具完成 Wi-Fi 配网。</p></div></section>
 <section class="card pg-card w12 bt-panel" aria-labelledby="bt-mode-heading">
-<div class="bt-panel-head"><div><h2 id="bt-mode-heading">业务蓝牙模式</h2><p>一次启用一种。切换会断开当前蓝牙连接，已保存的配对会保留。</p></div><button type="button" id="bt-mode-read" class="pg-link">读取状态</button></div>
+<div class="bt-panel-head"><div><h2 id="bt-mode-heading">业务蓝牙模式</h2><p>一次启用一种。切换会断开当前蓝牙连接，已保存的配对会保留。</p></div><button type="button" id="bt-mode-read" class="pg-link">刷新状态</button></div>
 <div class="bt-mode-grid" role="group" aria-label="选择蓝牙模式">
 <button type="button" id="bt-mode-airsim" class="bt-mode-card" aria-pressed="false" disabled><svg class="i" aria-hidden="true"><use href="#i-phone"/></svg><span><strong>AirSIM 手机蓝牙</strong><small>用手机上的 AirSIM 直接连接棒子通话</small></span><span id="bt-airsim-state" class="bt-mode-badge">待查询</span></button>
 <button type="button" id="bt-mode-nassimhub" class="bt-mode-card" aria-pressed="false" disabled><svg class="i" aria-hidden="true"><use href="#i-chip"/></svg><span><strong>NasSimHub 蓝牙</strong><small>向 N1 传输短信、通话记录和实时语音</small></span><span id="bt-nas-state" class="bt-mode-badge">待查询</span></button>
 </div>
-<div class="bt-panel-foot"><p id="bt-mode-status" role="status">登录后读取设备状态。</p><button type="button" id="bt-mode-apply" disabled>切换模式</button></div>
+<div class="bt-panel-foot"><p id="bt-mode-status" role="status">进入页面后读取设备状态。</p><div class="bt-panel-actions"><button type="button" id="bt-mode-login" hidden>所有者登录</button><button type="button" id="bt-mode-apply" disabled>切换模式</button></div></div>
 <p class="pg-note">NasSimHub 蓝牙不共享蜂窝网络或其他上网流量。</p>
 </section>
 <div class="w12 bt-wifi-heading"><h2>Wi-Fi 首次配网</h2></div>
@@ -175,7 +196,8 @@
 <section class="card pg-card step w4"><em>3</em><h3>填写 Wi-Fi</h3><p>按提示填写网络，试连成功后再保存。也可以在“网络管理”里配置。</p><button type="button" class="pg-link" data-go="network">前往网络管理</button></section>
 </div></div>
 <div class="pg" id="v-events" hidden>
-<section class="card ev pg-events"><div class="ev-h"><svg class="i"><use href="#i-list"/></svg>最近事件<small>本次打开页面以来</small></div><ul id="c-ev-all"></ul><p class="none" id="c-ev-all-empty">登录后显示</p></section>
+<section class="card ev pg-events"><div class="ev-h"><svg class="i"><use href="#i-list"/></svg>最近事件<small>本次打开页面以来</small></div><div class="journal-tools"><label>容量上限（条） <input id="c-log-capacity" type="number" min="1" max="500" value="50" inputmode="numeric"></label><button class="pg-btn" type="button" id="c-log-save">保存上限</button><button class="pg-btn" type="button" id="c-log-clear">清空日志</button></div>
+<p id="c-log-state" role="status" class="pg-note"></p><ul id="c-ev-all"></ul><p class="none" id="c-ev-all-empty">登录后显示</p></section>
 </div>
 <div class="pg" id="v-appearance" hidden>
 <section class="card pg-card pg-narrow"><h2><svg class="i"><use href="#i-sun"/></svg>外观</h2><p class="pg-note">选择界面深浅色。这项设置只保存在当前浏览器。</p><div class="seg" role="group" aria-label="深浅色"><button type="button" data-mode="light">浅色</button><button type="button" data-mode="dark">深色</button><button type="button" data-mode="system">跟随系统</button></div></section>
@@ -193,7 +215,10 @@
 </div></div>
 <div class="pg" id="v-sms" hidden>
 <section class="card mail">
-<div class="mail-list"><div class="mail-h"><b>收件箱</b><button type="button" class="pg-link" id="c-mail-refresh">刷新</button></div><div id="c-mail-list" role="list"></div><p class="none" id="c-mail-empty">登录后显示</p><button type="button" class="pg-link mail-more" id="c-mail-more" hidden>加载更多</button></div>
+<div class="mail-list"><div class="mail-h"><b id="c-mail-title">收件箱</b><div class="mail-actions"><button type="button" class="pg-link" id="c-mail-select">选择</button><button type="button" class="pg-link" id="c-mail-refresh">刷新</button></div></div>
+<div class="mail-actions mail-batch" id="c-mail-batch" hidden><button type="button" class="pg-btn" id="c-mail-select-all">全选</button><button type="button" class="pg-btn" id="c-mail-apply-selection">移到回收站</button><span id="c-mail-selection-count"></span></div>
+<div class="mail-actions mail-batch" id="c-mail-folder-actions"><button type="button" class="pg-btn danger" id="c-mail-apply-folder">清空收件箱</button></div>
+<p id="c-mail-operation" class="pg-note mail-message" role="status"></p><div id="c-mail-list" role="list"></div><p class="none" id="c-mail-empty">登录后显示</p></div>
 <div class="mail-read"><div id="c-mail-blank" class="none">选择一条短信查看</div><article id="c-mail-open" hidden><header><span class="brand t-blue" id="c-mail-av">信</span><div><b id="c-mail-from">—</b><time id="c-mail-time"></time></div></header><pre id="c-mail-body"></pre><div class="mail-acts"><button type="button" class="pg-btn main" id="c-mail-reply">回复</button><button type="button" class="pg-btn" id="c-mail-copy" hidden>复制验证码</button><button type="button" class="pg-btn danger" id="c-mail-del">移到回收站</button></div><p class="pg-note" id="c-mail-state" role="status"></p></article></div>
 </section></div>
 <div class="pg" id="v-compose" hidden>
@@ -202,7 +227,9 @@
 <div class="pg" id="v-phone" hidden>
 <div class="pg-grid num">
 <section class="card pg-card w5"><h2><svg class="i"><use href="#i-phone"/></svg>拨号</h2><input class="ph-num" id="c-ph-num" type="tel" inputmode="tel" maxlength="32" autocomplete="off" aria-label="拨出号码" placeholder="输入号码"><div class="keys" id="c-ph-keys" role="group" aria-label="拨号键盘"><button type="button" data-key="1">1</button><button type="button" data-key="2">2</button><button type="button" data-key="3">3</button><button type="button" data-key="4">4</button><button type="button" data-key="5">5</button><button type="button" data-key="6">6</button><button type="button" data-key="7">7</button><button type="button" data-key="8">8</button><button type="button" data-key="9">9</button><button type="button" data-key="*">*</button><button type="button" data-key="0">0</button><button type="button" data-key="#">#</button></div><div class="ph-acts"><button type="button" class="pg-btn main" id="c-ph-dial">拨号</button><button type="button" class="pg-btn danger" id="c-ph-hang">挂断</button><button type="button" class="pg-btn" id="c-ph-back" aria-label="删除一位">删除</button></div></section>
-<div class="w7 ph-col"><section class="card pg-card"><h2><svg class="i"><use href="#i-clock"/></svg>当前通话</h2><p class="ph-state" id="c-ph-state" role="status">登录后在这里接听和拨号。</p><div id="c-ph-live"></div></section><section class="card pg-card"><h2><svg class="i"><use href="#i-list"/></svg>最近通话</h2><div id="c-ph-calls"></div><p class="none" id="c-ph-calls-empty">登录后显示</p></section></div>
+<div class="w7 ph-col"><section class="card pg-card"><h2><svg class="i"><use href="#i-clock"/></svg>当前通话</h2><p class="ph-state" id="c-ph-state" role="status">登录后在这里接听和拨号。</p><div id="c-ph-live"></div></section><section class="card pg-card"><h2><svg class="i"><use href="#i-list"/></svg>通话记录</h2>
+<div class="call-history-tools"><button type="button" class="pg-btn" id="c-call-select">选择</button><button type="button" class="pg-btn" id="c-call-select-all" hidden>全选</button><button type="button" class="pg-btn" id="c-call-delete" hidden>删除所选</button><button type="button" class="pg-btn" id="c-call-clear">全选删除</button></div>
+<p class="pg-note" id="c-call-operation" role="status"></p><div id="c-ph-calls"></div><p class="none" id="c-ph-calls-empty">登录后显示</p></section></div>
 </div></div>
 <div class="pg" id="v-security" hidden>
 <div class="pg-grid num">
@@ -239,15 +266,15 @@
 <button type="button" class="mh-sv" data-debug="nas-bridge-panel"><svg class="i"><use href="#i-nas"/></svg>NasSimHub<em>查看绑定</em><svg class="i ch"><use href="#i-chev"/></svg></button>
 <button type="button" class="mh-sv" data-go="security"><svg class="i"><use href="#i-mob"/></svg>AirSIM 手机<em>配对管理</em><svg class="i ch"><use href="#i-chev"/></svg></button>
 <button type="button" class="mh-sv" data-debug="support-panel"><svg class="i"><use href="#i-globe"/></svg>NKN 远程<em>手动核对</em><svg class="i ch"><use href="#i-chev"/></svg></button>
-<button type="button" class="mh-sv" data-debug="forwarding-panel"><svg class="i"><use href="#i-send"/></svg>短信转发<em>手动核对</em><svg class="i ch"><use href="#i-chev"/></svg></button>
+<button type="button" class="mh-sv" data-go="forwarding"><svg class="i"><use href="#i-send"/></svg>短信转发<svg class="i ch"><use href="#i-chev"/></svg></button>
 </div></div>
 <div class="pg phone-only" id="v-mcomm" hidden>
 <div class="mc-tabs" role="group" aria-label="通信分类"><button type="button" data-mc="sms" aria-pressed="true"><svg class="i"><use href="#i-msg"/></svg>短信</button><button type="button" data-mc="otp" aria-pressed="false"><svg class="i"><use href="#i-shield"/></svg>验证码</button><button type="button" data-mc="call" aria-pressed="false"><svg class="i"><use href="#i-phone"/></svg>通话</button></div>
 <div class="mc-search"><label><svg class="i"><use href="#i-search"/></svg><input id="c-mc-q" type="search" placeholder="搜索短信、验证码或号码" aria-label="搜索"></label><select id="c-mc-f" aria-label="筛选"><option value="all">筛选</option><option value="sms">只看短信</option><option value="otp">只看验证码</option><option value="call">只看通话</option></select></div>
-<section class="mc-g" id="c-mc-g-sms"><div class="mc-h"><span class="mc-av"><svg class="i"><use href="#i-msg"/></svg></span><b>普通短信</b><button type="button" class="mc-all" data-all="sms">查看全部（<span id="c-mc-n-sms">0</span>）<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-mc-sms"></div><p class="none" id="c-mc-e-sms">登录后显示</p></section>
-<section class="mc-g" id="c-mc-g-otp"><div class="mc-h"><span class="mc-av"><svg class="i"><use href="#i-shield"/></svg></span><b>验证码</b><button type="button" class="mc-all" data-all="otp">查看全部（<span id="c-mc-n-otp">0</span>）<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-mc-otp"></div><p class="none" id="c-mc-e-otp">登录后显示</p></section>
+<section class="mc-g" id="c-mc-g-sms"><div class="mc-h"><span class="mc-av"><svg class="i"><use href="#i-msg"/></svg></span><b>普通短信</b><span id="c-mc-n-sms">0</span></div><div id="c-mc-sms"></div><p class="none" id="c-mc-e-sms">登录后显示</p></section>
+<section class="mc-g" id="c-mc-g-otp"><div class="mc-h"><span class="mc-av"><svg class="i"><use href="#i-shield"/></svg></span><b>验证码</b><span id="c-mc-n-otp">0</span></div><div id="c-mc-otp"></div><p class="none" id="c-mc-e-otp">登录后显示</p></section>
 <section class="mc-g" id="c-mc-g-call"><div class="mc-h"><span class="mc-av r"><svg class="i"><use href="#i-phone"/></svg></span><b>最近通话</b><button type="button" class="mc-all" data-all="call">查看全部（<span id="c-mc-n-call">0</span>）<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-mc-call"></div><p class="none" id="c-mc-e-call">登录后显示</p></section>
-<button type="button" class="pg-btn mc-more" id="c-mc-more" hidden>加载更早的记录</button><div class="mc-acts"><button type="button" class="pg-btn main" data-tab="1">写短信</button><button type="button" class="pg-btn" data-tab="2">拨号</button></div>
+<button type="button" class="pg-btn mc-more" id="c-mc-more" hidden>加载更早的记录</button><div class="mc-acts"><button type="button" class="pg-btn" id="c-mc-manage">管理短信</button><button type="button" class="pg-btn" data-tab="4">回收站</button></div><div class="mc-acts"><button type="button" class="pg-btn main" data-tab="1">写短信</button><button type="button" class="pg-btn" data-tab="2">拨号</button></div>
 </div>
 <div class="pg phone-only" id="v-more" hidden>
 <div class="mh-svc">
@@ -290,7 +317,61 @@
 </section></details>
 
 <details id="network-panel" data-configuration><summary>网络状态、流量与配置</summary><section id="network-section"><h2>网络状态与测试</h2><div id="net-status"><div class="actions"><button id="network-login">登录查看网络</button><button id="network-refresh">刷新网络状态</button></div><p id="network-state" role="status">登录所有者或具有网络管理权限的浏览器后查看</p><div id="network-devices"></div><details><summary>无线参数与当前小区</summary><dl id="network-radio" class="network-grid"></dl></details></div><div id="net-traffic"><h3>实时蜂窝网速</h3><p id="network-rates">等待登录</p><canvas id="network-chart" width="720" height="120" aria-label="最近60次采样的下载与上传速率">下载为青色，上传为黄色</canvas><h3>本月流量与限额</h3><dl id="network-month" class="network-grid"></dl><p id="network-accounting-note"></p><label><input id="network-limit-enabled" type="checkbox">开启月限额，到量断开普通数据</label><div class="network-fields"><label>每月额度（GB，1 GB = 10⁹ B）<input id="network-limit-gb" type="number" min="0.000001" max="100000" step="any" inputmode="decimal"></label><label>每月重置日（短月份取最后一天）<input id="network-reset-day" type="number" min="1" max="31" step="1" value="1"></label></div><label id="network-ack-row" hidden><input id="network-ack-gap" type="checkbox">已了解计量中断，接受已保存的统计值并解除不确定状态</label><button id="network-policy-save" disabled>保存流量限制</button><p>需要所有者最近5分钟内登录。关闭限制不会自动打开数据；上网数据与电话、短信分别管理。</p></div><div id="net-test"><h3>主动网络测试</h3><label>测试链路<select id="network-interface"></select></label><label><input id="network-cellular-consent" type="checkbox">允许本次测试使用蜂窝流量</label><div class="actions"><button id="network-test-connectivity">测试 DNS / HTTPS</button><button id="network-test-download">下载测速 · 约 1 MB</button></div><p>只测试选中的已连接链路，最多15秒；每次手动开始，不自动重试或回退。</p><p id="network-test-result" role="status"></p></div></section><section id="wifi-section" hidden><h2>Wi-Fi 配置</h2><p>需要所有者最近5分钟内登录。先试连接，确认成功后才保存；40秒未确认会恢复原配置。切换可能使当前网页暂时断开，请先准备可用的备用维护连接。</p><div class="actions"><button id="wifi-login">重新登录配置 Wi-Fi</button><button id="wifi-networks-refresh">读取已发现的网络</button></div><p id="wifi-networks-state" role="status" aria-live="polite">点击读取设备已发现的网络，也可手输网络名。</p><div id="wifi-networks"></div><label>网络名称（隐藏网络可直接填写）<input id="wifi-ssid" autocomplete="off" maxlength="32"></label><label>WPA2 个人网络密码<input id="wifi-passphrase" type="password" autocomplete="off" maxlength="64"></label><button id="wifi-begin">试连接新配置</button><p id="wifi-state" role="status" aria-live="polite">没有试连接</p><div class="actions"><button id="wifi-status" disabled>查询连接结果</button><button id="wifi-confirm" disabled>确认保存</button><button id="wifi-cancel" disabled>取消并恢复</button></div></section></details>
-<details id="forwarding-panel" data-configuration><summary>短信转发 · 开关与规则</summary><section id="forwarding-section"><h2>短信转发</h2><p>默认关闭；关闭后停止独立转发进程。自动转发只处理启用后的新短信；历史补发需要另外预览和确认。地址和密钥不回显，修改普通规则会保留旧凭据。</p><div class="actions"><button id="forwarding-login">管理登录并读取</button><button id="forwarding-refresh">读取状态</button><button id="forwarding-toggle" disabled>开启转发</button></div><p id="forwarding-state" role="status" aria-live="polite"></p><p id="forwarding-pending" class="mono"></p><div class="actions"><button id="forwarding-query" hidden>核对上次请求</button><button id="forwarding-archive" hidden>保留未确认记录并继续</button></div><h3>转发目标</h3><p>支持 Bark、Telegram、钉钉、企业微信、飞书、Server酱、PushPlus、Gotify 和 Webhook，最多8个。只在需要替换时重新填写地址和凭据；输入不会保存到浏览器草稿。</p><div id="forwarding-targets"></div><button id="forwarding-add-target" disabled>新增目标</button><h3>匹配规则</h3><p>最多32条，所有筛选条件须同时满足；同一目标按第一条匹配规则发送一次。默认仅通知；可明确选择隐藏英数字或完整正文。高级条件支持有限正则和按短信标注时间判断的固定时区窗口。</p><div id="forwarding-rules"></div><button id="forwarding-add-rule" disabled>新增规则</button><div class="actions"><button id="forwarding-save" disabled>保存目标和规则</button></div><p class="forwarding-warning">保存和开关修改需要所有者最近5分钟内登录。已发出的第三方请求不能保证撤回；结果不确定时不会自动重发。关闭此配置区会清空尚未提交的地址和密钥。</p><details id="forwarding-history-panel"><summary>历史短信补发 · 先预览再确认</summary><p>仅补发所选范围中符合现有规则的短信；每批最多32条、64个递送。预览不会发送或开启转发；总开关已开启时才能确认。旧在途、未确认和已确认记录会跳过。</p><button id="forwarding-history-login">管理登录并读取</button><label>本批从哪里开始<select id="forwarding-history-after"><option value="0">从最早保存的短信开始</option></select></label><label>本批最多查看条数<input id="forwarding-history-limit" type="number" min="1" max="32" value="16"></label><label>补发到（可多选）<select id="forwarding-history-targets" multiple size="3" disabled></select></label><button id="forwarding-history-prepare" disabled>预览这批短信</button><p id="forwarding-history-state" role="status" aria-live="polite"></p><div id="forwarding-history-preview"></div><details><summary>本机已保存的补发摘要</summary><div id="forwarding-history-saved"></div></details><label><input id="forwarding-history-full" type="checkbox" disabled>我同意本批预览中标明的完整正文和发送方外发</label><div class="actions"><button id="forwarding-history-commit" disabled>确认补发一次</button><button id="forwarding-history-cancel" disabled>取消未提交预览</button><button id="forwarding-history-query" disabled>核对本批回执</button><button id="forwarding-history-archive" disabled>保存回执并归档本批</button></div><p>五分钟或设备服务重启后，未确认预览会失效；刷新只核对，不会重新发送。存在在途或Unknown时不能归档，先保留并核对。归档只清理批次索引，递送回执仍在设备上；浏览器先保留本批摘要。</p></details><h3>一键测试转发</h3><p>转发服务确认运行后，向一个已保存目标发送固定合成通知，不使用真实短信。只提交一次，短时自动核对回执。</p><label>测试目标<select id="forwarding-test-target" disabled></select></label><button id="forwarding-test" disabled>发送一条合成测试</button><details><summary>递送回执</summary><button id="forwarding-receipts-refresh">读取递送回执</button><div id="forwarding-receipts"></div><button id="forwarding-receipts-more" disabled>更多回执</button></details></section></details>
+<details id="forwarding-panel" data-configuration><summary>短信转发</summary>
+<section id="forwarding-section" class="forwarding-workspace">
+<header class="fw-bar">
+ <nav class="fw-nav" aria-label="短信转发管理">
+  <button type="button" id="fw-nav-records" aria-current="page"><svg class="i" aria-hidden="true"><use href="#i-log"/></svg>转发记录</button>
+  <button type="button" id="fw-nav-channels"><svg class="i" aria-hidden="true"><use href="#i-send"/></svg>发送通道</button>
+  <button type="button" id="fw-nav-rules"><svg class="i" aria-hidden="true"><use href="#i-list"/></svg>转发规则</button>
+  <button type="button" id="fw-nav-settings"><svg class="i" aria-hidden="true"><use href="#i-gear"/></svg>设置</button>
+ </nav>
+ <div class="fw-session"><span class="fw-status" id="forwarding-status-badge">未读取</span><button type="button" id="forwarding-login">所有者登录</button></div>
+</header>
+<p id="forwarding-state" class="fw-feedback" role="status" aria-live="polite"></p>
+<div class="fw-recovery" id="fw-recovery" hidden>
+ <p id="forwarding-pending"></p>
+ <div class="actions"><button type="button" id="forwarding-query">核对上次请求</button><button type="button" id="forwarding-archive">保留记录并继续</button></div>
+</div>
+<div class="fw-page" id="fw-page-records" aria-labelledby="fw-records-title">
+ <div class="fw-page-head"><h2 id="fw-records-title">转发记录</h2><div class="fw-actions">
+  <button type="button" class="fw-remove" id="fw-log-clear">清空记录</button>
+  <button type="button" id="forwarding-receipts-refresh">刷新记录</button>
+ </div></div>
+ <div class="fw-log-filters">
+  <label class="fw-filter"><span class="fw-sr-only">筛选记录状态</span><select id="fw-record-filter"><option value="all">全部状态</option><option value="confirmed">已确认</option><option value="failed">失败</option><option value="pending">待核对</option><option value="cancelled">已取消</option></select></label>
+  <label class="fw-filter"><span class="fw-sr-only">筛选记录类型</span><select id="fw-log-kind"><option value="all">全部类型</option><option value="sms">短信转发</option><option value="test">合成测试</option></select></label>
+  <label class="fw-filter"><span class="fw-sr-only">筛选发送通道</span><select id="fw-log-target"><option value="all">全部通道</option></select></label>
+  <button type="button" id="fw-log-reset" hidden>重置筛选</button>
+ </div>
+ <div id="fw-record-empty" class="fw-empty"><span class="fw-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-log"/></svg></span><strong id="forwarding-receipts-empty">还未读取转发记录</strong><p id="fw-record-hint"></p><button type="button" class="fw-primary" id="fw-next" hidden></button></div>
+ <ul class="fw-list" id="forwarding-receipts"></ul>
+ <div class="fw-page-foot"><button type="button" id="forwarding-receipts-more" hidden>加载更早记录</button></div>
+</div>
+<div class="fw-page" id="fw-page-channels" aria-labelledby="fw-channels-title" hidden>
+ <div class="fw-page-head"><h2 id="fw-channels-title">发送通道 <small id="forwarding-target-count"></small></h2><button type="button" class="fw-primary" id="forwarding-add-target" disabled>＋ 添加通道</button></div>
+ <div class="fw-empty" id="forwarding-target-empty"><span class="fw-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-send"/></svg></span><strong>还没有发送通道</strong><p>添加 Bark、Webhook 或机器人等接收方式。</p></div>
+ <ul class="fw-list" id="forwarding-targets"></ul>
+</div>
+<div class="fw-page" id="fw-page-rules" aria-labelledby="fw-rules-title" hidden>
+ <div class="fw-page-head"><h2 id="fw-rules-title">转发规则 <small id="forwarding-rule-count"></small></h2><button type="button" class="fw-primary" id="forwarding-add-rule" disabled>＋ 添加规则</button></div>
+ <div class="fw-empty" id="forwarding-rule-empty"><span class="fw-empty-icon"><svg class="i" aria-hidden="true"><use href="#i-list"/></svg></span><strong>还没有转发规则</strong><p id="fw-rule-hint"></p><button type="button" id="fw-rule-channel" hidden>去添加通道</button></div>
+ <ul class="fw-list" id="forwarding-rules"></ul>
+</div>
+<div class="fw-page" id="fw-page-settings" aria-labelledby="fw-settings-title" hidden>
+ <div class="fw-page-head"><h2 id="fw-settings-title">转发设置</h2><button type="button" id="forwarding-refresh">刷新配置</button></div>
+ <div class="fw-setting"><div><h3>短信转发总开关</h3><p id="fw-toggle-hint">开启后只处理新收到的短信。</p></div><button type="button" class="fw-primary" id="forwarding-toggle" disabled>开启转发</button></div>
+ <details id="forwarding-history-panel"><summary>历史短信补发</summary><p>先预览符合现有规则的短信。每批最多 32 条短信，已发送或状态不明的记录会跳过。</p><button id="forwarding-history-login">管理登录并读取</button><label>本批从哪里开始<select id="forwarding-history-after"><option value="0">从最早保存的短信开始</option></select></label><label>本批最多查看条数<input id="forwarding-history-limit" type="number" min="1" max="32" value="16"></label><label>补发到（可多选）<select id="forwarding-history-targets" multiple size="3" disabled></select></label><button id="forwarding-history-prepare" disabled>预览这批短信</button><p id="forwarding-history-state" role="status" aria-live="polite"></p><div id="forwarding-history-preview"></div><details><summary>本机已保存的补发摘要</summary><div id="forwarding-history-saved"></div></details><label><input id="forwarding-history-full" type="checkbox" disabled>我同意本批预览中标明的完整正文和发送方外发</label><div class="actions"><button id="forwarding-history-commit" disabled>确认补发一次</button><button id="forwarding-history-cancel" disabled>取消未提交预览</button><button id="forwarding-history-query" disabled>核对本批回执</button><button id="forwarding-history-archive" disabled>保存回执并归档本批</button></div><p>五分钟或设备服务重启后，未确认预览会失效；刷新只核对，不会重新发送。存在在途或Unknown时不能归档，先保留并核对。归档只清理批次索引，递送回执仍在设备上；浏览器先保留本批摘要。</p></details>
+</div>
+<dialog class="fw-dialog" id="fw-dialog" aria-labelledby="fw-dialog-title">
+ <form id="fw-dialog-form" autocomplete="off">
+  <header class="fw-dialog-head"><h2 id="fw-dialog-title"></h2><button type="button" class="fw-close" id="fw-dialog-close" aria-label="关闭">×</button></header>
+  <div class="fw-dialog-body" id="fw-dialog-body"></div>
+  <p class="fw-dialog-error" id="fw-dialog-error" role="alert" hidden></p>
+  <footer class="fw-dialog-foot"><button type="button" class="fw-remove" id="fw-dialog-remove" hidden>删除</button><div class="fw-actions"><button type="button" id="fw-dialog-cancel">取消</button><button type="submit" class="fw-primary" id="forwarding-save">保存</button></div></footer>
+ </form>
+</dialog>
+</section></details>
 <details id="ap-identity-panel" data-configuration><summary>连接与配对设置</summary>
 <section id="identity-section"><h2>连接与身份</h2><label>设备公钥（通过可信 USB / CLI 核对）<input id="pin" autocomplete="off" maxlength="64" placeholder="64 位十六进制公钥"></label><p id="client-key" class="mono"></p><label><input type="checkbox" id="write-scope">配对时申请短信发送、通话控制和音频权限</label><div class="actions"><button id="pair">申请配对</button><button id="login">登录已批准的浏览器</button><button id="logout">退出</button></div></section>
 <section id="clients-section"><h2>配对审批（所有者）</h2><p>给 USB 工具或其他浏览器授权前，先允许配对；对方提交后，逐字核对公钥和权限再批准。撤销立即生效。需要所有者在最近5分钟内登录。</p><div class="actions"><button id="clients-open-pairing">允许新设备配对（5 分钟）</button><button id="clients-refresh">刷新列表</button></div><p id="clients-state" role="status" aria-live="polite"></p><h3>待批准的申请</h3><div id="clients-pending"></div><h3>已授权的客户端</h3><div id="clients-list"></div></section>

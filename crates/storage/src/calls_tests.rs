@@ -381,3 +381,38 @@ fn console_recent_preserves_recorded_terminal_history_without_restoring_control(
         Err(Error::StaleLine)
     ));
 }
+
+#[test]
+fn clear_call_history_is_owner_confirmed_and_keeps_active_calls() {
+    let (_dir, store, owner, context) = fixture();
+    let h = store.handle();
+    let ended = h
+        .observe_call(context.clone(), observation("ended#1", 7), || true)
+        .unwrap();
+    let active = h
+        .observe_call(context.clone(), observation("active#1", 4), || true)
+        .unwrap();
+    let snapshot = h.call_history_status(owner.clone()).unwrap();
+    assert_eq!(snapshot.ended, 1);
+    let late = h
+        .observe_call(context, observation("late#1", 7), || true)
+        .unwrap();
+    assert!(h
+        .hide_calls(owner.clone(), vec![ended.id.clone(), active.id.clone()])
+        .is_err());
+    assert!(h
+        .clear_call_history(owner.clone(), snapshot.through.clone(), 2)
+        .is_err());
+    assert_eq!(h.calls_recent(None, 16).unwrap().total, 3);
+    assert_eq!(
+        h.clear_call_history(owner, snapshot.through, snapshot.ended)
+            .unwrap(),
+        1
+    );
+    let recent = h.calls_recent(None, 16).unwrap();
+    assert_eq!(
+        recent.calls.iter().map(|c| &c.id).collect::<Vec<_>>(),
+        [&late.id, &active.id]
+    );
+    assert!(h.call_detail(ended.id).is_err());
+}

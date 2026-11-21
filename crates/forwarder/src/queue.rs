@@ -19,6 +19,8 @@ const APP_ID: i64 = OUTBOX_APPLICATION_ID;
 const FORMAT: i64 = OUTBOX_CURRENT_FORMAT;
 type CachedPolicy = ([u8; 32], Arc<Policy>);
 mod history;
+mod log;
+pub use log::{LogFilter, LogPage};
 #[cfg(feature = "smtp-production-candidate")]
 pub(crate) mod migration;
 pub use history::*;
@@ -340,6 +342,7 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         }
         // A lost worker/Core reply is never queued for automatic delivery again.
         history::ensure_confirmation_ids(&mut conn)?;
+        log::ensure(&conn)?;
         conn.execute(
             "UPDATE jobs SET state='unknown' WHERE state='in_flight'",
             [],
@@ -826,8 +829,27 @@ CREATE INDEX pending ON jobs(state,seq);")?;
         if after < 0 || !(1..=32).contains(&limit) {
             return Err(Error::Invalid);
         }
-        let mut statement=self.conn.prepare("SELECT seq,id,message_id,target_id,rule_id,generation,state,purpose='test' FROM jobs WHERE seq>? ORDER BY seq LIMIT ?")?;
-        let rows = statement.query_map(params![after, limit as i64], |r| {
+        self.read_receipts(
+            "SELECT seq,id,message_id,target_id,rule_id,generation,state,purpose='test' FROM jobs WHERE seq>? ORDER BY seq LIMIT ?",
+            after,
+            limit,
+        )
+    }
+
+    pub fn recent_receipts(&self, before: Option<i64>, limit: usize) -> Result<Vec<Receipt>> {
+        if before.is_some_and(|seq| seq <= 0) || !(1..=32).contains(&limit) {
+            return Err(Error::Invalid);
+        }
+        self.read_receipts(
+            "SELECT seq,id,message_id,target_id,rule_id,generation,state,purpose='test' FROM jobs WHERE seq<=? ORDER BY seq DESC LIMIT ?",
+            before.map_or(i64::MAX, |seq| seq - 1),
+            limit,
+        )
+    }
+
+    fn read_receipts(&self, query: &str, bound: i64, limit: usize) -> Result<Vec<Receipt>> {
+        let mut statement = self.conn.prepare(query)?;
+        let rows = statement.query_map(params![bound, limit as i64], |r| {
             Ok((
                 r.get::<_, i64>(0)?,
                 r.get::<_, String>(1)?,

@@ -23,10 +23,7 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | RecoveryRevoke { .. }
         | RecoveryKey { .. }
         | RecoveryRequest { .. }) => crate::recovery_authorization::dispatch(auth, command)?,
-        BluetoothModeStatus { token } => {
-            auth.recent_owner(&token)?;
-            crate::bluetooth_mode::request(b"S\n")?
-        }
+        BluetoothModeStatus { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         BluetoothModeSet {
             token,
             expected,
@@ -125,12 +122,18 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | ForwardingQuickTest { .. }
         | ForwardingTestRequest { .. }
         | ForwardingReceipts { .. }
+        | ForwardingRecentReceipts { .. }
+        | ForwardingLogPage { .. }
+        | ForwardingLogClear { .. }
         | ForwardingPrune { .. }
         | ForwardingHistoryPrepare { .. }
         | ForwardingHistoryCommit { .. }
         | ForwardingHistoryCancel { .. }
         | ForwardingHistoryArchive { .. }
         | ForwardingHistoryRequest { .. }
+        | DataRoamingStatus { .. }
+        | PrepareDataRoaming { .. }
+        | SetDataRoaming { .. }
         | SetNetworkPolicy { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         Calls {
             token,
@@ -144,6 +147,16 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
             limit,
         } => serde_json::to_value(auth.calls_recent(&token, before, limit)?)
             .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        CallHistoryStatus { token } => serde_json::to_value(auth.call_history_status(&token)?)
+            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        DeleteCallHistory { token, call_ids } => {
+            json!({"changed":auth.hide_calls(&token,call_ids)?})
+        }
+        ClearCallHistory {
+            token,
+            through,
+            expected,
+        } => json!({"changed":auth.clear_call_history(&token,through,expected)?}),
         CallDetail { token, call_id } => serde_json::to_value(auth.call_detail(&token, call_id)?)
             .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
         CallEvents {
@@ -212,6 +225,23 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         RestoreSms { token, sms_id } => {
             serde_json::to_value(auth.set_sms_deleted(&token, sms_id, false)?)
                 .map_err(|_| rustsimhub_auth::Error::InvalidInput)?
+        }
+        SetSmsDeletedBatch {
+            token,
+            sms_ids,
+            deleted,
+        } => {
+            json!({"changed":auth.set_sms_deleted_batch(&token, sms_ids, deleted)?})
+        }
+        SmsFolderStatus { token } => serde_json::to_value(auth.sms_folder_status(&token)?)
+            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        ApplySmsFolder {
+            token,
+            version,
+            head_seq,
+            purge,
+        } => {
+            json!({"changed":auth.apply_sms_folder(&token, version, head_seq, purge)?})
         }
         DeletedInbox {
             token,
@@ -307,6 +337,13 @@ pub(crate) async fn handle(
             | AuthCommand::SubmitSms { .. }
             | AuthCommand::SmsOperation { .. }
     );
+    let list_read = matches!(
+        request.command,
+        AuthCommand::LineStatus { .. }
+            | AuthCommand::InboxRecent { .. }
+            | AuthCommand::DeletedInbox { .. }
+            | AuthCommand::CallsRecent { .. }
+    );
     let calling = matches!(
         request.command,
         AuthCommand::CallStatus { .. }
@@ -319,7 +356,24 @@ pub(crate) async fn handle(
             | AuthCommand::CheckMediaLease { .. }
             | AuthCommand::CheckMediaPreflight { .. }
     );
-    let result = if matches!(
+    let status_read = matches!(
+        &request.command,
+        AuthCommand::SystemStatus { .. }
+            | AuthCommand::LineStatus { .. }
+            | AuthCommand::NetworkDiagnostics { .. }
+            | AuthCommand::DataRoamingStatus { .. }
+    );
+    let roaming_change = matches!(
+        &request.command,
+        AuthCommand::PrepareDataRoaming { .. } | AuthCommand::SetDataRoaming { .. }
+    );
+    let bluetooth_mode = matches!(
+        request.command,
+        AuthCommand::BluetoothModeStatus { .. } | AuthCommand::BluetoothModeSet { .. }
+    );
+    let result = if let AuthCommand::BluetoothModeStatus { token } = request.command {
+        tokio::task::spawn_blocking(move || crate::bluetooth_mode::status(&auth, &token)).await?
+    } else if matches!(
         request.command,
         AuthCommand::AirsimStatus { .. }
             | AuthCommand::AirsimConfigure { .. }
@@ -376,6 +430,9 @@ pub(crate) async fn handle(
             | AuthCommand::ForwardingQuickTest { .. }
             | AuthCommand::ForwardingTestRequest { .. }
             | AuthCommand::ForwardingReceipts { .. }
+            | AuthCommand::ForwardingRecentReceipts { .. }
+            | AuthCommand::ForwardingLogPage { .. }
+            | AuthCommand::ForwardingLogClear { .. }
             | AuthCommand::ForwardingPrune { .. }
             | AuthCommand::ForwardingHistoryPrepare { .. }
             | AuthCommand::ForwardingHistoryCommit { .. }
@@ -455,7 +512,11 @@ pub(crate) async fn handle(
         .await?
     } else if matches!(
         request.command,
-        AuthCommand::NetworkDiagnostics { .. } | AuthCommand::SetNetworkPolicy { .. }
+        AuthCommand::NetworkDiagnostics { .. }
+            | AuthCommand::SetNetworkPolicy { .. }
+            | AuthCommand::DataRoamingStatus { .. }
+            | AuthCommand::PrepareDataRoaming { .. }
+            | AuthCommand::SetDataRoaming { .. }
     ) {
         crate::network_diagnostics::authorized(auth.clone(), request.command).await
     } else if let AuthCommand::NetworkStatus { token } = request.command {
@@ -569,6 +630,12 @@ pub(crate) async fn handle(
                 }
             }
             value
+        }
+        Err(rustsimhub_auth::Error::Busy) if list_read || bluetooth_mode || status_read || roaming_change => {
+            json!({"ok":false,"error":"busy"})
+        }
+        Err(rustsimhub_auth::Error::Expired) if bluetooth_mode || roaming_change => {
+            json!({"ok":false,"error":"owner_reauthentication_required"})
         }
         Err(_) => json!({"ok":false,"error":"denied"}),
     };

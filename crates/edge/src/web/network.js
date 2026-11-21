@@ -14,7 +14,7 @@ export function radioRows(cellular={}){
  return [['运营商',text(cellular.operator)],['注册状态',({home:'本地注册',roaming:'漫游',searching:'搜索网络',denied:'注册被拒绝'})[cellular.registration]||text(cellular.registration)],['接入制式',join(cellular.access_technologies)],['信号质量',Number.isFinite(cellular.signal_percent)&&cellular.signal_percent>=0&&cellular.signal_percent<=100?`${cellular.signal_percent}%`:null],['当前驻留频段',Number.isInteger(f.band)&&f.band>0?`LTE B${f.band}`:null],['下行频率',frequency(f.downlink_mhz)],['上行频率',frequency(f.uplink_mhz)],['当前带宽',measurement(c.bandwidth_mhz,'MHz',true)||'设备暂未提供'],['小区 ID',typeof c.cell_id==='string'&&/^[0-9a-f]+$/i.test(c.cell_id)?`0x${c.cell_id}`:null],['物理小区 ID',text(c.physical_cell_id)],['TAC',typeof c.tracking_area_code==='string'&&/^[0-9a-f]+$/i.test(c.tracking_area_code)?`0x${c.tracking_area_code}`:null],['EARFCN 信道',Number.isInteger(c.earfcn)&&c.earfcn>=0?c.earfcn:null],['RSRP',measurement(c.rsrp,'dBm')],['RSRQ',measurement(c.rsrq,'dB')],['SINR',measurement(c.sinr,'dB')],['允许使用的频段（不是当前驻留）',join(cellular.configured_bands)]];
 }
 export class NetworkPanel {
- constructor({document,request,getToken,runTest,onSample=()=>{}}){this.doc=document;this.request=request;this.getToken=getToken;this.runTest=runTest;this.onSample=onSample;this.epoch=0;this.running=false;this.timer=null;this.sample=null;this.editing=false;this.history=[];this.pending=null;this.testing=false;
+ constructor({document,request,getToken,runTest,onSample=()=>{},transientReadError=()=>false}){this.doc=document;this.request=request;this.getToken=getToken;this.runTest=runTest;this.onSample=onSample;this.transientReadError=transientReadError;this.epoch=0;this.running=false;this.timer=null;this.sample=null;this.editing=false;this.history=[];this.pending=null;this.testing=false;
   this.$=id=>document.getElementById(id);
   this.$('network-refresh').onclick=()=>this.refresh();
   this.$('network-policy-save').onclick=()=>this.savePolicy();
@@ -29,9 +29,11 @@ export class NetworkPanel {
  }
  rows(parent,rows){parent.replaceChildren();for(const [label,value] of rows){const a=this.doc.createElement('dt'),b=this.doc.createElement('dd');a.textContent=label;b.textContent=text(value);parent.append(a,b);}}
  async refresh(){clearTimeout(this.timer);if(!this.running||!this.getToken()||this.doc.hidden){this.schedule();return;}if(this.loading){this.schedule();return;}this.loading=true;const epoch=this.epoch;
-  try{const s=await this.request({op:'network_diagnostics'});if(epoch!==this.epoch)return;if(s.available!==true)throw Error(s.reason||'网络监测尚未就绪');this.sample=s;this.render(s);this.onSample(s);this.$('network-state').textContent=this.pending?'正在等待设备应用限额设置…':`已更新 · ${new Date(s.sample_unix_seconds*1000).toLocaleTimeString()} · 仅查看状态不消耗测试流量`;
+  try{const s=await this.request({op:'network_diagnostics'});if(epoch!==this.epoch)return;if(s.available!==true)throw Error(s.reason||'网络监测尚未就绪');this.sample=s;this.sampleAt=Date.now();this.render(s);this.onSample(s);this.$('network-state').textContent=this.pending?'正在等待设备应用限额设置…':`已更新 · ${new Date(s.sample_unix_seconds*1000).toLocaleTimeString()} · 仅查看状态不消耗测试流量`;
    if(this.pending&&s.last_request_id===this.pending){this.pending=null;this.editing=false;this.$('network-state').textContent='限额设置已生效；没有自动启用蜂窝数据';this.render(s);}
-  }catch(error){if(epoch!==this.epoch)return;this.sample=null;this.onSample(null);this.$('network-state').textContent=error.message||'网络状态暂不可用';this.$('network-policy-save').disabled=true;this.$('network-devices').replaceChildren();this.$('network-radio').replaceChildren();this.$('network-month').replaceChildren();this.$('network-rates').textContent='数据已过期，等待重新连接';this.$('network-interface').replaceChildren();this.history=[];this.draw();}
+  }catch(error){if(epoch!==this.epoch)return;
+   if(this.transientReadError(error)&&this.sample&&Date.now()-this.sampleAt<30000)return;
+   this.sample=null;this.onSample(null);this.$('network-state').textContent=error.message||'网络状态暂不可用';this.$('network-policy-save').disabled=true;this.$('network-devices').replaceChildren();this.$('network-radio').replaceChildren();this.$('network-month').replaceChildren();this.$('network-rates').textContent='数据已过期，等待重新连接';this.$('network-interface').replaceChildren();this.history=[];this.draw();}
   finally{this.loading=false;this.schedule();}
  }
  schedule(){if(this.running)this.timer=setTimeout(()=>void this.refresh(),2500);}

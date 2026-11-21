@@ -15,13 +15,13 @@ use std::{
     thread,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-const BASE: &str = "/var/lib/rustsimhub/rustsimhub-v1/system/network";
+pub(crate) type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+pub(crate) const BASE: &str = "/var/lib/rustsimhub/rustsimhub-v1/system/network";
 const OUTPUT: &str = "/run/rustsimhub-network";
-const INPUT: &str = "/run/rustsimhub-network-input";
+pub(crate) const INPUT: &str = "/run/rustsimhub-network-input";
 const LIMIT: usize = rustsimhub_network_agent::MAX_STATE_BYTES;
 
-fn checked(p: &Path, uid: u32, mode: u32) -> Result<Vec<u8>> {
+pub(crate) fn checked(p: &Path, uid: u32, mode: u32) -> Result<Vec<u8>> {
     let f = OpenOptions::new()
         .read(true)
         .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
@@ -49,7 +49,12 @@ fn directory(p: &str, mode: u32) -> Result<()> {
     }
     Ok(())
 }
-fn publish(dir: &str, name: &str, value: &impl serde::Serialize, mode: u32) -> Result<()> {
+pub(crate) fn publish(
+    dir: &str,
+    name: &str,
+    value: &impl serde::Serialize,
+    mode: u32,
+) -> Result<()> {
     let bytes = serde_json::to_vec(value)?;
     if bytes.len() > LIMIT {
         return Err("network report too large".into());
@@ -69,7 +74,7 @@ fn publish(dir: &str, name: &str, value: &impl serde::Serialize, mode: u32) -> R
     File::open(dir)?.sync_all()?;
     Ok(())
 }
-fn command(program: &str, args: &[&str], input: Option<&str>) -> Result<String> {
+pub(crate) fn command(program: &str, args: &[&str], input: Option<&str>) -> Result<String> {
     if !["/usr/bin/nmcli", "/usr/bin/mmcli", "/usr/sbin/nft"].contains(&program) {
         return Err("unknown network tool".into());
     }
@@ -238,7 +243,7 @@ fn now() -> Result<i64> {
         .as_secs()
         .try_into()?)
 }
-fn uptime_ms() -> Result<u64> {
+pub(crate) fn uptime_ms() -> Result<u64> {
     Ok((fs::read_to_string("/proc/uptime")?
         .split_whitespace()
         .next()
@@ -622,10 +627,12 @@ pub fn run() -> Result<()> {
     let mut sim = String::new();
     let mut applied: Option<(Vec<String>, Option<u64>, String)> = None;
     let mut last_save = Instant::now();
+    let mut roaming = crate::roaming::Monitor::new();
     loop {
         let timestamp = now()?;
         let tick = Instant::now();
-        if last_radio.elapsed() >= Duration::from_secs(15) {
+        let roam_request = roaming.pending(&boot);
+        if roam_request.is_some() || last_radio.elapsed() >= Duration::from_secs(15) {
             match collect_radio(&state.salt) {
                 Ok((r, s)) => {
                     radio = r;
@@ -703,7 +710,8 @@ pub fn run() -> Result<()> {
         let elapsed = previous.elapsed().as_secs_f64().max(0.001);
         let rate_rx = rx.checked_sub(last_counter.0).map(|n| n as f64 / elapsed);
         let rate_tx = tx.checked_sub(last_counter.1).map(|n| n as f64 / elapsed);
-        let status = json!({"schema":1,"available":true,"sample_unix_seconds":timestamp,"boot_id":boot,"devices":devices,"cellular":radio,"policy":state.policy,"usage":usage,"rx_bytes":rx,"tx_bytes":tx,"rx_bytes_per_second":if last_counter==(0,0){None}else{rate_rx},"tx_bytes_per_second":if last_counter==(0,0){None}else{rate_tx},"counter_source":"nftables-ip-packets","limit_enforcement":"shared-kernel-quota-and-NM-disconnect","accounting_note":"按当前SIM分开，Asia/Shanghai自然月；本机IP层估算，运营商账单为准；异常掉电可能缺最后5秒，限额开启时计量不确定会阻断普通数据","last_request_id":state.last_request,"policy_applied":applied.is_some(),"hardware_mutations":state.policy.enabled,"apn_autoactivation":false});
+        let data_roaming = roaming.tick(&sim, roam_request);
+        let status = json!({"schema":1,"data_roaming":data_roaming,"available":true,"sample_unix_seconds":timestamp,"boot_id":boot,"devices":devices,"cellular":radio,"policy":state.policy,"usage":usage,"rx_bytes":rx,"tx_bytes":tx,"rx_bytes_per_second":if last_counter==(0,0){None}else{rate_rx},"tx_bytes_per_second":if last_counter==(0,0){None}else{rate_tx},"counter_source":"nftables-ip-packets","limit_enforcement":"shared-kernel-quota-and-NM-disconnect","accounting_note":"按当前SIM分开，Asia/Shanghai自然月；本机IP层估算，运营商账单为准；异常掉电可能缺最后5秒，限额开启时计量不确定会阻断普通数据","last_request_id":state.last_request,"policy_applied":applied.is_some(),"hardware_mutations":state.policy.enabled,"apn_autoactivation":false});
         publish(OUTPUT, "status.json", &status, 0o640)?;
         if last_save.elapsed() >= Duration::from_secs(5) {
             publish(BASE, "meter.json", &state, 0o600)?;

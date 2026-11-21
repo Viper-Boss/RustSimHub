@@ -110,6 +110,23 @@ pub enum AuthCommand {
         after: String,
         limit: usize,
     },
+    ForwardingRecentReceipts {
+        token: String,
+        before: Option<String>,
+        limit: usize,
+    },
+    ForwardingLogPage {
+        token: String,
+        before: Option<String>,
+        limit: usize,
+        filter: serde_json::Value,
+    },
+    ForwardingLogClear {
+        token: String,
+        through: String,
+        only: Option<String>,
+        filter: serde_json::Value,
+    },
     ForwardingPrune {
         token: String,
         generation: u64,
@@ -314,6 +331,17 @@ pub enum AuthCommand {
     NetworkDiagnostics {
         token: String,
     },
+    DataRoamingStatus {
+        token: String,
+    },
+    PrepareDataRoaming {
+        token: String,
+    },
+    SetDataRoaming {
+        token: String,
+        enabled: bool,
+        confirmation: Option<String>,
+    },
     SetNetworkPolicy {
         token: String,
         request_id: String,
@@ -385,6 +413,20 @@ pub enum AuthCommand {
         token: String,
         sms_id: String,
     },
+    SetSmsDeletedBatch {
+        token: String,
+        sms_ids: Vec<String>,
+        deleted: bool,
+    },
+    SmsFolderStatus {
+        token: String,
+    },
+    ApplySmsFolder {
+        token: String,
+        version: rustsimhub_domain::InboxCursor,
+        head_seq: String,
+        purge: bool,
+    },
     DeletedInbox {
         token: String,
         after: Option<rustsimhub_domain::InboxCursor>,
@@ -437,6 +479,18 @@ pub enum AuthCommand {
         token: String,
         before: Option<rustsimhub_domain::InboxCursor>,
         limit: usize,
+    },
+    CallHistoryStatus {
+        token: String,
+    },
+    DeleteCallHistory {
+        token: String,
+        call_ids: Vec<String>,
+    },
+    ClearCallHistory {
+        token: String,
+        through: rustsimhub_domain::InboxCursor,
+        expected: usize,
     },
     CallDetail {
         token: String,
@@ -783,6 +837,55 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
             limit,
         } => {
             if token.len() != 64 || !decimal_sequence(after) || !(1..=32).contains(limit) {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ForwardingRecentReceipts {
+            token,
+            before,
+            limit,
+        } => {
+            if token.len() != 64
+                || before
+                    .as_ref()
+                    .is_some_and(|seq| seq == "0" || !decimal_sequence(seq))
+                || !(1..=32).contains(limit)
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ForwardingLogPage {
+            token,
+            before,
+            limit,
+            filter,
+        } => {
+            if token.len() != 64
+                || before
+                    .as_ref()
+                    .is_some_and(|seq| seq == "0" || !decimal_sequence(seq))
+                || !(1..=32).contains(limit)
+                || !filter.is_object()
+                || filter.to_string().len() > 256
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ForwardingLogClear {
+            token,
+            through,
+            only,
+            filter,
+        } => {
+            if token.len() != 64
+                || !decimal_sequence(through)
+                || through == "0"
+                || only
+                    .as_ref()
+                    .is_some_and(|seq| seq == "0" || !decimal_sequence(seq))
+                || !filter.is_object()
+                || filter.to_string().len() > 256
+            {
                 return Err(invalid());
             }
         }
@@ -1185,6 +1288,32 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 return Err(invalid());
             }
         }
+        AuthCommand::CallHistoryStatus { token } => {
+            if token.len() != 64 {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::DeleteCallHistory { token, call_ids } => {
+            if token.len() != 64
+                || !(1..=32).contains(&call_ids.len())
+                || !call_ids.iter().all(|id| canonical_uuid(id))
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ClearCallHistory {
+            token,
+            through,
+            expected,
+        } => {
+            if token.len() != 64
+                || *expected == 0
+                || !canonical_uuid(&through.db_epoch)
+                || !decimal_sequence(&through.seq)
+            {
+                return Err(invalid());
+            }
+        }
         AuthCommand::CallDetail { token, call_id } => {
             if token.len() != 64 || call_id.len() != 36 {
                 return Err(invalid());
@@ -1317,11 +1446,14 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         | AuthCommand::Capabilities { token }
         | AuthCommand::LineStatus { token }
         | AuthCommand::SystemStatus { token }
+        | AuthCommand::DataRoamingStatus { token }
+        | AuthCommand::PrepareDataRoaming { token }
         | AuthCommand::NetworkStatus { token }
         | AuthCommand::WifiNetworks { token }
         | AuthCommand::SetupApStatus { token }
         | AuthCommand::NetworkDiagnostics { token }
         | AuthCommand::SmsManagementStatus { token }
+        | AuthCommand::SmsFolderStatus { token }
         | AuthCommand::OpenPairing { token }
         | AuthCommand::BluetoothModeStatus { token }
         | AuthCommand::AirsimStatus { token }
@@ -1424,6 +1556,42 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         | AuthCommand::InboxEvents { token, limit, .. }
         | AuthCommand::DeletedInbox { token, limit, .. } => {
             if token.len() != 64 || !(1..=32).contains(limit) {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::SetDataRoaming {
+            token,
+            enabled,
+            confirmation,
+        } => {
+            if token.len() != 64
+                || *enabled != confirmation.is_some()
+                || confirmation
+                    .as_ref()
+                    .is_some_and(|v| v.len() != 32 || !v.bytes().all(|b| b.is_ascii_hexdigit()))
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::SetSmsDeletedBatch { token, sms_ids, .. } => {
+            if token.len() != 64
+                || !(1..=32).contains(&sms_ids.len())
+                || !sms_ids.iter().all(|id| canonical_uuid(id))
+            {
+                return Err(invalid());
+            }
+        }
+        AuthCommand::ApplySmsFolder {
+            token,
+            version,
+            head_seq,
+            ..
+        } => {
+            if token.len() != 64
+                || !canonical_uuid(&version.db_epoch)
+                || !canonical_generation(&version.seq)
+                || !canonical_generation(head_seq)
+            {
                 return Err(invalid());
             }
         }

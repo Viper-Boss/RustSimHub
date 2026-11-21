@@ -3,6 +3,8 @@
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
+mod roaming;
+#[cfg(target_os = "linux")]
 mod voice_domain;
 fn main() {
     #[cfg(target_os = "linux")]

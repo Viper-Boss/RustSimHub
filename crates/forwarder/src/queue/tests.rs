@@ -180,6 +180,26 @@ fn cached_policy_is_reused_but_never_hides_changed_or_corrupt_database_bytes() {
     assert!(q.ingest(&binding(), 2, head(6), Some(&message())).is_err());
 }
 
+#[test]
+fn recent_receipts_use_an_exclusive_descending_cursor_without_changing_legacy_order() {
+    let (_dir, mut queue) = enabled();
+    for _ in 0..3 {
+        queue
+            .enqueue_test(&binding(), 1, &id(), TARGET, LineEpoch(2))
+            .unwrap();
+    }
+    let sequences = |rows: Vec<Receipt>| rows.into_iter().map(|row| row.seq).collect::<Vec<_>>();
+    assert_eq!(
+        sequences(queue.recent_receipts(None, 2).unwrap()),
+        ["3", "2"]
+    );
+    assert_eq!(sequences(queue.recent_receipts(Some(2), 2).unwrap()), ["1"]);
+    assert!(queue.recent_receipts(Some(1), 2).unwrap().is_empty());
+    assert!(queue.recent_receipts(Some(0), 2).is_err());
+    assert!(queue.recent_receipts(None, 33).is_err());
+    assert_eq!(sequences(queue.receipts(0, 3).unwrap()), ["1", "2", "3"]);
+}
+
 fn probe() -> (TempDir, Queue, String) {
     let (d, mut q) = queue();
     let mut p = policy();
@@ -1315,4 +1335,70 @@ fn synthetic_provider_messages_are_explicit_fixed_content() {
         );
         assert!(crate::model::test_https(&request).acknowledged(200, b"{\"code\":200,\"ok\":true}"));
     }
+}
+
+#[test]
+fn clearing_the_forwarding_log_preserves_delivery_and_test_replay_receipts() {
+    let (_dir, mut queue) = enabled();
+    let confirmed = queue
+        .enqueue_test(&binding(), 1, &id(), TARGET, LineEpoch(2))
+        .unwrap();
+    let pending = queue
+        .enqueue_test(&binding(), 1, &id(), TARGET, LineEpoch(2))
+        .unwrap();
+    queue
+        .conn
+        .execute(
+            "UPDATE jobs SET state='confirmed',request=NULL WHERE id=?",
+            [&confirmed.id],
+        )
+        .unwrap();
+    let filter = || LogFilter {
+        kind: Some("test".into()),
+        ..LogFilter::default()
+    };
+    let page = queue.log_page(filter(), None, 16).unwrap();
+    assert_eq!(page.removable, 1);
+    assert!(page.records[0].recorded_at.is_some());
+    let through = page.through.parse().unwrap();
+    let newer = queue
+        .enqueue_test(&binding(), 1, &id(), TARGET, LineEpoch(2))
+        .unwrap();
+    queue
+        .conn
+        .execute(
+            "UPDATE jobs SET state='failed',request=NULL WHERE id=?",
+            [&newer.id],
+        )
+        .unwrap();
+    assert_eq!(
+        queue
+            .clear_log(&binding(), filter(), through, None)
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        queue
+            .clear_log(&binding(), filter(), through, None)
+            .unwrap(),
+        0
+    );
+    let visible = queue.log_page(filter(), None, 16).unwrap();
+    assert_eq!(
+        visible
+            .records
+            .iter()
+            .map(|r| r.receipt.id.clone())
+            .collect::<Vec<_>>(),
+        [newer.id, pending.id]
+    );
+    assert_eq!(
+        queue
+            .test_receipt(&binding(), &confirmed.id)
+            .unwrap()
+            .unwrap()
+            .state,
+        State::Confirmed
+    );
+    assert_eq!(queue.receipts(0, 16).unwrap().len(), 3);
 }

@@ -397,7 +397,7 @@ impl Database {
             return Ok(s);
         }
         // Preserve every new source, including equal content. Candidate is an annotation, not a dedup decision.
-        let candidate:Option<String>=tx.query_row("SELECT id FROM inbox WHERE sim_fingerprint=? AND content_hash=? ORDER BY seq DESC LIMIT 1",params![key,hash.as_slice()],|r|r.get(0)).optional()?;
+        let candidate:Option<String>=tx.query_row("SELECT id FROM inbox WHERE sim_fingerprint=? AND content_hash=? AND NOT EXISTS(SELECT 1 FROM inbox_purged p WHERE p.sms_id=inbox.id) ORDER BY seq DESC LIMIT 1",params![key,hash.as_slice()],|r|r.get(0)).optional()?;
         let id = Uuid::new_v4().to_string();
         tx.execute("INSERT INTO inbox(id,line_epoch,sim_fingerprint,source,content_hash,sender,timestamp,body,data,duplicate_candidate) VALUES(?,?,?,?,?,?,?,?,?,?)",params![id,line,key,input.source,hash.as_slice(),input.sender,input.timestamp,input.text,input.data,candidate])?;
         tx.execute(
