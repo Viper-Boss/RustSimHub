@@ -34,12 +34,39 @@ export class UsageStatsPanel {
  }
 }
 
-export function bindUsageCounts(panel, read) {
+const countCacheKey = 'rustsimhub-usage-counts-v1';
+const countCacheTtl = 600000;
+const validCounts = (value, length) => ['domestic', 'official'].includes(value?.source)
+ && Array.isArray(value.counts) && value.counts.length === length
+ && value.counts.every(n => Number.isSafeInteger(n) && n >= 0);
+
+export function bindUsageCounts(panel, read, {storage = () => globalThis.sessionStorage, now = Date.now} = {}) {
  if (!panel) return;
  const button = panel.querySelector('[data-refresh]');
  const status = panel.querySelector('[data-status]');
  const cells = panel.querySelectorAll('[data-count]');
  let lastSuccess;
+ function display(value) {
+  value.counts.forEach((count, index) => { cells[index].textContent = count.toLocaleString('zh-CN'); });
+  const source = value.source === 'domestic' ? '国内节点' : '官方主网兜底';
+  const time = new Date(value.checkedAt).toLocaleTimeString('zh-CN', {timeZone: 'Asia/Shanghai'});
+  const noSubscribers = value.counts.every(count => count === 0) ? ' · 暂无已确认订阅' : '';
+  lastSuccess = source + ' · ' + time + noSubscribers;
+ }
+ try {
+  const raw = storage()?.getItem(countCacheKey);
+  if (raw && raw.length <= 256) {
+   const cached = JSON.parse(raw);
+   const age = now() - cached?.checkedAt;
+   if (Number.isSafeInteger(cached?.checkedAt) && validCounts(cached, cells.length)
+       && age >= 0 && age < countCacheTtl) {
+    display(cached);
+    status.textContent = '上次查询 · ' + lastSuccess;
+   }
+  }
+ } catch {
+  // Storage may be disabled. A manual refresh still uses the live endpoint.
+ }
  button.addEventListener('click', async () => {
   if (button.disabled) return;
   button.disabled = true;
@@ -48,19 +75,19 @@ export function bindUsageCounts(panel, read) {
   const timer = setTimeout(() => controller.abort(), 10500);
   try {
    const response = await read(controller.signal);
-   if (!response.ok) throw Error('count unavailable');
-   const {source, counts} = await response.json();
-   if (!['domestic', 'official'].includes(source) || !Array.isArray(counts)
-       || counts.length !== cells.length || !counts.every(n => Number.isSafeInteger(n) && n >= 0)) {
-    throw Error('invalid counts');
+   if (response.status === 429) {
+    status.textContent = '查询太频繁，请稍后再试' + (lastSuccess ? ' · 上次 ' + lastSuccess : '');
+    return;
    }
-   counts.forEach((value, index) => { cells[index].textContent = value.toLocaleString('zh-CN'); });
-   const label = source === 'domestic' ? '国内节点' : '官方主网兜底';
-   const time = new Date().toLocaleTimeString('zh-CN', {timeZone: 'Asia/Shanghai'});
-   lastSuccess = label + ' · ' + time;
+   if (!response.ok) throw Error('count unavailable');
+   const value = await response.json();
+   if (!validCounts(value, cells.length)) throw Error('invalid counts');
+   const snapshot = {source: value.source, counts: value.counts, checkedAt: now()};
+   display(snapshot);
    status.textContent = lastSuccess;
+   try { storage()?.setItem(countCacheKey, JSON.stringify(snapshot)); } catch { /* optional cache */ }
   } catch {
-   status.textContent = lastSuccess ? '刷新失败 · 上次 ' + lastSuccess : '暂未取到统计';
+   status.textContent = lastSuccess ? '刷新失败 · 上次 ' + lastSuccess : '暂未取到统计，请检查棒子的 Wi-Fi 后重试';
   } finally {
    clearTimeout(timer);
    button.disabled = false;

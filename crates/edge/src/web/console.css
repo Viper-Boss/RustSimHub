@@ -53,6 +53,10 @@ body{margin:0;background:var(--bg)}
 .cs .side-usage dd{font-size:15px;font-weight:700;overflow-wrap:anywhere}
 .cs .side-usage button{justify-self:start;padding:3px 6px;border-radius:5px;color:var(--blue-2);font-size:12px;background:var(--blue-soft)}
 .cs .side-usage button:disabled{cursor:wait;opacity:.65}
+.usage-count-slot{grid-column:1/-1;margin-bottom:10px}
+.usage-count-slot:empty{display:none}
+.cs .usage-count-slot .side-usage{margin:0;padding:12px 14px}
+.cs .usage-count-slot .side-usage button{min-height:36px;padding-inline:10px}
 
 /* 顶栏 */
 .c-main{min-width:0;display:flex;flex-direction:column}

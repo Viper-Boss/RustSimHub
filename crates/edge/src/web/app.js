@@ -145,7 +145,16 @@ function showPending(){
  $('sms-send-state').textContent=!pending?'填写号码和正文，确认后发送。':pending.type!=='sms'?'有待处理的通话操作，请先在电话或调试区核对。':pending.submit_started&&!['submitted','cancelled'].includes(pending.state)?'发送结果待确认，请查询，暂勿再次发送。':names[pending.state]||'请查询本次发送结果。';
 }
 async function initialize(){
- bindUsageCounts($('side-usage'), signal => {
+ const usagePanel=$('side-usage'), sidebar=usagePanel.parentElement;
+ const compact=matchMedia('(max-width: 1280px)'), mobile=matchMedia('(max-width: 820px)');
+ const placeUsagePanel=()=>{
+  const destination=mobile.matches?$('mobile-usage-slot'):compact.matches?$('desktop-usage-slot'):sidebar;
+  if(usagePanel.parentElement!==destination)destination.append(usagePanel);
+ };
+ compact.addEventListener('change',placeUsagePanel);
+ mobile.addEventListener('change',placeUsagePanel);
+ placeUsagePanel();
+ bindUsageCounts(usagePanel, signal => {
   return fetch('/api/usage-count/v1', {
     method: 'POST',
     headers: {'Content-Type': 'application/json', 'X-RustSimHub-Request': '2'},
