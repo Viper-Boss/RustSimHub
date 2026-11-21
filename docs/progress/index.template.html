@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark"><meta name="description" content="RustSimHub公开开发进度：原计划{{MILESTONE_PERCENT}}%，完整剩余动作、验收证据、依赖和预计工时。">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' https://mainnet-rpc-node-0001.nkn.org/mainnet/api/wallet; img-src 'self' data:; font-src 'none'; base-uri 'none'; form-action 'none'">
 <title>RustSimHub · 向100%推进</title>
 <!-- DASHBOARD_STYLE -->
 </head>
@@ -17,7 +17,14 @@
 </header>
 <main class="shell">
  <section class="hero" id="overview" aria-labelledby="headline">
-  <div class="hero-copy"><div class="eyebrow"><i class="pulse" aria-hidden="true"></i> MISSION IN PROGRESS <span>公开开发快照</span></div><h1 id="headline">一根棒子，独立通信。<br>向 <em>100%</em> 继续推进。</h1><p class="hero-intro">已经跑通的，留下证据。还没完成的，拆成动作。<br>从当前可用系统，走到可以放心交付的完整固件。</p><div class="hero-actions"><button class="primary" id="focus-open">查看当前关卡 <span>↗</span></button><a class="secondary" href="remaining.md" download>下载详细清单 ↓</a></div><div class="snapshot"><span id="snapshot-time">读取快照…</span><button id="refresh-data">读取最新进度 ↻</button></div></div>
+  <div class="hero-copy"><div class="eyebrow"><i class="pulse" aria-hidden="true"></i> MISSION IN PROGRESS <span>公开开发快照</span></div><h1 id="headline">一根棒子，独立通信。<br>向 <em>100%</em> 继续推进。</h1><p class="hero-intro">已经跑通的，留下证据。还没完成的，拆成动作。<br>从当前可用系统，走到可以放心交付的完整固件。</p><div class="hero-actions"><button class="primary" id="focus-open">查看当前关卡 <span>↗</span></button><a class="secondary" href="remaining.md" download>下载详细清单 ↓</a></div><div class="snapshot"><span id="snapshot-time">读取快照…</span><button id="refresh-data">读取最新进度 ↻</button></div>
+   <aside class="nkn-usage" aria-labelledby="nkn-usage-title">
+    <div class="nkn-usage-heading"><h2 id="nkn-usage-title">NKN 活跃安装估计</h2><button id="nkn-usage-refresh" type="button">刷新统计</button></div>
+    <dl class="nkn-usage-counts"><div><dt>近 24 小时</dt><dd id="nkn-usage-24h">—</dd></div><div><dt>近 30 天</dt><dd id="nkn-usage-30d">—</dd></div><div><dt>近 90 天</dt><dd id="nkn-usage-90d">—</dd></div></dl>
+    <p id="nkn-usage-status" role="status">暂无统计快照</p>
+    <p class="nkn-usage-source"><a href="https://docs.nkn.org/nkn-sdk-js/" target="_blank" rel="noopener noreferrer">NKN 主网订阅数</a> · 各时间窗口独立</p>
+   </aside>
+  </div>
   <div class="mission-visual" id="mission-visual" aria-label="原计划进度{{MILESTONE_PERCENT}}%，目标100%">
    <div class="orbit orbit-one" aria-hidden="true"><span></span></div><div class="orbit orbit-two" aria-hidden="true"><span></span></div><div class="orbit orbit-three" aria-hidden="true"></div>
    <div class="gauge" id="overall-gauge" style="--progress:{{MILESTONE_PERCENT}}%"><div class="gauge-inside"><span class="gauge-label">原计划验收</span><div><strong id="overall-value">{{MILESTONE_PERCENT}}</strong><b>%</b></div><span class="gauge-tail">P0—P7 · 100个固定点数</span></div></div>

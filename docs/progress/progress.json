@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-16T10:26:39.453559+00:00",
+  "updated_at": "2026-11-21T09:28:23.167078+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -6518,6 +6518,18 @@
         "https://github.com/Viper-Boss/RustSimHub/pull/269",
         "https://github.com/Viper-Boss/RustSimHub/blob/de663743bd726e77f7c560139d0f91ea78e8fe57/docs/deliveries/LEAD-STATISTICS-CANDIDATES-20261116.md"
       ]
+    },
+    {
+      "at": "2026-11-21T09:28:23.167078+00:00",
+      "type": "state",
+      "title": "看板左侧新增 NKN 活跃安装估计",
+      "detail": "三个时间窗口从 NKN 官方主网读取 RustSimHub 主题订阅数，显示查询时间，可手动刷新。订阅数用于估计近期活跃安装。",
+      "task_ids": [
+        "STAT-04"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/tree/codex/web-product-delegation-20261103/docs/progress"
+      ]
     }
   ],
   "team": {
@@ -11661,5 +11673,13 @@
       "https://github.com/Viper-Boss/RustSimHub/blob/ee379410ef81ba4102504db6e7425e4438e21d37/docs/VALIDATION-APP72-CONSOLE-INSTALL-20261107.md",
       "https://github.com/Viper-Boss/RustSimHub/blob/1e3de57b6864aa44d1ba9fe1a0db342efe075663/docs/VALIDATION-GENERIC-FLASH-PACK-20261107.md"
     ]
+  },
+  "nkn_usage": {
+    "counts": {
+      "24h": 0,
+      "30d": 0,
+      "90d": 0
+    },
+    "observed_at": "2026-11-21T09:28:23.167078+00:00"
   }
 }

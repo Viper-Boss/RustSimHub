@@ -7,6 +7,70 @@ export const midpoint = task => (task.estimate_hours[0]+task.estimate_hours[1])/
 export const number = value => Number.isInteger(value) ? String(value) : value.toFixed(1);
 export const publicURL = value => value.startsWith(REPOSITORY+'/') ? value : REPOSITORY+'/blob/main/'+value.split('/').map(encodeURIComponent).join('/');
 
+const nknUsageWindows = ['24h', '30d', '90d'];
+const nknUsageEndpoint = 'https://mainnet-rpc-node-0001.nkn.org/mainnet/api/wallet';
+const validNknCount = value => Number.isSafeInteger(value) && value >= 0;
+
+async function queryNknCount(window, signal) {
+  const id = 'rsh-usage-' + window;
+  const response = await fetch(nknUsageEndpoint, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain;charset=UTF-8'},
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id,
+      method: 'getsubscriberscount',
+      params: {topic: 'rustsimhub-usage-v1-' + window, subscriberHashPrefix: ''},
+    }),
+    credentials: 'omit',
+    referrerPolicy: 'no-referrer',
+    redirect: 'error',
+    signal,
+  });
+  if (!response.ok) throw new Error('NKN query failed');
+  const result = await response.json();
+  if (result?.jsonrpc !== '2.0' || result.id !== id || 'error' in result || !validNknCount(result.result)) {
+    throw new Error('Invalid NKN count');
+  }
+  return result.result;
+}
+
+function showNknUsage(document, snapshot) {
+  const button = document.getElementById('nkn-usage-refresh');
+  const status = document.getElementById('nkn-usage-status');
+  const timeFormat = new Intl.DateTimeFormat('zh-CN', {dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Shanghai'});
+  const countFormat = new Intl.NumberFormat('zh-CN');
+  let observedAt;
+  function render(counts, time) {
+    nknUsageWindows.forEach((window, index) => {
+      document.getElementById('nkn-usage-' + window).textContent = countFormat.format(counts[index]);
+    });
+    observedAt = timeFormat.format(time) + '（北京时间）';
+    status.textContent = '查询于 ' + observedAt;
+  }
+  const time = Date.parse(snapshot?.observed_at);
+  if (Number.isFinite(time) && nknUsageWindows.every(window => validNknCount(snapshot?.counts?.[window]))) {
+    render(nknUsageWindows.map(window => snapshot.counts[window]), time);
+  }
+  button.addEventListener('click', async () => {
+    if (button.disabled) return;
+    button.disabled = true;
+    status.textContent = '正在读取 NKN 主网…';
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const counts = await Promise.all(nknUsageWindows.map(window => queryNknCount(window, controller.signal)));
+      render(counts, Date.now());
+    } catch {
+      status.textContent = observedAt ? '刷新失败 · 上次查询 ' + observedAt : '暂时无法读取 NKN 统计';
+    } finally {
+      clearTimeout(timer);
+      controller.abort();
+      button.disabled = false;
+    }
+  });
+}
+
 export function calculate(data) {
   const active=data.modules.filter(m=>m.scope!=='parked').flatMap(m=>m.tasks);
   const done=active.filter(t=>t.status==='done'), remaining=active.filter(t=>t.status!=='done');
@@ -271,6 +335,7 @@ function initialize() {
     finally{button.disabled=false;button.textContent='读取最新进度 ↻';}
   });
   renderSummary();
+  showNknUsage(document, data.nkn_usage);
 }
 
 if(typeof document!=='undefined')initialize();
