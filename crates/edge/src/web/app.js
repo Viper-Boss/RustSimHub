@@ -18,7 +18,7 @@ import { DiagnosticPanel } from './diagnostics.js';
 import { ConfigurationState } from './configuration-state.js';
 import { NknProductPanel, pendingInput as nknPendingInput, archiveInput as nknArchiveInput } from './nkn-product.js';
 import { UsageStatsPanel, bindUsageCounts } from './usage-stats.js';
-import { ConsoleDashboard } from './console.js';
+import { ConsoleDashboard, transientReadError } from './console.js';
 import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput, readJournal as readNasJournal, clearJournal as clearNasJournal } from './nas-bridge.js';
 const $=id=>document.getElementById(id);
 const scopes=['status.read','sms.read','calls.read'];
@@ -119,8 +119,8 @@ const sessionKeeper=new SessionKeeper({env:globalThis,token:()=>token,apply:(old
  const result=await api({op:'renew_session',token:old,challenge_id:c.id,signature},epoch);current(epoch);active();return result;
 }});
 dailyPhone=new DailyPhone({document,env:globalThis,ensureSession:()=>sessionKeeper.ensure(),audio:audioLink,audioReady:()=>audioReady,context:value=>({token,lease:value}),request:command=>auth(command),getPending:()=>pending,setPending:async value=>{const epoch=viewEpoch;pending=value;await save('pending',value);current(epoch);showPending();},archivePending,archiveKnown:async value=>{const epoch=viewEpoch,receipts=await stored('phone-operation-receipts')||[];current(epoch);if(!Array.isArray(receipts))throw Error('电话回执不可用');await save('phone-operation-receipts',[...receipts.filter(x=>x.id!==value.id),value].slice(-64));current(epoch);},setLease:value=>{lease=value;showAudio();},blocked:()=>busy||apConfigurator?.working||apConfigurator?.managing||callTest.running||!!lease&&!dailyPhone?.managing});
-const dashboard=new ConsoleDashboard({document,request:command=>auth(command),detailText:value=>smsDetailText(value),confirm:message=>confirm(message),copy:value=>navigator.clipboard.writeText(value),storage:globalThis.localStorage,matchDark:()=>globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches===true,onEnter:page=>{if(page==='ble')void readBluetoothMode();},onLeave:()=>{for(const panel of document.querySelectorAll('details[data-configuration]'))panel.open=false;}});
-const networkPanel=new NetworkPanel({document,request:command=>auth(command),getToken:()=>token,onSample:sample=>dashboard.network(sample),runTest:async command=>{
+const dashboard=new ConsoleDashboard({document,request:command=>auth(command),detailText:value=>smsDetailText(value),confirm:message=>confirm(message),copy:value=>navigator.clipboard.writeText(value),storage:globalThis.localStorage,matchDark:()=>globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches===true,onEnter:page=>{if(page==='ble')void readBluetoothMode();if(page==='sim')void readDataRoaming();},onLeave:()=>{for(const panel of document.querySelectorAll('details[data-configuration]'))panel.open=false;}});
+const networkPanel=new NetworkPanel({document,request:command=>auth(command),getToken:()=>token,transientReadError,onSample:sample=>dashboard.network(sample),runTest:async command=>{
  const epoch=viewEpoch,authToken=token;if(!authToken)throw Error('请先登录');
  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),35000);requests.add(controller);
  try{const r=await fetch('/api/network/v1/test',{method:'POST',headers:{'Content-Type':'application/json','X-RustSimHub-Request':'2'},body:JSON.stringify({...command,token:authToken}),signal:controller.signal,credentials:'omit',cache:'no-store',redirect:'error'});current(epoch);if(!r.ok)throw Error(r.status===429?'测试正在运行或需间隔15秒':'请检查网络权限和设备状态');const result=await r.json();current(epoch);return result;}
@@ -225,14 +225,19 @@ async function pair(){
  notice('配对申请已提交。请由设备所有者核对浏览器公钥、权限和申请 ID 后批准：'+result.pairing_id);
 }
 async function login({destination='dashboard'}={}){
- token=null;lease=null;resetBluetoothMode();
+ token=null;lease=null;resetBluetoothMode();resetDataRoaming();
  nknProductPanel.reset();nasBridgePanel?.reset();authenticatedDevicePin=null;
  forwardingPanel.reset();forwardingHistory.reset();
  clearWifiNetworks();
  sessionKeeper.reset();void audioLink.stop();const epoch=viewEpoch;showAudio();const c=await api({op:'challenge',public_key:Array.from(publicKey)},epoch);const signature=await proof(c,'login',undefined,epoch);current(epoch);
  const verifiedDevicePin=hex(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(new Uint8Array(c.transcript))).device_public_key);
  const r=await api({op:'authenticate',challenge_id:c.id,signature},epoch);current(epoch);if(!/^[a-f0-9]{64}$/.test(r.token))throw Error('登录响应无效');
- sessionKeeper.start(r.token,r.expires_in_seconds);token=r.token;authenticatedDevicePin=verifiedDevicePin;configurationOpen=configurationVisible();void configurationIndicator.set(configurationOpen&&!document.hidden);networkPanel.start();dailyPhone.start();notice('已登录；会话15分钟，通话期间验证身份后续期');await refresh();if(token){dashboard.go(destination);void dashboard.signedIn();}
+ sessionKeeper.start(r.token,r.expires_in_seconds);token=r.token;authenticatedDevicePin=verifiedDevicePin;configurationOpen=configurationVisible();void configurationIndicator.set(configurationOpen&&!document.hidden);networkPanel.start();dailyPhone.start();notice('已登录；会话15分钟，通话期间验证身份后续期');
+ try{await refresh();}finally{
+  if(epoch===viewEpoch&&token===r.token){
+   dashboard.go(destination);void dashboard.signedIn();if(destination==='sim')void readDataRoaming();
+  }
+ }
 }
 function row(text,parent,onClick){const item=document.createElement('div');item.className='row';const label=document.createElement('span');label.textContent=text;item.append(label);if(onClick){const button=document.createElement('button');button.textContent='查看';button.onclick=()=>act(onClick);item.append(button);}parent.append(item);}
 async function inboxPage(reset=false){
@@ -539,16 +544,12 @@ function showBluetoothMode(info,keepSelection=false){
  bluetoothState=info;bluetoothVerified=true;
  bluetoothTarget=info.pending||(kept&&(kept!=='nassimhub'||info.nas_configured)?kept:info.mode);
 }
-function bluetoothReadTemporary(error){
- return error?.coreCode==='busy'||[429,502,503,504].includes(error?.httpStatus)||
-  error?.name==='AbortError'||error instanceof TypeError;
-}
-async function fetchBluetoothMode(valid){
+async function readOwnerStatus(op,valid){
  for(const delay of [0,180,550,1100]){
   if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
   if(!valid())return null;
-  try{return await auth({op:'bluetooth_mode_status'});}
-  catch(error){if(!bluetoothReadTemporary(error)||delay===1100)throw error;}
+  try{return await auth({op});}
+  catch(error){if(!transientReadError(error)||delay===1100)throw error;}
  }
 }
 function explainBluetoothError(error,fallback){
@@ -566,7 +567,7 @@ async function readBluetoothMode(){
  const valid=()=>bluetoothRead===job&&epoch===viewEpoch&&!!token;
  bluetoothRead=job;bluetoothMessage='正在读取设备状态…';drawBluetoothMode();
  try{
-  const state=await fetchBluetoothMode(valid);
+  const state=await readOwnerStatus('bluetooth_mode_status',valid);
   if(!valid())return;
   showBluetoothMode(state,true);bluetoothNeedsLogin=false;bluetoothMessage='';
  }catch(error){
@@ -592,7 +593,7 @@ async function applyBluetoothMode(){
   for(let i=0;i<50;i++){
    await new Promise(resolve=>setTimeout(resolve,800));
    if(!valid())return;
-   const state=await fetchBluetoothMode(valid);
+   const state=await readOwnerStatus('bluetooth_mode_status',valid);
    if(!valid())return;
    showBluetoothMode(state);drawBluetoothMode();
    if(!state.pending)return;
@@ -610,63 +611,112 @@ for(const name of Object.keys(bluetoothLabels)){
  const button=$('bt-mode-'+name);
  button.onclick=()=>{if(!button.disabled){bluetoothTarget=name;drawBluetoothMode();}};
 }
-let dataRoaming=null,roamingEpoch=-1,roamingConfirmation=null;
+let dataRoaming=null,roamingRead=null,roamingWrite=null,roamingIntent=null,roamingNeedsLogin=false,roamingMessage='';
 const roamingDialog=$('data-roaming-dialog'),roamingAck=$('data-roaming-ack');
 const roamingSubmit=$('data-roaming-submit'),roamingToggle=$('data-roaming-toggle'),roamingStatus=$('data-roaming-state');
-function showDataRoaming(info){
- const available=info?.available===true&&typeof info.enabled==='boolean';
- dataRoaming=available?info:null;roamingEpoch=viewEpoch;
- roamingToggle.disabled=!available;
- roamingToggle.textContent=available&&info.enabled?'关闭数据漫游':'开启数据漫游';
- roamingStatus.textContent=available?(info.enabled?'国际数据漫游已开启。':'国际数据漫游已关闭。'):
-  (typeof info?.reason==='string'?info.reason:'国际数据漫游状态暂不可用。');
+function drawDataRoaming(){
+ const enabled=dataRoaming?.enabled===true;
+ roamingToggle.setAttribute('aria-checked',String(enabled));
+ $('data-roaming-label').textContent=enabled?'开启':'关闭';
+ roamingToggle.disabled=!token||dataRoaming?.available!==true||!!roamingWrite||roamingNeedsLogin;
+ $('data-roaming-login').hidden=!roamingNeedsLogin;
+ roamingStatus.textContent=roamingMessage||(!token?'请用所有者身份登录。':
+  dataRoaming?.available===true?(enabled?'国际数据漫游已开启。':'国际数据漫游已关闭。'):
+  (dataRoaming?.reason||'正在同步设备状态…'));
+}
+function resetDataRoaming(){
+ dataRoaming=null;roamingRead=null;roamingWrite=null;roamingIntent=null;roamingNeedsLogin=false;roamingMessage='';
+ if(roamingDialog.open)roamingDialog.close();
+ drawDataRoaming();
+}
+function roamingError(error,fallback){
+ if(['denied','owner_reauthentication_required'].includes(error?.coreCode)){
+  roamingNeedsLogin=true;
+  return '请验证所有者身份后重试。';
+ }
+ return fallback;
 }
 async function readDataRoaming(){
- const epoch=viewEpoch;
- roamingToggle.disabled=true;roamingStatus.textContent='正在读取设备状态…';
+ if(!token||roamingWrite||roamingRead)return;
+ const epoch=viewEpoch,job={};
+ const valid=()=>roamingRead===job&&epoch===viewEpoch&&!!token;
+ roamingRead=job;roamingMessage='';drawDataRoaming();
  try{
-  await login();current(epoch);
-  const info=await auth({op:'data_roaming_status'});current(epoch);
-  showDataRoaming(info);
- }catch(error){if(epoch===viewEpoch)showDataRoaming(null);throw error;}
+  const info=await readOwnerStatus('data_roaming_status',valid);
+  if(!valid())return;
+  if(info?.available===true&&(typeof info.enabled!=='boolean'||typeof info.version!=='string'))throw Error('漫游状态无效');
+  dataRoaming=info;
+  roamingNeedsLogin=false;
+ }catch(error){
+  if(!valid())return;
+  dataRoaming=null;
+  roamingMessage=roamingError(error,'暂时无法同步漫游状态，稍后自动重试。');
+ }finally{
+  if(roamingRead===job){roamingRead=null;drawDataRoaming();}
+ }
 }
-async function setDataRoaming(enabled,confirmation=null){
- const epoch=viewEpoch;
- roamingToggle.disabled=true;roamingStatus.textContent='正在等待设备确认…';
+async function setDataRoaming(enabled,expected){
+ if(roamingWrite||dataRoaming?.available!==true||
+  dataRoaming.version!==expected||dataRoaming.enabled===enabled)return;
+ const epoch=viewEpoch,job={};
+ const valid=()=>roamingWrite===job&&epoch===viewEpoch&&!!token;
+ roamingRead=null;roamingWrite=job;roamingMessage='正在等待设备确认…';drawDataRoaming();
+ let submitted=false;
  try{
-  const result=await auth({op:'set_data_roaming',enabled,confirmation});current(epoch);
+  let confirmation=null;
+  if(enabled){
+   const prepared=await auth({op:'prepare_data_roaming'});if(!valid())return;
+   if(prepared?.version!==expected){
+    dataRoaming=null;roamingMessage='SIM 或蜂窝数据配置已变更，正在重新同步。';return;
+   }
+   if(!/^[0-9a-f]{32}$/.test(prepared.confirmation??''))throw Error('设备未给出有效确认');
+   confirmation=prepared.confirmation;
+  }
+  submitted=true;
+  const result=await auth({op:'set_data_roaming',enabled,confirmation});if(!valid())return;
   if(result?.state!=='pending'||typeof result.request_id!=='string')throw Error('设备没有确认接收请求');
   for(let index=0;index<12;index++){
-   await new Promise(resolve=>setTimeout(resolve,1250));current(epoch);
-   const status=await auth({op:'data_roaming_status'});current(epoch);
-   if(status?.last_request_id!==result.request_id)continue;
-   showDataRoaming(status);
-   if(status.applied!==true||status.enabled!==enabled)throw Error('设备未应用漫游设置');
+   await new Promise(resolve=>setTimeout(resolve,1250));if(!valid())return;
+   let info;
+   try{info=await auth({op:'data_roaming_status'});}
+   catch(error){if(transientReadError(error))continue;throw error;}
+   if(!valid())return;
+   if(info?.last_request_id!==result.request_id)continue;
+   dataRoaming=info;
+   roamingMessage=info.applied===true&&info.enabled===enabled?'':'设备未应用漫游设置。';
    return;
   }
   throw Error('设备尚未回复');
- }catch(error){if(epoch===viewEpoch){
-  roamingToggle.disabled=true;roamingStatus.textContent='操作结果未确认，请重新读取状态。';
- }throw error;}
+ }catch(error){
+  if(!valid())return;
+  if(submitted)dataRoaming=null;
+  roamingMessage=roamingError(error,submitted?'操作结果待核对，设备状态将自动同步。':'暂时无法确认开启，请稍后重试。');
+ }finally{
+  if(roamingWrite===job){roamingWrite=null;drawDataRoaming();}
+ }
 }
 async function toggleDataRoaming(){
- if(roamingEpoch!==viewEpoch||!dataRoaming||roamingToggle.disabled)return;
- if(dataRoaming.enabled){await setDataRoaming(false);return;}
- if(!confirm('开启国际数据漫游可能产生高额费用。是否继续查看确认？'))return;
- const epoch=viewEpoch;
- const prepared=await auth({op:'prepare_data_roaming'});current(epoch);
- if(typeof prepared?.confirmation!=='string'||!/^[0-9a-f]{32}$/.test(prepared.confirmation))throw Error('设备未给出有效确认');
- roamingConfirmation={epoch,code:prepared.confirmation};
+ if(roamingToggle.disabled||roamingDialog.open)return;
+ if(dataRoaming.enabled){await setDataRoaming(false,dataRoaming.version);return;}
+ if(!confirm('开启国际数据漫游可能产生高额费用。是否继续？'))return;
+ roamingIntent={epoch:viewEpoch,version:dataRoaming.version};
  roamingAck.checked=false;roamingSubmit.disabled=true;roamingDialog.returnValue='';roamingDialog.showModal();
 }
 roamingAck.onchange=()=>{roamingSubmit.disabled=!roamingAck.checked;};
 roamingDialog.addEventListener('close',()=>{
- const prepared=roamingConfirmation,allowed=roamingDialog.returnValue==='enable'&&roamingAck.checked;
- roamingConfirmation=null;roamingAck.checked=false;roamingSubmit.disabled=true;
- if(allowed&&prepared?.epoch===viewEpoch)void act(()=>setDataRoaming(true,prepared.code));
+ const intent=roamingIntent,allowed=roamingDialog.returnValue==='enable'&&roamingAck.checked;
+ roamingIntent=null;roamingAck.checked=false;roamingSubmit.disabled=true;
+ if(allowed&&intent?.epoch===viewEpoch)void act(()=>setDataRoaming(true,intent.version));
 });
-bind('data-roaming-read',readDataRoaming);
 bind('data-roaming-toggle',toggleDataRoaming);
+bind('data-roaming-login',async()=>{
+ if(!token){dashboard.go('login');return;}
+ if(lease)throw Error('请结束当前通话后再验证身份');
+ await login({destination:'sim'});
+});
+setInterval(()=>{
+ if(dashboard.page==='sim'&&token&&!document.hidden&&!roamingNeedsLogin&&!roamingDialog.open)void readDataRoaming();
+},10000);
 $('bt-mode-read').onclick=()=>void readBluetoothMode();
 bind('bt-mode-login',async()=>{
  if(!token){dashboard.go('login');return;}
@@ -675,7 +725,7 @@ bind('bt-mode-login',async()=>{
 });
 bind('bt-mode-apply',applyBluetoothMode);
 drawBluetoothMode();
-bind('initialize-owner',initializeOwner);bind('password-login',passwordLogin);bind('browser-login',browserLogin);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;dashboard.reset();roamingConfirmation=null;if(roamingDialog.open)roamingDialog.close();showDataRoaming(null);for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;resetBluetoothMode();clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
+bind('initialize-owner',initializeOwner);bind('password-login',passwordLogin);bind('browser-login',browserLogin);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;dashboard.reset();for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;resetBluetoothMode();resetDataRoaming();clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
 bind('sms-login',async()=>{await login();$('sms-management-state').textContent=smsManager.available?'已重新登录，请重新选择短信后管理。':'当前浏览器没有所有者管理权限，请使用已认领的所有者浏览器。';});
 bind('daily-login',login);$('daily-logout').onclick=()=>$('logout').onclick();bind('sms-refresh',()=>inboxPage(true));bind('send-sms',dailySendSms);bind('sms-query',query);bind('sms-close',closeSms);
 bind('forwarding-login',async()=>{await login();dashboard.go('forwarding');await forwardingPanel.enter();});

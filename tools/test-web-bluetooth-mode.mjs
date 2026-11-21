@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
+import { transientReadError } from '../crates/edge/src/web/console.js';
 
 const start = new URL('../crates/edge/src/web/app.js', import.meta.url);
 const source = await readFile(start, 'utf8');
@@ -17,7 +18,7 @@ function harness(initialToken, server, confirmation = true) {
  };
  const requests = [];
  const state = {
-  token: initialToken, viewEpoch: 0, $,
+  token: initialToken, viewEpoch: 0, $, transientReadError,
   confirm: () => confirmation,
   setTimeout: callback => queueMicrotask(callback),
   auth: command => { requests.push(command); return server(command); },

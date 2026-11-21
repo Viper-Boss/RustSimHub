@@ -84,14 +84,14 @@ export const PAGES={
  login:{title:'登录',desc:'',nav:'settings',tabs:[{label:'登录',show:['login-section']}]},
  more:{title:'更多',desc:'',tabs:[{label:'更多',view:'v-more'}]},
 };
-function transientListError(error){
+export function transientReadError(error){
  return error?.coreCode==='busy'||[429,502,503,504].includes(error?.httpStatus)||
   error?.name==='AbortError'||error instanceof TypeError;
 }
 const VIEWS=['v-mhome','v-hardware','v-network','v-sim','v-sms','v-mcomm','v-compose','v-phone','v-gnss','v-ble','v-security','v-events','v-account','v-appearance','v-about','v-more'];
 const STRICT_BLOCKS=['login-section','session-section'];
 export const scalePercent=(v,lo,hi)=>{const n=finite(v);return n===null?null:Math.max(0,Math.min(100,(n-lo)/(hi-lo)*100));};
-const SPARK=30,POLL_SYSTEM=15000,POLL_LISTS=60000;
+const SPARK=30,POLL_SYSTEM=15000,POLL_LISTS=60000,DEVICE_ONLINE_WINDOW=30000;
 // 设备给的总数不可信时退回已读到的数量，不猜。
 const countOf=(value,loaded)=>Number.isSafeInteger(value)&&value>=loaded?value:null;
 const countText=(value,loaded)=>value===null?(loaded?`${loaded}+`:'—'):String(value);
@@ -281,7 +281,7 @@ export class ConsoleDashboard{
   const records=[],ids=new Set();let after=null;
   try{
    while(this.active&&epoch===this.epoch){
-    const page=record(await this.readListPage({op:'deleted_inbox',after,limit:32},()=>this.active&&epoch===this.epoch));
+    const page=record(await this.readStatusPage({op:'deleted_inbox',after,limit:32},()=>this.active&&epoch===this.epoch));
     if(epoch!==this.epoch)return;
     const next=cursorOf(page.cursor),rows=page.messages;
     if(!next||!Array.isArray(rows)||rows.length>32||
@@ -358,7 +358,7 @@ export class ConsoleDashboard{
   if(ids.has(undefined)||ids.size!==rows.length)throw Error('短信列表响应无效');
   let full=rows.length===32;
   while(total===null?full:rows.length<total){
-   const page=record(await this.readListPage({op:'inbox_recent',before:cursor,limit:32},valid));
+   const page=record(await this.readStatusPage({op:'inbox_recent',before:cursor,limit:32},valid));
    if(!valid())return null;
    const next=cursorOf(page.cursor),batch=page.messages;
    if(!next||next.db_epoch!==cursor.db_epoch||visibilityOf(page.visibility_seq)!==visibility||
@@ -488,21 +488,49 @@ export class ConsoleDashboard{
  setMode(mode){try{if(mode==='system')this.storage?.removeItem?.('rustsimhub-theme');else this.storage?.setItem('rustsimhub-theme',mode);}catch{}this.mode=mode;this.setTheme(mode==='system'?(this.matchDark()?'dark':'light'):mode);for(const b of this.doc.querySelectorAll('[data-mode]'))b.setAttribute('aria-pressed',String(b.dataset.mode===mode));}
  tick(){clearTimeout(this.ticker);const now=this.clock(),clock=this.sample?deviceClock(this.sample.sample_unix_seconds,this.receivedAt,now):null;
   if(this.active&&this.page==='security'&&!this.doc.hidden&&this.asReadsLeft>0&&now<this.asWatchUntil&&now>=this.asNextRead&&!this.asBusy){this.asReadsLeft--;this.asNextRead=now+5000;void this.airsim({op:'airsim_status'},false,true);}
+  this.updateReachability(now);
   this.$('c-now').textContent=stamp(clock?clock.time:new Date(now));const sync=this.$('c-sync');sync.hidden=!clock||clock.synced;
   if(this.system&&count(this.system.uptime_seconds)!==null)this.$('c-uptime').textContent=uptimeText(this.system.uptime_seconds+Math.floor((now-this.systemAt)/1000));
   this.ticker=setTimeout(()=>this.tick(),1000-(now%1000)+20);}
  dots(id,n){[...this.$(id).children].forEach((d,i)=>d.classList.toggle('on',i<n));}
  bar(id,percent){this.$(id).style.width=`${percent===null?0:Math.max(0,Math.min(100,percent))}%`;}
- status(online){const o=this.$('c-online');o.classList.toggle('off',!online);o.lastChild.textContent=online?'设备在线':this.active?'暂时读不到设备':'未登录';this.$('c-user-name').textContent=this.active?'所有者':'登录';this.$('c-signin').hidden=this.active;this.$('c-mh-signin').hidden=this.active;this.$('login-section').hidden=this.active;this.$('c-ac-login').hidden=this.active;this.$('c-ac-out').hidden=!this.active;for(const id of ['c-sc-state','c-ac-state']){const p=this.$(id);p.textContent=this.active?'所有者':'未登录';p.classList.toggle('off',!this.active);}const m=this.$('c-mh-online');m.textContent=online?'在线':'离线';m.classList.toggle('off',!online);}
- reset(){this.epoch++;this.resetAirsim();this.callAction=null;this.callSelecting=false;this.selectedCalls.clear();this.$('c-call-operation').textContent='';this.mailAction=null;this.mailSelecting=false;this.selectedMail.clear();this.trash=[];this.trashLoad=null;this.clearMailDetail();this.$('c-mail-operation').textContent='';this.active=false;this.listRun=(this.listRun||0)+1;this.listLoading=null;this.callLoading=null;this.lineEpoch=null;this.haveInbox=false;this.haveCalls=false;this.mailVisibility=null;this.mailExhausted=true;this.callExhausted=true;for(const t of this.timers)clearInterval(t);this.timers=[];this.sample=null;this.system=null;this.prevTicks=null;this.temps=[];this.tempTimes=[];this.otps=[];this.events=[];this.history=[];this.seen=new Set();this.lastLine=null;
+ status(online){const o=this.$('c-online');o.classList.toggle('off',!online);o.lastChild.textContent=online?'设备在线':this.active?'暂时读不到设备':'未登录';this.$('c-user-name').textContent=this.active?'所有者':'登录';this.$('c-signin').hidden=this.active;this.$('c-mh-signin').hidden=this.active;this.$('login-section').hidden=this.active;this.$('c-ac-login').hidden=this.active;this.$('c-ac-out').hidden=!this.active;for(const id of ['c-sc-state','c-ac-state']){const p=this.$(id);p.textContent=this.active?'所有者':'未登录';p.classList.toggle('off',!this.active);}const m=this.$('c-mh-online');m.textContent=online?'在线':this.active?'状态待同步':'未登录';
+  const compact=this.$('c-online-short');compact.textContent=m.textContent;compact.classList.toggle('off',!online);m.classList.toggle('off',!online);}
+ updateReachability(now=this.clock()){
+  const online=this.active&&this.lastResponseAt!==null&&now-this.lastResponseAt<DEVICE_ONLINE_WINDOW;
+  if(online!==this.online){this.online=online;this.status(online);}
+ }
+ markReachable(){this.lastResponseAt=this.clock();this.updateReachability();}
+ reset(){this.epoch++;this.lastResponseAt=null;this.online=false;this.systemLoading=null;this.resetAirsim();this.callAction=null;this.callSelecting=false;this.selectedCalls.clear();this.$('c-call-operation').textContent='';this.mailAction=null;this.mailSelecting=false;this.selectedMail.clear();this.trash=[];this.trashLoad=null;this.clearMailDetail();this.$('c-mail-operation').textContent='';this.active=false;this.listRun=(this.listRun||0)+1;this.listLoading=null;this.callLoading=null;this.lineEpoch=null;this.haveInbox=false;this.haveCalls=false;this.mailVisibility=null;this.mailExhausted=true;this.callExhausted=true;for(const t of this.timers)clearInterval(t);this.timers=[];this.sample=null;this.system=null;this.prevTicks=null;this.temps=[];this.tempTimes=[];this.otps=[];this.events=[];this.history=[];this.seen=new Set();this.lastLine=null;
   this.status(false);for(const id of ['c-sms-list','c-call-list','c-otp-list','c-event-list','c-mail-list','c-ph-calls','c-nw-devices','c-sc-list','c-mc-sms','c-mc-otp','c-mc-call'])this.$(id).replaceChildren();this.mail=[];this.recentMail=[];this.older=[];this.mailTotal=0;this.callRows=[];this.recentCalls=[];this.olderCalls=[];this.callTotal=0;this.opened=null;this.mailCursor=null;this.callCursor=null;this.$('c-mc-more').hidden=true;this.$('c-mail-open').hidden=true;this.$('c-mail-blank').hidden=false;for(const id of ['c-mail-empty','c-ph-calls-empty','c-nw-devices-empty','c-mc-e-sms','c-mc-e-otp','c-mc-e-call']){this.$(id).hidden=false;this.$(id).textContent='登录后显示';}this.renderPhoneCalls();this.renderMobileCounts();for(const id of ['c-sms-empty','c-call-empty','c-otp-empty','c-event-empty']){this.$(id).hidden=false;this.$(id).textContent='登录后显示';}
   for(const id of ['c-cpu','c-mem','c-disk','c-temp','c-uptime','c-kernel','c-os','c-version','c-cores','c-mem-total','c-disk-total','c-wifi-name','c-wifi-ip','c-wifi-speed','c-cell-op','c-cell-ip','c-cell-usage','c-rsrp','c-rsrq','c-sinr',...VIEW_FIELDS])this.$(id).textContent='—';for(const id of ['c-hw-cpu-ring','c-hw-mem-ring','c-hw-disk-ring','c-hw-temp-ring'])this.ring(id,0);this.drawTemp();this.$('c-log-state').textContent='';this.renderLog();this.$('c-model').textContent='未登录';this.$('c-mh-model').textContent='未登录';this.$('c-mh-sub').textContent='登录后显示设备信息';this.$('c-sim').textContent='登录后显示设备信息';
   this.$('c-otp-state').textContent='';for(const id of ['c-cpu-bar','c-mem-bar','c-disk-bar','c-mh-cpu-b','c-mh-mem-b','c-mh-disk-b'])this.bar(id,0);this.$('c-mh-trend').setAttribute('d','');this.$('c-temp-line').setAttribute('d','');this.network(null);this.mailButtons();this.tick();}
- async signedIn(){this.active=true;this.status(true);this.log('登录成功','g');await this.refresh();if(this.smsFolder()==='trash')await this.loadTrash();const epoch=this.epoch;
-  this.timers.push(setInterval(()=>{if(epoch===this.epoch&&!this.doc.hidden)void this.readSystem();},POLL_SYSTEM),setInterval(()=>{if(epoch===this.epoch&&!this.doc.hidden)void this.readLists();},POLL_LISTS));}
+ async signedIn(){
+  const epoch=this.epoch;
+  this.active=true;this.online=true;this.lastResponseAt=this.clock();this.status(true);this.log('登录成功','g');
+  for(const timer of this.timers)clearInterval(timer);
+  this.timers=[];
+  await this.refresh();
+  if(epoch!==this.epoch)return;
+  if(this.smsFolder()==='trash')await this.loadTrash();
+  if(epoch!==this.epoch)return;
+  this.timers.push(setInterval(()=>{if(epoch===this.epoch&&!this.doc.hidden)void this.readSystem();},POLL_SYSTEM),setInterval(()=>{if(epoch===this.epoch&&!this.doc.hidden)void this.readLists();},POLL_LISTS));
+ }
  async optional(command){try{return await this.request(command);}catch{return null;}}
  async refresh(){await this.readSystem();await this.readLists();}
- async readSystem(){const epoch=this.epoch,value=await this.optional({op:'system_status'});if(epoch!==this.epoch)return;if(value)this.renderSystem(value);this.status(!!value||!!this.sample);}
+ async readSystem(){
+  if(this.systemLoading)return this.systemLoading;
+  const epoch=this.epoch,valid=()=>epoch===this.epoch&&this.active;
+  const loading=(async()=>{
+   let value=null;
+   try{value=await this.readStatusPage({op:'system_status'},valid);}catch{}
+   if(!valid())return;
+   if(value){this.renderSystem(value);this.markReachable();}
+   this.updateReachability();
+  })();
+  this.systemLoading=loading;
+  try{await loading;}finally{if(this.systemLoading===loading)this.systemLoading=null;}
+ }
  renderSystem(value){const s=record(value),cpu=cpuPercent(this.prevTicks,s);this.prevTicks=s;this.system=s;this.systemAt=this.clock();
   this.$('c-model').textContent=text(s.model,48)||'型号未知';this.$('c-kernel').textContent=text(s.kernel,32)?`Linux ${text(s.kernel,32)}`:'—';this.$('c-os').textContent=text(s.os,40)||'—';this.$('c-version').textContent=text(s.firmware_version,24)?`RustSimHub v${text(s.firmware_version,24)}`:'—';
   this.$('c-cores').textContent=count(s.cpu_cores)?`${s.cpu_cores} 核`:'—';this.$('c-mem-total').textContent=bytesText(s.memory_total_bytes);this.$('c-disk-total').textContent=bytesText(s.storage_total_bytes);
@@ -539,7 +567,7 @@ export class ConsoleDashboard{
  }
 
  // 网络页已经在轮询诊断状态；这里复用同一份采样，不额外读取。
- network(sample){if(!sample){this.sample=null;this.renderNetwork(networkView(null),null);this.tick();return;}const hadSample=!!this.sample;this.sample=sample;this.receivedAt=this.clock();const v=networkView(sample);this.renderNetwork(v,sample);if(!hadSample&&this.active)this.log(`网络已读取：${v.operator||'运营商未知'}`,'b');this.tick();}
+ network(sample){if(!sample){this.sample=null;this.renderNetwork(networkView(null),null);this.tick();return;}const hadSample=!!this.sample;this.sample=sample;this.receivedAt=this.clock();if(this.active)this.markReachable();const v=networkView(sample);this.renderNetwork(v,sample);if(!hadSample&&this.active)this.log(`网络已读取：${v.operator||'运营商未知'}`,'b');this.tick();}
  renderNetwork(v,sample){const pill=(id,on,yes,no)=>{const p=this.$(id);p.classList.toggle('off',!on);p.firstChild.textContent=on?yes:no;};
   pill('c-wifi-pill',v.wifi.online,'已连接','未连接');pill('c-data-pill',v.data.online,'已连接','未连接');this.$('c-wifi-icon').classList.toggle('off',!v.wifi.online);
   this.$('c-wifi-name').textContent=v.wifi.name||'—';this.$('c-wifi-ip').textContent=v.wifi.ip||'—';this.$('c-wifi-speed').textContent=v.wifi.online?'已联网':'未联网';this.$('c-wifi-state').textContent=v.wifi.online?'已连接':'未连接';
@@ -559,13 +587,13 @@ export class ConsoleDashboard{
   for(const d of devices){const row=this.doc.createElement('div');for(const cell of [({cellular:'蜂窝数据',wifi:'Wi-Fi',ethernet:'有线 / USB',loopback:'本机'})[d.kind]||text(d.kind,16)||'未知',text(d.interface||d.device,24)||'—',text(String(d.state??''),32)||'—',firstAddress(d)||'—']){const c=this.doc.createElement('span');c.textContent=cell;row.append(c);}table.append(row);}
   const sq=this.$('c-sm-quality');sq.textContent=v.signal.label;sq.classList.toggle('off',v.signal.tone==='off');
   for(const [id,value] of [['c-sm-rsrp-m',scalePercent(v.rsrp,-120,-70)],['c-sm-rsrq-m',scalePercent(v.rsrq,-20,-5)],['c-sm-sinr-m',scalePercent(v.sinr,0,25)]]){const m=this.$(id);m.classList.toggle('unset',value===null);m.style.left=`${value??0}%`;}}
- async readListPage(command,valid){
+ async readStatusPage(command,valid){
   for(const delay of [0,180,500,1200]){
    if(delay)await this.readDelay(delay);
    if(!valid())return null;
    try{return await this.request(command);}
    catch(error){
-    if(!transientListError(error)||delay===1200)throw error;
+    if(!transientReadError(error)||delay===1200)throw error;
    }
   }
  }
@@ -585,7 +613,10 @@ export class ConsoleDashboard{
   try{await task;}finally{if(this.listLoading===task)this.listLoading=null;}
  }
  async readListsAt(mode,valid){
-  const line=await this.optional({op:'line_status'});if(!valid())return;
+  let line=null;
+  try{line=await this.readStatusPage({op:'line_status'},valid);}catch{}
+  if(!valid())return;
+  if(line)this.markReachable();
   const identity=record(line).line;
   if(identity!==undefined&&this.lineEpoch!==null&&identity!==this.lineEpoch){this.forgetMail('线路已变化，重新读取');this.forgetCalls('线路已变化，重新读取');}
   if(identity!==undefined)this.lineEpoch=identity;
@@ -593,10 +624,10 @@ export class ConsoleDashboard{
   if(label){this.$('c-sim').textContent=label;this.$('c-sm-line').textContent=label;if(label!==this.lastLine){this.log(label,label==='SIM 就绪'?'g':'n');this.lastLine=label;}}
   const fullInbox=mode==='inbox',fullCalls=mode==='calls';
   let inbox=null,mailError=null,calls=null,callsError=null;
-  try{inbox=await this.readListPage({op:'inbox_recent',before:null,limit:fullInbox?32:16},valid);}
+  try{inbox=await this.readStatusPage({op:'inbox_recent',before:null,limit:fullInbox?32:16},valid);}
   catch(error){mailError=error;}
   if(!valid())return;
-  try{calls=await this.readListPage({op:'calls_recent',before:null,limit:fullCalls?32:16},valid);}
+  try{calls=await this.readStatusPage({op:'calls_recent',before:null,limit:fullCalls?32:16},valid);}
   catch(error){callsError=error;}
   if(!valid())return;
   const mailCursor=cursorOf(record(inbox).cursor),callCursor=cursorOf(record(calls).cursor);
@@ -614,7 +645,7 @@ export class ConsoleDashboard{
      if(/^短信(?:未全部读取|读取暂忙)/.test(notice.textContent))notice.textContent='';
     }catch(error){
      if(!valid())return;
-     if(transientListError(error))this.mailReadBusy();
+     if(transientReadError(error))this.mailReadBusy();
      else{
       this.forgetMail('短信未全部读取，请刷新重试。');
       this.$('c-mail-operation').textContent='短信未全部读取，请刷新重试。';
@@ -625,7 +656,7 @@ export class ConsoleDashboard{
     this.mailExhausted=!Array.isArray(inbox.messages)||!inbox.messages.length||(count(inbox.total)===null&&inbox.messages.length<16);
     this.messages(record(inbox).messages,record(inbox).total);
    }
-  }else if(transientListError(mailError))this.mailReadBusy();
+  }else if(transientReadError(mailError))this.mailReadBusy();
   else this.forgetMail('短信暂不可用，请检查登录或权限');
   if(calls){
    this.olderCalls=[];this.recentCalls=[];this.callCursor=callCursor;
@@ -633,7 +664,7 @@ export class ConsoleDashboard{
    this.calls(record(calls).calls,record(calls).total);
    if(fullCalls)while(valid()&&this.canMoreCalls()&&!this.callLoading)await this.moreCalls(32);
   }
-  else if(transientListError(callsError)){
+  else if(transientReadError(callsError)){
    if(!this.haveCalls)this.$('c-ph-calls-empty').textContent='通话记录读取暂忙，请稍后刷新。';
   }else this.forgetCalls('通话记录暂不可用，请检查登录或权限');
  }
