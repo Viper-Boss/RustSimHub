@@ -631,7 +631,7 @@ pub(crate) async fn handle(
             }
             value
         }
-        Err(rustsimhub_auth::Error::Busy) if list_read || bluetooth_mode || status_read || roaming_change => {
+        Err(rustsimhub_auth::Error::Busy) if health || list_read || bluetooth_mode || status_read || roaming_change => {
             json!({"ok":false,"error":"busy"})
         }
         Err(rustsimhub_auth::Error::Expired) if bluetooth_mode || roaming_change => {

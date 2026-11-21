@@ -10,8 +10,25 @@ const forwardingModule=await readFile(new URL('../crates/edge/src/web/forwarding
 const {ForwardingPanel,ForwardingQuickTest,ForwardingHistory,historyPendingInput,pendingInput:forwardingPendingInput}=await import('data:text/javascript;base64,'+forwardingModule.toString('base64'));
 if(!globalThis.crypto)Object.defineProperty(globalThis,'crypto',{value:webcrypto});
 async function module(name){const b=await readFile(new URL('../crates/edge/src/web/'+name,import.meta.url));return import('data:text/javascript;base64,'+b.toString('base64'));}
-const {SessionKeeper}=await module('session.js'),{DailyPhone}=await module('phone.js'),{prove,hex,unhex}=await module('proof.js');
+const {SessionKeeper,saveTabSession,readTabSession,forgetTabSession}=await module('session.js'),{DailyPhone}=await module('phone.js'),{prove,hex,unhex}=await module('proof.js');
 const token='a'.repeat(64),ok={renewed:true,token:'b'.repeat(64),expires_in_seconds:900,recent_owner_login_refreshed:false};
+{
+ const map=new Map(),env={sessionStorage:{getItem:k=>map.get(k),setItem:(k,v)=>map.set(k,v),removeItem:k=>map.delete(k)}};
+ const pin='c'.repeat(64),clientKey='d'.repeat(64);
+ const value={token,pin,clientKey,remaining:86400000};
+ for(const [device,key,now] of [[pin,clientKey,999],[pin,clientKey,86401000],['e'.repeat(64),clientKey,1300],[pin,'e'.repeat(64),1300]]){
+  saveTabSession(value,env,1000);
+  assert.deepEqual(readTabSession(pin,clientKey,env,1300),{token,pin,clientKey,savedAt:1000,expiresAt:86401000});
+  assert.equal(readTabSession(device,key,env,now),null);
+  assert.equal(map.size,0);
+ }
+ saveTabSession(value,env,1000);
+ forgetTabSession(env);
+ assert.equal(readTabSession(pin,clientKey,env,1300),null);
+ const unavailable={get sessionStorage(){throw Error('storage blocked');}};
+ saveTabSession(value,unavailable,1000);
+ assert.equal(readTabSession(pin,clientKey,unavailable,1000),null);
+}
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};};
 const turn=()=>new Promise(resolve=>setImmediate(resolve));
 function clock(){let now=0,next=1;const timers=new Map();return {performance:{now:()=>now},setTimeout(fn,ms){const id=next++;timers.set(id,{fn,end:now+ms});return id;},clearTimeout(id){timers.delete(id);},setInterval(){return 0;},clearInterval(){},advance(ms){now+=ms;for(const [id,t] of [...timers])if(t.end<=now){timers.delete(id);t.fn();}},timers};}
@@ -25,7 +42,8 @@ function clock(){let now=0,next=1;const timers=new Map();return {performance:{no
  const c=clock();let requests=0,current=token;
  const k=new SessionKeeper({env:c,token:()=>current,apply:(_,next)=>{current=next;},
   renew:async()=>{requests++;return {...ok,expires_in_seconds:86400};}});
- k.start(token,86400);
+ k.resume(token,86400*1000);
+ assert.equal(k.remaining(),86400000);
  c.advance(900001);await k.ensure();assert.equal(requests,0);
  c.advance(86400000-900001-120000);await k.ensure();assert.equal(requests,1);
  assert.equal(k.deadline,c.performance.now()+86400000);

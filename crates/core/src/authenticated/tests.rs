@@ -5,6 +5,33 @@ mod legacy_binding;
 mod recovery_grants;
 
 #[tokio::test]
+async fn health_distinguishes_auth_contention_from_a_rejected_session() {
+    let d = directory();
+    let i = directory();
+    let store = Store::open(d.path()).unwrap();
+    let auth = Arc::new(Mutex::new(
+        Auth::new(Identity::open(i.path()).unwrap(), store.handle()).unwrap(),
+    ));
+    let (held, ready) = std::sync::mpsc::sync_channel(0);
+    let (release, released) = std::sync::mpsc::channel();
+    let thread = {
+        let auth = Arc::clone(&auth);
+        std::thread::spawn(move || {
+            let _guard = auth.lock().unwrap();
+            held.send(()).unwrap();
+            released.recv().unwrap();
+        })
+    };
+    ready.recv().unwrap();
+    let health = || AuthCommand::Health { token: "0".repeat(64) };
+    let busy = round_trip(health(), Arc::clone(&auth)).await;
+    release.send(()).unwrap();
+    thread.join().unwrap();
+    assert_eq!(busy["error"], "busy");
+    assert_eq!(round_trip(health(), auth).await["error"], "denied");
+}
+
+#[tokio::test]
 async fn setup_ap_real_ipc_is_disabled_without_explicit_local_mode_even_for_owner() {
     let d = directory();
     let i = directory();

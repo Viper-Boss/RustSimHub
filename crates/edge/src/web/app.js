@@ -7,7 +7,7 @@ import { NetworkPanel } from './network.js';
 import { EventSync } from './event-sync.js';
 import { SmsManager, smsListText, smsDetailText } from './sms-management.js';
 import { DailyPhone } from './phone.js';
-import { SessionKeeper } from './session.js';
+import { SessionKeeper, forgetTabSession, readTabSession, saveTabSession } from './session.js';
 import { ForwardingPanel, ForwardingQuickTest, ForwardingHistory, historyPendingInput, pendingInput as forwardingPendingInput } from './forwarding.js';
 import { ApConfigurator, pendingInput as apPendingInput } from './ap-wifi.js';
 import { deriveSeed, importKeyPair, publicKey as seedPublicKey, tryIdentity } from './password.js';
@@ -113,7 +113,11 @@ function auth(command){if(!token)throw Error('请先登录');return api({...comm
 const eventSync=new EventSync({request:command=>auth(command),reload:{sms:()=>inboxPage(true),calls:()=>callsPage(true)}});
 const smsManager=new SmsManager({document,request:command=>auth(command),reloadInbox:()=>inboxPage(true),confirm:message=>confirm(message)});
 const notice=text=>{$('notice').textContent=text;};
-const sessionKeeper=new SessionKeeper({env:globalThis,token:()=>token,apply:(old,next)=>{if(token!==old)throw Error('登录会话已变化');audioLink.updateAuthentication(old,next);token=next;},renew:async(old,active)=>{
+const sessionKeeper=new SessionKeeper({env:globalThis,token:()=>token,apply:(old,next,remaining)=>{
+ if(token!==old)throw Error('登录会话已变化');
+ audioLink.updateAuthentication(old,next);token=next;
+ saveTabSession({token,pin:authenticatedDevicePin,clientKey:hex(publicKey),remaining});
+},renew:async(old,active)=>{
  const epoch=viewEpoch;active();const c=await api({op:'session_challenge',token:old},epoch);active();
  const signature=await proof(c,'session_renew',undefined,epoch,old);active();
  const result=await api({op:'renew_session',token:old,challenge_id:c.id,signature},epoch);current(epoch);active();return result;
@@ -173,6 +177,7 @@ async function initialize(){
  try{const response=await fetch('/api/media/capabilities',{credentials:'omit',cache:'no-store',redirect:'error'});const capability=await response.json();audioReady=response.ok&&capability.protocol===1&&capability.enabled===true;}catch{audioReady=false;}
  $('audio-section').hidden=!audioReady;showAudio();
  showTestControls();$('test-state').textContent=audioReady?'选一个测试即可。来电测试开始后，再用另一部手机拨入。':'可以检查状态和测试短信；此设备暂未开启浏览器音频。';
+ await resumeBrowserSession(identity);
 }
 async function proof(challenge,purpose,pairScopes,epoch=viewEpoch,sessionToken=null){
  let expectedKind=purpose==='bootstrap'?'owner':'client';
@@ -224,7 +229,46 @@ async function pair(){
  const result=await api({op:'pair_proof',challenge_id:c.id,signature},epoch);
  notice('配对申请已提交。请由设备所有者核对浏览器公钥、权限和申请 ID 后批准：'+result.pairing_id);
 }
+async function resumeBrowserSession(identity){
+ if(token||busy)return;
+ const deviceKey=identity?.public_key;
+ if(!Array.isArray(deviceKey)||deviceKey.length!==32||!deviceKey.every(b=>Number.isInteger(b)&&b>=0&&b<=255))return;
+ const pin=hex(deviceKey),storedPin=$('pin').value.trim().toLowerCase();
+ if(pin!==storedPin){forgetTabSession();return;}
+ const entry=readTabSession(pin,hex(publicKey));
+ if(!entry)return;
+ const epoch=viewEpoch,generation=actionGeneration;
+ const currentAttempt=()=>epoch===viewEpoch&&generation===actionGeneration&&!token&&!busy;
+ try{
+  let health;
+  for(const delay of [0,180,500]){
+   if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
+   if(!currentAttempt())return;
+   try{health=await api({op:'health',token:entry.token},epoch);break;}
+   catch(error){if(!transientReadError(error)||delay===500)throw error;}
+  }
+  if(!currentAttempt())return;
+  const remaining=entry.expiresAt-Date.now();
+  if(health?.ok!==true||remaining<=0||Date.now()<entry.savedAt){forgetTabSession();return;}
+  sessionKeeper.resume(entry.token,remaining);
+  await enterConsole(entry.token,pin,'dashboard','已恢复当前标签页的登录会话',health);
+ }catch(error){
+  if(currentAttempt()&&(error?.coreCode==='denied'||error?.httpStatus===401||error?.httpStatus===403))forgetTabSession();
+ }
+}
+async function enterConsole(sessionToken,pin,destination,message,health){
+ const epoch=viewEpoch;
+ token=sessionToken;authenticatedDevicePin=pin;
+ configurationOpen=configurationVisible();void configurationIndicator.set(configurationOpen&&!document.hidden);
+ networkPanel.start();dailyPhone.start();notice(message);
+ try{await refresh(health);}finally{
+  if(epoch===viewEpoch&&token===sessionToken){
+   dashboard.go(destination);void dashboard.signedIn();if(destination==='sim')void readDataRoaming();
+  }
+ }
+}
 async function login({destination='dashboard'}={}){
+ forgetTabSession();
  token=null;lease=null;resetBluetoothMode();resetDataRoaming();
  nknProductPanel.reset();nasBridgePanel?.reset();authenticatedDevicePin=null;
  forwardingPanel.reset();forwardingHistory.reset();
@@ -232,12 +276,9 @@ async function login({destination='dashboard'}={}){
  sessionKeeper.reset();void audioLink.stop();const epoch=viewEpoch;showAudio();const c=await api({op:'challenge',public_key:Array.from(publicKey)},epoch);const signature=await proof(c,'login',undefined,epoch);current(epoch);
  const verifiedDevicePin=hex(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(new Uint8Array(c.transcript))).device_public_key);
  const r=await api({op:'authenticate',challenge_id:c.id,signature},epoch);current(epoch);if(!/^[a-f0-9]{64}$/.test(r.token))throw Error('登录响应无效');
- sessionKeeper.start(r.token,r.expires_in_seconds);token=r.token;authenticatedDevicePin=verifiedDevicePin;configurationOpen=configurationVisible();void configurationIndicator.set(configurationOpen&&!document.hidden);networkPanel.start();dailyPhone.start();notice('已登录，通话期间可自动续期');
- try{await refresh();}finally{
-  if(epoch===viewEpoch&&token===r.token){
-   dashboard.go(destination);void dashboard.signedIn();if(destination==='sim')void readDataRoaming();
-  }
- }
+ sessionKeeper.start(r.token,r.expires_in_seconds);
+ saveTabSession({token:r.token,pin:verifiedDevicePin,clientKey:hex(publicKey),remaining:sessionKeeper.remaining()});
+ await enterConsole(r.token,verifiedDevicePin,destination,'已登录，通话期间可自动续期');
 }
 function row(text,parent,onClick){const item=document.createElement('div');item.className='row';const label=document.createElement('span');label.textContent=text;item.append(label);if(onClick){const button=document.createElement('button');button.textContent='查看';button.onclick=()=>act(onClick);item.append(button);}parent.append(item);}
 async function inboxPage(reset=false){
@@ -310,10 +351,10 @@ async function loadHistory(){
  const result=await auth({op:'history_sources'});if(generation!==historySourcesView)throw Error('历史来源已变化，请重新刷新');
  historySources=result.sources;for(const [index,source] of historySources.entries()){const option=document.createElement('option');option.value=source.source;option.textContent=`历史库 ${index+1} · ${source.source.slice(0,8)}`;$('history-source').append(option);}historyTypes();await historyPage(true);
 }
-async function refresh(){
+async function refresh(currentHealth){
  smsManager.reset();await smsManager.permissions();
  eventSync.reset();$('events').textContent='已重置补同步位置；可点击“补同步事件”追赶历史变化';
- const epoch=viewEpoch;const health=await auth({op:'health'});current(epoch);
+ const epoch=viewEpoch;const health=currentHealth??await auth({op:'health'});current(epoch);
  const line=await auth({op:'line_status'});current(epoch);
  async function optional(op){try{return await auth({op});}catch(error){current(epoch);return {available:false,reason:'暂不可用或未授予此项权限'};}}
  const call=await optional('call_status');const network=await optional('network_status');current(epoch);
@@ -725,7 +766,7 @@ bind('bt-mode-login',async()=>{
 });
 bind('bt-mode-apply',applyBluetoothMode);
 drawBluetoothMode();
-bind('initialize-owner',initializeOwner);bind('password-login',passwordLogin);bind('browser-login',browserLogin);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{viewEpoch++;actionGeneration++;busy=false;dashboard.reset();for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;resetBluetoothMode();resetDataRoaming();clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
+bind('initialize-owner',initializeOwner);bind('password-login',passwordLogin);bind('browser-login',browserLogin);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{forgetTabSession();viewEpoch++;actionGeneration++;busy=false;dashboard.reset();for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;resetBluetoothMode();resetDataRoaming();clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
 bind('sms-login',async()=>{await login();$('sms-management-state').textContent=smsManager.available?'已重新登录，请重新选择短信后管理。':'当前浏览器没有所有者管理权限，请使用已认领的所有者浏览器。';});
 bind('daily-login',login);$('daily-logout').onclick=()=>$('logout').onclick();bind('sms-refresh',()=>inboxPage(true));bind('send-sms',dailySendSms);bind('sms-query',query);bind('sms-close',closeSms);
 bind('forwarding-login',async()=>{await login();dashboard.go('forwarding');await forwardingPanel.enter();});
