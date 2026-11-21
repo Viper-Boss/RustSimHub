@@ -32,14 +32,16 @@ const seedPath = "/var/lib/rustsimhub/nkn/transport-seed"
 const networkPath = "/run/rustsimhub-network/status.json"
 
 type configuration struct {
-	Format         uint8    `json:"format"`
-	Source         string   `json:"source_commit"`
-	Executable     string   `json:"engine_sha256"`
-	CorePin        string   `json:"core_pin"`
-	StatisticsKey  string   `json:"statistics_public_key"`
-	Interface      string   `json:"interface"`
-	Seeds          []string `json:"seed_rpc"`
-	StatusProtocol uint8    `json:"status_protocol,omitempty"`
+	Format                   uint8    `json:"format"`
+	Source                   string   `json:"source_commit"`
+	Executable               string   `json:"engine_sha256"`
+	CorePin                  string   `json:"core_pin"`
+	StatisticsKey            string   `json:"statistics_public_key"`
+	Interface                string   `json:"interface"`
+	Seeds                    []string `json:"seed_rpc"`
+	StatusProtocol           uint8    `json:"status_protocol,omitempty"`
+	UsageQueryProtocol       uint8    `json:"usage_query_protocol,omitempty"`
+	UsageTransactionProtocol uint8    `json:"usage_transaction_protocol,omitempty"`
 }
 type roles struct {
 	core, coreGID, engine, engineGID uint32
@@ -109,7 +111,10 @@ func hex32(text string) ([32]byte, error) {
 	return b, nil
 }
 func configurationValid(c configuration) bool {
-	if c.StatusProtocol > 1 || c.Format != 1 || len(c.Source) != 40 || strings.ToLower(c.Source) != c.Source || c.Interface != "wlan0" && c.Interface != "usb0" || len(c.Seeds) < 1 || len(c.Seeds) > 3 {
+	if c.UsageTransactionProtocol == 1 && c.StatusProtocol != 1 {
+		return false
+	}
+	if c.UsageTransactionProtocol > 1 || c.UsageQueryProtocol > 1 || c.StatusProtocol > 1 || c.Format != 1 || len(c.Source) != 40 || strings.ToLower(c.Source) != c.Source || c.Interface != "wlan0" && c.Interface != "usb0" || len(c.Seeds) < 1 || len(c.Seeds) > 3 {
 		return false
 	}
 	if _, e := hex.DecodeString(c.Source); e != nil {
@@ -218,20 +223,38 @@ func LoadInstalled() (*Policy, error) {
 	if cmd.Run() != nil {
 		return nil, ErrDenied
 	}
-	var version struct {
-		Contract uint8  `json:"contract"`
-		Source   string `json:"source_commit"`
-		SDK      bool   `json:"nkn_sdk_linked"`
-		Root     bool   `json:"root_launch_required"`
-		Fixture  bool   `json:"isolated_fixture_build"`
-		Go       string `json:"go"`
-	}
-	d := json.NewDecoder(bytes.NewReader(out.bytes))
-	d.DisallowUnknownFields()
-	if d.Decode(&version) != nil || d.Decode(new(any)) != io.EOF || version.Contract != 1 || version.Source != c.Source || !version.SDK || !version.Root || version.Fixture || version.Go != "go1.27.3" {
+	if !engineVersionValid(out.bytes, c) {
 		return nil, ErrDenied
 	}
 	return &Policy{config: c, roles: r, hash: sha256.Sum256(canonical), executable: actual}, nil
+}
+
+func engineVersionValid(raw []byte, c configuration) bool {
+	if len(raw) == 0 || len(raw) > 65536 {
+		return false
+	}
+	pre := json.NewDecoder(bytes.NewReader(raw))
+	if strictObject(pre, 0) != nil {
+		return false
+	}
+	if _, e := pre.Token(); e != io.EOF {
+		return false
+	}
+	var version struct {
+		Contract     uint8  `json:"contract"`
+		Source       string `json:"source_commit"`
+		SDK          bool   `json:"nkn_sdk_linked"`
+		Root         bool   `json:"root_launch_required"`
+		Fixture      bool   `json:"isolated_fixture_build"`
+		Go           string `json:"go"`
+		Transactions uint8  `json:"usage_transaction_protocol,omitempty"`
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.DisallowUnknownFields()
+	if d.Decode(&version) != nil || d.Decode(new(any)) != io.EOF || version.Contract != 1 || version.Source != c.Source || !version.SDK || !version.Root || version.Fixture || version.Go != "go1.27.3" || version.Transactions > 1 || c.UsageTransactionProtocol == 1 && version.Transactions != 1 {
+		return false
+	}
+	return true
 }
 
 type boundedOutput struct{ bytes []byte }

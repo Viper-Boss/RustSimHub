@@ -31,6 +31,8 @@ secure-session-candidate = ["recovery-transport", "recovery-execution", "rustsim
 nkn-session-candidate = ["recovery-transport", "rustsimhub-auth/nkn-session-candidate", "rustsimhub-media/nkn-session-candidate", "dep:rustsimhub-recovery-session", "dep:rustsimhub-nkn-agent"]
 root-provider-candidate = ["nkn-session-candidate"]
 email-production-candidate = ["rustsimhub-forwarder/smtp-production-candidate"]
+usage-transaction-candidate = ["product-providers-candidate", "rustsimhub-usage-stats/transaction-candidate"]
+usage-root-transport-candidate = ["usage-transaction-candidate"]
 
 [[test]]
 name = "recovery_secure_uid"
@@ -57,6 +59,7 @@ rustsimhub-compat = { path = "../compat" }
 rustsimhub-setup-ap = { path = "../setup-ap" }
 rustsimhub-forwarder = { path = "../forwarder" }
 rustsimhub-airsim = { path = "../airsim" }
+rustsimhub-usage-stats = { path = "../usage-stats" }
 ed25519-dalek = { version = "2.2", optional = true }
 uuid = { version = "1", optional = true }
 

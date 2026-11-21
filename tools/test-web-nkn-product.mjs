@@ -19,6 +19,14 @@ const run=(f,fn)=>f.panel.action(fn);
 const read=f=>run(f,g=>f.panel.read(g));
 const set=f=>run(f,g=>f.panel.set(g,'manual_engine',true));
 {
+ const f=fixture();let seq=0;
+ f.panel.request=async c=>{f.calls.push(c);if(c.op==='nkn_status')return report(++seq);return {request_id:id,known:true,state:'accepted',core_instance:ctx,owner:c.owner,enabled:c.enabled,expected_revision:'0',admitted_revision:'1',not_found_is_not_proof:true};};
+ await read(f);assert.equal(f.panel.buttons.statistics_on.disabled,false);assert.equal(f.panel.buttons.statistics_off.disabled,true);
+ await run(f,g=>f.panel.set(g,'statistics',true));
+ const requests=f.calls.filter(c=>c.op==='set_nkn_enabled');assert.equal(requests.length,1);assert.equal(requests[0].owner,'statistics');
+ assert.equal(f.archives[0].record.owner,'statistics');assert.equal(f.pending,null);assert.equal(f.calls.some(c=>/subscribe|check_in/.test(c.op)),false);f.panel.reset();
+}
+{
  const f=fixture();assert.equal(f.calls.length,0);await read(f);assert.equal(f.calls.length,1);assert.equal(f.panel.buttons.remote_on.disabled,true);f.clock.wall+=5001;f.panel.render();assert.match(f.panel.output.textContent,/陈旧/);assert.equal(f.calls.length,1);f.panel.reset();
 }
 {
@@ -44,6 +52,34 @@ assert.throws(()=>archiveInput({record:record(),state:'accepted',admitted_revisi
 assert.throws(()=>archiveInput({record:record(),state:'unknown',admitted_revision:'1'}));
 {const v=report();v.provider.status.source='mock';assert.throws(()=>reportInput(v));}
 {const v=report();v.provider.original_process_exit_verified=true;assert.throws(()=>reportInput(v));}
+// A backend sample's existing age and response/local elapsed time share one
+// five-second freshness limit. Stale displays must also disable mutations.
+for(const {age,transit,after} of [
+ {age:4900,transit:200,after:0},
+ {age:4900,transit:50,after:51},
+ {age:5000,transit:0,after:1},
+]){
+ const f=fixture();f.panel.request=async c=>{f.calls.push(c);const v=report();v.provider.status.age_ms=age;f.clock.mono+=transit;f.clock.wall+=transit;return v;};
+ await read(f);f.clock.mono+=after;f.clock.wall+=after;f.panel.render();
+ assert.equal(f.panel.fresh(),false,'Backend age must be included in mutation freshness');
+ assert.equal(f.panel.buttons.manual_on.disabled,true);assert.equal(f.panel.buttons.statistics_on.disabled,true);
+ await set(f);assert.equal(f.calls.filter(c=>c.op==='set_nkn_enabled').length,0);assert.equal(f.pending,null);f.panel.reset();
+}
+{
+ const f=fixture(),schedule=globalThis.setTimeout,scheduled=[];
+ globalThis.setTimeout=(fn,delay,...args)=>{scheduled.push(delay);return schedule(fn,delay,...args);};
+ try{
+  f.panel.request=async()=>{const v=report();v.provider.status.age_ms=4900;f.clock.mono+=50;f.clock.wall+=50;return v;};
+  await read(f);assert.equal(f.panel.fresh(),true);assert.equal(f.panel.buttons.manual_on.disabled,false);
+  assert.deepEqual(scheduled,[51],'Expiry timer includes backend age and response elapsed time');
+ }finally{f.panel.reset();globalThis.setTimeout=schedule;}
+}
+{
+ // When no engine exists, Core's fresh unavailable report still permits an
+ // explicit Owner start. Unknown counters are not evidence of a stale report.
+ const f=fixture();f.panel.request=async()=>{const v=report(),s=v.provider.status;s.source='unavailable';s.age_ms=null;for(const k of ['enabled','service','path','dht'])s[k]='unknown';for(const k of ['rx_bytes','tx_bytes','rtt_ms','peer_count'])s[k]=null;return v;};
+ await read(f);assert.equal(f.panel.fresh(),true);assert.equal(f.panel.buttons.manual_on.disabled,false);assert.match(f.panel.output.textContent,/服务：未知/);f.panel.reset();
+}
 console.log('PASS: actual NKN product panel; durable CAS before mutation, exact receipts, Unknown/no resend, stale/sequence/epoch/logout fences, unavailable remote, no private errors or passive I/O');
 if(process.argv[2]){
  const captured=JSON.parse(await readFile(process.argv[2],'utf8')).result.status;

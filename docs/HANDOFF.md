@@ -1,5 +1,17 @@
 # RustSimHub 当前接手入口
 
+2026-11-16 第二轮主线复验：263～266已正常合并，267在负责人分支三方集成保留原作者，产品字节与固定受测HEAD一致。网络策略持久原ID/Unknown恢复、固定用途签名及有界Root/SDK/Core观察候选已交；完整CheckInTransport草稿268仍归原窗口，不启用生产上报。Core lib122/bin237、统计92、Edge71、Go各模式55顶层、真实Chrome/IndexedDB三宽与旧代码负对照通过；SDK/Root ARM构建通过，Core ARM缺目标标准库未通过，云端计费未运行。见[候选整合记录](deliveries/LEAD-STATISTICS-CANDIDATES-20261116.md)。无设备/蓝牙改动；热点暂缓、USB优先，81.5%保持。
+
+2026-11-16 主线已独立复验并正常合并学妹四笔非草稿PR255～258，见[USB优先与主线整合记录](deliveries/LEAD-USB-FIRST-OFFLINE-INTEGRATION-20261116.md)：统计跨窗口Pending门禁、NKN样本年龄、转发ready回调撤权/超时修复已入main；固定SDK向量与接口提案仅作离线前置，生产上报未启用。组合90统计/65NKN/127转发（SMTP129，重叠不累加）、严格检查/四网页及旧代码负对照通过；Go15向量/30篡改/4错误编码通过，原环境失败保留。云端计费零步骤，未跑ARM/全仓/真浏览器/设备，蓝牙及草稿不动，81.5%保持。热点暂缓、USB电脑工具优先继续有效。
+
+2026-11-16 用户决定暂缓热点配网开发与手机验收，优先使用USB电脑工具配置Wi-Fi。已有热点源码、应用66～68等历史失败和草稿PR69保留，不能写成已修好或已验收；当前不再安排AP扫描、手机热点试连/返回/保存测试。A/B两包同步缩小本轮执行范围，保留共享Wi-Fi事务、USB授权/配对、网络状态和其他功能。USB设备端已有[代码/隔离验证记录](VALIDATION-USB-TOOL-WIFI-AUTH-2026-10-29.md)，该历史记录不证明当前工具与设备已端到端通过；主线继续审核整合、离线复验与后续获准实机工作。热点延期不增加81.5%完成率，不减少原台账分母或重算权重。
+
+2026-11-15 用户明确要求把全部可交给另一Codex的剩余离线工作拆成两份，已整理[A包·生产代码与业务接线](team/OFFLINE-A-PRODUCTION-20261115.md)及[B包·离线集成与发行材料](team/OFFLINE-B-INTEGRATION-20261115.md)。以2ae840f及其后main为产品基线，逐项映射149个未验收动作：93项业务关联A、29项系统/发行关联B、27项蓝牙留原窗口；每项真实设备/公网部分保留主线，不能把已有代码重写或把分派记完成。两包有互斥路径和冻结接口，不接管PR250蓝牙及其他草稿，不签名/装机。未假定学妹账号、不改作者或成员权限，整体81.5%保持。
+
+2026-11-15 主线独立统计参与授权已接线并通过本机验证，见[交付](deliveries/LEAD-NKN-USAGE-CONSENT-20261115.md)。Core原私有状态下注入固定目录，当前Owner/realm/CAS/精确回执绑定；默认不参与，网页明确只保存许可、尚未连接上报端口。461相关Rust、全仓严格检查、Core/Edge ARM64和真实Chrome三宽通过，不触碰蓝牙/AirSIM/音频或设备。不能调用SDK的Subscribe便捷函数代替纯交易准备；真实签名、提交/恢复确认、长期权限与实机仍待完成，整体81.5%保持。
+
+2026-11-15 主线统计查询接线已完成本机验证，见 [交付记录](deliveries/LEAD-NKN-USAGE-QUERY-20261115.md) 和 [生产接口/剩余项](nkn/usage-query-integration.md)。它仅提供受限引擎上的显式汇总查询，不能当作本机已参加安装统计；签名/链上提交及独立参与同意仍待接线。Core/Edge 和 SDK/Root 的 ARM 构建、相关 Rust/Go/真实 Chrome 通过，未部署、不改变设备 87 或蓝牙窗口工作；现有最长 300 秒权限不放宽。
+
 2026-11-12 Claude按用户要求彻底接手收尾。当前设备为应用77（confirmed77/floor77，清单d9295070，源1f1ec580；2026-11-13更新）。AirSIM直连已部署但未启用，见[airsim-gateway.md](airsim-gateway.md)；通话和音频未接。目标按“真机跑通”排序：短信转发（代码已部署，待真实通道实测）→NasSimHub连接→NKN装机→iOS AirSIM网关（未开始）→界面收尾。实测清单在[testing/TAKEOVER-ACCEPTANCE.md](testing/TAKEOVER-ACCEPTANCE.md)。部署沿用已成功四次的应用升级流程（本机`.local/app75-*`脚本），未使用WEB5产品profile链。所有者钥匙仍只在用户Chrome的`https://192.168.120.167:8443`下。
 
 2026-11-07 当前设备为应用74（confirmed74/floor74，清单77559ba0）。所有者只有浏览器钥匙，没有账号密码；钥匙在用户Chrome的`https://192.168.120.167:8443`下，不可导出且无备份，不要清这个站点的数据。记录见[VALIDATION-APP72-CONSOLE-INSTALL-20261107.md](VALIDATION-APP72-CONSOLE-INSTALL-20261107.md)。

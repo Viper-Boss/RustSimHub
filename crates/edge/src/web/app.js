@@ -3,7 +3,7 @@ import { prove, unhex, hex } from './proof.js';
 import { AudioLink } from './media.js';
 import { CallTest, archiveEndedOperation } from './call-test.js';
 import { ConfigurationIndicator } from './indicator.js';
-import { NetworkPanel } from './network.js';
+import { NetworkPanel, policyJournalInput } from './network.js';
 import { EventSync } from './event-sync.js';
 import { SmsManager, smsListText, smsDetailText } from './sms-management.js';
 import { DailyPhone } from './phone.js';
@@ -17,7 +17,7 @@ import { OperationReceipt } from './operation-receipt.js';
 import { DiagnosticPanel } from './diagnostics.js';
 import { ConfigurationState } from './configuration-state.js';
 import { NknProductPanel, pendingInput as nknPendingInput, archiveInput as nknArchiveInput } from './nkn-product.js';
-import { UsageStatsPanel, bindUsageCounts } from './usage-stats.js';
+import { UsageStatsPanel, bindUsageCounts, UsageParticipationPanel, participationPending, participationArchive } from './usage-stats.js';
 import { ConsoleDashboard } from './console.js';
 import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput, readJournal as readNasJournal, clearJournal as clearNasJournal } from './nas-bridge.js';
 const $=id=>document.getElementById(id);
@@ -99,17 +99,18 @@ const forwardingHistory=new ForwardingHistory({document,request:command=>auth(co
    if(rows.length>=64){const index=rows.findIndex(r=>r.uncertain===false);if(index<0)throw Error('未决摘要已满，请保留并通过维护入口导出');rows.splice(index,1);}
    return [...rows,{record,state:entry.state,uncertain:entry.uncertain}];});current(epoch);
  }});
-async function api(command,epoch=viewEpoch){
+async function api(command,epoch=viewEpoch,signal=null){
  current(epoch);
  const id=crypto.randomUUID();const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),18000);requests.add(controller);
+ const cancel=()=>controller.abort();if(signal?.aborted)cancel();else signal?.addEventListener('abort',cancel,{once:true});
  try{const r=await fetch('/api/v2',{method:'POST',headers:{'Content-Type':'application/json','X-RustSimHub-Request':'2'},body:JSON.stringify({protocol:2,id,command}),signal:controller.signal,credentials:'omit',cache:'no-store',redirect:'error'});
   if(!r.ok)throw Object.assign(Error('请求被拒绝或服务暂不可用'),{httpStatus:r.status});
   const value=await r.json();current(epoch);if(value.protocol!==2||value.id!==id)throw Error('响应不匹配');
   if(value.result?.error)throw Object.assign(Error('核心拒绝操作；请检查登录、权限和设备状态'),{coreCode:value.result.error});
   return value.result;
- }finally{clearTimeout(timer);requests.delete(controller);}
+ }finally{clearTimeout(timer);signal?.removeEventListener('abort',cancel);requests.delete(controller);}
 }
-function auth(command){if(!token)throw Error('请先登录');return api({...command,token});}
+function auth(command,signal=null){if(!token)throw Error('请先登录');return api({...command,token},viewEpoch,signal);}
 const eventSync=new EventSync({request:command=>auth(command),reload:{sms:()=>inboxPage(true),calls:()=>callsPage(true)}});
 const smsManager=new SmsManager({document,request:command=>auth(command),reloadInbox:()=>inboxPage(true),confirm:message=>confirm(message)});
 const notice=text=>{$('notice').textContent=text;};
@@ -120,7 +121,8 @@ const sessionKeeper=new SessionKeeper({env:globalThis,token:()=>token,apply:(old
 }});
 dailyPhone=new DailyPhone({document,env:globalThis,ensureSession:()=>sessionKeeper.ensure(),audio:audioLink,audioReady:()=>audioReady,context:value=>({token,lease:value}),request:command=>auth(command),getPending:()=>pending,setPending:async value=>{const epoch=viewEpoch;pending=value;await save('pending',value);current(epoch);showPending();},archivePending,archiveKnown:async value=>{const epoch=viewEpoch,receipts=await stored('phone-operation-receipts')||[];current(epoch);if(!Array.isArray(receipts))throw Error('电话回执不可用');await save('phone-operation-receipts',[...receipts.filter(x=>x.id!==value.id),value].slice(-64));current(epoch);},setLease:value=>{lease=value;showAudio();},blocked:()=>busy||apConfigurator?.working||apConfigurator?.managing||callTest.running||!!lease&&!dailyPhone?.managing});
 const dashboard=new ConsoleDashboard({document,request:command=>auth(command),detailText:value=>smsDetailText(value),confirm:message=>confirm(message),copy:value=>navigator.clipboard.writeText(value),storage:globalThis.localStorage,matchDark:()=>globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches===true,onEnter:page=>{if(page==='ble')void readBluetoothMode();},onLeave:()=>{for(const panel of document.querySelectorAll('details[data-configuration]'))panel.open=false;}});
-const networkPanel=new NetworkPanel({document,request:command=>auth(command),getToken:()=>token,onSample:sample=>dashboard.network(sample),runTest:async command=>{
+const networkPanel=new NetworkPanel({document,request:command=>auth(command),getToken:()=>token,onSample:sample=>dashboard.network(sample),getDevicePin:()=>authenticatedDevicePin,
+ loadPolicyJournal:pin=>stored('network-policy-journal:'+pin),savePolicyJournal:(value,expected,pin,guard)=>atomicStored('network-policy-journal:'+pin,saved=>{guard();if(JSON.stringify(policyJournalInput(saved,pin))!==JSON.stringify(expected))throw Error('限额回执已由另一页面更新');return policyJournalInput(value,pin);}),confirm:message=>confirm(message),runTest:async command=>{
  const epoch=viewEpoch,authToken=token;if(!authToken)throw Error('请先登录');
  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),35000);requests.add(controller);
  try{const r=await fetch('/api/network/v1/test',{method:'POST',headers:{'Content-Type':'application/json','X-RustSimHub-Request':'2'},body:JSON.stringify({...command,token:authToken}),signal:controller.signal,credentials:'omit',cache:'no-store',redirect:'error'});current(epoch);if(!r.ok)throw Error(r.status===429?'测试正在运行或需间隔15秒':'请检查网络权限和设备状态');const result=await r.json();current(epoch);return result;}
@@ -225,6 +227,7 @@ async function pair(){
  notice('配对申请已提交。请由设备所有者核对浏览器公钥、权限和申请 ID 后批准：'+result.pairing_id);
 }
 async function login({destination='dashboard'}={}){
+ networkPanel.stop();
  token=null;lease=null;resetBluetoothMode();
  nknProductPanel.reset();nasBridgePanel?.reset();authenticatedDevicePin=null;
  forwardingPanel.reset();forwardingHistory.reset();
@@ -762,9 +765,12 @@ function publishSupportState(){
  const canQuery=!!row&&!!token&&!busy&&!testWorking&&!callTest.running&&!apConfigurator?.working&&!apConfigurator?.managing&&!dailyPhone?.working&&!dailyPhone?.managing;
  supportPanels.receipt.update(row?{...row,canQuery,canArchive:false}:null);
  supportPanels.diagnostics.update({origin:globalThis.location?.origin,device_pin:$('pin').value,operation:row});
+ const usageRead=token&&!busy&&!testWorking&&!callTest.running&&!apConfigurator?.working&&!apConfigurator?.managing?readSupportUsage:null;
+ if(supportPanels.usage.read!==usageRead){supportPanels.usage.read=usageRead;supportPanels.usage.reset();}
  const read=supportConfigurationAllowed()?readSupportConfiguration:null;
  if(supportPanels.configuration.read!==read||supportConfigurationToken!==token){supportPanels.configuration.read=read;supportConfigurationToken=token;supportPanels.configuration.reset();}
 }
+function readSupportUsage({window,signal}){return auth({op:'usage_stats_query',window},signal);}
 function supportConfigurationAllowed(){return !!token&&testCenterActive&&!document.hidden&&!busy&&!testWorking&&!callTest.running&&!apConfigurator?.working&&!apConfigurator?.managing&&!dailyPhone?.working&&!dailyPhone?.managing;}
 async function readSupportConfiguration({signal}){
  if(!supportConfigurationAllowed()||signal.aborted||supportConfigurationReading)throw Error('状态读取当前不可用');
@@ -794,12 +800,26 @@ supportPanels={
  configuration:new ConfigurationState({document,root:$('support-configuration'),read:null,clock:()=>Date.now()}),
  usage:new UsageStatsPanel({document,root:$('support-usage'),read:null})
 };
+supportPanels.participation=new UsageParticipationPanel({document,root:$('support-usage-participation'),request:command=>auth(command),getToken:()=>token,login:()=>login(),confirm:message=>confirm(message),crypto,
+ loadPending:()=>stored('usage-participation-pending'),
+ savePending:async(value,expected)=>{
+  const record=participationPending(value);await atomicStored('usage-participation-pending',saved=>{const old=participationPending(saved);if((old?.id??null)!==expected)throw Error('授权记录已由另一页面更新，请先核对');return record;});
+  if(JSON.stringify(participationPending(await stored('usage-participation-pending')))!==JSON.stringify(record))throw Error('授权回执未能读回，不继续提交');
+ },
+ archivePending:async value=>{
+  const entry=participationArchive(value);
+  await atomicStored('usage-participation-receipts',saved=>{const raw=saved??[];if(!Array.isArray(raw)||raw.length>64)throw Error('授权回执不可用');const rows=raw.map(participationArchive),old=rows.find(r=>r.record.id===entry.record.id);
+   if(old&&(JSON.stringify(old.record)!==JSON.stringify(entry.record)||old.state==='saved'&&entry.state!=='saved'))throw Error('原授权回执不能被覆盖');
+   const next=rows.filter(r=>r.record.id!==entry.record.id);if(next.length>=64){const index=next.findIndex(r=>r.state==='saved');if(index<0)throw Error('不确定授权回执已满，请先通过维护入口保留');next.splice(index,1);}return [...next,entry];});
+  const rows=await stored('usage-participation-receipts');if(!Array.isArray(rows)||!rows.some(r=>JSON.stringify(r)===JSON.stringify(entry)))throw Error('授权归档未能读回，原记录保留');
+ }
+});
 publishSupportState();
 const supportPreviousLogout=$('logout').onclick;
 $('logout').onclick=()=>{for(const panel of Object.values(supportPanels))panel.reset();supportPreviousLogout();publishSupportState();};
-addEventListener('pagehide',()=>{supportPanels.configuration.read=null;supportConfigurationToken=null;for(const panel of Object.values(supportPanels))panel.reset();});
+addEventListener('pagehide',()=>{supportPanels.configuration.read=null;supportPanels.usage.read=null;supportConfigurationToken=null;for(const panel of Object.values(supportPanels))panel.reset();});
 addEventListener('pageshow',()=>publishSupportState());
-document.addEventListener('visibilitychange',()=>{if(document.hidden){supportPanels.configuration.read=null;supportPanels.configuration.reset();}else publishSupportState();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){supportPanels.configuration.read=null;supportPanels.configuration.reset();supportPanels.usage.read=null;supportPanels.usage.reset();}else publishSupportState();});
 
 const nknProductPanel=new NknProductPanel({document,root:$('support-nkn'),request:command=>auth(command),getToken:()=>token,login:()=>login(),confirm:message=>confirm(message),crypto,
  loadPending:()=>stored('nkn-control-pending'),

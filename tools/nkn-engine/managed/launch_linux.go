@@ -37,6 +37,7 @@ type launch struct {
 	seed, corePin, statisticsKey, executable, policy [32]byte
 	seeds, dns                                       []string
 	fixture                                          bool
+	transactions                                     uint8
 }
 
 func (launch) String() string   { return "managed launch(private)" }
@@ -96,7 +97,8 @@ func parseLaunch(data []byte) (*launch, error) {
 		return nil, ErrLaunch
 	}
 	keys := []string{"format", "generation", "core_uid", "engine_uid", "seed", "core_pin", "statistics_public_key", "engine_sha256", "policy_sha256", "seed_rpc", "dns_servers", "mode"}
-	if len(fields) != len(keys) {
+	optional, transactions := fields["usage_transaction_protocol"]
+	if len(fields) != len(keys) && !(transactions && len(fields) == len(keys)+1) {
 		return nil, ErrLaunch
 	}
 	for _, key := range keys {
@@ -107,6 +109,11 @@ func parseLaunch(data []byte) (*launch, error) {
 	var version uint8
 	var mode string
 	l := &launch{}
+	if transactions {
+		if bytes.Equal(optional, []byte("null")) || json.Unmarshal(optional, &l.transactions) != nil || l.transactions != 1 || UsageTransactionProtocol() != 1 {
+			return nil, ErrLaunch
+		}
+	}
 	if json.Unmarshal(fields["format"], &version) != nil || version != 1 ||
 		json.Unmarshal(fields["generation"], &l.generation) != nil || l.generation == 0 ||
 		json.Unmarshal(fields["core_uid"], &l.coreUID) != nil || l.coreUID == 0 || l.coreUID == ^uint32(0) ||

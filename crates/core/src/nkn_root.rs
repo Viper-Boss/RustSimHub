@@ -22,10 +22,19 @@ use std::{
     time::{Duration, Instant},
 };
 const SOCKET: &str = "/run/rustsimhub-nkn-root/root.sock";
+#[cfg(feature = "usage-root-transport-candidate")]
+mod check_in;
 mod roles;
 mod status;
+#[cfg(feature = "usage-root-transport-candidate")]
+mod transactions;
+#[cfg(feature = "usage-root-transport-candidate")]
+pub use check_in::{SharedStatisticsStore, StatisticsTransport};
+mod usage;
 pub use roles::InstalledRoles;
 pub use status::{Report as StatusReport, Status as ReadOnlyStatus};
+#[cfg(feature = "usage-root-transport-candidate")]
+pub use transactions::{TransactionCall, TransactionConclusion};
 type Result<T> = std::result::Result<T, PortError>;
 fn boot_ms() -> Result<u64> {
     let t = rustix::time::clock_gettime(rustix::time::ClockId::Boottime);
@@ -35,7 +44,14 @@ fn boot_ms() -> Result<u64> {
         .and_then(|v| v.checked_add(nanos / 1_000_000 + 1))
         .ok_or(PortError::Protocol)
 }
-fn policy_details(device: [u8; 32]) -> Result<([u8; 32], bool)> {
+struct PolicyDetails {
+    hash: [u8; 32],
+    status: bool,
+    usage: bool,
+    #[cfg(feature = "usage-root-transport-candidate")]
+    transactions: Option<rustsimhub_usage_stats::protocol::StatsPublicKey>,
+}
+fn policy_details(device: [u8; 32]) -> Result<PolicyDetails> {
     let mut file = OpenOptions::new()
         .read(true)
         .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
@@ -70,10 +86,13 @@ fn policy_details(device: [u8; 32]) -> Result<([u8; 32], bool)> {
     if policy["core_pin"].as_str() != Some(expected.as_str()) {
         return Err(PortError::Denied);
     }
-    Ok((
-        Sha256::digest(&raw[start..=end]).into(),
-        policy["status_protocol"].as_u64() == Some(1),
-    ))
+    Ok(PolicyDetails {
+        hash: Sha256::digest(&raw[start..=end]).into(),
+        status: policy["status_protocol"].as_u64() == Some(1),
+        usage: policy["usage_query_protocol"].as_u64() == Some(1),
+        #[cfg(feature = "usage-root-transport-candidate")]
+        transactions: transactions::policy_key(&raw[start..=end], device)?,
+    })
 }
 fn connect() -> Result<UnixStream> {
     use rustix::net::{AddressFamily, SocketAddrUnix, SocketFlags, SocketType};
@@ -122,7 +141,12 @@ struct Shared {
     observed_root: AtomicU32,
     observed_engine: AtomicU32,
     sdk_status: bool,
+    sdk_usage: bool,
+    #[cfg(feature = "usage-root-transport-candidate")]
+    transaction_key: Option<rustsimhub_usage_stats::protocol::StatsPublicKey>,
     host_closed: OnceLock<Arc<AtomicBool>>,
+    #[cfg(feature = "usage-root-transport-candidate")]
+    startup: Mutex<Option<Arc<check_in::Startup>>>,
 }
 impl Drop for Shared {
     fn drop(&mut self) {
@@ -182,6 +206,48 @@ impl Shared {
         }
     }
     fn request(&self, op: u8, deadline: Instant, cleanup: bool) -> Result<Observation> {
+        self.request_scoped(op, deadline, cleanup, false)
+    }
+    fn port_request(&self, op: u8, deadline: Instant, cleanup: bool) -> Result<Observation> {
+        self.request_scoped(op, deadline, cleanup, true)
+    }
+    fn port_observation(&self, op: u8, deadline: Instant, cleanup: bool) -> Result<Observation> {
+        #[cfg(feature = "usage-root-transport-candidate")]
+        if !cleanup
+            && self
+                .startup
+                .try_lock()
+                .map_err(|_| PortError::Unavailable)?
+                .is_some()
+        {
+            return self.port_request(op, deadline, cleanup);
+        }
+        self.observation(op, deadline, cleanup)
+    }
+    fn request_scoped(
+        &self,
+        op: u8,
+        deadline: Instant,
+        cleanup: bool,
+        _port: bool,
+    ) -> Result<Observation> {
+        #[cfg(feature = "usage-root-transport-candidate")]
+        let startup = if _port && !cleanup {
+            self.startup
+                .try_lock()
+                .map_err(|_| PortError::Unavailable)?
+                .clone()
+        } else {
+            None
+        };
+        #[cfg(feature = "usage-root-transport-candidate")]
+        let deadline = startup
+            .as_ref()
+            .map_or(deadline, |s| deadline.min(s.budget.deadline()));
+        #[cfg(feature = "usage-root-transport-candidate")]
+        if let Some(s) = &startup {
+            s.check()?;
+        }
         if !cleanup {
             self.authority()?
         }
@@ -216,23 +282,71 @@ impl Shared {
                         .max(Duration::from_nanos(1)),
                 ))
                 .map_err(|_| PortError::Io)?;
-            self.sent.store(true, Ordering::Release);
-            if stream.write(&raw).map_err(|_| PortError::Io)? != raw.len() {
+            #[cfg(feature = "usage-root-transport-candidate")]
+            let written = if let Some(s) = &startup {
+                s.signer
+                    .with_current_action(&s.store, &s.budget, |auth| {
+                        if !self.local_live()
+                            || auth.check_nkn_root_authority(&self.authority).is_err()
+                        {
+                            return Err(PortError::Denied);
+                        }
+                        stream.set_nonblocking(true).map_err(|_| PortError::Io)?;
+                        self.sent.store(true, Ordering::Release);
+                        let result = stream.write(&raw).map_err(|_| PortError::Io);
+                        stream.set_nonblocking(false).map_err(|_| PortError::Io)?;
+                        result
+                    })
+                    .map_err(check_in::signer_error)??
+            } else {
+                self.sent.store(true, Ordering::Release);
+                stream.write(&raw).map_err(|_| PortError::Io)?
+            };
+            #[cfg(not(feature = "usage-root-transport-candidate"))]
+            let written = {
+                self.sent.store(true, Ordering::Release);
+                stream.write(&raw).map_err(|_| PortError::Io)?
+            };
+            if written != raw.len() {
                 return Err(PortError::Protocol);
             }
             let mut reply = [0u8; 87];
             let mut offset = 0;
             while offset < reply.len() {
+                #[cfg(feature = "usage-root-transport-candidate")]
+                if let Some(s) = &startup {
+                    s.check()?;
+                }
                 let now = Instant::now();
                 if now >= deadline {
                     return Err(PortError::Deadline);
                 }
+                let timeout = deadline - now;
+                #[cfg(feature = "usage-root-transport-candidate")]
+                let timeout = if startup.is_some() {
+                    timeout.min(Duration::from_millis(25))
+                } else {
+                    timeout
+                };
                 stream
-                    .set_read_timeout(Some(deadline - now))
+                    .set_read_timeout(Some(timeout))
                     .map_err(|_| PortError::Io)?;
-                let n = stream
-                    .read(&mut reply[offset..])
-                    .map_err(|_| PortError::Io)?;
+                let n = match stream.read(&mut reply[offset..]) {
+                    Ok(n) => n,
+                    #[cfg(feature = "usage-root-transport-candidate")]
+                    Err(e)
+                        if startup.is_some()
+                            && matches!(
+                                e.kind(),
+                                std::io::ErrorKind::WouldBlock
+                                    | std::io::ErrorKind::TimedOut
+                                    | std::io::ErrorKind::Interrupted
+                            ) =>
+                    {
+                        continue
+                    }
+                    Err(_) => return Err(PortError::Io),
+                };
                 if n == 0 {
                     return Err(PortError::Io);
                 };
@@ -247,6 +361,10 @@ impl Shared {
             )?;
             if Instant::now() >= deadline {
                 return Err(PortError::Deadline);
+            }
+            #[cfg(feature = "usage-root-transport-candidate")]
+            if let Some(s) = &startup {
+                s.check()?;
             }
             if !cleanup {
                 self.authority()?
@@ -470,7 +588,8 @@ pub fn authorized_ports(
     if nonce == [0; 32] {
         return Err(PortError::Denied);
     }
-    let (policy, sdk_status) = policy_details(device)?;
+    let details = policy_details(device)?;
+    let policy = details.hash;
     let remaining = deadline
         .saturating_duration_since(Instant::now())
         .as_millis();
@@ -496,8 +615,13 @@ pub fn authorized_ports(
         observed_at: AtomicU64::new(0),
         observed_root: AtomicU32::new(0),
         observed_engine: AtomicU32::new(0),
-        sdk_status,
+        sdk_status: details.status,
+        sdk_usage: details.usage,
+        #[cfg(feature = "usage-root-transport-candidate")]
+        transaction_key: details.transactions,
         host_closed: OnceLock::new(),
+        #[cfg(feature = "usage-root-transport-candidate")]
+        startup: Mutex::new(None),
     });
     Ok((
         Root(shared.clone()),
@@ -516,7 +640,7 @@ impl RootPort for Root {
         if !Arc::ptr_eq(&self.0, &p.0) || policy.hash != self.0.policy || b.cancelled() {
             return RootStart::Rejected(PortError::Denied);
         }
-        match self.0.request(1, b.deadline(), false) {
+        match self.0.port_request(1, b.deadline(), false) {
             Ok(v) if v.root == 1 => RootStart::Active,
             Ok(v) if v.root == 2 => RootStart::Rejected(PortError::Denied),
             Err(error) if !self.0.sent.load(Ordering::Acquire) => RootStart::Rejected(error),
@@ -527,7 +651,7 @@ impl RootPort for Root {
         if !Arc::ptr_eq(&self.0, &p.0) {
             return Err(PortError::Denied);
         }
-        let v = self.0.observation(3, b.deadline(), b.is_cleanup())?;
+        let v = self.0.port_observation(3, b.deadline(), b.is_cleanup())?;
         Ok(match v.root {
             1 => RootState::Active,
             2 => RootState::Released,
@@ -538,7 +662,7 @@ impl RootPort for Root {
         if !Arc::ptr_eq(&self.0, &p.0) {
             return Err(PortError::Denied);
         }
-        let v = self.0.request(5, b.deadline(), true)?;
+        let v = self.0.port_request(5, b.deadline(), true)?;
         self.0.live.store(false, Ordering::Release);
         Ok(if v.root == 2 {
             RootState::Released
@@ -564,7 +688,7 @@ impl EnginePort<Proof> for Engine {
         if !Arc::ptr_eq(&self.0, &p.0) || b.cancelled() {
             return EngineStart::Rejected(PortError::Denied);
         }
-        match self.0.request(2, b.deadline(), false) {
+        match self.0.port_request(2, b.deadline(), false) {
             Ok(v) if v.root == 1 && v.pid > 1 => EngineStart::Started(Process {
                 nonce: self.0.nonce,
                 pid: v.pid,
@@ -576,7 +700,7 @@ impl EnginePort<Proof> for Engine {
         if p.nonce != self.0.nonce {
             return Err(PortError::Denied);
         }
-        let v = self.0.observation(3, b.deadline(), b.is_cleanup())?;
+        let v = self.0.port_observation(3, b.deadline(), b.is_cleanup())?;
         if v.pid != p.pid {
             return Err(PortError::Denied);
         };
@@ -586,7 +710,7 @@ impl EnginePort<Proof> for Engine {
         if p.nonce != self.0.nonce {
             return Err(PortError::Denied);
         }
-        let v = self.0.request(4, b.deadline(), true)?;
+        let v = self.0.port_request(4, b.deadline(), true)?;
         if v.pid != p.pid {
             return Err(PortError::Denied);
         };
@@ -606,6 +730,12 @@ struct Run {
     source: Arc<Source>,
     references: [Option<rustsimhub_nkn_agent::Reference>; 3],
     remote: Option<Arc<AtomicBool>>,
+    #[cfg(feature = "usage-root-transport-candidate")]
+    statistics_epoch: u64,
+    #[cfg(feature = "usage-root-transport-candidate")]
+    statistics_query: bool,
+    #[cfg(feature = "usage-root-transport-candidate")]
+    check_in: Option<[u8; 16]>,
 }
 impl Drop for Run {
     fn drop(&mut self) {
@@ -701,6 +831,12 @@ impl Controller {
                 source,
                 references,
                 remote,
+                #[cfg(feature = "usage-root-transport-candidate")]
+                statistics_epoch: u64::from(owner == rustsimhub_nkn_agent::Owner::Statistics),
+                #[cfg(feature = "usage-root-transport-candidate")]
+                statistics_query: owner == rustsimhub_nkn_agent::Owner::Statistics,
+                #[cfg(feature = "usage-root-transport-candidate")]
+                check_in: None,
             });
             return state
                 .as_mut()
@@ -719,10 +855,27 @@ impl Controller {
         ) {
             return Err(PortError::Denied);
         }
+        #[cfg(feature = "usage-root-transport-candidate")]
+        if owner == rustsimhub_nkn_agent::Owner::Statistics && run.check_in.is_some() {
+            if run.statistics_query {
+                return Err(PortError::Denied);
+            }
+            run.statistics_query = true;
+            return Ok(run.supervisor.snapshot());
+        }
         let reference = run
             .supervisor
             .acquire(owner)
             .map_err(|_| PortError::Denied)?;
+        #[cfg(feature = "usage-root-transport-candidate")]
+        if owner == rustsimhub_nkn_agent::Owner::Statistics {
+            let Some(next) = run.statistics_epoch.checked_add(1) else {
+                let _ = run.supervisor.release(reference);
+                return Err(PortError::Denied);
+            };
+            run.statistics_epoch = next;
+            run.statistics_query = true;
+        }
         run.references[owner_index(owner)] = Some(reference);
         if owner == rustsimhub_nkn_agent::Owner::Remote {
             run.remote = Some(Arc::new(AtomicBool::new(true)));
@@ -741,9 +894,23 @@ impl Controller {
             .map_err(|_| PortError::Denied)?;
         let mut state = self.run.try_lock().map_err(|_| PortError::Unavailable)?;
         let run = state.as_mut().ok_or(PortError::Denied)?;
+        #[cfg(feature = "usage-root-transport-candidate")]
+        if owner == rustsimhub_nkn_agent::Owner::Statistics {
+            if !run.statistics_query {
+                return Err(PortError::Denied);
+            }
+            run.statistics_query = false;
+            if run.check_in.is_some() {
+                return Ok(run.supervisor.snapshot());
+            }
+        }
         let reference = run.references[owner_index(owner)]
             .take()
             .ok_or(PortError::Denied)?;
+        #[cfg(feature = "usage-root-transport-candidate")]
+        if owner == rustsimhub_nkn_agent::Owner::Statistics {
+            run.statistics_epoch = run.statistics_epoch.saturating_add(1);
+        }
         if owner == rustsimhub_nkn_agent::Owner::Remote {
             if let Some(remote) = run.remote.take() {
                 remote.store(false, Ordering::Release);

@@ -57,6 +57,10 @@ impl Cancellation {
     }
 }
 
+// A clone retains the EXACT deadline and original cancellation/context. It
+// cannot mint, extend or re-enable an attempt. Production ports may retain this
+// read-only fence while the original Machine owns the attempt and lease.
+#[derive(Clone)]
 pub struct AttemptBudget {
     deadline: Instant,
     cancellation: Cancellation,
@@ -602,6 +606,15 @@ impl<S: CheckInStore, T: CheckInTransport, C: Clock> CheckInMachine<S, T, C> {
             if now < self.next_action[index] {
                 return Ok(Outcome::Due {
                     not_before: self.next_action[index],
+                });
+            }
+            // All windows share one signing identity and its chain nonce.
+            // A prepared or ambiguously submitted transaction must be resolved
+            // by its original digest before any window prepares another write.
+            // Period expiry, disable/re-enable and restart do not free a nonce.
+            if state.windows.iter().any(|window| window.pending.is_some()) {
+                return Ok(Outcome::Due {
+                    not_before: now.saturating_add(RETRY_AFTER_SECS),
                 });
             }
             self.next_action[index] = now.saturating_add(RETRY_AFTER_SECS);

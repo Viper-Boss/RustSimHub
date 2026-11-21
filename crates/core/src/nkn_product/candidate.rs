@@ -13,6 +13,8 @@ pub(super) struct Inner {
     membership: Mutex<Option<Arc<super::membership::InstalledMembership>>>,
     pub wake: tokio::sync::Notify,
     pub closed: std::sync::atomic::AtomicBool,
+    usage_cache: Mutex<(String, rustsimhub_usage_stats::query::QueryCache)>,
+    participation: super::participation::Service,
 }
 struct Actions {
     revision: u64,
@@ -33,6 +35,101 @@ struct Caller {
     principal: Principal,
     realm: String,
     instance: String,
+}
+
+struct UsageTransport<'a> {
+    root: &'a rustsimhub_core::nkn_root::Controller,
+    token: &'a str,
+}
+impl rustsimhub_usage_stats::query::QueryTransport for UsageTransport<'_> {
+    fn query_page(
+        &mut self,
+        request: &rustsimhub_usage_stats::query::QueryRequest,
+    ) -> Result<Vec<u8>, rustsimhub_usage_stats::query::TransportError> {
+        use rustsimhub_usage_stats::{
+            protocol::{Clock, SystemClock, CACHE_TTL_SECS},
+            query::TransportError,
+        };
+        if request.page() != 0 {
+            return Err(TransportError::Rejected);
+        }
+        let count = self
+            .root
+            .read_usage_count(self.token, request.window(), request.deadline())
+            .map_err(|error| match error {
+                PortError::Deadline => TransportError::Timeout,
+                PortError::Denied => TransportError::Rejected,
+                _ => TransportError::Unavailable,
+            })?;
+        let now = SystemClock
+            .now_secs()
+            .map_err(|_| TransportError::Unavailable)?;
+        let expires = now
+            .checked_add(CACHE_TTL_SECS)
+            .ok_or(TransportError::Unavailable)?;
+        serde_json::to_vec(&json!({"version":request.version(),"window":request.window(),"topic":request.topic(),"page":0,"pages":1,"count":count,"observed_at_secs":now,"expires_at_secs":expires})).map_err(|_|TransportError::Unavailable)
+    }
+}
+impl Inner {
+    fn query_usage(&self, token: &str, window: &str) -> rustsimhub_auth::Result<Value> {
+        use rustsimhub_usage_stats::{
+            protocol::{
+                DisclosureAcknowledgement, EnabledPolicy, OwnerConsent, SystemClock, Window,
+            },
+            query::{QueryClient, QueryOutcome},
+        };
+        let caller = self.caller(token, false)?;
+        let window = match window {
+            "24h" => Window::Last24Hours,
+            "30d" => Window::Last30Days,
+            "90d" => Window::Last90Days,
+            _ => return Err(Error::InvalidInput),
+        };
+        // Same lock as enable/disable: no late query result can cross a completed
+        // statistics-off operation. Never hold Auth's mutex during network IO.
+        let _actions = self.actions.try_lock().map_err(|_| Error::Busy)?;
+        let current = self.caller(token, false)?;
+        if current.principal != caller.principal
+            || current.realm != caller.realm
+            || current.instance != caller.instance
+        {
+            return Err(Error::Forbidden);
+        }
+        if !self.root.owners().map_err(error)?.statistics {
+            return serde_json::to_value(QueryOutcome::Disabled).map_err(|_| Error::InvalidInput);
+        }
+        let mut cache = self.usage_cache.try_lock().map_err(|_| Error::Busy)?;
+        if cache.0 != caller.realm {
+            *cache = (caller.realm.clone(), Default::default());
+        }
+        // Consent here authorizes the explicit aggregate QUERY only. No
+        // check-in manager, seed, subscription adapter or scheduler is created.
+        let policy = EnabledPolicy::from_owner_consent(
+            OwnerConsent::Granted,
+            DisclosureAcknowledgement::Current,
+        )
+        .map_err(|_| Error::InvalidInput)?;
+        let mut query = QueryClient::new(
+            UsageTransport {
+                root: &self.root,
+                token,
+            },
+            SystemClock,
+            cache.1.clone(),
+        )
+        .map_err(|_| Error::InvalidInput)?;
+        let outcome = query.query_window(&policy, window);
+        let current = self.caller(token, false)?;
+        if current.principal != caller.principal
+            || current.realm != caller.realm
+            || current.instance != caller.instance
+            || self.closed.load(std::sync::atomic::Ordering::Acquire)
+        {
+            return Err(Error::Forbidden);
+        }
+        cache.1 = query.into_parts().2;
+        serde_json::to_value(outcome).map_err(|_| Error::InvalidInput)
+    }
 }
 fn error(e: PortError) -> Error {
     if e == PortError::Unavailable {
@@ -59,7 +156,11 @@ impl Receipt {
     }
 }
 impl Inner {
+    #[cfg(test)]
     pub fn new(auth: Arc<Mutex<Auth>>) -> Self {
+        Self::with_usage_state(auth, None)
+    }
+    pub fn with_usage_state(auth: Arc<Mutex<Auth>>, state: Option<&std::path::Path>) -> Self {
         Self {
             root: Arc::new(rustsimhub_core::nkn_root::Controller::new(auth.clone())),
             auth,
@@ -70,6 +171,8 @@ impl Inner {
             }),
             wake: tokio::sync::Notify::new(),
             closed: std::sync::atomic::AtomicBool::new(false),
+            usage_cache: Mutex::new((String::new(), Default::default())),
+            participation: super::participation::Service::new(state),
         }
     }
     fn caller(&self, token: &str, recent: bool) -> rustsimhub_auth::Result<Caller> {
@@ -104,6 +207,13 @@ impl Inner {
             return Err(Error::Forbidden);
         }
         match command {
+            command @ (AuthCommand::UsageParticipationStatus { .. }
+            | AuthCommand::UsageParticipationSet { .. }
+            | AuthCommand::UsageParticipationRequest { .. }) => {
+                let _actions = self.actions.try_lock().map_err(|_| Error::Busy)?;
+                self.participation.request(&self.auth, command)
+            }
+            AuthCommand::UsageStatsQuery { token, window } => self.query_usage(&token, &window),
             AuthCommand::NknStatus { token } => {
                 self.caller(&token, false)?;
                 let actions = self.actions.lock().map_err(|_| Error::Forbidden)?;

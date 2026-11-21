@@ -1,0 +1,425 @@
+{
+  "kind": "offline-test-observations-not-release",
+  "source": {
+    "tree": "ad4dd34206d5d0d7c45097d9f19f28992730b5d0",
+    "base": "924e4b7441cf61398423a4e3281608bfa3776215",
+    "archive_sha256": "9d35f216dd1be80743f3c488fa4a9ccf19272985c62b2bb4a83b352995e0faa8"
+  },
+  "production_code_changed": false,
+  "scenarios": [
+    {
+      "scenario": "owner_inactive_before",
+      "exit_code": 0,
+      "summary": {
+        "observed_submits": 0,
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "original_sdk_reaped": true,
+        "restart_query": false,
+        "shared_reference_checks": false
+      },
+      "log_sha256": "28809d0b1ffe85f478f935eee988d9775ee320bf52a16581d4881fff6c0c1a28"
+    },
+    {
+      "scenario": "owner_restore_before",
+      "exit_code": 0,
+      "summary": {
+        "observed_submits": 0,
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "original_sdk_reaped": true,
+        "restart_query": false,
+        "shared_reference_checks": false
+      },
+      "log_sha256": "a089e512d9e73a76925eb00d13861e06e3a6f94e9b9d766d85df0aba12825f98"
+    },
+    {
+      "scenario": "owner_inactive_after",
+      "exit_code": 0,
+      "summary": {
+        "observed_submits": 1,
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "original_sdk_reaped": true,
+        "restart_query": false,
+        "shared_reference_checks": false
+      },
+      "log_sha256": "a6928b7f850eff81b34d16c06c535d5bad5a1e3ef8172e8fc7120941646a181d"
+    },
+    {
+      "scenario": "owner_restore_after",
+      "exit_code": 0,
+      "summary": {
+        "observed_submits": 1,
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "original_sdk_reaped": true,
+        "restart_query": false,
+        "shared_reference_checks": false
+      },
+      "log_sha256": "74853c3a2b2a73752b1497710dd6018a107bf148982fc0e8f7427aa0e51b74ef"
+    },
+    {
+      "scenario": "start_failure",
+      "exit_code": 0,
+      "summary": {
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "shared_reference_checks": false
+      },
+      "log_sha256": "cdd94a67903e235522c0805405279f8fad673286a4d055e6809d2e88c281190e"
+    },
+    {
+      "scenario": "bootstrap_failure",
+      "exit_code": 0,
+      "summary": {
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "shared_reference_checks": false
+      },
+      "log_sha256": "f1f7522f3d5bed6bd8a5d7371ca2f3f3cdf4d31112dbdd36cc0fb50f8feea68f"
+    },
+    {
+      "scenario": "off_before",
+      "exit_code": 0,
+      "summary": {
+        "observed_submits": 0,
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "original_sdk_reaped": true,
+        "restart_query": false,
+        "shared_reference_checks": true
+      },
+      "log_sha256": "928100cbdad840bbfd938fc5260c0898171acd63c93a36cbe8a4644ea3758891"
+    },
+    {
+      "scenario": "cancel_before",
+      "exit_code": 0,
+      "summary": {
+        "observed_submits": 0,
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "original_sdk_reaped": true,
+        "restart_query": false,
+        "shared_reference_checks": true
+      },
+      "log_sha256": "181d763f77ca61bf41031f782a56297eb6d4ca3a42daf2d3542af3beb81671c8"
+    },
+    {
+      "scenario": "expired_prepare",
+      "exit_code": 0,
+      "summary": {
+        "observed_submits": 0,
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "original_sdk_reaped": true,
+        "restart_query": false,
+        "shared_reference_checks": true
+      },
+      "log_sha256": "b3cabe115f9d6b82f62a256aaadd9dc53b6026db2581c64c33e8076aae779211"
+    },
+    {
+      "scenario": "late_reply",
+      "exit_code": 0,
+      "summary": {
+        "observed_submits": 1,
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "original_sdk_reaped": true,
+        "restart_query": false,
+        "shared_reference_checks": true
+      },
+      "log_sha256": "a99063fac33f8590444f8eaeca1c2de4c3f48950b1eac4037ef19afaf2d50892"
+    },
+    {
+      "scenario": "root_revoke",
+      "exit_code": 0,
+      "summary": {
+        "observed_submits": 1,
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "original_sdk_reaped": true,
+        "restart_query": false,
+        "shared_reference_checks": false
+      },
+      "log_sha256": "dac39e332807043365ab6cd2e689523cb17635b098692681eaa1ca6dc36b6a24"
+    },
+    {
+      "scenario": "save_failure",
+      "exit_code": 0,
+      "summary": {
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "shared_reference_checks": true
+      },
+      "log_sha256": "54ca06b0532a387cacb75aac195f83fa5ad4b701703532b04c4da4753cef314d"
+    },
+    {
+      "scenario": "save_full",
+      "exit_code": 0,
+      "summary": {
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "shared_reference_checks": true
+      },
+      "log_sha256": "e94a0b0cc87b5b928fd80013174b1eb77514b6dec0fad5d4bbffd1ccd5a9715f"
+    },
+    {
+      "scenario": "startup",
+      "exit_code": 0,
+      "summary": {
+        "observed_submits": 1,
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "original_sdk_reaped": true,
+        "restart_query": false,
+        "shared_reference_checks": false
+      },
+      "log_sha256": "65f57bc1b0e4a578703ddd736ee09c987fad83b50882dd22b5a1a4138c694471"
+    },
+    {
+      "scenario": "shared",
+      "exit_code": 0,
+      "summary": {
+        "observed_submits": 1,
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "original_sdk_reaped": true,
+        "restart_query": true,
+        "shared_reference_checks": true
+      },
+      "log_sha256": "084802259503d081b9640d4cf83b21667b9340f5f26ba6c3f1fbc28906676ec4"
+    },
+    {
+      "scenario": "lost_ack",
+      "exit_code": 0,
+      "summary": {
+        "observed_submits": 1,
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "original_sdk_reaped": true,
+        "restart_query": true,
+        "shared_reference_checks": true
+      },
+      "log_sha256": "e0d89705d19a37f35574da7fac7151f76881aec70946de1a94830ff9a2ada5e8"
+    },
+    {
+      "scenario": "off",
+      "exit_code": 0,
+      "summary": {
+        "observed_submits": 1,
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "original_sdk_reaped": true,
+        "restart_query": false,
+        "shared_reference_checks": true
+      },
+      "log_sha256": "dbad5408fd92170c1f96adf7134c1ee7d663204dadaf5aae5ea23039e79622a6"
+    },
+    {
+      "scenario": "cancel",
+      "exit_code": 0,
+      "summary": {
+        "observed_submits": 1,
+        "pending_preserved": true,
+        "original_scope_cleaned": true,
+        "original_sdk_reaped": true,
+        "restart_query": false,
+        "shared_reference_checks": true
+      },
+      "log_sha256": "f6d31238d0e64220d21e15e67801150a6e84e3ee5823caedd57eb51cf3650759"
+    }
+  ],
+  "checks": [
+    {
+      "name": "core-root",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "rustsimhub-core",
+        "--lib",
+        "--features",
+        "usage-root-transport-candidate,email-production-candidate",
+        "--locked",
+        "--offline",
+        "nkn_root::",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "test_counts": [
+        [
+          "25",
+          "0",
+          "2"
+        ]
+      ],
+      "nonempty": true
+    },
+    {
+      "name": "core-signer",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "rustsimhub-core",
+        "--lib",
+        "--features",
+        "usage-root-transport-candidate,email-production-candidate",
+        "--locked",
+        "--offline",
+        "nkn_statistics::tests::",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "test_counts": [
+        [
+          "5",
+          "0",
+          "0"
+        ]
+      ],
+      "nonempty": true
+    },
+    {
+      "name": "default-session",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "rustsimhub-core",
+        "--bin",
+        "rustsimhub-core",
+        "--locked",
+        "--offline",
+        "signed_session_continuation_round_trip_rotates_with_existing_overlap",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "test_counts": [
+        [
+          "1",
+          "0",
+          "0"
+        ]
+      ],
+      "nonempty": true
+    },
+    {
+      "name": "production-bin",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "rustsimhub-core",
+        "--bin",
+        "rustsimhub-core",
+        "--features",
+        "usage-root-transport-candidate,email-production-candidate",
+        "--locked",
+        "--offline",
+        "nkn_",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "test_counts": [
+        [
+          "8",
+          "0",
+          "3"
+        ]
+      ],
+      "nonempty": true
+    },
+    {
+      "name": "strict",
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "rustsimhub-core",
+        "--all-targets",
+        "--features",
+        "usage-root-transport-candidate,email-production-candidate",
+        "--locked",
+        "--offline",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "test_counts": [],
+      "nonempty": true
+    },
+    {
+      "name": "default-check",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "rustsimhub-core",
+        "--all-targets",
+        "--no-default-features",
+        "--locked",
+        "--offline"
+      ],
+      "exit_code": 0,
+      "test_counts": [],
+      "nonempty": true
+    },
+    {
+      "name": "format",
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "test_counts": [],
+      "nonempty": true
+    },
+    {
+      "name": "arm",
+      "command": [
+        "cargo",
+        "check",
+        "-p",
+        "rustsimhub-core",
+        "--lib",
+        "--bins",
+        "--features",
+        "usage-root-transport-candidate,email-production-candidate",
+        "--target",
+        "aarch64-unknown-linux-gnu",
+        "--locked",
+        "--offline"
+      ],
+      "exit_code": 0,
+      "test_counts": [],
+      "nonempty": true
+    }
+  ],
+  "compiled_test": {
+    "bytes": 196167240,
+    "sha256": "fb7a23ad5c8f6e801109f3e7ad964dac72ae9e4bac3612c06d603c546fb3f33a"
+  },
+  "go_source": {
+    "source_head": "18cbd7c405d844d24de15eb115880217cf8f5fad",
+    "current_go_and_prepare_bytes_unchanged": true,
+    "original_fixed_sdk_chain_previously_verified": true
+  },
+  "sdk_sha256": "643e580a321bd29a6021b3a804f2db076e58e30c4867eadbb53ddec82edd77b0",
+  "root_sha256": "db6f620053da6a6d20995a521fda108ef8770022119dce5506eaa481ef0c06f9",
+  "no_running_test_containers_after": true,
+  "notes": [
+    "Owner inactive is modeled only in private fixture SQL; recovery uses original Store.recover_owner. No new Owner revoke API.",
+    "Core Instant/BOOTTIME fence tests shorten local fields only; original Auth authority deadline unchanged. Not actual 300-second installed Root expiry.",
+    "No chain confirmation, public nodes, devices, persistent permission or production reporting activation."
+  ]
+}

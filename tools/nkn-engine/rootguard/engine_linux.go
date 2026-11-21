@@ -25,6 +25,9 @@ type ownedEngine struct {
 	statusEpoch, statusFrames uint32
 	statusPoisoned            bool
 	lastStatus                time.Time
+	lastUsage                 [3]time.Time
+	lastTransaction           [3]time.Time
+	transactionProtocol       uint8
 
 	cmd            *exec.Cmd
 	control        *net.UnixConn
@@ -197,20 +200,21 @@ func launchEngine(ctx context.Context, r *resources, generation uint32, nonce [3
 	hex.Encode(seedJSON[1:65], seed)
 	defer clear(seedJSON)
 	credential := struct {
-		Format     uint8           `json:"format"`
-		Generation uint32          `json:"generation"`
-		Core       uint32          `json:"core_uid"`
-		Engine     uint32          `json:"engine_uid"`
-		Seed       json.RawMessage `json:"seed"`
-		CorePin    string          `json:"core_pin"`
-		Statistics string          `json:"statistics_public_key"`
-		Executable string          `json:"engine_sha256"`
-		Policy     string          `json:"policy_sha256"`
-		Seeds      []string        `json:"seed_rpc"`
-		DNS        []string        `json:"dns_servers"`
-		Mode       string          `json:"mode"`
+		Format       uint8           `json:"format"`
+		Generation   uint32          `json:"generation"`
+		Core         uint32          `json:"core_uid"`
+		Engine       uint32          `json:"engine_uid"`
+		Seed         json.RawMessage `json:"seed"`
+		CorePin      string          `json:"core_pin"`
+		Statistics   string          `json:"statistics_public_key"`
+		Executable   string          `json:"engine_sha256"`
+		Policy       string          `json:"policy_sha256"`
+		Seeds        []string        `json:"seed_rpc"`
+		DNS          []string        `json:"dns_servers"`
+		Mode         string          `json:"mode"`
+		Transactions uint8           `json:"usage_transaction_protocol,omitempty"`
 	}{
-		1, generation, r.policy.roles.core, r.policy.roles.engine, seedJSON, r.policy.config.CorePin, r.policy.config.StatisticsKey, r.policy.config.Executable, hex.EncodeToString(r.policy.hash[:]), r.policy.config.Seeds, nil, "public"}
+		1, generation, r.policy.roles.core, r.policy.roles.engine, seedJSON, r.policy.config.CorePin, r.policy.config.StatisticsKey, r.policy.config.Executable, hex.EncodeToString(r.policy.hash[:]), r.policy.config.Seeds, nil, "public", r.policy.config.UsageTransactionProtocol}
 	for _, dns := range r.route.dns {
 		credential.DNS = append(credential.DNS, dns.String())
 	}
@@ -243,7 +247,7 @@ func launchEngine(ctx context.Context, r *resources, generation uint32, nonce [3
 		conn.Close()
 		return nil, ErrDenied
 	}
-	owned := &ownedEngine{control: control, done: make(chan struct{})}
+	owned := &ownedEngine{control: control, done: make(chan struct{}), transactionProtocol: r.policy.config.UsageTransactionProtocol}
 	if r.policy.config.StatusProtocol == 1 {
 		owned.statusEpoch, e = nextGeneration()
 		if e != nil {

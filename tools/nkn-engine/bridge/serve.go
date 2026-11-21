@@ -9,8 +9,10 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/Viper-Boss/RustSimHub/tools/nkn-engine/protocol"
+	"github.com/Viper-Boss/RustSimHub/tools/nkn-engine/usagetx"
 	"io"
 	"strconv"
+	"time"
 )
 
 const MaxFrames = 32
@@ -94,10 +96,27 @@ type Result struct {
 	SDKLinked bool   `json:"nkn_sdk_linked"`
 }
 type Response struct {
-	Protocol uint8   `json:"protocol"`
-	ID       *string `json:"id"`
-	Result   *Result `json:"result,omitempty"`
-	Error    string  `json:"error,omitempty"`
+	Protocol    uint8          `json:"protocol"`
+	ID          *string        `json:"id"`
+	Result      *Result        `json:"result,omitempty"`
+	Error       string         `json:"error,omitempty"`
+	Usage       *UsageCount    `json:"usage,omitempty"`
+	Transaction *usagetx.Reply `json:"transaction,omitempty"`
+}
+
+type UsageCount struct {
+	Window string `json:"window"`
+	Count  uint64 `json:"count"`
+}
+
+// Separate from StatusSource: only an explicitly owned host can attach network
+// queries. Status polling itself remains free of network IO.
+type UsageSource interface {
+	Usage(context.Context, protocol.Operation) (UsageCount, error)
+}
+
+type TransactionSource interface {
+	Transaction(context.Context, usagetx.Operation, usagetx.Request) (usagetx.Reply, error)
 }
 
 func write(output io.Writer, response Response, before func() error) error {
@@ -131,16 +150,22 @@ func Serve(ctx context.Context, input io.Reader, output io.Writer, beforeRead, b
 // ServeWithSource preserves the existing status/stop wire. Stop still closes
 // only this bridge; it never stops an unrelated/shared SDK or Root service.
 func ServeWithSource(ctx context.Context, input io.Reader, output io.Writer, beforeRead, beforeWrite func() error, source StatusSource) error {
-	return serveFrames(ctx, input, output, beforeRead, beforeWrite, source, MaxFrames)
+	return serveFrames(ctx, input, output, beforeRead, beforeWrite, source, MaxFrames, false)
 }
 
 // ServeOwnedWithSource is only for the SDK host AFTER its private Root FD and
 // original <=300s lease have been verified. The offline frontend keeps 32
 // frames; the owned host has a separate finite lifetime observation budget.
 func ServeOwnedWithSource(ctx context.Context, input io.Reader, output io.Writer, beforeRead, beforeWrite func() error, source StatusSource) error {
-	return serveFrames(ctx, input, output, beforeRead, beforeWrite, source, 4096)
+	return serveFrames(ctx, input, output, beforeRead, beforeWrite, source, 4096, false)
 }
-func serveFrames(ctx context.Context, input io.Reader, output io.Writer, beforeRead, beforeWrite func() error, source StatusSource, limit int) error {
+
+// Explicit private entry point. Attaching an interface alone cannot grant this
+// capability; the host must prove its original launch/build/policy negotiation.
+func ServeOwnedTransactions(ctx context.Context, input io.Reader, output io.Writer, beforeRead, beforeWrite func() error, source StatusSource) error {
+	return serveFrames(ctx, input, output, beforeRead, beforeWrite, source, 4096, true)
+}
+func serveFrames(ctx context.Context, input io.Reader, output io.Writer, beforeRead, beforeWrite func() error, source StatusSource, limit int, transactions bool) error {
 	fail := func(code string) error { return write(output, Response{Protocol: 1, Error: code}, beforeWrite) }
 	// Static build metadata, not live readiness. It remains true in a closing
 	// response when this host actually attached an SDK-backed implementation.
@@ -167,7 +192,11 @@ func serveFrames(ctx context.Context, input io.Reader, output io.Writer, beforeR
 			return ErrFrame
 		}
 		length := binary.BigEndian.Uint32(header[:])
-		if length == 0 || length > protocol.MaxRequestBytes {
+		maxRequest := protocol.MaxRequestBytes
+		if transactions {
+			maxRequest = protocol.MaxOwnedRequestBytes
+		}
+		if length == 0 || length > uint32(maxRequest) {
 			_ = fail("invalid_frame")
 			return ErrFrame
 		}
@@ -180,6 +209,9 @@ func serveFrames(ctx context.Context, input io.Reader, output io.Writer, beforeR
 			return ctx.Err()
 		}
 		request, err := protocol.Parse(data)
+		if transactions {
+			request, err = protocol.ParseOwned(data)
+		}
 		if err != nil {
 			code := "invalid_request"
 			if errors.Is(err, protocol.ErrUnsupported) {
@@ -191,6 +223,53 @@ func serveFrames(ctx context.Context, input io.Reader, output io.Writer, beforeR
 			continue
 		}
 		kind := "status"
+		if op := protocol.TransactionOperation(request.Op); op != 0 {
+			response := Response{Protocol: 1, ID: &request.ID, Error: "transaction_unavailable"}
+			port, ok := source.(TransactionSource)
+			if ok && linked && request.Transaction != nil {
+				// Preserve one original <=10s reservation across nonce/prepare/
+				// submit; the concrete RPC implementation caps EACH IO at 1s.
+				bounded, cancel := context.WithTimeout(ctx, 10*time.Second)
+				value, callErr := port.Transaction(bounded, op, *request.Transaction)
+				if callErr == nil && bounded.Err() == nil && value.Validate(op, *request.Transaction) == nil {
+					response.Error = ""
+					response.Transaction = &value
+				}
+				cancel()
+			}
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if err = write(output, response, beforeWrite); err != nil {
+				return err
+			}
+			continue
+		}
+		if protocol.IsUsage(request.Op) {
+			port, ok := source.(UsageSource)
+			var value UsageCount
+			var queryErr error = ErrFrame
+			if ok && linked {
+				queryCtx, cancel := context.WithTimeout(ctx, time.Second)
+				value, queryErr = port.Usage(queryCtx, request.Op)
+				if queryCtx.Err() != nil {
+					queryErr = ErrFrame
+				}
+				cancel()
+			}
+			response := Response{Protocol: 1, ID: &request.ID, Error: "usage_unavailable"}
+			if queryErr == nil && value.Window == protocol.UsageWindow(request.Op) && value.Count <= 1000000000 {
+				response.Error = ""
+				response.Usage = &value
+			}
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if err = write(output, response, beforeWrite); err != nil {
+				return err
+			}
+			continue
+		}
 		if request.Op == protocol.Stop {
 			kind = "closing_this_bridge"
 		}

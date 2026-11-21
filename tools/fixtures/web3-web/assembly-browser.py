@@ -49,6 +49,14 @@ def show_legacy(page):
     # The console shell shows one page at a time; this fixture exercises every legacy panel.
     page.evaluate("document.getElementById('c-legacy').hidden=false;document.getElementById('c-legacy').classList.add('debug');for(const n of document.getElementById('c-legacy').children)n.classList.remove('page-off')")
 
+def policy_journal(page, pin):
+    return page.evaluate('''async pin=>{
+        const opening=indexedDB.open('rustsimhub-client-v1',1);
+        const db=await new Promise((resolve,reject)=>{opening.onsuccess=()=>resolve(opening.result);opening.onerror=reject;});
+        const reading=db.transaction('state').objectStore('state').get('network-policy-journal:'+pin);
+        const value=await new Promise((resolve,reject)=>{reading.onsuccess=()=>resolve(reading.result);reading.onerror=reject;});db.close();return value;
+    }''', pin)
+
 def login(page, pin):
     show_legacy(page)
     page.locator('#pin').evaluate("e=>{for(let p=e.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;}")
@@ -76,13 +84,102 @@ with sync_playwright() as p:
             show_legacy(page)
             page.locator('#support-panel').evaluate('e=>e.open=true')
             panel = page.locator('#support-nkn')
-            assert panel.get_by_role('button').count() == 8, 'Real NKN constructor was not mounted'
+            assert panel.get_by_role('button').count() == 10, 'Real NKN constructor was not mounted'
+            usage = page.locator('#support-usage')
+            assert usage.get_by_role('button', name='只读刷新统计').is_disabled()
             assert panel.get_by_role('button', name='请求开启远程功能', exact=True).is_disabled()
             assert count('nkn_status') == count('set_nkn_enabled') == 0
             assert all(c['op'] == 'identity' for c in fixture()['calls'])
             assert '/nkn-product.js' in fixture()['assets'] and '/nkn-status.js' in fixture()['assets']
             pin = bytes(fixture()['device']).hex()
             login(page, pin)
+            # Actual network component and Auth fetch: only this local fixture
+            # answers the explicit test; it never probes a real interface.
+            page.wait_for_function("()=>document.querySelectorAll('#network-interface option').length===1")
+            assert page.locator('#network-policy-save').is_enabled()
+            fixture('network-policy-lost')
+            page.locator('#network-limit-enabled').evaluate("e=>{e.checked=true;e.dispatchEvent(new Event('input',{bubbles:true}));}")
+            page.locator('#network-limit-gb').evaluate("e=>{e.value='2';e.dispatchEvent(new Event('input',{bubbles:true}));}")
+            page.locator('#network-reset-day').evaluate("e=>{e.value='15';e.dispatchEvent(new Event('input',{bubbles:true}));}")
+            page.locator('#network-policy-save').evaluate('(e)=>e.click()')
+            try:
+                wait_fixture(page, lambda state: sum(c['op'] == 'set_network_policy' for c in state['calls']) == 1)
+            except AssertionError:
+                print(json.dumps({'policy_debug': page.evaluate("()=>({state:document.querySelector('#network-policy-state').textContent,network:document.querySelector('#network-state').textContent,disabled:document.querySelector('#network-policy-save').disabled,enabled:document.querySelector('#network-limit-enabled').checked,limit:document.querySelector('#network-limit-gb').value,day:document.querySelector('#network-reset-day').value})"), 'journal': policy_journal(page, pin), 'fixture': fixture()}, ensure_ascii=True), flush=True)
+                raise
+            journal = policy_journal(page, pin)
+            assert journal is not None and journal['pending'], 'Original policy ID must be durable before a lost-ack POST'
+            page.wait_for_function("()=>document.querySelector('#network-policy-state').textContent.includes('结果未确认')")
+            original_policy_id = journal['pending']['id']
+            assert journal['pending']['limit_bytes'] == 2000000000
+            assert journal['pending']['device_pin'] == pin and journal['receipts'] == []
+            assert page.locator('#network-policy-save').is_disabled()
+            fixture('ready')
+            page.reload()
+            page.wait_for_function("()=>document.querySelector('#test-state').textContent.includes('可以检查状态')")
+            login(page, pin)
+            page.locator('#support-panel').evaluate('e=>e.open=true')
+            page.wait_for_function("()=>document.querySelector('#network-policy-state').textContent.includes('结果未确认')")
+            assert policy_journal(page, pin)['pending']['id'] == original_policy_id
+            assert count('set_network_policy') == 1, 'Reload/login must only query the original policy ID'
+            for wrong in ['network-policy-wrong', 'network-policy-unapplied']:
+                fixture(wrong)
+                before = count('network_diagnostics')
+                page.locator('#network-refresh').evaluate('(e)=>e.click()')
+                wait_fixture(page, lambda state: sum(c['op'] == 'network_diagnostics' for c in state['calls']) > before)
+                page.wait_for_timeout(50)
+                assert policy_journal(page, pin)['pending']['id'] == original_policy_id
+                assert page.locator('#network-policy-save').is_disabled()
+            fixture('network-policy-applied')
+            page.locator('#network-refresh').evaluate('(e)=>e.click()')
+            page.wait_for_function("()=>document.querySelector('#network-policy-state').textContent.includes('策略与应用标记已核对')")
+            journal = policy_journal(page, pin)
+            assert journal['pending'] is None and len(journal['receipts']) == 1
+            assert journal['receipts'][0]['record']['id'] == original_policy_id
+            assert journal['receipts'][0]['state'] == 'observed'
+            assert count('set_network_policy') == 1
+            fixture('ready')
+            fixture('network-denied')
+            page.locator('#network-refresh').evaluate('(e)=>e.click()')
+            page.wait_for_function("()=>document.querySelector('#network-policy-save').disabled&&document.querySelectorAll('#network-interface option').length===0")
+            assert page.locator('#network-test-connectivity').is_disabled(), 'Denied network read enabled test controls'
+            assert page.locator('#network-test-download').is_disabled(), 'Denied network read enabled test controls'
+            assert count('network_test') == 0
+            fixture('ready')
+            page.locator('#network-refresh').evaluate('(e)=>e.click()')
+            page.wait_for_function("()=>document.querySelectorAll('#network-interface option').length===1")
+            fixture('network-test-held')
+            page.locator('#network-interface').evaluate("(e)=>{e.value='wlan0';e.dispatchEvent(new Event('change',{bubbles:true}));}")
+            page.locator('#network-test-connectivity').evaluate('(e)=>e.click()')
+            wait_fixture(page, lambda state: state['held'])
+            assert count('network_test') == 1
+            page.locator('#network-cellular-consent').evaluate('(e)=>e.checked=true')
+            page.click('#daily-logout')
+            fixture('ready')
+            page.wait_for_timeout(100)
+            assert page.locator('#network-test-connectivity').is_disabled(), 'Late network finally enabled logged-out controls'
+            assert page.locator('#network-test-download').is_disabled()
+            assert not page.locator('#network-cellular-consent').is_checked()
+            assert page.locator('#network-test-result').inner_text() == ''
+            login(page, pin)
+            assert count('usage_stats_query') == 0, 'Login must not query or report usage'
+            usage.get_by_role('button', name='只读刷新统计').click()
+            page.wait_for_function("() => document.querySelector('#support-usage').textContent.includes('本次只读查询已结束')")
+            assert '42' in usage.inner_text() and count('usage_stats_query') == 1
+            permission = page.locator('#support-usage-participation')
+            assert count('usage_participation_status') == count('usage_participation_set') == 0
+            permission.get_by_role('checkbox').check()
+            page.once('dialog', lambda dialog: dialog.accept())
+            permission.get_by_role('button', name='保存参与授权（暂不上报）', exact=True).click()
+            page.wait_for_function("() => document.querySelector('#support-usage-participation').textContent.includes('参与授权已保存')")
+            assert count('usage_participation_set') == 1 and count('set_nkn_enabled') == 0
+            show_legacy(page)
+            permission.get_by_role('checkbox').uncheck()
+            page.once('dialog', lambda dialog: dialog.accept())
+            permission.get_by_role('button', name='保存参与授权（暂不上报）', exact=True).click()
+            page.wait_for_function("() => document.querySelector('#support-usage-participation').textContent.includes('不参与的授权已保存')")
+            assert count('usage_participation_set') == 2 and count('set_nkn_enabled') == 0
+            show_legacy(page)
             assert count('nkn_status') == count('set_nkn_enabled') == 0, 'Login must not turn on or read NKN automatically'
             panel.get_by_role('button', name='管理登录后读取', exact=True).click()
             page.wait_for_function("() => document.querySelector('#support-nkn').textContent.includes('已只读核对')")
@@ -132,6 +229,10 @@ with sync_playwright() as p:
             # Logout invalidates the session before refreshing the actual controls.
             read_button = panel.get_by_role('button', name='只读核对引擎状态', exact=True)
             assert read_button.is_disabled()
+            assert usage.get_by_role('button', name='只读刷新统计').is_disabled()
+            assert '42' not in usage.inner_text(), 'Logout must remove the old statistics result'
+            assert not permission.get_by_role('checkbox').is_checked()
+            assert '未开始上报' not in permission.inner_text(), 'Logout clears the old success text'
             for button in panel.locator('button').all():
                 if button.inner_text() != '管理登录后读取':
                     assert button.is_disabled()
@@ -154,7 +255,7 @@ with sync_playwright() as p:
         page.wait_for_timeout(200)
         failed = False
         try:
-            assert page.locator('#support-nkn button').count() == 8, 'Real NKN constructor was not mounted'
+            assert page.locator('#support-nkn button').count() == 10, 'Real NKN constructor was not mounted'
         except AssertionError:
             failed = True
         assert failed and fixture()['calls'] == []

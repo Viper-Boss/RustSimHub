@@ -222,13 +222,20 @@ console.log('PASS: actual TestCenter mounted by actual app, original check handl
 
 // All five display modules are real; only the existing IPC/storage boundaries are synthetic.
 {
- const f=fixture({respond:async()=>({id,state:'submitted'})});assert.ok(f.support().usage.button.disabled);assert.equal(f.sent.length,0);
+ const f=fixture({respond:async()=>({id,state:'submitted'})});assert.equal(f.support().usage.button.disabled,false);assert.equal(f.sent.length,0);
  f.$('pin').value='a'.repeat(64);f.setPending({type:'sms',id,state:'unknown',submit_started:true,recipient:'MUST-NOT-COPY',text:'MUST-NOT-COPY',token:'MUST-NOT-COPY'});
  assert.equal(f.support().receipt.buttons.query.disabled,false);assert.equal(f.support().receipt.buttons.archive.disabled,true);assert.equal(f.support().diagnostics.queryButton.disabled,true);
  await f.support().diagnostics.copyResult();assert.equal(f.copied.length,1);assert.doesNotMatch(f.copied[0],/MUST-NOT-COPY|aaaaaaaa|synthetic-session/);const diagnostic=JSON.parse(f.copied[0]);assert.equal(diagnostic.session,'unknown');assert.equal(diagnostic.certificate,'unknown');
  await f.support().receipt.run('query');assert.deepEqual(f.sent.map(c=>c.op),['sms_operation']);assert.equal(f.sent[0].operation_id,id);assert.equal(f.support().receipt.view.state,'submitted');assert.equal(f.pending().id,id);
  await assert.rejects(f.querySupportOperation(other));assert.equal(f.sent.length,1);
  f.setPending({type:'sms',id,state:'saved',submit_started:true});assert.equal(f.support().receipt.view.state,'unknown');
+}
+{
+ const f=fixture({respond:async c=>{assert.equal(c.op,'usage_stats_query');assert.equal(c.window,'30d');return {status:'disabled'};}});
+ assert.equal(f.sent.length,0,'No query on construction or login');
+ f.support().usage.select.value='30d';await f.support().usage.refresh();
+ assert.equal(f.sent.length,1);assert.match(f.support().usage.rows.children.map(e=>e.textContent).join(' '),/已关闭/);
+ f.logout();assert.equal(f.support().usage.button.disabled,true);await f.support().usage.refresh();assert.equal(f.sent.length,1,'No query after logout');
 }
 {
  const gate=deferred(),f=fixture({respond:()=>gate.promise});f.setPending({type:'call',id,state:'unknown',submit_started:true});const reading=f.support().receipt.run('query');await turn();assert.equal(f.sent.length,1);await f.support().receipt.run('query');assert.equal(f.sent.length,1);f.logout();gate.resolve({operation:{id,state:'submitted'}});await reading;assert.equal(f.support().receipt.view.state,'unknown');assert.ok(f.support().receipt.buttons.query.disabled);

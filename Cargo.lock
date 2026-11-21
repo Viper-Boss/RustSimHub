@@ -2061,6 +2061,7 @@ dependencies = [
  "rustsimhub-recovery-session",
  "rustsimhub-setup-ap",
  "rustsimhub-storage",
+ "rustsimhub-usage-stats",
  "rustsimhub-wire",
  "serde",
  "serde_json",

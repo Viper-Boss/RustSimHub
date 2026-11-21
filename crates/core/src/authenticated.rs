@@ -16,7 +16,11 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth::Result<Value> {
     use AuthCommand::*;
     Ok(match command {
-        AuthCommand::NknStatus { .. }
+        AuthCommand::UsageParticipationStatus { .. }
+        | AuthCommand::UsageParticipationSet { .. }
+        | AuthCommand::UsageParticipationRequest { .. }
+        | AuthCommand::UsageStatsQuery { .. }
+        | AuthCommand::NknStatus { .. }
         | AuthCommand::NknRequest { .. }
         | AuthCommand::SetNknEnabled { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         command @ (RecoveryGrant { .. }
@@ -381,7 +385,11 @@ pub(crate) async fn handle(
         }
     } else if matches!(
         request.command,
-        AuthCommand::NknStatus { .. }
+        AuthCommand::UsageParticipationStatus { .. }
+            | AuthCommand::UsageParticipationSet { .. }
+            | AuthCommand::UsageParticipationRequest { .. }
+            | AuthCommand::UsageStatsQuery { .. }
+            | AuthCommand::NknStatus { .. }
             | AuthCommand::NknRequest { .. }
             | AuthCommand::SetNknEnabled { .. }
     ) {
@@ -1011,7 +1019,7 @@ async fn serve_inner_media(
         })
         .await??;
     crate::status_led::initialize(store.handle()).await;
-    let nkn = crate::nkn_product::construct(auth.clone());
+    let nkn = crate::nkn_product::construct(auth.clone(), &forwarding_state);
     // A passive Core-owned configuration handle, not a forwarding daemon.
     // No directory, worker, socket or periodic scan is created at startup.
     let forwarding = (observing && messaging && call_mode == 2).then(|| {
