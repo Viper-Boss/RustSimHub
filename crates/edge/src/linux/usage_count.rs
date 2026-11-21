@@ -4,26 +4,38 @@ use super::*;
 use axum::{body::Body, http::Request as HttpRequest};
 use hyper::{body::Body as _, client::conn::http1};
 use std::{
-    future::poll_fn,
+    future::{poll_fn, Future},
     net::{Ipv4Addr, SocketAddrV4},
 };
 use tokio::io::{AsyncRead, AsyncWrite};
 
 const WIFI: &str = "wlan0";
-const OFFICIAL: &str = "mainnet-rpc-node-0001.nkn.org";
-const DOMESTIC: [Ipv4Addr; 2] = [
-    Ipv4Addr::new(183, 53, 109, 99),
-    Ipv4Addr::new(183, 53, 109, 45),
+const WALLET_HOST: &str = "mainnet-rpc-node-0001.nkn.org";
+const DOMESTIC: [Node; 2] = [
+    Node::Domestic(Ipv4Addr::new(183, 53, 109, 99)),
+    Node::Domestic(Ipv4Addr::new(183, 53, 109, 45)),
+];
+// Default mainnet seed list from nkn-sdk-go. Each endpoint was probed from wlan0.
+const OFFICIAL_SEEDS: [Node; 8] = [
+    Node::Seed("mainnet-seed-0001.nkn.org"),
+    Node::Seed("mainnet-seed-0002.nkn.org"),
+    Node::Seed("mainnet-seed-0003.nkn.org"),
+    Node::Seed("mainnet-seed-0004.nkn.org"),
+    Node::Seed("mainnet-seed-0005.nkn.org"),
+    Node::Seed("mainnet-seed-0006.nkn.org"),
+    Node::Seed("mainnet-seed-0007.nkn.org"),
+    Node::Seed("mainnet-seed-0008.nkn.org"),
 ];
 const TOPIC_PREFIX: &str = "rustsimhub-usage-v1-";
 const BODY_MAX: usize = 4096;
 static QUERY: Semaphore = Semaphore::const_new(1);
 static LAST: Mutex<Option<Instant>> = Mutex::new(None);
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Node {
     Domestic(Ipv4Addr),
-    Official(Ipv4Addr),
+    Wallet,
+    Seed(&'static str),
 }
 
 async fn request(
@@ -93,54 +105,109 @@ fn decode(bytes: &[u8]) -> Result<u64> {
         .ok_or("invalid NKN count")
 }
 
-async fn count(source: Ipv4Addr, node: Node, window: &str) -> Result<u64> {
-    match node {
-        Node::Domestic(ip) => {
-            let addr = SocketAddrV4::new(ip, 30003);
-            let stream = network_test::connect_ipv4(source, WIFI, addr).await?;
-            request(stream, &addr.to_string(), "/", window).await
-        }
-        Node::Official(ip) => {
-            let tcp = network_test::connect_ipv4(source, WIFI, SocketAddrV4::new(ip, 443)).await?;
-            let tls = network_test::connect_tls(tcp, OFFICIAL).await?;
-            request(tls, OFFICIAL, "/mainnet/api/wallet", window).await
+async fn first_ok<T, F>(attempts: impl IntoIterator<Item = F>) -> Option<T>
+where
+    T: Send + 'static,
+    F: Future<Output = Result<T>> + Send + 'static,
+{
+    let mut active = JoinSet::new();
+    for attempt in attempts {
+        active.spawn(attempt);
+    }
+    while let Some(result) = active.join_next().await {
+        if let Ok(Ok(value)) = result {
+            return Some(value);
         }
     }
+    None
 }
 
-async fn window_counts(source: Ipv4Addr, node: Node) -> Result<[u64; 3]> {
-    let (daily, monthly, quarterly) = tokio::try_join!(
-        count(source, node, "24h"),
-        count(source, node, "30d"),
-        count(source, node, "90d"),
-    )?;
+fn dns_servers(config: &str) -> [Option<Ipv4Addr>; 2] {
+    let mut servers = config.lines().filter_map(|line| {
+        let mut parts = line.split_whitespace();
+        if parts.next()? != "nameserver" {
+            return None;
+        }
+        let ip = parts.next()?.parse::<Ipv4Addr>().ok()?;
+        (!(ip.is_loopback() || ip.is_unspecified() || ip.is_multicast())).then_some(ip)
+    });
+    let first = servers.next();
+    let second = servers.find(|ip| Some(*ip) != first);
+    [first, second]
+}
+
+async fn node_counts(source: Ipv4Addr, dns: [Option<Ipv4Addr>; 2], node: Node) -> Result<[u64; 3]> {
+    let resolve = |host| async move {
+        first_ok(dns.into_iter().flatten().map(|server| async move {
+            network_test::resolve_ipv4(source, server, WIFI, host).await
+        }))
+        .await
+        .ok_or("NKN DNS unavailable")
+    };
+    let (addr, authority, path) = match node {
+        Node::Domestic(ip) => {
+            let addr = SocketAddrV4::new(ip, 30003);
+            (addr, addr.to_string(), "/")
+        }
+        Node::Wallet => (
+            SocketAddrV4::new(resolve(WALLET_HOST).await?, 443),
+            WALLET_HOST.to_owned(),
+            "/mainnet/api/wallet",
+        ),
+        Node::Seed(host) => (
+            SocketAddrV4::new(resolve(host).await?, 30003),
+            format!("{host}:30003"),
+            "/",
+        ),
+    };
+    let count = |window| {
+        let authority = authority.as_str();
+        async move {
+            let stream = network_test::connect_ipv4(source, WIFI, addr).await?;
+            if node == Node::Wallet {
+                let tls = network_test::connect_tls(stream, WALLET_HOST).await?;
+                request(tls, authority, path, window).await
+            } else {
+                request(stream, authority, path, window).await
+            }
+        }
+    };
+    let (daily, monthly, quarterly) = tokio::try_join!(count("24h"), count("30d"), count("90d"))?;
     Ok([daily, monthly, quarterly])
 }
 
-async fn fetch_counts(source: Ipv4Addr) -> Result<(&'static str, [u64; 3])> {
-    for ip in DOMESTIC {
-        if let Ok(Ok(counts)) = timeout(
-            Duration::from_millis(1500),
-            window_counts(source, Node::Domestic(ip)),
+async fn query_counts<F>(probe: impl Fn(Node) -> F) -> Result<(&'static str, [u64; 3])>
+where
+    F: Future<Output = Result<[u64; 3]>> + Send + 'static,
+{
+    if let Ok(Some(counts)) = timeout(
+        Duration::from_millis(1500),
+        first_ok(DOMESTIC.into_iter().map(&probe)),
+    )
+    .await
+    {
+        return Ok(("domestic", counts));
+    }
+    if let Ok(Ok(counts)) = timeout(Duration::from_millis(2200), probe(Node::Wallet)).await {
+        return Ok(("official", counts));
+    }
+    for batch in OFFICIAL_SEEDS.chunks(4) {
+        if let Ok(Some(counts)) = timeout(
+            Duration::from_millis(2400),
+            first_ok(batch.iter().copied().map(&probe)),
         )
         .await
         {
-            return Ok(("domestic", counts));
+            return Ok(("official", counts));
         }
     }
-    let config = std::fs::read_to_string("/etc/resolv.conf").map_err(|_| "DNS unavailable")?;
-    let dns = config
-        .lines()
-        .filter_map(|line| {
-            let mut parts = line.split_whitespace();
-            (parts.next()? == "nameserver")
-                .then(|| parts.next()?.parse::<Ipv4Addr>().ok())
-                .flatten()
-        })
-        .find(|ip| !(ip.is_loopback() || ip.is_unspecified() || ip.is_multicast()))
-        .ok_or("Wi-Fi DNS unavailable")?;
-    let ip = network_test::resolve_ipv4(source, dns, WIFI, OFFICIAL).await?;
-    Ok(("official", window_counts(source, Node::Official(ip)).await?))
+    Err("no NKN count endpoint available")
+}
+
+async fn fetch_counts(source: Ipv4Addr) -> Result<(&'static str, [u64; 3])> {
+    let config = std::fs::read_to_string("/etc/resolv.conf").unwrap_or_default();
+    let dns = dns_servers(&config);
+    query_counts(move |node| node_counts(source, dns, node)).await
 }
 
 pub(super) async fn api(body: Bytes) -> Response {
@@ -174,6 +241,53 @@ pub(super) async fn api(body: Bytes) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn uses_two_distinct_usable_ipv4_resolvers() {
+        assert_eq!(
+            dns_servers("nameserver 127.0.0.53\nnameserver ::1\nnameserver 8.8.8.8\nnameserver 8.8.8.8\nnameserver 192.168.2.1\n"),
+            [Some(Ipv4Addr::new(8, 8, 8, 8)), Some(Ipv4Addr::new(192,168,2,1))]
+        );
+    }
+
+    #[tokio::test]
+    async fn tries_domestic_before_wallet_then_both_seed_batches() {
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let result = query_counts({
+            let seen = Arc::clone(&seen);
+            move |node| {
+                seen.lock().unwrap().push(node);
+                async move {
+                    if node == OFFICIAL_SEEDS[7] {
+                        Ok([0, 2, 3])
+                    } else {
+                        Err("offline")
+                    }
+                }
+            }
+        })
+        .await;
+        assert_eq!(result, Ok(("official", [0, 2, 3])));
+        let expected: Vec<_> = DOMESTIC
+            .into_iter()
+            .chain([Node::Wallet])
+            .chain(OFFICIAL_SEEDS)
+            .collect();
+        assert_eq!(*seen.lock().unwrap(), expected);
+    }
+
+    #[tokio::test]
+    async fn zero_from_one_domestic_node_is_success() {
+        let result = query_counts(|node| async move {
+            match node {
+                Node::Domestic(_) if node == DOMESTIC[1] => Ok([0, 0, 0]),
+                Node::Domestic(_) => Err("offline"),
+                _ => panic!("domestic success must stop before fallback"),
+            }
+        })
+        .await;
+        assert_eq!(result, Ok(("domestic", [0, 0, 0])));
+    }
 
     #[test]
     fn accepts_only_correlated_nonnegative_exact_counts() {
