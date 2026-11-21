@@ -20,6 +20,7 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         | AuthCommand::UsageParticipationSet { .. }
         | AuthCommand::UsageParticipationRequest { .. }
         | AuthCommand::UsageStatsQuery { .. }
+        | AuthCommand::UsageCheckIn { .. }
         | AuthCommand::NknStatus { .. }
         | AuthCommand::NknRequest { .. }
         | AuthCommand::SetNknEnabled { .. } => return Err(rustsimhub_auth::Error::Forbidden),
@@ -389,6 +390,7 @@ pub(crate) async fn handle(
             | AuthCommand::UsageParticipationSet { .. }
             | AuthCommand::UsageParticipationRequest { .. }
             | AuthCommand::UsageStatsQuery { .. }
+            | AuthCommand::UsageCheckIn { .. }
             | AuthCommand::NknStatus { .. }
             | AuthCommand::NknRequest { .. }
             | AuthCommand::SetNknEnabled { .. }

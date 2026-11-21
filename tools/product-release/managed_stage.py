@@ -91,7 +91,7 @@ def notices(repo, stage, programs, output, env):
     own = 'github.com/Viper-Boss/RustSimHub/tools/nkn-engine'
     modules = set()
     for name in ['nkn-root', 'nkn-sdk-engine']:
-        raw = subprocess.check_output(['go', 'list', '-deps', '-mod=readonly', '-tags=nkn_sdk_candidate',
+        raw = subprocess.check_output(['go', 'list', '-deps', '-mod=readonly', '-tags=nkn_sdk_candidate,nkn_usage_transaction_candidate',
             '-f', '{{if .Module}}{{.Module.Path}}@{{.Module.Version}}{{end}}', own+'/cmd/'+name],
             cwd=stage, env=env, timeout=60)
         modules.update(raw.decode().split())

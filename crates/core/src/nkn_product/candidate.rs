@@ -207,8 +207,27 @@ impl Inner {
             return Err(Error::Forbidden);
         }
         match command {
-            command @ (AuthCommand::UsageParticipationStatus { .. }
-            | AuthCommand::UsageParticipationSet { .. }
+            AuthCommand::UsageParticipationStatus { token } => {
+                let _actions = self.actions.try_lock().map_err(|_| Error::Busy)?;
+                let status = self
+                    .participation
+                    .request(&self.auth, AuthCommand::UsageParticipationStatus { token })?;
+                #[cfg(feature = "usage-root-transport-candidate")]
+                if status["runtime"] == "authorized_not_connected"
+                    && self.participation.check_in_available(&self.root)
+                {
+                    let mut status = status;
+                    status["reporting_available"] = json!(true);
+                    status["runtime"] = json!("ready_for_check_in");
+                    return Ok(status);
+                }
+                Ok(status)
+            }
+            #[cfg(feature = "usage-root-transport-candidate")]
+            AuthCommand::UsageCheckIn { token } => {
+                self.participation.check_in(&self.auth, &self.root, &token)
+            }
+            command @ (AuthCommand::UsageParticipationSet { .. }
             | AuthCommand::UsageParticipationRequest { .. }) => {
                 let _actions = self.actions.try_lock().map_err(|_| Error::Busy)?;
                 self.participation.request(&self.auth, command)

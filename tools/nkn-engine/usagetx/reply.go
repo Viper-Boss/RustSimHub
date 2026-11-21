@@ -7,7 +7,7 @@ import (
 )
 
 // Reply carries only a bound conclusion, never raw node data. This candidate
-// deliberately has NO confirmed state, even if an upstream node claims one.
+// reports confirmation only for a query bound to the original pending digest.
 type Reply struct {
 	Version                 uint8   `json:"version"`
 	OperationID             string  `json:"operation_id"`
@@ -50,6 +50,10 @@ func (v Reply) Validate(op Operation, r Request) error {
 		}
 	case "accepted":
 		if op != Submit {
+			return ErrInvalid
+		}
+	case "confirmed":
+		if op != Query {
 			return ErrInvalid
 		}
 	case "unknown":

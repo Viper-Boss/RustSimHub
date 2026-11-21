@@ -244,7 +244,7 @@ def build(args):
               '--target', 'aarch64-unknown-linux-gnu', '-j', '2']
     run_build([*common, '--workspace'], source, env, log)
     if product:
-        features = 'rustsimhub-core/product-providers-candidate'
+        features = 'rustsimhub-core/usage-root-transport-candidate'
         if email:
             features += ',rustsimhub-core/email-production-candidate,rustsimhub-forwarder/smtp-production-candidate,rustsimhub-update/email-production-candidate'
         run_build([*common, '-p', 'rustsimhub-core', '-p', 'rustsimhub-forwarder', '-p', 'rustsimhub-update', '--features', features], source, env, log)
@@ -268,7 +268,7 @@ def build(args):
             flags = '-s -w -buildid=rsh-' + args.source
             if name == 'nkn-sdk-engine':
                 flags += ' -X main.sourceCommit=' + args.revision
-            run_build(['go', 'build', '-trimpath', '-buildvcs=false', '-mod=readonly', '-tags=nkn_sdk_candidate',
+            run_build(['go', 'build', '-trimpath', '-buildvcs=false', '-mod=readonly', '-tags=nkn_sdk_candidate,nkn_usage_transaction_candidate',
                        '-ldflags=' + flags, '-o', str(destination),
                        'github.com/Viper-Boss/RustSimHub/tools/nkn-engine/cmd/' + name], sdk_stage, go_env, log)
             arm.elf(arm.regular(destination, 32*1024**2))

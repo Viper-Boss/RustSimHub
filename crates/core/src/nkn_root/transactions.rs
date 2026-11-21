@@ -23,6 +23,7 @@ pub enum TransactionCall<'a> {
 pub enum TransactionConclusion {
     Nonce(u64),
     Accepted,
+    Confirmed,
     Unknown,
 }
 
@@ -124,6 +125,7 @@ struct Reply {
 enum Verdict {
     Ready,
     Accepted,
+    Confirmed,
     Unknown,
     Unavailable,
     Denied,
@@ -214,6 +216,7 @@ impl TransactionCall<'_> {
             Verdict::Accepted if self.op() == 11 && v.nonce.is_none() => {
                 Ok(TransactionConclusion::Accepted)
             }
+            Verdict::Confirmed if self.op() == 12 => Ok(TransactionConclusion::Confirmed),
             Verdict::Unknown if self.op() != 10 && v.nonce.is_none() => {
                 Ok(TransactionConclusion::Unknown)
             }
@@ -509,10 +512,14 @@ impl Controller {
         }
         let id = uuid::Uuid::from_bytes(*lease.id()).to_string();
         let raw = call.request(id.clone(), generation, key)?;
+        let limit = match call {
+            TransactionCall::Query { .. } => Duration::from_secs(5),
+            _ => Duration::from_secs(2),
+        };
         let deadline = budget
             .deadline()
             .min(shared.deadline)
-            .min(Instant::now() + Duration::from_secs(2));
+            .min(Instant::now() + limit);
         let fence = || {
             if signer.check_current(store, budget).map_err(signer_error)? != generation {
                 return Err(PortError::Denied);

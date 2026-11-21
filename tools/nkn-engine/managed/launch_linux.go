@@ -22,6 +22,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/Viper-Boss/RustSimHub/tools/nkn-engine/protocol"
 )
 
 var ErrLaunch = errors.New("managed launch unavailable")
@@ -152,7 +154,7 @@ func parseLaunch(data []byte) (*launch, error) {
 	}
 	for _, seed := range l.seeds {
 		u, e := url.Parse(seed)
-		if e != nil || len(seed) > 256 || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" || u.Hostname() == "" || u.Path != "" && u.Path != "/" {
+		if e != nil || len(seed) > 256 || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" || u.Hostname() == "" || (u.Path != "" && u.Path != "/" && seed != protocol.MainnetWalletRPC) {
 			clear(l.seed[:])
 			return nil, ErrLaunch
 		}

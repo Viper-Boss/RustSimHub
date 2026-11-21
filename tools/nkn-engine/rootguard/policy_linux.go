@@ -21,6 +21,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/Viper-Boss/RustSimHub/tools/nkn-engine/protocol"
 )
 
 var ErrDenied = errors.New("NKN Root provider unavailable")
@@ -130,7 +132,7 @@ func configurationValid(c configuration) bool {
 	}
 	for _, seed := range c.Seeds {
 		u, e := url.Parse(seed)
-		if e != nil || u.Scheme != "https" || len(seed) > 256 || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" && u.Path != "/" || u.Opaque != "" {
+		if e != nil || u.Scheme != "https" || len(seed) > 256 || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/" && seed != protocol.MainnetWalletRPC) || u.Opaque != "" {
 			return false
 		}
 	}

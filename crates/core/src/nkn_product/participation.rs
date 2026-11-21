@@ -12,8 +12,26 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+#[cfg(feature = "usage-root-transport-candidate")]
+pub(crate) fn initialize_statistics_identity(state: &Path) -> rustsimhub_auth::Result<Value> {
+    use rustsimhub_usage_stats::{identity::StatisticsIdentity, store::FileStore};
+    if !state.is_absolute() || rustix::process::geteuid().is_root() {
+        return Err(Error::Forbidden);
+    }
+    let identity = StatisticsIdentity::generate().map_err(|_| Error::Forbidden)?;
+    let public_key = identity.public_key();
+    let store = FileStore::create(state.join("usage-statistics"), identity)
+        .map_err(|_| Error::Forbidden)?;
+    if store.identity().public_key() != public_key || store.load().is_err() {
+        return Err(Error::Forbidden);
+    }
+    Ok(json!({"statistics_public_key":public_key}))
+}
+
 pub(super) struct Service {
     directory: Option<PathBuf>,
+    #[cfg(feature = "usage-root-transport-candidate")]
+    statistics_directory: Option<PathBuf>,
 }
 struct Caller {
     principal: Principal,
@@ -79,11 +97,95 @@ impl Service {
     pub fn new(state: Option<&Path>) -> Self {
         Self {
             directory: state.map(|p| p.join("usage-participation")),
+            #[cfg(feature = "usage-root-transport-candidate")]
+            statistics_directory: state.map(|p| p.join("usage-statistics")),
         }
     }
     fn path(&self) -> rustsimhub_auth::Result<&Path> {
         self.directory.as_deref().ok_or(Error::Forbidden)
     }
+    #[cfg(feature = "usage-root-transport-candidate")]
+    fn open_statistics(
+        &self,
+        root: &rustsimhub_core::nkn_root::Controller,
+    ) -> rustsimhub_auth::Result<rustsimhub_usage_stats::store::FileStore> {
+        use rustsimhub_usage_stats::store::{FileStore, StoreError};
+        let path = self
+            .statistics_directory
+            .as_deref()
+            .ok_or(Error::Forbidden)?;
+        let key = root
+            .configured_statistics_key()
+            .map_err(|_| Error::Forbidden)?;
+        FileStore::open(path, key).map_err(|error| match error {
+            StoreError::Busy => Error::Busy,
+            _ => Error::Forbidden,
+        })
+    }
+
+    #[cfg(feature = "usage-root-transport-candidate")]
+    pub fn check_in_available(&self, root: &rustsimhub_core::nkn_root::Controller) -> bool {
+        self.open_statistics(root).is_ok()
+    }
+
+    #[cfg(feature = "usage-root-transport-candidate")]
+    pub fn check_in(
+        &self,
+        auth: &Arc<Mutex<Auth>>,
+        root: &Arc<rustsimhub_core::nkn_root::Controller>,
+        token: &str,
+    ) -> rustsimhub_auth::Result<Value> {
+        use rustsimhub_core::{nkn_root::StatisticsTransport, nkn_statistics::SubscriptionSigner};
+        use rustsimhub_usage_stats::protocol::{Clock, SystemClock, RENEW_INTERVAL_SECS};
+
+        // Build the signer first, so an absent/stale Owner permission never
+        // opens the statistics identity or creates a Root/SDK reference.
+        let before = caller(auth, token, true)?;
+        let signer = SubscriptionSigner::from_current_owner(auth.clone(), token, self.path()?)
+            .map_err(|_| Error::Forbidden)?;
+        let store = Arc::new(self.open_statistics(root)?);
+        let state = store.load().map_err(|_| Error::Forbidden)?;
+        let now = SystemClock.now_secs().map_err(|_| Error::Forbidden)?;
+        if state.windows.iter().any(|entry| {
+            entry
+                .last_success
+                .as_ref()
+                .is_some_and(|last| last.confirmed_at > now)
+        }) {
+            return Err(Error::Forbidden);
+        }
+        let period = now / RENEW_INTERVAL_SECS;
+        let window = state
+            .windows
+            .iter()
+            .find(|entry| entry.pending.is_some())
+            .or_else(|| {
+                state.windows.iter().find(|entry| {
+                    entry
+                        .last_success
+                        .as_ref()
+                        .is_none_or(|last| last.period < period)
+                })
+            });
+        let Some(entry) = window else {
+            recheck(auth, token, &before, true)?;
+            return Ok(json!({"state":"all_confirmed"}));
+        };
+        let result = StatisticsTransport::new(root.clone(), signer, store)
+            .map_err(|_| Error::Forbidden)?
+            .run_once(entry.window)
+            .map_err(|_| Error::Forbidden)?;
+        recheck(auth, token, &before, true)?;
+        let state = match result {
+            rustsimhub_usage_stats::check_in::Outcome::Pending { .. } => "pending",
+            rustsimhub_usage_stats::check_in::Outcome::Unknown { .. } => "unknown",
+            rustsimhub_usage_stats::check_in::Outcome::Confirmed { .. } => "confirmed",
+            rustsimhub_usage_stats::check_in::Outcome::Due { .. } => "due",
+            _ => "unavailable",
+        };
+        Ok(json!({"state":state,"window":entry.window}))
+    }
+
     pub fn request(
         &self,
         auth: &Arc<Mutex<Auth>>,

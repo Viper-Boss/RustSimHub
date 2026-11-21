@@ -8,13 +8,14 @@ const turn=()=>new Promise(r=>setImmediate(r));
 class Element {constructor(){this.children=[];this.style={};this.checked=false;}setAttribute(){}append(...v){this.children.push(...v);}replaceChildren(...v){this.children=v;}set innerHTML(_){throw Error('text only');}}
 function fixture(){
  let pending=null,token='owner',generation=0,enabled=false,instance=ctx;const calls=[],archives=[];
- const status=()=>({format:1,available:true,core_instance:instance,generation:String(generation),enabled,disclosure_version:enabled?1:null,disabled_generation:enabled?'0':generation?'1':'0',owner_current:enabled,record_exists:generation>0,reporting_available:false,runtime:enabled?'authorized_not_connected':'disabled'});
- const f={calls,archives,status,confirm:true,failWrite:false,unknown:false,absent:false,loginGate:null,get pending(){return pending;},set pending(v){pending=v;},token(v){token=v;},instance(v){instance=v;},setServer(g,on){generation=g;enabled=on;}};
+ const status=()=>({format:1,available:true,core_instance:instance,generation:String(generation),enabled,disclosure_version:enabled?1:null,disabled_generation:enabled?'0':generation?'1':'0',owner_current:enabled,record_exists:generation>0,reporting_available: enabled&&f.checkInReady,runtime:enabled&&f.checkInReady?'ready_for_check_in':enabled?'authorized_not_connected':'disabled'});
+ const f={calls,archives,status,confirm:true,checkInReady:false,checkInOutcome:null,failWrite:false,unknown:false,absent:false,loginGate:null,get pending(){return pending;},set pending(v){pending=v;},token(v){token=v;},instance(v){instance=v;},setServer(g,on){generation=g;enabled=on;}};
  let saved=null;
  f.panel=new UsageParticipationPanel({document:{createElement:()=>new Element()},root:new Element(),getToken:()=>token,login:async()=>{if(f.loginGate)await f.loginGate;},confirm:()=>f.confirm,crypto:{randomUUID:()=>id},loadPending:async()=>pending,
  savePending:async(value,expected)=>{assert.equal(pending?.id??null,expected);if(f.failWrite)throw Error('PRIVATE_STORAGE');pending=participationPending(value);},
  archivePending:async entry=>{archives.push(participationArchive(entry));},request:async c=>{
   calls.push(c);if(c.op==='usage_participation_status')return status();
+  if(c.op==='usage_check_in')return f.checkInOutcome;
   if(c.op==='usage_participation_set'){assert.equal(c.expected_generation,String(generation));generation++;enabled=c.enabled;saved={request_id:c.request_id,known:true,state:'saved',core_instance:c.expected_core_instance,current_core_instance:instance,enabled,disclosure_version:enabled?1:null,expected_generation:c.expected_generation,generation:String(generation),not_found_is_not_proof:true,reporting_available:false};if(f.unknown)throw Error('PRIVATE_NETWORK');return saved;}
   assert.equal(c.op,'usage_participation_request');return f.absent?{request_id:c.request_id,known:false,current_core_instance:instance,not_found_is_not_proof:true,reporting_available:false}:{...saved,current_core_instance:instance};
  }});return f;
@@ -62,3 +63,25 @@ for(const initiallyEnabled of [true,false]){
  for(const extra of [{enabled:1},{disclosure_version:2},{expected_generation:'00'},{seed:'PRIVATE'}])assert.throws(()=>participationPending({format:1,id,enabled:true,disclosure_version:1,expected_generation:'0',core_instance:ctx,...extra}));
 }
 console.log('PASS: explicit participation permission, default OFF/no IO, one save after fresh login, durable CAS before submit, storage/cancel failures, exact restart receipt, Unknown/no resend, archive and logout/login races; no signing or network activation');
+
+{
+ const f=fixture();
+ await f.panel.loginRead();
+ assert.equal(f.panel.buttons.checkIn.hidden,true);
+ f.setServer(1,true);
+ f.checkInReady=true;
+ await f.panel.loginRead();
+ assert.equal(f.panel.buttons.checkIn.hidden,false);
+ assert(f.calls.every(call=>call.op!=='usage_check_in'),'read never checks in');
+ f.confirm=false;
+ await f.panel.action(g=>f.panel.checkIn(g));
+ assert(f.calls.every(call=>call.op!=='usage_check_in'),'cancel never checks in');
+ f.confirm=true;
+ f.checkInOutcome={window:'24h',state:'pending'};
+ await f.panel.action(g=>f.panel.checkIn(g));
+ assert.match(f.panel.state.textContent,/等待链上确认/);
+ assert.equal(f.calls.filter(call=>call.op==='usage_check_in').length,1);
+ f.checkInOutcome={window:'24h',state:'confirmed'};
+ await f.panel.action(g=>f.panel.checkIn(g));
+ assert.match(f.panel.state.textContent,/已核对链上确认/);
+}

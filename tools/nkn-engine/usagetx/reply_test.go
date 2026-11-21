@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestBoundReplyRejectsConfirmedAndCrossIntent(t *testing.T) {
+func TestBoundReplyConfirmationRequiresQueryAndOriginalIntent(t *testing.T) {
 	v := fixedVectors(t)[0]
 	r := Request{Version: 1, OperationID: "11111111-2222-3333-4444-555555555555", ParticipationGeneration: 7, PublicKey: v.Intent.PublicKey, Intent: &v.Intent, Digest: v.Digest, Transaction: v.Transaction}
 	if _, e := VerifyCanonicalSubmission(r); e != nil {
@@ -40,12 +40,15 @@ func TestBoundReplyRejectsConfirmedAndCrossIntent(t *testing.T) {
 		for _, bad := range [][]byte{
 			bytes.Replace(raw, []byte(`"version":1`), []byte(`"version":1,"version":1`), 1),
 			bytes.Replace(raw, []byte(`"participation_generation":7`), []byte(`"participation_generation":8`), 1),
-			bytes.Replace(raw, []byte(`"status":"`+state+`"`), []byte(`"status":"confirmed"`), 1),
 			append(raw, []byte(" {}")...),
 		} {
 			if _, e := ParseReply(op, request, bad); e == nil {
 				t.Fatal("unbound or invented confirmation accepted")
 			}
+		}
+		confirmed := bytes.Replace(raw, []byte(`"status":"`+state+`"`), []byte(`"status":"confirmed"`), 1)
+		if _, err := ParseReply(op, request, confirmed); (err == nil) != (op == Query) {
+			t.Fatal("confirmation escaped the query boundary or valid query was refused")
 		}
 		if op == Preflight {
 			if _, e := ParseReply(op, request, bytes.Replace(raw, []byte(`"nonce":0`), []byte(`"nonce":null`), 1)); e == nil {

@@ -58,6 +58,27 @@ impl CheckInStore for SharedStatisticsStore {
 }
 
 impl Controller {
+    /// Read the installed, Core-bound, confirmation-capable policy. No Root
+    /// launch or network connection is made during readiness checks.
+    pub fn configured_statistics_key(
+        &self,
+    ) -> Result<rustsimhub_usage_stats::protocol::StatsPublicKey> {
+        use std::os::unix::fs::FileTypeExt;
+        let root_socket = std::path::Path::new("/run/rustsimhub-nkn-root/root.sock");
+        if !root_socket
+            .symlink_metadata()
+            .is_ok_and(|m| m.file_type().is_socket() && m.uid() == 0)
+        {
+            return Err(PortError::Unavailable);
+        }
+        let auth = self.auth.try_lock().map_err(|_| PortError::Unavailable)?;
+        let details = policy_details(auth.public_key())?;
+        if !details.confirms_check_ins {
+            return Err(PortError::Unavailable);
+        }
+        details.transactions.ok_or(PortError::Unavailable)
+    }
+
     // Only this original Machine lease can own the reporting consumer. Public
     // enable/disable Statistics independently owns the aggregate-query consumer.
     fn acquire_check_in(&self, scope: Arc<Startup>, lease: &StatisticsLease) -> Result<()> {
@@ -416,7 +437,7 @@ impl CheckInTransport for StatisticsTransport {
         self.check(lease, budget).map_err(error)?;
         // Original Pending and exact intent/digest are checked inside the real
         // observer as well. No fresh nonce, prepare or submit after restart.
-        let _result = self
+        let result = self
             .root
             .statistics_transaction(
                 &self.signer,
@@ -429,9 +450,15 @@ impl CheckInTransport for StatisticsTransport {
                 budget,
             )
             .map_err(error)?;
-        // Candidate Root/SDK has no approved chain inclusion proof. Its Unknown
-        // is not even a verified mempool Pending; retain original Unknown.
-        Err(TransportError::Unavailable)
+        if result != TransactionConclusion::Confirmed {
+            return Err(TransportError::Unavailable);
+        }
+        serde_json::to_vec(&serde_json::json!({
+            "intent": intent,
+            "digest": digest,
+            "status": "confirmed",
+        }))
+        .map_err(|_| TransportError::Rejected)
     }
 }
 

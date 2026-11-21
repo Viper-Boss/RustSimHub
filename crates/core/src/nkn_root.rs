@@ -50,6 +50,8 @@ struct PolicyDetails {
     usage: bool,
     #[cfg(feature = "usage-root-transport-candidate")]
     transactions: Option<rustsimhub_usage_stats::protocol::StatsPublicKey>,
+    #[cfg(feature = "usage-root-transport-candidate")]
+    confirms_check_ins: bool,
 }
 fn policy_details(device: [u8; 32]) -> Result<PolicyDetails> {
     let mut file = OpenOptions::new()
@@ -92,6 +94,11 @@ fn policy_details(device: [u8; 32]) -> Result<PolicyDetails> {
         usage: policy["usage_query_protocol"].as_u64() == Some(1),
         #[cfg(feature = "usage-root-transport-candidate")]
         transactions: transactions::policy_key(&raw[start..=end], device)?,
+        #[cfg(feature = "usage-root-transport-candidate")]
+        confirms_check_ins: policy["seed_rpc"]
+            .get(0)
+            .and_then(serde_json::Value::as_str)
+            == Some("https://mainnet-rpc-node-0001.nkn.org/mainnet/api/wallet"),
     })
 }
 fn connect() -> Result<UnixStream> {

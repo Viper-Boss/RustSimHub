@@ -11,6 +11,9 @@ mod candidate;
 mod membership;
 #[cfg(feature = "root-provider-candidate")]
 mod participation;
+#[cfg(feature = "usage-root-transport-candidate")]
+pub(crate) use participation::initialize_statistics_identity;
+
 #[derive(Clone)]
 pub(crate) struct Controller {
     #[cfg(feature = "root-provider-candidate")]
@@ -333,6 +336,25 @@ mod tests {
             .unwrap()
             .contains("seed"));
     }
+    #[cfg(feature = "usage-root-transport-candidate")]
+    #[tokio::test]
+    async fn check_in_without_consent_or_a_current_owner_keeps_identity_absent() {
+        let f = Fixture::new();
+        for token in [&f.token, &f.client] {
+            let result = f
+                .controller
+                .request(
+                    f.auth.clone(),
+                    AuthCommand::UsageCheckIn {
+                        token: token.clone(),
+                    },
+                )
+                .await;
+            assert!(result.is_err());
+        }
+        assert!(!f._state.path().join("usage-statistics").exists());
+    }
+
     #[tokio::test]
     async fn participation_context_mismatch_and_corruption_are_not_overwritten() {
         let f = Fixture::new();

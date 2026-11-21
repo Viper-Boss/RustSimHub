@@ -135,7 +135,11 @@ func (m *manager) handleTransaction(parent context.Context, r request, c *net.Un
 	if e != nil || now >= r.deadline {
 		return nil, ErrDenied
 	}
-	duration := min(1750*time.Millisecond, time.Duration(r.deadline-now)*time.Millisecond)
+	limit := 1750 * time.Millisecond
+	if op == usagetx.Query {
+		limit = 4750 * time.Millisecond
+	}
+	duration := min(limit, time.Duration(r.deadline-now)*time.Millisecond)
 	bounded, cancel := context.WithTimeout(parent, duration)
 	defer cancel()
 	ctx, finish := watchObserver(bounded, c)
@@ -198,7 +202,11 @@ func (e *ownedEngine) transaction(ctx context.Context, op usagetx.Operation, tx 
 	if !ready || reaped {
 		return nil
 	}
-	deadline := time.Now().Add(1500 * time.Millisecond)
+	limit := 1500 * time.Millisecond
+	if op == usagetx.Query {
+		limit = 4500 * time.Millisecond
+	}
+	deadline := time.Now().Add(limit)
 	if d, ok := ctx.Deadline(); ok && d.Before(deadline) {
 		deadline = d
 	}

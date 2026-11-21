@@ -205,6 +205,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         args
     };
+    #[cfg(feature = "usage-root-transport-candidate")]
+    if let [op, state] = args.as_slice() {
+        if op == "--init-usage-statistics-identity" {
+            let public = nkn_product::initialize_statistics_identity(std::path::Path::new(state))?;
+            println!("{}", serde_json::to_string(&public)?);
+            return Ok(());
+        }
+    }
     if args == ["--build-info"] {
         println!(
             "{}",

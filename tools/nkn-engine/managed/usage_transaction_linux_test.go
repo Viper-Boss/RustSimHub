@@ -206,7 +206,7 @@ func TestTransactionInvalidBindingAndBytesMakeNoRPC(t *testing.T) {
 }
 
 func TestTransactionNonceParserRejectsUnknownAndNeverInventsZero(t *testing.T) {
-	for _, result := range []string{`{}`, `null`, `0`, `{"nonce":0}`, `{"nonce":0,"nonceInTxPool":null}`, `{"nonce":-1,"nonceInTxPool":0}`, `{"nonce":0.5,"nonceInTxPool":0}`, `{"nonce":18446744073709551616,"nonceInTxPool":0}`, `{"nonce":0,"nonce":1,"nonceInTxPool":0}`, `{"nonce":0,"nonceInTxPool":0,"address":"other"}`} {
+	for _, result := range []string{`{}`, `null`, `0`, `{"nonce":0}`, `{"nonce":0,"nonceInTxPool":null}`, `{"nonce":-1,"nonceInTxPool":0}`, `{"nonce":0.5,"nonceInTxPool":0}`, `{"nonce":18446744073709551616,"nonceInTxPool":0}`, `{"nonce":0,"nonce":1,"nonceInTxPool":0}`, `{"nonce":0,"nonceInTxPool":0,"address":"other"}`, `{"nonce":0,"nonceInTxPool":0,"currentHeight":-1}`, `{"nonce":0,"nonceInTxPool":0,"currentHeight":4294967296}`, `{"nonce":0,"nonceInTxPool":0,"currentHeight":"10027449"}`} {
 		t.Run(result, func(t *testing.T) {
 			var calls atomic.Int32
 			c, ctx := transactionTLS(t, func(w http.ResponseWriter, r *http.Request) { calls.Add(1); reply(w, result) })
@@ -215,7 +215,7 @@ func TestTransactionNonceParserRejectsUnknownAndNeverInventsZero(t *testing.T) {
 			}
 		})
 	}
-	for _, result := range []string{`{"nonce":0,"nonceInTxPool":128}`, `{"nonce":128,"nonceInTxPool":0}`, `{"nonce":18446744073709551615,"nonceInTxPool":0}`} {
+	for _, result := range []string{`{"nonce":0,"nonceInTxPool":128}`, `{"nonce":128,"nonceInTxPool":0}`, `{"currentHeight":10027449,"nonce":128,"nonceInTxPool":128}`, `{"nonce":18446744073709551615,"nonceInTxPool":0}`} {
 		t.Run(result, func(t *testing.T) {
 			c, ctx := transactionTLS(t, func(w http.ResponseWriter, r *http.Request) { reply(w, result) })
 			v, e := c.execute(ctx, usagetx.Preflight, preflight(signedFixture(t)))
@@ -384,7 +384,7 @@ func TestTransactionNoSeedFallbackOrUnboundedQuery(t *testing.T) {
 	if err != nil || value.State != "unknown" || first.Load() != 2 || second.Load() != 0 {
 		t.Fatal("oversized query confirmed or retried")
 	}
-	if _, err := c.rpc(ctx, "getsubscribers", map[string]string{"topic": "other"}, 2048); err == nil || first.Load() != 2 {
+	if _, err := c.rpc(ctx, "getsubscribers", map[string]any{"topic": "other"}, 2048); err == nil || first.Load() != 2 {
 		t.Fatal("unapproved RPC method reached transport")
 	}
 }

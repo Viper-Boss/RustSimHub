@@ -46,6 +46,9 @@ pub enum AuthCommand {
         token: String,
         window: String,
     },
+    UsageCheckIn {
+        token: String,
+    },
     NknStatus {
         token: String,
     },
@@ -703,6 +706,7 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
                 return Err(invalid());
             }
         }
+        AuthCommand::UsageCheckIn { token } if !source_valid(token) => return Err(invalid()),
         AuthCommand::UsageStatsQuery { token, window } => {
             if !source_valid(token) || !matches!(window.as_str(), "24h" | "30d" | "90d") {
                 return Err(invalid());
