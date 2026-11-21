@@ -45,6 +45,15 @@ body{margin:0;background:var(--bg)}
 .cs .nav[aria-current]{background:var(--blue-soft);color:var(--blue-2);font-weight:700;margin-bottom:5px}
 .cs .nav[aria-current] svg.i{color:var(--blue)}
 
+.cs .side-usage{display:grid;gap:8px;margin:14px 5px 8px;padding:10px;border:1px solid var(--line);border-radius:11px;background:var(--card)}
+.side-usage h2{font-size:13px;font-weight:700}
+.side-usage dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.side-usage dl>div{display:grid;gap:3px}
+.side-usage dt,.cs .side-usage p{font-size:11px;color:var(--ink-3)}
+.cs .side-usage dd{font-size:15px;font-weight:700;overflow-wrap:anywhere}
+.cs .side-usage button{justify-self:start;padding:3px 6px;border-radius:5px;color:var(--blue-2);font-size:12px;background:var(--blue-soft)}
+.cs .side-usage button:disabled{cursor:wait;opacity:.65}
+
 /* 顶栏 */
 .c-main{min-width:0;display:flex;flex-direction:column}
 .top{display:flex;align-items:center;gap:16px;height:67px;padding:0 24px 0 33px}

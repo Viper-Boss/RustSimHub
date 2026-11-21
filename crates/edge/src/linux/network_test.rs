@@ -125,26 +125,12 @@ fn interface(v: &serde_json::Value, name: &str) -> Result<(Ipv4Addr, Ipv4Addr, b
         .ok_or("DNS unavailable")?;
     Ok((source, dns, dev["kind"] == "cellular"))
 }
-async fn probe(
-    snapshot: &serde_json::Value,
+pub(super) async fn resolve_ipv4(
+    source: Ipv4Addr,
+    dns: Ipv4Addr,
     iface: &str,
-    profile: &str,
-    allow_cellular: bool,
-) -> Result<serde_json::Value> {
-    let (source, dns, cellular) = interface(snapshot, iface)?;
-    if cellular && !allow_cellular {
-        return Err("cellular consent required");
-    }
-    if cellular && snapshot.pointer("/usage/limit_reached") == Some(&serde_json::Value::Bool(true))
-    {
-        return Err("cellular budget exhausted");
-    }
-    let (host, path, max) = match profile {
-        "connectivity" => ("www.baidu.com", "/robots.txt", 65536usize),
-        "download" => ("speed.cloudflare.com", "/__down?bytes=1048576", 1_100_000),
-        _ => return Err("unknown test profile"),
-    };
-    let start = Instant::now();
+    host: &str,
+) -> Result<Ipv4Addr> {
     let std_udp =
         std::net::UdpSocket::bind(SocketAddrV4::new(source, 0)).map_err(|_| "DNS bind failed")?;
     socket2::SockRef::from(&std_udp)
@@ -166,8 +152,14 @@ async fn probe(
         .await
         .map_err(|_| "DNS timeout")?
         .map_err(|_| "DNS receive failed")?;
-    let ip = answer(&packet[..n], &q)?;
-    let dns_ms = start.elapsed().as_millis();
+    answer(&packet[..n], &q)
+}
+
+pub(super) async fn connect_ipv4(
+    source: Ipv4Addr,
+    iface: &str,
+    destination: SocketAddrV4,
+) -> Result<tokio::net::TcpStream> {
     let socket = TcpSocket::new_v4().map_err(|_| "TCP unavailable")?;
     socket2::SockRef::from(&socket)
         .bind_device(Some(iface.as_bytes()))
@@ -175,12 +167,16 @@ async fn probe(
     socket
         .bind(SocketAddrV4::new(source, 0).into())
         .map_err(|_| "TCP source bind failed")?;
-    let tcp_start = Instant::now();
-    let tcp = socket
-        .connect(SocketAddrV4::new(ip, 443).into())
+    socket
+        .connect(destination.into())
         .await
-        .map_err(|_| "TCP connect failed")?;
-    let tcp_ms = tcp_start.elapsed().as_millis();
+        .map_err(|_| "TCP connect failed")
+}
+
+pub(super) async fn connect_tls(
+    tcp: tokio::net::TcpStream,
+    host: &str,
+) -> Result<tokio_rustls::client::TlsStream<tokio::net::TcpStream>> {
     let ca = std::fs::File::open("/etc/ssl/certs/ca-certificates.crt")
         .map_err(|_| "TLS trust store unavailable")?;
     let mut roots = RootCertStore::empty();
@@ -192,14 +188,42 @@ async fn probe(
     let cfg = ClientConfig::builder()
         .with_root_certificates(roots)
         .with_no_client_auth();
-    let tls_start = Instant::now();
-    let mut tls = TlsConnector::from(Arc::new(cfg))
+    TlsConnector::from(Arc::new(cfg))
         .connect(
             ServerName::try_from(host.to_owned()).map_err(|_| "invalid TLS name")?,
             tcp,
         )
         .await
-        .map_err(|_| "TLS verification failed")?;
+        .map_err(|_| "TLS verification failed")
+}
+
+async fn probe(
+    snapshot: &serde_json::Value,
+    iface: &str,
+    profile: &str,
+    allow_cellular: bool,
+) -> Result<serde_json::Value> {
+    let (source, dns, cellular) = interface(snapshot, iface)?;
+    if cellular && !allow_cellular {
+        return Err("cellular consent required");
+    }
+    if cellular && snapshot.pointer("/usage/limit_reached") == Some(&serde_json::Value::Bool(true))
+    {
+        return Err("cellular budget exhausted");
+    }
+    let (host, path, max) = match profile {
+        "connectivity" => ("www.baidu.com", "/robots.txt", 65536usize),
+        "download" => ("speed.cloudflare.com", "/__down?bytes=1048576", 1_100_000),
+        _ => return Err("unknown test profile"),
+    };
+    let start = Instant::now();
+    let ip = resolve_ipv4(source, dns, iface, host).await?;
+    let dns_ms = start.elapsed().as_millis();
+    let tcp_start = Instant::now();
+    let tcp = connect_ipv4(source, iface, SocketAddrV4::new(ip, 443)).await?;
+    let tcp_ms = tcp_start.elapsed().as_millis();
+    let tls_start = Instant::now();
+    let mut tls = connect_tls(tcp, host).await?;
     let tls_ms = tls_start.elapsed().as_millis();
     let request=format!("GET {path} HTTP/1.1\r\nHost: {host}\r\nUser-Agent: RustSimHub-network-test/1\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n");
     tls.write_all(request.as_bytes())

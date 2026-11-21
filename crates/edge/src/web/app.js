@@ -17,7 +17,7 @@ import { OperationReceipt } from './operation-receipt.js';
 import { DiagnosticPanel } from './diagnostics.js';
 import { ConfigurationState } from './configuration-state.js';
 import { NknProductPanel, pendingInput as nknPendingInput, archiveInput as nknArchiveInput } from './nkn-product.js';
-import { UsageStatsPanel } from './usage-stats.js';
+import { UsageStatsPanel, bindUsageCounts } from './usage-stats.js';
 import { ConsoleDashboard } from './console.js';
 import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput, readJournal as readNasJournal, clearJournal as clearNasJournal } from './nas-bridge.js';
 const $=id=>document.getElementById(id);
@@ -141,6 +141,17 @@ function showPending(){
  $('sms-send-state').textContent=!pending?'填写号码和正文，确认后发送。':pending.type!=='sms'?'有待处理的通话操作，请先在电话或调试区核对。':pending.submit_started&&!['submitted','cancelled'].includes(pending.state)?'发送结果待确认，请查询，暂勿再次发送。':names[pending.state]||'请查询本次发送结果。';
 }
 async function initialize(){
+ bindUsageCounts($('side-usage'), signal => {
+  return fetch('/api/usage-count/v1', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-RustSimHub-Request': '2'},
+    body: '{}',
+    credentials: 'omit',
+    cache: 'no-store',
+    redirect: 'error',
+    signal
+   });
+ });
  db=await new Promise((resolve,reject)=>{const opening=indexedDB.open('rustsimhub-client-v1',1);opening.onupgradeneeded=()=>opening.result.createObjectStore('state');opening.onsuccess=()=>resolve(opening.result);opening.onerror=()=>reject(Error('浏览器存储不可用'));});
  key=await stored('key');if(!key){key=await crypto.subtle.generateKey({name:'Ed25519'},false,['sign','verify']);await save('key',key);}
  publicKey=new Uint8Array(await crypto.subtle.exportKey('raw',key.publicKey));

@@ -33,3 +33,37 @@ export class UsageStatsPanel {
   finally{clearTimeout(timer);if(epoch===this.epoch){this.busy=false;this.button.disabled=false;}}
  }
 }
+
+export function bindUsageCounts(panel, read) {
+ if (!panel) return;
+ const button = panel.querySelector('[data-refresh]');
+ const status = panel.querySelector('[data-status]');
+ const cells = panel.querySelectorAll('[data-count]');
+ let lastSuccess;
+ button.addEventListener('click', async () => {
+  if (button.disabled) return;
+  button.disabled = true;
+  status.textContent = '正在查询 NKN';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10500);
+  try {
+   const response = await read(controller.signal);
+   if (!response.ok) throw Error('count unavailable');
+   const {source, counts} = await response.json();
+   if (!['domestic', 'official'].includes(source) || !Array.isArray(counts)
+       || counts.length !== cells.length || !counts.every(n => Number.isSafeInteger(n) && n >= 0)) {
+    throw Error('invalid counts');
+   }
+   counts.forEach((value, index) => { cells[index].textContent = value.toLocaleString('zh-CN'); });
+   const label = source === 'domestic' ? '国内节点' : '官方主网兜底';
+   const time = new Date().toLocaleTimeString('zh-CN', {timeZone: 'Asia/Shanghai'});
+   lastSuccess = label + ' · ' + time;
+   status.textContent = lastSuccess;
+  } catch {
+   status.textContent = lastSuccess ? '刷新失败 · 上次 ' + lastSuccess : '暂未取到统计';
+  } finally {
+   clearTimeout(timer);
+   button.disabled = false;
+  }
+ });
+}
