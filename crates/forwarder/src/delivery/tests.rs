@@ -755,7 +755,7 @@ fn business_with_masked_rule(url: String, masked: bool) -> Business {
         })
         .unwrap()
         .line;
-    let binding = Binding::from_recent_owner(&mut auth, token.expose()).unwrap();
+    let binding = Binding::from_owner(&mut auth, token.expose()).unwrap();
     let mut q = Queue::open(directories[2].path(), binding.clone()).unwrap();
     let target = uuid::Uuid::new_v4().to_string();
     let policy = Policy {

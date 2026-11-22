@@ -84,7 +84,7 @@ impl Snapshot {
     fn new(auth: &mut Auth, state: &mut Management, token: &str) -> Result<(Self, Value)> {
         let binding = denied(Binding::from_owner(auth, token))?;
         let mut value = state.status(binding.clone())?;
-        value["recent_owner_verified"] = auth.recent_owner(token).is_ok().into();
+        value["owner_session_management"] = true.into();
         let snap = Self {
             binding,
             core: auth.observer_instance().to_owned(),

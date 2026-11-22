@@ -155,15 +155,14 @@ export class ForwardingPanel {
  clearSecrets(){for(const input of this.secretInputs)input.value='';}
  suspend(){this.reset();}
  reset(){
-  this.epoch++;this.busy=false;this.ready=false;this.ownerRejected=false;this.sample=null;this.view=null;this.pending=null;
+  this.epoch++;this.busy=false;this.ready=false;this.sample=null;this.view=null;this.pending=null;
   this.cursor=null;this.more=false;this.receiptsLoaded=false;this.receiptRows=[];
   this.resetLogFilter();this.logSnapshot=null;
   this.closeEditor(false);this.message('');this.select('records',false);
   this.render();
  }
  message(text){this.$('forwarding-state').textContent=text;}
- get needsOwnerVerification(){return this.ownerRejected||this.sample?.recent_owner_verified===false;}
- get blocked(){return this.busy||!this.ready||this.needsOwnerVerification||!!this.pending||this.sample?.quick_test_active===true;}
+ get blocked(){return this.busy||!this.ready||!!this.pending||this.sample?.quick_test_active===true;}
  get quickTestReady(){
   return this.sample?.quick_test_api===true&&this.sample.enabled===false&&this.sample.process_state_verified===true&&this.sample.state==='disabled';
  }
@@ -186,13 +185,9 @@ export class ForwardingPanel {
  }
  update(){
   const blocked=this.blocked,targets=this.view?.targets?.length??0,rules=this.view?.rules?.length??0;
-  const signedIn=!!this.getToken(),login=this.$('forwarding-login');
-  login.hidden=signedIn&&!this.needsOwnerVerification;
-  login.disabled=this.busy;
-  login.textContent=signedIn?'验证所有者身份':'所有者登录';
   this.$('forwarding-toggle').disabled=blocked||(!this.sample?.enabled&&(!targets||!rules));
   this.$('forwarding-toggle').textContent=this.sample?.enabled?'关闭转发':'开启转发';
-  this.$('fw-toggle-hint').textContent=this.needsOwnerVerification?'可以查看当前配置。修改前请验证所有者身份。':!this.view?'登录后可管理总开关。':!targets||!rules?'添加发送通道和转发规则后可开启。':'开启后按规则处理新收到的短信。';
+  this.$('fw-toggle-hint').textContent=!this.view?'登录后可管理总开关。':!targets||!rules?'添加发送通道和转发规则后可开启。':'开启后按规则处理新收到的短信。';
   const badge=this.$('forwarding-status-badge');
   const running=this.sample?.state==='running'&&this.sample.enabled===true&&this.sample.process_state_verified===true;
   badge.textContent=!this.sample?'未读取':this.sample.quick_test_active?'正在测试':running?'转发已开启':this.sample.process_state_verified&&this.sample.state==='disabled'?'转发已关闭':'状态待核对';
@@ -227,16 +222,15 @@ export class ForwardingPanel {
    if(g===this.epoch){
     if(this.pending)this.closeEditor();
     const denied=error?.coreCode==='denied'||error?.httpStatus===401;
-    if(denied)this.ownerRejected=true;
     const message=error instanceof FormError?error.message:
-     denied?(this.pending?'请验证所有者身份后核对刚才的请求，回执已保留。':'请验证所有者身份后再操作。'):
+     denied?(this.pending?'当前会话无法管理转发。请到主界面登录后核对请求，回执已保留。':'当前会话无法管理转发。请到主界面核对登录状态。'):
      this.pending?'上次请求还需核对，记录已保留。请点「核对上次请求」。':'转发操作暂未确认，请先刷新状态。';
     if(this.draft){const issue=this.$('fw-dialog-error');issue.textContent=message;issue.hidden=false;}
     else this.message(message);
    }
   }finally{if(g===this.epoch){this.busy=false;this.update();}}
  }
- status(s){requireValue(s&&s.available===true&&s.configuration_api===true&&generation(s.generation)&&typeof s.enabled==='boolean'&&typeof s.process_state_verified==='boolean'&&(s.recent_owner_verified===undefined||typeof s.recent_owner_verified==='boolean'));return s;}
+ status(s){requireValue(s&&s.available===true&&s.configuration_api===true&&generation(s.generation)&&typeof s.enabled==='boolean'&&typeof s.process_state_verified==='boolean'&&(s.owner_session_management===undefined||typeof s.owner_session_management==='boolean'));return s;}
  manageable(s){return s.service_management_api===true&&s.retained_credentials_api===true&&s.request_receipt_api===true;}
  async observe(g,command){
   this.current(g);
@@ -251,14 +245,14 @@ export class ForwardingPanel {
   this.ready=false;this.sample=null;this.view=null;this.render();
   const s=this.status(await this.observe(g,{op:'forwarding_status'}));this.current(g);
   const v=viewInput(await this.observe(g,{op:'forwarding_rules'}),s);this.current(g);
-  this.sample=s;this.view=v;this.ready=this.manageable(s);this.ownerRejected=false;this.render();
+  this.sample=s;this.view=v;this.ready=this.manageable(s);this.render();
   return s;
  }
  async read(g){
   this.current(g);
   const pending=pendingInput(await this.loadPending());this.current(g);this.pending=pending;
   await this.load(g);
-  this.message(!this.ready?'当前设备尚未启用完整的转发管理。':this.needsOwnerVerification?'当前登录可查看转发。修改或测试前请验证所有者身份。':'');
+  this.message(!this.ready?'当前设备尚未启用完整的转发管理。':'');
   if(this.pending&&this.ready)await this.query(g);
   if(this.page==='records')await this.receipts(g,true);
  }
@@ -465,10 +459,8 @@ export class ForwardingPanel {
  }
  async verifyWriteAuthority(g){
   const sample=this.status(await this.observe(g,{op:'forwarding_status'}));this.current(g);
-  if(sample.recent_owner_verified===false){
-   this.ownerRejected=true;
-   throw new FormError('当前登录可查看转发。请先验证所有者身份，本次未提交。');
-  }
+  requireValue(sample.owner_session_management===true || sample.recent_owner_verified!==false,
+   '当前设备需要新版才能使用统一登录。本次未提交。');
   requireValue(this.ready&&this.manageable(sample)&&sample.generation===this.sample?.generation&&sample.quick_test_active!==true,'转发配置或状态已变化，请刷新后重试。本次未提交。');
  }
  async mutate(g,kind,fields,description){
@@ -754,11 +746,11 @@ export class ForwardingHistory {
  }
  $(id){return this.doc.getElementById(id);}
  current(g){requireValue(g===this.epoch&&!!this.getToken(),'会话已变化，请重新读取历史补发状态');}
- reset(){this.epoch++;this.busy=false;this.sample=null;this.pending=null;this.result=null;this.view=null;this.nextCursor=null;this.$('forwarding-history-targets').replaceChildren();this.$('forwarding-history-preview').replaceChildren();this.$('forwarding-history-full').checked=false;this.message('点击管理登录并读取，选择范围和目标，再预览。没有自动补发。');this.update();}
+ reset(){this.epoch++;this.busy=false;this.sample=null;this.pending=null;this.result=null;this.view=null;this.nextCursor=null;this.$('forwarding-history-targets').replaceChildren();this.$('forwarding-history-preview').replaceChildren();this.$('forwarding-history-full').checked=false;this.message('读取补发配置后，选择范围和目标再预览。');this.update();}
  message(s){this.$('forwarding-history-state').textContent=s;}
  update(){
   const ready=!!this.sample&&!this.busy,prepared=this.result?.state==='prepared'&&!!this.pending?.confirmation_id&&!this.pending.submit_started&&!this.pending.archive_started;
-  this.$('forwarding-history-login').disabled=this.busy;
+  this.$('forwarding-history-refresh').disabled=this.busy||!this.getToken();
   for(const suffix of ['after','limit','targets'])this.$('forwarding-history-'+suffix).disabled=!ready||!!this.pending;
   this.$('forwarding-history-prepare').disabled=!ready||!!this.pending||this.sample?.quick_test_active===true;
   this.$('forwarding-history-commit').disabled=!ready||!prepared||!this.result?.preview.deliveries.length||!this.sample.enabled||this.pending.expected_generation!==this.sample.generation||this.result.expires_in_seconds===0;
