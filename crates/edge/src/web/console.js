@@ -125,7 +125,7 @@ const countText=(value,loaded)=>value===null?(loaded?`${loaded}+`:'—'):String(
 const cursorOf=value=>{const c=record(value);return typeof c.db_epoch==='string'&&c.db_epoch&&typeof c.seq==='string'&&/^(0|[1-9][0-9]*)$/.test(c.seq)?c:null;};
 const visibilityOf=value=>typeof value==='string'&&/^(0|[1-9][0-9]*)$/.test(value)?value:null;
 const uniqueRows=rows=>{const seen=new Set();return rows.filter(row=>{if(!row.id)return true;if(seen.has(row.id))return false;seen.add(row.id);return true;});};
-const VIEW_FIELDS=['c-mh-cpu','c-mh-mem','c-mh-disk','c-mh-temp','c-hw-model','c-hw-os','c-hw-kernel','c-hw-version','c-hw-cores','c-hw-uptime','c-hw-cpu','c-hw-load','c-hw-mem','c-hw-mem-d','c-hw-disk','c-hw-disk-d','c-hw-temp','c-ab-version','c-ab-model','c-ab-os','c-ab-kernel','c-sm-line','c-sm-op','c-sm-tech','c-sm-reg'];
+const VIEW_FIELDS=['c-mh-cpu','c-mh-mem','c-mh-disk','c-mh-temp','c-hw-model','c-hw-os','c-hw-kernel','c-hw-version','c-hw-cores','c-hw-uptime','c-hw-cpu','c-hw-load','c-hw-mem','c-hw-mem-d','c-hw-disk','c-hw-disk-d','c-hw-data-storage','c-hw-temp','c-ab-version','c-ab-model','c-ab-os','c-ab-kernel','c-sm-line','c-sm-op','c-sm-tech','c-sm-reg'];
 export class ConsoleDashboard{
  constructor({document,request,copy,detailText=v=>String(v?.text??''),confirm=()=>false,storage=null,clock=()=>Date.now(),matchDark=()=>false,onLeave=()=>{},onEnter=()=>{},readDelay=ms=>new Promise(resolve=>setTimeout(resolve,ms))}){this.doc=document;this.request=request;this.copy=copy;this.storage=storage;this.clock=clock;this.onLeave=onLeave;this.onEnter=onEnter;this.readDelay=readDelay;this.matchDark=matchDark;this.epoch=0;this.active=false;this.sample=null;this.receivedAt=0;this.system=null;this.systemAt=0;this.temps=[];this.tempTimes=[];this.otps=[];this.events=[];this.seen=new Set();this.lastLine=null;this.page='dashboard';this.tab=0;this.timers=[];
   this.$=id=>document.getElementById(id);this.detailText=detailText;this.confirm=confirm;this.mail=[];this.recentMail=[];this.older=[];this.mailTotal=0;this.callRows=[];this.recentCalls=[];this.olderCalls=[];this.callTotal=0;this.expanded=new Set();this.selectedMail=new Set();this.selectedCalls=new Set();this.trash=[];
@@ -611,6 +611,9 @@ export class ConsoleDashboard{
   this.$('c-cpu').textContent=cpu===null?'采样中':`${cpu}%`;this.bar('c-cpu-bar',cpu);
   const memUsed=usedPercent(s.memory_total_bytes,s.memory_available_bytes);this.$('c-mem').textContent=memUsed===null?'—':`${bytesText(s.memory_total_bytes-s.memory_available_bytes)} / ${bytesText(s.memory_total_bytes)}  (${memUsed}%)`;this.bar('c-mem-bar',memUsed);
   const diskUsed=usedPercent(s.storage_total_bytes,s.storage_free_bytes);this.$('c-disk').textContent=diskUsed===null?'—':`${bytesText(s.storage_total_bytes-s.storage_free_bytes)} / ${bytesText(s.storage_total_bytes)}  (${diskUsed}%)`;this.bar('c-disk-bar',diskUsed);
+  const dataTotal=count(s.data_storage_total_bytes),dataFree=count(s.data_storage_free_bytes);
+  this.$('c-hw-data-storage').textContent=dataTotal&&dataFree!==null&&dataFree<=dataTotal?
+   `可用 ${bytesText(dataFree)} / ${bytesText(dataTotal)}`:'—';
   const temp=finite(s.temperature_c);this.$('c-temp').textContent=temp===null?'—':`${Math.round(temp)}°C`;if(temp!==null){this.temps.push(temp);this.temps=this.temps.slice(-SPARK);this.tempTimes.push(this.systemAt);this.tempTimes=this.tempTimes.slice(-SPARK);}this.drawTemp(temp);
   this.$('c-uptime').textContent=uptimeText(s.uptime_seconds);
   const os=text(s.os,40)||'—',version=text(s.firmware_version,24)?`v${text(s.firmware_version,24)}`:'—',model=text(s.model,48)||'—';

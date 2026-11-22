@@ -145,17 +145,21 @@ pub(crate) fn processes() -> Option<Value> {
     Some(json!({"processes":shown,"truncated":rows.next().is_some()}))
 }
 
+fn storage_bytes(path: &Path) -> Option<(u64, u64)> {
+    let fs = rustix::fs::statvfs(path).ok()?;
+    let total = fs.f_blocks.checked_mul(fs.f_frsize)?;
+    let available = fs.f_bavail.checked_mul(fs.f_frsize)?;
+    (total > 0 && available <= total).then_some((total, available))
+}
+
 pub(crate) fn snapshot() -> Value {
     let stat = read_bounded(Path::new("/proc/stat")).unwrap_or_default();
     let mem = read_bounded(Path::new("/proc/meminfo")).unwrap_or_default();
     let ticks = cpu_ticks(&stat);
-    let storage = rustix::fs::statvfs("/").ok().map(|s| {
-        let unit = s.f_frsize;
-        (
-            s.f_blocks.saturating_mul(unit),
-            s.f_bavail.saturating_mul(unit),
-        )
-    });
+    let storage = storage_bytes(Path::new("/"));
+    // Core sees the persistent data partition through this systemd bind mount.
+    // The host path /var/lib/rustsimhub is intentionally hidden in this service.
+    let data_storage = storage_bytes(Path::new("/var/lib/rustsimhub-core/state"));
     let string = |path: &str| read_bounded(Path::new(path)).and_then(|t| clean(&t));
     json!({
         "schema": 1,
@@ -171,6 +175,8 @@ pub(crate) fn snapshot() -> Value {
         "memory_available_bytes": meminfo_bytes(&mem, "MemAvailable"),
         "storage_total_bytes": storage.map(|s| s.0),
         "storage_free_bytes": storage.map(|s| s.1),
+        "data_storage_total_bytes": data_storage.map(|s| s.0),
+        "data_storage_free_bytes": data_storage.map(|s| s.1),
         "temperature_c": temperature(),
         "uptime_seconds": read_bounded(Path::new("/proc/uptime")).and_then(|t| first_f64(&t)).map(|v| v as u64),
     })
@@ -253,6 +259,14 @@ mod tests {
         }
     }
     #[test]
+    fn absent_storage_is_unknown_and_root_capacity_is_valid() {
+        let directory = tempfile::tempdir().unwrap();
+        assert_eq!(storage_bytes(&directory.path().join("missing")), None);
+        let (total, available) = storage_bytes(Path::new("/")).unwrap();
+        assert!(total > 0 && available <= total);
+    }
+
+    #[test]
     fn snapshot_has_a_fixed_shape_without_identifiers() {
         let value = snapshot();
         let keys: std::collections::BTreeSet<_> =
@@ -271,6 +285,8 @@ mod tests {
             "memory_available_bytes",
             "storage_total_bytes",
             "storage_free_bytes",
+            "data_storage_total_bytes",
+            "data_storage_free_bytes",
             "temperature_c",
             "uptime_seconds",
         ]

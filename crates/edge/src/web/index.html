@@ -96,14 +96,14 @@
 <div class="bn-specs">
 <div class="spec"><svg class="i"><use href="#i-chip"/></svg><div><b>处理器</b><strong id="c-cores">—</strong></div></div>
 <div class="spec"><svg class="i"><use href="#i-mem"/></svg><div><b>运行内存</b><strong id="c-mem-total">—</strong></div></div>
-<div class="spec"><svg class="i"><use href="#i-disk"/></svg><div><b>存储容量</b><strong id="c-disk-total">—</strong></div></div>
+<div class="spec"><svg class="i"><use href="#i-disk"/></svg><div><b>系统盘容量</b><strong id="c-disk-total">—</strong></div></div>
 </div>
 </section>
 <section class="card res" aria-label="系统资源">
 <div><svg class="i"><use href="#i-res"/></svg>系统资源</div>
 <div><div class="res-t"><svg class="i"><use href="#i-chip"/></svg>CPU 占用</div><div class="res-v" id="c-cpu">—</div><div class="bar"><i id="c-cpu-bar"></i></div></div>
 <div><div class="res-t"><svg class="i"><use href="#i-mem"/></svg>内存占用</div><div class="res-v" id="c-mem">—</div><div class="bar"><i id="c-mem-bar"></i></div></div>
-<div><div class="res-t"><svg class="i"><use href="#i-log"/></svg>存储占用</div><div class="res-v" id="c-disk">—</div><div class="bar"><i id="c-disk-bar"></i></div></div>
+<div><div class="res-t"><svg class="i"><use href="#i-log"/></svg>系统盘占用</div><div class="res-v" id="c-disk">—</div><div class="bar"><i id="c-disk-bar"></i></div></div>
 <div><div class="res-t"><svg class="i"><use href="#i-temp"/></svg>温度</div><div class="temp"><div class="res-v big" id="c-temp">—</div><svg viewBox="0 0 150 28" preserveAspectRatio="none" aria-hidden="true"><path id="c-temp-line"/></svg></div></div>
 <div><div class="res-t"><svg class="i"><use href="#i-clock"/></svg>运行时间</div><div class="res-v big" id="c-uptime">—</div></div>
 </section>
@@ -153,13 +153,13 @@
 <div class="pg-grid num">
 <section class="card hw-gauge"><div class="ring-l t-blue"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-cpu-ring" stroke-dashoffset="326.7" cx="60" cy="60" r="52"/></svg><b id="c-hw-cpu">—</b></div><h3>CPU 占用</h3><p id="c-hw-load">—</p></section>
 <section class="card hw-gauge"><div class="ring-l t-purple"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-mem-ring" stroke-dashoffset="326.7" cx="60" cy="60" r="52"/></svg><b id="c-hw-mem">—</b></div><h3>内存</h3><p id="c-hw-mem-d">—</p></section>
-<section class="card hw-gauge"><div class="ring-l t-teal"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-disk-ring" stroke-dashoffset="326.7" cx="60" cy="60" r="52"/></svg><b id="c-hw-disk">—</b></div><h3>存储</h3><p id="c-hw-disk-d">—</p></section>
+<section class="card hw-gauge"><div class="ring-l t-teal"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-disk-ring" stroke-dashoffset="326.7" cx="60" cy="60" r="52"/></svg><b id="c-hw-disk">—</b></div><h3>系统盘</h3><p id="c-hw-disk-d">—</p></section>
 <section class="card hw-gauge"><div class="ring-l t-amber"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="va" id="c-hw-temp-ring" stroke-dashoffset="326.7" cx="60" cy="60" r="52"/></svg><b id="c-hw-temp">—</b></div><h3>CPU 温度</h3><p id="c-hw-temp-d">上限 85 °C</p></section>
 <section class="card pg-card w7"><h2><svg class="i"><use href="#i-temp"/></svg>温度趋势<small>当前 <strong id="c-hw-temp-current">—</strong></small></h2>
 <div class="temp-chart"><div class="temp-axis" aria-hidden="true"><span id="c-hw-temp-high"></span><span id="c-hw-temp-mid"></span><span id="c-hw-temp-low"></span></div>
 <svg class="trend" viewBox="0 0 150 28" preserveAspectRatio="none" aria-label="温度趋势（摄氏度）"><path id="c-hw-trend"/><line id="c-hw-temp-marker" y1="2" y2="26" visibility="hidden"/></svg></div>
 <div class="temp-sample" id="c-hw-temp-sample" hidden><label for="c-hw-temp-point">查看采样</label><input id="c-hw-temp-point" type="range" min="0" max="0" value="0"><output id="c-hw-temp-reading" for="c-hw-temp-point"></output></div></section>
-<section class="card pg-card w5"><h2><svg class="i"><use href="#i-chip"/></svg>设备信息</h2><dl class="pg-kv"><dt>型号</dt><dd id="c-hw-model">—</dd><dt>处理器</dt><dd id="c-hw-cores">—</dd><dt>操作系统</dt><dd id="c-hw-os">—</dd><dt>内核</dt><dd id="c-hw-kernel">—</dd><dt>固件版本</dt><dd id="c-hw-version">—</dd><dt>运行时间</dt><dd id="c-hw-uptime">—</dd></dl></section>
+<section class="card pg-card w5"><h2><svg class="i"><use href="#i-chip"/></svg>设备信息</h2><dl class="pg-kv"><dt>型号</dt><dd id="c-hw-model">—</dd><dt>处理器</dt><dd id="c-hw-cores">—</dd><dt>操作系统</dt><dd id="c-hw-os">—</dd><dt>内核</dt><dd id="c-hw-kernel">—</dd><dt>固件版本</dt><dd id="c-hw-version">—</dd><dt>运行时间</dt><dd id="c-hw-uptime">—</dd><dt>业务数据分区</dt><dd id="c-hw-data-storage">—</dd></dl></section>
 </div></div>
 <div class="pg" id="v-sim" hidden>
 <div class="pg-grid num">
@@ -272,7 +272,7 @@
 <div class="mh-stats num">
 <section class="mh-s"><div><svg class="i"><use href="#i-chip"/></svg>CPU</div><b id="c-mh-cpu">—</b><div class="bar"><i id="c-mh-cpu-b"></i></div></section>
 <section class="mh-s"><div><svg class="i"><use href="#i-mem"/></svg>内存</div><b id="c-mh-mem">—</b><div class="bar"><i id="c-mh-mem-b"></i></div></section>
-<section class="mh-s"><div><svg class="i"><use href="#i-disk"/></svg>存储</div><b id="c-mh-disk">—</b><div class="bar"><i id="c-mh-disk-b"></i></div></section>
+<section class="mh-s"><div><svg class="i"><use href="#i-disk"/></svg>系统盘</div><b id="c-mh-disk">—</b><div class="bar"><i id="c-mh-disk-b"></i></div></section>
 <section class="mh-s"><div><svg class="i"><use href="#i-temp"/></svg>温度</div><b id="c-mh-temp">—</b><svg class="mh-spark" viewBox="0 0 150 28" preserveAspectRatio="none" aria-hidden="true"><path id="c-mh-trend"/></svg></section>
 </div>
 <div class="mh-conn">

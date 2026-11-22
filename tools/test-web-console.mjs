@@ -32,6 +32,18 @@ const timers=[];globalThis.setTimeout=()=>0;globalThis.clearTimeout=()=>{};globa
 const inbox={cursor:{db_epoch:'e',seq:'1'},visibility_seq:'0',total:3,messages:[{id:'a',display:{sender:'95588',timestamp:'11:47',preview:'验证码 482916'}},{id:'b',display:{sender:'10010',timestamp:'11:40',preview:'套餐余量 382 分钟'}},{id:'c',display:{sender:'1069',timestamp:'10:02',preview:'动态码 7351'}}]};
 const sys=(busy=100,total=1000)=>({schema:1,firmware_version:'0.1.0',model:'UFI003',kernel:'6.12',os:'Debian',cpu_cores:4,cpu_busy_ticks:busy,cpu_total_ticks:total,memory_total_bytes:1000,memory_available_bytes:400,storage_total_bytes:2000,storage_free_bytes:500,temperature_c:46,uptime_seconds:90061});
 function harness(handler,opts={}){const {doc,els,get}=dom(),seen=[];const nav=new El('nav','button');nav.dataset.go='comms';nav.classList.add('nav');doc.navs=[nav];const legacy=get('c-legacy','main');for(const id of ['phone-panel','sms-panel','notice','c-empty','login-section','session-section'])legacy.append(get(id,'details'));get('c-mc-f').value='all';const h=new (opts.Dashboard||ConsoleDashboard)({document:doc,clock:opts.clock||(()=>Date.UTC(2026,10,7,12,0,0)),copy:async()=>{},storage:opts.storage,matchDark:opts.matchDark,onLeave:opts.onLeave,readDelay:opts.readDelay,detailText:opts.detailText,confirm:opts.confirm,request:async c=>{seen.push(c);return handler(c);}});return {h,els,seen,doc,nav,$:id=>doc.getElementById(id)};}
+{
+ const {h,$}=harness(()=>null);
+ h.renderSystem({...sys(),data_storage_total_bytes:109000000,data_storage_free_bytes:21000000});
+ assert.equal($('c-hw-data-storage').textContent,'可用 21.0 MB / 109.0 MB');
+ assert.match($('c-disk').textContent,/75%/);
+ h.renderSystem({...sys(),data_storage_total_bytes:109000000,data_storage_free_bytes:0});
+ assert.equal($('c-hw-data-storage').textContent,'可用 0 KB / 109.0 MB');
+ h.renderSystem({...sys(),data_storage_total_bytes:109000000,data_storage_free_bytes:110000000});
+ assert.equal($('c-hw-data-storage').textContent,'—');
+ h.renderSystem(sys());
+ assert.equal($('c-hw-data-storage').textContent,'—');
+}
 {const {h,seen,$}=harness(c=>c.op==='inbox_recent'?inbox:c.op==='calls_recent'?{calls:[{direction:1,state:'ended',number:'13812345678'}]}:c.op==='line_status'?{status:'ready'}:c.op==='system_status'?sys():{});
  assert.equal($('c-online').lastChild.textContent,'未登录');assert.equal($('c-sms-empty').textContent,'登录后显示');await h.signedIn();
  assert.deepEqual(seen.map(c=>c.op),['system_status','line_status','inbox_recent','calls_recent']);assert.ok(!seen.some(c=>/forwarding|nkn|delete|set_|submit|prepare/.test(c.op)),'dashboard load is read-only and keeps forwarding/NKN manual');

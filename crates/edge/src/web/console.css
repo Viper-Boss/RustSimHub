@@ -290,6 +290,7 @@ body{margin:0;background:var(--bg)}
 .cs .pg-kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:0;font-size:15px}
 .pg-kv dt{padding:9px 24px 9px 0;color:var(--ink-2);font-weight:500;border-bottom:1px solid var(--line);white-space:nowrap}
 .cs .pg-kv dd{padding:9px 0;font-weight:600;text-align:right;border-bottom:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cs .pg-kv #c-hw-data-storage{white-space:normal;overflow-wrap:anywhere}
 .pg-kv dt:last-of-type,.cs .pg-kv dd:last-of-type{border-bottom:0}
 .cs .pg-note{margin-top:12px;font-size:13.5px;color:var(--ink-2);line-height:1.6}
 .pg-narrow{max-width:620px}
