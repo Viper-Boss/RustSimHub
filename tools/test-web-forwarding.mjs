@@ -120,7 +120,16 @@ for(const point of ['before_marker','after_dispatch']){
 {
  const f=fixture({existing:true});await f.read();const record={format:1,id:other,kind:'configure',expected_generation:1};f.setPending(record);f.requests.set(other,2);
  f.apply({enabled:false,targets:[{id,destination:{kind:'webhook',url:endpoint,bearer:secret}}],rules:f.view().rules},2);
- await f.read();await f.panel.action(g=>f.panel.query(g));assert.equal(f.pending(),null);assert.equal(f.archives[0].applied_generation,2);assert.equal(f.writes.length,0);
+ await f.read();assert.equal(f.pending(),null);assert.equal(f.archives[0].applied_generation,2);assert.equal(f.writes.length,0);
+}
+{
+ let lookups=0;const f=fixture({existing:true,onRequest:async c=>{
+  if(c.op==='forwarding_request'&&++lookups===1)throw Object.assign(Error('synthetic device busy'),{coreCode:'busy'});
+ }});
+ const pending={format:1,id:other,kind:'configure',expected_generation:0};f.setPending(pending);
+ await f.read();assert.equal(lookups,2);assert.deepEqual(f.pending(),pending);
+ assert.match(allText(f),/没有找到这笔保存回执/);assert.equal(f.writes.length,0);
+ assert.equal(f.calls.filter(c=>c.op==='forwarding_log_page').length,1);
 }
 {
  const f=fixture({existing:true,onRequest:async c=>c.op==='forwarding_log_page'?{records:[{seq:'1',id:other,message_id:id,target_id:rule,state:'unknown',text:secret}],through:'1',removable:0}:undefined});await f.panel.action(g=>f.panel.receipts(g,true));

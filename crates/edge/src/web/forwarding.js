@@ -218,7 +218,9 @@ export class ForwardingPanel {
   catch(error){
    if(g===this.epoch){
     if(this.pending)this.closeEditor();
-    const message=error instanceof FormError?error.message:'操作未获确认。请核对登录、设备状态或上次请求回执。';
+    const message=error instanceof FormError?error.message:
+     this.pending?'上次请求还需核对，记录已保留。请重新登录或点击「核对上次请求」。':
+     error?.coreCode==='denied'?'转发请求被拒绝，请使用所有者账号重新登录。':'转发操作暂未确认，请先刷新状态。';
     if(this.draft){const issue=this.$('fw-dialog-error');issue.textContent=message;issue.hidden=false;}
     else this.message(message);
    }
@@ -226,11 +228,19 @@ export class ForwardingPanel {
  }
  status(s){requireValue(s&&s.available===true&&s.configuration_api===true&&generation(s.generation)&&typeof s.enabled==='boolean'&&typeof s.process_state_verified==='boolean');return s;}
  manageable(s){return s.service_management_api===true&&s.retained_credentials_api===true&&s.request_receipt_api===true;}
+ async observe(g,command){
+  this.current(g);
+  try{return await this.request(command);}catch(error){
+   if(error?.coreCode!=='busy'&&![429,502,503,504].includes(error?.httpStatus))throw error;
+   this.current(g);await this.delay();this.current(g);
+   return this.request(command);
+  }
+ }
  async load(g){
   requireValue(!!this.getToken(),'请先使用所有者浏览器登录');
   this.ready=false;this.sample=null;this.view=null;this.render();
-  const s=this.status(await this.request({op:'forwarding_status'}));this.current(g);
-  const v=viewInput(await this.request({op:'forwarding_rules'}),s);this.current(g);
+  const s=this.status(await this.observe(g,{op:'forwarding_status'}));this.current(g);
+  const v=viewInput(await this.observe(g,{op:'forwarding_rules'}),s);this.current(g);
   this.sample=s;this.view=v;this.ready=this.manageable(s);this.render();
   return s;
  }
@@ -239,6 +249,7 @@ export class ForwardingPanel {
   const pending=pendingInput(await this.loadPending());this.current(g);this.pending=pending;
   await this.load(g);
   this.message(this.ready?'':'当前设备尚未启用完整的转发管理。');
+  if(this.pending&&this.ready)await this.query(g);
   if(this.page==='records')await this.receipts(g,true);
  }
  async refreshRecords(g){
@@ -467,8 +478,8 @@ export class ForwardingPanel {
  async query(g){
   this.current(g);
   requireValue(!!this.pending,'没有待核对的保存');const record=this.pending;
-  if(testKind(record.kind)){await this.inspectTest(g,record,await this.request({op:'forwarding_test_request',request_id:record.id}));return;}
-  const result=await this.request({op:'forwarding_request',request_id:record.id});this.current(g);
+  if(testKind(record.kind)){await this.inspectTest(g,record,await this.observe(g,{op:'forwarding_test_request',request_id:record.id}));return;}
+  const result=await this.observe(g,{op:'forwarding_request',request_id:record.id});this.current(g);
   requireValue(result.request_id===record.id&&typeof result.known==='boolean'&&result.not_found_is_not_proof===true&&generation(result.current_generation));
   if(!result.known){this.message('没有找到这笔保存回执；记录可能未受理、已清理或来自恢复前。不会重提，记录继续保留。');return;}
   requireValue(generation(result.applied_generation)&&result.applied_generation===record.expected_generation+1&&result.applied_generation<=result.current_generation);
@@ -511,7 +522,9 @@ export class ForwardingPanel {
   this.current(g);
   requireValue(!!this.pending,'没有待核对的保存');
   if(!this.confirm('将这笔未确认保存保留在本机回执中，再读取当前配置？这不会撤回、重发或证明旧请求未执行。'))return;
-  await this.archive(this.pending,null,g);const s=await this.load(g);this.message('未确认记录已保留；'+processText(s)+'。后续改动使用当前配置代次。');
+  const s=await this.load(g);
+  requireValue(s.quick_test_active!==true,'合成测试仍在运行，结束后再归档。');
+  await this.archive(this.pending,null,g);this.message('未确认记录已保留；'+processText(s)+'。后续改动使用当前配置代次。');
  }
  resetLogFilter(){
   for(const id of ['fw-record-filter','fw-log-kind','fw-log-target'])this.$(id).value='all';
@@ -588,7 +601,7 @@ export class ForwardingPanel {
   this.current(g);
   const before=reset?null:this.cursor;
   if(reset){this.logSnapshot=null;this.receiptsLoaded=false;this.receiptRows=[];this.cursor=null;this.more=false;this.renderReceipts();}
-  const result=await this.request({op:'forwarding_log_page',before,limit:16,filter:this.logFilter()});this.current(g);
+  const result=await this.observe(g,{op:'forwarding_log_page',before,limit:16,filter:this.logFilter()});this.current(g);
   requireValue(Array.isArray(result.records)&&result.records.length<=16&&sequence(result.through)&&Number.isSafeInteger(result.removable)&&result.removable>=0);
   if(reset)this.logSnapshot={through:result.through,removable:result.removable};
   let cursor=before;

@@ -269,6 +269,31 @@ fn numeric(v: &Value, path: &str) -> Option<f64> {
     let n = v.pointer(path)?.as_str()?.parse::<f64>().ok()?;
     n.is_finite().then_some(n)
 }
+fn fill_lte_sinr(cell: &mut Value, modem: &str, mut mmcli: impl FnMut(&[&str]) -> Result<String>) {
+    if cell["technology"] != "lte" || !cell["sinr"].is_null() {
+        return;
+    }
+    let Some(signal) = mmcli(&["-m", modem, "--signal-get", "-J", "--timeout=2"])
+        .ok()
+        .and_then(|response| serde_json::from_str::<Value>(&response).ok())
+    else {
+        return;
+    };
+    // LTE cell info can omit SINR even when ModemManager exposes LTE SNR.
+    if let Some(snr) =
+        numeric(&signal, "/modem/signal/lte/snr").filter(|snr| (-30.0..60.0).contains(snr))
+    {
+        cell["sinr"] = json!(snr);
+    } else if signal
+        .pointer("/modem/signal/refresh/rate")
+        .and_then(Value::as_str)
+        == Some("0")
+    {
+        // Set only the extended signal polling interval. The next sample reads
+        // the result. Leave any existing polling interval in place.
+        let _ = mmcli(&["-m", modem, "--signal-setup=15", "--timeout=2"]);
+    }
+}
 fn collect_modem() -> Result<(String, Value)> {
     let list = command("/usr/bin/mmcli", &["-L"], None)?;
     let paths: Vec<_> = list
@@ -370,6 +395,7 @@ fn collect_radio(salt: &str) -> Result<(Value, String)> {
             break;
         }
     }
+    fill_lte_sinr(&mut cell, &p, |args| command("/usr/bin/mmcli", args, None));
     let list_field = |path: &str| -> Vec<String> {
         all.pointer(path)
             .and_then(Value::as_array)

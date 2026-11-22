@@ -19,8 +19,11 @@ const callId=uuid(1),line=2;
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};};
 const turn=()=>new Promise(resolve=>setImmediate(resolve));
 class Element{
- constructor(){this.value='';this.textContent='';this.children=[];this.disabled=false;this.checked=false;}
+ constructor(){this.value='';this.textContent='';this.children=[];this.disabled=false;this.checked=false;this.dataset={};this.attributes={};this.listeners={};}
  set innerHTML(_){throw Error('Call data must not be parsed as HTML');}
+ setAttribute(key,value){this.attributes[key]=value;}
+ removeAttribute(key){delete this.attributes[key];}
+ addEventListener(type,listener){this.listeners[type]=listener;}
  append(...items){this.children.push(...items);}replaceChildren(...items){this.children=items;}
 }
 function fixture(options={}){
@@ -66,7 +69,7 @@ function fixture(options={}){
    default:throw Error('Unexpected synthetic command '+c.op);
   }
  }
- const phone=new DailyPhone({document,env:{crypto:webcrypto,performance:{now:()=>now},setInterval:()=>1,clearInterval(){}},audio,
+ const phone=new DailyPhone({document,env:{crypto:webcrypto,performance:{now:()=>now},setInterval:()=>1,clearInterval(){}},audio,ensureSession:options.ensureSession,
   audioReady:()=>true,context:value=>({token:'synthetic-session',lease:value}),blocked:()=>options.blocked===true,
   getPending:()=>pending,setPending:async value=>{pending=structuredClone(value);await options.onSave?.(value);saved.push(structuredClone(value));},
   archiveKnown:async value=>receipts.push(structuredClone(value)),archivePending:async value=>uncertain.push(structuredClone(value)),setLease:value=>{lease=value;},
@@ -77,12 +80,26 @@ function fixture(options={}){
 }
 {
  const f=fixture();await f.$('phone-dial').onclick();assert.equal(f.sent.filter(x=>x.op==='submit_call').length,1);assert(f.phone.managing);
+ assert.equal(f.$('c-ph-keys').dataset.mode,'call');assert.equal(f.$('phone-tone-send').disabled,true);
  assert.equal(f.audio.state,'ready','PCM activation waits for observed ACTIVE');await f.phone.refresh();assert.equal(f.audio.state,'active');
+ assert.equal(f.$('c-ph-num').readOnly,true);assert.equal(f.$('c-ph-keypad-title').textContent,'通话按键');
+ assert.equal(f.$('phone-tone-send').disabled,false);
  f.advance(8001);await f.phone.refresh();assert.equal(f.sent.filter(x=>x.op==='renew_call').length,1);
  f.$('phone-tone').value='a';await f.$('phone-tone-send').onclick();assert.equal(f.sent.filter(x=>x.op==='prepare_call'&&x.action==='dtmf')[0].payload,'A');
  f.$('phone-muted').checked=true;f.$('phone-muted').onchange();assert.equal(f.audio.muted,true);
  await f.$('phone-hangup').onclick();assert.equal(f.sent.filter(x=>x.op==='prepare_call'&&x.action==='hangup').length,1);assert.equal(f.lease(),null);assert(f.tracks.every(t=>t.stopped));
+ await f.phone.refresh();assert.equal(f.$('c-ph-keys').dataset.mode,'dial');assert.equal(f.$('c-ph-num').readOnly,false);
  await f.$('phone-close').onclick();assert.equal(f.pending(),null);assert.equal(f.receipts.length,3);
+}
+{
+ let holdSession=null;
+ const f=fixture({ensureSession:()=>holdSession?.promise||Promise.resolve()});
+ await f.$('phone-dial').onclick();await f.phone.refresh();
+ holdSession=deferred();f.$('phone-tone').value='1';const sending=f.$('phone-tone-send').onclick();
+ f.$('phone-tone').value='#';await f.$('phone-tone-send').onclick();holdSession.resolve();await sending;
+ assert.deepEqual(f.sent.filter(c=>c.op==='prepare_call'&&c.action==='dtmf').map(c=>c.payload),['1']);
+ f.setCalls([]);await f.$('phone-tone-send').onclick();
+ assert.equal(f.sent.filter(c=>c.op==='prepare_call'&&c.action==='dtmf').length,1,'a missing call cannot send a key');
 }
 for(const action of ['accept','reject']){
  const f=fixture({incoming:true});await f.phone.refresh();assert.equal(f.sent.filter(x=>x.op==='prepare_call').length,0,'Observation never answers');
@@ -111,6 +128,29 @@ for(const marker of [false,true]){
 }
 {
  const f=fixture({renewOverride:{boot:'b'.repeat(64)}});await f.$('phone-dial').onclick();await f.phone.refresh();f.advance(8001);await f.phone.refresh();assert.equal(f.lease(),null);assert.equal(f.audio.state,'closed');assert.match(f.$('phone-state').textContent,/租约/);
+}
+{
+ let fault=null;
+ const f=fixture({respond:async c=>{if(fault?.op===c.op)throw fault.error;}});
+ await f.$('phone-dial').onclick();await f.phone.refresh();
+ const lease=f.lease();
+ for(const op of ['call_detail','call_status','renew_call']){
+  f.advance(9000);
+  fault={op,error:Object.assign(Error('temporarily unavailable'),{httpStatus:503})};
+  await f.phone.refresh();assert.equal(f.audio.state,'active',op);assert.deepEqual(f.lease(),lease);
+ }
+ fault=null;await f.phone.refresh();assert.match(f.$('phone-state').textContent,/已接通/);
+ assert.equal(f.sent.filter(c=>c.op==='submit_call').length,1);
+ fault={op:'line_status',error:Object.assign(Error('denied'),{httpStatus:403})};
+ await f.phone.refresh();assert.equal(f.audio.state,'closed');assert.equal(f.lease(),null);
+}
+{
+ let unavailable=false;
+ const f=fixture({respond:async c=>{if(unavailable&&c.op==='call_status')return {available:false};}});
+ await f.$('phone-dial').onclick();await f.phone.refresh();
+ unavailable=true;f.advance(9000);await f.phone.refresh();assert.equal(f.audio.state,'active');
+ f.advance(21000);await f.phone.refresh();assert.equal(f.audio.state,'closed');assert.equal(f.lease(),null);
+ assert.equal(f.sent.filter(c=>c.op==='renew_call').length,0);
 }
 {
  let held=false;const gate=deferred(),f=fixture({respond:async c=>{if(c.op==='call_status'&&!held){held=true;return gate.promise;}}});const stale=f.phone.refresh();await turn();await f.$('phone-dial').onclick();assert(f.phone.managing);

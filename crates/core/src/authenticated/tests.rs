@@ -5,7 +5,7 @@ mod legacy_binding;
 mod recovery_grants;
 
 #[tokio::test]
-async fn health_distinguishes_auth_contention_from_a_rejected_session() {
+async fn console_distinguishes_auth_contention_from_a_rejected_session() {
     let d = directory();
     let i = directory();
     let store = Store::open(d.path()).unwrap();
@@ -23,12 +23,52 @@ async fn health_distinguishes_auth_contention_from_a_rejected_session() {
         })
     };
     ready.recv().unwrap();
-    let health = || AuthCommand::Health { token: "0".repeat(64) };
-    let busy = round_trip(health(), Arc::clone(&auth)).await;
+    let commands = || {
+        let token = "0".repeat(64);
+        [
+            AuthCommand::Health {
+                token: token.clone(),
+            },
+            AuthCommand::CallHistoryStatus {
+                token: token.clone(),
+            },
+            AuthCommand::DeleteCallHistory {
+                token: token.clone(),
+                call_ids: vec!["11111111-1111-4111-8111-111111111111".into()],
+            },
+            AuthCommand::ForwardingRequest {
+                token,
+                request_id: "11111111-1111-4111-8111-111111111111".into(),
+            },
+        ]
+    };
+    let forwarding = crate::forwarding::Controller::new(d.path(), store.handle());
+    for command in commands() {
+        let result = round_trip_with_providers(
+            command,
+            Arc::clone(&auth),
+            Providers {
+                forwarding: Some(forwarding.clone()),
+                ..Providers::default()
+            },
+        )
+        .await;
+        assert_eq!(result["error"], "busy");
+    }
     release.send(()).unwrap();
     thread.join().unwrap();
-    assert_eq!(busy["error"], "busy");
-    assert_eq!(round_trip(health(), auth).await["error"], "denied");
+    for command in commands() {
+        let result = round_trip_with_providers(
+            command,
+            Arc::clone(&auth),
+            Providers {
+                forwarding: Some(forwarding.clone()),
+                ..Providers::default()
+            },
+        )
+        .await;
+        assert_eq!(result["error"], "denied");
+    }
 }
 
 #[tokio::test]
@@ -380,21 +420,26 @@ async fn round_trip_setup(
     auth: Arc<Mutex<Auth>>,
     setup: Option<Arc<Mutex<rustsimhub_auth::LocalSetup>>>,
 ) -> Value {
+    round_trip_with_providers(
+        command,
+        auth,
+        Providers {
+            setup,
+            ..Providers::default()
+        },
+    )
+    .await
+}
+async fn round_trip_with_providers(
+    command: AuthCommand,
+    auth: Arc<Mutex<Auth>>,
+    providers: Providers,
+) -> Value {
     let (mut sender, mut receiver) = UnixStream::pair().unwrap();
     let task = tokio::spawn(async move {
-        handle(
-            &mut receiver,
-            auth,
-            None,
-            None,
-            None,
-            Providers {
-                setup,
-                ..Providers::default()
-            },
-        )
-        .await
-        .unwrap();
+        handle(&mut receiver, auth, None, None, None, providers)
+            .await
+            .unwrap();
     });
     let req = rustsimhub_wire::AuthRequest {
         protocol: 2,

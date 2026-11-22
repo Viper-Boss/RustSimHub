@@ -3,6 +3,56 @@ use super::*;
 use std::os::unix::fs::symlink;
 
 #[test]
+fn lte_signal_uses_extended_snr_without_replacing_cell_measurements() {
+    let modem = "/org/freedesktop/ModemManager1/Modem/0";
+    let mut cell = json!({"technology":"lte","rsrp":-90.0,"rsrq":-9.3});
+    fill_lte_sinr(&mut cell, modem, |args| {
+        assert_eq!(args, ["-m", modem, "--signal-get", "-J", "--timeout=2"]);
+        Ok(
+            r#"{"modem":{"signal":{"lte":{"snr":"-2.5","rsrp":"-93"},"refresh":{"rate":"30"}}}}"#
+                .into(),
+        )
+    });
+    assert_eq!(cell["sinr"], -2.5);
+    assert_eq!(cell["rsrp"], -90.0);
+    assert_eq!(cell["rsrq"], -9.3);
+    fill_lte_sinr(&mut cell, modem, |_| {
+        panic!("valid cell reading needs no fallback")
+    });
+    fill_lte_sinr(&mut json!({"technology":"nr5g"}), modem, |_| {
+        panic!("LTE SNR must not be used for non-LTE cells")
+    });
+}
+
+#[test]
+fn missing_lte_snr_starts_only_disabled_polling_and_remains_unknown() {
+    let modem = "/org/freedesktop/ModemManager1/Modem/0";
+    for (rate, snr, expected_requests) in [("0", "--", 2), ("30", "--", 1), ("15", "-3276.8", 1)] {
+        let mut cell = json!({"technology":"lte"});
+        let mut requests = 0;
+        fill_lte_sinr(&mut cell, modem, |args| {
+            requests += 1;
+            if requests == 1 {
+                assert_eq!(args, ["-m", modem, "--signal-get", "-J", "--timeout=2"]);
+                return Ok(
+                    json!({"modem":{"signal":{"lte":{"snr":snr},"refresh":{"rate":rate}}}})
+                        .to_string(),
+                );
+            }
+            assert_eq!(args, ["-m", modem, "--signal-setup=15", "--timeout=2"]);
+            Err("setup unavailable".into())
+        });
+        assert_eq!(requests, expected_requests);
+        assert!(cell["sinr"].is_null());
+    }
+    let mut cell = json!({"technology":"lte"});
+    fill_lte_sinr(&mut cell, modem, |_| {
+        Err("signal interface unavailable".into())
+    });
+    assert!(cell["sinr"].is_null());
+}
+
+#[test]
 fn counter_source_accepts_exact_u64_values_and_rejects_missing_or_malformed_input() {
     let source = json!({"nftables":[
         {"metainfo":{"version":"synthetic"}},

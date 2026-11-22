@@ -94,12 +94,66 @@ assert.equal(PAGES.settings.tabs.at(-1).label,'设备调试');
 // 新页面行为：读短信、回复、发送走原流程、拨号走原流程、删除需确认且拒绝不重试
 {const seen=[];let confirmAnswer=false;const {h,$}=harness(c=>{seen.push(c.op);if(c.op==='inbox_recent')return inbox;if(c.op==='sms_detail')return {text:'完整正文'};if(c.op==='delete_sms')throw Error('需要所有者最近5分钟内登录');return {};},{detailText:v=>`来自：x\n\n${v.text}`,confirm:()=>confirmAnswer});await h.signedIn();h.go('comms');
  assert.equal(h.mail.length,3);await h.openMail(h.mail[1]);assert.equal($('c-mail-body').textContent,'完整正文');assert.ok(seen.includes('notification_read'));
- await h.deleteMail();assert.ok(!seen.includes('delete_sms'),'declined confirm sends nothing');confirmAnswer=true;await h.deleteMail();assert.equal(seen.filter(o=>o==='delete_sms').length,1);assert.match($('c-mail-operation').textContent,/操作未全部确认/);
+ await h.deleteMail();assert.ok(!seen.includes('delete_sms'),'declined confirm sends nothing');confirmAnswer=true;await h.deleteMail();assert.equal(seen.filter(o=>o==='delete_sms').length,1);assert.match($('c-mail-operation').textContent,/结果未确认.*未自动重试/);
  $('c-mail-reply').listeners.click();assert.equal($('c-cp-to').value,'10010');assert.equal($('c-title').textContent,'通信中心');
  $('c-cp-text').value='你好';let sent=0,dialed=0;$('send-sms').disabled=true;$('send-sms').click=()=>sent++;h.sendSms();assert.equal(sent,0,'disabled original control is not bypassed');assert.match($('c-cp-state').textContent,/不能发送/);$('send-sms').disabled=false;h.sendSms();assert.equal(sent,1);assert.equal($('recipient').value,'10010');assert.equal($('text').value,'你好');
  $('c-ph-num').value='10010';$('phone-dial').disabled=false;$('phone-dial').click=()=>dialed++;h.dial();assert.equal(dialed,1);assert.equal($('phone-number').value,'10010');}
+{
+ let finish;const seen=[];
+ const {h,$}=harness(c=>{
+  seen.push(c.op);
+  if(c.op==='sms_folder_status')return new Promise(resolve=>{finish=resolve;});
+  if(c.op==='inbox_recent')return {messages:[],total:0,visibility_seq:'0',cursor:{db_epoch:'fixture',seq:'0'}};
+  if(c.op==='calls_recent')return {calls:[],total:0,cursor:{db_epoch:'fixture',seq:'0'}};
+  return {};
+ },{confirm:()=>true});
+ h.go('comms');h.active=true;
+ const action=h.applyFolder();assert.ok(finish);
+ h.go('comms',2);h.go('comms');
+ finish({inbox:4,version:{db_epoch:'fixture',seq:'1'},head_seq:'1'});
+ await action;await h.readLists();
+ assert.ok(!seen.includes('apply_sms_folder'),'a read started in an older visit cannot submit');
+ assert.equal($('c-mail-operation').textContent,'','an older visit cannot post a notice on return');
+}
+{
+ const seen=[];const {h,$}=harness(c=>{seen.push(c.op);if(c.op==='sms_folder_status')throw Error('temporary read failure');return {};},{confirm:()=>true});
+ h.go('comms');h.active=true;await h.applyFolder();
+ assert.ok(!seen.includes('apply_sms_folder'));
+ assert.match($('c-mail-operation').textContent,/本次操作未提交/);
+}
 {const {h,$}=harness(c=>c.op==='clients'?{clients:[{kind:'owner',public_key:[1,2,3,4,5,6,7],active:true,scopes:['a']}]}:{});await h.loadClients();assert.equal($('c-sc-list').children.length,1);const b=harness(()=>{throw Error('denied');});await b.h.loadClients();assert.match(b.$('c-sc-empty').textContent,/读取失败/);}
+{
+ const {h,$}=harness(()=>({}));h.active=true;
+ const keypad=$('c-ph-keys'),input=$('c-ph-num'),send=$('phone-tone-send'),sent=[];
+ const click=key=>keypad.listeners.click({target:{dataset:{key}}});
+ send.disabled=false;send.click=()=>sent.push($('phone-tone').value);
+ click('1');click('2');assert.equal(input.value,'12');assert.deepEqual(sent,[]);
+ keypad.dataset.mode='call';click('#');click('*');assert.deepEqual(sent,['#','*']);assert.equal(input.value,'12');
+ send.disabled=true;click('3');assert.equal($('phone-tone').value,'*');assert.match($('c-ph-state').textContent,/上一键/);
+ send.disabled=false;let prevented=0;const e={key:'4',preventDefault:()=>prevented++};
+ input.listeners.keydown(e);input.listeners.keydown({...e,repeat:true});
+ assert.equal(prevented,2);assert.deepEqual(sent,['#','*','4']);assert.equal(input.value,'12');
+}
 // The communication center exhausts private pages on entry. The dashboard still reads a preview.
+{
+ const row={id:'test-call',state:'ended',direction:2};let failure='busy';const commands=[];
+ const {h,$}=harness(c=>{
+  commands.push(c.op);
+  if(c.op==='calls_recent')return {calls:[row],total:1,cursor:{db_epoch:'e',seq:'1'}};
+  if(c.op==='inbox_recent')return inbox;
+  if(c.op==='delete_call_history')throw Object.assign(Error('synthetic deletion error'),{coreCode:failure});
+  return {};
+ },{confirm:()=>true});
+ h.go('comms',2);h.active=true;await h.readLists();
+ for(const code of ['busy','denied',undefined]){
+  failure=code;h.selectedCalls.add(row.id);
+  const before=commands.filter(op=>op==='delete_call_history').length;
+  await h.removeCallHistory(false);
+  assert.equal(commands.filter(op=>op==='delete_call_history').length,before+1);
+  assert.match($('c-call-operation').textContent,code==='busy'?/繁忙.*未执行/:code==='denied'?/所有者登录/:/未确认.*未自动重试/);
+  assert.equal(h.callRows.length,1);
+ }
+}
 {const row=i=>({id:'m'+i,display:{sender:'1',preview:'x'+i}}),seen=[];let total=40;
  const {h,$}=harness(c=>{seen.push(c);if(c.op==='inbox_recent'){
   const top=c.before?Number(c.before.seq):total+1;
