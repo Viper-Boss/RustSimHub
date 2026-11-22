@@ -165,6 +165,17 @@ async function readyTest(options={}){const f=fixture({existing:true,...options})
  assert.equal(f.calls.filter(c=>c.op==='forwarding_test').length,1);assert.equal(f.calls.filter(c=>c.op==='forwarding_test_request').length,1);
  assert.equal(f.pending(),null);assert.equal(f.archives.at(-1).kind,'test');assert.equal(f.archives.at(-1).target_id,id);assert.equal(f.archives.at(-1).applied_generation,2);assert.ok(!JSON.stringify(f.archives).includes(secret));assert.match(allText(f),/合成测试已获目标确认/);
 }
+{
+ let reads=0;
+ const f=await readyTest({onRequest:async c=>{
+  if(c.op==='forwarding_test_request'&&++reads<=2)throw Object.assign(Error('synthetic device busy'),{coreCode:'busy'});
+ }});
+ await f.panel.action(g=>f.panel.test(g,id));
+ assert.equal(reads,3);
+ assert.match(allText(f),/合成测试已获目标确认/);
+ assert.equal(f.pending(),null);
+ assert.equal(f.calls.filter(c=>c.op==='forwarding_test').length,1);
+}
 for(const state of ['queued','unknown','failed','cancelled']){
  const f=await readyTest({testState:state});await f.panel.action(g=>f.panel.test(g,id));
  assert.equal(f.calls.filter(c=>c.op==='forwarding_test').length,1);
@@ -225,7 +236,7 @@ console.log('PASS: isolated channel wizard, saved rules, newest-first records an
  assert.deepEqual(f.writes[0].policy.targets[1].destination,{kind:'copy',source_id:id});
  assert.ok(!JSON.stringify(f.writes).includes(secret));
 }
-function quickFixture({state='confirmed',active=false,lost=false,saveFails=false,enabled=false,stop=true,readFails=false,initialPending=null,configurationKnown=true}={}){
+function quickFixture({state='confirmed',active=false,lost=false,saveFails=false,enabled=false,stop=true,readFails=false,busyReads=0,initialPending=null,configurationKnown=true}={}){
  let pending=clone(initialPending),accepted=false,logins=0;const calls=[],messages=[],archives=[],gate=deferred();
  const status=()=>({quick_test_api:true,service_management_api:true,enabled,process_state_verified:true,state:enabled?'running':'disabled',quick_test_active:false,generation:1});
  const quick=new ForwardingQuickTest({crypto:webcrypto,login:async()=>{logins++;},notify:s=>messages.push(s),delay:async()=>{await gate.promise;},
@@ -240,6 +251,7 @@ function quickFixture({state='confirmed',active=false,lost=false,saveFails=false
     if(lost)throw Error('lost admission reply');return {accepted:true,quick_test:true,request_id:c.request_id};
    }
    assert.equal(c.op,'forwarding_test_request');if(readFails)throw Error('logged out');
+   if(busyReads>0){busyReads--;throw Object.assign(Error('synthetic device busy'),{coreCode:'busy'});}
    return {request_id:c.request_id,known:accepted,not_found_is_not_proof:true,quick_active:active,automatic_stop_verified:stop,
     receipt:accepted?{id:c.request_id,target_id:id,generation:1,synthetic:true,state}:null};
   }});
@@ -249,6 +261,13 @@ function quickFixture({state='confirmed',active=false,lost=false,saveFails=false
  const f=quickFixture();await f.quick.run();assert.equal(f.logins(),1);assert.equal(f.pending(),null);assert.match(f.messages.at(-1),/Bark 已确认.*自动关闭/);
  assert.equal(f.calls.filter(c=>c.op==='forwarding_quick_test').length,1);assert.equal(f.archives[0].kind,'quick_test');
  assert.ok(f.calls.every(c=>!['set_forwarding_enabled','forwarding_configure','forwarding_test'].includes(c.op)));
+}
+{
+ const f=quickFixture({busyReads:2});f.gate.resolve();await f.quick.run();
+ assert.equal(f.calls.filter(c=>c.op==='forwarding_test_request').length,3);
+ assert.equal(f.calls.filter(c=>c.op==='forwarding_quick_test').length,1);
+ assert.equal(f.pending(),null);
+ assert.match(f.messages.at(-1),/Bark 已确认.*自动关闭/);
 }
 for(const state of ['failed','cancelled','unknown']){
  const f=quickFixture({state});await f.quick.run();assert.equal(!!f.pending(),state==='unknown');assert.match(f.messages.at(-1),/自动关闭|转发已关闭/);

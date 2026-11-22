@@ -270,9 +270,9 @@ async fn paired_client_and_concurrent_writes_cannot_admit_or_replace_a_job() {
     .await
     .unwrap();
     let second = f.request(f.configure(1, CHANGE, false)).await;
-    // Authenticated browser wire deliberately uses one generic refusal for
-    // Busy and authorization errors; the second intent must remain unapplied.
-    assert_eq!(second["error"], "denied");
+    // Owner contention is retryable but a delegated session above is denied.
+    // The second intent must remain unapplied.
+    assert_eq!(second["error"], "busy");
     let first = pending.await.unwrap();
     assert_eq!(first["configuration_applied"], true);
     assert_eq!(first["service_action"], "unconfirmed");
@@ -357,7 +357,7 @@ async fn quick_probe_owns_start_and_cleanup_without_changing_the_saved_policy() 
     // A concurrent Root snapshot may make the nonblocking Auth admission Busy;
     // either result must leave the one durable receipt and one start intact.
     assert!(
-        duplicate["accepted"] == true || duplicate["error"] == "denied",
+        duplicate["accepted"] == true || duplicate["error"] == "busy",
         "{duplicate}"
     );
     f.incoming("during-probe");
@@ -389,6 +389,10 @@ async fn quick_probe_owns_start_and_cleanup_without_changing_the_saved_policy() 
     .unwrap();
     assert_eq!(result["receipt"]["state"], "confirmed");
     assert_eq!(result["automatic_stop_verified"], true);
+    assert_eq!(calls.load(Ordering::SeqCst), before + 2);
+    let replay = f.request(command()).await;
+    assert_eq!(replay["accepted"], true);
+    assert_eq!(replay["receipt"], result["receipt"]);
     assert_eq!(calls.load(Ordering::SeqCst), before + 2);
     let s = f.control.0.lock().unwrap();
     let q = s.queue.as_ref().unwrap();

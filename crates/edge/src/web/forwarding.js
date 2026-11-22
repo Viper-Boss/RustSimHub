@@ -5,6 +5,10 @@ class FormError extends Error {}
 const uuid=s=>typeof s==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s);
 const generation=n=>Number.isSafeInteger(n)&&n>=0;
 const testKind=kind=>kind==='test'||kind==='quick_test';
+const retryableRead=error=>error?.coreCode==='busy'||[429,502,503,504].includes(error?.httpStatus);
+async function readDuringPoll(read){
+ try{return await read();}catch(error){if(!retryableRead(error))throw error;}
+}
 const kinds={webhook:'Webhook',bark:'Bark',telegram:'Telegram',dingtalk:'钉钉群机器人',wecom:'企业微信群机器人',feishu:'飞书群机器人',serverchan:'Server酱',pushplus:'PushPlus',gotify:'Gotify',email:'邮件（SMTP TLS）'};
 // 聊天类通道：key 是主凭据，chat 复用为可选的加签密钥。可以直接粘贴完整的机器人地址，页面只取其中的凭据。
 const chatKinds={dingtalk:{key:'access_token（或粘贴完整 Webhook 地址）',secret:'加签密钥 SEC…（可选）',from:/[?&]access_token=([A-Za-z0-9._-]+)/},wecom:{key:'key（或粘贴完整 Webhook 地址）',from:/[?&]key=([A-Za-z0-9._-]+)/},feishu:{key:'Webhook 末尾的 hook 标识（或粘贴完整地址）',secret:'签名校验密钥（可选）',from:/\/hook\/([A-Za-z0-9._-]+)/},serverchan:{key:'SendKey',from:/\/([A-Za-z0-9._-]+)\.send/},pushplus:{key:'token'},gotify:{key:'应用 token',endpoint:'Gotify 服务地址（HTTPS 根地址）'}};
@@ -231,7 +235,7 @@ export class ForwardingPanel {
  async observe(g,command){
   this.current(g);
   try{return await this.request(command);}catch(error){
-   if(error?.coreCode!=='busy'&&![429,502,503,504].includes(error?.httpStatus))throw error;
+   if(!retryableRead(error))throw error;
    this.current(g);await this.delay();this.current(g);
    return this.request(command);
   }
@@ -464,7 +468,7 @@ export class ForwardingPanel {
   this.status(result);await this.archive(record,result.generation,g);
   this.closeEditor();
   this.ready=false;this.sample=result;this.view=null;this.render();
-  const view=viewInput(await this.request({op:'forwarding_rules'}),result);this.current(g);
+  const view=viewInput(await this.observe(g,{op:'forwarding_rules'}),result);this.current(g);
   this.view=view;this.ready=this.manageable(result);this.render();
   this.message(description??processText(result)+'。');
  }
@@ -514,7 +518,8 @@ export class ForwardingPanel {
   if(await this.inspectTest(g,record,result))return;
   for(let i=0;i<(quick?35:10)&&Date.now()<deadline;i++){
    await this.delay();this.current(g);if(Date.now()>=deadline)break;
-   if(await this.inspectTest(g,record,await this.request({op:'forwarding_test_request',request_id:record.id})))return;
+   const receipt=await readDuringPoll(()=>this.request({op:'forwarding_test_request',request_id:record.id}));
+   if(receipt!==undefined&&await this.inspectTest(g,record,receipt))return;
   }
   this.message('合成测试仍在处理，回执已保留；可点击核对上次请求，不会重新提交。');
  }
@@ -663,14 +668,19 @@ export class ForwardingQuickTest {
    }
    const deadline=Date.now()+65000;
    for(let attempt=0;attempt<65&&Date.now()<deadline;attempt++){
-    const r=await this.request({op:'forwarding_test_request',request_id:record.id});
+    const r=await readDuringPoll(()=>this.request({op:'forwarding_test_request',request_id:record.id}));
+    if(r===undefined){await this.delay();continue;}
     requireValue(r.request_id===record.id&&typeof r.known==='boolean','测试回执无效；不会重新发送。');
     requireValue(r.known===true,'没有找到这笔测试回执；不代表未外发，记录已保留，不会重新发送。');
     const receipt=r.receipt;
     requireValue(receipt&&receipt.id===record.id&&receipt.target_id===record.target_id&&receipt.generation===record.expected_generation&&receipt.synthetic===true&&Object.hasOwn(states,receipt.state)&&typeof r.quick_active==='boolean','测试回执不匹配；不会重新发送。');
     if(r.quick_active===false){
      let closed=r.automatic_stop_verified===true;
-     if(!closed){const s=await this.request({op:'forwarding_status'});closed=s.quick_test_active===false&&s.enabled===false&&s.state==='disabled'&&s.process_state_verified===true;}
+     if(!closed){
+      const s=await readDuringPoll(()=>this.request({op:'forwarding_status'}));
+      if(s===undefined){await this.delay();continue;}
+      closed=s.quick_test_active===false&&s.enabled===false&&s.state==='disabled'&&s.process_state_verified===true;
+     }
      requireValue(closed,'测试已停止，但转发进程关闭尚未确认；回执已保留，请勿重复测试。');
      if(['confirmed','failed','cancelled'].includes(receipt.state)){
       await this.archivePending({...record,applied_generation:record.expected_generation,uncertain:false});
