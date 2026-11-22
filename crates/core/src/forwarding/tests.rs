@@ -517,6 +517,12 @@ async fn owner_edits_keep_credentials_inside_core_and_use_exact_durable_receipts
 #[tokio::test]
 async fn keep_requires_existing_target_and_absent_receipt_does_not_claim_never_applied() {
     let f = Fixture::new();
+    let status = f
+        .request(AuthCommand::ForwardingStatus {
+            token: f.token.clone(),
+        })
+        .await;
+    assert_eq!(status["recent_owner_verified"], true);
     let absent = f
         .request(AuthCommand::ForwardingRequest {
             token: f.token.clone(),

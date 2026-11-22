@@ -795,7 +795,7 @@ $('logout').onclick=()=>{restoreCachedConsole=false;forgetTabSession();clearCons
 bind('refresh',refresh);bind('sync',sync);
 bind('sms-login',async()=>{await login();$('sms-management-state').textContent=smsManager.available?'已重新登录，请重新选择短信后管理。':'当前浏览器没有所有者管理权限，请使用已认领的所有者浏览器。';});
 bind('daily-login',login);$('daily-logout').onclick=()=>$('logout').onclick();bind('sms-refresh',()=>inboxPage(true));bind('send-sms',dailySendSms);bind('sms-query',query);bind('sms-close',closeSms);
-bind('forwarding-login',async()=>{await login();dashboard.go('forwarding');await forwardingPanel.enter();});
+bind('forwarding-login',async()=>{await login({destination:'forwarding'});await forwardingPanel.enter();});
 bind('forwarding-history-login',async()=>{await login();dashboard.go('forwarding');forwardingPanel.select('settings');$('forwarding-history-panel').open=true;await forwardingHistory.action(g=>forwardingHistory.read(g));});
 const forwardingPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{forwardingPanel.reset();forwardingHistory.reset();forwardingPreviousLogout();};
 $('forwarding-panel').ontoggle=()=>{if(!$('forwarding-panel').open){forwardingPanel.suspend();forwardingHistory.reset();}else if(dashboard.page==='forwarding'){void forwardingPanel.enter();}};

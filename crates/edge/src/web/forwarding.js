@@ -155,14 +155,15 @@ export class ForwardingPanel {
  clearSecrets(){for(const input of this.secretInputs)input.value='';}
  suspend(){this.reset();}
  reset(){
-  this.epoch++;this.busy=false;this.ready=false;this.sample=null;this.view=null;this.pending=null;
+  this.epoch++;this.busy=false;this.ready=false;this.ownerRejected=false;this.sample=null;this.view=null;this.pending=null;
   this.cursor=null;this.more=false;this.receiptsLoaded=false;this.receiptRows=[];
   this.resetLogFilter();this.logSnapshot=null;
   this.closeEditor(false);this.message('');this.select('records',false);
   this.render();
  }
  message(text){this.$('forwarding-state').textContent=text;}
- get blocked(){return this.busy||!this.ready||!!this.pending||this.sample?.quick_test_active===true;}
+ get needsOwnerVerification(){return this.ownerRejected||this.sample?.recent_owner_verified===false;}
+ get blocked(){return this.busy||!this.ready||this.needsOwnerVerification||!!this.pending||this.sample?.quick_test_active===true;}
  get quickTestReady(){
   return this.sample?.quick_test_api===true&&this.sample.enabled===false&&this.sample.process_state_verified===true&&this.sample.state==='disabled';
  }
@@ -185,10 +186,13 @@ export class ForwardingPanel {
  }
  update(){
   const blocked=this.blocked,targets=this.view?.targets?.length??0,rules=this.view?.rules?.length??0;
-  this.$('forwarding-login').hidden=this.ready&&!this.pending;
+  const signedIn=!!this.getToken(),login=this.$('forwarding-login');
+  login.hidden=signedIn&&!this.needsOwnerVerification;
+  login.disabled=this.busy;
+  login.textContent=signedIn?'验证所有者身份':'所有者登录';
   this.$('forwarding-toggle').disabled=blocked||(!this.sample?.enabled&&(!targets||!rules));
   this.$('forwarding-toggle').textContent=this.sample?.enabled?'关闭转发':'开启转发';
-  this.$('fw-toggle-hint').textContent=!this.view?'登录后可管理总开关。':!targets||!rules?'添加发送通道和转发规则后可开启。':'开启后按规则处理新收到的短信。';
+  this.$('fw-toggle-hint').textContent=this.needsOwnerVerification?'可以查看当前配置。修改前请验证所有者身份。':!this.view?'登录后可管理总开关。':!targets||!rules?'添加发送通道和转发规则后可开启。':'开启后按规则处理新收到的短信。';
   const badge=this.$('forwarding-status-badge');
   const running=this.sample?.state==='running'&&this.sample.enabled===true&&this.sample.process_state_verified===true;
   badge.textContent=!this.sample?'未读取':this.sample.quick_test_active?'正在测试':running?'转发已开启':this.sample.process_state_verified&&this.sample.state==='disabled'?'转发已关闭':'状态待核对';
@@ -222,15 +226,17 @@ export class ForwardingPanel {
   catch(error){
    if(g===this.epoch){
     if(this.pending)this.closeEditor();
+    const denied=error?.coreCode==='denied'||error?.httpStatus===401;
+    if(denied)this.ownerRejected=true;
     const message=error instanceof FormError?error.message:
-     this.pending?'上次请求还需核对，记录已保留。请重新登录或点击「核对上次请求」。':
-     error?.coreCode==='denied'?'转发请求被拒绝，请使用所有者账号重新登录。':'转发操作暂未确认，请先刷新状态。';
+     denied?(this.pending?'请验证所有者身份后核对刚才的请求，回执已保留。':'请验证所有者身份后再操作。'):
+     this.pending?'上次请求还需核对，记录已保留。请点「核对上次请求」。':'转发操作暂未确认，请先刷新状态。';
     if(this.draft){const issue=this.$('fw-dialog-error');issue.textContent=message;issue.hidden=false;}
     else this.message(message);
    }
   }finally{if(g===this.epoch){this.busy=false;this.update();}}
  }
- status(s){requireValue(s&&s.available===true&&s.configuration_api===true&&generation(s.generation)&&typeof s.enabled==='boolean'&&typeof s.process_state_verified==='boolean');return s;}
+ status(s){requireValue(s&&s.available===true&&s.configuration_api===true&&generation(s.generation)&&typeof s.enabled==='boolean'&&typeof s.process_state_verified==='boolean'&&(s.recent_owner_verified===undefined||typeof s.recent_owner_verified==='boolean'));return s;}
  manageable(s){return s.service_management_api===true&&s.retained_credentials_api===true&&s.request_receipt_api===true;}
  async observe(g,command){
   this.current(g);
@@ -245,19 +251,19 @@ export class ForwardingPanel {
   this.ready=false;this.sample=null;this.view=null;this.render();
   const s=this.status(await this.observe(g,{op:'forwarding_status'}));this.current(g);
   const v=viewInput(await this.observe(g,{op:'forwarding_rules'}),s);this.current(g);
-  this.sample=s;this.view=v;this.ready=this.manageable(s);this.render();
+  this.sample=s;this.view=v;this.ready=this.manageable(s);this.ownerRejected=false;this.render();
   return s;
  }
  async read(g){
   this.current(g);
   const pending=pendingInput(await this.loadPending());this.current(g);this.pending=pending;
   await this.load(g);
-  this.message(this.ready?'':'当前设备尚未启用完整的转发管理。');
+  this.message(!this.ready?'当前设备尚未启用完整的转发管理。':this.needsOwnerVerification?'当前登录可查看转发。修改或测试前请验证所有者身份。':'');
   if(this.pending&&this.ready)await this.query(g);
   if(this.page==='records')await this.receipts(g,true);
  }
  async refreshRecords(g){
-  if(!this.view){await this.read(g);return;}
+  if(!this.view||this.pending){await this.read(g);return;}
   await this.receipts(g,true);
  }
  element(tag,text){const e=this.doc.createElement(tag);if(text!==undefined)e.textContent=text;return e;}
@@ -457,8 +463,17 @@ export class ForwardingPanel {
   requireValue(this.pending?.id===record.id,'保存记录已变化，请重新读取');
   await this.savePending(null,record.id);this.current(g);this.pending=null;
  }
+ async verifyWriteAuthority(g){
+  const sample=this.status(await this.observe(g,{op:'forwarding_status'}));this.current(g);
+  if(sample.recent_owner_verified===false){
+   this.ownerRejected=true;
+   throw new FormError('当前登录可查看转发。请先验证所有者身份，本次未提交。');
+  }
+  requireValue(this.ready&&this.manageable(sample)&&sample.generation===this.sample?.generation&&sample.quick_test_active!==true,'转发配置或状态已变化，请刷新后重试。本次未提交。');
+ }
  async mutate(g,kind,fields,description){
   this.current(g);requireValue(this.ready&&this.sample&&!this.pending,'请先读取状态并核对上次保存');
+  await this.verifyWriteAuthority(g);
   requireValue(this.sample.generation<Number.MAX_SAFE_INTEGER,'配置代次超出网页可编辑范围，请使用维护入口');
   const record={format:1,id:this.crypto.randomUUID(),kind,expected_generation:this.sample.generation};
   this.clearSecrets();
@@ -485,7 +500,18 @@ export class ForwardingPanel {
   if(testKind(record.kind)){await this.inspectTest(g,record,await this.observe(g,{op:'forwarding_test_request',request_id:record.id}));return;}
   const result=await this.observe(g,{op:'forwarding_request',request_id:record.id});this.current(g);
   requireValue(result.request_id===record.id&&typeof result.known==='boolean'&&result.not_found_is_not_proof===true&&generation(result.current_generation));
-  if(!result.known){this.message('没有找到这笔保存回执；记录可能未受理、已清理或来自恢复前。不会重提，记录继续保留。');return;}
+  if(!result.known){
+   requireValue(result.applied_generation===null);
+   // The missing receipt proves neither admission nor rejection. Only unblock
+   // editing once a fresh status/rules pair agrees, keeping the uncertain record.
+   const sample=await this.load(g);
+   if(!this.ready||!sample.process_state_verified||sample.quick_test_active===true||
+      sample.generation!==result.current_generation||sample.generation<record.expected_generation){
+    this.message('没有找到旧保存回执，当前配置尚未核对一致。记录已保留，请刷新后再核对。');return;
+   }
+   await this.archive(record,null,g);
+   this.message('旧保存结果未确认，已保留回执并读取当前配置。'+processText(sample)+'。');return;
+  }
   requireValue(generation(result.applied_generation)&&result.applied_generation===record.expected_generation+1&&result.applied_generation<=result.current_generation);
   await this.archive(record,result.applied_generation,g);const sample=await this.load(g);this.message('已核对并保存回执。'+processText(sample)+'。');
  }
@@ -510,6 +536,7 @@ export class ForwardingPanel {
   requireValue(this.view.targets.some(t=>t.id===target),'请选择已保存的测试通道');
   const quick=this.quickTestReady;
   if(!this.confirm('向 '+this.channelName(target)+' 发送一条合成测试通知？'+(quick?'短信转发总开关保持关闭。':'')))return;
+  await this.verifyWriteAuthority(g);
   const record={format:1,id:this.crypto.randomUUID(),kind:quick?'quick_test':'test',expected_generation:this.sample.generation,target_id:target};
   this.clearSecrets();
   try{await this.savePending(record,null);}catch{throw new FormError('本机回执未能保存或另一页面已有请求；本次未提交测试');}this.current(g);this.pending=record;this.update();
@@ -549,6 +576,7 @@ export class ForwardingPanel {
   requireValue(this.ready&&!this.pending&&removable>0&&(!receipt||this.terminalReceipt(receipt)),'没有可删除的记录，请先刷新');
   const scope=receipt?'这条转发记录':Object.keys(this.logFilter()).length?'符合筛选的已结束记录':'全部已结束的转发记录';
   if(!this.confirm('删除'+scope+'？正在发送和待核对的记录会保留。'))return;
+  await this.verifyWriteAuthority(g);
   const result=await this.request({op:'forwarding_log_clear',through,only:receipt?.seq??null,filter:this.logFilter()});
   this.current(g);
   requireValue(Number.isSafeInteger(result.changed)&&result.changed>=0,'删除结果待核对，请刷新记录');

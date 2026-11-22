@@ -18,7 +18,7 @@ class Element {
  replaceChildren(...items){this.children=items;this.textContent='';}get options(){return this.children;}
  set innerHTML(_){throw Error('Never parse provider/configuration data as HTML');}
 }
-function fixture({existing=false,managed=true,consent=true,onRequest,onSave,onLoad,testState='confirmed',quick=false,quickStopped=true,onDelay,rulesRevision=2,emailRevision=null}={}){
+function fixture({existing=false,managed=true,consent=true,onRequest,onSave,onLoad,onArchive,testState='confirmed',quick=false,quickStopped=true,onDelay,rulesRevision=2,emailRevision=null}={}){
  const elements=new Map(),$=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
  const doc={getElementById:$,createElement:tag=>new Element(tag)};
  let token=true,pending=null,policy={enabled:false,targets:existing?[{id,destination:{kind:'webhook',url:endpoint,bearer:secret}}]:[],rules:existing?[{id:rule,targets:[id],sender_equals:'sender',body_contains:null,line:null,share:'notice'}]:[]};
@@ -26,7 +26,7 @@ function fixture({existing=false,managed=true,consent=true,onRequest,onSave,onLo
  const status=()=>({email_revision:emailRevision,rules_revision:rulesRevision,available:true,configured:current>0,generation:current,enabled:policy.enabled,configuration_api:true,quick_test_api:quick,retained_credentials_api:true,request_receipt_api:true,synthetic_test_api:true,delivery_api:policy.enabled,service_management_api:managed,process_state_verified:true,state:policy.enabled?'running':'disabled'});
  const view=()=>({enabled:policy.enabled,generation:current,targets:policy.targets.map(t=>({id:t.id,kind:t.destination.kind,credentials_redacted:true})),rules:clone(policy.rules)});
  const panel=new ForwardingPanel({document:doc,crypto:webcrypto,delay:async()=>{await onDelay?.();},getToken:()=>token,confirm:message=>{confirmations.push(message);return consent;},
-  loadPending:async()=>{await onLoad?.();return clone(pending);},savePending:async value=>{await onSave?.(value);pending=clone(value);markers.push(clone(value));},archivePending:async value=>{archives.push(clone(value));},
+  loadPending:async()=>{await onLoad?.();return clone(pending);},savePending:async value=>{await onSave?.(value);pending=clone(value);markers.push(clone(value));},archivePending:async value=>{await onArchive?.();archives.push(clone(value));},
   request:async c=>{
    calls.push(clone(c));const custom=await onRequest?.(c);if(custom!==undefined)return custom;
    if(c.op==='forwarding_status')return status();
@@ -114,8 +114,9 @@ for(const point of ['before_marker','after_dispatch']){
 {
  let lost=true;const f=fixture({existing:true,onRequest:async c=>{if(c.op==='forwarding_configure'&&lost){lost=false;throw Error(secret);}}});await f.read();editRule(f).contains='new match';
  await save(f);assert.ok(f.pending());assert.equal(f.$('forwarding-save').disabled,true);assert.ok(!allText(f).includes(secret));
- await f.panel.action(g=>f.panel.query(g));assert.ok(f.pending(),'Unknown/pruned is not proof of non-admission');assert.equal(f.calls.filter(c=>c.op==='forwarding_configure').length,1);
- await f.panel.action(g=>f.panel.archiveUnknown(g));assert.equal(f.pending(),null);assert.equal(f.archives[0].uncertain,true);assert.equal(f.calls.filter(c=>c.op==='forwarding_configure').length,1);
+ await f.panel.action(g=>f.panel.query(g));assert.equal(f.pending(),null);assert.equal(f.archives[0].uncertain,true);
+ assert.equal(f.archives[0].applied_generation,null);assert.equal(f.calls.filter(c=>c.op==='forwarding_configure').length,1);
+ assert.equal(f.$('forwarding-login').hidden,true);assert.equal(f.$('forwarding-add-rule').disabled,false);
 }
 {
  const f=fixture({existing:true});await f.read();const record={format:1,id:other,kind:'configure',expected_generation:1};f.setPending(record);f.requests.set(other,2);
@@ -127,9 +128,40 @@ for(const point of ['before_marker','after_dispatch']){
   if(c.op==='forwarding_request'&&++lookups===1)throw Object.assign(Error('synthetic device busy'),{coreCode:'busy'});
  }});
  const pending={format:1,id:other,kind:'configure',expected_generation:0};f.setPending(pending);
- await f.read();assert.equal(lookups,2);assert.deepEqual(f.pending(),pending);
- assert.match(allText(f),/没有找到这笔保存回执/);assert.equal(f.writes.length,0);
+ await f.read();assert.equal(lookups,2);assert.equal(f.pending(),null);assert.equal(f.archives[0].uncertain,true);
+ assert.match(allText(f),/旧保存结果未确认，已保留回执/);assert.equal(f.writes.length,0);
  assert.equal(f.calls.filter(c=>c.op==='forwarding_log_page').length,1);
+}
+for(const cause of ['generation_changed','quick_active','archive_failed']){
+ let reading=0;
+ const f=fixture({existing:true,onArchive:()=>{if(cause==='archive_failed')throw Error('storage unavailable');},
+  onRequest:c=>{if(c.op!=='forwarding_status')return;reading++;
+   if(cause==='generation_changed'&&reading===2)return {...f.status(),generation:2};
+   if(cause==='quick_active')return {...f.status(),quick_test_active:true};
+  }});
+ const pending={format:1,id:other,kind:'configure',expected_generation:1};
+ f.setPending(pending);await f.read();
+ assert.deepEqual(f.pending(),pending);assert.equal(f.archives.length,0);assert.equal(f.writes.length,0);
+ assert.equal(f.$('forwarding-login').hidden,true);
+ assert.equal(f.$('forwarding-add-rule').disabled,true);
+}
+{
+ let fresh=true,denied=false;
+ const f=fixture({existing:true,onRequest:c=>{
+  if(c.op!=='forwarding_status')return;
+  if(denied)throw Object.assign(Error('synthetic permission denial'),{coreCode:'denied'});
+  return {...f.status(),recent_owner_verified:fresh};
+ }});
+ await f.read();assert.equal(f.$('forwarding-login').hidden,true);
+ editRule(f).contains='draft';fresh=false;await save(f);
+ assert.equal(f.pending(),null);assert.equal(f.writes.length,0);assert.equal(f.markers.length,0);
+ assert.equal(f.$('forwarding-login').hidden,false);assert.equal(f.$('forwarding-login').textContent,'验证所有者身份');
+ assert.match(allText(f),/请先验证所有者身份，本次未提交/);assert.equal(f.panel.view.rules.length,1);
+ f.panel.closeEditor();await f.read();assert.equal(f.panel.ready,true);
+ assert.equal(f.$('forwarding-add-rule').disabled,true);assert.equal(f.$('forwarding-receipts-refresh').disabled,false);
+ fresh=true;await f.read();assert.equal(f.$('forwarding-login').hidden,true);
+ denied=true;await f.read();assert.equal(f.$('forwarding-login').hidden,false);
+ f.setToken(false);f.panel.reset();assert.equal(f.$('forwarding-login').textContent,'所有者登录');
 }
 {
  const f=fixture({existing:true,onRequest:async c=>c.op==='forwarding_log_page'?{records:[{seq:'1',id:other,message_id:id,target_id:rule,state:'unknown',text:secret}],through:'1',removable:0}:undefined});await f.panel.action(g=>f.panel.receipts(g,true));

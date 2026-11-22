@@ -214,8 +214,9 @@ impl Management {
             }
             AuthCommand::ForwardingStatus { token } => {
                 let b = denied(Binding::from_owner(auth, &token))?;
-                let value = self.status(b.clone())?;
+                let mut value = self.status(b.clone())?;
                 denied(b.check_current(auth))?;
+                value["recent_owner_verified"] = auth.recent_owner(&token).is_ok().into();
                 value
             }
             AuthCommand::ForwardingRules { token } => {
