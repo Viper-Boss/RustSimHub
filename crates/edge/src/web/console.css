@@ -815,7 +815,8 @@ body{margin:0;background:var(--bg)}
 .bt-panel-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 
 .process-tools,.process-tools label{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.process-tools input{max-width:100%;padding:8px;background:var(--card);color:var(--ink);border:1px solid var(--line-2);border-radius:8px}
+.process-tools input[type="search"]{max-width:100%;padding:8px;background:var(--card);color:var(--ink);border:1px solid var(--line-2);border-radius:8px}
+.process-tools input[type="checkbox"]{accent-color:var(--blue)}
 .process-table table{width:100%;border-collapse:collapse;text-align:left;font-size:14px}
 .process-table th,.process-table td{padding:9px 8px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
 .process-table th,.process-table td:last-child{color:var(--ink-2)}

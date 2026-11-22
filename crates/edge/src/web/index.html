@@ -208,7 +208,11 @@
 </div></div>
 <div class="pg" id="v-processes" hidden>
 <section class="card pg-card" aria-label="设备进程">
-<div class="process-tools"><label>搜索进程 <input id="c-process-filter" type="search" maxlength="80" placeholder="PID、名称或备注" disabled></label><button type="button" class="pg-btn" id="c-process-refresh" disabled>刷新</button></div>
+<div class="process-tools">
+<label>搜索进程 <input id="c-process-filter" type="search" maxlength="80" placeholder="PID、名称或备注" disabled></label>
+<label><input id="c-process-hide-sleeping" type="checkbox" disabled> 隐藏休眠进程</label>
+<button type="button" class="pg-btn" id="c-process-refresh" disabled>刷新</button>
+</div>
 <p id="c-process-state" class="pg-note" role="status">以所有者身份登录后显示</p>
 <div class="process-table" id="c-process-table" hidden><table>
 <thead><tr><th scope="col">PID</th><th scope="col">进程</th><th scope="col">状态</th><th scope="col">内存</th><th scope="col">备注</th></tr></thead>

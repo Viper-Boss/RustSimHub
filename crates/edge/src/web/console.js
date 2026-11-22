@@ -133,6 +133,7 @@ export class ConsoleDashboard{
   const saved=theme==='dark'||theme==='light';this.setTheme(saved?theme:matchDark()?'dark':'light');this.mode=saved?theme:'system';for(const b of document.querySelectorAll('[data-mode]')){b.setAttribute('aria-pressed',String(b.dataset.mode===this.mode));b.addEventListener('click',()=>this.setMode(b.dataset.mode));}
   this.processRows=[];
   this.$('c-process-filter').addEventListener('input',()=>this.renderProcesses());
+  this.$('c-process-hide-sleeping').addEventListener('change',()=>this.renderProcesses());
   this.$('c-process-refresh').addEventListener('click',()=>void this.readProcesses());
   this.$('c-theme').addEventListener('click',()=>{this.setMode(this.doc.documentElement.dataset.theme==='dark'?'light':'dark');});
   for(const b of document.querySelectorAll('[data-go]'))b.addEventListener('click',()=>this.go(b.dataset.go));
@@ -573,7 +574,7 @@ export class ConsoleDashboard{
   if(online!==this.online){this.online=online;this.status(online);}
  }
  markReachable(){this.lastResponseAt=this.clock();this.updateReachability();}
- reset(){this.epoch++;this.processLoading=null;this.processRows=[];this.processHint='以所有者身份登录后显示';this.processTruncated=false;this.$('c-process-filter').value='';this.$('c-process-refresh').disabled=true;this.$('c-process-filter').disabled=true;this.renderProcesses();this.lastResponseAt=null;this.online=false;this.systemLoading=null;this.resetAirsim();this.callAction=null;this.callSelecting=false;this.selectedCalls.clear();this.$('c-call-operation').textContent='';this.mailAction=null;this.mailSelecting=false;this.selectedMail.clear();this.trash=[];this.trashLoad=null;this.clearMailDetail();this.$('c-mail-operation').textContent='';this.active=false;this.listRun=(this.listRun||0)+1;this.listLoading=null;this.callLoading=null;this.lineEpoch=null;this.haveInbox=false;this.haveCalls=false;this.mailVisibility=null;this.mailExhausted=true;this.callExhausted=true;for(const t of this.timers)clearInterval(t);this.timers=[];this.sample=null;this.system=null;this.prevTicks=null;this.temps=[];this.tempTimes=[];this.otps=[];this.events=[];this.history=[];this.seen=new Set();this.lastLine=null;
+ reset(){this.epoch++;this.processLoading=null;this.processRows=[];this.processHint='以所有者身份登录后显示';this.processTruncated=false;this.$('c-process-filter').value='';this.$('c-process-refresh').disabled=true;this.$('c-process-filter').disabled=true;this.$('c-process-hide-sleeping').checked=false;this.$('c-process-hide-sleeping').disabled=true;this.renderProcesses();this.lastResponseAt=null;this.online=false;this.systemLoading=null;this.resetAirsim();this.callAction=null;this.callSelecting=false;this.selectedCalls.clear();this.$('c-call-operation').textContent='';this.mailAction=null;this.mailSelecting=false;this.selectedMail.clear();this.trash=[];this.trashLoad=null;this.clearMailDetail();this.$('c-mail-operation').textContent='';this.active=false;this.listRun=(this.listRun||0)+1;this.listLoading=null;this.callLoading=null;this.lineEpoch=null;this.haveInbox=false;this.haveCalls=false;this.mailVisibility=null;this.mailExhausted=true;this.callExhausted=true;for(const t of this.timers)clearInterval(t);this.timers=[];this.sample=null;this.system=null;this.prevTicks=null;this.temps=[];this.tempTimes=[];this.otps=[];this.events=[];this.history=[];this.seen=new Set();this.lastLine=null;
   this.status(false);for(const id of ['c-sms-list','c-call-list','c-otp-list','c-event-list','c-mail-list','c-ph-calls','c-nw-devices','c-sc-list','c-mc-sms','c-mc-otp','c-mc-call'])this.$(id).replaceChildren();this.mail=[];this.recentMail=[];this.older=[];this.mailTotal=0;this.callRows=[];this.recentCalls=[];this.olderCalls=[];this.callTotal=0;this.opened=null;this.mailCursor=null;this.callCursor=null;this.$('c-mc-more').hidden=true;this.$('c-mail-open').hidden=true;this.$('c-mail-blank').hidden=false;for(const id of ['c-mail-empty','c-ph-calls-empty','c-nw-devices-empty','c-mc-e-sms','c-mc-e-otp','c-mc-e-call']){this.$(id).hidden=false;this.$(id).textContent='登录后显示';}this.renderPhoneCalls();this.renderMobileCounts();for(const id of ['c-sms-empty','c-call-empty','c-otp-empty','c-event-empty']){this.$(id).hidden=false;this.$(id).textContent='登录后显示';}
   for(const id of ['c-cpu','c-mem','c-disk','c-temp','c-uptime','c-kernel','c-os','c-version','c-cores','c-mem-total','c-disk-total','c-wifi-name','c-wifi-ip','c-wifi-speed','c-cell-op','c-cell-ip','c-cell-usage','c-rsrp','c-rsrq','c-sinr',...VIEW_FIELDS])this.$(id).textContent='—';for(const id of ['c-hw-cpu-ring','c-hw-mem-ring','c-hw-disk-ring','c-hw-temp-ring'])this.ring(id,0);this.drawTemp();this.$('c-log-state').textContent='';this.renderLog();this.$('c-model').textContent='未登录';this.$('c-mh-model').textContent='未登录';this.$('c-mh-sub').textContent='登录后显示设备信息';this.$('c-sim').textContent='登录后显示设备信息';
   this.$('c-otp-state').textContent='';for(const id of ['c-cpu-bar','c-mem-bar','c-disk-bar','c-mh-cpu-b','c-mh-mem-b','c-mh-disk-b'])this.bar(id,0);this.$('c-mh-trend').setAttribute('d','');this.$('c-temp-line').setAttribute('d','');this.network(null);this.mailButtons();this.tick();}
@@ -697,16 +698,19 @@ export class ConsoleDashboard{
     this.processLoading=null;
     this.$('c-process-refresh').disabled=false;
     this.$('c-process-filter').disabled=!this.processRows.length;
+    this.$('c-process-hide-sleeping').disabled=!this.processRows.length;
     this.renderProcesses();
    }
   }
  }
  renderProcesses(){
   const query=String(this.$('c-process-filter').value??'').trim().toLowerCase();
+  const hideSleeping=this.$('c-process-hide-sleeping').checked;
   const body=this.$('c-process-rows');
   body.replaceChildren();
   let shown=0;
   for(const {pid,name,state,resident_bytes} of this.processRows){
+   if(hideSleeping&&state==='S')continue;
    const note=Object.hasOwn(PROCESS_NOTES,name)?PROCESS_NOTES[name]:'暂无备注';
    if(query&&![String(pid),name.toLowerCase(),note].some(value=>value.includes(query)))continue;
    const row=this.doc.createElement('tr');
@@ -718,8 +722,8 @@ export class ConsoleDashboard{
   }
   this.$('c-process-table').hidden=!shown;
   this.$('c-process-state').textContent=this.processHint||(shown?(
-   query?`找到 ${shown} 个进程`:this.processTruncated?`显示前 ${shown} 个进程`:`共 ${shown} 个进程`
-  ):'没有匹配的进程');
+   query||hideSleeping?`找到 ${shown} 个进程`:this.processTruncated?`显示前 ${shown} 个进程`:`共 ${shown} 个进程`
+  ):'没有符合筛选条件的进程');
  }
  async readStatusPage(command,valid){
   for(const delay of [0,180,500,1200]){
