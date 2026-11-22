@@ -53,7 +53,7 @@
 <h2 id="side-usage-title">NKN 活跃安装估计</h2>
 <dl><div><dt>24 小时</dt><dd data-count>—</dd></div><div><dt>30 天</dt><dd data-count>—</dd></div><div><dt>90 天</dt><dd data-count>—</dd></div></dl>
 <button type="button" data-refresh>刷新统计</button>
-<p data-status role="status">国内节点优先</p>
+<p data-status role="status">点击刷新统计，读取已确认的链上订阅</p>
 </section>
 </aside>
 <div class="c-main">
@@ -137,6 +137,7 @@
 <div class="g-kv"><svg class="i"><use href="#i-sat"/></svg><b>卫星数量</b><span>—</span><svg class="i"><use href="#i-coord"/></svg><b>坐标</b><span>—</span><svg class="i"><use href="#i-mtn"/></svg><b>海拔高度</b><span>—</span><svg class="i"><use href="#i-clock"/></svg><b>定位时间</b><span>—</span></div></div>
 <div class="map"><svg viewBox="0 0 392 144" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect class="map-bg" width="392" height="144"/><path class="map-park" d="M108 0h156v46H108zM292 60h100v84H292z"/><path class="map-water" d="M0 84c30-5 62 8 94 2v58H0z"/><path class="map-road" stroke-width="6" d="M0 52h392M100 0v144M272 0v144"/><path class="map-road2" stroke-width="5" d="M0 28h108M264 28h128M292 0v60"/></svg><p>设备暂未提供定位数据</p></div>
 </section>
+<div class="usage-count-slot" id="desktop-usage-slot"></div>
 <section class="card ev" id="c-events" aria-label="最近事件">
 <div class="ev-h"><svg class="i"><use href="#i-list"/></svg>最近事件<small>本次打开页面以来</small></div>
 <ul id="c-event-list"></ul><p class="none" id="c-event-empty">登录后显示</p>
@@ -261,6 +262,7 @@
 <button type="button" class="mh-c" data-go="network"><span class="mh-ct"><svg class="i ci"><use href="#i-wifi"/></svg><span><b>Wi-Fi</b><small id="c-mh-wifi-n">—</small></span><em class="off" id="c-mh-wifi-p">未连接</em></span><span class="mh-cb"><svg class="i"><use href="#i-sig"/></svg><span id="c-mh-wifi-s">未连接</span><svg class="i ch"><use href="#i-chev"/></svg></span></button>
 <button type="button" class="mh-c" data-go="sim"><span class="mh-ct"><svg class="i ci"><use href="#i-sim"/></svg><span><b>SIM</b><small id="c-mh-sim-n">—</small></span><em class="off" id="c-mh-sim-p">未就绪</em></span><span class="mh-cb"><svg class="i"><use href="#i-sig"/></svg><span id="c-mh-sim-s">信号未知</span><svg class="i ch"><use href="#i-chev"/></svg></span></button>
 </div>
+<div class="usage-count-slot" id="mobile-usage-slot"></div>
 <h2 class="mh-h"><svg class="i"><use href="#i-msg"/></svg>通信快捷</h2>
 <div class="mh-q num">
 <button type="button" class="mh-qc" data-comm="sms"><svg class="i"><use href="#i-msg"/></svg><span>短信<b id="c-mh-q-sms">—</b></span></button>

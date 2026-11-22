@@ -42,3 +42,38 @@ assert.ok(!code.toString().includes('fetch('));console.log('PASS: actual A Query
  assert.deepEqual(cells.map(cell => cell.textContent), ['0','8','10']);
  assert.equal(button.disabled, false);
 }
+
+{
+ const entries = new Map();
+ const storage = () => ({getItem: key => entries.get(key), setItem: (key, value) => entries.set(key, value)});
+ let now = Date.now(), calls = 0, available = true;
+ const read = async () => {
+  calls++;
+  return available ? {ok:true, json:async()=>({source:'official', counts:[0,0,0]})} : {ok:false, status:503};
+ };
+ function mount() {
+  const button = {addEventListener(_event, listener) { this.click = listener; }};
+  const status = {};
+  const cells = Array.from({length:3}, () => ({textContent:'—'}));
+  bindUsageCounts({querySelector: selector => selector === '[data-refresh]' ? button : status,
+   querySelectorAll: () => cells}, read, {storage, now: () => now});
+  return {button, status, counts: () => cells.map(cell => cell.textContent)};
+ }
+ const first = mount();
+ await first.button.click();
+ assert.deepEqual(first.counts(), ['0','0','0']);
+ assert.match(first.status.textContent, /暂无已确认订阅/);
+ const restored = mount();
+ assert.equal(calls, 1);
+ assert.deepEqual(restored.counts(), first.counts());
+ assert.match(restored.status.textContent, /^上次查询/);
+ available = false;
+ await restored.button.click();
+ assert.deepEqual(restored.counts(), ['0','0','0']);
+ assert.match(restored.status.textContent, /刷新失败/);
+ now -= 1;
+ assert.deepEqual(mount().counts(), ['—','—','—']);
+ now += 600001;
+ assert.deepEqual(mount().counts(), ['—','—','—']);
+ assert.equal(calls, 2);
+}

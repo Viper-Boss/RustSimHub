@@ -4,7 +4,7 @@ use super::*;
 use axum::{body::Body, http::Request as HttpRequest};
 use hyper::{body::Body as _, client::conn::http1};
 use std::{
-    future::poll_fn,
+    future::{poll_fn, Future},
     net::{Ipv4Addr, SocketAddrV4},
 };
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -117,6 +117,54 @@ async fn window_counts(source: Ipv4Addr, node: Node) -> Result<[u64; 3]> {
     Ok([daily, monthly, quarterly])
 }
 
+fn dns_servers(config: &str) -> Vec<Ipv4Addr> {
+    let mut servers = Vec::new();
+    for line in config.lines() {
+        let mut fields = line.split_whitespace();
+        if fields.next() != Some("nameserver") {
+            continue;
+        }
+        let Some(ip) = fields
+            .next()
+            .and_then(|field| field.parse::<Ipv4Addr>().ok())
+        else {
+            continue;
+        };
+        if ip.is_loopback()
+            || ip.is_unspecified()
+            || ip.is_multicast()
+            || ip.is_broadcast()
+            || servers.contains(&ip)
+        {
+            continue;
+        }
+        servers.push(ip);
+        if servers.len() == 3 {
+            break;
+        }
+    }
+    servers
+}
+
+async fn resolve_official<F>(
+    servers: Vec<Ipv4Addr>,
+    resolve: impl Fn(Ipv4Addr) -> F,
+) -> Result<Ipv4Addr>
+where
+    F: Future<Output = Result<Ipv4Addr>> + Send + 'static,
+{
+    let mut queries = JoinSet::new();
+    for dns in servers {
+        queries.spawn(resolve(dns));
+    }
+    while let Some(result) = queries.join_next().await {
+        if let Ok(Ok(address)) = result {
+            return Ok(address);
+        }
+    }
+    Err("Wi-Fi DNS unavailable")
+}
+
 async fn fetch_counts(source: Ipv4Addr) -> Result<(&'static str, [u64; 3])> {
     for ip in DOMESTIC {
         if let Ok(Ok(counts)) = timeout(
@@ -129,17 +177,10 @@ async fn fetch_counts(source: Ipv4Addr) -> Result<(&'static str, [u64; 3])> {
         }
     }
     let config = std::fs::read_to_string("/etc/resolv.conf").map_err(|_| "DNS unavailable")?;
-    let dns = config
-        .lines()
-        .filter_map(|line| {
-            let mut parts = line.split_whitespace();
-            (parts.next()? == "nameserver")
-                .then(|| parts.next()?.parse::<Ipv4Addr>().ok())
-                .flatten()
-        })
-        .find(|ip| !(ip.is_loopback() || ip.is_unspecified() || ip.is_multicast()))
-        .ok_or("Wi-Fi DNS unavailable")?;
-    let ip = network_test::resolve_ipv4(source, dns, WIFI, OFFICIAL).await?;
+    let ip = resolve_official(dns_servers(&config), |dns| {
+        network_test::resolve_ipv4(source, dns, WIFI, OFFICIAL)
+    })
+    .await?;
     Ok(("official", window_counts(source, Node::Official(ip)).await?))
 }
 
@@ -174,6 +215,47 @@ pub(super) async fn api(body: Bytes) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn keeps_up_to_three_distinct_usable_ipv4_resolvers() {
+        let config = "search test.invalid\n\
+            nameserver 127.0.0.53\nnameserver ::1\nnameserver 0.0.0.0\n\
+            nameserver 224.0.0.1\nnameserver 255.255.255.255\n\
+            nameserver 10.0.0.1\nnameserver 10.0.0.1\n\
+            nameserver 10.0.0.2\nnameserver 10.0.0.3\nnameserver 10.0.0.4";
+        assert_eq!(
+            dns_servers(config),
+            [1, 2, 3].map(|last| Ipv4Addr::new(10, 0, 0, last))
+        );
+    }
+
+    #[tokio::test]
+    async fn an_unresponsive_primary_cannot_block_the_working_resolver() {
+        let servers = dns_servers("nameserver 10.0.0.1\nnameserver 10.0.0.2\n");
+        let address = Ipv4Addr::new(203, 0, 113, 1);
+        let resolution = resolve_official(servers, |dns| async move {
+            if dns.octets()[3] == 1 {
+                std::future::pending::<()>().await;
+            }
+            Ok(address)
+        });
+        assert_eq!(
+            timeout(Duration::from_millis(200), resolution).await,
+            Ok(Ok(address))
+        );
+    }
+
+    #[tokio::test]
+    async fn reports_failure_without_making_counts_when_no_resolver_succeeds() {
+        let servers = dns_servers("nameserver 10.0.0.1\nnameserver 10.0.0.2\n");
+        let resolve = |_| async { Err("invalid DNS response") };
+        for config in [servers, Vec::new()] {
+            assert_eq!(
+                resolve_official(config, resolve).await,
+                Err("Wi-Fi DNS unavailable")
+            );
+        }
+    }
 
     #[test]
     fn accepts_only_correlated_nonnegative_exact_counts() {

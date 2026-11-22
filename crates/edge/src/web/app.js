@@ -55,7 +55,7 @@ const audioLink=new AudioLink($('call-audio'),(text,state)=>{$('audio-state').te
 const callTest=new CallTest({audio:audioLink,login:()=>token?Promise.resolve():login(),request:command=>auth(command),context:lease=>({token,lease}),getPending:()=>pending,setPending:async value=>{pending=value;await save('pending',value);showPending();},archivePending:archivePending,onLease:value=>{lease=value;showAudio();},notify:(text,running)=>{$('test-state').textContent=text;testResult=text;showTestControls();}});
 function showAudio(){$('audio-start').disabled=!token||!lease||!audioReady||audioLink.state!=='closed';$('audio-stop').disabled=audioLink.state==='closed';}
 let db;
-let viewEpoch=0, actionGeneration=0;const requests=new Set();
+let viewEpoch=0, actionGeneration=0,restoreCachedConsole=false;const requests=new Set();
 function current(epoch){if(epoch!==viewEpoch)throw Error('会话已结束');}
 const request=idb=>new Promise((resolve,reject)=>{idb.onsuccess=()=>resolve(idb.result);idb.onerror=()=>reject(Error('浏览器存储不可用'));});
 async function stored(name){return request(db.transaction('state','readonly').objectStore('state').get(name));}
@@ -145,7 +145,16 @@ function showPending(){
  $('sms-send-state').textContent=!pending?'填写号码和正文，确认后发送。':pending.type!=='sms'?'有待处理的通话操作，请先在电话或调试区核对。':pending.submit_started&&!['submitted','cancelled'].includes(pending.state)?'发送结果待确认，请查询，暂勿再次发送。':names[pending.state]||'请查询本次发送结果。';
 }
 async function initialize(){
- bindUsageCounts($('side-usage'), signal => {
+ const usagePanel=$('side-usage'), sidebar=usagePanel.parentElement;
+ const compact=matchMedia('(max-width: 1280px)'), mobile=matchMedia('(max-width: 820px)');
+ const placeUsagePanel=()=>{
+  const destination=mobile.matches?$('mobile-usage-slot'):compact.matches?$('desktop-usage-slot'):sidebar;
+  if(usagePanel.parentElement!==destination)destination.append(usagePanel);
+ };
+ compact.addEventListener('change',placeUsagePanel);
+ mobile.addEventListener('change',placeUsagePanel);
+ placeUsagePanel();
+ bindUsageCounts(usagePanel, signal => {
   return fetch('/api/usage-count/v1', {
     method: 'POST',
     headers: {'Content-Type': 'application/json', 'X-RustSimHub-Request': '2'},
@@ -229,7 +238,7 @@ async function pair(){
  const result=await api({op:'pair_proof',challenge_id:c.id,signature},epoch);
  notice('配对申请已提交。请由设备所有者核对浏览器公钥、权限和申请 ID 后批准：'+result.pairing_id);
 }
-async function resumeBrowserSession(identity){
+async function resumeBrowserSession(identity,destination='dashboard'){
  if(token||busy)return;
  const deviceKey=identity?.public_key;
  if(!Array.isArray(deviceKey)||deviceKey.length!==32||!deviceKey.every(b=>Number.isInteger(b)&&b>=0&&b<=255))return;
@@ -251,7 +260,7 @@ async function resumeBrowserSession(identity){
   const remaining=entry.expiresAt-Date.now();
   if(health?.ok!==true||remaining<=0||Date.now()<entry.savedAt){forgetTabSession();return;}
   sessionKeeper.resume(entry.token,remaining);
-  await enterConsole(entry.token,pin,'dashboard','已恢复当前标签页的登录会话',health);
+  await enterConsole(entry.token,pin,destination,'已恢复当前标签页的登录会话',health);
  }catch(error){
   if(currentAttempt()&&(error?.coreCode==='denied'||error?.httpStatus===401||error?.httpStatus===403))forgetTabSession();
  }
@@ -263,7 +272,10 @@ async function enterConsole(sessionToken,pin,destination,message,health){
  networkPanel.start();dailyPhone.start();notice(message);
  try{await refresh(health);}finally{
   if(epoch===viewEpoch&&token===sessionToken){
-   dashboard.go(destination);void dashboard.signedIn();if(destination==='sim')void readDataRoaming();
+   if(destination!==null)dashboard.go(destination);
+   void dashboard.signedIn();
+   if(dashboard.page==='sim')void readDataRoaming();
+   if(destination===null&&dashboard.page==='ble')void readBluetoothMode();
   }
  }
 }
@@ -766,7 +778,21 @@ bind('bt-mode-login',async()=>{
 });
 bind('bt-mode-apply',applyBluetoothMode);
 drawBluetoothMode();
-bind('initialize-owner',initializeOwner);bind('password-login',passwordLogin);bind('browser-login',browserLogin);bind('pair',pair);bind('login',login);$('logout').onclick=()=>{forgetTabSession();viewEpoch++;actionGeneration++;busy=false;dashboard.reset();for(const controller of requests)controller.abort();requests.clear();token=null;lease=null;resetBluetoothMode();resetDataRoaming();clearHistory();historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;for(const id of ['sms-detail','recipient','text','number','dtmf','events','setup-code']){const element=$(id);if('value' in element)element.value='';else element.textContent='';}$('inbox').replaceChildren();$('calls').replaceChildren();$('call-id').replaceChildren();$('status').textContent='未登录';$('lease').textContent='没有控制租约';notice('已退出；设备租约到期后清理呼叫');showPending();};bind('refresh',refresh);bind('sync',sync);
+function clearConsoleSession(message){
+ viewEpoch++;actionGeneration++;busy=false;
+ for(const controller of requests)controller.abort();
+ requests.clear();token=null;authenticatedDevicePin=null;lease=null;
+ dashboard.reset();resetBluetoothMode();resetDataRoaming();clearHistory();
+ historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;
+ for(const id of ['sms-detail','call-detail','recipient','text','number','dtmf','events','setup-code']){
+  const element=$(id);if('value' in element)element.value='';else element.textContent='';
+ }
+ for(const id of ['inbox','calls','call-id'])$(id).replaceChildren();
+ $('status').textContent='未登录';$('lease').textContent='没有控制租约';notice(message);showPending();showAudio();
+}
+bind('initialize-owner',initializeOwner);bind('password-login',passwordLogin);bind('browser-login',browserLogin);bind('pair',pair);bind('login',login);
+$('logout').onclick=()=>{restoreCachedConsole=false;forgetTabSession();clearConsoleSession('已退出；设备租约到期后清理呼叫');};
+bind('refresh',refresh);bind('sync',sync);
 bind('sms-login',async()=>{await login();$('sms-management-state').textContent=smsManager.available?'已重新登录，请重新选择短信后管理。':'当前浏览器没有所有者管理权限，请使用已认领的所有者浏览器。';});
 bind('daily-login',login);$('daily-logout').onclick=()=>$('logout').onclick();bind('sms-refresh',()=>inboxPage(true));bind('send-sms',dailySendSms);bind('sms-query',query);bind('sms-close',closeSms);
 bind('forwarding-login',async()=>{await login();dashboard.go('forwarding');await forwardingPanel.enter();});
@@ -814,6 +840,23 @@ addEventListener('pagehide',()=>dailyPhone.reset());
 addEventListener('pagehide',()=>sessionKeeper.reset());
 addEventListener('pagehide',()=>{forwardingPanel.reset();forwardingHistory.reset();});
 const clientsPanel=new ClientsPanel({document,request:command=>auth(command),confirm:message=>confirm(message)});
+addEventListener('pagehide',event=>{
+ if(!event.persisted||!token&&!restoreCachedConsole)return;
+ restoreCachedConsole=true;
+ clientsPanel.reset();
+ clearConsoleSession('返回页面后将核对原登录会话');
+});
+addEventListener('pageshow',event=>{
+ if(!event.persisted||!restoreCachedConsole)return;
+ const epoch=viewEpoch,generation=actionGeneration;
+ void (async()=>{
+  const identity=await api({op:'identity'},epoch);
+  if(epoch===viewEpoch&&generation===actionGeneration)await resumeBrowserSession(identity,null);
+  if(epoch===viewEpoch&&generation===actionGeneration&&!token)notice('原登录会话暂不可用，请重新登录');
+ })().catch(()=>{
+  if(epoch===viewEpoch&&generation===actionGeneration&&!token)notice('暂时读不到设备，可重新登录');
+ }).finally(()=>{if(epoch===viewEpoch)restoreCachedConsole=false;});
+});
 const clientsPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{clientsPanel.reset();clientsPreviousLogout();};
 nasBridgePanel=new NasBridgePanel({document,request:command=>auth(command),confirm:message=>confirm(message),crypto,getDevicePin:()=>authenticatedDevicePin,
  loadPending:()=>stored('nas-binding-pending'),savePending:(value,expected)=>atomicStored('nas-binding-pending',saved=>{
