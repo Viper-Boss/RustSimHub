@@ -124,6 +124,24 @@ fn run() -> Result<(), rustsimhub_update::Error> {
         println!("{}", observation.report()?);
         return Ok(());
     }
+    if args
+        .first()
+        .is_some_and(|command| command == "admit-web-upload")
+    {
+        let [_, request_id, manifest_sha256] = args.as_slice() else {
+            return Err(Error::Invalid);
+        };
+        let admission =
+            rustsimhub_update::admission::admit_web_upload(request_id, manifest_sha256)?;
+        println!(
+            "{}",
+            serde_json::json!({"request_id":request_id,"admission":admission.report})
+        );
+        if admission.exit_code != 0 {
+            std::process::exit(admission.exit_code);
+        }
+        return Ok(());
+    }
     if args == ["inspect-maintenance"] {
         let snapshot = rustsimhub_update::admission::MaintenanceSnapshot::observe()?;
         snapshot.revalidate()?;
@@ -139,7 +157,37 @@ fn run() -> Result<(), rustsimhub_update::Error> {
         let code = check_maintenance_versions(&args[1..], SCHEMA)?;
         std::process::exit(code);
     }
+    if let [command, public, directory, file] = args.as_slice() {
+        if command == "pack-application" {
+            let key: [u8; 32] = read_checked(Path::new(public), 32)?
+                .as_slice()
+                .try_into()
+                .map_err(|_| Error::Invalid)?;
+            let directory = Path::new(directory);
+            let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;
+            let signature = read_checked(&directory.join("manifest.sig"), 64)?;
+            let verified = verify(&manifest, &signature, &key, SCHEMA, 0)?;
+            let payloads = load_payloads(directory, &verified)?;
+            let bytes =
+                rustsimhub_update::bundle::pack(&manifest, &signature, &payloads, &key, SCHEMA)?;
+            write_new(Path::new(file), &bytes, false)?;
+            return Ok(());
+        }
+    }
     if let [command, public, directory] = args.as_slice() {
+        if command == "verify-app-file" {
+            let key: [u8; 32] = read_checked(Path::new(public), 32)?
+                .as_slice()
+                .try_into()
+                .map_err(|_| Error::Invalid)?;
+            let bytes = read_checked(Path::new(directory), rustsimhub_update::bundle::MAX_BUNDLE)?;
+            let result = rustsimhub_update::bundle::inspect(&bytes, &key, SCHEMA, 0)?;
+            println!(
+                "{}",
+                serde_json::to_string(&result).map_err(|_| Error::Invalid)?
+            );
+            return Ok(());
+        }
         if command == "verify-package" {
             let key: [u8; 32] = read_checked(Path::new(public), 32)?
                 .as_slice()
@@ -273,7 +321,12 @@ fn run() -> Result<(), rustsimhub_update::Error> {
             (command.as_str(), args.len()),
             ("boot-select", 6)
                 | (
-                    "install-factory" | "stage" | "admit-stage" | "migrate-email4" | "confirm",
+                    "install-factory"
+                        | "stage"
+                        | "admit-stage"
+                        | "admit-stage-file"
+                        | "migrate-email4"
+                        | "confirm",
                     4
                 )
                 | ("choose" | "status", 3)
@@ -288,6 +341,19 @@ fn run() -> Result<(), rustsimhub_update::Error> {
             .as_slice()
             .try_into()
             .map_err(|_| Error::Invalid)?;
+        // Reject malformed, untrusted inputs before opening a writable ledger.
+        let packed = if command == "admit-stage-file" {
+            Some(read_checked(
+                Path::new(&args[3]),
+                rustsimhub_update::bundle::MAX_BUNDLE,
+            )?)
+        } else {
+            None
+        };
+        let signed_file = packed
+            .as_deref()
+            .map(|bytes| rustsimhub_update::bundle::verify_for_admission(bytes, &key, SCHEMA, 0))
+            .transpose()?;
         let mut store = Store::open(root, key, SCHEMA)?;
         match (command.as_str(), args.len()) {
             ("boot-select", 6) => {
@@ -340,20 +406,33 @@ fn run() -> Result<(), rustsimhub_update::Error> {
                 println!("explicit outbox migration completed; worker remains stopped");
                 return Ok(());
             }
-            ("admit-stage", 4) => {
+            ("admit-stage" | "admit-stage-file", 4) => {
                 // Opt-in maintenance path; `stage` is unchanged. Core must be
                 // stopped: the snapshot takes the data writer fences.
-                let directory = Path::new(&args[3]);
-                let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;
-                let signature = read_checked(&directory.join("manifest.sig"), 64)?;
-                let m = verify(&manifest, &signature, &key, SCHEMA, store.floor())?;
-                let p = load_payloads(directory, &m)?;
+                let input = Path::new(&args[3]);
+                let (manifest, signature, payloads) = if let Some(signed) = signed_file {
+                    if signed.epoch() <= store.floor() {
+                        return Err(Error::Rollback);
+                    }
+                    (
+                        signed.manifest.to_vec(),
+                        signed.signature.to_vec(),
+                        signed.payloads.into_iter().map(<[u8]>::to_vec).collect(),
+                    )
+                } else {
+                    let manifest = read_checked(&input.join("manifest.json"), MAX_MANIFEST)?;
+                    let signature = read_checked(&input.join("manifest.sig"), 64)?;
+                    let m = verify(&manifest, &signature, &key, SCHEMA, store.floor())?;
+                    let payloads = load_payloads(input, &m)?;
+                    (manifest, signature, payloads)
+                };
+                drop(packed);
                 let code = {
                     // Release fences and the indicator before a classified exit.
                     let snapshot = rustsimhub_update::admission::MaintenanceSnapshot::observe()?;
                     let _indicator = rustsimhub_update::indicator::Activity::begin();
                     let admission = rustsimhub_update::admission::admit_stage(
-                        &mut store, &snapshot, &manifest, &signature, &p,
+                        &mut store, &snapshot, &manifest, &signature, &payloads,
                     )?;
                     println!("{}", admission.report);
                     admission.exit_code

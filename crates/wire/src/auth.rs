@@ -24,9 +24,68 @@ pub struct AuthRequest {
     pub id: String,
     pub command: AuthCommand,
 }
+pub const UPDATE_BUNDLE_LIMIT: usize = 24 * 1024 * 1024 + 8192 + 76;
+pub const UPDATE_INBOX_NAME: &str = "update-upload";
+pub const UPDATE_INBOX_ACCEPTED: &str = "accepted";
+pub const UPDATE_INBOX_HEADER_LIMIT: usize = 2048;
+pub const UPDATE_MANAGE_SCOPE: u16 = 1 << Scope::UpdateManage as u8;
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateUploadBinding {
+    pub realm: String,
+    pub owner_key: [u8; 32],
+    pub generation: u64,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateUploadRecord {
+    pub format: u8,
+    pub binding: UpdateUploadBinding,
+    pub upload: UpdateUpload,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateUpload {
+    pub request_id: String,
+    pub manifest_sha256: String,
+    pub bundle_sha256: String,
+    pub epoch: u64,
+    pub length: u32,
+}
+
+impl UpdateUpload {
+    pub fn valid_reference(request_id: &str, manifest: &str) -> bool {
+        canonical_uuid(request_id) && source_valid(manifest)
+    }
+
+    pub fn valid(&self) -> bool {
+        Self::valid_reference(&self.request_id, &self.manifest_sha256)
+            && source_valid(&self.bundle_sha256)
+            && self.epoch > 0
+            && (1..=UPDATE_BUNDLE_LIMIT).contains(&(self.length as usize))
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AuthCommand {
+    SubmitUpdateUpload {
+        token: String,
+        upload: UpdateUpload,
+    },
+    UpdateUploadStatus {
+        token: String,
+    },
+    DiscardUpdateUpload {
+        token: String,
+        request_id: String,
+    },
+    AuthorizeUpdatePreview {
+        token: String,
+    },
     NknStatus {
         token: String,
     },
@@ -661,7 +720,24 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         return Err(invalid());
     }
     match &req.command {
-        AuthCommand::NknStatus { token } if !source_valid(token) => return Err(invalid()),
+        AuthCommand::SubmitUpdateUpload { token, upload }
+            if !source_valid(token) || !upload.valid() =>
+        {
+            return Err(invalid());
+        }
+        AuthCommand::DiscardUpdateUpload { token, request_id }
+            if !source_valid(token) || !canonical_uuid(request_id) =>
+        {
+            return Err(invalid());
+        }
+        AuthCommand::UpdateUploadStatus { token } if !source_valid(token) => {
+            return Err(invalid());
+        }
+        AuthCommand::NknStatus { token } | AuthCommand::AuthorizeUpdatePreview { token }
+            if !source_valid(token) =>
+        {
+            return Err(invalid())
+        }
         AuthCommand::NknRequest {
             token,
             request_id,

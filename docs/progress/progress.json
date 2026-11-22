@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-22T14:47:56.012108+00:00",
+  "updated_at": "2026-11-22T14:56:36.769579+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -70,7 +70,7 @@
     "task_id": "UPD-02",
     "title": "签名维护材料与固定写入表",
     "state": "下一动作已选定；按前置和验收推进",
-    "description": "应用 113 短信转发统一到主界面登录。签名、上传、停止写入后的备份回读、健康确认均通过，保留 112 回退。下一步是将签名应用包网页上传接入现有受限安装。"
+    "description": "网页签名包验签和持久受理已整合到应用 114 源码，安装端会核对原请求编号和清单摘要。自动备份、试运行、健康确认和回退待接线。"
   },
   "facts": [
     {
@@ -6191,6 +6191,18 @@
       ],
       "evidence": [
         "https://github.com/Viper-Boss/RustSimHub/commit/d733f9f955f56bab326c2e66235379ec41f87a79"
+      ]
+    },
+    {
+      "at": "2026-11-22T14:56:36.769579+00:00",
+      "type": "state",
+      "title": "UPD-02 · 下一关卡：签名维护材料与固定写入表",
+      "detail": "网页签名包验签和持久受理已整合到应用 114 源码，安装端会核对原请求编号和清单摘要。自动备份、试运行、健康确认和回退待接线。",
+      "task_ids": [
+        "UPD-02"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/tree/codex/web-update-on-app114-20261122"
       ]
     }
   ],

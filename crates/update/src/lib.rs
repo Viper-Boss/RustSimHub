@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 #![forbid(unsafe_code)]
 //! Signed application manifests; never writes boot/rootfs or arbitrary paths.
+pub mod bundle;
 pub mod health;
 #[cfg(all(test, target_os = "linux"))]
 pub(crate) mod product_native_fixture;
@@ -97,6 +98,21 @@ pub fn verify(
     schema: u32,
     floor: u64,
 ) -> Result<Manifest, Error> {
+    let m = verify_manifest(manifest, signature, public_key)?;
+    if !(m.schema_min..=m.schema_max).contains(&schema) {
+        return Err(Error::Schema);
+    }
+    if m.epoch <= floor {
+        return Err(Error::Rollback);
+    }
+    Ok(m)
+}
+
+fn verify_manifest(
+    manifest: &[u8],
+    signature: &[u8],
+    public_key: &[u8; 32],
+) -> Result<Manifest, Error> {
     let signing = signing_bytes(manifest)?;
     let signature = Signature::from_slice(signature).map_err(|_| Error::Signature)?;
     let key = VerifyingKey::from_bytes(public_key).map_err(|_| Error::Signature)?;
@@ -115,11 +131,8 @@ pub fn verify(
     if m.board != BOARD {
         return Err(Error::Board);
     }
-    if m.schema_min > schema || m.schema_max < schema || m.schema_min > m.schema_max {
+    if m.schema_min > m.schema_max {
         return Err(Error::Schema);
-    }
-    if m.epoch <= floor {
-        return Err(Error::Rollback);
     }
     if m.files.len() != names.len() {
         return Err(Error::Invalid);
@@ -154,7 +167,11 @@ pub(crate) fn verify_native_fixture(m: &Manifest, payloads: &[Vec<u8>]) -> Resul
     };
     verify_payload_machine(m, payloads, machine)
 }
-fn verify_payload_machine(m: &Manifest, payloads: &[Vec<u8>], machine: u16) -> Result<(), Error> {
+fn verify_payload_machine(
+    m: &Manifest,
+    payloads: &[impl AsRef<[u8]>],
+    machine: u16,
+) -> Result<(), Error> {
     let names = application_files(m.format)?;
     if payloads.len() != names.len()
         || m.files.len() != names.len()
@@ -163,6 +180,7 @@ fn verify_payload_machine(m: &Manifest, payloads: &[Vec<u8>], machine: u16) -> R
         return Err(Error::Integrity);
     }
     for (e, bytes) in m.files.iter().zip(payloads) {
+        let bytes = bytes.as_ref();
         if bytes.len() as u64 != e.bytes || hash_hex(bytes) != e.sha256 {
             return Err(Error::Integrity);
         }

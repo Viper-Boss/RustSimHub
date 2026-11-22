@@ -41,32 +41,43 @@ impl State {
     }
 }
 fn dir(path: &Path) -> Result<(), Error> {
+    dir_owned_by(path, rustix::process::geteuid().as_raw())
+}
+fn dir_owned_by(path: &Path, uid: u32) -> Result<(), Error> {
     let m = fs::symlink_metadata(path).map_err(|_| Error::Io)?;
-    if !m.is_dir() || m.uid() != rustix::process::geteuid().as_raw() || m.mode() & 0o022 != 0 {
+    if !m.is_dir() || m.uid() != uid || m.mode() & 0o022 != 0 {
         return Err(Error::Denied);
     }
     Ok(())
 }
 fn metadata(f: &File) -> Result<(), Error> {
+    metadata_owned_by(f, rustix::process::geteuid().as_raw()).map(|_| ())
+}
+fn metadata_owned_by(f: &File, uid: u32) -> Result<fs::Metadata, Error> {
     let m = f.metadata().map_err(|_| Error::Io)?;
-    if !m.is_file()
-        || m.uid() != rustix::process::geteuid().as_raw()
-        || m.mode() & 0o022 != 0
-        || m.nlink() != 1
-    {
+    if !m.is_file() || m.uid() != uid || m.mode() & 0o022 != 0 || m.nlink() != 1 {
         return Err(Error::Denied);
     }
-    Ok(())
+    Ok(m)
 }
 pub fn read_checked(path: &Path, limit: usize) -> Result<Vec<u8>, Error> {
-    dir(path.parent().ok_or(Error::Denied)?)?;
+    read_checked_owned_by(path, limit, rustix::process::geteuid().as_raw())
+}
+/// Read the product release key as an unprivileged verifier. The signed
+/// updater remains the only process allowed to change application slots.
+pub fn read_root_release_key() -> Result<[u8; 32], Error> {
+    read_checked_owned_by(Path::new("/usr/share/rustsimhub/release.public"), 32, 0)?
+        .try_into()
+        .map_err(|_| Error::Invalid)
+}
+fn read_checked_owned_by(path: &Path, limit: usize, uid: u32) -> Result<Vec<u8>, Error> {
+    dir_owned_by(path.parent().ok_or(Error::Denied)?, uid)?;
     let f = OpenOptions::new()
         .read(true)
         .custom_flags(libc_flags())
         .open(path)
         .map_err(|_| Error::Io)?;
-    metadata(&f)?;
-    if f.metadata().map_err(|_| Error::Io)?.len() > limit as u64 {
+    if metadata_owned_by(&f, uid)?.len() > limit as u64 {
         return Err(Error::Invalid);
     }
     let mut b = Vec::new();

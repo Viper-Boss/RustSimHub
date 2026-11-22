@@ -16,6 +16,16 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth::Result<Value> {
     use AuthCommand::*;
     Ok(match command {
+        SubmitUpdateUpload { .. } | UpdateUploadStatus { .. } | DiscardUpdateUpload { .. } => {
+            return Err(rustsimhub_auth::Error::Forbidden);
+        }
+        AuthorizeUpdatePreview { token } => {
+            let owner = auth.owner_session(&token)?;
+            if !rustsimhub_policy::allows(owner.scopes, Scope::UpdateManage) {
+                return Err(rustsimhub_auth::Error::Forbidden);
+            }
+            json!({"update_preview_authorized":true})
+        }
         AuthCommand::NknStatus { .. }
         | AuthCommand::NknRequest { .. }
         | AuthCommand::SetNknEnabled { .. } => return Err(rustsimhub_auth::Error::Forbidden),
@@ -300,6 +310,7 @@ pub(crate) struct Providers {
     pub history: Option<Arc<Mutex<rustsimhub_compat::history::HistoryService>>>,
     pub compat: Option<Arc<Mutex<rustsimhub_compat::session::Authority>>>,
     pub airsim: Option<crate::airsim::Controller>,
+    pub update_upload: Option<Arc<crate::update_upload::Inbox>>,
 }
 pub(crate) async fn handle(
     stream: &mut UnixStream,
@@ -316,9 +327,18 @@ pub(crate) async fn handle(
         history,
         compat,
         airsim,
+        update_upload,
     } = providers;
     let body = timeout(Duration::from_secs(5), read_frame(stream)).await??;
     let request = parse_auth_request(&body)?;
+    if matches!(
+        request.command,
+        AuthCommand::SubmitUpdateUpload { .. }
+            | AuthCommand::UpdateUploadStatus { .. }
+            | AuthCommand::DiscardUpdateUpload { .. }
+    ) {
+        return crate::update_upload::handle(stream, auth, update_upload, request).await;
+    }
     let identity_request = matches!(request.command, AuthCommand::Identity {});
     let setup_metadata = setup.clone();
     let calling_enabled = calls.as_ref().is_some_and(|c| c.controls());
@@ -368,6 +388,7 @@ pub(crate) async fn handle(
     let status_read = matches!(
         &request.command,
         AuthCommand::SystemStatus { .. }
+            | AuthCommand::AuthorizeUpdatePreview { .. }
             | AuthCommand::ProcessList { .. }
             | AuthCommand::LineStatus { .. }
             | AuthCommand::NetworkDiagnostics { .. }
@@ -1008,6 +1029,8 @@ async fn serve_inner_media(
     }
     let (state, identity) = (state.to_owned(), identity.to_owned());
     let forwarding_state = std::path::PathBuf::from(&state);
+    let update_upload = (observing && messaging && call_mode == 2)
+        .then(|| Arc::new(crate::update_upload::Inbox::new(&forwarding_state)));
     let setup_file = extras.setup.map(|mode| match mode {
         SetupMode::Explicit(path) => (false, path.to_owned()),
         SetupMode::Device(path) => (true, path.to_owned()),
@@ -1176,6 +1199,7 @@ async fn serve_inner_media(
         history: history.clone(),
         compat: compat.clone(),
         airsim: None,
+        update_upload: None,
     };
     let mut nkn_worker = Box::pin(crate::nkn_product::run(
         nkn.clone(),
@@ -1255,6 +1279,7 @@ async fn serve_inner_media(
             history,
             compat: compat.clone(),
             airsim: airsim.clone(),
+            update_upload: update_upload.clone(),
         };
         tasks.spawn(async move {
             if route == crate::forwarding::ipc::Route::Browser {

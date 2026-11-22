@@ -14,6 +14,8 @@ mod calls;
 #[cfg(target_os = "linux")]
 mod compat_api;
 #[cfg(target_os = "linux")]
+mod update_upload;
+#[cfg(target_os = "linux")]
 use rustsimhub_core::coordination;
 #[cfg(target_os = "linux")]
 mod forwarding;
