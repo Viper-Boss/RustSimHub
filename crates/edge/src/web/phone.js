@@ -152,7 +152,12 @@ export class DailyPhone {
   if(action==='dial'&&(payload.length>32||!/^\+?[0-9]{3,32}$/.test(payload)))throw Error('请输入有效的拨出号码');
   if(action==='dtmf'&&!/^[0-9ABCD*#]$/.test(payload))throw Error('每次发送一个按键：0–9、*、#、A–D');
   const prior=await this.slot(g,a,action==='hangup');
-  let snapshot=await this.snapshotNow(g,a);
+  let snapshot;
+  if(action==='dtmf'){
+   const lease=this.lease;
+   if(!lease||!this.confirmedControl||target!==lease.call_id)throw Error('当前电话控制权未确认');
+   snapshot={line:lease.line,calls:this.calls};
+  }else snapshot=await this.snapshotNow(g,a);
   if(action==='dial'&&snapshot.calls.length)throw Error('还有未结束的电话，请先处理');
   const incoming=()=>snapshot.calls.find(call=>call.id===target&&call.direction===1&&call.modem_state===3&&call.state==='ringing_in');
   if(action==='accept'||action==='reject'){if(!incoming()||snapshot.calls.length!==1||this.lease)throw Error('这通来电已变化，请刷新后核对');}
@@ -167,24 +172,31 @@ export class DailyPhone {
   if(['hangup','dtmf'].includes(action)&&(!this.lease||target!==this.lease.call_id||snapshot.line!==this.lease.line||!snapshot.calls.some(call=>call.id===target)))throw Error('当前电话控制权未确认');
   if(action==='dtmf'&&!snapshot.calls.some(call=>call.id===target&&call.modem_state===4&&call.state==='active'))throw Error('请等待通话接通后再发送按键');
   const actual=action==='reject'?'hangup':action;
-  const prepared=await this.requestCurrent({op:'prepare_call',line_epoch:snapshot.line,idempotency_key:this.env.crypto.randomUUID(),action:actual,call_id:target,payload},g,a);
+  let prepared;
+  try{prepared=await this.requestCurrent({op:'prepare_call',line_epoch:snapshot.line,idempotency_key:this.env.crypto.randomUUID(),action:actual,call_id:target,payload},g,a);}
+  catch(error){if(action==='dtmf'&&error?.coreCode==='busy')throw Error('当前电话服务繁忙，按键未提交，请稍后再按。');throw error;}
   const op=operation(prepared,prepared.operation?.id,snapshot.line);
   if(op.state!=='prepared'||action!=='dial'&&op.call_id!==target)throw Error('电话操作未准备成功');
   let pending={type:'call',action:actual,id:op.id,line:snapshot.line,call_id:op.call_id,state:'prepared',submit_started:false,daily_phone:true,...(action==='reject'?{rejection:true}:{}),...(prior?{prior_operation:prior}:{})};
   await this.persist({...pending},g,a);
   pending.submit_started=true;await this.persist({...pending},g,a);
   this.say({dial:'正在拨号…',accept:'正在接听…',reject:'正在拒接…',hangup:'正在挂断…',dtmf:'正在发送按键…'}[action]);
-  const result=await this.requestCurrent({op:'submit_call',operation_id:op.id,lease:action==='reject'?null:this.lease||null,urgent:actual==='hangup'},g,a);
+  let result;
+  try{result=await this.requestCurrent({op:'submit_call',operation_id:op.id,lease:action==='reject'?null:this.lease||null,urgent:actual==='hangup'},g,a);}
+  catch(error){if(action==='dtmf')throw Error('按键结果未确认，回执已保留。请先查询这次结果。');throw error;}
   const submitted=operation(result,op.id,snapshot.line);
   const lease=boundLease(result.lease,submitted.call_id,snapshot.line);
   pending={...pending,state:submitted.state,call_id:submitted.call_id};await this.persist(pending,g,a);
   if(['dial','accept'].includes(action)&&lease){this.lease=lease;this.managing=true;this.setLease(lease);this.lastRenew=this.now();this.confirmedControl=submitted.state==='submitted';this.audioAttempted=!this.confirmedControl;}
-  if(submitted.state!=='submitted'){void this.closeMedia();throw Error('本次电话操作结果未确认，请查询；不会自动重试');}
+  if(submitted.state!=='submitted'){if(action!=='dtmf')void this.closeMedia();throw Error('本次电话操作结果未确认，请查询；不会自动重试');}
   if(['dial','accept'].includes(action)&&!lease)throw Error('本次控制权尚未确认，请查询原操作；不会再次拨号或接听');
-  if(actual==='hangup'){
+  if(action==='dtmf'){
+   await this.archiveKnown(pending);this.current(g,a);await this.persist(null,g,a);
+   this.say('按键已发送');
+  }else if(actual==='hangup'){
    this.lease=null;this.managing=false;this.setLease(null);void this.closeMedia();
    this.say(action==='reject'?'来电已拒接':'电话已挂断');
-  }else this.say(action==='dtmf'?'按键已发送':'已提交，正在观察接通状态…');
+  }else this.say('已提交，正在观察接通状态…');
  }
  hangup(){
   // Cancel setup/permission work immediately; a late permission grant or reply
