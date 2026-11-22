@@ -522,7 +522,7 @@ async fn keep_requires_existing_target_and_absent_receipt_does_not_claim_never_a
             token: f.token.clone(),
         })
         .await;
-    assert_eq!(status["recent_owner_verified"], true);
+    assert_eq!(status["owner_session_management"], true);
     let absent = f
         .request(AuthCommand::ForwardingRequest {
             token: f.token.clone(),

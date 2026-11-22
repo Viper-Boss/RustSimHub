@@ -87,7 +87,7 @@ const forwardingPanel=new ForwardingPanel({document,request:command=>auth(comman
   if(receipts.length>=64){const known=receipts.findIndex(r=>Number.isSafeInteger(r.applied_generation));if(known<0)throw Error('未确认回执已满，请使用维护入口导出处理');receipts.splice(known,1);}
   return [...receipts,{...record,applied_generation:value.applied_generation,uncertain:value.applied_generation===null}];});current(epoch);
  }});
-const forwardingQuick=new ForwardingQuickTest({login:()=>login(),request:command=>auth(command),loadPending:forwardingPanel.loadPending,savePending:forwardingPanel.savePending,archivePending:forwardingPanel.archivePending,notify:testMessage,crypto});
+const forwardingQuick=new ForwardingQuickTest({login:()=>token?Promise.resolve():login(),request:command=>auth(command),loadPending:forwardingPanel.loadPending,savePending:forwardingPanel.savePending,archivePending:forwardingPanel.archivePending,notify:testMessage,crypto});
 const forwardingHistory=new ForwardingHistory({document,request:command=>auth(command),getToken:()=>token,confirm:message=>confirm(message),crypto,
  loadPending:()=>stored('forwarding-history-pending'),savePending:(value,expected)=>atomicStored('forwarding-history-pending',saved=>{
   const actual=historyPendingInput(saved);if(JSON.stringify(actual)!==JSON.stringify(expected))throw Error('补发记录已由另一页面更新；请重新读取');return historyPendingInput(value);
@@ -795,8 +795,7 @@ $('logout').onclick=()=>{restoreCachedConsole=false;forgetTabSession();clearCons
 bind('refresh',refresh);bind('sync',sync);
 bind('sms-login',async()=>{await login();$('sms-management-state').textContent=smsManager.available?'已重新登录，请重新选择短信后管理。':'当前浏览器没有所有者管理权限，请使用已认领的所有者浏览器。';});
 bind('daily-login',login);$('daily-logout').onclick=()=>$('logout').onclick();bind('sms-refresh',()=>inboxPage(true));bind('send-sms',dailySendSms);bind('sms-query',query);bind('sms-close',closeSms);
-bind('forwarding-login',async()=>{await login({destination:'forwarding'});await forwardingPanel.enter();});
-bind('forwarding-history-login',async()=>{await login();dashboard.go('forwarding');forwardingPanel.select('settings');$('forwarding-history-panel').open=true;await forwardingHistory.action(g=>forwardingHistory.read(g));});
+$('forwarding-history-refresh').onclick=()=>forwardingHistory.action(g=>forwardingHistory.read(g));
 const forwardingPreviousLogout=$('logout').onclick;$('logout').onclick=()=>{forwardingPanel.reset();forwardingHistory.reset();forwardingPreviousLogout();};
 $('forwarding-panel').ontoggle=()=>{if(!$('forwarding-panel').open){forwardingPanel.suspend();forwardingHistory.reset();}else if(dashboard.page==='forwarding'){void forwardingPanel.enter();}};
 bind('test-restore-draft',restoreTestDraft);

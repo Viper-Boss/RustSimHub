@@ -322,7 +322,7 @@ async fn default_off_can_be_verified_without_creating_an_outbox_or_forwarding_pr
         .request(AuthCommand::ForwardingStatus { token: token(&f) })
         .await;
     assert_eq!(result["process_state_verified"], true, "{result}");
-    assert_eq!(result["recent_owner_verified"], true);
+    assert_eq!(result["owner_session_management"], true);
     assert_eq!(result["state"], "disabled");
     assert!(!f.state.path().join("forwarding").exists());
     assert_eq!(calls.load(Ordering::SeqCst), 1);

@@ -6,12 +6,6 @@ use rustsimhub_auth::Auth;
 use rustsimhub_policy::{allows, Kind, Principal, Scope};
 use rustsimhub_storage::{Handle, LineStatus};
 
-fn recent(auth: &mut Auth, token: &str) -> Result<Binding> {
-    let owner = auth.recent_owner(token).map_err(|_| Error::Forbidden)?;
-    auth.authorize(token, Scope::SystemManage)
-        .map_err(|_| Error::Forbidden)?;
-    binding(auth, &owner)
-}
 fn binding(auth: &Auth, owner: &Principal) -> Result<Binding> {
     if owner.kind != Kind::Owner
         || !owner.active
@@ -30,16 +24,13 @@ fn binding(auth: &Auth, owner: &Principal) -> Result<Binding> {
     Ok(b)
 }
 impl Binding {
-    /// Authenticated Owner-only read access; does not refresh sensitive login
-    /// age or grant configuration/enable authority.
+    /// The current console Owner session authorizes forwarding. This does not
+    /// refresh the session or grant authority for other management operations.
     pub fn from_owner(auth: &mut Auth, token: &str) -> Result<Self> {
         let owner = auth
             .authorize(token, Scope::SystemManage)
             .map_err(|_| Error::Forbidden)?;
         binding(auth, &owner)
-    }
-    pub fn from_recent_owner(auth: &mut Auth, token: &str) -> Result<Self> {
-        recent(auth, token)
     }
     /// No dependence on the short-lived browser bearer after explicit consent,
     /// but every capture/attempt still checks the current durable Owner.
@@ -63,7 +54,7 @@ impl Queue {
         request_id: &str,
         target_id: &str,
     ) -> Result<Receipt> {
-        let binding = recent(auth, token)?;
+        let binding = Binding::from_owner(auth, token)?;
         self.require_binding(&binding)?;
         self.begin_probe(&binding, generation, request_id, target_id)?;
         match self.test_owner(auth, reader, token, generation, request_id, target_id) {
@@ -83,7 +74,7 @@ impl Queue {
         request_id: &str,
         target_id: &str,
     ) -> Result<Receipt> {
-        let binding = recent(auth, token)?;
+        let binding = Binding::from_owner(auth, token)?;
         self.require_binding(&binding)?;
         if reader
             .inbox_event_head()
@@ -97,7 +88,7 @@ impl Queue {
         if live.status != LineStatus::Ready {
             return Err(Error::Stale);
         }
-        if recent(auth, token)? != binding {
+        if Binding::from_owner(auth, token)? != binding {
             return Err(Error::Forbidden);
         }
         self.enqueue_test(&binding, generation, request_id, target_id, live.line)
@@ -113,7 +104,7 @@ impl Queue {
         request_id: &str,
         enabled: bool,
     ) -> Result<u64> {
-        let b = recent(auth, token)?;
+        let b = Binding::from_owner(auth, token)?;
         self.require_binding(&b)?;
         let policy = self.policy_with_enabled(enabled)?;
         self.configure_owner(auth, reader, token, expected, request_id, policy)
@@ -127,12 +118,12 @@ impl Queue {
         request_id: &str,
         policy: Policy,
     ) -> Result<u64> {
-        let b = recent(auth, token)?;
+        let b = Binding::from_owner(auth, token)?;
         if &b != self.binding() {
             return Err(Error::Forbidden);
         }
         let head = reader.inbox_event_head().map_err(|_| Error::Storage)?;
-        if recent(auth, token)? != b {
+        if Binding::from_owner(auth, token)? != b {
             return Err(Error::Forbidden);
         }
         self.configure(&b, expected, request_id, policy, head)
@@ -258,7 +249,7 @@ mod tests {
         let identity = directory();
         let mut auth = Auth::new(Identity::open(identity.path()).unwrap(), s.handle()).unwrap();
         let owner_token = owner(&mut auth, &SigningKey::from_bytes(&[81; 32]));
-        let b = Binding::from_recent_owner(&mut auth, owner_token.expose()).unwrap();
+        let b = Binding::from_owner(&mut auth, owner_token.expose()).unwrap();
         let outbox = directory();
         let mut q = Queue::open(outbox.path(), b).unwrap();
         assert!(q
@@ -336,7 +327,7 @@ mod tests {
             })
             .unwrap()
             .line;
-        let b = Binding::from_recent_owner(&mut auth, token.expose()).unwrap();
+        let b = Binding::from_owner(&mut auth, token.expose()).unwrap();
         let outbox = directory();
         let mut q = Queue::open(outbox.path(), b).unwrap();
         q.configure_owner(
@@ -399,7 +390,7 @@ mod tests {
             })
             .unwrap()
             .line;
-        let b = Binding::from_recent_owner(&mut auth, token.expose()).unwrap();
+        let b = Binding::from_owner(&mut auth, token.expose()).unwrap();
         let outbox = directory();
         let mut q = Queue::open(outbox.path(), b).unwrap();
         q.configure_owner(

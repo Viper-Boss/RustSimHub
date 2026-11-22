@@ -116,7 +116,7 @@ for(const point of ['before_marker','after_dispatch']){
  await save(f);assert.ok(f.pending());assert.equal(f.$('forwarding-save').disabled,true);assert.ok(!allText(f).includes(secret));
  await f.panel.action(g=>f.panel.query(g));assert.equal(f.pending(),null);assert.equal(f.archives[0].uncertain,true);
  assert.equal(f.archives[0].applied_generation,null);assert.equal(f.calls.filter(c=>c.op==='forwarding_configure').length,1);
- assert.equal(f.$('forwarding-login').hidden,true);assert.equal(f.$('forwarding-add-rule').disabled,false);
+ assert.equal(f.$('forwarding-add-rule').disabled,false);
 }
 {
  const f=fixture({existing:true});await f.read();const record={format:1,id:other,kind:'configure',expected_generation:1};f.setPending(record);f.requests.set(other,2);
@@ -142,26 +142,35 @@ for(const cause of ['generation_changed','quick_active','archive_failed']){
  const pending={format:1,id:other,kind:'configure',expected_generation:1};
  f.setPending(pending);await f.read();
  assert.deepEqual(f.pending(),pending);assert.equal(f.archives.length,0);assert.equal(f.writes.length,0);
- assert.equal(f.$('forwarding-login').hidden,true);
  assert.equal(f.$('forwarding-add-rule').disabled,true);
 }
 {
- let fresh=true,denied=false;
+ let supported=true,denied=false;
  const f=fixture({existing:true,onRequest:c=>{
   if(c.op!=='forwarding_status')return;
   if(denied)throw Object.assign(Error('synthetic permission denial'),{coreCode:'denied'});
-  return {...f.status(),recent_owner_verified:fresh};
+  return {...f.status(),owner_session_management:supported,recent_owner_verified:false};
  }});
- await f.read();assert.equal(f.$('forwarding-login').hidden,true);
- editRule(f).contains='draft';fresh=false;await save(f);
- assert.equal(f.pending(),null);assert.equal(f.writes.length,0);assert.equal(f.markers.length,0);
- assert.equal(f.$('forwarding-login').hidden,false);assert.equal(f.$('forwarding-login').textContent,'验证所有者身份');
- assert.match(allText(f),/请先验证所有者身份，本次未提交/);assert.equal(f.panel.view.rules.length,1);
- f.panel.closeEditor();await f.read();assert.equal(f.panel.ready,true);
- assert.equal(f.$('forwarding-add-rule').disabled,true);assert.equal(f.$('forwarding-receipts-refresh').disabled,false);
- fresh=true;await f.read();assert.equal(f.$('forwarding-login').hidden,true);
- denied=true;await f.read();assert.equal(f.$('forwarding-login').hidden,false);
- f.setToken(false);f.panel.reset();assert.equal(f.$('forwarding-login').textContent,'所有者登录');
+ await f.read();
+ assert.equal(f.$('forwarding-state').textContent,'');
+ assert.equal(f.$('forwarding-add-rule').disabled,false);
+ assert.equal(f.$('forwarding-receipts-refresh').disabled,false);
+ editRule(f).contains='draft';await save(f);
+ assert.equal(f.writes.length,1);
+ assert.equal(f.pending(),null);
+ assert.equal(f.view().rules[0].body_contains,'draft');
+ assert.equal(f.calls.filter(c=>['challenge','authenticate'].includes(c.op)).length,0);
+
+ supported=false;await f.read();editRule(f).contains='old backend';await save(f);
+ assert.equal(f.writes.length,1);
+ assert.equal(f.pending(),null);
+ assert.match(allText(f),/当前设备需要新版/);
+ f.panel.closeEditor();
+ denied=true;await f.read();
+ assert.equal(f.$('forwarding-add-rule').disabled,true);
+ assert.match(allText(f),/主界面核对登录状态/);
+ f.setToken(false);f.panel.reset();
+ assert.equal(f.$('forwarding-receipts-refresh').disabled,true);
 }
 {
  const f=fixture({existing:true,onRequest:async c=>c.op==='forwarding_log_page'?{records:[{seq:'1',id:other,message_id:id,target_id:rule,state:'unknown',text:secret}],through:'1',removable:0}:undefined});await f.panel.action(g=>f.panel.receipts(g,true));
@@ -177,6 +186,12 @@ for(const cause of ['generation_changed','quick_active','archive_failed']){
  assert.throws(()=>pendingInput({format:1,id,kind:'configure',expected_generation:0,password:secret}));
 }
 const html=await readFile(new URL('../crates/edge/src/web/index.html',import.meta.url),'utf8');
+assert.doesNotMatch(html,/id="forwarding-(?:history-)?login"/);
+assert.match(html,/id="forwarding-history-refresh"/);
+const app=await readFile(new URL('../crates/edge/src/web/app.js',import.meta.url),'utf8');
+assert.match(app,/new ForwardingQuickTest\(\{login:\(\)=>token\?Promise\.resolve\(\):login\(\)/);
+assert.match(app,/\$\('forwarding-history-refresh'\).onclick=\(\)=>forwardingHistory\.action\(g=>forwardingHistory\.read\(g\)\)/);
+
 {
  const gate=deferred(),f=fixture({onLoad:()=>gate.promise});f.setPending({format:1,id,kind:'configure',expected_generation:0});
  const reading=f.read();await turn();f.panel.reset();f.setToken(false);gate.resolve();await reading;

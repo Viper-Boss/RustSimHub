@@ -298,7 +298,7 @@ impl Queue {
         id: &str,
         range: HistoryRange,
     ) -> Result<HistoryReceipt> {
-        let binding = Binding::from_recent_owner(auth, token)?;
+        let binding = Binding::from_owner(auth, token)?;
         let meta = self.fence(&binding, generation)?;
         range.validate(&binding.realm)?;
         self.expire_history()?;
@@ -407,7 +407,7 @@ impl Queue {
             }
         }
         live(reader, &binding, Some(line))?;
-        if Binding::from_recent_owner(auth, token)? != binding {
+        if Binding::from_owner(auth, token)? != binding {
             return Err(Error::Forbidden);
         }
         let plan = serde_json::to_string(&SavedPlan {
@@ -435,7 +435,7 @@ impl Queue {
         id: &str,
         confirmation_id: &str,
     ) -> Result<HistoryReceipt> {
-        let binding = Binding::from_recent_owner(auth, token)?;
+        let binding = Binding::from_owner(auth, token)?;
         self.require_binding(&binding)?;
         self.expire_history()?;
         let (state, saved) = self.saved_history(&binding, id)?.ok_or(Error::Stale)?;
@@ -463,7 +463,7 @@ impl Queue {
         accept_full_text: bool,
     ) -> Result<HistoryReceipt> {
         let (id, confirmation_id) = confirmation;
-        let binding = Binding::from_recent_owner(auth, token)?;
+        let binding = Binding::from_owner(auth, token)?;
         self.require_binding(&binding)?;
         self.expire_history()?;
         let (state, saved) = self.saved_history(&binding, id)?.ok_or(Error::Stale)?;
@@ -541,7 +541,7 @@ impl Queue {
             requests.push(request);
         }
         live(reader, &binding, Some(line))?;
-        if Binding::from_recent_owner(auth, token)? != binding {
+        if Binding::from_owner(auth, token)? != binding {
             return Err(Error::Forbidden);
         }
         let tx = self.conn.transaction()?;
@@ -584,7 +584,7 @@ impl Queue {
         id: &str,
         confirmation_id: &str,
     ) -> Result<()> {
-        let binding = Binding::from_recent_owner(auth, token)?;
+        let binding = Binding::from_owner(auth, token)?;
         self.fence(&binding, generation)?;
         self.expire_history()?;
         let (state, saved) = self.saved_history(&binding, id)?.ok_or(Error::Stale)?;

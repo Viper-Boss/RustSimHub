@@ -47,7 +47,7 @@ pub(super) async fn start(
     let request_id = id.clone();
     let (response, launch) = tokio::task::spawn_blocking(move || {
         let mut a = a.try_lock().map_err(|_| Error::Busy)?;
-        let binding = denied(Binding::from_recent_owner(&mut a, &t))?;
+        let binding = denied(Binding::from_owner(&mut a, &t))?;
         let mut s = state.try_lock().map_err(|_| Error::Busy)?;
         let reader = s.reader.clone();
         let q = s.existing(binding.clone())?.ok_or(Error::Forbidden)?;

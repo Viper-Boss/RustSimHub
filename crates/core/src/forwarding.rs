@@ -189,7 +189,7 @@ impl Management {
                 request_id,
                 enabled,
             } => {
-                let b = denied(Binding::from_recent_owner(auth, &token))?;
+                let b = denied(Binding::from_owner(auth, &token))?;
                 let exists = self.existing(b.clone())?.is_some();
                 if !exists && (enabled || expected_generation != 0) {
                     return Err(Error::InvalidInput);
@@ -216,7 +216,7 @@ impl Management {
                 let b = denied(Binding::from_owner(auth, &token))?;
                 let mut value = self.status(b.clone())?;
                 denied(b.check_current(auth))?;
-                value["recent_owner_verified"] = auth.recent_owner(&token).is_ok().into();
+                value["owner_session_management"] = true.into();
                 value
             }
             AuthCommand::ForwardingRules { token } => {
@@ -249,7 +249,7 @@ impl Management {
                 request_id,
                 target_id,
             } => {
-                let b = denied(Binding::from_recent_owner(auth, &token))?;
+                let b = denied(Binding::from_owner(auth, &token))?;
                 let reader = self.reader.clone();
                 let q = self.existing(b.clone())?.ok_or(Error::Forbidden)?;
                 let receipt = denied(q.test_owner(
@@ -280,7 +280,7 @@ impl Management {
                 request_id,
                 policy,
             } => {
-                let b = denied(Binding::from_recent_owner(auth, &token))?;
+                let b = denied(Binding::from_owner(auth, &token))?;
                 let edit: PolicyEdit =
                     serde_json::from_value(policy).map_err(|_| Error::InvalidInput)?;
                 // All semantic/Owner validation precedes filesystem creation.
@@ -372,7 +372,7 @@ impl Management {
                 only,
                 filter,
             } => {
-                let binding = denied(Binding::from_recent_owner(auth, &token))?;
+                let binding = denied(Binding::from_owner(auth, &token))?;
                 let filter = serde_json::from_value(filter).map_err(|_| Error::InvalidInput)?;
                 let through = sequence(&through)?;
                 let only = only.as_deref().map(sequence).transpose()?;
@@ -386,7 +386,7 @@ impl Management {
                 generation,
                 through,
             } => {
-                let b = denied(Binding::from_recent_owner(auth, &token))?;
+                let b = denied(Binding::from_owner(auth, &token))?;
                 let through = sequence(&through)?;
                 let q = self.existing(b.clone())?.ok_or(Error::Forbidden)?;
                 let pruned = denied(q.prune_terminal(&b, generation, through))?;
@@ -399,7 +399,7 @@ impl Management {
                 request_id,
                 range,
             } => {
-                let binding = denied(Binding::from_recent_owner(auth, &token))?;
+                let binding = denied(Binding::from_owner(auth, &token))?;
                 let range = serde_json::from_value(range).map_err(|_| Error::InvalidInput)?;
                 let reader = self.reader.clone();
                 let q = self.existing(binding)?.ok_or(Error::Forbidden)?;
@@ -420,7 +420,7 @@ impl Management {
                 confirmation_id,
                 accept_full_text,
             } => {
-                let binding = denied(Binding::from_recent_owner(auth, &token))?;
+                let binding = denied(Binding::from_owner(auth, &token))?;
                 let reader = self.reader.clone();
                 let q = self.existing(binding)?.ok_or(Error::Forbidden)?;
                 let receipt = denied(q.commit_history_owner(
@@ -438,7 +438,7 @@ impl Management {
                 request_id,
                 confirmation_id,
             } => {
-                let binding = denied(Binding::from_recent_owner(auth, &token))?;
+                let binding = denied(Binding::from_owner(auth, &token))?;
                 let q = self.existing(binding)?.ok_or(Error::Forbidden)?;
                 let receipt =
                     denied(q.cancel_history_owner(auth, &token, &request_id, &confirmation_id))?;
@@ -450,7 +450,7 @@ impl Management {
                 request_id,
                 confirmation_id,
             } => {
-                let binding = denied(Binding::from_recent_owner(auth, &token))?;
+                let binding = denied(Binding::from_owner(auth, &token))?;
                 let q = self.existing(binding)?.ok_or(Error::Forbidden)?;
                 denied(q.archive_history_owner(
                     auth,
