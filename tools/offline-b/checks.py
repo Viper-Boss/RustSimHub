@@ -14,6 +14,7 @@ class Check:
     requires: tuple = ()
     seconds: int = 120
     layer: str = 'source-and-synthetic'
+    committed_source: bool = False
 
 
 CHECKS = []
@@ -63,7 +64,8 @@ for name, manifest, actions in (
     ('upgrade-harness', 'tools/product-upgrade/harness/Cargo.toml', 'UPD-06 REC-04 SEC-03'),
 ):
     CHECKS.append(Check(name, 'process', ('cargo', 'test', '--manifest-path', manifest,
-        '--locked', '--offline'), 'rust', tuple(actions.split()), ('linux', 'cargo'), 600))
+        '--locked', '--offline'), 'rust', tuple(actions.split()), ('linux', 'cargo'), 600,
+        committed_source=name == 'upgrade-harness'))
 
 CHECKS.append(Check('web-app-assembly-node', 'browser',
     ('node', 'tools/offline-b/browser.mjs'), 'node', ('SEC-02', 'SEC-06', 'REL-01'),

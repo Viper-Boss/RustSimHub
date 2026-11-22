@@ -63,6 +63,20 @@ maintenance inputs each retain their own prerequisites and evidence.
 See [initial inventory](../../docs/deliveries/OFFLINE-B-INVENTORY-20261115.md)
 and [delivery evidence](../../docs/deliveries/OFFLINE-B-RUNNER-20261117.md).
 
+## Committed source for the upgrade harness
+
+The upgrade harness consumes the original `RUSTSIMHUB_BUILD_SOURCE_SHA256`
+compile-time contract. The runner removes inherited values and computes this
+one fixed setting from `git archive --format=tar HEAD`, only for the declared
+upgrade check and only from a clean checkout. It does not accept a caller hash.
+Tracked and untracked source are checked again after archiving; changes fail.
+The archive uses the same owned Linux process backend, at most30 seconds/64MiB,
+charged to the existing check budget. Its temporary public bytes are then removed.
+Archive failure/overflow/leftover children fail; missing isolation or dirty source
+is `not_run`. Reports bind the actual SHA256, HEAD/tree, bytes and fixed command.
+This is compilation provenance, never a release, installation or health approval.
+See [Linux source-stamp evidence](../../docs/deliveries/OFFLINE-B-SOURCE-STAMP-20261122.md).
+
 ## Windows host measurements
 
 ```sh

@@ -119,6 +119,8 @@ def capability(name):
 def environment():
     # Offline toolchain/module resolution. No downloads or production endpoints.
     env = os.environ.copy()
+    # Only our verified clean Git archive may provide this compile-time stamp.
+    env.pop('RUSTSIMHUB_BUILD_SOURCE_SHA256', None)
     env.update(CARGO_NET_OFFLINE='true', GOTOOLCHAIN='local', GOPROXY='off',
                GOSUMDB='off', TZ='UTC', PYTHONUTF8='1', WEB3_WEB_BROWSER_PYTHON=sys.executable)
     # Git fixture commits must not launch detached automatic maintenance while
@@ -249,17 +251,70 @@ def windows_execute(check, root, log, seconds, *, measure=False):
     return result
 
 
+def linux_backend():
+    sys.path.insert(0, str(ROOT / 'tools/mainline-checks'))
+    spec = importlib.util.spec_from_file_location('offline_b_process_backend', ROOT/'tools/mainline-checks/run.py')
+    backend = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(backend)
+    return backend
+
+
+def source_stamp(backend, root, log, seconds):
+    """Same git-archive contract as mainline; bounded, clean source only."""
+    before = source(root)
+    failure = {'execution': 'not_run', 'exit_code': None, 'cleanup_complete': True, 'summary': '',
+               'reason': 'committed source stamp requires a clean checkout'}
+    if before['dirty']:
+        return None, failure
+    argv = ['git', '--no-replace-objects', '-c', 'safe.directory='+root.as_posix(),
+            '-C', str(root), 'archive', '--format=tar', 'HEAD']
+    with tempfile.TemporaryDirectory(prefix='offline-b-source-') as directory:
+        archive = Path(directory)/'source.tar'
+        row = backend.execute(argv, root, archive, min(seconds, 30), limit=64*LIMIT, env=environment())
+        if row['execution'] == 'not_run':
+            failure['reason'] = 'committed archive process isolation unavailable'
+            return None, failure
+        if row['execution'] != 'executed' or row['exit_code'] != 0 or not row['cleanup_complete']:
+            failure.update(execution='source_archive_failed', exit_code=row['exit_code'],
+                           cleanup_complete=row['cleanup_complete'],
+                           reason='committed archive failed: '+row['execution'])
+        elif source(root) != before:
+            failure.update(execution='source_changed', reason='source changed during committed archive')
+        else:
+            digest = hashlib.sha256()
+            with archive.open('rb') as stream:
+                for block in iter(lambda: stream.read(65536), b''):
+                    digest.update(block)
+            return digest.hexdigest(), {'source_archive_sha256': digest.hexdigest(),
+                'source_archive_head': before['head'], 'source_archive_tree': before['tree'],
+                'source_archive_bytes': archive.stat().st_size, 'source_archive_cleanup_complete': True,
+                'source_archive_command': ['git', 'archive', '--format=tar', 'HEAD']}
+    with log.open('x', encoding='utf-8') as stream:
+        stream.write(failure['reason']+'\n')
+    return None, failure
+
+
 def execute(check, root, log, seconds):
     if os.name == 'nt':
         return windows_execute(check, root, log, seconds)
     if sys.platform == 'linux':
         # Reuse the existing pidfd/subreaper cleanup instead of a second Linux
         # process tracker. Its original cleanup regressions remain authoritative.
-        sys.path.insert(0, str(ROOT / 'tools/mainline-checks'))
-        spec = importlib.util.spec_from_file_location('offline_b_process_backend', ROOT/'tools/mainline-checks/run.py')
-        backend = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(backend)
-        return backend.execute(list(check.argv), root, log, seconds, limit=LIMIT, env=environment())
+        backend = linux_backend()
+        env, proof = environment(), {}
+        if check.committed_source:
+            began = time.monotonic()
+            stamp, proof = source_stamp(backend, root, log, seconds)
+            if stamp is None:
+                return proof
+            seconds -= time.monotonic()-began
+            if seconds <= 0:
+                with log.open('x', encoding='utf-8') as stream:
+                    stream.write('check budget exhausted during committed archive\n')
+                return {'execution': 'timeout', 'exit_code': None, 'cleanup_complete': True,
+                        'summary': '', 'reason': 'check budget exhausted during committed archive', **proof}
+            env['RUSTSIMHUB_BUILD_SOURCE_SHA256'] = stamp
+        return {**backend.execute(list(check.argv), root, log, seconds, limit=LIMIT, env=env), **proof}
     return {'execution': 'not_run', 'reason': 'owned process isolation unsupported on this OS',
             'exit_code': None, 'cleanup_complete': True, 'summary': ''}
 
