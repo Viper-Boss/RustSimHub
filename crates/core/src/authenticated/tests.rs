@@ -5,6 +5,58 @@ mod legacy_binding;
 mod recovery_grants;
 
 #[tokio::test]
+async fn update_preview_requires_current_owner_even_with_delegated_update_scope() {
+    let d = directory();
+    let i = directory();
+    let store = Store::open(d.path()).unwrap();
+    let mut auth = Auth::new(Identity::open(i.path()).unwrap(), store.handle()).unwrap();
+    let owner = SigningKey::from_bytes(&[111; 32]);
+    let owner_key = owner.verifying_key().to_bytes();
+    let claim = auth.bootstrap_challenge(owner_key).unwrap();
+    auth.bootstrap_finish(&claim.id, &owner.sign(&claim.transcript).to_bytes())
+        .unwrap();
+    let login = auth.login_challenge(owner_key).unwrap();
+    let owner_token = auth
+        .login_finish(&login.id, &owner.sign(&login.transcript).to_bytes())
+        .unwrap();
+
+    let client = SigningKey::from_bytes(&[112; 32]);
+    let client_key = client.verifying_key().to_bytes();
+    let kind = rustsimhub_policy::Kind::Client;
+    let scopes = [Scope::UpdateManage];
+    auth.open_pairing(owner_token.expose()).unwrap();
+    let pair = auth.pairing_challenge(client_key, kind, &scopes).unwrap();
+    let id = auth
+        .pairing_finish(&pair.id, &client.sign(&pair.transcript).to_bytes())
+        .unwrap();
+    auth.approve(owner_token.expose(), &id, client_key, kind, &scopes)
+        .unwrap();
+    let login = auth.login_challenge(client_key).unwrap();
+    let client_token = auth
+        .login_finish(&login.id, &client.sign(&login.transcript).to_bytes())
+        .unwrap();
+    let auth = Arc::new(Mutex::new(auth));
+    for (token, allowed) in [
+        (owner_token.expose(), true),
+        (client_token.expose(), false),
+        (&"0".repeat(64), false),
+    ] {
+        let result = round_trip(
+            AuthCommand::AuthorizeUpdatePreview {
+                token: token.into(),
+            },
+            auth.clone(),
+        )
+        .await;
+        if allowed {
+            assert_eq!(result, json!({"update_preview_authorized":true}));
+        } else {
+            assert_eq!(result["error"], "denied");
+        }
+    }
+}
+
+#[tokio::test]
 async fn console_distinguishes_auth_contention_from_a_rejected_session() {
     let d = directory();
     let i = directory();
@@ -27,6 +79,9 @@ async fn console_distinguishes_auth_contention_from_a_rejected_session() {
         let token = "0".repeat(64);
         [
             AuthCommand::Health {
+                token: token.clone(),
+            },
+            AuthCommand::AuthorizeUpdatePreview {
                 token: token.clone(),
             },
             AuthCommand::CallHistoryStatus {

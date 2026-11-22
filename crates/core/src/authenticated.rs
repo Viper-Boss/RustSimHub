@@ -16,6 +16,13 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth::Result<Value> {
     use AuthCommand::*;
     Ok(match command {
+        AuthorizeUpdatePreview { token } => {
+            let owner = auth.owner_session(&token)?;
+            if !rustsimhub_policy::allows(owner.scopes, Scope::UpdateManage) {
+                return Err(rustsimhub_auth::Error::Forbidden);
+            }
+            json!({"update_preview_authorized":true})
+        }
         AuthCommand::NknStatus { .. }
         | AuthCommand::NknRequest { .. }
         | AuthCommand::SetNknEnabled { .. } => return Err(rustsimhub_auth::Error::Forbidden),
@@ -368,6 +375,7 @@ pub(crate) async fn handle(
     let status_read = matches!(
         &request.command,
         AuthCommand::SystemStatus { .. }
+            | AuthCommand::AuthorizeUpdatePreview { .. }
             | AuthCommand::ProcessList { .. }
             | AuthCommand::LineStatus { .. }
             | AuthCommand::NetworkDiagnostics { .. }

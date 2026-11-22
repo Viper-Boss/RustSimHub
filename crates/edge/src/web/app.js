@@ -18,6 +18,7 @@ import { DiagnosticPanel } from './diagnostics.js';
 import { ConfigurationState } from './configuration-state.js';
 import { NknProductPanel, pendingInput as nknPendingInput, archiveInput as nknArchiveInput } from './nkn-product.js';
 import { UsageStatsPanel, bindUsageCounts } from './usage-stats.js';
+import { UpdatePackage } from './update-package.js';
 import { ConsoleDashboard, transientReadError } from './console.js';
 import { NasBridgePanel, pendingInput as nasPendingInput, receiptInput as nasReceiptInput, readJournal as readNasJournal, clearJournal as clearNasJournal } from './nas-bridge.js';
 const $=id=>document.getElementById(id);
@@ -113,6 +114,7 @@ function auth(command){if(!token)throw Error('请先登录');return api({...comm
 const eventSync=new EventSync({request:command=>auth(command),reload:{sms:()=>inboxPage(true),calls:()=>callsPage(true)}});
 const smsManager=new SmsManager({document,request:command=>auth(command),reloadInbox:()=>inboxPage(true),confirm:message=>confirm(message)});
 const notice=text=>{$('notice').textContent=text;};
+const updatePackage=new UpdatePackage({document,getToken:()=>token});
 const sessionKeeper=new SessionKeeper({env:globalThis,token:()=>token,apply:(old,next,remaining)=>{
  if(token!==old)throw Error('登录会话已变化');
  audioLink.updateAuthentication(old,next);token=next;
@@ -268,6 +270,7 @@ async function resumeBrowserSession(identity,destination='dashboard'){
 async function enterConsole(sessionToken,pin,destination,message,health){
  const epoch=viewEpoch;
  token=sessionToken;authenticatedDevicePin=pin;
+ updatePackage.reset();
  configurationOpen=configurationVisible();void configurationIndicator.set(configurationOpen&&!document.hidden);
  networkPanel.start();dailyPhone.start();notice(message);
  try{await refresh(health);}finally{
@@ -281,7 +284,7 @@ async function enterConsole(sessionToken,pin,destination,message,health){
 }
 async function login({destination='dashboard'}={}){
  forgetTabSession();
- token=null;lease=null;resetBluetoothMode();resetDataRoaming();
+ token=null;lease=null;updatePackage.reset();resetBluetoothMode();resetDataRoaming();
  nknProductPanel.reset();nasBridgePanel?.reset();authenticatedDevicePin=null;
  forwardingPanel.reset();forwardingHistory.reset();
  clearWifiNetworks();
@@ -781,7 +784,7 @@ drawBluetoothMode();
 function clearConsoleSession(message){
  viewEpoch++;actionGeneration++;busy=false;
  for(const controller of requests)controller.abort();
- requests.clear();token=null;authenticatedDevicePin=null;lease=null;
+ requests.clear();token=null;authenticatedDevicePin=null;lease=null;updatePackage.reset();
  dashboard.reset();resetBluetoothMode();resetDataRoaming();clearHistory();
  historySources=[];$('history-source').replaceChildren();$('history-entity').replaceChildren();$('history-section').hidden=true;
  for(const id of ['sms-detail','call-detail','recipient','text','number','dtmf','events','setup-code']){

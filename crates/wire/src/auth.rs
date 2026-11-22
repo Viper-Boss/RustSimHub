@@ -27,6 +27,9 @@ pub struct AuthRequest {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AuthCommand {
+    AuthorizeUpdatePreview {
+        token: String,
+    },
     NknStatus {
         token: String,
     },
@@ -661,7 +664,11 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         return Err(invalid());
     }
     match &req.command {
-        AuthCommand::NknStatus { token } if !source_valid(token) => return Err(invalid()),
+        AuthCommand::NknStatus { token } | AuthCommand::AuthorizeUpdatePreview { token }
+            if !source_valid(token) =>
+        {
+            return Err(invalid())
+        }
         AuthCommand::NknRequest {
             token,
             request_id,

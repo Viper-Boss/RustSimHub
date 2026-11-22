@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //! Single-file transport for the existing signed application package.
 use crate::{
-    manifest_hash, verify, verify_payload, verify_payload_machine, Error, MAX_MANIFEST, MAX_PAYLOAD,
+    manifest_hash, verify, verify_manifest, verify_payload, verify_payload_machine, Error,
+    Manifest, MAX_MANIFEST, MAX_PAYLOAD,
 };
 use serde::Serialize;
 
@@ -16,6 +17,8 @@ pub struct Preview {
     pub epoch: u64,
     pub manifest_sha256: String,
     pub source_sha256: String,
+    pub schema_min: u32,
+    pub schema_max: u32,
 }
 
 /// Preserve the exact signed manifest, signature, and payload order.
@@ -48,6 +51,53 @@ pub fn inspect(
     schema: u32,
     floor: u64,
 ) -> Result<Preview, Error> {
+    Ok(verify_for_admission(bytes, public_key, schema, floor)?.preview())
+}
+
+/// Report the signed package metadata without asserting device admission.
+pub fn preview(bytes: &[u8], public_key: &[u8; 32]) -> Result<Preview, Error> {
+    Ok(check_bundle(bytes, public_key, None)?.preview())
+}
+
+/// Signed bytes preserved for the privileged maintenance admission path.
+pub struct SignedBundle<'a> {
+    pub manifest: &'a [u8],
+    pub signature: &'a [u8],
+    pub payloads: Vec<&'a [u8]>,
+    parsed: Manifest,
+}
+
+impl SignedBundle<'_> {
+    pub fn epoch(&self) -> u64 {
+        self.parsed.epoch
+    }
+
+    fn preview(self) -> Preview {
+        Preview {
+            verified: true,
+            epoch: self.parsed.epoch,
+            manifest_sha256: manifest_hash(self.manifest),
+            source_sha256: self.parsed.source_sha256,
+            schema_min: self.parsed.schema_min,
+            schema_max: self.parsed.schema_max,
+        }
+    }
+}
+
+pub fn verify_for_admission<'a>(
+    bytes: &'a [u8],
+    public_key: &[u8; 32],
+    schema: u32,
+    floor: u64,
+) -> Result<SignedBundle<'a>, Error> {
+    check_bundle(bytes, public_key, Some((schema, floor)))
+}
+
+fn check_bundle<'a>(
+    bytes: &'a [u8],
+    public_key: &[u8; 32],
+    admission: Option<(u32, u64)>,
+) -> Result<SignedBundle<'a>, Error> {
     if bytes.len() > MAX_BUNDLE {
         return Err(Error::Invalid);
     }
@@ -59,7 +109,10 @@ pub fn inspect(
     }
     let (manifest, tail) = tail.split_at_checked(length).ok_or(Error::Invalid)?;
     let (signature, mut tail) = tail.split_at_checked(SIGNATURE).ok_or(Error::Invalid)?;
-    let parsed = verify(manifest, signature, public_key, schema, floor)?;
+    let parsed = match admission {
+        Some((schema, floor)) => verify(manifest, signature, public_key, schema, floor)?,
+        None => verify_manifest(manifest, signature, public_key)?,
+    };
     let mut payloads = Vec::with_capacity(parsed.files.len());
     for entry in &parsed.files {
         let (payload, rest) = tail
@@ -72,11 +125,11 @@ pub fn inspect(
         return Err(Error::Invalid);
     }
     verify_payload_machine(&parsed, &payloads, 183)?;
-    Ok(Preview {
-        verified: true,
-        epoch: parsed.epoch,
-        manifest_sha256: manifest_hash(manifest),
-        source_sha256: parsed.source_sha256,
+    Ok(SignedBundle {
+        manifest,
+        signature,
+        payloads,
+        parsed,
     })
 }
 
@@ -98,6 +151,18 @@ mod tests {
         assert_eq!(preview.epoch, manifest.epoch);
         assert_eq!(preview.manifest_sha256, manifest_hash(&raw));
         assert_eq!(preview.source_sha256, manifest.source_sha256);
+        let standalone = super::preview(&bundle, &public).unwrap();
+        assert_eq!(standalone.epoch, manifest.epoch);
+        assert_eq!(standalone.schema_min, manifest.schema_min);
+        assert_eq!(standalone.schema_max, manifest.schema_max);
+        let for_admission = verify_for_admission(&bundle, &public, schema, 0).unwrap();
+        assert_eq!(for_admission.manifest, raw);
+        assert_eq!(for_admission.signature, signed);
+        assert_eq!(for_admission.payloads, payloads);
+        assert!(matches!(
+            verify_for_admission(&bundle, &public, schema + 1, 0),
+            Err(Error::Schema)
+        ));
         assert!(matches!(
             inspect(&bundle, &public, schema, manifest.epoch),
             Err(Error::Rollback)

@@ -45,6 +45,7 @@ mod captive;
 mod installation;
 mod media;
 mod network_test;
+mod update_preview;
 mod usage_count;
 
 #[derive(Deserialize, serde::Serialize, PartialEq)]
@@ -249,6 +250,7 @@ async fn api(State(app): State<App>, body: Bytes) -> Response {
         AuthCommand::IssueMedia { .. }
             | AuthCommand::CheckMediaLease { .. }
             | AuthCommand::CheckMediaPreflight { .. }
+            | AuthCommand::AuthorizeUpdatePreview { .. }
             // These carry the peer address Edge observed on the AirSIM ports.
             // A page could name any address, so they never come from the browser API.
             | AuthCommand::AirsimPairing { .. }
@@ -281,16 +283,22 @@ async fn boundary(State(app): State<App>, req: Request, next: Next) -> Response 
         req.uri().path(),
         "/api/v2" | "/api/media/v1" | "/api/network/v1/test" | "/api/usage-count/v1"
     );
+    let update_preview = req.uri().path() == update_preview::PATH;
     let media_capabilities = req.uri().path() == "/api/media/capabilities";
     let legacy_path = req.uri().path() == "/v1/session" || req.uri().path() == "/compat/v1/read";
     let origin_ok = headers.get_all(header::ORIGIN).iter().count() == 1
         && headers
             .get(header::ORIGIN)
             .is_some_and(|v| pair.is_some_and(|(o, _)| v.as_bytes() == o.as_bytes()));
+    let content_type: &[u8] = if update_preview {
+        b"application/octet-stream"
+    } else {
+        b"application/json"
+    };
     let content_ok = headers.get_all(header::CONTENT_TYPE).iter().count() == 1
         && headers
             .get(header::CONTENT_TYPE)
-            .is_some_and(|v| v.as_bytes() == b"application/json");
+            .is_some_and(|v| v.as_bytes() == content_type);
     let marker_ok = headers
         .get("x-rustsimhub-request")
         .is_some_and(|v| v.as_bytes() == b"2");
@@ -303,7 +311,8 @@ async fn boundary(State(app): State<App>, req: Request, next: Next) -> Response 
         && content_ok
         && req.uri().query().is_none();
     let mut response = if !host_ok
-        || (api_path && (!origin_ok || !content_ok || !marker_ok || req.uri().query().is_some()))
+        || ((api_path || update_preview)
+            && (!origin_ok || !content_ok || !marker_ok || req.uri().query().is_some()))
         || (legacy_path && !legacy_ok)
         || (media_capabilities && req.uri().query().is_some())
     {
@@ -722,6 +731,16 @@ fn router(app: App) -> Router {
             }),
         )
         .route("/api/v2", post(api))
+        .route(
+            "/update-package.js",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/javascript; charset=utf-8")],
+                    include_str!("web/update-package.js"),
+                )
+            }),
+        )
+        .route(update_preview::PATH, post(update_preview::api))
         .route("/api/network/v1/test", post(network_test::api))
         .route("/api/usage-count/v1", post(usage_count::api))
         .route("/api/media/v1", post(media::api))

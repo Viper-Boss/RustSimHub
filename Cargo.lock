@@ -2113,6 +2113,7 @@ name = "rustsimhub-edge"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "ed25519-dalek",
  "getrandom 0.4.3",
  "hyper",
  "hyper-util",
@@ -2121,6 +2122,7 @@ dependencies = [
  "rustsimhub-auth",
  "rustsimhub-domain",
  "rustsimhub-media",
+ "rustsimhub-update",
  "rustsimhub-wire",
  "serde",
  "serde_json",

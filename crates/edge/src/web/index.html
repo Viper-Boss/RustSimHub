@@ -228,6 +228,18 @@
 </div>
 <div class="pg" id="v-about" hidden>
 <section class="card pg-card pg-narrow num"><h2><svg class="i"><use href="#i-chip"/></svg>关于</h2><dl class="pg-kv"><dt>产品</dt><dd>RustSimHub</dd><dt>固件版本</dt><dd id="c-ab-version">—</dd><dt>型号</dt><dd id="c-ab-model">—</dd><dt>操作系统</dt><dd id="c-ab-os">—</dd><dt>内核</dt><dd id="c-ab-kernel">—</dd><dt>许可证</dt><dd>AGPL-3.0-only</dd></dl></section>
+<section class="card pg-card pg-narrow">
+ <h2><svg class="i"><use href="#i-layers"/></svg>签名应用更新包</h2>
+ <p class="pg-note">请选择 .rshapp 文件。验签预览会显示包内版本和数据库范围，不会安装。</p>
+ <label for="update-package">应用包</label>
+ <input id="update-package" type="file" accept=".rshapp,application/octet-stream" disabled>
+ <button class="pg-btn" type="button" id="update-package-preview" disabled>验签预览</button>
+ <p class="pg-note" id="update-package-state" role="status">以所有者身份登录后可预览</p>
+ <dl class="pg-kv" id="update-package-result" hidden>
+  <dt>应用版本</dt><dd id="update-package-epoch"></dd>
+  <dt>包内数据库范围</dt><dd id="update-package-schema"></dd>
+ </dl>
+</section>
 </div>
 <div class="pg" id="v-network" hidden>
 <div class="pg-grid num">
