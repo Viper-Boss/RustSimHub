@@ -1,0 +1,24 @@
+name: Offline B install harness regression
+on:
+  push:
+    paths:
+      - 'tools/product-install/harness/**'
+      - 'crates/update/src/product_materials/**'
+      - '.github/workflows/offline-b-install.yml'
+  pull_request:
+    paths:
+      - 'tools/product-install/harness/**'
+      - 'crates/update/src/product_materials/**'
+      - '.github/workflows/offline-b-install.yml'
+permissions:
+  contents: read
+jobs:
+  library-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the repository's pinned Rust toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal
+      - name: Compile and run the real non-privileged ownership tests
+        run: cargo +1.98.0 test --manifest-path tools/product-install/harness/Cargo.toml --lib --locked
