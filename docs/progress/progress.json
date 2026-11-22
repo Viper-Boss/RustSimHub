@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-22T02:01:49.278095+00:00",
+  "updated_at": "2026-11-22T02:09:19.034417+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -1220,7 +1220,7 @@
             "device"
           ],
           "dependencies": [],
-          "status": "needs_user",
+          "status": "todo",
           "offline_delegable": false,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -6136,6 +6136,16 @@
       "detail": "已在应用 111 实测读回当前配置，用户确认旧请求已归档且不再误提示所有者登录。转发并发关闭及迟到响应的整体实机验收继续保留。",
       "task_ids": [
         "FWD-13"
+      ],
+      "evidence": []
+    },
+    {
+      "at": "2026-11-22T02:09:19.034417+00:00",
+      "type": "state",
+      "title": "CALL-02 · 状态更新：DTMF菜单实测",
+      "detail": "111 真机按键已发但网页声音仍掉线，拨号盘也误切换主题。两条负对照复现并修复；本机音频续验及主题通过。待新候选部署和实际按键复测。",
+      "task_ids": [
+        "CALL-02"
       ],
       "evidence": []
     }

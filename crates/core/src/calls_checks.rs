@@ -14,6 +14,7 @@ struct FakeState {
     accepts: Arc<AtomicUsize>,
     hangups: Arc<AtomicUsize>,
     tones: Arc<AtomicUsize>,
+    catalogue_reads: Arc<AtomicUsize>,
 }
 fn path() -> OwnedObjectPath {
     "/org/freedesktop/ModemManager1/Call/9000"
@@ -424,7 +425,11 @@ impl FakeVoice {
         self.0.paths.lock().unwrap().clone()
     }
     #[zbus(property)]
-    fn calls(&self) -> Vec<OwnedObjectPath> {
+    async fn calls(&self) -> Vec<OwnedObjectPath> {
+        self.0.catalogue_reads.fetch_add(1, Ordering::SeqCst);
+        if self.0.mode.load(Ordering::SeqCst) == 6 {
+            tokio::time::sleep(Duration::from_millis(1600)).await;
+        }
         self.list_calls()
     }
     fn create_call(
@@ -731,6 +736,30 @@ async fn media_local_socket_keeps_authorizing_during_slow_dtmf() {
     );
     assert_eq!(f.data.tones.load(Ordering::SeqCst), 1);
     assert_eq!(f.data.hangups.load(Ordering::SeqCst), 0);
+    // A slower background catalogue inspection must not cut off the already
+    // authorized live call either.
+    let previous_reads = f.data.catalogue_reads.load(Ordering::SeqCst);
+    f.data.mode.store(6, Ordering::SeqCst);
+    let ctl = f.controller.clone();
+    let token = f.first.clone();
+    let catalogue =
+        tokio::spawn(async move { ctl.request(AuthCommand::CallStatus { token }).await });
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while f.data.catalogue_reads.load(Ordering::SeqCst) == previous_reads {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    while !catalogue.is_finished() {
+        client
+            .pulse()
+            .await
+            .expect("media pulse during call catalogue read");
+        assert!(permit.check(rustsimhub_media::local::now_ms()).is_ok());
+        tokio::time::sleep(Duration::from_millis(150)).await;
+    }
+    assert_eq!(catalogue.await.unwrap().unwrap()["available"], true);
     f.data.state.store(5, Ordering::SeqCst);
     assert!(client.pulse().await.is_err());
     assert!(permit.check(rustsimhub_media::local::now_ms()).is_err());
@@ -898,6 +927,7 @@ async fn fixture(incoming: bool) -> Fixture {
         accepts: Arc::new(AtomicUsize::new(0)),
         hangups: Arc::new(AtomicUsize::new(0)),
         tones: Arc::new(AtomicUsize::new(0)),
+        catalogue_reads: Arc::new(AtomicUsize::new(0)),
     };
     server
         .object_server()

@@ -167,7 +167,11 @@ pub(crate) async fn serve(
         let c = controller.clone();
         let connection = next;
         tasks.spawn(async move {
-            let _ = handle(stream, &c, connection).await;
+            if let Err(reason @ ("media_timeout" | "media_busy")) =
+                handle(stream, &c, connection).await
+            {
+                eprintln!("core_media_socket_stalled reason={reason}");
+            }
             let _ = c.media(connection, Action::Disconnect).await;
         });
     }

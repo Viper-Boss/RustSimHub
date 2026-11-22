@@ -4,7 +4,7 @@ use crate::observer::Binding;
 use rustsimhub_auth::Auth;
 use rustsimhub_domain::{CallAction, CallGrant, CallLease, CallLeases, LineEpoch, SmsState};
 use rustsimhub_policy::{Principal, Scope};
-use rustsimhub_storage::{CallObservation, CallRequest, CallSummary, Handle};
+use rustsimhub_storage::{CallIntent, CallObservation, CallRequest, CallSummary, Handle};
 use rustsimhub_wire::AuthCommand;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -255,10 +255,10 @@ async fn bounded<T, E>(
 }
 impl Worker {
     async fn mutation_guard(
-        &self,
+        coordination: Arc<crate::coordination::Coordination>,
         action: CallAction,
     ) -> Result<Option<tokio::sync::OwnedRwLockReadGuard<()>>> {
-        let permit = self.coordination.telephony(action)?;
+        let permit = coordination.telephony(action)?;
         if permit.is_some() && crate::network_trial::enabled() {
             // A previous Core may have disappeared while NM still owns a finite rollback.
             tokio::time::timeout(
@@ -270,6 +270,19 @@ impl Worker {
             .map_err(|_| "network_checkpoint_pending")?;
         }
         Ok(permit)
+    }
+    async fn while_servicing_media<T>(
+        &mut self,
+        operation: impl std::future::Future<Output = T>,
+    ) -> T {
+        tokio::pin!(operation);
+        loop {
+            tokio::select! {
+                biased;
+                result = &mut operation => return result,
+                Some(job) = self.media_jobs.recv() => self.handle_media(job).await,
+            }
+        }
     }
     async fn media_context(
         &self,
@@ -592,7 +605,7 @@ impl Worker {
     async fn refresh_inner(&mut self) -> Result<()> {
         self.catalogue = false;
         let b = self.binding()?;
-        if !b.fresh().await {
+        if !self.while_servicing_media(b.fresh()).await {
             return Err("line_unavailable");
         }
         let changed = self.backend.as_deref() != Some(&b.context.backend);
@@ -612,7 +625,8 @@ impl Worker {
                 .build()
                 .await
                 .map_err(|_| "backend_invalid")?;
-            bounded(voice.list_calls()).await?
+            self.while_servicing_media(bounded(voice.list_calls()))
+                .await?
         } else {
             let proxy = zbus::fdo::PropertiesProxy::builder(&b.connection)
                 .destination(b.context.owner.clone())
@@ -622,7 +636,7 @@ impl Worker {
                 .build()
                 .await
                 .map_err(|_| "backend_invalid")?;
-            let value = tokio::time::timeout(
+            let calls = tokio::time::timeout(
                 Duration::from_secs(5),
                 proxy.get(
                     "org.freedesktop.ModemManager1.Modem.Voice"
@@ -630,10 +644,12 @@ impl Worker {
                         .map_err(|_| "backend_invalid")?,
                     "Calls",
                 ),
-            )
-            .await
-            .map_err(|_| "modem_timeout")?
-            .map_err(|_| "modem_unavailable")?;
+            );
+            let value = self
+                .while_servicing_media(calls)
+                .await
+                .map_err(|_| "modem_timeout")?
+                .map_err(|_| "modem_unavailable")?;
             Vec::<OwnedObjectPath>::try_from(value).map_err(|_| "invalid_catalogue")?
         };
         if paths.len() > 64 {
@@ -646,7 +662,7 @@ impl Worker {
             }
             self.read_live(&b, path).await?;
         }
-        if !b.fresh().await {
+        if !self.while_servicing_media(b.fresh()).await {
             return Err("line_changed");
         }
         let missing: Vec<String> = self
@@ -681,7 +697,7 @@ impl Worker {
         Ok(())
     }
     async fn read_live(&mut self, b: &Binding, path: OwnedObjectPath) -> Result<String> {
-        let data = read_call(b, &path).await?;
+        let data = self.while_servicing_media(read_call(b, &path)).await?;
         let old = self.live.get(path.as_str());
         let reused = old.is_some_and(|l| {
             !b.call_valid(path.as_str(), l.revision)
@@ -709,7 +725,7 @@ impl Worker {
             path.to_string(),
         );
         let number = data.number.clone();
-        let summary = db(move || {
+        let observe = db(move || {
             h.observe_call(
                 context,
                 CallObservation {
@@ -721,11 +737,13 @@ impl Worker {
                 },
                 move || guard.call_valid(&object, revision),
             )
-        })
-        .await?;
+        });
+        let summary = self.while_servicing_media(observe).await?;
         if summary.modem_state == 4 {
             let id = summary.id.clone();
-            let _ = tokio::task::spawn_blocking(move || crate::status_led::connected(&id)).await;
+            let notification =
+                tokio::task::spawn_blocking(move || crate::status_led::connected(&id));
+            let _ = self.while_servicing_media(notification).await;
         }
         let id = summary.id.clone();
         self.live.insert(
@@ -889,7 +907,9 @@ impl Worker {
                     return Err("calls_read_only");
                 }
                 let p = self.principal(&token, Scope::CallsControl).await?;
-                let _network = self.mutation_guard(action).await?;
+                let _network = self
+                    .while_servicing_media(Self::mutation_guard(self.coordination.clone(), action))
+                    .await?;
                 let b = self.binding()?;
                 let (h, context, guard) = (self.store.clone(), b.context.clone(), b.clone());
                 let op = db(move || {
@@ -969,7 +989,7 @@ impl Worker {
                     return Err("invalid_priority");
                 }
                 if intent.operation.state == SmsState::Prepared {
-                    self.submit(&operation_id, &token, &p, lease.as_ref())
+                    self.submit(&operation_id, &token, &p, lease.as_ref(), intent)
                         .await?;
                 }
                 self.result(operation_id, p).await
@@ -987,12 +1007,21 @@ impl Worker {
         token: &str,
         p: &Principal,
         receipt: Option<&CallLease>,
+        intent: CallIntent,
     ) -> Result<()> {
-        self.refresh().await?;
+        if intent.action != CallAction::Dtmf {
+            self.refresh().await?;
+        }
         let b = self.binding()?;
-        let (h, key, principal) = (self.store.clone(), id.to_owned(), p.clone());
-        let intent = db(move || h.call_intent(key, principal)).await?;
-        let _network = self.mutation_guard(intent.action).await?;
+        if !self.catalogue || self.backend.as_deref() != Some(&b.context.backend) {
+            return Err("line_unavailable");
+        }
+        let _network = self
+            .while_servicing_media(Self::mutation_guard(
+                self.coordination.clone(),
+                intent.action,
+            ))
+            .await?;
         if intent.backend != b.context.backend
             || intent.operation.line != b.context.line
             || intent.principal_generation != p.generation
@@ -1119,6 +1148,8 @@ impl Worker {
                 .ok_or("call_unavailable")?;
             let data = read_call(&b, &l.path).await?;
             if !intent.action.allowed(data.state, data.direction)
+                || intent.action == CallAction::Dtmf
+                    && (data.number != l.number || data.direction != l.summary.direction)
                 || rejecting && (data.state != 3 || data.direction != 1)
                 || intent.action == CallAction::Dial && data.number != intent.payload
                 || !b.call_valid(l.path.as_str(), l.revision)
@@ -1213,15 +1244,8 @@ impl Worker {
                     // A modem tone can outlast the PCM heartbeat deadline.
                     // Recheck media against the original live authority while
                     // the single, already-permitted modem action is in flight.
-                    let tone = bounded(proxy.send_dtmf(&intent.payload));
-                    tokio::pin!(tone);
-                    loop {
-                        tokio::select! {
-                            biased;
-                            result = &mut tone => break result,
-                            Some(job) = self.media_jobs.recv() => self.handle_media(job).await,
-                        }
-                    }
+                    self.while_servicing_media(bounded(proxy.send_dtmf(&intent.payload)))
+                        .await
                 }
             },
         };
