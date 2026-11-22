@@ -19,10 +19,12 @@ pub(crate) mod recovery;
 pub(crate) mod retained;
 pub(crate) mod running;
 mod systemd;
+mod web_upload;
 use database::Database;
 pub use programs::{
     admit_stage, Admission, SignedPrograms, SignedVersionCheck, SignedVersionReport,
 };
+pub use web_upload::admit_web_upload;
 
 #[cfg(feature = "email-production-candidate")]
 pub use programs::{migrate_email4, migrate_email4_retained};

@@ -114,7 +114,7 @@ function auth(command){if(!token)throw Error('请先登录');return api({...comm
 const eventSync=new EventSync({request:command=>auth(command),reload:{sms:()=>inboxPage(true),calls:()=>callsPage(true)}});
 const smsManager=new SmsManager({document,request:command=>auth(command),reloadInbox:()=>inboxPage(true),confirm:message=>confirm(message)});
 const notice=text=>{$('notice').textContent=text;};
-const updatePackage=new UpdatePackage({document,getToken:()=>token});
+const updatePackage=new UpdatePackage({document,getToken:()=>token,request:command=>auth(command)});
 const sessionKeeper=new SessionKeeper({env:globalThis,token:()=>token,apply:(old,next,remaining)=>{
  if(token!==old)throw Error('登录会话已变化');
  audioLink.updateAuthentication(old,next);token=next;

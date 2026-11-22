@@ -113,7 +113,15 @@ async fn owner_preview_checks_boundary_before_body_and_rechecks_session_after_ve
     );
     assert_eq!(denial.unwrap().status(), StatusCode::FORBIDDEN);
     let (bytes, key) = fixture();
+    let submit_app = app.clone();
     let isolated = Router::new()
+        .route(
+            SUBMIT,
+            post(move |req| {
+                let app = submit_app.clone();
+                async move { submit_inner(&app, req, move || Ok(key)).await }
+            }),
+        )
         .route(
             PATH,
             post(move |req| {
@@ -162,4 +170,79 @@ async fn owner_preview_checks_boundary_before_body_and_rechecks_session_after_ve
         assert_eq!(reply["schema_min"], 6);
         assert_eq!(reply["schema_max"], 7);
     }
+    let manifest = bundle::preview(&bytes, &key).unwrap().manifest_sha256;
+    let request_id = "aabbccdd-0123-4123-a123-123456789abc";
+    let make_submit = |manifest: &str| {
+        let mut req = request(origin, &header, bytes.clone());
+        *req.uri_mut() = SUBMIT.parse().unwrap();
+        req.headers_mut()
+            .insert("x-rustsimhub-update-request", request_id.parse().unwrap());
+        req.headers_mut()
+            .insert("x-rustsimhub-update-manifest", manifest.parse().unwrap());
+        req
+    };
+    let reply =
+        |available| serde_json::json!({"available":true,"can_submit":available,"receipt":null});
+    let exchange = |response: serde_json::Value, expected_body: bool| {
+        let token = token.clone();
+        let manifest = manifest.clone();
+        let bytes = bytes.clone();
+        let socket = &socket;
+        async move {
+            let (mut stream, _) = socket.accept().await.unwrap();
+            let len = stream.read_u32().await.unwrap() as usize;
+            let mut frame = vec![0; len];
+            stream.read_exact(&mut frame).await.unwrap();
+            let request = parse_auth_request(&frame).unwrap();
+            if expected_body {
+                let AuthCommand::SubmitUpdateUpload {
+                    token: received,
+                    upload,
+                } = request.command
+                else {
+                    panic!("submit command")
+                };
+                assert_eq!(received, token);
+                assert_eq!(upload.manifest_sha256, manifest);
+                assert_eq!(upload.request_id, request_id);
+                assert_eq!(upload.bundle_sha256, manifest_hash(&bytes));
+                assert_eq!(upload.epoch, 120);
+                let mut delivered = Vec::new();
+                stream.read_to_end(&mut delivered).await.unwrap();
+                assert_eq!(delivered, bytes);
+            } else {
+                assert!(
+                    matches!(request.command, AuthCommand::UpdateUploadStatus {token:received} if received==token)
+                );
+            }
+            let answer = serde_json::to_vec(&CoreResponse {
+                protocol: AUTH_PROTOCOL,
+                id: request.id,
+                result: response,
+            })
+            .unwrap();
+            stream.write_u32(answer.len() as u32).await.unwrap();
+            stream.write_all(&answer).await.unwrap();
+        }
+    };
+    let (result, ()) = tokio::join!(
+        isolated.clone().oneshot(make_submit(&manifest)),
+        exchange(reply(false), false),
+    );
+    assert_eq!(result.unwrap().status(), StatusCode::FORBIDDEN);
+    let (result, ()) = tokio::join!(
+        isolated.clone().oneshot(make_submit(&"b".repeat(64))),
+        exchange(reply(true), false),
+    );
+    assert_eq!(result.unwrap().status(), StatusCode::CONFLICT);
+    let (result, ()) = tokio::join!(isolated.oneshot(make_submit(&manifest)), async {
+        exchange(reply(true), false).await;
+        exchange(
+            serde_json::json!({"state":"received","request_id":request_id,
+                "manifest_sha256":manifest,"epoch":120}),
+            true,
+        )
+        .await;
+    },);
+    assert_eq!(result.unwrap().status(), StatusCode::ACCEPTED);
 }

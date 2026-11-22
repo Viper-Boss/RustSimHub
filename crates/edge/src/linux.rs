@@ -192,6 +192,9 @@ fn socket_safe(path: &Path, uid: u32) -> Result<()> {
     Ok(())
 }
 async fn forward(app: &App, body: &[u8], id: &str) -> Result<Vec<u8>> {
+    forward_body(app, body, id, None).await
+}
+async fn forward_body(app: &App, body: &[u8], id: &str, upload: Option<&[u8]>) -> Result<Vec<u8>> {
     socket_safe(&app.socket, app.uid)?;
     timeout(Duration::from_secs(15), async {
         let mut stream = UnixStream::connect(app.socket.as_ref())
@@ -208,6 +211,13 @@ async fn forward(app: &App, body: &[u8], id: &str) -> Result<Vec<u8>> {
             .write_all(body)
             .await
             .map_err(|_| "core unavailable")?;
+        if let Some(upload) = upload {
+            stream
+                .write_all(upload)
+                .await
+                .map_err(|_| "core unavailable")?;
+            stream.shutdown().await.map_err(|_| "core unavailable")?;
+        }
         let len = check_len(stream.read_u32().await.map_err(|_| "core unavailable")?)
             .map_err(|_| "invalid core reply")?;
         let mut reply = vec![0; len];
@@ -251,6 +261,7 @@ async fn api(State(app): State<App>, body: Bytes) -> Response {
             | AuthCommand::CheckMediaLease { .. }
             | AuthCommand::CheckMediaPreflight { .. }
             | AuthCommand::AuthorizeUpdatePreview { .. }
+            | AuthCommand::SubmitUpdateUpload { .. }
             // These carry the peer address Edge observed on the AirSIM ports.
             // A page could name any address, so they never come from the browser API.
             | AuthCommand::AirsimPairing { .. }
@@ -283,7 +294,10 @@ async fn boundary(State(app): State<App>, req: Request, next: Next) -> Response 
         req.uri().path(),
         "/api/v2" | "/api/media/v1" | "/api/network/v1/test" | "/api/usage-count/v1"
     );
-    let update_preview = req.uri().path() == update_preview::PATH;
+    let update_preview = matches!(
+        req.uri().path(),
+        update_preview::PATH | update_preview::SUBMIT
+    );
     let media_capabilities = req.uri().path() == "/api/media/capabilities";
     let legacy_path = req.uri().path() == "/v1/session" || req.uri().path() == "/compat/v1/read";
     let origin_ok = headers.get_all(header::ORIGIN).iter().count() == 1
@@ -741,6 +755,7 @@ fn router(app: App) -> Router {
             }),
         )
         .route(update_preview::PATH, post(update_preview::api))
+        .route(update_preview::SUBMIT, post(update_preview::submit))
         .route("/api/network/v1/test", post(network_test::api))
         .route("/api/usage-count/v1", post(usage_count::api))
         .route("/api/media/v1", post(media::api))

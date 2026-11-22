@@ -880,3 +880,160 @@ async fn authenticated_endpoint_rejects_legacy_protocol_without_upgrade() {
         .await
         .is_err());
 }
+
+#[tokio::test]
+async fn owner_update_receipt_survives_reopening_the_inbox_and_rejects_conflicts() {
+    use rustsimhub_wire::{UpdateUpload, UPDATE_INBOX_ACCEPTED, UPDATE_INBOX_NAME};
+    use sha2::{Digest, Sha256};
+    use tokio::io::AsyncWriteExt;
+
+    async fn send(
+        auth: Arc<Mutex<Auth>>,
+        inbox: Arc<crate::update_upload::Inbox>,
+        command: AuthCommand,
+        payload: &[u8],
+    ) -> Value {
+        let (mut client, mut server) = UnixStream::pair().unwrap();
+        let task = tokio::spawn(async move {
+            handle(
+                &mut server,
+                auth,
+                None,
+                None,
+                None,
+                Providers {
+                    update_upload: Some(inbox),
+                    ..Providers::default()
+                },
+            )
+            .await
+            .unwrap();
+        });
+        let request = rustsimhub_wire::AuthRequest {
+            protocol: AUTH_PROTOCOL,
+            id: "update-test".into(),
+            command,
+        };
+        write_frame(&mut client, &serde_json::to_vec(&request).unwrap())
+            .await
+            .unwrap();
+        client.write_all(payload).await.unwrap();
+        client.shutdown().await.unwrap();
+        let bytes = read_frame(&mut client).await.unwrap();
+        let answer: Response = serde_json::from_slice(&bytes).unwrap();
+        task.await.unwrap();
+        answer.result
+    }
+
+    let d = directory();
+    let i = directory();
+    let store = Store::open(d.path()).unwrap();
+    let mut auth = Auth::new(Identity::open(i.path()).unwrap(), store.handle()).unwrap();
+    let signing = SigningKey::from_bytes(&[113; 32]);
+    let key = signing.verifying_key().to_bytes();
+    let claim = auth.bootstrap_challenge(key).unwrap();
+    auth.bootstrap_finish(&claim.id, &signing.sign(&claim.transcript).to_bytes())
+        .unwrap();
+    let login = auth.login_challenge(key).unwrap();
+    let token = auth
+        .login_finish(&login.id, &signing.sign(&login.transcript).to_bytes())
+        .unwrap();
+    let token = token.expose().to_owned();
+    let auth = Arc::new(Mutex::new(auth));
+    let inbox = Arc::new(crate::update_upload::Inbox::new(d.path()));
+    let body = b"opaque package bytes already checked by Edge";
+    let upload = UpdateUpload {
+        request_id: "12345678-1234-4234-8234-123456789abc".into(),
+        manifest_sha256: "c".repeat(64),
+        bundle_sha256: format!("{:x}", Sha256::digest(body)),
+        epoch: 114,
+        length: body.len() as u32,
+    };
+    let submit =
+        |token: String, upload: UpdateUpload| AuthCommand::SubmitUpdateUpload { token, upload };
+    let rejected = send(
+        auth.clone(),
+        inbox.clone(),
+        submit("f".repeat(64), upload.clone()),
+        &[],
+    )
+    .await;
+    assert_eq!(rejected["error"], "denied");
+    let damaged = vec![0; body.len()];
+    assert_eq!(
+        send(
+            auth.clone(),
+            inbox.clone(),
+            submit(token.clone(), upload.clone()),
+            &damaged
+        )
+        .await["error"],
+        "invalid_update"
+    );
+    let file = d.path().join(UPDATE_INBOX_NAME).join(UPDATE_INBOX_ACCEPTED);
+    assert!(!file.exists());
+
+    let receipt = send(
+        auth.clone(),
+        inbox.clone(),
+        submit(token.clone(), upload.clone()),
+        body,
+    )
+    .await;
+    assert_eq!(receipt["state"], "received");
+    assert_eq!(receipt["request_id"], upload.request_id);
+    let persisted = std::fs::read(&file).unwrap();
+    assert!(!persisted
+        .windows(token.len())
+        .any(|x| x == token.as_bytes()));
+    let reopened = Arc::new(crate::update_upload::Inbox::new(d.path()));
+    let status = send(
+        auth.clone(),
+        reopened.clone(),
+        AuthCommand::UpdateUploadStatus {
+            token: token.clone(),
+        },
+        &[],
+    )
+    .await;
+    assert_eq!(status["receipt"], receipt);
+    assert_eq!(
+        send(
+            auth.clone(),
+            reopened.clone(),
+            submit(token.clone(), upload.clone()),
+            body
+        )
+        .await,
+        receipt
+    );
+    let other = UpdateUpload {
+        request_id: "12345678-1234-4234-8234-123456789abd".into(),
+        ..upload.clone()
+    };
+    assert_eq!(
+        send(
+            auth.clone(),
+            reopened.clone(),
+            submit(token.clone(), other.clone()),
+            body
+        )
+        .await["error"],
+        "update_pending"
+    );
+    assert_eq!(std::fs::read(&file).unwrap(), persisted);
+    let wrong = AuthCommand::DiscardUpdateUpload {
+        token: token.clone(),
+        request_id: other.request_id,
+    };
+    assert_eq!(
+        send(auth.clone(), reopened.clone(), wrong, &[]).await["error"],
+        "update_pending"
+    );
+    let discard = AuthCommand::DiscardUpdateUpload {
+        token,
+        request_id: upload.request_id,
+    };
+    assert_eq!(send(auth, reopened, discard, &[]).await["discarded"], true);
+    assert!(!file.exists());
+}

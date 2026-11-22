@@ -9,7 +9,8 @@ use serde::Serialize;
 const MAGIC: &[u8; 8] = b"RSHAPP01";
 const HEADER: usize = MAGIC.len() + 4;
 const SIGNATURE: usize = 64;
-pub const MAX_BUNDLE: usize = HEADER + MAX_MANIFEST + SIGNATURE + MAX_PAYLOAD as usize;
+pub const MAX_BUNDLE: usize = rustsimhub_wire::UPDATE_BUNDLE_LIMIT;
+const _: () = assert!(MAX_BUNDLE == HEADER + MAX_MANIFEST + SIGNATURE + MAX_PAYLOAD as usize);
 
 #[derive(Debug, Serialize)]
 pub struct Preview {

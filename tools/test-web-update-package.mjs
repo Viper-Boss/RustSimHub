@@ -9,13 +9,27 @@ const element = suffix => elements.get('update-package' + suffix);
 const file = {name:'release.rshapp', size:512};
 const sent = [];
 let token = null;
-let reply = {ok:true, json:async()=>({verified:true,epoch:114,schema_min:6,schema_max:9})};
+let consent = false;
+let accepted = null;
+const manifest = 'b'.repeat(64);
+const queried = [];
+let reply = {ok:true, json:async()=>({verified:true,epoch:114,schema_min:6,schema_max:9,manifest_sha256:manifest})};
 const panel = new UpdatePackage({
   document: {getElementById:id=>elements.get(id)},
   getToken: () => token,
+  confirm: () => consent,
+  request: async command => {
+    queried.push(command);
+    if (command.op === 'discard_update_upload') {
+      assert.equal(command.request_id, accepted?.request_id);
+      accepted = null;
+      return {discarded:true,request_id:command.request_id};
+    }
+    return {available:true,receipt:accepted};
+  },
   fetch: (url, options) => {
     sent.push({url, options});
-    return reply;
+    return typeof reply === 'function' ? reply(options) : reply;
   }
 });
 
@@ -68,3 +82,38 @@ assert.equal(element('-preview').disabled, true);
 
 console.log('PASS: signed update selection, explicit bounded upload, verified result, denied and logged-out replies.');
 
+
+token = 'a'.repeat(64);
+panel.reset();
+element('').files = [file];
+element('').onchange();
+reply = {ok:true,json:async()=>({verified:true,epoch:114,schema_min:6,schema_max:9,manifest_sha256:manifest})};
+await element('-preview').onclick();
+assert.equal(element('-submit').disabled,false);
+const previous = sent.length;
+await element('-submit').onclick();
+assert.equal(sent.length,previous,'declining confirmation sends nothing');
+
+consent = true;
+reply = ({headers}) => {
+  accepted = {state:'received',request_id:headers['X-RustSimHub-Update-Request'],manifest_sha256:manifest,epoch:114};
+  throw Error('synthetic lost reply');
+};
+await element('-submit').onclick();
+assert.equal(sent.length,previous+1);
+assert.equal(sent.at(-1).url,'/api/update/v1/submit');
+assert.equal(sent.at(-1).options.body,file);
+assert.equal(sent.at(-1).options.headers['X-RustSimHub-Update-Manifest'],manifest);
+assert.match(element('-state').textContent,/未确认/);
+await element('-submit').onclick();
+assert.equal(sent.length,previous+1,'an uncertain result cannot auto-retry');
+panel.reset();
+await element('-query').onclick();
+assert.deepEqual(queried.at(-1),{op:'update_upload_status'});
+assert.match(element('-state').textContent,/已受理应用 114/);
+assert.equal(element('-discard').disabled,false);
+await element('-discard').onclick();
+assert.equal(accepted,null);
+assert.equal(element('-discard').hidden,true);
+assert.match(element('-state').textContent,/已移除/);
+console.log('PASS: explicit install confirmation, lost reply, durable receipt lookup, and removal of the exact upload.');

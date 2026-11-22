@@ -124,6 +124,23 @@ fn run() -> Result<(), rustsimhub_update::Error> {
         println!("{}", observation.report()?);
         return Ok(());
     }
+    if args
+        .first()
+        .is_some_and(|command| command == "admit-web-upload")
+    {
+        if args.len() != 1 {
+            return Err(Error::Invalid);
+        }
+        let (request_id, admission) = rustsimhub_update::admission::admit_web_upload()?;
+        println!(
+            "{}",
+            serde_json::json!({"request_id":request_id,"admission":admission.report})
+        );
+        if admission.exit_code != 0 {
+            std::process::exit(admission.exit_code);
+        }
+        return Ok(());
+    }
     if args == ["inspect-maintenance"] {
         let snapshot = rustsimhub_update::admission::MaintenanceSnapshot::observe()?;
         snapshot.revalidate()?;

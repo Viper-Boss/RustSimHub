@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-22T14:12:36.986343+00:00",
+  "updated_at": "2026-11-22T14:32:57.561759+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -6201,6 +6201,18 @@
       ],
       "evidence": [
         "https://github.com/Viper-Boss/RustSimHub/commit/a24f67f"
+      ]
+    },
+    {
+      "at": "2026-11-22T14:32:57.561759+00:00",
+      "type": "state",
+      "title": "UPD-02 · 状态更新：签名维护材料与固定写入表",
+      "detail": "网页签名包已可明确提交并保留受理回执，维护命令已接到原受限暂存。继续实现备份、试运行、健康确认与回退的自动维护流程。",
+      "task_ids": [
+        "UPD-02"
+      ],
+      "evidence": [
+        "docs/VALIDATION-WEB-UPDATE-RECEIPT-20261122.md"
       ]
     }
   ],

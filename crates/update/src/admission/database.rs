@@ -136,6 +136,29 @@ impl Database {
         result.revalidate()?;
         Ok(result)
     }
+    pub(super) fn check_web_update_owner(
+        &self,
+        binding: &rustsimhub_wire::UpdateUploadBinding,
+    ) -> Result<()> {
+        self.revalidate()?;
+        let connection = self._connection.as_ref().ok_or(Error::Busy)?;
+        let (realm, key, generation, scopes): (String, Vec<u8>, i64, u16) = connection
+            .query_row(
+                "SELECT meta.db_epoch, p.public_key, p.generation, p.scopes                  FROM meta CROSS JOIN principals p                  WHERE meta.singleton=1 AND p.kind='owner' AND p.active=1                  AND (SELECT count(*) FROM principals WHERE kind='owner' AND active=1)=1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )
+            .map_err(|_| Error::Denied)?;
+        if realm != binding.realm
+            || key != binding.owner_key
+            || u64::try_from(generation).ok() != Some(binding.generation)
+            || scopes & rustsimhub_wire::UPDATE_MANAGE_SCOPE == 0
+        {
+            return Err(Error::Denied);
+        }
+        Ok(())
+    }
+
     pub fn revalidate(&self) -> Result<()> {
         if self._writer.is_none() || self._connection.is_none() {
             return Err(Error::Busy);
