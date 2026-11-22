@@ -1171,7 +1171,7 @@ impl Worker {
             .ok_or("call_unavailable")?;
         let path = l.path.clone();
         let revision = l.revision;
-        let sent = async {
+        let proxy = async {
             if intent.action != CallAction::Hangup && !self.urgent.is_empty() {
                 return Err("urgent_pending");
             }
@@ -1193,22 +1193,38 @@ impl Worker {
                 }
             }
             self.principal(token, Scope::CallsControl).await?;
-            let proxy = CallProxy::builder(&b.connection)
+            CallProxy::builder(&b.connection)
                 .destination(b.context.owner.clone())
                 .map_err(|_| "backend_invalid")?
                 .path(path)
                 .map_err(|_| "backend_invalid")?
                 .build()
                 .await
-                .map_err(|_| "backend_invalid")?;
-            match intent.action {
+                .map_err(|_| "backend_invalid")
+        }
+        .await;
+        let sent = match proxy {
+            Err(error) => Err(error),
+            Ok(proxy) => match intent.action {
                 CallAction::Dial => bounded(proxy.start()).await,
                 CallAction::Accept => bounded(proxy.accept()).await,
                 CallAction::Hangup => bounded(proxy.hangup()).await,
-                CallAction::Dtmf => bounded(proxy.send_dtmf(&intent.payload)).await,
-            }
-        }
-        .await;
+                CallAction::Dtmf => {
+                    // A modem tone can outlast the PCM heartbeat deadline.
+                    // Recheck media against the original live authority while
+                    // the single, already-permitted modem action is in flight.
+                    let tone = bounded(proxy.send_dtmf(&intent.payload));
+                    tokio::pin!(tone);
+                    loop {
+                        tokio::select! {
+                            biased;
+                            result = &mut tone => break result,
+                            Some(job) = self.media_jobs.recv() => self.handle_media(job).await,
+                        }
+                    }
+                }
+            },
+        };
         if sent.is_ok() {
             if intent.action == CallAction::Dtmf {
                 let _ = self.confirm(id, token, p, &b, &target).await;
