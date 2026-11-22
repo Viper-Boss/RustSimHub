@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-22T14:03:03.120117+00:00",
+  "updated_at": "2026-11-22T14:47:56.012108+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -6179,6 +6179,18 @@
       ],
       "evidence": [
         "https://github.com/Viper-Boss/RustSimHub/commit/cd9dd9611101eb8045597cdd582ad98f1429ae11"
+      ]
+    },
+    {
+      "at": "2026-11-22T14:47:56.012108+00:00",
+      "type": "state",
+      "title": "CALL-02 · 状态更新：DTMF菜单实测",
+      "detail": "应用 114 已安装并通过设备健康复核，保留 113 回退。连续按键、运营商菜单响应和声音连续性待实测。",
+      "task_ids": [
+        "CALL-02"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/commit/d733f9f955f56bab326c2e66235379ec41f87a79"
       ]
     }
   ],
