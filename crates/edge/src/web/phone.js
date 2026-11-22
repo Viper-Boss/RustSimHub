@@ -13,6 +13,10 @@ function operation(result,id,line){
 function boundLease(value,call,line){
  return value&&value.call_id===call&&value.line===line&&/^[a-f0-9]{64}$/.test(value.boot)&&Number.isSafeInteger(value.generation)&&value.generation>0&&Number.isInteger(value.expires_in_seconds)&&value.expires_in_seconds>0&&value.expires_in_seconds<=30?{...value}:null;
 }
+function temporaryReadError(error){
+ return error?.coreCode==='busy'||[429,502,503,504].includes(error?.httpStatus)||
+  error?.name==='AbortError'||error instanceof TypeError;
+}
 export class DailyPhone {
  constructor(options){
   Object.assign(this,options);this.env=options.env||globalThis;this.ensureSession=options.ensureSession||(()=>Promise.resolve());this.$=id=>this.document.getElementById(id);this.generation=0;this.action=0;this.enabled=false;this.working=false;this.managing=false;this.calls=[];
@@ -23,7 +27,10 @@ export class DailyPhone {
   this.$('phone-query').onclick=()=>this.run(()=>this.query());
   this.$('phone-close').onclick=()=>this.run(()=>this.close());
   this.$('phone-connect').onclick=()=>this.run(()=>this.connect());
-  this.$('phone-tone-send').onclick=()=>this.run(()=>this.begin('dtmf',this.lease?.call_id));
+  this.$('phone-tone-send').onclick=()=>{
+   const key=this.$('phone-tone').value.toUpperCase();
+   return this.run(()=>this.begin('dtmf',this.lease?.call_id,key));
+  };
   this.$('phone-muted').onchange=()=>this.audio.mute(this.$('phone-muted').checked);
   this.$('phone-play').onclick=()=>void this.audio.play().catch(()=>this.say('浏览器暂停播放，请检查声音设备'));
   this.render();
@@ -52,6 +59,7 @@ export class DailyPhone {
   const line=await this.requestCurrent({op:'line_status'},g,a);
   if(line.status!=='ready'||!Number.isSafeInteger(line.line)||line.line<=0)throw Error('SIM 尚未就绪');
   const status=await this.requestCurrent({op:'call_status'},g,a);
+  if(status.available===false)throw Object.assign(Error('电话状态暂未确认，请稍后刷新'),{coreCode:'busy'});
   if(status.available!==true||!Array.isArray(status.live_calls)||status.live_calls.length>64)throw Error('电话状态暂未确认，请稍后刷新');
   const seen=new Set();
   for(const call of status.live_calls){
@@ -99,11 +107,24 @@ export class DailyPhone {
     }
    }
    const selected=this.lease?this.calls.find(call=>call.id===this.lease.call_id):this.calls[0];
-   if(selected){const info=await this.detail(selected.id,snapshot,g,a);this.current(g,a);this.number={id:info.id,value:info.number};}
+   if(selected){
+    try{const info=await this.detail(selected.id,snapshot,g,a);this.current(g,a);this.number={id:info.id,value:info.number};}
+    catch(error){this.current(g,a);if(!temporaryReadError(error))throw error;this.number=null;}
+   }
    else this.number=null;
    this.render();
   }catch(error){
-   if(g===this.generation&&a===this.action&&this.enabled){this.calls=[];this.snapshot=null;this.observedFingerprint=null;if(this.lease){this.lease=null;this.managing=false;this.setLease(null);void this.closeMedia();}this.say(error.message||'电话状态暂未确认');this.render();}
+   if(g===this.generation&&a===this.action&&this.enabled){
+    if(temporaryReadError(error)&&this.token()&&this.confirmedControl&&this.lease&&this.audio.state==='active'&&
+       this.now()-this.lastRenew<this.lease.expires_in_seconds*1000){
+     this.observedFingerprint=null;
+     this.say('电话状态暂未更新，正在核对本次通话。');
+     return;
+    }
+    this.calls=[];this.snapshot=null;this.observedFingerprint=null;
+    if(this.lease){this.lease=null;this.managing=false;this.setLease(null);void this.closeMedia();}
+    this.say(error.message||'电话状态暂未确认');this.render();
+   }
   }finally{if(this.polling===marker)this.polling=null;}
  }
  async slot(g,a,cleanup=false){
@@ -124,10 +145,10 @@ export class DailyPhone {
   try{this.current(g,a);}catch(error){for(const track of stream.getTracks())track.stop();throw error;}
   this.stream=stream;return stream;
  }
- async begin(action,target=null){
+ async begin(action,target=null,key=''){
   const g=this.generation,a=this.action;
   if(['dial','accept','dtmf'].includes(action)){await this.ensureSession();this.current(g,a);}
-  const payload=action==='dial'?this.$('phone-number').value.trim():action==='dtmf'?this.$('phone-tone').value.toUpperCase():'';
+  const payload=action==='dial'?this.$('phone-number').value.trim():action==='dtmf'?key:'';
   if(action==='dial'&&(payload.length>32||!/^\+?[0-9]{3,32}$/.test(payload)))throw Error('请输入有效的拨出号码');
   if(action==='dtmf'&&!/^[0-9ABCD*#]$/.test(payload))throw Error('每次发送一个按键：0–9、*、#、A–D');
   const prior=await this.slot(g,a,action==='hangup');
@@ -222,12 +243,19 @@ export class DailyPhone {
  }
  render(){
   const online=this.enabled&&!!this.token(),blocked=this.blocked(),pending=this.getPending();
+  const inCall=online&&(!!this.lease||this.calls.length>0);
+  const keypad=this.$('c-ph-keys'),keypadTitle=inCall?'通话按键':'拨号';
+  keypad.dataset.mode=inCall?'call':'dial';
+  keypad.setAttribute('aria-label',inCall?'通话按键':'拨号键盘');
+  if(this.$('c-ph-keypad-title').textContent!==keypadTitle)this.$('c-ph-keypad-title').textContent=keypadTitle;
+  this.$('c-ph-num').readOnly=inCall;
+  this.$('c-ph-back').disabled=inCall;
   this.$('phone-dial').disabled=!online||blocked||this.working||this.managing||!!this.calls.length;
   this.$('phone-hangup').disabled=!online||!this.lease&&!this.working;
   this.$('phone-query').disabled=!online||blocked||this.working||pending?.type!=='call';
   this.$('phone-close').disabled=!online||blocked||this.working||this.managing||pending?.type!=='call';
   this.$('phone-connect').disabled=!online||blocked||this.working||!this.lease||!this.confirmedControl||this.audio.state==='active';
-  this.$('phone-tone-send').disabled=!online||blocked||this.working||!this.lease||!this.calls.some(call=>call.id===this.lease.call_id&&call.modem_state===4);
+  this.$('phone-tone-send').disabled=!online||blocked||this.working||!this.confirmedControl||!this.lease||!this.calls.some(call=>call.id===this.lease.call_id&&call.modem_state===4&&call.state==='active');
   this.$('phone-missed-ack').disabled=!online||blocked||this.working;
   this.$('phone-muted').checked=this.audio.muted===true;
   const list=this.$('phone-live');list.replaceChildren();

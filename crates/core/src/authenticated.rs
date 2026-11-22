@@ -343,6 +343,14 @@ pub(crate) async fn handle(
             | AuthCommand::InboxRecent { .. }
             | AuthCommand::DeletedInbox { .. }
             | AuthCommand::CallsRecent { .. }
+            | AuthCommand::CallDetail { .. }
+            | AuthCommand::CallHistoryStatus { .. }
+            | AuthCommand::CallStatus { .. }
+            | AuthCommand::RenewCall { .. }
+    );
+    let call_history_change = matches!(
+        request.command,
+        AuthCommand::DeleteCallHistory { .. } | AuthCommand::ClearCallHistory { .. }
     );
     let calling = matches!(
         request.command,
@@ -370,6 +378,27 @@ pub(crate) async fn handle(
     let bluetooth_mode = matches!(
         request.command,
         AuthCommand::BluetoothModeStatus { .. } | AuthCommand::BluetoothModeSet { .. }
+    );
+    let forwarding_command = matches!(
+        request.command,
+        AuthCommand::ForwardingStatus { .. }
+            | AuthCommand::SetForwardingEnabled { .. }
+            | AuthCommand::ForwardingConfigure { .. }
+            | AuthCommand::ForwardingRules { .. }
+            | AuthCommand::ForwardingRequest { .. }
+            | AuthCommand::ForwardingTest { .. }
+            | AuthCommand::ForwardingQuickTest { .. }
+            | AuthCommand::ForwardingTestRequest { .. }
+            | AuthCommand::ForwardingReceipts { .. }
+            | AuthCommand::ForwardingRecentReceipts { .. }
+            | AuthCommand::ForwardingLogPage { .. }
+            | AuthCommand::ForwardingLogClear { .. }
+            | AuthCommand::ForwardingPrune { .. }
+            | AuthCommand::ForwardingHistoryPrepare { .. }
+            | AuthCommand::ForwardingHistoryCommit { .. }
+            | AuthCommand::ForwardingHistoryCancel { .. }
+            | AuthCommand::ForwardingHistoryArchive { .. }
+            | AuthCommand::ForwardingHistoryRequest { .. }
     );
     let result = if let AuthCommand::BluetoothModeStatus { token } = request.command {
         tokio::task::spawn_blocking(move || crate::bluetooth_mode::status(&auth, &token)).await?
@@ -419,27 +448,7 @@ pub(crate) async fn handle(
             crate::compat_api::dispatch(&mut a, &mut gate, request.command)
         })
         .await?
-    } else if matches!(
-        request.command,
-        AuthCommand::ForwardingStatus { .. }
-            | AuthCommand::SetForwardingEnabled { .. }
-            | AuthCommand::ForwardingConfigure { .. }
-            | AuthCommand::ForwardingRules { .. }
-            | AuthCommand::ForwardingRequest { .. }
-            | AuthCommand::ForwardingTest { .. }
-            | AuthCommand::ForwardingQuickTest { .. }
-            | AuthCommand::ForwardingTestRequest { .. }
-            | AuthCommand::ForwardingReceipts { .. }
-            | AuthCommand::ForwardingRecentReceipts { .. }
-            | AuthCommand::ForwardingLogPage { .. }
-            | AuthCommand::ForwardingLogClear { .. }
-            | AuthCommand::ForwardingPrune { .. }
-            | AuthCommand::ForwardingHistoryPrepare { .. }
-            | AuthCommand::ForwardingHistoryCommit { .. }
-            | AuthCommand::ForwardingHistoryCancel { .. }
-            | AuthCommand::ForwardingHistoryArchive { .. }
-            | AuthCommand::ForwardingHistoryRequest { .. }
-    ) {
+    } else if forwarding_command {
         match forwarding {
             Some(c) => c.request(auth.clone(), request.command).await,
             None => Err(rustsimhub_auth::Error::Forbidden),
@@ -631,7 +640,15 @@ pub(crate) async fn handle(
             }
             value
         }
-        Err(rustsimhub_auth::Error::Busy) if health || list_read || bluetooth_mode || status_read || roaming_change => {
+        Err(rustsimhub_auth::Error::Busy)
+            if health
+                || list_read
+                || bluetooth_mode
+                || status_read
+                || roaming_change
+                || call_history_change
+                || forwarding_command =>
+        {
             json!({"ok":false,"error":"busy"})
         }
         Err(rustsimhub_auth::Error::Expired) if bluetooth_mode || roaming_change => {

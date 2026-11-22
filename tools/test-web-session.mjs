@@ -66,7 +66,7 @@ for(const stop of ['timeout','reset','replace']){
  if(stop!=='timeout')gate.resolve(ok);await rejected;if(stop==='timeout')gate.resolve(ok);await turn();assert.equal(c.timers.size,0);
  if(stop==='reset'){k.start(token,900);assert.equal(k.failed,false);assert.equal(k.deadline,c.performance.now()+900000);}
 }
-class Element{constructor(){this.value='';this.textContent='';this.children=[];}append(...items){this.children.push(...items);}replaceChildren(...items){this.children=items;}setAttribute(){}removeAttribute(){}addEventListener(){}}
+class Element{constructor(){this.value='';this.textContent='';this.children=[];this.dataset={};}append(...items){this.children.push(...items);}replaceChildren(...items){this.children=items;}setAttribute(){}removeAttribute(){}addEventListener(){}}
 const callId='00000000-0000-4000-8000-000000000001',lease={call_id:callId,line:2,boot:'e'.repeat(64),generation:1,expires_in_seconds:30};
 const device=await crypto.subtle.generateKey('Ed25519',false,['sign','verify']),client=await crypto.subtle.generateKey('Ed25519',false,['sign','verify']);
 const pin=new Uint8Array(await crypto.subtle.exportKey('raw',device.publicKey)),pub=new Uint8Array(await crypto.subtle.exportKey('raw',client.publicKey));

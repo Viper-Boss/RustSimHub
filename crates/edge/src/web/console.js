@@ -141,7 +141,12 @@ export class ConsoleDashboard{
   });
   this.$('c-call-delete').addEventListener('click',()=>void this.removeCallHistory(false));
   this.$('c-call-clear').addEventListener('click',()=>void this.removeCallHistory(true));
-  this.$('c-ph-keys').addEventListener('click',e=>{const key=e.target?.dataset?.key,input=this.$('c-ph-num');if(key&&input.value.length<32)input.value+=key;});
+  this.$('c-ph-keys').addEventListener('click',e=>this.phoneKey(e.target?.dataset?.key));
+  this.$('c-ph-num').addEventListener('keydown',e=>{
+   if(this.$('c-ph-keys').dataset.mode==='call'&&/^[0-9*#]$/.test(e.key)&&!e.ctrlKey&&!e.altKey&&!e.metaKey){
+    e.preventDefault();if(!e.repeat)this.phoneKey(e.key);
+   }
+  });
   this.$('c-ph-back').addEventListener('click',()=>{const input=this.$('c-ph-num');input.value=input.value.slice(0,-1);});
   this.$('c-ph-dial').addEventListener('click',()=>this.dial());this.$('c-ph-hang').addEventListener('click',()=>this.press('phone-hangup','c-ph-state','现在没有可挂断的通话'));
   this.$('c-ac-out').addEventListener('click',()=>this.$('daily-logout').click());this.$('c-ac-done').addEventListener('click',()=>this.$('configuration-done').click());
@@ -162,7 +167,7 @@ export class ConsoleDashboard{
  setTheme(theme){this.doc.documentElement.dataset.theme=theme;this.$('c-theme-icon').setAttribute('href',theme==='dark'?'#i-sun':'#i-moon');}
  go(target,tab=0,openId=null){const page=PAGES[target];if(!page)return;const tabs=page.tabs||[];const index=tabs[tab]?tab:0;const changed=target!==this.page||index!==this.tab;if(changed)this.onLeave();if(this.page==='security'&&target!=='security')this.hideAirsimCode();this.page=target;this.tab=index;this.watchAirsim();
   const root=this.doc.documentElement;root.dataset.page=target;root.dataset.tab=String(index);delete root.dataset.reading;delete root.dataset.mailManage;
-  if(changed){this.mailSelecting=false;this.selectedMail.clear();this.clearMailDetail();this.$('c-mail-operation').textContent='';this.renderMail();if(target==='comms'&&this.active){if(index===4)void this.loadTrash();else if(index===0||index===2||index===3)void this.readLists();}}
+  if(changed){this.mailPageEpoch=(this.mailPageEpoch??0)+1;this.mailSelecting=false;this.selectedMail.clear();this.clearMailDetail();this.$('c-mail-operation').textContent='';this.$('c-call-operation').textContent='';this.renderMail();if(target==='comms'&&this.active){if(index===4)void this.loadTrash();else if(index===0||index===2||index===3)void this.readLists();}}
   const navTarget=page.nav||target;for(const b of this.doc.querySelectorAll('.nav[data-go]'))if(b.dataset.go===navTarget)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
   const mobile={dashboard:'dashboard',comms:'comms',hardware:'hardware',network:'network'}[navTarget]||'more';for(const b of this.doc.querySelectorAll('[data-mnav]'))if(b.dataset.mnav===mobile)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
   this.$('c-title').textContent=page.title;const sub=this.$('c-subtitle');sub.textContent=page.desc||'';sub.hidden=!page.desc;const dashboard=target==='dashboard';this.$('c-dash').hidden=!dashboard;this.$('c-back').hidden=dashboard;
@@ -180,6 +185,16 @@ export class ConsoleDashboard{
  press(id,stateId,reason){const button=this.$(id);if(button.disabled){this.$(stateId).textContent=this.active?reason:'请先登录';return false;}button.click();return true;}
  sendSms(){const to=this.$('recipient'),body=this.$('text');to.value=this.$('c-cp-to').value.trim();body.value=this.$('c-cp-text').value;body.dispatchEvent(new Event('input',{bubbles:true}));this.press('send-sms','c-cp-state','现在不能发送：有未完成的操作，请到“设备调试”查询');}
  dial(){const input=this.$('phone-number');input.value=this.$('c-ph-num').value.trim();input.dispatchEvent(new Event('input',{bubbles:true}));this.press('phone-dial','c-ph-state','现在不能拨号');}
+ phoneKey(key){
+  if(typeof key!=='string'||!/^[0-9*#]$/.test(key))return;
+  if(this.$('c-ph-keys').dataset.mode==='call'){
+   if(!this.$('phone-tone-send').disabled)this.$('phone-tone').value=key;
+   this.press('phone-tone-send','c-ph-state','请等通话接通或上一键发送结束');
+   return;
+  }
+  const input=this.$('c-ph-num');
+  if(input.value.length<32)input.value+=key;
+ }
  commSection(kind){this.go('comms',kind==='otp'?3:0);for(const b of this.doc.querySelectorAll('[data-mc]'))b.setAttribute('aria-pressed',String(b.dataset.mc===kind));this.$(`c-mc-g-${kind}`)?.scrollIntoView?.({behavior:'smooth',block:'start'});}
  commMatch(value){const q=this.$('c-mc-q').value.trim();return !q||String(value).includes(q);}
  renderComm(){const filter=this.$('c-mc-f').value;for(const k of ['sms','otp','call'])this.$(`c-mc-g-${k}`).hidden=filter!=='all'&&filter!==k;
@@ -301,11 +316,15 @@ export class ConsoleDashboard{
  }
  async performSmsAction(action){
   if(!this.active||this.mailAction)return;
-  const epoch=this.epoch,folder=this.smsFolder(),marker={},state=this.$('c-mail-operation');
+  const epoch=this.epoch,pageEpoch=this.mailPageEpoch,marker={},state=this.$('c-mail-operation');
+  const inView=()=>epoch===this.epoch&&pageEpoch===this.mailPageEpoch&&this.page==='comms';
+  let submitted=false;
+  state.textContent='';
   this.mailAction=marker;this.renderMail();
-  const current=()=>{if(epoch!==this.epoch||this.page!=='comms'||this.smsFolder()!==folder)throw Error('会话或短信页面已变化');};
+  const current=()=>{if(!inView())throw Error('会话或短信页面已变化');};
+  const submit=command=>{current();submitted=true;return this.request(command);};
   try{
-   const result=await action(current);
+   const result=await action(current,submit);
    current();if(result===null)return;
    const {changed,label}=result;
    this.selectedMail.clear();this.mailSelecting=false;this.clearMailDetail();
@@ -313,17 +332,23 @@ export class ConsoleDashboard{
    if(this.smsFolder()==='trash')void this.readLists(true);
    state.textContent=`已${label} ${changed} 条短信`;
   }catch{
-   if(epoch===this.epoch&&this.page==='comms')state.textContent='操作未全部确认，请刷新核对后再试。';
+   if(inView()){
+    if(submitted){
+     state.textContent='本次短信操作结果未确认，正在重新读取列表。';
+     await this.refreshSmsFolder().catch(()=>{});
+     if(inView())state.textContent='本次短信操作结果未确认，请核对记录。操作未自动重试。';
+    }else state.textContent='短信状态暂时读不到，本次操作未提交。';
+   }
   }finally{if(this.mailAction===marker){this.mailAction=null;this.renderMail();}}
  }
  async applySelection(){
   const ids=[...this.selectedMail],trash=this.smsFolder()==='trash',label=trash?'恢复':'移到回收站';
   if(!ids.length||!this.confirm(`将所选 ${ids.length} 条短信${trash?'恢复到收件箱':'移到本地回收站'}？`))return;
-  await this.performSmsAction(async current=>{
+  await this.performSmsAction(async (current,submit)=>{
    let changed=0;
    for(let i=0;i<ids.length;i+=32){
     current();const sms_ids=ids.slice(i,i+32);
-    const result=record(await this.request({op:'set_sms_deleted_batch',sms_ids,deleted:!trash}));
+    const result=record(await submit({op:'set_sms_deleted_batch',sms_ids,deleted:!trash}));
     if(count(result.changed)===null||result.changed>sms_ids.length)throw Error('回执无效');
     changed+=result.changed;
    }
@@ -333,7 +358,7 @@ export class ConsoleDashboard{
  async applyFolder(){
   const folder=this.smsFolder(),purge=folder==='trash';
   if(folder==='otp')return;
-  await this.performSmsAction(async current=>{
+  await this.performSmsAction(async (current,submit)=>{
    const info=record(await this.request({op:'sms_folder_status'}));current();
    if(this.smsFolder()!==folder)return null;
    const total=count(purge?info.trash:info.inbox),version=cursorOf(info.version),head_seq=visibilityOf(info.head_seq);
@@ -342,7 +367,7 @@ export class ConsoleDashboard{
    if(!this.confirm(purge?`永久删除本机回收站中的 ${total} 条短信？清空后无法从回收站恢复。SIM 上的原件仍会保留。`:
      `把收件箱的全部 ${total} 条短信移到回收站？验证码也会移入回收站。`))return null;
    current();
-   const result=record(await this.request({op:'apply_sms_folder',version,head_seq,purge}));
+   const result=record(await submit({op:'apply_sms_folder',version,head_seq,purge}));
    if(result.changed!==total)throw Error('回执无效');
    return {changed:total,label:purge?'永久删除':'移到回收站'};
   });
@@ -390,8 +415,8 @@ export class ConsoleDashboard{
  async deleteMail(){
   const m=this.opened,trash=this.smsFolder()==='trash';
   if(!m||!this.confirm(trash?'恢复这条短信到收件箱？':'把这条短信移到本地回收站？'))return;
-  await this.performSmsAction(async current=>{
-   const result=record(await this.request({op:trash?'restore_sms':'delete_sms',sms_id:m.id}));
+  await this.performSmsAction(async (current,submit)=>{
+   const result=record(await submit({op:trash?'restore_sms':'delete_sms',sms_id:m.id}));
    current();
    if(result.sms_id!==m.id||result.deleted!==!trash)throw Error('回执无效');
    return {changed:1,label:trash?'恢复':'移到回收站'};
@@ -427,19 +452,21 @@ export class ConsoleDashboard{
  }
  async removeCallHistory(all){
   if(!this.active||this.callAction)return;
-  const epoch=this.epoch,marker={},status=this.$('c-call-operation');
-  const valid=()=>epoch===this.epoch&&this.callAction===marker;
+  const epoch=this.epoch,view=this.mailPageEpoch,marker={},status=this.$('c-call-operation');
+  const valid=()=>epoch===this.epoch&&view===this.mailPageEpoch&&this.callAction===marker;
+  let changed=0,submitted=false;
+  const submit=command=>{submitted=true;return this.request(command);};
+  status.textContent='';
   this.callAction=marker;this.renderPhoneCalls();
   try{
-   let changed=0;
    if(all){
-    const info=record(await this.request({op:'call_history_status'}));
+    const info=record(await this.readListPage({op:'call_history_status'},valid));
     if(!valid())return;
     const through=cursorOf(info.through),expected=count(info.ended);
     if(!through||expected===null)throw Error('通话记录范围无效');
     if(!expected){status.textContent='没有已结束的通话记录。';return;}
     if(!this.confirm('删除全部 '+expected+' 条已结束的通话记录？'))return;
-    const result=record(await this.request({op:'clear_call_history',through,expected}));
+    const result=record(await submit({op:'clear_call_history',through,expected}));
     if(result.changed!==expected)throw Error('回执无效');
     changed=expected;
    }else{
@@ -448,7 +475,7 @@ export class ConsoleDashboard{
     for(let offset=0;offset<ids.length;offset+=32){
      if(!valid())return;
      const call_ids=ids.slice(offset,offset+32);
-     const result=record(await this.request({op:'delete_call_history',call_ids}));
+     const result=record(await submit({op:'delete_call_history',call_ids}));
      if(!Number.isSafeInteger(result.changed)||result.changed<0||result.changed>call_ids.length)throw Error('回执无效');
      changed+=result.changed;
     }
@@ -457,10 +484,22 @@ export class ConsoleDashboard{
    this.callSelecting=false;this.selectedCalls.clear();
    await this.readLists(true);
    if(valid())status.textContent='已删除 '+changed+' 条通话记录。';
-  }catch{
-   if(valid()){status.textContent='操作未全部确认，正在核对记录。';await this.readLists(true);}
+  }catch(error){
+   if(!valid())return;
+   const confirmed=changed?`已确认删除 ${changed} 条。`:'';
+   if(!submitted){
+    status.textContent=error?.coreCode==='denied'?'无法读取删除范围，请核对是否用所有者账号登录。':'删除范围暂时读不到，本次未提交。';
+    return;
+   }
+   status.textContent='正在重新读取通话记录…';
+   await this.readLists(true).catch(()=>{});
+   if(valid()){
+    status.textContent=confirmed+(error?.coreCode==='busy'?'设备繁忙，本批未执行。请稍后再试。':
+     error?.coreCode==='denied'?'设备未确认删除。请核对所有者登录和列表后再试。':
+     '删除结果未确认，请核对列表。操作未自动重试。');
+   }
   }finally{
-   if(valid()){this.callAction=null;this.renderPhoneCalls();}
+   if(this.callAction===marker){this.callAction=null;this.renderPhoneCalls();}
   }
  }
 
