@@ -1,0 +1,23 @@
+[Unit]
+Description=RustSimHub NKN installation statistics check-in
+After=network-online.target
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/installation.complete
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/rustsimhub-usage-checkin
+DynamicUser=yes
+StateDirectory=rustsimhub-usage-checkin
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateDevices=yes
+PrivateTmp=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6
+InaccessiblePaths=/run/rustsimhub /var/lib/rustsimhub
+MemoryMax=40M
+TasksMax=12
+TimeoutStartSec=40

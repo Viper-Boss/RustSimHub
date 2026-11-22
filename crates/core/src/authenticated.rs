@@ -197,6 +197,7 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
         }
         LineStatus { token } => serde_json::to_value(auth.line_status(&token)?)
             .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        ProcessList { .. } => return Err(rustsimhub_auth::Error::Forbidden),
         SystemStatus { token } => {
             auth.authorize(&token, Scope::StatusRead)?;
             crate::system_status::snapshot()
@@ -367,6 +368,7 @@ pub(crate) async fn handle(
     let status_read = matches!(
         &request.command,
         AuthCommand::SystemStatus { .. }
+            | AuthCommand::ProcessList { .. }
             | AuthCommand::LineStatus { .. }
             | AuthCommand::NetworkDiagnostics { .. }
             | AuthCommand::DataRoamingStatus { .. }
@@ -400,7 +402,24 @@ pub(crate) async fn handle(
             | AuthCommand::ForwardingHistoryArchive { .. }
             | AuthCommand::ForwardingHistoryRequest { .. }
     );
-    let result = if let AuthCommand::BluetoothModeStatus { token } = request.command {
+    let result = if let AuthCommand::ProcessList { token } = request.command {
+        tokio::task::spawn_blocking(move || {
+            let owner = auth
+                .try_lock()
+                .map_err(|_| rustsimhub_auth::Error::Busy)?
+                .owner_session(&token)?;
+            let value = crate::system_status::processes().ok_or(rustsimhub_auth::Error::Busy)?;
+            let owner_after = auth
+                .try_lock()
+                .map_err(|_| rustsimhub_auth::Error::Busy)?
+                .owner_session(&token)?;
+            if owner_after != owner {
+                return Err(rustsimhub_auth::Error::Forbidden);
+            }
+            Ok(value)
+        })
+        .await?
+    } else if let AuthCommand::BluetoothModeStatus { token } = request.command {
         tokio::task::spawn_blocking(move || crate::bluetooth_mode::status(&auth, &token)).await?
     } else if matches!(
         request.command,

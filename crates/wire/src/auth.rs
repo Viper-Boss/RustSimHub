@@ -262,6 +262,9 @@ pub enum AuthCommand {
     SystemStatus {
         token: String,
     },
+    ProcessList {
+        token: String,
+    },
     NetworkStatus {
         token: String,
     },
@@ -1446,6 +1449,7 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         | AuthCommand::Capabilities { token }
         | AuthCommand::LineStatus { token }
         | AuthCommand::SystemStatus { token }
+        | AuthCommand::ProcessList { token }
         | AuthCommand::DataRoamingStatus { token }
         | AuthCommand::PrepareDataRoaming { token }
         | AuthCommand::NetworkStatus { token }

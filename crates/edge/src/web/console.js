@@ -79,6 +79,7 @@ export const PAGES={
  gnss:{title:'GNSS定位',desc:'卫星定位状态',tabs:[{label:'定位',view:'v-gnss'}]},
  ble:{title:'蓝牙',desc:'通信模式与 Wi-Fi 配网',tabs:[{label:'蓝牙',view:'v-ble'}]},
  security:{title:'安全策略',desc:'当前身份、已授权设备和外部接入',tabs:[{label:'概览',view:'v-security'}]},
+ processes:{title:'进程管理',desc:'查看棒子正在运行的进程',tabs:[{label:'进程',view:'v-processes'}]},
  logs:{title:'系统日志',desc:'本次打开页面以来的事件',tabs:[{label:'最近事件',view:'v-events'}]},
  settings:{title:'设置',desc:'账户、外观和设备调试',tabs:[{label:'账户',view:'v-account'},{label:'外观',view:'v-appearance'},{label:'关于',view:'v-about'},{label:'设备调试',debug:true}]},
  login:{title:'登录',desc:'',nav:'settings',tabs:[{label:'登录',show:['login-section']}]},
@@ -88,7 +89,33 @@ export function transientReadError(error){
  return error?.coreCode==='busy'||[429,502,503,504].includes(error?.httpStatus)||
   error?.name==='AbortError'||error instanceof TypeError;
 }
-const VIEWS=['v-mhome','v-hardware','v-network','v-sim','v-sms','v-mcomm','v-compose','v-phone','v-gnss','v-ble','v-security','v-events','v-account','v-appearance','v-about','v-more'];
+const VIEWS=['v-mhome','v-hardware','v-network','v-sim','v-sms','v-mcomm','v-compose','v-phone','v-gnss','v-ble','v-security','v-processes','v-events','v-account','v-appearance','v-about','v-more'];
+const PROCESS_STATES={R:'运行',S:'休眠',D:'等待 I/O',T:'暂停',t:'调试暂停',Z:'僵尸',I:'空闲',X:'退出'};
+const PROCESS_NOTES={
+ 'rustsimhub-core':'处理短信、电话及设备业务',
+ 'rustsimhub-edge':'提供网页控制台和 HTTPS 接口',
+ 'rustsimhub-forw':'按规则转发短信',
+ 'rustsimhub-audi':'采集和播放通话音频',
+ 'rustsimhub-usag':'向 NKN 上报活跃安装统计',
+ 'rustsimhub-airs':'提供 AirSIM 手机蓝牙通信',
+ 'rustsimhub-carr':'连接基带通话音频',
+ 'rustsimhub-mdns':'在局域网广播设备名称',
+ 'rustsimhub-nas-':'提供 NasSimHub 蓝牙接入',
+ 'rustsimhub-netw':'管理棒子的网络状态与流量策略',
+ 'rustsimhub-setu':'处理首次配网',
+ 'rustsimhub-stat':'控制设备状态指示灯',
+ 'ModemManager':'管理基带、SIM 卡、短信和通话',
+ 'NetworkManager':'管理 Wi-Fi、蜂窝及其他网络接口',
+ 'bluetoothd':'提供蓝牙配对和服务',
+ 'wpa_supplicant':'连接并验证 Wi-Fi 网络',
+ 'dbus-daemon':'在系统服务之间传递消息',
+ 'dbus-broker':'在系统服务之间传递消息',
+ 'systemd':'启动和管理系统服务',
+ 'systemd-journal':'收集系统服务日志',
+ 'systemd-udevd':'处理硬件设备事件',
+ 'sshd':'提供 SSH 维护连接',
+ 'sshd-session':'处理当前 SSH 维护会话',
+};
 const STRICT_BLOCKS=['login-section','session-section'];
 export const scalePercent=(v,lo,hi)=>{const n=finite(v);return n===null?null:Math.max(0,Math.min(100,(n-lo)/(hi-lo)*100));};
 const SPARK=30,POLL_SYSTEM=15000,POLL_LISTS=60000,DEVICE_ONLINE_WINDOW=30000;
@@ -104,6 +131,9 @@ export class ConsoleDashboard{
   this.$=id=>document.getElementById(id);this.detailText=detailText;this.confirm=confirm;this.mail=[];this.recentMail=[];this.older=[];this.mailTotal=0;this.callRows=[];this.recentCalls=[];this.olderCalls=[];this.callTotal=0;this.expanded=new Set();this.selectedMail=new Set();this.selectedCalls=new Set();this.trash=[];
   let theme=null;try{theme=storage?.getItem('rustsimhub-theme');}catch{}
   const saved=theme==='dark'||theme==='light';this.setTheme(saved?theme:matchDark()?'dark':'light');this.mode=saved?theme:'system';for(const b of document.querySelectorAll('[data-mode]')){b.setAttribute('aria-pressed',String(b.dataset.mode===this.mode));b.addEventListener('click',()=>this.setMode(b.dataset.mode));}
+  this.processRows=[];
+  this.$('c-process-filter').addEventListener('input',()=>this.renderProcesses());
+  this.$('c-process-refresh').addEventListener('click',()=>void this.readProcesses());
   this.$('c-theme').addEventListener('click',()=>{this.setMode(this.doc.documentElement.dataset.theme==='dark'?'light':'dark');});
   for(const b of document.querySelectorAll('[data-go]'))b.addEventListener('click',()=>this.go(b.dataset.go));
   for(const b of document.querySelectorAll('[data-debug]'))b.addEventListener('click',()=>this.debug(b.dataset.debug));
@@ -173,7 +203,10 @@ export class ConsoleDashboard{
   this.$('c-title').textContent=page.title;const sub=this.$('c-subtitle');sub.textContent=page.desc||'';sub.hidden=!page.desc;const dashboard=target==='dashboard';this.$('c-dash').hidden=!dashboard;this.$('c-back').hidden=dashboard;
   const bar=this.$('c-tabs');bar.replaceChildren();bar.hidden=tabs.length<2;if(tabs.length>1)tabs.forEach((t,i)=>{const b=this.doc.createElement('button');b.type='button';b.textContent=t.label;b.setAttribute('aria-pressed',String(i===index));b.addEventListener('click',()=>this.go(target,i));bar.append(b);});
   const current=tabs[index]||{},visible=new Set([...(page.phone||[]),current.view,current.phone].filter(Boolean));for(const id of VIEWS)this.$(id).hidden=!visible.has(id);
-  if(changed)this.onEnter(target);
+  if(changed){
+   this.onEnter(target);
+   if(target==='processes')void this.readProcesses();
+  }
   const legacy=this.$('c-legacy');legacy.classList.toggle('debug',current.debug===true);const show=current.show||[];legacy.hidden=!show.length&&!current.debug;
   if(current.debug){for(const child of legacy.children)child.classList.remove('page-off');for(const id of STRICT_BLOCKS)this.$(id).classList.remove('page-off');this.$('c-empty').classList.add('page-off');
    for(const child of legacy.children)if(child.tagName==='DETAILS')child.open=false;
@@ -540,7 +573,7 @@ export class ConsoleDashboard{
   if(online!==this.online){this.online=online;this.status(online);}
  }
  markReachable(){this.lastResponseAt=this.clock();this.updateReachability();}
- reset(){this.epoch++;this.lastResponseAt=null;this.online=false;this.systemLoading=null;this.resetAirsim();this.callAction=null;this.callSelecting=false;this.selectedCalls.clear();this.$('c-call-operation').textContent='';this.mailAction=null;this.mailSelecting=false;this.selectedMail.clear();this.trash=[];this.trashLoad=null;this.clearMailDetail();this.$('c-mail-operation').textContent='';this.active=false;this.listRun=(this.listRun||0)+1;this.listLoading=null;this.callLoading=null;this.lineEpoch=null;this.haveInbox=false;this.haveCalls=false;this.mailVisibility=null;this.mailExhausted=true;this.callExhausted=true;for(const t of this.timers)clearInterval(t);this.timers=[];this.sample=null;this.system=null;this.prevTicks=null;this.temps=[];this.tempTimes=[];this.otps=[];this.events=[];this.history=[];this.seen=new Set();this.lastLine=null;
+ reset(){this.epoch++;this.processLoading=null;this.processRows=[];this.processHint='以所有者身份登录后显示';this.processTruncated=false;this.$('c-process-filter').value='';this.$('c-process-refresh').disabled=true;this.$('c-process-filter').disabled=true;this.renderProcesses();this.lastResponseAt=null;this.online=false;this.systemLoading=null;this.resetAirsim();this.callAction=null;this.callSelecting=false;this.selectedCalls.clear();this.$('c-call-operation').textContent='';this.mailAction=null;this.mailSelecting=false;this.selectedMail.clear();this.trash=[];this.trashLoad=null;this.clearMailDetail();this.$('c-mail-operation').textContent='';this.active=false;this.listRun=(this.listRun||0)+1;this.listLoading=null;this.callLoading=null;this.lineEpoch=null;this.haveInbox=false;this.haveCalls=false;this.mailVisibility=null;this.mailExhausted=true;this.callExhausted=true;for(const t of this.timers)clearInterval(t);this.timers=[];this.sample=null;this.system=null;this.prevTicks=null;this.temps=[];this.tempTimes=[];this.otps=[];this.events=[];this.history=[];this.seen=new Set();this.lastLine=null;
   this.status(false);for(const id of ['c-sms-list','c-call-list','c-otp-list','c-event-list','c-mail-list','c-ph-calls','c-nw-devices','c-sc-list','c-mc-sms','c-mc-otp','c-mc-call'])this.$(id).replaceChildren();this.mail=[];this.recentMail=[];this.older=[];this.mailTotal=0;this.callRows=[];this.recentCalls=[];this.olderCalls=[];this.callTotal=0;this.opened=null;this.mailCursor=null;this.callCursor=null;this.$('c-mc-more').hidden=true;this.$('c-mail-open').hidden=true;this.$('c-mail-blank').hidden=false;for(const id of ['c-mail-empty','c-ph-calls-empty','c-nw-devices-empty','c-mc-e-sms','c-mc-e-otp','c-mc-e-call']){this.$(id).hidden=false;this.$(id).textContent='登录后显示';}this.renderPhoneCalls();this.renderMobileCounts();for(const id of ['c-sms-empty','c-call-empty','c-otp-empty','c-event-empty']){this.$(id).hidden=false;this.$(id).textContent='登录后显示';}
   for(const id of ['c-cpu','c-mem','c-disk','c-temp','c-uptime','c-kernel','c-os','c-version','c-cores','c-mem-total','c-disk-total','c-wifi-name','c-wifi-ip','c-wifi-speed','c-cell-op','c-cell-ip','c-cell-usage','c-rsrp','c-rsrq','c-sinr',...VIEW_FIELDS])this.$(id).textContent='—';for(const id of ['c-hw-cpu-ring','c-hw-mem-ring','c-hw-disk-ring','c-hw-temp-ring'])this.ring(id,0);this.drawTemp();this.$('c-log-state').textContent='';this.renderLog();this.$('c-model').textContent='未登录';this.$('c-mh-model').textContent='未登录';this.$('c-mh-sub').textContent='登录后显示设备信息';this.$('c-sim').textContent='登录后显示设备信息';
   this.$('c-otp-state').textContent='';for(const id of ['c-cpu-bar','c-mem-bar','c-disk-bar','c-mh-cpu-b','c-mh-mem-b','c-mh-disk-b'])this.bar(id,0);this.$('c-mh-trend').setAttribute('d','');this.$('c-temp-line').setAttribute('d','');this.network(null);this.mailButtons();this.tick();}
@@ -549,6 +582,7 @@ export class ConsoleDashboard{
   this.active=true;this.online=true;this.lastResponseAt=this.clock();this.status(true);this.log('登录成功','g');
   for(const timer of this.timers)clearInterval(timer);
   this.timers=[];
+  if(this.page==='processes')void this.readProcesses();
   await this.refresh();
   if(epoch!==this.epoch)return;
   if(this.smsFolder()==='trash')await this.loadTrash();
@@ -570,15 +604,15 @@ export class ConsoleDashboard{
   this.systemLoading=loading;
   try{await loading;}finally{if(this.systemLoading===loading)this.systemLoading=null;}
  }
- renderSystem(value){const s=record(value),cpu=cpuPercent(this.prevTicks,s);this.prevTicks=s;this.system=s;this.systemAt=this.clock();
-  this.$('c-model').textContent=text(s.model,48)||'型号未知';this.$('c-kernel').textContent=text(s.kernel,32)?`Linux ${text(s.kernel,32)}`:'—';this.$('c-os').textContent=text(s.os,40)||'—';this.$('c-version').textContent=text(s.firmware_version,24)?`RustSimHub v${text(s.firmware_version,24)}`:'—';
+ renderSystem(value){const s=record(value),cpu=cpuPercent(this.prevTicks,s),kernelName=text(s.kernel,128),kernel=kernelName?`Linux ${kernelName}`:'—';this.prevTicks=s;this.system=s;this.systemAt=this.clock();
+  this.$('c-model').textContent=text(s.model,48)||'型号未知';this.$('c-kernel').textContent=kernel;this.$('c-os').textContent=text(s.os,40)||'—';this.$('c-version').textContent=text(s.firmware_version,24)?`RustSimHub v${text(s.firmware_version,24)}`:'—';
   this.$('c-cores').textContent=count(s.cpu_cores)?`${s.cpu_cores} 核`:'—';this.$('c-mem-total').textContent=bytesText(s.memory_total_bytes);this.$('c-disk-total').textContent=bytesText(s.storage_total_bytes);
   this.$('c-cpu').textContent=cpu===null?'采样中':`${cpu}%`;this.bar('c-cpu-bar',cpu);
   const memUsed=usedPercent(s.memory_total_bytes,s.memory_available_bytes);this.$('c-mem').textContent=memUsed===null?'—':`${bytesText(s.memory_total_bytes-s.memory_available_bytes)} / ${bytesText(s.memory_total_bytes)}  (${memUsed}%)`;this.bar('c-mem-bar',memUsed);
   const diskUsed=usedPercent(s.storage_total_bytes,s.storage_free_bytes);this.$('c-disk').textContent=diskUsed===null?'—':`${bytesText(s.storage_total_bytes-s.storage_free_bytes)} / ${bytesText(s.storage_total_bytes)}  (${diskUsed}%)`;this.bar('c-disk-bar',diskUsed);
   const temp=finite(s.temperature_c);this.$('c-temp').textContent=temp===null?'—':`${Math.round(temp)}°C`;if(temp!==null){this.temps.push(temp);this.temps=this.temps.slice(-SPARK);this.tempTimes.push(this.systemAt);this.tempTimes=this.tempTimes.slice(-SPARK);}this.drawTemp(temp);
   this.$('c-uptime').textContent=uptimeText(s.uptime_seconds);
-  const os=text(s.os,40)||'—',kernel=text(s.kernel,32)?`Linux ${text(s.kernel,32)}`:'—',version=text(s.firmware_version,24)?`v${text(s.firmware_version,24)}`:'—',model=text(s.model,48)||'—';
+  const os=text(s.os,40)||'—',version=text(s.firmware_version,24)?`v${text(s.firmware_version,24)}`:'—',model=text(s.model,48)||'—';
   for(const [id,v] of [['c-hw-model',model],['c-hw-os',os],['c-hw-kernel',kernel],['c-hw-version',version],['c-hw-cores',count(s.cpu_cores)?`${s.cpu_cores} 核`:'—'],['c-ab-version',version],['c-ab-model',model],['c-ab-os',os],['c-ab-kernel',kernel],['c-hw-uptime',uptimeText(s.uptime_seconds)],['c-hw-cpu',cpu===null?'—':`${cpu}%`],['c-hw-load',finite(s.load_1m)===null?(count(s.cpu_cores)?`${s.cpu_cores} 核`:'—'):`负载 ${s.load_1m.toFixed(2)}`],['c-hw-mem',memUsed===null?'—':`${memUsed}%`],['c-hw-mem-d',memUsed===null?'—':`${bytesText(s.memory_total_bytes-s.memory_available_bytes)} / ${bytesText(s.memory_total_bytes)}`],['c-hw-disk',diskUsed===null?'—':`${diskUsed}%`],['c-hw-disk-d',diskUsed===null?'—':`${bytesText(s.storage_total_bytes-s.storage_free_bytes)} / ${bytesText(s.storage_total_bytes)}`],['c-hw-temp',temp===null?'—':`${Math.round(temp)}°C`]])this.$(id).textContent=v;
   this.$('c-mh-model').textContent=text(s.model,32)||'型号未知';this.$('c-mh-sub').textContent=[os,version].filter(v=>v!=='—').join(' / ')||'—';for(const [id,v,bar,p] of [['c-mh-cpu',cpu===null?'—':`${cpu}%`,'c-mh-cpu-b',cpu],['c-mh-mem',memUsed===null?'—':`${memUsed}%`,'c-mh-mem-b',memUsed],['c-mh-disk',diskUsed===null?'—':`${diskUsed}%`,'c-mh-disk-b',diskUsed]]){this.$(id).textContent=v;this.bar(bar,p);}this.$('c-mh-temp').textContent=temp===null?'—':`${Math.round(temp)}°C`;
   this.ring('c-hw-cpu-ring',cpu);this.ring('c-hw-mem-ring',memUsed);this.ring('c-hw-disk-ring',diskUsed);this.ring('c-hw-temp-ring',temp===null?null:temp/85*100);}
@@ -639,6 +673,53 @@ export class ConsoleDashboard{
    if(banner.textContent!==warning)banner.textContent=warning;
    banner.hidden=!warning;
   }
+ }
+ async readProcesses(){
+  if(!this.active||this.processLoading)return;
+  const epoch=this.epoch,valid=()=>this.active&&this.epoch===epoch;
+  this.$('c-process-refresh').disabled=true;
+  this.$('c-process-state').textContent='正在读取进程…';
+  const loading=this.readStatusPage({op:'process_list'},valid);
+  this.processLoading=loading;
+  try{
+   const value=await loading;
+   if(!valid())return;
+   if(!Array.isArray(value?.processes))throw Error('进程列表不可用');
+   this.processRows=value.processes.slice(0,240).filter(row=>count(row?.pid)>0&&text(row.name,128));
+   this.processTruncated=value.truncated===true;
+   this.processHint=this.processRows.length?'':'当前没有可显示的进程';
+  }catch(error){
+   if(!valid())return;
+   this.processRows=[];
+   this.processHint=error?.coreCode==='denied'?'仅所有者可以查看进程':'暂时读不到进程，请重试';
+  }finally{
+   if(valid()&&this.processLoading===loading){
+    this.processLoading=null;
+    this.$('c-process-refresh').disabled=false;
+    this.$('c-process-filter').disabled=!this.processRows.length;
+    this.renderProcesses();
+   }
+  }
+ }
+ renderProcesses(){
+  const query=String(this.$('c-process-filter').value??'').trim().toLowerCase();
+  const body=this.$('c-process-rows');
+  body.replaceChildren();
+  let shown=0;
+  for(const {pid,name,state,resident_bytes} of this.processRows){
+   const note=Object.hasOwn(PROCESS_NOTES,name)?PROCESS_NOTES[name]:'暂无备注';
+   if(query&&![String(pid),name.toLowerCase(),note].some(value=>value.includes(query)))continue;
+   const row=this.doc.createElement('tr');
+   for(const [label,value] of [['PID',pid],['进程',name],['状态',Object.hasOwn(PROCESS_STATES,state)?PROCESS_STATES[state]:'未知'],['内存',bytesText(resident_bytes)],['备注',note]]){
+    const cell=this.doc.createElement('td');
+    cell.dataset.label=label;cell.textContent=String(value);row.append(cell);
+   }
+   body.append(row);shown++;
+  }
+  this.$('c-process-table').hidden=!shown;
+  this.$('c-process-state').textContent=this.processHint||(shown?(
+   query?`找到 ${shown} 个进程`:this.processTruncated?`显示前 ${shown} 个进程`:`共 ${shown} 个进程`
+  ):'没有匹配的进程');
  }
  async readStatusPage(command,valid){
   for(const delay of [0,180,500,1200]){

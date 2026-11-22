@@ -47,6 +47,7 @@
 <button type="button" class="nav" data-go="gnss"><svg class="i"><use href="#i-pin"/></svg><span>GNSS定位</span></button>
 <button type="button" class="nav" data-go="ble"><svg class="i"><use href="#i-bt"/></svg><span>蓝牙配网</span></button>
 <button type="button" class="nav" data-go="security"><svg class="i"><use href="#i-shield"/></svg><span>安全策略</span></button>
+<button type="button" class="nav" data-go="processes" aria-label="进程管理"><svg class="i" aria-hidden="true"><use href="#i-list"/></svg><span>进程管理</span></button>
 <button type="button" class="nav" data-go="logs"><svg class="i"><use href="#i-log"/></svg><span>系统日志</span></button>
 <button type="button" class="nav" data-go="settings"><svg class="i"><use href="#i-gear"/></svg><span>设置</span></button>
 <section class="side-usage num" id="side-usage" aria-labelledby="side-usage-title">
@@ -69,7 +70,7 @@
 <div class="content num desk-only" id="c-dash">
 <section class="signin" id="c-signin"><svg class="i"><use href="#i-user"/></svg>还没有登录，登录后才会显示设备数据<button type="button" data-go="login">去登录</button></section>
 <section class="banner" aria-label="设备信息">
-<svg class="stick" viewBox="0 0 176 92" role="img" aria-label="USB 棒">
+<div class="bn-device"><svg class="stick" viewBox="0 0 176 92" role="img" aria-label="USB 棒">
 <defs>
 <linearGradient id="c-pcb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b414a"/><stop offset="1" stop-color="#15181d"/></linearGradient>
 <linearGradient id="c-edge" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d0f13"/><stop offset="1" stop-color="#26292f"/></linearGradient>
@@ -91,9 +92,12 @@
 </g>
 </svg>
 <div class="bn-main"><div class="bn-title"><div class="model" id="c-model">—</div><span id="c-sim">—</span></div><div class="bn-sub"><span id="c-version">—</span><b id="c-os">—</b><b id="c-kernel">—</b></div></div>
+</div>
+<div class="bn-specs">
 <div class="spec"><svg class="i"><use href="#i-chip"/></svg><div><b>处理器</b><strong id="c-cores">—</strong></div></div>
 <div class="spec"><svg class="i"><use href="#i-mem"/></svg><div><b>运行内存</b><strong id="c-mem-total">—</strong></div></div>
 <div class="spec"><svg class="i"><use href="#i-disk"/></svg><div><b>存储容量</b><strong id="c-disk-total">—</strong></div></div>
+</div>
 </section>
 <section class="card res" aria-label="系统资源">
 <div><svg class="i"><use href="#i-res"/></svg>系统资源</div>
@@ -202,6 +206,15 @@
 <section class="card pg-card step w4"><em>2</em><h3>靠近棒子</h3><p>让手机靠近棒子，在工具中选择要配置的设备。</p></section>
 <section class="card pg-card step w4"><em>3</em><h3>填写 Wi-Fi</h3><p>按提示填写网络，试连成功后再保存。也可以在“网络管理”里配置。</p><button type="button" class="pg-link" data-go="network">前往网络管理</button></section>
 </div></div>
+<div class="pg" id="v-processes" hidden>
+<section class="card pg-card" aria-label="设备进程">
+<div class="process-tools"><label>搜索进程 <input id="c-process-filter" type="search" maxlength="80" placeholder="PID、名称或备注" disabled></label><button type="button" class="pg-btn" id="c-process-refresh" disabled>刷新</button></div>
+<p id="c-process-state" class="pg-note" role="status">以所有者身份登录后显示</p>
+<div class="process-table" id="c-process-table" hidden><table>
+<thead><tr><th scope="col">PID</th><th scope="col">进程</th><th scope="col">状态</th><th scope="col">内存</th><th scope="col">备注</th></tr></thead>
+<tbody id="c-process-rows"></tbody></table></div>
+</section>
+</div>
 <div class="pg" id="v-events" hidden>
 <section class="card ev pg-events"><div class="ev-h"><svg class="i"><use href="#i-list"/></svg>最近事件<small>本次打开页面以来</small></div><div class="journal-tools"><label>容量上限（条） <input id="c-log-capacity" type="number" min="1" max="500" value="50" inputmode="numeric"></label><button class="pg-btn" type="button" id="c-log-save">保存上限</button><button class="pg-btn" type="button" id="c-log-clear">清空日志</button></div>
 <p id="c-log-state" role="status" class="pg-note"></p><ul id="c-ev-all"></ul><p class="none" id="c-ev-all-empty">登录后显示</p></section>
@@ -291,6 +304,7 @@
 <button type="button" class="mh-sv" data-go="gnss"><svg class="i"><use href="#i-pin"/></svg>GNSS定位<svg class="i ch"><use href="#i-chev"/></svg></button>
 <button type="button" class="mh-sv" data-go="ble"><svg class="i"><use href="#i-bt"/></svg>蓝牙配网<svg class="i ch"><use href="#i-chev"/></svg></button>
 <button type="button" class="mh-sv" data-go="security"><svg class="i"><use href="#i-shield"/></svg>安全策略<svg class="i ch"><use href="#i-chev"/></svg></button>
+<button type="button" class="mh-sv" data-go="processes"><svg class="i" aria-hidden="true"><use href="#i-list"/></svg>进程管理<svg class="i ch" aria-hidden="true"><use href="#i-chev"/></svg></button>
 <button type="button" class="mh-sv" data-go="logs"><svg class="i"><use href="#i-log"/></svg>系统日志<svg class="i ch"><use href="#i-chev"/></svg></button>
 <button type="button" class="mh-sv" data-go="settings"><svg class="i"><use href="#i-gear"/></svg>设置<svg class="i ch"><use href="#i-chev"/></svg></button>
 </div></div>

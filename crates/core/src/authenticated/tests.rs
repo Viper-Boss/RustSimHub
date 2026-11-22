@@ -603,6 +603,9 @@ async fn ipc_requires_proof_and_checks_revocation_even_from_same_uid() {
         "denied"
     );
     for command in [
+        AuthCommand::ProcessList {
+            token: "0".repeat(64),
+        },
         AuthCommand::InboxRecent {
             token: "0".repeat(64),
             before: None,
@@ -639,6 +642,19 @@ async fn ipc_requires_proof_and_checks_revocation_even_from_same_uid() {
         .await["ok"],
         true
     );
+    let snapshot = round_trip(
+        AuthCommand::ProcessList {
+            token: token.clone(),
+        },
+        auth.clone(),
+    )
+    .await;
+    let rows = snapshot["processes"].as_array().unwrap();
+    assert!(!rows.is_empty());
+    if snapshot["truncated"] == false {
+        assert!(rows.iter().any(|row| row["pid"] == std::process::id()));
+    }
+    assert!(rows.iter().all(|row| row.as_object().unwrap().len() == 4));
     // Full pairing and revoke flow over framed IPC; UID alone is never business authority.
     use rustsimhub_policy::Kind;
     round_trip(
@@ -700,6 +716,9 @@ async fn ipc_requires_proof_and_checks_revocation_even_from_same_uid() {
     .await;
     let client_token = client_session["token"].as_str().unwrap().to_owned();
     for command in [
+        AuthCommand::ProcessList {
+            token: client_token.clone(),
+        },
         AuthCommand::NetworkDiagnostics {
             token: client_token.clone(),
         },

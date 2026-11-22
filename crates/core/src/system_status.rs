@@ -119,6 +119,32 @@ fn temperature() -> Option<f64> {
             }),
     )
 }
+const MAX_PROCESSES: usize = 240;
+
+fn process_row(pid: u32, status: &str) -> Option<Value> {
+    let field = |prefix: &str| status.lines().find_map(|line| line.strip_prefix(prefix));
+    let name: String = clean(field("Name:")?)?.chars().take(32).collect();
+    let state = field("State:")?.trim().chars().next()?;
+    let resident_bytes = meminfo_bytes(status, "VmRSS");
+    Some(json!({"pid":pid,"name":name,"state":state,"resident_bytes":resident_bytes}))
+}
+
+pub(crate) fn processes() -> Option<Value> {
+    let proc = Path::new("/proc");
+    let mut pids: Vec<u32> = std::fs::read_dir(proc)
+        .ok()?
+        .flatten()
+        .filter_map(|entry| entry.file_name().to_str()?.parse().ok())
+        .collect();
+    pids.sort_unstable();
+    let mut rows = pids.into_iter().filter_map(|pid| {
+        let status = read_bounded(&proc.join(pid.to_string()).join("status"))?;
+        process_row(pid, &status)
+    });
+    let shown: Vec<_> = rows.by_ref().take(MAX_PROCESSES).collect();
+    Some(json!({"processes":shown,"truncated":rows.next().is_some()}))
+}
+
 pub(crate) fn snapshot() -> Value {
     let stat = read_bounded(Path::new("/proc/stat")).unwrap_or_default();
     let mem = read_bounded(Path::new("/proc/meminfo")).unwrap_or_default();
