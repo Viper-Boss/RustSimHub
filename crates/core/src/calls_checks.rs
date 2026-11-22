@@ -471,6 +471,9 @@ impl FakeCall {
             tokio::time::sleep(Duration::from_secs(3)).await;
             return Err(zbus::fdo::Error::Failed("synthetic".into()));
         }
+        if self.0.mode.load(Ordering::SeqCst) == 5 {
+            tokio::time::sleep(Duration::from_millis(1600)).await;
+        }
         Ok(())
     }
     #[zbus(property)]
@@ -648,6 +651,94 @@ async fn media_local_socket_redeems_once_and_revoke_or_disconnect_closes_permit(
     drop(runtime);
     assert!(!socket.exists());
 }
+#[tokio::test]
+async fn media_local_socket_keeps_authorizing_during_slow_dtmf() {
+    let mut f = fixture(false).await;
+    f.worker.media_enabled = true;
+    let dial = prepare(
+        &mut f.worker,
+        &f.first,
+        "tone-media-dial",
+        CallAction::Dial,
+        None,
+        "10010",
+    )
+    .await;
+    let value = submit(&mut f.worker, &f.first, &dial, None).await.unwrap();
+    let lease: CallLease = serde_json::from_value(value["lease"].clone()).unwrap();
+    let tone = prepare(
+        &mut f.worker,
+        &f.first,
+        "tone-media-key",
+        CallAction::Dtmf,
+        Some(lease.call_id.clone()),
+        "5",
+    )
+    .await;
+    let credentials = f
+        .worker
+        .process(AuthCommand::IssueMedia {
+            token: f.first.clone(),
+            lease: lease.clone(),
+            peer_key: [7; 32],
+        })
+        .await
+        .unwrap();
+    let socket = f.d.path().join("media.sock");
+    let (listener, _runtime) = crate::media_ipc::bind(socket.to_str().unwrap()).unwrap();
+    let uid = rustix::process::geteuid().as_raw();
+    let server = tokio::spawn(crate::media_ipc::serve(listener, uid, f.controller.clone()));
+    let worker = tokio::spawn(f.worker.run());
+    let mut client = rustsimhub_media::local::Client::redeem(
+        &socket,
+        uid,
+        serde_json::from_value(credentials).unwrap(),
+    )
+    .await
+    .unwrap();
+    let permit = client.permit();
+    f.data.mode.store(5, Ordering::SeqCst);
+    let request = || AuthCommand::SubmitCall {
+        token: f.first.clone(),
+        operation_id: tone.clone(),
+        lease: Some(lease.clone()),
+        urgent: false,
+    };
+    let sender = f.controller.clone();
+    let pending = tokio::spawn({
+        let request = request();
+        async move { sender.request(request).await }
+    });
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while f.data.tones.load(Ordering::SeqCst) == 0 {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    while !pending.is_finished() {
+        client.pulse().await.expect("media pulse during modem tone");
+        assert!(permit.check(rustsimhub_media::local::now_ms()).is_ok());
+        tokio::time::sleep(Duration::from_millis(150)).await;
+    }
+    assert_eq!(
+        pending.await.unwrap().unwrap()["operation"]["state"],
+        "submitted"
+    );
+    assert_eq!(
+        f.controller.request(request()).await.unwrap()["operation"]["state"],
+        "submitted"
+    );
+    assert_eq!(f.data.tones.load(Ordering::SeqCst), 1);
+    assert_eq!(f.data.hangups.load(Ordering::SeqCst), 0);
+    f.data.state.store(5, Ordering::SeqCst);
+    assert!(client.pulse().await.is_err());
+    assert!(permit.check(rustsimhub_media::local::now_ms()).is_err());
+    f.controller.shutdown();
+    worker.await.unwrap();
+    server.abort();
+}
+
 #[tokio::test]
 async fn media_local_socket_rejects_wrong_uid_and_missing_redeem() {
     let mut f = fixture(false).await;
