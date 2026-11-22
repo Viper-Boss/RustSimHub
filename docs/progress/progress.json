@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-22T02:21:06.548006+00:00",
+  "updated_at": "2026-11-22T02:27:43.992201+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -1956,7 +1956,7 @@
           "dependencies": [
             "UPD-01"
           ],
-          "status": "todo",
+          "status": "in_progress",
           "offline_delegable": true,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -6166,6 +6166,16 @@
       "detail": "112 实测深色保持且通话声音持续到挂断。首键已提交而第二键拒绝，继续修复连续输入；不计作完整菜单验收。",
       "task_ids": [
         "CALL-02"
+      ],
+      "evidence": []
+    },
+    {
+      "at": "2026-11-22T02:27:43.992201+00:00",
+      "type": "state",
+      "title": "UPD-02 · 状态更新：签名维护材料与固定写入表",
+      "detail": "已有单文件签名应用包和本机验证入口；实际签名应用 112 往返通过，网页上传与受限准入安装接线待做。",
+      "task_ids": [
+        "UPD-02"
       ],
       "evidence": []
     }

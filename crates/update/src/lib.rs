@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 #![forbid(unsafe_code)]
 //! Signed application manifests; never writes boot/rootfs or arbitrary paths.
+pub mod bundle;
 pub mod health;
 #[cfg(all(test, target_os = "linux"))]
 pub(crate) mod product_native_fixture;
@@ -154,7 +155,11 @@ pub(crate) fn verify_native_fixture(m: &Manifest, payloads: &[Vec<u8>]) -> Resul
     };
     verify_payload_machine(m, payloads, machine)
 }
-fn verify_payload_machine(m: &Manifest, payloads: &[Vec<u8>], machine: u16) -> Result<(), Error> {
+fn verify_payload_machine(
+    m: &Manifest,
+    payloads: &[impl AsRef<[u8]>],
+    machine: u16,
+) -> Result<(), Error> {
     let names = application_files(m.format)?;
     if payloads.len() != names.len()
         || m.files.len() != names.len()
@@ -163,6 +168,7 @@ fn verify_payload_machine(m: &Manifest, payloads: &[Vec<u8>], machine: u16) -> R
         return Err(Error::Integrity);
     }
     for (e, bytes) in m.files.iter().zip(payloads) {
+        let bytes = bytes.as_ref();
         if bytes.len() as u64 != e.bytes || hash_hex(bytes) != e.sha256 {
             return Err(Error::Integrity);
         }

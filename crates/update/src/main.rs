@@ -139,7 +139,37 @@ fn run() -> Result<(), rustsimhub_update::Error> {
         let code = check_maintenance_versions(&args[1..], SCHEMA)?;
         std::process::exit(code);
     }
+    if let [command, public, directory, file] = args.as_slice() {
+        if command == "pack-application" {
+            let key: [u8; 32] = read_checked(Path::new(public), 32)?
+                .as_slice()
+                .try_into()
+                .map_err(|_| Error::Invalid)?;
+            let directory = Path::new(directory);
+            let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;
+            let signature = read_checked(&directory.join("manifest.sig"), 64)?;
+            let verified = verify(&manifest, &signature, &key, SCHEMA, 0)?;
+            let payloads = load_payloads(directory, &verified)?;
+            let bytes =
+                rustsimhub_update::bundle::pack(&manifest, &signature, &payloads, &key, SCHEMA)?;
+            write_new(Path::new(file), &bytes, false)?;
+            return Ok(());
+        }
+    }
     if let [command, public, directory] = args.as_slice() {
+        if command == "verify-app-file" {
+            let key: [u8; 32] = read_checked(Path::new(public), 32)?
+                .as_slice()
+                .try_into()
+                .map_err(|_| Error::Invalid)?;
+            let bytes = read_checked(Path::new(directory), rustsimhub_update::bundle::MAX_BUNDLE)?;
+            let result = rustsimhub_update::bundle::inspect(&bytes, &key, SCHEMA, 0)?;
+            println!(
+                "{}",
+                serde_json::to_string(&result).map_err(|_| Error::Invalid)?
+            );
+            return Ok(());
+        }
         if command == "verify-package" {
             let key: [u8; 32] = read_checked(Path::new(public), 32)?
                 .as_slice()
