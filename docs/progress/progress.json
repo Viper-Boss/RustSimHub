@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-22T01:51:34.698022+00:00",
+  "updated_at": "2026-11-22T02:01:49.278095+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -1220,7 +1220,7 @@
             "device"
           ],
           "dependencies": [],
-          "status": "todo",
+          "status": "needs_user",
           "offline_delegable": false,
           "passive_wait_hours": 0,
           "evidence": [],
@@ -6114,6 +6114,26 @@
       "type": "state",
       "title": "FWD-13 · 状态更新：并发关闭与迟到响应",
       "detail": "修复已登录却显示登录按钮、缺失旧配置回执后持续卡住。新规则先确认当前配置并保存不确定回执，写入前核对近期所有者权限。Core 与网页回归通过，待部署及实测。",
+      "task_ids": [
+        "FWD-13"
+      ],
+      "evidence": []
+    },
+    {
+      "at": "2026-11-22T02:01:48.712238+00:00",
+      "type": "state",
+      "title": "CALL-02 · 状态更新：DTMF菜单实测",
+      "detail": "包含按键续验修复的应用 111 已真实安装并确认；待用户短通话核对按键后声音连续和菜单响应。",
+      "task_ids": [
+        "CALL-02"
+      ],
+      "evidence": []
+    },
+    {
+      "at": "2026-11-22T02:01:49.278095+00:00",
+      "type": "state",
+      "title": "FWD-13 · 状态更新：并发关闭与迟到响应",
+      "detail": "已在应用 111 实测读回当前配置，用户确认旧请求已归档且不再误提示所有者登录。转发并发关闭及迟到响应的整体实机验收继续保留。",
       "task_ids": [
         "FWD-13"
       ],
