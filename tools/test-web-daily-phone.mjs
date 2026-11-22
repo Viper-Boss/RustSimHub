@@ -98,8 +98,35 @@ function fixture(options={}){
  holdSession=deferred();f.$('phone-tone').value='1';const sending=f.$('phone-tone-send').onclick();
  f.$('phone-tone').value='#';await f.$('phone-tone-send').onclick();holdSession.resolve();await sending;
  assert.deepEqual(f.sent.filter(c=>c.op==='prepare_call'&&c.action==='dtmf').map(c=>c.payload),['1']);
- f.setCalls([]);await f.$('phone-tone-send').onclick();
+ f.setCalls([]);await f.phone.refresh();await f.$('phone-tone-send').onclick();
  assert.equal(f.sent.filter(c=>c.op==='prepare_call'&&c.action==='dtmf').length,1,'a missing call cannot send a key');
+}
+{
+ let firstToneDone=false;
+ const f=fixture({respond:(c,{records})=>{
+  if(firstToneDone&&['line_status','call_status','call_operation'].includes(c.op))
+   throw Object.assign(Error('temporary modem history read failure'),{coreCode:'busy'});
+  if(c.op==='submit_call'&&records.get(c.operation_id)?.action==='dtmf')firstToneDone=true;
+ }});
+ await f.$('phone-dial').onclick();await f.phone.refresh();
+ for(const key of ['1','2','#']){
+  f.$('phone-tone').value=key;await f.$('phone-tone-send').onclick();
+  assert.equal(f.pending(),null);assert.equal(f.audio.state,'active');
+ }
+ assert.deepEqual(f.sent.filter(c=>c.op==='prepare_call'&&c.action==='dtmf').map(c=>c.payload),['1','2','#']);
+ assert.equal(f.receipts.filter(c=>c.action==='dtmf').length,3);
+}
+{
+ const f=fixture({respond:(c,{records,backend})=>{
+  if(c.op==='submit_call'&&records.get(c.operation_id)?.action==='dtmf'){
+   void backend(c);throw Error('lost key receipt');
+  }
+ }});
+ await f.$('phone-dial').onclick();await f.phone.refresh();
+ f.$('phone-tone').value='1';await f.$('phone-tone-send').onclick();
+ assert.equal(f.pending()?.action,'dtmf');assert.equal(f.pending()?.submit_started,true);
+ assert.equal(f.audio.state,'active');assert.match(f.$('phone-state').textContent,/按键结果未确认/);
+ assert.equal(f.sent.filter(c=>c.op==='prepare_call'&&c.action==='dtmf').length,1);
 }
 for(const action of ['accept','reject']){
  const f=fixture({incoming:true});await f.phone.refresh();assert.equal(f.sent.filter(x=>x.op==='prepare_call').length,0,'Observation never answers');

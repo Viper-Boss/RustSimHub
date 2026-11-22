@@ -582,11 +582,22 @@ pub(crate) async fn handle(
     ) {
         crate::network_trial::provision::authorized(auth.clone(), request.command).await
     } else if calling {
+        let command = match &request.command {
+            AuthCommand::PrepareCall { .. } => "prepare",
+            AuthCommand::SubmitCall { .. } => "submit",
+            AuthCommand::CallOperation { .. } => "receipt",
+            _ => "observe",
+        };
         match calls {
-            Some(c) => c
-                .request(request.command)
-                .await
-                .map_err(|_| rustsimhub_auth::Error::Forbidden),
+            Some(c) => c.request(request.command).await.map_err(|reason| {
+                if command != "observe" {
+                    eprintln!("core_call_request_unconfirmed stage={command} reason={reason}");
+                }
+                match reason {
+                    "auth_busy" | "call_controller_busy" => rustsimhub_auth::Error::Busy,
+                    _ => rustsimhub_auth::Error::Forbidden,
+                }
+            }),
             None => Err(rustsimhub_auth::Error::Forbidden),
         }
     } else if sending {
@@ -666,6 +677,7 @@ pub(crate) async fn handle(
                 || status_read
                 || roaming_change
                 || call_history_change
+                || calling
                 || forwarding_command =>
         {
             json!({"ok":false,"error":"busy"})
