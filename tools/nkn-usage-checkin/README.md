@@ -11,6 +11,16 @@ go test -mod=readonly ./...
 CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=readonly -trimpath -o rustsimhub-usage-checkin .
 ```
 
+制作工厂系统树时，用与签名应用完全相同的归档、提交和归档 SHA-256 准备签到组件。先用 Go 1.25.7 下载 go.sum 锁定的依赖缓存，再执行离线构建。
+
+```sh
+python3 tools/nkn-usage-checkin/build.py \
+  --archive "$archive" --revision "$revision" --source "$archive_sha256" \
+  --output "$usage_checkin_artifacts"
+```
+
+给 `tools/compose-system-tree.py` 增加 `--usage-checkin-artifacts "$usage_checkin_artifacts"`。系统树会带上程序、复核的依赖许可证、服务与计时器。镜像不带统计身份，计时器保持关闭。所有者同意参与后，维护人员可在设备上启用计时器。
+
 已安装的 RustSimHub 设备可由维护人员在校验 ARM64 产物后安装组件。
 
 ```sh

@@ -35,7 +35,8 @@ import imagepolicy  # noqa: E402
 VENDOR = ('usr/lib/', 'usr/share/', 'usr/include/', 'usr/src/', 'usr/bin/', 'usr/sbin/', 'usr/libexec/',
           'lib/', 'bin/', 'sbin/', 'var/lib/dpkg/', 'var/lib/apt/', 'var/cache/')
 # Directories that hold per-device runtime state; anything in them is a finding.
-STATE_DIRS = ('var/lib/rustsimhub', 'var/lib/NetworkManager', 'root/.ssh', 'root/.config', 'home',
+STATE_DIRS = ('var/lib/rustsimhub-usage-checkin', 'var/lib/private/rustsimhub-usage-checkin',
+              'var/lib/rustsimhub', 'var/lib/NetworkManager', 'root/.ssh', 'root/.config', 'home',
               'var/lib/rmtfs', 'var/lib/iwd', 'var/lib/bluetooth', 'etc/ssl/private', 'persist')
 # The only files the image ships in the agent's configuration directory.
 NASSIMHUB_ETC = {'agent.conf', 'ota-keys.json', 'status-led.conf'}

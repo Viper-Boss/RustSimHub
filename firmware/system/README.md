@@ -9,6 +9,8 @@ sudo python3 tools/compose-system-tree.py \
   --out /private/new-system-tree
 ```
 
+如需工厂系统树包含独立 NKN 活跃安装签到组件，在签名应用组合里附加 `--usage-checkin-artifacts`。该组件与签名应用使用同一份源归档，计时器由设备所有者同意后启用。见[签到组件构建与授权启用](../../tools/nkn-usage-checkin/README.md)。
+
 实际可用状态以外部`SYSTEM-CANDIDATE.json`为准。失败保留`COMPOSITION.FAILED`；不复用、修补或自动删除失败目录。输出明确`flash_allowed=false`、`release_ready=false`、`recovery_verified=false`。可选`--signed-application`、`--release-public`和`--updater-artifacts`一起接入签名启动组；再以`--native-artifacts`指定同源Native构建才标记native_media_installed=true，核验源归档/程序摘要及真实签名。媒体仍需每设备显式配置，不从旧包推定；此树不是完整产品验收结果。
 
 组合工具显式设置新建公开程序目录0755、公开来源元数据0644及私有版本目录0700，支持调用者使用umask077；既有基础目录权限保持，不能为解决服务执行失败而递归放开私有目录。新候选必须做实际非Root ARM运行与只读systemd依赖检查，不能仅凭组合/隐私审计通过就称服务可运行。

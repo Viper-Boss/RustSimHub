@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT / 'tools/rootfs/scripts'))
 import rootfs_tools as base_tools
 from application_package import verify_package, application_files, checked as application_checked
 import audio_modules
+from arm_build_manifest import elf, regular, sha, unique
 sys.path.insert(0,str(ROOT/'tools/firstboot-ap'))
 import firstboot_ap
 
@@ -88,6 +89,43 @@ def publish_application(root, signed, release, source, schema):
     return app
 
 
+USAGE_CHECKIN = 'rustsimhub-usage-checkin'
+USAGE_CHECKIN_NOTICES = 'THIRD-PARTY-NOTICES.txt'
+USAGE_CHECKIN_MODULE = 'tools/nkn-usage-checkin/'
+
+
+def install_usage_checkin(tree, artifacts, revision, application):
+    manifest = json.loads(regular(artifacts/'build.json', 8192), object_pairs_hook=unique)
+    assert type(manifest['format']) is int and manifest['format'] == 1
+    assert manifest['revision'] == application['revision'] == revision
+    assert manifest['source_archive_sha256'] == application['source_archive_sha256']
+    assert manifest['target'] == 'linux/arm64' and manifest['go_version'] == 'go1.25.7'
+    assert set(manifest['artifact_sha256']) == {USAGE_CHECKIN, USAGE_CHECKIN_NOTICES}
+    executable = regular(artifacts/USAGE_CHECKIN)
+    notices = regular(artifacts/USAGE_CHECKIN_NOTICES, 1024*1024)
+    assert sha(executable) == manifest['artifact_sha256'][USAGE_CHECKIN]
+    assert sha(notices) == manifest['artifact_sha256'][USAGE_CHECKIN_NOTICES]
+    elf(executable)
+    for location in ('var/lib/'+USAGE_CHECKIN, 'var/lib/private/'+USAGE_CHECKIN,
+                     'etc/systemd/system/timers.target.wants/'+USAGE_CHECKIN+'.timer'):
+        assert not os.path.lexists(tree/location), 'generic images must start with the reporter off and no statistics identity'
+    outputs = [
+        ('usr/local/libexec/'+USAGE_CHECKIN, executable, 0o555),
+        ('usr/share/doc/'+USAGE_CHECKIN+'/'+USAGE_CHECKIN_NOTICES, notices, 0o444),
+    ]
+    for suffix in ('.service', '.timer'):
+        name = USAGE_CHECKIN+suffix
+        data = git('show', revision+':'+USAGE_CHECKIN_MODULE+name)
+        outputs.append(('etc/systemd/system/'+name, data, 0o644))
+    for path, data, mode in outputs:
+        target = destination(tree, path)
+        with target.open('xb') as stream:
+            stream.write(data)
+        os.chown(target, 0, 0)
+        target.chmod(mode)
+    return {'build': manifest, 'enabled': False}
+
+
 def group_member(root, group, member):
     for file, index in [('group', 3), ('gshadow', 3)]:
         path = root / 'etc' / file
@@ -111,9 +149,12 @@ def main():
     parser.add_argument('--audio-modules', type=pathlib.Path, help='Exactly 22 source-locked UFI003 modules; required with Native')
     parser.add_argument('--status-led-artifacts', type=pathlib.Path, help='Separately source-locked ARM status indicator build')
     parser.add_argument('--network-agent-artifacts', type=pathlib.Path, help='Explicit source-locked network monitor and monthly guard build')
+    parser.add_argument('--usage-checkin-artifacts', type=pathlib.Path,
+                        help='Same-source optional NKN installation statistics binary; shipped disabled')
     parser.add_argument('--firstboot-ap-artifacts',type=pathlib.Path,help='Explicit generic firstboot AP v1 layer; creates no identity/credentials in the image')
     args = parser.parse_args()
     startup = bool(args.signed_application)
+    assert not args.usage_checkin_artifacts or startup, 'Usage statistics require a verified factory application'
     assert not args.firstboot_ap_artifacts or startup,'Firstboot AP requires a verified factory application'
     assert not args.native_artifacts or startup
     assert bool(args.native_artifacts) == bool(args.audio_modules), 'Native and its pinned kernel audio layer must be supplied together'
@@ -124,7 +165,8 @@ def main():
         parser.error('Output must be a new directory; failed output is retained')
     assert not git('status', '--porcelain', '--', 'firmware/system', 'firmware/base-system.lock.json',
                    'tools/compose-system-tree.py', 'tools/application_package.py', 'tools/audio_modules.py',
-                   'firmware/kernel/audio', 'tools/rootfs', 'tools/firstboot-ap').strip(), 'Commit composition inputs first'
+                   'firmware/kernel/audio', 'tools/rootfs', 'tools/firstboot-ap',
+                   'tools/nkn-usage-checkin').strip(), 'Commit composition inputs first'
     revision = git('rev-parse', 'HEAD').decode().strip()
     base = args.base.resolve(strict=True)
     manifest = json.loads((base / 'ROOTFS-MANIFEST.json').read_text())
@@ -260,6 +302,10 @@ def main():
             directory(destination(tree,'var/lib/rustsimhub-core'), 0o755)
             directory(destination(tree,'var/lib/rustsimhub-edge'), 0o755)
             directory(destination(tree,'var/lib/rustsimhub-media'), 0o755)
+        usage_layer = None
+        if args.usage_checkin_artifacts:
+            usage_layer = install_usage_checkin(
+                tree, args.usage_checkin_artifacts.resolve(strict=True), revision, build)
         firstboot_layer = firstboot_ap.install(tree,args.firstboot_ap_artifacts.resolve(strict=True),build['source_archive_sha256'],base_tools.sha256_file(signed/'manifest.json')) if args.firstboot_ap_artifacts else None
         state_mount = destination(tree, 'var/lib/rustsimhub')
         directory(state_mount, 0o700, exist_ok=True)
@@ -299,6 +345,8 @@ def main():
                      'media_configuration_required': bool(args.native_artifacts),
                      'kernel_audio_modules_installed': bool(audio_layer),
                      'board_boot_verified': False, 'private_data_included': False}
+        if usage_layer:
+            candidate['usage_checkin_layer'] = usage_layer
         candidate['firstboot_ap_layer'] = firstboot_layer
         candidate['firstboot_ap_installed'] = bool(firstboot_layer)
         candidate['status_led_installed'] = bool(led_build)
