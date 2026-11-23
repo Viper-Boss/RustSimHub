@@ -100,7 +100,7 @@ pub fn admit_web_upload(request_id: &str, manifest_sha256: &str) -> Result<Admis
         request_id,
         manifest_sha256,
     )?;
-    snapshot.business.check_web_update_owner(&record.binding)?;
+    let authorization_binding = snapshot.business.web_update_owner_proof(&record.binding)?;
     let key = read_root_release_key()?;
     let schema = u32::try_from(snapshot.business.version.format).map_err(|_| Error::Schema)?;
     let signed = bundle::verify_for_admission(&bytes, &key, schema, 0)?;
@@ -124,7 +124,15 @@ pub fn admit_web_upload(request_id: &str, manifest_sha256: &str) -> Result<Admis
         &manifest,
         &signature,
         &payloads,
-        || super::web_backup::save(Path::new(APP), &snapshot, &record.upload, &baseline),
+        || {
+            super::web_backup::save(
+                Path::new(APP),
+                &snapshot,
+                &record.upload,
+                &baseline,
+                &authorization_binding,
+            )
+        },
     )
 }
 
@@ -234,6 +242,13 @@ mod tests {
             owner_key: key,
             generation: owner.generation,
         };
+        let expected_proof = serde_json::to_vec(&(
+            auth.public_key(),
+            binding.owner_key,
+            binding.generation,
+            &binding.realm,
+        ))
+        .unwrap();
         drop(auth);
         drop(store);
         let guard = Database::observe(
@@ -244,7 +259,10 @@ mod tests {
             512 * 1024 * 1024,
         )
         .unwrap();
-        assert!(guard.check_web_update_owner(&binding).is_ok());
+        assert_eq!(
+            guard.web_update_owner_proof(&binding),
+            Ok(manifest_hash(&expected_proof))
+        );
         let generation = UpdateUploadBinding {
             generation: binding.generation + 1,
             ..binding.clone()

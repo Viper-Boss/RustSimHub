@@ -26,23 +26,29 @@ impl MaintenanceSnapshot {
         if self.product_qualified {
             return effective_product(self);
         }
-        effective(&show()?, self.root_mode)?;
+        effective_qualified(&show()?, self.root_mode, false, self.web_health_ap)?;
         self.revalidate()
     }
 }
 
+#[cfg(test)]
 fn effective(output: &[u8], mode: Mode) -> Result<()> {
-    effective_qualified(output, mode, false)
+    effective_qualified(output, mode, false, false)
 }
 pub(super) fn effective_product(snapshot: &MaintenanceSnapshot) -> Result<()> {
     let present = std::fs::symlink_metadata(
         "/etc/systemd/system/rustsimhub-core.service.d/50-product-profile.conf",
     )
     .is_ok();
-    effective_qualified(&show()?, snapshot.root_mode, present)?;
+    effective_qualified(&show()?, snapshot.root_mode, present, false)?;
     snapshot.revalidate()
 }
-fn effective_qualified(output: &[u8], mode: Mode, product: bool) -> Result<()> {
+fn effective_qualified(
+    output: &[u8],
+    mode: Mode,
+    product: bool,
+    web_health_ap: bool,
+) -> Result<()> {
     let text = std::str::from_utf8(output).map_err(|_| Error::Integrity)?;
     let mut values = BTreeMap::new();
     for line in text.lines() {
@@ -60,6 +66,9 @@ fn effective_qualified(output: &[u8], mode: Mode, product: bool) -> Result<()> {
         Mode::SetupAp => &["30-forwarding.conf", "50-setup-ap.conf"],
     };
     let mut expected = expected.to_vec();
+    if web_health_ap {
+        expected.push(super::WEB_HEALTH_DROP_NAME);
+    }
     if product {
         if std::fs::symlink_metadata(
             "/etc/systemd/system/rustsimhub-core.service.d/55-product-health.conf",

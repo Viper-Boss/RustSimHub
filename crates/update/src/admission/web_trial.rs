@@ -24,6 +24,7 @@ const TIMERS: [(&str, &str); 2] = [
 #[serde(rename_all = "snake_case")]
 pub enum TrialResult {
     AwaitingHealthConfirmation,
+    Confirmed,
     RejectedAndRestored,
 }
 
@@ -127,6 +128,7 @@ trait Trial {
     fn admit(&self) -> Result<()>;
     fn start(&self) -> Result<()>;
     fn observe(&self, candidate: bool) -> Result<()>;
+    fn confirm(&self) -> Result<bool>;
     fn recover(&self) -> Result<()>;
     fn restore_timers(&self) -> Result<()>;
 }
@@ -140,10 +142,12 @@ fn execute(trial: &mut impl Trial) -> Result<TrialResult> {
         trial.stop()?;
         trial.admit()?;
         trial.start()?;
-        trial.observe(true)
+        trial.observe(true)?;
+        trial.confirm()
     })();
     let result = match attempt {
-        Ok(()) => Ok(TrialResult::AwaitingHealthConfirmation),
+        Ok(true) => Ok(TrialResult::Confirmed),
+        Ok(false) => Ok(TrialResult::AwaitingHealthConfirmation),
         Err(_) if touched_application => trial.recover().map(|()| TrialResult::RejectedAndRestored),
         Err(error) => Err(error),
     };
@@ -155,6 +159,7 @@ struct SystemTrial<'a> {
     request: &'a str,
     manifest: &'a str,
     baseline: &'a str,
+    auto_confirm: bool,
     active_timers: Vec<&'static str>,
 }
 
@@ -226,6 +231,29 @@ impl Trial for SystemTrial<'_> {
         }
     }
 
+    fn confirm(&self) -> Result<bool> {
+        if !self.auto_confirm {
+            return Ok(false);
+        }
+        match crate::runtime_observation::confirmation::confirm_web_running_trial(
+            self.request,
+            self.manifest,
+        ) {
+            Ok(_) => Ok(true),
+            Err(error) => {
+                // An acknowledgement lost after publication is distinguishable
+                // by the original ledger. Never re-run confirmation or revert it.
+                let state = ReadOnlyState::observe()?;
+                let (selected, _, attempted, pending) = state.runtime_version()?;
+                if !attempted && !pending && selected == self.manifest {
+                    Ok(true)
+                } else {
+                    Err(error)
+                }
+            }
+        }
+    }
+
     fn recover(&self) -> Result<()> {
         // The existing group OnFailure may already have restored the baseline.
         let state = ReadOnlyState::observe()?;
@@ -241,6 +269,7 @@ impl Trial for SystemTrial<'_> {
         }
         drop(state);
         if pending.is_some() {
+            check_idle()?;
             self.stop()?;
             web_upload::reject_web_trial(self.request, self.manifest)?;
         }
@@ -267,6 +296,12 @@ pub fn run_web_trial(request: &str, manifest: &str) -> Result<TrialResult> {
         return Err(Error::Invalid);
     }
     let _lock = runner_lock()?;
+    let auto_confirm = Observation::capture(Path::new("/").join(WEB_HEALTH_DROP).as_path())?
+        .stamp
+        .is_some();
+    if auto_confirm {
+        super::running::Root::observe_web_ap()?;
+    }
     web_upload::check_web_upload(request, manifest)?;
     let state = ReadOnlyState::observe()?;
     let (baseline, _, attempted, pending) = state.runtime_version()?;
@@ -283,6 +318,7 @@ pub fn run_web_trial(request: &str, manifest: &str) -> Result<TrialResult> {
         request,
         manifest,
         baseline: &baseline,
+        auto_confirm,
         active_timers: vec![],
     })
 }
@@ -322,6 +358,10 @@ mod tests {
         fn observe(&self, _: bool) -> Result<()> {
             self.call("observe")
         }
+        fn confirm(&self) -> Result<bool> {
+            self.call("confirm")?;
+            Ok(self.fail == "success")
+        }
         fn recover(&self) -> Result<()> {
             self.call("restore baseline")
         }
@@ -342,6 +382,7 @@ mod tests {
                     "admit",
                     "start",
                     "observe",
+                    "confirm",
                     "restore timers",
                 ],
             ),
@@ -369,6 +410,21 @@ mod tests {
             };
             assert_eq!(execute(&mut probe), expected);
             assert_eq!(probe.log.into_inner(), steps);
+        }
+    }
+
+    #[test]
+    fn web_trial_confirms_only_after_the_health_handshake() {
+        for (fail, expected) in [
+            ("success", TrialResult::Confirmed),
+            ("confirm", TrialResult::RejectedAndRestored),
+        ] {
+            let mut probe = Probe {
+                fail,
+                log: RefCell::new(vec![]),
+            };
+            assert_eq!(execute(&mut probe), Ok(expected));
+            assert_eq!(&probe.log.borrow()[4..6], ["observe", "confirm"]);
         }
     }
 

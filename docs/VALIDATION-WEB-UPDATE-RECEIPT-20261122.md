@@ -33,6 +33,14 @@ WSL `cargo test --offline --locked -p rustsimhub-update --lib web_ -- --test-thr
 
 WSL `cargo test --offline --locked -p rustsimhub-update --lib web_ -- --test-threads=1` 六项通过，含通话状态解析、模拟调度回退、真实备份和槽位测试。严格 Clippy 通过。
 
+## Setup AP 同格式应用的业务健康确认
+
+现有 Setup AP 启动方式可显式使用 `firmware/system/update-health/56-web-update-health.conf` 以及同目录的 `tmpfiles.conf`。56 放在 Core 服务 drop-in 目录，tmpfiles 放在 `/etc/tmpfiles.d/rustsimhub-update-health.conf`。两项保持 Root 所有、0644。它们不纳入默认镜像，不启用另一个 profile 的健康定时器。当前应用更新不替换 Core 启动器或 AP 资料。
+
+Root 试运行先核对精确配置与运行槽，再通过 Core 的固定私有 socket 获取带挑战与限期的业务证明。确认绑定同一请求、候选和原版摘要、数据格式及接单时的所有者授权证明，最终提交前再次核对。失去最后确认回执时读原账本，不重复确认。无此配置的维护试运行保持待确认。Root 的独立确认接口为 `confirm-web-running-trial <request-id> <manifest-sha256>`，受相同检查约束。
+
+WSL `cargo test -p rustsimhub-update --lib web_` 通过 8 项，`admission::running::tests` 通过 4 项（重叠 1 项），`strict_snapshot` 通过 1 项。Core `cargo test -p rustsimhub-core --lib update_health` 通过 6 项，2 项既有隔离项忽略。两包严格 Clippy 通过。均使用 `--offline --locked`，尚无 ARM/实机全程验证。
+
 ## 待接线
 
-网页确认后的后台唤起、更新程序被中止时的外部恢复、当前 AP 布局的业务健康确认及网页回执仍需接通。本轮未在真机执行，设备最后确认应用 114。整体验收 81.5%，台账 20/169。
+网页确认后的后台唤起、更新程序被中止时的外部恢复和网页回执仍需接通。本轮未在真机执行，设备最后确认应用 114。整体验收 81.5%，台账 20/169。

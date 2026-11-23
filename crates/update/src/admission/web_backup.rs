@@ -19,13 +19,14 @@ const RECEIPT: &str = "receipt.json";
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-pub(super) struct Receipt {
+pub(crate) struct Receipt {
     pub format: u8,
     pub request_id: String,
     pub manifest_sha256: String,
     pub baseline_sha256: String,
     pub epoch: u64,
     pub business_schema: u32,
+    pub authorization_binding: Option<String>,
     business_sha256: String,
     outbox_sha256: Option<String>,
 }
@@ -134,6 +135,7 @@ pub(super) fn save(
     snapshot: &MaintenanceSnapshot,
     upload: &UpdateUpload,
     baseline: &str,
+    authorization_binding: &str,
 ) -> Result<()> {
     snapshot.revalidate()?;
     let uid = rustix::process::geteuid().as_raw();
@@ -174,6 +176,7 @@ pub(super) fn save(
         epoch: upload.epoch,
         business_schema: u32::try_from(snapshot.business.version.format)
             .map_err(|_| Error::Schema)?,
+        authorization_binding: Some(authorization_binding.to_owned()),
         business_sha256: business,
         outbox_sha256: outbox,
     })
@@ -214,7 +217,7 @@ mod tests {
             length: 1,
         };
         let baseline = "d".repeat(64);
-        save(root.path(), &snapshot, &upload, &baseline).unwrap();
+        save(root.path(), &snapshot, &upload, &baseline, &"9".repeat(64)).unwrap();
         let current = root.path().join(CURRENT);
         let pending = root.path().join(NEXT);
         let read_receipt = || {
@@ -240,14 +243,14 @@ mod tests {
         denied_io(DirBuilder::new().mode(0o700).create(&pending)).unwrap();
         symlink(current.join(OUTBOX), pending.join(OUTBOX)).unwrap();
         assert_eq!(
-            save(root.path(), &snapshot, &upload, &baseline),
+            save(root.path(), &snapshot, &upload, &baseline, &"9".repeat(64)),
             Err(Error::Io)
         );
         assert!(pending.join(OUTBOX).is_symlink());
         assert_eq!(read_receipt(), first);
 
         fs::remove_file(pending.join(OUTBOX)).unwrap();
-        save(root.path(), &snapshot, &upload, &baseline).unwrap();
+        save(root.path(), &snapshot, &upload, &baseline, &"9".repeat(64)).unwrap();
         assert_eq!(read_receipt()["manifest_sha256"], upload.manifest_sha256);
         assert_eq!(read_receipt()["business_sha256"], first["business_sha256"]);
         assert!(!pending.exists());

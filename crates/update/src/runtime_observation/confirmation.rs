@@ -155,6 +155,7 @@ pub struct RunningCandidate {
     data: running::Data,
     core: Core,
     plan: Plan,
+    web: Option<crate::admission::WebHealthReceipt>,
     invalid: Cell<bool>,
 }
 #[derive(Serialize)]
@@ -176,12 +177,38 @@ impl RunningCandidate {
         Ok(candidate)
     }
     fn collect() -> Result<Self> {
+        Self::collect_for(None)
+    }
+
+    fn collect_for(web: Option<(&str, &str)>) -> Result<Self> {
         if rustix::process::geteuid().as_raw() != 0 {
             return Err(Error::Denied);
         }
         let runtime = observed("runtime", RuntimeObservation::collect())?;
-        let root = observed("Root", running::Root::observe_for(&runtime))?;
         let plan = runtime.ledger.confirmation_plan()?;
+        let web = web
+            .map(|(request, manifest)| {
+                if !rustsimhub_wire::UpdateUpload::valid_reference(request, manifest) {
+                    return Err(Error::Invalid);
+                }
+                let receipt = crate::admission::web_health_receipt(request, manifest)?;
+                if runtime.slot.hash != manifest
+                    || runtime.slot.manifest.epoch != receipt.epoch
+                    || crate::manifest_hash(&plan.verified_baseline().group().0)
+                        != receipt.baseline_sha256
+                    || receipt.business_schema != 6
+                    || receipt.authorization_binding.is_none()
+                {
+                    return Err(Error::Denied);
+                }
+                Ok(receipt)
+            })
+            .transpose()?;
+        let root = if web.is_some() {
+            running::Root::observe_web_ap()?
+        } else {
+            observed("Root", running::Root::observe_for(&runtime))?
+        };
         // Exactly one metadata path, before taking the Core SQL/Auth lease.
         // Product verification already retains the original SignedPrograms
         // checks; repeating the unused legacy path only consumed freshness.
@@ -205,7 +232,12 @@ impl RunningCandidate {
                 root.compare_product(&core.snapshot, &candidate, &baseline)?;
             }
             Programs::Legacy(candidate, baseline) => {
-                running::compatible(&core.snapshot, &candidate, &baseline)?;
+                if let Some(receipt) = &web {
+                    web_matches_health(receipt, &core.snapshot)?;
+                    running::compatible_web_ap(&core.snapshot, &candidate, &baseline)?;
+                } else {
+                    running::compatible(&core.snapshot, &candidate, &baseline)?;
+                }
             }
         }
         Ok(Self {
@@ -214,6 +246,7 @@ impl RunningCandidate {
             data,
             core,
             plan,
+            web,
             invalid: Cell::new(false),
         })
     }
@@ -227,6 +260,7 @@ impl RunningCandidate {
             self.root.revalidate()?;
             self.data.revalidate()?;
             self.core.check(&self.runtime)?;
+            web_binding_current(self.web.as_ref())?;
             self.runtime.fresh()
         })();
         if result.is_err() {
@@ -245,6 +279,7 @@ impl RunningCandidate {
             data,
             mut core,
             plan,
+            web,
             ..
         } = self;
         // Prepare/fsync first. The sole final Core Recheck is inside the gate,
@@ -256,6 +291,7 @@ impl RunningCandidate {
             root.revalidate()?;
             data.revalidate()?;
             core.check(&runtime)?;
+            web_binding_current(web.as_ref())?;
             runtime.fresh()
         })?;
         // An error after intent publication is uncertain; query the original
@@ -277,5 +313,32 @@ pub fn confirm_running_candidate() -> Result<Confirmation> {
     // so do it once at the action boundary, not twice in adjacent calls.
     RunningCandidate::collect()?.confirm()
 }
+fn web_matches_health(
+    receipt: &crate::admission::WebHealthReceipt,
+    snapshot: &wire::Snapshot,
+) -> Result<()> {
+    if receipt.authorization_binding.as_deref() != Some(&snapshot.authorization_binding)
+        || receipt.business_schema != snapshot.data_schema
+    {
+        return Err(Error::Denied);
+    }
+    Ok(())
+}
+
+fn web_binding_current(web: Option<&crate::admission::WebHealthReceipt>) -> Result<()> {
+    if let Some(record) = web {
+        if *record
+            != crate::admission::web_health_receipt(&record.request_id, &record.manifest_sha256)?
+        {
+            return Err(Error::Busy);
+        }
+    }
+    Ok(())
+}
+
+pub fn confirm_web_running_trial(request: &str, manifest: &str) -> Result<Confirmation> {
+    RunningCandidate::collect_for(Some((request, manifest)))?.confirm()
+}
+
 #[cfg(test)]
 mod tests;

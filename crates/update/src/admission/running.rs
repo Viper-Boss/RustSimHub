@@ -138,6 +138,7 @@ impl Data {
 }
 pub(crate) struct Root {
     product: Option<product::ProductRoot>,
+    web_ap: bool,
     observations: Vec<Observation>,
     _files: Vec<File>,
     scratch: PathBuf,
@@ -149,41 +150,76 @@ impl Root {
     pub(crate) fn observe_for(
         runtime: &crate::runtime_observation::RuntimeObservation,
     ) -> Result<Self> {
-        Self::at_product(
+        Self::at_profile(
             Path::new("/"),
             0,
             Box::new(systemd::running_unit),
             product::ProductRoot::observe(runtime)?,
+            false,
         )
     }
     #[cfg(test)]
     fn at(root: &Path, uid: u32, effective: Box<dyn Fn() -> Result<Vec<u8>>>) -> Result<Self> {
-        Self::at_product(root, uid, effective, None)
+        Self::at_profile(root, uid, effective, None, false)
     }
-    fn at_product(
+    pub(crate) fn observe_web_ap() -> Result<Self> {
+        Self::at_profile(
+            Path::new("/"),
+            0,
+            Box::new(systemd::running_unit),
+            None,
+            true,
+        )
+    }
+    fn at_profile(
         root: &Path,
         uid: u32,
         effective: Box<dyn Fn() -> Result<Vec<u8>>>,
         product: Option<product::ProductRoot>,
+        web_ap: bool,
     ) -> Result<Self> {
         let mut observations = vec![];
         let mut files = vec![];
-        for spec in materials()
-            .into_iter()
-            .filter(|s| product.is_none() || s.path != DROP)
-        {
+        let materials = if web_ap {
+            let mut materials = forwarding();
+            materials.extend(setup_ap());
+            materials.extend(web_health_materials());
+            materials.push(Material {
+                path: BASE_PATH,
+                expected: Some(text(BASE)),
+                mode: 0o644,
+            });
+            check_core_overrides_qualified(root, uid, &mut observations, false, true)?;
+            materials
+        } else {
+            materials()
+                .into_iter()
+                .filter(|spec| product.is_none() || spec.path != DROP)
+                .collect()
+        };
+        for spec in materials {
             if !parents(root, Path::new(spec.path), &[uid], &mut observations)? {
                 return Err(Error::Denied);
             }
             let path = root.join(spec.path);
             let observed = Observation::capture(&path)?;
-            let mut file = private_file(&path, uid, spec.mode, 256 * 1024)?;
+            let limit = if spec.expected.is_some() {
+                256 * 1024
+            } else {
+                24 * 1024 * 1024
+            };
+            let mut file = private_file(&path, uid, spec.mode, limit)?;
             let mut bytes = vec![];
             file.by_ref()
-                .take(256 * 1024 + 1)
+                .take(limit + 1)
                 .read_to_end(&mut bytes)
                 .map_err(|_| Error::Io)?;
-            if spec.expected.as_ref() != Some(&bytes)
+            if bytes.is_empty()
+                || bytes.len() as u64 > limit
+                || spec
+                    .expected
+                    .as_ref()
+                    .is_some_and(|expected| expected != &bytes)
                 || observed.stamp.as_ref() != Some(&file.metadata().map_err(|_| Error::Io)?.into())
             {
                 return Err(Error::Integrity);
@@ -203,6 +239,12 @@ impl Root {
                 "30-forwarding.conf",
                 "50-product-profile.conf",
                 "55-product-health.conf",
+            ]
+        } else if web_ap {
+            &[
+                "30-forwarding.conf",
+                "50-setup-ap.conf",
+                WEB_HEALTH_DROP_NAME,
             ]
         } else {
             &["30-forwarding.conf", "55-update-health.conf"]
@@ -232,6 +274,7 @@ impl Root {
         // its original inode/owner/mode, never refresh the business guards.
         let result = Self {
             product,
+            web_ap,
             observations,
             _files: files,
             scratch,
@@ -276,14 +319,14 @@ impl Root {
         if let Some(product) = &self.product {
             product.revalidate()?;
         }
-        effective_profile(&((self.effective)()?), self.product.is_some())
+        effective_profile(&((self.effective)()?), self.product.is_some(), self.web_ap)
     }
 }
 #[cfg(test)]
 fn effective(bytes: &[u8]) -> Result<()> {
-    effective_profile(bytes, false)
+    effective_profile(bytes, false, false)
 }
-fn effective_profile(bytes: &[u8], product: bool) -> Result<()> {
+fn effective_profile(bytes: &[u8], product: bool, web_ap: bool) -> Result<()> {
     let mut values = std::collections::BTreeMap::new();
     for line in std::str::from_utf8(bytes)
         .map_err(|_| Error::Invalid)?
@@ -304,6 +347,8 @@ fn effective_profile(bytes: &[u8], product: bool) -> Result<()> {
     }
     let expected = if product {
         "/etc/systemd/system/rustsimhub-core.service.d/30-forwarding.conf /etc/systemd/system/rustsimhub-core.service.d/50-product-profile.conf /etc/systemd/system/rustsimhub-core.service.d/55-product-health.conf"
+    } else if web_ap {
+        "/etc/systemd/system/rustsimhub-core.service.d/30-forwarding.conf /etc/systemd/system/rustsimhub-core.service.d/50-setup-ap.conf /etc/systemd/system/rustsimhub-core.service.d/56-web-update-health.conf"
     } else {
         "/etc/systemd/system/rustsimhub-core.service.d/30-forwarding.conf /etc/systemd/system/rustsimhub-core.service.d/55-update-health.conf"
     };
@@ -348,10 +393,30 @@ pub(crate) fn compatible(
     candidate: &SignedPrograms,
     baseline: &SignedPrograms,
 ) -> Result<()> {
-    candidate.supports_running_health()?;
     // The same explicit Root prefix is retained on fallback startup.
     baseline.supports_running_health()?;
-    let request = serde_json::json!({"format":1,"target_arch":"aarch64","root_mode":"forwarding","root_contract":null,
+    compatible_mode(snapshot, candidate, baseline, Mode::Forwarding, None)
+}
+
+pub(crate) fn compatible_web_ap(
+    snapshot: &Snapshot,
+    candidate: &SignedPrograms,
+    baseline: &SignedPrograms,
+) -> Result<()> {
+    let contract =
+        include_str!("../../../../firmware/system/setup-ap/contract.json").replace("\r\n", "\n");
+    compatible_mode(snapshot, candidate, baseline, Mode::SetupAp, Some(contract))
+}
+
+fn compatible_mode(
+    snapshot: &Snapshot,
+    candidate: &SignedPrograms,
+    baseline: &SignedPrograms,
+    mode: Mode,
+    contract: Option<String>,
+) -> Result<()> {
+    candidate.supports_running_health()?;
+    let request = serde_json::json!({"format":1,"target_arch":"aarch64","root_mode":mode,"root_contract":contract,
         "data":{"business_schema":snapshot.data_schema,"outbox":snapshot.forwarding.outbox_schema.map(|s|serde_json::json!({"application_id":0x52534657i64,"format":s}))},
         "selected":candidate.metadata(),"candidate":candidate.metadata(),"fallback":baseline.metadata()});
     let report = rustsimhub_core_launcher::check_upgrade(

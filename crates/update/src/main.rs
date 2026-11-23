@@ -174,6 +174,23 @@ fn run() -> Result<(), rustsimhub_update::Error> {
         );
         return Ok(());
     }
+    if args
+        .first()
+        .is_some_and(|command| command == "confirm-web-running-trial")
+    {
+        let [_, request, manifest] = args.as_slice() else {
+            return Err(Error::Invalid);
+        };
+        let confirmation =
+            rustsimhub_update::runtime_observation::confirmation::confirm_web_running_trial(
+                request, manifest,
+            )?;
+        println!(
+            "{}",
+            serde_json::to_string(&confirmation).map_err(|_| Error::Invalid)?
+        );
+        return Ok(());
+    }
     if args == ["inspect-maintenance"] {
         let snapshot = rustsimhub_update::admission::MaintenanceSnapshot::observe()?;
         snapshot.revalidate()?;

@@ -59,3 +59,32 @@ fn replaced_or_world_writable_scratch_is_refused() {
     fs::set_permissions(root.scratch(), fs::Permissions::from_mode(0o777)).unwrap();
     assert!(root.revalidate().is_err());
 }
+
+#[test]
+fn web_ap_health_requires_exact_root_bytes_and_loaded_config() {
+    let temp = super::super::tests::fixture(Mode::SetupAp, true);
+    let uid = rustix::process::geteuid().as_raw();
+    for spec in web_health_materials() {
+        let path = temp.path().join(spec.path);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, spec.expected.unwrap()).unwrap();
+        fs::set_permissions(path, fs::Permissions::from_mode(spec.mode)).unwrap();
+    }
+    let scratch = temp.path().join(SCRATCH.trim_start_matches('/'));
+    fs::create_dir_all(&scratch).unwrap();
+    fs::set_permissions(scratch, fs::Permissions::from_mode(0o700)).unwrap();
+    let effective = || {
+        Ok(String::from_utf8(output()).unwrap()
+            .replace("55-update-health.conf", "50-setup-ap.conf /etc/systemd/system/rustsimhub-core.service.d/56-web-update-health.conf")
+            .into_bytes())
+    };
+    let snapshot = super::super::tests::snapshot(temp.path());
+    assert!(snapshot.web_health_ap);
+    drop(snapshot);
+    let root = Root::at_profile(temp.path(), uid, Box::new(effective), None, true).unwrap();
+    root.revalidate().unwrap();
+    assert!(Root::at_profile(temp.path(), uid, Box::new(|| Ok(output())), None, true).is_err());
+    fs::write(temp.path().join(WEB_HEALTH_DROP), b"changed policy").unwrap();
+    assert!(root.revalidate().is_err());
+    assert!(Root::at_profile(temp.path(), uid, Box::new(effective), None, true).is_err());
+}

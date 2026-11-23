@@ -302,6 +302,7 @@ impl Fixture {
             data,
             core,
             plan,
+            web: None,
             invalid: Cell::new(false),
         };
         cap.revalidate().unwrap();

@@ -151,6 +151,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    #[cfg(target_os = "linux")]
+    if args
+        .first()
+        .is_some_and(|mode| mode == "--serve-device-forwarding-managed-setup-ap")
+        && std::env::var_os("RUSTSIMHUB_WEB_UPDATE_HEALTH").as_deref()
+            == Some(std::ffi::OsStr::new("1"))
+    {
+        authenticated::enable_update_health();
+    }
+
     let args = if args
         .first()
         .is_some_and(|a| a == "--enable-update-health-candidate")

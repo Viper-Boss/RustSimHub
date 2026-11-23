@@ -32,6 +32,24 @@ fn strict_snapshot_and_actual_schema_nine_never_gain_schema_six_admission() {
     let mut bad = serde_json::to_value(&snapshot).unwrap();
     bad["may_confirm"] = true.into();
     assert!(wire::parse_snapshot(&serde_json::to_vec(&bad).unwrap()).is_err());
+    let mut receipt: crate::admission::WebHealthReceipt =
+        serde_json::from_value(serde_json::json!({
+            "format": 1,
+            "request_id": "12345678-1234-4234-8234-123456789abc",
+            "manifest_sha256": "a".repeat(64),
+            "baseline_sha256": "b".repeat(64),
+            "epoch": 115,
+            "business_schema": 6,
+            "authorization_binding": snapshot.authorization_binding,
+            "business_sha256": "c".repeat(64),
+            "outbox_sha256": null,
+        }))
+        .unwrap();
+    assert_eq!(web_matches_health(&receipt, &snapshot), Ok(()));
+    receipt.authorization_binding = Some("4".repeat(64));
+    assert_eq!(web_matches_health(&receipt, &snapshot), Err(Error::Denied));
+    receipt.authorization_binding = None;
+    assert_eq!(web_matches_health(&receipt, &snapshot), Err(Error::Denied));
     let mut nine = snapshot;
     nine.data_schema = 9;
     assert!(wire::parse_snapshot(&serde_json::to_vec(&nine).unwrap()).is_ok());

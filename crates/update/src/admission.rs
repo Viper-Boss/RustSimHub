@@ -32,6 +32,11 @@ pub use web_upload::{admit_web_upload, reject_web_trial};
 #[cfg(feature = "email-production-candidate")]
 pub use programs::{migrate_email4, migrate_email4_retained};
 
+pub(crate) use web_backup::Receipt as WebHealthReceipt;
+pub(crate) fn web_health_receipt(request: &str, manifest: &str) -> Result<WebHealthReceipt> {
+    web_backup::read_receipt(Path::new(web_upload::APP), request, manifest)
+}
+
 type Result<T> = std::result::Result<T, Error>;
 const STATE: &str = "var/lib/rustsimhub/rustsimhub-v1/core/state";
 const BASE_PATH: &str = "etc/systemd/system/rustsimhub-core.service";
@@ -256,10 +261,33 @@ fn setup_ap() -> Vec<Material> {
     ]
 }
 
+const WEB_HEALTH_DROP_NAME: &str = "56-web-update-health.conf";
+const WEB_HEALTH_DROP: &str =
+    "etc/systemd/system/rustsimhub-core.service.d/56-web-update-health.conf";
+fn web_health_materials() -> [Material; 2] {
+    [
+        Material {
+            path: WEB_HEALTH_DROP,
+            expected: Some(text(include_str!(
+                "../../../firmware/system/update-health/56-web-update-health.conf"
+            ))),
+            mode: 0o644,
+        },
+        Material {
+            path: "etc/tmpfiles.d/rustsimhub-update-health.conf",
+            expected: Some(text(include_str!(
+                "../../../firmware/system/update-health/tmpfiles.conf"
+            ))),
+            mode: 0o644,
+        },
+    ]
+}
+
 /// Typed guards must remain alive until admission/mutation has finished.
 /// A serialized report by itself cannot retain a writer fence.
 pub struct MaintenanceSnapshot {
     product_qualified: bool,
+    web_health_ap: bool,
     root_mode: Mode,
     contract: Option<String>,
     root_digests: Vec<RootDigest>,
@@ -440,7 +468,13 @@ impl MaintenanceSnapshot {
         } else {
             Mode::Device
         };
-        check_core_overrides_qualified(root, root_uid, &mut observations, product)?;
+        let [health_drop, health_tmpfiles] = web_health_materials();
+        let web_health_ap = material(&health_drop)?;
+        if web_health_ap && (product || root_mode != Mode::SetupAp || !material(&health_tmpfiles)?)
+        {
+            return Err(Error::Integrity);
+        }
+        check_core_overrides_qualified(root, root_uid, &mut observations, product, web_health_ap)?;
         let contract = (ap_count > 0).then(|| {
             String::from_utf8(text(include_str!(
                 "../../../firmware/system/setup-ap/contract.json"
@@ -491,6 +525,7 @@ impl MaintenanceSnapshot {
         observations.push(observed);
         let snapshot = Self {
             product_qualified: product,
+            web_health_ap,
             root_mode,
             contract,
             root_digests: digests,
@@ -569,6 +604,7 @@ fn check_core_overrides_qualified(
     uid: u32,
     observations: &mut Vec<Observation>,
     product: bool,
+    web_health_ap: bool,
 ) -> Result<()> {
     for (directory, allow_known) in [
         ("etc/systemd/system/rustsimhub-core.service.d", true),
@@ -597,7 +633,8 @@ fn check_core_overrides_qualified(
                         || (!["30-forwarding.conf", "50-setup-ap.conf"].contains(&name)
                             && !(product
                                 && ["50-product-profile.conf", "55-product-health.conf"]
-                                    .contains(&name))))
+                                    .contains(&name))
+                            && !(web_health_ap && name == WEB_HEALTH_DROP_NAME)))
                 {
                     return Err(Error::Integrity);
                 }

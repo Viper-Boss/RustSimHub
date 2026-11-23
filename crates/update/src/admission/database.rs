@@ -159,6 +159,31 @@ impl Database {
         Ok(())
     }
 
+    pub(super) fn web_update_owner_proof(
+        &self,
+        binding: &rustsimhub_wire::UpdateUploadBinding,
+    ) -> Result<String> {
+        self.check_web_update_owner(binding)?;
+        let connection = self._connection.as_ref().ok_or(Error::Busy)?;
+        let device_key: Vec<u8> = connection
+            .query_row(
+                "SELECT public_key FROM device_identity WHERE singleton=1",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|_| Error::Denied)?;
+        let device_key: [u8; 32] = device_key.try_into().map_err(|_| Error::Integrity)?;
+        let proof = serde_json::to_vec(&(
+            device_key,
+            binding.owner_key,
+            binding.generation,
+            &binding.realm,
+        ))
+        .map_err(|_| Error::Invalid)?;
+        self.revalidate()?;
+        Ok(crate::manifest_hash(&proof))
+    }
+
     pub fn revalidate(&self) -> Result<()> {
         if self._writer.is_none() || self._connection.is_none() {
             return Err(Error::Busy);
