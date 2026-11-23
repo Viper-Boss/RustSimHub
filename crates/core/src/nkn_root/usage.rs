@@ -43,6 +43,16 @@ impl Controller {
         let shared = &run.source.shared;
         if self.closed.load(Ordering::Acquire)
             || run.references[2].is_none()
+            || {
+                #[cfg(feature = "usage-root-transport-candidate")]
+                {
+                    !run.statistics_query
+                }
+                #[cfg(not(feature = "usage-root-transport-candidate"))]
+                {
+                    false
+                }
+            }
             || run.supervisor.snapshot().phase != rustsimhub_nkn_agent::Phase::Ready
             || !shared.sdk_usage
             || !shared.local_live()

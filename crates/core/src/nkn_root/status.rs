@@ -204,8 +204,19 @@ pub struct Report {
     pub original_process_exit_verified: bool,
     pub status: Status,
 }
+fn explicit_owners(run: &Run) -> Owners {
+    let statistics = run.references[2].is_some();
+    #[cfg(feature = "usage-root-transport-candidate")]
+    let statistics = statistics && run.statistics_query;
+    Owners {
+        manual: run.references[0].is_some(),
+        remote: run.references[1].is_some(),
+        statistics,
+    }
+}
 impl Controller {
-    /// Exact local ownership tickets only; no Root, SDK, credential or lease IO.
+    /// Explicit user-owned switches only; a reporting consumer does not enable
+    /// the aggregate-query switch. No Root, SDK, credential or lease IO.
     pub fn owners(&self) -> Result<Owners> {
         let state = self.run.try_lock().map_err(|_| PortError::Unavailable)?;
         Ok(state.as_ref().map_or(
@@ -214,11 +225,7 @@ impl Controller {
                 remote: false,
                 statistics: false,
             },
-            |r| Owners {
-                manual: r.references[0].is_some(),
-                remote: r.references[1].is_some(),
-                statistics: r.references[2].is_some(),
-            },
+            explicit_owners,
         ))
     }
 
@@ -252,11 +259,7 @@ impl Controller {
         let Some(run) = state.as_ref() else {
             return Ok(report);
         };
-        report.owners = Owners {
-            manual: run.references[0].is_some(),
-            remote: run.references[1].is_some(),
-            statistics: run.references[2].is_some(),
-        };
+        report.owners = explicit_owners(run);
         let snapshot = run.supervisor.snapshot();
         use rustsimhub_nkn_agent::Phase;
         report.supervisor_state = match snapshot.phase {

@@ -67,7 +67,7 @@ impl<F: FnMut(&StatisticsLease, &AttemptBudget, &Cancellation)> CheckInTransport
 }
 // Budgets and leases are minted only by the REAL CheckInMachine; no test
 // constructor or substitute cancellation/consent proof is added to production.
-fn with_budget(
+pub(in crate::nkn_root) fn with_budget(
     store: Arc<FileStore>,
     call: impl FnMut(&StatisticsLease, &AttemptBudget, &Cancellation),
 ) {

@@ -56,6 +56,11 @@ impl Drop for SubscriptionSigner {
     }
 }
 impl SubscriptionSigner {
+    #[cfg(feature = "usage-root-transport-candidate")]
+    pub(crate) fn owner_token(&self) -> &str {
+        &self.token
+    }
+
     /// The Root observer uses this ONLY around a nonblocking local socket
     /// write. No external RPC, waiting read, service start or callback supplied
     /// by a wire caller may run here. A completed OFF/logout cannot pass the

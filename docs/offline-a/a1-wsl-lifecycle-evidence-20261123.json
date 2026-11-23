@@ -1,0 +1,103 @@
+{
+  "date": "2026-11-23",
+  "environment": "Ubuntu 24.04.5 LTS on WSL2, local Podman image, no external network",
+  "source": {
+    "tree": "cdac532d75de9da68eef1da2f5c43b33b861f24d",
+    "base": "4e8ccc781f713fbb6f0a4a8dfe1e073061cd13d0",
+    "archive_sha256": "b3ab4095a94bbe6147510d7d3848d6f46c4dc13e3a034fdb0bc03caf1d2d07e7"
+  },
+  "test_elf_sha256": "41282aee61248600e992051d95d8e223597742e9b6701b2dd56231d12077b92c",
+  "fixed_synthetic_node_sdk_and_root": {
+    "source_head": "18cbd7c405d844d24de15eb115880217cf8f5fad",
+    "current_go_and_prepare_bytes_unchanged": true,
+    "original_fixed_sdk_chain_previously_verified": true,
+    "engine_sha256": "643e580a321bd29a6021b3a804f2db076e58e30c4867eadbb53ddec82edd77b0",
+    "root_sha256": "db6f620053da6a6d20995a521fda108ef8770022119dce5506eaa481ef0c06f9"
+  },
+  "scenarios": [
+    {
+      "name": "process_restart",
+      "exit_code": 0,
+      "node_rpc_counts": {
+        "getnoncebyaddr": 1,
+        "sendrawtransaction": 1,
+        "gettransaction": 1
+      },
+      "checks": {
+        "original_scope_cleaned": true,
+        "outcome": "Unknown",
+        "pending_preserved": true,
+        "scenario": "process_restart",
+        "first_core_exited": true,
+        "distinct_core_processes": true,
+        "queried_original_digest": true
+      },
+      "core_log_sha256": "94ae6f64bb4123236a4fc6d25bf2db88c393d8160aea20b69679109d0ecba67c"
+    },
+    {
+      "name": "shared",
+      "exit_code": 0,
+      "node_rpc_counts": {
+        "getnoncebyaddr": 1,
+        "sendrawtransaction": 1,
+        "gettransaction": 1
+      },
+      "checks": {
+        "observed_submits": 1,
+        "original_scope_cleaned": true,
+        "original_sdk_reaped": true,
+        "pending_preserved": true,
+        "query_clock": "test-only logical cooldown; Auth/Root/budget Instant clocks unchanged",
+        "restart_query": true,
+        "scenario": "shared",
+        "shared_reference_checks": true,
+        "queried_original_digest": true
+      },
+      "core_log_sha256": "f26065b3ec7c79dac7306911e33f53469a0d4d295bfc509487dc5d79daface39"
+    },
+    {
+      "name": "lost_ack",
+      "exit_code": 0,
+      "node_rpc_counts": {
+        "getnoncebyaddr": 1,
+        "sendrawtransaction": 1,
+        "gettransaction": 1
+      },
+      "checks": {
+        "observed_submits": 1,
+        "original_scope_cleaned": true,
+        "original_sdk_reaped": true,
+        "pending_preserved": true,
+        "query_clock": "test-only logical cooldown; Auth/Root/budget Instant clocks unchanged",
+        "restart_query": true,
+        "scenario": "lost_ack",
+        "shared_reference_checks": true,
+        "queried_original_digest": true
+      },
+      "core_log_sha256": "16e747bea5dacc1f34ec8363ba1cbb71f6e208410ce29731abd9c316f2591305"
+    },
+    {
+      "name": "root_expiry_300",
+      "exit_code": 0,
+      "node_rpc_counts": {
+        "getnoncebyaddr": 1,
+        "sendrawtransaction": 1,
+        "gettransaction": 0
+      },
+      "checks": {
+        "elapsed_ms": 300102,
+        "old_authority_denied": true,
+        "original_scope_cleaned": true,
+        "original_sdk_reaped": true,
+        "other_references_preserved": true,
+        "outcome": "Unknown",
+        "pending_preserved": true,
+        "scenario": "root_expiry_300",
+        "submit_remaining_ms": 749,
+        "node_submit_remaining_ms": 723
+      },
+      "core_log_sha256": "95295661c58469738855c31b0181d450324ba07a29e1254b29ef5eb7aebe7b6a"
+    }
+  ],
+  "no_running_containers_after": true
+}
