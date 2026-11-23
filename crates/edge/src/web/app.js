@@ -125,7 +125,8 @@ const sessionKeeper=new SessionKeeper({env:globalThis,token:()=>token,apply:(old
  const result=await api({op:'renew_session',token:old,challenge_id:c.id,signature},epoch);current(epoch);active();return result;
 }});
 dailyPhone=new DailyPhone({document,env:globalThis,ensureSession:()=>sessionKeeper.ensure(),audio:audioLink,audioReady:()=>audioReady,context:value=>({token,lease:value}),request:command=>auth(command),getPending:()=>pending,setPending:async value=>{const epoch=viewEpoch;pending=value;await save('pending',value);current(epoch);showPending();},archivePending,archiveKnown:async value=>{const epoch=viewEpoch,receipts=await stored('phone-operation-receipts')||[];current(epoch);if(!Array.isArray(receipts))throw Error('电话回执不可用');await save('phone-operation-receipts',[...receipts.filter(x=>x.id!==value.id),value].slice(-64));current(epoch);},setLease:value=>{lease=value;showAudio();},blocked:()=>busy||apConfigurator?.working||apConfigurator?.managing||callTest.running||!!lease&&!dailyPhone?.managing});
-const dashboard=new ConsoleDashboard({document,request:command=>auth(command),detailText:value=>smsDetailText(value),confirm:message=>confirm(message),copy:value=>navigator.clipboard.writeText(value),storage:globalThis.localStorage,matchDark:()=>globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches===true,onEnter:page=>{if(page==='ble')void readBluetoothMode();if(page==='sim')void readDataRoaming();},onLeave:()=>{for(const panel of document.querySelectorAll('details[data-configuration]'))panel.open=false;}});
+let refreshUsageCounts;
+const dashboard=new ConsoleDashboard({document,request:command=>auth(command),detailText:value=>smsDetailText(value),confirm:message=>confirm(message),copy:value=>navigator.clipboard.writeText(value),storage:globalThis.localStorage,matchDark:()=>globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches===true,onEnter:page=>{if(page==='ble')void readBluetoothMode();if(page==='sim')void readDataRoaming();if(page==='login')void refreshUsageCounts?.();},onLeave:()=>{for(const panel of document.querySelectorAll('details[data-configuration]'))panel.open=false;}});
 const networkPanel=new NetworkPanel({document,request:command=>auth(command),getToken:()=>token,transientReadError,onSample:sample=>dashboard.network(sample),runTest:async command=>{
  const epoch=viewEpoch,authToken=token;if(!authToken)throw Error('请先登录');
  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),35000);requests.add(controller);
@@ -156,7 +157,7 @@ async function initialize(){
  compact.addEventListener('change',placeUsagePanel);
  mobile.addEventListener('change',placeUsagePanel);
  placeUsagePanel();
- bindUsageCounts(usagePanel, signal => {
+ refreshUsageCounts=bindUsageCounts(usagePanel, signal => {
   return fetch('/api/usage-count/v1', {
     method: 'POST',
     headers: {'Content-Type': 'application/json', 'X-RustSimHub-Request': '2'},
@@ -166,7 +167,7 @@ async function initialize(){
     redirect: 'error',
     signal
    });
- });
+ }, {autoRefresh: true});
  db=await new Promise((resolve,reject)=>{const opening=indexedDB.open('rustsimhub-client-v1',1);opening.onupgradeneeded=()=>opening.result.createObjectStore('state');opening.onsuccess=()=>resolve(opening.result);opening.onerror=()=>reject(Error('浏览器存储不可用'));});
  key=await stored('key');if(!key){key=await crypto.subtle.generateKey({name:'Ed25519'},false,['sign','verify']);await save('key',key);}
  publicKey=new Uint8Array(await crypto.subtle.exportKey('raw',key.publicKey));

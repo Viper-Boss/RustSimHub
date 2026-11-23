@@ -40,12 +40,13 @@ const validCounts = (value, length) => ['domestic', 'official'].includes(value?.
  && Array.isArray(value.counts) && value.counts.length === length
  && value.counts.every(n => Number.isSafeInteger(n) && n >= 0);
 
-export function bindUsageCounts(panel, read, {storage = () => globalThis.sessionStorage, now = Date.now} = {}) {
+export function bindUsageCounts(panel, read, {storage = () => globalThis.sessionStorage, now = Date.now, autoRefresh = false} = {}) {
  if (!panel) return;
  const button = panel.querySelector('[data-refresh]');
  const status = panel.querySelector('[data-status]');
  const cells = panel.querySelectorAll('[data-count]');
  let lastSuccess;
+ let lastAttempt = -Infinity;
  function display(value) {
   value.counts.forEach((count, index) => { cells[index].textContent = count.toLocaleString('zh-CN'); });
   const source = value.source === 'domestic' ? '国内节点' : '官方主网兜底';
@@ -65,12 +66,13 @@ export function bindUsageCounts(panel, read, {storage = () => globalThis.session
    }
   }
  } catch {
-  // Storage may be disabled. A manual refresh still uses the live endpoint.
+  // Storage may be disabled. Refresh still works without the cache.
  }
- button.addEventListener('click', async () => {
+ async function refresh() {
   if (button.disabled) return;
+  lastAttempt = now();
   button.disabled = true;
-  status.textContent = '正在查询 NKN';
+  status.textContent = '正在查询 NKN' + (lastSuccess ? ' · 上次 ' + lastSuccess : '');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10500);
   try {
@@ -92,5 +94,12 @@ export function bindUsageCounts(panel, read, {storage = () => globalThis.session
    clearTimeout(timer);
    button.disabled = false;
   }
- });
+ }
+ function refreshAutomatically() {
+  // The device rate-limits queries to one every five seconds.
+  if (now() - lastAttempt >= 5000) return refresh();
+ }
+ button.addEventListener('click', refresh);
+ if (autoRefresh) void refreshAutomatically();
+ return refreshAutomatically;
 }
