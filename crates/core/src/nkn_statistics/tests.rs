@@ -18,8 +18,8 @@ use std::{
     time::Duration,
 };
 pub(crate) struct Fixture {
-    state: tempfile::TempDir,
-    _identity: tempfile::TempDir,
+    state: PathBuf,
+    _temporary: Option<(tempfile::TempDir, tempfile::TempDir)>,
     store: rustsimhub_storage::Store,
     pub(crate) auth: Arc<Mutex<Auth>>,
     token: String,
@@ -39,17 +39,24 @@ impl Fixture {
     pub(crate) fn new() -> Self {
         let state = tempfile::tempdir().unwrap();
         let identity = tempfile::tempdir().unwrap();
-        for d in [state.path(), identity.path()] {
+        let mut fixture = Self::open(state.path(), identity.path(), true);
+        fixture._temporary = Some((state, identity));
+        fixture
+    }
+    pub(crate) fn open(state: &Path, identity: &Path, bootstrap: bool) -> Self {
+        for d in [state, identity] {
             fs::set_permissions(d, fs::Permissions::from_mode(0o700)).unwrap();
         }
-        let store = rustsimhub_storage::Store::open(state.path()).unwrap();
-        let mut auth = Auth::open(identity.path(), store.handle()).unwrap();
+        let store = rustsimhub_storage::Store::open(state).unwrap();
+        let mut auth = Auth::open(identity, store.handle()).unwrap();
         let key = SigningKey::from_bytes(&[71; 32]);
-        let c = auth
-            .bootstrap_challenge(key.verifying_key().to_bytes())
-            .unwrap();
-        auth.bootstrap_finish(&c.id, &key.sign(&c.transcript).to_bytes())
-            .unwrap();
+        if bootstrap {
+            let c = auth
+                .bootstrap_challenge(key.verifying_key().to_bytes())
+                .unwrap();
+            auth.bootstrap_finish(&c.id, &key.sign(&c.transcript).to_bytes())
+                .unwrap();
+        }
         let token = login(&mut auth, &key);
         let owner = store
             .handle()
@@ -61,8 +68,8 @@ impl Fixture {
             realm: auth.durable_realm().unwrap(),
         };
         Self {
-            state,
-            _identity: identity,
+            state: state.to_path_buf(),
+            _temporary: None,
             store,
             auth: Arc::new(Mutex::new(auth)),
             token,
@@ -71,7 +78,7 @@ impl Fixture {
         }
     }
     pub(crate) fn permission(&self) -> PathBuf {
-        self.state.path().join("usage-participation")
+        self.state.join("usage-participation")
     }
     pub(crate) fn actor(&self) -> Actor {
         Actor {
@@ -97,16 +104,20 @@ impl Fixture {
     pub(crate) fn statistics(&self) -> Arc<FileStore> {
         Arc::new(
             FileStore::create(
-                self.state.path().join("statistics"),
+                self.state.join("statistics"),
                 StatisticsIdentity::from_seed([41; 32]),
             )
             .unwrap(),
         )
     }
+    pub(crate) fn reopen_statistics(&self) -> Arc<FileStore> {
+        let identity = StatisticsIdentity::from_seed([41; 32]);
+        Arc::new(FileStore::open(self.state.join("statistics"), identity.public_key()).unwrap())
+    }
     // A private test database models trusted offline revocation; this is NOT
     // a new Owner-revoke API. Recovery uses the original Store generation fence.
     pub(crate) fn owner_loss_for_test(&self, restore: bool) {
-        let db = rusqlite::Connection::open(self.state.path().join("store.sqlite3")).unwrap();
+        let db = rusqlite::Connection::open(self.state.join("store.sqlite3")).unwrap();
         assert_eq!(
             db.execute(
                 "UPDATE principals SET active=0,generation=generation+1 WHERE kind='owner'",
@@ -284,7 +295,7 @@ fn absence_off_invalid_token_clients_and_nas_never_create_a_statistics_identity(
         SubscriptionSigner::from_current_owner(f.auth.clone(), &f.token, &f.permission()).is_err()
     );
     assert!(!f.permission().exists());
-    assert!(!f.state.path().join("statistics").exists());
+    assert!(!f.state.join("statistics").exists());
     f.consent(false);
     assert!(
         SubscriptionSigner::from_current_owner(f.auth.clone(), &f.token, &f.permission()).is_err()
@@ -312,7 +323,7 @@ fn absence_off_invalid_token_clients_and_nas_never_create_a_statistics_identity(
                 .is_err()
         );
     }
-    assert!(!f.state.path().join("statistics").exists());
+    assert!(!f.state.join("statistics").exists());
 }
 #[test]
 fn original_machine_persists_real_digest_before_single_submit_and_restart_only_queries() {
@@ -398,7 +409,7 @@ fn completed_off_reenable_realm_and_owner_generation_changes_fence_existing_sign
         let ledger_path = f.permission();
         let binding = f.binding.clone();
         let actor = f.actor();
-        let database = f.state.path().join("store.sqlite3");
+        let database = f.state.join("store.sqlite3");
         let before = Box::new(move || match mode {
             0 | 1 => {
                 let ledger = Ledger::open_if_present(&ledger_path, binding.clone())
@@ -453,7 +464,7 @@ fn invalidated_finite_proof_corrupt_store_and_wrong_identity_never_return_a_sign
         let store = f.statistics();
         if mode == 1 {
             fs::write(
-                f.state.path().join("statistics/state.json"),
+                f.state.join("statistics/state.json"),
                 b"synthetic corrupt store",
             )
             .unwrap();
@@ -472,7 +483,7 @@ fn invalidated_finite_proof_corrupt_store_and_wrong_identity_never_return_a_sign
             assert!(m.set_policy(enabled()).is_err());
             assert!(seen.prepared.lock().unwrap().is_none());
             assert_eq!(
-                fs::read(f.state.path().join("statistics/state.json")).unwrap(),
+                fs::read(f.state.join("statistics/state.json")).unwrap(),
                 b"synthetic corrupt store"
             );
             continue;

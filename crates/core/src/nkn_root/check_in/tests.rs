@@ -389,6 +389,74 @@ fn restart_pending_is_preserved_when_installed_root_is_unavailable() {
     assert!(root.snapshot().unwrap().is_none());
 }
 
+fn kernel_records() -> Vec<serde_json::Value> {
+    std::fs::read_to_string("/tmp/statistics-rpc.jsonl")
+        .unwrap()
+        .lines()
+        .map(|row| serde_json::from_str(row).unwrap())
+        .collect()
+}
+
+fn restart_kernel_check_in(f: &Fixture) {
+    use rustsimhub_usage_stats::check_in::CheckInMachine;
+
+    struct QueryClock(u64);
+    impl Clock for QueryClock {
+        fn now_secs(
+            &self,
+        ) -> std::result::Result<u64, rustsimhub_usage_stats::protocol::ClockError> {
+            Ok(self.0)
+        }
+    }
+
+    let store = f.reopen_statistics();
+    let state = store.load().unwrap();
+    let pending = state.windows[0].pending.clone().unwrap();
+    let outcomes = kernel_records();
+    assert_eq!(outcomes.len(), 2);
+    assert_eq!(outcomes[1]["method"], "sendrawtransaction");
+    let root = Arc::new(Controller::new(f.auth.clone()));
+    let transport = StatisticsTransport::new(root.clone(), f.signer(), store.clone()).unwrap();
+    let mut machine = CheckInMachine::new(
+        SharedStatisticsStore(store.clone()),
+        transport,
+        QueryClock(pending.prepared_at + RETRY_AFTER_SECS + 1),
+    );
+    machine
+        .set_policy(crate::nkn_statistics::tests::enabled())
+        .unwrap();
+    assert!(matches!(
+        machine.advance(Window::Last24Hours).unwrap(),
+        Outcome::Unknown { digest, .. } if digest == pending.digest
+    ));
+    let outcomes = kernel_records();
+    assert_eq!(outcomes.len(), 3);
+    assert_eq!(outcomes[2]["method"], "gettransaction");
+    assert_eq!(outcomes[2]["digest"], outcomes[1]["digest"]);
+    assert_eq!(
+        serde_json::to_value(store.load().unwrap()).unwrap(),
+        serde_json::to_value(state).unwrap()
+    );
+    drop(machine);
+    let deadline = Instant::now() + Duration::from_secs(7);
+    while root.drive().unwrap().unwrap().phase != rustsimhub_nkn_agent::Phase::Disabled {
+        assert!(
+            Instant::now() < deadline,
+            "read-only restart scope did not clean up"
+        );
+        thread::sleep(Duration::from_millis(20));
+    }
+    let result = serde_json::json!({
+        "scenario": "process_restart", "resumed_in_pid": std::process::id(),
+        "pending_preserved": true, "original_scope_cleaned": true, "outcome": "Unknown"
+    });
+    std::fs::write(
+        "/tmp/statistics-result.json",
+        serde_json::to_vec(&result).unwrap(),
+    )
+    .unwrap();
+}
+
 #[test]
 #[ignore = "explicit disposable private-cgroup/UID fixture with actual fixed SDK only"]
 fn statistics_transport_kernel_sdk() {
@@ -417,6 +485,8 @@ fn statistics_transport_kernel_sdk() {
         "owner_restore_before",
         "owner_inactive_after",
         "owner_restore_after",
+        "process_restart",
+        "root_expiry_300",
     ]
     .contains(&scenario.as_str()));
     let shared_run = ![
@@ -428,9 +498,26 @@ fn statistics_transport_kernel_sdk() {
         "owner_restore_before",
         "owner_inactive_after",
         "owner_restore_after",
+        "process_restart",
     ]
     .contains(&scenario.as_str());
-    let f = Fixture::new();
+    let restarted = std::env::var_os("RSH_STATS_REOPEN").is_some();
+    let f = if scenario == "process_restart" {
+        let state = std::path::Path::new("/tmp/statistics-restart/state");
+        let identity = std::path::Path::new("/tmp/statistics-restart/identity");
+        if !restarted {
+            fs::create_dir_all(state).unwrap();
+            fs::create_dir(identity).unwrap();
+        }
+        Fixture::open(state, identity, !restarted)
+    } else {
+        assert!(!restarted);
+        Fixture::new()
+    };
+    if restarted {
+        restart_kernel_check_in(&f);
+        return;
+    }
     f.consent(true);
     let store = if scenario == "save_full" {
         Arc::new(
@@ -475,8 +562,47 @@ fn statistics_transport_kernel_sdk() {
             thread::sleep(Duration::from_millis(20));
         }
         root.enable(&owner, Owner::Remote).unwrap();
-        root.enable(&owner, Owner::Statistics).unwrap();
-        assert_eq!(root.snapshot().unwrap().unwrap().references, 3);
+        if scenario == "root_expiry_300" {
+            assert_eq!(root.snapshot().unwrap().unwrap().references, 2);
+        } else {
+            root.enable(&owner, Owner::Statistics).unwrap();
+            assert_eq!(root.snapshot().unwrap().unwrap().references, 3);
+        }
+    }
+    let expiry_scope =
+        (scenario == "root_expiry_300").then(|| root.source().unwrap().shared.clone());
+    if let Some(scope) = &expiry_scope {
+        let start = scope.deadline - Duration::from_secs(300);
+        assert!(
+            start.elapsed() < Duration::from_secs(10),
+            "scope was not acquired at login"
+        );
+        fs::write(
+            "/tmp/statistics-expiry-boot-ms",
+            scope.boot_deadline.to_string(),
+        )
+        .unwrap();
+        eprintln!("waiting for original 300s Owner/Root deadline");
+        let prepare_at = scope.deadline - Duration::from_millis(1800);
+        while Instant::now() < prepare_at {
+            let status = root.drive().unwrap().unwrap();
+            assert_eq!(
+                status.phase,
+                rustsimhub_nkn_agent::Phase::Ready,
+                "original scope lost readiness at {:?}: {status:?}",
+                start.elapsed()
+            );
+            thread::sleep(
+                prepare_at
+                    .saturating_duration_since(Instant::now())
+                    .min(Duration::from_millis(250)),
+            );
+        }
+        assert!(scope.local_live());
+        assert_eq!(
+            root.drive().unwrap().unwrap().phase,
+            rustsimhub_nkn_agent::Phase::Ready
+        );
     }
     let transport = StatisticsTransport::new(root.clone(), f.signer(), store.clone()).unwrap();
     let mut machine =
@@ -591,13 +717,7 @@ fn statistics_transport_kernel_sdk() {
             "status report must describe the explicit query owner"
         );
     }
-    fn records() -> Vec<serde_json::Value> {
-        std::fs::read_to_string("/tmp/statistics-rpc.jsonl")
-            .unwrap()
-            .lines()
-            .map(|x| serde_json::from_str(x).unwrap())
-            .collect()
-    }
+    let records = kernel_records;
     assert_eq!(
         records()
             .iter()
@@ -625,6 +745,9 @@ fn statistics_transport_kernel_sdk() {
         .load(Ordering::Acquire);
     assert!(pid > 1);
     assert!(std::path::Path::new(&format!("/proc/{pid}")).exists());
+    if expiry_scope.is_some() {
+        assert_eq!(root.snapshot().unwrap().unwrap().references, 3);
+    }
     if scenario == "shared" {
         root.disable(&owner, Owner::Statistics).unwrap();
         assert!(
@@ -657,6 +780,20 @@ fn statistics_transport_kernel_sdk() {
     } else if ["owner_inactive_before", "owner_restore_before"].contains(&scenario.as_str()) {
         f.owner_loss_for_test(scenario == "owner_restore_before");
     }
+    let submit_remaining_ms = expiry_scope.as_ref().map(|scope| {
+        thread::sleep(
+            scope
+                .deadline
+                .saturating_duration_since(Instant::now())
+                .saturating_sub(Duration::from_millis(750)),
+        );
+        let remaining = scope
+            .deadline
+            .saturating_duration_since(Instant::now())
+            .as_millis();
+        assert!(remaining > 200 && remaining <= 750);
+        remaining
+    });
     let submitted = thread::scope(|scope| {
         let interrupter = if [
             "off",
@@ -705,6 +842,8 @@ fn statistics_transport_kernel_sdk() {
             "{submitted:?}"
         ),
         "lost_ack"
+        | "process_restart"
+        | "root_expiry_300"
         | "off"
         | "off_before"
         | "root_revoke"
@@ -729,6 +868,51 @@ fn statistics_transport_kernel_sdk() {
             .digest,
         digest
     );
+    if let Some(scope) = expiry_scope {
+        wait("/tmp/statistics-late-expiry-reply", 3);
+        let elapsed = (scope.deadline - Duration::from_secs(300)).elapsed();
+        assert!(elapsed >= Duration::from_secs(300));
+        assert!(!scope.local_live());
+        assert!(matches!(scope.authority(), Err(PortError::Denied)));
+        assert!(matches!(
+            root.enable(&owner, Owner::Statistics),
+            Err(PortError::Denied)
+        ));
+        assert_eq!(
+            root.snapshot().unwrap().unwrap().references,
+            2,
+            "reporter release changed another owner's references"
+        );
+        let deadline = Instant::now() + Duration::from_secs(7);
+        while std::path::Path::new(&format!("/proc/{pid}")).exists() {
+            assert!(
+                Instant::now() < deadline,
+                "installed Root did not reap expired SDK"
+            );
+            thread::sleep(Duration::from_millis(20));
+        }
+        let rows = records();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[1]["method"], "sendrawtransaction");
+        assert_eq!(
+            rows[1]["digest"],
+            digest
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect::<String>()
+        );
+        let result = serde_json::json!({
+            "scenario": scenario, "elapsed_ms": elapsed.as_millis(), "submit_remaining_ms": submit_remaining_ms.unwrap(),
+            "pending_preserved": true, "old_authority_denied": true, "original_scope_cleaned": true,
+            "original_sdk_reaped": true, "other_references_preserved": true, "outcome": "Unknown"
+        });
+        fs::write(
+            "/tmp/statistics-result.json",
+            serde_json::to_vec(&result).unwrap(),
+        )
+        .unwrap();
+        return;
+    }
     if shared_run {
         assert_eq!(
             root.snapshot().unwrap().unwrap().references,

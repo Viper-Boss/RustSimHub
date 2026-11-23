@@ -34,6 +34,11 @@ def rpc(request):
         preimage=struct.pack('<I',6)+size+data+struct.pack('<QQ',41,0)+b'\x00'
         digest=hashlib.sha256(hashlib.sha256(preimage).digest()).hexdigest()
         record.update({'digest':digest,'intent':contract,'transaction_sha256':hashlib.sha256(raw).hexdigest(),'nonce':41,'bytes':len(raw)})
+        if os.environ['RSH_STATS_SCENARIO']=='root_expiry_300':
+            expires=int(Path('/tmp/statistics-expiry-boot-ms').read_text())
+            remaining=expires-int(time.clock_gettime(time.CLOCK_BOOTTIME)*1000)
+            assert 0<remaining<=800, 'synthetic node did not receive the original submit before expiry'
+            record['node_submit_remaining_ms']=remaining
         result=digest
     elif method=='gettransaction':
         assert set(params)=={'hash'} and len(params['hash'])==64
@@ -49,24 +54,49 @@ def rpc(request):
             base.eventually(lambda:Path('/tmp/statistics-interruption-complete').exists(),.7)
             time.sleep(.08)
         if scenario=='late_reply':time.sleep(2.3)
-        if scenario=='lost_ack':return None
+        if scenario in ['lost_ack','process_restart']:return None
+        if scenario=='root_expiry_300':
+            time.sleep(max(0,(expires+100)/1000-time.clock_gettime(time.CLOCK_BOOTTIME)))
+            base.write('/tmp/statistics-late-expiry-reply','1')
     return {'id':request['id'],'jsonrpc':'2.0','result':result}
 
 def main():
     if len(sys.argv)>1 and sys.argv[1]=='--node':base.node(rpc,fail_bootstrap=os.environ['RSH_STATS_SCENARIO']=='bootstrap_failure');return 0
-    scenario=os.environ['RSH_STATS_SCENARIO'];assert scenario in ['startup','shared','lost_ack','off','cancel','off_before','cancel_before','expired_prepare','late_reply','root_revoke','save_failure','save_full','start_failure','bootstrap_failure','owner_inactive_before','owner_restore_before','owner_inactive_after','owner_restore_after']
+    scenario=os.environ['RSH_STATS_SCENARIO'];assert scenario in ['startup','shared','lost_ack','off','cancel','off_before','cancel_before','expired_prepare','late_reply','root_revoke','save_failure','save_full','start_failure','bootstrap_failure','owner_inactive_before','owner_restore_before','owner_inactive_after','owner_restore_after','process_restart','root_expiry_300']
     _,node=base.install_fixture(usage_transactions=True,node_entry=Path(__file__).resolve())
     if scenario=='start_failure':Path('/opt/rustsimhub/selected/nkn-sdk-engine').chmod(0o444)
     if scenario=='save_full':
         Path('/tmp/statistics-disk').mkdir()
         assert ctypes.CDLL(None,use_errno=True).mount(b'tmpfs',b'/tmp/statistics-disk',b'tmpfs',0,b'size=65536,mode=0700,uid=1001,gid=1001')==0, 'owned tmpfs mount failed'
+    last_network_sample = None
     def network_status():
-        snapshot={'schema':1,'available':True,'boot_id':Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'sample_unix_seconds':int(time.time()),'devices':[{'interface':'wlan0','kind':'wifi','state':'100 (connected)','ipv4':['9.9.9.8/24'],'ipv6':[],'dns_ipv4':['9.9.9.9'],'dns_ipv6':[]}]}
-        target=Path('/run/rustsimhub-network/status.json');pending=target.with_suffix('.pending');pending.write_text(json.dumps(snapshot));pending.replace(target)
+        nonlocal last_network_sample
+        sample = int(time.time())
+        if sample == last_network_sample:
+            return
+        last_network_sample = sample
+        snapshot={'schema':1,'available':True,'boot_id':Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'sample_unix_seconds':sample,'devices':[{'interface':'wlan0','kind':'wifi','state':'100 (connected)','ipv4':['9.9.9.8/24'],'ipv6':[],'dns_ipv4':['9.9.9.9'],'dns_ipv6':[]}]}
+        target = Path('/run/rustsimhub-network/status.json')
+        pending = target.with_suffix(f'.fixture-{sample}')
+        pending.write_text(json.dumps(snapshot))
+        if target.exists():
+            # Exchange, retaining the old inode in the disposable container.
+            # An in-flight Root read must still see the required single link.
+            rename_exchange = ctypes.CDLL(None, use_errno=True).renameat2
+            if rename_exchange(-100, os.fsencode(pending), -100, os.fsencode(target), 2) != 0:
+                error = ctypes.get_errno()
+                raise OSError(error, os.strerror(error), target)
+        else:
+            pending.replace(target)
     network_status()
     log=Path('/tmp/core-statistics.log')
     with log.open('wb') as output:
-        core=subprocess.Popen(['/core-test','--ignored','--exact','nkn_root::check_in::tests::statistics_transport_kernel_sdk','--nocapture'],user=1001,group=1001,extra_groups=[],env=dict(os.environ,RSH_STATS_KERNEL_FIXTURE='1'),stdout=output,stderr=subprocess.STDOUT,restore_signals=False,preexec_fn=lambda:signal.signal(signal.SIGXFSZ,signal.SIG_IGN))
+        def start_core(reopen=False):
+            env=dict(os.environ,RSH_STATS_KERNEL_FIXTURE='1')
+            env.pop('RSH_STATS_REOPEN',None)
+            if reopen:env['RSH_STATS_REOPEN']='1'
+            return subprocess.Popen(['/core-test','--ignored','--exact','nkn_root::check_in::tests::statistics_transport_kernel_sdk','--nocapture'],user=1001,group=1001,extra_groups=[],env=env,stdout=output,stderr=subprocess.STDOUT,restore_signals=False,preexec_fn=lambda:signal.signal(signal.SIGXFSZ,signal.SIG_IGN))
+        core=start_core()
         base.eventually(lambda:Path('/tmp/statistics-public.json').exists(),8)
         public=json.loads(Path('/tmp/statistics-public.json').read_text());assert set(public)=={'core_pin','statistics_public_key'}
         document=json.loads(Path('/etc/rustsimhub/nkn-policy.json').read_text());document.update(public)
@@ -81,7 +111,7 @@ def main():
             if scenario=='start_failure':base.eventually(root_stopped,5)
             else:base.eventually(lambda:Path(base.ROOT_SOCKET).exists(),5)
             base.write('/tmp/statistics-fixture-ready','1')
-            deadline=time.monotonic()+30
+            deadline=time.monotonic()+(320 if scenario=='root_expiry_300' else 30)
             original_file_limit=None;file_limit_restored=False;disk_filled=False;partial_sdk_pids=set()
             while core.poll() is None and time.monotonic()<deadline:
                 if scenario=='bootstrap_failure' and Path('/tmp/statistics-bootstrap-refused').exists():
@@ -115,6 +145,18 @@ def main():
                         base.write('/tmp/statistics-write-limit-restored','1')
                 network_status();time.sleep(.05)
             if core.poll() is None:core.kill();core.wait();raise AssertionError('bounded Core fixture timed out')
+            first_pid=core.pid
+            if scenario=='process_restart':
+                assert core.returncode==0, log.read_text()
+                assert not Path(f'/proc/{first_pid}').exists(), 'first Core is still running'
+                first=json.loads(Path('/tmp/statistics-result.json').read_text())
+                assert first['pending_preserved'] and first['original_sdk_reaped']
+                core=start_core(reopen=True)
+                assert core.pid!=first_pid
+                deadline=time.monotonic()+18
+                while core.poll() is None and time.monotonic()<deadline:
+                    network_status();time.sleep(.05)
+                if core.poll() is None:core.kill();core.wait();raise AssertionError('restarted Core timed out')
             print(log.read_text(),flush=True)
             print(json.dumps({'core_exit_code':core.returncode,'scenario':scenario}),flush=True)
             if core.returncode:
@@ -124,8 +166,14 @@ def main():
             assert sum(x['method']=='getnoncebyaddr' for x in records)==(0 if scenario in ['start_failure','bootstrap_failure'] else 1)
             expected_submits=0 if scenario in ['off_before','cancel_before','expired_prepare','save_failure','save_full','start_failure','bootstrap_failure','owner_inactive_before','owner_restore_before'] else 1
             assert sum(x['method']=='sendrawtransaction' for x in records)==expected_submits
-            assert sum(x['method']=='gettransaction' for x in records)==(1 if scenario in ['shared','lost_ack'] else 0)
+            assert sum(x['method']=='gettransaction' for x in records)==(1 if scenario in ['shared','lost_ack','process_restart'] else 0)
             summary=json.loads(Path('/tmp/statistics-result.json').read_text())
+            if scenario=='process_restart':
+                assert summary['resumed_in_pid']==core.pid
+                summary.update({'first_core_exited':True,'distinct_core_processes':True})
+                del summary['resumed_in_pid']
+                with Path('/tmp/statistics-result.json').open('r+') as stream:
+                    json.dump(summary,stream);stream.truncate()
             if scenario=='save_failure':assert original_file_limit is not None and file_limit_restored
             if scenario=='save_full':assert disk_filled and file_limit_restored
             if scenario=='bootstrap_failure':
