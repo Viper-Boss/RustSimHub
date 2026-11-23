@@ -91,7 +91,14 @@ pub fn admit_web_upload(request_id: &str, manifest_sha256: &str) -> Result<Admis
     let signature = signed.signature.to_vec();
     let payloads: Vec<_> = signed.payloads.into_iter().map(<[u8]>::to_vec).collect();
     drop(bytes);
-    admit_stage(&mut store, &snapshot, &manifest, &signature, &payloads)
+    super::programs::admit_stage_after(
+        &mut store,
+        &snapshot,
+        &manifest,
+        &signature,
+        &payloads,
+        || super::web_backup::save(Path::new(APP), &snapshot, &record.upload),
+    )
 }
 
 #[cfg(test)]

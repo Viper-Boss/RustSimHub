@@ -135,7 +135,11 @@ fn run() -> Result<(), rustsimhub_update::Error> {
             rustsimhub_update::admission::admit_web_upload(request_id, manifest_sha256)?;
         println!(
             "{}",
-            serde_json::json!({"request_id":request_id,"admission":admission.report})
+            serde_json::json!({
+                "request_id": request_id,
+                "database_backup_verified": admission.staged.is_some(),
+                "admission": admission.report,
+            })
         );
         if admission.exit_code != 0 {
             std::process::exit(admission.exit_code);

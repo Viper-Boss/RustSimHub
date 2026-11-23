@@ -254,6 +254,16 @@ fn admit(
     candidate_schema: u32,
     effective: impl Fn(&MaintenanceSnapshot) -> Result<()>,
 ) -> (Result<Admission>, usize) {
+    admit_after(store, snapshot, candidate_schema, effective, || Ok(()))
+}
+
+fn admit_after(
+    store: &mut Store,
+    snapshot: &MaintenanceSnapshot,
+    candidate_schema: u32,
+    effective: impl Fn(&MaintenanceSnapshot) -> Result<()>,
+    prepare: impl FnOnce() -> Result<()>,
+) -> (Result<Admission>, usize) {
     let (key, manifest, signature, payloads) = package_at(2);
     let inspected = Cell::new(0);
     let result = admit_stage_with(
@@ -280,7 +290,7 @@ fn admit(
                 Ok(serde_json::to_vec(&info).unwrap())
             })
         },
-        effective,
+        (effective, prepare),
     );
     (result, inspected.get())
 }
@@ -329,6 +339,15 @@ fn rejected_comparison_failed_units_or_pending_candidate_stage_nothing() {
     let (result, inspected) = admit(&mut store, &snapshot, 6, |_| Err(Error::Integrity));
     assert_eq!(result.err(), Some(Error::Integrity));
     assert_eq!(inspected, 0);
+
+    let (result, inspected) = admit_after(&mut store, &snapshot, 6, |_| Ok(()), || Err(Error::Io));
+    assert_eq!(inspected, 2);
+    assert_eq!(result.err(), Some(Error::Io));
+    assert_eq!(
+        fs::read(directory.path().join("state.json")).unwrap(),
+        before
+    );
+    assert!(!target.exists());
 
     // Fences changed after a passing comparison: refuse before any slot write.
     let calls = Cell::new(0);

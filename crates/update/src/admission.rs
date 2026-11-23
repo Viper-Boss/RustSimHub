@@ -19,6 +19,7 @@ pub(crate) mod recovery;
 pub(crate) mod retained;
 pub(crate) mod running;
 mod systemd;
+mod web_backup;
 mod web_upload;
 use database::Database;
 pub use programs::{

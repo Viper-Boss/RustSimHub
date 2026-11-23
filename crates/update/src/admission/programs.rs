@@ -211,6 +211,19 @@ pub fn admit_stage(
     signature: &[u8],
     payloads: &[Vec<u8>],
 ) -> Result<Admission> {
+    admit_stage_after(store, snapshot, manifest, signature, payloads, || Ok(()))
+}
+
+/// Run the caller's fixed preparation while both the updater and data fences
+/// are held, after compatibility passes and before committing any slot change.
+pub(super) fn admit_stage_after(
+    store: &mut Store,
+    snapshot: &MaintenanceSnapshot,
+    manifest: &[u8],
+    signature: &[u8],
+    payloads: &[Vec<u8>],
+    prepare: impl FnOnce() -> Result<()>,
+) -> Result<Admission> {
     let (key, schema) = store.trusted_key();
     let key = *key;
     admit_stage_with(
@@ -220,7 +233,7 @@ pub fn admit_stage(
         signature,
         payloads,
         |m, s, p| SignedPrograms::inspect(m, s, &key, p, schema),
-        MaintenanceSnapshot::verify_effective_systemd,
+        (MaintenanceSnapshot::verify_effective_systemd, prepare),
     )
 }
 
@@ -231,8 +244,12 @@ fn admit_stage_with(
     signature: &[u8],
     payloads: &[Vec<u8>],
     mut inspect: impl FnMut(&[u8], &[u8], &[Vec<u8>]) -> Result<SignedPrograms>,
-    effective: impl Fn(&MaintenanceSnapshot) -> Result<()>,
+    guards: (
+        impl Fn(&MaintenanceSnapshot) -> Result<()>,
+        impl FnOnce() -> Result<()>,
+    ),
 ) -> Result<Admission> {
+    let (effective, prepare) = guards;
     effective(snapshot)?;
     let (baseline_manifest, baseline_signature, baseline_payloads) = store.admission_baseline()?;
     let baseline = inspect(&baseline_manifest, &baseline_signature, &baseline_payloads)?;
@@ -241,6 +258,8 @@ fn admit_stage_with(
     let exit_code = check.exit_code();
     let comparison = serde_json::to_value(check.report()).map_err(|_| Error::Invalid)?;
     let staged = if exit_code == 0 {
+        check.revalidate()?;
+        prepare()?;
         // Re-read the loaded units and every fence immediately before mutation.
         effective(snapshot)?;
         check.revalidate()?;
