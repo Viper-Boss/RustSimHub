@@ -20,7 +20,9 @@ function receiptMessage(receipt) {
 }
 
 export class UpdatePackage {
-  constructor({document, getToken, request, confirm = globalThis.confirm, fetch = globalThis.fetch}) {
+  constructor({document, getToken, request,
+    confirm = message => globalThis.confirm(message),
+    fetch = (url, options) => globalThis.fetch(url, options)}) {
     const find = name => document.getElementById(`update-package${name}`);
     this.file = find('');
     this.button = find('-preview');

@@ -129,3 +129,43 @@ assert.equal(accepted,null);
 assert.equal(element('-discard').hidden,true);
 assert.match(element('-state').textContent,/已移除/);
 console.log('PASS: explicit install confirmation, lost reply, durable receipt lookup, and removal of the exact upload.');
+
+// Chromium's Window methods reject a component object as their receiver.
+const originalFetch = globalThis.fetch;
+const originalConfirm = globalThis.confirm;
+let nativeRequests = 0;
+let nativePrompts = 0;
+try {
+  globalThis.confirm = function (message) {
+    assert.equal(this, globalThis);
+    assert.match(message, /116/);
+    nativePrompts++;
+    return true;
+  };
+  globalThis.fetch = function (url, {headers}) {
+    assert.equal(this, globalThis);
+    nativeRequests++;
+    if (url.endsWith('/preview')) {
+      return {ok:true, json:async()=>({verified:true, epoch:116, schema_min:6,
+        schema_max:9, manifest_sha256:manifest})};
+    }
+    return {status:202, json:async()=>({state:'received', epoch:116, manifest_sha256:manifest,
+      request_id:headers['X-RustSimHub-Update-Request']})};
+  };
+  const browserPanel = new UpdatePackage({
+    document:{getElementById:id=>elements.get(id)}, getToken:()=>token, request:async()=>null
+  });
+  element('').files = [file];
+  element('').onchange();
+  await browserPanel.preview();
+  assert.equal(element('-submit').disabled, false);
+  await browserPanel.submit();
+  assert.match(element('-state').textContent, /已受理应用 116/);
+  assert.equal(nativeRequests, 2);
+  assert.equal(nativePrompts, 1);
+} finally {
+  globalThis.fetch = originalFetch;
+  if (originalConfirm === undefined) delete globalThis.confirm;
+  else globalThis.confirm = originalConfirm;
+}
+console.log('PASS: default preview, confirmation, and submit use the Window API receiver.');

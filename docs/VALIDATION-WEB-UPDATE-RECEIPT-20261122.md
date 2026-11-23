@@ -80,3 +80,7 @@ WSL 更新器 10 项、Core 状态及旧受理回归各 1 项与严格 Clippy �
 收到针对 115/116 的明确授权后，以 `wsl.exe -d Ubuntu -u root -- python3 .local/prepare-signed-web-aa714f04.py --sign` 对固定源码 aa714f04 签名并使用 ARM 更新器独立验签。115 和 116 的清单摘要分别为 `ae8dba6be104be3bd990230a582754a134119c033159f941383fe662fbfecca7`、`6a001e7edb4ab0498160f7438218ce35c2caba53bb4c65fe55a4dc9bcbdd0690`。
 
 使用 `python .local/install-web-bootstrap-aa714f04.py --install-115` 核对设备空闲，将新备份下载回读并检查 SQLite 完整性。实际设备更新器验签通过。新试运行保持原短信、业务表、身份配置和 AirSIM 配对，原 HTTPS 地址返回固定源码内的更新页面资源，随后确认 115、保留 114 应用槽、恢复原两项业务定时器并启用网页更新定时器。真机未重启或刷分区。116 仍需网页提交和健康回执。转交浏览器时工具连接超时。
+
+### 115 网页原生调用修复
+
+实机网页选中 116 后提示暂时无法验签。只读检查确认 115 稳定运行、后台未见受理包或运行记录。带固定 TLS 验证的空包请求分别验证未登录 401、伪造会话 403。独立 Chrome 测试观察到把原生 `fetch` 当作组件方法调用会抛出 `Illegal invocation`，绑定到 Window 后成功。预览、提交和确认统一通过 Window 调用；`node tools/test-web-update-package.mjs` 覆盖默认浏览器函数接收者并通过。24 MB 全量本机 Chromium 测试因自动审批额度未执行。设备仍在 115，不再使用网页尝试旧 116。
