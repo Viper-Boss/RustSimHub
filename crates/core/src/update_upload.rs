@@ -8,8 +8,8 @@ use rustsimhub_policy::{allows, Scope};
 use rustsimhub_wire::{
     AuthCommand, AuthRequest, Response, UpdateRunPhase, UpdateRunRecord, UpdateUpload,
     UpdateUploadBinding as Binding, UpdateUploadRecord as Record, AUTH_PROTOCOL,
-    UPDATE_INBOX_ACCEPTED as RECEIPT, UPDATE_INBOX_HEADER_LIMIT as HEADER_LIMIT,
-    UPDATE_INBOX_NAME as INBOX, UPDATE_RUN_LIMIT, UPDATE_RUN_PATH,
+    UPDATE_INBOX_ACCEPTED as RECEIPT, UPDATE_INBOX_HEADER_LIMIT as HEADER_LIMIT, UPDATE_RUN_LIMIT,
+    UPDATE_RUN_PATH,
 };
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -31,9 +31,29 @@ pub(crate) struct Inbox {
     incoming: Arc<Semaphore>,
 }
 impl Inbox {
+    #[cfg(test)]
     pub(crate) fn new(state_directory: &Path) -> Self {
+        Self::at(state_directory.join(rustsimhub_wire::UPDATE_INBOX_NAME))
+    }
+
+    pub(crate) fn for_device() -> Option<Self> {
+        let enabled = std::env::var_os("RUSTSIMHUB_WEB_UPDATE_HEALTH")?;
+        if enabled != "1" {
+            return None;
+        }
+        let inbox = Self::at(PathBuf::from("/var/lib/rustsimhub-core/update-upload"));
+        // Never fall back to the small business-data partition. The optional
+        // Root unit pre-creates and bind-mounts the dedicated application spool.
+        inbox
+            .check_directory()
+            .ok()
+            .filter(|present| *present)
+            .map(|_| inbox)
+    }
+
+    fn at(directory: PathBuf) -> Self {
         Self {
-            directory: state_directory.join(INBOX),
+            directory,
             incoming: Arc::new(Semaphore::new(1)),
         }
     }
@@ -92,6 +112,10 @@ impl Inbox {
                 .create(&self.directory)
                 .map_err(|_| "inbox_unavailable")?;
             sync_dir(self.directory.parent().ok_or("inbox_unavailable")?)?;
+        }
+        let available = fs2::available_space(&self.directory).map_err(|_| "inbox_unavailable")?;
+        if available < bytes.len() as u64 + 16 * 1024 * 1024 {
+            return Err("inbox_unavailable");
         }
         let pending = self.directory.join(SPARE);
         if read_file(&pending)?.is_some() {

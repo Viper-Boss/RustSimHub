@@ -1030,7 +1030,9 @@ async fn serve_inner_media(
     let (state, identity) = (state.to_owned(), identity.to_owned());
     let forwarding_state = std::path::PathBuf::from(&state);
     let update_upload = (observing && messaging && call_mode == 2)
-        .then(|| Arc::new(crate::update_upload::Inbox::new(&forwarding_state)));
+        .then(crate::update_upload::Inbox::for_device)
+        .flatten()
+        .map(Arc::new);
     let setup_file = extras.setup.map(|mode| match mode {
         SetupMode::Explicit(path) => (false, path.to_owned()),
         SetupMode::Device(path) => (true, path.to_owned()),

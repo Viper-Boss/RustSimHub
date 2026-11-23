@@ -7,11 +7,43 @@ use crate::{
 };
 use rustsimhub_wire::{
     UpdateUpload, UpdateUploadRecord, UPDATE_INBOX_ACCEPTED, UPDATE_INBOX_HEADER_LIMIT,
-    UPDATE_INBOX_NAME,
 };
 
 pub(super) const APP: &str = "/var/lib/rustsimhub/rustsimhub-v1/system/app";
 const CORE_UID: u32 = 986;
+const WEB_INBOX: &str = "/opt/rustsimhub/web-update/inbox";
+pub(super) const WEB_BACKUP_ROOT: &str = "/opt/rustsimhub/web-update/backup";
+
+pub(super) fn checked_spool() -> Result<()> {
+    check_spool(
+        Path::new("/opt/rustsimhub/versions"),
+        Path::new("/opt/rustsimhub/web-update"),
+        CORE_UID,
+        0,
+    )
+}
+
+fn check_spool(versions: &Path, spool: &Path, core_uid: u32, root_uid: u32) -> Result<()> {
+    let versions = denied_io(fs::symlink_metadata(versions))?;
+    if !versions.is_dir() || versions.uid() != root_uid || versions.mode() & 0o022 != 0 {
+        return Err(Error::Denied);
+    }
+    for (path, uid, mode) in [
+        (spool.to_owned(), root_uid, 0o755),
+        (spool.join("inbox"), core_uid, 0o700),
+        (spool.join("backup"), root_uid, 0o700),
+    ] {
+        let dir = denied_io(fs::symlink_metadata(path))?;
+        if !dir.is_dir()
+            || dir.uid() != uid
+            || dir.mode() & 0o7777 != mode
+            || dir.dev() != versions.dev()
+        {
+            return Err(Error::Denied);
+        }
+    }
+    Ok(())
+}
 
 struct OpenReceipt {
     record: UpdateUploadRecord,
@@ -90,11 +122,8 @@ fn load(
 }
 
 pub(super) fn pending_upload() -> Result<Option<UpdateUpload>> {
-    Ok(open_receipt(
-        &Path::new("/").join(STATE).join(UPDATE_INBOX_NAME),
-        CORE_UID,
-    )?
-    .map(|opened| opened.record.upload))
+    checked_spool()?;
+    Ok(open_receipt(Path::new(WEB_INBOX), CORE_UID)?.map(|opened| opened.record.upload))
 }
 
 /// Verify the pending bytes before interrupting a running application group.
@@ -102,12 +131,8 @@ pub(super) fn check_web_upload(request_id: &str, manifest: &str) -> Result<()> {
     if !UpdateUpload::valid_reference(request_id, manifest) {
         return Err(Error::Invalid);
     }
-    let (record, bytes) = load(
-        &Path::new("/").join(STATE).join(UPDATE_INBOX_NAME),
-        CORE_UID,
-        request_id,
-        manifest,
-    )?;
+    checked_spool()?;
+    let (record, bytes) = load(Path::new(WEB_INBOX), CORE_UID, request_id, manifest)?;
     let state = crate::store::inspection::ReadOnlyState::observe()?;
     let (_, _, _, has_candidate) = state.runtime_version()?;
     if has_candidate {
@@ -130,12 +155,8 @@ pub fn admit_web_upload(request_id: &str, manifest_sha256: &str) -> Result<Admis
     // A persistent browser receipt does not authorize stopping services, resetting
     // the rollback floor, or overriding the fixed trusted release key.
     let snapshot = MaintenanceSnapshot::observe()?;
-    let (record, bytes) = load(
-        &Path::new("/").join(STATE).join(UPDATE_INBOX_NAME),
-        CORE_UID,
-        request_id,
-        manifest_sha256,
-    )?;
+    checked_spool()?;
+    let (record, bytes) = load(Path::new(WEB_INBOX), CORE_UID, request_id, manifest_sha256)?;
     let authorization_binding = snapshot.business.web_update_owner_proof(&record.binding)?;
     let key = read_root_release_key()?;
     let schema = u32::try_from(snapshot.business.version.format).map_err(|_| Error::Schema)?;
@@ -162,7 +183,7 @@ pub fn admit_web_upload(request_id: &str, manifest_sha256: &str) -> Result<Admis
         &payloads,
         || {
             super::web_backup::save(
-                Path::new(APP),
+                Path::new(WEB_BACKUP_ROOT),
                 &snapshot,
                 &record.upload,
                 &baseline,
@@ -182,9 +203,9 @@ pub fn reject_web_trial(request_id: &str, manifest: &str) -> Result<bool> {
         return Err(Error::Invalid);
     }
     let root = Path::new(APP);
-    let record = super::web_backup::read_receipt(root, request_id, manifest)?;
+    let record = super::web_health_receipt(request_id, manifest)?;
     let mut store = Store::open_stable(root, read_root_release_key()?, record.business_schema)?;
-    if record != super::web_backup::read_receipt(root, request_id, manifest)? {
+    if record != super::web_health_receipt(request_id, manifest)? {
         return Err(Error::Busy);
     }
     store.reject_web_trial(
@@ -201,6 +222,29 @@ mod tests {
     use ed25519_dalek::{Signer, SigningKey};
     use rustsimhub_wire::UpdateUploadBinding;
     use std::os::unix::{fs::symlink, fs::PermissionsExt};
+
+    #[test]
+    fn web_upload_spool_requires_the_slot_filesystem_and_private_directories() {
+        let root = tempfile::tempdir().unwrap();
+        let uid = rustix::process::geteuid().as_raw();
+        let slots = root.path().join("versions");
+        let spool = root.path().join("spool");
+        for (path, mode) in [
+            (&slots, 0o700),
+            (&spool, 0o755),
+            (&spool.join("inbox"), 0o700),
+            (&spool.join("backup"), 0o700),
+        ] {
+            fs::create_dir(path).unwrap();
+            fs::set_permissions(path, fs::Permissions::from_mode(mode)).unwrap();
+        }
+        assert_eq!(check_spool(&slots, &spool, uid, uid), Ok(()));
+        fs::set_permissions(spool.join("backup"), fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(check_spool(&slots, &spool, uid, uid), Err(Error::Denied));
+        fs::remove_dir(spool.join("backup")).unwrap();
+        symlink(&slots, spool.join("backup")).unwrap();
+        assert_eq!(check_spool(&slots, &spool, uid, uid), Err(Error::Denied));
+    }
 
     #[test]
     fn web_upload_intake_checks_owner_file_bounds_and_digest() {

@@ -34,7 +34,8 @@ pub use programs::{migrate_email4, migrate_email4_retained};
 
 pub(crate) use web_backup::Receipt as WebHealthReceipt;
 pub(crate) fn web_health_receipt(request: &str, manifest: &str) -> Result<WebHealthReceipt> {
-    web_backup::read_receipt(Path::new(web_upload::APP), request, manifest)
+    web_upload::checked_spool()?;
+    web_backup::read_receipt(Path::new(web_upload::WEB_BACKUP_ROOT), request, manifest)
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -264,7 +265,7 @@ fn setup_ap() -> Vec<Material> {
 const WEB_HEALTH_DROP_NAME: &str = "56-web-update-health.conf";
 const WEB_HEALTH_DROP: &str =
     "etc/systemd/system/rustsimhub-core.service.d/56-web-update-health.conf";
-fn web_health_materials() -> [Material; 2] {
+fn web_health_materials() -> [Material; 3] {
     [
         Material {
             path: WEB_HEALTH_DROP,
@@ -277,6 +278,13 @@ fn web_health_materials() -> [Material; 2] {
             path: "etc/tmpfiles.d/rustsimhub-update-health.conf",
             expected: Some(text(include_str!(
                 "../../../firmware/system/update-health/tmpfiles.conf"
+            ))),
+            mode: 0o644,
+        },
+        Material {
+            path: "etc/tmpfiles.d/rustsimhub-web-update.conf",
+            expected: Some(text(include_str!(
+                "../../../firmware/system/update-health/web-update-tmpfiles.conf"
             ))),
             mode: 0o644,
         },
@@ -468,9 +476,13 @@ impl MaintenanceSnapshot {
         } else {
             Mode::Device
         };
-        let [health_drop, health_tmpfiles] = web_health_materials();
+        let [health_drop, health_tmpfiles, spool_tmpfiles] = web_health_materials();
         let web_health_ap = material(&health_drop)?;
-        if web_health_ap && (product || root_mode != Mode::SetupAp || !material(&health_tmpfiles)?)
+        if web_health_ap
+            && (product
+                || root_mode != Mode::SetupAp
+                || !material(&health_tmpfiles)?
+                || !material(&spool_tmpfiles)?)
         {
             return Err(Error::Integrity);
         }
