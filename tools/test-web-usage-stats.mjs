@@ -77,3 +77,42 @@ assert.ok(!code.toString().includes('fetch('));console.log('PASS: actual A Query
  assert.deepEqual(mount().counts(), ['—','—','—']);
  assert.equal(calls, 2);
 }
+
+{
+ const entries = new Map();
+ const storage = () => ({getItem: key => entries.get(key), setItem: (key, value) => entries.set(key, value)});
+ const button = {addEventListener(_event, listener) { this.click = listener; }};
+ const status = {};
+ const cells = Array.from({length:3}, () => ({textContent:'—'}));
+ let calls = 0;
+ let now = Date.now();
+ let finish;
+ const enterLogin = bindUsageCounts({querySelector: selector => selector === '[data-refresh]' ? button : status,
+  querySelectorAll: () => cells}, () => {
+  calls++;
+  return new Promise(resolve => { finish = resolve; });
+ }, {storage, autoRefresh:true, now:()=>now});
+ assert.equal(calls, 1);
+ assert.equal(button.disabled, true);
+ await button.click();
+ assert.equal(calls, 1);
+ finish({ok:true, json:async()=>({source:'domestic', counts:[1,2,3]})});
+ await new Promise(setImmediate);
+ assert.deepEqual(cells.map(cell=>cell.textContent), ['1','2','3']);
+ assert.match(status.textContent, /国内节点/);
+ assert.equal(button.disabled, false);
+ await enterLogin();
+ assert.equal(calls, 1);
+ now += 5000;
+ const loginRefresh = enterLogin();
+ assert.equal(calls, 2);
+ finish({ok:false, status:503});
+ await loginRefresh;
+ assert.deepEqual(cells.map(cell=>cell.textContent), ['1','2','3']);
+ assert.match(status.textContent, /刷新失败/);
+ const manual = button.click();
+ assert.equal(calls, 3);
+ finish({ok:true, json:async()=>({source:'domestic', counts:[2,3,4]})});
+ await manual;
+ assert.deepEqual(cells.map(cell=>cell.textContent), ['2','3','4']);
+}
