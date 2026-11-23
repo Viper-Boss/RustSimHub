@@ -13,19 +13,25 @@ use rustsimhub_wire::{
 pub(super) const APP: &str = "/var/lib/rustsimhub/rustsimhub-v1/system/app";
 const CORE_UID: u32 = 986;
 
-fn load(
-    path: &Path,
-    uid: u32,
-    request_id: &str,
-    manifest_sha256: &str,
-) -> Result<(UpdateUploadRecord, Vec<u8>)> {
+struct OpenReceipt {
+    record: UpdateUploadRecord,
+    handle: File,
+    directory: Observation,
+    file: Observation,
+}
+
+fn open_receipt(path: &Path, uid: u32) -> Result<Option<OpenReceipt>> {
     let directory = Observation::capture(path)?;
-    let stamp = directory.stamp.as_ref().ok_or(Error::Denied)?;
+    let Some(stamp) = directory.stamp.as_ref() else {
+        return Ok(None);
+    };
     if stamp.mode != 0o040700 || stamp.uid != uid {
         return Err(Error::Denied);
     }
     let file = Observation::capture(&path.join(UPDATE_INBOX_ACCEPTED))?;
-    let file_stamp = file.stamp.as_ref().ok_or(Error::Denied)?;
+    let Some(file_stamp) = file.stamp.as_ref() else {
+        return Ok(None);
+    };
     let limit = (4 + UPDATE_INBOX_HEADER_LIMIT + bundle::MAX_BUNDLE) as u64;
     let mut handle = private_file(&file.path, uid, 0o600, limit)?;
     if Stamp::from(denied_io(handle.metadata())?) != *file_stamp {
@@ -46,6 +52,28 @@ fn load(
     {
         return Err(Error::Invalid);
     }
+    directory.revalidate()?;
+    file.revalidate()?;
+    Ok(Some(OpenReceipt {
+        record,
+        handle,
+        directory,
+        file,
+    }))
+}
+
+fn load(
+    path: &Path,
+    uid: u32,
+    request_id: &str,
+    manifest_sha256: &str,
+) -> Result<(UpdateUploadRecord, Vec<u8>)> {
+    let OpenReceipt {
+        record,
+        mut handle,
+        directory,
+        file,
+    } = open_receipt(path, uid)?.ok_or(Error::Denied)?;
     if record.upload.request_id != request_id || record.upload.manifest_sha256 != manifest_sha256 {
         return Err(Error::Denied);
     }
@@ -53,12 +81,20 @@ fn load(
     denied_io(handle.read_exact(&mut bytes))?;
     directory.revalidate()?;
     file.revalidate()?;
-    if Stamp::from(denied_io(handle.metadata())?) != *file_stamp
+    if file.stamp.as_ref() != Some(&Stamp::from(denied_io(handle.metadata())?))
         || manifest_hash(&bytes) != record.upload.bundle_sha256
     {
         return Err(Error::Integrity);
     }
     Ok((record, bytes))
+}
+
+pub(super) fn pending_upload() -> Result<Option<UpdateUpload>> {
+    Ok(open_receipt(
+        &Path::new("/").join(STATE).join(UPDATE_INBOX_NAME),
+        CORE_UID,
+    )?
+    .map(|opened| opened.record.upload))
 }
 
 /// Verify the pending bytes before interrupting a running application group.

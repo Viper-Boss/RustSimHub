@@ -10,6 +10,15 @@ const MESSAGES = {
   503: '暂时无法验签，请稍后重试。'
 };
 
+function receiptMessage(receipt) {
+  switch (receipt.phase) {
+    case 'running': return `正在安装应用 ${receipt.epoch}，网页可能暂时断开。`;
+    case 'confirmed': return `应用 ${receipt.epoch} 已安装并通过健康检查。`;
+    case 'restored': return `应用 ${receipt.epoch} 未完成安装，设备已恢复原版本。`;
+    default: return `已受理应用 ${receipt.epoch} 的安装请求，等待设备维护。`;
+  }
+}
+
 export class UpdatePackage {
   constructor({document, getToken, request, confirm = globalThis.confirm, fetch = globalThis.fetch}) {
     const find = name => document.getElementById(`update-package${name}`);
@@ -60,7 +69,7 @@ export class UpdatePackage {
     this.submitButton.disabled = true;
     this.queryButton.disabled = !this.token() || !!this.controller;
     this.discardButton.hidden = !this.accepted;
-    this.discardButton.disabled = this.queryButton.disabled || !this.accepted;
+    this.discardButton.disabled = this.queryButton.disabled || !this.accepted || this.accepted.phase === 'running';
     this.status.textContent = !this.token() ? '以所有者身份登录后可预览' :
       file && !validFile ? '请选择有效大小的 .rshapp 文件。' : '';
   }
@@ -194,9 +203,8 @@ export class UpdatePackage {
                      /^[0-9a-f-]{36}$/.test(receipt.request_id)) {
             this.uncertain = true;
             this.accepted = receipt;
-            this.discardButton.hidden = false;
-            this.discardButton.disabled = false;
-            this.status.textContent = `已受理应用 ${receipt.epoch} 的安装请求。`;
+            this.showSelection();
+            this.status.textContent = receiptMessage(receipt);
           } else {
             this.status.textContent = '暂时无法查询安装请求。';
           }

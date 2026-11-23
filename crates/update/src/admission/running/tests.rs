@@ -70,7 +70,7 @@ fn web_ap_health_requires_exact_root_bytes_and_loaded_config() {
         fs::write(&path, spec.expected.unwrap()).unwrap();
         fs::set_permissions(path, fs::Permissions::from_mode(spec.mode)).unwrap();
     }
-    let scratch = temp.path().join(SCRATCH.trim_start_matches('/'));
+    let scratch = temp.path().join(WEB_SCRATCH.trim_start_matches('/'));
     fs::create_dir_all(&scratch).unwrap();
     fs::set_permissions(scratch, fs::Permissions::from_mode(0o700)).unwrap();
     let effective = || {

@@ -41,6 +41,12 @@ Root 试运行先核对精确配置与运行槽，再通过 Core 的固定私有
 
 WSL `cargo test -p rustsimhub-update --lib web_` 通过 8 项，`admission::running::tests` 通过 4 项（重叠 1 项），`strict_snapshot` 通过 1 项。Core `cargo test -p rustsimhub-core --lib update_health` 通过 6 项，2 项既有隔离项忽略。两包严格 Clippy 通过。均使用 `--offline --locked`，尚无 ARM/实机全程验证。
 
-## 待接线
+## 后台处理及网页结果
 
-网页确认后的后台唤起、更新程序被中止时的外部恢复和网页回执仍需接通。本轮未在真机执行，设备最后确认应用 114。整体验收 81.5%，台账 20/169。
+可选 Root 材料包含前述健康配置、`rustsimhub-web-update.service`、`rustsimhub-web-update.timer`，以及安装到 `/etc/tmpfiles.d/rustsimhub-web-update.conf` 的 `web-update-tmpfiles.conf`。定时器启用后调用固定的 `process-web-upload`。原持久受理槽继续绑定设备与现有所有者。工作开始前以原请求、包摘要、版本、原确认槽和定时器状态落盘。服务中断后先读该记录和原版本账本，只核对已确认的准确版本或尝试恢复原版。账本未决、仍在通话或发现其他候选时保留记录。刷新后可用原入口查“安装中”“已安装并通过健康检查”或“已恢复原版”；安装中拒绝移除受理包。
+
+使用 WSL `cargo test --offline --locked -p rustsimhub-update --lib web_` 通过 9 项，Core `update_upload` 与 `owner_update_receipt` 各通过 1 项。两包严格 Clippy、Node `tools/test-web-update-package.mjs` 和 systemd 单元语法检查通过。单元语法在临时文件中用本机占位程序解析，未运行设备维护服务或真实 PID1 全链路。
+
+## 待真机复核
+
+仍需用同源 ARM 构建、签名候选和安装后的固定服务验收网页提交、后台安装、健康确认与故障回退。设备最后确认应用 114，整体验收 81.5%，台账 20/169。

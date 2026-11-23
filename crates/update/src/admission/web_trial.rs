@@ -3,12 +3,15 @@
 use super::{systemd::runtime_capture, web_upload, *};
 use crate::{runtime_observation::RuntimeObservation, store::inspection::ReadOnlyState};
 use fs2::FileExt;
+use rustsimhub_wire::{UpdateRunPhase, UpdateRunRecord, UPDATE_RUN_LIMIT};
+use std::os::unix::fs::PermissionsExt;
 use std::{
     process::{Command, Stdio},
     time::{Duration, Instant},
 };
 
 const APP_GROUP: &str = "rustsimhub-app.target";
+const JOURNAL: &str = "/var/lib/rustsimhub/rustsimhub-v1/system/web-update";
 const TIMERS: [(&str, &str); 2] = [
     (
         "rustsimhub-usage-checkin.timer",
@@ -158,22 +161,17 @@ fn execute(trial: &mut impl Trial) -> Result<TrialResult> {
 struct SystemTrial<'a> {
     request: &'a str,
     manifest: &'a str,
-    baseline: &'a str,
+    baseline: String,
     auto_confirm: bool,
-    active_timers: Vec<&'static str>,
+    active_timers: [bool; 2],
 }
 
 impl Trial for SystemTrial<'_> {
     fn standby(&mut self) -> Result<()> {
-        for (timer, _) in TIMERS {
-            match unit_state(timer)?.as_str() {
-                "active" => self.active_timers.push(timer),
-                "inactive" => (),
-                _ => return Err(Error::Busy),
+        for ((timer, _), active) in TIMERS.into_iter().zip(self.active_timers) {
+            if active {
+                systemd(&["--system", "stop", timer])?;
             }
-        }
-        for timer in &self.active_timers {
-            systemd(&["--system", "stop", timer])?;
         }
         let until = Instant::now() + Duration::from_secs(10);
         loop {
@@ -214,7 +212,7 @@ impl Trial for SystemTrial<'_> {
         let expected = if candidate {
             self.manifest
         } else {
-            self.baseline
+            &self.baseline
         };
         let until = Instant::now() + Duration::from_secs(12);
         loop {
@@ -274,34 +272,54 @@ impl Trial for SystemTrial<'_> {
             web_upload::reject_web_trial(self.request, self.manifest)?;
         }
         self.start()?;
-        self.observe(false)
+        self.observe(false)?;
+        if self.auto_confirm {
+            discard_failed_confirmation()?;
+        }
+        Ok(())
     }
 
     fn restore_timers(&self) -> Result<()> {
         let mut last = Ok(());
-        for timer in &self.active_timers {
-            if let Err(error) = systemd(&["--system", "start", timer]) {
-                last = Err(error);
+        for ((timer, _), active) in TIMERS.into_iter().zip(self.active_timers) {
+            if active {
+                if let Err(error) = systemd(&["--system", "start", timer]) {
+                    last = Err(error);
+                }
             }
         }
         last
     }
 }
 
-pub fn run_web_trial(request: &str, manifest: &str) -> Result<TrialResult> {
-    if rustix::process::geteuid().as_raw() != 0 {
+fn discard_failed_confirmation() -> Result<()> {
+    let dir = Path::new(super::running::WEB_SCRATCH);
+    let meta = denied_io(fs::symlink_metadata(dir))?;
+    if !meta.is_dir() || meta.uid() != 0 || meta.mode() & 0o7777 != 0o700 {
         return Err(Error::Denied);
     }
+    // Only after the intact original version has been re-observed. This is
+    // uncommitted scratch, never the updater ledger's recoverable state.next.
+    let path = dir.join("confirmation.next");
+    if Observation::capture(&path)?.stamp.is_some() {
+        private_file(&path, 0, 0o600, 8192)?;
+        denied_io(fs::remove_file(path))?;
+        denied_io(File::open(dir).and_then(|dir| dir.sync_all()))?;
+    }
+    Ok(())
+}
+
+fn prepare<'a>(request: &'a str, manifest: &'a str) -> Result<SystemTrial<'a>> {
     if !rustsimhub_wire::UpdateUpload::valid_reference(request, manifest) {
         return Err(Error::Invalid);
     }
-    let _lock = runner_lock()?;
     let auto_confirm = Observation::capture(Path::new("/").join(WEB_HEALTH_DROP).as_path())?
         .stamp
         .is_some();
     if auto_confirm {
         super::running::Root::observe_web_ap()?;
     }
+    check_idle()?;
     web_upload::check_web_upload(request, manifest)?;
     let state = ReadOnlyState::observe()?;
     let (baseline, _, attempted, pending) = state.runtime_version()?;
@@ -313,14 +331,167 @@ pub fn run_web_trial(request: &str, manifest: &str) -> Result<TrialResult> {
     if !RuntimeObservation::observe()?.selected_version(&baseline, false)? {
         return Err(Error::Busy);
     }
-    check_idle()?;
-    execute(&mut SystemTrial {
+    let mut active_timers = [false; 2];
+    for ((timer, _), active) in TIMERS.into_iter().zip(&mut active_timers) {
+        *active = match unit_state(timer)?.as_str() {
+            "active" => true,
+            "inactive" => false,
+            _ => return Err(Error::Busy),
+        };
+    }
+    Ok(SystemTrial {
         request,
         manifest,
-        baseline: &baseline,
+        baseline,
         auto_confirm,
-        active_timers: vec![],
+        active_timers,
     })
+}
+
+pub fn run_web_trial(request: &str, manifest: &str) -> Result<TrialResult> {
+    if rustix::process::geteuid().as_raw() != 0 {
+        return Err(Error::Denied);
+    }
+    let _lock = runner_lock()?;
+    execute(&mut prepare(request, manifest)?)
+}
+
+fn journal_directory(path: &Path, uid: u32) -> Result<()> {
+    let meta = denied_io(fs::symlink_metadata(path))?;
+    if !meta.is_dir() || meta.uid() != uid || meta.mode() & 0o7777 != 0o755 {
+        return Err(Error::Denied);
+    }
+    Ok(())
+}
+
+fn read_run(path: &Path, uid: u32) -> Result<Option<UpdateRunRecord>> {
+    journal_directory(path, uid)?;
+    let file = path.join("current.json");
+    if Observation::capture(&file)?.stamp.is_none() {
+        return Ok(None);
+    }
+    let handle = private_file(&file, uid, 0o644, UPDATE_RUN_LIMIT as u64)?;
+    let mut bytes = Vec::new();
+    denied_io(
+        handle
+            .take(UPDATE_RUN_LIMIT as u64 + 1)
+            .read_to_end(&mut bytes),
+    )?;
+    let run: UpdateRunRecord = serde_json::from_slice(&bytes).map_err(|_| Error::Integrity)?;
+    if bytes.len() > UPDATE_RUN_LIMIT || !run.valid() {
+        return Err(Error::Integrity);
+    }
+    Ok(Some(run))
+}
+
+fn write_run(path: &Path, uid: u32, run: &UpdateRunRecord) -> Result<()> {
+    journal_directory(path, uid)?;
+    if !run.valid() {
+        return Err(Error::Invalid);
+    }
+    let bytes = serde_json::to_vec(run).map_err(|_| Error::Invalid)?;
+    let next = path.join(".current.next");
+    if let Some(stamp) = Observation::capture(&next)?.stamp {
+        let mode = stamp.mode & 0o7777;
+        if ![0o600, 0o644].contains(&mode) {
+            return Err(Error::Denied);
+        }
+        // An unrenamed journal has never authorized maintenance or replaced the
+        // previous record. Only discard this exact private scratch entry.
+        private_file(&next, uid, mode, UPDATE_RUN_LIMIT as u64)?;
+        denied_io(fs::remove_file(&next))?;
+    }
+    crate::store::write_new(&next, &bytes, false)?;
+    let file = private_file(&next, uid, 0o600, UPDATE_RUN_LIMIT as u64)?;
+    denied_io(file.set_permissions(fs::Permissions::from_mode(0o644)))?;
+    denied_io(file.sync_all())?;
+    denied_io(fs::rename(next, path.join("current.json")))?;
+    denied_io(File::open(path).and_then(|dir| dir.sync_all()))
+}
+
+fn reconciled_phase(
+    run: &UpdateRunRecord,
+    selected: &str,
+    epoch: u64,
+    pending: bool,
+) -> Option<UpdateRunPhase> {
+    if !pending && selected == run.manifest_sha256 && epoch == run.epoch {
+        Some(UpdateRunPhase::Confirmed)
+    } else {
+        None
+    }
+}
+
+fn recover_run(run: &UpdateRunRecord) -> Result<UpdateRunPhase> {
+    let state = ReadOnlyState::observe()?;
+    let (selected, epoch, _, pending) = state.runtime_version()?;
+    let confirmed = reconciled_phase(run, selected, epoch, pending);
+    drop(state);
+    let trial = SystemTrial {
+        request: &run.request_id,
+        manifest: &run.manifest_sha256,
+        baseline: run.baseline_sha256.clone(),
+        auto_confirm: true,
+        active_timers: run.active_timers,
+    };
+    let result = if let Some(phase) = confirmed {
+        Ok(phase)
+    } else {
+        trial.recover().map(|()| UpdateRunPhase::Restored)
+    };
+    let timers = trial.restore_timers();
+    result.and_then(|phase| timers.map(|()| phase))
+}
+
+/// The systemd timer consumes the one fixed inbox. Crash recovery always
+/// resolves the previous journal before looking for a new request.
+pub fn process_web_upload() -> Result<()> {
+    let uid = rustix::process::geteuid().as_raw();
+    if uid != 0 {
+        return Err(Error::Denied);
+    }
+    let _lock = runner_lock()?;
+    let journal = Path::new(JOURNAL);
+    let previous = match read_run(journal, uid)? {
+        Some(mut run) if run.phase == UpdateRunPhase::Running => {
+            run.phase = recover_run(&run)?;
+            return write_run(journal, uid, &run);
+        }
+        previous => previous,
+    };
+
+    let Some(upload) = web_upload::pending_upload()? else {
+        return Ok(());
+    };
+    if let Some(run) = previous {
+        if run.request_id == upload.request_id {
+            return if run.matches(&upload) {
+                Ok(())
+            } else {
+                Err(Error::Denied)
+            };
+        }
+    }
+    let mut trial = prepare(&upload.request_id, &upload.manifest_sha256)?;
+    if !trial.auto_confirm {
+        return Err(Error::Denied);
+    }
+    let mut run = UpdateRunRecord {
+        format: 1,
+        request_id: upload.request_id.clone(),
+        manifest_sha256: upload.manifest_sha256.clone(),
+        epoch: upload.epoch,
+        baseline_sha256: trial.baseline.clone(),
+        active_timers: trial.active_timers,
+        phase: UpdateRunPhase::Running,
+    };
+    write_run(journal, uid, &run)?;
+    run.phase = match execute(&mut trial)? {
+        TrialResult::Confirmed => UpdateRunPhase::Confirmed,
+        TrialResult::RejectedAndRestored => UpdateRunPhase::Restored,
+        TrialResult::AwaitingHealthConfirmation => return Err(Error::Integrity),
+    };
+    write_run(journal, uid, &run)
 }
 
 #[cfg(test)]
@@ -426,6 +597,47 @@ mod tests {
             assert_eq!(execute(&mut probe), Ok(expected));
             assert_eq!(&probe.log.borrow()[4..6], ["observe", "confirm"]);
         }
+    }
+
+    #[test]
+    fn web_trial_journal_recovers_only_the_exact_confirmed_request() {
+        let directory = tempfile::tempdir().unwrap();
+        fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o755)).unwrap();
+        let uid = rustix::process::geteuid().as_raw();
+        let run = UpdateRunRecord {
+            format: 1,
+            request_id: "12345678-1234-4234-8234-123456789abc".into(),
+            manifest_sha256: "a".repeat(64),
+            epoch: 115,
+            baseline_sha256: "b".repeat(64),
+            active_timers: [true, false],
+            phase: UpdateRunPhase::Running,
+        };
+        write_run(directory.path(), uid, &run).unwrap();
+        assert_eq!(read_run(directory.path(), uid).unwrap(), Some(run));
+        let mut run = read_run(directory.path(), uid).unwrap().unwrap();
+        assert_eq!(
+            reconciled_phase(&run, &run.manifest_sha256, 114, false),
+            None
+        );
+        assert_eq!(
+            reconciled_phase(&run, &run.manifest_sha256, 115, true),
+            None
+        );
+        assert_eq!(
+            reconciled_phase(&run, &run.baseline_sha256, 115, false),
+            None
+        );
+        let next = directory.path().join(".current.next");
+        crate::store::write_new(&next, b"interrupted journal publication", false).unwrap();
+        assert_eq!(
+            read_run(directory.path(), uid).unwrap().unwrap().phase,
+            UpdateRunPhase::Running
+        );
+        run.phase = reconciled_phase(&run, &run.manifest_sha256, 115, false).unwrap();
+        write_run(directory.path(), uid, &run).unwrap();
+        assert_eq!(read_run(directory.path(), uid).unwrap(), Some(run));
+        assert!(!next.exists());
     }
 
     #[test]

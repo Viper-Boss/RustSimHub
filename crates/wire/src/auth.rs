@@ -28,6 +28,45 @@ pub const UPDATE_BUNDLE_LIMIT: usize = 24 * 1024 * 1024 + 8192 + 76;
 pub const UPDATE_INBOX_NAME: &str = "update-upload";
 pub const UPDATE_INBOX_ACCEPTED: &str = "accepted";
 pub const UPDATE_INBOX_HEADER_LIMIT: usize = 2048;
+pub const UPDATE_RUN_PATH: &str = "/run/rustsimhub/web-update/current.json";
+pub const UPDATE_RUN_LIMIT: usize = 2048;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UpdateRunPhase {
+    Running,
+    Confirmed,
+    Restored,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateRunRecord {
+    pub format: u8,
+    pub request_id: String,
+    pub manifest_sha256: String,
+    pub epoch: u64,
+    pub baseline_sha256: String,
+    pub active_timers: [bool; 2],
+    pub phase: UpdateRunPhase,
+}
+
+impl UpdateRunRecord {
+    pub fn valid(&self) -> bool {
+        self.format == 1
+            && self.epoch > 0
+            && UpdateUpload::valid_reference(&self.request_id, &self.manifest_sha256)
+            && source_valid(&self.baseline_sha256)
+            && self.baseline_sha256 != self.manifest_sha256
+    }
+
+    pub fn matches(&self, upload: &UpdateUpload) -> bool {
+        self.request_id == upload.request_id
+            && self.manifest_sha256 == upload.manifest_sha256
+            && self.epoch == upload.epoch
+    }
+}
+
 pub const UPDATE_MANAGE_SCOPE: u16 = 1 << Scope::UpdateManage as u8;
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]

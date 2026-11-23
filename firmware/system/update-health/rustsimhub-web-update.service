@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[Unit]
+Description=Process or reconcile one RustSimHub signed web update
+ConditionPathExists=/var/lib/rustsimhub/rustsimhub-v1/system/installation.complete
+ConditionPathExists=/etc/systemd/system/rustsimhub-core.service.d/56-web-update-health.conf
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/rustsimhub/rustsimhub-update process-web-upload
+BindPaths=/opt/rustsimhub/versions:/var/lib/rustsimhub/rustsimhub-v1/system/app/versions
+ReadWritePaths=/var/lib/rustsimhub/rustsimhub-v1/system/app /var/lib/rustsimhub/rustsimhub-v1/system/web-update-health /var/lib/rustsimhub/rustsimhub-v1/system/web-update /run/rustsimhub-app /opt/rustsimhub/versions
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_PTRACE CAP_SETUID CAP_SETGID CAP_KILL
+RestrictAddressFamilies=AF_UNIX
+UMask=0077
+TimeoutStartSec=240
+MemoryMax=176M
+TasksMax=16
+LimitCORE=0

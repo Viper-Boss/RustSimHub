@@ -191,6 +191,9 @@ fn run() -> Result<(), rustsimhub_update::Error> {
         );
         return Ok(());
     }
+    if args == ["process-web-upload"] {
+        return rustsimhub_update::admission::process_web_upload();
+    }
     if args == ["inspect-maintenance"] {
         let snapshot = rustsimhub_update::admission::MaintenanceSnapshot::observe()?;
         snapshot.revalidate()?;

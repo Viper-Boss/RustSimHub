@@ -5,6 +5,7 @@ mod product;
 use rustsimhub_wire::update_health::Snapshot;
 use std::os::unix::fs::FileTypeExt;
 pub(crate) const SCRATCH: &str = "/var/lib/rustsimhub/rustsimhub-v1/system/update-health";
+pub(super) const WEB_SCRATCH: &str = "/var/lib/rustsimhub/rustsimhub-v1/system/web-update-health";
 const DROP: &str = "etc/systemd/system/rustsimhub-core.service.d/55-update-health.conf";
 const HEALTH_DROP: &str =
     include_str!("../../../../firmware/system/update-health/55-update-health.conf");
@@ -257,13 +258,9 @@ impl Root {
             return Err(Error::Denied);
         }
         observations.push(Observation::capture(&directory)?);
-        let scratch = root.join(SCRATCH.trim_start_matches('/'));
-        if !parents(
-            root,
-            Path::new(SCRATCH.trim_start_matches('/')),
-            &[uid],
-            &mut observations,
-        )? {
+        let scratch_relative = (if web_ap { WEB_SCRATCH } else { SCRATCH }).trim_start_matches('/');
+        let scratch = root.join(scratch_relative);
+        if !parents(root, Path::new(scratch_relative), &[uid], &mut observations)? {
             return Err(Error::Denied);
         }
         let sm = fs::symlink_metadata(&scratch).map_err(|_| Error::Io)?;

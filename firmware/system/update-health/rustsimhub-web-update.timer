@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+[Unit]
+Description=Check the RustSimHub signed web update inbox
+
+[Timer]
+OnBootSec=25s
+OnUnitInactiveSec=30s
+AccuracySec=5s
+Unit=rustsimhub-web-update.service
+
+[Install]
+WantedBy=timers.target
