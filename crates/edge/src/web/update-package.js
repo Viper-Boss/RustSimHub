@@ -127,8 +127,9 @@ export class UpdatePackage {
     }
     const receipt = value.receipt;
     const installing = receipt && !['confirmed','restored'].includes(receipt.phase);
-    this.retention = {...retention, canDelete: value.can_submit === true && !installing,
-      deleteHint: installing ? '安装完成后可删除。' : value.can_submit === true ? '' : '删除需要最近五分钟内的所有者登录。'};
+    const canDelete = (value.can_delete_backup ?? value.can_submit) === true;
+    this.retention = {...retention, canDelete: canDelete && !installing,
+      deleteHint: installing ? '安装完成后可删除。' : canDelete ? '' : '删除需要最近五分钟内的所有者登录。'};
     this.renderRetention();
   }
 
@@ -240,7 +241,7 @@ export class UpdatePackage {
           this.uncertain = true;
         }
       } else if (response.status === 403) {
-        text = '请在主界面重新登录所有者后再提交。';
+        text = '当前会话无权提交更新。请在主界面以所有者身份登录。';
       } else if (response.status === 409) {
         text = '已有请求或包内容已变化。请先查询安装请求。';
         if (this.controller === controller) this.uncertain = true;

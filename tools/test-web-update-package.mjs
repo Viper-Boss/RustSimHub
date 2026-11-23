@@ -174,7 +174,9 @@ const backup = (epoch, char) => ({epoch, manifest_sha256:char.repeat(64)});
 const firstBackup = backup(117, 'b');
 const secondBackup = backup(115, 'c');
 const currentBackupStatus = {format:1, current:backup(118, 'a'), backups:[firstBackup,secondBackup]};
-let retentionReply = {available:true, receipt:null, can_submit:false, retention:currentBackupStatus};
+let retentionReply = {
+  available:true, receipt:null, can_submit:true, can_delete_backup:false, retention:currentBackupStatus
+};
 const backupCommands = [];
 element('-backups').replaceChildren = (...items) => { element('-backups').children = items; };
 const retentionPanel = new UpdatePackage({
@@ -194,7 +196,7 @@ assert.deepEqual(element('-backups').children.map(row=>row.button.textContent),
 assert.ok(element('-backups').children.every(row=>row.button.disabled));
 await retentionPanel.removeBackup(firstBackup);
 assert.equal(backupCommands.length, 0);
-retentionReply = {...retentionReply, can_submit:true};
+retentionReply = {...retentionReply, can_delete_backup:true};
 await retentionPanel.query();
 await retentionPanel.removeBackup(currentBackupStatus.current);
 assert.equal(backupCommands.length, 0);

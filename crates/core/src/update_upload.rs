@@ -331,7 +331,7 @@ async fn submit(
     upload: UpdateUpload,
 ) -> Outcome<Value> {
     let expires = Instant::now() + Duration::from_secs(12);
-    let binding = owner(&auth, &token, true)?;
+    let binding = owner(&auth, &token, false)?;
     let permit = Arc::clone(&inbox.incoming)
         .try_acquire_owned()
         .map_err(|_| "busy")?;
@@ -360,7 +360,7 @@ async fn submit(
             upload,
         };
         inbox.publish(&record, &bytes, || {
-            if Instant::now() >= expires || owner(&auth, &token, true)? != record.binding {
+            if Instant::now() >= expires || owner(&auth, &token, false)? != record.binding {
                 return Err("denied");
             }
             Ok(())
@@ -390,7 +390,7 @@ pub(crate) async fn handle(
                 {
                     return Err("update_pending");
                 }
-                let can_submit = owner(&auth, &token, true).is_ok();
+                let can_delete_backup = owner(&auth, &token, true).is_ok();
                 let receipt = record
                     .as_ref()
                     .map(|record| {
@@ -404,7 +404,7 @@ pub(crate) async fn handle(
                     })
                     .transpose()?;
                 Ok(
-                    json!({"available":true,"can_submit":can_submit,"receipt":receipt,
+                    json!({"available":true,"can_submit":true,"can_delete_backup":can_delete_backup,"receipt":receipt,
                     "retention":backup_status()?}),
                 )
             })

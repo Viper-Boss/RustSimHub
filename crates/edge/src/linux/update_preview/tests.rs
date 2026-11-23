@@ -181,8 +181,14 @@ async fn owner_preview_checks_boundary_before_body_and_rechecks_session_after_ve
             .insert("x-rustsimhub-update-manifest", manifest.parse().unwrap());
         req
     };
-    let reply =
-        |available| serde_json::json!({"available":true,"can_submit":available,"receipt":null});
+    let reply = |can_submit| {
+        serde_json::json!({
+            "available": true,
+            "can_submit": can_submit,
+            "can_delete_backup": false,
+            "receipt": null
+        })
+    };
     let exchange = |response: serde_json::Value, expected_body: bool| {
         let token = token.clone();
         let manifest = manifest.clone();
