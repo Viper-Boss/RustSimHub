@@ -10,7 +10,7 @@ use rustsimhub_wire::{
     UPDATE_INBOX_NAME,
 };
 
-const APP: &str = "/var/lib/rustsimhub/rustsimhub-v1/system/app";
+pub(super) const APP: &str = "/var/lib/rustsimhub/rustsimhub-v1/system/app";
 const CORE_UID: u32 = 986;
 
 fn load(
@@ -59,6 +59,32 @@ fn load(
         return Err(Error::Integrity);
     }
     Ok((record, bytes))
+}
+
+/// Verify the pending bytes before interrupting a running application group.
+pub(super) fn check_web_upload(request_id: &str, manifest: &str) -> Result<()> {
+    if !UpdateUpload::valid_reference(request_id, manifest) {
+        return Err(Error::Invalid);
+    }
+    let (record, bytes) = load(
+        &Path::new("/").join(STATE).join(UPDATE_INBOX_NAME),
+        CORE_UID,
+        request_id,
+        manifest,
+    )?;
+    let state = crate::store::inspection::ReadOnlyState::observe()?;
+    let (_, _, _, has_candidate) = state.runtime_version()?;
+    if has_candidate {
+        return Err(Error::Busy);
+    }
+    let bundle = bundle::verify_for_admission(&bytes, state.runtime_key()?, 6, 0)?;
+    if bundle.epoch() != record.upload.epoch || manifest_hash(bundle.manifest) != manifest {
+        return Err(Error::Integrity);
+    }
+    if bundle.epoch() <= state.floor_epoch()? {
+        return Err(Error::Rollback);
+    }
+    Ok(())
 }
 
 pub fn admit_web_upload(request_id: &str, manifest_sha256: &str) -> Result<Admission> {

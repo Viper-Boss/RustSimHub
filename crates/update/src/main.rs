@@ -160,6 +160,20 @@ fn run() -> Result<(), rustsimhub_update::Error> {
         );
         return Ok(());
     }
+    if args
+        .first()
+        .is_some_and(|command| command == "run-web-trial")
+    {
+        let [_, request_id, manifest] = args.as_slice() else {
+            return Err(Error::Invalid);
+        };
+        let result = rustsimhub_update::admission::run_web_trial(request_id, manifest)?;
+        println!(
+            "{}",
+            serde_json::json!({"request_id":request_id,"manifest_sha256":manifest,"result":result})
+        );
+        return Ok(());
+    }
     if args == ["inspect-maintenance"] {
         let snapshot = rustsimhub_update::admission::MaintenanceSnapshot::observe()?;
         snapshot.revalidate()?;

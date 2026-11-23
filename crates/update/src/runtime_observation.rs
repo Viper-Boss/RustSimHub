@@ -242,6 +242,13 @@ impl RuntimeObservation {
         }
     }
 
+    pub(crate) fn selected_version(&self, expected: &str, trial: bool) -> Result<bool> {
+        self.revalidate()?;
+        Ok(self.slot.attempted == trial
+            && self.slot.candidate_present == trial
+            && self.slot.hash == expected)
+    }
+
     pub fn report(&self) -> Result<RuntimeReport> {
         self.revalidate()?;
         Ok(self.metadata())

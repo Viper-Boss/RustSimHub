@@ -186,7 +186,7 @@ pub(super) fn web_trial_stopped() -> Result<()> {
     Ok(())
 }
 
-fn runtime_capture(mut command: Command, budget: Duration) -> Result<Vec<u8>> {
+pub(super) fn runtime_capture(mut command: Command, budget: Duration) -> Result<Vec<u8>> {
     let mut child = Reap(command.spawn().map_err(|_| Error::Denied)?);
     let mut pipe = child.0.stdout.take().ok_or(Error::Io)?;
     let flags = rustix::fs::fcntl_getfl(&pipe).map_err(|_| Error::Io)?;

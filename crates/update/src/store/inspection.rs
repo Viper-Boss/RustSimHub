@@ -205,6 +205,20 @@ impl ReadOnlyState {
         ))
     }
 
+    pub(crate) fn pending_trial_hash(&self) -> Result<Option<&str>> {
+        self.revalidate()?;
+        Ok(self
+            .state
+            .candidate
+            .as_ref()
+            .map(|version| version.hash.as_str()))
+    }
+
+    pub(crate) fn floor_epoch(&self) -> Result<u64> {
+        self.revalidate()?;
+        Ok(self.state.floor)
+    }
+
     pub(crate) fn runtime_key(&self) -> Result<&[u8; 32]> {
         self.revalidate()?;
         Ok(&self.key)

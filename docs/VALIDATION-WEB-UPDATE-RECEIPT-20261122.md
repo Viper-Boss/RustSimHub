@@ -27,6 +27,12 @@
 
 WSL `cargo test --offline --locked -p rustsimhub-update --lib web_ -- --test-threads=1` 四项通过，覆盖试启动前后撤销、错绑、回执和数据备份保护。应用槽位测试 16 项及严格 Clippy 通过。本次未在设备上调用命令。
 
+## 维护端单次试运行
+
+`rustsimhub-update run-web-trial <request-id> <manifest-sha256>` 仅由设备 Root 维护入口执行，使用同一请求绑定。先验包并确认没有其他候选，读到活动或未知通话会停止；定时器暂停后等待其服务空闲，再停应用并完成原备份与暂存。启动后通过签名槽位与 Core、Edge、媒体进程的回读确认选中的是本次候选。失败分支用原请求撤销候选并验证原版，随后恢复原来运行的定时器。新版进程正确时返回 `awaiting_health_confirmation`。
+
+WSL `cargo test --offline --locked -p rustsimhub-update --lib web_ -- --test-threads=1` 六项通过，含通话状态解析、模拟调度回退、真实备份和槽位测试。严格 Clippy 通过。
+
 ## 待接线
 
-设备维护程序仍需接通自动停写、调用准入与候选撤销命令、试运行和健康确认，将实际阶段反馈到网页。此次仅验证本机代码，设备继续使用应用 114。整体验收 81.5%，台账 20/169。
+网页确认后的后台唤起、更新程序被中止时的外部恢复、当前 AP 布局的业务健康确认及网页回执仍需接通。本轮未在真机执行，设备最后确认应用 114。整体验收 81.5%，台账 20/169。
