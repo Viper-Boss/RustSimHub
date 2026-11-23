@@ -29,7 +29,7 @@ assert.ok(!code.toString().includes('fetch('));console.log('PASS: actual A Query
  }, async signal => {
   assert.ok(signal instanceof AbortSignal);
   return replies[calls++];
- });
+ }, {autoRefresh:false});
  assert.equal(calls, 0);
  await button.click();
  assert.deepEqual(cells.map(cell => cell.textContent), ['0','7','9']);
@@ -37,7 +37,7 @@ assert.ok(!code.toString().includes('fetch('));console.log('PASS: actual A Query
  await button.click();
  assert.match(status.textContent, /官方主网兜底/);
  await button.click();
- assert.match(status.textContent, /刷新失败/);
+ assert.match(status.textContent, /上次查询/);
  await button.click();
  assert.deepEqual(cells.map(cell => cell.textContent), ['0','8','10']);
  assert.equal(button.disabled, false);
@@ -56,7 +56,7 @@ assert.ok(!code.toString().includes('fetch('));console.log('PASS: actual A Query
   const status = {};
   const cells = Array.from({length:3}, () => ({textContent:'—'}));
   bindUsageCounts({querySelector: selector => selector === '[data-refresh]' ? button : status,
-   querySelectorAll: () => cells}, read, {storage, now: () => now});
+   querySelectorAll: () => cells}, read, {storage, now: () => now, autoRefresh:false});
   return {button, status, counts: () => cells.map(cell => cell.textContent)};
  }
  const first = mount();
@@ -70,10 +70,10 @@ assert.ok(!code.toString().includes('fetch('));console.log('PASS: actual A Query
  available = false;
  await restored.button.click();
  assert.deepEqual(restored.counts(), ['0','0','0']);
- assert.match(restored.status.textContent, /刷新失败/);
+ assert.match(restored.status.textContent, /上次查询/);
  now -= 1;
  assert.deepEqual(mount().counts(), ['—','—','—']);
- now += 600001;
+ now += 86400001;
  assert.deepEqual(mount().counts(), ['—','—','—']);
  assert.equal(calls, 2);
 }
@@ -87,11 +87,16 @@ assert.ok(!code.toString().includes('fetch('));console.log('PASS: actual A Query
  let calls = 0;
  let now = Date.now();
  let finish;
+ let timer;
+ const env = {
+  setTimeout(callback, delay) { timer = {callback, delay}; return timer; },
+  clearTimeout() { timer = null; }
+ };
  const enterLogin = bindUsageCounts({querySelector: selector => selector === '[data-refresh]' ? button : status,
   querySelectorAll: () => cells}, () => {
   calls++;
   return new Promise(resolve => { finish = resolve; });
- }, {storage, autoRefresh:true, now:()=>now});
+ }, {storage, now:()=>now, env});
  assert.equal(calls, 1);
  assert.equal(button.disabled, true);
  await button.click();
@@ -100,6 +105,7 @@ assert.ok(!code.toString().includes('fetch('));console.log('PASS: actual A Query
  await new Promise(setImmediate);
  assert.deepEqual(cells.map(cell=>cell.textContent), ['1','2','3']);
  assert.match(status.textContent, /国内节点/);
+ assert.equal(timer.delay, 180000);
  assert.equal(button.disabled, false);
  await enterLogin();
  assert.equal(calls, 1);
@@ -109,10 +115,13 @@ assert.ok(!code.toString().includes('fetch('));console.log('PASS: actual A Query
  finish({ok:false, status:503});
  await loginRefresh;
  assert.deepEqual(cells.map(cell=>cell.textContent), ['1','2','3']);
- assert.match(status.textContent, /刷新失败/);
- const manual = button.click();
+ assert.match(status.textContent, /上次查询/);
+ assert.equal(timer.delay, 15000);
+ now += timer.delay;
+ const automaticRetry = timer.callback();
  assert.equal(calls, 3);
  finish({ok:true, json:async()=>({source:'domestic', counts:[2,3,4]})});
- await manual;
+ await automaticRetry;
  assert.deepEqual(cells.map(cell=>cell.textContent), ['2','3','4']);
 }
+console.log('PASS: sidebar starts automatically, restores cached counts, retries after failure and refreshes without a click.');

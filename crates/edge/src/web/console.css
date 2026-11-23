@@ -427,6 +427,20 @@ body{margin:0;background:var(--bg)}
 .cs .pg-btn.main:hover{background:var(--blue-2);color:#fff}
 .cs .pg-btn.danger{color:var(--red)}
 .cs .pg-btn:disabled{opacity:.5;cursor:default}
+.update-card .update-picker{display:grid;gap:8px;padding:12px 14px;border:1px solid var(--line-2);border-radius:12px;background:var(--sub);font-weight:600}
+.update-picker span{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
+.update-picker small{color:var(--ink-3);font-weight:400}
+.update-picker input{display:block;width:100%;min-width:0}
+.update-feedback{display:grid;gap:8px;margin:12px 0}
+.update-feedback progress{width:100%;height:6px;accent-color:var(--blue)}
+.cs .update-receipt{color:var(--ink-2);font-size:13px}
+.update-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.cs .update-actions .pg-btn{max-width:100%;margin:0}
+.update-details{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.update-details summary{color:var(--ink-2);cursor:pointer}
+.update-details[open]>*+*{margin-top:12px}
+.cs #update-package-backups li{display:flex;align-items:center;flex-wrap:wrap;justify-content:space-between;gap:6px 12px}
+.cs #update-package-backups .pg-btn{margin:4px 0}
 .nw-usage{display:flex;align-items:baseline;gap:8px;margin-bottom:12px}
 .nw-usage b{font-size:30px;font-weight:700}
 .nw-usage span{color:var(--ink-2)}

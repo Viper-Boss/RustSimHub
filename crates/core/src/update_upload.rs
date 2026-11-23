@@ -157,16 +157,28 @@ impl Inbox {
         &self,
         record: &Record,
         bytes: &[u8],
+        previous_phase: impl FnOnce(&UpdateUpload) -> Outcome<Option<UpdateRunPhase>>,
         reauthorize: impl FnOnce() -> Outcome<()>,
     ) -> Outcome<Value> {
-        if let Some(saved) = self.current()? {
-            reauthorize()?;
-            return if saved.binding == record.binding && saved.upload == record.upload {
-                Ok(receipt(&saved))
-            } else {
-                Err("update_pending")
-            };
-        }
+        let replace = if let Some(saved) = self.current()? {
+            if saved.binding == record.binding && saved.upload == record.upload {
+                reauthorize()?;
+                return Ok(receipt(&saved));
+            }
+            if saved.binding != record.binding
+                || saved.upload.request_id == record.upload.request_id
+                || saved.upload.epoch >= record.upload.epoch
+                || !matches!(
+                    previous_phase(&saved.upload)?,
+                    Some(UpdateRunPhase::Confirmed | UpdateRunPhase::Restored)
+                )
+            {
+                return Err("update_pending");
+            }
+            true
+        } else {
+            false
+        };
         if !self.check_directory()? {
             DirBuilder::new()
                 .mode(0o700)
@@ -200,14 +212,15 @@ impl Inbox {
                 .and_then(|()| f.sync_all())
                 .map_err(|_| "inbox_unavailable")?;
             reauthorize()?;
-            rustix::fs::renameat_with(
-                CWD,
-                &pending,
-                CWD,
-                self.directory.join(RECEIPT),
-                RenameFlags::NOREPLACE,
-            )
-            .map_err(|_| "inbox_unavailable")?;
+            let accepted = self.directory.join(RECEIPT);
+            if replace {
+                // Keep the old receipt until a fully written, reauthorized
+                // successor can replace it in a single directory operation.
+                fs::rename(&pending, accepted).map_err(|_| "inbox_unavailable")?;
+            } else {
+                rustix::fs::renameat_with(CWD, &pending, CWD, accepted, RenameFlags::NOREPLACE)
+                    .map_err(|_| "inbox_unavailable")?;
+            }
             sync_dir(&self.directory)?;
             Ok(receipt(record))
         })();
@@ -359,12 +372,17 @@ async fn submit(
             binding,
             upload,
         };
-        inbox.publish(&record, &bytes, || {
-            if Instant::now() >= expires || owner(&auth, &token, false)? != record.binding {
-                return Err("denied");
-            }
-            Ok(())
-        })
+        inbox.publish(
+            &record,
+            &bytes,
+            |previous| run_phase(Path::new(UPDATE_RUN_PATH), 0, previous),
+            || {
+                if Instant::now() >= expires || owner(&auth, &token, false)? != record.binding {
+                    return Err("denied");
+                }
+                Ok(())
+            },
+        )
     })
     .await
     .map_err(|_| "inbox_unavailable")?
@@ -493,5 +511,72 @@ mod tests {
         let link = dir.path().join("symlink");
         symlink(&path, &link).unwrap();
         assert!(run_phase(&link, uid, &upload).is_err());
+    }
+
+    #[test]
+    fn update_upload_replaces_only_a_finished_request_after_reauthorization() {
+        let dir = tempfile::tempdir().unwrap();
+        let inbox = Inbox::new(dir.path());
+        let journal = dir.path().join("current.json");
+        let uid = rustix::process::geteuid().as_raw();
+        let phase = |upload: &UpdateUpload| run_phase(&journal, uid, upload);
+        let binding = Binding {
+            realm: "realm".into(),
+            owner_key: [7; 32],
+            generation: 1,
+        };
+        let first = Record {
+            format: 1,
+            binding: binding.clone(),
+            upload: UpdateUpload {
+                request_id: "12345678-1234-4234-8234-123456789abc".into(),
+                manifest_sha256: "a".repeat(64),
+                bundle_sha256: "b".repeat(64),
+                epoch: 122,
+                length: 1,
+            },
+        };
+        let second = Record {
+            format: 1,
+            binding,
+            upload: UpdateUpload {
+                request_id: "12345678-1234-4234-8234-123456789abd".into(),
+                manifest_sha256: "c".repeat(64),
+                epoch: 123,
+                ..first.upload.clone()
+            },
+        };
+        let old = inbox.publish(&first, b"a", phase, || Ok(())).unwrap();
+        let accepted = inbox.directory.join(RECEIPT);
+        let saved = fs::read(&accepted).unwrap();
+        let mut run = UpdateRunRecord {
+            format: 1,
+            request_id: first.upload.request_id.clone(),
+            manifest_sha256: first.upload.manifest_sha256.clone(),
+            epoch: first.upload.epoch,
+            baseline_sha256: "d".repeat(64),
+            active_timers: [true, true],
+            phase: UpdateRunPhase::Running,
+        };
+        fs::write(&journal, serde_json::to_vec(&run).unwrap()).unwrap();
+        fs::set_permissions(&journal, fs::Permissions::from_mode(0o644)).unwrap();
+        assert_eq!(
+            inbox.publish(&second, b"b", phase, || Ok(())),
+            Err("update_pending")
+        );
+        assert_eq!(inbox.publish(&first, b"a", phase, || Ok(())).unwrap(), old);
+        run.phase = UpdateRunPhase::Restored;
+        fs::write(&journal, serde_json::to_vec(&run).unwrap()).unwrap();
+        assert_eq!(
+            inbox.publish(&second, b"b", phase, || Err("denied")),
+            Err("denied")
+        );
+        assert_eq!(fs::read(&accepted).unwrap(), saved);
+        assert_eq!(
+            inbox.publish(&second, b"b", phase, || Ok(())).unwrap()["epoch"],
+            123
+        );
+        assert_eq!(inbox.current().unwrap().unwrap().upload, second.upload);
+        assert!(!inbox.directory.join(SPARE).exists());
     }
 }

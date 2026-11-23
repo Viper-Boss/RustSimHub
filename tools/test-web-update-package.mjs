@@ -4,213 +4,168 @@ import {readFile} from 'node:fs/promises';
 import {UpdatePackage} from '../crates/edge/src/web/update-package.js';
 
 const html = await readFile(new URL('../crates/edge/src/web/index.html', import.meta.url), 'utf8');
-const elements = new Map(Array.from(html.matchAll(/id="(update-package[^"]*)"/g), ([, id]) => [id, {}]));
-const element = suffix => elements.get('update-package' + suffix);
-const file = {name:'release.rshapp', size:512};
-const sent = [];
-let token = null;
-let consent = false;
-let accepted = null;
+const ids = Array.from(html.matchAll(/id="(update-package[^"]*)"/g), ([, id]) => id);
+const initialFile = {name:'release.rshapp',size:512};
 const manifest = 'b'.repeat(64);
-const queried = [];
-let reply = {ok:true, json:async()=>({verified:true,epoch:114,schema_min:6,schema_max:9,manifest_sha256:manifest})};
-const panel = new UpdatePackage({
-  document: {getElementById:id=>elements.get(id)},
-  getToken: () => token,
-  confirm: () => consent,
-  request: async command => {
-    queried.push(command);
-    if (command.op === 'discard_update_upload') {
-      assert.equal(command.request_id, accepted?.request_id);
-      accepted = null;
-      return {discarded:true,request_id:command.request_id};
-    }
-    return {available:true,receipt:accepted};
-  },
-  fetch: (url, options) => {
-    sent.push({url, options});
-    return typeof reply === 'function' ? reply(options) : reply;
-  }
-});
+const wait = () => new Promise(setImmediate);
+const makeElement = () => ({append(child) { this.button = child; }, replaceChildren(...children) { this.children = children; }});
+const version = (epoch, char) => ({epoch, manifest_sha256:char.repeat(64)});
+const oldReceipt = {state:'received',request_id:'12345678-1234-4234-8234-123456789abc',phase:'restored',...version(122,'a')};
+const preview = {ok:true,json:async()=>({verified:true,epoch:123,schema_min:6,schema_max:6,manifest_sha256:manifest})};
 
-assert.equal(element('').disabled, true);
-assert.equal(element('-preview').disabled, true);
-assert.equal(sent.length, 0);
-
-token = 'a'.repeat(64);
-panel.reset();
-assert.equal(element('').disabled, false);
-for (const badFile of [{name:'release.zip',size:512},{name:'empty.rshapp',size:0},{name:'large.rshapp',size:26*1024*1024}]) {
-  element('').files = [badFile];
-  element('').onchange();
-  assert.equal(element('-preview').disabled, true);
-  await element('-preview').onclick();
-}
-assert.equal(sent.length, 0);
-
-element('').files = [file];
-element('').onchange();
-assert.equal(sent.length, 0);
-await element('-preview').onclick();
-assert.equal(sent.length, 1);
-assert.equal(sent[0].url, '/api/update/v1/preview');
-assert.equal(sent[0].options.body, file);
-assert.equal(sent[0].options.headers['Authorization'], 'Bearer ' + token);
-assert.equal(sent[0].options.headers['Content-Type'], 'application/octet-stream');
-assert.equal(element('-result').hidden, false);
-assert.equal(element('-epoch').textContent, '114');
-assert.equal(element('-schema').textContent, '6–9');
-
-reply = {ok:false,status:403};
-await element('-preview').onclick();
-assert.equal(element('-result').hidden, true);
-assert.match(element('-state').textContent, /所有者身份/);
-assert.equal(sent.length, 2);
-
-let finish;
-reply = new Promise(resolve => { finish = resolve; });
-const pending = element('-preview').onclick();
-await element('-preview').onclick();
-assert.equal(sent.length, 3);
-token = null;
-panel.reset();
-assert.equal(sent[2].options.signal.aborted, true);
-finish({ok:true,json:async()=>({verified:true,epoch:115,schema_min:6,schema_max:6})});
-await pending;
-assert.equal(element('-result').hidden, true);
-assert.equal(element('-preview').disabled, true);
-
-console.log('PASS: signed update selection, explicit bounded upload, verified result, denied and logged-out replies.');
-
-
-token = 'a'.repeat(64);
-panel.reset();
-element('').files = [file];
-element('').onchange();
-reply = {ok:true,json:async()=>({verified:true,epoch:114,schema_min:6,schema_max:9,manifest_sha256:manifest})};
-await element('-preview').onclick();
-assert.equal(element('-submit').disabled,false);
-const previous = sent.length;
-await element('-submit').onclick();
-assert.equal(sent.length,previous,'declining confirmation sends nothing');
-
-consent = true;
-reply = ({headers}) => {
-  accepted = {state:'received',request_id:headers['X-RustSimHub-Update-Request'],manifest_sha256:manifest,epoch:114};
-  throw Error('synthetic lost reply');
-};
-await element('-submit').onclick();
-assert.equal(sent.length,previous+1);
-assert.equal(sent.at(-1).url,'/api/update/v1/submit');
-assert.equal(sent.at(-1).options.body,file);
-assert.equal(sent.at(-1).options.headers['X-RustSimHub-Update-Manifest'],manifest);
-assert.match(element('-state').textContent,/未确认/);
-await element('-submit').onclick();
-assert.equal(sent.length,previous+1,'an uncertain result cannot auto-retry');
-panel.reset();
-await element('-query').onclick();
-assert.deepEqual(queried.at(-1),{op:'update_upload_status'});
-assert.match(element('-state').textContent,/已受理应用 114/);
-assert.equal(element('-discard').disabled,false);
-accepted.phase = 'running';
-await element('-query').onclick();
-assert.match(element('-state').textContent,/正在安装应用 114/);
-assert.equal(element('-discard').disabled,true);
-await element('-discard').onclick();
-assert.equal(accepted.phase, 'running');
-accepted.phase = 'confirmed';
-await element('-query').onclick();
-assert.match(element('-state').textContent,/应用 114 已安装并通过健康检查/);
-accepted.phase = 'restored';
-await element('-query').onclick();
-assert.match(element('-state').textContent,/设备已恢复原版本/);
-await element('-discard').onclick();
-assert.equal(accepted,null);
-assert.equal(element('-discard').hidden,true);
-assert.match(element('-state').textContent,/已移除/);
-console.log('PASS: explicit install confirmation, lost reply, durable receipt lookup, and removal of the exact upload.');
-
-// Chromium's Window methods reject a component object as their receiver.
-const originalFetch = globalThis.fetch;
-const originalConfirm = globalThis.confirm;
-let nativeRequests = 0;
-let nativePrompts = 0;
-try {
-  globalThis.confirm = function (message) {
-    assert.equal(this, globalThis);
-    assert.match(message, /116/);
-    nativePrompts++;
-    return true;
-  };
-  globalThis.fetch = function (url, {headers}) {
-    assert.equal(this, globalThis);
-    nativeRequests++;
-    if (url.endsWith('/preview')) {
-      return {ok:true, json:async()=>({verified:true, epoch:116, schema_min:6,
-        schema_max:9, manifest_sha256:manifest})};
-    }
-    return {status:202, json:async()=>({state:'received', epoch:116, manifest_sha256:manifest,
-      request_id:headers['X-RustSimHub-Update-Request']})};
-  };
-  const browserPanel = new UpdatePackage({
-    document:{getElementById:id=>elements.get(id)}, getToken:()=>token, request:async()=>null
+function fixture({native = false} = {}) {
+  const elements = new Map(ids.map(id => [id, makeElement()]));
+  const element = suffix => elements.get('update-package' + suffix);
+  let time = 0;
+  let timer;
+  const state = {token:'a'.repeat(64), consent:true, receipt:{...oldReceipt}, requests:[], calls:[],
+    preview, canDelete:false, reconnects:0};
+  const panel = new UpdatePackage({
+    document:{getElementById:id=>elements.get(id),createElement:makeElement},
+    getToken:()=>state.token,
+    request:async command=>{
+      state.requests.push(command);
+      if (state.denied) { state.denied = false; throw Object.assign(Error(),{coreCode:'denied'}); }
+      if (command.op === 'delete_update_backup') return {deletion_queued:true,epoch:command.backup.epoch};
+      if (command.op === 'discard_update_upload') {
+        assert.equal(command.request_id,state.receipt.request_id);
+        state.receipt = null;
+        return {discarded:true,request_id:command.request_id};
+      }
+      return {available:true,can_submit:true,can_delete_backup:state.canDelete,receipt:state.receipt,retention:state.retention};
+    },
+    reconnect:async()=>{state.reconnects++;},
+    confirm:native ? undefined : ()=>state.consent,
+    fetch:native ? undefined : async (url, options)=>{
+      state.calls.push({url,options});
+      if (url.endsWith('/preview')) return state.preview;
+      state.receipt = {state:'received',epoch:123,manifest_sha256:manifest,
+        request_id:options.headers['X-RustSimHub-Update-Request']};
+      if (state.lost) throw Error('lost response');
+      return {status:202,json:async()=>({...state.receipt})};
+    },
+    now:()=>time,schedule:(fn,delay)=>{timer={fn,delay};return timer;},cancel:()=>{timer=null;}
   });
-  element('').files = [file];
-  element('').onchange();
-  await browserPanel.preview();
-  assert.equal(element('-submit').disabled, false);
-  await browserPanel.submit();
-  assert.match(element('-state').textContent, /已受理应用 116/);
-  assert.equal(nativeRequests, 2);
-  assert.equal(nativePrompts, 1);
-} finally {
-  globalThis.fetch = originalFetch;
-  if (originalConfirm === undefined) delete globalThis.confirm;
-  else globalThis.confirm = originalConfirm;
+  return {panel,element,state, select:async file=>{element('').files=[file];await element('').onchange();},
+    async tick(){assert.ok(timer,'status polling scheduled');const next=timer;time+=next.delay;next.fn();await wait();}};
 }
-console.log('PASS: default preview, confirmation, and submit use the Window API receiver.');
 
-const backup = (epoch, char) => ({epoch, manifest_sha256:char.repeat(64)});
-const firstBackup = backup(117, 'b');
-const secondBackup = backup(115, 'c');
-const currentBackupStatus = {format:1, current:backup(118, 'a'), backups:[firstBackup,secondBackup]};
-let retentionReply = {
-  available:true, receipt:null, can_submit:true, can_delete_backup:false, retention:currentBackupStatus
-};
-const backupCommands = [];
-element('-backups').replaceChildren = (...items) => { element('-backups').children = items; };
-const retentionPanel = new UpdatePackage({
-  document:{getElementById:id=>elements.get(id), createElement:()=>({append(child) {this.button = child;}})},
-  getToken:()=>token,
-  confirm:()=>consent,
-  request:async command => {
-    if (command.op === 'update_upload_status') return retentionReply;
-    backupCommands.push(command);
-    return {deletion_queued:true, epoch:command.backup.epoch};
+{
+  const {panel,element,state,select} = fixture();
+  state.token = null;
+  panel.reset();
+  assert.equal(element('').disabled,true);
+  assert.equal(element('-submit').disabled,true);
+  state.token = 'a'.repeat(64);
+  for (const file of [{name:'bad.zip',size:512},{name:'empty.rshapp',size:0},{name:'big.rshapp',size:26*1024*1024}]) {
+    await select(file);
+    assert.equal(element('-submit').disabled,true);
   }
-});
-await retentionPanel.query();
-assert.match(element('-retention-state').textContent, /当前应用 118/);
-assert.deepEqual(element('-backups').children.map(row=>row.button.textContent),
-  ['删除应用 117','删除应用 115']);
-assert.ok(element('-backups').children.every(row=>row.button.disabled));
-await retentionPanel.removeBackup(firstBackup);
-assert.equal(backupCommands.length, 0);
-retentionReply = {...retentionReply, can_delete_backup:true};
-await retentionPanel.query();
-await retentionPanel.removeBackup(currentBackupStatus.current);
-assert.equal(backupCommands.length, 0);
-consent = false;
-await element('-backups').children[1].button.onclick();
-assert.equal(backupCommands.length, 0);
-consent = true;
-await element('-backups').children[1].button.onclick();
-await retentionPanel.removeBackup(firstBackup);
-assert.deepEqual(backupCommands, [{op:'delete_update_backup', backup:secondBackup}]);
-assert.ok(element('-backups').children.every(row=>row.button.disabled));
-retentionReply = {...retentionReply, retention:{...currentBackupStatus, backups:[firstBackup]}};
-await retentionPanel.query();
-assert.equal(element('-backups').children.length, 1);
-assert.equal(element('-backups').children[0].button.disabled, false);
-retentionPanel.reset();
-console.log('PASS: two verified backup rows, fresh-owner confirmation, one exact request, receipt reconciliation.');
+  assert.equal(state.calls.length,0);
+  state.preview={ok:false,status:422};
+  await select(initialFile);
+  assert.equal(element('-preview').hidden,false);
+  assert.match(element('-state').textContent,/验证失败/);
+  state.preview=preview;
+  await element('-preview').onclick();
+  assert.equal(element('-submit').textContent,'安装 123');
+  assert.equal(element('-submit').disabled,false);
+  assert.equal(element('-epoch').textContent,'123');
+  assert.equal(element('-schema').textContent,'6–6');
+  assert.equal(state.calls.at(-1).options.body,initialFile);
+  assert.equal(state.calls.at(-1).options.headers.Authorization,'Bearer ' + state.token);
+  let finish;
+  state.preview=new Promise(resolve=>{finish=resolve;});
+  const action=select(initialFile);
+  const signal=state.calls.at(-1).options.signal;
+  state.token=null;
+  panel.reset();
+  assert.equal(signal.aborted,true);
+  finish(preview);
+  await action;
+  assert.equal(element('-submit').disabled,true);
+}
+console.log('PASS: file selection verifies automatically, invalid packages never enable installation, reset fences stale requests.');
+
+{
+  const {panel,element,state,select,tick} = fixture();
+  await panel.query();
+  assert.match(element('-receipt').textContent,/恢复原版本/);
+  assert.equal(element('-submit').hidden,undefined);
+  await select(initialFile);
+  assert.equal(element('-submit').disabled,false);
+  state.consent=false;
+  await panel.submit();
+  assert.equal(state.calls.length,1);
+  state.consent=true;
+  state.lost=true;
+  await panel.submit();
+  await wait();
+  assert.equal(state.calls.length,2);
+  assert.match(element('-receipt').textContent,/已受理应用 123/);
+  assert.equal(state.calls[1].options.headers['X-RustSimHub-Update-Manifest'],manifest);
+  assert.equal(element('-submit').disabled,true);
+  await panel.submit();
+  assert.equal(state.calls.length,2);
+  state.receipt={...state.receipt,phase:'running'};
+  state.denied=true;
+  await tick();
+  assert.equal(state.reconnects,1);
+  assert.match(element('-receipt').textContent,/正在安装/);
+  assert.equal(element('-discard').disabled,true);
+  state.receipt={...state.receipt,phase:'confirmed'};
+  await tick();
+  assert.match(element('-receipt').textContent,/应用 123 已安装并通过健康检查/);
+  assert.equal(element('-progress').hidden,true);
+  assert.equal(state.requests.some(command=>command.op==='discard_update_upload'),false);
+  assert.equal(state.calls.length,2);
+}
+console.log('PASS: a finished upload needs no removal, one confirmation submits, polling resumes after a lost reply and device restart.');
+
+{
+  const originalFetch=globalThis.fetch;
+  const originalConfirm=globalThis.confirm;
+  let requests=0;
+  try {
+    globalThis.confirm=function(message){assert.equal(this,globalThis);assert.match(message,/123/);return true;};
+    globalThis.fetch=function(url,{headers}) {
+      assert.equal(this,globalThis);
+      requests++;
+      return url.endsWith('/preview') ? preview : {status:202,json:async()=>({state:'received',
+        request_id:headers['X-RustSimHub-Update-Request'],epoch:123,manifest_sha256:manifest})};
+    };
+    const {panel,select}=fixture({native:true});
+    await select(initialFile);
+    await panel.submit();
+    assert.equal(requests,2);
+    panel.reset();
+  } finally {
+    globalThis.fetch=originalFetch;
+    if (originalConfirm===undefined) delete globalThis.confirm;
+    else globalThis.confirm=originalConfirm;
+  }
+}
+console.log('PASS: browser fetch and confirmation use the Window receiver.');
+
+{
+  const {panel,element,state,tick}=fixture();
+  const backup=version(121,'c');
+  state.retention={format:1,current:version(123,'d'),backups:[backup]};
+  await panel.query();
+  assert.equal(element('-current').textContent,'当前 123');
+  assert.equal(element('-backups').children[0].button.disabled,true);
+  state.canDelete=true;
+  await panel.query();
+  state.consent=false;
+  await element('-backups').children[0].button.onclick();
+  assert.equal(state.requests.some(command=>command.op==='delete_update_backup'),false);
+  state.consent=true;
+  await element('-backups').children[0].button.onclick();
+  assert.deepEqual(state.requests.at(-1),{op:'delete_update_backup',backup});
+  state.retention={...state.retention,backups:[]};
+  await tick();
+  assert.equal(element('-backups').children.length,0);
+  await panel.discard();
+  assert.equal(state.receipt,null);
+}
+console.log('PASS: backup deletion remains a separate confirmed action and only targets the selected backup.');

@@ -35,18 +35,24 @@ export class UsageStatsPanel {
 }
 
 const countCacheKey = 'rustsimhub-usage-counts-v1';
-const countCacheTtl = 600000;
+const countCacheAge = 24 * 60 * 60 * 1000;
+const countRefreshMs = 180000;
 const validCounts = (value, length) => ['domestic', 'official'].includes(value?.source)
  && Array.isArray(value.counts) && value.counts.length === length
  && value.counts.every(n => Number.isSafeInteger(n) && n >= 0);
 
-export function bindUsageCounts(panel, read, {storage = () => globalThis.sessionStorage, now = Date.now, autoRefresh = false} = {}) {
+export function bindUsageCounts(panel, read, {
+ storage = () => globalThis.localStorage, now = Date.now, autoRefresh = true,
+ env = globalThis
+} = {}) {
  if (!panel) return;
  const button = panel.querySelector('[data-refresh]');
  const status = panel.querySelector('[data-status]');
  const cells = panel.querySelectorAll('[data-count]');
  let lastSuccess;
  let lastAttempt = -Infinity;
+ let refreshTimer;
+ let retryMs = 15000;
  function display(value) {
   value.counts.forEach((count, index) => { cells[index].textContent = count.toLocaleString('zh-CN'); });
   const source = value.source === 'domestic' ? '国内节点' : '官方主网兜底';
@@ -60,7 +66,7 @@ export function bindUsageCounts(panel, read, {storage = () => globalThis.session
    const cached = JSON.parse(raw);
    const age = now() - cached?.checkedAt;
    if (Number.isSafeInteger(cached?.checkedAt) && validCounts(cached, cells.length)
-       && age >= 0 && age < countCacheTtl) {
+       && age >= 0 && age < countCacheAge) {
     display(cached);
     status.textContent = '上次查询 · ' + lastSuccess;
    }
@@ -75,10 +81,11 @@ export function bindUsageCounts(panel, read, {storage = () => globalThis.session
   status.textContent = '正在查询 NKN' + (lastSuccess ? ' · 上次 ' + lastSuccess : '');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10500);
+  let refreshed = false;
   try {
    const response = await read(controller.signal);
    if (response.status === 429) {
-    status.textContent = '查询太频繁，请稍后再试' + (lastSuccess ? ' · 上次 ' + lastSuccess : '');
+    status.textContent = '等待下次更新' + (lastSuccess ? ' · 上次 ' + lastSuccess : '');
     return;
    }
    if (!response.ok) throw Error('count unavailable');
@@ -86,20 +93,37 @@ export function bindUsageCounts(panel, read, {storage = () => globalThis.session
    if (!validCounts(value, cells.length)) throw Error('invalid counts');
    const snapshot = {source: value.source, counts: value.counts, checkedAt: now()};
    display(snapshot);
+   refreshed = true;
    status.textContent = lastSuccess;
    try { storage()?.setItem(countCacheKey, JSON.stringify(snapshot)); } catch { /* optional cache */ }
   } catch {
-   status.textContent = lastSuccess ? '刷新失败 · 上次 ' + lastSuccess : '暂未取到统计，请检查棒子的 Wi-Fi 后重试';
+   status.textContent = lastSuccess ? '上次查询 · ' + lastSuccess : '暂未取到统计，稍后自动重试。';
   } finally {
    clearTimeout(timer);
    button.disabled = false;
+   if (autoRefresh) {
+    scheduleRefresh(refreshed ? countRefreshMs : retryMs);
+    retryMs = refreshed ? 15000 : Math.min(60000, retryMs * 2);
+   }
   }
  }
+ function scheduleRefresh(delay) {
+  env.clearTimeout(refreshTimer);
+  if (!env.document?.hidden) refreshTimer = env.setTimeout(refreshAutomatically, delay);
+ }
  function refreshAutomatically() {
-  // The device rate-limits queries to one every five seconds.
-  if (now() - lastAttempt >= 5000) return refresh();
+  if (env.document?.hidden || button.disabled) return;
+  const wait = 5000 - (now() - lastAttempt);
+  if (wait <= 0) return refresh();
+  if (autoRefresh) scheduleRefresh(wait);
  }
  button.addEventListener('click', refresh);
- if (autoRefresh) void refreshAutomatically();
+ if (autoRefresh) {
+  env.document?.addEventListener('visibilitychange', () => {
+   env.clearTimeout(refreshTimer);
+   if (!env.document.hidden) void refreshAutomatically();
+  });
+  void refreshAutomatically();
+ }
  return refreshAutomatically;
 }

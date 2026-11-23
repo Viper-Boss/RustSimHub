@@ -1,31 +1,52 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 const MAX_BYTES = 24 * 1024 * 1024 + 8192 + 76;
-const MESSAGES = {
-  401: '请以所有者身份登录后再预览。',
-  403: '请重新验证所有者身份后再预览。',
-  408: '上传超时，请手动重试。',
+const RECHECK_MS = 3000;
+const SUBMIT_WINDOW_MS = 65000;
+const WATCH_MS = 480000;
+const HASH = /^[0-9a-f]{64}$/;
+const REQUEST = /^[0-9a-f-]{36}$/;
+const messages = {
+  400: '更新包读取失败，请重新选择文件。',
+  401: '请以所有者身份登录。',
+  403: '请以所有者身份登录。',
+  408: '传输超时，请重试。',
   413: '更新包超过大小限制。',
-  422: '验签失败，请核对设备型号和更新包来源。',
-  429: '已有验签预览在进行，请稍后重试。',
-  503: '暂时无法验签，请稍后重试。'
+  422: '更新包验证失败，请核对文件和设备型号。',
+  429: '设备正在处理另一个请求，请稍后重试。'
 };
 
-function receiptMessage(receipt) {
-  switch (receipt.phase) {
-    case 'running': return `正在安装应用 ${receipt.epoch}，网页可能暂时断开。`;
-    case 'confirmed': return `应用 ${receipt.epoch} 已安装并通过健康检查。`;
-    case 'restored': return `应用 ${receipt.epoch} 未完成安装，设备已恢复原版本。`;
-    default: return `已受理应用 ${receipt.epoch} 的安装请求，等待设备维护。`;
-  }
+function terminal(receipt) {
+  return receipt?.phase === 'confirmed' || receipt?.phase === 'restored';
+}
+
+function receiptText(receipt) {
+  const name = '应用 ' + receipt.epoch;
+  if (receipt.phase === 'confirmed') return name + ' 已安装并通过健康检查。';
+  if (receipt.phase === 'restored') return name + ' 未完成安装，设备已恢复原版本。';
+  if (receipt.phase === 'running') return '正在安装' + name + '，网页可能暂时断开。';
+  return '已受理' + name + '，正在等待设备安装。';
+}
+
+function validFile(file) {
+  return file && file.size > 0 && file.size <= MAX_BYTES && /\.rshapp$/i.test(file.name);
+}
+
+function validVersion(value) {
+  return Number.isSafeInteger(value?.epoch) && value.epoch > 0 && HASH.test(value.manifest_sha256);
 }
 
 export class UpdatePackage {
-  constructor({document, getToken, request,
+  constructor({
+    document, getToken, request, reconnect,
     confirm = message => globalThis.confirm(message),
-    fetch = (url, options) => globalThis.fetch(url, options)}) {
-    const find = name => document.getElementById(`update-package${name}`);
+    fetch = (url, options) => globalThis.fetch(url, options),
+    now = Date.now,
+    schedule = (callback, delay) => globalThis.setTimeout(callback, delay),
+    cancel = timer => globalThis.clearTimeout(timer)
+  }) {
+    const find = name => document.getElementById('update-package' + name);
     this.file = find('');
-    this.button = find('-preview');
+    this.previewButton = find('-preview');
     this.status = find('-state');
     this.result = find('-result');
     this.epoch = find('-epoch');
@@ -33,20 +54,28 @@ export class UpdatePackage {
     this.submitButton = find('-submit');
     this.queryButton = find('-query');
     this.discardButton = find('-discard');
-    this.document = document;
+    this.progress = find('-progress');
+    this.receiptLine = find('-receipt');
+    this.currentVersion = find('-current');
     this.retentionPanel = find('-retention');
     this.retentionState = find('-retention-state');
     this.backupList = find('-backups');
-    this.accepted = null;
+    this.document = document;
     this.token = getToken;
     this.request = request;
+    this.reconnect = reconnect;
     this.confirm = confirm;
-    this.candidate = null;
-    this.uncertain = false;
     this.fetch = fetch;
-    this.controller = null;
-    this.file.onchange = () => this.showSelection();
-    this.button.onclick = () => this.preview();
+    this.now = now;
+    this.schedule = schedule;
+    this.cancel = cancel;
+    this.file.onchange = () => {
+      this.candidate = null;
+      this.message = '';
+      this.render();
+      return this.preview();
+    };
+    this.previewButton.onclick = () => this.preview();
     this.submitButton.onclick = () => this.submit();
     this.queryButton.onclick = () => this.query();
     this.discardButton.onclick = () => this.discard();
@@ -54,279 +83,289 @@ export class UpdatePackage {
   }
 
   reset() {
-    this.controller?.abort();
-    this.controller = null;
-    this.uncertain = false;
-    this.accepted = null;
-    this.retention = null;
-    this.backupDeletion = null;
-    clearTimeout(this.backupRefresh);
+    this.action?.controller.abort();
+    this.cancel(this.pollTimer);
+    this.pollTimer = null;
+    this.action = this.lookup = this.candidate = this.pending = this.receipt = null;
+    this.retention = this.backupDeletion = null;
     this.file.value = '';
-    this.showSelection();
+    this.message = '';
+    this.watchUntil = 0;
+    this.reconnected = false;
+    this.canSubmit = true;
+    this.render();
   }
 
-  showSelection() {
-    const file = this.file.files?.[0];
-    const validFile = file && file.size > 0 && file.size <= MAX_BYTES && /\.rshapp$/i.test(file.name);
-    this.candidate = null;
-    this.result.hidden = true;
-    this.epoch.textContent = '';
-    this.schema.textContent = '';
-    this.file.disabled = !this.token() || !!this.controller;
-    this.button.disabled = this.file.disabled || !validFile;
-    this.submitButton.hidden = true;
-    this.submitButton.disabled = true;
-    this.queryButton.disabled = !this.token() || !!this.controller;
-    this.discardButton.hidden = !this.accepted;
-    this.discardButton.disabled = this.queryButton.disabled || !this.accepted || this.accepted.phase === 'running';
-    this.status.textContent = !this.token() ? '以所有者身份登录后可预览' :
-      file && !validFile ? '请选择有效大小的 .rshapp 文件。' : '';
+  waiting() {
+    return !!this.pending || (!!this.receipt && !terminal(this.receipt));
+  }
+
+  render() {
+    const signedIn = !!this.token();
+    const waiting = this.waiting();
+    const busy = waiting || !!this.action;
+    const chosen = this.file.files?.[0];
+    const version = this.candidate?.epoch;
+    const floor = Math.max(this.retention?.current.epoch ?? 0, this.receipt?.epoch ?? 0);
+    const tooOld = !!version && version <= floor;
+    this.file.disabled = !signedIn || busy;
+    this.previewButton.hidden = !validFile(chosen) || !!version || busy;
+    this.previewButton.disabled = !signedIn || busy;
+    this.submitButton.disabled = !signedIn || busy || !version || tooOld || !this.canSubmit;
+    this.submitButton.textContent = version && !tooOld ? '安装 ' + version : '安装更新';
+    this.queryButton.disabled = !signedIn || !!this.action || !!this.lookup;
+    this.discardButton.hidden = !signedIn || !this.receipt;
+    this.discardButton.disabled = !!this.action || !!this.pending || this.receipt?.phase === 'running';
+    this.progress.hidden = !signedIn || !busy;
+    this.result.hidden = !version;
+    this.epoch.textContent = version ? String(version) : '';
+    this.schema.textContent = version ? this.candidate.schema_min + '–' + this.candidate.schema_max : '';
+    this.status.textContent = !signedIn ? '以所有者身份登录后即可更新。'
+      : this.message || (waiting ? '设备正在处理更新，页面会自动查看结果。'
+      : !this.canSubmit ? '当前会话没有更新权限。'
+      : tooOld ? '请选择版本高于 ' + floor + ' 的更新包。'
+      : version ? '应用 ' + version + ' 已验证，可以安装。'
+      : chosen && !validFile(chosen) ? '请选择有效的 .rshapp 更新包。'
+      : '选择更新包后自动检查。');
+    this.receiptLine.hidden = !signedIn || !this.receipt;
+    this.receiptLine.textContent = this.receipt ? receiptText(this.receipt) : '';
     this.renderRetention();
   }
 
+  setRetention(value) {
+    const retention = value?.retention;
+    if (retention?.format !== 1 || !validVersion(retention.current) || !Array.isArray(retention.backups)
+      || retention.backups.length > 2 || !retention.backups.every((backup, index) => validVersion(backup)
+        && backup.epoch < (index ? retention.backups[index - 1].epoch : retention.current.epoch)
+        && backup.manifest_sha256 !== retention.current.manifest_sha256
+        && (!index || backup.manifest_sha256 !== retention.backups[index - 1].manifest_sha256))) {
+      this.retention = null;
+      return;
+    }
+    if (this.backupDeletion && (this.now() >= this.backupDeletion.expires || !retention.backups.some(
+      backup => backup.manifest_sha256 === this.backupDeletion.manifest_sha256))) {
+      this.backupDeletion = null;
+    }
+    this.retention = {...retention, canDelete: (value.can_delete_backup ?? value.can_submit) === true};
+  }
+
   renderRetention() {
-    if (!this.retentionPanel) return;
-    this.retentionPanel.hidden = !this.retention || !this.token();
-    if (this.retentionPanel.hidden) return;
-    const {current, backups, canDelete, deleteHint} = this.retention;
+    const show = !!this.retention && !!this.token();
+    this.currentVersion.hidden = this.retentionPanel.hidden = !show;
+    if (!show) return;
+    const {current, backups, canDelete} = this.retention;
+    this.currentVersion.textContent = '当前 ' + current.epoch;
     const pending = this.backupDeletion;
-    const message = pending ? `正在核对应用 ${pending.epoch} 的删除结果。` :
-      backups.length ? '最多保留两份备用应用。' : '暂无备用应用。';
-    this.retentionState.textContent = `当前应用 ${current.epoch}。 ${message}${backups.length && !pending ? deleteHint : ''}`;
+    this.retentionState.textContent = pending ? '正在核对备用应用 ' + pending.epoch + ' 的删除结果。'
+      : !backups.length ? '暂无备用应用。'
+      : !canDelete ? '删除备用需要近期的所有者登录。' : '备用应用';
     this.backupList.replaceChildren(...backups.map(backup => {
       const row = this.document.createElement('li');
-      row.textContent = `应用 ${backup.epoch} `;
+      row.textContent = '应用 ' + backup.epoch;
       const remove = this.document.createElement('button');
       remove.type = 'button';
-      remove.className = 'pg-btn';
-      remove.textContent = `删除应用 ${backup.epoch}`;
-      remove.disabled = !canDelete || !!this.controller || !!pending;
+      remove.className = 'pg-btn danger';
+      remove.textContent = '删除应用 ' + backup.epoch;
+      remove.disabled = !canDelete || !!this.action || this.waiting() || !!pending;
       remove.onclick = () => this.removeBackup(backup);
       row.append(remove);
       return row;
     }));
   }
 
-  setRetention(value) {
-    const retention = value?.retention;
-    const valid = version => Number.isSafeInteger(version?.epoch) && version.epoch > 0
-      && typeof version.manifest_sha256 === 'string' && /^[0-9a-f]{64}$/.test(version.manifest_sha256);
-    if (retention?.format !== 1 || !valid(retention.current) || !Array.isArray(retention.backups)
-      || retention.backups.length > 2 || !retention.backups.every((backup, index) => valid(backup)
-        && backup.epoch < (index ? retention.backups[index - 1].epoch : retention.current.epoch)
-        && backup.manifest_sha256 !== retention.current.manifest_sha256
-        && (!index || backup.manifest_sha256 !== retention.backups[index - 1].manifest_sha256))) {
-      this.retention = null;
-      this.renderRetention();
-      return;
-    }
-    const pending = this.backupDeletion;
-    if (pending && (Date.now() >= pending.expires || !retention.backups.some(
-      backup => backup.manifest_sha256 === pending.manifest_sha256))) {
-      this.backupDeletion = null;
-    }
-    const receipt = value.receipt;
-    const installing = receipt && !['confirmed','restored'].includes(receipt.phase);
-    const canDelete = (value.can_delete_backup ?? value.can_submit) === true;
-    this.retention = {...retention, canDelete: canDelete && !installing,
-      deleteHint: installing ? '安装完成后可删除。' : canDelete ? '' : '删除需要最近五分钟内的所有者登录。'};
-    this.renderRetention();
+  begin(message) {
+    const action = {token: this.token(), controller: new AbortController()};
+    this.action = action;
+    this.lookup = null;
+    this.message = message;
+    this.render();
+    return action;
   }
 
-  async removeBackup(backup) {
-    if (this.controller || this.backupDeletion || !this.retention?.canDelete
-      || !this.retention.backups.includes(backup)) return;
-    if (!this.confirm(`永久删除备用应用 ${backup.epoch}？该版本不能再用于自动回退。`)) return;
-    const token = this.token();
-    const controller = new AbortController();
-    this.controller = controller;
-    this.backupDeletion = {...backup, expires: Date.now() + 91000};
-    this.renderRetention();
-    let message = '删除结果待核对，请查询安装请求。';
+  async upload(endpoint, action, file, headers = {}) {
+    const timer = globalThis.setTimeout(() => action.controller.abort(), 85000);
     try {
-      const value = await this.request({op:'delete_update_backup', backup});
-      if (value?.deletion_queued === true && value.epoch === backup.epoch) {
-        message = `备用应用 ${backup.epoch} 的删除请求已受理。`;
-      }
-    } catch {
-      // The request may have been published before the response was lost.
+      return await this.fetch('/api/update/v1/' + endpoint, {
+        method: 'POST', body: file, credentials: 'omit', cache: 'no-store', redirect: 'error',
+        signal: action.controller.signal,
+        headers: {'Content-Type': 'application/octet-stream', 'X-RustSimHub-Request': '2',
+          Authorization: 'Bearer ' + action.token, ...headers}
+      });
     } finally {
-      if (this.controller === controller && token === this.token()) {
-        this.controller = null;
-        this.status.textContent = message;
-        this.renderRetention();
-        this.backupRefresh = setTimeout(() => void this.query(), 35000);
-      }
+      globalThis.clearTimeout(timer);
     }
   }
 
   async preview() {
-    if (this.button.disabled || this.controller) return;
-    const file = this.file.files[0];
-    const token = this.token();
-    const controller = new AbortController();
-    this.controller = controller;
-    this.showSelection();
-    this.status.textContent = '正在上传并验签…';
-    const deadline = setTimeout(() => controller.abort(), 85000);
-    const current = () => this.controller === controller && token === this.token();
-    let message = '';
-    let value;
+    const file = this.file.files?.[0];
+    if (!this.token() || this.action || this.waiting() || !validFile(file)) return;
+    const action = this.begin('正在检查应用包…');
     try {
-      const reply = await this.fetch('/api/update/v1/preview', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/octet-stream', 'X-RustSimHub-Request': '2', Authorization: `Bearer ${token}`},
-        body: file, signal: controller.signal, credentials: 'omit', cache: 'no-store', redirect: 'error'
-      });
-      if (!reply.ok) throw Error(MESSAGES[reply.status] || '暂时无法验签，请稍后重试。');
-      const candidate = await reply.json();
-      if (candidate?.verified !== true || ![candidate.epoch, candidate.schema_min, candidate.schema_max].every(Number.isSafeInteger) ||
-          candidate.epoch < 1 || candidate.schema_min < 0 || candidate.schema_max < candidate.schema_min ||
-          !/^[0-9a-f]{64}$/.test(candidate.manifest_sha256)) {
-        throw Error('验签回复无效，请稍后重试。');
+      const response = await this.upload('preview', action, file);
+      if (!response.ok) throw Error(messages[response.status] || '暂时无法检查更新包，请重试。');
+      const value = await response.json();
+      if (value?.verified !== true || !validVersion(value) ||
+          !Number.isSafeInteger(value.schema_min) || !Number.isSafeInteger(value.schema_max) ||
+          value.schema_min < 0 || value.schema_max < value.schema_min) {
+        throw Error('设备返回的更新包信息无效。');
       }
-      value = candidate;
-      message = '签名与载荷校验通过。安装资格将在安装前另行核验。';
+      if (this.action === action) {
+        this.candidate = {...value, file};
+        this.message = '';
+      }
     } catch (error) {
-      message = error.name === 'AbortError' ? '上传超时，请手动重试。' :
-        error instanceof TypeError || error instanceof SyntaxError ? '暂时无法验签，请稍后重试。' : error.message;
+      if (this.action === action) this.message = error.name === 'AbortError' ? '检查超时，请重试。'
+        : error instanceof TypeError || error instanceof SyntaxError ? '暂时无法检查更新包，请重试。'
+        : error.message;
     } finally {
-      clearTimeout(deadline);
-      if (this.controller === controller) {
-        const show = current();
-        this.controller = null;
-        this.showSelection();
-        if (show) {
-          this.status.textContent = message;
-          if (value) {
-            this.candidate = {...value, file};
-            this.submitButton.hidden = this.uncertain;
-            this.submitButton.disabled = this.uncertain;
-            this.result.hidden = false;
-            this.epoch.textContent = String(value.epoch);
-            this.schema.textContent = `${value.schema_min}–${value.schema_max}`;
-          }
-        }
+      if (this.action === action) {
+        this.action = null;
+        this.render();
       }
     }
   }
 
   async submit() {
-    if (this.controller || this.submitButton.disabled || !this.candidate || this.uncertain) return;
-    const {file, epoch, manifest_sha256:manifest} = this.candidate;
-    if (!this.confirm(`提交应用 ${epoch} 的安装请求？设备会保存已确认的更新包供维护程序处理。`)) return;
-    const requestId = crypto.randomUUID();
-    const token = this.token();
-    const controller = new AbortController();
-    this.controller = controller;
-    this.showSelection();
-    this.status.textContent = '正在提交确认过的签名包…';
-    const timeout = setTimeout(() => controller.abort(), 85000);
-    let text;
+    if (this.submitButton.disabled || this.action || !this.candidate) return;
+    const {file, epoch, manifest_sha256: manifest} = this.candidate;
+    if (!this.confirm('安装应用 ' + epoch + '？安装期间网页会短暂断开。')) return;
+    const id = crypto.randomUUID();
+    const action = this.begin('正在提交应用 ' + epoch + '…');
+    this.reconnected = false;
     try {
-      const response = await this.fetch('/api/update/v1/submit', {
-        method: 'POST',
-        headers: {'Content-Type':'application/octet-stream', 'X-RustSimHub-Request':'2',
-          'X-RustSimHub-Update-Request':requestId, 'X-RustSimHub-Update-Manifest':manifest,
-          Authorization:`Bearer ${token}`},
-        body:file, signal:controller.signal, credentials:'omit', cache:'no-store', redirect:'error'
+      const response = await this.upload('submit', action, file, {
+        'X-RustSimHub-Update-Request': id, 'X-RustSimHub-Update-Manifest': manifest
       });
+      if (this.action !== action) return;
       if (response.status === 202) {
         const receipt = await response.json();
-        if (receipt.state !== 'received' || receipt.request_id !== requestId ||
+        if (this.action !== action) return;
+        if (receipt.state !== 'received' || receipt.request_id !== id ||
             receipt.manifest_sha256 !== manifest || receipt.epoch !== epoch) throw Error();
-        text = `已受理应用 ${epoch} 的安装请求。`;
-        if (this.controller === controller && token === this.token()) {
-          this.accepted = receipt;
-          this.uncertain = true;
-        }
-      } else if (response.status === 403) {
-        text = '当前会话无权提交更新。请在主界面以所有者身份登录。';
+        this.receipt = receipt;
+        this.watchUntil = this.now() + WATCH_MS;
+        this.message = '';
       } else if (response.status === 409) {
-        text = '已有请求或包内容已变化。请先查询安装请求。';
-        if (this.controller === controller) this.uncertain = true;
+        this.message = '设备有其他请求或包已变化，正在刷新状态。';
+      } else if (messages[response.status]) {
+        this.message = messages[response.status];
       } else {
         throw Error();
       }
     } catch {
-      if (this.controller === controller) this.uncertain = true;
-      text = '提交结果未确认。请查询安装请求，避免重复提交。';
+      if (this.action === action) {
+        this.pending = {id, deadline: this.now() + SUBMIT_WINDOW_MS};
+        this.watchUntil = this.now() + WATCH_MS;
+        this.message = '提交结果待确认，正在自动核对。';
+      }
     } finally {
-      clearTimeout(timeout);
-      if (this.controller === controller) {
-        this.controller = null;
-        this.showSelection();
-        if (token === this.token()) this.status.textContent = text;
+      if (this.action === action) {
+        this.action = null;
+        this.render();
+        if (this.waiting() || this.message.includes('正在刷新')) void this.query();
       }
     }
   }
 
   async query() {
-    if (this.controller || this.queryButton.disabled) return;
-    const token = this.token();
-    // The shared authenticated request already has its own short deadline.
-    const controller = new AbortController();
-    this.controller = controller;
-    this.showSelection();
-    this.status.textContent = '正在查询安装请求…';
-    let value;
+    if (!this.token() || this.lookup || this.action) return;
+    const lookup = {};
+    this.lookup = lookup;
+    this.cancel(this.pollTimer);
+    this.pollTimer = null;
+    this.render();
     try {
-      value = await this.request({op:'update_upload_status'});
+      let value;
+      try {
+        value = await this.request({op: 'update_upload_status'});
+      } catch (error) {
+        const denied = error?.httpStatus === 401 || error?.httpStatus === 403 || error?.coreCode === 'denied';
+        if (this.lookup !== lookup || !denied || !this.waiting() || this.reconnected || !this.reconnect) throw error;
+        this.reconnected = true;
+        await this.reconnect();
+        if (this.lookup !== lookup) return;
+        value = await this.request({op: 'update_upload_status'});
+      }
+      if (this.lookup !== lookup) return;
+      if (value?.available !== true) throw Error();
+      const receipt = value.receipt;
+      if (receipt !== null && (receipt?.state !== 'received' || !validVersion(receipt) ||
+          !REQUEST.test(receipt.request_id))) throw Error();
+      this.canSubmit = value.can_submit !== false;
+      const firstReceipt = receipt && this.receipt?.request_id !== receipt.request_id;
+      this.receipt = receipt;
+      this.setRetention(value);
+      if (firstReceipt && !terminal(receipt)) this.watchUntil = this.now() + WATCH_MS;
+      if (this.pending && (receipt?.request_id === this.pending.id || this.now() >= this.pending.deadline)) {
+        this.message = receipt?.request_id === this.pending.id ? '' : '设备未确认这次提交，请重新核对后安装。';
+        this.pending = null;
+      } else if (!this.pending && (!this.message || this.message.startsWith('正在等待') ||
+          this.message.startsWith('暂时无法读取') || this.message.includes('正在刷新'))) {
+        this.message = '';
+      }
+      if (receipt?.phase === 'confirmed' && this.candidate?.manifest_sha256 === receipt.manifest_sha256) {
+        this.candidate = null;
+        this.file.value = '';
+      }
     } catch {
-      value = null;
+      if (this.lookup === lookup) this.message = this.waiting()
+        ? '正在等待设备恢复连接，恢复后会自动核对安装结果。' : '暂时无法读取设备的更新状态。';
     } finally {
-      if (this.controller === controller) {
-        this.controller = null;
-        this.showSelection();
-        if (token === this.token()) {
-          const receipt = value?.receipt;
-          if (value?.available === true && receipt === null) {
-            this.uncertain = false;
-            this.accepted = null;
-            this.showSelection();
-            this.status.textContent = '暂无已受理的安装请求。';
-          } else if (receipt?.state === 'received' && Number.isSafeInteger(receipt.epoch) && receipt.epoch > 0 &&
-                     /^[0-9a-f-]{36}$/.test(receipt.request_id)) {
-            this.uncertain = true;
-            this.accepted = receipt;
-            this.showSelection();
-            this.status.textContent = receiptMessage(receipt);
-          } else {
-            this.status.textContent = '暂时无法查询安装请求。';
-          }
-          this.setRetention(value);
+      if (this.lookup === lookup) {
+        this.lookup = null;
+        if ((this.waiting() && this.now() < this.watchUntil) || this.backupDeletion) {
+          this.pollTimer = this.schedule(() => void this.query(), RECHECK_MS);
+        } else if (this.waiting()) {
+          this.message = '设备尚未返回最终结果，可以在「版本与恢复」里刷新状态。';
         }
+        this.render();
       }
     }
   }
 
+  async removeBackup(backup) {
+    if (this.action || this.waiting() || this.backupDeletion || !this.retention?.canDelete
+      || !this.retention.backups.includes(backup)) return;
+    if (!this.confirm('永久删除备用应用 ' + backup.epoch + '？')) return;
+    const action = this.begin('正在请求删除备用应用…');
+    this.backupDeletion = {...backup, expires: this.now() + 91000};
+    this.render();
+    try {
+      const value = await this.request({op: 'delete_update_backup', backup});
+      if (this.action === action && value?.deletion_queued === true && value.epoch === backup.epoch) {
+        this.message = '备用应用 ' + backup.epoch + ' 的删除请求已受理。';
+      }
+    } catch {
+      if (this.action === action) this.message = '正在核对备用应用的删除结果。';
+    } finally {
+      if (this.action === action) {
+        this.action = null;
+        this.render();
+        this.pollTimer = this.schedule(() => void this.query(), RECHECK_MS);
+      }
+    }
+  }
 
   async discard() {
-    if (this.controller || this.discardButton.disabled || !this.accepted ||
-        !this.confirm('移除这次上传的文件？已经暂存或运行的版本不受影响。')) return;
-    const {request_id} = this.accepted;
-    const token = this.token();
-    const controller = new AbortController();
-    this.controller = controller;
-    this.showSelection();
-    let text;
+    if (this.discardButton.disabled || !this.receipt ||
+      !this.confirm('移除应用 ' + this.receipt.epoch + ' 的上传文件？')) return;
+    const {request_id} = this.receipt;
+    const action = this.begin('正在移除上传文件…');
     try {
-      const value = await this.request({op:'discard_update_upload', request_id});
+      const value = await this.request({op: 'discard_update_upload', request_id});
       if (value?.discarded !== true || value.request_id !== request_id) throw Error();
-      if (this.controller === controller && token === this.token()) {
-        this.uncertain = false;
-        this.accepted = null;
+      if (this.action === action) {
+        this.receipt = null;
+        this.message = '已移除上传的文件。';
       }
-      text = '已移除上传的文件。';
     } catch {
-      text = '移除结果未确认。请使用主界面的所有者登录，并重新查询请求。';
+      if (this.action === action) this.message = '移除结果待核对。';
     } finally {
-      if (this.controller === controller) {
-        this.controller = null;
-        this.showSelection();
-        if (token === this.token()) this.status.textContent = text;
+      if (this.action === action) {
+        this.action = null;
+        this.render();
+        void this.query();
       }
     }
   }
-
 }

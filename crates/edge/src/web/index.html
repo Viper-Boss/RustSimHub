@@ -228,25 +228,36 @@
 </div>
 <div class="pg" id="v-about" hidden>
 <section class="card pg-card pg-narrow num"><h2><svg class="i"><use href="#i-chip"/></svg>关于</h2><dl class="pg-kv"><dt>产品</dt><dd>RustSimHub</dd><dt>固件版本</dt><dd id="c-ab-version">—</dd><dt>型号</dt><dd id="c-ab-model">—</dd><dt>操作系统</dt><dd id="c-ab-os">—</dd><dt>内核</dt><dd id="c-ab-kernel">—</dd><dt>许可证</dt><dd>AGPL-3.0-only</dd></dl></section>
-<section class="card pg-card pg-narrow">
- <h2><svg class="i"><use href="#i-layers"/></svg>签名应用更新包</h2>
- <p class="pg-note">请选择 .rshapp 文件。验签预览会显示包内版本和数据库范围，不会安装。</p>
- <label for="update-package">应用包</label>
- <input id="update-package" type="file" accept=".rshapp,application/octet-stream" disabled>
- <button class="pg-btn" type="button" id="update-package-preview" disabled>验签预览</button>
- <p class="pg-note" id="update-package-state" role="status">以所有者身份登录后可预览</p>
- <dl class="pg-kv" id="update-package-result" hidden>
-  <dt>应用版本</dt><dd id="update-package-epoch"></dd>
-  <dt>包内数据库范围</dt><dd id="update-package-schema"></dd>
- </dl>
- <button class="pg-btn" type="button" id="update-package-submit" hidden disabled>提交安装请求</button>
- <button class="pg-btn" type="button" id="update-package-query" disabled>查询安装请求</button>
- <button class="pg-btn" type="button" id="update-package-discard" hidden disabled>移除已上传文件</button>
- <div id="update-package-retention" hidden>
-  <h3>备用应用版本</h3>
-  <p id="update-package-retention-state"></p>
-  <ul id="update-package-backups"></ul>
+<section class="card pg-card pg-narrow update-card">
+ <h2><svg class="i"><use href="#i-layers"/></svg>应用更新 <small id="update-package-current" hidden></small></h2>
+ <label class="update-picker" for="update-package">
+  <span>选择更新包 <small>.rshapp</small></span>
+  <input id="update-package" type="file" accept=".rshapp,application/octet-stream" disabled>
+ </label>
+ <div class="update-feedback">
+  <p class="pg-note" id="update-package-state" role="status">以所有者身份登录后即可更新。</p>
+  <progress id="update-package-progress" aria-label="更新进行中" hidden></progress>
+  <p class="update-receipt" id="update-package-receipt" aria-live="polite" hidden></p>
  </div>
+ <div class="update-actions">
+  <button class="pg-btn main" type="button" id="update-package-submit" disabled>安装更新</button>
+  <button class="pg-btn" type="button" id="update-package-preview" hidden disabled>重新检查</button>
+ </div>
+ <details class="update-details" id="update-package-details">
+  <summary>版本与恢复</summary>
+  <dl class="pg-kv" id="update-package-result" hidden>
+   <dt>包内版本</dt><dd id="update-package-epoch"></dd>
+   <dt>支持的数据库版本</dt><dd id="update-package-schema"></dd>
+  </dl>
+  <div id="update-package-retention" hidden>
+   <p id="update-package-retention-state"></p>
+   <ul id="update-package-backups"></ul>
+  </div>
+  <div class="update-actions">
+   <button class="pg-btn" type="button" id="update-package-query" disabled>刷新状态</button>
+   <button class="pg-btn" type="button" id="update-package-discard" hidden disabled>移除已上传文件</button>
+  </div>
+ </details>
 </section>
 </div>
 <div class="pg" id="v-network" hidden>

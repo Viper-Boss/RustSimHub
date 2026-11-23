@@ -242,7 +242,13 @@ async fn owner_preview_checks_boundary_before_body_and_rechecks_session_after_ve
     );
     assert_eq!(result.unwrap().status(), StatusCode::CONFLICT);
     let (result, ()) = tokio::join!(isolated.oneshot(make_submit(&manifest)), async {
-        exchange(reply(true), false).await;
+        exchange(
+            serde_json::json!({"available":true,"can_submit":true,
+                "receipt":{"request_id":"aabbccdd-0123-4123-a123-123456789abb",
+                    "epoch":119,"phase":"restored"}}),
+            false,
+        )
+        .await;
         exchange(
             serde_json::json!({"state":"received","request_id":request_id,
                 "manifest_sha256":manifest,"epoch":120}),

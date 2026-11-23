@@ -114,7 +114,10 @@ function auth(command){if(!token)throw Error('请先登录');return api({...comm
 const eventSync=new EventSync({request:command=>auth(command),reload:{sms:()=>inboxPage(true),calls:()=>callsPage(true)}});
 const smsManager=new SmsManager({document,request:command=>auth(command),reloadInbox:()=>inboxPage(true),confirm:message=>confirm(message)});
 const notice=text=>{$('notice').textContent=text;};
-const updatePackage=new UpdatePackage({document,getToken:()=>token,request:command=>auth(command)});
+const updatePackage=new UpdatePackage({document,getToken:()=>token,request:command=>auth(command),reconnect:()=>{
+ if(!token||busy||lease)throw Error('暂时无法恢复更新会话');
+ return login({destination:null,keepUpdate:true});
+}});
 const sessionKeeper=new SessionKeeper({env:globalThis,token:()=>token,apply:(old,next,remaining)=>{
  if(token!==old)throw Error('登录会话已变化');
  audioLink.updateAuthentication(old,next);token=next;
@@ -167,7 +170,7 @@ async function initialize(){
     redirect: 'error',
     signal
    });
- }, {autoRefresh: true});
+ });
  db=await new Promise((resolve,reject)=>{const opening=indexedDB.open('rustsimhub-client-v1',1);opening.onupgradeneeded=()=>opening.result.createObjectStore('state');opening.onsuccess=()=>resolve(opening.result);opening.onerror=()=>reject(Error('浏览器存储不可用'));});
  key=await stored('key');if(!key){key=await crypto.subtle.generateKey({name:'Ed25519'},false,['sign','verify']);await save('key',key);}
  publicKey=new Uint8Array(await crypto.subtle.exportKey('raw',key.publicKey));
@@ -268,10 +271,10 @@ async function resumeBrowserSession(identity,destination='dashboard'){
   if(currentAttempt()&&(error?.coreCode==='denied'||error?.httpStatus===401||error?.httpStatus===403))forgetTabSession();
  }
 }
-async function enterConsole(sessionToken,pin,destination,message,health){
+async function enterConsole(sessionToken,pin,destination,message,health,keepUpdate=false){
  const epoch=viewEpoch;
  token=sessionToken;authenticatedDevicePin=pin;
- updatePackage.reset();
+ if(!keepUpdate)updatePackage.reset();
  configurationOpen=configurationVisible();void configurationIndicator.set(configurationOpen&&!document.hidden);
  networkPanel.start();dailyPhone.start();notice(message);
  try{await refresh(health);}finally{
@@ -283,9 +286,10 @@ async function enterConsole(sessionToken,pin,destination,message,health){
   }
  }
 }
-async function login({destination='dashboard'}={}){
+async function login({destination='dashboard',keepUpdate=false}={}){
  forgetTabSession();
- token=null;lease=null;updatePackage.reset();resetBluetoothMode();resetDataRoaming();
+ if(!keepUpdate){token=null;updatePackage.reset();}
+ lease=null;resetBluetoothMode();resetDataRoaming();
  nknProductPanel.reset();nasBridgePanel?.reset();authenticatedDevicePin=null;
  forwardingPanel.reset();forwardingHistory.reset();
  clearWifiNetworks();
@@ -294,7 +298,7 @@ async function login({destination='dashboard'}={}){
  const r=await api({op:'authenticate',challenge_id:c.id,signature},epoch);current(epoch);if(!/^[a-f0-9]{64}$/.test(r.token))throw Error('登录响应无效');
  sessionKeeper.start(r.token,r.expires_in_seconds);
  saveTabSession({token:r.token,pin:verifiedDevicePin,clientKey:hex(publicKey),remaining:sessionKeeper.remaining()});
- await enterConsole(r.token,verifiedDevicePin,destination,'已登录，通话期间可自动续期');
+ await enterConsole(r.token,verifiedDevicePin,destination,'已登录，通话期间可自动续期',undefined,keepUpdate);
 }
 function row(text,parent,onClick){const item=document.createElement('div');item.className='row';const label=document.createElement('span');label.textContent=text;item.append(label);if(onClick){const button=document.createElement('button');button.textContent='查看';button.onclick=()=>act(onClick);item.append(button);}parent.append(item);}
 async function inboxPage(reset=false){

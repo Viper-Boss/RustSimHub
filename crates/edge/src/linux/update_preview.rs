@@ -191,6 +191,10 @@ async fn submit_inner(
             if status["available"] == true
                 && status["can_submit"] == true
                 && (status["receipt"].is_null()
+                    || matches!(
+                        status["receipt"]["phase"].as_str(),
+                        Some("confirmed" | "restored")
+                    )
                     || status["receipt"]["request_id"] == request_id) => {}
         Ok(status) if status["available"] == true && !status["receipt"].is_null() => {
             return denied(StatusCode::CONFLICT)
