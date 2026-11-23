@@ -41,9 +41,16 @@ class AppRecoverUnitTests(unittest.TestCase):
             complete = base/'installation.complete'
             calls = runtime/'calls'
             barriers = runtime/'barriers'
+            ledger = base/'ledger'
+            versions = base/'versions'
+            (ledger/'versions').mkdir(parents=True)
+            versions.mkdir()
             fake = base/'fake-systemctl'
-            fake.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> '+str(calls)+'\n')
+            fake.write_text('#!/bin/sh\nif test "$1" = show; then echo failed; exit; fi\nprintf "%s\\n" "$*" >> '+str(calls)+'\n')
             fake.chmod(0o755)
+            updater = base/'fake-update'
+            updater.write_text('#!/bin/sh\necho no fallback\n')
+            updater.chmod(0o755)
             sync = base/'fake-sync'
             sync.write_text('#!/bin/sh\nset -eu\ntest "$#" = 2\ntest "$1" = -f\n'
                             'printf "%s\\n" "$2" >> '+str(barriers)+'\n')
@@ -51,11 +58,14 @@ class AppRecoverUnitTests(unittest.TestCase):
             executable = base/'recover'
             script = SCRIPT.read_text().replace('/run/rustsimhub-app', str(runtime))
             script = script.replace('systemctl', str(fake)).replace('sync -f', str(sync)+' -f')
+            script = script.replace('/usr/libexec/rustsimhub/rustsimhub-update',str(updater))
             executable.write_text(script)
             executable.chmod(0o755)
             source = UNIT.read_text().replace('/usr/local/libexec/rustsimhub-app-recover', str(executable))
             source = source.replace('/var/lib/rustsimhub/rustsimhub-v1/system/installation.complete', str(complete))
             source = source.replace('/run/rustsimhub-app', str(runtime))
+            source = source.replace('/var/lib/rustsimhub/rustsimhub-v1/system/app', str(ledger))
+            source = source.replace('/opt/rustsimhub/versions', str(versions))
             created = False
             try:
                 with unit_path.open('x') as file:
@@ -80,13 +90,13 @@ class AppRecoverUnitTests(unittest.TestCase):
                 first = ctl('start', unit, check=False)
                 self.assertEqual(first.returncode, 0, first.stdout)
                 marker = runtime/'recovery.used'
-                self.assertEqual(marker.read_text(), 'RustSimHub.AppRecovery.v1\n')
+                self.assertEqual(marker.read_text(), 'RustSimHub.AppRecovery.v2:1\n')
                 self.assertEqual(calls.read_text(), '--no-block restart rustsimhub-app.target\n')
-                self.assertEqual(barriers.read_text().splitlines(), [str(marker), str(runtime)])
+                self.assertEqual(barriers.read_text().splitlines()[1:], [str(runtime)])
 
                 second = ctl('start', unit, check=False)
                 self.assertNotEqual(second.returncode, 0)
-                self.assertEqual(marker.read_text(), 'RustSimHub.AppRecovery.v1\n')
+                self.assertEqual(marker.read_text(), 'RustSimHub.AppRecovery.v2:2\n')
                 self.assertEqual(calls.read_text(), '--no-block restart rustsimhub-app.target\n'
                                  '--no-block stop rustsimhub-app.target\n')
             finally:

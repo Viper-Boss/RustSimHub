@@ -6,8 +6,9 @@ use rustix::fs::{OFlags, RenameFlags, CWD};
 use rustsimhub_auth::Auth;
 use rustsimhub_policy::{allows, Scope};
 use rustsimhub_wire::{
-    AuthCommand, AuthRequest, Response, UpdateRunPhase, UpdateRunRecord, UpdateUpload,
-    UpdateUploadBinding as Binding, UpdateUploadRecord as Record, AUTH_PROTOCOL,
+    AuthCommand, AuthRequest, Response, UpdateBackup, UpdateBackupDeletion, UpdateBackups,
+    UpdateRunPhase, UpdateRunRecord, UpdateUpload, UpdateUploadBinding as Binding,
+    UpdateUploadRecord as Record, AUTH_PROTOCOL, UPDATE_BACKUPS_PATH, UPDATE_DELETE_BACKUP,
     UPDATE_INBOX_ACCEPTED as RECEIPT, UPDATE_INBOX_HEADER_LIMIT as HEADER_LIMIT, UPDATE_RUN_LIMIT,
     UPDATE_RUN_PATH,
 };
@@ -19,7 +20,7 @@ use std::{
     os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use tokio::{io::AsyncReadExt, net::UnixStream, sync::Semaphore, time::timeout};
 
@@ -90,6 +91,66 @@ impl Inbox {
             return Err("inbox_unavailable");
         }
         Ok(Some(record))
+    }
+
+    fn queue_backup_deletion(&self, backup: UpdateBackup) -> Outcome<Value> {
+        let _permit = self.incoming.try_acquire().map_err(|_| "busy")?;
+        if !self.check_directory()? {
+            return Err("inbox_unavailable");
+        }
+        if let Some(upload) = self.current()? {
+            let phase = run_phase(Path::new(UPDATE_RUN_PATH), 0, &upload.upload)?;
+            if !matches!(
+                phase,
+                Some(UpdateRunPhase::Confirmed | UpdateRunPhase::Restored)
+            ) {
+                return Err("update_pending");
+            }
+        }
+        let status = backup_status()?.ok_or("inbox_unavailable")?;
+        if !status.backups.contains(&backup) {
+            return Err("backup_unavailable");
+        }
+        let request = self.directory.join(UPDATE_DELETE_BACKUP);
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|_| "inbox_unavailable")?
+            .as_secs();
+        if let Some(file) = read_file(&request)? {
+            let prior: UpdateBackupDeletion = read_json(file, "inbox_unavailable")?;
+            if prior.current == status.current
+                && prior.expires_unix_secs >= now
+                && status.backups.contains(&prior.backup)
+            {
+                return if prior.backup == backup {
+                    Ok(json!({"deletion_queued":true,"epoch":backup.epoch}))
+                } else {
+                    Err("busy")
+                };
+            }
+        }
+        let scratch = self.directory.join(".delete-backup.next");
+        if read_file(&scratch)?.is_some() {
+            fs::remove_file(&scratch).map_err(|_| "inbox_unavailable")?;
+        }
+        let value = UpdateBackupDeletion {
+            current: status.current,
+            backup,
+            expires_unix_secs: now + 90,
+        };
+        let bytes = serde_json::to_vec(&value).map_err(|_| "inbox_unavailable")?;
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&scratch)
+            .map_err(|_| "inbox_unavailable")?;
+        file.write_all(&bytes)
+            .and_then(|()| file.sync_all())
+            .map_err(|_| "inbox_unavailable")?;
+        fs::rename(&scratch, &request).map_err(|_| "inbox_unavailable")?;
+        sync_dir(&self.directory)?;
+        Ok(json!({"deletion_queued":true,"epoch":value.backup.epoch}))
     }
 
     fn publish(
@@ -190,7 +251,7 @@ fn receipt(record: &Record) -> Value {
         "epoch":record.upload.epoch,"manifest_sha256":record.upload.manifest_sha256})
 }
 
-fn run_phase(path: &Path, uid: u32, upload: &UpdateUpload) -> Outcome<Option<UpdateRunPhase>> {
+fn read_root_json<T: serde::de::DeserializeOwned>(path: &Path, uid: u32) -> Outcome<Option<T>> {
     let file = match OpenOptions::new()
         .read(true)
         .custom_flags((OFlags::NOFOLLOW | OFlags::NONBLOCK).bits() as i32)
@@ -209,13 +270,33 @@ fn run_phase(path: &Path, uid: u32, upload: &UpdateUpload) -> Outcome<Option<Upd
     {
         return Err("inbox_unavailable");
     }
+    read_json(file, "inbox_unavailable").map(Some)
+}
+
+fn read_json<T: serde::de::DeserializeOwned>(file: File, error: &'static str) -> Outcome<T> {
     let mut bytes = Vec::new();
     file.take(UPDATE_RUN_LIMIT as u64 + 1)
         .read_to_end(&mut bytes)
-        .map_err(|_| "inbox_unavailable")?;
-    let record: UpdateRunRecord =
-        serde_json::from_slice(&bytes).map_err(|_| "inbox_unavailable")?;
-    if bytes.len() > UPDATE_RUN_LIMIT || !record.valid() {
+        .map_err(|_| error)?;
+    if bytes.len() > UPDATE_RUN_LIMIT {
+        return Err(error);
+    }
+    serde_json::from_slice(&bytes).map_err(|_| error)
+}
+
+fn backup_status() -> Outcome<Option<UpdateBackups>> {
+    let status: Option<UpdateBackups> = read_root_json(Path::new(UPDATE_BACKUPS_PATH), 0)?;
+    if status.as_ref().is_some_and(|status| !status.valid()) {
+        return Err("inbox_unavailable");
+    }
+    Ok(status)
+}
+
+fn run_phase(path: &Path, uid: u32, upload: &UpdateUpload) -> Outcome<Option<UpdateRunPhase>> {
+    let Some(record): Option<UpdateRunRecord> = read_root_json(path, uid)? else {
+        return Ok(None);
+    };
+    if !record.valid() {
         return Err("inbox_unavailable");
     }
     Ok(record.matches(upload).then_some(record.phase))
@@ -322,7 +403,19 @@ pub(crate) async fn handle(
                         Ok::<_, &'static str>(value)
                     })
                     .transpose()?;
-                Ok(json!({"available":true,"can_submit":can_submit,"receipt":receipt}))
+                Ok(
+                    json!({"available":true,"can_submit":can_submit,"receipt":receipt,
+                    "retention":backup_status()?}),
+                )
+            })
+            .await
+            .map_err(|_| "inbox_unavailable")
+            .and_then(|value| value)
+        }
+        (Some(inbox), AuthCommand::DeleteUpdateBackup { token, backup }) => {
+            tokio::task::spawn_blocking(move || {
+                owner(&auth, &token, true)?;
+                inbox.queue_backup_deletion(backup)
             })
             .await
             .map_err(|_| "inbox_unavailable")

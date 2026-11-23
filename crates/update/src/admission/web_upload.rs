@@ -10,8 +10,8 @@ use rustsimhub_wire::{
 };
 
 pub(super) const APP: &str = "/var/lib/rustsimhub/rustsimhub-v1/system/app";
-const CORE_UID: u32 = 986;
-const WEB_INBOX: &str = "/opt/rustsimhub/web-update/inbox";
+pub(super) const CORE_UID: u32 = 986;
+pub(super) const WEB_INBOX: &str = "/opt/rustsimhub/web-update/inbox";
 pub(super) const WEB_BACKUP_ROOT: &str = "/opt/rustsimhub/web-update/backup";
 
 pub(super) fn checked_spool() -> Result<()> {

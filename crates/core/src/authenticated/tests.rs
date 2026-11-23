@@ -53,7 +53,31 @@ async fn update_preview_requires_current_owner_even_with_delegated_update_scope(
         } else {
             assert_eq!(result["error"], "denied");
         }
+        let deletion = round_trip_with_providers(
+            AuthCommand::DeleteUpdateBackup {
+                token: token.into(),
+                backup: rustsimhub_wire::UpdateBackup {
+                    epoch: 1,
+                    manifest_sha256: "a".repeat(64),
+                },
+            },
+            auth.clone(),
+            Providers {
+                update_upload: Some(Arc::new(crate::update_upload::Inbox::new(d.path()))),
+                ..Providers::default()
+            },
+        )
+        .await;
+        assert_eq!(
+            deletion["error"],
+            if allowed {
+                "inbox_unavailable"
+            } else {
+                "denied"
+            }
+        );
     }
+    assert!(!d.path().join(rustsimhub_wire::UPDATE_INBOX_NAME).exists());
 }
 
 #[tokio::test]

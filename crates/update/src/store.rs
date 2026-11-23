@@ -13,6 +13,7 @@ use std::{
     path::{Path, PathBuf},
 };
 pub mod inspection;
+mod retention;
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Version {
@@ -28,6 +29,8 @@ struct State {
     confirmed: Option<Version>,
     candidate: Option<Version>,
     attempted: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    history: Vec<Version>,
 }
 impl State {
     fn valid(&self) -> bool {
@@ -36,8 +39,10 @@ impl State {
             && [&self.confirmed, &self.candidate]
                 .into_iter()
                 .flatten()
+                .chain(&self.history)
                 .all(|v| hex_digest(&v.hash) && v.epoch > 0 && v.epoch <= self.floor)
             && (!self.attempted || self.candidate.is_some())
+            && self.valid_history()
     }
 }
 fn dir(path: &Path) -> Result<(), Error> {
@@ -550,7 +555,10 @@ impl Store {
             self.persist()?;
         }
         let v = self.state.confirmed.as_ref().ok_or(Error::Denied)?;
-        self.verify_version(v)
+        match self.verify_version(v) {
+            Ok(path) => Ok(path),
+            Err(original) => self.select_retained()?.ok_or(original),
+        }
     }
     pub(crate) fn confirmed_hash(&self) -> Result<&str, Error> {
         self.state
@@ -596,9 +604,7 @@ impl Store {
             return Err(Error::Denied);
         }
         self.verify_version(&v)?;
-        self.state.confirmed = Some(v);
-        self.state.candidate = None;
-        self.state.attempted = false;
+        self.state.confirm_candidate(v);
         self.persist()
     }
     pub fn status(&self) -> serde_json::Value {
@@ -652,6 +658,86 @@ mod tests {
         fs::set_permissions(d.path(), fs::Permissions::from_mode(0o700)).unwrap();
         d
     }
+    #[test]
+    fn confirmed_history_caps_at_two_and_never_prunes_live_or_pending_slots() {
+        let root = directory();
+        let runtime = root.path().join("runtime");
+        fs::create_dir(&runtime).unwrap();
+        let versions = root.path().join("versions");
+        let mut store = Store::open(root.path(), key(), 5).unwrap();
+        let (manifest, signature, payloads) = package(1);
+        let first = store
+            .install_factory(&manifest, &signature, &payloads)
+            .unwrap();
+        for epoch in 2..=4 {
+            let (manifest, signature, payloads) = package(epoch);
+            let candidate = store.stage(&manifest, &signature, &payloads).unwrap();
+            store.select_runtime(&runtime, &versions).unwrap();
+            assert_eq!(
+                store.prune_unreferenced_applications(&runtime, &versions),
+                Err(Error::Busy)
+            );
+            store.confirm(&candidate).unwrap();
+        }
+        let retained = store.retained_applications();
+        assert_eq!(
+            retained.iter().map(|item| item.0).collect::<Vec<_>>(),
+            [3, 2]
+        );
+        assert_eq!(
+            store
+                .prune_unreferenced_applications(&runtime, &versions)
+                .unwrap(),
+            1
+        );
+        assert!(!first.exists());
+        let live = store.confirmed_hash().unwrap().to_owned();
+        assert_eq!(
+            store.remove_retained_application(&runtime, &versions, 4, &live),
+            Err(Error::Denied)
+        );
+        store
+            .remove_retained_application(&runtime, &versions, 2, &retained[1].1)
+            .unwrap();
+        assert!(!versions.join(&retained[1].1).exists());
+        drop(store);
+        let store = Store::open(root.path(), key(), 5).unwrap();
+        assert_eq!(store.retained_applications(), [retained[0].clone()]);
+        assert_eq!(store.floor(), 4);
+    }
+
+    #[test]
+    fn retained_history_skips_a_bad_newer_backup_and_never_lowers_the_floor() {
+        let root = directory();
+        let runtime = root.path().join("runtime");
+        fs::create_dir(&runtime).unwrap();
+        let versions = root.path().join("versions");
+        let mut store = Store::open(root.path(), key(), 5).unwrap();
+        let (manifest, signature, payloads) = package(1);
+        let first = store
+            .install_factory(&manifest, &signature, &payloads)
+            .unwrap();
+        for epoch in 2..=3 {
+            let (manifest, signature, payloads) = package(epoch);
+            let candidate = store.stage(&manifest, &signature, &payloads).unwrap();
+            store.select_runtime(&runtime, &versions).unwrap();
+            store.confirm(&candidate).unwrap();
+        }
+        let next = versions.join(&store.retained_applications()[0].1);
+        fs::remove_file(next.join("manifest.sig")).unwrap();
+        assert!(store
+            .recover_selected_application(&runtime, &versions)
+            .unwrap());
+        assert_eq!(store.select_runtime(&runtime, &versions).unwrap(), first);
+        assert!(store.retained_applications().is_empty());
+        assert_eq!(store.floor(), 3);
+        let (manifest, signature, payloads) = package(3);
+        assert_eq!(
+            store.stage(&manifest, &signature, &payloads),
+            Err(Error::Rollback)
+        );
+    }
+
     fn key() -> [u8; 32] {
         SigningKey::from_bytes(&[77; 32]).verifying_key().to_bytes()
     }

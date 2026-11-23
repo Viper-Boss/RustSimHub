@@ -7,7 +7,7 @@ use rustsimhub_wire::{UpdateRunPhase, UpdateRunRecord, UPDATE_RUN_LIMIT};
 use std::os::unix::fs::PermissionsExt;
 use std::{
     process::{Command, Stdio},
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 const APP_GROUP: &str = "rustsimhub-app.target";
@@ -49,7 +49,11 @@ fn systemd(arguments: &[&str]) -> Result<Vec<u8>> {
 }
 
 fn unit_state(unit: &str) -> Result<String> {
-    let raw = systemd(&["--system", "show", "--value", "-p", "ActiveState", unit])?;
+    unit_property(unit, "ActiveState")
+}
+
+fn unit_property(unit: &str, property: &str) -> Result<String> {
+    let raw = systemd(&["--system", "show", "--value", "-p", property, unit])?;
     let state = std::str::from_utf8(&raw).map_err(|_| Error::Invalid)?;
     let state = state.strip_suffix('\n').ok_or(Error::Invalid)?;
     if state.is_empty() || state.contains('\n') {
@@ -138,20 +142,29 @@ trait Trial {
 
 fn execute(trial: &mut impl Trial) -> Result<TrialResult> {
     let mut touched_application = false;
+    let mut phase = "standby";
     let attempt = (|| {
         trial.standby()?;
         // A timed-out stop may already have changed the group.
         touched_application = true;
+        phase = "stop";
         trial.stop()?;
+        phase = "admit";
         trial.admit()?;
+        phase = "start";
         trial.start()?;
+        phase = "observe";
         trial.observe(true)?;
+        phase = "confirm";
         trial.confirm()
     })();
     let result = match attempt {
         Ok(true) => Ok(TrialResult::Confirmed),
         Ok(false) => Ok(TrialResult::AwaitingHealthConfirmation),
-        Err(_) if touched_application => trial.recover().map(|()| TrialResult::RejectedAndRestored),
+        Err(error) if touched_application => {
+            eprintln!("web application trial failed at {phase}: {error:?}");
+            trial.recover().map(|()| TrialResult::RejectedAndRestored)
+        }
         Err(error) => Err(error),
     };
     let timers = trial.restore_timers();
@@ -191,7 +204,34 @@ impl Trial for SystemTrial<'_> {
     }
 
     fn stop(&self) -> Result<()> {
-        systemd(&["--system", "stop", APP_GROUP])?;
+        // Wait for the actual writers and selector, not only the target's
+        // stop job. Propagated PartOf jobs may still be in flight.
+        let mut units = vec![
+            APP_GROUP,
+            "rustsimhub-app-select.service",
+            "rustsimhub-core.service",
+            "rustsimhub-edge.service",
+            "rustsimhub-media.service",
+        ];
+        for optional in [
+            "rustsimhub-forwarder.service",
+            "rustsimhub-setup-ap.service",
+            "rustsimhub-setup-edge.service",
+        ] {
+            match unit_property(optional, "LoadState")?.as_str() {
+                "loaded" => units.push(optional),
+                "not-found" => {}
+                _ => return Err(Error::Denied),
+            }
+        }
+        let mut stop = vec!["--system", "stop"];
+        stop.extend(units.iter().copied());
+        systemd(&stop)?;
+        for unit in units {
+            if !matches!(unit_state(unit)?.as_str(), "inactive" | "failed") {
+                return Err(Error::Busy);
+            }
+        }
         super::systemd::web_trial_stopped()
     }
 
@@ -385,12 +425,16 @@ fn read_run(path: &Path, uid: u32) -> Result<Option<UpdateRunRecord>> {
 }
 
 fn write_run(path: &Path, uid: u32, run: &UpdateRunRecord) -> Result<()> {
-    journal_directory(path, uid)?;
     if !run.valid() {
         return Err(Error::Invalid);
     }
     let bytes = serde_json::to_vec(run).map_err(|_| Error::Invalid)?;
-    let next = path.join(".current.next");
+    publish_journal(path, uid, "current", &bytes)
+}
+
+fn publish_journal(path: &Path, uid: u32, name: &str, bytes: &[u8]) -> Result<()> {
+    journal_directory(path, uid)?;
+    let next = path.join(format!(".{name}.next"));
     if let Some(stamp) = Observation::capture(&next)?.stamp {
         let mode = stamp.mode & 0o7777;
         if ![0o600, 0o644].contains(&mode) {
@@ -401,12 +445,67 @@ fn write_run(path: &Path, uid: u32, run: &UpdateRunRecord) -> Result<()> {
         private_file(&next, uid, mode, UPDATE_RUN_LIMIT as u64)?;
         denied_io(fs::remove_file(&next))?;
     }
-    crate::store::write_new(&next, &bytes, false)?;
+    crate::store::write_new(&next, bytes, false)?;
     let file = private_file(&next, uid, 0o600, UPDATE_RUN_LIMIT as u64)?;
     denied_io(file.set_permissions(fs::Permissions::from_mode(0o644)))?;
     denied_io(file.sync_all())?;
-    denied_io(fs::rename(next, path.join("current.json")))?;
+    denied_io(fs::rename(next, path.join(format!("{name}.json"))))?;
     denied_io(File::open(path).and_then(|dir| dir.sync_all()))
+}
+
+fn maintain_backups(journal: &Path, confirmed_update: bool) -> Result<()> {
+    use crate::store::{read_root_release_key, Store};
+    use rustsimhub_wire::{UpdateBackupDeletion, UPDATE_DELETE_BACKUP};
+    web_upload::checked_spool()?;
+    let mut store = Store::open_stable(Path::new(web_upload::APP), read_root_release_key()?, 6)?;
+    let runtime = Path::new("/run/rustsimhub-app");
+    let versions = Path::new("/opt/rustsimhub/versions");
+    let sampled = store.retention_status(runtime, versions)?;
+    let request = Path::new(web_upload::WEB_INBOX).join(UPDATE_DELETE_BACKUP);
+    if Observation::capture(&request)?.stamp.is_some() {
+        let file = private_file(
+            &request,
+            web_upload::CORE_UID,
+            0o600,
+            UPDATE_RUN_LIMIT as u64,
+        )?;
+        let mut bytes = Vec::new();
+        denied_io(
+            file.take(UPDATE_RUN_LIMIT as u64 + 1)
+                .read_to_end(&mut bytes),
+        )?;
+        let deletion: UpdateBackupDeletion =
+            serde_json::from_slice(&bytes).map_err(|_| Error::Invalid)?;
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|_| Error::Invalid)?
+            .as_secs();
+        if deletion.current == sampled.current
+            && sampled.backups.contains(&deletion.backup)
+            && (now..=now.saturating_add(90)).contains(&deletion.expires_unix_secs)
+        {
+            store.remove_retained_application(
+                runtime,
+                versions,
+                deletion.backup.epoch,
+                &deletion.backup.manifest_sha256,
+            )?;
+        }
+    }
+    if confirmed_update || !sampled.backups.is_empty() {
+        store.prune_unreferenced_applications(runtime, versions)?;
+    }
+    let current = store.retention_status(runtime, versions)?;
+    if !current.valid() {
+        return Err(Error::Integrity);
+    }
+    let bytes = serde_json::to_vec(&current).map_err(|_| Error::Invalid)?;
+    // Idle timers should not keep rewriting an unchanged public snapshot.
+    let path = journal.join("backups.json");
+    if crate::store::read_checked(&path, UPDATE_RUN_LIMIT).is_ok_and(|previous| previous == bytes) {
+        return Ok(());
+    }
+    publish_journal(journal, 0, "backups", &bytes)
 }
 
 fn reconciled_phase(
@@ -461,12 +560,12 @@ pub fn process_web_upload() -> Result<()> {
     };
 
     let Some(upload) = web_upload::pending_upload()? else {
-        return Ok(());
+        return maintain_backups(journal, false);
     };
     if let Some(run) = previous {
         if run.request_id == upload.request_id {
             return if run.matches(&upload) {
-                Ok(())
+                maintain_backups(journal, run.phase == UpdateRunPhase::Confirmed)
             } else {
                 Err(Error::Denied)
             };

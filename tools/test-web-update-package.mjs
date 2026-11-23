@@ -169,3 +169,46 @@ try {
   else globalThis.confirm = originalConfirm;
 }
 console.log('PASS: default preview, confirmation, and submit use the Window API receiver.');
+
+const backup = (epoch, char) => ({epoch, manifest_sha256:char.repeat(64)});
+const firstBackup = backup(117, 'b');
+const secondBackup = backup(115, 'c');
+const currentBackupStatus = {format:1, current:backup(118, 'a'), backups:[firstBackup,secondBackup]};
+let retentionReply = {available:true, receipt:null, can_submit:false, retention:currentBackupStatus};
+const backupCommands = [];
+element('-backups').replaceChildren = (...items) => { element('-backups').children = items; };
+const retentionPanel = new UpdatePackage({
+  document:{getElementById:id=>elements.get(id), createElement:()=>({append(child) {this.button = child;}})},
+  getToken:()=>token,
+  confirm:()=>consent,
+  request:async command => {
+    if (command.op === 'update_upload_status') return retentionReply;
+    backupCommands.push(command);
+    return {deletion_queued:true, epoch:command.backup.epoch};
+  }
+});
+await retentionPanel.query();
+assert.match(element('-retention-state').textContent, /当前应用 118/);
+assert.deepEqual(element('-backups').children.map(row=>row.button.textContent),
+  ['删除应用 117','删除应用 115']);
+assert.ok(element('-backups').children.every(row=>row.button.disabled));
+await retentionPanel.removeBackup(firstBackup);
+assert.equal(backupCommands.length, 0);
+retentionReply = {...retentionReply, can_submit:true};
+await retentionPanel.query();
+await retentionPanel.removeBackup(currentBackupStatus.current);
+assert.equal(backupCommands.length, 0);
+consent = false;
+await element('-backups').children[1].button.onclick();
+assert.equal(backupCommands.length, 0);
+consent = true;
+await element('-backups').children[1].button.onclick();
+await retentionPanel.removeBackup(firstBackup);
+assert.deepEqual(backupCommands, [{op:'delete_update_backup', backup:secondBackup}]);
+assert.ok(element('-backups').children.every(row=>row.button.disabled));
+retentionReply = {...retentionReply, retention:{...currentBackupStatus, backups:[firstBackup]}};
+await retentionPanel.query();
+assert.equal(element('-backups').children.length, 1);
+assert.equal(element('-backups').children[0].button.disabled, false);
+retentionPanel.reset();
+console.log('PASS: two verified backup rows, fresh-owner confirmation, one exact request, receipt reconciliation.');

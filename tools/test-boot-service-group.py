@@ -218,13 +218,17 @@ finally:c.close()
  updater('confirm',hashes[3]);run('systemctl stop '+q(units['rustsimhub-app.target'])+'\nsystemctl start '+q(units['rustsimhub-app.target']));wait_group(hashes[3]);assert health()==baseline
  report['explicit_authenticated_health_confirm_and_restart_kept_third_version']=True;save()
  run('systemctl kill --kill-whom=main --signal=KILL '+q(units['rustsimhub-edge.service']))
+ wait_group(hashes[1]);verify_processes(hashes[1]);assert health()==baseline
+ assert json.loads(updater('status').splitlines()[-1])['floor_epoch']==3
+ report['confirmed_group_failure_promotes_the_retained_baseline']=True;save()
+ run('systemctl kill --kill-whom=main --signal=KILL '+q(units['rustsimhub-edge.service']))
  deadline=time.monotonic()+20
  while time.monotonic()<deadline and any(stateunit(n)=='active' for n in original[:4]):time.sleep(.3)
  assert not any(stateunit(n)=='active' for n in original[:4]);time.sleep(.6)
  assert not any(stateunit(n)=='active' for n in original[:4])
  assert stateunit('rustsimhub-media.service')!='active'
  assert run('systemctl show --value -p ExecMainStatus '+q(units['rustsimhub-app-recover.service']))[1].strip()!='0'
- report['second_failure_does_not_loop_or_reuse_boot_recovery_budget']=True;report['passed']=True
+ report['exhausted_fallback_does_not_loop_or_reuse_boot_recovery_budget']=True;report['passed']=True
  print('Real candidate boot units: signed non-root full Core/Edge, actual crash automatic group fallback, health confirmation and bounded recovery passed')
 finally:
  if dev and base:

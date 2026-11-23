@@ -154,9 +154,7 @@ impl Store {
         // is NEVER recovered/renamed by Store::open or a future health attempt.
         let pending = scratch.join("confirmation.next");
         let mut confirmed = self.state.clone();
-        confirmed.confirmed = Some(v);
-        confirmed.candidate = None;
-        confirmed.attempted = false;
+        confirmed.confirm_candidate(v);
         if !confirmed.valid() {
             return Err(Error::Invalid);
         }

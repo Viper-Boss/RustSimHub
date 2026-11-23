@@ -10,8 +10,9 @@ mod recovery_grant_tests;
 pub mod update_health;
 pub use auth::{
     parse_auth_request, wifi_credentials_valid, AuthCommand, AuthRequest, LegacyBindingExpectation,
-    NknOwner, UpdateRunPhase, UpdateRunRecord, UpdateUpload, UpdateUploadBinding,
-    UpdateUploadRecord, AIRSIM_MAX_BODY, AUTH_PROTOCOL, UPDATE_BUNDLE_LIMIT, UPDATE_INBOX_ACCEPTED,
+    NknOwner, UpdateBackup, UpdateBackupDeletion, UpdateBackups, UpdateRunPhase, UpdateRunRecord,
+    UpdateUpload, UpdateUploadBinding, UpdateUploadRecord, AIRSIM_MAX_BODY, AUTH_PROTOCOL,
+    UPDATE_BACKUPS_PATH, UPDATE_BUNDLE_LIMIT, UPDATE_DELETE_BACKUP, UPDATE_INBOX_ACCEPTED,
     UPDATE_INBOX_HEADER_LIMIT, UPDATE_INBOX_NAME, UPDATE_MANAGE_SCOPE, UPDATE_RUN_LIMIT,
     UPDATE_RUN_PATH,
 };

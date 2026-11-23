@@ -33,6 +33,10 @@ export class UpdatePackage {
     this.submitButton = find('-submit');
     this.queryButton = find('-query');
     this.discardButton = find('-discard');
+    this.document = document;
+    this.retentionPanel = find('-retention');
+    this.retentionState = find('-retention-state');
+    this.backupList = find('-backups');
     this.accepted = null;
     this.token = getToken;
     this.request = request;
@@ -54,6 +58,9 @@ export class UpdatePackage {
     this.controller = null;
     this.uncertain = false;
     this.accepted = null;
+    this.retention = null;
+    this.backupDeletion = null;
+    clearTimeout(this.backupRefresh);
     this.file.value = '';
     this.showSelection();
   }
@@ -74,6 +81,82 @@ export class UpdatePackage {
     this.discardButton.disabled = this.queryButton.disabled || !this.accepted || this.accepted.phase === 'running';
     this.status.textContent = !this.token() ? '以所有者身份登录后可预览' :
       file && !validFile ? '请选择有效大小的 .rshapp 文件。' : '';
+    this.renderRetention();
+  }
+
+  renderRetention() {
+    if (!this.retentionPanel) return;
+    this.retentionPanel.hidden = !this.retention || !this.token();
+    if (this.retentionPanel.hidden) return;
+    const {current, backups, canDelete, deleteHint} = this.retention;
+    const pending = this.backupDeletion;
+    const message = pending ? `正在核对应用 ${pending.epoch} 的删除结果。` :
+      backups.length ? '最多保留两份备用应用。' : '暂无备用应用。';
+    this.retentionState.textContent = `当前应用 ${current.epoch}。 ${message}${backups.length && !pending ? deleteHint : ''}`;
+    this.backupList.replaceChildren(...backups.map(backup => {
+      const row = this.document.createElement('li');
+      row.textContent = `应用 ${backup.epoch} `;
+      const remove = this.document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'pg-btn';
+      remove.textContent = `删除应用 ${backup.epoch}`;
+      remove.disabled = !canDelete || !!this.controller || !!pending;
+      remove.onclick = () => this.removeBackup(backup);
+      row.append(remove);
+      return row;
+    }));
+  }
+
+  setRetention(value) {
+    const retention = value?.retention;
+    const valid = version => Number.isSafeInteger(version?.epoch) && version.epoch > 0
+      && typeof version.manifest_sha256 === 'string' && /^[0-9a-f]{64}$/.test(version.manifest_sha256);
+    if (retention?.format !== 1 || !valid(retention.current) || !Array.isArray(retention.backups)
+      || retention.backups.length > 2 || !retention.backups.every((backup, index) => valid(backup)
+        && backup.epoch < (index ? retention.backups[index - 1].epoch : retention.current.epoch)
+        && backup.manifest_sha256 !== retention.current.manifest_sha256
+        && (!index || backup.manifest_sha256 !== retention.backups[index - 1].manifest_sha256))) {
+      this.retention = null;
+      this.renderRetention();
+      return;
+    }
+    const pending = this.backupDeletion;
+    if (pending && (Date.now() >= pending.expires || !retention.backups.some(
+      backup => backup.manifest_sha256 === pending.manifest_sha256))) {
+      this.backupDeletion = null;
+    }
+    const receipt = value.receipt;
+    const installing = receipt && !['confirmed','restored'].includes(receipt.phase);
+    this.retention = {...retention, canDelete: value.can_submit === true && !installing,
+      deleteHint: installing ? '安装完成后可删除。' : value.can_submit === true ? '' : '删除需要最近五分钟内的所有者登录。'};
+    this.renderRetention();
+  }
+
+  async removeBackup(backup) {
+    if (this.controller || this.backupDeletion || !this.retention?.canDelete
+      || !this.retention.backups.includes(backup)) return;
+    if (!this.confirm(`永久删除备用应用 ${backup.epoch}？该版本不能再用于自动回退。`)) return;
+    const token = this.token();
+    const controller = new AbortController();
+    this.controller = controller;
+    this.backupDeletion = {...backup, expires: Date.now() + 91000};
+    this.renderRetention();
+    let message = '删除结果待核对，请查询安装请求。';
+    try {
+      const value = await this.request({op:'delete_update_backup', backup});
+      if (value?.deletion_queued === true && value.epoch === backup.epoch) {
+        message = `备用应用 ${backup.epoch} 的删除请求已受理。`;
+      }
+    } catch {
+      // The request may have been published before the response was lost.
+    } finally {
+      if (this.controller === controller && token === this.token()) {
+        this.controller = null;
+        this.status.textContent = message;
+        this.renderRetention();
+        this.backupRefresh = setTimeout(() => void this.query(), 35000);
+      }
+    }
   }
 
   async preview() {
@@ -210,6 +293,7 @@ export class UpdatePackage {
           } else {
             this.status.textContent = '暂时无法查询安装请求。';
           }
+          this.setRetention(value);
         }
       }
     }

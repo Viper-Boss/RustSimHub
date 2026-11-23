@@ -16,7 +16,10 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth::Result<Value> {
     use AuthCommand::*;
     Ok(match command {
-        SubmitUpdateUpload { .. } | UpdateUploadStatus { .. } | DiscardUpdateUpload { .. } => {
+        SubmitUpdateUpload { .. }
+        | UpdateUploadStatus { .. }
+        | DiscardUpdateUpload { .. }
+        | DeleteUpdateBackup { .. } => {
             return Err(rustsimhub_auth::Error::Forbidden);
         }
         AuthorizeUpdatePreview { token } => {
@@ -336,6 +339,7 @@ pub(crate) async fn handle(
         AuthCommand::SubmitUpdateUpload { .. }
             | AuthCommand::UpdateUploadStatus { .. }
             | AuthCommand::DiscardUpdateUpload { .. }
+            | AuthCommand::DeleteUpdateBackup { .. }
     ) {
         return crate::update_upload::handle(stream, auth, update_upload, request).await;
     }

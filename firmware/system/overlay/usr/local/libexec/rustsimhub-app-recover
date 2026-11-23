@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-only
-# At most one automatic group retry per boot. The selector handles rollback.
+# A failed trial can fall back to the confirmed slot, then to its two backups.
 set -eu
 umask 077
 test "$#" = 0
@@ -9,17 +9,50 @@ runtime=/run/rustsimhub-app
 test ! -L "$runtime"
 test "$(stat -c '%u:%g:%a' "$runtime")" = 0:0:755
 marker=$runtime/recovery.used
-if test -e "$marker" && test ! -L "$marker";then
+lock=$runtime/.web-trial.lock
+test ! -L "$lock"
+exec 9>>"$lock"
+test "$(stat -c '%u:%g:%a:%h:%s' "$lock")" = 0:0:600:1:0
+# An active web transaction owns its recovery and has the same lock.
+flock -n 9 || exit 0
+# A failure queued during another successful restart is no longer actionable.
+failed=0
+for unit in rustsimhub-app-select.service rustsimhub-core.service rustsimhub-media.service rustsimhub-edge.service; do
+ state=$(systemctl show --value -p ActiveState "$unit")
+ if test "$state" = failed; then failed=1; break; fi
+done
+test "$failed" = 1 || exit 0
+attempts=0
+if test -e "$marker";then
+ test ! -L "$marker"
  test "$(stat -c '%u:%g:%a:%h' "$marker")" = 0:0:600:1
- test "$(cat "$marker")" = RustSimHub.AppRecovery.v1
- # A failed optional Media must also leave the whole group stopped when the
- # single retry was already consumed. Never keep a partially live group.
+ case "$(cat "$marker")" in
+  RustSimHub.AppRecovery.v1|RustSimHub.AppRecovery.v2:1) attempts=1;;
+  RustSimHub.AppRecovery.v2:2) attempts=2;;
+  RustSimHub.AppRecovery.v2:3) attempts=3;;
+  *) exit 1;;
+ esac
+fi
+test ! -L "$marker"
+if test "$attempts" -ge 3; then
  systemctl --no-block stop rustsimhub-app.target
  exit 1
 fi
-test ! -e "$marker"
-test ! -L "$marker"
-(set -C; printf 'RustSimHub.AppRecovery.v1\n' > "$marker")
-sync -f "$marker"
+next=$(mktemp "$runtime/recovery.XXXXXX")
+trap 'rm -f -- "$next"' EXIT
+printf 'RustSimHub.AppRecovery.v2:%s\n' "$((attempts+1))" > "$next"
+sync -f "$next"
+mv -T -- "$next" "$marker"
 sync -f "$runtime"
+if ! result=$(/usr/libexec/rustsimhub/rustsimhub-update recover-selected \
+ /var/lib/rustsimhub/rustsimhub-v1/system/app /usr/share/rustsimhub/release.public \
+ "$runtime" /opt/rustsimhub/versions); then
+ systemctl --no-block stop rustsimhub-app.target
+ exit 1
+fi
+if test "$result" != 'selected fallback' && ! { test "$result" = 'no fallback' && test "$attempts" = 0; }; then
+ systemctl --no-block stop rustsimhub-app.target
+ exit 1
+fi
+trap - EXIT
 exec systemctl --no-block restart rustsimhub-app.target

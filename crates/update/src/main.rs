@@ -372,6 +372,7 @@ fn run() -> Result<(), rustsimhub_update::Error> {
         if !matches!(
             (command.as_str(), args.len()),
             ("boot-select", 6)
+                | ("recover-selected", 5)
                 | (
                     "install-factory"
                         | "stage"
@@ -408,14 +409,29 @@ fn run() -> Result<(), rustsimhub_update::Error> {
             .transpose()?;
         let mut store = Store::open(root, key, SCHEMA)?;
         match (command.as_str(), args.len()) {
+            ("recover-selected", 5) => {
+                let recovery =
+                    store.recover_selected_application(Path::new(&args[3]), Path::new(&args[4]))?;
+                println!(
+                    "{}",
+                    if recovery {
+                        "selected fallback"
+                    } else {
+                        "no fallback"
+                    }
+                );
+                return Ok(());
+            }
             ("boot-select", 6) => {
                 store.check_runtime_paths(Path::new(&args[4]), Path::new(&args[5]))?;
-                let directory = Path::new(&args[3]);
-                let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;
-                let signature = read_checked(&directory.join("manifest.sig"), 64)?;
-                let m = verify(&manifest, &signature, &key, SCHEMA, 0)?;
-                let payloads = load_payloads(directory, &m)?;
-                store.install_factory(&manifest, &signature, &payloads)?;
+                if !store.has_confirmed_version() {
+                    let directory = Path::new(&args[3]);
+                    let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;
+                    let signature = read_checked(&directory.join("manifest.sig"), 64)?;
+                    let m = verify(&manifest, &signature, &key, SCHEMA, 0)?;
+                    let payloads = load_payloads(directory, &m)?;
+                    store.install_factory(&manifest, &signature, &payloads)?;
+                }
                 let selected = store.select_runtime(Path::new(&args[4]), Path::new(&args[5]))?;
                 println!("{}", selected.display());
                 return Ok(());

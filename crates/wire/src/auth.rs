@@ -30,6 +30,54 @@ pub const UPDATE_INBOX_ACCEPTED: &str = "accepted";
 pub const UPDATE_INBOX_HEADER_LIMIT: usize = 2048;
 pub const UPDATE_RUN_PATH: &str = "/run/rustsimhub/web-update/current.json";
 pub const UPDATE_RUN_LIMIT: usize = 2048;
+pub const UPDATE_BACKUPS_PATH: &str = "/run/rustsimhub/web-update/backups.json";
+pub const UPDATE_DELETE_BACKUP: &str = "delete-backup";
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateBackup {
+    pub epoch: u64,
+    pub manifest_sha256: String,
+}
+
+impl UpdateBackup {
+    pub fn valid(&self) -> bool {
+        self.epoch > 0 && source_valid(&self.manifest_sha256)
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateBackups {
+    pub format: u8,
+    pub current: UpdateBackup,
+    pub backups: Vec<UpdateBackup>,
+}
+
+impl UpdateBackups {
+    pub fn valid(&self) -> bool {
+        let mut newer = &self.current;
+        self.format == 1
+            && self.current.valid()
+            && self.backups.len() <= 2
+            && self.backups.iter().all(|backup| {
+                let valid = backup.valid()
+                    && backup.epoch < newer.epoch
+                    && backup.manifest_sha256 != self.current.manifest_sha256
+                    && backup.manifest_sha256 != newer.manifest_sha256;
+                newer = backup;
+                valid
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateBackupDeletion {
+    pub current: UpdateBackup,
+    pub backup: UpdateBackup,
+    pub expires_unix_secs: u64,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -121,6 +169,10 @@ pub enum AuthCommand {
     DiscardUpdateUpload {
         token: String,
         request_id: String,
+    },
+    DeleteUpdateBackup {
+        token: String,
+        backup: UpdateBackup,
     },
     AuthorizeUpdatePreview {
         token: String,
@@ -772,10 +824,15 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         AuthCommand::UpdateUploadStatus { token } if !source_valid(token) => {
             return Err(invalid());
         }
+        AuthCommand::DeleteUpdateBackup { token, backup }
+            if !source_valid(token) || !backup.valid() =>
+        {
+            return Err(invalid());
+        }
         AuthCommand::NknStatus { token } | AuthCommand::AuthorizeUpdatePreview { token }
             if !source_valid(token) =>
         {
-            return Err(invalid())
+            return Err(invalid());
         }
         AuthCommand::NknRequest {
             token,
@@ -1720,7 +1777,7 @@ pub fn parse_auth_request(body: &[u8]) -> std::io::Result<AuthRequest> {
         | AuthCommand::DeletedSmsDetail { token, sms_id }
             if token.len() != 64 || sms_id.len() != 36 =>
         {
-            return Err(invalid())
+            return Err(invalid());
         }
         _ => {}
     }
@@ -1771,6 +1828,27 @@ pub fn wifi_credentials_valid(ssid: &str, passphrase: &str) -> bool {
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn update_backup_deletion_accepts_only_an_epoch_and_signed_manifest_digest() {
+        let valid = serde_json::json!({"protocol":2,"id":"backup","command":{
+            "op":"delete_update_backup","token":"a".repeat(64),
+            "backup":{"epoch":117,"manifest_sha256":"b".repeat(64)}
+        }});
+        let parse = |value: &serde_json::Value| {
+            super::parse_auth_request(&serde_json::to_vec(value).unwrap()).is_ok()
+        };
+        assert!(parse(&valid));
+        for (field, value) in [
+            ("epoch", serde_json::json!(0)),
+            ("manifest_sha256", serde_json::json!("../versions")),
+            ("path", serde_json::json!("/opt")),
+        ] {
+            let mut invalid = valid.clone();
+            invalid["command"]["backup"][field] = value;
+            assert!(!parse(&invalid));
+        }
+    }
+
     #[test]
     fn setup_ap_commands_are_finite_and_cannot_supply_root_authority_or_settings() {
         for op in ["setup_ap_status", "setup_ap_start", "setup_ap_cancel"] {
