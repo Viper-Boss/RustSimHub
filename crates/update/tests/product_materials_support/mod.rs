@@ -2,6 +2,7 @@
 //! Synthetic signed inputs reused by the real package/executor test targets.
 //! Nothing here asserts installation permission or uses a production key.
 #![allow(dead_code)]
+pub mod timestamps;
 use crate::product_materials::{
     material_sha256, product_signing_bytes, ExpectedBindings, MaterialEntry, ProductManifestV1,
     Profile, TargetId, VerifiedProductMaterials,

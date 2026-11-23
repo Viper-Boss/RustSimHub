@@ -346,7 +346,10 @@ fn held_sources_reject_mutation_replacement_and_extra_materials() {
             }
             "extra" => put(&b.path().join("extra"), b"not in signed file set"),
             "signature" => put(&b.path().join("manifest.sig"), &[0; 64]),
-            _ => b.sign(&serde_json::to_vec(&b.manifest).unwrap()),
+            _ => support::timestamps::mutate_until_ctime_changes(
+                &b.path().join("manifest.json"),
+                || b.sign(&serde_json::to_vec(&b.manifest).unwrap()),
+            ),
         }
         assert!(verified.revalidate().is_err(), "{case}");
         assert!(verified.plan_metadata().is_err(), "{case}");
