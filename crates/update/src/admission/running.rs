@@ -5,7 +5,8 @@ mod product;
 use rustsimhub_wire::update_health::Snapshot;
 use std::os::unix::fs::FileTypeExt;
 pub(crate) const SCRATCH: &str = "/var/lib/rustsimhub/rustsimhub-v1/system/update-health";
-pub(super) const WEB_SCRATCH: &str = "/var/lib/rustsimhub/rustsimhub-v1/system/web-update-health";
+pub(super) const WEB_SCRATCH: &str =
+    "/var/lib/rustsimhub/rustsimhub-v1/system/app/web-update-health";
 const DROP: &str = "etc/systemd/system/rustsimhub-core.service.d/55-update-health.conf";
 const HEALTH_DROP: &str =
     include_str!("../../../../firmware/system/update-health/55-update-health.conf");

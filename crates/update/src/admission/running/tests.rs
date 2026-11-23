@@ -61,6 +61,28 @@ fn replaced_or_world_writable_scratch_is_refused() {
 }
 
 #[test]
+fn web_confirmation_uses_the_same_writable_mount_as_the_ledger() {
+    let unit =
+        include_str!("../../../../../firmware/system/update-health/rustsimhub-web-update.service");
+    let scratch = Path::new(WEB_SCRATCH);
+    let ledger = Path::new("/var/lib/rustsimhub/rustsimhub-v1/system/app");
+    assert_eq!(scratch.parent(), Some(ledger));
+    let applicable_mounts: Vec<_> = unit
+        .lines()
+        .filter_map(|line| line.strip_prefix("ReadWritePaths="))
+        .flat_map(str::split_whitespace)
+        .map(Path::new)
+        .filter(|path| scratch.starts_with(path))
+        .collect();
+    assert_eq!(applicable_mounts, [ledger]);
+    let tmpfiles =
+        include_str!("../../../../../firmware/system/update-health/web-update-tmpfiles.conf");
+    assert!(tmpfiles
+        .lines()
+        .any(|line| line == format!("d {WEB_SCRATCH} 0700 root root -")));
+}
+
+#[test]
 fn web_ap_health_requires_exact_root_bytes_and_loaded_config() {
     let temp = super::super::tests::fixture(Mode::SetupAp, true);
     let uid = rustix::process::geteuid().as_raw();

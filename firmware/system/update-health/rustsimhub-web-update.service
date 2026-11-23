@@ -8,7 +8,8 @@ ConditionPathExists=/etc/systemd/system/rustsimhub-core.service.d/56-web-update-
 Type=oneshot
 ExecStart=/usr/libexec/rustsimhub/rustsimhub-update process-web-upload
 BindPaths=/opt/rustsimhub/versions:/var/lib/rustsimhub/rustsimhub-v1/system/app/versions
-ReadWritePaths=/var/lib/rustsimhub/rustsimhub-v1/system/app /var/lib/rustsimhub/rustsimhub-v1/system/web-update-health /var/lib/rustsimhub/rustsimhub-v1/system/web-update /run/rustsimhub-app /opt/rustsimhub/versions /opt/rustsimhub/web-update/backup
+# Confirmation preparation and the application ledger must share one mount.
+ReadWritePaths=/var/lib/rustsimhub/rustsimhub-v1/system/app /var/lib/rustsimhub/rustsimhub-v1/system/web-update /run/rustsimhub-app /opt/rustsimhub/versions /opt/rustsimhub/web-update/backup
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
