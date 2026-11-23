@@ -5,6 +5,8 @@
 #[allow(unused_imports)]
 #[path = "../src/product_materials/mod.rs"]
 mod contract;
+#[path = "product_materials_support/timestamps.rs"]
+mod timestamps;
 use contract::Error;
 use contract::{nss, rootio};
 use rootio::Root;
@@ -381,8 +383,10 @@ fn readonly_running_fd_guard_rejects_replacement_restored_metadata_and_parent_al
                 fs::set_permissions(&actual, before.permissions()).unwrap();
             }
             "mode" => {
-                fs::set_permissions(&actual, fs::Permissions::from_mode(0o755)).unwrap();
-                fs::set_permissions(&actual, before.permissions()).unwrap();
+                timestamps::mutate_until_ctime_changes(&actual, || {
+                    fs::set_permissions(&actual, fs::Permissions::from_mode(0o755)).unwrap();
+                    fs::set_permissions(&actual, before.permissions()).unwrap();
+                });
             }
             "link" => fs::hard_link(&actual, actual.with_extension("alias")).unwrap(),
             "parent" => {
