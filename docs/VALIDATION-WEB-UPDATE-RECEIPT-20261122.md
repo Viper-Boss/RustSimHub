@@ -47,6 +47,14 @@ WSL `cargo test -p rustsimhub-update --lib web_` 通过 8 项，`admission::runn
 
 使用 WSL `cargo test --offline --locked -p rustsimhub-update --lib web_` 通过 9 项，Core `update_upload` 与 `owner_update_receipt` 各通过 1 项。两包严格 Clippy、Node `tools/test-web-update-package.mjs` 和 systemd 单元语法检查通过。单元语法在临时文件中用本机占位程序解析，未运行设备维护服务或真实 PID1 全链路。
 
+## ARM 候选与只读设备预检
+
+源码固定为 `220cec9f0236449d7a6255572f7cf1719a391a37`，归档 SHA-256 `ace719f43077ad3e4b0b31037ae3cb1562453ca965c77f74f8859c81bc9c8377`。执行 `cargo +1.98.0 build --release --locked --offline --no-default-features --features rustsimhub-edge/airsim-voble --target aarch64-unknown-linux-gnu -p rustsimhub-core -p rustsimhub-edge -p rustsimhub-forwarder -p rustsimhub-ctl -p rustsimhub-update`。五个程序经 ELF 和 QEMU `--build-info` 回读匹配该来源。
+
+四个新应用程序与已验签的旧音频程序和许可证组成六项应用载荷，合计 24,820,505 / 25,165,824 字节。新 ARM 更新器在 QEMU 中接受原 114 签名包与一次性本机测试候选；拒绝错钥、损坏载荷、覆盖原包或多余的维护参数。五份固定配置材料取自同一源码归档，连同 Root 更新器共六个固定维护目标。预备两份未签名草案，测试钥匙不用于设备。
+
+设备只读确认为 114，版本下限 114，应用服务运行，无待启动候选，新 Root 服务尚无安装。尚未使用设备信任钥匙签名或执行安装。
+
 ## 待真机复核
 
-仍需用同源 ARM 构建、签名候选和安装后的固定服务验收网页提交、后台安装、健康确认与故障回退。设备最后确认应用 114，整体验收 81.5%，台账 20/169。
+仍需安装入口版和固定维护材料后，在真实网页验证提交、后台安装与健康确认。故障回退保持本机证据，单列真机验收。整体验收 81.5%，台账 20/169。

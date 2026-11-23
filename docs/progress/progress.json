@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-23T06:02:13.287539+00:00",
+  "updated_at": "2026-11-23T06:10:39.601811+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -70,7 +70,7 @@
     "task_id": "UPD-02",
     "title": "签名维护材料与固定写入表",
     "state": "下一动作已选定；按前置和验收推进",
-    "description": "网页签名应用更新已接通后台安装、请求恢复和结果查询，待同源 ARM 构建及真机验收。"
+    "description": "网页更新 ARM 候选完成构建及离线验签，应用载荷低于 24 MiB；实机仍运行 114，待入口版安装与网页试更新。"
   },
   "facts": [
     {
@@ -6263,6 +6263,18 @@
       ],
       "evidence": [
         "https://github.com/Viper-Boss/RustSimHub/tree/codex/web-update-on-app114-20261122"
+      ]
+    },
+    {
+      "at": "2026-11-23T06:10:39.601811+00:00",
+      "type": "state",
+      "title": "UPD-02 · 下一关卡：签名维护材料与固定写入表",
+      "detail": "网页更新 ARM 候选完成构建及离线验签，应用载荷低于 24 MiB；实机仍运行 114，待入口版安装与网页试更新。",
+      "task_ids": [
+        "UPD-02"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/commit/220cec9f0236449d7a6255572f7cf1719a391a37"
       ]
     }
   ],
