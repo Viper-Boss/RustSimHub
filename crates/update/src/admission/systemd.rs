@@ -164,6 +164,28 @@ impl MaintenanceSnapshot {
     }
 }
 
+pub(super) fn web_trial_stopped() -> Result<()> {
+    for index in 0..4 {
+        let output = MaintenanceSnapshot::runtime_unit(index)?;
+        let properties = std::str::from_utf8(&output).map_err(|_| Error::Invalid)?;
+        let mut active_state = None;
+        for line in properties.lines() {
+            if let Some(state) = line.strip_prefix("ActiveState=") {
+                if active_state.replace(state).is_some() {
+                    return Err(Error::Integrity);
+                }
+            }
+        }
+        if !matches!(active_state, Some("inactive" | "failed"))
+            || !properties.lines().any(|line| line == "MainPID=0")
+            || !properties.lines().any(|line| line == "NeedDaemonReload=no")
+        {
+            return Err(Error::Busy);
+        }
+    }
+    Ok(())
+}
+
 fn runtime_capture(mut command: Command, budget: Duration) -> Result<Vec<u8>> {
     let mut child = Reap(command.spawn().map_err(|_| Error::Denied)?);
     let mut pipe = child.0.stdout.take().ok_or(Error::Io)?;

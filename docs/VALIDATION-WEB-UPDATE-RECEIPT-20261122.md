@@ -21,6 +21,12 @@
 
 定向验证使用 `cargo test --offline --locked -p rustsimhub-update --lib admission -- --test-threads=1 --skip same_original_business_and_outbox_flocks_survive_real_signed_installation`，39 项通过、13 项既有忽略。新增用例验证备份回读、滚动替换和拒绝异常路径；既有暂存用例补查备份失败后账本和槽位保持。被排除的旧 Root 安装用例亦在原 3b8dfdc2 下以 Denied 失败，未计入通过。
 
+## 候选撤销
+
+维护端执行 `rustsimhub-update reject-web-trial <request-id> <manifest-sha256>`。两项必须与私有备份回执一致。回执记录原确认槽、业务库格式及候选版本号。命令校验原确认槽签名及载荷、拒绝未完成的账本写入，并在工作服务已停的情况下撤销该候选。下次由原选择器启动确认版，版本下限保持，业务库和备份不被覆盖。旧请求不能撤销其他候选或已经确认的新版。同编号重复查询没有落盘副作用。
+
+WSL `cargo test --offline --locked -p rustsimhub-update --lib web_ -- --test-threads=1` 四项通过，覆盖试启动前后撤销、错绑、回执和数据备份保护。应用槽位测试 16 项及严格 Clippy 通过。本次未在设备上调用命令。
+
 ## 待接线
 
-设备维护程序仍需接通自动停写、调用上述命令、试运行、健康确认和失败回退，将实际阶段反馈到网页。此次仅验证本机代码，设备继续使用应用 114。整体验收 81.5%，台账 20/169。
+设备维护程序仍需接通自动停写、调用准入与候选撤销命令、试运行和健康确认，将实际阶段反馈到网页。此次仅验证本机代码，设备继续使用应用 114。整体验收 81.5%，台账 20/169。

@@ -25,7 +25,7 @@ use database::Database;
 pub use programs::{
     admit_stage, Admission, SignedPrograms, SignedVersionCheck, SignedVersionReport,
 };
-pub use web_upload::admit_web_upload;
+pub use web_upload::{admit_web_upload, reject_web_trial};
 
 #[cfg(feature = "email-production-candidate")]
 pub use programs::{migrate_email4, migrate_email4_retained};

@@ -87,6 +87,7 @@ pub fn admit_web_upload(request_id: &str, manifest_sha256: &str) -> Result<Admis
     if signed.epoch() <= store.floor() {
         return Err(Error::Rollback);
     }
+    let baseline = store.confirmed_hash()?.to_owned();
     let manifest = signed.manifest.to_vec();
     let signature = signed.signature.to_vec();
     let payloads: Vec<_> = signed.payloads.into_iter().map(<[u8]>::to_vec).collect();
@@ -97,7 +98,30 @@ pub fn admit_web_upload(request_id: &str, manifest_sha256: &str) -> Result<Admis
         &manifest,
         &signature,
         &payloads,
-        || super::web_backup::save(Path::new(APP), &snapshot, &record.upload),
+        || super::web_backup::save(Path::new(APP), &snapshot, &record.upload, &baseline),
+    )
+}
+
+/// Called by Root maintenance after stopping the application group. A stale
+/// caller cannot roll back a different trial or an already-confirmed version.
+pub fn reject_web_trial(request_id: &str, manifest: &str) -> Result<bool> {
+    if rustix::process::geteuid().as_raw() != 0 {
+        return Err(Error::Denied);
+    }
+    if !UpdateUpload::valid_reference(request_id, manifest) {
+        return Err(Error::Invalid);
+    }
+    let root = Path::new(APP);
+    let record = super::web_backup::read_receipt(root, request_id, manifest)?;
+    let mut store = Store::open_stable(root, read_root_release_key()?, record.business_schema)?;
+    if record != super::web_backup::read_receipt(root, request_id, manifest)? {
+        return Err(Error::Busy);
+    }
+    store.reject_web_trial(
+        manifest,
+        &record.baseline_sha256,
+        record.epoch,
+        super::systemd::web_trial_stopped,
     )
 }
 

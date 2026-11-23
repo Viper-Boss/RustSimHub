@@ -131,6 +131,19 @@ impl Drop for StoreLock {
 }
 impl Store {
     pub fn open(root: &Path, key: [u8; 32], schema: u32) -> Result<Self, Error> {
+        Self::open_internal(root, key, schema, true)
+    }
+
+    pub(crate) fn open_stable(root: &Path, key: [u8; 32], schema: u32) -> Result<Self, Error> {
+        Self::open_internal(root, key, schema, false)
+    }
+
+    fn open_internal(
+        root: &Path,
+        key: [u8; 32],
+        schema: u32,
+        recover: bool,
+    ) -> Result<Self, Error> {
         if !root.is_absolute() {
             return Err(Error::Denied);
         }
@@ -138,7 +151,7 @@ impl Store {
         let lock = OpenOptions::new()
             .read(true)
             .write(true)
-            .create(true)
+            .create(recover)
             .truncate(false)
             .mode(0o600)
             .custom_flags(libc_flags())
@@ -150,7 +163,7 @@ impl Store {
         let versions = root.join("versions");
         match fs::symlink_metadata(&versions) {
             Ok(_) => dir(&versions)?,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound && recover => {
                 fs::create_dir(&versions).map_err(|_| Error::Io)?;
                 fs::set_permissions(&versions, fs::Permissions::from_mode(0o700))
                     .map_err(|_| Error::Io)?;
@@ -161,7 +174,7 @@ impl Store {
         let mut state_present = true;
         let mut state = match fs::symlink_metadata(root.join("state.json")) {
             Ok(_) => parse_state(&read_checked(&root.join("state.json"), 8192)?)?,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound && recover => {
                 state_present = false;
                 State {
                     format: 1,
@@ -172,7 +185,15 @@ impl Store {
             _ => return Err(Error::Io),
         };
         let next = root.join("state.next");
-        if fs::symlink_metadata(&next).is_ok() {
+        let pending = match fs::symlink_metadata(&next) {
+            Ok(_) => true,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+            Err(_) => return Err(Error::Io),
+        };
+        if pending {
+            if !recover {
+                return Err(Error::Busy);
+            }
             let bytes = read_checked(&next, 8192)?;
             match parse_state(&bytes) {
                 Ok(candidate)
@@ -531,6 +552,43 @@ impl Store {
         let v = self.state.confirmed.as_ref().ok_or(Error::Denied)?;
         self.verify_version(v)
     }
+    pub(crate) fn confirmed_hash(&self) -> Result<&str, Error> {
+        self.state
+            .confirmed
+            .as_ref()
+            .map(|v| v.hash.as_str())
+            .ok_or(Error::Denied)
+    }
+
+    /// Reject exactly one staged web trial without starting it or changing its
+    /// rollback floor. The caller has bound the request to a durable receipt.
+    pub(crate) fn reject_web_trial(
+        &mut self,
+        candidate: &str,
+        baseline: &str,
+        epoch: u64,
+        verify_stopped: impl FnOnce() -> Result<(), Error>,
+    ) -> Result<bool, Error> {
+        let confirmed = self.state.confirmed.as_ref().ok_or(Error::Denied)?;
+        if confirmed.hash != baseline || self.state.floor != epoch {
+            return Err(Error::Denied);
+        }
+        match &self.state.candidate {
+            Some(v) if v.hash == candidate && v.epoch == epoch => (),
+            None if !self.state.attempted => {
+                self.verify_version(confirmed)?;
+                return Ok(false);
+            }
+            _ => return Err(Error::Denied),
+        }
+        self.verify_version(confirmed)?;
+        verify_stopped()?;
+        self.state.candidate = None;
+        self.state.attempted = false;
+        self.persist()?;
+        Ok(true)
+    }
+
     /// Caller must have completed service/data health checks for this exact hash.
     pub fn confirm(&mut self, hash: &str) -> Result<(), Error> {
         let v = self.state.candidate.clone().ok_or(Error::Denied)?;
@@ -655,6 +713,67 @@ mod tests {
         assert_eq!(s.floor(), 2);
         assert_eq!(s.stage(&b, &g, &p), Err(Error::Rollback));
     }
+    #[test]
+    fn exact_web_rejection_keeps_floor_and_never_starts_a_failed_trial() {
+        let root = directory();
+        let mut store = Store::open(root.path(), key(), 5).unwrap();
+        let (manifest, signature, payloads) = package(1);
+        let baseline = store
+            .install_factory(&manifest, &signature, &payloads)
+            .unwrap();
+        let baseline_hash = store.confirmed_hash().unwrap().to_owned();
+        for (epoch, attempt) in [(2, false), (3, true)] {
+            let (manifest, signature, payloads) = package(epoch);
+            let candidate = store.stage(&manifest, &signature, &payloads).unwrap();
+            if attempt {
+                assert!(store.choose().unwrap().ends_with(&candidate));
+            }
+            let before = fs::read(root.path().join("state.json")).unwrap();
+            assert_eq!(
+                store.reject_web_trial(&"b".repeat(64), &baseline_hash, epoch, || Ok(())),
+                Err(Error::Denied)
+            );
+            assert_eq!(
+                store.reject_web_trial(&candidate, &baseline_hash, epoch, || Err(Error::Busy)),
+                Err(Error::Busy)
+            );
+            assert_eq!(fs::read(root.path().join("state.json")).unwrap(), before);
+            assert_eq!(
+                store.reject_web_trial(&candidate, &baseline_hash, epoch, || Ok(())),
+                Ok(true)
+            );
+            assert_eq!(store.choose().unwrap(), baseline);
+            assert_eq!(store.floor(), epoch);
+            assert_eq!(
+                store.stage(&manifest, &signature, &payloads),
+                Err(Error::Rollback)
+            );
+
+            drop(store);
+            store = Store::open_stable(root.path(), key(), 5).unwrap();
+            assert_eq!(
+                store.reject_web_trial(&candidate, &baseline_hash, epoch, || Ok(())),
+                Ok(false)
+            );
+        }
+        let (manifest, signature, payloads) = package(4);
+        let candidate = store.stage(&manifest, &signature, &payloads).unwrap();
+        store.choose().unwrap();
+        store.confirm(&candidate).unwrap();
+        assert_eq!(
+            store.reject_web_trial(&candidate, &baseline_hash, 4, || Ok(())),
+            Err(Error::Denied)
+        );
+        let pending = root.path().join("state.next");
+        fs::write(&pending, b"unknown interrupted state").unwrap();
+        drop(store);
+        assert!(matches!(
+            Store::open_stable(root.path(), key(), 5),
+            Err(Error::Busy)
+        ));
+        assert_eq!(fs::read(pending).unwrap(), b"unknown interrupted state");
+    }
+
     #[test]
     fn confirmed_factory_failed_candidate_and_epoch_floor_survive_reopen() {
         let d = directory();
