@@ -1,0 +1,158 @@
+{
+  "format": 1,
+  "kind": "offline-b-health-exec-fixture-evidence",
+  "passed": true,
+  "controller_head": "c951783c359a81cfc5334f4600e5e6656b934a0c",
+  "source_before": {
+    "head": "f3384b3028879a373658bf27ce2bf14a32711b93",
+    "tree": "0d42b2f69f52de6a53703680daf999c7afefdc08",
+    "worktree_sha256": "4392adf7d6b1a237b01876c6d13a3d0826530efa73a7b5f0b8ff349bfe12d079",
+    "dirty": false
+  },
+  "source_after": {
+    "head": "f3384b3028879a373658bf27ce2bf14a32711b93",
+    "tree": "0d42b2f69f52de6a53703680daf999c7afefdc08",
+    "worktree_sha256": "4392adf7d6b1a237b01876c6d13a3d0826530efa73a7b5f0b8ff349bfe12d079",
+    "dirty": false
+  },
+  "negative_source": {
+    "head": "f3384b3028879a373658bf27ce2bf14a32711b93",
+    "tree": "0d42b2f69f52de6a53703680daf999c7afefdc08",
+    "worktree_sha256": "d340cd6b73f88b5d276af036eb427d602ee342f5dbba31282783ef08244a16a2",
+    "dirty": true
+  },
+  "negative_control": "test-only readiness method disabled in separate dirty clone; production probe unchanged",
+  "negative_target": "/workspace/offline-b-20261124/health-negative-target-f3384b3",
+  "positive_target": "/workspace/offline-b-20261124/health-positive-target-f3384b3",
+  "fresh_distinct_targets": true,
+  "negative_detected": true,
+  "negative": {
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "-p",
+      "rustsimhub-update",
+      "--locked",
+      "--offline",
+      "health::tests::probe_child_waits_for_delayed_exec_before_kernel_observation",
+      "--",
+      "--exact",
+      "--test-threads=1"
+    ],
+    "cwd": "/home/builder/offline-b/health-negative-f3384b3",
+    "started": "2026-11-24T06:08:32.575034+00:00",
+    "ended": "2026-11-24T06:10:50.131719+00:00",
+    "exit_code": 101,
+    "execution": "executed",
+    "reason": "",
+    "log": "negative.log",
+    "bytes_seen": 7732,
+    "bytes_saved": 7732,
+    "truncated": false,
+    "cleanup_complete": true,
+    "duration_seconds": 137.561
+  },
+  "positive": {
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "-p",
+      "rustsimhub-update",
+      "--locked",
+      "--offline",
+      "health::tests::",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/home/builder/offline-b/health-source-f3384b3",
+    "started": "2026-11-24T06:10:50.153089+00:00",
+    "ended": "2026-11-24T06:12:59.559384+00:00",
+    "exit_code": 0,
+    "execution": "executed",
+    "reason": "",
+    "log": "positive.log",
+    "bytes_seen": 7762,
+    "bytes_saved": 7762,
+    "truncated": false,
+    "cleanup_complete": true,
+    "duration_seconds": 129.41,
+    "counts": {
+      "passed": 8,
+      "ignored": 0
+    }
+  },
+  "cases": [
+    "alive_wrong_uid_hash_caps_duplicate_pid_or_role_rejected",
+    "even_forged_perfect_receipt_cannot_authorize_confirm",
+    "kernel_probe_reads_real_executable_and_refuses_missing_process",
+    "kernel_probe_refuses_an_executable_above_the_application_bound",
+    "live_process_with_wrong_root_data_or_schema_is_not_healthy",
+    "old_boot_challenge_expiry_future_and_oversized_ttl_rejected",
+    "probe_child_waits_for_delayed_exec_before_kernel_observation",
+    "wrong_candidate_source_epoch_manifest_rejected"
+  ],
+  "fmt": {
+    "command": [
+      "rustfmt",
+      "--edition",
+      "2021",
+      "--check",
+      "crates/update/src/health/tests.rs"
+    ],
+    "cwd": "/home/builder/offline-b/health-source-f3384b3",
+    "started": "2026-11-24T06:12:59.585167+00:00",
+    "ended": "2026-11-24T06:12:59.657939+00:00",
+    "exit_code": 0,
+    "execution": "executed",
+    "reason": "",
+    "log": "fmt.log",
+    "bytes_seen": 0,
+    "bytes_saved": 0,
+    "truncated": false,
+    "cleanup_complete": true,
+    "duration_seconds": 0.073
+  },
+  "clippy": {
+    "command": [
+      "cargo",
+      "clippy",
+      "--lib",
+      "--tests",
+      "-p",
+      "rustsimhub-update",
+      "--locked",
+      "--offline",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/home/builder/offline-b/health-source-f3384b3",
+    "started": "2026-11-24T06:12:59.658410+00:00",
+    "ended": "2026-11-24T06:14:22.707018+00:00",
+    "exit_code": 0,
+    "execution": "executed",
+    "reason": "",
+    "log": "clippy.log",
+    "bytes_seen": 6836,
+    "bytes_saved": 6836,
+    "truncated": false,
+    "cleanup_complete": true,
+    "duration_seconds": 83.052
+  },
+  "logs": {
+    "negative": "b5e76c57add85e39409bf2fde80d7cacc80c03599d7ac8692766260e32b57bea",
+    "positive": "6cc5558f2acfaf983dd56c9f42b6c5bf9f49398cbaafa8a0ad14afff1ad5adc0",
+    "fmt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "clippy": "3e05a8d8ca33e7b31a1653e00f1a6a60311b47a0458d78be4a99cc79893dd122"
+  },
+  "production_probe_changed": false,
+  "root_service_started": false,
+  "actual_product_service_chain_tested": false,
+  "signed": false,
+  "installable": false,
+  "health_authorized": false,
+  "hardware_tested": false,
+  "public_network_tested": false
+}
