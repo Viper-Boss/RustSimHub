@@ -81,6 +81,8 @@ safe_directory "$root/core" 986
 partition_mount RSH_RECORDS "$root/core/state" 986
 partition_mount RSH_KEYS "$root/keys" 0
 partition_mount RSH_AUDIO "$root/recordings" 984
+audio_node=$(ab_partition RSH_AUDIO)
+resize2fs "/dev/${audio_node##*/}"
 partition_mount RSH_ABUSE "$root/abuse" 0
 partition_bind "$root/keys/core" "$root/core/identity" 986
 partition_bind "$root/keys/edge" "$root/edge" 985

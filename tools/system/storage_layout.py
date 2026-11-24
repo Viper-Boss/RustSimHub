@@ -5,7 +5,7 @@ SECTOR_BYTES = 512
 MIB = 1024 * 1024
 ALIGN = MIB // SECTOR_BYTES
 PROFILES = {
-    4: (1328, 64, 64, 32, 32),
+    4: (608, 64, 64, 32, 32),
     8: (1792, 256, 128, 128, 64),
 }
 NATIVE = frozenset(("rootfs", "NSHSTATE"))

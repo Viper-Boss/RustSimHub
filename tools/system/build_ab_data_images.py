@@ -13,7 +13,7 @@ import subprocess
 from tempfile import TemporaryDirectory
 import zlib
 
-from storage_layout import plan_layout
+from storage_layout import MIB, plan_layout
 
 SPEC = importlib.util.spec_from_file_location("generic_state", Path(__file__).with_name("build-generic-state.py"))
 generic = importlib.util.module_from_spec(SPEC)
@@ -116,6 +116,9 @@ def build(layout, board, key_path, key_digest, output):
             label, size = row["name"], row["bytes"]
             if label in ("RSH_A", "RSH_B"):
                 continue
+            if label == "RSH_AUDIO":
+                # A common seed fits every accepted geometry and is expanded at first boot.
+                size = 64 * MIB
             image = output / f"{label}.img"
             with image.open("xb") as handle:
                 os.fchmod(handle.fileno(), 0o600)

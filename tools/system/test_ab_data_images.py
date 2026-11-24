@@ -37,6 +37,7 @@ class DataImagesTests(unittest.TestCase):
                 self.assertFalse(result["flash_allowed"])
                 self.assertEqual(set(result["partitions"]),
                                  {"RSH_CONFIG", "RSH_AUDIO", "RSH_RECORDS", "RSH_KEYS", "RSH_ABUSE", "RSH_BOOTCTL"})
+                self.assertEqual(result["partitions"]["RSH_AUDIO"]["bytes"], 64 * 1024**2)
                 expected = result["partitions"]["RSH_BOOTCTL"]
                 image = output/"RSH_BOOTCTL.img"
                 self.assertEqual(image.stat().st_size, expected["bytes"])

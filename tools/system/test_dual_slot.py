@@ -46,10 +46,10 @@ class LayoutTests(unittest.TestCase):
 
     def test_4gb_actual_legacy_geometry(self):
         layout = layout_legacy()
-        plan = plan_layout(layout, "UFI003", image_bytes=1328 * MIB)
+        plan = plan_layout(layout, "UFI003", image_bytes=608 * MIB)
         self.assert_valid_plan(layout, plan)
         self.assertEqual(plan["entry_count"], 128)
-        self.assertEqual(plan["slot_bytes"], 1328 * MIB)
+        self.assertEqual(plan["slot_bytes"], 608 * MIB)
         self.assertGreaterEqual(next(row["bytes"] for row in plan["new_partitions"] if row["name"] == "RSH_AUDIO"), 64 * MIB)
         self.assertEqual(plan["reclaimed_names"], ["NSHSTATE", "rootfs"])
         self.assertIn("RSH_AUDIO", "\n".join(format_plan(plan)))
