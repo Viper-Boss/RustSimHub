@@ -1,0 +1,159 @@
+{
+  "format": 1,
+  "passed": true,
+  "steps": [
+    {
+      "name": "go-version",
+      "command": [
+        "/workspace/offline-b-20261123/toolchains/go127/go/bin/go",
+        "version"
+      ],
+      "exit_code": 0,
+      "stdout_sha256": "5707bf75dd54b4fdd5ac209444d48c9c4179ebf8510f80e2f7293dfbedc1012b",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "gofmt",
+      "command": [
+        "/workspace/offline-b-20261123/toolchains/go127/go/bin/gofmt",
+        "-d",
+        "main.go"
+      ],
+      "exit_code": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "module-verify",
+      "command": [
+        "/workspace/offline-b-20261123/toolchains/go127/go/bin/go",
+        "mod",
+        "verify"
+      ],
+      "exit_code": 0,
+      "stdout_sha256": "b4537ed75f533f993f371954de47e42a793b8e5b0587577de7e27fb3e50696bd",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "build",
+      "command": [
+        "/workspace/offline-b-20261123/toolchains/go127/go/bin/go",
+        "build",
+        "-mod=readonly",
+        "-o",
+        "/workspace/offline-b-20261123/source/work/sdk-vectors-20261124/usage-vectors-jj8r59_u/vectors",
+        "."
+      ],
+      "exit_code": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "positive",
+      "command": [
+        "/workspace/offline-b-20261123/source/work/sdk-vectors-20261124/usage-vectors-jj8r59_u/vectors"
+      ],
+      "exit_code": 0,
+      "stdout_sha256": "4e3b33a2beee10c61c3ba08df0f6938ddf6c73e33ddf2890f02c368e6242550e",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "negative-intent-hash",
+      "command": [
+        "/workspace/offline-b-20261123/source/work/sdk-vectors-20261124/usage-vectors-jj8r59_u/vectors",
+        "-negative",
+        "intent-hash"
+      ],
+      "exit_code": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "562336c06ecd2f6a70b9e424769eb9dea73d014934193ddc1e2ae380146b7194"
+    },
+    {
+      "name": "negative-single-hash",
+      "command": [
+        "/workspace/offline-b-20261123/source/work/sdk-vectors-20261124/usage-vectors-jj8r59_u/vectors",
+        "-negative",
+        "single-hash"
+      ],
+      "exit_code": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "562336c06ecd2f6a70b9e424769eb9dea73d014934193ddc1e2ae380146b7194"
+    },
+    {
+      "name": "negative-big-endian",
+      "command": [
+        "/workspace/offline-b-20261123/source/work/sdk-vectors-20261124/usage-vectors-jj8r59_u/vectors",
+        "-negative",
+        "big-endian"
+      ],
+      "exit_code": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "5a97ac4bd3bb8126ad830185654c9cb67b25312da5c88253bc00c2a7fb7ea573"
+    },
+    {
+      "name": "negative-sdk-attributes",
+      "command": [
+        "/workspace/offline-b-20261123/source/work/sdk-vectors-20261124/usage-vectors-jj8r59_u/vectors",
+        "-negative",
+        "sdk-attributes"
+      ],
+      "exit_code": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "5a97ac4bd3bb8126ad830185654c9cb67b25312da5c88253bc00c2a7fb7ea573"
+    },
+    {
+      "name": "vet",
+      "command": [
+        "/workspace/offline-b-20261123/toolchains/go127/go/bin/go",
+        "vet",
+        "-mod=readonly",
+        "."
+      ],
+      "exit_code": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "source_sha256": {
+    "third_party/ncp-go/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "third_party/ncp-go/NKG-PATCH.md": "5092970609d56a350c7b4680825b9b1748b5a545e832fdac2a6719c217e0aff8",
+    "third_party/ncp-go/config.go": "a97c4a89fcbac9a92f5fb625e938687d572523904fd684c5395dc34cfbc78329",
+    "third_party/ncp-go/connection.go": "ccb69d86b2f77e18059321c97ba27689e155fc8de9887ad61fc5ca872fc2bc78",
+    "third_party/ncp-go/errors.go": "88222cec50681a1e1693960e6bc382b8afb33e5c6380ca334d1b689c1dde1ace",
+    "third_party/ncp-go/fullmesh_test.go": "a3c77486970167523cba5c3aa6a31d0b0e61586ea394a9b3a9e778577f003bca",
+    "third_party/ncp-go/go.mod": "2b0e9fb88d96d447a28aea08cff9e96328b70004e391391c7e17c9ccfa0a4458",
+    "third_party/ncp-go/go.sum": "3c49e0bc956775bbc9a2af2516fea2ef95559c9a7282b3558d2a274b3d65f9a6",
+    "third_party/ncp-go/pb/packet.pb.go": "09c658d53143e7e7767f2246130b2ab47807a24ceeb7d3a4d3497ece3278e008",
+    "third_party/ncp-go/pb/packet.proto": "f1e3986b6ba348561a636265f974ce9f619fbb82362ee52a14ef41de9dcfb241",
+    "third_party/ncp-go/session.go": "a400e5b2eba2aebbc6bb0d826e84439ace9c8792d309e5e19babc3ba0721a06a",
+    "third_party/ncp-go/util.go": "83ce014b43bd6a8a87316ad8519f0d87ac6710e29e7e56eef6395b6bd9c70ce0",
+    "third_party/nkn-sdk-go/LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "third_party/nkn-sdk-go/README.nknguard.md": "288dfbfb3ad4fbb435e521813559e6a266356c0436ff0f1f0022e084ec1770ce",
+    "third_party/nkn-sdk-go/asymmetric_test.go": "03a8abd436e0929df579e4af43358db340b53978a02e58f67fa8b24432137420",
+    "third_party/nkn-sdk-go/client.go": "7630c338b5554c4cf46842c91f8e8c306eaca2d3a462ec63b7432c6e153c0105",
+    "third_party/nkn-sdk-go/config.go": "060a88493328c8271c1fa7d812a181ed12ed73d8c275e2334a447fd88ac29e9d",
+    "third_party/nkn-sdk-go/doc.go": "fd4d9c8d50c6be69d994b54bce18d1fb785cb69b7b67bd2ab08a322ca821e784",
+    "third_party/nkn-sdk-go/error.go": "1cd99a4b7f5d641097b40ccd65bb02fbdd65227873e9960ba70df9a146b8d54e",
+    "third_party/nkn-sdk-go/go.mod": "403a5e350921c82528e0bb5fdc7da74e55dfd3f9ef03b0337c22a270d2b15a5d",
+    "third_party/nkn-sdk-go/go.sum": "b0ea5d6aebf27ac525348e6efea5d3af65dfd2a6feac378ad7e33ab904b99905",
+    "third_party/nkn-sdk-go/message.go": "3f27f8904e3ad6410b9e8dfe9c3ae322af29a745aa4bd3077d96dbbe99c15544",
+    "third_party/nkn-sdk-go/multiclient.go": "c2ad2f871c126816432c82f02179bd2a9328bec241bebfd488ec77abce1031f8",
+    "third_party/nkn-sdk-go/nanopay.go": "3281dbe91870fa3f3dea070dae01c89bd619b272f4b5c79286ad917aef4c5e59",
+    "third_party/nkn-sdk-go/payloads/payloads.pb.go": "1f831b9599bb26d48540e5e4b6b3ecb5480cc10fab85b4bd2f7b47e67c316f60",
+    "third_party/nkn-sdk-go/payloads/payloads.proto": "54d2d19d4b704603ceb291eec557800f775dbb54474c76a59e1dc1e599467368",
+    "third_party/nkn-sdk-go/resolver.go": "4a9b807b4d2aa628517a722a189b99662e4d6a614d14fef54d328513ea6d1fd4",
+    "third_party/nkn-sdk-go/rpc.go": "9b22ad72daa5a9eb53d12518bedf92d303a8705650a88c9b8002b30895176e61",
+    "third_party/nkn-sdk-go/type.go": "e50086fd7a7ffedfa7bfa04c972d547fe8a5870b92ef46697588895b34b50065",
+    "third_party/nkn-sdk-go/util.go": "bc58a55713f2bb9838f33e62a8bf3e0812b4b0028c2f6323a231c225975e4843",
+    "third_party/nkn-sdk-go/wallet.go": "fa76a4d55d73982a710f499d3bd40be38db1003c4ff02ac6875763d73a9c08cb",
+    "go.mod": "70b4002053b87371afd2c97dc72f511c170d8bfcfb49c10298810adcf2fff2c7",
+    "go.sum": "7881234a006c9e5206f10e17581e76e7ab7343f16acbbb0106f710ab966d134a",
+    "usage-vectors/main.go": "d1e7007f09d5172cf508916a637edf002489f288c8590a0030e8bdf57686fcd3",
+    "usage-vectors/run.py": "315a19d24e700e43b7db37ca6f243922cf1bb2417b875693d7269290dc3c2dcd",
+    "usage-vectors/vectors.json": "4e3b33a2beee10c61c3ba08df0f6938ddf6c73e33ddf2890f02c368e6242550e"
+  },
+  "scope": "offline reference vectors only; no production transport, Root capability or chain confirmation",
+  "vector_count": 15,
+  "fresh_signature_rejections": 30,
+  "vectors_sha256": "4e3b33a2beee10c61c3ba08df0f6938ddf6c73e33ddf2890f02c368e6242550e"
+}
