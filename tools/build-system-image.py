@@ -112,6 +112,8 @@ def build(source,out,image_bytes=IMAGE_BYTES,*,ab_slot=None,ab_capacity=None):
             'builder_sha256':rootfs_tools.sha256_file(pathlib.Path(__file__)),
             'builder_revision':revision,'generic_audit_passed':True,
             'bytes':image_bytes,'filesystem_label':label,'ab_capacity_gb':ab_capacity,'ab_slot':ab_slot,
+            'ab_boot_sha256':candidate.get('ab_system',{}).get('boot_sha256'),
+            'ab_selector_sha256':candidate.get('ab_system',{}).get('selector_sha256'),
             'source_date_epoch':epoch,'base_kernel_source_commit':lock['commit'],
             'base_kernel_source_tree':lock['commit_tree'],'base_kernel_source_attribution_recorded':True,
             'independent_kernel_rebuild_verified':False,'private_firmware_included':False,
