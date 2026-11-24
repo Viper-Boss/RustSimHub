@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-24T03:25:18.360392+00:00",
+  "updated_at": "2026-11-24T03:45:36.883410+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -6365,6 +6365,18 @@
       ],
       "evidence": [
         "https://github.com/Viper-Boss/RustSimHub/blob/codex/device-source/docs/PROGRESS.md"
+      ]
+    },
+    {
+      "at": "2026-11-24T03:45:36.883410+00:00",
+      "type": "state",
+      "title": "UPD-05 · 状态更新：自动健康确认",
+      "detail": "128 网页升级候选已完成签名和离线验签，含短信、通话记录及 SIM 卡片修复。127 为设备当前确认版，网页提交及自动健康确认待验证。",
+      "task_ids": [
+        "UPD-05"
+      ],
+      "evidence": [
+        "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-update-owner-session/docs/PROGRESS.md"
       ]
     }
   ],
