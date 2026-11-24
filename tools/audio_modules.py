@@ -178,6 +178,12 @@ def install(root, artifacts, source=SOURCE):
     require({p.name for p in module_root.parent.iterdir()} == {RELEASE}, 'Foreign kernel module tree')
     out = target(root, 'usr/lib/modules/'+RELEASE+'/updates/rustsimhub-audio', new=True)
     require(not (root/'usr/share/rustsimhub/audio-modules.json').exists(), 'Audio manifest already present')
+    legacy = out.with_name('nassimhub-audio')
+    if legacy.exists() or legacy.is_symlink():
+        # The original module archive puts these same files here. Duplicate
+        # names make depmod select the legacy path on some builders.
+        verify_artifacts(legacy, value)
+        shutil.rmtree(legacy)
     out.mkdir(mode=0o755);out.chmod(0o755)
     for name, data in payload.items():
         path = out/name

@@ -102,6 +102,29 @@ class AudioModuleSourceTests(unittest.TestCase):
             with self.assertRaises(ValueError): audio.install(root, artifacts)
             self.assertEqual(list(root.iterdir()), [])
 
+    def test_unknown_legacy_module_is_preserved(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = pathlib.Path(temporary)
+            root = folder/'tree'
+            modules = root/'usr/lib/modules'/audio.RELEASE
+            legacy = modules/'updates/nassimhub-audio'
+            legacy.mkdir(parents=True)
+            (modules/'modules.dep').touch()
+            artifacts = folder/'artifacts'
+            artifacts.mkdir()
+            info = {'name':'synthetic','vermagic':audio.RELEASE,'srcversion':'A'*24,'depends':''}
+            data = elf(info)
+            name = 'synthetic.ko'
+            profile = {'expected_modules':[{'name':name,'bytes':len(data),
+                        'sha256':hashlib.sha256(data).hexdigest(),'modinfo':info}]}
+            (artifacts/name).write_bytes(data)
+            (legacy/name).write_bytes(data+b'unknown')
+            with patch.object(audio, 'profile', return_value=(profile, 'unused')):
+                with self.assertRaises(ValueError):
+                    audio.install(root, artifacts)
+            self.assertEqual((legacy/name).read_bytes(), data+b'unknown')
+            self.assertFalse(legacy.with_name('rustsimhub-audio').exists())
+
     def test_stock_selection_or_multiple_alias_cannot_claim_override_resolution(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = pathlib.Path(temporary)
