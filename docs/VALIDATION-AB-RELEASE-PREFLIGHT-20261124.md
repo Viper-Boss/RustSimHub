@@ -43,3 +43,13 @@ RustFlashKit 增加格式 2 的 Ed25519 签名整机包与两阶段安装。安�
 模拟 Firehose 覆盖完成安装、保护扇区不变、换设备拒绝、镜像 NAK 保留旧账本和重试。使用合成的实际 4 GB、8 GB 盘容量核对主备 GPT。RustFlashKit 在本机运行的非 Tk 测试 255 项通过、1 项跳过。RustSimHub 系统套件执行 226 项，其中 113 项通过、113 项跳过。
 
 共享盘未发现与该 boot 配套、从完整签名系统组合生成的两份真实根槽镜像。当前环境没有棒子 USB 直通，完整系统组合器也要求实际 Linux Root 权限。本次没有签出或发布真实整机刷机包。安装流程只初始化新布局，旧设备业务数据的迁移和恢复仍待接入。
+
+## 隔离构建机与 Windows 刷机工具预览 2
+
+启动独立 Debian 13 QEMU 客体，在客体内以 Root 创建 ext4 镜像并以 loop 只读挂载通过。以同一输入构建两次 NSHSTATE 时，发现 mke2fs 把暂存文件的宿主变更时间写入镜像。归一化 inode 的变更和访问时间后，两次构建 SHA-256 相同。将两个隔离测试夹具移到可执行的目录，使真实 systemd 与维护脚本测试可以在挂载为 noexec 的 /run 上运行。Root 执行 `python3 -m unittest discover -s tools/system`，226 项中 221 项通过，5 项跳过。
+
+在客体的 ARM64 QEMU 环境用现役信任公钥执行 `verify-app-file` 和 `verify-package`，129 的签名与六项载荷均通过。核对归档来源摘要与签名清单一致。上游锁定包的 681 个模块与旧镜像里的同名模块逐个比较，解压后摘要全部相同。另按固定音频清单核验 22 个模块的摘要与身份。两个 Debian Snapshot 的 InRelease 摘要均与原锁一致。正在重建私有候选基础系统，仍需核对原基础树或验证新的完整来源组合。
+
+RustFlashKit Windows x64 预览 2 包含格式 2 签名包和两阶段写入功能。GitHub Actions 通过 261 项测试，两个 EXE、命令行护栏和 libusb 自检通过。[预览 2 发布](https://github.com/Viper-Boss/RustFlashKit/releases/tag/v0.1.0-ab-preview.2) · [构建日志](https://github.com/Viper-Boss/RustFlashKit/actions/runs/45377557139)。
+
+整机签名包仍待生成。实体棒子的首启、手动切槽、失败回退和断电恢复均待实测，现役棒子无写入。

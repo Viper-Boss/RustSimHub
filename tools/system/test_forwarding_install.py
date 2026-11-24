@@ -129,7 +129,7 @@ class ActualScriptTests(unittest.TestCase):
     so these tests are not evidence of actual system account/service creation.
     """
     def setUp(self):
-        self.temp=tempfile.TemporaryDirectory(prefix='rsh-fwd-install-',dir='/run')
+        self.temp=tempfile.TemporaryDirectory(prefix='rsh-fwd-install-',dir='/var/lib')
         self.root=Path(self.temp.name);self.fs=self.root/'device';self.fs.mkdir(mode=0o700)
         self.bin=self.root/'bin';self.bin.mkdir(mode=0o700)
         data=inventory()
@@ -148,8 +148,7 @@ class ActualScriptTests(unittest.TestCase):
         (self.fs/'run/rustsimhub-app/selected/manifest.json').write_bytes(b'synthetic selected manifest')
         (self.bundle/'confirmed.sha256').write_text(module.sha(b'synthetic selected manifest')+'\n')
         script=(self.bundle/'apply.sh').read_text()
-        # One pass: the fixture itself lives below /run; recursive replacement
-        # would rewrite a prefix inserted by an earlier substitution.
+        # One pass so a prefix inserted for one path is never rewritten.
         script=re.sub(r'/(?:etc|run|var/lib|proc/sys)/',lambda match:str(self.fs)+match[0],script)
         script=script.replace('PATH=/usr/sbin:/usr/bin:/sbin:/bin','PATH='+str(self.bin)+':/usr/sbin:/usr/bin:/sbin:/bin')
         (self.bundle/'apply.sh').write_text(script)

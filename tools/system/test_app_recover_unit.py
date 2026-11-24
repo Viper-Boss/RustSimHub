@@ -35,7 +35,8 @@ class AppRecoverUnitTests(unittest.TestCase):
             result = ctl('show', unit, '-p', 'ConditionResult,Result,ExecMainStatus')
             return dict(line.split('=', 1) for line in result.stdout.splitlines())
 
-        with tempfile.TemporaryDirectory(prefix='rustsimhub-recover-fixture-', dir='/run') as folder:
+        # The unit uses PrivateTmp and may run on systems with noexec /run.
+        with tempfile.TemporaryDirectory(prefix='rustsimhub-recover-fixture-', dir='/var/lib') as folder:
             base = pathlib.Path(folder)
             runtime = base/'runtime'
             complete = base/'installation.complete'

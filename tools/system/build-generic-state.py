@@ -106,6 +106,12 @@ def build(key_path, expected_sha256, out):
                         '-E', 'lazy_itable_init=0,lazy_journal_init=0,hash_seed='+HASH_SEED,
                         '-d', str(out/'stage'), str(image), str(IMAGE_BYTES//FS_BLOCK)],
                        check=True, timeout=120, env=env)
+        # mke2fs copies the host ctime even when E2FSPROGS_FAKE_TIME is set.
+        paths = ['/', *('/'+name for name in sorted(EXPECTED_TREE - {'lost+found'}))]
+        edits = ''.join(f'set_inode_field {name} {field} @{EPOCH}\n'
+                        for name in paths for field in ('ctime', 'atime'))
+        subprocess.run(['debugfs', '-w', '-f', '-', str(image)], input=edits, text=True,
+                       check=True, capture_output=True, timeout=30, env=env)
         subprocess.run(['e2fsck', '-f', '-n', str(image)], check=True, stdout=subprocess.DEVNULL, timeout=60, env=env)
         fields = dict(line.split('=', 1) for line in subprocess.check_output(
             ['blkid', '-p', '-o', 'export', str(image)], text=True, timeout=20).splitlines() if '=' in line)

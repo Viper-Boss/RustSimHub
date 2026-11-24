@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-24T10:19:19.199179+00:00",
+  "updated_at": "2026-11-24T10:48:40.733526+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -6456,6 +6456,18 @@
       "type": "state",
       "title": "UPD-09 · 状态更新：最终镜像安装与全回读",
       "detail": "双槽整机包输入核对及模拟安装通过。仍缺完整双槽根镜像和首次真机擦写、启动、恢复记录。",
+      "task_ids": [
+        "UPD-09"
+      ],
+      "evidence": [
+        "docs/VALIDATION-AB-RELEASE-PREFLIGHT-20261124.md"
+      ]
+    },
+    {
+      "at": "2026-11-24T10:48:40.733526+00:00",
+      "type": "state",
+      "title": "UPD-09 · 状态更新：最终镜像安装与全回读",
+      "detail": "已建成隔离 Root 构建机并通过 221 项系统测试，Windows 刷机工具预览 2 已发布。正在重建基础系统，待整机包签名及备用棒子写入和全回读。",
       "task_ids": [
         "UPD-09"
       ],
