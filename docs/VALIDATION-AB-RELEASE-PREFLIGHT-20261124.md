@@ -52,4 +52,8 @@ RustFlashKit 增加格式 2 的 Ed25519 签名整机包与两阶段安装。安�
 
 RustFlashKit Windows x64 预览 2 包含格式 2 签名包和两阶段写入功能。GitHub Actions 通过 261 项测试，两个 EXE、命令行护栏和 libusb 自检通过。[预览 2 发布](https://github.com/Viper-Boss/RustFlashKit/releases/tag/v0.1.0-ab-preview.2) · [构建日志](https://github.com/Viper-Boss/RustFlashKit/actions/runs/45377557139)。
 
+发布附件下载到私有共享目录并逐项复核 SHA-256。由 129 签名清单指定的源码归档重新构建了 ARM64 恢复和迁移程序，两者在 QEMU 的 `--build-info` 回读中返回相同的来源摘要。迁移程序目前只做离线历史导入。
+
+A/B 的签名应用版本保存在配置分区。该分区禁止执行，旧实现的绑定挂载继承这个设置。现只允许版本目录的单独绑定挂载执行，并保留 nodev 和 nosuid。真实 Linux 挂载命名空间中，测试确认同一个程序在配置分区原路径被拒绝，经指定版本目录能够运行。A/B 运行层专项 5 项通过。
+
 整机签名包仍待生成。实体棒子的首启、手动切槽、失败回退和断电恢复均待实测，现役棒子无写入。

@@ -126,5 +126,36 @@ esac
         self.assertEqual(self.events(), ["check-trial B 11", "check-trial B 11", "reboot"])
 
 
+@unittest.skipUnless(os.geteuid() == 0, "requires an isolated Linux mount namespace")
+class StorageMountTests(unittest.TestCase):
+    def test_only_the_signed_versions_bind_allows_execution(self):
+        namespace = ["unshare", "--mount", "--fork", "--propagation", "private"]
+        if subprocess.run([*namespace, "true"], capture_output=True, timeout=5).returncode:
+            self.skipTest("mount namespaces unavailable")
+        source = (OVERLAY/"usr/local/libexec/rustsimhub-ab-storage").read_text()
+        functions = "safe_directory() (" + source.split("safe_directory() (", 1)[1].split('case "$(ab_profile)"', 1)[0]
+        with tempfile.TemporaryDirectory() as folder:
+            script = r"""
+set -eu
+config="$1/config"
+target="$1/versions"
+mkdir "$config"
+mount -t tmpfs -o noexec,nodev,nosuid tmpfs "$config"
+mkdir -m 0700 "$config/versions"
+printf '#!/bin/sh\nexit 0\n' > "$config/versions/probe"
+chmod 0700 "$config/versions/probe"
+if "$config/versions/probe" 2>/dev/null; then exit 1; fi
+partition_bind "$config/versions" "$target" 0 exec
+"$target/probe"
+if "$config/versions/probe" 2>/dev/null; then exit 1; fi
+flags=$(findmnt -rn -M "$target" -o VFS-OPTIONS)
+case ",$flags," in *,nodev,*) ;; *) exit 1 ;; esac
+case ",$flags," in *,nosuid,*) ;; *) exit 1 ;; esac
+"""
+            result = subprocess.run([*namespace, "sh", "-c", functions+script, "test", folder],
+                                    capture_output=True, text=True, timeout=20)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -48,7 +48,15 @@ partition_bind() (
         empty_directory "$target"
         mount --bind "$from" "$target"
     fi
-    [ ! -L "$target" ] && [ "$(stat -c '%d:%i' "$from")" = "$(stat -c '%d:%i' "$target")" ]
+    if [ -L "$target" ] || [ "$(stat -c '%d:%i' "$from")" != "$(stat -c '%d:%i' "$target")" ]; then
+        exit 1
+    fi
+    if [ "${4:-}" = exec ]; then
+        # Allow execution only through this bind mount, leaving the source noexec.
+        mount -o remount,bind,exec,nodev,nosuid "$target"
+        options=$(findmnt -rn -M "$target" -o VFS-OPTIONS)
+        case ",$options," in *,noexec,*) exit 1 ;; esac
+    fi
 )
 
 case "$(ab_profile)" in
@@ -68,7 +76,7 @@ ab_verify_size RSH_AUDIO 64
 safe_directory "$root" 0
 safe_directory "$root/system" 0
 safe_directory "$root/system/app" 0
-partition_bind "$root/system/app/versions" /opt/rustsimhub/versions 0
+partition_bind "$root/system/app/versions" /opt/rustsimhub/versions 0 exec
 safe_directory "$root/core" 986
 partition_mount RSH_RECORDS "$root/core/state" 986
 partition_mount RSH_KEYS "$root/keys" 0
