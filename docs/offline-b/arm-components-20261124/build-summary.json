@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "kind": "offline-arm-component-build",
+  "source_before": {
+    "head": "6746473b4d0cd4a1314327693fd80023a0c33cbd",
+    "tree": "7108da944a5a21edead8c0a9ed1de6b163caf343",
+    "worktree_sha256": "1e1f0ec2692b0c6565bf36df7967a4fa6506692d88a6cc70cc5fe50e2b86ab2a",
+    "dirty": false
+  },
+  "source_after": {
+    "head": "6746473b4d0cd4a1314327693fd80023a0c33cbd",
+    "tree": "7108da944a5a21edead8c0a9ed1de6b163caf343",
+    "worktree_sha256": "1e1f0ec2692b0c6565bf36df7967a4fa6506692d88a6cc70cc5fe50e2b86ab2a",
+    "dirty": false
+  },
+  "source_archive_sha256": "7bcfcd41694721f6cb2be106803429c15e13a461315f987f62aa5e45978040bc",
+  "source_archive_bytes": 18984960,
+  "execution": {
+    "execution": "executed",
+    "exit_code": 0,
+    "cleanup_complete": true,
+    "reason": "",
+    "bytes_seen": 199626,
+    "bytes_saved": 199626,
+    "truncated": false,
+    "command": [
+      "cargo",
+      "build",
+      "--release",
+      "--target",
+      "aarch64-unknown-linux-gnu",
+      "--locked",
+      "--offline",
+      "-j",
+      "1",
+      "-p",
+      "rustsimhub-core",
+      "-p",
+      "rustsimhub-edge",
+      "-p",
+      "rustsimhub-update",
+      "--message-format=json"
+    ],
+    "cwd": "/home/builder/offline-b/arm-source-6746473b",
+    "duration_seconds": 309.51
+  },
+  "profile_features": "default features only; not a complete product-release profile",
+  "sysroot": "Debian cross libc 2.41-11cross1; not independently approved device sysroot",
+  "artifacts": [
+    {
+      "program": "rustsimhub-core",
+      "bytes": 5986600,
+      "sha256": "074a238414fe13581e2f66abb0f99e066894af8bfdec82781ae24f3a93d8409d",
+      "elf_machine": 183,
+      "executed": false
+    },
+    {
+      "program": "rustsimhub-edge",
+      "bytes": 3412992,
+      "sha256": "901fe2b8945f29cf0d1a47d72d2222238903c2b4c4cce7fdb6cdcab23a0df993",
+      "elf_machine": 183,
+      "executed": false
+    },
+    {
+      "program": "rustsimhub-update",
+      "bytes": 2444992,
+      "sha256": "350fd27e53abf32b26afcc2ffd31819710a3e306536df00c863eeb44dc8cc41c",
+      "elf_machine": 183,
+      "executed": false
+    }
+  ],
+  "signed": false,
+  "installable": false,
+  "hardware_tested": false,
+  "public_network_tested": false,
+  "production_role_approved": false,
+  "passed": true,
+  "original_backend_report_sha256": "410d47b47ea2ce7a30c73a47dec5c38a25ea7f4ccc739e59e660d9e5c0250928",
+  "note": "Derived public receipt; complete original backend report and process-identity list retained in task VM."
+}

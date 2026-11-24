@@ -1,0 +1,199 @@
+{
+  "schema": 1,
+  "kind": "offline-arm-metadata-observation",
+  "source_head": "6746473b4d0cd4a1314327693fd80023a0c33cbd",
+  "source_archive_sha256": "7bcfcd41694721f6cb2be106803429c15e13a461315f987f62aa5e45978040bc",
+  "rust_components": [
+    {
+      "program": "rustsimhub-core",
+      "bytes": 5986600,
+      "sha256": "074a238414fe13581e2f66abb0f99e066894af8bfdec82781ae24f3a93d8409d",
+      "elf_machine": 183,
+      "executed": true,
+      "operation": "--build-info",
+      "execution_kind": "QEMU user-mode pure metadata only",
+      "required_glibc": [
+        "2.17",
+        "2.18",
+        "2.25",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34",
+        "2.39"
+      ],
+      "metadata": {
+        "component": "core",
+        "database_schema": 6,
+        "development_fixtures": false,
+        "forwarding_runtime_contract": {
+          "format": 1,
+          "outbox": {
+            "application_id": 1381189207,
+            "migrate_from": [
+              1,
+              2
+            ],
+            "read_format": 3,
+            "write_format": 3
+          },
+          "worker_protocol": 4
+        },
+        "service_launch": {
+          "format": 1,
+          "modes": [
+            "device",
+            "forwarding_managed",
+            "setup_ap"
+          ]
+        },
+        "setup_ap_installation_contract": {
+          "application_format": 2,
+          "auth_protocol": 2,
+          "core_mode": "--serve-device-forwarding-managed-setup-ap",
+          "database_schema": 6,
+          "format": 1,
+          "material_format": 1,
+          "maximum_window_seconds": 3600,
+          "origin": "https://192.168.100.1:8443",
+          "owner_adoption": 1,
+          "parent_channel": 1,
+          "root_mode": "--serve-configurable",
+          "station_commit_channel": 1,
+          "station_trial_channel": 1
+        },
+        "source_archive_sha256": "7bcfcd41694721f6cb2be106803429c15e13a461315f987f62aa5e45978040bc",
+        "target_arch": "aarch64",
+        "update_health_default_enabled": false,
+        "update_health_protocol": 1
+      }
+    },
+    {
+      "program": "rustsimhub-edge",
+      "bytes": 3412992,
+      "sha256": "901fe2b8945f29cf0d1a47d72d2222238903c2b4c4cce7fdb6cdcab23a0df993",
+      "elf_machine": 183,
+      "executed": true,
+      "operation": "--build-info",
+      "execution_kind": "QEMU user-mode pure metadata only",
+      "required_glibc": [
+        "2.17",
+        "2.18",
+        "2.25",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34"
+      ],
+      "metadata": {
+        "component": "edge",
+        "development_fixtures": false,
+        "local_installation_preparation_supported": true,
+        "media_installation_preparation_supported": true,
+        "setup_ap_installation_contract": {
+          "application_format": 2,
+          "auth_protocol": 2,
+          "core_mode": "--serve-device-forwarding-managed-setup-ap",
+          "database_schema": 6,
+          "format": 1,
+          "material_format": 1,
+          "maximum_window_seconds": 3600,
+          "origin": "https://192.168.100.1:8443",
+          "owner_adoption": 1,
+          "parent_channel": 1,
+          "root_mode": "--serve-configurable",
+          "station_commit_channel": 1,
+          "station_trial_channel": 1
+        },
+        "source_archive_sha256": "7bcfcd41694721f6cb2be106803429c15e13a461315f987f62aa5e45978040bc",
+        "target_arch": "aarch64"
+      }
+    },
+    {
+      "program": "rustsimhub-update",
+      "bytes": 2444992,
+      "sha256": "350fd27e53abf32b26afcc2ffd31819710a3e306536df00c863eeb44dc8cc41c",
+      "elf_machine": 183,
+      "executed": true,
+      "operation": "--build-info",
+      "execution_kind": "QEMU user-mode pure metadata only",
+      "required_glibc": [
+        "2.17",
+        "2.18",
+        "2.25",
+        "2.27",
+        "2.28",
+        "2.29",
+        "2.30",
+        "2.32",
+        "2.33",
+        "2.34",
+        "2.39"
+      ],
+      "metadata": {
+        "boot_runtime_selection_supported": true,
+        "database_schema": 6,
+        "forwarding_application_format_supported": true,
+        "maintenance_observation_protocol": 1,
+        "read_only_runtime_inspection_protocol": 1,
+        "read_only_state_inspection_protocol": 1,
+        "running_candidate_confirmation_default_enabled": false,
+        "running_candidate_confirmation_protocol": 1,
+        "signed_application_formats": [
+          1,
+          2
+        ],
+        "source_archive_sha256": "7bcfcd41694721f6cb2be106803429c15e13a461315f987f62aa5e45978040bc",
+        "system_ota_supported": false
+      }
+    }
+  ],
+  "sdk_components": [
+    {
+      "program": "nkn-sdk-engine",
+      "round": 1,
+      "architecture": "arm64",
+      "bytes": 10616956,
+      "sha256": "5044e68da3d7747d6763f54b4ed9ac4bdabd11b23fd4b9d62c744444b8b72505",
+      "elf_machine": 183,
+      "modules": 16,
+      "version_executed": false,
+      "network_executed": false,
+      "executed": true,
+      "execution_kind": "QEMU user-mode pure --version only",
+      "metadata": {
+        "contract": 1,
+        "go": "go1.27.3",
+        "isolated_fixture_build": false,
+        "nkn_sdk_linked": true,
+        "root_launch_required": true,
+        "source_commit": "6746473b4d0cd4a1314327693fd80023a0c33cbd"
+      }
+    },
+    {
+      "program": "nkn-root",
+      "round": 1,
+      "architecture": "arm64",
+      "bytes": 3473532,
+      "sha256": "42e7b7484d089d9976bdd33cf88dc9086bc7e1005c6831ce320e53795604e4b5",
+      "elf_machine": 183,
+      "modules": 1,
+      "version_executed": false,
+      "network_executed": false,
+      "executed": false,
+      "execution_kind": "ELF/bytes/hash recheck only"
+    }
+  ],
+  "full_product_manifest_verified": false,
+  "scope": "default Rust components and SDK candidate metadata, not a complete profile or service-health/UID/cgroup/nft proof",
+  "sysroot": "Debian cross libc 2.41-11cross1; not independently approved device sysroot",
+  "signed": false,
+  "installable": false,
+  "hardware_tested": false,
+  "public_network_tested": false,
+  "health_authorized": false
+}
