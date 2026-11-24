@@ -1,0 +1,264 @@
+{
+  "format": 1,
+  "source_head": "6746473b4d0cd4a1314327693fd80023a0c33cbd",
+  "whole_program_modules": [
+    {
+      "path": "github.com/Viper-Boss/RustSimHub/tools/nkn-engine",
+      "version": "v0.0.0",
+      "source": "this repository, AGPL-3.0-only",
+      "license_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+        }
+      ],
+      "selected_by_complete_programs": true
+    },
+    {
+      "path": "github.com/golang/protobuf",
+      "version": "v1.5.2",
+      "sum": "h1:ROPKBNFfQgOUMifHyP+KYbvpjbdoFNs+aK7DXlji0Tw=",
+      "go_mod_sum": "h1:XVQd3VNwM+JqD3oG2Ue2ip4fOMUkwXdXDdiuN0vRsmY=",
+      "source": "Go-module",
+      "license_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "8778a9fc1eaffb03ab873caae251df2d224f6b5502be8777d3cd573a4dd43903"
+        }
+      ],
+      "selected_by_complete_programs": true
+    },
+    {
+      "path": "github.com/gorilla/websocket",
+      "version": "v1.5.3",
+      "sum": null,
+      "go_mod_sum": null,
+      "source": "checksum-pinned-local-fork",
+      "license_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "2be1b548b0387ca8948e1bb9434e709126904d15f622cc2d0d8e7f186e4d122d"
+        }
+      ],
+      "selected_by_complete_programs": true
+    },
+    {
+      "path": "github.com/hashicorp/errwrap",
+      "version": "v1.0.0",
+      "sum": "h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=",
+      "go_mod_sum": "h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=",
+      "source": "Go-module",
+      "license_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "bef1747eda88b9ed46e94830b0d978c3499dad5dfe38d364971760881901dadd"
+        }
+      ],
+      "selected_by_complete_programs": true
+    },
+    {
+      "path": "github.com/hashicorp/go-multierror",
+      "version": "v1.0.0",
+      "sum": "h1:iVjPR7a6H0tWELX5NxNe7bYopibicUzc7uPribsnS6o=",
+      "go_mod_sum": "h1:dHtQlpGsu+cZNNAkkCN/P3hoUDHhCYQXV3UM06sGGrk=",
+      "source": "Go-module",
+      "license_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "a830016911a348a54e89bd54f2f8b0d8fffdeac20aecfba8e36ebbf38a03f5ff"
+        }
+      ],
+      "selected_by_complete_programs": true
+    },
+    {
+      "path": "github.com/imdario/mergo",
+      "version": "v0.3.13",
+      "sum": "h1:lFzP57bqS/wsqKssCGmtLAb8A0wKjLGrve2q3PPVcBk=",
+      "go_mod_sum": "h1:4lJ1jqUDcsbIECGy0RUJAXNIhg+6ocWgb1ALK2O4oXg=",
+      "source": "Go-module",
+      "license_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "cb7684632b729955293cab8a0bbf4134d53d9532a30761c33c8a4878302a7bd3"
+        }
+      ],
+      "selected_by_complete_programs": true
+    },
+    {
+      "path": "github.com/itchyny/base58-go",
+      "version": "v0.0.5",
+      "sum": "h1:uv3ieMgCtuE9HtN0Gux375+GOApFnifLkyvSseHBaH0=",
+      "go_mod_sum": "h1:SrMWPE3DFuJJp1M/RUhu4fccp/y9AlB8AL3o3duPToU=",
+      "source": "Go-module",
+      "license_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "4d4a41f636575473572520d5aea82e2185f7b6e0d74009d419e8710a90f53650"
+        }
+      ],
+      "selected_by_complete_programs": true
+    },
+    {
+      "path": "github.com/nknorg/ncp-go",
+      "version": "v1.0.5",
+      "sum": null,
+      "go_mod_sum": null,
+      "source": "checksum-pinned-local-fork",
+      "license_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ],
+      "selected_by_complete_programs": true
+    },
+    {
+      "path": "github.com/nknorg/nkn-sdk-go",
+      "version": "v1.4.8",
+      "sum": null,
+      "go_mod_sum": null,
+      "source": "checksum-pinned-local-fork",
+      "license_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ],
+      "selected_by_complete_programs": true
+    },
+    {
+      "path": "github.com/nknorg/nkn/v2",
+      "version": "v2.2.1-0.20240509224846-24ade56074a3",
+      "sum": "h1:HES8PokvbjW7xjcJK094C5nLfTe01WZpi48zLasM09o=",
+      "go_mod_sum": "h1:S0TtUvuE+hnihwOInhxNkS/c8ybTZUttsF4Vi9RYBwI=",
+      "source": "Go-module",
+      "license_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "20707bee5430e2f5db0784438c1d5f697f3f91ec8b07eefc84a74ddb326a2353"
+        }
+      ],
+      "selected_by_complete_programs": true
+    },
+    {
+      "path": "github.com/nknorg/nkngomobile",
+      "version": "v0.0.0-20220615081414-671ad1afdfa9",
+      "sum": "h1:Gr37j7Ttvcn8g7TdC5fs6Y6IJKdmfqCvj03UbsrS77o=",
+      "go_mod_sum": "h1:zNY9NCyBcJCCDrXhwOjKarkW5cngPs/Z82xVNy/wvEA=",
+      "source": "Go-module",
+      "license_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ],
+      "selected_by_complete_programs": true
+    },
+    {
+      "path": "github.com/patrickmn/go-cache",
+      "version": "v2.1.0+incompatible",
+      "sum": "h1:HRMgzkcYKYpi3C8ajMPV8OFXaaRUnok+kx1WdO15EQc=",
+      "go_mod_sum": "h1:3Qf8kWWT7OJRJbdiICTKqZju1ZixQ/KpMGzzAfe6+WQ=",
+      "source": "Go-module",
+      "license_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "0070a164e0fc28e82739a764c37b38c56de796f9a8d1862b4413eb6978cd4e04"
+        }
+      ],
+      "selected_by_complete_programs": true
+    },
+    {
+      "path": "github.com/pbnjay/memory",
+      "version": "v0.0.0-20190104145345-974d429e7ae4",
+      "sum": "h1:MfIUBZ1bz7TgvQLVa/yPJZOGeKEgs6eTKUjz3zB4B+U=",
+      "go_mod_sum": "h1:RMU2gJXhratVxBDTFeOdNhd540tG57lt9FIUV0YLvIQ=",
+      "source": "Go-module",
+      "license_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "f0e4a9d181cbbbc742355f1723a4273fff79d999fd4d65caa2dc92fbcc5937be"
+        }
+      ],
+      "selected_by_complete_programs": true
+    },
+    {
+      "path": "golang.org/x/crypto",
+      "version": "v0.21.0",
+      "sum": "h1:X31++rzVUdKhX5sWmSOFZxx8UW/ldWx55cbf08iNAMA=",
+      "go_mod_sum": "h1:0BP7YvVV9gBbVKyeTG0Gyn+gZm94bibOW5BjDEYAOMs=",
+      "source": "Go-module",
+      "license_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+        }
+      ],
+      "selected_by_complete_programs": true
+    },
+    {
+      "path": "golang.org/x/mobile",
+      "version": "v0.0.0-20230301163155-e0f57694e12c",
+      "sum": "h1:Gk61ECugwEHL6IiyyNLXNzmu8XslmRP2dS0xjIYhbb4=",
+      "go_mod_sum": "h1:aAjjkJNdrh3PMckS4B10TGS2nag27cbKR1y2BpUxsiY=",
+      "source": "Go-module",
+      "license_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+        }
+      ],
+      "selected_by_complete_programs": true
+    },
+    {
+      "path": "golang.org/x/sys",
+      "version": "v0.18.0",
+      "sum": "h1:DBdB3niSjOA/O0blCZBqDefyWNYveAYMNF1Wum0DYQ4=",
+      "go_mod_sum": "h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=",
+      "source": "Go-module",
+      "license_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+        }
+      ],
+      "selected_by_complete_programs": true
+    },
+    {
+      "path": "google.golang.org/protobuf",
+      "version": "v1.33.0",
+      "sum": "h1:uNO2rsAINq/JlFpSdYEKIZ0uKD/R9cpdv0T+yoGwGmI=",
+      "go_mod_sum": "h1:c6P6GXX6sHbq/GpV6MGZEdwhWPcYBgnhAHhKbcUYpos=",
+      "source": "Go-module",
+      "license_files": [
+        {
+          "path": "LICENSE",
+          "sha256": "4835612df0098ca95f8e7d9e3bffcb02358d435dbb38057c844c99d7f725eb20"
+        }
+      ],
+      "selected_by_complete_programs": true
+    }
+  ],
+  "external_modules_unchanged_from_previous_candidate": true,
+  "compiled_golang_x_net_or_pion": false,
+  "new_external_modules": [],
+  "managed_patch_sha256": "6bea2a0448e475712834db1bb004260ea19a569eb0cea20172eec43b57899191",
+  "notices_sha256": "655533f3569189d93d21cab1980f6337d5cd02f50f40c5e040ff7440f07e9286",
+  "runtime_license": {
+    "go": "go1.27.3",
+    "path": "GOROOT/LICENSE",
+    "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+  },
+  "previous_advisory_disposition": "unchanged; x/crypto, x/sys and prior recorded advisories still need review",
+  "dependency_or_production_approval": false,
+  "system_tools": [
+    {
+      "name": "nftables",
+      "scope": "separate installed Root tool, not linked into SDK/Root Go programs; actual version/license must be checked at installation"
+    },
+    {
+      "name": "Linux cgroup v2/netfilter",
+      "scope": "kernel/runtime requirements; namespace tests do not prove device readiness"
+    }
+  ]
+}
