@@ -73,6 +73,13 @@ CHECKS.append(Check('web-app-assembly-node', 'browser',
 CHECKS.append(Check('browser-proxy', 'browser',
     ('node', '--test', 'tools/offline-b/test-proxy.mjs'), 'node', ('SEC-06',), ('node',), 20))
 
+# The original controller builds locked production Rust libraries and executes
+# its entire synthetic identity/business/outbox inventory in a fresh directory.
+CHECKS.append(Check('business-recovery-matrix', 'recovery',
+    (sys.executable, 'tools/test-business-recovery-matrix.py', '--run'),
+    'recovery-json', ('REC-04', 'REC-05', 'SEC-02'),
+    ('linux', 'cargo', 'rustup', 'rustfmt'), 900))
+
 EXCLUDED = {
     'ap': 'Dedicated hotspot/firstboot-ap work deferred by 2026-11-16 instruction; USB/shared Wi-Fi only.',
     'ble': 'BLE/AirSIM/VoBLE/configurator/native audio belong to other windows.',

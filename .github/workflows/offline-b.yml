@@ -1,9 +1,9 @@
 name: Offline B runner self-tests
 on:
   push:
-    paths: ['tools/offline-b/**', '.github/workflows/offline-b.yml']
+    paths: ['tools/offline-b/**', 'tools/test-business-recovery-matrix.py', 'tools/fixtures/backup-recovery/**', '.github/workflows/offline-b.yml']
   pull_request:
-    paths: ['tools/offline-b/**', '.github/workflows/offline-b.yml']
+    paths: ['tools/offline-b/**', 'tools/test-business-recovery-matrix.py', 'tools/fixtures/backup-recovery/**', '.github/workflows/offline-b.yml']
 permissions:
   contents: read
 jobs:

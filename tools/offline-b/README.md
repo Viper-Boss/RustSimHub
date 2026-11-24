@@ -57,8 +57,31 @@ a product clock/format change.
 Dedicated AP/firstboot-ap work is deferred. Shared network policy tests remain.
 BLE, AirSIM, VoBLE, native audio and configurator work are excluded. A passing
 synthetic Node fixture is not Chrome/IndexedDB/CSP/three-width acceptance. Actual browser
-assembly has a separate group below. Linux recovery/fault matrices, ARM/QEMU, full profiles and signed
+assembly has a separate group below. ARM/QEMU, full profiles and signed
 maintenance inputs each retain their own prerequisites and evidence.
+
+## Original business recovery matrix
+
+```sh
+python3 tools/offline-b/run.py --group recovery --budget-seconds 900 --output /tmp/offline-b-recovery-new
+```
+
+This fixed Linux-only selection invokes `tools/test-business-recovery-matrix.py
+--run` unchanged. It needs the cached locked Cargo dependencies, Rust, rustfmt and
+real rustup/Clippy. The controller builds production storage/auth/recovery/forwarder
+libraries in a fresh temporary build, then compiles and runs all 15 original
+synthetic identity/database/outbox cases. No production data or operation is used.
+
+The B entry requires the complete independently reviewed case inventory, exact
+real-library backend, integer counts and unchanged no-device/no-send boundaries.
+A plan, duplicate/unknown/missing cases, duplicate JSON keys, changed boundaries,
+zero exit without completion JSON or failed process cleanup cannot pass. Missing
+Linux/tools is `not_run`; execution failures remain failures. This group also
+participates in `all`; the default 600-second total budget may be insufficient
+for a fresh Rust build and is never silently extended.
+
+These cases do not prove statistics Pending/participation restoration, a consistent
+whole-product snapshot, real disk power loss, PID1/cgroups or device recovery.
 
 See [initial inventory](../../docs/deliveries/OFFLINE-B-INVENTORY-20261115.md)
 and [delivery evidence](../../docs/deliveries/OFFLINE-B-RUNNER-20261117.md).

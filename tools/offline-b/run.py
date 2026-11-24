@@ -20,6 +20,7 @@ import tempfile
 import time
 
 from checks import CHECKS, EXCLUDED
+from recovery_result import validate as recovery_counts
 
 ROOT = Path(__file__).resolve().parents[2]
 LIMIT = 1024 * 1024
@@ -325,7 +326,13 @@ def classify(result, kind):
     if result['execution'] != 'executed' or result['exit_code'] != 0 or not result['cleanup_complete']:
         return 'failed'
     text = result['summary']
-    if kind == 'unittest':
+    if kind == 'recovery-json':
+        try:
+            result['counts'] = recovery_counts(text)
+        except ValueError:
+            result['reason'] = 'missing complete reviewed real-library recovery result'
+            return 'failed'
+    elif kind == 'unittest':
         rows = re.findall(r'Ran (\d+) tests? in ', text)
         if not rows or sum(map(int, rows)) == 0 or not re.search(r'^OK(?:\s|$)', text, re.M):
             result['reason'] = 'successful process did not prove nonempty successful unittest execution'
@@ -393,7 +400,7 @@ def run(checks, output, *, root=ROOT, budget=600):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--list', action='store_true')
-    parser.add_argument('--group', choices=('all', 'materials', 'business', 'process', 'browser'), default='all')
+    parser.add_argument('--group', choices=('all', 'materials', 'business', 'process', 'browser', 'recovery'), default='all')
     parser.add_argument('--output', type=Path)
     parser.add_argument('--budget-seconds', type=int, default=600)
     args = parser.parse_args()
