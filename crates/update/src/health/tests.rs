@@ -49,41 +49,35 @@ fn fixture() -> (ExpectedCandidate, ExpectedFence, UntrustedObservation) {
         &payloads,
     )
     .unwrap();
-    assert!(
-        ExpectedCandidate::verify(
-            &bytes,
-            &[0; 64],
-            &key.verifying_key().to_bytes(),
-            2,
-            11,
-            &payloads
-        )
-        .is_err()
-    );
+    assert!(ExpectedCandidate::verify(
+        &bytes,
+        &[0; 64],
+        &key.verifying_key().to_bytes(),
+        2,
+        11,
+        &payloads
+    )
+    .is_err());
     let mut corrupt = payloads.clone();
     corrupt[0][0] ^= 1;
-    assert!(
-        ExpectedCandidate::verify(
-            &bytes,
-            &signature,
-            &key.verifying_key().to_bytes(),
-            2,
-            11,
-            &corrupt
-        )
-        .is_err()
-    );
-    assert!(
-        ExpectedCandidate::verify(
-            &bytes,
-            &signature,
-            &key.verifying_key().to_bytes(),
-            2,
-            12,
-            &payloads
-        )
-        .is_err()
-    );
+    assert!(ExpectedCandidate::verify(
+        &bytes,
+        &signature,
+        &key.verifying_key().to_bytes(),
+        2,
+        11,
+        &corrupt
+    )
+    .is_err());
+    assert!(ExpectedCandidate::verify(
+        &bytes,
+        &signature,
+        &key.verifying_key().to_bytes(),
+        2,
+        12,
+        &payloads
+    )
+    .is_err());
     let fence = ExpectedFence {
         boot: "01".repeat(32),
         root_sha256: "02".repeat(32),
@@ -230,11 +224,13 @@ impl ProbeChild {
                 self.0.try_wait().unwrap().is_none(),
                 "probe child exited before its executable was observable"
             );
-            if let Ok(actual) = std::fs::metadata(format!("/proc/{}/exe", self.pid()))
-                && actual.dev() == expected.dev()
-                && actual.ino() == expected.ino()
-                && actual.len() == expected.len()
-            {
+            let ready =
+                std::fs::metadata(format!("/proc/{}/exe", self.pid())).is_ok_and(|actual| {
+                    actual.dev() == expected.dev()
+                        && actual.ino() == expected.ino()
+                        && actual.len() == expected.len()
+                });
+            if ready {
                 return;
             }
             assert!(
