@@ -26,6 +26,8 @@ use tokio::{io::AsyncReadExt, net::UnixStream, sync::Semaphore, time::timeout};
 
 type Outcome<T> = Result<T, &'static str>;
 const SPARE: &str = ".receiving";
+const COMPLETED: &str = "completed.json";
+const COMPLETED_NEXT: &str = ".completed.next";
 
 pub(crate) struct Inbox {
     directory: PathBuf,
@@ -93,6 +95,71 @@ impl Inbox {
         Ok(Some(record))
     }
 
+    fn completed(&self) -> Outcome<Option<Record>> {
+        if !self.check_directory()? {
+            return Ok(None);
+        }
+        let Some(file) = read_file(&self.directory.join(COMPLETED))? else {
+            return Ok(None);
+        };
+        let record: Record = read_json(file, "inbox_unavailable")?;
+        if record.format != 1 || !record.upload.valid() {
+            return Err("inbox_unavailable");
+        }
+        Ok(Some(record))
+    }
+
+    fn clean_finished(
+        &self,
+        phase: impl FnOnce(&UpdateUpload) -> Outcome<Option<UpdateRunPhase>>,
+    ) -> Outcome<()> {
+        let _permit = self.incoming.try_acquire().map_err(|_| "busy")?;
+        let Some(record) = self.current()? else {
+            return Ok(());
+        };
+        if !matches!(
+            phase(&record.upload)?,
+            Some(UpdateRunPhase::Confirmed | UpdateRunPhase::Restored)
+        ) {
+            return Ok(());
+        }
+        // This permit also covers upload replacement. The Root journal is
+        // terminal for this exact upload, so maintenance no longer needs it.
+        self.write_metadata(COMPLETED, COMPLETED_NEXT, &record)?;
+        // Commit the small Owner-bound receipt before removing the payload.
+        fs::remove_file(self.directory.join(RECEIPT)).map_err(|_| "inbox_unavailable")?;
+        sync_dir(&self.directory)
+    }
+
+    fn write_metadata(
+        &self,
+        name: &str,
+        scratch_name: &str,
+        data: &impl serde::Serialize,
+    ) -> Outcome<()> {
+        let destination = self.directory.join(name);
+        read_file(&destination)?;
+        let scratch = self.directory.join(scratch_name);
+        if read_file(&scratch)?.is_some() {
+            fs::remove_file(&scratch).map_err(|_| "inbox_unavailable")?;
+        }
+        let bytes = serde_json::to_vec(data).map_err(|_| "inbox_unavailable")?;
+        if bytes.len() > UPDATE_RUN_LIMIT {
+            return Err("inbox_unavailable");
+        }
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&scratch)
+            .map_err(|_| "inbox_unavailable")?;
+        file.write_all(&bytes)
+            .and_then(|()| file.sync_all())
+            .map_err(|_| "inbox_unavailable")?;
+        fs::rename(&scratch, &destination).map_err(|_| "inbox_unavailable")?;
+        sync_dir(&self.directory)
+    }
+
     fn queue_backup_deletion(&self, backup: UpdateBackup) -> Outcome<Value> {
         let _permit = self.incoming.try_acquire().map_err(|_| "busy")?;
         if !self.check_directory()? {
@@ -129,27 +196,12 @@ impl Inbox {
                 };
             }
         }
-        let scratch = self.directory.join(".delete-backup.next");
-        if read_file(&scratch)?.is_some() {
-            fs::remove_file(&scratch).map_err(|_| "inbox_unavailable")?;
-        }
         let value = UpdateBackupDeletion {
             current: status.current,
             backup,
             expires_unix_secs: now + 90,
         };
-        let bytes = serde_json::to_vec(&value).map_err(|_| "inbox_unavailable")?;
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&scratch)
-            .map_err(|_| "inbox_unavailable")?;
-        file.write_all(&bytes)
-            .and_then(|()| file.sync_all())
-            .map_err(|_| "inbox_unavailable")?;
-        fs::rename(&scratch, &request).map_err(|_| "inbox_unavailable")?;
-        sync_dir(&self.directory)?;
+        self.write_metadata(UPDATE_DELETE_BACKUP, ".delete-backup.next", &value)?;
         Ok(json!({"deletion_queued":true,"epoch":value.backup.epoch}))
     }
 
@@ -160,12 +212,18 @@ impl Inbox {
         previous_phase: impl FnOnce(&UpdateUpload) -> Outcome<Option<UpdateRunPhase>>,
         reauthorize: impl FnOnce() -> Outcome<()>,
     ) -> Outcome<Value> {
-        let replace = if let Some(saved) = self.current()? {
+        let pending = self.current()?;
+        let replace = pending.is_some();
+        let previous = match pending {
+            Some(saved) => Some(saved),
+            None => self.completed()?,
+        };
+        if let Some(saved) = previous {
             if saved.binding == record.binding && saved.upload == record.upload {
                 reauthorize()?;
                 return Ok(receipt(&saved));
             }
-            if saved.binding != record.binding
+            if (replace && saved.binding != record.binding)
                 || saved.upload.request_id == record.upload.request_id
                 || saved.upload.epoch >= record.upload.epoch
                 || !matches!(
@@ -175,10 +233,7 @@ impl Inbox {
             {
                 return Err("update_pending");
             }
-            true
-        } else {
-            false
-        };
+        }
         if !self.check_directory()? {
             DirBuilder::new()
                 .mode(0o700)
@@ -228,6 +283,23 @@ impl Inbox {
             let _ = fs::remove_file(&pending);
         }
         result
+    }
+}
+
+pub(crate) async fn clean_finished_uploads(inbox: Option<Arc<Inbox>>) {
+    let Some(inbox) = inbox else {
+        std::future::pending::<()>().await;
+        return;
+    };
+    let mut tick = tokio::time::interval(Duration::from_secs(5));
+    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    loop {
+        tick.tick().await;
+        let inbox = Arc::clone(&inbox);
+        let _ = tokio::task::spawn_blocking(move || {
+            inbox.clean_finished(|upload| run_phase(Path::new(UPDATE_RUN_PATH), 0, upload))
+        })
+        .await;
     }
 }
 
@@ -313,6 +385,23 @@ fn run_phase(path: &Path, uid: u32, upload: &UpdateUpload) -> Outcome<Option<Upd
         return Err("inbox_unavailable");
     }
     Ok(record.matches(upload).then_some(record.phase))
+}
+
+fn visible_receipt(record: &Record, archived: bool) -> Outcome<Option<Value>> {
+    let mut value = receipt(record);
+    let phase = run_phase(Path::new(UPDATE_RUN_PATH), 0, &record.upload)?;
+    if archived
+        && !matches!(
+            phase,
+            Some(UpdateRunPhase::Confirmed | UpdateRunPhase::Restored)
+        )
+    {
+        return Ok(None);
+    }
+    if let Some(phase) = phase {
+        value["phase"] = json!(phase);
+    }
+    Ok(Some(value))
 }
 
 fn owner(auth: &Mutex<Auth>, token: &str, fresh: bool) -> Outcome<Binding> {
@@ -408,22 +497,18 @@ pub(crate) async fn handle(
                 {
                     return Err("update_pending");
                 }
-                let can_delete_backup = owner(&auth, &token, true).is_ok();
-                let receipt = record
-                    .as_ref()
-                    .map(|record| {
-                        let mut value = receipt(record);
-                        if let Some(phase) =
-                            run_phase(Path::new(UPDATE_RUN_PATH), 0, &record.upload)?
-                        {
-                            value["phase"] = json!(phase);
+                let receipt = match record {
+                    Some(record) => visible_receipt(&record, false)?,
+                    None => match inbox.completed()? {
+                        Some(record) if record.binding == binding => {
+                            visible_receipt(&record, true)?
                         }
-                        Ok::<_, &'static str>(value)
-                    })
-                    .transpose()?;
+                        _ => None,
+                    },
+                };
                 Ok(
-                    json!({"available":true,"can_submit":true,"can_delete_backup":can_delete_backup,"receipt":receipt,
-                    "retention":backup_status()?}),
+                    json!({"available":true,"can_submit":true,"can_delete_backup":true,
+                    "receipt":receipt,"retention":backup_status()?}),
                 )
             })
             .await
@@ -432,7 +517,7 @@ pub(crate) async fn handle(
         }
         (Some(inbox), AuthCommand::DeleteUpdateBackup { token, backup }) => {
             tokio::task::spawn_blocking(move || {
-                owner(&auth, &token, true)?;
+                owner(&auth, &token, false)?;
                 inbox.queue_backup_deletion(backup)
             })
             .await
@@ -565,6 +650,9 @@ mod tests {
             Err("update_pending")
         );
         assert_eq!(inbox.publish(&first, b"a", phase, || Ok(())).unwrap(), old);
+        inbox.clean_finished(phase).unwrap();
+        assert_eq!(fs::read(&accepted).unwrap(), saved);
+        assert!(inbox.completed().unwrap().is_none());
         run.phase = UpdateRunPhase::Restored;
         fs::write(&journal, serde_json::to_vec(&run).unwrap()).unwrap();
         assert_eq!(
@@ -572,10 +660,36 @@ mod tests {
             Err("denied")
         );
         assert_eq!(fs::read(&accepted).unwrap(), saved);
+        let permit = inbox.incoming.try_acquire().unwrap();
+        assert_eq!(inbox.clean_finished(phase), Err("busy"));
+        drop(permit);
+        inbox.clean_finished(phase).unwrap();
+        assert!(!accepted.exists());
+        let completed = inbox.completed().unwrap().unwrap();
+        assert_eq!(completed.upload, first.upload);
+        assert_eq!(completed.binding, first.binding);
+        assert_eq!(inbox.publish(&first, b"a", phase, || Ok(())).unwrap(), old);
+        assert!(
+            !accepted.exists(),
+            "an exact retry does not rewrite the finished package"
+        );
+        let replay = Record {
+            format: first.format,
+            binding: first.binding.clone(),
+            upload: UpdateUpload {
+                request_id: "12345678-1234-4234-8234-123456789abe".into(),
+                ..first.upload.clone()
+            },
+        };
+        assert_eq!(
+            inbox.publish(&replay, b"a", phase, || Ok(())),
+            Err("update_pending")
+        );
         assert_eq!(
             inbox.publish(&second, b"b", phase, || Ok(())).unwrap()["epoch"],
             123
         );
+        inbox.clean_finished(phase).unwrap();
         assert_eq!(inbox.current().unwrap().unwrap().upload, second.upload);
         assert!(!inbox.directory.join(SPARE).exists());
     }

@@ -27,11 +27,6 @@ function fixture({native = false} = {}) {
       state.requests.push(command);
       if (state.denied) { state.denied = false; throw Object.assign(Error(),{coreCode:'denied'}); }
       if (command.op === 'delete_update_backup') return {deletion_queued:true,epoch:command.backup.epoch};
-      if (command.op === 'discard_update_upload') {
-        assert.equal(command.request_id,state.receipt.request_id);
-        state.receipt = null;
-        return {discarded:true,request_id:command.request_id};
-      }
       return {available:true,can_submit:true,can_delete_backup:state.canDelete,receipt:state.receipt,retention:state.retention};
     },
     reconnect:async()=>{state.reconnects++;},
@@ -102,7 +97,7 @@ console.log('PASS: file selection verifies automatically, invalid packages never
   await panel.submit();
   await wait();
   assert.equal(state.calls.length,2);
-  assert.match(element('-receipt').textContent,/已受理应用 123/);
+  assert.match(element('-receipt').textContent,/已受理固件 123/);
   assert.equal(state.calls[1].options.headers['X-RustSimHub-Update-Manifest'],manifest);
   assert.equal(element('-submit').disabled,true);
   await panel.submit();
@@ -112,11 +107,15 @@ console.log('PASS: file selection verifies automatically, invalid packages never
   await tick();
   assert.equal(state.reconnects,1);
   assert.match(element('-receipt').textContent,/正在安装/);
-  assert.equal(element('-discard').disabled,true);
   state.receipt={...state.receipt,phase:'confirmed'};
   await tick();
-  assert.match(element('-receipt').textContent,/应用 123 已安装并通过健康检查/);
+  assert.match(element('-receipt').textContent,/固件 123 已安装并通过健康检查/);
   assert.equal(element('-progress').hidden,true);
+  assert.equal(element('-current').textContent,'正在核对固件版本');
+  state.retention={format:1,current:version(123,'b'),backups:[version(121,'a')]};
+  await tick();
+  assert.equal(element('-current').textContent,'当前 123');
+  assert.equal(element('-backups').children[0].button.textContent,'删除固件 121');
   assert.equal(state.requests.some(command=>command.op==='discard_update_upload'),false);
   assert.equal(state.calls.length,2);
 }
@@ -165,7 +164,8 @@ console.log('PASS: browser fetch and confirmation use the Window receiver.');
   state.retention={...state.retention,backups:[]};
   await tick();
   assert.equal(element('-backups').children.length,0);
-  await panel.discard();
-  assert.equal(state.receipt,null);
+  assert.match(element('-state').textContent,/已删除固件 121/);
+  assert.equal(state.receipt.phase,'restored');
+  assert.equal(element('-discard'),undefined);
 }
 console.log('PASS: backup deletion remains a separate confirmed action and only targets the selected backup.');

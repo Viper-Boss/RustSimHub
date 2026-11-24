@@ -1274,6 +1274,9 @@ async fn serve_inner_media(
     });
     let mut tasks = tokio::task::JoinSet::new();
     let mut indicator = Box::pin(crate::status_led::run(store.handle()));
+    let mut upload_cleanup = Box::pin(crate::update_upload::clean_finished_uploads(
+        update_upload.clone(),
+    ));
     tokio::pin!(stop);
     let result: Result<()> = loop {
         let accepted = tokio::select! {
@@ -1283,6 +1286,7 @@ async fn serve_inner_media(
             _=&mut recovery_worker=>break Err("candidate recovery host stopped".into()),
             _=&mut stop=>break Ok(()),
             _=&mut indicator=>break Err("indicator publisher stopped".into()),
+            _=&mut upload_cleanup=>break Err("update upload cleanup stopped".into()),
             _=&mut observer=>break Err("observer stopped".into()),
             _=&mut sending=>break Err("sender stopped".into()),
             _=&mut controlling=>break Err("call controller stopped".into()),
