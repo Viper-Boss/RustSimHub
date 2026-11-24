@@ -15,3 +15,11 @@ A/B 整机包暂未形成。真实的早期选槽、试启动失败回退、共�
 ## Windows 工具发布结果
 
 GitHub Windows x64 构建通过 257 项测试。两个 EXE 已打包，命令行包的只读护栏及 Windows libusb 自检通过。公开发布页回读确认两个 EXE、SHA-256 校验文件和上游 EDL 源码，清单与 GitHub 资产摘要一致。[Windows 工具预览发布](https://github.com/Viper-Boss/RustFlashKit/releases/tag/v0.1.0-ab-preview.1) · [构建日志](https://github.com/Viper-Boss/RustFlashKit/actions/runs/45331131839)。
+
+## A/B 启动镜像离线候选
+
+基于锁定摘要的 64 MiB UFI003 boot，保留原 ARM64 内核和附加设备树，重新构建带静态选槽程序的 initramfs。启动脚本在挂载根盘前，从内核枚举的同一 eMMC 上寻找 RSH_A、RSH_B、RSH_BOOTCTL。8 MiB 启动控制区的记录相距 4 MiB，使用代次和 CRC 校验。候选试启动前先写另一份记录、同步并回读。两次未确认后回到已确认槽。无有效记录、同代记录冲突等情况停止选槽。
+
+用 Zig 0.14.1 生成 ARM64 静态程序，QEMU 用户态运行验证了两次试启动后回选、损坏记录继续使用旧记录、冲突或空记录被拒绝。镜像写入普通文件后重新拆包，核对内核、启动参数、initramfs 和注入内容。SHA-256 为 `49284610866e4cfba5538dd4998c65a12867e72c9312723a41258047acc98021`。系统专项套件执行 219 项，其中通过 106 项、跳过 113 项。没有进行物理设备写入或系统级启动。
+
+启动候选仅保存在主机私有共享目录。旧系统仍依赖 NSHSTATE 的固定挂载和守卫。新数据分区迁移、候选健康确认、看门狗、A/B 刷写、签名整机包以及真机启动与掉电回退仍需接线和验收。
