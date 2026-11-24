@@ -25,9 +25,13 @@ while :; do
     remaining=$((remaining - 1))
     sleep 1
 done
-slot=$(/usr/bin/rustsimhub-ab-select select "$ledger") || exit 1
-case "$slot" in
-    A) printf '%s\n' "$root_a" ;;
-    B) printf '%s\n' "$root_b" ;;
+session=$(/usr/bin/rustsimhub-ab-select select-session "$ledger") || exit 1
+case "$session" in
+    'A '*) root=$root_a ;;
+    'B '*) root=$root_b ;;
     *) exit 1 ;;
 esac
+# This tmpfs is moved to the mounted root by initramfs-tools.
+umask 077
+printf '%s\n' "$session" > /run/initramfs/rustsimhub-ab-boot
+printf '%s\n' "$root"

@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Sourced by the fixed A/B startup and health operations.
+ab_partition() {
+    result=
+    for entry in /sys/class/block/mmcblk0/mmcblk0p*; do
+        if [ -r "$entry/uevent" ] && grep -Fxq "PARTNAME=$1" "$entry/uevent"; then
+            [ -z "$result" ] || return 1
+            result=$entry
+        fi
+    done
+    [ -n "$result" ] || return 1
+    printf '%s\n' "$result"
+}
+
+ab_verify_mount() {
+    path=$1 label=$2
+    entry=$(ab_partition "$label") || return 1
+    [ ! -L "$path" ] && mountpoint -q "$path" &&
+        [ "$(findmnt -rn -M "$path" -o MAJ:MIN)" = "$(cat "$entry/dev")" ] &&
+        [ "$(findmnt -rn -M "$path" -o FSTYPE)" = ext4 ] &&
+        [ "$(findmnt -rn -M "$path" -o LABEL)" = "$label" ]
+}
+
+ab_profile() {
+    sectors=$(cat /sys/class/block/mmcblk0/size)
+    case "$sectors" in ''|*[!0-9]*) return 1 ;; esac
+    if [ "$sectors" -ge 6835938 ] && [ "$sectors" -le 8388608 ]; then
+        printf '4\n'
+    elif [ "$sectors" -ge 13671875 ] && [ "$sectors" -le 16777216 ]; then
+        printf '8\n'
+    else
+        return 1
+    fi
+}
+
+ab_verify_size() {
+    partition=$(ab_partition "$1") || return 1
+    actual=$(cat "$partition/size")
+    case "$actual" in ''|*[!0-9]*) return 1 ;; esac
+    # MiB units on the measured 512-byte logical sector geometry.
+    [ "$(cat /sys/class/block/mmcblk0/queue/logical_block_size)" = 512 ] || return 1
+    if [ "$1" = RSH_AUDIO ]; then
+        [ "$actual" -ge "$(($2 * 2048))" ] && [ "$((actual % 2048))" = 0 ]
+    else
+        [ "$actual" = "$(($2 * 2048))" ]
+    fi
+}

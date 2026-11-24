@@ -17,6 +17,8 @@ sys.path.insert(0,str(ROOT/'tools/rootfs/scripts'))
 import rootfs_tools
 sys.path.insert(0,str(ROOT/'tools/firstboot-ap'))
 import firstboot_ap
+sys.path.insert(0,str(ROOT/'tools/system'))
+from storage_layout import MIB, PROFILES
 
 IMAGE_BYTES=3436183552
 # 2845656-sector rootfs of the generic flash layout, rounded down to UsbTool's 16 KiB write block.
@@ -76,16 +78,28 @@ finally:mount.rmdir()
 '''
 
 
-def build(source,out,image_bytes=IMAGE_BYTES):
-    require(image_bytes in (IMAGE_BYTES,GENERIC_IMAGE_BYTES),'Only the two recorded rootfs sizes are allowed')
+def build(source,out,image_bytes=IMAGE_BYTES,*,ab_slot=None,ab_capacity=None):
     candidate,tree,board,lock=check_source(source,out)
+    require(bool(candidate.get('ab_system')) == (ab_slot is not None), 'Rootfs slot must match the composition')
+    if ab_slot is None:
+        require(ab_capacity is None and image_bytes in (IMAGE_BYTES, GENERIC_IMAGE_BYTES),
+                'Only the two recorded legacy sizes are allowed')
+        label='rootfs'
+        image_uuid='6e736866-7566-6930-3033-726f6f746673'
+    else:
+        require(ab_slot in ('A','B') and ab_capacity in PROFILES, 'Unsupported A/B slot or capacity')
+        image_bytes = PROFILES[ab_capacity][0] * MIB
+        label='RSH_'+ab_slot
+        image_uuid=f'6e736866-7566-6930-3033-{ab_capacity:02x}00000000{ord(ab_slot):02x}'
+
     spec=importlib.util.spec_from_file_location('generic_image_audit',ROOT/'tools/rootfs/scripts/audit-rootfs.py')
     audit=importlib.util.module_from_spec(spec);spec.loader.exec_module(audit)
     findings=audit.audit(tree)
     require(not findings,'Candidate generic audit failed; no image created')
     git=['git','-c','safe.directory='+str(ROOT),'-C',str(ROOT)]
     dirty=subprocess.check_output([*git,'status','--porcelain','--','tools/build-system-image.py',
-                                   'tools/rootfs','tools/firstboot-ap','firmware/system/firstboot-ap','firmware/board.toml','firmware/kernel/upstream-source.lock.json'])
+                                   'tools/rootfs','tools/firstboot-ap','firmware/system/firstboot-ap','firmware/board.toml',
+                                   'firmware/kernel/upstream-source.lock.json','tools/system/storage_layout.py'])
     require(not dirty.strip(),'Commit image construction inputs first')
     revision=subprocess.check_output([*git,'rev-parse','HEAD'],text=True).strip()
     epoch=json.loads((ROOT/'firmware/base-system.lock.json').read_text())['source_date_epoch']
@@ -97,7 +111,8 @@ def build(source,out,image_bytes=IMAGE_BYTES):
             'tree_sha256':candidate['tree_sha256'],'tree_entries':candidate['tree_entries'],
             'builder_sha256':rootfs_tools.sha256_file(pathlib.Path(__file__)),
             'builder_revision':revision,'generic_audit_passed':True,
-            'bytes':image_bytes,'source_date_epoch':epoch,'base_kernel_source_commit':lock['commit'],
+            'bytes':image_bytes,'filesystem_label':label,'ab_capacity_gb':ab_capacity,'ab_slot':ab_slot,
+            'source_date_epoch':epoch,'base_kernel_source_commit':lock['commit'],
             'base_kernel_source_tree':lock['commit_tree'],'base_kernel_source_attribution_recorded':True,
             'independent_kernel_rebuild_verified':False,'private_firmware_included':False,
             'device_state_initialized':False,'partition_writes':0,
@@ -112,7 +127,7 @@ def build(source,out,image_bytes=IMAGE_BYTES):
         info=image.lstat()
         require(stat.S_ISREG(info.st_mode) and info.st_nlink==1,'Image output is not a new regular file')
         env=dict(os.environ,E2FSPROGS_FAKE_TIME=str(epoch))
-        run(['mke2fs','-t','ext4','-F','-L','rootfs','-U','6e736866-7566-6930-3033-726f6f746673',
+        run(['mke2fs','-t','ext4','-F','-L',label,'-U',image_uuid,
              '-E','lazy_itable_init=0,lazy_journal_init=0,hash_seed=6e736866-7566-6930-3033-686173687364',
              '-d',str(tree),str(image)],'mke2fs.log',env=env)
         commands=out/'inode-times.txt'
@@ -137,9 +152,14 @@ def main():
     parser.add_argument('--source',type=pathlib.Path,required=True)
     parser.add_argument('--out',type=pathlib.Path,required=True)
     parser.add_argument('--generic-flash-size',action='store_true',help='Small rootfs for the generic flash layout')
+    parser.add_argument('--ab-slot', choices=('A','B'), help='A/B root filesystem slot')
+    parser.add_argument('--ab-capacity', type=int, choices=tuple(PROFILES), help='A/B disk capacity tier')
     args=parser.parse_args()
+    if bool(args.ab_slot) != bool(args.ab_capacity) or (args.ab_slot and args.generic_flash_size):
+        parser.error('Provide --ab-slot and --ab-capacity together for an A/B composition')
     if sys.platform!='linux' or os.geteuid()!=0:parser.error('Requires Linux root for numeric owners and isolated loop verification')
-    build(args.source.absolute(),args.out.absolute(),GENERIC_IMAGE_BYTES if args.generic_flash_size else IMAGE_BYTES)
+    build(args.source.absolute(),args.out.absolute(),GENERIC_IMAGE_BYTES if args.generic_flash_size else IMAGE_BYTES,
+          ab_slot=args.ab_slot,ab_capacity=args.ab_capacity)
     print('Internal ext4 image matches every candidate entry; state/firmware absent and flash gates remain false')
 
 

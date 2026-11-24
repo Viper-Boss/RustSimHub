@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-24T09:33:10.744698+00:00",
+  "updated_at": "2026-11-24T10:07:51.421084+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -6432,6 +6432,18 @@
       "type": "state",
       "title": "UPD-08 · 状态更新：外部initramfs与新构建启动验证",
       "detail": "已离线构建并回读新 UFI003 boot。ARM64 模拟验证启动账本与两次试启动失败后的回选。真实启动、健康确认和恢复待验收。",
+      "task_ids": [
+        "UPD-08"
+      ],
+      "evidence": [
+        "docs/VALIDATION-AB-RELEASE-PREFLIGHT-20261124.md"
+      ]
+    },
+    {
+      "at": "2026-11-24T10:07:51.421084+00:00",
+      "type": "state",
+      "title": "UPD-08 · 状态更新：外部initramfs与新构建启动验证",
+      "detail": "A/B 启动候选加入代次、实际根盘和健康确认，镜像及 ARM64 模拟回退通过。完整组合和真机启动仍待验收。",
       "task_ids": [
         "UPD-08"
       ],

@@ -1,0 +1,12 @@
+[Unit]
+Description=Mount and verify RustSimHub A/B shared storage
+ConditionPathExists=/usr/share/rustsimhub/ab-system.json
+Requires=var-lib-rustsimhub.mount
+After=var-lib-rustsimhub.mount
+Before=rustsimhub-firstboot.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/rustsimhub-ab-storage
+TimeoutStartSec=45
+RemainAfterExit=yes

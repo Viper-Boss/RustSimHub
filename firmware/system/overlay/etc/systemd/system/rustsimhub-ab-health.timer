@@ -1,0 +1,11 @@
+[Unit]
+Description=Check the RustSimHub trial slot after boot
+ConditionPathExists=/usr/share/rustsimhub/ab-system.json
+
+[Timer]
+OnBootSec=30s
+AccuracySec=1s
+Unit=rustsimhub-ab-health.service
+
+[Install]
+WantedBy=timers.target

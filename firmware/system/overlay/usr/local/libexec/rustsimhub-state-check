@@ -15,14 +15,20 @@ mountpoint -q "$state"
 # PrivateDevices hides physical /dev nodes in the SSH preparation unit.
 # Compare the mounted filesystem's kernel device number with the fixed physical
 # partition in sysfs; this does not require exposing or opening a block device.
-partition=/sys/class/block/mmcblk0p15
-test "$(dirname "$(readlink -f "$partition")")" = "$(readlink -f /sys/class/block/mmcblk0)"
-test "$(findmnt -rn -M "$state" -o MAJ:MIN)" = "$(cat "$partition/dev")"
-test "$(cat "$partition/partition")" = 15
-grep -qx 'PARTNAME=NSHSTATE' "$partition/uevent"
-test "$(cat /sys/class/block/mmcblk0p15/size)" = 264159
-test "$(findmnt -rn -M "$state" -o FSTYPE)" = ext4
-test "$(findmnt -rn -M "$state" -o LABEL)" = NSHSTATE
+if test -f /usr/share/rustsimhub/ab-system.json; then
+ . /usr/local/libexec/rustsimhub-ab-partitions
+ ab_verify_mount "$state" RSH_CONFIG
+ partition=$(ab_partition RSH_CONFIG)
+else
+ partition=/sys/class/block/mmcblk0p15
+ test "$(dirname "$(readlink -f "$partition")")" = "$(readlink -f /sys/class/block/mmcblk0)"
+ test "$(findmnt -rn -M "$state" -o MAJ:MIN)" = "$(cat "$partition/dev")"
+ test "$(cat "$partition/partition")" = 15
+ grep -qx 'PARTNAME=NSHSTATE' "$partition/uevent"
+ test "$(cat /sys/class/block/mmcblk0p15/size)" = 264159
+ test "$(findmnt -rn -M "$state" -o FSTYPE)" = ext4
+ test "$(findmnt -rn -M "$state" -o LABEL)" = NSHSTATE
+fi
 case ",$(findmnt -rn -M "$state" -o OPTIONS)," in
  *,rw,*) ;;
  *,ro,*) test "$mode" = system || test "$mode" = readonly;;

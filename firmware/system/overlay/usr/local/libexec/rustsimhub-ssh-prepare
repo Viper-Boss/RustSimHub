@@ -27,8 +27,15 @@ test "$(stat -c %s "$access")" -le 1024
 test "$(wc -l < "$access")" -eq 1
 LC_ALL=C grep -aqxE 'ssh-ed25519 [A-Za-z0-9+/=]+( .*)?' "$access"
 ssh-keygen -l -f "$access" >/dev/null
-host=$system/ssh-host
-pending=$system/ssh-host.pending
+credentials=$system
+if test -f /usr/share/rustsimhub/ab-system.json; then
+ . /usr/local/libexec/rustsimhub-ab-partitions
+ credentials=/var/lib/rustsimhub/rustsimhub-v1/keys
+ ab_verify_mount "$credentials" RSH_KEYS
+ private_dir "$credentials"
+fi
+host=$credentials/ssh-host
+pending=$credentials/ssh-host.pending
 validate_host() {
  private_dir "$1"
  private_file "$1/key"
@@ -60,6 +67,6 @@ else
  test ! -e "$pending"
  test ! -L "$pending"
  validate_host "$host"
- sync -f "$system"
+ sync -f "$credentials"
 fi
 echo 'RustSimHub persistent SSH host identity and explicit maintenance key verified'

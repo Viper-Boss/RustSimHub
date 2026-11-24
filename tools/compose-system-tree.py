@@ -20,6 +20,8 @@ import audio_modules
 from arm_build_manifest import elf, regular, sha, unique
 sys.path.insert(0,str(ROOT/'tools/firstboot-ap'))
 import firstboot_ap
+sys.path.insert(0,str(ROOT/'tools/system'))
+from build_ab_boot_candidate import BOOT_BYTES, check_arm64_selector
 
 NAMES = ('rustsimhub-core', 'simhubctl', 'rustsimhub-edge', 'rustsimhub-update',
          'rustsimhub-recovery', 'rustsimhub-migrate')
@@ -139,6 +141,53 @@ def group_member(root, group, member):
         path.write_text('\n'.join(rows)+'\n')
 
 
+def install_ab(tree, boot_build, selector, overlay_hashes):
+    """Install an offline-verified boot companion without enabling legacy mode."""
+    report = json.loads((boot_build / 'AB-BOOT-CANDIDATE.json').read_text())
+    assert report.get('kind') == 'internal-ab-boot-candidate'
+    assert all(report.get(key) is False for key in ('board_boot_verified', 'flash_allowed', 'release_ready'))
+    assert report.get('initramfs_readback') is True and report.get('boot_bytes') == BOOT_BYTES
+    boot = boot_build / 'boot.ab-candidate.img'
+    assert boot.is_file() and not boot.is_symlink() and boot.stat().st_size == BOOT_BYTES
+    assert base_tools.sha256_file(boot) == report['boot_sha256']
+    assert selector.is_file() and not selector.is_symlink() and selector.stat().st_size <= 2**20
+    data = selector.read_bytes()
+    check_arm64_selector(data)
+    assert hashlib.sha256(data).hexdigest() == report['selector_sha256']
+    target = destination(tree, 'usr/libexec/rustsimhub/rustsimhub-ab-select')
+    target.write_bytes(data)
+    os.chown(target, 0, 0)
+    target.chmod(0o555)
+
+    def replace(relative, old, new):
+        path = destination(tree, relative)
+        prior = path.read_text()
+        assert prior.count(old) == 1
+        value = prior.replace(old, new).encode()
+        path.write_bytes(value)
+        overlay_hashes[relative] = hashlib.sha256(value).hexdigest()
+
+    replace('etc/systemd/system/var-lib-rustsimhub.mount', '/by-partlabel/NSHSTATE', '/by-partlabel/RSH_CONFIG')
+    replace('etc/ssh/sshd_config.d/20-rustsimhub.conf', '/system/ssh-host/key', '/keys/ssh-host/key')
+    drops = {
+        'rustsimhub-firstboot.service.d/60-ab-storage.conf':
+            '[Unit]\nRequires=rustsimhub-ab-storage.service\nAfter=rustsimhub-ab-storage.service\n',
+        'rustsimhub-ssh-prepare.service.d/60-ab-keys.conf':
+            '[Service]\nReadWritePaths=/var/lib/rustsimhub/rustsimhub-v1/keys\n',
+    }
+    for name, content in drops.items():
+        relative = 'etc/systemd/system/' + name
+        file = destination(tree, relative)
+        file.write_text(content)
+        os.chown(file, 0, 0)
+        file.chmod(0o644)
+        overlay_hashes[relative] = hashlib.sha256(content.encode()).hexdigest()
+    timer = destination(tree, 'etc/systemd/system/timers.target.wants/rustsimhub-ab-health.timer')
+    timer.symlink_to('../rustsimhub-ab-health.timer')
+    write_metadata(tree, 'usr/share/rustsimhub/ab-system.json', report)
+    return report
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('base', 'artifacts', 'out'):
@@ -152,7 +201,11 @@ def main():
     parser.add_argument('--usage-checkin-artifacts', type=pathlib.Path,
                         help='Same-source optional NKN installation statistics binary; shipped disabled')
     parser.add_argument('--firstboot-ap-artifacts',type=pathlib.Path,help='Explicit generic firstboot AP v1 layer; creates no identity/credentials in the image')
+    parser.add_argument('--ab-boot-candidate', type=pathlib.Path, help='Verified internal A/B boot candidate directory')
+    parser.add_argument('--ab-selector', type=pathlib.Path, help='ARM64 selector whose SHA-256 matches the boot candidate')
     args = parser.parse_args()
+    assert bool(args.ab_boot_candidate) == bool(args.ab_selector), 'A/B requires boot and selector together'
+    assert not args.ab_boot_candidate or args.native_artifacts, 'A/B requires the complete signed application and native layers'
     startup = bool(args.signed_application)
     assert not args.usage_checkin_artifacts or startup, 'Usage statistics require a verified factory application'
     assert not args.firstboot_ap_artifacts or startup,'Firstboot AP requires a verified factory application'
@@ -166,7 +219,8 @@ def main():
     assert not git('status', '--porcelain', '--', 'firmware/system', 'firmware/base-system.lock.json',
                    'tools/compose-system-tree.py', 'tools/application_package.py', 'tools/audio_modules.py',
                    'firmware/kernel/audio', 'tools/rootfs', 'tools/firstboot-ap',
-                   'tools/nkn-usage-checkin').strip(), 'Commit composition inputs first'
+                   'tools/nkn-usage-checkin', 'tools/system/build_ab_boot_candidate.py',
+                   'native/ab-boot-control').strip(), 'Commit composition inputs first'
     revision = git('rev-parse', 'HEAD').decode().strip()
     base = args.base.resolve(strict=True)
     manifest = json.loads((base / 'ROOTFS-MANIFEST.json').read_text())
@@ -345,6 +399,8 @@ def main():
                      'media_configuration_required': bool(args.native_artifacts),
                      'kernel_audio_modules_installed': bool(audio_layer),
                      'board_boot_verified': False, 'private_data_included': False}
+        if args.ab_boot_candidate:
+            candidate['ab_system'] = install_ab(tree, args.ab_boot_candidate, args.ab_selector, overlay_hashes)
         if usage_layer:
             candidate['usage_checkin_layer'] = usage_layer
         candidate['firstboot_ap_layer'] = firstboot_layer

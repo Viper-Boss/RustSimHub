@@ -1,0 +1,80 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-only
+set -eu
+umask 077
+test "$#" = 0
+test "$(id -u)" = 0
+test -f /usr/share/rustsimhub/ab-system.json
+. /usr/local/libexec/rustsimhub-ab-partitions
+base=/var/lib/rustsimhub
+root=$base/rustsimhub-v1
+
+safe_directory() (
+    path=$1 owner=$2
+    if [ ! -e "$path" ] && [ ! -L "$path" ]; then
+        install -d -m 0700 -o "$owner" -g "$owner" -- "$path"
+    fi
+    [ -d "$path" ] && [ ! -L "$path" ] && [ "$(stat -c '%u:%g:%a' "$path")" = "$owner:$owner:700" ]
+)
+
+empty_directory() {
+    [ -z "$(find "$1" -mindepth 1 -maxdepth 1 -print -quit)" ]
+}
+
+partition_mount() (
+    label=$1 target=$2 owner=$3
+    if ! mountpoint -q "$target"; then
+        safe_directory "$target" "$owner"
+        empty_directory "$target"
+        node=$(ab_partition "$label")
+        mount -t ext4 -o rw,nodev,nosuid,noexec "/dev/${node##*/}" "$target"
+    fi
+    ab_verify_mount "$target" "$label"
+    case ",$(findmnt -rn -M "$target" -o OPTIONS)," in *,rw,*) ;; *) exit 1 ;; esac
+    # Adjust ownership only on a newly formatted filesystem with no application data.
+    if [ "$(stat -c '%u:%g:%a' "$target")" != "$owner:$owner:700" ]; then
+        [ -z "$(find "$target" -mindepth 1 -maxdepth 1 ! -name lost+found -print -quit)" ]
+        chown "$owner:$owner" "$target"
+        chmod 0700 "$target"
+    fi
+    safe_directory "$target" "$owner"
+)
+
+partition_bind() (
+    from=$1 target=$2 owner=$3
+    safe_directory "$from" "$owner"
+    if ! mountpoint -q "$target"; then
+        safe_directory "$target" "$owner"
+        empty_directory "$target"
+        mount --bind "$from" "$target"
+    fi
+    [ ! -L "$target" ] && [ "$(stat -c '%d:%i' "$from")" = "$(stat -c '%d:%i' "$target")" ]
+)
+
+case "$(ab_profile)" in
+    4) records=64 config=64 abuse=32 keys=32 ;;
+    8) records=256 config=128 abuse=128 keys=64 ;;
+    *) exit 1 ;;
+esac
+ab_verify_mount "$base" RSH_CONFIG
+ab_verify_size RSH_CONFIG "$config"
+ab_verify_size RSH_RECORDS "$records"
+ab_verify_size RSH_ABUSE "$abuse"
+ab_verify_size RSH_KEYS "$keys"
+ab_verify_size RSH_AUDIO 64
+
+# Firstboot and applications are ordered after this service. These mountpoints
+# preserve the established on-device paths and cannot hide legacy directory data.
+safe_directory "$root" 0
+safe_directory "$root/system" 0
+safe_directory "$root/system/app" 0
+partition_bind "$root/system/app/versions" /opt/rustsimhub/versions 0
+safe_directory "$root/core" 986
+partition_mount RSH_RECORDS "$root/core/state" 986
+partition_mount RSH_KEYS "$root/keys" 0
+partition_mount RSH_AUDIO "$root/recordings" 984
+partition_mount RSH_ABUSE "$root/abuse" 0
+partition_bind "$root/keys/core" "$root/core/identity" 986
+partition_bind "$root/keys/edge" "$root/edge" 985
+partition_bind "$root/keys/ssh-access" "$root/system/ssh-access" 0
+partition_bind "$root/keys/nkn" "$base/nkn" 0

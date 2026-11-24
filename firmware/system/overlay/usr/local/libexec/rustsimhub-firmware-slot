@@ -1,0 +1,66 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-only
+set -eu
+umask 077
+[ "$#" -eq 1 ] && [ "$(id -u)" = 0 ]
+[ -f /usr/share/rustsimhub/ab-system.json ]
+mode=$1
+marker=/run/initramfs/rustsimhub-ab-boot
+[ -f "$marker" ] && [ ! -L "$marker" ]
+[ "$(stat -c '%u:%g:%a:%h' "$marker")" = 0:0:600:1 ]
+IFS=' ' read -r slot generation state extra < "$marker"
+[ -z "$extra" ]
+case "$slot" in A|B) ;; *) exit 1 ;; esac
+case "$generation" in ''|*[!0-9]*) exit 1 ;; esac
+. /usr/local/libexec/rustsimhub-ab-partitions
+root=$(ab_partition "RSH_$slot")
+[ "$(findmnt -rn -M / -o MAJ:MIN)" = "$(cat "$root/dev")" ]
+node=$(ab_partition RSH_BOOTCTL)
+device=/dev/${node##*/}
+select=/usr/libexec/rustsimhub/rustsimhub-ab-select
+
+if [ "$mode" = rollback ]; then
+    [ "$state" = stable ]
+    /usr/local/libexec/rustsimhub-state-check --read-only
+    "$select" rollback "$device" "$slot" "$generation" >/dev/null
+    printf '%s\n' '备用固件已设为下次启动'
+    exit
+fi
+[ "$mode" = health ]
+[ "$state" = stable ] && exit 0
+[ "$state" = trial ]
+
+healthy() {
+    systemctl is-active --quiet rustsimhub-ab-storage.service &&
+        systemctl is-active --quiet rustsimhub-app.target &&
+        systemctl is-active --quiet rustsimhub-core.service &&
+        systemctl is-active --quiet rustsimhub-edge.service &&
+        /usr/local/libexec/rustsimhub-state-check --read-only &&
+        timeout 4s /opt/rustsimhub/selected/simhubctl identity /run/rustsimhub/core/core.sock 986 >/dev/null
+}
+
+# Require two successful observations, preserving the trial budget when boot
+# races temporary modem/app startup. Only a still-current trial can reboot.
+confirmed=0
+remaining=24
+while [ "$remaining" -gt 0 ]; do
+    if healthy; then
+        confirmed=$((confirmed + 1))
+        if [ "$confirmed" = 2 ]; then
+            session=$("$select" confirm "$device" "$slot" "$generation")
+            temporary=$(mktemp /run/initramfs/.rustsimhub-ab-boot.XXXXXX)
+            printf '%s stable\n' "$session" > "$temporary"
+            mv -fT "$temporary" "$marker"
+            exit 0
+        fi
+    else
+        confirmed=0
+    fi
+    remaining=$((remaining - 1))
+    sleep 5
+done
+if "$select" check-trial "$device" "$slot" "$generation"; then
+    echo 'RustSimHub A/B trial did not become healthy; rebooting for next boot choice' >&2
+    systemctl --no-block reboot
+fi
+exit 1

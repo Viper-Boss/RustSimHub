@@ -53,8 +53,8 @@ class SelectorTests(unittest.TestCase):
             handle.seek(index * 4 * MIB)
             return handle.read(BLOCK)
 
-    def select(self, mode="select-image"):
-        return subprocess.run(SELECTOR + [mode, str(self.image)], capture_output=True, text=True, timeout=10)
+    def select(self, mode="select-image", *session):
+        return subprocess.run(SELECTOR + [mode, str(self.image), *session], capture_output=True, text=True, timeout=10)
 
     def boot(self):
         result = self.select()
@@ -72,6 +72,24 @@ class SelectorTests(unittest.TestCase):
         self.assertEqual(self.read_head(1), boot_record(8, verified=1))
         self.assertEqual(self.boot(), "A")
         self.assertEqual(self.read_head(1), boot_record(8, verified=1))
+
+    def test_confirmation_and_rollback_are_bound_to_the_running_generation(self):
+        self.seed(0, boot_record(10, pending=1, tries=2))
+        self.assertNotEqual(self.select("confirm-image", "B", "10").returncode, 0)
+        self.assertEqual(self.select("select-session-image").stdout.strip(), "B 11 trial")
+        self.assertEqual(self.select("check-trial-image", "B", "11").returncode, 0)
+        self.assertNotEqual(self.select("confirm-image", "A", "11").returncode, 0)
+        self.assertNotEqual(self.select("confirm-image", "B", "10").returncode, 0)
+        self.assertNotEqual(self.select("rollback-image", "B", "11").returncode, 0)
+        self.assertEqual(self.select("confirm-image", "B", "11").stdout.strip(), "B 12")
+        self.assertEqual(self.select("select-session-image").stdout.strip(), "B 12 stable")
+        self.assertNotEqual(self.select("check-trial-image", "B", "11").returncode, 0)
+        self.assertNotEqual(self.select("rollback-image", "B", "11").returncode, 0)
+        self.assertEqual(self.select("rollback-image", "B", "12").stdout.strip(), "B 13")
+        self.assertEqual(self.select("select-session-image").stdout.strip(), "A 14 trial")
+        self.assertEqual(self.select("select-session-image").stdout.strip(), "A 15 trial")
+        self.assertEqual(self.select("select-session-image").stdout.strip(), "B 16 stable")
+        self.assertNotEqual(self.select("rollback-image", "B", "16").returncode, 0)
 
     def test_ignores_corrupt_newer_record(self):
         self.seed(0, boot_record(1))

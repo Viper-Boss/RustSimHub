@@ -95,6 +95,27 @@ else
  private_file "$serial"
 fi
 sync -f "$root/system"
+if test -f /usr/share/rustsimhub/ab-system.json; then
+ name=rustsimhub-$(cut -c1-4 "$serial")
+ target=/etc/rustsimhub/device-name
+ pending=$target.pending
+ test ! -L "$target"
+ test ! -L "$pending"
+ if test -e "$target"; then
+  test -f "$target"
+  printf '%s\n' "$name" | cmp -s - "$target"
+ else
+  if test ! -e "$pending"; then
+   (umask 022;set -C;printf '%s\n' "$name" > "$pending")
+  fi
+  test "$(stat -c '%u:%g:%a:%h' "$pending")" = 0:0:644:1
+  printf '%s\n' "$name" | cmp -s - "$pending"
+  sync -f "$pending"
+  mv -nT -- "$pending" "$target"
+  test ! -e "$pending"
+  sync -f "$(dirname "$target")"
+ fi
+fi
 # Optional generic AP preparation directories only; no activation or identity changes.
 if test -e /usr/share/rustsimhub/firstboot-ap/manifest.json || test -L /usr/share/rustsimhub/firstboot-ap/manifest.json; then
  if test -e "$root/system/firstboot-ap.request" || { test -e "$root/system/generic-provision.request" && test ! -e "$root/system/installation.complete"; }; then

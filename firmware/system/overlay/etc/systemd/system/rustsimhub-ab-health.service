@@ -1,0 +1,9 @@
+[Unit]
+Description=Verify and confirm the running RustSimHub firmware slot
+ConditionPathExists=/usr/share/rustsimhub/ab-system.json
+ConditionPathExists=/run/initramfs/rustsimhub-ab-boot
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/rustsimhub-firmware-slot health
+TimeoutStartSec=280
