@@ -1,0 +1,1085 @@
+{
+  "schema": 1,
+  "kind": "offline-b-linux-qualification-evidence",
+  "source_before": {
+    "head": "6746473b4d0cd4a1314327693fd80023a0c33cbd",
+    "tree": "7108da944a5a21edead8c0a9ed1de6b163caf343",
+    "worktree_sha256": "1e1f0ec2692b0c6565bf36df7967a4fa6506692d88a6cc70cc5fe50e2b86ab2a",
+    "dirty": false
+  },
+  "source_after": {
+    "head": "6746473b4d0cd4a1314327693fd80023a0c33cbd",
+    "tree": "7108da944a5a21edead8c0a9ed1de6b163caf343",
+    "worktree_sha256": "1e1f0ec2692b0c6565bf36df7967a4fa6506692d88a6cc70cc5fe50e2b86ab2a",
+    "dirty": false
+  },
+  "source_changed": false,
+  "runner_exit_code": 3,
+  "checks": [
+    {
+      "id": "profiles",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.467
+    },
+    {
+      "id": "source-inputs",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.632
+    },
+    {
+      "id": "mode-matrix",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.084
+    },
+    {
+      "id": "release-audit",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.278
+    },
+    {
+      "id": "public-scan",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.101
+    },
+    {
+      "id": "dependencies",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.089
+    },
+    {
+      "id": "kernel-inputs",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.245
+    },
+    {
+      "id": "second-board",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.068
+    },
+    {
+      "id": "rootfs",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.664
+    },
+    {
+      "id": "recovery-tools",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.064
+    },
+    {
+      "id": "offline-materials",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.289
+    },
+    {
+      "id": "performance-tools",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 1.666
+    },
+    {
+      "id": "web-daily-sms",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.119
+    },
+    {
+      "id": "web-sms-management",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.061
+    },
+    {
+      "id": "web-daily-phone",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.093
+    },
+    {
+      "id": "web-call-test",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.652
+    },
+    {
+      "id": "web-forwarding",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.079
+    },
+    {
+      "id": "web-forwarding-history",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.062
+    },
+    {
+      "id": "web-network-policy",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.085
+    },
+    {
+      "id": "web-network",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.068
+    },
+    {
+      "id": "web-nas-bridge",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.085
+    },
+    {
+      "id": "web-indicator",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.048
+    },
+    {
+      "id": "web-usage-stats",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.061
+    },
+    {
+      "id": "web-usage-participation",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.052
+    },
+    {
+      "id": "web-nkn-product",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.056
+    },
+    {
+      "id": "web-event-sync",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.126
+    },
+    {
+      "id": "web-app-imports",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.074
+    },
+    {
+      "id": "web-app-imports-negative",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 1.23
+    },
+    {
+      "id": "web-app-assembly",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 17.01
+    },
+    {
+      "id": "install-harness",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.589
+    },
+    {
+      "id": "upgrade-harness",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.58,
+      "source_archive_sha256": "7bcfcd41694721f6cb2be106803429c15e13a461315f987f62aa5e45978040bc"
+    },
+    {
+      "id": "web-app-assembly-node",
+      "status": "not_run",
+      "exit_code": null,
+      "execution": "not_run",
+      "cleanup_complete": true,
+      "reason": "missing prerequisites: node-playwright, edge"
+    },
+    {
+      "id": "browser-proxy",
+      "status": "passed",
+      "exit_code": 0,
+      "execution": "executed",
+      "cleanup_complete": true,
+      "reason": "",
+      "duration_seconds": 0.168
+    }
+  ],
+  "browser_log": [
+    "PASS: actual homepage 320px, ESM/CSP/IDB, signed Owner login, passive/readonly no Remote ON, same-ID reload/query, corrupt pending, offline read and logout/late response.",
+    "PASS: actual homepage 390px, ESM/CSP/IDB, signed Owner login, passive/readonly no Remote ON, same-ID reload/query, corrupt pending, offline read and logout/late response.",
+    "PASS: actual homepage 1280px, ESM/CSP/IDB, signed Owner login, passive/readonly no Remote ON, same-ID reload/query, corrupt pending, offline read and logout/late response.",
+    "PASS negative control: removing the actual NKN module fails the positive mounting check before any API request."
+  ],
+  "go_default": {
+    "top_level_results": {
+      "pass": 55
+    },
+    "packages": [
+      {
+        "package": "github.com/Viper-Boss/RustSimHub/tools/nkn-engine/bridge",
+        "action": "pass",
+        "elapsed": 1.023
+      },
+      {
+        "package": "github.com/Viper-Boss/RustSimHub/tools/nkn-engine/cmd/nkn-engine",
+        "action": "skip",
+        "elapsed": 0
+      },
+      {
+        "package": "github.com/Viper-Boss/RustSimHub/tools/nkn-engine/cmd/nkn-root",
+        "action": "skip",
+        "elapsed": 0
+      },
+      {
+        "package": "github.com/Viper-Boss/RustSimHub/tools/nkn-engine/managed",
+        "action": "pass",
+        "elapsed": 1.756
+      },
+      {
+        "package": "github.com/Viper-Boss/RustSimHub/tools/nkn-engine/protocol",
+        "action": "pass",
+        "elapsed": 1.013
+      },
+      {
+        "package": "github.com/Viper-Boss/RustSimHub/tools/nkn-engine/rootguard",
+        "action": "pass",
+        "elapsed": 1.048
+      },
+      {
+        "package": "github.com/Viper-Boss/RustSimHub/tools/nkn-engine/usagetx",
+        "action": "pass",
+        "elapsed": 1.092
+      }
+    ],
+    "race_exit_code": 0,
+    "vet_exit_code": 0,
+    "sdk_linked": false
+  },
+  "root_tests_separate_source": {
+    "head": "2f2fe2aed726fc21b9221ef8a4e22adf932d2d03",
+    "tree": "feb8012b574db2cc14ff1cf207963c11ed6d5df5",
+    "source_archive_sha256": "434cf22ce6e4d6df8f4a45e4af1c133df48a285fffe30cdcea33275deb7b6a81",
+    "normal": {
+      "rootio": "test result: ok. 11 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.76s",
+      "package": "test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.70s"
+    },
+    "dedicated_mounts": {
+      "enospc": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.01s",
+      "readonly": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s"
+    },
+    "clippy_exit_code": 0
+  },
+  "public_scan": {
+    "schema": 1,
+    "scope": "explicit public text inputs only",
+    "status": "no_findings_in_scope",
+    "input_count": 4,
+    "out_of_scope_count": 0,
+    "scanned": [
+      {
+        "path": "crates/edge/src/web/nkn-product.js",
+        "bytes": 12908,
+        "sha256": "6c81f135adde52251512955af2c0554273239b98302b8d428d55c20a6ffadc6e"
+      },
+      {
+        "path": "crates/edge/src/web/nkn-status.js",
+        "bytes": 7612,
+        "sha256": "fced938c453822f6a951fc01a894f3d225b4bd02b3f6157c52f641b1b621f68b"
+      },
+      {
+        "path": "crates/edge/src/web/usage-stats.js",
+        "bytes": 16105,
+        "sha256": "68f99882aa294bbe8f03ac6714f0d10c7aea32d4c1adc2a62122ba8ac8d2a6c8"
+      },
+      {
+        "path": "crates/edge/src/web/network.js",
+        "bytes": 20173,
+        "sha256": "e2f0b502a37263b4d432c028df02c94910291402e52cae009ff2d9410f0a63cb"
+      }
+    ],
+    "findings": [],
+    "issues": [],
+    "limits": {
+      "files": 1024,
+      "file_bytes": 524288,
+      "total_bytes": 8388608,
+      "seconds": 5,
+      "findings": 256,
+      "line_characters": 16384
+    },
+    "note": "Heuristic findings need review. No findings is not proof of secret-free artifacts; unselected files are not scanned.",
+    "bytes_read": 56798,
+    "manifest_sha256": "d03e4740262efd3bf16f5027b27072e4831961cf85765d8b4536d4e265f77bfa"
+  },
+  "performance_3s": {
+    "sms": {
+      "schema": 3,
+      "kind": "synthetic-functional",
+      "scope": "synthetic-node-functional-fixtures-and-harness; not device idle or real network",
+      "source_sha": "6746473b4d0cd4a1314327693fd80023a0c33cbd",
+      "source_dirty": false,
+      "runner_sha256": "649bd4b944642c9966b3ff22f5e45052170a413a32b92b5760f23cc092d32478",
+      "workload_sha256": "41cf3e3ece3cd9f323b6b2f603b0052a3e0b21f019fb4127ae46e3872b8749a1",
+      "environment": {
+        "os": "Linux",
+        "architecture": "x86_64",
+        "python": "3.13.5",
+        "node": "v22.15.0",
+        "clock_ticks": 100
+      },
+      "profile": "sms",
+      "source_changed": false,
+      "completed_iterations": 70,
+      "outcome": "completed",
+      "cleanup_verified": true,
+      "requested_seconds": 3,
+      "warmup_seconds": 0.5,
+      "sample_interval_seconds": 0.1,
+      "measured_seconds": 3.067006140999979,
+      "samples": [
+        {
+          "elapsed_s": 0.009016533000021809,
+          "cpu_percent": null,
+          "rss_bytes": 19173376,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.11268495199999506,
+          "cpu_percent": 86.81525277242167,
+          "rss_bytes": 62754816,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.21466135599996505,
+          "cpu_percent": 68.64333047086129,
+          "rss_bytes": 53157888,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.3173299939999197,
+          "cpu_percent": 68.18050902752888,
+          "rss_bytes": 47591424,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.41840492400001494,
+          "cpu_percent": 98.93650186045714,
+          "rss_bytes": 73502720,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.5204278069999191,
+          "cpu_percent": 78.41378095546973,
+          "rss_bytes": 19173376,
+          "processes": 1
+        },
+        {
+          "elapsed_s": 0.623135849999926,
+          "cpu_percent": 68.15435087201038,
+          "rss_bytes": 73420800,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.7244718759999387,
+          "cpu_percent": 69.07711182594751,
+          "rss_bytes": 73433088,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.8254438769999979,
+          "cpu_percent": 79.22988472809715,
+          "rss_bytes": 72273920,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.9279216119999774,
+          "cpu_percent": 68.30752065315849,
+          "rss_bytes": 71782400,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.0306749989999844,
+          "cpu_percent": 87.58835365689099,
+          "rss_bytes": 63156224,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.1320486669999354,
+          "cpu_percent": 69.05146216079879,
+          "rss_bytes": 62316544,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.234353677999934,
+          "cpu_percent": 97.74692268006443,
+          "rss_bytes": 52215808,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.3361728529999937,
+          "cpu_percent": 88.39199492624769,
+          "rss_bytes": 73453568,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.4377302919999693,
+          "cpu_percent": 68.92651162660455,
+          "rss_bytes": 66519040,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.5390109889999621,
+          "cpu_percent": 69.11484821239425,
+          "rss_bytes": 71864320,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.641437046999954,
+          "cpu_percent": 87.86826492923039,
+          "rss_bytes": 19173376,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.7427456760000268,
+          "cpu_percent": 39.48330995573065,
+          "rss_bytes": 60309504,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.843340307999938,
+          "cpu_percent": 109.3497712682096,
+          "rss_bytes": 47792128,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.9459112849999656,
+          "cpu_percent": 58.49607925640004,
+          "rss_bytes": 19173376,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.0471977419999803,
+          "cpu_percent": 69.11091776069316,
+          "rss_bytes": 72241152,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.1495643239999254,
+          "cpu_percent": 58.61287817545006,
+          "rss_bytes": 35688448,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.252366522999978,
+          "cpu_percent": 87.54676541496357,
+          "rss_bytes": 73027584,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.3555687769999167,
+          "cpu_percent": 48.448554234125176,
+          "rss_bytes": 19173376,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.4560548519999656,
+          "cpu_percent": 49.758138130059976,
+          "rss_bytes": 72265728,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.559328327000003,
+          "cpu_percent": 77.46422786680814,
+          "rss_bytes": 71561216,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.6608731599999373,
+          "cpu_percent": 98.47866902303592,
+          "rss_bytes": 61980672,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.7632906420000154,
+          "cpu_percent": 58.583748426810835,
+          "rss_bytes": 60624896,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.8643448440000157,
+          "cpu_percent": 89.06111593459495,
+          "rss_bytes": 19173376,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.966042588999926,
+          "cpu_percent": 88.49753748234961,
+          "rss_bytes": 39874560,
+          "processes": 2
+        }
+      ],
+      "sample_count": 30,
+      "mean_cpu_percent": 75.42545911335914,
+      "peak_rss_bytes": 73502720,
+      "budget_approved": false,
+      "device_performance_verified": false,
+      "limitations": [
+        "includes test/runtime launch overhead",
+        "short-lived child exit/reap can produce CPU gaps",
+        "RSS is observed tree sum, not peak RSS of exited children",
+        "no carrier traffic, real calls, real forwarding or remote connection"
+      ]
+    },
+    "forwarding": {
+      "schema": 3,
+      "kind": "synthetic-functional",
+      "scope": "synthetic-node-functional-fixtures-and-harness; not device idle or real network",
+      "source_sha": "6746473b4d0cd4a1314327693fd80023a0c33cbd",
+      "source_dirty": false,
+      "runner_sha256": "649bd4b944642c9966b3ff22f5e45052170a413a32b92b5760f23cc092d32478",
+      "workload_sha256": "bdde5a769f75fc24f77d4b40e2826c0169c4ccddef9dc66b866d5a7c1c69175f",
+      "environment": {
+        "os": "Linux",
+        "architecture": "x86_64",
+        "python": "3.13.5",
+        "node": "v22.15.0",
+        "clock_ticks": 100
+      },
+      "profile": "forwarding",
+      "source_changed": false,
+      "completed_iterations": 50,
+      "outcome": "completed",
+      "cleanup_verified": true,
+      "requested_seconds": 3,
+      "warmup_seconds": 0.5,
+      "sample_interval_seconds": 0.1,
+      "measured_seconds": 3.0478338830000666,
+      "samples": [
+        {
+          "elapsed_s": 0.0067297900000085065,
+          "cpu_percent": null,
+          "rss_bytes": 19079168,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.10840741100003015,
+          "cpu_percent": 68.84504113248785,
+          "rss_bytes": 58933248,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.20976495299998987,
+          "cpu_percent": 88.79457633259868,
+          "rss_bytes": 75923456,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.31085034400007316,
+          "cpu_percent": 69.24838426943644,
+          "rss_bytes": 53555200,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.4116695580000851,
+          "cpu_percent": 99.18744258409728,
+          "rss_bytes": 75829248,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.5128489180000315,
+          "cpu_percent": 59.300632065701706,
+          "rss_bytes": 51081216,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.6141877080000313,
+          "cpu_percent": 98.67889679756411,
+          "rss_bytes": 74964992,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.7154532920000065,
+          "cpu_percent": 69.12516299715128,
+          "rss_bytes": 39346176,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.816014219000067,
+          "cpu_percent": 79.55376147233795,
+          "rss_bytes": 74227712,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.9169172059999937,
+          "cpu_percent": 69.37356572016132,
+          "rss_bytes": 19079168,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.0187285660000498,
+          "cpu_percent": 68.75460655860157,
+          "rss_bytes": 74072064,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.1203603900000871,
+          "cpu_percent": 88.55493924813051,
+          "rss_bytes": 19079168,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.2214296380000178,
+          "cpu_percent": 89.04785756401566,
+          "rss_bytes": 65159168,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.3229244200000494,
+          "cpu_percent": 68.96906286273735,
+          "rss_bytes": 19079168,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.4239998589999914,
+          "cpu_percent": 69.25520254237054,
+          "rss_bytes": 64942080,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.5258988130000262,
+          "cpu_percent": 88.32279083058033,
+          "rss_bytes": 19079168,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.6278389640000341,
+          "cpu_percent": 88.2870970045875,
+          "rss_bytes": 62439424,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.729732100000092,
+          "cpu_percent": 88.32783397691172,
+          "rss_bytes": 76181504,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.8307068520000485,
+          "cpu_percent": 69.32426038543795,
+          "rss_bytes": 54136832,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.9318064860000277,
+          "cpu_percent": 89.02109378558035,
+          "rss_bytes": 74764288,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.0338092690000167,
+          "cpu_percent": 78.42923266123888,
+          "rss_bytes": 47886336,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.135230094999997,
+          "cpu_percent": 88.73917078925912,
+          "rss_bytes": 74797056,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.236716940000065,
+          "cpu_percent": 78.82795055846564,
+          "rss_bytes": 39780352,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.337616570000023,
+          "cpu_percent": 79.2867129443718,
+          "rss_bytes": 74194944,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.4389372489999914,
+          "cpu_percent": 78.95722846470939,
+          "rss_bytes": 19079168,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.540369227000042,
+          "cpu_percent": 78.87059049559315,
+          "rss_bytes": 74162176,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.642153740000026,
+          "cpu_percent": 68.7727414877064,
+          "rss_bytes": 19079168,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.743194903000017,
+          "cpu_percent": 79.17565240218713,
+          "rss_bytes": 73977856,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.843989319000002,
+          "cpu_percent": 89.29066070486805,
+          "rss_bytes": 19079168,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.945489882000061,
+          "cpu_percent": 78.81729680647557,
+          "rss_bytes": 66424832,
+          "processes": 2
+        }
+      ],
+      "sample_count": 30,
+      "mean_cpu_percent": 79.6254981188057,
+      "peak_rss_bytes": 76181504,
+      "budget_approved": false,
+      "device_performance_verified": false,
+      "limitations": [
+        "includes test/runtime launch overhead",
+        "short-lived child exit/reap can produce CPU gaps",
+        "RSS is observed tree sum, not peak RSS of exited children",
+        "no carrier traffic, real calls, real forwarding or remote connection"
+      ]
+    },
+    "call": {
+      "schema": 3,
+      "kind": "synthetic-functional",
+      "scope": "synthetic-node-functional-fixtures-and-harness; not device idle or real network",
+      "source_sha": "6746473b4d0cd4a1314327693fd80023a0c33cbd",
+      "source_dirty": false,
+      "runner_sha256": "649bd4b944642c9966b3ff22f5e45052170a413a32b92b5760f23cc092d32478",
+      "workload_sha256": "ed1c6784c9f1da87fd2b926410565d5789a60f425970b3bfed5fa5e99a947a56",
+      "environment": {
+        "os": "Linux",
+        "architecture": "x86_64",
+        "python": "3.13.5",
+        "node": "v22.15.0",
+        "clock_ticks": 100
+      },
+      "profile": "call",
+      "source_changed": false,
+      "completed_iterations": 5,
+      "outcome": "completed",
+      "cleanup_verified": true,
+      "requested_seconds": 3,
+      "warmup_seconds": 0.5,
+      "sample_interval_seconds": 0.1,
+      "measured_seconds": 3.061494051000068,
+      "samples": [
+        {
+          "elapsed_s": 0.009636499000066578,
+          "cpu_percent": null,
+          "rss_bytes": 73740288,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.11190258800002084,
+          "cpu_percent": 0,
+          "rss_bytes": 73740288,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.21411253899998428,
+          "cpu_percent": 19.567566371308754,
+          "rss_bytes": 29110272,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.3146150449999823,
+          "cpu_percent": 29.850001949205723,
+          "rss_bytes": 73392128,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.4158092029999807,
+          "cpu_percent": 0,
+          "rss_bytes": 73523200,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.5168226089999735,
+          "cpu_percent": 0,
+          "rss_bytes": 73523200,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.6183926630000087,
+          "cpu_percent": 9.845421564899953,
+          "rss_bytes": 73654272,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.7206717090000438,
+          "cpu_percent": 0,
+          "rss_bytes": 73785344,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.8244263589999719,
+          "cpu_percent": 9.638122243202535,
+          "rss_bytes": 73785344,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 0.9265613559999792,
+          "cpu_percent": 39.163852915173734,
+          "rss_bytes": 72781824,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.0285385450000604,
+          "cpu_percent": 0,
+          "rss_bytes": 73568256,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.129591927999968,
+          "cpu_percent": 9.89575974909137,
+          "rss_bytes": 73699328,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.230597155000055,
+          "cpu_percent": 0,
+          "rss_bytes": 73699328,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.3320565630000374,
+          "cpu_percent": 0,
+          "rss_bytes": 73699328,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.434460253999987,
+          "cpu_percent": 9.765273011502028,
+          "rss_bytes": 73699328,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.5354606580000336,
+          "cpu_percent": 9.90095049520334,
+          "rss_bytes": 19247104,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.6364790879999873,
+          "cpu_percent": 29.69755122903192,
+          "rss_bytes": 72773632,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.7377586139999721,
+          "cpu_percent": 9.873663903207348,
+          "rss_bytes": 73560064,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.8413387960000591,
+          "cpu_percent": 9.65435646752542,
+          "rss_bytes": 73560064,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 1.9432824020000226,
+          "cpu_percent": 0,
+          "rss_bytes": 73560064,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.044585381000047,
+          "cpu_percent": 9.871378017419973,
+          "rss_bytes": 73691136,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.1471742830000267,
+          "cpu_percent": 0,
+          "rss_bytes": 73691136,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.2501136189999897,
+          "cpu_percent": 19.428918795441984,
+          "rss_bytes": 19247104,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.3510716419999653,
+          "cpu_percent": 29.71532039608903,
+          "rss_bytes": 72994816,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.452446434999956,
+          "cpu_percent": 19.728770247651013,
+          "rss_bytes": 73519104,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.5540572570000677,
+          "cpu_percent": 0,
+          "rss_bytes": 73519104,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.6547404340000185,
+          "cpu_percent": 0,
+          "rss_bytes": 73650176,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.75678260899997,
+          "cpu_percent": 9.799869514742081,
+          "rss_bytes": 73650176,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.858358188000011,
+          "cpu_percent": 0,
+          "rss_bytes": 73781248,
+          "processes": 2
+        },
+        {
+          "elapsed_s": 2.9603865670000005,
+          "cpu_percent": 19.602389252898035,
+          "rss_bytes": 68571136,
+          "processes": 2
+        }
+      ],
+      "sample_count": 30,
+      "mean_cpu_percent": 10.172385038744629,
+      "peak_rss_bytes": 73785344,
+      "budget_approved": false,
+      "device_performance_verified": false,
+      "limitations": [
+        "includes test/runtime launch overhead",
+        "short-lived child exit/reap can produce CPU gaps",
+        "RSS is observed tree sum, not peak RSS of exited children",
+        "no carrier traffic, real calls, real forwarding or remote connection"
+      ]
+    }
+  },
+  "signed": false,
+  "installable": false,
+  "hardware_tested": false,
+  "public_network_tested": false,
+  "health_authorized": false
+}

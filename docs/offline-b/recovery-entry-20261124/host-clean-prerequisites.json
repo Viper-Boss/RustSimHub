@@ -1,0 +1,57 @@
+{
+  "format": 1,
+  "kind": "offline-b-test-evidence",
+  "started_utc": "2026-11-24T05:32:14.140145+00:00",
+  "ended_utc": "2026-11-24T05:32:16.332108+00:00",
+  "source_before": {
+    "head": "db34ec1929692a93a2129ad09303052aa45d4bba",
+    "tree": "b19b8a59ec91c678fc1fcfa3013024bb07b6743f",
+    "worktree_sha256": "df4018d8028bbe50a69ef8b793c93f1c4218cd4a51ae58d7c52da9e0bd8a20c6",
+    "dirty": false
+  },
+  "source_after": {
+    "head": "db34ec1929692a93a2129ad09303052aa45d4bba",
+    "tree": "b19b8a59ec91c678fc1fcfa3013024bb07b6743f",
+    "worktree_sha256": "df4018d8028bbe50a69ef8b793c93f1c4218cd4a51ae58d7c52da9e0bd8a20c6",
+    "dirty": false
+  },
+  "source_changed": false,
+  "environment": {
+    "os": "Windows",
+    "architecture": "AMD64",
+    "python": "3.12.14"
+  },
+  "exit_code": 3,
+  "checks": [
+    {
+      "id": "business-recovery-matrix",
+      "actions": [
+        "REC-04",
+        "REC-05",
+        "SEC-02"
+      ],
+      "layer": "source-and-synthetic",
+      "log": null,
+      "status": "not_run",
+      "execution": "not_run",
+      "exit_code": null,
+      "cleanup_complete": true,
+      "reason": "missing prerequisites: linux, cargo, rustup, rustfmt"
+    }
+  ],
+  "excluded_or_unverified": {
+    "ap": "Dedicated hotspot/firstboot-ap work deferred by 2026-11-16 instruction; USB/shared Wi-Fi only.",
+    "ble": "BLE/AirSIM/VoBLE/configurator/native audio belong to other windows.",
+    "device": "No device, NAS, carrier, public RPC/chain, production signing or service access authorized.",
+    "build": "Actual ARM profiles need pinned sysroots, SDK stage, approved roles and QEMU; see handoff.",
+    "browser": "B Edge subset is separate from the original Python browser matrix and device/mobile acceptance.",
+    "pid1": "Unit/harness results do not prove PID1/cgroup/nft or physical power-failure behavior.",
+    "stability": "Short local runs do not prove 72-hour device stability or power consumption."
+  },
+  "signed": false,
+  "epoch_assigned": false,
+  "installable": false,
+  "health_authorized": false,
+  "hardware_tested": false,
+  "public_network_tested": false
+}

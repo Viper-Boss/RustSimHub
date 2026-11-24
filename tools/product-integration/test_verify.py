@@ -6,13 +6,32 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import time
+from unittest import mock
 import verify
+
+
+def cleanup_owned(temp, seconds=.5):
+    """Wait only for Windows sharing violations on this owned fixture directory.
+
+    Do not ignore cleanup errors, retry permission errors or broaden deletion.
+    The original TemporaryDirectory still owns the exact removal target.
+    """
+    deadline = time.monotonic() + seconds
+    while True:
+        try:
+            temp.cleanup()
+            return
+        except OSError as error:
+            if getattr(error, 'winerror', None) != 32 or time.monotonic() >= deadline:
+                raise
+            time.sleep(.02)
 
 
 class Sources(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temp.cleanup)
+        self.addCleanup(cleanup_owned, self.temp)
         self.repo = Path(self.temp.name)
         self.git('init', '-q')
         self.git('config', 'user.name', 'Synthetic integration test')
@@ -124,6 +143,57 @@ class Sources(unittest.TestCase):
         self.assertFalse(json.loads(result.stdout)['source_assembly_complete'])
         self.assertEqual(self.git('status','--porcelain'),before)
         self.assertEqual(self.git('rev-parse','HEAD'),at)
+
+
+class FixtureCleanup(unittest.TestCase):
+    def test_permission_failure_is_not_retried_or_ignored(self):
+        error = PermissionError('owned synthetic denied fixture')
+        error.winerror = 5
+        with tempfile.TemporaryDirectory() as path:
+            temp = mock.Mock()
+            temp.cleanup.side_effect = error
+            with self.assertRaises(PermissionError):
+                cleanup_owned(temp)
+            temp.cleanup.assert_called_once()
+            self.assertTrue(Path(path).is_dir())
+
+    def test_persistent_sharing_violation_fails_at_the_budget(self):
+        error = OSError('owned synthetic sharing fixture')
+        error.winerror = 32
+        temp = mock.Mock()
+        temp.cleanup.side_effect = error
+        start = time.monotonic()
+        with self.assertRaises(OSError):
+            cleanup_owned(temp, .04)
+        self.assertLess(time.monotonic()-start, 1)
+
+    def test_real_owned_directory_cleanup_after_delayed_close(self):
+        temp = tempfile.TemporaryDirectory()
+        if sys.platform != 'win32':
+            cleanup_owned(temp)
+            self.assertFalse(Path(temp.name).exists())
+            return
+        import ctypes
+        from ctypes import wintypes
+        import threading
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+            ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+        kernel.CreateFileW.restype = wintypes.HANDLE
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel.CloseHandle.restype = wintypes.BOOL
+        # Open only our own temporary directory, deliberately without delete
+        # sharing; its delayed close reproduces the actual Windows boundary.
+        handle = kernel.CreateFileW(temp.name, 0, 3, None, 3, 0x02000000, None)
+        self.assertNotEqual(handle, ctypes.c_void_p(-1).value)
+        timer = threading.Timer(.08, kernel.CloseHandle, args=(handle,))
+        timer.start()
+        try:
+            cleanup_owned(temp)
+            self.assertFalse(Path(temp.name).exists())
+        finally:
+            timer.join(timeout=2)
+            temp.cleanup()
 
 
 if __name__=='__main__':unittest.main()

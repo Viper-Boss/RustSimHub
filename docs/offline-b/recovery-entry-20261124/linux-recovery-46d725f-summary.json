@@ -1,0 +1,75 @@
+{
+  "format": 1,
+  "kind": "offline-b-test-evidence",
+  "started_utc": "2026-11-24T05:41:28.485626+00:00",
+  "ended_utc": "2026-11-24T05:46:35.089846+00:00",
+  "source_before": {
+    "head": "46d725fbbfc27c197c31f62278eadc45b1775560",
+    "tree": "3b488e1abba700e8f627f1e9bb984158f20f3eaa",
+    "worktree_sha256": "70856b2b1393995cb7a4e052c9a94d15e9a5624c274fe86862370f90d45ce1ee",
+    "dirty": false
+  },
+  "source_after": {
+    "head": "46d725fbbfc27c197c31f62278eadc45b1775560",
+    "tree": "3b488e1abba700e8f627f1e9bb984158f20f3eaa",
+    "worktree_sha256": "70856b2b1393995cb7a4e052c9a94d15e9a5624c274fe86862370f90d45ce1ee",
+    "dirty": false
+  },
+  "source_changed": false,
+  "environment": {
+    "os": "Linux",
+    "architecture": "x86_64",
+    "python": "3.13.5"
+  },
+  "exit_code": 0,
+  "checks": [
+    {
+      "id": "business-recovery-matrix",
+      "actions": [
+        "REC-04",
+        "REC-05",
+        "SEC-02"
+      ],
+      "layer": "source-and-synthetic",
+      "log": "business-recovery-matrix.log",
+      "status": "passed",
+      "command": [
+        "/usr/bin/python3",
+        "tools/test-business-recovery-matrix.py",
+        "--run"
+      ],
+      "cwd": "/home/builder/offline-b/recovery-source-46d725f",
+      "started": "2026-11-24T05:41:29.011107+00:00",
+      "ended": "2026-11-24T05:46:34.650879+00:00",
+      "exit_code": 0,
+      "execution": "executed",
+      "reason": "",
+      "bytes_seen": 1399,
+      "bytes_saved": 1399,
+      "truncated": false,
+      "cleanup_complete": true,
+      "duration_seconds": 305.641,
+      "counts": {
+        "passed": 15,
+        "ignored": 0
+      }
+    }
+  ],
+  "excluded_or_unverified": {
+    "ap": "Dedicated hotspot/firstboot-ap work deferred by 2026-11-16 instruction; USB/shared Wi-Fi only.",
+    "ble": "BLE/AirSIM/VoBLE/configurator/native audio belong to other windows.",
+    "device": "No device, NAS, carrier, public RPC/chain, production signing or service access authorized.",
+    "build": "Actual ARM profiles need pinned sysroots, SDK stage, approved roles and QEMU; see handoff.",
+    "browser": "B Edge subset is separate from the original Python browser matrix and device/mobile acceptance.",
+    "pid1": "Unit/harness results do not prove PID1/cgroup/nft or physical power-failure behavior.",
+    "stability": "Short local runs do not prove 72-hour device stability or power consumption."
+  },
+  "signed": false,
+  "epoch_assigned": false,
+  "installable": false,
+  "health_authorized": false,
+  "hardware_tested": false,
+  "public_network_tested": false,
+  "original_report_sha256": "159c30ced6a1f1150f18666a6688835afd682f68d78711417046886d36035693",
+  "public_summary_note": "Derived receipt; full original process-identity report retained in task VM and task evidence directory."
+}

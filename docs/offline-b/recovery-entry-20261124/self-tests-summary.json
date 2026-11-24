@@ -1,0 +1,44 @@
+[
+  {
+    "platform": "linux",
+    "observed_source_head": "c951783c359a81cfc5334f4600e5e6656b934a0c",
+    "command": [
+      "python",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tools/offline-b",
+      "-p",
+      "test_*.py",
+      "-v"
+    ],
+    "exit_code": 0,
+    "discovered": 32,
+    "passed": 32,
+    "skipped": 0,
+    "log_sha256": "0c5a208faa72aaea4e9335bd8ea174cb092bda01d34a601a08b2d434b35d1105",
+    "note": "Counts from actual original unittest footer; not product/device acceptance."
+  },
+  {
+    "platform": "windows",
+    "observed_source_head": "c951783c359a81cfc5334f4600e5e6656b934a0c",
+    "command": [
+      "python",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tools/offline-b",
+      "-p",
+      "test_*.py",
+      "-v"
+    ],
+    "exit_code": 0,
+    "discovered": 32,
+    "passed": 31,
+    "skipped": 1,
+    "log_sha256": "6964568b815ec8f2cbfc63756400d5dcd4177b0957f9dffd35957ae9fa23977f",
+    "note": "Counts from actual original unittest footer; not product/device acceptance."
+  }
+]

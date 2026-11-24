@@ -1,0 +1,83 @@
+{
+  "format": 1,
+  "kind": "offline-b-selected-root-health-evidence",
+  "passed": false,
+  "source_before": {
+    "head": "c951783c359a81cfc5334f4600e5e6656b934a0c",
+    "tree": "3b488e1abba700e8f627f1e9bb984158f20f3eaa",
+    "worktree_sha256": "70856b2b1393995cb7a4e052c9a94d15e9a5624c274fe86862370f90d45ce1ee",
+    "dirty": false
+  },
+  "source_after": {
+    "head": "c951783c359a81cfc5334f4600e5e6656b934a0c",
+    "tree": "3b488e1abba700e8f627f1e9bb984158f20f3eaa",
+    "worktree_sha256": "70856b2b1393995cb7a4e052c9a94d15e9a5624c274fe86862370f90d45ce1ee",
+    "dirty": false
+  },
+  "command": [
+    "cargo",
+    "test",
+    "--lib",
+    "-p",
+    "rustsimhub-update",
+    "--locked",
+    "--offline",
+    "health::tests::",
+    "--",
+    "--test-threads=1"
+  ],
+  "result": {
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "-p",
+      "rustsimhub-update",
+      "--locked",
+      "--offline",
+      "health::tests::",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/home/builder/offline-b/recovery-source-c951783",
+    "started": "2026-11-24T05:47:07.106904+00:00",
+    "ended": "2026-11-24T05:50:34.810079+00:00",
+    "exit_code": 101,
+    "execution": "executed",
+    "reason": "",
+    "log": "tests.log",
+    "bytes_seen": 8242,
+    "bytes_saved": 8242,
+    "truncated": false,
+    "cleanup_complete": true,
+    "duration_seconds": 207.706
+  },
+  "cases": [
+    "alive_wrong_uid_hash_caps_duplicate_pid_or_role_rejected",
+    "even_forged_perfect_receipt_cannot_authorize_confirm",
+    "kernel_probe_refuses_an_executable_above_the_application_bound",
+    "live_process_with_wrong_root_data_or_schema_is_not_healthy",
+    "old_boot_challenge_expiry_future_and_oversized_ttl_rejected",
+    "wrong_candidate_source_epoch_manifest_rejected"
+  ],
+  "expected_cases": [
+    "alive_wrong_uid_hash_caps_duplicate_pid_or_role_rejected",
+    "even_forged_perfect_receipt_cannot_authorize_confirm",
+    "kernel_probe_reads_real_executable_and_refuses_missing_process",
+    "kernel_probe_refuses_an_executable_above_the_application_bound",
+    "live_process_with_wrong_root_data_or_schema_is_not_healthy",
+    "old_boot_challenge_expiry_future_and_oversized_ttl_rejected",
+    "wrong_candidate_source_epoch_manifest_rejected"
+  ],
+  "test_log_sha256": "70128cf144d6e78f541fda78346a5d5177be2bb7c59fb8b7b3a3a97ec0ab51dc",
+  "scope": "five synthetic candidate/fence rejection tests and two real own-child kernel executable probes",
+  "actual_product_service_chain_tested": false,
+  "actual_uid_cgroup_nft_chain_tested": false,
+  "signed": false,
+  "installable": false,
+  "health_authorized": false,
+  "hardware_tested": false,
+  "public_network_tested": false,
+  "original_report_sha256": "2d550e2e96044680d1625ce1a9670c9c6b02854fcec5aae12ae7caef35542905",
+  "public_summary_note": "Derived receipt; full original process-identity report retained in task VM and task evidence directory."
+}
