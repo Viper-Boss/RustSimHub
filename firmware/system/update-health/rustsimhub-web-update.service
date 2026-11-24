@@ -16,7 +16,8 @@ PrivateTmp=yes
 PrivateDevices=yes
 PrivateNetwork=yes
 NoNewPrivileges=yes
-CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_PTRACE CAP_SETUID CAP_SETGID CAP_KILL
+# Connecting to the Core-owned 0600 health socket requires write permission.
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_SYS_PTRACE CAP_SETUID CAP_SETGID CAP_KILL
 RestrictAddressFamilies=AF_UNIX
 UMask=0077
 TimeoutStartSec=240

@@ -316,7 +316,12 @@ pub async fn serve(auth: Arc<Mutex<Auth>>, sources: Arc<dyn RuntimeSources>) -> 
     let mut task: Option<tokio::task::JoinHandle<Result<()>>> = None;
     loop {
         tokio::select! {
-            r=async {if let Some(t)=task.as_mut(){Some(t.await)}else{std::future::pending().await}}=>{ let _=r;task=None;},
+            r=async {if let Some(t)=task.as_mut(){Some(t.await)}else{std::future::pending().await}}=>{
+                if let Some(Ok(Err(error)))=r {
+                    eprintln!("Core update health request ended: {error:?}");
+                }
+                task=None;
+            },
             accepted=listener.accept()=>{
                 let (stream,_)=accepted.map_err(|_|Error::Io)?;
                 if task.is_some()||stream.peer_cred().map(|p|p.uid()).ok()!=Some(0){continue;}

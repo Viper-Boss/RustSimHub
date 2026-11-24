@@ -35,7 +35,11 @@ impl Core {
         )
         .map_err(|_| Error::Io)?;
         let addr = rustix::net::SocketAddrUnix::new(wire::SOCKET).map_err(|_| Error::Invalid)?;
-        rustix::net::connect(&fd, &addr).map_err(|_| Error::Busy)?;
+        rustix::net::connect(&fd, &addr).map_err(|error| match error {
+            rustix::io::Errno::ACCESS | rustix::io::Errno::PERM => Error::Denied,
+            rustix::io::Errno::AGAIN | rustix::io::Errno::CONNREFUSED => Error::Busy,
+            _ => Error::Io,
+        })?;
         let stream = UnixStream::from(fd);
         stream.set_nonblocking(false).map_err(|_| Error::Io)?;
         let until = runtime.started + MAX_AGE;

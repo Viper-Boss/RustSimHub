@@ -2,8 +2,8 @@
 //! Offline version inspection, deliberately independent from Queue::open:
 //! no initialization, migrations, binding adoption or in-flight recovery.
 use crate::{
-    assess_outbox_compatibility, runtime_compatibility, Error, OutboxCompatibilityAssessment,
-    OutboxVersion, Result,
+    assess_outbox_compatibility, runtime_compatibility, Binding, Error,
+    OutboxCompatibilityAssessment, OutboxVersion, Result,
 };
 use fs2::FileExt;
 use rusqlite::{Connection, OpenFlags};
@@ -94,6 +94,36 @@ fn query_budget(connection: &Connection, budget: Duration, maximum_ops: u64) -> 
 /// No message, destination, secret or binding is returned. This checks SQLite
 /// consistency and version facts, not business-schema or Owner validity.
 pub fn inspect_outbox(directory: &Path) -> Result<OutboxInspection> {
+    inspect_outbox_inner(directory, true)
+}
+
+/// Fence a previously configured but disabled queue before its first normal
+/// use after Core starts. This does not open the queue writer or recover jobs.
+pub fn inspect_disabled_outbox(
+    directory: &Path,
+    auth: &rustsimhub_auth::Auth,
+) -> Result<Option<OutboxInspection>> {
+    if !directory.is_absolute() {
+        return Err(Error::Forbidden);
+    }
+    match fs::symlink_metadata(directory) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.into()),
+        Ok(_) => {}
+    }
+    let guard = inspect_outbox_inner(directory, false)?;
+    let saved: String = guard._connection.query_row(
+        "SELECT binding FROM meta WHERE singleton=1 AND enabled=0 AND length(binding)<=4096",
+        [],
+        |row| row.get(0),
+    )?;
+    let binding: Binding = serde_json::from_str(&saved)?;
+    binding.validate()?;
+    binding.check_current(auth)?;
+    Ok(Some(guard))
+}
+
+fn inspect_outbox_inner(directory: &Path, offline: bool) -> Result<OutboxInspection> {
     if !directory.is_absolute() {
         return Err(Error::Forbidden);
     }
@@ -133,7 +163,11 @@ pub fn inspect_outbox(directory: &Path) -> Result<OutboxInspection> {
     // Bound SQLite VM work on untrusted/corrupt files without another thread
     // or changing database PRAGMAs. The enclosing maintenance caller must also
     // enforce its wall-clock process budget (filesystem IO is outside the VM).
-    query_budget(&connection, Duration::from_secs(3), 10_000_000)?;
+    if offline {
+        query_budget(&connection, Duration::from_secs(3), 10_000_000)?;
+    } else {
+        query_budget(&connection, Duration::from_millis(75), 200_000)?;
+    }
     connection.execute_batch("PRAGMA query_only=ON; PRAGMA trusted_schema=OFF; BEGIN;")?;
     let mode: String = connection.pragma_query_value(None, "journal_mode", |r| r.get(0))?;
     if mode != "delete" {
@@ -141,9 +175,13 @@ pub fn inspect_outbox(directory: &Path) -> Result<OutboxInspection> {
     }
     let application_id = connection.pragma_query_value(None, "application_id", |r| r.get(0))?;
     let format = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
-    let check: String = connection.query_row("PRAGMA quick_check(1)", [], |r| r.get(0))?;
-    if check != "ok" {
-        return Err(Error::Storage);
+    if offline {
+        let check: String = connection.query_row("PRAGMA quick_check(1)", [], |r| r.get(0))?;
+        if check != "ok" {
+            return Err(Error::Storage);
+        }
+    } else if application_id != crate::OUTBOX_APPLICATION_ID || !matches!(format, 3 | 4) {
+        return Err(Error::Forbidden);
     }
     no_sidecars(directory)?;
     let after = fs::symlink_metadata(&path)?;

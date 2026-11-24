@@ -1033,3 +1033,47 @@ async fn synthetic_test_rejects_unready_sim_and_unknown_target_without_queueing(
         .unwrap()
         .is_empty());
 }
+
+#[tokio::test]
+async fn an_unopened_disabled_outbox_has_a_health_lease_without_queue_recovery() {
+    let f = Fixture::new();
+    assert_eq!(
+        f.request(f.configure(0, REQUEST, false)).await["enabled"],
+        false
+    );
+    let directory = f.state.path().join("forwarding");
+    let database = directory.join("outbox.sqlite3");
+    drop(f.control.0.lock().unwrap().queue.take());
+    let original = fs::read(&database).unwrap();
+    let mut auth = f.auth.lock().unwrap();
+    let binding = rustsimhub_forwarder::Binding::from_owner(&mut auth, &f.token).unwrap();
+    f.control
+        .health_locked(&auth, &mut |forwarding| {
+            assert!(forwarding.queue_owned);
+            assert_eq!(forwarding.admitted_generation, None);
+            assert!(Queue::open(&directory, binding.clone()).is_err());
+            let lease = auth
+                .update_health_lease(
+                    std::time::Instant::now() + std::time::Duration::from_secs(1),
+                    forwarding.queue_owned,
+                )
+                .unwrap();
+            assert_eq!(
+                lease.snapshot().forwarding.schema,
+                Some(rustsimhub_forwarder::OUTBOX_CURRENT_FORMAT as u32)
+            );
+            assert!(!lease.snapshot().forwarding.enabled);
+            lease.revalidate().unwrap();
+            lease.release().unwrap();
+            Ok(())
+        })
+        .unwrap();
+    assert!(f.control.0.lock().unwrap().queue.is_none());
+    assert!(fs::read(&database).unwrap() == original);
+    let writer = Queue::open(&directory, binding).unwrap();
+    assert!(f
+        .control
+        .health_locked(&auth, &mut |_| panic!("writer unavailable"))
+        .is_err());
+    drop(writer);
+}

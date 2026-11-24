@@ -273,7 +273,7 @@ fn optional_stamp(p: &Path) -> Result<Option<Stamp>> {
 struct Outbox {
     absent: Option<PathBuf>,
     state: ForwardingState,
-    file: Option<(PathBuf, Stamp)>,
+    files: Vec<(PathBuf, Stamp)>,
     _connection: Option<Connection>,
 }
 impl Outbox {
@@ -283,8 +283,8 @@ impl Outbox {
                 return Err(Error::Busy);
             }
         }
-        if let Some((p, s)) = &self.file {
-            if &stamp(p)? != s {
+        for (path, original) in &self.files {
+            if &stamp(path)? != original {
                 return Err(Error::Busy);
             }
         }
@@ -303,7 +303,7 @@ fn outbox(directory: &Path, queue_owned: bool) -> Result<Outbox> {
                     generation: 0,
                     schema: None,
                 },
-                file: None,
+                files: vec![],
                 _connection: None,
             })
         }
@@ -317,6 +317,8 @@ fn outbox(directory: &Path, queue_owned: bool) -> Result<Outbox> {
     {
         return Err(Error::Busy);
     }
+    let lock_path = path.join(".writer.lock");
+    let lock_stamp = stamp(&lock_path)?;
     let path = path.join("outbox.sqlite3");
     let observed = stamp(&path)?;
     let c = Connection::open_with_flags(
@@ -340,7 +342,7 @@ fn outbox(directory: &Path, queue_owned: bool) -> Result<Outbox> {
         [],
         |r| Ok((r.get(0)?, r.get(1)?)),
     )?;
-    if stamp(&path)? != observed {
+    if stamp(&path)? != observed || stamp(&lock_path)? != lock_stamp {
         return Err(Error::Busy);
     }
     Ok(Outbox {
@@ -350,7 +352,7 @@ fn outbox(directory: &Path, queue_owned: bool) -> Result<Outbox> {
             generation: u64::try_from(generation).map_err(|_| Error::Corrupt)?,
             schema: Some(schema),
         },
-        file: Some((path, observed)),
+        files: vec![(path, observed), (lock_path, lock_stamp)],
         _connection: Some(c),
     })
 }

@@ -14,9 +14,13 @@ impl Controller {
         if state.quick.is_some() || state.quick_stop.is_some() {
             return Err(HealthError::Busy);
         }
-        if let Some(q) = &state.queue {
+        let idle_guard = if let Some(q) = &state.queue {
             q.current_binding(auth).map_err(|_| HealthError::Denied)?;
-        }
+            None
+        } else {
+            rustsimhub_forwarder::inspect_disabled_outbox(&state.directory, auth)
+                .map_err(|_| HealthError::Source)?
+        };
         let (generation, until) = match &state.worker {
             Some(session) => {
                 let (g, t) = session
@@ -27,7 +31,7 @@ impl Controller {
             None => (None, None),
         };
         work(ForwarderLease {
-            queue_owned: state.queue.is_some(),
+            queue_owned: state.queue.is_some() || idle_guard.is_some(),
             admitted_generation: generation,
             admitted_until: until,
         })

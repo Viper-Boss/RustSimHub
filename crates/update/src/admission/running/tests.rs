@@ -83,6 +83,23 @@ fn web_confirmation_uses_the_same_writable_mount_as_the_ledger() {
 }
 
 #[test]
+fn web_confirmation_can_connect_to_the_private_core_socket() {
+    let unit =
+        include_str!("../../../../../firmware/system/update-health/rustsimhub-web-update.service");
+    let capabilities = unit
+        .lines()
+        .find_map(|line| line.strip_prefix("CapabilityBoundingSet="))
+        .unwrap();
+    assert!(capabilities
+        .split_whitespace()
+        .any(|cap| cap == "CAP_DAC_OVERRIDE"));
+    assert!(unit
+        .lines()
+        .any(|line| line == "RestrictAddressFamilies=AF_UNIX"));
+    assert!(unit.lines().any(|line| line == "ProtectSystem=strict"));
+}
+
+#[test]
 fn web_ap_health_requires_exact_root_bytes_and_loaded_config() {
     let temp = super::super::tests::fixture(Mode::SetupAp, true);
     let uid = rustix::process::geteuid().as_raw();
