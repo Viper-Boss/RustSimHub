@@ -41,12 +41,17 @@ def audit(root=ROOT, checks=CHECKS, contract=None):
     if len(names) != len(checks):
         raise ValueError('duplicate stage identity')
     covered, observed = set(), set()
-    nonexecuted = []
+    nonexecuted, excluded = [], []
     for row in contract['workflow_steps']:
         key = (row['job'], row['step'])
-        if key in observed or row['disposition'] not in ('checks', 'capability_probe', 'external_setup', 'mixed_setup'):
+        if key in observed or row['disposition'] not in ('checks', 'capability_probe', 'external_setup', 'mixed_setup', 'excluded_scope'):
             raise ValueError('duplicate or unsupported manual workflow step')
         observed.add(key)
+        if row['disposition'] == 'excluded_scope':
+            if row['checks'] or not row['reason']:
+                raise ValueError('excluded workflow validation needs a reason and cannot supply executable checks')
+            excluded.append(dict(row, status='not_run'))
+            continue
         if not set(row['checks']) <= names or (row['disposition'] == 'checks' and not row['checks']):
             raise ValueError('workflow step missing its fixed check identities')
         covered.update(row['checks'])
@@ -62,6 +67,7 @@ def audit(root=ROOT, checks=CHECKS, contract=None):
             'workflow_steps': len(observed), 'check_count': len(checks),
             'workflow_check_count': len(covered), 'runner_only': sorted(extra),
             'nonexecuted_setup_or_probes': nonexecuted,
+            'excluded_workflow_validations': excluded,
             'not_general_ci_or_release_approval': True}
 
 

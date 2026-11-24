@@ -1,11 +1,13 @@
 {
   "schema": 1,
   "workflow": ".github/workflows/rust.yml",
-  "workflow_sha256": "9b746809729d5c60e65db8b72598fb9f1229109ee52c900396f4322739936e21",
+  "workflow_sha256": "93520316fc5dce6ace70a1188339438656d18712e82876a7c87ca0e4ef26a25f",
   "adaptations": [
     "Reviewed shell multi-command steps split into existing fixed argv stages; cargo JSON stdout saved without a shell.",
     "Normal NAS go test adds -json solely for actual test/subtest/skip counts; selection/race/count/timeout remain the workflow settings.",
-    "Privileged group copies retain existing gating and no automatic dependency installation."
+    "Privileged group copies retain existing gating and no automatic dependency installation.",
+    "offline-b-source-inputs is runner-only relative to rust.yml; its separate offline-b-inputs.yml workflow runs the same fixed unittest command with full source ancestry.",
+    "Reviewed the three newly present rust.yml steps: actual usage UI/Owner checks are mapped; the AirSIM validation is explicitly excluded/not_run and never supplied as a replacement check. rust.yml is unchanged."
   ],
   "workflow_steps": [
     {
@@ -454,6 +456,33 @@
       ],
       "disposition": "checks",
       "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Web AirSIM pairing status refresh and late-response safety",
+      "checks": [],
+      "disposition": "excluded_scope",
+      "reason": "Existing AirSIM validation stays unchanged in rust.yml; B cannot execute or modify this other-window scope. Not assessed by this runner; not replaced by ordinary checks."
+    },
+    {
+      "job": "test",
+      "step": "Independent usage permission and aggregate query UI",
+      "checks": [
+        "web-usage-stats",
+        "web-usage-participation",
+        "web-nkn-product"
+      ],
+      "disposition": "checks",
+      "reason": ""
+    },
+    {
+      "job": "test",
+      "step": "Usage permission through original Owner RPC",
+      "checks": [
+        "usage-owner-rpc"
+      ],
+      "disposition": "checks",
+      "reason": "The offline fixed copy adds --locked/--offline without changing test or feature selection."
     }
   ],
   "runner_only": [
@@ -465,7 +494,6 @@
     "web-operation-receipt",
     "web-password",
     "web-test-center-component",
-    "web-usage-stats",
     "configurator-cancel",
     "configurator-controller",
     "configurator-gatt-framing",
@@ -473,7 +501,8 @@
     "go-offline-tests",
     "native-test-relay",
     "native-clippy-relay",
-    "runner-unit"
+    "runner-unit",
+    "offline-b-source-inputs"
   ],
   "check_identities": [
     {"name":"fmt","group":"ordinary","argv":["cargo","fmt","--all","--","--check"],"timeout":180,"requires":["rustfmt"],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
@@ -526,6 +555,9 @@
     {"name":"web-test-center","group":"ordinary","argv":["node","tools/test-web-test-center.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-test-center.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
     {"name":"web-usage-stats","group":"ordinary","argv":["node","tools/test-web-usage-stats.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-usage-stats.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
     {"name":"web-wifi","group":"ordinary","argv":["node","tools/test-web-wifi.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-wifi.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-usage-participation","group":"ordinary","argv":["node","tools/test-web-usage-participation.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-usage-participation.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"web-nkn-product","group":"ordinary","argv":["node","tools/test-web-nkn-product.mjs"],"timeout":180,"requires":[],"files":["tools/test-web-nkn-product.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"usage-owner-rpc","group":"ordinary","argv":["cargo","test","-p","rustsimhub-core","--features","product-providers-candidate","--locked","--offline","nkn_product::tests::participation_"],"timeout":600,"requires":[],"files":[],"kind":"rust","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
     {"name":"configurator-cancel","group":"ordinary","argv":["node","configurator/tests/cancel.mjs"],"timeout":180,"requires":[],"files":["configurator/tests/cancel.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
     {"name":"configurator-controller","group":"ordinary","argv":["node","configurator/tests/controller.mjs"],"timeout":180,"requires":[],"files":["configurator/tests/controller.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
     {"name":"configurator-gatt-framing","group":"ordinary","argv":["node","configurator/tests/gatt-framing.mjs"],"timeout":180,"requires":[],"files":["configurator/tests/gatt-framing.mjs"],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
@@ -539,6 +571,7 @@
     {"name":"upgrade-compatibility","group":"ordinary","argv":["python3","tools/test-upgrade-compatibility.py","--launcher","target/debug/rustsimhub-core-launcher","--core","target/debug/rustsimhub-core","--worker","target/debug/rustsimhub-forwarder"],"timeout":180,"requires":[],"files":[],"kind":"command","cwd":".","depends":["compatibility-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
     {"name":"worker-inspection","group":"ordinary","argv":["python3","tools/test-forwarding-inspection.py","--worker","target/debug/rustsimhub-forwarder"],"timeout":180,"requires":[],"files":[],"kind":"command","cwd":".","depends":["compatibility-build"],"artifact":"","committed_source":false,"fixed_environment":{}},
     {"name":"runner-unit","group":"runner","argv":["python3","-m","unittest","discover","-s","tools/mainline-checks","-p","test_*.py"],"timeout":180,"requires":[],"files":[],"kind":"unittest","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
+    {"name":"offline-b-source-inputs","group":"ordinary","argv":["python3","-m","unittest","discover","-s","tools/product-integration","-p","test_*.py","-v"],"timeout":180,"requires":[],"files":["tools/product-integration"],"kind":"unittest","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
     {"name":"board-fixtures","group":"root","argv":["sudo","-n","python3","-m","unittest","discover","-s","tools/system","-p","test_*.py"],"timeout":600,"requires":["root","mount"],"files":[],"kind":"unittest","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
     {"name":"ap-units","group":"root","argv":["sudo","-n","python3","tools/test-setup-ap-units.py"],"timeout":180,"requires":["root"],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},
     {"name":"ap-build","group":"root","argv":["cargo","build","-p","rustsimhub-core","-p","rustsimhub-edge","-p","rustsimhub-setup-ap","-p","rustsimhub-core-launcher","--locked"],"timeout":1800,"requires":["root"],"files":[],"kind":"command","cwd":".","depends":[],"artifact":"","committed_source":false,"fixed_environment":{}},

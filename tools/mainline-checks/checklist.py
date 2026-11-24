@@ -89,6 +89,12 @@ WEB = (
 for name in WEB:
     script = 'tools/test-web-' + name + '.mjs'
     add('web-' + name, 'ordinary', ['node', script], files=(script,))
+for name in ('usage-participation', 'nkn-product'):
+    script = 'tools/test-web-' + name + '.mjs'
+    add('web-' + name, 'ordinary', ['node', script], files=(script,))
+add('usage-owner-rpc', 'ordinary', ['cargo', 'test', '-p', 'rustsimhub-core',
+    '--features', 'product-providers-candidate', '--locked', '--offline',
+    'nkn_product::tests::participation_'], kind='rust', timeout=600)
 for name in ('cancel', 'controller', 'gatt-framing', 'static-update'):
     script = 'configurator/tests/' + name + '.mjs'
     add('configurator-' + name, 'ordinary', ['node', script], files=(script,))
@@ -108,6 +114,9 @@ add('compatibility-build', 'ordinary', ['cargo', 'build', '-p', 'rustsimhub-core
 add('upgrade-compatibility', 'ordinary', ['python3', 'tools/test-upgrade-compatibility.py', '--launcher', 'target/debug/rustsimhub-core-launcher', '--core', 'target/debug/rustsimhub-core', '--worker', 'target/debug/rustsimhub-forwarder'], depends=('compatibility-build',))
 add('worker-inspection', 'ordinary', ['python3', 'tools/test-forwarding-inspection.py', '--worker', 'target/debug/rustsimhub-forwarder'], depends=('compatibility-build',))
 add('runner-unit', 'runner', ['python3', '-m', 'unittest', 'discover', '-s', 'tools/mainline-checks', '-p', 'test_*.py'], kind='unittest')
+add('offline-b-source-inputs', 'ordinary',
+    ['python3', '-m', 'unittest', 'discover', '-s', 'tools/product-integration', '-p', 'test_*.py', '-v'],
+    kind='unittest', files=('tools/product-integration',))
 # Specialized groups are opt-in. Use the original fixtures and privilege prefixes.
 add('board-fixtures', 'root', ['sudo', '-n', 'python3', '-m', 'unittest', 'discover', '-s', 'tools/system', '-p', 'test_*.py'], requires=('root', 'mount'), kind='unittest', timeout=600)
 add('ap-units', 'root', ['sudo', '-n', 'python3', 'tools/test-setup-ap-units.py'], requires=('root',), kind='command')

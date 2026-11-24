@@ -3,11 +3,14 @@
 """Read-only fixed-commit assembly check; never an install/health authorization."""
 import argparse
 import json
+import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 
 LOCK = Path(__file__).with_name('inputs.json')
+MAX_LOCK_BYTES = 128 * 1024
 
 
 def require(ok, message):
@@ -24,8 +27,11 @@ def unique(items):
 
 
 def parse(raw):
-    require(0 < len(raw) <= 128*1024, 'dependency lock size')
-    value = json.loads(raw, object_pairs_hook=unique)
+    require(0 < len(raw) <= MAX_LOCK_BYTES, 'dependency lock size')
+    try:
+        value = json.loads(raw, object_pairs_hook=unique)
+    except RecursionError:
+        raise ValueError('dependency lock nesting exceeds decoder budget') from None
     require(type(value) is dict and set(value) == {'format', 'repository', 'baseline', 'inputs'}, 'lock fields')
     require(type(value['format']) is int and value['format'] == 1, 'lock format')
     require(value['repository'] == 'Viper-Boss/RustSimHub', 'repository identity')
@@ -67,6 +73,27 @@ def parse(raw):
     for name in index:
         visit(name)
     return value
+
+
+def read_lock(path):
+    """Bound allocation before parsing; reject nonregular/replaced lock files."""
+    path = Path(path)
+    initial = path.lstat()
+    require(stat.S_ISREG(initial.st_mode) and initial.st_nlink == 1
+            and not getattr(initial, 'st_file_attributes', 0) & 0x400
+            and 0 < initial.st_size <= MAX_LOCK_BYTES, 'bounded regular dependency lock required')
+    flags = os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_NONBLOCK', 0)
+    with os.fdopen(os.open(path, flags), 'rb') as stream:
+        before = os.fstat(stream.fileno())
+        require(stat.S_ISREG(before.st_mode) and before.st_nlink == 1
+                and (before.st_dev, before.st_ino) == (initial.st_dev, initial.st_ino),
+                'dependency lock replaced before open')
+        raw = stream.read(MAX_LOCK_BYTES + 1)
+        after = os.fstat(stream.fileno())
+        require(len(raw) == before.st_size and (before.st_dev, before.st_ino, before.st_size,
+                before.st_mtime_ns, before.st_ctime_ns) == (after.st_dev, after.st_ino, after.st_size,
+                after.st_mtime_ns, after.st_ctime_ns), 'dependency lock changed while reading')
+    return parse(raw)
 
 
 def commit(value):
@@ -130,7 +157,7 @@ def main():
     parser.add_argument('--require-complete', action='store_true', help='exit 3 if source inputs are incomplete or dirty')
     args = parser.parse_args()
     try:
-        result = inspect(args.repository, parse(args.lock.read_bytes()), args.integration)
+        result = inspect(args.repository, read_lock(args.lock), args.integration)
     except (ValueError, OSError, subprocess.SubprocessError) as error:
         parser.exit(2, 'Integration source refused: '+str(error)+'\n')
     print(json.dumps(result, sort_keys=True))

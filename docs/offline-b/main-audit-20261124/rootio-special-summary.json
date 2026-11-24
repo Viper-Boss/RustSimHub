@@ -1,0 +1,33 @@
+{
+  "source_head": "de663743bd726e77f7c560139d0f91ea78e8fe57",
+  "source_tree": "897b7b485ce8b3108d359d859dd2384efba78df1",
+  "binary": {
+    "source_head": "de663743bd726e77f7c560139d0f91ea78e8fe57",
+    "source_tree": "897b7b485ce8b3108d359d859dd2384efba78df1",
+    "original_test_artifact": "/workspace/offline-b-main-audit-20261124/update-target/debug/deps/product_materials_rootio-14123f94b049d3a4",
+    "snapshot": "/home/builder/offline-b/input/main-rootio-test",
+    "bytes": 2955536,
+    "sha256": "48e25f718c4eb2344513f76ab8e53eb03590a0aaf641aaf9ce7d542aff2d541f"
+  },
+  "configured_private_tmpfs_bytes": 1048576,
+  "cases": [
+    {
+      "name": "dedicated_private_tmpfs_enospc_cleans_own_stage_without_target_write",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "exit_code": 0,
+      "log_sha256": "bc7779dc3e56e68bdfe79fd550f671931a8cd723f74959e5423adbf1ba0f96fd"
+    },
+    {
+      "name": "dedicated_readonly_tmpfs_rejects_write_and_retains_baseline",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "exit_code": 0,
+      "log_sha256": "a83aeb390e8219a721f632cc4aa058ea0a8c14312a665b8d6f76ffba4484a270"
+    }
+  ],
+  "hardware_tested": false,
+  "production_rootfs_modified": false
+}
