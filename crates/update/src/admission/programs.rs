@@ -1,0 +1,268 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+//! Metadata from the exact signed executable bytes, never caller-supplied JSON.
+use super::{MaintenanceSnapshot, ProgramMetadata, Result};
+use crate::{manifest_hash, verify, verify_payload, Error};
+use serde::{Deserialize, Serialize};
+use std::{
+    fs::File,
+    io::{Read, Write},
+    os::unix::process::CommandExt,
+    process::{Child, Command, Stdio},
+    time::{Duration, Instant},
+};
+
+const LIMIT: usize = 16384;
+
+/// Construction verifies the complete signed application group first. Fields
+/// stay private so no caller can replace observed metadata after verification.
+pub struct SignedPrograms {
+    manifest_sha256: String,
+    source_sha256: String,
+    core: String,
+    worker: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct Claims {
+    source_archive_sha256: String,
+    development_fixtures: bool,
+    component: Option<String>,
+    target_arch: Option<String>,
+    worker: Option<bool>,
+}
+
+impl SignedPrograms {
+    /// The public key must come from the maintenance caller's installed trust,
+    /// not a package or browser. This verifies package provenance, not trust
+    /// selection, effective systemd state, selected-slot identity or epoch floor.
+    pub fn inspect(
+        manifest: &[u8],
+        signature: &[u8],
+        public_key: &[u8; 32],
+        payloads: &[Vec<u8>],
+        schema: u32,
+    ) -> Result<Self> {
+        Self::inspect_with(manifest, signature, public_key, payloads, schema, |b| {
+            capture(b, 986)
+        })
+    }
+
+    fn inspect_with(
+        manifest: &[u8],
+        signature: &[u8],
+        public_key: &[u8; 32],
+        payloads: &[Vec<u8>],
+        schema: u32,
+        mut read_metadata: impl FnMut(&[u8]) -> Result<Vec<u8>>,
+    ) -> Result<Self> {
+        let verified = verify(manifest, signature, public_key, schema, 0)?;
+        verify_payload(&verified, payloads)?;
+        let mut observe = |index: usize, worker: bool| -> Result<String> {
+            let bytes = read_metadata(&payloads[index])?;
+            if bytes.is_empty() || bytes.len() > LIMIT {
+                return Err(Error::Invalid);
+            }
+            let claims: Claims = serde_json::from_slice(&bytes).map_err(|_| Error::Invalid)?;
+            if claims.source_archive_sha256 != verified.source_sha256
+                || claims.development_fixtures
+                || claims
+                    .target_arch
+                    .as_deref()
+                    .is_some_and(|a| a != "aarch64")
+                || (worker && claims.worker != Some(true))
+                || (!worker
+                    && (claims.worker.is_some()
+                        || claims.component.as_deref().is_some_and(|v| v != "core")))
+            {
+                return Err(Error::Integrity);
+            }
+            String::from_utf8(bytes).map_err(|_| Error::Invalid)
+        };
+        let core = observe(0, false)?;
+        let worker = if verified.format == 2 {
+            Some(observe(4, true)?)
+        } else {
+            None
+        };
+        Ok(Self {
+            manifest_sha256: manifest_hash(manifest),
+            source_sha256: verified.source_sha256,
+            core,
+            worker,
+        })
+    }
+
+    fn metadata(&self) -> ProgramMetadata<'_> {
+        ProgramMetadata {
+            core: &self.core,
+            worker: self.worker.as_deref(),
+        }
+    }
+}
+
+/// Borrows both the data fence and verified program identities. The report is
+/// deliberately not a mutation capability; effective units and selection/floor
+/// still have to be bound by the updater action before any slot mutation.
+pub struct SignedVersionCheck<'a> {
+    snapshot: &'a MaintenanceSnapshot,
+    roles: [&'a SignedPrograms; 3],
+    report: rustsimhub_core_launcher::UpgradeReport,
+}
+
+#[derive(Serialize)]
+pub struct SignedVersionReport<'a> {
+    format: u16,
+    authorization_verified: bool,
+    signed_programs_verified: bool,
+    installed_trust_verified: bool,
+    slot_identity_verified: bool,
+    effective_systemd_verified: bool,
+    manifest_sha256: [&'a str; 3],
+    source_sha256: [&'a str; 3],
+    comparison: &'a rustsimhub_core_launcher::UpgradeReport,
+}
+
+impl MaintenanceSnapshot {
+    pub fn compare_signed<'a>(
+        &'a self,
+        selected: &'a SignedPrograms,
+        candidate: &'a SignedPrograms,
+        fallback: &'a SignedPrograms,
+    ) -> Result<SignedVersionCheck<'a>> {
+        let check = self.compare_versions(
+            selected.metadata(),
+            candidate.metadata(),
+            fallback.metadata(),
+        )?;
+        Ok(SignedVersionCheck {
+            snapshot: self,
+            roles: [selected, candidate, fallback],
+            report: check.report,
+        })
+    }
+}
+
+impl SignedVersionCheck<'_> {
+    pub fn revalidate(&self) -> Result<()> {
+        self.snapshot.revalidate()
+    }
+    pub fn exit_code(&self) -> i32 {
+        self.report.exit_code()
+    }
+    pub fn report(&self) -> SignedVersionReport<'_> {
+        SignedVersionReport {
+            format: 1,
+            authorization_verified: false,
+            signed_programs_verified: true,
+            installed_trust_verified: false,
+            slot_identity_verified: false,
+            effective_systemd_verified: false,
+            manifest_sha256: self.roles.map(|p| p.manifest_sha256.as_str()),
+            source_sha256: self.roles.map(|p| p.source_sha256.as_str()),
+            comparison: &self.report,
+        }
+    }
+}
+
+fn sealed(bytes: &[u8]) -> Result<File> {
+    use rustix::fs::{fchmod, fcntl_add_seals, memfd_create, MemfdFlags, Mode, SealFlags};
+    let fd = memfd_create(
+        c"rustsimhub-build-info",
+        MemfdFlags::CLOEXEC | MemfdFlags::ALLOW_SEALING,
+    )
+    .map_err(|_| Error::Denied)?;
+    let mut file = File::from(fd);
+    file.write_all(bytes).map_err(|_| Error::Io)?;
+    fchmod(&file, Mode::from_raw_mode(0o555)).map_err(|_| Error::Denied)?;
+    fcntl_add_seals(
+        &file,
+        SealFlags::SHRINK | SealFlags::GROW | SealFlags::WRITE | SealFlags::SEAL,
+    )
+    .map_err(|_| Error::Denied)?;
+    Ok(file)
+}
+
+struct Reap(Child);
+impl Drop for Reap {
+    fn drop(&mut self) {
+        if !matches!(self.0.try_wait(), Ok(Some(_))) {
+            let _ = self.0.kill();
+        }
+        let _ = self.0.wait();
+    }
+}
+
+fn capture(bytes: &[u8], uid: u32) -> Result<Vec<u8>> {
+    let change_identity =
+        rustix::process::geteuid().as_raw() != uid || rustix::process::getegid().as_raw() != uid;
+    if change_identity {
+        use rustix::thread::{capabilities, CapabilitySet};
+        let effective = capabilities(None).map_err(|_| Error::Denied)?.effective;
+        // Killing a child after dropping it to another UID needs CAP_KILL.
+        // Refuse BEFORE spawn when timeout cleanup cannot be guaranteed.
+        if !effective.contains(CapabilitySet::KILL | CapabilitySet::SETUID | CapabilitySet::SETGID)
+        {
+            return Err(Error::Denied);
+        }
+    }
+    rustix::thread::set_no_new_privs(true).map_err(|_| Error::Denied)?;
+    // FD 0 is mapped through Stdio rather than making arbitrary descriptors
+    // inheritable. The kernel executes the sealed bytes, not a pathname that
+    // can be replaced between signature verification and process creation.
+    let file = sealed(bytes)?;
+    let mut command = Command::new("/proc/self/fd/0");
+    command
+        .arg0("rustsimhub-build-info")
+        .arg("--build-info")
+        .env_clear()
+        .current_dir("/")
+        .stdin(Stdio::from(file))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    if change_identity {
+        command.uid(uid).gid(uid);
+    }
+    let mut child = Reap(command.spawn().map_err(|_| Error::Denied)?);
+    let mut output = child.0.stdout.take().ok_or(Error::Io)?;
+    let flags = rustix::fs::fcntl_getfl(&output).map_err(|_| Error::Io)?;
+    rustix::fs::fcntl_setfl(&output, flags | rustix::fs::OFlags::NONBLOCK)
+        .map_err(|_| Error::Io)?;
+    let deadline = Instant::now() + Duration::from_secs(3);
+    let mut result = Vec::new();
+    loop {
+        let mut part = [0; 4096];
+        let mut eof = false;
+        loop {
+            match output.read(&mut part) {
+                Ok(0) => {
+                    eof = true;
+                    break;
+                }
+                Ok(n) => {
+                    if result.len() + n > LIMIT {
+                        return Err(Error::Invalid);
+                    }
+                    result.extend_from_slice(&part[..n]);
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(_) => return Err(Error::Io),
+            }
+        }
+        if let Some(status) = child.0.try_wait().map_err(|_| Error::Io)? {
+            if !status.success() {
+                return Err(Error::Integrity);
+            }
+            if eof {
+                return Ok(result);
+            }
+        }
+        if Instant::now() >= deadline {
+            return Err(Error::Busy);
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
+
+#[cfg(test)]
+mod tests;

@@ -1,6 +1,47 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 #![forbid(unsafe_code)]
 #[cfg(target_os = "linux")]
+fn check_maintenance_versions(
+    paths: &[String],
+    schema: u32,
+) -> Result<i32, rustsimhub_update::Error> {
+    use rustsimhub_update::{
+        admission::{MaintenanceSnapshot, SignedPrograms},
+        store::{load_payloads, read_checked},
+        verify, Error, MAX_MANIFEST,
+    };
+    use std::path::Path;
+    let key: [u8; 32] = read_checked(Path::new(&paths[0]), 32)?
+        .as_slice()
+        .try_into()
+        .map_err(|_| Error::Invalid)?;
+    let snapshot = MaintenanceSnapshot::observe()?;
+    let inspect = |directory: &str| {
+        let directory = Path::new(directory);
+        let manifest = read_checked(&directory.join("manifest.json"), MAX_MANIFEST)?;
+        let signature = read_checked(&directory.join("manifest.sig"), 64)?;
+        let verified = verify(&manifest, &signature, &key, schema, 0)?;
+        SignedPrograms::inspect(
+            &manifest,
+            &signature,
+            &key,
+            &load_payloads(directory, &verified)?,
+            schema,
+        )
+    };
+    let selected = inspect(&paths[1])?;
+    let candidate = inspect(&paths[2])?;
+    let fallback = inspect(&paths[3])?;
+    let check = snapshot.compare_signed(&selected, &candidate, &fallback)?;
+    check.revalidate()?;
+    println!(
+        "{}",
+        serde_json::to_string(&check.report()).map_err(|_| Error::Invalid)?
+    );
+    Ok(check.exit_code())
+}
+
+#[cfg(target_os = "linux")]
 fn run() -> Result<(), rustsimhub_update::Error> {
     const SCHEMA: u32 = 6;
     use ed25519_dalek::{Signer, SigningKey};
@@ -30,6 +71,12 @@ fn run() -> Result<(), rustsimhub_update::Error> {
             serde_json::to_string(&snapshot.report()).map_err(|_| Error::Invalid)?
         );
         return Ok(());
+    }
+    if args.len() == 5 && args[0] == "check-maintenance-versions" {
+        // All guards in this finite diagnostic are dropped before exit. The
+        // provided trust/roles are not promoted to installed slot identities.
+        let code = check_maintenance_versions(&args[1..], SCHEMA)?;
+        std::process::exit(code);
     }
     if let [command, public, directory] = args.as_slice() {
         if command == "verify-package" {

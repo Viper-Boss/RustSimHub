@@ -104,6 +104,10 @@
 
 2026-10-24 [X1D转发执行通道与主开关](VALIDATION-FORWARDING-WORKER-IPC-X1D.md)源码验证通过：现有Core socket按实际UID隔离Root/Edge/worker，有限能力、唯一Claim、每阶段实际内容摘要及Owner/代次/SIM复核；总开关无需回显密钥。完整404项Rust、严格Clippy/生产Core、三份ARM64及真实多UID临时进程/关闭后重开测试通过。Root固定服务主管、独立worker程序/出口和网页仍缺，未部署或访问棒子，不宣称实际关闭无PID。精确源码cd19a50的[CI40103249020](https://github.com/Viper-Boss/RustSimHub/actions/runs/40103249020)两个任务及新增多UID步骤success。保留并行README文档与原接手笔记；原整体80%，短信授权已消费，当前不需用户操作。
 
+2026-10-24 中文首页：README明确为中文介绍；横幅、桌面及手机概念图文案和无障碍说明已中文化，并加入中文字体回退。python docs/assets/generate-preview.py、3份SVG XML解析、全部本地链接、Sharp渲染/人工视觉检查及git diff --check通过。文档PR #1已合并至main，提交3dcdbbfb336ef9a561a0c9914948c9846d9c380e，首页使用根目录README.md。无设备或业务变更；概念图仍未实现，整体80%。本次无阻塞，后续按前端规划另行接线验收。
+
+2026-10-24 README展示文档：重写项目定位、功能边界、架构、开发和文档导航；新增前端设计说明及横幅/桌面/手机三份可重建SVG。仅文档与静态概念图，不是实际前端交付。验证：python docs/assets/generate-preview.py通过；三份SVG经XML解析、Sharp渲染及人工视觉检查通过；43个本地链接无缺失；git diff --check通过。无设备操作或业务改动，原P0–P7仍80%。阻塞：本次无；下一步为按前端设计逐页接线和真实验收，不包含于本次文档任务。
+
 2026-10-24 [X1C Core转发管理](VALIDATION-FORWARDING-CORE-X1C.md)源码通过：五个实际Owner管理命令、只读模式不开放配置、默认查询不建目录或启动任务、目标凭据不回显，配置重查不因新来信而冲突或跳过新消息。新增8项真实Core IPC测试、完整393项Rust/严格Clippy/生产Core及Core/Edge/转发库ARM64通过；X1B精确源码ecd3545的CI40088053542及X1C精确源码33488ce的[CI40089301860](https://github.com/Viper-Boss/RustSimHub/actions/runs/40089301860)均两个任务success。实际worker IPC/出口/Root主管/网页仍缺，未部署或启用；现场7a60650/confirmed46、68短信，原整体80%，单条CXYE发送授权已消费，当前不需用户操作。
 
 2026-10-24 [X1B实际HTTPS](VALIDATION-FORWARDER-HTTPS-X1B.md)组件源码/回环验证完成：rustls/Hyper、有限证书/请求/响应、10秒截止、取消关闭连接、三阶段Core fence及唯一尝试，16项新增/40项转发、完整385项Rust、严格Clippy/生产Core/ARM64库通过；实际出口/worker/Core wire/Root主管/网页仍缺，未交付转发。另[P2H正式一键短信](VALIDATION-ONE-CLICK-SMS-P2H.md)用户晚到回执经独立只读核实：唯一10010/CXYE操作/尝试、MM sent及新10010 received正文一致，原67条无损现68条，数据关闭/confirmed46保持。回信仅引导App查询，没有余额数值；一次发送授权已用尽。P2加0.5至16，原整体80%，新扩展单列，继续真实worker/启停/网页。
