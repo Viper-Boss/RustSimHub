@@ -1,0 +1,60 @@
+{
+  "format": 1,
+  "kind": "exact-main-statistics-cache-and-transaction-retest",
+  "passed": true,
+  "source_before": {
+    "head": "de663743bd726e77f7c560139d0f91ea78e8fe57",
+    "tree": "897b7b485ce8b3108d359d859dd2384efba78df1",
+    "worktree_sha256": "8d6570bccd203e9a733cc803298679fca9b1ac4d91ff7ab3540d435f9993fde5",
+    "dirty": false
+  },
+  "source_after": {
+    "head": "de663743bd726e77f7c560139d0f91ea78e8fe57",
+    "tree": "897b7b485ce8b3108d359d859dd2384efba78df1",
+    "worktree_sha256": "8d6570bccd203e9a733cc803298679fca9b1ac4d91ff7ab3540d435f9993fde5",
+    "dirty": false
+  },
+  "result": {
+    "command": [
+      "cargo",
+      "test",
+      "-p",
+      "rustsimhub-usage-stats",
+      "--features",
+      "transaction-candidate",
+      "--locked",
+      "--offline",
+      "--",
+      "--test-threads=1"
+    ],
+    "cwd": "/home/builder/offline-b/main-audit-source-de663743",
+    "started": "2026-11-24T14:18:30.958860+00:00",
+    "ended": "2026-11-24T14:20:38.064936+00:00",
+    "exit_code": 0,
+    "execution": "executed",
+    "reason": "",
+    "log": "tests.log",
+    "bytes_seen": 10248,
+    "bytes_saved": 10248,
+    "truncated": false,
+    "cleanup_complete": true,
+    "duration_seconds": 127.117,
+    "counts": {
+      "passed": 92,
+      "ignored": 0
+    }
+  },
+  "clock_failure_regressions": {
+    "clock_failure_during_io_cannot_prove_cached_freshness": true,
+    "clock_failure_during_io_without_cache_remains_unknown": true,
+    "clock_failure_during_later_page_preserves_only_previous_complete_cache": true
+  },
+  "log_sha256": "43d687246840265652139cb39b9d944d0c2becc4063cf121cdaaa90524946478",
+  "signed": false,
+  "installable": false,
+  "health_authorized": false,
+  "hardware_tested": false,
+  "public_network_tested": false,
+  "chain_transactions_sent": 0,
+  "original_report_sha256": "164212739aef65f6fe0099c65c9c10cfb6d38d1be0558a94a66aacd4535ab254"
+}

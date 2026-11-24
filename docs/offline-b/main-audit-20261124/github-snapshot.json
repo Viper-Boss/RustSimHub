@@ -1,0 +1,201 @@
+{
+  "observed_utc": "2026-11-24 14:32:21 UTC",
+  "repository": "Viper-Boss/RustSimHub",
+  "main": {
+    "sha": "de663743bd726e77f7c560139d0f91ea78e8fe57",
+    "tree": "897b7b485ce8b3108d359d859dd2384efba78df1",
+    "committed_at": "2026-11-16T10:21:31Z"
+  },
+  "open_non_draft": [
+    {
+      "number": 282,
+      "title": "test(update): wait for executable readiness in health fixtures",
+      "head": "eb1e5b0df09c591454f02fe0243bee474fe89cbe",
+      "base": "main",
+      "mergeable": true,
+      "merged": false
+    },
+    {
+      "number": 281,
+      "title": "docs(offline-b): qualify actual ARM component builds and QEMU metadata",
+      "head": "da3fd37aa98b7459afdb124cf5a8d59decc2d2b1",
+      "base": "main",
+      "mergeable": true,
+      "mergeable_state": "unstable",
+      "changed_files": 4,
+      "merged": false
+    },
+    {
+      "number": 280,
+      "title": "docs(offline-b): qualify real SDK builds, regressions and license closure",
+      "head": "fbb378d30c75090d0e50bb78e03cd42af24db768",
+      "base": "main",
+      "mergeable": true,
+      "mergeable_state": "unstable",
+      "changed_files": 10,
+      "merged": false
+    },
+    {
+      "number": 279,
+      "title": "test(update): make Root timestamp mutation fixtures observable",
+      "head": "2f2fe2aed726fc21b9221ef8a4e22adf932d2d03",
+      "base": "main",
+      "mergeable": true,
+      "mergeable_state": "unstable",
+      "changed_files": 5,
+      "merged": false
+    },
+    {
+      "number": 278,
+      "title": "fix(product-install): restore real ownership harness tests",
+      "head": "2df2e81157d13081d68fd86439d1478ef72723bb",
+      "base": "main",
+      "mergeable": true,
+      "mergeable_state": "unstable",
+      "changed_files": 4,
+      "merged": false
+    },
+    {
+      "number": 277,
+      "title": "docs: 核对 A0 的 93 项交付证据",
+      "head": "161f639b4966415bf59dbc6b927678f02b1cf423",
+      "base": "main",
+      "mergeable": true,
+      "mergeable_state": "unstable",
+      "changed_files": 1,
+      "merged": false
+    },
+    {
+      "number": 275,
+      "title": "test(A5): 交付固定来源离线验证、真实失败路径与B复跑材料",
+      "head": "94200bbf10a262b4e160526707a3cbb82ded2ee2",
+      "base": "main",
+      "mergeable": true,
+      "mergeable_state": "unstable",
+      "changed_files": 8,
+      "merged": false
+    },
+    {
+      "number": 274,
+      "title": "feat(A4): USB隐藏配网与跨Core重启的只读原回执",
+      "head": "43652dbc257011c76f796746d87e896d5e11ffde",
+      "base": "main",
+      "mergeable": true,
+      "mergeable_state": "unstable",
+      "changed_files": 15,
+      "merged": false
+    },
+    {
+      "number": 273,
+      "title": "fix(nas): 修复 Edge 请求头并交付 A3 短信/NAS失败矩阵",
+      "head": "c2a60903edb30a4bf4f3efb4dffa244da58d1cef",
+      "base": "main",
+      "mergeable": true,
+      "mergeable_state": "unstable",
+      "changed_files": 16,
+      "merged": false
+    },
+    {
+      "number": 272,
+      "title": "fix(nkn): 修复显式远程重开并交付 A2 离线矩阵与诊断",
+      "head": "fd3358ef1cee1bc2305ca96d13f55ff1ac3fc4ae",
+      "base": "main",
+      "mergeable": true,
+      "mergeable_state": "unstable",
+      "changed_files": 15,
+      "merged": false
+    },
+    {
+      "number": 271,
+      "title": "fix(offline-b): pin current inputs and bound source-lock verification",
+      "head": "b5a455e0cfb46c98d72919d4dc79160984507b44",
+      "base": "main",
+      "mergeable": true,
+      "mergeable_state": "unstable",
+      "changed_files": 11,
+      "merged": false
+    },
+    {
+      "number": 270,
+      "title": "test(offline-b): add bounded regression entry and real recovery matrix",
+      "head": "e4e566e84cab5d15dd36db0a9d9ed17bb17abb10",
+      "base": "main",
+      "mergeable": true,
+      "mergeable_state": "unstable",
+      "changed_files": 32,
+      "merged": false
+    }
+  ],
+  "open_draft_count": 9,
+  "main_ci": {
+    "run": 43848116296,
+    "conclusion": "failure",
+    "jobs": [
+      {
+        "id": 133233381267,
+        "name": "test",
+        "conclusion": "failure",
+        "executed_steps": 0
+      },
+      {
+        "id": 133233381609,
+        "name": "native-audio",
+        "conclusion": "failure",
+        "executed_steps": 0
+      }
+    ],
+    "annotation_bodies_available": false,
+    "exact_failure_reason_independently_confirmed": false
+  },
+  "scope": "Readonly public GitHub state; mergeability is not technical approval; no merge, billing or protection changes.",
+  "public_input_state": {
+    "base_system": {
+      "path": "firmware/base-system.lock.json",
+      "status": "resolved",
+      "package_count": 220,
+      "snapshot": {
+        "timestamp": "20261001T000000Z",
+        "archive": "https://snapshot.debian.org/archive/debian/{timestamp}/",
+        "security_archive": "https://snapshot.debian.org/archive/debian-security/{timestamp}/",
+        "keyring": "/usr/share/keyrings/debian-archive-keyring.gpg",
+        "release_sha256": [
+          "0584fba32e13e0ab8285fb16c27adea1ec03a73669c18702821094fd6ca86675",
+          "85b8e9f7cb7f6d33b63aaede38f938a15e9cbbe4cd26ec5518d0c5bf68531e5a"
+        ]
+      },
+      "service_user": {
+        "name": "rustsimhub-core",
+        "uid": 986,
+        "gid": 986,
+        "note": "Core fixed numeric identity only; Edge/Media/IPC and first-boot state integration remain separate."
+      },
+      "kernel": {
+        "release": "6.12.49-msm8916-g93a71ee9468d",
+        "boot_img_sha256": "d5790e07a8ee67c6d80ec24ea9b0cd4b5a78ab4440a3de2b8767fea58a03eaee",
+        "modules_sha256": "7e1d5d53a92ae6eb7f604cb98681b5132bc41071118a6230978354ad5b74c4e8",
+        "note": "The verified kernel is not built here (firmware/upstream.lock.json names its source). The release engineer supplies the verified boot image and the matching modules archive; --lock records their SHA-256 and every later build checks them, reads the release string out of the kernel itself and refuses modules whose vermagic differs."
+      },
+      "image": {
+        "label": "rootfs",
+        "uuid": "6e736866-7566-6930-3033-726f6f746673",
+        "hash_seed": "6e736866-7566-6930-3033-686173687364",
+        "size_mib": 3277,
+        "note": "uuid and hash_seed are arbitrary constants so that two builds are identical; the boot command line selects the root filesystem by LABEL or PARTUUID, never by this UUID. size_mib is the size of the stick's rootfs partition: it is not documented in this repository, so it is a required parameter (--image-size-mib, read from the device's partition table)."
+      }
+    },
+    "legacy_rootfs": {
+      "path": "tools/rootfs/firmware/rootfs.lock.json",
+      "status": "unresolved - run build-rootfs.sh --lock on a networked build host",
+      "note": "Older independent rootfs entry remains unresolved; do not treat its null values as missing values in the resolved new base-system lock."
+    },
+    "kernel_source": {
+      "path": "firmware/kernel/upstream-source.lock.json",
+      "commit": "93a71ee9468dd8d47a9e082e5d818608f08712e3",
+      "source_attributed": true,
+      "boot_source_gate_resolved": false,
+      "note": "Expected public upstream inputs; additional audio modules are byte-rebuilt with the separate audio/modules/source.json lock; the recorded boot layout and root=LABEL=rootfs recipe are hash-reconstructed; independent complete kernel/initramfs reconstruction and cold boot remain incomplete. Not a flash manifest."
+    },
+    "main_integration_inputs": 18,
+    "pending_PR271_integration_inputs": 32
+  }
+}
