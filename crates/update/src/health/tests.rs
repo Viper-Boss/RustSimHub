@@ -199,7 +199,7 @@ struct ProbeChild(std::process::Child);
 #[cfg(target_os = "linux")]
 impl ProbeChild {
     fn start(executable: &std::path::Path) -> Self {
-        Self(
+        let mut child = Self(
             std::process::Command::new(executable)
                 .arg("30")
                 .stdin(std::process::Stdio::null())
@@ -207,7 +207,39 @@ impl ProbeChild {
                 .stderr(std::process::Stdio::null())
                 .spawn()
                 .unwrap(),
-        )
+        );
+        child.wait_for_executable(executable, || {});
+        child
+    }
+    fn wait_for_executable(&mut self, executable: &std::path::Path, mut on_pending: impl FnMut()) {
+        use std::os::unix::fs::MetadataExt;
+
+        // spawn success is not a readiness observation of /proc. In particular,
+        // a wrapper can still be about to exec the intended image. Wait only in
+        // this owned fixture; the production probe still rejects a mixed image.
+        let expected = std::fs::metadata(executable).unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(1);
+        loop {
+            assert!(
+                self.0.try_wait().unwrap().is_none(),
+                "probe child exited before its executable was observable"
+            );
+            let ready =
+                std::fs::metadata(format!("/proc/{}/exe", self.pid())).is_ok_and(|actual| {
+                    actual.dev() == expected.dev()
+                        && actual.ino() == expected.ino()
+                        && actual.len() == expected.len()
+                });
+            if ready {
+                return;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "probe child executable readiness deadline exceeded"
+            );
+            on_pending();
+            std::thread::yield_now();
+        }
     }
     fn pid(&self) -> u32 {
         self.0.id()
@@ -219,6 +251,43 @@ impl Drop for ProbeChild {
         let _ = self.0.kill();
         let _ = self.0.wait();
     }
+}
+#[cfg(target_os = "linux")]
+#[test]
+fn probe_child_waits_for_delayed_exec_before_kernel_observation() {
+    use std::io::Write;
+
+    let executable = std::path::Path::new("/bin/sleep");
+    // A real wrapper blocks on our private stdin pipe until the readiness
+    // observer has seen the wrong executable. No scheduler timing assumption.
+    let mut child = ProbeChild(
+        std::process::Command::new("/bin/sh")
+            .args([
+                "-c",
+                "read -r marker; exec \"$1\" 30",
+                "probe-child-fixture",
+            ])
+            .arg(executable)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap(),
+    );
+    let mut release = child.0.stdin.take().unwrap();
+    let mut observed_pending = false;
+    child.wait_for_executable(executable, || {
+        if !observed_pending {
+            release.write_all(b"continue\n").unwrap();
+            observed_pending = true;
+        }
+    });
+    assert!(observed_pending, "fixture returned before the delayed exec");
+    let observed = probe_process(child.pid(), "rustsimhub-core").unwrap();
+    assert_eq!(
+        observed.exe_sha256,
+        hash_hex(&std::fs::read(executable).unwrap())
+    );
 }
 #[cfg(target_os = "linux")]
 #[test]
