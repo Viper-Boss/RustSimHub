@@ -151,8 +151,34 @@ impl RuntimeObservation {
         }
         let started = Instant::now();
         let boot = linux::boot()?;
+        let (ledger, slot) = Self::open_selection()?;
+        Self::sample_linux(ledger, slot, boot, started)
+    }
+
+    // Hold the ledger and signed slot guards throughout preflight. Verify the
+    // live processes only after preflight, with the same short freshness window.
+    fn collect_after_preflight<T>(
+        prepare: impl FnOnce(&ReadOnlyState, &Slot) -> Result<T>,
+    ) -> Result<(Self, T)> {
+        let boot = linux::boot()?;
+        let (ledger, slot) = Self::open_selection()?;
+        let prepared = prepare(&ledger, &slot)?;
+        let runtime = Self::sample_linux(ledger, slot, boot, Instant::now())?;
+        Ok((runtime, prepared))
+    }
+
+    fn open_selection() -> Result<(ReadOnlyState, Slot)> {
         let ledger = ReadOnlyState::observe()?;
         let slot = Slot::observe(&ledger)?;
+        Ok((ledger, slot))
+    }
+
+    fn sample_linux(
+        ledger: ReadOnlyState,
+        slot: Slot,
+        boot: String,
+        started: Instant,
+    ) -> Result<Self> {
         let sources: Box<dyn Sources> = Box::new(LinuxSources);
         #[cfg(test)]
         let sources: Box<dyn Sources> = if crate::product_native_fixture::enabled() {

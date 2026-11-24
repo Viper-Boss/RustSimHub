@@ -9,14 +9,11 @@ use crate::{
 use rustsimhub_wire::update_health as wire;
 use std::os::unix::net::UnixStream;
 mod io;
-// Diagnostics stay in the private test driver, never in a production flag.
-fn observed<T>(label: &str, result: Result<T>) -> Result<T> {
-    #[cfg(test)]
-    if let Err(error) = &result {
+// The web updater journals fixed stage names and error kinds only.
+fn observed<T>(web: bool, label: &str, result: Result<T>) -> Result<T> {
+    if let (true, Err(error)) = (web || cfg!(test), &result) {
         eprintln!("running candidate {label}: {error:?}");
     }
-    #[cfg(not(test))]
-    let _ = label;
     result
 }
 
@@ -177,23 +174,33 @@ impl RunningCandidate {
         Ok(candidate)
     }
     fn collect() -> Result<Self> {
-        Self::collect_for(None)
+        let runtime = observed(false, "runtime sample", RuntimeObservation::collect())?;
+        let plan = runtime.ledger.confirmation_plan()?;
+        let root = observed(false, "Root", running::Root::observe_for(&runtime))?;
+        // Exactly one metadata path, before taking the Core SQL/Auth lease.
+        let programs = if root.product_health() {
+            Programs::Product(Box::new((
+                SignedProductPrograms::running_health(runtime.slot.verified())?,
+                SignedProductPrograms::running_health(plan.verified_baseline())?,
+            )))
+        } else {
+            Self::legacy_programs(&runtime.slot, &plan)?
+        };
+        Self::with_live_core(runtime, plan, root, programs, None)
     }
 
-    fn collect_for(web: Option<(&str, &str)>) -> Result<Self> {
-        if rustix::process::geteuid().as_raw() != 0 {
-            return Err(Error::Denied);
+    fn collect_web(request: &str, manifest: &str) -> Result<Self> {
+        if !rustsimhub_wire::UpdateUpload::valid_reference(request, manifest) {
+            return Err(Error::Invalid);
         }
-        let runtime = observed("runtime", RuntimeObservation::collect())?;
-        let plan = runtime.ledger.confirmation_plan()?;
-        let web = web
-            .map(|(request, manifest)| {
-                if !rustsimhub_wire::UpdateUpload::valid_reference(request, manifest) {
-                    return Err(Error::Invalid);
-                }
+        let (runtime, (plan, root, programs, receipt)) = observed(
+            true,
+            "prepare web trial and sample runtime",
+            RuntimeObservation::collect_after_preflight(|ledger, slot| {
+                let plan = observed(true, "verify fallback", ledger.confirmation_plan())?;
                 let receipt = crate::admission::web_health_receipt(request, manifest)?;
-                if runtime.slot.hash != manifest
-                    || runtime.slot.manifest.epoch != receipt.epoch
+                if slot.hash != manifest
+                    || slot.manifest.epoch != receipt.epoch
                     || crate::manifest_hash(&plan.verified_baseline().group().0)
                         != receipt.baseline_sha256
                     || receipt.business_schema != 6
@@ -201,31 +208,40 @@ impl RunningCandidate {
                 {
                     return Err(Error::Denied);
                 }
-                Ok(receipt)
-            })
-            .transpose()?;
-        let root = if web.is_some() {
-            running::Root::observe_web_ap()?
-        } else {
-            observed("Root", running::Root::observe_for(&runtime))?
-        };
-        // Exactly one metadata path, before taking the Core SQL/Auth lease.
-        // Product verification already retains the original SignedPrograms
-        // checks; repeating the unused legacy path only consumed freshness.
-        let programs = if root.product_health() {
-            Programs::Product(Box::new((
-                SignedProductPrograms::running_health(runtime.slot.verified())?,
-                SignedProductPrograms::running_health(plan.verified_baseline())?,
-            )))
-        } else {
-            Programs::Legacy(
-                SignedPrograms::running_verified(runtime.slot.verified())?,
-                SignedPrograms::running_verified(plan.verified_baseline())?,
-            )
-        };
-        runtime.revalidate()?;
-        let core = observed("Core connection", Core::connect(&runtime))?;
-        let data = observed("data", running::Data::observe_for(&core.snapshot, &root))?;
+                let root = observed(true, "Root", running::Root::observe_web_ap())?;
+                let programs = observed(
+                    true,
+                    "inspect signed metadata",
+                    Self::legacy_programs(slot, &plan),
+                )?;
+                Ok((plan, root, programs, receipt))
+            }),
+        )?;
+        Self::with_live_core(runtime, plan, root, programs, Some(receipt))
+    }
+
+    fn legacy_programs(slot: &Slot, plan: &Plan) -> Result<Programs> {
+        Ok(Programs::Legacy(
+            SignedPrograms::running_verified(slot.verified())?,
+            SignedPrograms::running_verified(plan.verified_baseline())?,
+        ))
+    }
+
+    fn with_live_core(
+        runtime: RuntimeObservation,
+        plan: Plan,
+        root: running::Root,
+        programs: Programs,
+        web: Option<crate::admission::WebHealthReceipt>,
+    ) -> Result<Self> {
+        let web_trial = web.is_some();
+        observed(web_trial, "runtime before Core", runtime.revalidate())?;
+        let core = observed(web_trial, "Core connection", Core::connect(&runtime))?;
+        let data = observed(
+            web_trial,
+            "data binding",
+            running::Data::observe_for(&core.snapshot, &root),
+        )?;
         match programs {
             Programs::Product(programs) => {
                 let (candidate, baseline) = *programs;
@@ -270,9 +286,14 @@ impl RunningCandidate {
     }
     /// Consumed on success OR any failure. No health capability escapes as JSON.
     pub fn confirm(self) -> Result<Confirmation> {
-        self.revalidate()?;
-        let mut store = self.runtime.ledger.exclusive(&self.plan)?;
-        self.revalidate()?;
+        let web_trial = self.web.is_some();
+        observed(web_trial, "before ledger lock", self.revalidate())?;
+        let mut store = observed(
+            web_trial,
+            "acquire ledger lock",
+            self.runtime.ledger.exclusive(&self.plan),
+        )?;
+        observed(web_trial, "after ledger lock", self.revalidate())?;
         let Self {
             runtime,
             root,
@@ -284,19 +305,20 @@ impl RunningCandidate {
         } = self;
         // Prepare/fsync first. The sole final Core Recheck is inside the gate,
         // after all preparatory IO, while the original SQL/Auth locks are held.
-        store.confirm_live(&plan, root.scratch(), || {
-            core.recheck()?;
-            runtime.revalidate()?;
+        let publication = store.confirm_live(&plan, root.scratch(), || {
+            observed(web_trial, "final Core snapshot", core.recheck())?;
+            observed(web_trial, "final runtime", runtime.revalidate())?;
             plan.revalidate(&runtime.ledger)?;
             root.revalidate()?;
             data.revalidate()?;
             core.check(&runtime)?;
             web_binding_current(web.as_ref())?;
-            runtime.fresh()
-        })?;
+            observed(web_trial, "final freshness", runtime.fresh())
+        });
+        observed(web_trial, "publish health confirmation", publication)?;
         // An error after intent publication is uncertain; query the original
         // ledger instead of silently retrying or claiming nothing was written.
-        core.finish()?;
+        observed(web_trial, "finish Core connection", core.finish())?;
         Ok(Confirmation {
             format: 1,
             result: "confirmed",
@@ -337,7 +359,7 @@ fn web_binding_current(web: Option<&crate::admission::WebHealthReceipt>) -> Resu
 }
 
 pub fn confirm_web_running_trial(request: &str, manifest: &str) -> Result<Confirmation> {
-    RunningCandidate::collect_for(Some((request, manifest)))?.confirm()
+    RunningCandidate::collect_web(request, manifest)?.confirm()
 }
 
 #[cfg(test)]
