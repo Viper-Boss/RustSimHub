@@ -124,7 +124,7 @@
 <section class="card comm" aria-label="通信中心">
 <div class="comm-h"><svg class="i"><use href="#i-phone"/></svg><b>通信中心</b><span>预览短信、验证码与最近通话</span></div>
 <div class="subs">
-<div class="subc sms"><div class="sub-h"><svg class="i"><use href="#i-msg"/></svg>最近短信<button type="button" class="link" data-go="comms">查看更多<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-sms-list"></div><p class="none" id="c-sms-empty">登录后显示</p></div>
+<div class="subc sms"><div class="sub-h"><svg class="i"><use href="#i-msg"/></svg>未读短信<button type="button" class="link" data-go="comms">查看更多<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-sms-list"></div><p class="none" id="c-sms-empty">登录后显示</p></div>
 <div class="subc otp"><div class="sub-h"><svg class="i"><use href="#i-shield"/></svg>最近验证码<button type="button" class="clear" id="c-otp-clear" disabled>清理</button><button type="button" class="link" data-tab="3">查看更多<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-otp-list"></div><p class="none" id="c-otp-empty">登录后显示</p><p class="otp-state" id="c-otp-state" role="status"></p></div>
 <div class="subc call"><div class="sub-h"><svg class="i"><use href="#i-phone"/></svg>最近通话<button type="button" class="link" data-go="comms">查看更多<svg class="i"><use href="#i-chev"/></svg></button></div><div id="c-call-list"></div><p class="none" id="c-call-empty">登录后显示</p></div>
 </div>
@@ -163,7 +163,7 @@
 </div></div>
 <div class="pg" id="v-sim" hidden>
 <div class="pg-grid num">
-<section class="simcard w5"><div class="sim-chip" aria-hidden="true"></div><div class="sim-op" id="c-sm-op">—</div><div class="sim-state" id="c-sm-line">—</div><div class="sim-foot"><span id="c-sm-tech">—</span><span id="c-sm-reg">—</span></div></section>
+<section class="simcard w5"><div class="sim-chip" aria-hidden="true"></div><div class="sim-op" id="c-sm-op">—</div><div class="sim-state" id="c-sm-line">—</div><div class="sim-number"><span>本机号码</span> <b id="c-sm-number" class="num">—</b></div><div class="sim-foot"><span id="c-sm-tech">—</span><span id="c-sm-reg">—</span></div></section>
 <section class="card pg-card w7"><h2><svg class="i"><use href="#i-sig"/></svg>信号质量<span class="pill off" id="c-sm-quality">未知</span></h2><div class="meter3"><div><span>RSRP 信号强度</span><b id="c-sm-rsrp">—</b><div class="scale"><i id="c-sm-rsrp-m"></i></div></div><div><span>RSRQ 信号质量</span><b id="c-sm-rsrq">—</b><div class="scale"><i id="c-sm-rsrq-m"></i></div></div><div><span>SINR 信噪比</span><b id="c-sm-sinr">—</b><div class="scale"><i id="c-sm-sinr-m"></i></div></div></div></section>
 <section class="card pg-card w6"><h2><svg class="i"><use href="#i-ant"/></svg>当前小区</h2><dl class="pg-kv"><dt>频段</dt><dd id="c-sm-band">—</dd><dt>EARFCN</dt><dd id="c-sm-earfcn">—</dd><dt>物理小区 ID</dt><dd id="c-sm-pci">—</dd><dt>小区 ID</dt><dd id="c-sm-cell">—</dd><dt>TAC</dt><dd id="c-sm-tac">—</dd></dl></section>
 <section class="card pg-card w6"><h2><svg class="i"><use href="#i-sim"/></svg>调制解调器</h2><dl class="pg-kv"><dt>状态</dt><dd id="c-sm-modem">—</dd><dt>运营商代码</dt><dd id="c-sm-plmn">—</dd><dt>信号百分比</dt><dd id="c-sm-pct">—</dd><dt>允许频段</dt><dd id="c-sm-bands">—</dd><dt>移动数据</dt><dd id="c-sm-data">—</dd><dt>SIM 短信存储</dt><dd id="c-sm-sms-storage">—</dd></dl></section>

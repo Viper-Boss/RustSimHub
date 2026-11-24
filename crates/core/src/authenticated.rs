@@ -225,8 +225,18 @@ pub(crate) fn dispatch(auth: &mut Auth, command: AuthCommand) -> rustsimhub_auth
             token,
             before,
             limit,
-        } => serde_json::to_value(auth.inbox_recent(&token, before, limit)?)
-            .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
+        } => {
+            let recent = auth.inbox_recent(&token, before, limit)?;
+            let read = crate::status_led::sms_read_flags(&recent.messages);
+            let mut value =
+                serde_json::to_value(recent).map_err(|_| rustsimhub_auth::Error::InvalidInput)?;
+            if let (Some(flags), Some(messages)) = (read, value["messages"].as_array_mut()) {
+                for (message, read) in messages.iter_mut().zip(flags) {
+                    message["read"] = read.into();
+                }
+            }
+            value
+        }
         SmsDetail { token, sms_id } => serde_json::to_value(auth.sms_detail(&token, sms_id)?)
             .map_err(|_| rustsimhub_auth::Error::InvalidInput)?,
         SmsManagementStatus { token } => {
@@ -427,7 +437,32 @@ pub(crate) async fn handle(
             | AuthCommand::ForwardingHistoryArchive { .. }
             | AuthCommand::ForwardingHistoryRequest { .. }
     );
-    let result = if let AuthCommand::ProcessList { token } = request.command {
+    let sms_management = matches!(
+        &request.command,
+        AuthCommand::SmsFolderStatus { .. }
+            | AuthCommand::ApplySmsFolder { .. }
+            | AuthCommand::SetSmsDeletedBatch { .. }
+    );
+    let result = if let AuthCommand::LineStatus { token } = request.command {
+        let metrics = metrics.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut auth = auth.try_lock().map_err(|_| rustsimhub_auth::Error::Busy)?;
+            let line = auth.line_status(&token)?;
+            let owner = auth.owner_session(&token).is_ok();
+            let mut value =
+                serde_json::to_value(&line).map_err(|_| rustsimhub_auth::Error::InvalidInput)?;
+            if owner && line.status == rustsimhub_storage::LineStatus::Ready {
+                if let Some((id, number)) = metrics.and_then(|m| m.lock().ok()?.own_number.clone())
+                {
+                    if id == line.line {
+                        value["own_number"] = number.into();
+                    }
+                }
+            }
+            Ok(value)
+        })
+        .await?
+    } else if let AuthCommand::ProcessList { token } = request.command {
         tokio::task::spawn_blocking(move || {
             let owner = auth
                 .try_lock()
@@ -702,10 +737,14 @@ pub(crate) async fn handle(
                 || status_read
                 || roaming_change
                 || call_history_change
+                || sms_management
                 || calling
                 || forwarding_command =>
         {
             json!({"ok":false,"error":"busy"})
+        }
+        Err(rustsimhub_auth::Error::RecordsChanged) if sms_management || call_history_change => {
+            json!({"ok":false,"error":"records_changed"})
         }
         Err(rustsimhub_auth::Error::Expired) if bluetooth_mode || roaming_change => {
             json!({"ok":false,"error":"owner_reauthentication_required"})

@@ -23,6 +23,8 @@ pub(crate) struct Stats {
     pub identity_invalidations: u64,
     pub object_read_errors: u64,
     pub storage_errors: u64,
+    #[serde(skip)]
+    pub own_number: Option<(rustsimhub_domain::LineEpoch, String)>,
 }
 pub(crate) type Metrics = Arc<Mutex<Stats>>;
 fn metric(m: &Metrics, f: impl FnOnce(&mut Stats)) {
@@ -50,6 +52,7 @@ struct Snapshot {
     modem: OwnedObjectPath,
     sim: OwnedObjectPath,
     iccid: Option<String>,
+    own_number: Option<String>,
     status: LineStatus,
     state: i32,
 }
@@ -95,6 +98,12 @@ impl Binding {
     }
 }
 pub(crate) type Bindings = tokio::sync::watch::Sender<Option<Binding>>;
+fn canonical_own_number(value: &str) -> Option<String> {
+    let number = value.trim();
+    let digits = number.strip_prefix('+').unwrap_or(number);
+    ((3..=15).contains(&digits.len()) && digits.bytes().all(|byte| byte.is_ascii_digit()))
+        .then(|| number.to_owned())
+}
 async fn snapshot(
     c: &zbus::Connection,
     cached_modem: Option<&OwnedObjectPath>,
@@ -160,11 +169,21 @@ async fn snapshot(
     if bus.get_name_owner(SERVICE.try_into()?).await?.as_str() != owner {
         return Err("backend changed".into());
     }
+    let own_number = p
+        .get("OwnNumbers")
+        .and_then(|value| value.try_clone().ok())
+        .and_then(|value| Vec::<String>::try_from(value).ok())
+        .and_then(|numbers| {
+            numbers
+                .iter()
+                .find_map(|number| canonical_own_number(number))
+        });
     Ok(Snapshot {
         owner,
         modem: path.clone(),
         sim,
         iccid,
+        own_number,
         status,
         state,
     })
@@ -237,6 +256,7 @@ impl Stable {
     }
 }
 async fn invalidate(store: &Handle, backend: String, metrics: &Metrics) {
+    metric(metrics, |stats| stats.own_number = None);
     let h = store.clone();
     if !matches!(
         tokio::task::spawn_blocking(move || h.observe_line(LineObservation {
@@ -310,6 +330,7 @@ async fn reconcile(
     })
     .await??;
     if !ready {
+        metric(metrics, |stats| stats.own_number = None);
         if let Some(b) = context.bindings {
             b.send_replace(None);
         }
@@ -365,6 +386,9 @@ async fn reconcile(
         return Err("SIM changed during read".into());
     }
     let h = store.clone();
+    metric(metrics, |stats| {
+        stats.own_number = after.own_number.map(|number| (view.line, number));
+    });
     if let (Some(publisher), Some(fingerprint), Some(iccid)) = (context.bindings, key, after.iccid)
     {
         publisher.send_replace(Some(Binding {

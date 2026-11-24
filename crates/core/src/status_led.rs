@@ -201,6 +201,16 @@ pub fn configuration(
     }
     Ok(serde_json::json!({"ok":true,"expires_in_seconds":25}))
 }
+pub(crate) fn sms_read_flags(messages: &[rustsimhub_storage::SmsSummary]) -> Option<Vec<bool>> {
+    let state = state().lock().ok()?;
+    let ledger = state.ledger.as_ref()?;
+    Some(
+        messages
+            .iter()
+            .map(|message| ledger.sms.contains(&message.id))
+            .collect(),
+    )
+}
 pub fn read(id: &str, sms: bool) -> Result<()> {
     if !enabled() || !valid_id(id) {
         return Err(Error::Forbidden);

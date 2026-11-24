@@ -50,6 +50,7 @@ pub enum Error {
     Forbidden,
     Expired,
     Replay,
+    RecordsChanged,
 }
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -60,6 +61,16 @@ impl std::error::Error for Error {}
 impl From<rustsimhub_storage::Error> for Error {
     fn from(_: rustsimhub_storage::Error) -> Self {
         Self::Storage
+    }
+}
+
+fn history_mutation_error(error: rustsimhub_storage::Error) -> Error {
+    match error {
+        rustsimhub_storage::Error::ResyncRequired | rustsimhub_storage::Error::Conflict => {
+            Error::RecordsChanged
+        }
+        rustsimhub_storage::Error::Busy => Error::Busy,
+        other => other.into(),
     }
 }
 
@@ -218,7 +229,9 @@ impl Auth {
     ) -> Result<usize> {
         let owner = self.owner(token)?;
         self.authorize(token, Scope::CallsRead)?;
-        Ok(self.store.clear_call_history(owner, through, expected)?)
+        self.store
+            .clear_call_history(owner, through, expected)
+            .map_err(history_mutation_error)
     }
     pub fn call_detail(
         &mut self,
@@ -313,9 +326,9 @@ impl Auth {
     ) -> Result<u64> {
         let owner = self.owner(token)?;
         self.authorize(token, Scope::SmsRead)?;
-        Ok(self
-            .store
-            .apply_sms_folder(owner, version, head_seq, purge)?)
+        self.store
+            .apply_sms_folder(owner, version, head_seq, purge)
+            .map_err(history_mutation_error)
     }
     pub fn deleted_inbox(
         &mut self,

@@ -712,3 +712,15 @@ fn source_resume_preserves_identity_but_seen_retirement_still_creates_new_messag
     uncertain.bind(&mut fresh).unwrap();
     assert_eq!(fresh.source, format!("{path}#42"));
 }
+
+#[test]
+fn own_number_keeps_modem_phone_numbers_and_rejects_placeholders() {
+    assert_eq!(
+        canonical_own_number(" +8610012345678 ").as_deref(),
+        Some("+8610012345678")
+    );
+    assert_eq!(canonical_own_number("10010").as_deref(), Some("10010"));
+    for invalid in ["", "0", "+", "unknown", "1-234", "1234567890123456"] {
+        assert!(canonical_own_number(invalid).is_none(), "{invalid}");
+    }
+}

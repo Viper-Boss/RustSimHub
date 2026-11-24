@@ -22,11 +22,20 @@ export const sinrLevel=v=>finite(v)!==null&&v>-30&&v<60?level(v,[0,5,13,20]):0;
 export function signalLabel(percent){const p=finite(percent);if(p===null||p<0||p>100)return {bars:0,label:'未知',tone:'off'};const bars=p>=75?4:p>=50?3:p>=25?2:p>0?1:0;return {bars,label:['无信号','较弱','一般','良好','优秀'][bars],tone:bars>=2?'':'off'};}
 const connected=d=>String(d?.state).startsWith('100 ');
 const firstAddress=d=>Array.isArray(d?.ipv4)?text(String(d.ipv4[0]??'').split('/')[0],64):null;
+const OPERATOR_NAMES={
+  CHNMOBILE:'中国移动',CHINAMOBILE:'中国移动',CMCC:'中国移动',
+  CHNUNICOM:'中国联通',CHINAUNICOM:'中国联通',UNICOM:'中国联通',
+  CHNTELECOM:'中国电信',CHINATELECOM:'中国电信',CTCC:'中国电信',
+};
+function operatorName(value){
+ const label=text(value,32),key=label?.toUpperCase().replace(/[\s_-]+/g,'');
+ return Object.hasOwn(OPERATOR_NAMES,key)?OPERATOR_NAMES[key]:label;
+}
 export function networkView(sample){
  const s=record(sample),c=record(s.cellular),cell=record(c.serving_cell),band=record(cell.channel_derived).band,devices=Array.isArray(s.devices)?s.devices.map(record):[];
  const wifi=devices.find(d=>d.kind==='wifi'),modem=devices.find(d=>d.kind==='cellular');
  const tech=Array.isArray(c.access_technologies)?c.access_technologies.filter(t=>typeof t==='string').slice(0,3).map(t=>t.toUpperCase()==='LTE'?'4G (LTE)':t.toUpperCase()).join(' / '):'';
- return {operator:text(c.operator,32),tech:tech||null,registration:({home:'已注册',roaming:'漫游',searching:'正在搜索',denied:'注册被拒绝'})[c.registration]||null,band:Number.isInteger(band)&&band>0?`Band ${band}`:null,signal:signalLabel(c.signal_percent),rsrp:finite(cell.rsrp),rsrq:finite(cell.rsrq),sinr:finite(cell.sinr),
+ return {operator:operatorName(c.operator),tech:tech||null,registration:({home:'已注册',roaming:'漫游',searching:'正在搜索',denied:'注册被拒绝'})[c.registration]||null,band:Number.isInteger(band)&&band>0?`Band ${band}`:null,signal:signalLabel(c.signal_percent),rsrp:finite(cell.rsrp),rsrq:finite(cell.rsrq),sinr:finite(cell.sinr),
   wifi:{online:connected(wifi),present:!!wifi,name:text(wifi?.interface,32),ip:firstAddress(wifi)},data:{online:connected(modem),ip:connected(modem)?firstAddress(modem):null}};
 }
 // 设备时间：采样时间加上收到后经过的时间；与本机差超过60秒提示未同步。
@@ -63,7 +72,7 @@ export function smsTime(value,now=new Date()){
  }
  const fields=zone?[time.getFullYear(),time.getMonth()+1,time.getDate(),time.getHours(),time.getMinutes(),time.getSeconds()]:[y,mo,day,h,min,sec];
  const [year,month,date,hour,minute,second]=fields,same=year===now.getFullYear()&&month===now.getMonth()+1&&date===now.getDate();
- return {short:same?`${p2(hour)}:${p2(minute)}`:`${month}月${date}日`,full:`${year}-${p2(month)}-${p2(date)} ${p2(hour)}:${p2(minute)}:${p2(second)}（${zone?'本地时间':'时区未知'}）`,raw,zone:zone?'local':'unspecified'};
+ return {short:same?`${p2(hour)}:${p2(minute)}`:`${month}月${date}日 ${p2(hour)}:${p2(minute)}`,full:`${year}-${p2(month)}-${p2(date)} ${p2(hour)}:${p2(minute)}:${p2(second)}（${zone?'本地时间':'时区未知'}）`,raw,zone:zone?'local':'unspecified'};
 }
 export function shortTime(value,now=new Date()){return smsTime(value,now).short;}
 const LINE={ready:'SIM 就绪',locked:'SIM 已锁定',absent:'未插 SIM',unavailable:'SIM 不可用'};
@@ -125,9 +134,9 @@ const countText=(value,loaded)=>value===null?(loaded?`${loaded}+`:'—'):String(
 const cursorOf=value=>{const c=record(value);return typeof c.db_epoch==='string'&&c.db_epoch&&typeof c.seq==='string'&&/^(0|[1-9][0-9]*)$/.test(c.seq)?c:null;};
 const visibilityOf=value=>typeof value==='string'&&/^(0|[1-9][0-9]*)$/.test(value)?value:null;
 const uniqueRows=rows=>{const seen=new Set();return rows.filter(row=>{if(!row.id)return true;if(seen.has(row.id))return false;seen.add(row.id);return true;});};
-const VIEW_FIELDS=['c-mh-cpu','c-mh-mem','c-mh-disk','c-mh-temp','c-hw-model','c-hw-os','c-hw-kernel','c-hw-version','c-hw-cores','c-hw-uptime','c-hw-cpu','c-hw-load','c-hw-mem','c-hw-mem-d','c-hw-disk','c-hw-disk-d','c-hw-data-storage','c-hw-temp','c-ab-version','c-ab-model','c-ab-os','c-ab-kernel','c-sm-line','c-sm-op','c-sm-tech','c-sm-reg'];
+const VIEW_FIELDS=['c-mh-cpu','c-mh-mem','c-mh-disk','c-mh-temp','c-hw-model','c-hw-os','c-hw-kernel','c-hw-version','c-hw-cores','c-hw-uptime','c-hw-cpu','c-hw-load','c-hw-mem','c-hw-mem-d','c-hw-disk','c-hw-disk-d','c-hw-data-storage','c-hw-temp','c-ab-version','c-ab-model','c-ab-os','c-ab-kernel','c-sm-line','c-sm-op','c-sm-tech','c-sm-reg','c-sm-number'];
 export class ConsoleDashboard{
- constructor({document,request,copy,detailText=v=>String(v?.text??''),confirm=()=>false,storage=null,clock=()=>Date.now(),matchDark=()=>false,onLeave=()=>{},onEnter=()=>{},readDelay=ms=>new Promise(resolve=>setTimeout(resolve,ms))}){this.doc=document;this.request=request;this.copy=copy;this.storage=storage;this.clock=clock;this.onLeave=onLeave;this.onEnter=onEnter;this.readDelay=readDelay;this.matchDark=matchDark;this.epoch=0;this.active=false;this.sample=null;this.receivedAt=0;this.system=null;this.systemAt=0;this.temps=[];this.tempTimes=[];this.otps=[];this.events=[];this.seen=new Set();this.lastLine=null;this.page='dashboard';this.tab=0;this.timers=[];
+ constructor({document,request,copy,detailText=v=>String(v?.text??''),confirm=()=>false,storage=null,clock=()=>Date.now(),matchDark=()=>false,onLeave=()=>{},onEnter=()=>{},readDelay=ms=>new Promise(resolve=>setTimeout(resolve,ms))}){this.doc=document;this.request=request;this.copy=copy;this.storage=storage;this.clock=clock;this.onLeave=onLeave;this.onEnter=onEnter;this.readDelay=readDelay;this.matchDark=matchDark;this.epoch=0;this.active=false;this.sample=null;this.receivedAt=0;this.system=null;this.systemAt=0;this.temps=[];this.tempTimes=[];this.otps=[];this.events=[];this.seen=new Set();this.readSms=new Set();this.lastLine=null;this.page='dashboard';this.tab=0;this.timers=[];
   this.$=id=>document.getElementById(id);this.detailText=detailText;this.confirm=confirm;this.mail=[];this.recentMail=[];this.older=[];this.mailTotal=0;this.callRows=[];this.recentCalls=[];this.olderCalls=[];this.callTotal=0;this.expanded=new Set();this.selectedMail=new Set();this.selectedCalls=new Set();this.trash=[];
   let theme=null;try{theme=storage?.getItem('rustsimhub-theme');}catch{}
   const saved=theme==='dark'||theme==='light';this.setTheme(saved?theme:matchDark()?'dark':'light');this.mode=saved?theme:'system';for(const b of document.querySelectorAll('[data-theme-mode]')){b.setAttribute('aria-pressed',String(b.dataset.themeMode===this.mode));b.addEventListener('click',()=>this.setMode(b.dataset.themeMode));}
@@ -283,7 +292,7 @@ export class ConsoleDashboard{
    const b=this.doc.createElement('button');b.type='button';b.className='mail-it';
    const a=this.doc.createElement('span');a.className='brand t-blue';a.textContent=[...m.sender].find(ch=>/[^\d\s*+]/.test(ch))||'信';
    const t=this.doc.createElement('b');t.textContent=m.sender;
-   const w=this.doc.createElement('time');w.textContent=m.time||'';
+   const w=this.doc.createElement('time');w.textContent=m.time||'';w.title=m.fullTime||'';
    const p=this.doc.createElement('span');p.className='p';
    if(folder==='otp'){
     const code=this.doc.createElement('strong');code.className='mail-code';code.textContent=m.code;p.append(code);
@@ -318,7 +327,13 @@ export class ConsoleDashboard{
    if(epoch===this.epoch&&this.opened===m)this.$('c-mail-state').textContent='完整正文暂时读不到，上面是列表预览';
    return;
   }
-  if(!trash)void this.optional({op:'notification_read',entity:'sms',record_id:m.id});
+  if(!trash){
+   const ack=await this.optional({op:'notification_read',entity:'sms',record_id:m.id});
+   if(epoch===this.epoch&&ack?.ok===true){
+    this.readSms.add(m.id);
+    this.renderSmsPreview();
+   }
+  }
  }
  async refreshSmsFolder(){
   if(this.smsFolder()==='trash')await this.loadTrash();
@@ -360,18 +375,22 @@ export class ConsoleDashboard{
   try{
    const result=await action(current,submit);
    current();if(result===null)return;
-   const {changed,label}=result;
+   const {changed,label,verifiedState}=result;
    this.selectedMail.clear();this.mailSelecting=false;this.clearMailDetail();
-   await this.refreshSmsFolder();current();
-   if(this.smsFolder()==='trash')void this.readLists(true);
-   state.textContent=`已${label} ${changed} 条短信`;
-  }catch{
+   state.textContent=verifiedState||`已${label} ${changed} 条短信`;
+   await this.refreshSmsFolder().catch(()=>{});
+   if(inView()&&this.smsFolder()==='trash')void this.readLists(true);
+  }catch(error){
    if(inView()){
+    const code=error?.coreCode;
     if(submitted){
-     state.textContent='本次短信操作结果未确认，正在重新读取列表。';
+     state.textContent='正在重新读取短信列表…';
      await this.refreshSmsFolder().catch(()=>{});
-     if(inView())state.textContent='本次短信操作结果未确认，请核对记录。操作未自动重试。';
-    }else state.textContent='短信状态暂时读不到，本次操作未提交。';
+     if(inView())state.textContent=code==='records_changed'?'确认后短信列表发生变化。请核对新列表后再操作。'
+      :code==='busy'?'设备繁忙，操作未执行。请稍后再试。'
+      :code==='denied'?'设备拒绝了操作，请检查所有者登录。'
+      :'本次短信操作结果未确认，请核对记录。操作未自动重试。';
+    }else state.textContent=code==='denied'?'无法读取短信范围，请检查所有者登录。':'短信状态暂时读不到，本次操作未提交。';
    }
   }finally{if(this.mailAction===marker){this.mailAction=null;this.renderMail();}}
  }
@@ -393,7 +412,7 @@ export class ConsoleDashboard{
   const folder=this.smsFolder(),purge=folder==='trash';
   if(folder==='otp')return;
   await this.performSmsAction(async (current,submit)=>{
-   const info=record(await this.request({op:'sms_folder_status'}));current();
+   const info=record(await this.readStatusPage({op:'sms_folder_status'},()=>{current();return true;}));current();
    if(this.smsFolder()!==folder)return null;
    const total=count(purge?info.trash:info.inbox),version=cursorOf(info.version),head_seq=visibilityOf(info.head_seq);
    if(total===null||!version||!head_seq)throw Error('文件夹状态无效');
@@ -401,9 +420,20 @@ export class ConsoleDashboard{
    if(!this.confirm(purge?`永久删除本机回收站中的 ${total} 条短信？清空后无法从回收站恢复。SIM 上的原件仍会保留。`:
      `把收件箱的全部 ${total} 条短信移到回收站？验证码也会移入回收站。`))return null;
    current();
-   const result=record(await submit({op:'apply_sms_folder',version,head_seq,purge}));
-   if(result.changed!==total)throw Error('回执无效');
-   return {changed:total,label:purge?'永久删除':'移到回收站'};
+   try{
+    const result=record(await submit({op:'apply_sms_folder',version,head_seq,purge}));
+    if(result.changed!==total)throw Error('回执无效');
+    return {changed:total,label:purge?'永久删除':'移到回收站'};
+   }catch(error){
+    if(error?.coreCode)throw error;
+    current();
+    const after=record(await this.readStatusPage({op:'sms_folder_status'},()=>{current();return true;}));
+    const next=cursorOf(after.version);
+    if(next?.db_epoch===version.db_epoch&&BigInt(next.seq)>BigInt(version.seq)&&after[purge?'trash':'inbox']===0){
+     return {verifiedState:purge?'已核对，回收站为空。':'已核对，收件箱为空。'};
+    }
+    throw error;
+   }
   });
  }
  canMoreMail(){return !!this.mailCursor&&!this.mailExhausted&&(this.mailTotal===null||this.mail.length<this.mailTotal);}
@@ -494,7 +524,7 @@ export class ConsoleDashboard{
   this.callAction=marker;this.renderPhoneCalls();
   try{
    if(all){
-    const info=record(await this.readListPage({op:'call_history_status'},valid));
+    const info=record(await this.readStatusPage({op:'call_history_status'},valid));
     if(!valid())return;
     const through=cursorOf(info.through),expected=count(info.ended);
     if(!through||expected===null)throw Error('通话记录范围无效');
@@ -529,7 +559,8 @@ export class ConsoleDashboard{
    await this.readLists(true).catch(()=>{});
    if(valid()){
     status.textContent=confirmed+(error?.coreCode==='busy'?'设备繁忙，本批未执行。请稍后再试。':
-     error?.coreCode==='denied'?'设备未确认删除。请核对所有者登录和列表后再试。':
+     error?.coreCode==='denied'?'设备拒绝了删除。请检查所有者登录后再试。':
+     error?.coreCode==='records_changed'?'确认后通话记录发生变化。请核对新列表后再删除。':
      '删除结果未确认，请核对列表。操作未自动重试。');
    }
   }finally{
@@ -574,7 +605,7 @@ export class ConsoleDashboard{
   if(online!==this.online){this.online=online;this.status(online);}
  }
  markReachable(){this.lastResponseAt=this.clock();this.updateReachability();}
- reset(){this.epoch++;this.processLoading=null;this.processRows=[];this.processHint='以所有者身份登录后显示';this.processTruncated=false;this.$('c-process-filter').value='';this.$('c-process-refresh').disabled=true;this.$('c-process-filter').disabled=true;this.$('c-process-hide-sleeping').checked=false;this.$('c-process-hide-sleeping').disabled=true;this.renderProcesses();this.lastResponseAt=null;this.online=false;this.systemLoading=null;this.resetAirsim();this.callAction=null;this.callSelecting=false;this.selectedCalls.clear();this.$('c-call-operation').textContent='';this.mailAction=null;this.mailSelecting=false;this.selectedMail.clear();this.trash=[];this.trashLoad=null;this.clearMailDetail();this.$('c-mail-operation').textContent='';this.active=false;this.listRun=(this.listRun||0)+1;this.listLoading=null;this.callLoading=null;this.lineEpoch=null;this.haveInbox=false;this.haveCalls=false;this.mailVisibility=null;this.mailExhausted=true;this.callExhausted=true;for(const t of this.timers)clearInterval(t);this.timers=[];this.sample=null;this.system=null;this.prevTicks=null;this.temps=[];this.tempTimes=[];this.otps=[];this.events=[];this.history=[];this.seen=new Set();this.lastLine=null;
+ reset(){this.epoch++;this.processLoading=null;this.processRows=[];this.processHint='以所有者身份登录后显示';this.processTruncated=false;this.$('c-process-filter').value='';this.$('c-process-refresh').disabled=true;this.$('c-process-filter').disabled=true;this.$('c-process-hide-sleeping').checked=false;this.$('c-process-hide-sleeping').disabled=true;this.renderProcesses();this.lastResponseAt=null;this.online=false;this.systemLoading=null;this.resetAirsim();this.callAction=null;this.callSelecting=false;this.selectedCalls.clear();this.$('c-call-operation').textContent='';this.mailAction=null;this.mailSelecting=false;this.selectedMail.clear();this.trash=[];this.trashLoad=null;this.clearMailDetail();this.$('c-mail-operation').textContent='';this.active=false;this.listRun=(this.listRun||0)+1;this.listLoading=null;this.callLoading=null;this.lineEpoch=null;this.haveInbox=false;this.haveCalls=false;this.mailVisibility=null;this.mailExhausted=true;this.callExhausted=true;for(const t of this.timers)clearInterval(t);this.timers=[];this.sample=null;this.system=null;this.prevTicks=null;this.temps=[];this.tempTimes=[];this.otps=[];this.events=[];this.history=[];this.seen=new Set();this.readSms=new Set();this.lastLine=null;
   this.status(false);for(const id of ['c-sms-list','c-call-list','c-otp-list','c-event-list','c-mail-list','c-ph-calls','c-nw-devices','c-sc-list','c-mc-sms','c-mc-otp','c-mc-call'])this.$(id).replaceChildren();this.mail=[];this.recentMail=[];this.older=[];this.mailTotal=0;this.callRows=[];this.recentCalls=[];this.olderCalls=[];this.callTotal=0;this.opened=null;this.mailCursor=null;this.callCursor=null;this.$('c-mc-more').hidden=true;this.$('c-mail-open').hidden=true;this.$('c-mail-blank').hidden=false;for(const id of ['c-mail-empty','c-ph-calls-empty','c-nw-devices-empty','c-mc-e-sms','c-mc-e-otp','c-mc-e-call']){this.$(id).hidden=false;this.$(id).textContent='登录后显示';}this.renderPhoneCalls();this.renderMobileCounts();for(const id of ['c-sms-empty','c-call-empty','c-otp-empty','c-event-empty']){this.$(id).hidden=false;this.$(id).textContent='登录后显示';}
   for(const id of ['c-cpu','c-mem','c-disk','c-temp','c-uptime','c-kernel','c-os','c-version','c-cores','c-mem-total','c-disk-total','c-wifi-name','c-wifi-ip','c-wifi-speed','c-cell-op','c-cell-ip','c-cell-usage','c-rsrp','c-rsrq','c-sinr',...VIEW_FIELDS])this.$(id).textContent='—';for(const id of ['c-hw-cpu-ring','c-hw-mem-ring','c-hw-disk-ring','c-hw-temp-ring'])this.ring(id,0);this.drawTemp();this.$('c-log-state').textContent='';this.renderLog();this.$('c-model').textContent='未登录';this.$('c-mh-model').textContent='未登录';this.$('c-mh-sub').textContent='登录后显示设备信息';this.$('c-sim').textContent='登录后显示设备信息';
   this.$('c-otp-state').textContent='';for(const id of ['c-cpu-bar','c-mem-bar','c-disk-bar','c-mh-cpu-b','c-mh-mem-b','c-mh-disk-b'])this.bar(id,0);this.$('c-mh-trend').setAttribute('d','');this.$('c-temp-line').setAttribute('d','');this.network(null);this.mailButtons();this.tick();}
@@ -762,6 +793,10 @@ export class ConsoleDashboard{
   if(identity!==undefined&&this.lineEpoch!==null&&identity!==this.lineEpoch){this.forgetMail('线路已变化，重新读取');this.forgetCalls('线路已变化，重新读取');}
   if(identity!==undefined)this.lineEpoch=identity;
   const label=LINE[record(line).status]||(line?'SIM 状态未知':null);
+  if(line||this.lineEpoch===null){
+   const number=line?.status==='ready'&&typeof line.own_number==='string'&&/^\+?[0-9]{3,15}$/.test(line.own_number)?line.own_number:null;
+   this.$('c-sm-number').textContent=number||'未读取到号码';
+  }
   if(label){this.$('c-sim').textContent=label;this.$('c-sm-line').textContent=label;if(label!==this.lastLine){this.log(label,label==='SIM 就绪'?'g':'n');this.lastLine=label;}}
   const fullInbox=mode==='inbox',fullCalls=mode==='calls';
   let inbox=null,mailError=null,calls=null,callsError=null;
@@ -820,18 +855,22 @@ export class ConsoleDashboard{
   row.className='it';a.className=icon?`brand t-${tone}`:`pt t-${tone}`;if(icon)a.textContent=icon;top.className='it-l';t.textContent=title;when.textContent=time||'';p.textContent=body;top.append(t,when);main.className='it-m';main.append(top,p);row.append(a,main);
   if(code){const c=doc.createElement('button');c.type='button';c.className='codeb num';c.textContent=code;c.setAttribute('aria-label',`复制验证码 ${code}`);c.addEventListener('click',async()=>{try{await this.copy(code);c.textContent='已复制';c.classList.add('done');}catch{c.textContent='复制失败';}setTimeout(()=>{c.textContent=code;c.classList.remove('done');},1200);});p.textContent='';p.append('验证码 ',c,` · ${body}`);}
   parent.append(row);}
- mailView(m){const d=record(m.display),code=otpOf(d.preview),time=smsTime(d.timestamp,new Date(this.clock()));return {id:m.id,raw:text(d.sender,32),sender:maskNumber(d.sender)||'未知发件人',time:time.short,fullTime:time.full,rawTimestamp:time.raw,preview:text(d.preview,384)||(m.binary?'二进制短信':'（正文为空）'),code};}
+ mailView(m){const d=record(m.display),code=otpOf(d.preview),time=smsTime(d.timestamp,new Date(this.clock()));return {id:m.id,raw:text(d.sender,32),sender:maskNumber(d.sender)||'未知发件人',time:time.short,fullTime:time.full,rawTimestamp:time.raw,preview:text(d.preview,384)||(m.binary?'二进制短信':'（正文为空）'),code,read:m.read===true};}
  // 已加载过更早记录时，被新记录挤出最新一页的那几条并回“更早”，否则列表中间会缺一段。
  keepDropped(previous,next,older){const known=new Set(next.map(v=>v.id).filter(Boolean));return older.length?[...previous.filter(v=>v.id&&!known.has(v.id)),...older]:older;}
  messages(list,total,notificationLimit=16){this.haveInbox=true;const previous=this.recentMail;this.recentMail=Array.isArray(list)?list.map(record).filter(m=>typeof m.id==='string').map(m=>this.mailView(m)):[];this.older=this.keepDropped(previous,this.recentMail,this.older);
   for(const view of this.recentMail.slice(0,notificationLimit))if(this.seen.size&&!this.seen.has(view.id))this.log(`收到${view.code?'验证码':'新短信'}：${view.sender}`,'g');
   for(const view of this.recentMail)this.seen.add(view.id);this.applyMail(total);}
- applyMail(total){const known=new Set(this.recentMail.map(m=>m.id));this.older=this.older.filter(m=>!known.has(m.id));this.mail=uniqueRows([...this.recentMail,...this.older]);this.mailTotal=countOf(total,this.mail.length);const otps=this.mail.filter(m=>m.code),plain=this.mail.filter(m=>!m.code),more=this.canMoreMail();this.otps=otps;
+ applyMail(total){const known=new Set(this.recentMail.map(m=>m.id));this.older=this.older.filter(m=>!known.has(m.id));this.mail=uniqueRows([...this.recentMail,...this.older]);this.mailTotal=countOf(total,this.mail.length);const otps=this.mail.filter(m=>m.code),more=this.canMoreMail();this.otps=otps;
   this.renderMail();this.renderComm();this.renderMobileCounts();const tones=['blue','purple','red','teal'];
   const box=this.$('c-otp-list');box.replaceChildren();this.$('c-otp-empty').hidden=otps.length>0;this.$('c-otp-empty').textContent=more?`最近 ${this.mail.length} 条里没有验证码`:'没有验证码短信';this.$('c-otp-clear').disabled=!otps.length;
   otps.slice(0,3).forEach((o,i)=>this.item(box,{icon:[...o.sender].find(ch=>/[^\d\s*+]/.test(ch))||'#',tone:tones[i%tones.length],title:o.sender,time:o.time,body:o.preview.replace(o.code,'').replace(/^[^\p{L}\p{N}]+/u,'').slice(0,40),code:o.code}));
-  const sms=this.$('c-sms-list');sms.replaceChildren();this.$('c-sms-empty').hidden=plain.length>0;this.$('c-sms-empty').textContent='没有短信';
+  this.renderSmsPreview();}
+ renderSmsPreview(){
+  const plain=this.mail.filter(m=>!m.code&&!m.read&&!this.readSms.has(m.id));
+  const sms=this.$('c-sms-list');sms.replaceChildren();this.$('c-sms-empty').hidden=plain.length>0;this.$('c-sms-empty').textContent='没有未读短信';
   plain.slice(0,3).forEach(m=>this.item(sms,{tone:'blue',title:m.sender,time:m.time,body:m.preview}));}
+
  calls(list,total){this.haveCalls=true;const previous=this.recentCalls;this.recentCalls=Array.isArray(list)?list.map(callView):[];this.olderCalls=this.keepDropped(previous,this.recentCalls,this.olderCalls);this.applyCalls(total);}
  applyCalls(total){const known=new Set(this.recentCalls.map(c=>c.id).filter(Boolean));this.olderCalls=this.olderCalls.filter(c=>!c.id||!known.has(c.id));const calls=uniqueRows([...this.recentCalls,...this.olderCalls]);this.callRows=calls;this.callTotal=countOf(total,calls.length);const box=this.$('c-call-list');box.replaceChildren();this.renderPhoneCalls();this.renderComm();this.renderMobileCounts();this.$('c-call-empty').hidden=calls.length>0;this.$('c-call-empty').textContent='没有通话记录';
   calls.slice(0,3).forEach(c=>this.item(box,{tone:c.live?'green':c.kind==='in'?'blue':'gray',title:c.number,body:c.label}));}

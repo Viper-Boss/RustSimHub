@@ -218,6 +218,60 @@ assert.ok(!code.includes('fetch(')&&!code.includes('innerHTML'));
  assert.equal(await h.airsim({op:'airsim_configure',enabled:true,pcm_rate:8000}),null);assert.match($('c-as-msg').textContent,/未完成：需要所有者最近5分钟内登录/);assert.equal($('c-as-state').textContent,'未读取','a refused change never shows as enabled');
  await h.airsimPair();assert.equal($('c-as-code').hidden,true);assert.match($('c-as-msg').textContent,/没有打开配对窗口/);}
 for(const bad of [{code:'12345',expires_at:1793600120,pairing_port:7594},{code:'abcdef',expires_at:1793600120,pairing_port:7594},{code:'042917',pairing_port:7594},{code:'042917',expires_at:1793600120},null]){const {h,$}=harness(c=>c.op==='airsim_open_pairing'?bad:{},{clock:()=>1793600000000});await h.signedIn();await h.airsimPair();assert.equal($('c-as-code').hidden,true);assert.equal($('c-as-digits').textContent,'');}
+
+for(const [label,expected] of [['CHN-UNICOM','中国联通'],['China Mobile','中国移动'],['CHN-TELECOM','中国电信'],['Other Tel','Other Tel']]){
+ assert.equal(networkView({cellular:{operator:label}}).operator,expected);
+}
+assert.equal(shortTime('2026-11-22 15:09:34',new Date('2026-11-24T12:00:00Z')),'11月22日 15:09');
+{
+ let read=false;
+ const base={id:'read-target',display:{sender:'10010',preview:'普通短信',timestamp:'2026-11-22 15:09:34'}};
+ const {h,$}=harness(c=>{
+  if(c.op==='line_status')return {status:'ready',line:1,own_number:'+8610012345678'};
+  if(c.op==='inbox_recent')return {messages:[{...base,read}],total:1,visibility_seq:'0',cursor:{db_epoch:'e',seq:'1'}};
+  if(c.op==='sms_detail')return {text:'正文'};
+  if(c.op==='notification_read'){read=true;return {ok:true};}
+  return {};
+ });
+ await h.signedIn();assert.equal($('c-sm-number').textContent,'+8610012345678');
+ assert.equal($('c-sms-list').children.length,1);
+ await h.openMail(h.mail[0]);assert.equal($('c-sms-list').children.length,0);assert.equal(h.mail.length,1);
+ h.reset();await h.signedIn();
+ assert.equal($('c-sms-list').children.length,0,'read status survives reloading from the device');
+ assert.equal(h.mail.length,1,'reading does not remove the message from the inbox');
+}
+{
+ const scope={db_epoch:'e',seq:'5'},seen=[];let rows=[{id:'c',direction:2,state:'ended'}];
+ const {h,$}=harness(c=>{
+  seen.push(c);
+  if(c.op==='call_history_status')return {through:scope,ended:1};
+  if(c.op==='clear_call_history'){assert.deepEqual(c.through,scope);assert.equal(c.expected,1);rows=[];return {changed:1};}
+  if(c.op==='calls_recent')return {calls:rows,total:rows.length,cursor:scope};
+  if(c.op==='inbox_recent')return inbox;
+  return {};
+ },{confirm:()=>true});
+ h.go('comms',2);h.active=true;await h.readLists();await h.removeCallHistory(true);
+ assert.equal(seen.filter(c=>c.op==='clear_call_history').length,1);
+ assert.equal(h.callRows.length,0);assert.match($('c-call-operation').textContent,/已删除 1 条/);
+}
+for(const mode of ['confirmed','lost','records_changed']){
+ const seen=[];let applied=false;
+ const {h,$}=harness(c=>{
+  seen.push(c.op);
+  if(c.op==='sms_folder_status')return {inbox:applied?0:1,trash:applied?1:0,version:{db_epoch:'e',seq:applied?'2':'1'},head_seq:'1'};
+  if(c.op==='apply_sms_folder'){
+   if(mode==='records_changed')throw Object.assign(Error('fixture'),{coreCode:mode});
+   applied=true;
+   if(mode==='lost')throw Error('reply lost');
+   return {changed:1};
+  }
+  if(c.op==='inbox_recent')return {messages:[],total:0,visibility_seq:'0',cursor:{db_epoch:'e',seq:'0'}};
+  return {};
+ },{confirm:()=>true});
+ h.go('comms');h.active=true;await h.applyFolder();
+ assert.equal(seen.filter(op=>op==='apply_sms_folder').length,1);
+ assert.match($('c-mail-operation').textContent,mode==='confirmed'?/已移到回收站 1 条/:mode==='lost'?/已核对，收件箱为空/:/短信列表发生变化/);
+}
 console.log('PASS: console projections, unknown-not-zero metrics, read-only load with manual forwarding/NKN, unavailable vs empty, confirmed OTP clean stops on denial/mismatch, logout and hidden-page fencing, navigation, theme, CSP-safe markup');
 
 export {harness};
