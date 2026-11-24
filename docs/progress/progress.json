@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline_version": "remaining-v1.1-2026-10-26-dependency",
-  "updated_at": "2026-11-24T04:13:44.559830+00:00",
+  "updated_at": "2026-11-24T04:47:14.569313+00:00",
   "baseline_at": "2026-10-25T13:30:20.247568+00:00",
   "project": {
     "name": "RustSimHub",
@@ -6401,6 +6401,18 @@
       ],
       "evidence": [
         "https://github.com/Viper-Boss/RustSimHub/blob/codex/web-update-owner-session/docs/PROGRESS.md"
+      ]
+    },
+    {
+      "at": "2026-11-24T04:47:14.569313+00:00",
+      "type": "state",
+      "title": "UPD-08 · 状态更新：外部initramfs与新构建启动验证",
+      "detail": "完成只读 A/B 分区计算与试启动回退状态测试。真实早期选槽、4 GB 适配镜像和 8 GB 分区表待核验，尚未刷写。",
+      "task_ids": [
+        "UPD-08"
+      ],
+      "evidence": [
+        "docs/DUAL-SLOT-USB-STORAGE.md"
       ]
     }
   ],

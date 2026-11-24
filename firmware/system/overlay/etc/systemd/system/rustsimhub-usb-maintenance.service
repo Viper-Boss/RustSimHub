@@ -1,0 +1,18 @@
+[Unit]
+Description=RustSimHub physical USB maintenance channel
+Requires=rustsimhub-usb.service
+After=rustsimhub-usb.service
+BindsTo=dev-ttyGS0.device
+After=dev-ttyGS0.device
+
+[Service]
+Type=simple
+ExecStart=/usr/local/libexec/rustsimhub-usb-maintenance
+StandardInput=tty
+StandardOutput=tty
+StandardError=journal
+TTYPath=/dev/ttyGS0
+TTYReset=yes
+Restart=always
+RestartSec=1s
+UMask=0077

@@ -1,0 +1,98 @@
+#!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-only
+# Called by systemd with stdin/stdout attached exclusively to the USB gadget ACM tty.
+set -eu
+export LC_ALL=C
+test "$#" = 0
+test "$(id -u)" = 0
+test "$(tty <&0)" = /dev/ttyGS0
+test /dev/ttyGS0 -ef /proc/self/fd/1
+stty raw -echo -hupcl <&0
+/usr/local/libexec/rustsimhub-state-check
+system=/var/lib/rustsimhub/rustsimhub-v1/system
+blocked=$system/ssh-disabled
+
+device_info() {
+    local board=unknown sectors
+    if [[ -r /proc/device-tree/compatible ]] &&
+        tr '\0' '\n' </proc/device-tree/compatible | grep -Fxq 'thwc,ufi003'; then
+        board=UFI003
+    fi
+    if ! read -r sectors </sys/class/block/mmcblk0/size ||
+        [[ ! "$sectors" =~ ^[1-9][0-9]{0,11}$ ]]; then
+        printf '{"ok":false,"error":"capacity_unavailable"}\n'
+        return
+    fi
+    printf '{"ok":true,"board":"%s","sectors":%s}\n' "$board" "$sectors"
+}
+
+ssh_status() {
+    local enabled=true running=false
+    if [[ -e "$blocked" || -L "$blocked" ]]; then
+        enabled=false
+    fi
+    if systemctl is-active --quiet ssh.service; then
+        running=true
+    fi
+    printf '{"ok":true,"ssh_enabled":%s,"ssh_running":%s}\n' "$enabled" "$running"
+}
+
+ssh_on() {
+    local was_blocked=false
+    if [[ -e "$blocked" || -L "$blocked" ]]; then
+        was_blocked=true
+    fi
+    # Validate the persistent identity and installed public key before allowing network SSH.
+    if ! /usr/local/libexec/rustsimhub-ssh-prepare >&2; then
+        printf '{"ok":false,"error":"ssh_identity_unavailable"}\n'
+        return
+    fi
+    if rm -f -- "$blocked" && sync -f "$system" &&
+        systemctl start ssh.service >&2 && systemctl is-active --quiet ssh.service; then
+        ssh_status
+        return
+    fi
+    if [[ "$was_blocked" == true ]]; then
+        touch -- "$blocked" && sync -f "$system" || true
+    fi
+    printf '{"ok":false,"error":"ssh_start_failed"}\n'
+}
+
+ssh_off() {
+    if ! (umask 077 && touch -- "$blocked" && sync -f "$system"); then
+        printf '{"ok":false,"error":"ssh_policy_unavailable"}\n'
+        return
+    fi
+    if [[ "$(systemctl show --property=LoadState --value ssh.socket)" != not-found ]]; then
+        systemctl stop ssh.socket >&2 || {
+            printf '{"ok":false,"error":"ssh_stop_failed"}\n'
+            return
+        }
+    fi
+    if systemctl stop ssh.service >&2; then
+        ssh_status
+    else
+        printf '{"ok":false,"error":"ssh_stop_failed"}\n'
+    fi
+}
+
+while IFS= read -r -n 96 request; do
+    # A bounded read returns at 96 bytes without consuming the newline. Discard that frame.
+    if (("${#request}" == 96)); then
+        while IFS= read -r -n 96 remainder && (("${#remainder}" == 96)); do
+            :
+        done
+        printf '{"ok":false,"error":"invalid_request"}\n'
+        continue
+    fi
+    case "$request" in
+        'RSHUSB1 IDENTIFY')
+            printf '{"ok":true,"protocol":1,"product":"RustSimHub","role":"local-administrator"}\n'
+            ;;
+        'RSHUSB1 DEVICE_INFO') device_info ;;
+        'RSHUSB1 SSH_STATUS') ssh_status ;;
+        'RSHUSB1 SSH_ON') ssh_on ;;
+        'RSHUSB1 SSH_OFF') ssh_off ;;
+        *) printf '{"ok":false,"error":"invalid_request"}\n' ;;
+    esac
+done

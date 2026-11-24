@@ -41,4 +41,21 @@ suffix=$(printf '%s' "$h" | sed 's/../:&/g')
 printf '02%s' "$suffix" > "$g/functions/ncm.usb0/dev_addr"
 printf '06%s' "$suffix" > "$g/functions/ncm.usb0/host_addr"
 ln -s "$g/functions/ncm.usb0" "$g/configs/c.1/ncm.usb0"
+if mkdir "$g/functions/acm.maintenance" 2>/dev/null; then
+ ln -s "$g/functions/acm.maintenance" "$g/configs/c.1/acm.maintenance"
+ printf '0x0101' > "$g/bcdDevice"
+ printf 'UFI003 NCM and Maintenance' > "$g/strings/0x409/product"
+ printf 'NCM and Maintenance' > "$g/configs/c.1/strings/0x409/configuration"
+ if printf '%s' "$udc" > "$g/UDC"; then
+  exit 0
+ fi
+ echo 'USB composite bind failed; retrying with NCM only' >&2
+ rm -- "$g/configs/c.1/acm.maintenance"
+ rmdir "$g/functions/acm.maintenance"
+ printf '0x0100' > "$g/bcdDevice"
+ printf 'UFI003 Developer NCM' > "$g/strings/0x409/product"
+ printf 'NCM' > "$g/configs/c.1/strings/0x409/configuration"
+else
+ echo 'USB serial function unavailable on this kernel' >&2
+fi
 printf '%s' "$udc" > "$g/UDC"

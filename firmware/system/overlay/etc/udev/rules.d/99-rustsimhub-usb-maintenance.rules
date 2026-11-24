@@ -1,0 +1,2 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+SUBSYSTEM=="tty", KERNEL=="ttyGS0", OWNER="root", GROUP="root", MODE="0600", TAG+="systemd", ENV{SYSTEMD_WANTS}+="rustsimhub-usb-maintenance.service"
