@@ -542,6 +542,21 @@ fn recover_run(run: &UpdateRunRecord) -> Result<UpdateRunPhase> {
     result.and_then(|phase| timers.map(|()| phase))
 }
 
+fn write_completed_run(
+    journal: &Path,
+    uid: u32,
+    run: &UpdateRunRecord,
+    refresh_retention: impl FnOnce() -> Result<()>,
+) -> Result<()> {
+    if run.phase == UpdateRunPhase::Confirmed {
+        // Status polling ends on a terminal receipt. Publish the current
+        // version first so that response cannot pair success with the old slot.
+        // A failed refresh leaves the Running journal for ledger reconciliation.
+        refresh_retention()?;
+    }
+    write_run(journal, uid, run)
+}
+
 /// The systemd timer consumes the one fixed inbox. Crash recovery always
 /// resolves the previous journal before looking for a new request.
 pub fn process_web_upload() -> Result<()> {
@@ -554,7 +569,7 @@ pub fn process_web_upload() -> Result<()> {
     let previous = match read_run(journal, uid)? {
         Some(mut run) if run.phase == UpdateRunPhase::Running => {
             run.phase = recover_run(&run)?;
-            return write_run(journal, uid, &run);
+            return write_completed_run(journal, uid, &run, || maintain_backups(journal, true));
         }
         previous => previous,
     };
@@ -590,7 +605,7 @@ pub fn process_web_upload() -> Result<()> {
         TrialResult::RejectedAndRestored => UpdateRunPhase::Restored,
         TrialResult::AwaitingHealthConfirmation => return Err(Error::Integrity),
     };
-    write_run(journal, uid, &run)
+    write_completed_run(journal, uid, &run, || maintain_backups(journal, true))
 }
 
 #[cfg(test)]
@@ -737,6 +752,46 @@ mod tests {
         write_run(directory.path(), uid, &run).unwrap();
         assert_eq!(read_run(directory.path(), uid).unwrap(), Some(run));
         assert!(!next.exists());
+    }
+
+    #[test]
+    fn confirmed_receipt_waits_for_the_current_version_snapshot() {
+        let directory = tempfile::tempdir().unwrap();
+        let journal = directory.path();
+        fs::set_permissions(journal, fs::Permissions::from_mode(0o755)).unwrap();
+        let uid = rustix::process::geteuid().as_raw();
+        let mut run = UpdateRunRecord {
+            format: 1,
+            request_id: "12345678-1234-4234-8234-123456789abc".into(),
+            manifest_sha256: "a".repeat(64),
+            epoch: 128,
+            baseline_sha256: "b".repeat(64),
+            active_timers: [true, false],
+            phase: UpdateRunPhase::Running,
+        };
+        write_run(journal, uid, &run).unwrap();
+        run.phase = UpdateRunPhase::Confirmed;
+        assert_eq!(
+            write_completed_run(journal, uid, &run, || Err(Error::Io)),
+            Err(Error::Io)
+        );
+        assert_eq!(
+            read_run(journal, uid).unwrap().unwrap().phase,
+            UpdateRunPhase::Running
+        );
+        write_completed_run(journal, uid, &run, || {
+            assert_eq!(
+                read_run(journal, uid)?.unwrap().phase,
+                UpdateRunPhase::Running
+            );
+            publish_journal(journal, uid, "backups", b"new current version")
+        })
+        .unwrap();
+        assert_eq!(
+            fs::read(journal.join("backups.json")).unwrap(),
+            b"new current version"
+        );
+        assert_eq!(read_run(journal, uid).unwrap(), Some(run));
     }
 
     #[test]
