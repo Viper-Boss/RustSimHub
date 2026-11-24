@@ -1,5 +1,75 @@
 # Offline B: original recovery matrix in the bounded entry
 
+## Resumed validation and publication, 2026-11-24
+
+The earlier quota/publication and Windows failure paragraphs below are historical.
+The approval route subsequently recovered. ARM evidence is now published as
+[PR281](https://github.com/Viper-Boss/RustSimHub/pull/281), exact head
+`da3fd37aa98b7459afdb124cf5a8d59decc2d2b1`, mergeable and unmerged. Main was
+rechecked at `de663743bd726e77f7c560139d0f91ea78e8fe57`; it was not modified.
+
+The GitHub-connected publication of this runner extension is code commit
+`c951783c359a81cfc5334f4600e5e6656b934a0c`. Its complete tree
+`3b488e1abba700e8f627f1e9bb984158f20f3eaa` matches local46d725f exactly.
+An exact CLI push was attempted without interactive credentials and failed
+before writing a ref; no private credentials were sought. The connected tool
+created a distinct commit with its own real metadata, not a rewritten local
+author or an assertion that the two commit IDs match. The validation branch
+`codex/offline-b-recovery-validation-20261124` preserves that tested remote head.
+This extension belongs in the existing runner PR270, not another PR duplicating
+its complete pending runner diff. No main/other-member branch or merge was used.
+
+Both commits were actually tested in separate clean Linux checkouts, not merely
+declared equivalent. The published c951783 run returned0: all 15 original
+real-production-library cases passed, zero ignored, source clean and unchanged,
+owned descendants completely reaped. Duration182.791s; original full backend
+report SHA256 `e947feeed51cd699ce8afd50faaee5b44b4443c268c6ddc9293a3cd36b648b1e`.
+The local46d725f run also returned0 with all15 cases, separately preserved.
+See [published-source receipt](../offline-b/recovery-entry-20261124/linux-recovery-c951783-summary.json)
+and [local-source receipt](../offline-b/recovery-entry-20261124/linux-recovery-46d725f-summary.json).
+
+At exact c951783, original runner self-tests returned0 on both platforms:
+Linux32/32 passed with no skips; Windows31/32 passed with its one explicit
+Linux archive test skipped. The original TCP proxy test passed in the normal
+authorized host environment, without a code/assertion change. The prior sandbox
+EACCES failure remains above/below and in its original log. See the actual
+[self-test counters and log hashes](../offline-b/recovery-entry-20261124/self-tests-summary.json).
+The newly extended complete34-check `all` selection was not rerun here; the
+earlier33-check combined-source results retain their original6746473b source.
+
+Independent selected Root health tests at c951783 found a retained failure:
+six passed, one failed (`kernel_probe_reads_real_executable_and_refuses_missing_process`,
+Invalid at tests.rs:232), Cargo exit101, cleanup complete, clean stable source.
+Sixteen later isolated repetitions of that one original case all passed; this
+does not erase the first failure or establish its cause. The fixture assumes
+the child executable is observable immediately after spawn; an exec readiness
+barrier is a separate test-only follow-up under investigation. Production probe
+limits and fail-closed errors remain unchanged. See the
+[failure receipt](../offline-b/recovery-entry-20261124/root-health-initial-summary.json)
+and [bounded repetition results](../offline-b/recovery-entry-20261124/root-health-repro.json).
+No Root service or full UID/cgroup/nft chain was started or certified.
+
+The task VM was restarted only after its disk check reported no errors, with
+the same outer Job/network restrictions. Test units used ordinary builder UID,
+private network/tmp/IPC/devices, zero capabilities, readonly source/tools,
+specific task cache/output bindings, 768MiB plus1GiB swap,64 tasks and1 CPU.
+Real rustup1.29.3 resolved the already pinned Rust1.98 toolchain offline.
+An initial root-owned swap-header read by builder was denied; the bounded
+validation was rerun as VM Root without changing file permissions. An initial
+invalid systemd property `BindReadWritePaths` was rejected before unit creation;
+the supported `BindPaths` was used for those same specific task directories.
+Neither failure was treated as an executed successful test.
+
+PR281 CI runs45334768959/45334748234 failed with all four jobs having zero steps.
+The connector cannot retrieve their annotation bodies, so the exact cause is
+unconfirmed; they are not CI passes. No rerun, billing/protection change or gate
+removal was performed. Docker tooling was only planned from four fixed packages
+in the existing signed Debian index at this point; no Docker/service was installed.
+Full profiles, statistics participation restore, real product health, physical
+recovery and public-network acceptance remain unverified. **81.5% unchanged.**
+
+## Original implementation record
+
 This adds an executable Linux `recovery` selection to the existing B runner.
 It invokes the unchanged real-library recovery controller, requires all 15
 reviewed cases, and retains the original process/source/cleanup failure rules.
