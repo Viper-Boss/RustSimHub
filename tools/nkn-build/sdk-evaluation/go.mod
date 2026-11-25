@@ -3,7 +3,7 @@ module github.com/Viper-Boss/RustSimHub/tools/nkn-sdk-evaluation
 go 1.25.7
 
 require (
-	github.com/gorilla/websocket v1.4.2
+	github.com/gorilla/websocket v1.5.3
 	github.com/nknorg/nkn-sdk-go v1.4.8
 	github.com/nknorg/nkngomobile v0.0.0-20220615081414-671ad1afdfa9
 )
@@ -37,10 +37,10 @@ require (
 	github.com/pion/transport/v3 v3.0.2 // indirect
 	github.com/pion/turn/v3 v3.0.2 // indirect
 	github.com/pion/webrtc/v4 v4.0.0-beta.17 // indirect
-	golang.org/x/crypto v0.21.0 // indirect
+	golang.org/x/crypto v0.52.0 // indirect
 	golang.org/x/mobile v0.0.0-20230301163155-e0f57694e12c // indirect
-	golang.org/x/net v0.23.0 // indirect
-	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/net v0.54.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 )
