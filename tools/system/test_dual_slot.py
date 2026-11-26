@@ -69,8 +69,9 @@ class LayoutTests(unittest.TestCase):
 
     def test_reject_unknown_geometry_and_oversized_image(self):
         layout = layout_legacy()
+        self.assertEqual(plan_layout(layout, "UFI001C"), plan_layout(layout, "UFI003"))
         with self.assertRaises(LayoutError):
-            plan_layout(layout, "UFI001C")
+            plan_layout(layout, "unknown")
         with self.assertRaises(LayoutError):
             plan_layout(layout, "UFI003", 1456963584)
         layout["partitions"][-1]["name"] = "not-recognized"

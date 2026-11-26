@@ -9,17 +9,18 @@ case "$#" in
  *) exit 1 ;;
 esac
 state=/var/lib/rustsimhub
-tr '\000' '\n' < /proc/device-tree/compatible | grep -qx 'thwc,ufi003'
 test ! -L "$state"
 mountpoint -q "$state"
 # PrivateDevices hides physical /dev nodes in the SSH preparation unit.
 # Compare the mounted filesystem's kernel device number with the fixed physical
 # partition in sysfs; this does not require exposing or opening a block device.
 if test -f /usr/share/rustsimhub/ab-system.json; then
+ tr '\000' '\n' < /proc/device-tree/compatible | grep -Eqx 'thwc,(ufi003|ufi001c)'
  . /usr/local/libexec/rustsimhub-ab-partitions
  ab_verify_mount "$state" RSH_CONFIG
  partition=$(ab_partition RSH_CONFIG)
 else
+ tr '\000' '\n' < /proc/device-tree/compatible | grep -Fxq 'thwc,ufi003'
  partition=/sys/class/block/mmcblk0p15
  test "$(dirname "$(readlink -f "$partition")")" = "$(readlink -f /sys/class/block/mmcblk0)"
  test "$(findmnt -rn -M "$state" -o MAJ:MIN)" = "$(cat "$partition/dev")"

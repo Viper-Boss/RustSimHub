@@ -4,6 +4,7 @@
 SECTOR_BYTES = 512
 MIB = 1024 * 1024
 ALIGN = MIB // SECTOR_BYTES
+SUPPORTED_BOARDS = frozenset(("UFI003", "UFI001C"))
 PROFILES = {
     4: (608, 64, 64, 32, 32),
     8: (1792, 256, 128, 128, 64),
@@ -83,8 +84,8 @@ def allocate(spans, size, name):
 
 def plan_layout(layout, board_family, image_bytes=None):
     """Plan extents only. Preserve reserved gaps, existing protected entries and table bounds."""
-    if board_family != "UFI003":
-        raise LayoutError("仅为已识别的 UFI003 规划")
+    if board_family not in SUPPORTED_BOARDS:
+        raise LayoutError("仅为已识别的 UFI003 或 UFI001C 规划")
     profile = capacity_profile(layout["disk_bytes"])
     slot, records, config, abuse, keys = PROFILES[profile]
     partitions, names = validate(layout)
