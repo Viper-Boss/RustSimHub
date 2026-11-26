@@ -14,3 +14,16 @@ firmware/ufi003-stage1/build.sh ./lk2nd ./out
 ```
 
 脚本从锁定的源码构建并校验 ARM ELF 与版本标识。产物是开发用 ELF，目标设备的引导镜像格式、签名信任和真机加载需要单独验证。补丁应用到 LK 源码后，编译产物遵循 LK 上游的许可。
+
+## 验证开发用 MBN
+
+已明确支持开发引导镜像的设备可用 [qtestsign](https://github.com/msm8916-mainline/qtestsign/tree/0eef3b552b1ada848f22bad38ab2e40407307c5b) 的标准 MSM8916 v3 封装，把上面的 ELF 转成开发用 MBN。该格式使用测试证书，仍需在受支持的设备上验证加载。工具不会更改设备的启动认证配置。
+
+```bash
+python3 qtestsign/qtestsign.py -v 3 -o out/RustSimHub-UFI003-stage1-development.mbn \
+  aboot out/RustSimHub-UFI003-stage1.elf
+python3 firmware/ufi003-stage1/verify-development-image.py \
+  out/RustSimHub-UFI003-stage1.elf out/RustSimHub-UFI003-stage1-development.mbn
+```
+
+验证器检查 ARM 入口、目标分区容量、可加载段和 SHA-256 段表。过检只证明封装完整，整机刷入和首启需要真机测试。
