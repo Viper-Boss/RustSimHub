@@ -1,0 +1,72 @@
+diff --git a/lk2nd/device/dts/msm8916/msm8916-512mb-mtp.dts b/lk2nd/device/dts/msm8916/msm8916-512mb-mtp.dts
+index e0f6b56..0ed57e3 100644
+--- a/lk2nd/device/dts/msm8916/msm8916-512mb-mtp.dts
++++ b/lk2nd/device/dts/msm8916/msm8916-512mb-mtp.dts
+@@ -74,0 +75,16 @@
++	thwc-ufi003 {
++		model = "RustSimHub UFI003";
++		compatible = "thwc,ufi003";
++
++
++		lk2nd,dtb-files = "msm8916-thwc-ufi003";
++
++		gpio-keys {
++			compatible = "gpio-keys";
++			recovery-button {
++				lk2nd,code = <KEY_VOLUMEDOWN>;
++				gpios = <&tlmm 37 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
++			};
++		};
++	};
++
+diff --git a/lk2nd/version/rules.mk b/lk2nd/version/rules.mk
+index 49df2a9..3be9489 100644
+--- a/lk2nd/version/rules.mk
++++ b/lk2nd/version/rules.mk
+@@ -22,0 +23,4 @@ OBJS += \
++
++ifeq ($(RUSTSIMHUB_UFI003),1)
++DEFINES += RUSTSIMHUB_UFI003=1
++endif
+diff --git a/lk2nd/version/version.c b/lk2nd/version/version.c
+index 432b61b..72c3937 100644
+--- a/lk2nd/version/version.c
++++ b/lk2nd/version/version.c
+@@ -6,0 +7,3 @@
++#ifdef RUSTSIMHUB_UFI003
++#include <partition_parser.h>
++#endif
+@@ -20,0 +24,21 @@
++#ifdef RUSTSIMHUB_UFI003
++static const char *rustsimhub_storage_layout(void)
++{
++	static const char * const names[] = {
++		"RSH_A", "RSH_B", "RSH_BOOTCTL", "RSH_RECORDS",
++		"RSH_AUDIO", "RSH_CONFIG", "RSH_KEYS", "RSH_ABUSE",
++	};
++	unsigned int i, found = 0;
++
++	for (i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
++		if (partition_get_index(names[i]) != INVALID_PTN)
++			found++;
++	}
++	if (found == sizeof(names) / sizeof(names[0]))
++		return "ab-v1";
++	if (found)
++		return "incomplete-ab";
++	return "legacy";
++}
++#endif
++
+@@ -39,0 +64,6 @@ static int lk2nd_version_dt_update(void *dtb, const char *cmdline,
++#ifdef RUSTSIMHUB_UFI003
++	ret = fdt_setprop_string(dtb, offset, "rustsimhub,bootloader", LK2ND_VERSION);
++	if (ret < 0)
++		return 0;
++	fdt_setprop_string(dtb, offset, "rustsimhub,storage-layout", rustsimhub_storage_layout());
++#endif
+@@ -47,0 +78,4 @@ static void lk2nd_version_publish(void)
++#ifdef RUSTSIMHUB_UFI003
++	fastboot_publish("rustsimhub:bootloader", LK2ND_VERSION);
++	fastboot_publish("rustsimhub:storage-layout", rustsimhub_storage_layout());
++#endif
