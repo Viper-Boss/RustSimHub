@@ -29,7 +29,7 @@ class ResumeTests(unittest.TestCase):
         return p/'state'
 
     def run_script(self):
-        text=SCRIPT.read_text().replace('/var/lib/rustsimhub/.private-firmware',str(self.bundle)).replace('/sys/class/remoteproc',str(self.sys)).replace('/usr/lib/firmware',str(self.dest)).replace('/usr/local/libexec/rustsimhub-device-firmware --check',self.check)
+        text=SCRIPT.read_text().replace('$(/usr/local/libexec/rustsimhub-firmware-cache-path)',str(self.bundle)).replace('/sys/class/remoteproc',str(self.sys)).replace('/usr/lib/firmware',str(self.dest)).replace('/usr/local/libexec/rustsimhub-device-firmware --check',self.check)
         p=self.root/'resume';p.write_text(text)
         return subprocess.run(['sh',str(p)],env=self.env,capture_output=True,text=True)
 

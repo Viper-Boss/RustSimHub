@@ -36,11 +36,33 @@ class ContractTests(unittest.TestCase):
     def test_first_boot_units_order_extract_and_install_correctly(self):
         extract = (UNITS/'rustsimhub-firmware-extract.service').read_text()
         self.assertIn('Before=rustsimhub-device-firmware.service', extract)
-        self.assertIn('ConditionPathExists=!/var/lib/rustsimhub/.private-firmware', extract)
+        self.assertNotIn('ConditionPathExists=!/var/lib/rustsimhub/.private-firmware', extract)
         install = (UNITS/'rustsimhub-generic-install.service').read_text()
         for name in ('rustsimhub-app-select.service', 'rustsimhub-core.service', 'rustsimhub-edge.service', 'rustsimhub-mdns.service'):
             self.assertIn(name, install.split('Before=')[1].splitlines()[0])
         self.assertIn('ConditionPathExists=!/var/lib/rustsimhub/rustsimhub-v1/system/installation.complete', install)
+
+    def test_cache_is_slot_local_only_for_generic_ab(self):
+        helper = ROOT/'firmware/system/overlay/usr/local/libexec/rustsimhub-firmware-cache-path'
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            source = helper.read_text().replace('/usr/share/rustsimhub', str(root/'release'))
+            source = source.replace('/var/lib/rustsimhub', str(root/'state'))
+            source = source.replace('/var/cache/rustsimhub', str(root/'cache'))
+            marker = root/'release/ab-system.json'
+            request = root/'state/rustsimhub-v1/system/generic-provision.request'
+            marker.parent.mkdir()
+            request.parent.mkdir(parents=True)
+            legacy = str(root/'state/.private-firmware')
+            def selected():
+                return subprocess.check_output(['sh', '-c', source], text=True).strip()
+            self.assertEqual(selected(), legacy)
+            request.touch()
+            self.assertEqual(selected(), legacy)
+            marker.touch()
+            self.assertEqual(selected(), str(root/'cache/device-firmware'))
+            request.unlink()
+            self.assertEqual(selected(), legacy)
 
     def test_usb_dhcp_offers_only_the_host_address_without_gateway_or_dns(self):
         unit = (UNITS/'rustsimhub-usb-dhcp.service').read_text()

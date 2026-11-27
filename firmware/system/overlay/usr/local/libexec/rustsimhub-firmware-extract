@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-only
 # Generic flash first boot only: copy this device's own signed modem/WCNSS firmware
-# and its own Wi-Fi NV file into NSHSTATE. Both source partitions stay read-only:
+# and its own Wi-Fi NV file into the runtime firmware cache. Both sources stay read-only:
 # modem through a read-only loop, persist through debugfs without a kernel mount, so
 # an unreplayed persist journal is never replayed. No NV/calibration partition is
 # opened for writing and no other partition is opened at all.
@@ -15,7 +15,8 @@ test "$(id -u)" = 0
 /usr/local/libexec/rustsimhub-state-check
 state=/var/lib/rustsimhub
 request=$state/rustsimhub-v1/system/generic-provision.request
-base=$state/.private-firmware
+base=$(/usr/local/libexec/rustsimhub-firmware-cache-path)
+cache_dir=${base%/*}
 pending=$base.pending
 test ! -L "$request"
 test -f "$request"
@@ -25,6 +26,11 @@ test "$(cat "$request")" = RustSimHub.GenericProvision.v1
 if test -e "$base" || test -L "$base";then
  echo 'firmware extract: bundle already present; nothing changed'
  exit 0
+fi
+if test "$cache_dir" != "$state";then
+ test ! -L "$cache_dir"
+ if test ! -d "$cache_dir";then mkdir -m 0700 "$cache_dir";fi
+ test "$(stat -c '%u:%g:%a' "$cache_dir")" = 0:0:700
 fi
 partition() {
  found=
@@ -166,5 +172,5 @@ sync -f "$pending"
 mv -nT -- "$pending" "$base"
 test ! -e "$pending"
 test -d "$base"
-sync -f "$state"
+sync -f "$cache_dir"
 echo 'firmware extract: own modem/WCNSS firmware and Wi-Fi NV copied; source partitions untouched'

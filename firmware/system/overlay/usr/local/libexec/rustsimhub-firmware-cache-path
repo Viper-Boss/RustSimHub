@@ -1,0 +1,10 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-only
+set -eu
+test "$#" = 0
+if test -f /usr/share/rustsimhub/ab-system.json &&
+   test -f /var/lib/rustsimhub/rustsimhub-v1/system/generic-provision.request; then
+    printf '%s\n' /var/cache/rustsimhub/device-firmware
+else
+    printf '%s\n' /var/lib/rustsimhub/.private-firmware
+fi

@@ -145,6 +145,7 @@ class FirmwareExtractTests(unittest.TestCase):
         self.make_persist()
         text = SCRIPT.read_text()
         for old, new in (('/var/lib/rustsimhub', str(self.state)), ('/sys/class/block', str(self.sys)),
+                         ('$(/usr/local/libexec/rustsimhub-firmware-cache-path)', str(self.state/'.private-firmware')),
                          ('"/dev/$found"', '"%s/$found"' % self.dev), ('/usr/local/libexec/rustsimhub-state-check', 'true')):
             self.assertIn(old, text)
             text = text.replace(old, new)

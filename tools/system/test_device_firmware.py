@@ -30,7 +30,7 @@ class FirmwareLoaderTests(unittest.TestCase):
             p.chmod(0o600)
         self.manifest()
         # Only fixed absolute installation paths and mount verification change.
-        text = SCRIPT.read_text().replace('/var/lib/rustsimhub/.private-firmware', str(self.base))
+        text = SCRIPT.read_text().replace('$(/usr/local/libexec/rustsimhub-firmware-cache-path)', str(self.base))
         text = text.replace('/usr/lib/firmware', str(self.dest))
         text = text.replace('/usr/local/libexec/rustsimhub-state-check', 'true')
         self.script = self.root / 'loader'
