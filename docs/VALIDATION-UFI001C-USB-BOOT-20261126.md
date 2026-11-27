@@ -67,3 +67,13 @@ Debian 虚拟机已配置仅针对 Qualcomm `05c6:9008` 的 udev 规则。当前
 RustFlashKit 新增 `chain-preflight`。在 USB 只读会话内先查验 MSM8916，使用原始 GPT 与固定可信摘要的 OpenStick 包重新生成候选，再逐字节比对候选 GPT 和引导镜像。验证实机主备 GPT 后才回读其他区段。原引导的八个区段与所存副本逐字节比对，两个计划迁入的区段需双读一致并全零。全部一致后写出私有现场回读和摘要，接下来可用它们验证同一设备的迁移和回退。
 
 CLI 到工作进程的测试覆盖候选载荷损坏、现有引导内容变化、核对成功三个路径，非 GUI 套件 266 项通过、1 项跳过。用实机先前回读的 GPT 和引导镜像做了 12 个区段的回放，其中两个新空档使用零填充。实际 USB 命令返回 0 个可用的 9008 设备，未生成实机回读或发起写入。本棒子的正式刷写、启动、USB 和 A/B 验收仍待完成。整体验收保持 81.5%。[RustFlashKit 提交](https://github.com/Viper-Boss/RustFlashKit/commit/aa0e563d4c3e0f94b4647e5efd20ae81b3e830d6)
+
+## 2026-11-27 写入中断演练
+
+候选区段以实机原始回读为底，只覆盖候选载荷涉及的字节。续写和回退先双读固定范围并逐扇区识别原始或目标内容，已到达所选状态的区段自动跳过，遇到未知或不稳定的扇区时停止。两份 GPT 已经处在不同版本时，也可以从回退清单核对原本的位置。
+
+用同一套 Firehose 写入引擎和模拟 USB 端点，在同容量稀疏镜像上写入 12 段。模拟备 GPT 已落盘但没有收到成功确认时，重新双读识别到只剩主 GPT 和主 SBL1 两段，再从新连接续写完成。回退后整盘 SHA-256 恢复。回归测试另外覆盖旧、新内容混在一段及遇到未知扇区的情形。非 GUI 套件 267 项通过、1 项跳过。[RustFlashKit 提交](https://github.com/Viper-Boss/RustFlashKit/commit/a049f2880453f1e0a8b3b7a3907d641458ea4677)
+
+补查另一个 UFI001C postmarketOS 发布包关于旧 LK 的 DTB 偏移说明。其 v26.06-3 下载件 SHA-256 与同版清单一致，内核 gzip 流仍无法用 zlib 解压。RustSimHub 当前测试镜像及先前 OpenStick 参考镜像均可解压，现有 LK 镜像也包含单个附加 DTB 的兼容路径。当前证据不足以支持因此更改 RustSimHub 的 boot 封装。[对照发布页](https://github.com/roccoren/ufi001c-postmarketos/releases/tag/v26.06-3)
+
+测试棒子仍未在虚拟机枚举。真实迁移、正常启动、USB 和 A/B 切换待实机验收，整体验收保持 81.5%。
