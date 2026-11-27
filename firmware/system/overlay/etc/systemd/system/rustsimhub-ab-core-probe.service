@@ -1,0 +1,19 @@
+[Unit]
+Description=Check the Core identity for A/B firmware health
+
+[Service]
+Type=oneshot
+User=rustsimhub-edge
+Group=rustsimhub-edge
+SupplementaryGroups=rustsimhub-ipc
+BindReadOnlyPaths=/run/rustsimhub-app/selected:/opt/rustsimhub/selected
+ExecStart=/opt/rustsimhub/selected/simhubctl identity /run/rustsimhub/core/core.sock 986
+TimeoutStartSec=5
+StandardOutput=null
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX

@@ -55,6 +55,16 @@ class CompositionTests(unittest.TestCase):
             timer = system/"etc/systemd/system/timers.target.wants/rustsimhub-ab-health.timer"
             self.assertEqual(os.readlink(timer), "../rustsimhub-ab-health.timer")
 
+    def test_ab_core_probe_uses_the_edge_identity_and_verified_application(self):
+        units = OVERLAY/"etc/systemd/system"
+        probe = (units/"rustsimhub-ab-core-probe.service").read_text().splitlines()
+        edge = (units/"rustsimhub-edge.service").read_text().splitlines()
+        for key in ('User=', 'Group=', 'SupplementaryGroups='):
+            self.assertEqual(next(line for line in probe if line.startswith(key)),
+                             next(line for line in edge if line.startswith(key)))
+        edge_bind = next(line for line in edge if line.startswith('BindReadOnlyPaths='))
+        self.assertIn(edge_bind.split()[0], probe)
+
 
 class HealthScriptTests(unittest.TestCase):
     def setUp(self):
@@ -73,15 +83,15 @@ class HealthScriptTests(unittest.TestCase):
         source = source.replace('/run/initramfs', str(self.root))
         source = source.replace('= 0:0:600:1', f'= {os.geteuid()}:{os.getegid()}:600:1')
         source = source.replace('/usr/local/libexec/rustsimhub-state-check --read-only', 'true')
-        source = source.replace('timeout 4s /opt/rustsimhub/selected/simhubctl identity /run/rustsimhub/core/core.sock 986', 'check_core')
         source = source.replace('sleep 5', 'true').replace('remaining=24', 'remaining=2')
         helpers = f'''
 ab_partition() {{ echo '{fixture}'; }}
 findmnt() {{ printf '%s\\n' "$DEVICE"; }}
-check_core() {{ [ "$HEALTHY" = yes ]; }}
 systemctl() {{
     case "$1" in
         is-active) return 0 ;;
+        start)
+            [ "$2" = rustsimhub-ab-core-probe.service ] && [ "$HEALTHY" = yes ] ;;
         --no-block) echo "$2" >> '{self.root}/events' ;;
         *) return 1 ;;
     esac

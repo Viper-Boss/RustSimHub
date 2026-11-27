@@ -36,7 +36,7 @@ healthy() {
         systemctl is-active --quiet rustsimhub-core.service &&
         systemctl is-active --quiet rustsimhub-edge.service &&
         /usr/local/libexec/rustsimhub-state-check --read-only &&
-        timeout 4s /opt/rustsimhub/selected/simhubctl identity /run/rustsimhub/core/core.sock 986 >/dev/null
+        systemctl start rustsimhub-ab-core-probe.service
 }
 
 # Require two successful observations, preserving the trial budget when boot
