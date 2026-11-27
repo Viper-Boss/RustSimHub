@@ -61,3 +61,9 @@ Debian 虚拟机已配置仅针对 Qualcomm `05c6:9008` 的 udev 规则。当前
 原厂与 OpenStick 镜像中的根证书字节不同。保存的 Sahara 哈希与现有引导、候选引导及已能连接的 EDL 加载器的 DER 证书和所测公钥表示均未匹配。该比较不能判定此板的启动验签状态。应由同一棒子的实测结果确认引导是否兼容。
 
 非 GUI 测试运行 `python3 -m pytest -q --ignore=tests/test_gui_flash.py`，265 项通过、1 项跳过。虚拟机仍未枚举出测试棒子，当前阶段未执行实机写入，正常 USB 和 A/B 验收仍待完成。整体验收保持 81.5%。[RustFlashKit 提交](https://github.com/Viper-Boss/RustFlashKit/commit/a00863084af1031903ff98fa7c7815975517919a)
+
+## 2026-11-27 9008 实机回读入口
+
+RustFlashKit 新增 `chain-preflight`。在 USB 只读会话内先查验 MSM8916，使用原始 GPT 与固定可信摘要的 OpenStick 包重新生成候选，再逐字节比对候选 GPT 和引导镜像。验证实机主备 GPT 后才回读其他区段。原引导的八个区段与所存副本逐字节比对，两个计划迁入的区段需双读一致并全零。全部一致后写出私有现场回读和摘要，接下来可用它们验证同一设备的迁移和回退。
+
+CLI 到工作进程的测试覆盖候选载荷损坏、现有引导内容变化、核对成功三个路径，非 GUI 套件 266 项通过、1 项跳过。用实机先前回读的 GPT 和引导镜像做了 12 个区段的回放，其中两个新空档使用零填充。实际 USB 命令返回 0 个可用的 9008 设备，未生成实机回读或发起写入。本棒子的正式刷写、启动、USB 和 A/B 验收仍待完成。整体验收保持 81.5%。[RustFlashKit 提交](https://github.com/Viper-Boss/RustFlashKit/commit/aa0e563d4c3e0f94b4647e5efd20ae81b3e830d6)
