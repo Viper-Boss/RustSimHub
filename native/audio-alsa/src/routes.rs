@@ -131,7 +131,10 @@ pub fn prepare_routes() -> Result<usize, String> {
     }
     let compatible = std::fs::read("/sys/firmware/devicetree/base/compatible")
         .map_err(|_| "board identity unavailable")?;
-    if !compatible.split(|b| *b == 0).any(|v| v == b"thwc,ufi003") {
+    if !compatible
+        .split(|b| *b == 0)
+        .any(|v| matches!(v, b"thwc,ufi003" | b"thwc,ufi001c"))
+    {
         return Err("unsupported board".into());
     }
     let mut readiness = ProcReadiness(std::time::Instant::now());
