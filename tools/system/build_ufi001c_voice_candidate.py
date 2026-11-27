@@ -95,24 +95,28 @@ def enable_voice(tree, reference):
         children = run("fdtget", "-l", reference, provider).split()
         require(len(children) == expected_count and not run("fdtget", "-l", tree, provider),
                 f"Unexpected DAI children: {provider}")
-        for name in children:
+        for name in reversed(children):
             child = f"{provider}/{name}"
             require(name.startswith("dai@") and not run("fdtget", "-l", reference, child), "Unexpected DAI node")
             require(set(run("fdtget", "-p", reference, child).split()) == set(properties), "Unexpected DAI property")
             run("fdtput", "-c", tree, child)
             for prop in properties:
                 put_cells(tree, child, prop, cells(reference, child, prop))
+        require(run("fdtget", "-l", tree, provider).split() == children, "DAI order changed")
     links = run("fdtget", "-l", reference, SOUND).split()
     require(len(links) == 10, "Expected 10 voice links")
-    for name in links:
+    # fdtput prepends new nodes. ALSA probes these links in DT order, so
+    # Q6ASM frontends must register their widgets before Q6 routing backends.
+    for name in reversed(links):
         node = f"{SOUND}/{name}"
         run("fdtput", "-c", tree, node)
         put(tree, node, "link-name", get(reference, node, "link-name"))
-        for role in run("fdtget", "-l", reference, node).split():
+        for role in reversed(run("fdtget", "-l", reference, node).split()):
             require(role in ("cpu", "platform", "codec"), "Unexpected link role")
             child = f"{node}/{role}"
             run("fdtput", "-c", tree, child)
             put_cells(tree, child, "sound-dai", remap(cells(reference, child, "sound-dai")))
+    require(run("fdtget", "-l", tree, SOUND).split() == links, "Sound link order changed")
 
 
 def build(boot, reference, output):
