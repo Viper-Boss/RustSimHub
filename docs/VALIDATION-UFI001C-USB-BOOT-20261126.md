@@ -39,3 +39,15 @@ Debian 虚拟机已配置仅针对 Qualcomm `05c6:9008` 的 udev 规则。当前
 实物丝印确认 `UFI001C_MB_V01`，板上有标注的串口焊盘。用可逆的启动头对照触发原 OpenStick LK1ST 的 Fastboot，Debian 枚举 `18d1:d00d`，LK 日志显示识别了 eMMC 和分区表。原 LK1ST 从内存加载当前 ARM64 镜像和 OpenStick 内核对照镜像，均在约 3 秒后重新出现 Fastboot。经校验的上游 LK2nd 23.1 可以在内存运行；由它启动现有 A/B 镜像或使用独立静态 `init` 的最小 ARM64 测试镜像，约 20 秒后回到原 LK1ST，未出现正常 USB。OpenStick 内核经 LK2nd 启动后停留超过 40 秒，虚拟机仍未见 USB。以上 RAM 启动没有写入镜像。
 
 通过 9008 恢复启动头，整区摘要与固定 USB 角色试验镜像一致并确认重启。恢复前只读比较了已有引导组件的主备摘要。SBL1、RPM、HYP 均与 OpenStick `base-generic.zip` 中的对应文件不同，参考包的 TZ 文件超过实机分区大小，不能直接用于这个布局。引导组件差异待进一步核实，正常启动与 USB 尚未通过。整体验收保持 81.5%。
+
+## 2026-11-27 ARM64 引导链与迁移候选
+
+原 LK 的 4 秒和 11 秒延时复位探针对照均约 3 秒返回。经 LK2nd 的两组均约 21 秒返回。观察不到随探针设定变化的复位时间，仍未确认 ARM64 负载开始执行。
+
+将测试棒子上回读的 SBL1、RPM、TZ、HYP 主备镜像按 ELF 有效区间与独立校验的 UFI001C 原厂备份比较，八份相应字节均一致。现有 ABOOT 的有效载荷则与 OpenStick v1 的 ABOOT 完全一致。原厂内核与 HYP 使用 ARM32，OpenStick ARM64 基础包使用 AArch64 HYP。其 TZ 有效数据为 605,312 字节，原厂 TZ 分区只有 512 KiB。这些对照使早期引导链成为主要排查方向。启动故障仍待实机迁移试验确认。[OpenStick v1 发布包](https://github.com/OpenStick/OpenStick/releases/expanded_assets/v1) · [OpenStick 分区与提取脚本](https://github.com/kinsamanka/OpenStick-Builder/blob/master/scripts/extract_fw.sh)
+
+基于已核对的主备 GPT 生成了离线迁移候选。主 TZ 保持起点并扩至 1 MiB，备用 TZ 迁到 1 MiB 对齐的空档，添加 4 扇区的 CDT。其他 30 个原有表项逐字节保持不变，包含两套系统槽、基带和校准。候选的两个新位置已对照确认在原厂参考镜像中全为零。实际棒子的这些位置仍需回读。候选使用固定摘要核对五个 OpenStick 载荷及其目标分区大小，原有引导镜像和 GPT 已按摘要保存在本地私有目录。
+
+刷机工具已在写入前识别并拦截这组已知原厂 HYP/TZ。离线工具仅生成候选文件，264 项非 GUI 测试通过，1 项跳过。虚拟机缺少 Tkinter，GUI 测试未运行。[RustFlashKit 提交](https://github.com/Viper-Boss/RustFlashKit/commit/4d4728d271b521fdd52d40386b0bfb2b9f50d233)
+
+虚拟机当前没有枚举到测试棒子，本次未写入或重启设备。下次在同一设备进入 9008 后，需要核对现有 GPT、两个迁入范围及回退数据，再验证迁移后的 Linux 启动、正常 USB 枚举和 A/B 切换。离线候选尚未通过真机刷机验收。整体验收保持 81.5%。
