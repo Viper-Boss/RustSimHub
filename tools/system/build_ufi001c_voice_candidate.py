@@ -90,6 +90,18 @@ def enable_voice(tree, reference):
     put(tree, SOUND, "pinctrl-names", "default", "sleep")
     for prop in ("pinctrl-0", "pinctrl-1"):
         put_cells(tree, SOUND, prop, remap(cells(reference, SOUND, prop)))
+    for provider, properties, expected_count in ((DAIS[0], ("reg", "qcom,sd-lines"), 2),
+                                                  (DAIS[1], ("reg", "direction"), 4)):
+        children = run("fdtget", "-l", reference, provider).split()
+        require(len(children) == expected_count and not run("fdtget", "-l", tree, provider),
+                f"Unexpected DAI children: {provider}")
+        for name in children:
+            child = f"{provider}/{name}"
+            require(name.startswith("dai@") and not run("fdtget", "-l", reference, child), "Unexpected DAI node")
+            require(set(run("fdtget", "-p", reference, child).split()) == set(properties), "Unexpected DAI property")
+            run("fdtput", "-c", tree, child)
+            for prop in properties:
+                put_cells(tree, child, prop, cells(reference, child, prop))
     links = run("fdtget", "-l", reference, SOUND).split()
     require(len(links) == 10, "Expected 10 voice links")
     for name in links:
