@@ -86,7 +86,9 @@ def enable_voice(tree, reference):
         require(get(reference, node, "status") == "okay", f"Reference node is disabled: {node}")
         put(tree, node, "status", "okay")
     put(tree, SOUND, "compatible", "qcom,msm8916-qdsp6-sndcard")
-    put(tree, SOUND, "model", "nassimhub-ufi001c")
+    # The signed application worker addresses this shared voice topology by
+    # ALSA card ID. Keep that runtime ID while retaining the real board ID.
+    put(tree, SOUND, "model", get(reference, SOUND, "model"))
     put(tree, SOUND, "pinctrl-names", "default", "sleep")
     for prop in ("pinctrl-0", "pinctrl-1"):
         put_cells(tree, SOUND, prop, remap(cells(reference, SOUND, prop)))
