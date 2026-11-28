@@ -137,13 +137,14 @@ def build(layout, board, key_path, key_digest, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--layout-readback", type=Path, required=True, help="Normalized read-only UFI003 GPT geometry")
+    parser.add_argument("--layout-readback", type=Path, required=True, help="Normalized read-only GPT geometry")
+    parser.add_argument("--board", choices=("UFI003", "UFI001C"), default="UFI003")
     parser.add_argument("--maintenance-public-key", type=Path, required=True)
     parser.add_argument("--expected-public-sha256", required=True)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     layout = json.loads(args.layout_readback.read_text())
-    print(json.dumps(build(layout, "UFI003", args.maintenance_public_key, args.expected_public_sha256, args.out), indent=2))
+    print(json.dumps(build(layout, args.board, args.maintenance_public_key, args.expected_public_sha256, args.out), indent=2))
 
 
 if __name__ == "__main__":
