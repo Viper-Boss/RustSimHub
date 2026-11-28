@@ -50,7 +50,14 @@ python3 tools/system/build_ab_boot_candidate.py \
 BOOT_DIR="$WORK/boot-base"
 ```
 
-这一步生成 UFI003 基础候选，回读启动头、初始内存文件系统和静态 ARM64 选槽程序。构建 UFI001C 时，用同一内核源码准备真实的 `thwc,ufi001c` 设备树文件 `UFI001C_DTB`，起始 USB 角色为 `otg`。再准备 `VOICE_REFERENCE` 指向音频脚本内摘要所绑定的参考 DTB。设备树来自对应板型和内核，直接改 `compatible` 名称不能替代板级节点。
+这一步生成 UFI003 基础候选，回读启动头、初始内存文件系统和静态 ARM64 选槽程序。构建 UFI001C 时，从[上游锁](../firmware/kernel/upstream-source.lock.json) 获取并核对 `linux-image-6.12.49-msm8916-g93a71ee9468d_6.12.49-g93a71ee9468d-1_arm64.deb`，设为 `KERNEL_DEB`。其中的 UFI001C 设备树起始 USB 角色为 `otg`，从基础启动镜像提取 UFI003 音频参考树。两份 DTB 的摘要与实测输入一致。
+
+```sh
+dpkg-deb -x "$KERNEL_DEB" "$WORK/kernel-deb"
+UFI001C_DTB="$WORK/kernel-deb/usr/lib/linux-image-6.12.49-msm8916-g93a71ee9468d/qcom/msm8916-thwc-ufi001c.dtb"
+VOICE_REFERENCE="$WORK/ufi003-voice-reference.dtb"
+python3 tools/rootfs/kernel/audio/replace-appended-dtb.py +  --boot "$BOOT_SOURCE" --extract "$VOICE_REFERENCE"
+```
 
 ```sh
 mkdir "$WORK/boot-ufi001c"
@@ -181,4 +188,4 @@ sha256sum "$WORK/RustSimHub-$BOARD_ID-$PROFILE-AB.rshpack"
 3. 保留当前正常槽，验证另一槽能实际挂载，自动健康确认后再次冷启动并核对数据和证书。把源码提交、包摘要、板型、容量、两个槽的结果和回退结果记录在一起。
 4. Fastboot 的 `Booting OKAY` 只证明引导器接受载荷。若看不到 Linux USB 或业务 HTTPS，用可用的串口启动日志、双槽 ext4 挂载记录和选槽账本定位阶段。
 
-131 的真机确认覆盖 4 GB UFI001C 的两个槽。公开包仅重新生成了密钥分区初始化镜像，离线验签和九项回读均通过，公开包原样冷启动和 Windows 完整初装还没有实机记录。
+按本指南用锁定文件重建 UFI001C boot，并用本机原始 GPT 构建了六个共享分区镜像，均通过离线回读。131 的真机确认覆盖 4 GB UFI001C 的两个槽。公开包仅重新生成了密钥分区初始化镜像，没有预设可登录的维护 SSH 密钥。离线验签和九项回读均通过，公开包原样冷启动和 Windows 完整初装还没有实机记录。
